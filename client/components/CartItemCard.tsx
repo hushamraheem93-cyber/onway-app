@@ -14,6 +14,7 @@ import { useTheme } from "@/hooks/useTheme";
 import { Spacing, BorderRadius, Shadows, AppColors } from "@/constants/theme";
 import { CartItem } from "@/context/CartContext";
 import { useCart } from "@/context/CartContext";
+import { formatPrice } from "@/constants/currency";
 
 interface CartItemCardProps {
   item: CartItem;
@@ -74,7 +75,7 @@ export function CartItemCard({ item }: CartItemCardProps) {
           </Pressable>
         </View>
         <ThemedText type="body" style={[styles.price, { color: AppColors.primary }]}>
-          {item.product.price.toFixed(2)} ر.س
+          {formatPrice(item.product.price)}
         </ThemedText>
         <View style={styles.quantityContainer}>
           <AnimatedPressable
@@ -95,7 +96,7 @@ export function CartItemCard({ item }: CartItemCardProps) {
         </View>
       </View>
       <ThemedText type="h4" style={[styles.total, { color: theme.text }]}>
-        {(item.product.price * item.quantity).toFixed(2)} ر.س
+        {formatPrice(item.product.price * item.quantity)}
       </ThemedText>
     </Animated.View>
   );

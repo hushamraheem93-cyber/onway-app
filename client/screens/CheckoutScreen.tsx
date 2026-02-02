@@ -10,6 +10,7 @@ import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollV
 import { useTheme } from "@/hooks/useTheme";
 import { Spacing, BorderRadius, AppColors, Shadows } from "@/constants/theme";
 import { useCart } from "@/context/CartContext";
+import { formatPrice } from "@/constants/currency";
 import { useOrders } from "@/context/OrderContext";
 import { ThemedText } from "@/components/ThemedText";
 import { Button } from "@/components/Button";
@@ -109,7 +110,7 @@ export default function CheckoutScreen() {
         <TextInput
           value={phone}
           onChangeText={setPhone}
-          placeholder="05xxxxxxxx"
+          placeholder="009647xxxxxxxxx"
           placeholderTextColor={theme.textSecondary}
           style={[styles.input, { color: theme.text }]}
           textAlign="right"
@@ -171,7 +172,7 @@ export default function CheckoutScreen() {
         <View style={[styles.summaryRow, styles.totalRow]}>
           <ThemedText type="h4">المجموع الكلي</ThemedText>
           <ThemedText type="h2" style={{ color: AppColors.primary }}>
-            {total.toFixed(2)} ر.س
+            {formatPrice(total)}
           </ThemedText>
         </View>
       </View>

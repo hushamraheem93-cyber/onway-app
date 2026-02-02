@@ -11,6 +11,7 @@ import { ThemedText } from "@/components/ThemedText";
 import { useTheme } from "@/hooks/useTheme";
 import { Spacing, BorderRadius, Shadows, AppColors } from "@/constants/theme";
 import { Order } from "@/context/OrderContext";
+import { formatPrice } from "@/constants/currency";
 
 interface OrderCardProps {
   order: Order;
@@ -103,7 +104,7 @@ export function OrderCard({ order, onPress }: OrderCardProps) {
       </View>
       <View style={styles.footer}>
         <ThemedText type="h3" style={{ color: AppColors.primary }}>
-          {order.total.toFixed(2)} ر.س
+          {formatPrice(order.total)}
         </ThemedText>
         <Feather name="chevron-left" size={20} color={theme.textSecondary} />
       </View>

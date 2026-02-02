@@ -11,6 +11,7 @@ import * as Haptics from "expo-haptics";
 import { useTheme } from "@/hooks/useTheme";
 import { Spacing, BorderRadius, Shadows, AppColors } from "@/constants/theme";
 import { useCart, CartItem } from "@/context/CartContext";
+import { formatPrice } from "@/constants/currency";
 import { CartItemCard } from "@/components/CartItemCard";
 import { EmptyState } from "@/components/EmptyState";
 import { ThemedText } from "@/components/ThemedText";
@@ -91,7 +92,7 @@ export default function CartScreen() {
               المجموع الكلي
             </ThemedText>
             <ThemedText type="h2" style={{ color: AppColors.primary }}>
-              {total.toFixed(2)} ر.س
+              {formatPrice(total)}
             </ThemedText>
           </View>
           <Button onPress={handleCheckout} style={styles.checkoutButton}>
