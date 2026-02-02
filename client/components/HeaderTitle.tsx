@@ -2,7 +2,7 @@ import React from "react";
 import { View, StyleSheet, Image } from "react-native";
 
 import { ThemedText } from "@/components/ThemedText";
-import { Spacing } from "@/constants/theme";
+import { Spacing, AppColors } from "@/constants/theme";
 
 interface HeaderTitleProps {
   title: string;
@@ -23,17 +23,19 @@ export function HeaderTitle({ title }: HeaderTitleProps) {
 
 const styles = StyleSheet.create({
   container: {
-    flexDirection: "row",
+    flexDirection: "row-reverse",
     alignItems: "center",
-    justifyContent: "flex-start",
+    justifyContent: "center",
   },
   icon: {
-    width: 28,
-    height: 28,
-    marginRight: Spacing.sm,
+    width: 32,
+    height: 32,
+    marginLeft: Spacing.sm,
+    borderRadius: 8,
   },
   title: {
-    fontSize: 17,
-    fontWeight: "600",
+    fontSize: 20,
+    fontWeight: "700",
+    color: AppColors.primary,
   },
 });

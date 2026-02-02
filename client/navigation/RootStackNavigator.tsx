@@ -1,12 +1,14 @@
 import React from "react";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import MainTabNavigator from "@/navigation/MainTabNavigator";
-import ModalScreen from "@/screens/ModalScreen";
+import ProductsScreen from "@/screens/ProductsScreen";
+import CheckoutScreen from "@/screens/CheckoutScreen";
 import { useScreenOptions } from "@/hooks/useScreenOptions";
 
 export type RootStackParamList = {
   Main: undefined;
-  Modal: undefined;
+  Products: { categoryId?: string; categoryName: string; searchQuery?: string };
+  Checkout: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -22,11 +24,17 @@ export default function RootStackNavigator() {
         options={{ headerShown: false }}
       />
       <Stack.Screen
-        name="Modal"
-        component={ModalScreen}
+        name="Products"
+        component={ProductsScreen}
+        options={({ route }) => ({
+          headerTitle: route.params.categoryName,
+        })}
+      />
+      <Stack.Screen
+        name="Checkout"
+        component={CheckoutScreen}
         options={{
-          presentation: "modal",
-          headerTitle: "Modal",
+          headerTitle: "تأكيد الطلب",
         }}
       />
     </Stack.Navigator>

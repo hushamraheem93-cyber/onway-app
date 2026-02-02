@@ -1,24 +1,24 @@
 import React from "react";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
-import ProfileScreen from "@/screens/ProfileScreen";
+import OrdersScreen from "@/screens/OrdersScreen";
 import { useScreenOptions } from "@/hooks/useScreenOptions";
 
-export type ProfileStackParamList = {
-  Profile: undefined;
+export type OrdersStackParamList = {
+  Orders: undefined;
 };
 
-const Stack = createNativeStackNavigator<ProfileStackParamList>();
+const Stack = createNativeStackNavigator<OrdersStackParamList>();
 
-export default function ProfileStackNavigator() {
+export default function OrdersStackNavigator() {
   const screenOptions = useScreenOptions();
 
   return (
     <Stack.Navigator screenOptions={screenOptions}>
       <Stack.Screen
-        name="Profile"
-        component={ProfileScreen}
+        name="Orders"
+        component={OrdersScreen}
         options={{
-          headerTitle: "الحساب",
+          headerTitle: "الطلبات",
         }}
       />
     </Stack.Navigator>

@@ -1,4 +1,4 @@
-import { Text, type TextProps } from "react-native";
+import { Text, type TextProps, Platform } from "react-native";
 
 import { useTheme } from "@/hooks/useTheme";
 import { Typography } from "@/constants/theme";
@@ -55,7 +55,39 @@ export function ThemedText({
     }
   };
 
+  const fontFamily = Platform.select({
+    ios: "Tajawal_400Regular",
+    android: "Tajawal_400Regular",
+    web: "Tajawal, system-ui, sans-serif",
+  });
+
+  const getFontFamily = () => {
+    const typeStyle = getTypeStyle();
+    if (typeStyle.fontWeight === "700") {
+      return Platform.select({
+        ios: "Tajawal_700Bold",
+        android: "Tajawal_700Bold",
+        web: "Tajawal, system-ui, sans-serif",
+      });
+    }
+    if (typeStyle.fontWeight === "600") {
+      return Platform.select({
+        ios: "Tajawal_500Medium",
+        android: "Tajawal_500Medium",
+        web: "Tajawal, system-ui, sans-serif",
+      });
+    }
+    return fontFamily;
+  };
+
   return (
-    <Text style={[{ color: getColor() }, getTypeStyle(), style]} {...rest} />
+    <Text
+      style={[
+        { color: getColor(), fontFamily: getFontFamily() },
+        getTypeStyle(),
+        style,
+      ]}
+      {...rest}
+    />
   );
 }
