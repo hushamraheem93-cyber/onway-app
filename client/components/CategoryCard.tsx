@@ -1,28 +1,30 @@
-import React from "react";
-import { StyleSheet, Pressable, View } from "react-native";
+import React, { useState } from "react";
+import { StyleSheet, Pressable, View, ActivityIndicator } from "react-native";
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
   withSpring,
 } from "react-native-reanimated";
-import { Feather } from "@expo/vector-icons";
+import { Image } from "expo-image";
 import * as Haptics from "expo-haptics";
 
 import { ThemedText } from "@/components/ThemedText";
 import { useTheme } from "@/hooks/useTheme";
-import { Spacing, BorderRadius, Shadows } from "@/constants/theme";
+import { Spacing, BorderRadius, AppColors } from "@/constants/theme";
 import { Category } from "@/constants/categories";
 
 interface CategoryCardProps {
   category: Category;
   onPress: () => void;
+  compact?: boolean;
 }
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
-export function CategoryCard({ category, onPress }: CategoryCardProps) {
+export function CategoryCard({ category, onPress, compact = false }: CategoryCardProps) {
   const { theme } = useTheme();
   const scale = useSharedValue(1);
+  const [isLoading, setIsLoading] = useState(true);
 
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }],
@@ -49,18 +51,30 @@ export function CategoryCard({ category, onPress }: CategoryCardProps) {
       style={[
         styles.card,
         { backgroundColor: theme.backgroundDefault },
-        Shadows.md,
         animatedStyle,
       ]}
     >
-      <View style={[styles.iconContainer, { backgroundColor: category.color + "15" }]}>
-        <Feather name={category.icon} size={28} color={category.color} />
+      <View style={styles.imageContainer}>
+        {isLoading ? (
+          <View style={[styles.imagePlaceholder, { backgroundColor: theme.backgroundSecondary }]}>
+            <ActivityIndicator size="small" color={AppColors.primary} />
+          </View>
+        ) : null}
+        <Image
+          source={{ uri: category.image }}
+          style={styles.image}
+          contentFit="cover"
+          transition={300}
+          onLoadStart={() => setIsLoading(true)}
+          onLoadEnd={() => setIsLoading(false)}
+        />
       </View>
-      <ThemedText type="h4" style={styles.name}>
+      <ThemedText 
+        type={compact ? "small" : "body"} 
+        style={styles.name}
+        numberOfLines={2}
+      >
         {category.name}
-      </ThemedText>
-      <ThemedText type="small" style={[styles.count, { color: theme.textSecondary }]}>
-        {category.productCount} منتج
       </ThemedText>
     </AnimatedPressable>
   );
@@ -68,25 +82,32 @@ export function CategoryCard({ category, onPress }: CategoryCardProps) {
 
 const styles = StyleSheet.create({
   card: {
-    flex: 1,
-    padding: Spacing.lg,
     borderRadius: BorderRadius.lg,
     alignItems: "center",
     margin: Spacing.xs,
+    padding: Spacing.sm,
+    overflow: "hidden",
   },
-  iconContainer: {
-    width: 56,
-    height: 56,
+  imageContainer: {
+    width: "100%",
+    aspectRatio: 1,
     borderRadius: BorderRadius.md,
+    overflow: "hidden",
+    marginBottom: Spacing.sm,
+    position: "relative",
+  },
+  image: {
+    width: "100%",
+    height: "100%",
+  },
+  imagePlaceholder: {
+    ...StyleSheet.absoluteFillObject,
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: Spacing.md,
+    zIndex: 1,
   },
   name: {
     textAlign: "center",
-    marginBottom: Spacing.xs,
-  },
-  count: {
-    textAlign: "center",
+    fontWeight: "600",
   },
 });
