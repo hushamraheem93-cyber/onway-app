@@ -1,5 +1,5 @@
 import React from "react";
-import { StyleSheet, FlatList, View } from "react-native";
+import { StyleSheet, FlatList, View, Dimensions } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
@@ -14,6 +14,11 @@ import { RootStackParamList } from "@/navigation/RootStackNavigator";
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
+const { width: SCREEN_WIDTH } = Dimensions.get("window");
+const NUM_COLUMNS = 3;
+const HORIZONTAL_PADDING = Spacing.lg;
+const CARD_WIDTH = (SCREEN_WIDTH - HORIZONTAL_PADDING * 2) / NUM_COLUMNS;
+
 export default function CategoriesScreen() {
   const insets = useSafeAreaInsets();
   const headerHeight = useHeaderHeight();
@@ -26,7 +31,7 @@ export default function CategoriesScreen() {
   };
 
   const renderCategory = ({ item }: { item: Category }) => (
-    <View style={styles.categoryItem}>
+    <View style={[styles.categoryItem, { width: CARD_WIDTH }]}>
       <CategoryCard category={item} onPress={() => handleCategoryPress(item)} />
     </View>
   );
@@ -37,13 +42,13 @@ export default function CategoriesScreen() {
       contentContainerStyle={{
         paddingTop: headerHeight + Spacing.lg,
         paddingBottom: tabBarHeight + Spacing.xl,
-        paddingHorizontal: Spacing.lg - Spacing.xs,
+        paddingHorizontal: Spacing.lg,
       }}
       scrollIndicatorInsets={{ bottom: insets.bottom }}
       data={CATEGORIES}
       renderItem={renderCategory}
       keyExtractor={(item) => item.id}
-      numColumns={2}
+      numColumns={NUM_COLUMNS}
       showsVerticalScrollIndicator={false}
     />
   );
@@ -51,7 +56,6 @@ export default function CategoriesScreen() {
 
 const styles = StyleSheet.create({
   categoryItem: {
-    flex: 1,
-    maxWidth: "50%",
+    marginBottom: Spacing.sm,
   },
 });
