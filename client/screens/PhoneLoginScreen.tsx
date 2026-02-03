@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   StyleSheet,
   View,
@@ -8,6 +8,8 @@ import {
   KeyboardAvoidingView,
   Platform,
   Linking,
+  Animated,
+  Easing,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Image } from "expo-image";
@@ -30,6 +32,42 @@ export default function PhoneLoginScreen() {
   const [phoneNumber, setPhoneNumber] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
+
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const scaleAnim = useRef(new Animated.Value(0.5)).current;
+  const floatAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 1000,
+        useNativeDriver: true,
+      }),
+      Animated.spring(scaleAnim, {
+        toValue: 1,
+        friction: 4,
+        useNativeDriver: true,
+      }),
+    ]).start();
+
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(floatAnim, {
+          toValue: -10,
+          duration: 2000,
+          easing: Easing.inOut(Easing.sin),
+          useNativeDriver: true,
+        }),
+        Animated.timing(floatAnim, {
+          toValue: 0,
+          duration: 2000,
+          easing: Easing.inOut(Easing.sin),
+          useNativeDriver: true,
+        }),
+      ])
+    ).start();
+  }, []);
 
   const validatePhone = (phone: string) => {
     const cleanPhone = phone.replace(/\s/g, "");
@@ -79,14 +117,14 @@ export default function PhoneLoginScreen() {
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         style={styles.inner}
       >
-        <View style={styles.logoContainer}>
+        <Animated.View style={[styles.logoContainer, { transform: [{ translateY: floatAnim }] }]}>
           <ThemedText type="h1" style={styles.logoText}>
             OnWay
           </ThemedText>
           <ThemedText type="body" style={styles.logoSubText}>
             أون وي
           </ThemedText>
-        </View>
+        </Animated.View>
 
         <View style={styles.formContainer}>
           <ThemedText type="body" style={styles.inputLabel}>
@@ -104,13 +142,18 @@ export default function PhoneLoginScreen() {
               maxLength={12}
             />
             <View style={styles.verticalDivider} />
-            <View style={styles.countryContainer}>
+            <Animated.View
+              style={[
+                styles.countryContainer,
+                { opacity: fadeAnim, transform: [{ scale: scaleAnim }] },
+              ]}
+            >
               <ThemedText type="body" style={styles.countryCode}>+964</ThemedText>
               <Image
-                source={{ uri: "https://flagcdn.com/w40/iq.png" }}
+                source={{ uri: "https://flagcdn.com/w80/iq.png" }}
                 style={styles.flagIcon}
               />
-            </View>
+            </Animated.View>
           </View>
 
           {error ? (
