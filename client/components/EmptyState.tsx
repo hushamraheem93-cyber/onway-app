@@ -1,11 +1,13 @@
 import React from "react";
-import { StyleSheet, View } from "react-native";
+import { StyleSheet, View, Dimensions, Pressable } from "react-native";
 import { Image } from "expo-image";
+import * as Haptics from "expo-haptics";
 
 import { ThemedText } from "@/components/ThemedText";
-import { Button } from "@/components/Button";
 import { useTheme } from "@/hooks/useTheme";
-import { Spacing } from "@/constants/theme";
+import { AppColors } from "@/constants/theme";
+
+const { width } = Dimensions.get("window");
 
 interface EmptyStateProps {
   image?: any;
@@ -24,26 +26,32 @@ export function EmptyState({
 }: EmptyStateProps) {
   const { theme } = useTheme();
 
+  const handlePress = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    onButtonPress?.();
+  };
+
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: theme.backgroundRoot }]}>
       {image ? (
-        <Image source={image} style={styles.image} contentFit="contain" />
+        <View style={styles.imageContainer}>
+          <Image source={image} style={styles.image} contentFit="contain" />
+        </View>
       ) : null}
-      <ThemedText type="h3" style={styles.title}>
+      <ThemedText type="h2" style={styles.title}>
         {title}
       </ThemedText>
       {subtitle ? (
-        <ThemedText
-          type="body"
-          style={[styles.subtitle, { color: theme.textSecondary }]}
-        >
+        <ThemedText type="body" style={[styles.subtitle, { color: "#8E8E93" }]}>
           {subtitle}
         </ThemedText>
       ) : null}
       {buttonText && onButtonPress ? (
-        <Button onPress={onButtonPress} style={styles.button}>
-          {buttonText}
-        </Button>
+        <Pressable onPress={handlePress} style={styles.button}>
+          <ThemedText type="h4" style={styles.buttonText}>
+            {buttonText}
+          </ThemedText>
+        </Pressable>
       ) : null}
     </View>
   );
@@ -54,23 +62,41 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    paddingHorizontal: Spacing.xl,
-    paddingVertical: Spacing["4xl"],
+    paddingHorizontal: 40,
+  },
+  imageContainer: {
+    marginBottom: 30,
   },
   image: {
-    width: 200,
-    height: 200,
-    marginBottom: Spacing.xl,
+    width: width * 0.6,
+    height: width * 0.6,
   },
   title: {
+    fontSize: 22,
+    fontWeight: "bold",
     textAlign: "center",
-    marginBottom: Spacing.sm,
+    marginBottom: 10,
   },
   subtitle: {
+    fontSize: 15,
     textAlign: "center",
-    marginBottom: Spacing.xl,
+    lineHeight: 22,
+    marginBottom: 40,
   },
   button: {
-    paddingHorizontal: Spacing["3xl"],
+    backgroundColor: AppColors.primary,
+    paddingVertical: 15,
+    paddingHorizontal: 60,
+    borderRadius: 30,
+    shadowColor: AppColors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 5,
+    elevation: 8,
+  },
+  buttonText: {
+    color: "#FFFFFF",
+    fontSize: 18,
+    fontWeight: "bold",
   },
 });
