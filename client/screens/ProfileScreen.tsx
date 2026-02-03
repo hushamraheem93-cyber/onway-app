@@ -131,18 +131,23 @@ export default function ProfileScreen() {
       <SettingsItem
         icon="help-circle"
         title="الأسئلة الشائعة"
+        onPress={() => navigation.navigate("FAQ")}
       />
       <SettingsItem
         icon="message-circle"
-        title="تواصل معنا"
+        title="من نحن"
+        subtitle="تعرف علينا وتواصل معنا"
+        onPress={() => navigation.navigate("About")}
       />
       <SettingsItem
         icon="file-text"
         title="الشروط والأحكام"
+        onPress={() => navigation.navigate("Terms")}
       />
       <SettingsItem
         icon="shield"
         title="سياسة الخصوصية"
+        onPress={() => navigation.navigate("Policy")}
       />
 
       <SettingsItem
