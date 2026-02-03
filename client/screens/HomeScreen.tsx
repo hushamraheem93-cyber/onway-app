@@ -61,6 +61,12 @@ export default function HomeScreen() {
     return shuffled.slice(0, 8);
   }, [allProducts]);
 
+  const featuredProducts = useMemo(() => {
+    if (allProducts.length === 0) return [];
+    const shuffled = [...allProducts].sort(() => Math.random() - 0.5);
+    return shuffled.slice(0, 6);
+  }, [allProducts]);
+
   const offerBanner = allBanners.find(b => b.type === "offer");
   const sliderBanners = allBanners.filter(b => b.type === "slider");
 
@@ -197,6 +203,23 @@ export default function HomeScreen() {
           style={styles.productsSlider}
         >
           {bestSellerProducts.map(renderProductCard)}
+        </ScrollView>
+      )}
+
+      <SectionHeader title="المنتجات المميزة" />
+      
+      {productsLoading ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="small" color={AppColors.primary} />
+        </View>
+      ) : (
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.productsSliderContent}
+          style={styles.productsSlider}
+        >
+          {featuredProducts.map(renderProductCard)}
         </ScrollView>
       )}
     </View>
