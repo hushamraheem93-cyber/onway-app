@@ -85,7 +85,7 @@ export default function PhoneLoginScreen() {
           <View style={styles.logoContainer}>
             <View style={styles.logoWrapper}>
               <Image
-                source={require("../../assets/images/icon.png")}
+                source={require("../../assets/images/delivery-logo.png")}
                 style={styles.logo}
                 contentFit="contain"
               />
