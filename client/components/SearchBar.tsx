@@ -3,7 +3,7 @@ import { StyleSheet, View, TextInput, Pressable } from "react-native";
 import { Feather } from "@expo/vector-icons";
 
 import { useTheme } from "@/hooks/useTheme";
-import { Spacing, BorderRadius, Shadows } from "@/constants/theme";
+import { AppColors } from "@/constants/theme";
 
 interface SearchBarProps {
   value: string;
@@ -15,30 +15,27 @@ interface SearchBarProps {
 export function SearchBar({
   value,
   onChangeText,
-  placeholder = "ابحث عن منتجات...",
+  placeholder = "ابحث عن منتجاتك...",
   onSubmitEditing,
 }: SearchBarProps) {
-  const { theme } = useTheme();
+  const { theme, isDark } = useTheme();
 
   return (
     <View
       style={[
         styles.container,
-        { backgroundColor: theme.backgroundDefault },
-        Shadows.sm,
+        { 
+          backgroundColor: isDark ? theme.backgroundDefault : "#F5F5F5",
+          borderColor: isDark ? theme.border : "#EEE",
+        },
       ]}
     >
-      <Feather
-        name="search"
-        size={20}
-        color={theme.textSecondary}
-        style={styles.icon}
-      />
+      <Feather name="mic" size={20} color="#999" style={styles.micIcon} />
       <TextInput
         value={value}
         onChangeText={onChangeText}
         placeholder={placeholder}
-        placeholderTextColor={theme.textSecondary}
+        placeholderTextColor="#999"
         style={[styles.input, { color: theme.text }]}
         textAlign="right"
         returnKeyType="search"
@@ -46,31 +43,36 @@ export function SearchBar({
       />
       {value.length > 0 ? (
         <Pressable onPress={() => onChangeText("")} style={styles.clearButton}>
-          <Feather name="x" size={18} color={theme.textSecondary} />
+          <Feather name="x" size={18} color="#999" />
         </Pressable>
-      ) : null}
+      ) : (
+        <Feather name="search" size={20} color={AppColors.primary} />
+      )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    flexDirection: "row-reverse",
+    flexDirection: "row",
     alignItems: "center",
-    borderRadius: BorderRadius.lg,
-    paddingHorizontal: Spacing.md,
-    height: 48,
-    marginBottom: Spacing.lg,
+    borderRadius: 12,
+    paddingHorizontal: 15,
+    marginHorizontal: 15,
+    marginVertical: 15,
+    height: 50,
+    borderWidth: 1,
   },
-  icon: {
-    marginLeft: Spacing.sm,
+  micIcon: {
+    marginRight: 10,
   },
   input: {
     flex: 1,
+    marginHorizontal: 10,
     fontSize: 16,
     paddingVertical: 0,
   },
   clearButton: {
-    padding: Spacing.xs,
+    padding: 4,
   },
 });
