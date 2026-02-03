@@ -218,13 +218,12 @@ const styles = StyleSheet.create({
     overflow: "visible",
   },
   logoText: {
+    fontFamily: "Kanit-Black",
     fontSize: 55,
-    fontWeight: "bold",
     color: "#FFF",
     letterSpacing: 1,
-    lineHeight: 70,
+    lineHeight: 75,
     textAlign: "center",
-    fontFamily: "Poppins_700Bold",
   },
   logoSubText: {
     fontSize: 20,

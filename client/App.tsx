@@ -27,6 +27,7 @@ import {
   Kanit_500Medium,
   Kanit_600SemiBold,
   Kanit_700Bold,
+  Kanit_900Black,
 } from "@expo-google-fonts/kanit";
 
 import { QueryClientProvider } from "@tanstack/react-query";
@@ -61,6 +62,7 @@ export default function App() {
     Kanit_500Medium,
     Kanit_600SemiBold,
     Kanit_700Bold,
+    "Kanit-Black": Kanit_900Black,
   });
 
   useEffect(() => {
