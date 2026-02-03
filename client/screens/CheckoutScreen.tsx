@@ -5,6 +5,7 @@ import { useHeaderHeight } from "@react-navigation/elements";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import * as Haptics from "expo-haptics";
+import { Picker } from "@react-native-picker/picker";
 
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import { useTheme } from "@/hooks/useTheme";
@@ -18,6 +19,14 @@ import { RootStackParamList } from "@/navigation/RootStackNavigator";
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
+const DELIVERY_AREAS = [
+  { id: "", name: "اختر المنطقة", fee: 0 },
+  { id: "daloaiya", name: "الضلوعية المركز", fee: 3000 },
+  { id: "hawija", name: "الحويجة البحرية", fee: 3500 },
+  { id: "jbour", name: "منطقة الجبور", fee: 3000 },
+  { id: "bishikan", name: "بيشيكان", fee: 3500 },
+];
+
 export default function CheckoutScreen() {
   const insets = useSafeAreaInsets();
   const headerHeight = useHeaderHeight();
@@ -28,11 +37,15 @@ export default function CheckoutScreen() {
 
   const [customerName, setCustomerName] = useState("");
   const [phone, setPhone] = useState("");
+  const [selectedArea, setSelectedArea] = useState("");
   const [address, setAddress] = useState("");
   const [notes, setNotes] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const total = getTotal();
+  const subtotal = getTotal();
+  const selectedAreaData = DELIVERY_AREAS.find(a => a.id === selectedArea);
+  const deliveryFee = selectedAreaData?.fee || 0;
+  const total = subtotal + deliveryFee;
 
   const handleSubmit = async () => {
     if (!customerName.trim()) {
@@ -43,20 +56,27 @@ export default function CheckoutScreen() {
       Alert.alert("خطأ", "يرجى إدخال رقم الهاتف");
       return;
     }
+    if (!selectedArea) {
+      Alert.alert("خطأ", "يرجى اختيار منطقة التوصيل");
+      return;
+    }
     if (!address.trim()) {
-      Alert.alert("خطأ", "يرجى إدخال العنوان");
+      Alert.alert("خطأ", "يرجى إدخال تفاصيل العنوان");
       return;
     }
 
     setIsSubmitting(true);
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 
+    const areaName = selectedAreaData?.name || "";
+    const fullAddress = `${areaName} - ${address.trim()}`;
+
     const order = addOrder({
       items: [...items],
       total,
       customerName: customerName.trim(),
       phone: phone.trim(),
-      address: address.trim(),
+      address: fullAddress,
       notes: notes.trim(),
     });
 
@@ -120,12 +140,34 @@ export default function CheckoutScreen() {
 
       <View style={[styles.inputContainer, { backgroundColor: theme.backgroundDefault }, Shadows.sm]}>
         <ThemedText type="small" style={[styles.label, { color: theme.textSecondary }]}>
-          عنوان التوصيل
+          منطقة التوصيل
+        </ThemedText>
+        <View style={[styles.pickerContainer, { borderColor: theme.border }]}>
+          <Picker
+            selectedValue={selectedArea}
+            onValueChange={(value) => setSelectedArea(value)}
+            style={[styles.picker, { color: theme.text }]}
+            dropdownIconColor={theme.text}
+          >
+            {DELIVERY_AREAS.map((area) => (
+              <Picker.Item
+                key={area.id}
+                label={area.id ? `${area.name} (${formatPrice(area.fee)})` : area.name}
+                value={area.id}
+              />
+            ))}
+          </Picker>
+        </View>
+      </View>
+
+      <View style={[styles.inputContainer, { backgroundColor: theme.backgroundDefault }, Shadows.sm]}>
+        <ThemedText type="small" style={[styles.label, { color: theme.textSecondary }]}>
+          تفاصيل العنوان
         </ThemedText>
         <TextInput
           value={address}
           onChangeText={setAddress}
-          placeholder="أدخل عنوانك بالتفصيل"
+          placeholder="أدخل تفاصيل عنوانك (الشارع، المحلة، أقرب نقطة دالة)"
           placeholderTextColor={theme.textSecondary}
           style={[styles.input, styles.multilineInput, { color: theme.text }]}
           textAlign="right"
@@ -163,10 +205,16 @@ export default function CheckoutScreen() {
         </View>
         <View style={styles.summaryRow}>
           <ThemedText type="body" style={{ color: theme.textSecondary }}>
-            التوصيل
+            المجموع الفرعي
           </ThemedText>
-          <ThemedText type="body" style={{ color: AppColors.success }}>
-            مجاني
+          <ThemedText type="body">{formatPrice(subtotal)}</ThemedText>
+        </View>
+        <View style={styles.summaryRow}>
+          <ThemedText type="body" style={{ color: theme.textSecondary }}>
+            أجور التوصيل
+          </ThemedText>
+          <ThemedText type="body" style={{ color: deliveryFee > 0 ? AppColors.primary : AppColors.success }}>
+            {deliveryFee > 0 ? formatPrice(deliveryFee) : "اختر المنطقة"}
           </ThemedText>
         </View>
         <View style={[styles.summaryRow, styles.totalRow]}>
@@ -210,6 +258,13 @@ const styles = StyleSheet.create({
   multilineInput: {
     minHeight: 60,
     textAlignVertical: "top",
+  },
+  pickerContainer: {
+    borderRadius: BorderRadius.md,
+    overflow: "hidden",
+  },
+  picker: {
+    marginHorizontal: -8,
   },
   summaryCard: {
     borderRadius: BorderRadius.lg,
