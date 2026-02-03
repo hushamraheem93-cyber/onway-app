@@ -25,9 +25,12 @@ const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 export function ProductCard({ product, onPress }: ProductCardProps) {
   const { theme } = useTheme();
-  const { addToCart } = useCart();
+  const { addToCart, items } = useCart();
   const scale = useSharedValue(1);
   const buttonScale = useSharedValue(1);
+
+  const isInCart = items.some((item) => item.product.id === product.id);
+  const cartQuantity = items.find((item) => item.product.id === product.id)?.quantity || 0;
 
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }],
@@ -87,11 +90,19 @@ export function ProductCard({ product, onPress }: ProductCardProps) {
           <ThemedText type="h3" style={[styles.price, { color: AppColors.primary }]}>
             {formatPrice(product.price)}
           </ThemedText>
+          {isInCart ? (
+            <View style={[styles.inCartBadge, { backgroundColor: "#4CAF50" }]}>
+              <Feather name="check" size={16} color="#FFFFFF" />
+              <ThemedText type="small" style={styles.cartQuantity}>
+                {cartQuantity}
+              </ThemedText>
+            </View>
+          ) : null}
           <AnimatedPressable
             onPress={handleAddToCart}
             style={[
               styles.addButton,
-              { backgroundColor: AppColors.primary },
+              { backgroundColor: isInCart ? "#4CAF50" : AppColors.primary },
               buttonAnimatedStyle,
             ]}
           >
@@ -141,5 +152,18 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.full,
     alignItems: "center",
     justifyContent: "center",
+  },
+  inCartBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: Spacing.xs,
+    borderRadius: BorderRadius.full,
+    marginLeft: Spacing.sm,
+  },
+  cartQuantity: {
+    color: "#FFFFFF",
+    fontWeight: "700",
+    marginRight: Spacing.xs,
   },
 });
