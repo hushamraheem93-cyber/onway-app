@@ -1,26 +1,27 @@
-import React, { useState, useMemo } from "react";
-import { StyleSheet, View, FlatList, Dimensions } from "react-native";
+import React, { useState } from "react";
+import { StyleSheet, View, FlatList, Dimensions, ActivityIndicator } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
+import { useQuery } from "@tanstack/react-query";
 
 import { useTheme } from "@/hooks/useTheme";
 import { Spacing, AppColors, BorderRadius } from "@/constants/theme";
-import { CATEGORIES, PRODUCTS, Category } from "@/constants/categories";
+import { Category, Banner } from "@/constants/categories";
 import { ThemedText } from "@/components/ThemedText";
 import { SearchBar } from "@/components/SearchBar";
 import { BannerSlider } from "@/components/BannerSlider";
+import { OfferBanner } from "@/components/OfferBanner";
 import { SectionHeader } from "@/components/SectionHeader";
 import { CategoryCard } from "@/components/CategoryCard";
-import { ProductCard } from "@/components/ProductCard";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
-const NUM_COLUMNS = 4;
+const NUM_COLUMNS = 5;
 const CARD_MARGIN = Spacing.xs;
 const HORIZONTAL_PADDING = Spacing.lg;
 const CARD_WIDTH = (SCREEN_WIDTH - HORIZONTAL_PADDING * 2 - CARD_MARGIN * (NUM_COLUMNS * 2)) / NUM_COLUMNS;
@@ -34,9 +35,16 @@ export default function HomeScreen() {
 
   const [searchQuery, setSearchQuery] = useState("");
 
-  const featuredProducts = useMemo(() => {
-    return PRODUCTS.slice(0, 4);
-  }, []);
+  const { data: categories = [], isLoading: categoriesLoading } = useQuery<Category[]>({
+    queryKey: ["/api/categories"],
+  });
+
+  const { data: allBanners = [], isLoading: bannersLoading } = useQuery<Banner[]>({
+    queryKey: ["/api/banners"],
+  });
+
+  const offerBanner = allBanners.find(b => b.type === "offer");
+  const sliderBanners = allBanners.filter(b => b.type === "slider");
 
   const handleCategoryPress = (category: Category) => {
     navigation.navigate("Products", { categoryId: category.id, categoryName: category.name });
@@ -53,7 +61,7 @@ export default function HomeScreen() {
   };
 
   const renderCategoryRow = (startIndex: number, count: number) => {
-    const rowCategories = CATEGORIES.slice(startIndex, startIndex + count);
+    const rowCategories = categories.slice(startIndex, startIndex + count);
     return (
       <View style={styles.categoryRow}>
         {rowCategories.map((category) => (
@@ -75,26 +83,32 @@ export default function HomeScreen() {
         value={searchQuery}
         onChangeText={setSearchQuery}
         placeholder="ابحث عن منتجات..."
+        onSubmitEditing={handleSearch}
       />
 
-      <BannerSlider />
+      {bannersLoading ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="small" color={AppColors.primary} />
+        </View>
+      ) : (
+        <>
+          {offerBanner ? <OfferBanner banner={offerBanner} /> : null}
+          {sliderBanners.length > 0 ? <BannerSlider banners={sliderBanners} /> : null}
+        </>
+      )}
 
-      <SectionHeader title="تسوق حسب القسم" onSeeAll={handleSeeAllCategories} />
+      <SectionHeader title="الأقسام الرئيسية" onSeeAll={handleSeeAllCategories} />
       
-      <View style={styles.categoriesContainer}>
-        {renderCategoryRow(0, 4)}
-        {renderCategoryRow(4, 4)}
-        {renderCategoryRow(8, 4)}
-        {renderCategoryRow(12, 4)}
-        {renderCategoryRow(16, 4)}
-        {renderCategoryRow(20, 4)}
-        {renderCategoryRow(24, 4)}
-      </View>
-
-      <SectionHeader title="منتجات مميزة" />
-      {featuredProducts.map((product) => (
-        <ProductCard key={product.id} product={product} />
-      ))}
+      {categoriesLoading ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="small" color={AppColors.primary} />
+        </View>
+      ) : (
+        <View style={styles.categoriesContainer}>
+          {renderCategoryRow(0, 5)}
+          {renderCategoryRow(5, 5)}
+        </View>
+      )}
     </View>
   );
 
@@ -123,6 +137,10 @@ const styles = StyleSheet.create({
     justifyContent: "flex-start",
   },
   categoryItem: {
-    marginBottom: Spacing.xs,
+    marginBottom: Spacing.sm,
+  },
+  loadingContainer: {
+    paddingVertical: Spacing.xl,
+    alignItems: "center",
   },
 });

@@ -3,13 +3,17 @@ import { StyleSheet, View, Pressable } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
+import { useNavigation } from "@react-navigation/native";
+import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import { useTheme } from "@/hooks/useTheme";
+import { useAuth } from "@/context/AuthContext";
 import { Spacing, BorderRadius, Shadows, AppColors } from "@/constants/theme";
 import { ThemedText } from "@/components/ThemedText";
+import { ProfileStackParamList } from "@/navigation/ProfileStackNavigator";
 
 interface SettingsItemProps {
   icon: keyof typeof Feather.glyphMap;
@@ -53,11 +57,20 @@ function SettingsItem({ icon, title, subtitle, onPress }: SettingsItemProps) {
   );
 }
 
+type NavigationProp = NativeStackNavigationProp<ProfileStackParamList>;
+
 export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
   const headerHeight = useHeaderHeight();
   const tabBarHeight = useBottomTabBarHeight();
   const { theme } = useTheme();
+  const { phoneNumber, logout } = useAuth();
+  const navigation = useNavigation<NavigationProp>();
+
+  const handleLogout = async () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    await logout();
+  };
 
   return (
     <KeyboardAwareScrollViewCompat
@@ -73,10 +86,10 @@ export default function ProfileScreen() {
           <Feather name="user" size={40} color="#FFFFFF" />
         </View>
         <ThemedText type="h2" style={styles.name}>
-          مستخدم زائر
+          {phoneNumber || "مستخدم زائر"}
         </ThemedText>
         <ThemedText type="body" style={[styles.email, { color: theme.textSecondary }]}>
-          قم بتسجيل الدخول للمزيد من المزايا
+          مرحباً بك في Onway
         </ThemedText>
       </View>
 
@@ -84,6 +97,12 @@ export default function ProfileScreen() {
         الإعدادات
       </ThemedText>
 
+      <SettingsItem
+        icon="settings"
+        title="لوحة التحكم"
+        subtitle="إدارة البانرات والأقسام"
+        onPress={() => navigation.navigate("Admin")}
+      />
       <SettingsItem
         icon="bell"
         title="الإشعارات"
@@ -124,6 +143,12 @@ export default function ProfileScreen() {
       <SettingsItem
         icon="shield"
         title="سياسة الخصوصية"
+      />
+
+      <SettingsItem
+        icon="log-out"
+        title="تسجيل الخروج"
+        onPress={handleLogout}
       />
 
       <View style={styles.versionContainer}>

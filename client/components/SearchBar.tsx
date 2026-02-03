@@ -9,12 +9,14 @@ interface SearchBarProps {
   value: string;
   onChangeText: (text: string) => void;
   placeholder?: string;
+  onSubmitEditing?: () => void;
 }
 
 export function SearchBar({
   value,
   onChangeText,
   placeholder = "ابحث عن منتجات...",
+  onSubmitEditing,
 }: SearchBarProps) {
   const { theme } = useTheme();
 
@@ -39,6 +41,8 @@ export function SearchBar({
         placeholderTextColor={theme.textSecondary}
         style={[styles.input, { color: theme.text }]}
         textAlign="right"
+        returnKeyType="search"
+        onSubmitEditing={onSubmitEditing}
       />
       {value.length > 0 ? (
         <Pressable onPress={() => onChangeText("")} style={styles.clearButton}>

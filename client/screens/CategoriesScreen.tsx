@@ -1,14 +1,15 @@
 import React from "react";
-import { StyleSheet, FlatList, View, Dimensions } from "react-native";
+import { StyleSheet, FlatList, View, Dimensions, ActivityIndicator } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
+import { useQuery } from "@tanstack/react-query";
 
 import { useTheme } from "@/hooks/useTheme";
-import { Spacing } from "@/constants/theme";
-import { CATEGORIES, Category } from "@/constants/categories";
+import { Spacing, AppColors } from "@/constants/theme";
+import { Category } from "@/constants/categories";
 import { CategoryCard } from "@/components/CategoryCard";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
 
@@ -26,6 +27,10 @@ export default function CategoriesScreen() {
   const { theme } = useTheme();
   const navigation = useNavigation<NavigationProp>();
 
+  const { data: categories = [], isLoading } = useQuery<Category[]>({
+    queryKey: ["/api/categories"],
+  });
+
   const handleCategoryPress = (category: Category) => {
     navigation.navigate("Products", { categoryId: category.id, categoryName: category.name });
   };
@@ -36,6 +41,14 @@ export default function CategoriesScreen() {
     </View>
   );
 
+  if (isLoading) {
+    return (
+      <View style={[styles.loadingContainer, { backgroundColor: theme.backgroundRoot }]}>
+        <ActivityIndicator size="large" color={AppColors.primary} />
+      </View>
+    );
+  }
+
   return (
     <FlatList
       style={{ flex: 1, backgroundColor: theme.backgroundRoot }}
@@ -45,7 +58,7 @@ export default function CategoriesScreen() {
         paddingHorizontal: Spacing.lg,
       }}
       scrollIndicatorInsets={{ bottom: insets.bottom }}
-      data={CATEGORIES}
+      data={categories}
       renderItem={renderCategory}
       keyExtractor={(item) => item.id}
       numColumns={NUM_COLUMNS}
@@ -57,5 +70,10 @@ export default function CategoriesScreen() {
 const styles = StyleSheet.create({
   categoryItem: {
     marginBottom: Spacing.sm,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
   },
 });
