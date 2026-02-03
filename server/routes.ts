@@ -63,7 +63,6 @@ let categories: Category[] = [
 ];
 
 let banners: Banner[] = [
-  { id: "offer-1", image: "https://images.unsplash.com/photo-1607082350899-7e105aa886ae?w=800", title: "عروض نهاية الأسبوع - خصم 30%", isActive: true, type: "offer", order: 1 },
   { id: "slider-1", image: "https://images.unsplash.com/photo-1542838132-92c53300491e?w=800", title: "خضروات وفواكه طازجة", isActive: true, type: "slider", order: 1 },
   { id: "slider-2", image: "https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?w=800", title: "كل ما تحتاجه للمطبخ", isActive: true, type: "slider", order: 2 },
   { id: "slider-3", image: "https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=800", title: "وجبات جاهزة للأكل", isActive: true, type: "slider", order: 3 },
