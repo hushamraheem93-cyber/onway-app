@@ -13,6 +13,7 @@ const TAB_ICONS: Record<string, keyof typeof Feather.glyphMap> = {
   FavoritesTab: "heart",
   HomeTab: "home",
   OffersTab: "tag",
+  MenuTab: "grid",
 };
 
 export function CustomTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
