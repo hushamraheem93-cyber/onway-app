@@ -19,13 +19,14 @@ import { RootStackParamList } from "@/navigation/RootStackNavigator";
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
-const DELIVERY_AREAS = [
-  { id: "", name: "اختر المنطقة", fee: 0 },
-  { id: "daloaiya", name: "الضلوعية المركز", fee: 3000 },
-  { id: "hawija", name: "الحويجة البحرية", fee: 3500 },
-  { id: "jbour", name: "منطقة الجبور", fee: 3000 },
-  { id: "bishikan", name: "بيشيكان", fee: 3500 },
-];
+import { useQuery } from "@tanstack/react-query";
+
+interface DeliveryArea {
+  id: string;
+  name: string;
+  fee: number;
+  isActive: boolean;
+}
 
 export default function CheckoutScreen() {
   const insets = useSafeAreaInsets();
@@ -34,6 +35,10 @@ export default function CheckoutScreen() {
   const navigation = useNavigation<NavigationProp>();
   const { items, getTotal, clearCart } = useCart();
   const { addOrder } = useOrders();
+
+  const { data: deliveryAreas = [] } = useQuery<DeliveryArea[]>({
+    queryKey: ["/api/delivery-areas"],
+  });
 
   const [customerName, setCustomerName] = useState("");
   const [phone, setPhone] = useState("");
@@ -50,7 +55,7 @@ export default function CheckoutScreen() {
   };
 
   const subtotal = getTotal();
-  const selectedAreaData = DELIVERY_AREAS.find(a => a.id === selectedArea);
+  const selectedAreaData = deliveryAreas.find(a => a.id === selectedArea);
   const deliveryFee = selectedAreaData?.fee || 0;
   const total = subtotal + deliveryFee;
 
@@ -191,7 +196,7 @@ export default function CheckoutScreen() {
               اختر منطقة التوصيل
             </ThemedText>
             <FlatList
-              data={DELIVERY_AREAS.filter(a => a.id !== "")}
+              data={deliveryAreas}
               keyExtractor={(item) => item.id}
               renderItem={({ item }) => (
                 <Pressable

@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
   Alert,
   Platform,
+  Switch,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
@@ -19,13 +20,32 @@ import { Feather } from "@expo/vector-icons";
 
 import { useTheme } from "@/hooks/useTheme";
 import { ThemedText } from "@/components/ThemedText";
-import { ThemedView } from "@/components/ThemedView";
 import { Spacing, BorderRadius, AppColors } from "@/constants/theme";
 import { Banner, Category } from "@/constants/categories";
 import { getApiUrl, apiRequest } from "@/lib/query-client";
+import { formatPrice } from "@/constants/currency";
 
-type TabType = "banners" | "categories";
+type TabType = "banners" | "categories" | "products" | "areas";
 type BannerType = "offer" | "slider";
+
+interface Product {
+  id: string;
+  categoryId: string;
+  name: string;
+  price: number;
+  originalPrice?: number;
+  discount?: number;
+  image: string;
+  description: string;
+  inStock: boolean;
+}
+
+interface DeliveryArea {
+  id: string;
+  name: string;
+  fee: number;
+  isActive: boolean;
+}
 
 export default function AdminScreen() {
   const insets = useSafeAreaInsets();
@@ -35,7 +55,7 @@ export default function AdminScreen() {
 
   const [activeTab, setActiveTab] = useState<TabType>("banners");
   const [isEditing, setIsEditing] = useState(false);
-  const [editItem, setEditItem] = useState<Banner | Category | null>(null);
+  const [editItem, setEditItem] = useState<any>(null);
   
   const [bannerForm, setBannerForm] = useState({
     title: "",
@@ -50,12 +70,37 @@ export default function AdminScreen() {
     imageUrl: "",
   });
 
+  const [productForm, setProductForm] = useState({
+    name: "",
+    categoryId: "",
+    price: "",
+    originalPrice: "",
+    discount: "",
+    description: "",
+    inStock: true,
+    imageUri: "",
+    imageUrl: "",
+  });
+
+  const [areaForm, setAreaForm] = useState({
+    name: "",
+    fee: "",
+  });
+
   const { data: banners = [], isLoading: bannersLoading } = useQuery<Banner[]>({
     queryKey: ["/api/admin/banners"],
   });
 
   const { data: categories = [], isLoading: categoriesLoading } = useQuery<Category[]>({
     queryKey: ["/api/categories"],
+  });
+
+  const { data: products = [], isLoading: productsLoading } = useQuery<Product[]>({
+    queryKey: ["/api/admin/products"],
+  });
+
+  const { data: deliveryAreas = [], isLoading: areasLoading } = useQuery<DeliveryArea[]>({
+    queryKey: ["/api/admin/delivery-areas"],
   });
 
   const deleteBanner = useMutation({
@@ -74,6 +119,26 @@ export default function AdminScreen() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/categories"] });
+    },
+  });
+
+  const deleteProduct = useMutation({
+    mutationFn: async (id: string) => {
+      await apiRequest("DELETE", `/api/admin/products/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/products"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/products"] });
+    },
+  });
+
+  const deleteArea = useMutation({
+    mutationFn: async (id: string) => {
+      await apiRequest("DELETE", `/api/admin/delivery-areas/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/delivery-areas"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/delivery-areas"] });
     },
   });
 
@@ -159,11 +224,75 @@ export default function AdminScreen() {
     }
   };
 
+  const saveProduct = async () => {
+    try {
+      const formData = new FormData();
+      formData.append("name", productForm.name);
+      formData.append("categoryId", productForm.categoryId);
+      formData.append("price", productForm.price);
+      if (productForm.originalPrice) formData.append("originalPrice", productForm.originalPrice);
+      if (productForm.discount) formData.append("discount", productForm.discount);
+      formData.append("description", productForm.description);
+      formData.append("inStock", productForm.inStock.toString());
+
+      if (productForm.imageUri) {
+        if (Platform.OS === "web") {
+          const response = await fetch(productForm.imageUri);
+          const blob = await response.blob();
+          formData.append("image", blob, "image.jpg");
+        } else {
+          const file = new File(productForm.imageUri);
+          formData.append("image", file as any);
+        }
+      } else if (productForm.imageUrl) {
+        formData.append("imageUrl", productForm.imageUrl);
+      }
+
+      const url = editItem ? `/api/admin/products/${editItem.id}` : "/api/admin/products";
+      const method = editItem ? "PUT" : "POST";
+
+      await fetch(`${getApiUrl()}${url}`, {
+        method,
+        body: formData,
+      });
+
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/products"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/products"] });
+      resetForm();
+    } catch (error) {
+      console.error("Error saving product:", error);
+    }
+  };
+
+  const saveArea = async () => {
+    try {
+      const url = editItem ? `/api/admin/delivery-areas/${editItem.id}` : "/api/admin/delivery-areas";
+      const method = editItem ? "PUT" : "POST";
+
+      await fetch(`${getApiUrl()}${url}`, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: areaForm.name,
+          fee: areaForm.fee,
+        }),
+      });
+
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/delivery-areas"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/delivery-areas"] });
+      resetForm();
+    } catch (error) {
+      console.error("Error saving area:", error);
+    }
+  };
+
   const resetForm = () => {
     setIsEditing(false);
     setEditItem(null);
     setBannerForm({ title: "", type: "slider", imageUri: "", imageUrl: "" });
     setCategoryForm({ name: "", imageUri: "", imageUrl: "" });
+    setProductForm({ name: "", categoryId: "", price: "", originalPrice: "", discount: "", description: "", inStock: true, imageUri: "", imageUrl: "" });
+    setAreaForm({ name: "", fee: "" });
   };
 
   const handleEditBanner = (banner: Banner) => {
@@ -187,14 +316,38 @@ export default function AdminScreen() {
     setIsEditing(true);
   };
 
-  const confirmDelete = (id: string, type: "banner" | "category") => {
+  const handleEditProduct = (product: Product) => {
+    setEditItem(product);
+    setProductForm({
+      name: product.name,
+      categoryId: product.categoryId,
+      price: product.price.toString(),
+      originalPrice: product.originalPrice?.toString() || "",
+      discount: product.discount?.toString() || "",
+      description: product.description,
+      inStock: product.inStock,
+      imageUri: "",
+      imageUrl: product.image,
+    });
+    setIsEditing(true);
+  };
+
+  const handleEditArea = (area: DeliveryArea) => {
+    setEditItem(area);
+    setAreaForm({
+      name: area.name,
+      fee: area.fee.toString(),
+    });
+    setIsEditing(true);
+  };
+
+  const confirmDelete = (id: string, type: "banner" | "category" | "product" | "area") => {
     if (Platform.OS === "web") {
       if (window.confirm("هل أنت متأكد من الحذف؟")) {
-        if (type === "banner") {
-          deleteBanner.mutate(id);
-        } else {
-          deleteCategory.mutate(id);
-        }
+        if (type === "banner") deleteBanner.mutate(id);
+        else if (type === "category") deleteCategory.mutate(id);
+        else if (type === "product") deleteProduct.mutate(id);
+        else if (type === "area") deleteArea.mutate(id);
       }
     } else {
       Alert.alert("تأكيد الحذف", "هل أنت متأكد من الحذف؟", [
@@ -203,11 +356,10 @@ export default function AdminScreen() {
           text: "حذف",
           style: "destructive",
           onPress: () => {
-            if (type === "banner") {
-              deleteBanner.mutate(id);
-            } else {
-              deleteCategory.mutate(id);
-            }
+            if (type === "banner") deleteBanner.mutate(id);
+            else if (type === "category") deleteCategory.mutate(id);
+            else if (type === "product") deleteProduct.mutate(id);
+            else if (type === "area") deleteArea.mutate(id);
           },
         },
       ]);
@@ -236,37 +388,19 @@ export default function AdminScreen() {
 
         <View style={styles.typeSelector}>
           <Pressable
-            style={[
-              styles.typeButton,
-              bannerForm.type === "offer" && styles.typeButtonActive,
-            ]}
-            onPress={() => setBannerForm({ ...bannerForm, type: "offer" })}
+            style={[styles.typeButton, bannerForm.type === "slider" && styles.typeButtonActive]}
+            onPress={() => setBannerForm({ ...bannerForm, type: "slider" })}
           >
-            <ThemedText
-              type="body"
-              style={[
-                styles.typeButtonText,
-                bannerForm.type === "offer" && styles.typeButtonTextActive,
-              ]}
-            >
-              عرض رئيسي
+            <ThemedText type="body" style={[styles.typeButtonText, bannerForm.type === "slider" && styles.typeButtonTextActive]}>
+              سلايدر
             </ThemedText>
           </Pressable>
           <Pressable
-            style={[
-              styles.typeButton,
-              bannerForm.type === "slider" && styles.typeButtonActive,
-            ]}
-            onPress={() => setBannerForm({ ...bannerForm, type: "slider" })}
+            style={[styles.typeButton, bannerForm.type === "offer" && styles.typeButtonActive]}
+            onPress={() => setBannerForm({ ...bannerForm, type: "offer" })}
           >
-            <ThemedText
-              type="body"
-              style={[
-                styles.typeButtonText,
-                bannerForm.type === "slider" && styles.typeButtonTextActive,
-              ]}
-            >
-              سلايدر
+            <ThemedText type="body" style={[styles.typeButtonText, bannerForm.type === "offer" && styles.typeButtonTextActive]}>
+              عرض رئيسي
             </ThemedText>
           </Pressable>
         </View>
@@ -276,17 +410,11 @@ export default function AdminScreen() {
           onPress={() => pickImage((uri) => setBannerForm({ ...bannerForm, imageUri: uri, imageUrl: "" }))}
         >
           {bannerForm.imageUri || bannerForm.imageUrl ? (
-            <Image
-              source={{ uri: bannerForm.imageUri || getImageUrl(bannerForm.imageUrl) }}
-              style={styles.previewImage}
-              contentFit="cover"
-            />
+            <Image source={{ uri: bannerForm.imageUri || getImageUrl(bannerForm.imageUrl) }} style={styles.previewImage} contentFit="cover" />
           ) : (
             <View style={styles.imagePickerPlaceholder}>
               <Feather name="image" size={32} color={theme.textSecondary} />
-              <ThemedText type="small" style={{ color: theme.textSecondary }}>
-                اختر صورة
-              </ThemedText>
+              <ThemedText type="small" style={{ color: theme.textSecondary }}>اختر صورة</ThemedText>
             </View>
           )}
         </Pressable>
@@ -294,40 +422,26 @@ export default function AdminScreen() {
         <View style={styles.formButtons}>
           {isEditing ? (
             <Pressable style={styles.cancelButton} onPress={resetForm}>
-              <ThemedText type="body" style={styles.cancelButtonText}>
-                إلغاء
-              </ThemedText>
+              <ThemedText type="body" style={styles.cancelButtonText}>إلغاء</ThemedText>
             </Pressable>
           ) : null}
           <Pressable style={styles.saveButton} onPress={saveBanner}>
-            <ThemedText type="body" style={styles.saveButtonText}>
-              {editItem ? "حفظ التعديلات" : "إضافة"}
-            </ThemedText>
+            <ThemedText type="body" style={styles.saveButtonText}>{editItem ? "حفظ التعديلات" : "إضافة"}</ThemedText>
           </Pressable>
         </View>
       </View>
 
-      <ThemedText type="h4" style={styles.listTitle}>
-        البانرات الحالية
-      </ThemedText>
+      <ThemedText type="h4" style={styles.listTitle}>البانرات الحالية</ThemedText>
 
       {bannersLoading ? (
         <ActivityIndicator color={AppColors.primary} />
       ) : (
         banners.map((banner) => (
           <View key={banner.id} style={[styles.listItem, { backgroundColor: theme.backgroundSecondary }]}>
-            <Image
-              source={{ uri: getImageUrl(banner.image) }}
-              style={styles.listItemImage}
-              contentFit="cover"
-            />
+            <Image source={{ uri: getImageUrl(banner.image) }} style={styles.listItemImage} contentFit="cover" />
             <View style={styles.listItemContent}>
-              <ThemedText type="body" numberOfLines={1}>
-                {banner.title || "بدون عنوان"}
-              </ThemedText>
-              <ThemedText type="small" style={{ color: theme.textSecondary }}>
-                {banner.type === "offer" ? "عرض رئيسي" : "سلايدر"}
-              </ThemedText>
+              <ThemedText type="body" numberOfLines={1}>{banner.title || "بدون عنوان"}</ThemedText>
+              <ThemedText type="small" style={{ color: theme.textSecondary }}>{banner.type === "offer" ? "عرض رئيسي" : "سلايدر"}</ThemedText>
             </View>
             <View style={styles.listItemActions}>
               <Pressable onPress={() => handleEditBanner(banner)} style={styles.actionButton}>
@@ -346,9 +460,7 @@ export default function AdminScreen() {
   const renderCategoriesTab = () => (
     <View>
       <View style={styles.formCard}>
-        <ThemedText type="h4" style={styles.formTitle}>
-          {editItem ? "تعديل القسم" : "إضافة قسم جديد"}
-        </ThemedText>
+        <ThemedText type="h4" style={styles.formTitle}>{editItem ? "تعديل القسم" : "إضافة قسم جديد"}</ThemedText>
 
         <TextInput
           style={[styles.input, { backgroundColor: theme.backgroundSecondary, color: theme.text }]}
@@ -363,17 +475,11 @@ export default function AdminScreen() {
           onPress={() => pickImage((uri) => setCategoryForm({ ...categoryForm, imageUri: uri, imageUrl: "" }))}
         >
           {categoryForm.imageUri || categoryForm.imageUrl ? (
-            <Image
-              source={{ uri: categoryForm.imageUri || getImageUrl(categoryForm.imageUrl) }}
-              style={styles.previewImage}
-              contentFit="cover"
-            />
+            <Image source={{ uri: categoryForm.imageUri || getImageUrl(categoryForm.imageUrl) }} style={styles.previewImage} contentFit="cover" />
           ) : (
             <View style={styles.imagePickerPlaceholder}>
               <Feather name="image" size={32} color={theme.textSecondary} />
-              <ThemedText type="small" style={{ color: theme.textSecondary }}>
-                اختر صورة
-              </ThemedText>
+              <ThemedText type="small" style={{ color: theme.textSecondary }}>اختر صورة</ThemedText>
             </View>
           )}
         </Pressable>
@@ -381,37 +487,25 @@ export default function AdminScreen() {
         <View style={styles.formButtons}>
           {isEditing ? (
             <Pressable style={styles.cancelButton} onPress={resetForm}>
-              <ThemedText type="body" style={styles.cancelButtonText}>
-                إلغاء
-              </ThemedText>
+              <ThemedText type="body" style={styles.cancelButtonText}>إلغاء</ThemedText>
             </Pressable>
           ) : null}
           <Pressable style={styles.saveButton} onPress={saveCategory}>
-            <ThemedText type="body" style={styles.saveButtonText}>
-              {editItem ? "حفظ التعديلات" : "إضافة"}
-            </ThemedText>
+            <ThemedText type="body" style={styles.saveButtonText}>{editItem ? "حفظ التعديلات" : "إضافة"}</ThemedText>
           </Pressable>
         </View>
       </View>
 
-      <ThemedText type="h4" style={styles.listTitle}>
-        الأقسام الحالية
-      </ThemedText>
+      <ThemedText type="h4" style={styles.listTitle}>الأقسام الحالية</ThemedText>
 
       {categoriesLoading ? (
         <ActivityIndicator color={AppColors.primary} />
       ) : (
         categories.map((category) => (
           <View key={category.id} style={[styles.listItem, { backgroundColor: theme.backgroundSecondary }]}>
-            <Image
-              source={{ uri: getImageUrl(category.image) }}
-              style={styles.listItemImage}
-              contentFit="cover"
-            />
+            <Image source={{ uri: getImageUrl(category.image) }} style={styles.listItemImage} contentFit="cover" />
             <View style={styles.listItemContent}>
-              <ThemedText type="body" numberOfLines={1}>
-                {category.name}
-              </ThemedText>
+              <ThemedText type="body" numberOfLines={1}>{category.name}</ThemedText>
             </View>
             <View style={styles.listItemActions}>
               <Pressable onPress={() => handleEditCategory(category)} style={styles.actionButton}>
@@ -427,6 +521,219 @@ export default function AdminScreen() {
     </View>
   );
 
+  const renderProductsTab = () => (
+    <View>
+      <View style={styles.formCard}>
+        <ThemedText type="h4" style={styles.formTitle}>{editItem ? "تعديل المنتج" : "إضافة منتج جديد"}</ThemedText>
+
+        <TextInput
+          style={[styles.input, { backgroundColor: theme.backgroundSecondary, color: theme.text }]}
+          placeholder="اسم المنتج"
+          placeholderTextColor={theme.textSecondary}
+          value={productForm.name}
+          onChangeText={(text) => setProductForm({ ...productForm, name: text })}
+        />
+
+        <View style={styles.categorySelector}>
+          <ThemedText type="small" style={[styles.fieldLabel, { color: theme.textSecondary }]}>القسم:</ThemedText>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.categoryScroll}>
+            {categories.map((cat) => (
+              <Pressable
+                key={cat.id}
+                style={[styles.categoryChip, productForm.categoryId === cat.id && styles.categoryChipActive]}
+                onPress={() => setProductForm({ ...productForm, categoryId: cat.id })}
+              >
+                <ThemedText type="small" style={[styles.categoryChipText, productForm.categoryId === cat.id && styles.categoryChipTextActive]}>
+                  {cat.name}
+                </ThemedText>
+              </Pressable>
+            ))}
+          </ScrollView>
+        </View>
+
+        <View style={styles.priceRow}>
+          <TextInput
+            style={[styles.input, styles.priceInput, { backgroundColor: theme.backgroundSecondary, color: theme.text }]}
+            placeholder="السعر (د.ع)"
+            placeholderTextColor={theme.textSecondary}
+            value={productForm.price}
+            onChangeText={(text) => setProductForm({ ...productForm, price: text })}
+            keyboardType="numeric"
+          />
+          <TextInput
+            style={[styles.input, styles.priceInput, { backgroundColor: theme.backgroundSecondary, color: theme.text }]}
+            placeholder="السعر الأصلي (اختياري)"
+            placeholderTextColor={theme.textSecondary}
+            value={productForm.originalPrice}
+            onChangeText={(text) => setProductForm({ ...productForm, originalPrice: text })}
+            keyboardType="numeric"
+          />
+        </View>
+
+        <View style={styles.priceRow}>
+          <TextInput
+            style={[styles.input, styles.priceInput, { backgroundColor: theme.backgroundSecondary, color: theme.text }]}
+            placeholder="نسبة الخصم % (اختياري)"
+            placeholderTextColor={theme.textSecondary}
+            value={productForm.discount}
+            onChangeText={(text) => setProductForm({ ...productForm, discount: text })}
+            keyboardType="numeric"
+          />
+          <View style={[styles.switchContainer, { backgroundColor: theme.backgroundSecondary }]}>
+            <ThemedText type="small" style={{ color: theme.textSecondary }}>متوفر</ThemedText>
+            <Switch
+              value={productForm.inStock}
+              onValueChange={(value) => setProductForm({ ...productForm, inStock: value })}
+              trackColor={{ false: "#ccc", true: AppColors.primary }}
+              thumbColor="#fff"
+            />
+          </View>
+        </View>
+
+        <TextInput
+          style={[styles.input, styles.descInput, { backgroundColor: theme.backgroundSecondary, color: theme.text }]}
+          placeholder="وصف المنتج"
+          placeholderTextColor={theme.textSecondary}
+          value={productForm.description}
+          onChangeText={(text) => setProductForm({ ...productForm, description: text })}
+          multiline
+          numberOfLines={3}
+        />
+
+        <Pressable
+          style={[styles.imagePicker, { borderColor: theme.border }]}
+          onPress={() => pickImage((uri) => setProductForm({ ...productForm, imageUri: uri, imageUrl: "" }))}
+        >
+          {productForm.imageUri || productForm.imageUrl ? (
+            <Image source={{ uri: productForm.imageUri || getImageUrl(productForm.imageUrl) }} style={styles.previewImage} contentFit="cover" />
+          ) : (
+            <View style={styles.imagePickerPlaceholder}>
+              <Feather name="image" size={32} color={theme.textSecondary} />
+              <ThemedText type="small" style={{ color: theme.textSecondary }}>اختر صورة المنتج</ThemedText>
+            </View>
+          )}
+        </Pressable>
+
+        <View style={styles.formButtons}>
+          {isEditing ? (
+            <Pressable style={styles.cancelButton} onPress={resetForm}>
+              <ThemedText type="body" style={styles.cancelButtonText}>إلغاء</ThemedText>
+            </Pressable>
+          ) : null}
+          <Pressable style={styles.saveButton} onPress={saveProduct}>
+            <ThemedText type="body" style={styles.saveButtonText}>{editItem ? "حفظ التعديلات" : "إضافة"}</ThemedText>
+          </Pressable>
+        </View>
+      </View>
+
+      <ThemedText type="h4" style={styles.listTitle}>المنتجات الحالية ({products.length})</ThemedText>
+
+      {productsLoading ? (
+        <ActivityIndicator color={AppColors.primary} />
+      ) : (
+        products.map((product) => (
+          <View key={product.id} style={[styles.listItem, { backgroundColor: theme.backgroundSecondary }]}>
+            <Image source={{ uri: getImageUrl(product.image) }} style={styles.listItemImage} contentFit="cover" />
+            <View style={styles.listItemContent}>
+              <ThemedText type="body" numberOfLines={1}>{product.name}</ThemedText>
+              <View style={styles.productPriceRow}>
+                <ThemedText type="small" style={{ color: AppColors.primary, fontWeight: "600" }}>
+                  {formatPrice(product.price)}
+                </ThemedText>
+                {product.discount ? (
+                  <View style={styles.discountBadge}>
+                    <ThemedText type="small" style={styles.discountText}>-{product.discount}%</ThemedText>
+                  </View>
+                ) : null}
+              </View>
+            </View>
+            <View style={styles.listItemActions}>
+              <Pressable onPress={() => handleEditProduct(product)} style={styles.actionButton}>
+                <Feather name="edit-2" size={18} color={AppColors.primary} />
+              </Pressable>
+              <Pressable onPress={() => confirmDelete(product.id, "product")} style={styles.actionButton}>
+                <Feather name="trash-2" size={18} color="#EF4444" />
+              </Pressable>
+            </View>
+          </View>
+        ))
+      )}
+    </View>
+  );
+
+  const renderAreasTab = () => (
+    <View>
+      <View style={styles.formCard}>
+        <ThemedText type="h4" style={styles.formTitle}>{editItem ? "تعديل المنطقة" : "إضافة منطقة جديدة"}</ThemedText>
+
+        <TextInput
+          style={[styles.input, { backgroundColor: theme.backgroundSecondary, color: theme.text }]}
+          placeholder="اسم المنطقة"
+          placeholderTextColor={theme.textSecondary}
+          value={areaForm.name}
+          onChangeText={(text) => setAreaForm({ ...areaForm, name: text })}
+        />
+
+        <TextInput
+          style={[styles.input, { backgroundColor: theme.backgroundSecondary, color: theme.text }]}
+          placeholder="أجور التوصيل (د.ع)"
+          placeholderTextColor={theme.textSecondary}
+          value={areaForm.fee}
+          onChangeText={(text) => setAreaForm({ ...areaForm, fee: text })}
+          keyboardType="numeric"
+        />
+
+        <View style={styles.formButtons}>
+          {isEditing ? (
+            <Pressable style={styles.cancelButton} onPress={resetForm}>
+              <ThemedText type="body" style={styles.cancelButtonText}>إلغاء</ThemedText>
+            </Pressable>
+          ) : null}
+          <Pressable style={styles.saveButton} onPress={saveArea}>
+            <ThemedText type="body" style={styles.saveButtonText}>{editItem ? "حفظ التعديلات" : "إضافة"}</ThemedText>
+          </Pressable>
+        </View>
+      </View>
+
+      <ThemedText type="h4" style={styles.listTitle}>مناطق التوصيل الحالية</ThemedText>
+
+      {areasLoading ? (
+        <ActivityIndicator color={AppColors.primary} />
+      ) : (
+        deliveryAreas.map((area) => (
+          <View key={area.id} style={[styles.listItem, { backgroundColor: theme.backgroundSecondary }]}>
+            <View style={styles.areaIcon}>
+              <Feather name="map-pin" size={24} color={AppColors.primary} />
+            </View>
+            <View style={styles.listItemContent}>
+              <ThemedText type="body" numberOfLines={1}>{area.name}</ThemedText>
+              <ThemedText type="small" style={{ color: AppColors.primary, fontWeight: "600" }}>
+                {formatPrice(area.fee)}
+              </ThemedText>
+            </View>
+            <View style={styles.listItemActions}>
+              <Pressable onPress={() => handleEditArea(area)} style={styles.actionButton}>
+                <Feather name="edit-2" size={18} color={AppColors.primary} />
+              </Pressable>
+              <Pressable onPress={() => confirmDelete(area.id, "area")} style={styles.actionButton}>
+                <Feather name="trash-2" size={18} color="#EF4444" />
+              </Pressable>
+            </View>
+          </View>
+        ))
+      )}
+    </View>
+  );
+
+  const renderContent = () => {
+    switch (activeTab) {
+      case "banners": return renderBannersTab();
+      case "categories": return renderCategoriesTab();
+      case "products": return renderProductsTab();
+      case "areas": return renderAreasTab();
+    }
+  };
+
   return (
     <ScrollView
       style={{ flex: 1, backgroundColor: theme.backgroundRoot }}
@@ -436,45 +743,43 @@ export default function AdminScreen() {
         paddingHorizontal: Spacing.lg,
       }}
     >
-      <View style={styles.tabs}>
-        <Pressable
-          style={[styles.tab, activeTab === "banners" && styles.tabActive]}
-          onPress={() => { setActiveTab("banners"); resetForm(); }}
-        >
-          <ThemedText
-            type="body"
-            style={[styles.tabText, activeTab === "banners" && styles.tabTextActive]}
-          >
-            البانرات
-          </ThemedText>
-        </Pressable>
-        <Pressable
-          style={[styles.tab, activeTab === "categories" && styles.tabActive]}
-          onPress={() => { setActiveTab("categories"); resetForm(); }}
-        >
-          <ThemedText
-            type="body"
-            style={[styles.tabText, activeTab === "categories" && styles.tabTextActive]}
-          >
-            الأقسام
-          </ThemedText>
-        </Pressable>
-      </View>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.tabsScroll}>
+        <View style={styles.tabs}>
+          {[
+            { key: "banners", label: "البانرات" },
+            { key: "categories", label: "الأقسام" },
+            { key: "products", label: "المنتجات" },
+            { key: "areas", label: "مناطق التوصيل" },
+          ].map((tab) => (
+            <Pressable
+              key={tab.key}
+              style={[styles.tab, activeTab === tab.key && styles.tabActive]}
+              onPress={() => { setActiveTab(tab.key as TabType); resetForm(); }}
+            >
+              <ThemedText type="body" style={[styles.tabText, activeTab === tab.key && styles.tabTextActive]}>
+                {tab.label}
+              </ThemedText>
+            </Pressable>
+          ))}
+        </View>
+      </ScrollView>
 
-      {activeTab === "banners" ? renderBannersTab() : renderCategoriesTab()}
+      {renderContent()}
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
+  tabsScroll: {
+    marginBottom: Spacing.lg,
+  },
   tabs: {
     flexDirection: "row",
-    marginBottom: Spacing.lg,
     gap: Spacing.sm,
   },
   tab: {
-    flex: 1,
     paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.lg,
     borderRadius: BorderRadius.md,
     backgroundColor: "#F3F4F6",
     alignItems: "center",
@@ -502,6 +807,11 @@ const styles = StyleSheet.create({
   },
   formTitle: {
     marginBottom: Spacing.md,
+    textAlign: "right",
+  },
+  fieldLabel: {
+    marginBottom: Spacing.xs,
+    textAlign: "right",
   },
   input: {
     borderRadius: BorderRadius.md,
@@ -511,6 +821,49 @@ const styles = StyleSheet.create({
     fontFamily: "Tajawal_400Regular",
     marginBottom: Spacing.md,
     textAlign: "right",
+  },
+  descInput: {
+    minHeight: 80,
+    textAlignVertical: "top",
+  },
+  priceRow: {
+    flexDirection: "row",
+    gap: Spacing.sm,
+  },
+  priceInput: {
+    flex: 1,
+  },
+  switchContainer: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.md,
+    marginBottom: Spacing.md,
+  },
+  categorySelector: {
+    marginBottom: Spacing.md,
+  },
+  categoryScroll: {
+    marginTop: Spacing.xs,
+  },
+  categoryChip: {
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.full,
+    backgroundColor: "#F3F4F6",
+    marginRight: Spacing.sm,
+  },
+  categoryChipActive: {
+    backgroundColor: AppColors.primary,
+  },
+  categoryChipText: {
+    color: "#6B7280",
+  },
+  categoryChipTextActive: {
+    color: "#FFFFFF",
   },
   typeSelector: {
     flexDirection: "row",
@@ -578,6 +931,7 @@ const styles = StyleSheet.create({
   },
   listTitle: {
     marginBottom: Spacing.md,
+    textAlign: "right",
   },
   listItem: {
     flexDirection: "row",
@@ -594,6 +948,7 @@ const styles = StyleSheet.create({
   listItemContent: {
     flex: 1,
     marginHorizontal: Spacing.md,
+    alignItems: "flex-end",
   },
   listItemActions: {
     flexDirection: "row",
@@ -601,5 +956,27 @@ const styles = StyleSheet.create({
   },
   actionButton: {
     padding: Spacing.sm,
+  },
+  areaIcon: {
+    width: 50,
+    height: 40,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  productPriceRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  discountBadge: {
+    backgroundColor: "#EF4444",
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 2,
+    borderRadius: BorderRadius.sm,
+  },
+  discountText: {
+    color: "#FFFFFF",
+    fontSize: 10,
+    fontWeight: "600",
   },
 });

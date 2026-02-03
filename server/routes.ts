@@ -44,10 +44,26 @@ interface Product {
   categoryId: string;
   name: string;
   price: number;
+  originalPrice?: number;
+  discount?: number;
   image: string;
   description: string;
   inStock: boolean;
 }
+
+interface DeliveryArea {
+  id: string;
+  name: string;
+  fee: number;
+  isActive: boolean;
+}
+
+let deliveryAreas: DeliveryArea[] = [
+  { id: "daloaiya", name: "الضلوعية المركز", fee: 3000, isActive: true },
+  { id: "hawija", name: "الحويجة البحرية", fee: 3500, isActive: true },
+  { id: "jbour", name: "منطقة الجبور", fee: 3000, isActive: true },
+  { id: "bishikan", name: "بيشيكان", fee: 3500, isActive: true },
+];
 
 let categories: Category[] = [
   { id: "fruits-vegetables", name: "خضروات وفواكه", image: "https://images.unsplash.com/photo-1610832958506-aa56368176cf?w=300", productCount: 120, order: 1 },
@@ -227,6 +243,112 @@ export async function registerRoutes(app: Express): Promise<Server> {
       );
     }
     res.json(result);
+  });
+
+  app.get("/api/admin/products", (req, res) => {
+    res.json(products);
+  });
+
+  app.post("/api/admin/products", upload.single("image"), (req: Request & { file?: Express.Multer.File }, res: Response) => {
+    const { name, categoryId, price, originalPrice, discount, description, inStock } = req.body;
+    const image = req.file ? `/uploads/${req.file.filename}` : req.body.imageUrl;
+    
+    const newProduct: Product = {
+      id: randomUUID(),
+      name,
+      categoryId,
+      price: parseInt(price) || 0,
+      originalPrice: originalPrice ? parseInt(originalPrice) : undefined,
+      discount: discount ? parseInt(discount) : undefined,
+      image,
+      description: description || "",
+      inStock: inStock !== "false",
+    };
+    
+    products.push(newProduct);
+    res.json(newProduct);
+  });
+
+  app.put("/api/admin/products/:id", upload.single("image"), (req: Request & { file?: Express.Multer.File }, res: Response) => {
+    const index = products.findIndex(p => p.id === req.params.id);
+    if (index === -1) {
+      return res.status(404).json({ error: "Product not found" });
+    }
+    
+    const { name, categoryId, price, originalPrice, discount, description, inStock } = req.body;
+    const image = req.file ? `/uploads/${req.file.filename}` : (req.body.imageUrl || products[index].image);
+    
+    products[index] = {
+      ...products[index],
+      name: name || products[index].name,
+      categoryId: categoryId || products[index].categoryId,
+      price: price ? parseInt(price) : products[index].price,
+      originalPrice: originalPrice ? parseInt(originalPrice) : products[index].originalPrice,
+      discount: discount ? parseInt(discount) : products[index].discount,
+      image,
+      description: description !== undefined ? description : products[index].description,
+      inStock: inStock !== undefined ? inStock !== "false" : products[index].inStock,
+    };
+    
+    res.json(products[index]);
+  });
+
+  app.delete("/api/admin/products/:id", (req, res) => {
+    const index = products.findIndex(p => p.id === req.params.id);
+    if (index === -1) {
+      return res.status(404).json({ error: "Product not found" });
+    }
+    products.splice(index, 1);
+    res.json({ success: true });
+  });
+
+  app.get("/api/delivery-areas", (req, res) => {
+    res.json(deliveryAreas.filter(a => a.isActive));
+  });
+
+  app.get("/api/admin/delivery-areas", (req, res) => {
+    res.json(deliveryAreas);
+  });
+
+  app.post("/api/admin/delivery-areas", (req: Request, res: Response) => {
+    const { name, fee } = req.body;
+    
+    const newArea: DeliveryArea = {
+      id: randomUUID(),
+      name,
+      fee: parseInt(fee) || 0,
+      isActive: true,
+    };
+    
+    deliveryAreas.push(newArea);
+    res.json(newArea);
+  });
+
+  app.put("/api/admin/delivery-areas/:id", (req: Request, res: Response) => {
+    const index = deliveryAreas.findIndex(a => a.id === req.params.id);
+    if (index === -1) {
+      return res.status(404).json({ error: "Delivery area not found" });
+    }
+    
+    const { name, fee, isActive } = req.body;
+    
+    deliveryAreas[index] = {
+      ...deliveryAreas[index],
+      name: name || deliveryAreas[index].name,
+      fee: fee ? parseInt(fee) : deliveryAreas[index].fee,
+      isActive: isActive !== undefined ? isActive !== "false" : deliveryAreas[index].isActive,
+    };
+    
+    res.json(deliveryAreas[index]);
+  });
+
+  app.delete("/api/admin/delivery-areas/:id", (req, res) => {
+    const index = deliveryAreas.findIndex(a => a.id === req.params.id);
+    if (index === -1) {
+      return res.status(404).json({ error: "Delivery area not found" });
+    }
+    deliveryAreas.splice(index, 1);
+    res.json({ success: true });
   });
 
   const httpServer = createServer(app);
