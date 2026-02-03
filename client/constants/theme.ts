@@ -4,11 +4,11 @@ import { Platform, I18nManager } from "react-native";
 I18nManager.allowRTL(true);
 I18nManager.forceRTL(true);
 
-// App Colors - Lighter orange palette
-const primaryColor = "#FFA855";
+// App Colors - Vibrant orange gradient palette
+const primaryColor = "#ff5e00";
 const secondaryColor = "#FFF5EB";
-const primaryLight = "#FFCC99";
-const primaryDark = "#FF8C2A";
+const primaryLight = "#FF8533";
+const primaryDark = "#E65400";
 
 export const AppColors = {
   primary: primaryColor,

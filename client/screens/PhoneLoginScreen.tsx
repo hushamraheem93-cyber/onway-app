@@ -12,6 +12,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Image } from "expo-image";
 import { Feather } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
 import * as Haptics from "expo-haptics";
 
 import { ThemedText } from "@/components/ThemedText";
@@ -70,24 +71,33 @@ export default function PhoneLoginScreen() {
   };
 
   return (
-    <KeyboardAvoidingView
-      style={[styles.container, { paddingTop: insets.top, paddingBottom: insets.bottom }]}
-      behavior={Platform.OS === "ios" ? "padding" : "height"}
+    <LinearGradient
+      colors={["#ff5e00", "#ff7a1a", "#ff8533"]}
+      style={styles.gradient}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 1, y: 1 }}
     >
-      <View style={styles.content}>
-        <View style={styles.logoContainer}>
-          <Image
-            source={require("../../assets/images/icon.png")}
-            style={styles.logo}
-            contentFit="contain"
-          />
-          <ThemedText type="h1" style={styles.appName}>
-            Onway
-          </ThemedText>
-          <ThemedText type="body" style={styles.tagline}>
-            توصيل سريع لباب بيتك
-          </ThemedText>
-        </View>
+      <KeyboardAvoidingView
+        style={[styles.container, { paddingTop: insets.top, paddingBottom: insets.bottom }]}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+      >
+        <View style={styles.content}>
+          <View style={styles.logoContainer}>
+            <View style={styles.logoWrapper}>
+              <Image
+                source={require("../../assets/images/icon.png")}
+                style={styles.logo}
+                contentFit="contain"
+                tintColor="rgba(255,255,255,0.15)"
+              />
+            </View>
+            <ThemedText type="h1" style={styles.appName}>
+              Onway
+            </ThemedText>
+            <ThemedText type="body" style={styles.tagline}>
+              توصيل سريع لباب بيتك
+            </ThemedText>
+          </View>
 
         <View style={styles.formContainer}>
           <ThemedText type="h3" style={styles.formTitle}>
@@ -153,13 +163,16 @@ export default function PhoneLoginScreen() {
         </View>
       </View>
     </KeyboardAvoidingView>
+    </LinearGradient>
   );
 }
 
 const styles = StyleSheet.create({
+  gradient: {
+    flex: 1,
+  },
   container: {
     flex: 1,
-    backgroundColor: AppColors.primary,
   },
   content: {
     flex: 1,
@@ -170,10 +183,16 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: Spacing["2xl"],
   },
+  logoWrapper: {
+    width: 180,
+    height: 180,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: Spacing.md,
+  },
   logo: {
-    width: 120,
-    height: 120,
-    marginBottom: Spacing.lg,
+    width: 180,
+    height: 180,
   },
   appName: {
     color: "#FFFFFF",
