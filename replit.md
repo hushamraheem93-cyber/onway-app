@@ -1,4 +1,4 @@
-# توصيلي - تطبيق توصيل الطلبات
+# Onway - تطبيق توصيل الطلبات
 
 ## Overview
 تطبيق توصيل وتسوق محلي احترافي للهواتف المحمولة (iOS و Android) باستخدام React Native و Expo. يتيح للمستخدمين تصفح وطلب المنتجات من أقسام متعددة داخل المدينة.
@@ -83,8 +83,16 @@ server/
 3. Scan QR code with Expo Go to test on mobile device
 4. Web preview available at localhost:8081
 
+## Authentication
+- Phone number login screen (orange background)
+- Validates Iraqi phone formats (00964xxx or 07xxx)
+- Stores auth state in AsyncStorage
+- Shows login screen on first launch
+
 ## Recent Changes
-- February 2026: Updated to 28 Arabic categories with modern grid layout
+- February 2026: Renamed app to "Onway"
+- Added phone login screen with registration
+- Updated to 28 Arabic categories with modern grid layout
 - Added lazy loading images using expo-image
 - Currency set to Iraqi Dinar (د.ع)
 - Phone format updated to Iraqi standard (00964)
