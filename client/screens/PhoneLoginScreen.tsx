@@ -88,7 +88,6 @@ export default function PhoneLoginScreen() {
                 source={require("../../assets/images/icon.png")}
                 style={styles.logo}
                 contentFit="contain"
-                tintColor="rgba(255,255,255,0.15)"
               />
             </View>
             <ThemedText type="h1" style={styles.appName}>
