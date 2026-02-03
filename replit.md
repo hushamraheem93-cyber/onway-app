@@ -124,7 +124,7 @@ Font Sizes: Title 16px, Category 14px, Small 12px
 
 ## Recent Changes
 - February 2026: Updated design system to Talabaty-inspired theme
-- Primary color changed to #ff7a00
+- Primary color changed to #ff5e00
 - Categories reduced to 10 essential ones
 - Added OfferBanner and BannerSlider components
 - Added AdminScreen for content management
@@ -132,3 +132,12 @@ Font Sizes: Title 16px, Category 14px, Small 12px
 - CategoriesScreen: 2-column grid layout
 - Banner dimensions: 160px height, 18px radius
 - Category cards: 160x140px with 72px images
+- Added full product search functionality
+- Added PolicyScreen (سياسة الخصوصية)
+- Added AboutScreen (من نحن وتواصل معنا)
+- Added TermsScreen (الشروط والأحكام)
+- Added FAQScreen (الأسئلة الشائعة)
+- Added NotificationsScreen (إدارة الإشعارات)
+- Added AddressesScreen (العناوين المحفوظة)
+- Added PaymentScreen (طرق الدفع)
+- All profile settings buttons are now functional
