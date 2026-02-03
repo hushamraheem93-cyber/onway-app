@@ -94,17 +94,7 @@ export default function CheckoutScreen() {
 
     clearCart();
 
-    Alert.alert(
-      "تم تأكيد الطلب",
-      `شكراً لك! رقم طلبك هو ${order.id}\nسيتم التواصل معك قريباً.`,
-      [
-        {
-          text: "حسناً",
-          onPress: () => navigation.navigate("Main"),
-        },
-      ]
-    );
-
+    navigation.replace("OrderConfirmation", { order });
     setIsSubmitting(false);
   };
 
