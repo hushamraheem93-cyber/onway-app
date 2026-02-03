@@ -4,11 +4,11 @@ import { Platform, I18nManager } from "react-native";
 I18nManager.allowRTL(true);
 I18nManager.forceRTL(true);
 
-// App Colors - Talabaty-inspired original palette
-const primaryColor = "#ff7a00";
-const secondaryColor = "#fff3e6";
-const primaryLight = "#FFB174";
-const primaryDark = "#E66A00";
+// App Colors - Lighter orange palette
+const primaryColor = "#FFA855";
+const secondaryColor = "#FFF5EB";
+const primaryLight = "#FFCC99";
+const primaryDark = "#FF8C2A";
 
 export const AppColors = {
   primary: primaryColor,
@@ -27,14 +27,14 @@ export const AppColors = {
 // Design System Constants
 export const DesignSystem = {
   screenPadding: 16,
-  gridGap: 14,
+  gridGap: 16,
   categoryCard: {
-    width: 160,
-    height: 140,
+    width: 180,
+    height: 170,
   },
-  categoryImageSize: 72,
-  bannerHeight: 160,
-  bannerRadius: 18,
+  categoryImageSize: 90,
+  bannerHeight: 170,
+  bannerRadius: 20,
 };
 
 export const Colors = {
@@ -131,9 +131,9 @@ export const Typography = {
     fontWeight: "400" as const,
   },
   category: {
-    fontSize: 14,
-    lineHeight: 20,
-    fontWeight: "500" as const,
+    fontSize: 16,
+    lineHeight: 22,
+    fontWeight: "600" as const,
   },
   link: {
     fontSize: 16,

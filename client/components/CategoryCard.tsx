@@ -85,7 +85,7 @@ export function CategoryCard({ category, onPress, compact = false }: CategoryCar
         />
       </View>
       <ThemedText 
-        type="small"
+        type="body"
         style={styles.name}
         numberOfLines={2}
       >
@@ -121,7 +121,8 @@ const styles = StyleSheet.create({
   },
   name: {
     textAlign: "center",
-    fontWeight: "500",
+    fontWeight: "600",
+    fontSize: 15,
     color: AppColors.textPrimary,
   },
 });
