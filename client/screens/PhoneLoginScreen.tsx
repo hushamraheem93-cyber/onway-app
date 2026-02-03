@@ -95,7 +95,7 @@ export default function PhoneLoginScreen() {
               Onway
             </ThemedText>
             <ThemedText type="h2" style={styles.appNameArabic}>
-              اون وي كوفي
+              اون وي
             </ThemedText>
             <ThemedText type="body" style={styles.tagline}>
               توصيل سريع لباب بيتك
