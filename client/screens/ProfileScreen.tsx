@@ -107,16 +107,19 @@ export default function ProfileScreen() {
         icon="bell"
         title="الإشعارات"
         subtitle="إدارة إشعارات التطبيق"
+        onPress={() => navigation.navigate("Notifications")}
       />
       <SettingsItem
         icon="map-pin"
         title="العناوين المحفوظة"
         subtitle="إدارة عناوين التوصيل"
+        onPress={() => navigation.navigate("Addresses")}
       />
       <SettingsItem
         icon="credit-card"
         title="طرق الدفع"
         subtitle="إدارة بطاقات الدفع"
+        onPress={() => navigation.navigate("Payment")}
       />
       <SettingsItem
         icon="globe"
