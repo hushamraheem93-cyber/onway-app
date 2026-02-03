@@ -22,6 +22,7 @@ import { AuthProvider } from "@/context/AuthContext";
 import { CartProvider } from "@/context/CartContext";
 import { OrderProvider } from "@/context/OrderContext";
 import { FavoritesProvider } from "@/context/FavoritesContext";
+import { CartAnimationProvider } from "@/context/CartAnimationContext";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -52,16 +53,18 @@ export default function App() {
           <CartProvider>
             <OrderProvider>
               <FavoritesProvider>
-                <SafeAreaProvider>
-                  <GestureHandlerRootView style={styles.root}>
-                    <KeyboardProvider>
-                      <NavigationContainer>
-                        <RootStackNavigator />
-                      </NavigationContainer>
-                      <StatusBar style="auto" />
-                    </KeyboardProvider>
-                  </GestureHandlerRootView>
-                </SafeAreaProvider>
+                <CartAnimationProvider>
+                  <SafeAreaProvider>
+                    <GestureHandlerRootView style={styles.root}>
+                      <KeyboardProvider>
+                        <NavigationContainer>
+                          <RootStackNavigator />
+                        </NavigationContainer>
+                        <StatusBar style="auto" />
+                      </KeyboardProvider>
+                    </GestureHandlerRootView>
+                  </SafeAreaProvider>
+                </CartAnimationProvider>
               </FavoritesProvider>
             </OrderProvider>
           </CartProvider>

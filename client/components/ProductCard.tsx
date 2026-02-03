@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useRef } from "react";
 import { StyleSheet, Pressable, View } from "react-native";
 import Animated, {
   useAnimatedStyle,
@@ -15,6 +15,7 @@ import { Spacing, BorderRadius, Shadows, AppColors } from "@/constants/theme";
 import { Product } from "@/constants/categories";
 import { useCart } from "@/context/CartContext";
 import { useFavorites } from "@/context/FavoritesContext";
+import { useCartAnimation } from "@/context/CartAnimationContext";
 import { formatPrice } from "@/constants/currency";
 
 interface ProductCardProps {
@@ -28,10 +29,12 @@ export function ProductCard({ product, onPress }: ProductCardProps) {
   const { theme } = useTheme();
   const { addToCart, updateQuantity, items } = useCart();
   const { isFavorite, toggleFavorite } = useFavorites();
+  const { triggerAnimation } = useCartAnimation();
   const scale = useSharedValue(1);
   const buttonScale = useSharedValue(1);
   const minusButtonScale = useSharedValue(1);
   const favoriteScale = useSharedValue(1);
+  const cardRef = useRef<View>(null);
 
   const isInCart = items.some((item) => item.product.id === product.id);
   const cartQuantity = items.find((item) => item.product.id === product.id)?.quantity || 0;
@@ -59,6 +62,13 @@ export function ProductCard({ product, onPress }: ProductCardProps) {
       buttonScale.value = withSpring(1, { damping: 15, stiffness: 200 });
     }, 100);
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    
+    if (cardRef.current) {
+      cardRef.current.measureInWindow((x, y, width, height) => {
+        triggerAnimation(product.image, x + width / 2, y + height / 2);
+      });
+    }
+    
     addToCart(product);
   };
 
@@ -100,7 +110,7 @@ export function ProductCard({ product, onPress }: ProductCardProps) {
         animatedStyle,
       ]}
     >
-      <View style={styles.imageContainer}>
+      <View ref={cardRef} style={styles.imageContainer}>
         <Image
           source={{ uri: product.image }}
           style={styles.image}
