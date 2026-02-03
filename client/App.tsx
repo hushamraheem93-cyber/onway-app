@@ -18,6 +18,7 @@ import { queryClient } from "@/lib/query-client";
 
 import RootStackNavigator from "@/navigation/RootStackNavigator";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { AuthProvider } from "@/context/AuthContext";
 import { CartProvider } from "@/context/CartContext";
 import { OrderProvider } from "@/context/OrderContext";
 
@@ -46,20 +47,22 @@ export default function App() {
   return (
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
-        <CartProvider>
-          <OrderProvider>
-            <SafeAreaProvider>
-              <GestureHandlerRootView style={styles.root}>
-                <KeyboardProvider>
-                  <NavigationContainer>
-                    <RootStackNavigator />
-                  </NavigationContainer>
-                  <StatusBar style="auto" />
-                </KeyboardProvider>
-              </GestureHandlerRootView>
-            </SafeAreaProvider>
-          </OrderProvider>
-        </CartProvider>
+        <AuthProvider>
+          <CartProvider>
+            <OrderProvider>
+              <SafeAreaProvider>
+                <GestureHandlerRootView style={styles.root}>
+                  <KeyboardProvider>
+                    <NavigationContainer>
+                      <RootStackNavigator />
+                    </NavigationContainer>
+                    <StatusBar style="auto" />
+                  </KeyboardProvider>
+                </GestureHandlerRootView>
+              </SafeAreaProvider>
+            </OrderProvider>
+          </CartProvider>
+        </AuthProvider>
       </QueryClientProvider>
     </ErrorBoundary>
   );
