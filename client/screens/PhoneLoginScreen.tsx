@@ -83,13 +83,6 @@ export default function PhoneLoginScreen() {
       >
         <View style={styles.content}>
           <View style={styles.logoContainer}>
-            <View style={styles.logoWrapper}>
-              <Image
-                source={require("../../assets/images/icon.png")}
-                style={styles.logo}
-                contentFit="contain"
-              />
-            </View>
             <ThemedText type="h1" style={styles.appName}>
               Onway
             </ThemedText>
