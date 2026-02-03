@@ -22,6 +22,12 @@ import {
   Cairo_600SemiBold,
   Cairo_700Bold,
 } from "@expo-google-fonts/cairo";
+import {
+  Kanit_400Regular,
+  Kanit_500Medium,
+  Kanit_600SemiBold,
+  Kanit_700Bold,
+} from "@expo-google-fonts/kanit";
 
 import { QueryClientProvider } from "@tanstack/react-query";
 import { queryClient } from "@/lib/query-client";
@@ -51,6 +57,10 @@ export default function App() {
     Cairo_400Regular,
     Cairo_600SemiBold,
     Cairo_700Bold,
+    Kanit_400Regular,
+    Kanit_500Medium,
+    Kanit_600SemiBold,
+    Kanit_700Bold,
   });
 
   useEffect(() => {
