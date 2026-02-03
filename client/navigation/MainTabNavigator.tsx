@@ -47,28 +47,18 @@ export default function MainTabNavigator() {
     <Tab.Navigator
       initialRouteName="HomeTab"
       screenOptions={{
-        tabBarActiveTintColor: AppColors.primary,
-        tabBarInactiveTintColor: theme.tabIconDefault,
+        tabBarActiveTintColor: "#FFFFFF",
+        tabBarInactiveTintColor: "rgba(255,255,255,0.7)",
         tabBarStyle: {
           position: "absolute",
-          backgroundColor: Platform.select({
-            ios: "transparent",
-            android: theme.backgroundDefault,
-          }),
+          backgroundColor: AppColors.primary,
           borderTopWidth: 0,
           elevation: 0,
           height: Platform.select({ ios: 88, android: 70 }),
           paddingBottom: Platform.select({ ios: 28, android: 10 }),
           paddingTop: 10,
         },
-        tabBarBackground: () =>
-          Platform.OS === "ios" ? (
-            <BlurView
-              intensity={100}
-              tint={isDark ? "dark" : "light"}
-              style={StyleSheet.absoluteFill}
-            />
-          ) : null,
+        tabBarBackground: () => null,
         headerShown: false,
         tabBarLabelStyle: {
           fontSize: 12,
