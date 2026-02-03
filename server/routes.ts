@@ -60,6 +60,7 @@ let categories: Category[] = [
   { id: "cleaning-care", name: "منظفات وعناية", image: "https://images.unsplash.com/photo-1563453392212-326f5e854473?w=300", productCount: 95, order: 8 },
   { id: "baby", name: "مستلزمات الأطفال", image: "https://images.unsplash.com/photo-1515488042361-ee00e0ddd4e4?w=300", productCount: 60, order: 9 },
   { id: "electronics-services", name: "إلكترونيات وخدمات", image: "https://images.unsplash.com/photo-1498049794561-7780e7231661?w=300", productCount: 75, order: 10 },
+  { id: "mail-courier", name: "استلام البريد من المندوب", image: "https://images.unsplash.com/photo-1566576912321-d58ddd7a6088?w=300", productCount: 0, order: 11 },
 ];
 
 let banners: Banner[] = [
