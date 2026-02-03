@@ -23,7 +23,7 @@ interface CartItemCardProps {
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 export function CartItemCard({ item }: CartItemCardProps) {
-  const { theme } = useTheme();
+  const { theme, isDark } = useTheme();
   const { updateQuantity, removeFromCart } = useCart();
   const scale = useSharedValue(1);
 
@@ -55,7 +55,6 @@ export function CartItemCard({ item }: CartItemCardProps) {
       style={[
         styles.card,
         { backgroundColor: theme.backgroundDefault },
-        Shadows.sm,
         animatedStyle,
       ]}
     >
@@ -66,38 +65,27 @@ export function CartItemCard({ item }: CartItemCardProps) {
         transition={200}
       />
       <View style={styles.content}>
-        <View style={styles.header}>
-          <ThemedText type="h4" numberOfLines={1} style={styles.name}>
-            {item.product.name}
-          </ThemedText>
-          <Pressable onPress={handleRemove} style={styles.removeButton}>
-            <Feather name="trash-2" size={18} color={theme.error} />
-          </Pressable>
-        </View>
-        <ThemedText type="body" style={[styles.price, { color: AppColors.primary }]}>
+        <ThemedText type="h4" numberOfLines={2} style={styles.name}>
+          {item.product.name}
+        </ThemedText>
+        <ThemedText type="body" style={styles.price}>
           {formatPrice(item.product.price)}
         </ThemedText>
-        <View style={styles.quantityContainer}>
-          <AnimatedPressable
-            onPress={handleDecrease}
-            style={[styles.quantityButton, { backgroundColor: theme.backgroundSecondary }]}
-          >
-            <Feather name="minus" size={16} color={theme.text} />
+        <View style={[styles.quantityContainer, { backgroundColor: isDark ? theme.backgroundSecondary : "#F5F5F5" }]}>
+          <AnimatedPressable onPress={handleIncrease} style={styles.qtyBtn}>
+            <Feather name="plus" size={20} color={AppColors.primary} />
           </AnimatedPressable>
-          <ThemedText type="h4" style={styles.quantity}>
+          <ThemedText type="body" style={styles.qtyText}>
             {item.quantity}
           </ThemedText>
-          <AnimatedPressable
-            onPress={handleIncrease}
-            style={[styles.quantityButton, { backgroundColor: AppColors.primary }]}
-          >
-            <Feather name="plus" size={16} color="#FFFFFF" />
+          <AnimatedPressable onPress={handleDecrease} style={styles.qtyBtn}>
+            <Feather name="minus" size={20} color="#666" />
           </AnimatedPressable>
         </View>
       </View>
-      <ThemedText type="h4" style={[styles.total, { color: theme.text }]}>
-        {formatPrice(item.product.price * item.quantity)}
-      </ThemedText>
+      <Pressable onPress={handleRemove} style={styles.deleteBtn}>
+        <Feather name="trash-2" size={22} color="#FF3B30" />
+      </Pressable>
     </Animated.View>
   );
 }
@@ -105,57 +93,53 @@ export function CartItemCard({ item }: CartItemCardProps) {
 const styles = StyleSheet.create({
   card: {
     flexDirection: "row-reverse",
-    borderRadius: BorderRadius.lg,
-    overflow: "hidden",
-    marginBottom: Spacing.md,
-    padding: Spacing.md,
+    borderRadius: 15,
+    padding: 12,
+    marginVertical: 8,
+    marginHorizontal: 15,
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOpacity: 0.05,
+    shadowRadius: 5,
+    elevation: 2,
   },
   image: {
     width: 80,
     height: 80,
-    borderRadius: BorderRadius.md,
+    borderRadius: 10,
+    backgroundColor: "#f9f9f9",
   },
   content: {
     flex: 1,
-    marginRight: Spacing.md,
-  },
-  header: {
-    flexDirection: "row-reverse",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
+    marginRight: 15,
+    alignItems: "flex-end",
   },
   name: {
-    flex: 1,
+    fontSize: 16,
+    fontWeight: "bold",
     textAlign: "right",
-  },
-  removeButton: {
-    padding: Spacing.xs,
   },
   price: {
-    textAlign: "right",
-    marginTop: Spacing.xs,
+    color: AppColors.primary,
+    fontSize: 14,
+    marginVertical: 5,
+    fontWeight: "600",
   },
   quantityContainer: {
-    flexDirection: "row-reverse",
+    flexDirection: "row",
     alignItems: "center",
-    marginTop: Spacing.sm,
+    borderRadius: 8,
+    paddingHorizontal: 5,
   },
-  quantityButton: {
-    width: 32,
-    height: 32,
-    borderRadius: BorderRadius.full,
-    alignItems: "center",
-    justifyContent: "center",
+  qtyBtn: {
+    padding: 5,
   },
-  quantity: {
-    marginHorizontal: Spacing.md,
-    minWidth: 24,
-    textAlign: "center",
+  qtyText: {
+    fontSize: 16,
+    fontWeight: "bold",
+    marginHorizontal: 15,
   },
-  total: {
-    position: "absolute",
-    bottom: Spacing.md,
-    left: Spacing.md,
-    fontWeight: "700",
+  deleteBtn: {
+    padding: 10,
   },
 });

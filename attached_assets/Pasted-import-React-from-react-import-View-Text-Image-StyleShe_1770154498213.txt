@@ -1,0 +1,94 @@
+import React from 'react';
+import { View, Text, Image, StyleSheet, TouchableOpacity } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+
+const CartItem = ({ item }) => {
+  return (
+    <View style={styles.cartCard}>
+      {/* صورة المنتج */}
+      <Image source={{ uri: item.image }} style={styles.itemImage} />
+
+      {/* تفاصيل المنتج */}
+      <View style={styles.detailsContainer}>
+        <Text style={styles.itemName}>{item.name}</Text>
+        <Text style={styles.itemPrice}>{item.price} د.ع</Text>
+        
+        {/* أزرار التحكم بالكمية - تصميم نظيف */}
+        <View style={styles.quantityContainer}>
+          <TouchableOpacity style={styles.qtyBtn}>
+            <Ionicons name="add" size={20} color="#FF6B00" />
+          </TouchableOpacity>
+          
+          <Text style={styles.qtyText}>{item.quantity}</Text>
+          
+          <TouchableOpacity style={styles.qtyBtn}>
+            <Ionicons name="remove" size={20} color="#666" />
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      {/* زر الحذف الجانبي */}
+      <TouchableOpacity style={styles.deleteBtn}>
+        <Ionicons name="trash-outline" size={22} color="#FF3B30" />
+      </TouchableOpacity>
+    </View>
+  );
+};
+
+const styles = StyleSheet.create({
+  cartCard: {
+    flexDirection: 'row-reverse', // للغة العربية
+    backgroundColor: '#fff',
+    borderRadius: 15,
+    padding: 12,
+    marginVertical: 8,
+    marginHorizontal: 15,
+    alignItems: 'center',
+    // ظل خفيف
+    shadowColor: "#000",
+    shadowOpacity: 0.05,
+    shadowRadius: 5,
+    elevation: 2,
+  },
+  itemImage: {
+    width: 80,
+    height: 80,
+    borderRadius: 10,
+    backgroundColor: '#f9f9f9'
+  },
+  detailsContainer: {
+    flex: 1,
+    marginRight: 15,
+    alignItems: 'flex-start'
+  },
+  itemName: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#333',
+    textAlign: 'right'
+  },
+  itemPrice: {
+    color: '#FF6B00',
+    fontSize: 14,
+    marginVertical: 5,
+    fontWeight: '600'
+  },
+  quantityContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F5F5F5',
+    borderRadius: 8,
+    paddingHorizontal: 5,
+  },
+  qtyBtn: {
+    padding: 5,
+  },
+  qtyText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginHorizontal: 15,
+  },
+  deleteBtn: {
+    padding: 10,
+  }
+});
