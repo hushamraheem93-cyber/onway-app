@@ -1,5 +1,5 @@
 import React from "react";
-import { StyleSheet, FlatList, View, Pressable } from "react-native";
+import { StyleSheet, FlatList, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
@@ -14,9 +14,11 @@ import { useCart, CartItem } from "@/context/CartContext";
 import { formatPrice } from "@/constants/currency";
 import { CartItemCard } from "@/components/CartItemCard";
 import { EmptyState } from "@/components/EmptyState";
+import { RelatedProducts } from "@/components/RelatedProducts";
 import { ThemedText } from "@/components/ThemedText";
 import { Button } from "@/components/Button";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
+import { PRODUCTS, Product } from "@/constants/categories";
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
@@ -27,6 +29,19 @@ export default function CartScreen() {
   const { theme } = useTheme();
   const navigation = useNavigation<NavigationProp>();
   const { items, getTotal, clearCart } = useCart();
+
+  const getRelatedProducts = (): Product[] => {
+    if (items.length === 0) return [];
+    const cartCategoryIds = [...new Set(items.map((item) => item.product.categoryId))];
+    const cartProductIds = items.map((item) => item.product.id);
+    
+    const relatedProducts = PRODUCTS.filter(
+      (p) => cartCategoryIds.includes(p.categoryId) && !cartProductIds.includes(p.id)
+    );
+    return relatedProducts.slice(0, 6);
+  };
+
+  const relatedProducts = getRelatedProducts();
 
   const handleCheckout = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -74,6 +89,11 @@ export default function CartScreen() {
         keyExtractor={(item) => item.product.id}
         showsVerticalScrollIndicator={false}
         ListEmptyComponent={renderEmpty}
+        ListFooterComponent={
+          items.length > 0 && relatedProducts.length > 0 ? (
+            <RelatedProducts products={relatedProducts} title="قد يعجبك أيضاً" />
+          ) : null
+        }
       />
 
       {items.length > 0 ? (
