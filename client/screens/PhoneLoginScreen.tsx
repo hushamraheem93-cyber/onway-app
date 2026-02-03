@@ -7,14 +7,21 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
+  Linking,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Image } from "expo-image";
+import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 
 import { ThemedText } from "@/components/ThemedText";
 import { Spacing, BorderRadius, AppColors } from "@/constants/theme";
 import { useAuth } from "@/context/AuthContext";
+
+const SOCIAL_LINKS = {
+  facebook: "https://facebook.com/onwayiq",
+  instagram: "https://instagram.com/onwayiq",
+};
 
 export default function PhoneLoginScreen() {
   const insets = useSafeAreaInsets();
@@ -123,6 +130,26 @@ export default function PhoneLoginScreen() {
           <ThemedText type="small" style={styles.termsText}>
             بالمتابعة، أنت توافق على شروط الخدمة وسياسة الخصوصية
           </ThemedText>
+
+          <View style={styles.socialContainer}>
+            <ThemedText type="small" style={styles.socialTitle}>
+              تابعنا على
+            </ThemedText>
+            <View style={styles.socialIcons}>
+              <Pressable
+                style={styles.socialButton}
+                onPress={() => Linking.openURL(SOCIAL_LINKS.facebook)}
+              >
+                <Feather name="facebook" size={24} color="#FFFFFF" />
+              </Pressable>
+              <Pressable
+                style={styles.socialButton}
+                onPress={() => Linking.openURL(SOCIAL_LINKS.instagram)}
+              >
+                <Feather name="instagram" size={24} color="#FFFFFF" />
+              </Pressable>
+            </View>
+          </View>
         </View>
       </View>
     </KeyboardAvoidingView>
@@ -204,5 +231,25 @@ const styles = StyleSheet.create({
     color: "rgba(255,255,255,0.6)",
     textAlign: "center",
     paddingHorizontal: Spacing.lg,
+  },
+  socialContainer: {
+    marginTop: Spacing["2xl"],
+    alignItems: "center",
+  },
+  socialTitle: {
+    color: "rgba(255,255,255,0.7)",
+    marginBottom: Spacing.md,
+  },
+  socialIcons: {
+    flexDirection: "row",
+    gap: Spacing.lg,
+  },
+  socialButton: {
+    width: 48,
+    height: 48,
+    borderRadius: BorderRadius.full,
+    backgroundColor: "rgba(255,255,255,0.2)",
+    alignItems: "center",
+    justifyContent: "center",
   },
 });
