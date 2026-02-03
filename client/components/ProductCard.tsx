@@ -25,9 +25,10 @@ const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 export function ProductCard({ product, onPress }: ProductCardProps) {
   const { theme } = useTheme();
-  const { addToCart, items } = useCart();
+  const { addToCart, updateQuantity, items } = useCart();
   const scale = useSharedValue(1);
   const buttonScale = useSharedValue(1);
+  const minusButtonScale = useSharedValue(1);
 
   const isInCart = items.some((item) => item.product.id === product.id);
   const cartQuantity = items.find((item) => item.product.id === product.id)?.quantity || 0;
@@ -56,6 +57,19 @@ export function ProductCard({ product, onPress }: ProductCardProps) {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     addToCart(product);
   };
+
+  const handleRemoveFromCart = () => {
+    minusButtonScale.value = withSpring(0.9, { damping: 15, stiffness: 200 });
+    setTimeout(() => {
+      minusButtonScale.value = withSpring(1, { damping: 15, stiffness: 200 });
+    }, 100);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    updateQuantity(product.id, cartQuantity - 1);
+  };
+
+  const minusButtonAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: minusButtonScale.value }],
+  }));
 
   return (
     <AnimatedPressable
@@ -91,23 +105,43 @@ export function ProductCard({ product, onPress }: ProductCardProps) {
             {formatPrice(product.price)}
           </ThemedText>
           {isInCart ? (
-            <View style={[styles.inCartBadge, { backgroundColor: "#4CAF50" }]}>
-              <Feather name="check" size={16} color="#FFFFFF" />
-              <ThemedText type="small" style={styles.cartQuantity}>
+            <View style={styles.quantityControls}>
+              <AnimatedPressable
+                onPress={handleAddToCart}
+                style={[
+                  styles.quantityButton,
+                  { backgroundColor: AppColors.primary },
+                  buttonAnimatedStyle,
+                ]}
+              >
+                <Feather name="plus" size={18} color="#FFFFFF" />
+              </AnimatedPressable>
+              <ThemedText type="h4" style={styles.quantityText}>
                 {cartQuantity}
               </ThemedText>
+              <AnimatedPressable
+                onPress={handleRemoveFromCart}
+                style={[
+                  styles.quantityButton,
+                  { backgroundColor: "#E53935" },
+                  minusButtonAnimatedStyle,
+                ]}
+              >
+                <Feather name="minus" size={18} color="#FFFFFF" />
+              </AnimatedPressable>
             </View>
-          ) : null}
-          <AnimatedPressable
-            onPress={handleAddToCart}
-            style={[
-              styles.addButton,
-              { backgroundColor: isInCart ? "#4CAF50" : AppColors.primary },
-              buttonAnimatedStyle,
-            ]}
-          >
-            <Feather name="plus" size={20} color="#FFFFFF" />
-          </AnimatedPressable>
+          ) : (
+            <AnimatedPressable
+              onPress={handleAddToCart}
+              style={[
+                styles.addButton,
+                { backgroundColor: AppColors.primary },
+                buttonAnimatedStyle,
+              ]}
+            >
+              <Feather name="plus" size={20} color="#FFFFFF" />
+            </AnimatedPressable>
+          )}
         </View>
       </View>
     </AnimatedPressable>
@@ -153,17 +187,21 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  inCartBadge: {
+  quantityControls: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: Spacing.xs,
-    borderRadius: BorderRadius.full,
-    marginLeft: Spacing.sm,
+    gap: Spacing.sm,
   },
-  cartQuantity: {
-    color: "#FFFFFF",
+  quantityButton: {
+    width: 32,
+    height: 32,
+    borderRadius: BorderRadius.full,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  quantityText: {
+    minWidth: 24,
+    textAlign: "center",
     fontWeight: "700",
-    marginRight: Spacing.xs,
   },
 });
