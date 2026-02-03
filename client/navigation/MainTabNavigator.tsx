@@ -90,6 +90,7 @@ export default function MainTabNavigator() {
         component={CartStackNavigator}
         options={{
           tabBarButton: () => null,
+          tabBarItemStyle: { display: "none", width: 0, height: 0 },
         }}
       />
       <Tab.Screen
