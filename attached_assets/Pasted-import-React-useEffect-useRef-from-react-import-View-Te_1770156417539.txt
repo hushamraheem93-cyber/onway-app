@@ -1,0 +1,138 @@
+import React, { useEffect, useRef } from 'react';
+import { View, Text, TextInput, StyleSheet, Image, Animated, Easing, SafeAreaView } from 'react-native';
+
+const OnWayLogin = () => {
+  const floatAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    // أنيميشن طفو الشعار - حركة هادئة لا تسبب قصاً
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(floatAnim, {
+          toValue: -10, // ارتفاع بسيط جداً
+          duration: 2000,
+          easing: Easing.inOut(Easing.sin),
+          useNativeDriver: true,
+        }),
+        Animated.timing(floatAnim, {
+          toValue: 0,
+          duration: 2000,
+          easing: Easing.inOut(Easing.sin),
+          useNativeDriver: true,
+        })
+      ])
+    ).start();
+  }, []);
+
+  return (
+    <SafeAreaView style={styles.safeArea}>
+      <View style={styles.container}>
+        
+        {/* صندوق الشعار - مصلح بمسافات أمان */}
+        <Animated.View style={[styles.logoBox, { transform: [{ translateY: floatAnim }] }]}>
+          <Text style={styles.logoTitle}>OnWay</Text>
+          <Text style={styles.logoSub}>أون وي</Text>
+        </Animated.View>
+
+        {/* حقل الإدخال مع العلم العراقي */}
+        <View style={styles.formCard}>
+          <Text style={styles.label}>رقم الهاتف</Text>
+          <View style={styles.inputRow}>
+            <TextInput 
+              placeholder="7xx xxx xxxx"
+              keyboardType="phone-pad"
+              style={styles.input}
+            />
+            <View style={styles.divider} />
+            <View style={styles.countryBox}>
+              <Text style={styles.code}>+964</Text>
+              <Image 
+                source={{ uri: 'https://flagcdn.com/w80/iq.png' }} 
+                style={styles.flag} 
+              />
+            </View>
+          </View>
+        </View>
+
+      </View>
+    </SafeAreaView>
+  );
+};
+
+const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: '#FF6B00', // نفس لون الخلفية لتوحيد الشاشة
+  },
+  container: {
+    flex: 1,
+    paddingHorizontal: 25,
+    justifyContent: 'center',
+  },
+  logoBox: {
+    alignItems: 'center',
+    marginBottom: 50,
+    marginTop: 20, // مساحة إضافية لمنع القص
+    overflow: 'visible', // السماح بالأنيميشن بالخروج قليلاً دون اختفاء
+  },
+  logoTitle: {
+    fontSize: 55,
+    fontWeight: 'bold',
+    color: '#FFF',
+    letterSpacing: 1,
+    lineHeight: 70, // إعطاء مساحة للحروف من الأعلى والأسفل
+    textAlign: 'center',
+  },
+  logoSub: {
+    fontSize: 20,
+    color: '#FFF',
+    marginTop: -5,
+    opacity: 0.9,
+  },
+  formCard: {
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    padding: 20,
+    borderRadius: 25,
+  },
+  label: {
+    color: '#FFF',
+    textAlign: 'right',
+    marginBottom: 10,
+    fontWeight: '600',
+  },
+  inputRow: {
+    flexDirection: 'row',
+    backgroundColor: '#FFF',
+    borderRadius: 15,
+    height: 60,
+    alignItems: 'center',
+    paddingHorizontal: 15,
+  },
+  input: {
+    flex: 1,
+    fontSize: 18,
+    textAlign: 'left',
+  },
+  divider: {
+    width: 1,
+    height: '60%',
+    backgroundColor: '#EEE',
+    marginHorizontal: 10,
+  },
+  countryBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  code: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginRight: 5,
+  },
+  flag: {
+    width: 30,
+    height: 20,
+    borderRadius: 3,
+  }
+});
+
+export default OnWayLogin;
