@@ -39,12 +39,19 @@ export default function MainTabNavigator() {
           height: Platform.select({ ios: 88, android: 70 }),
           paddingBottom: Platform.select({ ios: 28, android: 10 }),
           paddingTop: 10,
+          paddingHorizontal: 10,
+        },
+        tabBarItemStyle: {
+          flex: 1,
+          justifyContent: "center",
+          alignItems: "center",
         },
         tabBarBackground: () => null,
         headerShown: false,
         tabBarLabelStyle: {
-          fontSize: 12,
+          fontSize: 11,
           fontWeight: "500",
+          marginTop: 4,
         },
       }}
     >
