@@ -10,13 +10,12 @@ import {
   Linking,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Image } from "expo-image";
-import { Feather } from "@expo/vector-icons";
+import { FontAwesome } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import * as Haptics from "expo-haptics";
 
 import { ThemedText } from "@/components/ThemedText";
-import { Spacing, BorderRadius, AppColors } from "@/constants/theme";
+import { AppColors } from "@/constants/theme";
 import { useAuth } from "@/context/AuthContext";
 
 const SOCIAL_LINKS = {
@@ -72,41 +71,38 @@ export default function PhoneLoginScreen() {
 
   return (
     <LinearGradient
-      colors={["#ff5e00", "#ff7a1a", "#ff8533"]}
-      style={styles.gradient}
-      start={{ x: 0, y: 0 }}
-      end={{ x: 1, y: 1 }}
+      colors={["#FF8C00", "#FF6B00"]}
+      style={styles.container}
     >
       <KeyboardAvoidingView
-        style={[styles.container, { paddingTop: insets.top, paddingBottom: insets.bottom }]}
         behavior={Platform.OS === "ios" ? "padding" : "height"}
+        style={styles.inner}
       >
-        <View style={styles.content}>
-          <View style={styles.logoContainer}>
-            <ThemedText type="h1" style={styles.appName}>
-              OnWay
-            </ThemedText>
-            <ThemedText type="h2" style={styles.appNameArabic}>
-              اون وي
-            </ThemedText>
-          </View>
+        <View style={styles.logoContainer}>
+          <ThemedText type="h1" style={styles.logoText}>
+            OnWay
+          </ThemedText>
+          <ThemedText type="body" style={styles.logoSubText}>
+            أون وي
+          </ThemedText>
+        </View>
 
         <View style={styles.formContainer}>
-          <ThemedText type="h3" style={styles.formTitle}>
+          <ThemedText type="h4" style={styles.loginTitle}>
             تسجيل الدخول
           </ThemedText>
-          
-          <View style={styles.inputContainer}>
+
+          <View style={styles.inputWrapper}>
             <TextInput
+              placeholder="009647xxxxxxxxx"
+              placeholderTextColor="#AAA"
+              keyboardType="phone-pad"
               style={styles.input}
               value={phoneNumber}
               onChangeText={setPhoneNumber}
-              placeholder="009647xxxxxxxxx"
-              placeholderTextColor="rgba(255,255,255,0.5)"
-              keyboardType="phone-pad"
-              textAlign="center"
               maxLength={15}
             />
+            <FontAwesome name="phone" size={20} color="#FF6B00" style={styles.inputIcon} />
           </View>
 
           {error ? (
@@ -116,154 +112,145 @@ export default function PhoneLoginScreen() {
           ) : null}
 
           <Pressable
-            style={[styles.loginButton, isLoading && styles.loginButtonDisabled]}
+            style={[styles.mainButton, isLoading && styles.buttonDisabled]}
             onPress={handleLogin}
             disabled={isLoading}
           >
             {isLoading ? (
-              <ActivityIndicator color={AppColors.primary} />
+              <ActivityIndicator color="#FF6B00" />
             ) : (
-              <ThemedText type="h4" style={styles.loginButtonText}>
+              <ThemedText type="h4" style={styles.buttonText}>
                 متابعة
               </ThemedText>
             )}
           </Pressable>
+        </View>
 
+        <View style={[styles.footer, { paddingBottom: insets.bottom + 20 }]}>
           <ThemedText type="small" style={styles.termsText}>
             بالمتابعة، أنت توافق على شروط الخدمة وسياسة الخصوصية
           </ThemedText>
 
-          <View style={styles.socialContainer}>
-            <ThemedText type="small" style={styles.socialTitle}>
-              تابعنا على
-            </ThemedText>
-            <View style={styles.socialIcons}>
-              <Pressable
-                style={styles.socialButton}
-                onPress={() => Linking.openURL(SOCIAL_LINKS.facebook)}
-              >
-                <Feather name="facebook" size={24} color="#FFFFFF" />
-              </Pressable>
-              <Pressable
-                style={styles.socialButton}
-                onPress={() => Linking.openURL(SOCIAL_LINKS.instagram)}
-              >
-                <Feather name="instagram" size={24} color="#FFFFFF" />
-              </Pressable>
-            </View>
+          <View style={styles.socialRow}>
+            <Pressable
+              style={styles.socialIcon}
+              onPress={() => Linking.openURL(SOCIAL_LINKS.facebook)}
+            >
+              <FontAwesome name="facebook" size={24} color="white" />
+            </Pressable>
+            <Pressable
+              style={styles.socialIcon}
+              onPress={() => Linking.openURL(SOCIAL_LINKS.instagram)}
+            >
+              <FontAwesome name="instagram" size={24} color="white" />
+            </Pressable>
           </View>
         </View>
-      </View>
-    </KeyboardAvoidingView>
+      </KeyboardAvoidingView>
     </LinearGradient>
   );
 }
 
 const styles = StyleSheet.create({
-  gradient: {
-    flex: 1,
-  },
   container: {
     flex: 1,
   },
-  content: {
+  inner: {
     flex: 1,
     justifyContent: "center",
-    paddingHorizontal: Spacing.xl,
+    padding: 30,
   },
   logoContainer: {
     alignItems: "center",
-    marginBottom: Spacing["2xl"],
+    marginBottom: 50,
   },
-  logoWrapper: {
-    width: 180,
-    height: 180,
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: Spacing.md,
-  },
-  logo: {
-    width: 180,
-    height: 180,
-  },
-  appName: {
-    color: "#FFFFFF",
-    fontSize: 36,
-    fontWeight: "700",
+  logoText: {
+    fontSize: 45,
+    fontWeight: "900",
+    color: "white",
+    letterSpacing: 2,
     fontFamily: "Poppins_700Bold",
-    writingDirection: "ltr",
   },
-  appNameArabic: {
-    color: "rgba(255,255,255,0.7)",
+  logoSubText: {
     fontSize: 20,
+    color: "white",
+    marginTop: -5,
+    opacity: 0.9,
     fontFamily: "Cairo_400Regular",
-    marginTop: 4,
   },
   formContainer: {
+    backgroundColor: "rgba(255, 255, 255, 0.15)",
+    padding: 25,
+    borderRadius: 25,
+  },
+  loginTitle: {
+    color: "white",
+    fontSize: 18,
+    textAlign: "center",
+    marginBottom: 20,
+    fontWeight: "bold",
+  },
+  inputWrapper: {
+    flexDirection: "row",
+    backgroundColor: "white",
+    borderRadius: 15,
     alignItems: "center",
-  },
-  formTitle: {
-    color: "#FFFFFF",
-    marginBottom: Spacing.lg,
-  },
-  inputContainer: {
-    width: "100%",
-    marginBottom: Spacing.md,
+    paddingHorizontal: 15,
+    height: 55,
   },
   input: {
-    backgroundColor: "rgba(255,255,255,0.2)",
-    borderRadius: BorderRadius.lg,
-    paddingVertical: Spacing.lg,
-    paddingHorizontal: Spacing.xl,
-    fontSize: 18,
-    color: "#FFFFFF",
+    flex: 1,
+    textAlign: "right",
+    fontSize: 16,
+    color: "#333",
     fontFamily: "Tajawal_500Medium",
-    textAlign: "center",
+  },
+  inputIcon: {
+    marginLeft: 10,
   },
   errorText: {
     color: "#FFE0E0",
-    marginBottom: Spacing.md,
     textAlign: "center",
+    marginTop: 10,
   },
-  loginButton: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: BorderRadius.lg,
-    paddingVertical: Spacing.lg,
-    paddingHorizontal: Spacing["2xl"],
-    width: "100%",
+  mainButton: {
+    backgroundColor: "white",
+    height: 55,
+    borderRadius: 15,
+    justifyContent: "center",
     alignItems: "center",
-    marginBottom: Spacing.lg,
+    marginTop: 20,
   },
-  loginButtonDisabled: {
+  buttonDisabled: {
     opacity: 0.7,
   },
-  loginButtonText: {
-    color: AppColors.primary,
-    fontWeight: "700",
+  buttonText: {
+    color: "#FF6B00",
+    fontSize: 18,
+    fontWeight: "bold",
+  },
+  footer: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    alignItems: "center",
+    paddingHorizontal: 30,
   },
   termsText: {
-    color: "rgba(255,255,255,0.6)",
+    color: "white",
     textAlign: "center",
-    paddingHorizontal: Spacing.lg,
+    fontSize: 12,
+    opacity: 0.8,
+    marginBottom: 20,
   },
-  socialContainer: {
-    marginTop: Spacing["2xl"],
-    alignItems: "center",
-  },
-  socialTitle: {
-    color: "rgba(255,255,255,0.7)",
-    marginBottom: Spacing.md,
-  },
-  socialIcons: {
+  socialRow: {
     flexDirection: "row",
-    gap: Spacing.lg,
+    gap: 20,
   },
-  socialButton: {
-    width: 48,
-    height: 48,
-    borderRadius: BorderRadius.full,
-    backgroundColor: "rgba(255,255,255,0.2)",
-    alignItems: "center",
-    justifyContent: "center",
+  socialIcon: {
+    padding: 10,
+    backgroundColor: "rgba(255, 255, 255, 0.2)",
+    borderRadius: 50,
   },
 });
