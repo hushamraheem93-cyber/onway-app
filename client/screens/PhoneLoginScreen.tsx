@@ -10,6 +10,7 @@ import {
   Linking,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { Image } from "expo-image";
 import { FontAwesome } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import * as Haptics from "expo-haptics";
@@ -32,16 +33,15 @@ export default function PhoneLoginScreen() {
 
   const validatePhone = (phone: string) => {
     const cleanPhone = phone.replace(/\s/g, "");
-    if (!cleanPhone.startsWith("00964") && !cleanPhone.startsWith("07")) {
-      return false;
-    }
-    if (cleanPhone.startsWith("00964") && cleanPhone.length < 14) {
-      return false;
-    }
-    if (cleanPhone.startsWith("07") && cleanPhone.length < 11) {
+    if (cleanPhone.length < 10) {
       return false;
     }
     return true;
+  };
+
+  const formatPhoneForLogin = (phone: string) => {
+    const cleanPhone = phone.replace(/\s/g, "");
+    return `00964${cleanPhone}`;
   };
 
   const handleLogin = async () => {
@@ -61,7 +61,8 @@ export default function PhoneLoginScreen() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
     try {
-      await login(phoneNumber);
+      const fullPhone = formatPhoneForLogin(phoneNumber);
+      await login(fullPhone);
     } catch (err) {
       setError("حدث خطأ، الرجاء المحاولة مرة أخرى");
     } finally {
@@ -88,21 +89,28 @@ export default function PhoneLoginScreen() {
         </View>
 
         <View style={styles.formContainer}>
-          <ThemedText type="h4" style={styles.loginTitle}>
-            تسجيل الدخول
+          <ThemedText type="body" style={styles.inputLabel}>
+            سجل برقم هاتفك
           </ThemedText>
 
-          <View style={styles.inputWrapper}>
+          <View style={styles.phoneInputRow}>
             <TextInput
-              placeholder="009647xxxxxxxxx"
-              placeholderTextColor="#AAA"
+              placeholder="780 000 0000"
+              placeholderTextColor="#BCBCBC"
               keyboardType="phone-pad"
-              style={styles.input}
+              style={styles.textInput}
               value={phoneNumber}
               onChangeText={setPhoneNumber}
-              maxLength={15}
+              maxLength={12}
             />
-            <FontAwesome name="phone" size={20} color="#FF6B00" style={styles.inputIcon} />
+            <View style={styles.verticalDivider} />
+            <View style={styles.countryContainer}>
+              <ThemedText type="body" style={styles.countryCode}>+964</ThemedText>
+              <Image
+                source={{ uri: "https://flagcdn.com/w40/iq.png" }}
+                style={styles.flagIcon}
+              />
+            </View>
           </View>
 
           {error ? (
@@ -179,34 +187,58 @@ const styles = StyleSheet.create({
     fontFamily: "Cairo_400Regular",
   },
   formContainer: {
-    backgroundColor: "rgba(255, 255, 255, 0.15)",
-    padding: 25,
-    borderRadius: 25,
+    backgroundColor: "rgba(255, 255, 255, 0.2)",
+    borderRadius: 20,
+    padding: 20,
+    width: "100%",
   },
-  loginTitle: {
-    color: "white",
-    fontSize: 18,
-    textAlign: "center",
-    marginBottom: 20,
-    fontWeight: "bold",
+  inputLabel: {
+    color: "#FFF",
+    textAlign: "right",
+    marginBottom: 10,
+    fontSize: 14,
+    fontWeight: "600",
   },
-  inputWrapper: {
+  phoneInputRow: {
     flexDirection: "row",
-    backgroundColor: "white",
+    backgroundColor: "#FFF",
     borderRadius: 15,
+    height: 60,
     alignItems: "center",
     paddingHorizontal: 15,
-    height: 55,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 5,
+    elevation: 5,
   },
-  input: {
+  textInput: {
     flex: 1,
-    textAlign: "right",
-    fontSize: 16,
+    fontSize: 18,
     color: "#333",
-    fontFamily: "Tajawal_500Medium",
+    textAlign: "left",
+    fontWeight: "500",
   },
-  inputIcon: {
-    marginLeft: 10,
+  verticalDivider: {
+    width: 1,
+    height: "60%",
+    backgroundColor: "#EEE",
+    marginHorizontal: 10,
+  },
+  countryContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  countryCode: {
+    fontSize: 16,
+    fontWeight: "bold",
+    color: "#333",
+    marginRight: 8,
+  },
+  flagIcon: {
+    width: 25,
+    height: 18,
+    borderRadius: 2,
   },
   errorText: {
     color: "#FFE0E0",
