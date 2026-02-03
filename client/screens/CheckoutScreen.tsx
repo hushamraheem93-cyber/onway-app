@@ -1,11 +1,11 @@
 import React, { useState } from "react";
-import { StyleSheet, View, TextInput, Alert } from "react-native";
+import { StyleSheet, View, TextInput, Alert, Modal, Pressable, FlatList } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import * as Haptics from "expo-haptics";
-import { Picker } from "@react-native-picker/picker";
+import { Feather } from "@expo/vector-icons";
 
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import { useTheme } from "@/hooks/useTheme";
@@ -41,6 +41,13 @@ export default function CheckoutScreen() {
   const [address, setAddress] = useState("");
   const [notes, setNotes] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showAreaPicker, setShowAreaPicker] = useState(false);
+
+  const handleSelectArea = (areaId: string) => {
+    setSelectedArea(areaId);
+    setShowAreaPicker(false);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  };
 
   const subtotal = getTotal();
   const selectedAreaData = DELIVERY_AREAS.find(a => a.id === selectedArea);
@@ -142,23 +149,87 @@ export default function CheckoutScreen() {
         <ThemedText type="small" style={[styles.label, { color: theme.textSecondary }]}>
           منطقة التوصيل
         </ThemedText>
-        <View style={[styles.pickerContainer, { borderColor: theme.border }]}>
-          <Picker
-            selectedValue={selectedArea}
-            onValueChange={(value: string) => setSelectedArea(value)}
-            style={[styles.picker, { color: theme.text }]}
-            dropdownIconColor={theme.text}
+        <Pressable
+          onPress={() => setShowAreaPicker(true)}
+          style={[
+            styles.dropdownButton,
+            { 
+              borderColor: selectedArea ? AppColors.primary : theme.border,
+              backgroundColor: selectedArea ? AppColors.secondary : "transparent"
+            }
+          ]}
+        >
+          <Feather name="chevron-down" size={20} color={theme.textSecondary} />
+          <ThemedText 
+            type="body" 
+            style={{ 
+              flex: 1, 
+              textAlign: "right",
+              color: selectedArea ? AppColors.primary : theme.textSecondary,
+              fontWeight: selectedArea ? "600" : "400"
+            }}
           >
-            {DELIVERY_AREAS.map((area) => (
-              <Picker.Item
-                key={area.id}
-                label={area.id ? `${area.name} (${formatPrice(area.fee)})` : area.name}
-                value={area.id}
-              />
-            ))}
-          </Picker>
-        </View>
+            {selectedAreaData?.id 
+              ? `${selectedAreaData.name} (${formatPrice(selectedAreaData.fee)})` 
+              : "اختر المنطقة"}
+          </ThemedText>
+        </Pressable>
       </View>
+
+      <Modal
+        visible={showAreaPicker}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowAreaPicker(false)}
+      >
+        <Pressable 
+          style={styles.modalOverlay}
+          onPress={() => setShowAreaPicker(false)}
+        >
+          <View style={[styles.modalContent, { backgroundColor: theme.backgroundDefault }]}>
+            <ThemedText type="h4" style={styles.modalTitle}>
+              اختر منطقة التوصيل
+            </ThemedText>
+            <FlatList
+              data={DELIVERY_AREAS.filter(a => a.id !== "")}
+              keyExtractor={(item) => item.id}
+              renderItem={({ item }) => (
+                <Pressable
+                  onPress={() => handleSelectArea(item.id)}
+                  style={[
+                    styles.areaItem,
+                    selectedArea === item.id && { backgroundColor: AppColors.secondary }
+                  ]}
+                >
+                  <View style={styles.areaItemContent}>
+                    <ThemedText 
+                      type="body" 
+                      style={[
+                        styles.areaName,
+                        selectedArea === item.id && { color: AppColors.primary, fontWeight: "700" }
+                      ]}
+                    >
+                      {item.name}
+                    </ThemedText>
+                    <ThemedText 
+                      type="small" 
+                      style={[
+                        styles.areaFee,
+                        selectedArea === item.id && { color: AppColors.primary }
+                      ]}
+                    >
+                      {formatPrice(item.fee)}
+                    </ThemedText>
+                  </View>
+                  {selectedArea === item.id && (
+                    <Feather name="check-circle" size={22} color={AppColors.primary} />
+                  )}
+                </Pressable>
+              )}
+            />
+          </View>
+        </Pressable>
+      </Modal>
 
       <View style={[styles.inputContainer, { backgroundColor: theme.backgroundDefault }, Shadows.sm]}>
         <ThemedText type="small" style={[styles.label, { color: theme.textSecondary }]}>
@@ -259,12 +330,51 @@ const styles = StyleSheet.create({
     minHeight: 60,
     textAlignVertical: "top",
   },
-  pickerContainer: {
+  dropdownButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderWidth: 1.5,
     borderRadius: BorderRadius.md,
-    overflow: "hidden",
+    padding: Spacing.md,
+    gap: Spacing.sm,
   },
-  picker: {
-    marginHorizontal: -8,
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: Spacing.xl,
+  },
+  modalContent: {
+    width: "100%",
+    maxHeight: "60%",
+    borderRadius: BorderRadius.xl,
+    padding: Spacing.lg,
+  },
+  modalTitle: {
+    textAlign: "center",
+    marginBottom: Spacing.lg,
+    paddingBottom: Spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: "#E0E0E0",
+  },
+  areaItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: Spacing.lg,
+    borderRadius: BorderRadius.md,
+    marginBottom: Spacing.sm,
+  },
+  areaItemContent: {
+    flex: 1,
+    alignItems: "flex-end",
+  },
+  areaName: {
+    textAlign: "right",
+    marginBottom: 2,
+  },
+  areaFee: {
+    textAlign: "right",
   },
   summaryCard: {
     borderRadius: BorderRadius.lg,
