@@ -51,7 +51,7 @@ export function CategoryCard({ category, onPress, compact = false }: CategoryCar
 
   const cardWidth = compact ? undefined : DesignSystem.categoryCard.width;
   const cardHeight = compact ? undefined : DesignSystem.categoryCard.height;
-  const imageSize = compact ? 48 : DesignSystem.categoryImageSize;
+  const imageSize = compact ? 55 : DesignSystem.categoryImageSize;
 
   return (
     <AnimatedPressable
@@ -121,8 +121,8 @@ const styles = StyleSheet.create({
   },
   name: {
     textAlign: "center",
-    fontWeight: "600",
-    fontSize: 15,
+    fontWeight: "700",
+    fontSize: 13,
     color: AppColors.textPrimary,
   },
 });

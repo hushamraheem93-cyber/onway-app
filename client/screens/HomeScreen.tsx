@@ -21,7 +21,7 @@ import { RootStackParamList } from "@/navigation/RootStackNavigator";
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
-const NUM_COLUMNS = 5;
+const NUM_COLUMNS = 4;
 const GRID_GAP = DesignSystem.gridGap;
 const HORIZONTAL_PADDING = DesignSystem.screenPadding;
 const CARD_WIDTH = (SCREEN_WIDTH - HORIZONTAL_PADDING * 2 - GRID_GAP * (NUM_COLUMNS - 1)) / NUM_COLUMNS;
@@ -105,8 +105,9 @@ export default function HomeScreen() {
         </View>
       ) : (
         <View style={styles.categoriesContainer}>
-          {renderCategoryRow(0, 5)}
-          {renderCategoryRow(5, 5)}
+          {renderCategoryRow(0, 4)}
+          {renderCategoryRow(4, 4)}
+          {categories.length > 8 ? renderCategoryRow(8, 4) : null}
         </View>
       )}
     </View>

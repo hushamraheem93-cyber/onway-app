@@ -16,10 +16,10 @@ import { RootStackParamList } from "@/navigation/RootStackNavigator";
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
-const NUM_COLUMNS = 2;
+const NUM_COLUMNS = 4;
 const GRID_GAP = DesignSystem.gridGap;
 const HORIZONTAL_PADDING = DesignSystem.screenPadding;
-const CARD_WIDTH = (SCREEN_WIDTH - HORIZONTAL_PADDING * 2 - GRID_GAP) / NUM_COLUMNS;
+const CARD_WIDTH = (SCREEN_WIDTH - HORIZONTAL_PADDING * 2 - GRID_GAP * (NUM_COLUMNS - 1)) / NUM_COLUMNS;
 
 export default function CategoriesScreen() {
   const insets = useSafeAreaInsets();
@@ -63,7 +63,7 @@ export default function CategoriesScreen() {
       data={categories}
       renderItem={renderCategory}
       keyExtractor={(item) => item.id}
-      numColumns={NUM_COLUMNS}
+      numColumns={4}
       showsVerticalScrollIndicator={false}
     />
   );
