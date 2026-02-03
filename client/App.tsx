@@ -33,6 +33,7 @@ import { CartProvider } from "@/context/CartContext";
 import { OrderProvider } from "@/context/OrderContext";
 import { FavoritesProvider } from "@/context/FavoritesContext";
 import { CartAnimationProvider } from "@/context/CartAnimationContext";
+import { ThemeProvider } from "@/context/ThemeContext";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -65,26 +66,28 @@ export default function App() {
   return (
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
-        <AuthProvider>
-          <CartProvider>
-            <OrderProvider>
-              <FavoritesProvider>
-                <CartAnimationProvider>
-                  <SafeAreaProvider>
-                    <GestureHandlerRootView style={styles.root}>
-                      <KeyboardProvider>
-                        <NavigationContainer>
-                          <RootStackNavigator />
-                        </NavigationContainer>
-                        <StatusBar style="auto" />
-                      </KeyboardProvider>
-                    </GestureHandlerRootView>
-                  </SafeAreaProvider>
-                </CartAnimationProvider>
-              </FavoritesProvider>
-            </OrderProvider>
-          </CartProvider>
-        </AuthProvider>
+        <ThemeProvider>
+          <AuthProvider>
+            <CartProvider>
+              <OrderProvider>
+                <FavoritesProvider>
+                  <CartAnimationProvider>
+                    <SafeAreaProvider>
+                      <GestureHandlerRootView style={styles.root}>
+                        <KeyboardProvider>
+                          <NavigationContainer>
+                            <RootStackNavigator />
+                          </NavigationContainer>
+                          <StatusBar style="auto" />
+                        </KeyboardProvider>
+                      </GestureHandlerRootView>
+                    </SafeAreaProvider>
+                  </CartAnimationProvider>
+                </FavoritesProvider>
+              </OrderProvider>
+            </CartProvider>
+          </AuthProvider>
+        </ThemeProvider>
       </QueryClientProvider>
     </ErrorBoundary>
   );

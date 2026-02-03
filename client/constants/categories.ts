@@ -26,6 +26,7 @@ export const MAIN_CATEGORIES: Category[] = [
   { id: "cleaning-care", name: "منظفات وعناية", image: "https://images.unsplash.com/photo-1563453392212-326f5e854473?w=300", productCount: 95 },
   { id: "baby", name: "مستلزمات الأطفال", image: "https://images.unsplash.com/photo-1515488042361-ee00e0ddd4e4?w=300", productCount: 60 },
   { id: "electronics-services", name: "إلكترونيات وخدمات", image: "https://images.unsplash.com/photo-1498049794561-7780e7231661?w=300", productCount: 75 },
+  { id: "flowers", name: "محلات الزهور", image: "https://images.unsplash.com/photo-1490750967868-88aa4486c946?w=400", productCount: 25 },
 ];
 
 export const CATEGORIES = MAIN_CATEGORIES;
@@ -109,4 +110,18 @@ export const PRODUCTS: Product[] = [
   { id: "p12", categoryId: "snacks-sweets", name: "شوكولاتة داكنة", price: 18000, image: "https://images.unsplash.com/photo-1606312619070-d48b4c652a52?w=400", description: "شوكولاتة داكنة فاخرة 100 جرام", inStock: true },
   { id: "p13", categoryId: "baby", name: "حفاضات أطفال", price: 35000, image: "https://images.unsplash.com/photo-1515488042361-ee00e0ddd4e4?w=400", description: "حفاضات أطفال مقاس M عبوة 40", inStock: true },
   { id: "p14", categoryId: "electronics-services", name: "شاحن سريع", price: 65000, image: "https://images.unsplash.com/photo-1583394838336-acd977736f90?w=400", description: "شاحن سريع 20 واط", inStock: true },
+
+  // محلات الزهور - Flowers
+  { id: "fl1", categoryId: "flowers", name: "باقة ورد أحمر", price: 45000, image: "https://images.unsplash.com/photo-1518882605630-8eb9c8b3d783?w=400", description: "باقة ورد أحمر طازج 12 وردة", inStock: true },
+  { id: "fl2", categoryId: "flowers", name: "باقة ورد أبيض", price: 40000, image: "https://images.unsplash.com/photo-1487530811176-3780de880c2d?w=400", description: "باقة ورد أبيض فاخرة 10 ورود", inStock: true },
+  { id: "fl3", categoryId: "flowers", name: "زهور عباد الشمس", price: 35000, image: "https://images.unsplash.com/photo-1597848212624-a19eb35e2651?w=400", description: "باقة عباد الشمس 6 زهرات", inStock: true },
+  { id: "fl4", categoryId: "flowers", name: "أوركيد بنفسجي", price: 75000, image: "https://images.unsplash.com/photo-1566873535350-a3f5d4a804b7?w=400", description: "نبتة أوركيد بنفسجية في أصيص", inStock: true },
+  { id: "fl5", categoryId: "flowers", name: "باقة ورد مشكل", price: 55000, image: "https://images.unsplash.com/photo-1487530811176-3780de880c2d?w=400", description: "باقة ورد مشكلة ملونة", inStock: true },
+  { id: "fl6", categoryId: "flowers", name: "زنبق أبيض", price: 38000, image: "https://images.unsplash.com/photo-1606041008023-472dfb5e530f?w=400", description: "باقة زنبق أبيض 8 زهرات", inStock: true },
+  { id: "fl7", categoryId: "flowers", name: "توليب هولندي", price: 60000, image: "https://images.unsplash.com/photo-1520763185298-1b434c919102?w=400", description: "باقة توليب هولندي ملون 10 زهرات", inStock: true },
+  { id: "fl8", categoryId: "flowers", name: "ورد جوري وردي", price: 50000, image: "https://images.unsplash.com/photo-1490750967868-88aa4486c946?w=400", description: "باقة ورد جوري وردي 12 وردة", inStock: true },
+  { id: "fl9", categoryId: "flowers", name: "باقة زفاف", price: 120000, image: "https://images.unsplash.com/photo-1522057306606-8d84dab69b81?w=400", description: "باقة زفاف فاخرة مع شريط ساتان", inStock: true, discount: 10 },
+  { id: "fl10", categoryId: "flowers", name: "نبتة صبار", price: 25000, image: "https://images.unsplash.com/photo-1459411552884-841db9b3cc2a?w=400", description: "نبتة صبار صغيرة في أصيص", inStock: true },
+  { id: "fl11", categoryId: "flowers", name: "لافندر", price: 28000, image: "https://images.unsplash.com/photo-1468327768560-75b778cbb551?w=400", description: "باقة لافندر عطرية", inStock: true },
+  { id: "fl12", categoryId: "flowers", name: "قرنفل أحمر", price: 32000, image: "https://images.unsplash.com/photo-1455659817273-f96807779a8a?w=400", description: "باقة قرنفل أحمر 15 زهرة", inStock: true },
 ];

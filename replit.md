@@ -141,3 +141,5 @@ Font Sizes: Title 16px, Category 14px, Small 12px
 - Added AddressesScreen (العناوين المحفوظة)
 - Added PaymentScreen (طرق الدفع)
 - All profile settings buttons are now functional
+- Added dark mode toggle in profile settings
+- Added flowers category (محلات الزهور) with 12 products

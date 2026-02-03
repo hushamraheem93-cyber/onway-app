@@ -1,5 +1,5 @@
 import React from "react";
-import { StyleSheet, View, Pressable } from "react-native";
+import { StyleSheet, View, Pressable, Switch } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
@@ -10,6 +10,7 @@ import * as Haptics from "expo-haptics";
 
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import { useTheme } from "@/hooks/useTheme";
+import { useThemeMode } from "@/context/ThemeContext";
 import { useAuth } from "@/context/AuthContext";
 import { Spacing, BorderRadius, Shadows, AppColors } from "@/constants/theme";
 import { ThemedText } from "@/components/ThemedText";
@@ -63,13 +64,19 @@ export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
   const headerHeight = useHeaderHeight();
   const tabBarHeight = useBottomTabBarHeight();
-  const { theme } = useTheme();
+  const { theme, isDark } = useTheme();
+  const { themeMode, setThemeMode } = useThemeMode();
   const { phoneNumber, logout } = useAuth();
   const navigation = useNavigation<NavigationProp>();
 
   const handleLogout = async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     await logout();
+  };
+
+  const handleThemeToggle = (value: boolean) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setThemeMode(value ? "dark" : "light");
   };
 
   return (
@@ -121,6 +128,25 @@ export default function ProfileScreen() {
         subtitle="إدارة بطاقات الدفع"
         onPress={() => navigation.navigate("Payment")}
       />
+      <View style={[styles.settingsItem, { backgroundColor: theme.backgroundDefault }, Shadows.sm]}>
+        <View style={[styles.iconContainer, { backgroundColor: AppColors.primary + "15" }]}>
+          <Feather name={isDark ? "moon" : "sun"} size={20} color={AppColors.primary} />
+        </View>
+        <View style={styles.settingsContent}>
+          <ThemedText type="body" style={styles.settingsTitle}>
+            الوضع الليلي
+          </ThemedText>
+          <ThemedText type="small" style={[styles.settingsSubtitle, { color: theme.textSecondary }]}>
+            {isDark ? "مفعّل" : "غير مفعّل"}
+          </ThemedText>
+        </View>
+        <Switch
+          value={isDark}
+          onValueChange={handleThemeToggle}
+          trackColor={{ false: "#ccc", true: AppColors.primary }}
+          thumbColor="#fff"
+        />
+      </View>
       <SettingsItem
         icon="globe"
         title="اللغة"
