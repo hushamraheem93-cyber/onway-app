@@ -145,7 +145,7 @@ export default function CheckoutScreen() {
         <View style={[styles.pickerContainer, { borderColor: theme.border }]}>
           <Picker
             selectedValue={selectedArea}
-            onValueChange={(value) => setSelectedArea(value)}
+            onValueChange={(value: string) => setSelectedArea(value)}
             style={[styles.picker, { color: theme.text }]}
             dropdownIconColor={theme.text}
           >
