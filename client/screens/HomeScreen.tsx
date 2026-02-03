@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { StyleSheet, View, FlatList, Dimensions, ActivityIndicator } from "react-native";
+import { StyleSheet, View, FlatList, ScrollView, Dimensions, ActivityIndicator } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
@@ -21,10 +21,9 @@ import { RootStackParamList } from "@/navigation/RootStackNavigator";
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
-const NUM_COLUMNS = 3;
 const GRID_GAP = DesignSystem.gridGap;
 const HORIZONTAL_PADDING = DesignSystem.screenPadding;
-const CARD_WIDTH = (SCREEN_WIDTH - HORIZONTAL_PADDING * 2 - GRID_GAP * (NUM_COLUMNS - 1)) / NUM_COLUMNS;
+const SLIDER_CARD_WIDTH = 100;
 
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
@@ -60,22 +59,28 @@ export default function HomeScreen() {
     }
   };
 
-  const renderCategoryRow = (startIndex: number, count: number) => {
-    const rowCategories = categories.slice(startIndex, startIndex + count);
-    return (
-      <View style={styles.categoryRow}>
-        {rowCategories.map((category) => (
-          <View key={category.id} style={[styles.categoryItem, { width: CARD_WIDTH }]}>
-            <CategoryCard
-              category={category}
-              onPress={() => handleCategoryPress(category)}
-              compact
-            />
-          </View>
-        ))}
-      </View>
-    );
-  };
+  const firstRowCategories = categories.slice(0, Math.ceil(categories.length / 2));
+  const secondRowCategories = categories.slice(Math.ceil(categories.length / 2));
+
+  const renderCategorySlider = (rowCategories: Category[]) => (
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      contentContainerStyle={styles.sliderContent}
+      style={styles.sliderRow}
+    >
+      {rowCategories.map((category) => (
+        <View key={category.id} style={styles.sliderItem}>
+          <CategoryCard
+            category={category}
+            onPress={() => handleCategoryPress(category)}
+            compact
+            sliderMode
+          />
+        </View>
+      ))}
+    </ScrollView>
+  );
 
   const renderContent = () => (
     <View>
@@ -105,10 +110,8 @@ export default function HomeScreen() {
         </View>
       ) : (
         <View style={styles.categoriesContainer}>
-          {renderCategoryRow(0, 3)}
-          {renderCategoryRow(3, 3)}
-          {renderCategoryRow(6, 3)}
-          {categories.length > 9 ? renderCategoryRow(9, 3) : null}
+          {renderCategorySlider(firstRowCategories)}
+          {renderCategorySlider(secondRowCategories)}
         </View>
       )}
     </View>
@@ -134,13 +137,18 @@ const styles = StyleSheet.create({
   categoriesContainer: {
     marginBottom: Spacing.xl,
     gap: GRID_GAP,
+    marginHorizontal: -HORIZONTAL_PADDING,
   },
-  categoryRow: {
-    flexDirection: "row",
-    justifyContent: "flex-start",
+  sliderRow: {
+    flexGrow: 0,
+  },
+  sliderContent: {
+    paddingHorizontal: HORIZONTAL_PADDING,
     gap: GRID_GAP,
   },
-  categoryItem: {},
+  sliderItem: {
+    width: SLIDER_CARD_WIDTH,
+  },
   loadingContainer: {
     paddingVertical: Spacing.xl,
     alignItems: "center",

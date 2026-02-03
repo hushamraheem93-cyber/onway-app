@@ -18,11 +18,12 @@ interface CategoryCardProps {
   category: Category;
   onPress: () => void;
   compact?: boolean;
+  sliderMode?: boolean;
 }
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
-export function CategoryCard({ category, onPress, compact = false }: CategoryCardProps) {
+export function CategoryCard({ category, onPress, compact = false, sliderMode = false }: CategoryCardProps) {
   const { theme } = useTheme();
   const scale = useSharedValue(1);
   const [isLoading, setIsLoading] = useState(true);
@@ -49,9 +50,9 @@ export function CategoryCard({ category, onPress, compact = false }: CategoryCar
     return `${getApiUrl()}${image}`;
   };
 
-  const cardWidth = compact ? undefined : DesignSystem.categoryCard.width;
-  const cardHeight = compact ? undefined : DesignSystem.categoryCard.height;
-  const imageSize = compact ? 75 : DesignSystem.categoryImageSize;
+  const cardWidth = sliderMode ? "100%" : compact ? undefined : DesignSystem.categoryCard.width;
+  const cardHeight = sliderMode ? 110 : compact ? undefined : DesignSystem.categoryCard.height;
+  const imageSize = sliderMode ? 60 : compact ? 75 : DesignSystem.categoryImageSize;
 
   return (
     <AnimatedPressable
@@ -86,7 +87,7 @@ export function CategoryCard({ category, onPress, compact = false }: CategoryCar
       </View>
       <ThemedText 
         type="body"
-        style={styles.name}
+        style={[styles.name, sliderMode && styles.sliderName]}
         numberOfLines={2}
       >
         {category.name}
@@ -124,5 +125,8 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     fontSize: 13,
     color: AppColors.textPrimary,
+  },
+  sliderName: {
+    fontSize: 11,
   },
 });
