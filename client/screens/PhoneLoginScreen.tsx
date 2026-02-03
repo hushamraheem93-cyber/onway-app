@@ -94,6 +94,9 @@ export default function PhoneLoginScreen() {
             <ThemedText type="h1" style={styles.appName}>
               Onway
             </ThemedText>
+            <ThemedText type="h2" style={styles.appNameArabic}>
+              اون وي كوفي
+            </ThemedText>
             <ThemedText type="body" style={styles.tagline}>
               توصيل سريع لباب بيتك
             </ThemedText>
@@ -198,6 +201,15 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
     fontSize: 42,
     fontWeight: "700",
+    fontFamily: "Poppins_700Bold",
+    marginBottom: Spacing.xs,
+    letterSpacing: 1,
+  },
+  appNameArabic: {
+    color: "#FFFFFF",
+    fontSize: 24,
+    fontWeight: "700",
+    fontFamily: "Cairo_700Bold",
     marginBottom: Spacing.sm,
   },
   tagline: {
