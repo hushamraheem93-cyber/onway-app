@@ -6,6 +6,7 @@ import { Platform } from "react-native";
 
 import HomeStackNavigator from "@/navigation/HomeStackNavigator";
 import OffersStackNavigator from "@/navigation/OffersStackNavigator";
+import FavoritesStackNavigator from "@/navigation/FavoritesStackNavigator";
 import CartStackNavigator from "@/navigation/CartStackNavigator";
 import ProfileStackNavigator from "@/navigation/ProfileStackNavigator";
 import { useTheme } from "@/hooks/useTheme";
@@ -14,6 +15,7 @@ import { AppColors } from "@/constants/theme";
 export type MainTabParamList = {
   HomeTab: undefined;
   OffersTab: undefined;
+  FavoritesTab: undefined;
   CartTab: undefined;
   ProfileTab: undefined;
 };
@@ -62,7 +64,17 @@ export default function MainTabNavigator() {
         options={{
           title: "التخفيضات",
           tabBarIcon: ({ color, size }) => (
-            <Feather name="percent" size={size} color={color} />
+            <Feather name="tag" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tab.Screen
+        name="FavoritesTab"
+        component={FavoritesStackNavigator}
+        options={{
+          title: "المفضلة",
+          tabBarIcon: ({ color, size }) => (
+            <Feather name="heart" size={size} color={color} />
           ),
         }}
       />
