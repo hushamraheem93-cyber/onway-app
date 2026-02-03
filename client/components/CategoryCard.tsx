@@ -51,7 +51,7 @@ export function CategoryCard({ category, onPress, compact = false }: CategoryCar
 
   const cardWidth = compact ? undefined : DesignSystem.categoryCard.width;
   const cardHeight = compact ? undefined : DesignSystem.categoryCard.height;
-  const imageSize = compact ? 55 : DesignSystem.categoryImageSize;
+  const imageSize = compact ? 65 : DesignSystem.categoryImageSize;
 
   return (
     <AnimatedPressable

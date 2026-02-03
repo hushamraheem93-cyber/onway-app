@@ -26,15 +26,15 @@ export const AppColors = {
 
 // Design System Constants
 export const DesignSystem = {
-  screenPadding: 12,
-  gridGap: 10,
+  screenPadding: 16,
+  gridGap: 12,
   categoryCard: {
-    width: 85,
-    height: 110,
+    width: 110,
+    height: 130,
   },
-  categoryImageSize: 60,
-  bannerHeight: 170,
-  bannerRadius: 20,
+  categoryImageSize: 70,
+  bannerHeight: 130,
+  bannerRadius: 16,
 };
 
 export const Colors = {
