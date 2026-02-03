@@ -213,8 +213,8 @@ const styles = StyleSheet.create({
   },
   logoContainer: {
     alignItems: "center",
+    marginTop: 40,
     marginBottom: 50,
-    marginTop: 20,
     overflow: "visible",
   },
   logoText: {
@@ -222,15 +222,14 @@ const styles = StyleSheet.create({
     fontSize: 55,
     color: "#FFF",
     letterSpacing: 1,
-    lineHeight: 75,
-    textAlign: "center",
+    lineHeight: 70,
   },
   logoSubText: {
-    fontSize: 20,
+    fontFamily: "Cairo_700Bold",
+    fontSize: 22,
     color: "#FFF",
-    marginTop: -5,
+    marginTop: -10,
     opacity: 0.9,
-    fontFamily: "Cairo_400Regular",
   },
   formContainer: {
     backgroundColor: "rgba(255, 255, 255, 0.2)",
