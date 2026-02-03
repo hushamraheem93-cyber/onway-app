@@ -106,42 +106,34 @@ export function ProductCard({ product, onPress }: ProductCardProps) {
       style={[
         styles.card,
         { backgroundColor: theme.backgroundDefault },
-        Shadows.md,
         animatedStyle,
       ]}
     >
       <View ref={cardRef} style={styles.imageContainer}>
-        <Image
-          source={{ uri: product.image }}
-          style={styles.image}
-          contentFit="cover"
-          transition={200}
-        />
         <AnimatedPressable
           onPress={handleToggleFavorite}
           style={[styles.favoriteButton, favoriteAnimatedStyle]}
         >
           <Feather
-            name={isFav ? "heart" : "heart"}
+            name="heart"
             size={18}
-            color={isFav ? "#E53935" : "#999999"}
-            style={isFav ? { opacity: 1 } : { opacity: 0.7 }}
+            color={isFav ? "#E53935" : "#666666"}
+            style={isFav ? { opacity: 1 } : { opacity: 0.6 }}
           />
         </AnimatedPressable>
+        <Image
+          source={{ uri: product.image }}
+          style={styles.image}
+          contentFit="contain"
+          transition={200}
+        />
       </View>
       <View style={styles.content}>
-        <ThemedText type="h4" numberOfLines={1} style={styles.name}>
+        <ThemedText type="body" numberOfLines={2} style={styles.name}>
           {product.name}
         </ThemedText>
-        <ThemedText
-          type="small"
-          numberOfLines={2}
-          style={[styles.description, { color: theme.textSecondary }]}
-        >
-          {product.description}
-        </ThemedText>
         <View style={styles.footer}>
-          <ThemedText type="h3" style={[styles.price, { color: AppColors.primary }]}>
+          <ThemedText type="h4" style={[styles.price, { color: AppColors.primary }]}>
             {formatPrice(product.price)}
           </ThemedText>
           {isInCart ? (
@@ -154,9 +146,9 @@ export function ProductCard({ product, onPress }: ProductCardProps) {
                   buttonAnimatedStyle,
                 ]}
               >
-                <Feather name="plus" size={18} color="#FFFFFF" />
+                <Feather name="plus" size={16} color="#FFFFFF" />
               </AnimatedPressable>
-              <ThemedText type="h4" style={styles.quantityText}>
+              <ThemedText type="body" style={styles.quantityText}>
                 {cartQuantity}
               </ThemedText>
               <AnimatedPressable
@@ -167,7 +159,7 @@ export function ProductCard({ product, onPress }: ProductCardProps) {
                   minusButtonAnimatedStyle,
                 ]}
               >
-                <Feather name="minus" size={18} color="#FFFFFF" />
+                <Feather name="minus" size={16} color="#FFFFFF" />
               </AnimatedPressable>
             </View>
           ) : (
@@ -179,7 +171,7 @@ export function ProductCard({ product, onPress }: ProductCardProps) {
                 buttonAnimatedStyle,
               ]}
             >
-              <Feather name="plus" size={20} color="#FFFFFF" />
+              <Feather name="plus" size={22} color="#FFFFFF" />
             </AnimatedPressable>
           )}
         </View>
@@ -190,71 +182,75 @@ export function ProductCard({ product, onPress }: ProductCardProps) {
 
 const styles = StyleSheet.create({
   card: {
-    flexDirection: "row-reverse",
-    borderRadius: BorderRadius.lg,
-    overflow: "hidden",
+    width: 160,
+    borderRadius: 15,
+    padding: Spacing.sm,
     marginBottom: Spacing.md,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
   imageContainer: {
     position: "relative",
+    alignItems: "center",
   },
   image: {
-    width: 100,
+    width: "100%",
     height: 100,
   },
   favoriteButton: {
     position: "absolute",
-    top: 6,
-    left: 6,
-    width: 28,
-    height: 28,
-    borderRadius: BorderRadius.full,
-    backgroundColor: "rgba(255,255,255,0.9)",
+    top: 0,
+    right: 0,
+    width: 32,
+    height: 32,
+    zIndex: 1,
     alignItems: "center",
     justifyContent: "center",
   },
   content: {
-    flex: 1,
-    padding: Spacing.md,
-    justifyContent: "space-between",
+    marginTop: Spacing.sm,
+    position: "relative",
   },
   name: {
     textAlign: "right",
-  },
-  description: {
-    textAlign: "right",
-    marginTop: Spacing.xs,
+    fontWeight: "bold",
+    fontSize: 14,
+    minHeight: 40,
   },
   footer: {
     flexDirection: "row-reverse",
     alignItems: "center",
     justifyContent: "space-between",
-    marginTop: Spacing.sm,
+    marginTop: Spacing.xs,
   },
   price: {
     fontWeight: "700",
+    textAlign: "right",
   },
   addButton: {
-    width: 36,
-    height: 36,
-    borderRadius: BorderRadius.full,
+    width: 35,
+    height: 35,
+    borderRadius: 10,
     alignItems: "center",
     justifyContent: "center",
   },
   quantityControls: {
     flexDirection: "row",
     alignItems: "center",
-    gap: Spacing.sm,
+    gap: Spacing.xs,
   },
   quantityButton: {
-    width: 32,
-    height: 32,
-    borderRadius: BorderRadius.full,
+    width: 28,
+    height: 28,
+    borderRadius: 8,
     alignItems: "center",
     justifyContent: "center",
   },
   quantityText: {
-    minWidth: 24,
+    minWidth: 20,
     textAlign: "center",
     fontWeight: "700",
   },

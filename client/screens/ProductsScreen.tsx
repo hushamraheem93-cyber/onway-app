@@ -51,17 +51,24 @@ export default function ProductsScreen() {
       contentContainerStyle={{
         paddingTop: headerHeight + Spacing.lg,
         paddingBottom: insets.bottom + Spacing.xl,
-        paddingHorizontal: Spacing.lg,
+        paddingHorizontal: Spacing.md,
         flexGrow: 1,
       }}
+      columnWrapperStyle={styles.columnWrapper}
       scrollIndicatorInsets={{ bottom: insets.bottom }}
       data={products}
       renderItem={renderProduct}
       keyExtractor={(item) => item.id}
+      numColumns={2}
       showsVerticalScrollIndicator={false}
       ListEmptyComponent={renderEmpty}
     />
   );
 }
 
-const styles = StyleSheet.create({});
+const styles = StyleSheet.create({
+  columnWrapper: {
+    justifyContent: "space-between",
+    paddingHorizontal: Spacing.xs,
+  },
+});
