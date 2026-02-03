@@ -8,7 +8,7 @@ import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useQuery } from "@tanstack/react-query";
 
 import { useTheme } from "@/hooks/useTheme";
-import { Spacing, AppColors } from "@/constants/theme";
+import { Spacing, AppColors, DesignSystem } from "@/constants/theme";
 import { Category } from "@/constants/categories";
 import { CategoryCard } from "@/components/CategoryCard";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
@@ -16,9 +16,10 @@ import { RootStackParamList } from "@/navigation/RootStackNavigator";
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
-const NUM_COLUMNS = 3;
-const HORIZONTAL_PADDING = Spacing.lg;
-const CARD_WIDTH = (SCREEN_WIDTH - HORIZONTAL_PADDING * 2) / NUM_COLUMNS;
+const NUM_COLUMNS = 2;
+const GRID_GAP = DesignSystem.gridGap;
+const HORIZONTAL_PADDING = DesignSystem.screenPadding;
+const CARD_WIDTH = (SCREEN_WIDTH - HORIZONTAL_PADDING * 2 - GRID_GAP) / NUM_COLUMNS;
 
 export default function CategoriesScreen() {
   const insets = useSafeAreaInsets();
@@ -55,8 +56,9 @@ export default function CategoriesScreen() {
       contentContainerStyle={{
         paddingTop: headerHeight + Spacing.lg,
         paddingBottom: tabBarHeight + Spacing.xl,
-        paddingHorizontal: Spacing.lg,
+        paddingHorizontal: HORIZONTAL_PADDING,
       }}
+      columnWrapperStyle={{ gap: GRID_GAP }}
       scrollIndicatorInsets={{ bottom: insets.bottom }}
       data={categories}
       renderItem={renderCategory}
@@ -69,7 +71,7 @@ export default function CategoriesScreen() {
 
 const styles = StyleSheet.create({
   categoryItem: {
-    marginBottom: Spacing.sm,
+    marginBottom: GRID_GAP,
   },
   loadingContainer: {
     flex: 1,

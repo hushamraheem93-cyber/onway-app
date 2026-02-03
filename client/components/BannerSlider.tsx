@@ -4,7 +4,7 @@ import { Image } from "expo-image";
 
 import { useTheme } from "@/hooks/useTheme";
 import { ThemedText } from "@/components/ThemedText";
-import { Spacing, BorderRadius, AppColors } from "@/constants/theme";
+import { Spacing, AppColors, DesignSystem } from "@/constants/theme";
 import { Banner } from "@/constants/categories";
 import { getApiUrl } from "@/lib/query-client";
 
@@ -14,8 +14,9 @@ interface BannerSliderProps {
 }
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
-const BANNER_WIDTH = SCREEN_WIDTH - Spacing.lg * 2;
-const BANNER_HEIGHT = 140;
+const BANNER_WIDTH = SCREEN_WIDTH - DesignSystem.screenPadding * 2;
+const BANNER_HEIGHT = DesignSystem.bannerHeight;
+const BANNER_RADIUS = DesignSystem.bannerRadius;
 
 export function BannerSlider({ banners, autoPlayInterval = 4000 }: BannerSliderProps) {
   const { theme } = useTheme();
@@ -137,7 +138,7 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.lg,
   },
   scrollView: {
-    borderRadius: BorderRadius.lg,
+    borderRadius: BANNER_RADIUS,
     overflow: "hidden",
   },
   scrollContent: {
@@ -151,7 +152,7 @@ const styles = StyleSheet.create({
   banner: {
     width: "100%",
     height: "100%",
-    borderRadius: BorderRadius.lg,
+    borderRadius: BANNER_RADIUS,
   },
   titleOverlay: {
     position: "absolute",
@@ -161,8 +162,8 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(0,0,0,0.5)",
     paddingVertical: Spacing.sm,
     paddingHorizontal: Spacing.md,
-    borderBottomLeftRadius: BorderRadius.lg,
-    borderBottomRightRadius: BorderRadius.lg,
+    borderBottomLeftRadius: BANNER_RADIUS,
+    borderBottomRightRadius: BANNER_RADIUS,
   },
   bannerTitle: {
     color: "#FFFFFF",

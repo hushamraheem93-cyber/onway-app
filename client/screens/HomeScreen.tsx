@@ -8,7 +8,7 @@ import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useQuery } from "@tanstack/react-query";
 
 import { useTheme } from "@/hooks/useTheme";
-import { Spacing, AppColors, BorderRadius } from "@/constants/theme";
+import { Spacing, AppColors, DesignSystem } from "@/constants/theme";
 import { Category, Banner } from "@/constants/categories";
 import { ThemedText } from "@/components/ThemedText";
 import { SearchBar } from "@/components/SearchBar";
@@ -22,9 +22,9 @@ type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const NUM_COLUMNS = 5;
-const CARD_MARGIN = Spacing.xs;
-const HORIZONTAL_PADDING = Spacing.lg;
-const CARD_WIDTH = (SCREEN_WIDTH - HORIZONTAL_PADDING * 2 - CARD_MARGIN * (NUM_COLUMNS * 2)) / NUM_COLUMNS;
+const GRID_GAP = DesignSystem.gridGap;
+const HORIZONTAL_PADDING = DesignSystem.screenPadding;
+const CARD_WIDTH = (SCREEN_WIDTH - HORIZONTAL_PADDING * 2 - GRID_GAP * (NUM_COLUMNS - 1)) / NUM_COLUMNS;
 
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
@@ -118,7 +118,7 @@ export default function HomeScreen() {
       contentContainerStyle={{
         paddingTop: headerHeight + Spacing.lg,
         paddingBottom: tabBarHeight + Spacing.xl,
-        paddingHorizontal: Spacing.lg,
+        paddingHorizontal: HORIZONTAL_PADDING,
       }}
       scrollIndicatorInsets={{ bottom: insets.bottom }}
       data={[{ key: "content" }]}
@@ -131,14 +131,14 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   categoriesContainer: {
     marginBottom: Spacing.xl,
+    gap: GRID_GAP,
   },
   categoryRow: {
     flexDirection: "row",
     justifyContent: "flex-start",
+    gap: GRID_GAP,
   },
-  categoryItem: {
-    marginBottom: Spacing.sm,
-  },
+  categoryItem: {},
   loadingContainer: {
     paddingVertical: Spacing.xl,
     alignItems: "center",

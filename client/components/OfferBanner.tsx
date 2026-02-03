@@ -3,7 +3,7 @@ import { StyleSheet, View, Pressable, Dimensions } from "react-native";
 import { Image } from "expo-image";
 
 import { ThemedText } from "@/components/ThemedText";
-import { Spacing, BorderRadius, AppColors } from "@/constants/theme";
+import { Spacing, BorderRadius, AppColors, DesignSystem } from "@/constants/theme";
 import { Banner } from "@/constants/categories";
 import { getApiUrl } from "@/lib/query-client";
 
@@ -13,8 +13,9 @@ interface OfferBannerProps {
 }
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
-const BANNER_WIDTH = SCREEN_WIDTH - Spacing.lg * 2;
-const BANNER_HEIGHT = 160;
+const BANNER_WIDTH = SCREEN_WIDTH - DesignSystem.screenPadding * 2;
+const BANNER_HEIGHT = DesignSystem.bannerHeight;
+const BANNER_RADIUS = DesignSystem.bannerRadius;
 
 export function OfferBanner({ banner, onPress }: OfferBannerProps) {
   const getImageUrl = (image: string) => {
@@ -50,7 +51,7 @@ const styles = StyleSheet.create({
   container: {
     width: BANNER_WIDTH,
     height: BANNER_HEIGHT,
-    borderRadius: BorderRadius.lg,
+    borderRadius: BANNER_RADIUS,
     overflow: "hidden",
     marginBottom: Spacing.lg,
   },

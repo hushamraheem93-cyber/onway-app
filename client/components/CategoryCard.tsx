@@ -10,8 +10,9 @@ import * as Haptics from "expo-haptics";
 
 import { ThemedText } from "@/components/ThemedText";
 import { useTheme } from "@/hooks/useTheme";
-import { Spacing, BorderRadius, AppColors } from "@/constants/theme";
+import { Spacing, BorderRadius, AppColors, DesignSystem, Shadows } from "@/constants/theme";
 import { Category } from "@/constants/categories";
+import { getApiUrl } from "@/lib/query-client";
 
 interface CategoryCardProps {
   category: Category;
@@ -43,6 +44,15 @@ export function CategoryCard({ category, onPress, compact = false }: CategoryCar
     onPress();
   };
 
+  const getImageUrl = (image: string) => {
+    if (image.startsWith("http")) return image;
+    return `${getApiUrl()}${image}`;
+  };
+
+  const cardWidth = compact ? undefined : DesignSystem.categoryCard.width;
+  const cardHeight = compact ? undefined : DesignSystem.categoryCard.height;
+  const imageSize = compact ? 48 : DesignSystem.categoryImageSize;
+
   return (
     <AnimatedPressable
       onPress={handlePress}
@@ -50,27 +60,32 @@ export function CategoryCard({ category, onPress, compact = false }: CategoryCar
       onPressOut={handlePressOut}
       style={[
         styles.card,
-        { backgroundColor: theme.backgroundDefault },
+        { 
+          backgroundColor: theme.backgroundDefault,
+          width: cardWidth,
+          height: cardHeight,
+        },
+        Shadows.sm,
         animatedStyle,
       ]}
     >
-      <View style={styles.imageContainer}>
+      <View style={[styles.imageContainer, { width: imageSize, height: imageSize }]}>
         {isLoading ? (
           <View style={[styles.imagePlaceholder, { backgroundColor: theme.backgroundSecondary }]}>
             <ActivityIndicator size="small" color={AppColors.primary} />
           </View>
         ) : null}
         <Image
-          source={{ uri: category.image }}
+          source={{ uri: getImageUrl(category.image) }}
           style={styles.image}
-          contentFit="cover"
+          contentFit="contain"
           transition={300}
           onLoadStart={() => setIsLoading(true)}
           onLoadEnd={() => setIsLoading(false)}
         />
       </View>
       <ThemedText 
-        type={compact ? "small" : "body"} 
+        type="small"
         style={styles.name}
         numberOfLines={2}
       >
@@ -82,18 +97,15 @@ export function CategoryCard({ category, onPress, compact = false }: CategoryCar
 
 const styles = StyleSheet.create({
   card: {
-    borderRadius: BorderRadius.lg,
+    borderRadius: BorderRadius.md,
     alignItems: "center",
-    margin: Spacing.xs,
+    justifyContent: "center",
+    gap: 10,
     padding: Spacing.sm,
-    overflow: "hidden",
   },
   imageContainer: {
-    width: "100%",
-    aspectRatio: 1,
-    borderRadius: BorderRadius.md,
+    borderRadius: BorderRadius.sm,
     overflow: "hidden",
-    marginBottom: Spacing.sm,
     position: "relative",
   },
   image: {
@@ -105,9 +117,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     zIndex: 1,
+    borderRadius: BorderRadius.sm,
   },
   name: {
     textAlign: "center",
-    fontWeight: "600",
+    fontWeight: "500",
+    color: AppColors.textPrimary,
   },
 });

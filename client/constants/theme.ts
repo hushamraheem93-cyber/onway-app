@@ -4,28 +4,43 @@ import { Platform, I18nManager } from "react-native";
 I18nManager.allowRTL(true);
 I18nManager.forceRTL(true);
 
-// App Colors - Inspired by Talabaty with soft orange palette
-const primaryColor = "#FF8C42";
+// App Colors - Talabaty-inspired original palette
+const primaryColor = "#ff7a00";
+const secondaryColor = "#fff3e6";
 const primaryLight = "#FFB174";
-const primaryDark = "#E67A30";
+const primaryDark = "#E66A00";
 
 export const AppColors = {
   primary: primaryColor,
+  secondary: secondaryColor,
   primaryLight: primaryLight,
   primaryDark: primaryDark,
   background: "#F5F5F5",
   surface: "#FFFFFF",
-  textPrimary: "#2C2C2C",
-  textSecondary: "#757575",
+  textPrimary: "#222222",
+  textSecondary: "#666666",
   border: "#E0E0E0",
   success: "#4CAF50",
   error: "#F44336",
 };
 
+// Design System Constants
+export const DesignSystem = {
+  screenPadding: 16,
+  gridGap: 14,
+  categoryCard: {
+    width: 160,
+    height: 140,
+  },
+  categoryImageSize: 72,
+  bannerHeight: 160,
+  bannerRadius: 18,
+};
+
 export const Colors = {
   light: {
-    text: "#2C2C2C",
-    textSecondary: "#757575",
+    text: "#222222",
+    textSecondary: "#666666",
     buttonText: "#FFFFFF",
     tabIconDefault: "#757575",
     tabIconSelected: primaryColor,
@@ -77,7 +92,7 @@ export const BorderRadius = {
   xs: 8,
   sm: 12,
   md: 16,
-  lg: 20,
+  lg: 18,
   xl: 24,
   "2xl": 32,
   "3xl": 40,
@@ -114,6 +129,11 @@ export const Typography = {
     fontSize: 14,
     lineHeight: 20,
     fontWeight: "400" as const,
+  },
+  category: {
+    fontSize: 14,
+    lineHeight: 20,
+    fontWeight: "500" as const,
   },
   link: {
     fontSize: 16,
