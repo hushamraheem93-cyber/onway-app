@@ -38,6 +38,7 @@ export interface Product {
   image: string;
   description: string;
   inStock: boolean;
+  discount?: number;
 }
 
 export const PRODUCTS: Product[] = [
