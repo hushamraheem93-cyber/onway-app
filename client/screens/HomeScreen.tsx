@@ -50,7 +50,7 @@ export default function HomeScreen() {
   };
 
   const handleSeeAllCategories = () => {
-    navigation.navigate("Main", { screen: "CategoriesTab" } as any);
+    navigation.navigate("AllCategories");
   };
 
   const handleSearch = () => {

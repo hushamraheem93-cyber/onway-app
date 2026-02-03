@@ -14,6 +14,7 @@ import { useTheme } from "@/hooks/useTheme";
 import { Spacing, BorderRadius, Shadows, AppColors } from "@/constants/theme";
 import { Product } from "@/constants/categories";
 import { useCart } from "@/context/CartContext";
+import { useFavorites } from "@/context/FavoritesContext";
 import { formatPrice } from "@/constants/currency";
 
 interface ProductCardProps {
@@ -26,12 +27,15 @@ const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 export function ProductCard({ product, onPress }: ProductCardProps) {
   const { theme } = useTheme();
   const { addToCart, updateQuantity, items } = useCart();
+  const { isFavorite, toggleFavorite } = useFavorites();
   const scale = useSharedValue(1);
   const buttonScale = useSharedValue(1);
   const minusButtonScale = useSharedValue(1);
+  const favoriteScale = useSharedValue(1);
 
   const isInCart = items.some((item) => item.product.id === product.id);
   const cartQuantity = items.find((item) => item.product.id === product.id)?.quantity || 0;
+  const isFav = isFavorite(product.id);
 
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }],
@@ -71,6 +75,19 @@ export function ProductCard({ product, onPress }: ProductCardProps) {
     transform: [{ scale: minusButtonScale.value }],
   }));
 
+  const favoriteAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: favoriteScale.value }],
+  }));
+
+  const handleToggleFavorite = () => {
+    favoriteScale.value = withSpring(0.8, { damping: 15, stiffness: 200 });
+    setTimeout(() => {
+      favoriteScale.value = withSpring(1, { damping: 15, stiffness: 200 });
+    }, 100);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    toggleFavorite(product);
+  };
+
   return (
     <AnimatedPressable
       onPress={onPress}
@@ -83,12 +100,25 @@ export function ProductCard({ product, onPress }: ProductCardProps) {
         animatedStyle,
       ]}
     >
-      <Image
-        source={{ uri: product.image }}
-        style={styles.image}
-        contentFit="cover"
-        transition={200}
-      />
+      <View style={styles.imageContainer}>
+        <Image
+          source={{ uri: product.image }}
+          style={styles.image}
+          contentFit="cover"
+          transition={200}
+        />
+        <AnimatedPressable
+          onPress={handleToggleFavorite}
+          style={[styles.favoriteButton, favoriteAnimatedStyle]}
+        >
+          <Feather
+            name={isFav ? "heart" : "heart"}
+            size={18}
+            color={isFav ? "#E53935" : "#999999"}
+            style={isFav ? { opacity: 1 } : { opacity: 0.7 }}
+          />
+        </AnimatedPressable>
+      </View>
       <View style={styles.content}>
         <ThemedText type="h4" numberOfLines={1} style={styles.name}>
           {product.name}
@@ -155,9 +185,23 @@ const styles = StyleSheet.create({
     overflow: "hidden",
     marginBottom: Spacing.md,
   },
+  imageContainer: {
+    position: "relative",
+  },
   image: {
     width: 100,
     height: 100,
+  },
+  favoriteButton: {
+    position: "absolute",
+    top: 6,
+    left: 6,
+    width: 28,
+    height: 28,
+    borderRadius: BorderRadius.full,
+    backgroundColor: "rgba(255,255,255,0.9)",
+    alignItems: "center",
+    justifyContent: "center",
   },
   content: {
     flex: 1,

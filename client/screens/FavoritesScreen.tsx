@@ -6,13 +6,21 @@ import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 
 import { useTheme } from "@/hooks/useTheme";
 import { Spacing, DesignSystem } from "@/constants/theme";
+import { Product } from "@/constants/categories";
+import { ProductCard } from "@/components/ProductCard";
 import { EmptyState } from "@/components/EmptyState";
+import { useFavorites } from "@/context/FavoritesContext";
 
 export default function FavoritesScreen() {
   const insets = useSafeAreaInsets();
   const headerHeight = useHeaderHeight();
   const tabBarHeight = useBottomTabBarHeight();
   const { theme } = useTheme();
+  const { favorites } = useFavorites();
+
+  const renderProduct = ({ item }: { item: Product }) => (
+    <ProductCard product={item} />
+  );
 
   return (
     <FlatList
@@ -24,8 +32,9 @@ export default function FavoritesScreen() {
         flexGrow: 1,
       }}
       scrollIndicatorInsets={{ bottom: insets.bottom }}
-      data={[]}
-      renderItem={() => null}
+      data={favorites}
+      renderItem={renderProduct}
+      keyExtractor={(item) => item.id}
       showsVerticalScrollIndicator={false}
       ListEmptyComponent={
         <EmptyState

@@ -6,6 +6,7 @@ import ProductsScreen from "@/screens/ProductsScreen";
 import CheckoutScreen from "@/screens/CheckoutScreen";
 import OrderConfirmationScreen from "@/screens/OrderConfirmationScreen";
 import PhoneLoginScreen from "@/screens/PhoneLoginScreen";
+import CategoriesScreen from "@/screens/CategoriesScreen";
 import { useScreenOptions } from "@/hooks/useScreenOptions";
 import { useAuth } from "@/context/AuthContext";
 import { AppColors } from "@/constants/theme";
@@ -14,6 +15,7 @@ import { Order } from "@/context/OrderContext";
 export type RootStackParamList = {
   PhoneLogin: undefined;
   Main: undefined;
+  AllCategories: undefined;
   Products: { categoryId?: string; categoryName: string; searchQuery?: string };
   Checkout: undefined;
   OrderConfirmation: { order: Order };
@@ -47,6 +49,13 @@ export default function RootStackNavigator() {
             name="Main"
             component={MainTabNavigator}
             options={{ headerShown: false }}
+          />
+          <Stack.Screen
+            name="AllCategories"
+            component={CategoriesScreen}
+            options={{
+              headerTitle: "جميع الأقسام",
+            }}
           />
           <Stack.Screen
             name="Products"
