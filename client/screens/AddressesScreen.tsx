@@ -1,14 +1,17 @@
-import React, { useState } from "react";
-import { StyleSheet, ScrollView, View, Pressable, TextInput } from "react-native";
+import React, { useState, useEffect } from "react";
+import { StyleSheet, ScrollView, View, Pressable, TextInput, Alert } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { Feather } from "@expo/vector-icons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Haptics from "expo-haptics";
 
 import { useTheme } from "@/hooks/useTheme";
 import { useAuth } from "@/context/AuthContext";
 import { Spacing, BorderRadius, Shadows, AppColors } from "@/constants/theme";
 import { ThemedText } from "@/components/ThemedText";
+
+const ADDRESSES_KEY = "@onway_addresses";
 
 interface Address {
   id: string;
@@ -36,40 +39,91 @@ export default function AddressesScreen() {
   const [showAddForm, setShowAddForm] = useState(false);
   const [newTitle, setNewTitle] = useState("");
   const [newAddress, setNewAddress] = useState("");
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    loadAddresses();
+  }, []);
+
+  const loadAddresses = async () => {
+    try {
+      const stored = await AsyncStorage.getItem(ADDRESSES_KEY);
+      if (stored) {
+        setAdditionalAddresses(JSON.parse(stored));
+      }
+    } catch (error) {
+      console.error("Error loading addresses:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const saveAddresses = async (addresses: Address[]) => {
+    try {
+      await AsyncStorage.setItem(ADDRESSES_KEY, JSON.stringify(addresses));
+      setAdditionalAddresses(addresses);
+    } catch (error) {
+      console.error("Error saving addresses:", error);
+      Alert.alert("خطأ", "حدث خطأ أثناء حفظ العنوان");
+    }
+  };
 
   const allAddresses = savedAddress 
     ? [savedAddress, ...additionalAddresses]
     : additionalAddresses;
 
   const handleAddAddress = () => {
-    if (newTitle.trim() && newAddress.trim()) {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      const newAddr: Address = {
-        id: Date.now().toString(),
-        title: newTitle.trim(),
-        region: "",
-        address: newAddress.trim(),
-        isDefault: allAddresses.length === 0,
-      };
-      setAdditionalAddresses([...additionalAddresses, newAddr]);
-      setNewTitle("");
-      setNewAddress("");
-      setShowAddForm(false);
+    if (!newTitle.trim() || !newAddress.trim()) {
+      Alert.alert("تنبيه", "يرجى إدخال اسم العنوان والعنوان التفصيلي");
+      return;
     }
+
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    const newAddr: Address = {
+      id: Date.now().toString(),
+      title: newTitle.trim(),
+      region: "",
+      address: newAddress.trim(),
+      isDefault: additionalAddresses.length === 0 && !savedAddress,
+    };
+    
+    const updatedAddresses = [...additionalAddresses, newAddr];
+    saveAddresses(updatedAddresses);
+    setNewTitle("");
+    setNewAddress("");
+    setShowAddForm(false);
   };
 
   const handleSetDefault = (id: string) => {
+    if (id === "profile-address") return;
+    
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setAdditionalAddresses(additionalAddresses.map(addr => ({
+    const updatedAddresses = additionalAddresses.map(addr => ({
       ...addr,
       isDefault: addr.id === id,
-    })));
+    }));
+    saveAddresses(updatedAddresses);
   };
 
   const handleDelete = (id: string) => {
     if (id === "profile-address") return;
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    setAdditionalAddresses(additionalAddresses.filter(addr => addr.id !== id));
+    
+    Alert.alert(
+      "حذف العنوان",
+      "هل أنت متأكد من حذف هذا العنوان؟",
+      [
+        { text: "إلغاء", style: "cancel" },
+        {
+          text: "حذف",
+          style: "destructive",
+          onPress: () => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+            const updatedAddresses = additionalAddresses.filter(addr => addr.id !== id);
+            saveAddresses(updatedAddresses);
+          },
+        },
+      ]
+    );
   };
 
   return (
@@ -82,7 +136,7 @@ export default function AddressesScreen() {
       }}
       showsVerticalScrollIndicator={false}
     >
-      {allAddresses.length === 0 ? (
+      {allAddresses.length === 0 && !isLoading ? (
         <View style={[styles.emptyState, { backgroundColor: theme.backgroundDefault }, Shadows.sm]}>
           <Feather name="map-pin" size={48} color={theme.textSecondary} />
           <ThemedText type="body" style={[styles.emptyText, { color: theme.textSecondary }]}>
@@ -164,7 +218,11 @@ export default function AddressesScreen() {
           />
           <View style={styles.formButtons}>
             <Pressable
-              onPress={() => setShowAddForm(false)}
+              onPress={() => {
+                setShowAddForm(false);
+                setNewTitle("");
+                setNewAddress("");
+              }}
               style={[styles.formBtn, { backgroundColor: "#ccc" }]}
             >
               <ThemedText type="body" style={{ color: "#333" }}>إلغاء</ThemedText>
