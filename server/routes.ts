@@ -289,15 +289,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const { name, categoryId, price, originalPrice, discount, description, inStock, image } = req.body;
     const db = getFirestore();
     
+    const priceNum = Number(price) || 0;
+    const originalPriceNum = originalPrice ? Number(originalPrice) : undefined;
+    const discountNum = discount ? Number(discount) : undefined;
+    
     if (db) {
       const newProduct = await createFirestoreProduct({
-        name,
-        categoryId,
-        price: parseInt(price) || 0,
-        originalPrice: originalPrice ? parseInt(originalPrice) : undefined,
-        discount: discount ? parseInt(discount) : undefined,
-        image: image || "",
-        description: description || "",
+        name: String(name || ""),
+        categoryId: String(categoryId || ""),
+        price: priceNum,
+        originalPrice: originalPriceNum,
+        discount: discountNum,
+        image: String(image || ""),
+        description: String(description || ""),
         inStock: inStock !== false,
       });
       if (newProduct) return res.json(newProduct);
@@ -306,13 +310,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     
     const newProduct: Product = {
       id: randomUUID(),
-      name,
-      categoryId,
-      price: parseInt(price) || 0,
-      originalPrice: originalPrice ? parseInt(originalPrice) : undefined,
-      discount: discount ? parseInt(discount) : undefined,
-      image: image || "",
-      description: description || "",
+      name: String(name || ""),
+      categoryId: String(categoryId || ""),
+      price: priceNum,
+      originalPrice: originalPriceNum,
+      discount: discountNum,
+      image: String(image || ""),
+      description: String(description || ""),
       inStock: inStock !== false,
     };
     products.push(newProduct);
@@ -324,13 +328,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const productId = req.params.id as string;
     const db = getFirestore();
     
+    const priceNum = price !== undefined ? Number(price) : undefined;
+    const originalPriceNum = originalPrice !== undefined ? Number(originalPrice) : undefined;
+    const discountNum = discount !== undefined ? Number(discount) : undefined;
+    
     if (db) {
       const updated = await updateFirestoreProduct(productId, {
-        name, categoryId,
-        price: price ? parseInt(price) : undefined,
-        originalPrice: originalPrice ? parseInt(originalPrice) : undefined,
-        discount: discount ? parseInt(discount) : undefined,
-        image, description, inStock,
+        name: name !== undefined ? String(name) : undefined,
+        categoryId: categoryId !== undefined ? String(categoryId) : undefined,
+        price: priceNum,
+        originalPrice: originalPriceNum,
+        discount: discountNum,
+        image: image !== undefined ? String(image) : undefined,
+        description: description !== undefined ? String(description) : undefined,
+        inStock,
       });
       if (updated) return res.json(updated);
       return res.status(404).json({ error: "Product not found" });
@@ -342,13 +353,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
     products[index] = {
       ...products[index],
-      name: name || products[index].name,
-      categoryId: categoryId || products[index].categoryId,
-      price: price ? parseInt(price) : products[index].price,
-      originalPrice: originalPrice ? parseInt(originalPrice) : products[index].originalPrice,
-      discount: discount ? parseInt(discount) : products[index].discount,
-      image: image || products[index].image,
-      description: description !== undefined ? description : products[index].description,
+      name: name !== undefined ? String(name) : products[index].name,
+      categoryId: categoryId !== undefined ? String(categoryId) : products[index].categoryId,
+      price: priceNum !== undefined ? priceNum : products[index].price,
+      originalPrice: originalPriceNum !== undefined ? originalPriceNum : products[index].originalPrice,
+      discount: discountNum !== undefined ? discountNum : products[index].discount,
+      image: image !== undefined ? String(image) : products[index].image,
+      description: description !== undefined ? String(description) : products[index].description,
       inStock: inStock !== undefined ? inStock : products[index].inStock,
     };
     res.json(products[index]);
