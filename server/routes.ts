@@ -60,6 +60,19 @@ interface DeliveryArea {
   isActive: boolean;
 }
 
+interface UserProfile {
+  id: string;
+  phoneNumber: string;
+  fullName: string;
+  gender: "male" | "female";
+  region: string;
+  address: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+let userProfiles: UserProfile[] = [];
+
 let deliveryAreas: DeliveryArea[] = [
   { id: "daloaiya", name: "الضلوعية المركز", fee: 3000, isActive: true },
   { id: "hawija", name: "الحويجة البحرية", fee: 3500, isActive: true },
@@ -351,6 +364,70 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
     deliveryAreas.splice(index, 1);
     res.json({ success: true });
+  });
+
+  app.get("/api/users/:phoneNumber", (req: Request, res: Response) => {
+    const user = userProfiles.find(u => u.phoneNumber === req.params.phoneNumber);
+    if (!user) {
+      return res.status(404).json({ error: "User not found", profileComplete: false });
+    }
+    res.json({ ...user, profileComplete: true });
+  });
+
+  app.post("/api/users", (req: Request, res: Response) => {
+    const { phoneNumber, fullName, gender, region, address } = req.body;
+    
+    if (!phoneNumber || !fullName || !gender || !region || !address) {
+      return res.status(400).json({ error: "All fields are required" });
+    }
+
+    const existingIndex = userProfiles.findIndex(u => u.phoneNumber === phoneNumber);
+    const now = new Date().toISOString();
+    
+    if (existingIndex !== -1) {
+      userProfiles[existingIndex] = {
+        ...userProfiles[existingIndex],
+        fullName,
+        gender,
+        region,
+        address,
+        updatedAt: now,
+      };
+      res.json({ ...userProfiles[existingIndex], profileComplete: true });
+    } else {
+      const newUser: UserProfile = {
+        id: randomUUID(),
+        phoneNumber,
+        fullName,
+        gender,
+        region,
+        address,
+        createdAt: now,
+        updatedAt: now,
+      };
+      userProfiles.push(newUser);
+      res.json({ ...newUser, profileComplete: true });
+    }
+  });
+
+  app.put("/api/users/:phoneNumber", (req: Request, res: Response) => {
+    const index = userProfiles.findIndex(u => u.phoneNumber === req.params.phoneNumber);
+    if (index === -1) {
+      return res.status(404).json({ error: "User not found" });
+    }
+    
+    const { fullName, gender, region, address } = req.body;
+    
+    userProfiles[index] = {
+      ...userProfiles[index],
+      fullName: fullName || userProfiles[index].fullName,
+      gender: gender || userProfiles[index].gender,
+      region: region || userProfiles[index].region,
+      address: address || userProfiles[index].address,
+      updatedAt: new Date().toISOString(),
+    };
+    
+    res.json({ ...userProfiles[index], profileComplete: true });
   });
 
   const httpServer = createServer(app);

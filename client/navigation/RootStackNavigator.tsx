@@ -7,6 +7,7 @@ import CheckoutScreen from "@/screens/CheckoutScreen";
 import OrderConfirmationScreen from "@/screens/OrderConfirmationScreen";
 import PhoneLoginScreen from "@/screens/PhoneLoginScreen";
 import OTPScreen from "@/screens/OTPScreen";
+import ProfileCompletionScreen from "@/screens/ProfileCompletionScreen";
 import CategoriesScreen from "@/screens/CategoriesScreen";
 import { useScreenOptions } from "@/hooks/useScreenOptions";
 import { useAuth } from "@/context/AuthContext";
@@ -16,6 +17,7 @@ import { Order } from "@/context/OrderContext";
 export type RootStackParamList = {
   PhoneLogin: undefined;
   OTPScreen: { phoneNumber: string };
+  ProfileCompletion: undefined;
   MainTabs: undefined;
   Main: undefined;
   AllCategories: undefined;
@@ -28,7 +30,7 @@ const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export default function RootStackNavigator() {
   const screenOptions = useScreenOptions();
-  const { isLoggedIn, isLoading } = useAuth();
+  const { isLoggedIn, isLoading, isProfileComplete } = useAuth();
 
   if (isLoading) {
     return (
@@ -53,6 +55,12 @@ export default function RootStackNavigator() {
             options={{ headerShown: false }}
           />
         </>
+      ) : !isProfileComplete ? (
+        <Stack.Screen
+          name="ProfileCompletion"
+          component={ProfileCompletionScreen}
+          options={{ headerShown: false }}
+        />
       ) : (
         <>
           <Stack.Screen
