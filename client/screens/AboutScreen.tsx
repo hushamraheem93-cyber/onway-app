@@ -43,7 +43,7 @@ export default function AboutScreen() {
         <ThemedText type="h3" style={styles.title}>من نحن</ThemedText>
         
         <ThemedText type="body" style={styles.paragraph}>
-          تطبيق OnWay هو مشروع محلي تم تطويره بالكامل من قبل المطور العراقي حشام العبيدي (HUSHAM ALOBAIDY) بهدف خدمة أهالي قضاء الضلوعية في محافظة صلاح الدين.
+          تطبيق OnWay هو مشروع محلي تم تطويره بالكامل من قبل المطور العراقي هشام العبيدي (HUSHAM ALOBAIDY) بهدف خدمة أهالي قضاء الضلوعية في محافظة صلاح الدين.
         </ThemedText>
 
         <ThemedText type="body" style={styles.paragraph}>
