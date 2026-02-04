@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin - Promo Slider Manager</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      padding: 40px 20px;
+    }
+    
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+    }
+    
+    h1 {
+      color: white;
+      text-align: center;
+      margin-bottom: 30px;
+      font-size: 2rem;
+    }
+    
+    .card {
+      background: white;
+      border-radius: 16px;
+      padding: 30px;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+      margin-bottom: 20px;
+    }
+    
+    .card h2 {
+      color: #333;
+      margin-bottom: 20px;
+      font-size: 1.4rem;
+      border-bottom: 2px solid #667eea;
+      padding-bottom: 10px;
+    }
+    
+    .form-group {
+      margin-bottom: 20px;
+    }
+    
+    .form-group label {
+      display: block;
+      margin-bottom: 8px;
+      color: #555;
+      font-weight: 600;
+    }
+    
+    .form-group input[type="text"],
+    .form-group input[type="url"],
+    .form-group textarea {
+      width: 100%;
+      padding: 12px 16px;
+      border: 2px solid #e0e0e0;
+      border-radius: 8px;
+      font-size: 1rem;
+      transition: border-color 0.3s;
+    }
+    
+    .form-group input:focus,
+    .form-group textarea:focus {
+      outline: none;
+      border-color: #667eea;
+    }
+    
+    .form-group textarea {
+      resize: vertical;
+      min-height: 100px;
+    }
+    
+    .slider-item {
+      background: #f8f9fa;
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 15px;
+      border: 1px solid #e0e0e0;
+    }
+    
+    .slider-item h3 {
+      color: #667eea;
+      margin-bottom: 15px;
+      font-size: 1.1rem;
+    }
+    
+    .btn {
+      padding: 12px 24px;
+      border: none;
+      border-radius: 8px;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+    
+    .btn-primary {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+    }
+    
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+    }
+    
+    .btn-secondary {
+      background: #6c757d;
+      color: white;
+      margin-right: 10px;
+    }
+    
+    .btn-danger {
+      background: #dc3545;
+      color: white;
+      padding: 8px 16px;
+      font-size: 0.9rem;
+    }
+    
+    .btn-add {
+      background: #28a745;
+      color: white;
+      margin-bottom: 20px;
+    }
+    
+    .button-group {
+      display: flex;
+      gap: 10px;
+      margin-top: 20px;
+    }
+    
+    .status {
+      padding: 15px;
+      border-radius: 8px;
+      margin-top: 20px;
+      display: none;
+    }
+    
+    .status.success {
+      background: #d4edda;
+      color: #155724;
+      display: block;
+    }
+    
+    .status.error {
+      background: #f8d7da;
+      color: #721c24;
+      display: block;
+    }
+    
+    .loading {
+      text-align: center;
+      padding: 40px;
+      color: #666;
+    }
+    
+    .preview-image {
+      max-width: 200px;
+      max-height: 100px;
+      margin-top: 10px;
+      border-radius: 8px;
+      object-fit: cover;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Promo Slider Manager</h1>
+    
+    <div class="card">
+      <h2>Manage Promo Slides</h2>
+      
+      <button class="btn btn-add" onclick="addNewSlide()">+ Add New Slide</button>
+      
+      <div id="slidesContainer">
+        <div class="loading">Loading slides...</div>
+      </div>
+      
+      <div class="button-group">
+        <button class="btn btn-primary" onclick="saveSlides()">Save All Changes</button>
+        <button class="btn btn-secondary" onclick="loadSlides()">Refresh</button>
+      </div>
+      
+      <div id="status" class="status"></div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+    import { getFirestore, collection, doc, getDocs, setDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyCmt-0JscXKAGNomamyMalrtPH7NXxZNBg",
+      authDomain: "onway-74c20.firebaseapp.com",
+      projectId: "onway-74c20",
+      storageBucket: "onway-74c20.firebasestorage.app",
+      messagingSenderId: "116297695107",
+      appId: "1:116297695107:web:772d3cc6f62f5e04bbc0b6",
+      measurementId: "G-L0CT34EMBE"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    let slides = [];
+    let slideCounter = 0;
+
+    window.addNewSlide = function() {
+      slideCounter++;
+      const newSlide = {
+        id: 'new_' + slideCounter,
+        title: '',
+        description: '',
+        imageUrl: '',
+        order: slides.length
+      };
+      slides.push(newSlide);
+      renderSlides();
+    };
+
+    window.removeSlide = function(index) {
+      if (confirm('Are you sure you want to remove this slide?')) {
+        slides.splice(index, 1);
+        slides.forEach((slide, i) => slide.order = i);
+        renderSlides();
+      }
+    };
+
+    window.updateSlide = function(index, field, value) {
+      slides[index][field] = value;
+    };
+
+    window.loadSlides = async function() {
+      const container = document.getElementById('slidesContainer');
+      container.innerHTML = '<div class="loading">Loading slides...</div>';
+      
+      try {
+        const querySnapshot = await getDocs(collection(db, "promoSlider"));
+        slides = [];
+        querySnapshot.forEach((doc) => {
+          slides.push({ id: doc.id, ...doc.data() });
+        });
+        slides.sort((a, b) => (a.order || 0) - (b.order || 0));
+        renderSlides();
+        showStatus('Slides loaded successfully!', 'success');
+      } catch (error) {
+        console.error("Error loading slides:", error);
+        container.innerHTML = '<div class="loading">Error loading slides. Please refresh.</div>';
+        showStatus('Error loading slides: ' + error.message, 'error');
+      }
+    };
+
+    window.saveSlides = async function() {
+      try {
+        showStatus('Saving...', 'success');
+        
+        for (let i = 0; i < slides.length; i++) {
+          const slide = slides[i];
+          slide.order = i;
+          
+          const slideId = slide.id.startsWith('new_') ? 'slide_' + Date.now() + '_' + i : slide.id;
+          
+          await setDoc(doc(db, "promoSlider", slideId), {
+            title: slide.title || '',
+            description: slide.description || '',
+            imageUrl: slide.imageUrl || '',
+            order: slide.order,
+            updatedAt: new Date().toISOString()
+          });
+          
+          if (slide.id.startsWith('new_')) {
+            slide.id = slideId;
+          }
+        }
+        
+        showStatus('All slides saved successfully!', 'success');
+      } catch (error) {
+        console.error("Error saving slides:", error);
+        showStatus('Error saving slides: ' + error.message, 'error');
+      }
+    };
+
+    function renderSlides() {
+      const container = document.getElementById('slidesContainer');
+      
+      if (slides.length === 0) {
+        container.innerHTML = '<div class="loading">No slides yet. Click "Add New Slide" to create one.</div>';
+        return;
+      }
+      
+      container.innerHTML = slides.map((slide, index) => `
+        <div class="slider-item">
+          <h3>Slide ${index + 1}</h3>
+          <div class="form-group">
+            <label>Title</label>
+            <input type="text" value="${escapeHtml(slide.title || '')}" 
+                   onchange="updateSlide(${index}, 'title', this.value)" 
+                   placeholder="Enter slide title">
+          </div>
+          <div class="form-group">
+            <label>Description</label>
+            <textarea onchange="updateSlide(${index}, 'description', this.value)" 
+                      placeholder="Enter slide description">${escapeHtml(slide.description || '')}</textarea>
+          </div>
+          <div class="form-group">
+            <label>Image URL</label>
+            <input type="url" value="${escapeHtml(slide.imageUrl || '')}" 
+                   onchange="updateSlide(${index}, 'imageUrl', this.value); updatePreview(${index}, this.value)"
+                   placeholder="https://example.com/image.jpg">
+            ${slide.imageUrl ? `<img src="${escapeHtml(slide.imageUrl)}" class="preview-image" id="preview-${index}" onerror="this.style.display='none'">` : `<img class="preview-image" id="preview-${index}" style="display:none">`}
+          </div>
+          <button class="btn btn-danger" onclick="removeSlide(${index})">Remove Slide</button>
+        </div>
+      `).join('');
+    }
+
+    window.updatePreview = function(index, url) {
+      const preview = document.getElementById('preview-' + index);
+      if (preview && url) {
+        preview.src = url;
+        preview.style.display = 'block';
+        preview.onerror = () => preview.style.display = 'none';
+      }
+    };
+
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    function showStatus(message, type) {
+      const status = document.getElementById('status');
+      status.textContent = message;
+      status.className = 'status ' + type;
+      
+      if (type === 'success' && message !== 'Saving...') {
+        setTimeout(() => {
+          status.className = 'status';
+        }, 3000);
+      }
+    }
+
+    loadSlides();
+  </script>
+</body>
+</html>
