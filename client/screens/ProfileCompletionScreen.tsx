@@ -4,7 +4,6 @@ import {
   View,
   TextInput,
   Pressable,
-  ScrollView,
   Alert,
   ActivityIndicator,
 } from "react-native";
@@ -15,6 +14,7 @@ import * as ImagePicker from "expo-image-picker";
 import { Image } from "expo-image";
 
 import { ThemedText } from "@/components/ThemedText";
+import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import { useTheme } from "@/hooks/useTheme";
 import { useAuth } from "@/context/AuthContext";
 import { AppColors, Spacing, BorderRadius, Shadows } from "@/constants/theme";
@@ -121,15 +121,16 @@ export default function ProfileCompletionScreen() {
   };
 
   return (
-    <ScrollView
+    <KeyboardAwareScrollViewCompat
       style={[styles.container, { backgroundColor: theme.backgroundRoot }]}
       contentContainerStyle={{
         paddingTop: insets.top + Spacing.xl,
-        paddingBottom: insets.bottom + Spacing.xl,
+        paddingBottom: insets.bottom + Spacing.xl + 100,
         paddingHorizontal: Spacing.lg,
       }}
       keyboardShouldPersistTaps="handled"
       showsVerticalScrollIndicator={false}
+      bottomOffset={50}
     >
       <View style={styles.header}>
         <Pressable onPress={showImageOptions} style={styles.avatarContainer}>
@@ -332,7 +333,7 @@ export default function ProfileCompletionScreen() {
       <ThemedText type="small" style={[styles.note, { color: theme.textSecondary }]}>
         رقم الهاتف: {phoneNumber}
       </ThemedText>
-    </ScrollView>
+    </KeyboardAwareScrollViewCompat>
   );
 }
 
