@@ -269,7 +269,7 @@ export default function AdminScreen() {
         discount: productForm.discount || undefined,
         description: productForm.description,
         inStock: productForm.inStock,
-        image: imageBase64,
+        image: "IMAGE_TEST",
       };
 
       const url = editItem ? `/api/admin/products/${editItem.id}` : "/api/admin/products";
