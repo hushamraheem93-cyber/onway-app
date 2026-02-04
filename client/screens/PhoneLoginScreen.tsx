@@ -19,9 +19,7 @@ import * as Haptics from "expo-haptics";
 
 import { ThemedText } from "@/components/ThemedText";
 import { AppColors } from "@/constants/theme";
-import { useNavigation } from "@react-navigation/native";
-import { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import { RootStackParamList } from "@/navigation/RootStackNavigator";
+import { useAuth } from "@/context/AuthContext";
 
 const SOCIAL_LINKS = {
   facebook: "https://facebook.com/onwayiq",
@@ -30,7 +28,7 @@ const SOCIAL_LINKS = {
 
 export default function PhoneLoginScreen() {
   const insets = useSafeAreaInsets();
-  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const { login } = useAuth();
   const [phoneNumber, setPhoneNumber] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
@@ -73,7 +71,7 @@ export default function PhoneLoginScreen() {
 
   const validatePhone = (phone: string) => {
     const cleanPhone = phone.replace(/\s/g, "");
-    if (cleanPhone.length < 10) {
+    if (cleanPhone.length < 9) {
       return false;
     }
     return true;
@@ -84,7 +82,7 @@ export default function PhoneLoginScreen() {
     return `00964${cleanPhone}`;
   };
 
-  const handleLogin = () => {
+  const handleLogin = async () => {
     setError("");
     
     if (!phoneNumber.trim()) {
@@ -93,13 +91,21 @@ export default function PhoneLoginScreen() {
     }
 
     if (!validatePhone(phoneNumber)) {
-      setError("رقم الهاتف غير صحيح");
+      setError("يرجى إدخال رقم هاتف عراقي صحيح");
       return;
     }
 
+    setIsLoading(true);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    const fullPhone = formatPhoneForLogin(phoneNumber);
-    navigation.navigate("OTPScreen", { phoneNumber: fullPhone });
+
+    try {
+      const fullPhone = formatPhoneForLogin(phoneNumber);
+      await login(fullPhone);
+    } catch (err) {
+      setError("حدث خطأ، الرجاء المحاولة مرة أخرى");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -122,7 +128,7 @@ export default function PhoneLoginScreen() {
 
         <View style={styles.formContainer}>
           <ThemedText type="body" style={styles.inputLabel}>
-            سجل برقم هاتفك
+            تسجيل الدخول
           </ThemedText>
 
           <View style={styles.phoneInputRow}>

@@ -1,0 +1,94 @@
+import React, { useState } from 'react';
+import { View, Text, TextInput, StyleSheet, Image, TouchableOpacity, Alert, SafeAreaView } from 'react-native';
+
+const LoginWithoutOTP = () => {
+  const [phone, setPhone] = useState('');
+
+  const handleLogin = () => {
+    if (phone.length < 9) {
+      Alert.alert("خطأ", "يرجى إدخال رقم هاتف عراقي صحيح");
+    } else {
+      // هنا مستقبلاً تضع كود الدخول الفعلي
+      Alert.alert("نجاح", "تم تسجيل الدخول بنجاح إلى OnWay");
+      // navigation.navigate('Home'); // هذا السطر ينقلك للرئيسية لاحقاً
+    }
+  };
+
+  return (
+    <SafeAreaView style={styles.safeArea}>
+      <View style={styles.container}>
+        
+        {/* الشعار المطور (بدون قص) */}
+        <View style={styles.logoBox}>
+          <Text style={styles.logoTitle}>OnWay</Text>
+          <Text style={styles.logoSub}>أون وي</Text>
+        </View>
+
+        {/* صندوق تسجيل الدخول */}
+        <View style={styles.formCard}>
+          <Text style={styles.label}>تسجيل الدخول</Text>
+          
+          <View style={styles.inputRow}>
+            <TextInput 
+              placeholder="7xx xxx xxxx"
+              keyboardType="phone-pad"
+              style={styles.input}
+              onChangeText={setPhone}
+              value={phone}
+            />
+            <View style={styles.divider} />
+            <View style={styles.countryBox}>
+              <Text style={styles.code}>+964</Text>
+              <Image 
+                source={{ uri: 'https://flagcdn.com/w80/iq.png' }} 
+                style={styles.flag} 
+              />
+            </View>
+          </View>
+
+          {/* زر المتابعة - يدخل مباشرة */}
+          <TouchableOpacity style={styles.button} onPress={handleLogin}>
+            <Text style={styles.buttonText}>متابعة</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* النص السفلي */}
+        <Text style={styles.footerText}>
+          بالمتابعة، أنت توافق على شروط الخدمة وسياسة الخصوصية
+        </Text>
+
+      </View>
+    </SafeAreaView>
+  );
+};
+
+const styles = StyleSheet.create({
+  safeArea: { flex: 1, backgroundColor: '#FF6B00' },
+  container: { flex: 1, paddingHorizontal: 25, justifyContent: 'center' },
+  logoBox: { alignItems: 'center', marginBottom: 50 },
+  logoTitle: { 
+    fontSize: 55, fontWeight: 'bold', color: '#FFF', 
+    lineHeight: 70, textShadowColor: 'rgba(0,0,0,0.2)', 
+    textShadowOffset: { width: 1, height: 2 }, textShadowRadius: 5 
+  },
+  logoSub: { fontSize: 20, color: '#FFF', marginTop: -5 },
+  formCard: { backgroundColor: 'rgba(255, 255, 255, 0.1)', padding: 20, borderRadius: 25 },
+  label: { color: '#FFF', textAlign: 'right', marginBottom: 15, fontSize: 18 },
+  inputRow: { 
+    flexDirection: 'row', backgroundColor: '#FFF', borderRadius: 15, 
+    height: 60, alignItems: 'center', paddingHorizontal: 15 
+  },
+  input: { flex: 1, fontSize: 18, textAlign: 'left' },
+  divider: { width: 1, height: '60%', backgroundColor: '#EEE', marginHorizontal: 10 },
+  countryBox: { flexDirection: 'row', alignItems: 'center' },
+  code: { fontSize: 16, fontWeight: 'bold', marginRight: 5 },
+  flag: { width: 30, height: 20, borderRadius: 3 },
+  button: { 
+    backgroundColor: '#FFF', height: 55, borderRadius: 15, 
+    marginTop: 20, justifyContent: 'center', alignItems: 'center' 
+  },
+  buttonText: { color: '#FF6B00', fontSize: 18, fontWeight: 'bold' },
+  footerText: { color: '#FFF', textAlign: 'center', fontSize: 12, marginTop: 30, opacity: 0.8 }
+});
+
+export default LoginWithoutOTP;
