@@ -1,7 +1,8 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { Platform } from "react-native";
 import { getApiUrl } from "@/lib/query-client";
-import { File } from "expo-file-system";
+import * as FileSystem from "expo-file-system";
 
 export interface UserProfile {
   id?: string;
@@ -121,8 +122,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       formData.append("address", profile.address);
 
       if (imageUri) {
-        const file = new File(imageUri);
-        formData.append("profileImage", file);
+        if (Platform.OS === "web") {
+          const response = await fetch(imageUri);
+          const blob = await response.blob();
+          const fileName = `profile-${Date.now()}.jpg`;
+          formData.append("profileImage", blob, fileName);
+        } else {
+          const file = new FileSystem.File(imageUri);
+          formData.append("profileImage", file);
+        }
       }
 
       const response = await fetch(new URL("/api/users", getApiUrl()).toString(), {
