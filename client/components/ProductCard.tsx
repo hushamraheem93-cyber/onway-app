@@ -183,14 +183,14 @@ export function ProductCard({ product, onPress }: ProductCardProps) {
 const styles = StyleSheet.create({
   card: {
     width: 160,
-    borderRadius: 15,
-    padding: Spacing.sm,
+    borderRadius: 20,
     marginBottom: Spacing.md,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    shadowRadius: 10,
+    elevation: 4,
+    overflow: "hidden",
   },
   imageContainer: {
     position: "relative",
@@ -198,7 +198,7 @@ const styles = StyleSheet.create({
   },
   image: {
     width: "100%",
-    height: 100,
+    height: 120,
   },
   favoriteButton: {
     position: "absolute",
@@ -211,7 +211,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   content: {
-    marginTop: Spacing.sm,
+    padding: 12,
     position: "relative",
   },
   name: {
