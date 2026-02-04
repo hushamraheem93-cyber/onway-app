@@ -4,10 +4,13 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { Feather } from "@expo/vector-icons";
 import Svg, { Path, Rect, Circle } from "react-native-svg";
+import { Image } from "expo-image";
 
 import { useTheme } from "@/hooks/useTheme";
 import { Spacing, BorderRadius, Shadows, AppColors } from "@/constants/theme";
 import { ThemedText } from "@/components/ThemedText";
+
+const ZainCashLogo = require("../../assets/images/zaincash-logo.png");
 
 function MastercardIcon({ size = 40 }: { size?: number }) {
   return (
@@ -19,23 +22,6 @@ function MastercardIcon({ size = 40 }: { size?: number }) {
         d="M30 9.5c2.5 2 4 5.1 4 8.5s-1.5 6.5-4 8.5c-2.5-2-4-5.1-4-8.5s1.5-6.5 4-8.5z"
         fill="#FF5F00"
       />
-    </Svg>
-  );
-}
-
-function ZainCashIcon({ size = 50 }: { size?: number }) {
-  return (
-    <Svg width={size} height={size * 0.65} viewBox="0 0 70 45">
-      <Rect width="70" height="45" rx="6" fill="#662D91" />
-      <Circle cx="55" cy="10" r="18" fill="#7B3FA0" opacity="0.5" />
-      <Circle cx="10" cy="38" r="12" fill="#552380" opacity="0.5" />
-      <Circle cx="12" cy="14" r="4" fill="#FFFFFF" />
-      <Path d="M20 10 L20 22 L24 22 L24 15 L30 22 L35 22 L35 10 L31 10 L31 17 L25 10 Z" fill="#FFFFFF" />
-      <Rect x="8" y="28" width="28" height="11" rx="3" fill="#00A651" />
-      <Path d="M12 36.5 L12 31 L15.5 31 L15.5 32.3 L13.5 32.3 L13.5 33 L15 33 L15 34.2 L13.5 34.2 L13.5 36.5 Z" fill="#FFFFFF" />
-      <Path d="M18 36.5 L18 31 L20.5 31 L22 33 L23.5 31 L26 31 L26 36.5 L24.3 36.5 L24.3 33.5 L22 36.5 L20.3 33.5 L20.3 36.5 Z" fill="#FFFFFF" />
-      <Circle cx="30" cy="33.5" r="3" fill="#FFFFFF" />
-      <Circle cx="30" cy="33.5" r="1.5" fill="#00A651" />
     </Svg>
   );
 }
@@ -98,7 +84,11 @@ export default function PaymentScreen() {
         <View style={styles.paymentMethod}>
           <View style={styles.paymentMethodContent}>
             <View style={styles.logoContainer}>
-              <ZainCashIcon size={50} />
+              <Image 
+                source={ZainCashLogo} 
+                style={styles.zainLogo}
+                contentFit="contain"
+              />
             </View>
             <View style={styles.paymentInfo}>
               <ThemedText type="body" style={styles.paymentTitle}>زين كاش</ThemedText>
@@ -201,6 +191,11 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     borderRadius: BorderRadius.sm,
     overflow: "hidden",
+  },
+  zainLogo: {
+    width: 40,
+    height: 40,
+    borderRadius: 8,
   },
   paymentInfo: {
     flex: 1,
