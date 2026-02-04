@@ -19,7 +19,9 @@ import * as Haptics from "expo-haptics";
 
 import { ThemedText } from "@/components/ThemedText";
 import { AppColors } from "@/constants/theme";
-import { useAuth } from "@/context/AuthContext";
+import { useNavigation } from "@react-navigation/native";
+import { NativeStackNavigationProp } from "@react-navigation/native-stack";
+import { RootStackParamList } from "@/navigation/RootStackNavigator";
 
 const SOCIAL_LINKS = {
   facebook: "https://facebook.com/onwayiq",
@@ -28,7 +30,7 @@ const SOCIAL_LINKS = {
 
 export default function PhoneLoginScreen() {
   const insets = useSafeAreaInsets();
-  const { login } = useAuth();
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const [phoneNumber, setPhoneNumber] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
@@ -82,7 +84,7 @@ export default function PhoneLoginScreen() {
     return `00964${cleanPhone}`;
   };
 
-  const handleLogin = async () => {
+  const handleLogin = () => {
     setError("");
     
     if (!phoneNumber.trim()) {
@@ -95,17 +97,9 @@ export default function PhoneLoginScreen() {
       return;
     }
 
-    setIsLoading(true);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-
-    try {
-      const fullPhone = formatPhoneForLogin(phoneNumber);
-      await login(fullPhone);
-    } catch (err) {
-      setError("حدث خطأ، الرجاء المحاولة مرة أخرى");
-    } finally {
-      setIsLoading(false);
-    }
+    const fullPhone = formatPhoneForLogin(phoneNumber);
+    navigation.navigate("OTP", { phoneNumber: fullPhone });
   };
 
   return (

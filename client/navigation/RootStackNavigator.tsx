@@ -6,6 +6,7 @@ import ProductsScreen from "@/screens/ProductsScreen";
 import CheckoutScreen from "@/screens/CheckoutScreen";
 import OrderConfirmationScreen from "@/screens/OrderConfirmationScreen";
 import PhoneLoginScreen from "@/screens/PhoneLoginScreen";
+import OTPScreen from "@/screens/OTPScreen";
 import CategoriesScreen from "@/screens/CategoriesScreen";
 import { useScreenOptions } from "@/hooks/useScreenOptions";
 import { useAuth } from "@/context/AuthContext";
@@ -14,6 +15,8 @@ import { Order } from "@/context/OrderContext";
 
 export type RootStackParamList = {
   PhoneLogin: undefined;
+  OTP: { phoneNumber: string };
+  MainTabs: undefined;
   Main: undefined;
   AllCategories: undefined;
   Products: { categoryId?: string; categoryName: string; searchQuery?: string };
@@ -38,13 +41,25 @@ export default function RootStackNavigator() {
   return (
     <Stack.Navigator screenOptions={screenOptions}>
       {!isLoggedIn ? (
-        <Stack.Screen
-          name="PhoneLogin"
-          component={PhoneLoginScreen}
-          options={{ headerShown: false }}
-        />
+        <>
+          <Stack.Screen
+            name="PhoneLogin"
+            component={PhoneLoginScreen}
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen
+            name="OTP"
+            component={OTPScreen}
+            options={{ headerShown: false }}
+          />
+        </>
       ) : (
         <>
+          <Stack.Screen
+            name="MainTabs"
+            component={MainTabNavigator}
+            options={{ headerShown: false }}
+          />
           <Stack.Screen
             name="Main"
             component={MainTabNavigator}
