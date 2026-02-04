@@ -1,8 +1,11 @@
 import express from "express";
 import type { Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
+import { initializeFirebase } from "./firebase";
 import * as fs from "fs";
 import * as path from "path";
+
+initializeFirebase();
 
 const app = express();
 const log = console.log;

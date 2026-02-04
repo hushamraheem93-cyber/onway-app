@@ -4,6 +4,7 @@ import multer, { StorageEngine, FileFilterCallback } from "multer";
 import path from "path";
 import fs from "fs";
 import { randomUUID } from "crypto";
+import { getFirestore, getUserByPhone, createUser, updateUser, FirestoreUserProfile } from "./firebase";
 
 const uploadsDir = path.join(process.cwd(), "uploads");
 if (!fs.existsSync(uploadsDir)) {
@@ -367,7 +368,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json({ success: true });
   });
 
-  app.get("/api/users/:phoneNumber", (req: Request, res: Response) => {
+  app.get("/api/users/:phoneNumber", async (req: Request, res: Response) => {
+    const phoneNumber = req.params.phoneNumber as string;
+    const db = getFirestore();
+    
+    if (db) {
+      const user = await getUserByPhone(phoneNumber);
+      if (!user) {
+        return res.status(404).json({ error: "User not found", profileComplete: false });
+      }
+      return res.json({
+        id: user.id,
+        phoneNumber: user.phoneNumber,
+        fullName: user.fullName,
+        gender: user.gender,
+        region: user.region,
+        address: user.address,
+        profileImage: user.profileImage,
+        createdAt: user.createdAt.toDate().toISOString(),
+        updatedAt: user.updatedAt.toDate().toISOString(),
+        profileComplete: true,
+      });
+    }
+    
     const user = userProfiles.find(u => u.phoneNumber === req.params.phoneNumber);
     if (!user) {
       return res.status(404).json({ error: "User not found", profileComplete: false });
@@ -375,16 +398,69 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json({ ...user, profileComplete: true });
   });
 
-  app.post("/api/users", upload.single("profileImage"), (req: Request, res: Response) => {
+  app.post("/api/users", upload.single("profileImage"), async (req: Request, res: Response) => {
     const { phoneNumber, fullName, gender, region, address } = req.body;
     
     if (!phoneNumber || !fullName || !gender || !region || !address) {
       return res.status(400).json({ error: "All fields are required" });
     }
 
+    const profileImage = req.file ? `/uploads/${req.file.filename}` : undefined;
+    const db = getFirestore();
+    
+    if (db) {
+      const existingUser = await getUserByPhone(phoneNumber);
+      
+      if (existingUser) {
+        const updates: any = { fullName, gender, region, address };
+        if (profileImage) updates.profileImage = profileImage;
+        
+        const updatedUser = await updateUser(phoneNumber, updates);
+        if (updatedUser) {
+          return res.json({
+            id: updatedUser.id,
+            phoneNumber: updatedUser.phoneNumber,
+            fullName: updatedUser.fullName,
+            gender: updatedUser.gender,
+            region: updatedUser.region,
+            address: updatedUser.address,
+            profileImage: updatedUser.profileImage,
+            createdAt: updatedUser.createdAt.toDate().toISOString(),
+            updatedAt: updatedUser.updatedAt.toDate().toISOString(),
+            profileComplete: true,
+          });
+        }
+      } else {
+        const newUser = await createUser({
+          phoneNumber,
+          fullName,
+          gender,
+          region,
+          address,
+          profileImage,
+        });
+        
+        if (newUser) {
+          return res.json({
+            id: newUser.id,
+            phoneNumber: newUser.phoneNumber,
+            fullName: newUser.fullName,
+            gender: newUser.gender,
+            region: newUser.region,
+            address: newUser.address,
+            profileImage: newUser.profileImage,
+            createdAt: newUser.createdAt.toDate().toISOString(),
+            updatedAt: newUser.updatedAt.toDate().toISOString(),
+            profileComplete: true,
+          });
+        }
+      }
+      
+      return res.status(500).json({ error: "Failed to save user to Firestore" });
+    }
+
     const existingIndex = userProfiles.findIndex(u => u.phoneNumber === phoneNumber);
     const now = new Date().toISOString();
-    const profileImage = req.file ? `/uploads/${req.file.filename}` : undefined;
     
     if (existingIndex !== -1) {
       userProfiles[existingIndex] = {
@@ -414,14 +490,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/users/:phoneNumber", upload.single("profileImage"), (req: Request, res: Response) => {
-    const index = userProfiles.findIndex(u => u.phoneNumber === req.params.phoneNumber);
+  app.put("/api/users/:phoneNumber", upload.single("profileImage"), async (req: Request, res: Response) => {
+    const phoneNumber = req.params.phoneNumber as string;
+    const { fullName, gender, region, address } = req.body;
+    const profileImage = req.file ? `/uploads/${req.file.filename}` : undefined;
+    const db = getFirestore();
+    
+    if (db) {
+      const updates: any = {};
+      if (fullName) updates.fullName = fullName;
+      if (gender) updates.gender = gender;
+      if (region) updates.region = region;
+      if (address) updates.address = address;
+      if (profileImage) updates.profileImage = profileImage;
+      
+      const updatedUser = await updateUser(phoneNumber, updates);
+      if (!updatedUser) {
+        return res.status(404).json({ error: "User not found" });
+      }
+      
+      return res.json({
+        id: updatedUser.id,
+        phoneNumber: updatedUser.phoneNumber,
+        fullName: updatedUser.fullName,
+        gender: updatedUser.gender,
+        region: updatedUser.region,
+        address: updatedUser.address,
+        profileImage: updatedUser.profileImage,
+        createdAt: updatedUser.createdAt.toDate().toISOString(),
+        updatedAt: updatedUser.updatedAt.toDate().toISOString(),
+        profileComplete: true,
+      });
+    }
+    
+    const index = userProfiles.findIndex(u => u.phoneNumber === phoneNumber);
     if (index === -1) {
       return res.status(404).json({ error: "User not found" });
     }
-    
-    const { fullName, gender, region, address } = req.body;
-    const profileImage = req.file ? `/uploads/${req.file.filename}` : undefined;
     
     userProfiles[index] = {
       ...userProfiles[index],
