@@ -286,15 +286,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.post("/api/admin/products", async (req: Request, res: Response) => {
-    const { name, categoryId, price, originalPrice, discount, description, inStock, image } = req.body;
-    const db = getFirestore();
-    
-    const priceNum = Number(price) || 0;
-    const originalPriceNum = originalPrice ? Number(originalPrice) : undefined;
-    const discountNum = discount ? Number(discount) : undefined;
-    
-    if (db) {
-      const newProduct = await createFirestoreProduct({
+    try {
+      console.log("POST /api/admin/products - req.body exists:", !!req.body);
+      console.log("POST /api/admin/products - body keys:", req.body ? Object.keys(req.body) : "undefined");
+      
+      if (!req.body) {
+        return res.status(400).json({ error: "Request body is empty or too large" });
+      }
+      
+      const { name, categoryId, price, originalPrice, discount, description, inStock, image } = req.body;
+      const db = getFirestore();
+      
+      const priceNum = Number(price) || 0;
+      const originalPriceNum = originalPrice ? Number(originalPrice) : undefined;
+      const discountNum = discount ? Number(discount) : undefined;
+      
+      console.log("Product data:", { name, categoryId, price: priceNum, hasImage: !!image, imageLength: image?.length });
+      
+      if (db) {
+        const newProduct = await createFirestoreProduct({
+          name: String(name || ""),
+          categoryId: String(categoryId || ""),
+          price: priceNum,
+          originalPrice: originalPriceNum,
+          discount: discountNum,
+          image: String(image || ""),
+          description: String(description || ""),
+          inStock: inStock !== false,
+        });
+        if (newProduct) return res.json(newProduct);
+        return res.status(500).json({ error: "Failed to create product in Firestore" });
+      }
+      
+      const newProduct: Product = {
+        id: randomUUID(),
         name: String(name || ""),
         categoryId: String(categoryId || ""),
         price: priceNum,
@@ -303,24 +328,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         image: String(image || ""),
         description: String(description || ""),
         inStock: inStock !== false,
+      };
+      products.push(newProduct);
+      res.json(newProduct);
+    } catch (error: any) {
+      console.error("Error in POST /api/admin/products:", error);
+      res.status(500).json({ 
+        error: error?.message || "Unknown error",
+        code: error?.code,
+        details: error?.details || error?.toString()
       });
-      if (newProduct) return res.json(newProduct);
-      return res.status(500).json({ error: "Failed to create product" });
     }
-    
-    const newProduct: Product = {
-      id: randomUUID(),
-      name: String(name || ""),
-      categoryId: String(categoryId || ""),
-      price: priceNum,
-      originalPrice: originalPriceNum,
-      discount: discountNum,
-      image: String(image || ""),
-      description: String(description || ""),
-      inStock: inStock !== false,
-    };
-    products.push(newProduct);
-    res.json(newProduct);
   });
 
   app.put("/api/admin/products/:id", async (req: Request, res: Response) => {

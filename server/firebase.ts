@@ -182,21 +182,19 @@ export async function createProduct(data: {
   description: string;
   inStock: boolean;
 }): Promise<(FirestoreProduct & { id: string }) | null> {
-  if (!db) return null;
+  if (!db) throw new Error("Database not initialized");
   
-  try {
-    const now = admin.firestore.Timestamp.now();
-    const productDoc: FirestoreProduct = {
-      ...data,
-      createdAt: now,
-      updatedAt: now,
-    };
-    const docRef = await db.collection("products").add(productDoc);
-    return { id: docRef.id, ...productDoc };
-  } catch (error) {
-    console.error("Error creating product:", error);
-    return null;
-  }
+  console.log("createProduct called with:", { ...data, image: data.image ? `[Base64 ${data.image.length} chars]` : "none" });
+  
+  const now = admin.firestore.Timestamp.now();
+  const productDoc: FirestoreProduct = {
+    ...data,
+    createdAt: now,
+    updatedAt: now,
+  };
+  const docRef = await db.collection("products").add(productDoc);
+  console.log("Product created with ID:", docRef.id);
+  return { id: docRef.id, ...productDoc };
 }
 
 export async function updateProduct(id: string, updates: Partial<FirestoreProduct>): Promise<(FirestoreProduct & { id: string }) | null> {
