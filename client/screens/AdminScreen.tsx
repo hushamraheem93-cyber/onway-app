@@ -101,6 +101,8 @@ export default function AdminScreen() {
     fee: "",
   });
 
+  const [isSavingProduct, setIsSavingProduct] = useState(false);
+
   const { data: banners = [], isLoading: bannersLoading } = useQuery<Banner[]>({
     queryKey: ["/api/admin/banners"],
   });
@@ -250,6 +252,8 @@ export default function AdminScreen() {
   };
 
   const saveProduct = async () => {
+    if (isSavingProduct) return;
+    setIsSavingProduct(true);
     try {
       let imageBase64 = productForm.imageUrl;
       
@@ -283,6 +287,8 @@ export default function AdminScreen() {
     } catch (error) {
       console.error("Error saving product:", error);
       Alert.alert("خطأ", "فشل في حفظ المنتج");
+    } finally {
+      setIsSavingProduct(false);
     }
   };
 
@@ -644,8 +650,12 @@ export default function AdminScreen() {
               <ThemedText type="body" style={styles.cancelButtonText}>إلغاء</ThemedText>
             </Pressable>
           ) : null}
-          <Pressable style={styles.saveButton} onPress={saveProduct}>
-            <ThemedText type="body" style={styles.saveButtonText}>{editItem ? "حفظ التعديلات" : "إضافة"}</ThemedText>
+          <Pressable style={[styles.saveButton, isSavingProduct && { opacity: 0.7 }]} onPress={saveProduct} disabled={isSavingProduct}>
+            {isSavingProduct ? (
+              <ActivityIndicator color="#FFFFFF" size="small" />
+            ) : (
+              <ThemedText type="body" style={styles.saveButtonText}>{editItem ? "حفظ التعديلات" : "إضافة"}</ThemedText>
+            )}
           </Pressable>
         </View>
       </View>
