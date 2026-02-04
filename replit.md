@@ -97,12 +97,16 @@ Font Sizes: Title 16px, Category 14px, Small 12px
 - `GET /api/categories/:id` - Get single category
 - `GET /api/banners` - Get active banners
 - `GET /api/admin/banners` - Get all banners (admin)
-- `POST /api/admin/banners` - Create banner with image upload
+- `POST /api/admin/banners` - Create banner (JSON with Base64 image)
 - `PUT /api/admin/banners/:id` - Update banner
 - `DELETE /api/admin/banners/:id` - Delete banner
-- `POST /api/admin/categories` - Create category with image
-- `PUT /api/admin/categories/:id` - Update category
+- `POST /api/admin/categories` - Create category (JSON with Base64 image)
+- `PUT /api/admin/categories/:id` - Update category (JSON with Base64 image)
 - `DELETE /api/admin/categories/:id` - Delete category
+- `POST /api/admin/products` - Create product (JSON with Base64 image)
+- `PUT /api/admin/products/:id` - Update product (JSON with Base64 image)
+- `DELETE /api/admin/products/:id` - Delete product
+- `POST /api/users` - Create/update user profile (JSON with Base64 profileImage)
 
 ## Running the App
 1. Backend runs on port 5000
@@ -130,11 +134,21 @@ Font Sizes: Title 16px, Category 14px, Small 12px
 - Required secret: FIREBASE_SERVICE_ACCOUNT (JSON string of Firebase service account credentials)
 - Falls back to in-memory storage if Firebase is not configured
 
-### Image Handling (Base64)
-- Images are compressed using expo-image-manipulator (200x200px, 60% quality JPEG)
+### Image Handling (Base64 Strategy)
+All images are compressed and stored as Base64 strings to avoid Firebase Storage costs:
+
+**Size Configuration:**
+- Profile images: 200x200px, 60% quality
+- Product images: 400px width, 70% quality
+- Banner images: 800px width, 70% quality  
+- Category images: 300px width, 70% quality
+
+**Implementation:**
+- Compressed using expo-image-manipulator
 - Converted to Base64 data URI format: `data:image/jpeg;base64,...`
 - Stored directly in Firestore document (no Firebase Storage needed)
-- Displayed using expo-image with the Base64 string as source URI
+- All API endpoints accept JSON body with Base64 image strings
+- UI components use getImageUrl() helper that detects Base64, HTTP URLs, or local paths
 - Utility functions in `client/lib/imageUtils.ts`
 
 ### Backend (Admin SDK)
@@ -169,3 +183,9 @@ Font Sizes: Title 16px, Category 14px, Small 12px
 - All profile settings buttons are now functional
 - Added dark mode toggle in profile settings
 - Added flowers category (محلات الزهور) with 12 products
+- **February 2026: Implemented comprehensive Base64 image strategy**
+  - All images (profile, products, categories, banners) stored as Base64 in Firestore
+  - Eliminates Firebase Storage billing requirement (app works for free)
+  - Size-specific compression for each image type
+  - Updated all UI components to render Base64 images correctly
+  - Server endpoints converted from FormData to JSON with Base64
