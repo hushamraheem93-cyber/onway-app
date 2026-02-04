@@ -1,10 +1,11 @@
 import React from "react";
-import { StyleSheet, FlatList, View, Dimensions, ActivityIndicator, TouchableOpacity, Image } from "react-native";
+import { StyleSheet, FlatList, View, Dimensions, ActivityIndicator, TouchableOpacity } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useQuery } from "@tanstack/react-query";
+import { Image } from "expo-image";
 import * as Haptics from "expo-haptics";
 
 import { useTheme } from "@/hooks/useTheme";
@@ -48,8 +49,9 @@ export default function CategoriesScreen() {
       <View style={styles.iconContainer}>
         <Image
           source={{ uri: getImageUrl(item.image) }}
-          style={[styles.image, { tintColor: item.iconColor }]}
-          resizeMode="contain"
+          style={styles.image}
+          contentFit="contain"
+          transition={200}
         />
       </View>
       <ThemedText type="body" style={styles.name} numberOfLines={2}>
