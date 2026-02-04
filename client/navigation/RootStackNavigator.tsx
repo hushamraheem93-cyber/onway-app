@@ -15,7 +15,7 @@ import { Order } from "@/context/OrderContext";
 
 export type RootStackParamList = {
   PhoneLogin: undefined;
-  OTP: { phoneNumber: string };
+  OTPScreen: { phoneNumber: string };
   MainTabs: undefined;
   Main: undefined;
   AllCategories: undefined;
@@ -48,7 +48,7 @@ export default function RootStackNavigator() {
             options={{ headerShown: false }}
           />
           <Stack.Screen
-            name="OTP"
+            name="OTPScreen"
             component={OTPScreen}
             options={{ headerShown: false }}
           />

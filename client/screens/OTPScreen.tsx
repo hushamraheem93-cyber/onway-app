@@ -15,7 +15,7 @@ import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
 import { useAuth } from "@/context/AuthContext";
 
-type Props = NativeStackScreenProps<RootStackParamList, "OTP">;
+type Props = NativeStackScreenProps<RootStackParamList, "OTPScreen">;
 
 const OTPScreen = ({ route }: Props) => {
   const [otp, setOtp] = useState(["", "", "", ""]);

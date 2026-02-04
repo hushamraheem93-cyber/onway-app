@@ -99,7 +99,7 @@ export default function PhoneLoginScreen() {
 
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     const fullPhone = formatPhoneForLogin(phoneNumber);
-    navigation.navigate("OTP", { phoneNumber: fullPhone });
+    navigation.navigate("OTPScreen", { phoneNumber: fullPhone });
   };
 
   return (
