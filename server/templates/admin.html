@@ -3,247 +3,510 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>لوحة التحكم</title>
+  <title>لوحة التحكم - المتجر</title>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://unpkg.com/lucide@latest"></script>
   <style>
+    :root {
+      --primary: #6366f1;
+      --primary-dark: #4f46e5;
+      --primary-light: #818cf8;
+      --success: #10b981;
+      --success-light: #d1fae5;
+      --danger: #ef4444;
+      --danger-light: #fee2e2;
+      --warning: #f59e0b;
+      --warning-light: #fef3c7;
+      --info: #3b82f6;
+      --info-light: #dbeafe;
+      --gray-50: #f9fafb;
+      --gray-100: #f3f4f6;
+      --gray-200: #e5e7eb;
+      --gray-300: #d1d5db;
+      --gray-400: #9ca3af;
+      --gray-500: #6b7280;
+      --gray-600: #4b5563;
+      --gray-700: #374151;
+      --gray-800: #1f2937;
+      --gray-900: #111827;
+      --sidebar-width: 280px;
+      --header-height: 70px;
+    }
+
     * {
       box-sizing: border-box;
       margin: 0;
       padding: 0;
     }
-    
+
     body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-      background: #f0f2f5;
+      font-family: 'Cairo', sans-serif;
+      background: var(--gray-100);
       min-height: 100vh;
+      color: var(--gray-800);
     }
-    
+
+    /* Sidebar */
     .sidebar {
       position: fixed;
       right: 0;
       top: 0;
-      width: 250px;
+      width: var(--sidebar-width);
       height: 100vh;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      padding: 20px;
+      background: linear-gradient(180deg, var(--gray-900) 0%, var(--gray-800) 100%);
+      padding: 0;
       color: white;
+      z-index: 1000;
       overflow-y: auto;
+      transition: transform 0.3s ease;
     }
-    
-    .sidebar h1 {
-      font-size: 1.5rem;
-      margin-bottom: 30px;
-      padding-bottom: 20px;
-      border-bottom: 1px solid rgba(255,255,255,0.2);
-      text-align: center;
-    }
-    
-    .nav-item {
-      padding: 15px 20px;
-      margin-bottom: 10px;
-      border-radius: 10px;
-      cursor: pointer;
-      transition: all 0.3s;
+
+    .sidebar-header {
+      padding: 24px;
+      border-bottom: 1px solid rgba(255,255,255,0.1);
       display: flex;
       align-items: center;
       gap: 12px;
     }
-    
-    .nav-item:hover, .nav-item.active {
-      background: rgba(255,255,255,0.2);
+
+    .sidebar-header .logo {
+      width: 45px;
+      height: 45px;
+      background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
     }
-    
-    .nav-item svg {
+
+    .sidebar-header h1 {
+      font-size: 1.25rem;
+      font-weight: 700;
+    }
+
+    .sidebar-header span {
+      font-size: 0.75rem;
+      color: var(--gray-400);
+    }
+
+    .sidebar-nav {
+      padding: 20px 12px;
+    }
+
+    .nav-section {
+      margin-bottom: 24px;
+    }
+
+    .nav-section-title {
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      color: var(--gray-500);
+      padding: 0 16px;
+      margin-bottom: 8px;
+      letter-spacing: 1px;
+    }
+
+    .nav-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 14px 16px;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: all 0.2s;
+      color: var(--gray-300);
+      margin-bottom: 4px;
+    }
+
+    .nav-item:hover {
+      background: rgba(255,255,255,0.08);
+      color: white;
+    }
+
+    .nav-item.active {
+      background: var(--primary);
+      color: white;
+      box-shadow: 0 4px 12px rgba(99, 102, 241, 0.4);
+    }
+
+    .nav-item i {
       width: 20px;
       height: 20px;
     }
-    
+
+    .nav-item .badge {
+      margin-right: auto;
+      background: var(--primary-light);
+      color: white;
+      font-size: 0.7rem;
+      padding: 2px 8px;
+      border-radius: 20px;
+    }
+
+    .nav-item.active .badge {
+      background: rgba(255,255,255,0.2);
+    }
+
+    /* Main Content */
     .main-content {
-      margin-right: 250px;
-      padding: 30px;
+      margin-right: var(--sidebar-width);
       min-height: 100vh;
     }
-    
-    .page-header {
+
+    /* Header */
+    .header {
+      background: white;
+      height: var(--header-height);
+      padding: 0 32px;
       display: flex;
-      justify-content: space-between;
       align-items: center;
-      margin-bottom: 30px;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--gray-200);
+      position: sticky;
+      top: 0;
+      z-index: 100;
     }
-    
-    .page-header h2 {
-      font-size: 1.8rem;
-      color: #333;
+
+    .header-title h2 {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: var(--gray-800);
     }
-    
+
+    .header-title p {
+      font-size: 0.85rem;
+      color: var(--gray-500);
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .search-box {
+      position: relative;
+      width: 300px;
+    }
+
+    .search-box input {
+      width: 100%;
+      padding: 10px 16px 10px 44px;
+      border: 2px solid var(--gray-200);
+      border-radius: 10px;
+      font-size: 0.9rem;
+      font-family: 'Cairo', sans-serif;
+      transition: all 0.2s;
+    }
+
+    .search-box input:focus {
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+    }
+
+    .search-box i {
+      position: absolute;
+      left: 14px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--gray-400);
+      width: 18px;
+      height: 18px;
+    }
+
+    /* Content Area */
+    .content {
+      padding: 32px;
+    }
+
+    /* Stats Cards */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 24px;
+      margin-bottom: 32px;
+    }
+
+    .stat-card {
+      background: white;
+      border-radius: 16px;
+      padding: 24px;
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+      transition: all 0.2s;
+    }
+
+    .stat-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+    }
+
+    .stat-icon {
+      width: 56px;
+      height: 56px;
+      border-radius: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .stat-icon.purple { background: linear-gradient(135deg, #818cf8, #6366f1); }
+    .stat-icon.green { background: linear-gradient(135deg, #34d399, #10b981); }
+    .stat-icon.blue { background: linear-gradient(135deg, #60a5fa, #3b82f6); }
+    .stat-icon.orange { background: linear-gradient(135deg, #fbbf24, #f59e0b); }
+
+    .stat-icon i {
+      width: 28px;
+      height: 28px;
+      color: white;
+    }
+
+    .stat-info h3 {
+      font-size: 1.75rem;
+      font-weight: 700;
+      color: var(--gray-800);
+    }
+
+    .stat-info p {
+      color: var(--gray-500);
+      font-size: 0.9rem;
+    }
+
+    /* Card */
     .card {
       background: white;
       border-radius: 16px;
-      padding: 25px;
-      box-shadow: 0 2px 10px rgba(0,0,0,0.08);
-      margin-bottom: 20px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+      overflow: hidden;
     }
-    
-    .form-row {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-      gap: 20px;
-      margin-bottom: 20px;
+
+    .card-header {
+      padding: 20px 24px;
+      border-bottom: 1px solid var(--gray-200);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 16px;
     }
-    
-    .form-group {
-      margin-bottom: 15px;
-    }
-    
-    .form-group label {
-      display: block;
-      margin-bottom: 8px;
-      color: #555;
+
+    .card-header h3 {
+      font-size: 1.1rem;
       font-weight: 600;
-      font-size: 0.9rem;
+      display: flex;
+      align-items: center;
+      gap: 10px;
     }
-    
-    .form-group input,
-    .form-group textarea,
-    .form-group select {
-      width: 100%;
-      padding: 12px 16px;
-      border: 2px solid #e0e0e0;
-      border-radius: 8px;
-      font-size: 1rem;
-      transition: border-color 0.3s;
+
+    .card-header h3 i {
+      width: 22px;
+      height: 22px;
+      color: var(--primary);
     }
-    
-    .form-group input:focus,
-    .form-group textarea:focus,
-    .form-group select:focus {
-      outline: none;
-      border-color: #667eea;
+
+    .card-body {
+      padding: 24px;
     }
-    
-    .form-group textarea {
-      resize: vertical;
-      min-height: 80px;
-    }
-    
+
+    /* Buttons */
     .btn {
-      padding: 12px 24px;
-      border: none;
-      border-radius: 8px;
-      font-size: 0.95rem;
-      font-weight: 600;
-      cursor: pointer;
-      transition: all 0.3s;
       display: inline-flex;
       align-items: center;
       gap: 8px;
+      padding: 10px 20px;
+      border: none;
+      border-radius: 10px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      font-family: 'Cairo', sans-serif;
+      cursor: pointer;
+      transition: all 0.2s;
     }
-    
+
+    .btn i {
+      width: 18px;
+      height: 18px;
+    }
+
     .btn-primary {
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      background: var(--primary);
       color: white;
     }
-    
+
     .btn-primary:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+      background: var(--primary-dark);
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(99, 102, 241, 0.4);
     }
-    
+
     .btn-success {
-      background: #28a745;
+      background: var(--success);
       color: white;
     }
-    
+
     .btn-success:hover {
-      background: #218838;
+      background: #059669;
     }
-    
+
     .btn-danger {
-      background: #dc3545;
+      background: var(--danger);
       color: white;
     }
-    
+
     .btn-danger:hover {
-      background: #c82333;
+      background: #dc2626;
     }
-    
-    .btn-secondary {
-      background: #6c757d;
-      color: white;
+
+    .btn-outline {
+      background: transparent;
+      border: 2px solid var(--gray-300);
+      color: var(--gray-600);
     }
-    
+
+    .btn-outline:hover {
+      border-color: var(--primary);
+      color: var(--primary);
+      background: var(--gray-50);
+    }
+
     .btn-sm {
-      padding: 8px 16px;
-      font-size: 0.85rem;
+      padding: 8px 14px;
+      font-size: 0.8rem;
     }
-    
+
+    .btn-icon {
+      width: 36px;
+      height: 36px;
+      padding: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 8px;
+    }
+
+    /* Table */
     .table-container {
       overflow-x: auto;
     }
-    
+
     table {
       width: 100%;
       border-collapse: collapse;
     }
-    
+
     th, td {
-      padding: 15px;
+      padding: 16px 20px;
       text-align: right;
-      border-bottom: 1px solid #eee;
     }
-    
+
     th {
-      background: #f8f9fa;
+      background: var(--gray-50);
       font-weight: 600;
-      color: #555;
+      color: var(--gray-600);
       font-size: 0.85rem;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      border-bottom: 2px solid var(--gray-200);
     }
-    
-    tr:hover {
-      background: #f8f9fa;
+
+    td {
+      border-bottom: 1px solid var(--gray-100);
+      vertical-align: middle;
     }
-    
+
+    tr:hover td {
+      background: var(--gray-50);
+    }
+
     .item-image {
-      width: 60px;
-      height: 60px;
+      width: 50px;
+      height: 50px;
       object-fit: cover;
-      border-radius: 8px;
-      background: #f0f0f0;
+      border-radius: 10px;
+      background: var(--gray-200);
     }
-    
-    .image-upload-container {
+
+    .item-info {
       display: flex;
-      flex-direction: column;
-      gap: 10px;
+      align-items: center;
+      gap: 14px;
     }
-    
-    .image-upload-container input[type="file"] {
-      padding: 10px;
-      border: 2px dashed #667eea;
-      border-radius: 8px;
-      background: #f8f9ff;
-      cursor: pointer;
-    }
-    
-    .image-upload-container input[type="file"]:hover {
-      background: #eef0ff;
-    }
-    
-    .file-hint {
-      font-size: 0.85rem;
-      color: #666;
-      text-align: center;
-    }
-    
-    .price {
+
+    .item-details h4 {
       font-weight: 600;
-      color: #28a745;
+      color: var(--gray-800);
+      margin-bottom: 2px;
     }
-    
-    .actions {
+
+    .item-details span {
+      font-size: 0.8rem;
+      color: var(--gray-500);
+    }
+
+    .price-tag {
+      font-weight: 700;
+      color: var(--success);
+      font-size: 1rem;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 0.75rem;
+      font-weight: 600;
+    }
+
+    .badge-success {
+      background: var(--success-light);
+      color: var(--success);
+    }
+
+    .badge-danger {
+      background: var(--danger-light);
+      color: var(--danger);
+    }
+
+    .badge-warning {
+      background: var(--warning-light);
+      color: var(--warning);
+    }
+
+    .badge-info {
+      background: var(--info-light);
+      color: var(--info);
+    }
+
+    .actions-cell {
       display: flex;
       gap: 8px;
     }
-    
+
+    /* Empty State */
+    .empty-state {
+      text-align: center;
+      padding: 60px 20px;
+      color: var(--gray-500);
+    }
+
+    .empty-state i {
+      width: 64px;
+      height: 64px;
+      color: var(--gray-300);
+      margin-bottom: 16px;
+    }
+
+    .empty-state h4 {
+      font-size: 1.1rem;
+      color: var(--gray-600);
+      margin-bottom: 8px;
+    }
+
+    /* Modal */
     .modal-overlay {
       display: none;
       position: fixed;
@@ -252,328 +515,694 @@
       right: 0;
       bottom: 0;
       background: rgba(0,0,0,0.5);
-      z-index: 1000;
+      backdrop-filter: blur(4px);
+      z-index: 2000;
       align-items: center;
       justify-content: center;
+      padding: 20px;
     }
-    
+
     .modal-overlay.active {
       display: flex;
     }
-    
+
     .modal {
       background: white;
-      border-radius: 16px;
-      padding: 30px;
-      width: 90%;
-      max-width: 600px;
+      border-radius: 20px;
+      width: 100%;
+      max-width: 550px;
       max-height: 90vh;
       overflow-y: auto;
+      animation: modalSlide 0.3s ease;
     }
-    
+
+    @keyframes modalSlide {
+      from {
+        opacity: 0;
+        transform: translateY(-20px) scale(0.95);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+      }
+    }
+
     .modal-header {
+      padding: 24px;
+      border-bottom: 1px solid var(--gray-200);
       display: flex;
-      justify-content: space-between;
       align-items: center;
-      margin-bottom: 25px;
+      justify-content: space-between;
     }
-    
+
     .modal-header h3 {
-      font-size: 1.4rem;
-      color: #333;
+      font-size: 1.25rem;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 10px;
     }
-    
+
+    .modal-header h3 i {
+      color: var(--primary);
+    }
+
     .modal-close {
-      background: none;
+      width: 36px;
+      height: 36px;
       border: none;
-      font-size: 1.5rem;
+      background: var(--gray-100);
+      border-radius: 10px;
       cursor: pointer;
-      color: #999;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s;
     }
-    
-    .status-message {
-      padding: 15px;
-      border-radius: 8px;
+
+    .modal-close:hover {
+      background: var(--danger);
+      color: white;
+    }
+
+    .modal-body {
+      padding: 24px;
+    }
+
+    .modal-footer {
+      padding: 20px 24px;
+      border-top: 1px solid var(--gray-200);
+      display: flex;
+      gap: 12px;
+      justify-content: flex-end;
+    }
+
+    /* Form */
+    .form-group {
       margin-bottom: 20px;
+    }
+
+    .form-group label {
+      display: block;
+      margin-bottom: 8px;
+      font-weight: 600;
+      color: var(--gray-700);
+      font-size: 0.9rem;
+    }
+
+    .form-group label .required {
+      color: var(--danger);
+    }
+
+    .form-control {
+      width: 100%;
+      padding: 12px 16px;
+      border: 2px solid var(--gray-200);
+      border-radius: 10px;
+      font-size: 0.95rem;
+      font-family: 'Cairo', sans-serif;
+      transition: all 0.2s;
+    }
+
+    .form-control:focus {
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+    }
+
+    textarea.form-control {
+      resize: vertical;
+      min-height: 100px;
+    }
+
+    select.form-control {
+      cursor: pointer;
+    }
+
+    .form-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+
+    /* Image Upload */
+    .image-upload {
+      border: 2px dashed var(--gray-300);
+      border-radius: 12px;
+      padding: 24px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.2s;
+      background: var(--gray-50);
+    }
+
+    .image-upload:hover {
+      border-color: var(--primary);
+      background: rgba(99, 102, 241, 0.05);
+    }
+
+    .image-upload i {
+      width: 40px;
+      height: 40px;
+      color: var(--gray-400);
+      margin-bottom: 12px;
+    }
+
+    .image-upload p {
+      color: var(--gray-600);
+      font-size: 0.9rem;
+      margin-bottom: 4px;
+    }
+
+    .image-upload span {
+      color: var(--gray-400);
+      font-size: 0.8rem;
+    }
+
+    .image-upload input[type="file"] {
       display: none;
     }
-    
-    .status-message.success {
-      background: #d4edda;
-      color: #155724;
-      display: block;
+
+    .image-preview {
+      margin-top: 16px;
     }
-    
-    .status-message.error {
-      background: #f8d7da;
-      color: #721c24;
-      display: block;
+
+    .image-preview img {
+      max-width: 100%;
+      max-height: 150px;
+      border-radius: 10px;
+      object-fit: cover;
     }
-    
-    .loading-spinner {
+
+    .url-input {
+      margin-top: 12px;
+    }
+
+    .url-input .divider {
       text-align: center;
-      padding: 40px;
-      color: #666;
+      color: var(--gray-400);
+      font-size: 0.8rem;
+      margin-bottom: 12px;
     }
-    
+
+    /* Toast Notifications */
+    .toast-container {
+      position: fixed;
+      top: 24px;
+      left: 24px;
+      z-index: 3000;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .toast {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 16px 20px;
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.15);
+      animation: toastSlide 0.3s ease;
+      min-width: 300px;
+    }
+
+    @keyframes toastSlide {
+      from {
+        opacity: 0;
+        transform: translateX(-100%);
+      }
+      to {
+        opacity: 1;
+        transform: translateX(0);
+      }
+    }
+
+    .toast.hiding {
+      animation: toastHide 0.3s ease forwards;
+    }
+
+    @keyframes toastHide {
+      to {
+        opacity: 0;
+        transform: translateX(-100%);
+      }
+    }
+
+    .toast-icon {
+      width: 40px;
+      height: 40px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .toast-icon i {
+      width: 20px;
+      height: 20px;
+      color: white;
+    }
+
+    .toast.success .toast-icon { background: var(--success); }
+    .toast.error .toast-icon { background: var(--danger); }
+    .toast.warning .toast-icon { background: var(--warning); }
+    .toast.info .toast-icon { background: var(--info); }
+
+    .toast-content h4 {
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: var(--gray-800);
+    }
+
+    .toast-content p {
+      font-size: 0.85rem;
+      color: var(--gray-500);
+    }
+
+    .toast-close {
+      margin-right: auto;
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: var(--gray-400);
+      padding: 4px;
+    }
+
+    .toast-close:hover {
+      color: var(--gray-600);
+    }
+
+    /* Sections */
     .section {
       display: none;
     }
-    
+
     .section.active {
       display: block;
     }
-    
-    .stats-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-      gap: 20px;
-      margin-bottom: 30px;
+
+    /* Filter Bar */
+    .filter-bar {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
     }
-    
-    .stat-card {
-      background: white;
-      border-radius: 12px;
-      padding: 25px;
-      box-shadow: 0 2px 10px rgba(0,0,0,0.08);
-      text-align: center;
-    }
-    
-    .stat-card h4 {
-      color: #888;
+
+    .filter-bar select {
+      padding: 10px 16px;
+      border: 2px solid var(--gray-200);
+      border-radius: 10px;
+      font-family: 'Cairo', sans-serif;
       font-size: 0.9rem;
-      margin-bottom: 10px;
+      cursor: pointer;
+      background: white;
     }
-    
-    .stat-card .value {
-      font-size: 2rem;
-      font-weight: 700;
-      color: #333;
+
+    .filter-bar select:focus {
+      outline: none;
+      border-color: var(--primary);
     }
-    
-    .preview-image {
-      max-width: 150px;
-      max-height: 100px;
-      margin-top: 10px;
-      border-radius: 8px;
-      object-fit: cover;
+
+    /* Loading */
+    .loading {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 40px;
     }
-    
-    .empty-state {
-      text-align: center;
-      padding: 60px 20px;
-      color: #888;
+
+    .spinner {
+      width: 40px;
+      height: 40px;
+      border: 3px solid var(--gray-200);
+      border-top-color: var(--primary);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
     }
-    
-    .empty-state svg {
-      width: 80px;
-      height: 80px;
-      margin-bottom: 20px;
-      opacity: 0.5;
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
     }
-    
-    .badge {
-      display: inline-block;
-      padding: 4px 12px;
-      border-radius: 20px;
-      font-size: 0.8rem;
-      font-weight: 600;
-    }
-    
-    .badge-active {
-      background: #d4edda;
-      color: #155724;
-    }
-    
-    .badge-inactive {
-      background: #f8d7da;
-      color: #721c24;
-    }
-    
-    @media (max-width: 768px) {
+
+    /* Responsive */
+    @media (max-width: 1024px) {
       .sidebar {
-        width: 100%;
-        height: auto;
-        position: relative;
+        transform: translateX(100%);
       }
-      
+
+      .sidebar.open {
+        transform: translateX(0);
+      }
+
       .main-content {
         margin-right: 0;
       }
-      
+
+      .mobile-menu-btn {
+        display: flex;
+      }
+    }
+
+    @media (max-width: 768px) {
+      .header {
+        padding: 0 16px;
+      }
+
+      .content {
+        padding: 16px;
+      }
+
+      .search-box {
+        width: 100%;
+      }
+
+      .header-actions {
+        width: 100%;
+      }
+
       .form-row {
         grid-template-columns: 1fr;
       }
+
+      .stats-grid {
+        grid-template-columns: 1fr 1fr;
+      }
+    }
+
+    /* Confirmation Dialog */
+    .confirm-dialog {
+      text-align: center;
+      padding: 20px;
+    }
+
+    .confirm-dialog i {
+      width: 64px;
+      height: 64px;
+      color: var(--danger);
+      margin-bottom: 16px;
+    }
+
+    .confirm-dialog h4 {
+      font-size: 1.2rem;
+      margin-bottom: 8px;
+    }
+
+    .confirm-dialog p {
+      color: var(--gray-500);
+      margin-bottom: 24px;
+    }
+
+    .confirm-actions {
+      display: flex;
+      gap: 12px;
+      justify-content: center;
     }
   </style>
 </head>
 <body>
-  <nav class="sidebar">
-    <h1>لوحة التحكم</h1>
-    <div class="nav-item active" onclick="showSection('dashboard', this)">
-      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path></svg>
-      الرئيسية
-    </div>
-    <div class="nav-item" onclick="showSection('products', this)">
-      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path></svg>
-      المنتجات
-    </div>
-    <div class="nav-item" onclick="showSection('categories', this)">
-      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"></path></svg>
-      الفئات
-    </div>
-    <div class="nav-item" onclick="showSection('banners', this)">
-      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
-      السلايدر
-    </div>
-    <div class="nav-item" onclick="showSection('delivery', this)">
-      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
-      مناطق التوصيل
-    </div>
-  </nav>
+  <!-- Toast Container -->
+  <div class="toast-container" id="toast-container"></div>
 
+  <!-- Sidebar -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <div class="logo">
+        <i data-lucide="shopping-bag"></i>
+      </div>
+      <div>
+        <h1>المتجر</h1>
+        <span>لوحة التحكم</span>
+      </div>
+    </div>
+
+    <nav class="sidebar-nav">
+      <div class="nav-section">
+        <div class="nav-section-title">القائمة الرئيسية</div>
+        <div class="nav-item active" onclick="showSection('dashboard', this)">
+          <i data-lucide="layout-dashboard"></i>
+          <span>الرئيسية</span>
+        </div>
+        <div class="nav-item" onclick="showSection('products', this)">
+          <i data-lucide="package"></i>
+          <span>المنتجات</span>
+          <span class="badge" id="products-count">0</span>
+        </div>
+        <div class="nav-item" onclick="showSection('categories', this)">
+          <i data-lucide="folder-tree"></i>
+          <span>الفئات</span>
+          <span class="badge" id="categories-count">0</span>
+        </div>
+      </div>
+
+      <div class="nav-section">
+        <div class="nav-section-title">التسويق</div>
+        <div class="nav-item" onclick="showSection('banners', this)">
+          <i data-lucide="image"></i>
+          <span>السلايدر الترويجي</span>
+        </div>
+      </div>
+
+      <div class="nav-section">
+        <div class="nav-section-title">الإعدادات</div>
+        <div class="nav-item" onclick="showSection('delivery', this)">
+          <i data-lucide="truck"></i>
+          <span>مناطق التوصيل</span>
+        </div>
+      </div>
+    </nav>
+  </aside>
+
+  <!-- Main Content -->
   <main class="main-content">
     <!-- Dashboard Section -->
     <div id="dashboard-section" class="section active">
-      <div class="page-header">
-        <h2>نظرة عامة</h2>
-      </div>
-      
-      <div class="stats-grid">
-        <div class="stat-card">
-          <h4>المنتجات</h4>
-          <div class="value" id="total-products">0</div>
+      <header class="header">
+        <div class="header-title">
+          <h2>مرحباً بك 👋</h2>
+          <p>نظرة عامة على متجرك</p>
         </div>
-        <div class="stat-card">
-          <h4>الفئات</h4>
-          <div class="value" id="total-categories">0</div>
+      </header>
+
+      <div class="content">
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-icon purple">
+              <i data-lucide="package"></i>
+            </div>
+            <div class="stat-info">
+              <h3 id="stat-products">0</h3>
+              <p>إجمالي المنتجات</p>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon green">
+              <i data-lucide="folder-tree"></i>
+            </div>
+            <div class="stat-info">
+              <h3 id="stat-categories">0</h3>
+              <p>الفئات</p>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon blue">
+              <i data-lucide="image"></i>
+            </div>
+            <div class="stat-info">
+              <h3 id="stat-banners">0</h3>
+              <p>السلايدر الترويجي</p>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon orange">
+              <i data-lucide="map-pin"></i>
+            </div>
+            <div class="stat-info">
+              <h3 id="stat-areas">0</h3>
+              <p>مناطق التوصيل</p>
+            </div>
+          </div>
         </div>
-        <div class="stat-card">
-          <h4>السلايدر</h4>
-          <div class="value" id="total-banners">0</div>
+
+        <div class="card">
+          <div class="card-header">
+            <h3><i data-lucide="activity"></i> آخر المنتجات المضافة</h3>
+          </div>
+          <div class="card-body">
+            <div class="table-container">
+              <table>
+                <thead>
+                  <tr>
+                    <th>المنتج</th>
+                    <th>الفئة</th>
+                    <th>السعر</th>
+                  </tr>
+                </thead>
+                <tbody id="recent-products"></tbody>
+              </table>
+            </div>
+          </div>
         </div>
-        <div class="stat-card">
-          <h4>مناطق التوصيل</h4>
-          <div class="value" id="total-areas">0</div>
-        </div>
-      </div>
-      
-      <div class="card">
-        <h3>مرحباً بك في لوحة التحكم</h3>
-        <p style="color: #666; margin-top: 15px;">استخدم القائمة الجانبية لإدارة المنتجات والفئات والسلايدر ومناطق التوصيل.</p>
       </div>
     </div>
 
     <!-- Products Section -->
     <div id="products-section" class="section">
-      <div class="page-header">
-        <h2>إدارة المنتجات</h2>
-        <button class="btn btn-success" onclick="openProductModal()">+ إضافة منتج</button>
-      </div>
-      
-      <div id="products-status" class="status-message"></div>
-      
-      <div class="card">
-        <div class="table-container">
-          <table>
-            <thead>
-              <tr>
-                <th>الصورة</th>
-                <th>الاسم</th>
-                <th>الفئة</th>
-                <th>السعر</th>
-                <th>الإجراءات</th>
-              </tr>
-            </thead>
-            <tbody id="products-table">
-              <tr><td colspan="5" class="loading-spinner">جاري التحميل...</td></tr>
-            </tbody>
-          </table>
+      <header class="header">
+        <div class="header-title">
+          <h2>إدارة المنتجات</h2>
+          <p>إضافة وتعديل وحذف المنتجات</p>
+        </div>
+        <div class="header-actions">
+          <div class="search-box">
+            <i data-lucide="search"></i>
+            <input type="text" id="product-search" placeholder="ابحث عن منتج..." oninput="filterProducts()">
+          </div>
+          <button class="btn btn-primary" onclick="openProductModal()">
+            <i data-lucide="plus"></i>
+            إضافة منتج
+          </button>
+        </div>
+      </header>
+
+      <div class="content">
+        <div class="card">
+          <div class="card-header">
+            <h3><i data-lucide="package"></i> قائمة المنتجات</h3>
+            <div class="filter-bar">
+              <select id="category-filter" onchange="filterProducts()">
+                <option value="">جميع الفئات</option>
+              </select>
+            </div>
+          </div>
+          <div class="table-container">
+            <table>
+              <thead>
+                <tr>
+                  <th>المنتج</th>
+                  <th>الفئة</th>
+                  <th>السعر</th>
+                  <th>الحالة</th>
+                  <th>الإجراءات</th>
+                </tr>
+              </thead>
+              <tbody id="products-table"></tbody>
+            </table>
+          </div>
         </div>
       </div>
     </div>
 
     <!-- Categories Section -->
     <div id="categories-section" class="section">
-      <div class="page-header">
-        <h2>إدارة الفئات</h2>
-        <button class="btn btn-success" onclick="openCategoryModal()">+ إضافة فئة</button>
-      </div>
-      
-      <div id="categories-status" class="status-message"></div>
-      
-      <div class="card">
-        <div class="table-container">
-          <table>
-            <thead>
-              <tr>
-                <th>الصورة</th>
-                <th>الاسم</th>
-                <th>الترتيب</th>
-                <th>الإجراءات</th>
-              </tr>
-            </thead>
-            <tbody id="categories-table">
-              <tr><td colspan="4" class="loading-spinner">جاري التحميل...</td></tr>
-            </tbody>
-          </table>
+      <header class="header">
+        <div class="header-title">
+          <h2>إدارة الفئات</h2>
+          <p>تنظيم المنتجات في فئات</p>
+        </div>
+        <div class="header-actions">
+          <button class="btn btn-primary" onclick="openCategoryModal()">
+            <i data-lucide="plus"></i>
+            إضافة فئة
+          </button>
+        </div>
+      </header>
+
+      <div class="content">
+        <div class="card">
+          <div class="card-header">
+            <h3><i data-lucide="folder-tree"></i> قائمة الفئات</h3>
+          </div>
+          <div class="table-container">
+            <table>
+              <thead>
+                <tr>
+                  <th>الفئة</th>
+                  <th>عدد المنتجات</th>
+                  <th>الترتيب</th>
+                  <th>الإجراءات</th>
+                </tr>
+              </thead>
+              <tbody id="categories-table"></tbody>
+            </table>
+          </div>
         </div>
       </div>
     </div>
 
     <!-- Banners Section -->
     <div id="banners-section" class="section">
-      <div class="page-header">
-        <h2>إدارة السلايدر</h2>
-        <button class="btn btn-success" onclick="openBannerModal()">+ إضافة سلايد</button>
-      </div>
-      
-      <div id="banners-status" class="status-message"></div>
-      
-      <div class="card">
-        <div class="table-container">
-          <table>
-            <thead>
-              <tr>
-                <th>الصورة</th>
-                <th>العنوان</th>
-                <th>الحالة</th>
-                <th>الترتيب</th>
-                <th>الإجراءات</th>
-              </tr>
-            </thead>
-            <tbody id="banners-table">
-              <tr><td colspan="5" class="loading-spinner">جاري التحميل...</td></tr>
-            </tbody>
-          </table>
+      <header class="header">
+        <div class="header-title">
+          <h2>السلايدر الترويجي</h2>
+          <p>إدارة العروض في الصفحة الرئيسية</p>
+        </div>
+        <div class="header-actions">
+          <button class="btn btn-primary" onclick="openBannerModal()">
+            <i data-lucide="plus"></i>
+            إضافة سلايد
+          </button>
+        </div>
+      </header>
+
+      <div class="content">
+        <div class="card">
+          <div class="card-header">
+            <h3><i data-lucide="image"></i> قائمة السلايدر</h3>
+          </div>
+          <div class="table-container">
+            <table>
+              <thead>
+                <tr>
+                  <th>الصورة</th>
+                  <th>العنوان</th>
+                  <th>الحالة</th>
+                  <th>الترتيب</th>
+                  <th>الإجراءات</th>
+                </tr>
+              </thead>
+              <tbody id="banners-table"></tbody>
+            </table>
+          </div>
         </div>
       </div>
     </div>
 
     <!-- Delivery Areas Section -->
     <div id="delivery-section" class="section">
-      <div class="page-header">
-        <h2>مناطق التوصيل</h2>
-        <button class="btn btn-success" onclick="openDeliveryModal()">+ إضافة منطقة</button>
-      </div>
-      
-      <div id="delivery-status" class="status-message"></div>
-      
-      <div class="card">
-        <div class="table-container">
-          <table>
-            <thead>
-              <tr>
-                <th>اسم المنطقة</th>
-                <th>رسوم التوصيل</th>
-                <th>الحالة</th>
-                <th>الإجراءات</th>
-              </tr>
-            </thead>
-            <tbody id="delivery-table">
-              <tr><td colspan="4" class="loading-spinner">جاري التحميل...</td></tr>
-            </tbody>
-          </table>
+      <header class="header">
+        <div class="header-title">
+          <h2>مناطق التوصيل</h2>
+          <p>إدارة مناطق ورسوم التوصيل</p>
+        </div>
+        <div class="header-actions">
+          <button class="btn btn-primary" onclick="openDeliveryModal()">
+            <i data-lucide="plus"></i>
+            إضافة منطقة
+          </button>
+        </div>
+      </header>
+
+      <div class="content">
+        <div class="card">
+          <div class="card-header">
+            <h3><i data-lucide="map-pin"></i> قائمة المناطق</h3>
+          </div>
+          <div class="table-container">
+            <table>
+              <thead>
+                <tr>
+                  <th>اسم المنطقة</th>
+                  <th>رسوم التوصيل</th>
+                  <th>الحالة</th>
+                  <th>الإجراءات</th>
+                </tr>
+              </thead>
+              <tbody id="delivery-table"></tbody>
+            </table>
+          </div>
         </div>
       </div>
     </div>
@@ -583,49 +1212,61 @@
   <div id="product-modal" class="modal-overlay">
     <div class="modal">
       <div class="modal-header">
-        <h3 id="product-modal-title">إضافة منتج جديد</h3>
-        <button class="modal-close" onclick="closeModal('product-modal')">&times;</button>
+        <h3><i data-lucide="package"></i> <span id="product-modal-title">إضافة منتج جديد</span></h3>
+        <button class="modal-close" onclick="closeModal('product-modal')">
+          <i data-lucide="x"></i>
+        </button>
       </div>
-      
       <form id="product-form" onsubmit="saveProduct(event)">
-        <input type="hidden" id="product-id">
-        
-        <div class="form-group">
-          <label>اسم المنتج *</label>
-          <input type="text" id="product-name" required placeholder="أدخل اسم المنتج">
-        </div>
-        
-        <div class="form-row">
+        <div class="modal-body">
+          <input type="hidden" id="product-id">
+          
           <div class="form-group">
-            <label>الفئة *</label>
-            <select id="product-category" required>
-              <option value="">اختر الفئة</option>
-            </select>
+            <label>اسم المنتج <span class="required">*</span></label>
+            <input type="text" class="form-control" id="product-name" required placeholder="أدخل اسم المنتج">
           </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label>الفئة <span class="required">*</span></label>
+              <select class="form-control" id="product-category" required>
+                <option value="">اختر الفئة</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>السعر <span class="required">*</span></label>
+              <input type="number" class="form-control" id="product-price" required min="0" placeholder="0">
+            </div>
+          </div>
+
           <div class="form-group">
-            <label>السعر *</label>
-            <input type="number" id="product-price" required min="0" placeholder="0">
+            <label>الوصف</label>
+            <textarea class="form-control" id="product-description" placeholder="أدخل وصف المنتج"></textarea>
+          </div>
+
+          <div class="form-group">
+            <label>صورة المنتج</label>
+            <div class="image-upload" onclick="document.getElementById('product-file').click()">
+              <i data-lucide="upload-cloud"></i>
+              <p>اضغط لرفع صورة</p>
+              <span>PNG, JPG حتى 5MB</span>
+              <input type="file" id="product-file" accept="image/*" onchange="handleFileSelect(this, 'product-preview')">
+            </div>
+            <div class="url-input">
+              <div class="divider">أو أدخل رابط الصورة</div>
+              <input type="url" class="form-control" id="product-image" placeholder="https://example.com/image.jpg" onchange="previewImageUrl(this.value, 'product-preview')">
+            </div>
+            <div class="image-preview" id="product-preview" style="display: none;">
+              <img src="" alt="معاينة">
+            </div>
           </div>
         </div>
-        
-        <div class="form-group">
-          <label>الوصف</label>
-          <textarea id="product-description" placeholder="أدخل وصف المنتج"></textarea>
-        </div>
-        
-        <div class="form-group">
-          <label>صورة المنتج</label>
-          <div class="image-upload-container">
-            <input type="file" id="product-file" accept="image/*" onchange="handleFileSelect(this, 'product-preview', 'product-image')">
-            <span class="file-hint">أو أدخل رابط الصورة:</span>
-            <input type="url" id="product-image" placeholder="https://example.com/image.jpg" onchange="previewImage(this.value, 'product-preview')">
-          </div>
-          <img id="product-preview" class="preview-image" style="display: none;">
-        </div>
-        
-        <div style="display: flex; gap: 10px; margin-top: 25px;">
-          <button type="submit" class="btn btn-primary">حفظ</button>
-          <button type="button" class="btn btn-secondary" onclick="closeModal('product-modal')">إلغاء</button>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline" onclick="closeModal('product-modal')">إلغاء</button>
+          <button type="submit" class="btn btn-primary">
+            <i data-lucide="check"></i>
+            حفظ المنتج
+          </button>
         </div>
       </form>
     </div>
@@ -635,36 +1276,48 @@
   <div id="category-modal" class="modal-overlay">
     <div class="modal">
       <div class="modal-header">
-        <h3 id="category-modal-title">إضافة فئة جديدة</h3>
-        <button class="modal-close" onclick="closeModal('category-modal')">&times;</button>
+        <h3><i data-lucide="folder-tree"></i> <span id="category-modal-title">إضافة فئة جديدة</span></h3>
+        <button class="modal-close" onclick="closeModal('category-modal')">
+          <i data-lucide="x"></i>
+        </button>
       </div>
-      
       <form id="category-form" onsubmit="saveCategory(event)">
-        <input type="hidden" id="category-id">
-        
-        <div class="form-group">
-          <label>اسم الفئة *</label>
-          <input type="text" id="category-name" required placeholder="أدخل اسم الفئة">
-        </div>
-        
-        <div class="form-group">
-          <label>الترتيب</label>
-          <input type="number" id="category-order" min="1" value="1" placeholder="1">
-        </div>
-        
-        <div class="form-group">
-          <label>صورة الفئة</label>
-          <div class="image-upload-container">
-            <input type="file" id="category-file" accept="image/*" onchange="handleFileSelect(this, 'category-preview', 'category-image')">
-            <span class="file-hint">أو أدخل رابط الصورة:</span>
-            <input type="url" id="category-image" placeholder="https://example.com/image.jpg" onchange="previewImage(this.value, 'category-preview')">
+        <div class="modal-body">
+          <input type="hidden" id="category-id">
+          
+          <div class="form-group">
+            <label>اسم الفئة <span class="required">*</span></label>
+            <input type="text" class="form-control" id="category-name" required placeholder="أدخل اسم الفئة">
           </div>
-          <img id="category-preview" class="preview-image" style="display: none;">
+
+          <div class="form-group">
+            <label>الترتيب</label>
+            <input type="number" class="form-control" id="category-order" min="1" value="1" placeholder="1">
+          </div>
+
+          <div class="form-group">
+            <label>صورة الفئة</label>
+            <div class="image-upload" onclick="document.getElementById('category-file').click()">
+              <i data-lucide="upload-cloud"></i>
+              <p>اضغط لرفع صورة</p>
+              <span>PNG, JPG حتى 5MB</span>
+              <input type="file" id="category-file" accept="image/*" onchange="handleFileSelect(this, 'category-preview')">
+            </div>
+            <div class="url-input">
+              <div class="divider">أو أدخل رابط الصورة</div>
+              <input type="url" class="form-control" id="category-image" placeholder="https://example.com/image.jpg" onchange="previewImageUrl(this.value, 'category-preview')">
+            </div>
+            <div class="image-preview" id="category-preview" style="display: none;">
+              <img src="" alt="معاينة">
+            </div>
+          </div>
         </div>
-        
-        <div style="display: flex; gap: 10px; margin-top: 25px;">
-          <button type="submit" class="btn btn-primary">حفظ</button>
-          <button type="button" class="btn btn-secondary" onclick="closeModal('category-modal')">إلغاء</button>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline" onclick="closeModal('category-modal')">إلغاء</button>
+          <button type="submit" class="btn btn-primary">
+            <i data-lucide="check"></i>
+            حفظ الفئة
+          </button>
         </div>
       </form>
     </div>
@@ -674,45 +1327,57 @@
   <div id="banner-modal" class="modal-overlay">
     <div class="modal">
       <div class="modal-header">
-        <h3 id="banner-modal-title">إضافة سلايد جديد</h3>
-        <button class="modal-close" onclick="closeModal('banner-modal')">&times;</button>
+        <h3><i data-lucide="image"></i> <span id="banner-modal-title">إضافة سلايد جديد</span></h3>
+        <button class="modal-close" onclick="closeModal('banner-modal')">
+          <i data-lucide="x"></i>
+        </button>
       </div>
-      
       <form id="banner-form" onsubmit="saveBanner(event)">
-        <input type="hidden" id="banner-id">
-        
-        <div class="form-group">
-          <label>العنوان</label>
-          <input type="text" id="banner-title" placeholder="أدخل العنوان">
-        </div>
-        
-        <div class="form-row">
+        <div class="modal-body">
+          <input type="hidden" id="banner-id">
+          
           <div class="form-group">
-            <label>الترتيب</label>
-            <input type="number" id="banner-order" min="1" value="1" placeholder="1">
+            <label>العنوان</label>
+            <input type="text" class="form-control" id="banner-title" placeholder="عنوان العرض (اختياري)">
           </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label>الترتيب</label>
+              <input type="number" class="form-control" id="banner-order" min="1" value="1">
+            </div>
+            <div class="form-group">
+              <label>الحالة</label>
+              <select class="form-control" id="banner-active">
+                <option value="true">مفعل</option>
+                <option value="false">معطل</option>
+              </select>
+            </div>
+          </div>
+
           <div class="form-group">
-            <label>الحالة</label>
-            <select id="banner-active">
-              <option value="true">مفعل</option>
-              <option value="false">معطل</option>
-            </select>
+            <label>صورة السلايد <span class="required">*</span></label>
+            <div class="image-upload" onclick="document.getElementById('banner-file').click()">
+              <i data-lucide="upload-cloud"></i>
+              <p>اضغط لرفع صورة</p>
+              <span>PNG, JPG - يفضل 1200x400</span>
+              <input type="file" id="banner-file" accept="image/*" onchange="handleFileSelect(this, 'banner-preview')">
+            </div>
+            <div class="url-input">
+              <div class="divider">أو أدخل رابط الصورة</div>
+              <input type="url" class="form-control" id="banner-image" placeholder="https://example.com/banner.jpg" onchange="previewImageUrl(this.value, 'banner-preview')">
+            </div>
+            <div class="image-preview" id="banner-preview" style="display: none;">
+              <img src="" alt="معاينة">
+            </div>
           </div>
         </div>
-        
-        <div class="form-group">
-          <label>صورة السلايد *</label>
-          <div class="image-upload-container">
-            <input type="file" id="banner-file" accept="image/*" onchange="handleFileSelect(this, 'banner-preview', 'banner-image')">
-            <span class="file-hint">أو أدخل رابط الصورة:</span>
-            <input type="url" id="banner-image" placeholder="https://example.com/image.jpg" onchange="previewImage(this.value, 'banner-preview')">
-          </div>
-          <img id="banner-preview" class="preview-image" style="display: none;">
-        </div>
-        
-        <div style="display: flex; gap: 10px; margin-top: 25px;">
-          <button type="submit" class="btn btn-primary">حفظ</button>
-          <button type="button" class="btn btn-secondary" onclick="closeModal('banner-modal')">إلغاء</button>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline" onclick="closeModal('banner-modal')">إلغاء</button>
+          <button type="submit" class="btn btn-primary">
+            <i data-lucide="check"></i>
+            حفظ السلايد
+          </button>
         </div>
       </form>
     </div>
@@ -722,47 +1387,110 @@
   <div id="delivery-modal" class="modal-overlay">
     <div class="modal">
       <div class="modal-header">
-        <h3 id="delivery-modal-title">إضافة منطقة توصيل</h3>
-        <button class="modal-close" onclick="closeModal('delivery-modal')">&times;</button>
+        <h3><i data-lucide="map-pin"></i> <span id="delivery-modal-title">إضافة منطقة توصيل</span></h3>
+        <button class="modal-close" onclick="closeModal('delivery-modal')">
+          <i data-lucide="x"></i>
+        </button>
       </div>
-      
       <form id="delivery-form" onsubmit="saveDeliveryArea(event)">
-        <input type="hidden" id="delivery-id">
-        
-        <div class="form-group">
-          <label>اسم المنطقة *</label>
-          <input type="text" id="delivery-name" required placeholder="أدخل اسم المنطقة">
-        </div>
-        
-        <div class="form-row">
+        <div class="modal-body">
+          <input type="hidden" id="delivery-id">
+          
           <div class="form-group">
-            <label>رسوم التوصيل *</label>
-            <input type="number" id="delivery-fee" required min="0" placeholder="0">
+            <label>اسم المنطقة <span class="required">*</span></label>
+            <input type="text" class="form-control" id="delivery-name" required placeholder="أدخل اسم المنطقة">
           </div>
-          <div class="form-group">
-            <label>الحالة</label>
-            <select id="delivery-active">
-              <option value="true">مفعل</option>
-              <option value="false">معطل</option>
-            </select>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label>رسوم التوصيل <span class="required">*</span></label>
+              <input type="number" class="form-control" id="delivery-fee" required min="0" placeholder="0">
+            </div>
+            <div class="form-group">
+              <label>الحالة</label>
+              <select class="form-control" id="delivery-active">
+                <option value="true">مفعل</option>
+                <option value="false">معطل</option>
+              </select>
+            </div>
           </div>
         </div>
-        
-        <div style="display: flex; gap: 10px; margin-top: 25px;">
-          <button type="submit" class="btn btn-primary">حفظ</button>
-          <button type="button" class="btn btn-secondary" onclick="closeModal('delivery-modal')">إلغاء</button>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline" onclick="closeModal('delivery-modal')">إلغاء</button>
+          <button type="submit" class="btn btn-primary">
+            <i data-lucide="check"></i>
+            حفظ المنطقة
+          </button>
         </div>
       </form>
     </div>
   </div>
 
+  <!-- Delete Confirmation Modal -->
+  <div id="confirm-modal" class="modal-overlay">
+    <div class="modal" style="max-width: 400px;">
+      <div class="modal-body">
+        <div class="confirm-dialog">
+          <i data-lucide="alert-triangle"></i>
+          <h4>تأكيد الحذف</h4>
+          <p id="confirm-message">هل أنت متأكد من حذف هذا العنصر؟</p>
+          <div class="confirm-actions">
+            <button class="btn btn-outline" onclick="closeModal('confirm-modal')">إلغاء</button>
+            <button class="btn btn-danger" id="confirm-delete-btn">
+              <i data-lucide="trash-2"></i>
+              حذف
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <script>
+    // Initialize Lucide icons
+    lucide.createIcons();
+
     const API_BASE = '/api';
     
     let products = [];
     let categories = [];
     let banners = [];
     let deliveryAreas = [];
+
+    // Toast Notifications
+    function showToast(type, title, message) {
+      const container = document.getElementById('toast-container');
+      const toast = document.createElement('div');
+      toast.className = `toast ${type}`;
+      
+      const iconMap = {
+        success: 'check',
+        error: 'x',
+        warning: 'alert-triangle',
+        info: 'info'
+      };
+      
+      toast.innerHTML = `
+        <div class="toast-icon">
+          <i data-lucide="${iconMap[type]}"></i>
+        </div>
+        <div class="toast-content">
+          <h4>${title}</h4>
+          <p>${message}</p>
+        </div>
+        <button class="toast-close" onclick="this.parentElement.remove()">
+          <i data-lucide="x"></i>
+        </button>
+      `;
+      
+      container.appendChild(toast);
+      lucide.createIcons();
+      
+      setTimeout(() => {
+        toast.classList.add('hiding');
+        setTimeout(() => toast.remove(), 300);
+      }, 4000);
+    }
 
     // Navigation
     function showSection(section, element) {
@@ -776,47 +1504,34 @@
       if (section === 'categories') loadCategories();
       if (section === 'banners') loadBanners();
       if (section === 'delivery') loadDeliveryAreas();
+      if (section === 'dashboard') loadDashboard();
     }
 
+    // Modal Functions
     function closeModal(modalId) {
       document.getElementById(modalId).classList.remove('active');
     }
 
-    function previewImage(url, previewId) {
-      const preview = document.getElementById(previewId);
-      if (url) {
-        preview.src = url;
-        preview.style.display = 'block';
-        preview.onerror = () => preview.style.display = 'none';
-      } else {
-        preview.style.display = 'none';
-      }
-    }
-
-    function handleFileSelect(input, previewId, urlInputId) {
+    function handleFileSelect(input, previewId) {
       const file = input.files[0];
       if (file) {
-        const preview = document.getElementById(previewId);
-        const urlInput = document.getElementById(urlInputId);
-        
         const reader = new FileReader();
         reader.onload = function(e) {
-          preview.src = e.target.result;
+          const preview = document.getElementById(previewId);
           preview.style.display = 'block';
+          preview.querySelector('img').src = e.target.result;
         };
         reader.readAsDataURL(file);
-        
-        urlInput.value = '';
       }
     }
 
-    function showStatus(elementId, message, type) {
-      const status = document.getElementById(elementId);
-      status.textContent = message;
-      status.className = 'status-message ' + type;
-      
-      if (type === 'success') {
-        setTimeout(() => { status.className = 'status-message'; }, 3000);
+    function previewImageUrl(url, previewId) {
+      if (url) {
+        const preview = document.getElementById(previewId);
+        preview.style.display = 'block';
+        const img = preview.querySelector('img');
+        img.src = url;
+        img.onerror = () => preview.style.display = 'none';
       }
     }
 
@@ -824,6 +1539,97 @@
       const div = document.createElement('div');
       div.textContent = text || '';
       return div.innerHTML;
+    }
+
+    // Confirm Delete
+    function confirmDelete(type, id, name) {
+      document.getElementById('confirm-message').textContent = `هل أنت متأكد من حذف "${name}"؟`;
+      document.getElementById('confirm-delete-btn').onclick = async () => {
+        closeModal('confirm-modal');
+        
+        const endpoints = {
+          product: 'products',
+          category: 'categories',
+          banner: 'banners',
+          delivery: 'delivery-areas'
+        };
+        
+        try {
+          const response = await fetch(`${API_BASE}/admin/${endpoints[type]}/${id}`, { method: 'DELETE' });
+          if (response.ok) {
+            showToast('success', 'تم الحذف', 'تم حذف العنصر بنجاح');
+            if (type === 'product') loadProducts();
+            if (type === 'category') loadCategories();
+            if (type === 'banner') loadBanners();
+            if (type === 'delivery') loadDeliveryAreas();
+          }
+        } catch (error) {
+          showToast('error', 'خطأ', 'حدث خطأ أثناء الحذف');
+        }
+      };
+      
+      document.getElementById('confirm-modal').classList.add('active');
+      lucide.createIcons();
+    }
+
+    // Dashboard
+    async function loadDashboard() {
+      try {
+        const [productsRes, categoriesRes, bannersRes, areasRes] = await Promise.all([
+          fetch(API_BASE + '/admin/products'),
+          fetch(API_BASE + '/categories'),
+          fetch(API_BASE + '/admin/banners'),
+          fetch(API_BASE + '/admin/delivery-areas')
+        ]);
+        
+        products = await productsRes.json();
+        categories = await categoriesRes.json();
+        banners = await bannersRes.json();
+        deliveryAreas = await areasRes.json();
+        
+        updateStats();
+        renderRecentProducts();
+      } catch (error) {
+        showToast('error', 'خطأ', 'حدث خطأ في تحميل البيانات');
+      }
+    }
+
+    function updateStats() {
+      document.getElementById('stat-products').textContent = products.length;
+      document.getElementById('stat-categories').textContent = categories.length;
+      document.getElementById('stat-banners').textContent = banners.length;
+      document.getElementById('stat-areas').textContent = deliveryAreas.length;
+      
+      document.getElementById('products-count').textContent = products.length;
+      document.getElementById('categories-count').textContent = categories.length;
+    }
+
+    function renderRecentProducts() {
+      const tbody = document.getElementById('recent-products');
+      const recent = products.slice(-5).reverse();
+      
+      if (recent.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="3" style="text-align: center; color: var(--gray-500); padding: 40px;">لا توجد منتجات بعد</td></tr>';
+        return;
+      }
+      
+      tbody.innerHTML = recent.map(p => {
+        const cat = categories.find(c => c.id === p.categoryId);
+        return `
+          <tr>
+            <td>
+              <div class="item-info">
+                <img src="${escapeHtml(p.image)}" class="item-image" onerror="this.src='https://via.placeholder.com/50'">
+                <div class="item-details">
+                  <h4>${escapeHtml(p.name)}</h4>
+                </div>
+              </div>
+            </td>
+            <td><span class="badge badge-info">${escapeHtml(cat?.name || '-')}</span></td>
+            <td class="price-tag">${p.price.toLocaleString()} د.ع</td>
+          </tr>
+        `;
+      }).join('');
     }
 
     // Products
@@ -836,41 +1642,94 @@
         products = await productsRes.json();
         categories = await categoriesRes.json();
         renderProducts();
-        updateCategoryDropdown();
+        updateCategoryDropdowns();
         updateStats();
       } catch (error) {
-        console.error('Error loading products:', error);
-        showStatus('products-status', 'خطأ في تحميل المنتجات', 'error');
+        showToast('error', 'خطأ', 'حدث خطأ في تحميل المنتجات');
       }
     }
 
-    function renderProducts() {
+    function filterProducts() {
+      const search = document.getElementById('product-search').value.toLowerCase();
+      const categoryFilter = document.getElementById('category-filter').value;
+      
+      let filtered = products;
+      
+      if (search) {
+        filtered = filtered.filter(p => 
+          p.name.toLowerCase().includes(search) || 
+          (p.description && p.description.toLowerCase().includes(search))
+        );
+      }
+      
+      if (categoryFilter) {
+        filtered = filtered.filter(p => p.categoryId === categoryFilter);
+      }
+      
+      renderProducts(filtered);
+    }
+
+    function renderProducts(data = products) {
       const tbody = document.getElementById('products-table');
-      if (products.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="5" class="empty-state">لا توجد منتجات</td></tr>';
+      
+      if (data.length === 0) {
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="5">
+              <div class="empty-state">
+                <i data-lucide="package"></i>
+                <h4>لا توجد منتجات</h4>
+                <p>ابدأ بإضافة منتجات جديدة</p>
+              </div>
+            </td>
+          </tr>
+        `;
+        lucide.createIcons();
         return;
       }
       
-      tbody.innerHTML = products.map(p => {
+      tbody.innerHTML = data.map(p => {
         const cat = categories.find(c => c.id === p.categoryId);
         return `
           <tr>
-            <td><img src="${escapeHtml(p.image)}" class="item-image" onerror="this.src='https://via.placeholder.com/60'"></td>
-            <td><strong>${escapeHtml(p.name)}</strong></td>
-            <td>${cat ? escapeHtml(cat.name) : '-'}</td>
-            <td class="price">${p.price?.toLocaleString()} د.ع</td>
-            <td class="actions">
-              <button class="btn btn-primary btn-sm" onclick="editProduct('${p.id}')">تعديل</button>
-              <button class="btn btn-danger btn-sm" onclick="deleteProduct('${p.id}')">حذف</button>
+            <td>
+              <div class="item-info">
+                <img src="${escapeHtml(p.image)}" class="item-image" onerror="this.src='https://via.placeholder.com/50'">
+                <div class="item-details">
+                  <h4>${escapeHtml(p.name)}</h4>
+                  <span>${escapeHtml(p.description?.substring(0, 50) || '')}</span>
+                </div>
+              </div>
+            </td>
+            <td><span class="badge badge-info">${escapeHtml(cat?.name || '-')}</span></td>
+            <td class="price-tag">${p.price.toLocaleString()} د.ع</td>
+            <td><span class="badge ${p.inStock !== false ? 'badge-success' : 'badge-danger'}">${p.inStock !== false ? 'متوفر' : 'غير متوفر'}</span></td>
+            <td>
+              <div class="actions-cell">
+                <button class="btn btn-icon btn-outline" onclick="editProduct('${p.id}')" title="تعديل">
+                  <i data-lucide="pencil"></i>
+                </button>
+                <button class="btn btn-icon btn-danger" onclick="confirmDelete('product', '${p.id}', '${escapeHtml(p.name)}')" title="حذف">
+                  <i data-lucide="trash-2"></i>
+                </button>
+              </div>
             </td>
           </tr>
         `;
       }).join('');
+      
+      lucide.createIcons();
     }
 
-    function updateCategoryDropdown() {
-      const select = document.getElementById('product-category');
-      select.innerHTML = '<option value="">اختر الفئة</option>' +
+    function updateCategoryDropdowns() {
+      const productSelect = document.getElementById('product-category');
+      const filterSelect = document.getElementById('category-filter');
+      
+      const options = '<option value="">اختر الفئة</option>' +
+        categories.map(c => `<option value="${c.id}">${escapeHtml(c.name)}</option>`).join('');
+      
+      productSelect.innerHTML = options;
+      filterSelect.innerHTML = '<option value="">جميع الفئات</option>' +
         categories.map(c => `<option value="${c.id}">${escapeHtml(c.name)}</option>`).join('');
     }
 
@@ -879,7 +1738,7 @@
       form.reset();
       document.getElementById('product-preview').style.display = 'none';
       document.getElementById('product-file').value = '';
-      updateCategoryDropdown();
+      updateCategoryDropdowns();
       
       if (product) {
         document.getElementById('product-modal-title').textContent = 'تعديل المنتج';
@@ -889,13 +1748,14 @@
         document.getElementById('product-price').value = product.price || '';
         document.getElementById('product-description').value = product.description || '';
         document.getElementById('product-image').value = product.image || '';
-        if (product.image) previewImage(product.image, 'product-preview');
+        if (product.image) previewImageUrl(product.image, 'product-preview');
       } else {
         document.getElementById('product-modal-title').textContent = 'إضافة منتج جديد';
         document.getElementById('product-id').value = '';
       }
       
       document.getElementById('product-modal').classList.add('active');
+      lucide.createIcons();
     }
 
     function editProduct(id) {
@@ -930,64 +1790,80 @@
         
         if (response.ok) {
           closeModal('product-modal');
-          document.getElementById('product-file').value = '';
           loadProducts();
-          showStatus('products-status', id ? 'تم تحديث المنتج بنجاح' : 'تم إضافة المنتج بنجاح', 'success');
+          showToast('success', id ? 'تم التحديث' : 'تمت الإضافة', id ? 'تم تحديث المنتج بنجاح' : 'تمت إضافة المنتج بنجاح');
         } else {
           throw new Error('Failed to save');
         }
       } catch (error) {
-        console.error('Error saving product:', error);
-        showStatus('products-status', 'خطأ في حفظ المنتج', 'error');
-      }
-    }
-
-    async function deleteProduct(id) {
-      if (!confirm('هل أنت متأكد من حذف هذا المنتج؟')) return;
-      
-      try {
-        const response = await fetch(`${API_BASE}/admin/products/${id}`, { method: 'DELETE' });
-        if (response.ok) {
-          loadProducts();
-          showStatus('products-status', 'تم حذف المنتج بنجاح', 'success');
-        }
-      } catch (error) {
-        console.error('Error deleting product:', error);
-        showStatus('products-status', 'خطأ في حذف المنتج', 'error');
+        showToast('error', 'خطأ', 'حدث خطأ أثناء حفظ المنتج');
       }
     }
 
     // Categories
     async function loadCategories() {
       try {
-        const response = await fetch(API_BASE + '/categories');
-        categories = await response.json();
+        const [categoriesRes, productsRes] = await Promise.all([
+          fetch(API_BASE + '/categories'),
+          fetch(API_BASE + '/admin/products')
+        ]);
+        categories = await categoriesRes.json();
+        products = await productsRes.json();
         renderCategories();
         updateStats();
       } catch (error) {
-        console.error('Error loading categories:', error);
-        showStatus('categories-status', 'خطأ في تحميل الفئات', 'error');
+        showToast('error', 'خطأ', 'حدث خطأ في تحميل الفئات');
       }
     }
 
     function renderCategories() {
       const tbody = document.getElementById('categories-table');
+      
       if (categories.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="4" class="empty-state">لا توجد فئات</td></tr>';
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="4">
+              <div class="empty-state">
+                <i data-lucide="folder-tree"></i>
+                <h4>لا توجد فئات</h4>
+                <p>ابدأ بإضافة فئات جديدة</p>
+              </div>
+            </td>
+          </tr>
+        `;
+        lucide.createIcons();
         return;
       }
       
-      tbody.innerHTML = categories.map(c => `
-        <tr>
-          <td><img src="${escapeHtml(c.image)}" class="item-image" onerror="this.src='https://via.placeholder.com/60'"></td>
-          <td><strong>${escapeHtml(c.name)}</strong></td>
-          <td>${c.order || '-'}</td>
-          <td class="actions">
-            <button class="btn btn-primary btn-sm" onclick="editCategory('${c.id}')">تعديل</button>
-            <button class="btn btn-danger btn-sm" onclick="deleteCategory('${c.id}')">حذف</button>
-          </td>
-        </tr>
-      `).join('');
+      tbody.innerHTML = categories.map(c => {
+        const productCount = products.filter(p => p.categoryId === c.id).length;
+        return `
+          <tr>
+            <td>
+              <div class="item-info">
+                <img src="${escapeHtml(c.image)}" class="item-image" onerror="this.src='https://via.placeholder.com/50'">
+                <div class="item-details">
+                  <h4>${escapeHtml(c.name)}</h4>
+                </div>
+              </div>
+            </td>
+            <td><span class="badge badge-info">${productCount} منتج</span></td>
+            <td>${c.order || '-'}</td>
+            <td>
+              <div class="actions-cell">
+                <button class="btn btn-icon btn-outline" onclick="editCategory('${c.id}')" title="تعديل">
+                  <i data-lucide="pencil"></i>
+                </button>
+                <button class="btn btn-icon btn-danger" onclick="confirmDelete('category', '${c.id}', '${escapeHtml(c.name)}')" title="حذف">
+                  <i data-lucide="trash-2"></i>
+                </button>
+              </div>
+            </td>
+          </tr>
+        `;
+      }).join('');
+      
+      lucide.createIcons();
     }
 
     function openCategoryModal(category = null) {
@@ -1002,13 +1878,14 @@
         document.getElementById('category-name').value = category.name || '';
         document.getElementById('category-order').value = category.order || 1;
         document.getElementById('category-image').value = category.image || '';
-        if (category.image) previewImage(category.image, 'category-preview');
+        if (category.image) previewImageUrl(category.image, 'category-preview');
       } else {
         document.getElementById('category-modal-title').textContent = 'إضافة فئة جديدة';
         document.getElementById('category-id').value = '';
       }
       
       document.getElementById('category-modal').classList.add('active');
+      lucide.createIcons();
     }
 
     function editCategory(id) {
@@ -1041,30 +1918,13 @@
         
         if (response.ok) {
           closeModal('category-modal');
-          document.getElementById('category-file').value = '';
           loadCategories();
-          showStatus('categories-status', id ? 'تم تحديث الفئة بنجاح' : 'تم إضافة الفئة بنجاح', 'success');
+          showToast('success', id ? 'تم التحديث' : 'تمت الإضافة', id ? 'تم تحديث الفئة بنجاح' : 'تمت إضافة الفئة بنجاح');
         } else {
           throw new Error('Failed to save');
         }
       } catch (error) {
-        console.error('Error saving category:', error);
-        showStatus('categories-status', 'خطأ في حفظ الفئة', 'error');
-      }
-    }
-
-    async function deleteCategory(id) {
-      if (!confirm('هل أنت متأكد من حذف هذه الفئة؟')) return;
-      
-      try {
-        const response = await fetch(`${API_BASE}/admin/categories/${id}`, { method: 'DELETE' });
-        if (response.ok) {
-          loadCategories();
-          showStatus('categories-status', 'تم حذف الفئة بنجاح', 'success');
-        }
-      } catch (error) {
-        console.error('Error deleting category:', error);
-        showStatus('categories-status', 'خطأ في حذف الفئة', 'error');
+        showToast('error', 'خطأ', 'حدث خطأ أثناء حفظ الفئة');
       }
     }
 
@@ -1076,30 +1936,49 @@
         renderBanners();
         updateStats();
       } catch (error) {
-        console.error('Error loading banners:', error);
-        showStatus('banners-status', 'خطأ في تحميل السلايدر', 'error');
+        showToast('error', 'خطأ', 'حدث خطأ في تحميل السلايدر');
       }
     }
 
     function renderBanners() {
       const tbody = document.getElementById('banners-table');
+      
       if (banners.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="5" class="empty-state">لا يوجد سلايدر</td></tr>';
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="5">
+              <div class="empty-state">
+                <i data-lucide="image"></i>
+                <h4>لا يوجد سلايدر</h4>
+                <p>أضف صور ترويجية للصفحة الرئيسية</p>
+              </div>
+            </td>
+          </tr>
+        `;
+        lucide.createIcons();
         return;
       }
       
       tbody.innerHTML = banners.map(b => `
         <tr>
-          <td><img src="${escapeHtml(b.image)}" class="item-image" onerror="this.src='https://via.placeholder.com/60'"></td>
+          <td><img src="${escapeHtml(b.image)}" class="item-image" style="width: 120px; height: 60px;" onerror="this.src='https://via.placeholder.com/120x60'"></td>
           <td>${escapeHtml(b.title) || '-'}</td>
-          <td><span class="badge ${b.isActive ? 'badge-active' : 'badge-inactive'}">${b.isActive ? 'مفعل' : 'معطل'}</span></td>
+          <td><span class="badge ${b.isActive ? 'badge-success' : 'badge-danger'}">${b.isActive ? 'مفعل' : 'معطل'}</span></td>
           <td>${b.order || '-'}</td>
-          <td class="actions">
-            <button class="btn btn-primary btn-sm" onclick="editBanner('${b.id}')">تعديل</button>
-            <button class="btn btn-danger btn-sm" onclick="deleteBanner('${b.id}')">حذف</button>
+          <td>
+            <div class="actions-cell">
+              <button class="btn btn-icon btn-outline" onclick="editBanner('${b.id}')" title="تعديل">
+                <i data-lucide="pencil"></i>
+              </button>
+              <button class="btn btn-icon btn-danger" onclick="confirmDelete('banner', '${b.id}', '${escapeHtml(b.title || 'السلايد')}')" title="حذف">
+                <i data-lucide="trash-2"></i>
+              </button>
+            </div>
           </td>
         </tr>
       `).join('');
+      
+      lucide.createIcons();
     }
 
     function openBannerModal(banner = null) {
@@ -1115,13 +1994,14 @@
         document.getElementById('banner-order').value = banner.order || 1;
         document.getElementById('banner-active').value = banner.isActive ? 'true' : 'false';
         document.getElementById('banner-image').value = banner.image || '';
-        if (banner.image) previewImage(banner.image, 'banner-preview');
+        if (banner.image) previewImageUrl(banner.image, 'banner-preview');
       } else {
         document.getElementById('banner-modal-title').textContent = 'إضافة سلايد جديد';
         document.getElementById('banner-id').value = '';
       }
       
       document.getElementById('banner-modal').classList.add('active');
+      lucide.createIcons();
     }
 
     function editBanner(id) {
@@ -1156,30 +2036,13 @@
         
         if (response.ok) {
           closeModal('banner-modal');
-          document.getElementById('banner-file').value = '';
           loadBanners();
-          showStatus('banners-status', id ? 'تم تحديث السلايد بنجاح' : 'تم إضافة السلايد بنجاح', 'success');
+          showToast('success', id ? 'تم التحديث' : 'تمت الإضافة', id ? 'تم تحديث السلايد بنجاح' : 'تمت إضافة السلايد بنجاح');
         } else {
           throw new Error('Failed to save');
         }
       } catch (error) {
-        console.error('Error saving banner:', error);
-        showStatus('banners-status', 'خطأ في حفظ السلايد', 'error');
-      }
-    }
-
-    async function deleteBanner(id) {
-      if (!confirm('هل أنت متأكد من حذف هذا السلايد؟')) return;
-      
-      try {
-        const response = await fetch(`${API_BASE}/admin/banners/${id}`, { method: 'DELETE' });
-        if (response.ok) {
-          loadBanners();
-          showStatus('banners-status', 'تم حذف السلايد بنجاح', 'success');
-        }
-      } catch (error) {
-        console.error('Error deleting banner:', error);
-        showStatus('banners-status', 'خطأ في حذف السلايد', 'error');
+        showToast('error', 'خطأ', 'حدث خطأ أثناء حفظ السلايد');
       }
     }
 
@@ -1191,29 +2054,48 @@
         renderDeliveryAreas();
         updateStats();
       } catch (error) {
-        console.error('Error loading delivery areas:', error);
-        showStatus('delivery-status', 'خطأ في تحميل مناطق التوصيل', 'error');
+        showToast('error', 'خطأ', 'حدث خطأ في تحميل مناطق التوصيل');
       }
     }
 
     function renderDeliveryAreas() {
       const tbody = document.getElementById('delivery-table');
+      
       if (deliveryAreas.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="4" class="empty-state">لا توجد مناطق توصيل</td></tr>';
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="4">
+              <div class="empty-state">
+                <i data-lucide="map-pin"></i>
+                <h4>لا توجد مناطق</h4>
+                <p>أضف مناطق التوصيل المتاحة</p>
+              </div>
+            </td>
+          </tr>
+        `;
+        lucide.createIcons();
         return;
       }
       
       tbody.innerHTML = deliveryAreas.map(a => `
         <tr>
           <td><strong>${escapeHtml(a.name)}</strong></td>
-          <td class="price">${a.fee?.toLocaleString()} د.ع</td>
-          <td><span class="badge ${a.isActive ? 'badge-active' : 'badge-inactive'}">${a.isActive ? 'مفعل' : 'معطل'}</span></td>
-          <td class="actions">
-            <button class="btn btn-primary btn-sm" onclick="editDeliveryArea('${a.id}')">تعديل</button>
-            <button class="btn btn-danger btn-sm" onclick="deleteDeliveryArea('${a.id}')">حذف</button>
+          <td class="price-tag">${a.fee.toLocaleString()} د.ع</td>
+          <td><span class="badge ${a.isActive ? 'badge-success' : 'badge-danger'}">${a.isActive ? 'مفعل' : 'معطل'}</span></td>
+          <td>
+            <div class="actions-cell">
+              <button class="btn btn-icon btn-outline" onclick="editDeliveryArea('${a.id}')" title="تعديل">
+                <i data-lucide="pencil"></i>
+              </button>
+              <button class="btn btn-icon btn-danger" onclick="confirmDelete('delivery', '${a.id}', '${escapeHtml(a.name)}')" title="حذف">
+                <i data-lucide="trash-2"></i>
+              </button>
+            </div>
           </td>
         </tr>
       `).join('');
+      
+      lucide.createIcons();
     }
 
     function openDeliveryModal(area = null) {
@@ -1232,6 +2114,7 @@
       }
       
       document.getElementById('delivery-modal').classList.add('active');
+      lucide.createIcons();
     }
 
     function editDeliveryArea(id) {
@@ -1245,7 +2128,7 @@
       const id = document.getElementById('delivery-id').value;
       const data = {
         name: document.getElementById('delivery-name').value,
-        fee: parseInt(document.getElementById('delivery-fee').value) || 0,
+        fee: parseInt(document.getElementById('delivery-fee').value),
         isActive: document.getElementById('delivery-active').value === 'true'
       };
       
@@ -1262,61 +2145,19 @@
         if (response.ok) {
           closeModal('delivery-modal');
           loadDeliveryAreas();
-          showStatus('delivery-status', id ? 'تم تحديث المنطقة بنجاح' : 'تم إضافة المنطقة بنجاح', 'success');
+          showToast('success', id ? 'تم التحديث' : 'تمت الإضافة', id ? 'تم تحديث المنطقة بنجاح' : 'تمت إضافة المنطقة بنجاح');
         } else {
           throw new Error('Failed to save');
         }
       } catch (error) {
-        console.error('Error saving delivery area:', error);
-        showStatus('delivery-status', 'خطأ في حفظ المنطقة', 'error');
+        showToast('error', 'خطأ', 'حدث خطأ أثناء حفظ المنطقة');
       }
-    }
-
-    async function deleteDeliveryArea(id) {
-      if (!confirm('هل أنت متأكد من حذف هذه المنطقة؟')) return;
-      
-      try {
-        const response = await fetch(`${API_BASE}/admin/delivery-areas/${id}`, { method: 'DELETE' });
-        if (response.ok) {
-          loadDeliveryAreas();
-          showStatus('delivery-status', 'تم حذف المنطقة بنجاح', 'success');
-        }
-      } catch (error) {
-        console.error('Error deleting delivery area:', error);
-        showStatus('delivery-status', 'خطأ في حذف المنطقة', 'error');
-      }
-    }
-
-    // Stats
-    function updateStats() {
-      document.getElementById('total-products').textContent = products.length;
-      document.getElementById('total-categories').textContent = categories.length;
-      document.getElementById('total-banners').textContent = banners.length;
-      document.getElementById('total-areas').textContent = deliveryAreas.length;
     }
 
     // Initialize
-    async function init() {
-      try {
-        const [productsRes, categoriesRes, bannersRes, areasRes] = await Promise.all([
-          fetch(API_BASE + '/admin/products'),
-          fetch(API_BASE + '/categories'),
-          fetch(API_BASE + '/admin/banners'),
-          fetch(API_BASE + '/admin/delivery-areas')
-        ]);
-        
-        products = await productsRes.json();
-        categories = await categoriesRes.json();
-        banners = await bannersRes.json();
-        deliveryAreas = await areasRes.json();
-        
-        updateStats();
-      } catch (error) {
-        console.error('Error initializing:', error);
-      }
-    }
-
-    init();
+    document.addEventListener('DOMContentLoaded', () => {
+      loadDashboard();
+    });
   </script>
 </body>
 </html>
