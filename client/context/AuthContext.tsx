@@ -1,8 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { Platform } from "react-native";
 import { getApiUrl } from "@/lib/query-client";
-import * as FileSystem from "expo-file-system";
+import { compressAndConvertToBase64 } from "@/lib/imageUtils";
 
 export interface UserProfile {
   id?: string;
@@ -114,28 +113,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!phoneNumber) throw new Error("No phone number");
 
     try {
-      const formData = new FormData();
-      formData.append("phoneNumber", phoneNumber);
-      formData.append("fullName", profile.fullName);
-      formData.append("gender", profile.gender);
-      formData.append("region", profile.region);
-      formData.append("address", profile.address);
-
+      let profileImageBase64: string | undefined;
+      
       if (imageUri) {
-        if (Platform.OS === "web") {
-          const response = await fetch(imageUri);
-          const blob = await response.blob();
-          const fileName = `profile-${Date.now()}.jpg`;
-          formData.append("profileImage", blob, fileName);
-        } else {
-          const file = new FileSystem.File(imageUri);
-          formData.append("profileImage", file);
-        }
+        profileImageBase64 = await compressAndConvertToBase64(imageUri);
       }
+
+      const body = {
+        phoneNumber,
+        fullName: profile.fullName,
+        gender: profile.gender,
+        region: profile.region,
+        address: profile.address,
+        ...(profileImageBase64 && { profileImage: profileImageBase64 }),
+      };
 
       const response = await fetch(new URL("/api/users", getApiUrl()).toString(), {
         method: "POST",
-        body: formData,
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(body),
       });
 
       if (!response.ok) {
