@@ -9,31 +9,29 @@ import {
   Linking,
   Animated,
   Easing,
+  ActivityIndicator,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Image } from "expo-image";
 import { FontAwesome } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import * as Haptics from "expo-haptics";
-import { useNavigation } from "@react-navigation/native";
-import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 
 import { ThemedText } from "@/components/ThemedText";
 import { AppColors } from "@/constants/theme";
-import { RootStackParamList } from "@/navigation/RootStackNavigator";
+import { useAuth } from "@/context/AuthContext";
 
 const SOCIAL_LINKS = {
   facebook: "https://facebook.com/onwayiq",
   instagram: "https://instagram.com/onwayiq",
 };
 
-type NavigationProp = NativeStackNavigationProp<RootStackParamList, "PhoneLogin">;
-
 export default function PhoneLoginScreen() {
   const insets = useSafeAreaInsets();
-  const navigation = useNavigation<NavigationProp>();
+  const { login } = useAuth();
   const [phoneNumber, setPhoneNumber] = useState("");
   const [error, setError] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const scaleAnim = useRef(new Animated.Value(0.5)).current;
@@ -84,7 +82,7 @@ export default function PhoneLoginScreen() {
     return `00964${cleanPhone}`;
   };
 
-  const handleContinue = () => {
+  const handleContinue = async () => {
     setError("");
     
     if (!phoneNumber.trim()) {
@@ -98,8 +96,16 @@ export default function PhoneLoginScreen() {
     }
 
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    const fullPhone = formatPhoneForLogin(phoneNumber);
-    navigation.navigate("OTPScreen", { phoneNumber: fullPhone });
+    setIsLoading(true);
+    
+    try {
+      const fullPhone = formatPhoneForLogin(phoneNumber);
+      await login(fullPhone);
+    } catch (err: any) {
+      setError(err.message || "حدث خطأ أثناء تسجيل الدخول");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -157,12 +163,17 @@ export default function PhoneLoginScreen() {
           ) : null}
 
           <Pressable
-            style={styles.mainButton}
+            style={[styles.mainButton, isLoading && styles.mainButtonDisabled]}
             onPress={handleContinue}
+            disabled={isLoading}
           >
-            <ThemedText type="h4" style={styles.buttonText}>
-              متابعة
-            </ThemedText>
+            {isLoading ? (
+              <ActivityIndicator size="small" color="#FF6B00" />
+            ) : (
+              <ThemedText type="h4" style={styles.buttonText}>
+                متابعة
+              </ThemedText>
+            )}
           </Pressable>
         </View>
 
@@ -296,6 +307,9 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     marginTop: 20,
+  },
+  mainButtonDisabled: {
+    opacity: 0.7,
   },
   buttonText: {
     color: "#FF6B00",

@@ -6,7 +6,6 @@ import ProductsScreen from "@/screens/ProductsScreen";
 import CheckoutScreen from "@/screens/CheckoutScreen";
 import OrderConfirmationScreen from "@/screens/OrderConfirmationScreen";
 import PhoneLoginScreen from "@/screens/PhoneLoginScreen";
-import OTPScreen from "@/screens/OTPScreen";
 import ProfileCompletionScreen from "@/screens/ProfileCompletionScreen";
 import CategoriesScreen from "@/screens/CategoriesScreen";
 import { useScreenOptions } from "@/hooks/useScreenOptions";
@@ -16,7 +15,6 @@ import { Order } from "@/context/OrderContext";
 
 export type RootStackParamList = {
   PhoneLogin: undefined;
-  OTPScreen: { phoneNumber: string };
   ProfileCompletion: undefined;
   MainTabs: undefined;
   Main: undefined;
@@ -43,18 +41,11 @@ export default function RootStackNavigator() {
   return (
     <Stack.Navigator screenOptions={screenOptions}>
       {!isLoggedIn ? (
-        <>
-          <Stack.Screen
-            name="PhoneLogin"
-            component={PhoneLoginScreen}
-            options={{ headerShown: false }}
-          />
-          <Stack.Screen
-            name="OTPScreen"
-            component={OTPScreen}
-            options={{ headerShown: false }}
-          />
-        </>
+        <Stack.Screen
+          name="PhoneLogin"
+          component={PhoneLoginScreen}
+          options={{ headerShown: false }}
+        />
       ) : !isProfileComplete ? (
         <Stack.Screen
           name="ProfileCompletion"
