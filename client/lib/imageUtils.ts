@@ -1,5 +1,5 @@
 import { manipulateAsync, SaveFormat } from "expo-image-manipulator";
-import { readAsStringAsync } from "expo-file-system";
+import { File } from "expo-file-system/next";
 import { Platform } from "react-native";
 
 const MAX_IMAGE_SIZE = 200;
@@ -26,9 +26,8 @@ export async function compressAndConvertToBase64(uri: string): Promise<string> {
         reader.readAsDataURL(blob);
       });
     } else {
-      const base64 = await readAsStringAsync(manipulated.uri, {
-        encoding: "base64",
-      });
+      const file = new File(manipulated.uri);
+      const base64 = await file.base64();
       return `data:image/jpeg;base64,${base64}`;
     }
   } catch (error) {
