@@ -99,7 +99,7 @@ export function ProductCard({ product, onPress }: ProductCardProps) {
       withSpring(1.4, { damping: 4, stiffness: 300 }),
       withSpring(1, { damping: 8, stiffness: 200 })
     );
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     toggleFavorite(product);
   };
 
