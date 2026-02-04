@@ -368,6 +368,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json({ success: true });
   });
 
+  app.post("/api/upload", upload.single("profileImage"), (req: Request & { file?: Express.Multer.File }, res: Response) => {
+    if (!req.file) {
+      return res.status(400).json({ error: "No file uploaded" });
+    }
+    const url = `/uploads/${req.file.filename}`;
+    res.json({ url });
+  });
+
   app.get("/api/users/:phoneNumber", async (req: Request, res: Response) => {
     const phoneNumber = req.params.phoneNumber as string;
     const db = getFirestore();
@@ -456,6 +464,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
       
+      console.error("Firestore save failed for:", phoneNumber);
       return res.status(500).json({ error: "Failed to save user to Firestore" });
     }
 

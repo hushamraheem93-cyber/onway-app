@@ -3,6 +3,8 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Platform } from "react-native";
 import { getApiUrl } from "@/lib/query-client";
 import * as FileSystem from "expo-file-system";
+import { db } from "@/lib/firebase";
+import { doc, getDoc, setDoc } from "firebase/firestore";
 
 export interface UserProfile {
   id?: string;
@@ -69,9 +71,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const checkProfileFromServer = async (phone: string) => {
     try {
-      const response = await fetch(new URL(`/api/users/${encodeURIComponent(phone)}`, getApiUrl()).toString());
-      if (response.ok) {
-        const profile = await response.json();
+      const userDoc = await getDoc(doc(db, "users", phone));
+      if (userDoc.exists()) {
+        const profile = { id: userDoc.id, ...userDoc.data() } as UserProfile;
         setUserProfile(profile);
         setIsProfileComplete(profile.profileComplete || false);
         await AsyncStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify(profile));
@@ -79,8 +81,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setIsProfileComplete(false);
       }
     } catch (error) {
-      console.error("Error checking profile:", error);
-      setIsProfileComplete(false);
+      console.error("Error checking profile from Firestore:", error);
+      try {
+        const response = await fetch(new URL(`/api/users/${encodeURIComponent(phone)}`, getApiUrl()).toString());
+        if (response.ok) {
+          const profile = await response.json();
+          setUserProfile(profile);
+          setIsProfileComplete(profile.profileComplete || false);
+          await AsyncStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify(profile));
+        } else {
+          setIsProfileComplete(false);
+        }
+      } catch (apiError) {
+        console.error("Error checking profile from API:", apiError);
+        setIsProfileComplete(false);
+      }
     }
   };
 
@@ -139,8 +154,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
 
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || "Failed to save profile");
+        const err = await response.json();
+        throw new Error(err.error || "Failed to save profile");
       }
 
       const savedProfile = await response.json();

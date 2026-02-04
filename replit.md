@@ -129,6 +129,17 @@ Font Sizes: Title 16px, Category 14px, Small 12px
 - Required secret: FIREBASE_SERVICE_ACCOUNT (JSON string of Firebase service account credentials)
 - Falls back to in-memory storage if Firebase is not configured
 
+### Backend (Admin SDK)
+- Uses Firebase Admin SDK for full database access
+- Configured in `server/firebase.ts`
+- Handles user creation, updates, and queries
+
+### Frontend (Client SDK)
+- Firebase client SDK configured in `client/lib/firebase.ts`
+- Project: onway-74c20
+- Used for reading user profiles from Firestore
+- API endpoints use Admin SDK for writes (more secure)
+
 ## Recent Changes
 - February 2026: Updated design system to Talabaty-inspired theme
 - Primary color changed to #ff5e00

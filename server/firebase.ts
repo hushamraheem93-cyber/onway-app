@@ -70,25 +70,33 @@ export async function createUser(userData: {
   address: string;
   profileImage?: string;
 }): Promise<(FirestoreUserProfile & { id: string }) | null> {
-  if (!db) return null;
+  if (!db) {
+    console.error("Firestore db is null in createUser");
+    return null;
+  }
   
   try {
+    console.log("Creating user in Firestore:", userData.phoneNumber);
     const now = admin.firestore.Timestamp.now();
-    const userDoc: FirestoreUserProfile = {
+    const userDoc: any = {
       phoneNumber: userData.phoneNumber,
       fullName: userData.fullName,
       gender: userData.gender,
       region: userData.region,
       address: userData.address,
-      profileImage: userData.profileImage,
       createdAt: now,
       updatedAt: now,
     };
     
+    if (userData.profileImage) {
+      userDoc.profileImage = userData.profileImage;
+    }
+    
     const docRef = await db.collection("users").add(userDoc);
+    console.log("User created successfully with id:", docRef.id);
     return { id: docRef.id, ...userDoc };
-  } catch (error) {
-    console.error("Error creating user in Firestore:", error);
+  } catch (error: any) {
+    console.error("Error creating user in Firestore:", error?.message || error);
     return null;
   }
 }
@@ -114,10 +122,15 @@ export async function updateUser(
     }
     
     const doc = snapshot.docs[0];
-    const updateData = {
-      ...updates,
+    const updateData: any = {
       updatedAt: admin.firestore.Timestamp.now(),
     };
+    
+    if (updates.fullName !== undefined) updateData.fullName = updates.fullName;
+    if (updates.gender !== undefined) updateData.gender = updates.gender;
+    if (updates.region !== undefined) updateData.region = updates.region;
+    if (updates.address !== undefined) updateData.address = updates.address;
+    if (updates.profileImage !== undefined) updateData.profileImage = updates.profileImage;
     
     await doc.ref.update(updateData);
     
