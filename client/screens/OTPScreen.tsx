@@ -1,4 +1,4 @@
-import React, { useRef, useState } from "react";
+import React, { useRef, useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -20,10 +20,24 @@ type Props = NativeStackScreenProps<RootStackParamList, "OTP">;
 const OTPScreen = ({ route }: Props) => {
   const [otp, setOtp] = useState(["", "", "", ""]);
   const [isLoading, setIsLoading] = useState(false);
+  const [timer, setTimer] = useState(60);
+  const [canResend, setCanResend] = useState(false);
   const inputs = useRef<(TextInput | null)[]>([]);
   const insets = useSafeAreaInsets();
   const { login } = useAuth();
   const phoneNumber = route.params?.phoneNumber || "";
+
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (timer > 0) {
+      interval = setInterval(() => {
+        setTimer((prev) => prev - 1);
+      }, 1000);
+    } else {
+      setCanResend(true);
+    }
+    return () => clearInterval(interval);
+  }, [timer]);
 
   const handleChange = (text: string, index: number) => {
     const newOtp = [...otp];
@@ -56,8 +70,18 @@ const OTPScreen = ({ route }: Props) => {
   };
 
   const handleResend = () => {
-    setOtp(["", "", "", ""]);
-    inputs.current[0]?.focus();
+    if (canResend) {
+      setTimer(60);
+      setCanResend(false);
+      setOtp(["", "", "", ""]);
+      inputs.current[0]?.focus();
+    }
+  };
+
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, "0")}`;
   };
 
   return (
@@ -67,9 +91,7 @@ const OTPScreen = ({ route }: Props) => {
         style={[styles.container, { paddingTop: insets.top + 40 }]}
       >
         <Text style={styles.title}>تأكيد الرمز</Text>
-        <Text style={styles.subtitle}>
-          أدخل الرمز المكون من 4 أرقام المرسل إلى هاتفك
-        </Text>
+        <Text style={styles.subtitle}>أدخل الرمز المرسل إلى هاتفك</Text>
         {phoneNumber ? (
           <Text style={styles.phoneText}>{phoneNumber}</Text>
         ) : null}
@@ -105,10 +127,15 @@ const OTPScreen = ({ route }: Props) => {
         </TouchableOpacity>
 
         <View style={styles.resendContainer}>
-          <Text style={styles.resendText}>لم يصلك الرمز؟ </Text>
-          <TouchableOpacity onPress={handleResend}>
-            <Text style={styles.resendLink}>إعادة إرسال</Text>
-          </TouchableOpacity>
+          {canResend ? (
+            <TouchableOpacity onPress={handleResend}>
+              <Text style={styles.resendLink}>إعادة إرسال الرمز</Text>
+            </TouchableOpacity>
+          ) : (
+            <Text style={styles.timerText}>
+              إعادة الإرسال خلال {formatTime(timer)}
+            </Text>
+          )}
         </View>
       </KeyboardAvoidingView>
     </LinearGradient>
@@ -154,8 +181,8 @@ const styles = StyleSheet.create({
     marginBottom: 40,
   },
   otpInput: {
-    width: 60,
-    height: 60,
+    width: 65,
+    height: 65,
     backgroundColor: "#FFF",
     borderRadius: 15,
     textAlign: "center",
@@ -187,17 +214,20 @@ const styles = StyleSheet.create({
     fontFamily: "Cairo_700Bold",
   },
   resendContainer: {
-    flexDirection: "row-reverse",
+    marginTop: 10,
+    alignItems: "center",
   },
-  resendText: {
+  timerText: {
     color: "#FFF",
     fontSize: 14,
+    opacity: 0.8,
     fontFamily: "Cairo_400Regular",
   },
   resendLink: {
     color: "#FFF",
     fontWeight: "bold",
     textDecorationLine: "underline",
+    fontSize: 15,
     fontFamily: "Cairo_700Bold",
   },
 });

@@ -1,0 +1,120 @@
+import React, { useRef, useState, useEffect } from 'react';
+import { View, Text, TextInput, StyleSheet, TouchableOpacity, KeyboardAvoidingView, Platform } from 'react-native';
+
+const OTPScreen = () => {
+  const [otp, setOtp] = useState(['', '', '', '']);
+  const [timer, setTimer] = useState(60); // العداد يبدأ من 60 ثانية
+  const [canResend, setCanResend] = useState(false);
+  const inputs = useRef([]);
+
+  // منطق العداد التنازلي
+  useEffect(() => {
+    let interval;
+    if (timer > 0) {
+      interval = setInterval(() => {
+        setTimer((prev) => prev - 1);
+      }, 1000);
+    } else {
+      setCanResend(true);
+      clearInterval(interval);
+    }
+    return () => clearInterval(interval);
+  }, [timer]);
+
+  const handleChange = (text, index) => {
+    const newOtp = [...otp];
+    newOtp[index] = text;
+    setOtp(newOtp);
+    if (text && index < 3) {
+      inputs.current[index + 1].focus();
+    }
+  };
+
+  const handleKeyPress = (e, index) => {
+    if (e.nativeEvent.key === 'Backspace' && !otp[index] && index > 0) {
+      inputs.current[index - 1].focus();
+    }
+  };
+
+  const handleResend = () => {
+    if (canResend) {
+      setTimer(60);
+      setCanResend(false);
+      // هنا تضع كود إعادة إرسال الرمز الفعلي
+      console.log("تم إعادة إرسال الرمز");
+    }
+  };
+
+  return (
+    <KeyboardAvoidingView 
+      behavior={Platform.OS === "ios" ? "padding" : "height"} 
+      style={styles.container}
+    >
+      <Text style={styles.title}>تأكيد الرمز</Text>
+      <Text style={styles.subtitle}>أدخل الرمز المرسل إلى هاتفك</Text>
+
+      <View style={styles.otpContainer}>
+        {otp.map((digit, index) => (
+          <TextInput
+            key={index}
+            style={styles.otpInput}
+            keyboardType="number-pad"
+            maxLength={1}
+            onChangeText={(text) => handleChange(text, index)}
+            onKeyPress={(e) => handleKeyPress(e, index)}
+            ref={(ref) => inputs.current[index] = ref}
+            value={digit}
+          />
+        ))}
+      </View>
+
+      <TouchableOpacity style={styles.verifyButton}>
+        <Text style={styles.verifyText}>تأكيد</Text>
+      </TouchableOpacity>
+
+      <View style={styles.resendContainer}>
+        {canResend ? (
+          <TouchableOpacity onPress={handleResend}>
+            <Text style={styles.resendLink}>إعادة إرسال الرمز</Text>
+          </TouchableOpacity>
+        ) : (
+          <Text style={styles.timerText}>
+            إعادة الإرسال خلال {Math.floor(timer / 60)}:{(timer % 60).toString().padStart(2, '0')}
+          </Text>
+        )}
+      </View>
+    </KeyboardAvoidingView>
+  );
+};
+
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: '#FF6B00', alignItems: 'center', justifyContent: 'center', padding: 20 },
+  title: { fontSize: 24, fontWeight: 'bold', color: '#FFF', marginBottom: 10, fontFamily: 'Cairo-Bold' },
+  subtitle: { fontSize: 16, color: '#FFF', textAlign: 'center', marginBottom: 30, opacity: 0.9 },
+  otpContainer: { flexDirection: 'row', justifyContent: 'space-between', width: '80%', marginBottom: 40 },
+  otpInput: {
+    width: 65,
+    height: 65,
+    backgroundColor: '#FFF',
+    borderRadius: 15,
+    textAlign: 'center',
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#FF6B00',
+  },
+  verifyButton: {
+    backgroundColor: '#FFF',
+    width: '100%',
+    height: 55,
+    borderRadius: 15,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 20
+  },
+  verifyText: { color: '#FF6B00', fontSize: 18, fontWeight: 'bold' },
+  resendContainer: { marginTop: 10 },
+  timerText: { color: '#FFF', fontSize: 14, opacity: 0.8 },
+  resendLink: { color: '#FFF', fontWeight: 'bold', textDecorationLine: 'underline', fontSize: 15 }
+});
+
+export default OTPScreen;
