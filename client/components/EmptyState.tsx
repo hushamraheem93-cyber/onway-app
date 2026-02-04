@@ -1,15 +1,14 @@
 import React from "react";
-import { StyleSheet, View, Dimensions, Pressable } from "react-native";
-import { Image } from "expo-image";
+import { StyleSheet, View, Pressable } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 
 import { ThemedText } from "@/components/ThemedText";
 import { useTheme } from "@/hooks/useTheme";
 import { AppColors } from "@/constants/theme";
 
-const { width } = Dimensions.get("window");
-
 interface EmptyStateProps {
+  icon?: keyof typeof Ionicons.glyphMap;
   image?: any;
   title: string;
   subtitle?: string;
@@ -18,6 +17,7 @@ interface EmptyStateProps {
 }
 
 export function EmptyState({
+  icon = "cart",
   image,
   title,
   subtitle,
@@ -33,21 +33,27 @@ export function EmptyState({
 
   return (
     <View style={[styles.container, { backgroundColor: theme.backgroundRoot }]}>
-      {image ? (
-        <View style={styles.imageContainer}>
-          <Image source={image} style={styles.image} contentFit="contain" />
+      <View style={[styles.imageContainer, { backgroundColor: theme.backgroundDefault }]}>
+        <View style={styles.orangeBox}>
+          <Ionicons name={icon} size={80} color="#FFF" />
         </View>
-      ) : null}
+      </View>
+
       <ThemedText type="h2" style={styles.title}>
         {title}
       </ThemedText>
+
       {subtitle ? (
-        <ThemedText type="body" style={[styles.subtitle, { color: "#8E8E93" }]}>
+        <ThemedText type="body" style={styles.subtitle}>
           {subtitle}
         </ThemedText>
       ) : null}
+
       {buttonText && onButtonPress ? (
         <Pressable onPress={handlePress} style={styles.button}>
+          <View style={styles.btnIconCircle}>
+            <Ionicons name="chevron-back" size={20} color={AppColors.primary} />
+          </View>
           <ThemedText type="h4" style={styles.buttonText}>
             {buttonText}
           </ThemedText>
@@ -62,14 +68,28 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    paddingHorizontal: 40,
+    paddingHorizontal: 30,
   },
   imageContainer: {
+    width: 180,
+    height: 180,
+    borderRadius: 30,
+    justifyContent: "center",
+    alignItems: "center",
     marginBottom: 30,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 10,
+    elevation: 5,
   },
-  image: {
-    width: width * 0.6,
-    height: width * 0.6,
+  orangeBox: {
+    width: 120,
+    height: 120,
+    backgroundColor: AppColors.primary,
+    borderRadius: 25,
+    justifyContent: "center",
+    alignItems: "center",
   },
   title: {
     fontSize: 22,
@@ -78,25 +98,29 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   subtitle: {
-    fontSize: 15,
+    fontSize: 16,
+    color: "#999",
     textAlign: "center",
-    lineHeight: 22,
-    marginBottom: 40,
+    lineHeight: 24,
   },
   button: {
     backgroundColor: AppColors.primary,
+    flexDirection: "row",
     paddingVertical: 15,
-    paddingHorizontal: 60,
-    borderRadius: 30,
-    shadowColor: AppColors.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 5,
-    elevation: 8,
+    paddingHorizontal: 25,
+    borderRadius: 50,
+    marginTop: 40,
+    alignItems: "center",
   },
   buttonText: {
-    color: "#FFFFFF",
-    fontSize: 18,
+    color: "#FFF",
     fontWeight: "bold",
+    marginRight: 15,
+  },
+  btnIconCircle: {
+    backgroundColor: "#FFF",
+    borderRadius: 20,
+    padding: 5,
+    marginLeft: 10,
   },
 });

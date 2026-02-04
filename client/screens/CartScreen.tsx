@@ -66,9 +66,9 @@ export default function CartScreen() {
 
   const renderEmpty = () => (
     <EmptyState
-      image={require("../../assets/images/empty-cart.png")}
+      icon="cart"
       title="سلتك فارغة حالياً"
-      subtitle="يبدو أنك لم تضف أي منتجات بعد. ابدأ باستكشاف أفضل العروض المتاحة لدينا!"
+      subtitle="ابدأ بإضافة المنتجات والوجبات التي تحبها"
       buttonText="ابدأ التسوق الآن"
       onButtonPress={handleStartShopping}
     />

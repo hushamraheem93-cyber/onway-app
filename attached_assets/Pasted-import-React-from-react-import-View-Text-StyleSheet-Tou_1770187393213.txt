@@ -1,0 +1,67 @@
+import React from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Image, SafeAreaView } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+
+const SimpleCart = () => {
+  return (
+    <SafeAreaView style={styles.container}>
+      {/* الترويسة */}
+      <View style={styles.header}>
+        <Text style={styles.headerTitle}>السلة</Text>
+        <TouchableOpacity style={styles.backBtn}>
+          <Ionicons name="chevron-forward" size={24} color="#333" />
+        </TouchableOpacity>
+      </View>
+
+      <View style={styles.content}>
+        {/* أيقونة السلة الكبيرة مثل صورتك */}
+        <View style={styles.imageContainer}>
+          <View style={styles.orangeBox}>
+             <Ionicons name="cart" size={80} color="#FFF" />
+          </View>
+        </View>
+
+        <Text style={styles.emptyTitle}>سلتك فارغة حالياً</Text>
+        <Text style={styles.emptySub}>ابدأ بإضافة المنتجات والوجبات التي تحبها</Text>
+
+        {/* زر العودة للتسوق */}
+        <TouchableOpacity style={styles.shopBtn}>
+          <View style={styles.btnIconCircle}>
+            <Ionicons name="chevron-back" size={20} color="#FF6B00" />
+          </View>
+          <Text style={styles.shopBtnText}>ابدأ التسوق الآن</Text>
+        </TouchableOpacity>
+      </View>
+    </SafeAreaView>
+  );
+};
+
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: '#F8F9FA' },
+  header: { 
+    flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center', 
+    padding: 20, backgroundColor: '#FFF' 
+  },
+  headerTitle: { fontSize: 20, fontWeight: 'bold' },
+  backBtn: { marginLeft: 10 },
+  content: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 30 },
+  imageContainer: { 
+    width: 180, height: 180, backgroundColor: '#FFF', 
+    borderRadius: 30, justifyContent: 'center', alignItems: 'center',
+    marginBottom: 30, elevation: 5, shadowOpacity: 0.1
+  },
+  orangeBox: { 
+    width: 120, height: 120, backgroundColor: '#FF6B00', 
+    borderRadius: 25, justifyContent: 'center', alignItems: 'center' 
+  },
+  emptyTitle: { fontSize: 22, fontWeight: 'bold', color: '#333', marginBottom: 10 },
+  emptySub: { fontSize: 16, color: '#999', textAlign: 'center', lineHeight: 24 },
+  shopBtn: { 
+    backgroundColor: '#FF6B00', flexDirection: 'row', paddingVertical: 15, 
+    paddingHorizontal: 25, borderRadius: 50, marginTop: 40, alignItems: 'center' 
+  },
+  shopBtnText: { color: '#FFF', fontSize: 18, fontWeight: 'bold', marginRight: 15 },
+  btnIconCircle: { backgroundColor: '#FFF', borderRadius: 20, padding: 5 }
+});
+
+export default SimpleCart;
