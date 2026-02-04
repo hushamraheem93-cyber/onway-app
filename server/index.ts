@@ -58,14 +58,26 @@ function setupCors(app: express.Application) {
 function setupBodyParsing(app: express.Application) {
   app.use(
     express.json({
-      limit: "50mb",
+      limit: "100mb",
       verify: (req, _res, buf) => {
         req.rawBody = buf;
       },
     }),
   );
 
-  app.use(express.urlencoded({ extended: false }));
+  app.use(express.urlencoded({ extended: false, limit: "100mb" }));
+  
+  app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+    if (err.type === 'entity.too.large') {
+      console.error("Request body too large:", err.message);
+      return res.status(413).json({ error: "Payload too large", message: err.message });
+    }
+    if (err instanceof SyntaxError && 'body' in err) {
+      console.error("JSON parse error:", err.message);
+      return res.status(400).json({ error: "Invalid JSON", message: err.message });
+    }
+    next(err);
+  });
 }
 
 function setupRequestLogging(app: express.Application) {
