@@ -14,7 +14,6 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { Image } from "expo-image";
 import * as ImagePicker from "expo-image-picker";
-import { File } from "expo-file-system";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Feather } from "@expo/vector-icons";
 
@@ -24,6 +23,7 @@ import { Spacing, BorderRadius, AppColors } from "@/constants/theme";
 import { Banner, Category } from "@/constants/categories";
 import { getApiUrl, apiRequest } from "@/lib/query-client";
 import { formatPrice } from "@/constants/currency";
+import { compressAndConvertToBase64, isBase64Image, ImageSize } from "@/lib/imageUtils";
 
 type TabType = "banners" | "categories" | "products" | "areas";
 type BannerType = "offer" | "slider";
@@ -157,30 +157,26 @@ export default function AdminScreen() {
 
   const saveBanner = async () => {
     try {
-      const formData = new FormData();
-      formData.append("title", bannerForm.title);
-      formData.append("type", bannerForm.type);
-      formData.append("isActive", "true");
-
+      let imageBase64 = bannerForm.imageUrl;
+      
       if (bannerForm.imageUri) {
-        if (Platform.OS === "web") {
-          const response = await fetch(bannerForm.imageUri);
-          const blob = await response.blob();
-          formData.append("image", blob, "image.jpg");
-        } else {
-          const file = new File(bannerForm.imageUri);
-          formData.append("image", file as any);
-        }
-      } else if (bannerForm.imageUrl) {
-        formData.append("imageUrl", bannerForm.imageUrl);
+        imageBase64 = await compressAndConvertToBase64(bannerForm.imageUri, "banner");
       }
+
+      const body = {
+        title: bannerForm.title,
+        type: bannerForm.type,
+        isActive: true,
+        image: imageBase64,
+      };
 
       const url = editItem ? `/api/admin/banners/${editItem.id}` : "/api/admin/banners";
       const method = editItem ? "PUT" : "POST";
 
       await fetch(`${getApiUrl()}${url}`, {
         method,
-        body: formData,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
       });
 
       queryClient.invalidateQueries({ queryKey: ["/api/admin/banners"] });
@@ -188,72 +184,66 @@ export default function AdminScreen() {
       resetForm();
     } catch (error) {
       console.error("Error saving banner:", error);
+      Alert.alert("خطأ", "فشل في حفظ البانر");
     }
   };
 
   const saveCategory = async () => {
     try {
-      const formData = new FormData();
-      formData.append("name", categoryForm.name);
-
+      let imageBase64 = categoryForm.imageUrl;
+      
       if (categoryForm.imageUri) {
-        if (Platform.OS === "web") {
-          const response = await fetch(categoryForm.imageUri);
-          const blob = await response.blob();
-          formData.append("image", blob, "image.jpg");
-        } else {
-          const file = new File(categoryForm.imageUri);
-          formData.append("image", file as any);
-        }
-      } else if (categoryForm.imageUrl) {
-        formData.append("imageUrl", categoryForm.imageUrl);
+        imageBase64 = await compressAndConvertToBase64(categoryForm.imageUri, "category");
       }
+
+      const body = {
+        name: categoryForm.name,
+        image: imageBase64,
+      };
 
       const url = editItem ? `/api/admin/categories/${editItem.id}` : "/api/admin/categories";
       const method = editItem ? "PUT" : "POST";
 
       await fetch(`${getApiUrl()}${url}`, {
         method,
-        body: formData,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
       });
 
       queryClient.invalidateQueries({ queryKey: ["/api/categories"] });
       resetForm();
     } catch (error) {
       console.error("Error saving category:", error);
+      Alert.alert("خطأ", "فشل في حفظ القسم");
     }
   };
 
   const saveProduct = async () => {
     try {
-      const formData = new FormData();
-      formData.append("name", productForm.name);
-      formData.append("categoryId", productForm.categoryId);
-      formData.append("price", productForm.price);
-      if (productForm.originalPrice) formData.append("originalPrice", productForm.originalPrice);
-      if (productForm.discount) formData.append("discount", productForm.discount);
-      formData.append("description", productForm.description);
-      formData.append("inStock", productForm.inStock.toString());
-
+      let imageBase64 = productForm.imageUrl;
+      
       if (productForm.imageUri) {
-        if (Platform.OS === "web") {
-          const response = await fetch(productForm.imageUri);
-          const blob = await response.blob();
-          formData.append("image", blob, "image.jpg");
-        } else {
-          const file = new File(productForm.imageUri);
-          formData.append("image", file as any);
-        }
-      } else if (productForm.imageUrl) {
-        formData.append("imageUrl", productForm.imageUrl);
+        imageBase64 = await compressAndConvertToBase64(productForm.imageUri, "product");
       }
+
+      const body = {
+        name: productForm.name,
+        categoryId: productForm.categoryId,
+        price: productForm.price,
+        originalPrice: productForm.originalPrice || undefined,
+        discount: productForm.discount || undefined,
+        description: productForm.description,
+        inStock: productForm.inStock,
+        image: imageBase64,
+      };
 
       const url = editItem ? `/api/admin/products/${editItem.id}` : "/api/admin/products";
       const method = editItem ? "PUT" : "POST";
 
       await fetch(`${getApiUrl()}${url}`, {
         method,
-        body: formData,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
       });
 
       queryClient.invalidateQueries({ queryKey: ["/api/admin/products"] });
@@ -261,6 +251,7 @@ export default function AdminScreen() {
       resetForm();
     } catch (error) {
       console.error("Error saving product:", error);
+      Alert.alert("خطأ", "فشل في حفظ المنتج");
     }
   };
 
@@ -367,6 +358,8 @@ export default function AdminScreen() {
   };
 
   const getImageUrl = (image: string) => {
+    if (!image) return "";
+    if (isBase64Image(image)) return image;
     if (image.startsWith("http")) return image;
     return `${getApiUrl()}${image}`;
   };

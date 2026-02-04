@@ -46,6 +46,8 @@ export function CategoryCard({ category, onPress, compact = false, sliderMode = 
   };
 
   const getImageUrl = (image: string) => {
+    if (!image) return "";
+    if (image.startsWith("data:image/")) return image;
     if (image.startsWith("http")) return image;
     return `${getApiUrl()}${image}`;
   };

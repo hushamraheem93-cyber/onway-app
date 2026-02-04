@@ -139,14 +139,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/admin/categories", upload.single("image"), (req: Request & { file?: Express.Multer.File }, res: Response) => {
-    const { name, productCount, order } = req.body;
-    const image = req.file ? `/uploads/${req.file.filename}` : req.body.imageUrl;
+  app.post("/api/admin/categories", (req: Request, res: Response) => {
+    const { name, productCount, order, image } = req.body;
     
     const newCategory: Category = {
       id: randomUUID(),
       name,
-      image,
+      image: image || "",
       productCount: parseInt(productCount) || 0,
       order: parseInt(order) || categories.length + 1,
     };
@@ -155,19 +154,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json(newCategory);
   });
 
-  app.put("/api/admin/categories/:id", upload.single("image"), (req: Request & { file?: Express.Multer.File }, res: Response) => {
+  app.put("/api/admin/categories/:id", (req: Request, res: Response) => {
     const index = categories.findIndex(c => c.id === req.params.id);
     if (index === -1) {
       return res.status(404).json({ error: "Category not found" });
     }
     
-    const { name, productCount, order } = req.body;
-    const image = req.file ? `/uploads/${req.file.filename}` : (req.body.imageUrl || categories[index].image);
+    const { name, productCount, order, image } = req.body;
     
     categories[index] = {
       ...categories[index],
       name: name || categories[index].name,
-      image,
+      image: image || categories[index].image,
       productCount: productCount ? parseInt(productCount) : categories[index].productCount,
       order: order ? parseInt(order) : categories[index].order,
     };
@@ -197,39 +195,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json(banners.sort((a, b) => a.order - b.order));
   });
 
-  app.post("/api/admin/banners", upload.single("image"), (req: Request & { file?: Express.Multer.File }, res: Response) => {
-    const { title, type, order, isActive } = req.body;
-    const image = req.file ? `/uploads/${req.file.filename}` : req.body.imageUrl;
+  app.post("/api/admin/banners", (req: Request, res: Response) => {
+    const { title, type, order, isActive, image } = req.body;
     
     const newBanner: Banner = {
       id: randomUUID(),
-      image,
+      image: image || "",
       title,
       type: type || "slider",
       order: parseInt(order) || banners.length + 1,
-      isActive: isActive !== "false",
+      isActive: isActive !== false,
     };
     
     banners.push(newBanner);
     res.json(newBanner);
   });
 
-  app.put("/api/admin/banners/:id", upload.single("image"), (req: Request & { file?: Express.Multer.File }, res: Response) => {
+  app.put("/api/admin/banners/:id", (req: Request, res: Response) => {
     const index = banners.findIndex(b => b.id === req.params.id);
     if (index === -1) {
       return res.status(404).json({ error: "Banner not found" });
     }
     
-    const { title, type, order, isActive } = req.body;
-    const image = req.file ? `/uploads/${req.file.filename}` : (req.body.imageUrl || banners[index].image);
+    const { title, type, order, isActive, image } = req.body;
     
     banners[index] = {
       ...banners[index],
-      image,
+      image: image || banners[index].image,
       title: title !== undefined ? title : banners[index].title,
       type: type || banners[index].type,
       order: order ? parseInt(order) : banners[index].order,
-      isActive: isActive !== undefined ? isActive !== "false" : banners[index].isActive,
+      isActive: isActive !== undefined ? isActive : banners[index].isActive,
     };
     
     res.json(banners[index]);
@@ -266,9 +262,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json(products);
   });
 
-  app.post("/api/admin/products", upload.single("image"), (req: Request & { file?: Express.Multer.File }, res: Response) => {
-    const { name, categoryId, price, originalPrice, discount, description, inStock } = req.body;
-    const image = req.file ? `/uploads/${req.file.filename}` : req.body.imageUrl;
+  app.post("/api/admin/products", (req: Request, res: Response) => {
+    const { name, categoryId, price, originalPrice, discount, description, inStock, image } = req.body;
     
     const newProduct: Product = {
       id: randomUUID(),
@@ -277,23 +272,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
       price: parseInt(price) || 0,
       originalPrice: originalPrice ? parseInt(originalPrice) : undefined,
       discount: discount ? parseInt(discount) : undefined,
-      image,
+      image: image || "",
       description: description || "",
-      inStock: inStock !== "false",
+      inStock: inStock !== false,
     };
     
     products.push(newProduct);
     res.json(newProduct);
   });
 
-  app.put("/api/admin/products/:id", upload.single("image"), (req: Request & { file?: Express.Multer.File }, res: Response) => {
+  app.put("/api/admin/products/:id", (req: Request, res: Response) => {
     const index = products.findIndex(p => p.id === req.params.id);
     if (index === -1) {
       return res.status(404).json({ error: "Product not found" });
     }
     
-    const { name, categoryId, price, originalPrice, discount, description, inStock } = req.body;
-    const image = req.file ? `/uploads/${req.file.filename}` : (req.body.imageUrl || products[index].image);
+    const { name, categoryId, price, originalPrice, discount, description, inStock, image } = req.body;
     
     products[index] = {
       ...products[index],
@@ -302,9 +296,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       price: price ? parseInt(price) : products[index].price,
       originalPrice: originalPrice ? parseInt(originalPrice) : products[index].originalPrice,
       discount: discount ? parseInt(discount) : products[index].discount,
-      image,
+      image: image || products[index].image,
       description: description !== undefined ? description : products[index].description,
-      inStock: inStock !== undefined ? inStock !== "false" : products[index].inStock,
+      inStock: inStock !== undefined ? inStock : products[index].inStock,
     };
     
     res.json(products[index]);

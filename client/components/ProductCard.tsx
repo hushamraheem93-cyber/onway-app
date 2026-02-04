@@ -20,6 +20,7 @@ import { useCart } from "@/context/CartContext";
 import { useFavorites } from "@/context/FavoritesContext";
 import { useCartAnimation } from "@/context/CartAnimationContext";
 import { formatPrice } from "@/constants/currency";
+import { getApiUrl } from "@/lib/query-client";
 
 interface ProductCardProps {
   product: Product;
@@ -42,6 +43,13 @@ export function ProductCard({ product, onPress }: ProductCardProps) {
   const isInCart = items.some((item) => item.product.id === product.id);
   const cartQuantity = items.find((item) => item.product.id === product.id)?.quantity || 0;
   const isFav = isFavorite(product.id);
+
+  const getImageUrl = (image: string) => {
+    if (!image) return "";
+    if (image.startsWith("data:image/")) return image;
+    if (image.startsWith("http")) return image;
+    return `${getApiUrl()}${image}`;
+  };
 
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }],
@@ -130,7 +138,7 @@ export function ProductCard({ product, onPress }: ProductCardProps) {
           />
         </AnimatedPressable>
         <Image
-          source={{ uri: product.image }}
+          source={{ uri: getImageUrl(product.image) }}
           style={styles.image}
           contentFit="contain"
           transition={200}
