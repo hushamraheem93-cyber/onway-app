@@ -3,10 +3,48 @@ import { StyleSheet, ScrollView, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { Feather } from "@expo/vector-icons";
+import Svg, { Path, Rect, Circle, G, Defs, ClipPath } from "react-native-svg";
 
 import { useTheme } from "@/hooks/useTheme";
 import { Spacing, BorderRadius, Shadows, AppColors } from "@/constants/theme";
 import { ThemedText } from "@/components/ThemedText";
+
+function MastercardIcon({ size = 40 }: { size?: number }) {
+  return (
+    <Svg width={size} height={size * 0.6} viewBox="0 0 60 36">
+      <Rect width="60" height="36" rx="4" fill="#1A1F71" />
+      <Circle cx="22" cy="18" r="11" fill="#EB001B" />
+      <Circle cx="38" cy="18" r="11" fill="#F79E1B" />
+      <Path
+        d="M30 9.5c2.5 2 4 5.1 4 8.5s-1.5 6.5-4 8.5c-2.5-2-4-5.1-4-8.5s1.5-6.5 4-8.5z"
+        fill="#FF5F00"
+      />
+    </Svg>
+  );
+}
+
+function ZainCashIcon({ size = 40 }: { size?: number }) {
+  return (
+    <Svg width={size} height={size * 0.6} viewBox="0 0 60 36">
+      <Rect width="60" height="36" rx="4" fill="#662D91" />
+      <G>
+        <Path
+          d="M12 12h8v2h-5.5l5 8H12v-2h5.5l-5-8z"
+          fill="#FFFFFF"
+        />
+        <Circle cx="35" cy="18" r="8" fill="#00A651" />
+        <Path
+          d="M32 15l3 3-3 3M38 15l-3 3 3 3"
+          stroke="#FFFFFF"
+          strokeWidth="1.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          fill="none"
+        />
+      </G>
+    </Svg>
+  );
+}
 
 export default function PaymentScreen() {
   const insets = useSafeAreaInsets();
@@ -37,32 +75,46 @@ export default function PaymentScreen() {
       </View>
 
       <View style={[styles.infoCard, { backgroundColor: theme.backgroundDefault }, Shadows.sm]}>
-        <ThemedText type="h4" style={styles.infoTitle}>قريباً</ThemedText>
+        <View style={styles.headerRow}>
+          <ThemedText type="h4" style={styles.infoTitle}>قريباً</ThemedText>
+          <View style={styles.comingSoonBadge}>
+            <ThemedText type="small" style={styles.comingSoonBadgeText}>Coming Soon</ThemedText>
+          </View>
+        </View>
         
-        <View style={styles.comingSoonItem}>
-          <ThemedText type="body" style={[styles.comingSoonText, { color: theme.textSecondary }]}>
-            بطاقات الائتمان والخصم
-          </ThemedText>
-          <View style={[styles.smallIcon, { backgroundColor: AppColors.primary + "15" }]}>
-            <Feather name="credit-card" size={16} color={AppColors.primary} />
+        <View style={styles.paymentMethod}>
+          <View style={styles.paymentMethodContent}>
+            <View style={styles.logoContainer}>
+              <MastercardIcon size={50} />
+            </View>
+            <View style={styles.paymentInfo}>
+              <ThemedText type="body" style={styles.paymentTitle}>ماستركارد</ThemedText>
+              <ThemedText type="small" style={[styles.paymentDesc, { color: theme.textSecondary }]}>
+                الدفع ببطاقة ماستركارد
+              </ThemedText>
+            </View>
+          </View>
+          <View style={[styles.statusBadge, { backgroundColor: AppColors.primary + "15" }]}>
+            <ThemedText type="small" style={[styles.statusText, { color: AppColors.primary }]}>قريباً</ThemedText>
           </View>
         </View>
 
-        <View style={styles.comingSoonItem}>
-          <ThemedText type="body" style={[styles.comingSoonText, { color: theme.textSecondary }]}>
-            المحافظ الإلكترونية
-          </ThemedText>
-          <View style={[styles.smallIcon, { backgroundColor: AppColors.primary + "15" }]}>
-            <Feather name="smartphone" size={16} color={AppColors.primary} />
-          </View>
-        </View>
+        <View style={styles.divider} />
 
-        <View style={styles.comingSoonItem}>
-          <ThemedText type="body" style={[styles.comingSoonText, { color: theme.textSecondary }]}>
-            التحويل البنكي
-          </ThemedText>
-          <View style={[styles.smallIcon, { backgroundColor: AppColors.primary + "15" }]}>
-            <Feather name="briefcase" size={16} color={AppColors.primary} />
+        <View style={styles.paymentMethod}>
+          <View style={styles.paymentMethodContent}>
+            <View style={styles.logoContainer}>
+              <ZainCashIcon size={50} />
+            </View>
+            <View style={styles.paymentInfo}>
+              <ThemedText type="body" style={styles.paymentTitle}>زين كاش</ThemedText>
+              <ThemedText type="small" style={[styles.paymentDesc, { color: theme.textSecondary }]}>
+                الدفع عبر محفظة زين كاش
+              </ThemedText>
+            </View>
+          </View>
+          <View style={[styles.statusBadge, { backgroundColor: "#662D91" + "15" }]}>
+            <ThemedText type="small" style={[styles.statusText, { color: "#662D91" }]}>قريباً</ThemedText>
           </View>
         </View>
       </View>
@@ -116,26 +168,71 @@ const styles = StyleSheet.create({
     padding: Spacing.xl,
     marginBottom: Spacing.lg,
   },
-  infoTitle: {
-    textAlign: "right",
-    marginBottom: Spacing.lg,
-  },
-  comingSoonItem: {
+  headerRow: {
     flexDirection: "row-reverse",
     alignItems: "center",
-    paddingVertical: Spacing.sm,
+    justifyContent: "space-between",
+    marginBottom: Spacing.lg,
+  },
+  infoTitle: {
+    textAlign: "right",
+  },
+  comingSoonBadge: {
+    backgroundColor: "#FFB800",
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 4,
+    borderRadius: BorderRadius.sm,
+  },
+  comingSoonBadgeText: {
+    color: "#000",
+    fontWeight: "700",
+    fontSize: 10,
+  },
+  paymentMethod: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: Spacing.md,
+  },
+  paymentMethodContent: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    flex: 1,
     gap: Spacing.md,
   },
-  smallIcon: {
-    width: 32,
-    height: 32,
-    borderRadius: BorderRadius.sm,
+  logoContainer: {
+    width: 56,
+    height: 36,
     alignItems: "center",
     justifyContent: "center",
+    borderRadius: BorderRadius.sm,
+    overflow: "hidden",
   },
-  comingSoonText: {
+  paymentInfo: {
     flex: 1,
+    alignItems: "flex-end",
+  },
+  paymentTitle: {
+    fontWeight: "700",
     textAlign: "right",
+    marginBottom: 2,
+  },
+  paymentDesc: {
+    textAlign: "right",
+  },
+  statusBadge: {
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 4,
+    borderRadius: BorderRadius.sm,
+  },
+  statusText: {
+    fontWeight: "600",
+    fontSize: 11,
+  },
+  divider: {
+    height: 1,
+    backgroundColor: "#E5E5E5",
+    marginVertical: Spacing.xs,
   },
   noteCard: {
     flexDirection: "row-reverse",
