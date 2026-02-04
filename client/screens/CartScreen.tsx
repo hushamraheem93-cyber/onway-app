@@ -9,15 +9,14 @@ import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 
 import { useTheme } from "@/hooks/useTheme";
-import { Spacing, BorderRadius, Shadows, AppColors } from "@/constants/theme";
+import { Spacing, AppColors } from "@/constants/theme";
 import { useCart, CartItem } from "@/context/CartContext";
 import { formatPrice } from "@/constants/currency";
 import { CartItemCard } from "@/components/CartItemCard";
 import { EmptyState } from "@/components/EmptyState";
-import { RelatedProducts } from "@/components/RelatedProducts";
+import { SmartSuggestions } from "@/components/SmartSuggestions";
 import { ThemedText } from "@/components/ThemedText";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
-import { PRODUCTS, Product } from "@/constants/categories";
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
@@ -29,18 +28,6 @@ export default function CartScreen() {
   const navigation = useNavigation<NavigationProp>();
   const { items, getTotal, clearCart } = useCart();
 
-  const getRelatedProducts = (): Product[] => {
-    if (items.length === 0) return [];
-    const cartCategoryIds = [...new Set(items.map((item) => item.product.categoryId))];
-    const cartProductIds = items.map((item) => item.product.id);
-    
-    const relatedProducts = PRODUCTS.filter(
-      (p) => cartCategoryIds.includes(p.categoryId) && !cartProductIds.includes(p.id)
-    );
-    return relatedProducts.slice(0, 6);
-  };
-
-  const relatedProducts = getRelatedProducts();
   const subtotal = getTotal();
 
   const handleCheckout = () => {
@@ -96,8 +83,8 @@ export default function CartScreen() {
           ) : null
         }
         ListFooterComponent={
-          items.length > 0 && relatedProducts.length > 0 ? (
-            <RelatedProducts products={relatedProducts} title="قد يعجبك أيضاً" />
+          items.length > 0 ? (
+            <SmartSuggestions cartItems={items} />
           ) : null
         }
       />
