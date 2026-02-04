@@ -50,7 +50,8 @@ client/
 server/
 ├── index.ts               # Express server setup
 ├── routes.ts              # API routes with multer for uploads
-└── storage.ts             # Data storage
+├── firebase.ts            # Firebase Firestore configuration
+└── storage.ts             # Data storage (fallback)
 ```
 
 ## Key Features
@@ -121,6 +122,12 @@ Font Sizes: Title 16px, Category 14px, Small 12px
 - Image upload using expo-image-picker
 - CRUD operations for banners and categories
 - Banner types: "offer" (static top) and "slider" (carousel)
+
+## Firebase Firestore Integration
+- User data (profiles) are stored in Firebase Firestore 'users' collection
+- Profile images are uploaded locally to /uploads/ and the URL is saved in Firestore
+- Required secret: FIREBASE_SERVICE_ACCOUNT (JSON string of Firebase service account credentials)
+- Falls back to in-memory storage if Firebase is not configured
 
 ## Recent Changes
 - February 2026: Updated design system to Talabaty-inspired theme
