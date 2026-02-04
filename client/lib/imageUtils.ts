@@ -6,9 +6,9 @@ export type ImageSize = "profile" | "product" | "banner" | "category";
 
 const SIZE_CONFIG: Record<ImageSize, { width: number; height?: number; quality: number }> = {
   profile: { width: 200, height: 200, quality: 0.6 },
-  product: { width: 400, quality: 0.7 },
-  banner: { width: 800, quality: 0.7 },
-  category: { width: 300, quality: 0.7 },
+  product: { width: 400, quality: 0.5 },
+  banner: { width: 800, quality: 0.6 },
+  category: { width: 300, quality: 0.6 },
 };
 
 export async function compressAndConvertToBase64(

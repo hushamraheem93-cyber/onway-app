@@ -275,18 +275,24 @@ export default function AdminScreen() {
       const url = editItem ? `/api/admin/products/${editItem.id}` : "/api/admin/products";
       const method = editItem ? "PUT" : "POST";
 
-      await fetch(`${getApiUrl()}${url}`, {
+      const response = await fetch(`${getApiUrl()}${url}`, {
         method,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
 
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error("Server error response:", response.status, errorText);
+        throw new Error(`Server error ${response.status}: ${errorText}`);
+      }
+
       queryClient.invalidateQueries({ queryKey: ["/api/admin/products"] });
       queryClient.invalidateQueries({ queryKey: ["/api/products"] });
       resetForm();
-    } catch (error) {
-      console.error("Error saving product:", error);
-      Alert.alert("خطأ", "فشل في حفظ المنتج");
+    } catch (error: any) {
+      console.error("Error saving product - Type:", error?.name, "Message:", error?.message, "Full error:", error);
+      Alert.alert("خطأ", `فشل في حفظ المنتج: ${error?.message || "خطأ غير معروف"}`);
     } finally {
       setIsSavingProduct(false);
     }
