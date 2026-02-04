@@ -211,8 +211,20 @@ function configureExpoAndLanding(app: express.Application) {
     next();
   });
 
-  app.use("/assets", express.static(path.resolve(process.cwd(), "assets")));
-  app.use(express.static(path.resolve(process.cwd(), "static-build")));
+  app.use("/assets", express.static(path.resolve(process.cwd(), "assets"), {
+    maxAge: "7d",
+    etag: true,
+  }));
+  
+  app.use(express.static(path.resolve(process.cwd(), "server", "public"), {
+    maxAge: "1d",
+    etag: true,
+  }));
+  
+  app.use(express.static(path.resolve(process.cwd(), "static-build"), {
+    maxAge: "1d",
+    etag: true,
+  }));
 
   log("Expo routing: Checking expo-platform header on / and /manifest");
 }
