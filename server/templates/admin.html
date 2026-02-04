@@ -184,6 +184,11 @@
       color: white;
     }
     
+    .btn-warning {
+      background: #ffc107;
+      color: #212529;
+    }
+    
     .btn-sm {
       padding: 8px 16px;
       font-size: 0.85rem;
@@ -222,6 +227,14 @@
       object-fit: cover;
       border-radius: 8px;
       background: #f0f0f0;
+    }
+    
+    .category-color {
+      width: 24px;
+      height: 24px;
+      border-radius: 6px;
+      display: inline-block;
+      vertical-align: middle;
     }
     
     .price {
@@ -361,6 +374,19 @@
       opacity: 0.5;
     }
     
+    .badge {
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 0.8rem;
+      font-weight: 600;
+    }
+    
+    .product-count {
+      background: #e3f2fd;
+      color: #1976d2;
+    }
+    
     @media (max-width: 768px) {
       .sidebar {
         width: 100%;
@@ -381,15 +407,19 @@
 <body>
   <nav class="sidebar">
     <h1>Admin Dashboard</h1>
-    <div class="nav-item active" onclick="showSection('dashboard')">
+    <div class="nav-item active" onclick="showSection('dashboard', this)">
       <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path></svg>
       Dashboard
     </div>
-    <div class="nav-item" onclick="showSection('products')">
+    <div class="nav-item" onclick="showSection('products', this)">
       <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path></svg>
       Products
     </div>
-    <div class="nav-item" onclick="showSection('promo')">
+    <div class="nav-item" onclick="showSection('categories', this)">
+      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"></path></svg>
+      Categories
+    </div>
+    <div class="nav-item" onclick="showSection('promo', this)">
       <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
       Promo Slider
     </div>
@@ -408,18 +438,22 @@
           <div class="value" id="total-products">0</div>
         </div>
         <div class="stat-card">
+          <h4>Categories</h4>
+          <div class="value" id="total-categories">0</div>
+        </div>
+        <div class="stat-card">
           <h4>Promo Slides</h4>
           <div class="value" id="total-slides">0</div>
         </div>
         <div class="stat-card">
-          <h4>Categories</h4>
-          <div class="value" id="total-categories">0</div>
+          <h4>Total Stock</h4>
+          <div class="value" id="total-stock">0</div>
         </div>
       </div>
       
       <div class="card">
         <h3>Quick Actions</h3>
-        <p style="color: #666; margin-top: 15px;">Use the sidebar to manage your products and promo slider content.</p>
+        <p style="color: #666; margin-top: 15px;">Use the sidebar to manage your products, categories, and promo slider content.</p>
       </div>
     </div>
 
@@ -455,6 +489,37 @@
       </div>
     </div>
 
+    <!-- Categories Section -->
+    <div id="categories-section" class="section">
+      <div class="page-header">
+        <h2>Categories Management</h2>
+        <button class="btn btn-success" onclick="openCategoryModal()">+ Add Category</button>
+      </div>
+      
+      <div id="categories-status" class="status-message"></div>
+      
+      <div class="card">
+        <div class="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th>Color</th>
+                <th>Name</th>
+                <th>Description</th>
+                <th>Products</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="categories-table">
+              <tr>
+                <td colspan="5" class="loading-spinner">Loading categories...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
     <!-- Promo Slider Section -->
     <div id="promo-section" class="section">
       <div class="page-header">
@@ -481,7 +546,7 @@
   <div id="product-modal" class="modal-overlay">
     <div class="modal">
       <div class="modal-header">
-        <h3 id="modal-title">Add New Product</h3>
+        <h3 id="product-modal-title">Add New Product</h3>
         <button class="modal-close" onclick="closeProductModal()">&times;</button>
       </div>
       
@@ -495,7 +560,9 @@
           </div>
           <div class="form-group">
             <label>Category</label>
-            <input type="text" id="product-category" placeholder="e.g., Electronics, Clothing">
+            <select id="product-category">
+              <option value="">Select Category</option>
+            </select>
           </div>
         </div>
         
@@ -529,6 +596,46 @@
     </div>
   </div>
 
+  <!-- Category Modal -->
+  <div id="category-modal" class="modal-overlay">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 id="category-modal-title">Add New Category</h3>
+        <button class="modal-close" onclick="closeCategoryModal()">&times;</button>
+      </div>
+      
+      <form id="category-form" onsubmit="saveCategory(event)">
+        <input type="hidden" id="category-id">
+        
+        <div class="form-group">
+          <label>Category Name *</label>
+          <input type="text" id="category-name" required placeholder="Enter category name">
+        </div>
+        
+        <div class="form-group">
+          <label>Description</label>
+          <textarea id="category-description" placeholder="Enter category description"></textarea>
+        </div>
+        
+        <div class="form-group">
+          <label>Color</label>
+          <input type="color" id="category-color" value="#667eea" style="width: 60px; height: 40px; padding: 2px;">
+        </div>
+        
+        <div class="form-group">
+          <label>Image URL (optional)</label>
+          <input type="url" id="category-image" placeholder="https://example.com/image.jpg" onchange="previewCategoryImage(this.value)">
+          <img id="category-image-preview" class="preview-image" style="display: none;">
+        </div>
+        
+        <div style="display: flex; gap: 10px; margin-top: 25px;">
+          <button type="submit" class="btn btn-primary">Save Category</button>
+          <button type="button" class="btn btn-secondary" onclick="closeCategoryModal()">Cancel</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
     import { getFirestore, collection, doc, getDocs, setDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
@@ -547,19 +654,188 @@
     const db = getFirestore(app);
 
     let products = [];
+    let categories = [];
     let slides = [];
     let slideCounter = 0;
 
     // Navigation
-    window.showSection = function(section) {
+    window.showSection = function(section, element) {
       document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
       document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
       
       document.getElementById(section + '-section').classList.add('active');
-      event.currentTarget.classList.add('active');
+      element.classList.add('active');
       
       if (section === 'products') loadProducts();
+      if (section === 'categories') loadCategories();
       if (section === 'promo') loadSlides();
+    };
+
+    // Categories Functions
+    window.loadCategories = async function() {
+      const tbody = document.getElementById('categories-table');
+      tbody.innerHTML = '<tr><td colspan="5" class="loading-spinner">Loading categories...</td></tr>';
+      
+      try {
+        const querySnapshot = await getDocs(collection(db, "categories"));
+        categories = [];
+        querySnapshot.forEach((doc) => {
+          categories.push({ id: doc.id, ...doc.data() });
+        });
+        categories.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+        
+        renderCategories();
+        updateCategoryDropdown();
+        updateStats();
+      } catch (error) {
+        console.error("Error loading categories:", error);
+        tbody.innerHTML = '<tr><td colspan="5" class="loading-spinner">Error loading categories</td></tr>';
+        showStatus('categories-status', 'Error loading categories: ' + error.message, 'error');
+      }
+    };
+
+    function renderCategories() {
+      const tbody = document.getElementById('categories-table');
+      
+      if (categories.length === 0) {
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="5">
+              <div class="empty-state">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"></path></svg>
+                <p>No categories yet. Click "Add Category" to create one.</p>
+              </div>
+            </td>
+          </tr>
+        `;
+        return;
+      }
+      
+      tbody.innerHTML = categories.map(category => {
+        const productCount = products.filter(p => p.categoryId === category.id).length;
+        return `
+          <tr>
+            <td><span class="category-color" style="background: ${escapeHtml(category.color || '#667eea')}"></span></td>
+            <td><strong>${escapeHtml(category.name || 'Untitled')}</strong></td>
+            <td>${escapeHtml(category.description || '-')}</td>
+            <td><span class="badge product-count">${productCount} products</span></td>
+            <td class="actions">
+              <button class="btn btn-primary btn-sm" onclick="editCategory('${category.id}')">Edit</button>
+              <button class="btn btn-danger btn-sm" onclick="deleteCategory('${category.id}')">Delete</button>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    function updateCategoryDropdown() {
+      const select = document.getElementById('product-category');
+      const currentValue = select.value;
+      
+      select.innerHTML = '<option value="">Select Category</option>' +
+        categories.map(cat => `<option value="${cat.id}">${escapeHtml(cat.name)}</option>`).join('');
+      
+      if (currentValue) {
+        select.value = currentValue;
+      }
+    }
+
+    window.openCategoryModal = function(categoryId = null) {
+      const modal = document.getElementById('category-modal');
+      const form = document.getElementById('category-form');
+      const title = document.getElementById('category-modal-title');
+      
+      form.reset();
+      document.getElementById('category-color').value = '#667eea';
+      document.getElementById('category-image-preview').style.display = 'none';
+      
+      if (categoryId) {
+        const category = categories.find(c => c.id === categoryId);
+        if (category) {
+          title.textContent = 'Edit Category';
+          document.getElementById('category-id').value = category.id;
+          document.getElementById('category-name').value = category.name || '';
+          document.getElementById('category-description').value = category.description || '';
+          document.getElementById('category-color').value = category.color || '#667eea';
+          document.getElementById('category-image').value = category.imageUrl || '';
+          if (category.imageUrl) {
+            previewCategoryImage(category.imageUrl);
+          }
+        }
+      } else {
+        title.textContent = 'Add New Category';
+        document.getElementById('category-id').value = '';
+      }
+      
+      modal.classList.add('active');
+    };
+
+    window.editCategory = function(categoryId) {
+      openCategoryModal(categoryId);
+    };
+
+    window.closeCategoryModal = function() {
+      document.getElementById('category-modal').classList.remove('active');
+    };
+
+    window.previewCategoryImage = function(url) {
+      const preview = document.getElementById('category-image-preview');
+      if (url) {
+        preview.src = url;
+        preview.style.display = 'block';
+        preview.onerror = () => preview.style.display = 'none';
+      } else {
+        preview.style.display = 'none';
+      }
+    };
+
+    window.saveCategory = async function(event) {
+      event.preventDefault();
+      
+      const categoryId = document.getElementById('category-id').value;
+      const categoryData = {
+        name: document.getElementById('category-name').value,
+        description: document.getElementById('category-description').value,
+        color: document.getElementById('category-color').value,
+        imageUrl: document.getElementById('category-image').value,
+        updatedAt: new Date().toISOString()
+      };
+      
+      try {
+        const docId = categoryId || 'category_' + Date.now();
+        if (!categoryId) {
+          categoryData.createdAt = new Date().toISOString();
+        }
+        
+        await setDoc(doc(db, "categories", docId), categoryData);
+        
+        closeCategoryModal();
+        loadCategories();
+        showStatus('categories-status', categoryId ? 'Category updated successfully!' : 'Category added successfully!', 'success');
+      } catch (error) {
+        console.error("Error saving category:", error);
+        showStatus('categories-status', 'Error saving category: ' + error.message, 'error');
+      }
+    };
+
+    window.deleteCategory = async function(categoryId) {
+      const productCount = products.filter(p => p.categoryId === categoryId).length;
+      
+      let message = 'Are you sure you want to delete this category?';
+      if (productCount > 0) {
+        message += ` This category has ${productCount} product(s) associated with it. They will become uncategorized.`;
+      }
+      
+      if (!confirm(message)) return;
+      
+      try {
+        await deleteDoc(doc(db, "categories", categoryId));
+        loadCategories();
+        showStatus('categories-status', 'Category deleted successfully!', 'success');
+      } catch (error) {
+        console.error("Error deleting category:", error);
+        showStatus('categories-status', 'Error deleting category: ' + error.message, 'error');
+      }
     };
 
     // Products Functions
@@ -568,13 +844,23 @@
       tbody.innerHTML = '<tr><td colspan="6" class="loading-spinner">Loading products...</td></tr>';
       
       try {
-        const querySnapshot = await getDocs(collection(db, "products"));
+        const [productsSnapshot, categoriesSnapshot] = await Promise.all([
+          getDocs(collection(db, "products")),
+          getDocs(collection(db, "categories"))
+        ]);
+        
         products = [];
-        querySnapshot.forEach((doc) => {
+        productsSnapshot.forEach((doc) => {
           products.push({ id: doc.id, ...doc.data() });
         });
         
+        categories = [];
+        categoriesSnapshot.forEach((doc) => {
+          categories.push({ id: doc.id, ...doc.data() });
+        });
+        
         renderProducts();
+        updateCategoryDropdown();
         updateStats();
       } catch (error) {
         console.error("Error loading products:", error);
@@ -600,33 +886,45 @@
         return;
       }
       
-      tbody.innerHTML = products.map(product => `
-        <tr>
-          <td>
-            ${product.imageUrl ? 
-              `<img src="${escapeHtml(product.imageUrl)}" class="product-image" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2260%22 height=%2260%22><rect fill=%22%23f0f0f0%22 width=%22100%%22 height=%22100%%22/></svg>'">` : 
-              '<div class="product-image" style="display:flex;align-items:center;justify-content:center;color:#ccc;">No Image</div>'
-            }
-          </td>
-          <td><strong>${escapeHtml(product.name || 'Untitled')}</strong></td>
-          <td>${escapeHtml(product.category || '-')}</td>
-          <td class="price">$${parseFloat(product.price || 0).toFixed(2)}</td>
-          <td>${product.stock || 0}</td>
-          <td class="actions">
-            <button class="btn btn-primary btn-sm" onclick="editProduct('${product.id}')">Edit</button>
-            <button class="btn btn-danger btn-sm" onclick="deleteProduct('${product.id}')">Delete</button>
-          </td>
-        </tr>
-      `).join('');
+      tbody.innerHTML = products.map(product => {
+        const category = categories.find(c => c.id === product.categoryId);
+        const categoryName = category ? category.name : (product.category || '-');
+        const categoryColor = category ? category.color : '#6c757d';
+        
+        return `
+          <tr>
+            <td>
+              ${product.imageUrl ? 
+                `<img src="${escapeHtml(product.imageUrl)}" class="product-image" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2260%22 height=%2260%22><rect fill=%22%23f0f0f0%22 width=%22100%%22 height=%22100%%22/></svg>'">` : 
+                '<div class="product-image" style="display:flex;align-items:center;justify-content:center;color:#ccc;">No Image</div>'
+              }
+            </td>
+            <td><strong>${escapeHtml(product.name || 'Untitled')}</strong></td>
+            <td>
+              <span style="display:inline-flex;align-items:center;gap:8px;">
+                <span class="category-color" style="background: ${categoryColor}; width: 12px; height: 12px;"></span>
+                ${escapeHtml(categoryName)}
+              </span>
+            </td>
+            <td class="price">$${parseFloat(product.price || 0).toFixed(2)}</td>
+            <td>${product.stock || 0}</td>
+            <td class="actions">
+              <button class="btn btn-primary btn-sm" onclick="editProduct('${product.id}')">Edit</button>
+              <button class="btn btn-danger btn-sm" onclick="deleteProduct('${product.id}')">Delete</button>
+            </td>
+          </tr>
+        `;
+      }).join('');
     }
 
     window.openProductModal = function(productId = null) {
       const modal = document.getElementById('product-modal');
       const form = document.getElementById('product-form');
-      const title = document.getElementById('modal-title');
+      const title = document.getElementById('product-modal-title');
       
       form.reset();
       document.getElementById('product-image-preview').style.display = 'none';
+      updateCategoryDropdown();
       
       if (productId) {
         const product = products.find(p => p.id === productId);
@@ -634,7 +932,7 @@
           title.textContent = 'Edit Product';
           document.getElementById('product-id').value = product.id;
           document.getElementById('product-name').value = product.name || '';
-          document.getElementById('product-category').value = product.category || '';
+          document.getElementById('product-category').value = product.categoryId || '';
           document.getElementById('product-description').value = product.description || '';
           document.getElementById('product-price').value = product.price || '';
           document.getElementById('product-stock').value = product.stock || 0;
@@ -674,9 +972,13 @@
       event.preventDefault();
       
       const productId = document.getElementById('product-id').value;
+      const categoryId = document.getElementById('product-category').value;
+      const category = categories.find(c => c.id === categoryId);
+      
       const productData = {
         name: document.getElementById('product-name').value,
-        category: document.getElementById('product-category').value,
+        categoryId: categoryId,
+        category: category ? category.name : '',
         description: document.getElementById('product-description').value,
         price: parseFloat(document.getElementById('product-price').value) || 0,
         stock: parseInt(document.getElementById('product-stock').value) || 0,
@@ -872,15 +1174,42 @@
 
     async function updateStats() {
       document.getElementById('total-products').textContent = products.length;
+      document.getElementById('total-categories').textContent = categories.length;
       document.getElementById('total-slides').textContent = slides.length;
       
-      const categories = new Set(products.map(p => p.category).filter(Boolean));
-      document.getElementById('total-categories').textContent = categories.size;
+      const totalStock = products.reduce((sum, p) => sum + (parseInt(p.stock) || 0), 0);
+      document.getElementById('total-stock').textContent = totalStock;
     }
 
     // Initialize
     async function init() {
-      await Promise.all([loadProducts(), loadSlides()]);
+      try {
+        const [productsSnapshot, categoriesSnapshot, slidesSnapshot] = await Promise.all([
+          getDocs(collection(db, "products")),
+          getDocs(collection(db, "categories")),
+          getDocs(collection(db, "promoSlider"))
+        ]);
+        
+        products = [];
+        productsSnapshot.forEach((doc) => {
+          products.push({ id: doc.id, ...doc.data() });
+        });
+        
+        categories = [];
+        categoriesSnapshot.forEach((doc) => {
+          categories.push({ id: doc.id, ...doc.data() });
+        });
+        
+        slides = [];
+        slidesSnapshot.forEach((doc) => {
+          slides.push({ id: doc.id, ...doc.data() });
+        });
+        slides.sort((a, b) => (a.order || 0) - (b.order || 0));
+        
+        updateStats();
+      } catch (error) {
+        console.error("Error initializing:", error);
+      }
     }
 
     init();
