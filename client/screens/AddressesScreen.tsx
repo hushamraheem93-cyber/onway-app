@@ -6,12 +6,14 @@ import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 
 import { useTheme } from "@/hooks/useTheme";
+import { useAuth } from "@/context/AuthContext";
 import { Spacing, BorderRadius, Shadows, AppColors } from "@/constants/theme";
 import { ThemedText } from "@/components/ThemedText";
 
 interface Address {
   id: string;
   title: string;
+  region: string;
   address: string;
   isDefault: boolean;
 }
@@ -20,13 +22,24 @@ export default function AddressesScreen() {
   const insets = useSafeAreaInsets();
   const headerHeight = useHeaderHeight();
   const { theme } = useTheme();
+  const { userProfile } = useAuth();
 
-  const [addresses, setAddresses] = useState<Address[]>([
-    { id: "1", title: "المنزل", address: "بغداد - المنصور - شارع الأميرات", isDefault: true },
-  ]);
+  const savedAddress: Address | null = userProfile ? {
+    id: "profile-address",
+    title: "عنوان التسجيل",
+    region: userProfile.region,
+    address: userProfile.address,
+    isDefault: true,
+  } : null;
+
+  const [additionalAddresses, setAdditionalAddresses] = useState<Address[]>([]);
   const [showAddForm, setShowAddForm] = useState(false);
   const [newTitle, setNewTitle] = useState("");
   const [newAddress, setNewAddress] = useState("");
+
+  const allAddresses = savedAddress 
+    ? [savedAddress, ...additionalAddresses]
+    : additionalAddresses;
 
   const handleAddAddress = () => {
     if (newTitle.trim() && newAddress.trim()) {
@@ -34,10 +47,11 @@ export default function AddressesScreen() {
       const newAddr: Address = {
         id: Date.now().toString(),
         title: newTitle.trim(),
+        region: "",
         address: newAddress.trim(),
-        isDefault: addresses.length === 0,
+        isDefault: allAddresses.length === 0,
       };
-      setAddresses([...addresses, newAddr]);
+      setAdditionalAddresses([...additionalAddresses, newAddr]);
       setNewTitle("");
       setNewAddress("");
       setShowAddForm(false);
@@ -46,15 +60,16 @@ export default function AddressesScreen() {
 
   const handleSetDefault = (id: string) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setAddresses(addresses.map(addr => ({
+    setAdditionalAddresses(additionalAddresses.map(addr => ({
       ...addr,
       isDefault: addr.id === id,
     })));
   };
 
   const handleDelete = (id: string) => {
+    if (id === "profile-address") return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    setAddresses(addresses.filter(addr => addr.id !== id));
+    setAdditionalAddresses(additionalAddresses.filter(addr => addr.id !== id));
   };
 
   return (
@@ -67,14 +82,29 @@ export default function AddressesScreen() {
       }}
       showsVerticalScrollIndicator={false}
     >
-      {addresses.map((addr) => (
+      {allAddresses.length === 0 ? (
+        <View style={[styles.emptyState, { backgroundColor: theme.backgroundDefault }, Shadows.sm]}>
+          <Feather name="map-pin" size={48} color={theme.textSecondary} />
+          <ThemedText type="body" style={[styles.emptyText, { color: theme.textSecondary }]}>
+            لا توجد عناوين محفوظة
+          </ThemedText>
+        </View>
+      ) : null}
+
+      {allAddresses.map((addr) => (
         <View key={addr.id} style={[styles.addressCard, { backgroundColor: theme.backgroundDefault }, Shadows.sm]}>
           <View style={styles.addressHeader}>
-            <Pressable onPress={() => handleDelete(addr.id)} hitSlop={8}>
-              <Feather name="trash-2" size={18} color="#E53935" />
-            </Pressable>
+            {addr.id !== "profile-address" ? (
+              <Pressable onPress={() => handleDelete(addr.id)} hitSlop={8}>
+                <Feather name="trash-2" size={18} color="#E53935" />
+              </Pressable>
+            ) : (
+              <View style={styles.profileBadge}>
+                <ThemedText type="small" style={styles.profileBadgeText}>الأساسي</ThemedText>
+              </View>
+            )}
             <View style={styles.addressTitleContainer}>
-              {addr.isDefault ? (
+              {addr.isDefault && addr.id !== "profile-address" ? (
                 <View style={styles.defaultBadge}>
                   <ThemedText type="small" style={styles.defaultText}>الافتراضي</ThemedText>
                 </View>
@@ -85,10 +115,21 @@ export default function AddressesScreen() {
               <Feather name="map-pin" size={20} color={AppColors.primary} />
             </View>
           </View>
+          
+          {addr.region ? (
+            <View style={styles.regionRow}>
+              <ThemedText type="body" style={[styles.regionText, { color: AppColors.primary }]}>
+                {addr.region}
+              </ThemedText>
+              <Feather name="navigation" size={14} color={AppColors.primary} />
+            </View>
+          ) : null}
+          
           <ThemedText type="body" style={[styles.addressText, { color: theme.textSecondary }]}>
             {addr.address}
           </ThemedText>
-          {!addr.isDefault ? (
+          
+          {!addr.isDefault && addr.id !== "profile-address" ? (
             <Pressable
               onPress={() => handleSetDefault(addr.id)}
               style={[styles.setDefaultBtn, { borderColor: AppColors.primary }]}
@@ -150,6 +191,16 @@ export default function AddressesScreen() {
 }
 
 const styles = StyleSheet.create({
+  emptyState: {
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.xl * 2,
+    alignItems: "center",
+    marginBottom: Spacing.lg,
+  },
+  emptyText: {
+    marginTop: Spacing.md,
+    textAlign: "center",
+  },
   addressCard: {
     borderRadius: BorderRadius.lg,
     padding: Spacing.lg,
@@ -185,6 +236,25 @@ const styles = StyleSheet.create({
   },
   defaultText: {
     color: AppColors.primary,
+    fontWeight: "600",
+  },
+  profileBadge: {
+    backgroundColor: "#4CAF50" + "20",
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 2,
+    borderRadius: BorderRadius.sm,
+  },
+  profileBadgeText: {
+    color: "#4CAF50",
+    fontWeight: "600",
+  },
+  regionRow: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    gap: Spacing.xs,
+    marginBottom: Spacing.xs,
+  },
+  regionText: {
     fontWeight: "600",
   },
   addressText: {

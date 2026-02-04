@@ -16,6 +16,7 @@ import { useAuth } from "@/context/AuthContext";
 import { Spacing, BorderRadius, Shadows, AppColors } from "@/constants/theme";
 import { ThemedText } from "@/components/ThemedText";
 import { ProfileStackParamList } from "@/navigation/ProfileStackNavigator";
+import { getApiUrl } from "@/lib/query-client";
 
 interface SettingsItemProps {
   icon: keyof typeof Feather.glyphMap;
@@ -70,6 +71,14 @@ export default function ProfileScreen() {
   const { phoneNumber, userProfile, logout } = useAuth();
   const navigation = useNavigation<NavigationProp>();
 
+  const getProfileImageUrl = () => {
+    if (!userProfile?.profileImage) return null;
+    if (userProfile.profileImage.startsWith("http")) return userProfile.profileImage;
+    return `${getApiUrl()}${userProfile.profileImage}`;
+  };
+
+  const profileImageUrl = getProfileImageUrl();
+
   const handleLogout = async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     await logout();
@@ -90,9 +99,9 @@ export default function ProfileScreen() {
       }}
     >
       <View style={[styles.profileCard, { backgroundColor: theme.backgroundDefault }, Shadows.md]}>
-        {userProfile?.profileImage ? (
+        {profileImageUrl ? (
           <Image
-            source={{ uri: userProfile.profileImage }}
+            source={{ uri: profileImageUrl }}
             style={styles.avatarImage}
             contentFit="cover"
           />
