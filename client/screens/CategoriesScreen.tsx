@@ -1,24 +1,24 @@
 import React from "react";
-import { StyleSheet, FlatList, View, Dimensions, ActivityIndicator } from "react-native";
+import { StyleSheet, FlatList, View, Dimensions, ActivityIndicator, TouchableOpacity } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useQuery } from "@tanstack/react-query";
+import { Image } from "expo-image";
+import * as Haptics from "expo-haptics";
 
 import { useTheme } from "@/hooks/useTheme";
-import { Spacing, AppColors, DesignSystem } from "@/constants/theme";
+import { Spacing, AppColors } from "@/constants/theme";
 import { Category } from "@/constants/categories";
-import { CategoryCard } from "@/components/CategoryCard";
+import { ThemedText } from "@/components/ThemedText";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
+import { getApiUrl } from "@/lib/query-client";
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
-const NUM_COLUMNS = 3;
-const GRID_GAP = DesignSystem.gridGap;
-const HORIZONTAL_PADDING = DesignSystem.screenPadding;
-const CARD_WIDTH = (SCREEN_WIDTH - HORIZONTAL_PADDING * 2 - GRID_GAP * (NUM_COLUMNS - 1)) / NUM_COLUMNS;
+const CARD_WIDTH = (SCREEN_WIDTH - 60) / 2;
 
 export default function CategoriesScreen() {
   const insets = useSafeAreaInsets();
@@ -31,13 +31,33 @@ export default function CategoriesScreen() {
   });
 
   const handleCategoryPress = (category: Category) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     navigation.navigate("Products", { categoryId: category.id, categoryName: category.name });
   };
 
+  const getImageUrl = (image: string) => {
+    if (image.startsWith("http")) return image;
+    return `${getApiUrl()}${image}`;
+  };
+
   const renderCategory = ({ item }: { item: Category }) => (
-    <View style={[styles.categoryItem, { width: CARD_WIDTH }]}>
-      <CategoryCard category={item} onPress={() => handleCategoryPress(item)} />
-    </View>
+    <TouchableOpacity
+      style={[styles.card, { backgroundColor: item.color || "#F5F5F5" }]}
+      onPress={() => handleCategoryPress(item)}
+      activeOpacity={0.8}
+    >
+      <View style={styles.iconWrapper}>
+        <Image
+          source={{ uri: getImageUrl(item.image) }}
+          style={styles.image}
+          contentFit="contain"
+          transition={200}
+        />
+      </View>
+      <ThemedText type="body" style={styles.name} numberOfLines={2}>
+        {item.name}
+      </ThemedText>
+    </TouchableOpacity>
   );
 
   if (isLoading) {
@@ -49,27 +69,65 @@ export default function CategoriesScreen() {
   }
 
   return (
-    <FlatList
-      style={{ flex: 1, backgroundColor: theme.backgroundRoot }}
-      contentContainerStyle={{
-        paddingTop: headerHeight + Spacing.lg,
-        paddingBottom: insets.bottom + Spacing.xl,
-        paddingHorizontal: HORIZONTAL_PADDING,
-      }}
-      columnWrapperStyle={{ gap: GRID_GAP }}
-      scrollIndicatorInsets={{ bottom: insets.bottom }}
-      data={categories}
-      renderItem={renderCategory}
-      keyExtractor={(item) => item.id}
-      numColumns={3}
-      showsVerticalScrollIndicator={false}
-    />
+    <View style={[styles.container, { backgroundColor: theme.backgroundDefault }]}>
+      <FlatList
+        style={{ flex: 1 }}
+        contentContainerStyle={{
+          paddingTop: headerHeight + Spacing.lg,
+          paddingBottom: insets.bottom + 100,
+          paddingHorizontal: 15,
+        }}
+        columnWrapperStyle={styles.row}
+        scrollIndicatorInsets={{ bottom: insets.bottom }}
+        data={categories}
+        renderItem={renderCategory}
+        keyExtractor={(item) => item.id}
+        numColumns={2}
+        showsVerticalScrollIndicator={false}
+      />
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  categoryItem: {
-    marginBottom: GRID_GAP,
+  container: {
+    flex: 1,
+  },
+  row: {
+    flexDirection: "row-reverse",
+    justifyContent: "space-between",
+  },
+  card: {
+    width: CARD_WIDTH,
+    height: 140,
+    borderRadius: 30,
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 20,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.05,
+    shadowRadius: 10,
+    elevation: 3,
+  },
+  iconWrapper: {
+    width: 70,
+    height: 70,
+    backgroundColor: "rgba(255, 255, 255, 0.5)",
+    borderRadius: 20,
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 10,
+  },
+  image: {
+    width: 45,
+    height: 45,
+  },
+  name: {
+    fontSize: 14,
+    fontWeight: "bold",
+    color: "#444",
+    textAlign: "center",
   },
   loadingContainer: {
     flex: 1,
