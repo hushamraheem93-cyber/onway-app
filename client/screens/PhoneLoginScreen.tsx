@@ -4,7 +4,6 @@ import {
   View,
   TextInput,
   Pressable,
-  ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
   Linking,
@@ -16,21 +15,24 @@ import { Image } from "expo-image";
 import { FontAwesome } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import * as Haptics from "expo-haptics";
+import { useNavigation } from "@react-navigation/native";
+import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 
 import { ThemedText } from "@/components/ThemedText";
 import { AppColors } from "@/constants/theme";
-import { useAuth } from "@/context/AuthContext";
+import { RootStackParamList } from "@/navigation/RootStackNavigator";
 
 const SOCIAL_LINKS = {
   facebook: "https://facebook.com/onwayiq",
   instagram: "https://instagram.com/onwayiq",
 };
 
+type NavigationProp = NativeStackNavigationProp<RootStackParamList, "PhoneLogin">;
+
 export default function PhoneLoginScreen() {
   const insets = useSafeAreaInsets();
-  const { login } = useAuth();
+  const navigation = useNavigation<NavigationProp>();
   const [phoneNumber, setPhoneNumber] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -82,7 +84,7 @@ export default function PhoneLoginScreen() {
     return `00964${cleanPhone}`;
   };
 
-  const handleLogin = async () => {
+  const handleContinue = () => {
     setError("");
     
     if (!phoneNumber.trim()) {
@@ -95,17 +97,9 @@ export default function PhoneLoginScreen() {
       return;
     }
 
-    setIsLoading(true);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-
-    try {
-      const fullPhone = formatPhoneForLogin(phoneNumber);
-      await login(fullPhone);
-    } catch (err) {
-      setError("حدث خطأ، الرجاء المحاولة مرة أخرى");
-    } finally {
-      setIsLoading(false);
-    }
+    const fullPhone = formatPhoneForLogin(phoneNumber);
+    navigation.navigate("OTPScreen", { phoneNumber: fullPhone });
   };
 
   return (
@@ -163,17 +157,12 @@ export default function PhoneLoginScreen() {
           ) : null}
 
           <Pressable
-            style={[styles.mainButton, isLoading && styles.buttonDisabled]}
-            onPress={handleLogin}
-            disabled={isLoading}
+            style={styles.mainButton}
+            onPress={handleContinue}
           >
-            {isLoading ? (
-              <ActivityIndicator color="#FF6B00" />
-            ) : (
-              <ThemedText type="h4" style={styles.buttonText}>
-                متابعة
-              </ThemedText>
-            )}
+            <ThemedText type="h4" style={styles.buttonText}>
+              متابعة
+            </ThemedText>
           </Pressable>
         </View>
 
@@ -307,9 +296,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     marginTop: 20,
-  },
-  buttonDisabled: {
-    opacity: 0.7,
   },
   buttonText: {
     color: "#FF6B00",
