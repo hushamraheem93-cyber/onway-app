@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ar" dir="rtl">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Admin Dashboard</title>
+  <title>لوحة التحكم</title>
   <style>
     * {
       box-sizing: border-box;
@@ -12,14 +12,14 @@
     }
     
     body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
       background: #f0f2f5;
       min-height: 100vh;
     }
     
     .sidebar {
       position: fixed;
-      left: 0;
+      right: 0;
       top: 0;
       width: 250px;
       height: 100vh;
@@ -34,6 +34,7 @@
       margin-bottom: 30px;
       padding-bottom: 20px;
       border-bottom: 1px solid rgba(255,255,255,0.2);
+      text-align: center;
     }
     
     .nav-item {
@@ -57,7 +58,7 @@
     }
     
     .main-content {
-      margin-left: 250px;
+      margin-right: 250px;
       padding: 30px;
       min-height: 100vh;
     }
@@ -80,20 +81,6 @@
       padding: 25px;
       box-shadow: 0 2px 10px rgba(0,0,0,0.08);
       margin-bottom: 20px;
-    }
-    
-    .card-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 20px;
-      padding-bottom: 15px;
-      border-bottom: 1px solid #eee;
-    }
-    
-    .card-header h3 {
-      color: #333;
-      font-size: 1.2rem;
     }
     
     .form-row {
@@ -184,11 +171,6 @@
       color: white;
     }
     
-    .btn-warning {
-      background: #ffc107;
-      color: #212529;
-    }
-    
     .btn-sm {
       padding: 8px 16px;
       font-size: 0.85rem;
@@ -205,7 +187,7 @@
     
     th, td {
       padding: 15px;
-      text-align: left;
+      text-align: right;
       border-bottom: 1px solid #eee;
     }
     
@@ -214,27 +196,18 @@
       font-weight: 600;
       color: #555;
       font-size: 0.85rem;
-      text-transform: uppercase;
     }
     
     tr:hover {
       background: #f8f9fa;
     }
     
-    .product-image {
+    .item-image {
       width: 60px;
       height: 60px;
       object-fit: cover;
       border-radius: 8px;
       background: #f0f0f0;
-    }
-    
-    .category-color {
-      width: 24px;
-      height: 24px;
-      border-radius: 6px;
-      display: inline-block;
-      vertical-align: middle;
     }
     
     .price {
@@ -339,6 +312,7 @@
       border-radius: 12px;
       padding: 25px;
       box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+      text-align: center;
     }
     
     .stat-card h4 {
@@ -382,9 +356,14 @@
       font-weight: 600;
     }
     
-    .product-count {
-      background: #e3f2fd;
-      color: #1976d2;
+    .badge-active {
+      background: #d4edda;
+      color: #155724;
+    }
+    
+    .badge-inactive {
+      background: #f8d7da;
+      color: #721c24;
     }
     
     @media (max-width: 768px) {
@@ -395,7 +374,7 @@
       }
       
       .main-content {
-        margin-left: 0;
+        margin-right: 0;
       }
       
       .form-row {
@@ -406,22 +385,26 @@
 </head>
 <body>
   <nav class="sidebar">
-    <h1>Admin Dashboard</h1>
+    <h1>لوحة التحكم</h1>
     <div class="nav-item active" onclick="showSection('dashboard', this)">
       <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path></svg>
-      Dashboard
+      الرئيسية
     </div>
     <div class="nav-item" onclick="showSection('products', this)">
       <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path></svg>
-      Products
+      المنتجات
     </div>
     <div class="nav-item" onclick="showSection('categories', this)">
       <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"></path></svg>
-      Categories
+      الفئات
     </div>
-    <div class="nav-item" onclick="showSection('promo', this)">
+    <div class="nav-item" onclick="showSection('banners', this)">
       <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
-      Promo Slider
+      السلايدر
+    </div>
+    <div class="nav-item" onclick="showSection('delivery', this)">
+      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+      مناطق التوصيل
     </div>
   </nav>
 
@@ -429,39 +412,39 @@
     <!-- Dashboard Section -->
     <div id="dashboard-section" class="section active">
       <div class="page-header">
-        <h2>Dashboard Overview</h2>
+        <h2>نظرة عامة</h2>
       </div>
       
       <div class="stats-grid">
         <div class="stat-card">
-          <h4>Total Products</h4>
+          <h4>المنتجات</h4>
           <div class="value" id="total-products">0</div>
         </div>
         <div class="stat-card">
-          <h4>Categories</h4>
+          <h4>الفئات</h4>
           <div class="value" id="total-categories">0</div>
         </div>
         <div class="stat-card">
-          <h4>Promo Slides</h4>
-          <div class="value" id="total-slides">0</div>
+          <h4>السلايدر</h4>
+          <div class="value" id="total-banners">0</div>
         </div>
         <div class="stat-card">
-          <h4>Total Stock</h4>
-          <div class="value" id="total-stock">0</div>
+          <h4>مناطق التوصيل</h4>
+          <div class="value" id="total-areas">0</div>
         </div>
       </div>
       
       <div class="card">
-        <h3>Quick Actions</h3>
-        <p style="color: #666; margin-top: 15px;">Use the sidebar to manage your products, categories, and promo slider content.</p>
+        <h3>مرحباً بك في لوحة التحكم</h3>
+        <p style="color: #666; margin-top: 15px;">استخدم القائمة الجانبية لإدارة المنتجات والفئات والسلايدر ومناطق التوصيل.</p>
       </div>
     </div>
 
     <!-- Products Section -->
     <div id="products-section" class="section">
       <div class="page-header">
-        <h2>Products Management</h2>
-        <button class="btn btn-success" onclick="openProductModal()">+ Add Product</button>
+        <h2>إدارة المنتجات</h2>
+        <button class="btn btn-success" onclick="openProductModal()">+ إضافة منتج</button>
       </div>
       
       <div id="products-status" class="status-message"></div>
@@ -471,18 +454,15 @@
           <table>
             <thead>
               <tr>
-                <th>Image</th>
-                <th>Name</th>
-                <th>Category</th>
-                <th>Price</th>
-                <th>Stock</th>
-                <th>Actions</th>
+                <th>الصورة</th>
+                <th>الاسم</th>
+                <th>الفئة</th>
+                <th>السعر</th>
+                <th>الإجراءات</th>
               </tr>
             </thead>
             <tbody id="products-table">
-              <tr>
-                <td colspan="6" class="loading-spinner">Loading products...</td>
-              </tr>
+              <tr><td colspan="5" class="loading-spinner">جاري التحميل...</td></tr>
             </tbody>
           </table>
         </div>
@@ -492,8 +472,8 @@
     <!-- Categories Section -->
     <div id="categories-section" class="section">
       <div class="page-header">
-        <h2>Categories Management</h2>
-        <button class="btn btn-success" onclick="openCategoryModal()">+ Add Category</button>
+        <h2>إدارة الفئات</h2>
+        <button class="btn btn-success" onclick="openCategoryModal()">+ إضافة فئة</button>
       </div>
       
       <div id="categories-status" class="status-message"></div>
@@ -503,40 +483,73 @@
           <table>
             <thead>
               <tr>
-                <th>Color</th>
-                <th>Name</th>
-                <th>Description</th>
-                <th>Products</th>
-                <th>Actions</th>
+                <th>الصورة</th>
+                <th>الاسم</th>
+                <th>الترتيب</th>
+                <th>الإجراءات</th>
               </tr>
             </thead>
             <tbody id="categories-table">
-              <tr>
-                <td colspan="5" class="loading-spinner">Loading categories...</td>
-              </tr>
+              <tr><td colspan="4" class="loading-spinner">جاري التحميل...</td></tr>
             </tbody>
           </table>
         </div>
       </div>
     </div>
 
-    <!-- Promo Slider Section -->
-    <div id="promo-section" class="section">
+    <!-- Banners Section -->
+    <div id="banners-section" class="section">
       <div class="page-header">
-        <h2>Promo Slider Management</h2>
-        <button class="btn btn-success" onclick="addNewSlide()">+ Add Slide</button>
+        <h2>إدارة السلايدر</h2>
+        <button class="btn btn-success" onclick="openBannerModal()">+ إضافة سلايد</button>
       </div>
       
-      <div id="promo-status" class="status-message"></div>
+      <div id="banners-status" class="status-message"></div>
       
       <div class="card">
-        <div id="slidesContainer">
-          <div class="loading-spinner">Loading slides...</div>
+        <div class="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th>الصورة</th>
+                <th>العنوان</th>
+                <th>الحالة</th>
+                <th>الترتيب</th>
+                <th>الإجراءات</th>
+              </tr>
+            </thead>
+            <tbody id="banners-table">
+              <tr><td colspan="5" class="loading-spinner">جاري التحميل...</td></tr>
+            </tbody>
+          </table>
         </div>
-        
-        <div style="margin-top: 20px; display: flex; gap: 10px;">
-          <button class="btn btn-primary" onclick="saveSlides()">Save All Changes</button>
-          <button class="btn btn-secondary" onclick="loadSlides()">Refresh</button>
+      </div>
+    </div>
+
+    <!-- Delivery Areas Section -->
+    <div id="delivery-section" class="section">
+      <div class="page-header">
+        <h2>مناطق التوصيل</h2>
+        <button class="btn btn-success" onclick="openDeliveryModal()">+ إضافة منطقة</button>
+      </div>
+      
+      <div id="delivery-status" class="status-message"></div>
+      
+      <div class="card">
+        <div class="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th>اسم المنطقة</th>
+                <th>رسوم التوصيل</th>
+                <th>الحالة</th>
+                <th>الإجراءات</th>
+              </tr>
+            </thead>
+            <tbody id="delivery-table">
+              <tr><td colspan="4" class="loading-spinner">جاري التحميل...</td></tr>
+            </tbody>
+          </table>
         </div>
       </div>
     </div>
@@ -546,51 +559,45 @@
   <div id="product-modal" class="modal-overlay">
     <div class="modal">
       <div class="modal-header">
-        <h3 id="product-modal-title">Add New Product</h3>
-        <button class="modal-close" onclick="closeProductModal()">&times;</button>
+        <h3 id="product-modal-title">إضافة منتج جديد</h3>
+        <button class="modal-close" onclick="closeModal('product-modal')">&times;</button>
       </div>
       
       <form id="product-form" onsubmit="saveProduct(event)">
         <input type="hidden" id="product-id">
         
+        <div class="form-group">
+          <label>اسم المنتج *</label>
+          <input type="text" id="product-name" required placeholder="أدخل اسم المنتج">
+        </div>
+        
         <div class="form-row">
           <div class="form-group">
-            <label>Product Name *</label>
-            <input type="text" id="product-name" required placeholder="Enter product name">
-          </div>
-          <div class="form-group">
-            <label>Category</label>
-            <select id="product-category">
-              <option value="">Select Category</option>
+            <label>الفئة *</label>
+            <select id="product-category" required>
+              <option value="">اختر الفئة</option>
             </select>
           </div>
-        </div>
-        
-        <div class="form-group">
-          <label>Description</label>
-          <textarea id="product-description" placeholder="Enter product description"></textarea>
-        </div>
-        
-        <div class="form-row">
           <div class="form-group">
-            <label>Price *</label>
-            <input type="number" id="product-price" required step="0.01" min="0" placeholder="0.00">
-          </div>
-          <div class="form-group">
-            <label>Stock Quantity</label>
-            <input type="number" id="product-stock" min="0" value="0" placeholder="0">
+            <label>السعر *</label>
+            <input type="number" id="product-price" required min="0" placeholder="0">
           </div>
         </div>
         
         <div class="form-group">
-          <label>Image URL</label>
-          <input type="url" id="product-image" placeholder="https://example.com/image.jpg" onchange="previewProductImage(this.value)">
-          <img id="product-image-preview" class="preview-image" style="display: none;">
+          <label>الوصف</label>
+          <textarea id="product-description" placeholder="أدخل وصف المنتج"></textarea>
+        </div>
+        
+        <div class="form-group">
+          <label>رابط الصورة</label>
+          <input type="url" id="product-image" placeholder="https://example.com/image.jpg" onchange="previewImage(this.value, 'product-preview')">
+          <img id="product-preview" class="preview-image" style="display: none;">
         </div>
         
         <div style="display: flex; gap: 10px; margin-top: 25px;">
-          <button type="submit" class="btn btn-primary">Save Product</button>
-          <button type="button" class="btn btn-secondary" onclick="closeProductModal()">Cancel</button>
+          <button type="submit" class="btn btn-primary">حفظ</button>
+          <button type="button" class="btn btn-secondary" onclick="closeModal('product-modal')">إلغاء</button>
         </div>
       </form>
     </div>
@@ -600,66 +607,129 @@
   <div id="category-modal" class="modal-overlay">
     <div class="modal">
       <div class="modal-header">
-        <h3 id="category-modal-title">Add New Category</h3>
-        <button class="modal-close" onclick="closeCategoryModal()">&times;</button>
+        <h3 id="category-modal-title">إضافة فئة جديدة</h3>
+        <button class="modal-close" onclick="closeModal('category-modal')">&times;</button>
       </div>
       
       <form id="category-form" onsubmit="saveCategory(event)">
         <input type="hidden" id="category-id">
         
         <div class="form-group">
-          <label>Category Name *</label>
-          <input type="text" id="category-name" required placeholder="Enter category name">
+          <label>اسم الفئة *</label>
+          <input type="text" id="category-name" required placeholder="أدخل اسم الفئة">
         </div>
         
         <div class="form-group">
-          <label>Description</label>
-          <textarea id="category-description" placeholder="Enter category description"></textarea>
+          <label>الترتيب</label>
+          <input type="number" id="category-order" min="1" value="1" placeholder="1">
         </div>
         
         <div class="form-group">
-          <label>Color</label>
-          <input type="color" id="category-color" value="#667eea" style="width: 60px; height: 40px; padding: 2px;">
-        </div>
-        
-        <div class="form-group">
-          <label>Image URL (optional)</label>
-          <input type="url" id="category-image" placeholder="https://example.com/image.jpg" onchange="previewCategoryImage(this.value)">
-          <img id="category-image-preview" class="preview-image" style="display: none;">
+          <label>رابط الصورة</label>
+          <input type="url" id="category-image" placeholder="https://example.com/image.jpg" onchange="previewImage(this.value, 'category-preview')">
+          <img id="category-preview" class="preview-image" style="display: none;">
         </div>
         
         <div style="display: flex; gap: 10px; margin-top: 25px;">
-          <button type="submit" class="btn btn-primary">Save Category</button>
-          <button type="button" class="btn btn-secondary" onclick="closeCategoryModal()">Cancel</button>
+          <button type="submit" class="btn btn-primary">حفظ</button>
+          <button type="button" class="btn btn-secondary" onclick="closeModal('category-modal')">إلغاء</button>
         </div>
       </form>
     </div>
   </div>
 
-  <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-    import { getFirestore, collection, doc, getDocs, setDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+  <!-- Banner Modal -->
+  <div id="banner-modal" class="modal-overlay">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 id="banner-modal-title">إضافة سلايد جديد</h3>
+        <button class="modal-close" onclick="closeModal('banner-modal')">&times;</button>
+      </div>
+      
+      <form id="banner-form" onsubmit="saveBanner(event)">
+        <input type="hidden" id="banner-id">
+        
+        <div class="form-group">
+          <label>العنوان</label>
+          <input type="text" id="banner-title" placeholder="أدخل العنوان">
+        </div>
+        
+        <div class="form-row">
+          <div class="form-group">
+            <label>الترتيب</label>
+            <input type="number" id="banner-order" min="1" value="1" placeholder="1">
+          </div>
+          <div class="form-group">
+            <label>الحالة</label>
+            <select id="banner-active">
+              <option value="true">مفعل</option>
+              <option value="false">معطل</option>
+            </select>
+          </div>
+        </div>
+        
+        <div class="form-group">
+          <label>رابط الصورة *</label>
+          <input type="url" id="banner-image" required placeholder="https://example.com/image.jpg" onchange="previewImage(this.value, 'banner-preview')">
+          <img id="banner-preview" class="preview-image" style="display: none;">
+        </div>
+        
+        <div style="display: flex; gap: 10px; margin-top: 25px;">
+          <button type="submit" class="btn btn-primary">حفظ</button>
+          <button type="button" class="btn btn-secondary" onclick="closeModal('banner-modal')">إلغاء</button>
+        </div>
+      </form>
+    </div>
+  </div>
 
-    const firebaseConfig = {
-      apiKey: "AIzaSyCmt-0JscXKAGNomamyMalrtPH7NXxZNBg",
-      authDomain: "onway-74c20.firebaseapp.com",
-      projectId: "onway-74c20",
-      storageBucket: "onway-74c20.firebasestorage.app",
-      messagingSenderId: "116297695107",
-      appId: "1:116297695107:web:772d3cc6f62f5e04bbc0b6",
-      measurementId: "G-L0CT34EMBE"
-    };
+  <!-- Delivery Area Modal -->
+  <div id="delivery-modal" class="modal-overlay">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 id="delivery-modal-title">إضافة منطقة توصيل</h3>
+        <button class="modal-close" onclick="closeModal('delivery-modal')">&times;</button>
+      </div>
+      
+      <form id="delivery-form" onsubmit="saveDeliveryArea(event)">
+        <input type="hidden" id="delivery-id">
+        
+        <div class="form-group">
+          <label>اسم المنطقة *</label>
+          <input type="text" id="delivery-name" required placeholder="أدخل اسم المنطقة">
+        </div>
+        
+        <div class="form-row">
+          <div class="form-group">
+            <label>رسوم التوصيل *</label>
+            <input type="number" id="delivery-fee" required min="0" placeholder="0">
+          </div>
+          <div class="form-group">
+            <label>الحالة</label>
+            <select id="delivery-active">
+              <option value="true">مفعل</option>
+              <option value="false">معطل</option>
+            </select>
+          </div>
+        </div>
+        
+        <div style="display: flex; gap: 10px; margin-top: 25px;">
+          <button type="submit" class="btn btn-primary">حفظ</button>
+          <button type="button" class="btn btn-secondary" onclick="closeModal('delivery-modal')">إلغاء</button>
+        </div>
+      </form>
+    </div>
+  </div>
 
-    const app = initializeApp(firebaseConfig);
-    const db = getFirestore(app);
-
+  <script>
+    const API_BASE = '/api';
+    
     let products = [];
     let categories = [];
-    let slides = [];
-    let slideCounter = 0;
+    let banners = [];
+    let deliveryAreas = [];
 
     // Navigation
-    window.showSection = function(section, element) {
+    function showSection(section, element) {
       document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
       document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
       
@@ -668,60 +738,77 @@
       
       if (section === 'products') loadProducts();
       if (section === 'categories') loadCategories();
-      if (section === 'promo') loadSlides();
-    };
+      if (section === 'banners') loadBanners();
+      if (section === 'delivery') loadDeliveryAreas();
+    }
 
-    // Categories Functions
-    window.loadCategories = async function() {
-      const tbody = document.getElementById('categories-table');
-      tbody.innerHTML = '<tr><td colspan="5" class="loading-spinner">Loading categories...</td></tr>';
+    function closeModal(modalId) {
+      document.getElementById(modalId).classList.remove('active');
+    }
+
+    function previewImage(url, previewId) {
+      const preview = document.getElementById(previewId);
+      if (url) {
+        preview.src = url;
+        preview.style.display = 'block';
+        preview.onerror = () => preview.style.display = 'none';
+      } else {
+        preview.style.display = 'none';
+      }
+    }
+
+    function showStatus(elementId, message, type) {
+      const status = document.getElementById(elementId);
+      status.textContent = message;
+      status.className = 'status-message ' + type;
       
+      if (type === 'success') {
+        setTimeout(() => { status.className = 'status-message'; }, 3000);
+      }
+    }
+
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text || '';
+      return div.innerHTML;
+    }
+
+    // Products
+    async function loadProducts() {
       try {
-        const querySnapshot = await getDocs(collection(db, "categories"));
-        categories = [];
-        querySnapshot.forEach((doc) => {
-          categories.push({ id: doc.id, ...doc.data() });
-        });
-        categories.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
-        
-        renderCategories();
+        const [productsRes, categoriesRes] = await Promise.all([
+          fetch(API_BASE + '/admin/products'),
+          fetch(API_BASE + '/categories')
+        ]);
+        products = await productsRes.json();
+        categories = await categoriesRes.json();
+        renderProducts();
         updateCategoryDropdown();
         updateStats();
       } catch (error) {
-        console.error("Error loading categories:", error);
-        tbody.innerHTML = '<tr><td colspan="5" class="loading-spinner">Error loading categories</td></tr>';
-        showStatus('categories-status', 'Error loading categories: ' + error.message, 'error');
+        console.error('Error loading products:', error);
+        showStatus('products-status', 'خطأ في تحميل المنتجات', 'error');
       }
-    };
+    }
 
-    function renderCategories() {
-      const tbody = document.getElementById('categories-table');
-      
-      if (categories.length === 0) {
-        tbody.innerHTML = `
-          <tr>
-            <td colspan="5">
-              <div class="empty-state">
-                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"></path></svg>
-                <p>No categories yet. Click "Add Category" to create one.</p>
-              </div>
-            </td>
-          </tr>
-        `;
+    function renderProducts() {
+      const tbody = document.getElementById('products-table');
+      if (products.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="5" class="empty-state">لا توجد منتجات</td></tr>';
         return;
       }
       
-      tbody.innerHTML = categories.map(category => {
-        const productCount = products.filter(p => p.categoryId === category.id).length;
+      tbody.innerHTML = products.map(p => {
+        const cat = categories.find(c => c.id === p.categoryId);
         return `
           <tr>
-            <td><span class="category-color" style="background: ${escapeHtml(category.color || '#667eea')}"></span></td>
-            <td><strong>${escapeHtml(category.name || 'Untitled')}</strong></td>
-            <td>${escapeHtml(category.description || '-')}</td>
-            <td><span class="badge product-count">${productCount} products</span></td>
+            <td><img src="${escapeHtml(p.image)}" class="item-image" onerror="this.src='https://via.placeholder.com/60'"></td>
+            <td><strong>${escapeHtml(p.name)}</strong></td>
+            <td>${cat ? escapeHtml(cat.name) : '-'}</td>
+            <td class="price">${p.price?.toLocaleString()} د.ع</td>
             <td class="actions">
-              <button class="btn btn-primary btn-sm" onclick="editCategory('${category.id}')">Edit</button>
-              <button class="btn btn-danger btn-sm" onclick="deleteCategory('${category.id}')">Delete</button>
+              <button class="btn btn-primary btn-sm" onclick="editProduct('${p.id}')">تعديل</button>
+              <button class="btn btn-danger btn-sm" onclick="deleteProduct('${p.id}')">حذف</button>
             </td>
           </tr>
         `;
@@ -730,485 +817,419 @@
 
     function updateCategoryDropdown() {
       const select = document.getElementById('product-category');
-      const currentValue = select.value;
-      
-      select.innerHTML = '<option value="">Select Category</option>' +
-        categories.map(cat => `<option value="${cat.id}">${escapeHtml(cat.name)}</option>`).join('');
-      
-      if (currentValue) {
-        select.value = currentValue;
-      }
+      select.innerHTML = '<option value="">اختر الفئة</option>' +
+        categories.map(c => `<option value="${c.id}">${escapeHtml(c.name)}</option>`).join('');
     }
 
-    window.openCategoryModal = function(categoryId = null) {
-      const modal = document.getElementById('category-modal');
-      const form = document.getElementById('category-form');
-      const title = document.getElementById('category-modal-title');
-      
-      form.reset();
-      document.getElementById('category-color').value = '#667eea';
-      document.getElementById('category-image-preview').style.display = 'none';
-      
-      if (categoryId) {
-        const category = categories.find(c => c.id === categoryId);
-        if (category) {
-          title.textContent = 'Edit Category';
-          document.getElementById('category-id').value = category.id;
-          document.getElementById('category-name').value = category.name || '';
-          document.getElementById('category-description').value = category.description || '';
-          document.getElementById('category-color').value = category.color || '#667eea';
-          document.getElementById('category-image').value = category.imageUrl || '';
-          if (category.imageUrl) {
-            previewCategoryImage(category.imageUrl);
-          }
-        }
-      } else {
-        title.textContent = 'Add New Category';
-        document.getElementById('category-id').value = '';
-      }
-      
-      modal.classList.add('active');
-    };
-
-    window.editCategory = function(categoryId) {
-      openCategoryModal(categoryId);
-    };
-
-    window.closeCategoryModal = function() {
-      document.getElementById('category-modal').classList.remove('active');
-    };
-
-    window.previewCategoryImage = function(url) {
-      const preview = document.getElementById('category-image-preview');
-      if (url) {
-        preview.src = url;
-        preview.style.display = 'block';
-        preview.onerror = () => preview.style.display = 'none';
-      } else {
-        preview.style.display = 'none';
-      }
-    };
-
-    window.saveCategory = async function(event) {
-      event.preventDefault();
-      
-      const categoryId = document.getElementById('category-id').value;
-      const categoryData = {
-        name: document.getElementById('category-name').value,
-        description: document.getElementById('category-description').value,
-        color: document.getElementById('category-color').value,
-        imageUrl: document.getElementById('category-image').value,
-        updatedAt: new Date().toISOString()
-      };
-      
-      try {
-        const docId = categoryId || 'category_' + Date.now();
-        if (!categoryId) {
-          categoryData.createdAt = new Date().toISOString();
-        }
-        
-        await setDoc(doc(db, "categories", docId), categoryData);
-        
-        closeCategoryModal();
-        loadCategories();
-        showStatus('categories-status', categoryId ? 'Category updated successfully!' : 'Category added successfully!', 'success');
-      } catch (error) {
-        console.error("Error saving category:", error);
-        showStatus('categories-status', 'Error saving category: ' + error.message, 'error');
-      }
-    };
-
-    window.deleteCategory = async function(categoryId) {
-      const productCount = products.filter(p => p.categoryId === categoryId).length;
-      
-      let message = 'Are you sure you want to delete this category?';
-      if (productCount > 0) {
-        message += ` This category has ${productCount} product(s) associated with it. They will become uncategorized.`;
-      }
-      
-      if (!confirm(message)) return;
-      
-      try {
-        await deleteDoc(doc(db, "categories", categoryId));
-        loadCategories();
-        showStatus('categories-status', 'Category deleted successfully!', 'success');
-      } catch (error) {
-        console.error("Error deleting category:", error);
-        showStatus('categories-status', 'Error deleting category: ' + error.message, 'error');
-      }
-    };
-
-    // Products Functions
-    window.loadProducts = async function() {
-      const tbody = document.getElementById('products-table');
-      tbody.innerHTML = '<tr><td colspan="6" class="loading-spinner">Loading products...</td></tr>';
-      
-      try {
-        const [productsSnapshot, categoriesSnapshot] = await Promise.all([
-          getDocs(collection(db, "products")),
-          getDocs(collection(db, "categories"))
-        ]);
-        
-        products = [];
-        productsSnapshot.forEach((doc) => {
-          products.push({ id: doc.id, ...doc.data() });
-        });
-        
-        categories = [];
-        categoriesSnapshot.forEach((doc) => {
-          categories.push({ id: doc.id, ...doc.data() });
-        });
-        
-        renderProducts();
-        updateCategoryDropdown();
-        updateStats();
-      } catch (error) {
-        console.error("Error loading products:", error);
-        tbody.innerHTML = '<tr><td colspan="6" class="loading-spinner">Error loading products</td></tr>';
-        showStatus('products-status', 'Error loading products: ' + error.message, 'error');
-      }
-    };
-
-    function renderProducts() {
-      const tbody = document.getElementById('products-table');
-      
-      if (products.length === 0) {
-        tbody.innerHTML = `
-          <tr>
-            <td colspan="6">
-              <div class="empty-state">
-                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path></svg>
-                <p>No products yet. Click "Add Product" to create one.</p>
-              </div>
-            </td>
-          </tr>
-        `;
-        return;
-      }
-      
-      tbody.innerHTML = products.map(product => {
-        const category = categories.find(c => c.id === product.categoryId);
-        const categoryName = category ? category.name : (product.category || '-');
-        const categoryColor = category ? category.color : '#6c757d';
-        
-        return `
-          <tr>
-            <td>
-              ${product.imageUrl ? 
-                `<img src="${escapeHtml(product.imageUrl)}" class="product-image" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2260%22 height=%2260%22><rect fill=%22%23f0f0f0%22 width=%22100%%22 height=%22100%%22/></svg>'">` : 
-                '<div class="product-image" style="display:flex;align-items:center;justify-content:center;color:#ccc;">No Image</div>'
-              }
-            </td>
-            <td><strong>${escapeHtml(product.name || 'Untitled')}</strong></td>
-            <td>
-              <span style="display:inline-flex;align-items:center;gap:8px;">
-                <span class="category-color" style="background: ${categoryColor}; width: 12px; height: 12px;"></span>
-                ${escapeHtml(categoryName)}
-              </span>
-            </td>
-            <td class="price">$${parseFloat(product.price || 0).toFixed(2)}</td>
-            <td>${product.stock || 0}</td>
-            <td class="actions">
-              <button class="btn btn-primary btn-sm" onclick="editProduct('${product.id}')">Edit</button>
-              <button class="btn btn-danger btn-sm" onclick="deleteProduct('${product.id}')">Delete</button>
-            </td>
-          </tr>
-        `;
-      }).join('');
-    }
-
-    window.openProductModal = function(productId = null) {
-      const modal = document.getElementById('product-modal');
+    function openProductModal(product = null) {
       const form = document.getElementById('product-form');
-      const title = document.getElementById('product-modal-title');
-      
       form.reset();
-      document.getElementById('product-image-preview').style.display = 'none';
+      document.getElementById('product-preview').style.display = 'none';
       updateCategoryDropdown();
       
-      if (productId) {
-        const product = products.find(p => p.id === productId);
-        if (product) {
-          title.textContent = 'Edit Product';
-          document.getElementById('product-id').value = product.id;
-          document.getElementById('product-name').value = product.name || '';
-          document.getElementById('product-category').value = product.categoryId || '';
-          document.getElementById('product-description').value = product.description || '';
-          document.getElementById('product-price').value = product.price || '';
-          document.getElementById('product-stock').value = product.stock || 0;
-          document.getElementById('product-image').value = product.imageUrl || '';
-          if (product.imageUrl) {
-            previewProductImage(product.imageUrl);
-          }
-        }
+      if (product) {
+        document.getElementById('product-modal-title').textContent = 'تعديل المنتج';
+        document.getElementById('product-id').value = product.id;
+        document.getElementById('product-name').value = product.name || '';
+        document.getElementById('product-category').value = product.categoryId || '';
+        document.getElementById('product-price').value = product.price || '';
+        document.getElementById('product-description').value = product.description || '';
+        document.getElementById('product-image').value = product.image || '';
+        if (product.image) previewImage(product.image, 'product-preview');
       } else {
-        title.textContent = 'Add New Product';
+        document.getElementById('product-modal-title').textContent = 'إضافة منتج جديد';
         document.getElementById('product-id').value = '';
       }
       
-      modal.classList.add('active');
-    };
+      document.getElementById('product-modal').classList.add('active');
+    }
 
-    window.editProduct = function(productId) {
-      openProductModal(productId);
-    };
+    function editProduct(id) {
+      const product = products.find(p => p.id === id);
+      if (product) openProductModal(product);
+    }
 
-    window.closeProductModal = function() {
-      document.getElementById('product-modal').classList.remove('active');
-    };
-
-    window.previewProductImage = function(url) {
-      const preview = document.getElementById('product-image-preview');
-      if (url) {
-        preview.src = url;
-        preview.style.display = 'block';
-        preview.onerror = () => preview.style.display = 'none';
-      } else {
-        preview.style.display = 'none';
-      }
-    };
-
-    window.saveProduct = async function(event) {
+    async function saveProduct(event) {
       event.preventDefault();
       
-      const productId = document.getElementById('product-id').value;
-      const categoryId = document.getElementById('product-category').value;
-      const category = categories.find(c => c.id === categoryId);
-      
-      const productData = {
-        name: document.getElementById('product-name').value,
-        categoryId: categoryId,
-        category: category ? category.name : '',
-        description: document.getElementById('product-description').value,
-        price: parseFloat(document.getElementById('product-price').value) || 0,
-        stock: parseInt(document.getElementById('product-stock').value) || 0,
-        imageUrl: document.getElementById('product-image').value,
-        updatedAt: new Date().toISOString()
-      };
+      const id = document.getElementById('product-id').value;
+      const formData = new FormData();
+      formData.append('name', document.getElementById('product-name').value);
+      formData.append('categoryId', document.getElementById('product-category').value);
+      formData.append('price', document.getElementById('product-price').value);
+      formData.append('description', document.getElementById('product-description').value);
+      formData.append('imageUrl', document.getElementById('product-image').value);
       
       try {
-        const docId = productId || 'product_' + Date.now();
-        if (!productId) {
-          productData.createdAt = new Date().toISOString();
+        const url = id ? `${API_BASE}/admin/products/${id}` : `${API_BASE}/admin/products`;
+        const method = id ? 'PUT' : 'POST';
+        
+        const response = await fetch(url, { method, body: formData });
+        
+        if (response.ok) {
+          closeModal('product-modal');
+          loadProducts();
+          showStatus('products-status', id ? 'تم تحديث المنتج بنجاح' : 'تم إضافة المنتج بنجاح', 'success');
+        } else {
+          throw new Error('Failed to save');
         }
-        
-        await setDoc(doc(db, "products", docId), productData);
-        
-        closeProductModal();
-        loadProducts();
-        showStatus('products-status', productId ? 'Product updated successfully!' : 'Product added successfully!', 'success');
       } catch (error) {
-        console.error("Error saving product:", error);
-        showStatus('products-status', 'Error saving product: ' + error.message, 'error');
+        console.error('Error saving product:', error);
+        showStatus('products-status', 'خطأ في حفظ المنتج', 'error');
       }
-    };
+    }
 
-    window.deleteProduct = async function(productId) {
-      if (!confirm('Are you sure you want to delete this product?')) return;
+    async function deleteProduct(id) {
+      if (!confirm('هل أنت متأكد من حذف هذا المنتج؟')) return;
       
       try {
-        await deleteDoc(doc(db, "products", productId));
-        loadProducts();
-        showStatus('products-status', 'Product deleted successfully!', 'success');
+        const response = await fetch(`${API_BASE}/admin/products/${id}`, { method: 'DELETE' });
+        if (response.ok) {
+          loadProducts();
+          showStatus('products-status', 'تم حذف المنتج بنجاح', 'success');
+        }
       } catch (error) {
-        console.error("Error deleting product:", error);
-        showStatus('products-status', 'Error deleting product: ' + error.message, 'error');
+        console.error('Error deleting product:', error);
+        showStatus('products-status', 'خطأ في حذف المنتج', 'error');
       }
-    };
+    }
 
-    // Promo Slider Functions
-    window.addNewSlide = function() {
-      slideCounter++;
-      slides.push({
-        id: 'new_' + slideCounter,
-        title: '',
-        description: '',
-        imageUrl: '',
-        order: slides.length
-      });
-      renderSlides();
-    };
-
-    window.removeSlide = function(index) {
-      if (confirm('Are you sure you want to remove this slide?')) {
-        slides.splice(index, 1);
-        slides.forEach((slide, i) => slide.order = i);
-        renderSlides();
-      }
-    };
-
-    window.updateSlide = function(index, field, value) {
-      slides[index][field] = value;
-    };
-
-    window.loadSlides = async function() {
-      const container = document.getElementById('slidesContainer');
-      container.innerHTML = '<div class="loading-spinner">Loading slides...</div>';
-      
+    // Categories
+    async function loadCategories() {
       try {
-        const querySnapshot = await getDocs(collection(db, "promoSlider"));
-        slides = [];
-        querySnapshot.forEach((doc) => {
-          slides.push({ id: doc.id, ...doc.data() });
-        });
-        slides.sort((a, b) => (a.order || 0) - (b.order || 0));
-        renderSlides();
+        const response = await fetch(API_BASE + '/categories');
+        categories = await response.json();
+        renderCategories();
         updateStats();
       } catch (error) {
-        console.error("Error loading slides:", error);
-        container.innerHTML = '<div class="loading-spinner">Error loading slides</div>';
-        showStatus('promo-status', 'Error loading slides: ' + error.message, 'error');
+        console.error('Error loading categories:', error);
+        showStatus('categories-status', 'خطأ في تحميل الفئات', 'error');
       }
-    };
+    }
 
-    window.saveSlides = async function() {
-      try {
-        showStatus('promo-status', 'Saving...', 'success');
-        
-        for (let i = 0; i < slides.length; i++) {
-          const slide = slides[i];
-          slide.order = i;
-          
-          const slideId = slide.id.startsWith('new_') ? 'slide_' + Date.now() + '_' + i : slide.id;
-          
-          await setDoc(doc(db, "promoSlider", slideId), {
-            title: slide.title || '',
-            description: slide.description || '',
-            imageUrl: slide.imageUrl || '',
-            order: slide.order,
-            updatedAt: new Date().toISOString()
-          });
-          
-          if (slide.id.startsWith('new_')) {
-            slide.id = slideId;
-          }
-        }
-        
-        showStatus('promo-status', 'All slides saved successfully!', 'success');
-      } catch (error) {
-        console.error("Error saving slides:", error);
-        showStatus('promo-status', 'Error saving slides: ' + error.message, 'error');
-      }
-    };
-
-    function renderSlides() {
-      const container = document.getElementById('slidesContainer');
-      
-      if (slides.length === 0) {
-        container.innerHTML = `
-          <div class="empty-state">
-            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
-            <p>No slides yet. Click "Add Slide" to create one.</p>
-          </div>
-        `;
+    function renderCategories() {
+      const tbody = document.getElementById('categories-table');
+      if (categories.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="4" class="empty-state">لا توجد فئات</td></tr>';
         return;
       }
       
-      container.innerHTML = slides.map((slide, index) => `
-        <div class="card" style="background: #f8f9fa; margin-bottom: 15px;">
-          <div class="card-header">
-            <h3>Slide ${index + 1}</h3>
-            <button class="btn btn-danger btn-sm" onclick="removeSlide(${index})">Remove</button>
-          </div>
-          <div class="form-row">
-            <div class="form-group">
-              <label>Title</label>
-              <input type="text" value="${escapeHtml(slide.title || '')}" 
-                     onchange="updateSlide(${index}, 'title', this.value)" 
-                     placeholder="Enter slide title">
-            </div>
-            <div class="form-group">
-              <label>Image URL</label>
-              <input type="url" value="${escapeHtml(slide.imageUrl || '')}" 
-                     onchange="updateSlide(${index}, 'imageUrl', this.value); updateSlidePreview(${index}, this.value)"
-                     placeholder="https://example.com/image.jpg">
-            </div>
-          </div>
-          <div class="form-group">
-            <label>Description</label>
-            <textarea onchange="updateSlide(${index}, 'description', this.value)" 
-                      placeholder="Enter slide description">${escapeHtml(slide.description || '')}</textarea>
-          </div>
-          ${slide.imageUrl ? `<img src="${escapeHtml(slide.imageUrl)}" class="preview-image" id="slide-preview-${index}" onerror="this.style.display='none'">` : ''}
-        </div>
+      tbody.innerHTML = categories.map(c => `
+        <tr>
+          <td><img src="${escapeHtml(c.image)}" class="item-image" onerror="this.src='https://via.placeholder.com/60'"></td>
+          <td><strong>${escapeHtml(c.name)}</strong></td>
+          <td>${c.order || '-'}</td>
+          <td class="actions">
+            <button class="btn btn-primary btn-sm" onclick="editCategory('${c.id}')">تعديل</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteCategory('${c.id}')">حذف</button>
+          </td>
+        </tr>
       `).join('');
     }
 
-    window.updateSlidePreview = function(index, url) {
-      const container = document.getElementById('slidesContainer');
-      const slideCard = container.children[index];
-      let preview = slideCard.querySelector('.preview-image');
+    function openCategoryModal(category = null) {
+      const form = document.getElementById('category-form');
+      form.reset();
+      document.getElementById('category-preview').style.display = 'none';
       
-      if (url) {
-        if (!preview) {
-          preview = document.createElement('img');
-          preview.className = 'preview-image';
-          slideCard.appendChild(preview);
+      if (category) {
+        document.getElementById('category-modal-title').textContent = 'تعديل الفئة';
+        document.getElementById('category-id').value = category.id;
+        document.getElementById('category-name').value = category.name || '';
+        document.getElementById('category-order').value = category.order || 1;
+        document.getElementById('category-image').value = category.image || '';
+        if (category.image) previewImage(category.image, 'category-preview');
+      } else {
+        document.getElementById('category-modal-title').textContent = 'إضافة فئة جديدة';
+        document.getElementById('category-id').value = '';
+      }
+      
+      document.getElementById('category-modal').classList.add('active');
+    }
+
+    function editCategory(id) {
+      const category = categories.find(c => c.id === id);
+      if (category) openCategoryModal(category);
+    }
+
+    async function saveCategory(event) {
+      event.preventDefault();
+      
+      const id = document.getElementById('category-id').value;
+      const formData = new FormData();
+      formData.append('name', document.getElementById('category-name').value);
+      formData.append('order', document.getElementById('category-order').value);
+      formData.append('imageUrl', document.getElementById('category-image').value);
+      
+      try {
+        const url = id ? `${API_BASE}/admin/categories/${id}` : `${API_BASE}/admin/categories`;
+        const method = id ? 'PUT' : 'POST';
+        
+        const response = await fetch(url, { method, body: formData });
+        
+        if (response.ok) {
+          closeModal('category-modal');
+          loadCategories();
+          showStatus('categories-status', id ? 'تم تحديث الفئة بنجاح' : 'تم إضافة الفئة بنجاح', 'success');
+        } else {
+          throw new Error('Failed to save');
         }
-        preview.src = url;
-        preview.style.display = 'block';
-        preview.onerror = () => preview.style.display = 'none';
-      } else if (preview) {
-        preview.style.display = 'none';
+      } catch (error) {
+        console.error('Error saving category:', error);
+        showStatus('categories-status', 'خطأ في حفظ الفئة', 'error');
       }
-    };
-
-    // Utility Functions
-    function escapeHtml(text) {
-      const div = document.createElement('div');
-      div.textContent = text || '';
-      return div.innerHTML;
     }
 
-    function showStatus(elementId, message, type) {
-      const status = document.getElementById(elementId);
-      status.textContent = message;
-      status.className = 'status-message ' + type;
+    async function deleteCategory(id) {
+      if (!confirm('هل أنت متأكد من حذف هذه الفئة؟')) return;
       
-      if (type === 'success' && message !== 'Saving...') {
-        setTimeout(() => {
-          status.className = 'status-message';
-        }, 3000);
+      try {
+        const response = await fetch(`${API_BASE}/admin/categories/${id}`, { method: 'DELETE' });
+        if (response.ok) {
+          loadCategories();
+          showStatus('categories-status', 'تم حذف الفئة بنجاح', 'success');
+        }
+      } catch (error) {
+        console.error('Error deleting category:', error);
+        showStatus('categories-status', 'خطأ في حذف الفئة', 'error');
       }
     }
 
-    async function updateStats() {
+    // Banners
+    async function loadBanners() {
+      try {
+        const response = await fetch(API_BASE + '/admin/banners');
+        banners = await response.json();
+        renderBanners();
+        updateStats();
+      } catch (error) {
+        console.error('Error loading banners:', error);
+        showStatus('banners-status', 'خطأ في تحميل السلايدر', 'error');
+      }
+    }
+
+    function renderBanners() {
+      const tbody = document.getElementById('banners-table');
+      if (banners.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="5" class="empty-state">لا يوجد سلايدر</td></tr>';
+        return;
+      }
+      
+      tbody.innerHTML = banners.map(b => `
+        <tr>
+          <td><img src="${escapeHtml(b.image)}" class="item-image" onerror="this.src='https://via.placeholder.com/60'"></td>
+          <td>${escapeHtml(b.title) || '-'}</td>
+          <td><span class="badge ${b.isActive ? 'badge-active' : 'badge-inactive'}">${b.isActive ? 'مفعل' : 'معطل'}</span></td>
+          <td>${b.order || '-'}</td>
+          <td class="actions">
+            <button class="btn btn-primary btn-sm" onclick="editBanner('${b.id}')">تعديل</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteBanner('${b.id}')">حذف</button>
+          </td>
+        </tr>
+      `).join('');
+    }
+
+    function openBannerModal(banner = null) {
+      const form = document.getElementById('banner-form');
+      form.reset();
+      document.getElementById('banner-preview').style.display = 'none';
+      
+      if (banner) {
+        document.getElementById('banner-modal-title').textContent = 'تعديل السلايد';
+        document.getElementById('banner-id').value = banner.id;
+        document.getElementById('banner-title').value = banner.title || '';
+        document.getElementById('banner-order').value = banner.order || 1;
+        document.getElementById('banner-active').value = banner.isActive ? 'true' : 'false';
+        document.getElementById('banner-image').value = banner.image || '';
+        if (banner.image) previewImage(banner.image, 'banner-preview');
+      } else {
+        document.getElementById('banner-modal-title').textContent = 'إضافة سلايد جديد';
+        document.getElementById('banner-id').value = '';
+      }
+      
+      document.getElementById('banner-modal').classList.add('active');
+    }
+
+    function editBanner(id) {
+      const banner = banners.find(b => b.id === id);
+      if (banner) openBannerModal(banner);
+    }
+
+    async function saveBanner(event) {
+      event.preventDefault();
+      
+      const id = document.getElementById('banner-id').value;
+      const formData = new FormData();
+      formData.append('title', document.getElementById('banner-title').value);
+      formData.append('order', document.getElementById('banner-order').value);
+      formData.append('isActive', document.getElementById('banner-active').value);
+      formData.append('imageUrl', document.getElementById('banner-image').value);
+      formData.append('type', 'slider');
+      
+      try {
+        const url = id ? `${API_BASE}/admin/banners/${id}` : `${API_BASE}/admin/banners`;
+        const method = id ? 'PUT' : 'POST';
+        
+        const response = await fetch(url, { method, body: formData });
+        
+        if (response.ok) {
+          closeModal('banner-modal');
+          loadBanners();
+          showStatus('banners-status', id ? 'تم تحديث السلايد بنجاح' : 'تم إضافة السلايد بنجاح', 'success');
+        } else {
+          throw new Error('Failed to save');
+        }
+      } catch (error) {
+        console.error('Error saving banner:', error);
+        showStatus('banners-status', 'خطأ في حفظ السلايد', 'error');
+      }
+    }
+
+    async function deleteBanner(id) {
+      if (!confirm('هل أنت متأكد من حذف هذا السلايد؟')) return;
+      
+      try {
+        const response = await fetch(`${API_BASE}/admin/banners/${id}`, { method: 'DELETE' });
+        if (response.ok) {
+          loadBanners();
+          showStatus('banners-status', 'تم حذف السلايد بنجاح', 'success');
+        }
+      } catch (error) {
+        console.error('Error deleting banner:', error);
+        showStatus('banners-status', 'خطأ في حذف السلايد', 'error');
+      }
+    }
+
+    // Delivery Areas
+    async function loadDeliveryAreas() {
+      try {
+        const response = await fetch(API_BASE + '/admin/delivery-areas');
+        deliveryAreas = await response.json();
+        renderDeliveryAreas();
+        updateStats();
+      } catch (error) {
+        console.error('Error loading delivery areas:', error);
+        showStatus('delivery-status', 'خطأ في تحميل مناطق التوصيل', 'error');
+      }
+    }
+
+    function renderDeliveryAreas() {
+      const tbody = document.getElementById('delivery-table');
+      if (deliveryAreas.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="4" class="empty-state">لا توجد مناطق توصيل</td></tr>';
+        return;
+      }
+      
+      tbody.innerHTML = deliveryAreas.map(a => `
+        <tr>
+          <td><strong>${escapeHtml(a.name)}</strong></td>
+          <td class="price">${a.fee?.toLocaleString()} د.ع</td>
+          <td><span class="badge ${a.isActive ? 'badge-active' : 'badge-inactive'}">${a.isActive ? 'مفعل' : 'معطل'}</span></td>
+          <td class="actions">
+            <button class="btn btn-primary btn-sm" onclick="editDeliveryArea('${a.id}')">تعديل</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteDeliveryArea('${a.id}')">حذف</button>
+          </td>
+        </tr>
+      `).join('');
+    }
+
+    function openDeliveryModal(area = null) {
+      const form = document.getElementById('delivery-form');
+      form.reset();
+      
+      if (area) {
+        document.getElementById('delivery-modal-title').textContent = 'تعديل منطقة التوصيل';
+        document.getElementById('delivery-id').value = area.id;
+        document.getElementById('delivery-name').value = area.name || '';
+        document.getElementById('delivery-fee').value = area.fee || 0;
+        document.getElementById('delivery-active').value = area.isActive ? 'true' : 'false';
+      } else {
+        document.getElementById('delivery-modal-title').textContent = 'إضافة منطقة توصيل';
+        document.getElementById('delivery-id').value = '';
+      }
+      
+      document.getElementById('delivery-modal').classList.add('active');
+    }
+
+    function editDeliveryArea(id) {
+      const area = deliveryAreas.find(a => a.id === id);
+      if (area) openDeliveryModal(area);
+    }
+
+    async function saveDeliveryArea(event) {
+      event.preventDefault();
+      
+      const id = document.getElementById('delivery-id').value;
+      const data = {
+        name: document.getElementById('delivery-name').value,
+        fee: parseInt(document.getElementById('delivery-fee').value) || 0,
+        isActive: document.getElementById('delivery-active').value === 'true'
+      };
+      
+      try {
+        const url = id ? `${API_BASE}/admin/delivery-areas/${id}` : `${API_BASE}/admin/delivery-areas`;
+        const method = id ? 'PUT' : 'POST';
+        
+        const response = await fetch(url, {
+          method,
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data)
+        });
+        
+        if (response.ok) {
+          closeModal('delivery-modal');
+          loadDeliveryAreas();
+          showStatus('delivery-status', id ? 'تم تحديث المنطقة بنجاح' : 'تم إضافة المنطقة بنجاح', 'success');
+        } else {
+          throw new Error('Failed to save');
+        }
+      } catch (error) {
+        console.error('Error saving delivery area:', error);
+        showStatus('delivery-status', 'خطأ في حفظ المنطقة', 'error');
+      }
+    }
+
+    async function deleteDeliveryArea(id) {
+      if (!confirm('هل أنت متأكد من حذف هذه المنطقة؟')) return;
+      
+      try {
+        const response = await fetch(`${API_BASE}/admin/delivery-areas/${id}`, { method: 'DELETE' });
+        if (response.ok) {
+          loadDeliveryAreas();
+          showStatus('delivery-status', 'تم حذف المنطقة بنجاح', 'success');
+        }
+      } catch (error) {
+        console.error('Error deleting delivery area:', error);
+        showStatus('delivery-status', 'خطأ في حذف المنطقة', 'error');
+      }
+    }
+
+    // Stats
+    function updateStats() {
       document.getElementById('total-products').textContent = products.length;
       document.getElementById('total-categories').textContent = categories.length;
-      document.getElementById('total-slides').textContent = slides.length;
-      
-      const totalStock = products.reduce((sum, p) => sum + (parseInt(p.stock) || 0), 0);
-      document.getElementById('total-stock').textContent = totalStock;
+      document.getElementById('total-banners').textContent = banners.length;
+      document.getElementById('total-areas').textContent = deliveryAreas.length;
     }
 
     // Initialize
     async function init() {
       try {
-        const [productsSnapshot, categoriesSnapshot, slidesSnapshot] = await Promise.all([
-          getDocs(collection(db, "products")),
-          getDocs(collection(db, "categories")),
-          getDocs(collection(db, "promoSlider"))
+        const [productsRes, categoriesRes, bannersRes, areasRes] = await Promise.all([
+          fetch(API_BASE + '/admin/products'),
+          fetch(API_BASE + '/categories'),
+          fetch(API_BASE + '/admin/banners'),
+          fetch(API_BASE + '/admin/delivery-areas')
         ]);
         
-        products = [];
-        productsSnapshot.forEach((doc) => {
-          products.push({ id: doc.id, ...doc.data() });
-        });
-        
-        categories = [];
-        categoriesSnapshot.forEach((doc) => {
-          categories.push({ id: doc.id, ...doc.data() });
-        });
-        
-        slides = [];
-        slidesSnapshot.forEach((doc) => {
-          slides.push({ id: doc.id, ...doc.data() });
-        });
-        slides.sort((a, b) => (a.order || 0) - (b.order || 0));
+        products = await productsRes.json();
+        categories = await categoriesRes.json();
+        banners = await bannersRes.json();
+        deliveryAreas = await areasRes.json();
         
         updateStats();
       } catch (error) {
-        console.error("Error initializing:", error);
+        console.error('Error initializing:', error);
       }
     }
 
