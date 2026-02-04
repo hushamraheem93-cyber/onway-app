@@ -1,0 +1,74 @@
+import React from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Image, FlatList, Dimensions } from 'react-native';
+
+const { width } = Dimensions.get('window');
+const cardWidth = (width - 50) / 2; 
+
+const CategoriesGrid = () => {
+  const categories = [
+    { id: '1', name: 'الخضروات والفواكه', color: '#8BC34A', img: 'https://cdn-icons-png.flaticon.com/512/2329/2329865.png' },
+    { id: '2', name: 'اللحوم والطازج', color: '#FF5252', img: 'https://cdn-icons-png.flaticon.com/512/3143/3143640.png' },
+    { id: '3', name: 'الألبان والأجبان', color: '#BA68C8', img: 'https://cdn-icons-png.flaticon.com/512/869/869664.png' },
+    { id: '4', name: 'المنظفات', color: '#4FC3F7', img: 'https://cdn-icons-png.flaticon.com/512/2554/2554032.png' },
+    { id: '5', name: 'سناكس ومقرمشات', color: '#FFB74D', img: 'https://cdn-icons-png.flaticon.com/512/2553/2553691.png' },
+    { id: '6', name: 'المشروبات والعصائر', color: '#4DB6AC', img: 'https://cdn-icons-png.flaticon.com/512/3121/3121784.png' },
+    { id: '7', name: 'الشاي والقهوة', color: '#A1887F', img: 'https://cdn-icons-png.flaticon.com/512/3122/3122130.png' },
+    { id: '8', name: 'مستلزمات الأطفال', color: '#F06292', img: 'https://cdn-icons-png.flaticon.com/512/2793/2793765.png' },
+    { id: '9', name: 'الهدايا والورود', color: '#DCE775', img: 'https://cdn-icons-png.flaticon.com/512/2942/2942588.png' },
+    { id: '10', name: 'خدمات المندوب', color: '#FFD54F', img: 'https://cdn-icons-png.flaticon.com/512/2830/2830305.png' },
+  ];
+
+  const renderItem = ({ item }) => (
+    <TouchableOpacity style={[styles.card, { backgroundColor: item.color + '20' }]}> 
+      <View style={[styles.iconBox, { backgroundColor: item.color }]}>
+        <Image source={{ uri: item.img }} style={styles.image} />
+      </View>
+      <Text style={styles.name}>{item.name}</Text>
+    </TouchableOpacity>
+  );
+
+  return (
+    <View style={styles.container}>
+      <Text style={styles.title}>الأقسام الرئيسية</Text>
+      <FlatList
+        data={categories}
+        renderItem={renderItem}
+        keyExtractor={item => item.id}
+        numColumns={2}
+        columnWrapperStyle={styles.row}
+        contentContainerStyle={styles.listPadding}
+      />
+    </View>
+  );
+};
+
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: '#FFF' },
+  title: { fontSize: 22, fontWeight: 'bold', textAlign: 'right', padding: 20, color: '#333' },
+  row: { flexDirection: 'row-reverse', justifyContent: 'space-between', paddingHorizontal: 15 },
+  card: {
+    width: cardWidth,
+    height: 150,
+    borderRadius: 25,
+    padding: 15,
+    marginBottom: 15,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  iconBox: {
+    width: 75,
+    height: 75,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 10,
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOpacity: 0.1,
+    shadowRadius: 5,
+  },
+  image: { width: 45, height: 45, tintColor: '#FFF' }, // جعل الأيقونات بيضاء مثل التصميم
+  name: { fontSize: 14, fontWeight: 'bold', color: '#444', textAlign: 'center' },
+});
+
+export default CategoriesGrid;

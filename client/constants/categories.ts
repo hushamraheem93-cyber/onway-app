@@ -5,6 +5,7 @@ export interface Category {
   productCount: number;
   order?: number;
   color?: string;
+  iconColor?: string;
 }
 
 export interface Banner {
@@ -17,17 +18,17 @@ export interface Banner {
 }
 
 export const MAIN_CATEGORIES: Category[] = [
-  { id: "fruits-vegetables", name: "خضروات وفواكه", image: "https://cdn-icons-png.flaticon.com/512/2329/2329865.png", productCount: 50, color: "#E8F5E9" },
-  { id: "meat-poultry", name: "اللحوم والطازج", image: "https://cdn-icons-png.flaticon.com/512/3143/3143640.png", productCount: 55, color: "#FFEBEE" },
-  { id: "dairy-eggs", name: "الألبان والأجبان", image: "https://cdn-icons-png.flaticon.com/512/869/869664.png", productCount: 70, color: "#F3E5F5" },
-  { id: "cleaning-care", name: "منظفات وعناية", image: "https://cdn-icons-png.flaticon.com/512/2554/2554032.png", productCount: 95, color: "#E3F2FD" },
-  { id: "beverages", name: "المشروبات", image: "https://cdn-icons-png.flaticon.com/512/3121/3121784.png", productCount: 90, color: "#E0F7FA" },
-  { id: "snacks-sweets", name: "سناكس ومقرمشات", image: "https://cdn-icons-png.flaticon.com/512/2553/2553691.png", productCount: 110, color: "#FFF3E0" },
-  { id: "juices", name: "مشروبات وعصائر", image: "https://cdn-icons-png.flaticon.com/512/2405/2405479.png", productCount: 45, color: "#F1F8E9" },
-  { id: "tea-coffee", name: "شاي وقهوة", image: "https://cdn-icons-png.flaticon.com/512/3122/3122130.png", productCount: 35, color: "#EFEBE9" },
-  { id: "baby", name: "مستلزمات أطفال", image: "https://cdn-icons-png.flaticon.com/512/2793/2793765.png", productCount: 60, color: "#FCE4EC" },
-  { id: "flowers", name: "هدايا وورود", image: "https://cdn-icons-png.flaticon.com/512/2942/2942588.png", productCount: 25, color: "#FDF2F2" },
-  { id: "delivery", name: "استلام طلبات المندوب", image: "https://cdn-icons-png.flaticon.com/512/2830/2830305.png", productCount: 0, color: "#FFF9C4" },
+  { id: "fruits-vegetables", name: "الخضروات والفواكه", image: "https://cdn-icons-png.flaticon.com/512/2329/2329865.png", productCount: 50, color: "#E8F5E9", iconColor: "#4CAF50" },
+  { id: "meat-poultry", name: "اللحوم والطازج", image: "https://cdn-icons-png.flaticon.com/512/3143/3143640.png", productCount: 55, color: "#FFEBEE", iconColor: "#EF5350" },
+  { id: "dairy-eggs", name: "الألبان والأجبان", image: "https://cdn-icons-png.flaticon.com/512/869/869664.png", productCount: 70, color: "#F3E5F5", iconColor: "#AB47BC" },
+  { id: "cleaning-care", name: "المنظفات", image: "https://cdn-icons-png.flaticon.com/512/2554/2554032.png", productCount: 95, color: "#E3F2FD", iconColor: "#42A5F5" },
+  { id: "beverages", name: "المشروبات", image: "https://cdn-icons-png.flaticon.com/512/3121/3121784.png", productCount: 90, color: "#E0F7FA", iconColor: "#26C6DA" },
+  { id: "snacks-sweets", name: "سناكس ومقرمشات", image: "https://cdn-icons-png.flaticon.com/512/2553/2553691.png", productCount: 110, color: "#FFF3E0", iconColor: "#FFA726" },
+  { id: "juices", name: "مشروبات وعصائر", image: "https://cdn-icons-png.flaticon.com/512/2405/2405479.png", productCount: 45, color: "#F1F8E9", iconColor: "#9CCC65" },
+  { id: "tea-coffee", name: "شاي وقهوة", image: "https://cdn-icons-png.flaticon.com/512/3122/3122130.png", productCount: 35, color: "#EFEBE9", iconColor: "#8D6E63" },
+  { id: "baby", name: "مستلزمات أطفال", image: "https://cdn-icons-png.flaticon.com/512/2793/2793765.png", productCount: 60, color: "#FCE4EC", iconColor: "#EC407A" },
+  { id: "flowers", name: "هدايا وورود", image: "https://cdn-icons-png.flaticon.com/512/2942/2942588.png", productCount: 25, color: "#FDF2F2", iconColor: "#EF5350" },
+  { id: "delivery", name: "خدمات المندوب", image: "https://cdn-icons-png.flaticon.com/512/2830/2830305.png", productCount: 0, color: "#FFF9C4", iconColor: "#FBC02D" },
 ];
 
 export const CATEGORIES = MAIN_CATEGORIES;

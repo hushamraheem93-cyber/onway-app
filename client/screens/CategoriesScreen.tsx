@@ -1,11 +1,10 @@
 import React from "react";
-import { StyleSheet, FlatList, View, Dimensions, ActivityIndicator, TouchableOpacity } from "react-native";
+import { StyleSheet, FlatList, View, Dimensions, ActivityIndicator, TouchableOpacity, Image } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useQuery } from "@tanstack/react-query";
-import { Image } from "expo-image";
 import * as Haptics from "expo-haptics";
 
 import { useTheme } from "@/hooks/useTheme";
@@ -18,7 +17,7 @@ import { getApiUrl } from "@/lib/query-client";
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
-const CARD_WIDTH = (SCREEN_WIDTH - 60) / 2;
+const CARD_WIDTH = (SCREEN_WIDTH - 50) / 2;
 
 export default function CategoriesScreen() {
   const insets = useSafeAreaInsets();
@@ -46,12 +45,11 @@ export default function CategoriesScreen() {
       onPress={() => handleCategoryPress(item)}
       activeOpacity={0.8}
     >
-      <View style={styles.iconWrapper}>
+      <View style={styles.iconContainer}>
         <Image
           source={{ uri: getImageUrl(item.image) }}
-          style={styles.image}
-          contentFit="contain"
-          transition={200}
+          style={[styles.image, { tintColor: item.iconColor }]}
+          resizeMode="contain"
         />
       </View>
       <ThemedText type="body" style={styles.name} numberOfLines={2}>
@@ -99,29 +97,29 @@ const styles = StyleSheet.create({
   },
   card: {
     width: CARD_WIDTH,
-    height: 140,
-    borderRadius: 30,
+    height: 160,
+    borderRadius: 35,
     justifyContent: "center",
     alignItems: "center",
-    marginBottom: 20,
+    marginBottom: 15,
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.05,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.03,
     shadowRadius: 10,
-    elevation: 3,
+    elevation: 1,
   },
-  iconWrapper: {
-    width: 70,
-    height: 70,
-    backgroundColor: "rgba(255, 255, 255, 0.5)",
-    borderRadius: 20,
+  iconContainer: {
+    width: 85,
+    height: 85,
+    backgroundColor: "#FFF",
+    borderRadius: 25,
     justifyContent: "center",
     alignItems: "center",
-    marginBottom: 10,
+    marginBottom: 12,
   },
   image: {
-    width: 45,
-    height: 45,
+    width: 50,
+    height: 50,
   },
   name: {
     fontSize: 14,
