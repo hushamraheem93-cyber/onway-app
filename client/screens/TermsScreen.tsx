@@ -75,7 +75,7 @@ export default function TermsScreen() {
 
         <ThemedText type="h4" style={styles.sectionTitle}>9. حقوق الملكية الفكرية</ThemedText>
         <ThemedText type="body" style={styles.paragraph}>
-          جميع حقوق الملكية الفكرية للتطبيق بما في ذلك التصميم والشعار والمحتوى محفوظة للمطور HUSHAM ALOBAIDY. لا يجوز نسخ أو استخدام أي جزء من التطبيق دون إذن خطي مسبق.
+          جميع حقوق الملكية الفكرية للتطبيق بما في ذلك التصميم والشعار والمحتوى محفوظة لمالك التطبيق. لا يجوز نسخ أو استخدام أي جزء من التطبيق دون إذن خطي مسبق.
         </ThemedText>
 
         <ThemedText type="h4" style={styles.sectionTitle}>10. التعديلات</ThemedText>

@@ -26,7 +26,7 @@ export default function PolicyScreen() {
         <ThemedText type="h3" style={styles.title}>سياسة الخصوصية</ThemedText>
         
         <ThemedText type="body" style={styles.paragraph}>
-          نحن في OnWay نحترم خصوصيتك ونلتزم بحماية بياناتك الشخصية. تم تطوير هذا التطبيق بواسطة HUSHAM ALOBAIDY لخدمة أهالي قضاء الضلوعية في محافظة صلاح الدين. توضح هذه السياسة كيفية جمع واستخدام وحماية المعلومات التي تقدمها لنا.
+          نحن في OnWay نحترم خصوصيتك ونلتزم بحماية بياناتك الشخصية. هذا التطبيق مخصص لخدمة أهالي قضاء الضلوعية في محافظة صلاح الدين. توضح هذه السياسة كيفية جمع واستخدام وحماية المعلومات التي تقدمها لنا.
         </ThemedText>
 
         <ThemedText type="h4" style={styles.sectionTitle}>1. المعلومات التي نجمعها</ThemedText>
@@ -100,7 +100,6 @@ export default function PolicyScreen() {
         </ThemedText>
         <ThemedText type="body" style={styles.listItem}>- واتساب: +9647702891104</ThemedText>
         <ThemedText type="body" style={styles.listItem}>- الموقع: قضاء الضلوعية، محافظة صلاح الدين، العراق</ThemedText>
-        <ThemedText type="body" style={styles.listItem}>- المطور: HUSHAM ALOBAIDY</ThemedText>
 
         <ThemedText type="small" style={[styles.footer, { color: theme.textSecondary }]}>
           آخر تحديث: فبراير 2026
