@@ -406,14 +406,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json({ ...user, profileComplete: true });
   });
 
-  app.post("/api/users", upload.single("profileImage"), async (req: Request, res: Response) => {
-    const { phoneNumber, fullName, gender, region, address } = req.body;
+  app.post("/api/users", async (req: Request, res: Response) => {
+    const { phoneNumber, fullName, gender, region, address, profileImage } = req.body;
     
     if (!phoneNumber || !fullName || !gender || !region || !address) {
       return res.status(400).json({ error: "All fields are required" });
     }
 
-    const profileImage = req.file ? `/uploads/${req.file.filename}` : undefined;
     const db = getFirestore();
     
     if (db) {
@@ -499,10 +498,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/users/:phoneNumber", upload.single("profileImage"), async (req: Request, res: Response) => {
+  app.put("/api/users/:phoneNumber", async (req: Request, res: Response) => {
     const phoneNumber = req.params.phoneNumber as string;
-    const { fullName, gender, region, address } = req.body;
-    const profileImage = req.file ? `/uploads/${req.file.filename}` : undefined;
+    const { fullName, gender, region, address, profileImage } = req.body;
     const db = getFirestore();
     
     if (db) {

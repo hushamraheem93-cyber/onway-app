@@ -20,7 +20,6 @@ import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollV
 import { useTheme } from "@/hooks/useTheme";
 import { useAuth } from "@/context/AuthContext";
 import { AppColors, Spacing, BorderRadius, Shadows } from "@/constants/theme";
-import { getApiUrl } from "@/lib/query-client";
 
 const REGIONS = [
   { id: "daloaiya", name: "الضلوعية المركز" },
@@ -45,13 +44,7 @@ export default function EditProfileScreen() {
   const [isLoading, setIsLoading] = useState(false);
   const [showRegionPicker, setShowRegionPicker] = useState(false);
 
-  const getExistingImageUrl = () => {
-    if (!userProfile?.profileImage) return null;
-    if (userProfile.profileImage.startsWith("http")) return userProfile.profileImage;
-    return `${getApiUrl()}${userProfile.profileImage}`;
-  };
-
-  const existingImageUrl = getExistingImageUrl();
+  const existingImageUrl = userProfile?.profileImage || null;
   const displayImageUrl = profileImage || existingImageUrl;
 
   const isFormValid = fullName.trim() && gender && region && address.trim();
