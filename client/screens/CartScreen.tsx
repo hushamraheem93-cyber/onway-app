@@ -21,8 +21,6 @@ import { PRODUCTS, Product } from "@/constants/categories";
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
-const DELIVERY_FEE = 2000;
-
 export default function CartScreen() {
   const insets = useSafeAreaInsets();
   const headerHeight = useHeaderHeight();
@@ -44,7 +42,6 @@ export default function CartScreen() {
 
   const relatedProducts = getRelatedProducts();
   const subtotal = getTotal();
-  const total = subtotal + (items.length > 0 ? DELIVERY_FEE : 0);
 
   const handleCheckout = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -115,27 +112,9 @@ export default function CartScreen() {
             },
           ]}
         >
-          <View style={styles.summaryRow}>
-            <ThemedText type="body" style={styles.summaryValue}>
-              {formatPrice(subtotal)}
-            </ThemedText>
-            <ThemedText type="body" style={styles.summaryLabel}>
-              المجموع الفرعي
-            </ThemedText>
-          </View>
-
-          <View style={styles.summaryRow}>
-            <ThemedText type="body" style={styles.summaryValue}>
-              {formatPrice(DELIVERY_FEE)}
-            </ThemedText>
-            <ThemedText type="body" style={styles.summaryLabel}>
-              خدمة التوصيل
-            </ThemedText>
-          </View>
-
           <View style={[styles.summaryRow, styles.totalRow]}>
             <ThemedText type="h3" style={styles.totalValue}>
-              {formatPrice(total)}
+              {formatPrice(subtotal)}
             </ThemedText>
             <ThemedText type="h4" style={styles.totalLabel}>
               المجموع الكلي
@@ -189,19 +168,8 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     marginBottom: 10,
   },
-  summaryLabel: {
-    color: "#999",
-    fontSize: 14,
-  },
-  summaryValue: {
-    color: "#333",
-    fontWeight: "bold",
-  },
   totalRow: {
-    marginTop: 10,
-    borderTopWidth: 1,
-    borderTopColor: "#EEE",
-    paddingTop: 15,
+    marginBottom: 0,
   },
   totalLabel: {
     fontWeight: "bold",
