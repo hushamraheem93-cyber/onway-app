@@ -1,46 +1,106 @@
-import React, { createContext, useContext, useState, useCallback, ReactNode } from "react";
+import React, { createContext, useContext, useState, useCallback, useEffect, ReactNode } from "react";
 import { CartItem } from "./CartContext";
+import { useAuth } from "./AuthContext";
+import { getApiUrl } from "@/lib/query-client";
 
 export interface Order {
   id: string;
-  items: CartItem[];
+  items: { productId: string; name: string; price: number; quantity: number; image: string }[];
   total: number;
-  customerName: string;
-  phone: string;
+  deliveryFee: number;
+  phoneNumber: string;
   address: string;
-  notes: string;
-  status: "pending" | "confirmed" | "delivered";
-  createdAt: Date;
+  region: string;
+  status: "pending" | "confirmed" | "preparing" | "delivering" | "delivered" | "cancelled";
+  createdAt: string;
+  updatedAt: string;
 }
 
 interface OrderContextType {
   orders: Order[];
-  addOrder: (order: Omit<Order, "id" | "createdAt" | "status">) => Order;
-  getOrders: () => Order[];
+  isLoading: boolean;
+  addOrder: (orderData: {
+    items: CartItem[];
+    total: number;
+    deliveryFee: number;
+    address: string;
+    region: string;
+  }) => Promise<Order | null>;
+  refreshOrders: () => Promise<void>;
 }
 
 const OrderContext = createContext<OrderContextType | undefined>(undefined);
 
 export function OrderProvider({ children }: { children: ReactNode }) {
   const [orders, setOrders] = useState<Order[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const { phoneNumber, userProfile } = useAuth();
 
-  const addOrder = useCallback((orderData: Omit<Order, "id" | "createdAt" | "status">) => {
-    const newOrder: Order = {
-      ...orderData,
-      id: `ORD-${Date.now()}`,
-      status: "pending",
-      createdAt: new Date(),
-    };
-    setOrders((prev) => [newOrder, ...prev]);
-    return newOrder;
-  }, []);
+  const refreshOrders = useCallback(async () => {
+    if (!phoneNumber) return;
+    setIsLoading(true);
+    try {
+      const response = await fetch(new URL(`/api/orders?phoneNumber=${encodeURIComponent(phoneNumber)}`, getApiUrl()).toString());
+      if (response.ok) {
+        const data = await response.json();
+        setOrders(data);
+      }
+    } catch (error) {
+      console.error("Error fetching orders:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [phoneNumber]);
 
-  const getOrders = useCallback(() => {
-    return orders;
-  }, [orders]);
+  useEffect(() => {
+    if (phoneNumber) {
+      refreshOrders();
+    }
+  }, [phoneNumber, refreshOrders]);
+
+  const addOrder = useCallback(async (orderData: {
+    items: CartItem[];
+    total: number;
+    deliveryFee: number;
+    address: string;
+    region: string;
+  }): Promise<Order | null> => {
+    if (!phoneNumber) return null;
+    
+    try {
+      const response = await fetch(new URL("/api/orders", getApiUrl()).toString(), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          phoneNumber,
+          userId: userProfile?.id || "",
+          items: orderData.items.map(item => ({
+            productId: item.product.id,
+            name: item.product.name,
+            price: item.product.price,
+            quantity: item.quantity,
+            image: item.product.image,
+          })),
+          total: orderData.total,
+          deliveryFee: orderData.deliveryFee,
+          address: orderData.address,
+          region: orderData.region,
+        }),
+      });
+      
+      if (response.ok) {
+        const newOrder = await response.json();
+        setOrders(prev => [newOrder, ...prev]);
+        return newOrder;
+      }
+    } catch (error) {
+      console.error("Error creating order:", error);
+    }
+    return null;
+  }, [phoneNumber, userProfile]);
 
   return (
-    <OrderContext.Provider value={{ orders, addOrder, getOrders }}>
+    <OrderContext.Provider value={{ orders, isLoading, addOrder, refreshOrders }}>
       {children}
     </OrderContext.Provider>
   );

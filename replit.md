@@ -106,6 +106,10 @@ Font Sizes: Title 16px, Category 14px, Small 12px
 - `POST /api/admin/products` - Create product (JSON with Base64 image)
 - `PUT /api/admin/products/:id` - Update product (JSON with Base64 image)
 - `DELETE /api/admin/products/:id` - Delete product
+- `GET /api/orders` - Get orders (optional ?phoneNumber= filter)
+- `GET /api/admin/orders` - Get all orders (admin)
+- `POST /api/orders` - Create new order
+- `PUT /api/admin/orders/:id/status` - Update order status
 - `POST /api/users` - Create/update user profile (JSON with Base64 profileImage)
 
 ## Running the App
@@ -122,10 +126,12 @@ Font Sizes: Title 16px, Category 14px, Small 12px
 
 ## Admin Panel
 - Access via Profile > لوحة التحكم
-- Two tabs: البانرات (banners) and الأقسام (categories)
+- Five tabs: البانرات، الأقسام، المنتجات، مناطق التوصيل، الطلبات
 - Image upload using expo-image-picker
-- CRUD operations for banners and categories
+- CRUD operations for banners, categories, products, and delivery areas
 - Banner types: "offer" (static top) and "slider" (carousel)
+- Order status workflow: pending → confirmed → preparing → delivering → delivered (with cancel option)
+- Orders connected to Firestore 'orders' collection
 
 ## Firebase Firestore Integration
 - User data (profiles) are stored in Firebase Firestore 'users' collection

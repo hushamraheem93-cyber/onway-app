@@ -4,7 +4,12 @@ import multer, { StorageEngine, FileFilterCallback } from "multer";
 import path from "path";
 import fs from "fs";
 import { randomUUID } from "crypto";
-import { getFirestore, getUserByPhone, createUser, updateUser, FirestoreUserProfile } from "./firebase";
+import { 
+  getFirestore, getUserByPhone, createUser, updateUser, FirestoreUserProfile,
+  getProducts as getFirestoreProducts, createProduct as createFirestoreProduct, 
+  updateProduct as updateFirestoreProduct, deleteProduct as deleteFirestoreProduct,
+  getOrders, getOrdersByPhone, createOrder, updateOrderStatus
+} from "./firebase";
 
 const uploadsDir = path.join(process.cwd(), "uploads");
 if (!fs.existsSync(uploadsDir)) {
@@ -240,9 +245,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json({ success: true });
   });
 
-  app.get("/api/products", (req, res) => {
+  app.get("/api/products", async (req, res) => {
     const categoryId = req.query.categoryId as string;
     const search = req.query.search as string;
+    const db = getFirestore();
+    
+    if (db) {
+      let result = await getFirestoreProducts(categoryId);
+      if (search) {
+        const searchLower = search.toLowerCase();
+        result = result.filter(p => 
+          p.name.toLowerCase().includes(searchLower) || 
+          p.description.toLowerCase().includes(searchLower)
+        );
+      }
+      return res.json(result);
+    }
     
     let result = products;
     if (categoryId) {
@@ -258,12 +276,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json(result);
   });
 
-  app.get("/api/admin/products", (req, res) => {
+  app.get("/api/admin/products", async (req, res) => {
+    const db = getFirestore();
+    if (db) {
+      const result = await getFirestoreProducts();
+      return res.json(result);
+    }
     res.json(products);
   });
 
-  app.post("/api/admin/products", (req: Request, res: Response) => {
+  app.post("/api/admin/products", async (req: Request, res: Response) => {
     const { name, categoryId, price, originalPrice, discount, description, inStock, image } = req.body;
+    const db = getFirestore();
+    
+    if (db) {
+      const newProduct = await createFirestoreProduct({
+        name,
+        categoryId,
+        price: parseInt(price) || 0,
+        originalPrice: originalPrice ? parseInt(originalPrice) : undefined,
+        discount: discount ? parseInt(discount) : undefined,
+        image: image || "",
+        description: description || "",
+        inStock: inStock !== false,
+      });
+      if (newProduct) return res.json(newProduct);
+      return res.status(500).json({ error: "Failed to create product" });
+    }
     
     const newProduct: Product = {
       id: randomUUID(),
@@ -276,19 +315,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
       description: description || "",
       inStock: inStock !== false,
     };
-    
     products.push(newProduct);
     res.json(newProduct);
   });
 
-  app.put("/api/admin/products/:id", (req: Request, res: Response) => {
+  app.put("/api/admin/products/:id", async (req: Request, res: Response) => {
+    const { name, categoryId, price, originalPrice, discount, description, inStock, image } = req.body;
+    const productId = req.params.id as string;
+    const db = getFirestore();
+    
+    if (db) {
+      const updated = await updateFirestoreProduct(productId, {
+        name, categoryId,
+        price: price ? parseInt(price) : undefined,
+        originalPrice: originalPrice ? parseInt(originalPrice) : undefined,
+        discount: discount ? parseInt(discount) : undefined,
+        image, description, inStock,
+      });
+      if (updated) return res.json(updated);
+      return res.status(404).json({ error: "Product not found" });
+    }
+    
     const index = products.findIndex(p => p.id === req.params.id);
     if (index === -1) {
       return res.status(404).json({ error: "Product not found" });
     }
-    
-    const { name, categoryId, price, originalPrice, discount, description, inStock, image } = req.body;
-    
     products[index] = {
       ...products[index],
       name: name || products[index].name,
@@ -300,11 +351,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       description: description !== undefined ? description : products[index].description,
       inStock: inStock !== undefined ? inStock : products[index].inStock,
     };
-    
     res.json(products[index]);
   });
 
-  app.delete("/api/admin/products/:id", (req, res) => {
+  app.delete("/api/admin/products/:id", async (req, res) => {
+    const db = getFirestore();
+    if (db) {
+      const success = await deleteFirestoreProduct(req.params.id);
+      if (success) return res.json({ success: true });
+      return res.status(404).json({ error: "Product not found" });
+    }
+    
     const index = products.findIndex(p => p.id === req.params.id);
     if (index === -1) {
       return res.status(404).json({ error: "Product not found" });
@@ -360,6 +417,77 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
     deliveryAreas.splice(index, 1);
     res.json({ success: true });
+  });
+
+  // Order Routes
+  app.get("/api/orders", async (req, res) => {
+    const phoneNumber = req.query.phoneNumber as string;
+    const db = getFirestore();
+    
+    if (db) {
+      const orders = phoneNumber 
+        ? await getOrdersByPhone(phoneNumber)
+        : await getOrders();
+      return res.json(orders.map(o => ({
+        ...o,
+        createdAt: o.createdAt?.toDate?.() ? o.createdAt.toDate().toISOString() : o.createdAt,
+        updatedAt: o.updatedAt?.toDate?.() ? o.updatedAt.toDate().toISOString() : o.updatedAt,
+      })));
+    }
+    res.json([]);
+  });
+
+  app.get("/api/admin/orders", async (req, res) => {
+    const db = getFirestore();
+    if (db) {
+      const orders = await getOrders();
+      return res.json(orders.map(o => ({
+        ...o,
+        createdAt: o.createdAt?.toDate?.() ? o.createdAt.toDate().toISOString() : o.createdAt,
+        updatedAt: o.updatedAt?.toDate?.() ? o.updatedAt.toDate().toISOString() : o.updatedAt,
+      })));
+    }
+    res.json([]);
+  });
+
+  app.post("/api/orders", async (req: Request, res: Response) => {
+    const { userId, phoneNumber, items, total, deliveryFee, address, region } = req.body;
+    const db = getFirestore();
+    
+    if (db) {
+      const newOrder = await createOrder({
+        userId: userId || "",
+        phoneNumber,
+        items,
+        total,
+        deliveryFee,
+        address,
+        region,
+        status: "pending",
+      });
+      if (newOrder) {
+        return res.json({
+          ...newOrder,
+          createdAt: newOrder.createdAt.toDate().toISOString(),
+          updatedAt: newOrder.updatedAt.toDate().toISOString(),
+        });
+      }
+      return res.status(500).json({ error: "Failed to create order" });
+    }
+    res.status(500).json({ error: "Database not configured" });
+  });
+
+  app.put("/api/admin/orders/:id/status", async (req: Request, res: Response) => {
+    const orderId = req.params.id as string;
+    const { status } = req.body;
+    const db = getFirestore();
+    
+    if (db) {
+      const success = await updateOrderStatus(orderId, status);
+      if (success) return res.json({ success: true, id: orderId, status });
+      return res.status(404).json({ error: "Order not found" });
+    }
+    res.status(500).json({ error: "Database not configured" });
   });
 
   app.post("/api/upload", upload.single("profileImage"), (req: Request & { file?: Express.Multer.File }, res: Response) => {

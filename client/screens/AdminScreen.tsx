@@ -25,8 +25,22 @@ import { getApiUrl, apiRequest } from "@/lib/query-client";
 import { formatPrice } from "@/constants/currency";
 import { compressAndConvertToBase64, isBase64Image, ImageSize } from "@/lib/imageUtils";
 
-type TabType = "banners" | "categories" | "products" | "areas";
+type TabType = "banners" | "categories" | "products" | "areas" | "orders";
 type BannerType = "offer" | "slider";
+type OrderStatus = "pending" | "confirmed" | "preparing" | "delivering" | "delivered" | "cancelled";
+
+interface AdminOrder {
+  id: string;
+  phoneNumber: string;
+  items: { productId: string; name: string; price: number; quantity: number; image: string }[];
+  total: number;
+  deliveryFee: number;
+  address: string;
+  region: string;
+  status: OrderStatus;
+  createdAt: string;
+  updatedAt: string;
+}
 
 interface Product {
   id: string;
@@ -101,6 +115,23 @@ export default function AdminScreen() {
 
   const { data: deliveryAreas = [], isLoading: areasLoading } = useQuery<DeliveryArea[]>({
     queryKey: ["/api/admin/delivery-areas"],
+  });
+
+  const { data: adminOrders = [], isLoading: ordersLoading } = useQuery<AdminOrder[]>({
+    queryKey: ["/api/admin/orders"],
+  });
+
+  const updateOrderStatus = useMutation({
+    mutationFn: async ({ id, status }: { id: string; status: OrderStatus }) => {
+      await fetch(`${getApiUrl()}/api/admin/orders/${id}/status`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status }),
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/orders"] });
+    },
   });
 
   const deleteBanner = useMutation({
@@ -718,12 +749,122 @@ export default function AdminScreen() {
     </View>
   );
 
+  const getStatusLabel = (status: OrderStatus) => {
+    const labels: Record<OrderStatus, string> = {
+      pending: "قيد الانتظار",
+      confirmed: "تم التأكيد",
+      preparing: "جاري التحضير",
+      delivering: "جاري التوصيل",
+      delivered: "تم التوصيل",
+      cancelled: "ملغي",
+    };
+    return labels[status];
+  };
+
+  const getStatusColor = (status: OrderStatus) => {
+    const colors: Record<OrderStatus, string> = {
+      pending: "#F59E0B",
+      confirmed: "#3B82F6",
+      preparing: "#8B5CF6",
+      delivering: "#06B6D4",
+      delivered: "#10B981",
+      cancelled: "#EF4444",
+    };
+    return colors[status];
+  };
+
+  const renderOrdersTab = () => (
+    <View>
+      <ThemedText type="h4" style={styles.listTitle}>الطلبات</ThemedText>
+
+      {ordersLoading ? (
+        <ActivityIndicator color={AppColors.primary} />
+      ) : adminOrders.length === 0 ? (
+        <ThemedText type="body" style={{ textAlign: "center", color: theme.textSecondary }}>
+          لا توجد طلبات حالياً
+        </ThemedText>
+      ) : (
+        adminOrders.map((order) => (
+          <View key={order.id} style={[styles.orderCard, { backgroundColor: theme.backgroundSecondary }]}>
+            <View style={styles.orderHeader}>
+              <ThemedText type="body" style={{ fontWeight: "700" }}>#{order.id.slice(-6)}</ThemedText>
+              <View style={[styles.statusBadge, { backgroundColor: getStatusColor(order.status) + "20" }]}>
+                <ThemedText type="small" style={{ color: getStatusColor(order.status), fontWeight: "600" }}>
+                  {getStatusLabel(order.status)}
+                </ThemedText>
+              </View>
+            </View>
+            <ThemedText type="small" style={{ color: theme.textSecondary }}>
+              📞 {order.phoneNumber}
+            </ThemedText>
+            <ThemedText type="small" style={{ color: theme.textSecondary }}>
+              📍 {order.region} - {order.address}
+            </ThemedText>
+            <ThemedText type="small" style={{ color: theme.textSecondary }}>
+              🛒 {order.items.length} منتجات
+            </ThemedText>
+            <View style={styles.orderFooter}>
+              <ThemedText type="body" style={{ color: AppColors.primary, fontWeight: "700" }}>
+                {formatPrice(order.total + order.deliveryFee)}
+              </ThemedText>
+              <View style={styles.statusButtons}>
+                {order.status !== "delivered" && order.status !== "cancelled" ? (
+                  <>
+                    {order.status === "pending" ? (
+                      <Pressable
+                        style={[styles.statusBtn, { backgroundColor: "#3B82F6" }]}
+                        onPress={() => updateOrderStatus.mutate({ id: order.id, status: "confirmed" })}
+                      >
+                        <ThemedText type="small" style={{ color: "#fff" }}>تأكيد</ThemedText>
+                      </Pressable>
+                    ) : null}
+                    {order.status === "confirmed" ? (
+                      <Pressable
+                        style={[styles.statusBtn, { backgroundColor: "#8B5CF6" }]}
+                        onPress={() => updateOrderStatus.mutate({ id: order.id, status: "preparing" })}
+                      >
+                        <ThemedText type="small" style={{ color: "#fff" }}>تحضير</ThemedText>
+                      </Pressable>
+                    ) : null}
+                    {order.status === "preparing" ? (
+                      <Pressable
+                        style={[styles.statusBtn, { backgroundColor: "#06B6D4" }]}
+                        onPress={() => updateOrderStatus.mutate({ id: order.id, status: "delivering" })}
+                      >
+                        <ThemedText type="small" style={{ color: "#fff" }}>توصيل</ThemedText>
+                      </Pressable>
+                    ) : null}
+                    {order.status === "delivering" ? (
+                      <Pressable
+                        style={[styles.statusBtn, { backgroundColor: "#10B981" }]}
+                        onPress={() => updateOrderStatus.mutate({ id: order.id, status: "delivered" })}
+                      >
+                        <ThemedText type="small" style={{ color: "#fff" }}>تم</ThemedText>
+                      </Pressable>
+                    ) : null}
+                    <Pressable
+                      style={[styles.statusBtn, { backgroundColor: "#EF4444" }]}
+                      onPress={() => updateOrderStatus.mutate({ id: order.id, status: "cancelled" })}
+                    >
+                      <ThemedText type="small" style={{ color: "#fff" }}>إلغاء</ThemedText>
+                    </Pressable>
+                  </>
+                ) : null}
+              </View>
+            </View>
+          </View>
+        ))
+      )}
+    </View>
+  );
+
   const renderContent = () => {
     switch (activeTab) {
       case "banners": return renderBannersTab();
       case "categories": return renderCategoriesTab();
       case "products": return renderProductsTab();
       case "areas": return renderAreasTab();
+      case "orders": return renderOrdersTab();
     }
   };
 
@@ -743,6 +884,7 @@ export default function AdminScreen() {
             { key: "categories", label: "الأقسام" },
             { key: "products", label: "المنتجات" },
             { key: "areas", label: "مناطق التوصيل" },
+            { key: "orders", label: "الطلبات" },
           ].map((tab) => (
             <Pressable
               key={tab.key}
@@ -971,5 +1113,37 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
     fontSize: 10,
     fontWeight: "600",
+  },
+  orderCard: {
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.md,
+    marginBottom: Spacing.md,
+    gap: Spacing.xs,
+  },
+  orderHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: Spacing.xs,
+  },
+  statusBadge: {
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: Spacing.xs,
+    borderRadius: BorderRadius.sm,
+  },
+  orderFooter: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginTop: Spacing.sm,
+  },
+  statusButtons: {
+    flexDirection: "row",
+    gap: Spacing.xs,
+  },
+  statusBtn: {
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.xs,
+    borderRadius: BorderRadius.sm,
   },
 });
