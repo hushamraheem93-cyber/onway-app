@@ -67,6 +67,7 @@ interface UserProfile {
   gender: "male" | "female";
   region: string;
   address: string;
+  profileImage?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -374,7 +375,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json({ ...user, profileComplete: true });
   });
 
-  app.post("/api/users", (req: Request, res: Response) => {
+  app.post("/api/users", upload.single("profileImage"), (req: Request, res: Response) => {
     const { phoneNumber, fullName, gender, region, address } = req.body;
     
     if (!phoneNumber || !fullName || !gender || !region || !address) {
@@ -383,6 +384,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
     const existingIndex = userProfiles.findIndex(u => u.phoneNumber === phoneNumber);
     const now = new Date().toISOString();
+    const profileImage = req.file ? `/uploads/${req.file.filename}` : undefined;
     
     if (existingIndex !== -1) {
       userProfiles[existingIndex] = {
@@ -391,6 +393,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         gender,
         region,
         address,
+        ...(profileImage && { profileImage }),
         updatedAt: now,
       };
       res.json({ ...userProfiles[existingIndex], profileComplete: true });
@@ -402,6 +405,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         gender,
         region,
         address,
+        profileImage,
         createdAt: now,
         updatedAt: now,
       };
@@ -410,13 +414,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/users/:phoneNumber", (req: Request, res: Response) => {
+  app.put("/api/users/:phoneNumber", upload.single("profileImage"), (req: Request, res: Response) => {
     const index = userProfiles.findIndex(u => u.phoneNumber === req.params.phoneNumber);
     if (index === -1) {
       return res.status(404).json({ error: "User not found" });
     }
     
     const { fullName, gender, region, address } = req.body;
+    const profileImage = req.file ? `/uploads/${req.file.filename}` : undefined;
     
     userProfiles[index] = {
       ...userProfiles[index],
@@ -424,6 +429,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       gender: gender || userProfiles[index].gender,
       region: region || userProfiles[index].region,
       address: address || userProfiles[index].address,
+      ...(profileImage && { profileImage }),
       updatedAt: new Date().toISOString(),
     };
     

@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { getApiUrl } from "@/lib/query-client";
+import { File } from "expo-file-system";
 
 export interface UserProfile {
   id?: string;
@@ -9,6 +10,7 @@ export interface UserProfile {
   gender: "male" | "female";
   region: string;
   address: string;
+  profileImage?: string;
   profileComplete: boolean;
 }
 
@@ -19,7 +21,7 @@ interface AuthContextType {
   isProfileComplete: boolean;
   login: (phone: string) => Promise<void>;
   logout: () => Promise<void>;
-  saveProfile: (profile: Omit<UserProfile, "phoneNumber" | "profileComplete">) => Promise<void>;
+  saveProfile: (profile: Omit<UserProfile, "phoneNumber" | "profileComplete">, imageUri?: string) => Promise<void>;
   refreshProfile: () => Promise<void>;
   isLoading: boolean;
 }
@@ -107,17 +109,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const saveProfile = async (profile: Omit<UserProfile, "phoneNumber" | "profileComplete">) => {
+  const saveProfile = async (profile: Omit<UserProfile, "phoneNumber" | "profileComplete">, imageUri?: string) => {
     if (!phoneNumber) throw new Error("No phone number");
 
     try {
+      const formData = new FormData();
+      formData.append("phoneNumber", phoneNumber);
+      formData.append("fullName", profile.fullName);
+      formData.append("gender", profile.gender);
+      formData.append("region", profile.region);
+      formData.append("address", profile.address);
+
+      if (imageUri) {
+        const file = new File(imageUri);
+        formData.append("profileImage", file);
+      }
+
       const response = await fetch(new URL("/api/users", getApiUrl()).toString(), {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          phoneNumber,
-          ...profile,
-        }),
+        body: formData,
       });
 
       if (!response.ok) {

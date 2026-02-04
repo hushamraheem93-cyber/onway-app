@@ -11,6 +11,8 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
+import * as ImagePicker from "expo-image-picker";
+import { Image } from "expo-image";
 
 import { ThemedText } from "@/components/ThemedText";
 import { useTheme } from "@/hooks/useTheme";
@@ -34,6 +36,7 @@ export default function ProfileCompletionScreen() {
   const [gender, setGender] = useState<"male" | "female" | null>(null);
   const [region, setRegion] = useState("");
   const [address, setAddress] = useState("");
+  const [profileImage, setProfileImage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [showRegionPicker, setShowRegionPicker] = useState(false);
 
@@ -51,12 +54,59 @@ export default function ProfileCompletionScreen() {
         gender,
         region,
         address: address.trim(),
-      });
+      }, profileImage || undefined);
     } catch (error: any) {
       Alert.alert("خطأ", error.message || "حدث خطأ أثناء حفظ البيانات");
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const pickImage = async () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.8,
+    });
+
+    if (!result.canceled && result.assets[0]) {
+      setProfileImage(result.assets[0].uri);
+    }
+  };
+
+  const takePhoto = async () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    if (status !== "granted") {
+      Alert.alert("تنبيه", "يرجى السماح بالوصول للكاميرا لالتقاط صورة");
+      return;
+    }
+
+    const result = await ImagePicker.launchCameraAsync({
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.8,
+    });
+
+    if (!result.canceled && result.assets[0]) {
+      setProfileImage(result.assets[0].uri);
+    }
+  };
+
+  const showImageOptions = () => {
+    Alert.alert(
+      "صورة الملف الشخصي",
+      "اختر طريقة إضافة الصورة",
+      [
+        { text: "الكاميرا", onPress: takePhoto },
+        { text: "معرض الصور", onPress: pickImage },
+        { text: "إلغاء", style: "cancel" },
+      ]
+    );
   };
 
   const handleGenderSelect = (selectedGender: "male" | "female") => {
@@ -82,9 +132,25 @@ export default function ProfileCompletionScreen() {
       showsVerticalScrollIndicator={false}
     >
       <View style={styles.header}>
-        <View style={[styles.iconContainer, { backgroundColor: AppColors.primary }]}>
-          <Feather name="user-plus" size={32} color="#FFFFFF" />
-        </View>
+        <Pressable onPress={showImageOptions} style={styles.avatarContainer}>
+          {profileImage ? (
+            <Image
+              source={{ uri: profileImage }}
+              style={styles.avatarImage}
+              contentFit="cover"
+            />
+          ) : (
+            <View style={[styles.avatarPlaceholder, { backgroundColor: AppColors.primary }]}>
+              <Feather name="user" size={40} color="#FFFFFF" />
+            </View>
+          )}
+          <View style={[styles.cameraButton, { backgroundColor: theme.backgroundDefault }]}>
+            <Feather name="camera" size={16} color={AppColors.primary} />
+          </View>
+        </Pressable>
+        <ThemedText type="small" style={[styles.avatarHint, { color: theme.textSecondary }]}>
+          اضغط لإضافة صورة
+        </ThemedText>
         <ThemedText type="h2" style={styles.title}>أكمل ملفك الشخصي</ThemedText>
         <ThemedText type="body" style={[styles.subtitle, { color: theme.textSecondary }]}>
           يرجى إدخال بياناتك للمتابعة
@@ -277,6 +343,37 @@ const styles = StyleSheet.create({
   header: {
     alignItems: "center",
     marginBottom: Spacing.xl,
+  },
+  avatarContainer: {
+    position: "relative",
+    marginBottom: Spacing.sm,
+  },
+  avatarImage: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+  },
+  avatarPlaceholder: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  cameraButton: {
+    position: "absolute",
+    bottom: 0,
+    right: 0,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 2,
+    borderColor: "#FFFFFF",
+  },
+  avatarHint: {
+    marginBottom: Spacing.md,
   },
   iconContainer: {
     width: 70,
