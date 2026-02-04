@@ -36,30 +36,40 @@ export default function AboutScreen() {
     >
       <View style={[styles.logoCard, { backgroundColor: AppColors.primary }, Shadows.md]}>
         <ThemedText type="h1" style={styles.logoText}>OnWay</ThemedText>
-        <ThemedText type="body" style={styles.logoSubtext}>اون وي</ThemedText>
+        <ThemedText type="body" style={styles.logoSubtext}>اون وي - قضاء الضلوعية</ThemedText>
       </View>
 
       <View style={[styles.card, { backgroundColor: theme.backgroundDefault }, Shadows.sm]}>
         <ThemedText type="h3" style={styles.title}>من نحن</ThemedText>
         
         <ThemedText type="body" style={styles.paragraph}>
-          OnWay هو تطبيق توصيل وتسوق محلي يهدف إلى تسهيل حياتك اليومية. نوفر لك تجربة تسوق سلسة وسريعة من خلال توصيل جميع احتياجاتك إلى باب منزلك.
+          تطبيق OnWay هو مشروع محلي تم تطويره بالكامل من قبل المطور العراقي حشام العبيدي (HUSHAM ALOBAIDY) بهدف خدمة أهالي قضاء الضلوعية في محافظة صلاح الدين.
         </ThemedText>
 
         <ThemedText type="body" style={styles.paragraph}>
-          نحن نؤمن بأن الجودة والسرعة هما أساس خدمتنا. فريقنا المتفاني يعمل على مدار الساعة لضمان وصول طلباتك في أفضل حالة وفي أسرع وقت ممكن.
+          انطلقت فكرة التطبيق من إيماننا بأن عوائل الضلوعية تستحق خدمة توصيل احترافية وموثوقة توفر عليهم الوقت والجهد. نسعى لتقديم تجربة تسوق سهلة وسريعة تصل إلى باب منزلك.
         </ThemedText>
 
-        <ThemedText type="h4" style={styles.sectionTitle}>رؤيتنا</ThemedText>
+        <ThemedText type="h4" style={styles.sectionTitle}>رسالتنا</ThemedText>
         <ThemedText type="body" style={styles.paragraph}>
-          أن نكون الخيار الأول للتسوق والتوصيل في العراق، مع الحفاظ على أعلى معايير الجودة والخدمة.
+          نحن نؤمن بأن التكنولوجيا يجب أن تخدم المجتمع المحلي. لذلك قمنا ببناء هذا التطبيق ليكون جسراً بين المتاجر المحلية والعوائل في قضاء الضلوعية، مما يساهم في دعم الاقتصاد المحلي وتسهيل الحياة اليومية لأهالي القضاء.
+        </ThemedText>
+
+        <ThemedText type="h4" style={styles.sectionTitle}>نطاق الخدمة</ThemedText>
+        <ThemedText type="body" style={styles.paragraph}>
+          خدمة التوصيل متاحة حصرياً لسكان قضاء الضلوعية والمناطق التابعة له في محافظة صلاح الدين. نحرص على توصيل طلباتكم بأسرع وقت ممكن مع الحفاظ على جودة المنتجات.
         </ThemedText>
 
         <ThemedText type="h4" style={styles.sectionTitle}>قيمنا</ThemedText>
+        <ThemedText type="body" style={styles.listItem}>- خدمة المجتمع: نعمل من أجل راحة عوائل الضلوعية</ThemedText>
+        <ThemedText type="body" style={styles.listItem}>- الأمانة والشفافية: أسعار واضحة وخدمة صادقة</ThemedText>
         <ThemedText type="body" style={styles.listItem}>- الجودة: نختار أفضل المنتجات لعملائنا</ThemedText>
         <ThemedText type="body" style={styles.listItem}>- السرعة: توصيل سريع وموثوق</ThemedText>
-        <ThemedText type="body" style={styles.listItem}>- الأمانة: نتعامل بشفافية مع عملائنا</ThemedText>
-        <ThemedText type="body" style={styles.listItem}>- الابتكار: نسعى دائماً لتحسين خدماتنا</ThemedText>
+
+        <ThemedText type="h4" style={styles.sectionTitle}>المطور</ThemedText>
+        <ThemedText type="body" style={styles.paragraph}>
+          تم تصميم وتطوير هذا التطبيق بواسطة: HUSHAM ALOBAIDY
+        </ThemedText>
       </View>
 
       <View style={[styles.card, { backgroundColor: theme.backgroundDefault }, Shadows.sm]}>
@@ -90,6 +100,10 @@ export default function AboutScreen() {
         <ThemedText type="small" style={[styles.phone, { color: theme.textSecondary }]}>
           +964 770 289 1104
         </ThemedText>
+
+        <ThemedText type="small" style={[styles.location, { color: theme.textSecondary }]}>
+          قضاء الضلوعية - محافظة صلاح الدين - العراق
+        </ThemedText>
       </View>
     </ScrollView>
   );
@@ -109,7 +123,7 @@ const styles = StyleSheet.create({
   },
   logoSubtext: {
     color: "rgba(255,255,255,0.8)",
-    fontSize: 20,
+    fontSize: 18,
     marginTop: Spacing.xs,
   },
   card: {
@@ -153,5 +167,10 @@ const styles = StyleSheet.create({
   phone: {
     textAlign: "center",
     marginTop: Spacing.sm,
+  },
+  location: {
+    textAlign: "center",
+    marginTop: Spacing.xs,
+    fontSize: 13,
   },
 });

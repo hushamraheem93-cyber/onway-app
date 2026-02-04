@@ -26,45 +26,75 @@ export default function TermsScreen() {
         <ThemedText type="h3" style={styles.title}>الشروط والأحكام</ThemedText>
         
         <ThemedText type="body" style={styles.paragraph}>
-          مرحباً بك في تطبيق OnWay. باستخدامك لهذا التطبيق، فإنك توافق على الالتزام بهذه الشروط والأحكام.
+          مرحباً بك في تطبيق OnWay لخدمات التوصيل في قضاء الضلوعية، محافظة صلاح الدين. باستخدامك لهذا التطبيق، فإنك توافق على الالتزام بهذه الشروط والأحكام. يرجى قراءتها بعناية.
         </ThemedText>
 
-        <ThemedText type="h4" style={styles.sectionTitle}>1. استخدام التطبيق</ThemedText>
+        <ThemedText type="h4" style={styles.sectionTitle}>1. نطاق الخدمة</ThemedText>
         <ThemedText type="body" style={styles.paragraph}>
-          يجب أن يكون عمرك 18 عاماً على الأقل لاستخدام هذا التطبيق. أنت مسؤول عن الحفاظ على سرية حسابك ورقم هاتفك.
+          تقتصر خدمات التوصيل المقدمة من خلال تطبيق OnWay على سكان قضاء الضلوعية والمناطق التابعة له في محافظة صلاح الدين فقط. لا نقدم خدمات التوصيل خارج هذا النطاق الجغرافي.
         </ThemedText>
 
-        <ThemedText type="h4" style={styles.sectionTitle}>2. الطلبات والأسعار</ThemedText>
+        <ThemedText type="h4" style={styles.sectionTitle}>2. أهلية الاستخدام</ThemedText>
         <ThemedText type="body" style={styles.paragraph}>
-          جميع الأسعار المعروضة بالدينار العراقي وقابلة للتغيير دون إشعار مسبق. نحتفظ بالحق في رفض أي طلب لأي سبب.
-        </ThemedText>
-        <ThemedText type="body" style={styles.listItem}>- الأسعار لا تشمل رسوم التوصيل إلا إذا ذكر غير ذلك</ThemedText>
-        <ThemedText type="body" style={styles.listItem}>- قد تختلف الأسعار حسب المنطقة</ThemedText>
-        <ThemedText type="body" style={styles.listItem}>- العروض والخصومات لفترة محدودة</ThemedText>
-
-        <ThemedText type="h4" style={styles.sectionTitle}>3. التوصيل</ThemedText>
-        <ThemedText type="body" style={styles.paragraph}>
-          نسعى لتوصيل طلبك في أسرع وقت ممكن. قد تتأخر بعض الطلبات بسبب ظروف خارجة عن إرادتنا مثل الطقس أو الازدحام المروري.
+          يجب أن يكون عمرك 18 عاماً على الأقل لاستخدام هذا التطبيق وإجراء الطلبات. باستخدامك للتطبيق، فإنك تقر بأنك تستوفي هذا الشرط. أنت مسؤول عن الحفاظ على سرية حسابك ورقم هاتفك المسجل.
         </ThemedText>
 
-        <ThemedText type="h4" style={styles.sectionTitle}>4. الإلغاء والاسترجاع</ThemedText>
+        <ThemedText type="h4" style={styles.sectionTitle}>3. الطلبات والأسعار</ThemedText>
         <ThemedText type="body" style={styles.paragraph}>
-          يمكنك إلغاء طلبك قبل أن يتم تأكيده من قبل المتجر. بعد التأكيد، قد لا يكون الإلغاء ممكناً. للمنتجات التالفة أو الخاطئة، يرجى التواصل معنا خلال 24 ساعة.
+          جميع الأسعار المعروضة في التطبيق بالدينار العراقي. نحتفظ بالحق في تعديل الأسعار دون إشعار مسبق بسبب تغيرات السوق.
+        </ThemedText>
+        <ThemedText type="body" style={styles.listItem}>- الأسعار المعروضة هي أسعار المنتجات ولا تشمل رسوم التوصيل</ThemedText>
+        <ThemedText type="body" style={styles.listItem}>- رسوم التوصيل تحدد حسب منطقتك داخل قضاء الضلوعية</ThemedText>
+        <ThemedText type="body" style={styles.listItem}>- العروض والخصومات صالحة لفترة محدودة وقد تنتهي دون إشعار</ThemedText>
+        <ThemedText type="body" style={styles.listItem}>- نحتفظ بالحق في رفض أي طلب لأسباب تشغيلية</ThemedText>
+
+        <ThemedText type="h4" style={styles.sectionTitle}>4. التوصيل</ThemedText>
+        <ThemedText type="body" style={styles.paragraph}>
+          نسعى لتوصيل طلبك في أسرع وقت ممكن. أوقات التوصيل المذكورة تقديرية وقد تتأثر بعوامل خارجة عن إرادتنا مثل الظروف الجوية أو الازدحام المروري. سيتم إبلاغك بأي تأخير متوقع.
         </ThemedText>
 
-        <ThemedText type="h4" style={styles.sectionTitle}>5. المسؤولية</ThemedText>
+        <ThemedText type="h4" style={styles.sectionTitle}>5. الدفع</ThemedText>
         <ThemedText type="body" style={styles.paragraph}>
-          نحن غير مسؤولين عن أي أضرار غير مباشرة ناتجة عن استخدام التطبيق. نسعى لتقديم أفضل خدمة ممكنة ولكن لا نضمن خلو الخدمة من الأخطاء.
+          حالياً نقبل الدفع نقداً عند الاستلام. يجب توفر المبلغ الكامل للطلب شاملاً رسوم التوصيل عند استلام الطلب. نعمل على إضافة طرق دفع إلكترونية مستقبلاً.
         </ThemedText>
 
-        <ThemedText type="h4" style={styles.sectionTitle}>6. التعديلات</ThemedText>
+        <ThemedText type="h4" style={styles.sectionTitle}>6. الإلغاء والاسترجاع</ThemedText>
         <ThemedText type="body" style={styles.paragraph}>
-          نحتفظ بالحق في تعديل هذه الشروط في أي وقت. استمرارك في استخدام التطبيق بعد التعديلات يعني موافقتك على الشروط الجديدة.
+          يمكنك إلغاء طلبك مجاناً قبل أن يتم تأكيده من قبل فريقنا. بعد التأكيد والبدء بتجهيز الطلب، قد لا يكون الإلغاء ممكناً أو قد يترتب عليه رسوم. للمنتجات التالفة أو الخاطئة، يرجى التواصل معنا خلال 24 ساعة مع توثيق المشكلة بالصور.
         </ThemedText>
 
-        <ThemedText type="h4" style={styles.sectionTitle}>7. التواصل</ThemedText>
+        <ThemedText type="h4" style={styles.sectionTitle}>7. جودة المنتجات</ThemedText>
         <ThemedText type="body" style={styles.paragraph}>
-          لأي استفسارات حول هذه الشروط، يرجى التواصل معنا عبر واتساب: +9647702891104
+          نحرص على توفير منتجات طازجة وعالية الجودة. في حال استلام منتج تالف أو منتهي الصلاحية، يحق لك الاستبدال أو استرداد المبلغ وفقاً لسياستنا.
+        </ThemedText>
+
+        <ThemedText type="h4" style={styles.sectionTitle}>8. المسؤولية</ThemedText>
+        <ThemedText type="body" style={styles.paragraph}>
+          تطبيق OnWay غير مسؤول عن أي أضرار غير مباشرة أو تبعية ناتجة عن استخدام التطبيق أو عدم توفر الخدمة. نسعى لتقديم أفضل خدمة ممكنة ولكن لا نضمن استمرارية الخدمة بدون انقطاع.
+        </ThemedText>
+
+        <ThemedText type="h4" style={styles.sectionTitle}>9. حقوق الملكية الفكرية</ThemedText>
+        <ThemedText type="body" style={styles.paragraph}>
+          جميع حقوق الملكية الفكرية للتطبيق بما في ذلك التصميم والشعار والمحتوى محفوظة للمطور HUSHAM ALOBAIDY. لا يجوز نسخ أو استخدام أي جزء من التطبيق دون إذن خطي مسبق.
+        </ThemedText>
+
+        <ThemedText type="h4" style={styles.sectionTitle}>10. التعديلات</ThemedText>
+        <ThemedText type="body" style={styles.paragraph}>
+          نحتفظ بالحق في تعديل هذه الشروط والأحكام في أي وقت. سيتم نشر التعديلات في التطبيق وتصبح سارية فور نشرها. استمرارك في استخدام التطبيق بعد التعديلات يعني موافقتك على الشروط المحدثة.
+        </ThemedText>
+
+        <ThemedText type="h4" style={styles.sectionTitle}>11. القانون الواجب التطبيق</ThemedText>
+        <ThemedText type="body" style={styles.paragraph}>
+          تخضع هذه الشروط والأحكام للقوانين المعمول بها في جمهورية العراق. أي نزاع ينشأ عن استخدام التطبيق يخضع للاختصاص القضائي للمحاكم العراقية المختصة.
+        </ThemedText>
+
+        <ThemedText type="h4" style={styles.sectionTitle}>12. التواصل</ThemedText>
+        <ThemedText type="body" style={styles.paragraph}>
+          لأي استفسارات حول هذه الشروط والأحكام، يرجى التواصل معنا عبر واتساب: +9647702891104
+        </ThemedText>
+
+        <ThemedText type="small" style={[styles.footer, { color: theme.textSecondary }]}>
+          آخر تحديث: فبراير 2026
         </ThemedText>
       </View>
     </ScrollView>
@@ -94,5 +124,9 @@ const styles = StyleSheet.create({
     textAlign: "right",
     lineHeight: 24,
     marginBottom: Spacing.xs,
+  },
+  footer: {
+    textAlign: "center",
+    marginTop: Spacing.xl,
   },
 });
