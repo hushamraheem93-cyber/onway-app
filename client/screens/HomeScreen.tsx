@@ -22,6 +22,7 @@ import { CategoryCard } from "@/components/CategoryCard";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
 import { useCart } from "@/context/CartContext";
 import { useFavorites } from "@/context/FavoritesContext";
+import { useAuth } from "@/context/AuthContext";
 import { formatPrice } from "@/constants/currency";
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
@@ -42,6 +43,11 @@ export default function HomeScreen() {
   const [searchQuery, setSearchQuery] = useState("");
   const { addToCart } = useCart();
   const { isFavorite, toggleFavorite } = useFavorites();
+  const { userProfile } = useAuth();
+
+  const welcomeMessage = userProfile?.fullName 
+    ? `أهلاً ${userProfile.fullName.split(' ')[0]}` 
+    : "أهلاً بك";
 
   const { data: categories = [], isLoading: categoriesLoading } = useQuery<Category[]>({
     queryKey: ["/api/categories"],
@@ -164,6 +170,15 @@ export default function HomeScreen() {
 
   const renderContent = () => (
     <View>
+      <View style={styles.welcomeHeader}>
+        <ThemedText type="h2" style={styles.welcomeText}>
+          {welcomeMessage} 👋
+        </ThemedText>
+        <ThemedText type="body" style={[styles.welcomeSubtext, { color: theme.textSecondary }]}>
+          ماذا تريد أن تطلب اليوم؟
+        </ThemedText>
+      </View>
+
       <SearchBar
         value={searchQuery}
         onChangeText={setSearchQuery}
@@ -265,6 +280,16 @@ export default function HomeScreen() {
 }
 
 const styles = StyleSheet.create({
+  welcomeHeader: {
+    marginBottom: Spacing.lg,
+  },
+  welcomeText: {
+    textAlign: "right",
+    marginBottom: Spacing.xs,
+  },
+  welcomeSubtext: {
+    textAlign: "right",
+  },
   categoriesContainer: {
     marginBottom: Spacing.xl,
     gap: GRID_GAP,

@@ -6,6 +6,7 @@ import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Feather } from "@expo/vector-icons";
+import { Image } from "expo-image";
 import * as Haptics from "expo-haptics";
 
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
@@ -66,7 +67,7 @@ export default function ProfileScreen() {
   const tabBarHeight = useBottomTabBarHeight();
   const { theme, isDark } = useTheme();
   const { themeMode, setThemeMode } = useThemeMode();
-  const { phoneNumber, logout } = useAuth();
+  const { phoneNumber, userProfile, logout } = useAuth();
   const navigation = useNavigation<NavigationProp>();
 
   const handleLogout = async () => {
@@ -89,15 +90,28 @@ export default function ProfileScreen() {
       }}
     >
       <View style={[styles.profileCard, { backgroundColor: theme.backgroundDefault }, Shadows.md]}>
-        <View style={[styles.avatar, { backgroundColor: AppColors.primary }]}>
-          <Feather name="user" size={40} color="#FFFFFF" />
-        </View>
+        {userProfile?.profileImage ? (
+          <Image
+            source={{ uri: userProfile.profileImage }}
+            style={styles.avatarImage}
+            contentFit="cover"
+          />
+        ) : (
+          <View style={[styles.avatar, { backgroundColor: AppColors.primary }]}>
+            <Feather name="user" size={40} color="#FFFFFF" />
+          </View>
+        )}
         <ThemedText type="h2" style={styles.name}>
-          {phoneNumber || "مستخدم زائر"}
+          {userProfile?.fullName || "مستخدم زائر"}
         </ThemedText>
         <ThemedText type="body" style={[styles.email, { color: theme.textSecondary }]}>
-          مرحباً بك في Onway
+          {phoneNumber || "مرحباً بك في Onway"}
         </ThemedText>
+        {userProfile?.region ? (
+          <ThemedText type="small" style={[styles.region, { color: theme.textSecondary }]}>
+            📍 {userProfile.region}
+          </ThemedText>
+        ) : null}
       </View>
 
       <ThemedText type="h4" style={styles.sectionTitle}>
@@ -203,12 +217,22 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     marginBottom: Spacing.lg,
   },
+  avatarImage: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    marginBottom: Spacing.lg,
+  },
   name: {
     textAlign: "center",
     marginBottom: Spacing.xs,
   },
   email: {
     textAlign: "center",
+  },
+  region: {
+    textAlign: "center",
+    marginTop: Spacing.xs,
   },
   sectionTitle: {
     textAlign: "right",
