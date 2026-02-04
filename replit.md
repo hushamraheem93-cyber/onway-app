@@ -125,9 +125,17 @@ Font Sizes: Title 16px, Category 14px, Small 12px
 
 ## Firebase Firestore Integration
 - User data (profiles) are stored in Firebase Firestore 'users' collection
-- Profile images are uploaded locally to /uploads/ and the URL is saved in Firestore
+- Profile images are compressed to 200x200px, converted to Base64 strings, and stored directly in Firestore's 'profileImage' field
+- This approach avoids Firebase Storage billing requirements
 - Required secret: FIREBASE_SERVICE_ACCOUNT (JSON string of Firebase service account credentials)
 - Falls back to in-memory storage if Firebase is not configured
+
+### Image Handling (Base64)
+- Images are compressed using expo-image-manipulator (200x200px, 60% quality JPEG)
+- Converted to Base64 data URI format: `data:image/jpeg;base64,...`
+- Stored directly in Firestore document (no Firebase Storage needed)
+- Displayed using expo-image with the Base64 string as source URI
+- Utility functions in `client/lib/imageUtils.ts`
 
 ### Backend (Admin SDK)
 - Uses Firebase Admin SDK for full database access
