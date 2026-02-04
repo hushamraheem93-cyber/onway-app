@@ -105,12 +105,6 @@ export default function ProfileScreen() {
       </ThemedText>
 
       <SettingsItem
-        icon="settings"
-        title="لوحة التحكم"
-        subtitle="إدارة البانرات والأقسام"
-        onPress={() => navigation.navigate("Admin")}
-      />
-      <SettingsItem
         icon="bell"
         title="الإشعارات"
         subtitle="إدارة إشعارات التطبيق"
