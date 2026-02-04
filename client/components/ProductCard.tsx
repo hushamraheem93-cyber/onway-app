@@ -4,9 +4,12 @@ import Animated, {
   useAnimatedStyle,
   useSharedValue,
   withSpring,
+  withSequence,
+  withTiming,
+  interpolateColor,
 } from "react-native-reanimated";
 import { Image } from "expo-image";
-import { Feather } from "@expo/vector-icons";
+import { Feather, FontAwesome } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 
 import { ThemedText } from "@/components/ThemedText";
@@ -90,11 +93,13 @@ export function ProductCard({ product, onPress }: ProductCardProps) {
   }));
 
   const handleToggleFavorite = () => {
-    favoriteScale.value = withSpring(0.8, { damping: 15, stiffness: 200 });
-    setTimeout(() => {
-      favoriteScale.value = withSpring(1, { damping: 15, stiffness: 200 });
-    }, 100);
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    // Bounce animation: shrink -> expand big -> settle
+    favoriteScale.value = withSequence(
+      withTiming(0.6, { duration: 80 }),
+      withSpring(1.4, { damping: 4, stiffness: 300 }),
+      withSpring(1, { damping: 8, stiffness: 200 })
+    );
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     toggleFavorite(product);
   };
 
@@ -112,13 +117,16 @@ export function ProductCard({ product, onPress }: ProductCardProps) {
       <View ref={cardRef} style={styles.imageContainer}>
         <AnimatedPressable
           onPress={handleToggleFavorite}
-          style={[styles.favoriteButton, favoriteAnimatedStyle]}
+          style={[
+            styles.favoriteButton,
+            favoriteAnimatedStyle,
+            isFav && styles.favoriteButtonActive,
+          ]}
         >
-          <Feather
-            name="heart"
+          <FontAwesome
+            name={isFav ? "heart" : "heart-o"}
             size={18}
-            color={isFav ? "#E53935" : "#666666"}
-            style={isFav ? { opacity: 1 } : { opacity: 0.6 }}
+            color={isFav ? "#E53935" : "#999999"}
           />
         </AnimatedPressable>
         <Image
@@ -202,13 +210,25 @@ const styles = StyleSheet.create({
   },
   favoriteButton: {
     position: "absolute",
-    top: 0,
-    right: 0,
+    top: 6,
+    right: 6,
     width: 32,
     height: 32,
+    borderRadius: 16,
+    backgroundColor: "rgba(255,255,255,0.9)",
     zIndex: 1,
     alignItems: "center",
     justifyContent: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  favoriteButtonActive: {
+    backgroundColor: "#FFEBEE",
+    shadowColor: "#E53935",
+    shadowOpacity: 0.3,
   },
   content: {
     padding: 12,
