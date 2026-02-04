@@ -210,6 +210,30 @@
       background: #f0f0f0;
     }
     
+    .image-upload-container {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    
+    .image-upload-container input[type="file"] {
+      padding: 10px;
+      border: 2px dashed #667eea;
+      border-radius: 8px;
+      background: #f8f9ff;
+      cursor: pointer;
+    }
+    
+    .image-upload-container input[type="file"]:hover {
+      background: #eef0ff;
+    }
+    
+    .file-hint {
+      font-size: 0.85rem;
+      color: #666;
+      text-align: center;
+    }
+    
     .price {
       font-weight: 600;
       color: #28a745;
@@ -590,8 +614,12 @@
         </div>
         
         <div class="form-group">
-          <label>رابط الصورة</label>
-          <input type="url" id="product-image" placeholder="https://example.com/image.jpg" onchange="previewImage(this.value, 'product-preview')">
+          <label>صورة المنتج</label>
+          <div class="image-upload-container">
+            <input type="file" id="product-file" accept="image/*" onchange="handleFileSelect(this, 'product-preview', 'product-image')">
+            <span class="file-hint">أو أدخل رابط الصورة:</span>
+            <input type="url" id="product-image" placeholder="https://example.com/image.jpg" onchange="previewImage(this.value, 'product-preview')">
+          </div>
           <img id="product-preview" class="preview-image" style="display: none;">
         </div>
         
@@ -625,8 +653,12 @@
         </div>
         
         <div class="form-group">
-          <label>رابط الصورة</label>
-          <input type="url" id="category-image" placeholder="https://example.com/image.jpg" onchange="previewImage(this.value, 'category-preview')">
+          <label>صورة الفئة</label>
+          <div class="image-upload-container">
+            <input type="file" id="category-file" accept="image/*" onchange="handleFileSelect(this, 'category-preview', 'category-image')">
+            <span class="file-hint">أو أدخل رابط الصورة:</span>
+            <input type="url" id="category-image" placeholder="https://example.com/image.jpg" onchange="previewImage(this.value, 'category-preview')">
+          </div>
           <img id="category-preview" class="preview-image" style="display: none;">
         </div>
         
@@ -669,8 +701,12 @@
         </div>
         
         <div class="form-group">
-          <label>رابط الصورة *</label>
-          <input type="url" id="banner-image" required placeholder="https://example.com/image.jpg" onchange="previewImage(this.value, 'banner-preview')">
+          <label>صورة السلايد *</label>
+          <div class="image-upload-container">
+            <input type="file" id="banner-file" accept="image/*" onchange="handleFileSelect(this, 'banner-preview', 'banner-image')">
+            <span class="file-hint">أو أدخل رابط الصورة:</span>
+            <input type="url" id="banner-image" placeholder="https://example.com/image.jpg" onchange="previewImage(this.value, 'banner-preview')">
+          </div>
           <img id="banner-preview" class="preview-image" style="display: none;">
         </div>
         
@@ -757,6 +793,23 @@
       }
     }
 
+    function handleFileSelect(input, previewId, urlInputId) {
+      const file = input.files[0];
+      if (file) {
+        const preview = document.getElementById(previewId);
+        const urlInput = document.getElementById(urlInputId);
+        
+        const reader = new FileReader();
+        reader.onload = function(e) {
+          preview.src = e.target.result;
+          preview.style.display = 'block';
+        };
+        reader.readAsDataURL(file);
+        
+        urlInput.value = '';
+      }
+    }
+
     function showStatus(elementId, message, type) {
       const status = document.getElementById(elementId);
       status.textContent = message;
@@ -825,6 +878,7 @@
       const form = document.getElementById('product-form');
       form.reset();
       document.getElementById('product-preview').style.display = 'none';
+      document.getElementById('product-file').value = '';
       updateCategoryDropdown();
       
       if (product) {
@@ -858,7 +912,15 @@
       formData.append('categoryId', document.getElementById('product-category').value);
       formData.append('price', document.getElementById('product-price').value);
       formData.append('description', document.getElementById('product-description').value);
-      formData.append('imageUrl', document.getElementById('product-image').value);
+      
+      const fileInput = document.getElementById('product-file');
+      const imageUrl = document.getElementById('product-image').value;
+      
+      if (fileInput.files[0]) {
+        formData.append('image', fileInput.files[0]);
+      } else if (imageUrl) {
+        formData.append('imageUrl', imageUrl);
+      }
       
       try {
         const url = id ? `${API_BASE}/admin/products/${id}` : `${API_BASE}/admin/products`;
@@ -868,6 +930,7 @@
         
         if (response.ok) {
           closeModal('product-modal');
+          document.getElementById('product-file').value = '';
           loadProducts();
           showStatus('products-status', id ? 'تم تحديث المنتج بنجاح' : 'تم إضافة المنتج بنجاح', 'success');
         } else {
@@ -931,6 +994,7 @@
       const form = document.getElementById('category-form');
       form.reset();
       document.getElementById('category-preview').style.display = 'none';
+      document.getElementById('category-file').value = '';
       
       if (category) {
         document.getElementById('category-modal-title').textContent = 'تعديل الفئة';
@@ -959,7 +1023,15 @@
       const formData = new FormData();
       formData.append('name', document.getElementById('category-name').value);
       formData.append('order', document.getElementById('category-order').value);
-      formData.append('imageUrl', document.getElementById('category-image').value);
+      
+      const fileInput = document.getElementById('category-file');
+      const imageUrl = document.getElementById('category-image').value;
+      
+      if (fileInput.files[0]) {
+        formData.append('image', fileInput.files[0]);
+      } else if (imageUrl) {
+        formData.append('imageUrl', imageUrl);
+      }
       
       try {
         const url = id ? `${API_BASE}/admin/categories/${id}` : `${API_BASE}/admin/categories`;
@@ -969,6 +1041,7 @@
         
         if (response.ok) {
           closeModal('category-modal');
+          document.getElementById('category-file').value = '';
           loadCategories();
           showStatus('categories-status', id ? 'تم تحديث الفئة بنجاح' : 'تم إضافة الفئة بنجاح', 'success');
         } else {
@@ -1033,6 +1106,7 @@
       const form = document.getElementById('banner-form');
       form.reset();
       document.getElementById('banner-preview').style.display = 'none';
+      document.getElementById('banner-file').value = '';
       
       if (banner) {
         document.getElementById('banner-modal-title').textContent = 'تعديل السلايد';
@@ -1063,8 +1137,16 @@
       formData.append('title', document.getElementById('banner-title').value);
       formData.append('order', document.getElementById('banner-order').value);
       formData.append('isActive', document.getElementById('banner-active').value);
-      formData.append('imageUrl', document.getElementById('banner-image').value);
       formData.append('type', 'slider');
+      
+      const fileInput = document.getElementById('banner-file');
+      const imageUrl = document.getElementById('banner-image').value;
+      
+      if (fileInput.files[0]) {
+        formData.append('image', fileInput.files[0]);
+      } else if (imageUrl) {
+        formData.append('imageUrl', imageUrl);
+      }
       
       try {
         const url = id ? `${API_BASE}/admin/banners/${id}` : `${API_BASE}/admin/banners`;
@@ -1074,6 +1156,7 @@
         
         if (response.ok) {
           closeModal('banner-modal');
+          document.getElementById('banner-file').value = '';
           loadBanners();
           showStatus('banners-status', id ? 'تم تحديث السلايد بنجاح' : 'تم إضافة السلايد بنجاح', 'success');
         } else {
