@@ -16,7 +16,6 @@ import { useAuth } from "@/context/AuthContext";
 import { Spacing, BorderRadius, Shadows, AppColors } from "@/constants/theme";
 import { ThemedText } from "@/components/ThemedText";
 import { ProfileStackParamList } from "@/navigation/ProfileStackNavigator";
-import { isBase64Image } from "@/lib/imageUtils";
 
 interface SettingsItemProps {
   icon: keyof typeof Feather.glyphMap;
