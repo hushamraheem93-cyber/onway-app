@@ -1,6 +1,7 @@
 import React from "react";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import ProfileScreen from "@/screens/ProfileScreen";
+import EditProfileScreen from "@/screens/EditProfileScreen";
 import PolicyScreen from "@/screens/PolicyScreen";
 import AboutScreen from "@/screens/AboutScreen";
 import TermsScreen from "@/screens/TermsScreen";
@@ -12,6 +13,7 @@ import { useScreenOptions } from "@/hooks/useScreenOptions";
 
 export type ProfileStackParamList = {
   Profile: undefined;
+  EditProfile: undefined;
   Policy: undefined;
   About: undefined;
   Terms: undefined;
@@ -33,6 +35,13 @@ export default function ProfileStackNavigator() {
         component={ProfileScreen}
         options={{
           headerTitle: "الحساب",
+        }}
+      />
+      <Stack.Screen
+        name="EditProfile"
+        component={EditProfileScreen}
+        options={{
+          headerTitle: "تعديل الملف الشخصي",
         }}
       />
       <Stack.Screen

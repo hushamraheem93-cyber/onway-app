@@ -99,6 +99,15 @@ export default function ProfileScreen() {
       }}
     >
       <View style={[styles.profileCard, { backgroundColor: theme.backgroundDefault }, Shadows.md]}>
+        <Pressable 
+          style={styles.editButton}
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            navigation.navigate("EditProfile");
+          }}
+        >
+          <Feather name="edit-2" size={18} color={AppColors.primary} />
+        </Pressable>
         {profileImageUrl ? (
           <Image
             source={{ uri: profileImageUrl }}
@@ -217,6 +226,18 @@ const styles = StyleSheet.create({
     padding: Spacing.xl,
     alignItems: "center",
     marginBottom: Spacing.xl,
+    position: "relative",
+  },
+  editButton: {
+    position: "absolute",
+    top: Spacing.md,
+    left: Spacing.md,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "rgba(255, 122, 0, 0.1)",
+    alignItems: "center",
+    justifyContent: "center",
   },
   avatar: {
     width: 100,
