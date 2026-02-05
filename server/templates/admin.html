@@ -1458,6 +1458,51 @@
       </div>
     </div>
 
+    <!-- Category Products Section -->
+    <div id="categoryProducts-section" class="section">
+      <header class="header">
+        <div class="header-title">
+          <h2 id="categoryProducts-title">منتجات الفئة</h2>
+          <p id="categoryProducts-subtitle">إدارة منتجات هذه الفئة</p>
+        </div>
+        <div class="header-actions">
+          <button class="btn btn-outline" onclick="backToCategories()">
+            <i data-lucide="arrow-right"></i>
+            رجوع للفئات
+          </button>
+          <button class="btn btn-primary" onclick="openProductModalForCategory()">
+            <i data-lucide="plus"></i>
+            إضافة منتج
+          </button>
+        </div>
+      </header>
+
+      <div class="content">
+        <div class="card">
+          <div class="card-header">
+            <h3><i data-lucide="package"></i> قائمة المنتجات (<span id="categoryProducts-count">0</span>)</h3>
+            <div class="search-box">
+              <i data-lucide="search"></i>
+              <input type="text" id="categoryProducts-search" placeholder="ابحث عن منتج..." oninput="filterCategoryProducts()">
+            </div>
+          </div>
+          <div class="table-container">
+            <table>
+              <thead>
+                <tr>
+                  <th>المنتج</th>
+                  <th>السعر</th>
+                  <th>الحالة</th>
+                  <th>الإجراءات</th>
+                </tr>
+              </thead>
+              <tbody id="categoryProducts-table"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- Delivery Areas Section -->
     <div id="delivery-section" class="section">
       <header class="header">
@@ -1914,7 +1959,22 @@
           const response = await fetch(`${API_BASE}/admin/${endpoints[type]}/${id}`, { method: 'DELETE' });
           if (response.ok) {
             showToast('success', 'تم الحذف', 'تم حذف العنصر بنجاح');
-            if (type === 'product') loadProducts();
+            
+            if (type === 'product') {
+              // Reload products
+              const productsRes = await fetch(API_BASE + '/admin/products');
+              products = await productsRes.json();
+              
+              // If viewing category products, refresh that view
+              if (currentCategoryId) {
+                currentCategoryProducts = products.filter(p => p.categoryId === currentCategoryId);
+                document.getElementById('categoryProducts-count').textContent = currentCategoryProducts.length;
+                renderCategoryProducts();
+              } else {
+                renderProducts();
+              }
+              updateStats();
+            }
             if (type === 'category') loadCategories();
             if (type === 'banner') loadBanners();
             if (type === 'delivery') loadDeliveryAreas();
@@ -2244,6 +2304,201 @@
       if (product) openProductModal(product);
     }
 
+    // Categories
+    async function loadCategories() {
+      try {
+        const [categoriesRes, productsRes] = await Promise.all([
+          fetch(API_BASE + '/categories'),
+          fetch(API_BASE + '/admin/products')
+        ]);
+        categories = await categoriesRes.json();
+        products = await productsRes.json();
+        renderCategories();
+        updateStats();
+      } catch (error) {
+        showToast('error', 'خطأ', 'حدث خطأ في تحميل الفئات');
+      }
+    }
+
+    // Current category being viewed
+    let currentCategoryId = null;
+    let currentCategoryProducts = [];
+
+    function renderCategories() {
+      const tbody = document.getElementById('categories-table');
+      
+      if (categories.length === 0) {
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="4">
+              <div class="empty-state">
+                <i data-lucide="folder-tree"></i>
+                <h4>لا توجد فئات</h4>
+                <p>ابدأ بإضافة فئات جديدة</p>
+              </div>
+            </td>
+          </tr>
+        `;
+        lucide.createIcons();
+        return;
+      }
+      
+      tbody.innerHTML = categories.map(c => {
+        const productCount = products.filter(p => p.categoryId === c.id).length;
+        return `
+          <tr style="cursor: pointer;" onclick="openCategoryProducts('${c.id}')">
+            <td>
+              <div class="item-info">
+                <img src="${escapeHtml(c.image)}" class="item-image" onerror="this.src='https://via.placeholder.com/50'">
+                <div class="item-details">
+                  <h4>${escapeHtml(c.name)}</h4>
+                  <span style="color: var(--primary); font-size: 0.75rem;">انقر لعرض المنتجات</span>
+                </div>
+              </div>
+            </td>
+            <td><span class="badge badge-info">${productCount} منتج</span></td>
+            <td>${c.order || '-'}</td>
+            <td>
+              <div class="actions-cell">
+                <button class="btn btn-icon btn-outline" onclick="event.stopPropagation(); editCategory('${c.id}')" title="تعديل">
+                  <i data-lucide="pencil"></i>
+                </button>
+                <button class="btn btn-icon btn-danger" onclick="event.stopPropagation(); confirmDelete('category', '${c.id}', '${escapeHtml(c.name)}')" title="حذف">
+                  <i data-lucide="trash-2"></i>
+                </button>
+              </div>
+            </td>
+          </tr>
+        `;
+      }).join('');
+      
+      lucide.createIcons();
+    }
+
+    // Category Products Functions
+    function openCategoryProducts(categoryId) {
+      currentCategoryId = categoryId;
+      const category = categories.find(c => c.id === categoryId);
+      if (!category) return;
+      
+      document.getElementById('categoryProducts-title').textContent = `منتجات ${category.name}`;
+      document.getElementById('categoryProducts-subtitle').textContent = `إدارة منتجات قسم ${category.name}`;
+      
+      currentCategoryProducts = products.filter(p => p.categoryId === categoryId);
+      document.getElementById('categoryProducts-count').textContent = currentCategoryProducts.length;
+      document.getElementById('categoryProducts-search').value = '';
+      
+      renderCategoryProducts();
+      
+      // Switch to category products section
+      document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+      document.getElementById('categoryProducts-section').classList.add('active');
+      
+      // Update nav items
+      document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+    }
+
+    function renderCategoryProducts(data = currentCategoryProducts) {
+      const tbody = document.getElementById('categoryProducts-table');
+      
+      if (data.length === 0) {
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="4">
+              <div class="empty-state">
+                <i data-lucide="package"></i>
+                <h4>لا توجد منتجات</h4>
+                <p>أضف منتجات لهذه الفئة</p>
+              </div>
+            </td>
+          </tr>
+        `;
+        lucide.createIcons();
+        return;
+      }
+      
+      tbody.innerHTML = data.map(p => `
+        <tr>
+          <td>
+            <div class="item-info">
+              <img src="${escapeHtml(p.image)}" class="item-image" onerror="this.src='https://via.placeholder.com/50'">
+              <div class="item-details">
+                <h4>${escapeHtml(p.name)}</h4>
+                <span>${escapeHtml(p.description?.substring(0, 50) || '')}</span>
+              </div>
+            </div>
+          </td>
+          <td class="price-tag">${p.price.toLocaleString()} د.ع</td>
+          <td><span class="badge ${p.inStock !== false ? 'badge-success' : 'badge-danger'}">${p.inStock !== false ? 'متوفر' : 'غير متوفر'}</span></td>
+          <td>
+            <div class="actions-cell">
+              <button class="btn btn-icon btn-outline" onclick="editProductFromCategory('${p.id}')" title="تعديل">
+                <i data-lucide="pencil"></i>
+              </button>
+              <button class="btn btn-icon btn-danger" onclick="confirmDelete('product', '${p.id}', '${escapeHtml(p.name)}')" title="حذف">
+                <i data-lucide="trash-2"></i>
+              </button>
+            </div>
+          </td>
+        </tr>
+      `).join('');
+      
+      lucide.createIcons();
+    }
+
+    function filterCategoryProducts() {
+      const search = document.getElementById('categoryProducts-search').value.toLowerCase();
+      let filtered = currentCategoryProducts;
+      
+      if (search) {
+        filtered = filtered.filter(p => 
+          p.name.toLowerCase().includes(search) || 
+          (p.description && p.description.toLowerCase().includes(search))
+        );
+      }
+      
+      renderCategoryProducts(filtered);
+    }
+
+    function backToCategories() {
+      currentCategoryId = null;
+      currentCategoryProducts = [];
+      
+      // Switch back to categories section
+      document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+      document.getElementById('categories-section').classList.add('active');
+      
+      // Update nav items
+      document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+      document.querySelector('.nav-item[onclick*="categories"]').classList.add('active');
+      
+      loadCategories();
+    }
+
+    function openProductModalForCategory() {
+      if (!currentCategoryId) return;
+      
+      const form = document.getElementById('product-form');
+      form.reset();
+      document.getElementById('product-preview').style.display = 'none';
+      document.getElementById('product-file').value = '';
+      updateCategoryDropdowns();
+      
+      document.getElementById('product-modal-title').textContent = 'إضافة منتج جديد';
+      document.getElementById('product-id').value = '';
+      document.getElementById('product-category').value = currentCategoryId;
+      
+      document.getElementById('product-modal').classList.add('active');
+      lucide.createIcons();
+    }
+
+    function editProductFromCategory(productId) {
+      const product = products.find(p => p.id === productId);
+      if (product) openProductModal(product);
+    }
+
+    // Override saveProduct to refresh category products view
+    const originalSaveProduct = saveProduct;
     async function saveProduct(event) {
       event.preventDefault();
       
@@ -2271,7 +2526,21 @@
         
         if (response.ok) {
           closeModal('product-modal');
-          loadProducts();
+          
+          // Reload products
+          const productsRes = await fetch(API_BASE + '/admin/products');
+          products = await productsRes.json();
+          
+          // If viewing category products, refresh that view
+          if (currentCategoryId) {
+            currentCategoryProducts = products.filter(p => p.categoryId === currentCategoryId);
+            document.getElementById('categoryProducts-count').textContent = currentCategoryProducts.length;
+            renderCategoryProducts();
+          } else {
+            renderProducts();
+          }
+          
+          updateStats();
           showToast('success', id ? 'تم التحديث' : 'تمت الإضافة', id ? 'تم تحديث المنتج بنجاح' : 'تمت إضافة المنتج بنجاح');
         } else {
           throw new Error('Failed to save');
@@ -2279,72 +2548,6 @@
       } catch (error) {
         showToast('error', 'خطأ', 'حدث خطأ أثناء حفظ المنتج');
       }
-    }
-
-    // Categories
-    async function loadCategories() {
-      try {
-        const [categoriesRes, productsRes] = await Promise.all([
-          fetch(API_BASE + '/categories'),
-          fetch(API_BASE + '/admin/products')
-        ]);
-        categories = await categoriesRes.json();
-        products = await productsRes.json();
-        renderCategories();
-        updateStats();
-      } catch (error) {
-        showToast('error', 'خطأ', 'حدث خطأ في تحميل الفئات');
-      }
-    }
-
-    function renderCategories() {
-      const tbody = document.getElementById('categories-table');
-      
-      if (categories.length === 0) {
-        tbody.innerHTML = `
-          <tr>
-            <td colspan="4">
-              <div class="empty-state">
-                <i data-lucide="folder-tree"></i>
-                <h4>لا توجد فئات</h4>
-                <p>ابدأ بإضافة فئات جديدة</p>
-              </div>
-            </td>
-          </tr>
-        `;
-        lucide.createIcons();
-        return;
-      }
-      
-      tbody.innerHTML = categories.map(c => {
-        const productCount = products.filter(p => p.categoryId === c.id).length;
-        return `
-          <tr>
-            <td>
-              <div class="item-info">
-                <img src="${escapeHtml(c.image)}" class="item-image" onerror="this.src='https://via.placeholder.com/50'">
-                <div class="item-details">
-                  <h4>${escapeHtml(c.name)}</h4>
-                </div>
-              </div>
-            </td>
-            <td><span class="badge badge-info">${productCount} منتج</span></td>
-            <td>${c.order || '-'}</td>
-            <td>
-              <div class="actions-cell">
-                <button class="btn btn-icon btn-outline" onclick="editCategory('${c.id}')" title="تعديل">
-                  <i data-lucide="pencil"></i>
-                </button>
-                <button class="btn btn-icon btn-danger" onclick="confirmDelete('category', '${c.id}', '${escapeHtml(c.name)}')" title="حذف">
-                  <i data-lucide="trash-2"></i>
-                </button>
-              </div>
-            </td>
-          </tr>
-        `;
-      }).join('');
-      
-      lucide.createIcons();
     }
 
     function openCategoryModal(category = null) {
