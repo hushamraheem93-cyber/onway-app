@@ -26,7 +26,15 @@ export default function OrderConfirmationScreen() {
   const { theme } = useTheme();
   const navigation = useNavigation<NavigationProp>();
   const route = useRoute<RouteProps>();
-  const { order } = route.params;
+  const order = route.params?.order;
+
+  if (!order || !order.items) {
+    return (
+      <View style={{ flex: 1, backgroundColor: theme.backgroundRoot, justifyContent: "center", alignItems: "center" }}>
+        <ThemedText type="body">جاري التحميل...</ThemedText>
+      </View>
+    );
+  }
 
   const formatOrderTime = (date: Date) => {
     const d = new Date(date);
@@ -40,24 +48,23 @@ export default function OrderConfirmationScreen() {
 
   const generateWhatsAppMessage = () => {
     const itemsList = order.items
-      .map((item, index) => `${index + 1}. ${item.product.name} × ${item.quantity} = ${formatPrice(item.product.price * item.quantity)}`)
+      .map((item, index) => `${index + 1}. ${item.name} × ${item.quantity} = ${formatPrice(item.price * item.quantity)}`)
       .join("\n");
 
     const message = `🛒 *طلب جديد*
 
 📋 *رقم الطلب:* ${order.id}
-⏰ *وقت الطلب:* ${formatOrderTime(order.createdAt)}
+⏰ *وقت الطلب:* ${formatOrderTime(new Date(order.createdAt))}
 
-👤 *اسم الزبون:* ${order.customerName}
-📱 *رقم الهاتف:* ${order.phone}
+📱 *رقم الهاتف:* ${order.phoneNumber}
 📍 *عنوان التوصيل:* ${order.address}
+🗺️ *المنطقة:* ${order.region}
 
 📦 *المنتجات المطلوبة:*
 ${itemsList}
 
-💰 *المجموع الكلي:* ${formatPrice(order.total)}
-
-${order.notes ? `📝 *ملاحظات:* ${order.notes}` : ""}`;
+🚚 *أجور التوصيل:* ${formatPrice(order.deliveryFee)}
+💰 *المجموع الكلي:* ${formatPrice(order.total + order.deliveryFee)}`;
 
     return message;
   };
@@ -110,13 +117,13 @@ ${order.notes ? `📝 *ملاحظات:* ${order.notes}` : ""}`;
         </ThemedText>
 
         <View style={styles.detailRow}>
-          <ThemedText type="body">{order.customerName}</ThemedText>
-          <ThemedText type="body" style={{ color: theme.textSecondary }}>الاسم</ThemedText>
+          <ThemedText type="body">{order.phoneNumber}</ThemedText>
+          <ThemedText type="body" style={{ color: theme.textSecondary }}>الهاتف</ThemedText>
         </View>
 
         <View style={styles.detailRow}>
-          <ThemedText type="body">{order.phone}</ThemedText>
-          <ThemedText type="body" style={{ color: theme.textSecondary }}>الهاتف</ThemedText>
+          <ThemedText type="body">{order.region}</ThemedText>
+          <ThemedText type="body" style={{ color: theme.textSecondary }}>المنطقة</ThemedText>
         </View>
 
         <View style={styles.detailRow}>
@@ -132,23 +139,30 @@ ${order.notes ? `📝 *ملاحظات:* ${order.notes}` : ""}`;
         {order.items.map((item, index) => (
           <View key={index} style={styles.itemRow}>
             <ThemedText type="small" style={{ color: AppColors.primary }}>
-              {formatPrice(item.product.price * item.quantity)}
+              {formatPrice(item.price * item.quantity)}
             </ThemedText>
             <ThemedText type="small" style={{ flex: 1, textAlign: "right" }}>
-              {item.product.name} × {item.quantity}
+              {item.name} × {item.quantity}
             </ThemedText>
           </View>
         ))}
 
+        <View style={styles.detailRow}>
+          <ThemedText type="body" style={{ color: theme.textSecondary }}>
+            {formatPrice(order.deliveryFee)}
+          </ThemedText>
+          <ThemedText type="body" style={{ color: theme.textSecondary }}>أجور التوصيل</ThemedText>
+        </View>
+
         <View style={[styles.detailRow, styles.totalRow]}>
           <ThemedText type="h3" style={{ color: AppColors.primary }}>
-            {formatPrice(order.total)}
+            {formatPrice(order.total + order.deliveryFee)}
           </ThemedText>
           <ThemedText type="h4">المجموع الكلي</ThemedText>
         </View>
 
         <ThemedText type="small" style={[styles.timeText, { color: theme.textSecondary }]}>
-          وقت الطلب: {formatOrderTime(order.createdAt)}
+          وقت الطلب: {formatOrderTime(new Date(order.createdAt))}
         </ThemedText>
       </View>
 
