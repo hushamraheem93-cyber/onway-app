@@ -933,23 +933,28 @@ export default function AdminScreen() {
 const styles = StyleSheet.create({
   tabsScroll: {
     marginBottom: Spacing.lg,
+    flexGrow: 0,
   },
   tabs: {
     flexDirection: "row",
     gap: Spacing.sm,
+    paddingVertical: Spacing.xs,
   },
   tab: {
+    minHeight: 48,
     paddingVertical: Spacing.md,
-    paddingHorizontal: Spacing.lg,
-    borderRadius: BorderRadius.md,
+    paddingHorizontal: Spacing.xl,
+    borderRadius: BorderRadius.lg,
     backgroundColor: "#F3F4F6",
     alignItems: "center",
+    justifyContent: "center",
   },
   tabActive: {
     backgroundColor: AppColors.primary,
   },
   tabText: {
     color: "#6B7280",
+    fontSize: 15,
   },
   tabTextActive: {
     color: "#FFFFFF",
@@ -975,7 +980,8 @@ const styles = StyleSheet.create({
     textAlign: "right",
   },
   input: {
-    borderRadius: BorderRadius.md,
+    borderRadius: BorderRadius.lg,
+    minHeight: 50,
     paddingVertical: Spacing.md,
     paddingHorizontal: Spacing.lg,
     fontSize: 16,
@@ -1011,11 +1017,14 @@ const styles = StyleSheet.create({
     marginTop: Spacing.xs,
   },
   categoryChip: {
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.sm,
+    minHeight: 44,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.md,
     borderRadius: BorderRadius.full,
     backgroundColor: "#F3F4F6",
     marginRight: Spacing.sm,
+    alignItems: "center",
+    justifyContent: "center",
   },
   categoryChipActive: {
     backgroundColor: AppColors.primary,
@@ -1033,10 +1042,12 @@ const styles = StyleSheet.create({
   },
   typeButton: {
     flex: 1,
-    paddingVertical: Spacing.sm,
-    borderRadius: BorderRadius.md,
+    minHeight: 48,
+    paddingVertical: Spacing.md,
+    borderRadius: BorderRadius.lg,
     backgroundColor: "#F3F4F6",
     alignItems: "center",
+    justifyContent: "center",
   },
   typeButtonActive: {
     backgroundColor: AppColors.primary,
@@ -1048,8 +1059,8 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
   },
   imagePicker: {
-    height: 120,
-    borderRadius: BorderRadius.md,
+    height: 140,
+    borderRadius: BorderRadius.lg,
     borderWidth: 2,
     borderStyle: "dashed",
     overflow: "hidden",
@@ -1072,23 +1083,29 @@ const styles = StyleSheet.create({
   saveButton: {
     flex: 1,
     backgroundColor: AppColors.primary,
-    paddingVertical: Spacing.md,
-    borderRadius: BorderRadius.md,
+    minHeight: 52,
+    paddingVertical: Spacing.lg,
+    borderRadius: BorderRadius.lg,
     alignItems: "center",
+    justifyContent: "center",
   },
   saveButtonText: {
     color: "#FFFFFF",
-    fontWeight: "600",
+    fontWeight: "700",
+    fontSize: 16,
   },
   cancelButton: {
     flex: 1,
     backgroundColor: "#F3F4F6",
-    paddingVertical: Spacing.md,
-    borderRadius: BorderRadius.md,
+    minHeight: 52,
+    paddingVertical: Spacing.lg,
+    borderRadius: BorderRadius.lg,
     alignItems: "center",
+    justifyContent: "center",
   },
   cancelButtonText: {
     color: "#6B7280",
+    fontSize: 16,
   },
   listTitle: {
     marginBottom: Spacing.md,
@@ -1116,7 +1133,11 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
   },
   actionButton: {
-    padding: Spacing.sm,
+    minWidth: 44,
+    minHeight: 44,
+    padding: Spacing.md,
+    alignItems: "center",
+    justifyContent: "center",
   },
   areaIcon: {
     width: 50,
@@ -1168,8 +1189,11 @@ const styles = StyleSheet.create({
     gap: Spacing.xs,
   },
   statusBtn: {
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.xs,
-    borderRadius: BorderRadius.sm,
+    minHeight: 40,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.md,
+    alignItems: "center",
+    justifyContent: "center",
   },
 });
