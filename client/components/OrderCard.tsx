@@ -22,14 +22,20 @@ const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 const statusLabels: Record<Order["status"], string> = {
   pending: "قيد الانتظار",
-  confirmed: "تم التأكيد",
+  confirmed: "تم تأكيد الطلب",
+  preparing: "جاري التحضير",
+  delivering: "تم استلام الطلب من قبل المندوب",
   delivered: "تم التوصيل",
+  cancelled: "ملغي",
 };
 
 const statusColors: Record<Order["status"], string> = {
   pending: "#FFA726",
-  confirmed: "#42A5F5",
-  delivered: "#66BB6A",
+  confirmed: "#3B82F6",
+  preparing: "#8B5CF6",
+  delivering: "#06B6D4",
+  delivered: "#10B981",
+  cancelled: "#EF4444",
 };
 
 export function OrderCard({ order, onPress }: OrderCardProps) {
@@ -48,7 +54,7 @@ export function OrderCard({ order, onPress }: OrderCardProps) {
     scale.value = withSpring(1, { damping: 15, stiffness: 150 });
   };
 
-  const formatDate = (date: Date) => {
+  const formatDate = (date: string | Date) => {
     return new Date(date).toLocaleDateString("ar-SA", {
       year: "numeric",
       month: "short",
