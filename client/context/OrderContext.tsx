@@ -5,11 +5,11 @@ import { useNotifications } from "./NotificationContext";
 import { getApiUrl } from "@/lib/query-client";
 
 const STATUS_MESSAGES: Record<string, { title: string; body: string }> = {
-  confirmed: { title: "تم تأكيد طلبك", body: "طلبك قيد التحضير الآن" },
-  preparing: { title: "جاري تحضير طلبك", body: "طلبك قيد التحضير وسيكون جاهزاً قريباً" },
-  delivering: { title: "طلبك في الطريق", body: "تم استلام الطلب من قبل المندوب" },
-  delivered: { title: "تم توصيل طلبك", body: "شكراً لتسوقك معنا!" },
-  cancelled: { title: "تم إلغاء طلبك", body: "نأسف لإعلامك بإلغاء طلبك" },
+  confirmed: { title: "تم تأكيد الطلب", body: "تم استلام طلبك وسيتم تحضيره قريباً" },
+  preparing: { title: "جاري تحضير الطلب", body: "طلبك الآن قيد التحضير في المتجر" },
+  delivering: { title: "الطلب في الطريق", body: "تم استلام الطلب من قبل المندوب وهو في طريقه إليك" },
+  delivered: { title: "تم التوصيل بنجاح", body: "تم توصيل طلبك بنجاح. شكراً لتسوقك معنا!" },
+  cancelled: { title: "تم إلغاء الطلب", body: "نأسف لإعلامك أنه تم إلغاء طلبك" },
 };
 
 export interface Order {
