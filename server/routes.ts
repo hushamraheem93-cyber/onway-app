@@ -287,11 +287,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/admin/products", async (req: Request, res: Response) => {
     try {
-      console.log("POST /api/admin/products - req.body exists:", !!req.body);
-      console.log("POST /api/admin/products - body keys:", req.body ? Object.keys(req.body) : "undefined");
-      
       if (!req.body) {
-        return res.status(400).json({ error: "Request body is empty or too large" });
+        return res.status(400).json({ error: "Request body is empty" });
       }
       
       const { name, categoryId, price, originalPrice, discount, description, inStock, image } = req.body;
@@ -300,8 +297,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const priceNum = Number(price) || 0;
       const originalPriceNum = originalPrice ? Number(originalPrice) : undefined;
       const discountNum = discount ? Number(discount) : undefined;
-      
-      console.log("Product data:", { name, categoryId, price: priceNum, hasImage: !!image, imageLength: image?.length });
       
       if (db) {
         const newProduct = await createFirestoreProduct({

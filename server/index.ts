@@ -56,11 +56,6 @@ function setupCors(app: express.Application) {
 }
 
 function setupBodyParsing(app: express.Application) {
-  app.use((req, res, next) => {
-    console.log(`[DEBUG] ${req.method} ${req.path} - Content-Type: ${req.headers['content-type']}, Content-Length: ${req.headers['content-length']}`);
-    next();
-  });
-
   app.use(
     express.json({
       limit: "100mb",

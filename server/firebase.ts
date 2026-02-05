@@ -20,6 +20,7 @@ export function initializeFirebase() {
     }
     
     db = admin.firestore();
+    db.settings({ ignoreUndefinedProperties: true });
     console.log("Firebase Firestore initialized successfully");
     return db;
   } catch (error) {
@@ -187,14 +188,28 @@ export async function createProduct(data: {
   console.log("createProduct called with:", { ...data, image: data.image ? `[Base64 ${data.image.length} chars]` : "none" });
   
   const now = admin.firestore.Timestamp.now();
-  const productDoc: FirestoreProduct = {
-    ...data,
+  
+  const productDoc: Record<string, any> = {
+    name: data.name,
+    categoryId: data.categoryId,
+    price: data.price,
+    image: data.image,
+    description: data.description,
+    inStock: data.inStock,
     createdAt: now,
     updatedAt: now,
   };
+  
+  if (data.originalPrice !== undefined) {
+    productDoc.originalPrice = data.originalPrice;
+  }
+  if (data.discount !== undefined) {
+    productDoc.discount = data.discount;
+  }
+  
   const docRef = await db.collection("products").add(productDoc);
   console.log("Product created with ID:", docRef.id);
-  return { id: docRef.id, ...productDoc };
+  return { id: docRef.id, ...productDoc } as FirestoreProduct & { id: string };
 }
 
 export async function updateProduct(id: string, updates: Partial<FirestoreProduct>): Promise<(FirestoreProduct & { id: string }) | null> {
@@ -202,7 +217,15 @@ export async function updateProduct(id: string, updates: Partial<FirestoreProduc
   
   try {
     const docRef = db.collection("products").doc(id);
-    await docRef.update({ ...updates, updatedAt: admin.firestore.Timestamp.now() });
+    const filteredUpdates: Record<string, any> = { updatedAt: admin.firestore.Timestamp.now() };
+    
+    Object.entries(updates).forEach(([key, value]) => {
+      if (value !== undefined) {
+        filteredUpdates[key] = value;
+      }
+    });
+    
+    await docRef.update(filteredUpdates);
     const doc = await docRef.get();
     if (!doc.exists) return null;
     return { id: doc.id, ...doc.data() as FirestoreProduct };

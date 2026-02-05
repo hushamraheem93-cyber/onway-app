@@ -274,35 +274,23 @@ export default function AdminScreen() {
 
       const url = editItem ? `/api/admin/products/${editItem.id}` : "/api/admin/products";
       const method = editItem ? "PUT" : "POST";
-      const fullUrl = `${getApiUrl()}${url}`;
-      const bodyStr = JSON.stringify(body);
-      
-      console.log("=== PRODUCT SAVE REQUEST ===");
-      console.log("Full URL:", fullUrl);
-      console.log("Method:", method);
-      console.log("Body size:", bodyStr.length, "chars");
-      console.log("Image size:", imageBase64?.length || 0, "chars");
-      console.log("Body preview:", { ...body, image: body.image ? `[${body.image.length} chars]` : "none" });
 
-      const response = await fetch(fullUrl, {
+      const response = await fetch(`${getApiUrl()}${url}`, {
         method,
         headers: { "Content-Type": "application/json" },
-        body: bodyStr,
+        body: JSON.stringify(body),
       });
 
-      console.log("Response status:", response.status, response.statusText);
-      
       if (!response.ok) {
         const errorText = await response.text();
-        console.error("Server error response:", response.status, response.statusText, errorText);
-        throw new Error(`Server error ${response.status}: ${errorText}`);
+        throw new Error(`${response.status}: ${errorText}`);
       }
 
       queryClient.invalidateQueries({ queryKey: ["/api/admin/products"] });
       queryClient.invalidateQueries({ queryKey: ["/api/products"] });
       resetForm();
     } catch (error: any) {
-      console.error("Error saving product - Type:", error?.name, "Message:", error?.message, "Full error:", error);
+      console.error("Error saving product:", error);
       Alert.alert("خطأ", `فشل في حفظ المنتج: ${error?.message || "خطأ غير معروف"}`);
     } finally {
       setIsSavingProduct(false);
