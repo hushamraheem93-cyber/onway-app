@@ -1,5 +1,5 @@
-import React from "react";
-import { StyleSheet, View, Linking, ScrollView } from "react-native";
+import React, { useEffect } from "react";
+import { StyleSheet, View, ScrollView } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
@@ -17,8 +17,6 @@ import { Order } from "@/context/OrderContext";
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 type RouteProps = RouteProp<RootStackParamList, "OrderConfirmation">;
-
-const ADMIN_WHATSAPP = "9647702891104";
 
 export default function OrderConfirmationScreen() {
   const insets = useSafeAreaInsets();
@@ -46,46 +44,36 @@ export default function OrderConfirmationScreen() {
     return `${hours}:${minutes} - ${day}/${month}/${year}`;
   };
 
-  const generateWhatsAppMessage = () => {
-    const itemsList = order.items
-      .map((item, index) => `${index + 1}. ${item.name} × ${item.quantity} = ${formatPrice(item.price * item.quantity)}`)
-      .join("\n");
-
-    const message = `🛒 *طلب جديد*
-
-📋 *رقم الطلب:* ${order.id}
-⏰ *وقت الطلب:* ${formatOrderTime(new Date(order.createdAt))}
-
-📱 *رقم الهاتف:* ${order.phoneNumber}
-📍 *عنوان التوصيل:* ${order.address}
-🗺️ *المنطقة:* ${order.region}
-
-📦 *المنتجات المطلوبة:*
-${itemsList}
-
-🚚 *أجور التوصيل:* ${formatPrice(order.deliveryFee)}
-💰 *المجموع الكلي:* ${formatPrice(order.total + order.deliveryFee)}`;
-
-    return message;
-  };
-
-  const sendToWhatsApp = async () => {
+  useEffect(() => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    
-    const message = generateWhatsAppMessage();
-    const encodedMessage = encodeURIComponent(message);
-    const whatsappUrl = `https://wa.me/${ADMIN_WHATSAPP}?text=${encodedMessage}`;
-    
-    const canOpen = await Linking.canOpenURL(whatsappUrl);
-    if (canOpen) {
-      await Linking.openURL(whatsappUrl);
-    } else {
-      await Linking.openURL(`https://web.whatsapp.com/send?phone=${ADMIN_WHATSAPP}&text=${encodedMessage}`);
-    }
-  };
+  }, []);
 
   const goHome = () => {
-    navigation.navigate("Main");
+    navigation.navigate("MainTabs");
+  };
+
+  const getStatusLabel = (status: string) => {
+    const labels: Record<string, string> = {
+      pending: "قيد الانتظار",
+      confirmed: "تم التأكيد",
+      preparing: "جاري التحضير",
+      delivering: "جاري التوصيل",
+      delivered: "تم التوصيل",
+      cancelled: "ملغي",
+    };
+    return labels[status] || status;
+  };
+
+  const getStatusColor = (status: string) => {
+    const colors: Record<string, string> = {
+      pending: "#F59E0B",
+      confirmed: "#3B82F6",
+      preparing: "#8B5CF6",
+      delivering: "#06B6D4",
+      delivered: "#10B981",
+      cancelled: "#EF4444",
+    };
+    return colors[status] || "#6B7280";
   };
 
   return (
@@ -166,23 +154,28 @@ ${itemsList}
         </ThemedText>
       </View>
 
-      <View style={[styles.whatsappCard, { backgroundColor: "#25D366" }]}>
-        <Feather name="message-circle" size={28} color="#FFFFFF" style={styles.whatsappIcon} />
-        <ThemedText type="body" style={styles.whatsappText}>
-          لإتمام الطلب، يرجى إرسال تفاصيل الطلب إلى الإدارة عبر واتساب
+      <View style={[styles.statusCard, { backgroundColor: getStatusColor(order.status) + "15" }]}>
+        <View style={[styles.statusIcon, { backgroundColor: getStatusColor(order.status) }]}>
+          <Feather name="clock" size={24} color="#FFFFFF" />
+        </View>
+        <View style={styles.statusContent}>
+          <ThemedText type="body" style={{ fontWeight: "600" }}>
+            حالة الطلب
+          </ThemedText>
+          <ThemedText type="h4" style={{ color: getStatusColor(order.status) }}>
+            {getStatusLabel(order.status)}
+          </ThemedText>
+        </View>
+      </View>
+
+      <View style={[styles.infoCard, { backgroundColor: theme.backgroundSecondary }]}>
+        <Feather name="info" size={20} color={AppColors.primary} />
+        <ThemedText type="small" style={{ flex: 1, textAlign: "right", color: theme.textSecondary }}>
+          تم إرسال طلبك بنجاح وسيتم مراجعته من قبل الإدارة. يمكنك متابعة حالة الطلب من قسم "طلباتي"
         </ThemedText>
       </View>
 
-      <Button onPress={sendToWhatsApp} style={styles.whatsappButton}>
-        <View style={styles.buttonContent}>
-          <Feather name="send" size={20} color="#FFFFFF" />
-          <ThemedText type="body" style={styles.buttonText}>
-            إرسال الطلب إلى الإدارة عبر واتساب
-          </ThemedText>
-        </View>
-      </Button>
-
-      <Button onPress={goHome} variant="outline" style={styles.homeButton}>
+      <Button onPress={goHome} style={styles.homeButton}>
         العودة للرئيسية
       </Button>
     </ScrollView>
@@ -250,34 +243,33 @@ const styles = StyleSheet.create({
     textAlign: "center",
     marginTop: Spacing.md,
   },
-  whatsappCard: {
+  statusCard: {
     borderRadius: BorderRadius.lg,
     padding: Spacing.lg,
     marginBottom: Spacing.lg,
     flexDirection: "row-reverse",
     alignItems: "center",
   },
-  whatsappIcon: {
+  statusIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    justifyContent: "center",
+    alignItems: "center",
     marginLeft: Spacing.md,
   },
-  whatsappText: {
+  statusContent: {
     flex: 1,
-    color: "#FFFFFF",
-    textAlign: "right",
+    alignItems: "flex-end",
+    gap: Spacing.xs,
   },
-  whatsappButton: {
-    backgroundColor: "#25D366",
-    marginBottom: Spacing.md,
-  },
-  buttonContent: {
-    flexDirection: "row",
+  infoCard: {
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.lg,
+    marginBottom: Spacing.lg,
+    flexDirection: "row-reverse",
     alignItems: "center",
-    justifyContent: "center",
-    gap: Spacing.sm,
-  },
-  buttonText: {
-    color: "#FFFFFF",
-    fontWeight: "600",
+    gap: Spacing.md,
   },
   homeButton: {
     marginBottom: Spacing.xl,

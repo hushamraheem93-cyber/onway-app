@@ -1,13 +1,12 @@
-import React from "react";
-import { StyleSheet, FlatList } from "react-native";
+import React, { useEffect } from "react";
+import { StyleSheet, FlatList, RefreshControl } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
-import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 
 import { useTheme } from "@/hooks/useTheme";
-import { Spacing } from "@/constants/theme";
+import { Spacing, AppColors } from "@/constants/theme";
 import { useOrders, Order } from "@/context/OrderContext";
 import { OrderCard } from "@/components/OrderCard";
 import { EmptyState } from "@/components/EmptyState";
@@ -18,10 +17,13 @@ type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 export default function OrdersScreen() {
   const insets = useSafeAreaInsets();
   const headerHeight = useHeaderHeight();
-  const tabBarHeight = useBottomTabBarHeight();
   const { theme } = useTheme();
   const navigation = useNavigation<NavigationProp>();
-  const { orders } = useOrders();
+  const { orders, isLoading, refreshOrders } = useOrders();
+
+  useEffect(() => {
+    refreshOrders();
+  }, []);
 
   const handleStartShopping = () => {
     navigation.navigate("Main", { screen: "HomeTab" } as any);
@@ -45,7 +47,7 @@ export default function OrdersScreen() {
       style={{ flex: 1, backgroundColor: theme.backgroundRoot }}
       contentContainerStyle={{
         paddingTop: headerHeight + Spacing.lg,
-        paddingBottom: tabBarHeight + Spacing.xl,
+        paddingBottom: insets.bottom + Spacing.xl,
         paddingHorizontal: Spacing.lg,
         flexGrow: 1,
       }}
@@ -55,6 +57,14 @@ export default function OrdersScreen() {
       keyExtractor={(item) => item.id}
       showsVerticalScrollIndicator={false}
       ListEmptyComponent={renderEmpty}
+      refreshControl={
+        <RefreshControl
+          refreshing={isLoading}
+          onRefresh={refreshOrders}
+          tintColor={AppColors.primary}
+          colors={[AppColors.primary]}
+        />
+      }
     />
   );
 }

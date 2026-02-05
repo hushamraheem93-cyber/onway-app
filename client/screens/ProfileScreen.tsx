@@ -126,6 +126,17 @@ export default function ProfileScreen() {
       </View>
 
       <ThemedText type="h4" style={styles.sectionTitle}>
+        طلباتي
+      </ThemedText>
+
+      <SettingsItem
+        icon="package"
+        title="طلباتي"
+        subtitle="متابعة حالة الطلبات"
+        onPress={() => navigation.navigate("Orders")}
+      />
+
+      <ThemedText type="h4" style={styles.sectionTitle}>
         الإعدادات
       </ThemedText>
 

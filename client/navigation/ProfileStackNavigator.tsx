@@ -9,6 +9,7 @@ import FAQScreen from "@/screens/FAQScreen";
 import NotificationsScreen from "@/screens/NotificationsScreen";
 import AddressesScreen from "@/screens/AddressesScreen";
 import PaymentScreen from "@/screens/PaymentScreen";
+import OrdersScreen from "@/screens/OrdersScreen";
 import { useScreenOptions } from "@/hooks/useScreenOptions";
 
 export type ProfileStackParamList = {
@@ -21,6 +22,7 @@ export type ProfileStackParamList = {
   Notifications: undefined;
   Addresses: undefined;
   Payment: undefined;
+  Orders: undefined;
 };
 
 const Stack = createNativeStackNavigator<ProfileStackParamList>();
@@ -91,6 +93,13 @@ export default function ProfileStackNavigator() {
         component={PaymentScreen}
         options={{
           headerTitle: "طرق الدفع",
+        }}
+      />
+      <Stack.Screen
+        name="Orders"
+        component={OrdersScreen}
+        options={{
+          headerTitle: "طلباتي",
         }}
       />
     </Stack.Navigator>
