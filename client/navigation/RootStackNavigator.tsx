@@ -8,6 +8,7 @@ import OrderConfirmationScreen from "@/screens/OrderConfirmationScreen";
 import PhoneLoginScreen from "@/screens/PhoneLoginScreen";
 import ProfileCompletionScreen from "@/screens/ProfileCompletionScreen";
 import CategoriesScreen from "@/screens/CategoriesScreen";
+import AdminScreen from "@/screens/AdminScreen";
 import { useScreenOptions } from "@/hooks/useScreenOptions";
 import { useAuth } from "@/context/AuthContext";
 import { AppColors } from "@/constants/theme";
@@ -22,6 +23,7 @@ export type RootStackParamList = {
   Products: { categoryId?: string; categoryName: string; searchQuery?: string };
   Checkout: undefined;
   OrderConfirmation: { order: Order };
+  Admin: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -91,6 +93,13 @@ export default function RootStackNavigator() {
             options={{
               headerTitle: "تم الطلب",
               headerBackVisible: false,
+            }}
+          />
+          <Stack.Screen
+            name="Admin"
+            component={AdminScreen}
+            options={{
+              headerTitle: "لوحة التحكم",
             }}
           />
         </>
