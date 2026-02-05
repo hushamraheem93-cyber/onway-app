@@ -209,3 +209,9 @@ All images are compressed and stored as Base64 strings to avoid Firebase Storage
   - HomeScreen displays products from admin-selected sections
   - Fallback to random products if no section is configured
   - API: GET /api/promotional-sections, PUT /api/admin/promotional-sections/:type
+- **February 2026: Categories Firestore Integration**
+  - Categories now stored in Firestore 'categories' collection
+  - Added new "أشهر المطاعم" (Famous Restaurants) category with 5 sample products
+  - Added bulk sample products to all 12 categories (50+ products total)
+  - Categories: خضروات وفواكه، لحوم، ألبان، منظفات، مشروبات، عصائر، سناكس، شاي وقهوة، مستلزمات أطفال، هدايا وورود، خدمات المندوب، أشهر المطاعم
+  - Default categories auto-initialized on first run
