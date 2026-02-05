@@ -429,6 +429,159 @@
       background: var(--gray-200);
     }
 
+    /* Promotional Sections Styles */
+    .selected-products {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      min-height: 100px;
+      padding: 16px;
+      background: var(--gray-50);
+      border-radius: 12px;
+      border: 2px dashed var(--gray-200);
+    }
+
+    .selected-products:empty::before {
+      content: 'لم يتم اختيار أي منتج بعد';
+      color: var(--gray-400);
+      font-size: 0.9rem;
+      margin: auto;
+    }
+
+    .selected-product-card {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 12px;
+      background: white;
+      border-radius: 10px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+      transition: all 0.2s;
+    }
+
+    .selected-product-card:hover {
+      box-shadow: 0 4px 12px rgba(0,0,0,0.12);
+    }
+
+    .selected-product-card img {
+      width: 45px;
+      height: 45px;
+      object-fit: cover;
+      border-radius: 8px;
+    }
+
+    .selected-product-card .info {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .selected-product-card .name {
+      font-weight: 600;
+      font-size: 0.9rem;
+      color: var(--gray-800);
+    }
+
+    .selected-product-card .price {
+      font-size: 0.8rem;
+      color: var(--primary);
+    }
+
+    .selected-product-card .remove-btn {
+      width: 28px;
+      height: 28px;
+      border: none;
+      background: var(--danger-light);
+      color: var(--danger);
+      border-radius: 50%;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-right: auto;
+      transition: all 0.2s;
+    }
+
+    .selected-product-card .remove-btn:hover {
+      background: var(--danger);
+      color: white;
+    }
+
+    .products-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+      gap: 16px;
+      max-height: 400px;
+      overflow-y: auto;
+      padding: 4px;
+    }
+
+    .product-select-card {
+      background: white;
+      border: 2px solid var(--gray-200);
+      border-radius: 12px;
+      padding: 12px;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+    }
+
+    .product-select-card:hover {
+      border-color: var(--primary-light);
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+
+    .product-select-card.selected {
+      border-color: var(--primary);
+      background: var(--primary)10;
+    }
+
+    .product-select-card img {
+      width: 80px;
+      height: 80px;
+      object-fit: cover;
+      border-radius: 10px;
+      margin-bottom: 10px;
+    }
+
+    .product-select-card .name {
+      font-weight: 600;
+      font-size: 0.85rem;
+      color: var(--gray-800);
+      margin-bottom: 4px;
+    }
+
+    .product-select-card .price {
+      font-size: 0.8rem;
+      color: var(--primary);
+      font-weight: 600;
+    }
+
+    .product-select-card .check-icon {
+      position: absolute;
+      top: 8px;
+      left: 8px;
+      width: 24px;
+      height: 24px;
+      background: var(--primary);
+      color: white;
+      border-radius: 50%;
+      display: none;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .product-select-card.selected .check-icon {
+      display: flex;
+    }
+
+    .product-select-card {
+      position: relative;
+    }
+
     .item-info {
       display: flex;
       align-items: center;
@@ -963,6 +1116,18 @@
           <i data-lucide="image"></i>
           <span>السلايدر الترويجي</span>
         </div>
+        <div class="nav-item" onclick="showSection('bestSellers', this)">
+          <i data-lucide="trending-up"></i>
+          <span>الأكثر مبيعاً</span>
+        </div>
+        <div class="nav-item" onclick="showSection('featured', this)">
+          <i data-lucide="star"></i>
+          <span>المنتجات المتميزة</span>
+        </div>
+        <div class="nav-item" onclick="showSection('discounts', this)">
+          <i data-lucide="percent"></i>
+          <span>التخفيضات المميزة</span>
+        </div>
       </div>
 
       <div class="nav-section">
@@ -1174,6 +1339,120 @@
               </thead>
               <tbody id="banners-table"></tbody>
             </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Best Sellers Section -->
+    <div id="bestSellers-section" class="section">
+      <header class="header">
+        <div class="header-title">
+          <h2>الأكثر مبيعاً</h2>
+          <p>اختر المنتجات التي ستظهر في قسم الأكثر مبيعاً</p>
+        </div>
+        <div class="header-actions">
+          <button class="btn btn-primary" onclick="savePromotionalSection('bestSellers')">
+            <i data-lucide="save"></i>
+            حفظ التغييرات
+          </button>
+        </div>
+      </header>
+      <div class="content">
+        <div class="card">
+          <div class="card-header">
+            <h3><i data-lucide="trending-up"></i> المنتجات المختارة (<span id="bestSellers-count">0</span>)</h3>
+          </div>
+          <div class="card-body">
+            <div class="selected-products" id="bestSellers-selected"></div>
+          </div>
+        </div>
+        <div class="card" style="margin-top: 20px;">
+          <div class="card-header">
+            <h3><i data-lucide="package"></i> اختر من المنتجات</h3>
+            <div class="search-box">
+              <i data-lucide="search"></i>
+              <input type="text" id="bestSellers-search" placeholder="ابحث عن منتج..." oninput="filterPromotionalProducts('bestSellers')">
+            </div>
+          </div>
+          <div class="card-body">
+            <div class="products-grid" id="bestSellers-products"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Featured Products Section -->
+    <div id="featured-section" class="section">
+      <header class="header">
+        <div class="header-title">
+          <h2>المنتجات المتميزة</h2>
+          <p>اختر المنتجات التي ستظهر في قسم المنتجات المتميزة</p>
+        </div>
+        <div class="header-actions">
+          <button class="btn btn-primary" onclick="savePromotionalSection('featured')">
+            <i data-lucide="save"></i>
+            حفظ التغييرات
+          </button>
+        </div>
+      </header>
+      <div class="content">
+        <div class="card">
+          <div class="card-header">
+            <h3><i data-lucide="star"></i> المنتجات المختارة (<span id="featured-count">0</span>)</h3>
+          </div>
+          <div class="card-body">
+            <div class="selected-products" id="featured-selected"></div>
+          </div>
+        </div>
+        <div class="card" style="margin-top: 20px;">
+          <div class="card-header">
+            <h3><i data-lucide="package"></i> اختر من المنتجات</h3>
+            <div class="search-box">
+              <i data-lucide="search"></i>
+              <input type="text" id="featured-search" placeholder="ابحث عن منتج..." oninput="filterPromotionalProducts('featured')">
+            </div>
+          </div>
+          <div class="card-body">
+            <div class="products-grid" id="featured-products"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Discounts Section -->
+    <div id="discounts-section" class="section">
+      <header class="header">
+        <div class="header-title">
+          <h2>التخفيضات المميزة</h2>
+          <p>اختر المنتجات التي ستظهر في قسم التخفيضات المميزة</p>
+        </div>
+        <div class="header-actions">
+          <button class="btn btn-primary" onclick="savePromotionalSection('discounts')">
+            <i data-lucide="save"></i>
+            حفظ التغييرات
+          </button>
+        </div>
+      </header>
+      <div class="content">
+        <div class="card">
+          <div class="card-header">
+            <h3><i data-lucide="percent"></i> المنتجات المختارة (<span id="discounts-count">0</span>)</h3>
+          </div>
+          <div class="card-body">
+            <div class="selected-products" id="discounts-selected"></div>
+          </div>
+        </div>
+        <div class="card" style="margin-top: 20px;">
+          <div class="card-header">
+            <h3><i data-lucide="package"></i> اختر من المنتجات</h3>
+            <div class="search-box">
+              <i data-lucide="search"></i>
+              <input type="text" id="discounts-search" placeholder="ابحث عن منتج..." oninput="filterPromotionalProducts('discounts')">
+            </div>
+          </div>
+          <div class="card-body">
+            <div class="products-grid" id="discounts-products"></div>
           </div>
         </div>
       </div>
@@ -1518,6 +1797,13 @@
     let deliveryAreas = [];
     let orders = [];
     let currentOrderFilter = 'all';
+    
+    // Promotional sections data
+    let promotionalSections = {
+      bestSellers: { productIds: [], isActive: true },
+      featured: { productIds: [], isActive: true },
+      discounts: { productIds: [], isActive: true }
+    };
 
     // Toast Notifications
     function showToast(type, title, message) {
@@ -1568,6 +1854,13 @@
       if (section === 'delivery') loadDeliveryAreas();
       if (section === 'orders') loadOrders();
       if (section === 'dashboard') loadDashboard();
+      if (section === 'bestSellers' || section === 'featured' || section === 'discounts') {
+        if (products.length === 0) {
+          loadProducts().then(() => loadPromotionalSections());
+        } else {
+          loadPromotionalSections();
+        }
+      }
     }
 
     // Modal Functions
@@ -1665,6 +1958,131 @@
       
       document.getElementById('products-count').textContent = products.length;
       document.getElementById('categories-count').textContent = categories.length;
+    }
+
+    // Promotional Sections Functions
+    async function loadPromotionalSections() {
+      try {
+        const response = await fetch(API_BASE + '/promotional-sections');
+        const sections = await response.json();
+        
+        sections.forEach(section => {
+          if (promotionalSections[section.type]) {
+            promotionalSections[section.type] = {
+              productIds: section.productIds || [],
+              isActive: section.isActive !== false
+            };
+          }
+        });
+        
+        ['bestSellers', 'featured', 'discounts'].forEach(type => {
+          renderPromotionalSection(type);
+        });
+      } catch (error) {
+        console.error('Error loading promotional sections:', error);
+      }
+    }
+
+    function renderPromotionalSection(type) {
+      const selectedContainer = document.getElementById(`${type}-selected`);
+      const productsContainer = document.getElementById(`${type}-products`);
+      const countEl = document.getElementById(`${type}-count`);
+      
+      if (!selectedContainer || !productsContainer) return;
+      
+      const selectedIds = promotionalSections[type].productIds;
+      countEl.textContent = selectedIds.length;
+      
+      // Render selected products
+      const selectedProducts = selectedIds.map(id => products.find(p => p.id === id)).filter(Boolean);
+      selectedContainer.innerHTML = selectedProducts.map(p => `
+        <div class="selected-product-card">
+          <img src="${escapeHtml(p.image)}" alt="${escapeHtml(p.name)}" onerror="this.src='https://via.placeholder.com/45'">
+          <div class="info">
+            <span class="name">${escapeHtml(p.name)}</span>
+            <span class="price">${p.price.toLocaleString('ar-IQ')} د.ع</span>
+          </div>
+          <button class="remove-btn" onclick="removeFromPromotional('${type}', '${p.id}')">
+            <i data-lucide="x" style="width: 14px; height: 14px;"></i>
+          </button>
+        </div>
+      `).join('');
+      
+      // Render available products grid
+      productsContainer.innerHTML = products.map(p => {
+        const isSelected = selectedIds.includes(p.id);
+        return `
+          <div class="product-select-card ${isSelected ? 'selected' : ''}" onclick="togglePromotionalProduct('${type}', '${p.id}')">
+            <div class="check-icon"><i data-lucide="check" style="width: 14px; height: 14px;"></i></div>
+            <img src="${escapeHtml(p.image)}" alt="${escapeHtml(p.name)}" onerror="this.src='https://via.placeholder.com/80'">
+            <span class="name">${escapeHtml(p.name)}</span>
+            <span class="price">${p.price.toLocaleString('ar-IQ')} د.ع</span>
+          </div>
+        `;
+      }).join('');
+      
+      lucide.createIcons();
+    }
+
+    function togglePromotionalProduct(type, productId) {
+      const ids = promotionalSections[type].productIds;
+      const index = ids.indexOf(productId);
+      
+      if (index > -1) {
+        ids.splice(index, 1);
+      } else {
+        ids.push(productId);
+      }
+      
+      renderPromotionalSection(type);
+    }
+
+    function removeFromPromotional(type, productId) {
+      const ids = promotionalSections[type].productIds;
+      const index = ids.indexOf(productId);
+      
+      if (index > -1) {
+        ids.splice(index, 1);
+        renderPromotionalSection(type);
+      }
+    }
+
+    function filterPromotionalProducts(type) {
+      const searchInput = document.getElementById(`${type}-search`);
+      const query = searchInput.value.toLowerCase();
+      const container = document.getElementById(`${type}-products`);
+      const cards = container.querySelectorAll('.product-select-card');
+      
+      cards.forEach(card => {
+        const name = card.querySelector('.name').textContent.toLowerCase();
+        card.style.display = name.includes(query) ? 'flex' : 'none';
+      });
+    }
+
+    async function savePromotionalSection(type) {
+      try {
+        const response = await fetch(`${API_BASE}/admin/promotional-sections/${type}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            productIds: promotionalSections[type].productIds,
+            isActive: promotionalSections[type].isActive
+          })
+        });
+        
+        if (response.ok) {
+          const typeNames = {
+            bestSellers: 'الأكثر مبيعاً',
+            featured: 'المنتجات المتميزة',
+            discounts: 'التخفيضات المميزة'
+          };
+          showToast('success', 'تم الحفظ', `تم حفظ قسم ${typeNames[type]} بنجاح`);
+        } else {
+          throw new Error('Failed to save');
+        }
+      } catch (error) {
+        showToast('error', 'خطأ', 'حدث خطأ أثناء حفظ القسم');
+      }
     }
 
     function renderRecentProducts() {

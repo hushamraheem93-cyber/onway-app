@@ -9,7 +9,8 @@ import {
   getProducts as getFirestoreProducts, createProduct as createFirestoreProduct, 
   updateProduct as updateFirestoreProduct, deleteProduct as deleteFirestoreProduct,
   getOrders, getOrdersByPhone, createOrder, updateOrderStatus,
-  updateUserPushToken, getUserPushToken
+  updateUserPushToken, getUserPushToken,
+  getPromotionalSections, getPromotionalSection, savePromotionalSection
 } from "./firebase";
 import { sendPushNotification } from "./pushNotifications";
 
@@ -539,6 +540,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.json({ success: true });
       }
       return res.status(404).json({ error: "User not found" });
+    }
+    res.status(500).json({ error: "Database not configured" });
+  });
+
+  // Promotional Sections API
+  app.get("/api/promotional-sections", async (_req: Request, res: Response) => {
+    const db = getFirestore();
+    if (db) {
+      const sections = await getPromotionalSections();
+      return res.json(sections);
+    }
+    res.json([]);
+  });
+
+  app.get("/api/promotional-sections/:type", async (req: Request, res: Response) => {
+    const type = req.params.type as string;
+    const db = getFirestore();
+    if (db) {
+      const section = await getPromotionalSection(type);
+      if (section) {
+        return res.json(section);
+      }
+      return res.json({ type, productIds: [], isActive: true });
+    }
+    res.json({ type, productIds: [], isActive: true });
+  });
+
+  app.put("/api/admin/promotional-sections/:type", async (req: Request, res: Response) => {
+    const type = req.params.type as string;
+    const { productIds, isActive } = req.body;
+    
+    if (!Array.isArray(productIds)) {
+      return res.status(400).json({ error: "productIds must be an array" });
+    }
+
+    const db = getFirestore();
+    if (db) {
+      const section = await savePromotionalSection(type, productIds, isActive !== false);
+      if (section) {
+        return res.json(section);
+      }
+      return res.status(500).json({ error: "Failed to save promotional section" });
     }
     res.status(500).json({ error: "Database not configured" });
   });

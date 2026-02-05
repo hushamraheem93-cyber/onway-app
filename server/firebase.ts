@@ -361,3 +361,70 @@ export async function updateOrderStatus(id: string, status: FirestoreOrder["stat
     return false;
   }
 }
+
+// Promotional Sections (Best Sellers, Featured, Discounts)
+export interface PromotionalSection {
+  id: string;
+  type: "bestSellers" | "featured" | "discounts";
+  productIds: string[];
+  isActive: boolean;
+  order: number;
+  updatedAt: admin.firestore.Timestamp;
+}
+
+export async function getPromotionalSections(): Promise<PromotionalSection[]> {
+  if (!db) return [];
+  
+  try {
+    const snapshot = await db.collection("promotionalSections").get();
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() as Omit<PromotionalSection, 'id'> }));
+  } catch (error) {
+    console.error("Error getting promotional sections:", error);
+    return [];
+  }
+}
+
+export async function getPromotionalSection(type: string): Promise<PromotionalSection | null> {
+  if (!db) return null;
+  
+  try {
+    const snapshot = await db.collection("promotionalSections").where("type", "==", type).limit(1).get();
+    if (snapshot.empty) return null;
+    const doc = snapshot.docs[0];
+    return { id: doc.id, ...doc.data() as Omit<PromotionalSection, 'id'> };
+  } catch (error) {
+    console.error("Error getting promotional section:", error);
+    return null;
+  }
+}
+
+export async function savePromotionalSection(type: string, productIds: string[], isActive: boolean = true): Promise<PromotionalSection | null> {
+  if (!db) return null;
+  
+  try {
+    const existing = await getPromotionalSection(type);
+    const now = admin.firestore.Timestamp.now();
+    
+    if (existing) {
+      await db.collection("promotionalSections").doc(existing.id).update({
+        productIds,
+        isActive,
+        updatedAt: now
+      });
+      return { ...existing, productIds, isActive, updatedAt: now };
+    } else {
+      const orderMap: Record<string, number> = { bestSellers: 1, featured: 2, discounts: 3 };
+      const docRef = await db.collection("promotionalSections").add({
+        type,
+        productIds,
+        isActive,
+        order: orderMap[type] || 1,
+        updatedAt: now
+      });
+      return { id: docRef.id, type: type as PromotionalSection['type'], productIds, isActive, order: orderMap[type] || 1, updatedAt: now };
+    }
+  } catch (error) {
+    console.error("Error saving promotional section:", error);
+    return null;
+  }
+}
