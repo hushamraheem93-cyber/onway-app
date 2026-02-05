@@ -10,7 +10,10 @@ import {
   updateProduct as updateFirestoreProduct, deleteProduct as deleteFirestoreProduct,
   getOrders, getOrdersByPhone, createOrder, updateOrderStatus,
   updateUserPushToken, getUserPushToken,
-  getPromotionalSections, getPromotionalSection, savePromotionalSection
+  getPromotionalSections, getPromotionalSection, savePromotionalSection,
+  getCategories as getFirestoreCategories, createCategory as createFirestoreCategory,
+  updateCategory as updateFirestoreCategory, deleteCategory as deleteFirestoreCategory,
+  initializeDefaultCategories
 } from "./firebase";
 import { sendPushNotification } from "./pushNotifications";
 
@@ -128,66 +131,159 @@ const products: Product[] = [
 ];
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Initialize default categories in Firestore if empty
+  await initializeDefaultCategories(categories);
+  
   app.use("/uploads", (req, res, next) => {
     res.setHeader("Access-Control-Allow-Origin", "*");
     next();
   }, require("express").static(uploadsDir));
 
-  app.get("/api/categories", (req, res) => {
-    const sortedCategories = [...categories].sort((a, b) => a.order - b.order);
-    res.json(sortedCategories);
-  });
-
-  app.get("/api/categories/:id", (req, res) => {
-    const category = categories.find(c => c.id === req.params.id);
-    if (category) {
-      res.json(category);
-    } else {
-      res.status(404).json({ error: "Category not found" });
+  app.get("/api/categories", async (req, res) => {
+    try {
+      const db = getFirestore();
+      if (db) {
+        const firestoreCategories = await getFirestoreCategories();
+        if (firestoreCategories.length > 0) {
+          return res.json(firestoreCategories);
+        }
+      }
+      // Fallback to in-memory categories
+      const sortedCategories = [...categories].sort((a, b) => a.order - b.order);
+      res.json(sortedCategories);
+    } catch (error) {
+      console.error("Error fetching categories:", error);
+      const sortedCategories = [...categories].sort((a, b) => a.order - b.order);
+      res.json(sortedCategories);
     }
   });
 
-  app.post("/api/admin/categories", (req: Request, res: Response) => {
-    const { name, productCount, order, image } = req.body;
-    
-    const newCategory: Category = {
-      id: randomUUID(),
-      name,
-      image: image || "",
-      productCount: parseInt(productCount) || 0,
-      order: parseInt(order) || categories.length + 1,
-    };
-    
-    categories.push(newCategory);
-    res.json(newCategory);
+  app.get("/api/categories/:id", async (req, res) => {
+    try {
+      const db = getFirestore();
+      if (db) {
+        const firestoreCategories = await getFirestoreCategories();
+        const category = firestoreCategories.find(c => c.id === req.params.id);
+        if (category) {
+          return res.json(category);
+        }
+      }
+      // Fallback to in-memory
+      const category = categories.find(c => c.id === req.params.id);
+      if (category) {
+        res.json(category);
+      } else {
+        res.status(404).json({ error: "Category not found" });
+      }
+    } catch (error) {
+      const category = categories.find(c => c.id === req.params.id);
+      if (category) {
+        res.json(category);
+      } else {
+        res.status(404).json({ error: "Category not found" });
+      }
+    }
   });
 
-  app.put("/api/admin/categories/:id", (req: Request, res: Response) => {
-    const index = categories.findIndex(c => c.id === req.params.id);
-    if (index === -1) {
-      return res.status(404).json({ error: "Category not found" });
+  app.post("/api/admin/categories", async (req: Request, res: Response) => {
+    try {
+      const { id, name, productCount, order, image, color, iconColor } = req.body;
+      
+      const db = getFirestore();
+      if (db) {
+        const newCategory = await createFirestoreCategory({
+          id: id || undefined,
+          name,
+          image: image || "",
+          productCount: parseInt(productCount) || 0,
+          order: parseInt(order) || 99,
+          color,
+          iconColor,
+        });
+        if (newCategory) {
+          return res.json(newCategory);
+        }
+      }
+      
+      // Fallback to in-memory
+      const newCategory: Category = {
+        id: id || randomUUID(),
+        name,
+        image: image || "",
+        productCount: parseInt(productCount) || 0,
+        order: parseInt(order) || categories.length + 1,
+        color,
+        iconColor,
+      };
+      categories.push(newCategory);
+      res.json(newCategory);
+    } catch (error) {
+      console.error("Error creating category:", error);
+      res.status(500).json({ error: "Failed to create category" });
     }
-    
-    const { name, productCount, order, image } = req.body;
-    
-    categories[index] = {
-      ...categories[index],
-      name: name || categories[index].name,
-      image: image || categories[index].image,
-      productCount: productCount ? parseInt(productCount) : categories[index].productCount,
-      order: order ? parseInt(order) : categories[index].order,
-    };
-    
-    res.json(categories[index]);
   });
 
-  app.delete("/api/admin/categories/:id", (req, res) => {
-    const index = categories.findIndex(c => c.id === req.params.id);
-    if (index === -1) {
-      return res.status(404).json({ error: "Category not found" });
+  app.put("/api/admin/categories/:id", async (req: Request, res: Response) => {
+    try {
+      const { name, productCount, order, image, color, iconColor } = req.body;
+      
+      const db = getFirestore();
+      if (db) {
+        const updated = await updateFirestoreCategory(req.params.id, {
+          name,
+          image,
+          productCount: productCount ? parseInt(productCount) : undefined,
+          order: order ? parseInt(order) : undefined,
+          color,
+          iconColor,
+        });
+        if (updated) {
+          return res.json(updated);
+        }
+      }
+      
+      // Fallback to in-memory
+      const index = categories.findIndex(c => c.id === req.params.id);
+      if (index === -1) {
+        return res.status(404).json({ error: "Category not found" });
+      }
+      
+      categories[index] = {
+        ...categories[index],
+        name: name || categories[index].name,
+        image: image || categories[index].image,
+        productCount: productCount ? parseInt(productCount) : categories[index].productCount,
+        order: order ? parseInt(order) : categories[index].order,
+      };
+      
+      res.json(categories[index]);
+    } catch (error) {
+      console.error("Error updating category:", error);
+      res.status(500).json({ error: "Failed to update category" });
     }
-    categories.splice(index, 1);
-    res.json({ success: true });
+  });
+
+  app.delete("/api/admin/categories/:id", async (req, res) => {
+    try {
+      const db = getFirestore();
+      if (db) {
+        const deleted = await deleteFirestoreCategory(req.params.id);
+        if (deleted) {
+          return res.json({ success: true });
+        }
+      }
+      
+      // Fallback to in-memory
+      const index = categories.findIndex(c => c.id === req.params.id);
+      if (index === -1) {
+        return res.status(404).json({ error: "Category not found" });
+      }
+      categories.splice(index, 1);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting category:", error);
+      res.status(500).json({ error: "Failed to delete category" });
+    }
   });
 
   app.get("/api/banners", (req, res) => {

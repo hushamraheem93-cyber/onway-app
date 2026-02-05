@@ -428,3 +428,119 @@ export async function savePromotionalSection(type: string, productIds: string[],
     return null;
   }
 }
+
+// Category Functions
+export interface FirestoreCategory {
+  name: string;
+  image: string;
+  productCount: number;
+  order: number;
+  color?: string;
+  iconColor?: string;
+}
+
+export async function getCategories(): Promise<(FirestoreCategory & { id: string })[]> {
+  if (!db) return [];
+  
+  try {
+    const snapshot = await db.collection("categories").orderBy("order").get();
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() as FirestoreCategory }));
+  } catch (error) {
+    console.error("Error getting categories:", error);
+    return [];
+  }
+}
+
+export async function createCategory(data: {
+  id?: string;
+  name: string;
+  image: string;
+  productCount?: number;
+  order?: number;
+  color?: string;
+  iconColor?: string;
+}): Promise<(FirestoreCategory & { id: string }) | null> {
+  if (!db) return null;
+  
+  try {
+    const categoryDoc: FirestoreCategory = {
+      name: data.name,
+      image: data.image,
+      productCount: data.productCount || 0,
+      order: data.order || 99,
+      color: data.color,
+      iconColor: data.iconColor,
+    };
+    
+    const docRef = data.id 
+      ? await db.collection("categories").doc(data.id).set(categoryDoc).then(() => db!.collection("categories").doc(data.id!))
+      : await db.collection("categories").add(categoryDoc);
+    
+    return { id: docRef.id, ...categoryDoc };
+  } catch (error) {
+    console.error("Error creating category:", error);
+    return null;
+  }
+}
+
+export async function updateCategory(id: string, updates: Partial<FirestoreCategory>): Promise<(FirestoreCategory & { id: string }) | null> {
+  if (!db) return null;
+  
+  try {
+    const docRef = db.collection("categories").doc(id);
+    const filteredUpdates: Record<string, any> = {};
+    
+    Object.entries(updates).forEach(([key, value]) => {
+      if (value !== undefined) {
+        filteredUpdates[key] = value;
+      }
+    });
+    
+    await docRef.update(filteredUpdates);
+    const doc = await docRef.get();
+    if (!doc.exists) return null;
+    return { id: doc.id, ...doc.data() as FirestoreCategory };
+  } catch (error) {
+    console.error("Error updating category:", error);
+    return null;
+  }
+}
+
+export async function deleteCategory(id: string): Promise<boolean> {
+  if (!db) return false;
+  
+  try {
+    await db.collection("categories").doc(id).delete();
+    return true;
+  } catch (error) {
+    console.error("Error deleting category:", error);
+    return false;
+  }
+}
+
+export async function initializeDefaultCategories(defaultCategories: any[]): Promise<void> {
+  if (!db) return;
+  
+  try {
+    const existing = await db.collection("categories").get();
+    if (existing.empty) {
+      console.log("Initializing default categories in Firestore...");
+      const batch = db.batch();
+      defaultCategories.forEach(cat => {
+        const docRef = db!.collection("categories").doc(cat.id);
+        batch.set(docRef, {
+          name: cat.name,
+          image: cat.image,
+          productCount: cat.productCount || 0,
+          order: cat.order || 99,
+          color: cat.color,
+          iconColor: cat.iconColor,
+        });
+      });
+      await batch.commit();
+      console.log("Default categories initialized successfully");
+    }
+  } catch (error) {
+    console.error("Error initializing default categories:", error);
+  }
+}
