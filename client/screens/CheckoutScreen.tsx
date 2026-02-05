@@ -83,19 +83,27 @@ export default function CheckoutScreen() {
     const areaName = selectedAreaData?.name || "";
     const fullAddress = `${areaName} - ${address.trim()}`;
 
-    const order = addOrder({
-      items: [...items],
-      total,
-      customerName: customerName.trim(),
-      phone: phone.trim(),
-      address: fullAddress,
-      notes: notes.trim(),
-    });
+    try {
+      const order = await addOrder({
+        items: [...items],
+        total,
+        deliveryFee,
+        address: fullAddress,
+        region: areaName,
+      });
 
-    clearCart();
-
-    navigation.replace("OrderConfirmation", { order });
-    setIsSubmitting(false);
+      if (order) {
+        clearCart();
+        navigation.replace("OrderConfirmation", { order });
+      } else {
+        Alert.alert("خطأ", "فشل في إنشاء الطلب");
+      }
+    } catch (error) {
+      console.error("Error creating order:", error);
+      Alert.alert("خطأ", "فشل في إنشاء الطلب");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
