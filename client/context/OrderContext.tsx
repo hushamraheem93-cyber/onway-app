@@ -1,8 +1,11 @@
 import React, { createContext, useContext, useState, useCallback, useEffect, useRef, ReactNode } from "react";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { CartItem } from "./CartContext";
 import { useAuth } from "./AuthContext";
 import { useNotifications } from "./NotificationContext";
 import { getApiUrl } from "@/lib/query-client";
+
+const ORDER_STATUSES_KEY = "@onway_order_statuses";
 
 const STATUS_MESSAGES: Record<string, { title: string; body: string }> = {
   confirmed: { title: "تم تأكيد الطلب", body: "تم استلام طلبك وسيتم تحضيره قريباً" },
@@ -45,13 +48,43 @@ export function OrderProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(false);
   const { phoneNumber, userProfile } = useAuth();
   const { addNotification } = useNotifications();
-  const previousOrdersRef = useRef<Map<string, string>>(new Map());
+  const previousStatusesRef = useRef<Record<string, string>>({});
+  const isInitializedRef = useRef(false);
+
+  useEffect(() => {
+    const loadStoredStatuses = async () => {
+      try {
+        const stored = await AsyncStorage.getItem(ORDER_STATUSES_KEY);
+        if (stored) {
+          previousStatusesRef.current = JSON.parse(stored);
+        }
+        isInitializedRef.current = true;
+      } catch (error) {
+        console.error("Error loading order statuses:", error);
+        isInitializedRef.current = true;
+      }
+    };
+    loadStoredStatuses();
+  }, []);
+
+  const saveStatuses = useCallback(async (statuses: Record<string, string>) => {
+    try {
+      await AsyncStorage.setItem(ORDER_STATUSES_KEY, JSON.stringify(statuses));
+    } catch (error) {
+      console.error("Error saving order statuses:", error);
+    }
+  }, []);
 
   const checkForStatusChanges = useCallback((newOrders: Order[]) => {
-    const previousStatuses = previousOrdersRef.current;
+    if (!isInitializedRef.current) return;
+    
+    const previousStatuses = previousStatusesRef.current;
+    const newStatuses: Record<string, string> = {};
     
     newOrders.forEach((order) => {
-      const previousStatus = previousStatuses.get(order.id);
+      newStatuses[order.id] = order.status;
+      const previousStatus = previousStatuses[order.id];
+      
       if (previousStatus && previousStatus !== order.status && order.status !== "pending") {
         const message = STATUS_MESSAGES[order.status];
         if (message) {
@@ -60,12 +93,9 @@ export function OrderProvider({ children }: { children: ReactNode }) {
       }
     });
 
-    const newStatuses = new Map<string, string>();
-    newOrders.forEach((order) => {
-      newStatuses.set(order.id, order.status);
-    });
-    previousOrdersRef.current = newStatuses;
-  }, [addNotification]);
+    previousStatusesRef.current = newStatuses;
+    saveStatuses(newStatuses);
+  }, [addNotification, saveStatuses]);
 
   const refreshOrders = useCallback(async () => {
     if (!phoneNumber) return;
@@ -85,9 +115,9 @@ export function OrderProvider({ children }: { children: ReactNode }) {
   }, [phoneNumber, checkForStatusChanges]);
 
   useEffect(() => {
-    if (phoneNumber) {
+    if (phoneNumber && isInitializedRef.current) {
       refreshOrders();
-      const interval = setInterval(refreshOrders, 30000);
+      const interval = setInterval(refreshOrders, 10000);
       return () => clearInterval(interval);
     }
   }, [phoneNumber, refreshOrders]);
