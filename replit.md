@@ -195,3 +195,10 @@ All images are compressed and stored as Base64 strings to avoid Firebase Storage
   - Size-specific compression for each image type
   - Updated all UI components to render Base64 images correctly
   - Server endpoints converted from FormData to JSON with Base64
+- **February 2026: Push Notifications for Order Status Updates**
+  - Customers receive push notifications when order status changes
+  - Notification messages in Arabic for each status: confirmed, preparing, delivering, delivered, cancelled
+  - Push tokens stored in Firestore user profiles (pushToken field)
+  - Uses Expo Push API for sending notifications
+  - Sound alerts enabled for all notifications
+  - Works on physical devices via Expo Go (not on web)
