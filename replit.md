@@ -202,3 +202,10 @@ All images are compressed and stored as Base64 strings to avoid Firebase Storage
   - Uses Expo Push API for sending notifications
   - Sound alerts enabled for all notifications
   - Works on physical devices via Expo Go (not on web)
+- **February 2026: Promotional Sections Admin Management**
+  - Admin can manage 3 promotional sections: الأكثر مبيعاً (Best Sellers), المنتجات المتميزة (Featured), التخفيضات المميزة (Discounts)
+  - Each section allows selecting products from the product list
+  - Sections stored in Firestore 'promotionalSections' collection
+  - HomeScreen displays products from admin-selected sections
+  - Fallback to random products if no section is configured
+  - API: GET /api/promotional-sections, PUT /api/admin/promotional-sections/:type
