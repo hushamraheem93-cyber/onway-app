@@ -61,23 +61,45 @@ export default function HomeScreen() {
     queryKey: ["/api/products"],
   });
 
+  interface PromotionalSection {
+    type: string;
+    productIds: string[];
+    isActive: boolean;
+  }
+
+  const { data: promotionalSections = [] } = useQuery<PromotionalSection[]>({
+    queryKey: ["/api/promotional-sections"],
+  });
+
   const bestSellerProducts = useMemo(() => {
+    const section = promotionalSections.find(s => s.type === "bestSellers");
+    if (section && section.productIds.length > 0) {
+      return section.productIds.map(id => allProducts.find(p => p.id === id)).filter(Boolean) as Product[];
+    }
     if (allProducts.length === 0) return [];
     const shuffled = [...allProducts].sort(() => Math.random() - 0.5);
     return shuffled.slice(0, 8);
-  }, [allProducts]);
+  }, [allProducts, promotionalSections]);
 
   const featuredProducts = useMemo(() => {
+    const section = promotionalSections.find(s => s.type === "featured");
+    if (section && section.productIds.length > 0) {
+      return section.productIds.map(id => allProducts.find(p => p.id === id)).filter(Boolean) as Product[];
+    }
     if (allProducts.length === 0) return [];
     const shuffled = [...allProducts].sort(() => Math.random() - 0.5);
     return shuffled.slice(0, 6);
-  }, [allProducts]);
+  }, [allProducts, promotionalSections]);
 
   const discountProducts = useMemo(() => {
+    const section = promotionalSections.find(s => s.type === "discounts");
+    if (section && section.productIds.length > 0) {
+      return section.productIds.map(id => allProducts.find(p => p.id === id)).filter(Boolean) as Product[];
+    }
     if (allProducts.length === 0) return [];
     const shuffled = [...allProducts].sort(() => Math.random() - 0.5);
     return shuffled.slice(0, 6);
-  }, [allProducts]);
+  }, [allProducts, promotionalSections]);
 
   const offerBanner = allBanners.find(b => b.type === "offer");
   const sliderBanners = allBanners.filter(b => b.type === "slider");
