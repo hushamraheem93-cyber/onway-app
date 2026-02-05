@@ -1624,6 +1624,14 @@
           </div>
 
           <div class="form-group">
+            <label>حالة المنتج</label>
+            <select class="form-control" id="product-instock">
+              <option value="true">متوفر</option>
+              <option value="false">غير متوفر</option>
+            </select>
+          </div>
+
+          <div class="form-group">
             <label>الوصف</label>
             <textarea class="form-control" id="product-description" placeholder="أدخل وصف المنتج"></textarea>
           </div>
@@ -2287,12 +2295,14 @@
         document.getElementById('product-name').value = product.name || '';
         document.getElementById('product-category').value = product.categoryId || '';
         document.getElementById('product-price').value = product.price || '';
+        document.getElementById('product-instock').value = product.inStock !== false ? 'true' : 'false';
         document.getElementById('product-description').value = product.description || '';
         document.getElementById('product-image').value = product.image || '';
         if (product.image) previewImageUrl(product.image, 'product-preview');
       } else {
         document.getElementById('product-modal-title').textContent = 'إضافة منتج جديد';
         document.getElementById('product-id').value = '';
+        document.getElementById('product-instock').value = 'true';
       }
       
       document.getElementById('product-modal').classList.add('active');
@@ -2487,6 +2497,7 @@
       document.getElementById('product-modal-title').textContent = 'إضافة منتج جديد';
       document.getElementById('product-id').value = '';
       document.getElementById('product-category').value = currentCategoryId;
+      document.getElementById('product-instock').value = 'true';
       
       document.getElementById('product-modal').classList.add('active');
       lucide.createIcons();
@@ -2508,6 +2519,7 @@
       formData.append('categoryId', document.getElementById('product-category').value);
       formData.append('price', document.getElementById('product-price').value);
       formData.append('description', document.getElementById('product-description').value);
+      formData.append('inStock', document.getElementById('product-instock').value);
       
       const fileInput = document.getElementById('product-file');
       const imageUrl = document.getElementById('product-image').value;

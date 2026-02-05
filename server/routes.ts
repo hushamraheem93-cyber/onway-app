@@ -229,7 +229,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const db = getFirestore();
       if (db) {
-        const updated = await updateFirestoreCategory(req.params.id, {
+        const updated = await updateFirestoreCategory(req.params.id as string, {
           name,
           image,
           productCount: productCount ? parseInt(productCount) : undefined,
@@ -396,6 +396,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const priceNum = Number(price) || 0;
       const originalPriceNum = originalPrice ? Number(originalPrice) : undefined;
       const discountNum = discount ? Number(discount) : undefined;
+      const inStockBool = inStock === 'true' || inStock === true;
       
       if (db) {
         const newProduct = await createFirestoreProduct({
@@ -406,7 +407,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           discount: discountNum,
           image: String(image || ""),
           description: String(description || ""),
-          inStock: inStock !== false,
+          inStock: inStockBool,
         });
         if (newProduct) return res.json(newProduct);
         return res.status(500).json({ error: "Failed to create product in Firestore" });
@@ -421,7 +422,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         discount: discountNum,
         image: String(image || ""),
         description: String(description || ""),
-        inStock: inStock !== false,
+        inStock: inStockBool,
       };
       products.push(newProduct);
       res.json(newProduct);
@@ -443,6 +444,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const priceNum = price !== undefined ? Number(price) : undefined;
     const originalPriceNum = originalPrice !== undefined ? Number(originalPrice) : undefined;
     const discountNum = discount !== undefined ? Number(discount) : undefined;
+    const inStockBool = inStock !== undefined ? (inStock === 'true' || inStock === true) : undefined;
     
     if (db) {
       const updated = await updateFirestoreProduct(productId, {
@@ -453,7 +455,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         discount: discountNum,
         image: image !== undefined ? String(image) : undefined,
         description: description !== undefined ? String(description) : undefined,
-        inStock,
+        inStock: inStockBool,
       });
       if (updated) return res.json(updated);
       return res.status(404).json({ error: "Product not found" });
@@ -472,7 +474,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       discount: discountNum !== undefined ? discountNum : products[index].discount,
       image: image !== undefined ? String(image) : products[index].image,
       description: description !== undefined ? String(description) : products[index].description,
-      inStock: inStock !== undefined ? inStock : products[index].inStock,
+      inStock: inStockBool !== undefined ? inStockBool : products[index].inStock,
     };
     res.json(products[index]);
   });
