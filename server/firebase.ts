@@ -40,6 +40,7 @@ export interface FirestoreUserProfile {
   region: string;
   address: string;
   profileImage?: string;
+  pushToken?: string;
   createdAt: admin.firestore.Timestamp;
   updatedAt: admin.firestore.Timestamp;
 }
@@ -110,6 +111,7 @@ export async function updateUser(
     region: string;
     address: string;
     profileImage: string;
+    pushToken: string;
   }>
 ): Promise<(FirestoreUserProfile & { id: string }) | null> {
   if (!db) return null;
@@ -132,6 +134,7 @@ export async function updateUser(
     if (updates.region !== undefined) updateData.region = updates.region;
     if (updates.address !== undefined) updateData.address = updates.address;
     if (updates.profileImage !== undefined) updateData.profileImage = updates.profileImage;
+    if (updates.pushToken !== undefined) updateData.pushToken = updates.pushToken;
     
     await doc.ref.update(updateData);
     
@@ -139,6 +142,49 @@ export async function updateUser(
     return { id: updatedDoc.id, ...updatedDoc.data() as FirestoreUserProfile };
   } catch (error) {
     console.error("Error updating user in Firestore:", error);
+    return null;
+  }
+}
+
+export async function updateUserPushToken(phoneNumber: string, pushToken: string): Promise<boolean> {
+  if (!db) return false;
+  
+  try {
+    const usersRef = db.collection("users");
+    const snapshot = await usersRef.where("phoneNumber", "==", phoneNumber).limit(1).get();
+    
+    if (snapshot.empty) {
+      return false;
+    }
+    
+    const doc = snapshot.docs[0];
+    await doc.ref.update({
+      pushToken,
+      updatedAt: admin.firestore.Timestamp.now(),
+    });
+    
+    return true;
+  } catch (error) {
+    console.error("Error updating push token:", error);
+    return false;
+  }
+}
+
+export async function getUserPushToken(phoneNumber: string): Promise<string | null> {
+  if (!db) return null;
+  
+  try {
+    const usersRef = db.collection("users");
+    const snapshot = await usersRef.where("phoneNumber", "==", phoneNumber).limit(1).get();
+    
+    if (snapshot.empty) {
+      return null;
+    }
+    
+    const userData = snapshot.docs[0].data() as FirestoreUserProfile;
+    return userData.pushToken || null;
+  } catch (error) {
+    console.error("Error getting push token:", error);
     return null;
   }
 }

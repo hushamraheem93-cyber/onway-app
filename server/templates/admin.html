@@ -2283,18 +2283,18 @@
         let actionButtons = '';
         if (order.status !== 'delivered' && order.status !== 'cancelled') {
           if (order.status === 'pending') {
-            actionButtons += `<button class="btn btn-sm" style="background: #3B82F6; color: white; margin-left: 4px;" onclick="updateOrderStatus('${order.id}', 'confirmed')"><i data-lucide="check"></i> تأكيد</button>`;
+            actionButtons += `<button class="btn btn-sm" style="background: #3B82F6; color: white; margin-left: 4px;" onclick="updateOrderStatus('${order.id}', 'confirmed', '${order.phoneNumber}')"><i data-lucide="check"></i> تأكيد</button>`;
           }
           if (order.status === 'confirmed') {
-            actionButtons += `<button class="btn btn-sm" style="background: #8B5CF6; color: white; margin-left: 4px;" onclick="updateOrderStatus('${order.id}', 'preparing')"><i data-lucide="chef-hat"></i> تحضير</button>`;
+            actionButtons += `<button class="btn btn-sm" style="background: #8B5CF6; color: white; margin-left: 4px;" onclick="updateOrderStatus('${order.id}', 'preparing', '${order.phoneNumber}')"><i data-lucide="chef-hat"></i> تحضير</button>`;
           }
           if (order.status === 'preparing') {
-            actionButtons += `<button class="btn btn-sm" style="background: #06B6D4; color: white; margin-left: 4px;" onclick="updateOrderStatus('${order.id}', 'delivering')"><i data-lucide="truck"></i> توصيل</button>`;
+            actionButtons += `<button class="btn btn-sm" style="background: #06B6D4; color: white; margin-left: 4px;" onclick="updateOrderStatus('${order.id}', 'delivering', '${order.phoneNumber}')"><i data-lucide="truck"></i> توصيل</button>`;
           }
           if (order.status === 'delivering') {
-            actionButtons += `<button class="btn btn-sm" style="background: #10B981; color: white; margin-left: 4px;" onclick="updateOrderStatus('${order.id}', 'delivered')"><i data-lucide="check-circle"></i> تم</button>`;
+            actionButtons += `<button class="btn btn-sm" style="background: #10B981; color: white; margin-left: 4px;" onclick="updateOrderStatus('${order.id}', 'delivered', '${order.phoneNumber}')"><i data-lucide="check-circle"></i> تم</button>`;
           }
-          actionButtons += `<button class="btn btn-sm" style="background: #EF4444; color: white;" onclick="updateOrderStatus('${order.id}', 'cancelled')"><i data-lucide="x"></i> إلغاء</button>`;
+          actionButtons += `<button class="btn btn-sm" style="background: #EF4444; color: white;" onclick="updateOrderStatus('${order.id}', 'cancelled', '${order.phoneNumber}')"><i data-lucide="x"></i> إلغاء</button>`;
         }
         
         return `
@@ -2336,16 +2336,16 @@
       lucide.createIcons();
     }
 
-    async function updateOrderStatus(orderId, status) {
+    async function updateOrderStatus(orderId, status, phoneNumber) {
       try {
         const response = await fetch(`${API_BASE}/admin/orders/${orderId}/status`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ status })
+          body: JSON.stringify({ status, phoneNumber })
         });
         
         if (response.ok) {
-          showToast('success', 'تم التحديث', 'تم تحديث حالة الطلب بنجاح');
+          showToast('success', 'تم التحديث', 'تم تحديث حالة الطلب وإرسال إشعار للعميل');
           loadOrders();
         } else {
           throw new Error('Failed to update');

@@ -8,8 +8,10 @@ import {
   getFirestore, getUserByPhone, createUser, updateUser, FirestoreUserProfile,
   getProducts as getFirestoreProducts, createProduct as createFirestoreProduct, 
   updateProduct as updateFirestoreProduct, deleteProduct as deleteFirestoreProduct,
-  getOrders, getOrdersByPhone, createOrder, updateOrderStatus
+  getOrders, getOrdersByPhone, createOrder, updateOrderStatus,
+  updateUserPushToken, getUserPushToken
 } from "./firebase";
+import { sendPushNotification } from "./pushNotifications";
 
 const uploadsDir = path.join(process.cwd(), "uploads");
 if (!fs.existsSync(uploadsDir)) {
@@ -503,13 +505,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.put("/api/admin/orders/:id/status", async (req: Request, res: Response) => {
     const orderId = req.params.id as string;
-    const { status } = req.body;
+    const { status, phoneNumber } = req.body;
     const db = getFirestore();
     
     if (db) {
       const success = await updateOrderStatus(orderId, status);
-      if (success) return res.json({ success: true, id: orderId, status });
+      if (success) {
+        if (phoneNumber) {
+          const pushToken = await getUserPushToken(phoneNumber);
+          if (pushToken) {
+            await sendPushNotification(pushToken, status, orderId);
+            console.log(`Push notification sent for order ${orderId} to ${phoneNumber}`);
+          }
+        }
+        return res.json({ success: true, id: orderId, status });
+      }
       return res.status(404).json({ error: "Order not found" });
+    }
+    res.status(500).json({ error: "Database not configured" });
+  });
+
+  app.post("/api/users/push-token", async (req: Request, res: Response) => {
+    const { phoneNumber, pushToken } = req.body;
+    
+    if (!phoneNumber || !pushToken) {
+      return res.status(400).json({ error: "Phone number and push token are required" });
+    }
+
+    const db = getFirestore();
+    if (db) {
+      const success = await updateUserPushToken(phoneNumber, pushToken);
+      if (success) {
+        return res.json({ success: true });
+      }
+      return res.status(404).json({ error: "User not found" });
     }
     res.status(500).json({ error: "Database not configured" });
   });
