@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode, useRef } from "react";
+import React, { createContext, useContext, useState, useEffect, ReactNode, useRef, useCallback } from "react";
 import { Platform } from "react-native";
 import * as Notifications from "expo-notifications";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -18,6 +18,7 @@ interface NotificationContextType {
   markAsRead: (id: string) => void;
   markAllAsRead: () => void;
   clearNotifications: () => void;
+  addNotification: (title: string, body: string, data?: Record<string, unknown>) => void;
 }
 
 const NotificationContext = createContext<NotificationContextType | undefined>(undefined);
@@ -97,6 +98,23 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     saveNotifications([]);
   };
 
+  const addNotification = useCallback((title: string, body: string, data?: Record<string, unknown>) => {
+    const newNotification: AppNotification = {
+      id: `local-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      title,
+      body,
+      data,
+      read: false,
+      createdAt: new Date().toISOString(),
+    };
+    
+    setNotifications((prev) => {
+      const updated = [newNotification, ...prev].slice(0, 50);
+      saveNotifications(updated);
+      return updated;
+    });
+  }, []);
+
   const unreadCount = notifications.filter((n) => !n.read).length;
 
   return (
@@ -107,6 +125,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
         markAsRead,
         markAllAsRead,
         clearNotifications,
+        addNotification,
       }}
     >
       {children}
