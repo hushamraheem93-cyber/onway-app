@@ -277,8 +277,13 @@ export async function getOrdersByPhone(phoneNumber: string): Promise<(FirestoreO
   if (!db) return [];
   
   try {
-    const snapshot = await db.collection("orders").where("phoneNumber", "==", phoneNumber).orderBy("createdAt", "desc").get();
-    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() as FirestoreOrder }));
+    const snapshot = await db.collection("orders").where("phoneNumber", "==", phoneNumber).get();
+    const orders = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() as FirestoreOrder }));
+    return orders.sort((a, b) => {
+      const aTime = a.createdAt?.toMillis?.() || 0;
+      const bTime = b.createdAt?.toMillis?.() || 0;
+      return bTime - aTime;
+    });
   } catch (error) {
     console.error("Error getting user orders:", error);
     return [];

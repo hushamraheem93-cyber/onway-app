@@ -6,8 +6,12 @@ import { Platform } from "react-native";
  * @returns {string} The API base URL
  */
 export function getApiUrl(): string {
-  // On web, use the current origin (works with hotspot/network access)
+  // On web, use the configured domain or current origin
   if (Platform.OS === "web" && typeof window !== "undefined") {
+    // Use EXPO_PUBLIC_DOMAIN if set (Replit environment)
+    if (process.env.EXPO_PUBLIC_DOMAIN) {
+      return `https://${process.env.EXPO_PUBLIC_DOMAIN}`;
+    }
     // If we're on port 8081/8082 (Expo dev), redirect to port 5000 (backend)
     const origin = window.location.origin;
     if (origin.includes(":808")) {
