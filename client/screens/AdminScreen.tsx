@@ -253,39 +253,50 @@ export default function AdminScreen() {
 
   const saveProduct = async () => {
     if (isSavingProduct) return;
+    
+    const apiUrl = getApiUrl();
+    const url = editItem ? `/api/admin/products/${editItem.id}` : "/api/admin/products";
+    const fullUrl = `${apiUrl}${url}`;
+    
+    Alert.alert("بدء الحفظ", `URL: ${fullUrl}\nالاسم: ${productForm.name}\nالسعر: ${productForm.price}`);
+    
     setIsSavingProduct(true);
     try {
-      let imageBase64 = productForm.imageUrl;
+      let imageBase64 = productForm.imageUrl || null;
       
       if (productForm.imageUri) {
         imageBase64 = await compressAndConvertToBase64(productForm.imageUri, "product");
       }
 
-      const body = {
+      const body: any = {
         name: productForm.name,
         categoryId: productForm.categoryId,
         price: productForm.price,
-        originalPrice: productForm.originalPrice || undefined,
-        discount: productForm.discount || undefined,
-        description: productForm.description,
+        description: productForm.description || "",
         inStock: productForm.inStock,
-        image: imageBase64,
       };
+      
+      if (productForm.originalPrice) body.originalPrice = productForm.originalPrice;
+      if (productForm.discount) body.discount = productForm.discount;
+      if (imageBase64) body.image = imageBase64;
 
-      const url = editItem ? `/api/admin/products/${editItem.id}` : "/api/admin/products";
       const method = editItem ? "PUT" : "POST";
 
-      const response = await fetch(`${getApiUrl()}${url}`, {
+      const response = await fetch(fullUrl, {
         method,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
 
+      const responseText = await response.text();
+      
       if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`${response.status}: ${errorText}`);
+        Alert.alert("خطأ من الخادم", `Status: ${response.status}\n${responseText}`);
+        throw new Error(`${response.status}: ${responseText}`);
       }
 
+      Alert.alert("نجاح!", `تم حفظ المنتج بنجاح\n${responseText.substring(0, 100)}`);
+      
       queryClient.invalidateQueries({ queryKey: ["/api/admin/products"] });
       queryClient.invalidateQueries({ queryKey: ["/api/products"] });
       resetForm();
