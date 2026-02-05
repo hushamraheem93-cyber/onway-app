@@ -2508,33 +2508,54 @@
       if (product) openProductModal(product);
     }
 
+    // Helper function to convert file to Base64
+    function fileToBase64(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+    }
+
     // Override saveProduct to refresh category products view
     const originalSaveProduct = saveProduct;
     async function saveProduct(event) {
       event.preventDefault();
       
       const id = document.getElementById('product-id').value;
-      const formData = new FormData();
-      formData.append('name', document.getElementById('product-name').value);
-      formData.append('categoryId', document.getElementById('product-category').value);
-      formData.append('price', document.getElementById('product-price').value);
-      formData.append('description', document.getElementById('product-description').value);
-      formData.append('inStock', document.getElementById('product-instock').value);
-      
       const fileInput = document.getElementById('product-file');
       const imageUrl = document.getElementById('product-image').value;
       
+      let imageData = imageUrl || '';
+      
+      // Convert file to Base64 if uploaded
       if (fileInput.files[0]) {
-        formData.append('image', fileInput.files[0]);
-      } else if (imageUrl) {
-        formData.append('imageUrl', imageUrl);
+        try {
+          imageData = await fileToBase64(fileInput.files[0]);
+        } catch (e) {
+          console.error('Error converting file to Base64:', e);
+        }
       }
+      
+      const productData = {
+        name: document.getElementById('product-name').value,
+        categoryId: document.getElementById('product-category').value,
+        price: document.getElementById('product-price').value,
+        description: document.getElementById('product-description').value,
+        inStock: document.getElementById('product-instock').value,
+        image: imageData
+      };
       
       try {
         const url = id ? `${API_BASE}/admin/products/${id}` : `${API_BASE}/admin/products`;
         const method = id ? 'PUT' : 'POST';
         
-        const response = await fetch(url, { method, body: formData });
+        const response = await fetch(url, { 
+          method, 
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(productData) 
+        });
         
         if (response.ok) {
           closeModal('product-modal');
