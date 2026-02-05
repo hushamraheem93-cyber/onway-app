@@ -6,6 +6,7 @@ import { Feather } from "@expo/vector-icons";
 import { ThemedText } from "@/components/ThemedText";
 import { Spacing, AppColors, BorderRadius } from "@/constants/theme";
 import { useCart } from "@/context/CartContext";
+import { useNotifications } from "@/context/NotificationContext";
 
 const SCREEN_WIDTH = Dimensions.get("window").width;
 
@@ -16,6 +17,7 @@ interface HeaderTitleProps {
 export function HeaderTitle({ title }: HeaderTitleProps) {
   const navigation = useNavigation<any>();
   const { getItemCount } = useCart();
+  const { unreadCount } = useNotifications();
   const cartCount = getItemCount();
 
   const handleCartPress = () => {
@@ -23,7 +25,7 @@ export function HeaderTitle({ title }: HeaderTitleProps) {
   };
 
   const handleNotificationsPress = () => {
-    // Notifications feature - can be expanded later
+    navigation.navigate("Main", { screen: "ProfileTab", params: { screen: "NotificationsList" } });
   };
 
   return (
@@ -31,6 +33,13 @@ export function HeaderTitle({ title }: HeaderTitleProps) {
       <View style={styles.leftSection}>
         <Pressable style={styles.iconButton} onPress={handleNotificationsPress}>
           <Feather name="bell" size={22} color={AppColors.textPrimary} />
+          {unreadCount > 0 ? (
+            <View style={styles.badge}>
+              <ThemedText type="small" style={styles.badgeText}>
+                {unreadCount > 9 ? "9+" : unreadCount}
+              </ThemedText>
+            </View>
+          ) : null}
         </Pressable>
         <Pressable style={styles.iconButton} onPress={handleCartPress}>
           <Feather name="shopping-cart" size={22} color={AppColors.textPrimary} />

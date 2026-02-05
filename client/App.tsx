@@ -52,6 +52,7 @@ import { OrderProvider } from "@/context/OrderContext";
 import { FavoritesProvider } from "@/context/FavoritesContext";
 import { CartAnimationProvider } from "@/context/CartAnimationContext";
 import { ThemeProvider } from "@/context/ThemeContext";
+import { NotificationProvider } from "@/context/NotificationContext";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -91,10 +92,11 @@ export default function App() {
       <QueryClientProvider client={queryClient}>
         <ThemeProvider>
           <AuthProvider>
-            <CartProvider>
-              <OrderProvider>
-                <FavoritesProvider>
-                  <CartAnimationProvider>
+            <NotificationProvider>
+              <CartProvider>
+                <OrderProvider>
+                  <FavoritesProvider>
+                    <CartAnimationProvider>
                     <SafeAreaProvider>
                       <GestureHandlerRootView style={styles.root}>
                         <KeyboardProvider>
@@ -105,10 +107,11 @@ export default function App() {
                         </KeyboardProvider>
                       </GestureHandlerRootView>
                     </SafeAreaProvider>
-                  </CartAnimationProvider>
-                </FavoritesProvider>
-              </OrderProvider>
-            </CartProvider>
+                    </CartAnimationProvider>
+                  </FavoritesProvider>
+                </OrderProvider>
+              </CartProvider>
+            </NotificationProvider>
           </AuthProvider>
         </ThemeProvider>
       </QueryClientProvider>
