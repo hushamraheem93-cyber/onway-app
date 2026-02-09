@@ -4,20 +4,24 @@ import { Platform, I18nManager } from "react-native";
 I18nManager.allowRTL(true);
 I18nManager.forceRTL(true);
 
-// App Colors - Vibrant orange gradient palette
-const primaryColor = "#ff5e00";
-const secondaryColor = "#FFF5EB";
-const primaryLight = "#FF8533";
-const primaryDark = "#E65400";
+// ONWAY Brand Colors
+const primaryColor = "#FFB300";
+const secondaryColor = "#FFF8E1";
+const primaryLight = "#FFCA28";
+const primaryDark = "#E6A200";
+const onGrey = "#4A4A4A";
+const wayYellow = "#FFB300";
 
 export const AppColors = {
   primary: primaryColor,
   secondary: secondaryColor,
   primaryLight: primaryLight,
   primaryDark: primaryDark,
-  background: "#F5F5F5",
+  onGrey: onGrey,
+  wayYellow: wayYellow,
+  background: "#F8F9FA",
   surface: "#FFFFFF",
-  textPrimary: "#222222",
+  textPrimary: "#2D2D2D",
   textSecondary: "#666666",
   border: "#E0E0E0",
   success: "#4CAF50",
@@ -39,15 +43,15 @@ export const DesignSystem = {
 
 export const Colors = {
   light: {
-    text: "#222222",
+    text: "#2D2D2D",
     textSecondary: "#666666",
-    buttonText: "#FFFFFF",
+    buttonText: "#000000",
     tabIconDefault: "#757575",
-    tabIconSelected: primaryColor,
-    link: primaryColor,
+    tabIconSelected: onGrey,
+    link: wayYellow,
     primary: primaryColor,
     primaryLight: primaryLight,
-    backgroundRoot: "#F5F5F5",
+    backgroundRoot: "#F8F9FA",
     backgroundDefault: "#FFFFFF",
     backgroundSecondary: "#F0F0F0",
     backgroundTertiary: "#E8E8E8",
@@ -58,10 +62,10 @@ export const Colors = {
   dark: {
     text: "#ECEDEE",
     textSecondary: "#9BA1A6",
-    buttonText: "#FFFFFF",
+    buttonText: "#000000",
     tabIconDefault: "#9BA1A6",
-    tabIconSelected: primaryLight,
-    link: primaryLight,
+    tabIconSelected: wayYellow,
+    link: wayYellow,
     primary: primaryColor,
     primaryLight: primaryLight,
     backgroundRoot: "#1A1A1A",
