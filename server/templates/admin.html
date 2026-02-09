@@ -517,7 +517,7 @@
 
     .selected-product-card .price {
       font-size: 0.8rem;
-      color: var(--primary);
+      color: var(--on-grey);
     }
 
     .selected-product-card .remove-btn {
@@ -563,14 +563,14 @@
     }
 
     .product-select-card:hover {
-      border-color: var(--primary-light);
+      border-color: var(--way-yellow);
       transform: translateY(-2px);
-      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+      box-shadow: 0 4px 12px rgba(255,179,0,0.15);
     }
 
     .product-select-card.selected {
-      border-color: var(--primary);
-      background: var(--primary)10;
+      border-color: var(--way-yellow);
+      background: rgba(255,179,0,0.08);
     }
 
     .product-select-card img {
@@ -590,7 +590,7 @@
 
     .product-select-card .price {
       font-size: 0.8rem;
-      color: var(--primary);
+      color: var(--on-grey);
       font-weight: 600;
     }
 
@@ -600,8 +600,8 @@
       left: 8px;
       width: 24px;
       height: 24px;
-      background: var(--primary);
-      color: white;
+      background: var(--way-yellow);
+      color: #000;
       border-radius: 50%;
       display: none;
       align-items: center;
@@ -635,7 +635,7 @@
 
     .price-tag {
       font-weight: 700;
-      color: var(--success);
+      color: var(--on-grey);
       font-size: 1rem;
     }
 
@@ -1117,10 +1117,13 @@
   <aside class="sidebar" id="sidebar">
     <div class="sidebar-header">
       <div class="logo">
-        <i data-lucide="shopping-bag"></i>
+        <i data-lucide="truck"></i>
       </div>
       <div>
-        <h1>المتجر</h1>
+        <div class="logo-text">
+          <span class="speed-lines"></span>
+          <span class="logo-on">ON</span><span class="logo-way">WAY</span>
+        </div>
         <span>لوحة التحكم</span>
       </div>
     </div>
