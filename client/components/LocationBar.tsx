@@ -70,9 +70,11 @@ export function LocationBar() {
     navigation.navigate("MapPicker");
   };
 
-  const displayAddress = autoDetecting
-    ? "جاري تحديد الموقع..."
-    : savedLocation?.address || "حدد موقعك على الخريطة";
+  const displayAddress = savedLocation?.address
+    ? savedLocation.address
+    : autoDetecting
+      ? "جاري تحديد الموقع..."
+      : "حدد موقعك على الخريطة";
 
   return (
     <Pressable
