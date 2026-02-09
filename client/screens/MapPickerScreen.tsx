@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useRef } from "react";
-import { StyleSheet, View, Pressable, ActivityIndicator } from "react-native";
+import { StyleSheet, View, Pressable, ActivityIndicator, Platform } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { Feather } from "@expo/vector-icons";
 import * as Location from "expo-location";
-import MapView, { Marker } from "react-native-maps";
+import MapView, { Marker, PROVIDER_GOOGLE, PROVIDER_DEFAULT } from "react-native-maps";
 
 import { ThemedText } from "@/components/ThemedText";
 import { useTheme } from "@/hooks/useTheme";
@@ -100,6 +100,8 @@ export default function MapPickerScreen() {
       <MapView
         ref={mapRef}
         style={styles.map}
+        provider={Platform.OS === "android" ? PROVIDER_GOOGLE : PROVIDER_DEFAULT}
+        mapType="standard"
         initialRegion={{
           latitude: selectedCoord.latitude,
           longitude: selectedCoord.longitude,
@@ -108,6 +110,9 @@ export default function MapPickerScreen() {
         }}
         showsUserLocation
         showsMyLocationButton={false}
+        showsBuildings
+        showsIndoors
+        showsPointsOfInterest
         onPress={handleMapPress}
       >
         <Marker
