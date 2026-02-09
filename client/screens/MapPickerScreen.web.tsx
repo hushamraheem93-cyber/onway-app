@@ -7,28 +7,7 @@ import { ThemedText } from "@/components/ThemedText";
 import { useTheme } from "@/hooks/useTheme";
 import { useLocation } from "@/context/LocationContext";
 import { AppColors } from "@/constants/theme";
-
-const DUJAIL_CENTER = { lat: 33.855, lng: 44.237 };
-
-async function reverseGeocodeArabic(lat: number, lng: number): Promise<string> {
-  try {
-    const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&accept-language=ar&zoom=18&addressdetails=1`;
-    const res = await fetch(url, {
-      headers: { "User-Agent": "OnwayApp/1.0" },
-    });
-    const data = await res.json();
-    if (data && data.display_name) {
-      const parts = data.display_name.split("،").map((s: string) => s.trim()).filter(Boolean);
-      if (parts.length > 4) {
-        return parts.slice(0, 4).join("، ");
-      }
-      return data.display_name;
-    }
-    return "موقع محدد";
-  } catch {
-    return "موقع محدد";
-  }
-}
+import { reverseGeocodeArabic, DHULUIYAH_CENTER } from "@/lib/geocoding";
 
 function getLeafletHTML(lat: number, lng: number) {
   return `
@@ -99,8 +78,8 @@ export default function MapPickerScreen() {
   const { savedLocation, setSavedLocation } = useLocation();
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
-  const initialLat = savedLocation?.latitude || DUJAIL_CENTER.lat;
-  const initialLng = savedLocation?.longitude || DUJAIL_CENTER.lng;
+  const initialLat = savedLocation?.latitude || DHULUIYAH_CENTER.lat;
+  const initialLng = savedLocation?.longitude || DHULUIYAH_CENTER.lng;
 
   const [selectedCoord, setSelectedCoord] = useState({ latitude: initialLat, longitude: initialLng });
   const [addressText, setAddressText] = useState(savedLocation?.address || "");

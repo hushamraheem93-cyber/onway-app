@@ -10,8 +10,7 @@ import { ThemedText } from "@/components/ThemedText";
 import { useTheme } from "@/hooks/useTheme";
 import { useLocation } from "@/context/LocationContext";
 import { AppColors } from "@/constants/theme";
-
-const DUJAIL_CENTER = { lat: 33.855, lng: 44.237 };
+import { reverseGeocodeArabic, DHULUIYAH_CENTER, DEFAULT_DISTRICT } from "@/lib/geocoding";
 
 function getLeafletHTML(lat: number, lng: number) {
   return `
@@ -91,32 +90,6 @@ function getLeafletHTML(lat: number, lng: number) {
 </html>`;
 }
 
-async function reverseGeocodeArabic(lat: number, lng: number): Promise<string> {
-  try {
-    const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&accept-language=ar&zoom=18&addressdetails=1`;
-    const res = await fetch(url, {
-      headers: { "User-Agent": "OnwayApp/1.0" },
-    });
-    const data = await res.json();
-    if (data && data.display_name) {
-      const parts = data.display_name.split("،").map((s: string) => s.trim()).filter(Boolean);
-      if (parts.length > 4) {
-        return parts.slice(0, 4).join("، ");
-      }
-      return data.display_name;
-    }
-    if (data && data.address) {
-      const addr = data.address;
-      const items = [addr.road, addr.neighbourhood, addr.suburb, addr.city, addr.state].filter(Boolean);
-      const unique = [...new Set(items)];
-      return unique.join("، ") || "موقع محدد";
-    }
-    return "موقع محدد";
-  } catch {
-    return "موقع محدد";
-  }
-}
-
 export default function MapPickerScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
@@ -124,13 +97,12 @@ export default function MapPickerScreen() {
   const { savedLocation, setSavedLocation } = useLocation();
   const webViewRef = useRef<WebView>(null);
 
-  const initialLat = savedLocation?.latitude || DUJAIL_CENTER.lat;
-  const initialLng = savedLocation?.longitude || DUJAIL_CENTER.lng;
+  const initialLat = savedLocation?.latitude || DHULUIYAH_CENTER.lat;
+  const initialLng = savedLocation?.longitude || DHULUIYAH_CENTER.lng;
 
   const [selectedCoord, setSelectedCoord] = useState({ latitude: initialLat, longitude: initialLng });
   const [addressText, setAddressText] = useState(savedLocation?.address || "");
   const [loadingAddress, setLoadingAddress] = useState(false);
-  const [mapLoaded, setMapLoaded] = useState(false);
 
   useEffect(() => {
     if (!savedLocation) {
@@ -197,7 +169,6 @@ export default function MapPickerScreen() {
         source={{ html: getLeafletHTML(initialLat, initialLng) }}
         style={styles.map}
         onMessage={handleWebViewMessage}
-        onLoadEnd={() => setMapLoaded(true)}
         javaScriptEnabled
         domStorageEnabled
         startInLoadingState
