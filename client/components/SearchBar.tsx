@@ -46,7 +46,7 @@ export function SearchBar({
           <Feather name="x" size={18} color="#999" />
         </Pressable>
       ) : (
-        <Feather name="search" size={20} color={AppColors.primary} />
+        <Feather name="search" size={20} color={AppColors.onGrey} />
       )}
     </View>
   );

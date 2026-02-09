@@ -178,11 +178,11 @@ export default function HomeScreen() {
             {product.description}
           </ThemedText>
           <View style={styles.productFooter}>
-            <ThemedText type="h4" style={[styles.productPrice, { color: AppColors.primary }]}>
+            <ThemedText type="h4" style={[styles.productPrice, { color: AppColors.onGrey }]}>
               {formatPrice(product.price)}
             </ThemedText>
-            <Pressable onPress={handleAddToCart} style={[styles.productAddBtn, { backgroundColor: AppColors.primary }]}>
-              <Feather name="plus" size={16} color="#FFF" />
+            <Pressable onPress={handleAddToCart} style={[styles.productAddBtn, { backgroundColor: AppColors.wayYellow }]}>
+              <Feather name="plus" size={16} color="#000" />
             </Pressable>
           </View>
         </View>
