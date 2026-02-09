@@ -12,7 +12,7 @@ const TAB_ICONS: Record<string, keyof typeof Feather.glyphMap> = {
   ProfileTab: "user",
   FavoritesTab: "heart",
   HomeTab: "home",
-  OffersTab: "tag",
+  SearchTab: "search",
   MenuTab: "grid",
 };
 

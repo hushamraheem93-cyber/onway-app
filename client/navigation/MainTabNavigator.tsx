@@ -3,7 +3,7 @@ import { StyleSheet } from "react-native";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 
 import HomeStackNavigator from "@/navigation/HomeStackNavigator";
-import OffersStackNavigator from "@/navigation/OffersStackNavigator";
+import SearchStackNavigator from "@/navigation/SearchStackNavigator";
 import FavoritesStackNavigator from "@/navigation/FavoritesStackNavigator";
 import CartStackNavigator from "@/navigation/CartStackNavigator";
 import ProfileStackNavigator from "@/navigation/ProfileStackNavigator";
@@ -12,7 +12,7 @@ import { CustomTabBar } from "@/components/CustomTabBar";
 
 export type MainTabParamList = {
   HomeTab: undefined;
-  OffersTab: undefined;
+  SearchTab: undefined;
   FavoritesTab: undefined;
   CartTab: undefined;
   ProfileTab: undefined;
@@ -33,7 +33,7 @@ export default function MainTabNavigator() {
       <Tab.Screen name="ProfileTab" component={ProfileStackNavigator} />
       <Tab.Screen name="FavoritesTab" component={FavoritesStackNavigator} />
       <Tab.Screen name="HomeTab" component={HomeStackNavigator} />
-      <Tab.Screen name="OffersTab" component={OffersStackNavigator} />
+      <Tab.Screen name="SearchTab" component={SearchStackNavigator} />
       <Tab.Screen name="MenuTab" component={CategoriesStackNavigator} />
       <Tab.Screen
         name="CartTab"

@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useMemo } from "react";
 import { StyleSheet, View, FlatList, ScrollView, Dimensions, ActivityIndicator, Pressable } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
@@ -14,7 +14,7 @@ import { useTheme } from "@/hooks/useTheme";
 import { Spacing, AppColors, DesignSystem, BorderRadius, Shadows } from "@/constants/theme";
 import { Category, Banner, Product } from "@/constants/categories";
 import { ThemedText } from "@/components/ThemedText";
-import { SearchBar } from "@/components/SearchBar";
+import { LocationBar } from "@/components/LocationBar";
 import { BannerSlider } from "@/components/BannerSlider";
 import { OfferBanner } from "@/components/OfferBanner";
 import { SectionHeader } from "@/components/SectionHeader";
@@ -40,7 +40,6 @@ export default function HomeScreen() {
   const { theme } = useTheme();
   const navigation = useNavigation<NavigationProp>();
 
-  const [searchQuery, setSearchQuery] = useState("");
   const { addToCart } = useCart();
   const { isFavorite, toggleFavorite } = useFavorites();
   const { userProfile } = useAuth();
@@ -110,12 +109,6 @@ export default function HomeScreen() {
 
   const handleSeeAllCategories = () => {
     navigation.navigate("AllCategories");
-  };
-
-  const handleSearch = () => {
-    if (searchQuery.trim()) {
-      navigation.navigate("Products", { searchQuery: searchQuery.trim(), categoryName: "نتائج البحث" });
-    }
   };
 
   const firstRowCategories = categories.slice(0, Math.ceil(categories.length / 2));
@@ -201,12 +194,7 @@ export default function HomeScreen() {
         </ThemedText>
       </View>
 
-      <SearchBar
-        value={searchQuery}
-        onChangeText={setSearchQuery}
-        placeholder="ابحث عن منتجات..."
-        onSubmitEditing={handleSearch}
-      />
+      <LocationBar />
 
       {bannersLoading ? (
         <View style={styles.loadingContainer}>
