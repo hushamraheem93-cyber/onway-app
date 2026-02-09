@@ -67,7 +67,7 @@ export function CustomTabBar({ state, descriptors, navigation }: BottomTabBarPro
               style={styles.mainButtonContainer}
             >
               <View style={styles.mainButton}>
-                <Feather name="home" size={28} color="#FFFFFF" />
+                <Feather name="home" size={28} color="#000000" />
               </View>
             </Pressable>
           );
@@ -84,7 +84,7 @@ export function CustomTabBar({ state, descriptors, navigation }: BottomTabBarPro
             <Feather
               name={iconName}
               size={24}
-              color={isFocused ? AppColors.primary : "#8E8E93"}
+              color={isFocused ? AppColors.onGrey : "#8E8E93"}
             />
             {isFocused ? <View style={styles.activeDot} /> : null}
           </Pressable>
@@ -127,10 +127,10 @@ const styles = StyleSheet.create({
     width: 60,
     height: 60,
     borderRadius: 30,
-    backgroundColor: AppColors.primary,
+    backgroundColor: AppColors.wayYellow,
     justifyContent: "center",
     alignItems: "center",
-    shadowColor: AppColors.primary,
+    shadowColor: AppColors.wayYellow,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.4,
     shadowRadius: 5,
@@ -142,7 +142,7 @@ const styles = StyleSheet.create({
     width: 5,
     height: 5,
     borderRadius: 2.5,
-    backgroundColor: AppColors.primary,
+    backgroundColor: AppColors.wayYellow,
     marginTop: 4,
   },
 });

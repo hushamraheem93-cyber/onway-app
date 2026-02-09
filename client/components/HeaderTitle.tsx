@@ -1,5 +1,5 @@
 import React from "react";
-import { View, StyleSheet, Image, Pressable, Dimensions } from "react-native";
+import { View, StyleSheet, Pressable, Dimensions, Text } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { Feather } from "@expo/vector-icons";
 
@@ -32,7 +32,7 @@ export function HeaderTitle({ title }: HeaderTitleProps) {
     <View style={styles.container}>
       <View style={styles.leftSection}>
         <Pressable style={styles.iconButton} onPress={handleNotificationsPress}>
-          <Feather name="bell" size={22} color={AppColors.textPrimary} />
+          <Feather name="bell" size={22} color={AppColors.onGrey} />
           {unreadCount > 0 ? (
             <View style={styles.badge}>
               <ThemedText type="small" style={styles.badgeText}>
@@ -42,7 +42,7 @@ export function HeaderTitle({ title }: HeaderTitleProps) {
           ) : null}
         </Pressable>
         <Pressable style={styles.iconButton} onPress={handleCartPress}>
-          <Feather name="shopping-cart" size={22} color={AppColors.textPrimary} />
+          <Feather name="shopping-cart" size={22} color={AppColors.onGrey} />
           {cartCount > 0 ? (
             <View style={styles.badge}>
               <ThemedText type="small" style={styles.badgeText}>
@@ -54,12 +54,14 @@ export function HeaderTitle({ title }: HeaderTitleProps) {
       </View>
 
       <View style={styles.rightSection}>
-        <ThemedText style={styles.title}>{title}</ThemedText>
-        <Image
-          source={require("../../assets/images/icon.png")}
-          style={styles.icon}
-          resizeMode="cover"
-        />
+        <View style={styles.logoContainer}>
+          <View style={styles.speedLines}>
+            <View style={styles.speedLine} />
+            <View style={styles.speedLine} />
+          </View>
+          <Text style={styles.logoOn}>ON</Text>
+          <Text style={styles.logoWay}>WAY</Text>
+        </View>
       </View>
     </View>
   );
@@ -86,27 +88,51 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: BorderRadius.full,
-    backgroundColor: AppColors.secondary,
+    backgroundColor: "#FDFDFD",
     alignItems: "center",
     justifyContent: "center",
     position: "relative",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
   },
-  icon: {
-    width: 40,
-    height: 40,
-    borderRadius: BorderRadius.full,
-    overflow: "hidden",
+  logoContainer: {
+    flexDirection: "row",
+    alignItems: "center",
   },
-  title: {
-    fontSize: 20,
-    fontWeight: "700",
-    color: AppColors.primary,
+  logoOn: {
+    fontFamily: "System",
+    fontSize: 22,
+    fontWeight: "800",
+    fontStyle: "italic",
+    color: AppColors.onGrey,
+  },
+  logoWay: {
+    fontFamily: "System",
+    fontSize: 22,
+    fontWeight: "800",
+    fontStyle: "italic",
+    color: AppColors.wayYellow,
+  },
+  speedLines: {
+    width: 12,
+    height: 10,
+    justifyContent: "space-between",
+    marginRight: 4,
+  },
+  speedLine: {
+    width: 12,
+    height: 2,
+    backgroundColor: AppColors.onGrey,
+    borderRadius: 1,
   },
   badge: {
     position: "absolute",
     top: -4,
     right: -4,
-    backgroundColor: AppColors.primary,
+    backgroundColor: AppColors.wayYellow,
     borderRadius: BorderRadius.full,
     minWidth: 18,
     height: 18,
@@ -115,7 +141,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 4,
   },
   badgeText: {
-    color: "#FFFFFF",
+    color: "#000000",
     fontSize: 10,
     fontWeight: "700",
   },
