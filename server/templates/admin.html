@@ -3,14 +3,16 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>لوحة التحكم - المتجر</title>
-  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <title>ONWAY - لوحة التحكم</title>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700&family=Poppins:ital,wght@0,400;0,600;0,700;0,800;1,700;1,800&display=swap" rel="stylesheet">
   <script src="https://unpkg.com/lucide@latest"></script>
   <style>
     :root {
-      --primary: #6366f1;
-      --primary-dark: #4f46e5;
-      --primary-light: #818cf8;
+      --primary: #FFB300;
+      --primary-dark: #E6A200;
+      --primary-light: #FFCA28;
+      --on-grey: #4A4A4A;
+      --way-yellow: #FFB300;
       --success: #10b981;
       --success-light: #d1fae5;
       --danger: #ef4444;
@@ -20,7 +22,7 @@
       --info: #3b82f6;
       --info-light: #dbeafe;
       --gray-50: #f9fafb;
-      --gray-100: #f3f4f6;
+      --gray-100: #F8F9FA;
       --gray-200: #e5e7eb;
       --gray-300: #d1d5db;
       --gray-400: #9ca3af;
@@ -41,7 +43,7 @@
 
     body {
       font-family: 'Cairo', sans-serif;
-      background: var(--gray-100);
+      background: #F8F9FA;
       min-height: 100vh;
       color: var(--gray-800);
     }
@@ -53,7 +55,7 @@
       top: 0;
       width: var(--sidebar-width);
       height: 100vh;
-      background: linear-gradient(180deg, var(--gray-900) 0%, var(--gray-800) 100%);
+      background: #2D2D2D;
       padding: 0;
       color: white;
       z-index: 1000;
@@ -72,11 +74,41 @@
     .sidebar-header .logo {
       width: 45px;
       height: 45px;
-      background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
+      background: var(--way-yellow);
       border-radius: 12px;
       display: flex;
       align-items: center;
       justify-content: center;
+    }
+
+    .sidebar-header .logo i {
+      color: #2D2D2D;
+    }
+
+    .sidebar-header .logo-text {
+      font-family: 'Poppins', sans-serif;
+      font-weight: 800;
+      font-style: italic;
+      font-size: 1.4rem;
+      display: flex;
+      align-items: center;
+    }
+
+    .sidebar-header .logo-on {
+      color: #ffffff;
+    }
+
+    .sidebar-header .logo-way {
+      color: var(--way-yellow);
+    }
+
+    .sidebar-header .speed-lines {
+      width: 12px;
+      height: 8px;
+      border-top: 2px solid #ffffff;
+      border-bottom: 2px solid #ffffff;
+      margin-right: 4px;
+      display: inline-block;
     }
 
     .sidebar-header h1 {
@@ -124,9 +156,9 @@
     }
 
     .nav-item.active {
-      background: var(--primary);
-      color: white;
-      box-shadow: 0 4px 12px rgba(99, 102, 241, 0.4);
+      background: var(--way-yellow);
+      color: #000;
+      box-shadow: 0 4px 12px rgba(255, 179, 0, 0.4);
     }
 
     .nav-item i {
@@ -136,15 +168,16 @@
 
     .nav-item .badge {
       margin-right: auto;
-      background: var(--primary-light);
-      color: white;
+      background: rgba(255,179,0,0.3);
+      color: var(--way-yellow);
       font-size: 0.7rem;
       padding: 2px 8px;
       border-radius: 20px;
     }
 
     .nav-item.active .badge {
-      background: rgba(255,255,255,0.2);
+      background: rgba(0,0,0,0.15);
+      color: #000;
     }
 
     /* Main Content */
@@ -201,8 +234,8 @@
 
     .search-box input:focus {
       outline: none;
-      border-color: var(--primary);
-      box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+      border-color: var(--way-yellow);
+      box-shadow: 0 0 0 3px rgba(255, 179, 0, 0.15);
     }
 
     .search-box i {
@@ -253,9 +286,9 @@
       justify-content: center;
     }
 
-    .stat-icon.purple { background: linear-gradient(135deg, #818cf8, #6366f1); }
+    .stat-icon.purple { background: linear-gradient(135deg, var(--way-yellow), var(--primary-dark)); }
     .stat-icon.green { background: linear-gradient(135deg, #34d399, #10b981); }
-    .stat-icon.blue { background: linear-gradient(135deg, #60a5fa, #3b82f6); }
+    .stat-icon.blue { background: linear-gradient(135deg, #6B6B6B, var(--on-grey)); }
     .stat-icon.orange { background: linear-gradient(135deg, #fbbf24, #f59e0b); }
 
     .stat-icon i {
@@ -304,7 +337,7 @@
     .card-header h3 i {
       width: 22px;
       height: 22px;
-      color: var(--primary);
+      color: var(--on-grey);
     }
 
     .card-body {
@@ -332,14 +365,15 @@
     }
 
     .btn-primary {
-      background: var(--primary);
-      color: white;
+      background: var(--way-yellow);
+      color: #000;
+      font-weight: 700;
     }
 
     .btn-primary:hover {
       background: var(--primary-dark);
       transform: translateY(-1px);
-      box-shadow: 0 4px 12px rgba(99, 102, 241, 0.4);
+      box-shadow: 0 4px 12px rgba(255, 179, 0, 0.4);
     }
 
     .btn-success {
@@ -367,8 +401,8 @@
     }
 
     .btn-outline:hover {
-      border-color: var(--primary);
-      color: var(--primary);
+      border-color: var(--way-yellow);
+      color: var(--on-grey);
       background: var(--gray-50);
     }
 
@@ -717,7 +751,7 @@
     }
 
     .modal-header h3 i {
-      color: var(--primary);
+      color: var(--way-yellow);
     }
 
     .modal-close {
@@ -779,8 +813,8 @@
 
     .form-control:focus {
       outline: none;
-      border-color: var(--primary);
-      box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+      border-color: var(--way-yellow);
+      box-shadow: 0 0 0 3px rgba(255, 179, 0, 0.15);
     }
 
     textarea.form-control {
@@ -810,8 +844,8 @@
     }
 
     .image-upload:hover {
-      border-color: var(--primary);
-      background: rgba(99, 102, 241, 0.05);
+      border-color: var(--way-yellow);
+      background: rgba(255, 179, 0, 0.05);
     }
 
     .image-upload i {
@@ -976,7 +1010,7 @@
 
     .filter-bar select:focus {
       outline: none;
-      border-color: var(--primary);
+      border-color: var(--way-yellow);
     }
 
     /* Loading */
@@ -991,7 +1025,7 @@
       width: 40px;
       height: 40px;
       border: 3px solid var(--gray-200);
-      border-top-color: var(--primary);
+      border-top-color: var(--way-yellow);
       border-radius: 50%;
       animation: spin 0.8s linear infinite;
     }
