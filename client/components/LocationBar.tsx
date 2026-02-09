@@ -13,6 +13,26 @@ import { RootStackParamList } from "@/navigation/RootStackNavigator";
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
+async function reverseGeocodeArabic(lat: number, lng: number): Promise<string> {
+  try {
+    const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&accept-language=ar&zoom=18&addressdetails=1`;
+    const res = await fetch(url, {
+      headers: { "User-Agent": "OnwayApp/1.0" },
+    });
+    const data = await res.json();
+    if (data && data.display_name) {
+      const parts = data.display_name.split(",").map((s: string) => s.trim()).filter(Boolean);
+      if (parts.length > 3) {
+        return parts.slice(0, 3).join("، ");
+      }
+      return parts.join("، ");
+    }
+    return "قضاء الدجيل";
+  } catch {
+    return "قضاء الدجيل";
+  }
+}
+
 export function LocationBar() {
   const { theme, isDark } = useTheme();
   const navigation = useNavigation<NavigationProp>();
@@ -35,20 +55,12 @@ export function LocationBar() {
         accuracy: Location.Accuracy.Balanced,
       });
 
-      const [address] = await Location.reverseGeocodeAsync({
+      const address = await reverseGeocodeArabic(loc.coords.latitude, loc.coords.longitude);
+      setSavedLocation({
         latitude: loc.coords.latitude,
         longitude: loc.coords.longitude,
+        address: address,
       });
-
-      if (address) {
-        const parts = [address.street, address.name, address.district, address.city, address.region].filter(Boolean);
-        const unique = [...new Set(parts)];
-        setSavedLocation({
-          latitude: loc.coords.latitude,
-          longitude: loc.coords.longitude,
-          address: unique.join("، ") || "قضاء الدجيل",
-        });
-      }
     } catch {} finally {
       setAutoDetecting(false);
     }
