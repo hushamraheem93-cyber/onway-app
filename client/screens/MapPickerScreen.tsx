@@ -1,17 +1,17 @@
 import React, { useState, useEffect, useRef } from "react";
-import { StyleSheet, View, Pressable, ActivityIndicator, Platform } from "react-native";
+import { StyleSheet, View, Pressable, ActivityIndicator } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { Feather } from "@expo/vector-icons";
 import * as Location from "expo-location";
-import MapView, { Marker, Region } from "react-native-maps";
+import MapView, { Marker } from "react-native-maps";
 
 import { ThemedText } from "@/components/ThemedText";
 import { useTheme } from "@/hooks/useTheme";
 import { useLocation } from "@/context/LocationContext";
-import { AppColors, Spacing, BorderRadius } from "@/constants/theme";
+import { AppColors } from "@/constants/theme";
 
-const DUJAIL_REGION: Region = {
+const DUJAIL_REGION = {
   latitude: 33.855,
   longitude: 44.237,
   latitudeDelta: 0.02,
@@ -21,7 +21,7 @@ const DUJAIL_REGION: Region = {
 export default function MapPickerScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
-  const { theme, isDark } = useTheme();
+  const { theme } = useTheme();
   const { savedLocation, setSavedLocation } = useLocation();
   const mapRef = useRef<MapView>(null);
 
@@ -31,7 +31,6 @@ export default function MapPickerScreen() {
   });
   const [addressText, setAddressText] = useState(savedLocation?.address || "");
   const [loadingAddress, setLoadingAddress] = useState(false);
-  const [mapReady, setMapReady] = useState(false);
 
   useEffect(() => {
     if (!savedLocation) {
@@ -87,14 +86,6 @@ export default function MapPickerScreen() {
     reverseGeocode(coords.latitude, coords.longitude);
   };
 
-  const handleRegionChangeComplete = (region: Region) => {
-    setSelectedCoord({
-      latitude: region.latitude,
-      longitude: region.longitude,
-    });
-    reverseGeocode(region.latitude, region.longitude);
-  };
-
   const handleConfirm = () => {
     setSavedLocation({
       latitude: selectedCoord.latitude,
@@ -103,27 +94,6 @@ export default function MapPickerScreen() {
     });
     navigation.goBack();
   };
-
-  const handleMyLocation = () => {
-    getMyLocation();
-  };
-
-  if (Platform.OS === "web") {
-    return (
-      <View style={[styles.webFallback, { backgroundColor: theme.backgroundRoot }]}>
-        <Feather name="map" size={64} color="#CCC" />
-        <ThemedText type="h3" style={styles.webText}>
-          افتح التطبيق عبر Expo Go لاستخدام الخريطة
-        </ThemedText>
-        <Pressable
-          style={[styles.confirmButton, { marginTop: 20, paddingHorizontal: 30 }]}
-          onPress={() => navigation.goBack()}
-        >
-          <ThemedText type="body" style={styles.confirmText}>رجوع</ThemedText>
-        </Pressable>
-      </View>
-    );
-  }
 
   return (
     <View style={styles.container}>
@@ -139,7 +109,6 @@ export default function MapPickerScreen() {
         showsUserLocation
         showsMyLocationButton={false}
         onPress={handleMapPress}
-        onMapReady={() => setMapReady(true)}
       >
         <Marker
           coordinate={selectedCoord}
@@ -152,13 +121,9 @@ export default function MapPickerScreen() {
         />
       </MapView>
 
-      <View style={[styles.centerPin]}>
-        <Feather name="map-pin" size={36} color={AppColors.wayYellow} />
-      </View>
-
       <Pressable
         style={[styles.myLocationBtn, { top: insets.top + 60 }]}
-        onPress={handleMyLocation}
+        onPress={getMyLocation}
       >
         <Feather name="crosshair" size={22} color={AppColors.onGrey} />
       </Pressable>
@@ -195,15 +160,6 @@ const styles = StyleSheet.create({
   },
   map: {
     flex: 1,
-  },
-  centerPin: {
-    position: "absolute",
-    top: "45%",
-    left: "50%",
-    marginLeft: -18,
-    marginTop: -36,
-    zIndex: 10,
-    opacity: 0,
   },
   myLocationBtn: {
     position: "absolute",
@@ -276,16 +232,5 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: "#000",
     fontSize: 16,
-  },
-  webFallback: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 16,
-    padding: 20,
-  },
-  webText: {
-    textAlign: "center",
-    marginTop: 8,
   },
 });
