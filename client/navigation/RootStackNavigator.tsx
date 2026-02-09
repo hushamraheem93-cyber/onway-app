@@ -9,6 +9,7 @@ import PhoneLoginScreen from "@/screens/PhoneLoginScreen";
 import ProfileCompletionScreen from "@/screens/ProfileCompletionScreen";
 import CategoriesScreen from "@/screens/CategoriesScreen";
 import AdminScreen from "@/screens/AdminScreen";
+import MapPickerScreen from "@/screens/MapPickerScreen";
 import { useScreenOptions } from "@/hooks/useScreenOptions";
 import { useAuth } from "@/context/AuthContext";
 import { AppColors } from "@/constants/theme";
@@ -24,6 +25,7 @@ export type RootStackParamList = {
   Checkout: undefined;
   OrderConfirmation: { order: Order };
   Admin: undefined;
+  MapPicker: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -100,6 +102,14 @@ export default function RootStackNavigator() {
             component={AdminScreen}
             options={{
               headerTitle: "لوحة التحكم",
+            }}
+          />
+          <Stack.Screen
+            name="MapPicker"
+            component={MapPickerScreen}
+            options={{
+              headerTitle: "تحديد الموقع",
+              presentation: "modal",
             }}
           />
         </>

@@ -1,56 +1,66 @@
 import React, { useState, useEffect } from "react";
-import { StyleSheet, View, Pressable, Platform, Alert } from "react-native";
+import { StyleSheet, View, Pressable } from "react-native";
 import { Feather } from "@expo/vector-icons";
+import { useNavigation } from "@react-navigation/native";
+import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import * as Location from "expo-location";
 
 import { ThemedText } from "@/components/ThemedText";
 import { useTheme } from "@/hooks/useTheme";
-import { AppColors, Spacing, BorderRadius } from "@/constants/theme";
+import { useLocation } from "@/context/LocationContext";
+import { AppColors, Spacing } from "@/constants/theme";
+import { RootStackParamList } from "@/navigation/RootStackNavigator";
 
-interface LocationBarProps {
-  onPress?: () => void;
-}
+type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
-export function LocationBar({ onPress }: LocationBarProps) {
+export function LocationBar() {
   const { theme, isDark } = useTheme();
-  const [locationText, setLocationText] = useState("تحديد الموقع...");
-  const [loading, setLoading] = useState(false);
+  const navigation = useNavigation<NavigationProp>();
+  const { savedLocation, setSavedLocation } = useLocation();
+  const [autoDetecting, setAutoDetecting] = useState(false);
 
-  const getCurrentLocation = async () => {
+  useEffect(() => {
+    if (!savedLocation) {
+      autoDetectLocation();
+    }
+  }, []);
+
+  const autoDetectLocation = async () => {
     try {
-      setLoading(true);
+      setAutoDetecting(true);
       const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== "granted") {
-        setLocationText("يرجى السماح بالوصول للموقع");
-        setLoading(false);
-        return;
-      }
+      if (status !== "granted") return;
 
-      const location = await Location.getCurrentPositionAsync({
+      const loc = await Location.getCurrentPositionAsync({
         accuracy: Location.Accuracy.Balanced,
       });
 
       const [address] = await Location.reverseGeocodeAsync({
-        latitude: location.coords.latitude,
-        longitude: location.coords.longitude,
+        latitude: loc.coords.latitude,
+        longitude: loc.coords.longitude,
       });
 
       if (address) {
-        const parts = [address.street, address.district, address.city, address.region].filter(Boolean);
-        setLocationText(parts.join("، ") || "تم تحديد الموقع");
-      } else {
-        setLocationText("تم تحديد الموقع");
+        const parts = [address.street, address.name, address.district, address.city, address.region].filter(Boolean);
+        const unique = [...new Set(parts)];
+        setSavedLocation({
+          latitude: loc.coords.latitude,
+          longitude: loc.coords.longitude,
+          address: unique.join("، ") || "قضاء الدجيل",
+        });
       }
-    } catch (error) {
-      setLocationText("قضاء الدجيل - صلاح الدين");
-    } finally {
-      setLoading(false);
+    } catch {} finally {
+      setAutoDetecting(false);
     }
   };
 
-  useEffect(() => {
-    getCurrentLocation();
-  }, []);
+  const handlePress = () => {
+    navigation.navigate("MapPicker");
+  };
+
+  const displayAddress = autoDetecting
+    ? "جاري تحديد الموقع..."
+    : savedLocation?.address || "حدد موقعك على الخريطة";
 
   return (
     <Pressable
@@ -61,7 +71,7 @@ export function LocationBar({ onPress }: LocationBarProps) {
           borderColor: isDark ? theme.border : "#EEE",
         },
       ]}
-      onPress={onPress || getCurrentLocation}
+      onPress={handlePress}
     >
       <View style={styles.locationIcon}>
         <Feather name="map-pin" size={20} color={AppColors.wayYellow} />
@@ -71,7 +81,7 @@ export function LocationBar({ onPress }: LocationBarProps) {
           التوصيل إلى
         </ThemedText>
         <ThemedText type="body" numberOfLines={1} style={styles.address}>
-          {loading ? "جاري تحديد الموقع..." : locationText}
+          {displayAddress}
         </ThemedText>
       </View>
       <Feather name="chevron-down" size={18} color={AppColors.onGrey} />

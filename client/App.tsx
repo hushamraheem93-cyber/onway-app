@@ -53,6 +53,7 @@ import { FavoritesProvider } from "@/context/FavoritesContext";
 import { CartAnimationProvider } from "@/context/CartAnimationContext";
 import { ThemeProvider } from "@/context/ThemeContext";
 import { NotificationProvider } from "@/context/NotificationContext";
+import { LocationProvider } from "@/context/LocationContext";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -93,6 +94,7 @@ export default function App() {
         <ThemeProvider>
           <AuthProvider>
             <NotificationProvider>
+              <LocationProvider>
               <CartProvider>
                 <OrderProvider>
                   <FavoritesProvider>
@@ -111,6 +113,7 @@ export default function App() {
                   </FavoritesProvider>
                 </OrderProvider>
               </CartProvider>
+              </LocationProvider>
             </NotificationProvider>
           </AuthProvider>
         </ThemeProvider>
