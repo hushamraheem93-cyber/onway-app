@@ -25,7 +25,7 @@ import { getApiUrl, apiRequest } from "@/lib/query-client";
 import { formatPrice } from "@/constants/currency";
 import { compressAndConvertToBase64, isBase64Image, ImageSize } from "@/lib/imageUtils";
 
-type TabType = "banners" | "categories" | "products" | "areas" | "orders";
+type TabType = "banners" | "categories" | "products" | "areas" | "orders" | "drivers";
 type BannerType = "offer" | "slider";
 type OrderStatus = "pending" | "confirmed" | "preparing" | "delivering" | "delivered" | "cancelled";
 
@@ -59,6 +59,20 @@ interface DeliveryArea {
   name: string;
   fee: number;
   isActive: boolean;
+}
+
+interface Driver {
+  id: string;
+  phoneNumber: string;
+  fullName: string;
+  firstName: string;
+  secondName: string;
+  thirdName: string;
+  fourthName: string;
+  nationalIdImage: string;
+  status: "pending" | "approved" | "rejected";
+  createdAt: string;
+  updatedAt: string;
 }
 
 export default function AdminScreen() {
@@ -121,6 +135,19 @@ export default function AdminScreen() {
 
   const { data: adminOrders = [], isLoading: ordersLoading } = useQuery<AdminOrder[]>({
     queryKey: ["/api/admin/orders"],
+  });
+
+  const { data: drivers = [], isLoading: driversLoading } = useQuery<Driver[]>({
+    queryKey: ["/api/admin/drivers"],
+  });
+
+  const updateDriverStatusMutation = useMutation({
+    mutationFn: async ({ id, status }: { id: string; status: "pending" | "approved" | "rejected" }) => {
+      await apiRequest("PUT", `/api/admin/drivers/${id}/status`, { status });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/drivers"] });
+    },
   });
 
   const updateOrderStatus = useMutation({
@@ -884,6 +911,146 @@ export default function AdminScreen() {
     </View>
   );
 
+  const getDriverStatusColor = (status: string) => {
+    switch (status) {
+      case "approved": return "#16A34A";
+      case "rejected": return "#DC2626";
+      default: return "#F59E0B";
+    }
+  };
+
+  const getDriverStatusText = (status: string) => {
+    switch (status) {
+      case "approved": return "مقبول";
+      case "rejected": return "مرفوض";
+      default: return "قيد المراجعة";
+    }
+  };
+
+  const renderDriversTab = () => (
+    <View>
+      <ThemedText type="subtitle" style={styles.formTitle}>
+        سائقي التوصيل ({drivers.length})
+      </ThemedText>
+
+      {driversLoading ? (
+        <ActivityIndicator size="large" color={AppColors.primary} />
+      ) : drivers.length === 0 ? (
+        <View style={styles.formCard}>
+          <ThemedText type="body" style={{ textAlign: "center", color: "#9CA3AF" }}>
+            لا يوجد سائقين مسجلين
+          </ThemedText>
+        </View>
+      ) : (
+        drivers.map((driver) => (
+          <View key={driver.id} style={styles.formCard}>
+            <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: Spacing.md }}>
+              <View style={{
+                backgroundColor: getDriverStatusColor(driver.status) + "20",
+                paddingHorizontal: Spacing.md,
+                paddingVertical: 4,
+                borderRadius: BorderRadius.full,
+              }}>
+                <ThemedText type="caption" style={{ color: getDriverStatusColor(driver.status), fontWeight: "700" }}>
+                  {getDriverStatusText(driver.status)}
+                </ThemedText>
+              </View>
+              <ThemedText type="subtitle" style={{ textAlign: "right", flex: 1, marginRight: Spacing.sm }}>
+                {driver.fullName}
+              </ThemedText>
+            </View>
+
+            <View style={{ gap: Spacing.xs, marginBottom: Spacing.md }}>
+              <View style={{ flexDirection: "row", justifyContent: "flex-end", gap: Spacing.sm }}>
+                <ThemedText type="body" style={{ color: "#6B7280" }}>{driver.phoneNumber}</ThemedText>
+                <Feather name="phone" size={16} color="#6B7280" />
+              </View>
+              <View style={{ flexDirection: "row", justifyContent: "flex-end", gap: Spacing.sm }}>
+                <ThemedText type="body" style={{ color: "#6B7280" }}>
+                  {driver.firstName} {driver.secondName} {driver.thirdName} {driver.fourthName}
+                </ThemedText>
+                <Feather name="user" size={16} color="#6B7280" />
+              </View>
+              {driver.createdAt ? (
+                <View style={{ flexDirection: "row", justifyContent: "flex-end", gap: Spacing.sm }}>
+                  <ThemedText type="caption" style={{ color: "#9CA3AF" }}>
+                    {new Date(driver.createdAt).toLocaleDateString("ar-IQ")}
+                  </ThemedText>
+                  <Feather name="calendar" size={14} color="#9CA3AF" />
+                </View>
+              ) : null}
+            </View>
+
+            {driver.nationalIdImage ? (
+              <View style={{ marginBottom: Spacing.md }}>
+                <ThemedText type="body" style={{ textAlign: "right", marginBottom: Spacing.xs, fontWeight: "600" }}>
+                  صورة الهوية الوطنية:
+                </ThemedText>
+                <Image
+                  source={{ uri: driver.nationalIdImage }}
+                  style={{ width: "100%", height: 200, borderRadius: BorderRadius.md }}
+                  contentFit="contain"
+                />
+              </View>
+            ) : null}
+
+            {driver.status === "pending" ? (
+              <View style={{ flexDirection: "row", gap: Spacing.sm }}>
+                <Pressable
+                  style={{
+                    flex: 1,
+                    minHeight: 48,
+                    backgroundColor: "#DC2626",
+                    borderRadius: BorderRadius.lg,
+                    alignItems: "center",
+                    justifyContent: "center",
+                    paddingVertical: Spacing.md,
+                  }}
+                  onPress={() => updateDriverStatusMutation.mutate({ id: driver.id, status: "rejected" })}
+                >
+                  <ThemedText type="body" style={{ color: "#FFFFFF", fontWeight: "600" }}>رفض</ThemedText>
+                </Pressable>
+                <Pressable
+                  style={{
+                    flex: 1,
+                    minHeight: 48,
+                    backgroundColor: "#16A34A",
+                    borderRadius: BorderRadius.lg,
+                    alignItems: "center",
+                    justifyContent: "center",
+                    paddingVertical: Spacing.md,
+                  }}
+                  onPress={() => updateDriverStatusMutation.mutate({ id: driver.id, status: "approved" })}
+                >
+                  <ThemedText type="body" style={{ color: "#FFFFFF", fontWeight: "600" }}>قبول</ThemedText>
+                </Pressable>
+              </View>
+            ) : (
+              <Pressable
+                style={{
+                  minHeight: 48,
+                  backgroundColor: driver.status === "approved" ? "#F59E0B" : "#16A34A",
+                  borderRadius: BorderRadius.lg,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  paddingVertical: Spacing.md,
+                }}
+                onPress={() => updateDriverStatusMutation.mutate({
+                  id: driver.id,
+                  status: driver.status === "approved" ? "pending" : "approved",
+                })}
+              >
+                <ThemedText type="body" style={{ color: "#FFFFFF", fontWeight: "600" }}>
+                  {driver.status === "approved" ? "تعليق" : "قبول"}
+                </ThemedText>
+              </Pressable>
+            )}
+          </View>
+        ))
+      )}
+    </View>
+  );
+
   const renderContent = () => {
     switch (activeTab) {
       case "banners": return renderBannersTab();
@@ -891,6 +1058,7 @@ export default function AdminScreen() {
       case "products": return renderProductsTab();
       case "areas": return renderAreasTab();
       case "orders": return renderOrdersTab();
+      case "drivers": return renderDriversTab();
     }
   };
 
@@ -911,6 +1079,7 @@ export default function AdminScreen() {
             { key: "products", label: "المنتجات" },
             { key: "areas", label: "مناطق التوصيل" },
             { key: "orders", label: "الطلبات" },
+            { key: "drivers", label: "السائقين" },
           ].map((tab) => (
             <Pressable
               key={tab.key}
