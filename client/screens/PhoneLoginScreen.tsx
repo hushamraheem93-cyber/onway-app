@@ -14,13 +14,11 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Image } from "expo-image";
 import * as Haptics from "expo-haptics";
+import { Feather } from "@expo/vector-icons";
 
 import { ThemedText } from "@/components/ThemedText";
 import { AppColors } from "@/constants/theme";
 import { useAuth } from "@/context/AuthContext";
-
-// @ts-ignore
-import deliveryManImage from "../assets/images/delivery-man.png";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
@@ -89,12 +87,12 @@ export default function PhoneLoginScreen() {
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <View style={styles.imageSection}>
-        <View style={styles.yellowBg} />
-        <Image
-          source={deliveryManImage}
-          style={styles.deliveryImage}
-          contentFit="contain"
-        />
+        <View style={styles.orangeBg} />
+        <View style={styles.iconCircle}>
+          <Feather name="truck" size={64} color="#FFFFFF" />
+        </View>
+        <View style={styles.decorCircle1} />
+        <View style={styles.decorCircle2} />
       </View>
 
       <Animated.View
@@ -183,19 +181,39 @@ const styles = StyleSheet.create({
     height: "38%",
     position: "relative",
     alignItems: "center",
-    justifyContent: "flex-end",
+    justifyContent: "center",
     overflow: "hidden",
   },
-  yellowBg: {
+  orangeBg: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: "#FFD233",
-    borderBottomLeftRadius: 0,
-    borderBottomRightRadius: 0,
+    backgroundColor: AppColors.primary,
   },
-  deliveryImage: {
-    width: SCREEN_WIDTH * 0.65,
-    height: "100%",
+  iconCircle: {
+    width: 130,
+    height: 130,
+    borderRadius: 65,
+    backgroundColor: "rgba(255,255,255,0.2)",
+    alignItems: "center",
+    justifyContent: "center",
     zIndex: 2,
+  },
+  decorCircle1: {
+    position: "absolute",
+    width: 200,
+    height: 200,
+    borderRadius: 100,
+    backgroundColor: "rgba(255,255,255,0.08)",
+    top: -40,
+    right: -50,
+  },
+  decorCircle2: {
+    position: "absolute",
+    width: 150,
+    height: 150,
+    borderRadius: 75,
+    backgroundColor: "rgba(255,255,255,0.06)",
+    bottom: -30,
+    left: -30,
   },
   formSection: {
     flex: 1,
