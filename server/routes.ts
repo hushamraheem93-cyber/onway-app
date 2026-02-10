@@ -892,7 +892,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Driver Routes
   app.post("/api/drivers", async (req: Request, res: Response) => {
     try {
-      const { phoneNumber, fullName, firstName, secondName, thirdName, fourthName, nationalIdImage } = req.body;
+      const { phoneNumber, fullName, firstName, secondName, thirdName, fourthName, nationalIdImage, driverLicenseImage } = req.body;
 
       if (!phoneNumber || !fullName || !nationalIdImage) {
         return res.status(400).json({ error: "All fields are required" });
@@ -911,6 +911,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         thirdName: thirdName || "",
         fourthName: fourthName || "",
         nationalIdImage,
+        ...(driverLicenseImage && { driverLicenseImage }),
       });
 
       if (!driver) {

@@ -70,6 +70,7 @@ interface Driver {
   thirdName: string;
   fourthName: string;
   nationalIdImage: string;
+  driverLicenseImage?: string;
   status: "pending" | "approved" | "rejected";
   createdAt: string;
   updatedAt: string;
@@ -984,7 +985,7 @@ export default function AdminScreen() {
             {driver.nationalIdImage ? (
               <View style={{ marginBottom: Spacing.md }}>
                 <ThemedText type="body" style={{ textAlign: "right", marginBottom: Spacing.xs, fontWeight: "600" }}>
-                  صورة الهوية الوطنية:
+                  البطاقة الوطنية:
                 </ThemedText>
                 <Image
                   source={{ uri: driver.nationalIdImage }}
@@ -993,6 +994,25 @@ export default function AdminScreen() {
                 />
               </View>
             ) : null}
+
+            {driver.driverLicenseImage ? (
+              <View style={{ marginBottom: Spacing.md }}>
+                <ThemedText type="body" style={{ textAlign: "right", marginBottom: Spacing.xs, fontWeight: "600" }}>
+                  إجازة السوق:
+                </ThemedText>
+                <Image
+                  source={{ uri: driver.driverLicenseImage }}
+                  style={{ width: "100%", height: 200, borderRadius: BorderRadius.md }}
+                  contentFit="contain"
+                />
+              </View>
+            ) : (
+              <View style={{ marginBottom: Spacing.md }}>
+                <ThemedText type="body" style={{ textAlign: "right", color: "#9CA3AF" }}>
+                  لم يتم رفع إجازة السوق
+                </ThemedText>
+              </View>
+            )}
 
             {driver.status === "pending" ? (
               <View style={{ flexDirection: "row", gap: Spacing.sm }}>

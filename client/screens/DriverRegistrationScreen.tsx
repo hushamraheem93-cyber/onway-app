@@ -31,6 +31,7 @@ export default function DriverRegistrationScreen() {
   const [thirdName, setThirdName] = useState("");
   const [fourthName, setFourthName] = useState("");
   const [nationalIdImage, setNationalIdImage] = useState<string | null>(null);
+  const [driverLicenseImage, setDriverLicenseImage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
   const isFormValid =
@@ -40,7 +41,7 @@ export default function DriverRegistrationScreen() {
     fourthName.trim() &&
     nationalIdImage;
 
-  const pickNationalId = async () => {
+  const pickImage = async (setter: (uri: string) => void) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -50,11 +51,11 @@ export default function DriverRegistrationScreen() {
     });
 
     if (!result.canceled && result.assets[0]) {
-      setNationalIdImage(result.assets[0].uri);
+      setter(result.assets[0].uri);
     }
   };
 
-  const takeNationalIdPhoto = async () => {
+  const takePhoto = async (setter: (uri: string) => void) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
@@ -69,17 +70,17 @@ export default function DriverRegistrationScreen() {
     });
 
     if (!result.canceled && result.assets[0]) {
-      setNationalIdImage(result.assets[0].uri);
+      setter(result.assets[0].uri);
     }
   };
 
-  const showIdOptions = () => {
+  const showImageOptions = (setter: (uri: string) => void, title: string) => {
     Alert.alert(
-      "صورة الهوية الوطنية",
+      title,
       "اختر طريقة إضافة الصورة",
       [
-        { text: "الكاميرا", onPress: takeNationalIdPhoto },
-        { text: "معرض الصور", onPress: pickNationalId },
+        { text: "الكاميرا", onPress: () => takePhoto(setter) },
+        { text: "معرض الصور", onPress: () => pickImage(setter) },
         { text: "إلغاء", style: "cancel" },
       ]
     );
@@ -99,6 +100,11 @@ export default function DriverRegistrationScreen() {
         nationalIdBase64 = await compressAndConvertToBase64(nationalIdImage, "product");
       }
 
+      let driverLicenseBase64 = "";
+      if (driverLicenseImage) {
+        driverLicenseBase64 = await compressAndConvertToBase64(driverLicenseImage, "product");
+      }
+
       const response = await fetch(new URL("/api/drivers", getApiUrl()).toString(), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -110,6 +116,7 @@ export default function DriverRegistrationScreen() {
           thirdName: thirdName.trim(),
           fourthName: fourthName.trim(),
           nationalIdImage: nationalIdBase64,
+          ...(driverLicenseBase64 && { driverLicenseImage: driverLicenseBase64 }),
         }),
       });
 
@@ -215,27 +222,72 @@ export default function DriverRegistrationScreen() {
       </View>
 
       <View style={[styles.card, { backgroundColor: theme.backgroundDefault }, Shadows.sm]}>
-        <ThemedText type="h4" style={styles.sectionTitle}>صورة الهوية الوطنية</ThemedText>
+        <ThemedText type="h4" style={styles.sectionTitle}>صورة البطاقة الوطنية</ThemedText>
         <ThemedText type="small" style={[styles.idHint, { color: theme.textSecondary }]}>
-          التقط صورة واضحة للوجه الأمامي للهوية الوطنية
+          التقط صورة واضحة للوجه الأمامي للبطاقة الوطنية
         </ThemedText>
 
         <Pressable
           style={[styles.idUpload, { borderColor: nationalIdImage ? AppColors.primary : theme.border, backgroundColor: theme.backgroundSecondary }]}
-          onPress={showIdOptions}
+          onPress={() => showImageOptions(setNationalIdImage, "صورة البطاقة الوطنية")}
           testID="button-upload-id"
         >
           {nationalIdImage ? (
-            <Image
-              source={{ uri: nationalIdImage }}
-              style={styles.idPreview}
-              contentFit="cover"
-            />
+            <View>
+              <Image
+                source={{ uri: nationalIdImage }}
+                style={styles.idPreview}
+                contentFit="cover"
+              />
+              <View style={styles.uploadedBadge}>
+                <Feather name="check-circle" size={16} color="#FFFFFF" />
+                <ThemedText type="small" style={styles.uploadedText}>تم الرفع</ThemedText>
+              </View>
+            </View>
           ) : (
             <View style={styles.idPlaceholder}>
               <Feather name="camera" size={36} color={theme.textSecondary} />
               <ThemedText type="body" style={[styles.idPlaceholderText, { color: theme.textSecondary }]}>
-                اضغط لإضافة صورة الهوية
+                اضغط لإضافة صورة البطاقة الوطنية
+              </ThemedText>
+            </View>
+          )}
+        </Pressable>
+      </View>
+
+      <View style={[styles.card, { backgroundColor: theme.backgroundDefault }, Shadows.sm]}>
+        <View style={styles.sectionTitleRow}>
+          <ThemedText type="h4" style={styles.sectionTitle}>صورة إجازة السوق</ThemedText>
+          <View style={styles.optionalBadge}>
+            <ThemedText type="small" style={styles.optionalText}>اختياري</ThemedText>
+          </View>
+        </View>
+        <ThemedText type="small" style={[styles.idHint, { color: theme.textSecondary }]}>
+          التقط صورة واضحة لإجازة السوق (إن وجدت)
+        </ThemedText>
+
+        <Pressable
+          style={[styles.idUpload, { borderColor: driverLicenseImage ? "#4CAF50" : theme.border, backgroundColor: theme.backgroundSecondary }]}
+          onPress={() => showImageOptions(setDriverLicenseImage, "صورة إجازة السوق")}
+          testID="button-upload-license"
+        >
+          {driverLicenseImage ? (
+            <View>
+              <Image
+                source={{ uri: driverLicenseImage }}
+                style={styles.idPreview}
+                contentFit="cover"
+              />
+              <View style={[styles.uploadedBadge, { backgroundColor: "#4CAF50" }]}>
+                <Feather name="check-circle" size={16} color="#FFFFFF" />
+                <ThemedText type="small" style={styles.uploadedText}>تم الرفع</ThemedText>
+              </View>
+            </View>
+          ) : (
+            <View style={styles.idPlaceholder}>
+              <Feather name="file-text" size={36} color={theme.textSecondary} />
+              <ThemedText type="body" style={[styles.idPlaceholderText, { color: theme.textSecondary }]}>
+                اضغط لإضافة صورة إجازة السوق
               </ThemedText>
             </View>
           )}
@@ -303,6 +355,24 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.md,
     color: "#2D2D2D",
   },
+  sectionTitleRow: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    alignItems: "center",
+    gap: Spacing.sm,
+    marginBottom: Spacing.md,
+  },
+  optionalBadge: {
+    backgroundColor: "#E8F5E9",
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderRadius: 12,
+  },
+  optionalText: {
+    color: "#4CAF50",
+    fontSize: 11,
+    fontWeight: "600",
+  },
   field: {
     marginBottom: Spacing.md,
   },
@@ -348,6 +418,23 @@ const styles = StyleSheet.create({
   idPreview: {
     width: "100%",
     height: 200,
+  },
+  uploadedBadge: {
+    position: "absolute",
+    bottom: 10,
+    right: 10,
+    backgroundColor: AppColors.primary,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+  },
+  uploadedText: {
+    color: "#FFFFFF",
+    fontWeight: "700",
+    fontSize: 12,
   },
   idPlaceholder: {
     flex: 1,

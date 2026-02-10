@@ -1177,6 +1177,15 @@
       </div>
 
       <div class="nav-section">
+        <div class="nav-section-title">الفريق</div>
+        <div class="nav-item" onclick="showSection('drivers', this)">
+          <i data-lucide="users"></i>
+          <span>سائقين الدلفري</span>
+          <span class="badge" id="drivers-count">0</span>
+        </div>
+      </div>
+
+      <div class="nav-section">
         <div class="nav-section-title">الإعدادات</div>
         <div class="nav-item" onclick="showSection('delivery', this)">
           <i data-lucide="truck"></i>
@@ -1577,6 +1586,33 @@
       </div>
     </div>
 
+    <!-- Drivers Section -->
+    <div id="drivers-section" class="section">
+      <header class="header">
+        <div class="header-title">
+          <h2>سائقين الدلفري</h2>
+          <p>إدارة ومراجعة طلبات سائقي التوصيل</p>
+        </div>
+        <div class="header-actions">
+          <button class="btn btn-outline" onclick="loadDrivers()">
+            <i data-lucide="refresh-cw"></i>
+            تحديث
+          </button>
+        </div>
+      </header>
+
+      <div class="content">
+        <div class="drivers-filters" style="display: flex; gap: 12px; margin-bottom: 20px; flex-wrap: wrap;">
+          <button class="btn btn-outline driver-filter active" data-status="all" onclick="filterDrivers('all', this)">الكل</button>
+          <button class="btn btn-outline driver-filter" data-status="pending" onclick="filterDrivers('pending', this)">قيد المراجعة</button>
+          <button class="btn btn-outline driver-filter" data-status="approved" onclick="filterDrivers('approved', this)">مقبول</button>
+          <button class="btn btn-outline driver-filter" data-status="rejected" onclick="filterDrivers('rejected', this)">مرفوض</button>
+        </div>
+
+        <div id="drivers-list"></div>
+      </div>
+    </div>
+
     <!-- Orders Section -->
     <div id="orders-section" class="section">
       <header class="header">
@@ -1886,6 +1922,8 @@
     let banners = [];
     let deliveryAreas = [];
     let orders = [];
+    let drivers = [];
+    let currentDriverFilter = 'all';
     let currentOrderFilter = 'all';
     
     // Promotional sections data
@@ -1943,6 +1981,7 @@
       if (section === 'banners') loadBanners();
       if (section === 'delivery') loadDeliveryAreas();
       if (section === 'orders') loadOrders();
+      if (section === 'drivers') loadDrivers();
       if (section === 'dashboard') loadDashboard();
       if (section === 'bestSellers' || section === 'featured' || section === 'discounts') {
         if (products.length === 0) {
@@ -3043,6 +3082,184 @@
         }
       } catch (error) {
         showToast('error', 'خطأ', 'حدث خطأ أثناء تحديث حالة الطلب');
+      }
+    }
+
+    // Drivers
+    async function loadDrivers() {
+      try {
+        const response = await fetch(API_BASE + '/admin/drivers');
+        drivers = await response.json();
+        document.getElementById('drivers-count').textContent = drivers.filter(d => d.status === 'pending').length;
+        renderDrivers();
+      } catch (error) {
+        showToast('error', 'خطأ', 'حدث خطأ في تحميل السائقين');
+      }
+    }
+
+    function filterDrivers(status, element) {
+      currentDriverFilter = status;
+      document.querySelectorAll('.driver-filter').forEach(btn => btn.classList.remove('active'));
+      element.classList.add('active');
+      renderDrivers();
+    }
+
+    function getDriverStatusColor(status) {
+      switch (status) {
+        case 'approved': return '#16A34A';
+        case 'rejected': return '#DC2626';
+        default: return '#F59E0B';
+      }
+    }
+
+    function getDriverStatusLabel(status) {
+      switch (status) {
+        case 'approved': return 'مقبول';
+        case 'rejected': return 'مرفوض';
+        default: return 'قيد المراجعة';
+      }
+    }
+
+    function renderDrivers() {
+      const container = document.getElementById('drivers-list');
+      let filtered = drivers;
+
+      if (currentDriverFilter !== 'all') {
+        filtered = drivers.filter(d => d.status === currentDriverFilter);
+      }
+
+      if (filtered.length === 0) {
+        container.innerHTML = `
+          <div class="card">
+            <div class="card-body">
+              <div class="empty-state">
+                <i data-lucide="users"></i>
+                <h4>لا يوجد سائقين</h4>
+                <p>لم يتم تسجيل أي سائق بعد</p>
+              </div>
+            </div>
+          </div>`;
+        lucide.createIcons();
+        return;
+      }
+
+      container.innerHTML = filtered.map(driver => {
+        const statusColor = getDriverStatusColor(driver.status);
+        const date = driver.createdAt ? new Date(driver.createdAt).toLocaleDateString('ar-IQ', { year: 'numeric', month: 'short', day: 'numeric' }) : '';
+
+        let actionButtons = '';
+        if (driver.status === 'pending') {
+          actionButtons = `
+            <button class="btn btn-success btn-sm" onclick="updateDriverStatus('${driver.id}', 'approved')" style="margin-left: 8px;">
+              <i data-lucide="check"></i> قبول
+            </button>
+            <button class="btn btn-danger btn-sm" onclick="updateDriverStatus('${driver.id}', 'rejected')">
+              <i data-lucide="x"></i> رفض
+            </button>`;
+        } else if (driver.status === 'approved') {
+          actionButtons = `
+            <button class="btn btn-sm" style="background: var(--warning); color: white;" onclick="updateDriverStatus('${driver.id}', 'pending')">
+              <i data-lucide="pause"></i> تعليق
+            </button>`;
+        } else {
+          actionButtons = `
+            <button class="btn btn-success btn-sm" onclick="updateDriverStatus('${driver.id}', 'approved')">
+              <i data-lucide="check"></i> قبول
+            </button>`;
+        }
+
+        const nationalIdHtml = driver.nationalIdImage ? `
+          <div style="margin-top: 16px;">
+            <h4 style="font-size: 0.9rem; font-weight: 600; color: var(--gray-700); margin-bottom: 8px; display: flex; align-items: center; gap: 6px;">
+              <i data-lucide="credit-card" style="width: 16px; height: 16px;"></i>
+              البطاقة الوطنية
+            </h4>
+            <img src="${driver.nationalIdImage}" alt="البطاقة الوطنية" style="width: 100%; max-width: 400px; height: auto; max-height: 250px; object-fit: contain; border-radius: 12px; border: 2px solid var(--gray-200); cursor: pointer;" onclick="window.open(this.src, '_blank')" />
+          </div>` : '';
+
+        const licenseHtml = driver.driverLicenseImage ? `
+          <div style="margin-top: 16px;">
+            <h4 style="font-size: 0.9rem; font-weight: 600; color: var(--gray-700); margin-bottom: 8px; display: flex; align-items: center; gap: 6px;">
+              <i data-lucide="file-text" style="width: 16px; height: 16px;"></i>
+              إجازة السوق
+            </h4>
+            <img src="${driver.driverLicenseImage}" alt="إجازة السوق" style="width: 100%; max-width: 400px; height: auto; max-height: 250px; object-fit: contain; border-radius: 12px; border: 2px solid var(--gray-200); cursor: pointer;" onclick="window.open(this.src, '_blank')" />
+          </div>` : `
+          <div style="margin-top: 16px;">
+            <h4 style="font-size: 0.9rem; font-weight: 600; color: var(--gray-400); margin-bottom: 4px; display: flex; align-items: center; gap: 6px;">
+              <i data-lucide="file-text" style="width: 16px; height: 16px;"></i>
+              إجازة السوق
+            </h4>
+            <p style="color: var(--gray-400); font-size: 0.85rem;">لم يتم رفع إجازة السوق</p>
+          </div>`;
+
+        return `
+          <div class="card" style="margin-bottom: 20px;">
+            <div class="card-header" style="align-items: flex-start;">
+              <div style="display: flex; align-items: center; gap: 16px; flex: 1;">
+                <div style="width: 56px; height: 56px; border-radius: 50%; background: linear-gradient(135deg, var(--way-yellow), var(--primary-dark)); display: flex; align-items: center; justify-content: center;">
+                  <i data-lucide="user" style="width: 28px; height: 28px; color: white;"></i>
+                </div>
+                <div>
+                  <h3 style="font-size: 1.1rem; margin-bottom: 4px;">${escapeHtml(driver.fullName)}</h3>
+                  <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+                    <span style="display: flex; align-items: center; gap: 4px; color: var(--gray-500); font-size: 0.85rem;">
+                      <i data-lucide="phone" style="width: 14px; height: 14px;"></i>
+                      ${escapeHtml(driver.phoneNumber)}
+                    </span>
+                    <span style="display: flex; align-items: center; gap: 4px; color: var(--gray-500); font-size: 0.85rem;">
+                      <i data-lucide="calendar" style="width: 14px; height: 14px;"></i>
+                      ${date}
+                    </span>
+                  </div>
+                </div>
+              </div>
+              <span style="background: ${statusColor}20; color: ${statusColor}; padding: 6px 16px; border-radius: 20px; font-size: 0.8rem; font-weight: 700; white-space: nowrap;">
+                ${getDriverStatusLabel(driver.status)}
+              </span>
+            </div>
+            <div class="card-body">
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 8px;">
+                <div style="padding: 10px 14px; background: var(--gray-50); border-radius: 10px;">
+                  <span style="font-size: 0.75rem; color: var(--gray-500);">الاسم الكامل</span>
+                  <p style="font-weight: 600; color: var(--gray-800); font-size: 0.9rem;">${escapeHtml(driver.firstName)} ${escapeHtml(driver.secondName)} ${escapeHtml(driver.thirdName)} ${escapeHtml(driver.fourthName)}</p>
+                </div>
+                <div style="padding: 10px 14px; background: var(--gray-50); border-radius: 10px;">
+                  <span style="font-size: 0.75rem; color: var(--gray-500);">رقم الهاتف</span>
+                  <p style="font-weight: 600; color: var(--gray-800); font-size: 0.9rem;">${escapeHtml(driver.phoneNumber)}</p>
+                </div>
+              </div>
+
+              ${nationalIdHtml}
+              ${licenseHtml}
+
+              <div style="margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--gray-200); display: flex; gap: 8px; justify-content: flex-end;">
+                ${actionButtons}
+              </div>
+            </div>
+          </div>`;
+      }).join('');
+
+      lucide.createIcons();
+    }
+
+    async function updateDriverStatus(driverId, status) {
+      try {
+        const response = await fetch(`${API_BASE}/admin/drivers/${driverId}/status`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status })
+        });
+
+        if (response.ok) {
+          const statusLabel = getDriverStatusLabel(status);
+          showToast('success', 'تم التحديث', `تم تحديث حالة السائق إلى: ${statusLabel}`);
+          loadDrivers();
+        } else {
+          throw new Error('Failed');
+        }
+      } catch (error) {
+        showToast('error', 'خطأ', 'حدث خطأ أثناء تحديث حالة السائق');
       }
     }
 
