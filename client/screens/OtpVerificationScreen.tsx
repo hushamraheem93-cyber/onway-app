@@ -14,10 +14,11 @@ import * as Haptics from "expo-haptics";
 
 import { ThemedText } from "@/components/ThemedText";
 import { useTheme } from "@/hooks/useTheme";
-import { AppColors, Spacing, BorderRadius } from "@/constants/theme";
+import { Spacing, BorderRadius } from "@/constants/theme";
 import { useAuth } from "@/context/AuthContext";
 
-const OTP_LENGTH = 4;
+const OTP_LENGTH = 6;
+const PRIMARY = "#FF7622";
 
 export default function OtpVerificationScreen() {
   const insets = useSafeAreaInsets();
@@ -122,14 +123,14 @@ export default function OtpVerificationScreen() {
         style={[styles.content, { opacity: fadeAnim, transform: [{ scale: scaleAnim }] }]}
       >
         <View style={styles.iconCircle}>
-          <Feather name="shield" size={40} color={AppColors.primary} />
+          <Feather name="shield" size={40} color={PRIMARY} />
         </View>
 
         <ThemedText type="h2" style={styles.title}>
           رمز التحقق
         </ThemedText>
         <ThemedText type="body" style={[styles.subtitle, { color: theme.textSecondary }]}>
-          تم إرسال رمز التحقق إلى الرقم
+          تم إرسال رمز التحقق عبر واتساب إلى الرقم
         </ThemedText>
         <ThemedText type="body" style={styles.phoneDisplay}>
           {maskedPhone}
@@ -144,7 +145,7 @@ export default function OtpVerificationScreen() {
                 styles.otpInput,
                 {
                   backgroundColor: theme.backgroundDefault,
-                  borderColor: otp[index] ? AppColors.primary : theme.border,
+                  borderColor: otp[index] ? PRIMARY : theme.border,
                   color: theme.text,
                 },
               ]}
@@ -215,7 +216,7 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: `${AppColors.primary}15`,
+    backgroundColor: `${PRIMARY}15`,
     justifyContent: "center",
     alignItems: "center",
     marginBottom: Spacing.lg,
@@ -233,7 +234,7 @@ const styles = StyleSheet.create({
     textAlign: "center",
     fontWeight: "700",
     fontSize: 18,
-    color: AppColors.primary,
+    color: PRIMARY,
     marginBottom: Spacing.xl,
     letterSpacing: 1,
     direction: "ltr",
@@ -241,25 +242,25 @@ const styles = StyleSheet.create({
   otpRow: {
     flexDirection: "row",
     justifyContent: "center",
-    gap: 14,
+    gap: 10,
     marginBottom: Spacing.lg,
   },
   otpInput: {
-    width: 60,
-    height: 60,
-    borderRadius: BorderRadius.lg,
+    width: 48,
+    height: 56,
+    borderRadius: BorderRadius.sm,
     borderWidth: 2,
     textAlign: "center",
-    fontSize: 24,
+    fontSize: 22,
     fontWeight: "700",
   },
   errorText: {
-    color: AppColors.error,
+    color: "#F44336",
     textAlign: "center",
     marginBottom: Spacing.md,
   },
   verifyButton: {
-    backgroundColor: AppColors.primary,
+    backgroundColor: PRIMARY,
     width: "100%",
     height: 56,
     borderRadius: 16,
@@ -287,7 +288,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   resendLink: {
-    color: AppColors.primary,
+    color: PRIMARY,
     fontWeight: "700",
     fontSize: 14,
   },
