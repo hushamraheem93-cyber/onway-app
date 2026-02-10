@@ -6,75 +6,52 @@ import {
   Pressable,
   KeyboardAvoidingView,
   Platform,
-  Linking,
   Animated,
   Easing,
   ActivityIndicator,
+  Dimensions,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Image } from "expo-image";
-import { FontAwesome } from "@expo/vector-icons";
-import { LinearGradient } from "expo-linear-gradient";
 import * as Haptics from "expo-haptics";
 
 import { ThemedText } from "@/components/ThemedText";
 import { AppColors } from "@/constants/theme";
 import { useAuth } from "@/context/AuthContext";
 
-const SOCIAL_LINKS = {
-  facebook: "https://facebook.com/onwayiq",
-  instagram: "https://instagram.com/onwayiq",
-};
+import deliveryManImage from "@/assets/images/delivery-man.png";
+
+const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
 export default function PhoneLoginScreen() {
   const insets = useSafeAreaInsets();
-  const { login } = useAuth();
+  const { sendOtp } = useAuth();
   const [phoneNumber, setPhoneNumber] = useState("");
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
+  const slideUpAnim = useRef(new Animated.Value(50)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
-  const scaleAnim = useRef(new Animated.Value(0.5)).current;
-  const floatAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     Animated.parallel([
       Animated.timing(fadeAnim, {
         toValue: 1,
-        duration: 1000,
+        duration: 800,
         useNativeDriver: true,
       }),
-      Animated.spring(scaleAnim, {
-        toValue: 1,
-        friction: 4,
+      Animated.timing(slideUpAnim, {
+        toValue: 0,
+        duration: 800,
+        easing: Easing.out(Easing.cubic),
         useNativeDriver: true,
       }),
     ]).start();
-
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(floatAnim, {
-          toValue: -10,
-          duration: 2000,
-          easing: Easing.inOut(Easing.sin),
-          useNativeDriver: true,
-        }),
-        Animated.timing(floatAnim, {
-          toValue: 0,
-          duration: 2000,
-          easing: Easing.inOut(Easing.sin),
-          useNativeDriver: true,
-        }),
-      ])
-    ).start();
   }, []);
 
   const validatePhone = (phone: string) => {
     const cleanPhone = phone.replace(/\s/g, "");
-    if (cleanPhone.length < 9) {
-      return false;
-    }
-    return true;
+    return cleanPhone.length >= 9;
   };
 
   const formatPhoneForLogin = (phone: string) => {
@@ -84,7 +61,7 @@ export default function PhoneLoginScreen() {
 
   const handleContinue = async () => {
     setError("");
-    
+
     if (!phoneNumber.trim()) {
       setError("الرجاء إدخال رقم الهاتف");
       return;
@@ -97,38 +74,52 @@ export default function PhoneLoginScreen() {
 
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setIsLoading(true);
-    
+
     try {
       const fullPhone = formatPhoneForLogin(phoneNumber);
-      await login(fullPhone);
+      await sendOtp(fullPhone);
     } catch (err: any) {
-      setError(err.message || "حدث خطأ أثناء تسجيل الدخول");
+      setError(err.message || "حدث خطأ أثناء إرسال رمز التحقق");
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <LinearGradient
-      colors={["#FF8C00", "#FF6B00"]}
-      style={styles.container}
-    >
-      <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
-        style={styles.inner}
-      >
-        <Animated.View style={[styles.logoContainer, { transform: [{ translateY: floatAnim }] }]}>
-          <ThemedText type="h1" style={styles.logoText}>
-            OnWay
-          </ThemedText>
-          <ThemedText type="body" style={styles.logoSubText}>
-            أون وي
-          </ThemedText>
-        </Animated.View>
+    <View style={[styles.container, { paddingTop: insets.top }]}>
+      <View style={styles.imageSection}>
+        <View style={styles.yellowBg} />
+        <Image
+          source={deliveryManImage}
+          style={styles.deliveryImage}
+          contentFit="contain"
+        />
+      </View>
 
-        <View style={styles.formContainer}>
-          <ThemedText type="body" style={styles.inputLabel}>
-            تسجيل الدخول
+      <Animated.View
+        style={[
+          styles.formSection,
+          {
+            opacity: fadeAnim,
+            transform: [{ translateY: slideUpAnim }],
+            paddingBottom: insets.bottom + 20,
+          },
+        ]}
+      >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          style={styles.formInner}
+        >
+          <View style={styles.brandRow}>
+            <ThemedText type="h1" style={styles.brandOn}>On</ThemedText>
+            <ThemedText type="h1" style={styles.brandWay}>way</ThemedText>
+          </View>
+
+          <ThemedText type="h3" style={styles.welcomeTitle}>
+            مرحباً بك في أون وي
+          </ThemedText>
+          <ThemedText type="body" style={styles.welcomeSubtitle}>
+            أدخل رقم هاتفك للبدء في التسوق أو التوصيل
           </ThemedText>
 
           <View style={styles.phoneInputRow}>
@@ -140,20 +131,16 @@ export default function PhoneLoginScreen() {
               value={phoneNumber}
               onChangeText={setPhoneNumber}
               maxLength={12}
+              testID="input-phone"
             />
             <View style={styles.verticalDivider} />
-            <Animated.View
-              style={[
-                styles.countryContainer,
-                { opacity: fadeAnim, transform: [{ scale: scaleAnim }] },
-              ]}
-            >
+            <View style={styles.countryContainer}>
               <ThemedText type="body" style={styles.countryCode}>+964</ThemedText>
               <Image
                 source={{ uri: "https://flagcdn.com/w80/iq.png" }}
                 style={styles.flagIcon}
               />
-            </Animated.View>
+            </View>
           </View>
 
           {error ? (
@@ -166,106 +153,99 @@ export default function PhoneLoginScreen() {
             style={[styles.mainButton, isLoading && styles.mainButtonDisabled]}
             onPress={handleContinue}
             disabled={isLoading}
+            testID="button-continue"
           >
             {isLoading ? (
-              <ActivityIndicator size="small" color="#FF6B00" />
+              <ActivityIndicator size="small" color="#FFFFFF" />
             ) : (
               <ThemedText type="h4" style={styles.buttonText}>
-                متابعة
+                إرسال رمز التحقق
               </ThemedText>
             )}
           </Pressable>
-        </View>
 
-        <View style={[styles.footer, { paddingBottom: insets.bottom + 20 }]}>
           <ThemedText type="small" style={styles.termsText}>
             بالمتابعة، أنت توافق على شروط الخدمة وسياسة الخصوصية
           </ThemedText>
-
-          <View style={styles.socialRow}>
-            <Pressable
-              style={styles.socialIcon}
-              onPress={() => Linking.openURL(SOCIAL_LINKS.facebook)}
-            >
-              <FontAwesome name="facebook" size={24} color="white" />
-            </Pressable>
-            <Pressable
-              style={styles.socialIcon}
-              onPress={() => Linking.openURL(SOCIAL_LINKS.instagram)}
-            >
-              <FontAwesome name="instagram" size={24} color="white" />
-            </Pressable>
-          </View>
-        </View>
-      </KeyboardAvoidingView>
-    </LinearGradient>
+        </KeyboardAvoidingView>
+      </Animated.View>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: "#FFFFFF",
   },
-  inner: {
-    flex: 1,
-    justifyContent: "center",
-    padding: 30,
-  },
-  logoContainer: {
+  imageSection: {
+    height: "38%",
+    position: "relative",
     alignItems: "center",
-    marginTop: 40,
-    marginBottom: 50,
-    overflow: "visible",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.2,
-    shadowRadius: 15,
+    justifyContent: "flex-end",
+    overflow: "hidden",
   },
-  logoText: {
-    fontFamily: "Kanit-Black",
-    fontSize: 55,
-    color: "#FFFFFF",
-    letterSpacing: 1,
-    lineHeight: 70,
-    textShadowColor: "rgba(0, 0, 0, 0.3)",
-    textShadowOffset: { width: 2, height: 4 },
-    textShadowRadius: 5,
+  yellowBg: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "#FFD233",
+    borderBottomLeftRadius: 0,
+    borderBottomRightRadius: 0,
   },
-  logoSubText: {
-    fontFamily: "Cairo_700Bold",
-    fontSize: 22,
-    color: "#FFFFFF",
-    marginTop: -10,
-    opacity: 0.95,
-    textShadowColor: "rgba(255, 255, 255, 0.5)",
-    textShadowOffset: { width: 0, height: 0 },
-    textShadowRadius: 10,
+  deliveryImage: {
+    width: SCREEN_WIDTH * 0.65,
+    height: "100%",
+    zIndex: 2,
   },
-  formContainer: {
-    backgroundColor: "rgba(255, 255, 255, 0.2)",
-    borderRadius: 20,
-    padding: 20,
-    width: "100%",
+  formSection: {
+    flex: 1,
+    backgroundColor: "#FFFFFF",
+    borderTopLeftRadius: 30,
+    borderTopRightRadius: 30,
+    marginTop: -30,
+    zIndex: 3,
+    paddingHorizontal: 24,
+    paddingTop: 24,
   },
-  inputLabel: {
-    color: "#FFF",
-    textAlign: "right",
-    marginBottom: 10,
+  formInner: {
+    flex: 1,
+  },
+  brandRow: {
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  brandOn: {
+    fontSize: 36,
+    fontWeight: "800",
+    color: "#2D2D2D",
+  },
+  brandWay: {
+    fontSize: 36,
+    fontWeight: "800",
+    color: AppColors.primary,
+  },
+  welcomeTitle: {
+    textAlign: "center",
+    fontWeight: "700",
+    color: "#2D2D2D",
+    marginBottom: 4,
+  },
+  welcomeSubtitle: {
+    textAlign: "center",
+    color: "#888",
+    marginBottom: 24,
     fontSize: 14,
-    fontWeight: "600",
   },
   phoneInputRow: {
     flexDirection: "row",
-    backgroundColor: "#FFF",
-    borderRadius: 15,
-    height: 60,
+    backgroundColor: "#F6F6F6",
+    borderRadius: 16,
+    height: 58,
     alignItems: "center",
-    paddingHorizontal: 15,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 5,
-    elevation: 5,
+    paddingHorizontal: 16,
+    borderWidth: 1,
+    borderColor: "#ECECEC",
   },
   textInput: {
     flex: 1,
@@ -276,9 +256,9 @@ const styles = StyleSheet.create({
   },
   verticalDivider: {
     width: 1,
-    height: "60%",
-    backgroundColor: "#EEE",
-    marginHorizontal: 10,
+    height: "55%",
+    backgroundColor: "#DDD",
+    marginHorizontal: 12,
   },
   countryContainer: {
     flexDirection: "row",
@@ -296,14 +276,14 @@ const styles = StyleSheet.create({
     borderRadius: 3,
   },
   errorText: {
-    color: "#FFE0E0",
+    color: AppColors.error,
     textAlign: "center",
     marginTop: 10,
   },
   mainButton: {
-    backgroundColor: "white",
-    height: 55,
-    borderRadius: 15,
+    backgroundColor: AppColors.primary,
+    height: 56,
+    borderRadius: 16,
     justifyContent: "center",
     alignItems: "center",
     marginTop: 20,
@@ -312,32 +292,14 @@ const styles = StyleSheet.create({
     opacity: 0.7,
   },
   buttonText: {
-    color: "#FF6B00",
+    color: "#FFFFFF",
     fontSize: 18,
     fontWeight: "bold",
   },
-  footer: {
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
-    alignItems: "center",
-    paddingHorizontal: 30,
-  },
   termsText: {
-    color: "white",
+    color: "#AAA",
     textAlign: "center",
     fontSize: 12,
-    opacity: 0.8,
-    marginBottom: 20,
-  },
-  socialRow: {
-    flexDirection: "row",
-    gap: 20,
-  },
-  socialIcon: {
-    padding: 10,
-    backgroundColor: "rgba(255, 255, 255, 0.2)",
-    borderRadius: 50,
+    marginTop: 16,
   },
 });
