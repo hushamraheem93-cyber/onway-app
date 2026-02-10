@@ -39,6 +39,7 @@ interface AuthContextType {
   saveProfile: (profile: Omit<UserProfile, "phoneNumber" | "profileComplete">, imageUri?: string) => Promise<void>;
   refreshProfile: () => Promise<void>;
   completeDriverRegistration: () => Promise<void>;
+  goBackToUserType: () => void;
   isLoading: boolean;
 }
 
@@ -244,6 +245,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const goBackToUserType = () => {
+    setSelectedUserType(null);
+    setIsDriverRegistered(false);
+  };
+
   const completeDriverRegistration = async () => {
     if (!phoneNumber) return;
     try {
@@ -356,6 +362,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         saveProfile,
         refreshProfile,
         completeDriverRegistration,
+        goBackToUserType,
         isLoading 
       }}
     >
