@@ -26,6 +26,39 @@ function getLeafletHTML(lat: number, lng: number) {
     html, body { width: 100%; height: 100%; overflow: hidden; }
     #map { width: 100%; height: 100%; }
     .leaflet-control-attribution { display: none !important; }
+    .leaflet-control-zoom { border: none !important; box-shadow: 0 2px 12px rgba(0,0,0,0.15) !important; border-radius: 12px !important; overflow: hidden; }
+    .leaflet-control-zoom a { width: 38px !important; height: 38px !important; line-height: 38px !important; font-size: 18px !important; color: #333 !important; background: #fff !important; border: none !important; }
+    .leaflet-control-zoom a:hover { background: #f5f5f5 !important; }
+    .custom-marker {
+      width: 40px; height: 40px; position: relative;
+    }
+    .marker-pin {
+      width: 40px; height: 40px; border-radius: 50% 50% 50% 0;
+      background: #FFB300; transform: rotate(-45deg);
+      position: absolute; left: 0; top: 0;
+      box-shadow: 0 3px 10px rgba(255,179,0,0.4);
+      border: 3px solid #fff;
+    }
+    .marker-pin::after {
+      content: ''; width: 14px; height: 14px; border-radius: 50%;
+      background: #fff; position: absolute;
+      left: 50%; top: 50%; transform: translate(-50%, -50%);
+    }
+    .marker-shadow {
+      width: 28px; height: 6px; border-radius: 50%;
+      background: rgba(0,0,0,0.15); position: absolute;
+      bottom: -4px; left: 6px;
+    }
+    .pulse-ring {
+      width: 60px; height: 60px; border-radius: 50%;
+      background: rgba(255,179,0,0.2); position: absolute;
+      left: -10px; top: -10px;
+      animation: pulse 2s ease-out infinite;
+    }
+    @keyframes pulse {
+      0% { transform: scale(0.5); opacity: 1; }
+      100% { transform: scale(1.4); opacity: 0; }
+    }
   </style>
 </head>
 <body>
@@ -33,18 +66,41 @@ function getLeafletHTML(lat: number, lng: number) {
   <script>
     var map = L.map('map', {
       center: [${lat}, ${lng}],
-      zoom: 15,
+      zoom: 16,
       zoomControl: false,
       attributionControl: false
     });
 
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    var osmBase = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 19
-    }).addTo(map);
+    });
+
+    var cartoVoyager = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png', {
+      maxZoom: 20,
+      subdomains: 'abcd'
+    });
+
+    var cartoLabels = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager_only_labels/{z}/{x}/{y}@2x.png', {
+      maxZoom: 20,
+      subdomains: 'abcd',
+      pane: 'overlayPane'
+    });
+
+    cartoVoyager.addTo(map);
+    osmBase.addTo(map);
+    cartoLabels.addTo(map);
 
     L.control.zoom({ position: 'topleft' }).addTo(map);
 
-    var marker = L.marker([${lat}, ${lng}], { draggable: true }).addTo(map);
+    var markerIcon = L.divIcon({
+      className: 'custom-marker',
+      html: '<div class="pulse-ring"></div><div class="marker-pin"></div><div class="marker-shadow"></div>',
+      iconSize: [40, 40],
+      iconAnchor: [20, 40],
+      popupAnchor: [0, -40]
+    });
+
+    var marker = L.marker([${lat}, ${lng}], { draggable: true, icon: markerIcon }).addTo(map);
 
     function sendLocation(lat, lng) {
       window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'location', lat: lat, lng: lng }));
@@ -61,7 +117,7 @@ function getLeafletHTML(lat: number, lng: number) {
     });
 
     function moveToLocation(lat, lng) {
-      map.setView([lat, lng], 17, { animate: true });
+      map.setView([lat, lng], 17, { animate: true, duration: 0.5 });
       marker.setLatLng([lat, lng]);
       sendLocation(lat, lng);
     }
