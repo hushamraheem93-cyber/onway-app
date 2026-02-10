@@ -139,14 +139,42 @@ export default function DriverOrderDetailScreen() {
             <ThemedText type="small" style={{ color: theme.textSecondary }}>العنوان</ThemedText>
           </View>
 
-          <Pressable
-            style={styles.callButton}
-            onPress={handleCallCustomer}
-            testID="button-call-customer"
-          >
-            <Feather name="phone" size={20} color="#FFFFFF" />
-            <ThemedText type="h4" style={styles.callButtonText}>اتصال بالزبون</ThemedText>
-          </Pressable>
+          <View style={styles.actionButtonsRow}>
+            <Pressable
+              style={styles.callButton}
+              onPress={handleCallCustomer}
+              testID="button-call-customer"
+            >
+              <Feather name="phone" size={20} color="#FFFFFF" />
+              <ThemedText type="h4" style={styles.callButtonText}>اتصال بالزبون</ThemedText>
+            </Pressable>
+
+            {(order.latitude && order.longitude) ? (
+              <Pressable
+                style={styles.mapButton}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                  const lat = order.latitude!;
+                  const lng = order.longitude!;
+                  const label = encodeURIComponent(order.customerName || "موقع الزبون");
+                  const url = Platform.select({
+                    ios: `maps:0,0?q=${label}@${lat},${lng}`,
+                    android: `geo:0,0?q=${lat},${lng}(${label})`,
+                    default: `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`,
+                  });
+                  if (url) {
+                    Linking.openURL(url).catch(() => {
+                      Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${lat},${lng}`).catch(console.error);
+                    });
+                  }
+                }}
+                testID="button-view-location"
+              >
+                <Feather name="map-pin" size={20} color="#FFFFFF" />
+                <ThemedText type="h4" style={styles.callButtonText}>موقع الزبون</ThemedText>
+              </Pressable>
+            ) : null}
+          </View>
         </View>
 
         <View style={[styles.card, { backgroundColor: theme.backgroundDefault }, Shadows.sm]}>
@@ -298,7 +326,13 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingVertical: Spacing.sm,
   },
+  actionButtonsRow: {
+    flexDirection: "row",
+    gap: Spacing.sm,
+    marginTop: Spacing.md,
+  },
   callButton: {
+    flex: 1,
     flexDirection: "row",
     justifyContent: "center",
     alignItems: "center",
@@ -306,7 +340,16 @@ const styles = StyleSheet.create({
     backgroundColor: "#4CAF50",
     paddingVertical: Spacing.md,
     borderRadius: BorderRadius.md,
-    marginTop: Spacing.md,
+  },
+  mapButton: {
+    flex: 1,
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    gap: Spacing.sm,
+    backgroundColor: "#2196F3",
+    paddingVertical: Spacing.md,
+    borderRadius: BorderRadius.md,
   },
   callButtonText: {
     color: "#FFFFFF",

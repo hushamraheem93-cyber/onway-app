@@ -37,6 +37,9 @@ interface OrderContextType {
     deliveryFee: number;
     address: string;
     region: string;
+    customerName?: string;
+    latitude?: number;
+    longitude?: number;
   }) => Promise<Order | null>;
   refreshOrders: () => Promise<void>;
 }
@@ -128,28 +131,37 @@ export function OrderProvider({ children }: { children: ReactNode }) {
     deliveryFee: number;
     address: string;
     region: string;
+    customerName?: string;
+    latitude?: number;
+    longitude?: number;
   }): Promise<Order | null> => {
     if (!phoneNumber) return null;
     
     try {
+      const bodyData: any = {
+        phoneNumber,
+        userId: userProfile?.id || "",
+        items: orderData.items.map(item => ({
+          productId: item.product.id,
+          name: item.product.name,
+          price: item.product.price,
+          quantity: item.quantity,
+          image: item.product.image,
+        })),
+        total: orderData.total,
+        deliveryFee: orderData.deliveryFee,
+        address: orderData.address,
+        region: orderData.region,
+      };
+      if (orderData.customerName) bodyData.customerName = orderData.customerName;
+      if (orderData.latitude !== undefined && orderData.longitude !== undefined) {
+        bodyData.latitude = orderData.latitude;
+        bodyData.longitude = orderData.longitude;
+      }
       const response = await fetch(new URL("/api/orders", getApiUrl()).toString(), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          phoneNumber,
-          userId: userProfile?.id || "",
-          items: orderData.items.map(item => ({
-            productId: item.product.id,
-            name: item.product.name,
-            price: item.product.price,
-            quantity: item.quantity,
-            image: item.product.image,
-          })),
-          total: orderData.total,
-          deliveryFee: orderData.deliveryFee,
-          address: orderData.address,
-          region: orderData.region,
-        }),
+        body: JSON.stringify(bodyData),
       });
       
       if (response.ok) {

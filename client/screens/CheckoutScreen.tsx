@@ -1,11 +1,27 @@
-import React, { useState } from "react";
-import { StyleSheet, View, TextInput, Alert, Modal, Pressable, FlatList } from "react-native";
+import React, { useState, useEffect, useRef } from "react";
+import { StyleSheet, View, TextInput, Alert, Modal, Pressable, FlatList, Platform, Dimensions } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import * as Haptics from "expo-haptics";
+import * as Location from "expo-location";
 import { Feather } from "@expo/vector-icons";
+
+let MapView: any = null;
+let Marker: any = null;
+if (Platform.OS !== "web") {
+  const Maps = require("react-native-maps");
+  MapView = Maps.default;
+  Marker = Maps.Marker;
+}
+
+interface Region {
+  latitude: number;
+  longitude: number;
+  latitudeDelta: number;
+  longitudeDelta: number;
+}
 
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import { useTheme } from "@/hooks/useTheme";
@@ -28,6 +44,13 @@ interface DeliveryArea {
   isActive: boolean;
 }
 
+const DHULUIYAH_REGION: Region = {
+  latitude: 34.25,
+  longitude: 44.15,
+  latitudeDelta: 0.05,
+  longitudeDelta: 0.05,
+};
+
 export default function CheckoutScreen() {
   const insets = useSafeAreaInsets();
   const headerHeight = useHeaderHeight();
@@ -35,6 +58,7 @@ export default function CheckoutScreen() {
   const navigation = useNavigation<NavigationProp>();
   const { items, getTotal, clearCart } = useCart();
   const { addOrder } = useOrders();
+  const mapRef = useRef<any>(null);
 
   const { data: deliveryAreas = [] } = useQuery<DeliveryArea[]>({
     queryKey: ["/api/delivery-areas"],
@@ -47,6 +71,10 @@ export default function CheckoutScreen() {
   const [notes, setNotes] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showAreaPicker, setShowAreaPicker] = useState(false);
+  const [showMapPicker, setShowMapPicker] = useState(false);
+  const [selectedLocation, setSelectedLocation] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [mapRegion, setMapRegion] = useState<Region>(DHULUIYAH_REGION);
+  const [isLoadingLocation, setIsLoadingLocation] = useState(false);
 
   const handleSelectArea = (areaId: string) => {
     setSelectedArea(areaId);
@@ -58,6 +86,59 @@ export default function CheckoutScreen() {
   const selectedAreaData = deliveryAreas.find(a => a.id === selectedArea);
   const deliveryFee = selectedAreaData?.fee || 0;
   const total = subtotal + deliveryFee;
+
+  const getCurrentLocation = async () => {
+    setIsLoadingLocation(true);
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== "granted") {
+        Alert.alert("تنبيه", "يرجى السماح بالوصول إلى الموقع لتحديد موقع التوصيل");
+        setIsLoadingLocation(false);
+        return;
+      }
+      const location = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.High,
+      });
+      const newRegion: Region = {
+        latitude: location.coords.latitude,
+        longitude: location.coords.longitude,
+        latitudeDelta: 0.005,
+        longitudeDelta: 0.005,
+      };
+      setSelectedLocation({ latitude: location.coords.latitude, longitude: location.coords.longitude });
+      setMapRegion(newRegion);
+      if (mapRef.current) {
+        mapRef.current.animateToRegion(newRegion, 500);
+      }
+    } catch (error) {
+      console.error("Error getting location:", error);
+      Alert.alert("خطأ", "تعذر الحصول على الموقع الحالي");
+    } finally {
+      setIsLoadingLocation(false);
+    }
+  };
+
+  const handleMapPress = (e: any) => {
+    const { latitude, longitude } = e.nativeEvent.coordinate;
+    setSelectedLocation({ latitude, longitude });
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  };
+
+  const openMapPicker = () => {
+    setShowMapPicker(true);
+    if (!selectedLocation) {
+      getCurrentLocation();
+    }
+  };
+
+  const confirmMapLocation = () => {
+    if (selectedLocation) {
+      setShowMapPicker(false);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } else {
+      Alert.alert("تنبيه", "يرجى تحديد موقع التوصيل على الخريطة");
+    }
+  };
 
   const handleSubmit = async () => {
     if (!customerName.trim()) {
@@ -90,6 +171,9 @@ export default function CheckoutScreen() {
         deliveryFee,
         address: fullAddress,
         region: areaName,
+        customerName: customerName.trim(),
+        latitude: selectedLocation?.latitude,
+        longitude: selectedLocation?.longitude,
       });
 
       if (order) {
@@ -224,9 +308,9 @@ export default function CheckoutScreen() {
                       {formatPrice(item.fee)}
                     </ThemedText>
                   </View>
-                  {selectedArea === item.id && (
+                  {selectedArea === item.id ? (
                     <Feather name="check-circle" size={22} color={AppColors.primary} />
-                  )}
+                  ) : null}
                 </Pressable>
               )}
             />
@@ -249,6 +333,123 @@ export default function CheckoutScreen() {
           numberOfLines={3}
         />
       </View>
+
+      <View style={[styles.inputContainer, { backgroundColor: theme.backgroundDefault }, Shadows.sm]}>
+        <ThemedText type="small" style={[styles.label, { color: theme.textSecondary }]}>
+          موقع التوصيل على الخريطة (اختياري)
+        </ThemedText>
+        <Pressable
+          onPress={openMapPicker}
+          style={[
+            styles.mapButton,
+            {
+              borderColor: selectedLocation ? AppColors.success : AppColors.primary,
+              backgroundColor: selectedLocation ? "#E8F5E9" : AppColors.secondary,
+            }
+          ]}
+          testID="button-open-map"
+        >
+          <Feather 
+            name={selectedLocation ? "check-circle" : "map-pin"} 
+            size={22} 
+            color={selectedLocation ? AppColors.success : AppColors.primary} 
+          />
+          <ThemedText
+            type="body"
+            style={{
+              flex: 1,
+              textAlign: "right",
+              color: selectedLocation ? AppColors.success : AppColors.primary,
+              fontWeight: "600",
+            }}
+          >
+            {selectedLocation ? "تم تحديد الموقع" : "حدد موقعك على الخريطة"}
+          </ThemedText>
+        </Pressable>
+      </View>
+
+      <Modal
+        visible={showMapPicker}
+        animationType="slide"
+        onRequestClose={() => setShowMapPicker(false)}
+      >
+        <View style={[styles.mapContainer, { backgroundColor: theme.backgroundRoot }]}>
+          <View style={[styles.mapHeader, { paddingTop: insets.top + Spacing.sm, backgroundColor: AppColors.primary }]}>
+            <Pressable onPress={() => setShowMapPicker(false)} style={styles.mapHeaderBtn}>
+              <Feather name="x" size={24} color="#FFFFFF" />
+            </Pressable>
+            <ThemedText type="h4" style={{ color: "#FFFFFF", fontWeight: "700", flex: 1, textAlign: "center" }}>
+              حدد موقع التوصيل
+            </ThemedText>
+            <Pressable onPress={confirmMapLocation} style={styles.mapHeaderBtn}>
+              <Feather name="check" size={24} color="#FFFFFF" />
+            </Pressable>
+          </View>
+
+          {(Platform.OS === "web" || !MapView) ? (
+            <View style={styles.webMapFallback}>
+              <Feather name="map" size={60} color={theme.textSecondary} />
+              <ThemedText type="body" style={{ color: theme.textSecondary, textAlign: "center", marginTop: Spacing.lg }}>
+                الخريطة متاحة فقط على تطبيق الهاتف
+              </ThemedText>
+              <ThemedText type="small" style={{ color: theme.textSecondary, textAlign: "center", marginTop: Spacing.sm }}>
+                استخدم تطبيق Expo Go لتحديد الموقع
+              </ThemedText>
+            </View>
+          ) : (
+            <View style={{ flex: 1 }}>
+              <MapView
+                ref={mapRef}
+                style={styles.map}
+                initialRegion={mapRegion}
+                onPress={handleMapPress}
+                showsUserLocation
+                showsMyLocationButton={false}
+              >
+                {selectedLocation ? (
+                  <Marker
+                    coordinate={selectedLocation}
+                    draggable
+                    onDragEnd={(e) => {
+                      setSelectedLocation(e.nativeEvent.coordinate);
+                    }}
+                  />
+                ) : null}
+              </MapView>
+
+              <View style={[styles.mapControls, { bottom: insets.bottom + Spacing.xl }]}>
+                <Pressable
+                  style={[styles.myLocationBtn, { backgroundColor: theme.backgroundDefault }, Shadows.md]}
+                  onPress={getCurrentLocation}
+                  testID="button-my-location"
+                >
+                  <Feather name="crosshair" size={24} color={AppColors.primary} />
+                </Pressable>
+
+                <Pressable
+                  style={[
+                    styles.confirmLocationBtn,
+                    { backgroundColor: selectedLocation ? AppColors.primary : "#CCCCCC" },
+                  ]}
+                  onPress={confirmMapLocation}
+                  testID="button-confirm-location"
+                >
+                  <Feather name="check" size={20} color="#FFFFFF" />
+                  <ThemedText type="h4" style={{ color: "#FFFFFF", fontWeight: "700" }}>
+                    تأكيد الموقع
+                  </ThemedText>
+                </Pressable>
+              </View>
+
+              <View style={styles.mapCenterHint}>
+                <ThemedText type="small" style={{ color: "#FFFFFF", fontWeight: "600" }}>
+                  انقر على الخريطة أو اسحب المؤشر لتحديد موقعك
+                </ThemedText>
+              </View>
+            </View>
+          )}
+        </View>
+      </Modal>
 
       <View style={[styles.inputContainer, { backgroundColor: theme.backgroundDefault }, Shadows.sm]}>
         <ThemedText type="small" style={[styles.label, { color: theme.textSecondary }]}>
@@ -341,6 +542,14 @@ const styles = StyleSheet.create({
     padding: Spacing.md,
     gap: Spacing.sm,
   },
+  mapButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderWidth: 1.5,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.md,
+    gap: Spacing.sm,
+  },
   modalOverlay: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.5)",
@@ -398,5 +607,66 @@ const styles = StyleSheet.create({
   submitButton: {
     marginTop: Spacing.xl,
     marginBottom: Spacing.xl,
+  },
+  mapContainer: {
+    flex: 1,
+  },
+  mapHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: Spacing.lg,
+    paddingBottom: Spacing.md,
+  },
+  mapHeaderBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "rgba(255,255,255,0.2)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  map: {
+    flex: 1,
+  },
+  mapControls: {
+    position: "absolute",
+    left: Spacing.lg,
+    right: Spacing.lg,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.md,
+  },
+  myLocationBtn: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  confirmLocationBtn: {
+    flex: 1,
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    gap: Spacing.sm,
+    paddingVertical: Spacing.md,
+    borderRadius: BorderRadius.lg,
+  },
+  mapCenterHint: {
+    position: "absolute",
+    top: Spacing.lg,
+    left: Spacing.lg,
+    right: Spacing.lg,
+    backgroundColor: "rgba(0,0,0,0.6)",
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    borderRadius: BorderRadius.md,
+    alignItems: "center",
+  },
+  webMapFallback: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    padding: Spacing.xl,
   },
 });
