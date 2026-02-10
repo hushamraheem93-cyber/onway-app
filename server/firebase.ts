@@ -518,6 +518,109 @@ export async function deleteCategory(id: string): Promise<boolean> {
   }
 }
 
+// Driver Functions
+export interface FirestoreDriver {
+  phoneNumber: string;
+  fullName: string;
+  firstName: string;
+  secondName: string;
+  thirdName: string;
+  fourthName: string;
+  nationalIdImage: string;
+  status: "pending" | "approved" | "rejected";
+  createdAt: admin.firestore.Timestamp;
+  updatedAt: admin.firestore.Timestamp;
+}
+
+export async function getDrivers(): Promise<(FirestoreDriver & { id: string })[]> {
+  if (!db) return [];
+  try {
+    const snapshot = await db.collection("drivers").orderBy("createdAt", "desc").get();
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() as FirestoreDriver }));
+  } catch (error) {
+    console.error("Error getting drivers:", error);
+    return [];
+  }
+}
+
+export async function getDriverByPhone(phoneNumber: string): Promise<(FirestoreDriver & { id: string }) | null> {
+  if (!db) return null;
+  try {
+    const snapshot = await db.collection("drivers").where("phoneNumber", "==", phoneNumber).limit(1).get();
+    if (snapshot.empty) return null;
+    const doc = snapshot.docs[0];
+    return { id: doc.id, ...doc.data() as FirestoreDriver };
+  } catch (error) {
+    console.error("Error getting driver:", error);
+    return null;
+  }
+}
+
+export async function createDriver(data: {
+  phoneNumber: string;
+  fullName: string;
+  firstName: string;
+  secondName: string;
+  thirdName: string;
+  fourthName: string;
+  nationalIdImage: string;
+}): Promise<(FirestoreDriver & { id: string }) | null> {
+  if (!db) throw new Error("Database not initialized");
+  try {
+    const now = admin.firestore.Timestamp.now();
+    const driverDoc: Record<string, any> = {
+      ...data,
+      status: "pending",
+      createdAt: now,
+      updatedAt: now,
+    };
+    const docRef = await db.collection("drivers").add(driverDoc);
+    return { id: docRef.id, ...driverDoc } as FirestoreDriver & { id: string };
+  } catch (error) {
+    console.error("Error creating driver:", error);
+    return null;
+  }
+}
+
+export async function updateDriverStatus(id: string, status: "pending" | "approved" | "rejected"): Promise<boolean> {
+  if (!db) return false;
+  try {
+    await db.collection("drivers").doc(id).update({
+      status,
+      updatedAt: admin.firestore.Timestamp.now(),
+    });
+    return true;
+  } catch (error) {
+    console.error("Error updating driver status:", error);
+    return false;
+  }
+}
+
+// OTP Functions
+const otpStore = new Map<string, { code: string; expiresAt: number }>();
+
+export function generateOtp(phoneNumber: string): string {
+  const code = Math.floor(1000 + Math.random() * 9000).toString();
+  otpStore.set(phoneNumber, {
+    code,
+    expiresAt: Date.now() + 5 * 60 * 1000,
+  });
+  console.log(`OTP for ${phoneNumber}: ${code}`);
+  return code;
+}
+
+export function verifyOtp(phoneNumber: string, code: string): boolean {
+  const stored = otpStore.get(phoneNumber);
+  if (!stored) return false;
+  if (Date.now() > stored.expiresAt) {
+    otpStore.delete(phoneNumber);
+    return false;
+  }
+  if (stored.code !== code) return false;
+  otpStore.delete(phoneNumber);
+  return true;
+}
+
 export async function initializeDefaultCategories(defaultCategories: any[]): Promise<void> {
   if (!db) return;
   

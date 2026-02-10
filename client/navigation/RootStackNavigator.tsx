@@ -7,6 +7,9 @@ import CheckoutScreen from "@/screens/CheckoutScreen";
 import OrderConfirmationScreen from "@/screens/OrderConfirmationScreen";
 import OrderTrackingScreen from "@/screens/OrderTrackingScreen";
 import PhoneLoginScreen from "@/screens/PhoneLoginScreen";
+import OtpVerificationScreen from "@/screens/OtpVerificationScreen";
+import UserTypeScreen from "@/screens/UserTypeScreen";
+import DriverRegistrationScreen from "@/screens/DriverRegistrationScreen";
 import ProfileCompletionScreen from "@/screens/ProfileCompletionScreen";
 import CategoriesScreen from "@/screens/CategoriesScreen";
 import AdminScreen from "@/screens/AdminScreen";
@@ -18,6 +21,9 @@ import { Order } from "@/context/OrderContext";
 
 export type RootStackParamList = {
   PhoneLogin: undefined;
+  OtpVerification: undefined;
+  UserType: undefined;
+  DriverRegistration: undefined;
   ProfileCompletion: undefined;
   MainTabs: undefined;
   Main: undefined;
@@ -34,7 +40,7 @@ const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export default function RootStackNavigator() {
   const screenOptions = useScreenOptions();
-  const { isLoggedIn, isLoading, isProfileComplete } = useAuth();
+  const { isLoggedIn, isLoading, isProfileComplete, isOtpSent, isOtpVerified, selectedUserType, isDriverRegistered } = useAuth();
 
   if (isLoading) {
     return (
@@ -44,85 +50,135 @@ export default function RootStackNavigator() {
     );
   }
 
-  return (
-    <Stack.Navigator screenOptions={screenOptions}>
-      {!isLoggedIn ? (
+  const renderAuthScreens = () => {
+    if (!isOtpSent) {
+      return (
         <Stack.Screen
           name="PhoneLogin"
           component={PhoneLoginScreen}
           options={{ headerShown: false }}
         />
-      ) : !isProfileComplete ? (
+      );
+    }
+
+    if (!isOtpVerified) {
+      return (
+        <Stack.Screen
+          name="OtpVerification"
+          component={OtpVerificationScreen}
+          options={{ headerShown: false }}
+        />
+      );
+    }
+
+    if (!selectedUserType) {
+      return (
+        <Stack.Screen
+          name="UserType"
+          component={UserTypeScreen}
+          options={{ headerShown: false }}
+        />
+      );
+    }
+
+    if (selectedUserType === "driver" && !isDriverRegistered) {
+      return (
+        <Stack.Screen
+          name="DriverRegistration"
+          component={DriverRegistrationScreen}
+          options={{ headerShown: false }}
+        />
+      );
+    }
+
+    return null;
+  };
+
+  const needsAuth = !isOtpSent || !isOtpVerified || !selectedUserType || (selectedUserType === "driver" && !isDriverRegistered);
+
+  if (needsAuth && !isLoggedIn) {
+    return (
+      <Stack.Navigator screenOptions={screenOptions}>
+        {renderAuthScreens()}
+      </Stack.Navigator>
+    );
+  }
+
+  if (isLoggedIn && !isProfileComplete && selectedUserType !== "driver") {
+    return (
+      <Stack.Navigator screenOptions={screenOptions}>
         <Stack.Screen
           name="ProfileCompletion"
           component={ProfileCompletionScreen}
           options={{ headerShown: false }}
         />
-      ) : (
-        <>
-          <Stack.Screen
-            name="MainTabs"
-            component={MainTabNavigator}
-            options={{ headerShown: false }}
-          />
-          <Stack.Screen
-            name="Main"
-            component={MainTabNavigator}
-            options={{ headerShown: false }}
-          />
-          <Stack.Screen
-            name="AllCategories"
-            component={CategoriesScreen}
-            options={{
-              headerTitle: "جميع الأقسام",
-            }}
-          />
-          <Stack.Screen
-            name="Products"
-            component={ProductsScreen}
-            options={({ route }) => ({
-              headerTitle: route.params.categoryName,
-            })}
-          />
-          <Stack.Screen
-            name="Checkout"
-            component={CheckoutScreen}
-            options={{
-              headerTitle: "تأكيد الطلب",
-            }}
-          />
-          <Stack.Screen
-            name="OrderConfirmation"
-            component={OrderConfirmationScreen}
-            options={{
-              headerTitle: "تم الطلب",
-              headerBackVisible: false,
-            }}
-          />
-          <Stack.Screen
-            name="OrderTracking"
-            component={OrderTrackingScreen}
-            options={{
-              headerTitle: "تتبع الطلب",
-            }}
-          />
-          <Stack.Screen
-            name="Admin"
-            component={AdminScreen}
-            options={{
-              headerTitle: "لوحة التحكم",
-            }}
-          />
-          <Stack.Screen
-            name="MapPicker"
-            component={MapPickerScreen}
-            options={{
-              headerTitle: "تحديد الموقع",
-              presentation: "modal",
-            }}
-          />
-        </>
-      )}
+      </Stack.Navigator>
+    );
+  }
+
+  return (
+    <Stack.Navigator screenOptions={screenOptions}>
+      <Stack.Screen
+        name="MainTabs"
+        component={MainTabNavigator}
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen
+        name="Main"
+        component={MainTabNavigator}
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen
+        name="AllCategories"
+        component={CategoriesScreen}
+        options={{
+          headerTitle: "جميع الأقسام",
+        }}
+      />
+      <Stack.Screen
+        name="Products"
+        component={ProductsScreen}
+        options={({ route }) => ({
+          headerTitle: route.params.categoryName,
+        })}
+      />
+      <Stack.Screen
+        name="Checkout"
+        component={CheckoutScreen}
+        options={{
+          headerTitle: "تأكيد الطلب",
+        }}
+      />
+      <Stack.Screen
+        name="OrderConfirmation"
+        component={OrderConfirmationScreen}
+        options={{
+          headerTitle: "تم الطلب",
+          headerBackVisible: false,
+        }}
+      />
+      <Stack.Screen
+        name="OrderTracking"
+        component={OrderTrackingScreen}
+        options={{
+          headerTitle: "تتبع الطلب",
+        }}
+      />
+      <Stack.Screen
+        name="Admin"
+        component={AdminScreen}
+        options={{
+          headerTitle: "لوحة التحكم",
+        }}
+      />
+      <Stack.Screen
+        name="MapPicker"
+        component={MapPickerScreen}
+        options={{
+          headerTitle: "تحديد الموقع",
+          presentation: "modal",
+        }}
+      />
     </Stack.Navigator>
   );
 }

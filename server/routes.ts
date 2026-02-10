@@ -13,7 +13,9 @@ import {
   getPromotionalSections, getPromotionalSection, savePromotionalSection,
   getCategories as getFirestoreCategories, createCategory as createFirestoreCategory,
   updateCategory as updateFirestoreCategory, deleteCategory as deleteFirestoreCategory,
-  initializeDefaultCategories
+  initializeDefaultCategories,
+  generateOtp, verifyOtp as verifyOtpCode,
+  getDrivers, getDriverByPhone, createDriver, updateDriverStatus as updateDriverStatusFn
 } from "./firebase";
 import { sendPushNotification } from "./pushNotifications";
 
@@ -862,6 +864,101 @@ export async function registerRoutes(app: Express): Promise<Server> {
     };
     
     res.json({ ...userProfiles[index], profileComplete: true });
+  });
+
+  // OTP Auth Routes
+  app.post("/api/auth/send-otp", (req: Request, res: Response) => {
+    const { phoneNumber } = req.body;
+    if (!phoneNumber) {
+      return res.status(400).json({ error: "Phone number is required" });
+    }
+    const code = generateOtp(phoneNumber);
+    console.log(`[OTP] Sent code ${code} to ${phoneNumber}`);
+    res.json({ success: true, message: "OTP sent successfully" });
+  });
+
+  app.post("/api/auth/verify-otp", (req: Request, res: Response) => {
+    const { phoneNumber, code } = req.body;
+    if (!phoneNumber || !code) {
+      return res.status(400).json({ error: "Phone number and code are required" });
+    }
+    const isValid = verifyOtpCode(phoneNumber, code);
+    if (!isValid) {
+      return res.status(400).json({ error: "رمز التحقق غير صحيح أو منتهي الصلاحية" });
+    }
+    res.json({ success: true, message: "OTP verified" });
+  });
+
+  // Driver Routes
+  app.post("/api/drivers", async (req: Request, res: Response) => {
+    try {
+      const { phoneNumber, fullName, firstName, secondName, thirdName, fourthName, nationalIdImage } = req.body;
+
+      if (!phoneNumber || !fullName || !nationalIdImage) {
+        return res.status(400).json({ error: "All fields are required" });
+      }
+
+      const existing = await getDriverByPhone(phoneNumber);
+      if (existing) {
+        return res.status(400).json({ error: "هذا الرقم مسجل مسبقاً كسائق" });
+      }
+
+      const driver = await createDriver({
+        phoneNumber,
+        fullName,
+        firstName: firstName || "",
+        secondName: secondName || "",
+        thirdName: thirdName || "",
+        fourthName: fourthName || "",
+        nationalIdImage,
+      });
+
+      if (!driver) {
+        return res.status(500).json({ error: "Failed to create driver" });
+      }
+
+      res.json(driver);
+    } catch (error: any) {
+      console.error("Error creating driver:", error);
+      res.status(500).json({ error: error.message || "Internal server error" });
+    }
+  });
+
+  app.get("/api/admin/drivers", async (_req: Request, res: Response) => {
+    try {
+      const drivers = await getDrivers();
+      const formatted = drivers.map(d => ({
+        ...d,
+        createdAt: d.createdAt?.toDate?.() ? d.createdAt.toDate().toISOString() : d.createdAt,
+        updatedAt: d.updatedAt?.toDate?.() ? d.updatedAt.toDate().toISOString() : d.updatedAt,
+      }));
+      res.json(formatted);
+    } catch (error) {
+      console.error("Error fetching drivers:", error);
+      res.json([]);
+    }
+  });
+
+  app.put("/api/admin/drivers/:id/status", async (req: Request, res: Response) => {
+    try {
+      const driverId = req.params.id as string;
+      const { status } = req.body;
+
+      const validStatuses = ["pending", "approved", "rejected"];
+      if (!validStatuses.includes(String(status))) {
+        return res.status(400).json({ error: "Invalid status" });
+      }
+
+      const success = await updateDriverStatusFn(driverId, status as "pending" | "approved" | "rejected");
+      if (!success) {
+        return res.status(500).json({ error: "Failed to update driver status" });
+      }
+
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error("Error updating driver status:", error);
+      res.status(500).json({ error: error.message || "Internal server error" });
+    }
   });
 
   const httpServer = createServer(app);

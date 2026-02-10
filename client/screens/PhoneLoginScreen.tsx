@@ -19,7 +19,8 @@ import { ThemedText } from "@/components/ThemedText";
 import { AppColors } from "@/constants/theme";
 import { useAuth } from "@/context/AuthContext";
 
-import deliveryManImage from "@/assets/images/delivery-man.png";
+// @ts-ignore
+import deliveryManImage from "../assets/images/delivery-man.png";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
