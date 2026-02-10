@@ -222,3 +222,14 @@ All images are compressed and stored as Base64 strings to avoid Firebase Storage
   - AuthContext checks for existing driver when user selects "driver" type
   - If driver exists, skips DriverRegistrationScreen and logs in directly
   - Platform-specific MapPicker components (MapPicker.native.tsx / MapPicker.web.tsx) for web compatibility
+- **February 2026: OTP IQ WhatsApp Integration**
+  - Phone authentication using OTP IQ API (WhatsApp/SMS delivery)
+  - 6-digit verification codes sent via WhatsApp with SMS fallback
+  - API endpoint: POST https://api.otpiq.com/api/sms with Bearer token auth
+  - Secret: OTPIQ_APl_key (stored in Replit secrets)
+  - Server generates OTP, sends via OTP IQ, verifies locally
+  - After OTP verification, server checks Firebase for existing user/driver
+  - Existing customers auto-login to home screen
+  - Existing drivers auto-login to driver dashboard
+  - New users shown UserTypeScreen to choose customer/driver
+  - New drivers shown registration screen for name + National ID
