@@ -215,3 +215,10 @@ All images are compressed and stored as Base64 strings to avoid Firebase Storage
   - Added bulk sample products to all 12 categories (50+ products total)
   - Categories: خضروات وفواكه، لحوم، ألبان، منظفات، مشروبات، عصائر، سناكس، شاي وقهوة، مستلزمات أطفال، هدايا وورود، خدمات المندوب، أشهر المطاعم
   - Default categories auto-initialized on first run
+- **February 2026: Driver Re-login Without Re-registration**
+  - Drivers who log out can log back in without re-uploading photos or re-entering info
+  - Driver profiles stored persistently in Firestore 'drivers' collection
+  - API: GET /api/drivers/check/:phoneNumber checks if driver exists
+  - AuthContext checks for existing driver when user selects "driver" type
+  - If driver exists, skips DriverRegistrationScreen and logs in directly
+  - Platform-specific MapPicker components (MapPicker.native.tsx / MapPicker.web.tsx) for web compatibility
