@@ -1,5 +1,5 @@
 import React, { useEffect } from "react";
-import { StyleSheet, View, ScrollView } from "react-native";
+import { StyleSheet, View, ScrollView, Pressable } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
@@ -171,13 +171,20 @@ export default function OrderConfirmationScreen() {
       <View style={[styles.infoCard, { backgroundColor: theme.backgroundSecondary }]}>
         <Feather name="info" size={20} color={AppColors.primary} />
         <ThemedText type="small" style={{ flex: 1, textAlign: "right", color: theme.textSecondary }}>
-          تم إرسال طلبك بنجاح وسيتم مراجعته من قبل الإدارة. يمكنك متابعة حالة الطلب من قسم "طلباتي"
+          تم إرسال طلبك بنجاح وسيتم مراجعته من قبل الإدارة. يمكنك تتبع حالة طلبك مباشرة.
         </ThemedText>
       </View>
 
-      <Button onPress={goHome} style={styles.homeButton}>
-        العودة للرئيسية
+      <Button
+        onPress={() => navigation.navigate("OrderTracking", { orderId: order.id })}
+        style={styles.trackButton}
+      >
+        تتبع الطلب
       </Button>
+
+      <Pressable onPress={goHome} style={styles.homeLink}>
+        <ThemedText type="body" style={{ color: theme.textSecondary }}>العودة للرئيسية</ThemedText>
+      </Pressable>
     </ScrollView>
   );
 }
@@ -271,7 +278,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: Spacing.md,
   },
-  homeButton: {
+  trackButton: {
+    marginBottom: Spacing.md,
+  },
+  homeLink: {
+    alignItems: "center",
+    paddingVertical: Spacing.md,
     marginBottom: Spacing.xl,
   },
 });

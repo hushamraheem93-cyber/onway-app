@@ -5,6 +5,7 @@ import MainTabNavigator from "@/navigation/MainTabNavigator";
 import ProductsScreen from "@/screens/ProductsScreen";
 import CheckoutScreen from "@/screens/CheckoutScreen";
 import OrderConfirmationScreen from "@/screens/OrderConfirmationScreen";
+import OrderTrackingScreen from "@/screens/OrderTrackingScreen";
 import PhoneLoginScreen from "@/screens/PhoneLoginScreen";
 import ProfileCompletionScreen from "@/screens/ProfileCompletionScreen";
 import CategoriesScreen from "@/screens/CategoriesScreen";
@@ -24,6 +25,7 @@ export type RootStackParamList = {
   Products: { categoryId?: string; categoryName: string; searchQuery?: string };
   Checkout: undefined;
   OrderConfirmation: { order: Order };
+  OrderTracking: { orderId: string };
   Admin: undefined;
   MapPicker: undefined;
 };
@@ -95,6 +97,13 @@ export default function RootStackNavigator() {
             options={{
               headerTitle: "تم الطلب",
               headerBackVisible: false,
+            }}
+          />
+          <Stack.Screen
+            name="OrderTracking"
+            component={OrderTrackingScreen}
+            options={{
+              headerTitle: "تتبع الطلب",
             }}
           />
           <Stack.Screen

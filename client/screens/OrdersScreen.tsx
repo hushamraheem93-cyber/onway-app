@@ -30,7 +30,7 @@ export default function OrdersScreen() {
   };
 
   const renderItem = ({ item }: { item: Order }) => (
-    <OrderCard order={item} />
+    <OrderCard order={item} onPress={() => navigation.navigate("OrderTracking", { orderId: item.id })} />
   );
 
   const renderEmpty = () => (
