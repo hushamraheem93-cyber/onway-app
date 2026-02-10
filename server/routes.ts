@@ -918,7 +918,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Driver Routes
   app.get("/api/drivers/check/:phoneNumber", async (req: Request, res: Response) => {
     try {
-      const phoneNumber = req.params.phoneNumber;
+      const phoneNumber = req.params.phoneNumber as string;
       const driver = await getDriverByPhone(phoneNumber);
       if (driver) {
         res.json({
