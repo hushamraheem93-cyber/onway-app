@@ -133,6 +133,16 @@ const products: Product[] = [
 ];
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // FIFO driver queue (in-memory)
+  interface QueuedDriver {
+    phoneNumber: string;
+    joinedAt: number;
+    currentOrderId?: string;
+  }
+  const driverQueue: QueuedDriver[] = [];
+  const driverAssignments: Map<string, string> = new Map();
+  const driverCompletedOrders: Map<string, { orderId: string; deliveryFee: number; total: number; customerName: string; completedAt: string }[]> = new Map();
+
   // Initialize default categories in Firestore if empty
   await initializeDefaultCategories(categories);
   
@@ -619,6 +629,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
             console.log(`Push notification sent for order ${orderId} to ${phoneNumber}`);
           }
         }
+
+        // When order is confirmed, try to assign to next available driver in FIFO queue
+        if (status === "confirmed") {
+          const availableDriver = driverQueue.find(d => !d.currentOrderId);
+          if (availableDriver) {
+            availableDriver.currentOrderId = orderId;
+            console.log(`[FIFO] Order ${orderId} auto-assigned to driver ${availableDriver.phoneNumber}`);
+          }
+        }
+
         return res.json({ success: true, id: orderId, status });
       }
       return res.status(404).json({ error: "Order not found" });
@@ -960,6 +980,334 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.error("Error updating driver status:", error);
       res.status(500).json({ error: error.message || "Internal server error" });
     }
+  });
+
+  // ========== DRIVER FIFO QUEUE SYSTEM ==========
+
+  // Get driver status (online, queue position, current order)
+  app.get("/api/driver/status", async (req: Request, res: Response) => {
+    const phoneNumber = req.query.phoneNumber as string;
+    if (!phoneNumber) return res.status(400).json({ error: "Phone number required" });
+
+    try {
+      const driver = await getDriverByPhone(phoneNumber);
+      const queueIndex = driverQueue.findIndex(d => d.phoneNumber === phoneNumber);
+      const isOnline = queueIndex !== -1;
+      const queuedDriver = isOnline ? driverQueue[queueIndex] : null;
+
+      let currentOrder = null;
+      if (queuedDriver?.currentOrderId) {
+        const db = getFirestore();
+        if (db) {
+          const allOrders = await getOrders();
+          const order = allOrders.find(o => o.id === queuedDriver.currentOrderId);
+          if (order) {
+            const customerProfile = await getUserByPhone(order.phoneNumber || "");
+            currentOrder = {
+              ...order,
+              customerName: customerProfile?.fullName || "زبون",
+              customerPhone: order.phoneNumber || "",
+              createdAt: order.createdAt?.toDate?.() ? order.createdAt.toDate().toISOString() : order.createdAt,
+              updatedAt: order.updatedAt?.toDate?.() ? order.updatedAt.toDate().toISOString() : order.updatedAt,
+            };
+          }
+        }
+      }
+
+      // Count only drivers without current orders for queue position
+      let queuePosition = null;
+      if (isOnline && !queuedDriver?.currentOrderId) {
+        const availableDriversBefore = driverQueue
+          .filter((d, i) => i <= queueIndex && !d.currentOrderId);
+        queuePosition = availableDriversBefore.length;
+      }
+
+      res.json({
+        isOnline,
+        queuePosition,
+        currentOrder,
+        approvalStatus: driver?.status || "pending",
+      });
+    } catch (error: any) {
+      console.error("Error getting driver status:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Toggle driver online/offline
+  app.post("/api/driver/toggle-online", async (req: Request, res: Response) => {
+    const { phoneNumber, goOnline } = req.body;
+    if (!phoneNumber) return res.status(400).json({ error: "Phone number required" });
+
+    try {
+      if (goOnline) {
+        const exists = driverQueue.find(d => d.phoneNumber === phoneNumber);
+        if (!exists) {
+          driverQueue.push({ phoneNumber, joinedAt: Date.now() });
+        }
+        const pos = driverQueue.filter(d => !d.currentOrderId).findIndex(d => d.phoneNumber === phoneNumber) + 1;
+        res.json({ isOnline: true, queuePosition: pos > 0 ? pos : driverQueue.length });
+      } else {
+        const idx = driverQueue.findIndex(d => d.phoneNumber === phoneNumber);
+        if (idx !== -1) {
+          driverQueue.splice(idx, 1);
+        }
+        res.json({ isOnline: false, queuePosition: null });
+      }
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Accept order
+  app.post("/api/driver/accept-order", async (req: Request, res: Response) => {
+    const { phoneNumber, orderId } = req.body;
+    if (!phoneNumber || !orderId) return res.status(400).json({ error: "Missing fields" });
+
+    try {
+      const db = getFirestore();
+      if (db) {
+        await updateOrderStatus(orderId, "delivering");
+        driverAssignments.set(orderId, phoneNumber);
+        const qd = driverQueue.find(d => d.phoneNumber === phoneNumber);
+        if (qd) qd.currentOrderId = orderId;
+      }
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Reject order
+  app.post("/api/driver/reject-order", async (req: Request, res: Response) => {
+    const { phoneNumber, orderId } = req.body;
+    if (!phoneNumber || !orderId) return res.status(400).json({ error: "Missing fields" });
+
+    try {
+      const qd = driverQueue.find(d => d.phoneNumber === phoneNumber);
+      if (qd) {
+        qd.currentOrderId = undefined;
+        // Move driver to end of queue
+        const idx = driverQueue.findIndex(d => d.phoneNumber === phoneNumber);
+        if (idx !== -1) {
+          driverQueue.splice(idx, 1);
+          driverQueue.push({ phoneNumber, joinedAt: Date.now() });
+        }
+      }
+      // Try to offer to next available driver
+      assignOrderToNextDriver(orderId);
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Complete order
+  app.post("/api/driver/complete-order", async (req: Request, res: Response) => {
+    const { phoneNumber, orderId } = req.body;
+    if (!phoneNumber || !orderId) return res.status(400).json({ error: "Missing fields" });
+
+    try {
+      const db = getFirestore();
+      if (db) {
+        await updateOrderStatus(orderId, "delivered");
+
+        const customerPhoneForNotification = driverAssignments.get(orderId);
+        if (customerPhoneForNotification) {
+          const allOrders = await getOrders();
+          const order = allOrders.find(o => o.id === orderId);
+          if (order) {
+            const customerProfile = await getUserByPhone(order.phoneNumber || "");
+            const pushToken = await getUserPushToken(order.phoneNumber || "");
+            if (pushToken) {
+              await sendPushNotification(pushToken, "delivered", orderId);
+            }
+
+            const completed = driverCompletedOrders.get(phoneNumber) || [];
+            completed.push({
+              orderId,
+              deliveryFee: order.deliveryFee || 0,
+              total: order.total || 0,
+              customerName: customerProfile?.fullName || "زبون",
+              completedAt: new Date().toISOString(),
+            });
+            driverCompletedOrders.set(phoneNumber, completed);
+          }
+        }
+      }
+
+      driverAssignments.delete(orderId);
+      const qd = driverQueue.find(d => d.phoneNumber === phoneNumber);
+      if (qd) qd.currentOrderId = undefined;
+
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Get driver earnings
+  app.get("/api/driver/earnings", async (req: Request, res: Response) => {
+    const phoneNumber = req.query.phoneNumber as string;
+    if (!phoneNumber) return res.status(400).json({ error: "Phone number required" });
+
+    try {
+      const completed = driverCompletedOrders.get(phoneNumber) || [];
+      const now = new Date();
+      const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+      const weekStart = todayStart - 7 * 24 * 60 * 60 * 1000;
+
+      const todayOrders = completed.filter(o => new Date(o.completedAt).getTime() >= todayStart);
+      const weekOrders = completed.filter(o => new Date(o.completedAt).getTime() >= weekStart);
+
+      res.json({
+        totalEarnings: completed.reduce((sum, o) => sum + o.deliveryFee, 0),
+        todayEarnings: todayOrders.reduce((sum, o) => sum + o.deliveryFee, 0),
+        weekEarnings: weekOrders.reduce((sum, o) => sum + o.deliveryFee, 0),
+        totalOrders: completed.length,
+        todayOrders: todayOrders.length,
+        completedOrders: completed.map(o => ({
+          id: o.orderId,
+          total: o.total,
+          deliveryFee: o.deliveryFee,
+          completedAt: o.completedAt,
+          customerName: o.customerName,
+        })).reverse(),
+      });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Get driver orders history
+  app.get("/api/driver/orders", async (req: Request, res: Response) => {
+    const phoneNumber = req.query.phoneNumber as string;
+    if (!phoneNumber) return res.status(400).json({ error: "Phone number required" });
+
+    try {
+      const completed = driverCompletedOrders.get(phoneNumber) || [];
+      const db = getFirestore();
+      const result: any[] = [];
+
+      if (db) {
+        const allOrders = await getOrders();
+        // Get currently delivering orders
+        const deliveringOrderIds = Array.from(driverAssignments.entries())
+          .filter(([_, driverPhone]) => driverPhone === phoneNumber)
+          .map(([orderId]) => orderId);
+
+        for (const orderId of deliveringOrderIds) {
+          const order = allOrders.find(o => o.id === orderId);
+          if (order) {
+            const customer = await getUserByPhone(order.phoneNumber || "");
+            result.push({
+              ...order,
+              customerName: customer?.fullName || "زبون",
+              createdAt: order.createdAt?.toDate?.() ? order.createdAt.toDate().toISOString() : order.createdAt,
+            });
+          }
+        }
+
+        // Add completed orders
+        for (const c of completed) {
+          const order = allOrders.find(o => o.id === c.orderId);
+          if (order) {
+            const customer = await getUserByPhone(order.phoneNumber || "");
+            result.push({
+              ...order,
+              customerName: customer?.fullName || "زبون",
+              completedAt: c.completedAt,
+              createdAt: order.createdAt?.toDate?.() ? order.createdAt.toDate().toISOString() : order.createdAt,
+            });
+          }
+        }
+      }
+
+      res.json(result.reverse());
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Get driver profile
+  app.get("/api/driver/profile", async (req: Request, res: Response) => {
+    const phoneNumber = req.query.phoneNumber as string;
+    if (!phoneNumber) return res.status(400).json({ error: "Phone number required" });
+
+    try {
+      const driver = await getDriverByPhone(phoneNumber);
+      if (!driver) return res.status(404).json({ error: "Driver not found" });
+
+      res.json({
+        fullName: driver.fullName,
+        phoneNumber: driver.phoneNumber,
+        status: driver.status,
+        firstName: driver.firstName,
+        secondName: driver.secondName,
+        thirdName: driver.thirdName,
+        fourthName: driver.fourthName,
+      });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Helper: Assign order to next available driver in FIFO queue
+  function assignOrderToNextDriver(orderId: string) {
+    const availableDriver = driverQueue.find(d => !d.currentOrderId);
+    if (availableDriver) {
+      availableDriver.currentOrderId = orderId;
+      console.log(`[FIFO] Order ${orderId} assigned to driver ${availableDriver.phoneNumber}`);
+    }
+  }
+
+  // Watch for confirmed orders → assign to FIFO queue
+  app.post("/api/driver/assign-pending-orders", async (_req: Request, res: Response) => {
+    try {
+      const db = getFirestore();
+      if (!db) return res.json({ assigned: 0 });
+
+      const allOrders = await getOrders();
+      const pendingOrders = allOrders
+        .filter(o => o.status === "confirmed" && !driverAssignments.has(o.id))
+        .sort((a, b) => {
+          const aTime = a.createdAt?.toDate?.() ? a.createdAt.toDate().getTime() : 0;
+          const bTime = b.createdAt?.toDate?.() ? b.createdAt.toDate().getTime() : 0;
+          return aTime - bTime;
+        });
+
+      let assigned = 0;
+      for (const order of pendingOrders) {
+        const availableDriver = driverQueue.find(d => !d.currentOrderId);
+        if (availableDriver) {
+          availableDriver.currentOrderId = order.id;
+          assigned++;
+          console.log(`[FIFO] Order ${order.id} assigned to driver ${availableDriver.phoneNumber}`);
+        } else {
+          break;
+        }
+      }
+
+      res.json({ assigned });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Get queue info for admin
+  app.get("/api/admin/driver-queue", (_req: Request, res: Response) => {
+    res.json({
+      onlineDrivers: driverQueue.length,
+      availableDrivers: driverQueue.filter(d => !d.currentOrderId).length,
+      busyDrivers: driverQueue.filter(d => d.currentOrderId).length,
+      queue: driverQueue.map((d, i) => ({
+        position: i + 1,
+        phoneNumber: d.phoneNumber,
+        joinedAt: new Date(d.joinedAt).toISOString(),
+        currentOrderId: d.currentOrderId || null,
+        status: d.currentOrderId ? "busy" : "available",
+      })),
+    });
   });
 
   const httpServer = createServer(app);

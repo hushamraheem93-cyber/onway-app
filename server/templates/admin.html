@@ -8,11 +8,11 @@
   <script src="https://unpkg.com/lucide@latest"></script>
   <style>
     :root {
-      --primary: #FFB300;
-      --primary-dark: #E6A200;
-      --primary-light: #FFCA28;
+      --primary: #FF7622;
+      --primary-dark: #E5691E;
+      --primary-light: #FF9A5C;
       --on-grey: #4A4A4A;
-      --way-yellow: #FFB300;
+      --way-yellow: #FF7622;
       --success: #10b981;
       --success-light: #d1fae5;
       --danger: #ef4444;
@@ -1183,6 +1183,11 @@
           <span>سائقين الدلفري</span>
           <span class="badge" id="drivers-count">0</span>
         </div>
+        <div class="nav-item" onclick="showSection('driverQueue', this)">
+          <i data-lucide="list-ordered"></i>
+          <span>طابور السائقين</span>
+          <span class="badge" id="queue-count">0</span>
+        </div>
       </div>
 
       <div class="nav-section">
@@ -1613,6 +1618,41 @@
       </div>
     </div>
 
+    <!-- Driver Queue Section -->
+    <div id="driverQueue-section" class="section">
+      <header class="header">
+        <div class="header-title">
+          <h2>طابور السائقين</h2>
+          <p>مراقبة السائقين المتصلين وترتيبهم في الطابور</p>
+        </div>
+        <div class="header-actions">
+          <button class="btn btn-outline" onclick="loadDriverQueue()">
+            <i data-lucide="refresh-cw"></i>
+            تحديث
+          </button>
+        </div>
+      </header>
+
+      <div class="content">
+        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 24px;">
+          <div class="stat-card" style="border-right: 4px solid var(--success);">
+            <div class="stat-card-title">سائقين متصلين</div>
+            <div class="stat-card-value" id="queue-online">0</div>
+          </div>
+          <div class="stat-card" style="border-right: 4px solid var(--info);">
+            <div class="stat-card-title">متاحين للتوصيل</div>
+            <div class="stat-card-value" id="queue-available">0</div>
+          </div>
+          <div class="stat-card" style="border-right: 4px solid var(--warning);">
+            <div class="stat-card-title">مشغولين بطلبات</div>
+            <div class="stat-card-value" id="queue-busy">0</div>
+          </div>
+        </div>
+
+        <div id="driver-queue-list"></div>
+      </div>
+    </div>
+
     <!-- Orders Section -->
     <div id="orders-section" class="section">
       <header class="header">
@@ -1982,6 +2022,7 @@
       if (section === 'delivery') loadDeliveryAreas();
       if (section === 'orders') loadOrders();
       if (section === 'drivers') loadDrivers();
+      if (section === 'driverQueue') loadDriverQueue();
       if (section === 'dashboard') loadDashboard();
       if (section === 'bestSellers' || section === 'featured' || section === 'discounts') {
         if (products.length === 0) {
@@ -3260,6 +3301,79 @@
         }
       } catch (error) {
         showToast('error', 'خطأ', 'حدث خطأ أثناء تحديث حالة السائق');
+      }
+    }
+
+    // Driver Queue
+    async function loadDriverQueue() {
+      try {
+        const response = await fetch(API_BASE + '/admin/driver-queue');
+        const data = await response.json();
+
+        document.getElementById('queue-online').textContent = data.onlineDrivers || 0;
+        document.getElementById('queue-available').textContent = data.availableDrivers || 0;
+        document.getElementById('queue-busy').textContent = data.busyDrivers || 0;
+        document.getElementById('queue-count').textContent = data.onlineDrivers || 0;
+
+        const container = document.getElementById('driver-queue-list');
+
+        if (!data.queue || data.queue.length === 0) {
+          container.innerHTML = `
+            <div class="card">
+              <div class="card-body">
+                <div class="empty-state">
+                  <i data-lucide="wifi-off"></i>
+                  <h4>لا يوجد سائقين متصلين</h4>
+                  <p>سيظهر السائقين هنا عندما يقومون بتفعيل الاتصال</p>
+                </div>
+              </div>
+            </div>`;
+          lucide.createIcons();
+          return;
+        }
+
+        container.innerHTML = `
+          <div class="card">
+            <div class="card-body" style="padding: 0;">
+              <table style="width: 100%; border-collapse: collapse;">
+                <thead>
+                  <tr style="background: var(--gray-50); border-bottom: 2px solid var(--gray-200);">
+                    <th style="padding: 12px 16px; text-align: right; font-weight: 600;">الترتيب</th>
+                    <th style="padding: 12px 16px; text-align: right; font-weight: 600;">رقم الهاتف</th>
+                    <th style="padding: 12px 16px; text-align: right; font-weight: 600;">وقت الانضمام</th>
+                    <th style="padding: 12px 16px; text-align: right; font-weight: 600;">الحالة</th>
+                    <th style="padding: 12px 16px; text-align: right; font-weight: 600;">الطلب الحالي</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${data.queue.map(d => `
+                    <tr style="border-bottom: 1px solid var(--gray-200);">
+                      <td style="padding: 12px 16px;">
+                        <span style="background: var(--primary); color: white; width: 30px; height: 30px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-weight: 700;">
+                          ${d.position}
+                        </span>
+                      </td>
+                      <td style="padding: 12px 16px; font-weight: 500;">${d.phoneNumber}</td>
+                      <td style="padding: 12px 16px; color: var(--gray-500);">${new Date(d.joinedAt).toLocaleTimeString('ar-IQ')}</td>
+                      <td style="padding: 12px 16px;">
+                        <span style="padding: 4px 12px; border-radius: 20px; font-size: 13px; font-weight: 600;
+                          background: ${d.status === 'available' ? 'var(--success-light)' : 'var(--warning-light)'};
+                          color: ${d.status === 'available' ? 'var(--success)' : 'var(--warning)'};">
+                          ${d.status === 'available' ? 'متاح' : 'مشغول'}
+                        </span>
+                      </td>
+                      <td style="padding: 12px 16px; color: var(--gray-500);">
+                        ${d.currentOrderId ? '#' + d.currentOrderId.slice(-6) : '-'}
+                      </td>
+                    </tr>
+                  `).join('')}
+                </tbody>
+              </table>
+            </div>
+          </div>`;
+        lucide.createIcons();
+      } catch (error) {
+        showToast('error', 'خطأ', 'حدث خطأ في تحميل طابور السائقين');
       }
     }
 
