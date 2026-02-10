@@ -1,0 +1,128 @@
+import 'package:flutter/material.dart';
+
+void main() => runApp(MaterialApp(home: WayOnLogin()));
+
+class WayOnLogin extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Container(
+        // 1. خلفية بتدرج لوني احترافي
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [Color(dartOrange), Color(lightOrange)],
+          ),
+        ),
+        child: Column(
+          children: [
+            SizedBox(height: 80),
+            // 2. أيقونة التطبيق بشكل عصري
+            Container(
+              padding: EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.2),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(Icons.local_shipping_rounded, size: 80, color: Colors.white),
+            ),
+            Spacer(),
+            // 3. البطاقة البيضاء بحواف دائرية كبيرة
+            Container(
+              padding: EdgeInsets.symmetric(horizontal: 30, vertical: 40),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.only(
+                  topLeft: Radius.circular(40),
+                  topRight: Radius.circular(40),
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black12,
+                    blurRadius: 20,
+                    offset: Offset(0, -5),
+                  )
+                ],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Text(
+                    "wayOn",
+                    style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: Color(dartOrange)),
+                  ),
+                  SizedBox(height: 10),
+                  Text(
+                    "مرحباً بك في أون وي",
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.w600),
+                  ),
+                  Text(
+                    "أدخل رقم هاتفك للبدء في التسوق أو التوصيل",
+                    style: TextStyle(color: Colors.grey, fontSize: 14),
+                  ),
+                  SizedBox(height: 30),
+                  // 4. حقل إدخال رقم الهاتف المطور
+                  Container(
+                    decoration: BoxDecoration(
+                      color: Colors.grey[100],
+                      borderRadius: BorderRadius.circular(15),
+                    ),
+                    child: TextField(
+                      textAlign: TextAlign.right,
+                      decoration: InputDecoration(
+                        border: InputBorder.none,
+                        hintText: "780 000 0000",
+                        prefixIcon: Container(
+                          width: 80,
+                          child: Row(
+                            children: [
+                              SizedBox(width: 10),
+                              Image.network('https://flagcdn.com/w40/iq.png', width: 30), // علم العراق
+                              SizedBox(width: 5),
+                              Text("+964", style: TextStyle(fontWeight: FontWeight.bold)),
+                            ],
+                          ),
+                        ),
+                        contentPadding: EdgeInsets.symmetric(vertical: 15),
+                      ),
+                    ),
+                  ),
+                  SizedBox(height: 25),
+                  // 5. زر إرسال الرمز بتصميم جذاب
+                  SizedBox(
+                    width: double.infinity,
+                    height: 55,
+                    child: ElevatedButton(
+                      onPressed: () {},
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Color(dartOrange),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+                        elevation: 5,
+                        shadowColor: Color(dartOrange).withOpacity(0.5),
+                      ),
+                      child: Text(
+                        "إرسال رمز التحقق",
+                        style: TextStyle(fontSize: 18, color: Colors.white, fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                  ),
+                  SizedBox(height: 20),
+                  Text(
+                    "بالتتابعة، أنت توافق على شروط الخدمة وسياسة الخصوصية",
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontSize: 11, color: Colors.grey),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // الألوان المستخدمة
+  static const dartOrange = 0xFFFF6D00;
+  static const lightOrange = 0xFFFFAB40;
+}

@@ -12,6 +12,7 @@ import {
   Dimensions,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { LinearGradient } from "expo-linear-gradient";
 import { Image } from "expo-image";
 import * as Haptics from "expo-haptics";
 import { Feather } from "@expo/vector-icons";
@@ -20,7 +21,10 @@ import { ThemedText } from "@/components/ThemedText";
 import { AppColors } from "@/constants/theme";
 import { useAuth } from "@/context/AuthContext";
 
-const { width: SCREEN_WIDTH } = Dimensions.get("window");
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
+
+const DART_ORANGE = "#FF6D00";
+const LIGHT_ORANGE = "#FFAB40";
 
 export default function PhoneLoginScreen() {
   const insets = useSafeAreaInsets();
@@ -29,7 +33,7 @@ export default function PhoneLoginScreen() {
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
-  const slideUpAnim = useRef(new Animated.Value(50)).current;
+  const slideUpAnim = useRef(new Animated.Value(60)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -85,19 +89,21 @@ export default function PhoneLoginScreen() {
   };
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
-      <View style={styles.imageSection}>
-        <View style={styles.orangeBg} />
+    <View style={styles.container}>
+      <LinearGradient
+        colors={[DART_ORANGE, LIGHT_ORANGE]}
+        start={{ x: 0.5, y: 0 }}
+        end={{ x: 0.5, y: 1 }}
+        style={[styles.gradientSection, { paddingTop: insets.top + 40 }]}
+      >
         <View style={styles.iconCircle}>
-          <Feather name="truck" size={64} color="#FFFFFF" />
+          <Feather name="truck" size={80} color="#FFFFFF" />
         </View>
-        <View style={styles.decorCircle1} />
-        <View style={styles.decorCircle2} />
-      </View>
+      </LinearGradient>
 
       <Animated.View
         style={[
-          styles.formSection,
+          styles.whiteCard,
           {
             opacity: fadeAnim,
             transform: [{ translateY: slideUpAnim }],
@@ -109,10 +115,9 @@ export default function PhoneLoginScreen() {
           behavior={Platform.OS === "ios" ? "padding" : "height"}
           style={styles.formInner}
         >
-          <View style={styles.brandRow}>
-            <ThemedText type="h1" style={styles.brandOn}>On</ThemedText>
-            <ThemedText type="h1" style={styles.brandWay}>way</ThemedText>
-          </View>
+          <ThemedText type="h1" style={styles.brandText}>
+            way<ThemedText type="h1" style={styles.brandOn}>On</ThemedText>
+          </ThemedText>
 
           <ThemedText type="h3" style={styles.welcomeTitle}>
             مرحباً بك في أون وي
@@ -132,8 +137,7 @@ export default function PhoneLoginScreen() {
               maxLength={12}
               testID="input-phone"
             />
-            <View style={styles.verticalDivider} />
-            <View style={styles.countryContainer}>
+            <View style={styles.prefixContainer}>
               <ThemedText type="body" style={styles.countryCode}>+964</ThemedText>
               <Image
                 source={{ uri: "https://flagcdn.com/w80/iq.png" }}
@@ -175,18 +179,12 @@ export default function PhoneLoginScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: DART_ORANGE,
   },
-  imageSection: {
-    height: "38%",
-    position: "relative",
+  gradientSection: {
     alignItems: "center",
     justifyContent: "center",
-    overflow: "hidden",
-  },
-  orangeBg: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: AppColors.primary,
+    paddingBottom: 60,
   },
   iconCircle: {
     width: 130,
@@ -195,76 +193,56 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(255,255,255,0.2)",
     alignItems: "center",
     justifyContent: "center",
-    zIndex: 2,
   },
-  decorCircle1: {
-    position: "absolute",
-    width: 200,
-    height: 200,
-    borderRadius: 100,
-    backgroundColor: "rgba(255,255,255,0.08)",
-    top: -40,
-    right: -50,
-  },
-  decorCircle2: {
-    position: "absolute",
-    width: 150,
-    height: 150,
-    borderRadius: 75,
-    backgroundColor: "rgba(255,255,255,0.06)",
-    bottom: -30,
-    left: -30,
-  },
-  formSection: {
+  whiteCard: {
     flex: 1,
     backgroundColor: "#FFFFFF",
-    borderTopLeftRadius: 30,
-    borderTopRightRadius: 30,
+    borderTopLeftRadius: 40,
+    borderTopRightRadius: 40,
+    paddingHorizontal: 30,
+    paddingTop: 40,
     marginTop: -30,
-    zIndex: 3,
-    paddingHorizontal: 24,
-    paddingTop: 24,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: -5 },
+    shadowOpacity: 0.08,
+    shadowRadius: 20,
+    elevation: 10,
   },
   formInner: {
     flex: 1,
   },
-  brandRow: {
-    flexDirection: "row",
-    justifyContent: "center",
-    alignItems: "center",
-    marginBottom: 8,
+  brandText: {
+    fontSize: 32,
+    fontWeight: "800",
+    color: DART_ORANGE,
+    textAlign: "center",
+    marginBottom: 10,
   },
   brandOn: {
-    fontSize: 36,
+    fontSize: 32,
     fontWeight: "800",
-    color: "#2D2D2D",
-  },
-  brandWay: {
-    fontSize: 36,
-    fontWeight: "800",
-    color: AppColors.primary,
+    color: DART_ORANGE,
   },
   welcomeTitle: {
     textAlign: "center",
-    fontWeight: "700",
+    fontWeight: "600",
     color: "#2D2D2D",
+    fontSize: 20,
     marginBottom: 4,
   },
   welcomeSubtitle: {
     textAlign: "center",
-    color: "#888",
-    marginBottom: 24,
+    color: "#999",
+    marginBottom: 30,
     fontSize: 14,
   },
   phoneInputRow: {
     flexDirection: "row",
-    backgroundColor: "#F6F6F6",
-    borderRadius: 16,
-    height: 58,
+    backgroundColor: "#F5F5F5",
+    borderRadius: 15,
+    height: 55,
     alignItems: "center",
-    paddingHorizontal: 16,
-    borderWidth: 1,
-    borderColor: "#ECECEC",
+    paddingHorizontal: 14,
   },
   textInput: {
     flex: 1,
@@ -273,21 +251,16 @@ const styles = StyleSheet.create({
     textAlign: "left",
     fontWeight: "500",
   },
-  verticalDivider: {
-    width: 1,
-    height: "55%",
-    backgroundColor: "#DDD",
-    marginHorizontal: 12,
-  },
-  countryContainer: {
+  prefixContainer: {
     flexDirection: "row",
     alignItems: "center",
+    paddingLeft: 10,
   },
   countryCode: {
     fontSize: 16,
     fontWeight: "bold",
     color: "#333",
-    marginRight: 8,
+    marginRight: 6,
   },
   flagIcon: {
     width: 30,
@@ -300,12 +273,17 @@ const styles = StyleSheet.create({
     marginTop: 10,
   },
   mainButton: {
-    backgroundColor: AppColors.primary,
-    height: 56,
-    borderRadius: 16,
+    backgroundColor: DART_ORANGE,
+    height: 55,
+    borderRadius: 15,
     justifyContent: "center",
     alignItems: "center",
-    marginTop: 20,
+    marginTop: 25,
+    shadowColor: DART_ORANGE,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 8,
+    elevation: 5,
   },
   mainButtonDisabled: {
     opacity: 0.7,
@@ -318,7 +296,7 @@ const styles = StyleSheet.create({
   termsText: {
     color: "#AAA",
     textAlign: "center",
-    fontSize: 12,
-    marginTop: 16,
+    fontSize: 11,
+    marginTop: 20,
   },
 });
