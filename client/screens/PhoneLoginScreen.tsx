@@ -23,8 +23,8 @@ import { useAuth } from "@/context/AuthContext";
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 
-const DART_ORANGE = "#FF6D00";
-const LIGHT_ORANGE = "#FFAB40";
+const DART_ORANGE = "#FF7622";
+const LIGHT_ORANGE = "#FF9A5C";
 
 export default function PhoneLoginScreen() {
   const insets = useSafeAreaInsets();
