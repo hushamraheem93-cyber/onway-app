@@ -42,11 +42,11 @@ export default function DriverRegistrationScreen() {
   const [errorMessage, setErrorMessage] = useState("");
 
   const isFormValid =
-    firstName.trim() &&
-    secondName.trim() &&
-    thirdName.trim() &&
-    fourthName.trim() &&
-    nationalIdImage;
+    firstName.trim().length > 0 &&
+    secondName.trim().length > 0 &&
+    thirdName.trim().length > 0 &&
+    fourthName.trim().length > 0 &&
+    nationalIdImage !== null;
 
   const pickImage = async (setter: (uri: string) => void) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
