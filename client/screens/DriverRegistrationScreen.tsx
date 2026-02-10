@@ -5,7 +5,8 @@ import {
   TextInput,
   Pressable,
   ActivityIndicator,
-  Alert,
+  Platform,
+  Modal,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
@@ -24,7 +25,7 @@ import { getApiUrl } from "@/lib/query-client";
 export default function DriverRegistrationScreen() {
   const insets = useSafeAreaInsets();
   const { theme } = useTheme();
-  const { phoneNumber, completeDriverRegistration } = useAuth();
+  const { phoneNumber, completeDriverRegistration, goBackToUserType } = useAuth();
 
   const [firstName, setFirstName] = useState("");
   const [secondName, setSecondName] = useState("");
@@ -33,6 +34,12 @@ export default function DriverRegistrationScreen() {
   const [nationalIdImage, setNationalIdImage] = useState<string | null>(null);
   const [driverLicenseImage, setDriverLicenseImage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [imagePickerModal, setImagePickerModal] = useState<{
+    visible: boolean;
+    setter: ((uri: string) => void) | null;
+    title: string;
+  }>({ visible: false, setter: null, title: "" });
+  const [errorMessage, setErrorMessage] = useState("");
 
   const isFormValid =
     firstName.trim() &&
@@ -43,6 +50,7 @@ export default function DriverRegistrationScreen() {
 
   const pickImage = async (setter: (uri: string) => void) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setImagePickerModal({ visible: false, setter: null, title: "" });
 
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ["images"],
@@ -57,10 +65,16 @@ export default function DriverRegistrationScreen() {
 
   const takePhoto = async (setter: (uri: string) => void) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setImagePickerModal({ visible: false, setter: null, title: "" });
+
+    if (Platform.OS === "web") {
+      await pickImage(setter);
+      return;
+    }
 
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
     if (status !== "granted") {
-      Alert.alert("تنبيه", "يرجى السماح بالوصول للكاميرا لالتقاط صورة");
+      setErrorMessage("يرجى السماح بالوصول للكاميرا لالتقاط صورة");
       return;
     }
 
@@ -75,15 +89,11 @@ export default function DriverRegistrationScreen() {
   };
 
   const showImageOptions = (setter: (uri: string) => void, title: string) => {
-    Alert.alert(
-      title,
-      "اختر طريقة إضافة الصورة",
-      [
-        { text: "الكاميرا", onPress: () => takePhoto(setter) },
-        { text: "معرض الصور", onPress: () => pickImage(setter) },
-        { text: "إلغاء", style: "cancel" },
-      ]
-    );
+    if (Platform.OS === "web") {
+      pickImage(setter);
+      return;
+    }
+    setImagePickerModal({ visible: true, setter, title });
   };
 
   const handleSubmit = async () => {
@@ -127,7 +137,7 @@ export default function DriverRegistrationScreen() {
 
       await completeDriverRegistration();
     } catch (error: any) {
-      Alert.alert("خطأ", error.message || "حدث خطأ أثناء التسجيل");
+      setErrorMessage(error.message || "حدث خطأ أثناء التسجيل");
     } finally {
       setIsLoading(false);
     }
@@ -145,6 +155,18 @@ export default function DriverRegistrationScreen() {
       showsVerticalScrollIndicator={false}
       bottomOffset={50}
     >
+      <Pressable
+        style={[styles.backButton, { backgroundColor: theme.backgroundDefault }]}
+        onPress={() => {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          goBackToUserType();
+        }}
+        testID="button-back"
+      >
+        <Feather name="arrow-right" size={22} color={theme.text} />
+        <ThemedText type="body" style={{ fontWeight: "600" }}>رجوع</ThemedText>
+      </Pressable>
+
       <View style={styles.header}>
         <View style={[styles.iconCircle, { backgroundColor: "#E8F5E915" }]}>
           <Feather name="truck" size={36} color="#4CAF50" />
@@ -154,6 +176,16 @@ export default function DriverRegistrationScreen() {
           أدخل بياناتك للانضمام لفريق التوصيل
         </ThemedText>
       </View>
+
+      {errorMessage ? (
+        <View style={styles.errorBanner}>
+          <Feather name="alert-circle" size={18} color="#FFFFFF" />
+          <ThemedText type="body" style={styles.errorBannerText}>{errorMessage}</ThemedText>
+          <Pressable onPress={() => setErrorMessage("")}>
+            <Feather name="x" size={18} color="#FFFFFF" />
+          </Pressable>
+        </View>
+      ) : null}
 
       <View style={[styles.card, { backgroundColor: theme.backgroundDefault }, Shadows.sm]}>
         <ThemedText type="h4" style={styles.sectionTitle}>الاسم الرباعي</ThemedText>
@@ -317,6 +349,48 @@ export default function DriverRegistrationScreen() {
       <ThemedText type="small" style={[styles.note, { color: theme.textSecondary }]}>
         سيتم مراجعة بياناتك من قبل الإدارة وسيتم إبلاغك بالنتيجة
       </ThemedText>
+
+      <Modal
+        visible={imagePickerModal.visible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setImagePickerModal({ visible: false, setter: null, title: "" })}
+      >
+        <Pressable
+          style={styles.modalOverlay}
+          onPress={() => setImagePickerModal({ visible: false, setter: null, title: "" })}
+        >
+          <View style={[styles.modalContent, { backgroundColor: theme.backgroundDefault }]}>
+            <ThemedText type="h4" style={styles.modalTitle}>{imagePickerModal.title}</ThemedText>
+            <ThemedText type="body" style={[styles.modalSubtitle, { color: theme.textSecondary }]}>
+              اختر طريقة إضافة الصورة
+            </ThemedText>
+
+            <Pressable
+              style={[styles.modalOption, { backgroundColor: theme.backgroundSecondary }]}
+              onPress={() => imagePickerModal.setter && takePhoto(imagePickerModal.setter)}
+            >
+              <Feather name="camera" size={22} color={AppColors.primary} />
+              <ThemedText type="body" style={styles.modalOptionText}>الكاميرا</ThemedText>
+            </Pressable>
+
+            <Pressable
+              style={[styles.modalOption, { backgroundColor: theme.backgroundSecondary }]}
+              onPress={() => imagePickerModal.setter && pickImage(imagePickerModal.setter)}
+            >
+              <Feather name="image" size={22} color={AppColors.primary} />
+              <ThemedText type="body" style={styles.modalOptionText}>معرض الصور</ThemedText>
+            </Pressable>
+
+            <Pressable
+              style={[styles.modalCancel, { borderColor: theme.border }]}
+              onPress={() => setImagePickerModal({ visible: false, setter: null, title: "" })}
+            >
+              <ThemedText type="body" style={{ color: theme.textSecondary, fontWeight: "600" }}>إلغاء</ThemedText>
+            </Pressable>
+          </View>
+        </Pressable>
+      </Modal>
     </KeyboardAwareScrollViewCompat>
   );
 }
@@ -324,6 +398,72 @@ export default function DriverRegistrationScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  backButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    alignSelf: "flex-end",
+    gap: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: BorderRadius.lg,
+    marginBottom: Spacing.md,
+  },
+  errorBanner: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    gap: 10,
+    backgroundColor: "#EF4444",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: BorderRadius.md,
+    marginBottom: Spacing.lg,
+  },
+  errorBannerText: {
+    flex: 1,
+    color: "#FFFFFF",
+    fontWeight: "600",
+    textAlign: "right",
+    fontSize: 14,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    justifyContent: "flex-end",
+  },
+  modalContent: {
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 24,
+    paddingBottom: 40,
+  },
+  modalTitle: {
+    textAlign: "center",
+    fontWeight: "700",
+    marginBottom: 4,
+  },
+  modalSubtitle: {
+    textAlign: "center",
+    marginBottom: 20,
+  },
+  modalOption: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    gap: 14,
+    padding: 16,
+    borderRadius: BorderRadius.lg,
+    marginBottom: 10,
+  },
+  modalOptionText: {
+    fontWeight: "600",
+    fontSize: 16,
+  },
+  modalCancel: {
+    alignItems: "center",
+    padding: 14,
+    borderRadius: BorderRadius.lg,
+    borderWidth: 1,
+    marginTop: 6,
   },
   header: {
     alignItems: "center",
