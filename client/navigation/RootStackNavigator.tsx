@@ -11,6 +11,7 @@ import PhoneLoginScreen from "@/screens/PhoneLoginScreen";
 import OtpVerificationScreen from "@/screens/OtpVerificationScreen";
 import UserTypeScreen from "@/screens/UserTypeScreen";
 import DriverRegistrationScreen from "@/screens/DriverRegistrationScreen";
+import DriverOrderDetailScreen from "@/screens/DriverOrderDetailScreen";
 import ProfileCompletionScreen from "@/screens/ProfileCompletionScreen";
 import CategoriesScreen from "@/screens/CategoriesScreen";
 import AdminScreen from "@/screens/AdminScreen";
@@ -25,6 +26,7 @@ export type RootStackParamList = {
   OtpVerification: undefined;
   UserType: undefined;
   DriverRegistration: undefined;
+  DriverOrderDetail: { order: any };
   ProfileCompletion: undefined;
   MainTabs: undefined;
   DriverTabs: undefined;
@@ -124,6 +126,11 @@ export default function RootStackNavigator() {
         <Stack.Screen
           name="DriverTabs"
           component={DriverTabNavigator}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="DriverOrderDetail"
+          component={DriverOrderDetailScreen}
           options={{ headerShown: false }}
         />
       </Stack.Navigator>

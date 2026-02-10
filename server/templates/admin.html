@@ -1669,6 +1669,52 @@
       </header>
 
       <div class="content">
+        <!-- Orders Summary Stats -->
+        <div id="orders-summary" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; margin-bottom: 24px;">
+          <div style="background: linear-gradient(135deg, #FF7622, #FF9A5C); border-radius: 16px; padding: 20px; color: white;">
+            <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
+              <i data-lucide="shopping-bag" style="width: 24px; height: 24px;"></i>
+              <span style="font-size: 0.9rem; opacity: 0.9;">إجمالي الطلبات</span>
+            </div>
+            <div id="stat-total-orders" style="font-size: 2rem; font-weight: 800;">0</div>
+          </div>
+          <div style="background: linear-gradient(135deg, #10b981, #34d399); border-radius: 16px; padding: 20px; color: white;">
+            <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
+              <i data-lucide="check-circle" style="width: 24px; height: 24px;"></i>
+              <span style="font-size: 0.9rem; opacity: 0.9;">تم التوصيل</span>
+            </div>
+            <div id="stat-delivered-orders" style="font-size: 2rem; font-weight: 800;">0</div>
+          </div>
+          <div style="background: linear-gradient(135deg, #f59e0b, #fbbf24); border-radius: 16px; padding: 20px; color: white;">
+            <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
+              <i data-lucide="clock" style="width: 24px; height: 24px;"></i>
+              <span style="font-size: 0.9rem; opacity: 0.9;">قيد الانتظار</span>
+            </div>
+            <div id="stat-pending-orders" style="font-size: 2rem; font-weight: 800;">0</div>
+          </div>
+          <div style="background: linear-gradient(135deg, #3b82f6, #60a5fa); border-radius: 16px; padding: 20px; color: white;">
+            <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
+              <i data-lucide="banknote" style="width: 24px; height: 24px;"></i>
+              <span style="font-size: 0.9rem; opacity: 0.9;">إجمالي المبيعات</span>
+            </div>
+            <div id="stat-total-revenue" style="font-size: 1.5rem; font-weight: 800;">0 د.ع</div>
+          </div>
+          <div style="background: linear-gradient(135deg, #8b5cf6, #a78bfa); border-radius: 16px; padding: 20px; color: white;">
+            <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
+              <i data-lucide="truck" style="width: 24px; height: 24px;"></i>
+              <span style="font-size: 0.9rem; opacity: 0.9;">جاري التوصيل</span>
+            </div>
+            <div id="stat-delivering-orders" style="font-size: 2rem; font-weight: 800;">0</div>
+          </div>
+          <div style="background: linear-gradient(135deg, #ef4444, #f87171); border-radius: 16px; padding: 20px; color: white;">
+            <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
+              <i data-lucide="x-circle" style="width: 24px; height: 24px;"></i>
+              <span style="font-size: 0.9rem; opacity: 0.9;">ملغية</span>
+            </div>
+            <div id="stat-cancelled-orders" style="font-size: 2rem; font-weight: 800;">0</div>
+          </div>
+        </div>
+
         <div class="orders-filters" style="display: flex; gap: 12px; margin-bottom: 20px; flex-wrap: wrap;">
           <button class="btn btn-outline order-filter active" data-status="all" onclick="filterOrders('all', this)">الكل</button>
           <button class="btn btn-outline order-filter" data-status="pending" onclick="filterOrders('pending', this)">قيد الانتظار</button>
@@ -1947,6 +1993,20 @@
             </button>
           </div>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Order Detail Modal -->
+  <div id="order-detail-modal" class="modal-overlay">
+    <div class="modal" style="max-width: 600px;">
+      <div class="modal-header">
+        <h3><i data-lucide="file-text"></i> <span id="order-detail-title">تفاصيل الطلب</span></h3>
+        <button class="modal-close" onclick="closeModal('order-detail-modal')">
+          <i data-lucide="x"></i>
+        </button>
+      </div>
+      <div class="modal-body" id="order-detail-body" style="max-height: 70vh; overflow-y: auto;">
       </div>
     </div>
   </div>
@@ -3018,10 +3078,29 @@
         const response = await fetch(API_BASE + '/admin/orders');
         orders = await response.json();
         document.getElementById('orders-count').textContent = orders.filter(o => o.status === 'pending').length;
+        updateOrdersStats();
         renderOrders();
       } catch (error) {
         showToast('error', 'خطأ', 'حدث خطأ في تحميل الطلبات');
       }
+    }
+
+    function updateOrdersStats() {
+      const totalOrders = orders.length;
+      const deliveredOrders = orders.filter(o => o.status === 'delivered').length;
+      const pendingOrders = orders.filter(o => o.status === 'pending').length;
+      const deliveringOrders = orders.filter(o => o.status === 'delivering').length;
+      const cancelledOrders = orders.filter(o => o.status === 'cancelled').length;
+      const totalRevenue = orders
+        .filter(o => o.status !== 'cancelled')
+        .reduce((sum, o) => sum + (o.total || 0) + (o.deliveryFee || 0), 0);
+
+      document.getElementById('stat-total-orders').textContent = totalOrders.toLocaleString('ar-IQ');
+      document.getElementById('stat-delivered-orders').textContent = deliveredOrders.toLocaleString('ar-IQ');
+      document.getElementById('stat-pending-orders').textContent = pendingOrders.toLocaleString('ar-IQ');
+      document.getElementById('stat-delivering-orders').textContent = deliveringOrders.toLocaleString('ar-IQ');
+      document.getElementById('stat-cancelled-orders').textContent = cancelledOrders.toLocaleString('ar-IQ');
+      document.getElementById('stat-total-revenue').textContent = totalRevenue.toLocaleString('ar-IQ') + ' د.ع';
     }
 
     function filterOrders(status, element) {
@@ -3051,7 +3130,7 @@
         const total = (order.total || 0) + (order.deliveryFee || 0);
         const date = new Date(order.createdAt).toLocaleDateString('ar-IQ', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
         
-        let actionButtons = '';
+        let actionButtons = `<button class="btn btn-sm" style="background: var(--gray-700); color: white; margin-left: 4px;" onclick="viewOrderDetails('${order.id}')"><i data-lucide="eye"></i> عرض</button>`;
         if (order.status !== 'delivered' && order.status !== 'cancelled') {
           if (order.status === 'pending') {
             actionButtons += `<button class="btn btn-sm" style="background: #3B82F6; color: white; margin-left: 4px;" onclick="updateOrderStatus('${order.id}', 'confirmed', '${order.phoneNumber}')"><i data-lucide="check"></i> تأكيد</button>`;
@@ -3124,6 +3203,113 @@
       } catch (error) {
         showToast('error', 'خطأ', 'حدث خطأ أثناء تحديث حالة الطلب');
       }
+    }
+
+    function viewOrderDetails(orderId) {
+      const order = orders.find(o => o.id === orderId);
+      if (!order) return;
+
+      const statusColor = getOrderStatusColor(order.status);
+      const statusLabel = getOrderStatusLabel(order.status);
+      const total = (order.total || 0) + (order.deliveryFee || 0);
+      const date = new Date(order.createdAt).toLocaleDateString('ar-IQ', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+
+      let itemsRows = '';
+      if (order.items && order.items.length > 0) {
+        itemsRows = order.items.map((item, idx) => `
+          <tr>
+            <td style="padding: 10px; border-bottom: 1px solid var(--gray-200); text-align: right; font-weight: 500;">${escapeHtml(item.name)}</td>
+            <td style="padding: 10px; border-bottom: 1px solid var(--gray-200); text-align: center;">${item.quantity}</td>
+            <td style="padding: 10px; border-bottom: 1px solid var(--gray-200); text-align: center;">${(item.price || 0).toLocaleString('ar-IQ')} د.ع</td>
+            <td style="padding: 10px; border-bottom: 1px solid var(--gray-200); text-align: center; font-weight: 600; color: var(--primary);">${((item.price || 0) * (item.quantity || 1)).toLocaleString('ar-IQ')} د.ع</td>
+          </tr>
+        `).join('');
+      }
+
+      document.getElementById('order-detail-title').textContent = `تفاصيل الطلب #${order.id.slice(-6)}`;
+      document.getElementById('order-detail-body').innerHTML = `
+        <div style="display: flex; flex-direction: column; gap: 20px;">
+          <!-- Status Badge -->
+          <div style="text-align: center; padding: 12px; background: ${statusColor}15; border-radius: 12px;">
+            <span style="color: ${statusColor}; font-weight: 700; font-size: 1.1rem;">${statusLabel}</span>
+          </div>
+
+          <!-- Customer Info -->
+          <div style="background: var(--gray-50); border-radius: 12px; padding: 16px;">
+            <h4 style="margin-bottom: 12px; display: flex; align-items: center; gap: 8px; color: var(--gray-800);">
+              <i data-lucide="user" style="width: 18px; height: 18px; color: var(--primary);"></i>
+              بيانات العميل
+            </h4>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+              <div>
+                <div style="font-size: 0.8rem; color: var(--gray-500);">رقم الهاتف</div>
+                <div style="font-weight: 600; direction: ltr; text-align: right;">${escapeHtml(order.phoneNumber)}</div>
+              </div>
+              <div>
+                <div style="font-size: 0.8rem; color: var(--gray-500);">المنطقة</div>
+                <div style="font-weight: 600;">${escapeHtml(order.region || '-')}</div>
+              </div>
+              <div style="grid-column: span 2;">
+                <div style="font-size: 0.8rem; color: var(--gray-500);">العنوان</div>
+                <div style="font-weight: 600;">${escapeHtml(order.address || '-')}</div>
+              </div>
+              <div>
+                <div style="font-size: 0.8rem; color: var(--gray-500);">تاريخ الطلب</div>
+                <div style="font-weight: 600;">${date}</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Items Table -->
+          <div>
+            <h4 style="margin-bottom: 12px; display: flex; align-items: center; gap: 8px; color: var(--gray-800);">
+              <i data-lucide="shopping-bag" style="width: 18px; height: 18px; color: var(--primary);"></i>
+              المنتجات (${order.items ? order.items.length : 0})
+            </h4>
+            <table style="width: 100%; border-collapse: collapse; border: 1px solid var(--gray-200); border-radius: 10px; overflow: hidden;">
+              <thead>
+                <tr style="background: var(--gray-100);">
+                  <th style="padding: 10px; text-align: right; font-weight: 700; font-size: 0.85rem;">المنتج</th>
+                  <th style="padding: 10px; text-align: center; font-weight: 700; font-size: 0.85rem;">العدد</th>
+                  <th style="padding: 10px; text-align: center; font-weight: 700; font-size: 0.85rem;">السعر</th>
+                  <th style="padding: 10px; text-align: center; font-weight: 700; font-size: 0.85rem;">المجموع</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${itemsRows || '<tr><td colspan="4" style="text-align: center; padding: 20px; color: var(--gray-500);">لا توجد منتجات</td></tr>'}
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Totals -->
+          <div style="background: var(--gray-50); border-radius: 12px; padding: 16px;">
+            <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+              <span style="color: var(--gray-600);">المنتجات</span>
+              <span style="font-weight: 600;">${(order.total || 0).toLocaleString('ar-IQ')} د.ع</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+              <span style="color: var(--gray-600);">أجرة التوصيل</span>
+              <span style="font-weight: 600;">${(order.deliveryFee || 0).toLocaleString('ar-IQ')} د.ع</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; padding-top: 10px; border-top: 2px solid var(--gray-200);">
+              <span style="font-weight: 800; font-size: 1.1rem;">المجموع الكلي</span>
+              <span style="font-weight: 800; font-size: 1.1rem; color: var(--primary);">${total.toLocaleString('ar-IQ')} د.ع</span>
+            </div>
+          </div>
+
+          ${order.notes ? `
+          <div style="background: #FFF3E0; border-radius: 12px; padding: 16px;">
+            <h4 style="margin-bottom: 8px; display: flex; align-items: center; gap: 8px; color: var(--gray-800);">
+              <i data-lucide="message-square" style="width: 18px; height: 18px; color: var(--primary);"></i>
+              ملاحظات
+            </h4>
+            <p style="color: var(--gray-700);">${escapeHtml(order.notes)}</p>
+          </div>` : ''}
+        </div>
+      `;
+
+      openModal('order-detail-modal');
+      lucide.createIcons();
     }
 
     // Drivers

@@ -7,9 +7,13 @@ import {
   RefreshControl,
   ActivityIndicator,
   Dimensions,
+  Linking,
+  Platform,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
+import { useNavigation } from "@react-navigation/native";
+import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 
@@ -19,6 +23,7 @@ import { useAuth } from "@/context/AuthContext";
 import { AppColors, Spacing, BorderRadius, Shadows } from "@/constants/theme";
 import { getApiUrl } from "@/lib/query-client";
 import { formatPrice } from "@/constants/currency";
+import { RootStackParamList } from "@/navigation/RootStackNavigator";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
@@ -40,6 +45,7 @@ export default function DriverHomeScreen() {
   const tabBarHeight = useBottomTabBarHeight();
   const { theme, isDark } = useTheme();
   const { phoneNumber } = useAuth();
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
 
   const [isOnline, setIsOnline] = useState(false);
   const [isToggling, setIsToggling] = useState(false);
@@ -246,6 +252,23 @@ export default function DriverHomeScreen() {
     </View>
   );
 
+  const handleCallCustomer = () => {
+    if (!currentOrder?.customerPhone) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    const phoneUrl = Platform.OS === "android"
+      ? `tel:${currentOrder.customerPhone}`
+      : `telprompt:${currentOrder.customerPhone}`;
+    Linking.openURL(phoneUrl).catch(() => {
+      Linking.openURL(`tel:${currentOrder.customerPhone}`).catch(console.error);
+    });
+  };
+
+  const handleViewOrderDetails = () => {
+    if (!currentOrder) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    navigation.navigate("DriverOrderDetail", { order: currentOrder });
+  };
+
   const renderCurrentOrder = () => {
     if (!currentOrder) return null;
     const isDelivering = currentOrder.status === "delivering";
@@ -284,6 +307,25 @@ export default function DriverHomeScreen() {
             </ThemedText>
             <Feather name="shopping-bag" size={18} color={theme.textSecondary} />
           </View>
+        </View>
+
+        <View style={styles.quickActionsRow}>
+          <Pressable
+            style={[styles.quickActionBtn, { backgroundColor: "#4CAF5015" }]}
+            onPress={handleCallCustomer}
+            testID="button-call-customer"
+          >
+            <Feather name="phone" size={20} color="#4CAF50" />
+            <ThemedText type="small" style={{ color: "#4CAF50", fontWeight: "600" }}>اتصال</ThemedText>
+          </Pressable>
+          <Pressable
+            style={[styles.quickActionBtn, { backgroundColor: AppColors.primary + "15" }]}
+            onPress={handleViewOrderDetails}
+            testID="button-view-order-details"
+          >
+            <Feather name="eye" size={20} color={AppColors.primary} />
+            <ThemedText type="small" style={{ color: AppColors.primary, fontWeight: "600" }}>التفاصيل</ThemedText>
+          </Pressable>
         </View>
 
         {isDelivering ? (
@@ -504,6 +546,20 @@ const styles = StyleSheet.create({
   },
   rejectText: {
     fontWeight: "700",
+  },
+  quickActionsRow: {
+    flexDirection: "row-reverse",
+    gap: Spacing.sm,
+    marginBottom: Spacing.md,
+  },
+  quickActionBtn: {
+    flex: 1,
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    gap: 6,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.md,
   },
   waitingCard: {
     borderRadius: BorderRadius.xl,
