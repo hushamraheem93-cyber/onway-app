@@ -10,6 +10,8 @@ import {
   Easing,
   ActivityIndicator,
   Dimensions,
+  Keyboard,
+  TouchableWithoutFeedback,
   ScrollView,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -110,123 +112,135 @@ export default function PhoneLoginScreen() {
   };
 
   return (
-    <View style={styles.container}>
-      <LinearGradient
-        colors={[PRIMARY, LIGHT_ORANGE, "#FFB88C"]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={[styles.topSection, { paddingTop: insets.top + 16 }]}
-      >
-        <View style={styles.topDecorCircle1} />
-        <View style={styles.topDecorCircle2} />
-
-        <Animated.View style={[styles.logoRow, { transform: [{ scale: logoScale }] }]}>
-          <ThemedText type="h1" style={styles.logoWhite}>On</ThemedText>
-          <ThemedText type="h1" style={styles.logoAccent}>way</ThemedText>
-        </Animated.View>
-
-        <ThemedText type="small" style={styles.tagline}>
-          توصيل سريع لكل طلباتك
-        </ThemedText>
-
-        <Animated.View style={[styles.bikeContainer, { transform: [{ translateX: bikeSlide }] }]}>
-          <Image
-            source={deliveryBikeImage}
-            style={styles.bikeImage}
-            contentFit="contain"
-          />
-        </Animated.View>
-      </LinearGradient>
-
-      <Animated.View
-        style={[
-          styles.bottomSheet,
-          {
-            opacity: fadeAnim,
-            transform: [{ translateY: slideUpAnim }],
-            paddingBottom: insets.bottom + 16,
-          },
-        ]}
-      >
+    <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
+      <View style={styles.container}>
         <KeyboardAvoidingView
           behavior={Platform.OS === "ios" ? "padding" : "height"}
-          style={styles.formWrapper}
+          style={styles.flex1}
+          keyboardVerticalOffset={0}
         >
-          <View style={styles.handleBar} />
-
-          <ThemedText type="h3" style={styles.welcomeTitle}>
-            مرحباً بك
-          </ThemedText>
-          <ThemedText type="body" style={styles.welcomeSubtitle}>
-            أدخل رقم هاتفك للبدء
-          </ThemedText>
-
-          <View style={styles.inputGroup}>
-            <ThemedText type="small" style={styles.inputLabel}>
-              رقم الهاتف
-            </ThemedText>
-            <View style={styles.phoneInputRow}>
-              <TextInput
-                placeholder="7XX XXX XXXX"
-                placeholderTextColor="#C0C0C0"
-                keyboardType="phone-pad"
-                style={styles.textInput}
-                value={phoneNumber}
-                onChangeText={setPhoneNumber}
-                maxLength={12}
-                testID="input-phone"
-              />
-              <View style={styles.prefixContainer}>
-                <ThemedText type="body" style={styles.countryCode}>964+</ThemedText>
-                <View style={styles.flagContainer}>
-                  <Image
-                    source={{ uri: "https://flagcdn.com/w80/iq.png" }}
-                    style={styles.flagIcon}
-                  />
-                </View>
-              </View>
-            </View>
-          </View>
-
-          {error ? (
-            <View style={styles.errorRow}>
-              <Feather name="alert-circle" size={14} color="#E53935" />
-              <ThemedText type="small" style={styles.errorText}>
-                {error}
-              </ThemedText>
-            </View>
-          ) : null}
-
-          <Pressable
-            style={({ pressed }) => [
-              styles.mainButton,
-              isLoading && styles.mainButtonDisabled,
-              pressed && !isLoading && styles.mainButtonPressed,
-            ]}
-            onPress={handleContinue}
-            disabled={isLoading}
-            testID="button-continue"
+          <ScrollView
+            bounces={false}
+            contentContainerStyle={styles.scrollContent}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
           >
-            {isLoading ? (
-              <ActivityIndicator size="small" color="#FFFFFF" />
-            ) : (
-              <View style={styles.buttonInner}>
-                <ThemedText type="h4" style={styles.buttonText}>
-                  إرسال رمز التحقق
+            <LinearGradient
+              colors={[PRIMARY, LIGHT_ORANGE, "#FFB88C"]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={[styles.topSection, { paddingTop: insets.top + 16 }]}
+            >
+              <View style={styles.topDecorCircle1} />
+              <View style={styles.topDecorCircle2} />
+
+              <Animated.View style={[styles.logoRow, { transform: [{ scale: logoScale }] }]}>
+                <ThemedText type="h1" style={styles.logoWhite}>On</ThemedText>
+                <ThemedText type="h1" style={styles.logoAccent}>way</ThemedText>
+              </Animated.View>
+
+              <ThemedText type="small" style={styles.tagline}>
+                توصيل سريع لكل طلباتك
+              </ThemedText>
+
+              <Animated.View style={[styles.bikeContainer, { transform: [{ translateX: bikeSlide }] }]}>
+                <Image
+                  source={deliveryBikeImage}
+                  style={styles.bikeImage}
+                  contentFit="contain"
+                />
+              </Animated.View>
+            </LinearGradient>
+
+            <Animated.View
+              style={[
+                styles.bottomSheet,
+                {
+                  opacity: fadeAnim,
+                  transform: [{ translateY: slideUpAnim }],
+                  paddingBottom: insets.bottom + 24,
+                },
+              ]}
+            >
+              <View style={styles.handleBar} />
+
+              <ThemedText type="h3" style={styles.welcomeTitle}>
+                مرحباً بك
+              </ThemedText>
+              <ThemedText type="body" style={styles.welcomeSubtitle}>
+                أدخل رقم هاتفك للبدء
+              </ThemedText>
+
+              <View style={styles.inputGroup}>
+                <ThemedText type="small" style={styles.inputLabel}>
+                  رقم الهاتف
                 </ThemedText>
-                <View style={styles.buttonArrow}>
-                  <Feather name="arrow-left" size={18} color="#FFFFFF" />
+                <View style={styles.phoneInputRow}>
+                  <TextInput
+                    placeholder="7XX XXX XXXX"
+                    placeholderTextColor="#C0C0C0"
+                    keyboardType="phone-pad"
+                    style={styles.textInput}
+                    value={phoneNumber}
+                    onChangeText={setPhoneNumber}
+                    maxLength={12}
+                    returnKeyType="done"
+                    onSubmitEditing={handleContinue}
+                    testID="input-phone"
+                  />
+                  <View style={styles.prefixContainer}>
+                    <ThemedText type="body" style={styles.countryCode}>964+</ThemedText>
+                    <View style={styles.flagContainer}>
+                      <Image
+                        source={{ uri: "https://flagcdn.com/w80/iq.png" }}
+                        style={styles.flagIcon}
+                      />
+                    </View>
+                  </View>
                 </View>
               </View>
-            )}
-          </Pressable>
 
-          <ThemedText type="small" style={styles.termsText}>
-            بالمتابعة، أنت توافق على شروط الخدمة وسياسة الخصوصية
-          </ThemedText>
+              {error ? (
+                <View style={styles.errorRow}>
+                  <Feather name="alert-circle" size={14} color="#E53935" />
+                  <ThemedText type="small" style={styles.errorText}>
+                    {error}
+                  </ThemedText>
+                </View>
+              ) : null}
+
+              <Pressable
+                style={({ pressed }) => [
+                  styles.mainButton,
+                  isLoading && styles.mainButtonDisabled,
+                  pressed && !isLoading && styles.mainButtonPressed,
+                ]}
+                onPress={handleContinue}
+                disabled={isLoading}
+                testID="button-continue"
+              >
+                {isLoading ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <View style={styles.buttonInner}>
+                    <ThemedText type="h4" style={styles.buttonText}>
+                      إرسال رمز التحقق
+                    </ThemedText>
+                    <View style={styles.buttonArrow}>
+                      <Feather name="arrow-left" size={18} color="#FFFFFF" />
+                    </View>
+                  </View>
+                )}
+              </Pressable>
+
+              <ThemedText type="small" style={styles.termsText}>
+                بالمتابعة، أنت توافق على شروط الخدمة وسياسة الخصوصية
+              </ThemedText>
+            </Animated.View>
+          </ScrollView>
         </KeyboardAvoidingView>
-      </Animated.View>
-    </View>
+      </View>
+    </TouchableWithoutFeedback>
   );
 }
 
@@ -234,6 +248,12 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: PRIMARY,
+  },
+  flex1: {
+    flex: 1,
+  },
+  scrollContent: {
+    flexGrow: 1,
   },
   topSection: {
     height: SCREEN_HEIGHT * 0.48,
