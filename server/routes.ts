@@ -14,7 +14,7 @@ import {
   getCategories as getFirestoreCategories, createCategory as createFirestoreCategory,
   updateCategory as updateFirestoreCategory, deleteCategory as deleteFirestoreCategory,
   initializeDefaultCategories,
-  generateOtp, verifyOtp as verifyOtpCode,
+  generateOtp, sendOtpViaOtpIq, verifyOtp as verifyOtpCode,
   getDrivers, getDriverByPhone, createDriver, updateDriverStatus as updateDriverStatusFn
 } from "./firebase";
 import { sendPushNotification } from "./pushNotifications";
@@ -893,17 +893,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // OTP Auth Routes
-  app.post("/api/auth/send-otp", (req: Request, res: Response) => {
+  app.post("/api/auth/send-otp", async (req: Request, res: Response) => {
     const { phoneNumber } = req.body;
     if (!phoneNumber) {
       return res.status(400).json({ error: "Phone number is required" });
     }
     const code = generateOtp(phoneNumber);
-    console.log(`[OTP] Sent code ${code} to ${phoneNumber}`);
+    const sent = await sendOtpViaOtpIq(phoneNumber, code);
+    if (!sent) {
+      return res.status(500).json({ error: "فشل في إرسال رمز التحقق، حاول مرة أخرى" });
+    }
     res.json({ success: true, message: "OTP sent successfully" });
   });
 
-  app.post("/api/auth/verify-otp", (req: Request, res: Response) => {
+  app.post("/api/auth/verify-otp", async (req: Request, res: Response) => {
     const { phoneNumber, code } = req.body;
     if (!phoneNumber || !code) {
       return res.status(400).json({ error: "Phone number and code are required" });
@@ -912,7 +915,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
     if (!isValid) {
       return res.status(400).json({ error: "رمز التحقق غير صحيح أو منتهي الصلاحية" });
     }
-    res.json({ success: true, message: "OTP verified" });
+
+    let userType: string | null = null;
+    let userExists = false;
+    let driverExists = false;
+
+    const user = await getUserByPhone(phoneNumber);
+    if (user) {
+      userExists = true;
+      userType = "customer";
+    }
+
+    const driver = await getDriverByPhone(phoneNumber);
+    if (driver) {
+      driverExists = true;
+      userType = "driver";
+    }
+
+    res.json({ 
+      success: true, 
+      message: "OTP verified",
+      userExists,
+      driverExists,
+      userType,
+    });
   });
 
   // Driver Routes

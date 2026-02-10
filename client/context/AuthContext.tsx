@@ -85,7 +85,7 @@ async function registerForPushNotificationsAsync(): Promise<string | null> {
         name: "default",
         importance: Notifications.AndroidImportance.MAX,
         vibrationPattern: [0, 250, 250, 250],
-        lightColor: "#FF7A00",
+        lightColor: "#FF7622",
         sound: "default",
       });
     }
@@ -217,8 +217,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         throw new Error(err.error || "رمز التحقق غير صحيح");
       }
 
+      const data = await response.json();
+
       setPhoneNumber(pendingPhone);
       setIsOtpVerified(true);
+
+      if (data.userExists && data.userType === "customer") {
+        setSelectedUserType("customer");
+        await AsyncStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify({ 
+          phoneNumber: pendingPhone, userType: "customer", isDriverRegistered: false 
+        }));
+        setIsLoggedIn(true);
+        await checkProfileFromServer(pendingPhone);
+      } else if (data.driverExists && data.userType === "driver") {
+        setSelectedUserType("driver");
+        setIsDriverRegistered(true);
+        await AsyncStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify({ 
+          phoneNumber: pendingPhone, userType: "driver", isDriverRegistered: true 
+        }));
+        setIsLoggedIn(true);
+      }
     } catch (error: any) {
       console.error("Error verifying OTP:", error);
       throw error;
