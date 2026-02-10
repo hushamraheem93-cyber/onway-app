@@ -588,11 +588,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.post("/api/orders", async (req: Request, res: Response) => {
-    const { userId, phoneNumber, items, total, deliveryFee, address, region } = req.body;
+    const { userId, phoneNumber, customerName, items, total, deliveryFee, address, region, latitude, longitude } = req.body;
     const db = getFirestore();
     
     if (db) {
-      const newOrder = await createOrder({
+      const orderData: any = {
         userId: userId || "",
         phoneNumber,
         items,
@@ -601,7 +601,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         address,
         region,
         status: "pending",
-      });
+      };
+      if (customerName) orderData.customerName = customerName;
+      if (latitude !== undefined && longitude !== undefined) {
+        orderData.latitude = latitude;
+        orderData.longitude = longitude;
+      }
+      const newOrder = await createOrder(orderData);
       if (newOrder) {
         return res.json({
           ...newOrder,
@@ -1005,8 +1011,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
             const customerProfile = await getUserByPhone(order.phoneNumber || "");
             currentOrder = {
               ...order,
-              customerName: customerProfile?.fullName || "زبون",
+              customerName: order.customerName || customerProfile?.fullName || "زبون",
               customerPhone: order.phoneNumber || "",
+              latitude: order.latitude || null,
+              longitude: order.longitude || null,
               createdAt: order.createdAt?.toDate?.() ? order.createdAt.toDate().toISOString() : order.createdAt,
               updatedAt: order.updatedAt?.toDate?.() ? order.updatedAt.toDate().toISOString() : order.updatedAt,
             };
@@ -1295,19 +1303,49 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get queue info for admin
-  app.get("/api/admin/driver-queue", (_req: Request, res: Response) => {
-    res.json({
-      onlineDrivers: driverQueue.length,
-      availableDrivers: driverQueue.filter(d => !d.currentOrderId).length,
-      busyDrivers: driverQueue.filter(d => d.currentOrderId).length,
-      queue: driverQueue.map((d, i) => ({
-        position: i + 1,
-        phoneNumber: d.phoneNumber,
-        joinedAt: new Date(d.joinedAt).toISOString(),
-        currentOrderId: d.currentOrderId || null,
-        status: d.currentOrderId ? "busy" : "available",
-      })),
-    });
+  app.get("/api/admin/driver-queue", async (_req: Request, res: Response) => {
+    try {
+      const db = getFirestore();
+      let allOrders: any[] = [];
+      if (db) {
+        allOrders = await getOrders();
+      }
+
+      const queueData = await Promise.all(driverQueue.map(async (d, i) => {
+        let customerName = null;
+        let orderRegion = null;
+        if (d.currentOrderId) {
+          const order = allOrders.find(o => o.id === d.currentOrderId);
+          if (order) {
+            if (order.customerName) {
+              customerName = order.customerName;
+            } else {
+              const profile = await getUserByPhone(order.phoneNumber || "");
+              customerName = profile?.fullName || null;
+            }
+            orderRegion = order.region || null;
+          }
+        }
+        return {
+          position: i + 1,
+          phoneNumber: d.phoneNumber,
+          joinedAt: new Date(d.joinedAt).toISOString(),
+          currentOrderId: d.currentOrderId || null,
+          status: d.currentOrderId ? "busy" : "available",
+          customerName,
+          orderRegion,
+        };
+      }));
+
+      res.json({
+        onlineDrivers: driverQueue.length,
+        availableDrivers: driverQueue.filter(d => !d.currentOrderId).length,
+        busyDrivers: driverQueue.filter(d => d.currentOrderId).length,
+        queue: queueData,
+      });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
   });
 
   const httpServer = createServer(app);

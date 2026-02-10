@@ -297,11 +297,14 @@ export async function deleteProduct(id: string): Promise<boolean> {
 export interface FirestoreOrder {
   userId: string;
   phoneNumber: string;
+  customerName?: string;
   items: { productId: string; name: string; price: number; quantity: number; image: string }[];
   total: number;
   deliveryFee: number;
   address: string;
   region: string;
+  latitude?: number;
+  longitude?: number;
   status: "pending" | "confirmed" | "preparing" | "delivering" | "delivered" | "cancelled";
   createdAt: admin.firestore.Timestamp;
   updatedAt: admin.firestore.Timestamp;
