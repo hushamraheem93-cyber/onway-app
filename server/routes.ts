@@ -916,6 +916,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Driver Routes
+  app.get("/api/drivers/check/:phoneNumber", async (req: Request, res: Response) => {
+    try {
+      const phoneNumber = req.params.phoneNumber;
+      const driver = await getDriverByPhone(phoneNumber);
+      if (driver) {
+        res.json({
+          exists: true,
+          driver: {
+            id: driver.id,
+            phoneNumber: driver.phoneNumber,
+            fullName: driver.fullName,
+            firstName: driver.firstName,
+            secondName: driver.secondName,
+            thirdName: driver.thirdName,
+            fourthName: driver.fourthName,
+            status: driver.status,
+            createdAt: driver.createdAt?.toDate?.() ? driver.createdAt.toDate().toISOString() : driver.createdAt,
+            updatedAt: driver.updatedAt?.toDate?.() ? driver.updatedAt.toDate().toISOString() : driver.updatedAt,
+          },
+        });
+      } else {
+        res.json({ exists: false, driver: null });
+      }
+    } catch (error: any) {
+      console.error("Error checking driver:", error);
+      res.status(500).json({ error: error.message || "Internal server error" });
+    }
+  });
+
   app.post("/api/drivers", async (req: Request, res: Response) => {
     try {
       const { phoneNumber, fullName, firstName, secondName, thirdName, fourthName, nationalIdImage, driverLicenseImage } = req.body;
@@ -926,7 +955,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const existing = await getDriverByPhone(phoneNumber);
       if (existing) {
-        return res.status(400).json({ error: "هذا الرقم مسجل مسبقاً كسائق" });
+        return res.json({
+          ...existing,
+          createdAt: existing.createdAt?.toDate?.() ? existing.createdAt.toDate().toISOString() : existing.createdAt,
+          updatedAt: existing.updatedAt?.toDate?.() ? existing.updatedAt.toDate().toISOString() : existing.updatedAt,
+          alreadyRegistered: true,
+        });
       }
 
       const driver = await createDriver({
