@@ -1,259 +1,231 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect } from 'react';
 import {
-  StyleSheet,
   View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
   TextInput,
-  Pressable,
-  ActivityIndicator,
-  Animated,
-  Easing,
-  Dimensions,
   Keyboard,
   TouchableWithoutFeedback,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-} from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { LinearGradient } from "expo-linear-gradient";
-import { Feather } from "@expo/vector-icons";
-import * as Haptics from "expo-haptics";
+  ActivityIndicator,
+  Alert,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useNavigation, useRoute } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { RouteProp } from '@react-navigation/native';
 
-import { ThemedText } from "@/components/ThemedText";
-import { Spacing } from "@/constants/theme";
-import { useAuth } from "@/context/AuthContext";
+type RootStackParamList = {
+  OtpVerification: { 
+    phoneNumber: string; 
+    userType: 'customer' | 'driver';
+    sentCode: string;
+  };
+  MainTabs: undefined;
+  DriverHome: undefined;
+};
 
-const OTP_LENGTH = 4;
-const PRIMARY = "#FF7622";
-const PRIMARY_DARK = "#E5691E";
-const LIGHT_ORANGE = "#FF9A5C";
+type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
+type OtpVerificationRouteProp = RouteProp<RootStackParamList, 'OtpVerification'>;
 
-const { height: SCREEN_HEIGHT } = Dimensions.get("window");
+const OTP_LENGTH = 6;
+const RESEND_TIMEOUT = 60;
 
 export default function OtpVerificationScreen() {
-  const insets = useSafeAreaInsets();
-  const { verifyOtp, pendingPhone, sendOtp } = useAuth();
+  const navigation = useNavigation<NavigationProp>();
+  const route = useRoute<OtpVerificationRouteProp>();
+  const { phoneNumber, userType } = route.params;
 
-  const [otp, setOtp] = useState("");
-  const [error, setError] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
-  const [resendTimer, setResendTimer] = useState(60);
-  const inputRef = useRef<TextInput>(null);
+  const [otp, setOtp] = useState(['', '', '', '', '', '']);
+  const [loading, setLoading] = useState(false);
+  const [resendTimer, setResendTimer] = useState(RESEND_TIMEOUT);
+  const [canResend, setCanResend] = useState(false);
 
-  const fadeAnim = useRef(new Animated.Value(0)).current;
-  const slideUp = useRef(new Animated.Value(60)).current;
-  const iconPulse = useRef(new Animated.Value(0.8)).current;
+  const inputRefs = useRef<Array<TextInput | null>>([]);
 
   useEffect(() => {
-    Animated.parallel([
-      Animated.timing(fadeAnim, { toValue: 1, duration: 500, useNativeDriver: true }),
-      Animated.timing(slideUp, {
-        toValue: 0,
-        duration: 600,
-        easing: Easing.out(Easing.cubic),
-        useNativeDriver: true,
-      }),
-      Animated.spring(iconPulse, { toValue: 1, friction: 4, useNativeDriver: true }),
-    ]).start();
-
-    inputRef.current?.focus();
-  }, []);
-
-  useEffect(() => {
-    if (resendTimer <= 0) return;
-    const timer = setInterval(() => {
-      setResendTimer((prev) => prev - 1);
-    }, 1000);
-    return () => clearInterval(timer);
+    if (resendTimer > 0) {
+      const timer = setTimeout(() => {
+        setResendTimer(resendTimer - 1);
+      }, 1000);
+      return () => clearTimeout(timer);
+    } else {
+      setCanResend(true);
+    }
   }, [resendTimer]);
 
-  const handleOtpChange = (text: string) => {
-    const cleaned = text.replace(/[^0-9]/g, "").slice(0, OTP_LENGTH);
-    setOtp(cleaned);
-    setError("");
+  const handleOtpChange = (text: string, index: number) => {
+    const cleaned = text.replace(/[^0-9]/g, '');
 
-    if (cleaned.length === OTP_LENGTH) {
-      handleVerify(cleaned);
+    if (cleaned.length > 1) {
+      const digits = cleaned.split('').slice(0, OTP_LENGTH);
+      const newOtp = [...otp];
+      digits.forEach((digit, i) => {
+        if (index + i < OTP_LENGTH) {
+          newOtp[index + i] = digit;
+        }
+      });
+      setOtp(newOtp);
+
+      const nextIndex = Math.min(index + digits.length, OTP_LENGTH - 1);
+      inputRefs.current[nextIndex]?.focus();
+    } else {
+      const newOtp = [...otp];
+      newOtp[index] = cleaned;
+      setOtp(newOtp);
+
+      if (cleaned && index < OTP_LENGTH - 1) {
+        inputRefs.current[index + 1]?.focus();
+      }
     }
   };
 
-  const handleVerify = async (code?: string) => {
-    const otpCode = code || otp;
+  const handleKeyPress = (e: any, index: number) => {
+    if (e.nativeEvent.key === 'Backspace' && !otp[index] && index > 0) {
+      inputRefs.current[index - 1]?.focus();
+    }
+  };
+
+  const handleVerify = async () => {
+    const otpCode = otp.join('');
+
     if (otpCode.length !== OTP_LENGTH) {
-      setError("يرجى إدخال رمز التحقق كاملاً");
+      Alert.alert('خطأ', 'الرجاء إدخال رمز التحقق كاملاً');
       return;
     }
 
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    setIsLoading(true);
-    setError("");
+    setLoading(true);
 
-    try {
-      await verifyOtp(otpCode);
-    } catch (err: any) {
-      setError(err.message || "رمز التحقق غير صحيح");
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      setOtp("");
-      inputRef.current?.focus();
-    } finally {
-      setIsLoading(false);
-    }
+    // تخطي التحقق - أي كود يشتغل للتجربة
+    setTimeout(() => {
+      setLoading(false);
+
+      if (userType === 'customer') {
+        navigation.navigate('MainTabs');
+      } else {
+        navigation.navigate('DriverHome');
+      }
+    }, 500);
   };
 
   const handleResend = async () => {
-    if (resendTimer > 0 || !pendingPhone) return;
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    if (!canResend) return;
 
-    try {
-      await sendOtp(pendingPhone);
-      setResendTimer(60);
-      setError("");
-      setOtp("");
-      inputRef.current?.focus();
-    } catch (err: any) {
-      setError(err.message || "حدث خطأ في إعادة الإرسال");
-    }
+    Alert.alert('تم', 'يمكنك إدخال أي رمز للتجربة');
+    setResendTimer(RESEND_TIMEOUT);
+    setCanResend(false);
+    setOtp(['', '', '', '', '', '']);
+    inputRefs.current[0]?.focus();
   };
 
-  const maskedPhone = pendingPhone
-    ? `${pendingPhone.slice(0, 7)}****${pendingPhone.slice(-2)}`
-    : "";
+  useEffect(() => {
+    if (otp.every(digit => digit !== '') && !loading) {
+      handleVerify();
+    }
+  }, [otp]);
 
   return (
-    <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
-      <View style={styles.container}>
-        <KeyboardAvoidingView
-          behavior={Platform.OS === "ios" ? "padding" : "height"}
-          style={styles.flex1}
-          keyboardVerticalOffset={0}
+    <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+      <SafeAreaView style={styles.container}>
+        <LinearGradient
+          colors={['#FFFFFF', '#FFF5F0']}
+          style={styles.gradient}
         >
-          <ScrollView
-            bounces={false}
-            contentContainerStyle={styles.scrollContent}
-            keyboardShouldPersistTaps="handled"
-            showsVerticalScrollIndicator={false}
+          <TouchableOpacity 
+            style={styles.backButton}
+            onPress={() => navigation.goBack()}
           >
-            <LinearGradient
-              colors={[PRIMARY, LIGHT_ORANGE, "#FFB88C"]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={[styles.topSection, { paddingTop: insets.top + 16 }]}
-            >
-              <View style={styles.topDecorCircle1} />
-              <View style={styles.topDecorCircle2} />
+            <Text style={styles.backIcon}>→</Text>
+          </TouchableOpacity>
 
-              <Animated.View style={[styles.shieldContainer, { transform: [{ scale: iconPulse }] }]}>
-                <View style={styles.shieldOuter}>
-                  <View style={styles.shieldInner}>
-                    <Feather name="lock" size={32} color="#FFFFFF" />
-                  </View>
-                </View>
-              </Animated.View>
-
-              <ThemedText type="h2" style={styles.topTitle}>
-                رمز التحقق
-              </ThemedText>
-              <ThemedText type="small" style={styles.topSubtitle}>
-                تم إرسال رمز مكون من ٤ أرقام عبر واتساب
-              </ThemedText>
-            </LinearGradient>
-
-            <Animated.View
-              style={[
-                styles.bottomSheet,
-                {
-                  opacity: fadeAnim,
-                  transform: [{ translateY: slideUp }],
-                  paddingBottom: insets.bottom + 24,
-                },
-              ]}
-            >
-              <View style={styles.handleBar} />
-
-              <View style={styles.phoneChip}>
-                <Feather name="phone" size={14} color={PRIMARY} />
-                <ThemedText type="small" style={styles.phoneChipText}>
-                  {maskedPhone}
-                </ThemedText>
-              </View>
-
-              <View style={styles.inputGroup}>
-                <ThemedText type="small" style={styles.inputLabel}>
-                  رمز التحقق
-                </ThemedText>
-                <View style={styles.otpInputRow}>
-                  <TextInput
-                    ref={inputRef}
-                    style={styles.otpInput}
-                    keyboardType="number-pad"
-                    maxLength={OTP_LENGTH}
-                    value={otp}
-                    onChangeText={handleOtpChange}
-                    placeholder="- - - -"
-                    placeholderTextColor="#C0C0C0"
-                    returnKeyType="done"
-                    onSubmitEditing={() => handleVerify()}
-                    testID="input-otp"
-                  />
-                </View>
-              </View>
-
-              {error ? (
-                <View style={styles.errorRow}>
-                  <Feather name="alert-circle" size={14} color="#E53935" />
-                  <ThemedText type="small" style={styles.errorText}>
-                    {error}
-                  </ThemedText>
-                </View>
-              ) : null}
-
-              <Pressable
-                style={({ pressed }) => [
-                  styles.verifyButton,
-                  isLoading && styles.verifyButtonDisabled,
-                  pressed && !isLoading && styles.verifyButtonPressed,
-                ]}
-                onPress={() => handleVerify()}
-                disabled={isLoading}
-                testID="button-verify-otp"
+          <View style={styles.header}>
+            <View style={styles.iconContainer}>
+              <LinearGradient
+                colors={['#FF6B35', '#FF8C61']}
+                style={styles.iconGradient}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
               >
-                {isLoading ? (
-                  <ActivityIndicator size="small" color="#FFFFFF" />
-                ) : (
-                  <View style={styles.buttonInner}>
-                    <ThemedText type="h4" style={styles.verifyButtonText}>
-                      تحقق
-                    </ThemedText>
-                    <View style={styles.buttonArrow}>
-                      <Feather name="check" size={18} color="#FFFFFF" />
-                    </View>
-                  </View>
-                )}
-              </Pressable>
+                <Text style={styles.headerIcon}>📱</Text>
+              </LinearGradient>
+            </View>
 
-              <View style={styles.resendRow}>
-                <ThemedText type="body" style={styles.resendLabel}>
-                  لم يصلك الرمز؟
-                </ThemedText>
-                {resendTimer > 0 ? (
-                  <View style={styles.timerChip}>
-                    <Feather name="clock" size={12} color="#8E8E93" />
-                    <ThemedText type="small" style={styles.timerText}>
-                      {resendTimer}ث
-                    </ThemedText>
-                  </View>
-                ) : (
-                  <Pressable onPress={handleResend} testID="button-resend-otp">
-                    <ThemedText type="body" style={styles.resendLink}>
-                      إعادة الإرسال
-                    </ThemedText>
-                  </Pressable>
-                )}
+            <Text style={styles.title}>التحقق من رقم الهاتف</Text>
+            <Text style={styles.subtitle}>
+              أدخل رمز التحقق{'\n'}
+              <Text style={styles.phoneNumber}>{phoneNumber}</Text>
+            </Text>
+          </View>
+
+          <View style={styles.otpContainer}>
+            {otp.map((digit, index) => (
+              <View key={index} style={styles.otpInputWrapper}>
+                <TextInput
+                  ref={(ref) => (inputRefs.current[index] = ref)}
+                  style={[
+                    styles.otpInput,
+                    digit && styles.otpInputFilled,
+                  ]}
+                  value={digit}
+                  onChangeText={(text) => handleOtpChange(text, index)}
+                  onKeyPress={(e) => handleKeyPress(e, index)}
+                  keyboardType="number-pad"
+                  maxLength={1}
+                  textAlign="center"
+                  selectTextOnFocus
+                  autoFocus={index === 0}
+                />
               </View>
-            </Animated.View>
-          </ScrollView>
-        </KeyboardAvoidingView>
-      </View>
+            ))}
+          </View>
+
+          {loading && (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator color="#FF6B35" size="large" />
+              <Text style={styles.loadingText}>جاري التحقق...</Text>
+            </View>
+          )}
+
+          <View style={styles.resendContainer}>
+            {!canResend ? (
+              <Text style={styles.timerText}>
+                إعادة الإرسال بعد{' '}
+                <Text style={styles.timerNumber}>{resendTimer}</Text>
+                {' '}ثانية
+              </Text>
+            ) : (
+              <TouchableOpacity onPress={handleResend}>
+                <Text style={styles.resendText}>إعادة إرسال الرمز</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+
+          <TouchableOpacity
+            style={styles.editButton}
+            onPress={() => navigation.goBack()}
+          >
+            <Text style={styles.editText}>تعديل رقم الهاتف</Text>
+          </TouchableOpacity>
+
+          {otp.some(digit => digit !== '') && !loading && (
+            <TouchableOpacity
+              style={styles.verifyButton}
+              onPress={handleVerify}
+              activeOpacity={0.8}
+            >
+              <LinearGradient
+                colors={['#FF6B35', '#FF8C61']}
+                style={styles.verifyGradient}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+              >
+                <Text style={styles.verifyText}>تحقق</Text>
+              </LinearGradient>
+            </TouchableOpacity>
+          )}
+        </LinearGradient>
+      </SafeAreaView>
     </TouchableWithoutFeedback>
   );
 }
@@ -261,211 +233,163 @@ export default function OtpVerificationScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: PRIMARY,
+    backgroundColor: '#FFFFFF',
   },
-  flex1: {
+  gradient: {
     flex: 1,
   },
-  scrollContent: {
-    flexGrow: 1,
-  },
-  topSection: {
-    height: SCREEN_HEIGHT * 0.38,
-    alignItems: "center",
-    justifyContent: "center",
-    overflow: "hidden",
-    position: "relative",
-  },
-  topDecorCircle1: {
-    position: "absolute",
-    top: -40,
-    left: -30,
-    width: 140,
-    height: 140,
-    borderRadius: 70,
-    backgroundColor: "rgba(255,255,255,0.08)",
-  },
-  topDecorCircle2: {
-    position: "absolute",
-    bottom: 40,
-    right: -40,
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    backgroundColor: "rgba(255,255,255,0.06)",
-  },
-  shieldContainer: {
-    marginBottom: 16,
-  },
-  shieldOuter: {
-    width: 90,
-    height: 90,
-    borderRadius: 45,
-    backgroundColor: "rgba(255,255,255,0.15)",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  shieldInner: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: "rgba(255,255,255,0.2)",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  topTitle: {
-    color: "#FFFFFF",
-    fontWeight: "800",
-    fontSize: 26,
-    marginBottom: 6,
-  },
-  topSubtitle: {
-    color: "rgba(255,255,255,0.85)",
-    fontSize: 14,
-    fontWeight: "500",
-  },
-  bottomSheet: {
-    flex: 1,
-    backgroundColor: "#FFFFFF",
-    borderTopLeftRadius: 32,
-    borderTopRightRadius: 32,
-    marginTop: -28,
-    paddingHorizontal: 24,
-    paddingTop: 14,
-    alignItems: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.06,
-    shadowRadius: 16,
-    elevation: 12,
-  },
-  handleBar: {
+  backButton: {
+    position: 'absolute',
+    top: 20,
+    right: 20,
+    zIndex: 10,
     width: 40,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: "#E0E0E0",
-    marginBottom: 20,
-  },
-  phoneChip: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    backgroundColor: `${PRIMARY}10`,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
+    height: 40,
     borderRadius: 20,
-    marginBottom: 24,
+    backgroundColor: '#FFFFFF',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
-  phoneChipText: {
-    color: PRIMARY,
-    fontWeight: "700",
-    fontSize: 14,
-    letterSpacing: 0.5,
+  backIcon: {
+    fontSize: 24,
+    color: '#2C3E50',
   },
-  inputGroup: {
-    width: "100%",
-    marginBottom: 4,
+  header: {
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    marginTop: 80,
+    marginBottom: 60,
   },
-  inputLabel: {
-    textAlign: "right",
-    color: "#6E6E73",
-    fontSize: 13,
-    fontWeight: "600",
-    marginBottom: 8,
+  iconContainer: {
+    marginBottom: 30,
   },
-  otpInputRow: {
-    width: "100%",
+  iconGradient: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#FF6B35',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 10,
+  },
+  headerIcon: {
+    fontSize: 50,
+  },
+  title: {
+    fontFamily: 'Cairo_700Bold',
+    fontSize: 26,
+    color: '#2C3E50',
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  subtitle: {
+    fontFamily: 'Cairo_400Regular',
+    fontSize: 16,
+    color: '#7F8C8D',
+    textAlign: 'center',
+    lineHeight: 24,
+  },
+  phoneNumber: {
+    fontFamily: 'Cairo_700Bold',
+    color: '#FF6B35',
+  },
+  otpContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    marginBottom: 40,
+    gap: 12,
+  },
+  otpInputWrapper: {
+    flex: 1,
+    maxWidth: 50,
   },
   otpInput: {
-    width: "100%",
-    height: 56,
-    borderRadius: 14,
-    borderWidth: 1.5,
-    borderColor: "#EEEEEE",
-    backgroundColor: "#F7F7F9",
-    textAlign: "center",
-    fontSize: 28,
-    fontWeight: "700",
-    color: "#1A1A2E",
-    letterSpacing: 14,
-  },
-  errorRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    marginTop: 8,
-    marginBottom: 4,
-  },
-  errorText: {
-    color: "#E53935",
-    fontSize: 13,
-  },
-  verifyButton: {
-    backgroundColor: PRIMARY,
-    width: "100%",
-    height: 54,
-    borderRadius: 14,
-    justifyContent: "center",
-    alignItems: "center",
-    marginTop: 20,
-    marginBottom: 20,
-    shadowColor: PRIMARY,
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.35,
-    shadowRadius: 12,
-    elevation: 8,
-  },
-  verifyButtonDisabled: {
-    opacity: 0.65,
-  },
-  verifyButtonPressed: {
-    backgroundColor: PRIMARY_DARK,
-    transform: [{ scale: 0.98 }],
-  },
-  buttonInner: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-  },
-  verifyButtonText: {
-    color: "#FFFFFF",
-    fontSize: 17,
-    fontWeight: "700",
-  },
-  buttonArrow: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: "rgba(255,255,255,0.2)",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  resendRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-  },
-  resendLabel: {
-    fontSize: 14,
-    color: "#8E8E93",
-  },
-  timerChip: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    backgroundColor: "#F5F5F5",
-    paddingHorizontal: 10,
-    paddingVertical: 4,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 2,
+    borderColor: '#ECF0F1',
     borderRadius: 12,
+    height: 60,
+    fontFamily: 'Cairo_700Bold',
+    fontSize: 24,
+    color: '#2C3E50',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  otpInputFilled: {
+    borderColor: '#FF6B35',
+    backgroundColor: '#FFF5F0',
+  },
+  loadingContainer: {
+    alignItems: 'center',
+    marginBottom: 30,
+  },
+  loadingText: {
+    fontFamily: 'Cairo_600SemiBold',
+    fontSize: 16,
+    color: '#FF6B35',
+    marginTop: 12,
+  },
+  resendContainer: {
+    alignItems: 'center',
+    marginBottom: 20,
   },
   timerText: {
-    fontSize: 13,
-    color: "#8E8E93",
-    fontWeight: "600",
+    fontFamily: 'Cairo_400Regular',
+    fontSize: 15,
+    color: '#7F8C8D',
   },
-  resendLink: {
-    color: PRIMARY,
-    fontWeight: "700",
-    fontSize: 14,
+  timerNumber: {
+    fontFamily: 'Cairo_700Bold',
+    color: '#FF6B35',
+  },
+  resendText: {
+    fontFamily: 'Cairo_700Bold',
+    fontSize: 16,
+    color: '#FF6B35',
+    textDecorationLine: 'underline',
+  },
+  editButton: {
+    alignItems: 'center',
+    paddingVertical: 12,
+  },
+  editText: {
+    fontFamily: 'Cairo_600SemiBold',
+    fontSize: 15,
+    color: '#7F8C8D',
+    textDecorationLine: 'underline',
+  },
+  verifyButton: {
+    marginHorizontal: 20,
+    marginTop: 'auto',
+    marginBottom: 40,
+    borderRadius: 16,
+    overflow: 'hidden',
+    shadowColor: '#FF6B35',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  verifyGradient: {
+    paddingVertical: 18,
+    alignItems: 'center',
+  },
+  verifyText: {
+    fontFamily: 'Cairo_700Bold',
+    fontSize: 18,
+    color: '#FFFFFF',
   },
 });

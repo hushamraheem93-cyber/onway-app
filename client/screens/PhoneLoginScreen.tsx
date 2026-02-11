@@ -1,245 +1,197 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useRef } from 'react';
 import {
-  StyleSheet,
   View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
   TextInput,
-  Pressable,
-  KeyboardAvoidingView,
-  Platform,
-  Animated,
-  Easing,
-  ActivityIndicator,
-  Dimensions,
   Keyboard,
   TouchableWithoutFeedback,
-  ScrollView,
-} from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { LinearGradient } from "expo-linear-gradient";
-import { Image } from "expo-image";
-import * as Haptics from "expo-haptics";
-import { Feather } from "@expo/vector-icons";
+  ActivityIndicator,
+  Alert,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useNavigation, useRoute } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { RouteProp } from '@react-navigation/native';
 
-import { ThemedText } from "@/components/ThemedText";
-import { AppColors } from "@/constants/theme";
-import { useAuth } from "@/context/AuthContext";
+type RootStackParamList = {
+  PhoneLogin: { userType: 'customer' | 'driver' };
+  OtpVerification: { 
+    phoneNumber: string; 
+    userType: 'customer' | 'driver';
+    sentCode: string;
+  };
+  MainTabs: undefined;
+};
 
-import deliveryBikeImage from "@/assets/images/delivery-bike.png";
-
-const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
-
-const PRIMARY = "#FF7622";
-const PRIMARY_DARK = "#E5691E";
-const LIGHT_ORANGE = "#FF9A5C";
-const BG_ORANGE = "#FFF5EE";
+type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
+type PhoneLoginRouteProp = RouteProp<RootStackParamList, 'PhoneLogin'>;
 
 export default function PhoneLoginScreen() {
-  const insets = useSafeAreaInsets();
-  const { sendOtp } = useAuth();
-  const [phoneNumber, setPhoneNumber] = useState("");
-  const [error, setError] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
+  const navigation = useNavigation<NavigationProp>();
+  const route = useRoute<PhoneLoginRouteProp>();
+  const userType = route.params?.userType || 'customer';
 
-  const slideUpAnim = useRef(new Animated.Value(80)).current;
-  const fadeAnim = useRef(new Animated.Value(0)).current;
-  const logoScale = useRef(new Animated.Value(0.5)).current;
-  const bikeSlide = useRef(new Animated.Value(100)).current;
-
-  useEffect(() => {
-    Animated.stagger(150, [
-      Animated.spring(logoScale, {
-        toValue: 1,
-        friction: 5,
-        tension: 40,
-        useNativeDriver: true,
-      }),
-      Animated.timing(bikeSlide, {
-        toValue: 0,
-        duration: 700,
-        easing: Easing.out(Easing.back(1.2)),
-        useNativeDriver: true,
-      }),
-      Animated.parallel([
-        Animated.timing(fadeAnim, {
-          toValue: 1,
-          duration: 600,
-          useNativeDriver: true,
-        }),
-        Animated.timing(slideUpAnim, {
-          toValue: 0,
-          duration: 600,
-          easing: Easing.out(Easing.cubic),
-          useNativeDriver: true,
-        }),
-      ]),
-    ]).start();
-  }, []);
-
-  const validatePhone = (phone: string) => {
-    const cleanPhone = phone.replace(/\s/g, "");
-    return cleanPhone.length >= 9;
-  };
-
-  const formatPhoneForLogin = (phone: string) => {
-    const cleanPhone = phone.replace(/\s/g, "");
-    return `00964${cleanPhone}`;
-  };
+  const [phoneNumber, setPhoneNumber] = useState('');
+  const [loading, setLoading] = useState(false);
+  const inputRef = useRef<TextInput>(null);
 
   const handleContinue = async () => {
-    setError("");
-
-    if (!phoneNumber.trim()) {
-      setError("الرجاء إدخال رقم الهاتف");
+    // Validate phone number
+    if (phoneNumber.length < 10) {
+      Alert.alert('خطأ', 'الرجاء إدخال رقم هاتف صحيح');
       return;
     }
 
-    if (!validatePhone(phoneNumber)) {
-      setError("يرجى إدخال رقم هاتف عراقي صحيح");
-      return;
-    }
+    setLoading(true);
 
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    setIsLoading(true);
+    // تخطي OTP مؤقتاً - للتجربة بدون سيرفر
+    const fakeCode = '123456';
 
-    try {
-      const fullPhone = formatPhoneForLogin(phoneNumber);
-      await sendOtp(fullPhone);
-    } catch (err: any) {
-      setError(err.message || "حدث خطأ أثناء إرسال رمز التحقق");
-    } finally {
-      setIsLoading(false);
-    }
+    setTimeout(() => {
+      setLoading(false);
+      Alert.alert('تم', 'تم إنشاء رمز تحقق تجريبي: 123456');
+
+      navigation.navigate('OtpVerification', { 
+        phoneNumber: `+964${phoneNumber}`,
+        userType,
+        sentCode: fakeCode,
+      });
+    }, 1000);
+  };
+
+  const handleGuestMode = () => {
+    navigation.navigate('MainTabs');
+  };
+
+  const formatPhoneNumber = (text: string) => {
+    // Remove non-numeric characters
+    const cleaned = text.replace(/\D/g, '');
+    // Limit to 10 digits
+    return cleaned.substring(0, 10);
   };
 
   return (
-    <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
-      <View style={styles.container}>
-        <KeyboardAvoidingView
-          behavior={Platform.OS === "ios" ? "padding" : "height"}
-          style={styles.flex1}
-          keyboardVerticalOffset={0}
+    <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+      <SafeAreaView style={styles.container}>
+        <LinearGradient
+          colors={['#FFFFFF', '#FFF5F0']}
+          style={styles.gradient}
         >
-          <ScrollView
-            bounces={false}
-            contentContainerStyle={styles.scrollContent}
-            keyboardShouldPersistTaps="handled"
-            showsVerticalScrollIndicator={false}
+          {/* Back Button */}
+          <TouchableOpacity 
+            style={styles.backButton}
+            onPress={() => navigation.goBack()}
           >
-            <LinearGradient
-              colors={[PRIMARY, LIGHT_ORANGE, "#FFB88C"]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={[styles.topSection, { paddingTop: insets.top + 16 }]}
-            >
-              <View style={styles.topDecorCircle1} />
-              <View style={styles.topDecorCircle2} />
+            <Text style={styles.backIcon}>→</Text>
+          </TouchableOpacity>
 
-              <Animated.View style={[styles.logoRow, { transform: [{ scale: logoScale }] }]}>
-                <ThemedText type="h1" style={styles.logoWhite}>On</ThemedText>
-                <ThemedText type="h1" style={styles.logoAccent}>way</ThemedText>
-              </Animated.View>
+          {/* Header */}
+          <View style={styles.header}>
+            <View style={styles.iconContainer}>
+              <LinearGradient
+                colors={['#FF6B35', '#FF8C61']}
+                style={styles.iconGradient}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+              >
+                <Text style={styles.headerIcon}>
+                  {userType === 'customer' ? '📱' : '🚗'}
+                </Text>
+              </LinearGradient>
+            </View>
 
-              <ThemedText type="small" style={styles.tagline}>
-                توصيل سريع لكل طلباتك
-              </ThemedText>
+            <Text style={styles.title}>مرحباً بك في أون وي</Text>
+            <Text style={styles.subtitle}>
+              {userType === 'customer' 
+                ? 'أدخل رقم هاتفك للبدء في التسوق أو التوصيل'
+                : 'أدخل رقم هاتفك للانضمام كسائق'}
+            </Text>
+          </View>
 
-              <Animated.View style={[styles.bikeContainer, { transform: [{ translateX: bikeSlide }] }]}>
-                <Image
-                  source={deliveryBikeImage}
-                  style={styles.bikeImage}
-                  contentFit="contain"
-                />
-              </Animated.View>
-            </LinearGradient>
-
-            <Animated.View
-              style={[
-                styles.bottomSheet,
-                {
-                  opacity: fadeAnim,
-                  transform: [{ translateY: slideUpAnim }],
-                  paddingBottom: insets.bottom + 24,
-                },
-              ]}
-            >
-              <View style={styles.handleBar} />
-
-              <ThemedText type="h3" style={styles.welcomeTitle}>
-                مرحباً بك
-              </ThemedText>
-              <ThemedText type="body" style={styles.welcomeSubtitle}>
-                أدخل رقم هاتفك للبدء
-              </ThemedText>
-
-              <View style={styles.inputGroup}>
-                <ThemedText type="small" style={styles.inputLabel}>
-                  رقم الهاتف
-                </ThemedText>
-                <View style={styles.phoneInputRow}>
-                  <TextInput
-                    placeholder="7XX XXX XXXX"
-                    placeholderTextColor="#C0C0C0"
-                    keyboardType="phone-pad"
-                    style={styles.textInput}
-                    value={phoneNumber}
-                    onChangeText={setPhoneNumber}
-                    maxLength={12}
-                    returnKeyType="done"
-                    onSubmitEditing={handleContinue}
-                    testID="input-phone"
-                  />
-                  <View style={styles.prefixContainer}>
-                    <ThemedText type="body" style={styles.countryCode}>964+</ThemedText>
-                    <View style={styles.flagContainer}>
-                      <Image
-                        source={{ uri: "https://flagcdn.com/w80/iq.png" }}
-                        style={styles.flagIcon}
-                      />
-                    </View>
-                  </View>
-                </View>
+          {/* Phone Input */}
+          <View style={styles.inputContainer}>
+            <View style={styles.inputWrapper}>
+              <View style={styles.countryCode}>
+                <Text style={styles.flag}>🇮🇶</Text>
+                <Text style={styles.code}>+964</Text>
               </View>
 
-              {error ? (
-                <View style={styles.errorRow}>
-                  <Feather name="alert-circle" size={14} color="#E53935" />
-                  <ThemedText type="small" style={styles.errorText}>
-                    {error}
-                  </ThemedText>
-                </View>
-              ) : null}
+              <TextInput
+                ref={inputRef}
+                style={styles.input}
+                placeholder="780 000 0000"
+                placeholderTextColor="#BDC3C7"
+                keyboardType="phone-pad"
+                value={phoneNumber}
+                onChangeText={(text) => setPhoneNumber(formatPhoneNumber(text))}
+                maxLength={10}
+                textAlign="right"
+                autoFocus
+              />
+            </View>
 
-              <Pressable
-                style={({ pressed }) => [
-                  styles.mainButton,
-                  isLoading && styles.mainButtonDisabled,
-                  pressed && !isLoading && styles.mainButtonPressed,
-                ]}
-                onPress={handleContinue}
-                disabled={isLoading}
-                testID="button-continue"
+            {phoneNumber.length > 0 && (
+              <TouchableOpacity
+                style={styles.clearButton}
+                onPress={() => setPhoneNumber('')}
               >
-                {isLoading ? (
-                  <ActivityIndicator size="small" color="#FFFFFF" />
-                ) : (
-                  <View style={styles.buttonInner}>
-                    <ThemedText type="h4" style={styles.buttonText}>
-                      إرسال رمز التحقق
-                    </ThemedText>
-                    <View style={styles.buttonArrow}>
-                      <Feather name="arrow-left" size={18} color="#FFFFFF" />
-                    </View>
-                  </View>
-                )}
-              </Pressable>
+                <Text style={styles.clearIcon}>✕</Text>
+              </TouchableOpacity>
+            )}
+          </View>
 
-              <ThemedText type="small" style={styles.termsText}>
-                بالمتابعة، أنت توافق على شروط الخدمة وسياسة الخصوصية
-              </ThemedText>
-            </Animated.View>
-          </ScrollView>
-        </KeyboardAvoidingView>
-      </View>
+          {/* Continue Button */}
+          <TouchableOpacity
+            style={[
+              styles.continueButton,
+              phoneNumber.length < 10 && styles.continueButtonDisabled,
+            ]}
+            onPress={handleContinue}
+            disabled={phoneNumber.length < 10 || loading}
+            activeOpacity={0.8}
+          >
+            <LinearGradient
+              colors={
+                phoneNumber.length < 10
+                  ? ['#BDC3C7', '#95A5A6']
+                  : ['#FF6B35', '#FF8C61']
+              }
+              style={styles.continueGradient}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+            >
+              {loading ? (
+                <ActivityIndicator color="#FFFFFF" size="small" />
+              ) : (
+                <Text style={styles.continueText}>متابعة</Text>
+              )}
+            </LinearGradient>
+          </TouchableOpacity>
+
+          {/* Guest Mode */}
+          {userType === 'customer' && (
+            <TouchableOpacity
+              style={styles.guestButton}
+              onPress={handleGuestMode}
+            >
+              <Text style={styles.guestText}>المتابعة كضيف</Text>
+            </TouchableOpacity>
+          )}
+
+          {/* Footer */}
+          <View style={styles.footer}>
+            <Text style={styles.footerText}>
+              بالمتابعة، أنت توافق على{' '}
+              <Text style={styles.link}>شروط الخدمة</Text>
+              {'\n'}و
+              <Text style={styles.link}> سياسة الخصوصية</Text>
+            </Text>
+          </View>
+        </LinearGradient>
+      </SafeAreaView>
     </TouchableWithoutFeedback>
   );
 }
@@ -247,216 +199,175 @@ export default function PhoneLoginScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: PRIMARY,
+    backgroundColor: '#FFFFFF',
   },
-  flex1: {
+  gradient: {
     flex: 1,
   },
-  scrollContent: {
-    flexGrow: 1,
-  },
-  topSection: {
-    height: SCREEN_HEIGHT * 0.48,
-    alignItems: "center",
-    justifyContent: "center",
-    overflow: "hidden",
-    position: "relative",
-  },
-  topDecorCircle1: {
-    position: "absolute",
-    top: -60,
-    right: -40,
-    width: 180,
-    height: 180,
-    borderRadius: 90,
-    backgroundColor: "rgba(255,255,255,0.08)",
-  },
-  topDecorCircle2: {
-    position: "absolute",
-    bottom: 20,
-    left: -50,
-    width: 140,
-    height: 140,
-    borderRadius: 70,
-    backgroundColor: "rgba(255,255,255,0.06)",
-  },
-  logoRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 4,
-  },
-  logoWhite: {
-    fontSize: 42,
-    fontWeight: "900",
-    color: "#FFFFFF",
-    letterSpacing: 1,
-  },
-  logoAccent: {
-    fontSize: 42,
-    fontWeight: "900",
-    color: "rgba(255,255,255,0.75)",
-    letterSpacing: 1,
-  },
-  tagline: {
-    color: "rgba(255,255,255,0.85)",
-    fontSize: 15,
-    fontWeight: "500",
-    marginBottom: 12,
-  },
-  bikeContainer: {
-    width: SCREEN_WIDTH * 0.6,
-    height: SCREEN_HEIGHT * 0.2,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  bikeImage: {
-    width: "100%",
-    height: "100%",
-  },
-  bottomSheet: {
-    flex: 1,
-    backgroundColor: "#FFFFFF",
-    borderTopLeftRadius: 32,
-    borderTopRightRadius: 32,
-    marginTop: -28,
-    paddingHorizontal: 24,
-    paddingTop: 14,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.06,
-    shadowRadius: 16,
-    elevation: 12,
-  },
-  formWrapper: {
-    flex: 1,
-  },
-  handleBar: {
+  backButton: {
+    position: 'absolute',
+    top: 20,
+    right: 20,
+    zIndex: 10,
     width: 40,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: "#E0E0E0",
-    alignSelf: "center",
-    marginBottom: 20,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#FFFFFF',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
-  welcomeTitle: {
-    textAlign: "right",
-    fontWeight: "700",
-    color: "#1A1A2E",
-    fontSize: 22,
-    marginBottom: 4,
+  backIcon: {
+    fontSize: 24,
+    color: '#2C3E50',
   },
-  welcomeSubtitle: {
-    textAlign: "right",
-    color: "#8E8E93",
-    fontSize: 14,
+  header: {
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    marginTop: 80,
+    marginBottom: 50,
+  },
+  iconContainer: {
+    marginBottom: 30,
+  },
+  iconGradient: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#FF6B35',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 10,
+  },
+  headerIcon: {
+    fontSize: 60,
+  },
+  title: {
+    fontFamily: 'Cairo_700Bold',
+    fontSize: 28,
+    color: '#2C3E50',
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  subtitle: {
+    fontFamily: 'Cairo_400Regular',
+    fontSize: 16,
+    color: '#7F8C8D',
+    textAlign: 'center',
+    lineHeight: 24,
+    paddingHorizontal: 20,
+  },
+  inputContainer: {
+    paddingHorizontal: 20,
     marginBottom: 24,
   },
-  inputGroup: {
-    marginBottom: 4,
-  },
-  inputLabel: {
-    textAlign: "right",
-    color: "#6E6E73",
-    fontSize: 13,
-    fontWeight: "600",
-    marginBottom: 8,
-  },
-  phoneInputRow: {
-    flexDirection: "row",
-    backgroundColor: "#F7F7F9",
-    borderRadius: 14,
-    height: 54,
-    alignItems: "center",
-    paddingHorizontal: 14,
-    borderWidth: 1.5,
-    borderColor: "#EEEEEE",
-  },
-  textInput: {
-    flex: 1,
-    fontSize: 17,
-    color: "#1A1A2E",
-    textAlign: "left",
-    fontWeight: "500",
-    letterSpacing: 0.5,
-  },
-  prefixContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    borderLeftWidth: 1,
-    borderLeftColor: "#E5E5E5",
-    paddingLeft: 12,
-    marginLeft: 8,
+  inputWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    borderWidth: 2,
+    borderColor: '#ECF0F1',
+    paddingHorizontal: 16,
+    paddingVertical: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 3,
   },
   countryCode: {
-    fontSize: 15,
-    fontWeight: "700",
-    color: "#1A1A2E",
-    marginRight: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingLeft: 12,
+    borderLeftWidth: 1,
+    borderLeftColor: '#ECF0F1',
+    gap: 8,
   },
-  flagContainer: {
-    borderRadius: 4,
-    overflow: "hidden",
+  flag: {
+    fontSize: 24,
   },
-  flagIcon: {
-    width: 28,
-    height: 19,
-    borderRadius: 3,
+  code: {
+    fontFamily: 'Cairo_600SemiBold',
+    fontSize: 16,
+    color: '#2C3E50',
   },
-  errorRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "flex-end",
-    gap: 6,
-    marginTop: 8,
-    marginBottom: 4,
+  input: {
+    flex: 1,
+    fontFamily: 'Cairo_600SemiBold',
+    fontSize: 18,
+    color: '#2C3E50',
+    paddingVertical: 16,
+    paddingHorizontal: 16,
   },
-  errorText: {
-    color: "#E53935",
-    fontSize: 13,
-  },
-  mainButton: {
-    backgroundColor: PRIMARY,
-    height: 54,
-    borderRadius: 14,
-    justifyContent: "center",
-    alignItems: "center",
-    marginTop: 20,
-    shadowColor: PRIMARY,
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.35,
-    shadowRadius: 12,
-    elevation: 8,
-  },
-  mainButtonDisabled: {
-    opacity: 0.65,
-  },
-  mainButtonPressed: {
-    backgroundColor: PRIMARY_DARK,
-    transform: [{ scale: 0.98 }],
-  },
-  buttonInner: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-  },
-  buttonText: {
-    color: "#FFFFFF",
-    fontSize: 17,
-    fontWeight: "700",
-  },
-  buttonArrow: {
+  clearButton: {
+    position: 'absolute',
+    left: 30,
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: "rgba(255,255,255,0.2)",
-    alignItems: "center",
-    justifyContent: "center",
+    backgroundColor: '#ECF0F1',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  termsText: {
-    color: "#B0B0B0",
-    textAlign: "center",
-    fontSize: 11,
+  clearIcon: {
+    fontSize: 14,
+    color: '#7F8C8D',
+  },
+  continueButton: {
+    marginHorizontal: 20,
+    borderRadius: 16,
+    overflow: 'hidden',
+    shadowColor: '#FF6B35',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  continueButtonDisabled: {
+    shadowOpacity: 0.1,
+    elevation: 2,
+  },
+  continueGradient: {
+    paddingVertical: 18,
+    alignItems: 'center',
+  },
+  continueText: {
+    fontFamily: 'Cairo_700Bold',
+    fontSize: 18,
+    color: '#FFFFFF',
+  },
+  guestButton: {
     marginTop: 16,
-    lineHeight: 18,
+    paddingVertical: 16,
+    alignItems: 'center',
+  },
+  guestText: {
+    fontFamily: 'Cairo_600SemiBold',
+    fontSize: 16,
+    color: '#FF6B35',
+  },
+  footer: {
+    marginTop: 'auto',
+    paddingHorizontal: 20,
+    paddingBottom: 30,
+  },
+  footerText: {
+    fontFamily: 'Cairo_400Regular',
+    fontSize: 13,
+    color: '#95A5A6',
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+  link: {
+    color: '#FF6B35',
+    textDecorationLine: 'underline',
   },
 });

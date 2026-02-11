@@ -1,4 +1,4 @@
-import type { Express, Request, Response } from "express";
+Import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "node:http";
 import multer, { StorageEngine, FileFilterCallback } from "multer";
 import path from "path";
@@ -145,7 +145,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Initialize default categories in Firestore if empty
   await initializeDefaultCategories(categories);
-  
+
   app.use("/uploads", (req, res, next) => {
     res.setHeader("Access-Control-Allow-Origin", "*");
     next();
@@ -200,7 +200,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/admin/categories", async (req: Request, res: Response) => {
     try {
       const { id, name, productCount, order, image, color, iconColor } = req.body;
-      
+
       const db = getFirestore();
       if (db) {
         const newCategory = await createFirestoreCategory({
@@ -216,7 +216,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return res.json(newCategory);
         }
       }
-      
+
       // Fallback to in-memory
       const newCategory: Category = {
         id: id || randomUUID(),
@@ -238,7 +238,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.put("/api/admin/categories/:id", async (req: Request, res: Response) => {
     try {
       const { name, productCount, order, image, color, iconColor } = req.body;
-      
+
       const db = getFirestore();
       if (db) {
         const updated = await updateFirestoreCategory(req.params.id as string, {
@@ -253,13 +253,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return res.json(updated);
         }
       }
-      
+
       // Fallback to in-memory
       const index = categories.findIndex(c => c.id === req.params.id);
       if (index === -1) {
         return res.status(404).json({ error: "Category not found" });
       }
-      
+
       categories[index] = {
         ...categories[index],
         name: name || categories[index].name,
@@ -267,7 +267,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         productCount: productCount ? parseInt(productCount) : categories[index].productCount,
         order: order ? parseInt(order) : categories[index].order,
       };
-      
+
       res.json(categories[index]);
     } catch (error) {
       console.error("Error updating category:", error);
@@ -284,7 +284,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return res.json({ success: true });
         }
       }
-      
+
       // Fallback to in-memory
       const index = categories.findIndex(c => c.id === req.params.id);
       if (index === -1) {
@@ -313,7 +313,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/admin/banners", (req: Request, res: Response) => {
     const { title, type, order, isActive, image } = req.body;
-    
+
     const newBanner: Banner = {
       id: randomUUID(),
       image: image || "",
@@ -322,7 +322,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       order: parseInt(order) || banners.length + 1,
       isActive: isActive !== false,
     };
-    
+
     banners.push(newBanner);
     res.json(newBanner);
   });
@@ -332,9 +332,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     if (index === -1) {
       return res.status(404).json({ error: "Banner not found" });
     }
-    
+
     const { title, type, order, isActive, image } = req.body;
-    
+
     banners[index] = {
       ...banners[index],
       image: image || banners[index].image,
@@ -343,7 +343,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       order: order ? parseInt(order) : banners[index].order,
       isActive: isActive !== undefined ? isActive : banners[index].isActive,
     };
-    
+
     res.json(banners[index]);
   });
 
@@ -360,7 +360,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const categoryId = req.query.categoryId as string;
     const search = req.query.search as string;
     const db = getFirestore();
-    
+
     if (db) {
       let result = await getFirestoreProducts(categoryId);
       if (search) {
@@ -372,7 +372,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       return res.json(result);
     }
-    
+
     let result = products;
     if (categoryId) {
       result = result.filter(p => p.categoryId === categoryId);
@@ -401,15 +401,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!req.body) {
         return res.status(400).json({ error: "Request body is empty" });
       }
-      
+
       const { name, categoryId, price, originalPrice, discount, description, inStock, image } = req.body;
       const db = getFirestore();
-      
+
       const priceNum = Number(price) || 0;
       const originalPriceNum = originalPrice ? Number(originalPrice) : undefined;
       const discountNum = discount ? Number(discount) : undefined;
       const inStockBool = inStock === 'true' || inStock === true;
-      
+
       if (db) {
         const newProduct = await createFirestoreProduct({
           name: String(name || ""),
@@ -424,7 +424,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (newProduct) return res.json(newProduct);
         return res.status(500).json({ error: "Failed to create product in Firestore" });
       }
-      
+
       const newProduct: Product = {
         id: randomUUID(),
         name: String(name || ""),
@@ -452,12 +452,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const { name, categoryId, price, originalPrice, discount, description, inStock, image } = req.body;
     const productId = req.params.id as string;
     const db = getFirestore();
-    
+
     const priceNum = price !== undefined ? Number(price) : undefined;
     const originalPriceNum = originalPrice !== undefined ? Number(originalPrice) : undefined;
     const discountNum = discount !== undefined ? Number(discount) : undefined;
     const inStockBool = inStock !== undefined ? (inStock === 'true' || inStock === true) : undefined;
-    
+
     if (db) {
       const updated = await updateFirestoreProduct(productId, {
         name: name !== undefined ? String(name) : undefined,
@@ -472,7 +472,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (updated) return res.json(updated);
       return res.status(404).json({ error: "Product not found" });
     }
-    
+
     const index = products.findIndex(p => p.id === req.params.id);
     if (index === -1) {
       return res.status(404).json({ error: "Product not found" });
@@ -498,7 +498,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (success) return res.json({ success: true });
       return res.status(404).json({ error: "Product not found" });
     }
-    
+
     const index = products.findIndex(p => p.id === req.params.id);
     if (index === -1) {
       return res.status(404).json({ error: "Product not found" });
@@ -517,14 +517,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/admin/delivery-areas", (req: Request, res: Response) => {
     const { name, fee } = req.body;
-    
+
     const newArea: DeliveryArea = {
       id: randomUUID(),
       name,
       fee: parseInt(fee) || 0,
       isActive: true,
     };
-    
+
     deliveryAreas.push(newArea);
     res.json(newArea);
   });
@@ -534,16 +534,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     if (index === -1) {
       return res.status(404).json({ error: "Delivery area not found" });
     }
-    
+
     const { name, fee, isActive } = req.body;
-    
+
     deliveryAreas[index] = {
       ...deliveryAreas[index],
       name: name || deliveryAreas[index].name,
       fee: fee ? parseInt(fee) : deliveryAreas[index].fee,
       isActive: isActive !== undefined ? isActive !== "false" : deliveryAreas[index].isActive,
     };
-    
+
     res.json(deliveryAreas[index]);
   });
 
@@ -560,7 +560,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/orders", async (req, res) => {
     const phoneNumber = req.query.phoneNumber as string;
     const db = getFirestore();
-    
+
     if (db) {
       const orders = phoneNumber 
         ? await getOrdersByPhone(phoneNumber)
@@ -590,7 +590,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/orders", async (req: Request, res: Response) => {
     const { userId, phoneNumber, customerName, items, total, deliveryFee, address, region, latitude, longitude } = req.body;
     const db = getFirestore();
-    
+
     if (db) {
       const orderData: any = {
         userId: userId || "",
@@ -624,7 +624,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const orderId = req.params.id as string;
     const { status, phoneNumber } = req.body;
     const db = getFirestore();
-    
+
     if (db) {
       const success = await updateOrderStatus(orderId, status);
       if (success) {
@@ -654,7 +654,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/users/push-token", async (req: Request, res: Response) => {
     const { phoneNumber, pushToken } = req.body;
-    
+
     if (!phoneNumber || !pushToken) {
       return res.status(400).json({ error: "Phone number and push token are required" });
     }
@@ -696,7 +696,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.put("/api/admin/promotional-sections/:type", async (req: Request, res: Response) => {
     const type = req.params.type as string;
     const { productIds, isActive } = req.body;
-    
+
     if (!Array.isArray(productIds)) {
       return res.status(400).json({ error: "productIds must be an array" });
     }
@@ -723,7 +723,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/users/:phoneNumber", async (req: Request, res: Response) => {
     const phoneNumber = req.params.phoneNumber as string;
     const db = getFirestore();
-    
+
     if (db) {
       const user = await getUserByPhone(phoneNumber);
       if (!user) {
@@ -742,7 +742,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         profileComplete: true,
       });
     }
-    
+
     const user = userProfiles.find(u => u.phoneNumber === req.params.phoneNumber);
     if (!user) {
       return res.status(404).json({ error: "User not found", profileComplete: false });
@@ -752,20 +752,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/users", async (req: Request, res: Response) => {
     const { phoneNumber, fullName, gender, region, address, profileImage } = req.body;
-    
+
     if (!phoneNumber || !fullName || !gender || !region || !address) {
       return res.status(400).json({ error: "All fields are required" });
     }
 
     const db = getFirestore();
-    
+
     if (db) {
       const existingUser = await getUserByPhone(phoneNumber);
-      
+
       if (existingUser) {
         const updates: any = { fullName, gender, region, address };
         if (profileImage) updates.profileImage = profileImage;
-        
+
         const updatedUser = await updateUser(phoneNumber, updates);
         if (updatedUser) {
           return res.json({
@@ -790,7 +790,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           address,
           profileImage,
         });
-        
+
         if (newUser) {
           return res.json({
             id: newUser.id,
@@ -806,14 +806,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
           });
         }
       }
-      
+
       console.error("Firestore save failed for:", phoneNumber);
       return res.status(500).json({ error: "Failed to save user to Firestore" });
     }
 
     const existingIndex = userProfiles.findIndex(u => u.phoneNumber === phoneNumber);
     const now = new Date().toISOString();
-    
+
     if (existingIndex !== -1) {
       userProfiles[existingIndex] = {
         ...userProfiles[existingIndex],
@@ -846,7 +846,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const phoneNumber = req.params.phoneNumber as string;
     const { fullName, gender, region, address, profileImage } = req.body;
     const db = getFirestore();
-    
+
     if (db) {
       const updates: any = {};
       if (fullName) updates.fullName = fullName;
@@ -854,12 +854,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (region) updates.region = region;
       if (address) updates.address = address;
       if (profileImage) updates.profileImage = profileImage;
-      
+
       const updatedUser = await updateUser(phoneNumber, updates);
       if (!updatedUser) {
         return res.status(404).json({ error: "User not found" });
       }
-      
+
       return res.json({
         id: updatedUser.id,
         phoneNumber: updatedUser.phoneNumber,
@@ -873,12 +873,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         profileComplete: true,
       });
     }
-    
+
     const index = userProfiles.findIndex(u => u.phoneNumber === phoneNumber);
     if (index === -1) {
       return res.status(404).json({ error: "User not found" });
     }
-    
+
     userProfiles[index] = {
       ...userProfiles[index],
       fullName: fullName || userProfiles[index].fullName,
@@ -888,7 +888,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       ...(profileImage && { profileImage }),
       updatedAt: new Date().toISOString(),
     };
-    
+
     res.json({ ...userProfiles[index], profileComplete: true });
   });
 
