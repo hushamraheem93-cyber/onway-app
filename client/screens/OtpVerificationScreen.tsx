@@ -1,395 +1,295 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect } from "react";
 import {
-  View,
-  Text,
   StyleSheet,
-  TouchableOpacity,
+  View,
   TextInput,
-  Keyboard,
-  TouchableWithoutFeedback,
+  Pressable,
   ActivityIndicator,
-  Alert,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { LinearGradient } from 'expo-linear-gradient';
-import { useNavigation, useRoute } from '@react-navigation/native';
-import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import type { RouteProp } from '@react-navigation/native';
+  Animated,
+  Easing,
+} from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { Feather } from "@expo/vector-icons";
+import * as Haptics from "expo-haptics";
 
-type RootStackParamList = {
-  OtpVerification: { 
-    phoneNumber: string; 
-    userType: 'customer' | 'driver';
-    sentCode: string;
-  };
-  MainTabs: undefined;
-  DriverHome: undefined;
-};
-
-type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
-type OtpVerificationRouteProp = RouteProp<RootStackParamList, 'OtpVerification'>;
+import { ThemedText } from "@/components/ThemedText";
+import { useTheme } from "@/hooks/useTheme";
+import { Spacing, BorderRadius } from "@/constants/theme";
+import { useAuth } from "@/context/AuthContext";
 
 const OTP_LENGTH = 6;
-const RESEND_TIMEOUT = 60;
+const PRIMARY = "#FF7622";
 
 export default function OtpVerificationScreen() {
-  const navigation = useNavigation<NavigationProp>();
-  const route = useRoute<OtpVerificationRouteProp>();
-  const { phoneNumber, userType } = route.params;
+  const insets = useSafeAreaInsets();
+  const { theme } = useTheme();
+  const { verifyOtp, pendingPhone, sendOtp } = useAuth();
 
-  const [otp, setOtp] = useState(['', '', '', '', '', '']);
-  const [loading, setLoading] = useState(false);
-  const [resendTimer, setResendTimer] = useState(RESEND_TIMEOUT);
-  const [canResend, setCanResend] = useState(false);
+  const [otp, setOtp] = useState<string[]>(Array(OTP_LENGTH).fill(""));
+  const [error, setError] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [resendTimer, setResendTimer] = useState(60);
+  const inputRefs = useRef<(TextInput | null)[]>([]);
 
-  const inputRefs = useRef<Array<TextInput | null>>([]);
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const scaleAnim = useRef(new Animated.Value(0.9)).current;
 
   useEffect(() => {
-    if (resendTimer > 0) {
-      const timer = setTimeout(() => {
-        setResendTimer(resendTimer - 1);
-      }, 1000);
-      return () => clearTimeout(timer);
-    } else {
-      setCanResend(true);
-    }
+    Animated.parallel([
+      Animated.timing(fadeAnim, { toValue: 1, duration: 600, useNativeDriver: true }),
+      Animated.spring(scaleAnim, { toValue: 1, friction: 6, useNativeDriver: true }),
+    ]).start();
+
+    inputRefs.current[0]?.focus();
+  }, []);
+
+  useEffect(() => {
+    if (resendTimer <= 0) return;
+    const timer = setInterval(() => {
+      setResendTimer((prev) => prev - 1);
+    }, 1000);
+    return () => clearInterval(timer);
   }, [resendTimer]);
 
   const handleOtpChange = (text: string, index: number) => {
-    const cleaned = text.replace(/[^0-9]/g, '');
+    const newOtp = [...otp];
+    newOtp[index] = text;
+    setOtp(newOtp);
+    setError("");
 
-    if (cleaned.length > 1) {
-      const digits = cleaned.split('').slice(0, OTP_LENGTH);
-      const newOtp = [...otp];
-      digits.forEach((digit, i) => {
-        if (index + i < OTP_LENGTH) {
-          newOtp[index + i] = digit;
-        }
-      });
-      setOtp(newOtp);
+    if (text && index < OTP_LENGTH - 1) {
+      inputRefs.current[index + 1]?.focus();
+    }
 
-      const nextIndex = Math.min(index + digits.length, OTP_LENGTH - 1);
-      inputRefs.current[nextIndex]?.focus();
-    } else {
-      const newOtp = [...otp];
-      newOtp[index] = cleaned;
-      setOtp(newOtp);
-
-      if (cleaned && index < OTP_LENGTH - 1) {
-        inputRefs.current[index + 1]?.focus();
-      }
+    if (newOtp.every((d) => d.length === 1)) {
+      handleVerify(newOtp.join(""));
     }
   };
 
-  const handleKeyPress = (e: any, index: number) => {
-    if (e.nativeEvent.key === 'Backspace' && !otp[index] && index > 0) {
+  const handleKeyPress = (key: string, index: number) => {
+    if (key === "Backspace" && !otp[index] && index > 0) {
       inputRefs.current[index - 1]?.focus();
+      const newOtp = [...otp];
+      newOtp[index - 1] = "";
+      setOtp(newOtp);
     }
   };
 
-  const handleVerify = async () => {
-    const otpCode = otp.join('');
-
+  const handleVerify = async (code?: string) => {
+    const otpCode = code || otp.join("");
     if (otpCode.length !== OTP_LENGTH) {
-      Alert.alert('خطأ', 'الرجاء إدخال رمز التحقق كاملاً');
+      setError("يرجى إدخال رمز التحقق كاملاً");
       return;
     }
 
-    setLoading(true);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    setIsLoading(true);
+    setError("");
 
-    // تخطي التحقق - أي كود يشتغل للتجربة
-    setTimeout(() => {
-      setLoading(false);
-
-      if (userType === 'customer') {
-        navigation.navigate('MainTabs');
-      } else {
-        navigation.navigate('DriverHome');
-      }
-    }, 500);
+    try {
+      await verifyOtp(otpCode);
+    } catch (err: any) {
+      setError(err.message || "رمز التحقق غير صحيح");
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      setOtp(Array(OTP_LENGTH).fill(""));
+      inputRefs.current[0]?.focus();
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleResend = async () => {
-    if (!canResend) return;
+    if (resendTimer > 0 || !pendingPhone) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 
-    Alert.alert('تم', 'يمكنك إدخال أي رمز للتجربة');
-    setResendTimer(RESEND_TIMEOUT);
-    setCanResend(false);
-    setOtp(['', '', '', '', '', '']);
-    inputRefs.current[0]?.focus();
+    try {
+      await sendOtp(pendingPhone);
+      setResendTimer(60);
+      setError("");
+      setOtp(Array(OTP_LENGTH).fill(""));
+      inputRefs.current[0]?.focus();
+    } catch (err: any) {
+      setError(err.message || "حدث خطأ في إعادة الإرسال");
+    }
   };
 
-  useEffect(() => {
-    if (otp.every(digit => digit !== '') && !loading) {
-      handleVerify();
-    }
-  }, [otp]);
+  const maskedPhone = pendingPhone
+    ? `${pendingPhone.slice(0, 7)}****${pendingPhone.slice(-2)}`
+    : "";
 
   return (
-    <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-      <SafeAreaView style={styles.container}>
-        <LinearGradient
-          colors={['#FFFFFF', '#FFF5F0']}
-          style={styles.gradient}
+    <View style={[styles.container, { backgroundColor: theme.backgroundRoot, paddingTop: insets.top + 20 }]}>
+      <Animated.View
+        style={[styles.content, { opacity: fadeAnim, transform: [{ scale: scaleAnim }] }]}
+      >
+        <View style={styles.iconCircle}>
+          <Feather name="shield" size={40} color={PRIMARY} />
+        </View>
+
+        <ThemedText type="h2" style={styles.title}>
+          رمز التحقق
+        </ThemedText>
+        <ThemedText type="body" style={[styles.subtitle, { color: theme.textSecondary }]}>
+          تم إرسال رمز التحقق عبر واتساب إلى الرقم
+        </ThemedText>
+        <ThemedText type="body" style={styles.phoneDisplay}>
+          {maskedPhone}
+        </ThemedText>
+
+        <View style={styles.otpRow}>
+          {Array.from({ length: OTP_LENGTH }).map((_, index) => (
+            <TextInput
+              key={index}
+              ref={(ref) => { inputRefs.current[index] = ref; }}
+              style={[
+                styles.otpInput,
+                {
+                  backgroundColor: theme.backgroundDefault,
+                  borderColor: otp[index] ? PRIMARY : theme.border,
+                  color: theme.text,
+                },
+              ]}
+              keyboardType="number-pad"
+              maxLength={1}
+              value={otp[index]}
+              onChangeText={(text) => handleOtpChange(text, index)}
+              onKeyPress={({ nativeEvent }) => handleKeyPress(nativeEvent.key, index)}
+              selectTextOnFocus
+              testID={`input-otp-${index}`}
+            />
+          ))}
+        </View>
+
+        {error ? (
+          <ThemedText type="small" style={styles.errorText}>
+            {error}
+          </ThemedText>
+        ) : null}
+
+        <Pressable
+          style={[styles.verifyButton, isLoading && styles.verifyButtonDisabled]}
+          onPress={() => handleVerify()}
+          disabled={isLoading}
+          testID="button-verify-otp"
         >
-          <TouchableOpacity 
-            style={styles.backButton}
-            onPress={() => navigation.goBack()}
-          >
-            <Text style={styles.backIcon}>→</Text>
-          </TouchableOpacity>
-
-          <View style={styles.header}>
-            <View style={styles.iconContainer}>
-              <LinearGradient
-                colors={['#FF6B35', '#FF8C61']}
-                style={styles.iconGradient}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-              >
-                <Text style={styles.headerIcon}>📱</Text>
-              </LinearGradient>
-            </View>
-
-            <Text style={styles.title}>التحقق من رقم الهاتف</Text>
-            <Text style={styles.subtitle}>
-              أدخل رمز التحقق{'\n'}
-              <Text style={styles.phoneNumber}>{phoneNumber}</Text>
-            </Text>
-          </View>
-
-          <View style={styles.otpContainer}>
-            {otp.map((digit, index) => (
-              <View key={index} style={styles.otpInputWrapper}>
-                <TextInput
-                  ref={(ref) => (inputRefs.current[index] = ref)}
-                  style={[
-                    styles.otpInput,
-                    digit && styles.otpInputFilled,
-                  ]}
-                  value={digit}
-                  onChangeText={(text) => handleOtpChange(text, index)}
-                  onKeyPress={(e) => handleKeyPress(e, index)}
-                  keyboardType="number-pad"
-                  maxLength={1}
-                  textAlign="center"
-                  selectTextOnFocus
-                  autoFocus={index === 0}
-                />
-              </View>
-            ))}
-          </View>
-
-          {loading && (
-            <View style={styles.loadingContainer}>
-              <ActivityIndicator color="#FF6B35" size="large" />
-              <Text style={styles.loadingText}>جاري التحقق...</Text>
-            </View>
+          {isLoading ? (
+            <ActivityIndicator size="small" color="#FFFFFF" />
+          ) : (
+            <ThemedText type="h4" style={styles.verifyButtonText}>
+              تحقق
+            </ThemedText>
           )}
+        </Pressable>
 
-          <View style={styles.resendContainer}>
-            {!canResend ? (
-              <Text style={styles.timerText}>
-                إعادة الإرسال بعد{' '}
-                <Text style={styles.timerNumber}>{resendTimer}</Text>
-                {' '}ثانية
-              </Text>
-            ) : (
-              <TouchableOpacity onPress={handleResend}>
-                <Text style={styles.resendText}>إعادة إرسال الرمز</Text>
-              </TouchableOpacity>
-            )}
-          </View>
-
-          <TouchableOpacity
-            style={styles.editButton}
-            onPress={() => navigation.goBack()}
-          >
-            <Text style={styles.editText}>تعديل رقم الهاتف</Text>
-          </TouchableOpacity>
-
-          {otp.some(digit => digit !== '') && !loading && (
-            <TouchableOpacity
-              style={styles.verifyButton}
-              onPress={handleVerify}
-              activeOpacity={0.8}
-            >
-              <LinearGradient
-                colors={['#FF6B35', '#FF8C61']}
-                style={styles.verifyGradient}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-              >
-                <Text style={styles.verifyText}>تحقق</Text>
-              </LinearGradient>
-            </TouchableOpacity>
+        <View style={styles.resendRow}>
+          <ThemedText type="body" style={[styles.resendLabel, { color: theme.textSecondary }]}>
+            لم يصلك الرمز؟
+          </ThemedText>
+          {resendTimer > 0 ? (
+            <ThemedText type="body" style={[styles.timerText, { color: theme.textSecondary }]}>
+              إعادة الإرسال ({resendTimer}ث)
+            </ThemedText>
+          ) : (
+            <Pressable onPress={handleResend} testID="button-resend-otp">
+              <ThemedText type="body" style={styles.resendLink}>
+                إعادة الإرسال
+              </ThemedText>
+            </Pressable>
           )}
-        </LinearGradient>
-      </SafeAreaView>
-    </TouchableWithoutFeedback>
+        </View>
+      </Animated.View>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 24,
   },
-  gradient: {
+  content: {
     flex: 1,
+    alignItems: "center",
+    paddingTop: 40,
   },
-  backButton: {
-    position: 'absolute',
-    top: 20,
-    right: 20,
-    zIndex: 10,
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#FFFFFF',
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  backIcon: {
-    fontSize: 24,
-    color: '#2C3E50',
-  },
-  header: {
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    marginTop: 80,
-    marginBottom: 60,
-  },
-  iconContainer: {
-    marginBottom: 30,
-  },
-  iconGradient: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#FF6B35',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.3,
-    shadowRadius: 12,
-    elevation: 10,
-  },
-  headerIcon: {
-    fontSize: 50,
+  iconCircle: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: `${PRIMARY}15`,
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: Spacing.lg,
   },
   title: {
-    fontFamily: 'Cairo_700Bold',
-    fontSize: 26,
-    color: '#2C3E50',
-    marginBottom: 12,
-    textAlign: 'center',
+    textAlign: "center",
+    fontWeight: "700",
+    marginBottom: Spacing.sm,
   },
   subtitle: {
-    fontFamily: 'Cairo_400Regular',
-    fontSize: 16,
-    color: '#7F8C8D',
-    textAlign: 'center',
-    lineHeight: 24,
+    textAlign: "center",
+    marginBottom: 4,
   },
-  phoneNumber: {
-    fontFamily: 'Cairo_700Bold',
-    color: '#FF6B35',
+  phoneDisplay: {
+    textAlign: "center",
+    fontWeight: "700",
+    fontSize: 18,
+    color: PRIMARY,
+    marginBottom: Spacing.xl,
+    letterSpacing: 1,
+    direction: "ltr",
   },
-  otpContainer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    marginBottom: 40,
-    gap: 12,
-  },
-  otpInputWrapper: {
-    flex: 1,
-    maxWidth: 50,
+  otpRow: {
+    flexDirection: "row",
+    justifyContent: "center",
+    gap: 10,
+    marginBottom: Spacing.lg,
   },
   otpInput: {
-    backgroundColor: '#FFFFFF',
+    width: 48,
+    height: 56,
+    borderRadius: BorderRadius.sm,
     borderWidth: 2,
-    borderColor: '#ECF0F1',
-    borderRadius: 12,
-    height: 60,
-    fontFamily: 'Cairo_700Bold',
-    fontSize: 24,
-    color: '#2C3E50',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
+    textAlign: "center",
+    fontSize: 22,
+    fontWeight: "700",
   },
-  otpInputFilled: {
-    borderColor: '#FF6B35',
-    backgroundColor: '#FFF5F0',
-  },
-  loadingContainer: {
-    alignItems: 'center',
-    marginBottom: 30,
-  },
-  loadingText: {
-    fontFamily: 'Cairo_600SemiBold',
-    fontSize: 16,
-    color: '#FF6B35',
-    marginTop: 12,
-  },
-  resendContainer: {
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  timerText: {
-    fontFamily: 'Cairo_400Regular',
-    fontSize: 15,
-    color: '#7F8C8D',
-  },
-  timerNumber: {
-    fontFamily: 'Cairo_700Bold',
-    color: '#FF6B35',
-  },
-  resendText: {
-    fontFamily: 'Cairo_700Bold',
-    fontSize: 16,
-    color: '#FF6B35',
-    textDecorationLine: 'underline',
-  },
-  editButton: {
-    alignItems: 'center',
-    paddingVertical: 12,
-  },
-  editText: {
-    fontFamily: 'Cairo_600SemiBold',
-    fontSize: 15,
-    color: '#7F8C8D',
-    textDecorationLine: 'underline',
+  errorText: {
+    color: "#F44336",
+    textAlign: "center",
+    marginBottom: Spacing.md,
   },
   verifyButton: {
-    marginHorizontal: 20,
-    marginTop: 'auto',
-    marginBottom: 40,
+    backgroundColor: PRIMARY,
+    width: "100%",
+    height: 56,
     borderRadius: 16,
-    overflow: 'hidden',
-    shadowColor: '#FF6B35',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: Spacing.lg,
   },
-  verifyGradient: {
-    paddingVertical: 18,
-    alignItems: 'center',
+  verifyButtonDisabled: {
+    opacity: 0.7,
   },
-  verifyText: {
-    fontFamily: 'Cairo_700Bold',
+  verifyButtonText: {
+    color: "#FFFFFF",
     fontSize: 18,
-    color: '#FFFFFF',
+    fontWeight: "bold",
+  },
+  resendRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  resendLabel: {
+    fontSize: 14,
+  },
+  timerText: {
+    fontSize: 14,
+  },
+  resendLink: {
+    color: PRIMARY,
+    fontWeight: "700",
+    fontSize: 14,
   },
 });

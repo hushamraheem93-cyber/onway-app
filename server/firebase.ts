@@ -605,7 +605,7 @@ export async function updateDriverStatus(id: string, status: "pending" | "approv
 const otpStore = new Map<string, { code: string; expiresAt: number }>();
 
 export function generateOtp(phoneNumber: string): string {
-  const code = Math.floor(1000 + Math.random() * 9000).toString();
+  const code = Math.floor(100000 + Math.random() * 900000).toString();
   otpStore.set(phoneNumber, {
     code,
     expiresAt: Date.now() + 5 * 60 * 1000,
