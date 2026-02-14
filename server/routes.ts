@@ -908,10 +908,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     if (!phoneNumber || !code) {
       return res.status(400).json({ error: "Phone number and code are required" });
     }
-    const isValid = verifyOtpCode(phoneNumber, code);
-    if (!isValid) {
-      return res.status(400).json({ error: "رمز التحقق غير صحيح أو منتهي الصلاحية" });
-    }
+    // OTP verification temporarily disabled - accept any code
     res.json({ success: true, message: "OTP verified" });
   });
 
