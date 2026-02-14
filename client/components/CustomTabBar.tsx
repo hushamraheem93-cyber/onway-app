@@ -16,6 +16,14 @@ const TAB_ICONS: Record<string, keyof typeof Feather.glyphMap> = {
   MenuTab: "grid",
 };
 
+const TAB_INITIAL_SCREENS: Record<string, string> = {
+  ProfileTab: "Profile",
+  FavoritesTab: "Favorites",
+  HomeTab: "Home",
+  SearchTab: "Search",
+  MenuTab: "Categories",
+};
+
 export function CustomTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
   const { theme, isDark } = useTheme();
@@ -54,8 +62,9 @@ export function CustomTabBar({ state, descriptors, navigation }: BottomTabBarPro
             target: route.key,
             canPreventDefault: true,
           });
-          if (!isFocused && !event.defaultPrevented) {
-            navigation.navigate(route.name);
+          if (!event.defaultPrevented) {
+            const initialScreen = TAB_INITIAL_SCREENS[route.name];
+            navigation.navigate(route.name, { screen: initialScreen });
           }
         };
 
