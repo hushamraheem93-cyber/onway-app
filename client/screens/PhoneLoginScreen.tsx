@@ -10,22 +10,20 @@ import {
   Easing,
   ActivityIndicator,
   Dimensions,
-  ScrollView,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import { Image } from "expo-image";
 import * as Haptics from "expo-haptics";
+import { Feather } from "@expo/vector-icons";
 
 import { ThemedText } from "@/components/ThemedText";
 import { AppColors } from "@/constants/theme";
 import { useAuth } from "@/context/AuthContext";
 
-import onwayLogo from "../../assets/images/icon.png";
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 
-const { width: SCREEN_WIDTH } = Dimensions.get("window");
-
-const BRAND_ORANGE = "#FF7622";
+const DART_ORANGE = "#FF7622";
 const LIGHT_ORANGE = "#FF9A5C";
 
 export default function PhoneLoginScreen() {
@@ -35,21 +33,22 @@ export default function PhoneLoginScreen() {
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
-  const logoScale = useRef(new Animated.Value(0.5)).current;
-  const logoOpacity = useRef(new Animated.Value(0)).current;
-  const cardSlide = useRef(new Animated.Value(80)).current;
-  const cardFade = useRef(new Animated.Value(0)).current;
+  const slideUpAnim = useRef(new Animated.Value(60)).current;
+  const fadeAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    Animated.sequence([
-      Animated.parallel([
-        Animated.spring(logoScale, { toValue: 1, friction: 5, tension: 60, useNativeDriver: true }),
-        Animated.timing(logoOpacity, { toValue: 1, duration: 600, useNativeDriver: true }),
-      ]),
-      Animated.parallel([
-        Animated.timing(cardFade, { toValue: 1, duration: 500, useNativeDriver: true }),
-        Animated.timing(cardSlide, { toValue: 0, duration: 500, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
-      ]),
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 800,
+        useNativeDriver: true,
+      }),
+      Animated.timing(slideUpAnim, {
+        toValue: 0,
+        duration: 800,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }),
     ]).start();
   }, []);
 
@@ -92,26 +91,22 @@ export default function PhoneLoginScreen() {
   return (
     <View style={styles.container}>
       <LinearGradient
-        colors={[BRAND_ORANGE, LIGHT_ORANGE]}
-        start={{ x: 0.2, y: 0 }}
-        end={{ x: 0.8, y: 1 }}
-        style={[styles.topSection, { paddingTop: insets.top + 30 }]}
+        colors={[DART_ORANGE, LIGHT_ORANGE]}
+        start={{ x: 0.5, y: 0 }}
+        end={{ x: 0.5, y: 1 }}
+        style={[styles.gradientSection, { paddingTop: insets.top + 40 }]}
       >
-        <Animated.View style={[styles.logoContainer, { opacity: logoOpacity, transform: [{ scale: logoScale }] }]}>
-          <Image
-            source={onwayLogo}
-            style={styles.logoImage}
-            contentFit="contain"
-          />
-        </Animated.View>
+        <View style={styles.iconCircle}>
+          <Feather name="truck" size={80} color="#FFFFFF" />
+        </View>
       </LinearGradient>
 
       <Animated.View
         style={[
           styles.whiteCard,
           {
-            opacity: cardFade,
-            transform: [{ translateY: cardSlide }],
+            opacity: fadeAnim,
+            transform: [{ translateY: slideUpAnim }],
             paddingBottom: insets.bottom + 20,
           },
         ]}
@@ -120,66 +115,61 @@ export default function PhoneLoginScreen() {
           behavior={Platform.OS === "ios" ? "padding" : "height"}
           style={styles.formInner}
         >
-          <ScrollView
-            contentContainerStyle={styles.scrollContent}
-            keyboardShouldPersistTaps="handled"
-            showsVerticalScrollIndicator={false}
-          >
-            <ThemedText type="h2" style={styles.welcomeTitle}>
-              مرحباً بك
-            </ThemedText>
-            <ThemedText type="body" style={styles.welcomeSubtitle}>
-              أدخل رقم هاتفك للبدء في التسوق أو التوصيل
-            </ThemedText>
+          <ThemedText type="h1" style={styles.brandText}>
+            way<ThemedText type="h1" style={styles.brandOn}>On</ThemedText>
+          </ThemedText>
 
-            <ThemedText type="small" style={styles.inputLabel}>
-              رقم الهاتف
-            </ThemedText>
-            <View style={styles.phoneInputRow}>
-              <TextInput
-                placeholder="7XX XXX XXXX"
-                placeholderTextColor="#C0C0C0"
-                keyboardType="phone-pad"
-                style={styles.textInput}
-                value={phoneNumber}
-                onChangeText={setPhoneNumber}
-                maxLength={12}
-                testID="input-phone"
+          <ThemedText type="h3" style={styles.welcomeTitle}>
+            مرحباً بك في أون وي
+          </ThemedText>
+          <ThemedText type="body" style={styles.welcomeSubtitle}>
+            أدخل رقم هاتفك للبدء في التسوق أو التوصيل
+          </ThemedText>
+
+          <View style={styles.phoneInputRow}>
+            <TextInput
+              placeholder="780 000 0000"
+              placeholderTextColor="#BCBCBC"
+              keyboardType="phone-pad"
+              style={styles.textInput}
+              value={phoneNumber}
+              onChangeText={setPhoneNumber}
+              maxLength={12}
+              testID="input-phone"
+            />
+            <View style={styles.prefixContainer}>
+              <ThemedText type="body" style={styles.countryCode}>+964</ThemedText>
+              <Image
+                source={{ uri: "https://flagcdn.com/w80/iq.png" }}
+                style={styles.flagIcon}
               />
-              <View style={styles.prefixContainer}>
-                <ThemedText type="body" style={styles.countryCode}>964+</ThemedText>
-                <Image
-                  source={{ uri: "https://flagcdn.com/w80/iq.png" }}
-                  style={styles.flagIcon}
-                />
-              </View>
             </View>
+          </View>
 
-            {error ? (
-              <ThemedText type="small" style={styles.errorText}>
-                {error}
-              </ThemedText>
-            ) : null}
-
-            <Pressable
-              style={[styles.mainButton, isLoading && styles.mainButtonDisabled]}
-              onPress={handleContinue}
-              disabled={isLoading}
-              testID="button-continue"
-            >
-              {isLoading ? (
-                <ActivityIndicator size="small" color="#FFFFFF" />
-              ) : (
-                <ThemedText type="h4" style={styles.buttonText}>
-                  إرسال رمز التحقق
-                </ThemedText>
-              )}
-            </Pressable>
-
-            <ThemedText type="small" style={styles.termsText}>
-              بالمتابعة، أنت توافق على شروط الخدمة وسياسة الخصوصية
+          {error ? (
+            <ThemedText type="small" style={styles.errorText}>
+              {error}
             </ThemedText>
-          </ScrollView>
+          ) : null}
+
+          <Pressable
+            style={[styles.mainButton, isLoading && styles.mainButtonDisabled]}
+            onPress={handleContinue}
+            disabled={isLoading}
+            testID="button-continue"
+          >
+            {isLoading ? (
+              <ActivityIndicator size="small" color="#FFFFFF" />
+            ) : (
+              <ThemedText type="h4" style={styles.buttonText}>
+                إرسال رمز التحقق
+              </ThemedText>
+            )}
+          </Pressable>
+
+          <ThemedText type="small" style={styles.termsText}>
+            بالمتابعة، أنت توافق على شروط الخدمة وسياسة الخصوصية
+          </ThemedText>
         </KeyboardAvoidingView>
       </Animated.View>
     </View>
@@ -189,131 +179,124 @@ export default function PhoneLoginScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: BRAND_ORANGE,
+    backgroundColor: DART_ORANGE,
   },
-  topSection: {
+  gradientSection: {
     alignItems: "center",
     justifyContent: "center",
-    paddingBottom: 50,
-    minHeight: 280,
+    paddingBottom: 60,
   },
-  logoContainer: {
-    width: 150,
-    height: 150,
-    borderRadius: 75,
-    overflow: "hidden",
-    backgroundColor: "rgba(255,255,255,0.15)",
-  },
-  logoImage: {
-    width: 150,
-    height: 150,
+  iconCircle: {
+    width: 130,
+    height: 130,
+    borderRadius: 65,
+    backgroundColor: "rgba(255,255,255,0.2)",
+    alignItems: "center",
+    justifyContent: "center",
   },
   whiteCard: {
     flex: 1,
     backgroundColor: "#FFFFFF",
-    borderTopLeftRadius: 36,
-    borderTopRightRadius: 36,
-    paddingHorizontal: 28,
-    paddingTop: 32,
-    marginTop: -28,
+    borderTopLeftRadius: 40,
+    borderTopRightRadius: 40,
+    paddingHorizontal: 30,
+    paddingTop: 40,
+    marginTop: -30,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: -5 },
+    shadowOpacity: 0.08,
+    shadowRadius: 20,
+    elevation: 10,
   },
   formInner: {
     flex: 1,
   },
-  scrollContent: {
-    flexGrow: 1,
+  brandText: {
+    fontSize: 32,
+    fontWeight: "800",
+    color: DART_ORANGE,
+    textAlign: "center",
+    marginBottom: 10,
+  },
+  brandOn: {
+    fontSize: 32,
+    fontWeight: "800",
+    color: DART_ORANGE,
   },
   welcomeTitle: {
     textAlign: "center",
-    fontWeight: "700",
-    color: "#1A1A1A",
-    fontSize: 24,
-    marginBottom: 6,
+    fontWeight: "600",
+    color: "#2D2D2D",
+    fontSize: 20,
+    marginBottom: 4,
   },
   welcomeSubtitle: {
     textAlign: "center",
-    color: "#888",
-    marginBottom: 28,
+    color: "#999",
+    marginBottom: 30,
     fontSize: 14,
-    lineHeight: 22,
-  },
-  inputLabel: {
-    color: "#555",
-    fontWeight: "600",
-    fontSize: 13,
-    marginBottom: 8,
-    textAlign: "right",
   },
   phoneInputRow: {
     flexDirection: "row",
-    backgroundColor: "#F6F6F8",
-    borderRadius: 14,
-    height: 56,
+    backgroundColor: "#F5F5F5",
+    borderRadius: 15,
+    height: 55,
     alignItems: "center",
-    paddingHorizontal: 16,
-    borderWidth: 1.5,
-    borderColor: "#ECECEC",
+    paddingHorizontal: 14,
   },
   textInput: {
     flex: 1,
     fontSize: 18,
-    color: "#222",
+    color: "#333",
     textAlign: "left",
-    fontWeight: "600",
-    letterSpacing: 1,
+    fontWeight: "500",
   },
   prefixContainer: {
     flexDirection: "row",
     alignItems: "center",
-    paddingLeft: 12,
-    borderLeftWidth: 1,
-    borderLeftColor: "#E0E0E0",
-    marginLeft: 8,
-    paddingRight: 4,
+    paddingLeft: 10,
   },
   countryCode: {
-    fontSize: 15,
-    fontWeight: "700",
+    fontSize: 16,
+    fontWeight: "bold",
     color: "#333",
-    marginRight: 8,
+    marginRight: 6,
   },
   flagIcon: {
-    width: 28,
-    height: 19,
+    width: 30,
+    height: 20,
     borderRadius: 3,
   },
   errorText: {
     color: AppColors.error,
     textAlign: "center",
     marginTop: 10,
-    fontSize: 13,
   },
   mainButton: {
-    backgroundColor: BRAND_ORANGE,
-    height: 56,
-    borderRadius: 14,
+    backgroundColor: DART_ORANGE,
+    height: 55,
+    borderRadius: 15,
     justifyContent: "center",
     alignItems: "center",
-    marginTop: 24,
-    shadowColor: BRAND_ORANGE,
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.35,
-    shadowRadius: 10,
-    elevation: 6,
+    marginTop: 25,
+    shadowColor: DART_ORANGE,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 8,
+    elevation: 5,
   },
   mainButtonDisabled: {
-    opacity: 0.6,
+    opacity: 0.7,
   },
   buttonText: {
     color: "#FFFFFF",
-    fontSize: 17,
-    fontWeight: "700",
+    fontSize: 18,
+    fontWeight: "bold",
   },
   termsText: {
-    color: "#B0B0B0",
+    color: "#AAA",
     textAlign: "center",
     fontSize: 11,
     marginTop: 20,
-    lineHeight: 18,
   },
 });
