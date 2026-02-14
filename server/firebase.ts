@@ -624,7 +624,7 @@ export async function sendOtpViaOtpIq(phoneNumber: string, code: string): Promis
   try {
     const cleanPhone = phoneNumber.replace(/^00/, "");
     
-    const response = await fetch("https://api.otpiq.com/api/sms", {
+    const response = await fetch("https://api.otpiq.com/api/sms/send", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -638,16 +638,13 @@ export async function sendOtpViaOtpIq(phoneNumber: string, code: string): Promis
       }),
     });
 
-    const data = await response.json().catch(() => ({}));
-    
     if (!response.ok) {
-      console.error("[OTPIQ] Error sending OTP:", response.status, data);
-      if (data.error) {
-        console.error("[OTPIQ] API error:", data.error);
-      }
+      const errorData = await response.json().catch(() => ({}));
+      console.error("[OTPIQ] Error sending OTP:", response.status, errorData);
       return false;
     }
 
+    const data = await response.json();
     console.log(`[OTPIQ] OTP sent to ${cleanPhone}, smsId: ${data.smsId}, remaining credit: ${data.remainingCredit}`);
     return true;
   } catch (error) {
