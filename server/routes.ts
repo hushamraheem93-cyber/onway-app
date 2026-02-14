@@ -14,7 +14,7 @@ import {
   getCategories as getFirestoreCategories, createCategory as createFirestoreCategory,
   updateCategory as updateFirestoreCategory, deleteCategory as deleteFirestoreCategory,
   initializeDefaultCategories,
-  generateOtp, sendOtpViaOtpIq, verifyOtp as verifyOtpCode,
+  
   getDrivers, getDriverByPhone, createDriver, updateDriverStatus as updateDriverStatusFn
 } from "./firebase";
 import { sendPushNotification } from "./pushNotifications";
@@ -892,28 +892,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json({ ...userProfiles[index], profileComplete: true });
   });
 
-  // OTP Auth Routes
-  app.post("/api/auth/send-otp", async (req: Request, res: Response) => {
+  // OTP Auth Routes (Bypass Mode - OTP disabled)
+  app.post("/api/auth/send-otp", (req: Request, res: Response) => {
     const { phoneNumber } = req.body;
     if (!phoneNumber) {
       return res.status(400).json({ error: "Phone number is required" });
     }
-    const code = generateOtp(phoneNumber);
-    const sent = await sendOtpViaOtpIq(phoneNumber, code);
-    if (!sent) {
-      return res.status(500).json({ error: "فشل في إرسال رمز التحقق، حاول مرة أخرى" });
-    }
-    res.json({ success: true, message: "OTP sent successfully" });
+    console.log(`[OTP Bypass] Code for ${phoneNumber}: any 4 digits accepted`);
+    res.json({ success: true, message: "Bypass Mode: Enter any 4 digits" });
   });
 
   app.post("/api/auth/verify-otp", async (req: Request, res: Response) => {
     const { phoneNumber, code } = req.body;
     if (!phoneNumber || !code) {
       return res.status(400).json({ error: "Phone number and code are required" });
-    }
-    const isValid = verifyOtpCode(phoneNumber, code);
-    if (!isValid) {
-      return res.status(400).json({ error: "رمز التحقق غير صحيح أو منتهي الصلاحية" });
     }
 
     let userType: string | null = null;
