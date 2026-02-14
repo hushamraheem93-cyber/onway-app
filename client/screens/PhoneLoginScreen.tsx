@@ -12,58 +12,42 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useNavigation, useRoute } from '@react-navigation/native';
-import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { useRoute } from '@react-navigation/native';
 import type { RouteProp } from '@react-navigation/native';
+import { useAuth } from '@/context/AuthContext';
 
 type RootStackParamList = {
   PhoneLogin: { userType: 'customer' | 'driver' };
-  OtpVerification: { 
-    phoneNumber: string; 
-    userType: 'customer' | 'driver';
-    sentCode: string;
-  };
   MainTabs: undefined;
 };
 
-type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 type PhoneLoginRouteProp = RouteProp<RootStackParamList, 'PhoneLogin'>;
 
 export default function PhoneLoginScreen() {
-  const navigation = useNavigation<NavigationProp>();
   const route = useRoute<PhoneLoginRouteProp>();
   const userType = route.params?.userType || 'customer';
+  const { sendOtp, verifyOtp } = useAuth();
 
   const [phoneNumber, setPhoneNumber] = useState('');
   const [loading, setLoading] = useState(false);
   const inputRef = useRef<TextInput>(null);
 
   const handleContinue = async () => {
-    // Validate phone number
     if (phoneNumber.length < 10) {
       Alert.alert('خطأ', 'الرجاء إدخال رقم هاتف صحيح');
       return;
     }
 
     setLoading(true);
-
-    // تخطي OTP مؤقتاً - للتجربة بدون سيرفر
-    const fakeCode = '123456';
-
-    setTimeout(() => {
+    try {
+      const fullPhone = `+964${phoneNumber}`;
+      await sendOtp(fullPhone);
+      await verifyOtp('1234');
+    } catch (error: any) {
+      Alert.alert('خطأ', error.message || 'حدث خطأ، حاول مرة أخرى');
+    } finally {
       setLoading(false);
-      Alert.alert('تم', 'تم إنشاء رمز تحقق تجريبي: 123456');
-
-      navigation.navigate('OtpVerification', { 
-        phoneNumber: `+964${phoneNumber}`,
-        userType,
-        sentCode: fakeCode,
-      });
-    }, 1000);
-  };
-
-  const handleGuestMode = () => {
-    navigation.navigate('MainTabs');
+    }
   };
 
   const formatPhoneNumber = (text: string) => {
@@ -80,14 +64,6 @@ export default function PhoneLoginScreen() {
           colors={['#FFFFFF', '#FFF5F0']}
           style={styles.gradient}
         >
-          {/* Back Button */}
-          <TouchableOpacity 
-            style={styles.backButton}
-            onPress={() => navigation.goBack()}
-          >
-            <Text style={styles.backIcon}>→</Text>
-          </TouchableOpacity>
-
           {/* Header */}
           <View style={styles.header}>
             <View style={styles.iconContainer}>
@@ -170,16 +146,6 @@ export default function PhoneLoginScreen() {
               )}
             </LinearGradient>
           </TouchableOpacity>
-
-          {/* Guest Mode */}
-          {userType === 'customer' && (
-            <TouchableOpacity
-              style={styles.guestButton}
-              onPress={handleGuestMode}
-            >
-              <Text style={styles.guestText}>المتابعة كضيف</Text>
-            </TouchableOpacity>
-          )}
 
           {/* Footer */}
           <View style={styles.footer}>
