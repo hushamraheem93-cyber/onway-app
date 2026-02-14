@@ -225,11 +225,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const checkExistingDriver = async (phone: string): Promise<boolean> => {
+    try {
+      const response = await fetch(new URL(`/api/drivers/check/${encodeURIComponent(phone)}`, getApiUrl()).toString());
+      if (response.ok) {
+        const data = await response.json();
+        if (data.exists && data.driver) {
+          return true;
+        }
+      }
+      return false;
+    } catch (error) {
+      console.error("Error checking existing driver:", error);
+      return false;
+    }
+  };
+
   const setUserType = async (type: UserType) => {
     setSelectedUserType(type);
 
     if (type === "customer") {
       await loginAfterTypeSelect(type);
+    } else if (type === "driver" && phoneNumber) {
+      const existingDriver = await checkExistingDriver(phoneNumber);
+      if (existingDriver) {
+        setIsDriverRegistered(true);
+        await AsyncStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify({ phoneNumber, userType: "driver", isDriverRegistered: true }));
+        setIsLoggedIn(true);
+        await checkProfileFromServer(phoneNumber);
+      }
     }
   };
 
