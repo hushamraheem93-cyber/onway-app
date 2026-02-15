@@ -121,11 +121,16 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
     fontSize: 36,
     letterSpacing: 1,
+    writingDirection: "ltr",
+    lineHeight: 48,
+    includeFontPadding: true,
   },
   logoSubtext: {
     color: "rgba(255,255,255,0.8)",
     fontSize: 18,
     marginTop: Spacing.xs,
+    lineHeight: 30,
+    includeFontPadding: true,
   },
   card: {
     borderRadius: BorderRadius.xl,

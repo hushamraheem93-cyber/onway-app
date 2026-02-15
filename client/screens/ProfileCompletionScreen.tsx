@@ -427,9 +427,14 @@ const styles = StyleSheet.create({
   title: {
     textAlign: "center",
     marginBottom: Spacing.xs,
+    lineHeight: 38,
+    includeFontPadding: true,
+    paddingTop: 4,
   },
   subtitle: {
     textAlign: "center",
+    lineHeight: 26,
+    includeFontPadding: true,
   },
   card: {
     borderRadius: BorderRadius.xl,
