@@ -154,10 +154,11 @@ const styles = StyleSheet.create({
     marginBottom: 30,
   },
   logoText: {
-    fontFamily: "Kanit_700Bold",
+    fontFamily: "Montserrat_800ExtraBold",
     fontSize: 30,
     color: "#FFFFFF",
     textAlign: "center",
+    letterSpacing: 1,
   },
   formBlock: {
     width: "100%",

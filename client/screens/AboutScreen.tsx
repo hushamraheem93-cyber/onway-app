@@ -117,9 +117,10 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.lg,
   },
   logoText: {
+    fontFamily: "Montserrat_800ExtraBold",
     color: "#FFFFFF",
     fontSize: 36,
-    fontWeight: "700",
+    letterSpacing: 1,
   },
   logoSubtext: {
     color: "rgba(255,255,255,0.8)",

@@ -40,6 +40,11 @@ import {
   Kanit_700Bold,
   Kanit_900Black,
 } from "@expo-google-fonts/kanit";
+import {
+  Montserrat_700Bold,
+  Montserrat_800ExtraBold,
+  Montserrat_900Black,
+} from "@expo-google-fonts/montserrat";
 
 import { QueryClientProvider } from "@tanstack/react-query";
 import { queryClient } from "@/lib/query-client";
@@ -76,6 +81,9 @@ export default function App() {
     Kanit_600SemiBold,
     Kanit_700Bold,
     "Kanit-Black": Kanit_900Black,
+    Montserrat_700Bold,
+    Montserrat_800ExtraBold,
+    Montserrat_900Black,
   });
 
   useEffect(() => {

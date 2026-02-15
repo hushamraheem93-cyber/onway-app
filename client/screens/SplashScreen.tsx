@@ -187,9 +187,10 @@ const styles = StyleSheet.create({
     direction: "ltr",
   },
   logoText: {
-    fontFamily: "Kanit_700Bold",
+    fontFamily: "Montserrat_800ExtraBold",
     fontSize: 30,
     color: "#FFFFFF",
+    letterSpacing: 1,
   },
   expandedCenter: {
     flex: 1,

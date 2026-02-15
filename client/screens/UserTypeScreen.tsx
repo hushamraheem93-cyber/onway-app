@@ -199,7 +199,7 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   logoText: {
-    fontFamily: "Kanit_700Bold",
+    fontFamily: "Montserrat_800ExtraBold",
     fontSize: 28,
     color: "#FFFFFF",
     letterSpacing: 1,

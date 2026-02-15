@@ -314,7 +314,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   logoText: {
-    fontFamily: "Kanit_700Bold",
+    fontFamily: "Montserrat_800ExtraBold",
     fontSize: 24,
     color: "#FFFFFF",
     letterSpacing: 1,
