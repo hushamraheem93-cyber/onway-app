@@ -8,6 +8,7 @@ import CheckoutScreen from "@/screens/CheckoutScreen";
 import OrderConfirmationScreen from "@/screens/OrderConfirmationScreen";
 import OrderTrackingScreen from "@/screens/OrderTrackingScreen";
 import PhoneLoginScreen from "@/screens/PhoneLoginScreen";
+import SplashScreen from "@/screens/SplashScreen";
 import OtpVerificationScreen from "@/screens/OtpVerificationScreen";
 import UserTypeScreen from "@/screens/UserTypeScreen";
 import DriverRegistrationScreen from "@/screens/DriverRegistrationScreen";
@@ -22,6 +23,7 @@ import { AppColors } from "@/constants/theme";
 import { Order } from "@/context/OrderContext";
 
 export type RootStackParamList = {
+  Splash: undefined;
   PhoneLogin: undefined;
   OtpVerification: undefined;
   UserType: undefined;
@@ -57,11 +59,18 @@ export default function RootStackNavigator() {
   const renderAuthScreens = () => {
     if (!isOtpSent) {
       return (
-        <Stack.Screen
-          name="PhoneLogin"
-          component={PhoneLoginScreen}
-          options={{ headerShown: false }}
-        />
+        <>
+          <Stack.Screen
+            name="Splash"
+            component={SplashScreen}
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen
+            name="PhoneLogin"
+            component={PhoneLoginScreen}
+            options={{ headerShown: false }}
+          />
+        </>
       );
     }
 
