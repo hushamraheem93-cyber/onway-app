@@ -151,8 +151,12 @@ export default function OtpVerificationScreen() {
             { opacity: fadeAnim, transform: [{ scale: headerScale }] },
           ]}
         >
+          <View style={styles.logoRow}>
+            <ThemedText style={styles.logoOn}>On</ThemedText>
+            <ThemedText style={styles.logoWay}>Way</ThemedText>
+          </View>
           <View style={styles.shieldCircle}>
-            <Feather name="shield" size={36} color={BRAND_ORANGE} />
+            <Feather name="shield" size={32} color={BRAND_ORANGE} />
           </View>
           <ThemedText style={styles.headerTitle}>رمز التحقق</ThemedText>
           <ThemedText style={styles.headerSub}>
@@ -283,16 +287,36 @@ const styles = StyleSheet.create({
   },
   headerContent: {
     alignItems: "center",
-    gap: 6,
+  },
+  logoRow: {
+    flexDirection: "row",
+    writingDirection: "ltr",
+    alignItems: "center",
+    gap: 4,
+    marginBottom: 12,
+  },
+  logoOn: {
+    fontFamily: "Kanit_700Bold",
+    fontSize: 24,
+    color: "#FFFFFF",
+    letterSpacing: 1,
+    writingDirection: "ltr",
+  },
+  logoWay: {
+    fontFamily: "Kanit_700Bold",
+    fontSize: 24,
+    color: "rgba(255,255,255,0.65)",
+    letterSpacing: 1,
+    writingDirection: "ltr",
   },
   shieldCircle: {
-    width: 64,
-    height: 64,
-    borderRadius: 20,
+    width: 56,
+    height: 56,
+    borderRadius: 18,
     backgroundColor: "#FFFFFF",
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 12,
+    marginBottom: 10,
   },
   headerTitle: {
     fontFamily: "Cairo_700Bold",

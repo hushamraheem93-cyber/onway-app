@@ -65,9 +65,6 @@ export default function UserTypeScreen() {
           ]}
         >
           <View style={styles.logoRow}>
-            <View style={styles.logoIconWrap}>
-              <Feather name="truck" size={20} color={BRAND_ORANGE} />
-            </View>
             <ThemedText style={styles.logoOn}>On</ThemedText>
             <ThemedText style={styles.logoWay}>Way</ThemedText>
           </View>
@@ -178,29 +175,24 @@ const styles = StyleSheet.create({
   },
   logoRow: {
     flexDirection: "row",
+    writingDirection: "ltr",
     alignItems: "center",
-    gap: 8,
-    marginBottom: 16,
-  },
-  logoIconWrap: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    backgroundColor: "#FFFFFF",
-    alignItems: "center",
-    justifyContent: "center",
+    gap: 4,
+    marginBottom: 14,
   },
   logoOn: {
     fontFamily: "Kanit_700Bold",
-    fontSize: 30,
+    fontSize: 28,
     color: "#FFFFFF",
     letterSpacing: 1,
+    writingDirection: "ltr",
   },
   logoWay: {
     fontFamily: "Kanit_700Bold",
-    fontSize: 30,
-    color: "rgba(255,255,255,0.7)",
+    fontSize: 28,
+    color: "rgba(255,255,255,0.65)",
     letterSpacing: 1,
+    writingDirection: "ltr",
   },
   headerTitle: {
     fontFamily: "Cairo_700Bold",
