@@ -52,14 +52,25 @@ export default function DriverRegistrationScreen() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setImagePickerModal({ visible: false, setter: null, title: "" });
 
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ["images"],
-      allowsEditing: false,
-      quality: 0.8,
-    });
+    try {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== "granted") {
+        setErrorMessage("يرجى السماح بالوصول لمعرض الصور لاختيار صورة");
+        return;
+      }
 
-    if (!result.canceled && result.assets[0]) {
-      setter(result.assets[0].uri);
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ["images"],
+        allowsEditing: false,
+        quality: 0.8,
+      });
+
+      if (!result.canceled && result.assets[0]) {
+        setter(result.assets[0].uri);
+      }
+    } catch (error) {
+      console.error("Error picking image:", error);
+      setErrorMessage("حدث خطأ أثناء اختيار الصورة");
     }
   };
 
@@ -72,19 +83,24 @@ export default function DriverRegistrationScreen() {
       return;
     }
 
-    const { status } = await ImagePicker.requestCameraPermissionsAsync();
-    if (status !== "granted") {
-      setErrorMessage("يرجى السماح بالوصول للكاميرا لالتقاط صورة");
-      return;
-    }
+    try {
+      const { status } = await ImagePicker.requestCameraPermissionsAsync();
+      if (status !== "granted") {
+        setErrorMessage("يرجى السماح بالوصول للكاميرا لالتقاط صورة");
+        return;
+      }
 
-    const result = await ImagePicker.launchCameraAsync({
-      allowsEditing: false,
-      quality: 0.8,
-    });
+      const result = await ImagePicker.launchCameraAsync({
+        allowsEditing: false,
+        quality: 0.8,
+      });
 
-    if (!result.canceled && result.assets[0]) {
-      setter(result.assets[0].uri);
+      if (!result.canceled && result.assets[0]) {
+        setter(result.assets[0].uri);
+      }
+    } catch (error) {
+      console.error("Error taking photo:", error);
+      setErrorMessage("حدث خطأ أثناء التقاط الصورة");
     }
   };
 
@@ -245,12 +261,16 @@ export default function DriverRegistrationScreen() {
 
       <View style={[styles.card, { backgroundColor: theme.backgroundDefault }, Shadows.sm]}>
         <ThemedText type="h4" style={styles.sectionTitle}>رقم الهاتف</ThemedText>
-        <View style={[styles.phoneDisplay, { backgroundColor: theme.backgroundSecondary, borderColor: theme.border }]}>
-          <Feather name="phone" size={18} color={AppColors.primary} />
+        <View style={[styles.phoneDisplay, { backgroundColor: AppColors.primary + "08", borderColor: AppColors.primary + "30" }]}>
+          <Feather name="check-circle" size={18} color="#4CAF50" />
           <ThemedText type="body" style={[styles.phoneText, { color: theme.text }]}>
             {phoneNumber}
           </ThemedText>
+          <Feather name="phone" size={18} color={AppColors.primary} />
         </View>
+        <ThemedText type="small" style={{ textAlign: "right", color: "#4CAF50", marginTop: Spacing.xs, fontWeight: "600" }}>
+          تم تعبئة الرقم تلقائياً من تسجيل الدخول
+        </ThemedText>
       </View>
 
       <View style={[styles.card, { backgroundColor: theme.backgroundDefault }, Shadows.sm]}>
@@ -356,10 +376,11 @@ export default function DriverRegistrationScreen() {
         animationType="fade"
         onRequestClose={() => setImagePickerModal({ visible: false, setter: null, title: "" })}
       >
-        <Pressable
-          style={styles.modalOverlay}
-          onPress={() => setImagePickerModal({ visible: false, setter: null, title: "" })}
-        >
+        <View style={styles.modalOverlay}>
+          <Pressable
+            style={StyleSheet.absoluteFill}
+            onPress={() => setImagePickerModal({ visible: false, setter: null, title: "" })}
+          />
           <View style={[styles.modalContent, { backgroundColor: theme.backgroundDefault }]}>
             <ThemedText type="h4" style={styles.modalTitle}>{imagePickerModal.title}</ThemedText>
             <ThemedText type="body" style={[styles.modalSubtitle, { color: theme.textSecondary }]}>
@@ -369,6 +390,7 @@ export default function DriverRegistrationScreen() {
             <Pressable
               style={[styles.modalOption, { backgroundColor: theme.backgroundSecondary }]}
               onPress={() => imagePickerModal.setter && takePhoto(imagePickerModal.setter)}
+              testID="button-take-photo"
             >
               <Feather name="camera" size={22} color={AppColors.primary} />
               <ThemedText type="body" style={styles.modalOptionText}>الكاميرا</ThemedText>
@@ -377,6 +399,7 @@ export default function DriverRegistrationScreen() {
             <Pressable
               style={[styles.modalOption, { backgroundColor: theme.backgroundSecondary }]}
               onPress={() => imagePickerModal.setter && pickImage(imagePickerModal.setter)}
+              testID="button-pick-image"
             >
               <Feather name="image" size={22} color={AppColors.primary} />
               <ThemedText type="body" style={styles.modalOptionText}>معرض الصور</ThemedText>
@@ -389,7 +412,7 @@ export default function DriverRegistrationScreen() {
               <ThemedText type="body" style={{ color: theme.textSecondary, fontWeight: "600" }}>إلغاء</ThemedText>
             </Pressable>
           </View>
-        </Pressable>
+        </View>
       </Modal>
     </KeyboardAwareScrollViewCompat>
   );
