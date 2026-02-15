@@ -173,7 +173,6 @@ const styles = StyleSheet.create({
     marginBottom: 40,
   },
   logoWrap: {
-    direction: "ltr",
     marginBottom: 8,
   },
   logoText: {
@@ -182,6 +181,7 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
     textAlign: "center",
     letterSpacing: 1,
+    writingDirection: "ltr",
   },
   tagline: {
     fontFamily: "Cairo_600SemiBold",

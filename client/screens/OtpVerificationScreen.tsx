@@ -300,7 +300,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
   },
   logoWrap: {
-    direction: "ltr",
     marginBottom: 16,
   },
   logoText: {
@@ -309,6 +308,7 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
     letterSpacing: 1,
     textAlign: "center",
+    writingDirection: "ltr",
   },
   shieldCircle: {
     width: 72,
@@ -336,7 +336,7 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
     letterSpacing: 2,
     marginTop: 4,
-    direction: "ltr",
+    writingDirection: "ltr",
   },
   card: {
     flex: 1,
