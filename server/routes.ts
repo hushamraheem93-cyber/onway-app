@@ -114,7 +114,7 @@ let categories: Category[] = [
   { id: "flowers", name: "هدايا وورود", image: "/uploads/category-flowers.png", productCount: 25, order: 10, color: "#FDF2F2", iconColor: "#EF5350" },
   { id: "delivery", name: "خدمات المندوب", image: "/uploads/category-delivery.png", productCount: 0, order: 11, color: "#FFF9C4", iconColor: "#FBC02D" },
   { id: "women-bags", name: "الحقائب النسائية", image: "/uploads/category-bags.png", productCount: 12, order: 12, color: "#FCE4EC", iconColor: "#E91E63" },
-  { id: "international-shopping", name: "التسوق الدولي", image: "/uploads/category-international.png", productCount: 0, order: 13, color: "#E8EAF6", iconColor: "#5C6BC0" },
+  { id: "international-shopping", name: "الشراء من المواقع العالمية", image: "/uploads/category-international.png", productCount: 0, order: 13, color: "#E8EAF6", iconColor: "#5C6BC0" },
 ];
 
 let banners: Banner[] = [
@@ -652,7 +652,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.post("/api/orders", async (req: Request, res: Response) => {
-    const { userId, phoneNumber, customerName, items, total, deliveryFee, address, region, latitude, longitude } = req.body;
+    const { userId, phoneNumber, customerName, items, total, deliveryFee, address, region, latitude, longitude, orderType, internationalDetails, courierDetails } = req.body;
     const db = getFirestore();
     
     if (db) {
@@ -671,6 +671,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         orderData.latitude = latitude;
         orderData.longitude = longitude;
       }
+      if (orderType) orderData.orderType = orderType;
+      if (internationalDetails) orderData.internationalDetails = internationalDetails;
+      if (courierDetails) orderData.courierDetails = courierDetails;
       const newOrder = await createOrder(orderData);
       if (newOrder) {
         return res.json({

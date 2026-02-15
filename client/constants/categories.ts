@@ -30,7 +30,7 @@ export const MAIN_CATEGORIES: Category[] = [
   { id: "flowers", name: "هدايا وورود", image: "/uploads/category-flowers.png", productCount: 25, color: "#FDF2F2", iconColor: "#EF5350" },
   { id: "delivery", name: "خدمات المندوب", image: "/uploads/category-delivery.png", productCount: 0, color: "#FFF9C4", iconColor: "#FBC02D" },
   { id: "women-bags", name: "الحقائب النسائية", image: "/uploads/category-bags.png", productCount: 12, color: "#FCE4EC", iconColor: "#E91E63" },
-  { id: "international-shopping", name: "التسوق الدولي", image: "/uploads/category-international.png", productCount: 0, color: "#E8EAF6", iconColor: "#5C6BC0" },
+  { id: "international-shopping", name: "الشراء من المواقع العالمية", image: "/uploads/category-international.png", productCount: 0, color: "#E8EAF6", iconColor: "#5C6BC0" },
 ];
 
 export const CATEGORIES = MAIN_CATEGORIES;

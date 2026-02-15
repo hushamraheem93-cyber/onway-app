@@ -54,8 +54,6 @@ export default function InternationalShoppingScreen() {
   const [productLink, setProductLink] = useState("");
   const [productDetails, setProductDetails] = useState("");
   const [quantity, setQuantity] = useState("1");
-  const [color, setColor] = useState("");
-  const [size, setSize] = useState("");
   const [customerNotes, setCustomerNotes] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
@@ -96,8 +94,6 @@ export default function InternationalShoppingScreen() {
           productLink,
           productDetails,
           quantity: Number(quantity) || 1,
-          color: color || undefined,
-          size: size || undefined,
           notes: customerNotes || undefined,
         },
       };
@@ -129,8 +125,6 @@ export default function InternationalShoppingScreen() {
     setProductLink("");
     setProductDetails("");
     setQuantity("1");
-    setColor("");
-    setSize("");
     setCustomerNotes("");
     setIsSubmitted(false);
   };
@@ -243,7 +237,7 @@ export default function InternationalShoppingScreen() {
                 onChangeText={setProductLink}
                 textAlign="right"
                 autoCapitalize="none"
-                keyboardType="url"
+                autoCorrect={false}
                 testID="input-product-link"
               />
             </View>
@@ -273,48 +267,18 @@ export default function InternationalShoppingScreen() {
             </View>
           </View>
 
-          <View style={styles.row}>
-            <View style={[styles.inputGroup, { flex: 1, marginLeft: 8 }]}>
-              <ThemedText style={styles.label}>الكمية</ThemedText>
-              <View style={[styles.inputContainer, { backgroundColor: theme.backgroundSecondary }]}>
-                <TextInput
-                  style={[styles.input, { color: theme.text, textAlign: "center" }]}
-                  placeholder="1"
-                  placeholderTextColor="#BBB"
-                  value={quantity}
-                  onChangeText={setQuantity}
-                  keyboardType="numeric"
-                  testID="input-quantity"
-                />
-              </View>
-            </View>
-            <View style={[styles.inputGroup, { flex: 1, marginLeft: 8 }]}>
-              <ThemedText style={styles.label}>اللون (اختياري)</ThemedText>
-              <View style={[styles.inputContainer, { backgroundColor: theme.backgroundSecondary }]}>
-                <TextInput
-                  style={[styles.input, { color: theme.text }]}
-                  placeholder="أسود"
-                  placeholderTextColor="#BBB"
-                  value={color}
-                  onChangeText={setColor}
-                  textAlign="right"
-                  testID="input-color"
-                />
-              </View>
-            </View>
-            <View style={[styles.inputGroup, { flex: 1 }]}>
-              <ThemedText style={styles.label}>المقاس (اختياري)</ThemedText>
-              <View style={[styles.inputContainer, { backgroundColor: theme.backgroundSecondary }]}>
-                <TextInput
-                  style={[styles.input, { color: theme.text }]}
-                  placeholder="M"
-                  placeholderTextColor="#BBB"
-                  value={size}
-                  onChangeText={setSize}
-                  textAlign="right"
-                  testID="input-size"
-                />
-              </View>
+          <View style={styles.inputGroup}>
+            <ThemedText style={styles.label}>الكمية</ThemedText>
+            <View style={[styles.inputContainer, { backgroundColor: theme.backgroundSecondary }]}>
+              <TextInput
+                style={[styles.input, { color: theme.text, textAlign: "center" }]}
+                placeholder="1"
+                placeholderTextColor="#BBB"
+                value={quantity}
+                onChangeText={setQuantity}
+                keyboardType="numeric"
+                testID="input-quantity"
+              />
             </View>
           </View>
 
