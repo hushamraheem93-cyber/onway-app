@@ -1,114 +1,161 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
-  View,
   StyleSheet,
-  Pressable,
+  View,
   TextInput,
-  Keyboard,
-  ActivityIndicator,
-  Dimensions,
+  Pressable,
+  KeyboardAvoidingView,
   Platform,
+  Animated,
+  Easing,
+  ActivityIndicator,
+  I18nManager,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import { Image } from "expo-image";
-import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
+import { Feather } from "@expo/vector-icons";
 
 import { ThemedText } from "@/components/ThemedText";
 import { AppColors } from "@/constants/theme";
 import { useAuth } from "@/context/AuthContext";
 
-const { width, height } = Dimensions.get("window");
-
-const BRAND_ORANGE = "#FF6B35";
-const BRAND_ORANGE_LIGHT = "#FF8C61";
+const BRAND_ORANGE = "#FF7622";
+const BRAND_DARK = "#E5691E";
 
 export default function PhoneLoginScreen() {
+  const insets = useSafeAreaInsets();
   const { sendOtp } = useAuth();
   const [phoneNumber, setPhoneNumber] = useState("");
-  const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const inputRef = useRef<TextInput>(null);
+  const [isLoading, setIsLoading] = useState(false);
 
-  const formatPhoneNumber = (text: string) => {
-    const cleaned = text.replace(/\D/g, "");
-    return cleaned.substring(0, 10);
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const cardSlide = useRef(new Animated.Value(40)).current;
+  const headerScale = useRef(new Animated.Value(0.85)).current;
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 500,
+        useNativeDriver: true,
+      }),
+      Animated.spring(headerScale, {
+        toValue: 1,
+        friction: 7,
+        tension: 60,
+        useNativeDriver: true,
+      }),
+      Animated.timing(cardSlide, {
+        toValue: 0,
+        duration: 600,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, []);
+
+  const validatePhone = (phone: string) => {
+    const cleanPhone = phone.replace(/\s/g, "");
+    return cleanPhone.length >= 9;
+  };
+
+  const formatPhoneForLogin = (phone: string) => {
+    const cleanPhone = phone.replace(/\s/g, "");
+    return `00964${cleanPhone}`;
   };
 
   const handleContinue = async () => {
-    if (phoneNumber.length < 9) {
-      setError("الرجاء إدخال رقم هاتف صحيح");
+    setError("");
+    if (!phoneNumber.trim()) {
+      setError("الرجاء إدخال رقم الهاتف");
       return;
     }
-
+    if (!validatePhone(phoneNumber)) {
+      setError("يرجى إدخال رقم هاتف عراقي صحيح");
+      return;
+    }
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    setLoading(true);
-    setError("");
-
+    setIsLoading(true);
     try {
-      const fullPhone = `00964${phoneNumber}`;
+      const fullPhone = formatPhoneForLogin(phoneNumber);
       await sendOtp(fullPhone);
     } catch (err: any) {
       setError(err.message || "حدث خطأ أثناء إرسال رمز التحقق");
     } finally {
-      setLoading(false);
+      setIsLoading(false);
     }
   };
 
-  const isDisabled = phoneNumber.length < 9;
-
   return (
-    <Pressable style={styles.container} onPress={Keyboard.dismiss}>
-      <SafeAreaView style={styles.safeArea}>
-        <LinearGradient
-          colors={[BRAND_ORANGE, BRAND_ORANGE_LIGHT]}
-          style={styles.topSection}
+    <View style={styles.container}>
+      <LinearGradient
+        colors={[BRAND_ORANGE, BRAND_DARK]}
+        style={[styles.topSection, { paddingTop: insets.top + 24 }]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 0.5, y: 1 }}
+      >
+        <View style={styles.decorCircle1} />
+        <View style={styles.decorCircle2} />
+
+        <Animated.View
+          style={[
+            styles.headerContent,
+            { opacity: fadeAnim, transform: [{ scale: headerScale }] },
+          ]}
         >
-          <View style={styles.logoContainer}>
-            <View style={styles.logoBox}>
-              <Feather name="truck" size={22} color={BRAND_ORANGE} />
-            </View>
-            <View style={styles.logoTextContainer}>
-              <ThemedText style={styles.logoOn}>On</ThemedText>
-              <ThemedText style={styles.logoWay}>Way</ThemedText>
-            </View>
+          <View style={styles.logoRow}>
+            <ThemedText style={styles.logoOn}>On</ThemedText>
+            <ThemedText style={styles.logoWay}>Way</ThemedText>
           </View>
+          <ThemedText style={styles.headerTitle}>مرحباً بك</ThemedText>
+          <ThemedText style={styles.headerSub}>
+            سجل دخولك للبدء بالتسوق والتوصيل
+          </ThemedText>
+        </Animated.View>
+      </LinearGradient>
 
-          <View style={styles.headerContainer}>
-            <ThemedText style={styles.title}>مرحباً بك</ThemedText>
-            <ThemedText style={styles.subtitle}>
-              سجل دخولك للبدء بالتسوق والتوصيل
-            </ThemedText>
-          </View>
-        </LinearGradient>
+      <Animated.View
+        style={[
+          styles.card,
+          {
+            opacity: fadeAnim,
+            transform: [{ translateY: cardSlide }],
+            paddingBottom: insets.bottom + 16,
+          },
+        ]}
+      >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          style={styles.formInner}
+        >
+          <View style={styles.handleBar} />
 
-        <View style={styles.card}>
-          <ThemedText style={styles.label}>رقم الهاتف</ThemedText>
+          <ThemedText style={styles.inputLabel}>رقم الهاتف</ThemedText>
 
-          <View style={styles.inputWrapper}>
-            <View style={styles.countryCode}>
+          <View style={styles.phoneRow}>
+            <TextInput
+              placeholder="7XX XXX XXXX"
+              placeholderTextColor="#C0C0C0"
+              keyboardType="phone-pad"
+              style={styles.phoneInput}
+              value={phoneNumber}
+              onChangeText={(text) => {
+                setPhoneNumber(text);
+                if (error) setError("");
+              }}
+              maxLength={12}
+              testID="input-phone"
+            />
+            <View style={styles.prefixBox}>
+              <ThemedText style={styles.countryCode}>964+</ThemedText>
               <Image
                 source={{ uri: "https://flagcdn.com/w80/iq.png" }}
                 style={styles.flag}
               />
-              <ThemedText style={styles.code}>964+</ThemedText>
             </View>
-
-            <TextInput
-              ref={inputRef}
-              style={styles.input}
-              placeholder="7XX XXX XXXX"
-              placeholderTextColor="#BDC3C7"
-              keyboardType="phone-pad"
-              value={phoneNumber}
-              onChangeText={(text) => {
-                setPhoneNumber(formatPhoneNumber(text));
-                if (error) setError("");
-              }}
-              maxLength={10}
-              testID="input-phone"
-            />
           </View>
 
           {error ? (
@@ -120,81 +167,62 @@ export default function PhoneLoginScreen() {
 
           <Pressable
             style={({ pressed }) => [
-              styles.continueButton,
-              isDisabled ? styles.continueButtonDisabled : undefined,
-              pressed && !isDisabled ? styles.continuePressed : undefined,
+              styles.submitBtn,
+              isLoading ? styles.submitDisabled : undefined,
+              pressed && !isLoading ? styles.submitPressed : undefined,
             ]}
             onPress={handleContinue}
-            disabled={isDisabled || loading}
+            disabled={isLoading}
             testID="button-continue"
           >
             <LinearGradient
-              colors={
-                isDisabled
-                  ? ["#BDC3C7", "#95A5A6"]
-                  : [BRAND_ORANGE, BRAND_ORANGE_LIGHT]
-              }
-              style={styles.continueGradient}
+              colors={[BRAND_ORANGE, BRAND_DARK]}
+              style={styles.submitGradient}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
             >
-              {loading ? (
-                <ActivityIndicator color="#FFFFFF" size="small" />
+              {isLoading ? (
+                <ActivityIndicator size="small" color="#FFFFFF" />
               ) : (
                 <>
-                  <ThemedText style={styles.continueText}>
+                  <ThemedText style={styles.submitText}>
                     إرسال رمز التحقق
                   </ThemedText>
-                  <View style={styles.continueArrow}>
-                    <Feather
-                      name="arrow-left"
-                      size={16}
-                      color={isDisabled ? "#95A5A6" : BRAND_ORANGE}
-                    />
+                  <View style={styles.submitArrow}>
+                    <Feather name="arrow-left" size={18} color={BRAND_ORANGE} />
                   </View>
                 </>
               )}
             </LinearGradient>
           </Pressable>
 
-          <View style={styles.divider}>
-            <View style={styles.dividerLine} />
-            <ThemedText style={styles.dividerText}>أو</ThemedText>
-            <View style={styles.dividerLine} />
+          <View style={styles.dividerRow}>
+            <View style={styles.divider} />
+            <ThemedText style={styles.dividerLabel}>أو</ThemedText>
+            <View style={styles.divider} />
           </View>
 
-          <View style={styles.featuresContainer}>
-            <View style={styles.feature}>
-              <View style={styles.featureIcon}>
-                <Feather name="zap" size={24} color={BRAND_ORANGE} />
-              </View>
+          <View style={styles.featureRow}>
+            <View style={styles.featureChip}>
+              <Feather name="zap" size={13} color={BRAND_ORANGE} />
               <ThemedText style={styles.featureText}>توصيل سريع</ThemedText>
             </View>
-
-            <View style={styles.feature}>
-              <View style={styles.featureIcon}>
-                <Feather name="shield" size={24} color={BRAND_ORANGE} />
-              </View>
+            <View style={styles.featureChip}>
+              <Feather name="shield" size={13} color={BRAND_ORANGE} />
               <ThemedText style={styles.featureText}>دفع آمن</ThemedText>
             </View>
-
-            <View style={styles.feature}>
-              <View style={styles.featureIcon}>
-                <Feather name="map-pin" size={24} color={BRAND_ORANGE} />
-              </View>
+            <View style={styles.featureChip}>
+              <Feather name="map-pin" size={13} color={BRAND_ORANGE} />
               <ThemedText style={styles.featureText}>تتبع مباشر</ThemedText>
             </View>
           </View>
 
           <ThemedText style={styles.terms}>
-            بالمتابعة، أنت توافق على{" "}
-            <ThemedText style={styles.link}>شروط الخدمة</ThemedText>
-            {"\n"}و
-            <ThemedText style={styles.link}> سياسة الخصوصية</ThemedText>
+            بالمتابعة، أنت توافق على شروط الخدمة وسياسة الخصوصية
           </ThemedText>
-        </View>
-      </SafeAreaView>
-    </Pressable>
+        </KeyboardAvoidingView>
+      </Animated.View>
+    </View>
   );
 }
 
@@ -203,123 +231,134 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#FFFFFF",
   },
-  safeArea: {
-    flex: 1,
-  },
   topSection: {
-    paddingHorizontal: 24,
-    paddingTop: 20,
-    paddingBottom: 40,
+    paddingBottom: 48,
+    alignItems: "center",
+    overflow: "hidden",
+    borderBottomLeftRadius: 36,
+    borderBottomRightRadius: 36,
   },
-  logoContainer: {
+  decorCircle1: {
+    position: "absolute",
+    top: -40,
+    left: -40,
+    width: 160,
+    height: 160,
+    borderRadius: 80,
+    backgroundColor: "rgba(255,255,255,0.07)",
+  },
+  decorCircle2: {
+    position: "absolute",
+    bottom: 10,
+    right: -30,
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: "rgba(255,255,255,0.05)",
+  },
+  headerContent: {
+    alignItems: "center",
+  },
+  logoRow: {
     flexDirection: "row",
     writingDirection: "ltr",
     alignItems: "center",
-    gap: 12,
-    marginBottom: 32,
-  },
-  logoBox: {
-    width: 44,
-    height: 44,
-    borderRadius: 10,
-    backgroundColor: "#FFFFFF",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  logoTextContainer: {
-    flexDirection: "row",
-    writingDirection: "ltr",
-    alignItems: "baseline",
+    gap: 4,
+    marginBottom: 14,
   },
   logoOn: {
     fontFamily: "Kanit_700Bold",
     fontSize: 28,
     color: "#FFFFFF",
-    letterSpacing: -1,
+    letterSpacing: 1,
     writingDirection: "ltr",
   },
   logoWay: {
     fontFamily: "Kanit_700Bold",
     fontSize: 28,
-    color: "#FFFFFF",
-    opacity: 0.85,
-    letterSpacing: -1,
+    color: "rgba(255,255,255,0.65)",
+    letterSpacing: 1,
     writingDirection: "ltr",
   },
-  headerContainer: {
-    marginTop: 8,
-  },
-  title: {
+  headerTitle: {
     fontFamily: "Cairo_700Bold",
-    fontSize: 30,
+    fontSize: 24,
     color: "#FFFFFF",
-    marginBottom: 8,
+    marginBottom: 4,
   },
-  subtitle: {
+  headerSub: {
     fontFamily: "Cairo_400Regular",
-    fontSize: 15,
-    color: "rgba(255, 255, 255, 0.9)",
-    lineHeight: 24,
+    fontSize: 14,
+    color: "rgba(255,255,255,0.8)",
   },
   card: {
     flex: 1,
     backgroundColor: "#FFFFFF",
-    borderTopLeftRadius: 32,
-    borderTopRightRadius: 32,
+    marginTop: -24,
     paddingHorizontal: 24,
-    paddingTop: 28,
-    marginTop: -20,
+    paddingTop: 12,
   },
-  label: {
+  formInner: {
+    flex: 1,
+  },
+  handleBar: {
+    width: 36,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: "#E5E5E5",
+    alignSelf: "center",
+    marginBottom: 24,
+  },
+  inputLabel: {
     fontFamily: "Cairo_600SemiBold",
-    fontSize: 16,
-    color: "#2C3E50",
-    marginBottom: 12,
+    fontSize: 15,
+    color: "#444",
+    marginBottom: 8,
     textAlign: "right",
   },
-  inputWrapper: {
+  phoneRow: {
+    flexDirection: "row",
+    backgroundColor: "#F7F7F7",
+    borderRadius: 14,
+    height: 54,
+    alignItems: "center",
+    paddingHorizontal: 14,
+    borderWidth: 1.5,
+    borderColor: "#EFEFEF",
+  },
+  phoneInput: {
+    flex: 1,
+    fontSize: 17,
+    color: "#333",
+    textAlign: "left",
+    fontFamily: "Cairo_600SemiBold",
+  },
+  prefixBox: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#F8F9FA",
-    borderRadius: 16,
-    borderWidth: 2,
-    borderColor: "#ECF0F1",
-    paddingHorizontal: 16,
-    paddingVertical: 4,
-    marginBottom: 8,
+    backgroundColor: "#FFFFFF",
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 10,
+    gap: 6,
+    borderWidth: 1,
+    borderColor: "#F0F0F0",
   },
   countryCode: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingLeft: 12,
-    borderLeftWidth: 1,
-    borderLeftColor: "#ECF0F1",
-    gap: 8,
+    fontFamily: "Cairo_700Bold",
+    fontSize: 14,
+    color: "#333",
   },
   flag: {
-    width: 28,
-    height: 18,
+    width: 22,
+    height: 15,
     borderRadius: 2,
-  },
-  code: {
-    fontFamily: "Cairo_600SemiBold",
-    fontSize: 16,
-    color: "#2C3E50",
-  },
-  input: {
-    flex: 1,
-    fontFamily: "Cairo_600SemiBold",
-    fontSize: 18,
-    color: "#2C3E50",
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    textAlign: "left",
   },
   errorRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
-    marginBottom: 4,
+    marginTop: 8,
     justifyContent: "flex-end",
   },
   errorText: {
@@ -327,99 +366,90 @@ const styles = StyleSheet.create({
     color: AppColors.error,
     fontSize: 13,
   },
-  continueButton: {
-    borderRadius: 16,
+  submitBtn: {
+    borderRadius: 14,
     overflow: "hidden",
-    marginTop: 16,
-    marginBottom: 24,
+    marginTop: 20,
     ...Platform.select({
       ios: {
         shadowColor: BRAND_ORANGE,
         shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.3,
+        shadowOpacity: 0.25,
         shadowRadius: 8,
       },
-      android: { elevation: 8 },
+      android: { elevation: 5 },
       default: {},
     }),
   },
-  continueButtonDisabled: {
-    ...Platform.select({
-      ios: { shadowOpacity: 0.1 },
-      android: { elevation: 2 },
-      default: {},
-    }),
+  submitDisabled: {
+    opacity: 0.7,
   },
-  continuePressed: {
+  submitPressed: {
     transform: [{ scale: 0.97 }],
     opacity: 0.9,
   },
-  continueGradient: {
+  submitGradient: {
     flexDirection: "row",
-    paddingVertical: 18,
     alignItems: "center",
     justifyContent: "center",
+    paddingVertical: 15,
     gap: 10,
   },
-  continueText: {
+  submitText: {
     fontFamily: "Cairo_700Bold",
-    fontSize: 18,
+    fontSize: 16,
     color: "#FFFFFF",
   },
-  continueArrow: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
+  submitArrow: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
     backgroundColor: "#FFFFFF",
     alignItems: "center",
     justifyContent: "center",
   },
-  divider: {
+  dividerRow: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 24,
     gap: 12,
+    marginTop: 20,
+    marginBottom: 14,
   },
-  dividerLine: {
+  divider: {
     flex: 1,
     height: 1,
-    backgroundColor: "#ECF0F1",
+    backgroundColor: "#F0F0F0",
   },
-  dividerText: {
+  dividerLabel: {
     fontFamily: "Cairo_400Regular",
-    fontSize: 14,
-    color: "#95A5A6",
+    fontSize: 13,
+    color: "#CCC",
   },
-  featuresContainer: {
+  featureRow: {
     flexDirection: "row",
-    justifyContent: "space-around",
-    marginBottom: 28,
-  },
-  feature: {
-    alignItems: "center",
-    gap: 8,
-  },
-  featureIcon: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: "#FFF5F0",
     justifyContent: "center",
+    gap: 8,
+    flexWrap: "wrap",
+  },
+  featureChip: {
+    flexDirection: "row",
     alignItems: "center",
+    gap: 4,
+    backgroundColor: "#FFF5EE",
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 20,
   },
   featureText: {
-    fontFamily: "Cairo_600SemiBold",
-    fontSize: 13,
-    color: "#7F8C8D",
+    fontFamily: "Cairo_400Regular",
+    fontSize: 11,
+    color: "#666",
   },
   terms: {
     fontFamily: "Cairo_400Regular",
-    fontSize: 12,
-    color: "#95A5A6",
+    color: "#CCC",
     textAlign: "center",
-    lineHeight: 20,
-  },
-  link: {
-    color: BRAND_ORANGE,
+    fontSize: 11,
+    marginTop: 14,
   },
 });

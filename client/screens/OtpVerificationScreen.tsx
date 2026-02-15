@@ -19,8 +19,8 @@ import { AppColors } from "@/constants/theme";
 import { useAuth } from "@/context/AuthContext";
 
 const OTP_LENGTH = 4;
-const BRAND_ORANGE = "#FF6B35";
-const BRAND_ORANGE_LIGHT = "#FF8C61";
+const BRAND_ORANGE = "#FF7622";
+const BRAND_DARK = "#E5691E";
 
 export default function OtpVerificationScreen() {
   const insets = useSafeAreaInsets();
@@ -137,7 +137,7 @@ export default function OtpVerificationScreen() {
   return (
     <View style={styles.container}>
       <LinearGradient
-        colors={[BRAND_ORANGE, BRAND_ORANGE_LIGHT]}
+        colors={[BRAND_ORANGE, BRAND_DARK]}
         style={[styles.topSection, { paddingTop: insets.top + 20 }]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
@@ -151,17 +151,12 @@ export default function OtpVerificationScreen() {
             { opacity: fadeAnim, transform: [{ scale: headerScale }] },
           ]}
         >
-          <View style={styles.logoContainer}>
-            <View style={styles.logoBox}>
-              <Feather name="truck" size={22} color={BRAND_ORANGE} />
-            </View>
-            <View style={styles.logoTextContainer}>
-              <ThemedText style={styles.logoOn}>On</ThemedText>
-              <ThemedText style={styles.logoWay}>Way</ThemedText>
-            </View>
+          <View style={styles.logoRow}>
+            <ThemedText style={styles.logoOn}>On</ThemedText>
+            <ThemedText style={styles.logoWay}>Way</ThemedText>
           </View>
           <View style={styles.shieldCircle}>
-            <Feather name="shield" size={28} color={BRAND_ORANGE} />
+            <Feather name="shield" size={32} color={BRAND_ORANGE} />
           </View>
           <ThemedText style={styles.headerTitle}>رمز التحقق</ThemedText>
           <ThemedText style={styles.headerSub}>
@@ -227,7 +222,7 @@ export default function OtpVerificationScreen() {
           testID="button-verify-otp"
         >
           <LinearGradient
-            colors={[BRAND_ORANGE, BRAND_ORANGE_LIGHT]}
+            colors={[BRAND_ORANGE, BRAND_DARK]}
             style={styles.verifyGradient}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
@@ -293,39 +288,25 @@ const styles = StyleSheet.create({
   headerContent: {
     alignItems: "center",
   },
-  logoContainer: {
+  logoRow: {
     flexDirection: "row",
     writingDirection: "ltr",
     alignItems: "center",
-    gap: 10,
+    gap: 4,
     marginBottom: 12,
-  },
-  logoBox: {
-    width: 40,
-    height: 40,
-    borderRadius: 10,
-    backgroundColor: "#FFFFFF",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  logoTextContainer: {
-    flexDirection: "row",
-    writingDirection: "ltr",
-    alignItems: "baseline",
   },
   logoOn: {
     fontFamily: "Kanit_700Bold",
     fontSize: 24,
     color: "#FFFFFF",
-    letterSpacing: -1,
+    letterSpacing: 1,
     writingDirection: "ltr",
   },
   logoWay: {
     fontFamily: "Kanit_700Bold",
     fontSize: 24,
-    color: "#FFFFFF",
-    opacity: 0.85,
-    letterSpacing: -1,
+    color: "rgba(255,255,255,0.65)",
+    letterSpacing: 1,
     writingDirection: "ltr",
   },
   shieldCircle: {

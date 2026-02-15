@@ -1,12 +1,14 @@
-import React, { useRef, useState } from "react";
+import React, { useRef, useState, useCallback } from "react";
 import {
   View,
   StyleSheet,
   Dimensions,
   Pressable,
+  FlatList,
   Platform,
+  ViewToken,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import { Image } from "expo-image";
 import { Feather } from "@expo/vector-icons";
@@ -14,12 +16,11 @@ import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 
 import { ThemedText } from "@/components/ThemedText";
-import PagerView from "@/components/PagerViewWrapper";
 
-const { width, height } = Dimensions.get("window");
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 
-const BRAND_ORANGE = "#FF6B35";
-const BRAND_ORANGE_LIGHT = "#FF8C61";
+const BRAND_ORANGE = "#FF7622";
+const BRAND_DARK = "#E5691E";
 
 const onboarding1 = require("../assets/images/onboarding-1.png");
 const onboarding2 = require("../assets/images/onboarding-2.png");
@@ -27,41 +28,56 @@ const onboarding3 = require("../assets/images/onboarding-3.png");
 
 type RootStackParamList = { PhoneLogin: undefined };
 
-const slides = [
+interface SlideData {
+  id: string;
+  image: any;
+  title: string;
+  subtitle: string;
+}
+
+const SLIDES: SlideData[] = [
   {
-    id: 1,
+    id: "1",
     image: onboarding1,
     title: "توصيل سريع وموثوق",
-    description: "احصل على طلبك في أي مكان وأي وقت داخل قضاء الضلوعية",
+    subtitle: "نوصل طلبك بأسرع وقت ممكن\nداخل قضاء الضلوعية",
   },
   {
-    id: 2,
+    id: "2",
     image: onboarding2,
     title: "تسوق بسهولة",
-    description: "اختر من مئات المنتجات المتوفرة بأفضل الأسعار",
+    subtitle: "تصفح مئات المنتجات من متاجر متنوعة\nواختر ما يناسبك",
   },
   {
-    id: 3,
+    id: "3",
     image: onboarding3,
-    title: "تتبع طلبك",
-    description: "تابع طلبك لحظة بلحظة حتى يصل إليك",
+    title: "لحد باب بيتك",
+    subtitle: "استلم طلبك وأنت مرتاح في بيتك\nبضغطة زر واحدة",
   },
 ];
 
 export default function SplashScreen() {
-  const navigation =
-    useNavigation<NativeStackNavigationProp<RootStackParamList>>();
-  const pagerRef = useRef<any>(null);
-  const [currentPage, setCurrentPage] = useState(0);
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const insets = useSafeAreaInsets();
+  const flatListRef = useRef<FlatList>(null);
+  const [activeIndex, setActiveIndex] = useState(0);
+
+  const onViewableItemsChanged = useCallback(
+    ({ viewableItems }: { viewableItems: ViewToken[] }) => {
+      if (viewableItems.length > 0 && viewableItems[0].index != null) {
+        setActiveIndex(viewableItems[0].index);
+      }
+    },
+    []
+  );
+
+  const viewabilityConfig = useRef({ viewAreaCoveragePercentThreshold: 50 }).current;
 
   const handleNext = () => {
-    if (currentPage < slides.length - 1) {
-      const nextPage = currentPage + 1;
-      if (Platform.OS !== "web" && pagerRef.current) {
-        pagerRef.current.setPage(nextPage);
-      } else {
-        setCurrentPage(nextPage);
-      }
+    if (activeIndex < SLIDES.length - 1) {
+      const nextIndex = activeIndex + 1;
+      setActiveIndex(nextIndex);
+      flatListRef.current?.scrollToIndex({ index: nextIndex, animated: true });
     } else {
       navigation.navigate("PhoneLogin");
     }
@@ -71,245 +87,272 @@ export default function SplashScreen() {
     navigation.navigate("PhoneLogin");
   };
 
+  const renderSlide = ({ item }: { item: SlideData }) => (
+    <View style={styles.slideContainer}>
+      <View style={styles.imageSection}>
+        <View style={styles.imageGlow} />
+        <Image source={item.image} style={styles.slideImage} contentFit="contain" />
+      </View>
+    </View>
+  );
+
+  const isLastSlide = activeIndex === SLIDES.length - 1;
+
   return (
-    <SafeAreaView style={styles.container}>
+    <View style={styles.container}>
       <LinearGradient
-        colors={[BRAND_ORANGE, BRAND_ORANGE_LIGHT]}
-        style={styles.gradient}
+        colors={[BRAND_ORANGE, BRAND_DARK]}
+        style={[styles.topGradient, { paddingTop: insets.top + 16 }]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 0.5, y: 1 }}
       >
-        <View style={styles.logoContainer}>
-          <View style={styles.logoBox}>
-            <Feather name="truck" size={24} color={BRAND_ORANGE} />
-          </View>
-          <View style={styles.logoTextContainer}>
+        <View style={styles.decorCircle1} />
+        <View style={styles.decorCircle2} />
+
+        <View style={styles.headerRow}>
+          <Pressable onPress={handleSkip} style={styles.skipBtn} testID="button-skip">
+            <ThemedText style={styles.skipText}>تخطي</ThemedText>
+          </Pressable>
+
+          <View style={styles.logoRow}>
             <ThemedText style={styles.logoOn}>On</ThemedText>
             <ThemedText style={styles.logoWay}>Way</ThemedText>
           </View>
+
+          <View style={styles.skipBtn} />
         </View>
 
-        <View style={styles.illustrationContainer}>
-          <View style={styles.circle}>
-            <Image
-              source={slides[currentPage].image}
-              style={styles.illustration}
-              contentFit="contain"
-            />
-          </View>
-        </View>
-
-        <View style={styles.contentCard}>
-          <View style={styles.handleBar} />
-
-          <ThemedText style={styles.title}>
-            {slides[currentPage].title}
-          </ThemedText>
-          <ThemedText style={styles.description}>
-            {slides[currentPage].description}
-          </ThemedText>
-
-          <View style={styles.dotsContainer}>
-            {slides.map((_, index) => (
-              <View
-                key={index}
-                style={[
-                  styles.dot,
-                  currentPage === index ? styles.activeDot : undefined,
-                ]}
-              />
-            ))}
-          </View>
-
-          <Pressable
-            style={({ pressed }) => [
-              styles.button,
-              pressed ? styles.buttonPressed : undefined,
-            ]}
-            onPress={handleNext}
-            testID="button-get-started"
-          >
-            <LinearGradient
-              colors={[BRAND_ORANGE, BRAND_ORANGE_LIGHT]}
-              style={styles.buttonGradient}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-            >
-              <ThemedText style={styles.buttonText}>
-                {currentPage === slides.length - 1 ? "ابدأ الآن" : "التالي"}
-              </ThemedText>
-              <View style={styles.buttonArrow}>
-                <Feather name="arrow-left" size={18} color={BRAND_ORANGE} />
-              </View>
-            </LinearGradient>
-          </Pressable>
-        </View>
-
-        {Platform.OS !== "web" ? (
-          <PagerView
-            ref={pagerRef}
-            style={styles.hiddenPager}
-            initialPage={0}
-            onPageSelected={(e: any) => setCurrentPage(e.nativeEvent.position)}
-          >
-            {slides.map((slide) => (
-              <View key={slide.id} />
-            ))}
-          </PagerView>
-        ) : null}
+        <FlatList
+          ref={flatListRef}
+          data={SLIDES}
+          renderItem={renderSlide}
+          keyExtractor={(item) => item.id}
+          horizontal
+          pagingEnabled
+          showsHorizontalScrollIndicator={false}
+          onViewableItemsChanged={onViewableItemsChanged}
+          viewabilityConfig={viewabilityConfig}
+          bounces={false}
+          style={styles.flatList}
+        />
       </LinearGradient>
-    </SafeAreaView>
+
+      <View style={[styles.bottomSection, { paddingBottom: insets.bottom + 16 }]}>
+        <View style={styles.handleBar} />
+
+        <ThemedText style={styles.slideTitle}>
+          {SLIDES[activeIndex].title}
+        </ThemedText>
+        <ThemedText style={styles.slideSubtitle}>
+          {SLIDES[activeIndex].subtitle}
+        </ThemedText>
+
+        <View style={styles.dotsRow}>
+          {SLIDES.map((_, i) => (
+            <View
+              key={i}
+              style={[styles.dot, i === activeIndex ? styles.dotActive : undefined]}
+            />
+          ))}
+        </View>
+
+        <Pressable
+          style={({ pressed }) => [
+            styles.ctaButton,
+            pressed ? styles.ctaPressed : undefined,
+          ]}
+          onPress={handleNext}
+          testID="button-get-started"
+        >
+          <LinearGradient
+            colors={[BRAND_ORANGE, BRAND_DARK]}
+            style={styles.ctaGradient}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+          >
+            <ThemedText style={styles.ctaText}>
+              {isLastSlide ? "ابدأ الآن" : "التالي"}
+            </ThemedText>
+            <View style={styles.ctaArrow}>
+              <Feather name="arrow-left" size={18} color={BRAND_ORANGE} />
+            </View>
+          </LinearGradient>
+        </Pressable>
+      </View>
+    </View>
   );
 }
+
+const IMAGE_SIZE = SCREEN_WIDTH * 0.55;
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: BRAND_ORANGE,
-  },
-  gradient: {
-    flex: 1,
-  },
-  logoContainer: {
-    flexDirection: "row",
-    writingDirection: "ltr",
-    alignItems: "center",
-    justifyContent: "center",
-    marginTop: 20,
-    gap: 12,
-  },
-  logoBox: {
-    width: 50,
-    height: 50,
-    borderRadius: 12,
     backgroundColor: "#FFFFFF",
-    justifyContent: "center",
+  },
+  topGradient: {
+    overflow: "hidden",
+    borderBottomLeftRadius: 36,
+    borderBottomRightRadius: 36,
+    paddingBottom: 8,
+  },
+  decorCircle1: {
+    position: "absolute",
+    top: -40,
+    left: -40,
+    width: 160,
+    height: 160,
+    borderRadius: 80,
+    backgroundColor: "rgba(255,255,255,0.07)",
+  },
+  decorCircle2: {
+    position: "absolute",
+    bottom: 20,
+    right: -30,
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: "rgba(255,255,255,0.05)",
+  },
+  headerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 20,
+    marginBottom: 8,
+  },
+  skipBtn: {
+    width: 60,
     alignItems: "center",
   },
-  logoTextContainer: {
+  skipText: {
+    fontFamily: "Cairo_600SemiBold",
+    fontSize: 14,
+    color: "rgba(255,255,255,0.8)",
+  },
+  logoRow: {
     flexDirection: "row",
     writingDirection: "ltr",
-    alignItems: "baseline",
+    alignItems: "center",
+    gap: 4,
   },
   logoOn: {
     fontFamily: "Kanit_700Bold",
-    fontSize: 32,
+    fontSize: 28,
     color: "#FFFFFF",
-    letterSpacing: -1,
+    letterSpacing: 1,
     writingDirection: "ltr",
   },
   logoWay: {
     fontFamily: "Kanit_700Bold",
-    fontSize: 32,
-    color: "#FFFFFF",
-    opacity: 0.85,
-    letterSpacing: -1,
+    fontSize: 28,
+    color: "rgba(255,255,255,0.65)",
+    letterSpacing: 1,
     writingDirection: "ltr",
   },
-  illustrationContainer: {
+  flatList: {
+    flexGrow: 0,
+  },
+  slideContainer: {
+    width: SCREEN_WIDTH,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 16,
+  },
+  imageSection: {
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  imageGlow: {
+    position: "absolute",
+    width: IMAGE_SIZE * 0.85,
+    height: IMAGE_SIZE * 0.85,
+    borderRadius: IMAGE_SIZE * 0.42,
+    backgroundColor: "rgba(255,255,255,0.12)",
+  },
+  slideImage: {
+    width: IMAGE_SIZE,
+    height: IMAGE_SIZE,
+  },
+  bottomSection: {
     flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    marginTop: -20,
-  },
-  circle: {
-    width: 260,
-    height: 260,
-    borderRadius: 130,
-    backgroundColor: "rgba(255, 255, 255, 0.15)",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  illustration: {
-    width: 220,
-    height: 220,
-  },
-  contentCard: {
     backgroundColor: "#FFFFFF",
-    borderTopLeftRadius: 32,
-    borderTopRightRadius: 32,
     paddingHorizontal: 24,
-    paddingTop: 16,
-    paddingBottom: 32,
-    minHeight: height * 0.35,
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingTop: 12,
   },
   handleBar: {
-    width: 40,
+    width: 36,
     height: 4,
     borderRadius: 2,
-    backgroundColor: "#ECF0F1",
-    alignSelf: "center",
-    marginBottom: 20,
+    backgroundColor: "#E5E5E5",
   },
-  title: {
+  slideTitle: {
     fontFamily: "Cairo_700Bold",
-    fontSize: 26,
-    color: "#2C3E50",
+    fontSize: 22,
+    color: "#2D2D2D",
     textAlign: "center",
-    marginBottom: 12,
   },
-  description: {
+  slideSubtitle: {
     fontFamily: "Cairo_400Regular",
-    fontSize: 15,
-    color: "#7F8C8D",
+    fontSize: 14,
+    color: "#999",
     textAlign: "center",
-    lineHeight: 26,
-    marginBottom: 24,
+    lineHeight: 22,
   },
-  dotsContainer: {
+  dotsRow: {
     flexDirection: "row",
-    justifyContent: "center",
     gap: 8,
-    marginBottom: 24,
   },
   dot: {
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: "#ECF0F1",
+    backgroundColor: "#E0E0E0",
   },
-  activeDot: {
+  dotActive: {
     width: 24,
+    borderRadius: 4,
     backgroundColor: BRAND_ORANGE,
   },
-  button: {
+  ctaButton: {
+    width: "100%",
     borderRadius: 16,
     overflow: "hidden",
     ...Platform.select({
       ios: {
         shadowColor: BRAND_ORANGE,
-        shadowOffset: { width: 0, height: 4 },
+        shadowOffset: { width: 0, height: 5 },
         shadowOpacity: 0.3,
-        shadowRadius: 8,
+        shadowRadius: 10,
       },
-      android: { elevation: 8 },
+      android: { elevation: 6 },
       default: {},
     }),
   },
-  buttonPressed: {
+  ctaPressed: {
     transform: [{ scale: 0.97 }],
     opacity: 0.9,
   },
-  buttonGradient: {
+  ctaGradient: {
     flexDirection: "row",
-    paddingVertical: 18,
     alignItems: "center",
     justifyContent: "center",
+    paddingVertical: 15,
     gap: 10,
   },
-  buttonText: {
+  ctaText: {
     fontFamily: "Cairo_700Bold",
-    fontSize: 18,
+    fontSize: 17,
     color: "#FFFFFF",
   },
-  buttonArrow: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+  ctaArrow: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
     backgroundColor: "#FFFFFF",
     alignItems: "center",
     justifyContent: "center",
-  },
-  hiddenPager: {
-    width: 0,
-    height: 0,
   },
 });
