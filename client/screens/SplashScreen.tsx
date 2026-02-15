@@ -9,12 +9,12 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import { Image } from "expo-image";
-import PagerView from "react-native-pager-view";
 import { Feather } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 
 import { ThemedText } from "@/components/ThemedText";
+import PagerView from "@/components/PagerViewWrapper";
 
 const { width, height } = Dimensions.get("window");
 
@@ -51,12 +51,17 @@ const slides = [
 export default function SplashScreen() {
   const navigation =
     useNavigation<NativeStackNavigationProp<RootStackParamList>>();
-  const pagerRef = useRef<PagerView>(null);
+  const pagerRef = useRef<any>(null);
   const [currentPage, setCurrentPage] = useState(0);
 
   const handleNext = () => {
     if (currentPage < slides.length - 1) {
-      pagerRef.current?.setPage(currentPage + 1);
+      const nextPage = currentPage + 1;
+      if (Platform.OS !== "web" && pagerRef.current) {
+        pagerRef.current.setPage(nextPage);
+      } else {
+        setCurrentPage(nextPage);
+      }
     } else {
       navigation.navigate("PhoneLogin");
     }
@@ -143,7 +148,7 @@ export default function SplashScreen() {
             ref={pagerRef}
             style={styles.hiddenPager}
             initialPage={0}
-            onPageSelected={(e) => setCurrentPage(e.nativeEvent.position)}
+            onPageSelected={(e: any) => setCurrentPage(e.nativeEvent.position)}
           >
             {slides.map((slide) => (
               <View key={slide.id} />
