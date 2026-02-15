@@ -1,5 +1,5 @@
-import React, { useRef, useEffect } from "react";
-import { View, Pressable, StyleSheet, Animated, Platform } from "react-native";
+import React from "react";
+import { View, Pressable, StyleSheet, Platform } from "react-native";
 import { BottomTabBarProps } from "@react-navigation/bottom-tabs";
 import { Feather } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -14,17 +14,16 @@ const BRAND = "#FF7622";
 interface TabConfig {
   name: string;
   icon: keyof typeof Feather.glyphMap;
-  iconFocused: keyof typeof Feather.glyphMap;
   label: string;
   initialScreen: string;
 }
 
 const TABS: TabConfig[] = [
-  { name: "SearchTab", icon: "search", iconFocused: "search", label: "البحث", initialScreen: "Search" },
-  { name: "MenuTab", icon: "grid", iconFocused: "grid", label: "الأقسام", initialScreen: "Categories" },
-  { name: "HomeTab", icon: "home", iconFocused: "home", label: "الرئيسية", initialScreen: "Home" },
-  { name: "FavoritesTab", icon: "heart", iconFocused: "heart", label: "المفضلة", initialScreen: "Favorites" },
-  { name: "ProfileTab", icon: "user", iconFocused: "user", label: "الحساب", initialScreen: "Profile" },
+  { name: "SearchTab", icon: "search", label: "البحث", initialScreen: "Search" },
+  { name: "MenuTab", icon: "grid", label: "الأقسام", initialScreen: "Categories" },
+  { name: "HomeTab", icon: "home", label: "الرئيسية", initialScreen: "Home" },
+  { name: "FavoritesTab", icon: "heart", label: "المفضلة", initialScreen: "Favorites" },
+  { name: "ProfileTab", icon: "user", label: "الحساب", initialScreen: "Profile" },
 ];
 
 function TabItem({
@@ -36,46 +35,19 @@ function TabItem({
   isFocused: boolean;
   onPress: () => void;
 }) {
-  const scaleAnim = useRef(new Animated.Value(1)).current;
-  const bgAnim = useRef(new Animated.Value(isFocused ? 1 : 0)).current;
-
-  useEffect(() => {
-    Animated.parallel([
-      Animated.spring(scaleAnim, {
-        toValue: isFocused ? 1.08 : 1,
-        friction: 6,
-        tension: 300,
-        useNativeDriver: true,
-      }),
-      Animated.timing(bgAnim, {
-        toValue: isFocused ? 1 : 0,
-        duration: 200,
-        useNativeDriver: false,
-      }),
-    ]).start();
-  }, [isFocused]);
-
-  const bgColor = bgAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: ["transparent", "rgba(255,118,34,0.12)"],
-  });
-
   const isHome = config.name === "HomeTab";
 
   if (isHome) {
     return (
       <Pressable onPress={onPress} style={styles.homeContainer}>
-        <Animated.View
+        <View
           style={[
             styles.homeButton,
-            {
-              transform: [{ scale: scaleAnim }],
-              backgroundColor: isFocused ? BRAND : "#FF8C42",
-            },
+            { backgroundColor: isFocused ? BRAND : "#FF8C42" },
           ]}
         >
           <Feather name="home" size={26} color="#FFFFFF" />
-        </Animated.View>
+        </View>
         <ThemedText
           style={[
             styles.label,
@@ -90,18 +62,18 @@ function TabItem({
 
   return (
     <Pressable onPress={onPress} style={styles.tabItem}>
-      <Animated.View
+      <View
         style={[
           styles.iconWrap,
-          { backgroundColor: bgColor, transform: [{ scale: scaleAnim }] },
+          isFocused ? { backgroundColor: "rgba(255,118,34,0.12)" } : null,
         ]}
       >
         <Feather
-          name={isFocused ? config.iconFocused : config.icon}
+          name={config.icon}
           size={22}
           color={isFocused ? BRAND : "#8E8E93"}
         />
-      </Animated.View>
+      </View>
       <ThemedText
         style={[
           styles.label,
