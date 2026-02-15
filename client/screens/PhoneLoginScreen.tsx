@@ -106,9 +106,8 @@ export default function PhoneLoginScreen() {
             { opacity: fadeAnim, transform: [{ scale: headerScale }] },
           ]}
         >
-          <View style={styles.logoRow}>
-            <ThemedText style={styles.logoOn}>On</ThemedText>
-            <ThemedText style={styles.logoWay}>Way</ThemedText>
+          <View style={styles.logoWrap}>
+            <ThemedText style={styles.logoText}>OnWay</ThemedText>
           </View>
           <ThemedText style={styles.headerTitle}>مرحباً بك</ThemedText>
           <ThemedText style={styles.headerSub}>
@@ -259,26 +258,16 @@ const styles = StyleSheet.create({
   headerContent: {
     alignItems: "center",
   },
-  logoRow: {
-    flexDirection: "row",
-    writingDirection: "ltr",
-    alignItems: "center",
-    gap: 4,
+  logoWrap: {
+    direction: "ltr",
     marginBottom: 14,
   },
-  logoOn: {
+  logoText: {
     fontFamily: "Kanit_700Bold",
     fontSize: 28,
     color: "#FFFFFF",
     letterSpacing: 1,
-    writingDirection: "ltr",
-  },
-  logoWay: {
-    fontFamily: "Kanit_700Bold",
-    fontSize: 28,
-    color: "rgba(255,255,255,0.65)",
-    letterSpacing: 1,
-    writingDirection: "ltr",
+    textAlign: "center",
   },
   headerTitle: {
     fontFamily: "Cairo_700Bold",
