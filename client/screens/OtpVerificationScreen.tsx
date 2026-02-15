@@ -5,9 +5,9 @@ import {
   TextInput,
   Pressable,
   ActivityIndicator,
-  Animated,
-  Easing,
   Platform,
+  ScrollView,
+  Keyboard,
 } from "react-native";
 import { useSafeAreaInsets, SafeAreaView } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
@@ -32,32 +32,10 @@ export default function OtpVerificationScreen() {
   const [resendTimer, setResendTimer] = useState(60);
   const inputRefs = useRef<(TextInput | null)[]>([]);
 
-  const fadeAnim = useRef(new Animated.Value(0)).current;
-  const cardSlide = useRef(new Animated.Value(40)).current;
-  const headerScale = useRef(new Animated.Value(0.8)).current;
-
   useEffect(() => {
-    Animated.parallel([
-      Animated.timing(fadeAnim, {
-        toValue: 1,
-        duration: 600,
-        useNativeDriver: true,
-      }),
-      Animated.spring(headerScale, {
-        toValue: 1,
-        friction: 7,
-        tension: 60,
-        useNativeDriver: true,
-      }),
-      Animated.timing(cardSlide, {
-        toValue: 0,
-        duration: 700,
-        easing: Easing.out(Easing.cubic),
-        useNativeDriver: true,
-      }),
-    ]).start();
-
-    inputRefs.current[0]?.focus();
+    setTimeout(() => {
+      inputRefs.current[0]?.focus();
+    }, 500);
   }, []);
 
   useEffect(() => {
@@ -79,6 +57,7 @@ export default function OtpVerificationScreen() {
     }
 
     if (newOtp.every((d) => d.length === 1)) {
+      Keyboard.dismiss();
       handleVerify(newOtp.join(""));
     }
   };
@@ -130,138 +109,144 @@ export default function OtpVerificationScreen() {
     }
   };
 
+  const handleBack = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    goBackToPhoneLogin();
+  };
+
   const maskedPhone = pendingPhone
     ? `${pendingPhone.slice(0, 7)}****${pendingPhone.slice(-2)}`
     : "";
 
   return (
-    <SafeAreaView style={styles.container} edges={["top"]}>
-      <LinearGradient
-        colors={[BRAND_ORANGE, BRAND_DARK]}
-        style={[styles.topSection, { paddingTop: 20 }]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
+    <SafeAreaView style={styles.container} edges={["top", "bottom"]}>
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        keyboardShouldPersistTaps="handled"
+        bounces={false}
       >
-        <Pressable
-          style={styles.backBtn}
-          onPress={() => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            goBackToPhoneLogin();
-          }}
-          testID="button-back"
+        <LinearGradient
+          colors={[BRAND_ORANGE, BRAND_DARK]}
+          style={styles.topSection}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
         >
-          <Feather name="arrow-right" size={22} color="#FFFFFF" />
-        </Pressable>
-        <View style={styles.decorCircle1} />
-        <View style={styles.decorCircle2} />
-
-        <Animated.View
-          style={[
-            styles.headerContent,
-            { opacity: fadeAnim, transform: [{ scale: headerScale }] },
-          ]}
-        >
-          <View style={styles.logoWrap}>
-            <ThemedText style={styles.logoText}>OnWay</ThemedText>
-          </View>
-          <View style={styles.shieldCircle}>
-            <Feather name="shield" size={32} color={BRAND_ORANGE} />
-          </View>
-          <ThemedText style={styles.headerTitle}>رمز التحقق</ThemedText>
-          <ThemedText style={styles.headerSub}>
-            تم إرسال رمز التحقق إلى الرقم
-          </ThemedText>
-          <ThemedText style={styles.phoneText}>{maskedPhone}</ThemedText>
-        </Animated.View>
-      </LinearGradient>
-
-      <Animated.View
-        style={[
-          styles.card,
-          {
-            opacity: fadeAnim,
-            transform: [{ translateY: cardSlide }],
-            paddingBottom: insets.bottom + 16,
-          },
-        ]}
-      >
-        <View style={styles.handleBar} />
-
-        <ThemedText style={styles.inputLabel}>أدخل الرمز المكون من 4 أرقام</ThemedText>
-
-        <View style={styles.otpRow}>
-          {Array.from({ length: OTP_LENGTH }).map((_, index) => (
-            <TextInput
-              key={index}
-              ref={(ref) => {
-                inputRefs.current[index] = ref;
-              }}
-              style={[
-                styles.otpInput,
-                otp[index] ? styles.otpInputFilled : undefined,
-              ]}
-              keyboardType="number-pad"
-              maxLength={1}
-              value={otp[index]}
-              onChangeText={(text) => handleOtpChange(text, index)}
-              onKeyPress={({ nativeEvent }) =>
-                handleKeyPress(nativeEvent.key, index)
-              }
-              selectTextOnFocus
-              testID={`input-otp-${index}`}
-            />
-          ))}
-        </View>
-
-        {error ? (
-          <View style={styles.errorRow}>
-            <Feather name="alert-circle" size={14} color={AppColors.error} />
-            <ThemedText style={styles.errorText}>{error}</ThemedText>
-          </View>
-        ) : null}
-
-        <Pressable
-          style={({ pressed }) => [
-            styles.verifyBtn,
-            isLoading ? styles.verifyDisabled : undefined,
-            pressed && !isLoading ? styles.verifyPressed : undefined,
-          ]}
-          onPress={() => handleVerify()}
-          disabled={isLoading}
-          testID="button-verify-otp"
-        >
-          <LinearGradient
-            colors={[BRAND_ORANGE, BRAND_DARK]}
-            style={styles.verifyGradient}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
+          <Pressable
+            style={styles.backBtn}
+            onPress={handleBack}
+            testID="button-back"
           >
-            {isLoading ? (
-              <ActivityIndicator size="small" color="#FFFFFF" />
-            ) : (
-              <>
-                <ThemedText style={styles.verifyText}>تحقق</ThemedText>
-                <View style={styles.verifyArrow}>
-                  <Feather name="check" size={18} color={BRAND_ORANGE} />
-                </View>
-              </>
-            )}
-          </LinearGradient>
-        </Pressable>
+            <Feather name="arrow-right" size={22} color="#FFFFFF" />
+          </Pressable>
 
-        <View style={styles.resendRow}>
-          <ThemedText style={styles.resendLabel}>لم يصلك الرمز؟</ThemedText>
-          {resendTimer > 0 ? (
-            <ThemedText style={styles.timerText}>
-              إعادة الإرسال ({resendTimer}ث)
+          <View style={styles.decorCircle1} />
+          <View style={styles.decorCircle2} />
+
+          <View style={styles.headerContent}>
+            <View style={styles.logoWrap}>
+              <ThemedText style={styles.logoText}>OnWay</ThemedText>
+            </View>
+            <View style={styles.shieldCircle}>
+              <Feather name="shield" size={40} color={BRAND_ORANGE} />
+            </View>
+            <ThemedText style={styles.headerTitle}>رمز التحقق</ThemedText>
+            <ThemedText style={styles.headerSub}>
+              تم إرسال رمز التحقق إلى الرقم
             </ThemedText>
-          ) : (
-            <Pressable onPress={handleResend} testID="button-resend-otp">
-              <ThemedText style={styles.resendLink}>إعادة الإرسال</ThemedText>
-            </Pressable>
-          )}
+            <ThemedText style={styles.phoneText}>{maskedPhone}</ThemedText>
+          </View>
+        </LinearGradient>
+
+        <View
+          style={[
+            styles.card,
+            { paddingBottom: Math.max(insets.bottom, 16) + 16 },
+          ]}
+        >
+          <View style={styles.handleBar} />
+
+          <ThemedText style={styles.inputLabel}>أدخل الرمز المكون من 4 أرقام</ThemedText>
+
+          <View style={styles.otpRow}>
+            {Array.from({ length: OTP_LENGTH }).map((_, index) => (
+              <TextInput
+                key={index}
+                ref={(ref) => {
+                  inputRefs.current[index] = ref;
+                }}
+                style={[
+                  styles.otpInput,
+                  otp[index] ? styles.otpInputFilled : undefined,
+                ]}
+                keyboardType="number-pad"
+                returnKeyType="done"
+                maxLength={1}
+                value={otp[index]}
+                onChangeText={(text) => handleOtpChange(text, index)}
+                onKeyPress={({ nativeEvent }) =>
+                  handleKeyPress(nativeEvent.key, index)
+                }
+                onSubmitEditing={() => Keyboard.dismiss()}
+                selectTextOnFocus
+                textContentType="oneTimeCode"
+                testID={`input-otp-${index}`}
+              />
+            ))}
+          </View>
+
+          {error ? (
+            <View style={styles.errorRow}>
+              <Feather name="alert-circle" size={14} color={AppColors.error} />
+              <ThemedText style={styles.errorText}>{error}</ThemedText>
+            </View>
+          ) : null}
+
+          <Pressable
+            style={({ pressed }) => [
+              styles.verifyBtn,
+              isLoading ? styles.verifyDisabled : undefined,
+              pressed && !isLoading ? styles.verifyPressed : undefined,
+            ]}
+            onPress={() => {
+              Keyboard.dismiss();
+              handleVerify();
+            }}
+            disabled={isLoading}
+            testID="button-verify-otp"
+          >
+            <LinearGradient
+              colors={[BRAND_ORANGE, BRAND_DARK]}
+              style={styles.verifyGradient}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+            >
+              {isLoading ? (
+                <ActivityIndicator size="small" color="#FFFFFF" />
+              ) : (
+                <>
+                  <ThemedText style={styles.verifyText}>تحقق</ThemedText>
+                  <View style={styles.verifyArrow}>
+                    <Feather name="check" size={18} color={BRAND_ORANGE} />
+                  </View>
+                </>
+              )}
+            </LinearGradient>
+          </Pressable>
+
+          <View style={styles.resendRow}>
+            <ThemedText style={styles.resendLabel}>لم يصلك الرمز؟</ThemedText>
+            {resendTimer > 0 ? (
+              <ThemedText style={styles.timerText}>
+                إعادة الإرسال ({resendTimer}ث)
+              </ThemedText>
+            ) : (
+              <Pressable onPress={handleResend} testID="button-resend-otp">
+                <ThemedText style={styles.resendLink}>إعادة الإرسال</ThemedText>
+              </Pressable>
+            )}
+          </View>
         </View>
-      </Animated.View>
+      </ScrollView>
     </SafeAreaView>
   );
 }
@@ -271,19 +256,23 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#FFFFFF",
   },
+  scrollContent: {
+    flexGrow: 1,
+  },
   backBtn: {
     position: "absolute",
     top: 16,
     right: 16,
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     backgroundColor: "rgba(0,0,0,0.15)",
     justifyContent: "center",
     alignItems: "center",
     zIndex: 10,
   },
   topSection: {
+    paddingTop: 60,
     paddingBottom: 50,
     alignItems: "center",
     overflow: "hidden",
@@ -308,36 +297,38 @@ const styles = StyleSheet.create({
   },
   headerContent: {
     alignItems: "center",
+    paddingHorizontal: 24,
   },
   logoWrap: {
     direction: "ltr",
-    marginBottom: 12,
+    marginBottom: 16,
   },
   logoText: {
     fontFamily: "Montserrat_800ExtraBold",
-    fontSize: 24,
+    fontSize: 28,
     color: "#FFFFFF",
     letterSpacing: 1,
     textAlign: "center",
   },
   shieldCircle: {
-    width: 56,
-    height: 56,
-    borderRadius: 18,
+    width: 72,
+    height: 72,
+    borderRadius: 22,
     backgroundColor: "#FFFFFF",
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 10,
+    marginBottom: 14,
   },
   headerTitle: {
     fontFamily: "Cairo_700Bold",
-    fontSize: 26,
+    fontSize: 24,
     color: "#FFFFFF",
+    marginBottom: 4,
   },
   headerSub: {
     fontFamily: "Cairo_400Regular",
     fontSize: 14,
-    color: "rgba(255,255,255,0.8)",
+    color: "rgba(255,255,255,0.85)",
   },
   phoneText: {
     fontFamily: "Cairo_700Bold",
@@ -345,6 +336,7 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
     letterSpacing: 2,
     marginTop: 4,
+    direction: "ltr",
   },
   card: {
     flex: 1,
@@ -353,7 +345,7 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 32,
     marginTop: -30,
     paddingHorizontal: 24,
-    paddingTop: 12,
+    paddingTop: 16,
     ...Platform.select({
       ios: {
         shadowColor: "#000",
@@ -371,7 +363,7 @@ const styles = StyleSheet.create({
     borderRadius: 2,
     backgroundColor: "#E0E0E0",
     alignSelf: "center",
-    marginBottom: 28,
+    marginBottom: 24,
   },
   inputLabel: {
     fontFamily: "Cairo_600SemiBold",
@@ -385,6 +377,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     gap: 14,
     marginBottom: 20,
+    direction: "ltr",
   },
   otpInput: {
     width: 60,
@@ -397,6 +390,7 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontFamily: "Cairo_700Bold",
     color: "#333",
+    writingDirection: "ltr",
   },
   otpInputFilled: {
     borderColor: BRAND_ORANGE,

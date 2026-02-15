@@ -7,6 +7,8 @@ import {
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
+  ScrollView,
+  Keyboard,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Image } from "expo-image";
@@ -37,6 +39,7 @@ export default function PhoneLoginScreen() {
   };
 
   const handleContinue = async () => {
+    Keyboard.dismiss();
     setError("");
     if (!phoneNumber.trim()) {
       setError("الرجاء إدخال رقم الهاتف");
@@ -64,21 +67,31 @@ export default function PhoneLoginScreen() {
         style={styles.keyboardView}
         behavior={Platform.OS === "ios" ? "padding" : "height"}
       >
-        {navigation.canGoBack() ? (
-          <Pressable
-            style={styles.backBtn}
-            onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              navigation.goBack();
-            }}
-            testID="button-back"
-          >
-            <Feather name="arrow-right" size={22} color="#FFFFFF" />
-          </Pressable>
-        ) : null}
-        <View style={styles.centered}>
-          <View style={styles.logoWrap}>
-            <ThemedText style={styles.logoText}>OnWay</ThemedText>
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
+          bounces={false}
+        >
+          {navigation.canGoBack() ? (
+            <Pressable
+              style={styles.backBtn}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                navigation.goBack();
+              }}
+              testID="button-back"
+            >
+              <Feather name="arrow-right" size={22} color="#FFFFFF" />
+            </Pressable>
+          ) : null}
+
+          <View style={styles.topSpacer} />
+
+          <View style={styles.logoSection}>
+            <View style={styles.logoWrap}>
+              <ThemedText style={styles.logoText}>OnWay</ThemedText>
+            </View>
+            <ThemedText style={styles.tagline}>توصيل سريع وموثوق</ThemedText>
           </View>
 
           <View style={styles.formBlock}>
@@ -87,12 +100,14 @@ export default function PhoneLoginScreen() {
                 placeholder="رقم الهاتف"
                 placeholderTextColor="rgba(0,0,0,0.35)"
                 keyboardType="phone-pad"
+                returnKeyType="done"
                 style={styles.phoneInput}
                 value={phoneNumber}
                 onChangeText={(text) => {
                   setPhoneNumber(text);
                   if (error) setError("");
                 }}
+                onSubmitEditing={handleContinue}
                 maxLength={12}
                 testID="input-phone"
               />
@@ -129,7 +144,9 @@ export default function PhoneLoginScreen() {
               )}
             </Pressable>
           </View>
-        </View>
+
+          <View style={styles.bottomSpacer} />
+        </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -143,22 +160,34 @@ const styles = StyleSheet.create({
   keyboardView: {
     flex: 1,
   },
-  centered: {
-    flex: 1,
+  scrollContent: {
+    flexGrow: 1,
     justifyContent: "center",
-    alignItems: "center",
     paddingHorizontal: 24,
+  },
+  topSpacer: {
+    height: 40,
+  },
+  logoSection: {
+    alignItems: "center",
+    marginBottom: 40,
   },
   logoWrap: {
     direction: "ltr",
-    marginBottom: 30,
+    marginBottom: 8,
   },
   logoText: {
     fontFamily: "Montserrat_800ExtraBold",
-    fontSize: 30,
+    fontSize: 36,
     color: "#FFFFFF",
     textAlign: "center",
     letterSpacing: 1,
+  },
+  tagline: {
+    fontFamily: "Cairo_600SemiBold",
+    fontSize: 16,
+    color: "rgba(255,255,255,0.8)",
+    textAlign: "center",
   },
   formBlock: {
     width: "100%",
@@ -250,5 +279,8 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     zIndex: 10,
+  },
+  bottomSpacer: {
+    height: 40,
   },
 });

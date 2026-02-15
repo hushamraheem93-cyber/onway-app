@@ -17,7 +17,7 @@ import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { ThemedText } from "@/components/ThemedText";
 import { useAuth } from "@/context/AuthContext";
 
-const { width: SCREEN_WIDTH } = Dimensions.get("window");
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 
 const BRAND_ORANGE = "#FF7622";
 
@@ -55,7 +55,7 @@ const SLIDES: SlideData[] = [
   },
 ];
 
-const IMAGE_SIZE = SCREEN_WIDTH * 0.45;
+const IMAGE_SIZE = Math.min(SCREEN_WIDTH * 0.4, 160);
 
 export default function SplashScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
@@ -135,29 +135,29 @@ export default function SplashScreen() {
         />
       </View>
 
-      <View style={styles.dotsRow}>
-        {SLIDES.map((_, i) => (
-          <View
-            key={i}
-            style={[styles.dot, i === activeIndex ? styles.dotActive : undefined]}
-          />
-        ))}
+      <View style={styles.bottomSection}>
+        <View style={styles.dotsRow}>
+          {SLIDES.map((_, i) => (
+            <View
+              key={i}
+              style={[styles.dot, i === activeIndex ? styles.dotActive : undefined]}
+            />
+          ))}
+        </View>
+
+        <Pressable
+          style={({ pressed }) => [
+            styles.ctaButton,
+            pressed ? styles.ctaPressed : undefined,
+          ]}
+          onPress={handleNext}
+          testID="button-get-started"
+        >
+          <ThemedText style={styles.ctaText}>
+            {isLastSlide ? "ابدأ" : "التالي"}
+          </ThemedText>
+        </Pressable>
       </View>
-
-      <Pressable
-        style={({ pressed }) => [
-          styles.ctaButton,
-          pressed ? styles.ctaPressed : undefined,
-        ]}
-        onPress={handleNext}
-        testID="button-get-started"
-      >
-        <ThemedText style={styles.ctaText}>
-          {isLastSlide ? "ابدأ" : "التالي"}
-        </ThemedText>
-      </Pressable>
-
-      <View style={styles.bottomSpacer} />
     </SafeAreaView>
   );
 }
@@ -172,7 +172,8 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginTop: 16,
+    marginTop: 8,
+    paddingTop: 4,
   },
   skipBtn: {
     width: 60,
@@ -188,7 +189,7 @@ const styles = StyleSheet.create({
   },
   logoText: {
     fontFamily: "Montserrat_800ExtraBold",
-    fontSize: 30,
+    fontSize: 28,
     color: "#FFFFFF",
     letterSpacing: 1,
   },
@@ -200,11 +201,12 @@ const styles = StyleSheet.create({
     width: SCREEN_WIDTH - 48,
     alignItems: "center",
     justifyContent: "center",
+    paddingVertical: 10,
   },
   imageCircle: {
-    width: IMAGE_SIZE + 40,
-    height: IMAGE_SIZE + 40,
-    borderRadius: (IMAGE_SIZE + 40) / 2,
+    width: IMAGE_SIZE + 36,
+    height: IMAGE_SIZE + 36,
+    borderRadius: (IMAGE_SIZE + 36) / 2,
     backgroundColor: "rgba(255,255,255,0.12)",
     alignItems: "center",
     justifyContent: "center",
@@ -214,28 +216,32 @@ const styles = StyleSheet.create({
     height: IMAGE_SIZE,
   },
   slideTextWrap: {
-    marginTop: 40,
+    marginTop: 28,
     alignItems: "center",
+    paddingHorizontal: 8,
   },
   slideTitle: {
     fontFamily: "Cairo_700Bold",
     fontSize: 22,
     color: "#FFFFFF",
     textAlign: "center",
-    marginBottom: 10,
+    marginBottom: 8,
   },
   slideSubtitle: {
     fontFamily: "Cairo_400Regular",
-    fontSize: 16,
-    color: "rgba(255,255,255,0.7)",
+    fontSize: 15,
+    color: "rgba(255,255,255,0.75)",
     textAlign: "center",
-    lineHeight: 26,
+    lineHeight: 24,
+  },
+  bottomSection: {
+    paddingBottom: 12,
   },
   dotsRow: {
     flexDirection: "row",
     justifyContent: "center",
     gap: 8,
-    marginBottom: 24,
+    marginBottom: 20,
   },
   dot: {
     width: 8,
@@ -274,8 +280,5 @@ const styles = StyleSheet.create({
     fontFamily: "Cairo_700Bold",
     fontSize: 16,
     color: BRAND_ORANGE,
-  },
-  bottomSpacer: {
-    height: 16,
   },
 });
