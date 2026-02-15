@@ -18,6 +18,7 @@ import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollV
 import { useTheme } from "@/hooks/useTheme";
 import { useAuth } from "@/context/AuthContext";
 import { AppColors, Spacing, BorderRadius, Shadows } from "@/constants/theme";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 const REGIONS = [
   { id: "daloaiya", name: "الضلوعية المركز" },
@@ -30,7 +31,7 @@ const REGIONS = [
 export default function ProfileCompletionScreen() {
   const insets = useSafeAreaInsets();
   const { theme } = useTheme();
-  const { saveProfile, phoneNumber } = useAuth();
+  const { saveProfile, phoneNumber, logout } = useAuth();
 
   const [fullName, setFullName] = useState("");
   const [gender, setGender] = useState<"male" | "female" | null>(null);
@@ -132,6 +133,18 @@ export default function ProfileCompletionScreen() {
       showsVerticalScrollIndicator={false}
       bottomOffset={50}
     >
+      <Pressable
+        style={[styles.backButton, { backgroundColor: theme.backgroundDefault }]}
+        onPress={() => {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          logout();
+        }}
+        testID="button-back"
+      >
+        <Feather name="arrow-right" size={22} color={theme.text} />
+        <ThemedText type="body" style={{ fontWeight: "600" }}>رجوع</ThemedText>
+      </Pressable>
+
       <View style={styles.header}>
         <Pressable onPress={showImageOptions} style={styles.avatarContainer}>
           {profileImage ? (
@@ -340,6 +353,16 @@ export default function ProfileCompletionScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  backButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    alignSelf: "flex-end",
+    gap: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: BorderRadius.lg,
+    marginBottom: Spacing.md,
   },
   header: {
     alignItems: "center",

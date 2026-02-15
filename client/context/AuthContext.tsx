@@ -40,6 +40,8 @@ interface AuthContextType {
   refreshProfile: () => Promise<void>;
   completeDriverRegistration: () => Promise<void>;
   goBackToUserType: () => void;
+  goBackToPhoneLogin: () => void;
+  goBackToOtp: () => void;
   isLoading: boolean;
 }
 
@@ -274,6 +276,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setIsDriverRegistered(false);
   };
 
+  const goBackToPhoneLogin = () => {
+    setIsOtpSent(false);
+    setIsOtpVerified(false);
+    setPendingPhone(null);
+    setSelectedUserType(null);
+  };
+
+  const goBackToOtp = () => {
+    setIsOtpVerified(false);
+    setSelectedUserType(null);
+  };
+
   const completeDriverRegistration = async () => {
     if (!phoneNumber) return;
     try {
@@ -387,6 +401,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         refreshProfile,
         completeDriverRegistration,
         goBackToUserType,
+        goBackToPhoneLogin,
+        goBackToOtp,
         isLoading 
       }}
     >

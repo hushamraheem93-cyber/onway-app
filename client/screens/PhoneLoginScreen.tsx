@@ -15,11 +15,13 @@ import { Feather } from "@expo/vector-icons";
 
 import { ThemedText } from "@/components/ThemedText";
 import { useAuth } from "@/context/AuthContext";
+import { useNavigation } from "@react-navigation/native";
 
 const BRAND_ORANGE = "#FF7622";
 
 export default function PhoneLoginScreen() {
   const { sendOtp } = useAuth();
+  const navigation = useNavigation();
   const [phoneNumber, setPhoneNumber] = useState("");
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -58,6 +60,18 @@ export default function PhoneLoginScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea} edges={["top", "bottom", "left", "right"]}>
+      {navigation.canGoBack() ? (
+        <Pressable
+          style={styles.backBtn}
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            navigation.goBack();
+          }}
+          testID="button-back"
+        >
+          <Feather name="arrow-right" size={22} color="#FFFFFF" />
+        </Pressable>
+      ) : null}
       <KeyboardAvoidingView
         style={styles.keyboardView}
         behavior={Platform.OS === "ios" ? "padding" : "height"}
@@ -223,5 +237,17 @@ const styles = StyleSheet.create({
     fontFamily: "Cairo_700Bold",
     fontSize: 16,
     color: BRAND_ORANGE,
+  },
+  backBtn: {
+    position: "absolute",
+    top: 16,
+    right: 16,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "rgba(255,255,255,0.2)",
+    justifyContent: "center",
+    alignItems: "center",
+    zIndex: 10,
   },
 });

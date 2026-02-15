@@ -20,7 +20,7 @@ const BRAND_DARK = "#E5691E";
 
 export default function UserTypeScreen() {
   const insets = useSafeAreaInsets();
-  const { setUserType } = useAuth();
+  const { setUserType, goBackToOtp } = useAuth();
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const headerScale = useRef(new Animated.Value(0.8)).current;
@@ -49,6 +49,16 @@ export default function UserTypeScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
+      <Pressable
+        style={styles.backBtn}
+        onPress={() => {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+          goBackToOtp();
+        }}
+        testID="button-back"
+      >
+        <Feather name="arrow-right" size={22} color="#FFFFFF" />
+      </Pressable>
       <LinearGradient
         colors={[BRAND_ORANGE, BRAND_DARK]}
         style={[styles.topSection, { paddingTop: 20 }]}
@@ -144,6 +154,18 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#FFFFFF",
+  },
+  backBtn: {
+    position: "absolute",
+    top: 16,
+    right: 16,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "rgba(0,0,0,0.15)",
+    justifyContent: "center",
+    alignItems: "center",
+    zIndex: 10,
   },
   topSection: {
     paddingBottom: 50,
