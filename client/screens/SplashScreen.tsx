@@ -17,7 +17,7 @@ import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 
 import { ThemedText } from "@/components/ThemedText";
 
-const { width: SCREEN_WIDTH } = Dimensions.get("window");
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 
 const BRAND_ORANGE = "#FF7622";
 const BRAND_DARK = "#E5691E";
@@ -55,6 +55,8 @@ const SLIDES: SlideData[] = [
     subtitle: "استلم طلبك وأنت مرتاح في بيتك\nبضغطة زر واحدة",
   },
 ];
+
+const IMAGE_SIZE = SCREEN_WIDTH * 0.48;
 
 export default function SplashScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
@@ -110,7 +112,7 @@ export default function SplashScreen() {
       <View style={styles.decorCircle2} />
       <View style={styles.decorCircle3} />
 
-      <View style={[styles.header, { paddingTop: insets.top + 20 }]}>
+      <View style={[styles.header, { marginTop: insets.top + 10 }]}>
         <Pressable onPress={handleSkip} style={styles.skipBtn} testID="button-skip">
           <ThemedText style={styles.skipText}>تخطي</ThemedText>
         </Pressable>
@@ -122,21 +124,21 @@ export default function SplashScreen() {
         <View style={styles.skipBtn} />
       </View>
 
-      <FlatList
-        ref={flatListRef}
-        data={SLIDES}
-        renderItem={renderSlide}
-        keyExtractor={(item) => item.id}
-        horizontal
-        pagingEnabled
-        showsHorizontalScrollIndicator={false}
-        onViewableItemsChanged={onViewableItemsChanged}
-        viewabilityConfig={viewabilityConfig}
-        bounces={false}
-        style={styles.flatList}
-      />
+      <View style={styles.middleSection}>
+        <FlatList
+          ref={flatListRef}
+          data={SLIDES}
+          renderItem={renderSlide}
+          keyExtractor={(item) => item.id}
+          horizontal
+          pagingEnabled
+          showsHorizontalScrollIndicator={false}
+          onViewableItemsChanged={onViewableItemsChanged}
+          viewabilityConfig={viewabilityConfig}
+          bounces={false}
+          style={styles.flatList}
+        />
 
-      <View style={styles.textBlock}>
         <ThemedText style={styles.slideTitle}>
           {SLIDES[activeIndex].title}
         </ThemedText>
@@ -145,16 +147,16 @@ export default function SplashScreen() {
         </ThemedText>
       </View>
 
-      <View style={styles.dotsRow}>
-        {SLIDES.map((_, i) => (
-          <View
-            key={i}
-            style={[styles.dot, i === activeIndex ? styles.dotActive : undefined]}
-          />
-        ))}
-      </View>
+      <View style={[styles.bottomSection, { paddingBottom: insets.bottom + 16 }]}>
+        <View style={styles.dotsRow}>
+          {SLIDES.map((_, i) => (
+            <View
+              key={i}
+              style={[styles.dot, i === activeIndex ? styles.dotActive : undefined]}
+            />
+          ))}
+        </View>
 
-      <View style={[styles.buttonWrap, { paddingBottom: insets.bottom + 20 }]}>
         <Pressable
           style={({ pressed }) => [
             styles.ctaButton,
@@ -174,8 +176,6 @@ export default function SplashScreen() {
     </LinearGradient>
   );
 }
-
-const IMAGE_SIZE = SCREEN_WIDTH * 0.55;
 
 const styles = StyleSheet.create({
   container: {
@@ -214,6 +214,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: 20,
+    marginBottom: 8,
   },
   skipBtn: {
     width: 60,
@@ -234,20 +235,24 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
     textAlign: "center",
   },
+  middleSection: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   flatList: {
     flexGrow: 0,
-    marginTop: 4,
   },
   slideContainer: {
     width: SCREEN_WIDTH,
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: 10,
+    paddingVertical: 6,
   },
   imageCircle: {
-    width: IMAGE_SIZE + 40,
-    height: IMAGE_SIZE + 40,
-    borderRadius: (IMAGE_SIZE + 40) / 2,
+    width: IMAGE_SIZE + 36,
+    height: IMAGE_SIZE + 36,
+    borderRadius: (IMAGE_SIZE + 36) / 2,
     backgroundColor: "rgba(255,255,255,0.12)",
     alignItems: "center",
     justifyContent: "center",
@@ -256,17 +261,12 @@ const styles = StyleSheet.create({
     width: IMAGE_SIZE,
     height: IMAGE_SIZE,
   },
-  textBlock: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: 30,
-  },
   slideTitle: {
     fontFamily: "Cairo_700Bold",
     fontSize: 24,
     color: "#FFFFFF",
     textAlign: "center",
+    marginTop: 20,
     marginBottom: 8,
   },
   slideSubtitle: {
@@ -275,12 +275,16 @@ const styles = StyleSheet.create({
     color: "rgba(255,255,255,0.75)",
     textAlign: "center",
     lineHeight: 24,
+    paddingHorizontal: 30,
+  },
+  bottomSection: {
+    paddingHorizontal: 24,
+    gap: 16,
   },
   dotsRow: {
     flexDirection: "row",
     justifyContent: "center",
     gap: 8,
-    marginBottom: 16,
   },
   dot: {
     width: 8,
@@ -292,9 +296,6 @@ const styles = StyleSheet.create({
     width: 24,
     borderRadius: 4,
     backgroundColor: "#FFFFFF",
-  },
-  buttonWrap: {
-    paddingHorizontal: 24,
   },
   ctaButton: {
     flexDirection: "row",
