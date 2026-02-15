@@ -110,7 +110,7 @@ export default function SplashScreen() {
       <View style={styles.decorCircle2} />
       <View style={styles.decorCircle3} />
 
-      <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
+      <View style={[styles.header, { paddingTop: insets.top + 20 }]}>
         <Pressable onPress={handleSkip} style={styles.skipBtn} testID="button-skip">
           <ThemedText style={styles.skipText}>تخطي</ThemedText>
         </Pressable>
@@ -236,7 +236,7 @@ const styles = StyleSheet.create({
   },
   flatList: {
     flexGrow: 0,
-    marginTop: 10,
+    marginTop: 4,
   },
   slideContainer: {
     width: SCREEN_WIDTH,
@@ -257,9 +257,10 @@ const styles = StyleSheet.create({
     height: IMAGE_SIZE,
   },
   textBlock: {
+    flex: 1,
     alignItems: "center",
+    justifyContent: "center",
     paddingHorizontal: 30,
-    marginTop: 16,
   },
   slideTitle: {
     fontFamily: "Cairo_700Bold",
@@ -279,8 +280,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "center",
     gap: 8,
-    marginTop: 20,
-    marginBottom: 20,
+    marginBottom: 16,
   },
   dot: {
     width: 8,

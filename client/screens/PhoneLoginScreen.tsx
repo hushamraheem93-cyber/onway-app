@@ -93,7 +93,7 @@ export default function PhoneLoginScreen() {
     <View style={styles.container}>
       <LinearGradient
         colors={[BRAND_ORANGE, BRAND_DARK]}
-        style={[styles.topSection, { paddingTop: insets.top + 24 }]}
+        style={[styles.topSection, { paddingTop: insets.top + 28 }]}
         start={{ x: 0, y: 0 }}
         end={{ x: 0.5, y: 1 }}
       >
@@ -231,7 +231,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFFFFF",
   },
   topSection: {
-    paddingBottom: 48,
+    paddingBottom: 56,
     alignItems: "center",
     overflow: "hidden",
     borderBottomLeftRadius: 36,
