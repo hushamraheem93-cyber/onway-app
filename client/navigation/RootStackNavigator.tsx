@@ -17,6 +17,8 @@ import ProfileCompletionScreen from "@/screens/ProfileCompletionScreen";
 import CategoriesScreen from "@/screens/CategoriesScreen";
 import AdminScreen from "@/screens/AdminScreen";
 import MapPickerScreen from "@/screens/MapPickerScreen";
+import CourierPickupScreen from "@/screens/CourierPickupScreen";
+import InternationalShoppingScreen from "@/screens/InternationalShoppingScreen";
 import { useScreenOptions } from "@/hooks/useScreenOptions";
 import { useAuth } from "@/context/AuthContext";
 import { AppColors } from "@/constants/theme";
@@ -40,6 +42,8 @@ export type RootStackParamList = {
   OrderTracking: { orderId: string };
   Admin: undefined;
   MapPicker: undefined;
+  CourierPickup: undefined;
+  InternationalShopping: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -201,6 +205,20 @@ export default function RootStackNavigator() {
         options={{
           headerTitle: "تحديد الموقع",
           presentation: "modal",
+        }}
+      />
+      <Stack.Screen
+        name="CourierPickup"
+        component={CourierPickupScreen}
+        options={{
+          headerTitle: "استلام من المندوب",
+        }}
+      />
+      <Stack.Screen
+        name="InternationalShopping"
+        component={InternationalShoppingScreen}
+        options={{
+          headerTitle: "التسوق الدولي",
         }}
       />
     </Stack.Navigator>

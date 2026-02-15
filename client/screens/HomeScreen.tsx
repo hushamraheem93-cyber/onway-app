@@ -104,7 +104,13 @@ export default function HomeScreen() {
   const sliderBanners = allBanners.filter(b => b.type === "slider");
 
   const handleCategoryPress = (category: Category) => {
-    navigation.navigate("Products", { categoryId: category.id, categoryName: category.name });
+    if (category.id === "delivery") {
+      navigation.navigate("CourierPickup");
+    } else if (category.id === "international-shopping") {
+      navigation.navigate("InternationalShopping");
+    } else {
+      navigation.navigate("Products", { categoryId: category.id, categoryName: category.name });
+    }
   };
 
   const handleSeeAllCategories = () => {

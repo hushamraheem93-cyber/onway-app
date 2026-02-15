@@ -113,6 +113,8 @@ let categories: Category[] = [
   { id: "baby", name: "مستلزمات أطفال", image: "/uploads/category-baby.png", productCount: 60, order: 9, color: "#FCE4EC", iconColor: "#EC407A" },
   { id: "flowers", name: "هدايا وورود", image: "/uploads/category-flowers.png", productCount: 25, order: 10, color: "#FDF2F2", iconColor: "#EF5350" },
   { id: "delivery", name: "خدمات المندوب", image: "/uploads/category-delivery.png", productCount: 0, order: 11, color: "#FFF9C4", iconColor: "#FBC02D" },
+  { id: "women-bags", name: "الحقائب النسائية", image: "/uploads/category-bags.png", productCount: 12, order: 12, color: "#FCE4EC", iconColor: "#E91E63" },
+  { id: "international-shopping", name: "التسوق الدولي", image: "/uploads/category-international.png", productCount: 0, order: 13, color: "#E8EAF6", iconColor: "#5C6BC0" },
 ];
 
 let banners: Banner[] = [
@@ -136,6 +138,19 @@ const products: Product[] = [
   { id: "p12", categoryId: "snacks-sweets", name: "شوكولاتة داكنة", price: 18000, image: "https://images.unsplash.com/photo-1606312619070-d48b4c652a52?w=300", description: "شوكولاتة داكنة فاخرة 100 جرام", inStock: true },
   { id: "p13", categoryId: "baby", name: "حفاضات أطفال", price: 35000, image: "https://images.unsplash.com/photo-1515488042361-ee00e0ddd4e4?w=300", description: "حفاضات أطفال مقاس M عبوة 40", inStock: true },
   { id: "p14", categoryId: "electronics-services", name: "شاحن سريع", price: 65000, image: "https://images.unsplash.com/photo-1583394838336-acd977736f90?w=300", description: "شاحن سريع 20 واط", inStock: true },
+  // حقائب نسائية
+  { id: "wb1", categoryId: "women-bags", name: "حقيبة يد جلدية", price: 85000, image: "https://images.unsplash.com/photo-1584917865442-de89df76afd3?w=300", description: "حقيبة يد جلدية أنيقة بتصميم عصري", inStock: true },
+  { id: "wb2", categoryId: "women-bags", name: "حقيبة كتف سوداء", price: 65000, image: "https://images.unsplash.com/photo-1590874103328-eac38a683ce7?w=300", description: "حقيبة كتف سوداء كلاسيكية", inStock: true },
+  { id: "wb3", categoryId: "women-bags", name: "حقيبة ظهر نسائية", price: 55000, image: "https://images.unsplash.com/photo-1622560480605-d83c853bc5c3?w=300", description: "حقيبة ظهر نسائية عملية وأنيقة", inStock: true },
+  { id: "wb4", categoryId: "women-bags", name: "حقيبة سهرة ذهبية", price: 120000, image: "https://images.unsplash.com/photo-1566150905458-1bf1fc113f0d?w=300", description: "حقيبة سهرة ذهبية فاخرة للمناسبات", inStock: true, discount: 15 },
+  { id: "wb5", categoryId: "women-bags", name: "حقيبة كروس بودي", price: 45000, image: "https://images.unsplash.com/photo-1594223274512-ad4803739b7c?w=300", description: "حقيبة كروس بودي صغيرة وعملية", inStock: true },
+  { id: "wb6", categoryId: "women-bags", name: "حقيبة تسوق كبيرة", price: 75000, image: "https://images.unsplash.com/photo-1614179689702-355944cd0918?w=300", description: "حقيبة تسوق كبيرة بألوان زاهية", inStock: true },
+  { id: "wb7", categoryId: "women-bags", name: "محفظة نسائية", price: 35000, image: "https://images.unsplash.com/photo-1627123424574-724758594e93?w=300", description: "محفظة نسائية جلدية متعددة الجيوب", inStock: true },
+  { id: "wb8", categoryId: "women-bags", name: "حقيبة يد بيج", price: 95000, image: "https://images.unsplash.com/photo-1591561954557-26941169b49e?w=300", description: "حقيبة يد بيج أنيقة للاستخدام اليومي", inStock: true },
+  { id: "wb9", categoryId: "women-bags", name: "حقيبة سفر نسائية", price: 150000, image: "https://images.unsplash.com/photo-1553062407-98eeb64c6a62?w=300", description: "حقيبة سفر نسائية واسعة ومتينة", inStock: true, discount: 10 },
+  { id: "wb10", categoryId: "women-bags", name: "حقيبة كلتش", price: 40000, image: "https://images.unsplash.com/photo-1601924921557-45e6dea0f7e0?w=300", description: "حقيبة كلتش أنيقة للسهرات", inStock: true },
+  { id: "wb11", categoryId: "women-bags", name: "حقيبة قماش مطرزة", price: 30000, image: "https://images.unsplash.com/photo-1598532163257-ae3c6b2524dd?w=300", description: "حقيبة قماش مطرزة بتصاميم شرقية", inStock: true },
+  { id: "wb12", categoryId: "women-bags", name: "حقيبة ماركة فاخرة", price: 250000, image: "https://images.unsplash.com/photo-1548036328-c9fa89d128fa?w=300", description: "حقيبة ماركة فاخرة بتصميم حصري", inStock: true, discount: 20 },
 ];
 
 export async function registerRoutes(app: Express): Promise<Server> {

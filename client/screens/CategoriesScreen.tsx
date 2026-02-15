@@ -32,7 +32,13 @@ export default function CategoriesScreen() {
 
   const handleCategoryPress = (category: Category) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    navigation.navigate("Products", { categoryId: category.id, categoryName: category.name });
+    if (category.id === "delivery") {
+      navigation.navigate("CourierPickup");
+    } else if (category.id === "international-shopping") {
+      navigation.navigate("InternationalShopping");
+    } else {
+      navigation.navigate("Products", { categoryId: category.id, categoryName: category.name });
+    }
   };
 
   const getImageUrl = (image: string) => {
