@@ -1,0 +1,86 @@
+import 'package:flutter/material.dart';
+
+class OnboardingScreen extends StatelessWidget {
+  const OnboardingScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFFFF7A1A),
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: const [
+
+              Spacer(),
+
+              Text(
+                "OnWay",
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 32,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
+              ),
+
+              SizedBox(height: 40),
+
+              Icon(
+                Icons.delivery_dining,
+                size: 120,
+                color: Colors.white,
+              ),
+
+              SizedBox(height: 40),
+
+              Text(
+                "توصيل سريع وموثوق",
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
+              ),
+
+              SizedBox(height: 10),
+
+              Text(
+                "نوصل طلبك بأسرع وقت ممكن\nداخل قضاء الضلوعية",
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 16,
+                  color: Colors.white70,
+                ),
+              ),
+
+              Spacer(),
+
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.white,
+                    foregroundColor: Color(0xFFFF7A1A),
+                    padding: EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.all(Radius.circular(12)),
+                    ),
+                  ),
+                  onPressed: null,
+                  child: Text("التالي"),
+                ),
+              ),
+
+              SizedBox(height: 20),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}

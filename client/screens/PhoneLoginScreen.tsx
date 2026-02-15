@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState } from "react";
 import {
   StyleSheet,
   View,
@@ -6,23 +6,17 @@ import {
   Pressable,
   KeyboardAvoidingView,
   Platform,
-  Animated,
-  Easing,
   ActivityIndicator,
-  I18nManager,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { LinearGradient } from "expo-linear-gradient";
 import { Image } from "expo-image";
 import * as Haptics from "expo-haptics";
 import { Feather } from "@expo/vector-icons";
 
 import { ThemedText } from "@/components/ThemedText";
-import { AppColors } from "@/constants/theme";
 import { useAuth } from "@/context/AuthContext";
 
 const BRAND_ORANGE = "#FF7622";
-const BRAND_DARK = "#E5691E";
 
 export default function PhoneLoginScreen() {
   const insets = useSafeAreaInsets();
@@ -30,32 +24,6 @@ export default function PhoneLoginScreen() {
   const [phoneNumber, setPhoneNumber] = useState("");
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-
-  const fadeAnim = useRef(new Animated.Value(0)).current;
-  const cardSlide = useRef(new Animated.Value(40)).current;
-  const headerScale = useRef(new Animated.Value(0.85)).current;
-
-  useEffect(() => {
-    Animated.parallel([
-      Animated.timing(fadeAnim, {
-        toValue: 1,
-        duration: 500,
-        useNativeDriver: true,
-      }),
-      Animated.spring(headerScale, {
-        toValue: 1,
-        friction: 7,
-        tension: 60,
-        useNativeDriver: true,
-      }),
-      Animated.timing(cardSlide, {
-        toValue: 0,
-        duration: 600,
-        easing: Easing.out(Easing.cubic),
-        useNativeDriver: true,
-      }),
-    ]).start();
-  }, []);
 
   const validatePhone = (phone: string) => {
     const cleanPhone = phone.replace(/\s/g, "");
@@ -90,54 +58,20 @@ export default function PhoneLoginScreen() {
   };
 
   return (
-    <View style={styles.container}>
-      <LinearGradient
-        colors={[BRAND_ORANGE, BRAND_DARK]}
-        style={[styles.topSection, { paddingTop: insets.top + 40 }]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 0.5, y: 1 }}
-      >
-        <View style={styles.decorCircle1} />
-        <View style={styles.decorCircle2} />
+    <KeyboardAvoidingView
+      style={[styles.container, { paddingTop: insets.top, paddingBottom: insets.bottom }]}
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+    >
+      <View style={styles.centered}>
+        <View style={styles.logoWrap}>
+          <ThemedText style={styles.logoText}>OnWay</ThemedText>
+        </View>
 
-        <Animated.View
-          style={[
-            styles.headerContent,
-            { opacity: fadeAnim, transform: [{ scale: headerScale }] },
-          ]}
-        >
-          <View style={styles.logoWrap}>
-            <ThemedText style={styles.logoText}>OnWay</ThemedText>
-          </View>
-          <ThemedText style={styles.headerTitle}>مرحباً بك</ThemedText>
-          <ThemedText style={styles.headerSub}>
-            سجل دخولك للبدء بالتسوق والتوصيل
-          </ThemedText>
-        </Animated.View>
-      </LinearGradient>
-
-      <Animated.View
-        style={[
-          styles.card,
-          {
-            opacity: fadeAnim,
-            transform: [{ translateY: cardSlide }],
-            paddingBottom: insets.bottom + 16,
-          },
-        ]}
-      >
-        <KeyboardAvoidingView
-          behavior={Platform.OS === "ios" ? "padding" : "height"}
-          style={styles.formInner}
-        >
-          <View style={styles.handleBar} />
-
-          <ThemedText style={styles.inputLabel}>رقم الهاتف</ThemedText>
-
+        <View style={styles.formBlock}>
           <View style={styles.phoneRow}>
             <TextInput
-              placeholder="7XX XXX XXXX"
-              placeholderTextColor="#C0C0C0"
+              placeholder="رقم الهاتف"
+              placeholderTextColor="rgba(0,0,0,0.35)"
               keyboardType="phone-pad"
               style={styles.phoneInput}
               value={phoneNumber}
@@ -159,7 +93,7 @@ export default function PhoneLoginScreen() {
 
           {error ? (
             <View style={styles.errorRow}>
-              <Feather name="alert-circle" size={14} color={AppColors.error} />
+              <Feather name="alert-circle" size={14} color="#FF3B30" />
               <ThemedText style={styles.errorText}>{error}</ThemedText>
             </View>
           ) : null}
@@ -174,150 +108,55 @@ export default function PhoneLoginScreen() {
             disabled={isLoading}
             testID="button-continue"
           >
-            <LinearGradient
-              colors={[BRAND_ORANGE, BRAND_DARK]}
-              style={styles.submitGradient}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-            >
-              {isLoading ? (
-                <ActivityIndicator size="small" color="#FFFFFF" />
-              ) : (
-                <>
-                  <ThemedText style={styles.submitText}>
-                    إرسال رمز التحقق
-                  </ThemedText>
-                  <View style={styles.submitArrow}>
-                    <Feather name="arrow-left" size={18} color={BRAND_ORANGE} />
-                  </View>
-                </>
-              )}
-            </LinearGradient>
+            {isLoading ? (
+              <ActivityIndicator size="small" color={BRAND_ORANGE} />
+            ) : (
+              <ThemedText style={styles.submitText}>إرسال رمز التحقق</ThemedText>
+            )}
           </Pressable>
-
-          <View style={styles.dividerRow}>
-            <View style={styles.divider} />
-            <ThemedText style={styles.dividerLabel}>أو</ThemedText>
-            <View style={styles.divider} />
-          </View>
-
-          <View style={styles.featureRow}>
-            <View style={styles.featureChip}>
-              <Feather name="zap" size={13} color={BRAND_ORANGE} />
-              <ThemedText style={styles.featureText}>توصيل سريع</ThemedText>
-            </View>
-            <View style={styles.featureChip}>
-              <Feather name="shield" size={13} color={BRAND_ORANGE} />
-              <ThemedText style={styles.featureText}>دفع آمن</ThemedText>
-            </View>
-            <View style={styles.featureChip}>
-              <Feather name="map-pin" size={13} color={BRAND_ORANGE} />
-              <ThemedText style={styles.featureText}>تتبع مباشر</ThemedText>
-            </View>
-          </View>
-
-          <ThemedText style={styles.terms}>
-            بالمتابعة، أنت توافق على شروط الخدمة وسياسة الخصوصية
-          </ThemedText>
-        </KeyboardAvoidingView>
-      </Animated.View>
-    </View>
+        </View>
+      </View>
+    </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: BRAND_ORANGE,
+    paddingHorizontal: 24,
   },
-  topSection: {
-    paddingBottom: 64,
-    alignItems: "center",
-    overflow: "hidden",
-    borderBottomLeftRadius: 36,
-    borderBottomRightRadius: 36,
-  },
-  decorCircle1: {
-    position: "absolute",
-    top: -40,
-    left: -40,
-    width: 160,
-    height: 160,
-    borderRadius: 80,
-    backgroundColor: "rgba(255,255,255,0.07)",
-  },
-  decorCircle2: {
-    position: "absolute",
-    bottom: 10,
-    right: -30,
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    backgroundColor: "rgba(255,255,255,0.05)",
-  },
-  headerContent: {
+  centered: {
+    flex: 1,
+    justifyContent: "center",
     alignItems: "center",
   },
   logoWrap: {
     direction: "ltr",
-    marginBottom: 14,
+    marginBottom: 30,
   },
   logoText: {
     fontFamily: "Kanit_700Bold",
-    fontSize: 28,
+    fontSize: 30,
     color: "#FFFFFF",
-    letterSpacing: 1,
+    fontWeight: "bold",
     textAlign: "center",
   },
-  headerTitle: {
-    fontFamily: "Cairo_700Bold",
-    fontSize: 24,
-    color: "#FFFFFF",
-    marginBottom: 4,
-  },
-  headerSub: {
-    fontFamily: "Cairo_400Regular",
-    fontSize: 14,
-    color: "rgba(255,255,255,0.8)",
-  },
-  card: {
-    flex: 1,
-    backgroundColor: "#FFFFFF",
-    marginTop: -24,
-    paddingHorizontal: 24,
-    paddingTop: 12,
-  },
-  formInner: {
-    flex: 1,
-  },
-  handleBar: {
-    width: 36,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: "#E5E5E5",
-    alignSelf: "center",
-    marginBottom: 24,
-  },
-  inputLabel: {
-    fontFamily: "Cairo_700Bold",
-    fontSize: 17,
-    color: "#333",
-    marginBottom: 10,
-    textAlign: "right",
+  formBlock: {
+    width: "100%",
+    gap: 20,
   },
   phoneRow: {
     flexDirection: "row",
-    backgroundColor: "#F7F7F7",
-    borderRadius: 16,
-    height: 60,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 12,
+    height: 56,
     alignItems: "center",
     paddingHorizontal: 16,
-    borderWidth: 1.5,
-    borderColor: "#EFEFEF",
   },
   phoneInput: {
     flex: 1,
-    fontSize: 18,
+    fontSize: 16,
     color: "#333",
     textAlign: "left",
     fontFamily: "Cairo_600SemiBold",
@@ -325,13 +164,10 @@ const styles = StyleSheet.create({
   prefixBox: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#FFFFFF",
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 10,
     gap: 6,
-    borderWidth: 1,
-    borderColor: "#F0F0F0",
+    paddingLeft: 12,
+    borderLeftWidth: 1,
+    borderLeftColor: "#EEE",
   },
   countryCode: {
     fontFamily: "Cairo_700Bold",
@@ -347,26 +183,29 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
-    marginTop: 8,
     justifyContent: "flex-end",
+    marginTop: -10,
   },
   errorText: {
     fontFamily: "Cairo_400Regular",
-    color: AppColors.error,
+    color: "#FFFFFF",
     fontSize: 13,
   },
   submitBtn: {
-    borderRadius: 14,
-    overflow: "hidden",
-    marginTop: 20,
+    width: "100%",
+    backgroundColor: "#FFFFFF",
+    borderRadius: 12,
+    paddingVertical: 16,
+    alignItems: "center",
+    justifyContent: "center",
     ...Platform.select({
       ios: {
-        shadowColor: BRAND_ORANGE,
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.25,
-        shadowRadius: 8,
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 6,
       },
-      android: { elevation: 5 },
+      android: { elevation: 4 },
       default: {},
     }),
   },
@@ -377,68 +216,9 @@ const styles = StyleSheet.create({
     transform: [{ scale: 0.97 }],
     opacity: 0.9,
   },
-  submitGradient: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: 17,
-    gap: 10,
-  },
   submitText: {
     fontFamily: "Cairo_700Bold",
-    fontSize: 18,
-    color: "#FFFFFF",
-  },
-  submitArrow: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: "#FFFFFF",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  dividerRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    marginTop: 20,
-    marginBottom: 14,
-  },
-  divider: {
-    flex: 1,
-    height: 1,
-    backgroundColor: "#F0F0F0",
-  },
-  dividerLabel: {
-    fontFamily: "Cairo_400Regular",
-    fontSize: 13,
-    color: "#CCC",
-  },
-  featureRow: {
-    flexDirection: "row",
-    justifyContent: "center",
-    gap: 8,
-    flexWrap: "wrap",
-  },
-  featureChip: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    backgroundColor: "#FFF5EE",
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 20,
-  },
-  featureText: {
-    fontFamily: "Cairo_400Regular",
-    fontSize: 11,
-    color: "#666",
-  },
-  terms: {
-    fontFamily: "Cairo_400Regular",
-    color: "#CCC",
-    textAlign: "center",
-    fontSize: 11,
-    marginTop: 14,
+    fontSize: 16,
+    color: BRAND_ORANGE,
   },
 });
