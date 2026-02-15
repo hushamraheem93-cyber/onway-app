@@ -8,7 +8,7 @@ import {
   Easing,
   Platform,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import { Image } from "expo-image";
 import { Feather } from "@expo/vector-icons";
@@ -16,28 +16,29 @@ import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 
 import { ThemedText } from "@/components/ThemedText";
-import { AppColors } from "@/constants/theme";
 
 const { width, height } = Dimensions.get("window");
+const deliveryHeroImage = require("../assets/images/delivery-hero.png");
 
-const deliveryRiderImage = require("../assets/images/delivery-rider.png");
+const BRAND_ORANGE = "#FF7622";
+const BRAND_DARK = "#E5691E";
+const BRAND_LIGHT = "#FF9A5C";
 
 type RootStackParamList = {
   PhoneLogin: undefined;
 };
 
-type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
-
 export default function SplashScreen() {
-  const navigation = useNavigation<NavigationProp>();
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const insets = useSafeAreaInsets();
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
-  const slideAnim = useRef(new Animated.Value(60)).current;
-  const scaleAnim = useRef(new Animated.Value(0.8)).current;
-  const buttonAnim = useRef(new Animated.Value(0)).current;
-  const dot1Anim = useRef(new Animated.Value(0)).current;
-  const dot2Anim = useRef(new Animated.Value(0)).current;
-  const dot3Anim = useRef(new Animated.Value(0)).current;
+  const logoScale = useRef(new Animated.Value(0.5)).current;
+  const imageSlide = useRef(new Animated.Value(80)).current;
+  const imageOpacity = useRef(new Animated.Value(0)).current;
+  const textSlide = useRef(new Animated.Value(40)).current;
+  const buttonSlide = useRef(new Animated.Value(60)).current;
+  const buttonOpacity = useRef(new Animated.Value(0)).current;
   const floatAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -45,60 +46,61 @@ export default function SplashScreen() {
       Animated.parallel([
         Animated.timing(fadeAnim, {
           toValue: 1,
-          duration: 600,
+          duration: 500,
           useNativeDriver: true,
         }),
-        Animated.timing(scaleAnim, {
+        Animated.spring(logoScale, {
           toValue: 1,
-          duration: 700,
-          easing: Easing.out(Easing.back(1.2)),
+          friction: 6,
+          tension: 80,
           useNativeDriver: true,
         }),
       ]),
       Animated.parallel([
-        Animated.timing(slideAnim, {
+        Animated.timing(imageSlide, {
+          toValue: 0,
+          duration: 600,
+          easing: Easing.out(Easing.back(1.1)),
+          useNativeDriver: true,
+        }),
+        Animated.timing(imageOpacity, {
+          toValue: 1,
+          duration: 500,
+          useNativeDriver: true,
+        }),
+        Animated.timing(textSlide, {
           toValue: 0,
           duration: 500,
           easing: Easing.out(Easing.cubic),
           useNativeDriver: true,
         }),
-        Animated.stagger(150, [
-          Animated.timing(dot1Anim, {
-            toValue: 1,
-            duration: 300,
-            useNativeDriver: true,
-          }),
-          Animated.timing(dot2Anim, {
-            toValue: 1,
-            duration: 300,
-            useNativeDriver: true,
-          }),
-          Animated.timing(dot3Anim, {
-            toValue: 1,
-            duration: 300,
-            useNativeDriver: true,
-          }),
-        ]),
       ]),
-      Animated.timing(buttonAnim, {
-        toValue: 1,
-        duration: 500,
-        easing: Easing.out(Easing.cubic),
-        useNativeDriver: true,
-      }),
+      Animated.parallel([
+        Animated.timing(buttonSlide, {
+          toValue: 0,
+          duration: 400,
+          easing: Easing.out(Easing.cubic),
+          useNativeDriver: true,
+        }),
+        Animated.timing(buttonOpacity, {
+          toValue: 1,
+          duration: 400,
+          useNativeDriver: true,
+        }),
+      ]),
     ]).start();
 
     Animated.loop(
       Animated.sequence([
         Animated.timing(floatAnim, {
           toValue: 1,
-          duration: 2000,
+          duration: 2500,
           easing: Easing.inOut(Easing.sin),
           useNativeDriver: true,
         }),
         Animated.timing(floatAnim, {
           toValue: 0,
-          duration: 2000,
+          duration: 2500,
           easing: Easing.inOut(Easing.sin),
           useNativeDriver: true,
         }),
@@ -106,302 +108,279 @@ export default function SplashScreen() {
     ).start();
   }, []);
 
-  const floatTranslate = floatAnim.interpolate({
+  const floatY = floatAnim.interpolate({
     inputRange: [0, 1],
-    outputRange: [0, -12],
+    outputRange: [0, -14],
   });
 
   return (
-    <SafeAreaView style={styles.container}>
+    <View style={styles.container}>
       <LinearGradient
-        colors={["#F4B942", "#F5A623", "#F4B942"]}
-        style={styles.gradient}
+        colors={[BRAND_ORANGE, BRAND_DARK]}
+        style={[styles.topSection, { paddingTop: insets.top + 20 }]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
       >
         <View style={styles.decorCircle1} />
         <View style={styles.decorCircle2} />
-        <View style={styles.decorCircle3} />
 
-        <Animated.View style={[styles.titleContainer, { opacity: fadeAnim }]}>
-          <ThemedText style={styles.titleOn}>On</ThemedText>
-          <ThemedText style={styles.titleWay}>Way</ThemedText>
-        </Animated.View>
-        <Animated.View style={[styles.subtitleRow, { opacity: fadeAnim }]}>
-          <Feather name="truck" size={16} color="rgba(255,255,255,0.8)" />
-          <ThemedText style={styles.subtitle}>توصيل سريع وموثوق</ThemedText>
+        <Animated.View
+          style={[
+            styles.logoRow,
+            { opacity: fadeAnim, transform: [{ scale: logoScale }] },
+          ]}
+        >
+          <View style={styles.logoIconWrap}>
+            <Feather name="truck" size={20} color={BRAND_ORANGE} />
+          </View>
+          <ThemedText style={styles.logoOn}>On</ThemedText>
+          <ThemedText style={styles.logoWay}>Way</ThemedText>
         </Animated.View>
 
         <Animated.View
           style={[
-            styles.imageContainer,
+            styles.imageWrap,
             {
-              opacity: fadeAnim,
-              transform: [
-                { scale: scaleAnim },
-                { translateY: floatTranslate },
-              ],
+              opacity: imageOpacity,
+              transform: [{ translateY: Animated.add(imageSlide, floatY) }],
             },
           ]}
         >
           <View style={styles.imageGlow} />
           <Image
-            source={deliveryRiderImage}
-            style={styles.deliveryImage}
+            source={deliveryHeroImage}
+            style={styles.heroImage}
             contentFit="contain"
           />
         </Animated.View>
+      </LinearGradient>
+
+      <View style={[styles.bottomSection, { paddingBottom: insets.bottom + 20 }]}>
+        <View style={styles.handleBar} />
 
         <Animated.View
           style={[
-            styles.dotsContainer,
+            styles.textBlock,
             {
               opacity: fadeAnim,
+              transform: [{ translateY: textSlide }],
             },
           ]}
         >
-          <Animated.View
-            style={[
-              styles.dot,
-              styles.activeDot,
-              { opacity: dot1Anim, transform: [{ scale: dot1Anim }] },
-            ]}
-          />
-          <Animated.View
-            style={[
-              styles.dot,
-              { opacity: dot2Anim, transform: [{ scale: dot2Anim }] },
-            ]}
-          />
-          <Animated.View
-            style={[
-              styles.dot,
-              { opacity: dot3Anim, transform: [{ scale: dot3Anim }] },
-            ]}
-          />
-        </Animated.View>
-
-        <Animated.View
-          style={[
-            styles.taglineContainer,
-            {
-              opacity: fadeAnim,
-              transform: [{ translateY: slideAnim }],
-            },
-          ]}
-        >
-          <ThemedText style={styles.tagline}>احصل على طلبك</ThemedText>
-          <ThemedText style={styles.taglineBold}>
-            في أي مكان، في أي وقت
+          <ThemedText style={styles.headline}>توصيل سريع وموثوق</ThemedText>
+          <ThemedText style={styles.subheadline}>
+            احصل على طلبك في أي مكان وأي وقت{"\n"}داخل قضاء الضلوعية
           </ThemedText>
         </Animated.View>
 
         <Animated.View
           style={[
-            styles.buttonWrapper,
+            styles.dotsRow,
+            { opacity: fadeAnim },
+          ]}
+        >
+          <View style={[styles.dot, styles.dotActive]} />
+          <View style={styles.dot} />
+          <View style={styles.dot} />
+        </Animated.View>
+
+        <Animated.View
+          style={[
+            styles.buttonWrap,
             {
-              opacity: buttonAnim,
-              transform: [
-                {
-                  translateY: buttonAnim.interpolate({
-                    inputRange: [0, 1],
-                    outputRange: [30, 0],
-                  }),
-                },
-              ],
+              opacity: buttonOpacity,
+              transform: [{ translateY: buttonSlide }],
             },
           ]}
         >
           <Pressable
             style={({ pressed }) => [
-              styles.button,
-              pressed ? { transform: [{ scale: 0.97 }] } : undefined,
+              styles.ctaButton,
+              pressed ? styles.ctaPressed : undefined,
             ]}
             onPress={() => navigation.navigate("PhoneLogin")}
             testID="button-get-started"
           >
             <LinearGradient
-              colors={["#FF6B6B", "#FF8E8E"]}
-              style={styles.buttonGradient}
+              colors={[BRAND_ORANGE, BRAND_DARK]}
+              style={styles.ctaGradient}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
             >
-              <Feather
-                name="arrow-left"
-                size={22}
-                color="#FFFFFF"
-                style={styles.buttonIcon}
-              />
-              <ThemedText style={styles.buttonText}>ابدأ الآن</ThemedText>
+              <ThemedText style={styles.ctaText}>ابدأ الآن</ThemedText>
+              <View style={styles.ctaArrow}>
+                <Feather name="arrow-left" size={20} color={BRAND_ORANGE} />
+              </View>
             </LinearGradient>
           </Pressable>
         </Animated.View>
-      </LinearGradient>
-    </SafeAreaView>
+      </View>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#F4B942",
+    backgroundColor: "#FFFFFF",
   },
-  gradient: {
-    flex: 1,
+  topSection: {
+    flex: 1.1,
     alignItems: "center",
-    paddingHorizontal: 20,
+    borderBottomLeftRadius: 40,
+    borderBottomRightRadius: 40,
     overflow: "hidden",
+    paddingBottom: 10,
   },
   decorCircle1: {
     position: "absolute",
-    top: -60,
-    right: -40,
-    width: 200,
-    height: 200,
-    borderRadius: 100,
-    backgroundColor: "rgba(255, 255, 255, 0.08)",
+    top: -50,
+    left: -50,
+    width: 180,
+    height: 180,
+    borderRadius: 90,
+    backgroundColor: "rgba(255,255,255,0.08)",
   },
   decorCircle2: {
     position: "absolute",
-    bottom: 120,
-    left: -80,
-    width: 250,
-    height: 250,
-    borderRadius: 125,
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    bottom: 20,
+    right: -40,
+    width: 140,
+    height: 140,
+    borderRadius: 70,
+    backgroundColor: "rgba(255,255,255,0.06)",
   },
-  decorCircle3: {
-    position: "absolute",
-    top: height * 0.3,
-    right: -30,
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    backgroundColor: "rgba(255, 255, 255, 0.05)",
-  },
-  titleContainer: {
-    flexDirection: "row",
-    alignItems: "baseline",
-    marginTop: Platform.OS === "web" ? 40 : 30,
-  },
-  titleOn: {
-    fontFamily: "Kanit_700Bold",
-    fontSize: 42,
-    color: "#FFFFFF",
-    letterSpacing: 2,
-    textShadowColor: "rgba(0, 0, 0, 0.15)",
-    textShadowOffset: { width: 0, height: 2 },
-    textShadowRadius: 4,
-  },
-  titleWay: {
-    fontFamily: "Kanit_700Bold",
-    fontSize: 42,
-    color: "#2C3E50",
-    letterSpacing: 2,
-    textShadowColor: "rgba(0, 0, 0, 0.1)",
-    textShadowOffset: { width: 0, height: 2 },
-    textShadowRadius: 4,
-  },
-  subtitleRow: {
+  logoRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
-    marginTop: 4,
+    gap: 8,
+    marginBottom: 10,
   },
-  subtitle: {
-    fontFamily: "Cairo_400Regular",
-    fontSize: 14,
-    color: "rgba(255, 255, 255, 0.85)",
-    letterSpacing: 0.5,
+  logoIconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: "#FFFFFF",
+    alignItems: "center",
+    justifyContent: "center",
   },
-  imageContainer: {
+  logoOn: {
+    fontFamily: "Kanit_700Bold",
+    fontSize: 34,
+    color: "#FFFFFF",
+    letterSpacing: 1,
+  },
+  logoWay: {
+    fontFamily: "Kanit_700Bold",
+    fontSize: 34,
+    color: "rgba(255,255,255,0.7)",
+    letterSpacing: 1,
+  },
+  imageWrap: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    maxHeight: height * 0.38,
-    marginTop: 10,
   },
   imageGlow: {
     position: "absolute",
-    width: 220,
-    height: 220,
-    borderRadius: 110,
-    backgroundColor: "rgba(255, 255, 255, 0.15)",
+    width: 200,
+    height: 200,
+    borderRadius: 100,
+    backgroundColor: "rgba(255,255,255,0.12)",
   },
-  deliveryImage: {
-    width: width * 0.65,
-    height: width * 0.65,
-    maxWidth: 300,
-    maxHeight: 300,
+  heroImage: {
+    width: width * 0.6,
+    height: width * 0.6,
+    maxWidth: 280,
+    maxHeight: 280,
   },
-  dotsContainer: {
+  bottomSection: {
+    flex: 0.7,
+    backgroundColor: "#FFFFFF",
+    paddingHorizontal: 28,
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingTop: 16,
+  },
+  handleBar: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: "#E0E0E0",
+    marginBottom: 16,
+  },
+  textBlock: {
+    alignItems: "center",
+  },
+  headline: {
+    fontFamily: "Cairo_700Bold",
+    fontSize: 24,
+    color: "#2D2D2D",
+    textAlign: "center",
+    marginBottom: 8,
+  },
+  subheadline: {
+    fontFamily: "Cairo_400Regular",
+    fontSize: 15,
+    color: "#888",
+    textAlign: "center",
+    lineHeight: 24,
+  },
+  dotsRow: {
     flexDirection: "row",
-    gap: 10,
-    marginBottom: 24,
+    gap: 8,
+    marginVertical: 12,
   },
   dot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: "rgba(255, 255, 255, 0.4)",
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: "#E0E0E0",
   },
-  activeDot: {
-    width: 28,
-    borderRadius: 5,
-    backgroundColor: "#FFFFFF",
+  dotActive: {
+    width: 24,
+    borderRadius: 4,
+    backgroundColor: BRAND_ORANGE,
   },
-  taglineContainer: {
-    alignItems: "center",
-    marginBottom: 30,
-  },
-  tagline: {
-    fontFamily: "Cairo_400Regular",
-    fontSize: 22,
-    color: "#2C3E50",
-    textAlign: "center",
-  },
-  taglineBold: {
-    fontFamily: "Cairo_700Bold",
-    fontSize: 26,
-    color: "#2C3E50",
-    textAlign: "center",
-  },
-  buttonWrapper: {
+  buttonWrap: {
     width: "100%",
-    paddingHorizontal: 0,
-    marginBottom: 30,
   },
-  button: {
-    width: width - 40,
+  ctaButton: {
     borderRadius: 16,
     overflow: "hidden",
-    alignSelf: "center",
     ...Platform.select({
       ios: {
-        shadowColor: "#FF6B6B",
+        shadowColor: BRAND_ORANGE,
         shadowOffset: { width: 0, height: 6 },
-        shadowOpacity: 0.35,
+        shadowOpacity: 0.3,
         shadowRadius: 12,
       },
-      android: {
-        elevation: 10,
-      },
+      android: { elevation: 8 },
       default: {},
     }),
   },
-  buttonGradient: {
-    paddingVertical: 18,
-    alignItems: "center",
+  ctaPressed: {
+    transform: [{ scale: 0.97 }],
+    opacity: 0.9,
+  },
+  ctaGradient: {
     flexDirection: "row",
+    alignItems: "center",
     justifyContent: "center",
-    gap: 10,
+    paddingVertical: 16,
+    gap: 12,
   },
-  buttonIcon: {
-    marginTop: 2,
-  },
-  buttonText: {
+  ctaText: {
     fontFamily: "Cairo_700Bold",
-    fontSize: 20,
+    fontSize: 18,
     color: "#FFFFFF",
+  },
+  ctaArrow: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: "#FFFFFF",
+    alignItems: "center",
+    justifyContent: "center",
   },
 });

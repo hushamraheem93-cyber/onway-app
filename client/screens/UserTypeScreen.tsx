@@ -5,38 +5,39 @@ import {
   Pressable,
   Animated,
   Easing,
-  Dimensions,
+  Platform,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { LinearGradient } from "expo-linear-gradient";
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 
 import { ThemedText } from "@/components/ThemedText";
-import { useTheme } from "@/hooks/useTheme";
-import { AppColors, Spacing, BorderRadius, Shadows } from "@/constants/theme";
 import { useAuth } from "@/context/AuthContext";
 
-const { width: SCREEN_WIDTH } = Dimensions.get("window");
+const BRAND_ORANGE = "#FF7622";
+const BRAND_DARK = "#E5691E";
 
 export default function UserTypeScreen() {
   const insets = useSafeAreaInsets();
-  const { theme } = useTheme();
   const { setUserType } = useAuth();
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
-  const slideAnim = useRef(new Animated.Value(30)).current;
-  const cardAnim1 = useRef(new Animated.Value(0)).current;
-  const cardAnim2 = useRef(new Animated.Value(0)).current;
+  const headerScale = useRef(new Animated.Value(0.8)).current;
+  const cardSlide = useRef(new Animated.Value(50)).current;
+  const card1Anim = useRef(new Animated.Value(0)).current;
+  const card2Anim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     Animated.sequence([
       Animated.parallel([
         Animated.timing(fadeAnim, { toValue: 1, duration: 500, useNativeDriver: true }),
-        Animated.timing(slideAnim, { toValue: 0, duration: 500, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
+        Animated.spring(headerScale, { toValue: 1, friction: 7, tension: 60, useNativeDriver: true }),
+        Animated.timing(cardSlide, { toValue: 0, duration: 600, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
       ]),
-      Animated.stagger(150, [
-        Animated.spring(cardAnim1, { toValue: 1, friction: 6, useNativeDriver: true }),
-        Animated.spring(cardAnim2, { toValue: 1, friction: 6, useNativeDriver: true }),
+      Animated.stagger(120, [
+        Animated.spring(card1Anim, { toValue: 1, friction: 6, useNativeDriver: true }),
+        Animated.spring(card2Anim, { toValue: 1, friction: 6, useNativeDriver: true }),
       ]),
     ]).start();
   }, []);
@@ -47,63 +48,98 @@ export default function UserTypeScreen() {
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.backgroundRoot, paddingTop: insets.top + 20, paddingBottom: insets.bottom + 20 }]}>
-      <Animated.View style={[styles.header, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
-        <View style={styles.brandRow}>
-          <ThemedText type="h1" style={styles.brandOn}>On</ThemedText>
-          <ThemedText type="h1" style={styles.brandWay}>way</ThemedText>
-        </View>
-        <ThemedText type="h2" style={styles.title}>
-          كيف تود استخدام التطبيق؟
-        </ThemedText>
-        <ThemedText type="body" style={[styles.subtitle, { color: theme.textSecondary }]}>
-          اختر نوع حسابك للمتابعة
-        </ThemedText>
-      </Animated.View>
+    <View style={styles.container}>
+      <LinearGradient
+        colors={[BRAND_ORANGE, BRAND_DARK]}
+        style={[styles.topSection, { paddingTop: insets.top + 20 }]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+      >
+        <View style={styles.decorCircle1} />
+        <View style={styles.decorCircle2} />
 
-      <View style={styles.cardsContainer}>
-        <Animated.View style={{ opacity: cardAnim1, transform: [{ scale: cardAnim1 }] }}>
+        <Animated.View
+          style={[
+            styles.headerContent,
+            { opacity: fadeAnim, transform: [{ scale: headerScale }] },
+          ]}
+        >
+          <View style={styles.logoRow}>
+            <View style={styles.logoIconWrap}>
+              <Feather name="truck" size={20} color={BRAND_ORANGE} />
+            </View>
+            <ThemedText style={styles.logoOn}>On</ThemedText>
+            <ThemedText style={styles.logoWay}>Way</ThemedText>
+          </View>
+          <ThemedText style={styles.headerTitle}>كيف تود استخدام التطبيق؟</ThemedText>
+          <ThemedText style={styles.headerSub}>اختر نوع حسابك للمتابعة</ThemedText>
+        </Animated.View>
+      </LinearGradient>
+
+      <Animated.View
+        style={[
+          styles.card,
+          {
+            opacity: fadeAnim,
+            transform: [{ translateY: cardSlide }],
+            paddingBottom: insets.bottom + 20,
+          },
+        ]}
+      >
+        <View style={styles.handleBar} />
+
+        <Animated.View style={{ opacity: card1Anim, transform: [{ scale: card1Anim }] }}>
           <Pressable
-            style={[styles.typeCard, { backgroundColor: theme.backgroundDefault }, Shadows.md]}
+            style={({ pressed }) => [
+              styles.typeCard,
+              pressed ? styles.typeCardPressed : undefined,
+            ]}
             onPress={() => handleSelect("customer")}
             testID="button-customer"
           >
-            <View style={[styles.iconCircle, { backgroundColor: `${AppColors.primary}15` }]}>
-              <Feather name="shopping-bag" size={36} color={AppColors.primary} />
+            <View style={styles.cardLeft}>
+              <View style={[styles.iconCircle, { backgroundColor: "#FFF5EE" }]}>
+                <Feather name="shopping-bag" size={28} color={BRAND_ORANGE} />
+              </View>
             </View>
-            <ThemedText type="h3" style={styles.cardTitle}>
-              زبون
-            </ThemedText>
-            <ThemedText type="body" style={[styles.cardDesc, { color: theme.textSecondary }]}>
-              تصفح المنتجات واطلب التوصيل لباب منزلك
-            </ThemedText>
-            <View style={styles.arrowRow}>
-              <Feather name="arrow-left" size={20} color={AppColors.primary} />
+            <View style={styles.cardCenter}>
+              <ThemedText style={styles.cardTitle}>زبون</ThemedText>
+              <ThemedText style={styles.cardDesc}>
+                تصفح المنتجات واطلب التوصيل لباب منزلك
+              </ThemedText>
+            </View>
+            <View style={styles.cardArrow}>
+              <Feather name="chevron-left" size={20} color={BRAND_ORANGE} />
             </View>
           </Pressable>
         </Animated.View>
 
-        <Animated.View style={{ opacity: cardAnim2, transform: [{ scale: cardAnim2 }] }}>
+        <Animated.View style={{ opacity: card2Anim, transform: [{ scale: card2Anim }] }}>
           <Pressable
-            style={[styles.typeCard, { backgroundColor: theme.backgroundDefault }, Shadows.md]}
+            style={({ pressed }) => [
+              styles.typeCard,
+              pressed ? styles.typeCardPressed : undefined,
+            ]}
             onPress={() => handleSelect("driver")}
             testID="button-driver"
           >
-            <View style={[styles.iconCircle, { backgroundColor: "#E8F5E915" }]}>
-              <Feather name="truck" size={36} color="#4CAF50" />
+            <View style={styles.cardLeft}>
+              <View style={[styles.iconCircle, { backgroundColor: "#E8F5E9" }]}>
+                <Feather name="truck" size={28} color="#4CAF50" />
+              </View>
             </View>
-            <ThemedText type="h3" style={styles.cardTitle}>
-              سائق توصيل
-            </ThemedText>
-            <ThemedText type="body" style={[styles.cardDesc, { color: theme.textSecondary }]}>
-              انضم لفريق التوصيل واكسب المال بتوصيل الطلبات
-            </ThemedText>
-            <View style={styles.arrowRow}>
-              <Feather name="arrow-left" size={20} color="#4CAF50" />
+            <View style={styles.cardCenter}>
+              <ThemedText style={styles.cardTitle}>سائق توصيل</ThemedText>
+              <ThemedText style={styles.cardDesc}>
+                انضم لفريق التوصيل واكسب المال بتوصيل الطلبات
+              </ThemedText>
+            </View>
+            <View style={styles.cardArrow}>
+              <Feather name="chevron-left" size={20} color="#4CAF50" />
             </View>
           </Pressable>
         </Animated.View>
-      </View>
+      </Animated.View>
     </View>
   );
 }
@@ -111,72 +147,148 @@ export default function UserTypeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    paddingHorizontal: 24,
+    backgroundColor: "#FFFFFF",
   },
-  header: {
+  topSection: {
+    paddingBottom: 50,
     alignItems: "center",
-    marginBottom: 40,
-    paddingTop: 30,
+    overflow: "hidden",
   },
-  brandRow: {
+  decorCircle1: {
+    position: "absolute",
+    top: -50,
+    left: -50,
+    width: 180,
+    height: 180,
+    borderRadius: 90,
+    backgroundColor: "rgba(255,255,255,0.08)",
+  },
+  decorCircle2: {
+    position: "absolute",
+    bottom: 10,
+    right: -40,
+    width: 140,
+    height: 140,
+    borderRadius: 70,
+    backgroundColor: "rgba(255,255,255,0.06)",
+  },
+  headerContent: {
+    alignItems: "center",
+    gap: 6,
+  },
+  logoRow: {
     flexDirection: "row",
-    justifyContent: "center",
     alignItems: "center",
+    gap: 8,
     marginBottom: 16,
   },
-  brandOn: {
-    fontSize: 32,
-    fontWeight: "800",
-    color: "#2D2D2D",
+  logoIconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: "#FFFFFF",
+    alignItems: "center",
+    justifyContent: "center",
   },
-  brandWay: {
-    fontSize: 32,
-    fontWeight: "800",
-    color: AppColors.primary,
+  logoOn: {
+    fontFamily: "Kanit_700Bold",
+    fontSize: 30,
+    color: "#FFFFFF",
+    letterSpacing: 1,
   },
-  title: {
-    textAlign: "center",
-    fontWeight: "700",
-    marginBottom: Spacing.sm,
+  logoWay: {
+    fontFamily: "Kanit_700Bold",
+    fontSize: 30,
+    color: "rgba(255,255,255,0.7)",
+    letterSpacing: 1,
   },
-  subtitle: {
-    textAlign: "center",
-    fontSize: 15,
+  headerTitle: {
+    fontFamily: "Cairo_700Bold",
+    fontSize: 24,
+    color: "#FFFFFF",
   },
-  cardsContainer: {
-    gap: 20,
+  headerSub: {
+    fontFamily: "Cairo_400Regular",
+    fontSize: 14,
+    color: "rgba(255,255,255,0.8)",
+  },
+  card: {
+    flex: 1,
+    backgroundColor: "#FFFFFF",
+    borderTopLeftRadius: 32,
+    borderTopRightRadius: 32,
+    marginTop: -30,
+    paddingHorizontal: 24,
+    paddingTop: 12,
+    ...Platform.select({
+      ios: {
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: -4 },
+        shadowOpacity: 0.06,
+        shadowRadius: 12,
+      },
+      android: { elevation: 8 },
+      default: {},
+    }),
+  },
+  handleBar: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: "#E0E0E0",
+    alignSelf: "center",
+    marginBottom: 30,
   },
   typeCard: {
-    borderRadius: BorderRadius.xl,
-    padding: 24,
+    flexDirection: "row",
     alignItems: "center",
+    backgroundColor: "#F9F9F9",
+    borderRadius: 18,
+    padding: 18,
+    marginBottom: 16,
+    borderWidth: 1.5,
+    borderColor: "#F0F0F0",
+  },
+  typeCardPressed: {
+    transform: [{ scale: 0.97 }],
+    backgroundColor: "#F5F5F5",
+  },
+  cardLeft: {
+    marginLeft: 14,
   },
   iconCircle: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
+    width: 56,
+    height: 56,
+    borderRadius: 16,
     justifyContent: "center",
     alignItems: "center",
-    marginBottom: Spacing.md,
+  },
+  cardCenter: {
+    flex: 1,
+    paddingHorizontal: 14,
   },
   cardTitle: {
-    fontWeight: "700",
-    fontSize: 22,
-    marginBottom: Spacing.xs,
-    textAlign: "center",
+    fontFamily: "Cairo_700Bold",
+    fontSize: 18,
+    color: "#2D2D2D",
+    textAlign: "right",
+    marginBottom: 2,
   },
   cardDesc: {
-    textAlign: "center",
-    fontSize: 14,
-    lineHeight: 22,
-    marginBottom: Spacing.md,
+    fontFamily: "Cairo_400Regular",
+    fontSize: 13,
+    color: "#888",
+    textAlign: "right",
+    lineHeight: 20,
   },
-  arrowRow: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: "#F5F5F5",
+  cardArrow: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "#FFFFFF",
     justifyContent: "center",
     alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#F0F0F0",
   },
 });

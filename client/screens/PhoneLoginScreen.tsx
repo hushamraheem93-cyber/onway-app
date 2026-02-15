@@ -21,10 +21,10 @@ import { ThemedText } from "@/components/ThemedText";
 import { AppColors } from "@/constants/theme";
 import { useAuth } from "@/context/AuthContext";
 
-const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
+const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
-const DART_ORANGE = "#FF7622";
-const LIGHT_ORANGE = "#FF9A5C";
+const BRAND_ORANGE = "#FF7622";
+const BRAND_DARK = "#E5691E";
 
 export default function PhoneLoginScreen() {
   const insets = useSafeAreaInsets();
@@ -33,19 +33,26 @@ export default function PhoneLoginScreen() {
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
-  const slideUpAnim = useRef(new Animated.Value(60)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
+  const cardSlide = useRef(new Animated.Value(50)).current;
+  const headerScale = useRef(new Animated.Value(0.8)).current;
 
   useEffect(() => {
     Animated.parallel([
       Animated.timing(fadeAnim, {
         toValue: 1,
-        duration: 800,
+        duration: 600,
         useNativeDriver: true,
       }),
-      Animated.timing(slideUpAnim, {
+      Animated.spring(headerScale, {
+        toValue: 1,
+        friction: 7,
+        tension: 60,
+        useNativeDriver: true,
+      }),
+      Animated.timing(cardSlide, {
         toValue: 0,
-        duration: 800,
+        duration: 700,
         easing: Easing.out(Easing.cubic),
         useNativeDriver: true,
       }),
@@ -91,23 +98,41 @@ export default function PhoneLoginScreen() {
   return (
     <View style={styles.container}>
       <LinearGradient
-        colors={[DART_ORANGE, LIGHT_ORANGE]}
-        start={{ x: 0.5, y: 0 }}
-        end={{ x: 0.5, y: 1 }}
-        style={[styles.gradientSection, { paddingTop: insets.top + 40 }]}
+        colors={[BRAND_ORANGE, BRAND_DARK]}
+        style={[styles.topSection, { paddingTop: insets.top + 20 }]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
       >
-        <View style={styles.iconCircle}>
-          <Feather name="truck" size={80} color="#FFFFFF" />
-        </View>
+        <View style={styles.decorCircle1} />
+        <View style={styles.decorCircle2} />
+
+        <Animated.View
+          style={[
+            styles.headerContent,
+            { opacity: fadeAnim, transform: [{ scale: headerScale }] },
+          ]}
+        >
+          <View style={styles.logoRow}>
+            <View style={styles.logoIconWrap}>
+              <Feather name="truck" size={20} color={BRAND_ORANGE} />
+            </View>
+            <ThemedText style={styles.logoOn}>On</ThemedText>
+            <ThemedText style={styles.logoWay}>Way</ThemedText>
+          </View>
+          <ThemedText style={styles.headerTitle}>مرحباً بك</ThemedText>
+          <ThemedText style={styles.headerSub}>
+            سجل دخولك للبدء بالتسوق والتوصيل
+          </ThemedText>
+        </Animated.View>
       </LinearGradient>
 
       <Animated.View
         style={[
-          styles.whiteCard,
+          styles.card,
           {
             opacity: fadeAnim,
-            transform: [{ translateY: slideUpAnim }],
-            paddingBottom: insets.bottom + 20,
+            transform: [{ translateY: cardSlide }],
+            paddingBottom: insets.bottom + 16,
           },
         ]}
       >
@@ -115,59 +140,93 @@ export default function PhoneLoginScreen() {
           behavior={Platform.OS === "ios" ? "padding" : "height"}
           style={styles.formInner}
         >
-          <ThemedText type="h1" style={styles.brandText}>
-            way<ThemedText type="h1" style={styles.brandOn}>On</ThemedText>
-          </ThemedText>
+          <View style={styles.handleBar} />
 
-          <ThemedText type="h3" style={styles.welcomeTitle}>
-            مرحباً بك في أون وي
-          </ThemedText>
-          <ThemedText type="body" style={styles.welcomeSubtitle}>
-            أدخل رقم هاتفك للبدء في التسوق أو التوصيل
-          </ThemedText>
+          <ThemedText style={styles.inputLabel}>رقم الهاتف</ThemedText>
 
-          <View style={styles.phoneInputRow}>
+          <View style={styles.phoneRow}>
             <TextInput
-              placeholder="780 000 0000"
-              placeholderTextColor="#BCBCBC"
+              placeholder="7XX XXX XXXX"
+              placeholderTextColor="#C0C0C0"
               keyboardType="phone-pad"
-              style={styles.textInput}
+              style={styles.phoneInput}
               value={phoneNumber}
-              onChangeText={setPhoneNumber}
+              onChangeText={(text) => {
+                setPhoneNumber(text);
+                if (error) setError("");
+              }}
               maxLength={12}
               testID="input-phone"
             />
-            <View style={styles.prefixContainer}>
-              <ThemedText type="body" style={styles.countryCode}>+964</ThemedText>
+            <View style={styles.prefixBox}>
+              <ThemedText style={styles.countryCode}>964+</ThemedText>
               <Image
                 source={{ uri: "https://flagcdn.com/w80/iq.png" }}
-                style={styles.flagIcon}
+                style={styles.flag}
               />
             </View>
           </View>
 
           {error ? (
-            <ThemedText type="small" style={styles.errorText}>
-              {error}
-            </ThemedText>
+            <View style={styles.errorRow}>
+              <Feather name="alert-circle" size={14} color={AppColors.error} />
+              <ThemedText style={styles.errorText}>{error}</ThemedText>
+            </View>
           ) : null}
 
           <Pressable
-            style={[styles.mainButton, isLoading && styles.mainButtonDisabled]}
+            style={({ pressed }) => [
+              styles.submitBtn,
+              isLoading ? styles.submitDisabled : undefined,
+              pressed && !isLoading ? styles.submitPressed : undefined,
+            ]}
             onPress={handleContinue}
             disabled={isLoading}
             testID="button-continue"
           >
-            {isLoading ? (
-              <ActivityIndicator size="small" color="#FFFFFF" />
-            ) : (
-              <ThemedText type="h4" style={styles.buttonText}>
-                إرسال رمز التحقق
-              </ThemedText>
-            )}
+            <LinearGradient
+              colors={[BRAND_ORANGE, BRAND_DARK]}
+              style={styles.submitGradient}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+            >
+              {isLoading ? (
+                <ActivityIndicator size="small" color="#FFFFFF" />
+              ) : (
+                <>
+                  <ThemedText style={styles.submitText}>
+                    إرسال رمز التحقق
+                  </ThemedText>
+                  <View style={styles.submitArrow}>
+                    <Feather name="arrow-left" size={18} color={BRAND_ORANGE} />
+                  </View>
+                </>
+              )}
+            </LinearGradient>
           </Pressable>
 
-          <ThemedText type="small" style={styles.termsText}>
+          <View style={styles.footerRow}>
+            <View style={styles.divider} />
+            <ThemedText style={styles.footerLabel}>أو</ThemedText>
+            <View style={styles.divider} />
+          </View>
+
+          <View style={styles.featureRow}>
+            <View style={styles.featureChip}>
+              <Feather name="zap" size={14} color={BRAND_ORANGE} />
+              <ThemedText style={styles.featureText}>توصيل سريع</ThemedText>
+            </View>
+            <View style={styles.featureChip}>
+              <Feather name="shield" size={14} color={BRAND_ORANGE} />
+              <ThemedText style={styles.featureText}>دفع آمن</ThemedText>
+            </View>
+            <View style={styles.featureChip}>
+              <Feather name="map-pin" size={14} color={BRAND_ORANGE} />
+              <ThemedText style={styles.featureText}>تتبع مباشر</ThemedText>
+            </View>
+          </View>
+
+          <ThemedText style={styles.terms}>
             بالمتابعة، أنت توافق على شروط الخدمة وسياسة الخصوصية
           </ThemedText>
         </KeyboardAvoidingView>
@@ -179,124 +238,242 @@ export default function PhoneLoginScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: DART_ORANGE,
+    backgroundColor: "#FFFFFF",
   },
-  gradientSection: {
+  topSection: {
+    paddingBottom: 50,
+    alignItems: "center",
+    overflow: "hidden",
+  },
+  decorCircle1: {
+    position: "absolute",
+    top: -50,
+    left: -50,
+    width: 180,
+    height: 180,
+    borderRadius: 90,
+    backgroundColor: "rgba(255,255,255,0.08)",
+  },
+  decorCircle2: {
+    position: "absolute",
+    bottom: 10,
+    right: -40,
+    width: 140,
+    height: 140,
+    borderRadius: 70,
+    backgroundColor: "rgba(255,255,255,0.06)",
+  },
+  headerContent: {
+    alignItems: "center",
+    gap: 6,
+  },
+  logoRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 16,
+  },
+  logoIconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: "#FFFFFF",
     alignItems: "center",
     justifyContent: "center",
-    paddingBottom: 60,
   },
-  iconCircle: {
-    width: 130,
-    height: 130,
-    borderRadius: 65,
-    backgroundColor: "rgba(255,255,255,0.2)",
-    alignItems: "center",
-    justifyContent: "center",
+  logoOn: {
+    fontFamily: "Kanit_700Bold",
+    fontSize: 30,
+    color: "#FFFFFF",
+    letterSpacing: 1,
   },
-  whiteCard: {
+  logoWay: {
+    fontFamily: "Kanit_700Bold",
+    fontSize: 30,
+    color: "rgba(255,255,255,0.7)",
+    letterSpacing: 1,
+  },
+  headerTitle: {
+    fontFamily: "Cairo_700Bold",
+    fontSize: 26,
+    color: "#FFFFFF",
+  },
+  headerSub: {
+    fontFamily: "Cairo_400Regular",
+    fontSize: 14,
+    color: "rgba(255,255,255,0.8)",
+  },
+  card: {
     flex: 1,
     backgroundColor: "#FFFFFF",
-    borderTopLeftRadius: 40,
-    borderTopRightRadius: 40,
-    paddingHorizontal: 30,
-    paddingTop: 40,
+    borderTopLeftRadius: 32,
+    borderTopRightRadius: 32,
     marginTop: -30,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: -5 },
-    shadowOpacity: 0.08,
-    shadowRadius: 20,
-    elevation: 10,
+    paddingHorizontal: 24,
+    paddingTop: 12,
+    ...Platform.select({
+      ios: {
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: -4 },
+        shadowOpacity: 0.06,
+        shadowRadius: 12,
+      },
+      android: { elevation: 8 },
+      default: {},
+    }),
   },
   formInner: {
     flex: 1,
   },
-  brandText: {
-    fontSize: 32,
-    fontWeight: "800",
-    color: DART_ORANGE,
-    textAlign: "center",
+  handleBar: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: "#E0E0E0",
+    alignSelf: "center",
+    marginBottom: 24,
+  },
+  inputLabel: {
+    fontFamily: "Cairo_600SemiBold",
+    fontSize: 15,
+    color: "#444",
     marginBottom: 10,
+    textAlign: "right",
   },
-  brandOn: {
-    fontSize: 32,
-    fontWeight: "800",
-    color: DART_ORANGE,
-  },
-  welcomeTitle: {
-    textAlign: "center",
-    fontWeight: "600",
-    color: "#2D2D2D",
-    fontSize: 20,
-    marginBottom: 4,
-  },
-  welcomeSubtitle: {
-    textAlign: "center",
-    color: "#999",
-    marginBottom: 30,
-    fontSize: 14,
-  },
-  phoneInputRow: {
+  phoneRow: {
     flexDirection: "row",
-    backgroundColor: "#F5F5F5",
-    borderRadius: 15,
-    height: 55,
+    backgroundColor: "#F7F7F7",
+    borderRadius: 14,
+    height: 56,
     alignItems: "center",
     paddingHorizontal: 14,
+    borderWidth: 1.5,
+    borderColor: "#EFEFEF",
   },
-  textInput: {
+  phoneInput: {
     flex: 1,
     fontSize: 18,
     color: "#333",
     textAlign: "left",
-    fontWeight: "500",
+    fontFamily: "Cairo_600SemiBold",
   },
-  prefixContainer: {
+  prefixBox: {
     flexDirection: "row",
     alignItems: "center",
-    paddingLeft: 10,
+    backgroundColor: "#FFFFFF",
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 10,
+    gap: 6,
+    borderWidth: 1,
+    borderColor: "#F0F0F0",
   },
   countryCode: {
-    fontSize: 16,
-    fontWeight: "bold",
+    fontFamily: "Cairo_700Bold",
+    fontSize: 15,
     color: "#333",
-    marginRight: 6,
   },
-  flagIcon: {
-    width: 30,
-    height: 20,
-    borderRadius: 3,
+  flag: {
+    width: 24,
+    height: 16,
+    borderRadius: 2,
+  },
+  errorRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginTop: 10,
+    justifyContent: "flex-end",
   },
   errorText: {
+    fontFamily: "Cairo_400Regular",
     color: AppColors.error,
-    textAlign: "center",
-    marginTop: 10,
+    fontSize: 13,
   },
-  mainButton: {
-    backgroundColor: DART_ORANGE,
-    height: 55,
-    borderRadius: 15,
-    justifyContent: "center",
-    alignItems: "center",
-    marginTop: 25,
-    shadowColor: DART_ORANGE,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.4,
-    shadowRadius: 8,
-    elevation: 5,
+  submitBtn: {
+    borderRadius: 14,
+    overflow: "hidden",
+    marginTop: 24,
+    ...Platform.select({
+      ios: {
+        shadowColor: BRAND_ORANGE,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 10,
+      },
+      android: { elevation: 6 },
+      default: {},
+    }),
   },
-  mainButtonDisabled: {
+  submitDisabled: {
     opacity: 0.7,
   },
-  buttonText: {
-    color: "#FFFFFF",
-    fontSize: 18,
-    fontWeight: "bold",
+  submitPressed: {
+    transform: [{ scale: 0.97 }],
+    opacity: 0.9,
   },
-  termsText: {
-    color: "#AAA",
+  submitGradient: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 16,
+    gap: 10,
+  },
+  submitText: {
+    fontFamily: "Cairo_700Bold",
+    fontSize: 17,
+    color: "#FFFFFF",
+  },
+  submitArrow: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: "#FFFFFF",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  footerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    marginTop: 24,
+    marginBottom: 16,
+  },
+  divider: {
+    flex: 1,
+    height: 1,
+    backgroundColor: "#F0F0F0",
+  },
+  footerLabel: {
+    fontFamily: "Cairo_400Regular",
+    fontSize: 13,
+    color: "#BBB",
+  },
+  featureRow: {
+    flexDirection: "row",
+    justifyContent: "center",
+    gap: 10,
+    flexWrap: "wrap",
+  },
+  featureChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: "#FFF5EE",
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+  },
+  featureText: {
+    fontFamily: "Cairo_400Regular",
+    fontSize: 12,
+    color: "#555",
+  },
+  terms: {
+    fontFamily: "Cairo_400Regular",
+    color: "#BBB",
     textAlign: "center",
     fontSize: 11,
-    marginTop: 20,
+    marginTop: 16,
   },
 });

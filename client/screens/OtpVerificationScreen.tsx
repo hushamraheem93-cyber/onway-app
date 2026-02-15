@@ -7,21 +7,23 @@ import {
   ActivityIndicator,
   Animated,
   Easing,
+  Platform,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { LinearGradient } from "expo-linear-gradient";
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 
 import { ThemedText } from "@/components/ThemedText";
-import { useTheme } from "@/hooks/useTheme";
-import { AppColors, Spacing, BorderRadius } from "@/constants/theme";
+import { AppColors } from "@/constants/theme";
 import { useAuth } from "@/context/AuthContext";
 
 const OTP_LENGTH = 4;
+const BRAND_ORANGE = "#FF7622";
+const BRAND_DARK = "#E5691E";
 
 export default function OtpVerificationScreen() {
   const insets = useSafeAreaInsets();
-  const { theme } = useTheme();
   const { verifyOtp, pendingPhone, sendOtp } = useAuth();
 
   const [otp, setOtp] = useState<string[]>(Array(OTP_LENGTH).fill(""));
@@ -31,12 +33,28 @@ export default function OtpVerificationScreen() {
   const inputRefs = useRef<(TextInput | null)[]>([]);
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
-  const scaleAnim = useRef(new Animated.Value(0.9)).current;
+  const cardSlide = useRef(new Animated.Value(40)).current;
+  const headerScale = useRef(new Animated.Value(0.8)).current;
 
   useEffect(() => {
     Animated.parallel([
-      Animated.timing(fadeAnim, { toValue: 1, duration: 600, useNativeDriver: true }),
-      Animated.spring(scaleAnim, { toValue: 1, friction: 6, useNativeDriver: true }),
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 600,
+        useNativeDriver: true,
+      }),
+      Animated.spring(headerScale, {
+        toValue: 1,
+        friction: 7,
+        tension: 60,
+        useNativeDriver: true,
+      }),
+      Animated.timing(cardSlide, {
+        toValue: 0,
+        duration: 700,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }),
     ]).start();
 
     inputRefs.current[0]?.focus();
@@ -117,42 +135,65 @@ export default function OtpVerificationScreen() {
     : "";
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.backgroundRoot, paddingTop: insets.top + 20 }]}>
-      <Animated.View
-        style={[styles.content, { opacity: fadeAnim, transform: [{ scale: scaleAnim }] }]}
+    <View style={styles.container}>
+      <LinearGradient
+        colors={[BRAND_ORANGE, BRAND_DARK]}
+        style={[styles.topSection, { paddingTop: insets.top + 20 }]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
       >
-        <View style={styles.iconCircle}>
-          <Feather name="shield" size={40} color={AppColors.primary} />
-        </View>
+        <View style={styles.decorCircle1} />
+        <View style={styles.decorCircle2} />
 
-        <ThemedText type="h2" style={styles.title}>
-          رمز التحقق
-        </ThemedText>
-        <ThemedText type="body" style={[styles.subtitle, { color: theme.textSecondary }]}>
-          تم إرسال رمز التحقق إلى الرقم
-        </ThemedText>
-        <ThemedText type="body" style={styles.phoneDisplay}>
-          {maskedPhone}
-        </ThemedText>
+        <Animated.View
+          style={[
+            styles.headerContent,
+            { opacity: fadeAnim, transform: [{ scale: headerScale }] },
+          ]}
+        >
+          <View style={styles.shieldCircle}>
+            <Feather name="shield" size={36} color={BRAND_ORANGE} />
+          </View>
+          <ThemedText style={styles.headerTitle}>رمز التحقق</ThemedText>
+          <ThemedText style={styles.headerSub}>
+            تم إرسال رمز التحقق إلى الرقم
+          </ThemedText>
+          <ThemedText style={styles.phoneText}>{maskedPhone}</ThemedText>
+        </Animated.View>
+      </LinearGradient>
+
+      <Animated.View
+        style={[
+          styles.card,
+          {
+            opacity: fadeAnim,
+            transform: [{ translateY: cardSlide }],
+            paddingBottom: insets.bottom + 16,
+          },
+        ]}
+      >
+        <View style={styles.handleBar} />
+
+        <ThemedText style={styles.inputLabel}>أدخل الرمز المكون من 4 أرقام</ThemedText>
 
         <View style={styles.otpRow}>
           {Array.from({ length: OTP_LENGTH }).map((_, index) => (
             <TextInput
               key={index}
-              ref={(ref) => { inputRefs.current[index] = ref; }}
+              ref={(ref) => {
+                inputRefs.current[index] = ref;
+              }}
               style={[
                 styles.otpInput,
-                {
-                  backgroundColor: theme.backgroundDefault,
-                  borderColor: otp[index] ? AppColors.primary : theme.border,
-                  color: theme.text,
-                },
+                otp[index] ? styles.otpInputFilled : undefined,
               ]}
               keyboardType="number-pad"
               maxLength={1}
               value={otp[index]}
               onChangeText={(text) => handleOtpChange(text, index)}
-              onKeyPress={({ nativeEvent }) => handleKeyPress(nativeEvent.key, index)}
+              onKeyPress={({ nativeEvent }) =>
+                handleKeyPress(nativeEvent.key, index)
+              }
               selectTextOnFocus
               testID={`input-otp-${index}`}
             />
@@ -160,39 +201,50 @@ export default function OtpVerificationScreen() {
         </View>
 
         {error ? (
-          <ThemedText type="small" style={styles.errorText}>
-            {error}
-          </ThemedText>
+          <View style={styles.errorRow}>
+            <Feather name="alert-circle" size={14} color={AppColors.error} />
+            <ThemedText style={styles.errorText}>{error}</ThemedText>
+          </View>
         ) : null}
 
         <Pressable
-          style={[styles.verifyButton, isLoading && styles.verifyButtonDisabled]}
+          style={({ pressed }) => [
+            styles.verifyBtn,
+            isLoading ? styles.verifyDisabled : undefined,
+            pressed && !isLoading ? styles.verifyPressed : undefined,
+          ]}
           onPress={() => handleVerify()}
           disabled={isLoading}
           testID="button-verify-otp"
         >
-          {isLoading ? (
-            <ActivityIndicator size="small" color="#FFFFFF" />
-          ) : (
-            <ThemedText type="h4" style={styles.verifyButtonText}>
-              تحقق
-            </ThemedText>
-          )}
+          <LinearGradient
+            colors={[BRAND_ORANGE, BRAND_DARK]}
+            style={styles.verifyGradient}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+          >
+            {isLoading ? (
+              <ActivityIndicator size="small" color="#FFFFFF" />
+            ) : (
+              <>
+                <ThemedText style={styles.verifyText}>تحقق</ThemedText>
+                <View style={styles.verifyArrow}>
+                  <Feather name="check" size={18} color={BRAND_ORANGE} />
+                </View>
+              </>
+            )}
+          </LinearGradient>
         </Pressable>
 
         <View style={styles.resendRow}>
-          <ThemedText type="body" style={[styles.resendLabel, { color: theme.textSecondary }]}>
-            لم يصلك الرمز؟
-          </ThemedText>
+          <ThemedText style={styles.resendLabel}>لم يصلك الرمز؟</ThemedText>
           {resendTimer > 0 ? (
-            <ThemedText type="body" style={[styles.timerText, { color: theme.textSecondary }]}>
+            <ThemedText style={styles.timerText}>
               إعادة الإرسال ({resendTimer}ث)
             </ThemedText>
           ) : (
             <Pressable onPress={handleResend} testID="button-resend-otp">
-              <ThemedText type="body" style={styles.resendLink}>
-                إعادة الإرسال
-              </ThemedText>
+              <ThemedText style={styles.resendLink}>إعادة الإرسال</ThemedText>
             </Pressable>
           )}
         </View>
@@ -204,91 +256,191 @@ export default function OtpVerificationScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    paddingHorizontal: 24,
+    backgroundColor: "#FFFFFF",
   },
-  content: {
-    flex: 1,
+  topSection: {
+    paddingBottom: 50,
     alignItems: "center",
-    paddingTop: 40,
+    overflow: "hidden",
   },
-  iconCircle: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: `${AppColors.primary}15`,
+  decorCircle1: {
+    position: "absolute",
+    top: -50,
+    left: -50,
+    width: 180,
+    height: 180,
+    borderRadius: 90,
+    backgroundColor: "rgba(255,255,255,0.08)",
+  },
+  decorCircle2: {
+    position: "absolute",
+    bottom: 10,
+    right: -40,
+    width: 140,
+    height: 140,
+    borderRadius: 70,
+    backgroundColor: "rgba(255,255,255,0.06)",
+  },
+  headerContent: {
+    alignItems: "center",
+    gap: 6,
+  },
+  shieldCircle: {
+    width: 64,
+    height: 64,
+    borderRadius: 20,
+    backgroundColor: "#FFFFFF",
+    alignItems: "center",
     justifyContent: "center",
-    alignItems: "center",
-    marginBottom: Spacing.lg,
+    marginBottom: 12,
   },
-  title: {
-    textAlign: "center",
-    fontWeight: "700",
-    marginBottom: Spacing.sm,
+  headerTitle: {
+    fontFamily: "Cairo_700Bold",
+    fontSize: 26,
+    color: "#FFFFFF",
   },
-  subtitle: {
-    textAlign: "center",
-    marginBottom: 4,
+  headerSub: {
+    fontFamily: "Cairo_400Regular",
+    fontSize: 14,
+    color: "rgba(255,255,255,0.8)",
   },
-  phoneDisplay: {
-    textAlign: "center",
-    fontWeight: "700",
+  phoneText: {
+    fontFamily: "Cairo_700Bold",
     fontSize: 18,
-    color: AppColors.primary,
-    marginBottom: Spacing.xl,
-    letterSpacing: 1,
-    direction: "ltr",
+    color: "#FFFFFF",
+    letterSpacing: 2,
+    marginTop: 4,
+  },
+  card: {
+    flex: 1,
+    backgroundColor: "#FFFFFF",
+    borderTopLeftRadius: 32,
+    borderTopRightRadius: 32,
+    marginTop: -30,
+    paddingHorizontal: 24,
+    paddingTop: 12,
+    ...Platform.select({
+      ios: {
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: -4 },
+        shadowOpacity: 0.06,
+        shadowRadius: 12,
+      },
+      android: { elevation: 8 },
+      default: {},
+    }),
+  },
+  handleBar: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: "#E0E0E0",
+    alignSelf: "center",
+    marginBottom: 28,
+  },
+  inputLabel: {
+    fontFamily: "Cairo_600SemiBold",
+    fontSize: 15,
+    color: "#444",
+    textAlign: "center",
+    marginBottom: 20,
   },
   otpRow: {
     flexDirection: "row",
     justifyContent: "center",
     gap: 14,
-    marginBottom: Spacing.lg,
+    marginBottom: 20,
   },
   otpInput: {
     width: 60,
     height: 60,
-    borderRadius: BorderRadius.lg,
+    borderRadius: 16,
     borderWidth: 2,
+    borderColor: "#EFEFEF",
+    backgroundColor: "#F7F7F7",
     textAlign: "center",
     fontSize: 24,
-    fontWeight: "700",
+    fontFamily: "Cairo_700Bold",
+    color: "#333",
+  },
+  otpInputFilled: {
+    borderColor: BRAND_ORANGE,
+    backgroundColor: "#FFF5EE",
+  },
+  errorRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    justifyContent: "center",
+    marginBottom: 12,
   },
   errorText: {
+    fontFamily: "Cairo_400Regular",
     color: AppColors.error,
-    textAlign: "center",
-    marginBottom: Spacing.md,
+    fontSize: 13,
   },
-  verifyButton: {
-    backgroundColor: AppColors.primary,
-    width: "100%",
-    height: 56,
-    borderRadius: 16,
-    justifyContent: "center",
-    alignItems: "center",
-    marginBottom: Spacing.lg,
+  verifyBtn: {
+    borderRadius: 14,
+    overflow: "hidden",
+    marginTop: 8,
+    ...Platform.select({
+      ios: {
+        shadowColor: BRAND_ORANGE,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 10,
+      },
+      android: { elevation: 6 },
+      default: {},
+    }),
   },
-  verifyButtonDisabled: {
+  verifyDisabled: {
     opacity: 0.7,
   },
-  verifyButtonText: {
+  verifyPressed: {
+    transform: [{ scale: 0.97 }],
+    opacity: 0.9,
+  },
+  verifyGradient: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 16,
+    gap: 10,
+  },
+  verifyText: {
+    fontFamily: "Cairo_700Bold",
+    fontSize: 17,
     color: "#FFFFFF",
-    fontSize: 18,
-    fontWeight: "bold",
+  },
+  verifyArrow: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: "#FFFFFF",
+    alignItems: "center",
+    justifyContent: "center",
   },
   resendRow: {
     flexDirection: "row",
     alignItems: "center",
+    justifyContent: "center",
     gap: 8,
+    marginTop: 24,
   },
   resendLabel: {
+    fontFamily: "Cairo_400Regular",
     fontSize: 14,
+    color: "#999",
   },
   timerText: {
+    fontFamily: "Cairo_400Regular",
     fontSize: 14,
+    color: "#999",
   },
   resendLink: {
-    color: AppColors.primary,
-    fontWeight: "700",
+    fontFamily: "Cairo_700Bold",
+    color: BRAND_ORANGE,
     fontSize: 14,
   },
 });
