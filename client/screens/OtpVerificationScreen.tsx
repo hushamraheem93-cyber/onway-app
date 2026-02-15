@@ -324,11 +324,16 @@ const styles = StyleSheet.create({
     fontSize: 24,
     color: "#FFFFFF",
     marginBottom: 4,
+    lineHeight: 42,
+    includeFontPadding: true,
+    paddingTop: 4,
   },
   headerSub: {
     fontFamily: "Cairo_400Regular",
     fontSize: 14,
     color: "rgba(255,255,255,0.85)",
+    lineHeight: 24,
+    includeFontPadding: true,
   },
   phoneText: {
     fontFamily: "Cairo_700Bold",

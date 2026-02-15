@@ -218,6 +218,7 @@ const styles = StyleSheet.create({
     marginTop: 28,
     alignItems: "center",
     paddingHorizontal: 8,
+    paddingTop: 6,
   },
   slideTitle: {
     fontFamily: "Cairo_700Bold",
@@ -225,13 +226,17 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
     textAlign: "center",
     marginBottom: 8,
+    lineHeight: 38,
+    includeFontPadding: true,
+    paddingTop: 4,
   },
   slideSubtitle: {
     fontFamily: "Cairo_400Regular",
     fontSize: 15,
     color: "rgba(255,255,255,0.75)",
     textAlign: "center",
-    lineHeight: 24,
+    lineHeight: 26,
+    includeFontPadding: true,
   },
   bottomSection: {
     paddingBottom: 12,
