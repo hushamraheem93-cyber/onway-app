@@ -15,8 +15,8 @@ import * as Haptics from "expo-haptics";
 import { ThemedText } from "@/components/ThemedText";
 import { useAuth } from "@/context/AuthContext";
 
-const BRAND_ORANGE = "#FF7622";
-const BRAND_DARK = "#E5691E";
+const BRAND_ORANGE = "#FF6B35";
+const BRAND_ORANGE_LIGHT = "#FF8C61";
 
 export default function UserTypeScreen() {
   const insets = useSafeAreaInsets();
@@ -50,7 +50,7 @@ export default function UserTypeScreen() {
   return (
     <View style={styles.container}>
       <LinearGradient
-        colors={[BRAND_ORANGE, BRAND_DARK]}
+        colors={[BRAND_ORANGE, BRAND_ORANGE_LIGHT]}
         style={[styles.topSection, { paddingTop: insets.top + 20 }]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
@@ -64,9 +64,14 @@ export default function UserTypeScreen() {
             { opacity: fadeAnim, transform: [{ scale: headerScale }] },
           ]}
         >
-          <View style={styles.logoRow}>
-            <ThemedText style={styles.logoOn}>On</ThemedText>
-            <ThemedText style={styles.logoWay}>Way</ThemedText>
+          <View style={styles.logoContainer}>
+            <View style={styles.logoBox}>
+              <Feather name="truck" size={22} color={BRAND_ORANGE} />
+            </View>
+            <View style={styles.logoTextContainer}>
+              <ThemedText style={styles.logoOn}>On</ThemedText>
+              <ThemedText style={styles.logoWay}>Way</ThemedText>
+            </View>
           </View>
           <ThemedText style={styles.headerTitle}>كيف تود استخدام التطبيق؟</ThemedText>
           <ThemedText style={styles.headerSub}>اختر نوع حسابك للمتابعة</ThemedText>
@@ -173,25 +178,39 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 6,
   },
-  logoRow: {
+  logoContainer: {
     flexDirection: "row",
     writingDirection: "ltr",
     alignItems: "center",
-    gap: 4,
+    gap: 10,
     marginBottom: 14,
+  },
+  logoBox: {
+    width: 40,
+    height: 40,
+    borderRadius: 10,
+    backgroundColor: "#FFFFFF",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  logoTextContainer: {
+    flexDirection: "row",
+    writingDirection: "ltr",
+    alignItems: "baseline",
   },
   logoOn: {
     fontFamily: "Kanit_700Bold",
     fontSize: 28,
     color: "#FFFFFF",
-    letterSpacing: 1,
+    letterSpacing: -1,
     writingDirection: "ltr",
   },
   logoWay: {
     fontFamily: "Kanit_700Bold",
     fontSize: 28,
-    color: "rgba(255,255,255,0.65)",
-    letterSpacing: 1,
+    color: "#FFFFFF",
+    opacity: 0.85,
+    letterSpacing: -1,
     writingDirection: "ltr",
   },
   headerTitle: {

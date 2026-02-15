@@ -1,0 +1,388 @@
+import React, { useState, useRef } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  TextInput,
+  Keyboard,
+  TouchableWithoutFeedback,
+  ActivityIndicator,
+  Alert,
+  Dimensions,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useNavigation, useRoute } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { RouteProp } from '@react-navigation/native';
+
+const { width, height } = Dimensions.get('window');
+
+type RootStackParamList = {
+  PhoneLogin: { userType: 'customer' | 'driver' };
+  OtpVerification: { 
+    phoneNumber: string; 
+    userType: 'customer' | 'driver';
+  };
+  MainTabs: undefined;
+};
+
+type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
+type PhoneLoginRouteProp = RouteProp<RootStackParamList, 'PhoneLogin'>;
+
+export default function PhoneLoginScreen() {
+  const navigation = useNavigation<NavigationProp>();
+  const route = useRoute<PhoneLoginRouteProp>();
+  const userType = route.params?.userType || 'customer';
+
+  const [phoneNumber, setPhoneNumber] = useState('');
+  const [loading, setLoading] = useState(false);
+  const inputRef = useRef<TextInput>(null);
+
+  const handleContinue = async () => {
+    if (phoneNumber.length < 10) {
+      Alert.alert('خطأ', 'الرجاء إدخال رقم هاتف صحيح');
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      // Simulate API call
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      navigation.navigate('OtpVerification', { 
+        phoneNumber: `+964${phoneNumber}`,
+        userType 
+      });
+    } catch (error) {
+      Alert.alert('خطأ', 'حدث خطأ أثناء إرسال رمز التحقق');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const formatPhoneNumber = (text: string) => {
+    const cleaned = text.replace(/\D/g, '');
+    return cleaned.substring(0, 10);
+  };
+
+  return (
+    <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+      <SafeAreaView style={styles.container}>
+        <LinearGradient
+          colors={['#FF6B35', '#FF8C61']}
+          style={styles.topSection}
+        >
+          {/* Logo */}
+          <View style={styles.logoContainer}>
+            <View style={styles.logoBox}>
+              <Text style={styles.logoIcon}>🚚</Text>
+            </View>
+            <View style={styles.logoTextContainer}>
+              <Text style={styles.logoOn}>On</Text>
+              <Text style={styles.logoWay}>Way</Text>
+            </View>
+          </View>
+
+          {/* Title */}
+          <View style={styles.headerContainer}>
+            <Text style={styles.title}>مرحباً بك</Text>
+            <Text style={styles.subtitle}>
+              سجل دخولك للبدء بالتسوق والتوصيل
+            </Text>
+          </View>
+        </LinearGradient>
+
+        {/* White Card */}
+        <View style={styles.card}>
+          {/* Phone Input Label */}
+          <Text style={styles.label}>رقم الهاتف</Text>
+
+          {/* Phone Input */}
+          <View style={styles.inputWrapper}>
+            <View style={styles.countryCode}>
+              <Text style={styles.flag}>🇮🇶</Text>
+              <Text style={styles.code}>+964</Text>
+            </View>
+
+            <TextInput
+              ref={inputRef}
+              style={styles.input}
+              placeholder="7XX XXX XXXX"
+              placeholderTextColor="#BDC3C7"
+              keyboardType="phone-pad"
+              value={phoneNumber}
+              onChangeText={(text) => setPhoneNumber(formatPhoneNumber(text))}
+              maxLength={10}
+              textAlign="right"
+            />
+          </View>
+
+          {/* Continue Button */}
+          <TouchableOpacity
+            style={[
+              styles.continueButton,
+              phoneNumber.length < 10 && styles.continueButtonDisabled,
+            ]}
+            onPress={handleContinue}
+            disabled={phoneNumber.length < 10 || loading}
+            activeOpacity={0.9}
+          >
+            <LinearGradient
+              colors={
+                phoneNumber.length < 10
+                  ? ['#BDC3C7', '#95A5A6']
+                  : ['#FF6B35', '#FF8C61']
+              }
+              style={styles.continueGradient}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+            >
+              {loading ? (
+                <ActivityIndicator color="#FFFFFF" size="small" />
+              ) : (
+                <>
+                  <Text style={styles.continueText}>إرسال رمز التحقق</Text>
+                  <Text style={styles.continueIcon}>←</Text>
+                </>
+              )}
+            </LinearGradient>
+          </TouchableOpacity>
+
+          {/* Divider */}
+          <View style={styles.divider}>
+            <View style={styles.dividerLine} />
+            <Text style={styles.dividerText}>أو</Text>
+            <View style={styles.dividerLine} />
+          </View>
+
+          {/* Features */}
+          <View style={styles.featuresContainer}>
+            <View style={styles.feature}>
+              <View style={styles.featureIcon}>
+                <Text style={styles.featureEmoji}>⚡</Text>
+              </View>
+              <Text style={styles.featureText}>توصيل سريع</Text>
+            </View>
+
+            <View style={styles.feature}>
+              <View style={styles.featureIcon}>
+                <Text style={styles.featureEmoji}>🛡️</Text>
+              </View>
+              <Text style={styles.featureText}>دفع آمن</Text>
+            </View>
+
+            <View style={styles.feature}>
+              <View style={styles.featureIcon}>
+                <Text style={styles.featureEmoji}>📍</Text>
+              </View>
+              <Text style={styles.featureText}>تتبع مباشر</Text>
+            </View>
+          </View>
+
+          {/* Terms */}
+          <Text style={styles.terms}>
+            بالمتابعة، أنت توافق على{' '}
+            <Text style={styles.link}>شروط الخدمة</Text>
+            {'\n'}و
+            <Text style={styles.link}> سياسة الخصوصية</Text>
+          </Text>
+        </View>
+      </SafeAreaView>
+    </TouchableWithoutFeedback>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+  },
+  topSection: {
+    paddingHorizontal: 24,
+    paddingTop: 20,
+    paddingBottom: 40,
+  },
+  logoContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 40,
+  },
+  logoBox: {
+    width: 44,
+    height: 44,
+    borderRadius: 10,
+    backgroundColor: '#FFFFFF',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  logoIcon: {
+    fontSize: 24,
+  },
+  logoTextContainer: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+  },
+  logoOn: {
+    fontFamily: 'Cairo_700Bold',
+    fontSize: 28,
+    color: '#FFFFFF',
+    letterSpacing: -1,
+  },
+  logoWay: {
+    fontFamily: 'Cairo_700Bold',
+    fontSize: 28,
+    color: '#FFFFFF',
+    letterSpacing: -1,
+  },
+  headerContainer: {
+    marginTop: 20,
+  },
+  title: {
+    fontFamily: 'Cairo_700Bold',
+    fontSize: 32,
+    color: '#FFFFFF',
+    marginBottom: 8,
+  },
+  subtitle: {
+    fontFamily: 'Cairo_400Regular',
+    fontSize: 16,
+    color: 'rgba(255, 255, 255, 0.9)',
+    lineHeight: 24,
+  },
+  card: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 32,
+    borderTopRightRadius: 32,
+    paddingHorizontal: 24,
+    paddingTop: 32,
+    marginTop: -20,
+  },
+  label: {
+    fontFamily: 'Cairo_600SemiBold',
+    fontSize: 16,
+    color: '#2C3E50',
+    marginBottom: 12,
+  },
+  inputWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F8F9FA',
+    borderRadius: 16,
+    borderWidth: 2,
+    borderColor: '#ECF0F1',
+    paddingHorizontal: 16,
+    paddingVertical: 4,
+    marginBottom: 24,
+  },
+  countryCode: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingLeft: 12,
+    borderLeftWidth: 1,
+    borderLeftColor: '#ECF0F1',
+    gap: 8,
+  },
+  flag: {
+    fontSize: 24,
+  },
+  code: {
+    fontFamily: 'Cairo_600SemiBold',
+    fontSize: 16,
+    color: '#2C3E50',
+  },
+  input: {
+    flex: 1,
+    fontFamily: 'Cairo_600SemiBold',
+    fontSize: 18,
+    color: '#2C3E50',
+    paddingVertical: 16,
+    paddingHorizontal: 16,
+  },
+  continueButton: {
+    borderRadius: 16,
+    overflow: 'hidden',
+    shadowColor: '#FF6B35',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+    marginBottom: 24,
+  },
+  continueButtonDisabled: {
+    shadowOpacity: 0.1,
+    elevation: 2,
+  },
+  continueGradient: {
+    flexDirection: 'row',
+    paddingVertical: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  continueText: {
+    fontFamily: 'Cairo_700Bold',
+    fontSize: 18,
+    color: '#FFFFFF',
+  },
+  continueIcon: {
+    fontSize: 20,
+    color: '#FFFFFF',
+  },
+  divider: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 24,
+    gap: 12,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: '#ECF0F1',
+  },
+  dividerText: {
+    fontFamily: 'Cairo_400Regular',
+    fontSize: 14,
+    color: '#95A5A6',
+  },
+  featuresContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginBottom: 32,
+  },
+  feature: {
+    alignItems: 'center',
+    gap: 8,
+  },
+  featureIcon: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#FFF5F0',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  featureEmoji: {
+    fontSize: 28,
+  },
+  featureText: {
+    fontFamily: 'Cairo_600SemiBold',
+    fontSize: 13,
+    color: '#7F8C8D',
+  },
+  terms: {
+    fontFamily: 'Cairo_400Regular',
+    fontSize: 12,
+    color: '#95A5A6',
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+  link: {
+    color: '#FF6B35',
+    textDecorationLine: 'underline',
+  },
+});
