@@ -601,6 +601,201 @@ export async function updateDriverStatus(id: string, status: "pending" | "approv
   }
 }
 
+// Banner Functions
+export interface FirestoreBanner {
+  image: string;
+  title?: string;
+  isActive: boolean;
+  type: "offer" | "slider";
+  order: number;
+}
+
+export async function getBanners(activeOnly: boolean = false): Promise<(FirestoreBanner & { id: string })[]> {
+  if (!db) return [];
+  try {
+    const snapshot = await db.collection("banners").orderBy("order").get();
+    const banners = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() as FirestoreBanner }));
+    return activeOnly ? banners.filter(b => b.isActive) : banners;
+  } catch (error) {
+    console.error("Error getting banners:", error);
+    return [];
+  }
+}
+
+export async function createBanner(data: {
+  image: string;
+  title?: string;
+  isActive?: boolean;
+  type?: "offer" | "slider";
+  order?: number;
+}): Promise<(FirestoreBanner & { id: string }) | null> {
+  if (!db) return null;
+  try {
+    const existing = await db.collection("banners").get();
+    const bannerDoc: FirestoreBanner = {
+      image: data.image || "",
+      title: data.title,
+      isActive: data.isActive !== false,
+      type: data.type || "slider",
+      order: data.order || existing.size + 1,
+    };
+    const docRef = await db.collection("banners").add(bannerDoc);
+    return { id: docRef.id, ...bannerDoc };
+  } catch (error) {
+    console.error("Error creating banner:", error);
+    return null;
+  }
+}
+
+export async function updateBanner(id: string, updates: Partial<FirestoreBanner>): Promise<(FirestoreBanner & { id: string }) | null> {
+  if (!db) return null;
+  try {
+    const docRef = db.collection("banners").doc(id);
+    const filteredUpdates: Record<string, any> = {};
+    Object.entries(updates).forEach(([key, value]) => {
+      if (value !== undefined) {
+        filteredUpdates[key] = value;
+      }
+    });
+    await docRef.update(filteredUpdates);
+    const doc = await docRef.get();
+    if (!doc.exists) return null;
+    return { id: doc.id, ...doc.data() as FirestoreBanner };
+  } catch (error) {
+    console.error("Error updating banner:", error);
+    return null;
+  }
+}
+
+export async function deleteBanner(id: string): Promise<boolean> {
+  if (!db) return false;
+  try {
+    await db.collection("banners").doc(id).delete();
+    return true;
+  } catch (error) {
+    console.error("Error deleting banner:", error);
+    return false;
+  }
+}
+
+export async function initializeDefaultBanners(defaultBanners: any[]): Promise<void> {
+  if (!db) return;
+  try {
+    const existing = await db.collection("banners").get();
+    if (existing.empty) {
+      console.log("Initializing default banners in Firestore...");
+      const batch = db.batch();
+      defaultBanners.forEach(banner => {
+        const docRef = db!.collection("banners").doc(banner.id);
+        batch.set(docRef, {
+          image: banner.image,
+          title: banner.title,
+          isActive: banner.isActive,
+          type: banner.type,
+          order: banner.order,
+        });
+      });
+      await batch.commit();
+      console.log("Default banners initialized successfully");
+    }
+  } catch (error) {
+    console.error("Error initializing default banners:", error);
+  }
+}
+
+// Delivery Area Functions
+export interface FirestoreDeliveryArea {
+  name: string;
+  fee: number;
+  isActive: boolean;
+}
+
+export async function getDeliveryAreas(activeOnly: boolean = false): Promise<(FirestoreDeliveryArea & { id: string })[]> {
+  if (!db) return [];
+  try {
+    const snapshot = await db.collection("deliveryAreas").get();
+    const areas = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() as FirestoreDeliveryArea }));
+    return activeOnly ? areas.filter(a => a.isActive) : areas;
+  } catch (error) {
+    console.error("Error getting delivery areas:", error);
+    return [];
+  }
+}
+
+export async function createDeliveryArea(data: {
+  name: string;
+  fee: number;
+  isActive?: boolean;
+}): Promise<(FirestoreDeliveryArea & { id: string }) | null> {
+  if (!db) return null;
+  try {
+    const areaDoc: FirestoreDeliveryArea = {
+      name: data.name,
+      fee: data.fee || 0,
+      isActive: data.isActive !== false,
+    };
+    const docRef = await db.collection("deliveryAreas").add(areaDoc);
+    return { id: docRef.id, ...areaDoc };
+  } catch (error) {
+    console.error("Error creating delivery area:", error);
+    return null;
+  }
+}
+
+export async function updateDeliveryArea(id: string, updates: Partial<FirestoreDeliveryArea>): Promise<(FirestoreDeliveryArea & { id: string }) | null> {
+  if (!db) return null;
+  try {
+    const docRef = db.collection("deliveryAreas").doc(id);
+    const filteredUpdates: Record<string, any> = {};
+    Object.entries(updates).forEach(([key, value]) => {
+      if (value !== undefined) {
+        filteredUpdates[key] = value;
+      }
+    });
+    await docRef.update(filteredUpdates);
+    const doc = await docRef.get();
+    if (!doc.exists) return null;
+    return { id: doc.id, ...doc.data() as FirestoreDeliveryArea };
+  } catch (error) {
+    console.error("Error updating delivery area:", error);
+    return null;
+  }
+}
+
+export async function deleteDeliveryArea(id: string): Promise<boolean> {
+  if (!db) return false;
+  try {
+    await db.collection("deliveryAreas").doc(id).delete();
+    return true;
+  } catch (error) {
+    console.error("Error deleting delivery area:", error);
+    return false;
+  }
+}
+
+export async function initializeDefaultDeliveryAreas(defaultAreas: any[]): Promise<void> {
+  if (!db) return;
+  try {
+    const existing = await db.collection("deliveryAreas").get();
+    if (existing.empty) {
+      console.log("Initializing default delivery areas in Firestore...");
+      const batch = db.batch();
+      defaultAreas.forEach(area => {
+        const docRef = db!.collection("deliveryAreas").doc(area.id);
+        batch.set(docRef, {
+          name: area.name,
+          fee: area.fee,
+          isActive: area.isActive,
+        });
+      });
+      await batch.commit();
+      console.log("Default delivery areas initialized successfully");
+    }
+  } catch (error) {
+    console.error("Error initializing default delivery areas:", error);
+  }
+}
+
 // OTP Functions
 const otpStore = new Map<string, { code: string; expiresAt: number }>();
 

@@ -14,6 +14,12 @@ import {
   getCategories as getFirestoreCategories, createCategory as createFirestoreCategory,
   updateCategory as updateFirestoreCategory, deleteCategory as deleteFirestoreCategory,
   initializeDefaultCategories,
+  getBanners as getFirestoreBanners, createBanner as createFirestoreBanner,
+  updateBanner as updateFirestoreBanner, deleteBanner as deleteFirestoreBanner,
+  initializeDefaultBanners,
+  getDeliveryAreas as getFirestoreDeliveryAreas, createDeliveryArea as createFirestoreDeliveryArea,
+  updateDeliveryArea as updateFirestoreDeliveryArea, deleteDeliveryArea as deleteFirestoreDeliveryArea,
+  initializeDefaultDeliveryAreas,
   generateOtp, verifyOtp as verifyOtpCode,
   getDrivers, getDriverByPhone, createDriver, updateDriverStatus as updateDriverStatusFn
 } from "./firebase";
@@ -143,8 +149,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const driverAssignments: Map<string, string> = new Map();
   const driverCompletedOrders: Map<string, { orderId: string; deliveryFee: number; total: number; customerName: string; completedAt: string }[]> = new Map();
 
-  // Initialize default categories in Firestore if empty
+  // Initialize defaults in Firestore if empty
   await initializeDefaultCategories(categories);
+  await initializeDefaultBanners(banners);
+  await initializeDefaultDeliveryAreas(deliveryAreas);
   
   app.use("/uploads", (req, res, next) => {
     res.setHeader("Access-Control-Allow-Origin", "*");
@@ -298,62 +306,82 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/banners", (req, res) => {
-    const type = req.query.type as string;
-    let result = banners.filter(b => b.isActive);
-    if (type) {
-      result = result.filter(b => b.type === type);
+  app.get("/api/banners", async (req, res) => {
+    try {
+      const type = req.query.type as string;
+      let result = await getFirestoreBanners(true);
+      if (type) {
+        result = result.filter(b => b.type === type);
+      }
+      res.json(result);
+    } catch (error) {
+      console.error("Error getting banners:", error);
+      res.json([]);
     }
-    res.json(result.sort((a, b) => a.order - b.order));
   });
 
-  app.get("/api/admin/banners", (req, res) => {
-    res.json(banners.sort((a, b) => a.order - b.order));
-  });
-
-  app.post("/api/admin/banners", (req: Request, res: Response) => {
-    const { title, type, order, isActive, image } = req.body;
-    
-    const newBanner: Banner = {
-      id: randomUUID(),
-      image: image || "",
-      title,
-      type: type || "slider",
-      order: parseInt(order) || banners.length + 1,
-      isActive: isActive !== false,
-    };
-    
-    banners.push(newBanner);
-    res.json(newBanner);
-  });
-
-  app.put("/api/admin/banners/:id", (req: Request, res: Response) => {
-    const index = banners.findIndex(b => b.id === req.params.id);
-    if (index === -1) {
-      return res.status(404).json({ error: "Banner not found" });
+  app.get("/api/admin/banners", async (req, res) => {
+    try {
+      const result = await getFirestoreBanners(false);
+      res.json(result);
+    } catch (error) {
+      console.error("Error getting admin banners:", error);
+      res.json([]);
     }
-    
-    const { title, type, order, isActive, image } = req.body;
-    
-    banners[index] = {
-      ...banners[index],
-      image: image || banners[index].image,
-      title: title !== undefined ? title : banners[index].title,
-      type: type || banners[index].type,
-      order: order ? parseInt(order) : banners[index].order,
-      isActive: isActive !== undefined ? isActive : banners[index].isActive,
-    };
-    
-    res.json(banners[index]);
   });
 
-  app.delete("/api/admin/banners/:id", (req, res) => {
-    const index = banners.findIndex(b => b.id === req.params.id);
-    if (index === -1) {
-      return res.status(404).json({ error: "Banner not found" });
+  app.post("/api/admin/banners", async (req: Request, res: Response) => {
+    try {
+      const { title, type, order, isActive, image } = req.body;
+      const banner = await createFirestoreBanner({
+        image: image || "",
+        title,
+        type: type || "slider",
+        order: order ? parseInt(order) : undefined,
+        isActive: isActive !== false,
+      });
+      if (!banner) {
+        return res.status(500).json({ error: "Failed to create banner" });
+      }
+      res.json(banner);
+    } catch (error) {
+      console.error("Error creating banner:", error);
+      res.status(500).json({ error: "Failed to create banner" });
     }
-    banners.splice(index, 1);
-    res.json({ success: true });
+  });
+
+  app.put("/api/admin/banners/:id", async (req: Request, res: Response) => {
+    try {
+      const { title, type, order, isActive, image } = req.body;
+      const updates: Record<string, any> = {};
+      if (image) updates.image = image;
+      if (title !== undefined) updates.title = title;
+      if (type) updates.type = type;
+      if (order !== undefined) updates.order = parseInt(order);
+      if (isActive !== undefined) updates.isActive = isActive;
+      
+      const banner = await updateFirestoreBanner(req.params.id, updates);
+      if (!banner) {
+        return res.status(404).json({ error: "Banner not found" });
+      }
+      res.json(banner);
+    } catch (error) {
+      console.error("Error updating banner:", error);
+      res.status(500).json({ error: "Failed to update banner" });
+    }
+  });
+
+  app.delete("/api/admin/banners/:id", async (req, res) => {
+    try {
+      const success = await deleteFirestoreBanner(req.params.id);
+      if (!success) {
+        return res.status(404).json({ error: "Banner not found" });
+      }
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting banner:", error);
+      res.status(500).json({ error: "Failed to delete banner" });
+    }
   });
 
   app.get("/api/products", async (req, res) => {
@@ -507,53 +535,74 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json({ success: true });
   });
 
-  app.get("/api/delivery-areas", (req, res) => {
-    res.json(deliveryAreas.filter(a => a.isActive));
-  });
-
-  app.get("/api/admin/delivery-areas", (req, res) => {
-    res.json(deliveryAreas);
-  });
-
-  app.post("/api/admin/delivery-areas", (req: Request, res: Response) => {
-    const { name, fee } = req.body;
-    
-    const newArea: DeliveryArea = {
-      id: randomUUID(),
-      name,
-      fee: parseInt(fee) || 0,
-      isActive: true,
-    };
-    
-    deliveryAreas.push(newArea);
-    res.json(newArea);
-  });
-
-  app.put("/api/admin/delivery-areas/:id", (req: Request, res: Response) => {
-    const index = deliveryAreas.findIndex(a => a.id === req.params.id);
-    if (index === -1) {
-      return res.status(404).json({ error: "Delivery area not found" });
+  app.get("/api/delivery-areas", async (req, res) => {
+    try {
+      const areas = await getFirestoreDeliveryAreas(true);
+      res.json(areas);
+    } catch (error) {
+      console.error("Error getting delivery areas:", error);
+      res.json([]);
     }
-    
-    const { name, fee, isActive } = req.body;
-    
-    deliveryAreas[index] = {
-      ...deliveryAreas[index],
-      name: name || deliveryAreas[index].name,
-      fee: fee ? parseInt(fee) : deliveryAreas[index].fee,
-      isActive: isActive !== undefined ? isActive !== "false" : deliveryAreas[index].isActive,
-    };
-    
-    res.json(deliveryAreas[index]);
   });
 
-  app.delete("/api/admin/delivery-areas/:id", (req, res) => {
-    const index = deliveryAreas.findIndex(a => a.id === req.params.id);
-    if (index === -1) {
-      return res.status(404).json({ error: "Delivery area not found" });
+  app.get("/api/admin/delivery-areas", async (req, res) => {
+    try {
+      const areas = await getFirestoreDeliveryAreas(false);
+      res.json(areas);
+    } catch (error) {
+      console.error("Error getting admin delivery areas:", error);
+      res.json([]);
     }
-    deliveryAreas.splice(index, 1);
-    res.json({ success: true });
+  });
+
+  app.post("/api/admin/delivery-areas", async (req: Request, res: Response) => {
+    try {
+      const { name, fee } = req.body;
+      const area = await createFirestoreDeliveryArea({
+        name,
+        fee: parseInt(fee) || 0,
+        isActive: true,
+      });
+      if (!area) {
+        return res.status(500).json({ error: "Failed to create delivery area" });
+      }
+      res.json(area);
+    } catch (error) {
+      console.error("Error creating delivery area:", error);
+      res.status(500).json({ error: "Failed to create delivery area" });
+    }
+  });
+
+  app.put("/api/admin/delivery-areas/:id", async (req: Request, res: Response) => {
+    try {
+      const { name, fee, isActive } = req.body;
+      const updates: Record<string, any> = {};
+      if (name !== undefined) updates.name = name;
+      if (fee !== undefined) updates.fee = parseInt(fee);
+      if (isActive !== undefined) updates.isActive = isActive !== "false" && isActive !== false;
+      
+      const area = await updateFirestoreDeliveryArea(req.params.id, updates);
+      if (!area) {
+        return res.status(404).json({ error: "Delivery area not found" });
+      }
+      res.json(area);
+    } catch (error) {
+      console.error("Error updating delivery area:", error);
+      res.status(500).json({ error: "Failed to update delivery area" });
+    }
+  });
+
+  app.delete("/api/admin/delivery-areas/:id", async (req, res) => {
+    try {
+      const success = await deleteFirestoreDeliveryArea(req.params.id);
+      if (!success) {
+        return res.status(404).json({ error: "Delivery area not found" });
+      }
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting delivery area:", error);
+      res.status(500).json({ error: "Failed to delete delivery area" });
+    }
   });
 
   // Order Routes
