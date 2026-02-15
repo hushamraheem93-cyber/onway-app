@@ -184,13 +184,17 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "rgba(255,255,255,0.8)",
   },
-  logoWrap: {},
+  logoWrap: {
+    paddingVertical: 6,
+  },
   logoText: {
     fontFamily: "Montserrat_800ExtraBold",
     fontSize: 28,
     color: "#FFFFFF",
     letterSpacing: 1,
     writingDirection: "ltr",
+    lineHeight: 38,
+    includeFontPadding: true,
   },
   expandedCenter: {
     flex: 1,

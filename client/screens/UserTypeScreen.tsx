@@ -195,8 +195,8 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   logoWrap: {
-    direction: "ltr",
     marginBottom: 14,
+    paddingVertical: 6,
   },
   logoText: {
     fontFamily: "Montserrat_800ExtraBold",
@@ -204,6 +204,9 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
     letterSpacing: 1,
     textAlign: "center",
+    writingDirection: "ltr",
+    lineHeight: 38,
+    includeFontPadding: true,
   },
   headerTitle: {
     fontFamily: "Cairo_700Bold",

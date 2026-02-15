@@ -301,6 +301,7 @@ const styles = StyleSheet.create({
   },
   logoWrap: {
     marginBottom: 16,
+    paddingVertical: 6,
   },
   logoText: {
     fontFamily: "Montserrat_800ExtraBold",
@@ -309,6 +310,8 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
     textAlign: "center",
     writingDirection: "ltr",
+    lineHeight: 38,
+    includeFontPadding: true,
   },
   shieldCircle: {
     width: 72,
