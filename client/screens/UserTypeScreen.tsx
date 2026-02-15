@@ -51,7 +51,7 @@ export default function UserTypeScreen() {
     <View style={styles.container}>
       <LinearGradient
         colors={[BRAND_ORANGE, BRAND_DARK]}
-        style={[styles.topSection, { paddingTop: insets.top + 20 }]}
+        style={[styles.topSection, { paddingTop: insets.top + 40 }]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
       >

@@ -60,47 +60,27 @@ export default function RootStackNavigator() {
     if (!isOtpSent) {
       return (
         <>
-          <Stack.Screen
-            name="Splash"
-            component={SplashScreen}
-            options={{ headerShown: false }}
-          />
-          <Stack.Screen
-            name="PhoneLogin"
-            component={PhoneLoginScreen}
-            options={{ headerShown: false }}
-          />
+          <Stack.Screen name="Splash" component={SplashScreen} />
+          <Stack.Screen name="PhoneLogin" component={PhoneLoginScreen} />
         </>
       );
     }
 
     if (!isOtpVerified) {
       return (
-        <Stack.Screen
-          name="OtpVerification"
-          component={OtpVerificationScreen}
-          options={{ headerShown: false }}
-        />
+        <Stack.Screen name="OtpVerification" component={OtpVerificationScreen} />
       );
     }
 
     if (!selectedUserType) {
       return (
-        <Stack.Screen
-          name="UserType"
-          component={UserTypeScreen}
-          options={{ headerShown: false }}
-        />
+        <Stack.Screen name="UserType" component={UserTypeScreen} />
       );
     }
 
     if (selectedUserType === "driver" && !isDriverRegistered) {
       return (
-        <Stack.Screen
-          name="DriverRegistration"
-          component={DriverRegistrationScreen}
-          options={{ headerShown: false }}
-        />
+        <Stack.Screen name="DriverRegistration" component={DriverRegistrationScreen} />
       );
     }
 
@@ -111,7 +91,16 @@ export default function RootStackNavigator() {
 
   if (needsAuth && !isLoggedIn) {
     return (
-      <Stack.Navigator screenOptions={screenOptions}>
+      <Stack.Navigator
+        screenOptions={{
+          headerShown: false,
+          headerTransparent: false,
+          contentStyle: { backgroundColor: "transparent" },
+          gestureEnabled: true,
+          gestureDirection: "horizontal",
+          animation: "slide_from_left",
+        }}
+      >
         {renderAuthScreens()}
       </Stack.Navigator>
     );
