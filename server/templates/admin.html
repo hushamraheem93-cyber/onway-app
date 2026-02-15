@@ -2791,24 +2791,34 @@
       event.preventDefault();
       
       const id = document.getElementById('category-id').value;
-      const formData = new FormData();
-      formData.append('name', document.getElementById('category-name').value);
-      formData.append('order', document.getElementById('category-order').value);
-      
       const fileInput = document.getElementById('category-file');
       const imageUrl = document.getElementById('category-image').value;
       
+      let imageData = imageUrl || '';
+      
       if (fileInput.files[0]) {
-        formData.append('image', fileInput.files[0]);
-      } else if (imageUrl) {
-        formData.append('imageUrl', imageUrl);
+        try {
+          imageData = await fileToBase64(fileInput.files[0]);
+        } catch (e) {
+          console.error('Error converting file to Base64:', e);
+        }
       }
+      
+      const categoryData = {
+        name: document.getElementById('category-name').value,
+        order: document.getElementById('category-order').value,
+        image: imageData
+      };
       
       try {
         const url = id ? `${API_BASE}/admin/categories/${id}` : `${API_BASE}/admin/categories`;
         const method = id ? 'PUT' : 'POST';
         
-        const response = await fetch(url, { method, body: formData });
+        const response = await fetch(url, { 
+          method, 
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(categoryData) 
+        });
         
         if (response.ok) {
           closeModal('category-modal');
@@ -2907,26 +2917,36 @@
       event.preventDefault();
       
       const id = document.getElementById('banner-id').value;
-      const formData = new FormData();
-      formData.append('title', document.getElementById('banner-title').value);
-      formData.append('order', document.getElementById('banner-order').value);
-      formData.append('isActive', document.getElementById('banner-active').value);
-      formData.append('type', 'slider');
-      
       const fileInput = document.getElementById('banner-file');
       const imageUrl = document.getElementById('banner-image').value;
       
+      let imageData = imageUrl || '';
+      
       if (fileInput.files[0]) {
-        formData.append('image', fileInput.files[0]);
-      } else if (imageUrl) {
-        formData.append('imageUrl', imageUrl);
+        try {
+          imageData = await fileToBase64(fileInput.files[0]);
+        } catch (e) {
+          console.error('Error converting file to Base64:', e);
+        }
       }
+      
+      const bannerData = {
+        title: document.getElementById('banner-title').value,
+        order: parseInt(document.getElementById('banner-order').value),
+        isActive: document.getElementById('banner-active').value === 'true',
+        type: 'slider',
+        image: imageData
+      };
       
       try {
         const url = id ? `${API_BASE}/admin/banners/${id}` : `${API_BASE}/admin/banners`;
         const method = id ? 'PUT' : 'POST';
         
-        const response = await fetch(url, { method, body: formData });
+        const response = await fetch(url, { 
+          method, 
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(bannerData) 
+        });
         
         if (response.ok) {
           closeModal('banner-modal');
