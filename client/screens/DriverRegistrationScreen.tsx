@@ -31,7 +31,9 @@ export default function DriverRegistrationScreen() {
   const [secondName, setSecondName] = useState("");
   const [thirdName, setThirdName] = useState("");
   const [fourthName, setFourthName] = useState("");
+  const [motorcycleNumber, setMotorcycleNumber] = useState("");
   const [nationalIdImage, setNationalIdImage] = useState<string | null>(null);
+  const [residenceCardImage, setResidenceCardImage] = useState<string | null>(null);
   const [driverLicenseImage, setDriverLicenseImage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [imagePickerModal, setImagePickerModal] = useState<{
@@ -46,7 +48,9 @@ export default function DriverRegistrationScreen() {
     secondName.trim().length > 0 &&
     thirdName.trim().length > 0 &&
     fourthName.trim().length > 0 &&
-    nationalIdImage !== null;
+    motorcycleNumber.trim().length > 0 &&
+    nationalIdImage !== null &&
+    residenceCardImage !== null;
 
   const pickImage = async (setter: (uri: string) => void) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -113,7 +117,7 @@ export default function DriverRegistrationScreen() {
   };
 
   const handleSubmit = async () => {
-    if (!isFormValid || !phoneNumber || !nationalIdImage) return;
+    if (!isFormValid || !phoneNumber || !nationalIdImage || !residenceCardImage) return;
 
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setIsLoading(true);
@@ -124,6 +128,11 @@ export default function DriverRegistrationScreen() {
       let nationalIdBase64 = "";
       if (nationalIdImage) {
         nationalIdBase64 = await compressAndConvertToBase64(nationalIdImage, "product");
+      }
+
+      let residenceCardBase64 = "";
+      if (residenceCardImage) {
+        residenceCardBase64 = await compressAndConvertToBase64(residenceCardImage, "product");
       }
 
       let driverLicenseBase64 = "";
@@ -141,7 +150,9 @@ export default function DriverRegistrationScreen() {
           secondName: secondName.trim(),
           thirdName: thirdName.trim(),
           fourthName: fourthName.trim(),
+          motorcycleNumber: motorcycleNumber.trim(),
           nationalIdImage: nationalIdBase64,
+          residenceCardImage: residenceCardBase64,
           ...(driverLicenseBase64 && { driverLicenseImage: driverLicenseBase64 }),
         }),
       });
@@ -274,6 +285,19 @@ export default function DriverRegistrationScreen() {
       </View>
 
       <View style={[styles.card, { backgroundColor: theme.backgroundDefault }, Shadows.sm]}>
+        <ThemedText type="h4" style={styles.sectionTitle}>رقم الدراجة النارية</ThemedText>
+        <TextInput
+          style={[styles.input, { backgroundColor: theme.backgroundSecondary, color: theme.text, borderColor: theme.border }]}
+          placeholder="أدخل رقم الدراجة النارية"
+          placeholderTextColor={theme.textSecondary}
+          value={motorcycleNumber}
+          onChangeText={setMotorcycleNumber}
+          textAlign="right"
+          testID="input-motorcycle-number"
+        />
+      </View>
+
+      <View style={[styles.card, { backgroundColor: theme.backgroundDefault }, Shadows.sm]}>
         <ThemedText type="h4" style={styles.sectionTitle}>صورة البطاقة الوطنية</ThemedText>
         <ThemedText type="small" style={[styles.idHint, { color: theme.textSecondary }]}>
           التقط صورة واضحة للوجه الأمامي للبطاقة الوطنية
@@ -301,6 +325,40 @@ export default function DriverRegistrationScreen() {
               <Feather name="camera" size={36} color={theme.textSecondary} />
               <ThemedText type="body" style={[styles.idPlaceholderText, { color: theme.textSecondary }]}>
                 اضغط لإضافة صورة البطاقة الوطنية
+              </ThemedText>
+            </View>
+          )}
+        </Pressable>
+      </View>
+
+      <View style={[styles.card, { backgroundColor: theme.backgroundDefault }, Shadows.sm]}>
+        <ThemedText type="h4" style={styles.sectionTitle}>صورة بطاقة السكن</ThemedText>
+        <ThemedText type="small" style={[styles.idHint, { color: theme.textSecondary }]}>
+          التقط صورة واضحة لبطاقة السكن
+        </ThemedText>
+
+        <Pressable
+          style={[styles.idUpload, { borderColor: residenceCardImage ? "#4CAF50" : theme.border, backgroundColor: theme.backgroundSecondary }]}
+          onPress={() => showImageOptions(setResidenceCardImage, "صورة بطاقة السكن")}
+          testID="button-upload-residence-card"
+        >
+          {residenceCardImage ? (
+            <View>
+              <Image
+                source={{ uri: residenceCardImage }}
+                style={styles.idPreview}
+                contentFit="cover"
+              />
+              <View style={[styles.uploadedBadge, { backgroundColor: "#4CAF50" }]}>
+                <Feather name="check-circle" size={16} color="#FFFFFF" />
+                <ThemedText type="small" style={styles.uploadedText}>تم الرفع</ThemedText>
+              </View>
+            </View>
+          ) : (
+            <View style={styles.idPlaceholder}>
+              <Feather name="home" size={36} color={theme.textSecondary} />
+              <ThemedText type="body" style={[styles.idPlaceholderText, { color: theme.textSecondary }]}>
+                اضغط لإضافة صورة بطاقة السكن
               </ThemedText>
             </View>
           )}
