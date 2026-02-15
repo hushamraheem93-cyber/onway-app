@@ -75,7 +75,9 @@ export default function SplashScreen() {
 
   const handleNext = () => {
     if (activeIndex < SLIDES.length - 1) {
-      flatListRef.current?.scrollToIndex({ index: activeIndex + 1, animated: true });
+      const nextIndex = activeIndex + 1;
+      setActiveIndex(nextIndex);
+      flatListRef.current?.scrollToIndex({ index: nextIndex, animated: true });
     } else {
       navigation.navigate("PhoneLogin");
     }
@@ -230,6 +232,7 @@ const styles = StyleSheet.create({
   },
   logoRow: {
     flexDirection: "row",
+    writingDirection: "ltr",
     alignItems: "center",
     gap: 4,
   },
@@ -238,12 +241,14 @@ const styles = StyleSheet.create({
     fontSize: 28,
     color: "#FFFFFF",
     letterSpacing: 1,
+    writingDirection: "ltr",
   },
   logoWay: {
     fontFamily: "Kanit_700Bold",
     fontSize: 28,
     color: "rgba(255,255,255,0.65)",
     letterSpacing: 1,
+    writingDirection: "ltr",
   },
   flatList: {
     flexGrow: 0,
