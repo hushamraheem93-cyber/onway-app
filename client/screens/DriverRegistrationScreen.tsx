@@ -38,9 +38,9 @@ export default function DriverRegistrationScreen() {
   const [isLoading, setIsLoading] = useState(false);
   const [imagePickerModal, setImagePickerModal] = useState<{
     visible: boolean;
-    setter: ((uri: string) => void) | null;
+    imageType: "nationalId" | "residenceCard" | "driverLicense" | null;
     title: string;
-  }>({ visible: false, setter: null, title: "" });
+  }>({ visible: false, imageType: null, title: "" });
   const [errorMessage, setErrorMessage] = useState("");
 
   const isFormValid =
@@ -52,9 +52,17 @@ export default function DriverRegistrationScreen() {
     nationalIdImage !== null &&
     residenceCardImage !== null;
 
-  const pickImage = async (setter: (uri: string) => void) => {
+  const getSetterForType = (imageType: "nationalId" | "residenceCard" | "driverLicense") => {
+    switch (imageType) {
+      case "nationalId": return setNationalIdImage;
+      case "residenceCard": return setResidenceCardImage;
+      case "driverLicense": return setDriverLicenseImage;
+    }
+  };
+
+  const pickImageForType = async (imageType: "nationalId" | "residenceCard" | "driverLicense") => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setImagePickerModal({ visible: false, setter: null, title: "" });
+    setImagePickerModal({ visible: false, imageType: null, title: "" });
 
     try {
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -70,6 +78,7 @@ export default function DriverRegistrationScreen() {
       });
 
       if (!result.canceled && result.assets[0]) {
+        const setter = getSetterForType(imageType);
         setter(result.assets[0].uri);
       }
     } catch (error) {
@@ -78,12 +87,12 @@ export default function DriverRegistrationScreen() {
     }
   };
 
-  const takePhoto = async (setter: (uri: string) => void) => {
+  const takePhotoForType = async (imageType: "nationalId" | "residenceCard" | "driverLicense") => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setImagePickerModal({ visible: false, setter: null, title: "" });
+    setImagePickerModal({ visible: false, imageType: null, title: "" });
 
     if (Platform.OS === "web") {
-      await pickImage(setter);
+      await pickImageForType(imageType);
       return;
     }
 
@@ -100,6 +109,7 @@ export default function DriverRegistrationScreen() {
       });
 
       if (!result.canceled && result.assets[0]) {
+        const setter = getSetterForType(imageType);
         setter(result.assets[0].uri);
       }
     } catch (error) {
@@ -108,12 +118,12 @@ export default function DriverRegistrationScreen() {
     }
   };
 
-  const showImageOptions = (setter: (uri: string) => void, title: string) => {
+  const showImageOptions = (imageType: "nationalId" | "residenceCard" | "driverLicense", title: string) => {
     if (Platform.OS === "web") {
-      pickImage(setter);
+      pickImageForType(imageType);
       return;
     }
-    setImagePickerModal({ visible: true, setter, title });
+    setImagePickerModal({ visible: true, imageType, title });
   };
 
   const handleSubmit = async () => {
@@ -305,7 +315,7 @@ export default function DriverRegistrationScreen() {
 
         <Pressable
           style={[styles.idUpload, { borderColor: nationalIdImage ? AppColors.primary : theme.border, backgroundColor: theme.backgroundSecondary }]}
-          onPress={() => showImageOptions(setNationalIdImage, "صورة البطاقة الوطنية")}
+          onPress={() => showImageOptions("nationalId", "صورة البطاقة الوطنية")}
           testID="button-upload-id"
         >
           {nationalIdImage ? (
@@ -339,7 +349,7 @@ export default function DriverRegistrationScreen() {
 
         <Pressable
           style={[styles.idUpload, { borderColor: residenceCardImage ? "#4CAF50" : theme.border, backgroundColor: theme.backgroundSecondary }]}
-          onPress={() => showImageOptions(setResidenceCardImage, "صورة بطاقة السكن")}
+          onPress={() => showImageOptions("residenceCard", "صورة بطاقة السكن")}
           testID="button-upload-residence-card"
         >
           {residenceCardImage ? (
@@ -378,7 +388,7 @@ export default function DriverRegistrationScreen() {
 
         <Pressable
           style={[styles.idUpload, { borderColor: driverLicenseImage ? "#4CAF50" : theme.border, backgroundColor: theme.backgroundSecondary }]}
-          onPress={() => showImageOptions(setDriverLicenseImage, "صورة إجازة السوق")}
+          onPress={() => showImageOptions("driverLicense", "صورة إجازة السوق")}
           testID="button-upload-license"
         >
           {driverLicenseImage ? (
@@ -432,12 +442,12 @@ export default function DriverRegistrationScreen() {
         visible={imagePickerModal.visible}
         transparent
         animationType="fade"
-        onRequestClose={() => setImagePickerModal({ visible: false, setter: null, title: "" })}
+        onRequestClose={() => setImagePickerModal({ visible: false, imageType: null, title: "" })}
       >
         <View style={styles.modalOverlay}>
           <Pressable
             style={StyleSheet.absoluteFill}
-            onPress={() => setImagePickerModal({ visible: false, setter: null, title: "" })}
+            onPress={() => setImagePickerModal({ visible: false, imageType: null, title: "" })}
           />
           <View style={[styles.modalContent, { backgroundColor: theme.backgroundDefault }]}>
             <ThemedText type="h4" style={styles.modalTitle}>{imagePickerModal.title}</ThemedText>
@@ -447,7 +457,7 @@ export default function DriverRegistrationScreen() {
 
             <Pressable
               style={[styles.modalOption, { backgroundColor: theme.backgroundSecondary }]}
-              onPress={() => imagePickerModal.setter && takePhoto(imagePickerModal.setter)}
+              onPress={() => imagePickerModal.imageType && takePhotoForType(imagePickerModal.imageType)}
               testID="button-take-photo"
             >
               <Feather name="camera" size={22} color={AppColors.primary} />
@@ -456,7 +466,7 @@ export default function DriverRegistrationScreen() {
 
             <Pressable
               style={[styles.modalOption, { backgroundColor: theme.backgroundSecondary }]}
-              onPress={() => imagePickerModal.setter && pickImage(imagePickerModal.setter)}
+              onPress={() => imagePickerModal.imageType && pickImageForType(imagePickerModal.imageType)}
               testID="button-pick-image"
             >
               <Feather name="image" size={22} color={AppColors.primary} />
@@ -465,7 +475,7 @@ export default function DriverRegistrationScreen() {
 
             <Pressable
               style={[styles.modalCancel, { borderColor: theme.border }]}
-              onPress={() => setImagePickerModal({ visible: false, setter: null, title: "" })}
+              onPress={() => setImagePickerModal({ visible: false, imageType: null, title: "" })}
             >
               <ThemedText type="body" style={{ color: theme.textSecondary, fontWeight: "600" }}>إلغاء</ThemedText>
             </Pressable>
