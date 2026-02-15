@@ -60,22 +60,22 @@ export default function PhoneLoginScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea} edges={["top", "bottom", "left", "right"]}>
-      {navigation.canGoBack() ? (
-        <Pressable
-          style={styles.backBtn}
-          onPress={() => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            navigation.goBack();
-          }}
-          testID="button-back"
-        >
-          <Feather name="arrow-right" size={22} color="#FFFFFF" />
-        </Pressable>
-      ) : null}
       <KeyboardAvoidingView
         style={styles.keyboardView}
         behavior={Platform.OS === "ios" ? "padding" : "height"}
       >
+        {navigation.canGoBack() ? (
+          <Pressable
+            style={styles.backBtn}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              navigation.goBack();
+            }}
+            testID="button-back"
+          >
+            <Feather name="arrow-right" size={22} color="#FFFFFF" />
+          </Pressable>
+        ) : null}
         <View style={styles.centered}>
           <View style={styles.logoWrap}>
             <ThemedText style={styles.logoText}>OnWay</ThemedText>

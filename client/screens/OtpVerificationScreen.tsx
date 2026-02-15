@@ -136,22 +136,22 @@ export default function OtpVerificationScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
-      <Pressable
-        style={styles.backBtn}
-        onPress={() => {
-          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-          goBackToPhoneLogin();
-        }}
-        testID="button-back"
-      >
-        <Feather name="arrow-right" size={22} color="#FFFFFF" />
-      </Pressable>
       <LinearGradient
         colors={[BRAND_ORANGE, BRAND_DARK]}
         style={[styles.topSection, { paddingTop: 20 }]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
       >
+        <Pressable
+          style={styles.backBtn}
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            goBackToPhoneLogin();
+          }}
+          testID="button-back"
+        >
+          <Feather name="arrow-right" size={22} color="#FFFFFF" />
+        </Pressable>
         <View style={styles.decorCircle1} />
         <View style={styles.decorCircle2} />
 

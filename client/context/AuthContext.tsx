@@ -31,6 +31,7 @@ interface AuthContextType {
   isOtpVerified: boolean;
   selectedUserType: UserType | null;
   isDriverRegistered: boolean;
+  hasSeenSplash: boolean;
   sendOtp: (phone: string) => Promise<void>;
   verifyOtp: (code: string) => Promise<void>;
   setUserType: (type: UserType) => void;
@@ -42,6 +43,7 @@ interface AuthContextType {
   goBackToUserType: () => void;
   goBackToPhoneLogin: () => void;
   goBackToOtp: () => void;
+  markSplashSeen: () => void;
   isLoading: boolean;
 }
 
@@ -122,6 +124,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isOtpVerified, setIsOtpVerified] = useState(false);
   const [selectedUserType, setSelectedUserType] = useState<UserType | null>(null);
   const [isDriverRegistered, setIsDriverRegistered] = useState(false);
+  const [hasSeenSplash, setHasSeenSplash] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -276,7 +279,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setIsDriverRegistered(false);
   };
 
+  const markSplashSeen = () => {
+    setHasSeenSplash(true);
+  };
+
   const goBackToPhoneLogin = () => {
+    setHasSeenSplash(true);
     setIsOtpSent(false);
     setIsOtpVerified(false);
     setPendingPhone(null);
@@ -326,6 +334,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setIsOtpVerified(false);
       setSelectedUserType(null);
       setIsDriverRegistered(false);
+      setHasSeenSplash(false);
     } catch (error) {
       console.error("Error removing auth state:", error);
       throw error;
@@ -392,6 +401,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         isOtpVerified,
         selectedUserType,
         isDriverRegistered,
+        hasSeenSplash,
         sendOtp,
         verifyOtp,
         setUserType,
@@ -403,6 +413,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         goBackToUserType,
         goBackToPhoneLogin,
         goBackToOtp,
+        markSplashSeen,
         isLoading 
       }}
     >

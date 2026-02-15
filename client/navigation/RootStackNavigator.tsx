@@ -46,7 +46,7 @@ const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export default function RootStackNavigator() {
   const screenOptions = useScreenOptions();
-  const { isLoggedIn, isLoading, isProfileComplete, isOtpSent, isOtpVerified, selectedUserType, isDriverRegistered } = useAuth();
+  const { isLoggedIn, isLoading, isProfileComplete, isOtpSent, isOtpVerified, selectedUserType, isDriverRegistered, hasSeenSplash } = useAuth();
 
   if (isLoading) {
     return (
@@ -58,6 +58,11 @@ export default function RootStackNavigator() {
 
   const renderAuthScreens = () => {
     if (!isOtpSent) {
+      if (hasSeenSplash) {
+        return (
+          <Stack.Screen name="PhoneLogin" component={PhoneLoginScreen} />
+        );
+      }
       return (
         <>
           <Stack.Screen name="Splash" component={SplashScreen} />

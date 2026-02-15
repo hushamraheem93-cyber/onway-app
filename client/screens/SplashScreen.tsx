@@ -15,6 +15,7 @@ import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 
 import { ThemedText } from "@/components/ThemedText";
+import { useAuth } from "@/context/AuthContext";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
@@ -58,6 +59,7 @@ const IMAGE_SIZE = SCREEN_WIDTH * 0.45;
 
 export default function SplashScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const { markSplashSeen } = useAuth();
   const flatListRef = useRef<FlatList>(null);
   const [activeIndex, setActiveIndex] = useState(0);
 
@@ -80,11 +82,13 @@ export default function SplashScreen() {
       setActiveIndex(nextIndex);
       flatListRef.current?.scrollToIndex({ index: nextIndex, animated: true });
     } else {
+      markSplashSeen();
       navigation.navigate("PhoneLogin");
     }
   };
 
   const handleSkip = () => {
+    markSplashSeen();
     navigation.navigate("PhoneLogin");
   };
 
