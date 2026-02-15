@@ -8,7 +8,7 @@ import {
   Platform,
   ActivityIndicator,
 } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { Image } from "expo-image";
 import * as Haptics from "expo-haptics";
 import { Feather } from "@expo/vector-icons";
@@ -19,7 +19,6 @@ import { useAuth } from "@/context/AuthContext";
 const BRAND_ORANGE = "#FF7622";
 
 export default function PhoneLoginScreen() {
-  const insets = useSafeAreaInsets();
   const { sendOtp } = useAuth();
   const [phoneNumber, setPhoneNumber] = useState("");
   const [error, setError] = useState("");
@@ -58,78 +57,83 @@ export default function PhoneLoginScreen() {
   };
 
   return (
-    <KeyboardAvoidingView
-      style={[styles.container, { paddingTop: insets.top, paddingBottom: insets.bottom }]}
-      behavior={Platform.OS === "ios" ? "padding" : "height"}
-    >
-      <View style={styles.centered}>
-        <View style={styles.logoWrap}>
-          <ThemedText style={styles.logoText}>OnWay</ThemedText>
-        </View>
-
-        <View style={styles.formBlock}>
-          <View style={styles.phoneRow}>
-            <TextInput
-              placeholder="رقم الهاتف"
-              placeholderTextColor="rgba(0,0,0,0.35)"
-              keyboardType="phone-pad"
-              style={styles.phoneInput}
-              value={phoneNumber}
-              onChangeText={(text) => {
-                setPhoneNumber(text);
-                if (error) setError("");
-              }}
-              maxLength={12}
-              testID="input-phone"
-            />
-            <View style={styles.prefixBox}>
-              <ThemedText style={styles.countryCode}>964+</ThemedText>
-              <Image
-                source={{ uri: "https://flagcdn.com/w80/iq.png" }}
-                style={styles.flag}
-              />
-            </View>
+    <SafeAreaView style={styles.safeArea} edges={["top", "bottom", "left", "right"]}>
+      <KeyboardAvoidingView
+        style={styles.keyboardView}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+      >
+        <View style={styles.centered}>
+          <View style={styles.logoWrap}>
+            <ThemedText style={styles.logoText}>OnWay</ThemedText>
           </View>
 
-          {error ? (
-            <View style={styles.errorRow}>
-              <Feather name="alert-circle" size={14} color="#FF3B30" />
-              <ThemedText style={styles.errorText}>{error}</ThemedText>
+          <View style={styles.formBlock}>
+            <View style={styles.phoneRow}>
+              <TextInput
+                placeholder="رقم الهاتف"
+                placeholderTextColor="rgba(0,0,0,0.35)"
+                keyboardType="phone-pad"
+                style={styles.phoneInput}
+                value={phoneNumber}
+                onChangeText={(text) => {
+                  setPhoneNumber(text);
+                  if (error) setError("");
+                }}
+                maxLength={12}
+                testID="input-phone"
+              />
+              <View style={styles.prefixBox}>
+                <ThemedText style={styles.countryCode}>964+</ThemedText>
+                <Image
+                  source={{ uri: "https://flagcdn.com/w80/iq.png" }}
+                  style={styles.flag}
+                />
+              </View>
             </View>
-          ) : null}
 
-          <Pressable
-            style={({ pressed }) => [
-              styles.submitBtn,
-              isLoading ? styles.submitDisabled : undefined,
-              pressed && !isLoading ? styles.submitPressed : undefined,
-            ]}
-            onPress={handleContinue}
-            disabled={isLoading}
-            testID="button-continue"
-          >
-            {isLoading ? (
-              <ActivityIndicator size="small" color={BRAND_ORANGE} />
-            ) : (
-              <ThemedText style={styles.submitText}>إرسال رمز التحقق</ThemedText>
-            )}
-          </Pressable>
+            {error ? (
+              <View style={styles.errorRow}>
+                <Feather name="alert-circle" size={14} color="#FFFFFF" />
+                <ThemedText style={styles.errorText}>{error}</ThemedText>
+              </View>
+            ) : null}
+
+            <Pressable
+              style={({ pressed }) => [
+                styles.submitBtn,
+                isLoading ? styles.submitDisabled : undefined,
+                pressed && !isLoading ? styles.submitPressed : undefined,
+              ]}
+              onPress={handleContinue}
+              disabled={isLoading}
+              testID="button-continue"
+            >
+              {isLoading ? (
+                <ActivityIndicator size="small" color={BRAND_ORANGE} />
+              ) : (
+                <ThemedText style={styles.submitText}>إرسال رمز التحقق</ThemedText>
+              )}
+            </Pressable>
+          </View>
         </View>
-      </View>
-    </KeyboardAvoidingView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  safeArea: {
     flex: 1,
     backgroundColor: BRAND_ORANGE,
-    paddingHorizontal: 24,
+  },
+  keyboardView: {
+    flex: 1,
   },
   centered: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
+    paddingHorizontal: 24,
   },
   logoWrap: {
     direction: "ltr",
@@ -139,7 +143,6 @@ const styles = StyleSheet.create({
     fontFamily: "Kanit_700Bold",
     fontSize: 30,
     color: "#FFFFFF",
-    fontWeight: "bold",
     textAlign: "center",
   },
   formBlock: {

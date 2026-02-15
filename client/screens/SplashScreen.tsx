@@ -8,7 +8,7 @@ import {
   Platform,
   ViewToken,
 } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { Image } from "expo-image";
 import { Feather } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
@@ -58,7 +58,6 @@ const IMAGE_SIZE = SCREEN_WIDTH * 0.45;
 
 export default function SplashScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
-  const insets = useSafeAreaInsets();
   const flatListRef = useRef<FlatList>(null);
   const [activeIndex, setActiveIndex] = useState(0);
 
@@ -104,7 +103,7 @@ export default function SplashScreen() {
   const isLastSlide = activeIndex === SLIDES.length - 1;
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
+    <SafeAreaView style={styles.safeArea} edges={["top", "bottom", "left", "right"]}>
       <View style={styles.topRow}>
         <Pressable onPress={handleSkip} style={styles.skipBtn} testID="button-skip">
           <ThemedText style={styles.skipText}>تخطي</ThemedText>
@@ -141,26 +140,26 @@ export default function SplashScreen() {
         ))}
       </View>
 
-      <View style={styles.bottomPad}>
-        <Pressable
-          style={({ pressed }) => [
-            styles.ctaButton,
-            pressed ? styles.ctaPressed : undefined,
-          ]}
-          onPress={handleNext}
-          testID="button-get-started"
-        >
-          <ThemedText style={styles.ctaText}>
-            {isLastSlide ? "ابدأ" : "التالي"}
-          </ThemedText>
-        </Pressable>
-      </View>
-    </View>
+      <Pressable
+        style={({ pressed }) => [
+          styles.ctaButton,
+          pressed ? styles.ctaPressed : undefined,
+        ]}
+        onPress={handleNext}
+        testID="button-get-started"
+      >
+        <ThemedText style={styles.ctaText}>
+          {isLastSlide ? "ابدأ" : "التالي"}
+        </ThemedText>
+      </Pressable>
+
+      <View style={styles.bottomSpacer} />
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  safeArea: {
     flex: 1,
     backgroundColor: BRAND_ORANGE,
     paddingHorizontal: 24,
@@ -169,7 +168,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginTop: 20,
+    marginTop: 16,
   },
   skipBtn: {
     width: 60,
@@ -187,7 +186,6 @@ const styles = StyleSheet.create({
     fontFamily: "Kanit_700Bold",
     fontSize: 30,
     color: "#FFFFFF",
-    fontWeight: "bold",
   },
   expandedCenter: {
     flex: 1,
@@ -232,7 +230,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "center",
     gap: 8,
-    marginBottom: 30,
+    marginBottom: 24,
   },
   dot: {
     width: 8,
@@ -244,9 +242,6 @@ const styles = StyleSheet.create({
     width: 16,
     borderRadius: 4,
     backgroundColor: "#FFFFFF",
-  },
-  bottomPad: {
-    marginBottom: 20,
   },
   ctaButton: {
     width: "100%",
@@ -274,5 +269,8 @@ const styles = StyleSheet.create({
     fontFamily: "Cairo_700Bold",
     fontSize: 16,
     color: BRAND_ORANGE,
+  },
+  bottomSpacer: {
+    height: 16,
   },
 });

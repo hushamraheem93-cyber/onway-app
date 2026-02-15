@@ -9,7 +9,7 @@ import {
   Easing,
   Platform,
 } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useSafeAreaInsets, SafeAreaView } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
@@ -135,10 +135,10 @@ export default function OtpVerificationScreen() {
     : "";
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container} edges={["top"]}>
       <LinearGradient
         colors={[BRAND_ORANGE, BRAND_DARK]}
-        style={[styles.topSection, { paddingTop: insets.top + 40 }]}
+        style={[styles.topSection, { paddingTop: 20 }]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
       >
@@ -252,7 +252,7 @@ export default function OtpVerificationScreen() {
           )}
         </View>
       </Animated.View>
-    </View>
+    </SafeAreaView>
   );
 }
 
