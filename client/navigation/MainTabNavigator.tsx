@@ -1,5 +1,4 @@
 import React from "react";
-import { StyleSheet } from "react-native";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 
 import HomeStackNavigator from "@/navigation/HomeStackNavigator";
@@ -30,11 +29,11 @@ export default function MainTabNavigator() {
         headerShown: false,
       }}
     >
-      <Tab.Screen name="ProfileTab" component={ProfileStackNavigator} />
-      <Tab.Screen name="FavoritesTab" component={FavoritesStackNavigator} />
-      <Tab.Screen name="HomeTab" component={HomeStackNavigator} />
       <Tab.Screen name="SearchTab" component={SearchStackNavigator} />
       <Tab.Screen name="MenuTab" component={CategoriesStackNavigator} />
+      <Tab.Screen name="HomeTab" component={HomeStackNavigator} />
+      <Tab.Screen name="FavoritesTab" component={FavoritesStackNavigator} />
+      <Tab.Screen name="ProfileTab" component={ProfileStackNavigator} />
       <Tab.Screen
         name="CartTab"
         component={CartStackNavigator}
@@ -45,5 +44,3 @@ export default function MainTabNavigator() {
     </Tab.Navigator>
   );
 }
-
-const styles = StyleSheet.create({});
