@@ -93,7 +93,7 @@ export default function PhoneLoginScreen() {
     <View style={styles.container}>
       <LinearGradient
         colors={[BRAND_ORANGE, BRAND_DARK]}
-        style={[styles.topSection, { paddingTop: insets.top + 36 }]}
+        style={[styles.topSection, { paddingTop: insets.top + 40 }]}
         start={{ x: 0, y: 0 }}
         end={{ x: 0.5, y: 1 }}
       >
@@ -299,25 +299,25 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   inputLabel: {
-    fontFamily: "Cairo_600SemiBold",
-    fontSize: 15,
-    color: "#444",
-    marginBottom: 8,
+    fontFamily: "Cairo_700Bold",
+    fontSize: 17,
+    color: "#333",
+    marginBottom: 10,
     textAlign: "right",
   },
   phoneRow: {
     flexDirection: "row",
     backgroundColor: "#F7F7F7",
-    borderRadius: 14,
-    height: 54,
+    borderRadius: 16,
+    height: 60,
     alignItems: "center",
-    paddingHorizontal: 14,
+    paddingHorizontal: 16,
     borderWidth: 1.5,
     borderColor: "#EFEFEF",
   },
   phoneInput: {
     flex: 1,
-    fontSize: 17,
+    fontSize: 18,
     color: "#333",
     textAlign: "left",
     fontFamily: "Cairo_600SemiBold",
@@ -381,12 +381,12 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: 15,
+    paddingVertical: 17,
     gap: 10,
   },
   submitText: {
     fontFamily: "Cairo_700Bold",
-    fontSize: 16,
+    fontSize: 18,
     color: "#FFFFFF",
   },
   submitArrow: {

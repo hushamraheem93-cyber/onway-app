@@ -56,7 +56,7 @@ const SLIDES: SlideData[] = [
   },
 ];
 
-const IMAGE_SIZE = SCREEN_WIDTH * 0.48;
+const IMAGE_SIZE = SCREEN_WIDTH * 0.5;
 
 export default function SplashScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
@@ -92,14 +92,15 @@ export default function SplashScreen() {
   };
 
   const renderSlide = ({ item }: { item: SlideData }) => (
-    <View style={styles.slideContainer}>
-      <View style={styles.imageCircle}>
-        <Image source={item.image} style={styles.slideImage} contentFit="contain" />
+    <View style={slideStyles.slideContainer}>
+      <View style={slideStyles.imageCircle}>
+        <Image source={item.image} style={slideStyles.slideImage} contentFit="contain" />
       </View>
     </View>
   );
 
   const isLastSlide = activeIndex === SLIDES.length - 1;
+  const safeTop = insets.top > 0 ? insets.top : 44;
 
   return (
     <LinearGradient
@@ -110,21 +111,24 @@ export default function SplashScreen() {
     >
       <View style={styles.decorCircle1} />
       <View style={styles.decorCircle2} />
-      <View style={styles.decorCircle3} />
 
-      <View style={[styles.header, { marginTop: insets.top + 10 }]}>
-        <Pressable onPress={handleSkip} style={styles.skipBtn} testID="button-skip">
-          <ThemedText style={styles.skipText}>تخطي</ThemedText>
-        </Pressable>
+      <View style={[styles.topBar, { height: safeTop + 50 }]}>
+        <View style={[styles.headerRow, { marginTop: safeTop }]}>
+          <Pressable onPress={handleSkip} style={styles.skipBtn} testID="button-skip">
+            <ThemedText style={styles.skipText}>تخطي</ThemedText>
+          </Pressable>
 
-        <View style={styles.logoWrap}>
-          <ThemedText style={styles.logoText}>OnWay</ThemedText>
+          <View style={styles.logoWrap}>
+            <ThemedText style={styles.logoText}>OnWay</ThemedText>
+          </View>
+
+          <View style={{ width: 60 }} />
         </View>
-
-        <View style={styles.skipBtn} />
       </View>
 
-      <View style={styles.middleSection}>
+      <View style={styles.centerArea}>
+        <View style={styles.spacer} />
+
         <FlatList
           ref={flatListRef}
           data={SLIDES}
@@ -139,15 +143,17 @@ export default function SplashScreen() {
           style={styles.flatList}
         />
 
-        <ThemedText style={styles.slideTitle}>
-          {SLIDES[activeIndex].title}
-        </ThemedText>
-        <ThemedText style={styles.slideSubtitle}>
-          {SLIDES[activeIndex].subtitle}
-        </ThemedText>
-      </View>
+        <View style={styles.textBlock}>
+          <ThemedText style={styles.slideTitle}>
+            {SLIDES[activeIndex].title}
+          </ThemedText>
+          <ThemedText style={styles.slideSubtitle}>
+            {SLIDES[activeIndex].subtitle}
+          </ThemedText>
+        </View>
 
-      <View style={[styles.bottomSection, { paddingBottom: insets.bottom + 16 }]}>
+        <View style={styles.spacer} />
+
         <View style={styles.dotsRow}>
           {SLIDES.map((_, i) => (
             <View
@@ -156,7 +162,9 @@ export default function SplashScreen() {
             />
           ))}
         </View>
+      </View>
 
+      <View style={[styles.buttonWrap, { paddingBottom: insets.bottom + 16 }]}>
         <Pressable
           style={({ pressed }) => [
             styles.ctaButton,
@@ -176,6 +184,26 @@ export default function SplashScreen() {
     </LinearGradient>
   );
 }
+
+const slideStyles = StyleSheet.create({
+  slideContainer: {
+    width: SCREEN_WIDTH,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  imageCircle: {
+    width: IMAGE_SIZE + 36,
+    height: IMAGE_SIZE + 36,
+    borderRadius: (IMAGE_SIZE + 36) / 2,
+    backgroundColor: "rgba(255,255,255,0.12)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  slideImage: {
+    width: IMAGE_SIZE,
+    height: IMAGE_SIZE,
+  },
+});
 
 const styles = StyleSheet.create({
   container: {
@@ -200,21 +228,14 @@ const styles = StyleSheet.create({
     borderRadius: 65,
     backgroundColor: "rgba(255,255,255,0.05)",
   },
-  decorCircle3: {
-    position: "absolute",
-    bottom: 80,
-    left: -60,
-    width: 160,
-    height: 160,
-    borderRadius: 80,
-    backgroundColor: "rgba(255,255,255,0.04)",
+  topBar: {
+    justifyContent: "flex-end",
   },
-  header: {
+  headerRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: 20,
-    marginBottom: 8,
   },
   skipBtn: {
     width: 60,
@@ -230,43 +251,31 @@ const styles = StyleSheet.create({
   },
   logoText: {
     fontFamily: "Kanit_700Bold",
-    fontSize: 28,
+    fontSize: 30,
     color: "#FFFFFF",
     letterSpacing: 1,
     textAlign: "center",
   },
-  middleSection: {
+  centerArea: {
     flex: 1,
     alignItems: "center",
-    justifyContent: "center",
+  },
+  spacer: {
+    flex: 1,
   },
   flatList: {
     flexGrow: 0,
   },
-  slideContainer: {
-    width: SCREEN_WIDTH,
+  textBlock: {
     alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: 6,
-  },
-  imageCircle: {
-    width: IMAGE_SIZE + 36,
-    height: IMAGE_SIZE + 36,
-    borderRadius: (IMAGE_SIZE + 36) / 2,
-    backgroundColor: "rgba(255,255,255,0.12)",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  slideImage: {
-    width: IMAGE_SIZE,
-    height: IMAGE_SIZE,
+    paddingHorizontal: 30,
+    marginTop: 24,
   },
   slideTitle: {
     fontFamily: "Cairo_700Bold",
     fontSize: 24,
     color: "#FFFFFF",
     textAlign: "center",
-    marginTop: 20,
     marginBottom: 8,
   },
   slideSubtitle: {
@@ -275,16 +284,12 @@ const styles = StyleSheet.create({
     color: "rgba(255,255,255,0.75)",
     textAlign: "center",
     lineHeight: 24,
-    paddingHorizontal: 30,
-  },
-  bottomSection: {
-    paddingHorizontal: 24,
-    gap: 16,
   },
   dotsRow: {
     flexDirection: "row",
     justifyContent: "center",
     gap: 8,
+    marginBottom: 20,
   },
   dot: {
     width: 8,
@@ -297,13 +302,16 @@ const styles = StyleSheet.create({
     borderRadius: 4,
     backgroundColor: "#FFFFFF",
   },
+  buttonWrap: {
+    paddingHorizontal: 24,
+  },
   ctaButton: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: "#FFFFFF",
     borderRadius: 16,
-    paddingVertical: 15,
+    paddingVertical: 16,
     gap: 10,
     ...Platform.select({
       ios: {
