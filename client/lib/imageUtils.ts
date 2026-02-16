@@ -1,5 +1,4 @@
 import { manipulateAsync, SaveFormat } from "expo-image-manipulator";
-import { File } from "expo-file-system/next";
 import { Platform } from "react-native";
 
 export type ImageSize = "profile" | "product" | "banner" | "category";
@@ -25,26 +24,24 @@ export async function compressAndConvertToBase64(
     const manipulated = await manipulateAsync(
       uri,
       [{ resize: resizeOptions }],
-      { compress: config.quality, format: SaveFormat.JPEG }
+      { compress: config.quality, format: SaveFormat.JPEG, base64: true }
     );
 
-    if (Platform.OS === "web") {
-      const response = await fetch(manipulated.uri);
-      const blob = await response.blob();
-      return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onloadend = () => {
-          const base64 = reader.result as string;
-          resolve(base64);
-        };
-        reader.onerror = reject;
-        reader.readAsDataURL(blob);
-      });
-    } else {
-      const file = new File(manipulated.uri);
-      const base64 = await file.base64();
-      return `data:image/jpeg;base64,${base64}`;
+    if (manipulated.base64) {
+      return `data:image/jpeg;base64,${manipulated.base64}`;
     }
+
+    const response = await fetch(manipulated.uri);
+    const blob = await response.blob();
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const base64 = reader.result as string;
+        resolve(base64);
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
   } catch (error) {
     console.error("Error compressing image:", error);
     throw new Error("فشل في معالجة الصورة");
