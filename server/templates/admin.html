@@ -3367,6 +3367,24 @@
       }
     }
 
+    function showDriverImageModal(src, title) {
+      const overlay = document.createElement('div');
+      overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.85);z-index:10000;display:flex;align-items:center;justify-content:center;padding:20px;cursor:pointer;';
+      overlay.onclick = () => overlay.remove();
+      const wrapper = document.createElement('div');
+      wrapper.style.cssText = 'text-align:center;max-width:90vw;max-height:90vh;';
+      const titleEl = document.createElement('h3');
+      titleEl.textContent = title;
+      titleEl.style.cssText = 'color:white;margin-bottom:12px;font-size:1.1rem;';
+      const img = document.createElement('img');
+      img.src = src;
+      img.style.cssText = 'max-width:100%;max-height:80vh;border-radius:12px;object-fit:contain;';
+      wrapper.appendChild(titleEl);
+      wrapper.appendChild(img);
+      overlay.appendChild(wrapper);
+      document.body.appendChild(overlay);
+    }
+
     function renderDrivers() {
       const container = document.getElementById('drivers-list');
       let filtered = drivers;
@@ -3390,102 +3408,84 @@
         return;
       }
 
-      container.innerHTML = filtered.map(driver => {
-        const statusColor = getDriverStatusColor(driver.status);
-        const date = driver.createdAt ? new Date(driver.createdAt).toLocaleDateString('ar-IQ', { year: 'numeric', month: 'short', day: 'numeric' }) : '';
+      const imgThumbStyle = 'width:60px;height:60px;object-fit:cover;border-radius:8px;border:2px solid var(--gray-200);cursor:pointer;';
+      const noImgStyle = 'width:60px;height:60px;border-radius:8px;border:2px dashed var(--gray-300);display:flex;align-items:center;justify-content:center;background:var(--gray-50);color:var(--gray-400);font-size:0.65rem;text-align:center;';
 
-        let actionButtons = '';
-        if (driver.status === 'pending') {
-          actionButtons = `
-            <button class="btn btn-success btn-sm" onclick="updateDriverStatus('${driver.id}', 'approved')" style="margin-left: 8px;">
-              <i data-lucide="check"></i> قبول
-            </button>
-            <button class="btn btn-danger btn-sm" onclick="updateDriverStatus('${driver.id}', 'rejected')">
-              <i data-lucide="x"></i> رفض
-            </button>`;
-        } else if (driver.status === 'approved') {
-          actionButtons = `
-            <button class="btn btn-sm" style="background: var(--warning); color: white;" onclick="updateDriverStatus('${driver.id}', 'pending')">
-              <i data-lucide="pause"></i> تعليق
-            </button>`;
-        } else {
-          actionButtons = `
-            <button class="btn btn-success btn-sm" onclick="updateDriverStatus('${driver.id}', 'approved')">
-              <i data-lucide="check"></i> قبول
-            </button>`;
-        }
+      container.innerHTML = `
+        <div class="card" style="overflow-x:auto;">
+          <table style="width:100%;border-collapse:collapse;min-width:800px;">
+            <thead>
+              <tr style="background:var(--gray-50);border-bottom:2px solid var(--gray-200);">
+                <th style="padding:14px 16px;text-align:right;font-size:0.85rem;font-weight:700;color:var(--gray-600);white-space:nowrap;">#</th>
+                <th style="padding:14px 16px;text-align:right;font-size:0.85rem;font-weight:700;color:var(--gray-600);white-space:nowrap;">الاسم</th>
+                <th style="padding:14px 16px;text-align:right;font-size:0.85rem;font-weight:700;color:var(--gray-600);white-space:nowrap;">رقم الهاتف</th>
+                <th style="padding:14px 16px;text-align:center;font-size:0.85rem;font-weight:700;color:var(--gray-600);white-space:nowrap;">البطاقة الوطنية</th>
+                <th style="padding:14px 16px;text-align:center;font-size:0.85rem;font-weight:700;color:var(--gray-600);white-space:nowrap;">بطاقة السكن</th>
+                <th style="padding:14px 16px;text-align:center;font-size:0.85rem;font-weight:700;color:var(--gray-600);white-space:nowrap;">إجازة السوق</th>
+                <th style="padding:14px 16px;text-align:center;font-size:0.85rem;font-weight:700;color:var(--gray-600);white-space:nowrap;">الحالة</th>
+                <th style="padding:14px 16px;text-align:center;font-size:0.85rem;font-weight:700;color:var(--gray-600);white-space:nowrap;">إجراءات</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${filtered.map((driver, idx) => {
+                const statusColor = getDriverStatusColor(driver.status);
+                const nationalIdImg = driver.nationalIdImage
+                  ? `<img src="${driver.nationalIdImage}" alt="البطاقة الوطنية" style="${imgThumbStyle}" onclick="showDriverImageModal(this.src, 'البطاقة الوطنية - ${escapeHtml(driver.fullName)}')" />`
+                  : `<div style="${noImgStyle}">لا يوجد</div>`;
+                const residenceImg = driver.residenceCardImage
+                  ? `<img src="${driver.residenceCardImage}" alt="بطاقة السكن" style="${imgThumbStyle}" onclick="showDriverImageModal(this.src, 'بطاقة السكن - ${escapeHtml(driver.fullName)}')" />`
+                  : `<div style="${noImgStyle}">لا يوجد</div>`;
+                const licenseImg = driver.driverLicenseImage
+                  ? `<img src="${driver.driverLicenseImage}" alt="إجازة السوق" style="${imgThumbStyle}" onclick="showDriverImageModal(this.src, 'إجازة السوق - ${escapeHtml(driver.fullName)}')" />`
+                  : `<div style="${noImgStyle}">لا يوجد</div>`;
 
-        const nationalIdHtml = driver.nationalIdImage ? `
-          <div style="margin-top: 16px;">
-            <h4 style="font-size: 0.9rem; font-weight: 600; color: var(--gray-700); margin-bottom: 8px; display: flex; align-items: center; gap: 6px;">
-              <i data-lucide="credit-card" style="width: 16px; height: 16px;"></i>
-              البطاقة الوطنية
-            </h4>
-            <img src="${driver.nationalIdImage}" alt="البطاقة الوطنية" style="width: 100%; max-width: 400px; height: auto; max-height: 250px; object-fit: contain; border-radius: 12px; border: 2px solid var(--gray-200); cursor: pointer;" onclick="window.open(this.src, '_blank')" />
-          </div>` : '';
+                let actionBtns = '';
+                if (driver.status === 'pending') {
+                  actionBtns = `
+                    <button class="btn btn-success btn-sm" onclick="updateDriverStatus('${driver.id}', 'approved')" style="margin-bottom:4px;" title="قبول">
+                      <i data-lucide="check" style="width:14px;height:14px;"></i>
+                    </button>
+                    <button class="btn btn-danger btn-sm" onclick="updateDriverStatus('${driver.id}', 'rejected')" title="رفض">
+                      <i data-lucide="x" style="width:14px;height:14px;"></i>
+                    </button>`;
+                } else if (driver.status === 'approved') {
+                  actionBtns = `
+                    <button class="btn btn-sm" style="background:var(--warning);color:white;" onclick="updateDriverStatus('${driver.id}', 'pending')" title="تعليق">
+                      <i data-lucide="pause" style="width:14px;height:14px;"></i>
+                    </button>`;
+                } else {
+                  actionBtns = `
+                    <button class="btn btn-success btn-sm" onclick="updateDriverStatus('${driver.id}', 'approved')" title="قبول">
+                      <i data-lucide="check" style="width:14px;height:14px;"></i>
+                    </button>`;
+                }
 
-        const licenseHtml = driver.driverLicenseImage ? `
-          <div style="margin-top: 16px;">
-            <h4 style="font-size: 0.9rem; font-weight: 600; color: var(--gray-700); margin-bottom: 8px; display: flex; align-items: center; gap: 6px;">
-              <i data-lucide="file-text" style="width: 16px; height: 16px;"></i>
-              إجازة السوق
-            </h4>
-            <img src="${driver.driverLicenseImage}" alt="إجازة السوق" style="width: 100%; max-width: 400px; height: auto; max-height: 250px; object-fit: contain; border-radius: 12px; border: 2px solid var(--gray-200); cursor: pointer;" onclick="window.open(this.src, '_blank')" />
-          </div>` : `
-          <div style="margin-top: 16px;">
-            <h4 style="font-size: 0.9rem; font-weight: 600; color: var(--gray-400); margin-bottom: 4px; display: flex; align-items: center; gap: 6px;">
-              <i data-lucide="file-text" style="width: 16px; height: 16px;"></i>
-              إجازة السوق
-            </h4>
-            <p style="color: var(--gray-400); font-size: 0.85rem;">لم يتم رفع إجازة السوق</p>
-          </div>`;
-
-        return `
-          <div class="card" style="margin-bottom: 20px;">
-            <div class="card-header" style="align-items: flex-start;">
-              <div style="display: flex; align-items: center; gap: 16px; flex: 1;">
-                <div style="width: 56px; height: 56px; border-radius: 50%; background: linear-gradient(135deg, var(--way-yellow), var(--primary-dark)); display: flex; align-items: center; justify-content: center;">
-                  <i data-lucide="user" style="width: 28px; height: 28px; color: white;"></i>
-                </div>
-                <div>
-                  <h3 style="font-size: 1.1rem; margin-bottom: 4px;">${escapeHtml(driver.fullName)}</h3>
-                  <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
-                    <span style="display: flex; align-items: center; gap: 4px; color: var(--gray-500); font-size: 0.85rem;">
-                      <i data-lucide="phone" style="width: 14px; height: 14px;"></i>
-                      ${escapeHtml(driver.phoneNumber)}
-                    </span>
-                    <span style="display: flex; align-items: center; gap: 4px; color: var(--gray-500); font-size: 0.85rem;">
-                      <i data-lucide="calendar" style="width: 14px; height: 14px;"></i>
-                      ${date}
-                    </span>
-                  </div>
-                </div>
-              </div>
-              <span style="background: ${statusColor}20; color: ${statusColor}; padding: 6px 16px; border-radius: 20px; font-size: 0.8rem; font-weight: 700; white-space: nowrap;">
-                ${getDriverStatusLabel(driver.status)}
-              </span>
-            </div>
-            <div class="card-body">
-              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 8px;">
-                <div style="padding: 10px 14px; background: var(--gray-50); border-radius: 10px;">
-                  <span style="font-size: 0.75rem; color: var(--gray-500);">الاسم الكامل</span>
-                  <p style="font-weight: 600; color: var(--gray-800); font-size: 0.9rem;">${escapeHtml(driver.firstName)} ${escapeHtml(driver.secondName)} ${escapeHtml(driver.thirdName)} ${escapeHtml(driver.fourthName)}</p>
-                </div>
-                <div style="padding: 10px 14px; background: var(--gray-50); border-radius: 10px;">
-                  <span style="font-size: 0.75rem; color: var(--gray-500);">رقم الهاتف</span>
-                  <p style="font-weight: 600; color: var(--gray-800); font-size: 0.9rem;">${escapeHtml(driver.phoneNumber)}</p>
-                </div>
-              </div>
-
-              ${nationalIdHtml}
-              ${licenseHtml}
-
-              <div style="margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--gray-200); display: flex; gap: 8px; justify-content: flex-end;">
-                ${actionButtons}
-              </div>
-            </div>
-          </div>`;
-      }).join('');
+                return `
+                  <tr style="border-bottom:1px solid var(--gray-100);transition:background 0.15s;" onmouseover="this.style.background='var(--gray-50)'" onmouseout="this.style.background='transparent'">
+                    <td style="padding:12px 16px;font-size:0.85rem;color:var(--gray-500);font-weight:600;">${idx + 1}</td>
+                    <td style="padding:12px 16px;">
+                      <div style="font-weight:600;font-size:0.9rem;color:var(--gray-800);">${escapeHtml(driver.fullName)}</div>
+                      <div style="font-size:0.75rem;color:var(--gray-400);margin-top:2px;">${escapeHtml(driver.firstName)} ${escapeHtml(driver.secondName)} ${escapeHtml(driver.thirdName)} ${escapeHtml(driver.fourthName)}</div>
+                    </td>
+                    <td style="padding:12px 16px;font-size:0.9rem;color:var(--gray-700);direction:ltr;text-align:right;">${escapeHtml(driver.phoneNumber)}</td>
+                    <td style="padding:12px 16px;text-align:center;">${nationalIdImg}</td>
+                    <td style="padding:12px 16px;text-align:center;">${residenceImg}</td>
+                    <td style="padding:12px 16px;text-align:center;">${licenseImg}</td>
+                    <td style="padding:12px 16px;text-align:center;">
+                      <span style="background:${statusColor}20;color:${statusColor};padding:4px 12px;border-radius:16px;font-size:0.75rem;font-weight:700;white-space:nowrap;">
+                        ${getDriverStatusLabel(driver.status)}
+                      </span>
+                    </td>
+                    <td style="padding:12px 16px;text-align:center;">
+                      <div style="display:flex;gap:4px;justify-content:center;">
+                        ${actionBtns}
+                      </div>
+                    </td>
+                  </tr>`;
+              }).join('')}
+            </tbody>
+          </table>
+        </div>`;
 
       lucide.createIcons();
     }
