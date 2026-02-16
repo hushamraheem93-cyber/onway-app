@@ -365,6 +365,23 @@ export async function updateOrderStatus(id: string, status: FirestoreOrder["stat
   }
 }
 
+export async function updateOrderDriverInfo(id: string, data: {
+  driverName?: string;
+  driverPhone?: string;
+  driverEarning?: number;
+  ownerEarning?: number;
+}): Promise<boolean> {
+  if (!db) return false;
+  
+  try {
+    await db.collection("orders").doc(id).update({ ...data, updatedAt: admin.firestore.Timestamp.now() });
+    return true;
+  } catch (error) {
+    console.error("Error updating order driver info:", error);
+    return false;
+  }
+}
+
 // Promotional Sections (Best Sellers, Featured, Discounts)
 export interface PromotionalSection {
   id: string;

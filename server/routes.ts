@@ -21,7 +21,8 @@ import {
   updateDeliveryArea as updateFirestoreDeliveryArea, deleteDeliveryArea as deleteFirestoreDeliveryArea,
   initializeDefaultDeliveryAreas,
   generateOtp, verifyOtp as verifyOtpCode,
-  getDrivers, getDriverByPhone, createDriver, updateDriverStatus as updateDriverStatusFn, deleteDriver as deleteDriverFn
+  getDrivers, getDriverByPhone, createDriver, updateDriverStatus as updateDriverStatusFn, deleteDriver as deleteDriverFn,
+  updateOrderDriverInfo
 } from "./firebase";
 import { sendPushNotification } from "./pushNotifications";
 
@@ -162,7 +163,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
   }
   const driverQueue: QueuedDriver[] = [];
   const driverAssignments: Map<string, string> = new Map();
-  const driverCompletedOrders: Map<string, { orderId: string; deliveryFee: number; total: number; customerName: string; completedAt: string }[]> = new Map();
+  const driverCompletedOrders: Map<string, { orderId: string; deliveryFee: number; driverEarning: number; ownerEarning: number; total: number; customerName: string; completedAt: string; isRestaurant: boolean }[]> = new Map();
+
+  async function checkIsRestaurantOrder(order: any): Promise<boolean> {
+    try {
+      const products = await getFirestoreProducts();
+      if (products.length > 0 && order.items) {
+        for (const item of order.items) {
+          const product = products.find(p => p.id === item.productId);
+          if (product && product.categoryId === "restaurants") {
+            return true;
+          }
+        }
+      }
+      if (order.orderType === "restaurant") return true;
+      return false;
+    } catch {
+      return false;
+    }
+  }
 
   // Initialize defaults in Firestore if empty
   await initializeDefaultCategories(categories);
@@ -1193,6 +1212,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         driverAssignments.set(orderId, phoneNumber);
         const qd = driverQueue.find(d => d.phoneNumber === phoneNumber);
         if (qd) qd.currentOrderId = orderId;
+
+        const driver = await getDriverByPhone(phoneNumber);
+        const driverName = driver?.fullName || phoneNumber;
+        await updateOrderDriverInfo(orderId, {
+          driverName,
+          driverPhone: phoneNumber,
+        });
       }
       res.json({ success: true });
     } catch (error: any) {
@@ -1234,27 +1260,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (db) {
         await updateOrderStatus(orderId, "delivered");
 
-        const customerPhoneForNotification = driverAssignments.get(orderId);
-        if (customerPhoneForNotification) {
-          const allOrders = await getOrders();
-          const order = allOrders.find(o => o.id === orderId);
-          if (order) {
-            const customerProfile = await getUserByPhone(order.phoneNumber || "");
-            const pushToken = await getUserPushToken(order.phoneNumber || "");
-            if (pushToken) {
-              await sendPushNotification(pushToken, "delivered", orderId);
-            }
-
-            const completed = driverCompletedOrders.get(phoneNumber) || [];
-            completed.push({
-              orderId,
-              deliveryFee: order.deliveryFee || 0,
-              total: order.total || 0,
-              customerName: customerProfile?.fullName || "زبون",
-              completedAt: new Date().toISOString(),
-            });
-            driverCompletedOrders.set(phoneNumber, completed);
+        const allOrders = await getOrders();
+        const order = allOrders.find(o => o.id === orderId);
+        if (order) {
+          const customerProfile = await getUserByPhone(order.phoneNumber || "");
+          const pushToken = await getUserPushToken(order.phoneNumber || "");
+          if (pushToken) {
+            await sendPushNotification(pushToken, "delivered", orderId);
           }
+
+          const isRestaurantOrder = await checkIsRestaurantOrder(order);
+          const driverEarning = isRestaurantOrder ? 1000 : 1500;
+          const ownerEarning = (order.deliveryFee || 0) - driverEarning;
+
+          await updateOrderDriverInfo(orderId, {
+            driverEarning,
+            ownerEarning: ownerEarning > 0 ? ownerEarning : 0,
+          });
+
+          const completed = driverCompletedOrders.get(phoneNumber) || [];
+          completed.push({
+            orderId,
+            deliveryFee: order.deliveryFee || 0,
+            driverEarning,
+            ownerEarning: ownerEarning > 0 ? ownerEarning : 0,
+            total: order.total || 0,
+            customerName: customerProfile?.fullName || "زبون",
+            completedAt: new Date().toISOString(),
+            isRestaurant: isRestaurantOrder,
+          });
+          driverCompletedOrders.set(phoneNumber, completed);
         }
       }
 
@@ -1283,15 +1318,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const weekOrders = completed.filter(o => new Date(o.completedAt).getTime() >= weekStart);
 
       res.json({
-        totalEarnings: completed.reduce((sum, o) => sum + o.deliveryFee, 0),
-        todayEarnings: todayOrders.reduce((sum, o) => sum + o.deliveryFee, 0),
-        weekEarnings: weekOrders.reduce((sum, o) => sum + o.deliveryFee, 0),
+        totalEarnings: completed.reduce((sum, o) => sum + (o.driverEarning || 0), 0),
+        todayEarnings: todayOrders.reduce((sum, o) => sum + (o.driverEarning || 0), 0),
+        weekEarnings: weekOrders.reduce((sum, o) => sum + (o.driverEarning || 0), 0),
         totalOrders: completed.length,
         todayOrders: todayOrders.length,
         completedOrders: completed.map(o => ({
           id: o.orderId,
           total: o.total,
           deliveryFee: o.deliveryFee,
+          driverEarning: o.driverEarning || 0,
+          isRestaurant: o.isRestaurant || false,
           completedAt: o.completedAt,
           customerName: o.customerName,
         })).reverse(),
@@ -1456,6 +1493,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
         availableDrivers: driverQueue.filter(d => !d.currentOrderId).length,
         busyDrivers: driverQueue.filter(d => d.currentOrderId).length,
         queue: queueData,
+      });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Get owner earnings from all delivered orders
+  app.get("/api/admin/owner-earnings", async (_req: Request, res: Response) => {
+    try {
+      const db = getFirestore();
+      if (!db) return res.json({ totalOwnerEarnings: 0, totalDriverEarnings: 0, totalDeliveryFees: 0, ordersWithEarnings: 0 });
+
+      const allOrders = await getOrders();
+      const deliveredOrders = allOrders.filter(o => o.status === "delivered");
+
+      let totalOwnerEarnings = 0;
+      let totalDriverEarnings = 0;
+      let totalDeliveryFees = 0;
+      let ordersWithEarnings = 0;
+
+      for (const order of deliveredOrders) {
+        const o = order as any;
+        if (o.driverEarning !== undefined) {
+          totalDriverEarnings += o.driverEarning || 0;
+          totalOwnerEarnings += o.ownerEarning || 0;
+          ordersWithEarnings++;
+        }
+        totalDeliveryFees += o.deliveryFee || 0;
+      }
+
+      res.json({
+        totalOwnerEarnings,
+        totalDriverEarnings,
+        totalDeliveryFees,
+        ordersWithEarnings,
+        totalDeliveredOrders: deliveredOrders.length,
       });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
