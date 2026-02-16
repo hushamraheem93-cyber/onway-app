@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useCallback } from "react";
 import {
   StyleSheet,
   View,
@@ -6,7 +6,7 @@ import {
   Pressable,
   ActivityIndicator,
   Platform,
-  Modal,
+  ActionSheetIOS,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
@@ -35,11 +35,6 @@ export default function DriverRegistrationScreen() {
   const [residenceCardImage, setResidenceCardImage] = useState<string | null>(null);
   const [driverLicenseImage, setDriverLicenseImage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [imagePickerModal, setImagePickerModal] = useState<{
-    visible: boolean;
-    imageType: "nationalId" | "residenceCard" | "driverLicense" | null;
-    title: string;
-  }>({ visible: false, imageType: null, title: "" });
   const [errorMessage, setErrorMessage] = useState("");
 
   const isFormValid =
@@ -75,11 +70,8 @@ export default function DriverRegistrationScreen() {
     }
   };
 
-  const pickImageForType = async (imageType: "nationalId" | "residenceCard" | "driverLicense") => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setImagePickerModal({ visible: false, imageType: null, title: "" });
+  const pickFromGallery = useCallback(async (imageType: "nationalId" | "residenceCard" | "driverLicense") => {
     setErrorMessage("");
-
     try {
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (status !== "granted") {
@@ -99,18 +91,10 @@ export default function DriverRegistrationScreen() {
       console.error("Error picking image:", error);
       setErrorMessage("حدث خطأ أثناء اختيار الصورة");
     }
-  };
+  }, []);
 
-  const takePhotoForType = async (imageType: "nationalId" | "residenceCard" | "driverLicense") => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setImagePickerModal({ visible: false, imageType: null, title: "" });
+  const takePhoto = useCallback(async (imageType: "nationalId" | "residenceCard" | "driverLicense") => {
     setErrorMessage("");
-
-    if (Platform.OS === "web") {
-      await pickImageForType(imageType);
-      return;
-    }
-
     try {
       const { status } = await ImagePicker.requestCameraPermissionsAsync();
       if (status !== "granted") {
@@ -129,15 +113,35 @@ export default function DriverRegistrationScreen() {
       console.error("Error taking photo:", error);
       setErrorMessage("حدث خطأ أثناء التقاط الصورة");
     }
-  };
+  }, []);
 
-  const showImageOptions = (imageType: "nationalId" | "residenceCard" | "driverLicense", title: string) => {
+  const showImageOptions = useCallback((imageType: "nationalId" | "residenceCard" | "driverLicense") => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+
     if (Platform.OS === "web") {
-      pickImageForType(imageType);
+      pickFromGallery(imageType);
       return;
     }
-    setImagePickerModal({ visible: true, imageType, title });
-  };
+
+    if (Platform.OS === "ios") {
+      ActionSheetIOS.showActionSheetWithOptions(
+        {
+          options: ["إلغاء", "الكاميرا", "معرض الصور"],
+          cancelButtonIndex: 0,
+          title: "اختر طريقة إضافة الصورة",
+        },
+        (buttonIndex) => {
+          if (buttonIndex === 1) {
+            takePhoto(imageType);
+          } else if (buttonIndex === 2) {
+            pickFromGallery(imageType);
+          }
+        }
+      );
+    } else {
+      pickFromGallery(imageType);
+    }
+  }, [pickFromGallery, takePhoto]);
 
   const handleSubmit = async () => {
     if (!isFormValid || !phoneNumber || !nationalIdImage || !residenceCardImage) return;
@@ -322,7 +326,7 @@ export default function DriverRegistrationScreen() {
 
         <Pressable
           style={[styles.idUpload, { borderColor: nationalIdImage ? AppColors.primary : theme.border, backgroundColor: theme.backgroundSecondary }]}
-          onPress={() => showImageOptions("nationalId", "صورة البطاقة الوطنية")}
+          onPress={() => showImageOptions("nationalId")}
           testID="button-upload-id"
         >
           {nationalIdImage ? (
@@ -356,7 +360,7 @@ export default function DriverRegistrationScreen() {
 
         <Pressable
           style={[styles.idUpload, { borderColor: residenceCardImage ? "#4CAF50" : theme.border, backgroundColor: theme.backgroundSecondary }]}
-          onPress={() => showImageOptions("residenceCard", "صورة بطاقة السكن")}
+          onPress={() => showImageOptions("residenceCard")}
           testID="button-upload-residence-card"
         >
           {residenceCardImage ? (
@@ -395,7 +399,7 @@ export default function DriverRegistrationScreen() {
 
         <Pressable
           style={[styles.idUpload, { borderColor: driverLicenseImage ? "#4CAF50" : theme.border, backgroundColor: theme.backgroundSecondary }]}
-          onPress={() => showImageOptions("driverLicense", "صورة إجازة السوق")}
+          onPress={() => showImageOptions("driverLicense")}
           testID="button-upload-license"
         >
           {driverLicenseImage ? (
@@ -445,50 +449,6 @@ export default function DriverRegistrationScreen() {
         سيتم مراجعة بياناتك من قبل الإدارة وسيتم إبلاغك بالنتيجة
       </ThemedText>
 
-      <Modal
-        visible={imagePickerModal.visible}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setImagePickerModal({ visible: false, imageType: null, title: "" })}
-      >
-        <View style={styles.modalOverlay}>
-          <Pressable
-            style={StyleSheet.absoluteFill}
-            onPress={() => setImagePickerModal({ visible: false, imageType: null, title: "" })}
-          />
-          <View style={[styles.modalContent, { backgroundColor: theme.backgroundDefault }]}>
-            <ThemedText type="h4" style={styles.modalTitle}>{imagePickerModal.title}</ThemedText>
-            <ThemedText type="body" style={[styles.modalSubtitle, { color: theme.textSecondary }]}>
-              اختر طريقة إضافة الصورة
-            </ThemedText>
-
-            <Pressable
-              style={[styles.modalOption, { backgroundColor: theme.backgroundSecondary }]}
-              onPress={() => imagePickerModal.imageType && takePhotoForType(imagePickerModal.imageType)}
-              testID="button-take-photo"
-            >
-              <Feather name="camera" size={22} color={AppColors.primary} />
-              <ThemedText type="body" style={styles.modalOptionText}>الكاميرا</ThemedText>
-            </Pressable>
-
-            <Pressable
-              style={[styles.modalOption, { backgroundColor: theme.backgroundSecondary }]}
-              onPress={() => imagePickerModal.imageType && pickImageForType(imagePickerModal.imageType)}
-              testID="button-pick-image"
-            >
-              <Feather name="image" size={22} color={AppColors.primary} />
-              <ThemedText type="body" style={styles.modalOptionText}>معرض الصور</ThemedText>
-            </Pressable>
-
-            <Pressable
-              style={[styles.modalCancel, { borderColor: theme.border }]}
-              onPress={() => setImagePickerModal({ visible: false, imageType: null, title: "" })}
-            >
-              <ThemedText type="body" style={{ color: theme.textSecondary, fontWeight: "600" }}>إلغاء</ThemedText>
-            </Pressable>
-          </View>
-        </View>
-      </Modal>
     </KeyboardAwareScrollViewCompat>
   );
 }
@@ -523,45 +483,6 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     textAlign: "right",
     fontSize: 14,
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.5)",
-    justifyContent: "flex-end",
-  },
-  modalContent: {
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    padding: 24,
-    paddingBottom: 40,
-  },
-  modalTitle: {
-    textAlign: "center",
-    fontWeight: "700",
-    marginBottom: 4,
-  },
-  modalSubtitle: {
-    textAlign: "center",
-    marginBottom: 20,
-  },
-  modalOption: {
-    flexDirection: "row-reverse",
-    alignItems: "center",
-    gap: 14,
-    padding: 16,
-    borderRadius: BorderRadius.lg,
-    marginBottom: 10,
-  },
-  modalOptionText: {
-    fontWeight: "600",
-    fontSize: 16,
-  },
-  modalCancel: {
-    alignItems: "center",
-    padding: 14,
-    borderRadius: BorderRadius.lg,
-    borderWidth: 1,
-    marginTop: 6,
   },
   header: {
     alignItems: "center",
