@@ -218,7 +218,7 @@ export default function CheckoutScreen() {
             }}
           >
             {selectedAreaData?.id 
-              ? `${selectedAreaData.name} (${formatPrice(selectedAreaData.fee)})` 
+              ? selectedAreaData.name
               : "اختر المنطقة"}
           </ThemedText>
         </Pressable>
@@ -258,15 +258,6 @@ export default function CheckoutScreen() {
                       ]}
                     >
                       {item.name}
-                    </ThemedText>
-                    <ThemedText 
-                      type="small" 
-                      style={[
-                        styles.areaFee,
-                        selectedArea === item.id && { color: AppColors.primary }
-                      ]}
-                    >
-                      {formatPrice(item.fee)}
                     </ThemedText>
                   </View>
                   {selectedArea === item.id ? (
