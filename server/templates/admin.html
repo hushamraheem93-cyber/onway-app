@@ -1715,6 +1715,31 @@
           </div>
         </div>
 
+        <!-- Owner Earnings Section -->
+        <div id="owner-earnings-section" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 24px;">
+          <div style="background: linear-gradient(135deg, #10B981, #059669); border-radius: 16px; padding: 20px; color: white;">
+            <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
+              <i data-lucide="wallet" style="width: 24px; height: 24px;"></i>
+              <span style="font-size: 0.9rem; opacity: 0.9;">أرباح التطبيق المتحققة</span>
+            </div>
+            <div id="stat-owner-earnings" style="font-size: 1.5rem; font-weight: 800;">0 د.ع</div>
+          </div>
+          <div style="background: linear-gradient(135deg, #06B6D4, #0891B2); border-radius: 16px; padding: 20px; color: white;">
+            <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
+              <i data-lucide="truck" style="width: 24px; height: 24px;"></i>
+              <span style="font-size: 0.9rem; opacity: 0.9;">أرباح السائقين الإجمالية</span>
+            </div>
+            <div id="stat-driver-earnings" style="font-size: 1.5rem; font-weight: 800;">0 د.ع</div>
+          </div>
+          <div style="background: linear-gradient(135deg, #8B5CF6, #7C3AED); border-radius: 16px; padding: 20px; color: white;">
+            <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
+              <i data-lucide="banknote" style="width: 24px; height: 24px;"></i>
+              <span style="font-size: 0.9rem; opacity: 0.9;">إجمالي رسوم التوصيل</span>
+            </div>
+            <div id="stat-total-delivery-fees" style="font-size: 1.5rem; font-weight: 800;">0 د.ع</div>
+          </div>
+        </div>
+
         <div class="orders-filters" style="display: flex; gap: 12px; margin-bottom: 20px; flex-wrap: wrap;">
           <button class="btn btn-outline order-filter active" data-status="all" onclick="filterOrders('all', this)">الكل</button>
           <button class="btn btn-outline order-filter" data-status="pending" onclick="filterOrders('pending', this)">قيد الانتظار</button>
@@ -1735,6 +1760,7 @@
                 <tr>
                   <th>رقم الطلب</th>
                   <th>العميل</th>
+                  <th>السائق</th>
                   <th>المنطقة</th>
                   <th>المنتجات</th>
                   <th>المجموع</th>
@@ -3100,8 +3126,21 @@
         document.getElementById('orders-count').textContent = orders.filter(o => o.status === 'pending').length;
         updateOrdersStats();
         renderOrders();
+        loadOwnerEarnings();
       } catch (error) {
         showToast('error', 'خطأ', 'حدث خطأ في تحميل الطلبات');
+      }
+    }
+
+    async function loadOwnerEarnings() {
+      try {
+        const response = await fetch(API_BASE + '/admin/owner-earnings');
+        const data = await response.json();
+        document.getElementById('stat-owner-earnings').textContent = (data.totalOwnerEarnings || 0).toLocaleString('ar-IQ') + ' د.ع';
+        document.getElementById('stat-driver-earnings').textContent = (data.totalDriverEarnings || 0).toLocaleString('ar-IQ') + ' د.ع';
+        document.getElementById('stat-total-delivery-fees').textContent = (data.totalDeliveryFees || 0).toLocaleString('ar-IQ') + ' د.ع';
+      } catch (error) {
+        console.error('Error loading owner earnings:', error);
       }
     }
 
@@ -3139,7 +3178,7 @@
       }
       
       if (filteredOrders.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; padding: 40px; color: var(--gray-500);">لا توجد طلبات</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="9" style="text-align: center; padding: 40px; color: var(--gray-500);">لا توجد طلبات</td></tr>';
         return;
       }
       
@@ -3176,6 +3215,12 @@
                 <i data-lucide="phone" style="width: 16px; height: 16px; color: var(--gray-500);"></i>
                 ${escapeHtml(order.phoneNumber)}
               </div>
+            </td>
+            <td>
+              ${order.driverName ? `<div style="display: flex; align-items: center; gap: 6px;">
+                <i data-lucide="truck" style="width: 14px; height: 14px; color: #06B6D4;"></i>
+                <span style="font-weight: 600; font-size: 0.85rem; color: #06B6D4;">${escapeHtml(order.driverName)}</span>
+              </div>` : '<span style="color: var(--gray-400); font-size: 0.8rem;">—</span>'}
             </td>
             <td>
               <div style="display: flex; flex-direction: column; gap: 2px;">
@@ -3330,6 +3375,25 @@
             </table>
           </div>
 
+          <!-- Driver Info -->
+          ${order.driverName ? `
+          <div style="background: #E0F7FA; border-radius: 12px; padding: 16px;">
+            <h4 style="margin-bottom: 12px; display: flex; align-items: center; gap: 8px; color: var(--gray-800);">
+              <i data-lucide="truck" style="width: 18px; height: 18px; color: #06B6D4;"></i>
+              بيانات السائق
+            </h4>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+              <div>
+                <div style="font-size: 0.8rem; color: var(--gray-500);">اسم السائق</div>
+                <div style="font-weight: 600;">${escapeHtml(order.driverName)}</div>
+              </div>
+              <div>
+                <div style="font-size: 0.8rem; color: var(--gray-500);">رقم السائق</div>
+                <div style="font-weight: 600; direction: ltr; text-align: right;">${escapeHtml(order.driverPhone || '-')}</div>
+              </div>
+            </div>
+          </div>` : ''}
+
           <!-- Totals -->
           <div style="background: var(--gray-50); border-radius: 12px; padding: 16px;">
             <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
@@ -3345,6 +3409,25 @@
               <span style="font-weight: 800; font-size: 1.1rem; color: var(--primary);">${total.toLocaleString('ar-IQ')} د.ع</span>
             </div>
           </div>
+
+          <!-- Earnings Breakdown -->
+          ${order.driverEarning !== undefined ? `
+          <div style="background: linear-gradient(135deg, #06B6D415, #10B98115); border: 1px solid #06B6D430; border-radius: 12px; padding: 16px;">
+            <h4 style="margin-bottom: 12px; display: flex; align-items: center; gap: 8px; color: var(--gray-800);">
+              <i data-lucide="wallet" style="width: 18px; height: 18px; color: #10B981;"></i>
+              توزيع الأرباح
+            </h4>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+              <div style="text-align: center; background: white; border-radius: 10px; padding: 12px;">
+                <div style="font-size: 1.3rem; font-weight: 800; color: #06B6D4;">${(order.driverEarning || 0).toLocaleString('ar-IQ')}</div>
+                <div style="font-size: 0.75rem; color: var(--gray-500);">ربح السائق (د.ع)</div>
+              </div>
+              <div style="text-align: center; background: white; border-radius: 10px; padding: 12px;">
+                <div style="font-size: 1.3rem; font-weight: 800; color: #10B981;">${(order.ownerEarning || 0).toLocaleString('ar-IQ')}</div>
+                <div style="font-size: 0.75rem; color: var(--gray-500);">ربح التطبيق (د.ع)</div>
+              </div>
+            </div>
+          </div>` : ''}
 
           ${order.notes ? `
           <div style="background: #FFF3E0; border-radius: 12px; padding: 16px;">
