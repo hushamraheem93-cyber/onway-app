@@ -21,7 +21,7 @@ import {
   updateDeliveryArea as updateFirestoreDeliveryArea, deleteDeliveryArea as deleteFirestoreDeliveryArea,
   initializeDefaultDeliveryAreas,
   generateOtp, verifyOtp as verifyOtpCode,
-  getDrivers, getDriverByPhone, createDriver, updateDriverStatus as updateDriverStatusFn
+  getDrivers, getDriverByPhone, createDriver, updateDriverStatus as updateDriverStatusFn, deleteDriver as deleteDriverFn
 } from "./firebase";
 import { sendPushNotification } from "./pushNotifications";
 
@@ -1084,6 +1084,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ success: true });
     } catch (error: any) {
       console.error("Error updating driver status:", error);
+      res.status(500).json({ error: error.message || "Internal server error" });
+    }
+  });
+
+  app.delete("/api/admin/drivers/:id", async (req: Request, res: Response) => {
+    try {
+      const driverId = req.params.id as string;
+      const success = await deleteDriverFn(driverId);
+      if (!success) {
+        return res.status(500).json({ error: "Failed to delete driver" });
+      }
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error("Error deleting driver:", error);
       res.status(500).json({ error: error.message || "Internal server error" });
     }
   });

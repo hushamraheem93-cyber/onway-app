@@ -603,6 +603,17 @@ export async function updateDriverStatus(id: string, status: "pending" | "approv
   }
 }
 
+export async function deleteDriver(id: string): Promise<boolean> {
+  if (!db) return false;
+  try {
+    await db.collection("drivers").doc(id).delete();
+    return true;
+  } catch (error) {
+    console.error("Error deleting driver:", error);
+    return false;
+  }
+}
+
 // Banner Functions
 export interface FirestoreBanner {
   image: string;
