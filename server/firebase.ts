@@ -530,6 +530,7 @@ export interface FirestoreDriver {
   thirdName: string;
   fourthName: string;
   nationalIdImage: string;
+  residenceCardImage?: string;
   driverLicenseImage?: string;
   status: "pending" | "approved" | "rejected";
   createdAt: admin.firestore.Timestamp;
@@ -568,6 +569,7 @@ export async function createDriver(data: {
   thirdName: string;
   fourthName: string;
   nationalIdImage: string;
+  residenceCardImage?: string;
   driverLicenseImage?: string;
 }): Promise<(FirestoreDriver & { id: string }) | null> {
   if (!db) throw new Error("Database not initialized");
