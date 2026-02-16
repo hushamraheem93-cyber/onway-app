@@ -61,7 +61,8 @@ export default function CheckoutScreen() {
 
   const subtotal = getTotal();
   const selectedAreaData = deliveryAreas.find(a => a.id === selectedArea);
-  const deliveryFee = selectedAreaData?.fee || 0;
+  const isRestaurantOrder = items.length > 0 && items.every(item => item.product.categoryId === "restaurants");
+  const deliveryFee = isRestaurantOrder ? 1000 : (selectedAreaData?.fee || 0);
   const total = subtotal + deliveryFee;
 
   const getCurrentLocation = async () => {
@@ -406,7 +407,7 @@ export default function CheckoutScreen() {
             أجور التوصيل
           </ThemedText>
           <ThemedText type="body" style={{ color: deliveryFee > 0 ? AppColors.primary : "#4CAF50" }}>
-            {deliveryFee > 0 ? formatPrice(deliveryFee) : "اختر المنطقة"}
+            {isRestaurantOrder ? formatPrice(1000) : (deliveryFee > 0 ? formatPrice(deliveryFee) : "اختر المنطقة")}
           </ThemedText>
         </View>
         <View style={[styles.summaryRow, styles.totalRow]}>
