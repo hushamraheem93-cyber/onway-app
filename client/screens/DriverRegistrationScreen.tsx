@@ -13,7 +13,6 @@ import { Feather } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import * as ImagePicker from "expo-image-picker";
 import * as Haptics from "expo-haptics";
-import { manipulateAsync, SaveFormat } from "expo-image-manipulator";
 
 import { ThemedText } from "@/components/ThemedText";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
@@ -21,50 +20,6 @@ import { useTheme } from "@/hooks/useTheme";
 import { useAuth } from "@/context/AuthContext";
 import { AppColors, Spacing, BorderRadius, Shadows } from "@/constants/theme";
 import { getApiUrl } from "@/lib/query-client";
-
-async function imageToBase64(uri: string): Promise<string> {
-  try {
-    const manipulated = await manipulateAsync(
-      uri,
-      [{ resize: { width: 600 } }],
-      { compress: 0.5, format: SaveFormat.JPEG, base64: true }
-    );
-
-    if (manipulated.base64) {
-      return `data:image/jpeg;base64,${manipulated.base64}`;
-    }
-
-    throw new Error("base64 not returned");
-  } catch (firstError) {
-    console.log("manipulateAsync with base64 failed, trying fallback:", firstError);
-    try {
-      const manipulated = await manipulateAsync(
-        uri,
-        [{ resize: { width: 600 } }],
-        { compress: 0.5, format: SaveFormat.JPEG }
-      );
-
-      const response = await fetch(manipulated.uri);
-      const blob = await response.blob();
-      return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onloadend = () => resolve(reader.result as string);
-        reader.onerror = () => reject(new Error("FileReader failed"));
-        reader.readAsDataURL(blob);
-      });
-    } catch (secondError) {
-      console.log("Fallback also failed, trying direct read:", secondError);
-      const response = await fetch(uri);
-      const blob = await response.blob();
-      return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onloadend = () => resolve(reader.result as string);
-        reader.onerror = () => reject(new Error("Direct read failed"));
-        reader.readAsDataURL(blob);
-      });
-    }
-  }
-}
 
 export default function DriverRegistrationScreen() {
   const insets = useSafeAreaInsets();
@@ -80,7 +35,6 @@ export default function DriverRegistrationScreen() {
   const [residenceCardImage, setResidenceCardImage] = useState<string | null>(null);
   const [driverLicenseImage, setDriverLicenseImage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [processingImage, setProcessingImage] = useState<string | null>(null);
   const [imagePickerModal, setImagePickerModal] = useState<{
     visible: boolean;
     imageType: "nationalId" | "residenceCard" | "driverLicense" | null;
@@ -105,36 +59,26 @@ export default function DriverRegistrationScreen() {
     }
   };
 
-  const getImageLabel = (imageType: "nationalId" | "residenceCard" | "driverLicense") => {
-    switch (imageType) {
-      case "nationalId": return "البطاقة الوطنية";
-      case "residenceCard": return "بطاقة السكن";
-      case "driverLicense": return "إجازة السوق";
-    }
-  };
+  const handleImageResult = (result: ImagePicker.ImagePickerResult, imageType: "nationalId" | "residenceCard" | "driverLicense") => {
+    if (result.canceled || !result.assets || !result.assets[0]) return;
 
-  const processAndSetImage = async (uri: string, imageType: "nationalId" | "residenceCard" | "driverLicense") => {
+    const asset = result.assets[0];
     const setter = getSetterForType(imageType);
-    const label = getImageLabel(imageType);
-    setProcessingImage(imageType);
-    setErrorMessage("");
 
-    try {
-      const base64 = await imageToBase64(uri);
-      setter(base64);
+    if (asset.base64) {
+      const mimeType = asset.mimeType || "image/jpeg";
+      setter(`data:${mimeType};base64,${asset.base64}`);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    } catch (error: any) {
-      console.error(`Error processing ${imageType} image:`, error);
-      setErrorMessage(`فشل في معالجة صورة ${label}. حاول مرة أخرى`);
-      setter(null);
-    } finally {
-      setProcessingImage(null);
+    } else {
+      setter(asset.uri);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     }
   };
 
   const pickImageForType = async (imageType: "nationalId" | "residenceCard" | "driverLicense") => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setImagePickerModal({ visible: false, imageType: null, title: "" });
+    setErrorMessage("");
 
     try {
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -146,12 +90,11 @@ export default function DriverRegistrationScreen() {
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ["images"],
         allowsEditing: true,
-        quality: 0.6,
+        quality: 0.4,
+        base64: true,
       });
 
-      if (!result.canceled && result.assets[0]) {
-        await processAndSetImage(result.assets[0].uri, imageType);
-      }
+      handleImageResult(result, imageType);
     } catch (error) {
       console.error("Error picking image:", error);
       setErrorMessage("حدث خطأ أثناء اختيار الصورة");
@@ -161,6 +104,7 @@ export default function DriverRegistrationScreen() {
   const takePhotoForType = async (imageType: "nationalId" | "residenceCard" | "driverLicense") => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setImagePickerModal({ visible: false, imageType: null, title: "" });
+    setErrorMessage("");
 
     if (Platform.OS === "web") {
       await pickImageForType(imageType);
@@ -176,12 +120,11 @@ export default function DriverRegistrationScreen() {
 
       const result = await ImagePicker.launchCameraAsync({
         allowsEditing: true,
-        quality: 0.6,
+        quality: 0.4,
+        base64: true,
       });
 
-      if (!result.canceled && result.assets[0]) {
-        await processAndSetImage(result.assets[0].uri, imageType);
-      }
+      handleImageResult(result, imageType);
     } catch (error) {
       console.error("Error taking photo:", error);
       setErrorMessage("حدث خطأ أثناء التقاط الصورة");
@@ -201,30 +144,39 @@ export default function DriverRegistrationScreen() {
 
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setIsLoading(true);
+    setErrorMessage("");
 
     try {
       const fullName = `${firstName.trim()} ${secondName.trim()} ${thirdName.trim()} ${fourthName.trim()}`;
 
+      const bodyData: Record<string, string> = {
+        phoneNumber: phoneNumber || "",
+        fullName,
+        firstName: firstName.trim(),
+        secondName: secondName.trim(),
+        thirdName: thirdName.trim(),
+        fourthName: fourthName.trim(),
+        motorcycleNumber: motorcycleNumber.trim(),
+        nationalIdImage,
+        residenceCardImage,
+      };
+      if (driverLicenseImage) {
+        bodyData.driverLicenseImage = driverLicenseImage;
+      }
+
       const response = await fetch(new URL("/api/drivers", getApiUrl()).toString(), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          phoneNumber,
-          fullName,
-          firstName: firstName.trim(),
-          secondName: secondName.trim(),
-          thirdName: thirdName.trim(),
-          fourthName: fourthName.trim(),
-          motorcycleNumber: motorcycleNumber.trim(),
-          nationalIdImage,
-          residenceCardImage,
-          ...(driverLicenseImage && { driverLicenseImage }),
-        }),
+        body: JSON.stringify(bodyData),
       });
 
       if (!response.ok) {
-        const err = await response.json();
-        throw new Error(err.error || "فشل في تسجيل السائق");
+        let errMsg = "فشل في تسجيل السائق";
+        try {
+          const err = await response.json();
+          errMsg = err.error || errMsg;
+        } catch {}
+        throw new Error(errMsg);
       }
 
       await completeDriverRegistration();
@@ -371,17 +323,9 @@ export default function DriverRegistrationScreen() {
         <Pressable
           style={[styles.idUpload, { borderColor: nationalIdImage ? AppColors.primary : theme.border, backgroundColor: theme.backgroundSecondary }]}
           onPress={() => showImageOptions("nationalId", "صورة البطاقة الوطنية")}
-          disabled={processingImage === "nationalId"}
           testID="button-upload-id"
         >
-          {processingImage === "nationalId" ? (
-            <View style={styles.idPlaceholder}>
-              <ActivityIndicator size="large" color={AppColors.primary} />
-              <ThemedText type="body" style={[styles.idPlaceholderText, { color: AppColors.primary }]}>
-                جاري معالجة الصورة...
-              </ThemedText>
-            </View>
-          ) : nationalIdImage ? (
+          {nationalIdImage ? (
             <View>
               <Image
                 source={{ uri: nationalIdImage }}
@@ -413,17 +357,9 @@ export default function DriverRegistrationScreen() {
         <Pressable
           style={[styles.idUpload, { borderColor: residenceCardImage ? "#4CAF50" : theme.border, backgroundColor: theme.backgroundSecondary }]}
           onPress={() => showImageOptions("residenceCard", "صورة بطاقة السكن")}
-          disabled={processingImage === "residenceCard"}
           testID="button-upload-residence-card"
         >
-          {processingImage === "residenceCard" ? (
-            <View style={styles.idPlaceholder}>
-              <ActivityIndicator size="large" color={AppColors.primary} />
-              <ThemedText type="body" style={[styles.idPlaceholderText, { color: AppColors.primary }]}>
-                جاري معالجة الصورة...
-              </ThemedText>
-            </View>
-          ) : residenceCardImage ? (
+          {residenceCardImage ? (
             <View>
               <Image
                 source={{ uri: residenceCardImage }}
@@ -460,17 +396,9 @@ export default function DriverRegistrationScreen() {
         <Pressable
           style={[styles.idUpload, { borderColor: driverLicenseImage ? "#4CAF50" : theme.border, backgroundColor: theme.backgroundSecondary }]}
           onPress={() => showImageOptions("driverLicense", "صورة إجازة السوق")}
-          disabled={processingImage === "driverLicense"}
           testID="button-upload-license"
         >
-          {processingImage === "driverLicense" ? (
-            <View style={styles.idPlaceholder}>
-              <ActivityIndicator size="large" color={AppColors.primary} />
-              <ThemedText type="body" style={[styles.idPlaceholderText, { color: AppColors.primary }]}>
-                جاري معالجة الصورة...
-              </ThemedText>
-            </View>
-          ) : driverLicenseImage ? (
+          {driverLicenseImage ? (
             <View>
               <Image
                 source={{ uri: driverLicenseImage }}
