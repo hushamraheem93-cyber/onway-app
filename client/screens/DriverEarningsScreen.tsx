@@ -23,7 +23,7 @@ interface EarningsData {
   weekEarnings: number;
   totalOrders: number;
   todayOrders: number;
-  completedOrders: { id: string; total: number; deliveryFee: number; completedAt: string; customerName: string }[];
+  completedOrders: { id: string; total: number; deliveryFee: number; driverEarning: number; isRestaurant: boolean; completedAt: string; customerName: string }[];
 }
 
 export default function DriverEarningsScreen() {
@@ -84,9 +84,14 @@ export default function DriverEarningsScreen() {
   const renderOrderItem = ({ item }: { item: EarningsData["completedOrders"][0] }) => (
     <View style={[styles.orderItem, { backgroundColor: theme.backgroundDefault, borderColor: theme.border }]}>
       <View style={styles.orderItemRow}>
-        <ThemedText type="body" style={{ color: AppColors.primary, fontWeight: "700" }}>
-          {formatPrice(item.deliveryFee)}
-        </ThemedText>
+        <View style={{ alignItems: "flex-start" }}>
+          <ThemedText type="body" style={{ color: AppColors.primary, fontWeight: "700" }}>
+            {formatPrice(item.driverEarning || 0)}
+          </ThemedText>
+          <ThemedText type="small" style={{ color: theme.textSecondary, fontSize: 10 }}>
+            {item.isRestaurant ? "مطعم" : "توصيل"}
+          </ThemedText>
+        </View>
         <View style={{ alignItems: "flex-end", flex: 1 }}>
           <ThemedText type="body" style={{ color: theme.text, fontWeight: "600" }}>
             {item.customerName || "زبون"}
