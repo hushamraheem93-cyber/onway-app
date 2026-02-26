@@ -1,14 +1,12 @@
 import React, { useState } from "react";
-import { StyleSheet, View, TextInput, Alert, Modal, Pressable, FlatList, Platform } from "react-native";
+import { StyleSheet, View, TextInput, Alert, Modal, Pressable, FlatList } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import * as Haptics from "expo-haptics";
-import * as Location from "expo-location";
 import { Feather } from "@expo/vector-icons";
 
-import MapPicker from "@/components/MapPicker";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import { useTheme } from "@/hooks/useTheme";
 import { Spacing, BorderRadius, AppColors, Shadows } from "@/constants/theme";
@@ -49,9 +47,7 @@ export default function CheckoutScreen() {
   const [notes, setNotes] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showAreaPicker, setShowAreaPicker] = useState(false);
-  const [showMapPicker, setShowMapPicker] = useState(false);
   const [selectedLocation, setSelectedLocation] = useState<{ latitude: number; longitude: number } | null>(null);
-  const [isLoadingLocation, setIsLoadingLocation] = useState(false);
 
   const handleSelectArea = (areaId: string) => {
     setSelectedArea(areaId);
@@ -64,43 +60,6 @@ export default function CheckoutScreen() {
   const isRestaurantOrder = items.length > 0 && items.every(item => item.product.categoryId === "restaurants");
   const deliveryFee = isRestaurantOrder ? 1000 : (selectedAreaData?.fee || 0);
   const total = subtotal + deliveryFee;
-
-  const getCurrentLocation = async () => {
-    setIsLoadingLocation(true);
-    try {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== "granted") {
-        Alert.alert("تنبيه", "يرجى السماح بالوصول إلى الموقع لتحديد موقع التوصيل");
-        setIsLoadingLocation(false);
-        return;
-      }
-      const location = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.High,
-      });
-      setSelectedLocation({ latitude: location.coords.latitude, longitude: location.coords.longitude });
-    } catch (error) {
-      console.error("Error getting location:", error);
-      Alert.alert("خطأ", "تعذر الحصول على الموقع الحالي");
-    } finally {
-      setIsLoadingLocation(false);
-    }
-  };
-
-  const openMapPicker = () => {
-    setShowMapPicker(true);
-    if (!selectedLocation) {
-      getCurrentLocation();
-    }
-  };
-
-  const confirmMapLocation = () => {
-    if (selectedLocation) {
-      setShowMapPicker(false);
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    } else {
-      Alert.alert("تنبيه", "يرجى تحديد موقع التوصيل على الخريطة");
-    }
-  };
 
   const handleSubmit = async () => {
     if (!customerName.trim()) {
@@ -289,88 +248,6 @@ export default function CheckoutScreen() {
 
       <View style={[styles.inputContainer, { backgroundColor: theme.backgroundDefault }, Shadows.sm]}>
         <ThemedText type="small" style={[styles.label, { color: theme.textSecondary }]}>
-          موقع التوصيل على الخريطة (اختياري)
-        </ThemedText>
-        <Pressable
-          onPress={openMapPicker}
-          style={[
-            styles.mapButton,
-            {
-              borderColor: selectedLocation ? "#4CAF50" : AppColors.primary,
-              backgroundColor: selectedLocation ? "#E8F5E9" : AppColors.secondary,
-            }
-          ]}
-          testID="button-open-map"
-        >
-          <Feather 
-            name={selectedLocation ? "check-circle" : "map-pin"} 
-            size={22} 
-            color={selectedLocation ? "#4CAF50" : AppColors.primary} 
-          />
-          <ThemedText
-            type="body"
-            style={{
-              flex: 1,
-              textAlign: "right",
-              color: selectedLocation ? "#4CAF50" : AppColors.primary,
-              fontWeight: "600",
-            }}
-          >
-            {selectedLocation ? "تم تحديد الموقع" : "حدد موقعك على الخريطة"}
-          </ThemedText>
-        </Pressable>
-      </View>
-
-      <Modal
-        visible={showMapPicker}
-        animationType="slide"
-        onRequestClose={() => setShowMapPicker(false)}
-      >
-        <View style={[styles.mapContainer, { backgroundColor: theme.backgroundRoot }]}>
-          <View style={[styles.mapHeader, { paddingTop: insets.top + Spacing.sm, backgroundColor: AppColors.primary }]}>
-            <Pressable onPress={() => setShowMapPicker(false)} style={styles.mapHeaderBtn}>
-              <Feather name="x" size={24} color="#FFFFFF" />
-            </Pressable>
-            <ThemedText type="h4" style={{ color: "#FFFFFF", fontWeight: "700", flex: 1, textAlign: "center" }}>
-              حدد موقع التوصيل
-            </ThemedText>
-            <Pressable onPress={confirmMapLocation} style={styles.mapHeaderBtn}>
-              <Feather name="check" size={24} color="#FFFFFF" />
-            </Pressable>
-          </View>
-
-          <MapPicker
-            selectedLocation={selectedLocation}
-            onLocationSelect={(loc) => {
-              setSelectedLocation(loc);
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            }}
-            onGetCurrentLocation={getCurrentLocation}
-            isLoadingLocation={isLoadingLocation}
-          />
-
-          {Platform.OS !== "web" ? (
-            <View style={[styles.confirmBar, { paddingBottom: insets.bottom + Spacing.md }]}>
-              <Pressable
-                style={[
-                  styles.confirmLocationBtn,
-                  { backgroundColor: selectedLocation ? AppColors.primary : "#CCCCCC" },
-                ]}
-                onPress={confirmMapLocation}
-                testID="button-confirm-location"
-              >
-                <Feather name="check" size={20} color="#FFFFFF" />
-                <ThemedText type="h4" style={{ color: "#FFFFFF", fontWeight: "700" }}>
-                  تأكيد الموقع
-                </ThemedText>
-              </Pressable>
-            </View>
-          ) : null}
-        </View>
-      </Modal>
-
-      <View style={[styles.inputContainer, { backgroundColor: theme.backgroundDefault }, Shadows.sm]}>
-        <ThemedText type="small" style={[styles.label, { color: theme.textSecondary }]}>
           ملاحظات إضافية (اختياري)
         </ThemedText>
         <TextInput
@@ -460,14 +337,6 @@ const styles = StyleSheet.create({
     padding: Spacing.md,
     gap: Spacing.sm,
   },
-  mapButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    borderWidth: 1.5,
-    borderRadius: BorderRadius.md,
-    padding: Spacing.md,
-    gap: Spacing.sm,
-  },
   modalOverlay: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.5)",
@@ -525,39 +394,5 @@ const styles = StyleSheet.create({
   submitButton: {
     marginTop: Spacing.xl,
     marginBottom: Spacing.xl,
-  },
-  mapContainer: {
-    flex: 1,
-  },
-  mapHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: Spacing.lg,
-    paddingBottom: Spacing.md,
-  },
-  mapHeaderBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: "rgba(255,255,255,0.2)",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  confirmBar: {
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
-    paddingHorizontal: Spacing.lg,
-    paddingTop: Spacing.md,
-    backgroundColor: "rgba(255,255,255,0.95)",
-  },
-  confirmLocationBtn: {
-    flexDirection: "row",
-    justifyContent: "center",
-    alignItems: "center",
-    gap: Spacing.sm,
-    paddingVertical: Spacing.md,
-    borderRadius: BorderRadius.lg,
   },
 });

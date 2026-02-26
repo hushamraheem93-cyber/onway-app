@@ -148,6 +148,11 @@ export function ProductCard({ product, onPress }: ProductCardProps) {
         <ThemedText type="body" numberOfLines={2} style={styles.name}>
           {product.name}
         </ThemedText>
+        {product.weight ? (
+          <ThemedText type="small" style={styles.weight}>
+            {product.weight}
+          </ThemedText>
+        ) : null}
         <View style={styles.footer}>
           <ThemedText type="h4" style={[styles.price, { color: AppColors.primary }]}>
             {formatPrice(product.price)}
@@ -246,7 +251,13 @@ const styles = StyleSheet.create({
     textAlign: "right",
     fontWeight: "bold",
     fontSize: 14,
-    minHeight: 40,
+    minHeight: 34,
+  },
+  weight: {
+    textAlign: "right",
+    color: "#888888",
+    fontSize: 12,
+    marginTop: 2,
   },
   footer: {
     flexDirection: "row-reverse",
