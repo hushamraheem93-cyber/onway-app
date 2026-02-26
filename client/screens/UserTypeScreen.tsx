@@ -9,7 +9,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets, SafeAreaView } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
-import { Feather } from "@expo/vector-icons";
+import { Feather, MaterialIcons, FontAwesome5 } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 
 import { ThemedText } from "@/components/ThemedText";
@@ -103,10 +103,8 @@ export default function UserTypeScreen() {
             onPress={() => handleSelect("customer")}
             testID="button-customer"
           >
-            <View style={styles.cardLeft}>
-              <View style={[styles.iconCircle, { backgroundColor: "#FFF5EE" }]}>
-                <Feather name="shopping-bag" size={28} color={BRAND_ORANGE} />
-              </View>
+            <View style={styles.cardArrow}>
+              <MaterialIcons name="keyboard-arrow-left" size={24} color="#999" />
             </View>
             <View style={styles.cardCenter}>
               <ThemedText style={styles.cardTitle}>زبون</ThemedText>
@@ -114,8 +112,10 @@ export default function UserTypeScreen() {
                 تصفح المنتجات واطلب التوصيل لباب منزلك
               </ThemedText>
             </View>
-            <View style={styles.cardArrow}>
-              <Feather name="chevron-left" size={20} color={BRAND_ORANGE} />
+            <View style={styles.cardLeft}>
+              <View style={[styles.iconCircle, { backgroundColor: "#FFEDD8" }]}>
+                <MaterialIcons name="person" size={30} color="#F37335" />
+              </View>
             </View>
           </Pressable>
         </Animated.View>
@@ -129,10 +129,8 @@ export default function UserTypeScreen() {
             onPress={() => handleSelect("driver")}
             testID="button-driver"
           >
-            <View style={styles.cardLeft}>
-              <View style={[styles.iconCircle, { backgroundColor: "#E8F5E9" }]}>
-                <Feather name="truck" size={28} color="#4CAF50" />
-              </View>
+            <View style={styles.cardArrow}>
+              <MaterialIcons name="keyboard-arrow-left" size={24} color="#999" />
             </View>
             <View style={styles.cardCenter}>
               <ThemedText style={styles.cardTitle}>سائق توصيل</ThemedText>
@@ -140,8 +138,10 @@ export default function UserTypeScreen() {
                 انضم لفريق التوصيل واكسب المال بتوصيل الطلبات
               </ThemedText>
             </View>
-            <View style={styles.cardArrow}>
-              <Feather name="chevron-left" size={20} color="#4CAF50" />
+            <View style={styles.cardLeft}>
+              <View style={[styles.iconCircle, { backgroundColor: "#E0F2F1" }]}>
+                <FontAwesome5 name="motorcycle" size={28} color="#009688" />
+              </View>
             </View>
           </Pressable>
         </Animated.View>
@@ -266,12 +266,12 @@ const styles = StyleSheet.create({
     backgroundColor: "#F5F5F5",
   },
   cardLeft: {
-    marginLeft: 14,
+    marginLeft: 0,
   },
   iconCircle: {
-    width: 56,
-    height: 56,
-    borderRadius: 16,
+    width: 60,
+    height: 60,
+    borderRadius: 20,
     justifyContent: "center",
     alignItems: "center",
   },
@@ -300,10 +300,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: "#FFFFFF",
     justifyContent: "center",
     alignItems: "center",
-    borderWidth: 1,
-    borderColor: "#F0F0F0",
   },
 });
