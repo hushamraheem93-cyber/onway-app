@@ -215,3 +215,12 @@ All images are compressed and stored as Base64 strings to avoid Firebase Storage
   - Added bulk sample products to all 12 categories (50+ products total)
   - Categories: خضروات وفواكه، لحوم، ألبان، منظفات، مشروبات، عصائر، سناكس، شاي وقهوة، مستلزمات أطفال، هدايا وورود، خدمات المندوب، أشهر المطاعم
   - Default categories auto-initialized on first run
+- **February 2026: Driver & Owner Earnings System**
+  - Category-based driver earnings: Restaurant orders = 1000 IQD, other categories = 1500 IQD
+  - Owner earnings = deliveryFee - driverEarning (minimum 0)
+  - Admin panel owner earnings dashboard with 3 statistics cards: App Profits, Driver Earnings, Total Delivery Fees
+  - Retroactive earnings calculation for orders delivered before the system was implemented
+  - Driver earnings screen shows driverEarning per order with restaurant/delivery labels
+  - Admin orders table includes driver name column
+  - Order detail modal shows earnings breakdown (driver earning vs app earning)
+  - API: GET /api/admin/owner-earnings, GET /api/driver/earnings?phoneNumber=

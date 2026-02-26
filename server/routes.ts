@@ -1515,12 +1515,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       for (const order of deliveredOrders) {
         const o = order as any;
+        const deliveryFee = o.deliveryFee || 0;
+        totalDeliveryFees += deliveryFee;
+
         if (o.driverEarning !== undefined) {
           totalDriverEarnings += o.driverEarning || 0;
           totalOwnerEarnings += o.ownerEarning || 0;
           ordersWithEarnings++;
+        } else {
+          const isRestaurant = await checkIsRestaurantOrder(o);
+          const driverEarning = isRestaurant ? 1000 : 1500;
+          const ownerEarning = Math.max(deliveryFee - driverEarning, 0);
+          totalDriverEarnings += driverEarning;
+          totalOwnerEarnings += ownerEarning;
+          ordersWithEarnings++;
         }
-        totalDeliveryFees += o.deliveryFee || 0;
       }
 
       res.json({
