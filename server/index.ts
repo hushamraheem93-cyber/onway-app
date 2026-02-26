@@ -235,6 +235,26 @@ function setupErrorHandler(app: express.Application) {
   });
 }
 
+process.on("uncaughtException", (err) => {
+  console.error("Uncaught Exception:", err);
+});
+
+process.on("unhandledRejection", (reason) => {
+  console.error("Unhandled Rejection:", reason);
+});
+
+process.on("SIGTERM", () => {
+  console.error("Received SIGTERM");
+});
+
+process.on("SIGINT", () => {
+  console.error("Received SIGINT");
+});
+
+process.on("exit", (code) => {
+  console.error("Process exit with code:", code);
+});
+
 (async () => {
   setupCors(app);
   setupBodyParsing(app);

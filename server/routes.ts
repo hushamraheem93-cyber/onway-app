@@ -1,3 +1,4 @@
+import express from "express";
 import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "node:http";
 import multer, { StorageEngine, FileFilterCallback } from "multer";
@@ -191,7 +192,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use("/uploads", (req, res, next) => {
     res.setHeader("Access-Control-Allow-Origin", "*");
     next();
-  }, require("express").static(uploadsDir));
+  }, express.static(uploadsDir));
+
+  function limitImageSize(img: string | undefined, maxLen = 50000): string {
+    if (!img) return "";
+    if (img.length <= maxLen) return img;
+    if (img.startsWith("data:image")) return "";
+    return img;
+  }
 
   app.get("/api/categories", async (req, res) => {
     try {
@@ -199,10 +207,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (db) {
         const firestoreCategories = await getFirestoreCategories();
         if (firestoreCategories.length > 0) {
-          return res.json(firestoreCategories);
+          const lightCategories = firestoreCategories.map(c => ({
+            ...c,
+            image: limitImageSize(c.image),
+          }));
+          return res.json(lightCategories);
         }
       }
-      // Fallback to in-memory categories
       const sortedCategories = [...categories].sort((a, b) => a.order - b.order);
       res.json(sortedCategories);
     } catch (error) {
@@ -347,7 +358,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (type) {
         result = result.filter(b => b.type === type);
       }
-      res.json(result);
+      const lightResult = result.map(b => ({ ...b, image: limitImageSize(b.image, 100000) }));
+      res.json(lightResult);
     } catch (error) {
       console.error("Error getting banners:", error);
       res.json([]);
@@ -357,7 +369,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/admin/banners", async (req, res) => {
     try {
       const result = await getFirestoreBanners(false);
-      res.json(result);
+      const lightResult = result.map(b => ({ ...b, image: limitImageSize(b.image, 100000) }));
+      res.json(lightResult);
     } catch (error) {
       console.error("Error getting admin banners:", error);
       res.json([]);
@@ -432,7 +445,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           p.description.toLowerCase().includes(searchLower)
         );
       }
-      return res.json(result);
+      const lightResult = result.map(p => ({ ...p, image: limitImageSize(p.image) }));
+      return res.json(lightResult);
     }
     
     let result = products;
@@ -453,7 +467,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const db = getFirestore();
     if (db) {
       const result = await getFirestoreProducts();
-      return res.json(result);
+      const lightResult = result.map(p => ({ ...p, image: limitImageSize(p.image) }));
+      return res.json(lightResult);
     }
     res.json(products);
   });

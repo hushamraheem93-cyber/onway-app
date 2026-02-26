@@ -1,4 +1,4 @@
-import * as admin from "firebase-admin";
+import admin from "firebase-admin";
 
 let db: admin.firestore.Firestore | null = null;
 
@@ -13,7 +13,8 @@ export function initializeFirebase() {
   try {
     const serviceAccount = JSON.parse(serviceAccountJson);
     
-    if (!admin.apps.length) {
+    const apps = admin.apps || [];
+    if (!apps.length) {
       admin.initializeApp({
         credential: admin.credential.cert(serviceAccount),
       });
