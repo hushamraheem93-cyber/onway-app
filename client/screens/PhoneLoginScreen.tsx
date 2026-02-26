@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
   ScrollView,
   Keyboard,
+  Modal,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Image } from "expo-image";
@@ -27,6 +28,9 @@ export default function PhoneLoginScreen() {
   const [phoneNumber, setPhoneNumber] = useState("");
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [modalVisible, setModalVisible] = useState(false);
+  const [modalTitle, setModalTitle] = useState("");
+  const [modalMessage, setModalMessage] = useState("");
 
   const validatePhone = (phone: string) => {
     const cleanPhone = phone.replace(/\s/g, "");
@@ -59,6 +63,13 @@ export default function PhoneLoginScreen() {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const showInfoModal = (title: string, message: string) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setModalTitle(title);
+    setModalMessage(message);
+    setModalVisible(true);
   };
 
   return (
@@ -143,11 +154,64 @@ export default function PhoneLoginScreen() {
                 <ThemedText style={styles.submitText}>إرسال رمز التحقق</ThemedText>
               )}
             </Pressable>
+
+            <View style={styles.extraOptions}>
+              <Pressable
+                onPress={() =>
+                  showInfoModal(
+                    "استعادة الحساب",
+                    "لا حاجة لكلمة سر! أدخل رقم هاتفك وسنرسل لك رمز تحقق للدخول إلى حسابك."
+                  )
+                }
+                testID="button-forgot-password"
+              >
+                <ThemedText style={styles.forgotPasswordText}>هل نسيت كلمة السر؟</ThemedText>
+              </Pressable>
+
+              <View style={styles.registerContainer}>
+                <ThemedText style={styles.whiteText}>ليس لديك حساب؟ </ThemedText>
+                <Pressable
+                  onPress={() =>
+                    showInfoModal(
+                      "إنشاء حساب جديد",
+                      "أدخل رقم هاتفك واضغط على إرسال رمز التحقق. سيتم إنشاء حسابك تلقائياً عند أول تسجيل دخول."
+                    )
+                  }
+                  testID="button-register"
+                >
+                  <ThemedText style={styles.signUpText}>سجل الآن</ThemedText>
+                </Pressable>
+              </View>
+            </View>
           </View>
 
           <View style={styles.bottomSpacer} />
         </ScrollView>
       </KeyboardAvoidingView>
+
+      <Modal
+        visible={modalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setModalVisible(false)}
+      >
+        <Pressable
+          style={styles.modalOverlay}
+          onPress={() => setModalVisible(false)}
+        >
+          <Pressable style={styles.modalContent} onPress={() => {}}>
+            <ThemedText style={styles.modalTitle}>{modalTitle}</ThemedText>
+            <ThemedText style={styles.modalMessage}>{modalMessage}</ThemedText>
+            <Pressable
+              style={styles.modalButton}
+              onPress={() => setModalVisible(false)}
+              testID="button-modal-dismiss"
+            >
+              <ThemedText style={styles.modalButtonText}>حسناً</ThemedText>
+            </Pressable>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -285,5 +349,75 @@ const styles = StyleSheet.create({
   },
   bottomSpacer: {
     height: 40,
+  },
+  extraOptions: {
+    marginTop: 20,
+    alignItems: "center",
+    width: "100%",
+  },
+  forgotPasswordText: {
+    color: "#FFFFFF",
+    fontSize: 14,
+    textDecorationLine: "underline",
+    marginBottom: 30,
+    fontFamily: "Cairo_400Regular",
+  },
+  registerContainer: {
+    flexDirection: "row-reverse",
+    marginTop: 10,
+  },
+  whiteText: {
+    color: "#FFFFFF",
+    fontSize: 15,
+    fontFamily: "Cairo_400Regular",
+  },
+  signUpText: {
+    color: "#FFFFFF",
+    fontSize: 15,
+    fontWeight: "bold",
+    textDecorationLine: "underline",
+    fontFamily: "Cairo_700Bold",
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 32,
+  },
+  modalContent: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 16,
+    paddingVertical: 28,
+    paddingHorizontal: 24,
+    width: "100%",
+    maxWidth: 340,
+    alignItems: "center",
+  },
+  modalTitle: {
+    fontFamily: "Cairo_700Bold",
+    fontSize: 18,
+    color: "#333",
+    textAlign: "center",
+    marginBottom: 12,
+  },
+  modalMessage: {
+    fontFamily: "Cairo_400Regular",
+    fontSize: 15,
+    color: "#555",
+    textAlign: "center",
+    lineHeight: 24,
+    marginBottom: 24,
+  },
+  modalButton: {
+    backgroundColor: BRAND_ORANGE,
+    borderRadius: 10,
+    paddingVertical: 12,
+    paddingHorizontal: 40,
+  },
+  modalButtonText: {
+    fontFamily: "Cairo_700Bold",
+    fontSize: 15,
+    color: "#FFFFFF",
   },
 });
