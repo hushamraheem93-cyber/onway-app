@@ -603,6 +603,67 @@ function generateOtp(phoneNumber) {
   console.log(`OTP for ${phoneNumber}: ${code}`);
   return code;
 }
+async function getPromoCodes() {
+  if (!db) return [];
+  try {
+    const snapshot = await db.collection("promoCodes").orderBy("createdAt", "desc").get();
+    return snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+  } catch (error) {
+    console.error("Error getting promo codes:", error);
+    return [];
+  }
+}
+async function getPromoCodeByCode(code) {
+  if (!db) return null;
+  try {
+    const snapshot = await db.collection("promoCodes").where("code", "==", code).limit(1).get();
+    if (snapshot.empty) return null;
+    const doc = snapshot.docs[0];
+    return { id: doc.id, ...doc.data() };
+  } catch (error) {
+    console.error("Error getting promo code:", error);
+    return null;
+  }
+}
+async function createPromoCode(data) {
+  if (!db) throw new Error("Firestore not initialized");
+  const now = admin.firestore.Timestamp.now();
+  const docRef = await db.collection("promoCodes").add({
+    ...data,
+    createdAt: now,
+    updatedAt: now
+  });
+  return docRef.id;
+}
+async function updatePromoCode(id, data) {
+  if (!db) throw new Error("Firestore not initialized");
+  await db.collection("promoCodes").doc(id).update({
+    ...data,
+    updatedAt: admin.firestore.Timestamp.now()
+  });
+}
+async function deletePromoCode(id) {
+  if (!db) throw new Error("Firestore not initialized");
+  await db.collection("promoCodes").doc(id).delete();
+}
+async function checkPromoUsage(userId, promoCode) {
+  if (!db) return false;
+  try {
+    const snapshot = await db.collection("promoUsageHistory").where("userId", "==", userId).where("promoCode", "==", promoCode).limit(1).get();
+    return !snapshot.empty;
+  } catch (error) {
+    console.error("Error checking promo usage:", error);
+    return false;
+  }
+}
+async function recordPromoUsage(userId, promoCode) {
+  if (!db) throw new Error("Firestore not initialized");
+  await db.collection("promoUsageHistory").add({
+    userId,
+    promoCode,
+    timestamp: admin.firestore.Timestamp.now()
+  });
+}
 async function initializeDefaultCategories(defaultCategories) {
   if (!db) return;
   try {
@@ -1253,9 +1314,15 @@ async function registerRoutes(app2) {
     res.json([]);
   });
   app2.post("/api/orders", async (req, res) => {
-    const { userId, phoneNumber, customerName, items, total, deliveryFee, address, region, latitude, longitude, orderType, internationalDetails, courierDetails } = req.body;
+    const { userId, phoneNumber, customerName, items, total, deliveryFee, address, region, latitude, longitude, orderType, internationalDetails, courierDetails, promoCode, promoDiscount } = req.body;
     const db2 = getFirestore();
     if (db2) {
+      if (promoCode) {
+        const alreadyUsed = await checkPromoUsage(userId || phoneNumber, promoCode);
+        if (alreadyUsed) {
+          return res.status(400).json({ error: "\u0644\u0642\u062F \u0627\u0633\u062A\u062E\u062F\u0645\u062A \u0647\u0630\u0627 \u0627\u0644\u0643\u0648\u062F \u0645\u0633\u0628\u0642\u0627\u064B!" });
+        }
+      }
       const orderData = {
         userId: userId || "",
         phoneNumber,
@@ -1274,8 +1341,15 @@ async function registerRoutes(app2) {
       if (orderType) orderData.orderType = orderType;
       if (internationalDetails) orderData.internationalDetails = internationalDetails;
       if (courierDetails) orderData.courierDetails = courierDetails;
+      if (promoCode) orderData.promoCode = promoCode;
+      if (promoDiscount) orderData.promoDiscount = promoDiscount;
       const newOrder = await createOrder(orderData);
       if (newOrder) {
+        if (promoCode) {
+          await recordPromoUsage(userId || phoneNumber, promoCode).catch(
+            (err) => console.error("Failed to record promo usage:", err)
+          );
+        }
         return res.json({
           ...newOrder,
           createdAt: newOrder.createdAt.toDate().toISOString(),
@@ -1996,6 +2070,105 @@ async function registerRoutes(app2) {
         ordersWithEarnings,
         totalDeliveredOrders: deliveredOrders.length
       });
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+  app2.get("/api/admin/promo-codes", async (_req, res) => {
+    try {
+      const codes = await getPromoCodes();
+      res.json(codes);
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+  app2.post("/api/admin/promo-codes", async (req, res) => {
+    try {
+      const { code, type, value, expiryDate, isActive } = req.body;
+      if (!code || !type || value === void 0) {
+        return res.status(400).json({ error: "Missing required fields" });
+      }
+      const id = await createPromoCode({
+        code: code.toUpperCase(),
+        type,
+        value: Number(value),
+        expiryDate: expiryDate || "",
+        isActive: isActive !== false
+      });
+      res.json({ id, success: true });
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+  app2.put("/api/admin/promo-codes/:id", async (req, res) => {
+    try {
+      const { code, type, value, expiryDate, isActive } = req.body;
+      await updatePromoCode(req.params.id, {
+        ...code && { code: code.toUpperCase() },
+        ...type && { type },
+        ...value !== void 0 && { value: Number(value) },
+        ...expiryDate !== void 0 && { expiryDate },
+        ...isActive !== void 0 && { isActive }
+      });
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+  app2.delete("/api/admin/promo-codes/:id", async (req, res) => {
+    try {
+      await deletePromoCode(req.params.id);
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+  app2.post("/api/promo-codes/apply", async (req, res) => {
+    try {
+      const { code, userId, cartTotal } = req.body;
+      if (!code || !userId || cartTotal === void 0) {
+        return res.status(400).json({ error: "\u0627\u0644\u0631\u062C\u0627\u0621 \u0625\u062F\u062E\u0627\u0644 \u062C\u0645\u064A\u0639 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u0645\u0637\u0644\u0648\u0628\u0629" });
+      }
+      const promo = await getPromoCodeByCode(code.toUpperCase());
+      if (!promo || !promo.isActive) {
+        return res.status(400).json({ error: "\u0627\u0644\u0643\u0648\u062F \u063A\u064A\u0631 \u0635\u062D\u064A\u062D \u0623\u0648 \u063A\u064A\u0631 \u0641\u0639\u0651\u0627\u0644" });
+      }
+      if (promo.expiryDate) {
+        const expiry = new Date(promo.expiryDate);
+        if (expiry < /* @__PURE__ */ new Date()) {
+          return res.status(400).json({ error: "\u0627\u0646\u062A\u0647\u062A \u0635\u0644\u0627\u062D\u064A\u0629 \u0647\u0630\u0627 \u0627\u0644\u0643\u0648\u062F" });
+        }
+      }
+      const usedBefore = await checkPromoUsage(userId, code.toUpperCase());
+      if (usedBefore) {
+        return res.status(400).json({ error: "\u0644\u0642\u062F \u0627\u0633\u062A\u062E\u062F\u0645\u062A \u0647\u0630\u0627 \u0627\u0644\u0643\u0648\u062F \u0645\u0633\u0628\u0642\u0627\u064B!" });
+      }
+      let discount = 0;
+      if (promo.type === "percentage") {
+        discount = Math.round(cartTotal * (promo.value / 100));
+      } else {
+        discount = promo.value;
+      }
+      discount = Math.min(discount, cartTotal);
+      res.json({
+        success: true,
+        discountAmount: discount,
+        newTotal: cartTotal - discount,
+        promoType: promo.type,
+        promoValue: promo.value
+      });
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+  app2.post("/api/promo-codes/record-usage", async (req, res) => {
+    try {
+      const { userId, promoCode } = req.body;
+      if (!userId || !promoCode) {
+        return res.status(400).json({ error: "Missing required fields" });
+      }
+      await recordPromoUsage(userId, promoCode.toUpperCase());
+      res.json({ success: true });
     } catch (error) {
       res.status(500).json({ error: error.message });
     }

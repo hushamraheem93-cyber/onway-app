@@ -108,9 +108,15 @@ Font Sizes: Title 16px, Category 14px, Small 12px
 - `DELETE /api/admin/products/:id` - Delete product
 - `GET /api/orders` - Get orders (optional ?phoneNumber= filter)
 - `GET /api/admin/orders` - Get all orders (admin)
-- `POST /api/orders` - Create new order
+- `POST /api/orders` - Create new order (supports promoCode & promoDiscount fields)
 - `PUT /api/admin/orders/:id/status` - Update order status
 - `POST /api/users` - Create/update user profile (JSON with Base64 profileImage)
+- `GET /api/admin/promo-codes` - Get all promo codes (admin)
+- `POST /api/admin/promo-codes` - Create promo code
+- `PUT /api/admin/promo-codes/:id` - Update promo code
+- `DELETE /api/admin/promo-codes/:id` - Delete promo code
+- `POST /api/promo-codes/apply` - Validate & apply promo code (returns discount amount)
+- `POST /api/promo-codes/record-usage` - Record promo usage for a user
 
 ## Running the App
 1. Backend runs on port 5000
@@ -126,9 +132,9 @@ Font Sizes: Title 16px, Category 14px, Small 12px
 
 ## Admin Panel
 - Access via Profile > لوحة التحكم
-- Five tabs: البانرات، الأقسام، المنتجات، مناطق التوصيل، الطلبات
+- Seven tabs: البانرات، الأقسام، المنتجات، مناطق التوصيل، الطلبات، السائقين، أكواد الخصم
 - Image upload using expo-image-picker
-- CRUD operations for banners, categories, products, and delivery areas
+- CRUD operations for banners, categories, products, delivery areas, and promo codes
 - Banner types: "offer" (static top) and "slider" (carousel)
 - Order status workflow: pending → confirmed → preparing → delivering → delivered (with cancel option)
 - Orders connected to Firestore 'orders' collection
@@ -156,6 +162,14 @@ All images are compressed and stored as Base64 strings to avoid Firebase Storage
 - All API endpoints accept JSON body with Base64 image strings
 - UI components use getImageUrl() helper that detects Base64, HTTP URLs, or local paths
 - Utility functions in `client/lib/imageUtils.ts`
+
+### Promo Code System
+- Firestore collections: `promoCodes` (code, type, value, expiryDate, isActive) and `promoUsageHistory` (userId, promoCode, timestamp)
+- Supports two promo types: "fixed" (flat amount off) and "percentage" (% off)
+- One-time-per-user enforcement: checked both at apply time and during order creation
+- Admin can create/edit/delete promo codes from the أكواد الخصم tab
+- Customers enter promo code at checkout; discount shown in order summary
+- Promo usage recorded atomically with order creation on the server
 
 ### Backend (Admin SDK)
 - Uses Firebase Admin SDK for full database access

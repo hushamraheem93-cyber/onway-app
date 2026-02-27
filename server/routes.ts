@@ -23,7 +23,9 @@ import {
   initializeDefaultDeliveryAreas,
   generateOtp, verifyOtp as verifyOtpCode,
   getDrivers, getDriverByPhone, createDriver, updateDriverStatus as updateDriverStatusFn, deleteDriver as deleteDriverFn,
-  updateOrderDriverInfo
+  updateOrderDriverInfo,
+  getPromoCodes, getPromoCodeByCode, createPromoCode, updatePromoCode, deletePromoCode as deletePromoCodeFn,
+  checkPromoUsage, recordPromoUsage
 } from "./firebase";
 import { sendPushNotification } from "./pushNotifications";
 
@@ -686,10 +688,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.post("/api/orders", async (req: Request, res: Response) => {
-    const { userId, phoneNumber, customerName, items, total, deliveryFee, address, region, latitude, longitude, orderType, internationalDetails, courierDetails } = req.body;
+    const { userId, phoneNumber, customerName, items, total, deliveryFee, address, region, latitude, longitude, orderType, internationalDetails, courierDetails, promoCode, promoDiscount } = req.body;
     const db = getFirestore();
     
     if (db) {
+      if (promoCode) {
+        const alreadyUsed = await checkPromoUsage(userId || phoneNumber, promoCode);
+        if (alreadyUsed) {
+          return res.status(400).json({ error: "لقد استخدمت هذا الكود مسبقاً!" });
+        }
+      }
+
       const orderData: any = {
         userId: userId || "",
         phoneNumber,
@@ -708,8 +717,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (orderType) orderData.orderType = orderType;
       if (internationalDetails) orderData.internationalDetails = internationalDetails;
       if (courierDetails) orderData.courierDetails = courierDetails;
+      if (promoCode) orderData.promoCode = promoCode;
+      if (promoDiscount) orderData.promoDiscount = promoDiscount;
       const newOrder = await createOrder(orderData);
       if (newOrder) {
+        if (promoCode) {
+          await recordPromoUsage(userId || phoneNumber, promoCode).catch(err => 
+            console.error("Failed to record promo usage:", err)
+          );
+        }
         return res.json({
           ...newOrder,
           createdAt: newOrder.createdAt.toDate().toISOString(),
@@ -1554,6 +1570,118 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ordersWithEarnings,
         totalDeliveredOrders: deliveredOrders.length,
       });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Promo Code Routes
+  app.get("/api/admin/promo-codes", async (_req: Request, res: Response) => {
+    try {
+      const codes = await getPromoCodes();
+      res.json(codes);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post("/api/admin/promo-codes", async (req: Request, res: Response) => {
+    try {
+      const { code, type, value, expiryDate, isActive } = req.body;
+      if (!code || !type || value === undefined) {
+        return res.status(400).json({ error: "Missing required fields" });
+      }
+      const id = await createPromoCode({
+        code: code.toUpperCase(),
+        type,
+        value: Number(value),
+        expiryDate: expiryDate || "",
+        isActive: isActive !== false,
+      });
+      res.json({ id, success: true });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.put("/api/admin/promo-codes/:id", async (req: Request, res: Response) => {
+    try {
+      const { code, type, value, expiryDate, isActive } = req.body;
+      await updatePromoCode(req.params.id, {
+        ...(code && { code: code.toUpperCase() }),
+        ...(type && { type }),
+        ...(value !== undefined && { value: Number(value) }),
+        ...(expiryDate !== undefined && { expiryDate }),
+        ...(isActive !== undefined && { isActive }),
+      });
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.delete("/api/admin/promo-codes/:id", async (req: Request, res: Response) => {
+    try {
+      await deletePromoCodeFn(req.params.id);
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post("/api/promo-codes/apply", async (req: Request, res: Response) => {
+    try {
+      const { code, userId, cartTotal } = req.body;
+      if (!code || !userId || cartTotal === undefined) {
+        return res.status(400).json({ error: "الرجاء إدخال جميع البيانات المطلوبة" });
+      }
+
+      const promo = await getPromoCodeByCode(code.toUpperCase());
+      if (!promo || !promo.isActive) {
+        return res.status(400).json({ error: "الكود غير صحيح أو غير فعّال" });
+      }
+
+      if (promo.expiryDate) {
+        const expiry = new Date(promo.expiryDate);
+        if (expiry < new Date()) {
+          return res.status(400).json({ error: "انتهت صلاحية هذا الكود" });
+        }
+      }
+
+      const usedBefore = await checkPromoUsage(userId, code.toUpperCase());
+      if (usedBefore) {
+        return res.status(400).json({ error: "لقد استخدمت هذا الكود مسبقاً!" });
+      }
+
+      let discount = 0;
+      if (promo.type === "percentage") {
+        discount = Math.round(cartTotal * (promo.value / 100));
+      } else {
+        discount = promo.value;
+      }
+
+      discount = Math.min(discount, cartTotal);
+
+      res.json({
+        success: true,
+        discountAmount: discount,
+        newTotal: cartTotal - discount,
+        promoType: promo.type,
+        promoValue: promo.value,
+      });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post("/api/promo-codes/record-usage", async (req: Request, res: Response) => {
+    try {
+      const { userId, promoCode } = req.body;
+      if (!userId || !promoCode) {
+        return res.status(400).json({ error: "Missing required fields" });
+      }
+      await recordPromoUsage(userId, promoCode.toUpperCase());
+      res.json({ success: true });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }

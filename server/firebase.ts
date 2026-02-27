@@ -853,6 +853,89 @@ export function verifyOtp(phoneNumber: string, code: string): boolean {
   return true;
 }
 
+// Promo Code Functions
+export interface FirestorePromoCode {
+  code: string;
+  type: "fixed" | "percentage";
+  value: number;
+  expiryDate: string;
+  isActive: boolean;
+  createdAt: admin.firestore.Timestamp;
+  updatedAt: admin.firestore.Timestamp;
+}
+
+export async function getPromoCodes(): Promise<(FirestorePromoCode & { id: string })[]> {
+  if (!db) return [];
+  try {
+    const snapshot = await db.collection("promoCodes").orderBy("createdAt", "desc").get();
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as FirestorePromoCode & { id: string }));
+  } catch (error) {
+    console.error("Error getting promo codes:", error);
+    return [];
+  }
+}
+
+export async function getPromoCodeByCode(code: string): Promise<(FirestorePromoCode & { id: string }) | null> {
+  if (!db) return null;
+  try {
+    const snapshot = await db.collection("promoCodes").where("code", "==", code).limit(1).get();
+    if (snapshot.empty) return null;
+    const doc = snapshot.docs[0];
+    return { id: doc.id, ...doc.data() } as FirestorePromoCode & { id: string };
+  } catch (error) {
+    console.error("Error getting promo code:", error);
+    return null;
+  }
+}
+
+export async function createPromoCode(data: Omit<FirestorePromoCode, "createdAt" | "updatedAt">): Promise<string> {
+  if (!db) throw new Error("Firestore not initialized");
+  const now = admin.firestore.Timestamp.now();
+  const docRef = await db.collection("promoCodes").add({
+    ...data,
+    createdAt: now,
+    updatedAt: now,
+  });
+  return docRef.id;
+}
+
+export async function updatePromoCode(id: string, data: Partial<FirestorePromoCode>): Promise<void> {
+  if (!db) throw new Error("Firestore not initialized");
+  await db.collection("promoCodes").doc(id).update({
+    ...data,
+    updatedAt: admin.firestore.Timestamp.now(),
+  });
+}
+
+export async function deletePromoCode(id: string): Promise<void> {
+  if (!db) throw new Error("Firestore not initialized");
+  await db.collection("promoCodes").doc(id).delete();
+}
+
+export async function checkPromoUsage(userId: string, promoCode: string): Promise<boolean> {
+  if (!db) return false;
+  try {
+    const snapshot = await db.collection("promoUsageHistory")
+      .where("userId", "==", userId)
+      .where("promoCode", "==", promoCode)
+      .limit(1)
+      .get();
+    return !snapshot.empty;
+  } catch (error) {
+    console.error("Error checking promo usage:", error);
+    return false;
+  }
+}
+
+export async function recordPromoUsage(userId: string, promoCode: string): Promise<void> {
+  if (!db) throw new Error("Firestore not initialized");
+  await db.collection("promoUsageHistory").add({
+    userId,
+    promoCode,
+    timestamp: admin.firestore.Timestamp.now(),
+  });
+}
+
 export async function initializeDefaultCategories(defaultCategories: any[]): Promise<void> {
   if (!db) return;
   

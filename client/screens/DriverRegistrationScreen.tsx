@@ -36,6 +36,7 @@ export default function DriverRegistrationScreen() {
   const [driverLicenseImage, setDriverLicenseImage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
+  const [agreementAccepted, setAgreementAccepted] = useState(false);
 
   const isFormValid =
     firstName.trim().length > 0 &&
@@ -44,7 +45,8 @@ export default function DriverRegistrationScreen() {
     fourthName.trim().length > 0 &&
     motorcycleNumber.trim().length > 0 &&
     nationalIdImage !== null &&
-    residenceCardImage !== null;
+    residenceCardImage !== null &&
+    agreementAccepted;
 
   const getSetterForType = (imageType: "nationalId" | "residenceCard" | "driverLicense") => {
     switch (imageType) {
@@ -425,6 +427,46 @@ export default function DriverRegistrationScreen() {
         </Pressable>
       </View>
 
+      <View style={[styles.card, { backgroundColor: theme.backgroundDefault }, Shadows.sm]}>
+        <ThemedText type="h4" style={[styles.sectionTitle, { color: AppColors.primary }]}>
+          اتفاقية انضمام كابتن OnWay
+        </ThemedText>
+
+        <View style={[styles.agreementBox, { backgroundColor: theme.backgroundSecondary, borderColor: theme.border }]}>
+          <ThemedText type="body" style={styles.agreementText}>
+            بصفتك كابتن في تطبيق OnWay داخل قضاء الضلوعية، يجب عليك الالتزام بالشروط التالية:{"\n\n"}
+            <ThemedText style={styles.agreementBold}>1. الأمانة والمسؤولية:</ThemedText>{"\n"}
+            أتعهد بالحفاظ على الطلبات وتسليمها بحالتها الأصلية دون فتح الغلاف أو التلاعب بالمحتويات، وأتحمل المسؤولية الكاملة عن أي نقص أو تلف يحدث للطلب أثناء النقل.{"\n\n"}
+            <ThemedText style={styles.agreementBold}>2. التعامل الأخلاقي:</ThemedText>{"\n"}
+            الالتزام بالأدب وحسن السيرة والسلوك مع الزبائن وأصحاب المحلات، وتمثيل تطبيق OnWay بأفضل صورة أمام أهالي المنطقة.{"\n\n"}
+            <ThemedText style={styles.agreementBold}>3. السلامة المرورية:</ThemedText>{"\n"}
+            أتعهد بالالتزام بقواعد السلامة المرورية أثناء القيادة، وأقر بأنني المسؤول الأول والقانوني عن أي حادث أو مخالفة مرورية تحدث أثناء العمل.{"\n\n"}
+            <ThemedText style={styles.agreementBold}>4. خصوصية البيانات:</ThemedText>{"\n"}
+            أتعهد بعدم استخدام أرقام هواتف الزبائن أو مواقع سكنهم لأي غرض خارج إطار عملية التوصيل، ويمنع التواصل مع الزبون بعد انتهاء الطلب نهائياً.{"\n\n"}
+            <ThemedText style={styles.agreementBold}>5. إخلاء المسؤولية:</ThemedText>{"\n"}
+            يخلي تطبيق OnWay مسؤوليته عن أي نزاعات قانونية أو حوادث قد يتعرض لها السائق، حيث يعتبر السائق متعاقداً مستقلاً ويتحمل كافة التبعات القانونية لعمله.
+          </ThemedText>
+        </View>
+
+        <Pressable
+          style={styles.checkboxRow}
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            setAgreementAccepted(!agreementAccepted);
+          }}
+          testID="button-accept-agreement"
+        >
+          <View style={[styles.checkbox, agreementAccepted ? styles.checkboxChecked : { borderColor: theme.border }]}>
+            {agreementAccepted ? (
+              <Feather name="check" size={14} color="#FFFFFF" />
+            ) : null}
+          </View>
+          <ThemedText type="body" style={[styles.checkboxLabel, { color: theme.textSecondary }]}>
+            أقر بأنني قرأت كافة الشروط وأوافق على تحمل المسؤولية الكاملة.
+          </ThemedText>
+        </Pressable>
+      </View>
+
       <Pressable
         style={[styles.submitButton, !isFormValid && styles.submitButtonDisabled]}
         onPress={handleSubmit}
@@ -436,7 +478,7 @@ export default function DriverRegistrationScreen() {
         ) : (
           <>
             <ThemedText type="h4" style={styles.submitButtonText}>
-              تقديم الطلب
+              إتمام الانضمام للفريق
             </ThemedText>
             <View style={styles.buttonIcon}>
               <Feather name="send" size={18} color={AppColors.primary} />
@@ -630,5 +672,45 @@ const styles = StyleSheet.create({
   note: {
     textAlign: "center",
     marginBottom: Spacing.xl,
+  },
+  agreementBox: {
+    maxHeight: 280,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.md,
+    borderWidth: 1,
+    marginBottom: Spacing.lg,
+  },
+  agreementText: {
+    fontSize: 14,
+    color: "#333",
+    textAlign: "right",
+    lineHeight: 24,
+  },
+  agreementBold: {
+    fontWeight: "700",
+    color: "#000",
+  },
+  checkboxRow: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  checkbox: {
+    width: 22,
+    height: 22,
+    borderWidth: 2,
+    borderRadius: 4,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  checkboxChecked: {
+    backgroundColor: AppColors.primary,
+    borderColor: AppColors.primary,
+  },
+  checkboxLabel: {
+    flex: 1,
+    fontSize: 13,
+    textAlign: "right",
+    lineHeight: 20,
   },
 });

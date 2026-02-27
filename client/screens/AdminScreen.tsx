@@ -25,7 +25,7 @@ import { getApiUrl, apiRequest } from "@/lib/query-client";
 import { formatPrice } from "@/constants/currency";
 import { compressAndConvertToBase64, isBase64Image, ImageSize } from "@/lib/imageUtils";
 
-type TabType = "banners" | "categories" | "products" | "areas" | "orders" | "drivers";
+type TabType = "banners" | "categories" | "products" | "areas" | "orders" | "drivers" | "promoCodes";
 type BannerType = "offer" | "slider";
 type OrderStatus = "pending" | "confirmed" | "preparing" | "delivering" | "delivered" | "cancelled";
 
@@ -59,6 +59,16 @@ interface DeliveryArea {
   name: string;
   fee: number;
   isActive: boolean;
+}
+
+interface PromoCode {
+  id: string;
+  code: string;
+  type: "fixed" | "percentage";
+  value: number;
+  expiryDate: string;
+  isActive: boolean;
+  createdAt: string;
 }
 
 interface Driver {
@@ -116,6 +126,13 @@ export default function AdminScreen() {
     fee: "",
   });
 
+  const [promoForm, setPromoForm] = useState({
+    code: "",
+    type: "fixed" as "fixed" | "percentage",
+    value: "",
+    expiryDate: "",
+  });
+
   const [isSavingProduct, setIsSavingProduct] = useState(false);
 
   const { data: banners = [], isLoading: bannersLoading } = useQuery<Banner[]>({
@@ -140,6 +157,10 @@ export default function AdminScreen() {
 
   const { data: drivers = [], isLoading: driversLoading } = useQuery<Driver[]>({
     queryKey: ["/api/admin/drivers"],
+  });
+
+  const { data: promoCodes = [], isLoading: promoCodesLoading } = useQuery<PromoCode[]>({
+    queryKey: ["/api/admin/promo-codes"],
   });
 
   const updateDriverStatusMutation = useMutation({
@@ -200,6 +221,15 @@ export default function AdminScreen() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/delivery-areas"] });
       queryClient.invalidateQueries({ queryKey: ["/api/delivery-areas"] });
+    },
+  });
+
+  const deletePromoCode = useMutation({
+    mutationFn: async (id: string) => {
+      await apiRequest("DELETE", `/api/admin/promo-codes/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/promo-codes"] });
     },
   });
 
@@ -358,6 +388,34 @@ export default function AdminScreen() {
     }
   };
 
+  const savePromoCode = async () => {
+    try {
+      const url = editItem ? `/api/admin/promo-codes/${editItem.id}` : "/api/admin/promo-codes";
+      const method = editItem ? "PUT" : "POST";
+
+      const response = await fetch(`${getApiUrl()}${url}`, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          code: promoForm.code,
+          type: promoForm.type,
+          value: promoForm.value,
+          expiryDate: promoForm.expiryDate,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || "فشل في حفظ كود الخصم");
+      }
+
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/promo-codes"] });
+      resetForm();
+    } catch (error: any) {
+      console.error("Error saving promo code:", error?.message || error);
+    }
+  };
+
   const resetForm = () => {
     setIsEditing(false);
     setEditItem(null);
@@ -365,6 +423,7 @@ export default function AdminScreen() {
     setCategoryForm({ name: "", imageUri: "", imageUrl: "" });
     setProductForm({ name: "", categoryId: "", price: "", originalPrice: "", discount: "", description: "", inStock: true, imageUri: "", imageUrl: "" });
     setAreaForm({ name: "", fee: "" });
+    setPromoForm({ code: "", type: "fixed", value: "", expiryDate: "" });
   };
 
   const handleEditBanner = (banner: Banner) => {
@@ -413,13 +472,25 @@ export default function AdminScreen() {
     setIsEditing(true);
   };
 
-  const confirmDelete = (id: string, type: "banner" | "category" | "product" | "area") => {
+  const handleEditPromo = (promo: PromoCode) => {
+    setEditItem(promo);
+    setPromoForm({
+      code: promo.code,
+      type: promo.type,
+      value: promo.value.toString(),
+      expiryDate: promo.expiryDate,
+    });
+    setIsEditing(true);
+  };
+
+  const confirmDelete = (id: string, type: "banner" | "category" | "product" | "area" | "promoCode") => {
     if (Platform.OS === "web") {
       if (window.confirm("هل أنت متأكد من الحذف؟")) {
         if (type === "banner") deleteBanner.mutate(id);
         else if (type === "category") deleteCategory.mutate(id);
         else if (type === "product") deleteProduct.mutate(id);
         else if (type === "area") deleteArea.mutate(id);
+        else if (type === "promoCode") deletePromoCode.mutate(id);
       }
     } else {
       Alert.alert("تأكيد الحذف", "هل أنت متأكد من الحذف؟", [
@@ -432,6 +503,7 @@ export default function AdminScreen() {
             else if (type === "category") deleteCategory.mutate(id);
             else if (type === "product") deleteProduct.mutate(id);
             else if (type === "area") deleteArea.mutate(id);
+            else if (type === "promoCode") deletePromoCode.mutate(id);
           },
         },
       ]);
@@ -1071,6 +1143,109 @@ export default function AdminScreen() {
     </View>
   );
 
+  const renderPromoCodesTab = () => (
+    <View>
+      <View style={styles.formCard}>
+        <ThemedText type="h4" style={styles.formTitle}>
+          {editItem ? "تعديل كود الخصم" : "إضافة كود خصم جديد"}
+        </ThemedText>
+
+        <TextInput
+          style={[styles.input, { backgroundColor: theme.backgroundSecondary, color: theme.text }]}
+          placeholder="كود الخصم"
+          placeholderTextColor={theme.textSecondary}
+          value={promoForm.code}
+          onChangeText={(text) => setPromoForm({ ...promoForm, code: text })}
+        />
+
+        <View style={styles.typeSelector}>
+          <Pressable
+            style={[styles.typeButton, promoForm.type === "fixed" && styles.typeButtonActive]}
+            onPress={() => setPromoForm({ ...promoForm, type: "fixed" })}
+          >
+            <ThemedText type="body" style={[styles.typeButtonText, promoForm.type === "fixed" && styles.typeButtonTextActive]}>
+              مبلغ ثابت
+            </ThemedText>
+          </Pressable>
+          <Pressable
+            style={[styles.typeButton, promoForm.type === "percentage" && styles.typeButtonActive]}
+            onPress={() => setPromoForm({ ...promoForm, type: "percentage" })}
+          >
+            <ThemedText type="body" style={[styles.typeButtonText, promoForm.type === "percentage" && styles.typeButtonTextActive]}>
+              نسبة مئوية
+            </ThemedText>
+          </Pressable>
+        </View>
+
+        <TextInput
+          style={[styles.input, { backgroundColor: theme.backgroundSecondary, color: theme.text }]}
+          placeholder={promoForm.type === "percentage" ? "القيمة (%)" : "القيمة (د.ع)"}
+          placeholderTextColor={theme.textSecondary}
+          value={promoForm.value}
+          onChangeText={(text) => setPromoForm({ ...promoForm, value: text })}
+          keyboardType="numeric"
+        />
+
+        <TextInput
+          style={[styles.input, { backgroundColor: theme.backgroundSecondary, color: theme.text }]}
+          placeholder="YYYY-MM-DD"
+          placeholderTextColor={theme.textSecondary}
+          value={promoForm.expiryDate}
+          onChangeText={(text) => setPromoForm({ ...promoForm, expiryDate: text })}
+        />
+
+        <View style={styles.formButtons}>
+          {isEditing ? (
+            <Pressable style={styles.cancelButton} onPress={resetForm}>
+              <ThemedText type="body" style={styles.cancelButtonText}>إلغاء</ThemedText>
+            </Pressable>
+          ) : null}
+          <Pressable style={styles.saveButton} onPress={savePromoCode}>
+            <ThemedText type="body" style={styles.saveButtonText}>{editItem ? "حفظ التعديلات" : "إضافة"}</ThemedText>
+          </Pressable>
+        </View>
+      </View>
+
+      <ThemedText type="h4" style={styles.listTitle}>أكواد الخصم الحالية</ThemedText>
+
+      {promoCodesLoading ? (
+        <ActivityIndicator color={AppColors.primary} />
+      ) : (
+        promoCodes.map((promo) => (
+          <View key={promo.id} style={[styles.listItem, { backgroundColor: theme.backgroundSecondary }]}>
+            <View style={styles.areaIcon}>
+              <Feather name="tag" size={22} color={AppColors.primary} />
+            </View>
+            <View style={styles.listItemContent}>
+              <ThemedText type="body" numberOfLines={1}>{promo.code}</ThemedText>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: Spacing.xs }}>
+                <View style={[styles.discountBadge, { backgroundColor: promo.type === "percentage" ? "#16A34A" : "#F59E0B" }]}>
+                  <ThemedText type="small" style={styles.discountText}>
+                    {promo.type === "percentage" ? "نسبة" : "ثابت"}
+                  </ThemedText>
+                </View>
+                <ThemedText type="small" style={{ color: theme.textSecondary }}>
+                  {promo.type === "percentage" ? `${promo.value}%` : formatPrice(promo.value)}
+                </ThemedText>
+                <ThemedText type="small" style={{ color: promo.isActive ? "#16A34A" : "#EF4444" }}>
+                  {promo.isActive ? "فعال" : "غير فعال"}
+                </ThemedText>
+              </View>
+            </View>
+            <View style={styles.listItemActions}>
+              <Pressable onPress={() => handleEditPromo(promo)} style={styles.actionButton}>
+                <Feather name="edit-2" size={18} color={AppColors.primary} />
+              </Pressable>
+              <Pressable onPress={() => confirmDelete(promo.id, "promoCode")} style={styles.actionButton}>
+                <Feather name="trash-2" size={18} color="#EF4444" />
+              </Pressable>
+            </View>
+          </View>
+        ))
+      )}
+    </View>
+  );
+
   const renderContent = () => {
     switch (activeTab) {
       case "banners": return renderBannersTab();
@@ -1079,6 +1254,7 @@ export default function AdminScreen() {
       case "areas": return renderAreasTab();
       case "orders": return renderOrdersTab();
       case "drivers": return renderDriversTab();
+      case "promoCodes": return renderPromoCodesTab();
     }
   };
 
@@ -1100,6 +1276,7 @@ export default function AdminScreen() {
             { key: "areas", label: "مناطق التوصيل" },
             { key: "orders", label: "الطلبات" },
             { key: "drivers", label: "السائقين" },
+            { key: "promoCodes", label: "أكواد الخصم" },
           ].map((tab) => (
             <Pressable
               key={tab.key}

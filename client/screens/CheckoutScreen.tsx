@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { StyleSheet, View, TextInput, Alert, Modal, Pressable, FlatList } from "react-native";
+import { StyleSheet, View, TextInput, Alert, Modal, Pressable, FlatList, ActivityIndicator } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useNavigation } from "@react-navigation/native";
@@ -13,9 +13,11 @@ import { Spacing, BorderRadius, AppColors, Shadows } from "@/constants/theme";
 import { useCart } from "@/context/CartContext";
 import { formatPrice } from "@/constants/currency";
 import { useOrders } from "@/context/OrderContext";
+import { useAuth } from "@/context/AuthContext";
 import { ThemedText } from "@/components/ThemedText";
 import { Button } from "@/components/Button";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
+import { getApiUrl } from "@/lib/query-client";
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
@@ -35,6 +37,7 @@ export default function CheckoutScreen() {
   const navigation = useNavigation<NavigationProp>();
   const { items, getTotal, clearCart } = useCart();
   const { addOrder } = useOrders();
+  const { phoneNumber } = useAuth();
 
   const { data: deliveryAreas = [] } = useQuery<DeliveryArea[]>({
     queryKey: ["/api/delivery-areas"],
@@ -48,6 +51,12 @@ export default function CheckoutScreen() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showAreaPicker, setShowAreaPicker] = useState(false);
   const [selectedLocation, setSelectedLocation] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [promoCode, setPromoCode] = useState("");
+  const [promoDiscount, setPromoDiscount] = useState(0);
+  const [promoError, setPromoError] = useState("");
+  const [promoSuccess, setPromoSuccess] = useState("");
+  const [isApplyingPromo, setIsApplyingPromo] = useState(false);
+  const [appliedPromoCode, setAppliedPromoCode] = useState("");
 
   const handleSelectArea = (areaId: string) => {
     setSelectedArea(areaId);
@@ -55,11 +64,42 @@ export default function CheckoutScreen() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   };
 
+  const applyPromoCode = async () => {
+    if (!promoCode.trim()) return;
+    setIsApplyingPromo(true);
+    try {
+      const res = await fetch(new URL("/api/promo-codes/apply", getApiUrl()).toString(), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code: promoCode, userId: phoneNumber, cartTotal: subtotal }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setPromoDiscount(data.discountAmount);
+        setPromoSuccess(`تم تطبيق الخصم: ${formatPrice(data.discountAmount)}`);
+        setAppliedPromoCode(promoCode.toUpperCase());
+        setPromoError("");
+      } else {
+        const errorData = await res.json();
+        const errorMsg = errorData.error || "كود الخصم غير صالح";
+        setPromoError(errorMsg);
+        setPromoDiscount(0);
+        setPromoSuccess("");
+      }
+    } catch {
+      setPromoError("حدث خطأ أثناء التحقق من الكود");
+      setPromoDiscount(0);
+      setPromoSuccess("");
+    } finally {
+      setIsApplyingPromo(false);
+    }
+  };
+
   const subtotal = getTotal();
   const selectedAreaData = deliveryAreas.find(a => a.id === selectedArea);
   const isRestaurantOrder = items.length > 0 && items.every(item => item.product.categoryId === "restaurants");
   const deliveryFee = isRestaurantOrder ? 1000 : (selectedAreaData?.fee || 0);
-  const total = subtotal + deliveryFee;
+  const total = subtotal + deliveryFee - promoDiscount;
 
   const handleSubmit = async () => {
     if (!customerName.trim()) {
@@ -86,7 +126,7 @@ export default function CheckoutScreen() {
     const fullAddress = `${areaName} - ${address.trim()}`;
 
     try {
-      const order = await addOrder({
+      const orderPayload: any = {
         items: [...items],
         total,
         deliveryFee,
@@ -95,7 +135,12 @@ export default function CheckoutScreen() {
         customerName: customerName.trim(),
         latitude: selectedLocation?.latitude,
         longitude: selectedLocation?.longitude,
-      });
+      };
+      if (appliedPromoCode) {
+        orderPayload.promoCode = appliedPromoCode;
+        orderPayload.promoDiscount = promoDiscount;
+      }
+      const order = await addOrder(orderPayload);
 
       if (order) {
         clearCart();
@@ -262,6 +307,50 @@ export default function CheckoutScreen() {
         />
       </View>
 
+      <View style={[styles.inputContainer, { backgroundColor: theme.backgroundDefault }, Shadows.sm]}>
+        <ThemedText type="small" style={[styles.label, { color: theme.textSecondary }]}>
+          كود الخصم (اختياري)
+        </ThemedText>
+        <View style={{ flexDirection: "row", gap: Spacing.sm }}>
+          <Pressable
+            onPress={applyPromoCode}
+            disabled={isApplyingPromo}
+            style={{
+              backgroundColor: AppColors.primary,
+              borderRadius: BorderRadius.md,
+              paddingHorizontal: Spacing.lg,
+              paddingVertical: Spacing.md,
+              justifyContent: "center",
+            }}
+          >
+            {isApplyingPromo ? (
+              <ActivityIndicator size="small" color="#FFFFFF" />
+            ) : (
+              <ThemedText type="body" style={{ color: "#FFFFFF", fontWeight: "600" }}>
+                تطبيق
+              </ThemedText>
+            )}
+          </Pressable>
+          <TextInput
+            value={promoCode}
+            onChangeText={setPromoCode}
+            placeholder="أدخل كود الخصم"
+            placeholderTextColor={theme.textSecondary}
+            style={[styles.input, { color: theme.text, flex: 1, textAlign: "right" }]}
+          />
+        </View>
+        {promoError ? (
+          <ThemedText type="small" style={{ color: "#EF4444", textAlign: "right", marginTop: Spacing.sm }}>
+            {promoError}
+          </ThemedText>
+        ) : null}
+        {promoSuccess ? (
+          <ThemedText type="small" style={{ color: "#4CAF50", textAlign: "right", marginTop: Spacing.sm }}>
+            {promoSuccess}
+          </ThemedText>
+        ) : null}
+      </View>
+
       <ThemedText type="h3" style={styles.sectionTitle}>
         ملخص الطلب
       </ThemedText>
@@ -287,6 +376,12 @@ export default function CheckoutScreen() {
             {isRestaurantOrder ? formatPrice(1000) : (deliveryFee > 0 ? formatPrice(deliveryFee) : "اختر المنطقة")}
           </ThemedText>
         </View>
+        {promoDiscount > 0 ? (
+          <View style={styles.summaryRow}>
+            <ThemedText type="body" style={{ color: theme.textSecondary }}>الخصم</ThemedText>
+            <ThemedText type="body" style={{ color: "#4CAF50" }}>- {formatPrice(promoDiscount)}</ThemedText>
+          </View>
+        ) : null}
         <View style={[styles.summaryRow, styles.totalRow]}>
           <ThemedText type="h4">المجموع الكلي</ThemedText>
           <ThemedText type="h2" style={{ color: AppColors.primary }}>
