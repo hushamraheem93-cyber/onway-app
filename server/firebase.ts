@@ -936,6 +936,73 @@ export async function recordPromoUsage(userId: string, promoCode: string): Promi
   });
 }
 
+// Driver Wallet Functions
+export async function getDriverWalletBalance(phoneNumber: string): Promise<number> {
+  if (!db) return 0;
+  try {
+    const snapshot = await db.collection("driverWallets").where("phoneNumber", "==", phoneNumber).limit(1).get();
+    if (snapshot.empty) return 0;
+    return snapshot.docs[0].data().balance || 0;
+  } catch (error) {
+    console.error("Error getting driver wallet:", error);
+    return 0;
+  }
+}
+
+export async function updateDriverWalletBalance(phoneNumber: string, newBalance: number): Promise<void> {
+  if (!db) throw new Error("Firestore not initialized");
+  const snapshot = await db.collection("driverWallets").where("phoneNumber", "==", phoneNumber).limit(1).get();
+  if (snapshot.empty) {
+    await db.collection("driverWallets").add({
+      phoneNumber,
+      balance: newBalance,
+      createdAt: admin.firestore.Timestamp.now(),
+      updatedAt: admin.firestore.Timestamp.now(),
+    });
+  } else {
+    await snapshot.docs[0].ref.update({
+      balance: newBalance,
+      updatedAt: admin.firestore.Timestamp.now(),
+    });
+  }
+}
+
+export async function addWalletTransaction(data: {
+  phoneNumber: string;
+  amount: number;
+  type: "deduction" | "recharge";
+  service: string;
+  orderId?: string;
+}): Promise<void> {
+  if (!db) throw new Error("Firestore not initialized");
+  await db.collection("walletHistory").add({
+    ...data,
+    timestamp: admin.firestore.Timestamp.now(),
+  });
+}
+
+export async function getWalletHistory(phoneNumber: string): Promise<any[]> {
+  if (!db) return [];
+  try {
+    const snapshot = await db.collection("walletHistory")
+      .where("phoneNumber", "==", phoneNumber)
+      .orderBy("timestamp", "desc")
+      .limit(50)
+      .get();
+    return snapshot.docs.map(doc => {
+      const data = doc.data();
+      return {
+        id: doc.id,
+        ...data,
+        timestamp: data.timestamp?.toDate?.() ? data.timestamp.toDate().toISOString() : data.timestamp,
+      };
+    });
+  } catch (error) {
+    console.error("Error getting wallet history:", error);
+    return [];
+  }
+}
+
 export async function initializeDefaultCategories(defaultCategories: any[]): Promise<void> {
   if (!db) return;
   

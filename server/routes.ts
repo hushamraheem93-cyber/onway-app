@@ -25,7 +25,8 @@ import {
   getDrivers, getDriverByPhone, createDriver, updateDriverStatus as updateDriverStatusFn, deleteDriver as deleteDriverFn,
   updateOrderDriverInfo,
   getPromoCodes, getPromoCodeByCode, createPromoCode, updatePromoCode, deletePromoCode as deletePromoCodeFn,
-  checkPromoUsage, recordPromoUsage
+  checkPromoUsage, recordPromoUsage,
+  getDriverWalletBalance, updateDriverWalletBalance, addWalletTransaction, getWalletHistory
 } from "./firebase";
 import { sendPushNotification } from "./pushNotifications";
 
@@ -1194,11 +1195,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         queuePosition = availableDriversBefore.length;
       }
 
+      const walletBalance = await getDriverWalletBalance(phoneNumber);
+
       res.json({
         isOnline,
         queuePosition,
         currentOrder,
         approvalStatus: driver?.status || "pending",
+        walletBalance,
       });
     } catch (error: any) {
       console.error("Error getting driver status:", error);
@@ -1213,6 +1217,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
     try {
       if (goOnline) {
+        const walletBalance = await getDriverWalletBalance(phoneNumber);
+        if (walletBalance < 250) {
+          return res.status(400).json({ error: "رصيد المحفظة غير كافٍ. الحد الأدنى ٢٥٠ د.ع", walletBalance });
+        }
         const exists = driverQueue.find(d => d.phoneNumber === phoneNumber);
         if (!exists) {
           driverQueue.push({ phoneNumber, joinedAt: Date.now() });
@@ -1301,20 +1309,50 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
 
           const isRestaurantOrder = await checkIsRestaurantOrder(order);
-          const driverEarning = isRestaurantOrder ? 1000 : 1500;
-          const ownerEarning = (order.deliveryFee || 0) - driverEarning;
+          let deductionAmount = 0;
+          let driverEarning = 0;
+
+          if (isRestaurantOrder) {
+            deductionAmount = 250;
+            driverEarning = 750;
+          } else {
+            deductionAmount = 1000;
+            driverEarning = (order.deliveryFee || 0) - deductionAmount;
+            if (driverEarning < 0) driverEarning = 0;
+          }
+
+          const ownerEarning = deductionAmount;
 
           await updateOrderDriverInfo(orderId, {
             driverEarning,
-            ownerEarning: ownerEarning > 0 ? ownerEarning : 0,
+            ownerEarning,
           });
+
+          const currentBalance = await getDriverWalletBalance(phoneNumber);
+          const newBalance = currentBalance - deductionAmount;
+          await updateDriverWalletBalance(phoneNumber, newBalance);
+
+          await addWalletTransaction({
+            phoneNumber,
+            amount: deductionAmount,
+            type: "deduction",
+            service: isRestaurantOrder ? "توصيل مطعم" : "توصيل تسويق/خدمات",
+            orderId,
+          });
+
+          if (newBalance < 250) {
+            const queueIdx = driverQueue.findIndex(d => d.phoneNumber === phoneNumber);
+            if (queueIdx !== -1) {
+              driverQueue.splice(queueIdx, 1);
+            }
+          }
 
           const completed = driverCompletedOrders.get(phoneNumber) || [];
           completed.push({
             orderId,
             deliveryFee: order.deliveryFee || 0,
             driverEarning,
-            ownerEarning: ownerEarning > 0 ? ownerEarning : 0,
+            ownerEarning,
             total: order.total || 0,
             customerName: customerProfile?.fullName || "زبون",
             completedAt: new Date().toISOString(),
@@ -1414,6 +1452,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       res.json(result.reverse());
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Driver Wallet Routes
+  app.get("/api/driver/wallet", async (req: Request, res: Response) => {
+    const phoneNumber = req.query.phoneNumber as string;
+    if (!phoneNumber) return res.status(400).json({ error: "Phone number required" });
+
+    try {
+      const balance = await getDriverWalletBalance(phoneNumber);
+      const history = await getWalletHistory(phoneNumber);
+      res.json({ balance, history });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post("/api/admin/driver-wallet/recharge", async (req: Request, res: Response) => {
+    const { phoneNumber, amount } = req.body;
+    if (!phoneNumber || amount === undefined) return res.status(400).json({ error: "Missing fields" });
+
+    try {
+      const currentBalance = await getDriverWalletBalance(phoneNumber);
+      const newBalance = currentBalance + Number(amount);
+      await updateDriverWalletBalance(phoneNumber, newBalance);
+
+      await addWalletTransaction({
+        phoneNumber,
+        amount: Number(amount),
+        type: "recharge",
+        service: "شحن رصيد",
+      });
+
+      res.json({ success: true, newBalance });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }
@@ -1555,8 +1629,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           ordersWithEarnings++;
         } else {
           const isRestaurant = await checkIsRestaurantOrder(o);
-          const driverEarning = isRestaurant ? 1000 : 1500;
-          const ownerEarning = Math.max(deliveryFee - driverEarning, 0);
+          const deduction = isRestaurant ? 250 : 1000;
+          const driverEarning = isRestaurant ? 750 : Math.max(deliveryFee - 1000, 0);
+          const ownerEarning = deduction;
           totalDriverEarnings += driverEarning;
           totalOwnerEarnings += ownerEarning;
           ordersWithEarnings++;

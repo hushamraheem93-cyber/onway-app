@@ -171,6 +171,18 @@ All images are compressed and stored as Base64 strings to avoid Firebase Storage
 - Customers enter promo code at checkout; discount shown in order summary
 - Promo usage recorded atomically with order creation on the server
 
+### Driver Wallet System
+- Firestore collections: `driverWallets` (phoneNumber, balance) and `walletHistory` (phoneNumber, amount, type, service, orderId, timestamp)
+- Commission logic:
+  - Restaurant orders: delivery 1000 IQD, driver gets 750, app deducts 250
+  - Other orders (shopping/services): app deducts fixed 1000 IQD from wallet
+- Driver must have minimum 250 IQD wallet balance to go online
+- If balance drops below 250 after order completion, driver is automatically removed from queue
+- Admin can recharge driver wallets via /api/admin/driver-wallet/recharge endpoint
+- Wallet balance shown on DriverHomeScreen with low-balance warnings
+- DriverEarningsScreen has tabs: "الأرباح" (earnings) and "المحفظة" (wallet) with transaction history
+- Commission info card explains deduction rates to drivers
+
 ### Backend (Admin SDK)
 - Uses Firebase Admin SDK for full database access
 - Configured in `server/firebase.ts`

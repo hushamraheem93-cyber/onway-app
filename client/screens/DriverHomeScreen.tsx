@@ -54,6 +54,8 @@ export default function DriverHomeScreen() {
   const [driverStatus, setDriverStatus] = useState<string>("pending");
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [walletBalance, setWalletBalance] = useState(0);
+  const [walletError, setWalletError] = useState("");
 
   const fetchDriverStatus = useCallback(async () => {
     if (!phoneNumber) return;
@@ -67,6 +69,7 @@ export default function DriverHomeScreen() {
         setQueuePosition(data.queuePosition);
         setCurrentOrder(data.currentOrder || null);
         setDriverStatus(data.approvalStatus || "pending");
+        setWalletBalance(data.walletBalance || 0);
       }
     } catch (e) {
       console.error("Error fetching driver status:", e);
@@ -84,6 +87,7 @@ export default function DriverHomeScreen() {
   const handleToggleOnline = async () => {
     if (!phoneNumber || driverStatus !== "approved") return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    setWalletError("");
     setIsToggling(true);
     try {
       const res = await fetch(new URL("/api/driver/toggle-online", getApiUrl()).toString(), {
@@ -95,6 +99,12 @@ export default function DriverHomeScreen() {
         const data = await res.json();
         setIsOnline(data.isOnline);
         setQueuePosition(data.queuePosition);
+      } else {
+        const errorData = await res.json().catch(() => ({}));
+        if (errorData.error) {
+          setWalletError(errorData.error);
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+        }
       }
     } catch (e) {
       console.error("Error toggling online:", e);
@@ -195,6 +205,38 @@ export default function DriverHomeScreen() {
       <ThemedText type="body" style={[styles.statusSubtitle, { color: theme.textSecondary }]}>
         للأسف تم رفض طلب التسجيل. تواصل مع الإدارة للمزيد من المعلومات.
       </ThemedText>
+    </View>
+  );
+
+  const renderWalletCard = () => (
+    <View style={[styles.walletCard, { backgroundColor: theme.backgroundDefault }, Shadows.sm]}>
+      <View style={styles.walletRow}>
+        <View style={styles.walletInfo}>
+          <ThemedText type="small" style={{ color: theme.textSecondary }}>رصيد المحفظة</ThemedText>
+          <ThemedText type="h2" style={{ color: walletBalance < 250 ? "#F44336" : AppColors.primary, fontWeight: "800" }}>
+            {formatPrice(walletBalance)}
+          </ThemedText>
+        </View>
+        <View style={[styles.walletIcon, { backgroundColor: walletBalance < 250 ? "#FFEBEE" : AppColors.primary + "15" }]}>
+          <Feather name="credit-card" size={24} color={walletBalance < 250 ? "#F44336" : AppColors.primary} />
+        </View>
+      </View>
+      {walletBalance < 250 ? (
+        <View style={[styles.walletWarning, { backgroundColor: "#FFF3E0" }]}>
+          <Feather name="alert-triangle" size={16} color="#FF9800" />
+          <ThemedText type="small" style={{ color: "#E65100", flex: 1, textAlign: "right", marginRight: Spacing.xs }}>
+            رصيدك غير كافٍ للعمل. تواصل مع الإدارة لشحن الرصيد.
+          </ThemedText>
+        </View>
+      ) : null}
+      {walletError.length > 0 ? (
+        <View style={[styles.walletWarning, { backgroundColor: "#FFEBEE" }]}>
+          <Feather name="x-circle" size={16} color="#F44336" />
+          <ThemedText type="small" style={{ color: "#C62828", flex: 1, textAlign: "right", marginRight: Spacing.xs }}>
+            {walletError}
+          </ThemedText>
+        </View>
+      ) : null}
     </View>
   );
 
@@ -375,6 +417,7 @@ export default function DriverHomeScreen() {
             {driverStatus === "rejected" ? renderRejected() : null}
             {driverStatus === "approved" ? (
               <>
+                {renderWalletCard()}
                 {renderOnlineToggle()}
                 {renderCurrentOrder()}
                 {isOnline && !currentOrder ? (
@@ -565,5 +608,33 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.xl,
     padding: Spacing["3xl"],
     alignItems: "center",
+  },
+  walletCard: {
+    borderRadius: BorderRadius.xl,
+    padding: Spacing.lg,
+    marginBottom: Spacing.lg,
+  },
+  walletRow: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  walletInfo: {
+    alignItems: "flex-end",
+  },
+  walletIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  walletWarning: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    gap: Spacing.xs,
+    marginTop: Spacing.md,
+    padding: Spacing.sm,
+    borderRadius: BorderRadius.sm,
   },
 });

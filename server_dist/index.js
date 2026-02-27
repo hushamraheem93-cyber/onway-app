@@ -664,6 +664,58 @@ async function recordPromoUsage(userId, promoCode) {
     timestamp: admin.firestore.Timestamp.now()
   });
 }
+async function getDriverWalletBalance(phoneNumber) {
+  if (!db) return 0;
+  try {
+    const snapshot = await db.collection("driverWallets").where("phoneNumber", "==", phoneNumber).limit(1).get();
+    if (snapshot.empty) return 0;
+    return snapshot.docs[0].data().balance || 0;
+  } catch (error) {
+    console.error("Error getting driver wallet:", error);
+    return 0;
+  }
+}
+async function updateDriverWalletBalance(phoneNumber, newBalance) {
+  if (!db) throw new Error("Firestore not initialized");
+  const snapshot = await db.collection("driverWallets").where("phoneNumber", "==", phoneNumber).limit(1).get();
+  if (snapshot.empty) {
+    await db.collection("driverWallets").add({
+      phoneNumber,
+      balance: newBalance,
+      createdAt: admin.firestore.Timestamp.now(),
+      updatedAt: admin.firestore.Timestamp.now()
+    });
+  } else {
+    await snapshot.docs[0].ref.update({
+      balance: newBalance,
+      updatedAt: admin.firestore.Timestamp.now()
+    });
+  }
+}
+async function addWalletTransaction(data) {
+  if (!db) throw new Error("Firestore not initialized");
+  await db.collection("walletHistory").add({
+    ...data,
+    timestamp: admin.firestore.Timestamp.now()
+  });
+}
+async function getWalletHistory(phoneNumber) {
+  if (!db) return [];
+  try {
+    const snapshot = await db.collection("walletHistory").where("phoneNumber", "==", phoneNumber).orderBy("timestamp", "desc").limit(50).get();
+    return snapshot.docs.map((doc) => {
+      const data = doc.data();
+      return {
+        id: doc.id,
+        ...data,
+        timestamp: data.timestamp?.toDate?.() ? data.timestamp.toDate().toISOString() : data.timestamp
+      };
+    });
+  } catch (error) {
+    console.error("Error getting wallet history:", error);
+    return [];
+  }
+}
 async function initializeDefaultCategories(defaultCategories) {
   if (!db) return;
   try {
@@ -1755,11 +1807,13 @@ async function registerRoutes(app2) {
         const availableDriversBefore = driverQueue.filter((d, i) => i <= queueIndex && !d.currentOrderId);
         queuePosition = availableDriversBefore.length;
       }
+      const walletBalance = await getDriverWalletBalance(phoneNumber);
       res.json({
         isOnline,
         queuePosition,
         currentOrder,
-        approvalStatus: driver?.status || "pending"
+        approvalStatus: driver?.status || "pending",
+        walletBalance
       });
     } catch (error) {
       console.error("Error getting driver status:", error);
@@ -1771,6 +1825,10 @@ async function registerRoutes(app2) {
     if (!phoneNumber) return res.status(400).json({ error: "Phone number required" });
     try {
       if (goOnline) {
+        const walletBalance = await getDriverWalletBalance(phoneNumber);
+        if (walletBalance < 250) {
+          return res.status(400).json({ error: "\u0631\u0635\u064A\u062F \u0627\u0644\u0645\u062D\u0641\u0638\u0629 \u063A\u064A\u0631 \u0643\u0627\u0641\u064D. \u0627\u0644\u062D\u062F \u0627\u0644\u0623\u062F\u0646\u0649 \u0662\u0665\u0660 \u062F.\u0639", walletBalance });
+        }
         const exists = driverQueue.find((d) => d.phoneNumber === phoneNumber);
         if (!exists) {
           driverQueue.push({ phoneNumber, joinedAt: Date.now() });
@@ -1845,18 +1903,43 @@ async function registerRoutes(app2) {
             await sendPushNotification(pushToken, "delivered", orderId);
           }
           const isRestaurantOrder = await checkIsRestaurantOrder(order);
-          const driverEarning = isRestaurantOrder ? 1e3 : 1500;
-          const ownerEarning = (order.deliveryFee || 0) - driverEarning;
+          let deductionAmount = 0;
+          let driverEarning = 0;
+          if (isRestaurantOrder) {
+            deductionAmount = 250;
+            driverEarning = 750;
+          } else {
+            deductionAmount = 1e3;
+            driverEarning = (order.deliveryFee || 0) - deductionAmount;
+            if (driverEarning < 0) driverEarning = 0;
+          }
+          const ownerEarning = deductionAmount;
           await updateOrderDriverInfo(orderId, {
             driverEarning,
-            ownerEarning: ownerEarning > 0 ? ownerEarning : 0
+            ownerEarning
           });
+          const currentBalance = await getDriverWalletBalance(phoneNumber);
+          const newBalance = currentBalance - deductionAmount;
+          await updateDriverWalletBalance(phoneNumber, newBalance);
+          await addWalletTransaction({
+            phoneNumber,
+            amount: deductionAmount,
+            type: "deduction",
+            service: isRestaurantOrder ? "\u062A\u0648\u0635\u064A\u0644 \u0645\u0637\u0639\u0645" : "\u062A\u0648\u0635\u064A\u0644 \u062A\u0633\u0648\u064A\u0642/\u062E\u062F\u0645\u0627\u062A",
+            orderId
+          });
+          if (newBalance < 250) {
+            const queueIdx = driverQueue.findIndex((d) => d.phoneNumber === phoneNumber);
+            if (queueIdx !== -1) {
+              driverQueue.splice(queueIdx, 1);
+            }
+          }
           const completed = driverCompletedOrders.get(phoneNumber) || [];
           completed.push({
             orderId,
             deliveryFee: order.deliveryFee || 0,
             driverEarning,
-            ownerEarning: ownerEarning > 0 ? ownerEarning : 0,
+            ownerEarning,
             total: order.total || 0,
             customerName: customerProfile?.fullName || "\u0632\u0628\u0648\u0646",
             completedAt: (/* @__PURE__ */ new Date()).toISOString(),
@@ -1938,6 +2021,35 @@ async function registerRoutes(app2) {
         }
       }
       res.json(result.reverse());
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+  app2.get("/api/driver/wallet", async (req, res) => {
+    const phoneNumber = req.query.phoneNumber;
+    if (!phoneNumber) return res.status(400).json({ error: "Phone number required" });
+    try {
+      const balance = await getDriverWalletBalance(phoneNumber);
+      const history = await getWalletHistory(phoneNumber);
+      res.json({ balance, history });
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+  app2.post("/api/admin/driver-wallet/recharge", async (req, res) => {
+    const { phoneNumber, amount } = req.body;
+    if (!phoneNumber || amount === void 0) return res.status(400).json({ error: "Missing fields" });
+    try {
+      const currentBalance = await getDriverWalletBalance(phoneNumber);
+      const newBalance = currentBalance + Number(amount);
+      await updateDriverWalletBalance(phoneNumber, newBalance);
+      await addWalletTransaction({
+        phoneNumber,
+        amount: Number(amount),
+        type: "recharge",
+        service: "\u0634\u062D\u0646 \u0631\u0635\u064A\u062F"
+      });
+      res.json({ success: true, newBalance });
     } catch (error) {
       res.status(500).json({ error: error.message });
     }
@@ -2056,8 +2168,9 @@ async function registerRoutes(app2) {
           ordersWithEarnings++;
         } else {
           const isRestaurant = await checkIsRestaurantOrder(o);
-          const driverEarning = isRestaurant ? 1e3 : 1500;
-          const ownerEarning = Math.max(deliveryFee - driverEarning, 0);
+          const deduction = isRestaurant ? 250 : 1e3;
+          const driverEarning = isRestaurant ? 750 : Math.max(deliveryFee - 1e3, 0);
+          const ownerEarning = deduction;
           totalDriverEarnings += driverEarning;
           totalOwnerEarnings += ownerEarning;
           ordersWithEarnings++;

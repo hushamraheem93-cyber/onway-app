@@ -163,12 +163,31 @@ export default function AdminScreen() {
     queryKey: ["/api/admin/promo-codes"],
   });
 
+  const [rechargeDriver, setRechargeDriver] = useState<string | null>(null);
+  const [rechargeAmount, setRechargeAmount] = useState("");
+
   const updateDriverStatusMutation = useMutation({
     mutationFn: async ({ id, status }: { id: string; status: "pending" | "approved" | "rejected" }) => {
       await apiRequest("PUT", `/api/admin/drivers/${id}/status`, { status });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/drivers"] });
+    },
+  });
+
+  const rechargeWalletMutation = useMutation({
+    mutationFn: async ({ phoneNumber, amount }: { phoneNumber: string; amount: number }) => {
+      const res = await fetch(`${getApiUrl()}/api/admin/driver-wallet/recharge`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phoneNumber, amount }),
+      });
+      if (!res.ok) throw new Error("فشل في شحن الرصيد");
+      return res.json();
+    },
+    onSuccess: () => {
+      setRechargeDriver(null);
+      setRechargeAmount("");
     },
   });
 
@@ -1137,6 +1156,43 @@ export default function AdminScreen() {
                 </ThemedText>
               </Pressable>
             )}
+
+            <View style={{ marginTop: Spacing.md, borderTopWidth: 1, borderTopColor: "#E5E7EB", paddingTop: Spacing.md }}>
+              <View style={{ flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between", marginBottom: Spacing.sm }}>
+                <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: Spacing.xs }}>
+                  <Feather name="credit-card" size={16} color={AppColors.primary} />
+                  <ThemedText type="body" style={{ fontWeight: "600", textAlign: "right" }}>المحفظة</ThemedText>
+                </View>
+                <Pressable
+                  style={{ backgroundColor: "#4CAF50", paddingHorizontal: Spacing.md, paddingVertical: 6, borderRadius: BorderRadius.md }}
+                  onPress={() => setRechargeDriver(rechargeDriver === driver.phoneNumber ? null : driver.phoneNumber)}
+                >
+                  <ThemedText type="small" style={{ color: "#FFFFFF", fontWeight: "600" }}>شحن رصيد</ThemedText>
+                </Pressable>
+              </View>
+              {rechargeDriver === driver.phoneNumber ? (
+                <View style={{ flexDirection: "row", gap: Spacing.sm }}>
+                  <Pressable
+                    style={{ backgroundColor: AppColors.primary, paddingHorizontal: Spacing.lg, paddingVertical: Spacing.sm, borderRadius: BorderRadius.md, justifyContent: "center" }}
+                    onPress={() => {
+                      if (rechargeAmount && Number(rechargeAmount) > 0) {
+                        rechargeWalletMutation.mutate({ phoneNumber: driver.phoneNumber, amount: Number(rechargeAmount) });
+                      }
+                    }}
+                  >
+                    <ThemedText type="small" style={{ color: "#FFFFFF", fontWeight: "600" }}>تأكيد</ThemedText>
+                  </Pressable>
+                  <TextInput
+                    style={[styles.input, { flex: 1, backgroundColor: theme.backgroundSecondary, color: theme.text, marginBottom: 0 }]}
+                    placeholder="المبلغ (د.ع)"
+                    placeholderTextColor={theme.textSecondary}
+                    keyboardType="numeric"
+                    value={rechargeAmount}
+                    onChangeText={setRechargeAmount}
+                  />
+                </View>
+              ) : null}
+            </View>
           </View>
         ))
       )}
