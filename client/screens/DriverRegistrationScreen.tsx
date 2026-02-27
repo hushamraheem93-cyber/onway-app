@@ -7,6 +7,7 @@ import {
   ActivityIndicator,
   Platform,
   ActionSheetIOS,
+  ScrollView,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
@@ -432,7 +433,11 @@ export default function DriverRegistrationScreen() {
           اتفاقية انضمام كابتن OnWay
         </ThemedText>
 
-        <View style={[styles.agreementBox, { backgroundColor: theme.backgroundSecondary, borderColor: theme.border }]}>
+        <ScrollView 
+          style={[styles.agreementBox, { backgroundColor: theme.backgroundSecondary, borderColor: theme.border }]}
+          nestedScrollEnabled={true}
+          showsVerticalScrollIndicator={true}
+        >
           <ThemedText type="body" style={styles.agreementText}>
             بصفتك كابتن في تطبيق OnWay داخل قضاء الضلوعية، يجب عليك الالتزام بالشروط التالية:{"\n\n"}
             <ThemedText style={styles.agreementBold}>1. الأمانة والمسؤولية:</ThemedText>{"\n"}
@@ -446,7 +451,7 @@ export default function DriverRegistrationScreen() {
             <ThemedText style={styles.agreementBold}>5. إخلاء المسؤولية:</ThemedText>{"\n"}
             يخلي تطبيق OnWay مسؤوليته عن أي نزاعات قانونية أو حوادث قد يتعرض لها السائق، حيث يعتبر السائق متعاقداً مستقلاً ويتحمل كافة التبعات القانونية لعمله.
           </ThemedText>
-        </View>
+        </ScrollView>
 
         <Pressable
           style={styles.checkboxRow}
@@ -674,7 +679,7 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.xl,
   },
   agreementBox: {
-    maxHeight: 280,
+    maxHeight: 400,
     borderRadius: BorderRadius.md,
     padding: Spacing.md,
     borderWidth: 1,
