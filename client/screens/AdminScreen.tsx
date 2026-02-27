@@ -163,6 +163,16 @@ export default function AdminScreen() {
     queryKey: ["/api/admin/promo-codes"],
   });
 
+  const { data: ownerEarnings } = useQuery<{
+    totalOwnerEarnings: number;
+    totalDriverEarnings: number;
+    totalDeliveryFees: number;
+    ordersWithEarnings: number;
+    totalDeliveredOrders: number;
+  }>({
+    queryKey: ["/api/admin/owner-earnings"],
+  });
+
   const [rechargeDriver, setRechargeDriver] = useState<string | null>(null);
   const [rechargeAmount, setRechargeAmount] = useState("");
 
@@ -920,6 +930,36 @@ export default function AdminScreen() {
 
   const renderOrdersTab = () => (
     <View>
+      {ownerEarnings ? (
+        <View style={[styles.formCard, { backgroundColor: theme.backgroundSecondary, marginBottom: Spacing.lg }]}>
+          <ThemedText type="h4" style={{ textAlign: "right", color: theme.text, marginBottom: Spacing.md }}>
+            ملخص الأرباح والعمولات
+          </ThemedText>
+          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: Spacing.sm }}>
+            <View style={{ flex: 1, minWidth: 140, backgroundColor: "#4CAF5015", padding: Spacing.md, borderRadius: BorderRadius.lg, alignItems: "center" }}>
+              <Feather name="dollar-sign" size={22} color="#4CAF50" />
+              <ThemedText type="h3" style={{ color: "#4CAF50", marginTop: Spacing.xs }}>{formatPrice(ownerEarnings.totalOwnerEarnings)}</ThemedText>
+              <ThemedText type="small" style={{ color: theme.textSecondary }}>أرباحك (العمولات)</ThemedText>
+            </View>
+            <View style={{ flex: 1, minWidth: 140, backgroundColor: "#2196F315", padding: Spacing.md, borderRadius: BorderRadius.lg, alignItems: "center" }}>
+              <Feather name="truck" size={22} color="#2196F3" />
+              <ThemedText type="h3" style={{ color: "#2196F3", marginTop: Spacing.xs }}>{formatPrice(ownerEarnings.totalDriverEarnings)}</ThemedText>
+              <ThemedText type="small" style={{ color: theme.textSecondary }}>أرباح السائقين</ThemedText>
+            </View>
+            <View style={{ flex: 1, minWidth: 140, backgroundColor: "#FF962215", padding: Spacing.md, borderRadius: BorderRadius.lg, alignItems: "center" }}>
+              <Feather name="package" size={22} color={AppColors.primary} />
+              <ThemedText type="h3" style={{ color: AppColors.primary, marginTop: Spacing.xs }}>{ownerEarnings.totalDeliveredOrders}</ThemedText>
+              <ThemedText type="small" style={{ color: theme.textSecondary }}>طلبات مكتملة</ThemedText>
+            </View>
+          </View>
+          <View style={{ marginTop: Spacing.md, borderTopWidth: 1, borderTopColor: "#E5E7EB", paddingTop: Spacing.md }}>
+            <ThemedText type="small" style={{ color: theme.textSecondary, textAlign: "right" }}>
+              نظام العمولة: مطاعم (250 د.ع لك / 750 للسائق) | أقسام أخرى (1,000 د.ع لك / 2,000 للسائق)
+            </ThemedText>
+          </View>
+        </View>
+      ) : null}
+
       <ThemedText type="h4" style={styles.listTitle}>الطلبات</ThemedText>
 
       {ordersLoading ? (
