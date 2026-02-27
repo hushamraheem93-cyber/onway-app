@@ -1910,8 +1910,7 @@ async function registerRoutes(app2) {
             driverEarning = 750;
           } else {
             deductionAmount = 1e3;
-            driverEarning = (order.deliveryFee || 0) - deductionAmount;
-            if (driverEarning < 0) driverEarning = 0;
+            driverEarning = 2e3;
           }
           const ownerEarning = deductionAmount;
           await updateOrderDriverInfo(orderId, {
@@ -2168,9 +2167,8 @@ async function registerRoutes(app2) {
           ordersWithEarnings++;
         } else {
           const isRestaurant = await checkIsRestaurantOrder(o);
-          const deduction = isRestaurant ? 250 : 1e3;
-          const driverEarning = isRestaurant ? 750 : Math.max(deliveryFee - 1e3, 0);
-          const ownerEarning = deduction;
+          const driverEarning = isRestaurant ? 750 : 2e3;
+          const ownerEarning = isRestaurant ? 250 : 1e3;
           totalDriverEarnings += driverEarning;
           totalOwnerEarnings += ownerEarning;
           ordersWithEarnings++;

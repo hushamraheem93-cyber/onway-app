@@ -1317,8 +1317,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             driverEarning = 750;
           } else {
             deductionAmount = 1000;
-            driverEarning = (order.deliveryFee || 0) - deductionAmount;
-            if (driverEarning < 0) driverEarning = 0;
+            driverEarning = 2000;
           }
 
           const ownerEarning = deductionAmount;
@@ -1629,9 +1628,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           ordersWithEarnings++;
         } else {
           const isRestaurant = await checkIsRestaurantOrder(o);
-          const deduction = isRestaurant ? 250 : 1000;
-          const driverEarning = isRestaurant ? 750 : Math.max(deliveryFee - 1000, 0);
-          const ownerEarning = deduction;
+          const driverEarning = isRestaurant ? 750 : 2000;
+          const ownerEarning = isRestaurant ? 250 : 1000;
           totalDriverEarnings += driverEarning;
           totalOwnerEarnings += ownerEarning;
           ordersWithEarnings++;

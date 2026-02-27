@@ -253,12 +253,14 @@ export default function DriverEarningsScreen() {
                   نظام العمولة
                 </ThemedText>
                 <View style={styles.commissionRow}>
-                  <ThemedText type="small" style={{ color: "#FF9800", fontWeight: "700" }}>{formatPrice(250)}</ThemedText>
+                  <ThemedText type="small" style={{ color: "#4CAF50", fontWeight: "700" }}>{formatPrice(750)}</ThemedText>
+                  <ThemedText type="small" style={{ color: "#FF9800", fontWeight: "700" }}>عمولة {formatPrice(250)}</ThemedText>
                   <ThemedText type="body" style={{ color: theme.text, flex: 1, textAlign: "right" }}>توصيل مطعم</ThemedText>
                   <Feather name="shopping-bag" size={16} color="#FF9800" />
                 </View>
                 <View style={styles.commissionRow}>
-                  <ThemedText type="small" style={{ color: "#2196F3", fontWeight: "700" }}>{formatPrice(1000)}</ThemedText>
+                  <ThemedText type="small" style={{ color: "#4CAF50", fontWeight: "700" }}>{formatPrice(2000)}</ThemedText>
+                  <ThemedText type="small" style={{ color: "#2196F3", fontWeight: "700" }}>عمولة {formatPrice(1000)}</ThemedText>
                   <ThemedText type="body" style={{ color: theme.text, flex: 1, textAlign: "right" }}>توصيل تسويق/خدمات</ThemedText>
                   <Feather name="truck" size={16} color="#2196F3" />
                 </View>
