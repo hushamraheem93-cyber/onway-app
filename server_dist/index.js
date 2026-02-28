@@ -175,6 +175,9 @@ async function createProduct(data) {
   if (data.discount !== void 0) {
     productDoc.discount = data.discount;
   }
+  if (data.restaurant) {
+    productDoc.restaurant = data.restaurant;
+  }
   const docRef = await db.collection("products").add(productDoc);
   console.log("Product created with ID:", docRef.id);
   return { id: docRef.id, ...productDoc };
@@ -850,13 +853,13 @@ var deliveryAreas = [
   { id: "bishikan", name: "\u0628\u064A\u0634\u064A\u0643\u0627\u0646", fee: 3500, isActive: true }
 ];
 var categories = [
-  { id: "fruits-vegetables", name: "\u0627\u0644\u062E\u0636\u0631\u0648\u0627\u062A \u0648\u0627\u0644\u0641\u0648\u0627\u0643\u0647", image: "/uploads/category-vegetables.png", productCount: 50, order: 1, color: "#E8F5E9", iconColor: "#4CAF50" },
-  { id: "meat-poultry", name: "\u0627\u0644\u0644\u062D\u0648\u0645 \u0648\u0627\u0644\u0637\u0627\u0632\u062C", image: "/uploads/category-meat.png", productCount: 55, order: 2, color: "#FFEBEE", iconColor: "#EF5350" },
-  { id: "dairy-eggs", name: "\u0627\u0644\u0623\u0644\u0628\u0627\u0646 \u0648\u0627\u0644\u0623\u062C\u0628\u0627\u0646", image: "/uploads/category-dairy.png", productCount: 70, order: 3, color: "#F3E5F5", iconColor: "#AB47BC" },
-  { id: "cleaning-care", name: "\u0627\u0644\u0645\u0646\u0638\u0641\u0627\u062A", image: "/uploads/category-cleaning.png", productCount: 95, order: 4, color: "#E3F2FD", iconColor: "#42A5F5" },
-  { id: "beverages", name: "\u0627\u0644\u0645\u0634\u0631\u0648\u0628\u0627\u062A", image: "/uploads/category-beverages.png", productCount: 90, order: 5, color: "#E0F7FA", iconColor: "#26C6DA" },
-  { id: "snacks-sweets", name: "\u0633\u0646\u0627\u0643\u0633 \u0648\u0645\u0642\u0631\u0645\u0634\u0627\u062A", image: "/uploads/category-snacks.png", productCount: 110, order: 6, color: "#FFF3E0", iconColor: "#FFA726" },
-  { id: "juices", name: "\u0645\u0634\u0631\u0648\u0628\u0627\u062A \u0648\u0639\u0635\u0627\u0626\u0631", image: "/uploads/category-juices.png", productCount: 45, order: 7, color: "#F1F8E9", iconColor: "#9CCC65" },
+  { id: "restaurants", name: "\u0627\u0644\u0645\u0637\u0627\u0639\u0645", image: "/uploads/category-restaurants.png", productCount: 30, order: 1, color: "#FFF3E0", iconColor: "#FF7622" },
+  { id: "fruits-vegetables", name: "\u0627\u0644\u062E\u0636\u0631\u0648\u0627\u062A \u0648\u0627\u0644\u0641\u0648\u0627\u0643\u0647", image: "/uploads/category-vegetables.png", productCount: 50, order: 2, color: "#E8F5E9", iconColor: "#4CAF50" },
+  { id: "meat-poultry", name: "\u0627\u0644\u0644\u062D\u0648\u0645 \u0648\u0627\u0644\u0637\u0627\u0632\u062C", image: "/uploads/category-meat.png", productCount: 55, order: 3, color: "#FFEBEE", iconColor: "#EF5350" },
+  { id: "dairy-eggs", name: "\u0627\u0644\u0623\u0644\u0628\u0627\u0646 \u0648\u0627\u0644\u0623\u062C\u0628\u0627\u0646", image: "/uploads/category-dairy.png", productCount: 70, order: 4, color: "#F3E5F5", iconColor: "#AB47BC" },
+  { id: "cleaning-care", name: "\u0627\u0644\u0645\u0646\u0638\u0641\u0627\u062A", image: "/uploads/category-cleaning.png", productCount: 95, order: 5, color: "#E3F2FD", iconColor: "#42A5F5" },
+  { id: "beverages", name: "\u0627\u0644\u0645\u0634\u0631\u0648\u0628\u0627\u062A", image: "/uploads/category-beverages.png", productCount: 90, order: 6, color: "#E0F7FA", iconColor: "#26C6DA" },
+  { id: "snacks-sweets", name: "\u0633\u0646\u0627\u0643\u0633 \u0648\u0645\u0642\u0631\u0645\u0634\u0627\u062A", image: "/uploads/category-snacks.png", productCount: 110, order: 7, color: "#FFF3E0", iconColor: "#FFA726" },
   { id: "tea-coffee", name: "\u0634\u0627\u064A \u0648\u0642\u0647\u0648\u0629", image: "/uploads/category-coffee.png", productCount: 35, order: 8, color: "#EFEBE9", iconColor: "#8D6E63" },
   { id: "baby", name: "\u0645\u0633\u062A\u0644\u0632\u0645\u0627\u062A \u0623\u0637\u0641\u0627\u0644", image: "/uploads/category-baby.png", productCount: 60, order: 9, color: "#FCE4EC", iconColor: "#EC407A" },
   { id: "flowers", name: "\u0647\u062F\u0627\u064A\u0627 \u0648\u0648\u0631\u0648\u062F", image: "/uploads/category-flowers.png", productCount: 25, order: 10, color: "#FDF2F2", iconColor: "#EF5350" },
@@ -870,6 +873,33 @@ var banners = [
   { id: "slider-3", image: "https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=800", title: "\u0648\u062C\u0628\u0627\u062A \u062C\u0627\u0647\u0632\u0629 \u0644\u0644\u0623\u0643\u0644", isActive: true, type: "slider", order: 3 }
 ];
 var products = [
+  // مطعم يلا ايت
+  { id: "r1", categoryId: "restaurants", restaurant: "\u064A\u0644\u0627 \u0627\u064A\u062A", name: "\u0628\u0631\u062C\u0631 \u0643\u0644\u0627\u0633\u064A\u0643", price: 8e3, image: "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=300", description: "\u0628\u0631\u062C\u0631 \u0644\u062D\u0645 \u0643\u0644\u0627\u0633\u064A\u0643\u064A \u0645\u0639 \u062E\u0633 \u0648\u0637\u0645\u0627\u0637\u0645 \u0648\u0635\u0648\u0635 \u062E\u0627\u0635", inStock: true },
+  { id: "r2", categoryId: "restaurants", restaurant: "\u064A\u0644\u0627 \u0627\u064A\u062A", name: "\u0628\u0631\u062C\u0631 \u062F\u062C\u0627\u062C \u0645\u0642\u0631\u0645\u0634", price: 7500, image: "https://images.unsplash.com/photo-1606755962773-d324e0a13086?w=300", description: "\u0628\u0631\u062C\u0631 \u062F\u062C\u0627\u062C \u0645\u0642\u0631\u0645\u0634 \u0645\u0639 \u0635\u0648\u0635 \u0645\u0627\u064A\u0648\u0646\u064A\u0632", inStock: true },
+  { id: "r3", categoryId: "restaurants", restaurant: "\u064A\u0644\u0627 \u0627\u064A\u062A", name: "\u0634\u0627\u0648\u0631\u0645\u0627 \u0644\u062D\u0645", price: 5e3, image: "https://images.unsplash.com/photo-1529006557810-274b9b2fc783?w=300", description: "\u0634\u0627\u0648\u0631\u0645\u0627 \u0644\u062D\u0645 \u0639\u0631\u0628\u064A\u0629 \u0645\u0639 \u062E\u0636\u0627\u0631 \u0648\u0637\u062D\u064A\u0646\u0629", inStock: true },
+  { id: "r4", categoryId: "restaurants", restaurant: "\u064A\u0644\u0627 \u0627\u064A\u062A", name: "\u0634\u0627\u0648\u0631\u0645\u0627 \u062F\u062C\u0627\u062C", price: 4500, image: "https://images.unsplash.com/photo-1561651188-d207bbec4ec3?w=300", description: "\u0634\u0627\u0648\u0631\u0645\u0627 \u062F\u062C\u0627\u062C \u0645\u0639 \u062B\u0648\u0645\u064A\u0629 \u0648\u0628\u0637\u0627\u0637\u0627", inStock: true },
+  { id: "r5", categoryId: "restaurants", restaurant: "\u064A\u0644\u0627 \u0627\u064A\u062A", name: "\u0628\u064A\u062A\u0632\u0627 \u0645\u0627\u0631\u063A\u0631\u064A\u062A\u0627", price: 12e3, image: "https://images.unsplash.com/photo-1574071318508-1cdbab80d002?w=300", description: "\u0628\u064A\u062A\u0632\u0627 \u0645\u0627\u0631\u063A\u0631\u064A\u062A\u0627 \u0628\u0627\u0644\u062C\u0628\u0646 \u0648\u0627\u0644\u0631\u064A\u062D\u0627\u0646", inStock: true },
+  // مطعم المشويات
+  { id: "r6", categoryId: "restaurants", restaurant: "\u0645\u0637\u0639\u0645 \u0627\u0644\u0645\u0634\u0648\u064A\u0627\u062A", name: "\u0643\u0628\u0627\u0628 \u0644\u062D\u0645", price: 15e3, image: "https://images.unsplash.com/photo-1603360946369-dc9bb6258143?w=300", description: "\u0643\u0628\u0627\u0628 \u0644\u062D\u0645 \u0645\u0634\u0648\u064A \u0639\u0644\u0649 \u0627\u0644\u0641\u062D\u0645 6 \u0623\u0633\u064A\u0627\u062E", inStock: true },
+  { id: "r7", categoryId: "restaurants", restaurant: "\u0645\u0637\u0639\u0645 \u0627\u0644\u0645\u0634\u0648\u064A\u0627\u062A", name: "\u062A\u0643\u0629 \u062F\u062C\u0627\u062C", price: 12e3, image: "https://images.unsplash.com/photo-1599487488170-d11ec9c172f0?w=300", description: "\u062A\u0643\u0629 \u062F\u062C\u0627\u062C \u0645\u0634\u0648\u064A\u0629 \u0645\u062A\u0628\u0644\u0629 6 \u0623\u0633\u064A\u0627\u062E", inStock: true },
+  { id: "r8", categoryId: "restaurants", restaurant: "\u0645\u0637\u0639\u0645 \u0627\u0644\u0645\u0634\u0648\u064A\u0627\u062A", name: "\u0645\u0634\u0627\u0648\u064A \u0645\u0634\u0643\u0644\u0629", price: 25e3, image: "https://images.unsplash.com/photo-1544025162-d76694265947?w=300", description: "\u0637\u0628\u0642 \u0645\u0634\u0627\u0648\u064A \u0645\u0634\u0643\u0644\u0629 \u0645\u0639 \u0631\u0632 \u0648\u0633\u0644\u0637\u0629", inStock: true },
+  { id: "r9", categoryId: "restaurants", restaurant: "\u0645\u0637\u0639\u0645 \u0627\u0644\u0645\u0634\u0648\u064A\u0627\u062A", name: "\u0631\u064A\u0634 \u063A\u0646\u0645", price: 2e4, image: "https://images.unsplash.com/photo-1558030006-450675393462?w=300", description: "\u0631\u064A\u0634 \u063A\u0646\u0645 \u0645\u0634\u0648\u064A\u0629 4 \u0642\u0637\u0639", inStock: true },
+  // مطعم الأسماك
+  { id: "r10", categoryId: "restaurants", restaurant: "\u0645\u0637\u0639\u0645 \u0627\u0644\u0623\u0633\u0645\u0627\u0643", name: "\u0633\u0645\u0643 \u0645\u0634\u0648\u064A", price: 18e3, image: "https://images.unsplash.com/photo-1534604973900-c43ab4c2e0ab?w=300", description: "\u0633\u0645\u0643 \u0634\u0628\u0648\u0637 \u0645\u0634\u0648\u064A \u0639\u0644\u0649 \u0627\u0644\u0641\u062D\u0645", inStock: true },
+  { id: "r11", categoryId: "restaurants", restaurant: "\u0645\u0637\u0639\u0645 \u0627\u0644\u0623\u0633\u0645\u0627\u0643", name: "\u0633\u0645\u0643 \u0645\u0642\u0644\u064A", price: 15e3, image: "https://images.unsplash.com/photo-1580476262798-bddd9f4b7369?w=300", description: "\u0633\u0645\u0643 \u0645\u0642\u0644\u064A \u0645\u0642\u0631\u0645\u0634 \u0645\u0639 \u0635\u0648\u0635 \u062A\u0631\u062A\u0627\u0631", inStock: true },
+  { id: "r12", categoryId: "restaurants", restaurant: "\u0645\u0637\u0639\u0645 \u0627\u0644\u0623\u0633\u0645\u0627\u0643", name: "\u0631\u0648\u0628\u064A\u0627\u0646 \u0645\u0634\u0648\u064A", price: 22e3, image: "https://images.unsplash.com/photo-1565680018434-b513d5e5fd47?w=300", description: "\u0631\u0648\u0628\u064A\u0627\u0646 \u0645\u0634\u0648\u064A \u0628\u0627\u0644\u062B\u0648\u0645 \u0648\u0627\u0644\u0632\u0628\u062F\u0629", inStock: true },
+  { id: "r13", categoryId: "restaurants", restaurant: "\u0645\u0637\u0639\u0645 \u0627\u0644\u0623\u0633\u0645\u0627\u0643", name: "\u0633\u0645\u0643 \u0627\u0644\u0647\u0627\u0645\u0648\u0631", price: 25e3, image: "https://images.unsplash.com/photo-1519708227418-c8fd9a32b7a2?w=300", description: "\u0641\u064A\u0644\u064A\u0647 \u0647\u0627\u0645\u0648\u0631 \u0645\u0634\u0648\u064A \u0645\u0639 \u062E\u0636\u0627\u0631", inStock: true },
+  // مطعم الدجاج
+  { id: "r14", categoryId: "restaurants", restaurant: "\u0645\u0637\u0639\u0645 \u0627\u0644\u062F\u062C\u0627\u062C", name: "\u062F\u062C\u0627\u062C \u0645\u0634\u0648\u064A \u0643\u0627\u0645\u0644", price: 15e3, image: "https://images.unsplash.com/photo-1598103442097-8b74394b95c6?w=300", description: "\u062F\u062C\u0627\u062C \u0643\u0627\u0645\u0644 \u0645\u0634\u0648\u064A \u0639\u0644\u0649 \u0627\u0644\u0641\u062D\u0645", inStock: true },
+  { id: "r15", categoryId: "restaurants", restaurant: "\u0645\u0637\u0639\u0645 \u0627\u0644\u062F\u062C\u0627\u062C", name: "\u0642\u0637\u0639 \u062F\u062C\u0627\u062C \u0645\u0642\u0644\u064A\u0629", price: 1e4, image: "https://images.unsplash.com/photo-1562967914-608f82629710?w=300", description: "\u0642\u0637\u0639 \u062F\u062C\u0627\u062C \u0645\u0642\u0644\u064A\u0629 \u0645\u0642\u0631\u0645\u0634\u0629 8 \u0642\u0637\u0639", inStock: true },
+  { id: "r16", categoryId: "restaurants", restaurant: "\u0645\u0637\u0639\u0645 \u0627\u0644\u062F\u062C\u0627\u062C", name: "\u062F\u062C\u0627\u062C \u0628\u0627\u0644\u0643\u0627\u0631\u064A", price: 12e3, image: "https://images.unsplash.com/photo-1603894584373-5ac82b2ae398?w=300", description: "\u062F\u062C\u0627\u062C \u0628\u0635\u0644\u0635\u0629 \u0627\u0644\u0643\u0627\u0631\u064A \u0645\u0639 \u0627\u0644\u0631\u0632", inStock: true },
+  { id: "r17", categoryId: "restaurants", restaurant: "\u0645\u0637\u0639\u0645 \u0627\u0644\u062F\u062C\u0627\u062C", name: "\u0623\u062C\u0646\u062D\u0629 \u062F\u062C\u0627\u062C \u062D\u0627\u0631\u0629", price: 9e3, image: "https://images.unsplash.com/photo-1608039829572-9b0175ffb205?w=300", description: "\u0623\u062C\u0646\u062D\u0629 \u062F\u062C\u0627\u062C \u062D\u0627\u0631\u0629 10 \u0642\u0637\u0639", inStock: true },
+  // مطعم اللحوم
+  { id: "r18", categoryId: "restaurants", restaurant: "\u0645\u0637\u0639\u0645 \u0627\u0644\u0644\u062D\u0648\u0645", name: "\u0633\u062A\u064A\u0643 \u0644\u062D\u0645", price: 28e3, image: "https://images.unsplash.com/photo-1600891964092-4316c288032e?w=300", description: "\u0633\u062A\u064A\u0643 \u0644\u062D\u0645 \u0628\u0642\u0631\u064A \u0645\u0634\u0648\u064A \u0645\u0639 \u0628\u0637\u0627\u0637\u0627", inStock: true },
+  { id: "r19", categoryId: "restaurants", restaurant: "\u0645\u0637\u0639\u0645 \u0627\u0644\u0644\u062D\u0648\u0645", name: "\u0643\u0641\u062A\u0629 \u0628\u0627\u0644\u0641\u0631\u0646", price: 14e3, image: "https://images.unsplash.com/photo-1529042410759-befb1204b468?w=300", description: "\u0643\u0641\u062A\u0629 \u0644\u062D\u0645 \u0628\u0627\u0644\u0641\u0631\u0646 \u0645\u0639 \u0635\u0644\u0635\u0629 \u0637\u0645\u0627\u0637\u0645", inStock: true },
+  { id: "r20", categoryId: "restaurants", restaurant: "\u0645\u0637\u0639\u0645 \u0627\u0644\u0644\u062D\u0648\u0645", name: "\u0637\u0628\u0642 \u0644\u062D\u0645 \u0639\u0631\u0627\u0642\u064A", price: 2e4, image: "https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=300", description: "\u0637\u0628\u0642 \u0644\u062D\u0645 \u0639\u0631\u0627\u0642\u064A \u062A\u0642\u0644\u064A\u062F\u064A \u0645\u0639 \u0631\u0632 \u0648\u0633\u0644\u0637\u0629", inStock: true },
+  { id: "r21", categoryId: "restaurants", restaurant: "\u0645\u0637\u0639\u0645 \u0627\u0644\u0644\u062D\u0648\u0645", name: "\u062F\u0648\u0644\u0645\u0629 \u0639\u0631\u0627\u0642\u064A\u0629", price: 16e3, image: "https://images.unsplash.com/photo-1555939594-58d7cb561ad1?w=300", description: "\u062F\u0648\u0644\u0645\u0629 \u0639\u0631\u0627\u0642\u064A\u0629 \u0628\u0627\u0644\u0631\u0632 \u0648\u0627\u0644\u0644\u062D\u0645 \u0627\u0644\u0645\u0641\u0631\u0648\u0645", inStock: true },
+  // باقي المنتجات
   { id: "p1", categoryId: "groceries", name: "\u0623\u0631\u0632 \u0628\u0633\u0645\u062A\u064A", price: 35e3, image: "https://images.unsplash.com/photo-1586201375761-83865001e31c?w=300", description: "\u0623\u0631\u0632 \u0628\u0633\u0645\u062A\u064A \u0639\u0627\u0644\u064A \u0627\u0644\u062C\u0648\u062F\u0629 5 \u0643\u064A\u0644\u0648", inStock: true },
   { id: "p2", categoryId: "groceries", name: "\u0632\u064A\u062A \u0632\u064A\u062A\u0648\u0646", price: 65e3, image: "https://images.unsplash.com/photo-1474979266404-7eaacbcd87c5?w=300", description: "\u0632\u064A\u062A \u0632\u064A\u062A\u0648\u0646 \u0628\u0643\u0631 \u0645\u0645\u062A\u0627\u0632 1 \u0644\u062A\u0631", inStock: true },
   { id: "p3", categoryId: "groceries", name: "\u0639\u0633\u0644 \u0637\u0628\u064A\u0639\u064A", price: 85e3, image: "https://images.unsplash.com/photo-1587049352846-4a222e784d38?w=300", description: "\u0639\u0633\u0644 \u0637\u0628\u064A\u0639\u064A \u0635\u0627\u0641\u064A 500 \u062C\u0631\u0627\u0645", inStock: true },
@@ -877,8 +907,6 @@ var products = [
   { id: "p5", categoryId: "bakery", name: "\u062E\u0628\u0632 \u0639\u0631\u0628\u064A", price: 5e3, image: "https://images.unsplash.com/photo-1509440159596-0249088772ff?w=300", description: "\u062E\u0628\u0632 \u0639\u0631\u0628\u064A \u0637\u0627\u0632\u062C 6 \u0642\u0637\u0639", inStock: true },
   { id: "p6", categoryId: "dairy-eggs", name: "\u062C\u0628\u0646\u0629 \u0628\u064A\u0636\u0627\u0621", price: 22e3, image: "https://images.unsplash.com/photo-1486297678162-eb2a19b0a32d?w=300", description: "\u062C\u0628\u0646\u0629 \u0628\u064A\u0636\u0627\u0621 \u0637\u0627\u0632\u062C\u0629 400 \u062C\u0631\u0627\u0645", inStock: true },
   { id: "p7", categoryId: "cleaning-care", name: "\u0635\u0627\u0628\u0648\u0646 \u063A\u0633\u064A\u0644", price: 15e3, image: "https://images.unsplash.com/photo-1583947215259-38e31be8751f?w=300", description: "\u0635\u0627\u0628\u0648\u0646 \u063A\u0633\u064A\u0644 \u0645\u0639\u0637\u0631 3 \u0643\u064A\u0644\u0648", inStock: true },
-  { id: "p8", categoryId: "fruits-vegetables", name: "\u062A\u0641\u0627\u062D \u0623\u062D\u0645\u0631", price: 15e3, image: "https://images.unsplash.com/photo-1560806887-1e4cd0b6cbd6?w=300", description: "\u062A\u0641\u0627\u062D \u0623\u062D\u0645\u0631 \u0637\u0627\u0632\u062C 1 \u0643\u064A\u0644\u0648", inStock: true },
-  { id: "p9", categoryId: "fruits-vegetables", name: "\u0637\u0645\u0627\u0637\u0645 \u0637\u0627\u0632\u062C\u0629", price: 8e3, image: "https://images.unsplash.com/photo-1546470427-e26264be0b11?w=300", description: "\u0637\u0645\u0627\u0637\u0645 \u0637\u0627\u0632\u062C\u0629 1 \u0643\u064A\u0644\u0648", inStock: true },
   { id: "p10", categoryId: "meat-poultry", name: "\u062F\u062C\u0627\u062C \u0643\u0627\u0645\u0644", price: 45e3, image: "https://images.unsplash.com/photo-1604503468506-a8da13d82791?w=300", description: "\u062F\u062C\u0627\u062C \u0637\u0627\u0632\u062C \u0643\u0627\u0645\u0644 1.5 \u0643\u064A\u0644\u0648", inStock: true },
   { id: "p11", categoryId: "beverages", name: "\u0639\u0635\u064A\u0631 \u0628\u0631\u062A\u0642\u0627\u0644", price: 12e3, image: "https://images.unsplash.com/photo-1534353473418-4cfa6c56fd38?w=300", description: "\u0639\u0635\u064A\u0631 \u0628\u0631\u062A\u0642\u0627\u0644 \u0637\u0628\u064A\u0639\u064A 1 \u0644\u062A\u0631", inStock: true },
   { id: "p12", categoryId: "snacks-sweets", name: "\u0634\u0648\u0643\u0648\u0644\u0627\u062A\u0629 \u062F\u0627\u0643\u0646\u0629", price: 18e3, image: "https://images.unsplash.com/photo-1606312619070-d48b4c652a52?w=300", description: "\u0634\u0648\u0643\u0648\u0644\u0627\u062A\u0629 \u062F\u0627\u0643\u0646\u0629 \u0641\u0627\u062E\u0631\u0629 100 \u062C\u0631\u0627\u0645", inStock: true },
@@ -1152,7 +1180,13 @@ async function registerRoutes(app2) {
           (p) => p.name.toLowerCase().includes(searchLower) || p.description.toLowerCase().includes(searchLower)
         );
       }
-      const lightResult = result2.map((p) => ({ ...p, image: limitImageSize(p.image) }));
+      const lightResult = result2.map((p) => {
+        const item = { ...p, image: limitImageSize(p.image) };
+        if (item.categoryId === "restaurants" && !item.restaurant) {
+          item.restaurant = "\u064A\u0644\u0627 \u0627\u064A\u062A";
+        }
+        return item;
+      });
       return res.json(lightResult);
     }
     let result = products;
@@ -1171,7 +1205,13 @@ async function registerRoutes(app2) {
     const db2 = getFirestore();
     if (db2) {
       const result = await getProducts();
-      const lightResult = result.map((p) => ({ ...p, image: limitImageSize(p.image) }));
+      const lightResult = result.map((p) => {
+        const item = { ...p, image: limitImageSize(p.image) };
+        if (item.categoryId === "restaurants" && !item.restaurant) {
+          item.restaurant = "\u064A\u0644\u0627 \u0627\u064A\u062A";
+        }
+        return item;
+      });
       return res.json(lightResult);
     }
     res.json(products);
@@ -1181,7 +1221,7 @@ async function registerRoutes(app2) {
       if (!req.body) {
         return res.status(400).json({ error: "Request body is empty" });
       }
-      const { name, categoryId, price, originalPrice, discount, description, inStock, image } = req.body;
+      const { name, categoryId, price, originalPrice, discount, description, inStock, image, restaurant } = req.body;
       const db2 = getFirestore();
       const priceNum = Number(price) || 0;
       const originalPriceNum = originalPrice ? Number(originalPrice) : void 0;
@@ -1196,7 +1236,8 @@ async function registerRoutes(app2) {
           discount: discountNum,
           image: String(image || ""),
           description: String(description || ""),
-          inStock: inStockBool
+          inStock: inStockBool,
+          restaurant: restaurant ? String(restaurant) : void 0
         });
         if (newProduct2) return res.json(newProduct2);
         return res.status(500).json({ error: "Failed to create product in Firestore" });
@@ -1210,7 +1251,8 @@ async function registerRoutes(app2) {
         discount: discountNum,
         image: String(image || ""),
         description: String(description || ""),
-        inStock: inStockBool
+        inStock: inStockBool,
+        restaurant: restaurant ? String(restaurant) : void 0
       };
       products.push(newProduct);
       res.json(newProduct);
@@ -1224,7 +1266,7 @@ async function registerRoutes(app2) {
     }
   });
   app2.put("/api/admin/products/:id", async (req, res) => {
-    const { name, categoryId, price, originalPrice, discount, description, inStock, image } = req.body;
+    const { name, categoryId, price, originalPrice, discount, description, inStock, image, restaurant } = req.body;
     const productId = req.params.id;
     const db2 = getFirestore();
     const priceNum = price !== void 0 ? Number(price) : void 0;
@@ -1232,7 +1274,7 @@ async function registerRoutes(app2) {
     const discountNum = discount !== void 0 ? Number(discount) : void 0;
     const inStockBool = inStock !== void 0 ? inStock === "true" || inStock === true : void 0;
     if (db2) {
-      const updated = await updateProduct(productId, {
+      const updates = {
         name: name !== void 0 ? String(name) : void 0,
         categoryId: categoryId !== void 0 ? String(categoryId) : void 0,
         price: priceNum,
@@ -1241,7 +1283,9 @@ async function registerRoutes(app2) {
         image: image !== void 0 ? String(image) : void 0,
         description: description !== void 0 ? String(description) : void 0,
         inStock: inStockBool
-      });
+      };
+      if (restaurant !== void 0) updates.restaurant = restaurant ? String(restaurant) : "";
+      const updated = await updateProduct(productId, updates);
       if (updated) return res.json(updated);
       return res.status(404).json({ error: "Product not found" });
     }
@@ -1258,7 +1302,8 @@ async function registerRoutes(app2) {
       discount: discountNum !== void 0 ? discountNum : products[index].discount,
       image: image !== void 0 ? String(image) : products[index].image,
       description: description !== void 0 ? String(description) : products[index].description,
-      inStock: inStockBool !== void 0 ? inStockBool : products[index].inStock
+      inStock: inStockBool !== void 0 ? inStockBool : products[index].inStock,
+      restaurant: restaurant !== void 0 ? String(restaurant) : products[index].restaurant
     };
     res.json(products[index]);
   });

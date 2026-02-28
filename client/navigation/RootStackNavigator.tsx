@@ -36,7 +36,7 @@ export type RootStackParamList = {
   DriverTabs: undefined;
   Main: undefined;
   AllCategories: undefined;
-  Products: { categoryId?: string; categoryName: string; searchQuery?: string };
+  Products: { categoryId?: string; categoryName: string; searchQuery?: string; restaurant?: string };
   Checkout: undefined;
   OrderConfirmation: { order: Order };
   OrderTracking: { orderId: string };

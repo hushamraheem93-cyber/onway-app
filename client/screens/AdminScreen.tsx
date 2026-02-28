@@ -119,6 +119,7 @@ export default function AdminScreen() {
     inStock: true,
     imageUri: "",
     imageUrl: "",
+    restaurant: "",
   });
 
   const [areaForm, setAreaForm] = useState({
@@ -366,6 +367,9 @@ export default function AdminScreen() {
       if (productForm.originalPrice) body.originalPrice = productForm.originalPrice;
       if (productForm.discount) body.discount = productForm.discount;
       if (imageBase64) body.image = imageBase64;
+      if (productForm.categoryId === "restaurants" && productForm.restaurant) {
+        body.restaurant = productForm.restaurant;
+      }
 
       const method = editItem ? "PUT" : "POST";
 
@@ -450,7 +454,7 @@ export default function AdminScreen() {
     setEditItem(null);
     setBannerForm({ title: "", type: "slider", imageUri: "", imageUrl: "" });
     setCategoryForm({ name: "", imageUri: "", imageUrl: "" });
-    setProductForm({ name: "", categoryId: "", price: "", originalPrice: "", discount: "", description: "", inStock: true, imageUri: "", imageUrl: "" });
+    setProductForm({ name: "", categoryId: "", price: "", originalPrice: "", discount: "", description: "", inStock: true, imageUri: "", imageUrl: "", restaurant: "" });
     setAreaForm({ name: "", fee: "" });
     setPromoForm({ code: "", type: "fixed", value: "", expiryDate: "" });
   };
@@ -488,6 +492,7 @@ export default function AdminScreen() {
       inStock: product.inStock,
       imageUri: "",
       imageUrl: product.image,
+      restaurant: (product as any).restaurant || "",
     });
     setIsEditing(true);
   };
@@ -726,6 +731,16 @@ export default function AdminScreen() {
           </ScrollView>
         </View>
 
+        {productForm.categoryId === "restaurants" ? (
+          <TextInput
+            style={[styles.input, { backgroundColor: theme.backgroundSecondary, color: theme.text }]}
+            placeholder="اسم المطعم (مثال: يلا ايت)"
+            placeholderTextColor={theme.textSecondary}
+            value={productForm.restaurant}
+            onChangeText={(text) => setProductForm({ ...productForm, restaurant: text })}
+          />
+        ) : null}
+
         <View style={styles.priceRow}>
           <TextInput
             style={[styles.input, styles.priceInput, { backgroundColor: theme.backgroundSecondary, color: theme.text }]}
@@ -819,6 +834,11 @@ export default function AdminScreen() {
                 <ThemedText type="small" style={{ color: AppColors.primary, fontWeight: "600" }}>
                   {formatPrice(product.price)}
                 </ThemedText>
+                {(product as any).restaurant ? (
+                  <View style={[styles.discountBadge, { backgroundColor: "#FF762220" }]}>
+                    <ThemedText type="small" style={{ color: AppColors.primary, fontWeight: "600", fontSize: 10 }}>{(product as any).restaurant}</ThemedText>
+                  </View>
+                ) : null}
                 {product.discount ? (
                   <View style={styles.discountBadge}>
                     <ThemedText type="small" style={styles.discountText}>-{product.discount}%</ThemedText>

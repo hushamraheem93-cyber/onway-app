@@ -18,13 +18,13 @@ export interface Banner {
 }
 
 export const MAIN_CATEGORIES: Category[] = [
+  { id: "restaurants", name: "المطاعم", image: "/uploads/category-restaurants.png", productCount: 30, color: "#FFF3E0", iconColor: "#FF7622" },
   { id: "fruits-vegetables", name: "الخضروات والفواكه", image: "/uploads/category-vegetables.png", productCount: 50, color: "#E8F5E9", iconColor: "#4CAF50" },
   { id: "meat-poultry", name: "اللحوم والطازج", image: "/uploads/category-meat.png", productCount: 55, color: "#FFEBEE", iconColor: "#EF5350" },
   { id: "dairy-eggs", name: "الألبان والأجبان", image: "/uploads/category-dairy.png", productCount: 70, color: "#F3E5F5", iconColor: "#AB47BC" },
   { id: "cleaning-care", name: "المنظفات", image: "/uploads/category-cleaning.png", productCount: 95, color: "#E3F2FD", iconColor: "#42A5F5" },
   { id: "beverages", name: "المشروبات", image: "/uploads/category-beverages.png", productCount: 90, color: "#E0F7FA", iconColor: "#26C6DA" },
   { id: "snacks-sweets", name: "سناكس ومقرمشات", image: "/uploads/category-snacks.png", productCount: 110, color: "#FFF3E0", iconColor: "#FFA726" },
-  { id: "juices", name: "مشروبات وعصائر", image: "/uploads/category-juices.png", productCount: 45, color: "#F1F8E9", iconColor: "#9CCC65" },
   { id: "tea-coffee", name: "شاي وقهوة", image: "/uploads/category-coffee.png", productCount: 35, color: "#EFEBE9", iconColor: "#8D6E63" },
   { id: "baby", name: "مستلزمات أطفال", image: "/uploads/category-baby.png", productCount: 60, color: "#FCE4EC", iconColor: "#EC407A" },
   { id: "flowers", name: "هدايا وورود", image: "/uploads/category-flowers.png", productCount: 25, color: "#FDF2F2", iconColor: "#EF5350" },
@@ -45,6 +45,7 @@ export interface Product {
   inStock: boolean;
   discount?: number;
   weight?: string;
+  restaurant?: string;
 }
 
 export const PRODUCTS: Product[] = [

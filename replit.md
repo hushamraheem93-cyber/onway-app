@@ -175,13 +175,21 @@ All images are compressed and stored as Base64 strings to avoid Firebase Storage
 - Firestore collections: `driverWallets` (phoneNumber, balance) and `walletHistory` (phoneNumber, amount, type, service, orderId, timestamp)
 - Commission logic:
   - Restaurant orders: delivery 1000 IQD, driver gets 750, app deducts 250
-  - Other orders (shopping/services): app deducts fixed 1000 IQD from wallet
+  - Other orders (shopping/services): driver gets 2000 IQD, app deducts 1000 IQD from wallet
 - Driver must have minimum 250 IQD wallet balance to go online
 - If balance drops below 250 after order completion, driver is automatically removed from queue
 - Admin can recharge driver wallets via /api/admin/driver-wallet/recharge endpoint
 - Wallet balance shown on DriverHomeScreen with low-balance warnings
 - DriverEarningsScreen has tabs: "الأرباح" (earnings) and "المحفظة" (wallet) with transaction history
 - Commission info card explains deduction rates to drivers
+
+### Restaurant System
+- "المطاعم" category contains multiple restaurants (يلا ايت, مطعم المشويات, مطعم الأسماك, مطعم الدجاج, مطعم اللحوم)
+- Products with categoryId "restaurants" have a `restaurant` field identifying which restaurant they belong to
+- ProductsScreen shows restaurant cards when opening the restaurants category, then restaurant menu when clicking a restaurant
+- Admin can add products to any restaurant by selecting "المطاعم" category and typing the restaurant name
+- Existing Firestore restaurant products without `restaurant` field default to "يلا ايت"
+- "مشروبات وعصائر" (juices) category removed; merged into "المشروبات" (beverages)
 
 ### Backend (Admin SDK)
 - Uses Firebase Admin SDK for full database access

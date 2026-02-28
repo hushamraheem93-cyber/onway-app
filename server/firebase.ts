@@ -229,6 +229,7 @@ export async function createProduct(data: {
   image: string;
   description: string;
   inStock: boolean;
+  restaurant?: string;
 }): Promise<(FirestoreProduct & { id: string }) | null> {
   if (!db) throw new Error("Database not initialized");
   
@@ -252,6 +253,9 @@ export async function createProduct(data: {
   }
   if (data.discount !== undefined) {
     productDoc.discount = data.discount;
+  }
+  if (data.restaurant) {
+    productDoc.restaurant = data.restaurant;
   }
   
   const docRef = await db.collection("products").add(productDoc);

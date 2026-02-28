@@ -76,6 +76,7 @@ interface Product {
   image: string;
   description: string;
   inStock: boolean;
+  restaurant?: string;
 }
 
 interface DeliveryArea {
@@ -107,13 +108,13 @@ let deliveryAreas: DeliveryArea[] = [
 ];
 
 let categories: Category[] = [
-  { id: "fruits-vegetables", name: "الخضروات والفواكه", image: "/uploads/category-vegetables.png", productCount: 50, order: 1, color: "#E8F5E9", iconColor: "#4CAF50" },
-  { id: "meat-poultry", name: "اللحوم والطازج", image: "/uploads/category-meat.png", productCount: 55, order: 2, color: "#FFEBEE", iconColor: "#EF5350" },
-  { id: "dairy-eggs", name: "الألبان والأجبان", image: "/uploads/category-dairy.png", productCount: 70, order: 3, color: "#F3E5F5", iconColor: "#AB47BC" },
-  { id: "cleaning-care", name: "المنظفات", image: "/uploads/category-cleaning.png", productCount: 95, order: 4, color: "#E3F2FD", iconColor: "#42A5F5" },
-  { id: "beverages", name: "المشروبات", image: "/uploads/category-beverages.png", productCount: 90, order: 5, color: "#E0F7FA", iconColor: "#26C6DA" },
-  { id: "snacks-sweets", name: "سناكس ومقرمشات", image: "/uploads/category-snacks.png", productCount: 110, order: 6, color: "#FFF3E0", iconColor: "#FFA726" },
-  { id: "juices", name: "مشروبات وعصائر", image: "/uploads/category-juices.png", productCount: 45, order: 7, color: "#F1F8E9", iconColor: "#9CCC65" },
+  { id: "restaurants", name: "المطاعم", image: "/uploads/category-restaurants.png", productCount: 30, order: 1, color: "#FFF3E0", iconColor: "#FF7622" },
+  { id: "fruits-vegetables", name: "الخضروات والفواكه", image: "/uploads/category-vegetables.png", productCount: 50, order: 2, color: "#E8F5E9", iconColor: "#4CAF50" },
+  { id: "meat-poultry", name: "اللحوم والطازج", image: "/uploads/category-meat.png", productCount: 55, order: 3, color: "#FFEBEE", iconColor: "#EF5350" },
+  { id: "dairy-eggs", name: "الألبان والأجبان", image: "/uploads/category-dairy.png", productCount: 70, order: 4, color: "#F3E5F5", iconColor: "#AB47BC" },
+  { id: "cleaning-care", name: "المنظفات", image: "/uploads/category-cleaning.png", productCount: 95, order: 5, color: "#E3F2FD", iconColor: "#42A5F5" },
+  { id: "beverages", name: "المشروبات", image: "/uploads/category-beverages.png", productCount: 90, order: 6, color: "#E0F7FA", iconColor: "#26C6DA" },
+  { id: "snacks-sweets", name: "سناكس ومقرمشات", image: "/uploads/category-snacks.png", productCount: 110, order: 7, color: "#FFF3E0", iconColor: "#FFA726" },
   { id: "tea-coffee", name: "شاي وقهوة", image: "/uploads/category-coffee.png", productCount: 35, order: 8, color: "#EFEBE9", iconColor: "#8D6E63" },
   { id: "baby", name: "مستلزمات أطفال", image: "/uploads/category-baby.png", productCount: 60, order: 9, color: "#FCE4EC", iconColor: "#EC407A" },
   { id: "flowers", name: "هدايا وورود", image: "/uploads/category-flowers.png", productCount: 25, order: 10, color: "#FDF2F2", iconColor: "#EF5350" },
@@ -129,6 +130,33 @@ let banners: Banner[] = [
 ];
 
 const products: Product[] = [
+  // مطعم يلا ايت
+  { id: "r1", categoryId: "restaurants", restaurant: "يلا ايت", name: "برجر كلاسيك", price: 8000, image: "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=300", description: "برجر لحم كلاسيكي مع خس وطماطم وصوص خاص", inStock: true },
+  { id: "r2", categoryId: "restaurants", restaurant: "يلا ايت", name: "برجر دجاج مقرمش", price: 7500, image: "https://images.unsplash.com/photo-1606755962773-d324e0a13086?w=300", description: "برجر دجاج مقرمش مع صوص مايونيز", inStock: true },
+  { id: "r3", categoryId: "restaurants", restaurant: "يلا ايت", name: "شاورما لحم", price: 5000, image: "https://images.unsplash.com/photo-1529006557810-274b9b2fc783?w=300", description: "شاورما لحم عربية مع خضار وطحينة", inStock: true },
+  { id: "r4", categoryId: "restaurants", restaurant: "يلا ايت", name: "شاورما دجاج", price: 4500, image: "https://images.unsplash.com/photo-1561651188-d207bbec4ec3?w=300", description: "شاورما دجاج مع ثومية وبطاطا", inStock: true },
+  { id: "r5", categoryId: "restaurants", restaurant: "يلا ايت", name: "بيتزا مارغريتا", price: 12000, image: "https://images.unsplash.com/photo-1574071318508-1cdbab80d002?w=300", description: "بيتزا مارغريتا بالجبن والريحان", inStock: true },
+  // مطعم المشويات
+  { id: "r6", categoryId: "restaurants", restaurant: "مطعم المشويات", name: "كباب لحم", price: 15000, image: "https://images.unsplash.com/photo-1603360946369-dc9bb6258143?w=300", description: "كباب لحم مشوي على الفحم 6 أسياخ", inStock: true },
+  { id: "r7", categoryId: "restaurants", restaurant: "مطعم المشويات", name: "تكة دجاج", price: 12000, image: "https://images.unsplash.com/photo-1599487488170-d11ec9c172f0?w=300", description: "تكة دجاج مشوية متبلة 6 أسياخ", inStock: true },
+  { id: "r8", categoryId: "restaurants", restaurant: "مطعم المشويات", name: "مشاوي مشكلة", price: 25000, image: "https://images.unsplash.com/photo-1544025162-d76694265947?w=300", description: "طبق مشاوي مشكلة مع رز وسلطة", inStock: true },
+  { id: "r9", categoryId: "restaurants", restaurant: "مطعم المشويات", name: "ريش غنم", price: 20000, image: "https://images.unsplash.com/photo-1558030006-450675393462?w=300", description: "ريش غنم مشوية 4 قطع", inStock: true },
+  // مطعم الأسماك
+  { id: "r10", categoryId: "restaurants", restaurant: "مطعم الأسماك", name: "سمك مشوي", price: 18000, image: "https://images.unsplash.com/photo-1534604973900-c43ab4c2e0ab?w=300", description: "سمك شبوط مشوي على الفحم", inStock: true },
+  { id: "r11", categoryId: "restaurants", restaurant: "مطعم الأسماك", name: "سمك مقلي", price: 15000, image: "https://images.unsplash.com/photo-1580476262798-bddd9f4b7369?w=300", description: "سمك مقلي مقرمش مع صوص ترتار", inStock: true },
+  { id: "r12", categoryId: "restaurants", restaurant: "مطعم الأسماك", name: "روبيان مشوي", price: 22000, image: "https://images.unsplash.com/photo-1565680018434-b513d5e5fd47?w=300", description: "روبيان مشوي بالثوم والزبدة", inStock: true },
+  { id: "r13", categoryId: "restaurants", restaurant: "مطعم الأسماك", name: "سمك الهامور", price: 25000, image: "https://images.unsplash.com/photo-1519708227418-c8fd9a32b7a2?w=300", description: "فيليه هامور مشوي مع خضار", inStock: true },
+  // مطعم الدجاج
+  { id: "r14", categoryId: "restaurants", restaurant: "مطعم الدجاج", name: "دجاج مشوي كامل", price: 15000, image: "https://images.unsplash.com/photo-1598103442097-8b74394b95c6?w=300", description: "دجاج كامل مشوي على الفحم", inStock: true },
+  { id: "r15", categoryId: "restaurants", restaurant: "مطعم الدجاج", name: "قطع دجاج مقلية", price: 10000, image: "https://images.unsplash.com/photo-1562967914-608f82629710?w=300", description: "قطع دجاج مقلية مقرمشة 8 قطع", inStock: true },
+  { id: "r16", categoryId: "restaurants", restaurant: "مطعم الدجاج", name: "دجاج بالكاري", price: 12000, image: "https://images.unsplash.com/photo-1603894584373-5ac82b2ae398?w=300", description: "دجاج بصلصة الكاري مع الرز", inStock: true },
+  { id: "r17", categoryId: "restaurants", restaurant: "مطعم الدجاج", name: "أجنحة دجاج حارة", price: 9000, image: "https://images.unsplash.com/photo-1608039829572-9b0175ffb205?w=300", description: "أجنحة دجاج حارة 10 قطع", inStock: true },
+  // مطعم اللحوم
+  { id: "r18", categoryId: "restaurants", restaurant: "مطعم اللحوم", name: "ستيك لحم", price: 28000, image: "https://images.unsplash.com/photo-1600891964092-4316c288032e?w=300", description: "ستيك لحم بقري مشوي مع بطاطا", inStock: true },
+  { id: "r19", categoryId: "restaurants", restaurant: "مطعم اللحوم", name: "كفتة بالفرن", price: 14000, image: "https://images.unsplash.com/photo-1529042410759-befb1204b468?w=300", description: "كفتة لحم بالفرن مع صلصة طماطم", inStock: true },
+  { id: "r20", categoryId: "restaurants", restaurant: "مطعم اللحوم", name: "طبق لحم عراقي", price: 20000, image: "https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=300", description: "طبق لحم عراقي تقليدي مع رز وسلطة", inStock: true },
+  { id: "r21", categoryId: "restaurants", restaurant: "مطعم اللحوم", name: "دولمة عراقية", price: 16000, image: "https://images.unsplash.com/photo-1555939594-58d7cb561ad1?w=300", description: "دولمة عراقية بالرز واللحم المفروم", inStock: true },
+  // باقي المنتجات
   { id: "p1", categoryId: "groceries", name: "أرز بسمتي", price: 35000, image: "https://images.unsplash.com/photo-1586201375761-83865001e31c?w=300", description: "أرز بسمتي عالي الجودة 5 كيلو", inStock: true },
   { id: "p2", categoryId: "groceries", name: "زيت زيتون", price: 65000, image: "https://images.unsplash.com/photo-1474979266404-7eaacbcd87c5?w=300", description: "زيت زيتون بكر ممتاز 1 لتر", inStock: true },
   { id: "p3", categoryId: "groceries", name: "عسل طبيعي", price: 85000, image: "https://images.unsplash.com/photo-1587049352846-4a222e784d38?w=300", description: "عسل طبيعي صافي 500 جرام", inStock: true },
@@ -136,8 +164,6 @@ const products: Product[] = [
   { id: "p5", categoryId: "bakery", name: "خبز عربي", price: 5000, image: "https://images.unsplash.com/photo-1509440159596-0249088772ff?w=300", description: "خبز عربي طازج 6 قطع", inStock: true },
   { id: "p6", categoryId: "dairy-eggs", name: "جبنة بيضاء", price: 22000, image: "https://images.unsplash.com/photo-1486297678162-eb2a19b0a32d?w=300", description: "جبنة بيضاء طازجة 400 جرام", inStock: true },
   { id: "p7", categoryId: "cleaning-care", name: "صابون غسيل", price: 15000, image: "https://images.unsplash.com/photo-1583947215259-38e31be8751f?w=300", description: "صابون غسيل معطر 3 كيلو", inStock: true },
-  { id: "p8", categoryId: "fruits-vegetables", name: "تفاح أحمر", price: 15000, image: "https://images.unsplash.com/photo-1560806887-1e4cd0b6cbd6?w=300", description: "تفاح أحمر طازج 1 كيلو", inStock: true },
-  { id: "p9", categoryId: "fruits-vegetables", name: "طماطم طازجة", price: 8000, image: "https://images.unsplash.com/photo-1546470427-e26264be0b11?w=300", description: "طماطم طازجة 1 كيلو", inStock: true },
   { id: "p10", categoryId: "meat-poultry", name: "دجاج كامل", price: 45000, image: "https://images.unsplash.com/photo-1604503468506-a8da13d82791?w=300", description: "دجاج طازج كامل 1.5 كيلو", inStock: true },
   { id: "p11", categoryId: "beverages", name: "عصير برتقال", price: 12000, image: "https://images.unsplash.com/photo-1534353473418-4cfa6c56fd38?w=300", description: "عصير برتقال طبيعي 1 لتر", inStock: true },
   { id: "p12", categoryId: "snacks-sweets", name: "شوكولاتة داكنة", price: 18000, image: "https://images.unsplash.com/photo-1606312619070-d48b4c652a52?w=300", description: "شوكولاتة داكنة فاخرة 100 جرام", inStock: true },
@@ -448,7 +474,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
           p.description.toLowerCase().includes(searchLower)
         );
       }
-      const lightResult = result.map(p => ({ ...p, image: limitImageSize(p.image) }));
+      const lightResult = result.map(p => {
+        const item: any = { ...p, image: limitImageSize(p.image) };
+        if (item.categoryId === "restaurants" && !item.restaurant) {
+          item.restaurant = "يلا ايت";
+        }
+        return item;
+      });
       return res.json(lightResult);
     }
     
@@ -470,7 +502,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const db = getFirestore();
     if (db) {
       const result = await getFirestoreProducts();
-      const lightResult = result.map(p => ({ ...p, image: limitImageSize(p.image) }));
+      const lightResult = result.map(p => {
+        const item: any = { ...p, image: limitImageSize(p.image) };
+        if (item.categoryId === "restaurants" && !item.restaurant) {
+          item.restaurant = "يلا ايت";
+        }
+        return item;
+      });
       return res.json(lightResult);
     }
     res.json(products);
@@ -482,7 +520,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Request body is empty" });
       }
       
-      const { name, categoryId, price, originalPrice, discount, description, inStock, image } = req.body;
+      const { name, categoryId, price, originalPrice, discount, description, inStock, image, restaurant } = req.body;
       const db = getFirestore();
       
       const priceNum = Number(price) || 0;
@@ -500,6 +538,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           image: String(image || ""),
           description: String(description || ""),
           inStock: inStockBool,
+          restaurant: restaurant ? String(restaurant) : undefined,
         });
         if (newProduct) return res.json(newProduct);
         return res.status(500).json({ error: "Failed to create product in Firestore" });
@@ -515,6 +554,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         image: String(image || ""),
         description: String(description || ""),
         inStock: inStockBool,
+        restaurant: restaurant ? String(restaurant) : undefined,
       };
       products.push(newProduct);
       res.json(newProduct);
@@ -529,7 +569,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.put("/api/admin/products/:id", async (req: Request, res: Response) => {
-    const { name, categoryId, price, originalPrice, discount, description, inStock, image } = req.body;
+    const { name, categoryId, price, originalPrice, discount, description, inStock, image, restaurant } = req.body;
     const productId = req.params.id as string;
     const db = getFirestore();
     
@@ -539,7 +579,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const inStockBool = inStock !== undefined ? (inStock === 'true' || inStock === true) : undefined;
     
     if (db) {
-      const updated = await updateFirestoreProduct(productId, {
+      const updates: any = {
         name: name !== undefined ? String(name) : undefined,
         categoryId: categoryId !== undefined ? String(categoryId) : undefined,
         price: priceNum,
@@ -548,7 +588,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         image: image !== undefined ? String(image) : undefined,
         description: description !== undefined ? String(description) : undefined,
         inStock: inStockBool,
-      });
+      };
+      if (restaurant !== undefined) updates.restaurant = restaurant ? String(restaurant) : "";
+      const updated = await updateFirestoreProduct(productId, updates);
       if (updated) return res.json(updated);
       return res.status(404).json({ error: "Product not found" });
     }
@@ -567,6 +609,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       image: image !== undefined ? String(image) : products[index].image,
       description: description !== undefined ? String(description) : products[index].description,
       inStock: inStockBool !== undefined ? inStockBool : products[index].inStock,
+      restaurant: restaurant !== undefined ? String(restaurant) : products[index].restaurant,
     };
     res.json(products[index]);
   });
