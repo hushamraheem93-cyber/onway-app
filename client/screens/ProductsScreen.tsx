@@ -104,6 +104,7 @@ export default function ProductsScreen() {
   if (isRestaurantsCategory) {
     return (
       <FlatList
+        key="restaurants-list"
         style={{ flex: 1, backgroundColor: theme.backgroundRoot }}
         contentContainerStyle={{
           paddingTop: headerHeight + Spacing.lg,
@@ -146,6 +147,7 @@ export default function ProductsScreen() {
 
   return (
     <FlatList
+      key="products-grid"
       style={{ flex: 1, backgroundColor: theme.backgroundRoot }}
       contentContainerStyle={{
         paddingTop: headerHeight + Spacing.lg,
