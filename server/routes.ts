@@ -185,6 +185,40 @@ const products: Product[] = [
 ];
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Products cache
+  let productsCache: any[] | null = null;
+  let productsCacheTime = 0;
+  const PRODUCTS_CACHE_TTL = 3 * 60 * 1000; // 3 minutes
+
+  async function getCachedProducts(categoryId?: string): Promise<any[]> {
+    const now = Date.now();
+    if (!productsCache || now - productsCacheTime > PRODUCTS_CACHE_TTL) {
+      const db = getFirestore();
+      if (db) {
+        const result = await getFirestoreProducts();
+        productsCache = result.map(p => {
+          const item: any = { ...p, image: limitImageSize(p.image) };
+          if (item.categoryId === "restaurants" && !item.restaurant) {
+            item.restaurant = "يلا ايت";
+          }
+          return item;
+        });
+      } else {
+        productsCache = [...products];
+      }
+      productsCacheTime = now;
+    }
+    if (categoryId) {
+      return productsCache.filter(p => p.categoryId === categoryId);
+    }
+    return productsCache;
+  }
+
+  function invalidateProductsCache() {
+    productsCache = null;
+    productsCacheTime = 0;
+  }
+
   // FIFO driver queue (in-memory)
   interface QueuedDriver {
     phoneNumber: string;
@@ -240,10 +274,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
             ...c,
             image: limitImageSize(c.image),
           }));
+          res.set("Cache-Control", "public, max-age=120");
           return res.json(lightCategories);
         }
       }
       const sortedCategories = [...categories].sort((a, b) => a.order - b.order);
+      res.set("Cache-Control", "public, max-age=120");
       res.json(sortedCategories);
     } catch (error) {
       console.error("Error fetching categories:", error);
@@ -463,10 +499,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/products", async (req, res) => {
     const categoryId = req.query.categoryId as string;
     const search = req.query.search as string;
-    const db = getFirestore();
     
-    if (db) {
-      let result = await getFirestoreProducts(categoryId);
+    try {
+      let result = await getCachedProducts(categoryId);
       if (search) {
         const searchLower = search.toLowerCase();
         result = result.filter(p => 
@@ -474,44 +509,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
           p.description.toLowerCase().includes(searchLower)
         );
       }
-      const lightResult = result.map(p => {
-        const item: any = { ...p, image: limitImageSize(p.image) };
-        if (item.categoryId === "restaurants" && !item.restaurant) {
-          item.restaurant = "يلا ايت";
-        }
-        return item;
-      });
-      return res.json(lightResult);
+      res.set("Cache-Control", "public, max-age=60");
+      res.json(result);
+    } catch (error) {
+      console.error("Error fetching products:", error);
+      res.json([]);
     }
-    
-    let result = products;
-    if (categoryId) {
-      result = result.filter(p => p.categoryId === categoryId);
-    }
-    if (search) {
-      const searchLower = search.toLowerCase();
-      result = result.filter(p => 
-        p.name.toLowerCase().includes(searchLower) || 
-        p.description.toLowerCase().includes(searchLower)
-      );
-    }
-    res.json(result);
   });
 
   app.get("/api/admin/products", async (req, res) => {
-    const db = getFirestore();
-    if (db) {
-      const result = await getFirestoreProducts();
-      const lightResult = result.map(p => {
-        const item: any = { ...p, image: limitImageSize(p.image) };
-        if (item.categoryId === "restaurants" && !item.restaurant) {
-          item.restaurant = "يلا ايت";
-        }
-        return item;
-      });
-      return res.json(lightResult);
+    try {
+      const result = await getCachedProducts();
+      res.json(result);
+    } catch (error) {
+      console.error("Error fetching admin products:", error);
+      res.json([]);
     }
-    res.json(products);
   });
 
   app.post("/api/admin/products", async (req: Request, res: Response) => {
@@ -540,7 +553,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           inStock: inStockBool,
           restaurant: restaurant ? String(restaurant) : undefined,
         });
-        if (newProduct) return res.json(newProduct);
+        if (newProduct) {
+          invalidateProductsCache();
+          return res.json(newProduct);
+        }
         return res.status(500).json({ error: "Failed to create product in Firestore" });
       }
       
@@ -591,7 +607,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       };
       if (restaurant !== undefined) updates.restaurant = restaurant ? String(restaurant) : "";
       const updated = await updateFirestoreProduct(productId, updates);
-      if (updated) return res.json(updated);
+      if (updated) {
+        invalidateProductsCache();
+        return res.json(updated);
+      }
       return res.status(404).json({ error: "Product not found" });
     }
     
@@ -618,7 +637,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const db = getFirestore();
     if (db) {
       const success = await deleteFirestoreProduct(req.params.id);
-      if (success) return res.json({ success: true });
+      if (success) {
+        invalidateProductsCache();
+        return res.json({ success: true });
+      }
       return res.status(404).json({ error: "Product not found" });
     }
     

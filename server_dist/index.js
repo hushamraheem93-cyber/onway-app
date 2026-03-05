@@ -927,6 +927,36 @@ var products = [
   { id: "wb12", categoryId: "women-bags", name: "\u062D\u0642\u064A\u0628\u0629 \u0645\u0627\u0631\u0643\u0629 \u0641\u0627\u062E\u0631\u0629", price: 25e4, image: "https://images.unsplash.com/photo-1548036328-c9fa89d128fa?w=300", description: "\u062D\u0642\u064A\u0628\u0629 \u0645\u0627\u0631\u0643\u0629 \u0641\u0627\u062E\u0631\u0629 \u0628\u062A\u0635\u0645\u064A\u0645 \u062D\u0635\u0631\u064A", inStock: true, discount: 20 }
 ];
 async function registerRoutes(app2) {
+  let productsCache = null;
+  let productsCacheTime = 0;
+  const PRODUCTS_CACHE_TTL = 3 * 60 * 1e3;
+  async function getCachedProducts(categoryId) {
+    const now = Date.now();
+    if (!productsCache || now - productsCacheTime > PRODUCTS_CACHE_TTL) {
+      const db2 = getFirestore();
+      if (db2) {
+        const result = await getProducts();
+        productsCache = result.map((p) => {
+          const item = { ...p, image: limitImageSize(p.image) };
+          if (item.categoryId === "restaurants" && !item.restaurant) {
+            item.restaurant = "\u064A\u0644\u0627 \u0627\u064A\u062A";
+          }
+          return item;
+        });
+      } else {
+        productsCache = [...products];
+      }
+      productsCacheTime = now;
+    }
+    if (categoryId) {
+      return productsCache.filter((p) => p.categoryId === categoryId);
+    }
+    return productsCache;
+  }
+  function invalidateProductsCache() {
+    productsCache = null;
+    productsCacheTime = 0;
+  }
   const driverQueue = [];
   const driverAssignments = /* @__PURE__ */ new Map();
   const driverCompletedOrders = /* @__PURE__ */ new Map();
@@ -970,10 +1000,12 @@ async function registerRoutes(app2) {
             ...c,
             image: limitImageSize(c.image)
           }));
+          res.set("Cache-Control", "public, max-age=120");
           return res.json(lightCategories);
         }
       }
       const sortedCategories = [...categories].sort((a, b) => a.order - b.order);
+      res.set("Cache-Control", "public, max-age=120");
       res.json(sortedCategories);
     } catch (error) {
       console.error("Error fetching categories:", error);
@@ -1171,50 +1203,29 @@ async function registerRoutes(app2) {
   app2.get("/api/products", async (req, res) => {
     const categoryId = req.query.categoryId;
     const search = req.query.search;
-    const db2 = getFirestore();
-    if (db2) {
-      let result2 = await getProducts(categoryId);
+    try {
+      let result = await getCachedProducts(categoryId);
       if (search) {
         const searchLower = search.toLowerCase();
-        result2 = result2.filter(
+        result = result.filter(
           (p) => p.name.toLowerCase().includes(searchLower) || p.description.toLowerCase().includes(searchLower)
         );
       }
-      const lightResult = result2.map((p) => {
-        const item = { ...p, image: limitImageSize(p.image) };
-        if (item.categoryId === "restaurants" && !item.restaurant) {
-          item.restaurant = "\u064A\u0644\u0627 \u0627\u064A\u062A";
-        }
-        return item;
-      });
-      return res.json(lightResult);
+      res.set("Cache-Control", "public, max-age=60");
+      res.json(result);
+    } catch (error) {
+      console.error("Error fetching products:", error);
+      res.json([]);
     }
-    let result = products;
-    if (categoryId) {
-      result = result.filter((p) => p.categoryId === categoryId);
-    }
-    if (search) {
-      const searchLower = search.toLowerCase();
-      result = result.filter(
-        (p) => p.name.toLowerCase().includes(searchLower) || p.description.toLowerCase().includes(searchLower)
-      );
-    }
-    res.json(result);
   });
   app2.get("/api/admin/products", async (req, res) => {
-    const db2 = getFirestore();
-    if (db2) {
-      const result = await getProducts();
-      const lightResult = result.map((p) => {
-        const item = { ...p, image: limitImageSize(p.image) };
-        if (item.categoryId === "restaurants" && !item.restaurant) {
-          item.restaurant = "\u064A\u0644\u0627 \u0627\u064A\u062A";
-        }
-        return item;
-      });
-      return res.json(lightResult);
+    try {
+      const result = await getCachedProducts();
+      res.json(result);
+    } catch (error) {
+      console.error("Error fetching admin products:", error);
+      res.json([]);
     }
-    res.json(products);
   });
   app2.post("/api/admin/products", async (req, res) => {
     try {
@@ -1239,7 +1250,10 @@ async function registerRoutes(app2) {
           inStock: inStockBool,
           restaurant: restaurant ? String(restaurant) : void 0
         });
-        if (newProduct2) return res.json(newProduct2);
+        if (newProduct2) {
+          invalidateProductsCache();
+          return res.json(newProduct2);
+        }
         return res.status(500).json({ error: "Failed to create product in Firestore" });
       }
       const newProduct = {
@@ -1286,7 +1300,10 @@ async function registerRoutes(app2) {
       };
       if (restaurant !== void 0) updates.restaurant = restaurant ? String(restaurant) : "";
       const updated = await updateProduct(productId, updates);
-      if (updated) return res.json(updated);
+      if (updated) {
+        invalidateProductsCache();
+        return res.json(updated);
+      }
       return res.status(404).json({ error: "Product not found" });
     }
     const index = products.findIndex((p) => p.id === req.params.id);
@@ -1311,7 +1328,10 @@ async function registerRoutes(app2) {
     const db2 = getFirestore();
     if (db2) {
       const success = await deleteProduct(req.params.id);
-      if (success) return res.json({ success: true });
+      if (success) {
+        invalidateProductsCache();
+        return res.json({ success: true });
+      }
       return res.status(404).json({ error: "Product not found" });
     }
     const index = products.findIndex((p) => p.id === req.params.id);
