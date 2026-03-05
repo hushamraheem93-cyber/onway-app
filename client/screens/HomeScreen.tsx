@@ -24,13 +24,14 @@ import { useCart } from "@/context/CartContext";
 import { useFavorites } from "@/context/FavoritesContext";
 import { useAuth } from "@/context/AuthContext";
 import { formatPrice } from "@/constants/currency";
+import { getApiUrl } from "@/lib/query-client";
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const GRID_GAP = DesignSystem.gridGap;
 const HORIZONTAL_PADDING = DesignSystem.screenPadding;
-const SLIDER_CARD_WIDTH = 100;
+const CATEGORY_CARD_WIDTH = (SCREEN_WIDTH - 48) / 4;
 const PRODUCT_CARD_WIDTH = 150;
 
 export default function HomeScreen() {
@@ -117,27 +118,38 @@ export default function HomeScreen() {
     navigation.navigate("AllCategories");
   };
 
-  const firstRowCategories = categories.slice(0, Math.ceil(categories.length / 2));
-  const secondRowCategories = categories.slice(Math.ceil(categories.length / 2));
+  const getImageUrl = (image: string) => {
+    if (!image) return "";
+    if (image.startsWith("data:image/")) return image;
+    if (image.startsWith("http")) return image;
+    return `${getApiUrl()}${image}`;
+  };
 
-  const renderCategorySlider = (rowCategories: Category[]) => (
-    <ScrollView
-      horizontal
-      showsHorizontalScrollIndicator={false}
-      contentContainerStyle={styles.sliderContent}
-      style={styles.sliderRow}
-    >
-      {rowCategories.map((category) => (
-        <View key={category.id} style={styles.sliderItem}>
-          <CategoryCard
-            category={category}
-            onPress={() => handleCategoryPress(category)}
-            compact
-            sliderMode
-          />
-        </View>
+  const renderCategoryGrid = () => (
+    <View style={styles.categoriesGrid}>
+      {categories.map((category) => (
+        <Pressable
+          key={category.id}
+          style={styles.categoryCard}
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            handleCategoryPress(category);
+          }}
+        >
+          <View style={[styles.categoryIconContainer, { backgroundColor: category.color || "#FFF2EC" }]}>
+            <Image
+              source={{ uri: getImageUrl(category.image) }}
+              style={styles.categoryImage}
+              contentFit="contain"
+              transition={200}
+            />
+          </View>
+          <ThemedText style={styles.categoryName} numberOfLines={2}>
+            {category.name}
+          </ThemedText>
+        </Pressable>
       ))}
-    </ScrollView>
+    </View>
   );
 
   const renderProductCard = (product: Product) => {
@@ -154,10 +166,15 @@ export default function HomeScreen() {
     };
 
     return (
-      <View key={product.id} style={[styles.productCard, { backgroundColor: theme.backgroundDefault }, Shadows.md]}>
+      <View key={product.id} style={[styles.productCard, { backgroundColor: theme.backgroundDefault }]}>
+        {product.discount ? (
+          <View style={styles.discountBadge}>
+            <ThemedText type="small" style={styles.discountText}>{product.discount}%</ThemedText>
+          </View>
+        ) : null}
         <View style={styles.productImageContainer}>
           <Image
-            source={{ uri: product.image }}
+            source={{ uri: getImageUrl(product.image) }}
             style={styles.productImage}
             contentFit="cover"
             transition={200}
@@ -165,23 +182,15 @@ export default function HomeScreen() {
           <Pressable onPress={handleToggleFavorite} style={styles.productFavoriteBtn}>
             <Feather name="heart" size={16} color={isFav ? "#E53935" : "#999"} />
           </Pressable>
-          {product.discount ? (
-            <View style={styles.discountBadge}>
-              <ThemedText type="small" style={styles.discountText}>-{product.discount}%</ThemedText>
-            </View>
-          ) : null}
         </View>
         <View style={styles.productInfo}>
           <ThemedText type="body" numberOfLines={1} style={styles.productName}>{product.name}</ThemedText>
-          <ThemedText type="small" numberOfLines={1} style={[styles.productDesc, { color: theme.textSecondary }]}>
-            {product.description}
-          </ThemedText>
           <View style={styles.productFooter}>
-            <ThemedText type="h4" style={[styles.productPrice, { color: AppColors.primary }]}>
+            <ThemedText style={styles.productPrice}>
               {formatPrice(product.price)}
             </ThemedText>
-            <Pressable onPress={handleAddToCart} style={[styles.productAddBtn, { backgroundColor: AppColors.primary }]}>
-              <Feather name="plus" size={16} color="#FFF" />
+            <Pressable onPress={handleAddToCart} style={styles.addButton}>
+              <ThemedText style={styles.addIcon}>+</ThemedText>
             </Pressable>
           </View>
         </View>
@@ -191,12 +200,12 @@ export default function HomeScreen() {
 
   const renderContent = () => (
     <View>
-      <View style={styles.welcomeHeader}>
-        <ThemedText type="h2" style={[styles.welcomeText, { color: AppColors.primary }]}>
+      <View style={styles.greetingContainer}>
+        <ThemedText style={styles.greeting}>
           {welcomeMessage}
         </ThemedText>
-        <ThemedText type="body" style={[styles.welcomeSubtext, { color: theme.textSecondary }]}>
-          طلباتك صارت اسهل ويانا
+        <ThemedText style={styles.subGreeting}>
+          طلباتك صارت أسهل ويانا
         </ThemedText>
       </View>
 
@@ -213,20 +222,27 @@ export default function HomeScreen() {
         </>
       )}
 
-      <SectionHeader title="الأقسام الرئيسية" onSeeAll={handleSeeAllCategories} />
+      <View style={styles.sectionHeader}>
+        <ThemedText style={styles.sectionTitle}>الأقسام الرئيسية</ThemedText>
+        <Pressable onPress={handleSeeAllCategories}>
+          <ThemedText style={styles.viewAll}>عرض الكل</ThemedText>
+        </Pressable>
+      </View>
       
       {categoriesLoading ? (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="small" color={AppColors.primary} />
         </View>
       ) : (
-        <View style={styles.categoriesContainer}>
-          {renderCategorySlider(firstRowCategories)}
-          {renderCategorySlider(secondRowCategories)}
-        </View>
+        renderCategoryGrid()
       )}
 
-      <SectionHeader title="الأكثر مبيعاً" />
+      <View style={styles.sectionHeader}>
+        <ThemedText style={styles.sectionTitle}>الأكثر مبيعاً</ThemedText>
+        <Pressable onPress={handleSeeAllCategories}>
+          <ThemedText style={styles.viewAll}>عرض الكل</ThemedText>
+        </Pressable>
+      </View>
       
       {productsLoading ? (
         <View style={styles.loadingContainer}>
@@ -236,14 +252,19 @@ export default function HomeScreen() {
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.productsSliderContent}
+          contentContainerStyle={styles.bestSellersContainer}
           style={styles.productsSlider}
         >
           {bestSellerProducts.map(renderProductCard)}
         </ScrollView>
       )}
 
-      <SectionHeader title="المنتجات المميزة" />
+      <View style={styles.sectionHeader}>
+        <ThemedText style={styles.sectionTitle}>المنتجات المميزة</ThemedText>
+        <Pressable onPress={handleSeeAllCategories}>
+          <ThemedText style={styles.viewAll}>عرض الكل</ThemedText>
+        </Pressable>
+      </View>
       
       {productsLoading ? (
         <View style={styles.loadingContainer}>
@@ -253,14 +274,19 @@ export default function HomeScreen() {
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.productsSliderContent}
+          contentContainerStyle={styles.bestSellersContainer}
           style={styles.productsSlider}
         >
           {featuredProducts.map(renderProductCard)}
         </ScrollView>
       )}
 
-      <SectionHeader title="التخفيضات المميزة" />
+      <View style={styles.sectionHeader}>
+        <ThemedText style={styles.sectionTitle}>التخفيضات المميزة</ThemedText>
+        <Pressable onPress={handleSeeAllCategories}>
+          <ThemedText style={styles.viewAll}>عرض الكل</ThemedText>
+        </Pressable>
+      </View>
       
       {productsLoading ? (
         <View style={styles.loadingContainer}>
@@ -270,7 +296,7 @@ export default function HomeScreen() {
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.productsSliderContent}
+          contentContainerStyle={styles.bestSellersContainer}
           style={styles.productsSlider}
         >
           {discountProducts.map(renderProductCard)}
@@ -296,30 +322,74 @@ export default function HomeScreen() {
 }
 
 const styles = StyleSheet.create({
-  welcomeHeader: {
-    marginBottom: Spacing.lg,
+  greetingContainer: {
+    paddingTop: 8,
+    paddingBottom: 12,
   },
-  welcomeText: {
+  greeting: {
+    fontFamily: "Cairo_700Bold",
+    fontSize: 26,
+    color: "#FF6B35",
+    marginBottom: 4,
     textAlign: "right",
-    marginBottom: Spacing.xs,
   },
-  welcomeSubtext: {
+  subGreeting: {
+    fontFamily: "Cairo_400Regular",
+    fontSize: 15,
+    color: "#7F8C8D",
     textAlign: "right",
   },
-  categoriesContainer: {
-    marginBottom: Spacing.xl,
-    gap: GRID_GAP,
-    marginHorizontal: -HORIZONTAL_PADDING,
+  sectionHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 16,
   },
-  sliderRow: {
-    flexGrow: 0,
+  sectionTitle: {
+    fontFamily: "Cairo_700Bold",
+    fontSize: 20,
+    color: "#2C3E50",
   },
-  sliderContent: {
-    paddingHorizontal: HORIZONTAL_PADDING,
-    gap: GRID_GAP,
+  viewAll: {
+    fontFamily: "Cairo_600SemiBold",
+    fontSize: 14,
+    color: "#FF6B35",
   },
-  sliderItem: {
-    width: SLIDER_CARD_WIDTH,
+  categoriesGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    marginBottom: 24,
+    marginHorizontal: -4,
+  },
+  categoryCard: {
+    width: CATEGORY_CARD_WIDTH,
+    alignItems: "center",
+    marginBottom: 16,
+    paddingHorizontal: 4,
+  },
+  categoryIconContainer: {
+    width: 64,
+    height: 64,
+    borderRadius: 16,
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 8,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  categoryImage: {
+    width: 40,
+    height: 40,
+  },
+  categoryName: {
+    fontFamily: "Cairo_600SemiBold",
+    fontSize: 11,
+    color: "#2C3E50",
+    textAlign: "center",
+    lineHeight: 16,
   },
   loadingContainer: {
     paddingVertical: Spacing.xl,
@@ -329,17 +399,24 @@ const styles = StyleSheet.create({
     marginHorizontal: -HORIZONTAL_PADDING,
     marginBottom: Spacing.xl,
   },
-  productsSliderContent: {
-    paddingHorizontal: HORIZONTAL_PADDING,
-    gap: GRID_GAP,
+  bestSellersContainer: {
+    paddingHorizontal: 20,
+    gap: 12,
   },
   productCard: {
     width: PRODUCT_CARD_WIDTH,
-    borderRadius: BorderRadius.lg,
+    borderRadius: 16,
     overflow: "hidden",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 4,
   },
   productImageContainer: {
     position: "relative",
+    height: 120,
+    backgroundColor: "#F8F9FA",
   },
   productImage: {
     width: PRODUCT_CARD_WIDTH,
@@ -358,43 +435,50 @@ const styles = StyleSheet.create({
   },
   discountBadge: {
     position: "absolute",
-    top: 6,
-    right: 6,
-    backgroundColor: "#E53935",
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: BorderRadius.sm,
+    top: 8,
+    right: 8,
+    backgroundColor: "#FF6B35",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    zIndex: 10,
   },
   discountText: {
-    color: "#FFF",
-    fontWeight: "700",
-    fontSize: 10,
+    fontFamily: "Cairo_700Bold",
+    fontSize: 11,
+    color: "#FFFFFF",
   },
   productInfo: {
-    padding: Spacing.sm,
+    padding: 12,
   },
   productName: {
+    fontFamily: "Cairo_600SemiBold",
+    fontSize: 14,
+    color: "#2C3E50",
     textAlign: "right",
-    fontWeight: "600",
-  },
-  productDesc: {
-    textAlign: "right",
-    marginTop: 2,
+    marginBottom: 8,
   },
   productFooter: {
-    flexDirection: "row-reverse",
-    alignItems: "center",
+    flexDirection: "row",
     justifyContent: "space-between",
-    marginTop: Spacing.sm,
+    alignItems: "center",
   },
   productPrice: {
-    fontWeight: "700",
+    fontFamily: "Cairo_700Bold",
+    fontSize: 15,
+    color: "#FF6B35",
   },
-  productAddBtn: {
+  addButton: {
     width: 28,
     height: 28,
-    borderRadius: BorderRadius.full,
-    alignItems: "center",
+    borderRadius: 14,
+    backgroundColor: "#FF6B35",
     justifyContent: "center",
+    alignItems: "center",
+  },
+  addIcon: {
+    fontSize: 18,
+    color: "#FFFFFF",
+    fontWeight: "bold",
   },
 });
