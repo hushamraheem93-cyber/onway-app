@@ -118,6 +118,9 @@ export default function HomeScreen() {
     navigation.navigate("AllCategories");
   };
 
+  const firstRowCategories = categories.slice(0, Math.ceil(categories.length / 2));
+  const secondRowCategories = categories.slice(Math.ceil(categories.length / 2));
+
   const getImageUrl = (image: string) => {
     if (!image) return "";
     if (image.startsWith("data:image/")) return image;
@@ -125,9 +128,14 @@ export default function HomeScreen() {
     return `${getApiUrl()}${image}`;
   };
 
-  const renderCategoryGrid = () => (
-    <View style={styles.categoriesGrid}>
-      {categories.map((category) => (
+  const renderCategorySlider = (rowCategories: Category[]) => (
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      contentContainerStyle={styles.categorySliderContent}
+      style={styles.categorySliderRow}
+    >
+      {rowCategories.map((category) => (
         <Pressable
           key={category.id}
           style={styles.categoryCard}
@@ -149,7 +157,7 @@ export default function HomeScreen() {
           </ThemedText>
         </Pressable>
       ))}
-    </View>
+    </ScrollView>
   );
 
   const renderProductCard = (product: Product) => {
@@ -234,7 +242,10 @@ export default function HomeScreen() {
           <ActivityIndicator size="small" color={AppColors.primary} />
         </View>
       ) : (
-        renderCategoryGrid()
+        <View style={styles.categoriesContainer}>
+          {renderCategorySlider(firstRowCategories)}
+          {renderCategorySlider(secondRowCategories)}
+        </View>
       )}
 
       <View style={styles.sectionHeader}>
@@ -323,7 +334,7 @@ export default function HomeScreen() {
 
 const styles = StyleSheet.create({
   greetingContainer: {
-    paddingTop: 8,
+    paddingTop: 20,
     paddingBottom: 12,
   },
   greeting: {
@@ -332,15 +343,17 @@ const styles = StyleSheet.create({
     color: "#FF6B35",
     marginBottom: 4,
     textAlign: "right",
+    writingDirection: "rtl",
   },
   subGreeting: {
     fontFamily: "Cairo_400Regular",
     fontSize: 15,
     color: "#7F8C8D",
     textAlign: "right",
+    writingDirection: "rtl",
   },
   sectionHeader: {
-    flexDirection: "row",
+    flexDirection: "row-reverse",
     justifyContent: "space-between",
     alignItems: "center",
     marginBottom: 16,
@@ -349,23 +362,29 @@ const styles = StyleSheet.create({
     fontFamily: "Cairo_700Bold",
     fontSize: 20,
     color: "#2C3E50",
+    textAlign: "right",
+    writingDirection: "rtl",
   },
   viewAll: {
     fontFamily: "Cairo_600SemiBold",
     fontSize: 14,
     color: "#FF6B35",
   },
-  categoriesGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    marginBottom: 24,
-    marginHorizontal: -4,
+  categoriesContainer: {
+    marginBottom: Spacing.xl,
+    gap: GRID_GAP,
+    marginHorizontal: -HORIZONTAL_PADDING,
+  },
+  categorySliderRow: {
+    flexGrow: 0,
+  },
+  categorySliderContent: {
+    paddingHorizontal: HORIZONTAL_PADDING,
+    gap: GRID_GAP,
   },
   categoryCard: {
-    width: CATEGORY_CARD_WIDTH,
+    width: 100,
     alignItems: "center",
-    marginBottom: 16,
-    paddingHorizontal: 4,
   },
   categoryIconContainer: {
     width: 64,
@@ -456,10 +475,11 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#2C3E50",
     textAlign: "right",
+    writingDirection: "rtl",
     marginBottom: 8,
   },
   productFooter: {
-    flexDirection: "row",
+    flexDirection: "row-reverse",
     justifyContent: "space-between",
     alignItems: "center",
   },
