@@ -177,11 +177,11 @@ export default function HomeScreen() {
             {product.description}
           </ThemedText>
           <View style={styles.productFooter}>
-            <ThemedText type="h4" style={[styles.productPrice, { color: AppColors.onGrey }]}>
+            <ThemedText type="h4" style={[styles.productPrice, { color: AppColors.primary }]}>
               {formatPrice(product.price)}
             </ThemedText>
-            <Pressable onPress={handleAddToCart} style={[styles.productAddBtn, { backgroundColor: AppColors.wayYellow }]}>
-              <Feather name="plus" size={16} color="#000" />
+            <Pressable onPress={handleAddToCart} style={[styles.productAddBtn, { backgroundColor: AppColors.primary }]}>
+              <Feather name="plus" size={16} color="#FFF" />
             </Pressable>
           </View>
         </View>
@@ -192,11 +192,11 @@ export default function HomeScreen() {
   const renderContent = () => (
     <View>
       <View style={styles.welcomeHeader}>
-        <ThemedText type="h2" style={styles.welcomeText}>
-          {welcomeMessage} 👋
+        <ThemedText type="h2" style={[styles.welcomeText, { color: AppColors.primary }]}>
+          {welcomeMessage}
         </ThemedText>
         <ThemedText type="body" style={[styles.welcomeSubtext, { color: theme.textSecondary }]}>
-          ماذا تريد أن تطلب اليوم؟
+          طلباتك صارت اسهل ويانا
         </ThemedText>
       </View>
 

@@ -47,7 +47,7 @@ export const Colors = {
     textSecondary: "#666666",
     buttonText: "#000000",
     tabIconDefault: "#757575",
-    tabIconSelected: onGrey,
+    tabIconSelected: primaryColor,
     link: wayYellow,
     primary: primaryColor,
     primaryLight: primaryLight,

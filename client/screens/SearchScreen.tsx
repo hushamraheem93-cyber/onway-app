@@ -67,22 +67,22 @@ export default function SearchScreen() {
         <ThemedText type="small" numberOfLines={1} style={[styles.productDesc, { color: theme.textSecondary }]}>
           {item.description}
         </ThemedText>
-        <ThemedText type="h4" style={[styles.productPrice, { color: AppColors.onGrey }]}>
+        <ThemedText type="h4" style={[styles.productPrice, { color: AppColors.primary }]}>
           {formatPrice(item.price)}
         </ThemedText>
       </View>
-      <Pressable onPress={() => handleAddToCart(item)} style={[styles.addBtn, { backgroundColor: AppColors.wayYellow }]}>
-        <Feather name="plus" size={18} color="#000" />
+      <Pressable onPress={() => handleAddToCart(item)} style={[styles.addBtn, { backgroundColor: AppColors.primary }]}>
+        <Feather name="plus" size={18} color="#FFF" />
       </Pressable>
     </View>
   );
 
   const renderCategoryChip = ({ item }: { item: Category }) => (
     <Pressable
-      style={[styles.categoryChip, { backgroundColor: isDark ? theme.backgroundSecondary : "#F0F0F0" }]}
+      style={[styles.categoryChip, { backgroundColor: isDark ? theme.backgroundSecondary : AppColors.secondary, borderWidth: 1, borderColor: AppColors.primary + "40" }]}
       onPress={() => handleCategoryPress(item)}
     >
-      <ThemedText type="small" style={styles.chipText}>{item.name}</ThemedText>
+      <ThemedText type="small" style={[styles.chipText, { color: AppColors.primary }]}>{item.name}</ThemedText>
     </Pressable>
   );
 
@@ -90,7 +90,7 @@ export default function SearchScreen() {
     <View style={[styles.container, { backgroundColor: theme.backgroundRoot }]}>
       <View style={[styles.searchContainer, { paddingTop: headerHeight + Spacing.sm }]}>
         <View style={[styles.searchBar, { backgroundColor: isDark ? theme.backgroundDefault : "#F5F5F5", borderColor: isDark ? theme.border : "#EEE" }]}>
-          <Feather name="search" size={20} color={AppColors.onGrey} />
+          <Feather name="search" size={20} color={AppColors.primary} />
           <TextInput
             value={searchQuery}
             onChangeText={setSearchQuery}

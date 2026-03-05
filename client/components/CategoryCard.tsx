@@ -72,9 +72,9 @@ export function CategoryCard({ category, onPress, compact = false, sliderMode = 
         animatedStyle,
       ]}
     >
-      <View style={[styles.imageContainer, { width: imageSize, height: imageSize }]}>
+      <View style={[styles.imageContainer, { width: imageSize, height: imageSize, backgroundColor: AppColors.secondary, borderWidth: 2, borderColor: AppColors.primary }]}>
         {isLoading ? (
-          <View style={[styles.imagePlaceholder, { backgroundColor: theme.backgroundSecondary }]}>
+          <View style={[styles.imagePlaceholder, { backgroundColor: AppColors.secondary }]}>
             <ActivityIndicator size="small" color={AppColors.primary} />
           </View>
         ) : null}

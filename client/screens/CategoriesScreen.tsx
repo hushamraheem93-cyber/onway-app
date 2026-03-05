@@ -50,11 +50,11 @@ export default function CategoriesScreen() {
 
   const renderCategory = ({ item }: { item: Category }) => (
     <TouchableOpacity
-      style={[styles.card, { backgroundColor: item.color || "#F5F5F5" }]}
+      style={[styles.card, { backgroundColor: item.color || "#FFF2EC" }]}
       onPress={() => handleCategoryPress(item)}
       activeOpacity={0.8}
     >
-      <View style={styles.iconContainer}>
+      <View style={[styles.iconContainer, { borderWidth: 2, borderColor: AppColors.primary }]}>
         <Image
           source={{ uri: getImageUrl(item.image) }}
           style={styles.image}

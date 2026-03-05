@@ -21,13 +21,13 @@ export function SectionHeader({ title, onSeeAll }: SectionHeaderProps) {
       </ThemedText>
       {onSeeAll ? (
         <Pressable onPress={onSeeAll} style={styles.seeAllButton}>
-          <ThemedText type="body" style={{ color: AppColors.onGrey }}>
+          <ThemedText type="body" style={{ color: AppColors.primary }}>
             عرض الكل
           </ThemedText>
           <Feather
             name="chevron-left"
             size={18}
-            color={AppColors.onGrey}
+            color={AppColors.primary}
             style={styles.chevron}
           />
         </Pressable>
