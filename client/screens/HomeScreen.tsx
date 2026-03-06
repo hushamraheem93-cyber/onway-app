@@ -320,7 +320,7 @@ export default function HomeScreen() {
     <FlatList
       style={{ flex: 1, backgroundColor: theme.backgroundRoot }}
       contentContainerStyle={{
-        paddingTop: headerHeight + Spacing.lg,
+        paddingTop: headerHeight + Spacing.xl + 10,
         paddingBottom: tabBarHeight + Spacing.xl,
         paddingHorizontal: HORIZONTAL_PADDING,
       }}
@@ -334,23 +334,31 @@ export default function HomeScreen() {
 
 const styles = StyleSheet.create({
   greetingContainer: {
+    flexDirection: "row-reverse",
+    flexWrap: "wrap",
+    paddingHorizontal: 20,
     paddingTop: 20,
     paddingBottom: 12,
+    width: "100%",
+    alignItems: "flex-start",
   },
   greeting: {
     fontFamily: "Cairo_700Bold",
-    fontSize: 26,
-    color: "#FF6B35",
+    fontSize: 22,
+    color: "#F37335",
     marginBottom: 4,
     textAlign: "right",
     writingDirection: "rtl",
+    width: "100%",
   },
   subGreeting: {
     fontFamily: "Cairo_400Regular",
-    fontSize: 15,
-    color: "#7F8C8D",
+    fontSize: 14,
+    color: "#666",
     textAlign: "right",
     writingDirection: "rtl",
+    marginTop: 5,
+    width: "100%",
   },
   sectionHeader: {
     flexDirection: "row-reverse",
