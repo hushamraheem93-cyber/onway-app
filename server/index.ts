@@ -110,6 +110,9 @@ function serveExpoManifest(platform: string, res: Response) {
   res.setHeader("expo-protocol-version", "1");
   res.setHeader("expo-sfv-version", "0");
   res.setHeader("content-type", "application/json");
+  res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+  res.setHeader("Pragma", "no-cache");
+  res.setHeader("Expires", "0");
 
   const manifest = fs.readFileSync(manifestPath, "utf-8");
   res.send(manifest);
@@ -207,8 +210,14 @@ function configureExpoAndLanding(app: express.Application) {
   }));
   
   app.use(express.static(path.resolve(process.cwd(), "static-build"), {
-    maxAge: "1d",
-    etag: true,
+    maxAge: 0,
+    etag: false,
+    lastModified: false,
+    setHeaders: (staticRes) => {
+      staticRes.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+      staticRes.setHeader("Pragma", "no-cache");
+      staticRes.setHeader("Expires", "0");
+    },
   }));
 
   log("Expo routing: Checking expo-platform header on / and /manifest");
