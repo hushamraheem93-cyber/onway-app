@@ -45,7 +45,7 @@ export default function CategoriesScreen() {
     if (!image) return "";
     if (image.startsWith("data:")) return image;
     if (image.startsWith("http")) return image;
-    return `${getApiUrl()}${image}`;
+    return `${getApiUrl()}${image}?v=${Date.now()}`;
   };
 
   const renderCategory = ({ item }: { item: Category }) => (
@@ -54,7 +54,7 @@ export default function CategoriesScreen() {
       onPress={() => handleCategoryPress(item)}
       activeOpacity={0.8}
     >
-      <View style={[styles.iconContainer, { borderWidth: 2, borderColor: AppColors.primary }]}>
+      <View style={styles.iconContainer}>
         <Image
           source={{ uri: getImageUrl(item.image) }}
           style={styles.image}
@@ -121,15 +121,17 @@ const styles = StyleSheet.create({
   iconContainer: {
     width: 85,
     height: 85,
-    backgroundColor: "#FFF",
+    backgroundColor: "transparent",
     borderRadius: 25,
     justifyContent: "center",
     alignItems: "center",
     marginBottom: 12,
+    overflow: "hidden",
   },
   image: {
-    width: 50,
-    height: 50,
+    width: 70,
+    height: 70,
+    backgroundColor: "transparent",
   },
   name: {
     fontSize: 14,
