@@ -60,7 +60,11 @@ export function HeaderTitle({ title }: HeaderTitleProps) {
         </Text>
       </View>
 
-      <View style={styles.rightSpacer} />
+      <View style={styles.rightSection}>
+        <Pressable style={styles.iconButton} onPress={() => navigation.navigate("Main", { screen: "ProfileTab" })}>
+          <Feather name="menu" size={24} color="#2C3E50" />
+        </Pressable>
+      </View>
     </View>
   );
 }
@@ -82,8 +86,9 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: "center",
   },
-  rightSpacer: {
+  rightSection: {
     flex: 1,
+    alignItems: "flex-start",
   },
   iconButton: {
     width: 40,
