@@ -6,54 +6,34 @@ export async function reverseGeocodeArabic(lat: number, lng: number): Promise<st
     });
     const data = await res.json();
 
-    if (data && data.address) {
-      const addr = data.address;
-
-      const placeName = (data.addresstype !== "country" && data.addresstype !== "state") ? data.name : undefined;
-
-      const detailParts = [
-        placeName,
-        addr.building,
-        addr.road,
-        addr.pedestrian,
-        addr.neighbourhood,
-        addr.quarter,
-        addr.suburb,
-        addr.residential,
-      ].filter(Boolean);
-
-      const areaParts = [
-        addr.hamlet,
-        addr.village,
-        addr.town,
-        addr.city_district,
-        addr.subdistrict,
-        addr.district,
-        addr.city,
-        addr.county,
-        addr.state,
-      ].filter(Boolean);
-
-      const detailUnique = [...new Set(detailParts)];
-      const areaUnique = [...new Set(areaParts)];
-
-      const allParts = [...detailUnique, ...areaUnique];
-      const finalUnique = [...new Set(allParts)];
-
-      if (finalUnique.length > 0) {
-        return finalUnique.slice(0, 3).join("، ");
-      }
-    }
-
     if (data && data.display_name) {
-      const parts = data.display_name.split(",").map((s: string) => s.trim()).filter(Boolean);
-      return parts.slice(0, 3).join("، ");
+      const rawParts = data.display_name
+        .split(",")
+        .map((s: string) => s.trim())
+        .filter(Boolean);
+
+      const filtered = rawParts.filter(
+        (p: string) => p !== "العراق" && !/^\d+$/.test(p)
+      );
+
+      if (filtered.length > 0) {
+        return filtered.slice(0, 3).join("، ");
+      }
     }
 
     return `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
   } catch {
     return `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
   }
+}
+
+export function isGenericAddress(address: string): boolean {
+  if (!address) return true;
+  const trimmed = address.trim();
+  if (trimmed === "قضاء الضلوعية") return true;
+  if (trimmed === "قضاء الضلوعية، محافظة صلاح الدين") return true;
+  if (/^قضاء\s/.test(trimmed) && trimmed.split("،").length <= 2) return true;
+  return false;
 }
 
 export const DHULUIYAH_CENTER = { lat: 34.018, lng: 44.219 };

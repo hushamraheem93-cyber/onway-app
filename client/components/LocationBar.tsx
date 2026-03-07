@@ -10,7 +10,7 @@ import { useTheme } from "@/hooks/useTheme";
 import { useLocation } from "@/context/LocationContext";
 import { AppColors, Spacing } from "@/constants/theme";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
-import { reverseGeocodeArabic } from "@/lib/geocoding";
+import { reverseGeocodeArabic, isGenericAddress } from "@/lib/geocoding";
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
@@ -23,8 +23,21 @@ export function LocationBar() {
   useEffect(() => {
     if (!savedLocation) {
       autoDetectLocation();
+    } else if (isGenericAddress(savedLocation.address)) {
+      refreshAddress(savedLocation.latitude, savedLocation.longitude);
     }
   }, []);
+
+  const refreshAddress = async (lat: number, lng: number) => {
+    try {
+      const address = await reverseGeocodeArabic(lat, lng);
+      setSavedLocation({
+        latitude: lat,
+        longitude: lng,
+        address,
+      });
+    } catch {}
+  };
 
   const autoDetectLocation = async () => {
     try {
