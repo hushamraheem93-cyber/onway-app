@@ -125,7 +125,7 @@ export default function HomeScreen() {
     if (!image) return "";
     if (image.startsWith("data:image/")) return image;
     if (image.startsWith("http")) return image;
-    return `${getApiUrl()}${image}`;
+    return `${getApiUrl()}${image}?v=${Date.now()}`;
   };
 
   const renderCategorySlider = (rowCategories: Category[]) => (
