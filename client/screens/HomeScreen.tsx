@@ -334,13 +334,11 @@ export default function HomeScreen() {
 
 const styles = StyleSheet.create({
   greetingContainer: {
-    flexDirection: "row-reverse",
-    flexWrap: "wrap",
     paddingHorizontal: 20,
     paddingTop: 20,
     paddingBottom: 12,
     width: "100%",
-    alignItems: "flex-start",
+    alignItems: "flex-end",
   },
   greeting: {
     fontFamily: "Cairo_700Bold",
@@ -348,20 +346,16 @@ const styles = StyleSheet.create({
     color: "#F37335",
     marginBottom: 4,
     textAlign: "right",
-    writingDirection: "rtl",
-    width: "100%",
   },
   subGreeting: {
     fontFamily: "Cairo_400Regular",
     fontSize: 14,
     color: "#666",
     textAlign: "right",
-    writingDirection: "rtl",
     marginTop: 5,
-    width: "100%",
   },
   sectionHeader: {
-    flexDirection: "row-reverse",
+    flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     marginBottom: 16,
@@ -371,7 +365,6 @@ const styles = StyleSheet.create({
     fontSize: 20,
     color: "#2C3E50",
     textAlign: "right",
-    writingDirection: "rtl",
   },
   viewAll: {
     fontFamily: "Cairo_600SemiBold",
@@ -483,11 +476,10 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#2C3E50",
     textAlign: "right",
-    writingDirection: "rtl",
     marginBottom: 8,
   },
   productFooter: {
-    flexDirection: "row-reverse",
+    flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
   },
