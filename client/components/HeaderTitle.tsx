@@ -53,6 +53,15 @@ export function HeaderTitle({ title }: HeaderTitleProps) {
         </Pressable>
       </View>
 
+      <View style={styles.centerSection}>
+        <View style={styles.logoBlock}>
+          <MaterialCommunityIcons name="motorbike" size={26} color="#F37335" />
+          <Text style={styles.logoText}>
+            <Text style={styles.logoName}>OnWay</Text>
+          </Text>
+        </View>
+      </View>
+
       <View style={styles.rightSection}>
         <Pressable style={styles.menuButton} onPress={() => navigation.navigate("Main", { screen: "ProfileTab" })}>
           <View style={styles.menuLines}>
@@ -61,12 +70,6 @@ export function HeaderTitle({ title }: HeaderTitleProps) {
             <View style={styles.menuLine} />
           </View>
         </Pressable>
-        <View style={styles.logoBlock}>
-          <MaterialCommunityIcons name="motorbike" size={26} color="#F37335" />
-          <Text style={styles.logoText}>
-            <Text style={styles.logoName}>OnWay</Text>
-          </Text>
-        </View>
       </View>
     </View>
   );
@@ -83,11 +86,15 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 12,
+    flex: 1,
+  },
+  centerSection: {
+    flex: 1,
+    alignItems: "center",
   },
   rightSection: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
+    flex: 1,
+    alignItems: "flex-end",
   },
   menuButton: {
     width: 32,
