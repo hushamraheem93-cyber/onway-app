@@ -342,14 +342,14 @@ const styles = StyleSheet.create({
   },
   greeting: {
     fontFamily: "Cairo_700Bold",
-    fontSize: 22,
+    fontSize: 18,
     color: "#F37335",
     marginBottom: 4,
     textAlign: "right",
   },
   subGreeting: {
     fontFamily: "Cairo_400Regular",
-    fontSize: 14,
+    fontSize: 13,
     color: "#666",
     textAlign: "right",
     marginTop: 5,
@@ -362,13 +362,13 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontFamily: "Cairo_700Bold",
-    fontSize: 20,
+    fontSize: 16,
     color: "#2C3E50",
     textAlign: "right",
   },
   viewAll: {
     fontFamily: "Cairo_600SemiBold",
-    fontSize: 14,
+    fontSize: 13,
     color: "#FF6B35",
   },
   categoriesContainer: {
