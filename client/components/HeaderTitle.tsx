@@ -88,7 +88,7 @@ const styles = StyleSheet.create({
   },
   rightSection: {
     flex: 1,
-    alignItems: "flex-start",
+    alignItems: "flex-end",
   },
   iconButton: {
     width: 40,
