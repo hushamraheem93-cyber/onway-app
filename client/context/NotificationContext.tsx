@@ -62,10 +62,16 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     try {
       const stored = await AsyncStorage.getItem(NOTIFICATIONS_STORAGE_KEY);
       if (stored) {
-        setNotifications(JSON.parse(stored));
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed)) {
+          setNotifications(parsed);
+        } else {
+          setNotifications([]);
+        }
       }
     } catch (error) {
       console.error("Error loading notifications:", error);
+      setNotifications([]);
     }
   };
 
@@ -115,7 +121,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
-  const unreadCount = notifications.filter((n) => !n.read).length;
+  const unreadCount = Array.isArray(notifications) ? notifications.filter((n) => !n.read).length : 0;
 
   return (
     <NotificationContext.Provider
