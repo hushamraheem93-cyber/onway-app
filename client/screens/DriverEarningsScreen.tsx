@@ -101,7 +101,7 @@ export default function DriverEarningsScreen() {
   );
 
   const renderOrderItem = ({ item }: { item: EarningsData["completedOrders"][0] }) => (
-    <View style={[styles.orderItem, { backgroundColor: theme.backgroundDefault, borderColor: theme.border }]}>
+    <View style={[styles.orderItem, { backgroundColor: theme.backgroundDefault }]}>
       <View style={styles.orderItemRow}>
         <View style={{ alignItems: "flex-start" }}>
           <ThemedText type="body" style={{ color: AppColors.primary, fontWeight: "700" }}>
@@ -127,7 +127,7 @@ export default function DriverEarningsScreen() {
   );
 
   const renderWalletTransaction = ({ item }: { item: WalletTransaction }) => (
-    <View style={[styles.orderItem, { backgroundColor: theme.backgroundDefault, borderColor: theme.border }]}>
+    <View style={[styles.orderItem, { backgroundColor: theme.backgroundDefault }]}>
       <View style={styles.orderItemRow}>
         <View style={{ alignItems: "flex-start" }}>
           <ThemedText type="body" style={{ color: item.type === "deduction" ? "#F44336" : "#4CAF50", fontWeight: "700" }}>
@@ -309,10 +309,15 @@ const styles = StyleSheet.create({
     padding: Spacing.lg,
   },
   totalCard: {
-    borderRadius: BorderRadius.xl,
+    borderRadius: 15,
     padding: Spacing.xl,
     alignItems: "center",
     marginBottom: Spacing.lg,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 10,
+    elevation: 3,
   },
   statsRow: {
     flexDirection: "row-reverse",
@@ -321,9 +326,14 @@ const styles = StyleSheet.create({
   },
   statCard: {
     flex: 1,
-    borderRadius: BorderRadius.xl,
+    borderRadius: 15,
     padding: Spacing.md,
     alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 10,
+    elevation: 3,
   },
   statIcon: {
     width: 44,
@@ -349,9 +359,14 @@ const styles = StyleSheet.create({
   orderItem: {
     marginHorizontal: Spacing.lg,
     marginBottom: Spacing.sm,
-    borderRadius: BorderRadius.md,
+    borderRadius: 15,
     padding: Spacing.md,
-    borderWidth: 1,
+    borderWidth: 0,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 10,
+    elevation: 3,
   },
   orderItemRow: {
     flexDirection: "row-reverse",
@@ -384,9 +399,14 @@ const styles = StyleSheet.create({
     borderBottomColor: AppColors.primary,
   },
   commissionInfo: {
-    borderRadius: BorderRadius.xl,
+    borderRadius: 15,
     padding: Spacing.lg,
     marginBottom: Spacing.md,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 10,
+    elevation: 3,
   },
   commissionRow: {
     flexDirection: "row-reverse",
