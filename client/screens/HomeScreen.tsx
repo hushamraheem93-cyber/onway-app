@@ -334,17 +334,17 @@ export default function HomeScreen() {
 
 const styles = StyleSheet.create({
   greetingContainer: {
-    paddingHorizontal: 20,
-    paddingTop: 20,
+    paddingHorizontal: 0,
+    paddingTop: 8,
     paddingBottom: 12,
     width: "100%",
-    alignItems: "flex-end",
+    alignItems: "flex-start",
   },
   greeting: {
     fontFamily: "Cairo_700Bold",
     fontSize: 18,
     color: "#F37335",
-    marginBottom: 4,
+    marginBottom: 2,
     textAlign: "right",
   },
   subGreeting: {
@@ -352,7 +352,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: "#666",
     textAlign: "right",
-    marginTop: 5,
+    marginTop: 2,
   },
   sectionHeader: {
     flexDirection: "row",
