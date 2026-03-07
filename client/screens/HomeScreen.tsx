@@ -412,14 +412,14 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
   categoryImageWrapper: {
-    width: 52,
-    height: 52,
+    width: 58,
+    height: 58,
     backgroundColor: "transparent",
     overflow: "hidden",
   },
   categoryImage: {
-    width: 52,
-    height: 52,
+    width: 58,
+    height: 58,
     backgroundColor: "transparent",
   },
   categoryName: {
