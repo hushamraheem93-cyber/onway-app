@@ -411,6 +411,7 @@ const styles = StyleSheet.create({
   categoryImage: {
     width: 40,
     height: 40,
+    backgroundColor: "transparent",
   },
   categoryName: {
     fontFamily: "Cairo_600SemiBold",
