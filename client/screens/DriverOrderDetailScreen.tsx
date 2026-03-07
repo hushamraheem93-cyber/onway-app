@@ -125,7 +125,7 @@ export default function DriverOrderDetailScreen() {
           </View>
 
           <View style={styles.infoRow}>
-            <ThemedText type="body" style={{ color: theme.text, direction: "ltr" }}>{order.customerPhone}</ThemedText>
+            <ThemedText type="body" style={{ color: theme.text, writingDirection: "ltr" }}>{order.customerPhone}</ThemedText>
             <ThemedText type="small" style={{ color: theme.textSecondary }}>رقم الهاتف</ThemedText>
           </View>
 

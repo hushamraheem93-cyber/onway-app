@@ -385,7 +385,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     gap: 14,
     marginBottom: 20,
-    direction: "ltr",
+    writingDirection: "ltr",
   },
   otpInput: {
     width: 60,
