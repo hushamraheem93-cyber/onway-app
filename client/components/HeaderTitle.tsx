@@ -2,6 +2,7 @@ import React from "react";
 import { View, StyleSheet, Pressable, Dimensions, Text } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { Feather } from "@expo/vector-icons";
+
 import { ThemedText } from "@/components/ThemedText";
 import { Spacing, AppColors, BorderRadius } from "@/constants/theme";
 import { useCart } from "@/context/CartContext";
@@ -27,40 +28,46 @@ export function HeaderTitle({ title }: HeaderTitleProps) {
     navigation.navigate("Main", { screen: "ProfileTab", params: { screen: "NotificationsList" } });
   };
 
+  const handleMenuPress = () => {
+    navigation.navigate("Main", { screen: "ProfileTab" });
+  };
+
   return (
     <View style={styles.container}>
       <View style={styles.leftSection}>
         <Pressable style={styles.iconButton} onPress={handleNotificationsPress}>
-          <Feather name="bell" size={22} color={AppColors.onGrey} />
+          <Feather name="bell" size={22} color="#2C3E50" />
           {unreadCount > 0 ? (
             <View style={styles.badge}>
-              <ThemedText type="small" style={styles.badgeText}>
+              <Text style={styles.badgeText}>
                 {unreadCount > 9 ? "9+" : unreadCount}
-              </ThemedText>
+              </Text>
             </View>
           ) : null}
         </Pressable>
         <Pressable style={styles.iconButton} onPress={handleCartPress}>
-          <Feather name="shopping-cart" size={22} color={AppColors.onGrey} />
+          <Feather name="shopping-cart" size={22} color="#2C3E50" />
           {cartCount > 0 ? (
             <View style={styles.badge}>
-              <ThemedText type="small" style={styles.badgeText}>
+              <Text style={styles.badgeText}>
                 {cartCount > 9 ? "9+" : cartCount}
-              </ThemedText>
+              </Text>
             </View>
           ) : null}
         </Pressable>
       </View>
 
+      <View style={styles.centerSection}>
+        <Text style={styles.logoText}>
+          <Text style={styles.logoOn}>On</Text>
+          <Text style={styles.logoWay}>Way</Text>
+        </Text>
+      </View>
+
       <View style={styles.rightSection}>
-        <View style={styles.logoContainer}>
-          <View style={styles.speedLines}>
-            <View style={styles.speedLine} />
-            <View style={styles.speedLine} />
-          </View>
-          <Text style={styles.logoOn}>ON</Text>
-          <Text style={styles.logoWay}>WAY</Text>
-        </View>
+        <Pressable style={styles.iconButton} onPress={handleMenuPress}>
+          <Feather name="menu" size={24} color="#2C3E50" />
+        </Pressable>
       </View>
     </View>
   );
@@ -76,74 +83,54 @@ const styles = StyleSheet.create({
   leftSection: {
     flexDirection: "row",
     alignItems: "center",
-    gap: Spacing.sm,
+    gap: 12,
+    flex: 1,
+  },
+  centerSection: {
+    flex: 1,
+    alignItems: "center",
   },
   rightSection: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: Spacing.sm,
+    flex: 1,
+    alignItems: "flex-start",
   },
   iconButton: {
     width: 40,
     height: 40,
-    borderRadius: 12,
-    backgroundColor: "#FFFFFF",
-    alignItems: "center",
     justifyContent: "center",
-    position: "relative",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 10,
-    elevation: 2,
-  },
-  logoContainer: {
-    flexDirection: "row",
     alignItems: "center",
+    position: "relative",
+  },
+  logoText: {
+    flexDirection: "row",
   },
   logoOn: {
-    fontFamily: "System",
-    fontSize: 22,
-    fontWeight: "800",
-    fontStyle: "italic",
-    color: AppColors.onGrey,
+    fontFamily: "Cairo_700Bold",
+    fontSize: 24,
+    color: "#FF6B35",
+    letterSpacing: -1,
   },
   logoWay: {
-    fontFamily: "System",
-    fontSize: 22,
-    fontWeight: "800",
-    fontStyle: "italic",
-    color: AppColors.wayYellow,
-  },
-  speedLines: {
-    width: 12,
-    height: 10,
-    justifyContent: "space-between",
-    marginRight: 4,
-  },
-  speedLine: {
-    width: 12,
-    height: 2,
-    backgroundColor: AppColors.onGrey,
-    borderRadius: 1,
+    fontFamily: "Cairo_700Bold",
+    fontSize: 24,
+    color: "#2C3E50",
+    letterSpacing: -1,
   },
   badge: {
     position: "absolute",
-    top: -5,
-    right: -5,
-    backgroundColor: "#f37021",
-    borderRadius: BorderRadius.full,
+    top: 0,
+    left: 0,
+    backgroundColor: "#FF6B35",
+    borderRadius: 10,
     minWidth: 20,
     height: 20,
     alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: 4,
-    borderWidth: 2,
-    borderColor: "#FFFFFF",
   },
   badgeText: {
-    color: "#FFFFFF",
+    fontFamily: "Cairo_700Bold",
     fontSize: 10,
-    fontWeight: "700",
+    color: "#FFFFFF",
   },
 });
