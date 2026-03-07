@@ -71,24 +71,11 @@ function getLeafletHTML(lat: number, lng: number) {
       attributionControl: false
     });
 
-    var osmBase = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      maxZoom: 19
+    var googleStreets = L.tileLayer('https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}&hl=ar', {
+      maxZoom: 20
     });
 
-    var cartoVoyager = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png', {
-      maxZoom: 20,
-      subdomains: 'abcd'
-    });
-
-    var cartoLabels = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager_only_labels/{z}/{x}/{y}@2x.png', {
-      maxZoom: 20,
-      subdomains: 'abcd',
-      pane: 'overlayPane'
-    });
-
-    cartoVoyager.addTo(map);
-    osmBase.addTo(map);
-    cartoLabels.addTo(map);
+    googleStreets.addTo(map);
 
     L.control.zoom({ position: 'topleft' }).addTo(map);
 

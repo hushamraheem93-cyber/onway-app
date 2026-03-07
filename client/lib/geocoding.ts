@@ -1,5 +1,3 @@
-const DISTRICT_NAME = "قضاء الضلوعية";
-
 export async function reverseGeocodeArabic(lat: number, lng: number): Promise<string> {
   try {
     const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&accept-language=ar&zoom=18&addressdetails=1`;
@@ -10,34 +8,53 @@ export async function reverseGeocodeArabic(lat: number, lng: number): Promise<st
 
     if (data && data.address) {
       const addr = data.address;
-      const localParts = [
+
+      const placeName = (data.addresstype !== "country" && data.addresstype !== "state") ? data.name : undefined;
+
+      const detailParts = [
+        placeName,
+        addr.building,
         addr.road,
+        addr.pedestrian,
         addr.neighbourhood,
+        addr.quarter,
         addr.suburb,
+        addr.residential,
+      ].filter(Boolean);
+
+      const areaParts = [
         addr.hamlet,
         addr.village,
         addr.town,
+        addr.city_district,
+        addr.subdistrict,
+        addr.district,
+        addr.city,
+        addr.county,
+        addr.state,
       ].filter(Boolean);
-      const unique = [...new Set(localParts)];
 
-      if (unique.length > 0) {
-        return unique.slice(0, 2).join("، ") + "، " + DISTRICT_NAME;
+      const detailUnique = [...new Set(detailParts)];
+      const areaUnique = [...new Set(areaParts)];
+
+      const allParts = [...detailUnique, ...areaUnique];
+      const finalUnique = [...new Set(allParts)];
+
+      if (finalUnique.length > 0) {
+        return finalUnique.slice(0, 3).join("، ");
       }
-
-      return DISTRICT_NAME;
     }
 
     if (data && data.display_name) {
       const parts = data.display_name.split(",").map((s: string) => s.trim()).filter(Boolean);
-      const localParts = parts.slice(0, 2);
-      return localParts.join("، ") + "، " + DISTRICT_NAME;
+      return parts.slice(0, 3).join("، ");
     }
 
-    return DISTRICT_NAME;
+    return `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
   } catch {
-    return DISTRICT_NAME;
+    return `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
   }
 }
 
 export const DHULUIYAH_CENTER = { lat: 34.018, lng: 44.219 };
-export const DEFAULT_DISTRICT = DISTRICT_NAME;
+export const DEFAULT_DISTRICT = "قضاء الضلوعية";
