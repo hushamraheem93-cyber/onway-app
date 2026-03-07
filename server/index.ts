@@ -199,6 +199,17 @@ function configureExpoAndLanding(app: express.Application) {
     next();
   });
 
+  app.use("/uploads", express.static(path.resolve(process.cwd(), "uploads"), {
+    maxAge: 0,
+    etag: false,
+    lastModified: false,
+    setHeaders: (staticRes) => {
+      staticRes.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+      staticRes.setHeader("Pragma", "no-cache");
+      staticRes.setHeader("Expires", "0");
+    },
+  }));
+
   app.use("/assets", express.static(path.resolve(process.cwd(), "assets"), {
     maxAge: "7d",
     etag: true,
