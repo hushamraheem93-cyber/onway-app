@@ -421,6 +421,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  const bannerLinks: Record<string, { linkType: string; linkTarget: string }> = {
+    "slider-1": { linkType: "screen", linkTarget: "CourierPickup" },
+    "slider-2": { linkType: "category", linkTarget: "restaurants" },
+    "slider-3": { linkType: "category", linkTarget: "fruits-vegetables" },
+    "slider-4": { linkType: "screen", linkTarget: "AllCategories" },
+    "slider-5": { linkType: "screen", linkTarget: "CourierPickup" },
+    "slider-6": { linkType: "screen", linkTarget: "InternationalShopping" },
+  };
+
   app.get("/api/banners", async (req, res) => {
     try {
       const type = req.query.type as string;
@@ -428,7 +437,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (type) {
         result = result.filter(b => b.type === type);
       }
-      const lightResult = result.map(b => ({ ...b, image: limitImageSize(b.image, 100000) }));
+      const lightResult = result.map(b => {
+        const link = bannerLinks[b.id] || {};
+        return {
+          ...b,
+          image: limitImageSize(b.image, 100000),
+          linkType: (b as any).linkType || link.linkType || "",
+          linkTarget: (b as any).linkTarget || link.linkTarget || "",
+        };
+      });
       res.json(lightResult);
     } catch (error) {
       console.error("Error getting banners:", error);

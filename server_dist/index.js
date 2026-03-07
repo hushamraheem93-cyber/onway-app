@@ -1138,6 +1138,14 @@ async function registerRoutes(app2) {
       res.status(500).json({ error: "Failed to delete category" });
     }
   });
+  const bannerLinks = {
+    "slider-1": { linkType: "screen", linkTarget: "CourierPickup" },
+    "slider-2": { linkType: "category", linkTarget: "restaurants" },
+    "slider-3": { linkType: "category", linkTarget: "fruits-vegetables" },
+    "slider-4": { linkType: "screen", linkTarget: "AllCategories" },
+    "slider-5": { linkType: "screen", linkTarget: "CourierPickup" },
+    "slider-6": { linkType: "screen", linkTarget: "InternationalShopping" }
+  };
   app2.get("/api/banners", async (req, res) => {
     try {
       const type = req.query.type;
@@ -1145,7 +1153,15 @@ async function registerRoutes(app2) {
       if (type) {
         result = result.filter((b) => b.type === type);
       }
-      const lightResult = result.map((b) => ({ ...b, image: limitImageSize(b.image, 1e5) }));
+      const lightResult = result.map((b) => {
+        const link = bannerLinks[b.id] || {};
+        return {
+          ...b,
+          image: limitImageSize(b.image, 1e5),
+          linkType: b.linkType || link.linkType || "",
+          linkTarget: b.linkTarget || link.linkTarget || ""
+        };
+      });
       res.json(lightResult);
     } catch (error) {
       console.error("Error getting banners:", error);
