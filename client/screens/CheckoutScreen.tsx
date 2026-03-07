@@ -14,6 +14,7 @@ import { useCart } from "@/context/CartContext";
 import { formatPrice } from "@/constants/currency";
 import { useOrders } from "@/context/OrderContext";
 import { useAuth } from "@/context/AuthContext";
+import { useLocation } from "@/context/LocationContext";
 import { ThemedText } from "@/components/ThemedText";
 import { Button } from "@/components/Button";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
@@ -38,6 +39,7 @@ export default function CheckoutScreen() {
   const { items, getTotal, clearCart } = useCart();
   const { addOrder } = useOrders();
   const { phoneNumber } = useAuth();
+  const { savedLocation } = useLocation();
 
   const { data: deliveryAreas = [] } = useQuery<DeliveryArea[]>({
     queryKey: ["/api/delivery-areas"],
@@ -47,6 +49,7 @@ export default function CheckoutScreen() {
   const [phone, setPhone] = useState("");
   const [selectedArea, setSelectedArea] = useState("");
   const [address, setAddress] = useState("");
+  const [landmark, setLandmark] = useState("");
   const [notes, setNotes] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showAreaPicker, setShowAreaPicker] = useState(false);
@@ -57,6 +60,31 @@ export default function CheckoutScreen() {
   const [promoSuccess, setPromoSuccess] = useState("");
   const [isApplyingPromo, setIsApplyingPromo] = useState(false);
   const [appliedPromoCode, setAppliedPromoCode] = useState("");
+  const [locationAutoFilled, setLocationAutoFilled] = useState(false);
+
+  React.useEffect(() => {
+    if (savedLocation && !locationAutoFilled) {
+      setSelectedLocation({
+        latitude: savedLocation.latitude,
+        longitude: savedLocation.longitude,
+      });
+
+      if (savedLocation.address) {
+        setAddress(savedLocation.address);
+
+        const addressLower = savedLocation.address.toLowerCase();
+        const matchedArea = deliveryAreas.find(area => {
+          const areaName = area.name.toLowerCase();
+          return addressLower.includes(areaName) || areaName.includes(addressLower.split("،")[0]?.trim() || "");
+        });
+        if (matchedArea) {
+          setSelectedArea(matchedArea.id);
+        }
+      }
+
+      setLocationAutoFilled(true);
+    }
+  }, [savedLocation, deliveryAreas, locationAutoFilled]);
 
   const handleSelectArea = (areaId: string) => {
     setSelectedArea(areaId);
@@ -123,7 +151,8 @@ export default function CheckoutScreen() {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 
     const areaName = selectedAreaData?.name || "";
-    const fullAddress = `${areaName} - ${address.trim()}`;
+    const landmarkText = landmark.trim() ? ` (${landmark.trim()})` : "";
+    const fullAddress = `${areaName} - ${address.trim()}${landmarkText}`;
 
     try {
       const orderPayload: any = {
@@ -276,18 +305,42 @@ export default function CheckoutScreen() {
       </Modal>
 
       <View style={[styles.inputContainer, { backgroundColor: theme.backgroundDefault }, Shadows.sm]}>
-        <ThemedText type="small" style={[styles.label, { color: theme.textSecondary }]}>
-          تفاصيل العنوان
-        </ThemedText>
+        <View style={styles.labelRow}>
+          <ThemedText type="small" style={[styles.label, { color: theme.textSecondary }]}>
+            تفاصيل العنوان
+          </ThemedText>
+          {savedLocation ? (
+            <View style={styles.autoFilledBadge}>
+              <Feather name="map-pin" size={12} color={AppColors.primary} />
+              <ThemedText type="small" style={{ color: AppColors.primary, fontWeight: "600", fontSize: 11 }}>
+                من الخريطة
+              </ThemedText>
+            </View>
+          ) : null}
+        </View>
         <TextInput
           value={address}
           onChangeText={setAddress}
-          placeholder="أدخل تفاصيل عنوانك (الشارع، المحلة، أقرب نقطة دالة)"
+          placeholder="أدخل تفاصيل عنوانك (الشارع، المحلة)"
           placeholderTextColor={theme.textSecondary}
           style={[styles.input, styles.multilineInput, { color: theme.text }]}
           textAlign="right"
           multiline
           numberOfLines={3}
+        />
+      </View>
+
+      <View style={[styles.inputContainer, { backgroundColor: theme.backgroundDefault }, Shadows.sm]}>
+        <ThemedText type="small" style={[styles.label, { color: theme.textSecondary }]}>
+          أقرب نقطة دالة (اختياري)
+        </ThemedText>
+        <TextInput
+          value={landmark}
+          onChangeText={setLandmark}
+          placeholder="مثال: قرب جامع الرحمن، مقابل سوق الخضار"
+          placeholderTextColor={theme.textSecondary}
+          style={[styles.input, { color: theme.text }]}
+          textAlign="right"
         />
       </View>
 
@@ -415,6 +468,21 @@ const styles = StyleSheet.create({
   label: {
     textAlign: "right",
     marginBottom: Spacing.sm,
+  },
+  labelRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: Spacing.sm,
+  },
+  autoFilledBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: AppColors.secondary,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
   },
   input: {
     fontSize: 16,
