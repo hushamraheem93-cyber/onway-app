@@ -2,14 +2,11 @@ import React from "react";
 import { View, StyleSheet, Pressable, Dimensions, Text } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { Feather } from "@expo/vector-icons";
-import { Image } from "expo-image";
 
 import { ThemedText } from "@/components/ThemedText";
 import { Spacing, AppColors, BorderRadius } from "@/constants/theme";
 import { useCart } from "@/context/CartContext";
 import { useNotifications } from "@/context/NotificationContext";
-
-import headerLogo from "../assets/images/onway-header-logo.png";
 
 const SCREEN_WIDTH = Dimensions.get("window").width;
 
@@ -57,12 +54,11 @@ export function HeaderTitle({ title }: HeaderTitleProps) {
       </View>
 
       <View style={styles.rightSection}>
-        <Image
-          source={headerLogo}
-          style={styles.logoImage}
-          contentFit="contain"
-        />
-        <View style={styles.logoTextContainer}>
+        <View style={styles.logoContainer}>
+          <View style={styles.speedLines}>
+            <View style={styles.speedLine} />
+            <View style={styles.speedLine} />
+          </View>
           <Text style={styles.logoOn}>ON</Text>
           <Text style={styles.logoWay}>WAY</Text>
         </View>
@@ -86,7 +82,7 @@ const styles = StyleSheet.create({
   rightSection: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
+    gap: Spacing.sm,
   },
   iconButton: {
     width: 40,
@@ -102,11 +98,7 @@ const styles = StyleSheet.create({
     shadowRadius: 10,
     elevation: 2,
   },
-  logoImage: {
-    width: 38,
-    height: 38,
-  },
-  logoTextContainer: {
+  logoContainer: {
     flexDirection: "row",
     alignItems: "center",
   },
@@ -123,6 +115,18 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     fontStyle: "italic",
     color: AppColors.wayYellow,
+  },
+  speedLines: {
+    width: 12,
+    height: 10,
+    justifyContent: "space-between",
+    marginRight: 4,
+  },
+  speedLine: {
+    width: 12,
+    height: 2,
+    backgroundColor: AppColors.onGrey,
+    borderRadius: 1,
   },
   badge: {
     position: "absolute",
