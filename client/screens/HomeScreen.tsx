@@ -29,8 +29,8 @@ import { getApiUrl } from "@/lib/query-client";
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
-const GRID_GAP = DesignSystem.gridGap;
-const HORIZONTAL_PADDING = DesignSystem.screenPadding;
+const GRID_GAP = 10;
+const HORIZONTAL_PADDING = 18;
 const CATEGORY_CARD_WIDTH = (SCREEN_WIDTH - 48) / 4;
 const PRODUCT_CARD_WIDTH = 150;
 
@@ -219,16 +219,18 @@ export default function HomeScreen() {
 
       <LocationBar />
 
-      {bannersLoading ? (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="small" color={AppColors.primary} />
-        </View>
-      ) : (
-        <>
-          {offerBanner ? <OfferBanner banner={offerBanner} /> : null}
-          {sliderBanners.length > 0 ? <BannerSlider banners={sliderBanners} /> : null}
-        </>
-      )}
+      <View style={styles.bannersSection}>
+        {bannersLoading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="small" color={AppColors.primary} />
+          </View>
+        ) : (
+          <>
+            {offerBanner ? <OfferBanner banner={offerBanner} /> : null}
+            {sliderBanners.length > 0 ? <BannerSlider banners={sliderBanners} /> : null}
+          </>
+        )}
+      </View>
 
       <View style={styles.sectionHeader}>
         <ThemedText style={styles.sectionTitle}>الأقسام الرئيسية</ThemedText>
@@ -335,7 +337,7 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   greetingContainer: {
     paddingHorizontal: 0,
-    paddingTop: 8,
+    marginTop: 50,
     paddingBottom: 12,
     width: "100%",
     alignItems: "flex-start",
@@ -346,13 +348,18 @@ const styles = StyleSheet.create({
     color: "#F37335",
     marginBottom: 2,
     textAlign: "right",
+    writingDirection: "rtl",
   },
   subGreeting: {
     fontFamily: "Cairo_400Regular",
     fontSize: 13,
     color: "#666",
     textAlign: "right",
-    marginTop: 2,
+    writingDirection: "rtl",
+    marginTop: 8,
+  },
+  bannersSection: {
+    marginVertical: 20,
   },
   sectionHeader: {
     flexDirection: "row",
@@ -384,8 +391,9 @@ const styles = StyleSheet.create({
     gap: GRID_GAP,
   },
   categoryCard: {
-    width: 100,
+    width: 75,
     alignItems: "center",
+    marginHorizontal: 0,
   },
   categoryIconContainer: {
     width: 64,
