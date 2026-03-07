@@ -145,12 +145,14 @@ export default function HomeScreen() {
           }}
         >
           <View style={[styles.categoryIconContainer, { backgroundColor: category.color || "#FFF2EC" }]}>
-            <Image
-              source={{ uri: getImageUrl(category.image) }}
-              style={styles.categoryImage}
-              contentFit="contain"
-              transition={200}
-            />
+            <View style={styles.categoryImageWrapper}>
+              <Image
+                source={{ uri: getImageUrl(category.image) }}
+                style={styles.categoryImage}
+                contentFit="contain"
+                transition={200}
+              />
+            </View>
           </View>
           <ThemedText style={styles.categoryName} numberOfLines={2}>
             {category.name}
@@ -402,11 +404,18 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     marginBottom: 8,
+    overflow: "hidden",
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.12,
     shadowRadius: 8,
     elevation: 4,
+  },
+  categoryImageWrapper: {
+    width: 40,
+    height: 40,
+    backgroundColor: "transparent",
+    overflow: "hidden",
   },
   categoryImage: {
     width: 40,
