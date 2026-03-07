@@ -339,7 +339,7 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   greetingContainer: {
     paddingHorizontal: 0,
-    marginTop: 70,
+    marginTop: 4,
     paddingBottom: 12,
     width: "100%",
     alignItems: "flex-start",
