@@ -28,10 +28,6 @@ export function HeaderTitle({ title }: HeaderTitleProps) {
     navigation.navigate("Main", { screen: "ProfileTab", params: { screen: "NotificationsList" } });
   };
 
-  const handleMenuPress = () => {
-    navigation.navigate("Main", { screen: "ProfileTab" });
-  };
-
   return (
     <View style={styles.container}>
       <View style={styles.leftSection}>
@@ -64,11 +60,7 @@ export function HeaderTitle({ title }: HeaderTitleProps) {
         </Text>
       </View>
 
-      <View style={styles.rightSection}>
-        <Pressable style={styles.iconButton} onPress={handleMenuPress}>
-          <Feather name="menu" size={24} color="#2C3E50" />
-        </Pressable>
-      </View>
+      <View style={styles.rightSpacer} />
     </View>
   );
 }
@@ -90,9 +82,8 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: "center",
   },
-  rightSection: {
+  rightSpacer: {
     flex: 1,
-    alignItems: "flex-start",
   },
   iconButton: {
     width: 40,
