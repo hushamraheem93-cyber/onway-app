@@ -499,12 +499,19 @@ async function initializeDefaultBanners(defaultBanners) {
   if (!db) return;
   try {
     const existing = await db.collection("banners").get();
-    if (existing.empty) {
-      console.log("Initializing default banners in Firestore...");
-      const batch = db.batch();
+    const needsUpdate = existing.empty || existing.docs.some((doc) => {
+      const data = doc.data();
+      return data.image && (data.image.startsWith("http") || !data.image.startsWith("/uploads/banners/"));
+    });
+    if (needsUpdate) {
+      console.log("Updating banners in Firestore...");
+      const deleteBatch = db.batch();
+      existing.docs.forEach((doc) => deleteBatch.delete(doc.ref));
+      await deleteBatch.commit();
+      const createBatch = db.batch();
       defaultBanners.forEach((banner) => {
         const docRef = db.collection("banners").doc(banner.id);
-        batch.set(docRef, {
+        createBatch.set(docRef, {
           image: banner.image,
           title: banner.title,
           isActive: banner.isActive,
@@ -512,8 +519,8 @@ async function initializeDefaultBanners(defaultBanners) {
           order: banner.order
         });
       });
-      await batch.commit();
-      console.log("Default banners initialized successfully");
+      await createBatch.commit();
+      console.log("Banners updated successfully");
     }
   } catch (error) {
     console.error("Error initializing default banners:", error);
@@ -868,9 +875,10 @@ var categories = [
   { id: "international-shopping", name: "\u0627\u0644\u0634\u0631\u0627\u0621 \u0645\u0646 \u0627\u0644\u0645\u0648\u0627\u0642\u0639 \u0627\u0644\u0639\u0627\u0644\u0645\u064A\u0629", image: "/uploads/category-international.png", productCount: 0, order: 13, color: "#E8EAF6", iconColor: "#5C6BC0" }
 ];
 var banners = [
-  { id: "slider-1", image: "https://images.unsplash.com/photo-1542838132-92c53300491e?w=800", title: "\u062E\u0636\u0631\u0648\u0627\u062A \u0648\u0641\u0648\u0627\u0643\u0647 \u0637\u0627\u0632\u062C\u0629", isActive: true, type: "slider", order: 1 },
-  { id: "slider-2", image: "https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?w=800", title: "\u0643\u0644 \u0645\u0627 \u062A\u062D\u062A\u0627\u062C\u0647 \u0644\u0644\u0645\u0637\u0628\u062E", isActive: true, type: "slider", order: 2 },
-  { id: "slider-3", image: "https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=800", title: "\u0648\u062C\u0628\u0627\u062A \u062C\u0627\u0647\u0632\u0629 \u0644\u0644\u0623\u0643\u0644", isActive: true, type: "slider", order: 3 }
+  { id: "slider-1", image: "/uploads/banners/banner-1.png", title: "\u062A\u0648\u0635\u064A\u0644 \u0633\u0631\u064A\u0639 \u0644\u0628\u0627\u0628 \u0628\u064A\u062A\u0643", isActive: true, type: "slider", order: 1 },
+  { id: "slider-2", image: "/uploads/banners/banner-2.png", title: "\u0623\u0634\u0647\u0649 \u0627\u0644\u0645\u0623\u0643\u0648\u0644\u0627\u062A \u0627\u0644\u0639\u0631\u0627\u0642\u064A\u0629", isActive: true, type: "slider", order: 2 },
+  { id: "slider-3", image: "/uploads/banners/banner-3.png", title: "\u0637\u0644\u0628\u0627\u062A\u0643 \u0627\u0644\u064A\u0648\u0645\u064A\u0629 \u0628\u0636\u063A\u0637\u0629 \u0632\u0631", isActive: true, type: "slider", order: 3 },
+  { id: "slider-4", image: "/uploads/banners/banner-4.png", title: "\u0639\u0631\u0648\u0636 \u0648\u062E\u0635\u0648\u0645\u0627\u062A \u062D\u0635\u0631\u064A\u0629", isActive: true, type: "slider", order: 4 }
 ];
 var products = [
   // مطعم يلا ايت

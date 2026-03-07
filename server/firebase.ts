@@ -717,12 +717,19 @@ export async function initializeDefaultBanners(defaultBanners: any[]): Promise<v
   if (!db) return;
   try {
     const existing = await db.collection("banners").get();
-    if (existing.empty) {
-      console.log("Initializing default banners in Firestore...");
-      const batch = db.batch();
+    const needsUpdate = existing.empty || existing.docs.some(doc => {
+      const data = doc.data();
+      return data.image && (data.image.startsWith("http") || !data.image.startsWith("/uploads/banners/"));
+    });
+    if (needsUpdate) {
+      console.log("Updating banners in Firestore...");
+      const deleteBatch = db.batch();
+      existing.docs.forEach(doc => deleteBatch.delete(doc.ref));
+      await deleteBatch.commit();
+      const createBatch = db.batch();
       defaultBanners.forEach(banner => {
         const docRef = db!.collection("banners").doc(banner.id);
-        batch.set(docRef, {
+        createBatch.set(docRef, {
           image: banner.image,
           title: banner.title,
           isActive: banner.isActive,
@@ -730,8 +737,8 @@ export async function initializeDefaultBanners(defaultBanners: any[]): Promise<v
           order: banner.order,
         });
       });
-      await batch.commit();
-      console.log("Default banners initialized successfully");
+      await createBatch.commit();
+      console.log("Banners updated successfully");
     }
   } catch (error) {
     console.error("Error initializing default banners:", error);
