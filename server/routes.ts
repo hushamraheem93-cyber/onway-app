@@ -64,6 +64,8 @@ interface Banner {
   isActive: boolean;
   type: "offer" | "slider";
   order: number;
+  linkType?: string;
+  linkTarget?: string;
 }
 
 interface Product {
@@ -124,12 +126,12 @@ let categories: Category[] = [
 ];
 
 let banners: Banner[] = [
-  { id: "slider-1", image: "/uploads/banners/banner-1.png", title: "توصيل سريع لباب بيتك", isActive: true, type: "slider", order: 1 },
-  { id: "slider-2", image: "/uploads/banners/banner-2.png", title: "أشهى المأكولات العراقية", isActive: true, type: "slider", order: 2 },
-  { id: "slider-3", image: "/uploads/banners/banner-3.png", title: "طلباتك اليومية بضغطة زر", isActive: true, type: "slider", order: 3 },
-  { id: "slider-4", image: "/uploads/banners/banner-4.png", title: "عروض وخصومات حصرية", isActive: true, type: "slider", order: 4 },
-  { id: "slider-5", image: "/uploads/banners/banner-5.png", title: "خدمة توصيل الطرود والأمانات", isActive: true, type: "slider", order: 5 },
-  { id: "slider-6", image: "/uploads/banners/banner-6.png", title: "اشترِ من المواقع العالمية", isActive: true, type: "slider", order: 6 },
+  { id: "slider-1", image: "/uploads/banners/banner-1.png", title: "توصيل سريع لباب بيتك", isActive: true, type: "slider", order: 1, linkType: "screen", linkTarget: "CourierPickup" },
+  { id: "slider-2", image: "/uploads/banners/banner-2.png", title: "أشهى المأكولات العراقية", isActive: true, type: "slider", order: 2, linkType: "category", linkTarget: "restaurants" },
+  { id: "slider-3", image: "/uploads/banners/banner-3.png", title: "طلباتك اليومية بضغطة زر", isActive: true, type: "slider", order: 3, linkType: "category", linkTarget: "fruits-vegetables" },
+  { id: "slider-4", image: "/uploads/banners/banner-4.png", title: "عروض وخصومات حصرية", isActive: true, type: "slider", order: 4, linkType: "screen", linkTarget: "AllCategories" },
+  { id: "slider-5", image: "/uploads/banners/banner-5.png", title: "خدمة توصيل الطرود والأمانات", isActive: true, type: "slider", order: 5, linkType: "screen", linkTarget: "CourierPickup" },
+  { id: "slider-6", image: "/uploads/banners/banner-6.png", title: "اشترِ من المواقع العالمية", isActive: true, type: "slider", order: 6, linkType: "screen", linkTarget: "InternationalShopping" },
 ];
 
 const products: Product[] = [

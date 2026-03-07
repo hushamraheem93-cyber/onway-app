@@ -15,6 +15,8 @@ export interface Banner {
   isActive: boolean;
   type: "offer" | "slider";
   order: number;
+  linkType?: string;
+  linkTarget?: string;
 }
 
 export const MAIN_CATEGORIES: Category[] = [

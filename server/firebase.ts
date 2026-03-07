@@ -735,6 +735,8 @@ export async function initializeDefaultBanners(defaultBanners: any[]): Promise<v
           isActive: banner.isActive,
           type: banner.type,
           order: banner.order,
+          linkType: banner.linkType || "",
+          linkTarget: banner.linkTarget || "",
         });
       });
       await createBatch.commit();

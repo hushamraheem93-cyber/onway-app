@@ -1,12 +1,18 @@
 import React, { useRef, useEffect, useState } from "react";
 import { StyleSheet, View, Dimensions, Pressable, ScrollView } from "react-native";
 import { Image } from "expo-image";
+import { useNavigation } from "@react-navigation/native";
+import { NativeStackNavigationProp } from "@react-navigation/native-stack";
+import * as Haptics from "expo-haptics";
 
 import { useTheme } from "@/hooks/useTheme";
 import { ThemedText } from "@/components/ThemedText";
 import { Spacing, AppColors, DesignSystem } from "@/constants/theme";
 import { Banner } from "@/constants/categories";
 import { getApiUrl } from "@/lib/query-client";
+import { RootStackParamList } from "@/navigation/RootStackNavigator";
+
+type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
 interface BannerSliderProps {
   banners: Banner[];
@@ -20,6 +26,7 @@ const BANNER_RADIUS = DesignSystem.bannerRadius;
 
 export function BannerSlider({ banners, autoPlayInterval = 4000 }: BannerSliderProps) {
   const { theme } = useTheme();
+  const navigation = useNavigation<NavigationProp>();
   const scrollRef = useRef<ScrollView>(null);
   const [currentPage, setCurrentPage] = useState(0);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -77,6 +84,22 @@ export function BannerSlider({ banners, autoPlayInterval = 4000 }: BannerSliderP
     return `${getApiUrl()}${image}`;
   };
 
+  const handleBannerPress = (banner: Banner) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+
+    if (!banner.linkType || !banner.linkTarget) return;
+
+    if (banner.linkType === "category") {
+      navigation.navigate("Products", {
+        categoryId: banner.linkTarget,
+        categoryName: banner.title || "",
+      });
+    } else if (banner.linkType === "screen") {
+      const target = banner.linkTarget as keyof RootStackParamList;
+      (navigation.navigate as any)(target);
+    }
+  };
+
   if (banners.length === 0) return null;
 
   return (
@@ -91,7 +114,11 @@ export function BannerSlider({ banners, autoPlayInterval = 4000 }: BannerSliderP
         contentContainerStyle={styles.scrollContent}
       >
         {banners.map((banner) => (
-          <View key={banner.id} style={styles.page}>
+          <Pressable
+            key={banner.id}
+            style={styles.page}
+            onPress={() => handleBannerPress(banner)}
+          >
             <Image
               source={{ uri: getImageUrl(banner.image) }}
               style={styles.banner}
@@ -105,7 +132,7 @@ export function BannerSlider({ banners, autoPlayInterval = 4000 }: BannerSliderP
                 </ThemedText>
               </View>
             ) : null}
-          </View>
+          </Pressable>
         ))}
       </ScrollView>
       {banners.length > 1 ? (
