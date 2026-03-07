@@ -7,9 +7,9 @@ import * as Haptics from "expo-haptics";
 
 import { ThemedText } from "@/components/ThemedText";
 import { useTheme } from "@/hooks/useTheme";
-import { AppColors } from "@/constants/theme";
 
-const BRAND = "#FF7622";
+const ACTIVE_COLOR = "#F37335";
+const INACTIVE_COLOR = "#8E8E93";
 
 interface TabConfig {
   name: string;
@@ -19,9 +19,8 @@ interface TabConfig {
 }
 
 const TABS: TabConfig[] = [
-  { name: "SearchTab", icon: "search", label: "البحث", initialScreen: "Search" },
-  { name: "MenuTab", icon: "grid", label: "الأقسام", initialScreen: "Categories" },
   { name: "HomeTab", icon: "home", label: "الرئيسية", initialScreen: "Home" },
+  { name: "SearchTab", icon: "search", label: "البحث", initialScreen: "Search" },
   { name: "FavoritesTab", icon: "heart", label: "المفضلة", initialScreen: "Favorites" },
   { name: "ProfileTab", icon: "user", label: "الحساب", initialScreen: "Profile" },
 ];
@@ -35,50 +34,21 @@ function TabItem({
   isFocused: boolean;
   onPress: () => void;
 }) {
-  const isHome = config.name === "HomeTab";
-
-  if (isHome) {
-    return (
-      <Pressable onPress={onPress} style={styles.homeContainer}>
-        <View
-          style={[
-            styles.homeButton,
-            { backgroundColor: isFocused ? BRAND : "#FF8C42" },
-          ]}
-        >
-          <Feather name="home" size={26} color="#FFFFFF" />
-        </View>
-        <ThemedText
-          style={[
-            styles.label,
-            { color: isFocused ? BRAND : "#8E8E93", fontFamily: "Cairo_600SemiBold" },
-          ]}
-        >
-          {config.label}
-        </ThemedText>
-      </Pressable>
-    );
-  }
-
   return (
     <Pressable onPress={onPress} style={styles.tabItem}>
-      <View
-        style={[
-          styles.iconWrap,
-          isFocused ? { backgroundColor: "rgba(255,118,34,0.12)" } : null,
-        ]}
-      >
+      <View style={styles.iconWrap}>
         <Feather
           name={config.icon}
-          size={22}
-          color={isFocused ? BRAND : "#8E8E93"}
+          size={isFocused ? 24 : 22}
+          color={isFocused ? ACTIVE_COLOR : INACTIVE_COLOR}
         />
       </View>
+      {isFocused ? <View style={styles.activeDot} /> : null}
       <ThemedText
         style={[
           styles.label,
           {
-            color: isFocused ? BRAND : "#8E8E93",
+            color: isFocused ? ACTIVE_COLOR : INACTIVE_COLOR,
             fontFamily: isFocused ? "Cairo_700Bold" : "Cairo_400Regular",
           },
         ]}
@@ -163,17 +133,17 @@ const styles = StyleSheet.create({
   },
   row: {
     flexDirection: "row",
-    alignItems: "flex-end",
+    alignItems: "center",
     justifyContent: "space-around",
-    paddingHorizontal: 4,
-    height: 62,
+    paddingHorizontal: 8,
+    height: 58,
   },
   tabItem: {
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    gap: 2,
-    paddingTop: 8,
+    gap: 3,
+    paddingTop: 6,
   },
   iconWrap: {
     width: 40,
@@ -182,33 +152,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  homeContainer: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "flex-start",
-    gap: 4,
-  },
-  homeButton: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    alignItems: "center",
-    justifyContent: "center",
-    marginTop: -22,
-    ...Platform.select({
-      ios: {
-        shadowColor: "#FF7622",
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.35,
-        shadowRadius: 8,
-      },
-      android: {
-        elevation: 12,
-      },
-      default: {
-        boxShadow: "0 4px 12px rgba(255,118,34,0.35)",
-      },
-    }),
+  activeDot: {
+    width: 5,
+    height: 5,
+    borderRadius: 3,
+    backgroundColor: ACTIVE_COLOR,
+    marginTop: -1,
   },
   label: {
     fontSize: 10,
