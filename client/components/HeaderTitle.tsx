@@ -1,7 +1,7 @@
 import React from "react";
 import { View, StyleSheet, Pressable, Dimensions, Text } from "react-native";
 import { useNavigation } from "@react-navigation/native";
-import { Feather } from "@expo/vector-icons";
+import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
 
 import { ThemedText } from "@/components/ThemedText";
 import { Spacing, AppColors, BorderRadius } from "@/constants/theme";
@@ -53,17 +53,20 @@ export function HeaderTitle({ title }: HeaderTitleProps) {
         </Pressable>
       </View>
 
-      <View style={styles.centerSection}>
-        <Text style={styles.logoText}>
-          <Text style={styles.logoOn}>On</Text>
-          <Text style={styles.logoWay}>Way</Text>
-        </Text>
-      </View>
-
       <View style={styles.rightSection}>
-        <Pressable style={styles.iconButton} onPress={() => navigation.navigate("Main", { screen: "ProfileTab" })}>
-          <Feather name="menu" size={24} color="#2C3E50" />
+        <Pressable style={styles.menuButton} onPress={() => navigation.navigate("Main", { screen: "ProfileTab" })}>
+          <View style={styles.menuLines}>
+            <View style={styles.menuLine} />
+            <View style={[styles.menuLine, styles.menuLineShort]} />
+            <View style={styles.menuLine} />
+          </View>
         </Pressable>
+        <View style={styles.logoBlock}>
+          <MaterialCommunityIcons name="motorbike" size={26} color="#F37335" />
+          <Text style={styles.logoText}>
+            <Text style={styles.logoName}>OnWay</Text>
+          </Text>
+        </View>
       </View>
     </View>
   );
@@ -80,15 +83,47 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 12,
-    flex: 1,
-  },
-  centerSection: {
-    flex: 1,
-    alignItems: "center",
   },
   rightSection: {
-    flex: 1,
-    alignItems: "flex-end",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  menuButton: {
+    width: 32,
+    height: 32,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  menuLines: {
+    width: 22,
+    height: 16,
+    justifyContent: "space-between",
+  },
+  menuLine: {
+    width: 22,
+    height: 2.5,
+    backgroundColor: "#2C3E50",
+    borderRadius: 2,
+  },
+  menuLineShort: {
+    width: 16,
+  },
+  logoBlock: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  logoText: {
+    flexDirection: "row",
+  },
+  logoName: {
+    fontFamily: "Cairo_700Bold",
+    fontSize: 24,
+    fontStyle: "italic",
+    fontWeight: "800",
+    color: "#F37335",
+    letterSpacing: -1,
   },
   iconButton: {
     width: 40,
@@ -96,21 +131,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     position: "relative",
-  },
-  logoText: {
-    flexDirection: "row",
-  },
-  logoOn: {
-    fontFamily: "Cairo_700Bold",
-    fontSize: 24,
-    color: "#FF6B35",
-    letterSpacing: -1,
-  },
-  logoWay: {
-    fontFamily: "Cairo_700Bold",
-    fontSize: 24,
-    color: "#2C3E50",
-    letterSpacing: -1,
   },
   badge: {
     position: "absolute",
