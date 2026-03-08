@@ -10,7 +10,6 @@ import Animated, {
   withSpring,
   withTiming,
   withSequence,
-  withDelay,
   Easing,
   interpolateColor,
 } from "react-native-reanimated";
@@ -19,6 +18,7 @@ import { ThemedText } from "@/components/ThemedText";
 import { useTheme } from "@/hooks/useTheme";
 
 const ICON_COLOR = "#F37335";
+const INACTIVE_COLOR = "#AAAAAA";
 
 interface TabConfig {
   name: string;
@@ -51,19 +51,16 @@ function TabItem({
 }) {
   const progress = useSharedValue(isFocused ? 1 : 0);
   const iconBounce = useSharedValue(1);
-  const textSlide = useSharedValue(isFocused ? 1 : 0);
 
   useEffect(() => {
     if (isFocused) {
       progress.value = withSpring(1, SPRING_CONFIG);
       iconBounce.value = withSequence(
-        withTiming(1.25, { duration: 150 }),
+        withTiming(1.2, { duration: 150 }),
         withSpring(1, { damping: 10, stiffness: 200 })
       );
-      textSlide.value = withDelay(100, withSpring(1, { damping: 14, stiffness: 120 }));
     } else {
-      textSlide.value = withTiming(0, { duration: 150, easing: Easing.ease });
-      progress.value = withTiming(0, { duration: 250, easing: Easing.ease });
+      progress.value = withTiming(0, { duration: 250, easing: Easing.out(Easing.ease) });
       iconBounce.value = withSpring(1, { damping: 12 });
     }
   }, [isFocused]);
@@ -76,19 +73,11 @@ function TabItem({
     );
     return {
       backgroundColor: bg,
-      paddingHorizontal: 12 + progress.value * 10,
     };
   });
 
   const iconStyle = useAnimatedStyle(() => ({
     transform: [{ scale: iconBounce.value }],
-  }));
-
-  const textStyle = useAnimatedStyle(() => ({
-    opacity: textSlide.value,
-    maxWidth: textSlide.value * 80,
-    marginRight: textSlide.value * 8,
-    transform: [{ translateX: (1 - textSlide.value) * -15 }],
   }));
 
   return (
@@ -98,14 +87,14 @@ function TabItem({
           <Feather
             name={config.icon}
             size={22}
-            color={isFocused ? "#FFFFFF" : ICON_COLOR}
+            color={isFocused ? "#FFFFFF" : INACTIVE_COLOR}
           />
         </Animated.View>
-        <Animated.View style={[styles.textWrap, textStyle]}>
+        {isFocused ? (
           <ThemedText style={styles.label} numberOfLines={1}>
             {config.label}
           </ThemedText>
-        </Animated.View>
+        ) : null}
       </Animated.View>
     </Pressable>
   );
@@ -191,7 +180,6 @@ const styles = StyleSheet.create({
     height: 62,
   },
   tabItem: {
-    flex: 1,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -200,12 +188,10 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     paddingVertical: 10,
-    paddingHorizontal: 12,
+    paddingHorizontal: 16,
     borderRadius: 25,
     minHeight: 44,
-  },
-  textWrap: {
-    overflow: "hidden",
+    gap: 8,
   },
   label: {
     fontSize: 13,
