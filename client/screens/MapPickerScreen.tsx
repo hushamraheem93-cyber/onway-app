@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { StyleSheet, View, Pressable, ActivityIndicator, Platform } from "react-native";
+import { StyleSheet, View, Pressable, ActivityIndicator, Platform, TextInput } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { Feather } from "@expo/vector-icons";
@@ -240,9 +240,16 @@ export default function MapPickerScreen() {
             {loadingAddress ? (
               <ActivityIndicator size="small" color={AppColors.wayYellow} />
             ) : (
-              <ThemedText type="body" numberOfLines={2} style={styles.addressValue}>
-                {addressText || "انقر على الخريطة لتحديد موقعك"}
-              </ThemedText>
+              <TextInput
+                value={addressText}
+                onChangeText={setAddressText}
+                placeholder="اكتب عنوانك هنا (مثال: قرب أسوق دزني)"
+                placeholderTextColor="#999"
+                style={styles.addressInput}
+                textAlign="right"
+                multiline
+                numberOfLines={2}
+              />
             )}
           </View>
         </View>
