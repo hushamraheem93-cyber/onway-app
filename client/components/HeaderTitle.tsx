@@ -118,7 +118,7 @@ const styles = StyleSheet.create({
   menuLine: {
     width: 22,
     height: 2.5,
-    backgroundColor: "#2C3E50",
+    backgroundColor: "#F37335",
     borderRadius: 2,
   },
   menuLineShort: {
