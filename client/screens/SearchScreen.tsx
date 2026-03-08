@@ -118,7 +118,7 @@ export default function SearchScreen() {
             keyExtractor={(item) => item.id}
             numColumns={3}
             columnWrapperStyle={styles.chipRow}
-            contentContainerStyle={{ paddingBottom: tabBarHeight + Spacing.xl }}
+            contentContainerStyle={{ paddingBottom: tabBarHeight }}
             showsVerticalScrollIndicator={false}
           />
         </View>
@@ -134,7 +134,7 @@ export default function SearchScreen() {
           data={filteredProducts}
           renderItem={renderProduct}
           keyExtractor={(item) => item.id}
-          contentContainerStyle={{ paddingBottom: tabBarHeight + Spacing.xl }}
+          contentContainerStyle={{ paddingBottom: tabBarHeight }}
           showsVerticalScrollIndicator={false}
         />
       )}

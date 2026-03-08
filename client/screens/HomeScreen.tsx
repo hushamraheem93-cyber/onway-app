@@ -381,7 +381,7 @@ export default function HomeScreen() {
       style={{ flex: 1, backgroundColor: theme.backgroundRoot }}
       contentContainerStyle={{
         paddingTop: Math.max(headerHeight, insets.top + 44) + Spacing.xl,
-        paddingBottom: tabBarHeight + Spacing.xl,
+        paddingBottom: tabBarHeight,
         paddingHorizontal: HORIZONTAL_PADDING,
       }}
       scrollIndicatorInsets={{ bottom: insets.bottom }}

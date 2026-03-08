@@ -110,8 +110,7 @@ export function CustomTabBar({ state, descriptors, navigation }: BottomTabBarPro
         styles.container,
         {
           backgroundColor: isDark ? theme.backgroundDefault : "#FFFFFF",
-          paddingBottom: Math.max(insets.bottom, 8),
-          borderTopColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.04)",
+          paddingBottom: Math.max(insets.bottom, 4),
         },
       ]}
     >
@@ -154,21 +153,20 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
+    borderTopWidth: 0,
+    backgroundColor: "#FFFFFF",
     ...Platform.select({
       ios: {
         shadowColor: "#000",
-        shadowOffset: { width: 0, height: -4 },
-        shadowOpacity: 0.1,
-        shadowRadius: 16,
+        shadowOffset: { width: 0, height: -2 },
+        shadowOpacity: 0.05,
+        shadowRadius: 8,
       },
       android: {
-        elevation: 20,
+        elevation: 8,
       },
       default: {
-        boxShadow: "0 -4px 16px rgba(0,0,0,0.1)",
+        boxShadow: "0 -2px 8px rgba(0,0,0,0.05)",
       },
     }),
   },

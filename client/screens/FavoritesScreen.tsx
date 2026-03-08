@@ -27,7 +27,7 @@ export default function FavoritesScreen() {
       style={{ flex: 1, backgroundColor: theme.backgroundRoot }}
       contentContainerStyle={{
         paddingTop: headerHeight + Spacing.lg,
-        paddingBottom: tabBarHeight + Spacing.xl,
+        paddingBottom: tabBarHeight,
         paddingHorizontal: DesignSystem.screenPadding,
         flexGrow: 1,
       }}
