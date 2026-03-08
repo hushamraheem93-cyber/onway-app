@@ -1847,6 +1847,78 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/reverse-geocode", async (req: Request, res: Response) => {
+    try {
+      const lat = parseFloat(req.query.lat as string);
+      const lng = parseFloat(req.query.lng as string);
+      if (isNaN(lat) || isNaN(lng)) {
+        return res.status(400).json({ error: "Invalid coordinates" });
+      }
+
+      const nominatimPromise = fetch(
+        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&accept-language=ar&zoom=18&addressdetails=1`,
+        { headers: { "User-Agent": "OnwayApp/1.0" } }
+      ).then(r => r.json()).catch(() => null);
+
+      const overpassQuery = `[out:json][timeout:10];(way["highway"]["name"](around:500,${lat},${lng});node["name"]["amenity"](around:300,${lat},${lng});node["name"]["shop"](around:300,${lat},${lng});node["name"]["tourism"](around:300,${lat},${lng}););out tags 5;`;
+      const overpassPromise = fetch("https://overpass-api.de/api/interpreter", {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: `data=${encodeURIComponent(overpassQuery)}`,
+      }).then(async r => {
+        const text = await r.text();
+        try { return JSON.parse(text); } catch { return null; }
+      }).catch(() => null);
+
+      const [nominatimData, overpassData] = await Promise.all([
+        nominatimPromise,
+        overpassPromise,
+      ]);
+
+      const addr = nominatimData?.address || {};
+      const town = addr.village || addr.town || addr.hamlet || addr.city || null;
+      const district = addr.district || addr.county || null;
+      const nominatimRoad = addr.road || addr.pedestrian || addr.neighbourhood || addr.quarter || null;
+
+      let overpassRoad: string | null = null;
+      let overpassPOI: string | null = null;
+      if (overpassData?.elements) {
+        for (const el of overpassData.elements) {
+          if (el.type === "way" && el.tags?.highway && el.tags?.name && !overpassRoad) {
+            overpassRoad = el.tags.name;
+          }
+          if (el.type === "node" && el.tags?.name && !overpassPOI) {
+            overpassPOI = el.tags.name;
+          }
+        }
+      }
+
+      const parts: string[] = [];
+
+      if (overpassPOI) parts.push(overpassPOI);
+
+      const roadName = nominatimRoad || overpassRoad;
+      if (roadName) parts.push(roadName);
+
+      if (town) parts.push(town);
+
+      if (parts.length === 0 && district) parts.push(district);
+
+      if (parts.length === 0) {
+        return res.json({ address: `${lat.toFixed(5)}, ${lng.toFixed(5)}` });
+      }
+
+      const unique = [...new Set(parts)];
+      const address = unique.slice(0, 3).join("، ");
+
+      console.log(`Geocode ${lat},${lng} => ${address}`);
+      res.json({ address });
+    } catch (error: any) {
+      console.error("Geocode error:", error.message);
+      res.json({ address: `${lat}, ${lng}` });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
