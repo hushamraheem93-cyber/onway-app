@@ -7,16 +7,18 @@ import * as Haptics from "expo-haptics";
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
+  withSpring,
   withTiming,
+  withSequence,
+  withDelay,
   Easing,
+  interpolateColor,
 } from "react-native-reanimated";
 
 import { ThemedText } from "@/components/ThemedText";
 import { useTheme } from "@/hooks/useTheme";
 
-const ACTIVE_BG = "#F37335";
 const ICON_COLOR = "#F37335";
-const INACTIVE_COLOR = "#999999";
 
 interface TabConfig {
   name: string;
@@ -32,9 +34,10 @@ const TABS: TabConfig[] = [
   { name: "ProfileTab", icon: "user", label: "الحساب", initialScreen: "Profile" },
 ];
 
-const ANIM_CONFIG = {
-  duration: 400,
-  easing: Easing.bezier(0.25, 0.1, 0.25, 1),
+const SPRING_CONFIG = {
+  damping: 15,
+  stiffness: 150,
+  mass: 0.8,
 };
 
 function TabItem({
@@ -46,39 +49,52 @@ function TabItem({
   isFocused: boolean;
   onPress: () => void;
 }) {
-  const pillWidth = useSharedValue(isFocused ? 1 : 0);
-  const textOpacity = useSharedValue(isFocused ? 1 : 0);
-  const iconScale = useSharedValue(isFocused ? 1 : 0.9);
+  const progress = useSharedValue(isFocused ? 1 : 0);
+  const iconBounce = useSharedValue(1);
+  const textSlide = useSharedValue(isFocused ? 1 : 0);
 
   useEffect(() => {
-    pillWidth.value = withTiming(isFocused ? 1 : 0, ANIM_CONFIG);
-    textOpacity.value = withTiming(isFocused ? 1 : 0, {
-      duration: isFocused ? 350 : 150,
-      easing: Easing.ease,
-    });
-    iconScale.value = withTiming(isFocused ? 1 : 0.9, { duration: 300 });
+    if (isFocused) {
+      progress.value = withSpring(1, SPRING_CONFIG);
+      iconBounce.value = withSequence(
+        withTiming(1.25, { duration: 150 }),
+        withSpring(1, { damping: 10, stiffness: 200 })
+      );
+      textSlide.value = withDelay(100, withSpring(1, { damping: 14, stiffness: 120 }));
+    } else {
+      textSlide.value = withTiming(0, { duration: 150, easing: Easing.ease });
+      progress.value = withTiming(0, { duration: 250, easing: Easing.ease });
+      iconBounce.value = withSpring(1, { damping: 12 });
+    }
   }, [isFocused]);
 
-  const pillStyle = useAnimatedStyle(() => ({
-    backgroundColor: `rgba(243,115,53,${pillWidth.value})`,
-    paddingHorizontal: pillWidth.value * 16 + 10,
-    borderRadius: 25,
+  const pillStyle = useAnimatedStyle(() => {
+    const bg = interpolateColor(
+      progress.value,
+      [0, 1],
+      ["rgba(243,115,53,0)", "rgba(243,115,53,1)"]
+    );
+    return {
+      backgroundColor: bg,
+      paddingHorizontal: 12 + progress.value * 10,
+    };
+  });
+
+  const iconStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: iconBounce.value }],
   }));
 
   const textStyle = useAnimatedStyle(() => ({
-    opacity: textOpacity.value,
-    maxWidth: textOpacity.value * 80,
-    marginRight: textOpacity.value * 8,
-  }));
-
-  const iconAnimStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: iconScale.value }],
+    opacity: textSlide.value,
+    maxWidth: textSlide.value * 80,
+    marginRight: textSlide.value * 8,
+    transform: [{ translateX: (1 - textSlide.value) * -15 }],
   }));
 
   return (
     <Pressable onPress={onPress} style={styles.tabItem} testID={`tab-${config.name}`}>
       <Animated.View style={[styles.pill, pillStyle]}>
-        <Animated.View style={iconAnimStyle}>
+        <Animated.View style={iconStyle}>
           <Feather
             name={config.icon}
             size={22}
@@ -86,7 +102,7 @@ function TabItem({
           />
         </Animated.View>
         <Animated.View style={[styles.textWrap, textStyle]}>
-          <ThemedText style={[styles.label, { color: "#FFFFFF" }]} numberOfLines={1}>
+          <ThemedText style={styles.label} numberOfLines={1}>
             {config.label}
           </ThemedText>
         </Animated.View>
@@ -170,21 +186,22 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-evenly",
-    paddingHorizontal: 12,
+    justifyContent: "center",
+    paddingHorizontal: 16,
     height: 62,
+    gap: 6,
   },
   tabItem: {
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: 6,
   },
   pill: {
     flexDirection: "row-reverse",
     alignItems: "center",
     justifyContent: "center",
     paddingVertical: 10,
-    paddingHorizontal: 10,
+    paddingHorizontal: 12,
+    borderRadius: 25,
     minHeight: 44,
   },
   textWrap: {
@@ -194,5 +211,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontFamily: "Cairo_700Bold",
     fontWeight: "700",
+    color: "#FFFFFF",
   },
 });
