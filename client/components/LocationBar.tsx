@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { StyleSheet, View, Pressable } from "react-native";
+import { StyleSheet, View, Pressable, Platform } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -71,49 +71,71 @@ export function LocationBar() {
       : "حدد موقعك على الخريطة";
 
   return (
-    <Pressable
-      style={[
-        styles.container,
-        {
-          backgroundColor: isDark ? theme.backgroundDefault : "#F5F5F5",
-          borderColor: isDark ? theme.border : "#EEE",
-        },
-      ]}
-      onPress={handlePress}
-    >
-      <View style={styles.locationIcon}>
-        <Feather name="map-pin" size={20} color={AppColors.wayYellow} />
-      </View>
-      <View style={styles.textContainer}>
-        <ThemedText type="small" style={[styles.label, { color: theme.textSecondary }]}>
-          التوصيل إلى
-        </ThemedText>
-        <ThemedText type="body" numberOfLines={1} style={styles.address}>
-          {displayAddress}
-        </ThemedText>
-      </View>
-      <Feather name="chevron-down" size={18} color={AppColors.onGrey} />
-    </Pressable>
+    <View style={styles.outerWrapper}>
+      <Pressable
+        style={[
+          styles.container,
+          {
+            backgroundColor: isDark ? theme.backgroundDefault : "#FFFFFF",
+            borderColor: isDark ? theme.border : "#F0F0F0",
+          },
+        ]}
+        onPress={handlePress}
+        testID="button-location-bar"
+      >
+        <View style={styles.locationIcon}>
+          <Feather name="map-pin" size={18} color={AppColors.wayYellow} />
+        </View>
+        <View style={styles.textContainer}>
+          <ThemedText type="small" style={styles.label}>
+            التوصيل إلى
+          </ThemedText>
+          <ThemedText type="body" numberOfLines={1} style={styles.address}>
+            {displayAddress}
+          </ThemedText>
+        </View>
+        <View style={styles.editIcon}>
+          <Feather name="edit-2" size={14} color="#F37335" />
+        </View>
+      </Pressable>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  outerWrapper: {
+    marginHorizontal: 16,
+    marginVertical: 10,
+    borderRadius: 18,
+    ...Platform.select({
+      ios: {
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.08,
+        shadowRadius: 12,
+      },
+      android: {
+        elevation: 4,
+      },
+      web: {
+        boxShadow: "0 4px 12px rgba(0,0,0,0.08)",
+      },
+    }),
+  },
   container: {
     flexDirection: "row-reverse",
     alignItems: "center",
-    borderRadius: 12,
-    paddingHorizontal: 15,
-    marginHorizontal: 15,
-    marginVertical: 10,
-    height: 55,
+    borderRadius: 18,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
     borderWidth: 1,
-    gap: 10,
+    gap: 12,
   },
   locationIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    backgroundColor: "#FFF2EC",
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "rgba(243,115,53,0.10)",
     alignItems: "center",
     justifyContent: "center",
   },
@@ -123,10 +145,20 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: 11,
-    marginBottom: 2,
+    color: "#6B7280",
+    marginBottom: 3,
   },
   address: {
-    fontWeight: "600",
-    fontSize: 13,
+    fontWeight: "700",
+    fontSize: 14,
+    color: "#1A1A1A",
+  },
+  editIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: "rgba(243,115,53,0.10)",
+    alignItems: "center",
+    justifyContent: "center",
   },
 });
