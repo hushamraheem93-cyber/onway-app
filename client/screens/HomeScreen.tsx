@@ -1,5 +1,5 @@
 import React, { useMemo } from "react";
-import { StyleSheet, View, FlatList, ScrollView, Dimensions, ActivityIndicator, Pressable } from "react-native";
+import { StyleSheet, View, FlatList, ScrollView, Dimensions, ActivityIndicator, Pressable, Platform } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
@@ -7,6 +7,7 @@ import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useQuery } from "@tanstack/react-query";
 import { Image } from "expo-image";
+import { LinearGradient } from "expo-linear-gradient";
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 
@@ -33,6 +34,41 @@ const GRID_GAP = 10;
 const HORIZONTAL_PADDING = 18;
 const CATEGORY_CARD_WIDTH = (SCREEN_WIDTH - 48) / 4;
 const PRODUCT_CARD_WIDTH = 150;
+const CAT_CARD_W = (SCREEN_WIDTH - HORIZONTAL_PADDING * 2 - 10) / 2;
+
+const CATEGORY_3D_IMAGES: Record<string, string> = {
+  "restaurants": "/uploads/category-3d-restaurants.png",
+  "fruits-vegetables": "/uploads/category-3d-vegetables.png",
+  "meat-poultry": "/uploads/category-3d-meat.png",
+  "dairy-eggs": "/uploads/category-3d-dairy.png",
+  "cleaning-care": "/uploads/category-3d-cleaning.png",
+  "beverages": "/uploads/category-3d-beverages.png",
+  "snacks-sweets": "/uploads/category-3d-snacks.png",
+  "tea-coffee": "/uploads/category-3d-coffee.png",
+  "baby": "/uploads/category-3d-baby.png",
+  "flowers": "/uploads/category-3d-flowers.png",
+  "delivery": "/uploads/category-3d-delivery.png",
+  "pharmacy": "/uploads/category-3d-pharmacy.png",
+  "women-bags": "/uploads/category-3d-bags.png",
+  "international-shopping": "/uploads/category-3d-international.png",
+};
+
+const CATEGORY_COLORS: Record<string, string> = {
+  "restaurants": "#FFF4E0",
+  "fruits-vegetables": "#E8F5E9",
+  "meat-poultry": "#FFEBEE",
+  "dairy-eggs": "#F3E5F5",
+  "cleaning-care": "#E3F2FD",
+  "beverages": "#E0F7FA",
+  "snacks-sweets": "#FFF9C4",
+  "tea-coffee": "#EFEBE9",
+  "baby": "#FCE4EC",
+  "flowers": "#FDF2F2",
+  "delivery": "#FFFDE7",
+  "pharmacy": "#E1F5FE",
+  "women-bags": "#FCE4EC",
+  "international-shopping": "#E8EAF6",
+};
 
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
@@ -118,9 +154,6 @@ export default function HomeScreen() {
     navigation.navigate("AllCategories");
   };
 
-  const firstRowCategories = categories.slice(0, Math.ceil(categories.length / 2));
-  const secondRowCategories = categories.slice(Math.ceil(categories.length / 2));
-
   const getImageUrl = (image: string) => {
     if (!image) return "";
     if (image.startsWith("data:image/")) return image;
@@ -128,39 +161,60 @@ export default function HomeScreen() {
     return `${getApiUrl()}${image}?v=${Date.now()}`;
   };
 
-  const renderCategorySlider = (rowCategories: Category[]) => (
-    <ScrollView
-      horizontal
-      showsHorizontalScrollIndicator={false}
-      contentContainerStyle={styles.categorySliderContent}
-      style={styles.categorySliderRow}
-    >
-      {rowCategories.map((category) => (
-        <Pressable
-          key={category.id}
-          style={styles.categoryCard}
-          onPress={() => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            handleCategoryPress(category);
-          }}
-        >
-          <View style={[styles.categoryIconContainer, { backgroundColor: category.color || "#FFF2EC" }]}>
-            <View style={styles.categoryImageWrapper}>
-              <Image
-                source={{ uri: getImageUrl(category.image) }}
-                style={styles.categoryImage}
-                contentFit="contain"
-                transition={200}
-              />
-            </View>
+  const get3DImage = (categoryId: string, fallbackImage: string) => {
+    const path = CATEGORY_3D_IMAGES[categoryId];
+    if (path) return getImageUrl(path);
+    return getImageUrl(fallbackImage);
+  };
+
+  const renderCategoryGrid = (cats: Category[]) => {
+    const rows: Category[][] = [];
+    for (let i = 0; i < cats.length; i += 2) {
+      rows.push(cats.slice(i, i + 2));
+    }
+    return (
+      <View style={styles.catGridContainer}>
+        {rows.map((row, rowIdx) => (
+          <View key={rowIdx} style={styles.catGridRow}>
+            {row.map((category) => {
+              const gradientColor = CATEGORY_COLORS[category.id] || category.color || "#FFF3E0";
+              return (
+                <Pressable
+                  key={category.id}
+                  style={styles.catCardWrapper}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    handleCategoryPress(category);
+                  }}
+                  testID={`card-home-category-${category.id}`}
+                >
+                  <LinearGradient
+                    colors={[gradientColor, "#FFFFFF"]}
+                    start={{ x: 0.5, y: 0 }}
+                    end={{ x: 0.5, y: 1 }}
+                    style={styles.catCard}
+                  >
+                    <View style={styles.catImageContainer}>
+                      <Image
+                        source={{ uri: get3DImage(category.id, category.image) }}
+                        style={styles.catImage}
+                        contentFit="contain"
+                        transition={200}
+                      />
+                    </View>
+                    <ThemedText style={styles.catName} numberOfLines={2}>
+                      {category.name}
+                    </ThemedText>
+                  </LinearGradient>
+                </Pressable>
+              );
+            })}
+            {row.length === 1 ? <View style={styles.catCardWrapper} /> : null}
           </View>
-          <ThemedText style={styles.categoryName} numberOfLines={2}>
-            {category.name}
-          </ThemedText>
-        </Pressable>
-      ))}
-    </ScrollView>
-  );
+        ))}
+      </View>
+    );
+  };
 
   const renderProductCard = (product: Product) => {
     const isFav = isFavorite(product.id);
@@ -246,10 +300,7 @@ export default function HomeScreen() {
           <ActivityIndicator size="small" color={AppColors.primary} />
         </View>
       ) : (
-        <View style={styles.categoriesContainer}>
-          {renderCategorySlider(firstRowCategories)}
-          {renderCategorySlider(secondRowCategories)}
-        </View>
+        renderCategoryGrid(categories)
       )}
 
       <View style={styles.sectionHeader}>
@@ -380,54 +431,61 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: "#FF6B35",
   },
-  categoriesContainer: {
+  catGridContainer: {
     marginBottom: Spacing.xl,
-    gap: GRID_GAP,
-    marginHorizontal: -HORIZONTAL_PADDING,
+    gap: 10,
   },
-  categorySliderRow: {
-    flexGrow: 0,
+  catGridRow: {
+    flexDirection: "row-reverse",
+    justifyContent: "space-between",
+    gap: 10,
   },
-  categorySliderContent: {
-    paddingHorizontal: HORIZONTAL_PADDING,
-    gap: GRID_GAP,
+  catCardWrapper: {
+    width: CAT_CARD_W,
+    borderRadius: 25,
+    ...Platform.select({
+      ios: {
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.08,
+        shadowRadius: 12,
+      },
+      android: {
+        elevation: 4,
+      },
+      default: {
+        boxShadow: "0 4px 12px rgba(0,0,0,0.08)",
+      },
+    }),
   },
-  categoryCard: {
-    width: 75,
-    alignItems: "center",
-    marginHorizontal: 0,
-  },
-  categoryIconContainer: {
-    width: 64,
-    height: 64,
-    borderRadius: 15,
+  catCard: {
+    width: "100%",
+    height: 160,
+    borderRadius: 25,
     justifyContent: "center",
     alignItems: "center",
-    marginBottom: 8,
     overflow: "hidden",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.12,
-    shadowRadius: 8,
-    elevation: 4,
+    paddingVertical: 14,
+    paddingHorizontal: 8,
   },
-  categoryImageWrapper: {
-    width: 58,
-    height: 58,
-    backgroundColor: "transparent",
-    overflow: "hidden",
+  catImageContainer: {
+    flex: 1,
+    width: "100%",
+    justifyContent: "center",
+    alignItems: "center",
   },
-  categoryImage: {
-    width: 58,
-    height: 58,
+  catImage: {
+    width: 90,
+    height: 90,
     backgroundColor: "transparent",
   },
-  categoryName: {
-    fontFamily: "Cairo_600SemiBold",
-    fontSize: 11,
-    color: "#2C3E50",
+  catName: {
+    fontFamily: "Cairo_700Bold",
+    fontSize: 13,
+    fontWeight: "700",
+    color: "#333333",
     textAlign: "center",
-    lineHeight: 16,
+    marginTop: 6,
   },
   loadingContainer: {
     paddingVertical: Spacing.xl,
