@@ -56,10 +56,10 @@ export function HeaderTitle({ title }: HeaderTitleProps) {
 
         <View style={styles.centerSection}>
           <View style={styles.logoBlock}>
+            <MaterialCommunityIcons name="motorbike" size={30} color="#F37335" style={styles.motorbike} />
             <Text style={styles.logoText}>
               <Text style={styles.logoName}>OnWay</Text>
             </Text>
-            <MaterialCommunityIcons name="motorbike" size={30} color="#F37335" style={styles.motorbike} />
           </View>
         </View>
 
@@ -130,7 +130,6 @@ const styles = StyleSheet.create({
     gap: 1,
   },
   motorbike: {
-    transform: [{ scaleX: -1 }],
     marginTop: -2,
   },
   logoText: {
