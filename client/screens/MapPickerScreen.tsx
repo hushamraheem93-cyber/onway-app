@@ -10,7 +10,7 @@ import { ThemedText } from "@/components/ThemedText";
 import { useTheme } from "@/hooks/useTheme";
 import { useLocation } from "@/context/LocationContext";
 import { AppColors } from "@/constants/theme";
-import { reverseGeocodeArabic, DHULUIYAH_CENTER, DEFAULT_DISTRICT } from "@/lib/geocoding";
+import { reverseGeocodeDetailed, DHULUIYAH_CENTER, DEFAULT_DISTRICT } from "@/lib/geocoding";
 
 function getLeafletHTML(lat: number, lng: number) {
   return `
@@ -59,6 +59,15 @@ function getLeafletHTML(lat: number, lng: number) {
       0% { transform: scale(0.5); opacity: 1; }
       100% { transform: scale(1.4); opacity: 0; }
     }
+    .pin-tooltip {
+      background: #FF7622 !important; color: #fff !important;
+      border: none !important; border-radius: 10px !important;
+      padding: 6px 14px !important; font-size: 13px !important;
+      font-weight: 700 !important; box-shadow: 0 3px 12px rgba(255,118,34,0.35) !important;
+      white-space: nowrap !important; direction: rtl !important;
+      font-family: 'Segoe UI', Tahoma, sans-serif !important;
+    }
+    .pin-tooltip::before { border-top-color: #FF7622 !important; }
   </style>
 </head>
 <body>
@@ -89,17 +98,30 @@ function getLeafletHTML(lat: number, lng: number) {
 
     var marker = L.marker([${lat}, ${lng}], { draggable: true, icon: markerIcon }).addTo(map);
 
+    var tooltip = null;
+    function showTooltip(text) {
+      if (!text) { if (tooltip) { marker.unbindTooltip(); tooltip = null; } return; }
+      if (tooltip) marker.unbindTooltip();
+      marker.bindTooltip(text, {
+        permanent: true, direction: 'top', offset: [0, -45],
+        className: 'pin-tooltip'
+      }).openTooltip();
+      tooltip = true;
+    }
+
     function sendLocation(lat, lng) {
       window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'location', lat: lat, lng: lng }));
     }
 
     marker.on('dragend', function(e) {
       var pos = e.target.getLatLng();
+      showTooltip(null);
       sendLocation(pos.lat, pos.lng);
     });
 
     map.on('click', function(e) {
       marker.setLatLng(e.latlng);
+      showTooltip(null);
       sendLocation(e.latlng.lat, e.latlng.lng);
     });
 
@@ -114,6 +136,8 @@ function getLeafletHTML(lat: number, lng: number) {
         var data = JSON.parse(e.data);
         if (data.type === 'moveTo') {
           moveToLocation(data.lat, data.lng);
+        } else if (data.type === 'showLabel') {
+          showTooltip(data.text);
         }
       } catch(err) {}
     });
@@ -123,6 +147,8 @@ function getLeafletHTML(lat: number, lng: number) {
         var data = JSON.parse(e.data);
         if (data.type === 'moveTo') {
           moveToLocation(data.lat, data.lng);
+        } else if (data.type === 'showLabel') {
+          showTooltip(data.text);
         }
       } catch(err) {}
     });
@@ -145,6 +171,7 @@ export default function MapPickerScreen() {
 
   const [selectedCoord, setSelectedCoord] = useState({ latitude: initialLat, longitude: initialLng });
   const [addressText, setAddressText] = useState(savedLocation?.address || "");
+  const [placeNameText, setPlaceNameText] = useState("");
   const [loadingAddress, setLoadingAddress] = useState(false);
 
   useEffect(() => {
@@ -157,8 +184,15 @@ export default function MapPickerScreen() {
 
   const fetchAddress = async (lat: number, lng: number) => {
     setLoadingAddress(true);
-    const addr = await reverseGeocodeArabic(lat, lng);
-    setAddressText(addr);
+    const result = await reverseGeocodeDetailed(lat, lng);
+    setAddressText(result.address);
+    setPlaceNameText(result.placeName || "");
+    if (result.placeName && webViewRef.current) {
+      webViewRef.current.postMessage(JSON.stringify({
+        type: "showLabel",
+        text: result.placeName,
+      }));
+    }
     setLoadingAddress(false);
   };
 
@@ -231,6 +265,15 @@ export default function MapPickerScreen() {
       </Pressable>
 
       <View style={[styles.bottomSheet, { paddingBottom: insets.bottom + 16 }]}>
+        {placeNameText ? (
+          <View style={styles.placeNameRow}>
+            <View style={styles.placeNameBadge}>
+              <Feather name="navigation" size={14} color="#FFF" />
+            </View>
+            <ThemedText type="body" style={styles.placeNameValue}>{placeNameText}</ThemedText>
+          </View>
+        ) : null}
+
         <View style={styles.addressRow}>
           <View style={styles.addressIcon}>
             <Feather name="map-pin" size={20} color={AppColors.wayYellow} />
@@ -307,6 +350,33 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 10,
     elevation: 10,
+  },
+  placeNameRow: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    marginBottom: 12,
+    gap: 10,
+    backgroundColor: "#FFF7F2",
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderWidth: 1,
+    borderColor: "#FFE0CC",
+  },
+  placeNameBadge: {
+    width: 28,
+    height: 28,
+    borderRadius: 8,
+    backgroundColor: AppColors.wayYellow,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  placeNameValue: {
+    flex: 1,
+    fontWeight: "700",
+    fontSize: 15,
+    color: "#333",
+    textAlign: "right",
   },
   addressRow: {
     flexDirection: "row-reverse",

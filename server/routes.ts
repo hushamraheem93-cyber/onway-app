@@ -1860,36 +1860,52 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.json({ address: `${lat.toFixed(5)}, ${lng.toFixed(5)}` });
       }
 
-      const googleUrl = `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&language=ar&key=${googleApiKey}`;
-      const googleRes = await fetch(googleUrl);
-      const googleData = await googleRes.json();
+      function cleanAddr(raw: string): string {
+        return raw
+          .replace(/،\s*العراق\s*$/g, "")
+          .replace(/,\s*العراق\s*$/g, "")
+          .replace(/\b\w{2,6}\+\w+[،,]?\s*/g, "")
+          .replace(/^\s*[،,]\s*/, "")
+          .trim();
+      }
 
-      if (googleData.status === "OK" && googleData.results && googleData.results.length > 0) {
-        function cleanAddr(raw: string): string {
-          return raw
-            .replace(/،\s*العراق\s*$/g, "")
-            .replace(/,\s*العراق\s*$/g, "")
-            .replace(/\b\w{2,6}\+\w+[،,]?\s*/g, "")
-            .replace(/^\s*[،,]\s*/, "")
-            .trim();
+      function isUseful(addr: string): boolean {
+        if (!addr) return false;
+        if (addr.includes("طريق بدون اسم") || addr.includes("Unnamed Road")) return false;
+        return true;
+      }
+
+      const geocodeUrl = `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&language=ar&key=${googleApiKey}`;
+      const placesUrl = `https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=${lat},${lng}&radius=100&language=ar&key=${googleApiKey}`;
+
+      const [geocodeRes, placesRes] = await Promise.all([
+        fetch(geocodeUrl).then(r => r.json()).catch(() => null),
+        fetch(placesUrl).then(r => r.json()).catch(() => null),
+      ]);
+
+      let placeName = "";
+      if (placesRes?.status === "OK" && placesRes.results) {
+        const arabicRegex = /[\u0600-\u06FF]/;
+        for (const place of placesRes.results) {
+          const types: string[] = place.types || [];
+          if (types.includes("locality") || types.includes("political") || types.includes("administrative_area_level_2")) continue;
+          if (place.name && place.name.length > 1 && arabicRegex.test(place.name)) {
+            placeName = place.name;
+            break;
+          }
         }
+      }
 
-        function isUseful(addr: string): boolean {
-          if (!addr) return false;
-          if (addr.includes("طريق بدون اسم") || addr.includes("Unnamed Road")) return false;
-          return true;
-        }
-
+      let bestAddress = "";
+      if (geocodeRes?.status === "OK" && geocodeRes.results && geocodeRes.results.length > 0) {
         const priorityTypes = [
           ["neighborhood", "sublocality", "sublocality_level_1"],
           ["route", "street_address", "premise"],
           ["locality"],
         ];
 
-        let bestAddress = "";
-
         for (const typeGroup of priorityTypes) {
-          for (const result of googleData.results) {
+          for (const result of geocodeRes.results) {
             const types: string[] = result.types || [];
             if (typeGroup.some(t => types.includes(t))) {
               const cleaned = cleanAddr(result.formatted_address || "");
@@ -1903,7 +1919,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
 
         if (!bestAddress) {
-          for (const result of googleData.results) {
+          for (const result of geocodeRes.results) {
             const types: string[] = result.types || [];
             if (!types.includes("plus_code") && !types.includes("country") && !types.includes("administrative_area_level_1")) {
               const cleaned = cleanAddr(result.formatted_address || "");
@@ -1915,14 +1931,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
         }
 
-        if (!bestAddress && googleData.results.length > 0) {
-          bestAddress = cleanAddr(googleData.results[0].formatted_address);
+        if (!bestAddress && geocodeRes.results.length > 0) {
+          bestAddress = cleanAddr(geocodeRes.results[0].formatted_address);
         }
+      }
 
-        if (bestAddress) {
-          console.log(`Geocode ${lat},${lng} => ${bestAddress}`);
-          return res.json({ address: bestAddress });
-        }
+      if (placeName || bestAddress) {
+        const finalAddress = placeName
+          ? (bestAddress ? `${placeName}، ${bestAddress}` : placeName)
+          : bestAddress;
+        console.log(`Geocode ${lat},${lng} => ${finalAddress}`);
+        return res.json({ address: finalAddress, placeName: placeName || null });
       }
 
       res.json({ address: `${lat.toFixed(5)}, ${lng.toFixed(5)}` });

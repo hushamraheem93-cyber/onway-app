@@ -1,17 +1,30 @@
 import { getApiUrl } from "@/lib/query-client";
 
+export interface GeocodeResult {
+  address: string;
+  placeName: string | null;
+}
+
 export async function reverseGeocodeArabic(lat: number, lng: number): Promise<string> {
+  const result = await reverseGeocodeDetailed(lat, lng);
+  return result.address;
+}
+
+export async function reverseGeocodeDetailed(lat: number, lng: number): Promise<GeocodeResult> {
   try {
     const apiUrl = getApiUrl();
     const url = new URL(`/api/reverse-geocode?lat=${lat}&lng=${lng}`, apiUrl).toString();
     const res = await fetch(url);
     const data = await res.json();
-    if (data.address) {
-      return data.address;
-    }
-    return `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+    return {
+      address: data.address || `${lat.toFixed(5)}, ${lng.toFixed(5)}`,
+      placeName: data.placeName || null,
+    };
   } catch {
-    return `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+    return {
+      address: `${lat.toFixed(5)}, ${lng.toFixed(5)}`,
+      placeName: null,
+    };
   }
 }
 
