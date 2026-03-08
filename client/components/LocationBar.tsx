@@ -106,7 +106,7 @@ const styles = StyleSheet.create({
   outerWrapper: {
     marginHorizontal: 16,
     marginVertical: 10,
-    borderRadius: 18,
+    borderRadius: 20,
     ...Platform.select({
       ios: {
         shadowColor: "#000",
@@ -125,16 +125,16 @@ const styles = StyleSheet.create({
   container: {
     flexDirection: "row-reverse",
     alignItems: "center",
-    borderRadius: 18,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
+    borderRadius: 20,
+    paddingHorizontal: 18,
+    paddingVertical: 16,
     borderWidth: 1,
-    gap: 12,
+    gap: 14,
   },
   locationIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     backgroundColor: "rgba(243,115,53,0.10)",
     alignItems: "center",
     justifyContent: "center",
@@ -144,14 +144,15 @@ const styles = StyleSheet.create({
     alignItems: "flex-end",
   },
   label: {
-    fontSize: 11,
-    color: "#6B7280",
-    marginBottom: 3,
+    fontSize: 12,
+    color: "#555555",
+    marginBottom: 4,
+    fontWeight: "500",
   },
   address: {
-    fontWeight: "700",
-    fontSize: 14,
-    color: "#1A1A1A",
+    fontWeight: "800",
+    fontSize: 15,
+    color: "#111111",
   },
   editIcon: {
     width: 32,
