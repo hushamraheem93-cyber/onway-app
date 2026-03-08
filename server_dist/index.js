@@ -2384,59 +2384,65 @@ async function registerRoutes(app2) {
       if (isNaN(lat2) || isNaN(lng2)) {
         return res.status(400).json({ error: "Invalid coordinates" });
       }
-      const nominatimPromise = fetch(
-        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat2}&lon=${lng2}&accept-language=ar&zoom=18&addressdetails=1`,
-        { headers: { "User-Agent": "OnwayApp/1.0" } }
-      ).then((r) => r.json()).catch(() => null);
-      const overpassQuery = `[out:json][timeout:10];(way["highway"]["name"](around:500,${lat2},${lng2});node["name"]["amenity"](around:300,${lat2},${lng2});node["name"]["shop"](around:300,${lat2},${lng2});node["name"]["tourism"](around:300,${lat2},${lng2}););out tags 5;`;
-      const overpassPromise = fetch("https://overpass-api.de/api/interpreter", {
-        method: "POST",
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body: `data=${encodeURIComponent(overpassQuery)}`
-      }).then(async (r) => {
-        const text = await r.text();
-        try {
-          return JSON.parse(text);
-        } catch {
-          return null;
-        }
-      }).catch(() => null);
-      const [nominatimData, overpassData] = await Promise.all([
-        nominatimPromise,
-        overpassPromise
-      ]);
-      const addr = nominatimData?.address || {};
-      const town = addr.village || addr.town || addr.hamlet || addr.city || null;
-      const district = addr.district || addr.county || null;
-      const nominatimRoad = addr.road || addr.pedestrian || addr.neighbourhood || addr.quarter || null;
-      let overpassRoad = null;
-      let overpassPOI = null;
-      if (overpassData?.elements) {
-        for (const el of overpassData.elements) {
-          if (el.type === "way" && el.tags?.highway && el.tags?.name && !overpassRoad) {
-            overpassRoad = el.tags.name;
-          }
-          if (el.type === "node" && el.tags?.name && !overpassPOI) {
-            overpassPOI = el.tags.name;
-          }
-        }
-      }
-      const parts = [];
-      if (overpassPOI) parts.push(overpassPOI);
-      const roadName = nominatimRoad || overpassRoad;
-      if (roadName) parts.push(roadName);
-      if (town) parts.push(town);
-      if (parts.length === 0 && district) parts.push(district);
-      if (parts.length === 0) {
+      const googleApiKey = process.env.GOOGLE_MAPS_API_KEY;
+      if (!googleApiKey) {
         return res.json({ address: `${lat2.toFixed(5)}, ${lng2.toFixed(5)}` });
       }
-      const unique = [...new Set(parts)];
-      const address = unique.slice(0, 3).join("\u060C ");
-      console.log(`Geocode ${lat2},${lng2} => ${address}`);
-      res.json({ address });
+      const googleUrl = `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat2},${lng2}&language=ar&key=${googleApiKey}`;
+      const googleRes = await fetch(googleUrl);
+      const googleData = await googleRes.json();
+      if (googleData.status === "OK" && googleData.results && googleData.results.length > 0) {
+        let cleanAddr2 = function(raw) {
+          return raw.replace(/،\s*العراق\s*$/g, "").replace(/,\s*العراق\s*$/g, "").replace(/\b\w{2,6}\+\w+[،,]?\s*/g, "").replace(/^\s*[،,]\s*/, "").trim();
+        }, isUseful2 = function(addr) {
+          if (!addr) return false;
+          if (addr.includes("\u0637\u0631\u064A\u0642 \u0628\u062F\u0648\u0646 \u0627\u0633\u0645") || addr.includes("Unnamed Road")) return false;
+          return true;
+        };
+        var cleanAddr = cleanAddr2, isUseful = isUseful2;
+        const priorityTypes = [
+          ["neighborhood", "sublocality", "sublocality_level_1"],
+          ["route", "street_address", "premise"],
+          ["locality"]
+        ];
+        let bestAddress = "";
+        for (const typeGroup of priorityTypes) {
+          for (const result of googleData.results) {
+            const types = result.types || [];
+            if (typeGroup.some((t) => types.includes(t))) {
+              const cleaned = cleanAddr2(result.formatted_address || "");
+              if (isUseful2(cleaned)) {
+                bestAddress = cleaned;
+                break;
+              }
+            }
+          }
+          if (bestAddress) break;
+        }
+        if (!bestAddress) {
+          for (const result of googleData.results) {
+            const types = result.types || [];
+            if (!types.includes("plus_code") && !types.includes("country") && !types.includes("administrative_area_level_1")) {
+              const cleaned = cleanAddr2(result.formatted_address || "");
+              if (isUseful2(cleaned)) {
+                bestAddress = cleaned;
+                break;
+              }
+            }
+          }
+        }
+        if (!bestAddress && googleData.results.length > 0) {
+          bestAddress = cleanAddr2(googleData.results[0].formatted_address);
+        }
+        if (bestAddress) {
+          console.log(`Geocode ${lat2},${lng2} => ${bestAddress}`);
+          return res.json({ address: bestAddress });
+        }
+      }
+      res.json({ address: `${lat2.toFixed(5)}, ${lng2.toFixed(5)}` });
     } catch (error) {
       console.error("Geocode error:", error.message);
-      res.json({ address: `${lat}, ${lng}` });
+      res.json({ address: `${lat.toFixed(5)}, ${lng.toFixed(5)}` });
     }
   });
   const httpServer = createServer(app2);
