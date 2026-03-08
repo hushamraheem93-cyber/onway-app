@@ -90,11 +90,15 @@ function TabItem({
             color={isFocused ? "#FFFFFF" : INACTIVE_COLOR}
           />
         </Animated.View>
-        {isFocused ? (
-          <ThemedText style={styles.label} numberOfLines={1}>
-            {config.label}
-          </ThemedText>
-        ) : null}
+        <ThemedText
+          style={[
+            styles.label,
+            { color: isFocused ? "#FFFFFF" : INACTIVE_COLOR },
+          ]}
+          numberOfLines={1}
+        >
+          {config.label}
+        </ThemedText>
       </Animated.View>
     </Pressable>
   );
@@ -175,7 +179,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-evenly",
     paddingHorizontal: 8,
-    height: 62,
+    height: 66,
   },
   tabItem: {
     flex: 1,
@@ -183,19 +187,18 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   pill: {
-    flexDirection: "row-reverse",
+    flexDirection: "column",
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderRadius: 25,
-    minHeight: 44,
-    gap: 8,
+    paddingVertical: 6,
+    paddingHorizontal: 14,
+    borderRadius: 20,
+    minWidth: 56,
+    gap: 4,
   },
   label: {
-    fontSize: 13,
+    fontSize: 10,
     fontFamily: "Cairo_700Bold",
     fontWeight: "700",
-    color: "#FFFFFF",
   },
 });
