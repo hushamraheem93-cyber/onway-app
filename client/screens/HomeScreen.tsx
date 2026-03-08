@@ -77,7 +77,7 @@ export default function HomeScreen() {
   const { theme } = useTheme();
   const navigation = useNavigation<NavigationProp>();
 
-  const { addToCart } = useCart();
+  const { items, addToCart, updateQuantity } = useCart();
   const { isFavorite, toggleFavorite } = useFavorites();
   const { userProfile } = useAuth();
 
@@ -206,10 +206,22 @@ export default function HomeScreen() {
 
   const renderProductCard = (product: Product) => {
     const isFav = isFavorite(product.id);
+    const cartItem = items.find((item) => item.product.id === product.id);
+    const quantity = cartItem ? cartItem.quantity : 0;
     
     const handleAddToCart = () => {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       addToCart(product);
+    };
+
+    const handleIncrement = () => {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      updateQuantity(product.id, quantity + 1);
+    };
+
+    const handleDecrement = () => {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      updateQuantity(product.id, quantity - 1);
     };
 
     const handleToggleFavorite = () => {
@@ -239,7 +251,7 @@ export default function HomeScreen() {
             transition={200}
           />
           <Pressable onPress={handleToggleFavorite} style={styles.productFavoriteBtn}>
-            <Feather name={isFav ? "heart" : "heart"} size={15} color={isFav ? "#E53935" : "#BBBBBB"} />
+            <Feather name="heart" size={15} color={isFav ? "#E53935" : "#BBBBBB"} />
           </Pressable>
         </View>
         <View style={styles.productInfo}>
@@ -248,9 +260,21 @@ export default function HomeScreen() {
             <ThemedText style={styles.productPrice}>
               {formatPrice(product.price)}
             </ThemedText>
-            <Pressable onPress={handleAddToCart} style={styles.addButton}>
-              <Feather name="plus" size={16} color="#FFFFFF" />
-            </Pressable>
+            {quantity > 0 ? (
+              <View style={styles.quantityRow}>
+                <Pressable onPress={handleDecrement} style={styles.qtyBtn} testID={`btn-minus-${product.id}`}>
+                  <Feather name="minus" size={14} color="#F37335" />
+                </Pressable>
+                <ThemedText style={styles.qtyText}>{quantity}</ThemedText>
+                <Pressable onPress={handleIncrement} style={styles.qtyBtn} testID={`btn-plus-${product.id}`}>
+                  <Feather name="plus" size={14} color="#F37335" />
+                </Pressable>
+              </View>
+            ) : (
+              <Pressable onPress={handleAddToCart} style={styles.addButton} testID={`btn-add-${product.id}`}>
+                <Feather name="plus" size={16} color="#FFFFFF" />
+              </Pressable>
+            )}
           </View>
         </View>
       </Pressable>
@@ -599,5 +623,39 @@ const styles = StyleSheet.create({
     backgroundColor: "#F37335",
     justifyContent: "center",
     alignItems: "center",
+  },
+  quantityRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#FFF3ED",
+    borderRadius: 14,
+    paddingHorizontal: 2,
+    paddingVertical: 2,
+    gap: 4,
+  },
+  qtyBtn: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: "#FFFFFF",
+    justifyContent: "center",
+    alignItems: "center",
+    ...Platform.select({
+      ios: {
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.08,
+        shadowRadius: 2,
+      },
+      android: { elevation: 1 },
+      default: { boxShadow: "0 1px 2px rgba(0,0,0,0.08)" },
+    }),
+  },
+  qtyText: {
+    fontFamily: "Cairo_700Bold",
+    fontSize: 14,
+    color: "#F37335",
+    minWidth: 18,
+    textAlign: "center",
   },
 });
