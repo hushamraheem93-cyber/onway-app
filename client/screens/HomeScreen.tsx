@@ -33,7 +33,7 @@ const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const GRID_GAP = 10;
 const HORIZONTAL_PADDING = 18;
 const CATEGORY_CARD_WIDTH = (SCREEN_WIDTH - 48) / 4;
-const PRODUCT_CARD_WIDTH = 150;
+const PRODUCT_CARD_WIDTH = 160;
 const CAT_CARD_W = (SCREEN_WIDTH - HORIZONTAL_PADDING * 2 - 10) / 2;
 
 const CATEGORY_3D_IMAGES: Record<string, string> = {
@@ -218,7 +218,14 @@ export default function HomeScreen() {
     };
 
     return (
-      <View key={product.id} style={[styles.productCard, { backgroundColor: theme.backgroundDefault }]}>
+      <Pressable
+        key={product.id}
+        style={styles.productCard}
+        onPress={() => {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        }}
+        testID={`card-product-${product.id}`}
+      >
         {product.discount ? (
           <View style={styles.discountBadge}>
             <ThemedText type="small" style={styles.discountText}>{product.discount}%</ThemedText>
@@ -232,7 +239,7 @@ export default function HomeScreen() {
             transition={200}
           />
           <Pressable onPress={handleToggleFavorite} style={styles.productFavoriteBtn}>
-            <Feather name="heart" size={16} color={isFav ? "#E53935" : "#999"} />
+            <Feather name={isFav ? "heart" : "heart"} size={15} color={isFav ? "#E53935" : "#BBBBBB"} />
           </Pressable>
         </View>
         <View style={styles.productInfo}>
@@ -242,11 +249,11 @@ export default function HomeScreen() {
               {formatPrice(product.price)}
             </ThemedText>
             <Pressable onPress={handleAddToCart} style={styles.addButton}>
-              <ThemedText style={styles.addIcon}>+</ThemedText>
+              <Feather name="plus" size={16} color="#FFFFFF" />
             </Pressable>
           </View>
         </View>
-      </View>
+      </Pressable>
     );
   };
 
@@ -509,21 +516,30 @@ const styles = StyleSheet.create({
   },
   productCard: {
     width: PRODUCT_CARD_WIDTH,
-    borderRadius: 15,
-    overflow: "visible",
+    borderRadius: 20,
+    overflow: "hidden",
     backgroundColor: "#FFFFFF",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.12,
-    shadowRadius: 8,
-    elevation: 4,
+    ...Platform.select({
+      ios: {
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.04,
+        shadowRadius: 10,
+      },
+      android: {
+        elevation: 3,
+      },
+      default: {
+        boxShadow: "0 4px 10px rgba(0,0,0,0.04)",
+      },
+    }),
   },
   productImageContainer: {
     position: "relative",
     height: 120,
-    backgroundColor: "#F7F9FC",
-    borderTopLeftRadius: 15,
-    borderTopRightRadius: 15,
+    backgroundColor: "#F5F5F5",
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
     overflow: "hidden",
   },
   productImage: {
@@ -532,11 +548,11 @@ const styles = StyleSheet.create({
   },
   productFavoriteBtn: {
     position: "absolute",
-    top: 6,
-    left: 6,
-    width: 26,
-    height: 26,
-    borderRadius: BorderRadius.full,
+    top: 8,
+    left: 8,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
     backgroundColor: "rgba(255,255,255,0.9)",
     alignItems: "center",
     justifyContent: "center",
@@ -545,10 +561,10 @@ const styles = StyleSheet.create({
     position: "absolute",
     top: 8,
     right: 8,
-    backgroundColor: "#FF6B35",
+    backgroundColor: "#F37335",
     paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
+    paddingVertical: 3,
+    borderRadius: 10,
     zIndex: 10,
   },
   discountText: {
@@ -557,14 +573,14 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
   },
   productInfo: {
-    padding: 12,
+    padding: 10,
   },
   productName: {
     fontFamily: "Cairo_600SemiBold",
     fontSize: 14,
-    color: "#2C3E50",
+    color: "#1A1A1A",
     textAlign: "right",
-    marginBottom: 8,
+    marginBottom: 5,
   },
   productFooter: {
     flexDirection: "row",
@@ -572,21 +588,16 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   productPrice: {
-    fontFamily: "Cairo_400Regular",
-    fontSize: 15,
-    color: "#555555",
+    fontFamily: "Cairo_700Bold",
+    fontSize: 14,
+    color: "#F37335",
   },
   addButton: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: "#FF6B35",
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: "#F37335",
     justifyContent: "center",
     alignItems: "center",
-  },
-  addIcon: {
-    fontSize: 18,
-    color: "#FFFFFF",
-    fontWeight: "bold",
   },
 });
