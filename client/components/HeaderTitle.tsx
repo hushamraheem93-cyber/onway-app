@@ -1,7 +1,7 @@
 import React from "react";
 import { View, StyleSheet, Pressable, Dimensions, Text } from "react-native";
 import { useNavigation } from "@react-navigation/native";
-import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
+import { Feather } from "@expo/vector-icons";
 
 import { ThemedText } from "@/components/ThemedText";
 import { Spacing, AppColors, BorderRadius } from "@/constants/theme";
@@ -56,7 +56,6 @@ export function HeaderTitle({ title }: HeaderTitleProps) {
 
         <View style={styles.centerSection}>
           <View style={styles.logoBlock}>
-            <MaterialCommunityIcons name="motorbike" size={30} color="#F37335" style={styles.motorbike} />
             <Text style={styles.logoText}>
               <Text style={styles.logoName}>OnWay</Text>
             </Text>
@@ -128,9 +127,6 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 1,
-  },
-  motorbike: {
-    marginTop: -2,
   },
   logoText: {
     flexDirection: "row",
