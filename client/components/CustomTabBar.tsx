@@ -1,15 +1,22 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { View, Pressable, StyleSheet, Platform } from "react-native";
 import { BottomTabBarProps } from "@react-navigation/bottom-tabs";
 import { Feather } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as Haptics from "expo-haptics";
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withTiming,
+  Easing,
+} from "react-native-reanimated";
 
 import { ThemedText } from "@/components/ThemedText";
 import { useTheme } from "@/hooks/useTheme";
 
-const ACTIVE_COLOR = "#F37335";
-const INACTIVE_COLOR = "#8E8E93";
+const ACTIVE_BG = "#F37335";
+const ICON_COLOR = "#F37335";
+const INACTIVE_COLOR = "#999999";
 
 interface TabConfig {
   name: string;
@@ -25,6 +32,11 @@ const TABS: TabConfig[] = [
   { name: "ProfileTab", icon: "user", label: "الحساب", initialScreen: "Profile" },
 ];
 
+const ANIM_CONFIG = {
+  duration: 400,
+  easing: Easing.bezier(0.25, 0.1, 0.25, 1),
+};
+
 function TabItem({
   config,
   isFocused,
@@ -34,27 +46,51 @@ function TabItem({
   isFocused: boolean;
   onPress: () => void;
 }) {
+  const pillWidth = useSharedValue(isFocused ? 1 : 0);
+  const textOpacity = useSharedValue(isFocused ? 1 : 0);
+  const iconScale = useSharedValue(isFocused ? 1 : 0.9);
+
+  useEffect(() => {
+    pillWidth.value = withTiming(isFocused ? 1 : 0, ANIM_CONFIG);
+    textOpacity.value = withTiming(isFocused ? 1 : 0, {
+      duration: isFocused ? 350 : 150,
+      easing: Easing.ease,
+    });
+    iconScale.value = withTiming(isFocused ? 1 : 0.9, { duration: 300 });
+  }, [isFocused]);
+
+  const pillStyle = useAnimatedStyle(() => ({
+    backgroundColor: `rgba(243,115,53,${pillWidth.value})`,
+    paddingHorizontal: pillWidth.value * 16 + 10,
+    borderRadius: 25,
+  }));
+
+  const textStyle = useAnimatedStyle(() => ({
+    opacity: textOpacity.value,
+    maxWidth: textOpacity.value * 80,
+    marginRight: textOpacity.value * 8,
+  }));
+
+  const iconAnimStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: iconScale.value }],
+  }));
+
   return (
-    <Pressable onPress={onPress} style={styles.tabItem}>
-      <View style={styles.iconWrap}>
-        <Feather
-          name={config.icon}
-          size={isFocused ? 24 : 22}
-          color={isFocused ? ACTIVE_COLOR : INACTIVE_COLOR}
-        />
-      </View>
-      {isFocused ? <View style={styles.activeDot} /> : null}
-      <ThemedText
-        style={[
-          styles.label,
-          {
-            color: isFocused ? ACTIVE_COLOR : INACTIVE_COLOR,
-            fontFamily: isFocused ? "Cairo_700Bold" : "Cairo_400Regular",
-          },
-        ]}
-      >
-        {config.label}
-      </ThemedText>
+    <Pressable onPress={onPress} style={styles.tabItem} testID={`tab-${config.name}`}>
+      <Animated.View style={[styles.pill, pillStyle]}>
+        <Animated.View style={iconAnimStyle}>
+          <Feather
+            name={config.icon}
+            size={22}
+            color={isFocused ? "#FFFFFF" : ICON_COLOR}
+          />
+        </Animated.View>
+        <Animated.View style={[styles.textWrap, textStyle]}>
+          <ThemedText style={[styles.label, { color: "#FFFFFF" }]} numberOfLines={1}>
+            {config.label}
+          </ThemedText>
+        </Animated.View>
+      </Animated.View>
     </Pressable>
   );
 }
@@ -69,7 +105,7 @@ export function CustomTabBar({ state, descriptors, navigation }: BottomTabBarPro
         styles.container,
         {
           backgroundColor: isDark ? theme.backgroundDefault : "#FFFFFF",
-          paddingBottom: Math.max(insets.bottom, 6),
+          paddingBottom: Math.max(insets.bottom, 8),
           borderTopColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.04)",
         },
       ]}
@@ -114,53 +150,49 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
     ...Platform.select({
       ios: {
         shadowColor: "#000",
-        shadowOffset: { width: 0, height: -3 },
-        shadowOpacity: 0.08,
-        shadowRadius: 12,
+        shadowOffset: { width: 0, height: -4 },
+        shadowOpacity: 0.1,
+        shadowRadius: 16,
       },
       android: {
-        elevation: 16,
+        elevation: 20,
       },
       default: {
-        boxShadow: "0 -3px 12px rgba(0,0,0,0.08)",
+        boxShadow: "0 -4px 16px rgba(0,0,0,0.1)",
       },
     }),
   },
   row: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-around",
-    paddingHorizontal: 8,
-    height: 58,
+    justifyContent: "space-evenly",
+    paddingHorizontal: 12,
+    height: 62,
   },
   tabItem: {
-    flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    gap: 3,
-    paddingTop: 6,
+    paddingVertical: 6,
   },
-  iconWrap: {
-    width: 40,
-    height: 32,
-    borderRadius: 16,
+  pill: {
+    flexDirection: "row-reverse",
     alignItems: "center",
     justifyContent: "center",
+    paddingVertical: 10,
+    paddingHorizontal: 10,
+    minHeight: 44,
   },
-  activeDot: {
-    width: 5,
-    height: 5,
-    borderRadius: 3,
-    backgroundColor: ACTIVE_COLOR,
-    marginTop: -1,
+  textWrap: {
+    overflow: "hidden",
   },
   label: {
-    fontSize: 10,
-    textAlign: "center",
+    fontSize: 13,
+    fontFamily: "Cairo_700Bold",
+    fontWeight: "700",
   },
 });
