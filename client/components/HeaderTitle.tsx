@@ -29,76 +29,84 @@ export function HeaderTitle({ title }: HeaderTitleProps) {
   };
 
   return (
-    <View style={styles.container}>
-      <View style={styles.leftSection}>
-        <Pressable style={styles.iconButton} onPress={handleNotificationsPress}>
-          <Feather name="bell" size={22} color="#2C3E50" />
-          {unreadCount > 0 ? (
-            <View style={styles.badge}>
-              <Text style={styles.badgeText}>
-                {unreadCount > 9 ? "9+" : unreadCount}
-              </Text>
-            </View>
-          ) : null}
-        </Pressable>
-        <Pressable style={styles.iconButton} onPress={handleCartPress}>
-          <Feather name="shopping-cart" size={22} color="#2C3E50" />
-          {cartCount > 0 ? (
-            <View style={styles.badge}>
-              <Text style={styles.badgeText}>
-                {cartCount > 9 ? "9+" : cartCount}
-              </Text>
-            </View>
-          ) : null}
-        </Pressable>
-      </View>
-
-      <View style={styles.centerSection}>
-        <View style={styles.logoBlock}>
-          <Text style={styles.logoText}>
-            <Text style={styles.logoName}>OnWay</Text>
-          </Text>
-          <MaterialCommunityIcons name="motorbike" size={26} color="#F37335" style={styles.motorbike} />
+    <View style={styles.wrapper}>
+      <View style={styles.container}>
+        <View style={styles.leftSection}>
+          <Pressable style={styles.iconButton} onPress={handleNotificationsPress} testID="button-notifications">
+            <Feather name="bell" size={22} color="#F37335" />
+            {unreadCount > 0 ? (
+              <View style={styles.badge}>
+                <Text style={styles.badgeText}>
+                  {unreadCount > 9 ? "9+" : unreadCount}
+                </Text>
+              </View>
+            ) : null}
+          </Pressable>
+          <Pressable style={styles.iconButton} onPress={handleCartPress} testID="button-cart">
+            <Feather name="shopping-cart" size={22} color="#F37335" />
+            {cartCount > 0 ? (
+              <View style={styles.badge}>
+                <Text style={styles.badgeText}>
+                  {cartCount > 9 ? "9+" : cartCount}
+                </Text>
+              </View>
+            ) : null}
+          </Pressable>
         </View>
-      </View>
 
-      <View style={styles.rightSection}>
-        <Pressable style={styles.menuButton} onPress={() => navigation.navigate("Main", { screen: "ProfileTab" })}>
-          <View style={styles.menuLines}>
-            <View style={styles.menuLine} />
-            <View style={[styles.menuLine, styles.menuLineShort]} />
-            <View style={styles.menuLine} />
+        <View style={styles.centerSection}>
+          <View style={styles.logoBlock}>
+            <Text style={styles.logoText}>
+              <Text style={styles.logoName}>OnWay</Text>
+            </Text>
+            <MaterialCommunityIcons name="motorbike" size={30} color="#F37335" style={styles.motorbike} />
           </View>
-        </Pressable>
+        </View>
+
+        <View style={styles.rightSection}>
+          <Pressable style={styles.menuButton} onPress={() => navigation.navigate("Main", { screen: "ProfileTab" })} testID="button-menu">
+            <View style={styles.menuLines}>
+              <View style={styles.menuLine} />
+              <View style={[styles.menuLine, styles.menuLineShort]} />
+              <View style={styles.menuLine} />
+            </View>
+          </Pressable>
+        </View>
       </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  wrapper: {
+    width: SCREEN_WIDTH - 32,
+    borderBottomWidth: 0,
+  },
   container: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    width: SCREEN_WIDTH - 32,
+    paddingHorizontal: 4,
+    paddingBottom: 6,
   },
   leftSection: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 12,
+    gap: 8,
     flex: 1,
   },
   centerSection: {
     flex: 1,
     alignItems: "center",
+    justifyContent: "center",
   },
   rightSection: {
     flex: 1,
     alignItems: "flex-end",
   },
   menuButton: {
-    width: 32,
-    height: 32,
+    width: 36,
+    height: 36,
     justifyContent: "center",
     alignItems: "center",
   },
@@ -119,10 +127,11 @@ const styles = StyleSheet.create({
   logoBlock: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 2,
+    gap: 1,
   },
   motorbike: {
     transform: [{ scaleX: -1 }],
+    marginTop: -2,
   },
   logoText: {
     flexDirection: "row",
@@ -136,8 +145,8 @@ const styles = StyleSheet.create({
     letterSpacing: -1,
   },
   iconButton: {
-    width: 40,
-    height: 40,
+    width: 38,
+    height: 38,
     justifyContent: "center",
     alignItems: "center",
     position: "relative",
