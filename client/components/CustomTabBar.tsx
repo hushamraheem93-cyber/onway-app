@@ -186,12 +186,12 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: 16,
+    justifyContent: "space-evenly",
+    paddingHorizontal: 8,
     height: 62,
-    gap: 6,
   },
   tabItem: {
+    flex: 1,
     alignItems: "center",
     justifyContent: "center",
   },
