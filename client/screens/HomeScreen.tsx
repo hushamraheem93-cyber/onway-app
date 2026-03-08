@@ -158,7 +158,7 @@ export default function HomeScreen() {
     if (!image) return "";
     if (image.startsWith("data:image/")) return image;
     if (image.startsWith("http")) return image;
-    return `${getApiUrl()}${image}?v=${Date.now()}`;
+    return `${getApiUrl()}${image}`;
   };
 
   const get3DImage = (categoryId: string, fallbackImage: string) => {

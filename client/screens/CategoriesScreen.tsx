@@ -81,7 +81,7 @@ export default function CategoriesScreen() {
     if (!image) return "";
     if (image.startsWith("data:")) return image;
     if (image.startsWith("http")) return image;
-    return `${getApiUrl()}${image}?v=${Date.now()}`;
+    return `${getApiUrl()}${image}`;
   };
 
   const get3DImage = (categoryId: string) => {
