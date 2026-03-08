@@ -15,12 +15,20 @@ import { Spacing, BorderRadius, Shadows, AppColors } from "@/constants/theme";
 import { CartItem } from "@/context/CartContext";
 import { useCart } from "@/context/CartContext";
 import { formatPrice } from "@/constants/currency";
+import { getApiUrl } from "@/lib/query-client";
 
 interface CartItemCardProps {
   item: CartItem;
 }
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+
+const getImageFullUrl = (image: string) => {
+  if (!image) return "";
+  if (image.startsWith("data:image/")) return image;
+  if (image.startsWith("http")) return image;
+  return `${getApiUrl()}${image}`;
+};
 
 export function CartItemCard({ item }: CartItemCardProps) {
   const { theme, isDark } = useTheme();
@@ -59,7 +67,7 @@ export function CartItemCard({ item }: CartItemCardProps) {
       ]}
     >
       <Image
-        source={{ uri: item.product.image }}
+        source={{ uri: getImageFullUrl(item.product.image) }}
         style={styles.image}
         contentFit="cover"
         transition={200}

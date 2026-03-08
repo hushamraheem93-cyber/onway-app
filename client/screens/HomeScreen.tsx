@@ -1,5 +1,5 @@
-import React, { useMemo } from "react";
-import { StyleSheet, View, FlatList, ScrollView, Dimensions, ActivityIndicator, Pressable, Platform } from "react-native";
+import React, { useMemo, useState, useCallback } from "react";
+import { StyleSheet, View, FlatList, ScrollView, Dimensions, ActivityIndicator, Pressable, Platform, Modal } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
@@ -80,6 +80,7 @@ export default function HomeScreen() {
   const { items, addToCart, updateQuantity } = useCart();
   const { isFavorite, toggleFavorite } = useFavorites();
   const { userProfile } = useAuth();
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
 
   const welcomeMessage = userProfile?.fullName 
     ? `أهلاً ${userProfile.fullName.split(' ')[0]}` 
@@ -235,6 +236,7 @@ export default function HomeScreen() {
         style={styles.productCard}
         onPress={() => {
           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          setSelectedProduct(product);
         }}
         testID={`card-product-${product.id}`}
       >
@@ -407,19 +409,116 @@ export default function HomeScreen() {
     </View>
   );
 
+  const renderProductModal = () => {
+    if (!selectedProduct) return null;
+    const isFav = isFavorite(selectedProduct.id);
+    const cartItem = items.find((item) => item.product.id === selectedProduct.id);
+    const qty = cartItem ? cartItem.quantity : 0;
+
+    return (
+      <Modal
+        visible={selectedProduct !== null}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setSelectedProduct(null)}
+      >
+        <Pressable style={styles.modalOverlay} onPress={() => setSelectedProduct(null)}>
+          <Pressable style={styles.modalSheet} onPress={(e) => e.stopPropagation()}>
+            <View style={styles.modalHandle} />
+            <View style={styles.modalImageContainer}>
+              <Image
+                source={{ uri: getImageUrl(selectedProduct.image) }}
+                style={styles.modalImage}
+                contentFit="contain"
+                transition={300}
+              />
+              {selectedProduct.discount ? (
+                <View style={styles.modalDiscountBadge}>
+                  <ThemedText style={styles.discountText}>{selectedProduct.discount}%</ThemedText>
+                </View>
+              ) : null}
+              <Pressable
+                style={styles.modalFavBtn}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  toggleFavorite(selectedProduct);
+                }}
+              >
+                <Feather name="heart" size={22} color={isFav ? "#E53935" : "#CCCCCC"} />
+              </Pressable>
+            </View>
+            <View style={styles.modalInfo}>
+              <ThemedText style={styles.modalName}>{selectedProduct.name}</ThemedText>
+              {selectedProduct.description ? (
+                <ThemedText style={styles.modalDesc}>{selectedProduct.description}</ThemedText>
+              ) : null}
+              <View style={styles.modalPriceRow}>
+                <ThemedText style={styles.modalPrice}>{formatPrice(selectedProduct.price)}</ThemedText>
+                {selectedProduct.originalPrice ? (
+                  <ThemedText style={styles.modalOrigPrice}>{formatPrice(selectedProduct.originalPrice)}</ThemedText>
+                ) : null}
+              </View>
+              <View style={styles.modalActions}>
+                {qty > 0 ? (
+                  <View style={styles.modalQtyRow}>
+                    <Pressable
+                      style={styles.modalQtyBtn}
+                      onPress={() => {
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                        updateQuantity(selectedProduct.id, qty - 1);
+                        if (qty === 1) setSelectedProduct(null);
+                      }}
+                    >
+                      <Feather name="minus" size={20} color="#F37335" />
+                    </Pressable>
+                    <ThemedText style={styles.modalQtyText}>{qty}</ThemedText>
+                    <Pressable
+                      style={styles.modalQtyBtn}
+                      onPress={() => {
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                        updateQuantity(selectedProduct.id, qty + 1);
+                      }}
+                    >
+                      <Feather name="plus" size={20} color="#F37335" />
+                    </Pressable>
+                  </View>
+                ) : (
+                  <Pressable
+                    style={styles.modalAddBtn}
+                    onPress={() => {
+                      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                      addToCart(selectedProduct);
+                    }}
+                    testID="btn-modal-add"
+                  >
+                    <Feather name="shopping-cart" size={18} color="#FFFFFF" />
+                    <ThemedText style={styles.modalAddText}>أضف إلى السلة</ThemedText>
+                  </Pressable>
+                )}
+              </View>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
+    );
+  };
+
   return (
-    <FlatList
-      style={{ flex: 1, backgroundColor: "#FFFFFF" }}
-      contentContainerStyle={{
-        paddingTop: Math.max(headerHeight, insets.top + 44) + Spacing.xl,
-        paddingBottom: tabBarHeight,
-        paddingHorizontal: HORIZONTAL_PADDING,
-      }}
-      scrollIndicatorInsets={{ bottom: insets.bottom }}
-      data={[{ key: "content" }]}
-      renderItem={renderContent}
-      showsVerticalScrollIndicator={false}
-    />
+    <View style={{ flex: 1, backgroundColor: "#FFFFFF" }}>
+      <FlatList
+        style={{ flex: 1 }}
+        contentContainerStyle={{
+          paddingTop: Math.max(headerHeight, insets.top + 44) + Spacing.xl,
+          paddingBottom: tabBarHeight,
+          paddingHorizontal: HORIZONTAL_PADDING,
+        }}
+        scrollIndicatorInsets={{ bottom: insets.bottom }}
+        data={[{ key: "content" }]}
+        renderItem={renderContent}
+        showsVerticalScrollIndicator={false}
+      />
+      {renderProductModal()}
+    </View>
   );
 }
 
@@ -656,6 +755,145 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#F37335",
     minWidth: 18,
+    textAlign: "center",
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.4)",
+    justifyContent: "flex-end",
+  },
+  modalSheet: {
+    backgroundColor: "#FFFFFF",
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    paddingBottom: 40,
+    maxHeight: SCREEN_WIDTH * 1.6,
+  },
+  modalHandle: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: "#DDDDDD",
+    alignSelf: "center",
+    marginTop: 12,
+    marginBottom: 8,
+  },
+  modalImageContainer: {
+    height: 220,
+    backgroundColor: "#F8F8F8",
+    alignItems: "center",
+    justifyContent: "center",
+    position: "relative",
+  },
+  modalImage: {
+    width: "80%",
+    height: "90%",
+  },
+  modalDiscountBadge: {
+    position: "absolute",
+    top: 12,
+    right: 12,
+    backgroundColor: "#F37335",
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  modalFavBtn: {
+    position: "absolute",
+    top: 12,
+    left: 12,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "rgba(255,255,255,0.9)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  modalInfo: {
+    padding: 20,
+  },
+  modalName: {
+    fontFamily: "Cairo_700Bold",
+    fontSize: 22,
+    color: "#1A1A1A",
+    textAlign: "right",
+    marginBottom: 6,
+  },
+  modalDesc: {
+    fontFamily: "Cairo_400Regular",
+    fontSize: 14,
+    color: "#777777",
+    textAlign: "right",
+    marginBottom: 12,
+  },
+  modalPriceRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "flex-start",
+    gap: 10,
+    marginBottom: 20,
+  },
+  modalPrice: {
+    fontFamily: "Cairo_700Bold",
+    fontSize: 22,
+    color: "#F37335",
+  },
+  modalOrigPrice: {
+    fontFamily: "Cairo_400Regular",
+    fontSize: 16,
+    color: "#AAAAAA",
+    textDecorationLine: "line-through",
+  },
+  modalActions: {
+    alignItems: "center",
+  },
+  modalAddBtn: {
+    flexDirection: "row",
+    backgroundColor: "#F37335",
+    borderRadius: 16,
+    height: 54,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 10,
+    width: "100%",
+  },
+  modalAddText: {
+    fontFamily: "Cairo_700Bold",
+    fontSize: 16,
+    color: "#FFFFFF",
+  },
+  modalQtyRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#FFF3ED",
+    borderRadius: 16,
+    paddingHorizontal: 6,
+    paddingVertical: 6,
+    gap: 16,
+  },
+  modalQtyBtn: {
+    width: 42,
+    height: 42,
+    borderRadius: 14,
+    backgroundColor: "#FFFFFF",
+    justifyContent: "center",
+    alignItems: "center",
+    ...Platform.select({
+      ios: {
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.1,
+        shadowRadius: 3,
+      },
+      android: { elevation: 2 },
+      default: { boxShadow: "0 1px 3px rgba(0,0,0,0.1)" },
+    }),
+  },
+  modalQtyText: {
+    fontFamily: "Cairo_700Bold",
+    fontSize: 22,
+    color: "#F37335",
+    minWidth: 30,
     textAlign: "center",
   },
 });
