@@ -130,6 +130,7 @@ let banners: Banner[] = [
   { id: "slider-2", image: "/uploads/banners/banner-2.png", title: "أشهى المأكولات العراقية", isActive: true, type: "slider", order: 2, linkType: "category", linkTarget: "restaurants" },
   { id: "slider-3", image: "/uploads/banners/banner-3.png", title: "طلباتك اليومية بضغطة زر", isActive: true, type: "slider", order: 3, linkType: "category", linkTarget: "fruits-vegetables" },
   { id: "slider-4", image: "/uploads/banners/banner-4.png", title: "عروض وخصومات حصرية", isActive: true, type: "slider", order: 4, linkType: "screen", linkTarget: "AllCategories" },
+  { id: "slider-5", image: "/uploads/banners/banner-ad-space.png", title: "مساحة إعلانية لأصحاب المطاعم والماركت", isActive: true, type: "slider", order: 5, linkType: "screen", linkTarget: "AllCategories" },
 ];
 
 const products: Product[] = [
