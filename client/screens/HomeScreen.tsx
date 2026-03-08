@@ -167,54 +167,42 @@ export default function HomeScreen() {
     return getImageUrl(fallbackImage);
   };
 
-  const renderCategoryGrid = (cats: Category[]) => {
-    const rows: Category[][] = [];
-    for (let i = 0; i < cats.length; i += 2) {
-      rows.push(cats.slice(i, i + 2));
-    }
+  const renderCategoryCard = (category: Category) => {
+    const gradientColor = CATEGORY_COLORS[category.id] || category.color || "#FFF3E0";
     return (
-      <View style={styles.catGridContainer}>
-        {rows.map((row, rowIdx) => (
-          <View key={rowIdx} style={styles.catGridRow}>
-            {row.map((category) => {
-              const gradientColor = CATEGORY_COLORS[category.id] || category.color || "#FFF3E0";
-              return (
-                <Pressable
-                  key={category.id}
-                  style={styles.catCardWrapper}
-                  onPress={() => {
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                    handleCategoryPress(category);
-                  }}
-                  testID={`card-home-category-${category.id}`}
-                >
-                  <LinearGradient
-                    colors={[gradientColor, "#FFFFFF"]}
-                    start={{ x: 0.5, y: 0 }}
-                    end={{ x: 0.5, y: 1 }}
-                    style={styles.catCard}
-                  >
-                    <View style={styles.catImageContainer}>
-                      <Image
-                        source={{ uri: get3DImage(category.id, category.image) }}
-                        style={styles.catImage}
-                        contentFit="contain"
-                        transition={200}
-                      />
-                    </View>
-                    <ThemedText style={styles.catName} numberOfLines={2}>
-                      {category.name}
-                    </ThemedText>
-                  </LinearGradient>
-                </Pressable>
-              );
-            })}
-            {row.length === 1 ? <View style={styles.catCardWrapper} /> : null}
+      <Pressable
+        key={category.id}
+        style={styles.catCardWrapper}
+        onPress={() => {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          handleCategoryPress(category);
+        }}
+        testID={`card-home-category-${category.id}`}
+      >
+        <LinearGradient
+          colors={[gradientColor, "#FFFFFF"]}
+          start={{ x: 0.5, y: 0 }}
+          end={{ x: 0.5, y: 1 }}
+          style={styles.catCard}
+        >
+          <View style={styles.catImageContainer}>
+            <Image
+              source={{ uri: get3DImage(category.id, category.image) }}
+              style={styles.catImage}
+              contentFit="contain"
+              transition={200}
+            />
           </View>
-        ))}
-      </View>
+          <ThemedText style={styles.catName} numberOfLines={2}>
+            {category.name}
+          </ThemedText>
+        </LinearGradient>
+      </Pressable>
     );
   };
+
+  const firstRowCategories = categories.slice(0, Math.ceil(categories.length / 2));
+  const secondRowCategories = categories.slice(Math.ceil(categories.length / 2));
 
   const renderProductCard = (product: Product) => {
     const isFav = isFavorite(product.id);
@@ -300,7 +288,24 @@ export default function HomeScreen() {
           <ActivityIndicator size="small" color={AppColors.primary} />
         </View>
       ) : (
-        renderCategoryGrid(categories)
+        <View style={styles.catSliderContainer}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.catSliderContent}
+            style={styles.catSliderRow}
+          >
+            {firstRowCategories.map(renderCategoryCard)}
+          </ScrollView>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.catSliderContent}
+            style={styles.catSliderRow}
+          >
+            {secondRowCategories.map(renderCategoryCard)}
+          </ScrollView>
+        </View>
       )}
 
       <View style={styles.sectionHeader}>
@@ -431,42 +436,45 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: "#FF6B35",
   },
-  catGridContainer: {
+  catSliderContainer: {
     marginBottom: Spacing.xl,
     gap: 10,
+    marginHorizontal: -HORIZONTAL_PADDING,
   },
-  catGridRow: {
-    flexDirection: "row-reverse",
-    justifyContent: "space-between",
+  catSliderRow: {
+    flexGrow: 0,
+  },
+  catSliderContent: {
+    paddingHorizontal: HORIZONTAL_PADDING,
     gap: 10,
   },
   catCardWrapper: {
-    width: CAT_CARD_W,
-    borderRadius: 25,
+    width: 130,
+    borderRadius: 20,
     ...Platform.select({
       ios: {
         shadowColor: "#000",
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.08,
-        shadowRadius: 12,
+        shadowOffset: { width: 0, height: 3 },
+        shadowOpacity: 0.07,
+        shadowRadius: 8,
       },
       android: {
-        elevation: 4,
+        elevation: 3,
       },
       default: {
-        boxShadow: "0 4px 12px rgba(0,0,0,0.08)",
+        boxShadow: "0 3px 8px rgba(0,0,0,0.07)",
       },
     }),
   },
   catCard: {
-    width: "100%",
-    height: 160,
-    borderRadius: 25,
+    width: 130,
+    height: 130,
+    borderRadius: 20,
     justifyContent: "center",
     alignItems: "center",
     overflow: "hidden",
-    paddingVertical: 14,
-    paddingHorizontal: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 6,
   },
   catImageContainer: {
     flex: 1,
@@ -475,17 +483,17 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   catImage: {
-    width: 90,
-    height: 90,
+    width: 70,
+    height: 70,
     backgroundColor: "transparent",
   },
   catName: {
     fontFamily: "Cairo_700Bold",
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: "700",
     color: "#333333",
     textAlign: "center",
-    marginTop: 6,
+    marginTop: 4,
   },
   loadingContainer: {
     paddingVertical: Spacing.xl,
