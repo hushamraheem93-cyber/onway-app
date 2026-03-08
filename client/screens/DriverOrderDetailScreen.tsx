@@ -11,11 +11,49 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
+import { WebView } from "react-native-webview";
 
 import { ThemedText } from "@/components/ThemedText";
 import { useTheme } from "@/hooks/useTheme";
 import { AppColors, Spacing, BorderRadius, Shadows } from "@/constants/theme";
 import { formatPrice } from "@/constants/currency";
+
+function getMiniMapHTML(lat: number, lng: number, label: string) {
+  return `<!DOCTYPE html>
+<html><head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+*{margin:0;padding:0;}
+html,body{width:100%;height:100%;overflow:hidden;}
+#map{width:100%;height:100%;}
+.leaflet-control-attribution,.leaflet-control-zoom{display:none!important;}
+.pin-marker{width:36px;height:36px;position:relative;}
+.pin-dot{width:36px;height:36px;border-radius:50% 50% 50% 0;background:#FF7622;transform:rotate(-45deg);position:absolute;border:3px solid #fff;box-shadow:0 3px 10px rgba(255,118,34,0.4);}
+.pin-dot::after{content:'';width:12px;height:12px;border-radius:50%;background:#fff;position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);}
+.pulse{width:50px;height:50px;border-radius:50%;background:rgba(255,118,34,0.2);position:absolute;left:-7px;top:-7px;animation:p 2s ease-out infinite;}
+@keyframes p{0%{transform:scale(0.5);opacity:1;}100%{transform:scale(1.4);opacity:0;}}
+.pin-tooltip{background:#FF7622!important;color:#fff!important;border:none!important;border-radius:8px!important;padding:4px 10px!important;font-size:12px!important;font-weight:700!important;box-shadow:0 2px 8px rgba(255,118,34,0.3)!important;direction:rtl!important;white-space:nowrap!important;}
+.pin-tooltip::before{border-top-color:#FF7622!important;}
+.open-btn{position:absolute;bottom:10px;left:50%;transform:translateX(-50%);background:#FF7622;color:#fff;border:none;border-radius:20px;padding:8px 20px;font-size:13px;font-weight:700;box-shadow:0 3px 12px rgba(255,118,34,0.4);cursor:pointer;z-index:1000;display:flex;align-items:center;gap:6px;direction:rtl;font-family:'Segoe UI',Tahoma,sans-serif;}
+</style>
+</head><body>
+<div id="map"></div>
+<button class="open-btn" onclick="window.ReactNativeWebView.postMessage('openMaps')">
+<svg width="16" height="16" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+افتح بالخرائط
+</button>
+<script>
+var map=L.map('map',{center:[${lat},${lng}],zoom:16,zoomControl:false,attributionControl:false,dragging:false,scrollWheelZoom:false,doubleClickZoom:false,touchZoom:false});
+L.tileLayer('https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}&hl=ar',{maxZoom:20}).addTo(map);
+var icon=L.divIcon({className:'pin-marker',html:'<div class="pulse"></div><div class="pin-dot"></div>',iconSize:[36,36],iconAnchor:[18,36]});
+var mk=L.marker([${lat},${lng}],{icon:icon}).addTo(map);
+${label ? `mk.bindTooltip("${label.replace(/"/g, '\\"')}",{permanent:true,direction:'top',offset:[0,-40],className:'pin-tooltip'}).openTooltip();` : ''}
+</script>
+</body></html>`;
+}
 
 interface OrderItem {
   id: string;
@@ -68,6 +106,24 @@ export default function DriverOrderDetailScreen() {
     Linking.openURL(phoneUrl).catch(() => {
       Linking.openURL(`tel:${order.customerPhone}`).catch(console.error);
     });
+  };
+
+  const openInMaps = () => {
+    if (!order.latitude || !order.longitude) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    const lat = order.latitude;
+    const lng = order.longitude;
+    const label = encodeURIComponent(order.customerName || "موقع الزبون");
+    const url = Platform.select({
+      ios: `maps:0,0?q=${label}@${lat},${lng}`,
+      android: `geo:0,0?q=${lat},${lng}(${label})`,
+      default: `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`,
+    });
+    if (url) {
+      Linking.openURL(url).catch(() => {
+        Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${lat},${lng}`).catch(console.error);
+      });
+    }
   };
 
   const statusLabel: Record<string, string> = {
@@ -139,43 +195,54 @@ export default function DriverOrderDetailScreen() {
             <ThemedText type="small" style={{ color: theme.textSecondary }}>العنوان</ThemedText>
           </View>
 
-          <View style={styles.actionButtonsRow}>
-            <Pressable
-              style={styles.callButton}
-              onPress={handleCallCustomer}
-              testID="button-call-customer"
-            >
-              <Feather name="phone" size={20} color="#FFFFFF" />
-              <ThemedText type="h4" style={styles.callButtonText}>اتصال بالزبون</ThemedText>
-            </Pressable>
-
-            {(order.latitude && order.longitude) ? (
-              <Pressable
-                style={styles.mapButton}
-                onPress={() => {
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                  const lat = order.latitude!;
-                  const lng = order.longitude!;
-                  const label = encodeURIComponent(order.customerName || "موقع الزبون");
-                  const url = Platform.select({
-                    ios: `maps:0,0?q=${label}@${lat},${lng}`,
-                    android: `geo:0,0?q=${lat},${lng}(${label})`,
-                    default: `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`,
-                  });
-                  if (url) {
-                    Linking.openURL(url).catch(() => {
-                      Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${lat},${lng}`).catch(console.error);
-                    });
-                  }
-                }}
-                testID="button-view-location"
-              >
-                <Feather name="map-pin" size={20} color="#FFFFFF" />
-                <ThemedText type="h4" style={styles.callButtonText}>موقع الزبون</ThemedText>
-              </Pressable>
-            ) : null}
-          </View>
+          <Pressable
+            style={styles.callButton}
+            onPress={handleCallCustomer}
+            testID="button-call-customer"
+          >
+            <Feather name="phone" size={20} color="#FFFFFF" />
+            <ThemedText type="h4" style={styles.callButtonText}>اتصال بالزبون</ThemedText>
+          </Pressable>
         </View>
+
+        {(order.latitude && order.longitude) ? (
+          <View style={[styles.card, { backgroundColor: theme.backgroundDefault, padding: 0, overflow: "hidden" }, Shadows.sm]}>
+            <View style={styles.mapCardHeader}>
+              <Feather name="map" size={20} color={AppColors.primary} />
+              <ThemedText type="h4" style={{ color: theme.text, fontWeight: "700", flex: 1 }}>موقع التوصيل</ThemedText>
+              <Pressable
+                style={styles.openMapsBtn}
+                onPress={openInMaps}
+                testID="button-open-maps"
+              >
+                <Feather name="external-link" size={14} color={AppColors.primary} />
+                <ThemedText type="small" style={{ color: AppColors.primary, fontWeight: "600" }}>افتح بالخرائط</ThemedText>
+              </Pressable>
+            </View>
+            <View style={styles.mapCardAddress}>
+              <Feather name="map-pin" size={14} color={AppColors.primary} />
+              <ThemedText type="small" style={{ color: theme.textSecondary, flex: 1, textAlign: "right" }}>
+                {order.address || order.region}
+              </ThemedText>
+            </View>
+            <Pressable onPress={openInMaps} testID="button-map-preview">
+              <View style={styles.miniMapContainer}>
+                <WebView
+                  source={{ html: getMiniMapHTML(order.latitude!, order.longitude!, order.customerName || "") }}
+                  style={styles.miniMap}
+                  scrollEnabled={false}
+                  javaScriptEnabled
+                  domStorageEnabled
+                  onMessage={(event) => {
+                    if (event.nativeEvent.data === "openMaps") {
+                      openInMaps();
+                    }
+                  }}
+                />
+              </View>
+            </Pressable>
+          </View>
+        ) : null}
 
         <View style={[styles.card, { backgroundColor: theme.backgroundDefault }, Shadows.sm]}>
           <View style={styles.cardHeader}>
@@ -326,13 +393,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingVertical: Spacing.sm,
   },
-  actionButtonsRow: {
-    flexDirection: "row",
-    gap: Spacing.sm,
-    marginTop: Spacing.md,
-  },
   callButton: {
-    flex: 1,
     flexDirection: "row",
     justifyContent: "center",
     alignItems: "center",
@@ -340,16 +401,39 @@ const styles = StyleSheet.create({
     backgroundColor: "#4CAF50",
     paddingVertical: Spacing.md,
     borderRadius: BorderRadius.md,
+    marginTop: Spacing.md,
   },
-  mapButton: {
-    flex: 1,
-    flexDirection: "row",
-    justifyContent: "center",
+  mapCardHeader: {
+    flexDirection: "row-reverse",
     alignItems: "center",
     gap: Spacing.sm,
-    backgroundColor: "#2196F3",
-    paddingVertical: Spacing.md,
-    borderRadius: BorderRadius.md,
+    paddingHorizontal: Spacing.lg,
+    paddingTop: Spacing.lg,
+    paddingBottom: Spacing.xs,
+  },
+  mapCardAddress: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: Spacing.lg,
+    paddingBottom: Spacing.sm,
+  },
+  openMapsBtn: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: AppColors.primary + "15",
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 12,
+  },
+  miniMapContainer: {
+    height: 200,
+    borderTopWidth: 1,
+    borderTopColor: "#F0F0F0",
+  },
+  miniMap: {
+    flex: 1,
   },
   callButtonText: {
     color: "#FFFFFF",
