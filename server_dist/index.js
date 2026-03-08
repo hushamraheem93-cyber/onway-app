@@ -880,9 +880,7 @@ var banners = [
   { id: "slider-1", image: "/uploads/banners/banner-1.png", title: "\u062A\u0648\u0635\u064A\u0644 \u0633\u0631\u064A\u0639 \u0644\u0628\u0627\u0628 \u0628\u064A\u062A\u0643", isActive: true, type: "slider", order: 1, linkType: "screen", linkTarget: "CourierPickup" },
   { id: "slider-2", image: "/uploads/banners/banner-2.png", title: "\u0623\u0634\u0647\u0649 \u0627\u0644\u0645\u0623\u0643\u0648\u0644\u0627\u062A \u0627\u0644\u0639\u0631\u0627\u0642\u064A\u0629", isActive: true, type: "slider", order: 2, linkType: "category", linkTarget: "restaurants" },
   { id: "slider-3", image: "/uploads/banners/banner-3.png", title: "\u0637\u0644\u0628\u0627\u062A\u0643 \u0627\u0644\u064A\u0648\u0645\u064A\u0629 \u0628\u0636\u063A\u0637\u0629 \u0632\u0631", isActive: true, type: "slider", order: 3, linkType: "category", linkTarget: "fruits-vegetables" },
-  { id: "slider-4", image: "/uploads/banners/banner-4.png", title: "\u0639\u0631\u0648\u0636 \u0648\u062E\u0635\u0648\u0645\u0627\u062A \u062D\u0635\u0631\u064A\u0629", isActive: true, type: "slider", order: 4, linkType: "screen", linkTarget: "AllCategories" },
-  { id: "slider-5", image: "/uploads/banners/banner-5.png", title: "\u062E\u062F\u0645\u0629 \u062A\u0648\u0635\u064A\u0644 \u0627\u0644\u0637\u0631\u0648\u062F \u0648\u0627\u0644\u0623\u0645\u0627\u0646\u0627\u062A", isActive: true, type: "slider", order: 5, linkType: "screen", linkTarget: "CourierPickup" },
-  { id: "slider-6", image: "/uploads/banners/banner-6.png", title: "\u0627\u0634\u062A\u0631\u0650 \u0645\u0646 \u0627\u0644\u0645\u0648\u0627\u0642\u0639 \u0627\u0644\u0639\u0627\u0644\u0645\u064A\u0629", isActive: true, type: "slider", order: 6, linkType: "screen", linkTarget: "InternationalShopping" }
+  { id: "slider-4", image: "/uploads/banners/banner-4.png", title: "\u0639\u0631\u0648\u0636 \u0648\u062E\u0635\u0648\u0645\u0627\u062A \u062D\u0635\u0631\u064A\u0629", isActive: true, type: "slider", order: 4, linkType: "screen", linkTarget: "AllCategories" }
 ];
 var products = [
   // مطعم يلا ايت
@@ -1142,9 +1140,7 @@ async function registerRoutes(app2) {
     "slider-1": { linkType: "screen", linkTarget: "CourierPickup" },
     "slider-2": { linkType: "category", linkTarget: "restaurants" },
     "slider-3": { linkType: "category", linkTarget: "fruits-vegetables" },
-    "slider-4": { linkType: "screen", linkTarget: "AllCategories" },
-    "slider-5": { linkType: "screen", linkTarget: "CourierPickup" },
-    "slider-6": { linkType: "screen", linkTarget: "InternationalShopping" }
+    "slider-4": { linkType: "screen", linkTarget: "AllCategories" }
   };
   app2.get("/api/banners", async (req, res) => {
     try {

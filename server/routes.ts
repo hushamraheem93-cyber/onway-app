@@ -130,8 +130,6 @@ let banners: Banner[] = [
   { id: "slider-2", image: "/uploads/banners/banner-2.png", title: "أشهى المأكولات العراقية", isActive: true, type: "slider", order: 2, linkType: "category", linkTarget: "restaurants" },
   { id: "slider-3", image: "/uploads/banners/banner-3.png", title: "طلباتك اليومية بضغطة زر", isActive: true, type: "slider", order: 3, linkType: "category", linkTarget: "fruits-vegetables" },
   { id: "slider-4", image: "/uploads/banners/banner-4.png", title: "عروض وخصومات حصرية", isActive: true, type: "slider", order: 4, linkType: "screen", linkTarget: "AllCategories" },
-  { id: "slider-5", image: "/uploads/banners/banner-5.png", title: "خدمة توصيل الطرود والأمانات", isActive: true, type: "slider", order: 5, linkType: "screen", linkTarget: "CourierPickup" },
-  { id: "slider-6", image: "/uploads/banners/banner-6.png", title: "اشترِ من المواقع العالمية", isActive: true, type: "slider", order: 6, linkType: "screen", linkTarget: "InternationalShopping" },
 ];
 
 const products: Product[] = [
@@ -426,8 +424,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     "slider-2": { linkType: "category", linkTarget: "restaurants" },
     "slider-3": { linkType: "category", linkTarget: "fruits-vegetables" },
     "slider-4": { linkType: "screen", linkTarget: "AllCategories" },
-    "slider-5": { linkType: "screen", linkTarget: "CourierPickup" },
-    "slider-6": { linkType: "screen", linkTarget: "InternationalShopping" },
   };
 
   app.get("/api/banners", async (req, res) => {
