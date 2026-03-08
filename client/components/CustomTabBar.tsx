@@ -30,8 +30,9 @@ interface TabConfig {
 const TABS: TabConfig[] = [
   { name: "ProfileTab", icon: "user", label: "الحساب", initialScreen: "Profile" },
   { name: "FavoritesTab", icon: "heart", label: "المفضلة", initialScreen: "Favorites" },
-  { name: "HomeTab", icon: "home", label: "الرئيسية", initialScreen: "Home" },
+  { name: "OrdersTab", icon: "shopping-bag", label: "طلباتي", initialScreen: "Orders" },
   { name: "SearchTab", icon: "search", label: "البحث", initialScreen: "Search" },
+  { name: "HomeTab", icon: "home", label: "الرئيسية", initialScreen: "Home" },
 ];
 
 const SPRING_CONFIG = {
@@ -86,7 +87,7 @@ function TabItem({
         <Animated.View style={iconStyle}>
           <Feather
             name={config.icon}
-            size={22}
+            size={21}
             color={isFocused ? "#FFFFFF" : INACTIVE_COLOR}
           />
         </Animated.View>
@@ -178,7 +179,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-evenly",
-    paddingHorizontal: 8,
+    paddingHorizontal: 4,
     height: 66,
   },
   tabItem: {
@@ -191,10 +192,10 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     paddingVertical: 6,
-    paddingHorizontal: 14,
-    borderRadius: 20,
-    minWidth: 56,
-    gap: 4,
+    paddingHorizontal: 10,
+    borderRadius: 18,
+    minWidth: 50,
+    gap: 3,
   },
   label: {
     fontSize: 10,
