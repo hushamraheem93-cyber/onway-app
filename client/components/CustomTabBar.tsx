@@ -28,10 +28,10 @@ interface TabConfig {
 }
 
 const TABS: TabConfig[] = [
+  { name: "ProfileTab", icon: "user", label: "الحساب", initialScreen: "Profile" },
+  { name: "FavoritesTab", icon: "heart", label: "المفضلة", initialScreen: "Favorites" },
   { name: "HomeTab", icon: "home", label: "الرئيسية", initialScreen: "Home" },
   { name: "SearchTab", icon: "search", label: "البحث", initialScreen: "Search" },
-  { name: "FavoritesTab", icon: "heart", label: "المفضلة", initialScreen: "Favorites" },
-  { name: "ProfileTab", icon: "user", label: "الحساب", initialScreen: "Profile" },
 ];
 
 const SPRING_CONFIG = {
@@ -178,6 +178,7 @@ const styles = StyleSheet.create({
     height: 62,
   },
   tabItem: {
+    flex: 1,
     alignItems: "center",
     justifyContent: "center",
   },
