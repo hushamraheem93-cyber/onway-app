@@ -378,7 +378,7 @@ export default function HomeScreen() {
 
   return (
     <FlatList
-      style={{ flex: 1, backgroundColor: theme.backgroundRoot }}
+      style={{ flex: 1, backgroundColor: "#FFFFFF" }}
       contentContainerStyle={{
         paddingTop: Math.max(headerHeight, insets.top + 44) + Spacing.xl,
         paddingBottom: tabBarHeight,

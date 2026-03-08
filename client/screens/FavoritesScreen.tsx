@@ -24,7 +24,7 @@ export default function FavoritesScreen() {
 
   return (
     <FlatList
-      style={{ flex: 1, backgroundColor: theme.backgroundRoot }}
+      style={{ flex: 1, backgroundColor: "#FFFFFF" }}
       contentContainerStyle={{
         paddingTop: headerHeight + Spacing.lg,
         paddingBottom: tabBarHeight,

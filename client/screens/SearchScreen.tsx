@@ -87,7 +87,7 @@ export default function SearchScreen() {
   );
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.backgroundRoot }]}>
+    <View style={[styles.container, { backgroundColor: "#FFFFFF" }]}>
       <View style={[styles.searchContainer, { paddingTop: headerHeight + Spacing.sm }]}>
         <View style={[styles.searchBar, { backgroundColor: isDark ? theme.backgroundDefault : "#F5F5F5", borderColor: isDark ? theme.border : "#EEE" }]}>
           <Feather name="search" size={20} color={AppColors.primary} />
