@@ -55,10 +55,10 @@ export function HeaderTitle({ title }: HeaderTitleProps) {
 
       <View style={styles.centerSection}>
         <View style={styles.logoBlock}>
-          <MaterialCommunityIcons name="motorbike" size={26} color="#F37335" />
           <Text style={styles.logoText}>
             <Text style={styles.logoName}>OnWay</Text>
           </Text>
+          <MaterialCommunityIcons name="motorbike" size={26} color="#F37335" style={styles.motorbike} />
         </View>
       </View>
 
@@ -119,7 +119,10 @@ const styles = StyleSheet.create({
   logoBlock: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 4,
+    gap: 2,
+  },
+  motorbike: {
+    transform: [{ scaleX: -1 }],
   },
   logoText: {
     flexDirection: "row",
