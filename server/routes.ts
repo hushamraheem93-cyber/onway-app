@@ -123,6 +123,7 @@ let categories: Category[] = [
   { id: "delivery", name: "خدمات المندوب", image: "/uploads/category-delivery.png", productCount: 0, order: 11, color: "#FFF9C4", iconColor: "#FBC02D" },
   { id: "women-bags", name: "الحقائب النسائية", image: "/uploads/category-bags.png", productCount: 12, order: 12, color: "#FCE4EC", iconColor: "#E91E63" },
   { id: "international-shopping", name: "الشراء من المواقع العالمية", image: "/uploads/category-international.png", productCount: 0, order: 13, color: "#E8EAF6", iconColor: "#5C6BC0" },
+  { id: "food-supplies", name: "المواد الغذائية", image: "/uploads/category-food-supplies.png", productCount: 9, order: 14, color: "#FFF8E1", iconColor: "#F9A825" },
 ];
 
 let banners: Banner[] = [
@@ -186,6 +187,16 @@ const products: Product[] = [
   { id: "wb10", categoryId: "women-bags", name: "حقيبة كلتش", price: 40000, image: "https://images.unsplash.com/photo-1601924921557-45e6dea0f7e0?w=300", description: "حقيبة كلتش أنيقة للسهرات", inStock: true },
   { id: "wb11", categoryId: "women-bags", name: "حقيبة قماش مطرزة", price: 30000, image: "https://images.unsplash.com/photo-1598532163257-ae3c6b2524dd?w=300", description: "حقيبة قماش مطرزة بتصاميم شرقية", inStock: true },
   { id: "wb12", categoryId: "women-bags", name: "حقيبة ماركة فاخرة", price: 250000, image: "https://images.unsplash.com/photo-1548036328-c9fa89d128fa?w=300", description: "حقيبة ماركة فاخرة بتصميم حصري", inStock: true, discount: 20 },
+  // المواد الغذائية
+  { id: "fs1", categoryId: "food-supplies", name: "رز", price: 45000, image: "/uploads/product-3d-rice.png", description: "رز بسمتي فاخر 5 كيلو", inStock: true, weight: "5 كيلو" },
+  { id: "fs2", categoryId: "food-supplies", name: "سكر", price: 30000, image: "/uploads/product-3d-sugar.png", description: "سكر أبيض ناعم 5 كيلو", inStock: true, weight: "5 كيلو" },
+  { id: "fs3", categoryId: "food-supplies", name: "ملح", price: 5000, image: "/uploads/product-3d-salt.png", description: "ملح طعام نقي 1 كيلو", inStock: true, weight: "1 كيلو" },
+  { id: "fs4", categoryId: "food-supplies", name: "طحين", price: 25000, image: "/uploads/product-3d-flour.png", description: "طحين أبيض متعدد الاستخدامات 5 كيلو", inStock: true, weight: "5 كيلو" },
+  { id: "fs5", categoryId: "food-supplies", name: "معجون طماطم", price: 8000, image: "/uploads/product-3d-tomato-paste.png", description: "معجون طماطم مركّز 400 جرام", inStock: true, weight: "400 جرام" },
+  { id: "fs6", categoryId: "food-supplies", name: "مكرونة", price: 7000, image: "/uploads/product-3d-pasta.png", description: "مكرونة سباغيتي 500 جرام", inStock: true, weight: "500 جرام" },
+  { id: "fs7", categoryId: "food-supplies", name: "اندومي", price: 3000, image: "/uploads/product-3d-indomie.png", description: "اندومي نودلز بنكهة الدجاج", inStock: true },
+  { id: "fs8", categoryId: "food-supplies", name: "عدس", price: 15000, image: "/uploads/product-3d-lentils.png", description: "عدس أحمر مجروش 1 كيلو", inStock: true, weight: "1 كيلو" },
+  { id: "fs9", categoryId: "food-supplies", name: "حمص", price: 12000, image: "/uploads/product-3d-chickpeas.png", description: "حمص حب جاف 1 كيلو", inStock: true, weight: "1 كيلو" },
 ];
 
 export async function registerRoutes(app: Express): Promise<Server> {
