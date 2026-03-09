@@ -81,7 +81,7 @@ export function BannerSlider({ banners, autoPlayInterval = 4000 }: BannerSliderP
     if (!image) return "";
     if (image.startsWith("data:image/")) return image;
     if (image.startsWith("http")) return image;
-    return `${getApiUrl()}${image}`;
+    return `${getApiUrl()}${image}?v=2`;
   };
 
   const handleBannerPress = (banner: Banner) => {
