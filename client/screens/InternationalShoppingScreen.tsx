@@ -24,7 +24,7 @@ import { useAuth } from "@/context/AuthContext";
 import { getApiUrl } from "@/lib/query-client";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
 
-const BRAND_ORANGE = "#FF7622";
+const BRAND_ORANGE = "#D94523";
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 

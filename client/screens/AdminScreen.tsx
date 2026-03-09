@@ -835,7 +835,7 @@ export default function AdminScreen() {
                   {formatPrice(product.price)}
                 </ThemedText>
                 {(product as any).restaurant ? (
-                  <View style={[styles.discountBadge, { backgroundColor: "#FF762220" }]}>
+                  <View style={[styles.discountBadge, { backgroundColor: "#D9452320" }]}>
                     <ThemedText type="small" style={{ color: AppColors.primary, fontWeight: "600", fontSize: 10 }}>{(product as any).restaurant}</ThemedText>
                   </View>
                 ) : null}

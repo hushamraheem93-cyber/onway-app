@@ -29,7 +29,7 @@ const RESTAURANT_ICONS: Record<string, string> = {
 };
 
 const RESTAURANT_COLORS: string[] = [
-  "#FF7622",
+  "#D94523",
   "#E53935",
   "#1E88E5",
   "#FFA726",

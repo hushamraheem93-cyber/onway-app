@@ -862,7 +862,7 @@ var deliveryAreas = [
   { id: "bishikan", name: "\u0628\u064A\u0634\u064A\u0643\u0627\u0646", fee: 3500, isActive: true }
 ];
 var categories = [
-  { id: "restaurants", name: "\u0627\u0644\u0645\u0637\u0627\u0639\u0645", image: "/uploads/category-restaurants.png", productCount: 30, order: 1, color: "#FFF3E0", iconColor: "#FF7622" },
+  { id: "restaurants", name: "\u0627\u0644\u0645\u0637\u0627\u0639\u0645", image: "/uploads/category-restaurants.png", productCount: 30, order: 1, color: "#FFF3E0", iconColor: "#D94523" },
   { id: "fruits-vegetables", name: "\u0627\u0644\u062E\u0636\u0631\u0648\u0627\u062A \u0648\u0627\u0644\u0641\u0648\u0627\u0643\u0647", image: "/uploads/category-vegetables.png", productCount: 50, order: 2, color: "#E8F5E9", iconColor: "#4CAF50" },
   { id: "meat-poultry", name: "\u0627\u0644\u0644\u062D\u0648\u0645 \u0648\u0627\u0644\u0637\u0627\u0632\u062C", image: "/uploads/category-meat.png", productCount: 55, order: 3, color: "#FFEBEE", iconColor: "#EF5350" },
   { id: "dairy-eggs", name: "\u0627\u0644\u0623\u0644\u0628\u0627\u0646 \u0648\u0627\u0644\u0623\u062C\u0628\u0627\u0646", image: "/uploads/category-dairy.png", productCount: 70, order: 4, color: "#F3E5F5", iconColor: "#AB47BC" },

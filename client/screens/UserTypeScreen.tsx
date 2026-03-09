@@ -15,8 +15,8 @@ import * as Haptics from "expo-haptics";
 import { ThemedText } from "@/components/ThemedText";
 import { useAuth } from "@/context/AuthContext";
 
-const BRAND_ORANGE = "#FF7622";
-const BRAND_DARK = "#E5691E";
+const BRAND_ORANGE = "#D94523";
+const BRAND_DARK = "#B8391D";
 
 export default function UserTypeScreen() {
   const insets = useSafeAreaInsets();
@@ -114,7 +114,7 @@ export default function UserTypeScreen() {
             </View>
             <View style={styles.cardLeft}>
               <View style={[styles.iconCircle, { backgroundColor: "#FFEDD8" }]}>
-                <MaterialIcons name="person" size={30} color="#F37335" />
+                <MaterialIcons name="person" size={30} color="#D94523" />
               </View>
             </View>
           </Pressable>

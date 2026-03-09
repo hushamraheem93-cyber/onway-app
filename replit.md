@@ -74,8 +74,8 @@ server/
 
 ## Design System (Orange Branding)
 ```
-Primary Color: #FF7622 (brand orange)
-Secondary Color: #FFF2EC (soft orange background)
+Primary Color: #D94523 (coral red / أحمر مرجاني)
+Secondary Color: #FCEAE6 (soft coral background)
 Text Primary: #2D2D2D
 Text Secondary: #666666
 Card Background: #ffffff

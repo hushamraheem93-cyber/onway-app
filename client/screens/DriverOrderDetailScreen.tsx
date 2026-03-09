@@ -31,13 +31,13 @@ html,body{width:100%;height:100%;overflow:hidden;}
 #map{width:100%;height:100%;}
 .leaflet-control-attribution,.leaflet-control-zoom{display:none!important;}
 .pin-marker{width:36px;height:36px;position:relative;}
-.pin-dot{width:36px;height:36px;border-radius:50% 50% 50% 0;background:#FF7622;transform:rotate(-45deg);position:absolute;border:3px solid #fff;box-shadow:0 3px 10px rgba(255,118,34,0.4);}
+.pin-dot{width:36px;height:36px;border-radius:50% 50% 50% 0;background:#D94523;transform:rotate(-45deg);position:absolute;border:3px solid #fff;box-shadow:0 3px 10px rgba(217,69,35,0.4);}
 .pin-dot::after{content:'';width:12px;height:12px;border-radius:50%;background:#fff;position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);}
-.pulse{width:50px;height:50px;border-radius:50%;background:rgba(255,118,34,0.2);position:absolute;left:-7px;top:-7px;animation:p 2s ease-out infinite;}
+.pulse{width:50px;height:50px;border-radius:50%;background:rgba(217,69,35,0.2);position:absolute;left:-7px;top:-7px;animation:p 2s ease-out infinite;}
 @keyframes p{0%{transform:scale(0.5);opacity:1;}100%{transform:scale(1.4);opacity:0;}}
-.pin-tooltip{background:#FF7622!important;color:#fff!important;border:none!important;border-radius:8px!important;padding:4px 10px!important;font-size:12px!important;font-weight:700!important;box-shadow:0 2px 8px rgba(255,118,34,0.3)!important;direction:rtl!important;white-space:nowrap!important;}
-.pin-tooltip::before{border-top-color:#FF7622!important;}
-.open-btn{position:absolute;bottom:10px;left:50%;transform:translateX(-50%);background:#FF7622;color:#fff;border:none;border-radius:20px;padding:8px 20px;font-size:13px;font-weight:700;box-shadow:0 3px 12px rgba(255,118,34,0.4);cursor:pointer;z-index:1000;display:flex;align-items:center;gap:6px;direction:rtl;font-family:'Segoe UI',Tahoma,sans-serif;}
+.pin-tooltip{background:#D94523!important;color:#fff!important;border:none!important;border-radius:8px!important;padding:4px 10px!important;font-size:12px!important;font-weight:700!important;box-shadow:0 2px 8px rgba(217,69,35,0.3)!important;direction:rtl!important;white-space:nowrap!important;}
+.pin-tooltip::before{border-top-color:#D94523!important;}
+.open-btn{position:absolute;bottom:10px;left:50%;transform:translateX(-50%);background:#D94523;color:#fff;border:none;border-radius:20px;padding:8px 20px;font-size:13px;font-weight:700;box-shadow:0 3px 12px rgba(217,69,35,0.4);cursor:pointer;z-index:1000;display:flex;align-items:center;gap:6px;direction:rtl;font-family:'Segoe UI',Tahoma,sans-serif;}
 </style>
 </head><body>
 <div id="map"></div>

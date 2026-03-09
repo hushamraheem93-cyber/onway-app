@@ -95,7 +95,7 @@ export function LocationBar() {
           </ThemedText>
         </View>
         <View style={styles.editIcon}>
-          <Feather name="edit-2" size={14} color="#F37335" />
+          <Feather name="edit-2" size={14} color="#D94523" />
         </View>
       </Pressable>
     </View>
@@ -135,7 +135,7 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: "rgba(243,115,53,0.10)",
+    backgroundColor: "rgba(217,69,35,0.10)",
     alignItems: "center",
     justifyContent: "center",
   },
@@ -158,7 +158,7 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: "rgba(243,115,53,0.10)",
+    backgroundColor: "rgba(217,69,35,0.10)",
     alignItems: "center",
     justifyContent: "center",
   },

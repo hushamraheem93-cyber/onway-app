@@ -20,7 +20,7 @@ import { ThemedText } from "@/components/ThemedText";
 import { useAuth } from "@/context/AuthContext";
 import { useNavigation } from "@react-navigation/native";
 
-const BRAND_ORANGE = "#FF7622";
+const BRAND_ORANGE = "#D94523";
 
 export default function PhoneLoginScreen() {
   const { sendOtp } = useAuth();

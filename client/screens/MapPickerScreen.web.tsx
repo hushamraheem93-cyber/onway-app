@@ -31,9 +31,9 @@ function getLeafletHTML(lat: number, lng: number) {
     }
     .marker-pin {
       width: 40px; height: 40px; border-radius: 50% 50% 50% 0;
-      background: #FF7622; transform: rotate(-45deg);
+      background: #D94523; transform: rotate(-45deg);
       position: absolute; left: 0; top: 0;
-      box-shadow: 0 3px 10px rgba(255,118,34,0.4);
+      box-shadow: 0 3px 10px rgba(217,69,35,0.4);
       border: 3px solid #fff;
     }
     .marker-pin::after {
@@ -48,7 +48,7 @@ function getLeafletHTML(lat: number, lng: number) {
     }
     .pulse-ring {
       width: 60px; height: 60px; border-radius: 50%;
-      background: rgba(255,118,34,0.2); position: absolute;
+      background: rgba(217,69,35,0.2); position: absolute;
       left: -10px; top: -10px;
       animation: pulse 2s ease-out infinite;
     }
@@ -287,7 +287,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 12,
-    backgroundColor: "#FFF2EC",
+    backgroundColor: "#FCEAE6",
     alignItems: "center",
     justifyContent: "center",
   },
