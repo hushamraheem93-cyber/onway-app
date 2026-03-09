@@ -882,7 +882,7 @@ var banners = [
   { id: "slider-2", image: "/uploads/banners/banner-2.png", title: "\u0623\u0634\u0647\u0649 \u0627\u0644\u0645\u0623\u0643\u0648\u0644\u0627\u062A \u0627\u0644\u0639\u0631\u0627\u0642\u064A\u0629", isActive: true, type: "slider", order: 2, linkType: "category", linkTarget: "restaurants" },
   { id: "slider-3", image: "/uploads/banners/banner-3.png", title: "\u0637\u0644\u0628\u0627\u062A\u0643 \u0627\u0644\u064A\u0648\u0645\u064A\u0629 \u0628\u0636\u063A\u0637\u0629 \u0632\u0631", isActive: true, type: "slider", order: 3, linkType: "category", linkTarget: "fruits-vegetables" },
   { id: "slider-4", image: "/uploads/banners/banner-4.png", title: "\u0639\u0631\u0648\u0636 \u0648\u062E\u0635\u0648\u0645\u0627\u062A \u062D\u0635\u0631\u064A\u0629", isActive: true, type: "slider", order: 4, linkType: "screen", linkTarget: "AllCategories" },
-  { id: "slider-5", image: "/uploads/banners/banner-ad-space.png", title: "\u0645\u0633\u0627\u062D\u0629 \u0625\u0639\u0644\u0627\u0646\u064A\u0629 \u0644\u0623\u0635\u062D\u0627\u0628 \u0627\u0644\u0645\u0637\u0627\u0639\u0645 \u0648\u0627\u0644\u0645\u0627\u0631\u0643\u062A", isActive: true, type: "slider", order: 5, linkType: "screen", linkTarget: "AllCategories" }
+  { id: "slider-5", image: "/uploads/banners/banner-5.png", title: "\u0645\u0633\u0627\u062D\u0629 \u0625\u0639\u0644\u0627\u0646\u064A\u0629 \u0644\u0623\u0635\u062D\u0627\u0628 \u0627\u0644\u0645\u0637\u0627\u0639\u0645 \u0648\u0627\u0644\u0645\u0627\u0631\u0643\u062A", isActive: true, type: "slider", order: 5, linkType: "screen", linkTarget: "AllCategories" }
 ];
 var products = [
   // مطعم يلا ايت
