@@ -5,12 +5,12 @@ I18nManager.allowRTL(true);
 I18nManager.forceRTL(true);
 
 // ONWAY Brand Colors
-const primaryColor = "#D94523";
-const secondaryColor = "#FCEAE6";
-const primaryLight = "#E8735A";
-const primaryDark = "#B8391D";
+const primaryColor = "#E86520";
+const secondaryColor = "#FFF0E8";
+const primaryLight = "#F28B4E";
+const primaryDark = "#C4520F";
 const onGrey = "#4A4A4A";
-const wayYellow = "#D94523";
+const wayYellow = "#E86520";
 
 export const AppColors = {
   primary: primaryColor,

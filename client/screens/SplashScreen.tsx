@@ -19,7 +19,7 @@ import { useAuth } from "@/context/AuthContext";
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 
-const BRAND_ORANGE = "#D94523";
+const BRAND_ORANGE = "#E86520";
 
 const onboarding1 = require("../assets/images/onboarding-1.png");
 const onboarding2 = require("../assets/images/onboarding-2.png");

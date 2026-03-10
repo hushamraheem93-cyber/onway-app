@@ -265,11 +265,11 @@ export default function HomeScreen() {
             {quantity > 0 ? (
               <View style={styles.quantityRow}>
                 <Pressable onPress={handleDecrement} style={styles.qtyBtn} testID={`btn-minus-${product.id}`}>
-                  <Feather name="minus" size={14} color="#D94523" />
+                  <Feather name="minus" size={14} color="#E86520" />
                 </Pressable>
                 <ThemedText style={styles.qtyText}>{quantity}</ThemedText>
                 <Pressable onPress={handleIncrement} style={styles.qtyBtn} testID={`btn-plus-${product.id}`}>
-                  <Feather name="plus" size={14} color="#D94523" />
+                  <Feather name="plus" size={14} color="#E86520" />
                 </Pressable>
               </View>
             ) : (
@@ -469,7 +469,7 @@ export default function HomeScreen() {
                         if (qty === 1) setSelectedProduct(null);
                       }}
                     >
-                      <Feather name="minus" size={20} color="#D94523" />
+                      <Feather name="minus" size={20} color="#E86520" />
                     </Pressable>
                     <ThemedText style={styles.modalQtyText}>{qty}</ThemedText>
                     <Pressable
@@ -479,7 +479,7 @@ export default function HomeScreen() {
                         updateQuantity(selectedProduct.id, qty + 1);
                       }}
                     >
-                      <Feather name="plus" size={20} color="#D94523" />
+                      <Feather name="plus" size={20} color="#E86520" />
                     </Pressable>
                   </View>
                 ) : (
@@ -533,7 +533,7 @@ const styles = StyleSheet.create({
   greeting: {
     fontFamily: "Cairo_700Bold",
     fontSize: 20,
-    color: "#D94523",
+    color: "#E86520",
     marginBottom: 2,
     textAlign: "right",
     writingDirection: "rtl",
@@ -564,7 +564,7 @@ const styles = StyleSheet.create({
   viewAll: {
     fontFamily: "Cairo_600SemiBold",
     fontSize: 13,
-    color: "#D94523",
+    color: "#E86520",
   },
   catSliderContainer: {
     marginBottom: Spacing.xl,
@@ -684,7 +684,7 @@ const styles = StyleSheet.create({
     position: "absolute",
     top: 8,
     right: 8,
-    backgroundColor: "#D94523",
+    backgroundColor: "#E86520",
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 10,
@@ -713,13 +713,13 @@ const styles = StyleSheet.create({
   productPrice: {
     fontFamily: "Cairo_700Bold",
     fontSize: 14,
-    color: "#D94523",
+    color: "#E86520",
   },
   addButton: {
     width: 30,
     height: 30,
     borderRadius: 15,
-    backgroundColor: "#D94523",
+    backgroundColor: "#E86520",
     justifyContent: "center",
     alignItems: "center",
   },
@@ -753,7 +753,7 @@ const styles = StyleSheet.create({
   qtyText: {
     fontFamily: "Cairo_700Bold",
     fontSize: 14,
-    color: "#D94523",
+    color: "#E86520",
     minWidth: 18,
     textAlign: "center",
   },
@@ -793,7 +793,7 @@ const styles = StyleSheet.create({
     position: "absolute",
     top: 12,
     right: 12,
-    backgroundColor: "#D94523",
+    backgroundColor: "#E86520",
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 12,
@@ -836,7 +836,7 @@ const styles = StyleSheet.create({
   modalPrice: {
     fontFamily: "Cairo_700Bold",
     fontSize: 22,
-    color: "#D94523",
+    color: "#E86520",
   },
   modalOrigPrice: {
     fontFamily: "Cairo_400Regular",
@@ -849,7 +849,7 @@ const styles = StyleSheet.create({
   },
   modalAddBtn: {
     flexDirection: "row",
-    backgroundColor: "#D94523",
+    backgroundColor: "#E86520",
     borderRadius: 16,
     height: 54,
     alignItems: "center",
@@ -892,7 +892,7 @@ const styles = StyleSheet.create({
   modalQtyText: {
     fontFamily: "Cairo_700Bold",
     fontSize: 22,
-    color: "#D94523",
+    color: "#E86520",
     minWidth: 30,
     textAlign: "center",
   },

@@ -17,7 +17,7 @@ import Animated, {
 import { ThemedText } from "@/components/ThemedText";
 import { useTheme } from "@/hooks/useTheme";
 
-const ICON_COLOR = "#D94523";
+const ICON_COLOR = "#E86520";
 const INACTIVE_COLOR = "#AAAAAA";
 
 interface TabConfig {
@@ -70,7 +70,7 @@ function TabItem({
     const bg = interpolateColor(
       progress.value,
       [0, 1],
-      ["rgba(217,69,35,0)", "rgba(217,69,35,1)"]
+      ["rgba(243,115,53,0)", "rgba(243,115,53,1)"]
     );
     return {
       backgroundColor: bg,

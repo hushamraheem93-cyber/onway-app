@@ -19,8 +19,8 @@ import { AppColors } from "@/constants/theme";
 import { useAuth } from "@/context/AuthContext";
 
 const OTP_LENGTH = 4;
-const BRAND_ORANGE = "#D94523";
-const BRAND_DARK = "#B8391D";
+const BRAND_ORANGE = "#E86520";
+const BRAND_DARK = "#C4520F";
 
 export default function OtpVerificationScreen() {
   const insets = useSafeAreaInsets();
