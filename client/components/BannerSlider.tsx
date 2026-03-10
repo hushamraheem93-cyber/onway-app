@@ -125,6 +125,12 @@ export function BannerSlider({ banners, autoPlayInterval = 4000 }: BannerSliderP
               contentFit="cover"
               transition={300}
             />
+            {banner.id === "slider-1" ? (
+              <View style={styles.brandOverlay}>
+                <ThemedText type="h1" style={styles.brandOn}>On</ThemedText>
+                <ThemedText type="h1" style={styles.brandWay}>Way</ThemedText>
+              </View>
+            ) : null}
             {banner.title ? (
               <View style={styles.titleOverlay}>
                 <ThemedText type="body" style={styles.bannerTitle}>
@@ -182,6 +188,29 @@ const styles = StyleSheet.create({
     width: "100%",
     height: "100%",
     borderRadius: BANNER_RADIUS,
+  },
+  brandOverlay: {
+    position: "absolute",
+    top: 20,
+    left: 20,
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(0,0,0,0.35)",
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 12,
+  },
+  brandOn: {
+    color: "#FFFFFF",
+    fontSize: 32,
+    fontWeight: "800",
+    fontFamily: "Poppins_700Bold",
+  },
+  brandWay: {
+    color: AppColors.primary,
+    fontSize: 32,
+    fontWeight: "800",
+    fontFamily: "Poppins_700Bold",
   },
   titleOverlay: {
     position: "absolute",
