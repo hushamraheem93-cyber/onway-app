@@ -81,7 +81,7 @@ export function BannerSlider({ banners, autoPlayInterval = 4000 }: BannerSliderP
     if (!image) return "";
     if (image.startsWith("data:image/")) return image;
     if (image.startsWith("http")) return image;
-    return `${getApiUrl()}${image}?v=3`;
+    return `${getApiUrl()}${image}?v=4`;
   };
 
   const handleBannerPress = (banner: Banner) => {
@@ -125,12 +125,6 @@ export function BannerSlider({ banners, autoPlayInterval = 4000 }: BannerSliderP
               contentFit="cover"
               transition={300}
             />
-            {banner.id === "slider-1" ? (
-              <View style={styles.brandOverlay}>
-                <ThemedText type="h1" style={styles.brandOn}>On</ThemedText>
-                <ThemedText type="h1" style={styles.brandWay}>Way</ThemedText>
-              </View>
-            ) : null}
             {banner.title ? (
               <View style={styles.titleOverlay}>
                 <ThemedText type="body" style={styles.bannerTitle}>
@@ -188,27 +182,6 @@ const styles = StyleSheet.create({
     width: "100%",
     height: "100%",
     borderRadius: BANNER_RADIUS,
-  },
-  brandOverlay: {
-    position: "absolute",
-    top: "28%",
-    right: "22%",
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  brandOn: {
-    color: "#FFFFFF",
-    fontSize: 18,
-    fontWeight: "600",
-    fontFamily: "Tajawal_500Medium",
-    letterSpacing: 1,
-  },
-  brandWay: {
-    color: "#FFFFFF",
-    fontSize: 18,
-    fontWeight: "600",
-    fontFamily: "Tajawal_500Medium",
-    letterSpacing: 1,
   },
   titleOverlay: {
     position: "absolute",
