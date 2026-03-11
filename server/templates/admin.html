@@ -192,11 +192,13 @@
     /* Header */
     .header {
       background: white;
-      height: var(--header-height);
-      padding: 0 32px;
+      min-height: var(--header-height);
+      padding: 12px 32px;
       display: flex;
       align-items: center;
       justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 12px;
       border-bottom: 1px solid var(--gray-200);
       position: sticky;
       top: 0;
