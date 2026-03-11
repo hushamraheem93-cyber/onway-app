@@ -243,6 +243,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const driverQueue: QueuedDriver[] = [];
   const driverAssignments: Map<string, string> = new Map();
   const driverCompletedOrders: Map<string, { orderId: string; deliveryFee: number; driverEarning: number; ownerEarning: number; total: number; customerName: string; completedAt: string; isRestaurant: boolean }[]> = new Map();
+  const driverLocations: Map<string, { lat: number; lng: number; updatedAt: number; fullName?: string }> = new Map();
 
   async function checkIsRestaurantOrder(order: any): Promise<boolean> {
     try {
@@ -1310,6 +1311,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.error("Error getting driver status:", error);
       res.status(500).json({ error: error.message });
     }
+  });
+
+  // Update driver GPS location
+  app.post("/api/driver/location", async (req: Request, res: Response) => {
+    const { phoneNumber, lat, lng } = req.body;
+    if (!phoneNumber || lat === undefined || lng === undefined) return res.status(400).json({ error: "Missing fields" });
+    const driver = await getDriverByPhone(phoneNumber).catch(() => null);
+    driverLocations.set(phoneNumber, { lat: Number(lat), lng: Number(lng), updatedAt: Date.now(), fullName: driver?.fullName });
+    res.json({ success: true });
+  });
+
+  // Get all online driver locations (admin)
+  app.get("/api/admin/driver-locations", async (_req: Request, res: Response) => {
+    const now = Date.now();
+    const locations: any[] = [];
+    for (const [phone, loc] of driverLocations.entries()) {
+      if (now - loc.updatedAt > 5 * 60 * 1000) continue; // skip stale > 5min
+      const isOnline = driverQueue.some(d => d.phoneNumber === phone);
+      if (!isOnline) continue;
+      const queuedDriver = driverQueue.find(d => d.phoneNumber === phone);
+      locations.push({
+        phoneNumber: phone,
+        fullName: loc.fullName || phone,
+        lat: loc.lat,
+        lng: loc.lng,
+        updatedAt: loc.updatedAt,
+        status: queuedDriver?.currentOrderId ? "busy" : "available",
+        currentOrderId: queuedDriver?.currentOrderId || null,
+      });
+    }
+    res.json({ locations });
   });
 
   // Toggle driver online/offline

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import {
   StyleSheet,
   View,
@@ -16,6 +16,7 @@ import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
+import * as Location from "expo-location";
 
 import { ThemedText } from "@/components/ThemedText";
 import { useTheme } from "@/hooks/useTheme";
@@ -87,6 +88,37 @@ export default function DriverHomeScreen() {
     const interval = setInterval(fetchDriverStatus, 10000);
     return () => clearInterval(interval);
   }, [fetchDriverStatus]);
+
+  // GPS Location tracking
+  const gpsIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const sendLocation = useCallback(async () => {
+    if (!phoneNumber) return;
+    try {
+      const { status } = await Location.getForegroundPermissionsAsync();
+      if (status !== 'granted') return;
+      const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+      await fetch(new URL('/api/driver/location', getApiUrl()).toString(), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phoneNumber, lat: loc.coords.latitude, lng: loc.coords.longitude }),
+      });
+    } catch (e) { /* silent */ }
+  }, [phoneNumber]);
+
+  useEffect(() => {
+    if (isOnline) {
+      (async () => {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status === 'granted') {
+          sendLocation();
+          gpsIntervalRef.current = setInterval(sendLocation, 30000);
+        }
+      })();
+    } else {
+      if (gpsIntervalRef.current) { clearInterval(gpsIntervalRef.current); gpsIntervalRef.current = null; }
+    }
+    return () => { if (gpsIntervalRef.current) { clearInterval(gpsIntervalRef.current); gpsIntervalRef.current = null; } };
+  }, [isOnline, sendLocation]);
 
   const handleToggleOnline = async () => {
     if (!phoneNumber || driverStatus !== "approved") return;

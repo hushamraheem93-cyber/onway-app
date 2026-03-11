@@ -982,6 +982,7 @@ async function registerRoutes(app2) {
   const driverQueue = [];
   const driverAssignments = /* @__PURE__ */ new Map();
   const driverCompletedOrders = /* @__PURE__ */ new Map();
+  const driverLocations = /* @__PURE__ */ new Map();
   async function checkIsRestaurantOrder(order) {
     try {
       const products2 = await getProducts();
@@ -1927,6 +1928,33 @@ async function registerRoutes(app2) {
       res.status(500).json({ error: error.message });
     }
   });
+  app2.post("/api/driver/location", async (req, res) => {
+    const { phoneNumber, lat: lat2, lng: lng2 } = req.body;
+    if (!phoneNumber || lat2 === void 0 || lng2 === void 0) return res.status(400).json({ error: "Missing fields" });
+    const driver = await getDriverByPhone(phoneNumber).catch(() => null);
+    driverLocations.set(phoneNumber, { lat: Number(lat2), lng: Number(lng2), updatedAt: Date.now(), fullName: driver?.fullName });
+    res.json({ success: true });
+  });
+  app2.get("/api/admin/driver-locations", async (_req, res) => {
+    const now = Date.now();
+    const locations = [];
+    for (const [phone, loc] of driverLocations.entries()) {
+      if (now - loc.updatedAt > 5 * 60 * 1e3) continue;
+      const isOnline = driverQueue.some((d) => d.phoneNumber === phone);
+      if (!isOnline) continue;
+      const queuedDriver = driverQueue.find((d) => d.phoneNumber === phone);
+      locations.push({
+        phoneNumber: phone,
+        fullName: loc.fullName || phone,
+        lat: loc.lat,
+        lng: loc.lng,
+        updatedAt: loc.updatedAt,
+        status: queuedDriver?.currentOrderId ? "busy" : "available",
+        currentOrderId: queuedDriver?.currentOrderId || null
+      });
+    }
+    res.json({ locations });
+  });
   app2.post("/api/driver/toggle-online", async (req, res) => {
     const { phoneNumber, goOnline } = req.body;
     if (!phoneNumber) return res.status(400).json({ error: "Phone number required" });
@@ -2624,7 +2652,9 @@ function configureExpoAndLanding(app2) {
   );
   log("Serving static Expo files with dynamic manifest routing");
   app2.get("/admin", (_req, res) => {
-    const adminTemplate = fs2.readFileSync(adminTemplatePath, "utf-8");
+    let adminTemplate = fs2.readFileSync(adminTemplatePath, "utf-8");
+    const mapsKey = process.env.GOOGLE_MAPS_API_KEY || "";
+    adminTemplate = adminTemplate.replace("AIzaSyAPI_KEY_PLACEHOLDER", mapsKey);
     res.setHeader("Content-Type", "text/html; charset=utf-8");
     res.status(200).send(adminTemplate);
   });

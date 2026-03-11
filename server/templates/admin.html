@@ -6,13 +6,14 @@
   <title>ONWAY - لوحة التحكم</title>
   <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700&family=Poppins:ital,wght@0,400;0,600;0,700;0,800;1,700;1,800&display=swap" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/lucide@0.344.0/dist/umd/lucide.min.js"></script>
+  <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAPI_KEY_PLACEHOLDER&callback=initGoogleMaps&language=ar" async defer></script>
   <style>
     :root {
-      --primary: #E86520;
-      --primary-dark: #C4520F;
-      --primary-light: #F28B4E;
+      --primary: #D94523;
+      --primary-dark: #B53418;
+      --primary-light: #F07050;
       --on-grey: #4A4A4A;
-      --way-yellow: #E86520;
+      --way-yellow: #D94523;
       --success: #10b981;
       --success-light: #d1fae5;
       --danger: #ef4444;
@@ -1034,6 +1035,61 @@
       to { transform: rotate(360deg); }
     }
 
+    /* Sidebar Search */
+    .sidebar-search {
+      padding: 12px 16px;
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+    }
+    .sidebar-search input {
+      width: 100%;
+      background: rgba(255,255,255,0.1);
+      border: 1px solid rgba(255,255,255,0.15);
+      border-radius: 10px;
+      padding: 10px 14px;
+      color: white;
+      font-family: 'Cairo', sans-serif;
+      font-size: 0.85rem;
+      outline: none;
+      transition: all 0.2s;
+    }
+    .sidebar-search input::placeholder { color: rgba(255,255,255,0.4); }
+    .sidebar-search input:focus { border-color: var(--primary); background: rgba(255,255,255,0.15); }
+
+    /* GPS Map */
+    #gps-map { width: 100%; height: 360px; border-radius: 16px; border: none; }
+    .map-card { background: white; border-radius: 16px; overflow: hidden; box-shadow: 0 2px 12px rgba(0,0,0,0.08); margin-bottom: 24px; }
+    .map-card-header { padding: 16px 20px; border-bottom: 1px solid var(--gray-200); display: flex; align-items: center; justify-content: space-between; }
+    .driver-marker-popup { font-family: 'Cairo', sans-serif; direction: rtl; }
+    .online-dot { width: 10px; height: 10px; border-radius: 50%; background: #10B981; display: inline-block; margin-left: 6px; animation: blink 1.5s infinite; }
+    @keyframes blink { 0%,100% { opacity:1; } 50% { opacity: 0.3; } }
+
+    /* New order pulse */
+    @keyframes rowPulse {
+      0% { background: rgba(217,69,35,0.15); }
+      100% { background: transparent; }
+    }
+    .new-order-row { animation: rowPulse 2s ease 3; }
+
+    /* Stats rows */
+    .stats-row-active { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 16px; }
+    .stats-row-result { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; margin-bottom: 16px; }
+    .stats-row-financial { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 24px; }
+    @media (max-width: 768px) {
+      .stats-row-active, .stats-row-financial { grid-template-columns: 1fr 1fr; }
+      .stats-row-result { grid-template-columns: 1fr 1fr; }
+    }
+
+    /* WhatsApp button */
+    .btn-whatsapp { background: #25D366; color: white; border: none; border-radius: 8px; padding: 5px 10px; cursor: pointer; font-size: 0.78rem; display: inline-flex; align-items: center; gap: 4px; font-family: 'Cairo', sans-serif; white-space: nowrap; }
+    .btn-whatsapp:hover { background: #128C7E; }
+
+    /* Print invoice */
+    @media print {
+      body > *:not(#print-area) { display: none !important; }
+      #print-area { display: block !important; }
+    }
+    #print-area { display: none; }
+
     /* Responsive */
     @media (max-width: 1024px) {
       .sidebar {
@@ -1128,13 +1184,26 @@
       </div>
     </div>
 
+    <div class="sidebar-search">
+      <input type="text" id="global-search" placeholder="🔍  بحث برقم الطلب، هاتف، منطقة..." oninput="globalSearch(this.value)" />
+    </div>
+
     <nav class="sidebar-nav">
       <div class="nav-section">
-        <div class="nav-section-title">القائمة الرئيسية</div>
+        <div class="nav-section-title">العمليات</div>
         <div class="nav-item active" onclick="showSection('dashboard', this)">
           <i data-lucide="layout-dashboard"></i>
           <span>الرئيسية</span>
         </div>
+        <div class="nav-item" onclick="showSection('orders', this)">
+          <i data-lucide="shopping-bag"></i>
+          <span>إدارة الطلبات</span>
+          <span class="badge" id="orders-count">0</span>
+        </div>
+      </div>
+
+      <div class="nav-section">
+        <div class="nav-section-title">المحتوى</div>
         <div class="nav-item" onclick="showSection('products', this)">
           <i data-lucide="package"></i>
           <span>المنتجات</span>
@@ -1145,10 +1214,6 @@
           <span>الفئات</span>
           <span class="badge" id="categories-count">0</span>
         </div>
-      </div>
-
-      <div class="nav-section">
-        <div class="nav-section-title">التسويق</div>
         <div class="nav-item" onclick="showSection('banners', this)">
           <i data-lucide="image"></i>
           <span>السلايدر الترويجي</span>
@@ -1163,21 +1228,12 @@
         </div>
         <div class="nav-item" onclick="showSection('discounts', this)">
           <i data-lucide="percent"></i>
-          <span>التخفيضات المميزة</span>
+          <span>التخفيضات</span>
         </div>
       </div>
 
       <div class="nav-section">
-        <div class="nav-section-title">الطلبات</div>
-        <div class="nav-item" onclick="showSection('orders', this)">
-          <i data-lucide="shopping-bag"></i>
-          <span>إدارة الطلبات</span>
-          <span class="badge" id="orders-count">0</span>
-        </div>
-      </div>
-
-      <div class="nav-section">
-        <div class="nav-section-title">الفريق</div>
+        <div class="nav-section-title">السائقين</div>
         <div class="nav-item" onclick="showSection('drivers', this)">
           <i data-lucide="users"></i>
           <span>سائقين الدلفري</span>
@@ -1191,9 +1247,9 @@
       </div>
 
       <div class="nav-section">
-        <div class="nav-section-title">الإعدادات</div>
+        <div class="nav-section-title">التقارير والإعدادات</div>
         <div class="nav-item" onclick="showSection('delivery', this)">
-          <i data-lucide="truck"></i>
+          <i data-lucide="map-pin"></i>
           <span>مناطق التوصيل</span>
         </div>
       </div>
@@ -1207,62 +1263,82 @@
       <header class="header">
         <div class="header-title">
           <h2>مرحباً بك 👋</h2>
-          <p>نظرة عامة على متجرك</p>
+          <p id="dashboard-datetime" style="font-size:0.85rem;color:var(--gray-500);"></p>
+        </div>
+        <div class="header-actions">
+          <button class="btn btn-outline" onclick="loadDashboard()">
+            <i data-lucide="refresh-cw"></i> تحديث
+          </button>
         </div>
       </header>
 
       <div class="content">
-        <div class="stats-grid">
-          <div class="stat-card">
-            <div class="stat-icon purple">
-              <i data-lucide="package"></i>
-            </div>
-            <div class="stat-info">
-              <h3 id="stat-products">0</h3>
-              <p>إجمالي المنتجات</p>
-            </div>
+        <!-- Quick stats grid -->
+        <div class="stats-grid" style="margin-bottom:24px;">
+          <div class="stat-card" style="cursor:pointer;" onclick="showSection('orders', document.querySelector('.nav-item:nth-child(2)'))">
+            <div class="stat-icon orange"><i data-lucide="shopping-bag"></i></div>
+            <div class="stat-info"><h3 id="stat-products">0</h3><p>إجمالي الطلبات</p></div>
+          </div>
+          <div class="stat-card" style="cursor:pointer;" onclick="showSection('driverQueue', document.querySelectorAll('.nav-item')[7])">
+            <div class="stat-icon green"><i data-lucide="truck"></i></div>
+            <div class="stat-info"><h3 id="dash-online-drivers">0</h3><p>سائقون متصلون</p></div>
           </div>
           <div class="stat-card">
-            <div class="stat-icon green">
-              <i data-lucide="folder-tree"></i>
-            </div>
-            <div class="stat-info">
-              <h3 id="stat-categories">0</h3>
-              <p>الفئات</p>
-            </div>
+            <div class="stat-icon blue"><i data-lucide="clock"></i></div>
+            <div class="stat-info"><h3 id="dash-pending">0</h3><p>قيد الانتظار</p></div>
           </div>
           <div class="stat-card">
-            <div class="stat-icon blue">
-              <i data-lucide="image"></i>
-            </div>
-            <div class="stat-info">
-              <h3 id="stat-banners">0</h3>
-              <p>السلايدر الترويجي</p>
-            </div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-icon orange">
-              <i data-lucide="map-pin"></i>
-            </div>
-            <div class="stat-info">
-              <h3 id="stat-areas">0</h3>
-              <p>مناطق التوصيل</p>
-            </div>
+            <div class="stat-icon purple"><i data-lucide="banknote"></i></div>
+            <div class="stat-info"><h3 id="dash-revenue" style="font-size:1.1rem;">0</h3><p>إجمالي المبيعات</p></div>
           </div>
         </div>
 
+        <!-- GPS Live Tracking Map -->
+        <div class="map-card">
+          <div class="map-card-header">
+            <h3 style="display:flex;align-items:center;gap:8px;font-size:1rem;font-weight:700;color:var(--gray-800);">
+              <i data-lucide="map-pin" style="width:20px;height:20px;color:var(--primary);"></i>
+              تتبع السائقين المباشر
+              <span class="online-dot"></span>
+              <span id="map-driver-count" style="font-size:0.8rem;color:var(--gray-500);font-weight:500;">0 سائق متصل</span>
+            </h3>
+            <div style="display:flex;gap:8px;align-items:center;">
+              <span style="font-size:0.75rem;color:var(--gray-500);">يتحدث كل 15 ثانية</span>
+              <button class="btn btn-outline btn-sm" onclick="refreshDriverLocations()">
+                <i data-lucide="refresh-cw" style="width:14px;height:14px;"></i>
+              </button>
+            </div>
+          </div>
+          <div id="gps-map-container" style="position:relative;">
+            <div id="gps-map"></div>
+            <div id="map-no-drivers" style="display:none;position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;color:var(--gray-400);">
+              <i data-lucide="wifi-off" style="width:40px;height:40px;margin-bottom:8px;"></i>
+              <p>لا يوجد سائقون متصلون الآن</p>
+            </div>
+          </div>
+          <!-- Driver legend -->
+          <div style="padding:12px 20px;border-top:1px solid var(--gray-100);display:flex;gap:20px;font-size:0.8rem;">
+            <span style="display:flex;align-items:center;gap:6px;"><span style="width:12px;height:12px;border-radius:50%;background:#10B981;display:inline-block;"></span> متاح</span>
+            <span style="display:flex;align-items:center;gap:6px;"><span style="width:12px;height:12px;border-radius:50%;background:#F59E0B;display:inline-block;"></span> مشغول بطلب</span>
+          </div>
+        </div>
+
+        <!-- Recent orders on dashboard -->
         <div class="card">
           <div class="card-header">
-            <h3><i data-lucide="activity"></i> آخر المنتجات المضافة</h3>
+            <h3><i data-lucide="activity"></i> آخر الطلبات</h3>
+            <button class="btn btn-outline btn-sm" onclick="showSection('orders', document.querySelectorAll('.nav-item')[1])">عرض الكل</button>
           </div>
           <div class="card-body">
             <div class="table-container">
               <table>
                 <thead>
                   <tr>
-                    <th>المنتج</th>
-                    <th>الفئة</th>
-                    <th>السعر</th>
+                    <th>رقم الطلب</th>
+                    <th>العميل</th>
+                    <th>المنطقة</th>
+                    <th>المجموع</th>
+                    <th>الحالة</th>
                   </tr>
                 </thead>
                 <tbody id="recent-products"></tbody>
@@ -1669,110 +1745,131 @@
       </header>
 
       <div class="content">
-        <!-- Orders Summary Stats -->
-        <div id="orders-summary" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; margin-bottom: 24px;">
-          <div style="background: linear-gradient(135deg, #E86520, #F28B4E); border-radius: 16px; padding: 20px; color: white;">
-            <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
-              <i data-lucide="shopping-bag" style="width: 24px; height: 24px;"></i>
-              <span style="font-size: 0.9rem; opacity: 0.9;">إجمالي الطلبات</span>
-            </div>
-            <div id="stat-total-orders" style="font-size: 2rem; font-weight: 800;">0</div>
-          </div>
-          <div style="background: linear-gradient(135deg, #10b981, #34d399); border-radius: 16px; padding: 20px; color: white;">
-            <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
-              <i data-lucide="check-circle" style="width: 24px; height: 24px;"></i>
-              <span style="font-size: 0.9rem; opacity: 0.9;">تم التوصيل</span>
-            </div>
-            <div id="stat-delivered-orders" style="font-size: 2rem; font-weight: 800;">0</div>
-          </div>
-          <div style="background: linear-gradient(135deg, #f59e0b, #fbbf24); border-radius: 16px; padding: 20px; color: white;">
+        <!-- Row 1: Active Operational Stats -->
+        <div class="stats-row-active">
+          <div style="background: linear-gradient(135deg, #F59E0B, #FBBF24); border-radius: 16px; padding: 20px; color: white;">
             <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
               <i data-lucide="clock" style="width: 24px; height: 24px;"></i>
               <span style="font-size: 0.9rem; opacity: 0.9;">قيد الانتظار</span>
             </div>
-            <div id="stat-pending-orders" style="font-size: 2rem; font-weight: 800;">0</div>
+            <div id="stat-pending-orders" style="font-size: 2.2rem; font-weight: 800;">0</div>
+            <div style="font-size: 0.75rem; opacity: 0.8; margin-top: 4px;">طلبات تنتظر التأكيد</div>
           </div>
-          <div style="background: linear-gradient(135deg, #3b82f6, #60a5fa); border-radius: 16px; padding: 20px; color: white;">
+          <div style="background: linear-gradient(135deg, #8B5CF6, #A78BFA); border-radius: 16px; padding: 20px; color: white;">
             <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
-              <i data-lucide="banknote" style="width: 24px; height: 24px;"></i>
-              <span style="font-size: 0.9rem; opacity: 0.9;">إجمالي المبيعات</span>
+              <i data-lucide="chef-hat" style="width: 24px; height: 24px;"></i>
+              <span style="font-size: 0.9rem; opacity: 0.9;">جاري التحضير</span>
             </div>
-            <div id="stat-total-revenue" style="font-size: 1.5rem; font-weight: 800;">0 د.ع</div>
-          </div>
-          <div style="background: linear-gradient(135deg, #8b5cf6, #a78bfa); border-radius: 16px; padding: 20px; color: white;">
-            <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
-              <i data-lucide="truck" style="width: 24px; height: 24px;"></i>
-              <span style="font-size: 0.9rem; opacity: 0.9;">جاري التوصيل</span>
-            </div>
-            <div id="stat-delivering-orders" style="font-size: 2rem; font-weight: 800;">0</div>
-          </div>
-          <div style="background: linear-gradient(135deg, #ef4444, #f87171); border-radius: 16px; padding: 20px; color: white;">
-            <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
-              <i data-lucide="x-circle" style="width: 24px; height: 24px;"></i>
-              <span style="font-size: 0.9rem; opacity: 0.9;">ملغية</span>
-            </div>
-            <div id="stat-cancelled-orders" style="font-size: 2rem; font-weight: 800;">0</div>
-          </div>
-        </div>
-
-        <!-- Owner Earnings Section -->
-        <div id="owner-earnings-section" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 24px;">
-          <div style="background: linear-gradient(135deg, #10B981, #059669); border-radius: 16px; padding: 20px; color: white;">
-            <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
-              <i data-lucide="wallet" style="width: 24px; height: 24px;"></i>
-              <span style="font-size: 0.9rem; opacity: 0.9;">أرباح التطبيق المتحققة</span>
-            </div>
-            <div id="stat-owner-earnings" style="font-size: 1.5rem; font-weight: 800;">0 د.ع</div>
+            <div id="stat-preparing-orders" style="font-size: 2.2rem; font-weight: 800;">0</div>
+            <div style="font-size: 0.75rem; opacity: 0.8; margin-top: 4px;">طلبات قيد التحضير</div>
           </div>
           <div style="background: linear-gradient(135deg, #06B6D4, #0891B2); border-radius: 16px; padding: 20px; color: white;">
             <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
               <i data-lucide="truck" style="width: 24px; height: 24px;"></i>
-              <span style="font-size: 0.9rem; opacity: 0.9;">أرباح السائقين الإجمالية</span>
+              <span style="font-size: 0.9rem; opacity: 0.9;">جاري التوصيل</span>
             </div>
-            <div id="stat-driver-earnings" style="font-size: 1.5rem; font-weight: 800;">0 د.ع</div>
-          </div>
-          <div style="background: linear-gradient(135deg, #8B5CF6, #7C3AED); border-radius: 16px; padding: 20px; color: white;">
-            <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
-              <i data-lucide="banknote" style="width: 24px; height: 24px;"></i>
-              <span style="font-size: 0.9rem; opacity: 0.9;">إجمالي رسوم التوصيل</span>
-            </div>
-            <div id="stat-total-delivery-fees" style="font-size: 1.5rem; font-weight: 800;">0 د.ع</div>
+            <div id="stat-delivering-orders" style="font-size: 2.2rem; font-weight: 800;">0</div>
+            <div style="font-size: 0.75rem; opacity: 0.8; margin-top: 4px;">طلبات مع السائقين</div>
           </div>
         </div>
 
-        <div class="orders-filters" style="display: flex; gap: 12px; margin-bottom: 20px; flex-wrap: wrap;">
-          <button class="btn btn-outline order-filter active" data-status="all" onclick="filterOrders('all', this)">الكل</button>
-          <button class="btn btn-outline order-filter" data-status="pending" onclick="filterOrders('pending', this)">قيد الانتظار</button>
-          <button class="btn btn-outline order-filter" data-status="confirmed" onclick="filterOrders('confirmed', this)">تم التأكيد</button>
-          <button class="btn btn-outline order-filter" data-status="preparing" onclick="filterOrders('preparing', this)">جاري التحضير</button>
-          <button class="btn btn-outline order-filter" data-status="delivering" onclick="filterOrders('delivering', this)">جاري التوصيل</button>
-          <button class="btn btn-outline order-filter" data-status="delivered" onclick="filterOrders('delivered', this)">تم التوصيل</button>
-          <button class="btn btn-outline order-filter" data-status="cancelled" onclick="filterOrders('cancelled', this)">ملغي</button>
+        <!-- Row 2: Results Stats -->
+        <div class="stats-row-result">
+          <div style="background: linear-gradient(135deg, #10B981, #34D399); border-radius: 16px; padding: 20px; color: white;">
+            <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
+              <i data-lucide="check-circle" style="width: 24px; height: 24px;"></i>
+              <span style="font-size: 0.9rem; opacity: 0.9;">تم التوصيل</span>
+            </div>
+            <div id="stat-delivered-orders" style="font-size: 2.2rem; font-weight: 800;">0</div>
+            <div style="font-size: 0.75rem; opacity: 0.8; margin-top: 4px;">طلبات مكتملة</div>
+          </div>
+          <div style="background: linear-gradient(135deg, #EF4444, #F87171); border-radius: 16px; padding: 20px; color: white;">
+            <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
+              <i data-lucide="x-circle" style="width: 24px; height: 24px;"></i>
+              <span style="font-size: 0.9rem; opacity: 0.9;">ملغية</span>
+            </div>
+            <div id="stat-cancelled-orders" style="font-size: 2.2rem; font-weight: 800;">0</div>
+            <div style="font-size: 0.75rem; opacity: 0.8; margin-top: 4px;">طلبات ملغاة</div>
+          </div>
+        </div>
+
+        <!-- Row 3: Financial Stats -->
+        <div class="stats-row-financial">
+          <div style="background: linear-gradient(135deg, #D94523, #F07050); border-radius: 16px; padding: 20px; color: white;">
+            <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
+              <i data-lucide="shopping-bag" style="width: 24px; height: 24px;"></i>
+              <span style="font-size: 0.85rem; opacity: 0.9;">إجمالي المبيعات</span>
+            </div>
+            <div id="stat-total-revenue" style="font-size: 1.4rem; font-weight: 800;">0 د.ع</div>
+            <div style="font-size: 0.7rem; opacity: 0.8; margin-top: 4px;">كل الطلبات غير الملغاة</div>
+          </div>
+          <div style="background: linear-gradient(135deg, #10B981, #059669); border-radius: 16px; padding: 20px; color: white;">
+            <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
+              <i data-lucide="wallet" style="width: 24px; height: 24px;"></i>
+              <span style="font-size: 0.85rem; opacity: 0.9;">أرباح التطبيق</span>
+            </div>
+            <div id="stat-owner-earnings" style="font-size: 1.4rem; font-weight: 800;">0 د.ع</div>
+            <div style="font-size: 0.7rem; opacity: 0.8; margin-top: 4px;">صافي ربح المنصة</div>
+          </div>
+          <div style="background: linear-gradient(135deg, #3B82F6, #60A5FA); border-radius: 16px; padding: 20px; color: white;">
+            <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
+              <i data-lucide="truck" style="width: 24px; height: 24px;"></i>
+              <span style="font-size: 0.85rem; opacity: 0.9;">أرباح السائقين</span>
+            </div>
+            <div id="stat-driver-earnings" style="font-size: 1.4rem; font-weight: 800;">0 د.ع</div>
+            <div style="font-size: 0.7rem; opacity: 0.8; margin-top: 4px;">إجمالي ما أكسبه السائقون</div>
+          </div>
+        </div>
+        <!-- hidden stat for total orders - keep ID for JS compat -->
+        <span id="stat-total-orders" style="display:none">0</span>
+        <span id="stat-total-delivery-fees" style="display:none">0</span>
+
+        <!-- Live polling indicator -->
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:10px;">
+          <div class="orders-filters" style="display: flex; gap: 8px; flex-wrap: wrap;">
+            <button class="btn btn-outline order-filter active" data-status="all" onclick="filterOrders('all', this)">الكل</button>
+            <button class="btn btn-outline order-filter" data-status="pending" onclick="filterOrders('pending', this)">قيد الانتظار</button>
+            <button class="btn btn-outline order-filter" data-status="confirmed" onclick="filterOrders('confirmed', this)">تم التأكيد</button>
+            <button class="btn btn-outline order-filter" data-status="preparing" onclick="filterOrders('preparing', this)">جاري التحضير</button>
+            <button class="btn btn-outline order-filter" data-status="delivering" onclick="filterOrders('delivering', this)">جاري التوصيل</button>
+            <button class="btn btn-outline order-filter" data-status="delivered" onclick="filterOrders('delivered', this)">تم التوصيل</button>
+            <button class="btn btn-outline order-filter" data-status="cancelled" onclick="filterOrders('cancelled', this)">ملغي</button>
+          </div>
+          <div style="display:flex;align-items:center;gap:10px;">
+            <span class="online-dot"></span>
+            <span id="live-poll-label" style="font-size:0.8rem;color:var(--gray-500);">تحديث تلقائي كل 10 ثانية</span>
+            <label style="display:flex;align-items:center;gap:6px;font-size:0.8rem;cursor:pointer;">
+              <input type="checkbox" id="sound-toggle" checked onchange="toggleSound(this.checked)"> صوت التنبيه
+            </label>
+          </div>
         </div>
 
         <div class="card">
           <div class="card-header">
             <h3><i data-lucide="shopping-bag"></i> قائمة الطلبات</h3>
+            <span id="orders-last-updated" style="font-size:0.75rem;color:var(--gray-400);"></span>
           </div>
           <div class="table-container">
             <table>
               <thead>
                 <tr>
-                  <th>رقم الطلب</th>
+                  <th>#</th>
                   <th>العميل</th>
                   <th>السائق</th>
                   <th>المنطقة</th>
                   <th>المنتجات</th>
                   <th>المجموع</th>
                   <th>الحالة</th>
-                  <th>التاريخ</th>
-                  <th>الإجراءات</th>
+                  <th>الوقت</th>
+                  <th>إجراءات</th>
                 </tr>
               </thead>
               <tbody id="orders-table"></tbody>
             </table>
           </div>
         </div>
+        <!-- Print area (hidden) -->
+        <div id="print-area"></div>
       </div>
     </div>
   </main>
@@ -2101,13 +2198,16 @@
       document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
       
       document.getElementById(section + '-section').classList.add('active');
-      element.classList.add('active');
+      if (element) element.classList.add('active');
+      
+      // Stop polling when leaving orders
+      if (section !== 'orders') stopOrdersPolling();
       
       if (section === 'products') loadProducts();
       if (section === 'categories') loadCategories();
       if (section === 'banners') loadBanners();
       if (section === 'delivery') loadDeliveryAreas();
-      if (section === 'orders') loadOrders();
+      if (section === 'orders') { loadOrders(); startOrdersPolling(); }
       if (section === 'drivers') loadDrivers();
       if (section === 'driverQueue') loadDriverQueue();
       if (section === 'dashboard') loadDashboard();
@@ -2200,36 +2300,201 @@
       lucide.createIcons();
     }
 
+    // Dashboard datetime
+    function updateDashboardDatetime() {
+      const el = document.getElementById('dashboard-datetime');
+      if (el) {
+        const now = new Date();
+        el.textContent = now.toLocaleDateString('ar-IQ', { weekday:'long', year:'numeric', month:'long', day:'numeric' }) + '  —  ' + now.toLocaleTimeString('ar-IQ');
+      }
+    }
+    setInterval(updateDashboardDatetime, 1000);
+    updateDashboardDatetime();
+
     // Dashboard
     async function loadDashboard() {
       try {
-        const [productsRes, categoriesRes, bannersRes, areasRes] = await Promise.all([
+        const [productsRes, categoriesRes, bannersRes, areasRes, ordersRes, queueRes] = await Promise.all([
           fetch(API_BASE + '/admin/products'),
           fetch(API_BASE + '/categories'),
           fetch(API_BASE + '/admin/banners'),
-          fetch(API_BASE + '/admin/delivery-areas')
+          fetch(API_BASE + '/admin/delivery-areas'),
+          fetch(API_BASE + '/admin/orders'),
+          fetch(API_BASE + '/admin/driver-queue')
         ]);
         
         products = await productsRes.json();
         categories = await categoriesRes.json();
         banners = await bannersRes.json();
         deliveryAreas = await areasRes.json();
+        orders = await ordersRes.json();
+        const queueData = await queueRes.json().catch(() => ({ queue: [] }));
         
         updateStats();
+        updateOrdersStats();
         renderRecentProducts();
+        const onlineCount = (queueData.queue || []).length;
+        const dashOnline = document.getElementById('dash-online-drivers');
+        if (dashOnline) dashOnline.textContent = onlineCount;
+        
+        // Load GPS map
+        refreshDriverLocations();
       } catch (error) {
         showToast('error', 'خطأ', 'حدث خطأ في تحميل البيانات');
       }
     }
 
     function updateStats() {
-      document.getElementById('stat-products').textContent = products.length;
-      document.getElementById('stat-categories').textContent = categories.length;
-      document.getElementById('stat-banners').textContent = banners.length;
-      document.getElementById('stat-areas').textContent = deliveryAreas.length;
-      
       document.getElementById('products-count').textContent = products.length;
       document.getElementById('categories-count').textContent = categories.length;
+    }
+
+    // Time ago helper
+    function getTimeAgo(dateStr) {
+      const diff = Date.now() - new Date(dateStr).getTime();
+      const min = Math.floor(diff / 60000);
+      if (min < 1) return 'الآن';
+      if (min < 60) return `منذ ${min} دقيقة`;
+      const hr = Math.floor(min / 60);
+      if (hr < 24) return `منذ ${hr} ساعة`;
+      const days = Math.floor(hr / 24);
+      return `منذ ${days} يوم`;
+    }
+
+    // Print invoice
+    function printInvoice(order) {
+      const items = (order.items || []).map(i => `<tr><td>${escapeHtml(i.name)}</td><td>${i.quantity}</td><td>${((i.price||0)*i.quantity).toLocaleString('ar-IQ')} د.ع</td></tr>`).join('');
+      const total = (order.total || 0) + (order.deliveryFee || 0);
+      const html = `
+        <div style="font-family:'Cairo',sans-serif;direction:rtl;padding:32px;max-width:500px;margin:auto;border:1px solid #ddd;border-radius:12px;">
+          <div style="text-align:center;margin-bottom:24px;">
+            <h2 style="color:#D94523;font-size:1.8rem;margin:0;">ONWAY</h2>
+            <p style="color:#888;margin:4px 0;">فاتورة توصيل</p>
+          </div>
+          <div style="margin-bottom:16px;padding:12px;background:#f9f9f9;border-radius:8px;">
+            <p><strong>رقم الطلب:</strong> #${(order.id||'').slice(-6)}</p>
+            <p><strong>العميل:</strong> ${escapeHtml(order.phoneNumber||'')}</p>
+            <p><strong>المنطقة:</strong> ${escapeHtml(order.region||'')} - ${escapeHtml(order.address||'')}</p>
+            <p><strong>التاريخ:</strong> ${new Date(order.createdAt).toLocaleDateString('ar-IQ')}</p>
+          </div>
+          <table style="width:100%;border-collapse:collapse;">
+            <thead><tr style="background:#D94523;color:white;"><th style="padding:8px;">المنتج</th><th>الكمية</th><th>السعر</th></tr></thead>
+            <tbody>${items}</tbody>
+          </table>
+          <div style="margin-top:16px;padding:12px;background:#f9f9f9;border-radius:8px;text-align:left;">
+            <p><strong>سعر الطلبية:</strong> ${(order.total||0).toLocaleString('ar-IQ')} د.ع</p>
+            <p><strong>رسوم التوصيل:</strong> ${(order.deliveryFee||0).toLocaleString('ar-IQ')} د.ع</p>
+            <h3 style="color:#D94523;">الإجمالي: ${total.toLocaleString('ar-IQ')} د.ع</h3>
+          </div>
+        </div>`;
+      const printWindow = window.open('', '_blank', 'width=600,height=700');
+      printWindow.document.write(`<html><head><link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet"></head><body>${html}<script>window.onload=()=>{window.print();window.close();}<\/script></body></html>`);
+      printWindow.document.close();
+    }
+
+    // ========== GPS Map ==========
+    let _gpsMap = null;
+    let _driverMarkers = {};
+    let _gpsPollingInterval = null;
+    let _mapsReady = false;
+
+    function initGoogleMaps() {
+      _mapsReady = true;
+      const mapEl = document.getElementById('gps-map');
+      if (!mapEl) return;
+      _gpsMap = new google.maps.Map(mapEl, {
+        center: { lat: 33.3152, lng: 44.3661 }, // Baghdad center
+        zoom: 11,
+        styles: [{ featureType:'poi', elementType:'labels', stylers:[{visibility:'off'}] }],
+        disableDefaultUI: false,
+        zoomControl: true,
+        streetViewControl: false,
+        fullscreenControl: true,
+        mapTypeControl: false,
+      });
+    }
+
+    async function refreshDriverLocations() {
+      try {
+        const res = await fetch(API_BASE + '/admin/driver-locations');
+        const data = await res.json();
+        const locations = data.locations || [];
+        const countEl = document.getElementById('map-driver-count');
+        if (countEl) countEl.textContent = locations.length + ' سائق متصل';
+        const noDrivers = document.getElementById('map-no-drivers');
+        if (noDrivers) noDrivers.style.display = locations.length === 0 ? 'flex' : 'none';
+        if (!_mapsReady || !_gpsMap) return;
+        // Remove old markers
+        const currentPhones = new Set(locations.map(l => l.phoneNumber));
+        for (const [phone, marker] of Object.entries(_driverMarkers)) {
+          if (!currentPhones.has(phone)) { marker.setMap(null); delete _driverMarkers[phone]; }
+        }
+        // Add / update markers
+        locations.forEach(loc => {
+          const pos = { lat: loc.lat, lng: loc.lng };
+          const isBusy = loc.status === 'busy';
+          const iconColor = isBusy ? 'F59E0B' : '10B981';
+          if (_driverMarkers[loc.phoneNumber]) {
+            _driverMarkers[loc.phoneNumber].setPosition(pos);
+          } else {
+            const marker = new google.maps.Marker({
+              position: pos,
+              map: _gpsMap,
+              title: loc.fullName || loc.phoneNumber,
+              icon: {
+                url: `https://chart.googleapis.com/chart?chst=d_map_pin_letter&chld=${isBusy?'B':'A'}|${iconColor}|ffffff`,
+                scaledSize: new google.maps.Size(30, 45)
+              }
+            });
+            const infoWindow = new google.maps.InfoWindow({
+              content: `<div class="driver-marker-popup"><strong>${loc.fullName||loc.phoneNumber}</strong><br/>${isBusy?'🟡 مشغول':'🟢 متاح'}${loc.currentOrderId?`<br/>طلب: #${loc.currentOrderId.slice(-6)}`:''}</div>`
+            });
+            marker.addListener('click', () => infoWindow.open(_gpsMap, marker));
+            _driverMarkers[loc.phoneNumber] = marker;
+          }
+        });
+        if (locations.length > 0) {
+          const bounds = new google.maps.LatLngBounds();
+          locations.forEach(l => bounds.extend({ lat: l.lat, lng: l.lng }));
+          _gpsMap.fitBounds(bounds, { padding: 60 });
+        }
+      } catch(e) { console.error('GPS refresh error:', e); }
+    }
+
+    // Start GPS polling when on dashboard
+    setInterval(() => {
+      const dashSection = document.getElementById('dashboard-section');
+      if (dashSection && dashSection.classList.contains('active')) refreshDriverLocations();
+    }, 15000);
+
+    // Global search
+    function globalSearch(query) {
+      if (!query || query.trim().length < 2) return;
+      const q = query.trim().toLowerCase();
+      // Search in orders
+      const found = orders.filter(o =>
+        (o.id||'').toLowerCase().includes(q) ||
+        (o.phoneNumber||'').includes(q) ||
+        (o.region||'').includes(q) ||
+        (o.address||'').toLowerCase().includes(q) ||
+        (o.driverName||'').toLowerCase().includes(q)
+      );
+      if (found.length > 0) {
+        // Navigate to orders section and show only matched
+        showSection('orders', document.querySelectorAll('.nav-item')[1]);
+        setTimeout(() => {
+          const tbody = document.getElementById('orders-table');
+          if (!tbody) return;
+          tbody.querySelectorAll('tr').forEach(row => {
+            const orderId = row.dataset.orderId;
+            const match = found.some(o => o.id === orderId);
+            row.style.display = match ? '' : 'none';
+          });
+          showToast('success', 'نتيجة البحث', `عُثر على ${found.length} طلب`);
+        }, 400);
+      } else {
+        showToast('error', 'لا توجد نتائج', 'لم يُعثر على أي طلب بهذا البحث');
+      }
     }
 
     // Promotional Sections Functions
@@ -2359,27 +2624,24 @@
 
     function renderRecentProducts() {
       const tbody = document.getElementById('recent-products');
-      const recent = products.slice(-5).reverse();
+      const recent = [...orders].sort((a,b) => new Date(b.createdAt) - new Date(a.createdAt)).slice(0, 8);
       
       if (recent.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="3" style="text-align: center; color: var(--gray-500); padding: 40px;">لا توجد منتجات بعد</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: var(--gray-500); padding: 40px;">لا توجد طلبات بعد</td></tr>';
         return;
       }
       
-      tbody.innerHTML = recent.map(p => {
-        const cat = categories.find(c => c.id === p.categoryId);
+      const statusColors = { pending:'#F59E0B', confirmed:'#3B82F6', preparing:'#8B5CF6', delivering:'#06B6D4', delivered:'#10B981', cancelled:'#EF4444' };
+      tbody.innerHTML = recent.map(o => {
+        const total = (o.total||0) + (o.deliveryFee||0);
+        const color = statusColors[o.status] || '#6B7280';
         return `
-          <tr>
-            <td>
-              <div class="item-info">
-                <img src="${escapeHtml(p.image)}" class="item-image" onerror="this.src='https://via.placeholder.com/50'">
-                <div class="item-details">
-                  <h4>${escapeHtml(p.name)}</h4>
-                </div>
-              </div>
-            </td>
-            <td><span class="badge badge-info">${escapeHtml(cat?.name || '-')}</span></td>
-            <td class="price-tag">${p.price.toLocaleString()} د.ع</td>
+          <tr style="cursor:pointer;" onclick="showSection('orders',document.querySelectorAll('.nav-item')[1])">
+            <td><strong style="color:var(--primary);">#${(o.id||'').slice(-6)}</strong></td>
+            <td style="font-size:0.85rem;">${escapeHtml(o.phoneNumber||'')}</td>
+            <td style="font-size:0.85rem;">${escapeHtml(o.region||'')}</td>
+            <td><strong>${total.toLocaleString('ar-IQ')} د.ع</strong></td>
+            <td><span style="background:${color}20;color:${color};padding:3px 10px;border-radius:20px;font-size:0.75rem;font-weight:600;">${getOrderStatusLabel(o.status)}</span></td>
           </tr>
         `;
       }).join('');
@@ -3120,17 +3382,72 @@
       return colors[status] || '#6B7280';
     }
 
-    async function loadOrders() {
+    let _ordersPollingInterval = null;
+    let _lastOrderIds = new Set();
+    let _soundEnabled = true;
+    let _audioCtx = null;
+
+    function toggleSound(on) { _soundEnabled = on; }
+
+    function playAlertSound() {
+      if (!_soundEnabled) return;
+      try {
+        if (!_audioCtx) _audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const oscillator = _audioCtx.createOscillator();
+        const gainNode = _audioCtx.createGain();
+        oscillator.connect(gainNode);
+        gainNode.connect(_audioCtx.destination);
+        oscillator.type = 'sine';
+        oscillator.frequency.setValueAtTime(880, _audioCtx.currentTime);
+        oscillator.frequency.setValueAtTime(660, _audioCtx.currentTime + 0.15);
+        gainNode.gain.setValueAtTime(0.4, _audioCtx.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.001, _audioCtx.currentTime + 0.5);
+        oscillator.start(_audioCtx.currentTime);
+        oscillator.stop(_audioCtx.currentTime + 0.5);
+      } catch(e) { /* ignore */ }
+    }
+
+    async function loadOrders(silent = false) {
       try {
         const response = await fetch(API_BASE + '/admin/orders');
-        orders = await response.json();
+        const newOrders = await response.json();
+        
+        // Detect new orders
+        const newIds = new Set(newOrders.map(o => o.id));
+        if (_lastOrderIds.size > 0) {
+          const added = newOrders.filter(o => !_lastOrderIds.has(o.id) && o.status === 'pending');
+          if (added.length > 0) {
+            playAlertSound();
+            showToast('success', 'طلب جديد!', `وصل ${added.length} طلب جديد`);
+            // Highlight new rows after render
+            setTimeout(() => {
+              added.forEach(o => {
+                const rows = document.querySelectorAll('#orders-table tr');
+                rows.forEach(r => { if (r.dataset.orderId === o.id) r.classList.add('new-order-row'); });
+              });
+            }, 300);
+          }
+        }
+        _lastOrderIds = newIds;
+
+        orders = newOrders;
         document.getElementById('orders-count').textContent = orders.filter(o => o.status === 'pending').length;
         updateOrdersStats();
         renderOrders();
         loadOwnerEarnings();
+        const el = document.getElementById('orders-last-updated');
+        if (el) el.textContent = 'آخر تحديث: ' + new Date().toLocaleTimeString('ar-IQ');
       } catch (error) {
-        showToast('error', 'خطأ', 'حدث خطأ في تحميل الطلبات');
+        if (!silent) showToast('error', 'خطأ', 'حدث خطأ في تحميل الطلبات');
       }
+    }
+
+    function startOrdersPolling() {
+      if (_ordersPollingInterval) clearInterval(_ordersPollingInterval);
+      _ordersPollingInterval = setInterval(() => loadOrders(true), 10000);
+    }
+    function stopOrdersPolling() {
+      if (_ordersPollingInterval) { clearInterval(_ordersPollingInterval); _ordersPollingInterval = null; }
     }
 
     async function loadOwnerEarnings() {
@@ -3149,6 +3466,7 @@
       const totalOrders = orders.length;
       const deliveredOrders = orders.filter(o => o.status === 'delivered').length;
       const pendingOrders = orders.filter(o => o.status === 'pending').length;
+      const preparingOrders = orders.filter(o => o.status === 'preparing' || o.status === 'confirmed').length;
       const deliveringOrders = orders.filter(o => o.status === 'delivering').length;
       const cancelledOrders = orders.filter(o => o.status === 'cancelled').length;
       const totalRevenue = orders
@@ -3158,9 +3476,17 @@
       document.getElementById('stat-total-orders').textContent = totalOrders.toLocaleString('ar-IQ');
       document.getElementById('stat-delivered-orders').textContent = deliveredOrders.toLocaleString('ar-IQ');
       document.getElementById('stat-pending-orders').textContent = pendingOrders.toLocaleString('ar-IQ');
+      document.getElementById('stat-preparing-orders').textContent = preparingOrders.toLocaleString('ar-IQ');
       document.getElementById('stat-delivering-orders').textContent = deliveringOrders.toLocaleString('ar-IQ');
       document.getElementById('stat-cancelled-orders').textContent = cancelledOrders.toLocaleString('ar-IQ');
       document.getElementById('stat-total-revenue').textContent = totalRevenue.toLocaleString('ar-IQ') + ' د.ع';
+      // Also update dashboard quick cards
+      const dashPending = document.getElementById('dash-pending');
+      const dashRevenue = document.getElementById('dash-revenue');
+      const dashTotal = document.getElementById('stat-products');
+      if (dashPending) dashPending.textContent = pendingOrders.toLocaleString('ar-IQ');
+      if (dashRevenue) dashRevenue.textContent = totalRevenue.toLocaleString('ar-IQ') + ' د.ع';
+      if (dashTotal) dashTotal.textContent = totalOrders.toLocaleString('ar-IQ');
     }
 
     function filterOrders(status, element) {
@@ -3194,56 +3520,57 @@
         let actionButtons = '';
         if (order.status !== 'delivered' && order.status !== 'cancelled') {
           if (order.status === 'pending') {
-            actionButtons += `<button class="btn btn-sm" style="background: #3B82F6; color: white; margin-left: 4px;" onclick="event.stopPropagation(); updateOrderStatus('${order.id}', 'confirmed', '${order.phoneNumber}')"><i data-lucide="check"></i> تأكيد</button>`;
+            actionButtons += `<button class="btn btn-sm" style="background:#3B82F6;color:white;margin-left:4px;" onclick="event.stopPropagation();updateOrderStatus('${order.id}','confirmed','${order.phoneNumber}')"><i data-lucide="check"></i> تأكيد</button>`;
           }
           if (order.status === 'confirmed') {
-            actionButtons += `<button class="btn btn-sm" style="background: #8B5CF6; color: white; margin-left: 4px;" onclick="event.stopPropagation(); updateOrderStatus('${order.id}', 'preparing', '${order.phoneNumber}')"><i data-lucide="chef-hat"></i> تحضير</button>`;
+            actionButtons += `<button class="btn btn-sm" style="background:#8B5CF6;color:white;margin-left:4px;" onclick="event.stopPropagation();updateOrderStatus('${order.id}','preparing','${order.phoneNumber}')"><i data-lucide="chef-hat"></i> تحضير</button>`;
           }
           if (order.status === 'preparing') {
-            actionButtons += `<button class="btn btn-sm" style="background: #06B6D4; color: white; margin-left: 4px;" onclick="event.stopPropagation(); updateOrderStatus('${order.id}', 'delivering', '${order.phoneNumber}')"><i data-lucide="truck"></i> توصيل</button>`;
+            actionButtons += `<button class="btn btn-sm" style="background:#06B6D4;color:white;margin-left:4px;" onclick="event.stopPropagation();updateOrderStatus('${order.id}','delivering','${order.phoneNumber}')"><i data-lucide="truck"></i> توصيل</button>`;
           }
           if (order.status === 'delivering') {
-            actionButtons += `<button class="btn btn-sm" style="background: #10B981; color: white; margin-left: 4px;" onclick="event.stopPropagation(); updateOrderStatus('${order.id}', 'delivered', '${order.phoneNumber}')"><i data-lucide="check-circle"></i> تم</button>`;
+            actionButtons += `<button class="btn btn-sm" style="background:#10B981;color:white;margin-left:4px;" onclick="event.stopPropagation();updateOrderStatus('${order.id}','delivered','${order.phoneNumber}')"><i data-lucide="check-circle"></i> تم</button>`;
           }
-          actionButtons += `<button class="btn btn-sm" style="background: #EF4444; color: white;" onclick="event.stopPropagation(); updateOrderStatus('${order.id}', 'cancelled', '${order.phoneNumber}')"><i data-lucide="x"></i> إلغاء</button>`;
+          actionButtons += `<button class="btn btn-sm" style="background:#EF4444;color:white;margin-left:4px;" onclick="event.stopPropagation();updateOrderStatus('${order.id}','cancelled','${order.phoneNumber}')"><i data-lucide="x"></i> إلغاء</button>`;
         }
+        // WhatsApp button
+        const waPhone = (order.phoneNumber || '').replace(/^0/, '964');
+        const waMsg = encodeURIComponent(`مرحباً، بخصوص طلبك رقم #${order.id.slice(-6)} - ONWAY`);
+        actionButtons += `<button class="btn-whatsapp" onclick="event.stopPropagation();window.open('https://wa.me/${waPhone}?text=${waMsg}','_blank')"><i data-lucide="message-circle" style="width:13px;height:13px;"></i> واتساب</button>`;
+        // Print invoice
+        actionButtons += `<button class="btn btn-sm" style="background:#6B7280;color:white;margin-right:4px;" onclick="event.stopPropagation();printInvoice(${JSON.stringify(order).replace(/"/g,'&quot;')})"><i data-lucide="printer"></i></button>`;
         
+        const timeAgo = getTimeAgo(order.createdAt);
         return `
-          <tr style="cursor:pointer;transition:background 0.15s;" onmouseover="this.style.background='var(--gray-50)'" onmouseout="this.style.background=''" onclick="viewOrderDetails('${order.id}')">
-            <td><strong>#${order.id.slice(-6)}</strong></td>
+          <tr data-order-id="${order.id}" style="cursor:pointer;transition:background 0.15s;" onmouseover="this.style.background='var(--gray-50)'" onmouseout="this.style.background=''" onclick="viewOrderDetails('${order.id}')">
+            <td><strong style="color:var(--primary);">#${order.id.slice(-6)}</strong></td>
             <td>
-              <div style="display: flex; align-items: center; gap: 8px;">
-                <i data-lucide="phone" style="width: 16px; height: 16px; color: var(--gray-500);"></i>
-                ${escapeHtml(order.phoneNumber)}
+              <div style="display:flex;flex-direction:column;gap:2px;">
+                <span style="font-weight:600;font-size:0.85rem;">${escapeHtml(order.phoneNumber)}</span>
+                ${order.customerName ? `<span style="font-size:0.75rem;color:var(--gray-500);">${escapeHtml(order.customerName)}</span>` : ''}
               </div>
             </td>
             <td>
-              ${order.driverName ? `<div style="display: flex; align-items: center; gap: 6px;">
-                <i data-lucide="truck" style="width: 14px; height: 14px; color: #06B6D4;"></i>
-                <span style="font-weight: 600; font-size: 0.85rem; color: #06B6D4;">${escapeHtml(order.driverName)}</span>
-              </div>` : '<span style="color: var(--gray-400); font-size: 0.8rem;">—</span>'}
+              ${order.driverName ? `<span style="font-weight:600;font-size:0.85rem;color:#06B6D4;">${escapeHtml(order.driverName)}</span>` : '<span style="color:var(--gray-400);font-size:0.8rem;">—</span>'}
             </td>
             <td>
-              <div style="display: flex; flex-direction: column; gap: 2px;">
-                <span style="font-weight: 600;">${escapeHtml(order.region || '')}</span>
-                <span style="font-size: 0.8rem; color: var(--gray-500);">${escapeHtml(order.address || '')}</span>
+              <div style="display:flex;flex-direction:column;gap:2px;">
+                <span style="font-weight:600;font-size:0.85rem;">${escapeHtml(order.region || '')}</span>
+                <span style="font-size:0.75rem;color:var(--gray-500);">${escapeHtml((order.address || '').slice(0, 30))}${(order.address||'').length > 30 ? '...' : ''}</span>
               </div>
             </td>
             <td>
-              <div style="display:flex;flex-direction:column;gap:2px;" title="${escapeHtml(itemsText)}">
-                <span style="font-weight:600;">${itemsCount} منتجات</span>
-                <span style="font-size:0.75rem;color:var(--gray-500);">${totalQty} قطعة</span>
-              </div>
+              <span title="${escapeHtml(itemsText)}" style="font-size:0.85rem;">${itemsCount} منتج (${totalQty})</span>
             </td>
-            <td><strong style="color: var(--primary);">${total.toLocaleString('ar-IQ')} د.ع</strong></td>
+            <td><strong style="color:var(--primary);">${total.toLocaleString('ar-IQ')} د.ع</strong></td>
             <td>
-              <span style="background: ${statusColor}20; color: ${statusColor}; padding: 4px 12px; border-radius: 20px; font-size: 0.8rem; font-weight: 600;">
+              <span style="background:${statusColor}20;color:${statusColor};padding:4px 10px;border-radius:20px;font-size:0.78rem;font-weight:600;white-space:nowrap;">
                 ${getOrderStatusLabel(order.status)}
               </span>
             </td>
-            <td style="font-size: 0.85rem; color: var(--gray-600);">${date}</td>
+            <td style="font-size:0.8rem;color:var(--gray-500);white-space:nowrap;">${timeAgo}</td>
             <td>
-              <div style="display: flex; gap: 4px; flex-wrap: wrap;" onclick="event.stopPropagation()">
+              <div style="display:flex;gap:4px;flex-wrap:nowrap;align-items:center;" onclick="event.stopPropagation()">
                 ${actionButtons}
               </div>
             </td>
