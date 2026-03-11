@@ -2468,7 +2468,7 @@
       try {
         const [productsRes, categoriesRes, bannersRes, areasRes, ordersRes, queueRes] = await Promise.all([
           fetch(API_BASE + '/admin/products'),
-          fetch(API_BASE + '/categories'),
+          fetch(API_BASE + '/admin/categories'),
           fetch(API_BASE + '/admin/banners'),
           fetch(API_BASE + '/admin/delivery-areas'),
           fetch(API_BASE + '/admin/orders'),
@@ -2881,7 +2881,7 @@
       try {
         const [productsRes, categoriesRes] = await Promise.all([
           fetch(API_BASE + '/admin/products'),
-          fetch(API_BASE + '/categories')
+          fetch(API_BASE + '/admin/categories')
         ]);
         products = await productsRes.json();
         categories = await categoriesRes.json();
@@ -3013,7 +3013,7 @@
     async function loadCategories() {
       try {
         const [categoriesRes, productsRes] = await Promise.all([
-          fetch(API_BASE + '/categories'),
+          fetch(API_BASE + '/admin/categories'),
           fetch(API_BASE + '/admin/products')
         ]);
         categories = await categoriesRes.json();

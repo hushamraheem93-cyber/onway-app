@@ -344,6 +344,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/admin/categories", async (_req: Request, res: Response) => {
+    try {
+      const db = getFirestore();
+      if (db) {
+        const firestoreCategories = await getFirestoreCategories();
+        res.set("Cache-Control", "no-store");
+        return res.json(firestoreCategories);
+      }
+      res.set("Cache-Control", "no-store");
+      res.json([...categories].sort((a, b) => (a.order || 0) - (b.order || 0)));
+    } catch (error) {
+      console.error("Error fetching admin categories:", error);
+      res.json([...categories].sort((a, b) => (a.order || 0) - (b.order || 0)));
+    }
+  });
+
   app.post("/api/admin/categories", async (req: Request, res: Response) => {
     try {
       const { id, name, productCount, order, image, color, iconColor } = req.body;

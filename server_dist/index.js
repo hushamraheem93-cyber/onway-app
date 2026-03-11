@@ -1178,6 +1178,21 @@ async function registerRoutes(app2) {
       }
     }
   });
+  app2.get("/api/admin/categories", async (_req, res) => {
+    try {
+      const db2 = getFirestore();
+      if (db2) {
+        const firestoreCategories = await getCategories();
+        res.set("Cache-Control", "no-store");
+        return res.json(firestoreCategories);
+      }
+      res.set("Cache-Control", "no-store");
+      res.json([...categories].sort((a, b) => (a.order || 0) - (b.order || 0)));
+    } catch (error) {
+      console.error("Error fetching admin categories:", error);
+      res.json([...categories].sort((a, b) => (a.order || 0) - (b.order || 0)));
+    }
+  });
   app2.post("/api/admin/categories", async (req, res) => {
     try {
       const { id, name, productCount, order, image, color, iconColor } = req.body;
