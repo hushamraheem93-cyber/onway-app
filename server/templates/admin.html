@@ -2571,7 +2571,7 @@
     function initDashboardMap() {
       const mapEl = document.getElementById('gps-map');
       if (!mapEl || _gpsMap) return;
-      _gpsMap = L.map('gps-map', { zoomControl: true, attributionControl: false }).setView([33.3152, 44.3661], 11);
+      _gpsMap = L.map('gps-map', { zoomControl: true, attributionControl: false }).setView([33.8833, 44.2167], 13);
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         maxZoom: 19,
       }).addTo(_gpsMap);
@@ -2643,7 +2643,7 @@
       // Init tracking map
       setTimeout(() => {
         if (!_trackingMap) {
-          _trackingMap = L.map('tracking-map', { zoomControl: true, attributionControl: false }).setView([33.3152, 44.3661], 13);
+          _trackingMap = L.map('tracking-map', { zoomControl: true, attributionControl: false }).setView([33.8833, 44.2167], 13);
           L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(_trackingMap);
         } else {
           _trackingMap.invalidateSize();
