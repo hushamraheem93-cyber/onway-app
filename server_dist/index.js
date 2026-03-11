@@ -2532,6 +2532,37 @@ async function registerRoutes(app2) {
       res.status(500).json({ error: error.message });
     }
   });
+  app2.delete("/api/admin/archive-old-orders", async (_req, res) => {
+    try {
+      const db2 = getFirestore();
+      if (!db2) return res.status(500).json({ error: "Firestore not initialized" });
+      const oneMonthAgo = /* @__PURE__ */ new Date();
+      oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
+      const cutoff = oneMonthAgo.getTime();
+      const allOrders = await getOrders();
+      const toArchive = allOrders.filter((o) => {
+        const isOld = o.createdAt ? (o.createdAt.toMillis ? o.createdAt.toMillis() : new Date(o.createdAt).getTime()) < cutoff : false;
+        return isOld && (o.status === "delivered" || o.status === "cancelled");
+      });
+      if (toArchive.length === 0) {
+        return res.json({ deleted: 0, message: "\u0644\u0627 \u062A\u0648\u062C\u062F \u0637\u0644\u0628\u0627\u062A \u0642\u062F\u064A\u0645\u0629 \u0644\u0644\u0623\u0631\u0634\u0641\u0629" });
+      }
+      const batchSize = 500;
+      let deleted = 0;
+      for (let i = 0; i < toArchive.length; i += batchSize) {
+        const batch = db2.batch();
+        const chunk = toArchive.slice(i, i + batchSize);
+        for (const order of chunk) {
+          batch.delete(db2.collection("orders").doc(order.id));
+        }
+        await batch.commit();
+        deleted += chunk.length;
+      }
+      res.json({ deleted, message: `\u062A\u0645 \u0623\u0631\u0634\u0641\u0629 \u0648\u062D\u0630\u0641 ${deleted} \u0637\u0644\u0628 \u0642\u062F\u064A\u0645 \u0628\u0646\u062C\u0627\u062D` });
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
+  });
   app2.get("/api/admin/promo-codes", async (_req, res) => {
     try {
       const codes = await getPromoCodes();

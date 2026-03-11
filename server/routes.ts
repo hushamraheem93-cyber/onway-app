@@ -1919,6 +1919,47 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Archive old completed/cancelled orders (older than 1 month)
+  app.delete("/api/admin/archive-old-orders", async (_req: Request, res: Response) => {
+    try {
+      const db = getFirestore();
+      if (!db) return res.status(500).json({ error: "Firestore not initialized" });
+
+      const oneMonthAgo = new Date();
+      oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
+      const cutoff = oneMonthAgo.getTime();
+
+      const allOrders = await getOrders();
+      const toArchive = allOrders.filter(o => {
+        const isOld = o.createdAt
+          ? (o.createdAt.toMillis ? o.createdAt.toMillis() : new Date(o.createdAt as any).getTime()) < cutoff
+          : false;
+        return isOld && (o.status === "delivered" || o.status === "cancelled");
+      });
+
+      if (toArchive.length === 0) {
+        return res.json({ deleted: 0, message: "لا توجد طلبات قديمة للأرشفة" });
+      }
+
+      // Batch delete in groups of 500 (Firestore limit)
+      const batchSize = 500;
+      let deleted = 0;
+      for (let i = 0; i < toArchive.length; i += batchSize) {
+        const batch = db.batch();
+        const chunk = toArchive.slice(i, i + batchSize);
+        for (const order of chunk) {
+          batch.delete(db.collection("orders").doc(order.id));
+        }
+        await batch.commit();
+        deleted += chunk.length;
+      }
+
+      res.json({ deleted, message: `تم أرشفة وحذف ${deleted} طلب قديم بنجاح` });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // Promo Code Routes
   app.get("/api/admin/promo-codes", async (_req: Request, res: Response) => {
     try {

@@ -8,6 +8,7 @@
   <script src="https://cdn.jsdelivr.net/npm/lucide@0.344.0/dist/umd/lucide.min.js"></script>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.0/package/dist/xlsx.full.min.js"></script>
   <style>
     :root {
       --primary: #D94523;
@@ -1256,6 +1257,10 @@
           <i data-lucide="map-pin"></i>
           <span>مناطق التوصيل</span>
         </div>
+        <div class="nav-item" onclick="showSection('settings', this)">
+          <i data-lucide="archive"></i>
+          <span>الأرشفة والتقارير</span>
+        </div>
       </div>
     </nav>
   </aside>
@@ -1740,10 +1745,18 @@
           <h2>إدارة الطلبات</h2>
           <p>مراجعة وإدارة طلبات العملاء</p>
         </div>
-        <div class="header-actions">
+        <div class="header-actions" style="display:flex;gap:8px;flex-wrap:wrap;">
           <button class="btn btn-outline" onclick="loadOrders()">
             <i data-lucide="refresh-cw"></i>
             تحديث
+          </button>
+          <button class="btn btn-outline" onclick="exportToExcel()" style="color:#10B981;border-color:#10B981;">
+            <i data-lucide="file-spreadsheet"></i>
+            تصدير Excel
+          </button>
+          <button class="btn" onclick="exportMonthlyReport()" style="background:#10B981;color:white;border:none;">
+            <i data-lucide="calendar"></i>
+            تقرير الشهر
           </button>
         </div>
       </header>
@@ -1871,9 +1884,106 @@
               <tbody id="orders-table"></tbody>
             </table>
           </div>
+          <!-- Pagination -->
+          <div id="orders-pagination" style="display:flex;align-items:center;justify-content:center;gap:6px;padding:16px;flex-wrap:wrap;"></div>
         </div>
               <!-- Print area (hidden) -->
         <div id="print-area"></div>
+      </div>
+    </div>
+
+    <!-- Settings / Archive Section -->
+    <div id="settings-section" class="section">
+      <header class="header">
+        <div class="header-title">
+          <h2>الأرشفة والتقارير</h2>
+          <p>إدارة البيانات، تصدير التقارير، وأرشفة السجلات القديمة</p>
+        </div>
+      </header>
+      <div class="content">
+        <!-- Export Cards -->
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:20px;margin-bottom:24px;">
+          <div class="card" style="border-right:4px solid #10B981;">
+            <div class="card-body" style="padding:24px;">
+              <div style="display:flex;align-items:center;gap:14px;margin-bottom:16px;">
+                <div style="width:50px;height:50px;border-radius:12px;background:#10B98120;display:flex;align-items:center;justify-content:center;">
+                  <i data-lucide="file-spreadsheet" style="width:24px;height:24px;color:#10B981;"></i>
+                </div>
+                <div>
+                  <h3 style="margin:0;font-size:1rem;font-weight:700;">تصدير الطلبات Excel</h3>
+                  <p style="margin:4px 0 0;font-size:0.8rem;color:var(--gray-500);">25 طلب لكل شيت</p>
+                </div>
+              </div>
+              <p style="color:var(--gray-500);font-size:0.85rem;margin-bottom:16px;">تصدير جميع الطلبات المعروضة حالياً في ملف Excel مقسّم إلى شيتات بواقع 25 طلب لكل شيت.</p>
+              <button class="btn" style="width:100%;background:#10B981;color:white;border:none;" onclick="exportToExcel()">
+                <i data-lucide="download"></i> تصدير الآن
+              </button>
+            </div>
+          </div>
+
+          <div class="card" style="border-right:4px solid #3B82F6;">
+            <div class="card-body" style="padding:24px;">
+              <div style="display:flex;align-items:center;gap:14px;margin-bottom:16px;">
+                <div style="width:50px;height:50px;border-radius:12px;background:#3B82F620;display:flex;align-items:center;justify-content:center;">
+                  <i data-lucide="calendar" style="width:24px;height:24px;color:#3B82F6;"></i>
+                </div>
+                <div>
+                  <h3 style="margin:0;font-size:1rem;font-weight:700;">تقرير الشهر الحالي</h3>
+                  <p style="margin:4px 0 0;font-size:0.8rem;color:var(--gray-500);">مع الملخص المالي</p>
+                </div>
+              </div>
+              <p style="color:var(--gray-500);font-size:0.85rem;margin-bottom:16px;">يصدّر جميع طلبات الشهر الحالي مع شيت ملخص مالي يشمل إجمالي المبيعات وأرباح السائقين وربح التطبيق.</p>
+              <button class="btn" style="width:100%;background:#3B82F6;color:white;border:none;" onclick="exportMonthlyReport()">
+                <i data-lucide="bar-chart"></i> تصدير تقرير الشهر
+              </button>
+            </div>
+          </div>
+
+          <div class="card" style="border-right:4px solid #EF4444;">
+            <div class="card-body" style="padding:24px;">
+              <div style="display:flex;align-items:center;gap:14px;margin-bottom:16px;">
+                <div style="width:50px;height:50px;border-radius:12px;background:#EF444420;display:flex;align-items:center;justify-content:center;">
+                  <i data-lucide="archive" style="width:24px;height:24px;color:#EF4444;"></i>
+                </div>
+                <div>
+                  <h3 style="margin:0;font-size:1rem;font-weight:700;">أرشفة البيانات القديمة</h3>
+                  <p style="margin:4px 0 0;font-size:0.8rem;color:var(--gray-500);">أكثر من شهر</p>
+                </div>
+              </div>
+              <p style="color:var(--gray-500);font-size:0.85rem;margin-bottom:16px;">يحذف الطلبات المكتملة والملغية التي مضى عليها أكثر من شهر. تأكد من تصديرها قبل الأرشفة.</p>
+              <button class="btn" style="width:100%;background:#EF4444;color:white;border:none;" onclick="archiveOldOrders()">
+                <i data-lucide="trash-2"></i> أرشفة ومسح القديمة
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Financial Stats -->
+        <div class="card">
+          <div class="card-header">
+            <h3><i data-lucide="trending-up"></i> الملخص المالي الكامل</h3>
+          </div>
+          <div class="card-body" style="padding:20px;">
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px;">
+              <div style="text-align:center;padding:20px;background:#10B98110;border-radius:12px;">
+                <div style="font-size:1.8rem;font-weight:800;color:#10B981;" id="settings-total-revenue">—</div>
+                <div style="font-size:0.85rem;color:var(--gray-600);margin-top:6px;">إجمالي المبيعات</div>
+              </div>
+              <div style="text-align:center;padding:20px;background:#D9452310;border-radius:12px;">
+                <div style="font-size:1.8rem;font-weight:800;color:#D94523;" id="settings-owner-earnings">—</div>
+                <div style="font-size:0.85rem;color:var(--gray-600);margin-top:6px;">أرباح التطبيق الصافية</div>
+              </div>
+              <div style="text-align:center;padding:20px;background:#3B82F610;border-radius:12px;">
+                <div style="font-size:1.8rem;font-weight:800;color:#3B82F6;" id="settings-driver-earnings">—</div>
+                <div style="font-size:0.85rem;color:var(--gray-600);margin-top:6px;">أرباح السائقين</div>
+              </div>
+              <div style="text-align:center;padding:20px;background:#8B5CF610;border-radius:12px;">
+                <div style="font-size:1.8rem;font-weight:800;color:#8B5CF6;" id="settings-delivered-count">—</div>
+                <div style="font-size:0.85rem;color:var(--gray-600);margin-top:6px;">طلبات مكتملة</div>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   </main>
@@ -2178,6 +2288,8 @@
     let banners = [];
     let deliveryAreas = [];
     let orders = [];
+    let ordersCurrentPage = 1;
+    const ORDERS_PER_PAGE = 25;
     let drivers = [];
     let driverStats = {};
     let currentDriverFilter = 'all';
@@ -2244,6 +2356,7 @@
       if (section === 'drivers') loadDrivers();
       if (section === 'driverQueue') loadDriverQueue();
       if (section === 'dashboard') loadDashboard();
+      if (section === 'settings') loadSettingsStats();
       if (section === 'bestSellers' || section === 'featured' || section === 'discounts') {
         if (products.length === 0) {
           loadProducts().then(() => loadPromotionalSections());
@@ -3601,25 +3714,59 @@
 
     function filterOrders(status, element) {
       currentOrderFilter = status;
+      ordersCurrentPage = 1;
       document.querySelectorAll('.order-filter').forEach(btn => btn.classList.remove('active'));
       element.classList.add('active');
       renderOrders();
     }
 
+    function renderOrdersPagination(totalCount) {
+      const container = document.getElementById('orders-pagination');
+      const totalPages = Math.ceil(totalCount / ORDERS_PER_PAGE);
+      if (totalPages <= 1) { container.innerHTML = ''; return; }
+
+      const btnStyle = (active) => `style="padding:6px 12px;border-radius:6px;border:1px solid ${active ? 'var(--primary)' : 'var(--gray-300)'};background:${active ? 'var(--primary)' : 'white'};color:${active ? 'white' : 'var(--gray-700)'};cursor:pointer;font-size:0.82rem;font-family:Cairo,sans-serif;"`;
+      let html = '';
+
+      html += `<button ${btnStyle(false)} onclick="goToOrdersPage(1)" ${ordersCurrentPage===1?'disabled':''}>«</button>`;
+      html += `<button ${btnStyle(false)} onclick="goToOrdersPage(${ordersCurrentPage-1})" ${ordersCurrentPage===1?'disabled':''}>‹</button>`;
+
+      const delta = 2;
+      const start = Math.max(1, ordersCurrentPage - delta);
+      const end = Math.min(totalPages, ordersCurrentPage + delta);
+      if (start > 1) html += `<button ${btnStyle(false)} onclick="goToOrdersPage(1)">1</button>${start > 2 ? '<span style="padding:0 4px;">...</span>' : ''}`;
+      for (let p = start; p <= end; p++) html += `<button ${btnStyle(p===ordersCurrentPage)} onclick="goToOrdersPage(${p})">${p}</button>`;
+      if (end < totalPages) html += `${end < totalPages-1 ? '<span style="padding:0 4px;">...</span>' : ''}<button ${btnStyle(false)} onclick="goToOrdersPage(${totalPages})">${totalPages}</button>`;
+
+      html += `<button ${btnStyle(false)} onclick="goToOrdersPage(${ordersCurrentPage+1})" ${ordersCurrentPage===totalPages?'disabled':''}>›</button>`;
+      html += `<button ${btnStyle(false)} onclick="goToOrdersPage(${totalPages})" ${ordersCurrentPage===totalPages?'disabled':''}>»</button>`;
+      html += `<span style="padding:4px 8px;font-size:0.8rem;color:var(--gray-500);">صفحة ${ordersCurrentPage} من ${totalPages} (${totalCount} طلب)</span>`;
+      container.innerHTML = html;
+    }
+
+    function goToOrdersPage(page) {
+      const filteredOrders = currentOrderFilter === 'all' ? orders : orders.filter(o => o.status === currentOrderFilter);
+      const totalPages = Math.ceil(filteredOrders.length / ORDERS_PER_PAGE);
+      ordersCurrentPage = Math.max(1, Math.min(page, totalPages));
+      renderOrders();
+      document.getElementById('orders-table').closest('.card').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
     function renderOrders() {
       const tbody = document.getElementById('orders-table');
-      let filteredOrders = orders;
-      
-      if (currentOrderFilter !== 'all') {
-        filteredOrders = orders.filter(o => o.status === currentOrderFilter);
-      }
+      let filteredOrders = currentOrderFilter === 'all' ? orders : orders.filter(o => o.status === currentOrderFilter);
       
       if (filteredOrders.length === 0) {
         tbody.innerHTML = '<tr><td colspan="9" style="text-align: center; padding: 40px; color: var(--gray-500);">لا توجد طلبات</td></tr>';
+        document.getElementById('orders-pagination').innerHTML = '';
         return;
       }
+
+      const totalCount = filteredOrders.length;
+      const startIdx = (ordersCurrentPage - 1) * ORDERS_PER_PAGE;
+      const pageOrders = filteredOrders.slice(startIdx, startIdx + ORDERS_PER_PAGE);
       
-      tbody.innerHTML = filteredOrders.map(order => {
+      tbody.innerHTML = pageOrders.map(order => {
         const statusColor = getOrderStatusColor(order.status);
         const itemsCount = order.items ? order.items.length : 0;
         const totalQty = order.items ? order.items.reduce((s, i) => s + (i.quantity || 1), 0) : 0;
@@ -3692,6 +3839,7 @@
         `;
       }).join('');
       
+      renderOrdersPagination(totalCount);
       lucide.createIcons();
     }
 
@@ -4387,6 +4535,179 @@
           </table>`;
       } catch (err) {
         document.getElementById('activity-log-body').innerHTML = `<div style="text-align:center;padding:40px;color:#EF4444;"><p>حدث خطأ في تحميل السجل</p></div>`;
+      }
+    }
+
+    // ========================= Excel Export =========================
+    function getOrderStatusLabel_export(status) {
+      const map = { pending: 'قيد الانتظار', confirmed: 'مؤكد', preparing: 'قيد التحضير', delivering: 'قيد التوصيل', delivered: 'تم التوصيل', cancelled: 'ملغي' };
+      return map[status] || status;
+    }
+
+    function ordersToRows(ordersArr) {
+      return ordersArr.map((order, idx) => {
+        const total = (order.total || 0) + (order.deliveryFee || 0);
+        const itemsText = order.items ? order.items.map(i => `${i.name} (${i.quantity})`).join(', ') : '';
+        const date = order.createdAt ? new Date(order.createdAt).toLocaleString('ar-IQ') : '';
+        return {
+          '#': idx + 1,
+          'رقم الطلب': order.id ? order.id.slice(-6) : '',
+          'العميل': order.customerName || '',
+          'هاتف العميل': order.phoneNumber || '',
+          'السائق': order.driverName || '',
+          'هاتف السائق': order.driverPhone || '',
+          'المنطقة': order.region || '',
+          'العنوان': order.address || '',
+          'المنتجات': itemsText,
+          'سعر الطلب': order.total || 0,
+          'رسوم التوصيل': order.deliveryFee || 0,
+          'المجموع الكلي': total,
+          'ربح السائق': order.driverEarning || '',
+          'ربح التطبيق': order.ownerEarning || '',
+          'الحالة': getOrderStatusLabel_export(order.status),
+          'الوقت': date,
+        };
+      });
+    }
+
+    function exportToExcel() {
+      const filteredOrders = currentOrderFilter === 'all' ? orders : orders.filter(o => o.status === currentOrderFilter);
+      if (filteredOrders.length === 0) { showToast('error', 'تنبيه', 'لا توجد طلبات للتصدير'); return; }
+
+      const wb = XLSX.utils.book_new();
+      const chunkSize = ORDERS_PER_PAGE;
+      const totalSheets = Math.ceil(filteredOrders.length / chunkSize);
+
+      for (let i = 0; i < totalSheets; i++) {
+        const chunk = filteredOrders.slice(i * chunkSize, (i + 1) * chunkSize);
+        const rows = ordersToRows(chunk.map((o, idx) => ({ ...o, _absIdx: i * chunkSize + idx })));
+        // Fix row index
+        rows.forEach((r, ridx) => { r['#'] = i * chunkSize + ridx + 1; });
+        const ws = XLSX.utils.json_to_sheet(rows);
+        ws['!cols'] = [{ wch: 5 }, { wch: 10 }, { wch: 16 }, { wch: 14 }, { wch: 16 }, { wch: 14 }, { wch: 12 }, { wch: 22 }, { wch: 35 }, { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 14 }, { wch: 20 }];
+        XLSX.utils.book_append_sheet(wb, ws, `طلبات ${i + 1}`);
+      }
+
+      const today = new Date().toLocaleDateString('en-GB').replace(/\//g, '-');
+      XLSX.writeFile(wb, `onway-orders-${today}.xlsx`);
+      showToast('success', 'تم التصدير', `تم تصدير ${filteredOrders.length} طلب في ${totalSheets} شيت`);
+    }
+
+    function exportMonthlyReport() {
+      const now = new Date();
+      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+      const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+
+      const monthOrders = orders.filter(o => {
+        const d = o.createdAt ? new Date(o.createdAt) : null;
+        return d && d >= monthStart && d <= monthEnd;
+      });
+
+      if (monthOrders.length === 0) { showToast('error', 'تنبيه', 'لا توجد طلبات لهذا الشهر'); return; }
+
+      const wb = XLSX.utils.book_new();
+
+      // Orders sheets (25 per sheet)
+      const chunkSize = ORDERS_PER_PAGE;
+      const totalSheets = Math.ceil(monthOrders.length / chunkSize);
+      for (let i = 0; i < totalSheets; i++) {
+        const chunk = monthOrders.slice(i * chunkSize, (i + 1) * chunkSize);
+        const rows = ordersToRows(chunk);
+        rows.forEach((r, ridx) => { r['#'] = i * chunkSize + ridx + 1; });
+        const ws = XLSX.utils.json_to_sheet(rows);
+        ws['!cols'] = [{ wch: 5 }, { wch: 10 }, { wch: 16 }, { wch: 14 }, { wch: 16 }, { wch: 14 }, { wch: 12 }, { wch: 22 }, { wch: 35 }, { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 14 }, { wch: 20 }];
+        XLSX.utils.book_append_sheet(wb, ws, `طلبات ${i + 1}`);
+      }
+
+      // Financial Summary sheet
+      const delivered = monthOrders.filter(o => o.status === 'delivered');
+      const cancelled = monthOrders.filter(o => o.status === 'cancelled');
+      const pending = monthOrders.filter(o => !['delivered', 'cancelled'].includes(o.status));
+
+      let totalRevenue = 0, totalDeliveryFees = 0, totalDriverEarnings = 0, totalOwnerEarnings = 0;
+      delivered.forEach(o => {
+        totalRevenue += (o.total || 0) + (o.deliveryFee || 0);
+        totalDeliveryFees += o.deliveryFee || 0;
+        totalDriverEarnings += o.driverEarning || 0;
+        totalOwnerEarnings += o.ownerEarning || 0;
+      });
+
+      const monthNames = ['يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو', 'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'];
+      const summaryRows = [
+        { 'البيان': 'الشهر', 'القيمة': `${monthNames[now.getMonth()]} ${now.getFullYear()}` },
+        { 'البيان': '', 'القيمة': '' },
+        { 'البيان': '--- إحصاءات الطلبات ---', 'القيمة': '' },
+        { 'البيان': 'إجمالي طلبات الشهر', 'القيمة': monthOrders.length },
+        { 'البيان': 'طلبات مكتملة', 'القيمة': delivered.length },
+        { 'البيان': 'طلبات ملغية', 'القيمة': cancelled.length },
+        { 'البيان': 'طلبات جارية', 'القيمة': pending.length },
+        { 'البيان': '', 'القيمة': '' },
+        { 'البيان': '--- الملخص المالي (د.ع) ---', 'القيمة': '' },
+        { 'البيان': 'إجمالي المبيعات', 'القيمة': totalRevenue },
+        { 'البيان': 'إجمالي رسوم التوصيل', 'القيمة': totalDeliveryFees },
+        { 'البيان': 'أرباح السائقين', 'القيمة': totalDriverEarnings },
+        { 'البيان': 'أرباح التطبيق الصافية', 'القيمة': totalOwnerEarnings },
+        { 'البيان': '', 'القيمة': '' },
+        { 'البيان': 'تاريخ التقرير', 'القيمة': now.toLocaleString('ar-IQ') },
+      ];
+
+      const summaryWs = XLSX.utils.json_to_sheet(summaryRows);
+      summaryWs['!cols'] = [{ wch: 30 }, { wch: 25 }];
+      XLSX.utils.book_append_sheet(wb, summaryWs, 'الملخص المالي');
+
+      const monthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+      XLSX.writeFile(wb, `onway-monthly-${monthKey}.xlsx`);
+      showToast('success', 'تم التصدير', `تقرير ${monthNames[now.getMonth()]} - ${monthOrders.length} طلب`);
+    }
+
+    // ========================= Archive =========================
+    async function archiveOldOrders() {
+      const confirmed = window.confirm('هل أنت متأكد من أرشفة ومسح الطلبات المكتملة والملغية التي مضى عليها أكثر من شهر؟\n\nهذا الإجراء لا يمكن التراجع عنه. تأكد من تصدير البيانات أولاً.');
+      if (!confirmed) return;
+
+      const archiveBtn = document.querySelector('[onclick="archiveOldOrders()"]');
+      if (archiveBtn) { archiveBtn.disabled = true; archiveBtn.textContent = 'جارٍ الأرشفة...'; }
+
+      try {
+        const res = await fetch(`${API_BASE}/admin/archive-old-orders`, { method: 'DELETE' });
+        const data = await res.json();
+        if (res.ok) {
+          showToast('success', 'تمت الأرشفة', data.message || `تم حذف ${data.deleted} طلب`);
+          orders = orders.filter(o => {
+            const d = o.createdAt ? new Date(o.createdAt) : null;
+            const oneMonthAgo = new Date(); oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
+            const isOld = d && d < oneMonthAgo;
+            return !(isOld && (o.status === 'delivered' || o.status === 'cancelled'));
+          });
+          renderOrders();
+          loadSettingsStats();
+        } else {
+          showToast('error', 'خطأ', data.error || 'فشلت عملية الأرشفة');
+        }
+      } catch (err) {
+        showToast('error', 'خطأ', 'حدث خطأ في الاتصال بالسيرفر');
+      } finally {
+        if (archiveBtn) { archiveBtn.disabled = false; archiveBtn.innerHTML = '<i data-lucide="trash-2"></i> أرشفة ومسح القديمة'; lucide.createIcons(); }
+      }
+    }
+
+    async function loadSettingsStats() {
+      try {
+        const res = await fetch(`${API_BASE}/admin/owner-earnings`);
+        const data = await res.json();
+        const allOrdersRes = await fetch(`${API_BASE}/admin/orders`);
+        const allOrdersData = await allOrdersRes.json();
+        const allOrds = allOrdersData.orders || allOrdersData || [];
+        const totalRev = allOrds.reduce((s, o) => s + (o.total || 0) + (o.deliveryFee || 0), 0);
+        const deliveredCount = allOrds.filter(o => o.status === 'delivered').length;
+
+        const el = (id) => document.getElementById(id);
+        if (el('settings-total-revenue')) el('settings-total-revenue').textContent = totalRev.toLocaleString('ar-IQ') + ' د.ع';
+        if (el('settings-owner-earnings')) el('settings-owner-earnings').textContent = (data.totalOwnerEarnings || 0).toLocaleString('ar-IQ') + ' د.ع';
+        if (el('settings-driver-earnings')) el('settings-driver-earnings').textContent = (data.totalDriverEarnings || 0).toLocaleString('ar-IQ') + ' د.ع';
+        if (el('settings-delivered-count')) el('settings-delivered-count').textContent = deliveredCount.toLocaleString('ar-IQ');
+      } catch (err) {
+        console.error('loadSettingsStats error', err);
       }
     }
 
