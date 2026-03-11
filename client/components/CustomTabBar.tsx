@@ -112,7 +112,7 @@ export function CustomTabBar({ state, descriptors, navigation }: BottomTabBarPro
         styles.container,
         {
           backgroundColor: "#E86520",
-          paddingBottom: Math.max(insets.bottom, 4),
+          paddingBottom: Math.max(insets.bottom - 16, 0),
         },
       ]}
     >
@@ -177,7 +177,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-evenly",
     paddingHorizontal: 4,
-    height: 66,
+    height: 54,
   },
   tabItem: {
     flex: 1,
