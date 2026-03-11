@@ -4025,6 +4025,9 @@
                   <button class="btn btn-sm" style="background:#3B82F6;color:white;margin-bottom:4px;" onclick="openRechargeModal('${driver.id}', '${escapeHtml(driver.fullName)}', '${escapeHtml(driver.phoneNumber)}')" title="شحن المحفظة وتفعيل">
                     <i data-lucide="wallet" style="width:14px;height:14px;"></i>
                   </button>
+                  <button class="btn btn-sm" style="background:#8B5CF6;color:white;margin-bottom:4px;" onclick="openActivityLogModal('${escapeHtml(driver.phoneNumber)}', '${escapeHtml(driver.fullName)}')" title="سجل النشاط">
+                    <i data-lucide="history" style="width:14px;height:14px;"></i>
+                  </button>
                   <button class="btn btn-sm" style="background:#ef4444;color:white;" onclick="confirmDeleteDriver('${driver.id}', '${escapeHtml(driver.fullName)}')" title="مسح">
                     <i data-lucide="trash-2" style="width:14px;height:14px;"></i>
                   </button>`;
@@ -4287,6 +4290,103 @@
         lucide.createIcons();
       } catch (error) {
         showToast('error', 'خطأ', 'حدث خطأ في تحميل طابور السائقين');
+      }
+    }
+
+    // ========== Driver Activity Log Modal ==========
+    function getActivityLabel(type) {
+      const labels = {
+        online: { text: '🟢 اتصل', color: '#10B981' },
+        offline: { text: '🔴 قطع الاتصال', color: '#EF4444' },
+        accepted: { text: '✅ قبل طلب', color: '#3B82F6' },
+        rejected: { text: '❌ رفض طلب', color: '#F59E0B' },
+        completed: { text: '📦 أكمل طلب', color: '#8B5CF6' },
+      };
+      return labels[type] || { text: type, color: '#6B7280' };
+    }
+
+    function formatActivityTime(ts) {
+      if (!ts) return '-';
+      // Firestore Timestamp comes as { _seconds, _nanoseconds } or { seconds, nanoseconds }
+      let ms;
+      if (ts._seconds !== undefined) ms = ts._seconds * 1000;
+      else if (ts.seconds !== undefined) ms = ts.seconds * 1000;
+      else ms = new Date(ts).getTime();
+      const d = new Date(ms);
+      return d.toLocaleDateString('ar-IQ') + ' ' + d.toLocaleTimeString('ar-IQ', { hour: '2-digit', minute: '2-digit' });
+    }
+
+    async function openActivityLogModal(phoneNumber, driverName) {
+      const modal = document.createElement('div');
+      modal.id = 'activity-log-modal';
+      modal.className = 'modal-overlay';
+      modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.6);display:flex;align-items:center;justify-content:center;z-index:10000;padding:20px;';
+      modal.innerHTML = `
+        <div style="background:white;border-radius:16px;width:100%;max-width:700px;max-height:85vh;overflow:hidden;display:flex;flex-direction:column;">
+          <div style="padding:20px 24px;border-bottom:1px solid #e5e7eb;display:flex;align-items:center;justify-content:space-between;">
+            <div>
+              <h3 style="margin:0;font-size:1.1rem;font-weight:700;color:#1f2937;">سجل نشاط السائق</h3>
+              <p style="margin:4px 0 0;font-size:0.85rem;color:#6b7280;">${escapeHtml(driverName)} — ${phoneNumber}</p>
+            </div>
+            <button onclick="document.getElementById('activity-log-modal').remove()" style="background:none;border:none;cursor:pointer;color:#6b7280;font-size:1.5rem;line-height:1;">&times;</button>
+          </div>
+          <div id="activity-log-body" style="flex:1;overflow-y:auto;padding:20px;">
+            <div style="text-align:center;padding:40px;color:#9ca3af;">
+              <div style="font-size:2rem;margin-bottom:8px;">⏳</div>
+              <p>جاري تحميل السجل...</p>
+            </div>
+          </div>
+        </div>`;
+      document.body.appendChild(modal);
+      modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+
+      try {
+        const res = await fetch('/api/admin/driver-activity?phoneNumber=' + encodeURIComponent(phoneNumber));
+        const data = await res.json();
+        const log = data.log || [];
+        const body = document.getElementById('activity-log-body');
+
+        if (log.length === 0) {
+          body.innerHTML = `<div style="text-align:center;padding:40px;color:#9ca3af;"><div style="font-size:2rem;margin-bottom:8px;">📋</div><p>لا يوجد سجل نشاط بعد</p></div>`;
+          return;
+        }
+
+        body.innerHTML = `
+          <table style="width:100%;border-collapse:collapse;">
+            <thead>
+              <tr style="background:#f9fafb;">
+                <th style="padding:10px 14px;text-align:right;font-size:0.8rem;font-weight:700;color:#374151;border-bottom:2px solid #e5e7eb;">النشاط</th>
+                <th style="padding:10px 14px;text-align:center;font-size:0.8rem;font-weight:700;color:#374151;border-bottom:2px solid #e5e7eb;">رقم الطلب</th>
+                <th style="padding:10px 14px;text-align:center;font-size:0.8rem;font-weight:700;color:#374151;border-bottom:2px solid #e5e7eb;">الزبون</th>
+                <th style="padding:10px 14px;text-align:center;font-size:0.8rem;font-weight:700;color:#374151;border-bottom:2px solid #e5e7eb;">الربح</th>
+                <th style="padding:10px 14px;text-align:right;font-size:0.8rem;font-weight:700;color:#374151;border-bottom:2px solid #e5e7eb;">الوقت</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${log.map(entry => {
+                const lbl = getActivityLabel(entry.type);
+                return `<tr style="border-bottom:1px solid #f3f4f6;">
+                  <td style="padding:10px 14px;">
+                    <span style="font-weight:700;font-size:0.85rem;color:${lbl.color};">${lbl.text}</span>
+                  </td>
+                  <td style="padding:10px 14px;text-align:center;font-size:0.8rem;color:#6b7280;font-family:monospace;">
+                    ${entry.orderId ? '#' + entry.orderId.slice(-6) : '-'}
+                  </td>
+                  <td style="padding:10px 14px;text-align:center;font-size:0.8rem;color:#374151;">
+                    ${entry.customerName ? escapeHtml(entry.customerName) : '-'}
+                  </td>
+                  <td style="padding:10px 14px;text-align:center;font-size:0.85rem;font-weight:700;color:${entry.driverEarning ? '#10B981' : '#9ca3af'};">
+                    ${entry.driverEarning ? entry.driverEarning.toLocaleString() + ' د.ع' : '-'}
+                  </td>
+                  <td style="padding:10px 14px;text-align:right;font-size:0.78rem;color:#9ca3af;white-space:nowrap;">
+                    ${formatActivityTime(entry.timestamp)}
+                  </td>
+                </tr>`;
+              }).join('')}
+            </tbody>
+          </table>`;
+      } catch (err) {
+        document.getElementById('activity-log-body').innerHTML = `<div style="text-align:center;padding:40px;color:#EF4444;"><p>حدث خطأ في تحميل السجل</p></div>`;
       }
     }
 

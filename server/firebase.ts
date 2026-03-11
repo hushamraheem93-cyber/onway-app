@@ -1036,6 +1036,82 @@ export async function getDriverCompletedOrdersFromDB(
   }
 }
 
+// ========== Driver Activity Log ==========
+// Saves any driver event: online, offline, accepted, rejected, completed
+export type DriverActivityType = "online" | "offline" | "accepted" | "rejected" | "completed";
+
+export async function saveDriverActivity(data: {
+  phoneNumber: string;
+  type: DriverActivityType;
+  orderId?: string;
+  customerName?: string;
+  driverEarning?: number;
+  total?: number;
+  note?: string;
+}): Promise<void> {
+  if (!db) return;
+  try {
+    await db.collection("driverActivityLog").add({
+      ...data,
+      timestamp: admin.firestore.Timestamp.now(),
+      date: new Date().toISOString().split("T")[0], // YYYY-MM-DD for easy daily filtering
+    });
+  } catch (error) {
+    console.error("Error saving driver activity:", error);
+  }
+}
+
+export async function getDriverActivityLog(
+  phoneNumber: string,
+  limitCount = 200
+): Promise<any[]> {
+  if (!db) return [];
+  try {
+    const snapshot = await db
+      .collection("driverActivityLog")
+      .where("phoneNumber", "==", phoneNumber)
+      .get();
+    // Sort by timestamp desc in memory
+    const docs = snapshot.docs
+      .map(doc => ({ id: doc.id, ...doc.data() }))
+      .sort((a: any, b: any) => {
+        const ta = a.timestamp?.toMillis?.() ?? 0;
+        const tb = b.timestamp?.toMillis?.() ?? 0;
+        return tb - ta;
+      })
+      .slice(0, limitCount);
+    return docs;
+  } catch (error) {
+    console.error("Error getting driver activity log:", error);
+    return [];
+  }
+}
+
+// ========== Driver Last Location (persisted) ==========
+export async function updateDriverLastLocation(
+  phoneNumber: string,
+  lat: number,
+  lng: number
+): Promise<void> {
+  if (!db) return;
+  try {
+    const snapshot = await db
+      .collection("drivers")
+      .where("phoneNumber", "==", phoneNumber)
+      .limit(1)
+      .get();
+    if (!snapshot.empty) {
+      await snapshot.docs[0].ref.update({
+        lastLat: lat,
+        lastLng: lng,
+        lastLocationAt: admin.firestore.Timestamp.now(),
+      });
+    }
+  } catch (error) {
+    console.error("Error updating driver last location:", error);
+  }
+}
+
 export async function addWalletTransaction(data: {
   phoneNumber: string;
   amount: number;

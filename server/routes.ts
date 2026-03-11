@@ -27,7 +27,8 @@ import {
   getPromoCodes, getPromoCodeByCode, createPromoCode, updatePromoCode, deletePromoCode as deletePromoCodeFn,
   checkPromoUsage, recordPromoUsage,
   getDriverWalletBalance, updateDriverWalletBalance, addWalletTransaction, getWalletHistory,
-  saveDriverCompletedOrder, getDriverCompletedOrdersFromDB
+  saveDriverCompletedOrder, getDriverCompletedOrdersFromDB,
+  saveDriverActivity, getDriverActivityLog, updateDriverLastLocation
 } from "./firebase";
 import { sendPushNotification } from "./pushNotifications";
 
@@ -1330,6 +1331,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     if (!phoneNumber || lat === undefined || lng === undefined) return res.status(400).json({ error: "Missing fields" });
     const driver = await getDriverByPhone(phoneNumber).catch(() => null);
     driverLocations.set(phoneNumber, { lat: Number(lat), lng: Number(lng), updatedAt: Date.now(), fullName: driver?.fullName });
+    // Persist last location to Firestore driver document
+    updateDriverLastLocation(phoneNumber, Number(lat), Number(lng)).catch(() => {});
     res.json({ success: true });
   });
 
@@ -1370,6 +1373,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (!exists) {
           driverQueue.push({ phoneNumber, joinedAt: Date.now() });
         }
+        // Log online event
+        saveDriverActivity({ phoneNumber, type: "online" }).catch(() => {});
         const pos = driverQueue.filter(d => !d.currentOrderId).findIndex(d => d.phoneNumber === phoneNumber) + 1;
         res.json({ isOnline: true, queuePosition: pos > 0 ? pos : driverQueue.length });
       } else {
@@ -1377,6 +1382,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (idx !== -1) {
           driverQueue.splice(idx, 1);
         }
+        // Log offline event
+        saveDriverActivity({ phoneNumber, type: "offline" }).catch(() => {});
         res.json({ isOnline: false, queuePosition: null });
       }
     } catch (error: any) {
@@ -1403,6 +1410,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           driverName,
           driverPhone: phoneNumber,
         });
+        // Log accept event
+        saveDriverActivity({ phoneNumber, type: "accepted", orderId }).catch(() => {});
       }
       res.json({ success: true });
     } catch (error: any) {
@@ -1426,6 +1435,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           driverQueue.push({ phoneNumber, joinedAt: Date.now() });
         }
       }
+      // Log reject event
+      saveDriverActivity({ phoneNumber, type: "rejected", orderId }).catch(() => {});
       // Try to offer to next available driver
       assignOrderToNextDriver(orderId);
       res.json({ success: true });
@@ -1503,6 +1514,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
           };
           // Persist to Firestore (permanent storage)
           await saveDriverCompletedOrder(phoneNumber, completedEntry);
+          // Log completed activity
+          saveDriverActivity({
+            phoneNumber,
+            type: "completed",
+            orderId,
+            customerName: completedEntry.customerName,
+            driverEarning,
+            total: completedEntry.total,
+          }).catch(() => {});
           // Also keep in-memory cache
           const completed = driverCompletedOrders.get(phoneNumber) || [];
           completed.push(completedEntry);
@@ -1776,6 +1796,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       res.json({ stats });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Get driver activity log (admin)
+  app.get("/api/admin/driver-activity", async (req: Request, res: Response) => {
+    const phoneNumber = req.query.phoneNumber as string;
+    if (!phoneNumber) return res.status(400).json({ error: "Phone number required" });
+    try {
+      const log = await getDriverActivityLog(phoneNumber);
+      res.json({ log });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }

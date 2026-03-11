@@ -738,6 +738,49 @@ async function getDriverCompletedOrdersFromDB(phoneNumber) {
     return [];
   }
 }
+async function saveDriverActivity(data) {
+  if (!db) return;
+  try {
+    await db.collection("driverActivityLog").add({
+      ...data,
+      timestamp: admin.firestore.Timestamp.now(),
+      date: (/* @__PURE__ */ new Date()).toISOString().split("T")[0]
+      // YYYY-MM-DD for easy daily filtering
+    });
+  } catch (error) {
+    console.error("Error saving driver activity:", error);
+  }
+}
+async function getDriverActivityLog(phoneNumber, limitCount = 200) {
+  if (!db) return [];
+  try {
+    const snapshot = await db.collection("driverActivityLog").where("phoneNumber", "==", phoneNumber).get();
+    const docs = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() })).sort((a, b) => {
+      const ta = a.timestamp?.toMillis?.() ?? 0;
+      const tb = b.timestamp?.toMillis?.() ?? 0;
+      return tb - ta;
+    }).slice(0, limitCount);
+    return docs;
+  } catch (error) {
+    console.error("Error getting driver activity log:", error);
+    return [];
+  }
+}
+async function updateDriverLastLocation(phoneNumber, lat2, lng2) {
+  if (!db) return;
+  try {
+    const snapshot = await db.collection("drivers").where("phoneNumber", "==", phoneNumber).limit(1).get();
+    if (!snapshot.empty) {
+      await snapshot.docs[0].ref.update({
+        lastLat: lat2,
+        lastLng: lng2,
+        lastLocationAt: admin.firestore.Timestamp.now()
+      });
+    }
+  } catch (error) {
+    console.error("Error updating driver last location:", error);
+  }
+}
 async function addWalletTransaction(data) {
   if (!db) throw new Error("Firestore not initialized");
   await db.collection("walletHistory").add({
@@ -1974,6 +2017,8 @@ async function registerRoutes(app2) {
     if (!phoneNumber || lat2 === void 0 || lng2 === void 0) return res.status(400).json({ error: "Missing fields" });
     const driver = await getDriverByPhone(phoneNumber).catch(() => null);
     driverLocations.set(phoneNumber, { lat: Number(lat2), lng: Number(lng2), updatedAt: Date.now(), fullName: driver?.fullName });
+    updateDriverLastLocation(phoneNumber, Number(lat2), Number(lng2)).catch(() => {
+    });
     res.json({ success: true });
   });
   app2.get("/api/admin/driver-locations", async (_req, res) => {
@@ -2009,6 +2054,8 @@ async function registerRoutes(app2) {
         if (!exists) {
           driverQueue.push({ phoneNumber, joinedAt: Date.now() });
         }
+        saveDriverActivity({ phoneNumber, type: "online" }).catch(() => {
+        });
         const pos = driverQueue.filter((d) => !d.currentOrderId).findIndex((d) => d.phoneNumber === phoneNumber) + 1;
         res.json({ isOnline: true, queuePosition: pos > 0 ? pos : driverQueue.length });
       } else {
@@ -2016,6 +2063,8 @@ async function registerRoutes(app2) {
         if (idx !== -1) {
           driverQueue.splice(idx, 1);
         }
+        saveDriverActivity({ phoneNumber, type: "offline" }).catch(() => {
+        });
         res.json({ isOnline: false, queuePosition: null });
       }
     } catch (error) {
@@ -2038,6 +2087,8 @@ async function registerRoutes(app2) {
           driverName,
           driverPhone: phoneNumber
         });
+        saveDriverActivity({ phoneNumber, type: "accepted", orderId }).catch(() => {
+        });
       }
       res.json({ success: true });
     } catch (error) {
@@ -2057,6 +2108,8 @@ async function registerRoutes(app2) {
           driverQueue.push({ phoneNumber, joinedAt: Date.now() });
         }
       }
+      saveDriverActivity({ phoneNumber, type: "rejected", orderId }).catch(() => {
+      });
       assignOrderToNextDriver(orderId);
       res.json({ success: true });
     } catch (error) {
@@ -2120,6 +2173,15 @@ async function registerRoutes(app2) {
             isRestaurant: isRestaurantOrder
           };
           await saveDriverCompletedOrder(phoneNumber, completedEntry);
+          saveDriverActivity({
+            phoneNumber,
+            type: "completed",
+            orderId,
+            customerName: completedEntry.customerName,
+            driverEarning,
+            total: completedEntry.total
+          }).catch(() => {
+          });
           const completed = driverCompletedOrders.get(phoneNumber) || [];
           completed.push(completedEntry);
           driverCompletedOrders.set(phoneNumber, completed);
@@ -2345,6 +2407,16 @@ async function registerRoutes(app2) {
         };
       }
       res.json({ stats });
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+  app2.get("/api/admin/driver-activity", async (req, res) => {
+    const phoneNumber = req.query.phoneNumber;
+    if (!phoneNumber) return res.status(400).json({ error: "Phone number required" });
+    try {
+      const log2 = await getDriverActivityLog(phoneNumber);
+      res.json({ log: log2 });
     } catch (error) {
       res.status(500).json({ error: error.message });
     }
