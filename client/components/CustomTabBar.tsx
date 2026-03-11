@@ -15,10 +15,8 @@ import Animated, {
 } from "react-native-reanimated";
 
 import { ThemedText } from "@/components/ThemedText";
-import { useTheme } from "@/hooks/useTheme";
 
-const ICON_COLOR = "#E86520";
-const INACTIVE_COLOR = "#AAAAAA";
+const INACTIVE_COLOR = "rgba(255,255,255,0.65)";
 
 interface TabConfig {
   name: string;
@@ -70,7 +68,7 @@ function TabItem({
     const bg = interpolateColor(
       progress.value,
       [0, 1],
-      ["rgba(243,115,53,0)", "rgba(243,115,53,1)"]
+      ["rgba(255,255,255,0)", "rgba(255,255,255,1)"]
     );
     return {
       backgroundColor: bg,
@@ -88,13 +86,13 @@ function TabItem({
           <Feather
             name={config.icon}
             size={21}
-            color={isFocused ? "#FFFFFF" : INACTIVE_COLOR}
+            color={isFocused ? "#E86520" : INACTIVE_COLOR}
           />
         </Animated.View>
         <ThemedText
           style={[
             styles.label,
-            { color: isFocused ? "#FFFFFF" : INACTIVE_COLOR },
+            { color: isFocused ? "#E86520" : INACTIVE_COLOR },
           ]}
           numberOfLines={1}
         >
@@ -107,14 +105,13 @@ function TabItem({
 
 export function CustomTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
-  const { theme, isDark } = useTheme();
 
   return (
     <View
       style={[
         styles.container,
         {
-          backgroundColor: isDark ? theme.backgroundDefault : "#FFFFFF",
+          backgroundColor: "#E86520",
           paddingBottom: Math.max(insets.bottom, 4),
         },
       ]}
@@ -159,7 +156,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     borderTopWidth: 0,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: "#E86520",
     ...Platform.select({
       ios: {
         shadowColor: "#000",
