@@ -16,7 +16,7 @@ import Animated, {
 
 import { ThemedText } from "@/components/ThemedText";
 
-const INACTIVE_COLOR = "rgba(255,255,255,0.65)";
+const INACTIVE_COLOR = "#AAAAAA";
 
 interface TabConfig {
   name: string;
@@ -68,7 +68,7 @@ function TabItem({
     const bg = interpolateColor(
       progress.value,
       [0, 1],
-      ["rgba(255,255,255,0)", "rgba(255,255,255,1)"]
+      ["rgba(243,115,53,0)", "rgba(243,115,53,1)"]
     );
     return {
       backgroundColor: bg,
@@ -86,13 +86,13 @@ function TabItem({
           <Feather
             name={config.icon}
             size={21}
-            color={isFocused ? "#E86520" : INACTIVE_COLOR}
+            color={isFocused ? "#FFFFFF" : INACTIVE_COLOR}
           />
         </Animated.View>
         <ThemedText
           style={[
             styles.label,
-            { color: isFocused ? "#E86520" : INACTIVE_COLOR },
+            { color: isFocused ? "#FFFFFF" : INACTIVE_COLOR },
           ]}
           numberOfLines={1}
         >
@@ -111,7 +111,7 @@ export function CustomTabBar({ state, descriptors, navigation }: BottomTabBarPro
       style={[
         styles.container,
         {
-          backgroundColor: "#E86520",
+          backgroundColor: "#FFFFFF",
           paddingBottom: Math.max(insets.bottom - 16, 0),
         },
       ]}
@@ -156,7 +156,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     borderTopWidth: 0,
-    backgroundColor: "#E86520",
+    backgroundColor: "#FFFFFF",
     ...Platform.select({
       ios: {
         shadowColor: "#000",
