@@ -980,6 +980,62 @@ export async function updateDriverWalletBalance(phoneNumber: string, newBalance:
   }
 }
 
+// ========== Driver Completed Orders Persistence ==========
+export interface DriverCompletedOrder {
+  orderId: string;
+  deliveryFee: number;
+  driverEarning: number;
+  ownerEarning: number;
+  total: number;
+  customerName: string;
+  completedAt: string;
+  isRestaurant: boolean;
+}
+
+export async function saveDriverCompletedOrder(
+  phoneNumber: string,
+  order: DriverCompletedOrder
+): Promise<void> {
+  if (!db) return;
+  try {
+    await db.collection("driverCompletedOrders").add({
+      phoneNumber,
+      ...order,
+      savedAt: admin.firestore.Timestamp.now(),
+    });
+  } catch (error) {
+    console.error("Error saving driver completed order:", error);
+  }
+}
+
+export async function getDriverCompletedOrdersFromDB(
+  phoneNumber: string
+): Promise<DriverCompletedOrder[]> {
+  if (!db) return [];
+  try {
+    const snapshot = await db
+      .collection("driverCompletedOrders")
+      .where("phoneNumber", "==", phoneNumber)
+      .get();
+    return snapshot.docs.map(doc => {
+      const d = doc.data();
+      return {
+        orderId: d.orderId,
+        deliveryFee: d.deliveryFee || 0,
+        driverEarning: d.driverEarning || 0,
+        ownerEarning: d.ownerEarning || 0,
+        total: d.total || 0,
+        customerName: d.customerName || "",
+        completedAt: d.completedAt,
+        isRestaurant: d.isRestaurant || false,
+      };
+    });
+  } catch (error) {
+    console.error("Error getting driver completed orders:", error);
+    return [];
+  }
+}
+
 export async function addWalletTransaction(data: {
   phoneNumber: string;
   amount: number;

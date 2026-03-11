@@ -26,7 +26,8 @@ import {
   updateOrderDriverInfo,
   getPromoCodes, getPromoCodeByCode, createPromoCode, updatePromoCode, deletePromoCode as deletePromoCodeFn,
   checkPromoUsage, recordPromoUsage,
-  getDriverWalletBalance, updateDriverWalletBalance, addWalletTransaction, getWalletHistory
+  getDriverWalletBalance, updateDriverWalletBalance, addWalletTransaction, getWalletHistory,
+  saveDriverCompletedOrder, getDriverCompletedOrdersFromDB
 } from "./firebase";
 import { sendPushNotification } from "./pushNotifications";
 
@@ -244,6 +245,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const driverAssignments: Map<string, string> = new Map();
   const driverCompletedOrders: Map<string, { orderId: string; deliveryFee: number; driverEarning: number; ownerEarning: number; total: number; customerName: string; completedAt: string; isRestaurant: boolean }[]> = new Map();
   const driverLocations: Map<string, { lat: number; lng: number; updatedAt: number; fullName?: string }> = new Map();
+
+  // Returns completed orders merged from Firestore (persistent) + in-memory cache
+  async function getCompletedOrders(phoneNumber: string) {
+    const dbOrders = await getDriverCompletedOrdersFromDB(phoneNumber);
+    const memOrders = driverCompletedOrders.get(phoneNumber) || [];
+    // Merge: Firestore is source of truth, add any in-memory not yet persisted
+    const dbIds = new Set(dbOrders.map(o => o.orderId));
+    const extra = memOrders.filter(o => !dbIds.has(o.orderId));
+    return [...dbOrders, ...extra];
+  }
 
   async function checkIsRestaurantOrder(order: any): Promise<boolean> {
     try {
@@ -1293,7 +1304,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const walletBalance = await getDriverWalletBalance(phoneNumber);
 
-      const completed = driverCompletedOrders.get(phoneNumber) || [];
+      const completed = await getCompletedOrders(phoneNumber);
       const now = new Date();
       const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
       const todayCompleted = completed.filter(o => new Date(o.completedAt).getTime() >= todayStart);
@@ -1480,8 +1491,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             }
           }
 
-          const completed = driverCompletedOrders.get(phoneNumber) || [];
-          completed.push({
+          const completedEntry = {
             orderId,
             deliveryFee: order.deliveryFee || 0,
             driverEarning,
@@ -1490,7 +1500,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
             customerName: customerProfile?.fullName || "زبون",
             completedAt: new Date().toISOString(),
             isRestaurant: isRestaurantOrder,
-          });
+          };
+          // Persist to Firestore (permanent storage)
+          await saveDriverCompletedOrder(phoneNumber, completedEntry);
+          // Also keep in-memory cache
+          const completed = driverCompletedOrders.get(phoneNumber) || [];
+          completed.push(completedEntry);
           driverCompletedOrders.set(phoneNumber, completed);
         }
       }
@@ -1511,7 +1526,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     if (!phoneNumber) return res.status(400).json({ error: "Phone number required" });
 
     try {
-      const completed = driverCompletedOrders.get(phoneNumber) || [];
+      const completed = await getCompletedOrders(phoneNumber);
       const now = new Date();
       const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
       const weekStart = todayStart - 7 * 24 * 60 * 60 * 1000;
@@ -1546,7 +1561,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     if (!phoneNumber) return res.status(400).json({ error: "Phone number required" });
 
     try {
-      const completed = driverCompletedOrders.get(phoneNumber) || [];
+      const completed = await getCompletedOrders(phoneNumber);
       const db = getFirestore();
       const result: any[] = [];
 
@@ -1747,7 +1762,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       for (const driver of drivers) {
         const phone = driver.phoneNumber;
-        const completed = driverCompletedOrders.get(phone) || [];
+        const completed = await getCompletedOrders(phone);
         const todayCompleted = completed.filter(o => new Date(o.completedAt).getTime() >= todayStart);
         const walletBalance = await getDriverWalletBalance(phone);
 

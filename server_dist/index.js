@@ -704,6 +704,40 @@ async function updateDriverWalletBalance(phoneNumber, newBalance) {
     });
   }
 }
+async function saveDriverCompletedOrder(phoneNumber, order) {
+  if (!db) return;
+  try {
+    await db.collection("driverCompletedOrders").add({
+      phoneNumber,
+      ...order,
+      savedAt: admin.firestore.Timestamp.now()
+    });
+  } catch (error) {
+    console.error("Error saving driver completed order:", error);
+  }
+}
+async function getDriverCompletedOrdersFromDB(phoneNumber) {
+  if (!db) return [];
+  try {
+    const snapshot = await db.collection("driverCompletedOrders").where("phoneNumber", "==", phoneNumber).get();
+    return snapshot.docs.map((doc) => {
+      const d = doc.data();
+      return {
+        orderId: d.orderId,
+        deliveryFee: d.deliveryFee || 0,
+        driverEarning: d.driverEarning || 0,
+        ownerEarning: d.ownerEarning || 0,
+        total: d.total || 0,
+        customerName: d.customerName || "",
+        completedAt: d.completedAt,
+        isRestaurant: d.isRestaurant || false
+      };
+    });
+  } catch (error) {
+    console.error("Error getting driver completed orders:", error);
+    return [];
+  }
+}
 async function addWalletTransaction(data) {
   if (!db) throw new Error("Firestore not initialized");
   await db.collection("walletHistory").add({
@@ -983,6 +1017,13 @@ async function registerRoutes(app2) {
   const driverAssignments = /* @__PURE__ */ new Map();
   const driverCompletedOrders = /* @__PURE__ */ new Map();
   const driverLocations = /* @__PURE__ */ new Map();
+  async function getCompletedOrders(phoneNumber) {
+    const dbOrders = await getDriverCompletedOrdersFromDB(phoneNumber);
+    const memOrders = driverCompletedOrders.get(phoneNumber) || [];
+    const dbIds = new Set(dbOrders.map((o) => o.orderId));
+    const extra = memOrders.filter((o) => !dbIds.has(o.orderId));
+    return [...dbOrders, ...extra];
+  }
   async function checkIsRestaurantOrder(order) {
     try {
       const products2 = await getProducts();
@@ -1910,7 +1951,7 @@ async function registerRoutes(app2) {
         queuePosition = availableDriversBefore.length;
       }
       const walletBalance = await getDriverWalletBalance(phoneNumber);
-      const completed = driverCompletedOrders.get(phoneNumber) || [];
+      const completed = await getCompletedOrders(phoneNumber);
       const now = /* @__PURE__ */ new Date();
       const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
       const todayCompleted = completed.filter((o) => new Date(o.completedAt).getTime() >= todayStart);
@@ -2068,8 +2109,7 @@ async function registerRoutes(app2) {
               driverQueue.splice(queueIdx, 1);
             }
           }
-          const completed = driverCompletedOrders.get(phoneNumber) || [];
-          completed.push({
+          const completedEntry = {
             orderId,
             deliveryFee: order.deliveryFee || 0,
             driverEarning,
@@ -2078,7 +2118,10 @@ async function registerRoutes(app2) {
             customerName: customerProfile?.fullName || "\u0632\u0628\u0648\u0646",
             completedAt: (/* @__PURE__ */ new Date()).toISOString(),
             isRestaurant: isRestaurantOrder
-          });
+          };
+          await saveDriverCompletedOrder(phoneNumber, completedEntry);
+          const completed = driverCompletedOrders.get(phoneNumber) || [];
+          completed.push(completedEntry);
           driverCompletedOrders.set(phoneNumber, completed);
         }
       }
@@ -2094,7 +2137,7 @@ async function registerRoutes(app2) {
     const phoneNumber = req.query.phoneNumber;
     if (!phoneNumber) return res.status(400).json({ error: "Phone number required" });
     try {
-      const completed = driverCompletedOrders.get(phoneNumber) || [];
+      const completed = await getCompletedOrders(phoneNumber);
       const now = /* @__PURE__ */ new Date();
       const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
       const weekStart = todayStart - 7 * 24 * 60 * 60 * 1e3;
@@ -2124,7 +2167,7 @@ async function registerRoutes(app2) {
     const phoneNumber = req.query.phoneNumber;
     if (!phoneNumber) return res.status(400).json({ error: "Phone number required" });
     try {
-      const completed = driverCompletedOrders.get(phoneNumber) || [];
+      const completed = await getCompletedOrders(phoneNumber);
       const db2 = getFirestore();
       const result = [];
       if (db2) {
@@ -2290,7 +2333,7 @@ async function registerRoutes(app2) {
       const stats = {};
       for (const driver of drivers) {
         const phone = driver.phoneNumber;
-        const completed = driverCompletedOrders.get(phone) || [];
+        const completed = await getCompletedOrders(phone);
         const todayCompleted = completed.filter((o) => new Date(o.completedAt).getTime() >= todayStart);
         const walletBalance = await getDriverWalletBalance(phone);
         stats[phone] = {
