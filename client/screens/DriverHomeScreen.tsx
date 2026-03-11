@@ -214,7 +214,7 @@ export default function DriverHomeScreen() {
 
   const handleWhatsAppSupport = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    const supportNumber = "9647700000000";
+    const supportNumber = "9647702891104";
     const message = encodeURIComponent("مرحباً، أحتاج شحن رصيد محفظتي في تطبيق OnWay");
     Linking.openURL(`https://wa.me/${supportNumber}?text=${message}`).catch(() => {
       Linking.openURL(`whatsapp://send?phone=${supportNumber}&text=${message}`).catch(console.error);
