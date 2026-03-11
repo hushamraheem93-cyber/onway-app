@@ -236,6 +236,39 @@ async function getOrdersByPhone(phoneNumber) {
     return [];
   }
 }
+async function getOrdersByDriverPhone(driverPhone, driverName) {
+  if (!db) return [];
+  try {
+    const seen = /* @__PURE__ */ new Set();
+    const allOrders = [];
+    const byPhone = await db.collection("orders").where("driverPhone", "==", driverPhone).get();
+    for (const doc of byPhone.docs) {
+      const o = { id: doc.id, ...doc.data() };
+      if (o.status === "delivered" && !seen.has(doc.id)) {
+        seen.add(doc.id);
+        allOrders.push(o);
+      }
+    }
+    if (driverName) {
+      const byName = await db.collection("orders").where("driverName", "==", driverName).get();
+      for (const doc of byName.docs) {
+        const o = { id: doc.id, ...doc.data() };
+        if (o.status === "delivered" && !seen.has(doc.id)) {
+          seen.add(doc.id);
+          allOrders.push(o);
+        }
+      }
+    }
+    return allOrders.sort((a, b) => {
+      const aTime = a.updatedAt?.toMillis?.() || a.createdAt?.toMillis?.() || 0;
+      const bTime = b.updatedAt?.toMillis?.() || b.createdAt?.toMillis?.() || 0;
+      return bTime - aTime;
+    });
+  } catch (error) {
+    console.error("Error getting orders by driver phone:", error);
+    return [];
+  }
+}
 async function createOrder(data) {
   if (!db) return null;
   try {
@@ -2415,8 +2448,48 @@ async function registerRoutes(app2) {
     const phoneNumber = req.query.phoneNumber;
     if (!phoneNumber) return res.status(400).json({ error: "Phone number required" });
     try {
-      const log2 = await getDriverActivityLog(phoneNumber);
-      res.json({ log: log2 });
+      const activityLog = await getDriverActivityLog(phoneNumber);
+      const completedOrders = await getDriverCompletedOrdersFromDB(phoneNumber);
+      const driverProfile = await getDriverByPhone(phoneNumber).catch(() => null);
+      const driverFullName = driverProfile?.fullName;
+      const historicalOrders = await getOrdersByDriverPhone(phoneNumber, driverFullName);
+      const coveredOrderIds = /* @__PURE__ */ new Set([
+        ...activityLog.filter((e) => e.type === "completed" && e.orderId).map((e) => e.orderId),
+        ...completedOrders.map((o) => o.orderId)
+      ]);
+      const fromCompleted = completedOrders.filter((o) => !activityLog.some((e) => e.type === "completed" && e.orderId === o.orderId)).map((o) => ({
+        type: "completed",
+        phoneNumber,
+        orderId: o.orderId,
+        customerName: o.customerName,
+        driverEarning: o.driverEarning,
+        total: o.total,
+        timestamp: { _seconds: Math.floor(new Date(o.completedAt).getTime() / 1e3), _nanoseconds: 0 },
+        date: o.completedAt.split("T")[0]
+      }));
+      const fromHistorical = historicalOrders.filter((o) => !coveredOrderIds.has(o.id)).map((o) => {
+        const ts = o.updatedAt?.toMillis?.() || o.createdAt?.toMillis?.() || 0;
+        return {
+          type: "completed",
+          phoneNumber,
+          orderId: o.id,
+          customerName: o.customerName || "\u0632\u0628\u0648\u0646",
+          driverEarning: null,
+          total: o.total || 0,
+          timestamp: { _seconds: Math.floor(ts / 1e3), _nanoseconds: 0 },
+          date: ts ? new Date(ts).toISOString().split("T")[0] : "",
+          fromHistory: true
+        };
+      });
+      const merged = [...activityLog, ...fromCompleted, ...fromHistorical].sort((a, b) => {
+        const getMs = (e) => {
+          if (e.timestamp?._seconds !== void 0) return e.timestamp._seconds * 1e3;
+          if (e.timestamp?.seconds !== void 0) return e.timestamp.seconds * 1e3;
+          return 0;
+        };
+        return getMs(b) - getMs(a);
+      });
+      res.json({ log: merged });
     } catch (error) {
       res.status(500).json({ error: error.message });
     }

@@ -28,7 +28,8 @@ import {
   checkPromoUsage, recordPromoUsage,
   getDriverWalletBalance, updateDriverWalletBalance, addWalletTransaction, getWalletHistory,
   saveDriverCompletedOrder, getDriverCompletedOrdersFromDB,
-  saveDriverActivity, getDriverActivityLog, updateDriverLastLocation
+  saveDriverActivity, getDriverActivityLog, updateDriverLastLocation,
+  getOrdersByDriverPhone
 } from "./firebase";
 import { sendPushNotification } from "./pushNotifications";
 
@@ -1801,13 +1802,73 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Get driver activity log (admin)
+  // Get driver activity log (admin) — merges activity events + completed orders history
   app.get("/api/admin/driver-activity", async (req: Request, res: Response) => {
     const phoneNumber = req.query.phoneNumber as string;
     if (!phoneNumber) return res.status(400).json({ error: "Phone number required" });
     try {
-      const log = await getDriverActivityLog(phoneNumber);
-      res.json({ log });
+      // Get explicit activity events (online/offline/accepted/rejected/completed)
+      const activityLog = await getDriverActivityLog(phoneNumber);
+      
+      // Also get completed orders from driverCompletedOrders collection
+      const completedOrders = await getDriverCompletedOrdersFromDB(phoneNumber);
+      
+      // Look up driver's full name to also search historical orders by name
+      const driverProfile = await getDriverByPhone(phoneNumber).catch(() => null);
+      const driverFullName = driverProfile?.fullName;
+      
+      // Also get ALL delivered orders from orders collection (historical data)
+      const historicalOrders = await getOrdersByDriverPhone(phoneNumber, driverFullName);
+      
+      // Build a Set of orderIds already covered by activity log or driverCompletedOrders
+      const coveredOrderIds = new Set([
+        ...activityLog.filter(e => e.type === "completed" && e.orderId).map(e => e.orderId),
+        ...completedOrders.map(o => o.orderId),
+      ]);
+      
+      // Convert completed orders (from driverCompletedOrders) not in activity log
+      const fromCompleted = completedOrders
+        .filter(o => !activityLog.some((e: any) => e.type === "completed" && e.orderId === o.orderId))
+        .map(o => ({
+          type: "completed",
+          phoneNumber,
+          orderId: o.orderId,
+          customerName: o.customerName,
+          driverEarning: o.driverEarning,
+          total: o.total,
+          timestamp: { _seconds: Math.floor(new Date(o.completedAt).getTime() / 1000), _nanoseconds: 0 },
+          date: o.completedAt.split("T")[0],
+        }));
+      
+      // Convert historical orders (from orders collection) not already covered
+      const fromHistorical = historicalOrders
+        .filter((o: any) => !coveredOrderIds.has(o.id))
+        .map((o: any) => {
+          const ts = o.updatedAt?.toMillis?.() || o.createdAt?.toMillis?.() || 0;
+          return {
+            type: "completed",
+            phoneNumber,
+            orderId: o.id,
+            customerName: o.customerName || "زبون",
+            driverEarning: null,
+            total: o.total || 0,
+            timestamp: { _seconds: Math.floor(ts / 1000), _nanoseconds: 0 },
+            date: ts ? new Date(ts).toISOString().split("T")[0] : "",
+            fromHistory: true,
+          };
+        });
+      
+      // Merge all sources and sort by timestamp descending
+      const merged = [...activityLog, ...fromCompleted, ...fromHistorical].sort((a: any, b: any) => {
+        const getMs = (e: any) => {
+          if (e.timestamp?._seconds !== undefined) return e.timestamp._seconds * 1000;
+          if (e.timestamp?.seconds !== undefined) return e.timestamp.seconds * 1000;
+          return 0;
+        };
+        return getMs(b) - getMs(a);
+      });
+      
+      res.json({ log: merged });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }

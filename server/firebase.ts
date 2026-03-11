@@ -344,6 +344,50 @@ export async function getOrdersByPhone(phoneNumber: string): Promise<(FirestoreO
   }
 }
 
+// Get all delivered orders handled by a specific driver (by phone or name)
+export async function getOrdersByDriverPhone(driverPhone: string, driverName?: string): Promise<any[]> {
+  if (!db) return [];
+  try {
+    const seen = new Set<string>();
+    const allOrders: any[] = [];
+
+    // Query by driverPhone
+    const byPhone = await db.collection("orders")
+      .where("driverPhone", "==", driverPhone)
+      .get();
+    for (const doc of byPhone.docs) {
+      const o = { id: doc.id, ...doc.data() as any };
+      if (o.status === "delivered" && !seen.has(doc.id)) {
+        seen.add(doc.id);
+        allOrders.push(o);
+      }
+    }
+
+    // Also query by driverName (for historical orders before driverPhone was saved)
+    if (driverName) {
+      const byName = await db.collection("orders")
+        .where("driverName", "==", driverName)
+        .get();
+      for (const doc of byName.docs) {
+        const o = { id: doc.id, ...doc.data() as any };
+        if (o.status === "delivered" && !seen.has(doc.id)) {
+          seen.add(doc.id);
+          allOrders.push(o);
+        }
+      }
+    }
+
+    return allOrders.sort((a: any, b: any) => {
+      const aTime = a.updatedAt?.toMillis?.() || a.createdAt?.toMillis?.() || 0;
+      const bTime = b.updatedAt?.toMillis?.() || b.createdAt?.toMillis?.() || 0;
+      return bTime - aTime;
+    });
+  } catch (error) {
+    console.error("Error getting orders by driver phone:", error);
+    return [];
+  }
+}
+
 export async function createOrder(data: Omit<FirestoreOrder, "createdAt" | "updatedAt">): Promise<(FirestoreOrder & { id: string }) | null> {
   if (!db) return null;
   
