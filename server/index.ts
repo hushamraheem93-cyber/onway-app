@@ -168,9 +168,7 @@ function configureExpoAndLanding(app: express.Application) {
   log("Serving static Expo files with dynamic manifest routing");
 
   app.get("/admin", (_req: Request, res: Response) => {
-    let adminTemplate = fs.readFileSync(adminTemplatePath, "utf-8");
-    const mapsKey = process.env.GOOGLE_MAPS_API_KEY || "";
-    adminTemplate = adminTemplate.replace("AIzaSyAPI_KEY_PLACEHOLDER", mapsKey);
+    const adminTemplate = fs.readFileSync(adminTemplatePath, "utf-8");
     res.setHeader("Content-Type", "text/html; charset=utf-8");
     res.status(200).send(adminTemplate);
   });

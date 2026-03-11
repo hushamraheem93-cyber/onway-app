@@ -6,7 +6,8 @@
   <title>ONWAY - لوحة التحكم</title>
   <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700&family=Poppins:ital,wght@0,400;0,600;0,700;0,800;1,700;1,800&display=swap" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/lucide@0.344.0/dist/umd/lucide.min.js"></script>
-  <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAPI_KEY_PLACEHOLDER&callback=initGoogleMaps&language=ar" async defer></script>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <style>
     :root {
       --primary: #D94523;
@@ -1056,7 +1057,10 @@
     .sidebar-search input:focus { border-color: var(--primary); background: rgba(255,255,255,0.15); }
 
     /* GPS Map */
-    #gps-map { width: 100%; height: 360px; border-radius: 16px; border: none; }
+    #gps-map { width: 100%; height: 360px; border-radius: 0 0 16px 16px; }
+    #tracking-map { width: 100%; height: 420px; }
+    .leaflet-container { font-family: 'Cairo', sans-serif !important; }
+    .leaflet-popup-content { direction: rtl; font-family: 'Cairo', sans-serif; }
     .map-card { background: white; border-radius: 16px; overflow: hidden; box-shadow: 0 2px 12px rgba(0,0,0,0.08); margin-bottom: 24px; }
     .map-card-header { padding: 16px 20px; border-bottom: 1px solid var(--gray-200); display: flex; align-items: center; justify-content: space-between; }
     .driver-marker-popup { font-family: 'Cairo', sans-serif; direction: rtl; }
@@ -1868,11 +1872,40 @@
             </table>
           </div>
         </div>
-        <!-- Print area (hidden) -->
+              <!-- Print area (hidden) -->
         <div id="print-area"></div>
       </div>
     </div>
   </main>
+
+  <!-- Driver Tracking Modal -->
+  <div id="tracking-modal" class="modal-overlay" style="z-index:9999;">
+    <div class="modal" style="max-width:700px;width:95%;">
+      <div class="modal-header" style="background:linear-gradient(135deg,#1a1a2e,#16213e);color:white;border-radius:16px 16px 0 0;">
+        <h3 id="tracking-modal-title" style="display:flex;align-items:center;gap:8px;color:white;">
+          <span class="online-dot"></span> تتبع السائق
+        </h3>
+        <button class="modal-close" onclick="closeTrackingModal()" style="color:white;">
+          <i data-lucide="x"></i>
+        </button>
+      </div>
+      <div class="modal-body" style="padding:0;">
+        <!-- Status bar -->
+        <div id="tracking-status" style="padding:12px 20px;background:#f8fafc;border-bottom:1px solid #e5e7eb;font-family:'Cairo',sans-serif;direction:rtl;display:flex;align-items:center;gap:8px;font-size:0.9rem;">
+          <span style="color:#888;">جاري تحميل الموقع...</span>
+        </div>
+        <!-- Map -->
+        <div id="tracking-map" style="width:100%;height:420px;"></div>
+        <!-- Footer -->
+        <div style="padding:12px 20px;display:flex;align-items:center;justify-content:space-between;border-top:1px solid #e5e7eb;background:#f8fafc;">
+          <span style="font-size:0.78rem;color:#9CA3AF;">يتحدث تلقائياً كل 10 ثوانٍ</span>
+          <button class="btn btn-outline btn-sm" onclick="fetchTrackingLocation()">
+            <i data-lucide="refresh-cw" style="width:14px;height:14px;"></i> تحديث الآن
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
 
   <!-- Product Modal -->
   <div id="product-modal" class="modal-overlay">
@@ -2337,8 +2370,8 @@
         const dashOnline = document.getElementById('dash-online-drivers');
         if (dashOnline) dashOnline.textContent = onlineCount;
         
-        // Load GPS map
-        refreshDriverLocations();
+        // Init Leaflet map (safe to call multiple times — guards against re-init)
+        initDashboardMap();
       } catch (error) {
         showToast('error', 'خطأ', 'حدث خطأ في تحميل البيانات');
       }
@@ -2392,30 +2425,39 @@
       printWindow.document.close();
     }
 
-    // ========== GPS Map ==========
+    // ========== GPS Map (Leaflet + OpenStreetMap) ==========
     let _gpsMap = null;
     let _driverMarkers = {};
-    let _gpsPollingInterval = null;
-    let _mapsReady = false;
+    let _trackingMap = null;
+    let _trackingMarker = null;
+    let _trackingCircle = null;
+    let _trackingPhone = null;
+    let _trackingInterval = null;
 
-    function initGoogleMaps() {
-      _mapsReady = true;
-      const mapEl = document.getElementById('gps-map');
-      if (!mapEl) return;
-      _gpsMap = new google.maps.Map(mapEl, {
-        center: { lat: 33.3152, lng: 44.3661 },
-        zoom: 11,
-        styles: [{ featureType:'poi', elementType:'labels', stylers:[{visibility:'off'}] }],
-        zoomControl: true,
-        streetViewControl: false,
-        fullscreenControl: true,
-        mapTypeControl: false,
+    function getDriverIcon(isBusy) {
+      const color = isBusy ? '#F59E0B' : '#10B981';
+      const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="36" height="48" viewBox="0 0 36 48">
+        <path d="M18 0C8.06 0 0 8.06 0 18c0 12.47 18 30 18 30s18-17.53 18-30C36 8.06 27.94 0 18 0z" fill="${color}" stroke="white" stroke-width="2"/>
+        <text x="18" y="22" font-size="14" text-anchor="middle" fill="white" font-weight="bold" font-family="Arial">🚗</text>
+      </svg>`;
+      return L.divIcon({
+        html: svg,
+        className: '',
+        iconSize: [36, 48],
+        iconAnchor: [18, 48],
+        popupAnchor: [0, -48]
       });
-      // Map is ready — fetch driver locations immediately
+    }
+
+    function initDashboardMap() {
+      const mapEl = document.getElementById('gps-map');
+      if (!mapEl || _gpsMap) return;
+      _gpsMap = L.map('gps-map', { zoomControl: true, attributionControl: false }).setView([33.3152, 44.3661], 11);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+      }).addTo(_gpsMap);
       refreshDriverLocations();
     }
-    // Expose globally for Google Maps callback
-    window.initGoogleMaps = initGoogleMaps;
 
     async function refreshDriverLocations() {
       try {
@@ -2423,45 +2465,110 @@
         const data = await res.json();
         const locations = data.locations || [];
         const countEl = document.getElementById('map-driver-count');
-        if (countEl) countEl.textContent = locations.length + ' سائق متصل';
+        if (countEl) countEl.textContent = locations.length + (locations.length === 1 ? ' سائق متصل' : ' سائقون متصلون');
         const noDrivers = document.getElementById('map-no-drivers');
         if (noDrivers) noDrivers.style.display = locations.length === 0 ? 'flex' : 'none';
-        if (!_mapsReady || !_gpsMap) return;
-        // Remove old markers
+
+        if (!_gpsMap) return;
+
+        // Remove stale markers
         const currentPhones = new Set(locations.map(l => l.phoneNumber));
-        for (const [phone, marker] of Object.entries(_driverMarkers)) {
-          if (!currentPhones.has(phone)) { marker.setMap(null); delete _driverMarkers[phone]; }
+        for (const phone of Object.keys(_driverMarkers)) {
+          if (!currentPhones.has(phone)) { _gpsMap.removeLayer(_driverMarkers[phone]); delete _driverMarkers[phone]; }
         }
+
         // Add / update markers
         locations.forEach(loc => {
-          const pos = { lat: loc.lat, lng: loc.lng };
           const isBusy = loc.status === 'busy';
-          const iconColor = isBusy ? 'F59E0B' : '10B981';
+          const latlng = [loc.lat, loc.lng];
+          const popupHtml = `
+            <div style="font-family:'Cairo',sans-serif;direction:rtl;min-width:160px;padding:4px;">
+              <strong style="font-size:0.95rem;">${loc.fullName || loc.phoneNumber}</strong><br/>
+              <span style="color:${isBusy?'#F59E0B':'#10B981'};font-weight:600;">${isBusy ? '🟡 مشغول بطلب' : '🟢 متاح'}</span>
+              ${loc.currentOrderId ? `<br/><span style="font-size:0.8rem;color:#666;">طلب: #${loc.currentOrderId.slice(-6)}</span>` : ''}
+              <br/><a href="#" style="color:#D94523;font-size:0.8rem;display:block;margin-top:6px;" onclick="openTrackingModal('${loc.phoneNumber}','${loc.fullName||loc.phoneNumber}');return false;">📍 تتبع مباشر</a>
+            </div>`;
           if (_driverMarkers[loc.phoneNumber]) {
-            _driverMarkers[loc.phoneNumber].setPosition(pos);
+            _driverMarkers[loc.phoneNumber].setLatLng(latlng);
+            _driverMarkers[loc.phoneNumber].setIcon(getDriverIcon(isBusy));
           } else {
-            const marker = new google.maps.Marker({
-              position: pos,
-              map: _gpsMap,
-              title: loc.fullName || loc.phoneNumber,
-              icon: {
-                url: `https://chart.googleapis.com/chart?chst=d_map_pin_letter&chld=${isBusy?'B':'A'}|${iconColor}|ffffff`,
-                scaledSize: new google.maps.Size(30, 45)
-              }
-            });
-            const infoWindow = new google.maps.InfoWindow({
-              content: `<div class="driver-marker-popup"><strong>${loc.fullName||loc.phoneNumber}</strong><br/>${isBusy?'🟡 مشغول':'🟢 متاح'}${loc.currentOrderId?`<br/>طلب: #${loc.currentOrderId.slice(-6)}`:''}</div>`
-            });
-            marker.addListener('click', () => infoWindow.open(_gpsMap, marker));
+            const marker = L.marker(latlng, { icon: getDriverIcon(isBusy) })
+              .addTo(_gpsMap)
+              .bindPopup(popupHtml, { maxWidth: 220 });
             _driverMarkers[loc.phoneNumber] = marker;
           }
         });
-        if (locations.length > 0) {
-          const bounds = new google.maps.LatLngBounds();
-          locations.forEach(l => bounds.extend({ lat: l.lat, lng: l.lng }));
-          _gpsMap.fitBounds(bounds, { padding: 60 });
+
+        // Fit bounds if drivers exist
+        if (locations.length > 0 && !_trackingPhone) {
+          const bounds = L.latLngBounds(locations.map(l => [l.lat, l.lng]));
+          _gpsMap.fitBounds(bounds, { padding: [60, 60], maxZoom: 14 });
         }
-      } catch(e) { console.error('GPS refresh error:', e); }
+      } catch(e) { console.error('GPS refresh:', e); }
+    }
+
+    // ---- Tracking Modal ----
+    function openTrackingModal(phoneNumber, name) {
+      // Reset old tracking marker when switching drivers
+      if (_trackingMap && _trackingMarker && _trackingPhone !== phoneNumber) {
+        _trackingMap.removeLayer(_trackingMarker);
+        _trackingMarker = null;
+        if (_trackingCircle) { _trackingMap.removeLayer(_trackingCircle); _trackingCircle = null; }
+      }
+      _trackingPhone = phoneNumber;
+      document.getElementById('tracking-modal-title').textContent = '📍 تتبع: ' + name;
+      document.getElementById('tracking-status').innerHTML = '<span style="color:#888;">جاري تحميل الموقع...</span>';
+      document.getElementById('tracking-modal').classList.add('active');
+      lucide.createIcons();
+
+      // Init tracking map
+      setTimeout(() => {
+        if (!_trackingMap) {
+          _trackingMap = L.map('tracking-map', { zoomControl: true, attributionControl: false }).setView([33.3152, 44.3661], 13);
+          L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(_trackingMap);
+        } else {
+          _trackingMap.invalidateSize();
+        }
+        fetchTrackingLocation();
+        if (_trackingInterval) clearInterval(_trackingInterval);
+        _trackingInterval = setInterval(fetchTrackingLocation, 10000);
+      }, 200);
+    }
+
+    function closeTrackingModal() {
+      document.getElementById('tracking-modal').classList.remove('active');
+      _trackingPhone = null;
+      if (_trackingInterval) { clearInterval(_trackingInterval); _trackingInterval = null; }
+    }
+
+    async function fetchTrackingLocation() {
+      if (!_trackingPhone || !_trackingMap) return;
+      try {
+        const res = await fetch(API_BASE + '/admin/driver-locations');
+        const data = await res.json();
+        const loc = (data.locations || []).find(l => l.phoneNumber === _trackingPhone);
+        const statusEl = document.getElementById('tracking-status');
+        if (!loc) {
+          if (statusEl) statusEl.innerHTML = '<span style="color:#EF4444;">⚠️ السائق غير متصل حالياً</span>';
+          return;
+        }
+        const isBusy = loc.status === 'busy';
+        const latlng = [loc.lat, loc.lng];
+        const timeAgo = getTimeAgo(loc.updatedAt);
+        if (statusEl) statusEl.innerHTML = `
+          <span style="color:${isBusy?'#F59E0B':'#10B981'};font-weight:700;">${isBusy?'🟡 مشغول بطلب':'🟢 متاح'}</span>
+          &nbsp;·&nbsp;<span style="color:#888;font-size:0.85rem;">آخر موقع: ${timeAgo}</span>
+          ${loc.currentOrderId ? `&nbsp;·&nbsp;<span style="color:#D94523;font-size:0.85rem;">طلب #${loc.currentOrderId.slice(-6)}</span>` : ''}`;
+        if (_trackingMarker) {
+          _trackingMarker.setLatLng(latlng);
+        } else {
+          _trackingMarker = L.marker(latlng, { icon: getDriverIcon(isBusy) }).addTo(_trackingMap);
+        }
+        _trackingMap.setView(latlng, 14);
+        // Draw accuracy circle
+        if (_trackingCircle) _trackingMap.removeLayer(_trackingCircle);
+        _trackingCircle = L.circle(latlng, { radius: 80, color: isBusy?'#F59E0B':'#10B981', fillOpacity: 0.1 }).addTo(_trackingMap);
+      } catch(e) { console.error('Tracking error:', e); }
     }
 
     // Start GPS polling when on dashboard
@@ -3535,6 +3642,10 @@
             actionButtons += `<button class="btn btn-sm" style="background:#10B981;color:white;margin-left:4px;" onclick="event.stopPropagation();updateOrderStatus('${order.id}','delivered','${order.phoneNumber}')"><i data-lucide="check-circle"></i> تم</button>`;
           }
           actionButtons += `<button class="btn btn-sm" style="background:#EF4444;color:white;margin-left:4px;" onclick="event.stopPropagation();updateOrderStatus('${order.id}','cancelled','${order.phoneNumber}')"><i data-lucide="x"></i> إلغاء</button>`;
+        }
+        // Track driver button (only for "delivering" orders with a driver)
+        if (order.status === 'delivering' && order.driverPhone) {
+          actionButtons += `<button class="btn btn-sm" style="background:#1a1a2e;color:white;margin-left:4px;" onclick="event.stopPropagation();openTrackingModal('${order.driverPhone}','${escapeHtml(order.driverName||order.driverPhone)}')"><i data-lucide="map-pin"></i> تتبع</button>`;
         }
         // WhatsApp button
         const waPhone = (order.phoneNumber || '').replace(/^0/, '964');
