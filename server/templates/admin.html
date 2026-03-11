@@ -2049,6 +2049,7 @@
     let deliveryAreas = [];
     let orders = [];
     let drivers = [];
+    let driverStats = {};
     let currentDriverFilter = 'all';
     let currentOrderFilter = 'all';
     
@@ -3447,8 +3448,13 @@
     // Drivers
     async function loadDrivers() {
       try {
-        const response = await fetch(API_BASE + '/admin/drivers');
-        drivers = await response.json();
+        const [driversRes, statsRes] = await Promise.all([
+          fetch(API_BASE + '/admin/drivers'),
+          fetch(API_BASE + '/admin/driver-stats'),
+        ]);
+        drivers = await driversRes.json();
+        const statsData = await statsRes.json();
+        driverStats = statsData.stats || {};
         document.getElementById('drivers-count').textContent = drivers.filter(d => d.status === 'pending').length;
         renderDrivers();
       } catch (error) {
@@ -3525,7 +3531,7 @@
 
       container.innerHTML = `
         <div class="card" style="overflow-x:auto;">
-          <table style="width:100%;border-collapse:collapse;min-width:800px;">
+          <table style="width:100%;border-collapse:collapse;min-width:1100px;">
             <thead>
               <tr style="background:var(--gray-50);border-bottom:2px solid var(--gray-200);">
                 <th style="padding:14px 16px;text-align:right;font-size:0.85rem;font-weight:700;color:var(--gray-600);white-space:nowrap;">#</th>
@@ -3534,6 +3540,9 @@
                 <th style="padding:14px 16px;text-align:center;font-size:0.85rem;font-weight:700;color:var(--gray-600);white-space:nowrap;">البطاقة الوطنية</th>
                 <th style="padding:14px 16px;text-align:center;font-size:0.85rem;font-weight:700;color:var(--gray-600);white-space:nowrap;">بطاقة السكن</th>
                 <th style="padding:14px 16px;text-align:center;font-size:0.85rem;font-weight:700;color:var(--gray-600);white-space:nowrap;">إجازة السوق</th>
+                <th style="padding:14px 16px;text-align:center;font-size:0.85rem;font-weight:700;color:var(--gray-600);white-space:nowrap;">طلبات اليوم</th>
+                <th style="padding:14px 16px;text-align:center;font-size:0.85rem;font-weight:700;color:var(--gray-600);white-space:nowrap;">أرباح اليوم</th>
+                <th style="padding:14px 16px;text-align:center;font-size:0.85rem;font-weight:700;color:var(--gray-600);white-space:nowrap;">الرصيد</th>
                 <th style="padding:14px 16px;text-align:center;font-size:0.85rem;font-weight:700;color:var(--gray-600);white-space:nowrap;">الحالة</th>
                 <th style="padding:14px 16px;text-align:center;font-size:0.85rem;font-weight:700;color:var(--gray-600);white-space:nowrap;">إجراءات</th>
               </tr>
@@ -3579,6 +3588,9 @@
                     <i data-lucide="trash-2" style="width:14px;height:14px;"></i>
                   </button>`;
 
+                const ds = driverStats[driver.phoneNumber] || { todayOrders: 0, todayEarnings: 0, totalOrders: 0, totalEarnings: 0, walletBalance: 0 };
+                const balColor = ds.walletBalance >= 250 ? '#10B981' : '#EF4444';
+
                 return `
                   <tr style="border-bottom:1px solid var(--gray-100);transition:background 0.15s;" onmouseover="this.style.background='var(--gray-50)'" onmouseout="this.style.background='transparent'">
                     <td style="padding:12px 16px;font-size:0.85rem;color:var(--gray-500);font-weight:600;">${idx + 1}</td>
@@ -3590,6 +3602,17 @@
                     <td style="padding:12px 16px;text-align:center;">${nationalIdImg}</td>
                     <td style="padding:12px 16px;text-align:center;">${residenceImg}</td>
                     <td style="padding:12px 16px;text-align:center;">${licenseImg}</td>
+                    <td style="padding:12px 16px;text-align:center;">
+                      <div style="font-weight:700;font-size:0.95rem;color:var(--gray-800);">${ds.todayOrders}</div>
+                      <div style="font-size:0.7rem;color:var(--gray-400);">إجمالي: ${ds.totalOrders}</div>
+                    </td>
+                    <td style="padding:12px 16px;text-align:center;">
+                      <div style="font-weight:700;font-size:0.95rem;color:#10B981;">${ds.todayEarnings.toLocaleString()} د.ع</div>
+                      <div style="font-size:0.7rem;color:var(--gray-400);">إجمالي: ${ds.totalEarnings.toLocaleString()}</div>
+                    </td>
+                    <td style="padding:12px 16px;text-align:center;">
+                      <span style="font-weight:700;font-size:0.9rem;color:${balColor};">${ds.walletBalance.toLocaleString()} د.ع</span>
+                    </td>
                     <td style="padding:12px 16px;text-align:center;">
                       <span style="background:${statusColor}20;color:${statusColor};padding:4px 12px;border-radius:16px;font-size:0.75rem;font-weight:700;white-space:nowrap;">
                         ${getDriverStatusLabel(driver.status)}

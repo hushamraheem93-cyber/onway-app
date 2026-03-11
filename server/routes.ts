@@ -1292,12 +1292,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const walletBalance = await getDriverWalletBalance(phoneNumber);
 
+      const completed = driverCompletedOrders.get(phoneNumber) || [];
+      const now = new Date();
+      const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+      const todayCompleted = completed.filter(o => new Date(o.completedAt).getTime() >= todayStart);
+
       res.json({
         isOnline,
         queuePosition,
         currentOrder,
         approvalStatus: driver?.status || "pending",
         walletBalance,
+        todayOrders: todayCompleted.length,
+        todayEarnings: todayCompleted.reduce((sum, o) => sum + (o.driverEarning || 0), 0),
       });
     } catch (error: any) {
       console.error("Error getting driver status:", error);
@@ -1693,6 +1700,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
         busyDrivers: driverQueue.filter(d => d.currentOrderId).length,
         queue: queueData,
       });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.get("/api/admin/driver-stats", async (_req: Request, res: Response) => {
+    try {
+      const drivers = await getDrivers();
+      const now = new Date();
+      const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+
+      const stats: Record<string, { todayOrders: number; todayEarnings: number; totalOrders: number; totalEarnings: number; walletBalance: number }> = {};
+
+      for (const driver of drivers) {
+        const phone = driver.phoneNumber;
+        const completed = driverCompletedOrders.get(phone) || [];
+        const todayCompleted = completed.filter(o => new Date(o.completedAt).getTime() >= todayStart);
+        const walletBalance = await getDriverWalletBalance(phone);
+
+        stats[phone] = {
+          todayOrders: todayCompleted.length,
+          todayEarnings: todayCompleted.reduce((sum, o) => sum + (o.driverEarning || 0), 0),
+          totalOrders: completed.length,
+          totalEarnings: completed.reduce((sum, o) => sum + (o.driverEarning || 0), 0),
+          walletBalance,
+        };
+      }
+
+      res.json({ stats });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }

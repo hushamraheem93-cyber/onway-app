@@ -56,6 +56,8 @@ export default function DriverHomeScreen() {
   const [loading, setLoading] = useState(true);
   const [walletBalance, setWalletBalance] = useState(0);
   const [walletError, setWalletError] = useState("");
+  const [todayOrders, setTodayOrders] = useState(0);
+  const [todayEarnings, setTodayEarnings] = useState(0);
 
   const fetchDriverStatus = useCallback(async () => {
     if (!phoneNumber) return;
@@ -70,6 +72,8 @@ export default function DriverHomeScreen() {
         setCurrentOrder(data.currentOrder || null);
         setDriverStatus(data.approvalStatus || "pending");
         setWalletBalance(data.walletBalance || 0);
+        setTodayOrders(data.todayOrders || 0);
+        setTodayEarnings(data.todayEarnings || 0);
       }
     } catch (e) {
       console.error("Error fetching driver status:", e);
@@ -208,6 +212,15 @@ export default function DriverHomeScreen() {
     </View>
   );
 
+  const handleWhatsAppSupport = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    const supportNumber = "9647700000000";
+    const message = encodeURIComponent("مرحباً، أحتاج شحن رصيد محفظتي في تطبيق OnWay");
+    Linking.openURL(`https://wa.me/${supportNumber}?text=${message}`).catch(() => {
+      Linking.openURL(`whatsapp://send?phone=${supportNumber}&text=${message}`).catch(console.error);
+    });
+  };
+
   const renderWalletCard = () => (
     <View style={[styles.walletCard, { backgroundColor: theme.backgroundDefault }, Shadows.sm]}>
       <View style={styles.walletRow}>
@@ -221,13 +234,37 @@ export default function DriverHomeScreen() {
           <Feather name="credit-card" size={24} color={walletBalance < 250 ? "#F44336" : AppColors.primary} />
         </View>
       </View>
-      {walletBalance < 250 ? (
-        <View style={[styles.walletWarning, { backgroundColor: "#FFF3E0" }]}>
-          <Feather name="alert-triangle" size={16} color="#FF9800" />
-          <ThemedText type="small" style={{ color: "#E65100", flex: 1, textAlign: "right", marginRight: Spacing.xs }}>
-            رصيدك غير كافٍ للعمل. تواصل مع الإدارة لشحن الرصيد.
-          </ThemedText>
+      <View style={styles.todayStatsRow}>
+        <View style={[styles.todayStatItem, { backgroundColor: "#F0FDF4" }]}>
+          <Feather name="package" size={18} color="#16A34A" />
+          <ThemedText type="h3" style={{ color: "#16A34A", fontWeight: "800" }}>{todayOrders}</ThemedText>
+          <ThemedText type="small" style={{ color: "#15803D" }}>طلبات اليوم</ThemedText>
         </View>
+        <View style={[styles.todayStatItem, { backgroundColor: "#FFF7ED" }]}>
+          <Feather name="trending-up" size={18} color={AppColors.primary} />
+          <ThemedText type="h3" style={{ color: AppColors.primary, fontWeight: "800" }}>{formatPrice(todayEarnings)}</ThemedText>
+          <ThemedText type="small" style={{ color: "#C2410C" }}>أرباح اليوم</ThemedText>
+        </View>
+      </View>
+      {walletBalance < 250 ? (
+        <>
+          <View style={[styles.walletWarning, { backgroundColor: "#FFF3E0" }]}>
+            <Feather name="alert-triangle" size={16} color="#FF9800" />
+            <ThemedText type="small" style={{ color: "#E65100", flex: 1, textAlign: "right", marginRight: Spacing.xs }}>
+              رصيدك غير كافٍ للعمل. تواصل مع الدعم لشحن الرصيد.
+            </ThemedText>
+          </View>
+          <Pressable
+            onPress={handleWhatsAppSupport}
+            style={styles.whatsappButton}
+            testID="button-whatsapp-support"
+          >
+            <Feather name="message-circle" size={20} color="#FFFFFF" />
+            <ThemedText type="body" style={styles.whatsappText}>
+              تواصل مع الدعم عبر واتساب
+            </ThemedText>
+          </Pressable>
+        </>
       ) : null}
       {walletError.length > 0 ? (
         <View style={[styles.walletWarning, { backgroundColor: "#FFEBEE" }]}>
@@ -636,5 +673,32 @@ const styles = StyleSheet.create({
     marginTop: Spacing.md,
     padding: Spacing.sm,
     borderRadius: BorderRadius.sm,
+  },
+  todayStatsRow: {
+    flexDirection: "row",
+    gap: Spacing.md,
+    marginTop: Spacing.md,
+  },
+  todayStatItem: {
+    flex: 1,
+    alignItems: "center",
+    padding: Spacing.md,
+    borderRadius: BorderRadius.lg,
+    gap: 4,
+  },
+  whatsappButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.sm,
+    backgroundColor: "#25D366",
+    paddingVertical: Spacing.md,
+    borderRadius: BorderRadius.lg,
+    marginTop: Spacing.md,
+  },
+  whatsappText: {
+    color: "#FFFFFF",
+    fontWeight: "700",
+    fontSize: 14,
   },
 });
