@@ -1064,18 +1064,6 @@
     #tracking-map { width: 100%; height: 420px; }
     .leaflet-container { font-family: 'Cairo', sans-serif !important; }
     .leaflet-popup-content { direction: rtl; font-family: 'Cairo', sans-serif; }
-    .dhuluiya-label {
-      background: transparent !important;
-      border: none !important;
-      box-shadow: none !important;
-      color: #D94523 !important;
-      font-family: 'Cairo', sans-serif !important;
-      font-size: 13px !important;
-      font-weight: 700 !important;
-      white-space: nowrap;
-      pointer-events: none;
-    }
-    .dhuluiya-label::before { display: none !important; }
     .map-card { background: white; border-radius: 16px; overflow: hidden; box-shadow: 0 2px 12px rgba(0,0,0,0.08); margin-bottom: 24px; }
     .map-card-header { padding: 16px 20px; border-bottom: 1px solid var(--gray-200); display: flex; align-items: center; justify-content: space-between; }
     .driver-marker-popup { font-family: 'Cairo', sans-serif; direction: rtl; }
@@ -2580,42 +2568,6 @@
       });
     }
 
-    // حدود منطقة الضلوعية (مرسومة يدوياً بناءً على الموقع الجغرافي)
-    const DHULUIYA_BOUNDARY = [
-      [33.9260, 44.1980],
-      [33.9310, 44.2080],
-      [33.9290, 44.2220],
-      [33.9230, 44.2380],
-      [33.9120, 44.2480],
-      [33.8980, 44.2530],
-      [33.8870, 44.2490],
-      [33.8760, 44.2420],
-      [33.8670, 44.2310],
-      [33.8630, 44.2160],
-      [33.8660, 44.2010],
-      [33.8740, 44.1900],
-      [33.8860, 44.1870],
-      [33.8990, 44.1910],
-      [33.9110, 44.1950],
-      [33.9260, 44.1980],
-    ];
-
-    function addDhuluiyaBoundary(map) {
-      L.polygon(DHULUIYA_BOUNDARY, {
-        color: '#D94523',
-        weight: 2.5,
-        opacity: 0.9,
-        fillColor: '#D94523',
-        fillOpacity: 0.06,
-        dashArray: '6, 4',
-      }).addTo(map).bindTooltip('منطقة الضلوعية', {
-        permanent: true,
-        direction: 'center',
-        className: 'dhuluiya-label',
-        offset: [0, 0],
-      });
-    }
-
     function initDashboardMap() {
       const mapEl = document.getElementById('gps-map');
       if (!mapEl || _gpsMap) return;
@@ -2623,7 +2575,6 @@
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         maxZoom: 19,
       }).addTo(_gpsMap);
-      addDhuluiyaBoundary(_gpsMap);
       refreshDriverLocations();
     }
 
@@ -2694,7 +2645,6 @@
         if (!_trackingMap) {
           _trackingMap = L.map('tracking-map', { zoomControl: true, attributionControl: false }).setView([33.8833, 44.2167], 13);
           L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(_trackingMap);
-          addDhuluiyaBoundary(_trackingMap);
         } else {
           _trackingMap.invalidateSize();
         }
