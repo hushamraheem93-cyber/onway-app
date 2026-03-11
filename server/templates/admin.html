@@ -2403,16 +2403,19 @@
       const mapEl = document.getElementById('gps-map');
       if (!mapEl) return;
       _gpsMap = new google.maps.Map(mapEl, {
-        center: { lat: 33.3152, lng: 44.3661 }, // Baghdad center
+        center: { lat: 33.3152, lng: 44.3661 },
         zoom: 11,
         styles: [{ featureType:'poi', elementType:'labels', stylers:[{visibility:'off'}] }],
-        disableDefaultUI: false,
         zoomControl: true,
         streetViewControl: false,
         fullscreenControl: true,
         mapTypeControl: false,
       });
+      // Map is ready — fetch driver locations immediately
+      refreshDriverLocations();
     }
+    // Expose globally for Google Maps callback
+    window.initGoogleMaps = initGoogleMaps;
 
     async function refreshDriverLocations() {
       try {
