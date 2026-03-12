@@ -1064,6 +1064,18 @@
     #gps-map { width: 100%; height: 360px; border-radius: 0 0 16px 16px; }
     #tracking-map { width: 100%; height: 420px; }
     #delivery-location-map { width: 100%; height: 240px; border-radius: 12px; overflow: hidden; margin-top: 8px; }
+    .map-card.map-fullscreen {
+      position: fixed !important;
+      inset: 0 !important;
+      z-index: 9999 !important;
+      border-radius: 0 !important;
+      margin: 0 !important;
+      display: flex;
+      flex-direction: column;
+    }
+    .map-card.map-fullscreen #gps-map { height: calc(100vh - 104px) !important; }
+    .map-card.map-fullscreen #gps-map-container { flex: 1; }
+    #btn-map-fullscreen { transition: all 0.2s; }
     .delivery-map-coords {
       display: flex; align-items: center; justify-content: space-between;
       background: var(--gray-100); border-radius: 10px; padding: 8px 12px; margin-top: 6px;
@@ -1330,8 +1342,11 @@
             </h3>
             <div style="display:flex;gap:8px;align-items:center;">
               <span style="font-size:0.75rem;color:var(--gray-500);">يتحدث كل 15 ثانية</span>
-              <button class="btn btn-outline btn-sm" onclick="refreshDriverLocations()">
+              <button class="btn btn-outline btn-sm" onclick="refreshDriverLocations()" title="تحديث">
                 <i data-lucide="refresh-cw" style="width:14px;height:14px;"></i>
+              </button>
+              <button id="btn-map-fullscreen" class="btn btn-outline btn-sm" onclick="toggleMapFullscreen()" title="تكبير الخارطة">
+                <i data-lucide="maximize-2" style="width:14px;height:14px;"></i>
               </button>
             </div>
           </div>
@@ -2768,6 +2783,32 @@
     }
 
     let _myLocationMarker = null;
+    let _mapIsFullscreen = false;
+
+    function toggleMapFullscreen() {
+      const card = document.querySelector('.map-card');
+      const btn = document.getElementById('btn-map-fullscreen');
+      _mapIsFullscreen = !_mapIsFullscreen;
+
+      if (_mapIsFullscreen) {
+        card.classList.add('map-fullscreen');
+        btn.innerHTML = '<i data-lucide="minimize-2" style="width:14px;height:14px;"></i>';
+        btn.title = 'إغلاق الشاشة الكاملة';
+        document.body.style.overflow = 'hidden';
+      } else {
+        card.classList.remove('map-fullscreen');
+        btn.innerHTML = '<i data-lucide="maximize-2" style="width:14px;height:14px;"></i>';
+        btn.title = 'تكبير الخارطة';
+        document.body.style.overflow = '';
+      }
+
+      lucide.createIcons();
+      setTimeout(function() { if (_gpsMap) _gpsMap.invalidateSize(); }, 150);
+    }
+
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape' && _mapIsFullscreen) toggleMapFullscreen();
+    });
 
     function initDashboardMap() {
       const mapEl = document.getElementById('gps-map');
