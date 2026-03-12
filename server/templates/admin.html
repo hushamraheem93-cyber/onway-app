@@ -1626,6 +1626,48 @@
       </div>
     </div>
 
+    <!-- Promo Codes Section -->
+    <div id="promoCodes-section" class="section">
+      <header class="header">
+        <div class="header-title">
+          <h2>أكواد الخصم</h2>
+          <p>إنشاء وإدارة أكواد الخصم للعملاء</p>
+        </div>
+        <div class="header-actions">
+          <button class="btn btn-outline" onclick="doRefresh(this, loadPromoCodes, 'أكواد الخصم')">
+            <i data-lucide="refresh-cw"></i>
+            تحديث
+          </button>
+          <button class="btn btn-primary" onclick="openPromoModal()">
+            <i data-lucide="plus"></i>
+            إضافة كود
+          </button>
+        </div>
+      </header>
+      <div class="content">
+        <div class="card">
+          <div class="card-header">
+            <h3><i data-lucide="ticket"></i> قائمة أكواد الخصم (<span id="promos-count-label">0</span>)</h3>
+          </div>
+          <div class="table-container">
+            <table>
+              <thead>
+                <tr>
+                  <th>الكود</th>
+                  <th>النوع</th>
+                  <th>قيمة الخصم</th>
+                  <th>تاريخ الانتهاء</th>
+                  <th>الحالة</th>
+                  <th>الإجراءات</th>
+                </tr>
+              </thead>
+              <tbody id="promo-codes-table"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- Category Products Section -->
     <div id="categoryProducts-section" class="section">
       <header class="header">
@@ -2284,6 +2326,66 @@
     </div>
   </div>
 
+  <!-- Promo Code Modal -->
+  <div id="promo-modal" class="modal-overlay">
+    <div class="modal">
+      <div class="modal-header">
+        <h3><i data-lucide="ticket"></i> <span id="promo-modal-title">إضافة كود خصم</span></h3>
+        <button class="modal-close" onclick="closeModal('promo-modal')">
+          <i data-lucide="x"></i>
+        </button>
+      </div>
+      <form id="promo-form" onsubmit="savePromoCode(event)">
+        <div class="modal-body">
+          <input type="hidden" id="promo-id">
+
+          <div class="form-group">
+            <label>الكود <span class="required">*</span></label>
+            <input type="text" class="form-control" id="promo-code" required placeholder="مثال: SUMMER20"
+              style="text-transform:uppercase;" oninput="this.value=this.value.toUpperCase()">
+            <small style="color:var(--gray-500);">سيتم تحويله تلقائياً لأحرف كبيرة</small>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label>نوع الخصم <span class="required">*</span></label>
+              <select class="form-control" id="promo-type" onchange="updatePromoValueLabel()">
+                <option value="percentage">نسبة مئوية (%)</option>
+                <option value="fixed">مبلغ ثابت (IQD)</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label id="promo-value-label">قيمة الخصم (%) <span class="required">*</span></label>
+              <input type="number" class="form-control" id="promo-value" required min="1" placeholder="0">
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label>تاريخ انتهاء الصلاحية</label>
+              <input type="date" class="form-control" id="promo-expiry">
+              <small style="color:var(--gray-500);">اتركه فارغاً إذا لا يوجد انتهاء</small>
+            </div>
+            <div class="form-group">
+              <label>الحالة</label>
+              <select class="form-control" id="promo-active">
+                <option value="true">فعّال</option>
+                <option value="false">معطّل</option>
+              </select>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline" onclick="closeModal('promo-modal')">إلغاء</button>
+          <button type="submit" class="btn btn-primary">
+            <i data-lucide="check"></i>
+            حفظ الكود
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <!-- Delete Confirmation Modal -->
   <div id="confirm-modal" class="modal-overlay">
     <div class="modal" style="max-width: 400px;">
@@ -2428,6 +2530,7 @@
       if (section === 'drivers') loadDrivers();
       if (section === 'driverQueue') loadDriverQueue();
       if (section === 'dashboard') loadDashboard();
+      if (section === 'promoCodes') loadPromoCodes();
       if (section === 'settings') loadSettingsStats();
       if (section === 'bestSellers' || section === 'featured' || section === 'discounts') {
         if (products.length === 0) {
@@ -3542,6 +3645,159 @@
       } catch (error) {
         showToast('error', 'خطأ', 'حدث خطأ أثناء حفظ السلايد');
       }
+    }
+
+    // ========================= Promo Codes =========================
+    let promoCodes = [];
+
+    async function loadPromoCodes() {
+      try {
+        const res = await fetch(API_BASE + '/admin/promo-codes');
+        promoCodes = await res.json();
+        renderPromoCodes();
+        const badge = document.getElementById('promo-count');
+        if (badge) badge.textContent = promoCodes.length;
+        const countLabel = document.getElementById('promos-count-label');
+        if (countLabel) countLabel.textContent = promoCodes.length;
+      } catch (e) {
+        showToast('error', 'خطأ', 'فشل تحميل أكواد الخصم');
+      }
+    }
+
+    function renderPromoCodes() {
+      const tbody = document.getElementById('promo-codes-table');
+      if (!tbody) return;
+      if (promoCodes.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="6"><div class="empty-state"><i data-lucide="ticket"></i><h4>لا توجد أكواد خصم</h4><p>أضف كوداً جديداً من خلال زر "إضافة كود"</p></div></td></tr>`;
+        lucide.createIcons();
+        return;
+      }
+      tbody.innerHTML = promoCodes.map(p => {
+        const typeLabel = p.type === 'percentage' ? 'نسبة مئوية' : 'مبلغ ثابت';
+        const typeBadgeColor = p.type === 'percentage' ? '#16A34A' : '#F59E0B';
+        const valueDisplay = p.type === 'percentage' ? `${p.value}%` : `${p.value.toLocaleString()} د.ع`;
+        const expiry = p.expiryDate
+          ? new Date(p.expiryDate) < new Date()
+            ? `<span style="color:#EF4444;">منتهي (${p.expiryDate})</span>`
+            : `<span style="color:#16A34A;">${p.expiryDate}</span>`
+          : '<span style="color:var(--gray-400);">غير محدد</span>';
+        const statusBadge = p.isActive
+          ? '<span style="background:#DCFCE7;color:#16A34A;padding:2px 10px;border-radius:20px;font-size:0.78rem;">فعّال</span>'
+          : '<span style="background:#FEE2E2;color:#EF4444;padding:2px 10px;border-radius:20px;font-size:0.78rem;">معطّل</span>';
+        return `
+          <tr>
+            <td><strong style="font-family:monospace;font-size:1rem;letter-spacing:1px;">${p.code}</strong></td>
+            <td><span style="background:${typeBadgeColor}22;color:${typeBadgeColor};padding:2px 10px;border-radius:20px;font-size:0.78rem;">${typeLabel}</span></td>
+            <td><strong>${valueDisplay}</strong></td>
+            <td>${expiry}</td>
+            <td>${statusBadge}</td>
+            <td>
+              <div class="action-buttons">
+                <button class="btn btn-sm btn-outline" onclick="openPromoModal('${p.id}')">
+                  <i data-lucide="edit-2"></i>
+                </button>
+                <button class="btn btn-sm" style="background:#EF4444;color:white;border:none;" onclick="confirmDeletePromo('${p.id}', '${p.code}')">
+                  <i data-lucide="trash-2"></i>
+                </button>
+              </div>
+            </td>
+          </tr>`;
+      }).join('');
+      lucide.createIcons();
+    }
+
+    function openPromoModal(id = null) {
+      document.getElementById('promo-form').reset();
+      document.getElementById('promo-id').value = '';
+      document.getElementById('promo-modal-title').textContent = 'إضافة كود خصم جديد';
+      updatePromoValueLabel();
+
+      if (id) {
+        const p = promoCodes.find(x => x.id === id);
+        if (!p) return;
+        document.getElementById('promo-modal-title').textContent = 'تعديل كود الخصم';
+        document.getElementById('promo-id').value = p.id;
+        document.getElementById('promo-code').value = p.code;
+        document.getElementById('promo-type').value = p.type;
+        document.getElementById('promo-value').value = p.value;
+        document.getElementById('promo-expiry').value = p.expiryDate || '';
+        document.getElementById('promo-active').value = String(p.isActive);
+        updatePromoValueLabel();
+      }
+
+      document.getElementById('promo-modal').classList.add('active');
+      lucide.createIcons();
+    }
+
+    function updatePromoValueLabel() {
+      const type = document.getElementById('promo-type')?.value;
+      const label = document.getElementById('promo-value-label');
+      if (label) label.innerHTML = type === 'percentage'
+        ? 'قيمة الخصم (%) <span class="required">*</span>'
+        : 'قيمة الخصم (IQD) <span class="required">*</span>';
+    }
+
+    async function savePromoCode(event) {
+      event.preventDefault();
+      const id      = document.getElementById('promo-id').value;
+      const code    = document.getElementById('promo-code').value.trim().toUpperCase();
+      const type    = document.getElementById('promo-type').value;
+      const value   = Number(document.getElementById('promo-value').value);
+      const expiry  = document.getElementById('promo-expiry').value;
+      const active  = document.getElementById('promo-active').value === 'true';
+
+      if (!code || !type || !value) {
+        showToast('warning', 'تنبيه', 'يرجى تعبئة جميع الحقول المطلوبة');
+        return;
+      }
+      if (type === 'percentage' && (value < 1 || value > 100)) {
+        showToast('warning', 'تنبيه', 'النسبة يجب أن تكون بين 1 و 100');
+        return;
+      }
+
+      const submitBtn = document.querySelector('#promo-form [type=submit]');
+      if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = 'جارٍ الحفظ...'; }
+
+      try {
+        const url  = id ? `${API_BASE}/admin/promo-codes/${id}` : `${API_BASE}/admin/promo-codes`;
+        const method = id ? 'PUT' : 'POST';
+        const res = await fetch(url, {
+          method,
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ code, type, value, expiryDate: expiry, isActive: active })
+        });
+        const data = await res.json();
+        if (res.ok) {
+          showToast('success', id ? 'تم التحديث' : 'تمت الإضافة', `كود "${code}" ${id ? 'حُدِّث' : 'أُضيف'} بنجاح`);
+          closeModal('promo-modal');
+          await loadPromoCodes();
+        } else {
+          showToast('error', 'خطأ', data.error || 'فشلت العملية');
+        }
+      } catch (e) {
+        showToast('error', 'خطأ', 'حدث خطأ في الاتصال');
+      } finally {
+        if (submitBtn) { submitBtn.disabled = false; submitBtn.innerHTML = '<i data-lucide="check"></i> حفظ الكود'; lucide.createIcons(); }
+      }
+    }
+
+    function confirmDeletePromo(id, code) {
+      document.getElementById('confirm-message').textContent = `هل أنت متأكد من حذف كود الخصم "${code}"؟`;
+      document.getElementById('confirm-delete-btn').onclick = async () => {
+        closeModal('confirm-modal');
+        try {
+          const res = await fetch(`${API_BASE}/admin/promo-codes/${id}`, { method: 'DELETE' });
+          if (res.ok) {
+            showToast('success', 'تم الحذف', `تم حذف كود "${code}" بنجاح`);
+            await loadPromoCodes();
+          } else {
+            showToast('error', 'خطأ', 'فشل حذف الكود');
+          }
+        } catch (e) {
+          showToast('error', 'خطأ', 'حدث خطأ في الاتصال');
+        }
+      };
+      document.getElementById('confirm-modal').classList.add('active');
     }
 
     // Delivery Areas
