@@ -6,6 +6,7 @@
   <title>ONWAY - لوحة التحكم</title>
   <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700&family=Poppins:ital,wght@0,400;0,600;0,700;0,800;1,700;1,800&display=swap" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/lucide@0.344.0/dist/umd/lucide.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="https://cdn.sheetjs.com/xlsx-0.20.0/package/dist/xlsx.full.min.js"></script>
@@ -1798,13 +1799,14 @@
 
         <!-- Row 2: Results Stats -->
         <div class="stats-row-result">
-          <div style="background: linear-gradient(135deg, #10B981, #34D399); border-radius: 16px; padding: 20px; color: white;">
+          <div onclick="showDeliveryAreasChart()" style="background: linear-gradient(135deg, #10B981, #34D399); border-radius: 16px; padding: 20px; color: white; cursor: pointer; transition: transform 0.15s, box-shadow 0.15s;" onmouseover="this.style.transform='scale(1.03)';this.style.boxShadow='0 8px 24px rgba(16,185,129,0.35)'" onmouseout="this.style.transform='scale(1)';this.style.boxShadow='none'">
             <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
               <i data-lucide="check-circle" style="width: 24px; height: 24px;"></i>
               <span style="font-size: 0.9rem; opacity: 0.9;">تم التوصيل</span>
+              <i data-lucide="pie-chart" style="width: 16px; height: 16px; margin-right: auto; opacity: 0.75;"></i>
             </div>
             <div id="stat-delivered-orders" style="font-size: 2.2rem; font-weight: 800;">0</div>
-            <div style="font-size: 0.75rem; opacity: 0.8; margin-top: 4px;">طلبات مكتملة</div>
+            <div style="font-size: 0.75rem; opacity: 0.8; margin-top: 4px;">طلبات مكتملة · اضغط لعرض المناطق</div>
           </div>
           <div style="background: linear-gradient(135deg, #EF4444, #F87171); border-radius: 16px; padding: 20px; color: white;">
             <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
@@ -4679,14 +4681,16 @@
         const data = await res.json();
         if (res.ok) {
           showToast('success', 'تمت الأرشفة', data.message || `تم حذف ${data.deleted} طلب`);
+          // Remove archived orders from local state
+          const oneMonthAgo = new Date(); oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
           orders = orders.filter(o => {
-            const d = o.createdAt ? new Date(o.createdAt) : null;
-            const oneMonthAgo = new Date(); oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
+            const d = o.createdAt ? new Date(o.createdAt.toDate ? o.createdAt.toDate() : o.createdAt) : null;
             const isOld = d && d < oneMonthAgo;
             return !(isOld && (o.status === 'delivered' || o.status === 'cancelled'));
           });
-          renderOrders();
-          loadSettingsStats();
+          // Full refresh: reload orders from server then update all stats
+          await loadOrders();
+          await loadSettingsStats();
         } else {
           showToast('error', 'خطأ', data.error || 'فشلت عملية الأرشفة');
         }
@@ -4717,10 +4721,137 @@
       }
     }
 
+    // ========================= Delivery Areas Donut Chart =========================
+    let areasChartInstance = null;
+
+    function showDeliveryAreasChart() {
+      const deliveredOrders = orders.filter(o => o.status === 'delivered');
+      if (deliveredOrders.length === 0) {
+        showToast('info', 'لا توجد بيانات', 'لا توجد طلبات مكتملة لعرضها');
+        return;
+      }
+
+      // Count by region
+      const regionCounts = {};
+      for (const o of deliveredOrders) {
+        const region = (o.region || 'غير محدد').trim();
+        regionCounts[region] = (regionCounts[region] || 0) + 1;
+      }
+
+      // Sort descending
+      const sorted = Object.entries(regionCounts)
+        .sort((a, b) => b[1] - a[1]);
+
+      const labels = sorted.map(([name]) => name);
+      const values = sorted.map(([, count]) => count);
+      const total = values.reduce((s, v) => s + v, 0);
+
+      const palette = [
+        '#E86520','#10B981','#3B82F6','#8B5CF6','#F59E0B',
+        '#EF4444','#06B6D4','#EC4899','#14B8A6','#F97316',
+      ];
+      const bgColors = labels.map((_, i) => palette[i % palette.length]);
+
+      // Show modal
+      document.getElementById('areas-chart-modal').style.display = 'flex';
+
+      // Build legend table
+      const legendHtml = sorted.map(([name, count], i) => {
+        const pct = ((count / total) * 100).toFixed(1);
+        return `<tr>
+          <td style="padding:6px 8px;">
+            <span style="display:inline-block;width:14px;height:14px;border-radius:50%;background:${palette[i % palette.length]};vertical-align:middle;margin-left:6px;"></span>
+            ${escapeHtml(name)}
+          </td>
+          <td style="padding:6px 8px;font-weight:700;text-align:center;">${count.toLocaleString('ar-IQ')}</td>
+          <td style="padding:6px 8px;text-align:center;">
+            <span style="background:#F3F4F6;border-radius:20px;padding:2px 10px;font-size:0.82rem;font-weight:600;">${pct}%</span>
+          </td>
+        </tr>`;
+      }).join('');
+      document.getElementById('areas-legend').innerHTML = legendHtml;
+
+      // Destroy old chart if exists
+      if (areasChartInstance) { areasChartInstance.destroy(); areasChartInstance = null; }
+
+      const ctx = document.getElementById('areas-donut-canvas').getContext('2d');
+      areasChartInstance = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+          labels,
+          datasets: [{
+            data: values,
+            backgroundColor: bgColors,
+            borderWidth: 3,
+            borderColor: '#fff',
+            hoverOffset: 12,
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          cutout: '62%',
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                label: ctx => {
+                  const pct = ((ctx.parsed / total) * 100).toFixed(1);
+                  return ` ${ctx.label}: ${ctx.parsed.toLocaleString('ar-IQ')} طلب (${pct}%)`;
+                }
+              }
+            }
+          }
+        }
+      });
+    }
+
+    function closeAreasChart() {
+      document.getElementById('areas-chart-modal').style.display = 'none';
+      if (areasChartInstance) { areasChartInstance.destroy(); areasChartInstance = null; }
+    }
+
     // Initialize
     document.addEventListener('DOMContentLoaded', () => {
       loadDashboard();
     });
   </script>
+
+  <!-- Delivery Areas Donut Chart Modal -->
+  <div id="areas-chart-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:9999;align-items:center;justify-content:center;padding:16px;" onclick="if(event.target===this)closeAreasChart()">
+    <div style="background:#fff;border-radius:20px;width:100%;max-width:560px;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.25);">
+      <div style="padding:20px 24px;border-bottom:1px solid #F3F4F6;display:flex;align-items:center;justify-content:space-between;">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <div style="width:38px;height:38px;border-radius:10px;background:linear-gradient(135deg,#10B981,#34D399);display:flex;align-items:center;justify-content:center;">
+            <i data-lucide="pie-chart" style="width:20px;height:20px;color:#fff;"></i>
+          </div>
+          <div>
+            <div style="font-size:1rem;font-weight:700;color:#1a1a2e;">توزيع الطلبات المكتملة</div>
+            <div style="font-size:0.78rem;color:#6B7280;">مناطق التوصيل من الأكثر إلى الأقل</div>
+          </div>
+        </div>
+        <button onclick="closeAreasChart()" style="background:none;border:none;cursor:pointer;color:#6B7280;padding:4px;">
+          <i data-lucide="x" style="width:22px;height:22px;"></i>
+        </button>
+      </div>
+      <div style="padding:24px;">
+        <div style="height:260px;margin-bottom:20px;">
+          <canvas id="areas-donut-canvas"></canvas>
+        </div>
+        <div style="background:#F9FAFB;border-radius:12px;overflow:hidden;">
+          <table style="width:100%;border-collapse:collapse;font-family:'Cairo',sans-serif;font-size:0.88rem;">
+            <thead>
+              <tr style="background:#F3F4F6;">
+                <th style="padding:8px 12px;text-align:right;color:#374151;font-weight:600;">المنطقة</th>
+                <th style="padding:8px 12px;text-align:center;color:#374151;font-weight:600;">العدد</th>
+                <th style="padding:8px 12px;text-align:center;color:#374151;font-weight:600;">النسبة</th>
+              </tr>
+            </thead>
+            <tbody id="areas-legend"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
 </body>
 </html>

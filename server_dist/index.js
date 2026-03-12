@@ -2559,21 +2559,52 @@ async function registerRoutes(app2) {
         const isOld = o.createdAt ? (o.createdAt.toMillis ? o.createdAt.toMillis() : new Date(o.createdAt).getTime()) < cutoff : false;
         return isOld && (o.status === "delivered" || o.status === "cancelled");
       });
-      if (toArchive.length === 0) {
-        return res.json({ deleted: 0, message: "\u0644\u0627 \u062A\u0648\u062C\u062F \u0637\u0644\u0628\u0627\u062A \u0642\u062F\u064A\u0645\u0629 \u0644\u0644\u0623\u0631\u0634\u0641\u0629" });
-      }
       const batchSize = 500;
       let deleted = 0;
       for (let i = 0; i < toArchive.length; i += batchSize) {
         const batch = db2.batch();
-        const chunk = toArchive.slice(i, i + batchSize);
-        for (const order of chunk) {
+        for (const order of toArchive.slice(i, i + batchSize)) {
           batch.delete(db2.collection("orders").doc(order.id));
         }
         await batch.commit();
-        deleted += chunk.length;
+        deleted += toArchive.slice(i, i + batchSize).length;
       }
-      res.json({ deleted, message: `\u062A\u0645 \u0623\u0631\u0634\u0641\u0629 \u0648\u062D\u0630\u0641 ${deleted} \u0637\u0644\u0628 \u0642\u062F\u064A\u0645 \u0628\u0646\u062C\u0627\u062D` });
+      const batchDeleteDocs = async (docs) => {
+        let count = 0;
+        for (let i = 0; i < docs.length; i += batchSize) {
+          const batch = db2.batch();
+          const chunk = docs.slice(i, i + batchSize);
+          for (const doc of chunk) batch.delete(doc.ref);
+          await batch.commit();
+          count += chunk.length;
+        }
+        return count;
+      };
+      const isOldTimestamp = (ts) => {
+        if (!ts) return false;
+        const ms = ts.toMillis ? ts.toMillis() : ts._seconds ? ts._seconds * 1e3 : new Date(ts).getTime();
+        return ms < cutoff;
+      };
+      let walletDeleted = 0;
+      try {
+        const walletSnap = await db2.collection("walletHistory").get();
+        const oldWallet = walletSnap.docs.filter((d) => isOldTimestamp(d.data().timestamp));
+        walletDeleted = await batchDeleteDocs(oldWallet);
+      } catch (_e) {
+      }
+      let activityDeleted = 0;
+      try {
+        const activitySnap = await db2.collection("driverActivityLog").get();
+        const oldActivity = activitySnap.docs.filter((d) => isOldTimestamp(d.data().timestamp));
+        activityDeleted = await batchDeleteDocs(oldActivity);
+      } catch (_e) {
+      }
+      res.json({
+        deleted,
+        walletDeleted,
+        activityDeleted,
+        message: `\u062A\u0645 \u0623\u0631\u0634\u0641\u0629 ${deleted} \u0637\u0644\u0628\u060C ${walletDeleted} \u0633\u062C\u0644 \u0645\u062D\u0641\u0638\u0629\u060C ${activityDeleted} \u0633\u062C\u0644 \u0646\u0634\u0627\u0637`
+      });
     } catch (error) {
       res.status(500).json({ error: error.message });
     }
