@@ -578,7 +578,9 @@ async function createDeliveryArea(data) {
     const areaDoc = {
       name: data.name,
       fee: data.fee || 0,
-      isActive: data.isActive !== false
+      isActive: data.isActive !== false,
+      ...data.lat !== void 0 && { lat: data.lat },
+      ...data.lng !== void 0 && { lng: data.lng }
     };
     const docRef = await db.collection("deliveryAreas").add(areaDoc);
     return { id: docRef.id, ...areaDoc };
@@ -1510,11 +1512,13 @@ async function registerRoutes(app2) {
   });
   app2.post("/api/admin/delivery-areas", async (req, res) => {
     try {
-      const { name, fee } = req.body;
+      const { name, fee, lat: lat2, lng: lng2 } = req.body;
       const area = await createDeliveryArea({
         name,
         fee: parseInt(fee) || 0,
-        isActive: true
+        isActive: true,
+        ...lat2 !== void 0 && lat2 !== null && lat2 !== "" && { lat: parseFloat(lat2) },
+        ...lng2 !== void 0 && lng2 !== null && lng2 !== "" && { lng: parseFloat(lng2) }
       });
       if (!area) {
         return res.status(500).json({ error: "Failed to create delivery area" });
@@ -1527,11 +1531,13 @@ async function registerRoutes(app2) {
   });
   app2.put("/api/admin/delivery-areas/:id", async (req, res) => {
     try {
-      const { name, fee, isActive } = req.body;
+      const { name, fee, isActive, lat: lat2, lng: lng2 } = req.body;
       const updates = {};
       if (name !== void 0) updates.name = name;
       if (fee !== void 0) updates.fee = parseInt(fee);
       if (isActive !== void 0) updates.isActive = isActive !== "false" && isActive !== false;
+      if (lat2 !== void 0 && lat2 !== null && lat2 !== "") updates.lat = parseFloat(lat2);
+      if (lng2 !== void 0 && lng2 !== null && lng2 !== "") updates.lng = parseFloat(lng2);
       const area = await updateDeliveryArea(req.params.id, updates);
       if (!area) {
         return res.status(404).json({ error: "Delivery area not found" });

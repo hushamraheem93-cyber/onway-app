@@ -3858,9 +3858,15 @@
       
       tbody.innerHTML = deliveryAreas.map(a => `
         <tr>
-          <td><strong>${escapeHtml(a.name)}</strong></td>
+          <td>
+            <strong>${escapeHtml(a.name)}</strong>
+            ${a.lat && a.lng ? `<br><span style="font-size:0.75rem;color:var(--gray-400);font-family:monospace;">${Number(a.lat).toFixed(4)}, ${Number(a.lng).toFixed(4)}</span>` : ''}
+          </td>
           <td class="price-tag">${a.fee.toLocaleString()} د.ع</td>
-          <td><span class="badge ${a.isActive ? 'badge-success' : 'badge-danger'}">${a.isActive ? 'مفعل' : 'معطل'}</span></td>
+          <td>
+            <span class="badge ${a.isActive ? 'badge-success' : 'badge-danger'}">${a.isActive ? 'مفعل' : 'معطل'}</span>
+            ${a.lat && a.lng ? `<br><span style="font-size:0.7rem;color:#10B981;margin-top:3px;display:inline-block;">&#10003; موقع محفوظ</span>` : ''}
+          </td>
           <td>
             <div class="actions-cell">
               <button class="btn btn-icon btn-outline" onclick="editDeliveryArea('${a.id}')" title="تعديل">
@@ -3877,6 +3883,78 @@
       lucide.createIcons();
     }
 
+    var _deliveryPickerMap = null;
+    var _deliveryPickerMarker = null;
+    var DHULUIYAH = [33.8833, 44.2167];
+
+    function initDeliveryPickerMap(lat, lng) {
+      var mapEl = document.getElementById('delivery-location-map');
+      if (!mapEl) return;
+
+      var startLat = lat || DHULUIYAH[0];
+      var startLng = lng || DHULUIYAH[1];
+
+      if (!_deliveryPickerMap) {
+        _deliveryPickerMap = L.map('delivery-location-map', { zoomControl: true, attributionControl: false })
+          .setView([startLat, startLng], 13);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(_deliveryPickerMap);
+
+        _deliveryPickerMarker = L.marker([startLat, startLng], { draggable: true })
+          .addTo(_deliveryPickerMap)
+          .bindPopup('موقع المنطقة');
+
+        _deliveryPickerMarker.on('dragend', function(e) {
+          var pos = e.target.getLatLng();
+          setDeliveryCoords(pos.lat, pos.lng);
+        });
+
+        _deliveryPickerMap.on('click', function(e) {
+          _deliveryPickerMarker.setLatLng(e.latlng);
+          setDeliveryCoords(e.latlng.lat, e.latlng.lng);
+        });
+      } else {
+        _deliveryPickerMap.setView([startLat, startLng], 13);
+        _deliveryPickerMarker.setLatLng([startLat, startLng]);
+      }
+
+      setTimeout(function() { _deliveryPickerMap.invalidateSize(); }, 200);
+
+      if (lat && lng) {
+        setDeliveryCoords(lat, lng);
+      } else {
+        document.getElementById('delivery-coords-text').textContent = 'انقر على الخارطة لتحديد الموقع';
+        document.getElementById('delivery-lat').value = '';
+        document.getElementById('delivery-lng').value = '';
+      }
+    }
+
+    function setDeliveryCoords(lat, lng) {
+      document.getElementById('delivery-lat').value = lat.toFixed(6);
+      document.getElementById('delivery-lng').value = lng.toFixed(6);
+      document.getElementById('delivery-coords-text').textContent =
+        'خط العرض: ' + lat.toFixed(5) + ' | خط الطول: ' + lng.toFixed(5);
+    }
+
+    function locateMyPosition() {
+      if (!navigator.geolocation) {
+        showToast('error', 'خطأ', 'المتصفح لا يدعم تحديد الموقع');
+        return;
+      }
+      document.getElementById('delivery-coords-text').textContent = 'جاري تحديد موقعك...';
+      navigator.geolocation.getCurrentPosition(function(pos) {
+        var lat = pos.coords.latitude;
+        var lng = pos.coords.longitude;
+        if (_deliveryPickerMap && _deliveryPickerMarker) {
+          _deliveryPickerMarker.setLatLng([lat, lng]);
+          _deliveryPickerMap.setView([lat, lng], 15);
+        }
+        setDeliveryCoords(lat, lng);
+      }, function() {
+        document.getElementById('delivery-coords-text').textContent = 'تعذّر الحصول على الموقع';
+        showToast('error', 'خطأ', 'تعذّر تحديد الموقع — جرب النقر على الخارطة مباشرة');
+      });
+    }
+
     function openDeliveryModal(area = null) {
       const form = document.getElementById('delivery-form');
       form.reset();
@@ -3887,9 +3965,11 @@
         document.getElementById('delivery-name').value = area.name || '';
         document.getElementById('delivery-fee').value = area.fee || 0;
         document.getElementById('delivery-active').value = area.isActive ? 'true' : 'false';
+        initDeliveryPickerMap(area.lat || null, area.lng || null);
       } else {
         document.getElementById('delivery-modal-title').textContent = 'إضافة منطقة توصيل';
         document.getElementById('delivery-id').value = '';
+        initDeliveryPickerMap(null, null);
       }
       
       document.getElementById('delivery-modal').classList.add('active');
@@ -3905,10 +3985,13 @@
       event.preventDefault();
       
       const id = document.getElementById('delivery-id').value;
+      const latVal = document.getElementById('delivery-lat').value;
+      const lngVal = document.getElementById('delivery-lng').value;
       const data = {
         name: document.getElementById('delivery-name').value,
         fee: parseInt(document.getElementById('delivery-fee').value),
-        isActive: document.getElementById('delivery-active').value === 'true'
+        isActive: document.getElementById('delivery-active').value === 'true',
+        ...(latVal && lngVal ? { lat: parseFloat(latVal), lng: parseFloat(lngVal) } : {})
       };
       
       try {
