@@ -1341,11 +1341,41 @@
               <i data-lucide="wifi-off" style="width:40px;height:40px;margin-bottom:8px;"></i>
               <p>لا يوجد سائقون متصلون الآن</p>
             </div>
+            <!-- Pick-mode overlay hint -->
+            <div id="map-pick-hint" style="display:none;position:absolute;top:10px;left:50%;transform:translateX(-50%);background:rgba(217,69,35,0.92);color:#fff;padding:7px 18px;border-radius:20px;font-size:0.82rem;font-weight:600;z-index:1000;pointer-events:none;white-space:nowrap;">
+              انقر على الخارطة لتحديد الموقع
+            </div>
           </div>
-          <!-- Driver legend -->
-          <div style="padding:12px 20px;border-top:1px solid var(--gray-100);display:flex;gap:20px;font-size:0.8rem;">
-            <span style="display:flex;align-items:center;gap:6px;"><span style="width:12px;height:12px;border-radius:50%;background:#10B981;display:inline-block;"></span> متاح</span>
-            <span style="display:flex;align-items:center;gap:6px;"><span style="width:12px;height:12px;border-radius:50%;background:#F59E0B;display:inline-block;"></span> مشغول بطلب</span>
+          <!-- Selected location bar -->
+          <div id="map-selected-location" style="display:none;padding:10px 20px;background:#FFF7ED;border-top:1px solid #FDBA74;display:none;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
+            <div style="display:flex;align-items:center;gap:10px;">
+              <span style="background:#E86520;border-radius:50%;width:28px;height:28px;display:flex;align-items:center;justify-content:center;">
+                <i data-lucide="map-pin" style="width:15px;height:15px;color:#fff;"></i>
+              </span>
+              <div>
+                <div style="font-size:0.75rem;color:#92400E;font-weight:600;">الموقع المحدد</div>
+                <div id="map-selected-coords" style="font-family:monospace;font-size:0.85rem;color:#78350F;font-weight:700;"></div>
+              </div>
+            </div>
+            <div style="display:flex;gap:8px;">
+              <button onclick="copySelectedLocation()" style="background:#E86520;color:#fff;border:none;border-radius:8px;padding:5px 14px;font-size:0.82rem;font-family:'Cairo',sans-serif;cursor:pointer;display:flex;align-items:center;gap:4px;">
+                <i data-lucide="copy" style="width:13px;height:13px;"></i> نسخ
+              </button>
+              <button onclick="clearSelectedLocation()" style="background:#fff;color:#DC2626;border:1px solid #FECACA;border-radius:8px;padding:5px 14px;font-size:0.82rem;font-family:'Cairo',sans-serif;cursor:pointer;">
+                إلغاء التحديد
+              </button>
+            </div>
+          </div>
+          <!-- Driver legend + pick button -->
+          <div style="padding:12px 20px;border-top:1px solid var(--gray-100);display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
+            <div style="display:flex;gap:20px;font-size:0.8rem;">
+              <span style="display:flex;align-items:center;gap:6px;"><span style="width:12px;height:12px;border-radius:50%;background:#10B981;display:inline-block;"></span> متاح</span>
+              <span style="display:flex;align-items:center;gap:6px;"><span style="width:12px;height:12px;border-radius:50%;background:#F59E0B;display:inline-block;"></span> مشغول بطلب</span>
+            </div>
+            <button id="btn-pick-location" onclick="togglePickMode()" style="display:flex;align-items:center;gap:6px;background:var(--gray-100);color:var(--gray-700);border:1px solid var(--gray-200);border-radius:8px;padding:6px 14px;font-size:0.82rem;font-family:'Cairo',sans-serif;cursor:pointer;font-weight:600;transition:all 0.2s;">
+              <i data-lucide="crosshair" style="width:14px;height:14px;"></i>
+              تحديد موقع
+            </button>
           </div>
         </div>
 
@@ -2762,14 +2792,90 @@
       });
     }
 
+    let _pickModeActive = false;
+    let _selectedLocationMarker = null;
+
     function initDashboardMap() {
       const mapEl = document.getElementById('gps-map');
       if (!mapEl || _gpsMap) return;
       _gpsMap = L.map('gps-map', { zoomControl: true, attributionControl: false }).setView([33.8833, 44.2167], 13);
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        maxZoom: 19,
-      }).addTo(_gpsMap);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(_gpsMap);
+
+      _gpsMap.on('click', function(e) {
+        if (!_pickModeActive) return;
+        placeSelectedMarker(e.latlng.lat, e.latlng.lng);
+      });
+
       refreshDriverLocations();
+    }
+
+    function placeSelectedMarker(lat, lng) {
+      const pinSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="42" viewBox="0 0 32 42">
+        <path d="M16 0C7.16 0 0 7.16 0 16c0 11.08 16 26 16 26s16-14.92 16-26C32 7.16 24.84 0 16 0z" fill="#D94523" stroke="white" stroke-width="2"/>
+        <circle cx="16" cy="16" r="6" fill="white"/>
+      </svg>`;
+      const pinIcon = L.divIcon({ html: pinSvg, className: '', iconSize: [32, 42], iconAnchor: [16, 42], popupAnchor: [0, -42] });
+
+      if (_selectedLocationMarker) {
+        _selectedLocationMarker.setLatLng([lat, lng]);
+      } else {
+        _selectedLocationMarker = L.marker([lat, lng], { icon: pinIcon, zIndexOffset: 1000 }).addTo(_gpsMap);
+      }
+
+      const coordsText = lat.toFixed(6) + ', ' + lng.toFixed(6);
+      document.getElementById('map-selected-coords').textContent = coordsText;
+      const bar = document.getElementById('map-selected-location');
+      bar.style.display = 'flex';
+      lucide.createIcons();
+
+      _selectedLocationMarker.bindPopup(
+        `<div style="font-family:'Cairo',sans-serif;direction:rtl;padding:4px 2px;">
+          <strong style="color:#D94523;">الموقع المحدد</strong><br/>
+          <span style="font-family:monospace;font-size:0.82rem;">${coordsText}</span><br/>
+          <button onclick="copySelectedLocation()" style="margin-top:6px;background:#E86520;color:#fff;border:none;border-radius:6px;padding:3px 10px;font-size:0.78rem;cursor:pointer;font-family:'Cairo',sans-serif;">نسخ الإحداثيات</button>
+        </div>`, { maxWidth: 220 }
+      ).openPopup();
+    }
+
+    function togglePickMode() {
+      _pickModeActive = !_pickModeActive;
+      const btn = document.getElementById('btn-pick-location');
+      const hint = document.getElementById('map-pick-hint');
+      if (_pickModeActive) {
+        btn.style.background = '#D94523';
+        btn.style.color = '#fff';
+        btn.style.borderColor = '#D94523';
+        btn.innerHTML = '<i data-lucide="x" style="width:14px;height:14px;"></i> إلغاء التحديد';
+        hint.style.display = 'block';
+        if (_gpsMap) _gpsMap.getContainer().style.cursor = 'crosshair';
+      } else {
+        btn.style.background = 'var(--gray-100)';
+        btn.style.color = 'var(--gray-700)';
+        btn.style.borderColor = 'var(--gray-200)';
+        btn.innerHTML = '<i data-lucide="crosshair" style="width:14px;height:14px;"></i> تحديد موقع';
+        hint.style.display = 'none';
+        if (_gpsMap) _gpsMap.getContainer().style.cursor = '';
+      }
+      lucide.createIcons();
+    }
+
+    function clearSelectedLocation() {
+      if (_selectedLocationMarker && _gpsMap) {
+        _gpsMap.removeLayer(_selectedLocationMarker);
+        _selectedLocationMarker = null;
+      }
+      document.getElementById('map-selected-location').style.display = 'none';
+      if (_pickModeActive) togglePickMode();
+    }
+
+    function copySelectedLocation() {
+      const text = document.getElementById('map-selected-coords').textContent;
+      if (!text) return;
+      navigator.clipboard.writeText(text).then(() => {
+        showToast('success', 'تم النسخ', 'تم نسخ الإحداثيات إلى الحافظة');
+      }).catch(() => {
+        showToast('error', 'خطأ', 'تعذّر النسخ، انسخ النص يدوياً');
+      });
     }
 
     async function refreshDriverLocations() {
