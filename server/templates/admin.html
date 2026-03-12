@@ -1373,6 +1373,10 @@
             <i data-lucide="search"></i>
             <input type="text" id="product-search" placeholder="ابحث عن منتج..." oninput="filterProducts()">
           </div>
+          <button class="btn btn-outline" onclick="loadProducts()">
+            <i data-lucide="refresh-cw"></i>
+            تحديث
+          </button>
           <button class="btn btn-primary" onclick="openProductModal()">
             <i data-lucide="plus"></i>
             إضافة منتج
@@ -1416,6 +1420,10 @@
           <p>تنظيم المنتجات في فئات</p>
         </div>
         <div class="header-actions">
+          <button class="btn btn-outline" onclick="loadCategories()">
+            <i data-lucide="refresh-cw"></i>
+            تحديث
+          </button>
           <button class="btn btn-primary" onclick="openCategoryModal()">
             <i data-lucide="plus"></i>
             إضافة فئة
@@ -1453,6 +1461,10 @@
           <p>إدارة العروض في الصفحة الرئيسية</p>
         </div>
         <div class="header-actions">
+          <button class="btn btn-outline" onclick="loadBanners()">
+            <i data-lucide="refresh-cw"></i>
+            تحديث
+          </button>
           <button class="btn btn-primary" onclick="openBannerModal()">
             <i data-lucide="plus"></i>
             إضافة سلايد
@@ -1491,6 +1503,10 @@
           <p>اختر المنتجات التي ستظهر في قسم الأكثر مبيعاً</p>
         </div>
         <div class="header-actions">
+          <button class="btn btn-outline" onclick="loadPromotionalSections()">
+            <i data-lucide="refresh-cw"></i>
+            تحديث
+          </button>
           <button class="btn btn-primary" onclick="savePromotionalSection('bestSellers')">
             <i data-lucide="save"></i>
             حفظ التغييرات
@@ -1529,6 +1545,10 @@
           <p>اختر المنتجات التي ستظهر في قسم المنتجات المتميزة</p>
         </div>
         <div class="header-actions">
+          <button class="btn btn-outline" onclick="loadPromotionalSections()">
+            <i data-lucide="refresh-cw"></i>
+            تحديث
+          </button>
           <button class="btn btn-primary" onclick="savePromotionalSection('featured')">
             <i data-lucide="save"></i>
             حفظ التغييرات
@@ -1567,6 +1587,10 @@
           <p>اختر المنتجات التي ستظهر في قسم التخفيضات المميزة</p>
         </div>
         <div class="header-actions">
+          <button class="btn btn-outline" onclick="loadPromotionalSections()">
+            <i data-lucide="refresh-cw"></i>
+            تحديث
+          </button>
           <button class="btn btn-primary" onclick="savePromotionalSection('discounts')">
             <i data-lucide="save"></i>
             حفظ التغييرات
@@ -1650,6 +1674,10 @@
           <p>إدارة مناطق ورسوم التوصيل</p>
         </div>
         <div class="header-actions">
+          <button class="btn btn-outline" onclick="loadDeliveryAreas()">
+            <i data-lucide="refresh-cw"></i>
+            تحديث
+          </button>
           <button class="btn btn-primary" onclick="openDeliveryModal()">
             <i data-lucide="plus"></i>
             إضافة منطقة
