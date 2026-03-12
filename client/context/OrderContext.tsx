@@ -26,6 +26,8 @@ export interface Order {
   status: "pending" | "confirmed" | "preparing" | "delivering" | "delivered" | "cancelled";
   createdAt: string;
   updatedAt: string;
+  latitude?: number;
+  longitude?: number;
 }
 
 interface OrderContextType {

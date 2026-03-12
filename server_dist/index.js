@@ -2049,6 +2049,21 @@ async function registerRoutes(app2) {
     });
     res.json({ success: true });
   });
+  app2.get("/api/orders/:orderId/driver-location", async (req, res) => {
+    const { orderId } = req.params;
+    const driverPhone = driverAssignments.get(orderId);
+    if (!driverPhone) return res.json({ available: false });
+    const location = driverLocations.get(driverPhone);
+    if (!location) return res.json({ available: false });
+    if (Date.now() - location.updatedAt > 10 * 60 * 1e3) return res.json({ available: false });
+    return res.json({
+      available: true,
+      lat: location.lat,
+      lng: location.lng,
+      fullName: location.fullName || "",
+      updatedAt: location.updatedAt
+    });
+  });
   app2.get("/api/admin/driver-locations", async (_req, res) => {
     const now = Date.now();
     const locations = [];

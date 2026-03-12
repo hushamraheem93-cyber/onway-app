@@ -1353,6 +1353,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json({ success: true });
   });
 
+  // Get driver location for a specific order (customer-facing)
+  app.get("/api/orders/:orderId/driver-location", async (req: Request, res: Response) => {
+    const { orderId } = req.params;
+    const driverPhone = driverAssignments.get(orderId);
+    if (!driverPhone) return res.json({ available: false });
+    const location = driverLocations.get(driverPhone);
+    if (!location) return res.json({ available: false });
+    if (Date.now() - location.updatedAt > 10 * 60 * 1000) return res.json({ available: false });
+    return res.json({
+      available: true,
+      lat: location.lat,
+      lng: location.lng,
+      fullName: location.fullName || "",
+      updatedAt: location.updatedAt,
+    });
+  });
+
   // Get all online driver locations (admin)
   app.get("/api/admin/driver-locations", async (_req: Request, res: Response) => {
     const now = Date.now();

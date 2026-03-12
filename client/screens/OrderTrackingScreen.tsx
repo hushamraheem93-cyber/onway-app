@@ -1,10 +1,11 @@
-import React, { useEffect, useState, useCallback } from "react";
-import { StyleSheet, View, ScrollView, ActivityIndicator, Pressable } from "react-native";
+import React, { useEffect, useState, useCallback, useRef } from "react";
+import { StyleSheet, View, ScrollView, ActivityIndicator, Pressable, Platform } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Feather } from "@expo/vector-icons";
+import { WebView } from "react-native-webview";
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -21,6 +22,7 @@ import { formatPrice } from "@/constants/currency";
 import { Button } from "@/components/Button";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
 import { useOrders, Order } from "@/context/OrderContext";
+import { getApiUrl } from "@/lib/query-client";
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 type RouteProps = RouteProp<RootStackParamList, "OrderTracking">;
@@ -42,7 +44,6 @@ function getStepIndex(status: Order["status"]): number {
 
 function PulsingDot() {
   const opacity = useSharedValue(1);
-
   useEffect(() => {
     opacity.value = withRepeat(
       withTiming(0.3, { duration: 800, easing: Easing.inOut(Easing.ease) }),
@@ -50,16 +51,156 @@ function PulsingDot() {
       true
     );
   }, []);
-
-  const animatedStyle = useAnimatedStyle(() => ({
-    opacity: opacity.value,
-  }));
-
+  const animatedStyle = useAnimatedStyle(() => ({ opacity: opacity.value }));
   return (
     <Animated.View style={[styles.pulsingDot, animatedStyle]}>
       <View style={styles.pulsingDotInner} />
     </Animated.View>
   );
+}
+
+function getTrackingMapHTML(driverLat: number, driverLng: number, customerLat?: number, customerLng?: number) {
+  const centerLat = driverLat;
+  const centerLng = driverLng;
+  const customerMarkerJS = customerLat && customerLng
+    ? `
+      var customerIcon = L.divIcon({
+        className: '',
+        html: '<div style="width:36px;height:36px;background:#E86520;border-radius:50% 50% 50% 0;transform:rotate(-45deg);border:3px solid #fff;box-shadow:0 3px 10px rgba(232,101,32,0.5);"></div>',
+        iconSize: [36, 36],
+        iconAnchor: [18, 36],
+      });
+      var customerMarker = L.marker([${customerLat}, ${customerLng}], { icon: customerIcon })
+        .addTo(map)
+        .bindPopup('<b style="font-family:sans-serif">موقع التوصيل</b>');
+    `
+    : "";
+
+  return `
+<!DOCTYPE html>
+<html dir="rtl" lang="ar">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; overflow: hidden; background: #f0f0f0; }
+    #map { width: 100%; height: 100%; }
+    .leaflet-control-attribution { display: none !important; }
+    .leaflet-control-zoom {
+      border: none !important;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.18) !important;
+      border-radius: 12px !important;
+      overflow: hidden;
+      left: 12px !important;
+      right: auto !important;
+    }
+    .leaflet-control-zoom a {
+      width: 38px !important; height: 38px !important;
+      line-height: 38px !important; font-size: 18px !important;
+      color: #333 !important; background: #fff !important;
+      border: none !important;
+    }
+    .driver-pulse {
+      width: 48px; height: 48px;
+      position: relative;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .driver-pulse::before {
+      content: '';
+      position: absolute;
+      width: 48px; height: 48px;
+      border-radius: 50%;
+      background: rgba(232,101,32,0.25);
+      animation: pulse 1.8s ease-out infinite;
+    }
+    .driver-inner {
+      width: 30px; height: 30px;
+      background: #E86520;
+      border-radius: 50%;
+      border: 3px solid #fff;
+      box-shadow: 0 2px 10px rgba(232,101,32,0.6);
+      display: flex; align-items: center; justify-content: center;
+      position: relative; z-index: 1;
+    }
+    @keyframes pulse {
+      0% { transform: scale(0.5); opacity: 1; }
+      100% { transform: scale(2); opacity: 0; }
+    }
+    .info-pill {
+      position: absolute;
+      bottom: 12px; left: 50%; transform: translateX(-50%);
+      background: rgba(255,255,255,0.95);
+      border-radius: 24px;
+      padding: 8px 20px;
+      font-family: sans-serif;
+      font-size: 13px;
+      color: #333;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.15);
+      white-space: nowrap;
+      z-index: 1000;
+      pointer-events: none;
+    }
+    .dot { width: 8px; height: 8px; background: #E86520; border-radius: 50%; display: inline-block; margin-left: 6px; animation: blink 1.2s ease-in-out infinite; }
+    @keyframes blink { 0%,100% { opacity: 1; } 50% { opacity: 0.2; } }
+  </style>
+</head>
+<body>
+  <div id="map"></div>
+  <div class="info-pill"><span class="dot"></span> المندوب في طريقه إليك</div>
+  <script>
+    var map = L.map('map', { zoomControl: true, attributionControl: false }).setView([${centerLat}, ${centerLng}], 15);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
+
+    var driverIcon = L.divIcon({
+      className: '',
+      html: '<div class="driver-pulse"><div class="driver-inner"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg></div></div>',
+      iconSize: [48, 48],
+      iconAnchor: [24, 24],
+    });
+
+    var driverMarker = L.marker([${driverLat}, ${driverLng}], { icon: driverIcon }).addTo(map);
+
+    ${customerMarkerJS}
+
+    ${customerLat && customerLng ? `
+    var routeLine = null;
+    function drawRoute(dLat, dLng, cLat, cLng) {
+      if (routeLine) map.removeLayer(routeLine);
+      routeLine = L.polyline([[dLat, dLng], [cLat, cLng]], {
+        color: '#E86520',
+        weight: 3,
+        opacity: 0.6,
+        dashArray: '8, 8',
+      }).addTo(map);
+    }
+    drawRoute(${driverLat}, ${driverLng}, ${customerLat}, ${customerLng});
+    ` : ""}
+
+    function updateDriverLocation(lat, lng) {
+      var newLatLng = L.latLng(lat, lng);
+      driverMarker.setLatLng(newLatLng);
+      map.panTo(newLatLng, { animate: true, duration: 0.8 });
+      ${customerLat && customerLng ? `drawRoute(lat, lng, ${customerLat}, ${customerLng});` : ""}
+    }
+
+    document.addEventListener('message', function(e) {
+      try {
+        var data = JSON.parse(e.data);
+        if (data.type === 'updateDriver') updateDriverLocation(data.lat, data.lng);
+      } catch(err) {}
+    });
+    window.addEventListener('message', function(e) {
+      try {
+        var data = JSON.parse(e.data);
+        if (data.type === 'updateDriver') updateDriverLocation(data.lat, data.lng);
+      } catch(err) {}
+    });
+  </script>
+</body>
+</html>`;
 }
 
 export default function OrderTrackingScreen() {
@@ -70,9 +211,38 @@ export default function OrderTrackingScreen() {
   const route = useRoute<RouteProps>();
   const { orders, refreshOrders } = useOrders();
   const [refreshing, setRefreshing] = useState(false);
+  const [driverLocation, setDriverLocation] = useState<{ lat: number; lng: number; fullName: string } | null>(null);
+  const [mapHtml, setMapHtml] = useState<string | null>(null);
+  const webViewRef = useRef<WebView>(null);
+  const mapInitializedRef = useRef(false);
 
   const orderId = route.params?.orderId;
   const order = orders.find((o) => o.id === orderId);
+
+  const fetchDriverLocation = useCallback(async () => {
+    if (!orderId) return;
+    try {
+      const url = new URL(`/api/orders/${orderId}/driver-location`, getApiUrl()).toString();
+      const res = await fetch(url);
+      if (!res.ok) return;
+      const data = await res.json();
+      if (!data.available) return;
+
+      setDriverLocation({ lat: data.lat, lng: data.lng, fullName: data.fullName });
+
+      if (!mapInitializedRef.current) {
+        mapInitializedRef.current = true;
+        setMapHtml(getTrackingMapHTML(
+          data.lat, data.lng,
+          order?.latitude, order?.longitude
+        ));
+      } else if (webViewRef.current) {
+        webViewRef.current.injectJavaScript(
+          `updateDriverLocation(${data.lat}, ${data.lng}); true;`
+        );
+      }
+    } catch {}
+  }, [orderId, order?.latitude, order?.longitude]);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -81,11 +251,24 @@ export default function OrderTrackingScreen() {
     return () => clearInterval(interval);
   }, [refreshOrders]);
 
+  useEffect(() => {
+    if (order?.status === "delivering") {
+      fetchDriverLocation();
+      const interval = setInterval(fetchDriverLocation, 10000);
+      return () => clearInterval(interval);
+    } else {
+      setDriverLocation(null);
+      setMapHtml(null);
+      mapInitializedRef.current = false;
+    }
+  }, [order?.status, fetchDriverLocation]);
+
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
     await refreshOrders();
+    if (order?.status === "delivering") await fetchDriverLocation();
     setRefreshing(false);
-  }, [refreshOrders]);
+  }, [refreshOrders, fetchDriverLocation, order?.status]);
 
   if (!order) {
     return (
@@ -98,19 +281,16 @@ export default function OrderTrackingScreen() {
 
   const currentStepIndex = getStepIndex(order.status);
   const isCancelled = order.status === "cancelled";
+  const isDelivering = order.status === "delivering";
 
   const formatTime = (date: string) => {
     const d = new Date(date);
-    const hours = d.getHours().toString().padStart(2, "0");
-    const minutes = d.getMinutes().toString().padStart(2, "0");
-    return `${hours}:${minutes}`;
+    return `${d.getHours().toString().padStart(2, "0")}:${d.getMinutes().toString().padStart(2, "0")}`;
   };
 
   const formatDate = (date: string) => {
     const d = new Date(date);
-    const day = d.getDate().toString().padStart(2, "0");
-    const month = (d.getMonth() + 1).toString().padStart(2, "0");
-    return `${day}/${month}`;
+    return `${d.getDate().toString().padStart(2, "0")}/${(d.getMonth() + 1).toString().padStart(2, "0")}`;
   };
 
   return (
@@ -162,6 +342,66 @@ export default function OrderTrackingScreen() {
         </View>
       </View>
 
+      {isDelivering ? (
+        <View style={[styles.mapCard, { backgroundColor: theme.backgroundDefault }, Shadows.sm]}>
+          <View style={styles.mapHeader}>
+            <View style={styles.mapLiveBadge}>
+              <View style={styles.liveDot} />
+              <ThemedText type="small" style={styles.liveText}>مباشر</ThemedText>
+            </View>
+            <View style={styles.mapTitleRow}>
+              <Feather name="truck" size={18} color={AppColors.primary} />
+              <ThemedText type="h4" style={styles.mapTitle}>تتبع المندوب</ThemedText>
+            </View>
+          </View>
+
+          {Platform.OS === "web" ? (
+            <View style={styles.webFallback}>
+              <Feather name="smartphone" size={36} color={AppColors.primary} />
+              <ThemedText type="body" style={styles.webFallbackText}>
+                افتح التطبيق عبر Expo Go لمتابعة موقع المندوب على الخارطة
+              </ThemedText>
+            </View>
+          ) : mapHtml ? (
+            <WebView
+              ref={webViewRef}
+              source={{ html: mapHtml }}
+              style={styles.mapView}
+              scrollEnabled={false}
+              javaScriptEnabled
+              originWhitelist={["*"]}
+            />
+          ) : (
+            <View style={styles.mapLoading}>
+              <ActivityIndicator size="large" color={AppColors.primary} />
+              <ThemedText type="small" style={{ color: theme.textSecondary, marginTop: Spacing.md }}>
+                جاري تحديد موقع المندوب...
+              </ThemedText>
+            </View>
+          )}
+
+          {driverLocation ? (
+            <View style={[styles.driverInfoBar, { borderTopColor: theme.border }]}>
+              <View style={styles.driverInfoRow}>
+                <View style={[styles.driverAvatar, { backgroundColor: AppColors.primary + "20" }]}>
+                  <Feather name="user" size={16} color={AppColors.primary} />
+                </View>
+                <View style={styles.driverInfoText}>
+                  <ThemedText type="small" style={{ color: theme.textSecondary }}>المندوب</ThemedText>
+                  <ThemedText type="body" style={{ fontWeight: "600" }}>
+                    {driverLocation.fullName || "المندوب"}
+                  </ThemedText>
+                </View>
+                <View style={styles.driverStatus}>
+                  <View style={styles.statusDot} />
+                  <ThemedText type="small" style={{ color: "#10B981", fontWeight: "600" }}>في الطريق</ThemedText>
+                </View>
+              </View>
+            </View>
+          ) : null}
+        </View>
+      ) : null}
+
       {isCancelled ? (
         <View style={[styles.cancelledCard, Shadows.sm]}>
           <View style={styles.cancelledIcon}>
@@ -179,7 +419,6 @@ export default function OrderTrackingScreen() {
           {STEPS.map((step, index) => {
             const isCompleted = index <= currentStepIndex;
             const isCurrent = index === currentStepIndex;
-            const isPending = index > currentStepIndex;
             const isLast = index === STEPS.length - 1;
 
             return (
@@ -319,6 +558,105 @@ const styles = StyleSheet.create({
     flexDirection: "row-reverse",
     alignItems: "center",
     gap: 4,
+  },
+  mapCard: {
+    borderRadius: BorderRadius.lg,
+    marginBottom: Spacing.lg,
+    overflow: "hidden",
+  },
+  mapHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.md,
+  },
+  mapTitleRow: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  mapTitle: {
+    textAlign: "right",
+  },
+  mapLiveBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#D1FAE5",
+    borderRadius: 12,
+    paddingHorizontal: Spacing.sm + 2,
+    paddingVertical: 4,
+    gap: 4,
+  },
+  liveDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+    backgroundColor: "#10B981",
+  },
+  liveText: {
+    color: "#10B981",
+    fontWeight: "700",
+  },
+  mapView: {
+    height: 260,
+    width: "100%",
+  },
+  mapLoading: {
+    height: 260,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#F5F5F5",
+  },
+  webFallback: {
+    height: 180,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: AppColors.primary + "08",
+    gap: Spacing.md,
+    paddingHorizontal: Spacing["2xl"],
+  },
+  webFallbackText: {
+    textAlign: "center",
+    color: AppColors.primary,
+    fontWeight: "500",
+    lineHeight: 22,
+  },
+  driverInfoBar: {
+    borderTopWidth: 1,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.md,
+  },
+  driverInfoRow: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    gap: Spacing.md,
+  },
+  driverAvatar: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  driverInfoText: {
+    flex: 1,
+    alignItems: "flex-end",
+  },
+  driverStatus: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: "#D1FAE5",
+    borderRadius: 12,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 3,
+  },
+  statusDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: "#10B981",
   },
   timelineCard: {
     borderRadius: BorderRadius.lg,
