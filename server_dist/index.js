@@ -2551,25 +2551,8 @@ async function registerRoutes(app2) {
     try {
       const db2 = getFirestore();
       if (!db2) return res.status(500).json({ error: "Firestore not initialized" });
-      const oneMonthAgo = /* @__PURE__ */ new Date();
-      oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
-      const cutoff = oneMonthAgo.getTime();
-      const allOrders = await getOrders();
-      const toArchive = allOrders.filter((o) => {
-        const isOld = o.createdAt ? (o.createdAt.toMillis ? o.createdAt.toMillis() : new Date(o.createdAt).getTime()) < cutoff : false;
-        return isOld && (o.status === "delivered" || o.status === "cancelled");
-      });
       const batchSize = 500;
-      let deleted = 0;
-      for (let i = 0; i < toArchive.length; i += batchSize) {
-        const batch = db2.batch();
-        for (const order of toArchive.slice(i, i + batchSize)) {
-          batch.delete(db2.collection("orders").doc(order.id));
-        }
-        await batch.commit();
-        deleted += toArchive.slice(i, i + batchSize).length;
-      }
-      const batchDeleteDocs = async (docs) => {
+      const batchDeleteAll = async (docs) => {
         let count = 0;
         for (let i = 0; i < docs.length; i += batchSize) {
           const batch = db2.batch();
@@ -2580,30 +2563,57 @@ async function registerRoutes(app2) {
         }
         return count;
       };
-      const isOldTimestamp = (ts) => {
-        if (!ts) return false;
-        const ms = ts.toMillis ? ts.toMillis() : ts._seconds ? ts._seconds * 1e3 : new Date(ts).getTime();
-        return ms < cutoff;
-      };
+      const allOrders = await getOrders();
+      const toArchive = allOrders.filter(
+        (o) => o.status === "delivered" || o.status === "cancelled"
+      );
+      let deleted = 0;
+      for (let i = 0; i < toArchive.length; i += batchSize) {
+        const batch = db2.batch();
+        const chunk = toArchive.slice(i, i + batchSize);
+        for (const order of chunk) batch.delete(db2.collection("orders").doc(order.id));
+        await batch.commit();
+        deleted += chunk.length;
+      }
       let walletDeleted = 0;
       try {
-        const walletSnap = await db2.collection("walletHistory").get();
-        const oldWallet = walletSnap.docs.filter((d) => isOldTimestamp(d.data().timestamp));
-        walletDeleted = await batchDeleteDocs(oldWallet);
+        const snap = await db2.collection("walletHistory").get();
+        walletDeleted = await batchDeleteAll(snap.docs);
       } catch (_e) {
       }
       let activityDeleted = 0;
       try {
-        const activitySnap = await db2.collection("driverActivityLog").get();
-        const oldActivity = activitySnap.docs.filter((d) => isOldTimestamp(d.data().timestamp));
-        activityDeleted = await batchDeleteDocs(oldActivity);
+        const snap = await db2.collection("driverActivityLog").get();
+        activityDeleted = await batchDeleteAll(snap.docs);
       } catch (_e) {
       }
+      let completedDeleted = 0;
+      try {
+        const snap = await db2.collection("driverCompletedOrders").get();
+        completedDeleted = await batchDeleteAll(snap.docs);
+      } catch (_e) {
+      }
+      let walletsReset = 0;
+      try {
+        const snap = await db2.collection("driverWallets").get();
+        for (let i = 0; i < snap.docs.length; i += batchSize) {
+          const batch = db2.batch();
+          const chunk = snap.docs.slice(i, i + batchSize);
+          for (const doc of chunk) batch.update(doc.ref, { balance: 0 });
+          await batch.commit();
+          walletsReset += chunk.length;
+        }
+      } catch (_e) {
+      }
+      const total = deleted + walletDeleted + activityDeleted + completedDeleted;
       res.json({
         deleted,
         walletDeleted,
         activityDeleted,
-        message: `\u062A\u0645 \u0623\u0631\u0634\u0641\u0629 ${deleted} \u0637\u0644\u0628\u060C ${walletDeleted} \u0633\u062C\u0644 \u0645\u062D\u0641\u0638\u0629\u060C ${activityDeleted} \u0633\u062C\u0644 \u0646\u0634\u0627\u0637`
+        completedDeleted,
+        walletsReset,
+        total,
+        message: `\u062A\u0645 \u0645\u0633\u062D ${deleted} \u0637\u0644\u0628\u060C ${walletDeleted} \u0633\u062C\u0644 \u0645\u062D\u0641\u0638\u0629\u060C ${activityDeleted} \u0633\u062C\u0644 \u0646\u0634\u0627\u0637\u060C \u0648\u0625\u0639\u0627\u062F\u0629 \u062A\u0635\u0641\u064A\u0631 ${walletsReset} \u0645\u062D\u0641\u0638\u0629`
       });
     } catch (error) {
       res.status(500).json({ error: error.message });

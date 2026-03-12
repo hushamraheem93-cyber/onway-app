@@ -1762,8 +1762,8 @@
             تقرير الشهر
           </button>
           <button class="btn" onclick="archiveOldOrders()" style="background:#EF4444;color:white;border:none;">
-            <i data-lucide="archive"></i>
-            أرشفة القديمة
+            <i data-lucide="refresh-cw"></i>
+            تصفير الشهر
           </button>
         </div>
       </header>
@@ -1954,13 +1954,13 @@
                   <i data-lucide="archive" style="width:24px;height:24px;color:#EF4444;"></i>
                 </div>
                 <div>
-                  <h3 style="margin:0;font-size:1rem;font-weight:700;">أرشفة البيانات القديمة</h3>
-                  <p style="margin:4px 0 0;font-size:0.8rem;color:var(--gray-500);">أكثر من شهر</p>
+                  <h3 style="margin:0;font-size:1rem;font-weight:700;">تصفير البيانات الشهرية</h3>
+                  <p style="margin:4px 0 0;font-size:0.8rem;color:var(--gray-500);">مسح كامل — بداية جديدة</p>
                 </div>
               </div>
-              <p style="color:var(--gray-500);font-size:0.85rem;margin-bottom:16px;">يحذف الطلبات المكتملة والملغية التي مضى عليها أكثر من شهر. تأكد من تصديرها قبل الأرشفة.</p>
+              <p style="color:var(--gray-500);font-size:0.85rem;margin-bottom:16px;">يمسح <strong>جميع</strong> الطلبات المكتملة والملغية، وكل سجلات الأرباح والمحافظ. يُستخدم في نهاية كل شهر لبداية جديدة. تأكد من تصدير التقرير أولاً.</p>
               <button class="btn" style="width:100%;background:#EF4444;color:white;border:none;" onclick="archiveOldOrders()">
-                <i data-lucide="trash-2"></i> أرشفة ومسح القديمة
+                <i data-lucide="refresh-cw"></i> تصفير ومسح بيانات الشهر
               </button>
             </div>
           </div>
@@ -4668,36 +4668,66 @@
       showToast('success', 'تم التصدير', `تقرير ${monthNames[now.getMonth()]} - ${monthOrders.length} طلب`);
     }
 
-    // ========================= Archive =========================
+    // ========================= Archive / Monthly Reset =========================
     async function archiveOldOrders() {
-      const confirmed = window.confirm('هل أنت متأكد من أرشفة ومسح الطلبات المكتملة والملغية التي مضى عليها أكثر من شهر؟\n\nهذا الإجراء لا يمكن التراجع عنه. تأكد من تصدير البيانات أولاً.');
+      const confirmed = window.confirm(
+        '⚠️ تصفير بيانات الشهر\n\n' +
+        'سيتم مسح:\n' +
+        '• جميع الطلبات المكتملة والملغية\n' +
+        '• جميع سجلات الأرباح والمحافظ\n' +
+        '• جميع سجلات نشاط السائقين\n' +
+        '• إعادة تصفير أرصدة محافظ السائقين\n\n' +
+        'هذا الإجراء لا يمكن التراجع عنه.\n' +
+        'تأكد من تصدير التقرير الشهري أولاً.\n\n' +
+        'هل أنت متأكد؟'
+      );
       if (!confirmed) return;
 
-      const archiveBtn = document.querySelector('[onclick="archiveOldOrders()"]');
-      if (archiveBtn) { archiveBtn.disabled = true; archiveBtn.textContent = 'جارٍ الأرشفة...'; }
+      const archiveBtns = document.querySelectorAll('[onclick="archiveOldOrders()"]');
+      archiveBtns.forEach(b => { b.disabled = true; b.innerHTML = '<i data-lucide="loader"></i> جارٍ المسح...'; });
+      lucide.createIcons();
 
       try {
         const res = await fetch(`${API_BASE}/admin/archive-old-orders`, { method: 'DELETE' });
         const data = await res.json();
+
         if (res.ok) {
-          showToast('success', 'تمت الأرشفة', data.message || `تم حذف ${data.deleted} طلب`);
-          // Remove archived orders from local state
-          const oneMonthAgo = new Date(); oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
-          orders = orders.filter(o => {
-            const d = o.createdAt ? new Date(o.createdAt.toDate ? o.createdAt.toDate() : o.createdAt) : null;
-            const isOld = d && d < oneMonthAgo;
-            return !(isOld && (o.status === 'delivered' || o.status === 'cancelled'));
+          // Clear local orders state completely (only keep pending/active ones)
+          orders = orders.filter(o =>
+            o.status !== 'delivered' && o.status !== 'cancelled'
+          );
+
+          // Reset all visible stat counters to zero immediately
+          const zeroStats = [
+            'stat-delivered-orders', 'stat-cancelled-orders',
+            'stat-total-revenue', 'stat-owner-earnings', 'stat-driver-earnings',
+            'settings-delivered-count', 'settings-total-revenue',
+            'settings-owner-earnings', 'settings-driver-earnings',
+          ];
+          zeroStats.forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.textContent = '0';
           });
-          // Full refresh: reload orders from server then update all stats
+
+          // Re-render orders list (now only active ones)
+          renderOrders();
+
+          // Reload from server to confirm fresh state
           await loadOrders();
           await loadSettingsStats();
+
+          showToast('success', 'تم التصفير', data.message || `تم مسح ${data.deleted} طلب وإعادة ضبط البيانات`);
         } else {
-          showToast('error', 'خطأ', data.error || 'فشلت عملية الأرشفة');
+          showToast('error', 'خطأ', data.error || 'فشلت عملية المسح');
         }
       } catch (err) {
         showToast('error', 'خطأ', 'حدث خطأ في الاتصال بالسيرفر');
       } finally {
-        if (archiveBtn) { archiveBtn.disabled = false; archiveBtn.innerHTML = '<i data-lucide="trash-2"></i> أرشفة ومسح القديمة'; lucide.createIcons(); }
+        archiveBtns.forEach(b => {
+          b.disabled = false;
+          b.innerHTML = '<i data-lucide="refresh-cw"></i> تصفير ومسح بيانات الشهر';
+        });
+        lucide.createIcons();
       }
     }
 

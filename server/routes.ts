@@ -1941,31 +1941,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const db = getFirestore();
       if (!db) return res.status(500).json({ error: "Firestore not initialized" });
 
-      const oneMonthAgo = new Date();
-      oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
-      const cutoff = oneMonthAgo.getTime();
-      // 1. Delete old completed/cancelled orders
-      const allOrders = await getOrders();
-      const toArchive = allOrders.filter(o => {
-        const isOld = o.createdAt
-          ? (o.createdAt.toMillis ? o.createdAt.toMillis() : new Date(o.createdAt as any).getTime()) < cutoff
-          : false;
-        return isOld && (o.status === "delivered" || o.status === "cancelled");
-      });
-
+      // Helper: batch-delete all docs in a snapshot
       const batchSize = 500;
-      let deleted = 0;
-      for (let i = 0; i < toArchive.length; i += batchSize) {
-        const batch = db.batch();
-        for (const order of toArchive.slice(i, i + batchSize)) {
-          batch.delete(db.collection("orders").doc(order.id));
-        }
-        await batch.commit();
-        deleted += toArchive.slice(i, i + batchSize).length;
-      }
-
-      // Helper: batch-delete an array of doc refs
-      const batchDeleteDocs = async (docs: FirebaseFirestore.QueryDocumentSnapshot[]) => {
+      const batchDeleteAll = async (docs: FirebaseFirestore.QueryDocumentSnapshot[]) => {
         let count = 0;
         for (let i = 0; i < docs.length; i += batchSize) {
           const batch = db!.batch();
@@ -1977,33 +1955,63 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return count;
       };
 
-      const isOldTimestamp = (ts: any) => {
-        if (!ts) return false;
-        const ms = ts.toMillis ? ts.toMillis() : (ts._seconds ? ts._seconds * 1000 : new Date(ts).getTime());
-        return ms < cutoff;
-      };
+      // 1. Delete ALL completed and cancelled orders (no date filter)
+      const allOrders = await getOrders();
+      const toArchive = allOrders.filter(o =>
+        o.status === "delivered" || o.status === "cancelled"
+      );
+      let deleted = 0;
+      for (let i = 0; i < toArchive.length; i += batchSize) {
+        const batch = db.batch();
+        const chunk = toArchive.slice(i, i + batchSize);
+        for (const order of chunk) batch.delete(db.collection("orders").doc(order.id));
+        await batch.commit();
+        deleted += chunk.length;
+      }
 
-      // 2. Delete old walletHistory entries
+      // 2. Delete ALL walletHistory entries
       let walletDeleted = 0;
       try {
-        const walletSnap = await db.collection("walletHistory").get();
-        const oldWallet = walletSnap.docs.filter(d => isOldTimestamp(d.data().timestamp));
-        walletDeleted = await batchDeleteDocs(oldWallet);
+        const snap = await db.collection("walletHistory").get();
+        walletDeleted = await batchDeleteAll(snap.docs);
       } catch (_e) {}
 
-      // 3. Delete old driverActivityLog entries
+      // 3. Delete ALL driverActivityLog entries
       let activityDeleted = 0;
       try {
-        const activitySnap = await db.collection("driverActivityLog").get();
-        const oldActivity = activitySnap.docs.filter(d => isOldTimestamp(d.data().timestamp));
-        activityDeleted = await batchDeleteDocs(oldActivity);
+        const snap = await db.collection("driverActivityLog").get();
+        activityDeleted = await batchDeleteAll(snap.docs);
       } catch (_e) {}
 
+      // 4. Delete ALL driverCompletedOrders entries
+      let completedDeleted = 0;
+      try {
+        const snap = await db.collection("driverCompletedOrders").get();
+        completedDeleted = await batchDeleteAll(snap.docs);
+      } catch (_e) {}
+
+      // 5. Reset all driverWallet balances to zero
+      let walletsReset = 0;
+      try {
+        const snap = await db.collection("driverWallets").get();
+        for (let i = 0; i < snap.docs.length; i += batchSize) {
+          const batch = db.batch();
+          const chunk = snap.docs.slice(i, i + batchSize);
+          for (const doc of chunk) batch.update(doc.ref, { balance: 0 });
+          await batch.commit();
+          walletsReset += chunk.length;
+        }
+      } catch (_e) {}
+
+      const total = deleted + walletDeleted + activityDeleted + completedDeleted;
       res.json({
         deleted,
         walletDeleted,
         activityDeleted,
-        message: `تم أرشفة ${deleted} طلب، ${walletDeleted} سجل محفظة، ${activityDeleted} سجل نشاط`,
+        completedDeleted,
+        walletsReset,
+        total,
+        message: `تم مسح ${deleted} طلب، ${walletDeleted} سجل محفظة، ${activityDeleted} سجل نشاط، وإعادة تصفير ${walletsReset} محفظة`,
       });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
