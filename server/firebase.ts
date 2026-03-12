@@ -1197,8 +1197,10 @@ export async function initializeDefaultCategories(defaultCategories: any[]): Pro
   
   try {
     const existing = await db.collection("categories").get();
+    // Only initialize when the collection is completely empty (first run).
+    // Never re-add deleted categories on subsequent restarts.
     if (existing.empty) {
-      console.log("Initializing default categories in Firestore...");
+      console.log("Initializing default categories in Firestore (first run)...");
       const batch = db.batch();
       defaultCategories.forEach(cat => {
         const docRef = db!.collection("categories").doc(cat.id);
@@ -1213,26 +1215,6 @@ export async function initializeDefaultCategories(defaultCategories: any[]): Pro
       });
       await batch.commit();
       console.log("Default categories initialized successfully");
-    } else {
-      const existingIds = new Set(existing.docs.map(doc => doc.id));
-      const missing = defaultCategories.filter(cat => !existingIds.has(cat.id));
-      if (missing.length > 0) {
-        console.log(`Adding ${missing.length} missing categories to Firestore...`);
-        const batch = db.batch();
-        missing.forEach(cat => {
-          const docRef = db!.collection("categories").doc(cat.id);
-          batch.set(docRef, {
-            name: cat.name,
-            image: cat.image,
-            productCount: cat.productCount || 0,
-            order: cat.order || 99,
-            color: cat.color,
-            iconColor: cat.iconColor,
-          });
-        });
-        await batch.commit();
-        console.log("Missing categories added successfully");
-      }
     }
   } catch (error) {
     console.error("Error initializing default categories:", error);
