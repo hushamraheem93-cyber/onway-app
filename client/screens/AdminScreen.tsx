@@ -17,6 +17,7 @@ import * as ImagePicker from "expo-image-picker";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Feather } from "@expo/vector-icons";
 
+import * as Haptics from "expo-haptics";
 import { useTheme } from "@/hooks/useTheme";
 import { ThemedText } from "@/components/ThemedText";
 import { Spacing, BorderRadius, AppColors } from "@/constants/theme";
@@ -95,6 +96,8 @@ export default function AdminScreen() {
   const [activeTab, setActiveTab] = useState<TabType>("banners");
   const [isEditing, setIsEditing] = useState(false);
   const [editItem, setEditItem] = useState<any>(null);
+  const [hasCategoryChanges, setHasCategoryChanges] = useState(false);
+  const [isSavingCategories, setIsSavingCategories] = useState(false);
   
   const [bannerForm, setBannerForm] = useState({
     title: "",
@@ -231,6 +234,8 @@ export default function AdminScreen() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/categories"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/categories"] });
+      setHasCategoryChanges(true);
     },
   });
 
@@ -332,6 +337,8 @@ export default function AdminScreen() {
       });
 
       queryClient.invalidateQueries({ queryKey: ["/api/categories"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/categories"] });
+      setHasCategoryChanges(true);
       resetForm();
     } catch (error) {
       console.error("Error saving category:", error);
@@ -457,6 +464,22 @@ export default function AdminScreen() {
     setProductForm({ name: "", categoryId: "", price: "", originalPrice: "", discount: "", description: "", inStock: true, imageUri: "", imageUrl: "", restaurant: "" });
     setAreaForm({ name: "", fee: "" });
     setPromoForm({ code: "", type: "fixed", value: "", expiryDate: "" });
+  };
+
+  const saveCategoryChanges = async () => {
+    if (isSavingCategories) return;
+    setIsSavingCategories(true);
+    try {
+      await queryClient.invalidateQueries({ queryKey: ["/api/categories"] });
+      await queryClient.invalidateQueries({ queryKey: ["/api/admin/categories"] });
+      await queryClient.refetchQueries({ queryKey: ["/api/categories"] });
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      setHasCategoryChanges(false);
+    } catch (_e) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+    } finally {
+      setIsSavingCategories(false);
+    }
   };
 
   const handleEditBanner = (banner: Banner) => {
@@ -698,6 +721,23 @@ export default function AdminScreen() {
           </View>
         ))
       )}
+
+      {hasCategoryChanges ? (
+        <Pressable
+          testID="button-save-category-changes"
+          onPress={saveCategoryChanges}
+          style={[styles.saveCategoryChangesBtn, isSavingCategories && { opacity: 0.7 }]}
+        >
+          {isSavingCategories ? (
+            <ActivityIndicator size="small" color="#fff" />
+          ) : (
+            <Feather name="check-circle" size={20} color="#fff" />
+          )}
+          <ThemedText type="body" style={styles.saveCategoryChangesBtnText}>
+            {isSavingCategories ? "جارٍ الحفظ..." : "حفظ التغيير"}
+          </ThemedText>
+        </Pressable>
+      ) : null}
     </View>
   );
 
@@ -1677,5 +1717,27 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.md,
     alignItems: "center",
     justifyContent: "center",
+  },
+  saveCategoryChangesBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.sm,
+    backgroundColor: AppColors.primary,
+    borderRadius: BorderRadius.xl,
+    paddingVertical: Spacing.md + 2,
+    paddingHorizontal: Spacing.xl,
+    marginTop: Spacing.lg,
+    marginBottom: Spacing.lg,
+    shadowColor: AppColors.primary,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.35,
+    shadowRadius: 12,
+    elevation: 6,
+  },
+  saveCategoryChangesBtnText: {
+    color: "#FFFFFF",
+    fontWeight: "700",
+    fontSize: 15,
   },
 });
