@@ -89,6 +89,8 @@ interface DeliveryArea {
   name: string;
   fee: number;
   isActive: boolean;
+  lat?: number;
+  lng?: number;
 }
 
 interface UserProfile {
@@ -734,11 +736,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/admin/delivery-areas", async (req: Request, res: Response) => {
     try {
-      const { name, fee } = req.body;
+      const { name, fee, lat, lng } = req.body;
       const area = await createFirestoreDeliveryArea({
         name,
         fee: parseInt(fee) || 0,
         isActive: true,
+        ...(lat !== undefined && lat !== null && lat !== "" && { lat: parseFloat(lat) }),
+        ...(lng !== undefined && lng !== null && lng !== "" && { lng: parseFloat(lng) }),
       });
       if (!area) {
         return res.status(500).json({ error: "Failed to create delivery area" });
@@ -752,11 +756,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.put("/api/admin/delivery-areas/:id", async (req: Request, res: Response) => {
     try {
-      const { name, fee, isActive } = req.body;
+      const { name, fee, isActive, lat, lng } = req.body;
       const updates: Record<string, any> = {};
       if (name !== undefined) updates.name = name;
       if (fee !== undefined) updates.fee = parseInt(fee);
       if (isActive !== undefined) updates.isActive = isActive !== "false" && isActive !== false;
+      if (lat !== undefined && lat !== null && lat !== "") updates.lat = parseFloat(lat);
+      if (lng !== undefined && lng !== null && lng !== "") updates.lng = parseFloat(lng);
       
       const area = await updateFirestoreDeliveryArea(req.params.id, updates);
       if (!area) {

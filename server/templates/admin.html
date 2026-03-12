@@ -1063,6 +1063,15 @@
     /* GPS Map */
     #gps-map { width: 100%; height: 360px; border-radius: 0 0 16px 16px; }
     #tracking-map { width: 100%; height: 420px; }
+    #delivery-location-map { width: 100%; height: 240px; border-radius: 12px; overflow: hidden; margin-top: 8px; }
+    .delivery-map-coords {
+      display: flex; align-items: center; justify-content: space-between;
+      background: var(--gray-100); border-radius: 10px; padding: 8px 12px; margin-top: 6px;
+      font-size: 0.82rem; color: var(--gray-600); gap: 8px;
+    }
+    .delivery-map-coords span { font-family: monospace; color: var(--primary); font-weight: 600; }
+    .btn-locate { display:flex; align-items:center; gap:5px; background:var(--primary); color:#fff; border:none; border-radius:8px; padding:5px 12px; cursor:pointer; font-size:0.82rem; font-weight:600; transition:opacity 0.15s; }
+    .btn-locate:hover { opacity:0.85; }
     .leaflet-container { font-family: 'Cairo', sans-serif !important; }
     .leaflet-popup-content { direction: rtl; font-family: 'Cairo', sans-serif; }
     .map-card { background: white; border-radius: 16px; overflow: hidden; box-shadow: 0 2px 12px rgba(0,0,0,0.08); margin-bottom: 24px; }
@@ -2295,6 +2304,8 @@
       <form id="delivery-form" onsubmit="saveDeliveryArea(event)">
         <div class="modal-body">
           <input type="hidden" id="delivery-id">
+          <input type="hidden" id="delivery-lat">
+          <input type="hidden" id="delivery-lng">
           
           <div class="form-group">
             <label>اسم المنطقة <span class="required">*</span></label>
@@ -2312,6 +2323,20 @@
                 <option value="true">مفعل</option>
                 <option value="false">معطل</option>
               </select>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+              <button type="button" class="btn-locate" onclick="locateMyPosition()">
+                <i data-lucide="navigation" style="width:13px;height:13px;"></i>
+                تحديد موقعي
+              </button>
+              <label style="margin:0;font-weight:600;">موقع المنطقة على الخارطة</label>
+            </div>
+            <div id="delivery-location-map"></div>
+            <div class="delivery-map-coords" id="delivery-coords-display">
+              <span id="delivery-coords-text">انقر على الخارطة لتحديد الموقع</span>
             </div>
           </div>
         </div>

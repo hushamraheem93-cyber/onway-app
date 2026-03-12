@@ -796,6 +796,8 @@ export interface FirestoreDeliveryArea {
   name: string;
   fee: number;
   isActive: boolean;
+  lat?: number;
+  lng?: number;
 }
 
 export async function getDeliveryAreas(activeOnly: boolean = false): Promise<(FirestoreDeliveryArea & { id: string })[]> {
@@ -814,6 +816,8 @@ export async function createDeliveryArea(data: {
   name: string;
   fee: number;
   isActive?: boolean;
+  lat?: number;
+  lng?: number;
 }): Promise<(FirestoreDeliveryArea & { id: string }) | null> {
   if (!db) return null;
   try {
@@ -821,6 +825,8 @@ export async function createDeliveryArea(data: {
       name: data.name,
       fee: data.fee || 0,
       isActive: data.isActive !== false,
+      ...(data.lat !== undefined && { lat: data.lat }),
+      ...(data.lng !== undefined && { lng: data.lng }),
     };
     const docRef = await db.collection("deliveryAreas").add(areaDoc);
     return { id: docRef.id, ...areaDoc };
