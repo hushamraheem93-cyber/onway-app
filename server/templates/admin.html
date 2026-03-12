@@ -1278,7 +1278,7 @@
           <p id="dashboard-datetime" style="font-size:0.85rem;color:var(--gray-500);"></p>
         </div>
         <div class="header-actions">
-          <button class="btn btn-outline" onclick="loadDashboard()">
+          <button class="btn btn-outline" onclick="doRefresh(this, loadDashboard, 'لوحة التحكم')">
             <i data-lucide="refresh-cw"></i> تحديث
           </button>
         </div>
@@ -1373,7 +1373,7 @@
             <i data-lucide="search"></i>
             <input type="text" id="product-search" placeholder="ابحث عن منتج..." oninput="filterProducts()">
           </div>
-          <button class="btn btn-outline" onclick="loadProducts()">
+          <button class="btn btn-outline" onclick="doRefresh(this, loadProducts, 'المنتجات')">
             <i data-lucide="refresh-cw"></i>
             تحديث
           </button>
@@ -1420,7 +1420,7 @@
           <p>تنظيم المنتجات في فئات</p>
         </div>
         <div class="header-actions">
-          <button class="btn btn-outline" onclick="loadCategories()">
+          <button class="btn btn-outline" onclick="doRefresh(this, loadCategories, 'الفئات')">
             <i data-lucide="refresh-cw"></i>
             تحديث
           </button>
@@ -1461,7 +1461,7 @@
           <p>إدارة العروض في الصفحة الرئيسية</p>
         </div>
         <div class="header-actions">
-          <button class="btn btn-outline" onclick="loadBanners()">
+          <button class="btn btn-outline" onclick="doRefresh(this, loadBanners, 'السلايدر')">
             <i data-lucide="refresh-cw"></i>
             تحديث
           </button>
@@ -1503,7 +1503,7 @@
           <p>اختر المنتجات التي ستظهر في قسم الأكثر مبيعاً</p>
         </div>
         <div class="header-actions">
-          <button class="btn btn-outline" onclick="loadPromotionalSections()">
+          <button class="btn btn-outline" onclick="doRefresh(this, loadPromotionalSections, 'الأكثر مبيعاً')">
             <i data-lucide="refresh-cw"></i>
             تحديث
           </button>
@@ -1545,7 +1545,7 @@
           <p>اختر المنتجات التي ستظهر في قسم المنتجات المتميزة</p>
         </div>
         <div class="header-actions">
-          <button class="btn btn-outline" onclick="loadPromotionalSections()">
+          <button class="btn btn-outline" onclick="doRefresh(this, loadPromotionalSections, 'المنتجات المتميزة')">
             <i data-lucide="refresh-cw"></i>
             تحديث
           </button>
@@ -1587,7 +1587,7 @@
           <p>اختر المنتجات التي ستظهر في قسم التخفيضات المميزة</p>
         </div>
         <div class="header-actions">
-          <button class="btn btn-outline" onclick="loadPromotionalSections()">
+          <button class="btn btn-outline" onclick="doRefresh(this, loadPromotionalSections, 'التخفيضات')">
             <i data-lucide="refresh-cw"></i>
             تحديث
           </button>
@@ -1674,7 +1674,7 @@
           <p>إدارة مناطق ورسوم التوصيل</p>
         </div>
         <div class="header-actions">
-          <button class="btn btn-outline" onclick="loadDeliveryAreas()">
+          <button class="btn btn-outline" onclick="doRefresh(this, loadDeliveryAreas, 'مناطق التوصيل')">
             <i data-lucide="refresh-cw"></i>
             تحديث
           </button>
@@ -1715,7 +1715,7 @@
           <p>إدارة ومراجعة طلبات سائقي التوصيل</p>
         </div>
         <div class="header-actions">
-          <button class="btn btn-outline" onclick="loadDrivers()">
+          <button class="btn btn-outline" onclick="doRefresh(this, loadDrivers, 'السائقين')">
             <i data-lucide="refresh-cw"></i>
             تحديث
           </button>
@@ -1742,7 +1742,7 @@
           <p>مراقبة السائقين المتصلين وترتيبهم في الطابور</p>
         </div>
         <div class="header-actions">
-          <button class="btn btn-outline" onclick="loadDriverQueue()">
+          <button class="btn btn-outline" onclick="doRefresh(this, loadDriverQueue, 'طابور السائقين')">
             <i data-lucide="refresh-cw"></i>
             تحديث
           </button>
@@ -1777,7 +1777,7 @@
           <p>مراجعة وإدارة طلبات العملاء</p>
         </div>
         <div class="header-actions" style="display:flex;gap:8px;flex-wrap:wrap;">
-          <button class="btn btn-outline" onclick="loadOrders()">
+          <button class="btn btn-outline" onclick="doRefresh(this, loadOrders, 'الطلبات')">
             <i data-lucide="refresh-cw"></i>
             تحديث
           </button>
@@ -2371,6 +2371,37 @@
         toast.classList.add('hiding');
         setTimeout(() => toast.remove(), 300);
       }, 4000);
+    }
+
+    // ============ Refresh helper with visual feedback ============
+    async function doRefresh(btn, loadFn, label) {
+      if (btn.disabled) return;
+      btn.disabled = true;
+      const icon = btn.querySelector('i[data-lucide]');
+      const originalIcon = icon ? icon.getAttribute('data-lucide') : 'refresh-cw';
+      if (icon) {
+        icon.setAttribute('data-lucide', 'loader-2');
+        icon.style.animation = 'spin 0.8s linear infinite';
+        lucide.createIcons();
+      }
+      const originalText = btn.textContent.trim();
+      const textNode = [...btn.childNodes].find(n => n.nodeType === 3 && n.textContent.trim());
+      if (textNode) textNode.textContent = ' جارٍ التحديث...';
+
+      try {
+        await loadFn();
+        showToast('success', 'تم التحديث', label + ' تم تحديثها بنجاح');
+      } catch (e) {
+        showToast('error', 'خطأ', 'فشل التحديث، حاول مجدداً');
+      } finally {
+        btn.disabled = false;
+        if (icon) {
+          icon.style.animation = '';
+          icon.setAttribute('data-lucide', originalIcon);
+          lucide.createIcons();
+        }
+        if (textNode) textNode.textContent = ' تحديث';
+      }
     }
 
     // Navigation
