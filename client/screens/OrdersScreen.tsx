@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState } from "react";
 import {
   StyleSheet,
   FlatList,
@@ -36,11 +36,7 @@ export default function OrdersScreen() {
     refreshOrders();
   }, []);
 
-  const handleStartShopping = () => {
-    navigation.navigate("Main", { screen: "HomeTab" } as any);
-  };
-
-  const filteredOrders = searchQuery.trim().length > 0
+  const filteredOrders: Order[] = searchQuery.trim().length > 0
     ? orders.filter((o) => {
         const q = searchQuery.trim().toLowerCase();
         const shortId = (o.id?.slice(-8) || "").toLowerCase();
@@ -49,45 +45,7 @@ export default function OrdersScreen() {
       })
     : orders;
 
-  const handleClearSearch = () => setSearchQuery("");
-
-  const renderHeader = () => (
-    <View style={styles.searchWrapper}>
-      <View style={[styles.searchContainer, { backgroundColor: theme.backgroundDefault, borderColor: searchQuery ? AppColors.primary : theme.border }, Shadows.sm]}>
-        <Feather name="search" size={18} color={searchQuery ? AppColors.primary : theme.textSecondary} />
-        <TextInput
-          testID="input-order-search"
-          style={[styles.searchInput, { color: theme.text }]}
-          placeholder="ابحث برقم الطلب..."
-          placeholderTextColor={theme.textSecondary}
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-          returnKeyType="search"
-          textAlign="right"
-          autoCorrect={false}
-          autoCapitalize="none"
-        />
-        {searchQuery.length > 0 ? (
-          <Pressable onPress={handleClearSearch} style={styles.clearBtn} testID="button-clear-search">
-            <View style={[styles.clearIcon, { backgroundColor: theme.textSecondary + "30" }]}>
-              <Feather name="x" size={12} color={theme.textSecondary} />
-            </View>
-          </Pressable>
-        ) : null}
-      </View>
-
-      {searchQuery.trim().length > 0 ? (
-        <View style={styles.resultsBanner}>
-          <Feather name="filter" size={14} color={AppColors.primary} />
-          <ThemedText type="small" style={styles.resultsBannerText}>
-            {filteredOrders.length > 0
-              ? `${filteredOrders.length} نتيجة للبحث عن "${searchQuery.trim().slice(-8)}"`
-              : `لا توجد نتائج لـ "${searchQuery.trim()}"`}
-          </ThemedText>
-        </View>
-      ) : null}
-    </View>
-  );
+  const isSearching = searchQuery.trim().length > 0;
 
   const renderItem = ({ item }: { item: Order }) => (
     <OrderCard
@@ -97,19 +55,22 @@ export default function OrdersScreen() {
   );
 
   const renderEmpty = () => {
-    if (searchQuery.trim().length > 0) {
+    if (isSearching) {
       return (
         <View style={styles.noResults}>
           <View style={[styles.noResultsIcon, { backgroundColor: AppColors.primary + "15" }]}>
             <Feather name="search" size={32} color={AppColors.primary} />
           </View>
-          <ThemedText type="h4" style={[styles.noResultsTitle, { color: theme.text }]}>
+          <ThemedText type="h4" style={{ textAlign: "center", marginBottom: Spacing.sm }}>
             لم يُعثر على الطلب
           </ThemedText>
-          <ThemedText type="body" style={[styles.noResultsDesc, { color: theme.textSecondary }]}>
-            لا يوجد طلب برقم "{searchQuery.trim()}" في سجلاتك
+          <ThemedText type="body" style={{ textAlign: "center", color: theme.textSecondary, marginBottom: Spacing.xl }}>
+            لا يوجد طلب يطابق "{searchQuery.trim()}" في سجلاتك
           </ThemedText>
-          <Pressable onPress={handleClearSearch} style={[styles.resetBtn, { backgroundColor: AppColors.primary + "15" }]}>
+          <Pressable
+            onPress={() => setSearchQuery("")}
+            style={[styles.resetBtn, { backgroundColor: AppColors.primary + "15" }]}
+          >
             <ThemedText type="small" style={{ color: AppColors.primary, fontWeight: "700" }}>
               عرض جميع الطلبات
             </ThemedText>
@@ -122,42 +83,109 @@ export default function OrdersScreen() {
         title="لا توجد طلبات"
         subtitle="لم تقم بأي طلبات بعد"
         buttonText="ابدأ التسوق"
-        onButtonPress={handleStartShopping}
+        onButtonPress={() => navigation.navigate("Main", { screen: "HomeTab" } as any)}
       />
     );
   };
 
   return (
-    <FlatList
-      style={{ flex: 1, backgroundColor: theme.backgroundRoot }}
-      contentContainerStyle={{
-        paddingTop: headerHeight + Spacing.md,
-        paddingBottom: insets.bottom + Spacing.xl,
-        paddingHorizontal: Spacing.lg,
-        flexGrow: 1,
-      }}
-      scrollIndicatorInsets={{ bottom: insets.bottom }}
-      data={filteredOrders}
-      renderItem={renderItem}
-      keyExtractor={(item) => item.id}
-      showsVerticalScrollIndicator={false}
-      ListHeaderComponent={renderHeader}
-      ListEmptyComponent={renderEmpty}
-      refreshControl={
-        <RefreshControl
-          refreshing={isLoading}
-          onRefresh={refreshOrders}
-          tintColor={AppColors.primary}
-          colors={[AppColors.primary]}
-        />
-      }
-    />
+    <View style={{ flex: 1, backgroundColor: theme.backgroundRoot }}>
+      {/* Fixed Search Bar */}
+      <View
+        style={[
+          styles.searchArea,
+          {
+            paddingTop: headerHeight + Spacing.sm,
+            backgroundColor: theme.backgroundRoot,
+            borderBottomColor: theme.border,
+          },
+        ]}
+      >
+        <View
+          style={[
+            styles.searchContainer,
+            {
+              backgroundColor: theme.backgroundDefault,
+              borderColor: isSearching ? AppColors.primary : theme.border,
+            },
+            Shadows.sm,
+          ]}
+        >
+          <Feather
+            name="search"
+            size={18}
+            color={isSearching ? AppColors.primary : theme.textSecondary}
+          />
+          <TextInput
+            testID="input-order-search"
+            style={[styles.searchInput, { color: theme.text }]}
+            placeholder="ابحث برقم الطلب..."
+            placeholderTextColor={theme.textSecondary}
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            returnKeyType="search"
+            textAlign="right"
+            autoCorrect={false}
+            autoCapitalize="none"
+          />
+          {isSearching ? (
+            <Pressable
+              onPress={() => setSearchQuery("")}
+              style={styles.clearBtn}
+              testID="button-clear-search"
+            >
+              <View style={[styles.clearIcon, { backgroundColor: theme.textSecondary + "25" }]}>
+                <Feather name="x" size={12} color={theme.textSecondary} />
+              </View>
+            </Pressable>
+          ) : null}
+        </View>
+
+        {isSearching ? (
+          <View style={styles.resultsBanner}>
+            <Feather name="filter" size={13} color={AppColors.primary} />
+            <ThemedText type="small" style={styles.resultsBannerText}>
+              {filteredOrders.length > 0
+                ? `${filteredOrders.length} نتيجة للبحث عن "${searchQuery.trim()}"`
+                : `لا توجد نتائج`}
+            </ThemedText>
+          </View>
+        ) : null}
+      </View>
+
+      {/* Orders List */}
+      <FlatList
+        style={{ flex: 1 }}
+        contentContainerStyle={{
+          paddingTop: Spacing.md,
+          paddingBottom: insets.bottom + Spacing.xl,
+          paddingHorizontal: Spacing.lg,
+          flexGrow: 1,
+        }}
+        scrollIndicatorInsets={{ bottom: insets.bottom }}
+        data={filteredOrders}
+        renderItem={renderItem}
+        keyExtractor={(item) => item.id}
+        showsVerticalScrollIndicator={false}
+        ListEmptyComponent={renderEmpty}
+        refreshControl={
+          <RefreshControl
+            refreshing={isLoading}
+            onRefresh={refreshOrders}
+            tintColor={AppColors.primary}
+            colors={[AppColors.primary]}
+          />
+        }
+      />
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  searchWrapper: {
-    marginBottom: Spacing.md,
+  searchArea: {
+    paddingHorizontal: Spacing.lg,
+    paddingBottom: Spacing.sm,
+    borderBottomWidth: 1,
   },
   searchContainer: {
     flexDirection: "row",
@@ -171,7 +199,6 @@ const styles = StyleSheet.create({
   searchInput: {
     flex: 1,
     fontSize: 15,
-    fontFamily: "Cairo_400Regular",
     paddingVertical: 0,
   },
   clearBtn: {
@@ -188,7 +215,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: Spacing.xs,
-    marginTop: Spacing.sm,
+    marginTop: Spacing.xs + 2,
     paddingHorizontal: Spacing.xs,
   },
   resultsBannerText: {
@@ -209,15 +236,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     marginBottom: Spacing.lg,
-  },
-  noResultsTitle: {
-    textAlign: "center",
-    marginBottom: Spacing.sm,
-  },
-  noResultsDesc: {
-    textAlign: "center",
-    lineHeight: 22,
-    marginBottom: Spacing.xl,
   },
   resetBtn: {
     paddingHorizontal: Spacing.xl,
