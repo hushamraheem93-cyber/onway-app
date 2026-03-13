@@ -681,8 +681,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const db = getFirestore();
     
     const priceNum = price !== undefined ? Number(price) : undefined;
-    const originalPriceNum = originalPrice !== undefined ? Number(originalPrice) : undefined;
-    const discountNum = discount !== undefined ? Number(discount) : undefined;
+    const originalPriceNum = originalPrice === null ? null : (originalPrice !== undefined ? Number(originalPrice) : undefined);
+    const discountNum = discount === null ? null : (discount !== undefined ? Number(discount) : undefined);
     const inStockBool = inStock !== undefined ? (inStock === 'true' || inStock === true) : undefined;
     
     if (db) {

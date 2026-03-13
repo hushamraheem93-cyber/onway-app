@@ -122,6 +122,11 @@ export function ProductCard({ product, onPress }: ProductCardProps) {
         animatedStyle,
       ]}
     >
+      {product.discount && product.discount > 0 ? (
+        <View style={styles.discountBadge}>
+          <ThemedText style={styles.discountBadgeText}>-{product.discount}%</ThemedText>
+        </View>
+      ) : null}
       <View ref={cardRef} style={styles.imageContainer}>
         <AnimatedPressable
           onPress={handleToggleFavorite}
@@ -154,9 +159,16 @@ export function ProductCard({ product, onPress }: ProductCardProps) {
           </ThemedText>
         ) : null}
         <View style={styles.footer}>
-          <ThemedText type="h4" style={[styles.price, { color: AppColors.primary }]}>
-            {formatPrice(product.price)}
-          </ThemedText>
+          <View style={styles.priceBlock}>
+            <ThemedText type="h4" style={[styles.price, { color: AppColors.primary }]}>
+              {formatPrice(product.price)}
+            </ThemedText>
+            {product.originalPrice && product.originalPrice > product.price ? (
+              <ThemedText style={styles.originalPrice}>
+                {formatPrice(product.originalPrice)}
+              </ThemedText>
+            ) : null}
+          </View>
           {isInCart ? (
             <View style={styles.quantityControls}>
               <AnimatedPressable
@@ -265,9 +277,35 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     marginTop: Spacing.xs,
   },
+  discountBadge: {
+    position: "absolute",
+    top: 8,
+    left: 8,
+    backgroundColor: "#E86520",
+    borderRadius: 8,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    zIndex: 10,
+  },
+  discountBadgeText: {
+    color: "#FFFFFF",
+    fontSize: 11,
+    fontWeight: "800",
+  },
+  priceBlock: {
+    flex: 1,
+    alignItems: "flex-end",
+  },
   price: {
     fontWeight: "700",
     textAlign: "right",
+  },
+  originalPrice: {
+    fontSize: 11,
+    color: "#9CA3AF",
+    textAlign: "right",
+    textDecorationLine: "line-through",
+    marginTop: 1,
   },
   addButton: {
     width: 35,

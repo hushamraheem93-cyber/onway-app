@@ -566,6 +566,7 @@
       flex-direction: column;
       align-items: center;
       text-align: center;
+      position: relative;
     }
 
     .product-select-card:hover {
@@ -1655,6 +1656,49 @@
           </div>
           <div class="card-body">
             <div class="products-grid" id="discounts-products"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Discount Modal -->
+    <div id="discount-modal" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.55);align-items:center;justify-content:center;">
+      <div style="background:#fff;border-radius:18px;width:360px;max-width:94vw;box-shadow:0 8px 40px rgba(0,0,0,0.22);overflow:hidden;">
+        <div style="background:linear-gradient(135deg,#D94523,#E86520);padding:18px 22px;display:flex;align-items:center;gap:12px;">
+          <i data-lucide="percent" style="width:20px;height:20px;color:#fff;"></i>
+          <span style="color:#fff;font-size:1.05rem;font-weight:700;">تطبيق التخفيض</span>
+          <button onclick="closeDiscountModal()" style="margin-right:auto;background:none;border:none;cursor:pointer;color:rgba(255,255,255,0.8);font-size:1.4rem;line-height:1;">&times;</button>
+        </div>
+        <div style="padding:22px;">
+          <div id="discount-product-info" style="display:flex;align-items:center;gap:12px;background:#F9FAFB;border-radius:12px;padding:12px;margin-bottom:20px;">
+            <img id="discount-product-img" src="" alt="" style="width:56px;height:56px;border-radius:10px;object-fit:cover;">
+            <div>
+              <div id="discount-product-name" style="font-weight:700;font-size:0.95rem;color:#1a1a2e;"></div>
+              <div style="font-size:0.82rem;color:#6B7280;margin-top:2px;">السعر الحالي: <span id="discount-current-price" style="font-weight:700;color:#D94523;"></span></div>
+            </div>
+          </div>
+          <label style="font-size:0.88rem;font-weight:600;color:#374151;display:block;margin-bottom:8px;">نسبة التخفيض (%)</label>
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;">
+            <input type="number" id="discount-pct-input" min="1" max="90" placeholder="مثال: 20"
+              style="flex:1;border:2px solid #E5E7EB;border-radius:10px;padding:10px 14px;font-size:1rem;direction:ltr;text-align:center;outline:none;transition:border 0.2s;"
+              oninput="updateDiscountPreview()" onfocus="this.style.borderColor='#D94523'" onblur="this.style.borderColor='#E5E7EB'">
+            <span style="font-size:1.1rem;font-weight:700;color:#374151;">%</span>
+          </div>
+          <div id="discount-preview" style="display:none;background:linear-gradient(135deg,#FFF5F3,#FFF0EC);border:1.5px solid #F3B9AC;border-radius:12px;padding:14px;margin-bottom:20px;text-align:center;">
+            <div style="font-size:0.8rem;color:#9CA3AF;margin-bottom:4px;">السعر بعد التخفيض</div>
+            <div style="display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap;">
+              <span id="discount-old-price" style="font-size:0.95rem;color:#9CA3AF;text-decoration:line-through;"></span>
+              <span style="color:#D94523;font-size:0.85rem;">←</span>
+              <span id="discount-new-price" style="font-size:1.3rem;font-weight:800;color:#D94523;"></span>
+            </div>
+            <div id="discount-saving" style="font-size:0.8rem;color:#10B981;margin-top:4px;font-weight:600;"></div>
+          </div>
+          <div style="display:flex;gap:10px;">
+            <button onclick="closeDiscountModal()" style="flex:1;padding:11px;border-radius:10px;border:1.5px solid #E5E7EB;background:#fff;cursor:pointer;font-size:0.92rem;font-weight:600;color:#6B7280;">إلغاء</button>
+            <button onclick="applyDiscount()" style="flex:2;padding:11px;border-radius:10px;border:none;background:linear-gradient(135deg,#D94523,#E86520);color:#fff;cursor:pointer;font-size:0.95rem;font-weight:700;display:flex;align-items:center;justify-content:center;gap:8px;">
+              <i data-lucide="check" style="width:16px;height:16px;"></i>
+              تطبيق التخفيض
+            </button>
           </div>
         </div>
       </div>
@@ -3264,28 +3308,51 @@
       
       // Render selected products
       const selectedProducts = selectedIds.map(id => products.find(p => p.id === id)).filter(Boolean);
-      selectedContainer.innerHTML = selectedProducts.map(p => `
+      selectedContainer.innerHTML = selectedProducts.map(p => {
+        const hasDiscount = type === 'discounts' && p.discount && p.discount > 0 && p.originalPrice;
+        return `
         <div class="selected-product-card">
-          <img src="${escapeHtml(p.image)}" alt="${escapeHtml(p.name)}" onerror="this.src='https://via.placeholder.com/45'">
+          <div style="position:relative;flex-shrink:0;">
+            <img src="${escapeHtml(p.image)}" alt="${escapeHtml(p.name)}" onerror="this.src='https://via.placeholder.com/45'"
+              style="width:45px;height:45px;border-radius:8px;object-fit:cover;">
+            ${hasDiscount ? `<span style="position:absolute;top:-4px;left:-4px;background:#D94523;color:#fff;font-size:9px;font-weight:800;border-radius:5px;padding:1px 4px;">-${p.discount}%</span>` : ''}
+          </div>
           <div class="info">
             <span class="name">${escapeHtml(p.name)}</span>
-            <span class="price">${p.price.toLocaleString('ar-IQ')} د.ع</span>
+            ${hasDiscount ? `
+              <div style="display:flex;align-items:center;gap:5px;flex-wrap:wrap;">
+                <span style="color:#D94523;font-weight:700;font-size:0.82rem;">${p.price.toLocaleString('ar-IQ')} د.ع</span>
+                <span style="color:#9CA3AF;font-size:0.75rem;text-decoration:line-through;">${p.originalPrice.toLocaleString('ar-IQ')} د.ع</span>
+              </div>
+            ` : `<span class="price">${p.price.toLocaleString('ar-IQ')} د.ع</span>`}
           </div>
+          ${type === 'discounts' ? `
+            <button class="btn btn-outline" style="padding:4px 8px;font-size:0.75rem;margin-left:4px;" onclick="openDiscountModal('${p.id}')">
+              <i data-lucide="edit-2" style="width:12px;height:12px;"></i>
+            </button>
+          ` : ''}
           <button class="remove-btn" onclick="removeFromPromotional('${type}', '${p.id}')">
             <i data-lucide="x" style="width: 14px; height: 14px;"></i>
           </button>
-        </div>
-      `).join('');
+        </div>`;
+      }).join('');
       
       // Render available products grid
       productsContainer.innerHTML = products.map(p => {
         const isSelected = selectedIds.includes(p.id);
+        const hasDiscount = type === 'discounts' && p.discount && p.discount > 0 && p.originalPrice;
         return `
           <div class="product-select-card ${isSelected ? 'selected' : ''}" onclick="togglePromotionalProduct('${type}', '${p.id}')">
             <div class="check-icon"><i data-lucide="check" style="width: 14px; height: 14px;"></i></div>
+            ${hasDiscount ? `<span style="position:absolute;top:6px;right:6px;background:#D94523;color:#fff;font-size:9px;font-weight:800;border-radius:5px;padding:1px 5px;z-index:2;">-${p.discount}%</span>` : ''}
             <img src="${escapeHtml(p.image)}" alt="${escapeHtml(p.name)}" onerror="this.src='https://via.placeholder.com/80'">
             <span class="name">${escapeHtml(p.name)}</span>
-            <span class="price">${p.price.toLocaleString('ar-IQ')} د.ع</span>
+            ${hasDiscount ? `
+              <div style="display:flex;flex-direction:column;align-items:center;gap:1px;">
+                <span style="color:#D94523;font-weight:700;font-size:0.82rem;">${p.price.toLocaleString('ar-IQ')} د.ع</span>
+                <span style="color:#9CA3AF;font-size:0.72rem;text-decoration:line-through;">${p.originalPrice.toLocaleString('ar-IQ')} د.ع</span>
+              </div>
+            ` : `<span class="price">${p.price.toLocaleString('ar-IQ')} د.ع</span>`}
           </div>
         `;
       }).join('');
@@ -3296,24 +3363,146 @@
     function togglePromotionalProduct(type, productId) {
       const ids = promotionalSections[type].productIds;
       const index = ids.indexOf(productId);
-      
+
       if (index > -1) {
         ids.splice(index, 1);
+        if (type === 'discounts') {
+          // Reset product discount when removed
+          resetProductDiscount(productId);
+        }
+        renderPromotionalSection(type);
       } else {
-        ids.push(productId);
+        if (type === 'discounts') {
+          openDiscountModal(productId);
+        } else {
+          ids.push(productId);
+          renderPromotionalSection(type);
+        }
       }
-      
-      renderPromotionalSection(type);
     }
 
     function removeFromPromotional(type, productId) {
       const ids = promotionalSections[type].productIds;
       const index = ids.indexOf(productId);
-      
       if (index > -1) {
         ids.splice(index, 1);
+        if (type === 'discounts') {
+          resetProductDiscount(productId);
+        }
         renderPromotionalSection(type);
       }
+    }
+
+    // ── Discount Modal ────────────────────────────────────────────────────
+    let _discountTargetProductId = null;
+
+    function openDiscountModal(productId) {
+      const p = products.find(pr => pr.id === productId);
+      if (!p) return;
+      _discountTargetProductId = productId;
+      document.getElementById('discount-product-img').src = p.image || '';
+      document.getElementById('discount-product-name').textContent = p.name;
+      // Use originalPrice if already set, otherwise use current price
+      const basePrice = p.originalPrice && p.originalPrice > p.price ? p.originalPrice : p.price;
+      document.getElementById('discount-current-price').textContent = basePrice.toLocaleString('ar-IQ') + ' د.ع';
+      document.getElementById('discount-current-price').dataset.basePrice = basePrice;
+      // Pre-fill if already has discount
+      const inp = document.getElementById('discount-pct-input');
+      inp.value = p.discount && p.discount > 0 ? p.discount : '';
+      document.getElementById('discount-preview').style.display = 'none';
+      document.getElementById('discount-modal').style.display = 'flex';
+      lucide.createIcons();
+      if (p.discount && p.discount > 0) updateDiscountPreview();
+      inp.focus();
+    }
+
+    function closeDiscountModal() {
+      document.getElementById('discount-modal').style.display = 'none';
+      _discountTargetProductId = null;
+    }
+
+    function updateDiscountPreview() {
+      const pct = parseFloat(document.getElementById('discount-pct-input').value) || 0;
+      const basePriceEl = document.getElementById('discount-current-price');
+      const basePrice = parseFloat(basePriceEl.dataset.basePrice) || 0;
+      const preview = document.getElementById('discount-preview');
+      if (pct > 0 && pct < 100 && basePrice > 0) {
+        const newPrice = Math.round(basePrice * (1 - pct / 100));
+        const saving = basePrice - newPrice;
+        document.getElementById('discount-old-price').textContent = basePrice.toLocaleString('ar-IQ') + ' د.ع';
+        document.getElementById('discount-new-price').textContent = newPrice.toLocaleString('ar-IQ') + ' د.ع';
+        document.getElementById('discount-saving').textContent = 'توفير ' + saving.toLocaleString('ar-IQ') + ' د.ع';
+        preview.style.display = 'block';
+      } else {
+        preview.style.display = 'none';
+      }
+    }
+
+    async function applyDiscount() {
+      const pct = parseFloat(document.getElementById('discount-pct-input').value);
+      if (!pct || pct <= 0 || pct >= 100) {
+        showToast('error', 'نسبة غير صحيحة', 'أدخل نسبة تخفيض بين 1 و 99');
+        return;
+      }
+      const productId = _discountTargetProductId;
+      if (!productId) return;
+
+      const p = products.find(pr => pr.id === productId);
+      if (!p) return;
+      const basePrice = p.originalPrice && p.originalPrice > p.price ? p.originalPrice : p.price;
+      const newPrice = Math.round(basePrice * (1 - pct / 100));
+
+      const btn = document.querySelector('#discount-modal button[onclick="applyDiscount()"]');
+      if (btn) { btn.disabled = true; btn.innerHTML = '<i data-lucide="loader" style="width:16px;height:16px;"></i> جارٍ الحفظ...'; lucide.createIcons(); }
+
+      try {
+        const res = await fetch(`${API_BASE}/admin/products/${productId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            originalPrice: basePrice,
+            price: newPrice,
+            discount: pct
+          })
+        });
+        if (!res.ok) throw new Error('فشل التحديث');
+
+        // Update local products array
+        const idx = products.findIndex(pr => pr.id === productId);
+        if (idx > -1) {
+          products[idx] = { ...products[idx], price: newPrice, originalPrice: basePrice, discount: pct };
+        }
+
+        // Add to promotional section
+        if (!promotionalSections.discounts.productIds.includes(productId)) {
+          promotionalSections.discounts.productIds.push(productId);
+        }
+
+        closeDiscountModal();
+        renderPromotionalSection('discounts');
+        showToast('success', 'تم تطبيق التخفيض', `تم تخفيض السعر بنسبة ${pct}% — السعر الجديد: ${newPrice.toLocaleString('ar-IQ')} د.ع`);
+      } catch (e) {
+        showToast('error', 'خطأ', 'حدث خطأ أثناء حفظ التخفيض');
+      } finally {
+        if (btn) { btn.disabled = false; btn.innerHTML = '<i data-lucide="check" style="width:16px;height:16px;"></i> تطبيق التخفيض'; lucide.createIcons(); }
+      }
+    }
+
+    async function resetProductDiscount(productId) {
+      const p = products.find(pr => pr.id === productId);
+      if (!p || !p.originalPrice) return;
+      try {
+        await fetch(`${API_BASE}/admin/products/${productId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ price: p.originalPrice, originalPrice: null, discount: null })
+        });
+        const idx = products.findIndex(pr => pr.id === productId);
+        if (idx > -1) {
+          products[idx] = { ...products[idx], price: p.originalPrice, originalPrice: undefined, discount: undefined };
+        }
+        showToast('info', 'تم إلغاء التخفيض', 'تمت استعادة السعر الأصلي للمنتج');
+      } catch {}
     }
 
     function filterPromotionalProducts(type) {

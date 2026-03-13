@@ -47,6 +47,7 @@ export interface Product {
   description: string;
   inStock: boolean;
   discount?: number;
+  originalPrice?: number;
   weight?: string;
   restaurant?: string;
 }
