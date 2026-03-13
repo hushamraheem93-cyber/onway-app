@@ -6,6 +6,8 @@ import { RouteProp, useRoute, useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useQuery } from "@tanstack/react-query";
 import { Feather } from "@expo/vector-icons";
+import { Image } from "expo-image";
+import { LinearGradient } from "expo-linear-gradient";
 
 import { useTheme } from "@/hooks/useTheme";
 import { Spacing, BorderRadius, AppColors } from "@/constants/theme";
@@ -18,25 +20,17 @@ import { RootStackParamList } from "@/navigation/RootStackNavigator";
 type ProductsRouteProp = RouteProp<RootStackParamList, "Products">;
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
-const { width: SCREEN_WIDTH } = Dimensions.get("window");
-
-const RESTAURANT_ICONS: Record<string, string> = {
-  "يلا ايت": "coffee",
-  "مطعم المشويات": "sun",
-  "مطعم الأسماك": "anchor",
-  "مطعم الدجاج": "feather",
-  "مطعم اللحوم": "award",
-};
-
-const RESTAURANT_COLORS: string[] = [
-  "#E86520",
-  "#E53935",
-  "#1E88E5",
-  "#FFA726",
-  "#43A047",
-  "#8E24AA",
-  "#00ACC1",
-];
+interface Vendor {
+  id: string;
+  name: string;
+  location: string;
+  whatsappNumber: string;
+  commissionPercent: number;
+  image: string;
+  rating: number;
+  deliveryTime: string;
+  isOpen: boolean;
+}
 
 export default function ProductsScreen() {
   const insets = useSafeAreaInsets();
@@ -46,21 +40,29 @@ export default function ProductsScreen() {
   const navigation = useNavigation<NavigationProp>();
   const { categoryId, searchQuery, restaurant } = route.params;
 
-  const { data: allProducts = [], isLoading } = useQuery<Product[]>({
+  const { data: allProducts = [], isLoading: productsLoading } = useQuery<Product[]>({
     queryKey: ["/api/products"],
+  });
+
+  const { data: vendors = [], isLoading: vendorsLoading } = useQuery<Vendor[]>({
+    queryKey: ["/api/vendors"],
   });
 
   const isRestaurantsCategory = categoryId === "restaurants" && !restaurant && !searchQuery;
 
-  const restaurants = useMemo(() => {
+  const restaurantList = useMemo(() => {
     if (!isRestaurantsCategory) return [];
+    if (vendors.length > 0) return vendors;
     const restProducts = allProducts.filter(p => p.categoryId === "restaurants" && p.restaurant);
     const restMap = new Map<string, number>();
     restProducts.forEach(p => {
       restMap.set(p.restaurant!, (restMap.get(p.restaurant!) || 0) + 1);
     });
-    return Array.from(restMap.entries()).map(([name, count]) => ({ name, count }));
-  }, [isRestaurantsCategory, allProducts]);
+    return Array.from(restMap.entries()).map(([name, count]) => ({
+      id: name, name, location: "", whatsappNumber: "", commissionPercent: 10,
+      image: "", rating: 4.5, deliveryTime: "30-45", isOpen: true,
+    } as Vendor));
+  }, [isRestaurantsCategory, allProducts, vendors]);
 
   const products = useMemo(() => {
     if (isRestaurantsCategory) return [];
@@ -82,20 +84,11 @@ export default function ProductsScreen() {
     return allProducts;
   }, [categoryId, searchQuery, restaurant, allProducts, isRestaurantsCategory]);
 
-  const renderProduct = ({ item }: { item: Product }) => (
-    <ProductCard product={item} />
-  );
-
-  const renderEmpty = () => (
-    <EmptyState
-      title="لا توجد منتجات"
-      subtitle="لم نجد منتجات في هذا القسم"
-    />
-  );
+  const isLoading = productsLoading || (isRestaurantsCategory && vendorsLoading);
 
   if (isLoading) {
     return (
-      <View style={{ flex: 1, backgroundColor: theme.backgroundRoot, justifyContent: 'center', alignItems: 'center' }}>
+      <View style={{ flex: 1, backgroundColor: theme.backgroundRoot, justifyContent: "center", alignItems: "center" }}>
         <ActivityIndicator size="large" color={theme.primary} />
       </View>
     );
@@ -113,30 +106,19 @@ export default function ProductsScreen() {
           flexGrow: 1,
         }}
         scrollIndicatorInsets={{ bottom: insets.bottom }}
-        data={restaurants}
-        renderItem={({ item, index }) => (
-          <Pressable
-            testID={`restaurant-card-${index}`}
-            style={[styles.restaurantCard, { backgroundColor: theme.backgroundSecondary }]}
-            onPress={() => navigation.navigate("Products", { categoryId: "restaurants", categoryName: item.name, restaurant: item.name })}
-          >
-            <View style={[styles.restaurantIcon, { backgroundColor: RESTAURANT_COLORS[index % RESTAURANT_COLORS.length] + "15" }]}>
-              <Feather
-                name={(RESTAURANT_ICONS[item.name] || "shopping-bag") as any}
-                size={28}
-                color={RESTAURANT_COLORS[index % RESTAURANT_COLORS.length]}
-              />
-            </View>
-            <View style={styles.restaurantInfo}>
-              <ThemedText type="h4" style={{ color: theme.text, textAlign: "right" }}>{item.name}</ThemedText>
-              <ThemedText type="small" style={{ color: theme.textSecondary, textAlign: "right" }}>
-                {item.count} وجبة
-              </ThemedText>
-            </View>
-            <Feather name="chevron-left" size={22} color={theme.textSecondary} />
-          </Pressable>
+        data={restaurantList}
+        renderItem={({ item }) => (
+          <VendorCard
+            vendor={item}
+            theme={theme}
+            onPress={() => navigation.navigate("Products", {
+              categoryId: "restaurants",
+              categoryName: item.name,
+              restaurant: item.name,
+            })}
+          />
         )}
-        keyExtractor={(item) => item.name}
+        keyExtractor={(item) => item.id}
         showsVerticalScrollIndicator={false}
         ListEmptyComponent={() => (
           <EmptyState title="لا توجد مطاعم" subtitle="لم يتم إضافة مطاعم بعد" />
@@ -158,12 +140,84 @@ export default function ProductsScreen() {
       columnWrapperStyle={styles.columnWrapper}
       scrollIndicatorInsets={{ bottom: insets.bottom }}
       data={products}
-      renderItem={renderProduct}
+      renderItem={({ item }) => <ProductCard product={item} />}
       keyExtractor={(item) => item.id}
       numColumns={2}
       showsVerticalScrollIndicator={false}
-      ListEmptyComponent={renderEmpty}
+      ListEmptyComponent={() => (
+        <EmptyState title="لا توجد منتجات" subtitle="لم نجد منتجات في هذا القسم" />
+      )}
     />
+  );
+}
+
+function VendorCard({ vendor, theme, onPress }: { vendor: Vendor; theme: any; onPress: () => void }) {
+  return (
+    <Pressable
+      testID={`restaurant-card-${vendor.id}`}
+      style={[styles.vendorCard, { backgroundColor: theme.backgroundSecondary }]}
+      onPress={onPress}
+    >
+      <View style={styles.vendorImageContainer}>
+        {vendor.image ? (
+          <Image
+            source={{ uri: vendor.image }}
+            style={styles.vendorImage}
+            contentFit="cover"
+            transition={200}
+          />
+        ) : (
+          <LinearGradient
+            colors={["#E86520", "#D94523"]}
+            style={styles.vendorImageFallback}
+          >
+            <Feather name="coffee" size={36} color="#fff" />
+          </LinearGradient>
+        )}
+        <View style={[
+          styles.openBadge,
+          { backgroundColor: vendor.isOpen ? "#10B981" : "#EF4444" },
+        ]}>
+          <ThemedText style={styles.openBadgeText}>
+            {vendor.isOpen ? "مفتوح" : "مغلق"}
+          </ThemedText>
+        </View>
+      </View>
+
+      <View style={styles.vendorBody}>
+        <View style={styles.vendorHeader}>
+          <ThemedText type="h4" style={{ color: theme.text, flex: 1, textAlign: "right" }} numberOfLines={1}>
+            {vendor.name}
+          </ThemedText>
+          <Feather name="chevron-left" size={18} color={theme.textSecondary} />
+        </View>
+
+        {vendor.location ? (
+          <View style={styles.vendorRow}>
+            <ThemedText type="small" style={{ color: theme.textSecondary, flex: 1, textAlign: "right" }} numberOfLines={1}>
+              {vendor.location}
+            </ThemedText>
+            <Feather name="map-pin" size={12} color={theme.textSecondary} style={{ marginLeft: 4 }} />
+          </View>
+        ) : null}
+
+        <View style={styles.vendorMeta}>
+          <View style={styles.metaItem}>
+            <ThemedText style={[styles.metaValue, { color: theme.text }]}>
+              {vendor.deliveryTime} د
+            </ThemedText>
+            <Feather name="clock" size={12} color={AppColors.primary} />
+          </View>
+          <View style={styles.metaDivider} />
+          <View style={styles.metaItem}>
+            <ThemedText style={[styles.metaValue, { color: theme.text }]}>
+              {vendor.rating}
+            </ThemedText>
+            <Feather name="star" size={12} color="#F59E0B" />
+          </View>
+        </View>
+      </View>
+    </Pressable>
   );
 }
 
@@ -174,22 +228,71 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
     marginBottom: Spacing.sm,
   },
-  restaurantCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    padding: Spacing.lg,
+  vendorCard: {
     borderRadius: BorderRadius.xl,
     marginBottom: Spacing.md,
+    overflow: "hidden",
   },
-  restaurantIcon: {
-    width: 56,
-    height: 56,
-    borderRadius: BorderRadius.lg,
+  vendorImageContainer: {
+    position: "relative",
+    width: "100%",
+    height: 160,
+  },
+  vendorImage: {
+    width: "100%",
+    height: "100%",
+  },
+  vendorImageFallback: {
+    width: "100%",
+    height: "100%",
     justifyContent: "center",
     alignItems: "center",
   },
-  restaurantInfo: {
-    flex: 1,
-    marginRight: Spacing.md,
+  openBadge: {
+    position: "absolute",
+    top: Spacing.sm,
+    right: Spacing.sm,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 20,
+  },
+  openBadgeText: {
+    color: "#fff",
+    fontSize: 11,
+    fontWeight: "700",
+  },
+  vendorBody: {
+    padding: Spacing.md,
+    gap: Spacing.xs,
+  },
+  vendorHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+  },
+  vendorRow: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  vendorMeta: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "flex-end",
+    gap: Spacing.sm,
+    marginTop: Spacing.xs,
+  },
+  metaItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  metaValue: {
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  metaDivider: {
+    width: 1,
+    height: 14,
+    backgroundColor: "#E5E7EB",
   },
 });

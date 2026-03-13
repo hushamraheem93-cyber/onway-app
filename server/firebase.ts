@@ -1226,3 +1226,68 @@ export async function initializeDefaultCategories(defaultCategories: any[]): Pro
     console.error("Error initializing default categories:", error);
   }
 }
+
+export interface FirestoreVendor {
+  name: string;
+  location: string;
+  whatsappNumber: string;
+  commissionPercent: number;
+  image: string;
+  rating: number;
+  deliveryTime: string;
+  isOpen: boolean;
+  createdAt: string;
+}
+
+export async function getVendors(): Promise<(FirestoreVendor & { id: string })[]> {
+  const db = getFirestore();
+  if (!db) return [];
+  try {
+    const snap = await db.collection("vendors").orderBy("name").get();
+    return snap.docs.map(d => ({ id: d.id, ...(d.data() as FirestoreVendor) }));
+  } catch {
+    return [];
+  }
+}
+
+export async function createVendor(data: FirestoreVendor): Promise<string> {
+  const db = getFirestore();
+  if (!db) throw new Error("DB not configured");
+  const ref = await db.collection("vendors").add(data);
+  return ref.id;
+}
+
+export async function updateVendor(id: string, data: Partial<FirestoreVendor>): Promise<boolean> {
+  const db = getFirestore();
+  if (!db) return false;
+  try {
+    await db.collection("vendors").doc(id).update(data);
+    return true;
+  } catch { return false; }
+}
+
+export async function deleteVendor(id: string): Promise<boolean> {
+  const db = getFirestore();
+  if (!db) return false;
+  try {
+    await db.collection("vendors").doc(id).delete();
+    return true;
+  } catch { return false; }
+}
+
+export async function initializeDefaultVendors(defaults: any[]): Promise<void> {
+  const db = getFirestore();
+  if (!db) return;
+  try {
+    const snap = await db.collection("vendors").limit(1).get();
+    if (!snap.empty) return;
+    const batch = db.batch();
+    defaults.forEach(v => {
+      const ref = db!.collection("vendors").doc(v.id);
+      const { id, ...data } = v;
+      batch.set(ref, data);
+    });
+    await batch.commit();
+    console.log("Default vendors initialized");
+  } catch (e) { console.error("Error initializing vendors:", e); }
+}

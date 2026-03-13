@@ -865,6 +865,60 @@ async function initializeDefaultCategories(defaultCategories) {
     console.error("Error initializing default categories:", error);
   }
 }
+async function getVendors() {
+  const db2 = getFirestore();
+  if (!db2) return [];
+  try {
+    const snap = await db2.collection("vendors").orderBy("name").get();
+    return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+  } catch {
+    return [];
+  }
+}
+async function createVendor(data) {
+  const db2 = getFirestore();
+  if (!db2) throw new Error("DB not configured");
+  const ref = await db2.collection("vendors").add(data);
+  return ref.id;
+}
+async function updateVendor(id, data) {
+  const db2 = getFirestore();
+  if (!db2) return false;
+  try {
+    await db2.collection("vendors").doc(id).update(data);
+    return true;
+  } catch {
+    return false;
+  }
+}
+async function deleteVendor(id) {
+  const db2 = getFirestore();
+  if (!db2) return false;
+  try {
+    await db2.collection("vendors").doc(id).delete();
+    return true;
+  } catch {
+    return false;
+  }
+}
+async function initializeDefaultVendors(defaults) {
+  const db2 = getFirestore();
+  if (!db2) return;
+  try {
+    const snap = await db2.collection("vendors").limit(1).get();
+    if (!snap.empty) return;
+    const batch = db2.batch();
+    defaults.forEach((v) => {
+      const ref = db2.collection("vendors").doc(v.id);
+      const { id, ...data } = v;
+      batch.set(ref, data);
+    });
+    await batch.commit();
+    console.log("Default vendors initialized");
+  } catch (e) {
+    console.error("Error initializing vendors:", e);
+  }
+}
 
 // server/pushNotifications.ts
 var ORDER_STATUS_MESSAGES = {
@@ -946,6 +1000,14 @@ var storage = multer.diskStorage({
   }
 });
 var upload = multer({ storage });
+var defaultVendors = [
+  { id: "v1", name: "\u064A\u0644\u0627 \u0627\u064A\u062A", location: "\u0627\u0644\u0636\u0644\u0648\u0639\u064A\u0629 - \u0634\u0627\u0631\u0639 \u0627\u0644\u062A\u062C\u0627\u0631\u064A", whatsappNumber: "9647701234001", commissionPercent: 10, image: "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=400", rating: 4.8, deliveryTime: "25-35", isOpen: true, createdAt: (/* @__PURE__ */ new Date()).toISOString() },
+  { id: "v2", name: "\u0645\u0637\u0639\u0645 \u0627\u0644\u0645\u0634\u0648\u064A\u0627\u062A", location: "\u0627\u0644\u0636\u0644\u0648\u0639\u064A\u0629 - \u0627\u0644\u0633\u0648\u0642 \u0627\u0644\u0645\u0631\u0643\u0632\u064A", whatsappNumber: "9647701234002", commissionPercent: 12, image: "https://images.unsplash.com/photo-1544025162-d76694265947?w=400", rating: 4.6, deliveryTime: "30-45", isOpen: true, createdAt: (/* @__PURE__ */ new Date()).toISOString() },
+  { id: "v3", name: "\u0645\u0637\u0639\u0645 \u0627\u0644\u0623\u0633\u0645\u0627\u0643", location: "\u0627\u0644\u0636\u0644\u0648\u0639\u064A\u0629 - \u0642\u0631\u0628 \u0627\u0644\u0646\u0647\u0631", whatsappNumber: "9647701234003", commissionPercent: 10, image: "https://images.unsplash.com/photo-1519708227418-c8fd9a32b7a2?w=400", rating: 4.5, deliveryTime: "35-50", isOpen: false, createdAt: (/* @__PURE__ */ new Date()).toISOString() },
+  { id: "v4", name: "\u0645\u0637\u0639\u0645 \u0627\u0644\u062F\u062C\u0627\u062C", location: "\u0627\u0644\u0636\u0644\u0648\u0639\u064A\u0629 - \u0627\u0644\u062D\u064A \u0627\u0644\u0634\u0645\u0627\u0644\u064A", whatsappNumber: "9647701234004", commissionPercent: 10, image: "https://images.unsplash.com/photo-1598103442097-8b74394b95c6?w=400", rating: 4.4, deliveryTime: "20-30", isOpen: true, createdAt: (/* @__PURE__ */ new Date()).toISOString() },
+  { id: "v5", name: "\u0645\u0637\u0639\u0645 \u0627\u0644\u0644\u062D\u0648\u0645", location: "\u0627\u0644\u0636\u0644\u0648\u0639\u064A\u0629 - \u0642\u0631\u0628 \u0627\u0644\u062C\u0627\u0645\u0639 \u0627\u0644\u0643\u0628\u064A\u0631", whatsappNumber: "9647701234005", commissionPercent: 12, image: "https://images.unsplash.com/photo-1600891964092-4316c288032e?w=400", rating: 4.7, deliveryTime: "30-40", isOpen: true, createdAt: (/* @__PURE__ */ new Date()).toISOString() }
+];
+var vendorsCache = null;
 var userProfiles = [];
 var deliveryAreas = [
   { id: "daloaiya", name: "\u0627\u0644\u0636\u0644\u0648\u0639\u064A\u0629 \u0627\u0644\u0645\u0631\u0643\u0632", fee: 3e3, isActive: true },
@@ -1102,6 +1164,7 @@ async function registerRoutes(app2) {
   await initializeDefaultCategories(categories);
   await initializeDefaultBanners(banners);
   await initializeDefaultDeliveryAreas(deliveryAreas);
+  await initializeDefaultVendors(defaultVendors);
   app2.use("/uploads", (req, res, next) => {
     res.setHeader("Access-Control-Allow-Origin", "*");
     next();
@@ -1560,6 +1623,100 @@ async function registerRoutes(app2) {
       res.status(500).json({ error: "Failed to delete delivery area" });
     }
   });
+  async function getVendorList() {
+    if (vendorsCache) return vendorsCache;
+    try {
+      const list = await getVendors();
+      if (list.length > 0) {
+        vendorsCache = list;
+        return vendorsCache;
+      }
+    } catch {
+    }
+    vendorsCache = [...defaultVendors];
+    return vendorsCache;
+  }
+  function invalidateVendorsCache() {
+    vendorsCache = null;
+  }
+  app2.get("/api/vendors", async (_req, res) => {
+    const vendors = await getVendorList();
+    res.json(vendors);
+  });
+  app2.get("/api/admin/vendors", async (_req, res) => {
+    const vendors = await getVendorList();
+    res.json(vendors);
+  });
+  app2.post("/api/admin/vendors", async (req, res) => {
+    const { name, location, whatsappNumber, commissionPercent, image, rating, deliveryTime, isOpen } = req.body;
+    if (!name) return res.status(400).json({ error: "\u0627\u0633\u0645 \u0627\u0644\u0645\u0637\u0639\u0645 \u0645\u0637\u0644\u0648\u0628" });
+    const data = {
+      name: String(name),
+      location: String(location || ""),
+      whatsappNumber: String(whatsappNumber || ""),
+      commissionPercent: Number(commissionPercent) || 10,
+      image: String(image || "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=400"),
+      rating: Number(rating) || 4.5,
+      deliveryTime: String(deliveryTime || "30-45"),
+      isOpen: Boolean(isOpen !== false),
+      createdAt: (/* @__PURE__ */ new Date()).toISOString()
+    };
+    try {
+      const id = await createVendor(data);
+      invalidateVendorsCache();
+      res.json({ id, ...data });
+    } catch (e) {
+      res.status(500).json({ error: "\u0641\u0634\u0644 \u0625\u0646\u0634\u0627\u0621 \u0627\u0644\u0645\u0637\u0639\u0645" });
+    }
+  });
+  app2.put("/api/admin/vendors/:id", async (req, res) => {
+    const { id } = req.params;
+    const { name, location, whatsappNumber, commissionPercent, image, rating, deliveryTime, isOpen } = req.body;
+    const updates = {};
+    if (name !== void 0) updates.name = String(name);
+    if (location !== void 0) updates.location = String(location);
+    if (whatsappNumber !== void 0) updates.whatsappNumber = String(whatsappNumber);
+    if (commissionPercent !== void 0) updates.commissionPercent = Number(commissionPercent);
+    if (image !== void 0) updates.image = String(image);
+    if (rating !== void 0) updates.rating = Number(rating);
+    if (deliveryTime !== void 0) updates.deliveryTime = String(deliveryTime);
+    if (isOpen !== void 0) updates.isOpen = Boolean(isOpen);
+    try {
+      await updateVendor(id, updates);
+      invalidateVendorsCache();
+      res.json({ success: true, id, ...updates });
+    } catch {
+      res.status(500).json({ error: "\u0641\u0634\u0644 \u062A\u062D\u062F\u064A\u062B \u0627\u0644\u0645\u0637\u0639\u0645" });
+    }
+  });
+  app2.delete("/api/admin/vendors/:id", async (req, res) => {
+    const { id } = req.params;
+    try {
+      await deleteVendor(id);
+      invalidateVendorsCache();
+      res.json({ success: true });
+    } catch {
+      res.status(500).json({ error: "\u0641\u0634\u0644 \u062D\u0630\u0641 \u0627\u0644\u0645\u0637\u0639\u0645" });
+    }
+  });
+  app2.get("/api/admin/vendors/:id/statement", async (req, res) => {
+    const { id } = req.params;
+    const db2 = getFirestore();
+    const vendors = await getVendorList();
+    const vendor = vendors.find((v) => v.id === id);
+    if (!vendor) return res.status(404).json({ error: "\u0627\u0644\u0645\u0637\u0639\u0645 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F" });
+    if (!db2) return res.json({ vendor, orders: [], totalSales: 0, appCommission: 0, vendorNet: 0 });
+    try {
+      const ordersSnap = await db2.collection("orders").where("vendorId", "==", id).get();
+      const orders = ordersSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      const totalSales = orders.reduce((s, o) => s + (o.total || 0), 0);
+      const appCommission = Math.round(totalSales * vendor.commissionPercent / 100);
+      const vendorNet = totalSales - appCommission;
+      res.json({ vendor, orders: orders.length, totalSales, appCommission, vendorNet, commissionPercent: vendor.commissionPercent });
+    } catch {
+      res.json({ vendor, orders: 0, totalSales: 0, appCommission: 0, vendorNet: 0, commissionPercent: vendor.commissionPercent });
+    }
+  });
   app2.get("/api/orders", async (req, res) => {
     const phoneNumber = req.query.phoneNumber;
     const db2 = getFirestore();
@@ -1615,6 +1772,36 @@ async function registerRoutes(app2) {
       if (courierDetails) orderData.courierDetails = courierDetails;
       if (promoCode) orderData.promoCode = promoCode;
       if (promoDiscount) orderData.promoDiscount = promoDiscount;
+      let vendorWhatsappUrl = null;
+      try {
+        const allProds = await getProducts();
+        const vendorsList = await getVendorList();
+        const firstItem = items && items.length > 0 ? items[0] : null;
+        if (firstItem) {
+          const prod = allProds.find((p) => p.id === firstItem.productId);
+          if (prod && prod.categoryId === "restaurants") {
+            const vendor = vendorsList.find((v) => v.name === prod.restaurant || v.id === prod.vendorId);
+            if (vendor) {
+              orderData.vendorId = vendor.id;
+              orderData.vendorName = vendor.name;
+              orderData.vendorWhatsapp = vendor.whatsappNumber;
+              const itemsList = items.map((it) => `\u2022 ${it.name} \xD7 ${it.quantity}`).join("\n");
+              const orderId = Math.random().toString(36).slice(2, 8).toUpperCase();
+              const waMsg = encodeURIComponent(
+                `\u0637\u0644\u0628 \u062C\u062F\u064A\u062F \u0645\u0646 OnWay \u{1F6D2}
+\u0631\u0642\u0645 \u0627\u0644\u0637\u0644\u0628: #${orderId}
+\u0627\u0644\u0648\u062C\u0628\u0627\u062A:
+${itemsList}
+\u0627\u0644\u0625\u062C\u0645\u0627\u0644\u064A: ${total?.toLocaleString?.() ?? total} \u062F.\u0639
+\u0627\u0644\u0633\u0627\u0626\u0642: \u0633\u064A\u062A\u0645 \u0627\u0644\u062A\u0639\u064A\u064A\u0646 \u0641\u0648\u0631 \u0627\u0644\u062C\u0627\u0647\u0632\u064A\u0629`
+              );
+              vendorWhatsappUrl = `https://wa.me/${vendor.whatsappNumber}?text=${waMsg}`;
+            }
+          }
+        }
+      } catch (e) {
+        console.error("Vendor detection error:", e);
+      }
       const newOrder = await createOrder(orderData);
       if (newOrder) {
         if (promoCode) {
@@ -1625,7 +1812,8 @@ async function registerRoutes(app2) {
         return res.json({
           ...newOrder,
           createdAt: newOrder.createdAt.toDate().toISOString(),
-          updatedAt: newOrder.updatedAt.toDate().toISOString()
+          updatedAt: newOrder.updatedAt.toDate().toISOString(),
+          vendorWhatsappUrl
         });
       }
       return res.status(500).json({ error: "Failed to create order" });

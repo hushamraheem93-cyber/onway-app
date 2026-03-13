@@ -29,7 +29,10 @@ import {
   getDriverWalletBalance, updateDriverWalletBalance, addWalletTransaction, getWalletHistory,
   saveDriverCompletedOrder, getDriverCompletedOrdersFromDB,
   saveDriverActivity, getDriverActivityLog, updateDriverLastLocation,
-  getOrdersByDriverPhone
+  getOrdersByDriverPhone,
+  getVendors as getFirestoreVendors, createVendor as createFirestoreVendor,
+  updateVendor as updateFirestoreVendor, deleteVendor as deleteFirestoreVendor,
+  initializeDefaultVendors
 } from "./firebase";
 import { sendPushNotification } from "./pushNotifications";
 
@@ -82,7 +85,31 @@ interface Product {
   description: string;
   inStock: boolean;
   restaurant?: string;
+  vendorId?: string;
 }
+
+interface Vendor {
+  id: string;
+  name: string;
+  location: string;
+  whatsappNumber: string;
+  commissionPercent: number;
+  image: string;
+  rating: number;
+  deliveryTime: string;
+  isOpen: boolean;
+  createdAt: string;
+}
+
+const defaultVendors: Vendor[] = [
+  { id: "v1", name: "يلا ايت", location: "الضلوعية - شارع التجاري", whatsappNumber: "9647701234001", commissionPercent: 10, image: "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=400", rating: 4.8, deliveryTime: "25-35", isOpen: true, createdAt: new Date().toISOString() },
+  { id: "v2", name: "مطعم المشويات", location: "الضلوعية - السوق المركزي", whatsappNumber: "9647701234002", commissionPercent: 12, image: "https://images.unsplash.com/photo-1544025162-d76694265947?w=400", rating: 4.6, deliveryTime: "30-45", isOpen: true, createdAt: new Date().toISOString() },
+  { id: "v3", name: "مطعم الأسماك", location: "الضلوعية - قرب النهر", whatsappNumber: "9647701234003", commissionPercent: 10, image: "https://images.unsplash.com/photo-1519708227418-c8fd9a32b7a2?w=400", rating: 4.5, deliveryTime: "35-50", isOpen: false, createdAt: new Date().toISOString() },
+  { id: "v4", name: "مطعم الدجاج", location: "الضلوعية - الحي الشمالي", whatsappNumber: "9647701234004", commissionPercent: 10, image: "https://images.unsplash.com/photo-1598103442097-8b74394b95c6?w=400", rating: 4.4, deliveryTime: "20-30", isOpen: true, createdAt: new Date().toISOString() },
+  { id: "v5", name: "مطعم اللحوم", location: "الضلوعية - قرب الجامع الكبير", whatsappNumber: "9647701234005", commissionPercent: 12, image: "https://images.unsplash.com/photo-1600891964092-4316c288032e?w=400", rating: 4.7, deliveryTime: "30-40", isOpen: true, createdAt: new Date().toISOString() },
+];
+
+let vendorsCache: Vendor[] | null = null;
 
 interface DeliveryArea {
   id: string;
@@ -282,6 +309,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   await initializeDefaultCategories(categories);
   await initializeDefaultBanners(banners);
   await initializeDefaultDeliveryAreas(deliveryAreas);
+  await initializeDefaultVendors(defaultVendors);
   
   app.use("/uploads", (req, res, next) => {
     res.setHeader("Access-Control-Allow-Origin", "*");
@@ -788,7 +816,105 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Order Routes
+  // ─── Vendor (Multi-Vendor Restaurant) Routes ────────────────────────────────
+
+  async function getVendorList(): Promise<Vendor[]> {
+    if (vendorsCache) return vendorsCache;
+    try {
+      const list = await getFirestoreVendors();
+      if (list.length > 0) { vendorsCache = list as Vendor[]; return vendorsCache; }
+    } catch {}
+    vendorsCache = [...defaultVendors];
+    return vendorsCache;
+  }
+
+  function invalidateVendorsCache() { vendorsCache = null; }
+
+  app.get("/api/vendors", async (_req, res) => {
+    const vendors = await getVendorList();
+    res.json(vendors);
+  });
+
+  app.get("/api/admin/vendors", async (_req, res) => {
+    const vendors = await getVendorList();
+    res.json(vendors);
+  });
+
+  app.post("/api/admin/vendors", async (req: Request, res: Response) => {
+    const { name, location, whatsappNumber, commissionPercent, image, rating, deliveryTime, isOpen } = req.body;
+    if (!name) return res.status(400).json({ error: "اسم المطعم مطلوب" });
+    const data = {
+      name: String(name),
+      location: String(location || ""),
+      whatsappNumber: String(whatsappNumber || ""),
+      commissionPercent: Number(commissionPercent) || 10,
+      image: String(image || "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=400"),
+      rating: Number(rating) || 4.5,
+      deliveryTime: String(deliveryTime || "30-45"),
+      isOpen: Boolean(isOpen !== false),
+      createdAt: new Date().toISOString(),
+    };
+    try {
+      const id = await createFirestoreVendor(data);
+      invalidateVendorsCache();
+      res.json({ id, ...data });
+    } catch (e) {
+      res.status(500).json({ error: "فشل إنشاء المطعم" });
+    }
+  });
+
+  app.put("/api/admin/vendors/:id", async (req: Request, res: Response) => {
+    const { id } = req.params;
+    const { name, location, whatsappNumber, commissionPercent, image, rating, deliveryTime, isOpen } = req.body;
+    const updates: any = {};
+    if (name !== undefined) updates.name = String(name);
+    if (location !== undefined) updates.location = String(location);
+    if (whatsappNumber !== undefined) updates.whatsappNumber = String(whatsappNumber);
+    if (commissionPercent !== undefined) updates.commissionPercent = Number(commissionPercent);
+    if (image !== undefined) updates.image = String(image);
+    if (rating !== undefined) updates.rating = Number(rating);
+    if (deliveryTime !== undefined) updates.deliveryTime = String(deliveryTime);
+    if (isOpen !== undefined) updates.isOpen = Boolean(isOpen);
+    try {
+      await updateFirestoreVendor(id, updates);
+      invalidateVendorsCache();
+      res.json({ success: true, id, ...updates });
+    } catch {
+      res.status(500).json({ error: "فشل تحديث المطعم" });
+    }
+  });
+
+  app.delete("/api/admin/vendors/:id", async (req: Request, res: Response) => {
+    const { id } = req.params;
+    try {
+      await deleteFirestoreVendor(id);
+      invalidateVendorsCache();
+      res.json({ success: true });
+    } catch {
+      res.status(500).json({ error: "فشل حذف المطعم" });
+    }
+  });
+
+  app.get("/api/admin/vendors/:id/statement", async (req: Request, res: Response) => {
+    const { id } = req.params;
+    const db = getFirestore();
+    const vendors = await getVendorList();
+    const vendor = vendors.find(v => v.id === id);
+    if (!vendor) return res.status(404).json({ error: "المطعم غير موجود" });
+    if (!db) return res.json({ vendor, orders: [], totalSales: 0, appCommission: 0, vendorNet: 0 });
+    try {
+      const ordersSnap = await db.collection("orders").where("vendorId", "==", id).get();
+      const orders = ordersSnap.docs.map(d => ({ id: d.id, ...d.data() })) as any[];
+      const totalSales = orders.reduce((s, o) => s + (o.total || 0), 0);
+      const appCommission = Math.round(totalSales * vendor.commissionPercent / 100);
+      const vendorNet = totalSales - appCommission;
+      res.json({ vendor, orders: orders.length, totalSales, appCommission, vendorNet, commissionPercent: vendor.commissionPercent });
+    } catch {
+      res.json({ vendor, orders: 0, totalSales: 0, appCommission: 0, vendorNet: 0, commissionPercent: vendor.commissionPercent });
+    }
+  });
+
+  // ─── Order Routes ────────────────────────────────────────────────────────────
   app.get("/api/orders", async (req, res) => {
     const phoneNumber = req.query.phoneNumber as string;
     const db = getFirestore();
@@ -851,6 +977,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (courierDetails) orderData.courierDetails = courierDetails;
       if (promoCode) orderData.promoCode = promoCode;
       if (promoDiscount) orderData.promoDiscount = promoDiscount;
+
+      // Detect vendor for restaurant orders
+      let vendorWhatsappUrl: string | null = null;
+      try {
+        const allProds = await getFirestoreProducts();
+        const vendorsList = await getVendorList();
+        const firstItem = items && items.length > 0 ? items[0] : null;
+        if (firstItem) {
+          const prod = allProds.find((p: any) => p.id === firstItem.productId);
+          if (prod && prod.categoryId === "restaurants") {
+            const vendor = vendorsList.find(v => v.name === prod.restaurant || v.id === prod.vendorId);
+            if (vendor) {
+              orderData.vendorId = vendor.id;
+              orderData.vendorName = vendor.name;
+              orderData.vendorWhatsapp = vendor.whatsappNumber;
+              // Build WhatsApp message
+              const itemsList = (items as any[]).map((it: any) => `• ${it.name} × ${it.quantity}`).join("\n");
+              const orderId = Math.random().toString(36).slice(2,8).toUpperCase();
+              const waMsg = encodeURIComponent(
+                `طلب جديد من OnWay 🛒\nرقم الطلب: #${orderId}\nالوجبات:\n${itemsList}\nالإجمالي: ${total?.toLocaleString?.() ?? total} د.ع\nالسائق: سيتم التعيين فور الجاهزية`
+              );
+              vendorWhatsappUrl = `https://wa.me/${vendor.whatsappNumber}?text=${waMsg}`;
+            }
+          }
+        }
+      } catch (e) { console.error("Vendor detection error:", e); }
+
       const newOrder = await createOrder(orderData);
       if (newOrder) {
         if (promoCode) {
@@ -862,6 +1015,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           ...newOrder,
           createdAt: newOrder.createdAt.toDate().toISOString(),
           updatedAt: newOrder.updatedAt.toDate().toISOString(),
+          vendorWhatsappUrl,
         });
       }
       return res.status(500).json({ error: "Failed to create order" });

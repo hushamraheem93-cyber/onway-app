@@ -3,6 +3,13 @@
 ## Overview
 تطبيق توصيل وتسوق محلي احترافي للهواتف المحمولة (iOS و Android) باستخدام React Native و Expo. يتيح للمستخدمين تصفح وطلب المنتجات من أقسام متعددة داخل المدينة.
 
+## Multi-Vendor System (نظام Multi-Vendor للمطاعم)
+- **Firestore Collection**: `vendors` — يحتوي على: id, name, location, whatsappNumber, commissionPercent, image, rating, deliveryTime, isOpen
+- **API Endpoints**: `GET /api/vendors`, `GET|POST|PUT|DELETE /api/admin/vendors/:id`, `GET /api/admin/vendors/:id/statement`
+- **Order Integration**: عند إنشاء طلب مطعم، يُضاف تلقائياً: vendorId, vendorName, vendorWhatsapp + vendorWhatsappUrl للإشعار
+- **Admin Panel**: قسم "المطاعم" كامل مع: إحصائيات، CRUD، كشف حساب مالي (إجمالي مبيعات، عمولة التطبيق، صافي المطعم)، عمود المصدر في جدول الطلبات
+- **App UI**: كروت مطاعم مطورة مع صورة كاملة، شعار مفتوح/مغلق، تقييم، وقت توصيل
+
 ## Tech Stack
 - **Frontend**: React Native (Expo) with TypeScript
 - **Backend**: Node.js + Express
