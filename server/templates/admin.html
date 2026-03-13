@@ -2090,29 +2090,32 @@
       <div class="content">
         <!-- Row 1: Active Operational Stats -->
         <div class="stats-row-active">
-          <div style="background: linear-gradient(135deg, #F59E0B, #FBBF24); border-radius: 16px; padding: 20px; color: white;">
+          <div onclick="showOrdersStatusChart()" style="background: linear-gradient(135deg, #F59E0B, #FBBF24); border-radius: 16px; padding: 20px; color: white; cursor: pointer; transition: transform 0.15s, box-shadow 0.15s;" onmouseover="this.style.transform='scale(1.03)';this.style.boxShadow='0 8px 24px rgba(245,158,11,0.35)'" onmouseout="this.style.transform='scale(1)';this.style.boxShadow='none'">
             <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
               <i data-lucide="clock" style="width: 24px; height: 24px;"></i>
               <span style="font-size: 0.9rem; opacity: 0.9;">قيد الانتظار</span>
+              <i data-lucide="pie-chart" style="width: 16px; height: 16px; margin-right: auto; opacity: 0.75;"></i>
             </div>
             <div id="stat-pending-orders" style="font-size: 2.2rem; font-weight: 800;">0</div>
-            <div style="font-size: 0.75rem; opacity: 0.8; margin-top: 4px;">طلبات تنتظر التأكيد</div>
+            <div style="font-size: 0.75rem; opacity: 0.8; margin-top: 4px;">طلبات تنتظر التأكيد · اضغط للرسم البياني</div>
           </div>
-          <div style="background: linear-gradient(135deg, #8B5CF6, #A78BFA); border-radius: 16px; padding: 20px; color: white;">
+          <div onclick="showOrdersStatusChart()" style="background: linear-gradient(135deg, #8B5CF6, #A78BFA); border-radius: 16px; padding: 20px; color: white; cursor: pointer; transition: transform 0.15s, box-shadow 0.15s;" onmouseover="this.style.transform='scale(1.03)';this.style.boxShadow='0 8px 24px rgba(139,92,246,0.35)'" onmouseout="this.style.transform='scale(1)';this.style.boxShadow='none'">
             <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
               <i data-lucide="chef-hat" style="width: 24px; height: 24px;"></i>
               <span style="font-size: 0.9rem; opacity: 0.9;">جاري التحضير</span>
+              <i data-lucide="pie-chart" style="width: 16px; height: 16px; margin-right: auto; opacity: 0.75;"></i>
             </div>
             <div id="stat-preparing-orders" style="font-size: 2.2rem; font-weight: 800;">0</div>
-            <div style="font-size: 0.75rem; opacity: 0.8; margin-top: 4px;">طلبات قيد التحضير</div>
+            <div style="font-size: 0.75rem; opacity: 0.8; margin-top: 4px;">طلبات قيد التحضير · اضغط للرسم البياني</div>
           </div>
-          <div style="background: linear-gradient(135deg, #06B6D4, #0891B2); border-radius: 16px; padding: 20px; color: white;">
+          <div onclick="showOrdersStatusChart()" style="background: linear-gradient(135deg, #06B6D4, #0891B2); border-radius: 16px; padding: 20px; color: white; cursor: pointer; transition: transform 0.15s, box-shadow 0.15s;" onmouseover="this.style.transform='scale(1.03)';this.style.boxShadow='0 8px 24px rgba(6,182,212,0.35)'" onmouseout="this.style.transform='scale(1)';this.style.boxShadow='none'">
             <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
               <i data-lucide="truck" style="width: 24px; height: 24px;"></i>
               <span style="font-size: 0.9rem; opacity: 0.9;">جاري التوصيل</span>
+              <i data-lucide="pie-chart" style="width: 16px; height: 16px; margin-right: auto; opacity: 0.75;"></i>
             </div>
             <div id="stat-delivering-orders" style="font-size: 2.2rem; font-weight: 800;">0</div>
-            <div style="font-size: 0.75rem; opacity: 0.8; margin-top: 4px;">طلبات مع السائقين</div>
+            <div style="font-size: 0.75rem; opacity: 0.8; margin-top: 4px;">طلبات مع السائقين · اضغط للرسم البياني</div>
           </div>
         </div>
 
@@ -2127,41 +2130,45 @@
             <div id="stat-delivered-orders" style="font-size: 2.2rem; font-weight: 800;">0</div>
             <div style="font-size: 0.75rem; opacity: 0.8; margin-top: 4px;">طلبات مكتملة · اضغط لعرض المناطق</div>
           </div>
-          <div style="background: linear-gradient(135deg, #EF4444, #F87171); border-radius: 16px; padding: 20px; color: white;">
+          <div onclick="showCompletionRateChart()" style="background: linear-gradient(135deg, #EF4444, #F87171); border-radius: 16px; padding: 20px; color: white; cursor: pointer; transition: transform 0.15s, box-shadow 0.15s;" onmouseover="this.style.transform='scale(1.03)';this.style.boxShadow='0 8px 24px rgba(239,68,68,0.35)'" onmouseout="this.style.transform='scale(1)';this.style.boxShadow='none'">
             <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
               <i data-lucide="x-circle" style="width: 24px; height: 24px;"></i>
               <span style="font-size: 0.9rem; opacity: 0.9;">ملغية</span>
+              <i data-lucide="pie-chart" style="width: 16px; height: 16px; margin-right: auto; opacity: 0.75;"></i>
             </div>
             <div id="stat-cancelled-orders" style="font-size: 2.2rem; font-weight: 800;">0</div>
-            <div style="font-size: 0.75rem; opacity: 0.8; margin-top: 4px;">طلبات ملغاة</div>
+            <div style="font-size: 0.75rem; opacity: 0.8; margin-top: 4px;">طلبات ملغاة · اضغط للرسم البياني</div>
           </div>
         </div>
 
         <!-- Row 3: Financial Stats -->
         <div class="stats-row-financial">
-          <div style="background: linear-gradient(135deg, #D94523, #F07050); border-radius: 16px; padding: 20px; color: white;">
+          <div onclick="showRevenueChart()" style="background: linear-gradient(135deg, #D94523, #F07050); border-radius: 16px; padding: 20px; color: white; cursor: pointer; transition: transform 0.15s, box-shadow 0.15s;" onmouseover="this.style.transform='scale(1.03)';this.style.boxShadow='0 8px 24px rgba(217,69,35,0.35)'" onmouseout="this.style.transform='scale(1)';this.style.boxShadow='none'">
             <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
               <i data-lucide="shopping-bag" style="width: 24px; height: 24px;"></i>
               <span style="font-size: 0.85rem; opacity: 0.9;">إجمالي المبيعات</span>
+              <i data-lucide="pie-chart" style="width: 15px; height: 15px; margin-right: auto; opacity: 0.75;"></i>
             </div>
             <div id="stat-total-revenue" style="font-size: 1.4rem; font-weight: 800;">0 د.ع</div>
-            <div style="font-size: 0.7rem; opacity: 0.8; margin-top: 4px;">كل الطلبات غير الملغاة</div>
+            <div style="font-size: 0.7rem; opacity: 0.8; margin-top: 4px;">كل الطلبات غير الملغاة · اضغط للرسم البياني</div>
           </div>
-          <div style="background: linear-gradient(135deg, #10B981, #059669); border-radius: 16px; padding: 20px; color: white;">
+          <div onclick="showEarningsChart()" style="background: linear-gradient(135deg, #10B981, #059669); border-radius: 16px; padding: 20px; color: white; cursor: pointer; transition: transform 0.15s, box-shadow 0.15s;" onmouseover="this.style.transform='scale(1.03)';this.style.boxShadow='0 8px 24px rgba(16,185,129,0.35)'" onmouseout="this.style.transform='scale(1)';this.style.boxShadow='none'">
             <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
               <i data-lucide="wallet" style="width: 24px; height: 24px;"></i>
               <span style="font-size: 0.85rem; opacity: 0.9;">أرباح التطبيق</span>
+              <i data-lucide="pie-chart" style="width: 15px; height: 15px; margin-right: auto; opacity: 0.75;"></i>
             </div>
             <div id="stat-owner-earnings" style="font-size: 1.4rem; font-weight: 800;">0 د.ع</div>
-            <div style="font-size: 0.7rem; opacity: 0.8; margin-top: 4px;">صافي ربح المنصة</div>
+            <div style="font-size: 0.7rem; opacity: 0.8; margin-top: 4px;">صافي ربح المنصة · اضغط للرسم البياني</div>
           </div>
-          <div style="background: linear-gradient(135deg, #3B82F6, #60A5FA); border-radius: 16px; padding: 20px; color: white;">
+          <div onclick="showEarningsChart()" style="background: linear-gradient(135deg, #3B82F6, #60A5FA); border-radius: 16px; padding: 20px; color: white; cursor: pointer; transition: transform 0.15s, box-shadow 0.15s;" onmouseover="this.style.transform='scale(1.03)';this.style.boxShadow='0 8px 24px rgba(59,130,246,0.35)'" onmouseout="this.style.transform='scale(1)';this.style.boxShadow='none'">
             <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
               <i data-lucide="truck" style="width: 24px; height: 24px;"></i>
               <span style="font-size: 0.85rem; opacity: 0.9;">أرباح السائقين</span>
+              <i data-lucide="pie-chart" style="width: 15px; height: 15px; margin-right: auto; opacity: 0.75;"></i>
             </div>
             <div id="stat-driver-earnings" style="font-size: 1.4rem; font-weight: 800;">0 د.ع</div>
-            <div style="font-size: 0.7rem; opacity: 0.8; margin-top: 4px;">إجمالي ما أكسبه السائقون</div>
+            <div style="font-size: 0.7rem; opacity: 0.8; margin-top: 4px;">إجمالي ما أكسبه السائقون · اضغط للرسم البياني</div>
           </div>
         </div>
         <!-- hidden stat for total orders - keep ID for JS compat -->
@@ -6119,11 +6126,445 @@
       if (areasChartInstance) { areasChartInstance.destroy(); areasChartInstance = null; }
     }
 
+    // ── Orders Status Donut Chart ──────────────────────────────────────────
+    let ordersStatusChartInstance = null;
+
+    function showOrdersStatusChart() {
+      if (!orders || orders.length === 0) return;
+
+      const statusConfig = {
+        pending:   { label: 'قيد الانتظار',    color: '#F59E0B' },
+        confirmed: { label: 'تم التأكيد',       color: '#8B5CF6' },
+        preparing: { label: 'جاري التحضير',     color: '#A78BFA' },
+        delivering:{ label: 'جاري التوصيل',     color: '#06B6D4' },
+        delivered: { label: 'تم التوصيل',       color: '#10B981' },
+        cancelled: { label: 'ملغية',            color: '#EF4444' },
+      };
+
+      const counts = {};
+      for (const key of Object.keys(statusConfig)) counts[key] = 0;
+      for (const o of orders) {
+        if (counts[o.status] !== undefined) counts[o.status]++;
+      }
+
+      const filtered = Object.entries(counts).filter(([, v]) => v > 0);
+      const labels  = filtered.map(([k]) => statusConfig[k].label);
+      const values  = filtered.map(([, v]) => v);
+      const colors  = filtered.map(([k]) => statusConfig[k].color);
+      const total   = values.reduce((s, v) => s + v, 0);
+
+      // Legend
+      const legendHtml = filtered.map(([k, count]) => {
+        const pct = ((count / total) * 100).toFixed(1);
+        return `<tr>
+          <td style="padding:6px 8px;">
+            <span style="display:inline-block;width:14px;height:14px;border-radius:50%;background:${statusConfig[k].color};vertical-align:middle;margin-left:6px;"></span>
+            ${statusConfig[k].label}
+          </td>
+          <td style="padding:6px 8px;font-weight:700;text-align:center;">${count.toLocaleString('ar-IQ')}</td>
+          <td style="padding:6px 8px;text-align:center;">
+            <span style="background:#F3F4F6;border-radius:20px;padding:2px 10px;font-size:0.82rem;font-weight:600;">${pct}%</span>
+          </td>
+        </tr>`;
+      }).join('');
+      document.getElementById('orders-status-legend').innerHTML = legendHtml;
+
+      document.getElementById('orders-status-chart-modal').style.display = 'flex';
+
+      if (ordersStatusChartInstance) { ordersStatusChartInstance.destroy(); ordersStatusChartInstance = null; }
+      const ctx = document.getElementById('orders-status-canvas').getContext('2d');
+      ordersStatusChartInstance = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+          labels,
+          datasets: [{ data: values, backgroundColor: colors, borderWidth: 3, borderColor: '#fff', hoverOffset: 12 }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          cutout: '62%',
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                label: ctx => {
+                  const pct = ((ctx.parsed / total) * 100).toFixed(1);
+                  return ` ${ctx.label}: ${ctx.parsed.toLocaleString('ar-IQ')} طلب (${pct}%)`;
+                }
+              }
+            }
+          }
+        }
+      });
+    }
+
+    function closeOrdersStatusChart() {
+      document.getElementById('orders-status-chart-modal').style.display = 'none';
+      if (ordersStatusChartInstance) { ordersStatusChartInstance.destroy(); ordersStatusChartInstance = null; }
+    }
+
+    // ── Completion Rate Donut Chart (cancelled card) ───────────────────────
+    let completionChartInstance = null;
+
+    function showCompletionRateChart() {
+      if (!orders || orders.length === 0) return;
+
+      const delivered = orders.filter(o => o.status === 'delivered').length;
+      const cancelled = orders.filter(o => o.status === 'cancelled').length;
+      const active    = orders.filter(o => !['delivered','cancelled'].includes(o.status)).length;
+      const total     = delivered + cancelled + active;
+
+      if (total === 0) return;
+
+      const labels = ['تم التوصيل', 'ملغية', 'نشطة'];
+      const values = [delivered, cancelled, active];
+      const colors = ['#10B981', '#EF4444', '#F59E0B'];
+
+      const legendHtml = labels.map((lbl, i) => {
+        const pct = ((values[i] / total) * 100).toFixed(1);
+        return `<tr>
+          <td style="padding:6px 8px;">
+            <span style="display:inline-block;width:14px;height:14px;border-radius:50%;background:${colors[i]};vertical-align:middle;margin-left:6px;"></span>
+            ${lbl}
+          </td>
+          <td style="padding:6px 8px;font-weight:700;text-align:center;">${values[i].toLocaleString('ar-IQ')}</td>
+          <td style="padding:6px 8px;text-align:center;">
+            <span style="background:#F3F4F6;border-radius:20px;padding:2px 10px;font-size:0.82rem;font-weight:600;">${pct}%</span>
+          </td>
+        </tr>`;
+      }).join('');
+      document.getElementById('completion-legend').innerHTML = legendHtml;
+
+      document.getElementById('completion-chart-modal').style.display = 'flex';
+
+      if (completionChartInstance) { completionChartInstance.destroy(); completionChartInstance = null; }
+      const ctx = document.getElementById('completion-canvas').getContext('2d');
+      completionChartInstance = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+          labels,
+          datasets: [{ data: values, backgroundColor: colors, borderWidth: 3, borderColor: '#fff', hoverOffset: 12 }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          cutout: '62%',
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                label: ctx => {
+                  const pct = ((ctx.parsed / total) * 100).toFixed(1);
+                  return ` ${ctx.label}: ${ctx.parsed.toLocaleString('ar-IQ')} طلب (${pct}%)`;
+                }
+              }
+            }
+          }
+        }
+      });
+    }
+
+    function closeCompletionChart() {
+      document.getElementById('completion-chart-modal').style.display = 'none';
+      if (completionChartInstance) { completionChartInstance.destroy(); completionChartInstance = null; }
+    }
+
+    // ── Revenue Breakdown Donut Chart ─────────────────────────────────────
+    let revenueChartInstance = null;
+
+    function showRevenueChart() {
+      if (!orders || orders.length === 0) return;
+
+      const activeOrders = orders.filter(o => o.status !== 'cancelled');
+      let productSales = 0, deliveryFees = 0;
+      for (const o of activeOrders) {
+        const fee = o.deliveryFee || 0;
+        const prod = (o.total || 0) - fee;
+        productSales += Math.max(0, prod);
+        deliveryFees += fee;
+      }
+      const total = productSales + deliveryFees;
+      if (total === 0) return;
+
+      const labels = ['مبيعات المنتجات', 'أجور التوصيل'];
+      const values = [productSales, deliveryFees];
+      const colors = ['#D94523', '#F59E0B'];
+
+      const legendHtml = labels.map((lbl, i) => {
+        const pct = ((values[i] / total) * 100).toFixed(1);
+        return `<tr>
+          <td style="padding:6px 8px;">
+            <span style="display:inline-block;width:14px;height:14px;border-radius:50%;background:${colors[i]};vertical-align:middle;margin-left:6px;"></span>
+            ${lbl}
+          </td>
+          <td style="padding:6px 8px;font-weight:700;text-align:center;">${values[i].toLocaleString('ar-IQ')} د.ع</td>
+          <td style="padding:6px 8px;text-align:center;">
+            <span style="background:#F3F4F6;border-radius:20px;padding:2px 10px;font-size:0.82rem;font-weight:600;">${pct}%</span>
+          </td>
+        </tr>`;
+      }).join('');
+      document.getElementById('revenue-legend').innerHTML = legendHtml;
+
+      document.getElementById('revenue-chart-modal').style.display = 'flex';
+
+      if (revenueChartInstance) { revenueChartInstance.destroy(); revenueChartInstance = null; }
+      const ctx = document.getElementById('revenue-canvas').getContext('2d');
+      revenueChartInstance = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+          labels,
+          datasets: [{ data: values, backgroundColor: colors, borderWidth: 3, borderColor: '#fff', hoverOffset: 12 }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          cutout: '62%',
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                label: ctx => {
+                  const pct = ((ctx.parsed / total) * 100).toFixed(1);
+                  return ` ${ctx.label}: ${ctx.parsed.toLocaleString('ar-IQ')} د.ع (${pct}%)`;
+                }
+              }
+            }
+          }
+        }
+      });
+    }
+
+    function closeRevenueChart() {
+      document.getElementById('revenue-chart-modal').style.display = 'none';
+      if (revenueChartInstance) { revenueChartInstance.destroy(); revenueChartInstance = null; }
+    }
+
+    // ── Earnings Breakdown Donut Chart ────────────────────────────────────
+    let earningsChartInstance = null;
+
+    function showEarningsChart() {
+      const ownerEl  = document.getElementById('stat-owner-earnings');
+      const driverEl = document.getElementById('stat-driver-earnings');
+      const feeEl    = document.getElementById('stat-total-delivery-fees');
+
+      const parseNum = el => {
+        if (!el) return 0;
+        return parseFloat((el.textContent || '0').replace(/[^\d.]/g, '')) || 0;
+      };
+
+      const ownerEarnings  = parseNum(ownerEl);
+      const driverEarnings = parseNum(driverEl);
+      const deliveryFees   = parseNum(feeEl);
+      const total = ownerEarnings + driverEarnings;
+
+      if (total === 0) return;
+
+      const labels = ['أرباح التطبيق', 'أرباح السائقين'];
+      const values = [ownerEarnings, driverEarnings];
+      const colors = ['#10B981', '#3B82F6'];
+
+      const legendHtml = labels.map((lbl, i) => {
+        const pct = ((values[i] / total) * 100).toFixed(1);
+        return `<tr>
+          <td style="padding:6px 8px;">
+            <span style="display:inline-block;width:14px;height:14px;border-radius:50%;background:${colors[i]};vertical-align:middle;margin-left:6px;"></span>
+            ${lbl}
+          </td>
+          <td style="padding:6px 8px;font-weight:700;text-align:center;">${values[i].toLocaleString('ar-IQ')} د.ع</td>
+          <td style="padding:6px 8px;text-align:center;">
+            <span style="background:#F3F4F6;border-radius:20px;padding:2px 10px;font-size:0.82rem;font-weight:600;">${pct}%</span>
+          </td>
+        </tr>`;
+      }).join('');
+      document.getElementById('earnings-legend').innerHTML = legendHtml;
+
+      document.getElementById('earnings-chart-modal').style.display = 'flex';
+
+      if (earningsChartInstance) { earningsChartInstance.destroy(); earningsChartInstance = null; }
+      const ctx = document.getElementById('earnings-canvas').getContext('2d');
+      earningsChartInstance = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+          labels,
+          datasets: [{ data: values, backgroundColor: colors, borderWidth: 3, borderColor: '#fff', hoverOffset: 12 }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          cutout: '62%',
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                label: ctx => {
+                  const pct = ((ctx.parsed / total) * 100).toFixed(1);
+                  return ` ${ctx.label}: ${ctx.parsed.toLocaleString('ar-IQ')} د.ع (${pct}%)`;
+                }
+              }
+            }
+          }
+        }
+      });
+    }
+
+    function closeEarningsChart() {
+      document.getElementById('earnings-chart-modal').style.display = 'none';
+      if (earningsChartInstance) { earningsChartInstance.destroy(); earningsChartInstance = null; }
+    }
+
     // Initialize
     document.addEventListener('DOMContentLoaded', () => {
       loadDashboard();
     });
   </script>
+
+  <!-- Orders Status Distribution Chart Modal -->
+  <div id="orders-status-chart-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:9999;align-items:center;justify-content:center;padding:16px;" onclick="if(event.target===this)closeOrdersStatusChart()">
+    <div style="background:#fff;border-radius:20px;width:100%;max-width:560px;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.25);">
+      <div style="padding:20px 24px;border-bottom:1px solid #F3F4F6;display:flex;align-items:center;justify-content:space-between;">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <div style="width:38px;height:38px;border-radius:10px;background:linear-gradient(135deg,#F59E0B,#FBBF24);display:flex;align-items:center;justify-content:center;">
+            <i data-lucide="pie-chart" style="width:20px;height:20px;color:#fff;"></i>
+          </div>
+          <div>
+            <div style="font-size:1rem;font-weight:700;color:#1a1a2e;">توزيع حالات الطلبات</div>
+            <div style="font-size:0.78rem;color:#6B7280;">نسبة كل حالة من إجمالي الطلبات</div>
+          </div>
+        </div>
+        <button onclick="closeOrdersStatusChart()" style="background:none;border:none;cursor:pointer;color:#6B7280;padding:4px;">
+          <i data-lucide="x" style="width:22px;height:22px;"></i>
+        </button>
+      </div>
+      <div style="padding:24px;">
+        <div style="height:260px;margin-bottom:20px;">
+          <canvas id="orders-status-canvas"></canvas>
+        </div>
+        <div style="background:#F9FAFB;border-radius:12px;overflow:hidden;">
+          <table style="width:100%;border-collapse:collapse;font-family:'Cairo',sans-serif;font-size:0.88rem;">
+            <thead>
+              <tr style="background:#F3F4F6;">
+                <th style="padding:8px 12px;text-align:right;color:#374151;font-weight:600;">الحالة</th>
+                <th style="padding:8px 12px;text-align:center;color:#374151;font-weight:600;">العدد</th>
+                <th style="padding:8px 12px;text-align:center;color:#374151;font-weight:600;">النسبة</th>
+              </tr>
+            </thead>
+            <tbody id="orders-status-legend"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Completion Rate Chart Modal -->
+  <div id="completion-chart-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:9999;align-items:center;justify-content:center;padding:16px;" onclick="if(event.target===this)closeCompletionChart()">
+    <div style="background:#fff;border-radius:20px;width:100%;max-width:560px;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.25);">
+      <div style="padding:20px 24px;border-bottom:1px solid #F3F4F6;display:flex;align-items:center;justify-content:space-between;">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <div style="width:38px;height:38px;border-radius:10px;background:linear-gradient(135deg,#EF4444,#F87171);display:flex;align-items:center;justify-content:center;">
+            <i data-lucide="pie-chart" style="width:20px;height:20px;color:#fff;"></i>
+          </div>
+          <div>
+            <div style="font-size:1rem;font-weight:700;color:#1a1a2e;">معدل إتمام الطلبات</div>
+            <div style="font-size:0.78rem;color:#6B7280;">المكتملة مقابل الملغاة والنشطة</div>
+          </div>
+        </div>
+        <button onclick="closeCompletionChart()" style="background:none;border:none;cursor:pointer;color:#6B7280;padding:4px;">
+          <i data-lucide="x" style="width:22px;height:22px;"></i>
+        </button>
+      </div>
+      <div style="padding:24px;">
+        <div style="height:260px;margin-bottom:20px;">
+          <canvas id="completion-canvas"></canvas>
+        </div>
+        <div style="background:#F9FAFB;border-radius:12px;overflow:hidden;">
+          <table style="width:100%;border-collapse:collapse;font-family:'Cairo',sans-serif;font-size:0.88rem;">
+            <thead>
+              <tr style="background:#F3F4F6;">
+                <th style="padding:8px 12px;text-align:right;color:#374151;font-weight:600;">الحالة</th>
+                <th style="padding:8px 12px;text-align:center;color:#374151;font-weight:600;">العدد</th>
+                <th style="padding:8px 12px;text-align:center;color:#374151;font-weight:600;">النسبة</th>
+              </tr>
+            </thead>
+            <tbody id="completion-legend"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Revenue Breakdown Chart Modal -->
+  <div id="revenue-chart-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:9999;align-items:center;justify-content:center;padding:16px;" onclick="if(event.target===this)closeRevenueChart()">
+    <div style="background:#fff;border-radius:20px;width:100%;max-width:560px;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.25);">
+      <div style="padding:20px 24px;border-bottom:1px solid #F3F4F6;display:flex;align-items:center;justify-content:space-between;">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <div style="width:38px;height:38px;border-radius:10px;background:linear-gradient(135deg,#D94523,#F07050);display:flex;align-items:center;justify-content:center;">
+            <i data-lucide="pie-chart" style="width:20px;height:20px;color:#fff;"></i>
+          </div>
+          <div>
+            <div style="font-size:1rem;font-weight:700;color:#1a1a2e;">توزيع إجمالي المبيعات</div>
+            <div style="font-size:0.78rem;color:#6B7280;">مبيعات المنتجات مقابل أجور التوصيل</div>
+          </div>
+        </div>
+        <button onclick="closeRevenueChart()" style="background:none;border:none;cursor:pointer;color:#6B7280;padding:4px;">
+          <i data-lucide="x" style="width:22px;height:22px;"></i>
+        </button>
+      </div>
+      <div style="padding:24px;">
+        <div style="height:260px;margin-bottom:20px;">
+          <canvas id="revenue-canvas"></canvas>
+        </div>
+        <div style="background:#F9FAFB;border-radius:12px;overflow:hidden;">
+          <table style="width:100%;border-collapse:collapse;font-family:'Cairo',sans-serif;font-size:0.88rem;">
+            <thead>
+              <tr style="background:#F3F4F6;">
+                <th style="padding:8px 12px;text-align:right;color:#374151;font-weight:600;">المصدر</th>
+                <th style="padding:8px 12px;text-align:center;color:#374151;font-weight:600;">المبلغ</th>
+                <th style="padding:8px 12px;text-align:center;color:#374151;font-weight:600;">النسبة</th>
+              </tr>
+            </thead>
+            <tbody id="revenue-legend"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Earnings Breakdown Chart Modal -->
+  <div id="earnings-chart-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:9999;align-items:center;justify-content:center;padding:16px;" onclick="if(event.target===this)closeEarningsChart()">
+    <div style="background:#fff;border-radius:20px;width:100%;max-width:560px;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.25);">
+      <div style="padding:20px 24px;border-bottom:1px solid #F3F4F6;display:flex;align-items:center;justify-content:space-between;">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <div style="width:38px;height:38px;border-radius:10px;background:linear-gradient(135deg,#10B981,#3B82F6);display:flex;align-items:center;justify-content:center;">
+            <i data-lucide="pie-chart" style="width:20px;height:20px;color:#fff;"></i>
+          </div>
+          <div>
+            <div style="font-size:1rem;font-weight:700;color:#1a1a2e;">توزيع الأرباح</div>
+            <div style="font-size:0.78rem;color:#6B7280;">حصة التطبيق مقابل حصة السائقين</div>
+          </div>
+        </div>
+        <button onclick="closeEarningsChart()" style="background:none;border:none;cursor:pointer;color:#6B7280;padding:4px;">
+          <i data-lucide="x" style="width:22px;height:22px;"></i>
+        </button>
+      </div>
+      <div style="padding:24px;">
+        <div style="height:260px;margin-bottom:20px;">
+          <canvas id="earnings-canvas"></canvas>
+        </div>
+        <div style="background:#F9FAFB;border-radius:12px;overflow:hidden;">
+          <table style="width:100%;border-collapse:collapse;font-family:'Cairo',sans-serif;font-size:0.88rem;">
+            <thead>
+              <tr style="background:#F3F4F6;">
+                <th style="padding:8px 12px;text-align:right;color:#374151;font-weight:600;">الجهة</th>
+                <th style="padding:8px 12px;text-align:center;color:#374151;font-weight:600;">المبلغ</th>
+                <th style="padding:8px 12px;text-align:center;color:#374151;font-weight:600;">النسبة</th>
+              </tr>
+            </thead>
+            <tbody id="earnings-legend"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
 
   <!-- Delivery Areas Donut Chart Modal -->
   <div id="areas-chart-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:9999;align-items:center;justify-content:center;padding:16px;" onclick="if(event.target===this)closeAreasChart()">
