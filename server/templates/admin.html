@@ -1779,6 +1779,22 @@
         </div>
       </div>
 
+      <!-- Financial Summary Cards Per Vendor -->
+      <div class="card" style="margin-bottom:20px;">
+        <div class="card-header">
+          <h3><i data-lucide="trending-up"></i> الملخص المالي للمطاعم</h3>
+          <button class="btn btn-outline btn-sm" onclick="loadVendorFinancials()" id="vendor-fin-refresh-btn">
+            <i data-lucide="refresh-cw" style="width:14px;height:14px;"></i> تحديث
+          </button>
+        </div>
+        <div id="vendor-financials-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px;padding:4px 0 8px;">
+          <div style="text-align:center;padding:40px;color:var(--gray-400);grid-column:1/-1;">
+            <div class="loading-spinner"></div>
+            <p style="margin-top:12px;">جاري تحميل البيانات المالية...</p>
+          </div>
+        </div>
+      </div>
+
       <div class="card">
         <div class="card-header">
           <h3><i data-lucide="list"></i> قائمة المطاعم (<span id="vendors-count-label">0</span>)</h3>
@@ -2776,7 +2792,7 @@
       if (section === 'driverQueue') loadDriverQueue();
       if (section === 'dashboard') loadDashboard();
       if (section === 'promoCodes') loadPromoCodes();
-      if (section === 'vendors') loadVendors();
+      if (section === 'vendors') { loadVendors(); loadVendorFinancials(); }
       if (section === 'settings') loadSettingsStats();
       if (section === 'bestSellers' || section === 'featured' || section === 'discounts') {
         if (products.length === 0) {
@@ -4289,6 +4305,125 @@
         }
       };
       document.getElementById('confirm-modal').classList.add('active');
+    }
+
+    async function loadVendorFinancials() {
+      const grid = document.getElementById('vendor-financials-grid');
+      grid.innerHTML = '<div style="text-align:center;padding:40px;color:var(--gray-400);grid-column:1/-1;"><div class="loading-spinner"></div><p style="margin-top:12px;">جاري التحميل...</p></div>';
+
+      const vArr = await fetch(API_BASE + '/admin/vendors').then(r => r.json());
+
+      if (!vArr || vArr.length === 0) {
+        grid.innerHTML = '<p style="text-align:center;color:var(--gray-400);grid-column:1/-1;">لا توجد مطاعم</p>';
+        return;
+      }
+
+      const results = await Promise.allSettled(
+        vArr.map(v => fetch(API_BASE + '/admin/vendors/' + v.id + '/statement').then(r => r.json()))
+      );
+
+      let totalSalesAll = 0, totalCommAll = 0, totalNetAll = 0, totalOrdersAll = 0;
+
+      const cards = results.map((res, i) => {
+        const v = vArr[i];
+        if (res.status === 'rejected' || !res.value) {
+          return `<div style="border-radius:16px;border:1px solid var(--gray-100);padding:20px;background:#fff;">
+            <div style="font-weight:700;">${escapeHtml(v.name)}</div>
+            <div style="color:#EF4444;font-size:0.82rem;margin-top:8px;">فشل تحميل البيانات</div>
+          </div>`;
+        }
+        const d = res.value;
+        totalSalesAll += d.totalSales || 0;
+        totalCommAll  += d.appCommission || 0;
+        totalNetAll   += d.vendorNet || 0;
+        totalOrdersAll += d.orders || 0;
+
+        const commPct = d.totalSales > 0 ? Math.round((d.appCommission / d.totalSales) * 100) : 0;
+
+        return `
+          <div style="border-radius:16px;border:1px solid var(--gray-100);padding:20px;background:#fff;box-shadow:0 1px 6px rgba(0,0,0,0.05);display:flex;flex-direction:column;gap:12px;">
+            <!-- Header -->
+            <div style="display:flex;align-items:center;gap:10px;">
+              <div style="width:44px;height:44px;border-radius:12px;overflow:hidden;background:var(--gray-100);flex-shrink:0;">
+                <img src="${escapeHtml(v.image||'')}" onerror="this.style.display='none'" style="width:100%;height:100%;object-fit:cover;">
+              </div>
+              <div style="flex:1;min-width:0;">
+                <div style="font-weight:800;font-size:0.95rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(v.name)}</div>
+                <div style="font-size:0.75rem;color:var(--gray-500);">${d.orders} طلب · عمولة ${d.commissionPercent||10}%</div>
+              </div>
+              <span style="padding:3px 10px;border-radius:20px;font-size:0.72rem;font-weight:700;background:${v.isOpen!==false?'#E8F5E9':'#FFEBEE'};color:${v.isOpen!==false?'#10B981':'#EF4444'};">
+                ${v.isOpen!==false?'مفتوح':'مغلق'}
+              </span>
+            </div>
+
+            <!-- Numbers -->
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;text-align:center;">
+              <div style="background:#F8FAFC;border-radius:10px;padding:10px 6px;">
+                <div style="font-size:0.78rem;color:var(--gray-500);margin-bottom:3px;">المبيعات</div>
+                <div style="font-size:0.85rem;font-weight:800;color:#1E88E5;">${d.totalSales.toLocaleString()}</div>
+                <div style="font-size:0.65rem;color:var(--gray-400);">د.ع</div>
+              </div>
+              <div style="background:#FEF2F2;border-radius:10px;padding:10px 6px;">
+                <div style="font-size:0.78rem;color:var(--gray-500);margin-bottom:3px;">العمولة</div>
+                <div style="font-size:0.85rem;font-weight:800;color:#EF4444;">${d.appCommission.toLocaleString()}</div>
+                <div style="font-size:0.65rem;color:var(--gray-400);">د.ع</div>
+              </div>
+              <div style="background:#F0FDF4;border-radius:10px;padding:10px 6px;">
+                <div style="font-size:0.78rem;color:var(--gray-500);margin-bottom:3px;">الصافي</div>
+                <div style="font-size:0.85rem;font-weight:800;color:#10B981;">${d.vendorNet.toLocaleString()}</div>
+                <div style="font-size:0.65rem;color:var(--gray-400);">د.ع</div>
+              </div>
+            </div>
+
+            <!-- Progress bar: commission vs net -->
+            <div>
+              <div style="display:flex;justify-content:space-between;font-size:0.72rem;color:var(--gray-500);margin-bottom:4px;">
+                <span>عمولة التطبيق ${commPct}%</span>
+                <span>صافي المطعم ${100-commPct}%</span>
+              </div>
+              <div style="height:6px;background:#FEE2E2;border-radius:999px;overflow:hidden;">
+                <div style="width:${commPct}%;height:100%;background:#E86520;border-radius:999px;"></div>
+              </div>
+            </div>
+
+            <!-- Actions -->
+            <div style="display:flex;gap:8px;margin-top:2px;">
+              <button class="btn btn-outline btn-sm" style="flex:1;font-size:0.78rem;" onclick="openVendorStatement('${v.id}')">
+                <i data-lucide="file-text" style="width:12px;height:12px;"></i> كشف الحساب
+              </button>
+              ${v.whatsappNumber ? `<a href="https://wa.me/${v.whatsappNumber}" target="_blank" class="btn btn-sm" style="background:#25D366;color:#fff;border:none;flex:1;font-size:0.78rem;text-decoration:none;display:flex;align-items:center;justify-content:center;gap:4px;">
+                <i data-lucide="message-circle" style="width:12px;height:12px;"></i> واتساب
+              </a>` : ''}
+            </div>
+          </div>`;
+      });
+
+      // Summary totals bar at top
+      const summaryBar = `
+        <div style="grid-column:1/-1;background:linear-gradient(135deg,#1a1a2e,#16213e);border-radius:16px;padding:20px 24px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:16px;color:#fff;">
+          <div style="font-size:0.9rem;font-weight:700;opacity:0.9;">إجمالي جميع المطاعم</div>
+          <div style="display:flex;gap:24px;flex-wrap:wrap;">
+            <div style="text-align:center;">
+              <div style="font-size:1.2rem;font-weight:800;">${totalOrdersAll}</div>
+              <div style="font-size:0.72rem;opacity:0.7;">طلب إجمالي</div>
+            </div>
+            <div style="text-align:center;">
+              <div style="font-size:1.2rem;font-weight:800;color:#60A5FA;">${totalSalesAll.toLocaleString()} د.ع</div>
+              <div style="font-size:0.72rem;opacity:0.7;">إجمالي المبيعات</div>
+            </div>
+            <div style="text-align:center;">
+              <div style="font-size:1.2rem;font-weight:800;color:#F87171;">${totalCommAll.toLocaleString()} د.ع</div>
+              <div style="font-size:0.72rem;opacity:0.7;">عمولة التطبيق</div>
+            </div>
+            <div style="text-align:center;">
+              <div style="font-size:1.2rem;font-weight:800;color:#34D399;">${totalNetAll.toLocaleString()} د.ع</div>
+              <div style="font-size:0.72rem;opacity:0.7;">صافي المطاعم</div>
+            </div>
+          </div>
+        </div>`;
+
+      grid.innerHTML = summaryBar + cards.join('');
+      lucide.createIcons();
     }
 
     async function openVendorStatement(id) {
