@@ -1146,16 +1146,15 @@ async function registerRoutes(app2) {
   }
   async function checkIsRestaurantOrder(order) {
     try {
-      const products2 = await getProducts();
+      if (order.vendorId) return true;
+      if (order.orderType === "restaurant") return true;
+      const products2 = await getCachedProducts();
       if (products2.length > 0 && order.items) {
         for (const item of order.items) {
           const product = products2.find((p) => p.id === item.productId);
-          if (product && product.categoryId === "restaurants") {
-            return true;
-          }
+          if (product && product.categoryId === "restaurants") return true;
         }
       }
-      if (order.orderType === "restaurant") return true;
       return false;
     } catch {
       return false;
@@ -1709,8 +1708,12 @@ async function registerRoutes(app2) {
     try {
       const ordersSnap = await db2.collection("orders").where("vendorId", "==", id).get();
       const orders = ordersSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
-      const totalSales = orders.reduce((s, o) => s + (o.total || 0), 0);
-      const appCommission = Math.round(totalSales * vendor.commissionPercent / 100);
+      const totalSales = orders.reduce((s, o) => s + (o.restaurantSubtotal || o.total || 0), 0);
+      const appCommission = orders.reduce((s, o) => {
+        if (o.vendorCommissionAmount != null) return s + o.vendorCommissionAmount;
+        const base = o.restaurantSubtotal || o.total || 0;
+        return s + Math.round(base * vendor.commissionPercent / 100);
+      }, 0);
       const vendorNet = totalSales - appCommission;
       res.json({ vendor, orders: orders.length, totalSales, appCommission, vendorNet, commissionPercent: vendor.commissionPercent });
     } catch {
@@ -1776,36 +1779,48 @@ async function registerRoutes(app2) {
       try {
         const allProds = await getCachedProducts();
         const vendorsList = await getVendorList();
-        const firstItem = items && items.length > 0 ? items[0] : null;
-        if (firstItem) {
-          const prod = allProds.find((p) => p.id === firstItem.productId);
+        const restaurantItems = [];
+        let restaurantSubtotal = 0;
+        let detectedRestaurantName = null;
+        for (const it of items) {
+          const prod = allProds.find((p) => p.id === it.productId);
           if (prod && prod.categoryId === "restaurants") {
-            let vendor = vendorsList.find((v) => v.name === prod.restaurant || v.id === prod.vendorId);
-            if (!vendor && items.length > 0) {
-              for (const v of vendorsList) {
-                const namePart = v.name.replace(/مطعم\s*/g, "").trim();
-                if (namePart && items.some((it) => it.name?.includes(namePart))) {
-                  vendor = v;
-                  break;
-                }
+            restaurantItems.push({ ...it, restaurantName: prod.restaurant });
+            restaurantSubtotal += (Number(it.price) || 0) * (Number(it.quantity) || 1);
+            if (!detectedRestaurantName && prod.restaurant) {
+              detectedRestaurantName = prod.restaurant;
+            }
+          }
+        }
+        if (restaurantItems.length > 0) {
+          let vendor = detectedRestaurantName ? vendorsList.find((v) => v.name === detectedRestaurantName) : null;
+          if (!vendor) {
+            for (const v of vendorsList) {
+              const namePart = v.name.replace(/مطعم\s*/g, "").trim();
+              if (namePart && restaurantItems.some((it) => it.name?.includes(namePart))) {
+                vendor = v;
+                break;
               }
             }
-            if (vendor) {
-              orderData.vendorId = vendor.id;
-              orderData.vendorName = vendor.name;
-              orderData.vendorWhatsapp = vendor.whatsappNumber;
-              const itemsList = items.map((it) => `\u2022 ${it.name} \xD7 ${it.quantity}`).join("\n");
-              const orderId = Math.random().toString(36).slice(2, 8).toUpperCase();
-              const waMsg = encodeURIComponent(
-                `\u0637\u0644\u0628 \u062C\u062F\u064A\u062F \u0645\u0646 OnWay \u{1F6D2}
-\u0631\u0642\u0645 \u0627\u0644\u0637\u0644\u0628: #${orderId}
+          }
+          if (vendor) {
+            orderData.vendorId = vendor.id;
+            orderData.vendorName = vendor.name;
+            orderData.vendorWhatsapp = vendor.whatsappNumber;
+            orderData.restaurantSubtotal = restaurantSubtotal;
+            orderData.vendorCommissionPercent = vendor.commissionPercent || 10;
+            orderData.vendorCommissionAmount = Math.round(restaurantSubtotal * ((vendor.commissionPercent || 10) / 100));
+            const itemsList = restaurantItems.map((it) => `\u2022 ${it.name} \xD7 ${it.quantity}`).join("\n");
+            const shortId = Math.random().toString(36).slice(2, 8).toUpperCase();
+            const waMsg = encodeURIComponent(
+              `\u0637\u0644\u0628 \u062C\u062F\u064A\u062F \u0645\u0646 OnWay \u{1F6D2}
+\u0631\u0642\u0645 \u0627\u0644\u0637\u0644\u0628: #${shortId}
 \u0627\u0644\u0648\u062C\u0628\u0627\u062A:
 ${itemsList}
-\u0627\u0644\u0625\u062C\u0645\u0627\u0644\u064A: ${total?.toLocaleString?.() ?? total} \u062F.\u0639
+\u0627\u0644\u0625\u062C\u0645\u0627\u0644\u064A: ${restaurantSubtotal.toLocaleString()} \u062F.\u0639
 \u0627\u0644\u0633\u0627\u0626\u0642: \u0633\u064A\u062A\u0645 \u0627\u0644\u062A\u0639\u064A\u064A\u0646 \u0641\u0648\u0631 \u0627\u0644\u062C\u0627\u0647\u0632\u064A\u0629`
-              );
-              vendorWhatsappUrl = `https://wa.me/${vendor.whatsappNumber}?text=${waMsg}`;
-            }
+            );
+            vendorWhatsappUrl = `https://wa.me/${vendor.whatsappNumber}?text=${waMsg}`;
           }
         }
       } catch (e) {

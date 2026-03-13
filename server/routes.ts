@@ -289,16 +289,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   async function checkIsRestaurantOrder(order: any): Promise<boolean> {
     try {
-      const products = await getFirestoreProducts();
+      // Fast path: already tagged on the order
+      if (order.vendorId) return true;
+      if (order.orderType === "restaurant") return true;
+      // Scan items using cached products (includes restaurant fallback)
+      const products = await getCachedProducts();
       if (products.length > 0 && order.items) {
         for (const item of order.items) {
-          const product = products.find(p => p.id === item.productId);
-          if (product && product.categoryId === "restaurants") {
-            return true;
-          }
+          const product = products.find((p: any) => p.id === item.productId);
+          if (product && product.categoryId === "restaurants") return true;
         }
       }
-      if (order.orderType === "restaurant") return true;
       return false;
     } catch {
       return false;
@@ -905,8 +906,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const ordersSnap = await db.collection("orders").where("vendorId", "==", id).get();
       const orders = ordersSnap.docs.map(d => ({ id: d.id, ...d.data() })) as any[];
-      const totalSales = orders.reduce((s, o) => s + (o.total || 0), 0);
-      const appCommission = Math.round(totalSales * vendor.commissionPercent / 100);
+      // For mixed orders, use restaurantSubtotal (restaurant portion only); fallback to full total
+      const totalSales = orders.reduce((s, o) => s + (o.restaurantSubtotal || o.total || 0), 0);
+      // Use stored commission amount if available, otherwise calculate from vendor %
+      const appCommission = orders.reduce((s, o) => {
+        if (o.vendorCommissionAmount != null) return s + o.vendorCommissionAmount;
+        const base = o.restaurantSubtotal || o.total || 0;
+        return s + Math.round(base * vendor.commissionPercent / 100);
+      }, 0);
       const vendorNet = totalSales - appCommission;
       res.json({ vendor, orders: orders.length, totalSales, appCommission, vendorNet, commissionPercent: vendor.commissionPercent });
     } catch {
@@ -983,33 +990,51 @@ export async function registerRoutes(app: Express): Promise<Server> {
       try {
         const allProds = await getCachedProducts(); // uses cache with restaurant fallback
         const vendorsList = await getVendorList();
-        const firstItem = items && items.length > 0 ? items[0] : null;
-        if (firstItem) {
-          const prod = allProds.find((p: any) => p.id === firstItem.productId);
+
+        // Scan ALL items to find restaurant ones (handles mixed orders)
+        const restaurantItems: any[] = [];
+        let restaurantSubtotal = 0;
+        let detectedRestaurantName: string | null = null;
+
+        for (const it of (items as any[])) {
+          const prod = allProds.find((p: any) => p.id === it.productId);
           if (prod && prod.categoryId === "restaurants") {
-            // Match by restaurant name OR any vendor whose name is part of the item name
-            let vendor = vendorsList.find(v => v.name === prod.restaurant || v.id === prod.vendorId);
-            // Fallback: try matching by item names if all items seem from same vendor
-            if (!vendor && items.length > 0) {
-              for (const v of vendorsList) {
-                const namePart = v.name.replace(/مطعم\s*/g, "").trim();
-                if (namePart && (items as any[]).some((it: any) => it.name?.includes(namePart))) {
-                  vendor = v; break;
-                }
+            restaurantItems.push({ ...it, restaurantName: prod.restaurant });
+            restaurantSubtotal += (Number(it.price) || 0) * (Number(it.quantity) || 1);
+            if (!detectedRestaurantName && prod.restaurant) {
+              detectedRestaurantName = prod.restaurant;
+            }
+          }
+        }
+
+        if (restaurantItems.length > 0) {
+          // Match vendor by restaurant name
+          let vendor = detectedRestaurantName
+            ? vendorsList.find(v => v.name === detectedRestaurantName)
+            : null;
+          // Fallback: match by item name keywords
+          if (!vendor) {
+            for (const v of vendorsList) {
+              const namePart = v.name.replace(/مطعم\s*/g, "").trim();
+              if (namePart && restaurantItems.some((it: any) => it.name?.includes(namePart))) {
+                vendor = v; break;
               }
             }
-            if (vendor) {
-              orderData.vendorId = vendor.id;
-              orderData.vendorName = vendor.name;
-              orderData.vendorWhatsapp = vendor.whatsappNumber;
-              // Build WhatsApp message
-              const itemsList = (items as any[]).map((it: any) => `• ${it.name} × ${it.quantity}`).join("\n");
-              const orderId = Math.random().toString(36).slice(2,8).toUpperCase();
-              const waMsg = encodeURIComponent(
-                `طلب جديد من OnWay 🛒\nرقم الطلب: #${orderId}\nالوجبات:\n${itemsList}\nالإجمالي: ${total?.toLocaleString?.() ?? total} د.ع\nالسائق: سيتم التعيين فور الجاهزية`
-              );
-              vendorWhatsappUrl = `https://wa.me/${vendor.whatsappNumber}?text=${waMsg}`;
-            }
+          }
+          if (vendor) {
+            orderData.vendorId = vendor.id;
+            orderData.vendorName = vendor.name;
+            orderData.vendorWhatsapp = vendor.whatsappNumber;
+            orderData.restaurantSubtotal = restaurantSubtotal;
+            orderData.vendorCommissionPercent = vendor.commissionPercent || 10;
+            orderData.vendorCommissionAmount = Math.round(restaurantSubtotal * ((vendor.commissionPercent || 10) / 100));
+            // Build WhatsApp message with only restaurant items
+            const itemsList = restaurantItems.map((it: any) => `• ${it.name} × ${it.quantity}`).join("\n");
+            const shortId = Math.random().toString(36).slice(2,8).toUpperCase();
+            const waMsg = encodeURIComponent(
+              `طلب جديد من OnWay 🛒\nرقم الطلب: #${shortId}\nالوجبات:\n${itemsList}\nالإجمالي: ${restaurantSubtotal.toLocaleString()} د.ع\nالسائق: سيتم التعيين فور الجاهزية`
+            );
+            vendorWhatsappUrl = `https://wa.me/${vendor.whatsappNumber}?text=${waMsg}`;
           }
         }
       } catch (e) { console.error("Vendor detection error:", e); }

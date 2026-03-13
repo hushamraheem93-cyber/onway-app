@@ -313,6 +313,22 @@ export interface FirestoreOrder {
   status: "pending" | "confirmed" | "preparing" | "delivering" | "delivered" | "cancelled";
   createdAt: admin.firestore.Timestamp;
   updatedAt: admin.firestore.Timestamp;
+  // Vendor / restaurant fields
+  vendorId?: string;
+  vendorName?: string;
+  vendorWhatsapp?: string;
+  orderType?: string;
+  restaurantSubtotal?: number;
+  vendorCommissionPercent?: number;
+  vendorCommissionAmount?: number;
+  promoCode?: string;
+  promoDiscount?: number;
+  driverPhone?: string;
+  driverName?: string;
+  driverEarning?: number;
+  ownerEarning?: number;
+  internationalDetails?: any;
+  courierDetails?: any;
 }
 
 export async function getOrders(): Promise<(FirestoreOrder & { id: string })[]> {
