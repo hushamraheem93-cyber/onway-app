@@ -1774,13 +1774,22 @@ async function registerRoutes(app2) {
       if (promoDiscount) orderData.promoDiscount = promoDiscount;
       let vendorWhatsappUrl = null;
       try {
-        const allProds = await getProducts();
+        const allProds = await getCachedProducts();
         const vendorsList = await getVendorList();
         const firstItem = items && items.length > 0 ? items[0] : null;
         if (firstItem) {
           const prod = allProds.find((p) => p.id === firstItem.productId);
           if (prod && prod.categoryId === "restaurants") {
-            const vendor = vendorsList.find((v) => v.name === prod.restaurant || v.id === prod.vendorId);
+            let vendor = vendorsList.find((v) => v.name === prod.restaurant || v.id === prod.vendorId);
+            if (!vendor && items.length > 0) {
+              for (const v of vendorsList) {
+                const namePart = v.name.replace(/مطعم\s*/g, "").trim();
+                if (namePart && items.some((it) => it.name?.includes(namePart))) {
+                  vendor = v;
+                  break;
+                }
+              }
+            }
             if (vendor) {
               orderData.vendorId = vendor.id;
               orderData.vendorName = vendor.name;

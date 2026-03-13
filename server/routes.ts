@@ -981,13 +981,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Detect vendor for restaurant orders
       let vendorWhatsappUrl: string | null = null;
       try {
-        const allProds = await getFirestoreProducts();
+        const allProds = await getCachedProducts(); // uses cache with restaurant fallback
         const vendorsList = await getVendorList();
         const firstItem = items && items.length > 0 ? items[0] : null;
         if (firstItem) {
           const prod = allProds.find((p: any) => p.id === firstItem.productId);
           if (prod && prod.categoryId === "restaurants") {
-            const vendor = vendorsList.find(v => v.name === prod.restaurant || v.id === prod.vendorId);
+            // Match by restaurant name OR any vendor whose name is part of the item name
+            let vendor = vendorsList.find(v => v.name === prod.restaurant || v.id === prod.vendorId);
+            // Fallback: try matching by item names if all items seem from same vendor
+            if (!vendor && items.length > 0) {
+              for (const v of vendorsList) {
+                const namePart = v.name.replace(/مطعم\s*/g, "").trim();
+                if (namePart && (items as any[]).some((it: any) => it.name?.includes(namePart))) {
+                  vendor = v; break;
+                }
+              }
+            }
             if (vendor) {
               orderData.vendorId = vendor.id;
               orderData.vendorName = vendor.name;
