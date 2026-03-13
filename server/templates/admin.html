@@ -6272,38 +6272,63 @@
     // ── Revenue Breakdown Donut Chart ─────────────────────────────────────
     let revenueChartInstance = null;
 
+    // ── App Profits by Category (Revenue card) ───────────────────────────
     function showRevenueChart() {
       if (!orders || orders.length === 0) return;
 
+      // Use ownerEarning to split by category:
+      // driverEarning === 750  → restaurant order  → ownerEarning = platform share from restaurant
+      // driverEarning === 2000 → other services    → ownerEarning = platform share from others
+      let restaurantProfit = 0, otherProfit = 0, pendingProfit = 0;
       const activeOrders = orders.filter(o => o.status !== 'cancelled');
-      let productSales = 0, deliveryFees = 0;
+
       for (const o of activeOrders) {
-        const fee = o.deliveryFee || 0;
-        const prod = (o.total || 0) - fee;
-        productSales += Math.max(0, prod);
-        deliveryFees += fee;
+        const owner = o.ownerEarning;
+        if (owner !== undefined && owner !== null) {
+          if (o.driverEarning === 750) {
+            restaurantProfit += owner;
+          } else if (o.driverEarning === 2000) {
+            otherProfit += owner;
+          } else {
+            // ownerEarning defined but driver type unknown
+            restaurantProfit += owner;
+          }
+        } else {
+          // No ownerEarning yet — estimate from status
+          if (o.status === 'pending' || o.status === 'confirmed' || o.status === 'preparing' || o.status === 'delivering') {
+            pendingProfit += 250; // conservative restaurant estimate
+          }
+        }
       }
-      const total = productSales + deliveryFees;
-      if (total === 0) return;
 
-      const labels = ['مبيعات المنتجات', 'أجور التوصيل'];
-      const values = [productSales, deliveryFees];
-      const colors = ['#D94523', '#F59E0B'];
+      const entries = [
+        { label: 'أرباح المطاعم',    value: restaurantProfit, color: '#D94523' },
+        { label: 'أرباح الخدمات الأخرى', value: otherProfit,      color: '#F59E0B' },
+        ...(pendingProfit > 0 ? [{ label: 'طلبات لم تُكتمل بعد', value: pendingProfit, color: '#94A3B8' }] : []),
+      ].filter(e => e.value > 0);
 
-      const legendHtml = labels.map((lbl, i) => {
-        const pct = ((values[i] / total) * 100).toFixed(1);
+      if (entries.length === 0) return;
+
+      const total  = entries.reduce((s, e) => s + e.value, 0);
+      const labels = entries.map(e => e.label);
+      const values = entries.map(e => e.value);
+      const colors = entries.map(e => e.color);
+
+      const legendHtml = entries.map((e, i) => {
+        const pct = ((e.value / total) * 100).toFixed(1);
         return `<tr>
           <td style="padding:6px 8px;">
-            <span style="display:inline-block;width:14px;height:14px;border-radius:50%;background:${colors[i]};vertical-align:middle;margin-left:6px;"></span>
-            ${lbl}
+            <span style="display:inline-block;width:14px;height:14px;border-radius:50%;background:${e.color};vertical-align:middle;margin-left:6px;"></span>
+            ${e.label}
           </td>
-          <td style="padding:6px 8px;font-weight:700;text-align:center;">${values[i].toLocaleString('ar-IQ')} د.ع</td>
+          <td style="padding:6px 8px;font-weight:700;text-align:center;">${e.value.toLocaleString('ar-IQ')} د.ع</td>
           <td style="padding:6px 8px;text-align:center;">
             <span style="background:#F3F4F6;border-radius:20px;padding:2px 10px;font-size:0.82rem;font-weight:600;">${pct}%</span>
           </td>
         </tr>`;
       }).join('');
       document.getElementById('revenue-legend').innerHTML = legendHtml;
+      document.getElementById('revenue-total-val').textContent = total.toLocaleString('ar-IQ') + ' د.ع';
 
       document.getElementById('revenue-chart-modal').style.display = 'flex';
 
@@ -6313,7 +6338,7 @@
         type: 'doughnut',
         data: {
           labels,
-          datasets: [{ data: values, backgroundColor: colors, borderWidth: 3, borderColor: '#fff', hoverOffset: 12 }]
+          datasets: [{ data: values, backgroundColor: colors, borderWidth: 3, borderColor: '#fff', hoverOffset: 14 }]
         },
         options: {
           responsive: true,
@@ -6339,44 +6364,65 @@
       if (revenueChartInstance) { revenueChartInstance.destroy(); revenueChartInstance = null; }
     }
 
-    // ── Earnings Breakdown Donut Chart ────────────────────────────────────
+    // ── Per-Driver Earnings Donut Chart ───────────────────────────────────
     let earningsChartInstance = null;
 
     function showEarningsChart() {
-      const ownerEl  = document.getElementById('stat-owner-earnings');
-      const driverEl = document.getElementById('stat-driver-earnings');
-      const feeEl    = document.getElementById('stat-total-delivery-fees');
+      if (!orders || orders.length === 0) return;
 
-      const parseNum = el => {
-        if (!el) return 0;
-        return parseFloat((el.textContent || '0').replace(/[^\d.]/g, '')) || 0;
-      };
+      // Group delivered orders by driver
+      const driverMap = {};
+      const deliveredOrders = orders.filter(o => o.status === 'delivered' && o.driverName && (o.driverEarning || 0) > 0);
 
-      const ownerEarnings  = parseNum(ownerEl);
-      const driverEarnings = parseNum(driverEl);
-      const deliveryFees   = parseNum(feeEl);
-      const total = ownerEarnings + driverEarnings;
+      if (deliveredOrders.length === 0) return;
 
-      if (total === 0) return;
+      for (const o of deliveredOrders) {
+        const name = o.driverName || 'سائق غير معروف';
+        driverMap[name] = (driverMap[name] || 0) + (o.driverEarning || 0);
+      }
 
-      const labels = ['أرباح التطبيق', 'أرباح السائقين'];
-      const values = [ownerEarnings, driverEarnings];
-      const colors = ['#10B981', '#3B82F6'];
+      // Sort desc
+      const sorted = Object.entries(driverMap).sort((a, b) => b[1] - a[1]);
 
-      const legendHtml = labels.map((lbl, i) => {
-        const pct = ((values[i] / total) * 100).toFixed(1);
-        return `<tr>
-          <td style="padding:6px 8px;">
-            <span style="display:inline-block;width:14px;height:14px;border-radius:50%;background:${colors[i]};vertical-align:middle;margin-left:6px;"></span>
-            ${lbl}
+      // Top 8 + others
+      const TOP = 8;
+      let displayed = sorted.slice(0, TOP);
+      const rest = sorted.slice(TOP);
+      if (rest.length > 0) {
+        const othersTotal = rest.reduce((s, [, v]) => s + v, 0);
+        displayed.push(['أخرى (' + rest.length + ' سائق)', othersTotal]);
+      }
+
+      const palette = [
+        '#3B82F6','#10B981','#8B5CF6','#F59E0B','#06B6D4',
+        '#EF4444','#EC4899','#14B8A6','#F97316','#64748B',
+      ];
+      const total  = displayed.reduce((s, [, v]) => s + v, 0);
+      const labels = displayed.map(([k]) => k);
+      const values = displayed.map(([, v]) => v);
+      const colors = displayed.map((_, i) => palette[i % palette.length]);
+
+      const legendHtml = displayed.map(([name, amount], i) => {
+        const pct = ((amount / total) * 100).toFixed(1);
+        const ordCount = driverMap[name] !== undefined
+          ? orders.filter(o => o.driverName === name && o.status === 'delivered').length
+          : '—';
+        return `<tr style="border-bottom:1px solid #F3F4F6;">
+          <td style="padding:7px 8px;">
+            <div style="display:flex;align-items:center;gap:6px;">
+              <span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:${palette[i % palette.length]};flex-shrink:0;"></span>
+              <span style="font-weight:600;">${escapeHtml(name)}</span>
+            </div>
+            <div style="font-size:0.75rem;color:#9CA3AF;padding-right:18px;">${typeof ordCount === 'number' ? ordCount + ' طلب' : ''}</div>
           </td>
-          <td style="padding:6px 8px;font-weight:700;text-align:center;">${values[i].toLocaleString('ar-IQ')} د.ع</td>
-          <td style="padding:6px 8px;text-align:center;">
+          <td style="padding:7px 8px;font-weight:700;text-align:center;color:#1a1a2e;">${amount.toLocaleString('ar-IQ')} د.ع</td>
+          <td style="padding:7px 8px;text-align:center;">
             <span style="background:#F3F4F6;border-radius:20px;padding:2px 10px;font-size:0.82rem;font-weight:600;">${pct}%</span>
           </td>
         </tr>`;
       }).join('');
       document.getElementById('earnings-legend').innerHTML = legendHtml;
+      document.getElementById('earnings-total-val').textContent = total.toLocaleString('ar-IQ') + ' د.ع';
 
       document.getElementById('earnings-chart-modal').style.display = 'flex';
 
@@ -6386,7 +6432,7 @@
         type: 'doughnut',
         data: {
           labels,
-          datasets: [{ data: values, backgroundColor: colors, borderWidth: 3, borderColor: '#fff', hoverOffset: 12 }]
+          datasets: [{ data: values, backgroundColor: colors, borderWidth: 3, borderColor: '#fff', hoverOffset: 14 }]
         },
         options: {
           responsive: true,
@@ -6492,17 +6538,17 @@
     </div>
   </div>
 
-  <!-- Revenue Breakdown Chart Modal -->
+  <!-- App Profits by Category Chart Modal -->
   <div id="revenue-chart-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:9999;align-items:center;justify-content:center;padding:16px;" onclick="if(event.target===this)closeRevenueChart()">
-    <div style="background:#fff;border-radius:20px;width:100%;max-width:560px;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.25);">
+    <div style="background:#fff;border-radius:20px;width:100%;max-width:580px;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.25);">
       <div style="padding:20px 24px;border-bottom:1px solid #F3F4F6;display:flex;align-items:center;justify-content:space-between;">
         <div style="display:flex;align-items:center;gap:10px;">
-          <div style="width:38px;height:38px;border-radius:10px;background:linear-gradient(135deg,#D94523,#F07050);display:flex;align-items:center;justify-content:center;">
-            <i data-lucide="pie-chart" style="width:20px;height:20px;color:#fff;"></i>
+          <div style="width:42px;height:42px;border-radius:12px;background:linear-gradient(135deg,#D94523,#F07050);display:flex;align-items:center;justify-content:center;">
+            <i data-lucide="trending-up" style="width:20px;height:20px;color:#fff;"></i>
           </div>
           <div>
-            <div style="font-size:1rem;font-weight:700;color:#1a1a2e;">توزيع إجمالي المبيعات</div>
-            <div style="font-size:0.78rem;color:#6B7280;">مبيعات المنتجات مقابل أجور التوصيل</div>
+            <div style="font-size:1rem;font-weight:700;color:#1a1a2e;">أرباح التطبيق حسب القسم</div>
+            <div style="font-size:0.78rem;color:#6B7280;">توزيع ربح المنصة بين المطاعم والخدمات الأخرى</div>
           </div>
         </div>
         <button onclick="closeRevenueChart()" style="background:none;border:none;cursor:pointer;color:#6B7280;padding:4px;">
@@ -6510,7 +6556,11 @@
         </button>
       </div>
       <div style="padding:24px;">
-        <div style="height:260px;margin-bottom:20px;">
+        <div style="text-align:center;margin-bottom:6px;">
+          <div style="font-size:0.78rem;color:#9CA3AF;">إجمالي أرباح التطبيق</div>
+          <div id="revenue-total-val" style="font-size:1.6rem;font-weight:800;color:#D94523;direction:ltr;">0 د.ع</div>
+        </div>
+        <div style="height:240px;margin-bottom:20px;">
           <canvas id="revenue-canvas"></canvas>
         </div>
         <div style="background:#F9FAFB;border-radius:12px;overflow:hidden;">
@@ -6518,7 +6568,7 @@
             <thead>
               <tr style="background:#F3F4F6;">
                 <th style="padding:8px 12px;text-align:right;color:#374151;font-weight:600;">المصدر</th>
-                <th style="padding:8px 12px;text-align:center;color:#374151;font-weight:600;">المبلغ</th>
+                <th style="padding:8px 12px;text-align:center;color:#374151;font-weight:600;">الأرباح</th>
                 <th style="padding:8px 12px;text-align:center;color:#374151;font-weight:600;">النسبة</th>
               </tr>
             </thead>
@@ -6529,17 +6579,17 @@
     </div>
   </div>
 
-  <!-- Earnings Breakdown Chart Modal -->
+  <!-- Per-Driver Earnings Chart Modal -->
   <div id="earnings-chart-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:9999;align-items:center;justify-content:center;padding:16px;" onclick="if(event.target===this)closeEarningsChart()">
-    <div style="background:#fff;border-radius:20px;width:100%;max-width:560px;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.25);">
+    <div style="background:#fff;border-radius:20px;width:100%;max-width:580px;max-height:92vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.25);">
       <div style="padding:20px 24px;border-bottom:1px solid #F3F4F6;display:flex;align-items:center;justify-content:space-between;">
         <div style="display:flex;align-items:center;gap:10px;">
-          <div style="width:38px;height:38px;border-radius:10px;background:linear-gradient(135deg,#10B981,#3B82F6);display:flex;align-items:center;justify-content:center;">
-            <i data-lucide="pie-chart" style="width:20px;height:20px;color:#fff;"></i>
+          <div style="width:42px;height:42px;border-radius:12px;background:linear-gradient(135deg,#3B82F6,#06B6D4);display:flex;align-items:center;justify-content:center;">
+            <i data-lucide="users" style="width:20px;height:20px;color:#fff;"></i>
           </div>
           <div>
-            <div style="font-size:1rem;font-weight:700;color:#1a1a2e;">توزيع الأرباح</div>
-            <div style="font-size:0.78rem;color:#6B7280;">حصة التطبيق مقابل حصة السائقين</div>
+            <div style="font-size:1rem;font-weight:700;color:#1a1a2e;">أرباح السائقين تفصيلاً</div>
+            <div style="font-size:0.78rem;color:#6B7280;">ربح كل سائق من الطلبات المكتملة</div>
           </div>
         </div>
         <button onclick="closeEarningsChart()" style="background:none;border:none;cursor:pointer;color:#6B7280;padding:4px;">
@@ -6547,15 +6597,19 @@
         </button>
       </div>
       <div style="padding:24px;">
-        <div style="height:260px;margin-bottom:20px;">
+        <div style="text-align:center;margin-bottom:6px;">
+          <div style="font-size:0.78rem;color:#9CA3AF;">إجمالي أرباح السائقين</div>
+          <div id="earnings-total-val" style="font-size:1.6rem;font-weight:800;color:#3B82F6;direction:ltr;">0 د.ع</div>
+        </div>
+        <div style="height:240px;margin-bottom:20px;">
           <canvas id="earnings-canvas"></canvas>
         </div>
         <div style="background:#F9FAFB;border-radius:12px;overflow:hidden;">
           <table style="width:100%;border-collapse:collapse;font-family:'Cairo',sans-serif;font-size:0.88rem;">
             <thead>
               <tr style="background:#F3F4F6;">
-                <th style="padding:8px 12px;text-align:right;color:#374151;font-weight:600;">الجهة</th>
-                <th style="padding:8px 12px;text-align:center;color:#374151;font-weight:600;">المبلغ</th>
+                <th style="padding:8px 12px;text-align:right;color:#374151;font-weight:600;">السائق</th>
+                <th style="padding:8px 12px;text-align:center;color:#374151;font-weight:600;">الأرباح</th>
                 <th style="padding:8px 12px;text-align:center;color:#374151;font-weight:600;">النسبة</th>
               </tr>
             </thead>
