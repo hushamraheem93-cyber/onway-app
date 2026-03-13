@@ -303,6 +303,8 @@ export interface FirestoreOrder {
   userId: string;
   phoneNumber: string;
   customerName?: string;
+  customerPhone?: string;
+  notes?: string;
   items: { productId: string; name: string; price: number; quantity: number; image: string }[];
   total: number;
   deliveryFee: number;

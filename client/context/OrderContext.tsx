@@ -40,8 +40,12 @@ interface OrderContextType {
     address: string;
     region: string;
     customerName?: string;
+    customerPhone?: string;
+    notes?: string;
     latitude?: number;
     longitude?: number;
+    promoCode?: string;
+    promoDiscount?: number;
   }) => Promise<Order | null>;
   refreshOrders: () => Promise<void>;
 }
@@ -134,8 +138,12 @@ export function OrderProvider({ children }: { children: ReactNode }) {
     address: string;
     region: string;
     customerName?: string;
+    customerPhone?: string;
+    notes?: string;
     latitude?: number;
     longitude?: number;
+    promoCode?: string;
+    promoDiscount?: number;
   }): Promise<Order | null> => {
     if (!phoneNumber) return null;
     
@@ -156,6 +164,10 @@ export function OrderProvider({ children }: { children: ReactNode }) {
         region: orderData.region,
       };
       if (orderData.customerName) bodyData.customerName = orderData.customerName;
+      if (orderData.customerPhone) bodyData.customerPhone = orderData.customerPhone;
+      if (orderData.notes) bodyData.notes = orderData.notes;
+      if (orderData.promoCode) bodyData.promoCode = orderData.promoCode;
+      if (orderData.promoDiscount) bodyData.promoDiscount = orderData.promoDiscount;
       if (orderData.latitude !== undefined && orderData.longitude !== undefined) {
         bodyData.latitude = orderData.latitude;
         bodyData.longitude = orderData.longitude;

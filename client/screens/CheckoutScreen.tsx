@@ -46,7 +46,7 @@ export default function CheckoutScreen() {
   });
 
   const [customerName, setCustomerName] = useState("");
-  const [phone, setPhone] = useState("");
+  const [phone, setPhone] = useState(phoneNumber || "");
   const [selectedArea, setSelectedArea] = useState("");
   const [address, setAddress] = useState("");
   const [landmark, setLandmark] = useState("");
@@ -162,9 +162,13 @@ export default function CheckoutScreen() {
         address: fullAddress,
         region: areaName,
         customerName: customerName.trim(),
+        customerPhone: phone.trim(),
         latitude: selectedLocation?.latitude,
         longitude: selectedLocation?.longitude,
       };
+      if (notes.trim()) {
+        orderPayload.notes = notes.trim();
+      }
       if (appliedPromoCode) {
         orderPayload.promoCode = appliedPromoCode;
         orderPayload.promoDiscount = promoDiscount;

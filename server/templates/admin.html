@@ -5057,7 +5057,7 @@
           actionButtons += `<button class="btn btn-sm" style="background:#1a1a2e;color:white;margin-left:4px;" onclick="event.stopPropagation();openTrackingModal('${order.driverPhone}','${escapeHtml(order.driverName||order.driverPhone)}')"><i data-lucide="map-pin"></i> تتبع</button>`;
         }
         // WhatsApp button
-        const waPhone = (order.phoneNumber || '').replace(/^0/, '964');
+        const waPhone = ((order.customerPhone && order.customerPhone !== order.phoneNumber ? order.customerPhone : order.phoneNumber) || '').replace(/^0/, '964');
         const waMsg = encodeURIComponent(`مرحباً، بخصوص طلبك رقم #${order.id.slice(-6)} - ONWAY`);
         actionButtons += `<button class="btn-whatsapp" onclick="event.stopPropagation();window.open('https://wa.me/${waPhone}?text=${waMsg}','_blank')"><i data-lucide="message-circle" style="width:13px;height:13px;"></i> واتساب</button>`;
         // Print invoice
@@ -5175,21 +5175,36 @@
             </h4>
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
               <div>
-                <div style="font-size: 0.8rem; color: var(--gray-500);">رقم الهاتف</div>
+                <div style="font-size: 0.8rem; color: var(--gray-500);">رقم الحساب</div>
                 <div style="font-weight: 600; direction: ltr; text-align: right;">${escapeHtml(order.phoneNumber)}</div>
               </div>
+              ${order.customerPhone && order.customerPhone !== order.phoneNumber ? `
+              <div>
+                <div style="font-size: 0.8rem; color: var(--gray-500);">رقم التواصل</div>
+                <div style="font-weight: 600; direction: ltr; text-align: right;">${escapeHtml(order.customerPhone)}</div>
+              </div>` : `
+              <div>
+                <div style="font-size: 0.8rem; color: var(--gray-500);">المنطقة</div>
+                <div style="font-weight: 600;">${escapeHtml(order.region || '-')}</div>
+              </div>`}
+              ${order.customerPhone && order.customerPhone !== order.phoneNumber ? `
               <div>
                 <div style="font-size: 0.8rem; color: var(--gray-500);">المنطقة</div>
                 <div style="font-weight: 600;">${escapeHtml(order.region || '-')}</div>
               </div>
+              <div>
+                <div style="font-size: 0.8rem; color: var(--gray-500);">تاريخ الطلب</div>
+                <div style="font-weight: 600;">${date}</div>
+              </div>` : ''}
               <div style="grid-column: span 2;">
                 <div style="font-size: 0.8rem; color: var(--gray-500);">العنوان</div>
                 <div style="font-weight: 600;">${escapeHtml(order.address || '-')}</div>
               </div>
+              ${!order.customerPhone || order.customerPhone === order.phoneNumber ? `
               <div>
                 <div style="font-size: 0.8rem; color: var(--gray-500);">تاريخ الطلب</div>
                 <div style="font-weight: 600;">${date}</div>
-              </div>
+              </div>` : ''}
             </div>
           </div>
 
