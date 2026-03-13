@@ -1856,6 +1856,82 @@
       </div>
     </div>
 
+    <!-- Vendor Meals Management Modal (Full Screen) -->
+    <div id="vendor-meals-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:9100;align-items:flex-start;justify-content:center;overflow-y:auto;padding:24px 16px;">
+      <div style="background:#fff;border-radius:20px;width:900px;max-width:98vw;position:relative;">
+        <!-- Header -->
+        <div style="padding:20px 28px;border-bottom:1px solid var(--gray-100);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;position:sticky;top:0;background:#fff;border-radius:20px 20px 0 0;z-index:10;">
+          <div style="display:flex;align-items:center;gap:12px;">
+            <div style="background:#FFF3E0;border-radius:10px;padding:8px;"><i data-lucide="utensils" style="width:20px;height:20px;color:#E86520;"></i></div>
+            <div>
+              <h3 id="vendor-meals-title" style="margin:0;font-size:1.1rem;font-weight:800;">وجبات المطعم</h3>
+              <p id="vendor-meals-count" style="margin:0;font-size:0.8rem;color:var(--gray-500);">0 وجبة</p>
+            </div>
+          </div>
+          <div style="display:flex;gap:8px;align-items:center;">
+            <button class="btn btn-primary" onclick="openMealForm()">
+              <i data-lucide="plus"></i> إضافة وجبة
+            </button>
+            <button onclick="closeVendorMeals()" style="background:var(--gray-100);border:none;border-radius:10px;padding:8px 14px;cursor:pointer;font-size:0.9rem;color:var(--gray-600);">إغلاق</button>
+          </div>
+        </div>
+
+        <!-- Meals Grid -->
+        <div style="padding:24px 28px;" id="vendor-meals-body">
+          <div style="text-align:center;padding:60px 0;color:var(--gray-400);">
+            <div class="loading-spinner"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Meal Add/Edit Form Modal -->
+    <div id="meal-form-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:9200;align-items:center;justify-content:center;">
+      <div style="background:#fff;border-radius:20px;padding:28px;width:520px;max-width:95vw;max-height:92vh;overflow-y:auto;position:relative;">
+        <button onclick="closeMealForm()" style="position:absolute;top:14px;left:14px;background:none;border:none;font-size:1.5rem;cursor:pointer;color:var(--gray-400);line-height:1;">&times;</button>
+        <h3 id="meal-form-title" style="margin:0 0 20px;font-size:1rem;font-weight:800;">إضافة وجبة جديدة</h3>
+        <input type="hidden" id="meal-edit-id">
+        <div style="display:grid;gap:14px;">
+          <div>
+            <label style="font-size:0.83rem;font-weight:700;color:var(--gray-700);display:block;margin-bottom:5px;">اسم الوجبة *</label>
+            <input id="meal-name" class="form-input" placeholder="مثال: برجر كلاسيك" style="width:100%;">
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+            <div>
+              <label style="font-size:0.83rem;font-weight:700;color:var(--gray-700);display:block;margin-bottom:5px;">السعر (د.ع) *</label>
+              <input id="meal-price" type="number" min="0" class="form-input" placeholder="0" style="width:100%;">
+            </div>
+            <div>
+              <label style="font-size:0.83rem;font-weight:700;color:var(--gray-700);display:block;margin-bottom:5px;">السعر الأصلي (قبل الخصم)</label>
+              <input id="meal-original-price" type="number" min="0" class="form-input" placeholder="اختياري" style="width:100%;">
+            </div>
+          </div>
+          <div>
+            <label style="font-size:0.83rem;font-weight:700;color:var(--gray-700);display:block;margin-bottom:5px;">الوصف</label>
+            <textarea id="meal-description" class="form-input" rows="2" placeholder="وصف الوجبة..." style="width:100%;resize:vertical;"></textarea>
+          </div>
+          <div>
+            <label style="font-size:0.83rem;font-weight:700;color:var(--gray-700);display:block;margin-bottom:5px;">رابط صورة الوجبة</label>
+            <input id="meal-image" class="form-input" placeholder="https://..." style="width:100%;" oninput="previewMealImage(this.value)">
+            <div id="meal-image-preview" style="margin-top:8px;display:none;">
+              <img id="meal-preview-img" src="" style="width:100%;height:140px;object-fit:cover;border-radius:10px;border:1px solid var(--gray-100);">
+            </div>
+          </div>
+          <div>
+            <label style="font-size:0.83rem;font-weight:700;color:var(--gray-700);display:block;margin-bottom:5px;">الحالة</label>
+            <select id="meal-instock" class="form-input" style="width:100%;">
+              <option value="true">متوفر</option>
+              <option value="false">غير متوفر</option>
+            </select>
+          </div>
+        </div>
+        <div style="display:flex;gap:10px;margin-top:20px;justify-content:flex-end;">
+          <button onclick="closeMealForm()" class="btn btn-outline">إلغاء</button>
+          <button onclick="saveMeal()" class="btn btn-primary" id="meal-save-btn">حفظ الوجبة</button>
+        </div>
+      </div>
+    </div>
+
     <!-- Vendor Statement Modal -->
     <div id="vendor-statement-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9000;align-items:center;justify-content:center;">
       <div style="background:#fff;border-radius:20px;padding:32px;width:520px;max-width:95vw;max-height:90vh;overflow-y:auto;position:relative;">
@@ -3937,6 +4013,9 @@
           </td>
           <td>
             <div style="display:flex;gap:6px;flex-wrap:wrap;">
+              <button class="btn btn-sm" style="background:#E86520;color:#fff;border:none;" onclick="openVendorMeals('${v.id}','${v.name.replace(/'/g,"\\'")}')">
+                <i data-lucide="utensils" style="width:13px;height:13px;"></i> الوجبات
+              </button>
               <button class="btn btn-outline btn-sm" onclick="openVendorStatement('${v.id}')" title="كشف الحساب">
                 <i data-lucide="bar-chart-2" style="width:13px;height:13px;"></i>
               </button>
@@ -4015,6 +4094,183 @@
       } catch { showToast('error', 'خطأ', 'تعذّر الاتصال بالخادم'); }
       btn.disabled = false; btn.textContent = 'حفظ';
     }
+
+    // ── Vendor Meals Management ──────────────────────────────────────────────
+    let _currentVendorId = null;
+    let _currentVendorName = null;
+    let _vendorMeals = [];
+
+    async function openVendorMeals(vendorId, vendorName) {
+      _currentVendorId = vendorId;
+      _currentVendorName = vendorName;
+      document.getElementById('vendor-meals-title').textContent = 'وجبات: ' + vendorName;
+      document.getElementById('vendor-meals-count').textContent = 'جاري التحميل...';
+      document.getElementById('vendor-meals-modal').style.display = 'flex';
+      document.body.style.overflow = 'hidden';
+      lucide.createIcons();
+      await loadVendorMeals();
+    }
+
+    function closeVendorMeals() {
+      document.getElementById('vendor-meals-modal').style.display = 'none';
+      document.body.style.overflow = '';
+      _currentVendorId = null;
+      _currentVendorName = null;
+    }
+
+    async function loadVendorMeals() {
+      try {
+        const res = await fetch(API_BASE + '/admin/products');
+        const allProducts = await res.json();
+        _vendorMeals = allProducts.filter(p =>
+          p.categoryId === 'restaurants' && p.restaurant === _currentVendorName
+        );
+        renderVendorMeals();
+      } catch (e) {
+        document.getElementById('vendor-meals-body').innerHTML =
+          '<p style="color:red;text-align:center;">فشل تحميل الوجبات</p>';
+      }
+    }
+
+    function renderVendorMeals() {
+      const body = document.getElementById('vendor-meals-body');
+      document.getElementById('vendor-meals-count').textContent = _vendorMeals.length + ' وجبة';
+      if (_vendorMeals.length === 0) {
+        body.innerHTML = `
+          <div style="text-align:center;padding:60px 0;color:var(--gray-400);">
+            <i data-lucide="utensils" style="width:48px;height:48px;margin-bottom:16px;"></i>
+            <p style="font-size:1rem;font-weight:600;">لا توجد وجبات بعد</p>
+            <p style="font-size:0.85rem;">اضغط "إضافة وجبة" لإضافة أول وجبة</p>
+          </div>`;
+        lucide.createIcons();
+        return;
+      }
+      body.innerHTML = `
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:16px;">
+          ${_vendorMeals.map(meal => `
+            <div style="border-radius:14px;overflow:hidden;border:1px solid var(--gray-100);background:#fff;box-shadow:0 1px 6px rgba(0,0,0,0.06);">
+              <div style="position:relative;height:140px;background:var(--gray-100);">
+                <img src="${escapeHtml(meal.image||'')}" onerror="this.style.display='none'" style="width:100%;height:100%;object-fit:cover;">
+                <span style="position:absolute;top:8px;right:8px;padding:3px 10px;border-radius:20px;font-size:0.73rem;font-weight:700;background:${meal.inStock!==false?'#E8F5E9':'#FFEBEE'};color:${meal.inStock!==false?'#10B981':'#EF4444'};">
+                  ${meal.inStock!==false?'متوفر':'نفذ'}
+                </span>
+              </div>
+              <div style="padding:12px 14px;">
+                <div style="font-weight:700;font-size:0.9rem;margin-bottom:4px;">${escapeHtml(meal.name)}</div>
+                <div style="font-size:0.78rem;color:var(--gray-500);margin-bottom:8px;line-height:1.4;" title="${escapeHtml(meal.description||'')}">
+                  ${escapeHtml((meal.description||'').slice(0,60))}${(meal.description||'').length>60?'...':''}
+                </div>
+                <div style="display:flex;align-items:center;justify-content:space-between;">
+                  <div>
+                    <span style="font-size:1rem;font-weight:800;color:var(--primary);">${(meal.price||0).toLocaleString()}</span>
+                    <span style="font-size:0.72rem;color:var(--gray-500);margin-right:2px;">د.ع</span>
+                    ${meal.originalPrice && meal.originalPrice > meal.price ? `<div style="font-size:0.72rem;color:var(--gray-400);text-decoration:line-through;">${meal.originalPrice.toLocaleString()} د.ع</div>` : ''}
+                  </div>
+                  <div style="display:flex;gap:6px;">
+                    <button class="btn btn-outline btn-sm" onclick="openMealForm('${meal.id}')" title="تعديل">
+                      <i data-lucide="edit-2" style="width:13px;height:13px;"></i>
+                    </button>
+                    <button class="btn btn-sm" style="background:#FEF2F2;color:#EF4444;border:1px solid #FECACA;" onclick="confirmDeleteMeal('${meal.id}','${escapeHtml(meal.name)}')" title="حذف">
+                      <i data-lucide="trash-2" style="width:13px;height:13px;"></i>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          `).join('')}
+        </div>`;
+      lucide.createIcons();
+    }
+
+    function openMealForm(mealId = null) {
+      const meal = mealId ? _vendorMeals.find(m => m.id === mealId) : null;
+      document.getElementById('meal-form-title').textContent = meal ? 'تعديل الوجبة' : 'إضافة وجبة جديدة';
+      document.getElementById('meal-edit-id').value = meal ? meal.id : '';
+      document.getElementById('meal-name').value = meal ? meal.name || '' : '';
+      document.getElementById('meal-price').value = meal ? meal.price || '' : '';
+      document.getElementById('meal-original-price').value = meal ? meal.originalPrice || '' : '';
+      document.getElementById('meal-description').value = meal ? meal.description || '' : '';
+      document.getElementById('meal-image').value = meal ? meal.image || '' : '';
+      document.getElementById('meal-instock').value = meal ? String(meal.inStock !== false) : 'true';
+      const preview = document.getElementById('meal-image-preview');
+      if (meal && meal.image) {
+        document.getElementById('meal-preview-img').src = meal.image;
+        preview.style.display = 'block';
+      } else {
+        preview.style.display = 'none';
+      }
+      document.getElementById('meal-form-modal').style.display = 'flex';
+      lucide.createIcons();
+    }
+
+    function closeMealForm() {
+      document.getElementById('meal-form-modal').style.display = 'none';
+    }
+
+    function previewMealImage(url) {
+      const preview = document.getElementById('meal-image-preview');
+      const img = document.getElementById('meal-preview-img');
+      if (url && url.startsWith('http')) {
+        img.src = url;
+        preview.style.display = 'block';
+      } else {
+        preview.style.display = 'none';
+      }
+    }
+
+    async function saveMeal() {
+      const id = document.getElementById('meal-edit-id').value;
+      const name = document.getElementById('meal-name').value.trim();
+      const price = parseFloat(document.getElementById('meal-price').value);
+      if (!name) { showToast('error', 'خطأ', 'اسم الوجبة مطلوب'); return; }
+      if (!price || price <= 0) { showToast('error', 'خطأ', 'السعر مطلوب'); return; }
+      const originalPrice = parseFloat(document.getElementById('meal-original-price').value) || undefined;
+      const payload = {
+        name,
+        categoryId: 'restaurants',
+        restaurant: _currentVendorName,
+        price,
+        originalPrice: originalPrice || null,
+        discount: (originalPrice && originalPrice > price) ? Math.round((1 - price/originalPrice)*100) : null,
+        description: document.getElementById('meal-description').value.trim(),
+        image: document.getElementById('meal-image').value.trim(),
+        inStock: document.getElementById('meal-instock').value === 'true',
+      };
+      const btn = document.getElementById('meal-save-btn');
+      btn.disabled = true; btn.textContent = 'جاري الحفظ...';
+      try {
+        const url = id ? `${API_BASE}/admin/products/${id}` : `${API_BASE}/admin/products`;
+        const method = id ? 'PUT' : 'POST';
+        const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+        if (res.ok) {
+          showToast('success', 'تم', id ? 'تم تحديث الوجبة' : 'تمت إضافة الوجبة');
+          closeMealForm();
+          await loadVendorMeals();
+        } else {
+          const err = await res.json().catch(() => ({}));
+          showToast('error', 'خطأ', err.error || 'فشل الحفظ');
+        }
+      } catch { showToast('error', 'خطأ', 'تعذّر الاتصال بالخادم'); }
+      btn.disabled = false; btn.textContent = 'حفظ الوجبة';
+    }
+
+    function confirmDeleteMeal(id, name) {
+      document.getElementById('confirm-message').textContent = `هل أنت متأكد من حذف "${name}"؟`;
+      document.getElementById('confirm-delete-btn').onclick = async () => {
+        closeModal('confirm-modal');
+        try {
+          const res = await fetch(`${API_BASE}/admin/products/${id}`, { method: 'DELETE' });
+          if (res.ok) {
+            showToast('success', 'تم', `تم حذف "${name}"`);
+            await loadVendorMeals();
+          } else {
+            showToast('error', 'خطأ', 'فشل الحذف');
+          }
+        } catch { showToast('error', 'خطأ', 'حدث خطأ في الاتصال'); }
+      };
+      document.getElementById('confirm-modal').classList.add('active');
+    }
+    // ─────────────────────────────────────────────────────────────────────────
 
     async function confirmDeleteVendor(id, name) {
       document.getElementById('confirm-message').textContent = `هل أنت متأكد من حذف مطعم "${name}"؟`;
