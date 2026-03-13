@@ -3038,22 +3038,24 @@
 
     function locateAdminOnMap() {
       const btn = document.getElementById('btn-locate-me');
-      if (!navigator.geolocation) {
-        showToast('error', 'غير مدعوم', 'المتصفح لا يدعم تحديد الموقع');
+      if (!navigator.geolocation || !window.isSecureContext) {
+        showToast('error', 'غير مدعوم', 'تحديد الموقع يتطلب اتصال آمن (HTTPS) — افتح لوحة التحكم عبر الرابط الصحيح');
         return;
       }
-      if (btn) { btn.disabled = true; btn.innerHTML = '<i data-lucide="loader" style="width:15px;height:15px;"></i> جاري التحديد...'; lucide.createIcons(); }
+      // Initialize map if not yet done
+      if (!_gpsMap) initDashboardMap();
+      if (btn) { btn.disabled = true; btn.innerHTML = '<i data-lucide="loader" style="width:15px;height:15px;animation:spin 1s linear infinite;"></i> جاري التحديد...'; lucide.createIcons(); }
       navigator.geolocation.getCurrentPosition(function(pos) {
         const lat = pos.coords.latitude;
         const lng = pos.coords.longitude;
         if (_gpsMap) {
-          _gpsMap.flyTo([lat, lng], 15, { animate: true, duration: 1.2 });
+          _gpsMap.flyTo([lat, lng], 16, { animate: true, duration: 1.2 });
           if (_myLocationMarker) {
             _myLocationMarker.setLatLng([lat, lng]);
           } else {
             const myIcon = L.divIcon({
-              html: `<div style="width:18px;height:18px;background:#2563EB;border-radius:50%;border:3px solid #fff;box-shadow:0 0 0 4px rgba(37,99,235,0.3);"></div>`,
-              className: '', iconSize: [18, 18], iconAnchor: [9, 9]
+              html: `<div style="width:20px;height:20px;background:#2563EB;border-radius:50%;border:3px solid #fff;box-shadow:0 0 0 5px rgba(37,99,235,0.3);"></div>`,
+              className: '', iconSize: [20, 20], iconAnchor: [10, 10]
             });
             _myLocationMarker = L.marker([lat, lng], { icon: myIcon, zIndexOffset: 2000 })
               .addTo(_gpsMap)
@@ -3062,10 +3064,14 @@
           }
         }
         if (btn) { btn.disabled = false; btn.innerHTML = '<i data-lucide="navigation" style="width:15px;height:15px;"></i> موقعي'; lucide.createIcons(); }
-      }, function() {
-        showToast('error', 'تعذّر التحديد', 'تأكد من السماح للمتصفح بالوصول للموقع');
+      }, function(err) {
+        let msg = 'تعذّر تحديد الموقع';
+        if (err.code === 1) msg = 'رُفض الإذن — اسمح للمتصفح بالوصول للموقع من الإعدادات';
+        else if (err.code === 2) msg = 'الموقع غير متاح — تأكد من تفعيل GPS';
+        else if (err.code === 3) msg = 'انتهت المهلة — حاول مرة أخرى';
+        showToast('error', 'تعذّر التحديد', msg);
         if (btn) { btn.disabled = false; btn.innerHTML = '<i data-lucide="navigation" style="width:15px;height:15px;"></i> موقعي'; lucide.createIcons(); }
-      }, { enableHighAccuracy: true, timeout: 8000 });
+      }, { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 });
     }
 
     async function refreshDriverLocations() {
@@ -4744,23 +4750,35 @@
     }
 
     function locateMyPosition() {
-      if (!navigator.geolocation) {
-        showToast('error', 'خطأ', 'المتصفح لا يدعم تحديد الموقع');
+      if (!navigator.geolocation || !window.isSecureContext) {
+        showToast('error', 'غير مدعوم', 'تحديد الموقع يتطلب اتصال آمن (HTTPS) — افتح لوحة التحكم عبر الرابط الصحيح');
         return;
       }
-      document.getElementById('delivery-coords-text').textContent = 'جاري تحديد موقعك...';
+      const coordsText = document.getElementById('delivery-coords-text');
+      const btn = document.querySelector('.btn-locate');
+      if (coordsText) coordsText.textContent = 'جاري تحديد موقعك...';
+      if (btn) { btn.disabled = true; btn.style.opacity = '0.6'; }
       navigator.geolocation.getCurrentPosition(function(pos) {
         var lat = pos.coords.latitude;
         var lng = pos.coords.longitude;
+        // Initialize map if not yet ready
+        if (!_deliveryPickerMap) initDeliveryPickerMap(lat, lng);
         if (_deliveryPickerMap && _deliveryPickerMarker) {
           _deliveryPickerMarker.setLatLng([lat, lng]);
-          _deliveryPickerMap.setView([lat, lng], 15);
+          _deliveryPickerMap.setView([lat, lng], 16);
         }
         setDeliveryCoords(lat, lng);
-      }, function() {
-        document.getElementById('delivery-coords-text').textContent = 'تعذّر الحصول على الموقع';
-        showToast('error', 'خطأ', 'تعذّر تحديد الموقع — جرب النقر على الخارطة مباشرة');
-      });
+        if (coordsText) coordsText.textContent = lat.toFixed(6) + '، ' + lng.toFixed(6);
+        if (btn) { btn.disabled = false; btn.style.opacity = ''; }
+      }, function(err) {
+        var msg = 'تعذّر تحديد الموقع — جرب النقر على الخارطة مباشرة';
+        if (err.code === 1) msg = 'رُفض الإذن — اسمح للمتصفح بالوصول للموقع من إعدادات الموقع';
+        else if (err.code === 2) msg = 'الموقع غير متاح — تأكد من تفعيل GPS';
+        else if (err.code === 3) msg = 'انتهت المهلة — حاول مرة أخرى أو انقر على الخارطة';
+        if (coordsText) coordsText.textContent = 'انقر على الخارطة لتحديد الموقع';
+        if (btn) { btn.disabled = false; btn.style.opacity = ''; }
+        showToast('error', 'خطأ في الموقع', msg);
+      }, { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 });
     }
 
     function openDeliveryModal(area = null) {
