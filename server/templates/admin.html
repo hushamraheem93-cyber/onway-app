@@ -1901,6 +1901,19 @@
             <label style="font-size:0.85rem;font-weight:600;color:var(--gray-700);display:block;margin-bottom:6px;">رابط صورة المطعم</label>
             <input id="vendor-image" class="form-input" placeholder="https://..." style="width:100%;">
           </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+            <div>
+              <label style="font-size:0.85rem;font-weight:600;color:var(--gray-700);display:block;margin-bottom:6px;">نوع البائع</label>
+              <select id="vendor-category-type" class="form-input" style="width:100%;">
+                <option value="restaurant">مطعم</option>
+                <option value="store">متجر</option>
+              </select>
+            </div>
+            <div>
+              <label style="font-size:0.85rem;font-weight:600;color:var(--gray-700);display:block;margin-bottom:6px;">نوع المطبخ / التخصص</label>
+              <input id="vendor-cuisine" class="form-input" placeholder="مثال: مشاوي، برغر، سمك..." style="width:100%;">
+            </div>
+          </div>
           <div style="display:flex;align-items:center;gap:10px;">
             <label style="font-size:0.85rem;font-weight:600;color:var(--gray-700);">الحالة:</label>
             <label style="display:flex;align-items:center;gap:6px;cursor:pointer;">
@@ -4265,13 +4278,16 @@
           document.getElementById('vendor-delivery-time').value = v.deliveryTime || '30-45';
           document.getElementById('vendor-image').value = v.image || '';
           document.getElementById('vendor-is-open').checked = v.isOpen !== false;
+          document.getElementById('vendor-category-type').value = v.categoryType || 'restaurant';
+          document.getElementById('vendor-cuisine').value = v.cuisine || '';
         }
       } else {
-        ['vendor-name','vendor-location','vendor-whatsapp','vendor-image'].forEach(id => document.getElementById(id).value = '');
+        ['vendor-name','vendor-location','vendor-whatsapp','vendor-image','vendor-cuisine'].forEach(id => document.getElementById(id).value = '');
         document.getElementById('vendor-commission').value = 10;
         document.getElementById('vendor-rating').value = 4.5;
         document.getElementById('vendor-delivery-time').value = '30-45';
         document.getElementById('vendor-is-open').checked = true;
+        document.getElementById('vendor-category-type').value = 'restaurant';
       }
       modal.style.display = 'flex';
       lucide.createIcons();
@@ -4294,6 +4310,8 @@
         deliveryTime: document.getElementById('vendor-delivery-time').value.trim() || '30-45',
         image: document.getElementById('vendor-image').value.trim(),
         isOpen: document.getElementById('vendor-is-open').checked,
+        categoryType: document.getElementById('vendor-category-type').value,
+        cuisine: document.getElementById('vendor-cuisine').value.trim(),
       };
       const btn = document.getElementById('vendor-save-btn');
       btn.disabled = true; btn.textContent = 'جاري الحفظ...';

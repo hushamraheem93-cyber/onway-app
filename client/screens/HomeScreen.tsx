@@ -1,5 +1,16 @@
 import React, { useMemo, useState, useCallback } from "react";
-import { StyleSheet, View, FlatList, ScrollView, Dimensions, ActivityIndicator, Pressable, Platform, Modal } from "react-native";
+import {
+  StyleSheet,
+  View,
+  FlatList,
+  ScrollView,
+  Dimensions,
+  ActivityIndicator,
+  Pressable,
+  Platform,
+  Modal,
+  TextInput,
+} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
@@ -12,14 +23,12 @@ import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 
 import { useTheme } from "@/hooks/useTheme";
-import { Spacing, AppColors, DesignSystem, BorderRadius, Shadows } from "@/constants/theme";
+import { Spacing, AppColors, DesignSystem, BorderRadius } from "@/constants/theme";
 import { Category, Banner, Product } from "@/constants/categories";
 import { ThemedText } from "@/components/ThemedText";
 import { LocationBar } from "@/components/LocationBar";
 import { BannerSlider } from "@/components/BannerSlider";
 import { OfferBanner } from "@/components/OfferBanner";
-import { SectionHeader } from "@/components/SectionHeader";
-import { CategoryCard } from "@/components/CategoryCard";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
 import { useCart } from "@/context/CartContext";
 import { useFavorites } from "@/context/FavoritesContext";
@@ -30,42 +39,51 @@ import { getApiUrl } from "@/lib/query-client";
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
-const GRID_GAP = 10;
 const HORIZONTAL_PADDING = 18;
-const CATEGORY_CARD_WIDTH = (SCREEN_WIDTH - 48) / 4;
 const PRODUCT_CARD_WIDTH = 160;
-const CAT_CARD_W = (SCREEN_WIDTH - HORIZONTAL_PADDING * 2 - 10) / 2;
+
+interface Vendor {
+  id: string;
+  name: string;
+  image: string;
+  rating: number;
+  deliveryTime: string;
+  isOpen: boolean;
+  location: string;
+  cuisine?: string;
+  categoryType?: "restaurant" | "store";
+}
 
 const CATEGORY_3D_IMAGES: Record<string, string> = {
-  "restaurants": "/uploads/category-3d-restaurants.png",
+  restaurants: "/uploads/category-3d-restaurants.png",
   "fruits-vegetables": "/uploads/category-3d-vegetables.png",
   "meat-poultry": "/uploads/category-3d-meat.png",
   "dairy-eggs": "/uploads/category-3d-dairy.png",
   "cleaning-care": "/uploads/category-3d-cleaning.png",
-  "beverages": "/uploads/category-3d-beverages.png",
+  beverages: "/uploads/category-3d-beverages.png",
   "snacks-sweets": "/uploads/category-3d-snacks.png",
   "tea-coffee": "/uploads/category-3d-coffee.png",
-  "baby": "/uploads/category-3d-baby.png",
-  "flowers": "/uploads/category-3d-flowers.png",
-  "delivery": "/uploads/category-3d-delivery.png",
-  "pharmacy": "/uploads/category-3d-pharmacy.png",
+  baby: "/uploads/category-3d-baby.png",
+  flowers: "/uploads/category-3d-flowers.png",
+  delivery: "/uploads/category-3d-delivery.png",
+  pharmacy: "/uploads/category-3d-pharmacy.png",
   "women-bags": "/uploads/category-3d-bags.png",
   "international-shopping": "/uploads/category-3d-international.png",
 };
 
 const CATEGORY_COLORS: Record<string, string> = {
-  "restaurants": "#FFF4E0",
+  restaurants: "#FFF4E0",
   "fruits-vegetables": "#E8F5E9",
   "meat-poultry": "#FFEBEE",
   "dairy-eggs": "#F3E5F5",
   "cleaning-care": "#E3F2FD",
-  "beverages": "#E0F7FA",
+  beverages: "#E0F7FA",
   "snacks-sweets": "#FFF9C4",
   "tea-coffee": "#EFEBE9",
-  "baby": "#FCE4EC",
-  "flowers": "#FDF2F2",
-  "delivery": "#FFFDE7",
-  "pharmacy": "#E1F5FE",
+  baby: "#FCE4EC",
+  flowers: "#FDF2F2",
+  delivery: "#FFFDE7",
+  pharmacy: "#E1F5FE",
   "women-bags": "#FCE4EC",
   "international-shopping": "#E8EAF6",
 };
@@ -80,22 +98,29 @@ export default function HomeScreen() {
   const { items, addToCart, updateQuantity } = useCart();
   const { isFavorite, toggleFavorite } = useFavorites();
   const { userProfile } = useAuth();
+
+  const [activeTab, setActiveTab] = useState<"restaurants" | "stores">("restaurants");
+  const [searchQuery, setSearchQuery] = useState("");
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
 
-  const welcomeMessage = userProfile?.fullName 
-    ? `أهلاً ${userProfile.fullName.split(' ')[0]}` 
+  const welcomeMessage = userProfile?.fullName
+    ? `أهلاً ${userProfile.fullName.split(" ")[0]}`
     : "أهلاً بك";
 
   const { data: categories = [], isLoading: categoriesLoading } = useQuery<Category[]>({
     queryKey: ["/api/categories"],
   });
 
-  const { data: allBanners = [], isLoading: bannersLoading } = useQuery<Banner[]>({
+  const { data: allBanners = [] } = useQuery<Banner[]>({
     queryKey: ["/api/banners"],
   });
 
   const { data: allProducts = [], isLoading: productsLoading } = useQuery<Product[]>({
     queryKey: ["/api/products"],
+  });
+
+  const { data: allVendors = [], isLoading: vendorsLoading } = useQuery<Vendor[]>({
+    queryKey: ["/api/vendors"],
   });
 
   interface PromotionalSection {
@@ -108,52 +133,85 @@ export default function HomeScreen() {
     queryKey: ["/api/promotional-sections"],
   });
 
+  // ── Vendors filtered by tab + search ──────────────────────────────────
+  const restaurantVendors = useMemo(() => {
+    return allVendors.filter(
+      (v) => !v.categoryType || v.categoryType === "restaurant"
+    );
+  }, [allVendors]);
+
+  const storeVendors = useMemo(() => {
+    return allVendors.filter((v) => v.categoryType === "store");
+  }, [allVendors]);
+
+  const filteredRestaurants = useMemo(() => {
+    if (!searchQuery.trim()) return restaurantVendors;
+    const q = searchQuery.trim().toLowerCase();
+    return restaurantVendors.filter(
+      (v) =>
+        v.name.toLowerCase().includes(q) ||
+        (v.cuisine || "").toLowerCase().includes(q)
+    );
+  }, [restaurantVendors, searchQuery]);
+
+  // ── Stores: non-restaurant categories ──────────────────────────────────
+  const storeCategories = useMemo(() => {
+    return categories.filter((c) => c.id !== "restaurants");
+  }, [categories]);
+
+  const filteredStoreProducts = useMemo(() => {
+    if (!searchQuery.trim()) return [];
+    const q = searchQuery.trim().toLowerCase();
+    return allProducts.filter(
+      (p) =>
+        p.categoryId !== "restaurants" &&
+        p.name.toLowerCase().includes(q)
+    );
+  }, [allProducts, searchQuery]);
+
+  // ── Promotional sections ────────────────────────────────────────────────
   const bestSellerProducts = useMemo(() => {
-    const section = promotionalSections.find(s => s.type === "bestSellers");
+    const section = promotionalSections.find((s) => s.type === "bestSellers");
     if (section && section.productIds.length > 0) {
-      return section.productIds.map(id => allProducts.find(p => p.id === id)).filter(Boolean) as Product[];
+      return section.productIds
+        .map((id) => allProducts.find((p) => p.id === id))
+        .filter(Boolean) as Product[];
     }
     if (allProducts.length === 0) return [];
-    const shuffled = [...allProducts].sort(() => Math.random() - 0.5);
-    return shuffled.slice(0, 8);
+    return [...allProducts]
+      .filter((p) => p.categoryId !== "restaurants")
+      .sort(() => Math.random() - 0.5)
+      .slice(0, 8);
   }, [allProducts, promotionalSections]);
 
   const featuredProducts = useMemo(() => {
-    const section = promotionalSections.find(s => s.type === "featured");
+    const section = promotionalSections.find((s) => s.type === "featured");
     if (section && section.productIds.length > 0) {
-      return section.productIds.map(id => allProducts.find(p => p.id === id)).filter(Boolean) as Product[];
+      return section.productIds
+        .map((id) => allProducts.find((p) => p.id === id))
+        .filter(Boolean) as Product[];
     }
     if (allProducts.length === 0) return [];
-    const shuffled = [...allProducts].sort(() => Math.random() - 0.5);
-    return shuffled.slice(0, 6);
+    return [...allProducts]
+      .filter((p) => p.categoryId !== "restaurants")
+      .sort(() => Math.random() - 0.5)
+      .slice(0, 6);
   }, [allProducts, promotionalSections]);
 
   const discountProducts = useMemo(() => {
-    const section = promotionalSections.find(s => s.type === "discounts");
+    const section = promotionalSections.find((s) => s.type === "discounts");
     if (section && section.productIds.length > 0) {
-      return section.productIds.map(id => allProducts.find(p => p.id === id)).filter(Boolean) as Product[];
+      return section.productIds
+        .map((id) => allProducts.find((p) => p.id === id))
+        .filter(Boolean) as Product[];
     }
-    if (allProducts.length === 0) return [];
-    const shuffled = [...allProducts].sort(() => Math.random() - 0.5);
-    return shuffled.slice(0, 6);
+    return allProducts
+      .filter((p) => (p.discount || 0) > 0)
+      .slice(0, 6);
   }, [allProducts, promotionalSections]);
 
-  const offerBanner = allBanners.find(b => b.type === "offer");
-  const sliderBanners = allBanners.filter(b => b.type === "slider");
-
-  const handleCategoryPress = (category: Category) => {
-    if (category.id === "delivery") {
-      navigation.navigate("CourierPickup");
-    } else if (category.id === "international-shopping") {
-      navigation.navigate("InternationalShopping");
-    } else {
-      navigation.navigate("Products", { categoryId: category.id, categoryName: category.name });
-    }
-  };
-
-  const handleSeeAllCategories = () => {
-    navigation.navigate("AllCategories");
-  };
+  const offerBanner = allBanners.find((b) => b.type === "offer");
+  const sliderBanners = allBanners.filter((b) => b.type === "slider");
 
   const getImageUrl = (image: string) => {
     if (!image) return "";
@@ -167,6 +225,18 @@ export default function HomeScreen() {
     if (path) return getImageUrl(path);
     return getImageUrl(fallbackImage);
   };
+
+  const handleCategoryPress = (category: Category) => {
+    if (category.id === "delivery") {
+      navigation.navigate("CourierPickup");
+    } else if (category.id === "international-shopping") {
+      navigation.navigate("InternationalShopping");
+    } else {
+      navigation.navigate("Products", { categoryId: category.id, categoryName: category.name });
+    }
+  };
+
+  // ── Render helpers ──────────────────────────────────────────────────────
 
   const renderCategoryCard = (category: Category) => {
     const gradientColor = CATEGORY_COLORS[category.id] || category.color || "#FFF3E0";
@@ -202,33 +272,10 @@ export default function HomeScreen() {
     );
   };
 
-  const firstRowCategories = categories.slice(0, Math.ceil(categories.length / 2));
-  const secondRowCategories = categories.slice(Math.ceil(categories.length / 2));
-
   const renderProductCard = (product: Product) => {
     const isFav = isFavorite(product.id);
     const cartItem = items.find((item) => item.product.id === product.id);
     const quantity = cartItem ? cartItem.quantity : 0;
-    
-    const handleAddToCart = () => {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      addToCart(product);
-    };
-
-    const handleIncrement = () => {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      updateQuantity(product.id, quantity + 1);
-    };
-
-    const handleDecrement = () => {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      updateQuantity(product.id, quantity - 1);
-    };
-
-    const handleToggleFavorite = () => {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      toggleFavorite(product);
-    };
 
     return (
       <Pressable
@@ -242,7 +289,9 @@ export default function HomeScreen() {
       >
         {product.discount ? (
           <View style={styles.discountBadge}>
-            <ThemedText type="small" style={styles.discountText}>{product.discount}%</ThemedText>
+            <ThemedText type="small" style={styles.discountText}>
+              {product.discount}%
+            </ThemedText>
           </View>
         ) : null}
         <View style={styles.productImageContainer}>
@@ -252,28 +301,55 @@ export default function HomeScreen() {
             contentFit="cover"
             transition={200}
           />
-          <Pressable onPress={handleToggleFavorite} style={styles.productFavoriteBtn}>
+          <Pressable
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              toggleFavorite(product);
+            }}
+            style={styles.productFavoriteBtn}
+          >
             <Feather name="heart" size={15} color={isFav ? "#E53935" : "#BBBBBB"} />
           </Pressable>
         </View>
         <View style={styles.productInfo}>
-          <ThemedText type="body" numberOfLines={1} style={styles.productName}>{product.name}</ThemedText>
+          <ThemedText type="body" numberOfLines={1} style={styles.productName}>
+            {product.name}
+          </ThemedText>
           <View style={styles.productFooter}>
-            <ThemedText style={styles.productPrice}>
-              {formatPrice(product.price)}
-            </ThemedText>
+            <ThemedText style={styles.productPrice}>{formatPrice(product.price)}</ThemedText>
             {quantity > 0 ? (
               <View style={styles.quantityRow}>
-                <Pressable onPress={handleDecrement} style={styles.qtyBtn} testID={`btn-minus-${product.id}`}>
+                <Pressable
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    updateQuantity(product.id, quantity - 1);
+                  }}
+                  style={styles.qtyBtn}
+                  testID={`btn-minus-${product.id}`}
+                >
                   <Feather name="minus" size={14} color="#E86520" />
                 </Pressable>
                 <ThemedText style={styles.qtyText}>{quantity}</ThemedText>
-                <Pressable onPress={handleIncrement} style={styles.qtyBtn} testID={`btn-plus-${product.id}`}>
+                <Pressable
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    updateQuantity(product.id, quantity + 1);
+                  }}
+                  style={styles.qtyBtn}
+                  testID={`btn-plus-${product.id}`}
+                >
                   <Feather name="plus" size={14} color="#E86520" />
                 </Pressable>
               </View>
             ) : (
-              <Pressable onPress={handleAddToCart} style={styles.addButton} testID={`btn-add-${product.id}`}>
+              <Pressable
+                onPress={() => {
+                  Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                  addToCart(product);
+                }}
+                style={styles.addButton}
+                testID={`btn-add-${product.id}`}
+              >
                 <Feather name="plus" size={16} color="#FFFFFF" />
               </Pressable>
             )}
@@ -283,132 +359,303 @@ export default function HomeScreen() {
     );
   };
 
+  const renderRestaurantCard = (vendor: Vendor) => (
+    <Pressable
+      key={vendor.id}
+      style={styles.restaurantCard}
+      onPress={() => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+        navigation.navigate("Products", {
+          categoryId: "restaurants",
+          categoryName: vendor.name,
+          restaurant: vendor.name,
+        });
+      }}
+      testID={`restaurant-card-${vendor.id}`}
+    >
+      <View style={styles.restaurantImageWrapper}>
+        <Image
+          source={{ uri: getImageUrl(vendor.image) }}
+          style={styles.restaurantImage}
+          contentFit="cover"
+          transition={300}
+        />
+        <LinearGradient
+          colors={["transparent", "rgba(0,0,0,0.65)"]}
+          style={styles.restaurantGradient}
+        />
+        <View style={[styles.openBadge, { backgroundColor: vendor.isOpen ? "#10B981" : "#EF4444" }]}>
+          <View style={styles.openDot} />
+          <ThemedText style={styles.openText}>{vendor.isOpen ? "مفتوح" : "مغلق"}</ThemedText>
+        </View>
+      </View>
+      <View style={styles.restaurantInfo}>
+        <View style={styles.restaurantTopRow}>
+          <ThemedText style={styles.restaurantName} numberOfLines={1}>
+            {vendor.name}
+          </ThemedText>
+          {vendor.cuisine ? (
+            <View style={styles.cuisineTag}>
+              <ThemedText style={styles.cuisineText}>{vendor.cuisine}</ThemedText>
+            </View>
+          ) : null}
+        </View>
+        <View style={styles.restaurantMeta}>
+          <View style={styles.metaItem}>
+            <Feather name="star" size={13} color="#F59E0B" />
+            <ThemedText style={styles.metaText}>{vendor.rating?.toFixed(1) || "4.5"}</ThemedText>
+          </View>
+          <View style={styles.metaDivider} />
+          <View style={styles.metaItem}>
+            <Feather name="clock" size={13} color="#6B7280" />
+            <ThemedText style={styles.metaText}>{vendor.deliveryTime} دقيقة</ThemedText>
+          </View>
+          <View style={styles.metaDivider} />
+          <View style={styles.metaItem}>
+            <Feather name="map-pin" size={13} color="#6B7280" />
+            <ThemedText style={styles.metaText} numberOfLines={1}>
+              {vendor.location || "الضلوعية"}
+            </ThemedText>
+          </View>
+        </View>
+      </View>
+    </Pressable>
+  );
+
+  const renderSearchResults = () => {
+    if (filteredStoreProducts.length === 0) {
+      return (
+        <View style={styles.emptySearch}>
+          <Feather name="search" size={40} color="#CCCCCC" />
+          <ThemedText style={styles.emptySearchText}>لا توجد نتائج لـ "{searchQuery}"</ThemedText>
+        </View>
+      );
+    }
+    return (
+      <View style={styles.searchResultsGrid}>
+        {filteredStoreProducts.map(renderProductCard)}
+      </View>
+    );
+  };
+
+  const firstRowCategories = storeCategories.slice(0, Math.ceil(storeCategories.length / 2));
+  const secondRowCategories = storeCategories.slice(Math.ceil(storeCategories.length / 2));
+
+  // ── Main content ────────────────────────────────────────────────────────
   const renderContent = () => (
     <View>
+      {/* Greeting */}
       <View style={styles.greetingContainer}>
-        <ThemedText style={styles.greeting}>
-          {welcomeMessage}
-        </ThemedText>
-        <ThemedText style={styles.subGreeting}>
-          طلباتك صارت أسهل ويانا
-        </ThemedText>
+        <ThemedText style={styles.greeting}>{welcomeMessage}</ThemedText>
+        <ThemedText style={styles.subGreeting}>طلباتك صارت أسهل ويانا</ThemedText>
       </View>
 
       <LocationBar />
 
-      <View style={styles.bannersSection}>
-        {bannersLoading ? (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="small" color={AppColors.primary} />
-          </View>
-        ) : (
-          <>
-            {offerBanner ? <OfferBanner banner={offerBanner} /> : null}
-            {sliderBanners.length > 0 ? <BannerSlider banners={sliderBanners} /> : null}
-          </>
-        )}
-      </View>
-
-      <View style={styles.sectionHeader}>
-        <ThemedText style={styles.sectionTitle}>الأقسام الرئيسية</ThemedText>
-        <Pressable onPress={handleSeeAllCategories}>
-          <ThemedText style={styles.viewAll}>عرض الكل</ThemedText>
-        </Pressable>
-      </View>
-      
-      {categoriesLoading ? (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="small" color={AppColors.primary} />
+      {/* Banners */}
+      {sliderBanners.length > 0 || offerBanner ? (
+        <View style={styles.bannersSection}>
+          {offerBanner ? <OfferBanner banner={offerBanner} /> : null}
+          {sliderBanners.length > 0 ? <BannerSlider banners={sliderBanners} /> : null}
         </View>
-      ) : (
-        <View style={styles.catSliderContainer}>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.catSliderContent}
-            style={styles.catSliderRow}
+      ) : null}
+
+      {/* ── Toggle Tabs ── */}
+      <View style={styles.tabsWrapper}>
+        <Pressable
+          style={[styles.tabBtn, activeTab === "restaurants" && styles.tabBtnActive]}
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            setActiveTab("restaurants");
+            setSearchQuery("");
+          }}
+          testID="tab-restaurants"
+        >
+          <Feather
+            name="coffee"
+            size={16}
+            color={activeTab === "restaurants" ? "#FFFFFF" : "#9CA3AF"}
+          />
+          <ThemedText
+            style={[styles.tabText, activeTab === "restaurants" && styles.tabTextActive]}
           >
-            {firstRowCategories.map(renderCategoryCard)}
-          </ScrollView>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.catSliderContent}
-            style={styles.catSliderRow}
+            مطاعم
+          </ThemedText>
+        </Pressable>
+        <Pressable
+          style={[styles.tabBtn, activeTab === "stores" && styles.tabBtnActive]}
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            setActiveTab("stores");
+            setSearchQuery("");
+          }}
+          testID="tab-stores"
+        >
+          <Feather
+            name="shopping-bag"
+            size={16}
+            color={activeTab === "stores" ? "#FFFFFF" : "#9CA3AF"}
+          />
+          <ThemedText
+            style={[styles.tabText, activeTab === "stores" && styles.tabTextActive]}
           >
-            {secondRowCategories.map(renderCategoryCard)}
-          </ScrollView>
-        </View>
-      )}
-
-      <View style={styles.sectionHeader}>
-        <ThemedText style={styles.sectionTitle}>الأكثر مبيعاً</ThemedText>
-        <Pressable onPress={handleSeeAllCategories}>
-          <ThemedText style={styles.viewAll}>عرض الكل</ThemedText>
+            متاجر
+          </ThemedText>
         </Pressable>
       </View>
-      
-      {productsLoading ? (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="small" color={AppColors.primary} />
-        </View>
-      ) : (
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.bestSellersContainer}
-          style={styles.productsSlider}
-        >
-          {bestSellerProducts.map(renderProductCard)}
-        </ScrollView>
-      )}
 
-      <View style={styles.sectionHeader}>
-        <ThemedText style={styles.sectionTitle}>المنتجات المميزة</ThemedText>
-        <Pressable onPress={handleSeeAllCategories}>
-          <ThemedText style={styles.viewAll}>عرض الكل</ThemedText>
-        </Pressable>
+      {/* ── Search Bar ── */}
+      <View style={[styles.searchBox, { backgroundColor: theme.backgroundSecondary }]}>
+        <Feather name="search" size={18} color="#9CA3AF" />
+        <TextInput
+          style={[styles.searchInput, { color: theme.text }]}
+          placeholder={
+            activeTab === "restaurants" ? "ابحث عن مطعم أو نوع طعام..." : "ابحث عن منتج..."
+          }
+          placeholderTextColor="#B0B0B0"
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+          testID="input-home-search"
+        />
+        {searchQuery.length > 0 ? (
+          <Pressable onPress={() => setSearchQuery("")}>
+            <Feather name="x" size={16} color="#9CA3AF" />
+          </Pressable>
+        ) : null}
       </View>
-      
-      {productsLoading ? (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="small" color={AppColors.primary} />
-        </View>
-      ) : (
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.bestSellersContainer}
-          style={styles.productsSlider}
-        >
-          {featuredProducts.map(renderProductCard)}
-        </ScrollView>
-      )}
 
-      <View style={styles.sectionHeader}>
-        <ThemedText style={styles.sectionTitle}>التخفيضات المميزة</ThemedText>
-        <Pressable onPress={handleSeeAllCategories}>
-          <ThemedText style={styles.viewAll}>عرض الكل</ThemedText>
-        </Pressable>
-      </View>
-      
-      {productsLoading ? (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="small" color={AppColors.primary} />
+      {/* ── RESTAURANTS TAB ── */}
+      {activeTab === "restaurants" ? (
+        <View style={styles.tabContent}>
+          {vendorsLoading ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="large" color={AppColors.primary} />
+            </View>
+          ) : filteredRestaurants.length > 0 ? (
+            filteredRestaurants.map(renderRestaurantCard)
+          ) : (
+            <View style={styles.emptySearch}>
+              <Feather name="coffee" size={40} color="#CCCCCC" />
+              <ThemedText style={styles.emptySearchText}>
+                {searchQuery.trim().length > 0
+                  ? `لا يوجد مطعم باسم "${searchQuery}"`
+                  : "لا توجد مطاعم متاحة حالياً"}
+              </ThemedText>
+            </View>
+          )}
         </View>
       ) : (
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.bestSellersContainer}
-          style={styles.productsSlider}
-        >
-          {discountProducts.map(renderProductCard)}
-        </ScrollView>
+        // ── STORES TAB ──
+        <View style={styles.tabContent}>
+          {searchQuery.trim().length > 0 ? (
+            renderSearchResults()
+          ) : (
+            <>
+              {/* Categories */}
+              <View style={styles.sectionHeader}>
+                <ThemedText style={styles.sectionTitle}>الأقسام الرئيسية</ThemedText>
+                <Pressable
+                  onPress={() => navigation.navigate("AllCategories")}
+                >
+                  <ThemedText style={styles.viewAll}>عرض الكل</ThemedText>
+                </Pressable>
+              </View>
+              {categoriesLoading ? (
+                <View style={styles.loadingContainer}>
+                  <ActivityIndicator size="small" color={AppColors.primary} />
+                </View>
+              ) : (
+                <View style={styles.catSliderContainer}>
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={styles.catSliderContent}
+                    style={styles.catSliderRow}
+                  >
+                    {firstRowCategories.map(renderCategoryCard)}
+                  </ScrollView>
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={styles.catSliderContent}
+                    style={styles.catSliderRow}
+                  >
+                    {secondRowCategories.map(renderCategoryCard)}
+                  </ScrollView>
+                </View>
+              )}
+
+              {/* Best Sellers */}
+              <View style={styles.sectionHeader}>
+                <ThemedText style={styles.sectionTitle}>الأكثر مبيعاً</ThemedText>
+                <Pressable onPress={() => navigation.navigate("AllCategories")}>
+                  <ThemedText style={styles.viewAll}>عرض الكل</ThemedText>
+                </Pressable>
+              </View>
+              {productsLoading ? (
+                <View style={styles.loadingContainer}>
+                  <ActivityIndicator size="small" color={AppColors.primary} />
+                </View>
+              ) : (
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.bestSellersContainer}
+                  style={styles.productsSlider}
+                >
+                  {bestSellerProducts.map(renderProductCard)}
+                </ScrollView>
+              )}
+
+              {/* Featured */}
+              <View style={styles.sectionHeader}>
+                <ThemedText style={styles.sectionTitle}>المنتجات المميزة</ThemedText>
+                <Pressable onPress={() => navigation.navigate("AllCategories")}>
+                  <ThemedText style={styles.viewAll}>عرض الكل</ThemedText>
+                </Pressable>
+              </View>
+              {productsLoading ? (
+                <View style={styles.loadingContainer}>
+                  <ActivityIndicator size="small" color={AppColors.primary} />
+                </View>
+              ) : (
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.bestSellersContainer}
+                  style={styles.productsSlider}
+                >
+                  {featuredProducts.map(renderProductCard)}
+                </ScrollView>
+              )}
+
+              {/* Discounts */}
+              {discountProducts.length > 0 ? (
+                <>
+                  <View style={styles.sectionHeader}>
+                    <ThemedText style={styles.sectionTitle}>التخفيضات المميزة</ThemedText>
+                    <Pressable onPress={() => navigation.navigate("AllCategories")}>
+                      <ThemedText style={styles.viewAll}>عرض الكل</ThemedText>
+                    </Pressable>
+                  </View>
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={styles.bestSellersContainer}
+                    style={styles.productsSlider}
+                  >
+                    {discountProducts.map(renderProductCard)}
+                  </ScrollView>
+                </>
+              ) : null}
+            </>
+          )}
+        </View>
       )}
     </View>
   );
 
+  // ── Product Modal ────────────────────────────────────────────────────────
   const renderProductModal = () => {
     if (!selectedProduct) return null;
     const isFav = isFavorite(selectedProduct.id);
@@ -455,7 +702,9 @@ export default function HomeScreen() {
               <View style={styles.modalPriceRow}>
                 <ThemedText style={styles.modalPrice}>{formatPrice(selectedProduct.price)}</ThemedText>
                 {selectedProduct.originalPrice ? (
-                  <ThemedText style={styles.modalOrigPrice}>{formatPrice(selectedProduct.originalPrice)}</ThemedText>
+                  <ThemedText style={styles.modalOrigPrice}>
+                    {formatPrice(selectedProduct.originalPrice)}
+                  </ThemedText>
                 ) : null}
               </View>
               <View style={styles.modalActions}>
@@ -509,7 +758,7 @@ export default function HomeScreen() {
         style={{ flex: 1 }}
         contentContainerStyle={{
           paddingTop: Math.max(headerHeight, insets.top + 44) + Spacing.xl,
-          paddingBottom: tabBarHeight,
+          paddingBottom: tabBarHeight + Spacing.xl,
           paddingHorizontal: HORIZONTAL_PADDING,
         }}
         scrollIndicatorInsets={{ bottom: insets.bottom }}
@@ -547,8 +796,189 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   bannersSection: {
-    marginVertical: 20,
+    marginVertical: 12,
   },
+  // ── Tabs ──
+  tabsWrapper: {
+    flexDirection: "row",
+    backgroundColor: "#F3F4F6",
+    borderRadius: 16,
+    padding: 4,
+    marginTop: 16,
+    marginBottom: 14,
+  },
+  tabBtn: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    paddingVertical: 11,
+    borderRadius: 13,
+  },
+  tabBtnActive: {
+    backgroundColor: AppColors.primary,
+    ...Platform.select({
+      ios: {
+        shadowColor: AppColors.primary,
+        shadowOffset: { width: 0, height: 3 },
+        shadowOpacity: 0.35,
+        shadowRadius: 8,
+      },
+      android: { elevation: 4 },
+      default: { boxShadow: `0 3px 8px ${AppColors.primary}55` },
+    }),
+  },
+  tabText: {
+    fontFamily: "Cairo_700Bold",
+    fontSize: 15,
+    color: "#9CA3AF",
+  },
+  tabTextActive: {
+    color: "#FFFFFF",
+  },
+  // ── Search ──
+  searchBox: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 11,
+    borderRadius: 14,
+    marginBottom: 16,
+  },
+  searchInput: {
+    flex: 1,
+    fontFamily: "Cairo_400Regular",
+    fontSize: 14,
+    textAlign: "right",
+    writingDirection: "rtl",
+  },
+  tabContent: {
+    paddingBottom: 8,
+  },
+  // ── Restaurant Card ──
+  restaurantCard: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 20,
+    marginBottom: 14,
+    overflow: "hidden",
+    ...Platform.select({
+      ios: {
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.08,
+        shadowRadius: 12,
+      },
+      android: { elevation: 4 },
+      default: { boxShadow: "0 4px 12px rgba(0,0,0,0.08)" },
+    }),
+  },
+  restaurantImageWrapper: {
+    height: 160,
+    position: "relative",
+  },
+  restaurantImage: {
+    width: "100%",
+    height: 160,
+  },
+  restaurantGradient: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: 80,
+  },
+  openBadge: {
+    position: "absolute",
+    top: 12,
+    left: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 20,
+  },
+  openDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+    backgroundColor: "rgba(255,255,255,0.85)",
+  },
+  openText: {
+    fontFamily: "Cairo_700Bold",
+    fontSize: 12,
+    color: "#FFFFFF",
+  },
+  restaurantInfo: {
+    padding: 14,
+  },
+  restaurantTopRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 8,
+  },
+  restaurantName: {
+    fontFamily: "Cairo_700Bold",
+    fontSize: 17,
+    color: "#1A1A1A",
+    flex: 1,
+    textAlign: "right",
+  },
+  cuisineTag: {
+    backgroundColor: "#FFF4E0",
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    marginRight: 8,
+  },
+  cuisineText: {
+    fontFamily: "Cairo_600SemiBold",
+    fontSize: 11,
+    color: "#E86520",
+  },
+  restaurantMeta: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    justifyContent: "flex-end",
+  },
+  metaItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  metaText: {
+    fontFamily: "Cairo_400Regular",
+    fontSize: 12,
+    color: "#6B7280",
+  },
+  metaDivider: {
+    width: 1,
+    height: 12,
+    backgroundColor: "#E5E7EB",
+  },
+  // ── Search empty ──
+  emptySearch: {
+    paddingVertical: 48,
+    alignItems: "center",
+    gap: 12,
+  },
+  emptySearchText: {
+    fontFamily: "Cairo_400Regular",
+    fontSize: 15,
+    color: "#9CA3AF",
+    textAlign: "center",
+  },
+  searchResultsGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 12,
+    justifyContent: "space-between",
+  },
+  // ── Section ──
   sectionHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -588,12 +1018,8 @@ const styles = StyleSheet.create({
         shadowOpacity: 0.07,
         shadowRadius: 8,
       },
-      android: {
-        elevation: 3,
-      },
-      default: {
-        boxShadow: "0 3px 8px rgba(0,0,0,0.07)",
-      },
+      android: { elevation: 3 },
+      default: { boxShadow: "0 3px 8px rgba(0,0,0,0.07)" },
     }),
   },
   catCard: {
@@ -637,6 +1063,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 18,
     gap: 12,
   },
+  // ── Product Card ──
   productCard: {
     width: PRODUCT_CARD_WIDTH,
     borderRadius: 20,
@@ -649,12 +1076,8 @@ const styles = StyleSheet.create({
         shadowOpacity: 0.04,
         shadowRadius: 10,
       },
-      android: {
-        elevation: 3,
-      },
-      default: {
-        boxShadow: "0 4px 10px rgba(0,0,0,0.04)",
-      },
+      android: { elevation: 3 },
+      default: { boxShadow: "0 4px 10px rgba(0,0,0,0.04)" },
     }),
   },
   productImageContainer: {
@@ -757,6 +1180,7 @@ const styles = StyleSheet.create({
     minWidth: 18,
     textAlign: "center",
   },
+  // ── Modal ──
   modalOverlay: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.4)",

@@ -1647,7 +1647,7 @@ async function registerRoutes(app2) {
     res.json(vendors);
   });
   app2.post("/api/admin/vendors", async (req, res) => {
-    const { name, location, whatsappNumber, commissionPercent, image, rating, deliveryTime, isOpen } = req.body;
+    const { name, location, whatsappNumber, commissionPercent, image, rating, deliveryTime, isOpen, categoryType, cuisine } = req.body;
     if (!name) return res.status(400).json({ error: "\u0627\u0633\u0645 \u0627\u0644\u0645\u0637\u0639\u0645 \u0645\u0637\u0644\u0648\u0628" });
     const data = {
       name: String(name),
@@ -1658,7 +1658,9 @@ async function registerRoutes(app2) {
       rating: Number(rating) || 4.5,
       deliveryTime: String(deliveryTime || "30-45"),
       isOpen: Boolean(isOpen !== false),
-      createdAt: (/* @__PURE__ */ new Date()).toISOString()
+      createdAt: (/* @__PURE__ */ new Date()).toISOString(),
+      categoryType: categoryType || "restaurant",
+      cuisine: cuisine ? String(cuisine) : ""
     };
     try {
       const id = await createVendor(data);
@@ -1670,7 +1672,7 @@ async function registerRoutes(app2) {
   });
   app2.put("/api/admin/vendors/:id", async (req, res) => {
     const { id } = req.params;
-    const { name, location, whatsappNumber, commissionPercent, image, rating, deliveryTime, isOpen } = req.body;
+    const { name, location, whatsappNumber, commissionPercent, image, rating, deliveryTime, isOpen, categoryType, cuisine } = req.body;
     const updates = {};
     if (name !== void 0) updates.name = String(name);
     if (location !== void 0) updates.location = String(location);
@@ -1680,6 +1682,8 @@ async function registerRoutes(app2) {
     if (rating !== void 0) updates.rating = Number(rating);
     if (deliveryTime !== void 0) updates.deliveryTime = String(deliveryTime);
     if (isOpen !== void 0) updates.isOpen = Boolean(isOpen);
+    if (categoryType !== void 0) updates.categoryType = categoryType;
+    if (cuisine !== void 0) updates.cuisine = String(cuisine);
     try {
       await updateVendor(id, updates);
       invalidateVendorsCache();

@@ -1255,6 +1255,8 @@ export interface FirestoreVendor {
   deliveryTime: string;
   isOpen: boolean;
   createdAt: string;
+  categoryType?: "restaurant" | "store";
+  cuisine?: string;
 }
 
 export async function getVendors(): Promise<(FirestoreVendor & { id: string })[]> {

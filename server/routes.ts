@@ -842,7 +842,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.post("/api/admin/vendors", async (req: Request, res: Response) => {
-    const { name, location, whatsappNumber, commissionPercent, image, rating, deliveryTime, isOpen } = req.body;
+    const { name, location, whatsappNumber, commissionPercent, image, rating, deliveryTime, isOpen, categoryType, cuisine } = req.body;
     if (!name) return res.status(400).json({ error: "اسم المطعم مطلوب" });
     const data = {
       name: String(name),
@@ -854,6 +854,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       deliveryTime: String(deliveryTime || "30-45"),
       isOpen: Boolean(isOpen !== false),
       createdAt: new Date().toISOString(),
+      categoryType: (categoryType as "restaurant" | "store") || "restaurant",
+      cuisine: cuisine ? String(cuisine) : "",
     };
     try {
       const id = await createFirestoreVendor(data);
@@ -866,7 +868,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.put("/api/admin/vendors/:id", async (req: Request, res: Response) => {
     const { id } = req.params;
-    const { name, location, whatsappNumber, commissionPercent, image, rating, deliveryTime, isOpen } = req.body;
+    const { name, location, whatsappNumber, commissionPercent, image, rating, deliveryTime, isOpen, categoryType, cuisine } = req.body;
     const updates: any = {};
     if (name !== undefined) updates.name = String(name);
     if (location !== undefined) updates.location = String(location);
@@ -876,6 +878,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     if (rating !== undefined) updates.rating = Number(rating);
     if (deliveryTime !== undefined) updates.deliveryTime = String(deliveryTime);
     if (isOpen !== undefined) updates.isOpen = Boolean(isOpen);
+    if (categoryType !== undefined) updates.categoryType = categoryType;
+    if (cuisine !== undefined) updates.cuisine = String(cuisine);
     try {
       await updateFirestoreVendor(id, updates);
       invalidateVendorsCache();
