@@ -19,7 +19,7 @@ import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useQuery } from "@tanstack/react-query";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
-import { Feather } from "@expo/vector-icons";
+import { Feather, MaterialIcons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 
 import { useTheme } from "@/hooks/useTheme";
@@ -471,9 +471,9 @@ export default function HomeScreen() {
           }}
           testID="tab-restaurants"
         >
-          <Feather
-            name="coffee"
-            size={16}
+          <MaterialIcons
+            name="restaurant"
+            size={20}
             color={activeTab === "restaurants" ? "#FFFFFF" : "#9CA3AF"}
           />
           <ThemedText
@@ -491,9 +491,9 @@ export default function HomeScreen() {
           }}
           testID="tab-stores"
         >
-          <Feather
-            name="shopping-bag"
-            size={16}
+          <MaterialIcons
+            name="local-grocery-store"
+            size={20}
             color={activeTab === "stores" ? "#FFFFFF" : "#9CA3AF"}
           />
           <ThemedText
