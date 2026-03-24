@@ -444,13 +444,13 @@ export default function HomeScreen() {
   // ── Main content ────────────────────────────────────────────────────────
   const renderContent = () => (
     <View>
+      <LocationBar />
+
       {/* Greeting */}
       <View style={styles.greetingContainer}>
         <ThemedText style={styles.greeting}>{welcomeMessage}</ThemedText>
         <ThemedText style={styles.subGreeting}>طلباتك صارت أسهل ويانا</ThemedText>
       </View>
-
-      <LocationBar />
 
       {/* Banners */}
       {sliderBanners.length > 0 || offerBanner ? (
