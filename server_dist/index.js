@@ -1497,8 +1497,8 @@ async function registerRoutes(app2) {
     const productId = req.params.id;
     const db2 = getFirestore();
     const priceNum = price !== void 0 ? Number(price) : void 0;
-    const originalPriceNum = originalPrice !== void 0 ? Number(originalPrice) : void 0;
-    const discountNum = discount !== void 0 ? Number(discount) : void 0;
+    const originalPriceNum = originalPrice === null ? null : originalPrice !== void 0 ? Number(originalPrice) : void 0;
+    const discountNum = discount === null ? null : discount !== void 0 ? Number(discount) : void 0;
     const inStockBool = inStock !== void 0 ? inStock === "true" || inStock === true : void 0;
     if (db2) {
       const updates = {
