@@ -56,10 +56,14 @@ export function LocationBar() {
 
   return (
     <Pressable style={styles.row} onPress={() => navigation.navigate("MapPicker")} testID="button-location-bar">
-      <Feather name="map-pin" size={13} color={AppColors.primary} />
-      <ThemedText style={styles.label}>التوصيل إلى</ThemedText>
-      <ThemedText style={styles.address} numberOfLines={1}>{displayAddress}</ThemedText>
-      <Feather name="chevron-down" size={13} color="#9CA3AF" />
+      <View style={styles.pinIcon}>
+        <Feather name="map-pin" size={18} color={AppColors.primary} />
+      </View>
+      <View style={styles.textBlock}>
+        <ThemedText style={styles.label}>التوصيل إلى</ThemedText>
+        <ThemedText style={styles.address} numberOfLines={1}>{displayAddress}</ThemedText>
+      </View>
+      <Feather name="chevron-down" size={15} color={AppColors.primary} />
     </Pressable>
   );
 }
@@ -68,20 +72,33 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 5,
-    paddingHorizontal: 4,
+    gap: 8,
     paddingVertical: 6,
-    justifyContent: "flex-end",
+    paddingHorizontal: 2,
+    justifyContent: "flex-start",
+  },
+  pinIcon: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: "#FFF0E8",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  textBlock: {
+    flex: 1,
+    alignItems: "flex-end",
   },
   label: {
     fontFamily: "Cairo_400Regular",
-    fontSize: 12,
+    fontSize: 11,
     color: "#9CA3AF",
+    textAlign: "right",
   },
   address: {
     fontFamily: "Cairo_700Bold",
-    fontSize: 13,
+    fontSize: 15,
     color: "#1A1A1A",
-    maxWidth: 160,
+    textAlign: "right",
   },
 });
