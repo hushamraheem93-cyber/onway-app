@@ -470,6 +470,34 @@ async function deleteDriver(id) {
     return false;
   }
 }
+async function updateDriverOnlineStatus(phoneNumber, isOnline) {
+  if (!db) return;
+  try {
+    const snapshot = await db.collection("drivers").where("phoneNumber", "==", phoneNumber).limit(1).get();
+    if (snapshot.empty) return;
+    const docRef = snapshot.docs[0].ref;
+    await docRef.update({
+      isOnline,
+      onlineAt: isOnline ? Date.now() : null,
+      updatedAt: admin.firestore.Timestamp.now()
+    });
+  } catch (error) {
+    console.error("Error updating driver online status:", error);
+  }
+}
+async function getOnlineDrivers() {
+  if (!db) return [];
+  try {
+    const snapshot = await db.collection("drivers").where("isOnline", "==", true).where("status", "==", "approved").get();
+    return snapshot.docs.map((doc) => {
+      const data = doc.data();
+      return { phoneNumber: data.phoneNumber, onlineAt: data.onlineAt || Date.now() };
+    }).sort((a, b) => a.onlineAt - b.onlineAt);
+  } catch (error) {
+    console.error("Error getting online drivers:", error);
+    return [];
+  }
+}
 async function getBanners(activeOnly = false) {
   if (!db) return [];
   try {
@@ -1164,6 +1192,19 @@ async function registerRoutes(app2) {
   await initializeDefaultBanners(banners);
   await initializeDefaultDeliveryAreas(deliveryAreas);
   await initializeDefaultVendors(defaultVendors);
+  try {
+    const onlineDrivers = await getOnlineDrivers();
+    for (const d of onlineDrivers) {
+      if (!driverQueue.find((q) => q.phoneNumber === d.phoneNumber)) {
+        driverQueue.push({ phoneNumber: d.phoneNumber, joinedAt: d.onlineAt });
+      }
+    }
+    if (onlineDrivers.length > 0) {
+      console.log(`Restored ${onlineDrivers.length} online driver(s) from Firestore`);
+    }
+  } catch (e) {
+    console.error("Failed to restore driver queue:", e);
+  }
   app2.use("/uploads", (req, res, next) => {
     res.setHeader("Access-Control-Allow-Origin", "*");
     next();
@@ -2321,6 +2362,8 @@ ${itemsList}
         if (!exists) {
           driverQueue.push({ phoneNumber, joinedAt: Date.now() });
         }
+        updateDriverOnlineStatus(phoneNumber, true).catch(() => {
+        });
         saveDriverActivity({ phoneNumber, type: "online" }).catch(() => {
         });
         const pos = driverQueue.filter((d) => !d.currentOrderId).findIndex((d) => d.phoneNumber === phoneNumber) + 1;
@@ -2330,6 +2373,8 @@ ${itemsList}
         if (idx !== -1) {
           driverQueue.splice(idx, 1);
         }
+        updateDriverOnlineStatus(phoneNumber, false).catch(() => {
+        });
         saveDriverActivity({ phoneNumber, type: "offline" }).catch(() => {
         });
         res.json({ isOnline: false, queuePosition: null });

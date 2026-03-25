@@ -32,7 +32,8 @@ import {
   getOrdersByDriverPhone,
   getVendors as getFirestoreVendors, createVendor as createFirestoreVendor,
   updateVendor as updateFirestoreVendor, deleteVendor as deleteFirestoreVendor,
-  initializeDefaultVendors
+  initializeDefaultVendors,
+  updateDriverOnlineStatus, getOnlineDrivers
 } from "./firebase";
 import { sendPushNotification } from "./pushNotifications";
 
@@ -311,6 +312,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
   await initializeDefaultBanners(banners);
   await initializeDefaultDeliveryAreas(deliveryAreas);
   await initializeDefaultVendors(defaultVendors);
+
+  // Rebuild driver queue from Firestore (restores online drivers after server restart)
+  try {
+    const onlineDrivers = await getOnlineDrivers();
+    for (const d of onlineDrivers) {
+      if (!driverQueue.find(q => q.phoneNumber === d.phoneNumber)) {
+        driverQueue.push({ phoneNumber: d.phoneNumber, joinedAt: d.onlineAt });
+      }
+    }
+    if (onlineDrivers.length > 0) {
+      console.log(`Restored ${onlineDrivers.length} online driver(s) from Firestore`);
+    }
+  } catch (e) {
+    console.error("Failed to restore driver queue:", e);
+  }
   
   app.use("/uploads", (req, res, next) => {
     res.setHeader("Access-Control-Allow-Origin", "*");
@@ -1608,6 +1624,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (!exists) {
           driverQueue.push({ phoneNumber, joinedAt: Date.now() });
         }
+        // Persist online status to Firestore
+        updateDriverOnlineStatus(phoneNumber, true).catch(() => {});
         // Log online event
         saveDriverActivity({ phoneNumber, type: "online" }).catch(() => {});
         const pos = driverQueue.filter(d => !d.currentOrderId).findIndex(d => d.phoneNumber === phoneNumber) + 1;
@@ -1617,6 +1635,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (idx !== -1) {
           driverQueue.splice(idx, 1);
         }
+        // Persist offline status to Firestore
+        updateDriverOnlineStatus(phoneNumber, false).catch(() => {});
         // Log offline event
         saveDriverActivity({ phoneNumber, type: "offline" }).catch(() => {});
         res.json({ isOnline: false, queuePosition: null });

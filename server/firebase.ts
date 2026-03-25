@@ -619,6 +619,8 @@ export interface FirestoreDriver {
   status: "pending" | "approved" | "rejected";
   createdAt: admin.firestore.Timestamp;
   updatedAt: admin.firestore.Timestamp;
+  isOnline?: boolean;
+  onlineAt?: number;
 }
 
 export async function getDrivers(): Promise<(FirestoreDriver & { id: string })[]> {
@@ -695,6 +697,41 @@ export async function deleteDriver(id: string): Promise<boolean> {
   } catch (error) {
     console.error("Error deleting driver:", error);
     return false;
+  }
+}
+
+export async function updateDriverOnlineStatus(phoneNumber: string, isOnline: boolean): Promise<void> {
+  if (!db) return;
+  try {
+    const snapshot = await db.collection("drivers").where("phoneNumber", "==", phoneNumber).limit(1).get();
+    if (snapshot.empty) return;
+    const docRef = snapshot.docs[0].ref;
+    await docRef.update({
+      isOnline,
+      onlineAt: isOnline ? Date.now() : null,
+      updatedAt: admin.firestore.Timestamp.now(),
+    });
+  } catch (error) {
+    console.error("Error updating driver online status:", error);
+  }
+}
+
+export async function getOnlineDrivers(): Promise<{ phoneNumber: string; onlineAt: number }[]> {
+  if (!db) return [];
+  try {
+    const snapshot = await db.collection("drivers")
+      .where("isOnline", "==", true)
+      .where("status", "==", "approved")
+      .get();
+    return snapshot.docs
+      .map(doc => {
+        const data = doc.data() as FirestoreDriver;
+        return { phoneNumber: data.phoneNumber, onlineAt: data.onlineAt || Date.now() };
+      })
+      .sort((a, b) => a.onlineAt - b.onlineAt);
+  } catch (error) {
+    console.error("Error getting online drivers:", error);
+    return [];
   }
 }
 
