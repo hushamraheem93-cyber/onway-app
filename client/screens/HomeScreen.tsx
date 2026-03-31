@@ -35,6 +35,7 @@ import { useFavorites } from "@/context/FavoritesContext";
 import { useAuth } from "@/context/AuthContext";
 import { formatPrice } from "@/constants/currency";
 import { getApiUrl } from "@/lib/query-client";
+import { FloatingCartBar } from "@/components/FloatingCartBar";
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
@@ -762,7 +763,7 @@ export default function HomeScreen() {
         style={{ flex: 1 }}
         contentContainerStyle={{
           paddingTop: Math.max(headerHeight, insets.top + 44) + Spacing.xl,
-          paddingBottom: tabBarHeight + Spacing.xl,
+          paddingBottom: tabBarHeight + Spacing.xl + (items.length > 0 ? 70 : 0),
           paddingHorizontal: HORIZONTAL_PADDING,
         }}
         scrollIndicatorInsets={{ bottom: insets.bottom }}
@@ -770,6 +771,7 @@ export default function HomeScreen() {
         renderItem={renderContent}
         showsVerticalScrollIndicator={false}
       />
+      <FloatingCartBar bottomOffset={tabBarHeight + 8} />
       {renderProductModal()}
     </View>
   );

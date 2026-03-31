@@ -2,6 +2,7 @@ import React, { useMemo } from "react";
 import { StyleSheet, FlatList, View, ActivityIndicator, Pressable, Dimensions } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
+import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { RouteProp, useRoute, useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useQuery } from "@tanstack/react-query";
@@ -17,6 +18,8 @@ import { EmptyState } from "@/components/EmptyState";
 import { ThemedText } from "@/components/ThemedText";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
 import { getApiUrl } from "@/lib/query-client";
+import { FloatingCartBar } from "@/components/FloatingCartBar";
+import { useCart } from "@/context/CartContext";
 
 type ProductsRouteProp = RouteProp<RootStackParamList, "Products">;
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
@@ -42,10 +45,12 @@ function getImageUrl(image: string): string {
 export default function ProductsScreen() {
   const insets = useSafeAreaInsets();
   const headerHeight = useHeaderHeight();
+  const tabBarHeight = useBottomTabBarHeight();
   const { theme } = useTheme();
   const route = useRoute<ProductsRouteProp>();
   const navigation = useNavigation<NavigationProp>();
   const { categoryId, searchQuery, restaurant } = route.params;
+  const { items } = useCart();
 
   const { data: allProducts = [], isLoading: productsLoading } = useQuery<Product[]>({
     queryKey: ["/api/products"],
@@ -103,58 +108,64 @@ export default function ProductsScreen() {
 
   if (isRestaurantsCategory) {
     return (
-      <FlatList
-        key="restaurants-list"
-        style={{ flex: 1, backgroundColor: theme.backgroundRoot }}
-        contentContainerStyle={{
-          paddingTop: headerHeight + Spacing.lg,
-          paddingBottom: insets.bottom + Spacing.xl,
-          paddingHorizontal: Spacing.md,
-          flexGrow: 1,
-        }}
-        scrollIndicatorInsets={{ bottom: insets.bottom }}
-        data={restaurantList}
-        renderItem={({ item }) => (
-          <VendorCard
-            vendor={item}
-            theme={theme}
-            onPress={() => navigation.navigate("Products", {
-              categoryId: "restaurants",
-              categoryName: item.name,
-              restaurant: item.name,
-            })}
-          />
-        )}
-        keyExtractor={(item) => item.id}
-        showsVerticalScrollIndicator={false}
-        ListEmptyComponent={() => (
-          <EmptyState title="لا توجد مطاعم" subtitle="لم يتم إضافة مطاعم بعد" />
-        )}
-      />
+      <View style={{ flex: 1 }}>
+        <FlatList
+          key="restaurants-list"
+          style={{ flex: 1, backgroundColor: theme.backgroundRoot }}
+          contentContainerStyle={{
+            paddingTop: headerHeight + Spacing.lg,
+            paddingBottom: tabBarHeight + Spacing.xl + (items.length > 0 ? 70 : 0),
+            paddingHorizontal: Spacing.md,
+            flexGrow: 1,
+          }}
+          scrollIndicatorInsets={{ bottom: insets.bottom }}
+          data={restaurantList}
+          renderItem={({ item }) => (
+            <VendorCard
+              vendor={item}
+              theme={theme}
+              onPress={() => navigation.navigate("Products", {
+                categoryId: "restaurants",
+                categoryName: item.name,
+                restaurant: item.name,
+              })}
+            />
+          )}
+          keyExtractor={(item) => item.id}
+          showsVerticalScrollIndicator={false}
+          ListEmptyComponent={() => (
+            <EmptyState title="لا توجد مطاعم" subtitle="لم يتم إضافة مطاعم بعد" />
+          )}
+        />
+        <FloatingCartBar bottomOffset={tabBarHeight + 8} />
+      </View>
     );
   }
 
   return (
-    <FlatList
-      key="products-grid"
-      style={{ flex: 1, backgroundColor: theme.backgroundRoot }}
-      contentContainerStyle={{
-        paddingTop: headerHeight + Spacing.lg,
-        paddingBottom: insets.bottom + Spacing.xl,
-        paddingHorizontal: Spacing.md,
-        flexGrow: 1,
-      }}
-      columnWrapperStyle={styles.columnWrapper}
-      scrollIndicatorInsets={{ bottom: insets.bottom }}
-      data={products}
-      renderItem={({ item }) => <ProductCard product={item} />}
-      keyExtractor={(item) => item.id}
-      numColumns={2}
-      showsVerticalScrollIndicator={false}
-      ListEmptyComponent={() => (
-        <EmptyState title="لا توجد منتجات" subtitle="لم نجد منتجات في هذا القسم" />
-      )}
-    />
+    <View style={{ flex: 1 }}>
+      <FlatList
+        key="products-grid"
+        style={{ flex: 1, backgroundColor: theme.backgroundRoot }}
+        contentContainerStyle={{
+          paddingTop: headerHeight + Spacing.lg,
+          paddingBottom: tabBarHeight + Spacing.xl + (items.length > 0 ? 70 : 0),
+          paddingHorizontal: Spacing.md,
+          flexGrow: 1,
+        }}
+        columnWrapperStyle={styles.columnWrapper}
+        scrollIndicatorInsets={{ bottom: insets.bottom }}
+        data={products}
+        renderItem={({ item }) => <ProductCard product={item} />}
+        keyExtractor={(item) => item.id}
+        numColumns={2}
+        showsVerticalScrollIndicator={false}
+        ListEmptyComponent={() => (
+          <EmptyState title="لا توجد منتجات" subtitle="لم نجد منتجات في هذا القسم" />
+        )}
+      />
+      <FloatingCartBar bottomOffset={tabBarHeight + 8} />
+    </View>
   );
 }
 
