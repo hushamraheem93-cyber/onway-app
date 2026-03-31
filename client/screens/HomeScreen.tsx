@@ -12,7 +12,6 @@ import {
   TextInput,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useHeaderHeight } from "@react-navigation/elements";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -39,7 +38,7 @@ import { FloatingCartBar } from "@/components/FloatingCartBar";
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
-const { width: SCREEN_WIDTH } = Dimensions.get("window");
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 const HORIZONTAL_PADDING = 18;
 const PRODUCT_CARD_WIDTH = 160;
 
@@ -91,7 +90,6 @@ const CATEGORY_COLORS: Record<string, string> = {
 
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
-  const headerHeight = useHeaderHeight();
   const tabBarHeight = useBottomTabBarHeight();
   const { theme } = useTheme();
   const navigation = useNavigation<NavigationProp>();
@@ -103,10 +101,6 @@ export default function HomeScreen() {
   const [activeTab, setActiveTab] = useState<"restaurants" | "stores">("restaurants");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
-
-  const welcomeMessage = userProfile?.fullName
-    ? `أهلاً ${userProfile.fullName.split(" ")[0]}`
-    : "أهلاً بك";
 
   const { data: categories = [], isLoading: categoriesLoading } = useQuery<Category[]>({
     queryKey: ["/api/categories"],
@@ -448,12 +442,50 @@ export default function HomeScreen() {
   // ── Main content ────────────────────────────────────────────────────────
   const renderContent = () => (
     <View>
-      <LocationBar />
+      {/* ── Hero Header ── */}
+      <View style={[styles.heroSection, { paddingTop: insets.top + 14 }]}>
+        <LinearGradient
+          colors={[
+            "#E86520",
+            "#EC7533",
+            "#F5934A",
+            "#FAB98C",
+            "#FDD9BF",
+            "#FEEEE3",
+            "#FFF7F2",
+            "#FFFFFF",
+          ]}
+          locations={[0, 0.08, 0.18, 0.30, 0.42, 0.52, 0.60, 0.75]}
+          style={StyleSheet.absoluteFillObject}
+        />
 
-      {/* Greeting */}
-      <View style={styles.greetingContainer}>
-        <ThemedText style={styles.greeting}>{welcomeMessage}</ThemedText>
-        <ThemedText style={styles.subGreeting}>طلباتك صارت أسهل ويانا</ThemedText>
+        {/* Decorative circles */}
+        <View style={styles.decorCircle1} />
+        <View style={styles.decorCircle2} />
+        <View style={styles.decorCircle3} />
+
+        {/* Top row: bell on left, greeting on right */}
+        <View style={styles.heroTopRow}>
+          <Pressable
+            style={styles.heroBellBtn}
+            onPress={() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)}
+            testID="button-notifications"
+          >
+            <Feather name="bell" size={20} color="#fff" />
+          </Pressable>
+
+          <View style={styles.heroGreetingBlock}>
+            <ThemedText style={styles.heroHello}>أهلاً بك في OnWay</ThemedText>
+            <ThemedText style={styles.heroName}>
+              {userProfile?.fullName ? userProfile.fullName.split(" ")[0] : "عزيزي العميل"}
+            </ThemedText>
+          </View>
+        </View>
+
+        {/* Location bar inside hero */}
+        <View style={styles.heroLocationWrapper}>
+          <LocationBar />
+        </View>
       </View>
 
       {/* Banners */}
@@ -762,9 +794,8 @@ export default function HomeScreen() {
       <FlatList
         style={{ flex: 1 }}
         contentContainerStyle={{
-          paddingTop: Math.max(headerHeight, insets.top + 44) + Spacing.xl,
-          paddingBottom: tabBarHeight + Spacing.xl + (items.length > 0 ? 70 : 0),
           paddingHorizontal: HORIZONTAL_PADDING,
+          paddingBottom: tabBarHeight + Spacing.xl + (items.length > 0 ? 70 : 0),
         }}
         scrollIndicatorInsets={{ bottom: insets.bottom }}
         data={[{ key: "content" }]}
@@ -778,6 +809,85 @@ export default function HomeScreen() {
 }
 
 const styles = StyleSheet.create({
+  // ── Hero ────────────────────────────────────────────────────────────────
+  heroSection: {
+    marginHorizontal: -HORIZONTAL_PADDING,
+    minHeight: SCREEN_HEIGHT * 0.26,
+    overflow: "hidden",
+    paddingBottom: 28,
+    marginBottom: 16,
+  },
+  decorCircle1: {
+    position: "absolute",
+    width: 220,
+    height: 220,
+    borderRadius: 110,
+    backgroundColor: "rgba(255,255,255,0.10)",
+    top: -70,
+    left: -60,
+  },
+  decorCircle2: {
+    position: "absolute",
+    width: 140,
+    height: 140,
+    borderRadius: 70,
+    backgroundColor: "rgba(255,255,255,0.08)",
+    top: 20,
+    left: 80,
+  },
+  decorCircle3: {
+    position: "absolute",
+    width: 90,
+    height: 90,
+    borderRadius: 45,
+    backgroundColor: "rgba(255,255,255,0.06)",
+    bottom: 10,
+    right: -20,
+  },
+  heroTopRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    justifyContent: "space-between",
+    paddingHorizontal: HORIZONTAL_PADDING,
+    marginBottom: 20,
+  },
+  heroBellBtn: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: "rgba(255,255,255,0.20)",
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 4,
+  },
+  heroGreetingBlock: {
+    alignItems: "flex-end",
+    flex: 1,
+    marginRight: 0,
+  },
+  heroHello: {
+    fontFamily: "Cairo_400Regular",
+    fontSize: 13,
+    color: "rgba(255,255,255,0.88)",
+    textAlign: "right",
+    writingDirection: "rtl",
+    marginBottom: 2,
+  },
+  heroName: {
+    fontFamily: "Cairo_700Bold",
+    fontSize: 26,
+    color: "#FFFFFF",
+    textAlign: "right",
+    writingDirection: "rtl",
+  },
+  heroLocationWrapper: {
+    marginHorizontal: HORIZONTAL_PADDING,
+    backgroundColor: "rgba(255,255,255,0.88)",
+    borderRadius: 16,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+  },
+  // ── Old (kept for safety) ──────────────────────────────────────────────
   greetingContainer: {
     paddingHorizontal: 0,
     marginTop: 4,
@@ -802,7 +912,7 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   bannersSection: {
-    marginVertical: 12,
+    marginVertical: 4,
   },
   // ── Tabs ──
   tabsWrapper: {
