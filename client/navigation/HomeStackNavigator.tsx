@@ -20,6 +20,8 @@ export default function HomeStackNavigator() {
         component={HomeScreen}
         options={{
           headerTitle: () => <HeaderTitle title="Onway" />,
+          headerShadowVisible: false,
+          headerBlurEffect: undefined,
         }}
       />
     </Stack.Navigator>
