@@ -242,7 +242,7 @@ const styles = StyleSheet.create({
   },
   logoText: {
     fontFamily: "Montserrat_800ExtraBold",
-    fontSize: 36,
+    fontSize: 28,
     color: "#FFFFFF",
     textAlign: "center",
     letterSpacing: 1,
@@ -252,7 +252,7 @@ const styles = StyleSheet.create({
   },
   tagline: {
     fontFamily: "Cairo_600SemiBold",
-    fontSize: 16,
+    fontSize: 13,
     color: "rgba(255,255,255,0.8)",
     textAlign: "center",
   },
@@ -270,7 +270,7 @@ const styles = StyleSheet.create({
   },
   phoneInput: {
     flex: 1,
-    fontSize: 16,
+    fontSize: 13,
     color: "#333",
     textAlign: "left",
     fontFamily: "Cairo_600SemiBold",
@@ -332,7 +332,7 @@ const styles = StyleSheet.create({
   },
   submitText: {
     fontFamily: "Cairo_700Bold",
-    fontSize: 16,
+    fontSize: 13,
     color: BRAND_ORANGE,
   },
   backBtn: {
@@ -368,12 +368,12 @@ const styles = StyleSheet.create({
   },
   whiteText: {
     color: "#FFFFFF",
-    fontSize: 15,
+    fontSize: 12,
     fontFamily: "Cairo_400Regular",
   },
   signUpText: {
     color: "#FFFFFF",
-    fontSize: 15,
+    fontSize: 12,
     fontWeight: "bold",
     textDecorationLine: "underline",
     fontFamily: "Cairo_700Bold",
@@ -396,14 +396,14 @@ const styles = StyleSheet.create({
   },
   modalTitle: {
     fontFamily: "Cairo_700Bold",
-    fontSize: 18,
+    fontSize: 14,
     color: "#333",
     textAlign: "center",
     marginBottom: 12,
   },
   modalMessage: {
     fontFamily: "Cairo_400Regular",
-    fontSize: 15,
+    fontSize: 12,
     color: "#555",
     textAlign: "center",
     lineHeight: 24,
@@ -417,7 +417,7 @@ const styles = StyleSheet.create({
   },
   modalButtonText: {
     fontFamily: "Cairo_700Bold",
-    fontSize: 15,
+    fontSize: 12,
     color: "#FFFFFF",
   },
 });

@@ -411,7 +411,7 @@ const styles = StyleSheet.create({
   input: {
     borderRadius: BorderRadius.lg,
     padding: Spacing.md,
-    fontSize: 16,
+    fontSize: 13,
     borderWidth: 1,
   },
   textarea: {

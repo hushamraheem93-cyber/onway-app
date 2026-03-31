@@ -119,7 +119,7 @@ const styles = StyleSheet.create({
   logoText: {
     fontFamily: "Montserrat_800ExtraBold",
     color: "#FFFFFF",
-    fontSize: 36,
+    fontSize: 28,
     letterSpacing: 1,
     writingDirection: "ltr",
     lineHeight: 48,
@@ -127,7 +127,7 @@ const styles = StyleSheet.create({
   },
   logoSubtext: {
     color: "rgba(255,255,255,0.8)",
-    fontSize: 18,
+    fontSize: 14,
     marginTop: Spacing.xs,
     lineHeight: 30,
     includeFontPadding: true,

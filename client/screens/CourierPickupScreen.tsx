@@ -296,7 +296,7 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontFamily: "Cairo_700Bold",
-    fontSize: 22,
+    fontSize: 17,
     color: "#2D2D2D",
     textAlign: "center",
     lineHeight: 38,
@@ -315,7 +315,7 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontFamily: "Cairo_700Bold",
-    fontSize: 16,
+    fontSize: 13,
     color: BRAND_ORANGE,
     textAlign: "right",
     marginBottom: 12,
@@ -380,7 +380,7 @@ const styles = StyleSheet.create({
   },
   submitButtonText: {
     fontFamily: "Cairo_700Bold",
-    fontSize: 16,
+    fontSize: 13,
     color: "#FFFFFF",
     lineHeight: 28,
     includeFontPadding: true,
@@ -396,7 +396,7 @@ const styles = StyleSheet.create({
   },
   successTitle: {
     fontFamily: "Cairo_700Bold",
-    fontSize: 22,
+    fontSize: 17,
     color: "#2D2D2D",
     textAlign: "center",
     lineHeight: 38,
@@ -420,7 +420,7 @@ const styles = StyleSheet.create({
   },
   backButtonText: {
     fontFamily: "Cairo_700Bold",
-    fontSize: 15,
+    fontSize: 12,
     color: "#FFFFFF",
     lineHeight: 26,
     includeFontPadding: true,

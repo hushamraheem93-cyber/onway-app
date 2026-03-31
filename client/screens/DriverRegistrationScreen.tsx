@@ -592,7 +592,7 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.md,
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.md,
-    fontSize: 16,
+    fontSize: 13,
     borderWidth: 1,
   },
   phoneDisplay: {
@@ -607,7 +607,7 @@ const styles = StyleSheet.create({
   phoneText: {
     flex: 1,
     textAlign: "right",
-    fontSize: 16,
+    fontSize: 13,
     fontWeight: "600",
   },
   idHint: {

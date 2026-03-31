@@ -305,7 +305,7 @@ const styles = StyleSheet.create({
   },
   logoText: {
     fontFamily: "Montserrat_800ExtraBold",
-    fontSize: 28,
+    fontSize: 22,
     color: "#FFFFFF",
     letterSpacing: 1,
     textAlign: "center",
@@ -324,7 +324,7 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontFamily: "Cairo_700Bold",
-    fontSize: 24,
+    fontSize: 19,
     color: "#FFFFFF",
     marginBottom: 4,
     lineHeight: 42,
@@ -340,7 +340,7 @@ const styles = StyleSheet.create({
   },
   phoneText: {
     fontFamily: "Cairo_700Bold",
-    fontSize: 18,
+    fontSize: 14,
     color: "#FFFFFF",
     letterSpacing: 2,
     marginTop: 4,
@@ -375,7 +375,7 @@ const styles = StyleSheet.create({
   },
   inputLabel: {
     fontFamily: "Cairo_600SemiBold",
-    fontSize: 15,
+    fontSize: 12,
     color: "#444",
     textAlign: "center",
     marginBottom: 20,
@@ -395,7 +395,7 @@ const styles = StyleSheet.create({
     borderColor: "#EFEFEF",
     backgroundColor: "#F7F7F7",
     textAlign: "center",
-    fontSize: 24,
+    fontSize: 19,
     fontFamily: "Cairo_700Bold",
     color: "#333",
     writingDirection: "ltr",

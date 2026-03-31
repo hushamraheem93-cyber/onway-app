@@ -3,8 +3,6 @@ import { View, StyleSheet, Pressable, Dimensions, Text } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { Feather } from "@expo/vector-icons";
 
-import { ThemedText } from "@/components/ThemedText";
-import { Spacing, AppColors, BorderRadius } from "@/constants/theme";
 import { useCart } from "@/context/CartContext";
 import { useNotifications } from "@/context/NotificationContext";
 
@@ -54,13 +52,7 @@ export function HeaderTitle({ title }: HeaderTitleProps) {
           </Pressable>
         </View>
 
-        <View style={styles.centerSection}>
-          <View style={styles.logoBlock}>
-            <Text style={styles.logoText}>
-              <Text style={styles.logoName}>OnWay</Text>
-            </Text>
-          </View>
-        </View>
+        <View style={styles.centerSection} />
 
         <View style={styles.rightSection}>
           <Pressable style={styles.menuButton} onPress={() => navigation.navigate("Main", { screen: "ProfileTab" })} testID="button-menu">
@@ -122,22 +114,6 @@ const styles = StyleSheet.create({
   },
   menuLineShort: {
     width: 16,
-  },
-  logoBlock: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 1,
-  },
-  logoText: {
-    flexDirection: "row",
-  },
-  logoName: {
-    fontFamily: "Cairo_700Bold",
-    fontSize: 24,
-    fontStyle: "italic",
-    fontWeight: "800",
-    color: "#E86520",
-    letterSpacing: -1,
   },
   iconButton: {
     width: 38,

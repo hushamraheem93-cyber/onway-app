@@ -453,7 +453,7 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.md,
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.md,
-    fontSize: 16,
+    fontSize: 13,
     borderWidth: 1,
   },
   textarea: {

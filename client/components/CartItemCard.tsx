@@ -123,7 +123,7 @@ const styles = StyleSheet.create({
     alignItems: "flex-end",
   },
   name: {
-    fontSize: 16,
+    fontSize: 13,
     fontWeight: "bold",
     textAlign: "right",
   },
@@ -143,7 +143,7 @@ const styles = StyleSheet.create({
     padding: 5,
   },
   qtyText: {
-    fontSize: 16,
+    fontSize: 13,
     fontWeight: "bold",
     marginHorizontal: 15,
   },

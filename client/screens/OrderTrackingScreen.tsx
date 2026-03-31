@@ -715,7 +715,7 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
   },
   stepLabel: {
-    fontSize: 15,
+    fontSize: 12,
     fontWeight: "600",
   },
   stepDesc: {

@@ -97,7 +97,7 @@ const styles = StyleSheet.create({
   },
   address: {
     fontFamily: "Cairo_700Bold",
-    fontSize: 15,
+    fontSize: 12,
     color: "#1A1A1A",
     textAlign: "right",
   },

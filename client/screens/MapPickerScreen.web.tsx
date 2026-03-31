@@ -315,6 +315,6 @@ const styles = StyleSheet.create({
   confirmText: {
     fontWeight: "700",
     color: "#000",
-    fontSize: 16,
+    fontSize: 13,
   },
 });

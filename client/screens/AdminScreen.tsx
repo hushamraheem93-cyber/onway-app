@@ -1476,7 +1476,7 @@ const styles = StyleSheet.create({
   },
   tabText: {
     color: "#6B7280",
-    fontSize: 15,
+    fontSize: 12,
   },
   tabTextActive: {
     color: "#FFFFFF",
@@ -1506,7 +1506,7 @@ const styles = StyleSheet.create({
     minHeight: 50,
     paddingVertical: Spacing.md,
     paddingHorizontal: Spacing.lg,
-    fontSize: 16,
+    fontSize: 13,
     fontFamily: "Tajawal_400Regular",
     marginBottom: Spacing.md,
     textAlign: "right",
@@ -1614,7 +1614,7 @@ const styles = StyleSheet.create({
   saveButtonText: {
     color: "#FFFFFF",
     fontWeight: "700",
-    fontSize: 16,
+    fontSize: 13,
   },
   cancelButton: {
     flex: 1,
@@ -1627,7 +1627,7 @@ const styles = StyleSheet.create({
   },
   cancelButtonText: {
     color: "#6B7280",
-    fontSize: 16,
+    fontSize: 13,
   },
   listTitle: {
     marginBottom: Spacing.md,
@@ -1738,6 +1738,6 @@ const styles = StyleSheet.create({
   saveCategoryChangesBtnText: {
     color: "#FFFFFF",
     fontWeight: "700",
-    fontSize: 15,
+    fontSize: 12,
   },
 });

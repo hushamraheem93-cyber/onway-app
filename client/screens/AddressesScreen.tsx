@@ -351,7 +351,7 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.md,
     padding: Spacing.md,
     marginBottom: Spacing.sm,
-    fontSize: 16,
+    fontSize: 13,
   },
   textArea: {
     minHeight: 80,

@@ -197,7 +197,7 @@ const styles = StyleSheet.create({
   buttonText: {
     fontWeight: "600",
     textAlign: "center",
-    fontSize: 16,
+    fontSize: 13,
   },
   modalOverlay: {
     flex: 1,

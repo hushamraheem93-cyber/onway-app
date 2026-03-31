@@ -198,7 +198,7 @@ const styles = StyleSheet.create({
   },
   searchInput: {
     flex: 1,
-    fontSize: 15,
+    fontSize: 12,
     paddingVertical: 0,
   },
   clearBtn: {

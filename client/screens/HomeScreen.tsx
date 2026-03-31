@@ -781,7 +781,7 @@ const styles = StyleSheet.create({
   },
   greeting: {
     fontFamily: "Cairo_700Bold",
-    fontSize: 20,
+    fontSize: 16,
     color: "#E86520",
     marginBottom: 2,
     textAlign: "right",
@@ -922,7 +922,7 @@ const styles = StyleSheet.create({
   },
   restaurantName: {
     fontFamily: "Cairo_700Bold",
-    fontSize: 17,
+    fontSize: 14,
     color: "#1A1A1A",
     flex: 1,
     textAlign: "right",
@@ -968,7 +968,7 @@ const styles = StyleSheet.create({
   },
   emptySearchText: {
     fontFamily: "Cairo_400Regular",
-    fontSize: 15,
+    fontSize: 12,
     color: "#9CA3AF",
     textAlign: "center",
   },
@@ -987,7 +987,7 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontFamily: "Cairo_700Bold",
-    fontSize: 17,
+    fontSize: 14,
     color: "#2C3E50",
     textAlign: "right",
   },
@@ -1238,7 +1238,7 @@ const styles = StyleSheet.create({
   },
   modalName: {
     fontFamily: "Cairo_700Bold",
-    fontSize: 22,
+    fontSize: 17,
     color: "#1A1A1A",
     textAlign: "right",
     marginBottom: 6,
@@ -1259,12 +1259,12 @@ const styles = StyleSheet.create({
   },
   modalPrice: {
     fontFamily: "Cairo_700Bold",
-    fontSize: 22,
+    fontSize: 17,
     color: "#E86520",
   },
   modalOrigPrice: {
     fontFamily: "Cairo_400Regular",
-    fontSize: 16,
+    fontSize: 13,
     color: "#AAAAAA",
     textDecorationLine: "line-through",
   },
@@ -1283,7 +1283,7 @@ const styles = StyleSheet.create({
   },
   modalAddText: {
     fontFamily: "Cairo_700Bold",
-    fontSize: 16,
+    fontSize: 13,
     color: "#FFFFFF",
   },
   modalQtyRow: {
@@ -1315,7 +1315,7 @@ const styles = StyleSheet.create({
   },
   modalQtyText: {
     fontFamily: "Cairo_700Bold",
-    fontSize: 22,
+    fontSize: 17,
     color: "#E86520",
     minWidth: 30,
     textAlign: "center",

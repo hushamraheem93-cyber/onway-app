@@ -489,7 +489,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   input: {
-    fontSize: 16,
+    fontSize: 13,
     paddingVertical: Spacing.sm,
   },
   multilineInput: {

@@ -92,13 +92,13 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   title: {
-    fontSize: 22,
+    fontSize: 17,
     fontWeight: "bold",
     textAlign: "center",
     marginBottom: 10,
   },
   subtitle: {
-    fontSize: 16,
+    fontSize: 13,
     color: "#999",
     textAlign: "center",
     lineHeight: 24,

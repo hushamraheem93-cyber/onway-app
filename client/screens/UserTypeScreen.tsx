@@ -201,7 +201,7 @@ const styles = StyleSheet.create({
   },
   logoText: {
     fontFamily: "Montserrat_800ExtraBold",
-    fontSize: 28,
+    fontSize: 22,
     color: "#FFFFFF",
     letterSpacing: 1,
     textAlign: "center",
@@ -211,7 +211,7 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontFamily: "Cairo_700Bold",
-    fontSize: 24,
+    fontSize: 19,
     color: "#FFFFFF",
     lineHeight: 42,
     includeFontPadding: true,
@@ -281,7 +281,7 @@ const styles = StyleSheet.create({
   },
   cardTitle: {
     fontFamily: "Cairo_700Bold",
-    fontSize: 18,
+    fontSize: 14,
     color: "#2D2D2D",
     textAlign: "right",
     marginBottom: 2,

@@ -88,7 +88,7 @@ const styles = StyleSheet.create({
     marginBottom: 15,
   },
   title: {
-    fontSize: 18,
+    fontSize: 14,
     fontWeight: "bold",
   },
   viewAll: {

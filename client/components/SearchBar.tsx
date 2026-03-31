@@ -69,7 +69,7 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     marginHorizontal: 10,
-    fontSize: 16,
+    fontSize: 13,
     paddingVertical: 0,
   },
   clearButton: {
