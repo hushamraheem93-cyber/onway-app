@@ -39,7 +39,7 @@ import { FloatingCartBar } from "@/components/FloatingCartBar";
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
-const { width: SCREEN_WIDTH } = Dimensions.get("window");
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 const HORIZONTAL_PADDING = 18;
 const PRODUCT_CARD_WIDTH = 160;
 
@@ -759,6 +759,18 @@ export default function HomeScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: "#FFFFFF" }}>
+      <LinearGradient
+        colors={["#FFE5D9", "#FFF0E6", "#FFF8F3", "#FFFFFF"]}
+        locations={[0, 0.3, 0.6, 1]}
+        style={{
+          position: "absolute",
+          top: 0,
+          left: 0,
+          right: 0,
+          height: SCREEN_HEIGHT * 0.6,
+          zIndex: 0,
+        }}
+      />
       <FlatList
         style={{ flex: 1 }}
         contentContainerStyle={{
