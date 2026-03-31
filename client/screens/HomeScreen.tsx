@@ -761,13 +761,13 @@ export default function HomeScreen() {
     <View style={{ flex: 1, backgroundColor: "#FFFFFF" }}>
       <LinearGradient
         colors={["#FFE5D9", "#FFF0E6", "#FFF8F3", "#FFFFFF"]}
-        locations={[0, 0.3, 0.6, 1]}
+        locations={[0, 0.2, 0.5, 1]}
         style={{
           position: "absolute",
           top: 0,
           left: 0,
           right: 0,
-          height: SCREEN_HEIGHT * 0.6,
+          bottom: 0,
           zIndex: 0,
         }}
       />
