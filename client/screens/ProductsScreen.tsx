@@ -1,8 +1,8 @@
-import React, { useMemo } from "react";
+import React, { useMemo, useContext } from "react";
 import { StyleSheet, FlatList, View, ActivityIndicator, Pressable, Dimensions } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
-import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
+import { BottomTabBarHeightContext } from "@react-navigation/bottom-tabs";
 import { RouteProp, useRoute, useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useQuery } from "@tanstack/react-query";
@@ -45,7 +45,7 @@ function getImageUrl(image: string): string {
 export default function ProductsScreen() {
   const insets = useSafeAreaInsets();
   const headerHeight = useHeaderHeight();
-  const tabBarHeight = useBottomTabBarHeight();
+  const tabBarHeight = useContext(BottomTabBarHeightContext) ?? 0;
   const { theme } = useTheme();
   const route = useRoute<ProductsRouteProp>();
   const navigation = useNavigation<NavigationProp>();
