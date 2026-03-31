@@ -451,11 +451,9 @@ export default function HomeScreen() {
             "#F5934A",
             "#FAB98C",
             "#FDD9BF",
-            "#FEEEE3",
-            "#FFF7F2",
-            "#FFFFFF",
+            "#FFF0E8",
           ]}
-          locations={[0, 0.08, 0.18, 0.30, 0.42, 0.52, 0.60, 0.75]}
+          locations={[0, 0.12, 0.28, 0.50, 0.72, 1.0]}
           style={StyleSheet.absoluteFillObject}
         />
 
@@ -464,8 +462,15 @@ export default function HomeScreen() {
         <View style={styles.decorCircle2} />
         <View style={styles.decorCircle3} />
 
-        {/* Top row: bell on left, greeting on right */}
+        {/* Top row: greeting on right, bell on left (RTL: first child = right side) */}
         <View style={styles.heroTopRow}>
+          <View style={styles.heroGreetingBlock}>
+            <ThemedText style={styles.heroHello}>أهلاً بك في OnWay</ThemedText>
+            <ThemedText style={styles.heroName} numberOfLines={1}>
+              {userProfile?.fullName ? userProfile.fullName.split(" ")[0] : "عزيزي العميل"}
+            </ThemedText>
+          </View>
+
           <Pressable
             style={styles.heroBellBtn}
             onPress={() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)}
@@ -473,13 +478,6 @@ export default function HomeScreen() {
           >
             <Feather name="bell" size={20} color="#fff" />
           </Pressable>
-
-          <View style={styles.heroGreetingBlock}>
-            <ThemedText style={styles.heroHello}>أهلاً بك في OnWay</ThemedText>
-            <ThemedText style={styles.heroName}>
-              {userProfile?.fullName ? userProfile.fullName.split(" ")[0] : "عزيزي العميل"}
-            </ThemedText>
-          </View>
         </View>
 
         {/* Location bar inside hero */}
@@ -487,6 +485,9 @@ export default function HomeScreen() {
           <LocationBar />
         </View>
       </View>
+
+      {/* ── Padded content area ── */}
+      <View style={{ paddingHorizontal: HORIZONTAL_PADDING }}>
 
       {/* Banners */}
       {sliderBanners.length > 0 || offerBanner ? (
@@ -688,6 +689,8 @@ export default function HomeScreen() {
           )}
         </View>
       )}
+
+      </View>
     </View>
   );
 
@@ -794,7 +797,6 @@ export default function HomeScreen() {
       <FlatList
         style={{ flex: 1 }}
         contentContainerStyle={{
-          paddingHorizontal: HORIZONTAL_PADDING,
           paddingBottom: tabBarHeight + Spacing.xl + (items.length > 0 ? 70 : 0),
         }}
         scrollIndicatorInsets={{ bottom: insets.bottom }}
@@ -811,11 +813,10 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   // ── Hero ────────────────────────────────────────────────────────────────
   heroSection: {
-    marginHorizontal: -HORIZONTAL_PADDING,
-    minHeight: SCREEN_HEIGHT * 0.26,
+    width: "100%",
     overflow: "hidden",
-    paddingBottom: 28,
-    marginBottom: 16,
+    paddingBottom: 14,
+    marginBottom: 0,
   },
   decorCircle1: {
     position: "absolute",
@@ -849,7 +850,7 @@ const styles = StyleSheet.create({
     alignItems: "flex-start",
     justifyContent: "space-between",
     paddingHorizontal: HORIZONTAL_PADDING,
-    marginBottom: 20,
+    marginBottom: 14,
   },
   heroBellBtn: {
     width: 42,
@@ -861,9 +862,8 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   heroGreetingBlock: {
-    alignItems: "flex-end",
+    alignItems: "flex-start",
     flex: 1,
-    marginRight: 0,
   },
   heroHello: {
     fontFamily: "Cairo_400Regular",
