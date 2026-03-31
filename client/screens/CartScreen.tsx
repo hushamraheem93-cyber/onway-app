@@ -17,6 +17,7 @@ import { EmptyState } from "@/components/EmptyState";
 import { SmartSuggestions } from "@/components/SmartSuggestions";
 import { ThemedText } from "@/components/ThemedText";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
+import { GradientBackground } from "@/components/GradientBackground";
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
@@ -59,7 +60,8 @@ export default function CartScreen() {
   );
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.backgroundRoot }]}>
+    <View style={[styles.container]}>
+      <GradientBackground />
       <FlatList
         style={{ flex: 1 }}
         contentContainerStyle={{

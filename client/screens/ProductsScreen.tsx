@@ -19,6 +19,7 @@ import { ThemedText } from "@/components/ThemedText";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
 import { getApiUrl } from "@/lib/query-client";
 import { FloatingCartBar } from "@/components/FloatingCartBar";
+import { GradientBackground } from "@/components/GradientBackground";
 import { useCart } from "@/context/CartContext";
 
 type ProductsRouteProp = RouteProp<RootStackParamList, "Products">;
@@ -109,9 +110,10 @@ export default function ProductsScreen() {
   if (isRestaurantsCategory) {
     return (
       <View style={{ flex: 1 }}>
+        <GradientBackground />
         <FlatList
           key="restaurants-list"
-          style={{ flex: 1, backgroundColor: theme.backgroundRoot }}
+          style={{ flex: 1 }}
           contentContainerStyle={{
             paddingTop: headerHeight + Spacing.lg,
             paddingBottom: tabBarHeight + Spacing.xl + (items.length > 0 ? 70 : 0),
@@ -144,9 +146,10 @@ export default function ProductsScreen() {
 
   return (
     <View style={{ flex: 1 }}>
+      <GradientBackground />
       <FlatList
         key="products-grid"
-        style={{ flex: 1, backgroundColor: theme.backgroundRoot }}
+        style={{ flex: 1 }}
         contentContainerStyle={{
           paddingTop: headerHeight + Spacing.lg,
           paddingBottom: tabBarHeight + Spacing.xl + (items.length > 0 ? 70 : 0),

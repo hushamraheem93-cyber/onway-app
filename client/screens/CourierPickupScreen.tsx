@@ -18,6 +18,7 @@ import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 
 import { ThemedText } from "@/components/ThemedText";
+import { GradientBackground } from "@/components/GradientBackground";
 import { useTheme } from "@/hooks/useTheme";
 import { AppColors, Spacing } from "@/constants/theme";
 import { useAuth } from "@/context/AuthContext";
@@ -127,8 +128,9 @@ export default function CourierPickupScreen() {
       behavior={Platform.OS === "ios" ? "padding" : undefined}
       keyboardVerticalOffset={headerHeight}
     >
+      <GradientBackground />
       <ScrollView
-        style={[styles.container, { backgroundColor: theme.backgroundDefault }]}
+        style={[styles.container]}
         contentContainerStyle={{
           paddingTop: headerHeight + Spacing.lg,
           paddingBottom: insets.bottom + 40,

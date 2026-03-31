@@ -19,6 +19,7 @@ import { ThemedText } from "@/components/ThemedText";
 import { Button } from "@/components/Button";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
 import { getApiUrl } from "@/lib/query-client";
+import { GradientBackground } from "@/components/GradientBackground";
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
@@ -190,8 +191,10 @@ export default function CheckoutScreen() {
   };
 
   return (
+    <View style={{ flex: 1 }}>
+      <GradientBackground />
     <KeyboardAwareScrollViewCompat
-      style={{ flex: 1, backgroundColor: theme.backgroundRoot }}
+      style={{ flex: 1 }}
       contentContainerStyle={{
         paddingTop: headerHeight + Spacing.lg,
         paddingBottom: insets.bottom + Spacing.xl,
@@ -455,6 +458,7 @@ export default function CheckoutScreen() {
         {isSubmitting ? "جاري التأكيد..." : "تأكيد الطلب"}
       </Button>
     </KeyboardAwareScrollViewCompat>
+    </View>
   );
 }
 

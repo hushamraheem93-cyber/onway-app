@@ -14,6 +14,7 @@ import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import { WebView } from "react-native-webview";
 
 import { ThemedText } from "@/components/ThemedText";
+import { GradientBackground } from "@/components/GradientBackground";
 import { useTheme } from "@/hooks/useTheme";
 import { AppColors, Spacing, BorderRadius, Shadows } from "@/constants/theme";
 import { formatPrice } from "@/constants/currency";
@@ -147,7 +148,8 @@ export default function DriverOrderDetailScreen() {
   const orderTotal = (order.total || 0) + (order.deliveryFee || 0);
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.backgroundRoot }]}>
+    <View style={[styles.container]}>
+      <GradientBackground />
       <View style={[styles.header, { paddingTop: insets.top + Spacing.sm, backgroundColor: AppColors.primary }]}>
         <Pressable onPress={() => navigation.goBack()} style={styles.backBtn} testID="button-back">
           <Feather name="arrow-right" size={24} color="#FFFFFF" />

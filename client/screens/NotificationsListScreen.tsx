@@ -9,6 +9,7 @@ import { useTheme } from "@/hooks/useTheme";
 import { Spacing, BorderRadius, Shadows, AppColors } from "@/constants/theme";
 import { ThemedText } from "@/components/ThemedText";
 import { useNotifications, AppNotification } from "@/context/NotificationContext";
+import { GradientBackground } from "@/components/GradientBackground";
 
 function NotificationItem({ notification, onPress }: { notification: AppNotification; onPress: () => void }) {
   const { theme } = useTheme();
@@ -98,7 +99,8 @@ export default function NotificationsListScreen() {
   );
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.backgroundRoot }]}>
+    <View style={[styles.container]}>
+      <GradientBackground />
       {notifications.length > 0 ? (
         <View style={styles.headerActions}>
           <Pressable onPress={clearNotifications} style={styles.actionButton}>

@@ -16,16 +16,16 @@ export function useScreenOptions({
   return {
     headerTitleAlign: "center",
     headerTransparent: transparent,
-    headerBlurEffect: isDark ? "dark" : "light",
+    headerBlurEffect: undefined,
     headerTintColor: theme.text,
     headerStyle: {
       backgroundColor: Platform.select({
         ios: undefined,
-        android: theme.backgroundRoot,
+        android: "transparent",
         web: theme.backgroundRoot,
       }),
     },
-    headerShadowVisible: true,
+    headerShadowVisible: false,
     gestureEnabled: true,
     gestureDirection: "horizontal",
     fullScreenGestureEnabled: isLiquidGlassAvailable() ? false : true,

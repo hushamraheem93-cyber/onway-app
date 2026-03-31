@@ -19,6 +19,7 @@ import * as Haptics from "expo-haptics";
 import * as Location from "expo-location";
 
 import { ThemedText } from "@/components/ThemedText";
+import { GradientBackground } from "@/components/GradientBackground";
 import { useTheme } from "@/hooks/useTheme";
 import { useAuth } from "@/context/AuthContext";
 import { AppColors, Spacing, BorderRadius, Shadows } from "@/constants/theme";
@@ -472,7 +473,8 @@ export default function DriverHomeScreen() {
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.backgroundRoot }]}>
+    <View style={[styles.container]}>
+      <GradientBackground />
       <View style={[styles.header, { paddingTop: insets.top + Spacing.md, backgroundColor: AppColors.primary }]}>
         <ThemedText type="h2" style={styles.headerTitle}>ONWAY</ThemedText>
         <ThemedText type="small" style={styles.headerSubtitle}>لوحة السائق</ThemedText>

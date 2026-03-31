@@ -8,6 +8,7 @@ import * as Haptics from "expo-haptics";
 import { useTheme } from "@/hooks/useTheme";
 import { Spacing, BorderRadius, Shadows, AppColors } from "@/constants/theme";
 import { ThemedText } from "@/components/ThemedText";
+import { GradientBackground } from "@/components/GradientBackground";
 
 export default function AboutScreen() {
   const insets = useSafeAreaInsets();
@@ -25,8 +26,10 @@ export default function AboutScreen() {
   };
 
   return (
+    <View style={{ flex: 1 }}>
+      <GradientBackground />
     <ScrollView
-      style={{ flex: 1, backgroundColor: theme.backgroundRoot }}
+      style={{ flex: 1 }}
       contentContainerStyle={{
         paddingTop: headerHeight + Spacing.lg,
         paddingBottom: insets.bottom + Spacing.xl,
@@ -106,6 +109,7 @@ export default function AboutScreen() {
         </ThemedText>
       </View>
     </ScrollView>
+    </View>
   );
 }
 

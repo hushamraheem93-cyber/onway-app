@@ -16,6 +16,7 @@ import { useAuth } from "@/context/AuthContext";
 import { Spacing, BorderRadius, Shadows, AppColors } from "@/constants/theme";
 import { ThemedText } from "@/components/ThemedText";
 import { ProfileStackParamList } from "@/navigation/ProfileStackNavigator";
+import { GradientBackground } from "@/components/GradientBackground";
 
 interface SettingsItemProps {
   icon: keyof typeof Feather.glyphMap;
@@ -83,8 +84,10 @@ export default function ProfileScreen() {
   };
 
   return (
+    <View style={{ flex: 1 }}>
+      <GradientBackground />
     <KeyboardAwareScrollViewCompat
-      style={{ flex: 1, backgroundColor: "#FFFFFF" }}
+      style={{ flex: 1 }}
       contentContainerStyle={{
         paddingTop: headerHeight + Spacing.lg,
         paddingBottom: tabBarHeight,
@@ -221,6 +224,7 @@ export default function ProfileScreen() {
         </ThemedText>
       </View>
     </KeyboardAwareScrollViewCompat>
+    </View>
   );
 }
 

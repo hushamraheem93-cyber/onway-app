@@ -20,6 +20,7 @@ import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollV
 import { useTheme } from "@/hooks/useTheme";
 import { useAuth } from "@/context/AuthContext";
 import { AppColors, Spacing, BorderRadius, Shadows } from "@/constants/theme";
+import { GradientBackground } from "@/components/GradientBackground";
 
 const REGIONS = [
   { id: "daloaiya", name: "الضلوعية المركز" },
@@ -132,8 +133,10 @@ export default function EditProfileScreen() {
   };
 
   return (
+    <View style={{ flex: 1 }}>
+      <GradientBackground />
     <KeyboardAwareScrollViewCompat
-      style={[styles.container, { backgroundColor: theme.backgroundRoot }]}
+      style={[styles.container]}
       contentContainerStyle={{
         paddingTop: headerHeight + Spacing.lg,
         paddingBottom: insets.bottom + Spacing.xl + 100,
@@ -336,6 +339,7 @@ export default function EditProfileScreen() {
         رقم الهاتف: {phoneNumber}
       </ThemedText>
     </KeyboardAwareScrollViewCompat>
+    </View>
   );
 }
 

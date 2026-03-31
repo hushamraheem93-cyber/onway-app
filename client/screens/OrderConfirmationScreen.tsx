@@ -14,6 +14,7 @@ import { formatPrice } from "@/constants/currency";
 import { Button } from "@/components/Button";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
 import { Order } from "@/context/OrderContext";
+import { GradientBackground } from "@/components/GradientBackground";
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 type RouteProps = RouteProp<RootStackParamList, "OrderConfirmation">;
@@ -77,8 +78,10 @@ export default function OrderConfirmationScreen() {
   };
 
   return (
+    <View style={{ flex: 1 }}>
+      <GradientBackground />
     <ScrollView
-      style={{ flex: 1, backgroundColor: theme.backgroundRoot }}
+      style={{ flex: 1 }}
       contentContainerStyle={{
         paddingTop: headerHeight + Spacing.lg,
         paddingBottom: insets.bottom + Spacing.xl,
@@ -186,6 +189,7 @@ export default function OrderConfirmationScreen() {
         <ThemedText type="body" style={{ color: theme.textSecondary }}>العودة للرئيسية</ThemedText>
       </Pressable>
     </ScrollView>
+    </View>
   );
 }
 

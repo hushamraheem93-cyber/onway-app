@@ -16,6 +16,7 @@ import * as ImagePicker from "expo-image-picker";
 import * as Haptics from "expo-haptics";
 
 import { ThemedText } from "@/components/ThemedText";
+import { GradientBackground } from "@/components/GradientBackground";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import { useTheme } from "@/hooks/useTheme";
 import { useAuth } from "@/context/AuthContext";
@@ -195,8 +196,10 @@ export default function DriverRegistrationScreen() {
   };
 
   return (
+    <View style={{ flex: 1 }}>
+      <GradientBackground />
     <KeyboardAwareScrollViewCompat
-      style={[styles.container, { backgroundColor: theme.backgroundRoot }]}
+      style={[styles.container]}
       contentContainerStyle={{
         paddingTop: insets.top + Spacing.xl,
         paddingBottom: insets.bottom + Spacing.xl + 100,
@@ -497,6 +500,7 @@ export default function DriverRegistrationScreen() {
       </ThemedText>
 
     </KeyboardAwareScrollViewCompat>
+    </View>
   );
 }
 

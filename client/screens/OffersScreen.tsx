@@ -10,6 +10,7 @@ import { Spacing, AppColors, DesignSystem } from "@/constants/theme";
 import { Product } from "@/constants/categories";
 import { ProductCard } from "@/components/ProductCard";
 import { EmptyState } from "@/components/EmptyState";
+import { GradientBackground } from "@/components/GradientBackground";
 
 export default function OffersScreen() {
   const insets = useSafeAreaInsets();
@@ -40,8 +41,10 @@ export default function OffersScreen() {
   }
 
   return (
+    <View style={{ flex: 1 }}>
+      <GradientBackground />
     <FlatList
-      style={{ flex: 1, backgroundColor: theme.backgroundRoot }}
+      style={{ flex: 1 }}
       contentContainerStyle={{
         paddingTop: headerHeight + Spacing.lg,
         paddingBottom: tabBarHeight,
@@ -62,6 +65,7 @@ export default function OffersScreen() {
         />
       }
     />
+    </View>
   );
 }
 

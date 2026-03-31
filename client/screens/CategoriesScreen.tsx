@@ -14,6 +14,7 @@ import { Spacing, AppColors } from "@/constants/theme";
 import { Category } from "@/constants/categories";
 import { ThemedText } from "@/components/ThemedText";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
+import { GradientBackground } from "@/components/GradientBackground";
 import { getApiUrl } from "@/lib/query-client";
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
@@ -137,7 +138,8 @@ export default function CategoriesScreen() {
   }
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.backgroundDefault }]}>
+    <View style={[styles.container]}>
+      <GradientBackground />
       <FlatList
         style={{ flex: 1 }}
         contentContainerStyle={{

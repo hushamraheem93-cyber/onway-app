@@ -10,6 +10,7 @@ import { Product } from "@/constants/categories";
 import { ProductCard } from "@/components/ProductCard";
 import { EmptyState } from "@/components/EmptyState";
 import { useFavorites } from "@/context/FavoritesContext";
+import { GradientBackground } from "@/components/GradientBackground";
 
 export default function FavoritesScreen() {
   const insets = useSafeAreaInsets();
@@ -23,8 +24,10 @@ export default function FavoritesScreen() {
   );
 
   return (
+    <View style={{ flex: 1 }}>
+      <GradientBackground />
     <FlatList
-      style={{ flex: 1, backgroundColor: "#FFFFFF" }}
+      style={{ flex: 1 }}
       contentContainerStyle={{
         paddingTop: headerHeight + Spacing.lg,
         paddingBottom: tabBarHeight,
@@ -43,6 +46,7 @@ export default function FavoritesScreen() {
         />
       }
     />
+    </View>
   );
 }
 

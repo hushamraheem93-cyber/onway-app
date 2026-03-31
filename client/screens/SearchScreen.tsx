@@ -18,6 +18,7 @@ import { RootStackParamList } from "@/navigation/RootStackNavigator";
 import { useCart } from "@/context/CartContext";
 import { formatPrice } from "@/constants/currency";
 import { getApiUrl } from "@/lib/query-client";
+import { GradientBackground } from "@/components/GradientBackground";
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
@@ -100,7 +101,8 @@ export default function SearchScreen() {
   );
 
   return (
-    <View style={[styles.container, { backgroundColor: "#FFFFFF" }]}>
+    <View style={[styles.container]}>
+      <GradientBackground />
       <View style={[styles.searchContainer, { paddingTop: headerHeight + Spacing.sm }]}>
         <View style={[styles.searchBar, { backgroundColor: isDark ? theme.backgroundDefault : "#F5F5F5", borderColor: isDark ? theme.border : "#EEE" }]}>
           <Feather name="search" size={20} color={AppColors.primary} />

@@ -6,6 +6,7 @@ import { useHeaderHeight } from "@react-navigation/elements";
 import { useTheme } from "@/hooks/useTheme";
 import { Spacing, BorderRadius, Shadows } from "@/constants/theme";
 import { ThemedText } from "@/components/ThemedText";
+import { GradientBackground } from "@/components/GradientBackground";
 
 export default function TermsScreen() {
   const insets = useSafeAreaInsets();
@@ -13,8 +14,10 @@ export default function TermsScreen() {
   const { theme } = useTheme();
 
   return (
+    <View style={{ flex: 1 }}>
+      <GradientBackground />
     <ScrollView
-      style={{ flex: 1, backgroundColor: theme.backgroundRoot }}
+      style={{ flex: 1 }}
       contentContainerStyle={{
         paddingTop: headerHeight + Spacing.lg,
         paddingBottom: insets.bottom + Spacing.xl,
@@ -98,6 +101,7 @@ export default function TermsScreen() {
         </ThemedText>
       </View>
     </ScrollView>
+    </View>
   );
 }
 

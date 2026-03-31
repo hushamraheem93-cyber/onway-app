@@ -12,6 +12,7 @@ import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 
 import { ThemedText } from "@/components/ThemedText";
+import { GradientBackground } from "@/components/GradientBackground";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import { useTheme } from "@/hooks/useTheme";
 import { useThemeMode } from "@/context/ThemeContext";
@@ -86,7 +87,8 @@ export default function DriverProfileScreen() {
   }
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.backgroundRoot }]}>
+    <View style={[styles.container]}>
+      <GradientBackground />
       <View style={[styles.header, { paddingTop: insets.top + Spacing.md, backgroundColor: AppColors.primary }]}>
         <View style={styles.avatarCircle}>
           <Feather name="user" size={36} color={AppColors.primary} />

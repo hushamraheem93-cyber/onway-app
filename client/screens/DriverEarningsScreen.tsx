@@ -12,6 +12,7 @@ import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { Feather } from "@expo/vector-icons";
 
 import { ThemedText } from "@/components/ThemedText";
+import { GradientBackground } from "@/components/GradientBackground";
 import { useTheme } from "@/hooks/useTheme";
 import { useAuth } from "@/context/AuthContext";
 import { AppColors, Spacing, BorderRadius, Shadows } from "@/constants/theme";
@@ -153,7 +154,8 @@ export default function DriverEarningsScreen() {
   );
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.backgroundRoot }]}>
+    <View style={[styles.container]}>
+      <GradientBackground />
       <View style={[styles.header, { paddingTop: insets.top + Spacing.md, backgroundColor: AppColors.primary }]}>
         <ThemedText type="h2" style={styles.headerTitle}>الأرباح والمحفظة</ThemedText>
       </View>

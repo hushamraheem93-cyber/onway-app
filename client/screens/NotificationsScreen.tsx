@@ -9,6 +9,7 @@ import * as Haptics from "expo-haptics";
 import { useTheme } from "@/hooks/useTheme";
 import { Spacing, BorderRadius, Shadows, AppColors } from "@/constants/theme";
 import { ThemedText } from "@/components/ThemedText";
+import { GradientBackground } from "@/components/GradientBackground";
 
 const NOTIFICATIONS_KEY = "@onway_notifications";
 
@@ -99,8 +100,10 @@ export default function NotificationsScreen() {
   };
 
   return (
+    <View style={{ flex: 1 }}>
+      <GradientBackground />
     <ScrollView
-      style={{ flex: 1, backgroundColor: theme.backgroundRoot }}
+      style={{ flex: 1 }}
       contentContainerStyle={{
         paddingTop: headerHeight + Spacing.lg,
         paddingBottom: insets.bottom + Spacing.xl,
@@ -158,6 +161,7 @@ export default function NotificationsScreen() {
         </ThemedText>
       </View>
     </ScrollView>
+    </View>
   );
 }
 

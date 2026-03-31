@@ -20,6 +20,7 @@ import { OrderCard } from "@/components/OrderCard";
 import { EmptyState } from "@/components/EmptyState";
 import { ThemedText } from "@/components/ThemedText";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
+import { GradientBackground } from "@/components/GradientBackground";
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
@@ -89,7 +90,8 @@ export default function OrdersScreen() {
   };
 
   return (
-    <View style={{ flex: 1, backgroundColor: theme.backgroundRoot }}>
+    <View style={{ flex: 1 }}>
+      <GradientBackground />
       {/* Fixed Search Bar */}
       <View
         style={[
