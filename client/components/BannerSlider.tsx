@@ -123,6 +123,7 @@ export function BannerSlider({ banners, autoPlayInterval = 4000 }: BannerSliderP
               source={{ uri: getImageUrl(banner.image) }}
               style={styles.banner}
               contentFit="cover"
+              cachePolicy="disk"
               transition={300}
             />
             {banner.title ? (

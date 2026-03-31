@@ -82,6 +82,7 @@ export function CategoryCard({ category, onPress, compact = false, sliderMode = 
           source={{ uri: getImageUrl(category.image) }}
           style={styles.image}
           contentFit="contain"
+          cachePolicy="disk"
           transition={300}
           onLoadStart={() => setIsLoading(true)}
           onLoadEnd={() => setIsLoading(false)}

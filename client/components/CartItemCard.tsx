@@ -70,6 +70,7 @@ export function CartItemCard({ item }: CartItemCardProps) {
         source={{ uri: getImageFullUrl(item.product.image) }}
         style={styles.image}
         contentFit="cover"
+        cachePolicy="disk"
         transition={200}
       />
       <View style={styles.content}>

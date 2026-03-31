@@ -116,6 +116,7 @@ export default function CategoriesScreen() {
               source={{ uri: imageSource }}
               style={styles.image}
               contentFit="contain"
+              cachePolicy="disk"
               transition={200}
             />
           </View>

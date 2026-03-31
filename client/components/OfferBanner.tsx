@@ -31,6 +31,7 @@ export function OfferBanner({ banner, onPress }: OfferBannerProps) {
         source={{ uri: getImageUrl(banner.image) }}
         style={styles.image}
         contentFit="cover"
+        cachePolicy="disk"
         transition={300}
       />
       <View style={styles.overlay}>

@@ -16,6 +16,7 @@ import { ProductCard } from "@/components/ProductCard";
 import { EmptyState } from "@/components/EmptyState";
 import { ThemedText } from "@/components/ThemedText";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
+import { getApiUrl } from "@/lib/query-client";
 
 type ProductsRouteProp = RouteProp<RootStackParamList, "Products">;
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
@@ -30,6 +31,12 @@ interface Vendor {
   rating: number;
   deliveryTime: string;
   isOpen: boolean;
+}
+
+function getImageUrl(image: string): string {
+  if (!image) return "";
+  if (image.startsWith("data:image/") || image.startsWith("http")) return image;
+  return `${getApiUrl()}${image}`;
 }
 
 export default function ProductsScreen() {
@@ -161,9 +168,10 @@ function VendorCard({ vendor, theme, onPress }: { vendor: Vendor; theme: any; on
       <View style={styles.vendorImageContainer}>
         {vendor.image ? (
           <Image
-            source={{ uri: vendor.image }}
+            source={{ uri: getImageUrl(vendor.image) }}
             style={styles.vendorImage}
             contentFit="cover"
+            cachePolicy="disk"
             transition={200}
           />
         ) : (

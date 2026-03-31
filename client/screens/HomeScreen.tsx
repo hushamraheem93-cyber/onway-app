@@ -261,6 +261,7 @@ export default function HomeScreen() {
               source={{ uri: get3DImage(category.id, category.image) }}
               style={styles.catImage}
               contentFit="contain"
+              cachePolicy="disk"
               transition={200}
             />
           </View>
@@ -299,6 +300,7 @@ export default function HomeScreen() {
             source={{ uri: getImageUrl(product.image) }}
             style={styles.productImage}
             contentFit="cover"
+            cachePolicy="disk"
             transition={200}
           />
           <Pressable
@@ -378,6 +380,7 @@ export default function HomeScreen() {
           source={{ uri: getImageUrl(vendor.image) }}
           style={styles.restaurantImage}
           contentFit="cover"
+          cachePolicy="disk"
           transition={300}
         />
         <LinearGradient
@@ -677,6 +680,7 @@ export default function HomeScreen() {
                 source={{ uri: getImageUrl(selectedProduct.image) }}
                 style={styles.modalImage}
                 contentFit="contain"
+                cachePolicy="disk"
                 transition={300}
               />
               {selectedProduct.discount ? (

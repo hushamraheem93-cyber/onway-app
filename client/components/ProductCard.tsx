@@ -146,6 +146,7 @@ export function ProductCard({ product, onPress }: ProductCardProps) {
           source={{ uri: getImageUrl(product.image) }}
           style={styles.image}
           contentFit="contain"
+          cachePolicy="disk"
           transition={200}
         />
       </View>

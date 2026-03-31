@@ -17,10 +17,17 @@ import { ThemedText } from "@/components/ThemedText";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
 import { useCart } from "@/context/CartContext";
 import { formatPrice } from "@/constants/currency";
+import { getApiUrl } from "@/lib/query-client";
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
+
+function getImageUrl(image: string): string {
+  if (!image) return "";
+  if (image.startsWith("data:image/") || image.startsWith("http")) return image;
+  return `${getApiUrl()}${image}`;
+}
 
 export default function SearchScreen() {
   const insets = useSafeAreaInsets();
@@ -61,7 +68,13 @@ export default function SearchScreen() {
 
   const renderProduct = ({ item }: { item: Product }) => (
     <View style={[styles.productRow, { backgroundColor: theme.backgroundDefault, borderBottomColor: theme.border }]}>
-      <Image source={{ uri: item.image }} style={styles.productImage} contentFit="cover" transition={200} />
+      <Image
+        source={{ uri: getImageUrl(item.image) }}
+        style={styles.productImage}
+        contentFit="cover"
+        cachePolicy="disk"
+        transition={200}
+      />
       <View style={styles.productInfo}>
         <ThemedText type="body" numberOfLines={1} style={styles.productName}>{item.name}</ThemedText>
         <ThemedText type="small" numberOfLines={1} style={[styles.productDesc, { color: theme.textSecondary }]}>

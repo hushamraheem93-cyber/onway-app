@@ -37,7 +37,7 @@ export const DesignSystem = {
     height: 140,
   },
   categoryImageSize: 85,
-  bannerHeight: 240,
+  bannerHeight: 195,
   bannerRadius: 16,
 };
 
