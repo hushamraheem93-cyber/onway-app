@@ -6,9 +6,9 @@ channel = "stable-24_05"
 packages = ["vips"]
 
 [deployment]
-deploymentTarget = "cloudrun"
-build = ["sh", "-c", "npm run expo:static:build && npm run server:build"]
-run = ["npm", "run", "server:prod"]
+deploymentTarget = "autoscale"
+build = ["npm", "run", "server:build"]
+run = ["node", "server_dist/index.js"]
 
 [env]
 PORT = "5000"
