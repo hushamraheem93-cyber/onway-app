@@ -90,39 +90,20 @@ function CrescentIndicator({ visible }: { visible: boolean }) {
 function SideTab({
   config,
   isFocused,
-  onPress,
 }: {
   config: TabConfig;
   isFocused: boolean;
-  onPress: () => void;
 }) {
-  const bounce = useSharedValue(1);
-
-  useEffect(() => {
-    if (isFocused) {
-      bounce.value = withSequence(
-        withTiming(1.25, { duration: 130 }),
-        withSpring(1, { damping: 10, stiffness: 220 })
-      );
-    } else {
-      bounce.value = withSpring(1, { damping: 12 });
-    }
-  }, [isFocused]);
-
-  const animStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: bounce.value }],
-  }));
-
   const color = isFocused ? ACTIVE_COLOR : INACTIVE_COLOR;
 
   return (
-    <Pressable onPress={onPress} style={styles.sideTab} testID={`tab-${config.name}`}>
+    <View style={styles.sideTab}>
       <CrescentIndicator visible={isFocused} />
-      <Animated.View style={[styles.sideTabInner, animStyle]}>
+      <View style={styles.sideTabInner}>
         <Feather name={config.icon} size={22} color={color} />
         <ThemedText style={[styles.sideLabel, { color }]}>{config.label}</ThemedText>
-      </Animated.View>
-    </Pressable>
+      </View>
+    </View>
   );
 }
 
@@ -246,21 +227,13 @@ export function CustomTabBar({ state, navigation }: BottomTabBarProps) {
       {/* ── Side tabs row (inside the white bar area) ──────── */}
       <View style={[styles.row, { marginTop: BY, height: BAR_HEIGHT }]}>
         {/* Right side — المفضلة */}
-        <SideTab
-          config={SIDE_TABS[0]}
-          isFocused={favActive}
-          onPress={() => navigate(SIDE_TABS[0].name, SIDE_TABS[0].initialScreen)}
-        />
+        <SideTab config={SIDE_TABS[0]} isFocused={favActive} />
 
         {/* Center placeholder so the side tabs stay on the edges */}
         <View style={{ width: (NOTCH_R + NOTCH_SPREAD) * 2 + 8 }} />
 
         {/* Left side — طلباتي */}
-        <SideTab
-          config={SIDE_TABS[1]}
-          isFocused={ordActive}
-          onPress={() => navigate(SIDE_TABS[1].name, SIDE_TABS[1].initialScreen)}
-        />
+        <SideTab config={SIDE_TABS[1]} isFocused={ordActive} />
       </View>
     </View>
   );
