@@ -4,6 +4,7 @@ import { registerRoutes } from "./routes";
 import { initializeFirebase } from "./firebase";
 import * as fs from "fs";
 import * as path from "path";
+import * as crypto from "crypto";
 
 initializeFirebase();
 
@@ -148,6 +149,31 @@ function serveLandingPage({
   res.status(200).send(html);
 }
 
+// ── Admin Auth ────────────────────────────────────────────────────────────
+const ADMIN_COOKIE = "onway_admin_session";
+
+function makeToken(): string {
+  const secret = `${process.env.ADMIN_USERNAME}:${process.env.ADMIN_PASSWORD}`;
+  return crypto.createHmac("sha256", secret).update("onway_admin").digest("hex");
+}
+
+function isValidSession(req: Request): boolean {
+  const raw = req.cookies?.[ADMIN_COOKIE];
+  if (!raw) return false;
+  return raw === makeToken();
+}
+
+function parseCookies(req: Request): void {
+  const header = req.headers.cookie || "";
+  const cookies: Record<string, string> = {};
+  header.split(";").forEach((part) => {
+    const [k, ...v] = part.trim().split("=");
+    if (k) cookies[k.trim()] = decodeURIComponent(v.join("=").trim());
+  });
+  (req as any).cookies = cookies;
+}
+// ─────────────────────────────────────────────────────────────────────────
+
 function configureExpoAndLanding(app: express.Application) {
   const templatePath = path.resolve(
     process.cwd(),
@@ -165,9 +191,62 @@ function configureExpoAndLanding(app: express.Application) {
     "admin.html",
   );
 
+  const loginTemplatePath = path.resolve(
+    process.cwd(),
+    "server",
+    "templates",
+    "login.html",
+  );
+
   log("Serving static Expo files with dynamic manifest routing");
 
-  app.get("/admin", (_req: Request, res: Response) => {
+  // Cookie parser middleware (lightweight, no dep)
+  app.use((req: Request, _res: Response, next: NextFunction) => {
+    parseCookies(req);
+    next();
+  });
+
+  // GET /admin/login — show login page
+  app.get("/admin/login", (req: Request, res: Response) => {
+    if (isValidSession(req)) return res.redirect("/admin");
+    const loginTemplate = fs.readFileSync(loginTemplatePath, "utf-8");
+    const html = loginTemplate.replace("ERROR_PLACEHOLDER", "");
+    res.setHeader("Content-Type", "text/html; charset=utf-8");
+    res.status(200).send(html);
+  });
+
+  // POST /admin/login — validate credentials
+  app.post("/admin/login", express.urlencoded({ extended: false }), (req: Request, res: Response) => {
+    const { username, password } = req.body || {};
+    const validUser = process.env.ADMIN_USERNAME;
+    const validPass = process.env.ADMIN_PASSWORD;
+
+    if (username === validUser && password === validPass) {
+      const token = makeToken();
+      const maxAge = 60 * 60 * 24 * 7; // 7 days
+      res.setHeader(
+        "Set-Cookie",
+        `${ADMIN_COOKIE}=${token}; HttpOnly; SameSite=Strict; Max-Age=${maxAge}; Path=/`
+      );
+      return res.redirect("/admin");
+    }
+
+    const loginTemplate = fs.readFileSync(loginTemplatePath, "utf-8");
+    const errorHtml = `<div class="error">اسم المستخدم أو كلمة المرور غير صحيحة</div>`;
+    const html = loginTemplate.replace("ERROR_PLACEHOLDER", errorHtml);
+    res.setHeader("Content-Type", "text/html; charset=utf-8");
+    res.status(401).send(html);
+  });
+
+  // GET /admin/logout — clear session
+  app.get("/admin/logout", (_req: Request, res: Response) => {
+    res.setHeader("Set-Cookie", `${ADMIN_COOKIE}=; HttpOnly; Max-Age=0; Path=/`);
+    res.redirect("/admin/login");
+  });
+
+  // GET /admin — protected
+  app.get("/admin", (req: Request, res: Response) => {
+    if (!isValidSession(req)) return res.redirect("/admin/login");
     const adminTemplate = fs.readFileSync(adminTemplatePath, "utf-8");
     res.setHeader("Content-Type", "text/html; charset=utf-8");
     res.status(200).send(adminTemplate);

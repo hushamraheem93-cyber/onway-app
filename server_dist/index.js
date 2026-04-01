@@ -3205,6 +3205,7 @@ ${itemsList}
 // server/index.ts
 import * as fs2 from "fs";
 import * as path2 from "path";
+import * as crypto from "crypto";
 initializeFirebase();
 var app = express2();
 var log = console.log;
@@ -3306,6 +3307,25 @@ function serveLandingPage({
   res.setHeader("Content-Type", "text/html; charset=utf-8");
   res.status(200).send(html);
 }
+var ADMIN_COOKIE = "onway_admin_session";
+function makeToken() {
+  const secret = `${process.env.ADMIN_USERNAME}:${process.env.ADMIN_PASSWORD}`;
+  return crypto.createHmac("sha256", secret).update("onway_admin").digest("hex");
+}
+function isValidSession(req) {
+  const raw = req.cookies?.[ADMIN_COOKIE];
+  if (!raw) return false;
+  return raw === makeToken();
+}
+function parseCookies(req) {
+  const header = req.headers.cookie || "";
+  const cookies = {};
+  header.split(";").forEach((part) => {
+    const [k, ...v] = part.trim().split("=");
+    if (k) cookies[k.trim()] = decodeURIComponent(v.join("=").trim());
+  });
+  req.cookies = cookies;
+}
 function configureExpoAndLanding(app2) {
   const templatePath = path2.resolve(
     process.cwd(),
@@ -3321,8 +3341,49 @@ function configureExpoAndLanding(app2) {
     "templates",
     "admin.html"
   );
+  const loginTemplatePath = path2.resolve(
+    process.cwd(),
+    "server",
+    "templates",
+    "login.html"
+  );
   log("Serving static Expo files with dynamic manifest routing");
-  app2.get("/admin", (_req, res) => {
+  app2.use((req, _res, next) => {
+    parseCookies(req);
+    next();
+  });
+  app2.get("/admin/login", (req, res) => {
+    if (isValidSession(req)) return res.redirect("/admin");
+    const loginTemplate = fs2.readFileSync(loginTemplatePath, "utf-8");
+    const html = loginTemplate.replace("ERROR_PLACEHOLDER", "");
+    res.setHeader("Content-Type", "text/html; charset=utf-8");
+    res.status(200).send(html);
+  });
+  app2.post("/admin/login", express2.urlencoded({ extended: false }), (req, res) => {
+    const { username, password } = req.body || {};
+    const validUser = process.env.ADMIN_USERNAME;
+    const validPass = process.env.ADMIN_PASSWORD;
+    if (username === validUser && password === validPass) {
+      const token = makeToken();
+      const maxAge = 60 * 60 * 24 * 7;
+      res.setHeader(
+        "Set-Cookie",
+        `${ADMIN_COOKIE}=${token}; HttpOnly; SameSite=Strict; Max-Age=${maxAge}; Path=/`
+      );
+      return res.redirect("/admin");
+    }
+    const loginTemplate = fs2.readFileSync(loginTemplatePath, "utf-8");
+    const errorHtml = `<div class="error">\u0627\u0633\u0645 \u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645 \u0623\u0648 \u0643\u0644\u0645\u0629 \u0627\u0644\u0645\u0631\u0648\u0631 \u063A\u064A\u0631 \u0635\u062D\u064A\u062D\u0629</div>`;
+    const html = loginTemplate.replace("ERROR_PLACEHOLDER", errorHtml);
+    res.setHeader("Content-Type", "text/html; charset=utf-8");
+    res.status(401).send(html);
+  });
+  app2.get("/admin/logout", (_req, res) => {
+    res.setHeader("Set-Cookie", `${ADMIN_COOKIE}=; HttpOnly; Max-Age=0; Path=/`);
+    res.redirect("/admin/login");
+  });
+  app2.get("/admin", (req, res) => {
+    if (!isValidSession(req)) return res.redirect("/admin/login");
     const adminTemplate = fs2.readFileSync(adminTemplatePath, "utf-8");
     res.setHeader("Content-Type", "text/html; charset=utf-8");
     res.status(200).send(adminTemplate);
