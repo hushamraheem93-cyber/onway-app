@@ -18,6 +18,7 @@ export function useScreenOptions({
     headerTransparent: transparent,
     headerBlurEffect: undefined,
     headerTintColor: theme.text,
+    headerBackTitle: "رئيسية",
     headerStyle: {
       backgroundColor: Platform.select({
         ios: undefined,
