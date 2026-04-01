@@ -105,8 +105,8 @@ export default function HomeScreen() {
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
 
   const welcomeMessage = userProfile?.fullName
-    ? `أهلاً ${userProfile.fullName.split(" ")[0]}`
-    : "أهلاً بك";
+    ? `أهلاً ${userProfile.fullName.split(" ")[0]} 👋`
+    : "أهلاً بك 👋";
 
   const { data: categories = [], isLoading: categoriesLoading } = useQuery<Category[]>({
     queryKey: ["/api/categories"],
@@ -774,7 +774,7 @@ export default function HomeScreen() {
       <FlatList
         style={{ flex: 1 }}
         contentContainerStyle={{
-          paddingTop: Math.max(headerHeight, insets.top + 44) + Spacing.xl,
+          paddingTop: headerHeight + Spacing.xs,
           paddingBottom: tabBarHeight + Spacing.xl + (items.length > 0 ? 70 : 0),
           paddingHorizontal: HORIZONTAL_PADDING,
         }}
