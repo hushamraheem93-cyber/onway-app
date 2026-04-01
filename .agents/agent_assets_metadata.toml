@@ -1,0 +1,13 @@
+uploads = []
+
+[[generated]]
+id = "pjKoj_BtG9B2cwmbB-cy1"
+uri = "file://uploads/category-bakery.png"
+type = "image"
+title = "generated_image"
+
+[[outputs]]
+id = "aaowI2qXopw_0ixkf8Qdq"
+uri = "file://uploads/category-bakery.png"
+type = "image"
+title = "صورة قسم المخبوزات"
