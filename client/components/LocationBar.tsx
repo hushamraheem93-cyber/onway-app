@@ -56,14 +56,16 @@ export function LocationBar() {
 
   return (
     <Pressable style={styles.row} onPress={() => navigation.navigate("MapPicker")} testID="button-location-bar">
-      <View style={styles.pinIcon}>
-        <Feather name="map-pin" size={18} color={AppColors.primary} />
-      </View>
-      <View style={styles.textBlock}>
+      <View style={styles.rightGroup}>
+        <View style={styles.pinIcon}>
+          <Feather name="map-pin" size={15} color={AppColors.primary} />
+        </View>
         <ThemedText style={styles.label}>التوصيل إلى</ThemedText>
-        <ThemedText style={styles.address} numberOfLines={1}>{displayAddress}</ThemedText>
       </View>
-      <Feather name="chevron-down" size={15} color={AppColors.primary} />
+
+      <ThemedText style={styles.address} numberOfLines={1}>{displayAddress}</ThemedText>
+
+      <Feather name="chevron-down" size={13} color={AppColors.primary} />
     </Pressable>
   );
 }
@@ -72,33 +74,33 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
-    paddingVertical: 6,
-    paddingHorizontal: 2,
-    justifyContent: "flex-start",
+    gap: 6,
+    paddingVertical: 4,
+    paddingHorizontal: 0,
+  },
+  rightGroup: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
   },
   pinIcon: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
+    width: 26,
+    height: 26,
+    borderRadius: 13,
     backgroundColor: "#FFF0E8",
     alignItems: "center",
     justifyContent: "center",
   },
-  textBlock: {
-    flex: 1,
-    alignItems: "flex-end",
-  },
   label: {
     fontFamily: "Cairo_400Regular",
-    fontSize: 11,
+    fontSize: 10,
     color: "#9CA3AF",
-    textAlign: "right",
   },
   address: {
     fontFamily: "Cairo_700Bold",
-    fontSize: 12,
+    fontSize: 10,
     color: "#1A1A1A",
-    textAlign: "right",
+    flex: 1,
+    textAlign: "left",
   },
 });

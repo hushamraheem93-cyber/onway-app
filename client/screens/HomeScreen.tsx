@@ -774,7 +774,7 @@ export default function HomeScreen() {
       <FlatList
         style={{ flex: 1 }}
         contentContainerStyle={{
-          paddingTop: headerHeight + Spacing.xs,
+          paddingTop: headerHeight,
           paddingBottom: tabBarHeight + Spacing.xl + (items.length > 0 ? 70 : 0),
           paddingHorizontal: HORIZONTAL_PADDING,
         }}
