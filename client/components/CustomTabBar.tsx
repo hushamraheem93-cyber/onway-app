@@ -22,19 +22,19 @@ import { ThemedText } from "@/components/ThemedText";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
-const ACTIVE_COLOR   = "#E86520";
+const ACTIVE_COLOR  = "#E86520";
 const INACTIVE_COLOR = "#AAAAAA";
-const BAR_BG         = "#FFFFFF";
+const BAR_BG        = "#FFFFFF";
 
 const CIRCLE_SIZE     = 64;
-const CIRCLE_OVERFLOW = 26;
-const BAR_HEIGHT      = 60;
-const NOTCH_R         = 38;
-const NOTCH_SPREAD    = 18;
-const NOTCH_DEPTH     = CIRCLE_SIZE - CIRCLE_OVERFLOW + 8;
+const CIRCLE_OVERFLOW = 26;           // px the circle pops above the bar top
+const BAR_HEIGHT      = 60;           // visible white bar height
+const NOTCH_R         = 38;           // horizontal radius of the notch curve
+const NOTCH_SPREAD    = 18;           // extra smooth spread before the curve
+const NOTCH_DEPTH     = CIRCLE_SIZE - CIRCLE_OVERFLOW + 8; // depth into the bar
 
 const CX = SCREEN_WIDTH / 2;
-const BY = CIRCLE_OVERFLOW;
+const BY = CIRCLE_OVERFLOW;           // Y where the bar top starts in SVG
 
 interface TabConfig {
   name: string;
@@ -53,10 +53,11 @@ const CENTER_TAB: TabConfig = {
 };
 
 function buildPath(w: number, totalH: number): string {
-  const by = BY;
   const nd = NOTCH_DEPTH;
   const nr = NOTCH_R;
   const sp = NOTCH_SPREAD;
+  const by = BY;
+
   return [
     `M 0 ${by}`,
     `L ${CX - nr - sp} ${by}`,
@@ -69,7 +70,23 @@ function buildPath(w: number, totalH: number): string {
   ].join(" ");
 }
 
-// ── Side Tab with inline crescent animation ────────────────────────────────
+function CrescentIndicator({ visible }: { visible: boolean }) {
+  const opacity = useSharedValue(visible ? 1 : 0);
+  const scaleX  = useSharedValue(visible ? 1 : 0.3);
+
+  useEffect(() => {
+    opacity.value = withTiming(visible ? 1 : 0, { duration: 220 });
+    scaleX.value  = withSpring(visible ? 1 : 0.3, { damping: 14, stiffness: 180 });
+  }, [visible]);
+
+  const style = useAnimatedStyle(() => ({
+    opacity: opacity.value,
+    transform: [{ scaleX: scaleX.value }],
+  }));
+
+  return <Animated.View style={[styles.crescent, style]} />;
+}
+
 function SideTab({
   config,
   isFocused,
@@ -79,45 +96,29 @@ function SideTab({
   isFocused: boolean;
   onPress: () => void;
 }) {
-  // icon bounce
-  const iconScale = useSharedValue(1);
-  // crescent
-  const crescentOpacity = useSharedValue(isFocused ? 1 : 0);
-  const crescentScaleX  = useSharedValue(isFocused ? 1 : 0);
+  const bounce = useSharedValue(1);
 
   useEffect(() => {
     if (isFocused) {
-      iconScale.value = withSequence(
+      bounce.value = withSequence(
         withTiming(1.25, { duration: 130 }),
         withSpring(1, { damping: 10, stiffness: 220 })
       );
-      crescentOpacity.value = withTiming(1, { duration: 200 });
-      crescentScaleX.value  = withSpring(1, { damping: 14, stiffness: 200 });
     } else {
-      iconScale.value       = withSpring(1, { damping: 12 });
-      crescentOpacity.value = withTiming(0, { duration: 180 });
-      crescentScaleX.value  = withTiming(0, { duration: 180 });
+      bounce.value = withSpring(1, { damping: 12 });
     }
   }, [isFocused]);
 
-  const iconStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: iconScale.value }],
-  }));
-
-  const crescentStyle = useAnimatedStyle(() => ({
-    opacity: crescentOpacity.value,
-    transform: [{ scaleX: crescentScaleX.value }],
+  const animStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: bounce.value }],
   }));
 
   const color = isFocused ? ACTIVE_COLOR : INACTIVE_COLOR;
 
   return (
     <Pressable onPress={onPress} style={styles.sideTab} testID={`tab-${config.name}`}>
-      {/* Crescent at top of bar */}
-      <Animated.View style={[styles.crescent, crescentStyle]} />
-
-      {/* Icon + label */}
-      <Animated.View style={[styles.sideTabInner, iconStyle]}>
+      <CrescentIndicator visible={isFocused} />
+      <Animated.View style={[styles.sideTabInner, animStyle]}>
         <Feather name={config.icon} size={22} color={color} />
         <ThemedText style={[styles.sideLabel, { color }]}>{config.label}</ThemedText>
       </Animated.View>
@@ -125,7 +126,6 @@ function SideTab({
   );
 }
 
-// ── Floating center button ─────────────────────────────────────────────────
 function CenterButton({
   isFocused,
   onPress,
@@ -138,7 +138,7 @@ function CenterButton({
   useEffect(() => {
     if (isFocused) {
       scale.value = withSequence(
-        withTiming(1.12, { duration: 130 }),
+        withTiming(1.15, { duration: 140 }),
         withSpring(1, { damping: 10, stiffness: 200 })
       );
     }
@@ -169,11 +169,10 @@ function CenterButton({
   );
 }
 
-// ── Main tab bar ───────────────────────────────────────────────────────────
 export function CustomTabBar({ state, navigation }: BottomTabBarProps) {
-  const insets     = useSafeAreaInsets();
-  const safeBottom = Math.max(insets.bottom - 10, 0);
-  const totalSvgH  = BY + BAR_HEIGHT + safeBottom;
+  const insets      = useSafeAreaInsets();
+  const safeBottom  = Math.max(insets.bottom - 10, 0);
+  const totalSvgH   = BY + BAR_HEIGHT + safeBottom;
 
   const navigate = (tabName: string, screen: string) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -201,27 +200,32 @@ export function CustomTabBar({ state, navigation }: BottomTabBarProps) {
 
   return (
     <View
-      style={[styles.container, { height: totalSvgH }]}
+      style={[
+        styles.container,
+        { height: totalSvgH, bottom: 0 },
+      ]}
       pointerEvents="box-none"
     >
-      {/* Shadow */}
+      {/* ── Shadow layer (iOS) ─────────────────────────────── */}
       <View
         style={[
           StyleSheet.absoluteFill,
-          Platform.select({
-            ios: {
-              shadowColor: "#000",
-              shadowOffset: { width: 0, height: -3 },
-              shadowOpacity: 0.08,
-              shadowRadius: 8,
-            },
-            android: { elevation: 12 },
-          }),
+          {
+            ...Platform.select({
+              ios: {
+                shadowColor: "#000",
+                shadowOffset: { width: 0, height: -3 },
+                shadowOpacity: 0.08,
+                shadowRadius: 8,
+              },
+              android: { elevation: 12 },
+            }),
+          },
         ]}
         pointerEvents="none"
       />
 
-      {/* SVG background with notch */}
+      {/* ── SVG background with notch ──────────────────────── */}
       <Svg
         width={SCREEN_WIDTH}
         height={totalSvgH}
@@ -231,7 +235,7 @@ export function CustomTabBar({ state, navigation }: BottomTabBarProps) {
         <Path d={buildPath(SCREEN_WIDTH, totalSvgH)} fill={BAR_BG} />
       </Svg>
 
-      {/* Floating center button */}
+      {/* ── Floating center button ──────────────────────────── */}
       <View style={styles.centerWrap}>
         <CenterButton
           isFocused={homeActive}
@@ -239,17 +243,19 @@ export function CustomTabBar({ state, navigation }: BottomTabBarProps) {
         />
       </View>
 
-      {/* Side tabs — row starts exactly where white bar begins */}
+      {/* ── Side tabs row (inside the white bar area) ──────── */}
       <View style={[styles.row, { marginTop: BY, height: BAR_HEIGHT }]}>
+        {/* Right side — المفضلة */}
         <SideTab
           config={SIDE_TABS[0]}
           isFocused={favActive}
           onPress={() => navigate(SIDE_TABS[0].name, SIDE_TABS[0].initialScreen)}
         />
 
-        {/* Gap for center button */}
+        {/* Center placeholder so the side tabs stay on the edges */}
         <View style={{ width: (NOTCH_R + NOTCH_SPREAD) * 2 + 8 }} />
 
+        {/* Left side — طلباتي */}
         <SideTab
           config={SIDE_TABS[1]}
           isFocused={ordActive}
@@ -263,11 +269,9 @@ export function CustomTabBar({ state, navigation }: BottomTabBarProps) {
 const styles = StyleSheet.create({
   container: {
     position: "absolute",
-    bottom: 0,
     left: 0,
     right: 0,
   },
-  // ── Center button ──
   centerWrap: {
     position: "absolute",
     top: 0,
@@ -306,7 +310,6 @@ const styles = StyleSheet.create({
     color: ACTIVE_COLOR,
     includeFontPadding: false,
   },
-  // ── Side tabs ──
   row: {
     flexDirection: "row",
     alignItems: "center",
@@ -316,24 +319,25 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
+    overflow: "visible",
   },
   sideTabInner: {
     alignItems: "center",
     gap: 4,
+    paddingVertical: 4,
   },
   sideLabel: {
     fontFamily: "Cairo_700Bold",
     fontSize: 11,
     includeFontPadding: false,
   },
-  // ── Crescent indicator ──
   crescent: {
     position: "absolute",
     top: 0,
-    width: 50,
-    height: 6,
-    borderBottomLeftRadius: 25,
-    borderBottomRightRadius: 25,
+    width: 52,
+    height: 7,
+    borderBottomLeftRadius: 28,
+    borderBottomRightRadius: 28,
     backgroundColor: ACTIVE_COLOR,
   },
 });
