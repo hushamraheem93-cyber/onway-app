@@ -466,63 +466,65 @@ export default function HomeScreen() {
 
       {/* ── Toggle Tabs ── */}
       <View style={styles.tabsWrapper}>
-        {/* زر المطاعم */}
-        <Pressable
-          style={[styles.tabBtn, activeTab === "restaurants" && styles.tabBtnActive]}
-          onPress={() => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            setActiveTab("restaurants");
-            setSearchQuery("");
-          }}
-          testID="tab-restaurants"
-        >
-          {activeTab === "restaurants" ? (
-            <LinearGradient
-              colors={["#E86520", "#FF8C4B"]}
-              style={styles.tabGradient}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-            >
-              <MaterialIcons name="restaurant" size={20} color="#FFFFFF" />
-              <ThemedText style={styles.tabTextActive}>
-                {restaurantVendors.length > 0 ? `${restaurantVendors.length} مطاعم` : "مطاعم"}
-              </ThemedText>
-            </LinearGradient>
-          ) : (
-            <>
-              <MaterialIcons name="restaurant" size={20} color="#9CA3AF" />
-              <ThemedText style={styles.tabText}>مطاعم</ThemedText>
-            </>
-          )}
-        </Pressable>
+        <View style={styles.tabsBackground}>
+          {/* زر المطاعم */}
+          <Pressable
+            style={[styles.tabBtn, activeTab === "restaurants" && styles.tabBtnActive]}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              setActiveTab("restaurants");
+              setSearchQuery("");
+            }}
+            testID="tab-restaurants"
+          >
+            {activeTab === "restaurants" ? (
+              <LinearGradient
+                colors={["#E86520", "#FF8C4B"]}
+                style={styles.tabGradient}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+              >
+                <MaterialIcons name="restaurant" size={18} color="#FFFFFF" />
+                <ThemedText style={styles.tabTextActive}>
+                  {restaurantVendors.length > 0 ? `${restaurantVendors.length} مطاعم` : "مطاعم"}
+                </ThemedText>
+              </LinearGradient>
+            ) : (
+              <>
+                <MaterialIcons name="restaurant" size={18} color="#7F8C8D" />
+                <ThemedText style={styles.tabText}>مطاعم</ThemedText>
+              </>
+            )}
+          </Pressable>
 
-        {/* زر المتاجر */}
-        <Pressable
-          style={[styles.tabBtn, activeTab === "stores" && styles.tabBtnActive]}
-          onPress={() => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            setActiveTab("stores");
-            setSearchQuery("");
-          }}
-          testID="tab-stores"
-        >
-          {activeTab === "stores" ? (
-            <LinearGradient
-              colors={["#E86520", "#FF8C4B"]}
-              style={styles.tabGradient}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-            >
-              <MaterialIcons name="local-grocery-store" size={20} color="#FFFFFF" />
-              <ThemedText style={styles.tabTextActive}>متاجر</ThemedText>
-            </LinearGradient>
-          ) : (
-            <>
-              <MaterialIcons name="local-grocery-store" size={20} color="#9CA3AF" />
-              <ThemedText style={styles.tabText}>متاجر</ThemedText>
-            </>
-          )}
-        </Pressable>
+          {/* زر المتاجر */}
+          <Pressable
+            style={[styles.tabBtn, activeTab === "stores" && styles.tabBtnActive]}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              setActiveTab("stores");
+              setSearchQuery("");
+            }}
+            testID="tab-stores"
+          >
+            {activeTab === "stores" ? (
+              <LinearGradient
+                colors={["#E86520", "#FF8C4B"]}
+                style={styles.tabGradient}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+              >
+                <MaterialIcons name="local-grocery-store" size={18} color="#FFFFFF" />
+                <ThemedText style={styles.tabTextActive}>متاجر</ThemedText>
+              </LinearGradient>
+            ) : (
+              <>
+                <MaterialIcons name="local-grocery-store" size={18} color="#7F8C8D" />
+                <ThemedText style={styles.tabText}>متاجر</ThemedText>
+              </>
+            )}
+          </Pressable>
+        </View>
       </View>
 
       {/* ── Search Bar ── */}
@@ -840,10 +842,15 @@ const styles = StyleSheet.create({
   },
   // ── Tabs ──
   tabsWrapper: {
-    flexDirection: "row",
-    gap: 12,
     marginTop: 16,
     marginBottom: 14,
+  },
+  tabsBackground: {
+    flexDirection: "row",
+    backgroundColor: "#F8F9FA",
+    borderRadius: 16,
+    padding: 4,
+    gap: 4,
   },
   tabBtn: {
     flex: 1,
@@ -851,26 +858,20 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     gap: 8,
-    paddingVertical: 16,
-    paddingHorizontal: 20,
-    borderRadius: 16,
-    backgroundColor: "#F8F9FA",
-    borderWidth: 2,
-    borderColor: "#E8E8E8",
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 12,
     overflow: "hidden",
   },
   tabBtnActive: {
-    borderWidth: 0,
-    backgroundColor: "transparent",
     ...Platform.select({
       ios: {
         shadowColor: AppColors.primary,
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.3,
-        shadowRadius: 8,
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.25,
+        shadowRadius: 4,
       },
-      android: { elevation: 6 },
-      default: { boxShadow: `0 3px 8px ${AppColors.primary}55` },
+      android: { elevation: 4 },
     }),
   },
   tabGradient: {
@@ -878,9 +879,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     gap: 8,
-    paddingVertical: 16,
-    paddingHorizontal: 20,
-    borderRadius: 14,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 10,
     position: "absolute",
     top: 0,
     left: 0,
@@ -889,12 +890,12 @@ const styles = StyleSheet.create({
   },
   tabText: {
     fontFamily: "Cairo_600SemiBold",
-    fontSize: 15,
+    fontSize: 14,
     color: "#7F8C8D",
   },
   tabTextActive: {
     fontFamily: "Cairo_700Bold",
-    fontSize: 15,
+    fontSize: 14,
     color: "#FFFFFF",
   },
   // ── Search ──
