@@ -1183,6 +1183,8 @@
        MOBILE (≤768px)
     ═══════════════════════════════════════════════════════════════ */
     @media (max-width: 768px) {
+      /* Users stats 2 cols on mobile */
+      #users-stats-grid { grid-template-columns: 1fr 1fr !important; }
       /* Stats grid: 2 columns small */
       .stats-grid { grid-template-columns: 1fr 1fr; gap: 10px; }
       .stat-card { padding: 14px 12px; gap: 10px; }
@@ -1368,6 +1370,11 @@
           <i data-lucide="shopping-bag"></i>
           <span>إدارة الطلبات</span>
           <span class="badge" id="orders-count">0</span>
+        </div>
+        <div class="nav-item" onclick="showSection('appUsers', this)">
+          <i data-lucide="users"></i>
+          <span>المستخدمون</span>
+          <span class="badge" id="users-nav-count">0</span>
         </div>
         <div class="nav-item" onclick="showSection('promoCodes', this)">
           <i data-lucide="ticket"></i>
@@ -2272,6 +2279,123 @@
     </div>
     <!-- ══════════════════════════════════════════════════════════════════════════════════════ -->
 
+    <!-- ═══════════════════════════════ APP USERS SECTION ══════════════════════════════════ -->
+    <div id="appUsers-section" class="section">
+      <header class="header">
+        <div class="header-title">
+          <h2>المستخدمون</h2>
+          <p>قائمة مستخدمي التطبيق المسجّلين</p>
+        </div>
+        <div class="header-actions">
+          <button class="btn btn-outline" onclick="doRefresh(this, loadAppUsers, 'المستخدمون')">
+            <i data-lucide="refresh-cw"></i>
+            تحديث
+          </button>
+          <button class="btn btn-outline" onclick="exportUsersCSV()">
+            <i data-lucide="download"></i>
+            تصدير CSV
+          </button>
+        </div>
+      </header>
+      <div class="content">
+
+        <!-- Stats Cards -->
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px;" id="users-stats-grid">
+          <div class="stat-card">
+            <div class="stat-icon" style="background:linear-gradient(135deg,#6366f1,#8b5cf6);">
+              <i data-lucide="users" style="color:#fff;"></i>
+            </div>
+            <div>
+              <h3 id="stat-users-total">—</h3>
+              <p>إجمالي المستخدمين</p>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon" style="background:linear-gradient(135deg,#3b82f6,#06b6d4);">
+              <i data-lucide="user" style="color:#fff;"></i>
+            </div>
+            <div>
+              <h3 id="stat-users-male">—</h3>
+              <p>ذكور</p>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon" style="background:linear-gradient(135deg,#ec4899,#f43f5e);">
+              <i data-lucide="user" style="color:#fff;"></i>
+            </div>
+            <div>
+              <h3 id="stat-users-female">—</h3>
+              <p>إناث</p>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon" style="background:linear-gradient(135deg,#10b981,#059669);">
+              <i data-lucide="bell-ring" style="color:#fff;"></i>
+            </div>
+            <div>
+              <h3 id="stat-users-notif">—</h3>
+              <p>إشعارات مفعّلة</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Filter Bar -->
+        <div class="card" style="margin-bottom:16px;">
+          <div class="card-body" style="padding:14px 16px;">
+            <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;">
+              <input type="text" id="users-search" placeholder="بحث بالاسم أو رقم الهاتف..." oninput="filterUsers()"
+                style="flex:1;min-width:180px;padding:8px 12px;border:1.5px solid var(--gray-200);border-radius:8px;font-size:0.88rem;font-family:inherit;outline:none;"
+                onfocus="this.style.borderColor='#E86520'" onblur="this.style.borderColor='var(--gray-200)'" />
+              <select id="users-gender-filter" onchange="filterUsers()"
+                style="padding:8px 12px;border:1.5px solid var(--gray-200);border-radius:8px;font-size:0.88rem;font-family:inherit;outline:none;background:#fff;cursor:pointer;">
+                <option value="">الجنس: الكل</option>
+                <option value="male">ذكور</option>
+                <option value="female">إناث</option>
+              </select>
+              <select id="users-region-filter" onchange="filterUsers()"
+                style="padding:8px 12px;border:1.5px solid var(--gray-200);border-radius:8px;font-size:0.88rem;font-family:inherit;outline:none;background:#fff;cursor:pointer;">
+                <option value="">المنطقة: الكل</option>
+              </select>
+              <button class="btn btn-outline btn-sm" onclick="resetUsersFilters()">
+                <i data-lucide="x"></i>
+                مسح الفلاتر
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Users Table -->
+        <div class="card">
+          <div class="card-header">
+            <h3>قائمة المستخدمين</h3>
+            <span id="users-table-count" style="font-size:0.82rem;color:var(--gray-500);">0 مستخدم</span>
+          </div>
+          <div class="card-body" style="padding:0;">
+            <div class="table-container">
+              <table>
+                <thead>
+                  <tr>
+                    <th>#</th>
+                    <th>الاسم</th>
+                    <th>رقم الهاتف</th>
+                    <th>الجنس</th>
+                    <th>منطقة التوصيل</th>
+                    <th>الإشعارات</th>
+                    <th>تاريخ التسجيل</th>
+                  </tr>
+                </thead>
+                <tbody id="users-table-body">
+                  <tr><td colspan="7" style="text-align:center;padding:32px;color:var(--gray-400);">جاري التحميل...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+    <!-- ═══════════════════════════════════════════════════════════════════════════════════════ -->
+
     <div id="delivery-section" class="section">
       <header class="header">
         <div class="header-title">
@@ -3116,6 +3240,7 @@
       if (section === 'vendors') { loadVendors(); loadVendorFinancials(); }
       if (section === 'settings') loadSettingsStats();
       if (section === 'notifications') loadNotificationsStats();
+      if (section === 'appUsers') loadAppUsers();
       if (section === 'bestSellers' || section === 'featured' || section === 'discounts') {
         if (products.length === 0) {
           loadProducts().then(() => loadPromotionalSections());
@@ -3123,6 +3248,143 @@
           loadPromotionalSections();
         }
       }
+    }
+
+    // ══════════════════════════════════════════════════════════════
+    //  APP USERS SECTION
+    // ══════════════════════════════════════════════════════════════
+    let allAppUsers = [];
+    let filteredAppUsers = [];
+
+    async function loadAppUsers() {
+      try {
+        const res = await fetch('/api/admin/users');
+        if (!res.ok) throw new Error('فشل تحميل المستخدمين');
+        allAppUsers = await res.json();
+        filteredAppUsers = [...allAppUsers];
+
+        // Update nav badge
+        const navBadge = document.getElementById('users-nav-count');
+        if (navBadge) navBadge.textContent = allAppUsers.length;
+
+        // Compute stats
+        const males   = allAppUsers.filter(u => u.gender === 'male').length;
+        const females = allAppUsers.filter(u => u.gender === 'female').length;
+        const notifs  = allAppUsers.filter(u => u.pushToken && u.pushToken.startsWith('ExponentPushToken')).length;
+
+        document.getElementById('stat-users-total').textContent  = allAppUsers.length;
+        document.getElementById('stat-users-male').textContent   = males;
+        document.getElementById('stat-users-female').textContent = females;
+        document.getElementById('stat-users-notif').textContent  = notifs;
+
+        // Populate region filter
+        const regions = [...new Set(allAppUsers.map(u => u.region).filter(Boolean))].sort();
+        const regionSelect = document.getElementById('users-region-filter');
+        regionSelect.innerHTML = '<option value="">المنطقة: الكل</option>';
+        regions.forEach(r => {
+          const opt = document.createElement('option');
+          opt.value = r; opt.textContent = r;
+          regionSelect.appendChild(opt);
+        });
+
+        renderUsersTable(filteredAppUsers);
+        lucide.createIcons();
+      } catch(e) {
+        const tbody = document.getElementById('users-table-body');
+        if (tbody) tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:24px;color:#ef4444;">${e.message}</td></tr>`;
+      }
+    }
+
+    function filterUsers() {
+      const search = (document.getElementById('users-search').value || '').trim().toLowerCase();
+      const gender = document.getElementById('users-gender-filter').value;
+      const region = document.getElementById('users-region-filter').value;
+
+      filteredAppUsers = allAppUsers.filter(u => {
+        const matchSearch = !search ||
+          (u.fullName  || '').toLowerCase().includes(search) ||
+          (u.phoneNumber || '').includes(search);
+        const matchGender = !gender || u.gender === gender;
+        const matchRegion = !region || u.region === region;
+        return matchSearch && matchGender && matchRegion;
+      });
+
+      renderUsersTable(filteredAppUsers);
+    }
+
+    function resetUsersFilters() {
+      document.getElementById('users-search').value = '';
+      document.getElementById('users-gender-filter').value = '';
+      document.getElementById('users-region-filter').value = '';
+      filteredAppUsers = [...allAppUsers];
+      renderUsersTable(filteredAppUsers);
+    }
+
+    function renderUsersTable(users) {
+      const tbody  = document.getElementById('users-table-body');
+      const countEl = document.getElementById('users-table-count');
+      if (countEl) countEl.textContent = users.length + ' مستخدم';
+
+      if (!users.length) {
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:32px;color:var(--gray-400);">لا يوجد مستخدمون مطابقون للبحث</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = users.map((u, i) => {
+        const genderLabel = u.gender === 'male'
+          ? '<span class="badge-status" style="background:rgba(59,130,246,0.1);color:#1d4ed8;">ذكر</span>'
+          : u.gender === 'female'
+          ? '<span class="badge-status" style="background:rgba(236,72,153,0.1);color:#9d174d;">أنثى</span>'
+          : '<span style="color:var(--gray-400);">—</span>';
+
+        const hasNotif = u.pushToken && u.pushToken.startsWith('ExponentPushToken');
+        const notifBadge = hasNotif
+          ? '<span class="badge-status" style="background:rgba(16,185,129,0.1);color:#065f46;">مفعّل</span>'
+          : '<span style="color:var(--gray-400);font-size:0.8rem;">غير مفعّل</span>';
+
+        const date = u.createdAt
+          ? (u.createdAt._seconds
+              ? new Date(u.createdAt._seconds * 1000).toLocaleDateString('ar-IQ')
+              : new Date(u.createdAt).toLocaleDateString('ar-IQ'))
+          : '—';
+
+        return `<tr>
+          <td style="color:var(--gray-400);font-size:0.8rem;">${i + 1}</td>
+          <td style="font-weight:600;">${escapeHtml(u.fullName || '—')}</td>
+          <td style="direction:ltr;text-align:right;font-family:monospace;font-size:0.88rem;">${escapeHtml(u.phoneNumber || '—')}</td>
+          <td>${genderLabel}</td>
+          <td>${escapeHtml(u.region || '—')}</td>
+          <td>${notifBadge}</td>
+          <td style="font-size:0.82rem;color:var(--gray-500);">${date}</td>
+        </tr>`;
+      }).join('');
+    }
+
+    function exportUsersCSV() {
+      if (!filteredAppUsers.length) { showToast('error', 'خطأ', 'لا يوجد بيانات للتصدير'); return; }
+      const headers = ['#', 'الاسم', 'رقم الهاتف', 'الجنس', 'منطقة التوصيل', 'الإشعارات', 'تاريخ التسجيل'];
+      const rows = filteredAppUsers.map((u, i) => {
+        const date = u.createdAt
+          ? (u.createdAt._seconds ? new Date(u.createdAt._seconds * 1000).toLocaleDateString('ar-IQ') : new Date(u.createdAt).toLocaleDateString('ar-IQ'))
+          : '';
+        return [
+          i + 1,
+          u.fullName || '',
+          u.phoneNumber || '',
+          u.gender === 'male' ? 'ذكر' : u.gender === 'female' ? 'أنثى' : '',
+          u.region || '',
+          (u.pushToken && u.pushToken.startsWith('ExponentPushToken')) ? 'مفعّل' : 'غير مفعّل',
+          date
+        ].map(v => `"${String(v).replace(/"/g, '""')}"`).join(',');
+      });
+      const bom = '\uFEFF'; // UTF-8 BOM for Excel Arabic support
+      const csv = bom + [headers.join(','), ...rows].join('\n');
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const url  = URL.createObjectURL(blob);
+      const a    = document.createElement('a');
+      a.href = url; a.download = 'users_' + new Date().toISOString().slice(0,10) + '.csv';
+      a.click(); URL.revokeObjectURL(url);
+      showToast('success', 'تم التصدير', `تم تصدير ${filteredAppUsers.length} مستخدم`);
     }
 
     // ══════════════════════════════════════════════════════════════
