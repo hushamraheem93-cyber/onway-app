@@ -88,6 +88,7 @@ function FlyingItem({ item, onComplete }: FlyingItemProps) {
           source={{ uri: item.imageUrl }}
           style={styles.flyingImage}
           contentFit="cover"
+          cachePolicy="memory-disk"
         />
       </View>
     </Animated.View>

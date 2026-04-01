@@ -1,5 +1,5 @@
 import React, { useRef } from "react";
-import { StyleSheet, Pressable, View } from "react-native";
+import { StyleSheet, Pressable, View, Dimensions, I18nManager } from "react-native";
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -21,6 +21,8 @@ import { useFavorites } from "@/context/FavoritesContext";
 import { useCartAnimation } from "@/context/CartAnimationContext";
 import { formatPrice } from "@/constants/currency";
 import { getApiUrl } from "@/lib/query-client";
+
+const SCREEN_WIDTH = Dimensions.get("window").width;
 
 interface ProductCardProps {
   product: Product;
@@ -76,7 +78,10 @@ export function ProductCard({ product, onPress }: ProductCardProps) {
     
     if (cardRef.current) {
       cardRef.current.measureInWindow((x, y, width, height) => {
-        triggerAnimation(product.image, x + width / 2, y + height / 2);
+        const centerX = I18nManager.isRTL
+          ? SCREEN_WIDTH - x - width / 2
+          : x + width / 2;
+        triggerAnimation(getImageUrl(product.image), centerX, y + height / 2);
       });
     }
     
