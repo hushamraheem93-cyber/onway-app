@@ -70,6 +70,23 @@ function buildPath(w: number, totalH: number): string {
   ].join(" ");
 }
 
+function CrescentIndicator({ visible }: { visible: boolean }) {
+  const opacity = useSharedValue(visible ? 1 : 0);
+  const scaleX  = useSharedValue(visible ? 1 : 0.3);
+
+  useEffect(() => {
+    opacity.value = withTiming(visible ? 1 : 0, { duration: 220 });
+    scaleX.value  = withSpring(visible ? 1 : 0.3, { damping: 14, stiffness: 180 });
+  }, [visible]);
+
+  const style = useAnimatedStyle(() => ({
+    opacity: opacity.value,
+    transform: [{ scaleX: scaleX.value }],
+  }));
+
+  return <Animated.View style={[styles.crescent, style]} />;
+}
+
 function SideTab({
   config,
   isFocused,
@@ -100,6 +117,7 @@ function SideTab({
 
   return (
     <Pressable onPress={onPress} style={styles.sideTab} testID={`tab-${config.name}`}>
+      <CrescentIndicator visible={isFocused} />
       <Animated.View style={[styles.sideTabInner, animStyle]}>
         <Feather name={config.icon} size={22} color={color} />
         <ThemedText style={[styles.sideLabel, { color }]}>{config.label}</ThemedText>
@@ -301,6 +319,7 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
+    overflow: "visible",
   },
   sideTabInner: {
     alignItems: "center",
@@ -311,5 +330,14 @@ const styles = StyleSheet.create({
     fontFamily: "Cairo_700Bold",
     fontSize: 11,
     includeFontPadding: false,
+  },
+  crescent: {
+    position: "absolute",
+    top: 0,
+    width: 52,
+    height: 7,
+    borderBottomLeftRadius: 28,
+    borderBottomRightRadius: 28,
+    backgroundColor: ACTIVE_COLOR,
   },
 });
