@@ -102,7 +102,7 @@ export default function NotificationsListScreen() {
     <View style={[styles.container]}>
       <GradientBackground />
       {notifications.length > 0 ? (
-        <View style={styles.headerActions}>
+        <View style={[styles.headerActions, { paddingTop: headerHeight + Spacing.sm }]}>
           <Pressable onPress={clearNotifications} style={styles.actionButton}>
             <Feather name="trash-2" size={16} color={theme.textSecondary} />
             <ThemedText type="small" style={{ color: theme.textSecondary }}>
