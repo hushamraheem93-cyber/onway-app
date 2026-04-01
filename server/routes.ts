@@ -10,7 +10,7 @@ import {
   getProducts as getFirestoreProducts, createProduct as createFirestoreProduct, 
   updateProduct as updateFirestoreProduct, deleteProduct as deleteFirestoreProduct,
   getOrders, getOrdersByPhone, createOrder, updateOrderStatus,
-  updateUserPushToken, getUserPushToken, getAllUserPushTokens,
+  updateUserPushToken, getUserPushToken, getAllUserPushTokens, getAllUsers,
   getPromotionalSections, getPromotionalSection, savePromotionalSection,
   getCategories as getFirestoreCategories, createCategory as createFirestoreCategory,
   updateCategory as updateFirestoreCategory, deleteCategory as deleteFirestoreCategory,
@@ -2334,6 +2334,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error: any) {
       console.error("Error sending broadcast notification:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // ── Get All Users ─────────────────────────────────────────────────────────
+  app.get("/api/admin/users", async (_req: Request, res: Response) => {
+    try {
+      const users = await getAllUsers();
+      res.json(users);
+    } catch (error: any) {
       res.status(500).json({ error: error.message });
     }
   });

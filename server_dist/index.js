@@ -141,6 +141,19 @@ async function getUserPushToken(phoneNumber) {
     return null;
   }
 }
+async function getAllUsers() {
+  if (!db) return [];
+  try {
+    const snapshot = await db.collection("users").orderBy("createdAt", "desc").get();
+    return snapshot.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data()
+    }));
+  } catch (error) {
+    console.error("Error getting all users:", error);
+    return [];
+  }
+}
 async function getAllUserPushTokens() {
   if (!db) return [];
   try {
@@ -3008,6 +3021,14 @@ ${itemsList}
       });
     } catch (error) {
       console.error("Error sending broadcast notification:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  app2.get("/api/admin/users", async (_req, res) => {
+    try {
+      const users = await getAllUsers();
+      res.json(users);
+    } catch (error) {
       res.status(500).json({ error: error.message });
     }
   });

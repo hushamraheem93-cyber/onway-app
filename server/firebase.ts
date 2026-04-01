@@ -190,6 +190,21 @@ export async function getUserPushToken(phoneNumber: string): Promise<string | nu
   }
 }
 
+export async function getAllUsers(): Promise<(FirestoreUserProfile & { id: string })[]> {
+  if (!db) return [];
+  
+  try {
+    const snapshot = await db.collection("users").orderBy("createdAt", "desc").get();
+    return snapshot.docs.map((doc) => ({
+      id: doc.id,
+      ...(doc.data() as FirestoreUserProfile),
+    }));
+  } catch (error) {
+    console.error("Error getting all users:", error);
+    return [];
+  }
+}
+
 export async function getAllUserPushTokens(): Promise<string[]> {
   if (!db) return [];
   

@@ -26,7 +26,18 @@ import { getApiUrl, apiRequest } from "@/lib/query-client";
 import { formatPrice } from "@/constants/currency";
 import { compressAndConvertToBase64, isBase64Image, ImageSize } from "@/lib/imageUtils";
 
-type TabType = "banners" | "categories" | "products" | "areas" | "orders" | "drivers" | "promoCodes" | "notifications";
+type TabType = "banners" | "categories" | "products" | "areas" | "orders" | "drivers" | "promoCodes" | "notifications" | "users";
+
+interface AdminUser {
+  id: string;
+  phoneNumber: string;
+  fullName: string;
+  gender?: string;
+  region?: string;
+  address?: string;
+  createdAt?: any;
+  pushToken?: string;
+}
 type BannerType = "offer" | "slider";
 type OrderStatus = "pending" | "confirmed" | "preparing" | "delivering" | "delivered" | "cancelled";
 
@@ -143,6 +154,12 @@ export default function AdminScreen() {
   const [isSendingNotif, setIsSendingNotif] = useState(false);
   const [notifResult, setNotifResult] = useState<{ sent: number; total: number } | null>(null);
   const [notifError, setNotifError] = useState<string | null>(null);
+
+  const [usersSearch, setUsersSearch] = useState("");
+
+  const { data: adminUsers = [], isLoading: usersLoading, refetch: refetchUsers } = useQuery<AdminUser[]>({
+    queryKey: ["/api/admin/users"],
+  });
 
   const { data: banners = [], isLoading: bannersLoading } = useQuery<Banner[]>({
     queryKey: ["/api/admin/banners"],
@@ -1407,6 +1424,128 @@ export default function AdminScreen() {
     </View>
   );
 
+  const renderUsersTab = () => {
+    const filtered = adminUsers.filter((u) =>
+      u.phoneNumber?.includes(usersSearch) ||
+      u.fullName?.toLowerCase().includes(usersSearch.toLowerCase())
+    );
+
+    const formatDate = (ts: any) => {
+      if (!ts) return "";
+      try {
+        const date = ts._seconds ? new Date(ts._seconds * 1000) : new Date(ts);
+        return date.toLocaleDateString("ar-IQ", { year: "numeric", month: "short", day: "numeric" });
+      } catch { return ""; }
+    };
+
+    return (
+      <View style={styles.usersContainer}>
+        {/* Stats card */}
+        <View style={[styles.usersStatsCard, { backgroundColor: theme.backgroundSecondary }]}>
+          <View style={styles.usersStatBox}>
+            <Feather name="users" size={26} color={AppColors.primary} />
+            <ThemedText style={styles.usersStatNum}>
+              {usersLoading ? "..." : adminUsers.length}
+            </ThemedText>
+            <ThemedText style={styles.usersStatLabel}>إجمالي المستخدمين</ThemedText>
+          </View>
+          <View style={styles.usersStatDivider} />
+          <View style={styles.usersStatBox}>
+            <Feather name="bell" size={26} color="#22C55E" />
+            <ThemedText style={[styles.usersStatNum, { color: "#22C55E" }]}>
+              {usersLoading ? "..." : adminUsers.filter((u) => !!u.pushToken).length}
+            </ThemedText>
+            <ThemedText style={styles.usersStatLabel}>مفعّل الإشعارات</ThemedText>
+          </View>
+        </View>
+
+        {/* Search */}
+        <View style={[styles.usersSearchBox, { backgroundColor: theme.backgroundSecondary }]}>
+          <Feather name="search" size={16} color="#9CA3AF" />
+          <TextInput
+            style={[styles.usersSearchInput, { color: theme.text }]}
+            placeholder="ابحث بالاسم أو رقم الهاتف..."
+            placeholderTextColor="#9CA3AF"
+            value={usersSearch}
+            onChangeText={setUsersSearch}
+            textAlign="right"
+          />
+          {usersSearch.length > 0 ? (
+            <Pressable onPress={() => setUsersSearch("")}>
+              <Feather name="x" size={15} color="#9CA3AF" />
+            </Pressable>
+          ) : null}
+        </View>
+
+        {/* Refresh */}
+        <Pressable
+          style={styles.usersRefreshBtn}
+          onPress={() => refetchUsers()}
+        >
+          <Feather name="refresh-cw" size={14} color={AppColors.primary} />
+          <ThemedText style={styles.usersRefreshText}>تحديث القائمة</ThemedText>
+        </Pressable>
+
+        {/* List */}
+        {usersLoading ? (
+          <ActivityIndicator color={AppColors.primary} style={{ marginTop: Spacing.xl }} />
+        ) : filtered.length === 0 ? (
+          <View style={styles.usersEmpty}>
+            <Feather name="user-x" size={40} color="#D1D5DB" />
+            <ThemedText style={styles.usersEmptyText}>
+              {usersSearch ? "لا نتائج مطابقة" : "لا يوجد مستخدمون بعد"}
+            </ThemedText>
+          </View>
+        ) : (
+          <View style={styles.usersList}>
+            {filtered.map((user, idx) => (
+              <View
+                key={user.id}
+                style={[styles.userRow, { backgroundColor: theme.backgroundSecondary }]}
+              >
+                <View style={styles.userRowLeft}>
+                  <View style={[styles.userAvatar, { backgroundColor: `rgba(232,101,32,${0.1 + (idx % 4) * 0.05})` }]}>
+                    <ThemedText style={styles.userAvatarText}>
+                      {user.fullName?.charAt(0) || "؟"}
+                    </ThemedText>
+                  </View>
+                </View>
+                <View style={styles.userRowInfo}>
+                  <ThemedText style={styles.userRowName} numberOfLines={1}>
+                    {user.fullName || "بدون اسم"}
+                  </ThemedText>
+                  <View style={styles.userRowMeta}>
+                    <Feather name="phone" size={11} color="#9CA3AF" />
+                    <ThemedText style={styles.userRowPhone}>{user.phoneNumber}</ThemedText>
+                  </View>
+                  {user.region ? (
+                    <View style={styles.userRowMeta}>
+                      <Feather name="map-pin" size={11} color="#9CA3AF" />
+                      <ThemedText style={styles.userRowPhone}>{user.region}</ThemedText>
+                    </View>
+                  ) : null}
+                  {formatDate(user.createdAt) ? (
+                    <ThemedText style={styles.userRowDate}>
+                      {formatDate(user.createdAt)}
+                    </ThemedText>
+                  ) : null}
+                </View>
+                <View style={styles.userRowRight}>
+                  {user.pushToken ? (
+                    <View style={styles.userNotifBadge}>
+                      <Feather name="bell" size={10} color="#16A34A" />
+                    </View>
+                  ) : null}
+                  <ThemedText style={styles.userRowIndex}>#{idx + 1}</ThemedText>
+                </View>
+              </View>
+            ))}
+          </View>
+        )}
+      </View>
+    );
+  };
+
   const handleSendNotification = async () => {
     if (!notifForm.title.trim() || !notifForm.body.trim()) {
       setNotifError("يرجى إدخال العنوان والرسالة");
@@ -1510,6 +1649,7 @@ export default function AdminScreen() {
       case "drivers": return renderDriversTab();
       case "promoCodes": return renderPromoCodesTab();
       case "notifications": return renderNotificationsTab();
+      case "users": return renderUsersTab();
     }
   };
 
@@ -1533,6 +1673,7 @@ export default function AdminScreen() {
             { key: "drivers", label: "السائقين" },
             { key: "promoCodes", label: "أكواد الخصم" },
             { key: "notifications", label: "الإشعارات" },
+            { key: "users", label: "المستخدمين" },
           ].map((tab) => (
             <Pressable
               key={tab.key}
@@ -1944,5 +2085,144 @@ const styles = StyleSheet.create({
     color: "#DC2626",
     flex: 1,
     textAlign: "right",
+  },
+  // ── Users Tab ──
+  usersContainer: {
+    gap: Spacing.md,
+    paddingBottom: Spacing.xl,
+  },
+  usersStatsCard: {
+    flexDirection: "row",
+    borderRadius: BorderRadius.xl,
+    padding: Spacing.lg,
+    alignItems: "center",
+  },
+  usersStatBox: {
+    flex: 1,
+    alignItems: "center",
+    gap: 4,
+  },
+  usersStatDivider: {
+    width: 1,
+    height: 56,
+    backgroundColor: "rgba(0,0,0,0.08)",
+    marginHorizontal: Spacing.md,
+  },
+  usersStatNum: {
+    fontFamily: "Cairo_700Bold",
+    fontSize: 28,
+    color: AppColors.primary,
+  },
+  usersStatLabel: {
+    fontFamily: "Cairo_400Regular",
+    fontSize: 12,
+    color: "#6B7280",
+    textAlign: "center",
+  },
+  usersSearchBox: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    borderRadius: BorderRadius.lg,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm + 2,
+  },
+  usersSearchInput: {
+    flex: 1,
+    fontFamily: "Cairo_400Regular",
+    fontSize: 14,
+    paddingVertical: 0,
+  },
+  usersRefreshBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    alignSelf: "flex-end",
+    gap: Spacing.xs,
+    paddingVertical: Spacing.xs,
+    paddingHorizontal: Spacing.sm,
+  },
+  usersRefreshText: {
+    fontFamily: "Cairo_400Regular",
+    fontSize: 13,
+    color: AppColors.primary,
+  },
+  usersList: {
+    gap: Spacing.sm,
+  },
+  userRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.md,
+    gap: Spacing.md,
+  },
+  userRowLeft: {
+    alignItems: "center",
+  },
+  userAvatar: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  userAvatarText: {
+    fontFamily: "Cairo_700Bold",
+    fontSize: 18,
+    color: AppColors.primary,
+  },
+  userRowInfo: {
+    flex: 1,
+    gap: 2,
+    alignItems: "flex-end",
+  },
+  userRowName: {
+    fontFamily: "Cairo_700Bold",
+    fontSize: 14,
+    textAlign: "right",
+  },
+  userRowMeta: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  userRowPhone: {
+    fontFamily: "Cairo_400Regular",
+    fontSize: 12,
+    color: "#6B7280",
+  },
+  userRowDate: {
+    fontFamily: "Cairo_400Regular",
+    fontSize: 11,
+    color: "#9CA3AF",
+    textAlign: "right",
+  },
+  userRowRight: {
+    alignItems: "center",
+    gap: Spacing.xs,
+  },
+  userNotifBadge: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: "#DCFCE7",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  userRowIndex: {
+    fontFamily: "Cairo_400Regular",
+    fontSize: 11,
+    color: "#9CA3AF",
+  },
+  usersEmpty: {
+    alignItems: "center",
+    paddingVertical: Spacing.xl * 2,
+    gap: Spacing.md,
+  },
+  usersEmptyText: {
+    fontFamily: "Cairo_400Regular",
+    fontSize: 15,
+    color: "#9CA3AF",
+    textAlign: "center",
   },
 });
