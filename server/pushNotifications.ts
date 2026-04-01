@@ -91,3 +91,53 @@ export async function sendPushNotification(
 export function getStatusMessage(status: string): { title: string; body: string } | null {
   return ORDER_STATUS_MESSAGES[status] || null;
 }
+
+export async function sendBroadcastNotification(
+  tokens: string[],
+  title: string,
+  body: string,
+  data?: Record<string, unknown>
+): Promise<{ sent: number; failed: number }> {
+  if (!tokens.length) return { sent: 0, failed: 0 };
+
+  const CHUNK_SIZE = 100;
+  let sent = 0;
+  let failed = 0;
+
+  for (let i = 0; i < tokens.length; i += CHUNK_SIZE) {
+    const chunk = tokens.slice(i, i + CHUNK_SIZE);
+    const messages: ExpoPushMessage[] = chunk.map((token) => ({
+      to: token,
+      title,
+      body,
+      sound: "default",
+      channelId: "default",
+      data: data || {},
+    }));
+
+    try {
+      const response = await fetch("https://exp.host/--/api/v2/push/send", {
+        method: "POST",
+        headers: {
+          Accept: "application/json",
+          "Accept-Encoding": "gzip, deflate",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(messages),
+      });
+
+      const result = await response.json() as { data: ExpoPushTicket[] };
+      const tickets = Array.isArray(result.data) ? result.data : [result.data];
+      
+      tickets.forEach((ticket) => {
+        if (ticket.status === "ok") sent++;
+        else failed++;
+      });
+    } catch (error) {
+      console.error("Error sending broadcast chunk:", error);
+      failed += chunk.length;
+    }
+  }
+
+  return { sent, failed };
+}

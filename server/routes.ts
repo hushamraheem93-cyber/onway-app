@@ -10,7 +10,7 @@ import {
   getProducts as getFirestoreProducts, createProduct as createFirestoreProduct, 
   updateProduct as updateFirestoreProduct, deleteProduct as deleteFirestoreProduct,
   getOrders, getOrdersByPhone, createOrder, updateOrderStatus,
-  updateUserPushToken, getUserPushToken,
+  updateUserPushToken, getUserPushToken, getAllUserPushTokens,
   getPromotionalSections, getPromotionalSection, savePromotionalSection,
   getCategories as getFirestoreCategories, createCategory as createFirestoreCategory,
   updateCategory as updateFirestoreCategory, deleteCategory as deleteFirestoreCategory,
@@ -35,7 +35,7 @@ import {
   initializeDefaultVendors,
   updateDriverOnlineStatus, getOnlineDrivers
 } from "./firebase";
-import { sendPushNotification } from "./pushNotifications";
+import { sendPushNotification, sendBroadcastNotification } from "./pushNotifications";
 
 const uploadsDir = path.join(process.cwd(), "uploads");
 if (!fs.existsSync(uploadsDir)) {
@@ -2306,6 +2306,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await deletePromoCodeFn(req.params.id);
       res.json({ success: true });
     } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // ── Send Broadcast Push Notification ─────────────────────────────────────
+  app.post("/api/admin/send-notification", async (req: Request, res: Response) => {
+    try {
+      const { title, body } = req.body;
+      if (!title?.trim() || !body?.trim()) {
+        return res.status(400).json({ error: "العنوان والمحتوى مطلوبان" });
+      }
+
+      const tokens = await getAllUserPushTokens();
+      if (tokens.length === 0) {
+        return res.json({ success: true, sent: 0, failed: 0, message: "لا يوجد مستخدمون مسجلون للإشعارات" });
+      }
+
+      const result = await sendBroadcastNotification(tokens, title.trim(), body.trim(), { type: "broadcast" });
+      console.log(`Broadcast notification sent: ${result.sent} success, ${result.failed} failed`);
+      
+      res.json({
+        success: true,
+        sent: result.sent,
+        failed: result.failed,
+        total: tokens.length,
+      });
+    } catch (error: any) {
+      console.error("Error sending broadcast notification:", error);
       res.status(500).json({ error: error.message });
     }
   });

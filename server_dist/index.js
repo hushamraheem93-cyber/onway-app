@@ -141,6 +141,24 @@ async function getUserPushToken(phoneNumber) {
     return null;
   }
 }
+async function getAllUserPushTokens() {
+  if (!db) return [];
+  try {
+    const usersRef = db.collection("users");
+    const snapshot = await usersRef.where("pushToken", "!=", null).get();
+    const tokens = [];
+    snapshot.forEach((doc) => {
+      const data = doc.data();
+      if (data.pushToken && data.pushToken.startsWith("ExponentPushToken")) {
+        tokens.push(data.pushToken);
+      }
+    });
+    return tokens;
+  } catch (error) {
+    console.error("Error getting all push tokens:", error);
+    return [];
+  }
+}
 async function getProducts(categoryId) {
   if (!db) return [];
   try {
@@ -1011,6 +1029,44 @@ async function sendPushNotification(pushToken, status, orderId) {
     console.error("Error sending push notification:", error);
     return false;
   }
+}
+async function sendBroadcastNotification(tokens, title, body, data) {
+  if (!tokens.length) return { sent: 0, failed: 0 };
+  const CHUNK_SIZE = 100;
+  let sent = 0;
+  let failed = 0;
+  for (let i = 0; i < tokens.length; i += CHUNK_SIZE) {
+    const chunk = tokens.slice(i, i + CHUNK_SIZE);
+    const messages = chunk.map((token) => ({
+      to: token,
+      title,
+      body,
+      sound: "default",
+      channelId: "default",
+      data: data || {}
+    }));
+    try {
+      const response = await fetch("https://exp.host/--/api/v2/push/send", {
+        method: "POST",
+        headers: {
+          Accept: "application/json",
+          "Accept-Encoding": "gzip, deflate",
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(messages)
+      });
+      const result = await response.json();
+      const tickets = Array.isArray(result.data) ? result.data : [result.data];
+      tickets.forEach((ticket) => {
+        if (ticket.status === "ok") sent++;
+        else failed++;
+      });
+    } catch (error) {
+      console.error("Error sending broadcast chunk:", error);
+      failed += chunk.length;
+    }
+  }
+  return { sent, failed };
 }
 
 // server/routes.ts
@@ -2929,6 +2985,29 @@ ${itemsList}
       await deletePromoCode(req.params.id);
       res.json({ success: true });
     } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+  app2.post("/api/admin/send-notification", async (req, res) => {
+    try {
+      const { title, body } = req.body;
+      if (!title?.trim() || !body?.trim()) {
+        return res.status(400).json({ error: "\u0627\u0644\u0639\u0646\u0648\u0627\u0646 \u0648\u0627\u0644\u0645\u062D\u062A\u0648\u0649 \u0645\u0637\u0644\u0648\u0628\u0627\u0646" });
+      }
+      const tokens = await getAllUserPushTokens();
+      if (tokens.length === 0) {
+        return res.json({ success: true, sent: 0, failed: 0, message: "\u0644\u0627 \u064A\u0648\u062C\u062F \u0645\u0633\u062A\u062E\u062F\u0645\u0648\u0646 \u0645\u0633\u062C\u0644\u0648\u0646 \u0644\u0644\u0625\u0634\u0639\u0627\u0631\u0627\u062A" });
+      }
+      const result = await sendBroadcastNotification(tokens, title.trim(), body.trim(), { type: "broadcast" });
+      console.log(`Broadcast notification sent: ${result.sent} success, ${result.failed} failed`);
+      res.json({
+        success: true,
+        sent: result.sent,
+        failed: result.failed,
+        total: tokens.length
+      });
+    } catch (error) {
+      console.error("Error sending broadcast notification:", error);
       res.status(500).json({ error: error.message });
     }
   });

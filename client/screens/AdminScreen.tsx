@@ -26,7 +26,7 @@ import { getApiUrl, apiRequest } from "@/lib/query-client";
 import { formatPrice } from "@/constants/currency";
 import { compressAndConvertToBase64, isBase64Image, ImageSize } from "@/lib/imageUtils";
 
-type TabType = "banners" | "categories" | "products" | "areas" | "orders" | "drivers" | "promoCodes";
+type TabType = "banners" | "categories" | "products" | "areas" | "orders" | "drivers" | "promoCodes" | "notifications";
 type BannerType = "offer" | "slider";
 type OrderStatus = "pending" | "confirmed" | "preparing" | "delivering" | "delivered" | "cancelled";
 
@@ -138,6 +138,11 @@ export default function AdminScreen() {
   });
 
   const [isSavingProduct, setIsSavingProduct] = useState(false);
+
+  const [notifForm, setNotifForm] = useState({ title: "", body: "" });
+  const [isSendingNotif, setIsSendingNotif] = useState(false);
+  const [notifResult, setNotifResult] = useState<{ sent: number; total: number } | null>(null);
+  const [notifError, setNotifError] = useState<string | null>(null);
 
   const { data: banners = [], isLoading: bannersLoading } = useQuery<Banner[]>({
     queryKey: ["/api/admin/banners"],
@@ -1402,6 +1407,99 @@ export default function AdminScreen() {
     </View>
   );
 
+  const handleSendNotification = async () => {
+    if (!notifForm.title.trim() || !notifForm.body.trim()) {
+      setNotifError("يرجى إدخال العنوان والرسالة");
+      return;
+    }
+    setIsSendingNotif(true);
+    setNotifResult(null);
+    setNotifError(null);
+    try {
+      const res = await fetch(`${getApiUrl()}/api/admin/send-notification`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: notifForm.title, body: notifForm.body }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "فشل الإرسال");
+      setNotifResult({ sent: data.sent, total: data.total ?? data.sent });
+      setNotifForm({ title: "", body: "" });
+    } catch (e: any) {
+      setNotifError(e.message);
+    } finally {
+      setIsSendingNotif(false);
+    }
+  };
+
+  const renderNotificationsTab = () => (
+    <View style={styles.notifContainer}>
+      <View style={styles.notifHeader}>
+        <Feather name="bell" size={28} color={AppColors.primary} />
+        <ThemedText style={styles.notifTitle}>إرسال إشعار للمستخدمين</ThemedText>
+        <ThemedText style={styles.notifSubtitle}>
+          سيصل الإشعار لجميع المستخدمين المسجلين حتى خارج التطبيق
+        </ThemedText>
+      </View>
+
+      <View style={[styles.notifCard, { backgroundColor: theme.backgroundSecondary }]}>
+        <ThemedText style={styles.notifLabel}>عنوان الإشعار</ThemedText>
+        <TextInput
+          style={[styles.notifInput, { color: theme.text, borderColor: theme.backgroundSecondary }]}
+          placeholder="مثال: تخفيضات حصرية اليوم!"
+          placeholderTextColor="#9CA3AF"
+          value={notifForm.title}
+          onChangeText={(v) => setNotifForm((f) => ({ ...f, title: v }))}
+          textAlign="right"
+        />
+
+        <ThemedText style={[styles.notifLabel, { marginTop: Spacing.md }]}>نص الرسالة</ThemedText>
+        <TextInput
+          style={[styles.notifInput, styles.notifTextArea, { color: theme.text, borderColor: theme.backgroundSecondary }]}
+          placeholder="اكتب تفاصيل الإشعار هنا..."
+          placeholderTextColor="#9CA3AF"
+          value={notifForm.body}
+          onChangeText={(v) => setNotifForm((f) => ({ ...f, body: v }))}
+          multiline
+          numberOfLines={4}
+          textAlignVertical="top"
+          textAlign="right"
+        />
+      </View>
+
+      {notifResult !== null ? (
+        <View style={styles.notifSuccess}>
+          <Feather name="check-circle" size={22} color="#22C55E" />
+          <ThemedText style={styles.notifSuccessText}>
+            تم الإرسال بنجاح — وصل إلى {notifResult.sent} من {notifResult.total} مستخدم
+          </ThemedText>
+        </View>
+      ) : null}
+
+      {notifError !== null ? (
+        <View style={styles.notifErrorBox}>
+          <Feather name="alert-circle" size={18} color="#EF4444" />
+          <ThemedText style={styles.notifErrorText}>{notifError}</ThemedText>
+        </View>
+      ) : null}
+
+      <Pressable
+        style={[styles.notifSendBtn, isSendingNotif && { opacity: 0.7 }]}
+        onPress={handleSendNotification}
+        disabled={isSendingNotif}
+      >
+        {isSendingNotif ? (
+          <ActivityIndicator color="#FFFFFF" size="small" />
+        ) : (
+          <Feather name="send" size={18} color="#FFFFFF" />
+        )}
+        <ThemedText style={styles.notifSendBtnText}>
+          {isSendingNotif ? "جاري الإرسال..." : "إرسال للجميع"}
+        </ThemedText>
+      </Pressable>
+    </View>
+  );
+
   const renderContent = () => {
     switch (activeTab) {
       case "banners": return renderBannersTab();
@@ -1411,6 +1509,7 @@ export default function AdminScreen() {
       case "orders": return renderOrdersTab();
       case "drivers": return renderDriversTab();
       case "promoCodes": return renderPromoCodesTab();
+      case "notifications": return renderNotificationsTab();
     }
   };
 
@@ -1433,6 +1532,7 @@ export default function AdminScreen() {
             { key: "orders", label: "الطلبات" },
             { key: "drivers", label: "السائقين" },
             { key: "promoCodes", label: "أكواد الخصم" },
+            { key: "notifications", label: "الإشعارات" },
           ].map((tab) => (
             <Pressable
               key={tab.key}
@@ -1739,5 +1839,110 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
     fontWeight: "700",
     fontSize: 12,
+  },
+  // ── Notifications Tab ──
+  notifContainer: {
+    gap: Spacing.lg,
+    paddingBottom: Spacing.xl,
+  },
+  notifHeader: {
+    alignItems: "center",
+    gap: Spacing.sm,
+    paddingVertical: Spacing.xl,
+    paddingHorizontal: Spacing.lg,
+    backgroundColor: "rgba(232,101,32,0.06)",
+    borderRadius: BorderRadius.xl,
+    borderWidth: 1,
+    borderColor: "rgba(232,101,32,0.15)",
+  },
+  notifTitle: {
+    fontFamily: "Cairo_700Bold",
+    fontSize: 18,
+    color: AppColors.primary,
+    textAlign: "center",
+  },
+  notifSubtitle: {
+    fontFamily: "Cairo_400Regular",
+    fontSize: 13,
+    color: "#6B7280",
+    textAlign: "center",
+  },
+  notifCard: {
+    borderRadius: BorderRadius.xl,
+    padding: Spacing.lg,
+    gap: Spacing.xs,
+  },
+  notifLabel: {
+    fontFamily: "Cairo_700Bold",
+    fontSize: 14,
+    textAlign: "right",
+    marginBottom: Spacing.xs,
+  },
+  notifInput: {
+    fontFamily: "Cairo_400Regular",
+    fontSize: 14,
+    borderWidth: 1.5,
+    borderRadius: BorderRadius.md,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm + 2,
+    backgroundColor: "#F9FAFB",
+    color: "#1F2937",
+  },
+  notifTextArea: {
+    minHeight: 110,
+    paddingTop: Spacing.sm,
+  },
+  notifSendBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.sm,
+    backgroundColor: AppColors.primary,
+    borderRadius: BorderRadius.xl,
+    paddingVertical: Spacing.md + 4,
+    shadowColor: AppColors.primary,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.35,
+    shadowRadius: 12,
+    elevation: 6,
+  },
+  notifSendBtnText: {
+    color: "#FFFFFF",
+    fontFamily: "Cairo_700Bold",
+    fontSize: 16,
+  },
+  notifSuccess: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    backgroundColor: "#F0FDF4",
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.md,
+    borderWidth: 1,
+    borderColor: "#BBF7D0",
+  },
+  notifSuccessText: {
+    fontFamily: "Cairo_600SemiBold",
+    fontSize: 14,
+    color: "#15803D",
+    flex: 1,
+    textAlign: "right",
+  },
+  notifErrorBox: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    backgroundColor: "#FEF2F2",
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.md,
+    borderWidth: 1,
+    borderColor: "#FECACA",
+  },
+  notifErrorText: {
+    fontFamily: "Cairo_400Regular",
+    fontSize: 13,
+    color: "#DC2626",
+    flex: 1,
+    textAlign: "right",
   },
 });

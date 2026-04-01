@@ -190,6 +190,28 @@ export async function getUserPushToken(phoneNumber: string): Promise<string | nu
   }
 }
 
+export async function getAllUserPushTokens(): Promise<string[]> {
+  if (!db) return [];
+  
+  try {
+    const usersRef = db.collection("users");
+    const snapshot = await usersRef.where("pushToken", "!=", null).get();
+    
+    const tokens: string[] = [];
+    snapshot.forEach((doc) => {
+      const data = doc.data() as FirestoreUserProfile;
+      if (data.pushToken && data.pushToken.startsWith("ExponentPushToken")) {
+        tokens.push(data.pushToken);
+      }
+    });
+    
+    return tokens;
+  } catch (error) {
+    console.error("Error getting all push tokens:", error);
+    return [];
+  }
+}
+
 // Product Functions
 export interface FirestoreProduct {
   name: string;
