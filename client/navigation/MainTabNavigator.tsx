@@ -30,16 +30,22 @@ export default function MainTabNavigator() {
       }}
     >
       <Tab.Screen name="HomeTab" component={HomeStackNavigator} />
-      <Tab.Screen name="SearchTab" component={SearchStackNavigator} />
       <Tab.Screen name="OrdersTab" component={OrdersStackNavigator} />
       <Tab.Screen name="FavoritesTab" component={FavoritesStackNavigator} />
-      <Tab.Screen name="ProfileTab" component={ProfileStackNavigator} />
+      <Tab.Screen
+        name="SearchTab"
+        component={SearchStackNavigator}
+        options={{ tabBarButton: () => null }}
+      />
+      <Tab.Screen
+        name="ProfileTab"
+        component={ProfileStackNavigator}
+        options={{ tabBarButton: () => null }}
+      />
       <Tab.Screen
         name="CartTab"
         component={CartStackNavigator}
-        options={{
-          tabBarButton: () => null,
-        }}
+        options={{ tabBarButton: () => null }}
       />
     </Tab.Navigator>
   );

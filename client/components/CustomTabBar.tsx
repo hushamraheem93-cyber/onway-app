@@ -26,10 +26,8 @@ interface TabConfig {
 }
 
 const TABS: TabConfig[] = [
-  { name: "ProfileTab", icon: "user", label: "الحساب", initialScreen: "Profile" },
   { name: "FavoritesTab", icon: "heart", label: "المفضلة", initialScreen: "Favorites" },
   { name: "HomeTab", icon: "home", label: "الرئيسية", initialScreen: "Home" },
-  { name: "SearchTab", icon: "search", label: "البحث", initialScreen: "Search" },
   { name: "OrdersTab", icon: "shopping-bag", label: "طلباتي", initialScreen: "Orders" },
 ];
 
