@@ -467,7 +467,35 @@ export default function HomeScreen() {
       {/* ── Toggle Tabs ── */}
       <View style={styles.tabsWrapper}>
         <View style={styles.tabsBackground}>
-          {/* زر المطاعم */}
+          {/* زر المتاجر — يمين */}
+          <Pressable
+            style={[styles.tabBtn, activeTab === "stores" && styles.tabBtnActive]}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              setActiveTab("stores");
+              setSearchQuery("");
+            }}
+            testID="tab-stores"
+          >
+            {activeTab === "stores" ? (
+              <LinearGradient
+                colors={["#E86520", "#FF8C4B"]}
+                style={styles.tabGradient}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+              >
+                <MaterialIcons name="local-grocery-store" size={18} color="#FFFFFF" />
+                <ThemedText style={styles.tabTextActive}>متاجر</ThemedText>
+              </LinearGradient>
+            ) : (
+              <>
+                <MaterialIcons name="local-grocery-store" size={18} color="#7F8C8D" />
+                <ThemedText style={styles.tabText}>متاجر</ThemedText>
+              </>
+            )}
+          </Pressable>
+
+          {/* زر المطاعم — يسار */}
           <Pressable
             style={[styles.tabBtn, activeTab === "restaurants" && styles.tabBtnActive]}
             onPress={() => {
@@ -493,34 +521,6 @@ export default function HomeScreen() {
               <>
                 <MaterialIcons name="restaurant" size={18} color="#7F8C8D" />
                 <ThemedText style={styles.tabText}>مطاعم</ThemedText>
-              </>
-            )}
-          </Pressable>
-
-          {/* زر المتاجر */}
-          <Pressable
-            style={[styles.tabBtn, activeTab === "stores" && styles.tabBtnActive]}
-            onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              setActiveTab("stores");
-              setSearchQuery("");
-            }}
-            testID="tab-stores"
-          >
-            {activeTab === "stores" ? (
-              <LinearGradient
-                colors={["#E86520", "#FF8C4B"]}
-                style={styles.tabGradient}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-              >
-                <MaterialIcons name="local-grocery-store" size={18} color="#FFFFFF" />
-                <ThemedText style={styles.tabTextActive}>متاجر</ThemedText>
-              </LinearGradient>
-            ) : (
-              <>
-                <MaterialIcons name="local-grocery-store" size={18} color="#7F8C8D" />
-                <ThemedText style={styles.tabText}>متاجر</ThemedText>
               </>
             )}
           </Pressable>
