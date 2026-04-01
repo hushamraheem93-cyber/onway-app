@@ -63,7 +63,7 @@
       padding: 0;
       color: white;
       z-index: 1000;
-      overflow-y: auto;
+      overflow: hidden;
       transition: transform 0.3s ease;
       display: flex;
       flex-direction: column;
@@ -130,6 +130,9 @@
     .sidebar-nav {
       padding: 20px 12px;
       flex: 1;
+      overflow-y: auto;
+      min-height: 0;
+      -webkit-overflow-scrolling: touch;
     }
 
     .nav-section {
@@ -1125,11 +1128,12 @@
     }
     #print-area { display: none; }
 
-    /* Logout button */
+    /* Logout button — always pinned to bottom */
     .sidebar-logout {
       padding: 12px;
       border-top: 1px solid rgba(255,255,255,0.08);
       flex-shrink: 0;
+      background: #2D2D2D;
     }
 
     .logout-link {
