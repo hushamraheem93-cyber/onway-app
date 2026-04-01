@@ -792,6 +792,7 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   greetingContainer: {
     paddingHorizontal: 0,
+    paddingTop: 4,
     marginTop: 4,
     paddingBottom: 12,
     width: "100%",
@@ -800,10 +801,12 @@ const styles = StyleSheet.create({
   greeting: {
     fontFamily: "Cairo_700Bold",
     fontSize: 16,
+    lineHeight: 32,
     color: "#E86520",
     marginBottom: 2,
     textAlign: "right",
     writingDirection: "rtl",
+    includeFontPadding: false,
   },
   subGreeting: {
     fontFamily: "Cairo_600SemiBold",
