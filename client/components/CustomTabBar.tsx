@@ -79,9 +79,7 @@ function SideTab({
   isFocused: boolean;
   onPress: () => void;
 }) {
-  const bounce  = useSharedValue(1);
-  const opacity = useSharedValue(isFocused ? 1 : 0);
-  const scaleX  = useSharedValue(isFocused ? 1 : 0.3);
+  const bounce = useSharedValue(1);
 
   useEffect(() => {
     if (isFocused) {
@@ -92,22 +90,14 @@ function SideTab({
     } else {
       bounce.value = withSpring(1, { damping: 12 });
     }
-    opacity.value = withTiming(isFocused ? 1 : 0, { duration: 200 });
-    scaleX.value  = withSpring(isFocused ? 1 : 0.3, { damping: 14, stiffness: 180 });
   }, [isFocused]);
 
-  const iconStyle     = useAnimatedStyle(() => ({ transform: [{ scale: bounce.value }] }));
-  const crescentStyle = useAnimatedStyle(() => ({
-    opacity: opacity.value,
-    transform: [{ scaleX: scaleX.value }],
-  }));
+  const iconStyle = useAnimatedStyle(() => ({ transform: [{ scale: bounce.value }] }));
 
   const color = isFocused ? ACTIVE_COLOR : INACTIVE_COLOR;
 
   return (
     <Pressable onPress={onPress} style={styles.sideTab} testID={`tab-${config.name}`}>
-      {/* هلال في الأعلى — داخل حدود الشريط */}
-      <Animated.View style={[styles.crescent, crescentStyle]} />
       <Animated.View style={[styles.sideTabInner, iconStyle]}>
         <Feather name={config.icon} size={22} color={color} />
         <ThemedText style={[styles.sideLabel, { color }]}>{config.label}</ThemedText>
@@ -319,14 +309,5 @@ const styles = StyleSheet.create({
     fontFamily: "Cairo_700Bold",
     fontSize: 11,
     includeFontPadding: false,
-  },
-  crescent: {
-    position: "absolute",
-    top: 0,
-    width: 48,
-    height: 5,
-    borderBottomLeftRadius: 24,
-    borderBottomRightRadius: 24,
-    backgroundColor: ACTIVE_COLOR,
   },
 });
