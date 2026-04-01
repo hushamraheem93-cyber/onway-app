@@ -70,23 +70,6 @@ function buildPath(w: number, totalH: number): string {
   ].join(" ");
 }
 
-function CrescentIndicator({ visible }: { visible: boolean }) {
-  const opacity = useSharedValue(visible ? 1 : 0);
-  const scaleX  = useSharedValue(visible ? 1 : 0.3);
-
-  useEffect(() => {
-    opacity.value = withTiming(visible ? 1 : 0, { duration: 220 });
-    scaleX.value  = withSpring(visible ? 1 : 0.3, { damping: 14, stiffness: 180 });
-  }, [visible]);
-
-  const style = useAnimatedStyle(() => ({
-    opacity: opacity.value,
-    transform: [{ scaleX: scaleX.value }],
-  }));
-
-  return <Animated.View style={[styles.crescent, style]} />;
-}
-
 function SideTab({
   config,
   isFocused,
@@ -96,29 +79,36 @@ function SideTab({
   isFocused: boolean;
   onPress: () => void;
 }) {
-  const bounce = useSharedValue(1);
+  const bounce  = useSharedValue(1);
+  const opacity = useSharedValue(isFocused ? 1 : 0);
+  const scaleX  = useSharedValue(isFocused ? 1 : 0.3);
 
   useEffect(() => {
     if (isFocused) {
       bounce.value = withSequence(
-        withTiming(1.25, { duration: 130 }),
+        withTiming(1.2, { duration: 130 }),
         withSpring(1, { damping: 10, stiffness: 220 })
       );
     } else {
       bounce.value = withSpring(1, { damping: 12 });
     }
+    opacity.value = withTiming(isFocused ? 1 : 0, { duration: 200 });
+    scaleX.value  = withSpring(isFocused ? 1 : 0.3, { damping: 14, stiffness: 180 });
   }, [isFocused]);
 
-  const animStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: bounce.value }],
+  const iconStyle     = useAnimatedStyle(() => ({ transform: [{ scale: bounce.value }] }));
+  const crescentStyle = useAnimatedStyle(() => ({
+    opacity: opacity.value,
+    transform: [{ scaleX: scaleX.value }],
   }));
 
   const color = isFocused ? ACTIVE_COLOR : INACTIVE_COLOR;
 
   return (
     <Pressable onPress={onPress} style={styles.sideTab} testID={`tab-${config.name}`}>
-      <CrescentIndicator visible={isFocused} />
-      <Animated.View style={[styles.sideTabInner, animStyle]}>
+      {/* هلال في الأعلى — داخل حدود الشريط */}
+      <Animated.View style={[styles.crescent, crescentStyle]} />
+      <Animated.View style={[styles.sideTabInner, iconStyle]}>
         <Feather name={config.icon} size={22} color={color} />
         <ThemedText style={[styles.sideLabel, { color }]}>{config.label}</ThemedText>
       </Animated.View>
@@ -319,12 +309,11 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    overflow: "visible",
   },
   sideTabInner: {
     alignItems: "center",
     gap: 4,
-    paddingVertical: 4,
+    paddingVertical: 2,
   },
   sideLabel: {
     fontFamily: "Cairo_700Bold",
@@ -334,10 +323,10 @@ const styles = StyleSheet.create({
   crescent: {
     position: "absolute",
     top: 0,
-    width: 52,
-    height: 7,
-    borderBottomLeftRadius: 28,
-    borderBottomRightRadius: 28,
+    width: 48,
+    height: 5,
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
     backgroundColor: ACTIVE_COLOR,
   },
 });
