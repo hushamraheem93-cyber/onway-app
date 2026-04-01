@@ -1338,14 +1338,19 @@
   <!-- Sidebar -->
   <aside class="sidebar" id="sidebar">
     <div class="sidebar-header">
-      <img src="/uploads/onway-logo.png" alt="OnWay" style="width:48px;height:48px;border-radius:12px;object-fit:cover;flex-shrink:0;" />
-      <div>
-        <div class="logo-text" style="font-family:'Poppins',sans-serif;font-weight:800;font-style:italic;font-size:1.3rem;color:#fff;">OnWay</div>
-        <span style="font-size:0.75rem;color:var(--gray-400);">لوحة التحكم</span>
+      <img src="/uploads/onway-logo.png" alt="OnWay" style="width:44px;height:44px;border-radius:12px;object-fit:cover;flex-shrink:0;" />
+      <div style="flex:1;min-width:0;">
+        <div class="logo-text" style="font-family:'Poppins',sans-serif;font-weight:800;font-style:italic;font-size:1.2rem;color:#fff;">OnWay</div>
+        <span style="font-size:0.72rem;color:var(--gray-400);">لوحة التحكم</span>
       </div>
-      <button onclick="closeSidebar()" style="margin-right:auto;background:none;border:none;cursor:pointer;color:rgba(255,255,255,0.6);display:none;" id="sidebar-close-btn">
-        <i data-lucide="x" style="width:20px;height:20px;"></i>
-      </button>
+      <div style="display:flex;align-items:center;gap:6px;flex-shrink:0;">
+        <a href="/admin/logout" title="تسجيل الخروج" style="display:flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:8px;color:#f87171;background:rgba(239,68,68,0.12);border:1px solid rgba(239,68,68,0.25);text-decoration:none;transition:background 0.2s;" onmouseover="this.style.background='rgba(239,68,68,0.25)'" onmouseout="this.style.background='rgba(239,68,68,0.12)'">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+        </a>
+        <button onclick="closeSidebar()" id="sidebar-close-btn" style="display:none;width:34px;height:34px;border-radius:8px;background:rgba(255,255,255,0.08);border:none;cursor:pointer;color:rgba(255,255,255,0.7);align-items:center;justify-content:center;">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
     </div>
 
     <div class="sidebar-search">
@@ -6860,7 +6865,7 @@
     function updateSidebarCloseBtn() {
       const closeBtn = document.getElementById('sidebar-close-btn');
       if (!closeBtn) return;
-      closeBtn.style.display = window.innerWidth <= 1024 ? 'block' : 'none';
+      closeBtn.style.display = window.innerWidth <= 1024 ? 'flex' : 'none';
     }
 
     window.addEventListener('resize', updateSidebarCloseBtn);
