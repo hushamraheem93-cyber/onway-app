@@ -28,7 +28,7 @@ const BAR_BG        = "#FFFFFF";
 
 const CIRCLE_SIZE     = 64;
 const CIRCLE_OVERFLOW = 26;           // px the circle pops above the bar top
-const BAR_HEIGHT      = 66;           // visible white bar height
+const BAR_HEIGHT      = 60;           // visible white bar height
 const NOTCH_R         = 38;           // horizontal radius of the notch curve
 const NOTCH_SPREAD    = 18;           // extra smooth spread before the curve
 const NOTCH_DEPTH     = CIRCLE_SIZE - CIRCLE_OVERFLOW + 8; // depth into the bar
@@ -153,7 +153,7 @@ function CenterButton({
 
 export function CustomTabBar({ state, navigation }: BottomTabBarProps) {
   const insets      = useSafeAreaInsets();
-  const safeBottom  = Math.max(insets.bottom, 0);
+  const safeBottom  = Math.max(insets.bottom - 10, 0);
   const totalSvgH   = BY + BAR_HEIGHT + safeBottom;
 
   const navigate = (tabName: string, screen: string) => {
