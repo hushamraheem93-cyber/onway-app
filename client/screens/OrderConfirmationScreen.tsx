@@ -243,7 +243,7 @@ export default function OrderConfirmationScreen() {
               <ThemedText style={styles.timerText}>{secsLeft}ث</ThemedText>
             </View>
             <ThemedText style={[styles.cancelHint, { color: theme.textSecondary }]}>
-              يمكنك إلغاء الطلب خلال دقيقة واحدة
+              يمكنك إلغاء الطلب خلال 30 ثانية
             </ThemedText>
           </View>
 
