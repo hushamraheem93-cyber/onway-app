@@ -136,17 +136,16 @@ function CenterButton({
       style={styles.centerPressable}
       testID={`tab-${CENTER_TAB.name}`}
     >
-      <Animated.View
-        style={[
-          styles.centerCircle,
-          {
-            backgroundColor: ACTIVE_COLOR,
-            shadowColor: ACTIVE_COLOR,
-          },
-          animStyle,
-        ]}
-      >
-        <Feather name={CENTER_TAB.icon} size={28} color="#FFFFFF" />
+      <Animated.View style={[styles.centerWrapper, animStyle]}>
+        <View
+          style={[
+            styles.centerCircle,
+            { backgroundColor: ACTIVE_COLOR, shadowColor: ACTIVE_COLOR },
+          ]}
+        >
+          <Feather name={CENTER_TAB.icon} size={28} color="#FFFFFF" />
+        </View>
+        <ThemedText style={styles.centerLabel}>{CENTER_TAB.label}</ThemedText>
       </Animated.View>
     </Pressable>
   );
@@ -258,15 +257,19 @@ const styles = StyleSheet.create({
   centerWrap: {
     position: "absolute",
     top: 0,
-    left: CX - CIRCLE_SIZE / 2,
-    width: CIRCLE_SIZE,
-    height: CIRCLE_SIZE,
+    left: CX - CIRCLE_SIZE / 2 - 16,
+    width: CIRCLE_SIZE + 32,
+    height: CIRCLE_SIZE + 22,
     zIndex: 10,
   },
   centerPressable: {
     flex: 1,
     alignItems: "center",
-    justifyContent: "center",
+    justifyContent: "flex-start",
+  },
+  centerWrapper: {
+    alignItems: "center",
+    gap: 3,
   },
   centerCircle: {
     width: CIRCLE_SIZE,
@@ -282,6 +285,12 @@ const styles = StyleSheet.create({
       },
       android: { elevation: 10 },
     }),
+  },
+  centerLabel: {
+    fontFamily: "Cairo_700Bold",
+    fontSize: 11,
+    color: ACTIVE_COLOR,
+    includeFontPadding: false,
   },
   row: {
     flexDirection: "row",
