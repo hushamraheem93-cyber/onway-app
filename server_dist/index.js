@@ -110,16 +110,20 @@ async function updateUser(phoneNumber, updates) {
 async function updateUserPushToken(phoneNumber, pushToken) {
   if (!db) return false;
   try {
+    const safeId = phoneNumber.replace(/[^a-zA-Z0-9]/g, "_");
+    await db.collection("pushTokens").doc(safeId).set(
+      { phoneNumber, pushToken, updatedAt: admin.firestore.Timestamp.now() },
+      { merge: true }
+    );
+    console.log(`Push token saved for ${phoneNumber}`);
     const usersRef = db.collection("users");
     const snapshot = await usersRef.where("phoneNumber", "==", phoneNumber).limit(1).get();
-    if (snapshot.empty) {
-      return false;
+    if (!snapshot.empty) {
+      await snapshot.docs[0].ref.update({
+        pushToken,
+        updatedAt: admin.firestore.Timestamp.now()
+      });
     }
-    const doc = snapshot.docs[0];
-    await doc.ref.update({
-      pushToken,
-      updatedAt: admin.firestore.Timestamp.now()
-    });
     return true;
   } catch (error) {
     console.error("Error updating push token:", error);
@@ -156,21 +160,33 @@ async function getAllUsers() {
 }
 async function getAllUserPushTokens() {
   if (!db) return [];
+  const tokenSet = /* @__PURE__ */ new Set();
+  try {
+    const ptSnapshot = await db.collection("pushTokens").get();
+    ptSnapshot.forEach((doc) => {
+      const data = doc.data();
+      if (data.pushToken && data.pushToken.startsWith("ExponentPushToken")) {
+        tokenSet.add(data.pushToken);
+      }
+    });
+  } catch (error) {
+    console.error("Error reading pushTokens collection:", error);
+  }
   try {
     const usersRef = db.collection("users");
     const snapshot = await usersRef.where("pushToken", "!=", null).get();
-    const tokens = [];
     snapshot.forEach((doc) => {
       const data = doc.data();
       if (data.pushToken && data.pushToken.startsWith("ExponentPushToken")) {
-        tokens.push(data.pushToken);
+        tokenSet.add(data.pushToken);
       }
     });
-    return tokens;
   } catch (error) {
-    console.error("Error getting all push tokens:", error);
-    return [];
+    console.error("Error reading users push tokens:", error);
   }
+  const tokens = Array.from(tokenSet);
+  console.log(`getAllUserPushTokens: found ${tokens.length} token(s)`);
+  return tokens;
 }
 async function getProducts(categoryId) {
   if (!db) return [];
@@ -1994,11 +2010,8 @@ ${itemsList}
     }
     const db2 = getFirestore();
     if (db2) {
-      const success = await updateUserPushToken(phoneNumber, pushToken);
-      if (success) {
-        return res.json({ success: true });
-      }
-      return res.status(404).json({ error: "User not found" });
+      await updateUserPushToken(phoneNumber, pushToken);
+      return res.json({ success: true });
     }
     res.status(500).json({ error: "Database not configured" });
   });
@@ -3021,6 +3034,15 @@ ${itemsList}
       });
     } catch (error) {
       console.error("Error sending broadcast notification:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  app2.get("/api/admin/notification-stats", async (_req, res) => {
+    try {
+      const tokens = await getAllUserPushTokens();
+      const allUsers = await getAllUsers();
+      res.json({ totalUsers: allUsers.length, tokensCount: tokens.length });
+    } catch (error) {
       res.status(500).json({ error: error.message });
     }
   });

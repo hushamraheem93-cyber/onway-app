@@ -1121,11 +1121,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
     const db = getFirestore();
     if (db) {
-      const success = await updateUserPushToken(phoneNumber, pushToken);
-      if (success) {
-        return res.json({ success: true });
-      }
-      return res.status(404).json({ error: "User not found" });
+      await updateUserPushToken(phoneNumber, pushToken);
+      return res.json({ success: true });
     }
     res.status(500).json({ error: "Database not configured" });
   });
@@ -2334,6 +2331,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error: any) {
       console.error("Error sending broadcast notification:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // ── Notification Stats ────────────────────────────────────────────────────
+  app.get("/api/admin/notification-stats", async (_req: Request, res: Response) => {
+    try {
+      const tokens = await getAllUserPushTokens();
+      const allUsers = await getAllUsers();
+      res.json({ totalUsers: allUsers.length, tokensCount: tokens.length });
+    } catch (error: any) {
       res.status(500).json({ error: error.message });
     }
   });

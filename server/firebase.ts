@@ -149,21 +149,26 @@ export async function updateUser(
 
 export async function updateUserPushToken(phoneNumber: string, pushToken: string): Promise<boolean> {
   if (!db) return false;
-  
+
   try {
+    // Always save to dedicated pushTokens collection (phoneNumber as doc ID)
+    const safeId = phoneNumber.replace(/[^a-zA-Z0-9]/g, "_");
+    await db.collection("pushTokens").doc(safeId).set(
+      { phoneNumber, pushToken, updatedAt: admin.firestore.Timestamp.now() },
+      { merge: true }
+    );
+    console.log(`Push token saved for ${phoneNumber}`);
+
+    // Also update the user document if it exists
     const usersRef = db.collection("users");
     const snapshot = await usersRef.where("phoneNumber", "==", phoneNumber).limit(1).get();
-    
-    if (snapshot.empty) {
-      return false;
+    if (!snapshot.empty) {
+      await snapshot.docs[0].ref.update({
+        pushToken,
+        updatedAt: admin.firestore.Timestamp.now(),
+      });
     }
-    
-    const doc = snapshot.docs[0];
-    await doc.ref.update({
-      pushToken,
-      updatedAt: admin.firestore.Timestamp.now(),
-    });
-    
+
     return true;
   } catch (error) {
     console.error("Error updating push token:", error);
@@ -207,24 +212,39 @@ export async function getAllUsers(): Promise<(FirestoreUserProfile & { id: strin
 
 export async function getAllUserPushTokens(): Promise<string[]> {
   if (!db) return [];
-  
+
+  const tokenSet = new Set<string>();
+
   try {
+    // Primary: read from dedicated pushTokens collection
+    const ptSnapshot = await db.collection("pushTokens").get();
+    ptSnapshot.forEach((doc) => {
+      const data = doc.data() as { pushToken?: string };
+      if (data.pushToken && data.pushToken.startsWith("ExponentPushToken")) {
+        tokenSet.add(data.pushToken);
+      }
+    });
+  } catch (error) {
+    console.error("Error reading pushTokens collection:", error);
+  }
+
+  try {
+    // Fallback: also read from users collection (legacy)
     const usersRef = db.collection("users");
     const snapshot = await usersRef.where("pushToken", "!=", null).get();
-    
-    const tokens: string[] = [];
     snapshot.forEach((doc) => {
       const data = doc.data() as FirestoreUserProfile;
       if (data.pushToken && data.pushToken.startsWith("ExponentPushToken")) {
-        tokens.push(data.pushToken);
+        tokenSet.add(data.pushToken);
       }
     });
-    
-    return tokens;
   } catch (error) {
-    console.error("Error getting all push tokens:", error);
-    return [];
+    console.error("Error reading users push tokens:", error);
   }
+
+  const tokens = Array.from(tokenSet);
+  console.log(`getAllUserPushTokens: found ${tokens.length} token(s)`);
+  return tokens;
 }
 
 // Product Functions
