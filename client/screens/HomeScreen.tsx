@@ -466,6 +466,7 @@ export default function HomeScreen() {
 
       {/* ── Toggle Tabs ── */}
       <View style={styles.tabsWrapper}>
+        {/* زر المطاعم */}
         <Pressable
           style={[styles.tabBtn, activeTab === "restaurants" && styles.tabBtnActive]}
           onPress={() => {
@@ -475,17 +476,27 @@ export default function HomeScreen() {
           }}
           testID="tab-restaurants"
         >
-          <MaterialIcons
-            name="restaurant"
-            size={20}
-            color={activeTab === "restaurants" ? "#FFFFFF" : "#9CA3AF"}
-          />
-          <ThemedText
-            style={[styles.tabText, activeTab === "restaurants" && styles.tabTextActive]}
-          >
-            مطاعم
-          </ThemedText>
+          {activeTab === "restaurants" ? (
+            <LinearGradient
+              colors={["#E86520", "#FF8C4B"]}
+              style={styles.tabGradient}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+            >
+              <MaterialIcons name="restaurant" size={20} color="#FFFFFF" />
+              <ThemedText style={styles.tabTextActive}>
+                {restaurantVendors.length > 0 ? `${restaurantVendors.length} مطاعم` : "مطاعم"}
+              </ThemedText>
+            </LinearGradient>
+          ) : (
+            <>
+              <MaterialIcons name="restaurant" size={20} color="#9CA3AF" />
+              <ThemedText style={styles.tabText}>مطاعم</ThemedText>
+            </>
+          )}
         </Pressable>
+
+        {/* زر المتاجر */}
         <Pressable
           style={[styles.tabBtn, activeTab === "stores" && styles.tabBtnActive]}
           onPress={() => {
@@ -495,28 +506,36 @@ export default function HomeScreen() {
           }}
           testID="tab-stores"
         >
-          <MaterialIcons
-            name="local-grocery-store"
-            size={20}
-            color={activeTab === "stores" ? "#FFFFFF" : "#9CA3AF"}
-          />
-          <ThemedText
-            style={[styles.tabText, activeTab === "stores" && styles.tabTextActive]}
-          >
-            متاجر
-          </ThemedText>
+          {activeTab === "stores" ? (
+            <LinearGradient
+              colors={["#E86520", "#FF8C4B"]}
+              style={styles.tabGradient}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+            >
+              <MaterialIcons name="local-grocery-store" size={20} color="#FFFFFF" />
+              <ThemedText style={styles.tabTextActive}>متاجر</ThemedText>
+            </LinearGradient>
+          ) : (
+            <>
+              <MaterialIcons name="local-grocery-store" size={20} color="#9CA3AF" />
+              <ThemedText style={styles.tabText}>متاجر</ThemedText>
+            </>
+          )}
         </Pressable>
       </View>
 
       {/* ── Search Bar ── */}
       <View style={[styles.searchBox, { backgroundColor: theme.backgroundSecondary }]}>
-        <Feather name="search" size={18} color="#9CA3AF" />
+        <Pressable onPress={() => {}}>
+          <Feather name="search" size={20} color="#9CA3AF" />
+        </Pressable>
         <TextInput
           style={[styles.searchInput, { color: theme.text }]}
           placeholder={
             activeTab === "restaurants" ? "ابحث عن مطعم أو نوع طعام..." : "ابحث عن منتج..."
           }
-          placeholderTextColor="#B0B0B0"
+          placeholderTextColor="#95A5A6"
           value={searchQuery}
           onChangeText={setSearchQuery}
           testID="input-home-search"
@@ -822,9 +841,7 @@ const styles = StyleSheet.create({
   // ── Tabs ──
   tabsWrapper: {
     flexDirection: "row",
-    backgroundColor: "#F3F4F6",
-    borderRadius: 16,
-    padding: 4,
+    gap: 12,
     marginTop: 16,
     marginBottom: 14,
   },
@@ -833,29 +850,51 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: 6,
-    paddingVertical: 11,
-    borderRadius: 13,
+    gap: 8,
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    borderRadius: 16,
+    backgroundColor: "#F8F9FA",
+    borderWidth: 2,
+    borderColor: "#E8E8E8",
+    overflow: "hidden",
   },
   tabBtnActive: {
-    backgroundColor: AppColors.primary,
+    borderWidth: 0,
+    backgroundColor: "transparent",
     ...Platform.select({
       ios: {
         shadowColor: AppColors.primary,
-        shadowOffset: { width: 0, height: 3 },
-        shadowOpacity: 0.35,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
         shadowRadius: 8,
       },
-      android: { elevation: 4 },
+      android: { elevation: 6 },
       default: { boxShadow: `0 3px 8px ${AppColors.primary}55` },
     }),
   },
+  tabGradient: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    borderRadius: 14,
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+  },
   tabText: {
-    fontFamily: "Cairo_700Bold",
+    fontFamily: "Cairo_600SemiBold",
     fontSize: 15,
-    color: "#9CA3AF",
+    color: "#7F8C8D",
   },
   tabTextActive: {
+    fontFamily: "Cairo_700Bold",
+    fontSize: 15,
     color: "#FFFFFF",
   },
   // ── Search ──
@@ -863,10 +902,12 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 11,
-    borderRadius: 14,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderRadius: 16,
     marginBottom: 16,
+    borderWidth: 2,
+    borderColor: "#E8E8E8",
   },
   searchInput: {
     flex: 1,
