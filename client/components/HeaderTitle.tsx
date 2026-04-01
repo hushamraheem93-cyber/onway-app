@@ -55,7 +55,16 @@ export function HeaderTitle({ title }: HeaderTitleProps) {
         <View style={styles.centerSection} />
 
         <View style={styles.rightSection}>
-          <Pressable style={styles.menuButton} onPress={() => navigation.navigate("Main", { screen: "ProfileTab" })} testID="button-menu">
+          <Pressable
+            style={styles.menuButton}
+            onPress={() =>
+              navigation.navigate("Main", {
+                screen: "ProfileTab",
+                params: { screen: "Profile" },
+              })
+            }
+            testID="button-menu"
+          >
             <View style={styles.menuLines}>
               <View style={styles.menuLine} />
               <View style={[styles.menuLine, styles.menuLineShort]} />
