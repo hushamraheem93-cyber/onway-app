@@ -1,5 +1,5 @@
-import React, { useEffect } from "react";
-import { StyleSheet, View, ScrollView, Pressable } from "react-native";
+import React, { useEffect, useState, useRef } from "react";
+import { StyleSheet, View, ScrollView, Pressable, ActivityIndicator } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
@@ -15,9 +15,12 @@ import { Button } from "@/components/Button";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
 import { Order } from "@/context/OrderContext";
 import { GradientBackground } from "@/components/GradientBackground";
+import { getApiUrl } from "@/lib/query-client";
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 type RouteProps = RouteProp<RootStackParamList, "OrderConfirmation">;
+
+const CANCEL_WINDOW_SECS = 60;
 
 export default function OrderConfirmationScreen() {
   const insets = useSafeAreaInsets();
@@ -26,6 +29,30 @@ export default function OrderConfirmationScreen() {
   const navigation = useNavigation<NavigationProp>();
   const route = useRoute<RouteProps>();
   const order = route.params?.order;
+
+  const [secsLeft, setSecsLeft]         = useState(CANCEL_WINDOW_SECS);
+  const [cancelling, setCancelling]     = useState(false);
+  const [cancelled, setCancelled]       = useState(false);
+  const [cancelError, setCancelError]   = useState<string | null>(null);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => {
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+  }, []);
+
+  useEffect(() => {
+    if (!order) return;
+    intervalRef.current = setInterval(() => {
+      setSecsLeft((prev) => {
+        if (prev <= 1) {
+          clearInterval(intervalRef.current!);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
+  }, [order?.id]);
 
   if (!order || !order.items) {
     return (
@@ -45,13 +72,32 @@ export default function OrderConfirmationScreen() {
     return `${hours}:${minutes} - ${day}/${month}/${year}`;
   };
 
-  useEffect(() => {
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-  }, []);
+  const handleCancel = async () => {
+    if (secsLeft <= 0 || cancelling || cancelled) return;
+    setCancelling(true);
+    setCancelError(null);
+    try {
+      const res = await fetch(`${getApiUrl()}/api/orders/${order.id}/cancel`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "فشل الإلغاء");
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+      setCancelled(true);
+      if (intervalRef.current) clearInterval(intervalRef.current);
+    } catch (e: any) {
+      setCancelError(e.message);
+    } finally {
+      setCancelling(false);
+    }
+  };
 
   const goHome = () => {
     navigation.navigate("MainTabs");
   };
+
+  const progressPct = secsLeft / CANCEL_WINDOW_SECS;
 
   const getStatusLabel = (status: string) => {
     const labels: Record<string, string> = {
@@ -178,6 +224,51 @@ export default function OrderConfirmationScreen() {
         </ThemedText>
       </View>
 
+      {/* ── Cancel within 1 minute ─────────────────────────── */}
+      {cancelled ? (
+        <View style={styles.cancelledBox}>
+          <Feather name="x-circle" size={22} color="#EF4444" />
+          <ThemedText style={styles.cancelledText}>تم إلغاء الطلب بنجاح</ThemedText>
+        </View>
+      ) : secsLeft > 0 ? (
+        <View style={[styles.cancelCard, { backgroundColor: theme.backgroundSecondary }]}>
+          {/* Progress bar */}
+          <View style={styles.progressTrack}>
+            <View style={[styles.progressFill, { width: `${progressPct * 100}%` as any }]} />
+          </View>
+
+          <View style={styles.cancelRow}>
+            <View style={styles.timerBadge}>
+              <Feather name="clock" size={13} color="#EF4444" />
+              <ThemedText style={styles.timerText}>{secsLeft}ث</ThemedText>
+            </View>
+            <ThemedText style={[styles.cancelHint, { color: theme.textSecondary }]}>
+              يمكنك إلغاء الطلب خلال دقيقة واحدة
+            </ThemedText>
+          </View>
+
+          {cancelError !== null ? (
+            <ThemedText style={styles.cancelErrorText}>{cancelError}</ThemedText>
+          ) : null}
+
+          <Pressable
+            style={[styles.cancelBtn, cancelling && { opacity: 0.65 }]}
+            onPress={handleCancel}
+            disabled={cancelling}
+            testID="button-cancel-order"
+          >
+            {cancelling ? (
+              <ActivityIndicator color="#EF4444" size="small" />
+            ) : (
+              <Feather name="x" size={16} color="#EF4444" />
+            )}
+            <ThemedText style={styles.cancelBtnText}>
+              {cancelling ? "جاري الإلغاء..." : "إلغاء الطلب"}
+            </ThemedText>
+          </Pressable>
+        </View>
+      ) : null}
+
       <Button
         onPress={() => navigation.navigate("OrderTracking", { orderId: order.id })}
         style={styles.trackButton}
@@ -289,5 +380,88 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingVertical: Spacing.md,
     marginBottom: Spacing.xl,
+  },
+  cancelCard: {
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.md,
+    marginBottom: Spacing.lg,
+    gap: Spacing.sm,
+    borderWidth: 1,
+    borderColor: "rgba(239,68,68,0.2)",
+  },
+  progressTrack: {
+    height: 3,
+    borderRadius: 2,
+    backgroundColor: "rgba(239,68,68,0.15)",
+    overflow: "hidden",
+  },
+  progressFill: {
+    height: 3,
+    backgroundColor: "#EF4444",
+    borderRadius: 2,
+  },
+  cancelRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  timerBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: "rgba(239,68,68,0.1)",
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 3,
+    borderRadius: BorderRadius.sm,
+  },
+  timerText: {
+    fontFamily: "Cairo_700Bold",
+    fontSize: 13,
+    color: "#EF4444",
+  },
+  cancelHint: {
+    fontFamily: "Cairo_400Regular",
+    fontSize: 12,
+    textAlign: "right",
+  },
+  cancelBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.sm,
+    paddingVertical: Spacing.sm + 2,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1.5,
+    borderColor: "#EF4444",
+    backgroundColor: "rgba(239,68,68,0.06)",
+  },
+  cancelBtnText: {
+    fontFamily: "Cairo_700Bold",
+    fontSize: 14,
+    color: "#EF4444",
+  },
+  cancelErrorText: {
+    fontFamily: "Cairo_400Regular",
+    fontSize: 12,
+    color: "#EF4444",
+    textAlign: "center",
+  },
+  cancelledBox: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.sm,
+    backgroundColor: "rgba(239,68,68,0.08)",
+    borderRadius: BorderRadius.lg,
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.lg,
+    marginBottom: Spacing.lg,
+    borderWidth: 1,
+    borderColor: "rgba(239,68,68,0.2)",
+  },
+  cancelledText: {
+    fontFamily: "Cairo_700Bold",
+    fontSize: 15,
+    color: "#EF4444",
   },
 });

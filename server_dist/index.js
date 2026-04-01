@@ -3024,6 +3024,38 @@ ${itemsList}
       res.status(500).json({ error: error.message });
     }
   });
+  app2.post("/api/orders/:orderId/cancel", async (req, res) => {
+    try {
+      const { orderId } = req.params;
+      const db2 = getFirestore();
+      if (!db2) return res.status(503).json({ error: "\u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u063A\u064A\u0631 \u0645\u062A\u0627\u062D\u0629" });
+      const doc = await db2.collection("orders").doc(orderId).get();
+      if (!doc.exists) return res.status(404).json({ error: "\u0627\u0644\u0637\u0644\u0628 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F" });
+      const data = doc.data();
+      if (data.status === "cancelled") {
+        return res.status(400).json({ error: "\u0627\u0644\u0637\u0644\u0628 \u0645\u0644\u063A\u064A \u0645\u0633\u0628\u0642\u0627\u064B" });
+      }
+      if (data.status !== "pending") {
+        return res.status(400).json({ error: "\u0644\u0627 \u064A\u0645\u0643\u0646 \u0625\u0644\u063A\u0627\u0621 \u0627\u0644\u0637\u0644\u0628 \u0628\u0639\u062F \u0642\u0628\u0648\u0644\u0647" });
+      }
+      const createdAt = data.createdAt;
+      const createdMs = createdAt.toMillis();
+      const nowMs = Date.now();
+      const LIMIT_MS = 60 * 1e3;
+      if (nowMs - createdMs > LIMIT_MS) {
+        return res.status(400).json({ error: "\u0627\u0646\u062A\u0647\u062A \u0645\u0647\u0644\u0629 \u0627\u0644\u0625\u0644\u063A\u0627\u0621 (\u062F\u0642\u064A\u0642\u0629 \u0648\u0627\u062D\u062F\u0629 \u0641\u0642\u0637)" });
+      }
+      const { Timestamp } = await import("firebase-admin/firestore");
+      await db2.collection("orders").doc(orderId).update({
+        status: "cancelled",
+        updatedAt: Timestamp.now()
+      });
+      return res.json({ success: true });
+    } catch (error) {
+      console.error("Error cancelling order:", error);
+      return res.status(500).json({ error: error.message });
+    }
+  });
   app2.get("/api/admin/users", async (_req, res) => {
     try {
       const users = await getAllUsers();

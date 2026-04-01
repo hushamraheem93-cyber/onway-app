@@ -2338,6 +2338,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ── Cancel Order (within 1 minute) ───────────────────────────────────────
+  app.post("/api/orders/:orderId/cancel", async (req: Request, res: Response) => {
+    try {
+      const { orderId } = req.params;
+      const db = getFirestore();
+      if (!db) return res.status(503).json({ error: "قاعدة البيانات غير متاحة" });
+
+      const doc = await db.collection("orders").doc(orderId).get();
+      if (!doc.exists) return res.status(404).json({ error: "الطلب غير موجود" });
+
+      const data = doc.data() as any;
+      if (data.status === "cancelled") {
+        return res.status(400).json({ error: "الطلب ملغي مسبقاً" });
+      }
+      if (data.status !== "pending") {
+        return res.status(400).json({ error: "لا يمكن إلغاء الطلب بعد قبوله" });
+      }
+
+      const createdAt: FirebaseFirestore.Timestamp = data.createdAt;
+      const createdMs = createdAt.toMillis();
+      const nowMs     = Date.now();
+      const LIMIT_MS  = 60 * 1000; // 1 minute
+
+      if (nowMs - createdMs > LIMIT_MS) {
+        return res.status(400).json({ error: "انتهت مهلة الإلغاء (دقيقة واحدة فقط)" });
+      }
+
+      const { Timestamp } = await import("firebase-admin/firestore");
+      await db.collection("orders").doc(orderId).update({
+        status: "cancelled",
+        updatedAt: Timestamp.now(),
+      });
+
+      return res.json({ success: true });
+    } catch (error: any) {
+      console.error("Error cancelling order:", error);
+      return res.status(500).json({ error: error.message });
+    }
+  });
+
   // ── Get All Users ─────────────────────────────────────────────────────────
   app.get("/api/admin/users", async (_req: Request, res: Response) => {
     try {
