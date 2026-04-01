@@ -2359,10 +2359,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const createdAt: FirebaseFirestore.Timestamp = data.createdAt;
       const createdMs = createdAt.toMillis();
       const nowMs     = Date.now();
-      const LIMIT_MS  = 60 * 1000; // 1 minute
+      const LIMIT_MS  = 30 * 1000; // 30 seconds
 
       if (nowMs - createdMs > LIMIT_MS) {
-        return res.status(400).json({ error: "انتهت مهلة الإلغاء (دقيقة واحدة فقط)" });
+        return res.status(400).json({ error: "انتهت مهلة الإلغاء (30 ثانية فقط)" });
       }
 
       const { Timestamp } = await import("firebase-admin/firestore");

@@ -3041,9 +3041,9 @@ ${itemsList}
       const createdAt = data.createdAt;
       const createdMs = createdAt.toMillis();
       const nowMs = Date.now();
-      const LIMIT_MS = 60 * 1e3;
+      const LIMIT_MS = 30 * 1e3;
       if (nowMs - createdMs > LIMIT_MS) {
-        return res.status(400).json({ error: "\u0627\u0646\u062A\u0647\u062A \u0645\u0647\u0644\u0629 \u0627\u0644\u0625\u0644\u063A\u0627\u0621 (\u062F\u0642\u064A\u0642\u0629 \u0648\u0627\u062D\u062F\u0629 \u0641\u0642\u0637)" });
+        return res.status(400).json({ error: "\u0627\u0646\u062A\u0647\u062A \u0645\u0647\u0644\u0629 \u0627\u0644\u0625\u0644\u063A\u0627\u0621 (30 \u062B\u0627\u0646\u064A\u0629 \u0641\u0642\u0637)" });
       }
       const { Timestamp } = await import("firebase-admin/firestore");
       await db2.collection("orders").doc(orderId).update({

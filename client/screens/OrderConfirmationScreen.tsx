@@ -20,7 +20,7 @@ import { getApiUrl } from "@/lib/query-client";
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 type RouteProps = RouteProp<RootStackParamList, "OrderConfirmation">;
 
-const CANCEL_WINDOW_SECS = 60;
+const CANCEL_WINDOW_SECS = 30;
 
 export default function OrderConfirmationScreen() {
   const insets = useSafeAreaInsets();
