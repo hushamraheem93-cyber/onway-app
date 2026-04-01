@@ -1427,6 +1427,10 @@
 
       <div class="nav-section">
         <div class="nav-section-title">التقارير والإعدادات</div>
+        <div class="nav-item" onclick="showSection('notifications', this)">
+          <i data-lucide="bell"></i>
+          <span>إرسال الإشعارات</span>
+        </div>
         <div class="nav-item" onclick="showSection('delivery', this)">
           <i data-lucide="map-pin"></i>
           <span>مناطق التوصيل</span>
@@ -2162,6 +2166,103 @@
     </div>
 
     <!-- Delivery Areas Section -->
+    <!-- ═══════════════════════════════ NOTIFICATIONS SECTION ═══════════════════════════════ -->
+    <div id="notifications-section" class="section">
+      <header class="header">
+        <div class="header-title">
+          <h2>إرسال الإشعارات</h2>
+          <p>إرسال إشعارات فورية لجميع مستخدمي التطبيق</p>
+        </div>
+      </header>
+      <div class="content">
+
+        <!-- Send Notification Card -->
+        <div class="card" style="max-width:640px;margin:0 auto 24px;">
+          <div class="card-header">
+            <div style="display:flex;align-items:center;gap:10px;">
+              <div style="width:38px;height:38px;border-radius:10px;background:linear-gradient(135deg,#E86520,#f59e42);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                <i data-lucide="bell" style="width:18px;height:18px;color:#fff;"></i>
+              </div>
+              <div>
+                <h3 style="margin:0;font-size:1rem;">إشعار جماعي</h3>
+                <p style="margin:0;font-size:0.78rem;color:var(--gray-500);">يصل لجميع المستخدمين المسجلين</p>
+              </div>
+            </div>
+          </div>
+          <div class="card-body">
+            <div class="form-group" style="margin-bottom:16px;">
+              <label style="display:block;font-size:0.85rem;font-weight:600;color:var(--gray-700);margin-bottom:6px;">عنوان الإشعار *</label>
+              <input type="text" id="notif-title" placeholder="مثال: عرض خاص اليوم!" maxlength="100"
+                style="width:100%;padding:10px 14px;border:1.5px solid var(--gray-200);border-radius:10px;font-size:0.95rem;font-family:inherit;outline:none;transition:border 0.2s;box-sizing:border-box;"
+                onfocus="this.style.borderColor='#E86520'" onblur="this.style.borderColor='var(--gray-200)'" />
+              <div id="notif-title-count" style="font-size:0.75rem;color:var(--gray-400);text-align:left;margin-top:4px;">0 / 100</div>
+            </div>
+            <div class="form-group" style="margin-bottom:20px;">
+              <label style="display:block;font-size:0.85rem;font-weight:600;color:var(--gray-700);margin-bottom:6px;">نص الإشعار *</label>
+              <textarea id="notif-body" rows="4" placeholder="اكتب رسالتك هنا..." maxlength="300"
+                style="width:100%;padding:10px 14px;border:1.5px solid var(--gray-200);border-radius:10px;font-size:0.95rem;font-family:inherit;outline:none;resize:vertical;transition:border 0.2s;box-sizing:border-box;"
+                onfocus="this.style.borderColor='#E86520'" onblur="this.style.borderColor='var(--gray-200)'"></textarea>
+              <div id="notif-body-count" style="font-size:0.75rem;color:var(--gray-400);text-align:left;margin-top:4px;">0 / 300</div>
+            </div>
+
+            <!-- Preview -->
+            <div id="notif-preview" style="display:none;background:var(--gray-50);border:1px solid var(--gray-200);border-radius:12px;padding:14px 16px;margin-bottom:20px;">
+              <div style="font-size:0.75rem;color:var(--gray-400);margin-bottom:8px;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;">معاينة الإشعار</div>
+              <div style="display:flex;align-items:flex-start;gap:10px;">
+                <div style="width:36px;height:36px;border-radius:8px;background:linear-gradient(135deg,#E86520,#f59e42);flex-shrink:0;display:flex;align-items:center;justify-content:center;">
+                  <i data-lucide="bell" style="width:16px;height:16px;color:#fff;"></i>
+                </div>
+                <div style="flex:1;min-width:0;">
+                  <div id="preview-title" style="font-weight:700;font-size:0.9rem;color:var(--gray-800);margin-bottom:3px;"></div>
+                  <div id="preview-body" style="font-size:0.82rem;color:var(--gray-600);line-height:1.5;"></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Result Message -->
+            <div id="notif-result" style="display:none;border-radius:10px;padding:12px 16px;margin-bottom:16px;font-size:0.9rem;"></div>
+
+            <div style="display:flex;gap:10px;justify-content:flex-end;">
+              <button class="btn btn-outline" onclick="clearNotifForm()">
+                <i data-lucide="trash-2"></i>
+                مسح
+              </button>
+              <button class="btn btn-primary" id="send-notif-btn" onclick="sendBroadcastNotification()" style="min-width:140px;">
+                <i data-lucide="send"></i>
+                إرسال للجميع
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Stats row -->
+        <div style="max-width:640px;margin:0 auto;">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+            <div class="card" style="padding:16px;display:flex;align-items:center;gap:12px;">
+              <div style="width:40px;height:40px;border-radius:10px;background:rgba(232,101,32,0.1);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                <i data-lucide="users" style="width:18px;height:18px;color:#E86520;"></i>
+              </div>
+              <div>
+                <div style="font-size:1.4rem;font-weight:700;color:var(--gray-800);" id="notif-users-count">—</div>
+                <div style="font-size:0.78rem;color:var(--gray-500);">مستخدم مسجّل</div>
+              </div>
+            </div>
+            <div class="card" style="padding:16px;display:flex;align-items:center;gap:12px;">
+              <div style="width:40px;height:40px;border-radius:10px;background:rgba(16,185,129,0.1);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                <i data-lucide="bell-ring" style="width:18px;height:18px;color:#10b981;"></i>
+              </div>
+              <div>
+                <div style="font-size:1.4rem;font-weight:700;color:var(--gray-800);" id="notif-tokens-count">—</div>
+                <div style="font-size:0.78rem;color:var(--gray-500);">لديهم إشعارات مفعّلة</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+    <!-- ══════════════════════════════════════════════════════════════════════════════════════ -->
+
     <div id="delivery-section" class="section">
       <header class="header">
         <div class="header-title">
@@ -3005,12 +3106,119 @@
       if (section === 'promoCodes') loadPromoCodes();
       if (section === 'vendors') { loadVendors(); loadVendorFinancials(); }
       if (section === 'settings') loadSettingsStats();
+      if (section === 'notifications') loadNotificationsStats();
       if (section === 'bestSellers' || section === 'featured' || section === 'discounts') {
         if (products.length === 0) {
           loadProducts().then(() => loadPromotionalSections());
         } else {
           loadPromotionalSections();
         }
+      }
+    }
+
+    // ══════════════════════════════════════════════════════════════
+    //  NOTIFICATIONS SECTION
+    // ══════════════════════════════════════════════════════════════
+    async function loadNotificationsStats() {
+      try {
+        const res = await fetch('/api/admin/users');
+        if (!res.ok) return;
+        const users = await res.json();
+        const total = users.length;
+        const withToken = users.filter(u => u.pushToken && u.pushToken.startsWith('ExponentPushToken')).length;
+        const userEl = document.getElementById('notif-users-count');
+        const tokenEl = document.getElementById('notif-tokens-count');
+        if (userEl) userEl.textContent = total;
+        if (tokenEl) tokenEl.textContent = withToken;
+      } catch (e) { console.warn('Could not load notification stats', e); }
+    }
+
+    // Character counters & live preview
+    document.addEventListener('DOMContentLoaded', () => {
+      const titleInput = document.getElementById('notif-title');
+      const bodyInput  = document.getElementById('notif-body');
+      if (!titleInput || !bodyInput) return;
+
+      function updatePreview() {
+        const t = titleInput.value.trim();
+        const b = bodyInput.value.trim();
+        const preview  = document.getElementById('notif-preview');
+        const pTitle   = document.getElementById('preview-title');
+        const pBody    = document.getElementById('preview-body');
+        document.getElementById('notif-title-count').textContent = titleInput.value.length + ' / 100';
+        document.getElementById('notif-body-count').textContent  = bodyInput.value.length  + ' / 300';
+        if (t || b) {
+          preview.style.display = 'block';
+          pTitle.textContent = t || '(بدون عنوان)';
+          pBody.textContent  = b || '(بدون نص)';
+        } else {
+          preview.style.display = 'none';
+        }
+      }
+
+      titleInput.addEventListener('input', updatePreview);
+      bodyInput.addEventListener('input', updatePreview);
+    });
+
+    async function sendBroadcastNotification() {
+      const title = (document.getElementById('notif-title').value || '').trim();
+      const body  = (document.getElementById('notif-body').value  || '').trim();
+      const resultEl = document.getElementById('notif-result');
+      const sendBtn  = document.getElementById('send-notif-btn');
+
+      if (!title) { showToast('error', 'خطأ', 'العنوان مطلوب'); document.getElementById('notif-title').focus(); return; }
+      if (!body)  { showToast('error', 'خطأ', 'نص الإشعار مطلوب'); document.getElementById('notif-body').focus(); return; }
+
+      sendBtn.disabled = true;
+      sendBtn.innerHTML = '<i data-lucide="loader" style="width:16px;height:16px;animation:spin 1s linear infinite;"></i> جاري الإرسال...';
+      lucide.createIcons();
+      resultEl.style.display = 'none';
+
+      try {
+        const res = await fetch('/api/admin/send-notification', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ title, body })
+        });
+        const data = await res.json();
+
+        if (res.ok && data.success) {
+          resultEl.style.display = 'block';
+          resultEl.style.background = 'rgba(16,185,129,0.08)';
+          resultEl.style.border = '1px solid rgba(16,185,129,0.3)';
+          resultEl.style.color = '#065f46';
+          if (data.sent === 0) {
+            resultEl.innerHTML = '<strong>لا يوجد مستخدمون مسجّلون للإشعارات بعد.</strong>';
+          } else {
+            resultEl.innerHTML = `<strong>تم الإرسال بنجاح!</strong> وصل إلى <strong>${data.sent}</strong> مستخدم${data.failed > 0 ? ` · فشل ${data.failed}` : ''}.`;
+          }
+          showToast('success', 'تم الإرسال', `وصل الإشعار إلى ${data.sent} مستخدم`);
+          clearNotifForm(false);
+        } else {
+          throw new Error(data.error || 'فشل الإرسال');
+        }
+      } catch (e) {
+        resultEl.style.display = 'block';
+        resultEl.style.background = 'rgba(239,68,68,0.08)';
+        resultEl.style.border = '1px solid rgba(239,68,68,0.3)';
+        resultEl.style.color = '#7f1d1d';
+        resultEl.innerHTML = `<strong>خطأ:</strong> ${e.message}`;
+        showToast('error', 'فشل الإرسال', e.message);
+      } finally {
+        sendBtn.disabled = false;
+        sendBtn.innerHTML = '<i data-lucide="send"></i> إرسال للجميع';
+        lucide.createIcons();
+      }
+    }
+
+    function clearNotifForm(clearResult = true) {
+      const t = document.getElementById('notif-title');
+      const b = document.getElementById('notif-body');
+      if (t) { t.value = ''; t.dispatchEvent(new Event('input')); }
+      if (b) { b.value = ''; b.dispatchEvent(new Event('input')); }
+      if (clearResult) {
+        const r = document.getElementById('notif-result');
+        if (r) r.style.display = 'none';
       }
     }
 
