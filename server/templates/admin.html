@@ -2628,6 +2628,7 @@
             <button class="btn btn-outline order-filter" data-status="delivering" onclick="filterOrders('delivering', this)">جاري التوصيل</button>
             <button class="btn btn-outline order-filter" data-status="delivered" onclick="filterOrders('delivered', this)">تم التوصيل</button>
             <button class="btn btn-outline order-filter" data-status="cancelled" onclick="filterOrders('cancelled', this)">ملغي</button>
+            <button class="btn btn-outline order-filter" data-status="issue" onclick="filterOrders('issue', this)" style="color:#E86520;border-color:#E86520;">مشكلة</button>
           </div>
           <div style="display:flex;align-items:center;gap:10px;">
             <span class="online-dot"></span>
@@ -5703,7 +5704,8 @@
         preparing: 'جاري التحضير',
         delivering: 'جاري التوصيل',
         delivered: 'تم التوصيل',
-        cancelled: 'ملغي'
+        cancelled: 'ملغي',
+        issue: 'مشكلة'
       };
       return labels[status] || status;
     }
@@ -5715,7 +5717,8 @@
         preparing: '#8B5CF6',
         delivering: '#06B6D4',
         delivered: '#10B981',
-        cancelled: '#EF4444'
+        cancelled: '#EF4444',
+        issue: '#E86520'
       };
       return colors[status] || '#6B7280';
     }
@@ -5941,6 +5944,7 @@
               <span style="background:${statusColor}20;color:${statusColor};padding:4px 10px;border-radius:20px;font-size:0.78rem;font-weight:600;white-space:nowrap;">
                 ${getOrderStatusLabel(order.status)}
               </span>
+              ${order.status === 'issue' && order.issueType ? `<br><span style="font-size:0.7rem;color:#E86520;margin-top:3px;display:inline-block;">${order.issueType === 'no_answer' ? 'الزبون ما يرد' : order.issueType === 'unclear_address' ? 'العنوان غير واضح' : 'مشكلة أخرى'}</span>` : ''}
             </td>
             <td style="font-size:0.8rem;color:var(--gray-500);white-space:nowrap;">${timeAgo}</td>
             <td>
@@ -6974,6 +6978,7 @@
         delivering:{ label: 'جاري التوصيل',     color: '#06B6D4' },
         delivered: { label: 'تم التوصيل',       color: '#10B981' },
         cancelled: { label: 'ملغية',            color: '#EF4444' },
+        issue:     { label: 'مشكلة',            color: '#E86520' },
       };
 
       const counts = {};

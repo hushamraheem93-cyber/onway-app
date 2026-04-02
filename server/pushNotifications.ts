@@ -35,6 +35,10 @@ const ORDER_STATUS_MESSAGES: Record<string, { title: string; body: string }> = {
     title: "تم إلغاء الطلب",
     body: "نأسف لإعلامك أنه تم إلغاء طلبك",
   },
+  issue: {
+    title: "السائق يحاول التواصل معك",
+    body: "يرجى الرد على مكالمة السائق أو التحقق من عنوانك",
+  },
 };
 
 export async function sendPushNotification(

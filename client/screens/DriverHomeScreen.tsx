@@ -10,6 +10,7 @@ import {
   Linking,
   Platform,
   Vibration,
+  Modal,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
@@ -68,6 +69,10 @@ export default function DriverHomeScreen() {
   const [walletError, setWalletError] = useState("");
   const [todayOrders, setTodayOrders] = useState(0);
   const [todayEarnings, setTodayEarnings] = useState(0);
+
+  const [issueModalVisible, setIssueModalVisible] = useState(false);
+  const [issueSent, setIssueSent] = useState(false);
+  const [issueSending, setIssueSending] = useState(false);
 
   const prevOrderIdRef = useRef<string | null>(null);
   const isInitialLoadRef = useRef(true); // skip alert on first fetch (app just opened)
@@ -273,6 +278,36 @@ export default function DriverHomeScreen() {
       }
     } catch (e) {
       console.error("Error completing order:", e);
+    }
+  };
+
+  const ISSUE_OPTIONS = [
+    { key: "no_answer", label: "الزبون ما يرد" },
+    { key: "unclear_address", label: "العنوان غير واضح" },
+    { key: "other", label: "مشكلة أخرى" },
+  ];
+
+  const handleSelectIssue = async (issueType: string) => {
+    if (!phoneNumber || !currentOrder) return;
+    setIssueSending(true);
+    try {
+      const res = await fetch(new URL("/api/driver/report-issue", getApiUrl()).toString(), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phoneNumber, orderId: currentOrder.id, issueType }),
+      });
+      if (res.ok) {
+        setIssueSent(true);
+        setTimeout(() => {
+          setIssueModalVisible(false);
+          setIssueSent(false);
+          fetchDriverStatus();
+        }, 1800);
+      }
+    } catch (e) {
+      console.error("Error reporting issue:", e);
+    } finally {
+      setIssueSending(false);
     }
   };
 
@@ -536,6 +571,20 @@ export default function DriverHomeScreen() {
           </Pressable>
         </View>
 
+        {/* Report issue button — shown when order is active (preparing or delivering) */}
+        {(isPreparing || isDelivering) ? (
+          <Pressable
+            style={styles.reportIssueBtn}
+            onPress={() => setIssueModalVisible(true)}
+            testID="button-report-issue"
+          >
+            <Feather name="alert-triangle" size={15} color={AppColors.primary} />
+            <ThemedText type="small" style={{ color: AppColors.primary, fontWeight: "600" }}>
+              إبلاغ عن مشكلة
+            </ThemedText>
+          </Pressable>
+        ) : null}
+
         {/* Stage 1: confirmed → accept or reject */}
         {isConfirmed ? (
           <View style={styles.orderActions}>
@@ -591,6 +640,69 @@ export default function DriverHomeScreen() {
         <ThemedText type="h2" style={styles.headerTitle}>ONWAY</ThemedText>
         <ThemedText type="small" style={styles.headerSubtitle}>لوحة السائق</ThemedText>
       </View>
+
+      {/* Issue Report Modal */}
+      <Modal
+        visible={issueModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => !issueSending && setIssueModalVisible(false)}
+      >
+        <Pressable
+          style={styles.modalOverlay}
+          onPress={() => !issueSending && setIssueModalVisible(false)}
+        >
+          <Pressable style={[styles.modalBox, { backgroundColor: theme.backgroundDefault }]} onPress={() => {}}>
+            {issueSent ? (
+              <View style={styles.modalSent}>
+                <View style={[styles.modalSentIcon, { backgroundColor: "#E8F5E9" }]}>
+                  <Feather name="check-circle" size={36} color="#4CAF50" />
+                </View>
+                <ThemedText type="h4" style={{ color: "#4CAF50", fontWeight: "700", marginTop: Spacing.md }}>
+                  تم إرسال المشكلة
+                </ThemedText>
+              </View>
+            ) : (
+              <>
+                <View style={styles.modalHeader}>
+                  <Feather name="alert-triangle" size={22} color={AppColors.primary} />
+                  <ThemedText type="h4" style={{ color: theme.text, fontWeight: "700" }}>
+                    إبلاغ عن مشكلة
+                  </ThemedText>
+                </View>
+                <ThemedText type="small" style={{ color: theme.textSecondary, textAlign: "center", marginBottom: Spacing.lg }}>
+                  اختر نوع المشكلة
+                </ThemedText>
+                {ISSUE_OPTIONS.map((opt) => (
+                  <Pressable
+                    key={opt.key}
+                    style={[styles.issueOption, { borderColor: theme.border }]}
+                    onPress={() => handleSelectIssue(opt.key)}
+                    disabled={issueSending}
+                    testID={`button-issue-${opt.key}`}
+                  >
+                    {issueSending ? (
+                      <ActivityIndicator size="small" color={AppColors.primary} />
+                    ) : (
+                      <Feather name="chevron-left" size={18} color={AppColors.primary} />
+                    )}
+                    <ThemedText type="body" style={{ color: theme.text, fontWeight: "600", flex: 1, textAlign: "right" }}>
+                      {opt.label}
+                    </ThemedText>
+                  </Pressable>
+                ))}
+                <Pressable
+                  style={styles.modalCancelBtn}
+                  onPress={() => setIssueModalVisible(false)}
+                  disabled={issueSending}
+                >
+                  <ThemedText type="small" style={{ color: theme.textSecondary }}>إلغاء</ThemedText>
+                </Pressable>
+              </>
+            )}
+          </Pressable>
+        </Pressable>
+      </Modal>
 
       <FlatList
         data={[1]}
@@ -846,5 +958,66 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
     fontWeight: "700",
     fontSize: 14,
+  },
+  reportIssueBtn: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: AppColors.primary + "60",
+    marginBottom: Spacing.sm,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.45)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: Spacing.xl,
+  },
+  modalBox: {
+    width: "100%",
+    borderRadius: BorderRadius.xl,
+    padding: Spacing.xl,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  modalHeader: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    gap: Spacing.sm,
+    justifyContent: "center",
+    marginBottom: Spacing.sm,
+  },
+  issueOption: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    gap: Spacing.sm,
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.md,
+    borderRadius: BorderRadius.lg,
+    borderWidth: 1,
+    marginBottom: Spacing.sm,
+  },
+  modalCancelBtn: {
+    alignItems: "center",
+    paddingVertical: Spacing.sm,
+    marginTop: Spacing.xs,
+  },
+  modalSent: {
+    alignItems: "center",
+    paddingVertical: Spacing.xl,
+  },
+  modalSentIcon: {
+    width: 70,
+    height: 70,
+    borderRadius: 35,
+    justifyContent: "center",
+    alignItems: "center",
   },
 });

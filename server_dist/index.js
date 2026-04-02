@@ -1108,6 +1108,10 @@ var ORDER_STATUS_MESSAGES = {
   cancelled: {
     title: "\u062A\u0645 \u0625\u0644\u063A\u0627\u0621 \u0627\u0644\u0637\u0644\u0628",
     body: "\u0646\u0623\u0633\u0641 \u0644\u0625\u0639\u0644\u0627\u0645\u0643 \u0623\u0646\u0647 \u062A\u0645 \u0625\u0644\u063A\u0627\u0621 \u0637\u0644\u0628\u0643"
+  },
+  issue: {
+    title: "\u0627\u0644\u0633\u0627\u0626\u0642 \u064A\u062D\u0627\u0648\u0644 \u0627\u0644\u062A\u0648\u0627\u0635\u0644 \u0645\u0639\u0643",
+    body: "\u064A\u0631\u062C\u0649 \u0627\u0644\u0631\u062F \u0639\u0644\u0649 \u0645\u0643\u0627\u0644\u0645\u0629 \u0627\u0644\u0633\u0627\u0626\u0642 \u0623\u0648 \u0627\u0644\u062A\u062D\u0642\u0642 \u0645\u0646 \u0639\u0646\u0648\u0627\u0646\u0643"
   }
 };
 async function sendPushNotification(pushToken, status, orderId) {
@@ -2613,6 +2617,42 @@ ${itemsList}
         saveDriverActivity({ phoneNumber, type: "delivering", orderId }).catch(() => {
         });
       }
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+  app2.post("/api/driver/report-issue", async (req, res) => {
+    const { phoneNumber, orderId, issueType } = req.body;
+    if (!phoneNumber || !orderId || !issueType) return res.status(400).json({ error: "Missing fields" });
+    try {
+      const db2 = getFirestore();
+      if (!db2) return res.status(500).json({ error: "Database not configured" });
+      const now = /* @__PURE__ */ new Date();
+      await db2.collection("orders").doc(orderId).update({
+        status: "issue",
+        issueType,
+        issuedAt: now,
+        updatedAt: now
+      });
+      const allOrders = await getOrders();
+      const order = allOrders.find((o) => o.id === orderId);
+      if (order?.phoneNumber) {
+        const pushToken = await getUserPushToken(order.phoneNumber);
+        if (pushToken) {
+          await sendPushNotification(pushToken, "issue", orderId);
+        }
+      }
+      await db2.collection("adminAlerts").add({
+        type: "driver_issue",
+        orderId,
+        driverPhone: phoneNumber,
+        issueType,
+        createdAt: /* @__PURE__ */ new Date(),
+        read: false
+      });
+      saveDriverActivity({ phoneNumber, type: "issue", orderId }).catch(() => {
+      });
       res.json({ success: true });
     } catch (error) {
       res.status(500).json({ error: error.message });

@@ -1716,6 +1716,51 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Report issue with an order
+  app.post("/api/driver/report-issue", async (req: Request, res: Response) => {
+    const { phoneNumber, orderId, issueType } = req.body;
+    if (!phoneNumber || !orderId || !issueType) return res.status(400).json({ error: "Missing fields" });
+
+    try {
+      const db = getFirestore();
+      if (!db) return res.status(500).json({ error: "Database not configured" });
+
+      // Update order in Firestore: status="issue" + issueType + issuedAt
+      const now = new Date();
+      await db.collection("orders").doc(orderId).update({
+        status: "issue",
+        issueType,
+        issuedAt: now,
+        updatedAt: now,
+      });
+
+      // Notify customer via push
+      const allOrders = await getOrders();
+      const order = allOrders.find(o => o.id === orderId);
+      if (order?.phoneNumber) {
+        const pushToken = await getUserPushToken(order.phoneNumber);
+        if (pushToken) {
+          await sendPushNotification(pushToken, "issue", orderId);
+        }
+      }
+
+      // Save admin alert to Firestore for admin dashboard
+      await db.collection("adminAlerts").add({
+        type: "driver_issue",
+        orderId,
+        driverPhone: phoneNumber,
+        issueType,
+        createdAt: new Date(),
+        read: false,
+      });
+
+      saveDriverActivity({ phoneNumber, type: "issue", orderId }).catch(() => {});
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // Reject order
   app.post("/api/driver/reject-order", async (req: Request, res: Response) => {
     const { phoneNumber, orderId } = req.body;

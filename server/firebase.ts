@@ -369,7 +369,9 @@ export interface FirestoreOrder {
   region: string;
   latitude?: number;
   longitude?: number;
-  status: "pending" | "confirmed" | "preparing" | "delivering" | "delivered" | "cancelled";
+  status: "pending" | "confirmed" | "preparing" | "delivering" | "delivered" | "cancelled" | "issue";
+  issueType?: string;
+  issuedAt?: admin.firestore.Timestamp;
   createdAt: admin.firestore.Timestamp;
   updatedAt: admin.firestore.Timestamp;
   // Vendor / restaurant fields
