@@ -273,6 +273,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     phoneNumber: string;
     joinedAt: number;
     currentOrderId?: string;
+    lastSeenAt?: number; // timestamp of last activity (location update or going online)
   }
   const driverQueue: QueuedDriver[] = [];
   const driverAssignments: Map<string, string> = new Map();
@@ -340,6 +341,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             const availableDriver = driverQueue.find(d => !d.currentOrderId);
             if (!availableDriver) break;
             availableDriver.currentOrderId = order.id;
+            availableDriver.lastSeenAt = Date.now(); // assume recently online after restart
             console.log(`[RESTART] Restored assignment: order ${order.id} → driver ${availableDriver.phoneNumber}`);
           }
         }
@@ -1121,11 +1123,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         // When order is confirmed, try to assign to next available driver in FIFO queue
         if (status === "confirmed") {
-          const availableDriver = driverQueue.find(d => !d.currentOrderId);
-          if (availableDriver) {
-            availableDriver.currentOrderId = orderId;
-            console.log(`[FIFO] Order ${orderId} auto-assigned to driver ${availableDriver.phoneNumber}`);
-          }
+          assignOrderToNextDriver(orderId);
         }
 
         return res.json({ success: true, id: orderId, status });
@@ -1585,6 +1583,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     if (!phoneNumber || lat === undefined || lng === undefined) return res.status(400).json({ error: "Missing fields" });
     const driver = await getDriverByPhone(phoneNumber).catch(() => null);
     driverLocations.set(phoneNumber, { lat: Number(lat), lng: Number(lng), updatedAt: Date.now(), fullName: driver?.fullName });
+    // Mark driver as recently seen (active app)
+    const qd = driverQueue.find(d => d.phoneNumber === phoneNumber);
+    if (qd) qd.lastSeenAt = Date.now();
     // Persist last location to Firestore driver document
     updateDriverLastLocation(phoneNumber, Number(lat), Number(lng)).catch(() => {});
     res.json({ success: true });
@@ -1642,7 +1643,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
         const exists = driverQueue.find(d => d.phoneNumber === phoneNumber);
         if (!exists) {
-          driverQueue.push({ phoneNumber, joinedAt: Date.now() });
+          driverQueue.push({ phoneNumber, joinedAt: Date.now(), lastSeenAt: Date.now() });
+        } else {
+          exists.lastSeenAt = Date.now();
         }
         // Persist online status to Firestore
         updateDriverOnlineStatus(phoneNumber, true).catch(() => {});
@@ -1967,12 +1970,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Find the best available driver: prefer one with recent GPS (app is open)
+  function findBestAvailableDriver(): QueuedDriver | undefined {
+    const fiveMinAgo = Date.now() - 5 * 60 * 1000;
+    // First priority: driver with recent GPS ping (app actively open)
+    const activeDriver = driverQueue.find(d => {
+      if (d.currentOrderId) return false;
+      const loc = driverLocations.get(d.phoneNumber);
+      const recentGps = loc && loc.updatedAt >= fiveMinAgo;
+      const recentSeen = d.lastSeenAt && d.lastSeenAt >= fiveMinAgo;
+      return recentGps || recentSeen;
+    });
+    if (activeDriver) return activeDriver;
+    // Fallback: any available driver in FIFO order
+    return driverQueue.find(d => !d.currentOrderId);
+  }
+
   // Helper: Assign order to next available driver in FIFO queue
   function assignOrderToNextDriver(orderId: string) {
-    const availableDriver = driverQueue.find(d => !d.currentOrderId);
-    if (availableDriver) {
-      availableDriver.currentOrderId = orderId;
-      console.log(`[FIFO] Order ${orderId} assigned to driver ${availableDriver.phoneNumber}`);
+    const driver = findBestAvailableDriver();
+    if (driver) {
+      driver.currentOrderId = orderId;
+      console.log(`[FIFO] Order ${orderId} assigned to driver ${driver.phoneNumber}`);
     }
   }
 

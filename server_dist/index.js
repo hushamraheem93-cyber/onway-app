@@ -1391,6 +1391,7 @@ async function registerRoutes(app2) {
             const availableDriver = driverQueue.find((d) => !d.currentOrderId);
             if (!availableDriver) break;
             availableDriver.currentOrderId = order.id;
+            availableDriver.lastSeenAt = Date.now();
             console.log(`[RESTART] Restored assignment: order ${order.id} \u2192 driver ${availableDriver.phoneNumber}`);
           }
         }
@@ -2102,11 +2103,7 @@ ${itemsList}
           }
         }
         if (status === "confirmed") {
-          const availableDriver = driverQueue.find((d) => !d.currentOrderId);
-          if (availableDriver) {
-            availableDriver.currentOrderId = orderId;
-            console.log(`[FIFO] Order ${orderId} auto-assigned to driver ${availableDriver.phoneNumber}`);
-          }
+          assignOrderToNextDriver(orderId);
         }
         return res.json({ success: true, id: orderId, status });
       }
@@ -2503,6 +2500,8 @@ ${itemsList}
     if (!phoneNumber || lat2 === void 0 || lng2 === void 0) return res.status(400).json({ error: "Missing fields" });
     const driver = await getDriverByPhone(phoneNumber).catch(() => null);
     driverLocations.set(phoneNumber, { lat: Number(lat2), lng: Number(lng2), updatedAt: Date.now(), fullName: driver?.fullName });
+    const qd = driverQueue.find((d) => d.phoneNumber === phoneNumber);
+    if (qd) qd.lastSeenAt = Date.now();
     updateDriverLastLocation(phoneNumber, Number(lat2), Number(lng2)).catch(() => {
     });
     res.json({ success: true });
@@ -2553,7 +2552,9 @@ ${itemsList}
         }
         const exists = driverQueue.find((d) => d.phoneNumber === phoneNumber);
         if (!exists) {
-          driverQueue.push({ phoneNumber, joinedAt: Date.now() });
+          driverQueue.push({ phoneNumber, joinedAt: Date.now(), lastSeenAt: Date.now() });
+        } else {
+          exists.lastSeenAt = Date.now();
         }
         updateDriverOnlineStatus(phoneNumber, true).catch(() => {
         });
@@ -2825,11 +2826,23 @@ ${itemsList}
       res.status(500).json({ error: error.message });
     }
   });
+  function findBestAvailableDriver() {
+    const fiveMinAgo = Date.now() - 5 * 60 * 1e3;
+    const activeDriver = driverQueue.find((d) => {
+      if (d.currentOrderId) return false;
+      const loc = driverLocations.get(d.phoneNumber);
+      const recentGps = loc && loc.updatedAt >= fiveMinAgo;
+      const recentSeen = d.lastSeenAt && d.lastSeenAt >= fiveMinAgo;
+      return recentGps || recentSeen;
+    });
+    if (activeDriver) return activeDriver;
+    return driverQueue.find((d) => !d.currentOrderId);
+  }
   function assignOrderToNextDriver(orderId) {
-    const availableDriver = driverQueue.find((d) => !d.currentOrderId);
-    if (availableDriver) {
-      availableDriver.currentOrderId = orderId;
-      console.log(`[FIFO] Order ${orderId} assigned to driver ${availableDriver.phoneNumber}`);
+    const driver = findBestAvailableDriver();
+    if (driver) {
+      driver.currentOrderId = orderId;
+      console.log(`[FIFO] Order ${orderId} assigned to driver ${driver.phoneNumber}`);
     }
   }
   async function assignWaitingOrderToDriver(phoneNumber) {

@@ -9,6 +9,7 @@ import {
   Dimensions,
   Linking,
   Platform,
+  Vibration,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
@@ -17,6 +18,7 @@ import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import * as Location from "expo-location";
+import * as Notifications from "expo-notifications";
 
 import { ThemedText } from "@/components/ThemedText";
 import { GradientBackground } from "@/components/GradientBackground";
@@ -65,6 +67,25 @@ export default function DriverHomeScreen() {
   const [todayOrders, setTodayOrders] = useState(0);
   const [todayEarnings, setTodayEarnings] = useState(0);
 
+  const prevOrderIdRef = useRef<string | null>(null);
+  const isInitialLoadRef = useRef(true); // skip alert on first fetch (app just opened)
+
+  const triggerNewOrderAlert = useCallback((order: QueueOrder) => {
+    // Vibration pattern: strong repeated buzz
+    Vibration.vibrate([0, 400, 200, 400, 200, 600]);
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
+    // Local notification with system sound
+    Notifications.scheduleNotificationAsync({
+      content: {
+        title: "طلب جديد",
+        body: `${order.customerName || "زبون"} - ${order.region || order.address || ""}`,
+        sound: true,
+        priority: Notifications.AndroidNotificationPriority.MAX,
+      },
+      trigger: null,
+    }).catch(() => {});
+  }, []);
+
   const fetchDriverStatus = useCallback(async () => {
     if (!phoneNumber) return;
     try {
@@ -75,7 +96,22 @@ export default function DriverHomeScreen() {
         const data = await res.json();
         setIsOnline(data.isOnline || false);
         setQueuePosition(data.queuePosition);
-        setCurrentOrder(data.currentOrder || null);
+        const newOrder = data.currentOrder || null;
+        // Detect newly assigned order → play sound + vibrate
+        // Skip on initial load (don't alert for orders already assigned when app opens)
+        if (!isInitialLoadRef.current) {
+          if (newOrder && newOrder.id !== prevOrderIdRef.current) {
+            triggerNewOrderAlert(newOrder);
+          }
+        }
+        // Update refs
+        if (newOrder) {
+          prevOrderIdRef.current = newOrder.id;
+        } else {
+          prevOrderIdRef.current = null;
+        }
+        isInitialLoadRef.current = false;
+        setCurrentOrder(newOrder);
         setDriverStatus(data.approvalStatus || "pending");
         setWalletBalance(data.walletBalance || 0);
         setTodayOrders(data.todayOrders || 0);
@@ -86,11 +122,25 @@ export default function DriverHomeScreen() {
     } finally {
       setLoading(false);
     }
-  }, [phoneNumber]);
+  }, [phoneNumber, triggerNewOrderAlert]);
+
+  // Request notification permissions and setup handler
+  useEffect(() => {
+    Notifications.requestPermissionsAsync().catch(() => {});
+    Notifications.setNotificationHandler({
+      handleNotification: async () => ({
+        shouldShowAlert: true,
+        shouldShowBanner: true,
+        shouldShowList: true,
+        shouldPlaySound: true,
+        shouldSetBadge: false,
+      }),
+    });
+  }, []);
 
   useEffect(() => {
     fetchDriverStatus();
-    const interval = setInterval(fetchDriverStatus, 10000);
+    const interval = setInterval(fetchDriverStatus, 5000); // Poll every 5s for faster order detection
     return () => clearInterval(interval);
   }, [fetchDriverStatus]);
 
