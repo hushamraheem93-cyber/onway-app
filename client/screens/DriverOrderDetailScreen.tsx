@@ -79,6 +79,8 @@ interface OrderDetail {
   orderType?: string;
   latitude?: number;
   longitude?: number;
+  vendorName?: string;
+  vendorId?: string;
 }
 
 export default function DriverOrderDetailScreen() {
@@ -170,6 +172,52 @@ export default function DriverOrderDetailScreen() {
             #{order.id?.slice(-6)}
           </ThemedText>
         </View>
+
+        {/* Source card: which restaurant/store the order is from */}
+        {(() => {
+          const sources: string[] = [];
+          if (order.vendorName) {
+            sources.push(order.vendorName);
+          } else {
+            const restaurantNames = [
+              ...new Set(
+                (order.items || [])
+                  .filter((it: any) => it.restaurant)
+                  .map((it: any) => it.restaurant as string)
+              ),
+            ];
+            restaurantNames.forEach(r => sources.push(r));
+          }
+          const storeItems = (order.items || []).filter(
+            (it: any) => !it.restaurant && !order.vendorId
+          );
+          const hasStoreItems = storeItems.length > 0;
+          if (sources.length === 0 && !hasStoreItems) return null;
+          return (
+            <View style={[styles.card, { backgroundColor: theme.backgroundDefault }, Shadows.sm]}>
+              <View style={styles.cardHeader}>
+                <Feather name="shopping-bag" size={20} color={AppColors.primary} />
+                <ThemedText type="h4" style={{ color: theme.text, fontWeight: "700" }}>مصدر الطلب</ThemedText>
+              </View>
+              {sources.map((src, i) => (
+                <View key={i} style={styles.sourceRow}>
+                  <ThemedText type="body" style={{ color: theme.text, fontWeight: "600" }}>{src}</ThemedText>
+                  <View style={[styles.sourceBadge, { backgroundColor: AppColors.primary + "15" }]}>
+                    <ThemedText type="small" style={{ color: AppColors.primary }}>مطعم</ThemedText>
+                  </View>
+                </View>
+              ))}
+              {hasStoreItems ? (
+                <View style={styles.sourceRow}>
+                  <ThemedText type="body" style={{ color: theme.text, fontWeight: "600" }}>متجر OnWay</ThemedText>
+                  <View style={[styles.sourceBadge, { backgroundColor: "#3B82F620" }]}>
+                    <ThemedText type="small" style={{ color: "#3B82F6" }}>متجر</ThemedText>
+                  </View>
+                </View>
+              ) : null}
+            </View>
+          );
+        })()}
 
         <View style={[styles.card, { backgroundColor: theme.backgroundDefault }, Shadows.sm]}>
           <View style={styles.cardHeader}>
@@ -483,5 +531,16 @@ const styles = StyleSheet.create({
     borderTopColor: "#E0E0E0",
     paddingTop: Spacing.md,
     marginTop: Spacing.sm,
+  },
+  sourceRow: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: Spacing.sm,
+  },
+  sourceBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderRadius: 10,
   },
 });

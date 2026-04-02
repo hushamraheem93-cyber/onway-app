@@ -2585,7 +2585,7 @@ ${itemsList}
     try {
       const db2 = getFirestore();
       if (db2) {
-        await updateOrderStatus(orderId, "delivering");
+        await updateOrderStatus(orderId, "preparing");
         driverAssignments.set(orderId, phoneNumber);
         const qd = driverQueue.find((d) => d.phoneNumber === phoneNumber);
         if (qd) qd.currentOrderId = orderId;
@@ -2596,6 +2596,21 @@ ${itemsList}
           driverPhone: phoneNumber
         });
         saveDriverActivity({ phoneNumber, type: "accepted", orderId }).catch(() => {
+        });
+      }
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+  app2.post("/api/driver/start-delivery", async (req, res) => {
+    const { phoneNumber, orderId } = req.body;
+    if (!phoneNumber || !orderId) return res.status(400).json({ error: "Missing fields" });
+    try {
+      const db2 = getFirestore();
+      if (db2) {
+        await updateOrderStatus(orderId, "delivering");
+        saveDriverActivity({ phoneNumber, type: "delivering", orderId }).catch(() => {
         });
       }
       res.json({ success: true });

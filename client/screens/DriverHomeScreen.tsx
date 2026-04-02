@@ -46,6 +46,8 @@ interface QueueOrder {
   longitude?: number;
   notes?: string;
   orderType?: string;
+  vendorName?: string;
+  vendorId?: string;
 }
 
 export default function DriverHomeScreen() {
@@ -236,6 +238,23 @@ export default function DriverHomeScreen() {
       }
     } catch (e) {
       console.error("Error rejecting order:", e);
+    }
+  };
+
+  const handleStartDelivering = async () => {
+    if (!phoneNumber || !currentOrder) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    try {
+      const res = await fetch(new URL("/api/driver/start-delivery", getApiUrl()).toString(), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phoneNumber, orderId: currentOrder.id }),
+      });
+      if (res.ok) {
+        await fetchDriverStatus();
+      }
+    } catch (e) {
+      console.error("Error starting delivery:", e);
     }
   };
 
@@ -435,17 +454,34 @@ export default function DriverHomeScreen() {
     navigation.navigate("DriverOrderDetail", { order: currentOrder });
   };
 
+  // Determine what restaurant/store the order is from
+  const getOrderSource = (order: QueueOrder): string | null => {
+    if (order.vendorName) return order.vendorName;
+    const restaurantItems = (order.items || []).filter((it: any) => it.restaurant);
+    if (restaurantItems.length > 0) {
+      const names = [...new Set(restaurantItems.map((it: any) => it.restaurant as string))];
+      return names.join(" + ");
+    }
+    return null;
+  };
+
   const renderCurrentOrder = () => {
     if (!currentOrder) return null;
-    const isDelivering = currentOrder.status === "delivering";
+    const status = currentOrder.status;
+    const isConfirmed = status === "confirmed";
+    const isPreparing = status === "preparing";
+    const isDelivering = status === "delivering";
+
+    const badgeColor = isDelivering ? "#2196F3" : isPreparing ? "#8B5CF6" : AppColors.primary;
+    const badgeLabel = isDelivering ? "في الطريق" : isPreparing ? "جاري التحضير" : "طلب جديد";
+
+    const source = getOrderSource(currentOrder);
 
     return (
       <View style={[styles.orderCard, { backgroundColor: theme.backgroundDefault }, Shadows.md]}>
         <View style={[styles.orderHeader, { borderBottomColor: theme.border }]}>
-          <View style={[styles.newOrderBadge, { backgroundColor: isDelivering ? "#2196F3" : AppColors.primary }]}>
-            <ThemedText type="small" style={styles.newOrderText}>
-              {isDelivering ? "جاري التوصيل" : "طلب جديد"}
-            </ThemedText>
+          <View style={[styles.newOrderBadge, { backgroundColor: badgeColor }]}>
+            <ThemedText type="small" style={styles.newOrderText}>{badgeLabel}</ThemedText>
           </View>
           <ThemedText type="small" style={{ color: theme.textSecondary }}>
             #{currentOrder.id?.slice(-6)}
@@ -453,6 +489,12 @@ export default function DriverHomeScreen() {
         </View>
 
         <View style={styles.orderDetails}>
+          {source ? (
+            <View style={[styles.orderDetailRow, { borderBottomWidth: 1, borderBottomColor: theme.border, paddingBottom: Spacing.xs, marginBottom: Spacing.xs }]}>
+              <ThemedText type="body" style={{ color: AppColors.primary, fontWeight: "700" }}>{source}</ThemedText>
+              <Feather name="shopping-bag" size={18} color={AppColors.primary} />
+            </View>
+          ) : null}
           <View style={styles.orderDetailRow}>
             <ThemedText type="body" style={{ color: theme.text }}>{currentOrder.customerName || "زبون"}</ThemedText>
             <Feather name="user" size={18} color={theme.textSecondary} />
@@ -471,7 +513,7 @@ export default function DriverHomeScreen() {
             <ThemedText type="small" style={{ color: theme.textSecondary }}>
               {currentOrder.items?.length || 0} منتج
             </ThemedText>
-            <Feather name="shopping-bag" size={18} color={theme.textSecondary} />
+            <Feather name="package" size={18} color={theme.textSecondary} />
           </View>
         </View>
 
@@ -494,16 +536,8 @@ export default function DriverHomeScreen() {
           </Pressable>
         </View>
 
-        {isDelivering ? (
-          <Pressable
-            style={[styles.acceptButton, { backgroundColor: "#4CAF50" }]}
-            onPress={handleCompleteOrder}
-            testID="button-complete-order"
-          >
-            <ThemedText type="h4" style={styles.acceptText}>تم التوصيل</ThemedText>
-            <Feather name="check-circle" size={20} color="#FFFFFF" />
-          </Pressable>
-        ) : (
+        {/* Stage 1: confirmed → accept or reject */}
+        {isConfirmed ? (
           <View style={styles.orderActions}>
             <Pressable
               style={[styles.rejectButton, { borderColor: "#F44336" }]}
@@ -521,7 +555,31 @@ export default function DriverHomeScreen() {
               <Feather name="check" size={20} color="#FFFFFF" />
             </Pressable>
           </View>
-        )}
+        ) : null}
+
+        {/* Stage 2: preparing → start delivery */}
+        {isPreparing ? (
+          <Pressable
+            style={[styles.acceptButton, { backgroundColor: "#8B5CF6" }]}
+            onPress={handleStartDelivering}
+            testID="button-start-delivery"
+          >
+            <ThemedText type="h4" style={styles.acceptText}>في الطريق</ThemedText>
+            <Feather name="navigation" size={20} color="#FFFFFF" />
+          </Pressable>
+        ) : null}
+
+        {/* Stage 3: delivering → complete */}
+        {isDelivering ? (
+          <Pressable
+            style={[styles.acceptButton, { backgroundColor: "#4CAF50" }]}
+            onPress={handleCompleteOrder}
+            testID="button-complete-order"
+          >
+            <ThemedText type="h4" style={styles.acceptText}>تم التوصيل</ThemedText>
+            <Feather name="check-circle" size={20} color="#FFFFFF" />
+          </Pressable>
+        ) : null}
       </View>
     );
   };

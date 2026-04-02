@@ -1679,7 +1679,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const db = getFirestore();
       if (db) {
-        await updateOrderStatus(orderId, "delivering");
+        // Step 1: driver accepted → preparing
+        await updateOrderStatus(orderId, "preparing");
         driverAssignments.set(orderId, phoneNumber);
         const qd = driverQueue.find(d => d.phoneNumber === phoneNumber);
         if (qd) qd.currentOrderId = orderId;
@@ -1690,8 +1691,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
           driverName,
           driverPhone: phoneNumber,
         });
-        // Log accept event
         saveDriverActivity({ phoneNumber, type: "accepted", orderId }).catch(() => {});
+      }
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Step 2: driver is now on the way (preparing → delivering)
+  app.post("/api/driver/start-delivery", async (req: Request, res: Response) => {
+    const { phoneNumber, orderId } = req.body;
+    if (!phoneNumber || !orderId) return res.status(400).json({ error: "Missing fields" });
+
+    try {
+      const db = getFirestore();
+      if (db) {
+        await updateOrderStatus(orderId, "delivering");
+        saveDriverActivity({ phoneNumber, type: "delivering", orderId }).catch(() => {});
       }
       res.json({ success: true });
     } catch (error: any) {
