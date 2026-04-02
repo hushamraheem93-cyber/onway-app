@@ -40,6 +40,10 @@ interface QueueOrder {
   deliveryFee: number;
   status: string;
   createdAt: string;
+  latitude?: number;
+  longitude?: number;
+  notes?: string;
+  orderType?: string;
 }
 
 export default function DriverHomeScreen() {
