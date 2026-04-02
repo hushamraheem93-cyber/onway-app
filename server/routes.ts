@@ -55,6 +55,23 @@ const storage: StorageEngine = multer.diskStorage({
 
 const upload = multer({ storage });
 
+const webpStorage: StorageEngine = multer.diskStorage({
+  destination: (_req: Express.Request, _file: Express.Multer.File, cb: (error: Error | null, destination: string) => void) => {
+    cb(null, uploadsDir);
+  },
+  filename: (_req: Express.Request, _file: Express.Multer.File, cb: (error: Error | null, filename: string) => void) => {
+    cb(null, `${randomUUID()}.webp`);
+  },
+});
+const uploadWebP = multer({
+  storage: webpStorage,
+  limits: { fileSize: 15 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    const allowed = ["image/webp", "image/jpeg", "image/png", "image/gif", "application/octet-stream"];
+    cb(null, allowed.includes(file.mimetype) || file.originalname.endsWith(".webp"));
+  },
+});
+
 interface Category {
   id: string;
   name: string;
@@ -413,6 +430,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } else {
         res.status(404).json({ error: "Category not found" });
       }
+    }
+  });
+
+  app.post("/api/admin/upload-image", uploadWebP.single("image"), async (req: Request, res: Response) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ error: "لم يتم رفع أي صورة" });
+      }
+      const url = `/uploads/${req.file.filename}`;
+      res.json({ url, filename: req.file.filename, size: req.file.size });
+    } catch (error) {
+      console.error("Error uploading image:", error);
+      res.status(500).json({ error: "فشل في رفع الصورة" });
     }
   });
 

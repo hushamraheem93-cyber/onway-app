@@ -25,7 +25,7 @@ import { Banner, Category } from "@/constants/categories";
 import { apiRequest } from "@/lib/query-client";
 import { resolveImageUrl } from "@/utils/imageUtils";
 import { formatPrice } from "@/constants/currency";
-import { compressAndConvertToBase64, isBase64Image, ImageSize } from "@/lib/imageUtils";
+import { compressAndConvertToBase64, processAndUploadImage, isBase64Image, ImageSize } from "@/lib/imageUtils";
 
 type TabType = "banners" | "categories" | "products" | "areas" | "orders" | "drivers" | "promoCodes" | "notifications" | "users";
 
@@ -306,17 +306,17 @@ export default function AdminScreen() {
 
   const saveBanner = async () => {
     try {
-      let imageBase64 = bannerForm.imageUrl;
+      let imageUrl = bannerForm.imageUrl;
       
       if (bannerForm.imageUri) {
-        imageBase64 = await compressAndConvertToBase64(bannerForm.imageUri, "banner");
+        imageUrl = await processAndUploadImage(bannerForm.imageUri, "banner");
       }
 
       const body = {
         title: bannerForm.title,
         type: bannerForm.type,
         isActive: true,
-        image: imageBase64,
+        image: imageUrl,
       };
 
       const url = editItem ? `/api/admin/banners/${editItem.id}` : "/api/admin/banners";
@@ -339,15 +339,15 @@ export default function AdminScreen() {
 
   const saveCategory = async () => {
     try {
-      let imageBase64 = categoryForm.imageUrl;
+      let imageUrl = categoryForm.imageUrl;
       
       if (categoryForm.imageUri) {
-        imageBase64 = await compressAndConvertToBase64(categoryForm.imageUri, "category");
+        imageUrl = await processAndUploadImage(categoryForm.imageUri, "category");
       }
 
       const body = {
         name: categoryForm.name,
-        image: imageBase64,
+        image: imageUrl,
       };
 
       const url = editItem ? `/api/admin/categories/${editItem.id}` : "/api/admin/categories";
@@ -372,18 +372,15 @@ export default function AdminScreen() {
   const saveProduct = async () => {
     if (isSavingProduct) return;
     
-    const apiUrl = getApiUrl();
     const url = editItem ? `/api/admin/products/${editItem.id}` : "/api/admin/products";
-    const fullUrl = `${apiUrl}${url}`;
-    
-    Alert.alert("بدء الحفظ", `URL: ${fullUrl}\nالاسم: ${productForm.name}\nالسعر: ${productForm.price}`);
+    const fullUrl = `${getApiUrl()}${url}`;
     
     setIsSavingProduct(true);
     try {
-      let imageBase64 = productForm.imageUrl || null;
+      let imageUrl: string | null = productForm.imageUrl || null;
       
       if (productForm.imageUri) {
-        imageBase64 = await compressAndConvertToBase64(productForm.imageUri, "product");
+        imageUrl = await processAndUploadImage(productForm.imageUri, "product");
       }
 
       const body: any = {
@@ -396,7 +393,7 @@ export default function AdminScreen() {
       
       if (productForm.originalPrice) body.originalPrice = productForm.originalPrice;
       if (productForm.discount) body.discount = productForm.discount;
-      if (imageBase64) body.image = imageBase64;
+      if (imageUrl) body.image = imageUrl;
       if (productForm.categoryId === "restaurants" && productForm.restaurant) {
         body.restaurant = productForm.restaurant;
       }
@@ -412,11 +409,10 @@ export default function AdminScreen() {
       const responseText = await response.text();
       
       if (!response.ok) {
-        Alert.alert("خطأ من الخادم", `Status: ${response.status}\n${responseText}`);
         throw new Error(`${response.status}: ${responseText}`);
       }
 
-      Alert.alert("نجاح!", `تم حفظ المنتج بنجاح\n${responseText.substring(0, 100)}`);
+      Alert.alert("تم", "تم حفظ المنتج بنجاح");
       
       queryClient.invalidateQueries({ queryKey: ["/api/admin/products"] });
       queryClient.invalidateQueries({ queryKey: ["/api/products"] });

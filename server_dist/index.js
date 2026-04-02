@@ -1209,6 +1209,22 @@ var storage = multer.diskStorage({
   }
 });
 var upload = multer({ storage });
+var webpStorage = multer.diskStorage({
+  destination: (_req, _file, cb) => {
+    cb(null, uploadsDir);
+  },
+  filename: (_req, _file, cb) => {
+    cb(null, `${randomUUID()}.webp`);
+  }
+});
+var uploadWebP = multer({
+  storage: webpStorage,
+  limits: { fileSize: 15 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    const allowed = ["image/webp", "image/jpeg", "image/png", "image/gif", "application/octet-stream"];
+    cb(null, allowed.includes(file.mimetype) || file.originalname.endsWith(".webp"));
+  }
+});
 var defaultVendors = [
   { id: "v1", name: "\u064A\u0644\u0627 \u0627\u064A\u062A", location: "\u0627\u0644\u0636\u0644\u0648\u0639\u064A\u0629 - \u0634\u0627\u0631\u0639 \u0627\u0644\u062A\u062C\u0627\u0631\u064A", whatsappNumber: "9647701234001", commissionPercent: 10, image: "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=400", rating: 4.8, deliveryTime: "25-35", isOpen: true, createdAt: (/* @__PURE__ */ new Date()).toISOString() },
   { id: "v2", name: "\u0645\u0637\u0639\u0645 \u0627\u0644\u0645\u0634\u0648\u064A\u0627\u062A", location: "\u0627\u0644\u0636\u0644\u0648\u0639\u064A\u0629 - \u0627\u0644\u0633\u0648\u0642 \u0627\u0644\u0645\u0631\u0643\u0632\u064A", whatsappNumber: "9647701234002", commissionPercent: 12, image: "https://images.unsplash.com/photo-1544025162-d76694265947?w=400", rating: 4.6, deliveryTime: "30-45", isOpen: true, createdAt: (/* @__PURE__ */ new Date()).toISOString() },
@@ -1462,6 +1478,18 @@ async function registerRoutes(app2) {
       } else {
         res.status(404).json({ error: "Category not found" });
       }
+    }
+  });
+  app2.post("/api/admin/upload-image", uploadWebP.single("image"), async (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ error: "\u0644\u0645 \u064A\u062A\u0645 \u0631\u0641\u0639 \u0623\u064A \u0635\u0648\u0631\u0629" });
+      }
+      const url = `/uploads/${req.file.filename}`;
+      res.json({ url, filename: req.file.filename, size: req.file.size });
+    } catch (error) {
+      console.error("Error uploading image:", error);
+      res.status(500).json({ error: "\u0641\u0634\u0644 \u0641\u064A \u0631\u0641\u0639 \u0627\u0644\u0635\u0648\u0631\u0629" });
     }
   });
   app2.get("/api/admin/categories", async (_req, res) => {
