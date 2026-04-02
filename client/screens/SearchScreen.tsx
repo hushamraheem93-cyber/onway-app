@@ -17,18 +17,13 @@ import { ThemedText } from "@/components/ThemedText";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
 import { useCart } from "@/context/CartContext";
 import { formatPrice } from "@/constants/currency";
-import { getApiUrl } from "@/lib/query-client";
+import { resolveImageUrl } from "@/utils/imageUtils";
 import { GradientBackground } from "@/components/GradientBackground";
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
-function getImageUrl(image: string): string {
-  if (!image) return "";
-  if (image.startsWith("data:image/") || image.startsWith("http")) return image;
-  return `${getApiUrl()}${image}`;
-}
 
 export default function SearchScreen() {
   const insets = useSafeAreaInsets();
@@ -70,7 +65,7 @@ export default function SearchScreen() {
   const renderProduct = ({ item }: { item: Product }) => (
     <View style={[styles.productRow, { backgroundColor: theme.backgroundDefault, borderBottomColor: theme.border }]}>
       <Image
-        source={{ uri: getImageUrl(item.image) }}
+        source={{ uri: resolveImageUrl(item.image) }}
         style={styles.productImage}
         contentFit="cover"
         cachePolicy="disk"

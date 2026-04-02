@@ -3,7 +3,7 @@ import { View, StyleSheet, FlatList, Pressable } from "react-native";
 import { Image } from "expo-image";
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
-import { getApiUrl } from "@/lib/query-client";
+import { resolveImageUrl } from "@/utils/imageUtils";
 
 import { ThemedText } from "@/components/ThemedText";
 import { useTheme } from "@/hooks/useTheme";
@@ -18,11 +18,6 @@ interface RelatedProductsProps {
   onViewAll?: () => void;
 }
 
-function getImageUrl(image: string): string {
-  if (!image) return "";
-  if (image.startsWith("data:image/") || image.startsWith("http")) return image;
-  return `${getApiUrl()}${image}`;
-}
 
 export function RelatedProducts({
   products,
@@ -40,7 +35,7 @@ export function RelatedProducts({
   const renderItem = ({ item }: { item: Product }) => (
     <Pressable style={[styles.itemCard, { backgroundColor: theme.backgroundSecondary, borderColor: theme.border }]}>
       <Image
-        source={{ uri: getImageUrl(item.image) }}
+        source={{ uri: resolveImageUrl(item.image) }}
         style={styles.itemImage}
         contentFit="cover"
         cachePolicy="disk"

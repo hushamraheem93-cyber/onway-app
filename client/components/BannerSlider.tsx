@@ -9,7 +9,7 @@ import { useTheme } from "@/hooks/useTheme";
 import { ThemedText } from "@/components/ThemedText";
 import { Spacing, AppColors, DesignSystem } from "@/constants/theme";
 import { Banner } from "@/constants/categories";
-import { getApiUrl } from "@/lib/query-client";
+import { resolveImageUrl } from "@/utils/imageUtils";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
@@ -77,12 +77,6 @@ export function BannerSlider({ banners, autoPlayInterval = 4000 }: BannerSliderP
     }
   };
 
-  const getImageUrl = (image: string) => {
-    if (!image) return "";
-    if (image.startsWith("data:image/")) return image;
-    if (image.startsWith("http")) return image;
-    return `${getApiUrl()}${image}?v=5`;
-  };
 
   const handleBannerPress = (banner: Banner) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -120,7 +114,7 @@ export function BannerSlider({ banners, autoPlayInterval = 4000 }: BannerSliderP
             onPress={() => handleBannerPress(banner)}
           >
             <Image
-              source={{ uri: getImageUrl(banner.image) }}
+              source={{ uri: resolveImageUrl(banner.image) }}
               style={styles.banner}
               contentFit="cover"
               cachePolicy="disk"

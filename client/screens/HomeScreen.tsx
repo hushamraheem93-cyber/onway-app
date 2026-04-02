@@ -34,7 +34,7 @@ import { useCart } from "@/context/CartContext";
 import { useFavorites } from "@/context/FavoritesContext";
 import { useAuth } from "@/context/AuthContext";
 import { formatPrice } from "@/constants/currency";
-import { getApiUrl } from "@/lib/query-client";
+import { resolveImageUrl } from "@/utils/imageUtils";
 import { FloatingCartBar } from "@/components/FloatingCartBar";
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
@@ -214,17 +214,11 @@ export default function HomeScreen() {
   const offerBanner = allBanners.find((b) => b.type === "offer");
   const sliderBanners = allBanners.filter((b) => b.type === "slider");
 
-  const getImageUrl = (image: string) => {
-    if (!image) return "";
-    if (image.startsWith("data:image/")) return image;
-    if (image.startsWith("http")) return image;
-    return `${getApiUrl()}${image}`;
-  };
 
   const get3DImage = (categoryId: string, fallbackImage: string) => {
     const path = CATEGORY_3D_IMAGES[categoryId];
-    if (path) return getImageUrl(path);
-    return getImageUrl(fallbackImage);
+    if (path) return resolveImageUrl(path);
+    return resolveImageUrl(fallbackImage);
   };
 
   const handleCategoryPress = (category: Category) => {
@@ -298,7 +292,7 @@ export default function HomeScreen() {
         ) : null}
         <View style={styles.productImageContainer}>
           <Image
-            source={{ uri: getImageUrl(product.image) }}
+            source={{ uri: resolveImageUrl(product.image) }}
             style={styles.productImage}
             contentFit="cover"
             cachePolicy="disk"
@@ -378,7 +372,7 @@ export default function HomeScreen() {
     >
       <View style={styles.restaurantImageWrapper}>
         <Image
-          source={{ uri: getImageUrl(vendor.image) }}
+          source={{ uri: resolveImageUrl(vendor.image) }}
           style={styles.restaurantImage}
           contentFit="cover"
           cachePolicy="disk"
@@ -699,7 +693,7 @@ export default function HomeScreen() {
             <View style={styles.modalHandle} />
             <View style={styles.modalImageContainer}>
               <Image
-                source={{ uri: getImageUrl(selectedProduct.image) }}
+                source={{ uri: resolveImageUrl(selectedProduct.image) }}
                 style={styles.modalImage}
                 contentFit="contain"
                 cachePolicy="disk"

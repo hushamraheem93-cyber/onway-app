@@ -15,7 +15,7 @@ import { Category } from "@/constants/categories";
 import { ThemedText } from "@/components/ThemedText";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
 import { GradientBackground } from "@/components/GradientBackground";
-import { getApiUrl } from "@/lib/query-client";
+import { resolveImageUrl } from "@/utils/imageUtils";
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
@@ -78,16 +78,9 @@ export default function CategoriesScreen() {
     }
   };
 
-  const getImageUrl = (image: string) => {
-    if (!image) return "";
-    if (image.startsWith("data:")) return image;
-    if (image.startsWith("http")) return image;
-    return `${getApiUrl()}${image}`;
-  };
-
   const get3DImage = (categoryId: string) => {
     const path = CATEGORY_3D_IMAGES[categoryId];
-    if (path) return getImageUrl(path);
+    if (path) return resolveImageUrl(path);
     return "";
   };
 
@@ -98,7 +91,7 @@ export default function CategoriesScreen() {
   const renderCategory = ({ item }: { item: Category }) => {
     const gradientColor = getGradientColor(item.id, item.color);
     const image3D = get3DImage(item.id);
-    const imageSource = image3D || getImageUrl(item.image);
+    const imageSource = image3D || resolveImageUrl(item.image);
 
     return (
       <Pressable

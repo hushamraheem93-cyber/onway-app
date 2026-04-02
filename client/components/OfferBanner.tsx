@@ -5,7 +5,7 @@ import { Image } from "expo-image";
 import { ThemedText } from "@/components/ThemedText";
 import { Spacing, BorderRadius, AppColors, DesignSystem } from "@/constants/theme";
 import { Banner } from "@/constants/categories";
-import { getApiUrl } from "@/lib/query-client";
+import { resolveImageUrl } from "@/utils/imageUtils";
 
 interface OfferBannerProps {
   banner: Banner;
@@ -18,17 +18,11 @@ const BANNER_HEIGHT = DesignSystem.bannerHeight;
 const BANNER_RADIUS = DesignSystem.bannerRadius;
 
 export function OfferBanner({ banner, onPress }: OfferBannerProps) {
-  const getImageUrl = (image: string) => {
-    if (!image) return "";
-    if (image.startsWith("data:image/")) return image;
-    if (image.startsWith("http")) return image;
-    return `${getApiUrl()}${image}`;
-  };
 
   return (
     <Pressable onPress={onPress} style={styles.container}>
       <Image
-        source={{ uri: getImageUrl(banner.image) }}
+        source={{ uri: resolveImageUrl(banner.image) }}
         style={styles.image}
         contentFit="cover"
         cachePolicy="disk"

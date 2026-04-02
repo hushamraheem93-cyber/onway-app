@@ -1,6 +1,7 @@
 import React from "react";
 import { View, StyleSheet, FlatList, Pressable } from "react-native";
 import { Image } from "expo-image";
+import { resolveImageUrl } from "@/utils/imageUtils";
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 
@@ -70,7 +71,7 @@ export function SmartSuggestions({ cartItems }: SmartSuggestionsProps) {
     return (
       <View style={[styles.itemCard, { backgroundColor: theme.backgroundDefault }, Shadows.sm]}>
         <Image
-          source={{ uri: item.image }}
+          source={{ uri: resolveImageUrl(item.image) }}
           style={styles.itemImage}
           contentFit="cover"
           cachePolicy="disk"

@@ -15,15 +15,9 @@ import { ThemedText } from "@/components/ThemedText";
 import { useCart } from "@/context/CartContext";
 import { AppColors, BorderRadius } from "@/constants/theme";
 import { formatPrice } from "@/constants/currency";
-import { getApiUrl } from "@/lib/query-client";
+import { resolveImageUrl } from "@/utils/imageUtils";
 
 const PANEL_MAX_HEIGHT = 320;
-
-function getImageUrl(image: string): string {
-  if (!image) return "";
-  if (image.startsWith("data:image/") || image.startsWith("http")) return image;
-  return `${getApiUrl()}${image}`;
-}
 
 interface FloatingCartBarProps {
   bottomOffset: number;
@@ -118,7 +112,7 @@ export function FloatingCartBar({ bottomOffset }: FloatingCartBarProps) {
                 </View>
               </View>
               <Image
-                source={{ uri: getImageUrl(cartItem.product.image) }}
+                source={{ uri: resolveImageUrl(cartItem.product.image) }}
                 style={styles.itemImg}
                 contentFit="cover"
                 cachePolicy="disk"

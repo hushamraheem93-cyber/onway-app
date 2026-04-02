@@ -22,7 +22,8 @@ import { useTheme } from "@/hooks/useTheme";
 import { ThemedText } from "@/components/ThemedText";
 import { Spacing, BorderRadius, AppColors } from "@/constants/theme";
 import { Banner, Category } from "@/constants/categories";
-import { getApiUrl, apiRequest } from "@/lib/query-client";
+import { apiRequest } from "@/lib/query-client";
+import { resolveImageUrl } from "@/utils/imageUtils";
 import { formatPrice } from "@/constants/currency";
 import { compressAndConvertToBase64, isBase64Image, ImageSize } from "@/lib/imageUtils";
 
@@ -589,12 +590,6 @@ export default function AdminScreen() {
     }
   };
 
-  const getImageUrl = (image: string) => {
-    if (!image) return "";
-    if (isBase64Image(image)) return image;
-    if (image.startsWith("http")) return image;
-    return `${getApiUrl()}${image}`;
-  };
 
   const renderBannersTab = () => (
     <View>
@@ -635,7 +630,7 @@ export default function AdminScreen() {
           onPress={() => pickImage((uri) => setBannerForm({ ...bannerForm, imageUri: uri, imageUrl: "" }))}
         >
           {bannerForm.imageUri || bannerForm.imageUrl ? (
-            <Image source={{ uri: bannerForm.imageUri || getImageUrl(bannerForm.imageUrl) }} style={styles.previewImage} contentFit="cover" />
+            <Image source={{ uri: bannerForm.imageUri || resolveImageUrl(bannerForm.imageUrl) }} style={styles.previewImage} contentFit="cover" />
           ) : (
             <View style={styles.imagePickerPlaceholder}>
               <Feather name="image" size={32} color={theme.textSecondary} />
@@ -663,7 +658,7 @@ export default function AdminScreen() {
       ) : (
         banners.map((banner) => (
           <View key={banner.id} style={[styles.listItem, { backgroundColor: theme.backgroundSecondary }]}>
-            <Image source={{ uri: getImageUrl(banner.image) }} style={styles.listItemImage} contentFit="cover" />
+            <Image source={{ uri: resolveImageUrl(banner.image) }} style={styles.listItemImage} contentFit="cover" />
             <View style={styles.listItemContent}>
               <ThemedText type="body" numberOfLines={1}>{banner.title || "بدون عنوان"}</ThemedText>
               <ThemedText type="small" style={{ color: theme.textSecondary }}>{banner.type === "offer" ? "عرض رئيسي" : "سلايدر"}</ThemedText>
@@ -700,7 +695,7 @@ export default function AdminScreen() {
           onPress={() => pickImage((uri) => setCategoryForm({ ...categoryForm, imageUri: uri, imageUrl: "" }))}
         >
           {categoryForm.imageUri || categoryForm.imageUrl ? (
-            <Image source={{ uri: categoryForm.imageUri || getImageUrl(categoryForm.imageUrl) }} style={styles.previewImage} contentFit="cover" />
+            <Image source={{ uri: categoryForm.imageUri || resolveImageUrl(categoryForm.imageUrl) }} style={styles.previewImage} contentFit="cover" />
           ) : (
             <View style={styles.imagePickerPlaceholder}>
               <Feather name="image" size={32} color={theme.textSecondary} />
@@ -728,7 +723,7 @@ export default function AdminScreen() {
       ) : (
         categories.map((category) => (
           <View key={category.id} style={[styles.listItem, { backgroundColor: theme.backgroundSecondary }]}>
-            <Image source={{ uri: getImageUrl(category.image) }} style={styles.listItemImage} contentFit="cover" />
+            <Image source={{ uri: resolveImageUrl(category.image) }} style={styles.listItemImage} contentFit="cover" />
             <View style={styles.listItemContent}>
               <ThemedText type="body" numberOfLines={1}>{category.name}</ThemedText>
             </View>
@@ -857,7 +852,7 @@ export default function AdminScreen() {
           onPress={() => pickImage((uri) => setProductForm({ ...productForm, imageUri: uri, imageUrl: "" }))}
         >
           {productForm.imageUri || productForm.imageUrl ? (
-            <Image source={{ uri: productForm.imageUri || getImageUrl(productForm.imageUrl) }} style={styles.previewImage} contentFit="cover" />
+            <Image source={{ uri: productForm.imageUri || resolveImageUrl(productForm.imageUrl) }} style={styles.previewImage} contentFit="cover" />
           ) : (
             <View style={styles.imagePickerPlaceholder}>
               <Feather name="image" size={32} color={theme.textSecondary} />
@@ -889,7 +884,7 @@ export default function AdminScreen() {
       ) : (
         products.map((product) => (
           <View key={product.id} style={[styles.listItem, { backgroundColor: theme.backgroundSecondary }]}>
-            <Image source={{ uri: getImageUrl(product.image) }} style={styles.listItemImage} contentFit="cover" />
+            <Image source={{ uri: resolveImageUrl(product.image) }} style={styles.listItemImage} contentFit="cover" />
             <View style={styles.listItemContent}>
               <ThemedText type="body" numberOfLines={1}>{product.name}</ThemedText>
               <View style={styles.productPriceRow}>

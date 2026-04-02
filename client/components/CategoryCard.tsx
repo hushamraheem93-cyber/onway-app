@@ -12,7 +12,7 @@ import { ThemedText } from "@/components/ThemedText";
 import { useTheme } from "@/hooks/useTheme";
 import { Spacing, BorderRadius, AppColors, DesignSystem, Shadows } from "@/constants/theme";
 import { Category } from "@/constants/categories";
-import { getApiUrl } from "@/lib/query-client";
+import { resolveImageUrl } from "@/utils/imageUtils";
 
 interface CategoryCardProps {
   category: Category;
@@ -45,12 +45,6 @@ export function CategoryCard({ category, onPress, compact = false, sliderMode = 
     onPress();
   };
 
-  const getImageUrl = (image: string) => {
-    if (!image) return "";
-    if (image.startsWith("data:image/")) return image;
-    if (image.startsWith("http")) return image;
-    return `${getApiUrl()}${image}`;
-  };
 
   const cardWidth = sliderMode ? "100%" : compact ? undefined : DesignSystem.categoryCard.width;
   const cardHeight = sliderMode ? 110 : compact ? undefined : DesignSystem.categoryCard.height;
@@ -79,7 +73,7 @@ export function CategoryCard({ category, onPress, compact = false, sliderMode = 
           </View>
         ) : null}
         <Image
-          source={{ uri: getImageUrl(category.image) }}
+          source={{ uri: resolveImageUrl(category.image) }}
           style={styles.image}
           contentFit="contain"
           cachePolicy="disk"

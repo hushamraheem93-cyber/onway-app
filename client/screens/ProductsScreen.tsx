@@ -17,7 +17,7 @@ import { ProductCard } from "@/components/ProductCard";
 import { EmptyState } from "@/components/EmptyState";
 import { ThemedText } from "@/components/ThemedText";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
-import { getApiUrl } from "@/lib/query-client";
+import { resolveImageUrl } from "@/utils/imageUtils";
 import { FloatingCartBar } from "@/components/FloatingCartBar";
 import { GradientBackground } from "@/components/GradientBackground";
 import { useCart } from "@/context/CartContext";
@@ -37,11 +37,6 @@ interface Vendor {
   isOpen: boolean;
 }
 
-function getImageUrl(image: string): string {
-  if (!image) return "";
-  if (image.startsWith("data:image/") || image.startsWith("http")) return image;
-  return `${getApiUrl()}${image}`;
-}
 
 export default function ProductsScreen() {
   const insets = useSafeAreaInsets();
@@ -182,7 +177,7 @@ function VendorCard({ vendor, theme, onPress }: { vendor: Vendor; theme: any; on
       <View style={styles.vendorImageContainer}>
         {vendor.image ? (
           <Image
-            source={{ uri: getImageUrl(vendor.image) }}
+            source={{ uri: resolveImageUrl(vendor.image) }}
             style={styles.vendorImage}
             contentFit="cover"
             cachePolicy="disk"

@@ -22,7 +22,7 @@ import { GradientBackground } from "@/components/GradientBackground";
 import { useTheme } from "@/hooks/useTheme";
 import { useAuth } from "@/context/AuthContext";
 import { AppColors, Spacing, BorderRadius } from "@/constants/theme";
-import { getApiUrl } from "@/lib/query-client";
+import { resolveImageUrl } from "@/utils/imageUtils";
 
 interface ProductData {
   id: string;
@@ -75,7 +75,7 @@ function MessageBubble({ msg }: { msg: SupportMessage }) {
         {isImage && msg.imageUrl ? (
           <View>
             <Image
-              source={{ uri: msg.imageUrl.startsWith("http") ? msg.imageUrl : `${getApiUrl()}${msg.imageUrl}` }}
+              source={{ uri: resolveImageUrl(msg.imageUrl) }}
               style={styles.messageImage}
               contentFit="cover"
             />
@@ -86,7 +86,7 @@ function MessageBubble({ msg }: { msg: SupportMessage }) {
         ) : isProduct && msg.productData ? (
           <View style={[styles.productCard, { backgroundColor: isUser ? AppColors.primary + "15" : theme.backgroundDefault, borderColor: isUser ? AppColors.primary + "40" : theme.border }]}>
             <Image
-              source={{ uri: msg.productData.image }}
+              source={{ uri: resolveImageUrl(msg.productData.image) }}
               style={styles.productImage}
               contentFit="cover"
             />
@@ -188,7 +188,7 @@ function ProductPickerModal({
                 style={[styles.productRow, { backgroundColor: theme.backgroundDefault, borderColor: theme.border }]}
                 onPress={() => { onSelect(p); onClose(); }}
               >
-                <Image source={{ uri: p.image }} style={styles.productRowImage} contentFit="cover" />
+                <Image source={{ uri: resolveImageUrl(p.image) }} style={styles.productRowImage} contentFit="cover" />
                 <View style={{ flex: 1 }}>
                   <ThemedText type="body" style={{ fontWeight: "700" }}>{p.name}</ThemedText>
                   <ThemedText type="small" style={{ color: AppColors.primary }}>{formatPrice(p.price)}</ThemedText>
