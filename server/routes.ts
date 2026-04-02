@@ -324,6 +324,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
     if (onlineDrivers.length > 0) {
       console.log(`Restored ${onlineDrivers.length} online driver(s) from Firestore`);
+      // Re-assign any waiting confirmed orders to restored drivers
+      try {
+        const db = getFirestore();
+        if (db) {
+          const allOrders = await getOrders();
+          const confirmedOrders = allOrders
+            .filter(o => o.status === "confirmed")
+            .sort((a, b) => {
+              const aTime = a.createdAt?.toDate?.() ? a.createdAt.toDate().getTime() : 0;
+              const bTime = b.createdAt?.toDate?.() ? b.createdAt.toDate().getTime() : 0;
+              return aTime - bTime;
+            });
+          for (const order of confirmedOrders) {
+            const availableDriver = driverQueue.find(d => !d.currentOrderId);
+            if (!availableDriver) break;
+            availableDriver.currentOrderId = order.id;
+            console.log(`[RESTART] Restored assignment: order ${order.id} → driver ${availableDriver.phoneNumber}`);
+          }
+        }
+      } catch (e2) {
+        console.error("Failed to restore order assignments:", e2);
+      }
     }
   } catch (e) {
     console.error("Failed to restore driver queue:", e);
@@ -1626,6 +1648,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         updateDriverOnlineStatus(phoneNumber, true).catch(() => {});
         // Log online event
         saveDriverActivity({ phoneNumber, type: "online" }).catch(() => {});
+        // Assign any waiting confirmed order to this driver
+        assignWaitingOrderToDriver(phoneNumber).catch(() => {});
         const pos = driverQueue.filter(d => !d.currentOrderId).findIndex(d => d.phoneNumber === phoneNumber) + 1;
         res.json({ isOnline: true, queuePosition: pos > 0 ? pos : driverQueue.length });
       } else {
@@ -1690,8 +1714,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       // Log reject event
       saveDriverActivity({ phoneNumber, type: "rejected", orderId }).catch(() => {});
-      // Try to offer to next available driver
+      // Try to offer rejected order to next available driver
       assignOrderToNextDriver(orderId);
+      // Also check if there are other waiting confirmed orders for this driver
+      assignWaitingOrderToDriver(phoneNumber).catch(() => {});
       res.json({ success: true });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
@@ -1785,7 +1811,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       driverAssignments.delete(orderId);
       const qd = driverQueue.find(d => d.phoneNumber === phoneNumber);
-      if (qd) qd.currentOrderId = undefined;
+      if (qd) {
+        qd.currentOrderId = undefined;
+        // Assign next waiting confirmed order if driver is still in queue (wallet OK)
+        assignWaitingOrderToDriver(phoneNumber).catch(() => {});
+      }
 
       res.json({ success: true });
     } catch (error: any) {
@@ -1943,6 +1973,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
     if (availableDriver) {
       availableDriver.currentOrderId = orderId;
       console.log(`[FIFO] Order ${orderId} assigned to driver ${availableDriver.phoneNumber}`);
+    }
+  }
+
+  // Assign first unassigned confirmed order to a specific driver who just became available
+  async function assignWaitingOrderToDriver(phoneNumber: string) {
+    try {
+      const db = getFirestore();
+      if (!db) return;
+      const allOrders = await getOrders();
+      // Find confirmed orders not currently assigned to any driver in memory
+      const assignedOrderIds = new Set(driverQueue.filter(d => d.currentOrderId).map(d => d.currentOrderId!));
+      const waitingOrder = allOrders
+        .filter(o => o.status === "confirmed" && !assignedOrderIds.has(o.id))
+        .sort((a, b) => {
+          const aTime = a.createdAt?.toDate?.() ? a.createdAt.toDate().getTime() : 0;
+          const bTime = b.createdAt?.toDate?.() ? b.createdAt.toDate().getTime() : 0;
+          return aTime - bTime;
+        })[0];
+      if (waitingOrder) {
+        const qd = driverQueue.find(d => d.phoneNumber === phoneNumber && !d.currentOrderId);
+        if (qd) {
+          qd.currentOrderId = waitingOrder.id;
+          console.log(`[FIFO] Waiting order ${waitingOrder.id} assigned to driver ${phoneNumber} on availability`);
+        }
+      }
+    } catch (e) {
+      console.error("assignWaitingOrderToDriver error:", e);
     }
   }
 

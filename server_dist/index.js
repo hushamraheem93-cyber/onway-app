@@ -1378,6 +1378,25 @@ async function registerRoutes(app2) {
     }
     if (onlineDrivers.length > 0) {
       console.log(`Restored ${onlineDrivers.length} online driver(s) from Firestore`);
+      try {
+        const db2 = getFirestore();
+        if (db2) {
+          const allOrders = await getOrders();
+          const confirmedOrders = allOrders.filter((o) => o.status === "confirmed").sort((a, b) => {
+            const aTime = a.createdAt?.toDate?.() ? a.createdAt.toDate().getTime() : 0;
+            const bTime = b.createdAt?.toDate?.() ? b.createdAt.toDate().getTime() : 0;
+            return aTime - bTime;
+          });
+          for (const order of confirmedOrders) {
+            const availableDriver = driverQueue.find((d) => !d.currentOrderId);
+            if (!availableDriver) break;
+            availableDriver.currentOrderId = order.id;
+            console.log(`[RESTART] Restored assignment: order ${order.id} \u2192 driver ${availableDriver.phoneNumber}`);
+          }
+        }
+      } catch (e2) {
+        console.error("Failed to restore order assignments:", e2);
+      }
     }
   } catch (e) {
     console.error("Failed to restore driver queue:", e);
@@ -2540,6 +2559,8 @@ ${itemsList}
         });
         saveDriverActivity({ phoneNumber, type: "online" }).catch(() => {
         });
+        assignWaitingOrderToDriver(phoneNumber).catch(() => {
+        });
         const pos = driverQueue.filter((d) => !d.currentOrderId).findIndex((d) => d.phoneNumber === phoneNumber) + 1;
         res.json({ isOnline: true, queuePosition: pos > 0 ? pos : driverQueue.length });
       } else {
@@ -2597,6 +2618,8 @@ ${itemsList}
       saveDriverActivity({ phoneNumber, type: "rejected", orderId }).catch(() => {
       });
       assignOrderToNextDriver(orderId);
+      assignWaitingOrderToDriver(phoneNumber).catch(() => {
+      });
       res.json({ success: true });
     } catch (error) {
       res.status(500).json({ error: error.message });
@@ -2675,7 +2698,11 @@ ${itemsList}
       }
       driverAssignments.delete(orderId);
       const qd = driverQueue.find((d) => d.phoneNumber === phoneNumber);
-      if (qd) qd.currentOrderId = void 0;
+      if (qd) {
+        qd.currentOrderId = void 0;
+        assignWaitingOrderToDriver(phoneNumber).catch(() => {
+        });
+      }
       res.json({ success: true });
     } catch (error) {
       res.status(500).json({ error: error.message });
@@ -2803,6 +2830,28 @@ ${itemsList}
     if (availableDriver) {
       availableDriver.currentOrderId = orderId;
       console.log(`[FIFO] Order ${orderId} assigned to driver ${availableDriver.phoneNumber}`);
+    }
+  }
+  async function assignWaitingOrderToDriver(phoneNumber) {
+    try {
+      const db2 = getFirestore();
+      if (!db2) return;
+      const allOrders = await getOrders();
+      const assignedOrderIds = new Set(driverQueue.filter((d) => d.currentOrderId).map((d) => d.currentOrderId));
+      const waitingOrder = allOrders.filter((o) => o.status === "confirmed" && !assignedOrderIds.has(o.id)).sort((a, b) => {
+        const aTime = a.createdAt?.toDate?.() ? a.createdAt.toDate().getTime() : 0;
+        const bTime = b.createdAt?.toDate?.() ? b.createdAt.toDate().getTime() : 0;
+        return aTime - bTime;
+      })[0];
+      if (waitingOrder) {
+        const qd = driverQueue.find((d) => d.phoneNumber === phoneNumber && !d.currentOrderId);
+        if (qd) {
+          qd.currentOrderId = waitingOrder.id;
+          console.log(`[FIFO] Waiting order ${waitingOrder.id} assigned to driver ${phoneNumber} on availability`);
+        }
+      }
+    } catch (e) {
+      console.error("assignWaitingOrderToDriver error:", e);
     }
   }
   app2.post("/api/driver/assign-pending-orders", async (_req, res) => {
