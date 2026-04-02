@@ -33,7 +33,8 @@ import {
   getVendors as getFirestoreVendors, createVendor as createFirestoreVendor,
   updateVendor as updateFirestoreVendor, deleteVendor as deleteFirestoreVendor,
   initializeDefaultVendors,
-  updateDriverOnlineStatus, getOnlineDrivers
+  updateDriverOnlineStatus, getOnlineDrivers,
+  getSupportChat, sendSupportMessage, getAllSupportChats, markSupportChatRead
 } from "./firebase";
 import { sendPushNotification, sendBroadcastNotification } from "./pushNotifications";
 
@@ -2555,6 +2556,69 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       console.error("Geocode error:", error.message);
       res.json({ address: `${lat.toFixed(5)}, ${lng.toFixed(5)}` });
+    }
+  });
+
+  // ─── Support Chat ─────────────────────────────────────────────────────────
+
+  // User: get own messages
+  app.get("/api/support/messages", async (req: Request, res: Response) => {
+    const phoneNumber = req.query.phoneNumber as string;
+    if (!phoneNumber) return res.status(400).json({ error: "phoneNumber required" });
+    try {
+      const chat = await getSupportChat(phoneNumber);
+      if (!chat) return res.json({ messages: [], unreadByUser: 0 });
+      await markSupportChatRead(phoneNumber, "user");
+      return res.json({ messages: chat.messages || [], unreadByUser: 0 });
+    } catch (e) {
+      return res.status(500).json({ error: "Failed to get messages" });
+    }
+  });
+
+  // User: send message
+  app.post("/api/support/messages", async (req: Request, res: Response) => {
+    const { phoneNumber, text, userName } = req.body;
+    if (!phoneNumber || !text) return res.status(400).json({ error: "phoneNumber and text required" });
+    try {
+      const chat = await sendSupportMessage(phoneNumber, text.trim(), "user", userName || "");
+      if (!chat) return res.status(500).json({ error: "Failed to send message" });
+      return res.json({ success: true, messages: chat.messages });
+    } catch (e) {
+      return res.status(500).json({ error: "Failed to send message" });
+    }
+  });
+
+  // Admin: get all chats
+  app.get("/api/admin/support/chats", async (_req: Request, res: Response) => {
+    try {
+      const chats = await getAllSupportChats();
+      return res.json(chats);
+    } catch (e) {
+      return res.status(500).json({ error: "Failed to get chats" });
+    }
+  });
+
+  // Admin: reply to user
+  app.post("/api/admin/support/reply", async (req: Request, res: Response) => {
+    const { phoneNumber, text } = req.body;
+    if (!phoneNumber || !text) return res.status(400).json({ error: "phoneNumber and text required" });
+    try {
+      const chat = await sendSupportMessage(phoneNumber, text.trim(), "admin");
+      if (!chat) return res.status(500).json({ error: "Failed to send reply" });
+      return res.json({ success: true });
+    } catch (e) {
+      return res.status(500).json({ error: "Failed to send reply" });
+    }
+  });
+
+  // Admin: mark chat as read
+  app.put("/api/admin/support/read/:phoneNumber", async (req: Request, res: Response) => {
+    const { phoneNumber } = req.params;
+    try {
+      await markSupportChatRead(phoneNumber, "admin");
+      return res.json({ success: true });
+    } catch (e) {
+      return res.status(500).json({ error: "Failed to mark as read" });
     }
   });
 

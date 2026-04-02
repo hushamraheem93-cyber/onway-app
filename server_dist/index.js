@@ -994,6 +994,90 @@ async function initializeDefaultVendors(defaults) {
     console.error("Error initializing vendors:", e);
   }
 }
+function sanitizePhone(phone) {
+  return phone.replace(/[^a-zA-Z0-9]/g, "_");
+}
+async function getSupportChat(phoneNumber) {
+  const db2 = getFirestore();
+  if (!db2) return null;
+  try {
+    const docId = sanitizePhone(phoneNumber);
+    const snap = await db2.collection("supportChats").doc(docId).get();
+    if (!snap.exists) return null;
+    return snap.data();
+  } catch (e) {
+    console.error("getSupportChat error:", e);
+    return null;
+  }
+}
+async function sendSupportMessage(phoneNumber, text, sender, userName = "") {
+  const db2 = getFirestore();
+  if (!db2) return null;
+  try {
+    const docId = sanitizePhone(phoneNumber);
+    const ref = db2.collection("supportChats").doc(docId);
+    const snap = await ref.get();
+    const now = Date.now();
+    const newMsg = {
+      id: `msg_${now}_${Math.random().toString(36).slice(2, 7)}`,
+      text,
+      sender,
+      timestamp: now
+    };
+    if (!snap.exists) {
+      const chat = {
+        phoneNumber,
+        userName,
+        lastMessage: text,
+        lastMessageAt: now,
+        unreadByAdmin: sender === "user" ? 1 : 0,
+        unreadByUser: sender === "admin" ? 1 : 0,
+        messages: [newMsg]
+      };
+      await ref.set(chat);
+      return chat;
+    } else {
+      const existing = snap.data();
+      const updatedMessages = [...existing.messages || [], newMsg];
+      const updates = {
+        lastMessage: text,
+        lastMessageAt: now,
+        messages: updatedMessages,
+        unreadByAdmin: sender === "user" ? (existing.unreadByAdmin || 0) + 1 : existing.unreadByAdmin,
+        unreadByUser: sender === "admin" ? (existing.unreadByUser || 0) + 1 : existing.unreadByUser
+      };
+      if (userName && !existing.userName) updates.userName = userName;
+      await ref.update(updates);
+      return { ...existing, ...updates };
+    }
+  } catch (e) {
+    console.error("sendSupportMessage error:", e);
+    return null;
+  }
+}
+async function getAllSupportChats() {
+  const db2 = getFirestore();
+  if (!db2) return [];
+  try {
+    const snap = await db2.collection("supportChats").get();
+    const chats = snap.docs.map((d) => d.data());
+    return chats.sort((a, b) => (b.lastMessageAt || 0) - (a.lastMessageAt || 0));
+  } catch (e) {
+    console.error("getAllSupportChats error:", e);
+    return [];
+  }
+}
+async function markSupportChatRead(phoneNumber, by) {
+  const db2 = getFirestore();
+  if (!db2) return;
+  try {
+    const docId = sanitizePhone(phoneNumber);
+    const field = by === "user" ? "unreadByUser" : "unreadByAdmin";
+    await db2.collection("supportChats").doc(docId).update({ [field]: 0 });
+  } catch (e) {
+    console.error("markSupportChatRead error:", e);
+  }
+}
 
 // server/pushNotifications.ts
 var ORDER_STATUS_MESSAGES = {
@@ -3218,6 +3302,57 @@ ${itemsList}
     } catch (error) {
       console.error("Geocode error:", error.message);
       res.json({ address: `${lat.toFixed(5)}, ${lng.toFixed(5)}` });
+    }
+  });
+  app2.get("/api/support/messages", async (req, res) => {
+    const phoneNumber = req.query.phoneNumber;
+    if (!phoneNumber) return res.status(400).json({ error: "phoneNumber required" });
+    try {
+      const chat = await getSupportChat(phoneNumber);
+      if (!chat) return res.json({ messages: [], unreadByUser: 0 });
+      await markSupportChatRead(phoneNumber, "user");
+      return res.json({ messages: chat.messages || [], unreadByUser: 0 });
+    } catch (e) {
+      return res.status(500).json({ error: "Failed to get messages" });
+    }
+  });
+  app2.post("/api/support/messages", async (req, res) => {
+    const { phoneNumber, text, userName } = req.body;
+    if (!phoneNumber || !text) return res.status(400).json({ error: "phoneNumber and text required" });
+    try {
+      const chat = await sendSupportMessage(phoneNumber, text.trim(), "user", userName || "");
+      if (!chat) return res.status(500).json({ error: "Failed to send message" });
+      return res.json({ success: true, messages: chat.messages });
+    } catch (e) {
+      return res.status(500).json({ error: "Failed to send message" });
+    }
+  });
+  app2.get("/api/admin/support/chats", async (_req, res) => {
+    try {
+      const chats = await getAllSupportChats();
+      return res.json(chats);
+    } catch (e) {
+      return res.status(500).json({ error: "Failed to get chats" });
+    }
+  });
+  app2.post("/api/admin/support/reply", async (req, res) => {
+    const { phoneNumber, text } = req.body;
+    if (!phoneNumber || !text) return res.status(400).json({ error: "phoneNumber and text required" });
+    try {
+      const chat = await sendSupportMessage(phoneNumber, text.trim(), "admin");
+      if (!chat) return res.status(500).json({ error: "Failed to send reply" });
+      return res.json({ success: true });
+    } catch (e) {
+      return res.status(500).json({ error: "Failed to send reply" });
+    }
+  });
+  app2.put("/api/admin/support/read/:phoneNumber", async (req, res) => {
+    const { phoneNumber } = req.params;
+    try {
+      await markSupportChatRead(phoneNumber, "admin");
+      return res.json({ success: true });
+    } catch (e) {
+      return res.status(500).json({ error: "Failed to mark as read" });
     }
   });
   const httpServer = createServer(app2);

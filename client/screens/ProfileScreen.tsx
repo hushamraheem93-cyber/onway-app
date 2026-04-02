@@ -191,6 +191,12 @@ export default function ProfileScreen() {
       </ThemedText>
 
       <SettingsItem
+        icon="message-circle"
+        title="تواصل مع الدعم"
+        subtitle="تحدث مع فريق الدعم مباشرة"
+        onPress={() => (navigation as any).navigate("SupportChat")}
+      />
+      <SettingsItem
         icon="help-circle"
         title="الأسئلة الشائعة"
         onPress={() => navigation.navigate("FAQ")}

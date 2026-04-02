@@ -1434,6 +1434,11 @@
 
       <div class="nav-section">
         <div class="nav-section-title">التقارير والإعدادات</div>
+        <div class="nav-item" id="nav-supportChat" onclick="showSection('supportChat', this)">
+          <i class="fas fa-headset"></i>
+          <span>دعم المستخدمين</span>
+          <span class="badge" id="support-badge" style="display:none;">0</span>
+        </div>
         <div class="nav-item" onclick="showSection('notifications', this)">
           <i data-lucide="bell"></i>
           <span>إرسال الإشعارات</span>
@@ -3241,6 +3246,16 @@
       if (section === 'settings') loadSettingsStats();
       if (section === 'notifications') loadNotificationsStats();
       if (section === 'appUsers') loadAppUsers();
+      if (section === 'supportChat') {
+        loadSupportChats();
+        if (supportPollInterval) clearInterval(supportPollInterval);
+        supportPollInterval = setInterval(loadSupportChats, 6000);
+      } else {
+        if (typeof supportPollInterval !== 'undefined' && supportPollInterval) {
+          clearInterval(supportPollInterval);
+          supportPollInterval = null;
+        }
+      }
       if (section === 'bestSellers' || section === 'featured' || section === 'discounts') {
         if (products.length === 0) {
           loadProducts().then(() => loadPromotionalSections());
@@ -7553,6 +7568,207 @@
         </div>
       </div>
     </div>
+  <!-- ══════════════════════ SUPPORT CHAT SECTION ══════════════════════ -->
+  <div id="supportChat-section" class="section" style="display:none;">
+    <header class="header">
+      <div class="header-title">
+        <i class="fas fa-headset" style="color:var(--primary);font-size:1.3rem;"></i>
+        <div>
+          <h1>دعم المستخدمين</h1>
+          <p>تواصل مع المستخدمين ورد على استفساراتهم</p>
+        </div>
+      </div>
+    </header>
+
+    <div style="display:flex;gap:16px;height:calc(100vh - 130px);min-height:500px;">
+      <!-- Chats list -->
+      <div style="width:320px;flex-shrink:0;background:#fff;border-radius:16px;border:1px solid #E5E7EB;display:flex;flex-direction:column;overflow:hidden;">
+        <div style="padding:16px;border-bottom:1px solid #F3F4F6;">
+          <input id="support-search" type="text" placeholder="بحث..." oninput="filterSupportChats()"
+            style="width:100%;border:1px solid #E5E7EB;border-radius:8px;padding:8px 12px;font-family:'Cairo',sans-serif;font-size:0.9rem;outline:none;box-sizing:border-box;" />
+        </div>
+        <div id="support-chats-list" style="flex:1;overflow-y:auto;padding:8px;">
+          <div style="text-align:center;padding:40px 20px;color:#9CA3AF;">
+            <i class="fas fa-spinner fa-spin" style="font-size:2rem;"></i>
+            <p style="margin-top:12px;">جاري التحميل...</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Chat window -->
+      <div style="flex:1;background:#fff;border-radius:16px;border:1px solid #E5E7EB;display:flex;flex-direction:column;overflow:hidden;">
+        <div id="support-chat-header" style="padding:16px 20px;border-bottom:1px solid #F3F4F6;display:flex;align-items:center;gap:12px;">
+          <div style="width:40px;height:40px;border-radius:20px;background:var(--primary);display:flex;align-items:center;justify-content:center;color:#fff;">
+            <i class="fas fa-user" style="font-size:1rem;"></i>
+          </div>
+          <div>
+            <div id="support-chat-user-name" style="font-weight:700;font-family:'Cairo',sans-serif;color:#111827;">اختر محادثة</div>
+            <div id="support-chat-user-phone" style="font-size:0.8rem;color:#6B7280;font-family:'Cairo',sans-serif;"></div>
+          </div>
+        </div>
+
+        <div id="support-messages-area" style="flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:8px;background:#F9FAFB;">
+          <div style="text-align:center;color:#9CA3AF;margin:auto;">
+            <i class="fas fa-comments" style="font-size:3rem;display:block;margin-bottom:12px;"></i>
+            اختر محادثة لعرض الرسائل
+          </div>
+        </div>
+
+        <div style="padding:12px 16px;border-top:1px solid #F3F4F6;display:flex;gap:8px;align-items:flex-end;">
+          <textarea id="support-reply-input" placeholder="اكتب ردك هنا..." rows="2"
+            style="flex:1;border:1px solid #E5E7EB;border-radius:10px;padding:10px 14px;font-family:'Cairo',sans-serif;font-size:0.9rem;resize:none;outline:none;max-height:100px;"
+            onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendSupportReply();}"></textarea>
+          <button onclick="sendSupportReply()"
+            style="background:var(--primary);color:#fff;border:none;border-radius:10px;padding:10px 20px;cursor:pointer;font-family:'Cairo',sans-serif;font-size:0.9rem;font-weight:600;white-space:nowrap;height:42px;">
+            إرسال
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   </div>
 </body>
+<script>
+// ─── Support Chat ──────────────────────────────────────────────────────────
+let supportChats = [];
+let activeSupportPhone = null;
+let supportPollInterval = null;
+
+async function loadSupportChats() {
+  try {
+    const res = await fetch('/api/admin/support/chats');
+    supportChats = await res.json();
+    renderSupportChatsList();
+    updateSupportBadge();
+    if (activeSupportPhone) loadSupportMessages(activeSupportPhone, true);
+  } catch(e) { console.error('Error loading support chats:', e); }
+}
+
+function updateSupportBadge() {
+  const total = supportChats.reduce((s, c) => s + (c.unreadByAdmin || 0), 0);
+  const badge = document.getElementById('support-badge');
+  if (badge) {
+    if (total > 0) { badge.style.display = ''; badge.textContent = total > 99 ? '99+' : total; }
+    else { badge.style.display = 'none'; }
+  }
+}
+
+function filterSupportChats() {
+  const q = document.getElementById('support-search').value.toLowerCase();
+  const filtered = supportChats.filter(c =>
+    (c.userName || '').toLowerCase().includes(q) ||
+    (c.phoneNumber || '').includes(q)
+  );
+  renderSupportChatsList(filtered);
+}
+
+function renderSupportChatsList(chats) {
+  const list = document.getElementById('support-chats-list');
+  const items = chats || supportChats;
+  if (!list) return;
+  if (!items.length) {
+    list.innerHTML = '<div style="text-align:center;padding:40px 20px;color:#9CA3AF;">لا توجد محادثات بعد</div>';
+    return;
+  }
+  list.innerHTML = items.map(c => {
+    const isActive = c.phoneNumber === activeSupportPhone;
+    const unread = c.unreadByAdmin || 0;
+    const time = c.lastMessageAt ? new Date(c.lastMessageAt).toLocaleString('ar-IQ', {hour:'2-digit',minute:'2-digit'}) : '';
+    return `<div onclick="openSupportChat('${c.phoneNumber}','${(c.userName||'').replace(/'/g,"\\'")}','${c.phoneNumber}')"
+      style="padding:12px;border-radius:10px;cursor:pointer;margin-bottom:4px;background:${isActive?'rgba(232,101,32,0.08)':'transparent'};border:${isActive?'1px solid rgba(232,101,32,0.2)':'1px solid transparent'};">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <div style="width:38px;height:38px;border-radius:19px;background:var(--primary);display:flex;align-items:center;justify-content:center;color:#fff;flex-shrink:0;">
+          ${(c.userName||'م').charAt(0)}
+        </div>
+        <div style="flex:1;min-width:0;">
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <span style="font-weight:700;font-family:'Cairo',sans-serif;font-size:0.9rem;color:#111827;">${c.userName||'مستخدم'}</span>
+            <span style="font-size:0.72rem;color:#9CA3AF;">${time}</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-top:2px;">
+            <span style="font-size:0.82rem;color:#6B7280;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:160px;">${c.lastMessage||''}</span>
+            ${unread > 0 ? `<span style="background:var(--primary);color:#fff;border-radius:10px;padding:2px 7px;font-size:0.72rem;font-family:'Cairo',sans-serif;">${unread}</span>` : ''}
+          </div>
+          <div style="font-size:0.75rem;color:#9CA3AF;margin-top:2px;">${c.phoneNumber}</div>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+async function openSupportChat(phone, name, phoneDisplay) {
+  activeSupportPhone = phone;
+  document.getElementById('support-chat-user-name').textContent = name || 'مستخدم';
+  document.getElementById('support-chat-user-phone').textContent = phoneDisplay;
+  renderSupportChatsList();
+  await loadSupportMessages(phone, false);
+  // mark as read
+  fetch(`/api/admin/support/read/${encodeURIComponent(phone)}`, { method: 'PUT' });
+  const chat = supportChats.find(c => c.phoneNumber === phone);
+  if (chat) chat.unreadByAdmin = 0;
+  updateSupportBadge();
+}
+
+async function loadSupportMessages(phone, silent) {
+  try {
+    const url = `/api/support/messages?phoneNumber=${encodeURIComponent(phone)}`;
+    const res = await fetch(url);
+    const data = await res.json();
+    if (phone !== activeSupportPhone) return;
+    renderSupportMessages(data.messages || []);
+  } catch(e) { if (!silent) console.error(e); }
+}
+
+function renderSupportMessages(messages) {
+  const area = document.getElementById('support-messages-area');
+  if (!area) return;
+  if (!messages.length) {
+    area.innerHTML = '<div style="text-align:center;color:#9CA3AF;margin:auto;"><i class="fas fa-comment-slash" style="font-size:2rem;display:block;margin-bottom:8px;"></i>لا توجد رسائل بعد</div>';
+    return;
+  }
+  area.innerHTML = messages.map(m => {
+    const isAdmin = m.sender === 'admin';
+    const time = new Date(m.timestamp).toLocaleString('ar-IQ', {hour:'2-digit',minute:'2-digit'});
+    return `<div style="display:flex;flex-direction:${isAdmin?'row-reverse':'row'};align-items:flex-end;gap:8px;">
+      <div style="width:28px;height:28px;border-radius:14px;background:${isAdmin?'#6B7280':'var(--primary)'};display:flex;align-items:center;justify-content:center;color:#fff;flex-shrink:0;">
+        <i class="fas fa-${isAdmin?'headset':'user'}" style="font-size:0.7rem;"></i>
+      </div>
+      <div style="max-width:65%;background:${isAdmin?'var(--primary)':'#fff'};color:${isAdmin?'#fff':'#111827'};border-radius:12px;padding:8px 14px;border:${isAdmin?'none':'1px solid #E5E7EB'};">
+        <div style="font-family:'Cairo',sans-serif;font-size:0.9rem;line-height:1.5;">${m.text}</div>
+        <div style="font-size:0.7rem;opacity:0.7;text-align:${isAdmin?'left':'right'};margin-top:4px;">${time}</div>
+      </div>
+    </div>`;
+  }).join('');
+  area.scrollTop = area.scrollHeight;
+}
+
+async function sendSupportReply() {
+  if (!activeSupportPhone) { alert('اختر محادثة أولاً'); return; }
+  const input = document.getElementById('support-reply-input');
+  const text = input.value.trim();
+  if (!text) return;
+  input.value = '';
+  try {
+    const res = await fetch('/api/admin/support/reply', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ phoneNumber: activeSupportPhone, text })
+    });
+    if (res.ok) {
+      await loadSupportChats();
+    }
+  } catch(e) { console.error(e); }
+}
+
+// Load badge on page load
+document.addEventListener('DOMContentLoaded', () => {
+  setTimeout(() => {
+    fetch('/api/admin/support/chats').then(r => r.json()).then(chats => {
+      supportChats = chats;
+      updateSupportBadge();
+    }).catch(() => {});
+  }, 2000);
+});
+</script>
 </html>

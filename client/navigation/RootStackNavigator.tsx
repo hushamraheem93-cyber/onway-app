@@ -19,6 +19,7 @@ import AdminScreen from "@/screens/AdminScreen";
 import MapPickerScreen from "@/screens/MapPickerScreen";
 import CourierPickupScreen from "@/screens/CourierPickupScreen";
 import InternationalShoppingScreen from "@/screens/InternationalShoppingScreen";
+import SupportChatScreen from "@/screens/SupportChatScreen";
 import { useScreenOptions } from "@/hooks/useScreenOptions";
 import { useAuth } from "@/context/AuthContext";
 import { AppColors } from "@/constants/theme";
@@ -44,6 +45,7 @@ export type RootStackParamList = {
   MapPicker: undefined;
   CourierPickup: undefined;
   InternationalShopping: undefined;
+  SupportChat: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -219,6 +221,13 @@ export default function RootStackNavigator() {
         component={InternationalShoppingScreen}
         options={{
           headerTitle: "التسوق الدولي",
+        }}
+      />
+      <Stack.Screen
+        name="SupportChat"
+        component={SupportChatScreen}
+        options={{
+          headerTitle: "الدعم والمساعدة",
         }}
       />
     </Stack.Navigator>

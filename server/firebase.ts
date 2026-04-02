@@ -1405,3 +1405,105 @@ export async function initializeDefaultVendors(defaults: any[]): Promise<void> {
     console.log("Default vendors initialized");
   } catch (e) { console.error("Error initializing vendors:", e); }
 }
+
+// ─── Support Chat ──────────────────────────────────────────────────────────
+
+function sanitizePhone(phone: string): string {
+  return phone.replace(/[^a-zA-Z0-9]/g, "_");
+}
+
+export interface SupportMessage {
+  id: string;
+  text: string;
+  sender: "user" | "admin";
+  timestamp: number;
+}
+
+export interface SupportChat {
+  phoneNumber: string;
+  userName: string;
+  lastMessage: string;
+  lastMessageAt: number;
+  unreadByAdmin: number;
+  unreadByUser: number;
+  messages: SupportMessage[];
+}
+
+export async function getSupportChat(phoneNumber: string): Promise<SupportChat | null> {
+  const db = getFirestore();
+  if (!db) return null;
+  try {
+    const docId = sanitizePhone(phoneNumber);
+    const snap = await db.collection("supportChats").doc(docId).get();
+    if (!snap.exists) return null;
+    return snap.data() as SupportChat;
+  } catch (e) { console.error("getSupportChat error:", e); return null; }
+}
+
+export async function sendSupportMessage(
+  phoneNumber: string,
+  text: string,
+  sender: "user" | "admin",
+  userName: string = ""
+): Promise<SupportChat | null> {
+  const db = getFirestore();
+  if (!db) return null;
+  try {
+    const docId = sanitizePhone(phoneNumber);
+    const ref = db.collection("supportChats").doc(docId);
+    const snap = await ref.get();
+    const now = Date.now();
+    const newMsg: SupportMessage = {
+      id: `msg_${now}_${Math.random().toString(36).slice(2, 7)}`,
+      text,
+      sender,
+      timestamp: now,
+    };
+    if (!snap.exists) {
+      const chat: SupportChat = {
+        phoneNumber,
+        userName,
+        lastMessage: text,
+        lastMessageAt: now,
+        unreadByAdmin: sender === "user" ? 1 : 0,
+        unreadByUser: sender === "admin" ? 1 : 0,
+        messages: [newMsg],
+      };
+      await ref.set(chat);
+      return chat;
+    } else {
+      const existing = snap.data() as SupportChat;
+      const updatedMessages = [...(existing.messages || []), newMsg];
+      const updates: Partial<SupportChat> = {
+        lastMessage: text,
+        lastMessageAt: now,
+        messages: updatedMessages,
+        unreadByAdmin: sender === "user" ? (existing.unreadByAdmin || 0) + 1 : existing.unreadByAdmin,
+        unreadByUser: sender === "admin" ? (existing.unreadByUser || 0) + 1 : existing.unreadByUser,
+      };
+      if (userName && !existing.userName) updates.userName = userName;
+      await ref.update(updates);
+      return { ...existing, ...updates } as SupportChat;
+    }
+  } catch (e) { console.error("sendSupportMessage error:", e); return null; }
+}
+
+export async function getAllSupportChats(): Promise<SupportChat[]> {
+  const db = getFirestore();
+  if (!db) return [];
+  try {
+    const snap = await db.collection("supportChats").get();
+    const chats = snap.docs.map(d => d.data() as SupportChat);
+    return chats.sort((a, b) => (b.lastMessageAt || 0) - (a.lastMessageAt || 0));
+  } catch (e) { console.error("getAllSupportChats error:", e); return []; }
+}
+
+export async function markSupportChatRead(phoneNumber: string, by: "user" | "admin"): Promise<void> {
+  const db = getFirestore();
+  if (!db) return;
+  try {
+    const docId = sanitizePhone(phoneNumber);
+    const field = by === "user" ? "unreadByUser" : "unreadByAdmin";
+    await db.collection("supportChats").doc(docId).update({ [field]: 0 });
+  } catch (e) { console.error("markSupportChatRead error:", e); }
+}
