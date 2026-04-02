@@ -2575,12 +2575,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Support image upload
+  app.post("/api/support/upload-image", upload.single("image"), async (req: Request, res: Response) => {
+    try {
+      if (!req.file) return res.status(400).json({ error: "No image uploaded" });
+      const imageUrl = `/uploads/${req.file.filename}`;
+      return res.json({ imageUrl });
+    } catch (e) {
+      return res.status(500).json({ error: "Failed to upload image" });
+    }
+  });
+
   // User: send message
   app.post("/api/support/messages", async (req: Request, res: Response) => {
-    const { phoneNumber, text, userName } = req.body;
-    if (!phoneNumber || !text) return res.status(400).json({ error: "phoneNumber and text required" });
+    const { phoneNumber, text, userName, userRegion, userGender, type, imageUrl, productData } = req.body;
+    if (!phoneNumber) return res.status(400).json({ error: "phoneNumber required" });
+    if (!text && !imageUrl && !productData) return res.status(400).json({ error: "message content required" });
     try {
-      const chat = await sendSupportMessage(phoneNumber, text.trim(), "user", userName || "");
+      const msgText = text?.trim() || (imageUrl ? "صورة" : productData?.name || "");
+      const chat = await sendSupportMessage(phoneNumber, msgText, "user", userName || "", {
+        type: type || "text",
+        imageUrl,
+        productData,
+        userRegion,
+        userGender,
+      });
       if (!chat) return res.status(500).json({ error: "Failed to send message" });
       return res.json({ success: true, messages: chat.messages });
     } catch (e) {

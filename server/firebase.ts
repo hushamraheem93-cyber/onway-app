@@ -1417,11 +1417,22 @@ export interface SupportMessage {
   text: string;
   sender: "user" | "admin";
   timestamp: number;
+  type?: "text" | "image" | "product";
+  imageUrl?: string;
+  productData?: {
+    id: string;
+    name: string;
+    price: number;
+    image: string;
+    categoryId?: string;
+  };
 }
 
 export interface SupportChat {
   phoneNumber: string;
   userName: string;
+  userRegion?: string;
+  userGender?: string;
   lastMessage: string;
   lastMessageAt: number;
   unreadByAdmin: number;
@@ -1444,7 +1455,14 @@ export async function sendSupportMessage(
   phoneNumber: string,
   text: string,
   sender: "user" | "admin",
-  userName: string = ""
+  userName: string = "",
+  extra?: {
+    type?: "text" | "image" | "product";
+    imageUrl?: string;
+    productData?: SupportMessage["productData"];
+    userRegion?: string;
+    userGender?: string;
+  }
 ): Promise<SupportChat | null> {
   const db = getFirestore();
   if (!db) return null;
@@ -1458,12 +1476,18 @@ export async function sendSupportMessage(
       text,
       sender,
       timestamp: now,
+      type: extra?.type || "text",
+      ...(extra?.imageUrl ? { imageUrl: extra.imageUrl } : {}),
+      ...(extra?.productData ? { productData: extra.productData } : {}),
     };
+    const displayText = extra?.type === "image" ? "صورة" : extra?.type === "product" ? `منتج: ${extra?.productData?.name || text}` : text;
     if (!snap.exists) {
       const chat: SupportChat = {
         phoneNumber,
         userName,
-        lastMessage: text,
+        ...(extra?.userRegion ? { userRegion: extra.userRegion } : {}),
+        ...(extra?.userGender ? { userGender: extra.userGender } : {}),
+        lastMessage: displayText,
         lastMessageAt: now,
         unreadByAdmin: sender === "user" ? 1 : 0,
         unreadByUser: sender === "admin" ? 1 : 0,
@@ -1475,13 +1499,15 @@ export async function sendSupportMessage(
       const existing = snap.data() as SupportChat;
       const updatedMessages = [...(existing.messages || []), newMsg];
       const updates: Partial<SupportChat> = {
-        lastMessage: text,
+        lastMessage: displayText,
         lastMessageAt: now,
         messages: updatedMessages,
         unreadByAdmin: sender === "user" ? (existing.unreadByAdmin || 0) + 1 : existing.unreadByAdmin,
         unreadByUser: sender === "admin" ? (existing.unreadByUser || 0) + 1 : existing.unreadByUser,
       };
       if (userName && !existing.userName) updates.userName = userName;
+      if (extra?.userRegion && !existing.userRegion) updates.userRegion = extra.userRegion;
+      if (extra?.userGender && !existing.userGender) updates.userGender = extra.userGender;
       await ref.update(updates);
       return { ...existing, ...updates } as SupportChat;
     }

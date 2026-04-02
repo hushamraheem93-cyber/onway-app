@@ -1010,7 +1010,7 @@ async function getSupportChat(phoneNumber) {
     return null;
   }
 }
-async function sendSupportMessage(phoneNumber, text, sender, userName = "") {
+async function sendSupportMessage(phoneNumber, text, sender, userName = "", extra) {
   const db2 = getFirestore();
   if (!db2) return null;
   try {
@@ -1022,13 +1022,19 @@ async function sendSupportMessage(phoneNumber, text, sender, userName = "") {
       id: `msg_${now}_${Math.random().toString(36).slice(2, 7)}`,
       text,
       sender,
-      timestamp: now
+      timestamp: now,
+      type: extra?.type || "text",
+      ...extra?.imageUrl ? { imageUrl: extra.imageUrl } : {},
+      ...extra?.productData ? { productData: extra.productData } : {}
     };
+    const displayText = extra?.type === "image" ? "\u0635\u0648\u0631\u0629" : extra?.type === "product" ? `\u0645\u0646\u062A\u062C: ${extra?.productData?.name || text}` : text;
     if (!snap.exists) {
       const chat = {
         phoneNumber,
         userName,
-        lastMessage: text,
+        ...extra?.userRegion ? { userRegion: extra.userRegion } : {},
+        ...extra?.userGender ? { userGender: extra.userGender } : {},
+        lastMessage: displayText,
         lastMessageAt: now,
         unreadByAdmin: sender === "user" ? 1 : 0,
         unreadByUser: sender === "admin" ? 1 : 0,
@@ -1040,13 +1046,15 @@ async function sendSupportMessage(phoneNumber, text, sender, userName = "") {
       const existing = snap.data();
       const updatedMessages = [...existing.messages || [], newMsg];
       const updates = {
-        lastMessage: text,
+        lastMessage: displayText,
         lastMessageAt: now,
         messages: updatedMessages,
         unreadByAdmin: sender === "user" ? (existing.unreadByAdmin || 0) + 1 : existing.unreadByAdmin,
         unreadByUser: sender === "admin" ? (existing.unreadByUser || 0) + 1 : existing.unreadByUser
       };
       if (userName && !existing.userName) updates.userName = userName;
+      if (extra?.userRegion && !existing.userRegion) updates.userRegion = extra.userRegion;
+      if (extra?.userGender && !existing.userGender) updates.userGender = extra.userGender;
       await ref.update(updates);
       return { ...existing, ...updates };
     }
@@ -3316,11 +3324,28 @@ ${itemsList}
       return res.status(500).json({ error: "Failed to get messages" });
     }
   });
-  app2.post("/api/support/messages", async (req, res) => {
-    const { phoneNumber, text, userName } = req.body;
-    if (!phoneNumber || !text) return res.status(400).json({ error: "phoneNumber and text required" });
+  app2.post("/api/support/upload-image", upload.single("image"), async (req, res) => {
     try {
-      const chat = await sendSupportMessage(phoneNumber, text.trim(), "user", userName || "");
+      if (!req.file) return res.status(400).json({ error: "No image uploaded" });
+      const imageUrl = `/uploads/${req.file.filename}`;
+      return res.json({ imageUrl });
+    } catch (e) {
+      return res.status(500).json({ error: "Failed to upload image" });
+    }
+  });
+  app2.post("/api/support/messages", async (req, res) => {
+    const { phoneNumber, text, userName, userRegion, userGender, type, imageUrl, productData } = req.body;
+    if (!phoneNumber) return res.status(400).json({ error: "phoneNumber required" });
+    if (!text && !imageUrl && !productData) return res.status(400).json({ error: "message content required" });
+    try {
+      const msgText = text?.trim() || (imageUrl ? "\u0635\u0648\u0631\u0629" : productData?.name || "");
+      const chat = await sendSupportMessage(phoneNumber, msgText, "user", userName || "", {
+        type: type || "text",
+        imageUrl,
+        productData,
+        userRegion,
+        userGender
+      });
       if (!chat) return res.status(500).json({ error: "Failed to send message" });
       return res.json({ success: true, messages: chat.messages });
     } catch (e) {
