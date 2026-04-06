@@ -3147,13 +3147,10 @@ ${itemsList}
         return count;
       };
       const allOrders = await getOrders();
-      const toArchive = allOrders.filter(
-        (o) => o.status === "delivered" || o.status === "cancelled"
-      );
       let deleted = 0;
-      for (let i = 0; i < toArchive.length; i += batchSize) {
+      for (let i = 0; i < allOrders.length; i += batchSize) {
         const batch = db2.batch();
-        const chunk = toArchive.slice(i, i + batchSize);
+        const chunk = allOrders.slice(i, i + batchSize);
         for (const order of chunk) batch.delete(db2.collection("orders").doc(order.id));
         await batch.commit();
         deleted += chunk.length;
@@ -3176,6 +3173,12 @@ ${itemsList}
         completedDeleted = await batchDeleteAll(snap.docs);
       } catch (_e) {
       }
+      let alertsDeleted = 0;
+      try {
+        const snap = await db2.collection("adminAlerts").get();
+        alertsDeleted = await batchDeleteAll(snap.docs);
+      } catch (_e) {
+      }
       let walletsReset = 0;
       try {
         const snap = await db2.collection("driverWallets").get();
@@ -3188,15 +3191,16 @@ ${itemsList}
         }
       } catch (_e) {
       }
-      const total = deleted + walletDeleted + activityDeleted + completedDeleted;
+      const total = deleted + walletDeleted + activityDeleted + completedDeleted + alertsDeleted;
       res.json({
         deleted,
         walletDeleted,
         activityDeleted,
         completedDeleted,
+        alertsDeleted,
         walletsReset,
         total,
-        message: `\u062A\u0645 \u0645\u0633\u062D ${deleted} \u0637\u0644\u0628\u060C ${walletDeleted} \u0633\u062C\u0644 \u0645\u062D\u0641\u0638\u0629\u060C ${activityDeleted} \u0633\u062C\u0644 \u0646\u0634\u0627\u0637\u060C \u0648\u0625\u0639\u0627\u062F\u0629 \u062A\u0635\u0641\u064A\u0631 ${walletsReset} \u0645\u062D\u0641\u0638\u0629`
+        message: `\u062A\u0645 \u0645\u0633\u062D ${deleted} \u0637\u0644\u0628 (\u0643\u0644 \u0627\u0644\u0637\u0644\u0628\u0627\u062A)\u060C ${walletDeleted} \u0633\u062C\u0644 \u0645\u062D\u0641\u0638\u0629\u060C ${activityDeleted} \u0633\u062C\u0644 \u0646\u0634\u0627\u0637\u060C ${alertsDeleted} \u062A\u0646\u0628\u064A\u0647\u060C \u0648\u0625\u0639\u0627\u062F\u0629 \u062A\u0635\u0641\u064A\u0631 ${walletsReset} \u0645\u062D\u0641\u0638\u0629 \u0633\u0627\u0626\u0642`
       });
     } catch (error) {
       res.status(500).json({ error: error.message });

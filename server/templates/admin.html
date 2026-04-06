@@ -2729,7 +2729,7 @@
                   <p style="margin:4px 0 0;font-size:0.8rem;color:var(--gray-500);">مسح كامل — بداية جديدة</p>
                 </div>
               </div>
-              <p style="color:var(--gray-500);font-size:0.85rem;margin-bottom:16px;">يمسح <strong>جميع</strong> الطلبات المكتملة والملغية، وكل سجلات الأرباح والمحافظ. يُستخدم في نهاية كل شهر لبداية جديدة. تأكد من تصدير التقرير أولاً.</p>
+              <p style="color:var(--gray-500);font-size:0.85rem;margin-bottom:16px;">يمسح <strong>جميع الطلبات</strong> بجميع حالاتها (معلقة، نشطة، مكتملة، ملغية)، ويُصفّر أرباح التطبيق وأرصدة محافظ السائقين وكل السجلات. يُستخدم في بداية كل شهر جديد. <strong>تأكد من تصدير التقرير أولاً.</strong></p>
               <button class="btn" style="width:100%;background:#EF4444;color:white;border:none;" onclick="archiveOldOrders()">
                 <i data-lucide="refresh-cw"></i> تصفير ومسح بيانات الشهر
               </button>
@@ -6795,15 +6795,16 @@
     // ========================= Archive / Monthly Reset =========================
     async function archiveOldOrders() {
       const confirmed = window.confirm(
-        '⚠️ تصفير بيانات الشهر\n\n' +
+        '⚠️ تصفير شهري كامل\n\n' +
         'سيتم مسح:\n' +
-        '• جميع الطلبات المكتملة والملغية\n' +
-        '• جميع سجلات الأرباح والمحافظ\n' +
+        '• جميع الطلبات (معلقة، نشطة، مكتملة، ملغية)\n' +
+        '• جميع أرباح التطبيق وسجلات المحافظ\n' +
         '• جميع سجلات نشاط السائقين\n' +
-        '• إعادة تصفير أرصدة محافظ السائقين\n\n' +
-        'هذا الإجراء لا يمكن التراجع عنه.\n' +
+        '• جميع تنبيهات المشاكل\n' +
+        '• إعادة تصفير أرصدة محافظ السائقين إلى صفر\n\n' +
+        '⛔ هذا الإجراء لا يمكن التراجع عنه.\n' +
         'تأكد من تصدير التقرير الشهري أولاً.\n\n' +
-        'هل أنت متأكد؟'
+        'هل أنت متأكد تماماً؟'
       );
       if (!confirmed) return;
 
@@ -6816,10 +6817,8 @@
         const data = await res.json();
 
         if (res.ok) {
-          // Clear local orders state completely (only keep pending/active ones)
-          orders = orders.filter(o =>
-            o.status !== 'delivered' && o.status !== 'cancelled'
-          );
+          // Clear ALL orders from local state
+          orders = [];
 
           // Reset all visible stat counters to zero immediately
           const zeroStats = [

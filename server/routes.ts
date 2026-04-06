@@ -2359,15 +2359,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return count;
       };
 
-      // 1. Delete ALL completed and cancelled orders (no date filter)
+      // 1. Delete ALL orders regardless of status
       const allOrders = await getOrders();
-      const toArchive = allOrders.filter(o =>
-        o.status === "delivered" || o.status === "cancelled"
-      );
       let deleted = 0;
-      for (let i = 0; i < toArchive.length; i += batchSize) {
+      for (let i = 0; i < allOrders.length; i += batchSize) {
         const batch = db.batch();
-        const chunk = toArchive.slice(i, i + batchSize);
+        const chunk = allOrders.slice(i, i + batchSize);
         for (const order of chunk) batch.delete(db.collection("orders").doc(order.id));
         await batch.commit();
         deleted += chunk.length;
@@ -2394,7 +2391,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         completedDeleted = await batchDeleteAll(snap.docs);
       } catch (_e) {}
 
-      // 5. Reset all driverWallet balances to zero
+      // 5. Delete ALL adminAlerts entries
+      let alertsDeleted = 0;
+      try {
+        const snap = await db.collection("adminAlerts").get();
+        alertsDeleted = await batchDeleteAll(snap.docs);
+      } catch (_e) {}
+
+      // 6. Reset all driverWallet balances to zero
       let walletsReset = 0;
       try {
         const snap = await db.collection("driverWallets").get();
@@ -2407,15 +2411,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       } catch (_e) {}
 
-      const total = deleted + walletDeleted + activityDeleted + completedDeleted;
+      const total = deleted + walletDeleted + activityDeleted + completedDeleted + alertsDeleted;
       res.json({
         deleted,
         walletDeleted,
         activityDeleted,
         completedDeleted,
+        alertsDeleted,
         walletsReset,
         total,
-        message: `تم مسح ${deleted} طلب، ${walletDeleted} سجل محفظة، ${activityDeleted} سجل نشاط، وإعادة تصفير ${walletsReset} محفظة`,
+        message: `تم مسح ${deleted} طلب (كل الطلبات)، ${walletDeleted} سجل محفظة، ${activityDeleted} سجل نشاط، ${alertsDeleted} تنبيه، وإعادة تصفير ${walletsReset} محفظة سائق`,
       });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
