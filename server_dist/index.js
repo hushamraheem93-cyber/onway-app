@@ -1911,6 +1911,8 @@ async function registerRoutes(app2) {
   }
   app2.get("/api/vendors", async (_req, res) => {
     const vendors = await getVendorList();
+    res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
+    res.setHeader("Pragma", "no-cache");
     res.json(vendors);
   });
   app2.get("/api/admin/vendors", async (_req, res) => {

@@ -4969,11 +4969,16 @@
 
           // ── Persist to server in background ──────────────────
           try {
-            await fetch(`${API_BASE}/admin/vendors/reorder`, {
+            const saveRes = await fetch(`${API_BASE}/admin/vendors/reorder`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ order: sorted.map(v => v.id) }),
             });
+            if (saveRes.ok) {
+              showToast('success', 'تم الحفظ', 'تم حفظ الترتيب الجديد');
+            } else {
+              showToast('error', 'خطأ', 'فشل حفظ الترتيب');
+            }
           } catch {
             showToast('error', 'خطأ', 'تعذّر حفظ الترتيب');
           }

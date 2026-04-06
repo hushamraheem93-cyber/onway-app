@@ -909,6 +909,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/vendors", async (_req, res) => {
     const vendors = await getVendorList();
+    res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
+    res.setHeader("Pragma", "no-cache");
     res.json(vendors);
   });
 
