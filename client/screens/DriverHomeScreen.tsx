@@ -114,9 +114,6 @@ export default function DriverHomeScreen() {
   const [loading, setLoading] = useState(true);
   const [walletBalance, setWalletBalance] = useState(0);
   const [walletError, setWalletError] = useState("");
-  const [todayOrders, setTodayOrders] = useState(0);
-  const [todayEarnings, setTodayEarnings] = useState(0);
-
   const [issueModalVisible, setIssueModalVisible] = useState(false);
   const [issueSent, setIssueSent] = useState(false);
   const [issueSending, setIssueSending] = useState(false);
@@ -161,8 +158,6 @@ export default function DriverHomeScreen() {
         setCurrentBatch(newBatch);
         setDriverStatus(data.approvalStatus || "pending");
         setWalletBalance(data.walletBalance || 0);
-        setTodayOrders(data.todayOrders || 0);
-        setTodayEarnings(data.todayEarnings || 0);
       }
     } catch (e) {
       console.error("Error fetching driver status:", e);
@@ -387,18 +382,6 @@ export default function DriverHomeScreen() {
         </View>
         <View style={[styles.walletIcon, { backgroundColor: walletBalance < 250 ? "#FFEBEE" : AppColors.primary + "15" }]}>
           <Feather name="credit-card" size={24} color={walletBalance < 250 ? "#F44336" : AppColors.primary} />
-        </View>
-      </View>
-      <View style={styles.todayStatsRow}>
-        <View style={[styles.todayStatItem, { backgroundColor: "#F0FDF4" }]}>
-          <Feather name="package" size={18} color="#16A34A" />
-          <ThemedText type="h3" style={{ color: "#16A34A", fontWeight: "800" }}>{todayOrders}</ThemedText>
-          <ThemedText type="small" style={{ color: "#15803D" }}>طلبات اليوم</ThemedText>
-        </View>
-        <View style={[styles.todayStatItem, { backgroundColor: "#FFF7ED" }]}>
-          <Feather name="trending-up" size={18} color={AppColors.primary} />
-          <ThemedText type="h3" style={{ color: AppColors.primary, fontWeight: "800" }}>{formatPrice(todayEarnings)}</ThemedText>
-          <ThemedText type="small" style={{ color: "#C2410C" }}>أرباح اليوم</ThemedText>
         </View>
       </View>
       {walletBalance < 250 ? (
@@ -776,8 +759,6 @@ const styles = StyleSheet.create({
     flexDirection: "row-reverse", alignItems: "center", gap: Spacing.xs,
     marginTop: Spacing.md, padding: Spacing.sm, borderRadius: BorderRadius.sm,
   },
-  todayStatsRow: { flexDirection: "row", gap: Spacing.md, marginTop: Spacing.md },
-  todayStatItem: { flex: 1, alignItems: "center", padding: Spacing.md, borderRadius: BorderRadius.lg, gap: 4 },
   whatsappButton: {
     flexDirection: "row", alignItems: "center", justifyContent: "center",
     gap: Spacing.sm, backgroundColor: "#25D366",

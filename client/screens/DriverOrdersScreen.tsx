@@ -16,8 +16,6 @@ import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
-import { LinearGradient } from "expo-linear-gradient";
-
 import { ThemedText } from "@/components/ThemedText";
 import { GradientBackground } from "@/components/GradientBackground";
 import { useTheme } from "@/hooks/useTheme";
@@ -514,33 +512,31 @@ export default function DriverOrdersScreen() {
         onCancel={hideConfirm}
       />
 
-      {/* Header */}
-      <LinearGradient
-        colors={[AppColors.primary, "#FF9A5C"]}
-        style={[styles.header, { paddingTop: insets.top + Spacing.md }]}
-      >
+      {/* Header — flat themed, no gradient */}
+      <View style={[styles.header, { paddingTop: insets.top + Spacing.md, backgroundColor: theme.backgroundDefault }]}>
         <View style={styles.headerContent}>
           <View style={styles.headerLeft}>
-            <ThemedText type="h3" style={styles.headerTitle}>طلباتي النشطة</ThemedText>
-            <ThemedText type="small" style={styles.headerSub}>
-              {completedCount} مُوصَّل من {totalOrders} طلبات
+            <ThemedText type="h3" style={[styles.headerTitle, { color: theme.text }]}>الطلبات النشطة</ThemedText>
+            <ThemedText type="small" style={{ color: theme.textSecondary }}>
+              {completedCount} مُوصَّل من {totalOrders}
             </ThemedText>
           </View>
-          <View style={styles.headerBadge}>
-            <ThemedText type="h3" style={styles.headerBadgeText}>{orders.length}</ThemedText>
-            <ThemedText type="small" style={styles.headerBadgeLabel}>نشط</ThemedText>
-          </View>
-        </View>
-
-        {totalOrders > 0 ? (
-          <View style={styles.headerProgressRow}>
-            <View style={styles.progressBg}>
-              <View style={[styles.progressFill, { width: `${progressPct}%` as any }]} />
+          {orders.length > 0 ? (
+            <View style={[styles.headerBadge, { backgroundColor: AppColors.primary + "15", borderWidth: 0 }]}>
+              <ThemedText type="h3" style={[styles.headerBadgeText, { color: AppColors.primary }]}>{orders.length}</ThemedText>
+              <ThemedText type="small" style={{ color: AppColors.primary + "CC", fontSize: 11 }}>نشط</ThemedText>
             </View>
-            <ThemedText type="small" style={styles.headerProgressText}>{progressPct}%</ThemedText>
+          ) : null}
+        </View>
+        {totalOrders > 0 ? (
+          <View style={[styles.headerProgressRow, { marginBottom: 2 }]}>
+            <View style={[styles.progressBg, { backgroundColor: theme.border }]}>
+              <View style={[styles.progressFill, { width: `${progressPct}%` as any, backgroundColor: AppColors.primary }]} />
+            </View>
+            <ThemedText type="small" style={[styles.headerProgressText, { color: AppColors.primary }]}>{progressPct}%</ThemedText>
           </View>
         ) : null}
-      </LinearGradient>
+      </View>
 
       <ScrollView
         contentContainerStyle={[styles.scrollContent, { paddingBottom: tabBarHeight + Spacing.xl }]}
@@ -603,28 +599,28 @@ export default function DriverOrdersScreen() {
 // ─── Styles ───────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  // Header
-  header: { paddingHorizontal: Spacing.lg, paddingBottom: Spacing.xl },
+  // Header — flat
+  header: {
+    paddingHorizontal: Spacing.lg,
+    paddingBottom: Spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: "#E0E0E020",
+  },
   headerContent: {
     flexDirection: "row-reverse",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: Spacing.md,
+    marginBottom: Spacing.sm,
   },
   headerLeft: { alignItems: "flex-end" },
-  headerTitle: { color: "#FFFFFF", fontWeight: "800" },
-  headerSub: { color: "rgba(255,255,255,0.85)", marginTop: 2 },
+  headerTitle: { fontWeight: "800" },
   headerBadge: {
-    backgroundColor: "rgba(255,255,255,0.25)",
-    borderWidth: 2,
-    borderColor: "#FFFFFF",
-    borderRadius: 20,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
+    borderRadius: 16,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
     alignItems: "center",
   },
-  headerBadgeText: { color: "#FFFFFF", fontWeight: "800" },
-  headerBadgeLabel: { color: "rgba(255,255,255,0.9)", fontSize: 11 },
+  headerBadgeText: { fontWeight: "800" },
   headerProgressRow: {
     flexDirection: "row-reverse",
     alignItems: "center",
@@ -632,13 +628,12 @@ const styles = StyleSheet.create({
   },
   progressBg: {
     flex: 1,
-    height: 6,
-    backgroundColor: "rgba(255,255,255,0.3)",
+    height: 5,
     borderRadius: 3,
     overflow: "hidden",
   },
-  progressFill: { height: "100%", backgroundColor: "#FFFFFF", borderRadius: 3 },
-  headerProgressText: { color: "#FFFFFF", fontWeight: "700", width: 36, textAlign: "right" },
+  progressFill: { height: "100%", borderRadius: 3 },
+  headerProgressText: { fontWeight: "700", width: 36, textAlign: "right" },
   // Scroll
   scrollContent: { padding: Spacing.lg },
   // Stats bar
