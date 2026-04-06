@@ -4926,7 +4926,16 @@
           body: JSON.stringify({ direction }),
         });
         if (res.ok) {
-          await loadVendors();
+          // Force fresh fetch bypassing any browser cache
+          const freshRes = await fetch(`${API_BASE}/admin/vendors?_t=${Date.now()}`, {
+            cache: 'no-store',
+            headers: { 'Cache-Control': 'no-cache' },
+          });
+          if (freshRes.ok) {
+            vendorsList = await freshRes.json();
+            renderVendorsTable(vendorsList);
+            updateVendorStats(vendorsList);
+          }
         } else {
           const err = await res.json();
           showToast('error', 'خطأ', err.error || 'فشل تغيير الترتيب');

@@ -1915,6 +1915,8 @@ async function registerRoutes(app2) {
   });
   app2.get("/api/admin/vendors", async (_req, res) => {
     const vendors = await getVendorList();
+    res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
+    res.setHeader("Pragma", "no-cache");
     res.json(vendors);
   });
   app2.post("/api/admin/vendors", async (req, res) => {
@@ -1949,20 +1951,26 @@ async function registerRoutes(app2) {
     const { direction } = req.body;
     try {
       const vendors = await getVendorList();
-      vendors.forEach((v, i) => {
-        if (v.sortOrder === void 0) v.sortOrder = i + 1;
-      });
       const sorted = [...vendors].sort((a, b) => (a.sortOrder ?? 999) - (b.sortOrder ?? 999));
+      const missingOrder = sorted.filter((v) => v.sortOrder === void 0);
+      if (missingOrder.length > 0) {
+        for (let i = 0; i < sorted.length; i++) {
+          if (sorted[i].sortOrder === void 0) {
+            sorted[i].sortOrder = i + 1;
+            await updateVendor(sorted[i].id, { sortOrder: i + 1 });
+          }
+        }
+      }
       const idx = sorted.findIndex((v) => v.id === id);
       if (idx === -1) return res.status(404).json({ error: "\u0627\u0644\u0645\u0637\u0639\u0645 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F" });
       const swapIdx = direction === "up" ? idx - 1 : idx + 1;
       if (swapIdx < 0 || swapIdx >= sorted.length) return res.status(400).json({ error: "\u0644\u0627 \u064A\u0645\u0643\u0646 \u0627\u0644\u062A\u0631\u062A\u064A\u0628 \u0623\u0643\u062B\u0631" });
       const current = sorted[idx];
       const neighbor = sorted[swapIdx];
-      const tempOrder = current.sortOrder ?? idx + 1;
-      const neighborOrder = neighbor.sortOrder ?? swapIdx + 1;
+      const currentOrder = current.sortOrder;
+      const neighborOrder = neighbor.sortOrder;
       await updateVendor(current.id, { sortOrder: neighborOrder });
-      await updateVendor(neighbor.id, { sortOrder: tempOrder });
+      await updateVendor(neighbor.id, { sortOrder: currentOrder });
       invalidateVendorsCache();
       res.json({ success: true });
     } catch (e) {

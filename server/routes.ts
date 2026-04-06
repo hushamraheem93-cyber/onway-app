@@ -914,6 +914,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/admin/vendors", async (_req, res) => {
     const vendors = await getVendorList();
+    res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
+    res.setHeader("Pragma", "no-cache");
     res.json(vendors);
   });
 
@@ -951,9 +953,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const { direction } = req.body as { direction: "up" | "down" };
     try {
       const vendors = await getVendorList();
-      // Ensure all have sortOrder
-      vendors.forEach((v, i) => { if (v.sortOrder === undefined) v.sortOrder = i + 1; });
+
+      // Sort by current sortOrder (undefined treated as 999)
       const sorted = [...vendors].sort((a, b) => (a.sortOrder ?? 999) - (b.sortOrder ?? 999));
+
+      // Step 1: Assign sequential sortOrder to ALL vendors that are missing it, save to Firestore
+      const missingOrder = sorted.filter(v => v.sortOrder === undefined);
+      if (missingOrder.length > 0) {
+        for (let i = 0; i < sorted.length; i++) {
+          if (sorted[i].sortOrder === undefined) {
+            sorted[i].sortOrder = i + 1;
+            await updateFirestoreVendor(sorted[i].id, { sortOrder: i + 1 });
+          }
+        }
+      }
+
+      // Step 2: Find vendor and neighbor to swap
       const idx = sorted.findIndex(v => v.id === id);
       if (idx === -1) return res.status(404).json({ error: "المطعم غير موجود" });
       const swapIdx = direction === "up" ? idx - 1 : idx + 1;
@@ -961,12 +976,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const current = sorted[idx];
       const neighbor = sorted[swapIdx];
-      const tempOrder = current.sortOrder ?? idx + 1;
-      const neighborOrder = neighbor.sortOrder ?? swapIdx + 1;
+      const currentOrder = current.sortOrder!;
+      const neighborOrder = neighbor.sortOrder!;
 
+      // Step 3: Swap and persist both
       await updateFirestoreVendor(current.id, { sortOrder: neighborOrder });
-      await updateFirestoreVendor(neighbor.id, { sortOrder: tempOrder });
+      await updateFirestoreVendor(neighbor.id, { sortOrder: currentOrder });
+
+      // Step 4: Invalidate cache so next GET reflects new order
       invalidateVendorsCache();
+
       res.json({ success: true });
     } catch (e: any) {
       res.status(500).json({ error: e.message });
