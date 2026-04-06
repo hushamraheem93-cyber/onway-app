@@ -229,6 +229,31 @@ export default function AdminScreen() {
   const [rechargeDriver, setRechargeDriver] = useState<string | null>(null);
   const [rechargeAmount, setRechargeAmount] = useState("");
 
+  // Manual driver assignment
+  const [assigningOrderId, setAssigningOrderId] = useState<string | null>(null);
+  const [assignError, setAssignError] = useState<string | null>(null);
+
+  const assignDriverMutation = useMutation({
+    mutationFn: async ({ orderId, driverPhone }: { orderId: string; driverPhone: string }) => {
+      const res = await fetch(`${getApiUrl()}/api/admin/orders/${orderId}/assign-driver`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ driverPhone }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "فشل التعيين");
+      return data;
+    },
+    onSuccess: () => {
+      setAssigningOrderId(null);
+      setAssignError(null);
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/orders"] });
+    },
+    onError: (err: Error) => {
+      setAssignError(err.message);
+    },
+  });
+
   const updateDriverStatusMutation = useMutation({
     mutationFn: async ({ id, status }: { id: string; status: "pending" | "approved" | "rejected" }) => {
       await apiRequest("PUT", `/api/admin/drivers/${id}/status`, { status });
@@ -1027,6 +1052,62 @@ export default function AdminScreen() {
     return colors[status];
   };
 
+  // Approved drivers for assignment picker
+  const approvedDrivers = drivers.filter(d => d.status === "approved");
+
+  const renderAssignDriverModal = () => {
+    if (!assigningOrderId) return null;
+    return (
+      <View style={styles.modalOverlay}>
+        <View style={[styles.modalBox, { backgroundColor: theme.background }]}>
+          <ThemedText type="h4" style={{ textAlign: "center", marginBottom: Spacing.md }}>اختر السائق</ThemedText>
+          {assignError ? (
+            <ThemedText type="small" style={{ color: "#EF4444", textAlign: "center", marginBottom: Spacing.sm }}>
+              {assignError}
+            </ThemedText>
+          ) : null}
+          {approvedDrivers.length === 0 ? (
+            <ThemedText type="body" style={{ color: theme.textSecondary, textAlign: "center", marginBottom: Spacing.lg }}>
+              لا يوجد سائقون مفعّلون
+            </ThemedText>
+          ) : (
+            approvedDrivers.map(drv => {
+              const name = [drv.firstName, drv.secondName].filter(Boolean).join(" ") || drv.fullName || drv.phoneNumber;
+              return (
+                <Pressable
+                  key={drv.id}
+                  style={[styles.driverPickerRow, { backgroundColor: theme.backgroundSecondary }]}
+                  onPress={() => {
+                    setAssignError(null);
+                    assignDriverMutation.mutate({ orderId: assigningOrderId, driverPhone: drv.phoneNumber });
+                  }}
+                  disabled={assignDriverMutation.isPending}
+                >
+                  <Feather name="user" size={18} color={AppColors.primary} />
+                  <View style={{ flex: 1, marginRight: Spacing.sm }}>
+                    <ThemedText type="body" style={{ fontWeight: "700" }}>{name}</ThemedText>
+                    <ThemedText type="small" style={{ color: theme.textSecondary }}>{drv.phoneNumber}</ThemedText>
+                  </View>
+                  {assignDriverMutation.isPending ? (
+                    <ActivityIndicator size="small" color={AppColors.primary} />
+                  ) : (
+                    <Feather name="chevron-left" size={18} color={theme.textSecondary} />
+                  )}
+                </Pressable>
+              );
+            })
+          )}
+          <Pressable
+            style={[styles.statusBtn, { backgroundColor: "#6B7280", marginTop: Spacing.md, alignSelf: "center", paddingHorizontal: Spacing.xl }]}
+            onPress={() => { setAssigningOrderId(null); setAssignError(null); }}
+          >
+            <ThemedText type="small" style={{ color: "#fff" }}>إلغاء</ThemedText>
+          </Pressable>
+        </View>
+      </View>
+    );
+  };
+
   const renderOrdersTab = () => (
     <View>
       {ownerEarnings ? (
@@ -1131,6 +1212,13 @@ export default function AdminScreen() {
                       onPress={() => updateOrderStatus.mutate({ id: order.id, status: "cancelled" })}
                     >
                       <ThemedText type="small" style={{ color: "#fff" }}>إلغاء</ThemedText>
+                    </Pressable>
+                    <Pressable
+                      style={[styles.statusBtn, { backgroundColor: AppColors.primary, flexDirection: "row", alignItems: "center", gap: 4 }]}
+                      onPress={() => { setAssigningOrderId(order.id); setAssignError(null); }}
+                    >
+                      <Feather name="user-plus" size={12} color="#fff" />
+                      <ThemedText type="small" style={{ color: "#fff" }}>تعيين سائق</ThemedText>
                     </Pressable>
                   </>
                 ) : null}
@@ -1671,6 +1759,7 @@ export default function AdminScreen() {
   };
 
   return (
+    <View style={{ flex: 1 }}>
     <ScrollView
       style={{ flex: 1, backgroundColor: theme.backgroundRoot }}
       contentContainerStyle={{
@@ -1707,6 +1796,8 @@ export default function AdminScreen() {
 
       {renderContent()}
     </ScrollView>
+    {renderAssignDriverModal()}
+    </View>
   );
 }
 
@@ -2241,5 +2332,31 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: "#9CA3AF",
     textAlign: "center",
+  },
+  modalOverlay: {
+    position: "absolute",
+    top: 0, left: 0, right: 0, bottom: 0,
+    backgroundColor: "rgba(0,0,0,0.55)",
+    justifyContent: "center",
+    alignItems: "center",
+    zIndex: 999,
+  },
+  modalBox: {
+    width: "85%",
+    borderRadius: BorderRadius.xl,
+    padding: Spacing.xl,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.3,
+    shadowRadius: 20,
+    elevation: 12,
+  },
+  driverPickerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: Spacing.md,
+    borderRadius: BorderRadius.lg,
+    marginBottom: Spacing.sm,
+    gap: Spacing.sm,
   },
 });

@@ -1290,6 +1290,96 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.status(500).json({ error: "Database not configured" });
   });
 
+  // ── Manual Driver Assignment ──────────────────────────────────────────────
+  app.post("/api/admin/orders/:id/assign-driver", async (req: Request, res: Response) => {
+    const orderId = req.params.id as string;
+    const { driverPhone } = req.body;
+    const db = getFirestore();
+    if (!db) return res.status(500).json({ error: "Database not configured" });
+    if (!driverPhone) return res.status(400).json({ error: "driverPhone required" });
+
+    try {
+      // 1. Verify order exists and is assignable
+      const allOrders = await getOrders();
+      const order = allOrders.find(o => o.id === orderId);
+      if (!order) return res.status(404).json({ error: "الطلب غير موجود" });
+      if (["delivered", "cancelled"].includes(order.status)) {
+        return res.status(400).json({ error: "لا يمكن تعيين سائق لطلب مكتمل أو ملغى" });
+      }
+
+      // 2. Verify driver is approved
+      const driver = await getDriverByPhone(driverPhone);
+      if (!driver) return res.status(404).json({ error: "السائق غير موجود" });
+      if (driver.status !== "approved") return res.status(400).json({ error: "السائق غير مفعّل" });
+
+      // 3. Remove order from batchedOrderIds so it can be re-assigned
+      batchedOrderIds.delete(orderId);
+
+      // 4. Clear driver's existing batch in memory if they have one
+      const queuedDriver = driverQueue.find(d => d.phoneNumber === driverPhone);
+      if (queuedDriver?.currentBatchId) {
+        // Move old batch to completed in Firestore
+        const oldBatch = await getDeliveryBatch(queuedDriver.currentBatchId);
+        if (oldBatch) {
+          const oldNonActive = oldBatch.orderIds.filter(id => {
+            const o = allOrders.find(x => x.id === id);
+            return !o || ["delivered", "cancelled"].includes(o.status);
+          });
+          if (oldNonActive.length === oldBatch.orderIds.length) {
+            await updateDeliveryBatch(queuedDriver.currentBatchId, { status: "completed" }).catch(() => {});
+          }
+          // Remove old batch orders from batchedOrderIds
+          oldBatch.orderIds.forEach(id => batchedOrderIds.delete(id));
+        }
+        queuedDriver.currentBatchId = undefined;
+      }
+
+      // 5. If driver is not in queue, add them temporarily
+      if (!queuedDriver) {
+        driverQueue.push({
+          phoneNumber: driverPhone,
+          joinedAt: Date.now(),
+          lastSeenAt: Date.now(),
+          currentBatchId: undefined,
+        });
+      }
+
+      // 6. Create a batch with this specific order for the driver
+      const batchId = await createDeliveryBatch({
+        driverPhone,
+        orderIds: [orderId],
+      });
+
+      if (!batchId) return res.status(500).json({ error: "فشل في إنشاء الدُفعة" });
+
+      // 7. Update in-memory queue
+      const targetDriver = driverQueue.find(d => d.phoneNumber === driverPhone);
+      if (targetDriver) targetDriver.currentBatchId = batchId;
+      batchedOrderIds.add(orderId);
+
+      // 8. Update order with driver info in Firestore
+      const driverName = [driver.firstName, driver.secondName].filter(Boolean).join(" ") || driver.fullName || driverPhone;
+      await db.collection("orders").doc(orderId).update({
+        driverPhone,
+        driverName,
+        batchId,
+        status: order.status === "pending" ? "confirmed" : order.status,
+      }).catch(() => {});
+
+      // 9. Notify driver via push
+      const driverPushToken = await getDriverPushToken(driverPhone);
+      if (driverPushToken) {
+        sendDriverBatchNotification(driverPushToken, 1, batchId).catch(() => {});
+      }
+
+      console.log(`[ADMIN] Manually assigned order ${orderId} → driver ${driverPhone} (batch ${batchId})`);
+      res.json({ success: true, batchId, driverPhone, driverName });
+    } catch (error: any) {
+      console.error("assign-driver error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   app.post("/api/users/push-token", async (req: Request, res: Response) => {
     const { phoneNumber, pushToken } = req.body;
     

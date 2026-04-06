@@ -2460,6 +2460,75 @@ ${itemsList}
     }
     res.status(500).json({ error: "Database not configured" });
   });
+  app2.post("/api/admin/orders/:id/assign-driver", async (req, res) => {
+    const orderId = req.params.id;
+    const { driverPhone } = req.body;
+    const db2 = getFirestore();
+    if (!db2) return res.status(500).json({ error: "Database not configured" });
+    if (!driverPhone) return res.status(400).json({ error: "driverPhone required" });
+    try {
+      const allOrders = await getOrders();
+      const order = allOrders.find((o) => o.id === orderId);
+      if (!order) return res.status(404).json({ error: "\u0627\u0644\u0637\u0644\u0628 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F" });
+      if (["delivered", "cancelled"].includes(order.status)) {
+        return res.status(400).json({ error: "\u0644\u0627 \u064A\u0645\u0643\u0646 \u062A\u0639\u064A\u064A\u0646 \u0633\u0627\u0626\u0642 \u0644\u0637\u0644\u0628 \u0645\u0643\u062A\u0645\u0644 \u0623\u0648 \u0645\u0644\u063A\u0649" });
+      }
+      const driver = await getDriverByPhone(driverPhone);
+      if (!driver) return res.status(404).json({ error: "\u0627\u0644\u0633\u0627\u0626\u0642 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F" });
+      if (driver.status !== "approved") return res.status(400).json({ error: "\u0627\u0644\u0633\u0627\u0626\u0642 \u063A\u064A\u0631 \u0645\u0641\u0639\u0651\u0644" });
+      batchedOrderIds.delete(orderId);
+      const queuedDriver = driverQueue.find((d) => d.phoneNumber === driverPhone);
+      if (queuedDriver?.currentBatchId) {
+        const oldBatch = await getDeliveryBatch(queuedDriver.currentBatchId);
+        if (oldBatch) {
+          const oldNonActive = oldBatch.orderIds.filter((id) => {
+            const o = allOrders.find((x) => x.id === id);
+            return !o || ["delivered", "cancelled"].includes(o.status);
+          });
+          if (oldNonActive.length === oldBatch.orderIds.length) {
+            await updateDeliveryBatch(queuedDriver.currentBatchId, { status: "completed" }).catch(() => {
+            });
+          }
+          oldBatch.orderIds.forEach((id) => batchedOrderIds.delete(id));
+        }
+        queuedDriver.currentBatchId = void 0;
+      }
+      if (!queuedDriver) {
+        driverQueue.push({
+          phoneNumber: driverPhone,
+          joinedAt: Date.now(),
+          lastSeenAt: Date.now(),
+          currentBatchId: void 0
+        });
+      }
+      const batchId = await createDeliveryBatch({
+        driverPhone,
+        orderIds: [orderId]
+      });
+      if (!batchId) return res.status(500).json({ error: "\u0641\u0634\u0644 \u0641\u064A \u0625\u0646\u0634\u0627\u0621 \u0627\u0644\u062F\u064F\u0641\u0639\u0629" });
+      const targetDriver = driverQueue.find((d) => d.phoneNumber === driverPhone);
+      if (targetDriver) targetDriver.currentBatchId = batchId;
+      batchedOrderIds.add(orderId);
+      const driverName = [driver.firstName, driver.secondName].filter(Boolean).join(" ") || driver.fullName || driverPhone;
+      await db2.collection("orders").doc(orderId).update({
+        driverPhone,
+        driverName,
+        batchId,
+        status: order.status === "pending" ? "confirmed" : order.status
+      }).catch(() => {
+      });
+      const driverPushToken = await getDriverPushToken(driverPhone);
+      if (driverPushToken) {
+        sendDriverBatchNotification(driverPushToken, 1, batchId).catch(() => {
+        });
+      }
+      console.log(`[ADMIN] Manually assigned order ${orderId} \u2192 driver ${driverPhone} (batch ${batchId})`);
+      res.json({ success: true, batchId, driverPhone, driverName });
+    } catch (error) {
+      console.error("assign-driver error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
   app2.post("/api/users/push-token", async (req, res) => {
     const { phoneNumber, pushToken } = req.body;
     if (!phoneNumber || !pushToken) {
