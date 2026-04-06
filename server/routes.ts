@@ -348,12 +348,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
       try {
         const db = getFirestore();
         if (db) {
-          // Restore active batches
+          // Restore active batches — but ONLY if their orders are still undelivered
           const batchSnap = await db.collection("delivery_batches")
             .where("status", "in", ["pending", "in_progress"])
             .get();
+          const allOrdersForRestore = await getOrders();
           for (const bDoc of batchSnap.docs) {
             const bData = bDoc.data() as DeliveryBatch;
+            // Check if all orders in this batch are already completed
+            const batchOrderStatuses = (bData.orderIds || []).map(oid => {
+              const o = allOrdersForRestore.find(x => x.id === oid);
+              return o ? o.status : "delivered"; // treat missing orders as delivered
+            });
+            const allDone = batchOrderStatuses.every(s => s === "delivered" || s === "cancelled");
+            if (allDone) {
+              // Mark stale batch as completed so it won't block drivers
+              db.collection("delivery_batches").doc(bDoc.id)
+                .update({ status: "completed", updatedAt: new Date() })
+                .catch(() => {});
+              console.log(`[RESTART] Stale batch ${bDoc.id} auto-completed (all orders done)`);
+              continue;
+            }
             const driverPhone = bData.driverId; // driverId = phone number
             const qd = driverQueue.find(d => d.phoneNumber === driverPhone);
             if (qd && !qd.currentBatchId) {
@@ -1663,7 +1678,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let currentBatch = null;
       if (queuedDriver?.currentBatchId) {
         const batchDoc = await getDeliveryBatch(queuedDriver.currentBatchId);
-        if (batchDoc) {
+        if (!batchDoc) {
+          // Batch no longer exists in Firestore — clear stale reference
+          console.log(`[STATUS] Clearing stale batchId ${queuedDriver.currentBatchId} for driver ${phoneNumber} (not found in DB)`);
+          queuedDriver.currentBatchId = undefined;
+        } else {
           const allOrders = await getOrders();
           const batchOrders = batchDoc.orderIds
             .map(oid => allOrders.find(o => o.id === oid))
@@ -1685,14 +1704,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
             });
           const resolvedOrders = await Promise.all(batchOrders);
           const completedCount = resolvedOrders.filter(o => o.status === "delivered").length;
-          currentBatch = {
-            id: batchDoc.id,
-            status: batchDoc.status,
-            totalOrders: batchDoc.totalOrders,
-            completedOrders: completedCount,
-            startTime: batchDoc.startTime,
-            orders: resolvedOrders.sort((a, b) => (a.deliverySequence || 0) - (b.deliverySequence || 0)),
-          };
+          // If all orders in the batch are delivered, auto-clear the batch
+          if (resolvedOrders.length > 0 && completedCount === resolvedOrders.length) {
+            console.log(`[STATUS] All orders delivered in batch ${batchDoc.id} — auto-clearing for driver ${phoneNumber}`);
+            queuedDriver.currentBatchId = undefined;
+            batchDoc.orderIds.forEach(id => batchedOrderIds.delete(id));
+            // Mark batch as completed in Firestore
+            const db2 = getFirestore();
+            if (db2) db2.collection("delivery_batches").doc(batchDoc.id).update({ status: "completed", updatedAt: new Date() }).catch(() => {});
+            // Immediately try to assign new orders to this now-available driver
+            assignWaitingBatchToDriver(phoneNumber).catch(() => {});
+          } else {
+            currentBatch = {
+              id: batchDoc.id,
+              status: batchDoc.status,
+              totalOrders: batchDoc.totalOrders,
+              completedOrders: completedCount,
+              startTime: batchDoc.startTime,
+              orders: resolvedOrders.sort((a, b) => (a.deliverySequence || 0) - (b.deliverySequence || 0)),
+            };
+          }
         }
       }
 
@@ -2420,21 +2451,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ─── End Utilities ────────────────────────────────────────────────────────
 
   async function assignWaitingBatchToDriver(phoneNumber: string, maxOrders: number = 3) {
+    console.log(`[BATCH_ASSIGN] Starting for driver ${phoneNumber}`);
     try {
       const db = getFirestore();
-      if (!db) return;
+      if (!db) { console.log(`[BATCH_ASSIGN] No DB`); return; }
       const qd = driverQueue.find(d => d.phoneNumber === phoneNumber && !d.currentBatchId);
-      if (!qd) return;
+      if (!qd) {
+        const inQueue = driverQueue.find(d => d.phoneNumber === phoneNumber);
+        console.log(`[BATCH_ASSIGN] Driver not eligible — inQueue=${!!inQueue}, currentBatchId=${inQueue?.currentBatchId}`);
+        return;
+      }
       const allOrders = await getOrders();
-      // FIFO: take earliest confirmed orders not yet in a batch
-      const waitingOrders = allOrders
-        .filter(o => o.status === "confirmed" && !batchedOrderIds.has(o.id))
+      const confirmedOrders = allOrders.filter(o => o.status === "confirmed");
+      // Get active batch IDs from all drivers in queue (in-memory)
+      const activeBatchIds = new Set(driverQueue.map(d => d.currentBatchId).filter(Boolean) as string[]);
+      console.log(`[BATCH_ASSIGN] Total orders=${allOrders.length}, confirmed=${confirmedOrders.length}, activeBatches=${activeBatchIds.size}, batchedSet-size=${batchedOrderIds.size}`);
+      // FIFO: take earliest confirmed orders not in any ACTIVE batch
+      // An order is truly available if:
+      //   - It has no batchId field in Firestore, OR
+      //   - Its batchId doesn't belong to an active (in-progress) batch
+      const waitingOrders = confirmedOrders
+        .filter(o => {
+          const orderBatchId = (o as any).batchId || (o as any).batch_id;
+          // No batch assigned at all → eligible
+          if (!orderBatchId) return true;
+          // Batch assigned but not in any active driver's batch → eligible
+          if (!activeBatchIds.has(orderBatchId)) return true;
+          // Still tracked in batchedOrderIds from this session → skip
+          if (batchedOrderIds.has(o.id)) return false;
+          return true;
+        })
         .sort((a, b) => {
           const aTime = a.createdAt?.toDate?.() ? a.createdAt.toDate().getTime() : 0;
           const bTime = b.createdAt?.toDate?.() ? b.createdAt.toDate().getTime() : 0;
           return aTime - bTime;
         })
         .slice(0, maxOrders);
+      console.log(`[BATCH_ASSIGN] Waiting orders to assign: ${waitingOrders.length} (${waitingOrders.map(o => o.id).join(",")})`);
       if (waitingOrders.length === 0) return;
 
       // Nearest-Neighbor route optimization
@@ -2474,11 +2527,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Assign new batch to best available driver when a confirmed order arrives
   function onOrderConfirmed() {
+    console.log(`[ORDER_CONFIRMED] Queue size=${driverQueue.length}, queue=${JSON.stringify(driverQueue.map(d=>({p:d.phoneNumber,batch:d.currentBatchId,lastSeen:d.lastSeenAt})))}`);
     const driver = findBestAvailableDriver();
+    console.log(`[ORDER_CONFIRMED] Best driver: ${driver?.phoneNumber ?? "NONE"}`);
     if (driver) {
       assignWaitingBatchToDriver(driver.phoneNumber).catch(console.error);
     }
   }
+
+  // Watchdog: every 30s, scan for unassigned confirmed orders and assign to free drivers
+  setInterval(async () => {
+    try {
+      const freeDrivers = driverQueue.filter(d => !d.currentBatchId);
+      if (freeDrivers.length === 0) return;
+      for (const driver of freeDrivers) {
+        await assignWaitingBatchToDriver(driver.phoneNumber);
+      }
+    } catch (e) {
+      console.error("[WATCHDOG] error:", e);
+    }
+  }, 30_000);
 
   // Watch for confirmed orders → assign to FIFO queue
   app.post("/api/driver/assign-pending-orders", async (_req: Request, res: Response) => {
