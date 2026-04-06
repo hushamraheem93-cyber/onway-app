@@ -1897,7 +1897,8 @@ async function registerRoutes(app2) {
     try {
       const list = await getVendors();
       if (list.length > 0) {
-        vendorsCache = list;
+        const sorted = list.sort((a, b) => (a.sortOrder ?? 999) - (b.sortOrder ?? 999));
+        vendorsCache = sorted;
         return vendorsCache;
       }
     } catch {
@@ -1919,6 +1920,8 @@ async function registerRoutes(app2) {
   app2.post("/api/admin/vendors", async (req, res) => {
     const { name, location, whatsappNumber, commissionPercent, image, rating, deliveryTime, isOpen, categoryType, cuisine } = req.body;
     if (!name) return res.status(400).json({ error: "\u0627\u0633\u0645 \u0627\u0644\u0645\u0637\u0639\u0645 \u0645\u0637\u0644\u0648\u0628" });
+    const existingVendors = await getVendorList();
+    const maxOrder = existingVendors.reduce((max, v) => Math.max(max, v.sortOrder ?? 0), 0);
     const data = {
       name: String(name),
       location: String(location || ""),
@@ -1930,7 +1933,8 @@ async function registerRoutes(app2) {
       isOpen: Boolean(isOpen !== false),
       createdAt: (/* @__PURE__ */ new Date()).toISOString(),
       categoryType: categoryType || "restaurant",
-      cuisine: cuisine ? String(cuisine) : ""
+      cuisine: cuisine ? String(cuisine) : "",
+      sortOrder: maxOrder + 1
     };
     try {
       const id = await createVendor(data);
@@ -1938,6 +1942,31 @@ async function registerRoutes(app2) {
       res.json({ id, ...data });
     } catch (e) {
       res.status(500).json({ error: "\u0641\u0634\u0644 \u0625\u0646\u0634\u0627\u0621 \u0627\u0644\u0645\u0637\u0639\u0645" });
+    }
+  });
+  app2.patch("/api/admin/vendors/:id/sort-order", async (req, res) => {
+    const { id } = req.params;
+    const { direction } = req.body;
+    try {
+      const vendors = await getVendorList();
+      vendors.forEach((v, i) => {
+        if (v.sortOrder === void 0) v.sortOrder = i + 1;
+      });
+      const sorted = [...vendors].sort((a, b) => (a.sortOrder ?? 999) - (b.sortOrder ?? 999));
+      const idx = sorted.findIndex((v) => v.id === id);
+      if (idx === -1) return res.status(404).json({ error: "\u0627\u0644\u0645\u0637\u0639\u0645 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F" });
+      const swapIdx = direction === "up" ? idx - 1 : idx + 1;
+      if (swapIdx < 0 || swapIdx >= sorted.length) return res.status(400).json({ error: "\u0644\u0627 \u064A\u0645\u0643\u0646 \u0627\u0644\u062A\u0631\u062A\u064A\u0628 \u0623\u0643\u062B\u0631" });
+      const current = sorted[idx];
+      const neighbor = sorted[swapIdx];
+      const tempOrder = current.sortOrder ?? idx + 1;
+      const neighborOrder = neighbor.sortOrder ?? swapIdx + 1;
+      await updateVendor(current.id, { sortOrder: neighborOrder });
+      await updateVendor(neighbor.id, { sortOrder: tempOrder });
+      invalidateVendorsCache();
+      res.json({ success: true });
+    } catch (e) {
+      res.status(500).json({ error: e.message });
     }
   });
   app2.put("/api/admin/vendors/:id", async (req, res) => {

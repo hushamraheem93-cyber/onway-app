@@ -118,6 +118,7 @@ interface Vendor {
   deliveryTime: string;
   isOpen: boolean;
   createdAt: string;
+  sortOrder?: number;
 }
 
 const defaultVendors: Vendor[] = [
@@ -894,7 +895,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     if (vendorsCache) return vendorsCache;
     try {
       const list = await getFirestoreVendors();
-      if (list.length > 0) { vendorsCache = list as Vendor[]; return vendorsCache; }
+      if (list.length > 0) {
+        const sorted = (list as Vendor[]).sort((a, b) => (a.sortOrder ?? 999) - (b.sortOrder ?? 999));
+        vendorsCache = sorted;
+        return vendorsCache;
+      }
     } catch {}
     vendorsCache = [...defaultVendors];
     return vendorsCache;
@@ -915,6 +920,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/admin/vendors", async (req: Request, res: Response) => {
     const { name, location, whatsappNumber, commissionPercent, image, rating, deliveryTime, isOpen, categoryType, cuisine } = req.body;
     if (!name) return res.status(400).json({ error: "اسم المطعم مطلوب" });
+    const existingVendors = await getVendorList();
+    const maxOrder = existingVendors.reduce((max, v) => Math.max(max, v.sortOrder ?? 0), 0);
     const data = {
       name: String(name),
       location: String(location || ""),
@@ -927,6 +934,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       createdAt: new Date().toISOString(),
       categoryType: (categoryType as "restaurant" | "store") || "restaurant",
       cuisine: cuisine ? String(cuisine) : "",
+      sortOrder: maxOrder + 1,
     };
     try {
       const id = await createFirestoreVendor(data);
@@ -934,6 +942,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ id, ...data });
     } catch (e) {
       res.status(500).json({ error: "فشل إنشاء المطعم" });
+    }
+  });
+
+  // Reorder vendors: swap sortOrder with adjacent vendor
+  app.patch("/api/admin/vendors/:id/sort-order", async (req: Request, res: Response) => {
+    const { id } = req.params;
+    const { direction } = req.body as { direction: "up" | "down" };
+    try {
+      const vendors = await getVendorList();
+      // Ensure all have sortOrder
+      vendors.forEach((v, i) => { if (v.sortOrder === undefined) v.sortOrder = i + 1; });
+      const sorted = [...vendors].sort((a, b) => (a.sortOrder ?? 999) - (b.sortOrder ?? 999));
+      const idx = sorted.findIndex(v => v.id === id);
+      if (idx === -1) return res.status(404).json({ error: "المطعم غير موجود" });
+      const swapIdx = direction === "up" ? idx - 1 : idx + 1;
+      if (swapIdx < 0 || swapIdx >= sorted.length) return res.status(400).json({ error: "لا يمكن الترتيب أكثر" });
+
+      const current = sorted[idx];
+      const neighbor = sorted[swapIdx];
+      const tempOrder = current.sortOrder ?? idx + 1;
+      const neighborOrder = neighbor.sortOrder ?? swapIdx + 1;
+
+      await updateFirestoreVendor(current.id, { sortOrder: neighborOrder });
+      await updateFirestoreVendor(neighbor.id, { sortOrder: tempOrder });
+      invalidateVendorsCache();
+      res.json({ success: true });
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
     }
   });
 
