@@ -349,17 +349,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const db = getFirestore();
         if (db) {
           // Restore active batches
-          const batchSnap = await db.collection("deliveryBatches")
+          const batchSnap = await db.collection("delivery_batches")
             .where("status", "in", ["pending", "in_progress"])
             .get();
           for (const bDoc of batchSnap.docs) {
             const bData = bDoc.data() as DeliveryBatch;
-            const qd = driverQueue.find(d => d.phoneNumber === bData.driverPhone);
+            const driverPhone = bData.driverId; // driverId = phone number
+            const qd = driverQueue.find(d => d.phoneNumber === driverPhone);
             if (qd && !qd.currentBatchId) {
               qd.currentBatchId = bDoc.id;
               qd.lastSeenAt = Date.now();
               bData.orderIds.forEach(id => batchedOrderIds.add(id));
-              console.log(`[RESTART] Restored batch ${bDoc.id} → driver ${bData.driverPhone}`);
+              console.log(`[RESTART] Restored batch ${bDoc.id} → driver ${driverPhone}`);
             }
           }
           // For drivers without a batch, assign waiting confirmed orders
@@ -2044,7 +2045,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
             return o?.status === "delivered";
           }).length;
           if (allDelivered) {
-            await updateDeliveryBatch(batchId, { status: "completed", completedOrders: completedCount, endTime: now.toISOString() });
+            // Sum total earnings from all delivered orders in batch
+            const batchEarnings = batchDoc.orderIds.reduce((sum, oid) => {
+              const o = freshOrders.find(x => x.id === oid);
+              if (!o) return sum;
+              const isRest = (o as any).orderType === "restaurant" || !!(o as any).vendorId;
+              return sum + (isRest ? 750 : 2000);
+            }, 0);
+            await updateDeliveryBatch(batchId, {
+              status: "completed",
+              completedOrders: completedCount,
+              totalEarnings: batchEarnings,
+              endTime: now.toISOString(),
+            });
             const qd = driverQueue.find(d => d.phoneNumber === phoneNumber);
             if (qd) qd.currentBatchId = undefined;
             // Check wallet before assigning next batch
@@ -2055,7 +2068,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
               if (queueIdx !== -1) driverQueue.splice(queueIdx, 1);
             }
           } else {
-            await updateDeliveryBatch(batchId, { completedOrders: completedCount });
+            // Accumulate partial earnings
+            const partialEarnings = batchDoc.orderIds.reduce((sum, oid) => {
+              const o = freshOrders.find(x => x.id === oid);
+              if (!o || o.status !== "delivered") return sum;
+              const isRest = (o as any).orderType === "restaurant" || !!(o as any).vendorId;
+              return sum + (isRest ? 750 : 2000);
+            }, 0);
+            await updateDeliveryBatch(batchId, { completedOrders: completedCount, totalEarnings: partialEarnings });
           }
         }
       }
@@ -2324,6 +2344,71 @@ export async function registerRoutes(app: Express): Promise<Server> {
   }
 
   // Create a batch for a specific driver with waiting confirmed orders
+  // ─── Distance / Route Utilities ──────────────────────────────────────────
+  function toRad(value: number): number {
+    return (value * Math.PI) / 180;
+  }
+
+  function calculateDistance(lat1: number, lng1: number, lat2: number, lng2: number): number {
+    const R = 6371; // Earth radius km
+    const dLat = toRad(lat2 - lat1);
+    const dLng = toRad(lng2 - lng1);
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+      Math.sin(dLng / 2) * Math.sin(dLng / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
+  }
+
+  function calculateEstimatedTime(distance: number): string {
+    const minutes = Math.ceil((distance / 30) * 60); // avg 30 km/h
+    if (minutes < 60) return `${minutes} دقيقة`;
+    const h = Math.floor(minutes / 60);
+    const m = minutes % 60;
+    return `${h} ساعة و ${m} دقيقة`;
+  }
+
+  function optimizeDeliveryRoute(
+    orders: { id: string; latitude?: number; longitude?: number; [k: string]: any }[],
+    startLat: number = 0,
+    startLng: number = 0
+  ): { id: string; deliverySequence: number; distance: number; estimatedTime: string }[] {
+    if (orders.length === 0) return [];
+    const remaining = orders.map(o => ({
+      ...o,
+      lat: o.latitude ?? o.customerLat ?? 0,
+      lng: o.longitude ?? o.customerLng ?? 0,
+    }));
+    const optimized: typeof remaining = [];
+    let curLat = startLat;
+    let curLng = startLng;
+    while (remaining.length > 0) {
+      let nearestIdx = 0;
+      let shortest = calculateDistance(curLat, curLng, remaining[0].lat, remaining[0].lng);
+      for (let i = 1; i < remaining.length; i++) {
+        const d = calculateDistance(curLat, curLng, remaining[i].lat, remaining[i].lng);
+        if (d < shortest) { shortest = d; nearestIdx = i; }
+      }
+      const nearest = remaining.splice(nearestIdx, 1)[0];
+      optimized.push(nearest);
+      curLat = nearest.lat;
+      curLng = nearest.lng;
+    }
+    return optimized.map((o, i) => {
+      const dist = i === 0
+        ? calculateDistance(startLat, startLng, o.lat, o.lng)
+        : calculateDistance(optimized[i - 1].lat, optimized[i - 1].lng, o.lat, o.lng);
+      return {
+        id: o.id,
+        deliverySequence: i + 1,
+        distance: parseFloat(dist.toFixed(2)),
+        estimatedTime: calculateEstimatedTime(dist),
+      };
+    });
+  }
+  // ─── End Utilities ────────────────────────────────────────────────────────
+
   async function assignWaitingBatchToDriver(phoneNumber: string, maxOrders: number = 3) {
     try {
       const db = getFirestore();
@@ -2331,6 +2416,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const qd = driverQueue.find(d => d.phoneNumber === phoneNumber && !d.currentBatchId);
       if (!qd) return;
       const allOrders = await getOrders();
+      // FIFO: take earliest confirmed orders not yet in a batch
       const waitingOrders = allOrders
         .filter(o => o.status === "confirmed" && !batchedOrderIds.has(o.id))
         .sort((a, b) => {
@@ -2340,12 +2426,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
         })
         .slice(0, maxOrders);
       if (waitingOrders.length === 0) return;
-      const orderIds = waitingOrders.map(o => o.id);
-      const batchId = await createDeliveryBatch({ driverPhone: phoneNumber, orderIds });
+
+      // Nearest-Neighbor route optimization
+      const routeInfo = optimizeDeliveryRoute(waitingOrders);
+      const totalDistance = routeInfo.reduce((sum, r) => sum + r.distance, 0);
+
+      // Build final sorted list with updated sequence + distance + estimatedTime
+      const optimizedIds = routeInfo.map(r => r.id);
+
+      // Persist delivery_sequence and distance on each order in Firestore
+      for (const r of routeInfo) {
+        await db.collection("orders").doc(r.id).update({
+          deliverySequence: r.deliverySequence,
+          delivery_sequence: r.deliverySequence, // snake_case alias
+          distance: r.distance,
+          estimatedTime: r.estimatedTime,
+          estimated_time: r.estimatedTime,
+          updatedAt: new Date(),
+        }).catch(() => {});
+      }
+
+      const batchId = await createDeliveryBatch({ driverPhone: phoneNumber, orderIds: optimizedIds, totalDistance });
       if (batchId) {
         qd.currentBatchId = batchId;
-        orderIds.forEach(id => batchedOrderIds.add(id));
-        console.log(`[BATCH] Created batch ${batchId} (${orderIds.length} orders) for driver ${phoneNumber}`);
+        optimizedIds.forEach(id => batchedOrderIds.add(id));
+        console.log(`[BATCH] Created batch ${batchId} (${optimizedIds.length} orders, ~${totalDistance.toFixed(1)} km) for driver ${phoneNumber}`);
       }
     } catch (e) {
       console.error("assignWaitingBatchToDriver error:", e);

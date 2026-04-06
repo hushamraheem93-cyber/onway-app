@@ -1554,6 +1554,7 @@ export interface DeliveryBatch {
 export async function createDeliveryBatch(data: {
   driverPhone: string;
   orderIds: string[];
+  totalDistance?: number;
 }): Promise<string | null> {
   const db = getFirestore();
   if (!db) return null;
@@ -1565,19 +1566,22 @@ export async function createDeliveryBatch(data: {
       orderIds: data.orderIds,
       totalOrders: data.orderIds.length,
       completedOrders: 0,
-      totalDistance: 0,
+      totalDistance: data.totalDistance ?? 0,
       totalEarnings: 0,
       createdAt: now,
       updatedAt: now,
     };
-    const docRef = await db.collection("deliveryBatches").add(batchDoc);
+    const docRef = await db.collection("delivery_batches").add(batchDoc);
     // Tag each order with batchId and deliverySequence
     const batch = db.batch();
     data.orderIds.forEach((orderId, idx) => {
       batch.update(db.collection("orders").doc(orderId), {
         batchId: docRef.id,
+        batch_id: docRef.id,           // snake_case alias
         deliverySequence: idx + 1,
+        delivery_sequence: idx + 1,    // snake_case alias
         updatedAt: now,
+        updated_at: now,               // snake_case alias
       });
     });
     await batch.commit();
@@ -1592,7 +1596,7 @@ export async function getDeliveryBatch(batchId: string): Promise<(DeliveryBatch 
   const db = getFirestore();
   if (!db) return null;
   try {
-    const doc = await db.collection("deliveryBatches").doc(batchId).get();
+    const doc = await db.collection("delivery_batches").doc(batchId).get();
     if (!doc.exists) return null;
     return { id: doc.id, ...doc.data() as DeliveryBatch };
   } catch (error) {
@@ -1605,7 +1609,7 @@ export async function updateDeliveryBatch(batchId: string, updates: Partial<Deli
   const db = getFirestore();
   if (!db) return;
   try {
-    await db.collection("deliveryBatches").doc(batchId).update({
+    await db.collection("delivery_batches").doc(batchId).update({
       ...updates,
       updatedAt: admin.firestore.Timestamp.now(),
     });
@@ -1618,7 +1622,7 @@ export async function cancelDeliveryBatch(batchId: string): Promise<void> {
   const db = getFirestore();
   if (!db) return;
   try {
-    const batchDoc = await db.collection("deliveryBatches").doc(batchId).get();
+    const batchDoc = await db.collection("delivery_batches").doc(batchId).get();
     if (!batchDoc.exists) return;
     const batchData = batchDoc.data() as DeliveryBatch;
     // Clear batchId from all non-delivered orders in this batch
@@ -1637,7 +1641,7 @@ export async function cancelDeliveryBatch(batchId: string): Promise<void> {
         }
       }
     }
-    writeBatch.update(db.collection("deliveryBatches").doc(batchId), {
+    writeBatch.update(db.collection("delivery_batches").doc(batchId), {
       status: "cancelled",
       updatedAt: now,
     });
@@ -1659,9 +1663,19 @@ export async function addDeliveryLog(data: {
   const db = getFirestore();
   if (!db) return;
   try {
-    await db.collection("deliveryLogs").add({
-      ...data,
-      createdAt: admin.firestore.Timestamp.now(),
+    const now = admin.firestore.Timestamp.now();
+    await db.collection("delivery_logs").add({
+      order_id: data.orderId,
+      driver_id: data.driverPhone,
+      action: data.action,
+      lat: data.lat ?? null,
+      lng: data.lng ?? null,
+      notes: data.notes ?? null,
+      created_at: now,
+      // camelCase aliases for compatibility
+      orderId: data.orderId,
+      driverPhone: data.driverPhone,
+      createdAt: now,
     });
   } catch (error) {
     console.error("Error adding delivery log:", error);

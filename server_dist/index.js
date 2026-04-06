@@ -1097,18 +1097,24 @@ async function createDeliveryBatch(data) {
       orderIds: data.orderIds,
       totalOrders: data.orderIds.length,
       completedOrders: 0,
-      totalDistance: 0,
+      totalDistance: data.totalDistance ?? 0,
       totalEarnings: 0,
       createdAt: now,
       updatedAt: now
     };
-    const docRef = await db2.collection("deliveryBatches").add(batchDoc);
+    const docRef = await db2.collection("delivery_batches").add(batchDoc);
     const batch = db2.batch();
     data.orderIds.forEach((orderId, idx) => {
       batch.update(db2.collection("orders").doc(orderId), {
         batchId: docRef.id,
+        batch_id: docRef.id,
+        // snake_case alias
         deliverySequence: idx + 1,
-        updatedAt: now
+        delivery_sequence: idx + 1,
+        // snake_case alias
+        updatedAt: now,
+        updated_at: now
+        // snake_case alias
       });
     });
     await batch.commit();
@@ -1122,7 +1128,7 @@ async function getDeliveryBatch(batchId) {
   const db2 = getFirestore();
   if (!db2) return null;
   try {
-    const doc = await db2.collection("deliveryBatches").doc(batchId).get();
+    const doc = await db2.collection("delivery_batches").doc(batchId).get();
     if (!doc.exists) return null;
     return { id: doc.id, ...doc.data() };
   } catch (error) {
@@ -1134,7 +1140,7 @@ async function updateDeliveryBatch(batchId, updates) {
   const db2 = getFirestore();
   if (!db2) return;
   try {
-    await db2.collection("deliveryBatches").doc(batchId).update({
+    await db2.collection("delivery_batches").doc(batchId).update({
       ...updates,
       updatedAt: admin.firestore.Timestamp.now()
     });
@@ -1146,7 +1152,7 @@ async function cancelDeliveryBatch(batchId) {
   const db2 = getFirestore();
   if (!db2) return;
   try {
-    const batchDoc = await db2.collection("deliveryBatches").doc(batchId).get();
+    const batchDoc = await db2.collection("delivery_batches").doc(batchId).get();
     if (!batchDoc.exists) return;
     const batchData = batchDoc.data();
     const writeBatch = db2.batch();
@@ -1164,7 +1170,7 @@ async function cancelDeliveryBatch(batchId) {
         }
       }
     }
-    writeBatch.update(db2.collection("deliveryBatches").doc(batchId), {
+    writeBatch.update(db2.collection("delivery_batches").doc(batchId), {
       status: "cancelled",
       updatedAt: now
     });
@@ -1177,9 +1183,19 @@ async function addDeliveryLog(data) {
   const db2 = getFirestore();
   if (!db2) return;
   try {
-    await db2.collection("deliveryLogs").add({
-      ...data,
-      createdAt: admin.firestore.Timestamp.now()
+    const now = admin.firestore.Timestamp.now();
+    await db2.collection("delivery_logs").add({
+      order_id: data.orderId,
+      driver_id: data.driverPhone,
+      action: data.action,
+      lat: data.lat ?? null,
+      lng: data.lng ?? null,
+      notes: data.notes ?? null,
+      created_at: now,
+      // camelCase aliases for compatibility
+      orderId: data.orderId,
+      driverPhone: data.driverPhone,
+      createdAt: now
     });
   } catch (error) {
     console.error("Error adding delivery log:", error);
@@ -1501,15 +1517,16 @@ async function registerRoutes(app2) {
       try {
         const db2 = getFirestore();
         if (db2) {
-          const batchSnap = await db2.collection("deliveryBatches").where("status", "in", ["pending", "in_progress"]).get();
+          const batchSnap = await db2.collection("delivery_batches").where("status", "in", ["pending", "in_progress"]).get();
           for (const bDoc of batchSnap.docs) {
             const bData = bDoc.data();
-            const qd = driverQueue.find((d) => d.phoneNumber === bData.driverPhone);
+            const driverPhone = bData.driverId;
+            const qd = driverQueue.find((d) => d.phoneNumber === driverPhone);
             if (qd && !qd.currentBatchId) {
               qd.currentBatchId = bDoc.id;
               qd.lastSeenAt = Date.now();
               bData.orderIds.forEach((id) => batchedOrderIds.add(id));
-              console.log(`[RESTART] Restored batch ${bDoc.id} \u2192 driver ${bData.driverPhone}`);
+              console.log(`[RESTART] Restored batch ${bDoc.id} \u2192 driver ${driverPhone}`);
             }
           }
           const allOrders = await getOrders();
@@ -3004,7 +3021,18 @@ ${itemsList}
             return o?.status === "delivered";
           }).length;
           if (allDelivered) {
-            await updateDeliveryBatch(batchId, { status: "completed", completedOrders: completedCount, endTime: now.toISOString() });
+            const batchEarnings = batchDoc.orderIds.reduce((sum, oid) => {
+              const o = freshOrders.find((x) => x.id === oid);
+              if (!o) return sum;
+              const isRest = o.orderType === "restaurant" || !!o.vendorId;
+              return sum + (isRest ? 750 : 2e3);
+            }, 0);
+            await updateDeliveryBatch(batchId, {
+              status: "completed",
+              completedOrders: completedCount,
+              totalEarnings: batchEarnings,
+              endTime: now.toISOString()
+            });
             const qd = driverQueue.find((d) => d.phoneNumber === phoneNumber);
             if (qd) qd.currentBatchId = void 0;
             if (newBalance >= 250) {
@@ -3015,7 +3043,13 @@ ${itemsList}
               if (queueIdx !== -1) driverQueue.splice(queueIdx, 1);
             }
           } else {
-            await updateDeliveryBatch(batchId, { completedOrders: completedCount });
+            const partialEarnings = batchDoc.orderIds.reduce((sum, oid) => {
+              const o = freshOrders.find((x) => x.id === oid);
+              if (!o || o.status !== "delivered") return sum;
+              const isRest = o.orderType === "restaurant" || !!o.vendorId;
+              return sum + (isRest ? 750 : 2e3);
+            }, 0);
+            await updateDeliveryBatch(batchId, { completedOrders: completedCount, totalEarnings: partialEarnings });
           }
         }
       }
@@ -3237,6 +3271,59 @@ ${itemsList}
     if (activeDriver) return activeDriver;
     return driverQueue.find((d) => !d.currentBatchId);
   }
+  function toRad(value) {
+    return value * Math.PI / 180;
+  }
+  function calculateDistance(lat1, lng1, lat2, lng2) {
+    const R = 6371;
+    const dLat = toRad(lat2 - lat1);
+    const dLng = toRad(lng2 - lng1);
+    const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) * Math.sin(dLng / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
+  }
+  function calculateEstimatedTime(distance) {
+    const minutes = Math.ceil(distance / 30 * 60);
+    if (minutes < 60) return `${minutes} \u062F\u0642\u064A\u0642\u0629`;
+    const h = Math.floor(minutes / 60);
+    const m = minutes % 60;
+    return `${h} \u0633\u0627\u0639\u0629 \u0648 ${m} \u062F\u0642\u064A\u0642\u0629`;
+  }
+  function optimizeDeliveryRoute(orders, startLat = 0, startLng = 0) {
+    if (orders.length === 0) return [];
+    const remaining = orders.map((o) => ({
+      ...o,
+      lat: o.latitude ?? o.customerLat ?? 0,
+      lng: o.longitude ?? o.customerLng ?? 0
+    }));
+    const optimized = [];
+    let curLat = startLat;
+    let curLng = startLng;
+    while (remaining.length > 0) {
+      let nearestIdx = 0;
+      let shortest = calculateDistance(curLat, curLng, remaining[0].lat, remaining[0].lng);
+      for (let i = 1; i < remaining.length; i++) {
+        const d = calculateDistance(curLat, curLng, remaining[i].lat, remaining[i].lng);
+        if (d < shortest) {
+          shortest = d;
+          nearestIdx = i;
+        }
+      }
+      const nearest = remaining.splice(nearestIdx, 1)[0];
+      optimized.push(nearest);
+      curLat = nearest.lat;
+      curLng = nearest.lng;
+    }
+    return optimized.map((o, i) => {
+      const dist = i === 0 ? calculateDistance(startLat, startLng, o.lat, o.lng) : calculateDistance(optimized[i - 1].lat, optimized[i - 1].lng, o.lat, o.lng);
+      return {
+        id: o.id,
+        deliverySequence: i + 1,
+        distance: parseFloat(dist.toFixed(2)),
+        estimatedTime: calculateEstimatedTime(dist)
+      };
+    });
+  }
   async function assignWaitingBatchToDriver(phoneNumber, maxOrders = 3) {
     try {
       const db2 = getFirestore();
@@ -3250,12 +3337,26 @@ ${itemsList}
         return aTime - bTime;
       }).slice(0, maxOrders);
       if (waitingOrders.length === 0) return;
-      const orderIds = waitingOrders.map((o) => o.id);
-      const batchId = await createDeliveryBatch({ driverPhone: phoneNumber, orderIds });
+      const routeInfo = optimizeDeliveryRoute(waitingOrders);
+      const totalDistance = routeInfo.reduce((sum, r) => sum + r.distance, 0);
+      const optimizedIds = routeInfo.map((r) => r.id);
+      for (const r of routeInfo) {
+        await db2.collection("orders").doc(r.id).update({
+          deliverySequence: r.deliverySequence,
+          delivery_sequence: r.deliverySequence,
+          // snake_case alias
+          distance: r.distance,
+          estimatedTime: r.estimatedTime,
+          estimated_time: r.estimatedTime,
+          updatedAt: /* @__PURE__ */ new Date()
+        }).catch(() => {
+        });
+      }
+      const batchId = await createDeliveryBatch({ driverPhone: phoneNumber, orderIds: optimizedIds, totalDistance });
       if (batchId) {
         qd.currentBatchId = batchId;
-        orderIds.forEach((id) => batchedOrderIds.add(id));
-        console.log(`[BATCH] Created batch ${batchId} (${orderIds.length} orders) for driver ${phoneNumber}`);
+        optimizedIds.forEach((id) => batchedOrderIds.add(id));
+        console.log(`[BATCH] Created batch ${batchId} (${optimizedIds.length} orders, ~${totalDistance.toFixed(1)} km) for driver ${phoneNumber}`);
       }
     } catch (e) {
       console.error("assignWaitingBatchToDriver error:", e);
