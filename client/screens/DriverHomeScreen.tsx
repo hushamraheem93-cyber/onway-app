@@ -113,7 +113,6 @@ export default function DriverHomeScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
   const [walletBalance, setWalletBalance] = useState(0);
-  const [walletError, setWalletError] = useState("");
   const [issueModalVisible, setIssueModalVisible] = useState(false);
   const [issueSent, setIssueSent] = useState(false);
   const [issueSending, setIssueSending] = useState(false);
@@ -397,14 +396,6 @@ export default function DriverHomeScreen() {
             <ThemedText type="body" style={styles.whatsappText}>تواصل مع الدعم عبر واتساب</ThemedText>
           </Pressable>
         </>
-      ) : null}
-      {walletError.length > 0 ? (
-        <View style={[styles.walletWarning, { backgroundColor: "#FFEBEE" }]}>
-          <Feather name="x-circle" size={16} color="#F44336" />
-          <ThemedText type="small" style={{ color: "#C62828", flex: 1, textAlign: "right", marginRight: Spacing.xs }}>
-            {walletError}
-          </ThemedText>
-        </View>
       ) : null}
     </View>
   );

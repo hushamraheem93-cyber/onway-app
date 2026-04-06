@@ -121,8 +121,6 @@ function ConfirmModal({ visible, title, message, confirmLabel, confirmColor, loa
 // ─── Main Screen ──────────────────────────────────────────────────────────────
 interface DriverStatus {
   currentBatch: CurrentBatch | null;
-  todayOrders: number;
-  todayEarnings: number;
   walletBalance: number;
 }
 
@@ -159,8 +157,6 @@ export default function DriverOrdersScreen() {
         const data = await res.json();
         setStatus({
           currentBatch: data.currentBatch || null,
-          todayOrders: data.todayOrders || 0,
-          todayEarnings: data.todayEarnings || 0,
           walletBalance: data.walletBalance || 0,
         });
         setOptimized(false);
@@ -253,35 +249,6 @@ export default function DriverOrdersScreen() {
       Linking.openURL(`https://maps.google.com/?q=${lat},${lng}`).catch(console.error)
     );
   };
-
-  // ─── Sub-renderers ───────────────────────────────────────────────────────
-  const renderStatsBar = () => (
-    <View style={[styles.statsBar, { backgroundColor: theme.backgroundDefault }, Shadows.sm]}>
-      <View style={styles.statCell}>
-        <ThemedText type="h3" style={{ color: AppColors.primary, fontWeight: "800" }}>
-          {status?.todayOrders ?? 0}
-        </ThemedText>
-        <ThemedText type="small" style={{ color: theme.textSecondary }}>طلبات اليوم</ThemedText>
-      </View>
-      <View style={[styles.statDivider, { backgroundColor: theme.border }]} />
-      <View style={styles.statCell}>
-        <ThemedText type="h3" style={{ color: "#4CAF50", fontWeight: "800" }}>
-          {formatPrice(status?.todayEarnings ?? 0)}
-        </ThemedText>
-        <ThemedText type="small" style={{ color: theme.textSecondary }}>أرباح اليوم</ThemedText>
-      </View>
-      <View style={[styles.statDivider, { backgroundColor: theme.border }]} />
-      <View style={styles.statCell}>
-        <ThemedText
-          type="h3"
-          style={{ color: (status?.walletBalance ?? 0) < 250 ? "#F44336" : "#8B5CF6", fontWeight: "800" }}
-        >
-          {formatPrice(status?.walletBalance ?? 0)}
-        </ThemedText>
-        <ThemedText type="small" style={{ color: theme.textSecondary }}>المحفظة</ThemedText>
-      </View>
-    </View>
-  );
 
   const renderEmptyState = () => (
     <View style={styles.emptyContainer}>
@@ -549,8 +516,6 @@ export default function DriverOrdersScreen() {
         }
         showsVerticalScrollIndicator={false}
       >
-        {renderStatsBar()}
-
         {/* Orders section */}
         {orders.length > 0 ? (
           <View style={styles.section}>
@@ -636,15 +601,6 @@ const styles = StyleSheet.create({
   headerProgressText: { fontWeight: "700", width: 36, textAlign: "right" },
   // Scroll
   scrollContent: { padding: Spacing.lg },
-  // Stats bar
-  statsBar: {
-    flexDirection: "row-reverse",
-    borderRadius: BorderRadius.xl,
-    padding: Spacing.lg,
-    marginBottom: Spacing.lg,
-  },
-  statCell: { flex: 1, alignItems: "center" },
-  statDivider: { width: 1, marginVertical: 4 },
   // Section
   section: { marginBottom: Spacing.lg },
   sectionHeader: {
