@@ -775,6 +775,33 @@ export async function updateDriverOnlineStatus(phoneNumber: string, isOnline: bo
   }
 }
 
+export async function saveDriverPushToken(phoneNumber: string, pushToken: string): Promise<void> {
+  if (!db) return;
+  try {
+    const snapshot = await db.collection("drivers").where("phoneNumber", "==", phoneNumber).limit(1).get();
+    if (snapshot.empty) return;
+    await snapshot.docs[0].ref.update({
+      pushToken,
+      updatedAt: admin.firestore.Timestamp.now(),
+    });
+  } catch (error) {
+    console.error("Error saving driver push token:", error);
+  }
+}
+
+export async function getDriverPushToken(phoneNumber: string): Promise<string | null> {
+  if (!db) return null;
+  try {
+    const snapshot = await db.collection("drivers").where("phoneNumber", "==", phoneNumber).limit(1).get();
+    if (snapshot.empty) return null;
+    const data = snapshot.docs[0].data() as FirestoreDriver;
+    return (data as any).pushToken || null;
+  } catch (error) {
+    console.error("Error getting driver push token:", error);
+    return null;
+  }
+}
+
 export async function getOnlineDrivers(): Promise<{ phoneNumber: string; onlineAt: number }[]> {
   if (!db) return [];
   try {

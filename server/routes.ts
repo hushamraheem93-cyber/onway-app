@@ -33,11 +33,11 @@ import {
   getVendors as getFirestoreVendors, createVendor as createFirestoreVendor,
   updateVendor as updateFirestoreVendor, deleteVendor as deleteFirestoreVendor,
   initializeDefaultVendors,
-  updateDriverOnlineStatus, getOnlineDrivers,
+  updateDriverOnlineStatus, getOnlineDrivers, saveDriverPushToken, getDriverPushToken,
   getSupportChat, sendSupportMessage, getAllSupportChats, markSupportChatRead,
   createDeliveryBatch, getDeliveryBatch, updateDeliveryBatch, cancelDeliveryBatch, addDeliveryLog, DeliveryBatch
 } from "./firebase";
-import { sendPushNotification, sendBroadcastNotification } from "./pushNotifications";
+import { sendPushNotification, sendBroadcastNotification, sendDriverBatchNotification } from "./pushNotifications";
 
 const uploadsDir = path.join(process.cwd(), "uploads");
 if (!fs.existsSync(uploadsDir)) {
@@ -1222,8 +1222,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
             console.error("Failed to record promo usage:", err)
           );
         }
+        // Auto-confirm the order and trigger batch assignment immediately
+        await updateOrderStatus(newOrder.id, "confirmed").catch(() => {});
+        console.log(`[ORDER] Auto-confirmed order ${newOrder.id} → triggering batch assignment`);
+        onOrderConfirmed();
         return res.json({
           ...newOrder,
+          status: "confirmed",
           createdAt: newOrder.createdAt.toDate().toISOString(),
           updatedAt: newOrder.updatedAt.toDate().toISOString(),
           vendorWhatsappUrl,
@@ -1776,7 +1781,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Toggle driver online/offline
   app.post("/api/driver/toggle-online", async (req: Request, res: Response) => {
-    const { phoneNumber, goOnline } = req.body;
+    const { phoneNumber, goOnline, pushToken } = req.body;
     if (!phoneNumber) return res.status(400).json({ error: "Phone number required" });
 
     try {
@@ -1790,6 +1795,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           driverQueue.push({ phoneNumber, joinedAt: Date.now(), lastSeenAt: Date.now() });
         } else {
           exists.lastSeenAt = Date.now();
+        }
+        // Save push token for driver notifications
+        if (pushToken && pushToken.startsWith("ExponentPushToken")) {
+          saveDriverPushToken(phoneNumber, pushToken).catch(() => {});
+          console.log(`[PUSH] Saved driver push token for ${phoneNumber}`);
         }
         // Persist online status to Firestore
         updateDriverOnlineStatus(phoneNumber, true).catch(() => {});
@@ -2451,6 +2461,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         qd.currentBatchId = batchId;
         optimizedIds.forEach(id => batchedOrderIds.add(id));
         console.log(`[BATCH] Created batch ${batchId} (${optimizedIds.length} orders, ~${totalDistance.toFixed(1)} km) for driver ${phoneNumber}`);
+        // Send push notification to driver
+        const driverPushToken = await getDriverPushToken(phoneNumber);
+        if (driverPushToken) {
+          sendDriverBatchNotification(driverPushToken, optimizedIds.length, batchId).catch(() => {});
+        }
       }
     } catch (e) {
       console.error("assignWaitingBatchToDriver error:", e);

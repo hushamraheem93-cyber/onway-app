@@ -96,6 +96,39 @@ export function getStatusMessage(status: string): { title: string; body: string 
   return ORDER_STATUS_MESSAGES[status] || null;
 }
 
+export async function sendDriverBatchNotification(
+  pushToken: string,
+  totalOrders: number,
+  batchId: string
+): Promise<boolean> {
+  if (!pushToken || !pushToken.startsWith("ExponentPushToken")) return false;
+  const message: ExpoPushMessage = {
+    to: pushToken,
+    title: `دفعة جديدة - ${totalOrders} ${totalOrders === 1 ? "طلب" : "طلبات"}`,
+    body: "لديك دفعة توصيل جديدة. اضغط لعرض التفاصيل وقبول الطلبات",
+    sound: "default",
+    channelId: "default",
+    data: { type: "new_batch", batchId },
+  };
+  try {
+    const response = await fetch("https://exp.host/--/api/v2/push/send", {
+      method: "POST",
+      headers: { Accept: "application/json", "Accept-Encoding": "gzip, deflate", "Content-Type": "application/json" },
+      body: JSON.stringify(message),
+    });
+    const result = (await response.json()) as { data: ExpoPushTicket };
+    if (result.data.status === "ok") {
+      console.log(`[PUSH] Driver batch notification sent → ${pushToken.slice(-10)}`);
+      return true;
+    }
+    console.error("[PUSH] Driver batch notification error:", result.data.message);
+    return false;
+  } catch (error) {
+    console.error("[PUSH] Error sending driver batch notification:", error);
+    return false;
+  }
+}
+
 export async function sendBroadcastNotification(
   tokens: string[],
   title: string,

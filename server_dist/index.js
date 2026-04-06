@@ -532,6 +532,31 @@ async function updateDriverOnlineStatus(phoneNumber, isOnline) {
     console.error("Error updating driver online status:", error);
   }
 }
+async function saveDriverPushToken(phoneNumber, pushToken) {
+  if (!db) return;
+  try {
+    const snapshot = await db.collection("drivers").where("phoneNumber", "==", phoneNumber).limit(1).get();
+    if (snapshot.empty) return;
+    await snapshot.docs[0].ref.update({
+      pushToken,
+      updatedAt: admin.firestore.Timestamp.now()
+    });
+  } catch (error) {
+    console.error("Error saving driver push token:", error);
+  }
+}
+async function getDriverPushToken(phoneNumber) {
+  if (!db) return null;
+  try {
+    const snapshot = await db.collection("drivers").where("phoneNumber", "==", phoneNumber).limit(1).get();
+    if (snapshot.empty) return null;
+    const data = snapshot.docs[0].data();
+    return data.pushToken || null;
+  } catch (error) {
+    console.error("Error getting driver push token:", error);
+    return null;
+  }
+}
 async function getOnlineDrivers() {
   if (!db) return [];
   try {
@@ -1267,6 +1292,34 @@ async function sendPushNotification(pushToken, status, orderId) {
     }
   } catch (error) {
     console.error("Error sending push notification:", error);
+    return false;
+  }
+}
+async function sendDriverBatchNotification(pushToken, totalOrders, batchId) {
+  if (!pushToken || !pushToken.startsWith("ExponentPushToken")) return false;
+  const message = {
+    to: pushToken,
+    title: `\u062F\u0641\u0639\u0629 \u062C\u062F\u064A\u062F\u0629 - ${totalOrders} ${totalOrders === 1 ? "\u0637\u0644\u0628" : "\u0637\u0644\u0628\u0627\u062A"}`,
+    body: "\u0644\u062F\u064A\u0643 \u062F\u0641\u0639\u0629 \u062A\u0648\u0635\u064A\u0644 \u062C\u062F\u064A\u062F\u0629. \u0627\u0636\u063A\u0637 \u0644\u0639\u0631\u0636 \u0627\u0644\u062A\u0641\u0627\u0635\u064A\u0644 \u0648\u0642\u0628\u0648\u0644 \u0627\u0644\u0637\u0644\u0628\u0627\u062A",
+    sound: "default",
+    channelId: "default",
+    data: { type: "new_batch", batchId }
+  };
+  try {
+    const response = await fetch("https://exp.host/--/api/v2/push/send", {
+      method: "POST",
+      headers: { Accept: "application/json", "Accept-Encoding": "gzip, deflate", "Content-Type": "application/json" },
+      body: JSON.stringify(message)
+    });
+    const result = await response.json();
+    if (result.data.status === "ok") {
+      console.log(`[PUSH] Driver batch notification sent \u2192 ${pushToken.slice(-10)}`);
+      return true;
+    }
+    console.error("[PUSH] Driver batch notification error:", result.data.message);
+    return false;
+  } catch (error) {
+    console.error("[PUSH] Error sending driver batch notification:", error);
     return false;
   }
 }
@@ -2298,8 +2351,13 @@ ${itemsList}
             (err) => console.error("Failed to record promo usage:", err)
           );
         }
+        await updateOrderStatus(newOrder.id, "confirmed").catch(() => {
+        });
+        console.log(`[ORDER] Auto-confirmed order ${newOrder.id} \u2192 triggering batch assignment`);
+        onOrderConfirmed();
         return res.json({
           ...newOrder,
+          status: "confirmed",
           createdAt: newOrder.createdAt.toDate().toISOString(),
           updatedAt: newOrder.updatedAt.toDate().toISOString(),
           vendorWhatsappUrl
@@ -2775,7 +2833,7 @@ ${itemsList}
     res.json({ locations });
   });
   app2.post("/api/driver/toggle-online", async (req, res) => {
-    const { phoneNumber, goOnline } = req.body;
+    const { phoneNumber, goOnline, pushToken } = req.body;
     if (!phoneNumber) return res.status(400).json({ error: "Phone number required" });
     try {
       if (goOnline) {
@@ -2788,6 +2846,11 @@ ${itemsList}
           driverQueue.push({ phoneNumber, joinedAt: Date.now(), lastSeenAt: Date.now() });
         } else {
           exists.lastSeenAt = Date.now();
+        }
+        if (pushToken && pushToken.startsWith("ExponentPushToken")) {
+          saveDriverPushToken(phoneNumber, pushToken).catch(() => {
+          });
+          console.log(`[PUSH] Saved driver push token for ${phoneNumber}`);
         }
         updateDriverOnlineStatus(phoneNumber, true).catch(() => {
         });
@@ -3357,6 +3420,11 @@ ${itemsList}
         qd.currentBatchId = batchId;
         optimizedIds.forEach((id) => batchedOrderIds.add(id));
         console.log(`[BATCH] Created batch ${batchId} (${optimizedIds.length} orders, ~${totalDistance.toFixed(1)} km) for driver ${phoneNumber}`);
+        const driverPushToken = await getDriverPushToken(phoneNumber);
+        if (driverPushToken) {
+          sendDriverBatchNotification(driverPushToken, optimizedIds.length, batchId).catch(() => {
+          });
+        }
       }
     } catch (e) {
       console.error("assignWaitingBatchToDriver error:", e);

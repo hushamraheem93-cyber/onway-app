@@ -226,10 +226,21 @@ export default function DriverHomeScreen() {
     setWalletError("");
     setIsToggling(true);
     try {
+      // Get push token to send to server when going online
+      let pushToken: string | undefined;
+      if (!isOnline) {
+        try {
+          const { status } = await Notifications.requestPermissionsAsync();
+          if (status === "granted") {
+            const tokenData = await Notifications.getExpoPushTokenAsync();
+            pushToken = tokenData.data;
+          }
+        } catch (_e) {}
+      }
       const res = await fetch(new URL("/api/driver/toggle-online", getApiUrl()).toString(), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phoneNumber, goOnline: !isOnline }),
+        body: JSON.stringify({ phoneNumber, goOnline: !isOnline, pushToken }),
       });
       if (res.ok) {
         const data = await res.json();
