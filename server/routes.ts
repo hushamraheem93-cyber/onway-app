@@ -35,9 +35,10 @@ import {
   initializeDefaultVendors,
   updateDriverOnlineStatus, getOnlineDrivers, saveDriverPushToken, getDriverPushToken,
   getSupportChat, sendSupportMessage, getAllSupportChats, markSupportChatRead,
-  createDeliveryBatch, getDeliveryBatch, updateDeliveryBatch, cancelDeliveryBatch, addDeliveryLog, DeliveryBatch
+  createDeliveryBatch, getDeliveryBatch, updateDeliveryBatch, cancelDeliveryBatch, addDeliveryLog, DeliveryBatch,
+  saveAdminPushToken, getAdminPushToken
 } from "./firebase";
-import { sendPushNotification, sendBroadcastNotification, sendDriverBatchNotification } from "./pushNotifications";
+import { sendPushNotification, sendBroadcastNotification, sendDriverBatchNotification, sendAdminNewOrderNotification } from "./pushNotifications";
 
 const uploadsDir = path.join(process.cwd(), "uploads");
 if (!fs.existsSync(uploadsDir)) {
@@ -1237,13 +1238,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
             console.error("Failed to record promo usage:", err)
           );
         }
-        // Auto-confirm the order and trigger batch assignment immediately
-        await updateOrderStatus(newOrder.id, "confirmed").catch(() => {});
-        console.log(`[ORDER] Auto-confirmed order ${newOrder.id} → triggering batch assignment`);
-        onOrderConfirmed();
+        // Order stays "pending" until admin approves from the admin panel
+        // Notify admin about the new order
+        getAdminPushToken().then(adminToken => {
+          if (adminToken) {
+            sendAdminNewOrderNotification(
+              adminToken, newOrder.id,
+              orderData.region || "",
+              (orderData.total || 0) + (orderData.deliveryFee || 0)
+            ).catch(() => {});
+          }
+        }).catch(() => {});
         return res.json({
           ...newOrder,
-          status: "confirmed",
+          status: "pending",
           createdAt: newOrder.createdAt.toDate().toISOString(),
           updatedAt: newOrder.updatedAt.toDate().toISOString(),
           vendorWhatsappUrl,
@@ -2913,6 +2921,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }
+  });
+
+  // ── Save Admin Push Token ─────────────────────────────────────────────────
+  app.post("/api/admin/push-token", async (req: Request, res: Response) => {
+    const { pushToken } = req.body;
+    if (!pushToken) return res.status(400).json({ error: "pushToken required" });
+    const success = await saveAdminPushToken(pushToken);
+    res.json({ success });
   });
 
   // ── Send Broadcast Push Notification ─────────────────────────────────────

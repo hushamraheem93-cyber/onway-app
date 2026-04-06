@@ -129,6 +129,39 @@ export async function sendDriverBatchNotification(
   }
 }
 
+export async function sendAdminNewOrderNotification(
+  pushToken: string,
+  orderId: string,
+  region: string,
+  total: number
+): Promise<boolean> {
+  if (!pushToken || !pushToken.startsWith("ExponentPushToken")) return false;
+  const message: ExpoPushMessage = {
+    to: pushToken,
+    title: "طلب جديد",
+    body: `طلب من ${region} - المبلغ: ${total.toLocaleString()} د.ع`,
+    sound: "default",
+    channelId: "default",
+    data: { type: "new_order", orderId },
+  };
+  try {
+    const response = await fetch("https://exp.host/--/api/v2/push/send", {
+      method: "POST",
+      headers: { Accept: "application/json", "Accept-Encoding": "gzip, deflate", "Content-Type": "application/json" },
+      body: JSON.stringify(message),
+    });
+    const result = (await response.json()) as { data: ExpoPushTicket };
+    if (result.data.status === "ok") {
+      console.log(`[PUSH] Admin new-order notification sent`);
+      return true;
+    }
+    return false;
+  } catch (error) {
+    console.error("[PUSH] Error sending admin notification:", error);
+    return false;
+  }
+}
+
 export async function sendBroadcastNotification(
   tokens: string[],
   title: string,

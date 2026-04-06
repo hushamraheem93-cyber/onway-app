@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   StyleSheet,
   View,
@@ -10,6 +10,7 @@ import {
   Platform,
   Switch,
 } from "react-native";
+import * as Notifications from "expo-notifications";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { Image } from "expo-image";
@@ -22,7 +23,7 @@ import { useTheme } from "@/hooks/useTheme";
 import { ThemedText } from "@/components/ThemedText";
 import { Spacing, BorderRadius, AppColors } from "@/constants/theme";
 import { Banner, Category } from "@/constants/categories";
-import { apiRequest } from "@/lib/query-client";
+import { apiRequest, getApiUrl } from "@/lib/query-client";
 import { resolveImageUrl } from "@/utils/imageUtils";
 import { formatPrice } from "@/constants/currency";
 import { compressAndConvertToBase64, processAndUploadImage, isBase64Image, ImageSize } from "@/lib/imageUtils";
@@ -157,6 +158,31 @@ export default function AdminScreen() {
   const [notifError, setNotifError] = useState<string | null>(null);
 
   const [usersSearch, setUsersSearch] = useState("");
+
+  // Register admin push token so server can send new-order notifications
+  useEffect(() => {
+    (async () => {
+      try {
+        if (Platform.OS === "web") return;
+        const { status: existing } = await Notifications.getPermissionsAsync();
+        let finalStatus = existing;
+        if (existing !== "granted") {
+          const { status } = await Notifications.requestPermissionsAsync();
+          finalStatus = status;
+        }
+        if (finalStatus !== "granted") return;
+        const tokenData = await Notifications.getExpoPushTokenAsync();
+        const pushToken = tokenData.data;
+        if (pushToken?.startsWith("ExponentPushToken")) {
+          await fetch(`${getApiUrl()}/api/admin/push-token`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ pushToken }),
+          });
+        }
+      } catch (_) {}
+    })();
+  }, []);
 
   const { data: adminUsers = [], isLoading: usersLoading, refetch: refetchUsers } = useQuery<AdminUser[]>({
     queryKey: ["/api/admin/users"],

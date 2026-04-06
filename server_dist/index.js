@@ -145,6 +145,29 @@ async function getUserPushToken(phoneNumber) {
     return null;
   }
 }
+async function saveAdminPushToken(pushToken) {
+  if (!db) return false;
+  try {
+    await db.collection("app_settings").doc("admin_push").set(
+      { pushToken, updatedAt: admin.firestore.Timestamp.now() },
+      { merge: true }
+    );
+    return true;
+  } catch (error) {
+    console.error("Error saving admin push token:", error);
+    return false;
+  }
+}
+async function getAdminPushToken() {
+  if (!db) return null;
+  try {
+    const doc = await db.collection("app_settings").doc("admin_push").get();
+    return doc.exists ? doc.data()?.pushToken || null : null;
+  } catch (error) {
+    console.error("Error getting admin push token:", error);
+    return null;
+  }
+}
 async function getAllUsers() {
   if (!db) return [];
   try {
@@ -1323,6 +1346,33 @@ async function sendDriverBatchNotification(pushToken, totalOrders, batchId) {
     return false;
   }
 }
+async function sendAdminNewOrderNotification(pushToken, orderId, region, total) {
+  if (!pushToken || !pushToken.startsWith("ExponentPushToken")) return false;
+  const message = {
+    to: pushToken,
+    title: "\u0637\u0644\u0628 \u062C\u062F\u064A\u062F",
+    body: `\u0637\u0644\u0628 \u0645\u0646 ${region} - \u0627\u0644\u0645\u0628\u0644\u063A: ${total.toLocaleString()} \u062F.\u0639`,
+    sound: "default",
+    channelId: "default",
+    data: { type: "new_order", orderId }
+  };
+  try {
+    const response = await fetch("https://exp.host/--/api/v2/push/send", {
+      method: "POST",
+      headers: { Accept: "application/json", "Accept-Encoding": "gzip, deflate", "Content-Type": "application/json" },
+      body: JSON.stringify(message)
+    });
+    const result = await response.json();
+    if (result.data.status === "ok") {
+      console.log(`[PUSH] Admin new-order notification sent`);
+      return true;
+    }
+    return false;
+  } catch (error) {
+    console.error("[PUSH] Error sending admin notification:", error);
+    return false;
+  }
+}
 async function sendBroadcastNotification(tokens, title, body, data) {
   if (!tokens.length) return { sent: 0, failed: 0 };
   const CHUNK_SIZE = 100;
@@ -2363,13 +2413,21 @@ ${itemsList}
             (err) => console.error("Failed to record promo usage:", err)
           );
         }
-        await updateOrderStatus(newOrder.id, "confirmed").catch(() => {
+        getAdminPushToken().then((adminToken) => {
+          if (adminToken) {
+            sendAdminNewOrderNotification(
+              adminToken,
+              newOrder.id,
+              orderData.region || "",
+              (orderData.total || 0) + (orderData.deliveryFee || 0)
+            ).catch(() => {
+            });
+          }
+        }).catch(() => {
         });
-        console.log(`[ORDER] Auto-confirmed order ${newOrder.id} \u2192 triggering batch assignment`);
-        onOrderConfirmed();
         return res.json({
           ...newOrder,
-          status: "confirmed",
+          status: "pending",
           createdAt: newOrder.createdAt.toDate().toISOString(),
           updatedAt: newOrder.updatedAt.toDate().toISOString(),
           vendorWhatsappUrl
@@ -3797,6 +3855,12 @@ ${itemsList}
     } catch (error) {
       res.status(500).json({ error: error.message });
     }
+  });
+  app2.post("/api/admin/push-token", async (req, res) => {
+    const { pushToken } = req.body;
+    if (!pushToken) return res.status(400).json({ error: "pushToken required" });
+    const success = await saveAdminPushToken(pushToken);
+    res.json({ success });
   });
   app2.post("/api/admin/send-notification", async (req, res) => {
     try {

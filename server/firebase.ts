@@ -195,6 +195,31 @@ export async function getUserPushToken(phoneNumber: string): Promise<string | nu
   }
 }
 
+export async function saveAdminPushToken(pushToken: string): Promise<boolean> {
+  if (!db) return false;
+  try {
+    await db.collection("app_settings").doc("admin_push").set(
+      { pushToken, updatedAt: admin.firestore.Timestamp.now() },
+      { merge: true }
+    );
+    return true;
+  } catch (error) {
+    console.error("Error saving admin push token:", error);
+    return false;
+  }
+}
+
+export async function getAdminPushToken(): Promise<string | null> {
+  if (!db) return null;
+  try {
+    const doc = await db.collection("app_settings").doc("admin_push").get();
+    return doc.exists ? (doc.data()?.pushToken || null) : null;
+  } catch (error) {
+    console.error("Error getting admin push token:", error);
+    return null;
+  }
+}
+
 export async function getAllUsers(): Promise<(FirestoreUserProfile & { id: string })[]> {
   if (!db) return [];
   
