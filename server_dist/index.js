@@ -1946,6 +1946,21 @@ async function registerRoutes(app2) {
       res.status(500).json({ error: "\u0641\u0634\u0644 \u0625\u0646\u0634\u0627\u0621 \u0627\u0644\u0645\u0637\u0639\u0645" });
     }
   });
+  app2.post("/api/admin/vendors/reorder", async (req, res) => {
+    const { order } = req.body;
+    if (!Array.isArray(order) || order.length === 0) {
+      return res.status(400).json({ error: "\u0642\u0627\u0626\u0645\u0629 \u0627\u0644\u062A\u0631\u062A\u064A\u0628 \u0645\u0637\u0644\u0648\u0628\u0629" });
+    }
+    try {
+      for (let i = 0; i < order.length; i++) {
+        await updateVendor(order[i], { sortOrder: i + 1 });
+      }
+      invalidateVendorsCache();
+      res.json({ success: true });
+    } catch (e) {
+      res.status(500).json({ error: e.message });
+    }
+  });
   app2.patch("/api/admin/vendors/:id/sort-order", async (req, res) => {
     const { id } = req.params;
     const { direction } = req.body;

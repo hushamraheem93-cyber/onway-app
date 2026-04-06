@@ -2008,10 +2008,15 @@
           <button class="btn btn-outline btn-sm" onclick="loadVendors()"><i data-lucide="refresh-cw" style="width:14px;height:14px;"></i></button>
         </div>
         <div style="overflow-x:auto;">
+          <p style="font-size:0.8rem;color:var(--gray-400);margin:0 0 10px;display:flex;align-items:center;gap:6px;">
+            <i data-lucide="grip-vertical" style="width:14px;height:14px;"></i>
+            اسحب المطعم لتغيير ترتيبه
+          </p>
           <table class="table" id="vendors-table">
             <thead>
               <tr>
-                <th style="width:80px;text-align:center;">الترتيب</th>
+                <th style="width:44px;"></th>
+                <th style="width:44px;text-align:center;">#</th>
                 <th>المطعم</th>
                 <th>الموقع</th>
                 <th>واتساب</th>
@@ -2024,6 +2029,13 @@
             </thead>
             <tbody id="vendors-tbody"></tbody>
           </table>
+          <style>
+            #vendors-tbody tr { transition: background 0.15s; }
+            #vendors-tbody tr.drag-over { background: #FFF3E0 !important; outline: 2px dashed #E86520; outline-offset: -2px; }
+            #vendors-tbody tr.dragging { opacity: 0.4; }
+            .drag-handle { cursor: grab; color: var(--gray-400); display:flex;align-items:center;justify-content:center;padding:8px 4px; }
+            .drag-handle:active { cursor: grabbing; }
+          </style>
         </div>
       </div>
     </div>
@@ -4849,28 +4861,22 @@
       document.getElementById('vstat-avg-rating').textContent = avgRating;
     }
 
+    // ── Drag-and-drop state ──────────────────────────────────────
+    let dragSrcId = null;
+
     function renderVendorsTable(vendors) {
       const tbody = document.getElementById('vendors-tbody');
       if (!vendors.length) {
-        tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:var(--gray-400);padding:32px;">لا يوجد مطاعم مسجلة</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;color:var(--gray-400);padding:32px;">لا يوجد مطاعم مسجلة</td></tr>';
         return;
       }
       const sorted = [...vendors].sort((a, b) => (a.sortOrder ?? 999) - (b.sortOrder ?? 999));
       tbody.innerHTML = sorted.map((v, idx) => `
-        <tr>
-          <td style="text-align:center;">
-            <div style="display:flex;flex-direction:column;align-items:center;gap:3px;">
-              <div style="font-size:1rem;font-weight:800;color:var(--primary);min-width:26px;text-align:center;">${idx + 1}</div>
-              <div style="display:flex;gap:3px;">
-                <button title="تحريك لأعلى" onclick="moveVendor('${v.id}','up')" ${idx === 0 ? 'disabled' : ''} style="background:${idx === 0 ? '#F3F4F6' : '#E86520'};color:${idx === 0 ? '#9CA3AF' : '#fff'};border:none;border-radius:6px;width:24px;height:24px;cursor:${idx === 0 ? 'not-allowed' : 'pointer'};display:flex;align-items:center;justify-content:center;padding:0;">
-                  <i data-lucide="chevron-up" style="width:13px;height:13px;"></i>
-                </button>
-                <button title="تحريك لأسفل" onclick="moveVendor('${v.id}','down')" ${idx === sorted.length - 1 ? 'disabled' : ''} style="background:${idx === sorted.length - 1 ? '#F3F4F6' : '#E86520'};color:${idx === sorted.length - 1 ? '#9CA3AF' : '#fff'};border:none;border-radius:6px;width:24px;height:24px;cursor:${idx === sorted.length - 1 ? 'not-allowed' : 'pointer'};display:flex;align-items:center;justify-content:center;padding:0;">
-                  <i data-lucide="chevron-down" style="width:13px;height:13px;"></i>
-                </button>
-              </div>
-            </div>
+        <tr draggable="true" data-id="${v.id}" style="cursor:default;">
+          <td class="drag-handle" title="اسحب لإعادة الترتيب">
+            <i data-lucide="grip-vertical" style="width:18px;height:18px;pointer-events:none;"></i>
           </td>
+          <td style="text-align:center;font-size:0.9rem;font-weight:800;color:var(--primary);">${idx + 1}</td>
           <td>
             <div style="display:flex;align-items:center;gap:10px;">
               <img src="${v.image || ''}" onerror="this.style.display='none'" style="width:40px;height:40px;border-radius:10px;object-fit:cover;flex-shrink:0;">
@@ -4916,33 +4922,63 @@
         </tr>
       `).join('');
       lucide.createIcons();
+      initVendorDragDrop();
     }
 
-    async function moveVendor(id, direction) {
-      try {
-        const res = await fetch(`${API_BASE}/admin/vendors/${id}/sort-order`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ direction }),
+    function initVendorDragDrop() {
+      const tbody = document.getElementById('vendors-tbody');
+      const rows = tbody.querySelectorAll('tr[data-id]');
+
+      rows.forEach(row => {
+        row.addEventListener('dragstart', e => {
+          dragSrcId = row.dataset.id;
+          row.classList.add('dragging');
+          e.dataTransfer.effectAllowed = 'move';
         });
-        if (res.ok) {
-          // Force fresh fetch bypassing any browser cache
-          const freshRes = await fetch(`${API_BASE}/admin/vendors?_t=${Date.now()}`, {
-            cache: 'no-store',
-            headers: { 'Cache-Control': 'no-cache' },
-          });
-          if (freshRes.ok) {
-            vendorsList = await freshRes.json();
-            renderVendorsTable(vendorsList);
-            updateVendorStats(vendorsList);
+        row.addEventListener('dragend', () => {
+          row.classList.remove('dragging');
+          tbody.querySelectorAll('tr').forEach(r => r.classList.remove('drag-over'));
+        });
+        row.addEventListener('dragover', e => {
+          e.preventDefault();
+          e.dataTransfer.dropEffect = 'move';
+          tbody.querySelectorAll('tr').forEach(r => r.classList.remove('drag-over'));
+          if (row.dataset.id !== dragSrcId) row.classList.add('drag-over');
+        });
+        row.addEventListener('dragleave', () => row.classList.remove('drag-over'));
+        row.addEventListener('drop', async e => {
+          e.preventDefault();
+          row.classList.remove('drag-over');
+          const targetId = row.dataset.id;
+          if (!dragSrcId || dragSrcId === targetId) return;
+
+          // ── Optimistic UI update ──────────────────────────────
+          const sorted = [...vendorsList].sort((a, b) => (a.sortOrder ?? 999) - (b.sortOrder ?? 999));
+          const srcIdx  = sorted.findIndex(v => v.id === dragSrcId);
+          const tgtIdx  = sorted.findIndex(v => v.id === targetId);
+          if (srcIdx === -1 || tgtIdx === -1) return;
+
+          // Move src to target position in local array
+          const [moved] = sorted.splice(srcIdx, 1);
+          sorted.splice(tgtIdx, 0, moved);
+
+          // Reassign sequential sortOrder locally & render instantly
+          sorted.forEach((v, i) => { v.sortOrder = i + 1; });
+          vendorsList = sorted;
+          renderVendorsTable(vendorsList);
+
+          // ── Persist to server in background ──────────────────
+          try {
+            await fetch(`${API_BASE}/admin/vendors/reorder`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ order: sorted.map(v => v.id) }),
+            });
+          } catch {
+            showToast('error', 'خطأ', 'تعذّر حفظ الترتيب');
           }
-        } else {
-          const err = await res.json();
-          showToast('error', 'خطأ', err.error || 'فشل تغيير الترتيب');
-        }
-      } catch {
-        showToast('error', 'خطأ', 'تعذّر الاتصال بالخادم');
-      }
+        });
+      });
     }
 
     function openVendorModal(id = null) {

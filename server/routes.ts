@@ -947,7 +947,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Reorder vendors: swap sortOrder with adjacent vendor
+  // Reorder vendors: save full new order from drag-and-drop
+  app.post("/api/admin/vendors/reorder", async (req: Request, res: Response) => {
+    const { order } = req.body as { order: string[] };
+    if (!Array.isArray(order) || order.length === 0) {
+      return res.status(400).json({ error: "قائمة الترتيب مطلوبة" });
+    }
+    try {
+      for (let i = 0; i < order.length; i++) {
+        await updateFirestoreVendor(order[i], { sortOrder: i + 1 });
+      }
+      invalidateVendorsCache();
+      res.json({ success: true });
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  // Reorder vendors: swap sortOrder with adjacent vendor (kept for backward compat)
   app.patch("/api/admin/vendors/:id/sort-order", async (req: Request, res: Response) => {
     const { id } = req.params;
     const { direction } = req.body as { direction: "up" | "down" };
