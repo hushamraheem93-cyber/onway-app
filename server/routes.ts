@@ -1850,8 +1850,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const db = getFirestore();
       if (db) {
-        await updateOrderStatus(orderId, "delivering");
-        saveDriverActivity({ phoneNumber, type: "delivering", orderId }).catch(() => {});
+        await updateOrderStatus(orderId, "in_delivery");
+        saveDriverActivity({ phoneNumber, type: "in_delivery", orderId }).catch(() => {});
       }
       res.json({ success: true });
     } catch (error: any) {
@@ -1980,10 +1980,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const db = getFirestore();
       if (!db) return res.status(500).json({ error: "DB not configured" });
       const now = new Date();
-      await updateOrderStatus(orderId, "delivering");
+      await updateOrderStatus(orderId, "in_delivery");
       await db.collection("orders").doc(orderId).update({ pickedUpAt: now, updatedAt: now });
-      addDeliveryLog({ orderId, driverPhone: phoneNumber, action: "picked_up", lat, lng }).catch(() => {});
-      saveDriverActivity({ phoneNumber, type: "delivering", orderId }).catch(() => {});
+      addDeliveryLog({ orderId, driverPhone: phoneNumber, action: "in_delivery", lat, lng }).catch(() => {});
+      saveDriverActivity({ phoneNumber, type: "in_delivery", orderId }).catch(() => {});
       res.json({ success: true });
     } catch (error: any) {
       res.status(500).json({ error: error.message });

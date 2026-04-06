@@ -369,7 +369,7 @@ export interface FirestoreOrder {
   region: string;
   latitude?: number;
   longitude?: number;
-  status: "pending" | "confirmed" | "preparing" | "delivering" | "delivered" | "cancelled" | "issue";
+  status: "pending" | "confirmed" | "preparing" | "ready" | "picked_up" | "in_delivery" | "delivered" | "cancelled" | "issue";
   issueType?: string;
   issuedAt?: admin.firestore.Timestamp;
   createdAt: admin.firestore.Timestamp;
@@ -1538,11 +1538,13 @@ export async function markSupportChatRead(phoneNumber: string, by: "user" | "adm
 
 // ========== Delivery Batches ==========
 export interface DeliveryBatch {
-  driverPhone: string;
+  driverId: string;            // driver phone number used as ID
   status: "pending" | "in_progress" | "completed" | "cancelled";
   orderIds: string[];
   totalOrders: number;
   completedOrders: number;
+  totalDistance: number;
+  totalEarnings: number;
   startTime?: string;
   endTime?: string;
   createdAt: admin.firestore.Timestamp;
@@ -1558,11 +1560,13 @@ export async function createDeliveryBatch(data: {
   try {
     const now = admin.firestore.Timestamp.now();
     const batchDoc: DeliveryBatch = {
-      driverPhone: data.driverPhone,
+      driverId: data.driverPhone,
       status: "pending",
       orderIds: data.orderIds,
       totalOrders: data.orderIds.length,
       completedOrders: 0,
+      totalDistance: 0,
+      totalEarnings: 0,
       createdAt: now,
       updatedAt: now,
     };
@@ -1624,7 +1628,7 @@ export async function cancelDeliveryBatch(batchId: string): Promise<void> {
       const orderDoc = await db.collection("orders").doc(orderId).get();
       if (orderDoc.exists) {
         const orderData = orderDoc.data() as any;
-        if (orderData.status === "confirmed" || orderData.status === "preparing") {
+        if (["confirmed", "preparing", "ready", "picked_up"].includes(orderData.status)) {
           writeBatch.update(db.collection("orders").doc(orderId), {
             batchId: null,
             deliverySequence: 0,
@@ -1647,7 +1651,7 @@ export async function cancelDeliveryBatch(batchId: string): Promise<void> {
 export async function addDeliveryLog(data: {
   orderId: string;
   driverPhone: string;
-  action: "accepted" | "picked_up" | "delivered" | "cancelled";
+  action: "accepted" | "picked_up" | "in_delivery" | "delivered" | "cancelled";
   lat?: number;
   lng?: number;
   notes?: string;

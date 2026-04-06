@@ -1092,11 +1092,13 @@ async function createDeliveryBatch(data) {
   try {
     const now = admin.firestore.Timestamp.now();
     const batchDoc = {
-      driverPhone: data.driverPhone,
+      driverId: data.driverPhone,
       status: "pending",
       orderIds: data.orderIds,
       totalOrders: data.orderIds.length,
       completedOrders: 0,
+      totalDistance: 0,
+      totalEarnings: 0,
       createdAt: now,
       updatedAt: now
     };
@@ -1153,7 +1155,7 @@ async function cancelDeliveryBatch(batchId) {
       const orderDoc = await db2.collection("orders").doc(orderId).get();
       if (orderDoc.exists) {
         const orderData = orderDoc.data();
-        if (orderData.status === "confirmed" || orderData.status === "preparing") {
+        if (["confirmed", "preparing", "ready", "picked_up"].includes(orderData.status)) {
           writeBatch.update(db2.collection("orders").doc(orderId), {
             batchId: null,
             deliverySequence: 0,
@@ -2823,8 +2825,8 @@ ${itemsList}
     try {
       const db2 = getFirestore();
       if (db2) {
-        await updateOrderStatus(orderId, "delivering");
-        saveDriverActivity({ phoneNumber, type: "delivering", orderId }).catch(() => {
+        await updateOrderStatus(orderId, "in_delivery");
+        saveDriverActivity({ phoneNumber, type: "in_delivery", orderId }).catch(() => {
         });
       }
       res.json({ success: true });
@@ -2936,11 +2938,11 @@ ${itemsList}
       const db2 = getFirestore();
       if (!db2) return res.status(500).json({ error: "DB not configured" });
       const now = /* @__PURE__ */ new Date();
-      await updateOrderStatus(orderId, "delivering");
+      await updateOrderStatus(orderId, "in_delivery");
       await db2.collection("orders").doc(orderId).update({ pickedUpAt: now, updatedAt: now });
-      addDeliveryLog({ orderId, driverPhone: phoneNumber, action: "picked_up", lat: lat2, lng: lng2 }).catch(() => {
+      addDeliveryLog({ orderId, driverPhone: phoneNumber, action: "in_delivery", lat: lat2, lng: lng2 }).catch(() => {
       });
-      saveDriverActivity({ phoneNumber, type: "delivering", orderId }).catch(() => {
+      saveDriverActivity({ phoneNumber, type: "in_delivery", orderId }).catch(() => {
       });
       res.json({ success: true });
     } catch (error) {

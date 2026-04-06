@@ -32,35 +32,70 @@ import { RootStackParamList } from "@/navigation/RootStackNavigator";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
+export type OrderStatus =
+  | "pending"
+  | "confirmed"
+  | "preparing"
+  | "ready"
+  | "picked_up"
+  | "in_delivery"
+  | "delivered"
+  | "cancelled";
+
+export type BatchStatus = "pending" | "in_progress" | "completed";
+
 export interface BatchOrder {
   id: string;
+  // Customer info
   customerName: string;
   customerPhone: string;
+  customerId?: string;
   address: string;
   region: string;
-  items: any[];
-  total: number;
-  deliveryFee: number;
-  status: string;
-  deliverySequence: number;
-  pickedUpAt?: string;
-  deliveredAt?: string;
+  customerLat?: number;
+  customerLng?: number;
   latitude?: number;
   longitude?: number;
+  // Order details
+  items: any[];
+  total: number;
+  totalPrice?: number;
+  deliveryFee: number;
+  status: OrderStatus;
+  deliverySequence: number;
+  distance?: number;
+  estimatedTime?: string;
   notes?: string;
+  // Timestamps
+  pickedUpAt?: string;
+  deliveredAt?: string;
+  // Vendor / batch
   orderType?: string;
   vendorName?: string;
   vendorId?: string;
   batchId?: string;
+  driverId?: string;
 }
 
 export interface CurrentBatch {
   id: string;
-  status: "pending" | "in_progress" | "completed";
+  driverId?: string;
+  status: BatchStatus;
   totalOrders: number;
   completedOrders: number;
+  totalDistance?: number;
+  totalEarnings?: number;
   startTime?: string;
+  endTime?: string;
   orders: BatchOrder[];
+}
+
+export interface DriverStats {
+  activeOrdersCount: number;
+  maxOrdersPerBatch: number;
+  totalCompletedOrders: number;
+  totalEarnings: number;
+  currentBatchId?: string;
 }
 
 export default function DriverHomeScreen() {
@@ -467,7 +502,7 @@ export default function DriverHomeScreen() {
           {currentBatch.orders.slice(0, 3).map((order, idx) => {
             const isDelivered = order.status === "delivered";
             const isPreparing = order.status === "preparing";
-            const isDelivering = order.status === "delivering";
+            const isDelivering = order.status === "in_delivery" || order.status === "picked_up";
             return (
               <View key={order.id} style={[styles.orderSummaryRow, idx < Math.min(currentBatch.orders.length, 3) - 1 && { borderBottomWidth: 1, borderBottomColor: theme.border }]}>
                 <View style={styles.orderSummaryLeft}>

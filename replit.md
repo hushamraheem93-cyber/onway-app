@@ -32,7 +32,11 @@ Onway is built with a React Native (Expo) frontend using TypeScript, and a Node.
 **Technical Implementations:**
 - **Image Handling:** All images (profile, product, banner, category) are compressed and stored as Base64 strings in Firestore, utilizing `expo-image-manipulator` to avoid Firebase Storage.
 - **Firebase Integration:** Uses Firebase Admin SDK for backend data management and Firebase Client SDK for frontend data reading.
-- **Order Workflow:** Comprehensive order status management (pending → confirmed → preparing → delivering → delivered) with cancellation option.
+- **Order Workflow:** Full order status lifecycle: `pending → confirmed → preparing → ready → picked_up → in_delivery → delivered` (or `cancelled`). All statuses are typed in `FirestoreOrder.status`.
+- **Batch Delivery System:** Drivers receive delivery batches (up to 3 orders) instead of single orders. Each batch (`DeliveryBatch`) tracks `driverId`, `status` (pending/in_progress/completed), `orderIds`, `totalOrders`, `completedOrders`, `totalDistance`, `totalEarnings`. Driver flow: batch offered → accept → pickup each order → deliver each order → batch completes.
+  - Backend endpoints: `POST /api/driver/batch/accept`, `POST /api/driver/batch/pickup-order`, `POST /api/driver/batch/complete-order`.
+  - Frontend: `DriverHomeScreen` shows pending/active batch card; `DriverBatchScreen` manages individual order steps.
+  - Schema matches: `OrderStatus`, `BatchStatus`, `DeliveryBatch`, `DriverStats` interfaces.
 
 ## External Dependencies
 - **Firebase Firestore:** Primary NoSQL database for user profiles, orders, categories, promo codes, vendor data, and driver wallets.

@@ -28,10 +28,12 @@ import { CurrentBatch, BatchOrder } from "@/screens/DriverHomeScreen";
 type BatchScreenRoute = RouteProp<RootStackParamList, "DriverBatch">;
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; icon: keyof typeof Feather.glyphMap }> = {
-  confirmed:  { label: "منتظر", color: AppColors.primary, icon: "clock" },
-  preparing:  { label: "جاهز للاستلام", color: "#8B5CF6", icon: "shopping-bag" },
-  delivering: { label: "في الطريق", color: "#2196F3", icon: "navigation" },
-  delivered:  { label: "تم التوصيل", color: "#4CAF50", icon: "check-circle" },
+  confirmed:   { label: "منتظر", color: "#9E9E9E", icon: "clock" },
+  preparing:   { label: "يُحضَّر", color: "#8B5CF6", icon: "shopping-bag" },
+  ready:       { label: "جاهز للاستلام", color: AppColors.primary, icon: "check-square" },
+  picked_up:   { label: "استُلم", color: "#FF9800", icon: "package" },
+  in_delivery: { label: "في الطريق", color: "#2196F3", icon: "navigation" },
+  delivered:   { label: "تم التوصيل", color: "#4CAF50", icon: "check-circle" },
 };
 
 export default function DriverBatchScreen() {
@@ -176,10 +178,10 @@ export default function DriverBatchScreen() {
   const renderOrderCard = (order: BatchOrder, index: number) => {
     const cfg = STATUS_CONFIG[order.status] || STATUS_CONFIG.confirmed;
     const isLoading = loadingOrderId === order.id;
-    const isPreparing = order.status === "preparing";
-    const isDelivering = order.status === "delivering";
+    const canPickup = order.status === "preparing" || order.status === "ready";
+    const isInDelivery = order.status === "in_delivery" || order.status === "picked_up";
     const isDelivered = order.status === "delivered";
-    const canAct = isPreparing || isDelivering;
+    const canAct = canPickup || isInDelivery;
 
     return (
       <View
@@ -269,13 +271,13 @@ export default function DriverBatchScreen() {
             style={[
               styles.mainActionBtn,
               {
-                backgroundColor: isDelivering ? "#4CAF50" : isPreparing ? "#8B5CF6" : "#BDBDBD",
+                backgroundColor: isInDelivery ? "#4CAF50" : canPickup ? "#8B5CF6" : "#BDBDBD",
                 opacity: isLoading ? 0.7 : 1,
               },
             ]}
             onPress={() => {
-              if (isPreparing) handlePickup(order);
-              else if (isDelivering) handleDeliver(order);
+              if (canPickup) handlePickup(order);
+              else if (isInDelivery) handleDeliver(order);
             }}
             disabled={isLoading || order.status === "confirmed"}
             testID={`button-action-${order.id}`}
@@ -285,12 +287,12 @@ export default function DriverBatchScreen() {
             ) : (
               <>
                 <Feather
-                  name={isDelivering ? "check-circle" : isPreparing ? "package" : "clock"}
+                  name={isInDelivery ? "check-circle" : canPickup ? "package" : "clock"}
                   size={20}
                   color="#FFFFFF"
                 />
                 <ThemedText type="h4" style={{ color: "#FFFFFF", fontWeight: "700" }}>
-                  {isDelivering ? "تم التوصيل" : isPreparing ? "تم الاستلام من المحل" : "بانتظار القبول"}
+                  {isInDelivery ? "تم التوصيل" : canPickup ? "تم الاستلام من المحل" : "بانتظار القبول"}
                 </ThemedText>
               </>
             )}
