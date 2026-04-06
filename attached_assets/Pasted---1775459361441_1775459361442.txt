@@ -1,0 +1,59 @@
+-- ========================================
+-- جدول دُفعات التوصيل
+-- ========================================
+CREATE TABLE IF NOT EXISTS delivery_batches (
+  id VARCHAR(255) PRIMARY KEY,
+  driver_id VARCHAR(255) NOT NULL,
+  status ENUM('pending', 'in_progress', 'completed') DEFAULT 'pending',
+  total_orders INT DEFAULT 0,
+  completed_orders INT DEFAULT 0,
+  start_time TIMESTAMP,
+  end_time TIMESTAMP,
+  total_distance FLOAT,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  FOREIGN KEY (driver_id) REFERENCES users(id)
+);
+
+-- ========================================
+-- تعديل جدول الطلبات
+-- ========================================
+ALTER TABLE orders 
+ADD COLUMN batch_id VARCHAR(255),
+ADD COLUMN delivery_sequence INT DEFAULT 0,
+ADD COLUMN estimated_delivery_time TIMESTAMP,
+ADD COLUMN picked_up_at TIMESTAMP,
+ADD COLUMN delivered_at TIMESTAMP;
+
+-- ========================================
+-- تعديل جدول السائقين
+-- ========================================
+ALTER TABLE drivers 
+ADD COLUMN max_orders_per_batch INT DEFAULT 5,
+ADD COLUMN current_batch_id VARCHAR(255),
+ADD COLUMN active_orders_count INT DEFAULT 0,
+ADD COLUMN total_completed_orders INT DEFAULT 0,
+ADD COLUMN total_earnings DECIMAL(10,2) DEFAULT 0;
+
+-- ========================================
+-- جدول سجل التوصيل
+-- ========================================
+CREATE TABLE IF NOT EXISTS delivery_logs (
+  id VARCHAR(255) PRIMARY KEY,
+  order_id VARCHAR(255) NOT NULL,
+  driver_id VARCHAR(255) NOT NULL,
+  action ENUM('accepted', 'picked_up', 'delivered', 'cancelled') NOT NULL,
+  location_lat FLOAT,
+  location_lng FLOAT,
+  notes TEXT,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (order_id) REFERENCES orders(id),
+  FOREIGN KEY (driver_id) REFERENCES users(id)
+);
+
+-- ========================================
+-- Indexes للأداء
+-- ========================================
+CREATE INDEX idx_orders_driver ON orders(driver_id, status);
+CREATE INDEX idx_orders_batch ON orders(batch_id);
+CREATE INDEX idx_delivery_batches_driver ON delivery_batches(driver_id, status);
