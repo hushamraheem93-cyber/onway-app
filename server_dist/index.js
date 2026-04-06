@@ -1086,6 +1086,103 @@ async function markSupportChatRead(phoneNumber, by) {
     console.error("markSupportChatRead error:", e);
   }
 }
+async function createDeliveryBatch(data) {
+  const db2 = getFirestore();
+  if (!db2) return null;
+  try {
+    const now = admin.firestore.Timestamp.now();
+    const batchDoc = {
+      driverPhone: data.driverPhone,
+      status: "pending",
+      orderIds: data.orderIds,
+      totalOrders: data.orderIds.length,
+      completedOrders: 0,
+      createdAt: now,
+      updatedAt: now
+    };
+    const docRef = await db2.collection("deliveryBatches").add(batchDoc);
+    const batch = db2.batch();
+    data.orderIds.forEach((orderId, idx) => {
+      batch.update(db2.collection("orders").doc(orderId), {
+        batchId: docRef.id,
+        deliverySequence: idx + 1,
+        updatedAt: now
+      });
+    });
+    await batch.commit();
+    return docRef.id;
+  } catch (error) {
+    console.error("Error creating delivery batch:", error);
+    return null;
+  }
+}
+async function getDeliveryBatch(batchId) {
+  const db2 = getFirestore();
+  if (!db2) return null;
+  try {
+    const doc = await db2.collection("deliveryBatches").doc(batchId).get();
+    if (!doc.exists) return null;
+    return { id: doc.id, ...doc.data() };
+  } catch (error) {
+    console.error("Error getting delivery batch:", error);
+    return null;
+  }
+}
+async function updateDeliveryBatch(batchId, updates) {
+  const db2 = getFirestore();
+  if (!db2) return;
+  try {
+    await db2.collection("deliveryBatches").doc(batchId).update({
+      ...updates,
+      updatedAt: admin.firestore.Timestamp.now()
+    });
+  } catch (error) {
+    console.error("Error updating delivery batch:", error);
+  }
+}
+async function cancelDeliveryBatch(batchId) {
+  const db2 = getFirestore();
+  if (!db2) return;
+  try {
+    const batchDoc = await db2.collection("deliveryBatches").doc(batchId).get();
+    if (!batchDoc.exists) return;
+    const batchData = batchDoc.data();
+    const writeBatch = db2.batch();
+    const now = admin.firestore.Timestamp.now();
+    for (const orderId of batchData.orderIds) {
+      const orderDoc = await db2.collection("orders").doc(orderId).get();
+      if (orderDoc.exists) {
+        const orderData = orderDoc.data();
+        if (orderData.status === "confirmed" || orderData.status === "preparing") {
+          writeBatch.update(db2.collection("orders").doc(orderId), {
+            batchId: null,
+            deliverySequence: 0,
+            updatedAt: now
+          });
+        }
+      }
+    }
+    writeBatch.update(db2.collection("deliveryBatches").doc(batchId), {
+      status: "cancelled",
+      updatedAt: now
+    });
+    await writeBatch.commit();
+  } catch (error) {
+    console.error("Error cancelling delivery batch:", error);
+  }
+}
+async function addDeliveryLog(data) {
+  const db2 = getFirestore();
+  if (!db2) return;
+  try {
+    await db2.collection("deliveryLogs").add({
+      ...data,
+      createdAt: admin.firestore.Timestamp.now()
+    });
+  } catch (error) {
+    console.error("Error adding delivery log:", error);
+  }
+}
 
 // server/pushNotifications.ts
 var ORDER_STATUS_MESSAGES = {
@@ -1360,6 +1457,7 @@ async function registerRoutes(app2) {
   }
   const driverQueue = [];
   const driverAssignments = /* @__PURE__ */ new Map();
+  const batchedOrderIds = /* @__PURE__ */ new Set();
   const driverCompletedOrders = /* @__PURE__ */ new Map();
   const driverLocations = /* @__PURE__ */ new Map();
   async function getCompletedOrders(phoneNumber) {
@@ -1401,22 +1499,40 @@ async function registerRoutes(app2) {
       try {
         const db2 = getFirestore();
         if (db2) {
+          const batchSnap = await db2.collection("deliveryBatches").where("status", "in", ["pending", "in_progress"]).get();
+          for (const bDoc of batchSnap.docs) {
+            const bData = bDoc.data();
+            const qd = driverQueue.find((d) => d.phoneNumber === bData.driverPhone);
+            if (qd && !qd.currentBatchId) {
+              qd.currentBatchId = bDoc.id;
+              qd.lastSeenAt = Date.now();
+              bData.orderIds.forEach((id) => batchedOrderIds.add(id));
+              console.log(`[RESTART] Restored batch ${bDoc.id} \u2192 driver ${bData.driverPhone}`);
+            }
+          }
           const allOrders = await getOrders();
-          const confirmedOrders = allOrders.filter((o) => o.status === "confirmed").sort((a, b) => {
-            const aTime = a.createdAt?.toDate?.() ? a.createdAt.toDate().getTime() : 0;
-            const bTime = b.createdAt?.toDate?.() ? b.createdAt.toDate().getTime() : 0;
-            return aTime - bTime;
-          });
-          for (const order of confirmedOrders) {
-            const availableDriver = driverQueue.find((d) => !d.currentOrderId);
-            if (!availableDriver) break;
-            availableDriver.currentOrderId = order.id;
-            availableDriver.lastSeenAt = Date.now();
-            console.log(`[RESTART] Restored assignment: order ${order.id} \u2192 driver ${availableDriver.phoneNumber}`);
+          for (const qd of driverQueue) {
+            if (!qd.currentBatchId) {
+              const waitingOrders = allOrders.filter((o) => o.status === "confirmed" && !batchedOrderIds.has(o.id)).sort((a, b) => {
+                const aTime = a.createdAt?.toDate?.() ? a.createdAt.toDate().getTime() : 0;
+                const bTime = b.createdAt?.toDate?.() ? b.createdAt.toDate().getTime() : 0;
+                return aTime - bTime;
+              }).slice(0, 3);
+              if (waitingOrders.length > 0) {
+                const orderIds = waitingOrders.map((o) => o.id);
+                const batchId = await createDeliveryBatch({ driverPhone: qd.phoneNumber, orderIds });
+                if (batchId) {
+                  qd.currentBatchId = batchId;
+                  qd.lastSeenAt = Date.now();
+                  orderIds.forEach((id) => batchedOrderIds.add(id));
+                  console.log(`[RESTART] Created new batch ${batchId} for driver ${qd.phoneNumber}`);
+                }
+              }
+            }
           }
         }
       } catch (e2) {
-        console.error("Failed to restore order assignments:", e2);
+        console.error("Failed to restore batches:", e2);
       }
     }
   } catch (e) {
@@ -2189,7 +2305,7 @@ ${itemsList}
           }
         }
         if (status === "confirmed") {
-          assignOrderToNextDriver(orderId);
+          onOrderConfirmed();
         }
         return res.json({ success: true, id: orderId, status });
       }
@@ -2537,29 +2653,41 @@ ${itemsList}
       const queueIndex = driverQueue.findIndex((d) => d.phoneNumber === phoneNumber);
       const isOnline = queueIndex !== -1;
       const queuedDriver = isOnline ? driverQueue[queueIndex] : null;
-      let currentOrder = null;
-      if (queuedDriver?.currentOrderId) {
-        const db2 = getFirestore();
-        if (db2) {
+      let currentBatch = null;
+      if (queuedDriver?.currentBatchId) {
+        const batchDoc = await getDeliveryBatch(queuedDriver.currentBatchId);
+        if (batchDoc) {
           const allOrders = await getOrders();
-          const order = allOrders.find((o) => o.id === queuedDriver.currentOrderId);
-          if (order) {
+          const batchOrders = batchDoc.orderIds.map((oid) => allOrders.find((o) => o.id === oid)).filter(Boolean).map(async (order) => {
             const customerProfile = await getUserByPhone(order.phoneNumber || "");
-            currentOrder = {
+            return {
               ...order,
               customerName: order.customerName || customerProfile?.fullName || "\u0632\u0628\u0648\u0646",
               customerPhone: order.phoneNumber || "",
               latitude: order.latitude || null,
               longitude: order.longitude || null,
+              pickedUpAt: order.pickedUpAt || null,
+              deliveredAt: order.deliveredAt || null,
+              deliverySequence: order.deliverySequence || 1,
               createdAt: order.createdAt?.toDate?.() ? order.createdAt.toDate().toISOString() : order.createdAt,
               updatedAt: order.updatedAt?.toDate?.() ? order.updatedAt.toDate().toISOString() : order.updatedAt
             };
-          }
+          });
+          const resolvedOrders = await Promise.all(batchOrders);
+          const completedCount = resolvedOrders.filter((o) => o.status === "delivered").length;
+          currentBatch = {
+            id: batchDoc.id,
+            status: batchDoc.status,
+            totalOrders: batchDoc.totalOrders,
+            completedOrders: completedCount,
+            startTime: batchDoc.startTime,
+            orders: resolvedOrders.sort((a, b) => (a.deliverySequence || 0) - (b.deliverySequence || 0))
+          };
         }
       }
       let queuePosition = null;
-      if (isOnline && !queuedDriver?.currentOrderId) {
-        const availableDriversBefore = driverQueue.filter((d, i) => i <= queueIndex && !d.currentOrderId);
+      if (isOnline && !queuedDriver?.currentBatchId) {
+        const availableDriversBefore = driverQueue.filter((d, i) => i <= queueIndex && !d.currentBatchId);
         queuePosition = availableDriversBefore.length;
       }
       const walletBalance = await getDriverWalletBalance(phoneNumber);
@@ -2570,7 +2698,7 @@ ${itemsList}
       res.json({
         isOnline,
         queuePosition,
-        currentOrder,
+        currentBatch,
         approvalStatus: driver?.status || "pending",
         walletBalance,
         todayOrders: todayCompleted.length,
@@ -2621,8 +2749,8 @@ ${itemsList}
         lat: loc.lat,
         lng: loc.lng,
         updatedAt: loc.updatedAt,
-        status: queuedDriver?.currentOrderId ? "busy" : "available",
-        currentOrderId: queuedDriver?.currentOrderId || null
+        status: queuedDriver?.currentBatchId ? "busy" : "available",
+        currentBatchId: queuedDriver?.currentBatchId || null
       });
     }
     res.json({ locations });
@@ -2646,9 +2774,9 @@ ${itemsList}
         });
         saveDriverActivity({ phoneNumber, type: "online" }).catch(() => {
         });
-        assignWaitingOrderToDriver(phoneNumber).catch(() => {
+        assignWaitingBatchToDriver(phoneNumber).catch(() => {
         });
-        const pos = driverQueue.filter((d) => !d.currentOrderId).findIndex((d) => d.phoneNumber === phoneNumber) + 1;
+        const pos = driverQueue.filter((d) => !d.currentBatchId).findIndex((d) => d.phoneNumber === phoneNumber) + 1;
         res.json({ isOnline: true, queuePosition: pos > 0 ? pos : driverQueue.length });
       } else {
         const idx = driverQueue.findIndex((d) => d.phoneNumber === phoneNumber);
@@ -2674,7 +2802,7 @@ ${itemsList}
         await updateOrderStatus(orderId, "preparing");
         driverAssignments.set(orderId, phoneNumber);
         const qd = driverQueue.find((d) => d.phoneNumber === phoneNumber);
-        if (qd) qd.currentOrderId = orderId;
+        if (qd && !qd.currentBatchId) qd.currentBatchId = orderId;
         const driver = await getDriverByPhone(phoneNumber);
         const driverName = driver?.fullName || phoneNumber;
         await updateOrderDriverInfo(orderId, {
@@ -2741,23 +2869,154 @@ ${itemsList}
     }
   });
   app2.post("/api/driver/reject-order", async (req, res) => {
-    const { phoneNumber, orderId } = req.body;
-    if (!phoneNumber || !orderId) return res.status(400).json({ error: "Missing fields" });
+    const { phoneNumber, orderId, batchId } = req.body;
+    if (!phoneNumber) return res.status(400).json({ error: "Missing fields" });
     try {
       const qd = driverQueue.find((d) => d.phoneNumber === phoneNumber);
+      const targetBatchId = batchId || qd?.currentBatchId;
       if (qd) {
-        qd.currentOrderId = void 0;
+        if (targetBatchId) {
+          const batchDoc = await getDeliveryBatch(targetBatchId);
+          if (batchDoc) {
+            batchDoc.orderIds.forEach((id) => batchedOrderIds.delete(id));
+          }
+          await cancelDeliveryBatch(targetBatchId).catch(() => {
+          });
+        } else if (orderId) {
+          batchedOrderIds.delete(orderId);
+        }
+        qd.currentBatchId = void 0;
         const idx = driverQueue.findIndex((d) => d.phoneNumber === phoneNumber);
         if (idx !== -1) {
           driverQueue.splice(idx, 1);
           driverQueue.push({ phoneNumber, joinedAt: Date.now() });
         }
       }
-      saveDriverActivity({ phoneNumber, type: "rejected", orderId }).catch(() => {
+      saveDriverActivity({ phoneNumber, type: "rejected", orderId: targetBatchId || orderId }).catch(() => {
       });
-      assignOrderToNextDriver(orderId);
-      assignWaitingOrderToDriver(phoneNumber).catch(() => {
+      onOrderConfirmed();
+      assignWaitingBatchToDriver(phoneNumber).catch(() => {
       });
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+  app2.post("/api/driver/batch/accept", async (req, res) => {
+    const { phoneNumber, batchId } = req.body;
+    if (!phoneNumber || !batchId) return res.status(400).json({ error: "Missing fields" });
+    try {
+      const db2 = getFirestore();
+      if (!db2) return res.status(500).json({ error: "DB not configured" });
+      const batchDoc = await getDeliveryBatch(batchId);
+      if (!batchDoc) return res.status(404).json({ error: "Batch not found" });
+      const driver = await getDriverByPhone(phoneNumber);
+      const driverName = driver?.fullName || phoneNumber;
+      for (const orderId of batchDoc.orderIds) {
+        await updateOrderStatus(orderId, "preparing");
+        await updateOrderDriverInfo(orderId, { driverName, driverPhone: phoneNumber });
+        driverAssignments.set(orderId, phoneNumber);
+        addDeliveryLog({ orderId, driverPhone: phoneNumber, action: "accepted" }).catch(() => {
+        });
+      }
+      await updateDeliveryBatch(batchId, { status: "in_progress", startTime: (/* @__PURE__ */ new Date()).toISOString() });
+      const qd = driverQueue.find((d) => d.phoneNumber === phoneNumber);
+      if (qd) qd.currentBatchId = batchId;
+      saveDriverActivity({ phoneNumber, type: "accepted", orderId: batchId }).catch(() => {
+      });
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+  app2.post("/api/driver/batch/pickup-order", async (req, res) => {
+    const { phoneNumber, orderId, batchId, lat: lat2, lng: lng2 } = req.body;
+    if (!phoneNumber || !orderId) return res.status(400).json({ error: "Missing fields" });
+    try {
+      const db2 = getFirestore();
+      if (!db2) return res.status(500).json({ error: "DB not configured" });
+      const now = /* @__PURE__ */ new Date();
+      await updateOrderStatus(orderId, "delivering");
+      await db2.collection("orders").doc(orderId).update({ pickedUpAt: now, updatedAt: now });
+      addDeliveryLog({ orderId, driverPhone: phoneNumber, action: "picked_up", lat: lat2, lng: lng2 }).catch(() => {
+      });
+      saveDriverActivity({ phoneNumber, type: "delivering", orderId }).catch(() => {
+      });
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+  app2.post("/api/driver/batch/complete-order", async (req, res) => {
+    const { phoneNumber, orderId, batchId, lat: lat2, lng: lng2 } = req.body;
+    if (!phoneNumber || !orderId || !batchId) return res.status(400).json({ error: "Missing fields" });
+    try {
+      const db2 = getFirestore();
+      if (!db2) return res.status(500).json({ error: "DB not configured" });
+      const now = /* @__PURE__ */ new Date();
+      await updateOrderStatus(orderId, "delivered");
+      await db2.collection("orders").doc(orderId).update({ deliveredAt: now, updatedAt: now });
+      addDeliveryLog({ orderId, driverPhone: phoneNumber, action: "delivered", lat: lat2, lng: lng2 }).catch(() => {
+      });
+      const allOrders = await getOrders();
+      const order = allOrders.find((o) => o.id === orderId);
+      if (order) {
+        const pushToken = await getUserPushToken(order.phoneNumber || "");
+        if (pushToken) await sendPushNotification(pushToken, "delivered", orderId);
+        const isRestaurantOrder = await checkIsRestaurantOrder(order);
+        const deductionAmount = isRestaurantOrder ? 250 : 1e3;
+        const driverEarning = isRestaurantOrder ? 750 : 2e3;
+        await updateOrderDriverInfo(orderId, { driverEarning, ownerEarning: deductionAmount });
+        const currentBalance = await getDriverWalletBalance(phoneNumber);
+        const newBalance = currentBalance - deductionAmount;
+        await updateDriverWalletBalance(phoneNumber, newBalance);
+        await addWalletTransaction({ phoneNumber, amount: deductionAmount, type: "deduction", service: isRestaurantOrder ? "\u062A\u0648\u0635\u064A\u0644 \u0645\u0637\u0639\u0645" : "\u062A\u0648\u0635\u064A\u0644 \u062A\u0633\u0648\u064A\u0642/\u062E\u062F\u0645\u0627\u062A", orderId });
+        const customerProfile = await getUserByPhone(order.phoneNumber || "");
+        const completedEntry = {
+          orderId,
+          deliveryFee: order.deliveryFee || 0,
+          driverEarning,
+          ownerEarning: deductionAmount,
+          total: order.total || 0,
+          customerName: customerProfile?.fullName || "\u0632\u0628\u0648\u0646",
+          completedAt: now.toISOString(),
+          isRestaurant: isRestaurantOrder
+        };
+        await saveDriverCompletedOrder(phoneNumber, completedEntry);
+        saveDriverActivity({ phoneNumber, type: "completed", orderId, customerName: completedEntry.customerName, driverEarning, total: completedEntry.total }).catch(() => {
+        });
+        const mem = driverCompletedOrders.get(phoneNumber) || [];
+        mem.push(completedEntry);
+        driverCompletedOrders.set(phoneNumber, mem);
+        driverAssignments.delete(orderId);
+        batchedOrderIds.delete(orderId);
+        const batchDoc = await getDeliveryBatch(batchId);
+        if (batchDoc) {
+          const freshOrders = await getOrders();
+          const allDelivered = batchDoc.orderIds.every((oid) => {
+            const o = freshOrders.find((x) => x.id === oid);
+            return o?.status === "delivered";
+          });
+          const completedCount = batchDoc.orderIds.filter((oid) => {
+            const o = freshOrders.find((x) => x.id === oid);
+            return o?.status === "delivered";
+          }).length;
+          if (allDelivered) {
+            await updateDeliveryBatch(batchId, { status: "completed", completedOrders: completedCount, endTime: now.toISOString() });
+            const qd = driverQueue.find((d) => d.phoneNumber === phoneNumber);
+            if (qd) qd.currentBatchId = void 0;
+            if (newBalance >= 250) {
+              assignWaitingBatchToDriver(phoneNumber).catch(() => {
+              });
+            } else {
+              const queueIdx = driverQueue.findIndex((d) => d.phoneNumber === phoneNumber);
+              if (queueIdx !== -1) driverQueue.splice(queueIdx, 1);
+            }
+          } else {
+            await updateDeliveryBatch(batchId, { completedOrders: completedCount });
+          }
+        }
+      }
       res.json({ success: true });
     } catch (error) {
       res.status(500).json({ error: error.message });
@@ -2835,10 +3094,11 @@ ${itemsList}
         }
       }
       driverAssignments.delete(orderId);
+      batchedOrderIds.delete(orderId);
       const qd = driverQueue.find((d) => d.phoneNumber === phoneNumber);
       if (qd) {
-        qd.currentOrderId = void 0;
-        assignWaitingOrderToDriver(phoneNumber).catch(() => {
+        qd.currentBatchId = void 0;
+        assignWaitingBatchToDriver(phoneNumber).catch(() => {
         });
       }
       res.json({ success: true });
@@ -2966,42 +3226,43 @@ ${itemsList}
   function findBestAvailableDriver() {
     const fiveMinAgo = Date.now() - 5 * 60 * 1e3;
     const activeDriver = driverQueue.find((d) => {
-      if (d.currentOrderId) return false;
+      if (d.currentBatchId) return false;
       const loc = driverLocations.get(d.phoneNumber);
       const recentGps = loc && loc.updatedAt >= fiveMinAgo;
       const recentSeen = d.lastSeenAt && d.lastSeenAt >= fiveMinAgo;
       return recentGps || recentSeen;
     });
     if (activeDriver) return activeDriver;
-    return driverQueue.find((d) => !d.currentOrderId);
+    return driverQueue.find((d) => !d.currentBatchId);
   }
-  function assignOrderToNextDriver(orderId) {
-    const driver = findBestAvailableDriver();
-    if (driver) {
-      driver.currentOrderId = orderId;
-      console.log(`[FIFO] Order ${orderId} assigned to driver ${driver.phoneNumber}`);
-    }
-  }
-  async function assignWaitingOrderToDriver(phoneNumber) {
+  async function assignWaitingBatchToDriver(phoneNumber, maxOrders = 3) {
     try {
       const db2 = getFirestore();
       if (!db2) return;
+      const qd = driverQueue.find((d) => d.phoneNumber === phoneNumber && !d.currentBatchId);
+      if (!qd) return;
       const allOrders = await getOrders();
-      const assignedOrderIds = new Set(driverQueue.filter((d) => d.currentOrderId).map((d) => d.currentOrderId));
-      const waitingOrder = allOrders.filter((o) => o.status === "confirmed" && !assignedOrderIds.has(o.id)).sort((a, b) => {
+      const waitingOrders = allOrders.filter((o) => o.status === "confirmed" && !batchedOrderIds.has(o.id)).sort((a, b) => {
         const aTime = a.createdAt?.toDate?.() ? a.createdAt.toDate().getTime() : 0;
         const bTime = b.createdAt?.toDate?.() ? b.createdAt.toDate().getTime() : 0;
         return aTime - bTime;
-      })[0];
-      if (waitingOrder) {
-        const qd = driverQueue.find((d) => d.phoneNumber === phoneNumber && !d.currentOrderId);
-        if (qd) {
-          qd.currentOrderId = waitingOrder.id;
-          console.log(`[FIFO] Waiting order ${waitingOrder.id} assigned to driver ${phoneNumber} on availability`);
-        }
+      }).slice(0, maxOrders);
+      if (waitingOrders.length === 0) return;
+      const orderIds = waitingOrders.map((o) => o.id);
+      const batchId = await createDeliveryBatch({ driverPhone: phoneNumber, orderIds });
+      if (batchId) {
+        qd.currentBatchId = batchId;
+        orderIds.forEach((id) => batchedOrderIds.add(id));
+        console.log(`[BATCH] Created batch ${batchId} (${orderIds.length} orders) for driver ${phoneNumber}`);
       }
     } catch (e) {
-      console.error("assignWaitingOrderToDriver error:", e);
+      console.error("assignWaitingBatchToDriver error:", e);
+    }
+  }
+  function onOrderConfirmed() {
+    const driver = findBestAvailableDriver();
+    if (driver) {
+      assignWaitingBatchToDriver(driver.phoneNumber).catch(console.error);
     }
   }
   app2.post("/api/driver/assign-pending-orders", async (_req, res) => {
@@ -3016,9 +3277,9 @@ ${itemsList}
       });
       let assigned = 0;
       for (const order of pendingOrders) {
-        const availableDriver = driverQueue.find((d) => !d.currentOrderId);
+        const availableDriver = driverQueue.find((d) => !d.currentBatchId);
         if (availableDriver) {
-          availableDriver.currentOrderId = order.id;
+          availableDriver.currentBatchId = order.id;
           assigned++;
           console.log(`[FIFO] Order ${order.id} assigned to driver ${availableDriver.phoneNumber}`);
         } else {
@@ -3040,8 +3301,8 @@ ${itemsList}
       const queueData = await Promise.all(driverQueue.map(async (d, i) => {
         let customerName = null;
         let orderRegion = null;
-        if (d.currentOrderId) {
-          const order = allOrders.find((o) => o.id === d.currentOrderId);
+        if (d.currentBatchId) {
+          const order = allOrders.find((o) => o.id === d.currentBatchId);
           if (order) {
             if (order.customerName) {
               customerName = order.customerName;
@@ -3056,16 +3317,16 @@ ${itemsList}
           position: i + 1,
           phoneNumber: d.phoneNumber,
           joinedAt: new Date(d.joinedAt).toISOString(),
-          currentOrderId: d.currentOrderId || null,
-          status: d.currentOrderId ? "busy" : "available",
+          currentBatchId: d.currentBatchId || null,
+          status: d.currentBatchId ? "busy" : "available",
           customerName,
           orderRegion
         };
       }));
       res.json({
         onlineDrivers: driverQueue.length,
-        availableDrivers: driverQueue.filter((d) => !d.currentOrderId).length,
-        busyDrivers: driverQueue.filter((d) => d.currentOrderId).length,
+        availableDrivers: driverQueue.filter((d) => !d.currentBatchId).length,
+        busyDrivers: driverQueue.filter((d) => d.currentBatchId).length,
         queue: queueData
       });
     } catch (error) {

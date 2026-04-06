@@ -1535,3 +1535,131 @@ export async function markSupportChatRead(phoneNumber: string, by: "user" | "adm
     await db.collection("supportChats").doc(docId).update({ [field]: 0 });
   } catch (e) { console.error("markSupportChatRead error:", e); }
 }
+
+// ========== Delivery Batches ==========
+export interface DeliveryBatch {
+  driverPhone: string;
+  status: "pending" | "in_progress" | "completed" | "cancelled";
+  orderIds: string[];
+  totalOrders: number;
+  completedOrders: number;
+  startTime?: string;
+  endTime?: string;
+  createdAt: admin.firestore.Timestamp;
+  updatedAt: admin.firestore.Timestamp;
+}
+
+export async function createDeliveryBatch(data: {
+  driverPhone: string;
+  orderIds: string[];
+}): Promise<string | null> {
+  const db = getFirestore();
+  if (!db) return null;
+  try {
+    const now = admin.firestore.Timestamp.now();
+    const batchDoc: DeliveryBatch = {
+      driverPhone: data.driverPhone,
+      status: "pending",
+      orderIds: data.orderIds,
+      totalOrders: data.orderIds.length,
+      completedOrders: 0,
+      createdAt: now,
+      updatedAt: now,
+    };
+    const docRef = await db.collection("deliveryBatches").add(batchDoc);
+    // Tag each order with batchId and deliverySequence
+    const batch = db.batch();
+    data.orderIds.forEach((orderId, idx) => {
+      batch.update(db.collection("orders").doc(orderId), {
+        batchId: docRef.id,
+        deliverySequence: idx + 1,
+        updatedAt: now,
+      });
+    });
+    await batch.commit();
+    return docRef.id;
+  } catch (error) {
+    console.error("Error creating delivery batch:", error);
+    return null;
+  }
+}
+
+export async function getDeliveryBatch(batchId: string): Promise<(DeliveryBatch & { id: string }) | null> {
+  const db = getFirestore();
+  if (!db) return null;
+  try {
+    const doc = await db.collection("deliveryBatches").doc(batchId).get();
+    if (!doc.exists) return null;
+    return { id: doc.id, ...doc.data() as DeliveryBatch };
+  } catch (error) {
+    console.error("Error getting delivery batch:", error);
+    return null;
+  }
+}
+
+export async function updateDeliveryBatch(batchId: string, updates: Partial<DeliveryBatch>): Promise<void> {
+  const db = getFirestore();
+  if (!db) return;
+  try {
+    await db.collection("deliveryBatches").doc(batchId).update({
+      ...updates,
+      updatedAt: admin.firestore.Timestamp.now(),
+    });
+  } catch (error) {
+    console.error("Error updating delivery batch:", error);
+  }
+}
+
+export async function cancelDeliveryBatch(batchId: string): Promise<void> {
+  const db = getFirestore();
+  if (!db) return;
+  try {
+    const batchDoc = await db.collection("deliveryBatches").doc(batchId).get();
+    if (!batchDoc.exists) return;
+    const batchData = batchDoc.data() as DeliveryBatch;
+    // Clear batchId from all non-delivered orders in this batch
+    const writeBatch = db.batch();
+    const now = admin.firestore.Timestamp.now();
+    for (const orderId of batchData.orderIds) {
+      const orderDoc = await db.collection("orders").doc(orderId).get();
+      if (orderDoc.exists) {
+        const orderData = orderDoc.data() as any;
+        if (orderData.status === "confirmed" || orderData.status === "preparing") {
+          writeBatch.update(db.collection("orders").doc(orderId), {
+            batchId: null,
+            deliverySequence: 0,
+            updatedAt: now,
+          });
+        }
+      }
+    }
+    writeBatch.update(db.collection("deliveryBatches").doc(batchId), {
+      status: "cancelled",
+      updatedAt: now,
+    });
+    await writeBatch.commit();
+  } catch (error) {
+    console.error("Error cancelling delivery batch:", error);
+  }
+}
+
+// ========== Delivery Logs ==========
+export async function addDeliveryLog(data: {
+  orderId: string;
+  driverPhone: string;
+  action: "accepted" | "picked_up" | "delivered" | "cancelled";
+  lat?: number;
+  lng?: number;
+  notes?: string;
+}): Promise<void> {
+  const db = getFirestore();
+  if (!db) return;
+  try {
+    await db.collection("deliveryLogs").add({
+      ...data,
+      createdAt: admin.firestore.Timestamp.now(),
+    });
+  } catch (error) {
+    console.error("Error adding delivery log:", error);
+  }
+}

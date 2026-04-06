@@ -13,6 +13,7 @@ import OtpVerificationScreen from "@/screens/OtpVerificationScreen";
 import UserTypeScreen from "@/screens/UserTypeScreen";
 import DriverRegistrationScreen from "@/screens/DriverRegistrationScreen";
 import DriverOrderDetailScreen from "@/screens/DriverOrderDetailScreen";
+import DriverBatchScreen from "@/screens/DriverBatchScreen";
 import ProfileCompletionScreen from "@/screens/ProfileCompletionScreen";
 import CategoriesScreen from "@/screens/CategoriesScreen";
 import AdminScreen from "@/screens/AdminScreen";
@@ -24,6 +25,7 @@ import { useScreenOptions } from "@/hooks/useScreenOptions";
 import { useAuth } from "@/context/AuthContext";
 import { AppColors } from "@/constants/theme";
 import { Order } from "@/context/OrderContext";
+import { CurrentBatch } from "@/screens/DriverHomeScreen";
 
 export type RootStackParamList = {
   Splash: undefined;
@@ -32,6 +34,7 @@ export type RootStackParamList = {
   UserType: undefined;
   DriverRegistration: undefined;
   DriverOrderDetail: { order: any };
+  DriverBatch: { batch: CurrentBatch };
   ProfileCompletion: undefined;
   MainTabs: undefined;
   DriverTabs: undefined;
@@ -140,6 +143,11 @@ export default function RootStackNavigator() {
         <Stack.Screen
           name="DriverOrderDetail"
           component={DriverOrderDetailScreen}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="DriverBatch"
+          component={DriverBatchScreen}
           options={{ headerShown: false }}
         />
       </Stack.Navigator>

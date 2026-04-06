@@ -32,7 +32,7 @@ import { RootStackParamList } from "@/navigation/RootStackNavigator";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
-interface QueueOrder {
+export interface BatchOrder {
   id: string;
   customerName: string;
   customerPhone: string;
@@ -42,13 +42,25 @@ interface QueueOrder {
   total: number;
   deliveryFee: number;
   status: string;
-  createdAt: string;
+  deliverySequence: number;
+  pickedUpAt?: string;
+  deliveredAt?: string;
   latitude?: number;
   longitude?: number;
   notes?: string;
   orderType?: string;
   vendorName?: string;
   vendorId?: string;
+  batchId?: string;
+}
+
+export interface CurrentBatch {
+  id: string;
+  status: "pending" | "in_progress" | "completed";
+  totalOrders: number;
+  completedOrders: number;
+  startTime?: string;
+  orders: BatchOrder[];
 }
 
 export default function DriverHomeScreen() {
@@ -60,7 +72,7 @@ export default function DriverHomeScreen() {
 
   const [isOnline, setIsOnline] = useState(false);
   const [isToggling, setIsToggling] = useState(false);
-  const [currentOrder, setCurrentOrder] = useState<QueueOrder | null>(null);
+  const [currentBatch, setCurrentBatch] = useState<CurrentBatch | null>(null);
   const [queuePosition, setQueuePosition] = useState<number | null>(null);
   const [driverStatus, setDriverStatus] = useState<string>("pending");
   const [refreshing, setRefreshing] = useState(false);
@@ -73,19 +85,19 @@ export default function DriverHomeScreen() {
   const [issueModalVisible, setIssueModalVisible] = useState(false);
   const [issueSent, setIssueSent] = useState(false);
   const [issueSending, setIssueSending] = useState(false);
+  const [issueOrderId, setIssueOrderId] = useState<string | null>(null);
 
-  const prevOrderIdRef = useRef<string | null>(null);
-  const isInitialLoadRef = useRef(true); // skip alert on first fetch (app just opened)
+  const prevBatchIdRef = useRef<string | null>(null);
+  const isInitialLoadRef = useRef(true);
 
-  const triggerNewOrderAlert = useCallback((order: QueueOrder) => {
-    // Vibration pattern: strong repeated buzz
+  const triggerNewBatchAlert = useCallback((batch: CurrentBatch) => {
     Vibration.vibrate([0, 400, 200, 400, 200, 600]);
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
-    // Local notification with system sound
+    const firstOrder = batch.orders[0];
     Notifications.scheduleNotificationAsync({
       content: {
-        title: "طلب جديد",
-        body: `${order.customerName || "زبون"} - ${order.region || order.address || ""}`,
+        title: `دفعة جديدة - ${batch.totalOrders} طلب`,
+        body: firstOrder ? `${firstOrder.customerName || "زبون"} - ${firstOrder.region || firstOrder.address || ""}` : "",
         sound: true,
         priority: Notifications.AndroidNotificationPriority.MAX,
       },
@@ -103,22 +115,15 @@ export default function DriverHomeScreen() {
         const data = await res.json();
         setIsOnline(data.isOnline || false);
         setQueuePosition(data.queuePosition);
-        const newOrder = data.currentOrder || null;
-        // Detect newly assigned order → play sound + vibrate
-        // Skip on initial load (don't alert for orders already assigned when app opens)
+        const newBatch: CurrentBatch | null = data.currentBatch || null;
         if (!isInitialLoadRef.current) {
-          if (newOrder && newOrder.id !== prevOrderIdRef.current) {
-            triggerNewOrderAlert(newOrder);
+          if (newBatch && newBatch.id !== prevBatchIdRef.current) {
+            triggerNewBatchAlert(newBatch);
           }
         }
-        // Update refs
-        if (newOrder) {
-          prevOrderIdRef.current = newOrder.id;
-        } else {
-          prevOrderIdRef.current = null;
-        }
+        prevBatchIdRef.current = newBatch ? newBatch.id : null;
         isInitialLoadRef.current = false;
-        setCurrentOrder(newOrder);
+        setCurrentBatch(newBatch);
         setDriverStatus(data.approvalStatus || "pending");
         setWalletBalance(data.walletBalance || 0);
         setTodayOrders(data.todayOrders || 0);
@@ -129,9 +134,8 @@ export default function DriverHomeScreen() {
     } finally {
       setLoading(false);
     }
-  }, [phoneNumber, triggerNewOrderAlert]);
+  }, [phoneNumber, triggerNewBatchAlert]);
 
-  // Request notification permissions and setup handler
   useEffect(() => {
     Notifications.requestPermissionsAsync().catch(() => {});
     Notifications.setNotificationHandler({
@@ -147,31 +151,30 @@ export default function DriverHomeScreen() {
 
   useEffect(() => {
     fetchDriverStatus();
-    const interval = setInterval(fetchDriverStatus, 5000); // Poll every 5s for faster order detection
+    const interval = setInterval(fetchDriverStatus, 5000);
     return () => clearInterval(interval);
   }, [fetchDriverStatus]);
 
-  // GPS Location tracking
   const gpsIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const sendLocation = useCallback(async () => {
     if (!phoneNumber) return;
     try {
       const { status } = await Location.getForegroundPermissionsAsync();
-      if (status !== 'granted') return;
+      if (status !== "granted") return;
       const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-      await fetch(new URL('/api/driver/location', getApiUrl()).toString(), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      await fetch(new URL("/api/driver/location", getApiUrl()).toString(), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ phoneNumber, lat: loc.coords.latitude, lng: loc.coords.longitude }),
       });
-    } catch (e) { /* silent */ }
+    } catch (e) {}
   }, [phoneNumber]);
 
   useEffect(() => {
     if (isOnline) {
       (async () => {
         const { status } = await Location.requestForegroundPermissionsAsync();
-        if (status === 'granted') {
+        if (status === "granted") {
           sendLocation();
           gpsIntervalRef.current = setInterval(sendLocation, 30000);
         }
@@ -211,73 +214,36 @@ export default function DriverHomeScreen() {
     }
   };
 
-  const handleAcceptOrder = async () => {
-    if (!phoneNumber || !currentOrder) return;
+  const handleAcceptBatch = async () => {
+    if (!phoneNumber || !currentBatch) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
     try {
-      const res = await fetch(new URL("/api/driver/accept-order", getApiUrl()).toString(), {
+      const res = await fetch(new URL("/api/driver/batch/accept", getApiUrl()).toString(), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phoneNumber, orderId: currentOrder.id }),
+        body: JSON.stringify({ phoneNumber, batchId: currentBatch.id }),
       });
-      if (res.ok) {
-        await fetchDriverStatus();
-      }
+      if (res.ok) await fetchDriverStatus();
     } catch (e) {
-      console.error("Error accepting order:", e);
+      console.error("Error accepting batch:", e);
     }
   };
 
-  const handleRejectOrder = async () => {
-    if (!phoneNumber || !currentOrder) return;
+  const handleRejectBatch = async () => {
+    if (!phoneNumber || !currentBatch) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     try {
       const res = await fetch(new URL("/api/driver/reject-order", getApiUrl()).toString(), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phoneNumber, orderId: currentOrder.id }),
+        body: JSON.stringify({ phoneNumber, batchId: currentBatch.id }),
       });
       if (res.ok) {
-        setCurrentOrder(null);
+        setCurrentBatch(null);
         await fetchDriverStatus();
       }
     } catch (e) {
-      console.error("Error rejecting order:", e);
-    }
-  };
-
-  const handleStartDelivering = async () => {
-    if (!phoneNumber || !currentOrder) return;
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    try {
-      const res = await fetch(new URL("/api/driver/start-delivery", getApiUrl()).toString(), {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phoneNumber, orderId: currentOrder.id }),
-      });
-      if (res.ok) {
-        await fetchDriverStatus();
-      }
-    } catch (e) {
-      console.error("Error starting delivery:", e);
-    }
-  };
-
-  const handleCompleteOrder = async () => {
-    if (!phoneNumber || !currentOrder) return;
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-    try {
-      const res = await fetch(new URL("/api/driver/complete-order", getApiUrl()).toString(), {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phoneNumber, orderId: currentOrder.id }),
-      });
-      if (res.ok) {
-        setCurrentOrder(null);
-        await fetchDriverStatus();
-      }
-    } catch (e) {
-      console.error("Error completing order:", e);
+      console.error("Error rejecting batch:", e);
     }
   };
 
@@ -287,20 +253,26 @@ export default function DriverHomeScreen() {
     { key: "other", label: "مشكلة أخرى" },
   ];
 
+  const handleOpenIssueModal = (orderId: string) => {
+    setIssueOrderId(orderId);
+    setIssueModalVisible(true);
+  };
+
   const handleSelectIssue = async (issueType: string) => {
-    if (!phoneNumber || !currentOrder) return;
+    if (!phoneNumber || !issueOrderId) return;
     setIssueSending(true);
     try {
       const res = await fetch(new URL("/api/driver/report-issue", getApiUrl()).toString(), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phoneNumber, orderId: currentOrder.id, issueType }),
+        body: JSON.stringify({ phoneNumber, orderId: issueOrderId, issueType }),
       });
       if (res.ok) {
         setIssueSent(true);
         setTimeout(() => {
           setIssueModalVisible(false);
           setIssueSent(false);
+          setIssueOrderId(null);
           fetchDriverStatus();
         }, 1800);
       }
@@ -330,9 +302,7 @@ export default function DriverHomeScreen() {
       <View style={[styles.statusIcon, { backgroundColor: "#FFF3E0" }]}>
         <Feather name="clock" size={40} color="#FF9800" />
       </View>
-      <ThemedText type="h3" style={[styles.statusTitle, { color: theme.text }]}>
-        قيد المراجعة
-      </ThemedText>
+      <ThemedText type="h3" style={[styles.statusTitle, { color: theme.text }]}>قيد المراجعة</ThemedText>
       <ThemedText type="body" style={[styles.statusSubtitle, { color: theme.textSecondary }]}>
         حسابك قيد المراجعة من قبل الإدارة. سيتم إبلاغك عند الموافقة.
       </ThemedText>
@@ -344,9 +314,7 @@ export default function DriverHomeScreen() {
       <View style={[styles.statusIcon, { backgroundColor: "#FFEBEE" }]}>
         <Feather name="x-circle" size={40} color="#F44336" />
       </View>
-      <ThemedText type="h3" style={[styles.statusTitle, { color: theme.text }]}>
-        تم رفض الطلب
-      </ThemedText>
+      <ThemedText type="h3" style={[styles.statusTitle, { color: theme.text }]}>تم رفض الطلب</ThemedText>
       <ThemedText type="body" style={[styles.statusSubtitle, { color: theme.textSecondary }]}>
         للأسف تم رفض طلب التسجيل. تواصل مع الإدارة للمزيد من المعلومات.
       </ThemedText>
@@ -395,15 +363,9 @@ export default function DriverHomeScreen() {
               رصيدك غير كافٍ للعمل. تواصل مع الدعم لشحن الرصيد.
             </ThemedText>
           </View>
-          <Pressable
-            onPress={handleWhatsAppSupport}
-            style={styles.whatsappButton}
-            testID="button-whatsapp-support"
-          >
+          <Pressable onPress={handleWhatsAppSupport} style={styles.whatsappButton} testID="button-whatsapp-support">
             <Feather name="message-circle" size={20} color="#FFFFFF" />
-            <ThemedText type="body" style={styles.whatsappText}>
-              تواصل مع الدعم عبر واتساب
-            </ThemedText>
+            <ThemedText type="body" style={styles.whatsappText}>تواصل مع الدعم عبر واتساب</ThemedText>
           </Pressable>
         </>
       ) : null}
@@ -423,13 +385,10 @@ export default function DriverHomeScreen() {
       <Pressable
         onPress={handleToggleOnline}
         disabled={isToggling}
-        style={[
-          styles.toggleButton,
-          {
-            backgroundColor: isOnline ? "#4CAF50" : isDark ? theme.backgroundSecondary : "#F5F5F5",
-            borderColor: isOnline ? "#4CAF50" : theme.border,
-          },
-        ]}
+        style={[styles.toggleButton, {
+          backgroundColor: isOnline ? "#4CAF50" : isDark ? theme.backgroundSecondary : "#F5F5F5",
+          borderColor: isOnline ? "#4CAF50" : theme.border,
+        }]}
         testID="button-toggle-online"
       >
         {isToggling ? (
@@ -437,33 +396,23 @@ export default function DriverHomeScreen() {
         ) : (
           <>
             <View style={[styles.toggleDot, { backgroundColor: isOnline ? "#FFFFFF" : "#BDBDBD" }]} />
-            <ThemedText
-              type="h3"
-              style={[styles.toggleText, { color: isOnline ? "#FFFFFF" : theme.text }]}
-            >
+            <ThemedText type="h3" style={[styles.toggleText, { color: isOnline ? "#FFFFFF" : theme.text }]}>
               {isOnline ? "متصل" : "غير متصل"}
             </ThemedText>
-            <Feather
-              name={isOnline ? "wifi" : "wifi-off"}
-              size={24}
-              color={isOnline ? "#FFFFFF" : "#BDBDBD"}
-            />
+            <Feather name={isOnline ? "wifi" : "wifi-off"} size={24} color={isOnline ? "#FFFFFF" : "#BDBDBD"} />
           </>
         )}
       </Pressable>
-
       {isOnline && queuePosition !== null ? (
         <View style={[styles.queueCard, { backgroundColor: theme.backgroundDefault }, Shadows.sm]}>
           <View style={styles.queueRow}>
             <View style={[styles.queueBadge, { backgroundColor: AppColors.primary + "15" }]}>
-              <ThemedText type="h2" style={{ color: AppColors.primary }}>
-                {queuePosition}
-              </ThemedText>
+              <ThemedText type="h2" style={{ color: AppColors.primary }}>{queuePosition}</ThemedText>
             </View>
             <View style={styles.queueInfo}>
               <ThemedText type="h4" style={{ color: theme.text }}>ترتيبك في الطابور</ThemedText>
               <ThemedText type="small" style={{ color: theme.textSecondary }}>
-                {queuePosition === 1 ? "أنت التالي لاستلام طلب" : `يوجد ${queuePosition - 1} سائق قبلك`}
+                {queuePosition === 1 ? "أنت التالي لاستلام دفعة" : `يوجد ${queuePosition - 1} سائق قبلك`}
               </ThemedText>
             </View>
           </View>
@@ -472,161 +421,116 @@ export default function DriverHomeScreen() {
     </View>
   );
 
-  const handleCallCustomer = () => {
-    if (!currentOrder?.customerPhone) return;
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    const phoneUrl = Platform.OS === "android"
-      ? `tel:${currentOrder.customerPhone}`
-      : `telprompt:${currentOrder.customerPhone}`;
-    Linking.openURL(phoneUrl).catch(() => {
-      Linking.openURL(`tel:${currentOrder.customerPhone}`).catch(console.error);
-    });
-  };
+  const renderBatchCard = () => {
+    if (!currentBatch) return null;
+    const isPending = currentBatch.status === "pending";
+    const isInProgress = currentBatch.status === "in_progress";
+    const progress = currentBatch.completedOrders / Math.max(currentBatch.totalOrders, 1);
 
-  const handleViewOrderDetails = () => {
-    if (!currentOrder) return;
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    navigation.navigate("DriverOrderDetail", { order: currentOrder });
-  };
-
-  // Determine what restaurant/store the order is from
-  const getOrderSource = (order: QueueOrder): string | null => {
-    if (order.vendorName) return order.vendorName;
-    const restaurantItems = (order.items || []).filter((it: any) => it.restaurant);
-    if (restaurantItems.length > 0) {
-      const names = [...new Set(restaurantItems.map((it: any) => it.restaurant as string))];
-      return names.join(" + ");
-    }
-    return null;
-  };
-
-  const renderCurrentOrder = () => {
-    if (!currentOrder) return null;
-    const status = currentOrder.status;
-    const isConfirmed = status === "confirmed";
-    const isPreparing = status === "preparing";
-    const isDelivering = status === "delivering";
-
-    const badgeColor = isDelivering ? "#2196F3" : isPreparing ? "#8B5CF6" : AppColors.primary;
-    const badgeLabel = isDelivering ? "في الطريق" : isPreparing ? "جاري التحضير" : "طلب جديد";
-
-    const source = getOrderSource(currentOrder);
+    const badgeColor = isPending ? AppColors.primary : "#8B5CF6";
+    const badgeLabel = isPending ? "دفعة جديدة" : "جارٍ التوصيل";
 
     return (
-      <View style={[styles.orderCard, { backgroundColor: theme.backgroundDefault }, Shadows.md]}>
-        <View style={[styles.orderHeader, { borderBottomColor: theme.border }]}>
+      <View style={[styles.batchCard, { backgroundColor: theme.backgroundDefault }, Shadows.md]}>
+        {/* Batch Header */}
+        <View style={[styles.batchHeader, { borderBottomColor: theme.border }]}>
           <View style={[styles.newOrderBadge, { backgroundColor: badgeColor }]}>
             <ThemedText type="small" style={styles.newOrderText}>{badgeLabel}</ThemedText>
           </View>
-          <ThemedText type="small" style={{ color: theme.textSecondary }}>
-            #{currentOrder.id?.slice(-6)}
-          </ThemedText>
-        </View>
-
-        <View style={styles.orderDetails}>
-          {source ? (
-            <View style={[styles.orderDetailRow, { borderBottomWidth: 1, borderBottomColor: theme.border, paddingBottom: Spacing.xs, marginBottom: Spacing.xs }]}>
-              <ThemedText type="body" style={{ color: AppColors.primary, fontWeight: "700" }}>{source}</ThemedText>
-              <Feather name="shopping-bag" size={18} color={AppColors.primary} />
-            </View>
-          ) : null}
-          <View style={styles.orderDetailRow}>
-            <ThemedText type="body" style={{ color: theme.text }}>{currentOrder.customerName || "زبون"}</ThemedText>
-            <Feather name="user" size={18} color={theme.textSecondary} />
-          </View>
-          <View style={styles.orderDetailRow}>
-            <ThemedText type="body" style={{ color: theme.text }}>{currentOrder.region || currentOrder.address}</ThemedText>
-            <Feather name="map-pin" size={18} color={theme.textSecondary} />
-          </View>
-          <View style={styles.orderDetailRow}>
-            <ThemedText type="body" style={{ color: AppColors.primary, fontWeight: "700" }}>
-              {formatPrice(currentOrder.total + (currentOrder.deliveryFee || 0))}
-            </ThemedText>
-            <Feather name="dollar-sign" size={18} color={AppColors.primary} />
-          </View>
-          <View style={styles.orderDetailRow}>
+          <View style={styles.batchMeta}>
+            <Feather name="layers" size={16} color={theme.textSecondary} />
             <ThemedText type="small" style={{ color: theme.textSecondary }}>
-              {currentOrder.items?.length || 0} منتج
+              {currentBatch.totalOrders} طلبات
             </ThemedText>
-            <Feather name="package" size={18} color={theme.textSecondary} />
           </View>
         </View>
 
-        <View style={styles.quickActionsRow}>
-          <Pressable
-            style={[styles.quickActionBtn, { backgroundColor: "#4CAF5015" }]}
-            onPress={handleCallCustomer}
-            testID="button-call-customer"
-          >
-            <Feather name="phone" size={20} color="#4CAF50" />
-            <ThemedText type="small" style={{ color: "#4CAF50", fontWeight: "600" }}>اتصال</ThemedText>
-          </Pressable>
-          <Pressable
-            style={[styles.quickActionBtn, { backgroundColor: AppColors.primary + "15" }]}
-            onPress={handleViewOrderDetails}
-            testID="button-view-order-details"
-          >
-            <Feather name="eye" size={20} color={AppColors.primary} />
-            <ThemedText type="small" style={{ color: AppColors.primary, fontWeight: "600" }}>التفاصيل</ThemedText>
-          </Pressable>
-        </View>
-
-        {/* Report issue button — shown when order is active (preparing or delivering) */}
-        {(isPreparing || isDelivering) ? (
-          <Pressable
-            style={styles.reportIssueBtn}
-            onPress={() => setIssueModalVisible(true)}
-            testID="button-report-issue"
-          >
-            <Feather name="alert-triangle" size={15} color={AppColors.primary} />
-            <ThemedText type="small" style={{ color: AppColors.primary, fontWeight: "600" }}>
-              إبلاغ عن مشكلة
-            </ThemedText>
-          </Pressable>
+        {/* Progress Bar (for in_progress) */}
+        {isInProgress ? (
+          <View style={styles.progressSection}>
+            <View style={styles.progressLabelRow}>
+              <ThemedText type="small" style={{ color: theme.textSecondary }}>
+                {currentBatch.completedOrders} / {currentBatch.totalOrders} تم التوصيل
+              </ThemedText>
+              <ThemedText type="small" style={{ color: AppColors.primary, fontWeight: "700" }}>
+                {Math.round(progress * 100)}%
+              </ThemedText>
+            </View>
+            <View style={[styles.progressBar, { backgroundColor: theme.border }]}>
+              <View style={[styles.progressFill, { width: `${Math.round(progress * 100)}%` as any, backgroundColor: AppColors.primary }]} />
+            </View>
+          </View>
         ) : null}
 
-        {/* Stage 1: confirmed → accept or reject */}
-        {isConfirmed ? (
-          <View style={styles.orderActions}>
+        {/* Order summary list */}
+        <View style={styles.ordersSummary}>
+          {currentBatch.orders.slice(0, 3).map((order, idx) => {
+            const isDelivered = order.status === "delivered";
+            const isPreparing = order.status === "preparing";
+            const isDelivering = order.status === "delivering";
+            return (
+              <View key={order.id} style={[styles.orderSummaryRow, idx < Math.min(currentBatch.orders.length, 3) - 1 && { borderBottomWidth: 1, borderBottomColor: theme.border }]}>
+                <View style={styles.orderSummaryLeft}>
+                  <View style={[styles.seqBadge, {
+                    backgroundColor: isDelivered ? "#4CAF5020" : isDelivering ? "#2196F320" : isPreparing ? "#8B5CF620" : AppColors.primary + "20",
+                  }]}>
+                    {isDelivered
+                      ? <Feather name="check" size={12} color="#4CAF50" />
+                      : <ThemedText type="small" style={{ color: AppColors.primary, fontWeight: "800", fontSize: 11 }}>{order.deliverySequence}</ThemedText>
+                    }
+                  </View>
+                </View>
+                <View style={styles.orderSummaryInfo}>
+                  <ThemedText type="body" style={{ color: theme.text, fontWeight: "700" }} numberOfLines={1}>
+                    {order.customerName || "زبون"}
+                  </ThemedText>
+                  <ThemedText type="small" style={{ color: theme.textSecondary }} numberOfLines={1}>
+                    {order.region || order.address}
+                  </ThemedText>
+                </View>
+                <ThemedText type="small" style={{ color: AppColors.primary, fontWeight: "700" }}>
+                  {formatPrice(order.total + (order.deliveryFee || 0))}
+                </ThemedText>
+              </View>
+            );
+          })}
+          {currentBatch.orders.length > 3 ? (
+            <ThemedText type="small" style={{ color: theme.textSecondary, textAlign: "center", paddingTop: Spacing.xs }}>
+              +{currentBatch.orders.length - 3} طلبات أخرى
+            </ThemedText>
+          ) : null}
+        </View>
+
+        {/* Actions */}
+        {isPending ? (
+          <View style={styles.batchActions}>
             <Pressable
               style={[styles.rejectButton, { borderColor: "#F44336" }]}
-              onPress={handleRejectOrder}
-              testID="button-reject-order"
+              onPress={handleRejectBatch}
+              testID="button-reject-batch"
             >
-              <ThemedText type="h4" style={[styles.rejectText, { color: "#F44336" }]}>رفض</ThemedText>
+              <ThemedText type="h4" style={{ color: "#F44336", fontWeight: "700" }}>رفض</ThemedText>
             </Pressable>
             <Pressable
               style={styles.acceptButton}
-              onPress={handleAcceptOrder}
-              testID="button-accept-order"
+              onPress={handleAcceptBatch}
+              testID="button-accept-batch"
             >
-              <ThemedText type="h4" style={styles.acceptText}>قبول</ThemedText>
+              <ThemedText type="h4" style={styles.acceptText}>قبول الدفعة</ThemedText>
               <Feather name="check" size={20} color="#FFFFFF" />
             </Pressable>
           </View>
         ) : null}
 
-        {/* Stage 2: preparing → start delivery */}
-        {isPreparing ? (
+        {isInProgress ? (
           <Pressable
-            style={[styles.acceptButton, { backgroundColor: "#8B5CF6" }]}
-            onPress={handleStartDelivering}
-            testID="button-start-delivery"
+            style={[styles.manageBatchButton, { backgroundColor: "#8B5CF6" }]}
+            onPress={() => navigation.navigate("DriverBatch", { batch: currentBatch })}
+            testID="button-manage-batch"
           >
-            <ThemedText type="h4" style={styles.acceptText}>في الطريق</ThemedText>
-            <Feather name="navigation" size={20} color="#FFFFFF" />
-          </Pressable>
-        ) : null}
-
-        {/* Stage 3: delivering → complete */}
-        {isDelivering ? (
-          <Pressable
-            style={[styles.acceptButton, { backgroundColor: "#4CAF50" }]}
-            onPress={handleCompleteOrder}
-            testID="button-complete-order"
-          >
-            <ThemedText type="h4" style={styles.acceptText}>تم التوصيل</ThemedText>
-            <Feather name="check-circle" size={20} color="#FFFFFF" />
+            <Feather name="list" size={20} color="#FFFFFF" />
+            <ThemedText type="h4" style={styles.acceptText}>إدارة الدفعة</ThemedText>
+            <Feather name="chevron-left" size={20} color="#FFFFFF" />
           </Pressable>
         ) : null}
       </View>
@@ -634,7 +538,7 @@ export default function DriverHomeScreen() {
   };
 
   return (
-    <View style={[styles.container]}>
+    <View style={styles.container}>
       <GradientBackground />
       <View style={[styles.header, { paddingTop: insets.top + Spacing.md, backgroundColor: AppColors.primary }]}>
         <ThemedText type="h2" style={styles.headerTitle}>ONWAY</ThemedText>
@@ -648,10 +552,7 @@ export default function DriverHomeScreen() {
         animationType="fade"
         onRequestClose={() => !issueSending && setIssueModalVisible(false)}
       >
-        <Pressable
-          style={styles.modalOverlay}
-          onPress={() => !issueSending && setIssueModalVisible(false)}
-        >
+        <Pressable style={styles.modalOverlay} onPress={() => !issueSending && setIssueModalVisible(false)}>
           <Pressable style={[styles.modalBox, { backgroundColor: theme.backgroundDefault }]} onPress={() => {}}>
             {issueSent ? (
               <View style={styles.modalSent}>
@@ -666,9 +567,7 @@ export default function DriverHomeScreen() {
               <>
                 <View style={styles.modalHeader}>
                   <Feather name="alert-triangle" size={22} color={AppColors.primary} />
-                  <ThemedText type="h4" style={{ color: theme.text, fontWeight: "700" }}>
-                    إبلاغ عن مشكلة
-                  </ThemedText>
+                  <ThemedText type="h4" style={{ color: theme.text, fontWeight: "700" }}>إبلاغ عن مشكلة</ThemedText>
                 </View>
                 <ThemedText type="small" style={{ color: theme.textSecondary, textAlign: "center", marginBottom: Spacing.lg }}>
                   اختر نوع المشكلة
@@ -714,12 +613,12 @@ export default function DriverHomeScreen() {
               <>
                 {renderWalletCard()}
                 {renderOnlineToggle()}
-                {renderCurrentOrder()}
-                {isOnline && !currentOrder ? (
+                {renderBatchCard()}
+                {isOnline && !currentBatch ? (
                   <View style={[styles.waitingCard, { backgroundColor: theme.backgroundDefault }, Shadows.sm]}>
                     <Feather name="coffee" size={40} color={theme.textSecondary} />
                     <ThemedText type="h4" style={{ color: theme.text, marginTop: Spacing.md }}>
-                      بانتظار طلبات جديدة
+                      بانتظار دفعات جديدة
                     </ThemedText>
                     <ThemedText type="small" style={{ color: theme.textSecondary, marginTop: Spacing.xs }}>
                       ستصلك الطلبات تلقائياً حسب ترتيبك في الطابور
@@ -732,9 +631,7 @@ export default function DriverHomeScreen() {
         )}
         keyExtractor={() => "main"}
         contentContainerStyle={{ paddingBottom: tabBarHeight + Spacing.xl }}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={AppColors.primary} />
-        }
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={AppColors.primary} />}
         showsVerticalScrollIndicator={false}
       />
     </View>
@@ -742,93 +639,40 @@ export default function DriverHomeScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
+  container: { flex: 1 },
   header: {
     paddingHorizontal: Spacing.lg,
     paddingBottom: Spacing.lg,
     alignItems: "center",
   },
-  headerTitle: {
-    color: "#FFFFFF",
-    fontWeight: "800",
-    fontSize: 19,
-  },
-  headerSubtitle: {
-    color: "rgba(255,255,255,0.8)",
-    marginTop: 2,
-  },
-  content: {
-    padding: Spacing.lg,
-  },
-  statusCard: {
-    alignItems: "center",
-    paddingVertical: Spacing["3xl"],
-  },
+  headerTitle: { color: "#FFFFFF", fontWeight: "800", fontSize: 19 },
+  headerSubtitle: { color: "rgba(255,255,255,0.8)", marginTop: 2 },
+  content: { padding: Spacing.lg },
+  statusCard: { alignItems: "center", paddingVertical: Spacing["3xl"] },
   statusIcon: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    justifyContent: "center",
-    alignItems: "center",
-    marginBottom: Spacing.lg,
+    width: 80, height: 80, borderRadius: 40,
+    justifyContent: "center", alignItems: "center", marginBottom: Spacing.lg,
   },
-  statusTitle: {
-    textAlign: "center",
-    marginBottom: Spacing.sm,
-  },
-  statusSubtitle: {
-    textAlign: "center",
-    paddingHorizontal: Spacing.xl,
-  },
-  toggleSection: {
-    marginBottom: Spacing.lg,
-  },
+  statusTitle: { textAlign: "center", marginBottom: Spacing.sm },
+  statusSubtitle: { textAlign: "center", paddingHorizontal: Spacing.xl },
+  toggleSection: { marginBottom: Spacing.lg },
   toggleButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: Spacing.md,
-    paddingVertical: Spacing.xl,
-    borderRadius: BorderRadius["2xl"],
-    borderWidth: 2,
-    marginBottom: Spacing.lg,
+    flexDirection: "row", alignItems: "center", justifyContent: "center",
+    gap: Spacing.md, paddingVertical: Spacing.xl,
+    borderRadius: BorderRadius["2xl"], borderWidth: 2, marginBottom: Spacing.lg,
   },
-  toggleDot: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-  },
-  toggleText: {
-    fontWeight: "700",
-  },
-  queueCard: {
-    borderRadius: BorderRadius.xl,
-    padding: Spacing.lg,
-  },
-  queueRow: {
-    flexDirection: "row-reverse",
-    alignItems: "center",
-    gap: Spacing.md,
-  },
-  queueBadge: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  queueInfo: {
-    flex: 1,
-    alignItems: "flex-end",
-  },
-  orderCard: {
+  toggleDot: { width: 12, height: 12, borderRadius: 6 },
+  toggleText: { fontWeight: "700" },
+  queueCard: { borderRadius: BorderRadius.xl, padding: Spacing.lg },
+  queueRow: { flexDirection: "row-reverse", alignItems: "center", gap: Spacing.md },
+  queueBadge: { width: 60, height: 60, borderRadius: 30, justifyContent: "center", alignItems: "center" },
+  queueInfo: { flex: 1, alignItems: "flex-end" },
+  batchCard: {
     borderRadius: BorderRadius.xl,
     padding: Spacing.lg,
     marginBottom: Spacing.lg,
   },
-  orderHeader: {
+  batchHeader: {
     flexDirection: "row-reverse",
     justifyContent: "space-between",
     alignItems: "center",
@@ -836,188 +680,83 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     marginBottom: Spacing.md,
   },
-  newOrderBadge: {
-    backgroundColor: AppColors.primary,
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 12,
+  batchMeta: { flexDirection: "row", alignItems: "center", gap: 4 },
+  newOrderBadge: { paddingHorizontal: 12, paddingVertical: 4, borderRadius: 12 },
+  newOrderText: { color: "#FFFFFF", fontWeight: "700", fontSize: 12 },
+  progressSection: { marginBottom: Spacing.md },
+  progressLabelRow: {
+    flexDirection: "row-reverse",
+    justifyContent: "space-between",
+    marginBottom: 6,
   },
-  newOrderText: {
-    color: "#FFFFFF",
-    fontWeight: "700",
-    fontSize: 12,
-  },
-  orderDetails: {
-    gap: Spacing.sm,
-    marginBottom: Spacing.lg,
-  },
-  orderDetailRow: {
+  progressBar: { height: 6, borderRadius: 3, overflow: "hidden" },
+  progressFill: { height: "100%", borderRadius: 3 },
+  ordersSummary: { marginBottom: Spacing.md, gap: Spacing.sm },
+  orderSummaryRow: {
     flexDirection: "row-reverse",
     alignItems: "center",
-    gap: Spacing.sm,
-  },
-  orderActions: {
-    flexDirection: "row-reverse",
-    gap: Spacing.md,
-  },
-  acceptButton: {
-    flex: 1,
-    backgroundColor: AppColors.primary,
-    flexDirection: "row",
-    justifyContent: "center",
-    alignItems: "center",
-    gap: Spacing.sm,
-    paddingVertical: Spacing.md,
-    borderRadius: BorderRadius.md,
-  },
-  acceptText: {
-    color: "#FFFFFF",
-    fontWeight: "700",
-  },
-  rejectButton: {
-    flex: 1,
-    borderWidth: 2,
-    justifyContent: "center",
-    alignItems: "center",
-    paddingVertical: Spacing.md,
-    borderRadius: BorderRadius.md,
-  },
-  rejectText: {
-    fontWeight: "700",
-  },
-  quickActionsRow: {
-    flexDirection: "row-reverse",
-    gap: Spacing.sm,
-    marginBottom: Spacing.md,
-  },
-  quickActionBtn: {
-    flex: 1,
-    flexDirection: "row",
-    justifyContent: "center",
-    alignItems: "center",
-    gap: 6,
     paddingVertical: Spacing.sm,
-    borderRadius: BorderRadius.md,
+    gap: Spacing.sm,
+  },
+  orderSummaryLeft: { alignItems: "center" },
+  seqBadge: {
+    width: 28, height: 28, borderRadius: 14,
+    justifyContent: "center", alignItems: "center",
+  },
+  orderSummaryInfo: { flex: 1, alignItems: "flex-end" },
+  batchActions: { flexDirection: "row-reverse", gap: Spacing.md },
+  acceptButton: {
+    flex: 1, backgroundColor: AppColors.primary,
+    flexDirection: "row", justifyContent: "center", alignItems: "center",
+    gap: Spacing.sm, paddingVertical: Spacing.md, borderRadius: BorderRadius.md,
+  },
+  acceptText: { color: "#FFFFFF", fontWeight: "700" },
+  rejectButton: {
+    flex: 1, borderWidth: 2, justifyContent: "center",
+    alignItems: "center", paddingVertical: Spacing.md, borderRadius: BorderRadius.md,
+  },
+  manageBatchButton: {
+    flexDirection: "row-reverse", justifyContent: "center", alignItems: "center",
+    gap: Spacing.sm, paddingVertical: Spacing.md, borderRadius: BorderRadius.md,
   },
   waitingCard: {
-    borderRadius: BorderRadius.xl,
-    padding: Spacing["3xl"],
-    alignItems: "center",
+    borderRadius: BorderRadius.xl, padding: Spacing["3xl"], alignItems: "center",
   },
-  walletCard: {
-    borderRadius: BorderRadius.xl,
-    padding: Spacing.lg,
-    marginBottom: Spacing.lg,
-  },
-  walletRow: {
-    flexDirection: "row-reverse",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-  walletInfo: {
-    alignItems: "flex-end",
-  },
-  walletIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    justifyContent: "center",
-    alignItems: "center",
-  },
+  walletCard: { borderRadius: BorderRadius.xl, padding: Spacing.lg, marginBottom: Spacing.lg },
+  walletRow: { flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between" },
+  walletInfo: { alignItems: "flex-end" },
+  walletIcon: { width: 48, height: 48, borderRadius: 24, justifyContent: "center", alignItems: "center" },
   walletWarning: {
-    flexDirection: "row-reverse",
-    alignItems: "center",
-    gap: Spacing.xs,
-    marginTop: Spacing.md,
-    padding: Spacing.sm,
-    borderRadius: BorderRadius.sm,
+    flexDirection: "row-reverse", alignItems: "center", gap: Spacing.xs,
+    marginTop: Spacing.md, padding: Spacing.sm, borderRadius: BorderRadius.sm,
   },
-  todayStatsRow: {
-    flexDirection: "row",
-    gap: Spacing.md,
-    marginTop: Spacing.md,
-  },
-  todayStatItem: {
-    flex: 1,
-    alignItems: "center",
-    padding: Spacing.md,
-    borderRadius: BorderRadius.lg,
-    gap: 4,
-  },
+  todayStatsRow: { flexDirection: "row", gap: Spacing.md, marginTop: Spacing.md },
+  todayStatItem: { flex: 1, alignItems: "center", padding: Spacing.md, borderRadius: BorderRadius.lg, gap: 4 },
   whatsappButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: Spacing.sm,
-    backgroundColor: "#25D366",
-    paddingVertical: Spacing.md,
-    borderRadius: BorderRadius.lg,
-    marginTop: Spacing.md,
+    flexDirection: "row", alignItems: "center", justifyContent: "center",
+    gap: Spacing.sm, backgroundColor: "#25D366",
+    paddingVertical: Spacing.md, borderRadius: BorderRadius.lg, marginTop: Spacing.md,
   },
-  whatsappText: {
-    color: "#FFFFFF",
-    fontWeight: "700",
-    fontSize: 14,
-  },
-  reportIssueBtn: {
-    flexDirection: "row-reverse",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 6,
-    paddingVertical: Spacing.sm,
-    borderRadius: BorderRadius.md,
-    borderWidth: 1,
-    borderColor: AppColors.primary + "60",
-    marginBottom: Spacing.sm,
-  },
+  whatsappText: { color: "#FFFFFF", fontWeight: "700", fontSize: 14 },
   modalOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.45)",
-    justifyContent: "center",
-    alignItems: "center",
-    padding: Spacing.xl,
+    flex: 1, backgroundColor: "rgba(0,0,0,0.45)",
+    justifyContent: "center", alignItems: "center", padding: Spacing.xl,
   },
   modalBox: {
-    width: "100%",
-    borderRadius: BorderRadius.xl,
-    padding: Spacing.xl,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
-    elevation: 8,
+    width: "100%", borderRadius: BorderRadius.xl, padding: Spacing.xl,
+    shadowColor: "#000", shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15, shadowRadius: 12, elevation: 8,
   },
   modalHeader: {
-    flexDirection: "row-reverse",
-    alignItems: "center",
-    gap: Spacing.sm,
-    justifyContent: "center",
-    marginBottom: Spacing.sm,
+    flexDirection: "row-reverse", alignItems: "center",
+    gap: Spacing.sm, justifyContent: "center", marginBottom: Spacing.sm,
   },
   issueOption: {
-    flexDirection: "row-reverse",
-    alignItems: "center",
-    gap: Spacing.sm,
-    paddingVertical: Spacing.md,
-    paddingHorizontal: Spacing.md,
-    borderRadius: BorderRadius.lg,
-    borderWidth: 1,
-    marginBottom: Spacing.sm,
+    flexDirection: "row-reverse", alignItems: "center", gap: Spacing.sm,
+    paddingVertical: Spacing.md, paddingHorizontal: Spacing.md,
+    borderRadius: BorderRadius.lg, borderWidth: 1, marginBottom: Spacing.sm,
   },
-  modalCancelBtn: {
-    alignItems: "center",
-    paddingVertical: Spacing.sm,
-    marginTop: Spacing.xs,
-  },
-  modalSent: {
-    alignItems: "center",
-    paddingVertical: Spacing.xl,
-  },
-  modalSentIcon: {
-    width: 70,
-    height: 70,
-    borderRadius: 35,
-    justifyContent: "center",
-    alignItems: "center",
-  },
+  modalCancelBtn: { alignItems: "center", paddingVertical: Spacing.sm, marginTop: Spacing.xs },
+  modalSent: { alignItems: "center", paddingVertical: Spacing.xl },
+  modalSentIcon: { width: 70, height: 70, borderRadius: 35, justifyContent: "center", alignItems: "center" },
 });
