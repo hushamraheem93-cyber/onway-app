@@ -1,0 +1,768 @@
+import React, { useState, useEffect, useCallback } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  Alert,
+  ActivityIndicator,
+  RefreshControl,
+  Linking,
+  Platform,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useFocusEffect } from '@react-navigation/native';
+import * as Location from 'expo-location';
+import {
+  getDriverStats,
+  getActiveOrders,
+  getAvailableOrders,
+  acceptOrder,
+  completeOrder,
+  optimizeDeliveryRoute,
+} from '../lib/driverService';
+import type { Order, DriverStats } from '../types/driver';
+
+export default function DriverOrdersScreen() {
+  const [activeOrders, setActiveOrders] = useState<Order[]>([]);
+  const [availableOrders, setAvailableOrders] = useState<Order[]>([]);
+  const [driverStats, setDriverStats] = useState<DriverStats | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [driverId] = useState('DRIVER_ID_HERE'); // من الـ Auth
+  const [driverLocation, setDriverLocation] = useState<{
+    lat: number;
+    lng: number;
+  } | null>(null);
+
+  // الحصول على موقع السائق
+  useEffect(() => {
+    (async () => {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('تنبيه', 'نحتاج إذن الموقع لعرض الطلبات القريبة');
+        return;
+      }
+
+      const location = await Location.getCurrentPositionAsync({});
+      setDriverLocation({
+        lat: location.coords.latitude,
+        lng: location.coords.longitude,
+      });
+    })();
+  }, []);
+
+  // تحميل البيانات
+  const loadData = async () => {
+    try {
+      setLoading(true);
+
+      // جلب الإحصائيات
+      const stats = await getDriverStats(driverId);
+      setDriverStats(stats);
+
+      // جلب الطلبات النشطة
+      const active = await getActiveOrders(driverId);
+      setActiveOrders(active);
+
+      // جلب الطلبات المتاحة
+      if (driverLocation) {
+        const available = await getAvailableOrders(
+          driverLocation.lat,
+          driverLocation.lng,
+          10 // 10 كم كحد أقصى
+        );
+        setAvailableOrders(available);
+      }
+    } catch (error) {
+      console.error('خطأ في تحميل البيانات:', error);
+      Alert.alert('خطأ', 'فشل تحميل البيانات. حاول مرة أخرى.');
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
+
+  // تحديث تلقائي عند التركيز على الشاشة
+  useFocusEffect(
+    useCallback(() => {
+      loadData();
+      const interval = setInterval(loadData, 30000); // كل 30 ثانية
+      return () => clearInterval(interval);
+    }, [driverId, driverLocation])
+  );
+
+  // تحديث عند السحب للأسفل
+  const onRefresh = () => {
+    setRefreshing(true);
+    loadData();
+  };
+
+  // استلام طلب جديد
+  const handleAcceptOrder = async (order: Order) => {
+    if (!driverStats) return;
+
+    if (activeOrders.length >= driverStats.maxOrdersPerBatch) {
+      Alert.alert(
+        'تنبيه',
+        `لا يمكنك استلام أكثر من ${driverStats.maxOrdersPerBatch} طلبات في نفس الوقت!`
+      );
+      return;
+    }
+
+    Alert.alert(
+      'استلام الطلب',
+      `هل تريد استلام الطلب ${order.orderNumber}؟\n\nالمطعم: ${order.restaurantName}\nالمسافة: ${order.distance} كم\nالوقت المتوقع: ${order.estimatedTime}`,
+      [
+        { text: 'إلغاء', style: 'cancel' },
+        {
+          text: 'نعم، استلم',
+          onPress: async () => {
+            try {
+              setLoading(true);
+              await acceptOrder(order.id, driverId);
+              await loadData();
+              Alert.alert('نجاح', 'تم استلام الطلب بنجاح! ✅');
+            } catch (error: any) {
+              Alert.alert('خطأ', error.message || 'فشل استلام الطلب');
+            } finally {
+              setLoading(false);
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  // إكمال توصيل طلب
+  const handleCompleteOrder = async (order: Order) => {
+    Alert.alert(
+      'تأكيد التوصيل',
+      `هل تم توصيل الطلب ${order.orderNumber} للعميل ${order.customerName}؟`,
+      [
+        { text: 'لا', style: 'cancel' },
+        {
+          text: 'نعم، تم التوصيل',
+          onPress: async () => {
+            try {
+              setLoading(true);
+              await completeOrder(order.id, driverId);
+              await loadData();
+              Alert.alert('ممتاز!', 'تم توصيل الطلب بنجاح! 🎉');
+            } catch (error: any) {
+              Alert.alert('خطأ', error.message || 'فشل تسجيل التوصيل');
+            } finally {
+              setLoading(false);
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  // الاتصال بالعميل
+  const handleCallCustomer = (phoneNumber: string) => {
+    const phoneUrl = `tel:${phoneNumber}`;
+    Linking.canOpenURL(phoneUrl)
+      .then((supported) => {
+        if (supported) {
+          Linking.openURL(phoneUrl);
+        } else {
+          Alert.alert('خطأ', 'لا يمكن فتح تطبيق الاتصال');
+        }
+      })
+      .catch((err) => console.error('خطأ في الاتصال:', err));
+  };
+
+  // فتح الخريطة
+  const handleOpenMap = (lat: number, lng: number, address: string) => {
+    const scheme = Platform.select({
+      ios: 'maps:0,0?q=',
+      android: 'geo:0,0?q=',
+    });
+    const latLng = `${lat},${lng}`;
+    const label = encodeURIComponent(address);
+    const url = Platform.select({
+      ios: `${scheme}${label}@${latLng}`,
+      android: `${scheme}${latLng}(${label})`,
+    });
+
+    if (url) {
+      Linking.openURL(url);
+    }
+  };
+
+  // تحسين المسار
+  const handleOptimizeRoute = () => {
+    if (!driverLocation) {
+      Alert.alert('تنبيه', 'لا يمكن تحديد موقعك الحالي');
+      return;
+    }
+
+    const optimized = optimizeDeliveryRoute(
+      activeOrders,
+      driverLocation.lat,
+      driverLocation.lng
+    );
+
+    setActiveOrders(optimized);
+    Alert.alert('تم!', 'تم ترتيب الطلبات حسب المسار الأمثل 🗺️');
+  };
+
+  if (loading && !refreshing) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#FF6B35" />
+        <Text style={styles.loadingText}>جاري التحميل...</Text>
+      </View>
+    );
+  }
+
+  return (
+    <SafeAreaView style={styles.container}>
+      {/* Header */}
+      <LinearGradient colors={['#FF6B35', '#FF8C61']} style={styles.header}>
+        <View style={styles.headerContent}>
+          <View>
+            <Text style={styles.headerTitle}>طلباتي النشطة</Text>
+            <Text style={styles.headerSubtitle}>
+              {driverStats?.totalCompletedOrders || 0} طلب مكتمل
+            </Text>
+          </View>
+          <View style={styles.headerBadge}>
+            <Text style={styles.headerBadgeText}>
+              {activeOrders.length} / {driverStats?.maxOrdersPerBatch || 5}
+            </Text>
+          </View>
+        </View>
+      </LinearGradient>
+
+      <ScrollView
+        style={styles.scrollView}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
+      >
+        {/* الطلبات النشطة */}
+        {activeOrders.length > 0 && (
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>
+                📦 الطلبات الحالية ({activeOrders.length})
+              </Text>
+              {activeOrders.length > 1 && (
+                <TouchableOpacity onPress={handleOptimizeRoute}>
+                  <Text style={styles.optimizeButton}>🗺️ تحسين المسار</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+
+            {activeOrders.map((order) => (
+              <View key={order.id} style={styles.orderCard}>
+                {/* رقم الترتيب */}
+                <View style={styles.sequenceBadge}>
+                  <Text style={styles.sequenceText}>
+                    #{order.deliverySequence}
+                  </Text>
+                </View>
+
+                {/* معلومات الطلب */}
+                <View style={styles.orderHeader}>
+                  <Text style={styles.orderNumber}>{order.orderNumber}</Text>
+                  <Text style={styles.orderPrice}>
+                    {order.totalPrice.toLocaleString()} د.ع
+                  </Text>
+                </View>
+
+                <View style={styles.orderInfo}>
+                  <Text style={styles.restaurantName}>
+                    🍽️ {order.restaurantName}
+                  </Text>
+                  <Text style={styles.customerName}>
+                    👤 {order.customerName}
+                  </Text>
+                  <Text style={styles.customerAddress}>
+                    📍 {order.customerAddress}
+                  </Text>
+                  <Text style={styles.customerPhone}>
+                    📱 {order.customerPhone}
+                  </Text>
+                </View>
+
+                {/* عرض المنتجات */}
+                <View style={styles.itemsContainer}>
+                  <Text style={styles.itemsTitle}>المنتجات:</Text>
+                  {order.items.map((item, index) => (
+                    <Text key={index} style={styles.itemText}>
+                      • {item.name} × {item.quantity}
+                    </Text>
+                  ))}
+                </View>
+
+                {/* المسافة والوقت */}
+                <View style={styles.orderMeta}>
+                  <View style={styles.metaItem}>
+                    <Text style={styles.metaIcon}>📏</Text>
+                    <Text style={styles.metaText}>{order.distance} كم</Text>
+                  </View>
+                  <View style={styles.metaItem}>
+                    <Text style={styles.metaIcon}>⏱️</Text>
+                    <Text style={styles.metaText}>{order.estimatedTime}</Text>
+                  </View>
+                  <View style={styles.metaItem}>
+                    <Text style={styles.metaIcon}>💰</Text>
+                    <Text style={styles.metaText}>
+                      {order.deliveryFee.toLocaleString()} د.ع
+                    </Text>
+                  </View>
+                </View>
+
+                {/* أزرار الإجراءات */}
+                <View style={styles.orderActions}>
+                  <TouchableOpacity
+                    style={styles.mapButton}
+                    onPress={() =>
+                      handleOpenMap(
+                        order.customerLat,
+                        order.customerLng,
+                        order.customerAddress
+                      )
+                    }
+                  >
+                    <Text style={styles.mapButtonText}>🗺️ خريطة</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={styles.callButton}
+                    onPress={() => handleCallCustomer(order.customerPhone)}
+                  >
+                    <Text style={styles.callButtonText}>📞 اتصال</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={styles.completeButton}
+                    onPress={() => handleCompleteOrder(order)}
+                  >
+                    <Text style={styles.completeButtonText}>✅ تم</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            ))}
+          </View>
+        )}
+
+        {/* الطلبات المتاحة */}
+        {availableOrders.length > 0 && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>
+              🔔 طلبات جديدة متاحة ({availableOrders.length})
+            </Text>
+
+            {availableOrders.map((order) => (
+              <View key={order.id} style={styles.availableOrderCard}>
+                <View style={styles.orderHeader}>
+                  <Text style={styles.orderNumber}>{order.orderNumber}</Text>
+                  <Text style={styles.orderPrice}>
+                    {order.totalPrice.toLocaleString()} د.ع
+                  </Text>
+                </View>
+
+                <View style={styles.orderInfo}>
+                  <Text style={styles.restaurantName}>
+                    🍽️ {order.restaurantName}
+                  </Text>
+                  <Text style={styles.customerAddress}>
+                    📍 {order.customerAddress}
+                  </Text>
+                </View>
+
+                <View style={styles.orderMeta}>
+                  <View style={styles.metaItem}>
+                    <Text style={styles.metaIcon}>📏</Text>
+                    <Text style={styles.metaText}>{order.distance} كم</Text>
+                  </View>
+                  <View style={styles.metaItem}>
+                    <Text style={styles.metaIcon}>⏱️</Text>
+                    <Text style={styles.metaText}>{order.estimatedTime}</Text>
+                  </View>
+                  <View style={styles.metaItem}>
+                    <Text style={styles.metaIcon}>💰</Text>
+                    <Text style={styles.metaText}>
+                      {order.deliveryFee.toLocaleString()} د.ع
+                    </Text>
+                  </View>
+                </View>
+
+                <TouchableOpacity
+                  style={styles.acceptButton}
+                  onPress={() => handleAcceptOrder(order)}
+                >
+                  <Text style={styles.acceptButtonText}>➕ استلام الطلب</Text>
+                </TouchableOpacity>
+              </View>
+            ))}
+          </View>
+        )}
+
+        {/* رسالة عند عدم وجود طلبات */}
+        {activeOrders.length === 0 && availableOrders.length === 0 && (
+          <View style={styles.emptyState}>
+            <Text style={styles.emptyIcon}>📭</Text>
+            <Text style={styles.emptyText}>لا توجد طلبات حالياً</Text>
+            <Text style={styles.emptySubtext}>
+              سنخبرك فور توفر طلبات جديدة قريبة منك
+            </Text>
+          </View>
+        )}
+
+        {/* إحصائيات السائق */}
+        {driverStats && (
+          <View style={styles.statsCard}>
+            <Text style={styles.statsTitle}>إحصائياتك اليوم</Text>
+            <View style={styles.statsGrid}>
+              <View style={styles.statItem}>
+                <Text style={styles.statValue}>
+                  {driverStats.totalCompletedOrders}
+                </Text>
+                <Text style={styles.statLabel}>طلب مكتمل</Text>
+              </View>
+              <View style={styles.statItem}>
+                <Text style={styles.statValue}>
+                  {driverStats.totalEarnings.toLocaleString()}
+                </Text>
+                <Text style={styles.statLabel}>د.ع</Text>
+              </View>
+              <View style={styles.statItem}>
+                <Text style={styles.statValue}>
+                  {driverStats.activeOrdersCount}
+                </Text>
+                <Text style={styles.statLabel}>طلب نشط</Text>
+              </View>
+            </View>
+          </View>
+        )}
+      </ScrollView>
+    </SafeAreaView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#F8F9FA',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#F8F9FA',
+  },
+  loadingText: {
+    fontFamily: 'Cairo_600SemiBold',
+    fontSize: 16,
+    color: '#7F8C8D',
+    marginTop: 16,
+  },
+  header: {
+    paddingHorizontal: 20,
+    paddingVertical: 20,
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  headerContent: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  headerTitle: {
+    fontFamily: 'Cairo_700Bold',
+    fontSize: 24,
+    color: '#FFFFFF',
+    marginBottom: 4,
+  },
+  headerSubtitle: {
+    fontFamily: 'Cairo_400Regular',
+    fontSize: 14,
+    color: 'rgba(255, 255, 255, 0.9)',
+  },
+  headerBadge: {
+    backgroundColor: 'rgba(255, 255, 255, 0.25)',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
+  },
+  headerBadgeText: {
+    fontFamily: 'Cairo_700Bold',
+    fontSize: 16,
+    color: '#FFFFFF',
+  },
+  scrollView: {
+    flex: 1,
+  },
+  section: {
+    padding: 20,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  sectionTitle: {
+    fontFamily: 'Cairo_700Bold',
+    fontSize: 18,
+    color: '#2C3E50',
+  },
+  optimizeButton: {
+    fontFamily: 'Cairo_600SemiBold',
+    fontSize: 14,
+    color: '#4CAF50',
+  },
+  orderCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 16,
+    borderWidth: 2,
+    borderColor: '#FF6B35',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  availableOrderCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 16,
+    borderWidth: 2,
+    borderColor: '#E8E8E8',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  sequenceBadge: {
+    position: 'absolute',
+    top: -8,
+    right: 16,
+    backgroundColor: '#FF6B35',
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 3,
+    borderColor: '#FFFFFF',
+    shadowColor: '#FF6B35',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  sequenceText: {
+    fontFamily: 'Cairo_700Bold',
+    fontSize: 14,
+    color: '#FFFFFF',
+  },
+  orderHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  orderNumber: {
+    fontFamily: 'Cairo_700Bold',
+    fontSize: 16,
+    color: '#2C3E50',
+  },
+  orderPrice: {
+    fontFamily: 'Cairo_700Bold',
+    fontSize: 16,
+    color: '#FF6B35',
+  },
+  orderInfo: {
+    gap: 8,
+    marginBottom: 12,
+  },
+  restaurantName: {
+    fontFamily: 'Cairo_600SemiBold',
+    fontSize: 15,
+    color: '#2C3E50',
+  },
+  customerName: {
+    fontFamily: 'Cairo_600SemiBold',
+    fontSize: 14,
+    color: '#7F8C8D',
+  },
+  customerAddress: {
+    fontFamily: 'Cairo_400Regular',
+    fontSize: 13,
+    color: '#7F8C8D',
+    lineHeight: 20,
+  },
+  customerPhone: {
+    fontFamily: 'Cairo_600SemiBold',
+    fontSize: 14,
+    color: '#2C3E50',
+  },
+  itemsContainer: {
+    backgroundColor: '#F8F9FA',
+    padding: 12,
+    borderRadius: 12,
+    marginBottom: 12,
+  },
+  itemsTitle: {
+    fontFamily: 'Cairo_600SemiBold',
+    fontSize: 13,
+    color: '#7F8C8D',
+    marginBottom: 8,
+  },
+  itemText: {
+    fontFamily: 'Cairo_400Regular',
+    fontSize: 13,
+    color: '#2C3E50',
+    marginBottom: 4,
+  },
+  orderMeta: {
+    flexDirection: 'row',
+    gap: 16,
+    marginBottom: 12,
+  },
+  metaItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  metaIcon: {
+    fontSize: 16,
+  },
+  metaText: {
+    fontFamily: 'Cairo_600SemiBold',
+    fontSize: 13,
+    color: '#7F8C8D',
+  },
+  orderActions: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  mapButton: {
+    flex: 1,
+    backgroundColor: '#2196F3',
+    paddingVertical: 12,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  mapButtonText: {
+    fontFamily: 'Cairo_600SemiBold',
+    fontSize: 14,
+    color: '#FFFFFF',
+  },
+  callButton: {
+    flex: 1,
+    backgroundColor: '#4CAF50',
+    paddingVertical: 12,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  callButtonText: {
+    fontFamily: 'Cairo_600SemiBold',
+    fontSize: 14,
+    color: '#FFFFFF',
+  },
+  completeButton: {
+    flex: 1,
+    backgroundColor: '#FF6B35',
+    paddingVertical: 12,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  completeButtonText: {
+    fontFamily: 'Cairo_600SemiBold',
+    fontSize: 14,
+    color: '#FFFFFF',
+  },
+  acceptButton: {
+    backgroundColor: '#FF6B35',
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  acceptButtonText: {
+    fontFamily: 'Cairo_700Bold',
+    fontSize: 15,
+    color: '#FFFFFF',
+  },
+  emptyState: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 80,
+    paddingHorizontal: 40,
+  },
+  emptyIcon: {
+    fontSize: 80,
+    marginBottom: 16,
+  },
+  emptyText: {
+    fontFamily: 'Cairo_700Bold',
+    fontSize: 18,
+    color: '#7F8C8D',
+    marginBottom: 8,
+  },
+  emptySubtext: {
+    fontFamily: 'Cairo_400Regular',
+    fontSize: 14,
+    color: '#95A5A6',
+    textAlign: 'center',
+    lineHeight: 22,
+  },
+  statsCard: {
+    backgroundColor: '#FFFFFF',
+    marginHorizontal: 20,
+    marginBottom: 20,
+    padding: 20,
+    borderRadius: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  statsTitle: {
+    fontFamily: 'Cairo_700Bold',
+    fontSize: 16,
+    color: '#2C3E50',
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  statsGrid: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+  },
+  statItem: {
+    alignItems: 'center',
+  },
+  statValue: {
+    fontFamily: 'Cairo_700Bold',
+    fontSize: 24,
+    color: '#FF6B35',
+    marginBottom: 4,
+  },
+  statLabel: {
+    fontFamily: 'Cairo_400Regular',
+    fontSize: 12,
+    color: '#7F8C8D',
+  },
+});
