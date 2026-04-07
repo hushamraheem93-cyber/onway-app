@@ -209,6 +209,7 @@ export default function AdminScreen() {
 
   const { data: adminOrders = [], isLoading: ordersLoading } = useQuery<AdminOrder[]>({
     queryKey: ["/api/admin/orders"],
+    refetchInterval: 6000,
   });
 
   const { data: drivers = [], isLoading: driversLoading } = useQuery<Driver[]>({
@@ -1911,7 +1912,9 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
             { key: "promoCodes", label: "أكواد الخصم" },
             { key: "notifications", label: "الإشعارات" },
             { key: "users", label: "المستخدمين" },
-          ].map((tab) => (
+          ].map((tab) => {
+            const hasActiveDelivery = tab.key === "orders" && adminOrders.some(o => o.status === "in_delivery" || o.status === "picked_up");
+            return (
             <Pressable
               key={tab.key}
               style={[styles.tab, activeTab === tab.key && styles.tabActive]}
@@ -1920,8 +1923,12 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
               <ThemedText type="body" style={[styles.tabText, activeTab === tab.key && styles.tabTextActive]}>
                 {tab.label}
               </ThemedText>
+              {hasActiveDelivery ? (
+                <View style={{ position: "absolute", top: 4, left: 4, width: 8, height: 8, borderRadius: 4, backgroundColor: "#4CAF50" }} />
+              ) : null}
             </Pressable>
-          ))}
+            );
+          })}
         </View>
       </ScrollView>
 
@@ -1951,6 +1958,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#F3F4F6",
     alignItems: "center",
     justifyContent: "center",
+    overflow: "visible",
   },
   tabActive: {
     backgroundColor: AppColors.primary,
