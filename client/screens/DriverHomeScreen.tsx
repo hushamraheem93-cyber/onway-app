@@ -504,9 +504,17 @@ export default function DriverHomeScreen() {
                   <ThemedText type="body" style={{ color: theme.text, fontWeight: "700" }} numberOfLines={1}>
                     {order.customerName || "زبون"}
                   </ThemedText>
-                  <ThemedText type="small" style={{ color: theme.textSecondary }} numberOfLines={1}>
-                    {order.region || order.address}
-                  </ThemedText>
+                  <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 4 }}>
+                    <Feather name="map-pin" size={11} color={theme.textSecondary} />
+                    <ThemedText type="small" style={{ color: theme.textSecondary }} numberOfLines={1}>
+                      {order.region || order.address}
+                    </ThemedText>
+                  </View>
+                  {order.items && order.items.length > 0 ? (
+                    <ThemedText type="small" style={{ color: theme.textSecondary, marginTop: 2 }} numberOfLines={2}>
+                      {order.items.map((it: any) => `${it.name} ×${it.quantity}`).join("، ")}
+                    </ThemedText>
+                  ) : null}
                 </View>
                 <ThemedText type="small" style={{ color: AppColors.primary, fontWeight: "700" }}>
                   {formatPrice(order.total + (order.deliveryFee || 0))}

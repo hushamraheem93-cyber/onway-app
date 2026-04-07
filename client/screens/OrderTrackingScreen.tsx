@@ -28,19 +28,28 @@ import { GradientBackground } from "@/components/GradientBackground";
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 type RouteProps = RouteProp<RootStackParamList, "OrderTracking">;
 
-const STEPS: { key: Order["status"]; label: string; icon: keyof typeof Feather.glyphMap; description: string }[] = [
-  { key: "pending", label: "قيد الانتظار", icon: "clock", description: "تم استلام طلبك وبانتظار التأكيد" },
-  { key: "confirmed", label: "تم التأكيد", icon: "check-circle", description: "تم تأكيد طلبك من قبل المتجر" },
-  { key: "preparing", label: "جاري التحضير", icon: "package", description: "يتم الآن تحضير طلبك" },
-  { key: "delivering", label: "في الطريق", icon: "truck", description: "المندوب في طريقه إليك" },
-  { key: "delivered", label: "تم التوصيل", icon: "home", description: "تم توصيل طلبك بنجاح!" },
+const STEPS: { label: string; icon: keyof typeof Feather.glyphMap; description: string }[] = [
+  { label: "قيد الانتظار", icon: "clock", description: "تم استلام طلبك وبانتظار التأكيد" },
+  { label: "تم التأكيد", icon: "check-circle", description: "تم تأكيد طلبك وسيتم تحضيره قريباً" },
+  { label: "جاري التحضير", icon: "package", description: "يتم الآن تحضير طلبك" },
+  { label: "في الطريق", icon: "truck", description: "المندوب في طريقه إليك" },
+  { label: "تم التوصيل", icon: "home", description: "تم توصيل طلبك بنجاح!" },
 ];
 
-const statusOrder: Order["status"][] = ["pending", "confirmed", "preparing", "delivering", "delivered"];
-
 function getStepIndex(status: Order["status"]): number {
-  if (status === "cancelled") return -1;
-  return statusOrder.indexOf(status);
+  switch (status) {
+    case "pending":     return 0;
+    case "confirmed":   return 1;
+    case "preparing":   return 2;
+    case "ready":       return 2;
+    case "picked_up":   return 3;
+    case "in_delivery": return 3;
+    case "delivering":  return 3;
+    case "delivered":   return 4;
+    case "cancelled":   return -1;
+    case "issue":       return -1;
+    default:            return 0;
+  }
 }
 
 function PulsingDot() {
@@ -253,9 +262,10 @@ export default function OrderTrackingScreen() {
   }, [refreshOrders]);
 
   useEffect(() => {
-    if (order?.status === "delivering") {
+    const tracking = order?.status === "in_delivery" || order?.status === "picked_up" || order?.status === "delivering";
+    if (tracking) {
       fetchDriverLocation();
-      const interval = setInterval(fetchDriverLocation, 10000);
+      const interval = setInterval(fetchDriverLocation, 8000);
       return () => clearInterval(interval);
     } else {
       setDriverLocation(null);
@@ -267,7 +277,7 @@ export default function OrderTrackingScreen() {
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
     await refreshOrders();
-    if (order?.status === "delivering") await fetchDriverLocation();
+    if (order?.status === "in_delivery" || order?.status === "picked_up" || order?.status === "delivering") await fetchDriverLocation();
     setRefreshing(false);
   }, [refreshOrders, fetchDriverLocation, order?.status]);
 
@@ -281,8 +291,8 @@ export default function OrderTrackingScreen() {
   }
 
   const currentStepIndex = getStepIndex(order.status);
-  const isCancelled = order.status === "cancelled";
-  const isDelivering = order.status === "delivering";
+  const isCancelled = order.status === "cancelled" || order.status === "issue";
+  const isDelivering = order.status === "in_delivery" || order.status === "picked_up" || order.status === "delivering";
 
   const formatTime = (date: string) => {
     const d = new Date(date);
@@ -318,7 +328,7 @@ export default function OrderTrackingScreen() {
               color: isCancelled ? "#EF4444" : currentStepIndex >= 4 ? "#10B981" : AppColors.primary,
               fontWeight: "700",
             }}>
-              {isCancelled ? "ملغي" : STEPS[Math.min(currentStepIndex, 4)]?.label}
+              {order.status === "issue" ? "مشكلة" : isCancelled ? "ملغي" : STEPS[Math.min(currentStepIndex, 4)]?.label}
             </ThemedText>
           </View>
         </View>
@@ -408,11 +418,15 @@ export default function OrderTrackingScreen() {
       {isCancelled ? (
         <View style={[styles.cancelledCard, Shadows.sm]}>
           <View style={styles.cancelledIcon}>
-            <Feather name="x-circle" size={40} color="#EF4444" />
+            <Feather name={order.status === "issue" ? "alert-triangle" : "x-circle"} size={40} color="#EF4444" />
           </View>
-          <ThemedText type="h3" style={styles.cancelledTitle}>تم إلغاء الطلب</ThemedText>
+          <ThemedText type="h3" style={styles.cancelledTitle}>
+            {order.status === "issue" ? "توجد مشكلة في الطلب" : "تم إلغاء الطلب"}
+          </ThemedText>
           <ThemedText type="body" style={styles.cancelledDesc}>
-            نأسف لإعلامك أنه تم إلغاء هذا الطلب. يمكنك تقديم طلب جديد في أي وقت.
+            {order.status === "issue"
+              ? "واجه المندوب مشكلة في توصيل طلبك. سيتواصل معك قريباً لحل المشكلة."
+              : "نأسف لإعلامك أنه تم إلغاء هذا الطلب. يمكنك تقديم طلب جديد في أي وقت."}
           </ThemedText>
         </View>
       ) : (
@@ -425,7 +439,7 @@ export default function OrderTrackingScreen() {
             const isLast = index === STEPS.length - 1;
 
             return (
-              <View key={step.key} style={styles.stepRow}>
+              <View key={index} style={styles.stepRow}>
                 <View style={styles.stepIndicator}>
                   {isCompleted ? (
                     <View style={[styles.stepCircle, styles.stepCompleted]}>

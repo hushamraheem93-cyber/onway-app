@@ -24,18 +24,26 @@ const statusLabels: Record<Order["status"], string> = {
   pending: "قيد الانتظار",
   confirmed: "تم تأكيد الطلب",
   preparing: "جاري التحضير",
-  delivering: "تم استلام الطلب من قبل المندوب",
+  ready: "جاهز للاستلام",
+  picked_up: "استُلم من المتجر",
+  in_delivery: "في الطريق إليك",
+  delivering: "في الطريق إليك",
   delivered: "تم التوصيل",
   cancelled: "ملغي",
+  issue: "توجد مشكلة",
 };
 
 const statusColors: Record<Order["status"], string> = {
   pending: "#FFA726",
   confirmed: "#3B82F6",
   preparing: "#8B5CF6",
+  ready: "#8B5CF6",
+  picked_up: "#06B6D4",
+  in_delivery: "#06B6D4",
   delivering: "#06B6D4",
   delivered: "#10B981",
   cancelled: "#EF4444",
+  issue: "#F59E0B",
 };
 
 export function OrderCard({ order, onPress }: OrderCardProps) {

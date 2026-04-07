@@ -10,6 +10,9 @@ const ORDER_STATUSES_KEY = "@onway_order_statuses";
 const STATUS_MESSAGES: Record<string, { title: string; body: string }> = {
   confirmed: { title: "تم تأكيد الطلب", body: "تم استلام طلبك وسيتم تحضيره قريباً" },
   preparing: { title: "جاري تحضير الطلب", body: "طلبك الآن قيد التحضير في المتجر" },
+  ready: { title: "طلبك جاهز", body: "طلبك جاهز وبانتظار المندوب لاستلامه" },
+  picked_up: { title: "المندوب استلم طلبك", body: "المندوب في طريقه إليك الآن" },
+  in_delivery: { title: "الطلب في الطريق", body: "المندوب في طريقه إليك. تابع موقعه على الخريطة" },
   delivering: { title: "الطلب في الطريق", body: "تم استلام الطلب من قبل المندوب وهو في طريقه إليك" },
   delivered: { title: "تم التوصيل بنجاح", body: "تم توصيل طلبك بنجاح. شكراً لتسوقك معنا!" },
   cancelled: { title: "تم إلغاء الطلب", body: "نأسف لإعلامك أنه تم إلغاء طلبك" },
@@ -23,7 +26,7 @@ export interface Order {
   phoneNumber: string;
   address: string;
   region: string;
-  status: "pending" | "confirmed" | "preparing" | "delivering" | "delivered" | "cancelled";
+  status: "pending" | "confirmed" | "preparing" | "ready" | "picked_up" | "in_delivery" | "delivering" | "delivered" | "cancelled" | "issue";
   createdAt: string;
   updatedAt: string;
   latitude?: number;
