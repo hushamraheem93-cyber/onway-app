@@ -1628,7 +1628,7 @@ async function registerRoutes(app2) {
               const o = allOrdersForRestore.find((x) => x.id === oid);
               return o ? o.status : "delivered";
             });
-            const allDone = batchOrderStatuses.every((s) => s === "delivered" || s === "cancelled");
+            const allDone = batchOrderStatuses.every((s) => s === "delivered" || s === "cancelled" || s === "issue");
             if (allDone) {
               db2.collection("delivery_batches").doc(bDoc.id).update({ status: "completed", updatedAt: /* @__PURE__ */ new Date() }).catch(() => {
               });
@@ -2893,7 +2893,7 @@ ${itemsList}
             };
           });
           const resolvedOrders = await Promise.all(batchOrders);
-          const completedCount = resolvedOrders.filter((o) => o.status === "delivered").length;
+          const completedCount = resolvedOrders.filter((o) => o.status === "delivered" || o.status === "issue" || o.status === "cancelled").length;
           if (resolvedOrders.length > 0 && completedCount === resolvedOrders.length) {
             console.log(`[STATUS] All orders delivered in batch ${batchDoc.id} \u2014 auto-clearing for driver ${phoneNumber}`);
             queuedDriver.currentBatchId = void 0;
@@ -3230,11 +3230,11 @@ ${itemsList}
           const freshOrders = await getOrders();
           const allDelivered = batchDoc.orderIds.every((oid) => {
             const o = freshOrders.find((x) => x.id === oid);
-            return o?.status === "delivered";
+            return o?.status === "delivered" || o?.status === "issue" || o?.status === "cancelled";
           });
           const completedCount = batchDoc.orderIds.filter((oid) => {
             const o = freshOrders.find((x) => x.id === oid);
-            return o?.status === "delivered";
+            return o?.status === "delivered" || o?.status === "issue" || o?.status === "cancelled";
           }).length;
           if (allDelivered) {
             const batchEarnings = batchDoc.orderIds.reduce((sum, oid) => {

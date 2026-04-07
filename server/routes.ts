@@ -361,7 +361,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               const o = allOrdersForRestore.find(x => x.id === oid);
               return o ? o.status : "delivered"; // treat missing orders as delivered
             });
-            const allDone = batchOrderStatuses.every(s => s === "delivered" || s === "cancelled");
+            const allDone = batchOrderStatuses.every(s => s === "delivered" || s === "cancelled" || s === "issue");
             if (allDone) {
               // Mark stale batch as completed so it won't block drivers
               db.collection("delivery_batches").doc(bDoc.id)
@@ -1801,8 +1801,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
               };
             });
           const resolvedOrders = await Promise.all(batchOrders);
-          const completedCount = resolvedOrders.filter(o => o.status === "delivered").length;
-          // If all orders in the batch are delivered, auto-clear the batch
+          const completedCount = resolvedOrders.filter(o => o.status === "delivered" || o.status === "issue" || o.status === "cancelled").length;
+          // If all orders in the batch are done (delivered/issue/cancelled), auto-clear the batch
           if (resolvedOrders.length > 0 && completedCount === resolvedOrders.length) {
             console.log(`[STATUS] All orders delivered in batch ${batchDoc.id} — auto-clearing for driver ${phoneNumber}`);
             queuedDriver.currentBatchId = undefined;
@@ -2177,11 +2177,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const freshOrders = await getOrders();
           const allDelivered = batchDoc.orderIds.every(oid => {
             const o = freshOrders.find(x => x.id === oid);
-            return o?.status === "delivered";
+            return o?.status === "delivered" || o?.status === "issue" || o?.status === "cancelled";
           });
           const completedCount = batchDoc.orderIds.filter(oid => {
             const o = freshOrders.find(x => x.id === oid);
-            return o?.status === "delivered";
+            return o?.status === "delivered" || o?.status === "issue" || o?.status === "cancelled";
           }).length;
           if (allDelivered) {
             // Sum total earnings from all delivered orders in batch
