@@ -226,6 +226,27 @@ export default function DriverBatchScreen() {
               <Feather name="shopping-bag" size={14} color={theme.textSecondary} />
             </View>
           ) : null}
+          {order.items && order.items.length > 0 ? (
+            <View style={[styles.itemsBox, { backgroundColor: theme.backgroundSecondary, borderColor: theme.border }]}>
+              <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: Spacing.xs, marginBottom: Spacing.xs }}>
+                <Feather name="shopping-cart" size={13} color={theme.textSecondary} />
+                <ThemedText type="small" style={{ color: theme.textSecondary, fontWeight: "700" }}>المنتجات</ThemedText>
+              </View>
+              {order.items.map((item: any, idx: number) => (
+                <View key={idx} style={styles.itemRow}>
+                  <ThemedText type="small" style={{ color: AppColors.primary, fontWeight: "700" }}>
+                    {formatPrice(item.price * item.quantity)}
+                  </ThemedText>
+                  <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: Spacing.xs, flex: 1 }}>
+                    <ThemedText type="small" style={{ color: theme.textSecondary, fontWeight: "700" }}>×{item.quantity}</ThemedText>
+                    <ThemedText type="small" style={{ color: theme.text, flex: 1, textAlign: "right" }} numberOfLines={1}>
+                      {item.name}
+                    </ThemedText>
+                  </View>
+                </View>
+              ))}
+            </View>
+          ) : null}
           {order.notes ? (
             <View style={[styles.notesBox, { backgroundColor: "#FFF3E0" }]}>
               <ThemedText type="small" style={{ color: "#E65100", textAlign: "right" }}>{order.notes}</ThemedText>
@@ -452,6 +473,8 @@ const styles = StyleSheet.create({
   orderDetails: { gap: Spacing.sm, marginBottom: Spacing.md },
   detailRow: { flexDirection: "row-reverse", alignItems: "center", gap: Spacing.sm },
   notesBox: { padding: Spacing.sm, borderRadius: BorderRadius.sm, marginTop: 2 },
+  itemsBox: { padding: Spacing.sm, borderRadius: BorderRadius.sm, borderWidth: 1, marginTop: 2, gap: 4 },
+  itemRow: { flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between" },
   quickActions: { flexDirection: "row-reverse", gap: Spacing.sm, marginBottom: Spacing.md },
   quickBtn: {
     flex: 1, flexDirection: "row", justifyContent: "center",
