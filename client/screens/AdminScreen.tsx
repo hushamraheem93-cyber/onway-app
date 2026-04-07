@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
   StyleSheet,
   View,
@@ -9,7 +9,9 @@ import {
   Alert,
   Platform,
   Switch,
+  Modal,
 } from "react-native";
+import { WebView } from "react-native-webview";
 import * as Notifications from "expo-notifications";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
@@ -41,7 +43,7 @@ interface AdminUser {
   pushToken?: string;
 }
 type BannerType = "offer" | "slider";
-type OrderStatus = "pending" | "confirmed" | "preparing" | "delivering" | "delivered" | "cancelled";
+type OrderStatus = "pending" | "confirmed" | "preparing" | "ready" | "picked_up" | "in_delivery" | "delivering" | "delivered" | "cancelled" | "issue";
 
 interface AdminOrder {
   id: string;
@@ -52,6 +54,7 @@ interface AdminOrder {
   address: string;
   region: string;
   status: OrderStatus;
+  driverPhone?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -232,6 +235,13 @@ export default function AdminScreen() {
   // Manual driver assignment
   const [assigningOrderId, setAssigningOrderId] = useState<string | null>(null);
   const [assignError, setAssignError] = useState<string | null>(null);
+
+  // Driver tracking modal
+  const [trackingOrderId, setTrackingOrderId] = useState<string | null>(null);
+  const [trackingMapHtml, setTrackingMapHtml] = useState<string | null>(null);
+  const [trackingDriverName, setTrackingDriverName] = useState<string>("");
+  const trackingWebViewRef = useRef<any>(null);
+  const trackingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const assignDriverMutation = useMutation({
     mutationFn: async ({ orderId, driverPhone }: { orderId: string; driverPhone: string }) => {
@@ -1033,11 +1043,15 @@ export default function AdminScreen() {
       pending: "قيد الانتظار",
       confirmed: "تم التأكيد",
       preparing: "جاري التحضير",
+      ready: "جاهز للاستلام",
+      picked_up: "استُلم من المتجر",
+      in_delivery: "في الطريق",
       delivering: "جاري التوصيل",
       delivered: "تم التوصيل",
       cancelled: "ملغي",
+      issue: "مشكلة",
     };
-    return labels[status];
+    return labels[status] ?? status;
   };
 
   const getStatusColor = (status: OrderStatus) => {
@@ -1045,15 +1059,122 @@ export default function AdminScreen() {
       pending: "#F59E0B",
       confirmed: "#3B82F6",
       preparing: "#8B5CF6",
+      ready: "#8B5CF6",
+      picked_up: "#06B6D4",
+      in_delivery: "#06B6D4",
       delivering: "#06B6D4",
       delivered: "#10B981",
       cancelled: "#EF4444",
+      issue: "#F59E0B",
     };
-    return colors[status];
+    return colors[status] ?? "#9CA3AF";
   };
 
   // Approved drivers for assignment picker
   const approvedDrivers = drivers.filter(d => d.status === "approved");
+
+  const getAdminTrackingMapHTML = (driverLat: number, driverLng: number, driverName: string) => `
+<!DOCTYPE html><html dir="rtl" lang="ar"><head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no"/>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}html,body{width:100%;height:100%;background:#f0f0f0}
+#map{width:100%;height:100%}
+.leaflet-control-attribution{display:none!important}
+.driver-pulse{width:48px;height:48px;position:relative;display:flex;align-items:center;justify-content:center}
+.driver-pulse::before{content:'';position:absolute;width:48px;height:48px;border-radius:50%;background:rgba(232,101,32,0.25);animation:pulse 1.8s ease-out infinite}
+.driver-inner{width:32px;height:32px;background:#E86520;border-radius:50%;border:3px solid #fff;box-shadow:0 2px 10px rgba(232,101,32,0.6);display:flex;align-items:center;justify-content:center;position:relative;z-index:1}
+@keyframes pulse{0%{transform:scale(0.5);opacity:1}100%{transform:scale(2.2);opacity:0}}
+.info-pill{position:absolute;bottom:14px;left:50%;transform:translateX(-50%);background:rgba(255,255,255,0.96);border-radius:24px;padding:8px 18px;font-family:sans-serif;font-size:13px;color:#333;box-shadow:0 2px 12px rgba(0,0,0,0.15);white-space:nowrap;z-index:1000;pointer-events:none}
+.dot{width:8px;height:8px;background:#E86520;border-radius:50%;display:inline-block;margin-left:6px;animation:blink 1.2s ease-in-out infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0.2}}
+</style></head><body>
+<div id="map"></div>
+<div class="info-pill"><span class="dot"></span> ${driverName || "المندوب"} - موقع مباشر</div>
+<script>
+var map=L.map('map',{zoomControl:true,attributionControl:false}).setView([${driverLat},${driverLng}],15);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19}).addTo(map);
+var icon=L.divIcon({className:'',html:'<div class="driver-pulse"><div class="driver-inner"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg></div></div>',iconSize:[48,48],iconAnchor:[24,24]});
+var marker=L.marker([${driverLat},${driverLng}],{icon}).addTo(map);
+function updateDriverLocation(lat,lng){var ll=L.latLng(lat,lng);marker.setLatLng(ll);map.panTo(ll,{animate:true,duration:0.8});}
+document.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.type==='updateDriver')updateDriverLocation(d.lat,d.lng);}catch(err){}});
+window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.type==='updateDriver')updateDriverLocation(d.lat,d.lng);}catch(err){}});
+</script></body></html>`;
+
+  const openTrackingModal = useCallback(async (orderId: string) => {
+    setTrackingOrderId(orderId);
+    setTrackingMapHtml(null);
+    setTrackingDriverName("");
+    try {
+      const res = await fetch(new URL(`/api/orders/${orderId}/driver-location`, getApiUrl()).toString());
+      const data = await res.json();
+      if (data.available) {
+        setTrackingDriverName(data.fullName || "المندوب");
+        setTrackingMapHtml(getAdminTrackingMapHTML(data.lat, data.lng, data.fullName || "المندوب"));
+        if (trackingIntervalRef.current) clearInterval(trackingIntervalRef.current);
+        trackingIntervalRef.current = setInterval(async () => {
+          try {
+            const r2 = await fetch(new URL(`/api/orders/${orderId}/driver-location`, getApiUrl()).toString());
+            const d2 = await r2.json();
+            if (d2.available && trackingWebViewRef.current) {
+              trackingWebViewRef.current.injectJavaScript(`updateDriverLocation(${d2.lat},${d2.lng});true;`);
+            }
+          } catch {}
+        }, 8000);
+      }
+    } catch {}
+  }, []);
+
+  const closeTrackingModal = useCallback(() => {
+    setTrackingOrderId(null);
+    setTrackingMapHtml(null);
+    if (trackingIntervalRef.current) { clearInterval(trackingIntervalRef.current); trackingIntervalRef.current = null; }
+  }, []);
+
+  const renderTrackingModal = () => {
+    if (!trackingOrderId) return null;
+    return (
+      <Modal visible animationType="slide" onRequestClose={closeTrackingModal}>
+        <View style={{ flex: 1, backgroundColor: "#000" }}>
+          <View style={{ flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between", backgroundColor: "#1a1a1a", paddingHorizontal: Spacing.lg, paddingTop: 50, paddingBottom: Spacing.md }}>
+            <Pressable onPress={closeTrackingModal} style={{ padding: 8 }}>
+              <Feather name="x" size={24} color="#fff" />
+            </Pressable>
+            <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: Spacing.sm }}>
+              <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: "#4CAF50" }} />
+              <ThemedText type="h4" style={{ color: "#fff" }}>تتبع المندوب {trackingDriverName ? `— ${trackingDriverName}` : ""}</ThemedText>
+            </View>
+          </View>
+          {Platform.OS === "web" ? (
+            <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
+              <Feather name="smartphone" size={48} color={AppColors.primary} />
+              <ThemedText type="body" style={{ color: "#fff", marginTop: Spacing.md, textAlign: "center", paddingHorizontal: Spacing.xl }}>
+                التتبع المباشر متاح في تطبيق الجوال فقط
+              </ThemedText>
+            </View>
+          ) : trackingMapHtml ? (
+            <WebView
+              ref={trackingWebViewRef}
+              source={{ html: trackingMapHtml }}
+              style={{ flex: 1 }}
+              javaScriptEnabled
+              originWhitelist={["*"]}
+              scrollEnabled={false}
+            />
+          ) : (
+            <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
+              <ActivityIndicator size="large" color={AppColors.primary} />
+              <ThemedText type="body" style={{ color: "#fff", marginTop: Spacing.md }}>
+                جاري تحديد موقع المندوب...
+              </ThemedText>
+            </View>
+          )}
+        </View>
+      </Modal>
+    );
+  };
 
   const renderAssignDriverModal = () => {
     if (!assigningOrderId) return null;
@@ -1168,6 +1289,16 @@ export default function AdminScreen() {
             <ThemedText type="small" style={{ color: theme.textSecondary }}>
               🛒 {order.items.length} منتجات
             </ThemedText>
+            {(order.status === "in_delivery" || order.status === "picked_up") ? (
+              <Pressable
+                style={[styles.trackBtn]}
+                onPress={() => openTrackingModal(order.id)}
+              >
+                <Feather name="map-pin" size={14} color="#fff" />
+                <ThemedText type="small" style={{ color: "#fff", fontWeight: "700" }}>تتبع المندوب مباشر</ThemedText>
+                <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: "#4CAF50" }} />
+              </Pressable>
+            ) : null}
             <View style={styles.orderFooter}>
               <ThemedText type="body" style={{ color: AppColors.primary, fontWeight: "700" }}>
                 {formatPrice(order.total + order.deliveryFee)}
@@ -1797,6 +1928,7 @@ export default function AdminScreen() {
       {renderContent()}
     </ScrollView>
     {renderAssignDriverModal()}
+    {renderTrackingModal()}
     </View>
   );
 }
@@ -2037,6 +2169,17 @@ const styles = StyleSheet.create({
     padding: Spacing.md,
     marginBottom: Spacing.md,
     gap: Spacing.xs,
+  },
+  trackBtn: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.sm,
+    backgroundColor: "#1a1a2e",
+    borderRadius: BorderRadius.md,
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    marginTop: Spacing.xs,
   },
   orderHeader: {
     flexDirection: "row",
