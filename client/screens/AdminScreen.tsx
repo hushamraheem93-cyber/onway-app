@@ -30,7 +30,7 @@ import { resolveImageUrl } from "@/utils/imageUtils";
 import { formatPrice } from "@/constants/currency";
 import { compressAndConvertToBase64, processAndUploadImage, isBase64Image, ImageSize } from "@/lib/imageUtils";
 
-type TabType = "banners" | "categories" | "products" | "areas" | "orders" | "drivers" | "promoCodes" | "notifications" | "users" | "reports";
+type TabType = "banners" | "categories" | "products" | "areas" | "orders" | "drivers" | "promoCodes" | "notifications" | "users";
 
 interface AdminUser {
   id: string;
@@ -109,7 +109,7 @@ export default function AdminScreen() {
   const { theme } = useTheme();
   const queryClient = useQueryClient();
 
-  const [activeTab, setActiveTab] = useState<TabType>("reports");
+  const [activeTab, setActiveTab] = useState<TabType>("banners");
   const [isEditing, setIsEditing] = useState(false);
   const [editItem, setEditItem] = useState<any>(null);
   const [hasCategoryChanges, setHasCategoryChanges] = useState(false);
@@ -161,8 +161,6 @@ export default function AdminScreen() {
   const [notifError, setNotifError] = useState<string | null>(null);
 
   const [usersSearch, setUsersSearch] = useState("");
-  const [ordersSearch, setOrdersSearch] = useState("");
-  const [ordersStatusFilter, setOrdersStatusFilter] = useState<OrderStatus | "all">("all");
 
   // Register admin push token so server can send new-order notifications
   useEffect(() => {
@@ -230,14 +228,6 @@ export default function AdminScreen() {
     totalDeliveredOrders: number;
   }>({
     queryKey: ["/api/admin/owner-earnings"],
-    refetchInterval: 30000,
-  });
-
-  const { data: driverStatsData } = useQuery<{
-    stats: Record<string, { todayOrders: number; todayEarnings: number; totalOrders: number; totalEarnings: number; walletBalance: number }>;
-  }>({
-    queryKey: ["/api/admin/driver-stats"],
-    refetchInterval: 30000,
   });
 
   const [rechargeDriver, setRechargeDriver] = useState<string | null>(null);
@@ -1240,123 +1230,48 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
     );
   };
 
-  const renderOrdersTab = () => {
-    const pending = adminOrders.filter(o => o.status === "pending").length;
-    const active = adminOrders.filter(o => ["confirmed","preparing","ready","picked_up","in_delivery"].includes(o.status)).length;
-    const delivered = adminOrders.filter(o => o.status === "delivered").length;
-    const cancelled = adminOrders.filter(o => o.status === "cancelled" || o.status === "issue").length;
-    const totalRevenue = adminOrders.filter(o => o.status === "delivered").reduce((s, o) => s + o.total + o.deliveryFee, 0);
-    const successRate = adminOrders.length > 0 ? Math.round((delivered / adminOrders.length) * 100) : 0;
-
-    const filteredOrders = adminOrders.filter(order => {
-      const matchSearch = ordersSearch.trim() === "" ||
-        order.id.toLowerCase().includes(ordersSearch.toLowerCase()) ||
-        order.phoneNumber.includes(ordersSearch) ||
-        order.region.includes(ordersSearch) ||
-        order.address.toLowerCase().includes(ordersSearch.toLowerCase());
-      const matchStatus = ordersStatusFilter === "all" || order.status === ordersStatusFilter;
-      return matchSearch && matchStatus;
-    });
-
-    return (
+  const renderOrdersTab = () => (
     <View>
-      {/* إحصائيات الطلبات */}
-      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: Spacing.sm, marginBottom: Spacing.md }}>
-        {[
-          { label: "قيد الانتظار", value: pending, color: "#F59E0B", icon: "clock" as const },
-          { label: "نشط", value: active, color: "#06B6D4", icon: "truck" as const },
-          { label: "مكتمل", value: delivered, color: "#4CAF50", icon: "check-circle" as const },
-          { label: "ملغى", value: cancelled, color: "#EF4444", icon: "x-circle" as const },
-        ].map(stat => (
-          <View key={stat.label} style={{ flex: 1, minWidth: 80, backgroundColor: stat.color + "15", borderRadius: BorderRadius.lg, padding: Spacing.sm, alignItems: "center" }}>
-            <Feather name={stat.icon} size={18} color={stat.color} />
-            <ThemedText type="h4" style={{ color: stat.color, fontWeight: "700", marginTop: 4 }}>{stat.value}</ThemedText>
-            <ThemedText type="small" style={{ color: theme.textSecondary, textAlign: "center" }}>{stat.label}</ThemedText>
+      {ownerEarnings ? (
+        <View style={[styles.formCard, { backgroundColor: theme.backgroundSecondary, marginBottom: Spacing.lg }]}>
+          <ThemedText type="h4" style={{ textAlign: "right", color: theme.text, marginBottom: Spacing.md }}>
+            ملخص الأرباح والعمولات
+          </ThemedText>
+          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: Spacing.sm }}>
+            <View style={{ flex: 1, minWidth: 140, backgroundColor: "#4CAF5015", padding: Spacing.md, borderRadius: BorderRadius.lg, alignItems: "center" }}>
+              <Feather name="dollar-sign" size={22} color="#4CAF50" />
+              <ThemedText type="h3" style={{ color: "#4CAF50", marginTop: Spacing.xs }}>{formatPrice(ownerEarnings.totalOwnerEarnings)}</ThemedText>
+              <ThemedText type="small" style={{ color: theme.textSecondary }}>أرباحك (العمولات)</ThemedText>
+            </View>
+            <View style={{ flex: 1, minWidth: 140, backgroundColor: "#2196F315", padding: Spacing.md, borderRadius: BorderRadius.lg, alignItems: "center" }}>
+              <Feather name="truck" size={22} color="#2196F3" />
+              <ThemedText type="h3" style={{ color: "#2196F3", marginTop: Spacing.xs }}>{formatPrice(ownerEarnings.totalDriverEarnings)}</ThemedText>
+              <ThemedText type="small" style={{ color: theme.textSecondary }}>أرباح السائقين</ThemedText>
+            </View>
+            <View style={{ flex: 1, minWidth: 140, backgroundColor: "#FF962215", padding: Spacing.md, borderRadius: BorderRadius.lg, alignItems: "center" }}>
+              <Feather name="package" size={22} color={AppColors.primary} />
+              <ThemedText type="h3" style={{ color: AppColors.primary, marginTop: Spacing.xs }}>{ownerEarnings.totalDeliveredOrders}</ThemedText>
+              <ThemedText type="small" style={{ color: theme.textSecondary }}>طلبات مكتملة</ThemedText>
+            </View>
           </View>
-        ))}
-      </View>
-
-      {/* إجمالي الإيرادات ومعدل النجاح */}
-      <View style={{ flexDirection: "row", gap: Spacing.sm, marginBottom: Spacing.md }}>
-        <View style={{ flex: 1, backgroundColor: "#4CAF5015", borderRadius: BorderRadius.lg, padding: Spacing.md, alignItems: "center" }}>
-          <Feather name="dollar-sign" size={20} color="#4CAF50" />
-          <ThemedText type="body" style={{ color: "#4CAF50", fontWeight: "700", marginTop: 4 }}>{formatPrice(totalRevenue)}</ThemedText>
-          <ThemedText type="small" style={{ color: theme.textSecondary }}>إجمالي الإيرادات</ThemedText>
-        </View>
-        <View style={{ flex: 1, backgroundColor: "#6366F115", borderRadius: BorderRadius.lg, padding: Spacing.md, alignItems: "center" }}>
-          <Feather name="trending-up" size={20} color="#6366F1" />
-          <ThemedText type="body" style={{ color: "#6366F1", fontWeight: "700", marginTop: 4 }}>{successRate}%</ThemedText>
-          <ThemedText type="small" style={{ color: theme.textSecondary }}>معدل الإتمام</ThemedText>
-        </View>
-        {ownerEarnings ? (
-          <View style={{ flex: 1, backgroundColor: AppColors.primary + "15", borderRadius: BorderRadius.lg, padding: Spacing.md, alignItems: "center" }}>
-            <Feather name="award" size={20} color={AppColors.primary} />
-            <ThemedText type="body" style={{ color: AppColors.primary, fontWeight: "700", marginTop: 4 }}>{formatPrice(ownerEarnings.totalOwnerEarnings)}</ThemedText>
-            <ThemedText type="small" style={{ color: theme.textSecondary }}>عمولاتك</ThemedText>
+          <View style={{ marginTop: Spacing.md, borderTopWidth: 1, borderTopColor: "#E5E7EB", paddingTop: Spacing.md }}>
+            <ThemedText type="small" style={{ color: theme.textSecondary, textAlign: "right" }}>
+              نظام العمولة: مطاعم (250 د.ع لك / 750 للسائق) | أقسام أخرى (1,000 د.ع لك / 2,000 للسائق)
+            </ThemedText>
           </View>
-        ) : null}
-      </View>
-
-      {/* حقل البحث */}
-      <View style={{ flexDirection: "row-reverse", alignItems: "center", backgroundColor: theme.backgroundSecondary, borderRadius: BorderRadius.lg, paddingHorizontal: Spacing.md, marginBottom: Spacing.sm, borderWidth: 1, borderColor: theme.backgroundSecondary }}>
-        <Feather name="search" size={16} color={theme.textSecondary} />
-        <TextInput
-          style={{ flex: 1, paddingVertical: Spacing.sm, paddingHorizontal: Spacing.sm, color: theme.text, textAlign: "right" }}
-          placeholder="بحث بالرقم أو المنطقة أو الهاتف..."
-          placeholderTextColor={theme.textSecondary}
-          value={ordersSearch}
-          onChangeText={setOrdersSearch}
-        />
-        {ordersSearch.length > 0 ? (
-          <Pressable onPress={() => setOrdersSearch("")}>
-            <Feather name="x" size={16} color={theme.textSecondary} />
-          </Pressable>
-        ) : null}
-      </View>
-
-      {/* فلتر الحالة */}
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: Spacing.md }}>
-        <View style={{ flexDirection: "row-reverse", gap: Spacing.xs, paddingHorizontal: 2 }}>
-          {([
-            { key: "all", label: "الكل" },
-            { key: "pending", label: "انتظار" },
-            { key: "confirmed", label: "مؤكد" },
-            { key: "preparing", label: "يحضر" },
-            { key: "ready", label: "جاهز" },
-            { key: "in_delivery", label: "في الطريق" },
-            { key: "delivered", label: "مكتمل" },
-            { key: "cancelled", label: "ملغى" },
-          ] as { key: OrderStatus | "all"; label: string }[]).map(f => (
-            <Pressable
-              key={f.key}
-              onPress={() => setOrdersStatusFilter(f.key)}
-              style={{
-                paddingHorizontal: Spacing.md,
-                paddingVertical: 6,
-                borderRadius: BorderRadius.full,
-                backgroundColor: ordersStatusFilter === f.key ? AppColors.primary : theme.backgroundSecondary,
-              }}
-            >
-              <ThemedText type="small" style={{ color: ordersStatusFilter === f.key ? "#fff" : theme.textSecondary, fontWeight: "600" }}>
-                {f.label}
-              </ThemedText>
-            </Pressable>
-          ))}
         </View>
-      </ScrollView>
+      ) : null}
 
-      <ThemedText type="h4" style={[styles.listTitle, { marginTop: 0 }]}>
-        الطلبات ({filteredOrders.length})
-      </ThemedText>
+      <ThemedText type="h4" style={styles.listTitle}>الطلبات</ThemedText>
 
       {ordersLoading ? (
         <ActivityIndicator color={AppColors.primary} />
-      ) : filteredOrders.length === 0 ? (
-        <ThemedText type="body" style={{ textAlign: "center", color: theme.textSecondary, paddingVertical: Spacing.xl }}>
-          لا توجد طلبات مطابقة
+      ) : adminOrders.length === 0 ? (
+        <ThemedText type="body" style={{ textAlign: "center", color: theme.textSecondary }}>
+          لا توجد طلبات حالياً
         </ThemedText>
       ) : (
-        filteredOrders.map((order) => (
+        adminOrders.map((order) => (
           <View key={order.id} style={[styles.orderCard, { backgroundColor: theme.backgroundSecondary }]}>
             <View style={styles.orderHeader}>
               <ThemedText type="body" style={{ fontWeight: "700" }}>#{order.id.slice(-6)}</ThemedText>
@@ -1445,8 +1360,7 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
         ))
       )}
     </View>
-    );
-  };
+  );
 
   const getDriverStatusColor = (status: string) => {
     switch (status) {
@@ -1464,33 +1378,9 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
     }
   };
 
-  const renderDriversTab = () => {
-    const approved = drivers.filter(d => d.status === "approved").length;
-    const pending_d = drivers.filter(d => d.status === "pending").length;
-    const rejected_d = drivers.filter(d => d.status === "rejected").length;
-    const allStats = driverStatsData?.stats || {};
-    const totalDeliveries = Object.values(allStats).reduce((s, d) => s + d.totalOrders, 0);
-    const totalEarningsPaid = Object.values(allStats).reduce((s, d) => s + d.totalEarnings, 0);
-
-    return (
+  const renderDriversTab = () => (
     <View>
-      {/* ملخص السائقين */}
-      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: Spacing.sm, marginBottom: Spacing.md }}>
-        {[
-          { label: "مقبول", value: approved, color: "#4CAF50", icon: "user-check" as const },
-          { label: "قيد المراجعة", value: pending_d, color: "#F59E0B", icon: "user" as const },
-          { label: "مرفوض", value: rejected_d, color: "#EF4444", icon: "user-x" as const },
-          { label: "إجمالي التوصيلات", value: totalDeliveries, color: "#6366F1", icon: "package" as const },
-        ].map(stat => (
-          <View key={stat.label} style={{ flex: 1, minWidth: 80, backgroundColor: stat.color + "15", borderRadius: BorderRadius.lg, padding: Spacing.sm, alignItems: "center" }}>
-            <Feather name={stat.icon} size={18} color={stat.color} />
-            <ThemedText type="h4" style={{ color: stat.color, fontWeight: "700", marginTop: 4 }}>{stat.value}</ThemedText>
-            <ThemedText type="small" style={{ color: theme.textSecondary, textAlign: "center" }}>{stat.label}</ThemedText>
-          </View>
-        ))}
-      </View>
-
-      <ThemedText type="h4" style={[styles.listTitle, { marginTop: 0 }]}>
+      <ThemedText type="subtitle" style={styles.formTitle}>
         سائقي التوصيل ({drivers.length})
       </ThemedText>
 
@@ -1503,9 +1393,7 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
           </ThemedText>
         </View>
       ) : (
-        drivers.map((driver) => {
-          const dStats = allStats[driver.phoneNumber];
-          return (
+        drivers.map((driver) => (
           <View key={driver.id} style={styles.formCard}>
             <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: Spacing.md }}>
               <View style={{
@@ -1664,40 +1552,11 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
                 </View>
               ) : null}
             </View>
-
-            {/* إحصائيات أداء السائق */}
-            {dStats ? (
-              <View style={{ marginTop: Spacing.sm, borderTopWidth: 1, borderTopColor: "#E5E7EB", paddingTop: Spacing.md }}>
-                <ThemedText type="small" style={{ textAlign: "right", fontWeight: "700", marginBottom: Spacing.sm, color: theme.text }}>
-                  إحصائيات الأداء
-                </ThemedText>
-                <View style={{ flexDirection: "row-reverse", gap: Spacing.sm }}>
-                  <View style={{ flex: 1, backgroundColor: "#6366F115", borderRadius: BorderRadius.md, padding: Spacing.sm, alignItems: "center" }}>
-                    <ThemedText type="small" style={{ color: "#6366F1", fontWeight: "700" }}>{dStats.totalOrders}</ThemedText>
-                    <ThemedText type="small" style={{ color: theme.textSecondary }}>توصيل</ThemedText>
-                  </View>
-                  <View style={{ flex: 1, backgroundColor: "#4CAF5015", borderRadius: BorderRadius.md, padding: Spacing.sm, alignItems: "center" }}>
-                    <ThemedText type="small" style={{ color: "#4CAF50", fontWeight: "700" }}>{formatPrice(dStats.totalEarnings)}</ThemedText>
-                    <ThemedText type="small" style={{ color: theme.textSecondary }}>أرباح</ThemedText>
-                  </View>
-                  <View style={{ flex: 1, backgroundColor: AppColors.primary + "15", borderRadius: BorderRadius.md, padding: Spacing.sm, alignItems: "center" }}>
-                    <ThemedText type="small" style={{ color: AppColors.primary, fontWeight: "700" }}>{formatPrice(dStats.walletBalance)}</ThemedText>
-                    <ThemedText type="small" style={{ color: theme.textSecondary }}>رصيد</ThemedText>
-                  </View>
-                  <View style={{ flex: 1, backgroundColor: "#06B6D415", borderRadius: BorderRadius.md, padding: Spacing.sm, alignItems: "center" }}>
-                    <ThemedText type="small" style={{ color: "#06B6D4", fontWeight: "700" }}>{dStats.todayOrders}</ThemedText>
-                    <ThemedText type="small" style={{ color: theme.textSecondary }}>اليوم</ThemedText>
-                  </View>
-                </View>
-              </View>
-            ) : null}
           </View>
-          );
-        })
+        ))
       )}
     </View>
-    );
-  };
+  );
 
   const renderPromoCodesTab = () => (
     <View>
@@ -2017,175 +1876,6 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
     </View>
   );
 
-  const renderReportsTab = () => {
-    const totalOrders = adminOrders.length;
-    const deliveredOrders = adminOrders.filter(o => o.status === "delivered").length;
-    const cancelledOrders = adminOrders.filter(o => o.status === "cancelled" || o.status === "issue").length;
-    const pendingOrders = adminOrders.filter(o => o.status === "pending").length;
-    const activeOrders = adminOrders.filter(o => ["confirmed","preparing","ready","picked_up","in_delivery"].includes(o.status)).length;
-    const totalRevenue = adminOrders.filter(o => o.status === "delivered").reduce((s, o) => s + o.total + o.deliveryFee, 0);
-    const avgOrderValue = totalOrders > 0 ? Math.round(adminOrders.reduce((s, o) => s + o.total + o.deliveryFee, 0) / totalOrders) : 0;
-    const successRate = totalOrders > 0 ? Math.round((deliveredOrders / totalOrders) * 100) : 0;
-    const cancelRate = totalOrders > 0 ? Math.round((cancelledOrders / totalOrders) * 100) : 0;
-
-    // أكثر المناطق طلباً
-    const areaMap: Record<string, { count: number; revenue: number }> = {};
-    adminOrders.forEach(o => {
-      if (!areaMap[o.region]) areaMap[o.region] = { count: 0, revenue: 0 };
-      areaMap[o.region].count++;
-      if (o.status === "delivered") areaMap[o.region].revenue += o.total + o.deliveryFee;
-    });
-    const topAreas = Object.entries(areaMap).sort((a, b) => b[1].count - a[1].count).slice(0, 5);
-
-    // أداء السائقين
-    const allStats = driverStatsData?.stats || {};
-    const driverPerf = Object.entries(allStats).map(([phone, s]) => ({ phone, ...s }))
-      .sort((a, b) => b.totalOrders - a.totalOrders).slice(0, 5);
-
-    return (
-      <View>
-        {/* ملخص عام */}
-        <View style={{ backgroundColor: AppColors.primary, borderRadius: BorderRadius.xl, padding: Spacing.lg, marginBottom: Spacing.md }}>
-          <ThemedText type="h3" style={{ color: "#fff", textAlign: "right", marginBottom: Spacing.sm }}>لوحة الإحصائيات الشاملة</ThemedText>
-          <ThemedText type="small" style={{ color: "#ffffff99", textAlign: "right", marginBottom: Spacing.md }}>
-            {new Date().toLocaleDateString("ar-IQ", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
-          </ThemedText>
-          <View style={{ flexDirection: "row-reverse", flexWrap: "wrap", gap: Spacing.sm }}>
-            {[
-              { label: "إجمالي الطلبات", value: totalOrders, icon: "shopping-bag" as const },
-              { label: "إجمالي الإيرادات", value: formatPrice(totalRevenue), icon: "dollar-sign" as const },
-              { label: "متوسط الطلب", value: formatPrice(avgOrderValue), icon: "bar-chart-2" as const },
-            ].map(s => (
-              <View key={s.label} style={{ flex: 1, minWidth: 100, backgroundColor: "#ffffff20", borderRadius: BorderRadius.lg, padding: Spacing.sm, alignItems: "center" }}>
-                <Feather name={s.icon} size={20} color="#fff" />
-                <ThemedText type="body" style={{ color: "#fff", fontWeight: "700", marginTop: 4 }}>{s.value}</ThemedText>
-                <ThemedText type="small" style={{ color: "#ffffff99", textAlign: "center" }}>{s.label}</ThemedText>
-              </View>
-            ))}
-          </View>
-        </View>
-
-        {/* معدلات الأداء */}
-        <ThemedText type="h4" style={styles.listTitle}>معدلات الأداء</ThemedText>
-        <View style={{ flexDirection: "row", gap: Spacing.sm, marginBottom: Spacing.md }}>
-          <View style={{ flex: 1, backgroundColor: "#4CAF5015", borderRadius: BorderRadius.lg, padding: Spacing.md }}>
-            <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: Spacing.xs, marginBottom: 4 }}>
-              <Feather name="check-circle" size={16} color="#4CAF50" />
-              <ThemedText type="small" style={{ color: "#4CAF50", fontWeight: "700" }}>معدل الإتمام</ThemedText>
-            </View>
-            <ThemedText type="h2" style={{ color: "#4CAF50", textAlign: "center" }}>{successRate}%</ThemedText>
-            <ThemedText type="small" style={{ color: theme.textSecondary, textAlign: "center" }}>{deliveredOrders} طلب مكتمل</ThemedText>
-          </View>
-          <View style={{ flex: 1, backgroundColor: "#EF444415", borderRadius: BorderRadius.lg, padding: Spacing.md }}>
-            <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: Spacing.xs, marginBottom: 4 }}>
-              <Feather name="x-circle" size={16} color="#EF4444" />
-              <ThemedText type="small" style={{ color: "#EF4444", fontWeight: "700" }}>معدل الإلغاء</ThemedText>
-            </View>
-            <ThemedText type="h2" style={{ color: "#EF4444", textAlign: "center" }}>{cancelRate}%</ThemedText>
-            <ThemedText type="small" style={{ color: theme.textSecondary, textAlign: "center" }}>{cancelledOrders} ملغى</ThemedText>
-          </View>
-        </View>
-
-        {/* توزيع الحالات */}
-        <ThemedText type="h4" style={styles.listTitle}>توزيع الطلبات حسب الحالة</ThemedText>
-        <View style={[styles.formCard, { backgroundColor: theme.backgroundSecondary }]}>
-          {[
-            { label: "قيد الانتظار", value: pendingOrders, color: "#F59E0B" },
-            { label: "نشط (تحضير/توصيل)", value: activeOrders, color: "#06B6D4" },
-            { label: "مكتمل", value: deliveredOrders, color: "#4CAF50" },
-            { label: "ملغى / مشكلة", value: cancelledOrders, color: "#EF4444" },
-          ].map(item => (
-            <View key={item.label} style={{ marginBottom: Spacing.sm }}>
-              <View style={{ flexDirection: "row-reverse", justifyContent: "space-between", marginBottom: 4 }}>
-                <ThemedText type="small" style={{ color: theme.text, fontWeight: "600" }}>{item.label}</ThemedText>
-                <ThemedText type="small" style={{ color: item.color, fontWeight: "700" }}>
-                  {item.value} ({totalOrders > 0 ? Math.round((item.value / totalOrders) * 100) : 0}%)
-                </ThemedText>
-              </View>
-              <View style={{ height: 8, backgroundColor: "#E5E7EB", borderRadius: 4 }}>
-                <View style={{
-                  height: 8,
-                  backgroundColor: item.color,
-                  borderRadius: 4,
-                  width: totalOrders > 0 ? `${Math.round((item.value / totalOrders) * 100)}%` : "0%",
-                }} />
-              </View>
-            </View>
-          ))}
-        </View>
-
-        {/* الأرباح والعمولات */}
-        {ownerEarnings ? (
-          <>
-            <ThemedText type="h4" style={styles.listTitle}>الأرباح والعمولات</ThemedText>
-            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: Spacing.sm, marginBottom: Spacing.md }}>
-              {[
-                { label: "عمولاتك", value: formatPrice(ownerEarnings.totalOwnerEarnings), color: "#4CAF50", icon: "award" as const },
-                { label: "أرباح السائقين", value: formatPrice(ownerEarnings.totalDriverEarnings), color: "#2196F3", icon: "truck" as const },
-                { label: "إجمالي رسوم التوصيل", value: formatPrice(ownerEarnings.totalDeliveryFees), color: AppColors.primary, icon: "map-pin" as const },
-              ].map(s => (
-                <View key={s.label} style={{ flex: 1, minWidth: 100, backgroundColor: s.color + "15", borderRadius: BorderRadius.lg, padding: Spacing.md, alignItems: "center" }}>
-                  <Feather name={s.icon} size={20} color={s.color} />
-                  <ThemedText type="body" style={{ color: s.color, fontWeight: "700", marginTop: 4 }}>{s.value}</ThemedText>
-                  <ThemedText type="small" style={{ color: theme.textSecondary, textAlign: "center" }}>{s.label}</ThemedText>
-                </View>
-              ))}
-            </View>
-          </>
-        ) : null}
-
-        {/* أكثر المناطق طلباً */}
-        {topAreas.length > 0 ? (
-          <>
-            <ThemedText type="h4" style={styles.listTitle}>أكثر المناطق طلباً</ThemedText>
-            <View style={[styles.formCard, { backgroundColor: theme.backgroundSecondary }]}>
-              {topAreas.map(([area, data], idx) => (
-                <View key={area} style={{ flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between", paddingVertical: Spacing.sm, borderBottomWidth: idx < topAreas.length - 1 ? 1 : 0, borderBottomColor: "#E5E7EB" }}>
-                  <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: Spacing.sm }}>
-                    <View style={{ width: 24, height: 24, borderRadius: 12, backgroundColor: AppColors.primary, alignItems: "center", justifyContent: "center" }}>
-                      <ThemedText type="small" style={{ color: "#fff", fontWeight: "700" }}>{idx + 1}</ThemedText>
-                    </View>
-                    <ThemedText type="body" style={{ color: theme.text }}>{area}</ThemedText>
-                  </View>
-                  <View style={{ alignItems: "flex-start" }}>
-                    <ThemedText type="small" style={{ color: AppColors.primary, fontWeight: "700" }}>{data.count} طلب</ThemedText>
-                    <ThemedText type="small" style={{ color: theme.textSecondary }}>{formatPrice(data.revenue)}</ThemedText>
-                  </View>
-                </View>
-              ))}
-            </View>
-          </>
-        ) : null}
-
-        {/* أداء السائقين */}
-        {driverPerf.length > 0 ? (
-          <>
-            <ThemedText type="h4" style={styles.listTitle}>أداء السائقين</ThemedText>
-            <View style={[styles.formCard, { backgroundColor: theme.backgroundSecondary }]}>
-              {driverPerf.map((d, idx) => (
-                <View key={d.phone} style={{ flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between", paddingVertical: Spacing.sm, borderBottomWidth: idx < driverPerf.length - 1 ? 1 : 0, borderBottomColor: "#E5E7EB" }}>
-                  <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: Spacing.sm }}>
-                    <View style={{ width: 24, height: 24, borderRadius: 12, backgroundColor: "#6366F1", alignItems: "center", justifyContent: "center" }}>
-                      <ThemedText type="small" style={{ color: "#fff", fontWeight: "700" }}>{idx + 1}</ThemedText>
-                    </View>
-                    <View>
-                      <ThemedText type="body" style={{ color: theme.text }}>{d.phone}</ThemedText>
-                      <ThemedText type="small" style={{ color: theme.textSecondary }}>اليوم: {d.todayOrders} توصيل</ThemedText>
-                    </View>
-                  </View>
-                  <View style={{ alignItems: "flex-start" }}>
-                    <ThemedText type="small" style={{ color: "#6366F1", fontWeight: "700" }}>{d.totalOrders} توصيل</ThemedText>
-                    <ThemedText type="small" style={{ color: "#4CAF50" }}>{formatPrice(d.totalEarnings)}</ThemedText>
-                  </View>
-                </View>
-              ))}
-            </View>
-          </>
-        ) : null}
-      </View>
-    );
-  };
-
   const renderContent = () => {
     switch (activeTab) {
       case "banners": return renderBannersTab();
@@ -2197,7 +1887,6 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
       case "promoCodes": return renderPromoCodesTab();
       case "notifications": return renderNotificationsTab();
       case "users": return renderUsersTab();
-      case "reports": return renderReportsTab();
     }
   };
 
@@ -2214,13 +1903,12 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.tabsScroll}>
         <View style={styles.tabs}>
           {[
-            { key: "reports", label: "التقارير" },
-            { key: "orders", label: "الطلبات" },
-            { key: "drivers", label: "السائقين" },
             { key: "banners", label: "البانرات" },
             { key: "categories", label: "الأقسام" },
             { key: "products", label: "المنتجات" },
             { key: "areas", label: "مناطق التوصيل" },
+            { key: "orders", label: "الطلبات" },
+            { key: "drivers", label: "السائقين" },
             { key: "promoCodes", label: "أكواد الخصم" },
             { key: "notifications", label: "الإشعارات" },
             { key: "users", label: "المستخدمين" },
