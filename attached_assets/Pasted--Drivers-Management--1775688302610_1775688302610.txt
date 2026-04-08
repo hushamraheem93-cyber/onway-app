@@ -1,0 +1,317 @@
+// ============================================
+// إدارة السائقين - Drivers Management
+// ============================================
+
+// 1. نموذج السائق (Driver Model)
+class Driver {
+  constructor(id, name, phone, email, vehicleType, status) {
+    this.id = id;
+    this.name = name;
+    this.phone = phone;
+    this.email = email;
+    this.vehicleType = vehicleType; // bike, car, truck
+    this.status = status; // online, offline, on_delivery, busy
+    this.currentLocation = null;
+    this.rating = 0;
+    this.totalDeliveries = 0;
+    this.successfulDeliveries = 0;
+    this.cancelledDeliveries = 0;
+    this.currentOrderId = null;
+    this.joinDate = new Date();
+    this.earnings = 0;
+    this.documents = {
+      license: null,
+      insurance: null,
+      registration: null
+    };
+    this.isVerified = false;
+  }
+
+  updateLocation(latitude, longitude) {
+    this.currentLocation = { latitude, longitude };
+  }
+
+  updateStatus(newStatus) {
+    this.status = newStatus;
+  }
+
+  assignOrder(orderId) {
+    this.currentOrderId = orderId;
+    this.status = 'on_delivery';
+  }
+
+  completeDelivery(orderId, rating) {
+    if (this.currentOrderId === orderId) {
+      this.currentOrderId = null;
+      this.status = 'online';
+      this.totalDeliveries++;
+      this.successfulDeliveries++;
+      this.updateRating(rating);
+    }
+  }
+
+  cancelDelivery(orderId) {
+    if (this.currentOrderId === orderId) {
+      this.currentOrderId = null;
+      this.status = 'online';
+      this.totalDeliveries++;
+      this.cancelledDeliveries++;
+    }
+  }
+
+  updateRating(newRating) {
+    if (this.totalDeliveries > 0) {
+      this.rating = (this.rating * (this.totalDeliveries - 1) + newRating) / this.totalDeliveries;
+    } else {
+      this.rating = newRating;
+    }
+  }
+
+  addEarnings(amount) {
+    this.earnings += amount;
+  }
+
+  uploadDocument(documentType, documentPath) {
+    if (this.documents.hasOwnProperty(documentType)) {
+      this.documents[documentType] = documentPath;
+    }
+  }
+
+  verify() {
+    const allDocumentsUploaded = Object.values(this.documents).every(doc => doc !== null);
+    if (allDocumentsUploaded) {
+      this.isVerified = true;
+      return { success: true, message: 'تم التحقق من السائق بنجاح' };
+    }
+    return { success: false, message: 'يجب تحميل جميع المستندات' };
+  }
+
+  getPerformanceMetrics() {
+    return {
+      totalDeliveries: this.totalDeliveries,
+      successfulDeliveries: this.successfulDeliveries,
+      cancelledDeliveries: this.cancelledDeliveries,
+      successRate: this.totalDeliveries > 0 ? (this.successfulDeliveries / this.totalDeliveries * 100).toFixed(2) + '%' : '0%',
+      rating: this.rating.toFixed(2),
+      earnings: this.earnings
+    };
+  }
+}
+
+// 2. مدير السائقين (Drivers Manager)
+class DriversManager {
+  constructor() {
+    this.drivers = [];
+    this.driversById = {};
+  }
+
+  // إضافة سائق جديد
+  registerDriver(name, phone, email, vehicleType) {
+    const driverId = this.generateDriverId();
+    const driver = new Driver(driverId, name, phone, email, vehicleType, 'offline');
+    
+    this.drivers.push(driver);
+    this.driversById[driverId] = driver;
+    return driver;
+  }
+
+  // الحصول على سائق بواسطة ID
+  getDriverById(driverId) {
+    return this.driversById[driverId];
+  }
+
+  // الحصول على جميع السائقين
+  getAllDrivers() {
+    return this.drivers;
+  }
+
+  // الحصول على السائقين المتصلين
+  getOnlineDrivers() {
+    return this.drivers.filter(driver => driver.status === 'online');
+  }
+
+  // الحصول على السائقين المشغولين
+  getBusyDrivers() {
+    return this.drivers.filter(driver => driver.status === 'on_delivery');
+  }
+
+  // تحديث موقع السائق
+  updateDriverLocation(driverId, latitude, longitude) {
+    const driver = this.getDriverById(driverId);
+    if (driver) {
+      driver.updateLocation(latitude, longitude);
+      return { success: true, message: 'تم تحديث الموقع' };
+    }
+    return { success: false, message: 'السائق غير موجود' };
+  }
+
+  // تحديث حالة السائق
+  updateDriverStatus(driverId, newStatus) {
+    const driver = this.getDriverById(driverId);
+    if (driver) {
+      driver.updateStatus(newStatus);
+      return { success: true, message: 'تم تحديث الحالة' };
+    }
+    return { success: false, message: 'السائق غير موجود' };
+  }
+
+  // تعيين طلب للسائق
+  assignOrderToDriver(driverId, orderId) {
+    const driver = this.getDriverById(driverId);
+    if (driver && driver.status === 'online') {
+      driver.assignOrder(orderId);
+      return { success: true, message: 'تم تعيين الطلب للسائق' };
+    }
+    return { success: false, message: 'السائق غير متاح' };
+  }
+
+  // إكمال التسليم
+  completeDelivery(driverId, orderId, rating) {
+    const driver = this.getDriverById(driverId);
+    if (driver) {
+      driver.completeDelivery(orderId, rating);
+      return { success: true, message: 'تم تسجيل التسليم' };
+    }
+    return { success: false, message: 'السائق غير موجود' };
+  }
+
+  // إلغاء التسليم
+  cancelDelivery(driverId, orderId) {
+    const driver = this.getDriverById(driverId);
+    if (driver) {
+      driver.cancelDelivery(orderId);
+      return { success: true, message: 'تم إلغاء التسليم' };
+    }
+    return { success: false, message: 'السائق غير موجود' };
+  }
+
+  // تحميل مستند
+  uploadDocument(driverId, documentType, documentPath) {
+    const driver = this.getDriverById(driverId);
+    if (driver) {
+      driver.uploadDocument(documentType, documentPath);
+      return { success: true, message: 'تم تحميل المستند' };
+    }
+    return { success: false, message: 'السائق غير موجود' };
+  }
+
+  // التحقق من السائق
+  verifyDriver(driverId) {
+    const driver = this.getDriverById(driverId);
+    if (driver) {
+      return driver.verify();
+    }
+    return { success: false, message: 'السائق غير موجود' };
+  }
+
+  // الحصول على أفضل السائقين
+  getTopDrivers(limit = 10) {
+    return this.drivers
+      .sort((a, b) => b.rating - a.rating)
+      .slice(0, limit);
+  }
+
+  // الحصول على إحصائيات السائقين
+  getDriversStatistics() {
+    const stats = {
+      totalDrivers: this.drivers.length,
+      onlineDrivers: this.getOnlineDrivers().length,
+      busyDrivers: this.getBusyDrivers().length,
+      offlineDrivers: this.drivers.filter(d => d.status === 'offline').length,
+      verifiedDrivers: this.drivers.filter(d => d.isVerified).length,
+      averageRating: (this.drivers.reduce((sum, d) => sum + d.rating, 0) / this.drivers.length).toFixed(2),
+      totalDeliveries: this.drivers.reduce((sum, d) => sum + d.totalDeliveries, 0),
+      totalEarnings: this.drivers.reduce((sum, d) => sum + d.earnings, 0)
+    };
+    return stats;
+  }
+
+  // البحث عن السائقين
+  searchDrivers(query) {
+    return this.drivers.filter(driver =>
+      driver.name.includes(query) ||
+      driver.phone.includes(query) ||
+      driver.email.includes(query) ||
+      driver.id.includes(query)
+    );
+  }
+
+  // الحصول على السائقين حسب نوع المركبة
+  getDriversByVehicleType(vehicleType) {
+    return this.drivers.filter(driver => driver.vehicleType === vehicleType);
+  }
+
+  // إضافة أرباح للسائق
+  addEarningsToDriver(driverId, amount) {
+    const driver = this.getDriverById(driverId);
+    if (driver) {
+      driver.addEarnings(amount);
+      return { success: true, message: 'تمت إضافة الأرباح' };
+    }
+    return { success: false, message: 'السائق غير موجود' };
+  }
+
+  // توليد معرف فريد للسائق
+  generateDriverId() {
+    return 'D' + Math.random().toString(36).substr(2, 9).toUpperCase();
+  }
+
+  // حذف سائق
+  deleteDriver(driverId) {
+    const index = this.drivers.findIndex(d => d.id === driverId);
+    if (index !== -1) {
+      this.drivers.splice(index, 1);
+      delete this.driversById[driverId];
+      return { success: true, message: 'تم حذف السائق' };
+    }
+    return { success: false, message: 'السائق غير موجود' };
+  }
+
+  // الحصول على أداء السائق
+  getDriverPerformance(driverId) {
+    const driver = this.getDriverById(driverId);
+    if (driver) {
+      return driver.getPerformanceMetrics();
+    }
+    return null;
+  }
+}
+
+// 3. مثال على الاستخدام
+const driversManager = new DriversManager();
+
+// تسجيل سائق جديد
+const newDriver = driversManager.registerDriver(
+  'أحمد محمد',
+  '+96478123456',
+  'ahmad@example.com',
+  'bike'
+);
+
+console.log('سائق جديد:', newDriver);
+
+// تحديث الموقع
+driversManager.updateDriverLocation(newDriver.id, 33.3128, 44.3615);
+
+// تحديث الحالة
+driversManager.updateDriverStatus(newDriver.id, 'online');
+
+// تحميل المستندات
+driversManager.uploadDocument(newDriver.id, 'license', '/documents/license.pdf');
+driversManager.uploadDocument(newDriver.id, 'insurance', '/documents/insurance.pdf');
+driversManager.uploadDocument(newDriver.id, 'registration', '/documents/registration.pdf');
+
+// التحقق من السائق
+driversManager.verifyDriver(newDriver.id);
+
+// إكمال توصيل
+driversManager.completeDelivery(newDriver.id, 'ORDER123', 5);
+
+// الحصول على الإحصائيات
+console.log('إحصائيات السائقين:', driversManager.getDriversStatistics());
+
+// الحصول على أداء السائق
+console.log('أداء السائق:', driversManager.getDriverPerformance(newDriver.id));
+
+// تصدير للاستخدام في Node.js
+module.exports = { Driver, DriversManager };

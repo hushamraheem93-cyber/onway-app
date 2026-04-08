@@ -1,0 +1,232 @@
+// ============================================
+// إدارة الطلبات المتقدمة - Orders Management
+// ============================================
+
+// 1. نموذج الطلب (Order Model)
+class Order {
+  constructor(id, customerId, items, totalAmount, deliveryArea, status, createdAt) {
+    this.id = id;
+    this.customerId = customerId;
+    this.items = items; // array of {productId, quantity, price}
+    this.totalAmount = totalAmount;
+    this.deliveryArea = deliveryArea;
+    this.status = status; // pending, confirmed, preparing, ready, in_delivery, delivered, cancelled
+    this.createdAt = createdAt;
+    this.updatedAt = new Date();
+    this.driverId = null;
+    this.estimatedDeliveryTime = null;
+    this.notes = '';
+  }
+
+  updateStatus(newStatus) {
+    this.status = newStatus;
+    this.updatedAt = new Date();
+  }
+
+  assignDriver(driverId, estimatedTime) {
+    this.driverId = driverId;
+    this.estimatedDeliveryTime = estimatedTime;
+  }
+
+  addNotes(notes) {
+    this.notes = notes;
+  }
+}
+
+// 2. مدير الطلبات (Orders Manager)
+class OrdersManager {
+  constructor() {
+    this.orders = [];
+    this.ordersById = {};
+  }
+
+  // إضافة طلب جديد
+  createOrder(customerId, items, totalAmount, deliveryArea) {
+    const orderId = this.generateOrderId();
+    const order = new Order(
+      orderId,
+      customerId,
+      items,
+      totalAmount,
+      deliveryArea,
+      'pending',
+      new Date()
+    );
+    
+    this.orders.push(order);
+    this.ordersById[orderId] = order;
+    return order;
+  }
+
+  // الحصول على طلب بواسطة ID
+  getOrderById(orderId) {
+    return this.ordersById[orderId];
+  }
+
+  // الحصول على جميع الطلبات
+  getAllOrders() {
+    return this.orders;
+  }
+
+  // الحصول على الطلبات حسب الحالة
+  getOrdersByStatus(status) {
+    return this.orders.filter(order => order.status === status);
+  }
+
+  // الحصول على الطلبات حسب العميل
+  getOrdersByCustomer(customerId) {
+    return this.orders.filter(order => order.customerId === customerId);
+  }
+
+  // تحديث حالة الطلب
+  updateOrderStatus(orderId, newStatus) {
+    const order = this.getOrderById(orderId);
+    if (order) {
+      order.updateStatus(newStatus);
+      return { success: true, message: 'تم تحديث الطلب بنجاح' };
+    }
+    return { success: false, message: 'الطلب غير موجود' };
+  }
+
+  // تعيين سائق للطلب
+  assignDriverToOrder(orderId, driverId, estimatedTime) {
+    const order = this.getOrderById(orderId);
+    if (order) {
+      order.assignDriver(driverId, estimatedTime);
+      order.updateStatus('confirmed');
+      return { success: true, message: 'تم تعيين السائق بنجاح' };
+    }
+    return { success: false, message: 'الطلب غير موجود' };
+  }
+
+  // قبول الطلب
+  acceptOrder(orderId) {
+    return this.updateOrderStatus(orderId, 'confirmed');
+  }
+
+  // رفض الطلب
+  rejectOrder(orderId, reason) {
+    const order = this.getOrderById(orderId);
+    if (order) {
+      order.updateStatus('cancelled');
+      order.addNotes(`سبب الرفض: ${reason}`);
+      return { success: true, message: 'تم رفض الطلب' };
+    }
+    return { success: false, message: 'الطلب غير موجود' };
+  }
+
+  // بدء تحضير الطلب
+  startPreparation(orderId) {
+    return this.updateOrderStatus(orderId, 'preparing');
+  }
+
+  // الطلب جاهز للتسليم
+  orderReady(orderId) {
+    return this.updateOrderStatus(orderId, 'ready');
+  }
+
+  // الطلب في الطريق
+  orderInDelivery(orderId) {
+    return this.updateOrderStatus(orderId, 'in_delivery');
+  }
+
+  // الطلب تم توصيله
+  orderDelivered(orderId) {
+    return this.updateOrderStatus(orderId, 'delivered');
+  }
+
+  // الحصول على إحصائيات الطلبات
+  getOrdersStatistics() {
+    const stats = {
+      total: this.orders.length,
+      pending: this.getOrdersByStatus('pending').length,
+      confirmed: this.getOrdersByStatus('confirmed').length,
+      preparing: this.getOrdersByStatus('preparing').length,
+      ready: this.getOrdersByStatus('ready').length,
+      in_delivery: this.getOrdersByStatus('in_delivery').length,
+      delivered: this.getOrdersByStatus('delivered').length,
+      cancelled: this.getOrdersByStatus('cancelled').length,
+      totalRevenue: this.orders
+        .filter(o => o.status === 'delivered')
+        .reduce((sum, o) => sum + o.totalAmount, 0)
+    };
+    return stats;
+  }
+
+  // البحث عن الطلبات
+  searchOrders(query) {
+    return this.orders.filter(order => 
+      order.id.includes(query) ||
+      order.customerId.includes(query) ||
+      order.deliveryArea.includes(query)
+    );
+  }
+
+  // توليد معرف فريد للطلب
+  generateOrderId() {
+    return '#' + Math.random().toString(36).substr(2, 9).toUpperCase();
+  }
+
+  // الحصول على الطلبات المتأخرة
+  getDelayedOrders(delayMinutes = 30) {
+    const now = new Date();
+    return this.orders.filter(order => {
+      if (order.status === 'in_delivery' && order.estimatedDeliveryTime) {
+        const timeDiff = (now - order.estimatedDeliveryTime) / (1000 * 60);
+        return timeDiff > delayMinutes;
+      }
+      return false;
+    });
+  }
+
+  // إلغاء الطلب
+  cancelOrder(orderId, reason) {
+    const order = this.getOrderById(orderId);
+    if (order && ['pending', 'confirmed', 'preparing'].includes(order.status)) {
+      order.updateStatus('cancelled');
+      order.addNotes(`سبب الإلغاء: ${reason}`);
+      return { success: true, message: 'تم إلغاء الطلب بنجاح' };
+    }
+    return { success: false, message: 'لا يمكن إلغاء هذا الطلب' };
+  }
+}
+
+// 3. مثال على الاستخدام
+const ordersManager = new OrdersManager();
+
+// إنشاء طلب جديد
+const newOrder = ordersManager.createOrder(
+  '0096407702891104',
+  [
+    { productId: 'P001', quantity: 2, price: 5000 },
+    { productId: 'P002', quantity: 1, price: 3500 }
+  ],
+  13500,
+  'الضلوعية المركز'
+);
+
+console.log('طلب جديد:', newOrder);
+
+// قبول الطلب
+ordersManager.acceptOrder(newOrder.id);
+
+// تعيين سائق
+ordersManager.assignDriverToOrder(newOrder.id, 'D001', new Date(Date.now() + 30 * 60000));
+
+// بدء التحضير
+ordersManager.startPreparation(newOrder.id);
+
+// الطلب جاهز
+ordersManager.orderReady(newOrder.id);
+
+// الطلب في الطريق
+ordersManager.orderInDelivery(newOrder.id);
+
+// الطلب تم توصيله
+ordersManager.orderDelivered(newOrder.id);
+
+// الحصول على الإحصائيات
+console.log('إحصائيات الطلبات:', ordersManager.getOrdersStatistics());
+
+// تصدير للاستخدام في Node.js
+module.exports = { Order, OrdersManager };

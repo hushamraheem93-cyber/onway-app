@@ -1,0 +1,307 @@
+// ============================================
+// نظام التقارير والإحصائيات - Reports & Analytics
+// ============================================
+
+// 1. فئة التقارير (Reports Class)
+class ReportsGenerator {
+  constructor(ordersManager, driversManager) {
+    this.ordersManager = ordersManager;
+    this.driversManager = driversManager;
+  }
+
+  // التقرير اليومي
+  getDailyReport(date = new Date()) {
+    const startOfDay = new Date(date);
+    startOfDay.setHours(0, 0, 0, 0);
+    
+    const endOfDay = new Date(date);
+    endOfDay.setHours(23, 59, 59, 999);
+
+    const orders = this.ordersManager.getAllOrders().filter(order =>
+      order.createdAt >= startOfDay && order.createdAt <= endOfDay
+    );
+
+    const deliveredOrders = orders.filter(o => o.status === 'delivered');
+    const cancelledOrders = orders.filter(o => o.status === 'cancelled');
+    const pendingOrders = orders.filter(o => o.status === 'pending');
+
+    return {
+      date: date.toLocaleDateString('ar-IQ'),
+      totalOrders: orders.length,
+      deliveredOrders: deliveredOrders.length,
+      cancelledOrders: cancelledOrders.length,
+      pendingOrders: pendingOrders.length,
+      totalRevenue: deliveredOrders.reduce((sum, o) => sum + o.totalAmount, 0),
+      averageOrderValue: orders.length > 0 ? (orders.reduce((sum, o) => sum + o.totalAmount, 0) / orders.length).toFixed(2) : 0,
+      successRate: orders.length > 0 ? ((deliveredOrders.length / orders.length) * 100).toFixed(2) + '%' : '0%'
+    };
+  }
+
+  // التقرير الأسبوعي
+  getWeeklyReport(date = new Date()) {
+    const startOfWeek = new Date(date);
+    startOfWeek.setDate(date.getDate() - date.getDay());
+    startOfWeek.setHours(0, 0, 0, 0);
+
+    const endOfWeek = new Date(startOfWeek);
+    endOfWeek.setDate(startOfWeek.getDate() + 6);
+    endOfWeek.setHours(23, 59, 59, 999);
+
+    const orders = this.ordersManager.getAllOrders().filter(order =>
+      order.createdAt >= startOfWeek && order.createdAt <= endOfWeek
+    );
+
+    const dailyData = [];
+    for (let i = 0; i < 7; i++) {
+      const currentDate = new Date(startOfWeek);
+      currentDate.setDate(startOfWeek.getDate() + i);
+      dailyData.push(this.getDailyReport(currentDate));
+    }
+
+    return {
+      weekStart: startOfWeek.toLocaleDateString('ar-IQ'),
+      weekEnd: endOfWeek.toLocaleDateString('ar-IQ'),
+      totalOrders: orders.length,
+      totalRevenue: orders.filter(o => o.status === 'delivered').reduce((sum, o) => sum + o.totalAmount, 0),
+      dailyBreakdown: dailyData
+    };
+  }
+
+  // التقرير الشهري
+  getMonthlyReport(year = new Date().getFullYear(), month = new Date().getMonth()) {
+    const startOfMonth = new Date(year, month, 1);
+    const endOfMonth = new Date(year, month + 1, 0);
+    endOfMonth.setHours(23, 59, 59, 999);
+
+    const orders = this.ordersManager.getAllOrders().filter(order =>
+      order.createdAt >= startOfMonth && order.createdAt <= endOfMonth
+    );
+
+    const deliveredOrders = orders.filter(o => o.status === 'delivered');
+    const cancelledOrders = orders.filter(o => o.status === 'cancelled');
+
+    return {
+      month: new Date(year, month).toLocaleDateString('ar-IQ', { month: 'long', year: 'numeric' }),
+      totalOrders: orders.length,
+      deliveredOrders: deliveredOrders.length,
+      cancelledOrders: cancelledOrders.length,
+      totalRevenue: deliveredOrders.reduce((sum, o) => sum + o.totalAmount, 0),
+      averageOrderValue: orders.length > 0 ? (orders.reduce((sum, o) => sum + o.totalAmount, 0) / orders.length).toFixed(2) : 0,
+      successRate: orders.length > 0 ? ((deliveredOrders.length / orders.length) * 100).toFixed(2) + '%' : '0%',
+      cancellationRate: orders.length > 0 ? ((cancelledOrders.length / orders.length) * 100).toFixed(2) + '%' : '0%'
+    };
+  }
+
+  // تقرير المناطق
+  getAreasReport() {
+    const orders = this.ordersManager.getAllOrders();
+    const areaStats = {};
+
+    orders.forEach(order => {
+      if (!areaStats[order.deliveryArea]) {
+        areaStats[order.deliveryArea] = {
+          area: order.deliveryArea,
+          totalOrders: 0,
+          deliveredOrders: 0,
+          totalRevenue: 0
+        };
+      }
+      areaStats[order.deliveryArea].totalOrders++;
+      if (order.status === 'delivered') {
+        areaStats[order.deliveryArea].deliveredOrders++;
+        areaStats[order.deliveryArea].totalRevenue += order.totalAmount;
+      }
+    });
+
+    return Object.values(areaStats).sort((a, b) => b.totalRevenue - a.totalRevenue);
+  }
+
+  // تقرير المنتجات الأكثر مبيعاً
+  getTopProductsReport(limit = 10) {
+    const orders = this.ordersManager.getAllOrders();
+    const productStats = {};
+
+    orders.forEach(order => {
+      order.items.forEach(item => {
+        if (!productStats[item.productId]) {
+          productStats[item.productId] = {
+            productId: item.productId,
+            quantity: 0,
+            revenue: 0
+          };
+        }
+        productStats[item.productId].quantity += item.quantity;
+        productStats[item.productId].revenue += item.price * item.quantity;
+      });
+    });
+
+    return Object.values(productStats)
+      .sort((a, b) => b.revenue - a.revenue)
+      .slice(0, limit);
+  }
+
+  // تقرير السائقين
+  getDriversReport() {
+    const drivers = this.driversManager.getAllDrivers();
+    return drivers.map(driver => ({
+      driverId: driver.id,
+      name: driver.name,
+      totalDeliveries: driver.totalDeliveries,
+      successfulDeliveries: driver.successfulDeliveries,
+      cancelledDeliveries: driver.cancelledDeliveries,
+      successRate: driver.totalDeliveries > 0 ? ((driver.successfulDeliveries / driver.totalDeliveries) * 100).toFixed(2) + '%' : '0%',
+      rating: driver.rating.toFixed(2),
+      earnings: driver.earnings,
+      status: driver.status
+    }));
+  }
+
+  // تقرير العملاء
+  getCustomersReport() {
+    const orders = this.ordersManager.getAllOrders();
+    const customerStats = {};
+
+    orders.forEach(order => {
+      if (!customerStats[order.customerId]) {
+        customerStats[order.customerId] = {
+          customerId: order.customerId,
+          totalOrders: 0,
+          totalSpent: 0,
+          lastOrder: null
+        };
+      }
+      customerStats[order.customerId].totalOrders++;
+      customerStats[order.customerId].totalSpent += order.totalAmount;
+      customerStats[order.customerId].lastOrder = order.createdAt;
+    });
+
+    return Object.values(customerStats)
+      .sort((a, b) => b.totalSpent - a.totalSpent);
+  }
+
+  // لوحة المعلومات الرئيسية (Dashboard)
+  getDashboard() {
+    const orders = this.ordersManager.getAllOrders();
+    const drivers = this.driversManager.getAllDrivers();
+    const deliveredOrders = orders.filter(o => o.status === 'delivered');
+    const cancelledOrders = orders.filter(o => o.status === 'cancelled');
+    const pendingOrders = orders.filter(o => o.status === 'pending');
+
+    return {
+      summary: {
+        totalOrders: orders.length,
+        deliveredOrders: deliveredOrders.length,
+        cancelledOrders: cancelledOrders.length,
+        pendingOrders: pendingOrders.length,
+        totalRevenue: deliveredOrders.reduce((sum, o) => sum + o.totalAmount, 0),
+        averageOrderValue: orders.length > 0 ? (orders.reduce((sum, o) => sum + o.totalAmount, 0) / orders.length).toFixed(2) : 0
+      },
+      drivers: {
+        totalDrivers: drivers.length,
+        onlineDrivers: drivers.filter(d => d.status === 'online').length,
+        busyDrivers: drivers.filter(d => d.status === 'on_delivery').length,
+        averageRating: drivers.length > 0 ? (drivers.reduce((sum, d) => sum + d.rating, 0) / drivers.length).toFixed(2) : 0
+      },
+      topProducts: this.getTopProductsReport(5),
+      topAreas: this.getAreasReport().slice(0, 5),
+      topDrivers: drivers.sort((a, b) => b.rating - a.rating).slice(0, 5)
+    };
+  }
+
+  // تقرير الأداء
+  getPerformanceReport() {
+    const orders = this.ordersManager.getAllOrders();
+    const deliveredOrders = orders.filter(o => o.status === 'delivered');
+    const cancelledOrders = orders.filter(o => o.status === 'cancelled');
+
+    return {
+      successRate: orders.length > 0 ? ((deliveredOrders.length / orders.length) * 100).toFixed(2) + '%' : '0%',
+      cancellationRate: orders.length > 0 ? ((cancelledOrders.length / orders.length) * 100).toFixed(2) + '%' : '0%',
+      averageDeliveryTime: this.calculateAverageDeliveryTime(),
+      peakHours: this.getPeakHours(),
+      busyAreas: this.getAreasReport().slice(0, 3)
+    };
+  }
+
+  // حساب متوسط وقت التسليم
+  calculateAverageDeliveryTime() {
+    const orders = this.ordersManager.getAllOrders().filter(o => o.status === 'delivered');
+    if (orders.length === 0) return 0;
+
+    const totalTime = orders.reduce((sum, order) => {
+      const deliveryTime = (order.updatedAt - order.createdAt) / (1000 * 60); // بالدقائق
+      return sum + deliveryTime;
+    }, 0);
+
+    return (totalTime / orders.length).toFixed(2);
+  }
+
+  // الحصول على ساعات الذروة
+  getPeakHours() {
+    const orders = this.ordersManager.getAllOrders();
+    const hourStats = {};
+
+    orders.forEach(order => {
+      const hour = order.createdAt.getHours();
+      hourStats[hour] = (hourStats[hour] || 0) + 1;
+    });
+
+    return Object.entries(hourStats)
+      .map(([hour, count]) => ({ hour: parseInt(hour), count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 5);
+  }
+
+  // تصدير التقرير إلى JSON
+  exportReportToJSON(reportType, filename) {
+    let report;
+    const today = new Date();
+
+    switch (reportType) {
+      case 'daily':
+        report = this.getDailyReport(today);
+        break;
+      case 'weekly':
+        report = this.getWeeklyReport(today);
+        break;
+      case 'monthly':
+        report = this.getMonthlyReport(today.getFullYear(), today.getMonth());
+        break;
+      case 'dashboard':
+        report = this.getDashboard();
+        break;
+      case 'performance':
+        report = this.getPerformanceReport();
+        break;
+      default:
+        report = null;
+    }
+
+    if (report) {
+      console.log(`تم تصدير التقرير: ${filename}`);
+      return JSON.stringify(report, null, 2);
+    }
+    return null;
+  }
+}
+
+// 2. مثال على الاستخدام
+// يتطلب استيراد OrdersManager و DriversManager
+// const { OrdersManager } = require('./orders_management');
+// const { DriversManager } = require('./drivers_management');
+
+// const ordersManager = new OrdersManager();
+// const driversManager = new DriversManager();
+// const reportsGenerator = new ReportsGenerator(ordersManager, driversManager);
+
+// الحصول على التقرير اليومي
+// console.log('التقرير اليومي:', reportsGenerator.getDailyReport());
+
+// الحصول على لوحة المعلومات
+// console.log('لوحة المعلومات:', reportsGenerator.getDashboard());
+
+// الحصول على تقرير الأداء
+// console.log('تقرير الأداء:', reportsGenerator.getPerformanceReport());
+
+// تصدير للاستخدام في Node.js
+module.exports = { ReportsGenerator };
