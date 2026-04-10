@@ -186,7 +186,9 @@ export function OrderProvider({ children }: { children: ReactNode }) {
       });
     } catch (networkError: any) {
       console.error("[addOrder] Network error:", networkError);
-      throw new Error("تعذّر الاتصال بالخادم، تحقق من اتصالك بالإنترنت");
+      const netErr = new Error("تعذّر الاتصال بالخادم، تحقق من اتصالك بالإنترنت");
+      (netErr as any).isNetworkError = true;
+      throw netErr;
     }
 
     if (!response.ok) {

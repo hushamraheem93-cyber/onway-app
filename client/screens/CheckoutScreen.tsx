@@ -55,6 +55,7 @@ export default function CheckoutScreen() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showAreaPicker, setShowAreaPicker] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [isNetworkError, setIsNetworkError] = useState(false);
   const lastOrderPayloadRef = useRef<any>(null);
   const [selectedLocation, setSelectedLocation] = useState<{ latitude: number; longitude: number } | null>(null);
   const [promoCode, setPromoCode] = useState("");
@@ -140,6 +141,7 @@ export default function CheckoutScreen() {
       navigation.replace("OrderConfirmation", { order });
     } catch (error: any) {
       console.error("[Checkout] Order failed:", error);
+      setIsNetworkError(error?.isNetworkError === true);
       setErrorMessage(error?.message || "فشل في إنشاء الطلب");
     } finally {
       setIsSubmitting(false);
@@ -482,15 +484,16 @@ export default function CheckoutScreen() {
           <View style={styles.errorActions}>
             <Pressable
               style={[styles.errorBtn, styles.errorBtnDismiss, { borderColor: theme.border }]}
-              onPress={() => setErrorMessage(null)}
+              onPress={() => { setErrorMessage(null); setIsNetworkError(false); }}
             >
               <ThemedText type="body">إغلاق</ThemedText>
             </Pressable>
-            {lastOrderPayloadRef.current ? (
+            {isNetworkError && lastOrderPayloadRef.current ? (
               <Pressable
                 style={[styles.errorBtn, styles.errorBtnRetry]}
                 onPress={() => {
                   setErrorMessage(null);
+                  setIsNetworkError(false);
                   submitOrderPayload(lastOrderPayloadRef.current);
                 }}
               >
