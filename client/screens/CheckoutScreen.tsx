@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { StyleSheet, View, TextInput, Alert, Modal, Pressable, FlatList, ActivityIndicator } from "react-native";
+import React, { useState, useRef } from "react";
+import { StyleSheet, View, TextInput, Modal, Pressable, FlatList, ActivityIndicator } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useNavigation } from "@react-navigation/native";
@@ -54,6 +54,8 @@ export default function CheckoutScreen() {
   const [notes, setNotes] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showAreaPicker, setShowAreaPicker] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const lastOrderPayloadRef = useRef<any>(null);
   const [selectedLocation, setSelectedLocation] = useState<{ latitude: number; longitude: number } | null>(null);
   const [promoCode, setPromoCode] = useState("");
   const [promoDiscount, setPromoDiscount] = useState(0);
@@ -130,64 +132,64 @@ export default function CheckoutScreen() {
   const deliveryFee = isRestaurantOrder ? 1000 : (selectedAreaData?.fee || 0);
   const total = subtotal + deliveryFee - promoDiscount;
 
+  const submitOrderPayload = async (payload: any) => {
+    setIsSubmitting(true);
+    try {
+      const order = await addOrder(payload);
+      clearCart();
+      navigation.replace("OrderConfirmation", { order });
+    } catch (error: any) {
+      console.error("[Checkout] Order failed:", error);
+      setErrorMessage(error?.message || "فشل في إنشاء الطلب");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   const handleSubmit = async () => {
+    lastOrderPayloadRef.current = null;
     if (!customerName.trim()) {
-      Alert.alert("خطأ", "يرجى إدخال الاسم");
+      setErrorMessage("يرجى إدخال الاسم الكامل");
       return;
     }
     if (!phone.trim()) {
-      Alert.alert("خطأ", "يرجى إدخال رقم الهاتف");
+      setErrorMessage("يرجى إدخال رقم الهاتف");
       return;
     }
     if (!selectedArea) {
-      Alert.alert("خطأ", "يرجى اختيار منطقة التوصيل");
+      setErrorMessage("يرجى اختيار منطقة التوصيل");
       return;
     }
     if (!address.trim()) {
-      Alert.alert("خطأ", "يرجى إدخال تفاصيل العنوان");
+      setErrorMessage("يرجى إدخال تفاصيل العنوان");
       return;
     }
 
-    setIsSubmitting(true);
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 
     const areaName = selectedAreaData?.name || "";
     const landmarkText = landmark.trim() ? ` (${landmark.trim()})` : "";
     const fullAddress = `${areaName} - ${address.trim()}${landmarkText}`;
 
-    try {
-      const orderPayload: any = {
-        items: [...items],
-        total,
-        deliveryFee,
-        address: fullAddress,
-        region: areaName,
-        customerName: customerName.trim(),
-        customerPhone: phone.trim(),
-        latitude: selectedLocation?.latitude,
-        longitude: selectedLocation?.longitude,
-      };
-      if (notes.trim()) {
-        orderPayload.notes = notes.trim();
-      }
-      if (appliedPromoCode) {
-        orderPayload.promoCode = appliedPromoCode;
-        orderPayload.promoDiscount = promoDiscount;
-      }
-      const order = await addOrder(orderPayload);
-
-      if (order) {
-        clearCart();
-        navigation.replace("OrderConfirmation", { order });
-      } else {
-        Alert.alert("خطأ", "فشل في إنشاء الطلب");
-      }
-    } catch (error) {
-      console.error("Error creating order:", error);
-      Alert.alert("خطأ", "فشل في إنشاء الطلب");
-    } finally {
-      setIsSubmitting(false);
+    const orderPayload: any = {
+      items: [...items],
+      total,
+      deliveryFee,
+      address: fullAddress,
+      region: areaName,
+      customerName: customerName.trim(),
+      customerPhone: phone.trim(),
+      latitude: selectedLocation?.latitude,
+      longitude: selectedLocation?.longitude,
+    };
+    if (notes.trim()) orderPayload.notes = notes.trim();
+    if (appliedPromoCode) {
+      orderPayload.promoCode = appliedPromoCode;
+      orderPayload.promoDiscount = promoDiscount;
     }
+
+    lastOrderPayloadRef.current = orderPayload;
+    await submitOrderPayload(orderPayload);
   };
 
   return (
@@ -458,6 +460,47 @@ export default function CheckoutScreen() {
         {isSubmitting ? "جاري التأكيد..." : "تأكيد الطلب"}
       </Button>
     </KeyboardAwareScrollViewCompat>
+
+    {/* Error Modal */}
+    <Modal
+      visible={errorMessage !== null}
+      transparent
+      animationType="fade"
+      onRequestClose={() => setErrorMessage(null)}
+    >
+      <Pressable style={styles.errorOverlay} onPress={() => setErrorMessage(null)}>
+        <Pressable style={[styles.errorCard, { backgroundColor: theme.backgroundDefault }]}>
+          <View style={styles.errorIconRow}>
+            <Feather name="alert-circle" size={28} color="#E53E3E" />
+          </View>
+          <ThemedText type="h4" style={styles.errorTitle}>
+            تنبيه
+          </ThemedText>
+          <ThemedText type="body" style={[styles.errorBody, { color: theme.textSecondary }]}>
+            {errorMessage}
+          </ThemedText>
+          <View style={styles.errorActions}>
+            <Pressable
+              style={[styles.errorBtn, styles.errorBtnDismiss, { borderColor: theme.border }]}
+              onPress={() => setErrorMessage(null)}
+            >
+              <ThemedText type="body">إغلاق</ThemedText>
+            </Pressable>
+            {lastOrderPayloadRef.current ? (
+              <Pressable
+                style={[styles.errorBtn, styles.errorBtnRetry]}
+                onPress={() => {
+                  setErrorMessage(null);
+                  submitOrderPayload(lastOrderPayloadRef.current);
+                }}
+              >
+                <ThemedText type="body" style={{ color: "#fff" }}>إعادة المحاولة</ThemedText>
+              </Pressable>
+            ) : null}
+          </View>
+        </Pressable>
+      </Pressable>
+    </Modal>
     </View>
   );
 }
@@ -565,5 +608,48 @@ const styles = StyleSheet.create({
   submitButton: {
     marginTop: Spacing.xl,
     marginBottom: Spacing.xl,
+  },
+  errorOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.55)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: Spacing.xl,
+  },
+  errorCard: {
+    width: "100%",
+    borderRadius: BorderRadius.xl,
+    padding: Spacing.xl,
+    alignItems: "center",
+  },
+  errorIconRow: {
+    marginBottom: Spacing.md,
+  },
+  errorTitle: {
+    textAlign: "center",
+    marginBottom: Spacing.sm,
+  },
+  errorBody: {
+    textAlign: "center",
+    lineHeight: 22,
+    marginBottom: Spacing.xl,
+  },
+  errorActions: {
+    flexDirection: "row-reverse",
+    gap: Spacing.md,
+    width: "100%",
+  },
+  errorBtn: {
+    flex: 1,
+    paddingVertical: Spacing.md,
+    borderRadius: BorderRadius.md,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  errorBtnDismiss: {
+    borderWidth: 1.5,
+  },
+  errorBtnRetry: {
+    backgroundColor: AppColors.primary,
   },
 });

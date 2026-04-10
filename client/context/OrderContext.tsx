@@ -49,7 +49,7 @@ interface OrderContextType {
     longitude?: number;
     promoCode?: string;
     promoDiscount?: number;
-  }) => Promise<Order | null>;
+  }) => Promise<Order>;
   refreshOrders: () => Promise<void>;
 }
 
@@ -147,49 +147,62 @@ export function OrderProvider({ children }: { children: ReactNode }) {
     longitude?: number;
     promoCode?: string;
     promoDiscount?: number;
-  }): Promise<Order | null> => {
-    if (!phoneNumber) return null;
+  }): Promise<Order> => {
+    if (!phoneNumber) {
+      throw new Error("يرجى تسجيل الدخول أولاً");
+    }
     
+    const bodyData: any = {
+      phoneNumber,
+      userId: userProfile?.id || "",
+      items: orderData.items.map(item => ({
+        productId: item.product.id,
+        name: item.product.name,
+        price: item.product.price,
+        quantity: item.quantity,
+        image: item.product.image,
+      })),
+      total: orderData.total,
+      deliveryFee: orderData.deliveryFee,
+      address: orderData.address,
+      region: orderData.region,
+    };
+    if (orderData.customerName) bodyData.customerName = orderData.customerName;
+    if (orderData.customerPhone) bodyData.customerPhone = orderData.customerPhone;
+    if (orderData.notes) bodyData.notes = orderData.notes;
+    if (orderData.promoCode) bodyData.promoCode = orderData.promoCode;
+    if (orderData.promoDiscount) bodyData.promoDiscount = orderData.promoDiscount;
+    if (orderData.latitude !== undefined && orderData.longitude !== undefined) {
+      bodyData.latitude = orderData.latitude;
+      bodyData.longitude = orderData.longitude;
+    }
+
+    let response: Response;
     try {
-      const bodyData: any = {
-        phoneNumber,
-        userId: userProfile?.id || "",
-        items: orderData.items.map(item => ({
-          productId: item.product.id,
-          name: item.product.name,
-          price: item.product.price,
-          quantity: item.quantity,
-          image: item.product.image,
-        })),
-        total: orderData.total,
-        deliveryFee: orderData.deliveryFee,
-        address: orderData.address,
-        region: orderData.region,
-      };
-      if (orderData.customerName) bodyData.customerName = orderData.customerName;
-      if (orderData.customerPhone) bodyData.customerPhone = orderData.customerPhone;
-      if (orderData.notes) bodyData.notes = orderData.notes;
-      if (orderData.promoCode) bodyData.promoCode = orderData.promoCode;
-      if (orderData.promoDiscount) bodyData.promoDiscount = orderData.promoDiscount;
-      if (orderData.latitude !== undefined && orderData.longitude !== undefined) {
-        bodyData.latitude = orderData.latitude;
-        bodyData.longitude = orderData.longitude;
-      }
-      const response = await fetch(new URL("/api/orders", getApiUrl()).toString(), {
+      response = await fetch(new URL("/api/orders", getApiUrl()).toString(), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(bodyData),
       });
-      
-      if (response.ok) {
-        const newOrder = await response.json();
-        setOrders(prev => [newOrder, ...prev]);
-        return newOrder;
-      }
-    } catch (error) {
-      console.error("Error creating order:", error);
+    } catch (networkError: any) {
+      console.error("[addOrder] Network error:", networkError);
+      throw new Error("تعذّر الاتصال بالخادم، تحقق من اتصالك بالإنترنت");
     }
-    return null;
+
+    if (!response.ok) {
+      let serverMessage = "فشل في إنشاء الطلب";
+      try {
+        const errBody = await response.json();
+        if (errBody?.error) serverMessage = errBody.error;
+        else if (errBody?.message) serverMessage = errBody.message;
+      } catch {}
+      console.error("[addOrder] Server error:", response.status, serverMessage);
+      throw new Error(serverMessage);
+    }
+
+    const newOrder = await response.json();
+    setOrders(prev => [newOrder, ...prev]);
+    return newOrder;
   }, [phoneNumber, userProfile]);
 
   return (
