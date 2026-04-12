@@ -30,7 +30,7 @@ import { resolveImageUrl } from "@/utils/imageUtils";
 import { formatPrice } from "@/constants/currency";
 import { compressAndConvertToBase64, processAndUploadImage, isBase64Image, ImageSize } from "@/lib/imageUtils";
 
-type TabType = "banners" | "categories" | "products" | "areas" | "orders" | "drivers" | "promoCodes" | "notifications" | "users";
+type TabType = "dashboard" | "orders" | "drivers" | "users" | "banners" | "categories" | "products" | "areas" | "promoCodes" | "notifications";
 
 interface AdminUser {
   id: string;
@@ -109,7 +109,7 @@ export default function AdminScreen() {
   const { theme } = useTheme();
   const queryClient = useQueryClient();
 
-  const [activeTab, setActiveTab] = useState<TabType>("banners");
+  const [activeTab, setActiveTab] = useState<TabType>("dashboard");
   const [isEditing, setIsEditing] = useState(false);
   const [editItem, setEditItem] = useState<any>(null);
   const [hasCategoryChanges, setHasCategoryChanges] = useState(false);
@@ -1923,8 +1923,175 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
     </View>
   );
 
+  const renderDashboardTab = () => {
+    const ADMIN_RED = "#D94523";
+    const totalOrders = adminOrders.length;
+    const pendingOrders = adminOrders.filter(o => o.status === "pending").length;
+    const activeOrders = adminOrders.filter(o => ["confirmed","preparing","ready","picked_up","in_delivery"].includes(o.status)).length;
+    const deliveredOrders = adminOrders.filter(o => o.status === "delivered").length;
+    const approvedDrivers = drivers.filter(d => d.status === "approved").length;
+    const pendingDrivers = drivers.filter(d => d.status === "pending").length;
+    const todayRevenue = ownerEarnings?.totalOwnerEarnings ?? 0;
+    const recentOrders = [...adminOrders].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).slice(0, 5);
+
+    const kpiCards = [
+      { label: "طلبات اليوم", value: totalOrders, icon: "shopping-cart" as const, color: "#3B82F6", bg: "#EFF6FF" },
+      { label: "بانتظار القبول", value: pendingOrders, icon: "clock" as const, color: "#F59E0B", bg: "#FFFBEB" },
+      { label: "قيد التوصيل", value: activeOrders, icon: "navigation" as const, color: "#8B5CF6", bg: "#F5F3FF" },
+      { label: "تمت التوصيل", value: deliveredOrders, icon: "check-circle" as const, color: "#10B981", bg: "#ECFDF5" },
+      { label: "إجمالي السائقين", value: approvedDrivers, icon: "truck" as const, color: ADMIN_RED, bg: "#FFF1EE" },
+      { label: "طلبات السائقين", value: pendingDrivers, icon: "user-check" as const, color: "#6366F1", bg: "#EEF2FF" },
+      { label: "المستخدمون", value: adminUsers.length, icon: "users" as const, color: "#0EA5E9", bg: "#F0F9FF" },
+      { label: "عمولة التطبيق", value: formatPrice(todayRevenue), icon: "trending-up" as const, color: "#10B981", bg: "#ECFDF5", isText: true },
+    ];
+
+    const getStatusColor = (s: string) => {
+      const m: Record<string, string> = { pending:"#F59E0B", confirmed:"#3B82F6", preparing:"#8B5CF6", ready:"#E86520", picked_up:"#F97316", in_delivery:"#06B6D4", delivered:"#10B981", cancelled:"#EF4444", issue:"#EF4444" };
+      return m[s] || "#6B7280";
+    };
+    const getStatusLabel = (s: string) => {
+      const m: Record<string, string> = { pending:"انتظار", confirmed:"مؤكد", preparing:"يتحضر", ready:"جاهز", picked_up:"استُلم", in_delivery:"بالطريق", delivered:"وصل", cancelled:"ملغي", issue:"مشكلة" };
+      return m[s] || s;
+    };
+
+    const quickLinks: { label: string; tab: TabType; icon: keyof typeof Feather.glyphMap; color: string }[] = [
+      { label: "البانرات", tab: "banners", icon: "image", color: "#3B82F6" },
+      { label: "الأقسام", tab: "categories", icon: "grid", color: "#8B5CF6" },
+      { label: "المنتجات", tab: "products", icon: "package", color: "#F59E0B" },
+      { label: "المناطق", tab: "areas", icon: "map-pin", color: "#10B981" },
+      { label: "أكواد الخصم", tab: "promoCodes", icon: "tag", color: "#EF4444" },
+      { label: "الإشعارات", tab: "notifications", icon: "bell", color: "#6366F1" },
+    ];
+
+    return (
+      <View style={{ gap: Spacing.lg }}>
+        {/* Welcome strip */}
+        <View style={{ borderRadius: BorderRadius.xl, overflow: "hidden", backgroundColor: ADMIN_RED }}>
+          <View style={{ padding: Spacing.lg, flexDirection: "row-reverse", alignItems: "center", gap: Spacing.md }}>
+            <View style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: "rgba(255,255,255,0.2)", alignItems: "center", justifyContent: "center" }}>
+              <Feather name="shield" size={24} color="#fff" />
+            </View>
+            <View style={{ flex: 1, alignItems: "flex-end" }}>
+              <ThemedText style={{ color: "#fff", fontSize: 18, fontFamily: "Cairo_700Bold" }}>لوحة التحكم</ThemedText>
+              <ThemedText style={{ color: "rgba(255,255,255,0.8)", fontSize: 13, fontFamily: "Cairo_400Regular" }}>مرحباً بك في نظام إدارة أونواي</ThemedText>
+            </View>
+          </View>
+          {/* Mini status bar */}
+          <View style={{ flexDirection: "row-reverse", backgroundColor: "rgba(0,0,0,0.15)", paddingHorizontal: Spacing.lg, paddingVertical: Spacing.sm, gap: Spacing.lg }}>
+            <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 4 }}>
+              <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: pendingOrders > 0 ? "#FCD34D" : "#4ADE80" }} />
+              <ThemedText style={{ color: "#fff", fontSize: 12, fontFamily: "Cairo_400Regular" }}>{pendingOrders > 0 ? `${pendingOrders} طلب ينتظر` : "لا طلبات معلقة"}</ThemedText>
+            </View>
+            <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 4 }}>
+              <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: "#4ADE80" }} />
+              <ThemedText style={{ color: "#fff", fontSize: 12, fontFamily: "Cairo_400Regular" }}>{approvedDrivers} سائق نشط</ThemedText>
+            </View>
+          </View>
+        </View>
+
+        {/* KPI grid */}
+        <View>
+          <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 14, color: theme.textSecondary, textAlign: "right", marginBottom: Spacing.sm }}>الإحصائيات الرئيسية</ThemedText>
+          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: Spacing.sm }}>
+            {kpiCards.map((card, i) => (
+              <View key={i} style={{ width: "47%", backgroundColor: card.bg, borderRadius: BorderRadius.lg, padding: Spacing.md, gap: 4 }}>
+                <View style={{ flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between" }}>
+                  <View style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: card.color + "20", alignItems: "center", justifyContent: "center" }}>
+                    <Feather name={card.icon} size={18} color={card.color} />
+                  </View>
+                  {card.isText ? (
+                    <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 14, color: card.color }}>{card.value as string}</ThemedText>
+                  ) : (
+                    <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 26, color: card.color }}>{card.value as number}</ThemedText>
+                  )}
+                </View>
+                <ThemedText style={{ fontFamily: "Cairo_400Regular", fontSize: 12, color: "#6B7280", textAlign: "right" }}>{card.label}</ThemedText>
+              </View>
+            ))}
+          </View>
+        </View>
+
+        {/* Quick links */}
+        <View>
+          <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 14, color: theme.textSecondary, textAlign: "right", marginBottom: Spacing.sm }}>وصول سريع</ThemedText>
+          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: Spacing.sm }}>
+            {quickLinks.map((ql, i) => (
+              <Pressable
+                key={i}
+                onPress={() => { setActiveTab(ql.tab); resetForm(); }}
+                style={{ width: "30%", backgroundColor: theme.backgroundSecondary, borderRadius: BorderRadius.lg, padding: Spacing.md, alignItems: "center", gap: 6 }}
+              >
+                <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: ql.color + "15", alignItems: "center", justifyContent: "center" }}>
+                  <Feather name={ql.icon} size={20} color={ql.color} />
+                </View>
+                <ThemedText style={{ fontFamily: "Cairo_400Regular", fontSize: 12, color: theme.text, textAlign: "center" }}>{ql.label}</ThemedText>
+              </Pressable>
+            ))}
+          </View>
+        </View>
+
+        {/* Recent orders */}
+        <View>
+          <View style={{ flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between", marginBottom: Spacing.sm }}>
+            <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 14, color: theme.textSecondary }}>آخر الطلبات</ThemedText>
+            <Pressable onPress={() => { setActiveTab("orders"); resetForm(); }}>
+              <ThemedText style={{ fontFamily: "Cairo_400Regular", fontSize: 13, color: ADMIN_RED }}>عرض الكل</ThemedText>
+            </Pressable>
+          </View>
+          {recentOrders.length === 0 ? (
+            <View style={{ padding: Spacing.xl, alignItems: "center" }}>
+              <ThemedText style={{ color: theme.textSecondary, fontFamily: "Cairo_400Regular", fontSize: 13 }}>لا توجد طلبات بعد</ThemedText>
+            </View>
+          ) : (
+            <View style={{ gap: Spacing.sm }}>
+              {recentOrders.map(order => (
+                <Pressable
+                  key={order.id}
+                  onPress={() => { setActiveTab("orders"); resetForm(); }}
+                  style={{ backgroundColor: theme.backgroundSecondary, borderRadius: BorderRadius.lg, padding: Spacing.md, flexDirection: "row-reverse", alignItems: "center", gap: Spacing.md }}
+                >
+                  <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: getStatusColor(order.status) + "15", alignItems: "center", justifyContent: "center" }}>
+                    <Feather name="shopping-bag" size={18} color={getStatusColor(order.status)} />
+                  </View>
+                  <View style={{ flex: 1, alignItems: "flex-end", gap: 2 }}>
+                    <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 13, color: theme.text }}>#{order.id.slice(-6)}</ThemedText>
+                    <ThemedText style={{ fontFamily: "Cairo_400Regular", fontSize: 12, color: theme.textSecondary }}>{order.phoneNumber}</ThemedText>
+                  </View>
+                  <View style={{ alignItems: "flex-end", gap: 2 }}>
+                    <View style={{ paddingHorizontal: Spacing.sm, paddingVertical: 2, borderRadius: 100, backgroundColor: getStatusColor(order.status) + "20" }}>
+                      <ThemedText style={{ fontSize: 11, fontFamily: "Cairo_700Bold", color: getStatusColor(order.status) }}>{getStatusLabel(order.status)}</ThemedText>
+                    </View>
+                    <ThemedText style={{ fontSize: 13, fontFamily: "Cairo_700Bold", color: theme.text }}>{formatPrice(order.total)}</ThemedText>
+                  </View>
+                </Pressable>
+              ))}
+            </View>
+          )}
+        </View>
+
+        {/* Commission summary shortcut */}
+        {ownerEarnings ? (
+          <Pressable
+            onPress={() => { setActiveTab("orders"); resetForm(); }}
+            style={{ backgroundColor: "#FFF1EE", borderRadius: BorderRadius.xl, padding: Spacing.lg, flexDirection: "row-reverse", alignItems: "center", gap: Spacing.md, borderWidth: 1, borderColor: "#FECDC4" }}
+          >
+            <View style={{ width: 44, height: 44, borderRadius: 14, backgroundColor: "#FECDC4", alignItems: "center", justifyContent: "center" }}>
+              <Feather name="dollar-sign" size={22} color={ADMIN_RED} />
+            </View>
+            <View style={{ flex: 1, alignItems: "flex-end" }}>
+              <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 15, color: ADMIN_RED }}>{formatPrice(ownerEarnings.totalOwnerEarnings)}</ThemedText>
+              <ThemedText style={{ fontFamily: "Cairo_400Regular", fontSize: 12, color: "#6B7280" }}>إجمالي عمولة التطبيق — {ownerEarnings.totalDeliveredOrders} طلب مكتمل</ThemedText>
+            </View>
+            <Feather name="chevron-left" size={16} color={ADMIN_RED} />
+          </Pressable>
+        ) : null}
+      </View>
+    );
+  };
+
   const renderContent = () => {
     switch (activeTab) {
+      case "dashboard": return renderDashboardTab();
       case "banners": return renderBannersTab();
       case "categories": return renderCategoriesTab();
       case "products": return renderProductsTab();
@@ -1937,87 +2104,117 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
     }
   };
 
+  const ADMIN_RED = "#D94523";
+
+  const TABS: { key: TabType; label: string; icon: keyof typeof Feather.glyphMap; badge?: number }[] = [
+    { key: "dashboard", label: "الرئيسية", icon: "home" },
+    { key: "orders", label: "الطلبات", icon: "shopping-bag", badge: adminOrders.filter(o => o.status === "pending").length },
+    { key: "drivers", label: "السائقون", icon: "truck", badge: drivers.filter(d => d.status === "pending").length },
+    { key: "users", label: "المستخدمون", icon: "users" },
+    { key: "banners", label: "البانرات", icon: "image" },
+    { key: "categories", label: "الأقسام", icon: "grid" },
+    { key: "products", label: "المنتجات", icon: "package" },
+    { key: "areas", label: "المناطق", icon: "map-pin" },
+    { key: "promoCodes", label: "الخصومات", icon: "tag" },
+    { key: "notifications", label: "الإشعارات", icon: "bell" },
+  ];
+
   return (
-    <View style={{ flex: 1 }}>
-    <ScrollView
-      style={{ flex: 1, backgroundColor: theme.backgroundRoot }}
-      contentContainerStyle={{
-        paddingTop: headerHeight + Spacing.lg,
-        paddingBottom: insets.bottom + Spacing.xl,
-        paddingHorizontal: Spacing.lg,
-      }}
-    >
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.tabsScroll}>
-        <View style={styles.tabs}>
-          {[
-            { key: "banners", label: "البانرات" },
-            { key: "categories", label: "الأقسام" },
-            { key: "products", label: "المنتجات" },
-            { key: "areas", label: "مناطق التوصيل" },
-            { key: "orders", label: "الطلبات" },
-            { key: "drivers", label: "السائقين" },
-            { key: "promoCodes", label: "أكواد الخصم" },
-            { key: "notifications", label: "الإشعارات" },
-            { key: "users", label: "المستخدمين" },
-          ].map((tab) => {
-            const hasActiveDelivery = tab.key === "orders" && adminOrders.some(o => o.status === "in_delivery" || o.status === "picked_up");
+    <View style={{ flex: 1, backgroundColor: theme.backgroundRoot }}>
+      {/* Sticky tab bar */}
+      <View style={[styles.adminTabBar, { paddingTop: headerHeight, backgroundColor: theme.backgroundDefault }]}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.adminTabsRow}>
+          {TABS.map((tab) => {
+            const isActive = activeTab === tab.key;
             return (
-            <Pressable
-              key={tab.key}
-              style={[styles.tab, activeTab === tab.key && styles.tabActive]}
-              onPress={() => { setActiveTab(tab.key as TabType); resetForm(); }}
-            >
-              <ThemedText type="body" style={[styles.tabText, activeTab === tab.key && styles.tabTextActive]}>
-                {tab.label}
-              </ThemedText>
-              {hasActiveDelivery ? (
-                <View style={{ position: "absolute", top: 4, left: 4, width: 8, height: 8, borderRadius: 4, backgroundColor: "#4CAF50" }} />
-              ) : null}
-            </Pressable>
+              <Pressable
+                key={tab.key}
+                style={[styles.adminTab, isActive && { borderBottomColor: ADMIN_RED, borderBottomWidth: 2 }]}
+                onPress={() => { setActiveTab(tab.key); resetForm(); }}
+                testID={`tab-${tab.key}`}
+              >
+                <View style={{ position: "relative" }}>
+                  <Feather name={tab.icon} size={20} color={isActive ? ADMIN_RED : theme.textSecondary} />
+                  {tab.badge && tab.badge > 0 ? (
+                    <View style={styles.adminTabBadge}>
+                      <ThemedText style={{ fontSize: 9, color: "#fff", fontFamily: "Cairo_700Bold", lineHeight: 14 }}>{tab.badge > 9 ? "9+" : tab.badge}</ThemedText>
+                    </View>
+                  ) : null}
+                </View>
+                <ThemedText style={[styles.adminTabLabel, { color: isActive ? ADMIN_RED : theme.textSecondary }]}>
+                  {tab.label}
+                </ThemedText>
+              </Pressable>
             );
           })}
-        </View>
+        </ScrollView>
+        <View style={{ height: 1, backgroundColor: theme.border }} />
+      </View>
+
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={{ paddingTop: Spacing.lg, paddingBottom: insets.bottom + Spacing.xl, paddingHorizontal: Spacing.lg }}
+      >
+        {renderContent()}
       </ScrollView>
 
-      {renderContent()}
-    </ScrollView>
-    {renderAssignDriverModal()}
-    {renderTrackingModal()}
+      {renderAssignDriverModal()}
+      {renderTrackingModal()}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  tabsScroll: {
-    marginBottom: Spacing.lg,
-    flexGrow: 0,
+  // ── Admin tab bar ─────────────────────────────────────────
+  adminTabBar: {
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.06,
+    shadowRadius: 4,
+    elevation: 3,
+    zIndex: 10,
   },
-  tabs: {
+  adminTabsRow: {
     flexDirection: "row",
-    gap: Spacing.sm,
-    paddingVertical: Spacing.xs,
+    paddingHorizontal: Spacing.sm,
   },
-  tab: {
-    minHeight: 48,
-    paddingVertical: Spacing.md,
-    paddingHorizontal: Spacing.xl,
-    borderRadius: BorderRadius.lg,
-    backgroundColor: "#F3F4F6",
+  adminTab: {
     alignItems: "center",
     justifyContent: "center",
-    overflow: "visible",
+    gap: 3,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: 10,
+    minWidth: 64,
+    borderBottomColor: "transparent",
+    borderBottomWidth: 2,
   },
-  tabActive: {
-    backgroundColor: AppColors.primary,
+  adminTabLabel: {
+    fontFamily: "Cairo_400Regular",
+    fontSize: 10,
   },
-  tabText: {
-    color: "#6B7280",
-    fontSize: 12,
+  adminTabBadge: {
+    position: "absolute",
+    top: -5,
+    right: -8,
+    minWidth: 15,
+    height: 15,
+    borderRadius: 8,
+    backgroundColor: "#EF4444",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 2,
   },
-  tabTextActive: {
-    color: "#FFFFFF",
-    fontWeight: "600",
+  // ── Legacy (kept for existing tab content) ────────────────
+  tabsScroll: { marginBottom: Spacing.lg, flexGrow: 0 },
+  tabs: { flexDirection: "row", gap: Spacing.sm, paddingVertical: Spacing.xs },
+  tab: {
+    minHeight: 48, paddingVertical: Spacing.md, paddingHorizontal: Spacing.xl,
+    borderRadius: BorderRadius.lg, backgroundColor: "#F3F4F6",
+    alignItems: "center", justifyContent: "center", overflow: "visible",
   },
+  tabActive: { backgroundColor: AppColors.primary },
+  tabText: { color: "#6B7280", fontSize: 12 },
+  tabTextActive: { color: "#FFFFFF", fontWeight: "600" },
   formCard: {
     backgroundColor: "#FFFFFF",
     borderRadius: BorderRadius.lg,
