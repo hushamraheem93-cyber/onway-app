@@ -16,7 +16,6 @@ import DriverOrderDetailScreen from "@/screens/DriverOrderDetailScreen";
 import DriverBatchScreen from "@/screens/DriverBatchScreen";
 import ProfileCompletionScreen from "@/screens/ProfileCompletionScreen";
 import CategoriesScreen from "@/screens/CategoriesScreen";
-import AdminScreen from "@/screens/AdminScreen";
 import MapPickerScreen from "@/screens/MapPickerScreen";
 import CourierPickupScreen from "@/screens/CourierPickupScreen";
 import InternationalShoppingScreen from "@/screens/InternationalShoppingScreen";
@@ -44,7 +43,6 @@ export type RootStackParamList = {
   Checkout: undefined;
   OrderConfirmation: { order: Order };
   OrderTracking: { orderId: string };
-  Admin: undefined;
   MapPicker: undefined;
   CourierPickup: undefined;
   InternationalShopping: undefined;
@@ -200,13 +198,6 @@ export default function RootStackNavigator() {
         component={OrderTrackingScreen}
         options={{
           headerTitle: "تتبع الطلب",
-        }}
-      />
-      <Stack.Screen
-        name="Admin"
-        component={AdminScreen}
-        options={{
-          headerTitle: "لوحة التحكم",
         }}
       />
       <Stack.Screen
