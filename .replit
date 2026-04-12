@@ -69,3 +69,9 @@ externalPort = 80
 [[ports]]
 localPort = 8082
 externalPort = 3000
+
+[userenv]
+
+[userenv.shared]
+GOOGLE_CLIENT_ID = "116297695107-hq1eclup48in29qd1an5vv165nlbgf0a.apps.googleusercontent.com"
+ADMIN_GOOGLE_EMAIL = "husham.raheem93@gmail.com"

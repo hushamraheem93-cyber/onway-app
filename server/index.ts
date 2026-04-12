@@ -244,11 +244,48 @@ function configureExpoAndLanding(app: express.Application) {
     next();
   });
 
+  // Helper: render login page with injected values
+  function renderLogin(errorPlaceholder: string, googleBtnPlaceholder: string): string {
+    const clientId = process.env.GOOGLE_CLIENT_ID || "";
+    const template = fs.readFileSync(loginTemplatePath, "utf-8");
+    return template
+      .replace("ERROR_PLACEHOLDER", errorPlaceholder)
+      .replace("GOOGLE_BTN_PLACEHOLDER", googleBtnPlaceholder);
+  }
+
+  function buildGoogleBtn(clientId: string): string {
+    if (!clientId) return "";
+    return `
+      <div id="google-signin-div" style="display:flex;justify-content:center;"></div>
+      <script>
+        window.addEventListener('load', function() {
+          if (typeof google === 'undefined') return;
+          google.accounts.id.initialize({
+            client_id: '${clientId}',
+            callback: handleGoogleCredential,
+            ux_mode: 'popup',
+          });
+          google.accounts.id.renderButton(
+            document.getElementById('google-signin-div'),
+            {
+              theme: 'outline',
+              size: 'large',
+              width: 320,
+              text: 'signin_with',
+              locale: 'ar',
+              shape: 'rectangular',
+            }
+          );
+        });
+      <\/script>
+    `;
+  }
+
   // GET /admin/login — show login page
   app.get("/admin/login", (req: Request, res: Response) => {
     if (isValidSession(req)) return res.redirect("/admin");
-    const loginTemplate = fs.readFileSync(loginTemplatePath, "utf-8");
-    const html = loginTemplate.replace("ERROR_PLACEHOLDER", "");
+    const clientId = process.env.GOOGLE_CLIENT_ID || "";
+    const html = renderLogin("", buildGoogleBtn(clientId));
     res.setHeader("Content-Type", "text/html; charset=utf-8");
     res.status(200).send(html);
   });
@@ -266,20 +303,59 @@ function configureExpoAndLanding(app: express.Application) {
       );
       return res.redirect("/admin");
     }
-    const loginTemplate = fs.readFileSync(loginTemplatePath, "utf-8");
-    const errorHtml = `<div class="error">اسم المستخدم أو كلمة المرور غير صحيحة</div>`;
-    const html = loginTemplate.replace("ERROR_PLACEHOLDER", errorHtml);
+    const clientId = process.env.GOOGLE_CLIENT_ID || "";
+    const html = renderLogin(`<div class="error">اسم المستخدم أو كلمة المرور غير صحيحة</div>`, buildGoogleBtn(clientId));
     res.setHeader("Content-Type", "text/html; charset=utf-8");
     res.status(401).send(html);
+  });
+
+  // POST /admin/google-signin — verify Google ID token and create session
+  app.post("/admin/google-signin", express.json(), async (req: Request, res: Response) => {
+    const { credential } = req.body || {};
+    if (!credential) return res.status(400).json({ error: "بيانات تسجيل الدخول غير موجودة" });
+
+    try {
+      // Verify token with Google
+      const verifyRes = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${credential}`);
+      if (!verifyRes.ok) return res.status(401).json({ error: "فشل التحقق من حساب Google" });
+
+      const payload = await verifyRes.json() as { email?: string; email_verified?: string; aud?: string };
+
+      // Verify the token is for our app
+      const expectedClientId = process.env.GOOGLE_CLIENT_ID;
+      if (expectedClientId && payload.aud !== expectedClientId) {
+        return res.status(401).json({ error: "توكن غير صالح" });
+      }
+
+      // Verify email is verified
+      if (payload.email_verified !== "true") {
+        return res.status(401).json({ error: "يجب أن يكون البريد الإلكتروني موثقاً" });
+      }
+
+      // Check email against allowed admin email
+      const allowedEmail = process.env.ADMIN_GOOGLE_EMAIL || "";
+      if (!allowedEmail || payload.email?.toLowerCase() !== allowedEmail.toLowerCase()) {
+        return res.status(403).json({ error: `هذا الحساب (${payload.email}) غير مصرح له بالدخول` });
+      }
+
+      // Valid — create session
+      const token = makeToken();
+      const maxAge = 60 * 60 * 24 * 7; // 7 days
+      res.setHeader("Set-Cookie", `${ADMIN_COOKIE}=${token}; HttpOnly; SameSite=Strict; Max-Age=${maxAge}; Path=/`);
+      return res.json({ success: true, redirect: "/admin" });
+    } catch (e) {
+      console.error("[Google signin error]", e);
+      return res.status(500).json({ error: "حدث خطأ داخلي. حاول مرة أخرى." });
+    }
   });
 
   // POST /admin/reset-password — reset using env var master key as recovery code
   app.post("/admin/reset-password", express.urlencoded({ extended: false }), async (req: Request, res: Response) => {
     const { recoveryCode, newUsername, newPassword, confirmPassword } = req.body || {};
-    const loginTemplate = fs.readFileSync(loginTemplatePath, "utf-8");
+    const clientId = process.env.GOOGLE_CLIENT_ID || "";
     const send = (status: number, msg: string, isSuccess = false) => {
       const cls = isSuccess ? "success" : "error";
-      const html = loginTemplate.replace("ERROR_PLACEHOLDER", `<div class="${cls}">${msg}</div>`);
+      const html = renderLogin(`<div class="${cls}">${msg}</div>`, buildGoogleBtn(clientId));
       res.setHeader("Content-Type", "text/html; charset=utf-8");
       return res.status(status).send(html);
     };

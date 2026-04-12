@@ -4302,6 +4302,39 @@ import * as fs2 from "fs";
 import * as path2 from "path";
 import * as crypto from "crypto";
 initializeFirebase();
+function hashPassword(pass) {
+  return crypto.createHash("sha256").update(`onway::${pass}`).digest("hex");
+}
+async function getCustomCredentials() {
+  try {
+    const db2 = getFirestore();
+    if (!db2) return null;
+    const doc = await db2.collection("adminConfig").doc("credentials").get();
+    if (!doc.exists) return null;
+    const data = doc.data();
+    return data?.username && data?.passwordHash ? data : null;
+  } catch {
+    return null;
+  }
+}
+async function setCustomCredentials(username, password) {
+  const db2 = getFirestore();
+  if (!db2) throw new Error("Database not configured");
+  await db2.collection("adminConfig").doc("credentials").set({
+    username,
+    passwordHash: hashPassword(password),
+    updatedAt: (/* @__PURE__ */ new Date()).toISOString()
+  });
+}
+async function validateAdminCredentials(username, password) {
+  const custom = await getCustomCredentials();
+  if (custom) {
+    if (username === custom.username && hashPassword(password) === custom.passwordHash) return true;
+  }
+  const validUser = process.env.ADMIN_USERNAME;
+  const validPass = process.env.ADMIN_PASSWORD;
+  return username === validUser && password === validPass;
+}
 var app = express2();
 var log = console.log;
 function setupCors(app2) {
@@ -4447,18 +4480,49 @@ function configureExpoAndLanding(app2) {
     parseCookies(req);
     next();
   });
+  function renderLogin(errorPlaceholder, googleBtnPlaceholder) {
+    const clientId = process.env.GOOGLE_CLIENT_ID || "";
+    const template = fs2.readFileSync(loginTemplatePath, "utf-8");
+    return template.replace("ERROR_PLACEHOLDER", errorPlaceholder).replace("GOOGLE_BTN_PLACEHOLDER", googleBtnPlaceholder);
+  }
+  function buildGoogleBtn(clientId) {
+    if (!clientId) return "";
+    return `
+      <div id="google-signin-div" style="display:flex;justify-content:center;"></div>
+      <script>
+        window.addEventListener('load', function() {
+          if (typeof google === 'undefined') return;
+          google.accounts.id.initialize({
+            client_id: '${clientId}',
+            callback: handleGoogleCredential,
+            ux_mode: 'popup',
+          });
+          google.accounts.id.renderButton(
+            document.getElementById('google-signin-div'),
+            {
+              theme: 'outline',
+              size: 'large',
+              width: 320,
+              text: 'signin_with',
+              locale: 'ar',
+              shape: 'rectangular',
+            }
+          );
+        });
+      </script>
+    `;
+  }
   app2.get("/admin/login", (req, res) => {
     if (isValidSession(req)) return res.redirect("/admin");
-    const loginTemplate = fs2.readFileSync(loginTemplatePath, "utf-8");
-    const html = loginTemplate.replace("ERROR_PLACEHOLDER", "");
+    const clientId = process.env.GOOGLE_CLIENT_ID || "";
+    const html = renderLogin("", buildGoogleBtn(clientId));
     res.setHeader("Content-Type", "text/html; charset=utf-8");
     res.status(200).send(html);
   });
-  app2.post("/admin/login", express2.urlencoded({ extended: false }), (req, res) => {
+  app2.post("/admin/login", express2.urlencoded({ extended: false }), async (req, res) => {
     const { username, password } = req.body || {};
-    const validUser = process.env.ADMIN_USERNAME;
-    const validPass = process.env.ADMIN_PASSWORD;
-    if (username === validUser && password === validPass) {
+    const valid = await validateAdminCredentials(username, password);
+    if (valid) {
       const token = makeToken();
       const maxAge = 60 * 60 * 24 * 7;
       res.setHeader(
@@ -4467,11 +4531,86 @@ function configureExpoAndLanding(app2) {
       );
       return res.redirect("/admin");
     }
-    const loginTemplate = fs2.readFileSync(loginTemplatePath, "utf-8");
-    const errorHtml = `<div class="error">\u0627\u0633\u0645 \u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645 \u0623\u0648 \u0643\u0644\u0645\u0629 \u0627\u0644\u0645\u0631\u0648\u0631 \u063A\u064A\u0631 \u0635\u062D\u064A\u062D\u0629</div>`;
-    const html = loginTemplate.replace("ERROR_PLACEHOLDER", errorHtml);
+    const clientId = process.env.GOOGLE_CLIENT_ID || "";
+    const html = renderLogin(`<div class="error">\u0627\u0633\u0645 \u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645 \u0623\u0648 \u0643\u0644\u0645\u0629 \u0627\u0644\u0645\u0631\u0648\u0631 \u063A\u064A\u0631 \u0635\u062D\u064A\u062D\u0629</div>`, buildGoogleBtn(clientId));
     res.setHeader("Content-Type", "text/html; charset=utf-8");
     res.status(401).send(html);
+  });
+  app2.post("/admin/google-signin", express2.json(), async (req, res) => {
+    const { credential } = req.body || {};
+    if (!credential) return res.status(400).json({ error: "\u0628\u064A\u0627\u0646\u0627\u062A \u062A\u0633\u062C\u064A\u0644 \u0627\u0644\u062F\u062E\u0648\u0644 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F\u0629" });
+    try {
+      const verifyRes = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${credential}`);
+      if (!verifyRes.ok) return res.status(401).json({ error: "\u0641\u0634\u0644 \u0627\u0644\u062A\u062D\u0642\u0642 \u0645\u0646 \u062D\u0633\u0627\u0628 Google" });
+      const payload = await verifyRes.json();
+      const expectedClientId = process.env.GOOGLE_CLIENT_ID;
+      if (expectedClientId && payload.aud !== expectedClientId) {
+        return res.status(401).json({ error: "\u062A\u0648\u0643\u0646 \u063A\u064A\u0631 \u0635\u0627\u0644\u062D" });
+      }
+      if (payload.email_verified !== "true") {
+        return res.status(401).json({ error: "\u064A\u062C\u0628 \u0623\u0646 \u064A\u0643\u0648\u0646 \u0627\u0644\u0628\u0631\u064A\u062F \u0627\u0644\u0625\u0644\u0643\u062A\u0631\u0648\u0646\u064A \u0645\u0648\u062B\u0642\u0627\u064B" });
+      }
+      const allowedEmail = process.env.ADMIN_GOOGLE_EMAIL || "";
+      if (!allowedEmail || payload.email?.toLowerCase() !== allowedEmail.toLowerCase()) {
+        return res.status(403).json({ error: `\u0647\u0630\u0627 \u0627\u0644\u062D\u0633\u0627\u0628 (${payload.email}) \u063A\u064A\u0631 \u0645\u0635\u0631\u062D \u0644\u0647 \u0628\u0627\u0644\u062F\u062E\u0648\u0644` });
+      }
+      const token = makeToken();
+      const maxAge = 60 * 60 * 24 * 7;
+      res.setHeader("Set-Cookie", `${ADMIN_COOKIE}=${token}; HttpOnly; SameSite=Strict; Max-Age=${maxAge}; Path=/`);
+      return res.json({ success: true, redirect: "/admin" });
+    } catch (e) {
+      console.error("[Google signin error]", e);
+      return res.status(500).json({ error: "\u062D\u062F\u062B \u062E\u0637\u0623 \u062F\u0627\u062E\u0644\u064A. \u062D\u0627\u0648\u0644 \u0645\u0631\u0629 \u0623\u062E\u0631\u0649." });
+    }
+  });
+  app2.post("/admin/reset-password", express2.urlencoded({ extended: false }), async (req, res) => {
+    const { recoveryCode, newUsername, newPassword, confirmPassword } = req.body || {};
+    const clientId = process.env.GOOGLE_CLIENT_ID || "";
+    const send = (status, msg, isSuccess = false) => {
+      const cls = isSuccess ? "success" : "error";
+      const html = renderLogin(`<div class="${cls}">${msg}</div>`, buildGoogleBtn(clientId));
+      res.setHeader("Content-Type", "text/html; charset=utf-8");
+      return res.status(status).send(html);
+    };
+    if (recoveryCode !== process.env.ADMIN_PASSWORD) {
+      return send(401, "\u0631\u0645\u0632 \u0627\u0644\u0627\u0633\u062A\u0631\u062F\u0627\u062F \u063A\u064A\u0631 \u0635\u062D\u064A\u062D");
+    }
+    if (!newUsername || newUsername.length < 3) return send(400, "\u0627\u0633\u0645 \u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645 \u064A\u062C\u0628 \u0623\u0646 \u064A\u0643\u0648\u0646 3 \u0623\u062D\u0631\u0641 \u0639\u0644\u0649 \u0627\u0644\u0623\u0642\u0644");
+    if (!newPassword || newPassword.length < 6) return send(400, "\u0643\u0644\u0645\u0629 \u0627\u0644\u0645\u0631\u0648\u0631 \u064A\u062C\u0628 \u0623\u0646 \u062A\u0643\u0648\u0646 6 \u0623\u062D\u0631\u0641 \u0639\u0644\u0649 \u0627\u0644\u0623\u0642\u0644");
+    if (newPassword !== confirmPassword) return send(400, "\u0643\u0644\u0645\u062A\u0627 \u0627\u0644\u0645\u0631\u0648\u0631 \u063A\u064A\u0631 \u0645\u062A\u0637\u0627\u0628\u0642\u062A\u064A\u0646");
+    try {
+      await setCustomCredentials(newUsername, newPassword);
+      return send(200, "\u062A\u0645 \u062A\u063A\u064A\u064A\u0631 \u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u062F\u062E\u0648\u0644 \u0628\u0646\u062C\u0627\u062D. \u064A\u0645\u0643\u0646\u0643 \u0627\u0644\u062F\u062E\u0648\u0644 \u0627\u0644\u0622\u0646.", true);
+    } catch {
+      return send(500, "\u0641\u0634\u0644 \u0641\u064A \u062D\u0641\u0638 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A. \u062D\u0627\u0648\u0644 \u0645\u0631\u0629 \u0623\u062E\u0631\u0649.");
+    }
+  });
+  app2.post("/api/admin/change-credentials", express2.json(), async (req, res) => {
+    if (!isValidSession(req)) return res.status(401).json({ error: "\u063A\u064A\u0631 \u0645\u0635\u0631\u062D" });
+    const { currentPassword, newUsername, newPassword, confirmPassword } = req.body || {};
+    if (!currentPassword) return res.status(400).json({ error: "\u0643\u0644\u0645\u0629 \u0627\u0644\u0645\u0631\u0648\u0631 \u0627\u0644\u062D\u0627\u0644\u064A\u0629 \u0645\u0637\u0644\u0648\u0628\u0629" });
+    const custom = await getCustomCredentials();
+    const currentUsername = custom ? custom.username : process.env.ADMIN_USERNAME || "admin";
+    const valid = await validateAdminCredentials(currentUsername, currentPassword);
+    if (!valid) return res.status(401).json({ error: "\u0643\u0644\u0645\u0629 \u0627\u0644\u0645\u0631\u0648\u0631 \u0627\u0644\u062D\u0627\u0644\u064A\u0629 \u063A\u064A\u0631 \u0635\u062D\u064A\u062D\u0629" });
+    if (!newUsername || newUsername.length < 3) return res.status(400).json({ error: "\u0627\u0633\u0645 \u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645 \u064A\u062C\u0628 \u0623\u0646 \u064A\u0643\u0648\u0646 3 \u0623\u062D\u0631\u0641 \u0639\u0644\u0649 \u0627\u0644\u0623\u0642\u0644" });
+    if (!newPassword || newPassword.length < 6) return res.status(400).json({ error: "\u0643\u0644\u0645\u0629 \u0627\u0644\u0645\u0631\u0648\u0631 \u064A\u062C\u0628 \u0623\u0646 \u062A\u0643\u0648\u0646 6 \u0623\u062D\u0631\u0641 \u0639\u0644\u0649 \u0627\u0644\u0623\u0642\u0644" });
+    if (newPassword !== confirmPassword) return res.status(400).json({ error: "\u0643\u0644\u0645\u062A\u0627 \u0627\u0644\u0645\u0631\u0648\u0631 \u063A\u064A\u0631 \u0645\u062A\u0637\u0627\u0628\u0642\u062A\u064A\u0646" });
+    try {
+      await setCustomCredentials(newUsername, newPassword);
+      res.json({ success: true });
+    } catch {
+      res.status(500).json({ error: "\u0641\u0634\u0644 \u0641\u064A \u0627\u0644\u062D\u0641\u0638. \u062D\u0627\u0648\u0644 \u0645\u0631\u0629 \u0623\u062E\u0631\u0649." });
+    }
+  });
+  app2.get("/api/admin/credentials-info", async (req, res) => {
+    if (!isValidSession(req)) return res.status(401).json({ error: "\u063A\u064A\u0631 \u0645\u0635\u0631\u062D" });
+    const custom = await getCustomCredentials();
+    res.json({
+      username: custom ? custom.username : process.env.ADMIN_USERNAME || "admin",
+      isCustom: !!custom,
+      updatedAt: custom?.updatedAt || null
+    });
   });
   app2.get("/admin/logout", (_req, res) => {
     res.setHeader("Set-Cookie", `${ADMIN_COOKIE}=; HttpOnly; Max-Age=0; Path=/`);

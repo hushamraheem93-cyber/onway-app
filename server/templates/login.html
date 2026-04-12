@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>تسجيل الدخول — لوحة التحكم</title>
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -33,19 +34,6 @@
       margin-bottom: 32px;
     }
 
-    .logo-icon {
-      width: 72px;
-      height: 72px;
-      background: linear-gradient(135deg, #E86520, #FF8C4B);
-      border-radius: 20px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      margin: 0 auto 16px;
-      font-size: 32px;
-      box-shadow: 0 8px 24px rgba(232, 101, 32, 0.4);
-    }
-
     .logo h1 {
       color: #ffffff;
       font-size: 22px;
@@ -59,8 +47,58 @@
       margin-top: 4px;
     }
 
+    .google-btn {
+      width: 100%;
+      padding: 14px 20px;
+      background: #ffffff;
+      border: none;
+      border-radius: 12px;
+      color: #1f1f1f;
+      font-size: 15px;
+      font-weight: 600;
+      font-family: inherit;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      transition: background 0.2s, transform 0.1s, box-shadow 0.2s;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.25);
+      margin-bottom: 20px;
+    }
+
+    .google-btn:hover { background: #f5f5f5; box-shadow: 0 4px 20px rgba(0,0,0,0.3); }
+    .google-btn:active { transform: scale(0.98); }
+    .google-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+    .google-icon {
+      width: 20px;
+      height: 20px;
+      flex-shrink: 0;
+    }
+
+    .divider {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin: 20px 0;
+    }
+
+    .divider::before, .divider::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: rgba(255,255,255,0.12);
+    }
+
+    .divider span {
+      color: rgba(255,255,255,0.35);
+      font-size: 12px;
+      white-space: nowrap;
+    }
+
     .form-group {
-      margin-bottom: 18px;
+      margin-bottom: 16px;
     }
 
     label {
@@ -71,21 +109,21 @@
       margin-bottom: 8px;
     }
 
-    input {
+    input[type="text"], input[type="password"] {
       width: 100%;
-      padding: 14px 16px;
+      padding: 13px 16px;
       background: rgba(255,255,255,0.08);
       border: 1px solid rgba(255,255,255,0.12);
       border-radius: 12px;
       color: #ffffff;
-      font-size: 15px;
+      font-size: 14px;
       font-family: inherit;
       outline: none;
       transition: border-color 0.2s, background 0.2s;
       text-align: right;
     }
 
-    input:focus {
+    input[type="text"]:focus, input[type="password"]:focus {
       border-color: #E86520;
       background: rgba(232,101,32,0.08);
     }
@@ -94,16 +132,16 @@
 
     .btn {
       width: 100%;
-      padding: 15px;
+      padding: 14px;
       background: linear-gradient(135deg, #E86520, #FF8C4B);
       border: none;
       border-radius: 12px;
       color: #ffffff;
-      font-size: 16px;
+      font-size: 15px;
       font-weight: 700;
       font-family: inherit;
       cursor: pointer;
-      margin-top: 8px;
+      margin-top: 4px;
       transition: opacity 0.2s, transform 0.1s;
       box-shadow: 0 4px 16px rgba(232,101,32,0.4);
     }
@@ -121,17 +159,65 @@
       margin-bottom: 18px;
       text-align: center;
     }
+
+    .success {
+      background: rgba(16,185,129,0.15);
+      border: 1px solid rgba(16,185,129,0.3);
+      border-radius: 10px;
+      color: #6ee7b7;
+      font-size: 13px;
+      padding: 12px 14px;
+      margin-bottom: 18px;
+      text-align: center;
+    }
+
+    .loading-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.6);
+      backdrop-filter: blur(4px);
+      align-items: center;
+      justify-content: center;
+      z-index: 999;
+    }
+
+    .loading-overlay.active { display: flex; }
+
+    .spinner {
+      width: 48px;
+      height: 48px;
+      border: 4px solid rgba(255,255,255,0.1);
+      border-top-color: #E86520;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
   </style>
 </head>
 <body>
+
+  <div class="loading-overlay" id="loading-overlay">
+    <div style="text-align:center;">
+      <div class="spinner"></div>
+      <p style="color:white;margin-top:16px;font-size:14px;">جاري التحقق...</p>
+    </div>
+  </div>
+
   <div class="card">
     <div class="logo">
-      <img src="/uploads/onway-logo.png" alt="OnWay" style="width:90px;height:90px;border-radius:24px;object-fit:cover;margin:0 auto 16px;display:block;box-shadow:0 8px 24px rgba(232,101,32,0.35);" />
+      <img src="/uploads/onway-logo.png" alt="OnWay" style="width:80px;height:80px;border-radius:20px;object-fit:cover;margin:0 auto 14px;display:block;box-shadow:0 8px 24px rgba(232,101,32,0.35);" />
       <h1>OnWay</h1>
       <p>لوحة التحكم</p>
     </div>
 
     ERROR_PLACEHOLDER
+
+    <!-- Google Sign-In Button -->
+    GOOGLE_BTN_PLACEHOLDER
+
+    <div class="divider"><span>أو</span></div>
 
     <form method="POST" action="/admin/login">
       <div class="form-group">
@@ -145,5 +231,41 @@
       <button type="submit" class="btn">دخول</button>
     </form>
   </div>
+
+  <script>
+    function showLoading() {
+      document.getElementById('loading-overlay').classList.add('active');
+    }
+
+    function showError(msg) {
+      document.getElementById('loading-overlay').classList.remove('active');
+      const errDiv = document.createElement('div');
+      errDiv.className = 'error';
+      errDiv.textContent = msg;
+      const card = document.querySelector('.card');
+      const existing = card.querySelector('.error, .success');
+      if (existing) existing.replaceWith(errDiv);
+      else card.insertBefore(errDiv, card.children[1]);
+    }
+
+    async function handleGoogleCredential(response) {
+      showLoading();
+      try {
+        const res = await fetch('/admin/google-signin', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ credential: response.credential }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (res.ok && data.success) {
+          window.location.href = data.redirect || '/admin';
+        } else {
+          showError(data.error || 'فشل تسجيل الدخول بـ Google');
+        }
+      } catch(e) {
+        showError('حدث خطأ في الاتصال. حاول مرة أخرى.');
+      }
+    }
+  </script>
 </body>
 </html>
