@@ -2654,6 +2654,7 @@
             <button class="btn btn-outline order-filter" data-status="delivered" onclick="filterOrders('delivered', this)">تم التوصيل</button>
             <button class="btn btn-outline order-filter" data-status="cancelled" onclick="filterOrders('cancelled', this)">ملغي</button>
             <button class="btn btn-outline order-filter" data-status="issue" onclick="filterOrders('issue', this)" style="color:#E86520;border-color:#E86520;">مشكلة</button>
+            <button class="btn btn-outline order-filter" data-status="rejected_flag" onclick="filterOrders('rejected_flag', this)" style="color:#DC2626;border-color:#DC2626;">انرفض</button>
           </div>
           <div style="display:flex;align-items:center;gap:10px;">
             <span class="online-dot"></span>
@@ -6007,7 +6008,14 @@
 
     function renderOrders() {
       const tbody = document.getElementById('orders-table');
-      let filteredOrders = currentOrderFilter === 'all' ? orders : orders.filter(o => o.status === currentOrderFilter);
+      let filteredOrders;
+      if (currentOrderFilter === 'all') {
+        filteredOrders = orders;
+      } else if (currentOrderFilter === 'rejected_flag') {
+        filteredOrders = orders.filter(o => !!o.rejectedAt && !['delivered','cancelled'].includes(o.status));
+      } else {
+        filteredOrders = orders.filter(o => o.status === currentOrderFilter);
+      }
       
       if (filteredOrders.length === 0) {
         tbody.innerHTML = '<tr><td colspan="10" style="text-align: center; padding: 40px; color: var(--gray-500);">لا توجد طلبات</td></tr>';
@@ -6031,6 +6039,10 @@
         if (order.status === 'pending') {
           actionButtons += `<button class="btn btn-sm" style="background:#3B82F6;color:white;margin-left:4px;" onclick="event.stopPropagation();updateOrderStatus('${order.id}','confirmed','${order.phoneNumber}')"><i data-lucide="check"></i> تأكيد</button>`;
           actionButtons += `<button class="btn btn-sm" style="background:#EF4444;color:white;margin-left:4px;" onclick="event.stopPropagation();updateOrderStatus('${order.id}','cancelled','${order.phoneNumber}')"><i data-lucide="x"></i> إلغاء</button>`;
+        }
+        // Manual assign button: show for confirmed/preparing/ready orders
+        if (['confirmed','preparing','ready'].includes(order.status)) {
+          actionButtons += `<button class="btn btn-sm" style="background:#7C3AED;color:white;margin-left:4px;" onclick="event.stopPropagation();openAssignDriverModal('${order.id}')"><i data-lucide="user-check"></i> تحويل</button>`;
         }
         // Track driver button (only for "delivering" orders with a driver)
         if (order.status === 'delivering' && order.driverPhone) {
@@ -6079,6 +6091,7 @@
               <span style="background:${statusColor}20;color:${statusColor};padding:4px 10px;border-radius:20px;font-size:0.78rem;font-weight:600;white-space:nowrap;">
                 ${getOrderStatusLabel(order.status)}
               </span>
+              ${order.rejectedAt && !['delivered','cancelled'].includes(order.status) ? `<br><span style="background:#FEE2E2;color:#DC2626;padding:2px 7px;border-radius:10px;font-size:0.7rem;font-weight:700;margin-top:3px;display:inline-block;" title="رفض: ${escapeHtml(order.rejectedByDriver||'')}">انرفض</span>` : ''}
               ${order.status === 'issue' && order.issueType ? `<br><span style="font-size:0.7rem;color:#E86520;margin-top:3px;display:inline-block;">${order.issueType === 'no_answer' ? 'الزبون ما يرد' : order.issueType === 'unclear_address' ? 'العنوان غير واضح' : 'مشكلة أخرى'}</span>` : ''}
             </td>
             <td style="font-size:0.8rem;color:var(--gray-500);white-space:nowrap;">${timeAgo}</td>
@@ -7764,6 +7777,27 @@
   </div>
 
   </div>
+
+  <!-- ─── Assign Driver Modal ─── -->
+  <div id="assign-driver-modal" class="modal-overlay" onclick="if(event.target===this)closeAssignDriverModal()">
+    <div style="background:white;border-radius:16px;width:90%;max-width:480px;max-height:80vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,0.25);">
+      <div style="background:var(--primary);color:white;padding:18px 20px;display:flex;align-items:center;justify-content:space-between;">
+        <div>
+          <div style="font-weight:700;font-size:1rem;">تحويل الطلب لسائق</div>
+          <div id="assign-order-id-label" style="font-size:0.78rem;opacity:0.85;margin-top:2px;"></div>
+        </div>
+        <button onclick="closeAssignDriverModal()" style="background:rgba(255,255,255,0.2);border:none;color:white;width:32px;height:32px;border-radius:50%;cursor:pointer;font-size:1.1rem;display:flex;align-items:center;justify-content:center;">×</button>
+      </div>
+      <div style="padding:14px 16px;border-bottom:1px solid var(--gray-200);">
+        <input id="assign-driver-search" type="text" placeholder="بحث باسم أو رقم السائق..." oninput="renderAssignDriverList()" style="width:100%;padding:9px 12px;border:1px solid var(--gray-300);border-radius:8px;font-family:Cairo,sans-serif;font-size:0.88rem;outline:none;box-sizing:border-box;direction:rtl;">
+      </div>
+      <div id="assign-driver-list" style="overflow-y:auto;flex:1;padding:8px 0;"></div>
+      <div style="padding:12px 16px;border-top:1px solid var(--gray-200);text-align:center;">
+        <button onclick="closeAssignDriverModal()" style="background:var(--gray-200);color:var(--gray-700);border:none;border-radius:8px;padding:9px 28px;cursor:pointer;font-family:Cairo,sans-serif;font-size:0.88rem;font-weight:600;">إغلاق</button>
+      </div>
+    </div>
+  </div>
+
 </body>
 <script>
 // ─── Support Chat ──────────────────────────────────────────────────────────
@@ -7972,5 +8006,126 @@ document.addEventListener('DOMContentLoaded', () => {
     }).catch(() => {});
   }, 2000);
 });
+
+// ─── Assign Driver Modal ────────────────────────────────────────────────────
+let assignTargetOrderId = null;
+let assignDriversCache = [];
+
+async function openAssignDriverModal(orderId) {
+  assignTargetOrderId = orderId;
+  const order = orders.find(o => o.id === orderId);
+  document.getElementById('assign-order-id-label').textContent = order ? `طلب #${orderId.slice(-6)} — ${order.region || ''}` : `طلب #${orderId.slice(-6)}`;
+  document.getElementById('assign-driver-search').value = '';
+  document.getElementById('assign-driver-list').innerHTML = '<div style="text-align:center;padding:30px;color:var(--gray-500);">جاري التحميل...</div>';
+  document.getElementById('assign-driver-modal').classList.add('active');
+
+  try {
+    // Load all approved drivers
+    const [driversRes, queueRes] = await Promise.all([
+      fetch(`${API_BASE}/admin/drivers`),
+      fetch(`${API_BASE}/admin/driver-queue`)
+    ]);
+    const allDrivers = await driversRes.json();
+    const queueData = await queueRes.json();
+    const onlinePhones = new Set((queueData.queue || []).map(d => d.phoneNumber));
+
+    // Filter approved drivers
+    assignDriversCache = (allDrivers || [])
+      .filter(d => d.status === 'approved')
+      .map(d => ({ ...d, isOnline: onlinePhones.has(d.phoneNumber) }))
+      .sort((a, b) => {
+        // Online first
+        if (a.isOnline !== b.isOnline) return a.isOnline ? -1 : 1;
+        const aName = [a.firstName, a.secondName].filter(Boolean).join(' ') || a.fullName || '';
+        const bName = [b.firstName, b.secondName].filter(Boolean).join(' ') || b.fullName || '';
+        return aName.localeCompare(bName, 'ar');
+      });
+
+    renderAssignDriverList();
+  } catch(e) {
+    document.getElementById('assign-driver-list').innerHTML = '<div style="text-align:center;padding:30px;color:#EF4444;">فشل في تحميل السائقين</div>';
+  }
+}
+
+function renderAssignDriverList() {
+  const search = (document.getElementById('assign-driver-search').value || '').toLowerCase().trim();
+  const list = document.getElementById('assign-driver-list');
+
+  let drivers = assignDriversCache;
+  if (search) {
+    drivers = drivers.filter(d => {
+      const name = ([d.firstName, d.secondName].filter(Boolean).join(' ') || d.fullName || '').toLowerCase();
+      return name.includes(search) || (d.phoneNumber || '').includes(search);
+    });
+  }
+
+  if (drivers.length === 0) {
+    list.innerHTML = '<div style="text-align:center;padding:30px;color:var(--gray-500);">لا يوجد سائقون</div>';
+    return;
+  }
+
+  list.innerHTML = drivers.map(d => {
+    const name = [d.firstName, d.secondName].filter(Boolean).join(' ') || d.fullName || d.phoneNumber;
+    const wallet = (d.walletBalance || 0).toLocaleString('ar-IQ');
+    return `
+      <div onclick="confirmAssignDriver('${d.phoneNumber}','${escapeHtml(name)}')"
+           style="display:flex;align-items:center;gap:12px;padding:12px 16px;cursor:pointer;transition:background 0.12s;border-bottom:1px solid var(--gray-100);"
+           onmouseover="this.style.background='var(--gray-50)'" onmouseout="this.style.background=''">
+        <div style="width:40px;height:40px;border-radius:50%;background:${d.isOnline ? '#DCFCE7' : 'var(--gray-200)'};display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+          <i data-lucide="user" style="width:18px;height:18px;color:${d.isOnline ? '#16A34A' : 'var(--gray-500)'};"></i>
+        </div>
+        <div style="flex:1;min-width:0;">
+          <div style="font-weight:600;font-size:0.9rem;color:var(--gray-900);">${escapeHtml(name)}</div>
+          <div style="font-size:0.77rem;color:var(--gray-500);margin-top:1px;">${d.phoneNumber} • محفظة: ${wallet} د.ع</div>
+        </div>
+        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;">
+          ${d.isOnline ? '<span style="background:#DCFCE7;color:#16A34A;padding:2px 8px;border-radius:10px;font-size:0.72rem;font-weight:700;">متاح</span>' : '<span style="background:var(--gray-100);color:var(--gray-500);padding:2px 8px;border-radius:10px;font-size:0.72rem;">غير متاح</span>'}
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  lucide.createIcons();
+}
+
+async function confirmAssignDriver(driverPhone, driverName) {
+  if (!assignTargetOrderId) return;
+  const orderId = assignTargetOrderId;
+
+  // Optimistic close
+  closeAssignDriverModal();
+  showToast('info', 'جاري التحويل...', `يتم تحويل الطلب إلى ${driverName}`);
+
+  try {
+    const res = await fetch(`${API_BASE}/admin/orders/${orderId}/assign-driver`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ driverPhone })
+    });
+    const data = await res.json();
+    if (res.ok) {
+      showToast('success', 'تم التحويل', `تم تحويل الطلب إلى ${driverName} بنجاح`);
+      // Update local order data
+      const order = orders.find(o => o.id === orderId);
+      if (order) {
+        order.driverPhone = driverPhone;
+        order.driverName = driverName;
+        delete order.rejectedAt;
+        delete order.rejectedByDriver;
+        delete order.rejectedByPhone;
+        renderOrders();
+      }
+    } else {
+      showToast('error', 'فشل التحويل', data.error || 'حدث خطأ أثناء التحويل');
+    }
+  } catch(e) {
+    showToast('error', 'فشل التحويل', 'تعذر الاتصال بالخادم');
+  }
+}
+
+function closeAssignDriverModal() {
+  document.getElementById('assign-driver-modal').classList.remove('active');
+  assignTargetOrderId = null;
+}
 </script>
 </html>

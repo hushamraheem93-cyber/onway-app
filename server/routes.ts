@@ -1374,13 +1374,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (targetDriver) targetDriver.currentBatchId = batchId;
       batchedOrderIds.add(orderId);
 
-      // 8. Update order with driver info in Firestore
+      // 8. Update order with driver info in Firestore (also clear rejection flags)
       const driverName = [driver.firstName, driver.secondName].filter(Boolean).join(" ") || driver.fullName || driverPhone;
+      const { FieldValue } = await import("firebase-admin/firestore");
       await db.collection("orders").doc(orderId).update({
         driverPhone,
         driverName,
         batchId,
         status: order.status === "pending" ? "confirmed" : order.status,
+        rejectedAt: FieldValue.delete(),
+        rejectedByDriver: FieldValue.delete(),
+        rejectedByPhone: FieldValue.delete(),
       }).catch(() => {});
 
       // 9. Notify driver via push
@@ -2135,6 +2139,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         rejectedAt: new Date().toISOString(),
       });
       if (rejectionEvents.length > 50) rejectionEvents.splice(0, rejectionEvents.length - 50);
+      // Mark rejected orders in Firestore so admin can identify them
+      const db = getFirestore();
+      if (db && rejectedOrderIds.length > 0) {
+        for (const oid of rejectedOrderIds) {
+          db.collection("orders").doc(oid).update({
+            rejectedAt: new Date().toISOString(),
+            rejectedByDriver: driverName,
+            rejectedByPhone: phoneNumber,
+          }).catch(() => {});
+        }
+      }
       console.log(`[REJECT] Driver ${phoneNumber} (${driverName}) rejected batch ${targetBatchId} (${orderCount} orders) — cooldown set`);
       saveDriverActivity({ phoneNumber, type: "rejected", orderId: targetBatchId || orderId }).catch(() => {});
       // Offer waiting orders to another available driver (NOT the one who just rejected)

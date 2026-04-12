@@ -2525,11 +2525,15 @@ ${itemsList}
       if (targetDriver) targetDriver.currentBatchId = batchId;
       batchedOrderIds.add(orderId);
       const driverName = [driver.firstName, driver.secondName].filter(Boolean).join(" ") || driver.fullName || driverPhone;
+      const { FieldValue } = await import("firebase-admin/firestore");
       await db2.collection("orders").doc(orderId).update({
         driverPhone,
         driverName,
         batchId,
-        status: order.status === "pending" ? "confirmed" : order.status
+        status: order.status === "pending" ? "confirmed" : order.status,
+        rejectedAt: FieldValue.delete(),
+        rejectedByDriver: FieldValue.delete(),
+        rejectedByPhone: FieldValue.delete()
       }).catch(() => {
       });
       const driverPushToken = await getDriverPushToken(driverPhone);
@@ -3184,6 +3188,17 @@ ${itemsList}
         rejectedAt: (/* @__PURE__ */ new Date()).toISOString()
       });
       if (rejectionEvents.length > 50) rejectionEvents.splice(0, rejectionEvents.length - 50);
+      const db2 = getFirestore();
+      if (db2 && rejectedOrderIds.length > 0) {
+        for (const oid of rejectedOrderIds) {
+          db2.collection("orders").doc(oid).update({
+            rejectedAt: (/* @__PURE__ */ new Date()).toISOString(),
+            rejectedByDriver: driverName,
+            rejectedByPhone: phoneNumber
+          }).catch(() => {
+          });
+        }
+      }
       console.log(`[REJECT] Driver ${phoneNumber} (${driverName}) rejected batch ${targetBatchId} (${orderCount} orders) \u2014 cooldown set`);
       saveDriverActivity({ phoneNumber, type: "rejected", orderId: targetBatchId || orderId }).catch(() => {
       });
