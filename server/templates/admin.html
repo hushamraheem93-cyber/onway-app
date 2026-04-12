@@ -6040,8 +6040,8 @@
           actionButtons += `<button class="btn btn-sm" style="background:#3B82F6;color:white;margin-left:4px;" onclick="event.stopPropagation();updateOrderStatus('${order.id}','confirmed','${order.phoneNumber}')"><i data-lucide="check"></i> تأكيد</button>`;
           actionButtons += `<button class="btn btn-sm" style="background:#EF4444;color:white;margin-left:4px;" onclick="event.stopPropagation();updateOrderStatus('${order.id}','cancelled','${order.phoneNumber}')"><i data-lucide="x"></i> إلغاء</button>`;
         }
-        // Manual assign button: show for confirmed/preparing/ready orders
-        if (['confirmed','preparing','ready'].includes(order.status)) {
+        // Manual assign button: show for all orders except delivered/cancelled
+        if (!['delivered', 'cancelled'].includes(order.status)) {
           actionButtons += `<button class="btn btn-sm" style="background:#7C3AED;color:white;margin-left:4px;" onclick="event.stopPropagation();openAssignDriverModal('${order.id}')"><i data-lucide="user-check"></i> تحويل</button>`;
         }
         // Track driver button (only for "delivering" orders with a driver)
