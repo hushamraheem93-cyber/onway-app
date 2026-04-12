@@ -166,7 +166,7 @@ function getTrackingMapHTML(driverLat: number, driverLng: number, customerLat?: 
 
     var driverIcon = L.divIcon({
       className: '',
-      html: '<div class="driver-pulse"><div class="driver-inner"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg></div></div>',
+      html: '<div class="driver-pulse"><div class="driver-inner"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="18.5" cy="17.5" r="3.5"/><circle cx="5.5" cy="17.5" r="3.5"/><circle cx="15" cy="6" r="1"/><polyline points="12,5 5.5,17.5"/><polyline points="12,5 18.5,17.5"/><polyline points="12,5 15,9 18.5,17.5"/></svg></div></div>',
       iconSize: [48, 48],
       iconAnchor: [24, 24],
     });
