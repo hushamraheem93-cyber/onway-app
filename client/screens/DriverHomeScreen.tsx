@@ -30,7 +30,6 @@ import { AppColors, Spacing, BorderRadius, Shadows } from "@/constants/theme";
 import { getApiUrl } from "@/lib/query-client";
 import { formatPrice } from "@/constants/currency";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
-import { refreshDriverPushToken } from "@/hooks/usePushNotifications";
 
 const COUNTDOWN_SECONDS = 30;
 const RING_RADIUS = 42;
@@ -217,8 +216,9 @@ export default function DriverHomeScreen() {
     };
   }, [currentBatch?.status, currentBatch?.id]);
 
+  // Single sequential flow: handler → permissions → token → save to server
   useEffect(() => {
-    Notifications.requestPermissionsAsync().catch(() => {});
+    if (!phoneNumber) return;
     Notifications.setNotificationHandler({
       handleNotification: async () => ({
         shouldShowAlert: true,
@@ -228,13 +228,39 @@ export default function DriverHomeScreen() {
         shouldSetBadge: false,
       }),
     });
-  }, []);
-
-  // Refresh push token on mount so server always has a valid token
-  // even if driver hasn't toggled "online" yet
-  useEffect(() => {
-    if (!phoneNumber) return;
-    refreshDriverPushToken(phoneNumber).catch(() => {});
+    // Sequential: request permission THEN get token THEN save
+    (async () => {
+      try {
+        if (Platform.OS === "android") {
+          await Notifications.setNotificationChannelAsync("default", {
+            name: "Onway",
+            importance: Notifications.AndroidImportance.MAX,
+            vibrationPattern: [0, 250, 250, 250],
+            sound: "default",
+            enableVibrate: true,
+          });
+        }
+        const { status } = await Notifications.requestPermissionsAsync();
+        if (status !== "granted") {
+          console.log("[PUSH] Permission not granted on iOS");
+          return;
+        }
+        const tokenData = await Notifications.getExpoPushTokenAsync().catch(() => null);
+        if (!tokenData?.data) {
+          console.log("[PUSH] Could not get Expo push token");
+          return;
+        }
+        console.log("[PUSH] Got token, saving to server:", tokenData.data.slice(-12));
+        await fetch(new URL("/api/driver/refresh-push-token", getApiUrl()).toString(), {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ phoneNumber, pushToken: tokenData.data }),
+        });
+        console.log("[PUSH] Token saved to server successfully");
+      } catch (e) {
+        console.log("[PUSH] Error in token setup:", e);
+      }
+    })();
   }, [phoneNumber]);
 
   useEffect(() => {

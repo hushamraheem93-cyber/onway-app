@@ -293,7 +293,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     phoneNumber: string;
     joinedAt: number;
     currentBatchId?: string;
-    lastSeenAt?: number; // timestamp of last activity (location update or going online)
+    lastSeenAt?: number;
+    pushToken?: string; // cached in memory so no Firestore lookup needed on batch assign
   }
   const driverQueue: QueuedDriver[] = [];
   const driverAssignments: Map<string, string> = new Map(); // orderId → driverPhone
@@ -1925,10 +1926,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         } else {
           exists.lastSeenAt = Date.now();
         }
-        // Save push token for driver notifications
+        // Save push token for driver notifications (in-memory AND Firestore)
         if (pushToken && pushToken.startsWith("ExponentPushToken")) {
+          const qd = driverQueue.find(d => d.phoneNumber === phoneNumber);
+          if (qd) qd.pushToken = pushToken;
           saveDriverPushToken(phoneNumber, pushToken).catch(() => {});
-          console.log(`[PUSH] Saved driver push token for ${phoneNumber}`);
+          console.log(`[PUSH] Saved driver push token for ${phoneNumber}: ...${pushToken.slice(-12)}`);
+        } else {
+          console.log(`[PUSH] No valid push token provided for ${phoneNumber} on toggle-online`);
         }
         // Persist online status to Firestore
         updateDriverOnlineStatus(phoneNumber, true).catch(() => {});
@@ -1961,7 +1966,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     if (!pushToken.startsWith("ExponentPushToken")) return res.status(400).json({ error: "Invalid token" });
     try {
       await saveDriverPushToken(phoneNumber, pushToken);
-      console.log(`[PUSH] Refreshed driver push token for ${phoneNumber}`);
+      // Also update in-memory queue entry if driver is online
+      const qd = driverQueue.find(d => d.phoneNumber === phoneNumber);
+      if (qd) qd.pushToken = pushToken;
+      console.log(`[PUSH] Refreshed driver push token for ${phoneNumber}: ...${pushToken.slice(-12)}`);
       res.json({ ok: true });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
@@ -2626,10 +2634,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         qd.currentBatchId = batchId;
         optimizedIds.forEach(id => batchedOrderIds.add(id));
         console.log(`[BATCH] Created batch ${batchId} (${optimizedIds.length} orders, ~${totalDistance.toFixed(1)} km) for driver ${phoneNumber}`);
-        // Send push notification to driver
-        const driverPushToken = await getDriverPushToken(phoneNumber);
+        // Send push notification: use in-memory token first (fast), fallback to Firestore
+        const inMemoryToken = qd?.pushToken;
+        const driverPushToken = inMemoryToken || await getDriverPushToken(phoneNumber);
         if (driverPushToken) {
-          sendDriverBatchNotification(driverPushToken, optimizedIds.length, batchId).catch(() => {});
+          console.log(`[PUSH] Sending batch notification to driver ${phoneNumber} (token: ...${driverPushToken.slice(-12)})`);
+          sendDriverBatchNotification(driverPushToken, optimizedIds.length, batchId)
+            .then(ok => console.log(`[PUSH] Batch notification ${ok ? "sent OK" : "FAILED"} → ${phoneNumber}`))
+            .catch(e => console.error(`[PUSH] Batch notification error → ${phoneNumber}:`, e));
+        } else {
+          console.warn(`[PUSH] No push token for driver ${phoneNumber} — notification NOT sent`);
         }
       }
     } catch (e) {

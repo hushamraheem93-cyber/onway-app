@@ -3013,9 +3013,13 @@ ${itemsList}
           exists.lastSeenAt = Date.now();
         }
         if (pushToken && pushToken.startsWith("ExponentPushToken")) {
+          const qd = driverQueue.find((d) => d.phoneNumber === phoneNumber);
+          if (qd) qd.pushToken = pushToken;
           saveDriverPushToken(phoneNumber, pushToken).catch(() => {
           });
-          console.log(`[PUSH] Saved driver push token for ${phoneNumber}`);
+          console.log(`[PUSH] Saved driver push token for ${phoneNumber}: ...${pushToken.slice(-12)}`);
+        } else {
+          console.log(`[PUSH] No valid push token provided for ${phoneNumber} on toggle-online`);
         }
         updateDriverOnlineStatus(phoneNumber, true).catch(() => {
         });
@@ -3046,7 +3050,9 @@ ${itemsList}
     if (!pushToken.startsWith("ExponentPushToken")) return res.status(400).json({ error: "Invalid token" });
     try {
       await saveDriverPushToken(phoneNumber, pushToken);
-      console.log(`[PUSH] Refreshed driver push token for ${phoneNumber}`);
+      const qd = driverQueue.find((d) => d.phoneNumber === phoneNumber);
+      if (qd) qd.pushToken = pushToken;
+      console.log(`[PUSH] Refreshed driver push token for ${phoneNumber}: ...${pushToken.slice(-12)}`);
       res.json({ ok: true });
     } catch (error) {
       res.status(500).json({ error: error.message });
@@ -3615,10 +3621,13 @@ ${itemsList}
         qd.currentBatchId = batchId;
         optimizedIds.forEach((id) => batchedOrderIds.add(id));
         console.log(`[BATCH] Created batch ${batchId} (${optimizedIds.length} orders, ~${totalDistance.toFixed(1)} km) for driver ${phoneNumber}`);
-        const driverPushToken = await getDriverPushToken(phoneNumber);
+        const inMemoryToken = qd?.pushToken;
+        const driverPushToken = inMemoryToken || await getDriverPushToken(phoneNumber);
         if (driverPushToken) {
-          sendDriverBatchNotification(driverPushToken, optimizedIds.length, batchId).catch(() => {
-          });
+          console.log(`[PUSH] Sending batch notification to driver ${phoneNumber} (token: ...${driverPushToken.slice(-12)})`);
+          sendDriverBatchNotification(driverPushToken, optimizedIds.length, batchId).then((ok) => console.log(`[PUSH] Batch notification ${ok ? "sent OK" : "FAILED"} \u2192 ${phoneNumber}`)).catch((e) => console.error(`[PUSH] Batch notification error \u2192 ${phoneNumber}:`, e));
+        } else {
+          console.warn(`[PUSH] No push token for driver ${phoneNumber} \u2014 notification NOT sent`);
         }
       }
     } catch (e) {
