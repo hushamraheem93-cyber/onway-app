@@ -306,22 +306,70 @@ export default function DriverEarningsScreen() {
 
       {/* Commission info */}
       <View style={[styles.commissionCard, { backgroundColor: theme.backgroundDefault }, Shadows.sm]}>
-        <ThemedText type="h4" style={{ color: theme.text, textAlign: "right", marginBottom: Spacing.md }}>
-          نظام العمولة
-        </ThemedText>
-        <View style={styles.commissionRow}>
-          <ThemedText type="small" style={{ color: "#4CAF50", fontWeight: "700" }}>{formatPrice(750)}</ThemedText>
-          <ThemedText type="small" style={{ color: "#FF9800", fontWeight: "600" }}>عمولة {formatPrice(250)}</ThemedText>
-          <View style={{ flex: 1 }} />
-          <ThemedText type="body" style={{ color: theme.text }}>توصيل مطعم</ThemedText>
-          <Feather name="shopping-bag" size={15} color="#FF9800" />
+        <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: Spacing.sm, marginBottom: Spacing.lg }}>
+          <Feather name="percent" size={16} color={AppColors.primary} />
+          <ThemedText type="h4" style={{ color: theme.text }}>نظام العمولة</ThemedText>
         </View>
-        <View style={[styles.commissionRow, { marginTop: Spacing.sm }]}>
-          <ThemedText type="small" style={{ color: "#4CAF50", fontWeight: "700" }}>{formatPrice(2000)}</ThemedText>
-          <ThemedText type="small" style={{ color: "#2196F3", fontWeight: "600" }}>عمولة {formatPrice(1000)}</ThemedText>
-          <View style={{ flex: 1 }} />
-          <ThemedText type="body" style={{ color: theme.text }}>توصيل تسويق</ThemedText>
-          <Feather name="truck" size={15} color="#2196F3" />
+
+        {/* Legend */}
+        <View style={{ flexDirection: "row-reverse", gap: Spacing.lg, marginBottom: Spacing.md }}>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+            <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: "#4CAF50" }} />
+            <ThemedText type="small" style={{ color: theme.textSecondary }}>نصيب السائق</ThemedText>
+          </View>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+            <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: "#E0E0E0" }} />
+            <ThemedText type="small" style={{ color: theme.textSecondary }}>عمولة التطبيق</ThemedText>
+          </View>
+        </View>
+
+        {/* Restaurant row */}
+        <View style={{ marginBottom: Spacing.md }}>
+          <View style={{ flexDirection: "row-reverse", justifyContent: "space-between", alignItems: "center", marginBottom: Spacing.xs }}>
+            <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: Spacing.xs }}>
+              <Feather name="shopping-bag" size={13} color="#FF9800" />
+              <ThemedText type="body" style={{ color: theme.text, fontWeight: "600" }}>توصيل مطعم</ThemedText>
+            </View>
+            <View style={{ flexDirection: "row", gap: Spacing.sm, alignItems: "center" }}>
+              <ThemedText type="small" style={{ color: "#F44336", fontWeight: "600" }}>-{formatPrice(250)}</ThemedText>
+              <ThemedText type="small" style={{ color: "#4CAF50", fontWeight: "700" }}>+{formatPrice(750)}</ThemedText>
+            </View>
+          </View>
+          <View style={{ height: 10, borderRadius: 5, backgroundColor: "#E0E0E0", overflow: "hidden" }}>
+            <View style={{ width: "75%", height: "100%", backgroundColor: "#4CAF50", borderRadius: 5 }} />
+          </View>
+          <View style={{ flexDirection: "row-reverse", justifyContent: "space-between", marginTop: 3 }}>
+            <ThemedText style={{ fontSize: 10, color: "#4CAF50", fontWeight: "700" }}>75% للسائق</ThemedText>
+            <ThemedText style={{ fontSize: 10, color: theme.textSecondary }}>25% للتطبيق</ThemedText>
+          </View>
+        </View>
+
+        {/* Marketing row */}
+        <View>
+          <View style={{ flexDirection: "row-reverse", justifyContent: "space-between", alignItems: "center", marginBottom: Spacing.xs }}>
+            <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: Spacing.xs }}>
+              <Feather name="truck" size={13} color="#2196F3" />
+              <ThemedText type="body" style={{ color: theme.text, fontWeight: "600" }}>توصيل تسويق</ThemedText>
+            </View>
+            <View style={{ flexDirection: "row", gap: Spacing.sm, alignItems: "center" }}>
+              <ThemedText type="small" style={{ color: "#F44336", fontWeight: "600" }}>-{formatPrice(1000)}</ThemedText>
+              <ThemedText type="small" style={{ color: "#4CAF50", fontWeight: "700" }}>+{formatPrice(2000)}</ThemedText>
+            </View>
+          </View>
+          <View style={{ height: 10, borderRadius: 5, backgroundColor: "#E0E0E0", overflow: "hidden" }}>
+            <View style={{ width: "67%", height: "100%", backgroundColor: "#4CAF50", borderRadius: 5 }} />
+          </View>
+          <View style={{ flexDirection: "row-reverse", justifyContent: "space-between", marginTop: 3 }}>
+            <ThemedText style={{ fontSize: 10, color: "#4CAF50", fontWeight: "700" }}>67% للسائق</ThemedText>
+            <ThemedText style={{ fontSize: 10, color: theme.textSecondary }}>33% للتطبيق</ThemedText>
+          </View>
+        </View>
+
+        <View style={[styles.minWalletNote, { backgroundColor: theme.backgroundRoot }]}>
+          <Feather name="info" size={13} color={theme.textSecondary} />
+          <ThemedText type="small" style={{ color: theme.textSecondary, flex: 1, textAlign: "right" }}>
+            الحد الأدنى لرصيد المحفظة للعمل: {formatPrice(250)}
+          </ThemedText>
         </View>
       </View>
 
@@ -480,6 +528,14 @@ const styles = StyleSheet.create({
     flexDirection: "row-reverse",
     alignItems: "center",
     gap: Spacing.sm,
+  },
+  minWalletNote: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    gap: 6,
+    marginTop: Spacing.md,
+    padding: Spacing.sm,
+    borderRadius: BorderRadius.sm,
   },
   emptyState: {
     alignItems: "center",

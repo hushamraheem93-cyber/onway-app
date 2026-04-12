@@ -175,6 +175,12 @@ export default function DriverBatchScreen() {
   const completedCount = batch.orders.filter(o => o.status === "delivered").length;
   const progress = completedCount / Math.max(batch.totalOrders, 1);
 
+  // Determine step indicator phase
+  const hasPickupPending = batch.orders.some(o => o.status === "preparing" || o.status === "ready" || o.status === "confirmed");
+  const hasDeliveryActive = batch.orders.some(o => o.status === "picked_up" || o.status === "in_delivery");
+  const allDone = completedCount === batch.totalOrders && batch.totalOrders > 0;
+  const currentStep = allDone ? 2 : hasDeliveryActive && !hasPickupPending ? 1 : 0;
+
   const renderOrderCard = (order: BatchOrder, index: number) => {
     const cfg = STATUS_CONFIG[order.status] || STATUS_CONFIG.confirmed;
     const isLoading = loadingOrderId === order.id;
@@ -361,6 +367,37 @@ export default function DriverBatchScreen() {
         </View>
       </View>
 
+      {/* Step Indicator */}
+      <View style={[styles.stepRow, { backgroundColor: theme.backgroundDefault }]}>
+        {[
+          { label: "الاستلام", icon: "package" as const },
+          { label: "التوصيل", icon: "navigation" as const },
+          { label: "مكتمل", icon: "check-circle" as const },
+        ].map((step, idx) => {
+          const done = idx < currentStep;
+          const active = idx === currentStep;
+          const stepColor = done ? "#4CAF50" : active ? "#8B5CF6" : theme.border;
+          return (
+            <React.Fragment key={idx}>
+              <View style={styles.stepItem}>
+                <View style={[styles.stepCircle, {
+                  backgroundColor: done ? "#4CAF50" : active ? "#8B5CF6" : theme.backgroundRoot,
+                  borderColor: stepColor,
+                }]}>
+                  <Feather name={step.icon} size={14} color={done || active ? "#fff" : theme.textSecondary} />
+                </View>
+                <ThemedText type="small" style={{ color: active ? "#8B5CF6" : done ? "#4CAF50" : theme.textSecondary, fontWeight: active ? "700" : "400", fontSize: 11, marginTop: 4 }}>
+                  {step.label}
+                </ThemedText>
+              </View>
+              {idx < 2 ? (
+                <View style={[styles.stepLine, { backgroundColor: idx < currentStep ? "#4CAF50" : theme.border }]} />
+              ) : null}
+            </React.Fragment>
+          );
+        })}
+      </View>
+
       {/* Orders List */}
       <ScrollView
         contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + Spacing.xl }]}
@@ -509,4 +546,24 @@ const styles = StyleSheet.create({
   modalCancelBtn: { alignItems: "center", paddingVertical: Spacing.sm, marginTop: Spacing.xs },
   modalSent: { alignItems: "center", paddingVertical: Spacing.xl },
   modalSentIcon: { width: 70, height: 70, borderRadius: 35, justifyContent: "center", alignItems: "center" },
+  // Step indicator
+  stepRow: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    marginHorizontal: Spacing.lg,
+    marginTop: Spacing.sm,
+    marginBottom: Spacing.xs,
+    padding: Spacing.md,
+    borderRadius: BorderRadius.lg,
+  },
+  stepItem: { alignItems: "center", width: 64 },
+  stepCircle: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    borderWidth: 2,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  stepLine: { flex: 1, height: 2, marginBottom: 18 },
 });

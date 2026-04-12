@@ -1347,10 +1347,9 @@ export async function getWalletHistory(phoneNumber: string): Promise<any[]> {
   try {
     const snapshot = await db.collection("walletHistory")
       .where("phoneNumber", "==", phoneNumber)
-      .orderBy("timestamp", "desc")
-      .limit(50)
+      .limit(100)
       .get();
-    return snapshot.docs.map(doc => {
+    const rows = snapshot.docs.map(doc => {
       const data = doc.data();
       return {
         id: doc.id,
@@ -1358,6 +1357,13 @@ export async function getWalletHistory(phoneNumber: string): Promise<any[]> {
         timestamp: data.timestamp?.toDate?.() ? data.timestamp.toDate().toISOString() : data.timestamp,
       };
     });
+    // Sort newest-first in memory — avoids needing a composite Firestore index
+    rows.sort((a, b) => {
+      const ta = a.timestamp ? new Date(a.timestamp).getTime() : 0;
+      const tb = b.timestamp ? new Date(b.timestamp).getTime() : 0;
+      return tb - ta;
+    });
+    return rows.slice(0, 50);
   } catch (error) {
     console.error("Error getting wallet history:", error);
     return [];

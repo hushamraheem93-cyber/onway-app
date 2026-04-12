@@ -949,8 +949,8 @@ async function addWalletTransaction(data) {
 async function getWalletHistory(phoneNumber) {
   if (!db) return [];
   try {
-    const snapshot = await db.collection("walletHistory").where("phoneNumber", "==", phoneNumber).orderBy("timestamp", "desc").limit(50).get();
-    return snapshot.docs.map((doc) => {
+    const snapshot = await db.collection("walletHistory").where("phoneNumber", "==", phoneNumber).limit(100).get();
+    const rows = snapshot.docs.map((doc) => {
       const data = doc.data();
       return {
         id: doc.id,
@@ -958,6 +958,12 @@ async function getWalletHistory(phoneNumber) {
         timestamp: data.timestamp?.toDate?.() ? data.timestamp.toDate().toISOString() : data.timestamp
       };
     });
+    rows.sort((a, b) => {
+      const ta = a.timestamp ? new Date(a.timestamp).getTime() : 0;
+      const tb = b.timestamp ? new Date(b.timestamp).getTime() : 0;
+      return tb - ta;
+    });
+    return rows.slice(0, 50);
   } catch (error) {
     console.error("Error getting wallet history:", error);
     return [];

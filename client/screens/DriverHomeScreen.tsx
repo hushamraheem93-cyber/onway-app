@@ -6,11 +6,11 @@ import {
   FlatList,
   RefreshControl,
   ActivityIndicator,
-  Dimensions,
   Linking,
   Platform,
   Vibration,
   Modal,
+  Animated,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
@@ -20,6 +20,7 @@ import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import * as Location from "expo-location";
 import * as Notifications from "expo-notifications";
+import Svg, { Circle } from "react-native-svg";
 
 import { ThemedText } from "@/components/ThemedText";
 import { GradientBackground } from "@/components/GradientBackground";
@@ -30,7 +31,9 @@ import { getApiUrl } from "@/lib/query-client";
 import { formatPrice } from "@/constants/currency";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
 
-const { width: SCREEN_WIDTH } = Dimensions.get("window");
+const COUNTDOWN_SECONDS = 30;
+const RING_RADIUS = 42;
+const RING_CIRC = 2 * Math.PI * RING_RADIUS;
 
 export type OrderStatus =
   | "pending"
@@ -46,7 +49,6 @@ export type BatchStatus = "pending" | "in_progress" | "completed";
 
 export interface BatchOrder {
   id: string;
-  // Customer info
   customerName: string;
   customerPhone: string;
   customerId?: string;
@@ -56,7 +58,6 @@ export interface BatchOrder {
   customerLng?: number;
   latitude?: number;
   longitude?: number;
-  // Order details
   items: any[];
   total: number;
   totalPrice?: number;
@@ -66,10 +67,8 @@ export interface BatchOrder {
   distance?: number;
   estimatedTime?: string;
   notes?: string;
-  // Timestamps
   pickedUpAt?: string;
   deliveredAt?: string;
-  // Vendor / batch
   orderType?: string;
   vendorName?: string;
   vendorId?: string;
@@ -102,7 +101,7 @@ export default function DriverHomeScreen() {
   const insets = useSafeAreaInsets();
   const tabBarHeight = useBottomTabBarHeight();
   const { theme, isDark } = useTheme();
-  const { phoneNumber } = useAuth();
+  const { phoneNumber, userProfile } = useAuth();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
 
   const [isOnline, setIsOnline] = useState(false);
@@ -113,13 +112,34 @@ export default function DriverHomeScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
   const [walletBalance, setWalletBalance] = useState(0);
+  const [walletError, setWalletError] = useState("");
+  const [todayEarnings, setTodayEarnings] = useState(0);
   const [issueModalVisible, setIssueModalVisible] = useState(false);
   const [issueSent, setIssueSent] = useState(false);
   const [issueSending, setIssueSending] = useState(false);
   const [issueOrderId, setIssueOrderId] = useState<string | null>(null);
 
+  const [countdown, setCountdown] = useState(COUNTDOWN_SECONDS);
+  const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const prevBatchIdRef = useRef<string | null>(null);
   const isInitialLoadRef = useRef(true);
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+
+  // ── Pulse animation for incoming order card ────────────────────────────────
+  useEffect(() => {
+    if (currentBatch?.status === "pending") {
+      const pulse = Animated.loop(
+        Animated.sequence([
+          Animated.timing(pulseAnim, { toValue: 1.03, duration: 600, useNativeDriver: true }),
+          Animated.timing(pulseAnim, { toValue: 1, duration: 600, useNativeDriver: true }),
+        ])
+      );
+      pulse.start();
+      return () => pulse.stop();
+    } else {
+      pulseAnim.setValue(1);
+    }
+  }, [currentBatch?.status]);
 
   const triggerNewBatchAlert = useCallback((batch: CurrentBatch) => {
     Vibration.vibrate([0, 400, 200, 400, 200, 600]);
@@ -127,8 +147,10 @@ export default function DriverHomeScreen() {
     const firstOrder = batch.orders[0];
     Notifications.scheduleNotificationAsync({
       content: {
-        title: `دفعة جديدة - ${batch.totalOrders} طلب`,
-        body: firstOrder ? `${firstOrder.customerName || "زبون"} - ${firstOrder.region || firstOrder.address || ""}` : "",
+        title: `طلب جديد - ${batch.totalOrders} طلب`,
+        body: firstOrder
+          ? `${firstOrder.customerName || "زبون"} - ${firstOrder.region || firstOrder.address || ""}`
+          : "",
         sound: true,
         priority: Notifications.AndroidNotificationPriority.MAX,
       },
@@ -157,6 +179,7 @@ export default function DriverHomeScreen() {
         setCurrentBatch(newBatch);
         setDriverStatus(data.approvalStatus || "pending");
         setWalletBalance(data.walletBalance || 0);
+        setTodayEarnings(data.todayEarnings || 0);
       }
     } catch (e) {
       console.error("Error fetching driver status:", e);
@@ -164,6 +187,34 @@ export default function DriverHomeScreen() {
       setLoading(false);
     }
   }, [phoneNumber, triggerNewBatchAlert]);
+
+  // ── 30-second countdown for pending batch ─────────────────────────────────
+  useEffect(() => {
+    if (currentBatch?.status === "pending") {
+      setCountdown(COUNTDOWN_SECONDS);
+      countdownRef.current = setInterval(() => {
+        setCountdown((prev) => {
+          if (prev <= 1) {
+            clearInterval(countdownRef.current!);
+            handleRejectBatch();
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    } else {
+      if (countdownRef.current) {
+        clearInterval(countdownRef.current);
+        countdownRef.current = null;
+      }
+    }
+    return () => {
+      if (countdownRef.current) {
+        clearInterval(countdownRef.current);
+        countdownRef.current = null;
+      }
+    };
+  }, [currentBatch?.status, currentBatch?.id]);
 
   useEffect(() => {
     Notifications.requestPermissionsAsync().catch(() => {});
@@ -209,9 +260,17 @@ export default function DriverHomeScreen() {
         }
       })();
     } else {
-      if (gpsIntervalRef.current) { clearInterval(gpsIntervalRef.current); gpsIntervalRef.current = null; }
+      if (gpsIntervalRef.current) {
+        clearInterval(gpsIntervalRef.current);
+        gpsIntervalRef.current = null;
+      }
     }
-    return () => { if (gpsIntervalRef.current) { clearInterval(gpsIntervalRef.current); gpsIntervalRef.current = null; } };
+    return () => {
+      if (gpsIntervalRef.current) {
+        clearInterval(gpsIntervalRef.current);
+        gpsIntervalRef.current = null;
+      }
+    };
   }, [isOnline, sendLocation]);
 
   const handleToggleOnline = async () => {
@@ -220,7 +279,6 @@ export default function DriverHomeScreen() {
     setWalletError("");
     setIsToggling(true);
     try {
-      // Get push token to send to server when going online
       let pushToken: string | undefined;
       if (!isOnline) {
         try {
@@ -257,6 +315,10 @@ export default function DriverHomeScreen() {
   const handleAcceptBatch = async () => {
     if (!phoneNumber || !currentBatch) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+    if (countdownRef.current) {
+      clearInterval(countdownRef.current);
+      countdownRef.current = null;
+    }
     try {
       const res = await fetch(new URL("/api/driver/batch/accept", getApiUrl()).toString(), {
         method: "POST",
@@ -323,6 +385,15 @@ export default function DriverHomeScreen() {
     }
   };
 
+  const handleWhatsAppSupport = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    const supportNumber = "9647702891104";
+    const message = encodeURIComponent("مرحباً، أحتاج شحن رصيد محفظتي في تطبيق OnWay");
+    Linking.openURL(`https://wa.me/${supportNumber}?text=${message}`).catch(() => {
+      Linking.openURL(`whatsapp://send?phone=${supportNumber}&text=${message}`).catch(console.error);
+    });
+  };
+
   const onRefresh = async () => {
     setRefreshing(true);
     await fetchDriverStatus();
@@ -337,241 +408,343 @@ export default function DriverHomeScreen() {
     );
   }
 
-  const renderPendingApproval = () => (
-    <View style={styles.statusCard}>
-      <View style={[styles.statusIcon, { backgroundColor: "#FFF3E0" }]}>
-        <Feather name="clock" size={40} color="#FF9800" />
+  // ─── Earning ring color based on countdown ──────────────────────────────────
+  const countdownProgress = countdown / COUNTDOWN_SECONDS;
+  const ringColor = countdown > 15 ? AppColors.primary : countdown > 8 ? "#FF9800" : "#F44336";
+  const ringDashoffset = RING_CIRC * (1 - countdownProgress);
+
+  // ────────────────────────────────────────────────────────────────────────────
+  // RENDER SECTIONS
+  // ────────────────────────────────────────────────────────────────────────────
+
+  const renderStatusPending = () => (
+    <View style={[styles.statusCard, { backgroundColor: theme.backgroundDefault }, Shadows.sm]}>
+      <View style={[styles.statusIconWrap, { backgroundColor: "#FFF3E0" }]}>
+        <Feather name="clock" size={36} color="#FF9800" />
       </View>
-      <ThemedText type="h3" style={[styles.statusTitle, { color: theme.text }]}>قيد المراجعة</ThemedText>
-      <ThemedText type="body" style={[styles.statusSubtitle, { color: theme.textSecondary }]}>
+      <ThemedText type="h3" style={{ color: theme.text, marginTop: Spacing.md }}>قيد المراجعة</ThemedText>
+      <ThemedText type="body" style={{ color: theme.textSecondary, textAlign: "center", marginTop: Spacing.sm }}>
         حسابك قيد المراجعة من قبل الإدارة. سيتم إبلاغك عند الموافقة.
       </ThemedText>
     </View>
   );
 
-  const renderRejected = () => (
-    <View style={styles.statusCard}>
-      <View style={[styles.statusIcon, { backgroundColor: "#FFEBEE" }]}>
-        <Feather name="x-circle" size={40} color="#F44336" />
+  const renderStatusRejected = () => (
+    <View style={[styles.statusCard, { backgroundColor: theme.backgroundDefault }, Shadows.sm]}>
+      <View style={[styles.statusIconWrap, { backgroundColor: "#FFEBEE" }]}>
+        <Feather name="x-circle" size={36} color="#F44336" />
       </View>
-      <ThemedText type="h3" style={[styles.statusTitle, { color: theme.text }]}>تم رفض الطلب</ThemedText>
-      <ThemedText type="body" style={[styles.statusSubtitle, { color: theme.textSecondary }]}>
+      <ThemedText type="h3" style={{ color: theme.text, marginTop: Spacing.md }}>تم رفض الطلب</ThemedText>
+      <ThemedText type="body" style={{ color: theme.textSecondary, textAlign: "center", marginTop: Spacing.sm }}>
         للأسف تم رفض طلب التسجيل. تواصل مع الإدارة للمزيد من المعلومات.
       </ThemedText>
     </View>
   );
 
-  const handleWhatsAppSupport = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    const supportNumber = "9647702891104";
-    const message = encodeURIComponent("مرحباً، أحتاج شحن رصيد محفظتي في تطبيق OnWay");
-    Linking.openURL(`https://wa.me/${supportNumber}?text=${message}`).catch(() => {
-      Linking.openURL(`whatsapp://send?phone=${supportNumber}&text=${message}`).catch(console.error);
-    });
-  };
+  // ── Today earnings strip ────────────────────────────────────────────────────
+  const renderEarningsStrip = () => (
+    <View style={[styles.earningsStrip, { backgroundColor: AppColors.primary }]}>
+      <View style={styles.earningsStripItem}>
+        <ThemedText type="small" style={styles.earningsStripLabel}>أرباح اليوم</ThemedText>
+        <ThemedText type="h3" style={styles.earningsStripValue}>{formatPrice(todayEarnings)}</ThemedText>
+      </View>
+      <View style={styles.earningsStripDivider} />
+      <View style={styles.earningsStripItem}>
+        <ThemedText type="small" style={styles.earningsStripLabel}>المحفظة</ThemedText>
+        <ThemedText type="h3" style={[styles.earningsStripValue, walletBalance < 250 ? { color: "#FFCDD2" } : null]}>
+          {formatPrice(walletBalance)}
+        </ThemedText>
+      </View>
+      <View style={styles.earningsStripDivider} />
+      <View style={styles.earningsStripItem}>
+        <ThemedText type="small" style={styles.earningsStripLabel}>ترتيبك</ThemedText>
+        <ThemedText type="h3" style={styles.earningsStripValue}>
+          {queuePosition !== null ? `#${queuePosition}` : "-"}
+        </ThemedText>
+      </View>
+    </View>
+  );
 
-  const renderWalletCard = () => (
-    <View style={[styles.walletCard, { backgroundColor: theme.backgroundDefault }, Shadows.sm]}>
-      <View style={styles.walletRow}>
-        <View style={styles.walletInfo}>
-          <ThemedText type="small" style={{ color: theme.textSecondary }}>رصيد المحفظة</ThemedText>
-          <ThemedText type="h2" style={{ color: walletBalance < 250 ? "#F44336" : AppColors.primary, fontWeight: "800" }}>
-            {formatPrice(walletBalance)}
+  // ── Offline hero ────────────────────────────────────────────────────────────
+  const renderOfflineHero = () => (
+    <View style={[styles.offlineHero, { backgroundColor: theme.backgroundDefault }, Shadows.sm]}>
+      <View style={[styles.offlineIconCircle, { backgroundColor: theme.backgroundRoot }]}>
+        <Feather name="truck" size={44} color={isDark ? "#555" : "#BDBDBD"} />
+      </View>
+      <ThemedText type="h3" style={{ color: theme.text, marginTop: Spacing.lg }}>أنت غير متصل</ThemedText>
+      <ThemedText type="body" style={{ color: theme.textSecondary, textAlign: "center", marginTop: Spacing.sm, marginBottom: Spacing.xl }}>
+        شغّل زر الاتصال لبدء استقبال الطلبات
+      </ThemedText>
+      {walletBalance < 250 ? (
+        <View style={[styles.walletWarningBanner, { backgroundColor: "#FFF3E0" }]}>
+          <Feather name="alert-triangle" size={14} color="#E65100" />
+          <ThemedText type="small" style={{ color: "#E65100", flex: 1, textAlign: "right", marginRight: 4 }}>
+            رصيدك غير كافٍ ({formatPrice(walletBalance)}) — يجب على الأقل {formatPrice(250)} للعمل
           </ThemedText>
         </View>
-        <View style={[styles.walletIcon, { backgroundColor: walletBalance < 250 ? "#FFEBEE" : AppColors.primary + "15" }]}>
-          <Feather name="credit-card" size={24} color={walletBalance < 250 ? "#F44336" : AppColors.primary} />
+      ) : null}
+      {walletError ? (
+        <View style={[styles.walletWarningBanner, { backgroundColor: "#FFEBEE" }]}>
+          <Feather name="alert-circle" size={14} color="#C62828" />
+          <ThemedText type="small" style={{ color: "#C62828", flex: 1, textAlign: "right", marginRight: 4 }}>
+            {walletError}
+          </ThemedText>
         </View>
-      </View>
-      {walletBalance < 250 ? (
+      ) : null}
+    </View>
+  );
+
+  // ── Online toggle ───────────────────────────────────────────────────────────
+  const renderToggle = () => (
+    <Pressable
+      onPress={handleToggleOnline}
+      disabled={isToggling}
+      style={[
+        styles.toggleButton,
+        {
+          backgroundColor: isOnline ? AppColors.primary : (isDark ? theme.backgroundSecondary : "#F5F5F5"),
+          borderColor: isOnline ? AppColors.primary : theme.border,
+        },
+      ]}
+      testID="button-toggle-online"
+    >
+      {isToggling ? (
+        <ActivityIndicator size="small" color={isOnline ? "#fff" : AppColors.primary} />
+      ) : (
         <>
-          <View style={[styles.walletWarning, { backgroundColor: "#FFF3E0" }]}>
-            <Feather name="alert-triangle" size={16} color="#FF9800" />
-            <ThemedText type="small" style={{ color: "#E65100", flex: 1, textAlign: "right", marginRight: Spacing.xs }}>
-              رصيدك غير كافٍ للعمل. تواصل مع الدعم لشحن الرصيد.
-            </ThemedText>
-          </View>
-          <Pressable onPress={handleWhatsAppSupport} style={styles.whatsappButton} testID="button-whatsapp-support">
-            <Feather name="message-circle" size={20} color="#FFFFFF" />
-            <ThemedText type="body" style={styles.whatsappText}>تواصل مع الدعم عبر واتساب</ThemedText>
-          </Pressable>
+          <View style={[styles.toggleDot, { backgroundColor: isOnline ? "#fff" : "#BDBDBD" }]} />
+          <ThemedText type="h3" style={{ color: isOnline ? "#fff" : theme.text, fontWeight: "700" }}>
+            {isOnline ? "متصل" : "غير متصل"}
+          </ThemedText>
+          <Feather name={isOnline ? "wifi" : "wifi-off"} size={22} color={isOnline ? "#fff" : "#BDBDBD"} />
         </>
-      ) : null}
-    </View>
+      )}
+    </Pressable>
   );
 
-  const renderOnlineToggle = () => (
-    <View style={styles.toggleSection}>
-      <Pressable
-        onPress={handleToggleOnline}
-        disabled={isToggling}
-        style={[styles.toggleButton, {
-          backgroundColor: isOnline ? "#4CAF50" : isDark ? theme.backgroundSecondary : "#F5F5F5",
-          borderColor: isOnline ? "#4CAF50" : theme.border,
-        }]}
-        testID="button-toggle-online"
-      >
-        {isToggling ? (
-          <ActivityIndicator size="small" color={isOnline ? "#FFFFFF" : AppColors.primary} />
-        ) : (
-          <>
-            <View style={[styles.toggleDot, { backgroundColor: isOnline ? "#FFFFFF" : "#BDBDBD" }]} />
-            <ThemedText type="h3" style={[styles.toggleText, { color: isOnline ? "#FFFFFF" : theme.text }]}>
-              {isOnline ? "متصل" : "غير متصل"}
-            </ThemedText>
-            <Feather name={isOnline ? "wifi" : "wifi-off"} size={24} color={isOnline ? "#FFFFFF" : "#BDBDBD"} />
-          </>
-        )}
-      </Pressable>
-      {isOnline && queuePosition !== null ? (
-        <View style={[styles.queueCard, { backgroundColor: theme.backgroundDefault }, Shadows.sm]}>
-          <View style={styles.queueRow}>
-            <View style={[styles.queueBadge, { backgroundColor: AppColors.primary + "15" }]}>
-              <ThemedText type="h2" style={{ color: AppColors.primary }}>{queuePosition}</ThemedText>
-            </View>
-            <View style={styles.queueInfo}>
-              <ThemedText type="h4" style={{ color: theme.text }}>ترتيبك في الطابور</ThemedText>
-              <ThemedText type="small" style={{ color: theme.textSecondary }}>
-                {queuePosition === 1 ? "أنت التالي لاستلام دفعة" : `يوجد ${queuePosition - 1} سائق قبلك`}
-              </ThemedText>
-            </View>
-          </View>
-        </View>
-      ) : null}
-    </View>
-  );
-
-  const renderBatchCard = () => {
-    if (!currentBatch) return null;
-    const isPending = currentBatch.status === "pending";
-    const isInProgress = currentBatch.status === "in_progress";
-    const progress = currentBatch.completedOrders / Math.max(currentBatch.totalOrders, 1);
-
-    const badgeColor = isPending ? AppColors.primary : "#8B5CF6";
-    const badgeLabel = isPending ? "دفعة جديدة" : "جارٍ التوصيل";
+  // ── Incoming order card with countdown ──────────────────────────────────────
+  const renderIncomingOrder = () => {
+    if (!currentBatch || currentBatch.status !== "pending") return null;
+    const estimatedEarning = currentBatch.orders.reduce((sum, o) => {
+      const isRestaurant = o.orderType === "restaurant";
+      return sum + (isRestaurant ? 750 : 2000);
+    }, 0);
 
     return (
-      <View style={[styles.batchCard, { backgroundColor: theme.backgroundDefault }, Shadows.md]}>
-        {/* Batch Header */}
-        <View style={[styles.batchHeader, { borderBottomColor: theme.border }]}>
-          <View style={[styles.newOrderBadge, { backgroundColor: badgeColor }]}>
-            <ThemedText type="small" style={styles.newOrderText}>{badgeLabel}</ThemedText>
-          </View>
-          <View style={styles.batchMeta}>
-            <Feather name="layers" size={16} color={theme.textSecondary} />
-            <ThemedText type="small" style={{ color: theme.textSecondary }}>
-              {currentBatch.totalOrders} طلبات
-            </ThemedText>
-          </View>
+      <Animated.View style={[styles.incomingCard, { backgroundColor: theme.backgroundDefault, transform: [{ scale: pulseAnim }] }, Shadows.lg]}>
+        {/* Card top: "طلب جديد" badge */}
+        <View style={[styles.incomingBadgeRow, { backgroundColor: AppColors.primary + "15" }]}>
+          <View style={[styles.incomingDot]} />
+          <ThemedText type="body" style={{ color: AppColors.primary, fontWeight: "800", flex: 1, textAlign: "right" }}>
+            طلب جديد وصل!
+          </ThemedText>
         </View>
 
-        {/* Progress Bar (for in_progress) */}
-        {isInProgress ? (
-          <View style={styles.progressSection}>
-            <View style={styles.progressLabelRow}>
-              <ThemedText type="small" style={{ color: theme.textSecondary }}>
-                {currentBatch.completedOrders} / {currentBatch.totalOrders} تم التوصيل
-              </ThemedText>
-              <ThemedText type="small" style={{ color: AppColors.primary, fontWeight: "700" }}>
-                {Math.round(progress * 100)}%
-              </ThemedText>
-            </View>
-            <View style={[styles.progressBar, { backgroundColor: theme.border }]}>
-              <View style={[styles.progressFill, { width: `${Math.round(progress * 100)}%` as any, backgroundColor: AppColors.primary }]} />
+        <View style={styles.incomingBody}>
+          {/* Countdown ring */}
+          <View style={styles.countdownWrap}>
+            <Svg width={100} height={100}>
+              <Circle cx={50} cy={50} r={RING_RADIUS} stroke={theme.border} strokeWidth={7} fill="none" />
+              <Circle
+                cx={50} cy={50} r={RING_RADIUS}
+                stroke={ringColor}
+                strokeWidth={7}
+                fill="none"
+                strokeDasharray={RING_CIRC}
+                strokeDashoffset={ringDashoffset}
+                strokeLinecap="round"
+                rotation="-90"
+                origin="50,50"
+              />
+            </Svg>
+            <View style={styles.countdownCenter}>
+              <ThemedText type="h2" style={{ color: ringColor, fontWeight: "800" }}>{countdown}</ThemedText>
+              <ThemedText style={{ fontSize: 9, color: theme.textSecondary }}>ثانية</ThemedText>
             </View>
           </View>
-        ) : null}
 
-        {/* Order summary list */}
-        <View style={styles.ordersSummary}>
-          {currentBatch.orders.slice(0, 3).map((order, idx) => {
-            const isDelivered = order.status === "delivered";
-            const isPreparing = order.status === "preparing";
-            const isDelivering = order.status === "in_delivery" || order.status === "picked_up";
-            return (
-              <View key={order.id} style={[styles.orderSummaryRow, idx < Math.min(currentBatch.orders.length, 3) - 1 && { borderBottomWidth: 1, borderBottomColor: theme.border }]}>
-                <View style={styles.orderSummaryLeft}>
-                  <View style={[styles.seqBadge, {
-                    backgroundColor: isDelivered ? "#4CAF5020" : isDelivering ? "#2196F320" : isPreparing ? "#8B5CF620" : AppColors.primary + "20",
-                  }]}>
-                    {isDelivered
-                      ? <Feather name="check" size={12} color="#4CAF50" />
-                      : <ThemedText type="small" style={{ color: AppColors.primary, fontWeight: "800", fontSize: 11 }}>{order.deliverySequence}</ThemedText>
-                    }
-                  </View>
+          {/* Order summary */}
+          <View style={styles.incomingDetails}>
+            <View style={styles.incomingStatRow}>
+              <View style={[styles.incomingStatBadge, { backgroundColor: "#4CAF5018" }]}>
+                <Feather name="package" size={14} color="#4CAF50" />
+                <ThemedText type="small" style={{ color: "#4CAF50", fontWeight: "700" }}>
+                  {currentBatch.totalOrders} طلبات
+                </ThemedText>
+              </View>
+              <View style={[styles.incomingStatBadge, { backgroundColor: AppColors.primary + "18" }]}>
+                <Feather name="dollar-sign" size={14} color={AppColors.primary} />
+                <ThemedText type="small" style={{ color: AppColors.primary, fontWeight: "700" }}>
+                  {formatPrice(estimatedEarning)}
+                </ThemedText>
+              </View>
+            </View>
+
+            {currentBatch.orders.slice(0, 2).map((order, idx) => (
+              <View key={order.id} style={[styles.incomingOrderRow, idx === 0 && { borderTopWidth: 0 }, { borderTopColor: theme.border }]}>
+                <View style={[styles.seqDot, { backgroundColor: AppColors.primary }]}>
+                  <ThemedText style={{ color: "#fff", fontSize: 10, fontWeight: "800" }}>{order.deliverySequence}</ThemedText>
                 </View>
-                <View style={styles.orderSummaryInfo}>
+                <View style={{ flex: 1, alignItems: "flex-end" }}>
                   <ThemedText type="body" style={{ color: theme.text, fontWeight: "700" }} numberOfLines={1}>
                     {order.customerName || "زبون"}
                   </ThemedText>
-                  <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 4 }}>
-                    <Feather name="map-pin" size={11} color={theme.textSecondary} />
-                    <ThemedText type="small" style={{ color: theme.textSecondary }} numberOfLines={1}>
-                      {order.region || order.address}
-                    </ThemedText>
-                  </View>
-                  {order.items && order.items.length > 0 ? (
-                    <ThemedText type="small" style={{ color: theme.textSecondary, marginTop: 2 }} numberOfLines={2}>
-                      {order.items.map((it: any) => `${it.name} ×${it.quantity}`).join("، ")}
-                    </ThemedText>
-                  ) : null}
+                  <ThemedText type="small" style={{ color: theme.textSecondary }} numberOfLines={1}>
+                    {order.region || order.address}
+                  </ThemedText>
                 </View>
-                <ThemedText type="small" style={{ color: AppColors.primary, fontWeight: "700" }}>
-                  {formatPrice(order.total + (order.deliveryFee || 0))}
+              </View>
+            ))}
+            {currentBatch.orders.length > 2 ? (
+              <ThemedText type="small" style={{ color: theme.textSecondary, textAlign: "center", marginTop: 4 }}>
+                +{currentBatch.orders.length - 2} طلبات أخرى
+              </ThemedText>
+            ) : null}
+          </View>
+        </View>
+
+        {/* Accept / Reject */}
+        <View style={styles.incomingActions}>
+          <Pressable style={styles.rejectBtn} onPress={handleRejectBatch} testID="button-reject-batch">
+            <Feather name="x" size={18} color="#F44336" />
+            <ThemedText type="body" style={{ color: "#F44336", fontWeight: "700" }}>رفض</ThemedText>
+          </Pressable>
+          <Pressable style={styles.acceptBtn} onPress={handleAcceptBatch} testID="button-accept-batch">
+            <Feather name="check" size={20} color="#fff" />
+            <ThemedText type="h4" style={{ color: "#fff", fontWeight: "800" }}>قبول الطلب</ThemedText>
+          </Pressable>
+        </View>
+      </Animated.View>
+    );
+  };
+
+  // ── Active batch card ────────────────────────────────────────────────────────
+  const renderActiveBatch = () => {
+    if (!currentBatch || currentBatch.status !== "in_progress") return null;
+    const progress = currentBatch.completedOrders / Math.max(currentBatch.totalOrders, 1);
+
+    return (
+      <View style={[styles.activeBatchCard, { backgroundColor: theme.backgroundDefault }, Shadows.sm]}>
+        <View style={styles.activeBatchHeader}>
+          <View style={[styles.activeBadge, { backgroundColor: "#8B5CF620" }]}>
+            <View style={[styles.activePulse, { backgroundColor: "#8B5CF6" }]} />
+            <ThemedText type="small" style={{ color: "#8B5CF6", fontWeight: "700" }}>جارٍ التوصيل</ThemedText>
+          </View>
+          <View style={styles.activeBatchMeta}>
+            <Feather name="layers" size={14} color={theme.textSecondary} />
+            <ThemedText type="small" style={{ color: theme.textSecondary }}>
+              {currentBatch.completedOrders}/{currentBatch.totalOrders} طلب
+            </ThemedText>
+          </View>
+        </View>
+
+        {/* Progress bar */}
+        <View style={[styles.progressBar, { backgroundColor: theme.border }]}>
+          <View
+            style={[styles.progressFill, {
+              width: `${Math.round(progress * 100)}%` as any,
+              backgroundColor: "#8B5CF6",
+            }]}
+          />
+        </View>
+
+        {/* Orders mini list */}
+        <View style={{ marginTop: Spacing.sm }}>
+          {currentBatch.orders.slice(0, 3).map((order) => {
+            const done = order.status === "delivered";
+            const active = order.status === "in_delivery" || order.status === "picked_up";
+            const dotColor = done ? "#4CAF50" : active ? "#2196F3" : "#BDBDBD";
+            return (
+              <View key={order.id} style={styles.activeBatchOrderRow}>
+                <View style={[styles.orderDot, { backgroundColor: dotColor }]}>
+                  {done ? <Feather name="check" size={10} color="#fff" /> : null}
+                </View>
+                <View style={{ flex: 1, alignItems: "flex-end" }}>
+                  <ThemedText type="body" style={{ color: done ? theme.textSecondary : theme.text, fontWeight: done ? "400" : "600", textDecorationLine: done ? "line-through" : "none" }} numberOfLines={1}>
+                    {order.customerName || "زبون"}
+                  </ThemedText>
+                  <ThemedText type="small" style={{ color: theme.textSecondary }} numberOfLines={1}>
+                    {order.region || order.address}
+                  </ThemedText>
+                </View>
+                <ThemedText type="small" style={{ color: dotColor, fontWeight: "700" }}>
+                  {done ? "تم" : active ? "جارٍ" : "لاحقاً"}
                 </ThemedText>
               </View>
             );
           })}
-          {currentBatch.orders.length > 3 ? (
-            <ThemedText type="small" style={{ color: theme.textSecondary, textAlign: "center", paddingTop: Spacing.xs }}>
-              +{currentBatch.orders.length - 3} طلبات أخرى
-            </ThemedText>
-          ) : null}
         </View>
 
-        {/* Actions */}
-        {isPending ? (
-          <View style={styles.batchActions}>
-            <Pressable
-              style={[styles.rejectButton, { borderColor: "#F44336" }]}
-              onPress={handleRejectBatch}
-              testID="button-reject-batch"
-            >
-              <ThemedText type="h4" style={{ color: "#F44336", fontWeight: "700" }}>رفض</ThemedText>
-            </Pressable>
-            <Pressable
-              style={styles.acceptButton}
-              onPress={handleAcceptBatch}
-              testID="button-accept-batch"
-            >
-              <ThemedText type="h4" style={styles.acceptText}>قبول الدفعة</ThemedText>
-              <Feather name="check" size={20} color="#FFFFFF" />
-            </Pressable>
-          </View>
-        ) : null}
-
-        {isInProgress ? (
-          <Pressable
-            style={[styles.manageBatchButton, { backgroundColor: "#8B5CF6" }]}
-            onPress={() => navigation.navigate("DriverBatch", { batch: currentBatch })}
-            testID="button-manage-batch"
-          >
-            <Feather name="list" size={20} color="#FFFFFF" />
-            <ThemedText type="h4" style={styles.acceptText}>إدارة الدفعة</ThemedText>
-            <Feather name="chevron-left" size={20} color="#FFFFFF" />
-          </Pressable>
-        ) : null}
+        <Pressable
+          style={[styles.manageBatchBtn, { backgroundColor: "#8B5CF6" }]}
+          onPress={() => navigation.navigate("DriverBatch", { batch: currentBatch })}
+          testID="button-manage-batch"
+        >
+          <Feather name="navigation" size={18} color="#fff" />
+          <ThemedText type="h4" style={{ color: "#fff", fontWeight: "700" }}>إدارة التوصيل</ThemedText>
+          <Feather name="chevron-left" size={18} color="#fff" />
+        </Pressable>
       </View>
     );
   };
 
+  // ── Waiting state ────────────────────────────────────────────────────────────
+  const renderWaiting = () => (
+    <View style={[styles.waitingCard, { backgroundColor: theme.backgroundDefault }, Shadows.sm]}>
+      <ActivityIndicator size="small" color={AppColors.primary} style={{ marginBottom: Spacing.md }} />
+      <ThemedText type="h4" style={{ color: theme.text }}>في انتظار الطلبات</ThemedText>
+      <ThemedText type="small" style={{ color: theme.textSecondary, marginTop: Spacing.xs, textAlign: "center" }}>
+        {queuePosition === 1 ? "أنت التالي لاستلام دفعة" : queuePosition && queuePosition > 1 ? `يوجد ${queuePosition - 1} سائق قبلك` : "ستصلك الطلبات تلقائياً"}
+      </ThemedText>
+    </View>
+  );
+
+  // ── Wallet low warning ───────────────────────────────────────────────────────
+  const renderWalletWarning = () => {
+    if (walletBalance >= 250) return null;
+    return (
+      <View style={[styles.walletAlertCard, { backgroundColor: "#FFF3E0" }, Shadows.sm]}>
+        <View style={styles.walletAlertRow}>
+          <Feather name="alert-triangle" size={18} color="#E65100" />
+          <View style={{ flex: 1, alignItems: "flex-end" }}>
+            <ThemedText type="body" style={{ color: "#E65100", fontWeight: "700" }}>رصيد المحفظة منخفض</ThemedText>
+            <ThemedText type="small" style={{ color: "#BF360C" }}>
+              {formatPrice(walletBalance)} — الحد الأدنى {formatPrice(250)}
+            </ThemedText>
+          </View>
+        </View>
+        <Pressable onPress={handleWhatsAppSupport} style={styles.whatsappBtn} testID="button-whatsapp-support">
+          <Feather name="message-circle" size={18} color="#fff" />
+          <ThemedText type="body" style={{ color: "#fff", fontWeight: "700" }}>شحن الرصيد عبر واتساب</ThemedText>
+        </Pressable>
+      </View>
+    );
+  };
+
+  // ────────────────────────────────────────────────────────────────────────────
+  // MAIN RENDER
+  // ────────────────────────────────────────────────────────────────────────────
+
+  const driverName = userProfile?.fullName || "السائق";
+
   return (
     <View style={styles.container}>
       <GradientBackground />
-      <View style={[styles.header, { paddingTop: insets.top + Spacing.md, backgroundColor: AppColors.primary }]}>
-        <ThemedText type="h2" style={styles.headerTitle}>ONWAY</ThemedText>
-        <ThemedText type="small" style={styles.headerSubtitle}>لوحة السائق</ThemedText>
+
+      {/* Header */}
+      <View style={[styles.header, { paddingTop: insets.top + 4, backgroundColor: AppColors.primary }]}>
+        <View style={styles.headerRow}>
+          <View style={[styles.onlineDot, { backgroundColor: isOnline ? "#4CAF50" : "#78909C" }]} />
+          <ThemedText type="h2" style={styles.headerTitle}>ONWAY</ThemedText>
+          <View style={styles.headerNameWrap}>
+            <Feather name="user" size={13} color="rgba(255,255,255,0.8)" />
+            <ThemedText type="small" style={styles.headerName} numberOfLines={1}>{driverName}</ThemedText>
+          </View>
+        </View>
       </View>
+
+      {/* Earnings strip — only when online */}
+      {isOnline && driverStatus === "approved" ? renderEarningsStrip() : null}
 
       {/* Issue Report Modal */}
       <Modal
@@ -583,18 +756,16 @@ export default function DriverHomeScreen() {
         <Pressable style={styles.modalOverlay} onPress={() => !issueSending && setIssueModalVisible(false)}>
           <Pressable style={[styles.modalBox, { backgroundColor: theme.backgroundDefault }]} onPress={() => {}}>
             {issueSent ? (
-              <View style={styles.modalSent}>
-                <View style={[styles.modalSentIcon, { backgroundColor: "#E8F5E9" }]}>
+              <View style={{ alignItems: "center", paddingVertical: Spacing.xl }}>
+                <View style={[styles.statusIconWrap, { backgroundColor: "#E8F5E9" }]}>
                   <Feather name="check-circle" size={36} color="#4CAF50" />
                 </View>
-                <ThemedText type="h4" style={{ color: "#4CAF50", fontWeight: "700", marginTop: Spacing.md }}>
-                  تم إرسال المشكلة
-                </ThemedText>
+                <ThemedText type="h4" style={{ color: "#4CAF50", marginTop: Spacing.md }}>تم إرسال المشكلة</ThemedText>
               </View>
             ) : (
               <>
-                <View style={styles.modalHeader}>
-                  <Feather name="alert-triangle" size={22} color={AppColors.primary} />
+                <View style={styles.modalHeaderRow}>
+                  <Feather name="alert-triangle" size={20} color={AppColors.primary} />
                   <ThemedText type="h4" style={{ color: theme.text, fontWeight: "700" }}>إبلاغ عن مشكلة</ThemedText>
                 </View>
                 <ThemedText type="small" style={{ color: theme.textSecondary, textAlign: "center", marginBottom: Spacing.lg }}>
@@ -618,11 +789,7 @@ export default function DriverHomeScreen() {
                     </ThemedText>
                   </Pressable>
                 ))}
-                <Pressable
-                  style={styles.modalCancelBtn}
-                  onPress={() => setIssueModalVisible(false)}
-                  disabled={issueSending}
-                >
+                <Pressable style={{ alignItems: "center", paddingVertical: Spacing.sm, marginTop: Spacing.xs }} onPress={() => setIssueModalVisible(false)} disabled={issueSending}>
                   <ThemedText type="small" style={{ color: theme.textSecondary }}>إلغاء</ThemedText>
                 </Pressable>
               </>
@@ -635,24 +802,27 @@ export default function DriverHomeScreen() {
         data={[1]}
         renderItem={() => (
           <View style={styles.content}>
-            {driverStatus === "pending" ? renderPendingApproval() : null}
-            {driverStatus === "rejected" ? renderRejected() : null}
+            {driverStatus === "pending" ? renderStatusPending() : null}
+            {driverStatus === "rejected" ? renderStatusRejected() : null}
             {driverStatus === "approved" ? (
               <>
-                {renderWalletCard()}
-                {renderOnlineToggle()}
-                {renderBatchCard()}
-                {isOnline && !currentBatch ? (
-                  <View style={[styles.waitingCard, { backgroundColor: theme.backgroundDefault }, Shadows.sm]}>
-                    <Feather name="coffee" size={40} color={theme.textSecondary} />
-                    <ThemedText type="h4" style={{ color: theme.text, marginTop: Spacing.md }}>
-                      بانتظار دفعات جديدة
-                    </ThemedText>
-                    <ThemedText type="small" style={{ color: theme.textSecondary, marginTop: Spacing.xs }}>
-                      ستصلك الطلبات تلقائياً حسب ترتيبك في الطابور
-                    </ThemedText>
-                  </View>
-                ) : null}
+                {/* Online/Offline Toggle */}
+                {renderToggle()}
+
+                {/* Offline hero */}
+                {!isOnline ? renderOfflineHero() : null}
+
+                {/* Wallet warning (when online) */}
+                {isOnline ? renderWalletWarning() : null}
+
+                {/* Incoming order with countdown */}
+                {isOnline ? renderIncomingOrder() : null}
+
+                {/* Active batch */}
+                {isOnline ? renderActiveBatch() : null}
+
+                {/* Waiting state */}
+                {isOnline && !currentBatch ? renderWaiting() : null}
               </>
             ) : null}
           </View>
@@ -668,121 +838,275 @@ export default function DriverHomeScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
+
+  // Header
   header: {
     paddingHorizontal: Spacing.lg,
-    paddingBottom: Spacing.lg,
+    paddingBottom: Spacing.md,
+  },
+  headerRow: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  headerTitle: { color: "#fff", fontWeight: "800", fontSize: 18 },
+  onlineDot: { width: 10, height: 10, borderRadius: 5 },
+  headerNameWrap: { flexDirection: "row", alignItems: "center", gap: 4, flex: 1, justifyContent: "flex-end" },
+  headerName: { color: "rgba(255,255,255,0.85)", maxWidth: 110 },
+
+  // Earnings strip
+  earningsStrip: {
+    flexDirection: "row-reverse",
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.md,
+  },
+  earningsStripItem: { flex: 1, alignItems: "center" },
+  earningsStripLabel: { color: "rgba(255,255,255,0.75)", fontSize: 10, marginBottom: 2 },
+  earningsStripValue: { color: "#fff", fontWeight: "700", fontSize: 15 },
+  earningsStripDivider: { width: 1, backgroundColor: "rgba(255,255,255,0.25)", marginVertical: 2 },
+
+  // Content
+  content: { padding: Spacing.lg, gap: Spacing.md },
+
+  // Status cards (pending/rejected)
+  statusCard: {
+    borderRadius: BorderRadius.xl,
+    padding: Spacing.xl,
+    alignItems: "center",
+    marginTop: Spacing.xl,
+  },
+  statusIconWrap: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    justifyContent: "center",
     alignItems: "center",
   },
-  headerTitle: { color: "#FFFFFF", fontWeight: "800", fontSize: 19 },
-  headerSubtitle: { color: "rgba(255,255,255,0.8)", marginTop: 2 },
-  content: { padding: Spacing.lg },
-  statusCard: { alignItems: "center", paddingVertical: Spacing["3xl"] },
-  statusIcon: {
-    width: 80, height: 80, borderRadius: 40,
-    justifyContent: "center", alignItems: "center", marginBottom: Spacing.lg,
-  },
-  statusTitle: { textAlign: "center", marginBottom: Spacing.sm },
-  statusSubtitle: { textAlign: "center", paddingHorizontal: Spacing.xl },
-  toggleSection: { marginBottom: Spacing.lg },
+
+  // Toggle
   toggleButton: {
-    flexDirection: "row", alignItems: "center", justifyContent: "center",
-    gap: Spacing.md, paddingVertical: Spacing.xl,
-    borderRadius: BorderRadius["2xl"], borderWidth: 2, marginBottom: Spacing.lg,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.md,
+    paddingVertical: Spacing.lg,
+    borderRadius: BorderRadius["2xl"],
+    borderWidth: 2,
   },
-  toggleDot: { width: 12, height: 12, borderRadius: 6 },
-  toggleText: { fontWeight: "700" },
-  queueCard: { borderRadius: BorderRadius.xl, padding: Spacing.lg },
-  queueRow: { flexDirection: "row-reverse", alignItems: "center", gap: Spacing.md },
-  queueBadge: { width: 60, height: 60, borderRadius: 30, justifyContent: "center", alignItems: "center" },
-  queueInfo: { flex: 1, alignItems: "flex-end" },
-  batchCard: {
+  toggleDot: { width: 10, height: 10, borderRadius: 5 },
+
+  // Offline hero
+  offlineHero: {
+    borderRadius: BorderRadius.xl,
+    padding: Spacing.xl,
+    alignItems: "center",
+  },
+  offlineIconCircle: {
+    width: 88,
+    height: 88,
+    borderRadius: 44,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  walletWarningBanner: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    gap: 6,
+    padding: Spacing.sm,
+    borderRadius: BorderRadius.md,
+    marginTop: Spacing.sm,
+    width: "100%",
+  },
+
+  // Wallet alert (online)
+  walletAlertCard: {
     borderRadius: BorderRadius.xl,
     padding: Spacing.lg,
-    marginBottom: Spacing.lg,
   },
-  batchHeader: {
+  walletAlertRow: {
     flexDirection: "row-reverse",
-    justifyContent: "space-between",
     alignItems: "center",
-    paddingBottom: Spacing.md,
-    borderBottomWidth: 1,
+    gap: Spacing.sm,
     marginBottom: Spacing.md,
   },
-  batchMeta: { flexDirection: "row", alignItems: "center", gap: 4 },
-  newOrderBadge: { paddingHorizontal: 12, paddingVertical: 4, borderRadius: 12 },
-  newOrderText: { color: "#FFFFFF", fontWeight: "700", fontSize: 12 },
-  progressSection: { marginBottom: Spacing.md },
-  progressLabelRow: {
-    flexDirection: "row-reverse",
-    justifyContent: "space-between",
-    marginBottom: 6,
+  whatsappBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.sm,
+    backgroundColor: "#25D366",
+    paddingVertical: Spacing.md,
+    borderRadius: BorderRadius.lg,
   },
-  progressBar: { height: 6, borderRadius: 3, overflow: "hidden" },
-  progressFill: { height: "100%", borderRadius: 3 },
-  ordersSummary: { marginBottom: Spacing.md, gap: Spacing.sm },
-  orderSummaryRow: {
+
+  // Incoming order card
+  incomingCard: {
+    borderRadius: BorderRadius.xl,
+    overflow: "hidden",
+  },
+  incomingBadgeRow: {
     flexDirection: "row-reverse",
     alignItems: "center",
-    paddingVertical: Spacing.sm,
     gap: Spacing.sm,
+    padding: Spacing.md,
   },
-  orderSummaryLeft: { alignItems: "center" },
-  seqBadge: {
-    width: 28, height: 28, borderRadius: 14,
-    justifyContent: "center", alignItems: "center",
+  incomingDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: AppColors.primary,
   },
-  orderSummaryInfo: { flex: 1, alignItems: "flex-end" },
-  batchActions: { flexDirection: "row-reverse", gap: Spacing.md },
-  acceptButton: {
-    flex: 1, backgroundColor: AppColors.primary,
-    flexDirection: "row", justifyContent: "center", alignItems: "center",
-    gap: Spacing.sm, paddingVertical: Spacing.md, borderRadius: BorderRadius.md,
+  incomingBody: {
+    flexDirection: "row-reverse",
+    padding: Spacing.lg,
+    gap: Spacing.md,
+    alignItems: "flex-start",
   },
-  acceptText: { color: "#FFFFFF", fontWeight: "700" },
-  rejectButton: {
-    flex: 1, borderWidth: 2, justifyContent: "center",
-    alignItems: "center", paddingVertical: Spacing.md, borderRadius: BorderRadius.md,
+  countdownWrap: {
+    position: "relative",
+    width: 100,
+    height: 100,
+    alignItems: "center",
+    justifyContent: "center",
   },
-  manageBatchButton: {
-    flexDirection: "row-reverse", justifyContent: "center", alignItems: "center",
-    gap: Spacing.sm, paddingVertical: Spacing.md, borderRadius: BorderRadius.md,
+  countdownCenter: {
+    position: "absolute",
+    alignItems: "center",
+    justifyContent: "center",
   },
+  incomingDetails: { flex: 1 },
+  incomingStatRow: { flexDirection: "row-reverse", gap: Spacing.sm, marginBottom: Spacing.sm },
+  incomingStatBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 10,
+  },
+  incomingOrderRow: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    gap: Spacing.sm,
+    paddingVertical: 6,
+    borderTopWidth: 1,
+  },
+  seqDot: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  incomingActions: {
+    flexDirection: "row-reverse",
+    gap: Spacing.md,
+    padding: Spacing.lg,
+    paddingTop: 0,
+  },
+  rejectBtn: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.sm,
+    paddingVertical: Spacing.md,
+    borderRadius: BorderRadius.lg,
+    borderWidth: 2,
+    borderColor: "#F44336",
+  },
+  acceptBtn: {
+    flex: 2,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.sm,
+    paddingVertical: Spacing.lg,
+    borderRadius: BorderRadius.lg,
+    backgroundColor: AppColors.primary,
+  },
+
+  // Active batch
+  activeBatchCard: {
+    borderRadius: BorderRadius.xl,
+    padding: Spacing.lg,
+  },
+  activeBatchHeader: {
+    flexDirection: "row-reverse",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: Spacing.md,
+  },
+  activeBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  activePulse: { width: 8, height: 8, borderRadius: 4 },
+  activeBatchMeta: { flexDirection: "row", alignItems: "center", gap: 4 },
+  progressBar: { height: 5, borderRadius: 3, overflow: "hidden", marginBottom: Spacing.md },
+  progressFill: { height: "100%" },
+  activeBatchOrderRow: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    gap: Spacing.sm,
+    paddingVertical: 6,
+  },
+  orderDot: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  manageBatchBtn: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.sm,
+    paddingVertical: Spacing.md,
+    borderRadius: BorderRadius.lg,
+    marginTop: Spacing.md,
+  },
+
+  // Waiting
   waitingCard: {
-    borderRadius: BorderRadius.xl, padding: Spacing["3xl"], alignItems: "center",
+    borderRadius: BorderRadius.xl,
+    padding: Spacing["3xl"],
+    alignItems: "center",
   },
-  walletCard: { borderRadius: BorderRadius.xl, padding: Spacing.lg, marginBottom: Spacing.lg },
-  walletRow: { flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between" },
-  walletInfo: { alignItems: "flex-end" },
-  walletIcon: { width: 48, height: 48, borderRadius: 24, justifyContent: "center", alignItems: "center" },
-  walletWarning: {
-    flexDirection: "row-reverse", alignItems: "center", gap: Spacing.xs,
-    marginTop: Spacing.md, padding: Spacing.sm, borderRadius: BorderRadius.sm,
-  },
-  whatsappButton: {
-    flexDirection: "row", alignItems: "center", justifyContent: "center",
-    gap: Spacing.sm, backgroundColor: "#25D366",
-    paddingVertical: Spacing.md, borderRadius: BorderRadius.lg, marginTop: Spacing.md,
-  },
-  whatsappText: { color: "#FFFFFF", fontWeight: "700", fontSize: 14 },
+
+  // Modal
   modalOverlay: {
-    flex: 1, backgroundColor: "rgba(0,0,0,0.45)",
-    justifyContent: "center", alignItems: "center", padding: Spacing.xl,
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.45)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: Spacing.xl,
   },
   modalBox: {
-    width: "100%", borderRadius: BorderRadius.xl, padding: Spacing.xl,
-    shadowColor: "#000", shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15, shadowRadius: 12, elevation: 8,
+    width: "100%",
+    borderRadius: BorderRadius.xl,
+    padding: Spacing.xl,
   },
-  modalHeader: {
-    flexDirection: "row-reverse", alignItems: "center",
-    gap: Spacing.sm, justifyContent: "center", marginBottom: Spacing.sm,
+  modalHeaderRow: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    gap: Spacing.sm,
+    justifyContent: "center",
+    marginBottom: Spacing.sm,
   },
   issueOption: {
-    flexDirection: "row-reverse", alignItems: "center", gap: Spacing.sm,
-    paddingVertical: Spacing.md, paddingHorizontal: Spacing.md,
-    borderRadius: BorderRadius.lg, borderWidth: 1, marginBottom: Spacing.sm,
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    gap: Spacing.sm,
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.md,
+    borderRadius: BorderRadius.lg,
+    borderWidth: 1,
+    marginBottom: Spacing.sm,
   },
-  modalCancelBtn: { alignItems: "center", paddingVertical: Spacing.sm, marginTop: Spacing.xs },
-  modalSent: { alignItems: "center", paddingVertical: Spacing.xl },
-  modalSentIcon: { width: 70, height: 70, borderRadius: 35, justifyContent: "center", alignItems: "center" },
 });
