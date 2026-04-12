@@ -123,6 +123,7 @@ export default function DriverHomeScreen() {
   const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const prevBatchIdRef = useRef<string | null>(null);
   const isInitialLoadRef = useRef(true);
+  const isRejectingRef = useRef(false); // prevents double-rejection calls
   const pulseAnim = useRef(new Animated.Value(1)).current;
 
   // ── Pulse animation for incoming order card ────────────────────────────────
@@ -364,19 +365,28 @@ export default function DriverHomeScreen() {
 
   const handleRejectBatch = async () => {
     if (!phoneNumber || !currentBatch) return;
+    // Guard: prevent double rejection (from countdown + manual button)
+    if (isRejectingRef.current) return;
+    isRejectingRef.current = true;
+    // Stop countdown immediately
+    if (countdownRef.current) {
+      clearInterval(countdownRef.current);
+      countdownRef.current = null;
+    }
+    const batchIdToReject = currentBatch.id;
+    setCurrentBatch(null); // Clear UI immediately
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     try {
-      const res = await fetch(new URL("/api/driver/reject-order", getApiUrl()).toString(), {
+      await fetch(new URL("/api/driver/reject-order", getApiUrl()).toString(), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phoneNumber, batchId: currentBatch.id }),
+        body: JSON.stringify({ phoneNumber, batchId: batchIdToReject }),
       });
-      if (res.ok) {
-        setCurrentBatch(null);
-        await fetchDriverStatus();
-      }
+      await fetchDriverStatus();
     } catch (e) {
       console.error("Error rejecting batch:", e);
+    } finally {
+      isRejectingRef.current = false;
     }
   };
 

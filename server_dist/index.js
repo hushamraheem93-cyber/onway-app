@@ -1593,6 +1593,8 @@ async function registerRoutes(app2) {
   const batchedOrderIds = /* @__PURE__ */ new Set();
   const driverCompletedOrders = /* @__PURE__ */ new Map();
   const driverLocations = /* @__PURE__ */ new Map();
+  const driverRejectionCooldowns = /* @__PURE__ */ new Map();
+  const REJECTION_COOLDOWN_MS = 3 * 60 * 1e3;
   const rejectionEvents = [];
   async function getCompletedOrders(phoneNumber) {
     const dbOrders = await getDriverCompletedOrdersFromDB(phoneNumber);
@@ -3141,24 +3143,35 @@ ${itemsList}
       const qd = driverQueue.find((d) => d.phoneNumber === phoneNumber);
       const targetBatchId = batchId || qd?.currentBatchId;
       let orderCount = 1;
+      let rejectedOrderIds = [];
       if (qd) {
         if (targetBatchId) {
           const batchDoc = await getDeliveryBatch(targetBatchId);
           if (batchDoc) {
             orderCount = batchDoc.orderIds.length;
+            rejectedOrderIds = batchDoc.orderIds;
             batchDoc.orderIds.forEach((id) => batchedOrderIds.delete(id));
           }
           await cancelDeliveryBatch(targetBatchId).catch(() => {
           });
         } else if (orderId) {
           batchedOrderIds.delete(orderId);
+          rejectedOrderIds = [orderId];
         }
         qd.currentBatchId = void 0;
+        const savedPushToken = qd.pushToken;
         const idx = driverQueue.findIndex((d) => d.phoneNumber === phoneNumber);
         if (idx !== -1) {
           driverQueue.splice(idx, 1);
-          driverQueue.push({ phoneNumber, joinedAt: Date.now(), pushToken: qd.pushToken });
+          driverQueue.push({ phoneNumber, joinedAt: Date.now(), pushToken: savedPushToken });
         }
+      }
+      if (rejectedOrderIds.length > 0) {
+        if (!driverRejectionCooldowns.has(phoneNumber)) {
+          driverRejectionCooldowns.set(phoneNumber, /* @__PURE__ */ new Map());
+        }
+        const cooldowns = driverRejectionCooldowns.get(phoneNumber);
+        rejectedOrderIds.forEach((id) => cooldowns.set(id, Date.now()));
       }
       const driver = await getDriverByPhone(phoneNumber).catch(() => null);
       const driverName = driver?.fullName || phoneNumber;
@@ -3171,12 +3184,10 @@ ${itemsList}
         rejectedAt: (/* @__PURE__ */ new Date()).toISOString()
       });
       if (rejectionEvents.length > 50) rejectionEvents.splice(0, rejectionEvents.length - 50);
-      console.log(`[REJECT] Driver ${phoneNumber} (${driverName}) rejected batch ${targetBatchId} (${orderCount} orders)`);
+      console.log(`[REJECT] Driver ${phoneNumber} (${driverName}) rejected batch ${targetBatchId} (${orderCount} orders) \u2014 cooldown set`);
       saveDriverActivity({ phoneNumber, type: "rejected", orderId: targetBatchId || orderId }).catch(() => {
       });
       onOrderConfirmed();
-      assignWaitingBatchToDriver(phoneNumber).catch(() => {
-      });
       res.json({ success: true });
     } catch (error) {
       res.status(500).json({ error: error.message });
@@ -3603,8 +3614,17 @@ ${itemsList}
       const confirmedOrders = allOrders.filter((o) => o.status === "confirmed");
       const activeBatchIds = new Set(driverQueue.map((d) => d.currentBatchId).filter(Boolean));
       console.log(`[BATCH_ASSIGN] Total orders=${allOrders.length}, confirmed=${confirmedOrders.length}, activeBatches=${activeBatchIds.size}, batchedSet-size=${batchedOrderIds.size}`);
+      const now = Date.now();
+      const driverCooldowns = driverRejectionCooldowns.get(phoneNumber);
       const waitingOrders = confirmedOrders.filter((o) => {
         const orderBatchId = o.batchId || o.batch_id;
+        if (driverCooldowns) {
+          const rejectedAt = driverCooldowns.get(o.id);
+          if (rejectedAt && now - rejectedAt < REJECTION_COOLDOWN_MS) {
+            console.log(`[BATCH_ASSIGN] Skipping order ${o.id} \u2014 in cooldown for driver ${phoneNumber}`);
+            return false;
+          }
+        }
         if (!orderBatchId) return true;
         if (!activeBatchIds.has(orderBatchId)) return true;
         if (batchedOrderIds.has(o.id)) return false;

@@ -302,6 +302,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const driverCompletedOrders: Map<string, { orderId: string; deliveryFee: number; driverEarning: number; ownerEarning: number; total: number; customerName: string; completedAt: string; isRestaurant: boolean }[]> = new Map();
   const driverLocations: Map<string, { lat: number; lng: number; updatedAt: number; fullName?: string }> = new Map();
 
+  // Rejection cooldown: track which orders each driver has recently rejected
+  // Prevents immediate re-assignment of the same order to the same driver
+  const driverRejectionCooldowns: Map<string, Map<string, number>> = new Map();
+  const REJECTION_COOLDOWN_MS = 3 * 60 * 1000; // 3 minutes before re-offering same order
+
   // In-memory log of recent batch rejections for admin real-time awareness
   interface RejectionEvent {
     id: string;
@@ -2086,25 +2091,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const qd = driverQueue.find(d => d.phoneNumber === phoneNumber);
       const targetBatchId = batchId || qd?.currentBatchId;
       let orderCount = 1;
+      let rejectedOrderIds: string[] = [];
       if (qd) {
         // Remove batch order IDs from batchedOrderIds so they can be re-assigned
         if (targetBatchId) {
           const batchDoc = await getDeliveryBatch(targetBatchId);
           if (batchDoc) {
             orderCount = batchDoc.orderIds.length;
+            rejectedOrderIds = batchDoc.orderIds;
             batchDoc.orderIds.forEach(id => batchedOrderIds.delete(id));
           }
           await cancelDeliveryBatch(targetBatchId).catch(() => {});
         } else if (orderId) {
           batchedOrderIds.delete(orderId);
+          rejectedOrderIds = [orderId];
         }
         qd.currentBatchId = undefined;
         // Move driver to end of queue
+        const savedPushToken = qd.pushToken;
         const idx = driverQueue.findIndex(d => d.phoneNumber === phoneNumber);
         if (idx !== -1) {
           driverQueue.splice(idx, 1);
-          driverQueue.push({ phoneNumber, joinedAt: Date.now(), pushToken: qd.pushToken });
+          driverQueue.push({ phoneNumber, joinedAt: Date.now(), pushToken: savedPushToken });
         }
+      }
+      // Track rejection cooldown so the same order isn't re-offered immediately
+      if (rejectedOrderIds.length > 0) {
+        if (!driverRejectionCooldowns.has(phoneNumber)) {
+          driverRejectionCooldowns.set(phoneNumber, new Map());
+        }
+        const cooldowns = driverRejectionCooldowns.get(phoneNumber)!;
+        rejectedOrderIds.forEach(id => cooldowns.set(id, Date.now()));
       }
       // Record rejection event for admin notification
       const driver = await getDriverByPhone(phoneNumber).catch(() => null);
@@ -2117,14 +2134,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         orderCount,
         rejectedAt: new Date().toISOString(),
       });
-      // Keep only last 50 events in memory
       if (rejectionEvents.length > 50) rejectionEvents.splice(0, rejectionEvents.length - 50);
-      console.log(`[REJECT] Driver ${phoneNumber} (${driverName}) rejected batch ${targetBatchId} (${orderCount} orders)`);
+      console.log(`[REJECT] Driver ${phoneNumber} (${driverName}) rejected batch ${targetBatchId} (${orderCount} orders) — cooldown set`);
       saveDriverActivity({ phoneNumber, type: "rejected", orderId: targetBatchId || orderId }).catch(() => {});
-      // Offer waiting orders to next available driver
+      // Offer waiting orders to another available driver (NOT the one who just rejected)
+      // Note: do NOT also call assignWaitingBatchToDriver here — onOrderConfirmed handles it
       onOrderConfirmed();
-      // Also try to give the rejecting driver a new batch
-      assignWaitingBatchToDriver(phoneNumber).catch(() => {});
       res.json({ success: true });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
@@ -2617,9 +2632,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // An order is truly available if:
       //   - It has no batchId field in Firestore, OR
       //   - Its batchId doesn't belong to an active (in-progress) batch
+      //   - It hasn't been recently rejected by THIS driver (within cooldown window)
+      const now = Date.now();
+      const driverCooldowns = driverRejectionCooldowns.get(phoneNumber);
       const waitingOrders = confirmedOrders
         .filter(o => {
           const orderBatchId = (o as any).batchId || (o as any).batch_id;
+          // Skip orders this driver recently rejected (cooldown protection)
+          if (driverCooldowns) {
+            const rejectedAt = driverCooldowns.get(o.id);
+            if (rejectedAt && (now - rejectedAt) < REJECTION_COOLDOWN_MS) {
+              console.log(`[BATCH_ASSIGN] Skipping order ${o.id} — in cooldown for driver ${phoneNumber}`);
+              return false;
+            }
+          }
           // No batch assigned at all → eligible
           if (!orderBatchId) return true;
           // Batch assigned but not in any active driver's batch → eligible
