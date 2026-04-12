@@ -1,12 +1,50 @@
 import express from "express";
 import type { Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
-import { initializeFirebase } from "./firebase";
+import { initializeFirebase, getFirestore } from "./firebase";
 import * as fs from "fs";
 import * as path from "path";
 import * as crypto from "crypto";
 
 initializeFirebase();
+
+// ── Custom admin credentials stored in Firestore ───────────────────────────
+function hashPassword(pass: string): string {
+  return crypto.createHash("sha256").update(`onway::${pass}`).digest("hex");
+}
+
+async function getCustomCredentials(): Promise<{ username: string; passwordHash: string } | null> {
+  try {
+    const db = getFirestore();
+    if (!db) return null;
+    const doc = await db.collection("adminConfig").doc("credentials").get();
+    if (!doc.exists) return null;
+    const data = doc.data() as { username: string; passwordHash: string };
+    return data?.username && data?.passwordHash ? data : null;
+  } catch { return null; }
+}
+
+async function setCustomCredentials(username: string, password: string): Promise<void> {
+  const db = getFirestore();
+  if (!db) throw new Error("Database not configured");
+  await db.collection("adminConfig").doc("credentials").set({
+    username,
+    passwordHash: hashPassword(password),
+    updatedAt: new Date().toISOString(),
+  });
+}
+
+async function validateAdminCredentials(username: string, password: string): Promise<boolean> {
+  // 1. Check custom credentials in Firestore first
+  const custom = await getCustomCredentials();
+  if (custom) {
+    if (username === custom.username && hashPassword(password) === custom.passwordHash) return true;
+  }
+  // 2. Fall back to env vars
+  const validUser = process.env.ADMIN_USERNAME;
+  const validPass = process.env.ADMIN_PASSWORD;
+  return username === validUser && password === validPass;
+}
 
 const app = express();
 const log = console.log;
@@ -215,13 +253,11 @@ function configureExpoAndLanding(app: express.Application) {
     res.status(200).send(html);
   });
 
-  // POST /admin/login — validate credentials
-  app.post("/admin/login", express.urlencoded({ extended: false }), (req: Request, res: Response) => {
+  // POST /admin/login — validate credentials (checks Firestore first, then env vars)
+  app.post("/admin/login", express.urlencoded({ extended: false }), async (req: Request, res: Response) => {
     const { username, password } = req.body || {};
-    const validUser = process.env.ADMIN_USERNAME;
-    const validPass = process.env.ADMIN_PASSWORD;
-
-    if (username === validUser && password === validPass) {
+    const valid = await validateAdminCredentials(username, password);
+    if (valid) {
       const token = makeToken();
       const maxAge = 60 * 60 * 24 * 7; // 7 days
       res.setHeader(
@@ -230,12 +266,68 @@ function configureExpoAndLanding(app: express.Application) {
       );
       return res.redirect("/admin");
     }
-
     const loginTemplate = fs.readFileSync(loginTemplatePath, "utf-8");
     const errorHtml = `<div class="error">اسم المستخدم أو كلمة المرور غير صحيحة</div>`;
     const html = loginTemplate.replace("ERROR_PLACEHOLDER", errorHtml);
     res.setHeader("Content-Type", "text/html; charset=utf-8");
     res.status(401).send(html);
+  });
+
+  // POST /admin/reset-password — reset using env var master key as recovery code
+  app.post("/admin/reset-password", express.urlencoded({ extended: false }), async (req: Request, res: Response) => {
+    const { recoveryCode, newUsername, newPassword, confirmPassword } = req.body || {};
+    const loginTemplate = fs.readFileSync(loginTemplatePath, "utf-8");
+    const send = (status: number, msg: string, isSuccess = false) => {
+      const cls = isSuccess ? "success" : "error";
+      const html = loginTemplate.replace("ERROR_PLACEHOLDER", `<div class="${cls}">${msg}</div>`);
+      res.setHeader("Content-Type", "text/html; charset=utf-8");
+      return res.status(status).send(html);
+    };
+    // The recovery code must match the master ADMIN_PASSWORD from env vars
+    if (recoveryCode !== process.env.ADMIN_PASSWORD) {
+      return send(401, "رمز الاسترداد غير صحيح");
+    }
+    if (!newUsername || newUsername.length < 3) return send(400, "اسم المستخدم يجب أن يكون 3 أحرف على الأقل");
+    if (!newPassword || newPassword.length < 6) return send(400, "كلمة المرور يجب أن تكون 6 أحرف على الأقل");
+    if (newPassword !== confirmPassword) return send(400, "كلمتا المرور غير متطابقتين");
+    try {
+      await setCustomCredentials(newUsername, newPassword);
+      return send(200, "تم تغيير بيانات الدخول بنجاح. يمكنك الدخول الآن.", true);
+    } catch {
+      return send(500, "فشل في حفظ البيانات. حاول مرة أخرى.");
+    }
+  });
+
+  // POST /api/admin/change-credentials — change from within admin panel
+  app.post("/api/admin/change-credentials", express.json(), async (req: Request, res: Response) => {
+    if (!isValidSession(req)) return res.status(401).json({ error: "غير مصرح" });
+    const { currentPassword, newUsername, newPassword, confirmPassword } = req.body || {};
+    if (!currentPassword) return res.status(400).json({ error: "كلمة المرور الحالية مطلوبة" });
+    // Validate current password
+    const custom = await getCustomCredentials();
+    const currentUsername = custom ? custom.username : (process.env.ADMIN_USERNAME || "admin");
+    const valid = await validateAdminCredentials(currentUsername, currentPassword);
+    if (!valid) return res.status(401).json({ error: "كلمة المرور الحالية غير صحيحة" });
+    if (!newUsername || newUsername.length < 3) return res.status(400).json({ error: "اسم المستخدم يجب أن يكون 3 أحرف على الأقل" });
+    if (!newPassword || newPassword.length < 6) return res.status(400).json({ error: "كلمة المرور يجب أن تكون 6 أحرف على الأقل" });
+    if (newPassword !== confirmPassword) return res.status(400).json({ error: "كلمتا المرور غير متطابقتين" });
+    try {
+      await setCustomCredentials(newUsername, newPassword);
+      res.json({ success: true });
+    } catch {
+      res.status(500).json({ error: "فشل في الحفظ. حاول مرة أخرى." });
+    }
+  });
+
+  // GET /api/admin/credentials-info — current username info
+  app.get("/api/admin/credentials-info", async (req: Request, res: Response) => {
+    if (!isValidSession(req)) return res.status(401).json({ error: "غير مصرح" });
+    const custom = await getCustomCredentials();
+    res.json({
+      username: custom ? custom.username : (process.env.ADMIN_USERNAME || "admin"),
+      isCustom: !!custom,
+      updatedAt: (custom as any)?.updatedAt || null,
+    });
   });
 
   // GET /admin/logout — clear session
