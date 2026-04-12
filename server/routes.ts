@@ -302,6 +302,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const driverCompletedOrders: Map<string, { orderId: string; deliveryFee: number; driverEarning: number; ownerEarning: number; total: number; customerName: string; completedAt: string; isRestaurant: boolean }[]> = new Map();
   const driverLocations: Map<string, { lat: number; lng: number; updatedAt: number; fullName?: string }> = new Map();
 
+  // In-memory log of recent batch rejections for admin real-time awareness
+  interface RejectionEvent {
+    id: string;
+    driverPhone: string;
+    driverName: string;
+    batchId: string;
+    orderCount: number;
+    rejectedAt: string;
+  }
+  const rejectionEvents: RejectionEvent[] = [];
+
   // Returns completed orders merged from Firestore (persistent) + in-memory cache
   async function getCompletedOrders(phoneNumber: string) {
     const dbOrders = await getDriverCompletedOrdersFromDB(phoneNumber);
@@ -2074,11 +2085,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const qd = driverQueue.find(d => d.phoneNumber === phoneNumber);
       const targetBatchId = batchId || qd?.currentBatchId;
+      let orderCount = 1;
       if (qd) {
         // Remove batch order IDs from batchedOrderIds so they can be re-assigned
         if (targetBatchId) {
           const batchDoc = await getDeliveryBatch(targetBatchId);
           if (batchDoc) {
+            orderCount = batchDoc.orderIds.length;
             batchDoc.orderIds.forEach(id => batchedOrderIds.delete(id));
           }
           await cancelDeliveryBatch(targetBatchId).catch(() => {});
@@ -2090,9 +2103,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const idx = driverQueue.findIndex(d => d.phoneNumber === phoneNumber);
         if (idx !== -1) {
           driverQueue.splice(idx, 1);
-          driverQueue.push({ phoneNumber, joinedAt: Date.now() });
+          driverQueue.push({ phoneNumber, joinedAt: Date.now(), pushToken: qd.pushToken });
         }
       }
+      // Record rejection event for admin notification
+      const driver = await getDriverByPhone(phoneNumber).catch(() => null);
+      const driverName = driver?.fullName || phoneNumber;
+      rejectionEvents.push({
+        id: `${Date.now()}-${phoneNumber}`,
+        driverPhone: phoneNumber,
+        driverName,
+        batchId: targetBatchId || orderId || "",
+        orderCount,
+        rejectedAt: new Date().toISOString(),
+      });
+      // Keep only last 50 events in memory
+      if (rejectionEvents.length > 50) rejectionEvents.splice(0, rejectionEvents.length - 50);
+      console.log(`[REJECT] Driver ${phoneNumber} (${driverName}) rejected batch ${targetBatchId} (${orderCount} orders)`);
       saveDriverActivity({ phoneNumber, type: "rejected", orderId: targetBatchId || orderId }).catch(() => {});
       // Offer waiting orders to next available driver
       onOrderConfirmed();
@@ -2751,6 +2778,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }
+  });
+
+  // Get recent batch rejection events for admin real-time notification
+  // Pass ?since=<ISO timestamp> to get only events after that timestamp
+  app.get("/api/admin/rejection-events", (req: Request, res: Response) => {
+    const since = req.query.since ? new Date(req.query.since as string).getTime() : 0;
+    const events = since
+      ? rejectionEvents.filter(e => new Date(e.rejectedAt).getTime() > since)
+      : rejectionEvents.slice(-20);
+    res.json({ events });
   });
 
   app.get("/api/admin/driver-stats", async (_req: Request, res: Response) => {

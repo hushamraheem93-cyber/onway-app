@@ -45,6 +45,7 @@ export default function DriverBatchScreen() {
 
   const [batch, setBatch] = useState<CurrentBatch>(route.params.batch);
   const [loadingOrderId, setLoadingOrderId] = useState<string | null>(null);
+  const [isRejecting, setIsRejecting] = useState(false);
 
   const [issueModalVisible, setIssueModalVisible] = useState(false);
   const [issueSent, setIssueSent] = useState(false);
@@ -169,6 +170,24 @@ export default function DriverBatchScreen() {
       }
     } catch (e) {} finally {
       setIssueSending(false);
+    }
+  };
+
+  const handleRejectBatch = async () => {
+    if (!phoneNumber || isRejecting) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setIsRejecting(true);
+    try {
+      await fetch(new URL("/api/driver/reject-order", getApiUrl()).toString(), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phoneNumber, batchId: batch.id }),
+      });
+    } catch (e) {
+      console.error("Error rejecting batch:", e);
+    } finally {
+      setIsRejecting(false);
+      navigation.goBack();
     }
   };
 
@@ -349,8 +368,43 @@ export default function DriverBatchScreen() {
             {completedCount} / {batch.totalOrders} طلبات
           </ThemedText>
         </View>
-        <View style={{ width: 40 }} />
+        {batch.status === "pending" ? (
+          <Pressable
+            style={styles.rejectHeaderBtn}
+            onPress={handleRejectBatch}
+            disabled={isRejecting}
+            testID="button-reject-batch"
+          >
+            {isRejecting ? (
+              <ActivityIndicator size="small" color="#FFFFFF" />
+            ) : (
+              <Feather name="x" size={22} color="#FFFFFF" />
+            )}
+          </Pressable>
+        ) : (
+          <View style={{ width: 40 }} />
+        )}
       </View>
+
+      {/* Reject banner for pending batches */}
+      {batch.status === "pending" ? (
+        <View style={styles.rejectBanner}>
+          <Feather name="clock" size={15} color="#F44336" />
+          <ThemedText type="small" style={styles.rejectBannerText}>طلب معلق — قبول أو رفض مطلوب</ThemedText>
+          <Pressable
+            style={styles.rejectBannerBtn}
+            onPress={handleRejectBatch}
+            disabled={isRejecting}
+            testID="button-reject-batch-banner"
+          >
+            {isRejecting ? (
+              <ActivityIndicator size="small" color="#F44336" />
+            ) : (
+              <ThemedText type="small" style={{ color: "#F44336", fontWeight: "700" }}>رفض</ThemedText>
+            )}
+          </Pressable>
+        </View>
+      ) : null}
 
       {/* Progress */}
       <View style={[styles.progressBox, { backgroundColor: theme.backgroundDefault }]}>
@@ -472,6 +526,26 @@ const styles = StyleSheet.create({
   },
   backBtn: { width: 40, alignItems: "flex-start" },
   headerCenter: { flex: 1, alignItems: "center" },
+  rejectHeaderBtn: { width: 40, alignItems: "flex-end", justifyContent: "center" },
+  rejectBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#FFF3F3",
+    borderBottomWidth: 1,
+    borderBottomColor: "#FFCDD2",
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.sm,
+    gap: Spacing.sm,
+  },
+  rejectBannerText: { flex: 1, color: "#C62828", fontWeight: "600", textAlign: "right" },
+  rejectBannerBtn: {
+    backgroundColor: "#FFF",
+    borderWidth: 1.5,
+    borderColor: "#F44336",
+    borderRadius: BorderRadius.md,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.xs,
+  },
   headerTitle: { color: "#FFFFFF", fontWeight: "800" },
   headerSub: { color: "rgba(255,255,255,0.8)", marginTop: 2 },
   progressBox: {

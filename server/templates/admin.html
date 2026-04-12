@@ -3183,7 +3183,8 @@
     };
 
     // Toast Notifications
-    function showToast(type, title, message) {
+    function showToast(type, title, message, duration) {
+      duration = duration || 4000;
       const container = document.getElementById('toast-container');
       const toast = document.createElement('div');
       toast.className = `toast ${type}`;
@@ -3214,7 +3215,7 @@
       setTimeout(() => {
         toast.classList.add('hiding');
         setTimeout(() => toast.remove(), 300);
-      }, 4000);
+      }, duration);
     }
 
     // ============ Refresh helper with visual feedback ============
@@ -3920,6 +3921,31 @@
       const dashSection = document.getElementById('dashboard-section');
       if (dashSection && dashSection.classList.contains('active')) refreshDriverLocations();
     }, 15000);
+
+    // Poll for driver batch rejection events every 8 seconds
+    let _lastRejectionCheck = new Date().toISOString();
+    async function pollRejectionEvents() {
+      try {
+        const res = await fetch(`${API_BASE}/admin/rejection-events?since=${encodeURIComponent(_lastRejectionCheck)}`);
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data.events && data.events.length > 0) {
+          _lastRejectionCheck = new Date().toISOString();
+          for (const ev of data.events) {
+            const timeStr = new Date(ev.rejectedAt).toLocaleTimeString('ar-IQ', { hour: '2-digit', minute: '2-digit' });
+            showToast('warning',
+              'رفض طلب من سائق',
+              `${ev.driverName} رفض دفعة (${ev.orderCount} طلب) — ${timeStr}`,
+              8000
+            );
+          }
+          // Refresh driver queue if visible
+          const dqSection = document.getElementById('driver-queue-section');
+          if (dqSection && dqSection.classList.contains('active')) loadDriverQueue();
+        }
+      } catch (_e) {}
+    }
+    setInterval(pollRejectionEvents, 8000);
 
     // Global search
     function globalSearch(query) {

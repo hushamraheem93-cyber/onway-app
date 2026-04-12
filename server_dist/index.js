@@ -1593,6 +1593,7 @@ async function registerRoutes(app2) {
   const batchedOrderIds = /* @__PURE__ */ new Set();
   const driverCompletedOrders = /* @__PURE__ */ new Map();
   const driverLocations = /* @__PURE__ */ new Map();
+  const rejectionEvents = [];
   async function getCompletedOrders(phoneNumber) {
     const dbOrders = await getDriverCompletedOrdersFromDB(phoneNumber);
     const memOrders = driverCompletedOrders.get(phoneNumber) || [];
@@ -3139,10 +3140,12 @@ ${itemsList}
     try {
       const qd = driverQueue.find((d) => d.phoneNumber === phoneNumber);
       const targetBatchId = batchId || qd?.currentBatchId;
+      let orderCount = 1;
       if (qd) {
         if (targetBatchId) {
           const batchDoc = await getDeliveryBatch(targetBatchId);
           if (batchDoc) {
+            orderCount = batchDoc.orderIds.length;
             batchDoc.orderIds.forEach((id) => batchedOrderIds.delete(id));
           }
           await cancelDeliveryBatch(targetBatchId).catch(() => {
@@ -3154,9 +3157,21 @@ ${itemsList}
         const idx = driverQueue.findIndex((d) => d.phoneNumber === phoneNumber);
         if (idx !== -1) {
           driverQueue.splice(idx, 1);
-          driverQueue.push({ phoneNumber, joinedAt: Date.now() });
+          driverQueue.push({ phoneNumber, joinedAt: Date.now(), pushToken: qd.pushToken });
         }
       }
+      const driver = await getDriverByPhone(phoneNumber).catch(() => null);
+      const driverName = driver?.fullName || phoneNumber;
+      rejectionEvents.push({
+        id: `${Date.now()}-${phoneNumber}`,
+        driverPhone: phoneNumber,
+        driverName,
+        batchId: targetBatchId || orderId || "",
+        orderCount,
+        rejectedAt: (/* @__PURE__ */ new Date()).toISOString()
+      });
+      if (rejectionEvents.length > 50) rejectionEvents.splice(0, rejectionEvents.length - 50);
+      console.log(`[REJECT] Driver ${phoneNumber} (${driverName}) rejected batch ${targetBatchId} (${orderCount} orders)`);
       saveDriverActivity({ phoneNumber, type: "rejected", orderId: targetBatchId || orderId }).catch(() => {
       });
       onOrderConfirmed();
@@ -3720,6 +3735,11 @@ ${itemsList}
     } catch (error) {
       res.status(500).json({ error: error.message });
     }
+  });
+  app2.get("/api/admin/rejection-events", (req, res) => {
+    const since = req.query.since ? new Date(req.query.since).getTime() : 0;
+    const events = since ? rejectionEvents.filter((e) => new Date(e.rejectedAt).getTime() > since) : rejectionEvents.slice(-20);
+    res.json({ events });
   });
   app2.get("/api/admin/driver-stats", async (_req, res) => {
     try {
