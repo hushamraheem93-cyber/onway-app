@@ -1299,6 +1299,8 @@ async function sendPushNotification(pushToken, status, orderId) {
     body: messageContent.body,
     sound: "default",
     channelId: "default",
+    priority: "high",
+    ttl: 86400,
     data: { orderId, status }
   };
   try {
@@ -1332,6 +1334,8 @@ async function sendDriverBatchNotification(pushToken, totalOrders, batchId) {
     body: "\u0644\u062F\u064A\u0643 \u062F\u0641\u0639\u0629 \u062A\u0648\u0635\u064A\u0644 \u062C\u062F\u064A\u062F\u0629. \u0627\u0636\u063A\u0637 \u0644\u0639\u0631\u0636 \u0627\u0644\u062A\u0641\u0627\u0635\u064A\u0644 \u0648\u0642\u0628\u0648\u0644 \u0627\u0644\u0637\u0644\u0628\u0627\u062A",
     sound: "default",
     channelId: "default",
+    priority: "high",
+    ttl: 300,
     data: { type: "new_batch", batchId }
   };
   try {
@@ -1360,6 +1364,8 @@ async function sendAdminNewOrderNotification(pushToken, orderId, region, total) 
     body: `\u0637\u0644\u0628 \u0645\u0646 ${region} - \u0627\u0644\u0645\u0628\u0644\u063A: ${total.toLocaleString()} \u062F.\u0639`,
     sound: "default",
     channelId: "default",
+    priority: "high",
+    ttl: 86400,
     data: { type: "new_order", orderId }
   };
   try {
@@ -3030,6 +3036,18 @@ ${itemsList}
         });
         res.json({ isOnline: false, queuePosition: null });
       }
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+  app2.post("/api/driver/refresh-push-token", async (req, res) => {
+    const { phoneNumber, pushToken } = req.body;
+    if (!phoneNumber || !pushToken) return res.status(400).json({ error: "Missing fields" });
+    if (!pushToken.startsWith("ExponentPushToken")) return res.status(400).json({ error: "Invalid token" });
+    try {
+      await saveDriverPushToken(phoneNumber, pushToken);
+      console.log(`[PUSH] Refreshed driver push token for ${phoneNumber}`);
+      res.json({ ok: true });
     } catch (error) {
       res.status(500).json({ error: error.message });
     }

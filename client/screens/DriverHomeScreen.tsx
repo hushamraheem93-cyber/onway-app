@@ -30,6 +30,7 @@ import { AppColors, Spacing, BorderRadius, Shadows } from "@/constants/theme";
 import { getApiUrl } from "@/lib/query-client";
 import { formatPrice } from "@/constants/currency";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
+import { refreshDriverPushToken } from "@/hooks/usePushNotifications";
 
 const COUNTDOWN_SECONDS = 30;
 const RING_RADIUS = 42;
@@ -229,6 +230,13 @@ export default function DriverHomeScreen() {
     });
   }, []);
 
+  // Refresh push token on mount so server always has a valid token
+  // even if driver hasn't toggled "online" yet
+  useEffect(() => {
+    if (!phoneNumber) return;
+    refreshDriverPushToken(phoneNumber).catch(() => {});
+  }, [phoneNumber]);
+
   useEffect(() => {
     fetchDriverStatus();
     const interval = setInterval(fetchDriverStatus, 5000);
@@ -282,11 +290,8 @@ export default function DriverHomeScreen() {
       let pushToken: string | undefined;
       if (!isOnline) {
         try {
-          const { status } = await Notifications.requestPermissionsAsync();
-          if (status === "granted") {
-            const tokenData = await Notifications.getExpoPushTokenAsync();
-            pushToken = tokenData.data;
-          }
+          const tokenData = await Notifications.getExpoPushTokenAsync().catch(() => null);
+          if (tokenData?.data) pushToken = tokenData.data;
         } catch (_e) {}
       }
       const res = await fetch(new URL("/api/driver/toggle-online", getApiUrl()).toString(), {

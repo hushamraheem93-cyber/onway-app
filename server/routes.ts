@@ -1954,6 +1954,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Update driver push token (called on app launch to keep token fresh)
+  app.post("/api/driver/refresh-push-token", async (req: Request, res: Response) => {
+    const { phoneNumber, pushToken } = req.body;
+    if (!phoneNumber || !pushToken) return res.status(400).json({ error: "Missing fields" });
+    if (!pushToken.startsWith("ExponentPushToken")) return res.status(400).json({ error: "Invalid token" });
+    try {
+      await saveDriverPushToken(phoneNumber, pushToken);
+      console.log(`[PUSH] Refreshed driver push token for ${phoneNumber}`);
+      res.json({ ok: true });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // Accept order
   app.post("/api/driver/accept-order", async (req: Request, res: Response) => {
     const { phoneNumber, orderId } = req.body;

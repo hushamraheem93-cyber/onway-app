@@ -5,6 +5,9 @@ interface ExpoPushMessage {
   sound?: "default" | null;
   data?: Record<string, unknown>;
   channelId?: string;
+  priority?: "default" | "normal" | "high";
+  ttl?: number;
+  badge?: number;
 }
 
 interface ExpoPushTicket {
@@ -63,6 +66,8 @@ export async function sendPushNotification(
     body: messageContent.body,
     sound: "default",
     channelId: "default",
+    priority: "high",
+    ttl: 86400,
     data: { orderId, status },
   };
 
@@ -108,6 +113,8 @@ export async function sendDriverBatchNotification(
     body: "لديك دفعة توصيل جديدة. اضغط لعرض التفاصيل وقبول الطلبات",
     sound: "default",
     channelId: "default",
+    priority: "high",
+    ttl: 300,
     data: { type: "new_batch", batchId },
   };
   try {
@@ -142,6 +149,8 @@ export async function sendAdminNewOrderNotification(
     body: `طلب من ${region} - المبلغ: ${total.toLocaleString()} د.ع`,
     sound: "default",
     channelId: "default",
+    priority: "high",
+    ttl: 86400,
     data: { type: "new_order", orderId },
   };
   try {

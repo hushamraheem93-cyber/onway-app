@@ -3,6 +3,7 @@ import { Platform } from "react-native";
 import * as Notifications from "expo-notifications";
 import * as Device from "expo-device";
 import Constants from "expo-constants";
+import { getApiUrl } from "@/lib/query-client";
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -24,6 +25,7 @@ export function usePushNotifications() {
   const [notification, setNotification] = useState<Notifications.Notification | null>(null);
   const notificationListener = useRef<Notifications.Subscription | null>(null);
   const responseListener = useRef<Notifications.Subscription | null>(null);
+  const tokenRefreshListener = useRef<Notifications.Subscription | null>(null);
 
   useEffect(() => {
     registerForPushNotificationsAsync().then((token) => {
@@ -40,20 +42,24 @@ export function usePushNotifications() {
       console.log("Notification response:", resp);
     });
 
+    tokenRefreshListener.current = Notifications.addPushTokenListener((tokenData) => {
+      if (tokenData.data) {
+        setExpoPushToken(tokenData.data);
+        console.log("[PUSH] Token refreshed:", tokenData.data.slice(-10));
+      }
+    });
+
     return () => {
-      if (notificationListener.current) {
-        notificationListener.current.remove();
-      }
-      if (responseListener.current) {
-        responseListener.current.remove();
-      }
+      notificationListener.current?.remove();
+      responseListener.current?.remove();
+      tokenRefreshListener.current?.remove();
     };
   }, []);
 
   return { expoPushToken, notification };
 }
 
-async function registerForPushNotificationsAsync(): Promise<string | null> {
+export async function registerForPushNotificationsAsync(): Promise<string | null> {
   let token: string | null = null;
 
   if (Platform.OS === "web") {
@@ -63,6 +69,18 @@ async function registerForPushNotificationsAsync(): Promise<string | null> {
   if (!Device.isDevice) {
     console.log("Must use physical device for Push Notifications");
     return null;
+  }
+
+  if (Platform.OS === "android") {
+    await Notifications.setNotificationChannelAsync("default", {
+      name: "Onway",
+      importance: Notifications.AndroidImportance.MAX,
+      vibrationPattern: [0, 250, 250, 250],
+      lightColor: "#D94523",
+      sound: "default",
+      enableVibrate: true,
+      showBadge: true,
+    });
   }
 
   const { status: existingStatus } = await Notifications.getPermissionsAsync();
@@ -89,17 +107,22 @@ async function registerForPushNotificationsAsync(): Promise<string | null> {
     console.log("Error getting push token:", error);
   }
 
-  if (Platform.OS === "android") {
-    Notifications.setNotificationChannelAsync("default", {
-      name: "default",
-      importance: Notifications.AndroidImportance.MAX,
-      vibrationPattern: [0, 250, 250, 250],
-      lightColor: "#FF7A00",
-      sound: "default",
-    });
-  }
-
   return token;
+}
+
+export async function refreshDriverPushToken(phoneNumber: string): Promise<void> {
+  try {
+    const token = await registerForPushNotificationsAsync();
+    if (!token || !phoneNumber) return;
+    await fetch(new URL("/api/driver/refresh-push-token", getApiUrl()).toString(), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ phoneNumber, pushToken: token }),
+    });
+    console.log("[PUSH] Driver token refreshed and saved");
+  } catch (error) {
+    console.log("[PUSH] Error refreshing driver token:", error);
+  }
 }
 
 export async function sendLocalNotification(title: string, body: string) {
