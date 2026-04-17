@@ -3,6 +3,7 @@ import { ActivityIndicator, View } from "react-native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import MainTabNavigator from "@/navigation/MainTabNavigator";
 import DriverTabNavigator from "@/navigation/DriverTabNavigator";
+import VendorTabNavigator from "@/navigation/VendorTabNavigator";
 import ProductsScreen from "@/screens/ProductsScreen";
 import CheckoutScreen from "@/screens/CheckoutScreen";
 import OrderConfirmationScreen from "@/screens/OrderConfirmationScreen";
@@ -20,6 +21,7 @@ import MapPickerScreen from "@/screens/MapPickerScreen";
 import CourierPickupScreen from "@/screens/CourierPickupScreen";
 import InternationalShoppingScreen from "@/screens/InternationalShoppingScreen";
 import SupportChatScreen from "@/screens/SupportChatScreen";
+import VendorRegistrationScreen from "@/screens/VendorRegistrationScreen";
 import { useScreenOptions } from "@/hooks/useScreenOptions";
 import { useAuth } from "@/context/AuthContext";
 import { AppColors } from "@/constants/theme";
@@ -32,11 +34,13 @@ export type RootStackParamList = {
   OtpVerification: undefined;
   UserType: undefined;
   DriverRegistration: undefined;
+  VendorRegistration: undefined;
   DriverOrderDetail: { order: any };
   DriverBatch: { batch: CurrentBatch };
   ProfileCompletion: undefined;
   MainTabs: undefined;
   DriverTabs: undefined;
+  VendorTabs: undefined;
   Main: undefined;
   AllCategories: undefined;
   Products: { categoryId?: string; categoryName: string; searchQuery?: string; restaurant?: string };
@@ -53,7 +57,7 @@ const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export default function RootStackNavigator() {
   const screenOptions = useScreenOptions();
-  const { isLoggedIn, isLoading, isProfileComplete, isOtpSent, isOtpVerified, selectedUserType, isDriverRegistered, hasSeenSplash } = useAuth();
+  const { isLoggedIn, isLoading, isProfileComplete, isOtpSent, isOtpVerified, selectedUserType, isDriverRegistered, hasSeenSplash, isVendorRegistered } = useAuth();
 
   if (isLoading) {
     return (
@@ -96,10 +100,21 @@ export default function RootStackNavigator() {
       );
     }
 
+    if (selectedUserType === "vendor" && !isVendorRegistered) {
+      return (
+        <Stack.Screen name="VendorRegistration" component={VendorRegistrationScreen} />
+      );
+    }
+
     return null;
   };
 
-  const needsAuth = !isOtpSent || !isOtpVerified || !selectedUserType || (selectedUserType === "driver" && !isDriverRegistered);
+  const needsAuth =
+    !isOtpSent ||
+    !isOtpVerified ||
+    !selectedUserType ||
+    (selectedUserType === "driver" && !isDriverRegistered) ||
+    (selectedUserType === "vendor" && !isVendorRegistered && !isLoggedIn);
 
   if (needsAuth && !isLoggedIn) {
     return (
@@ -114,6 +129,26 @@ export default function RootStackNavigator() {
         }}
       >
         {renderAuthScreens()}
+      </Stack.Navigator>
+    );
+  }
+
+  if (isLoggedIn && selectedUserType === "vendor" && isVendorRegistered) {
+    return (
+      <Stack.Navigator screenOptions={screenOptions}>
+        <Stack.Screen
+          name="VendorTabs"
+          component={VendorTabNavigator}
+          options={{ headerShown: false }}
+        />
+      </Stack.Navigator>
+    );
+  }
+
+  if (isLoggedIn && selectedUserType === "vendor" && !isVendorRegistered) {
+    return (
+      <Stack.Navigator screenOptions={{ headerShown: false }}>
+        <Stack.Screen name="VendorRegistration" component={VendorRegistrationScreen} />
       </Stack.Navigator>
     );
   }

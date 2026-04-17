@@ -1,5 +1,5 @@
 // server/index.ts
-import express2 from "express";
+import express3 from "express";
 
 // server/routes.ts
 import express from "express";
@@ -2029,7 +2029,7 @@ async function registerRoutes(app2) {
   });
   app2.put("/api/admin/products/:id", async (req, res) => {
     const { name, categoryId, price, originalPrice, discount, description, inStock, image, restaurant } = req.body;
-    const productId = req.params.id;
+    const productId2 = req.params.id;
     const db2 = getFirestore();
     const priceNum = price !== void 0 ? Number(price) : void 0;
     const originalPriceNum = originalPrice === null ? null : originalPrice !== void 0 ? Number(originalPrice) : void 0;
@@ -2047,7 +2047,7 @@ async function registerRoutes(app2) {
         inStock: inStockBool
       };
       if (restaurant !== void 0) updates.restaurant = restaurant ? String(restaurant) : "";
-      const updated = await updateProduct(productId, updates);
+      const updated = await updateProduct(productId2, updates);
       if (updated) {
         invalidateProductsCache();
         return res.json(updated);
@@ -4297,13 +4297,556 @@ ${itemsList}
   return httpServer;
 }
 
-// server/index.ts
-import * as fs2 from "fs";
-import * as path2 from "path";
+// server/vendor.ts
+import express2 from "express";
+import * as bcrypt from "bcryptjs";
+import * as jwt from "jsonwebtoken";
+import multer2 from "multer";
+import sharp from "sharp";
 import * as crypto from "crypto";
+import * as fs2 from "fs/promises";
+import * as path2 from "path";
+var router = express2.Router();
+var JWT_SECRET = process.env.JWT_SECRET || "onway-vendor-secret-2024";
+var VENDOR_COOKIE = "onway_vendor_session";
+var upload2 = multer2({
+  dest: path2.resolve(process.cwd(), "uploads", "temp"),
+  limits: { fileSize: 15 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    if (["image/jpeg", "image/png", "image/jpg", "image/webp"].includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error("\u0646\u0648\u0639 \u0627\u0644\u0645\u0644\u0641 \u063A\u064A\u0631 \u0645\u062F\u0639\u0648\u0645. \u0627\u0633\u062A\u062E\u062F\u0645 PNG \u0623\u0648 JPEG \u0641\u0642\u0637."));
+    }
+  }
+});
+function makeVendorToken(vendorId2) {
+  return jwt.sign({ vendorId: vendorId2, role: "vendor" }, JWT_SECRET, { expiresIn: "30d" });
+}
+function parseCookies(req) {
+  const header = req.headers.cookie || "";
+  const cookies = {};
+  header.split(";").forEach((part) => {
+    const [k, ...v] = part.split("=");
+    if (k) cookies[k.trim()] = decodeURIComponent(v.join("=").trim());
+  });
+  return cookies;
+}
+function getVendorSession(req) {
+  const cookies = req.cookies || parseCookies(req);
+  const token = cookies[VENDOR_COOKIE];
+  if (!token) return null;
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET);
+    return decoded.role === "vendor" ? decoded.vendorId : null;
+  } catch {
+    return null;
+  }
+}
+function requireVendor(req, res, next) {
+  const authHeader = req.headers.authorization;
+  let token = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;
+  if (!token) {
+    const cookies = req.cookies || parseCookies(req);
+    token = cookies[VENDOR_COOKIE] || null;
+  }
+  if (!token) return res.status(401).json({ error: "\u063A\u064A\u0631 \u0645\u0635\u0631\u062D - \u0633\u062C\u0644 \u062F\u062E\u0648\u0644\u0643 \u0623\u0648\u0644\u0627\u064B" });
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET);
+    if (decoded.role !== "vendor") return res.status(403).json({ error: "\u063A\u064A\u0631 \u0645\u0635\u0631\u062D" });
+    req.vendorId = decoded.vendorId;
+    next();
+  } catch {
+    return res.status(401).json({ error: "\u062A\u0648\u0643\u0646 \u063A\u064A\u0631 \u0635\u0627\u0644\u062D" });
+  }
+}
+async function generateImageHash(filePath) {
+  const buf = await fs2.readFile(filePath);
+  return crypto.createHash("md5").update(buf).digest("hex");
+}
+async function processAndSaveImage(tempPath, hash2) {
+  const dir = path2.resolve(process.cwd(), "uploads", "products");
+  await fs2.mkdir(dir, { recursive: true });
+  const fileName = `${Date.now()}_${hash2}.webp`;
+  const outPath = path2.join(dir, fileName);
+  await sharp(tempPath).resize(800, 800, { fit: "cover", position: "center" }).webp({ quality: 80 }).toFile(outPath);
+  return `/uploads/products/${fileName}`;
+}
+async function findDuplicateImage(hash2) {
+  const db2 = getFirestore();
+  if (!db2) return null;
+  const snap = await db2.collection("productImageHashes").doc(hash2).get();
+  if (snap.exists) return snap.data().imageUrl;
+  return null;
+}
+async function saveImageHash(hash2, imageUrl) {
+  const db2 = getFirestore();
+  if (!db2) return;
+  await db2.collection("productImageHashes").doc(hash2).set({
+    imageUrl,
+    createdAt: (/* @__PURE__ */ new Date()).toISOString()
+  });
+}
+async function cleanTemp(filePath) {
+  if (filePath) await fs2.unlink(filePath).catch(() => {
+  });
+}
+function vendorId() {
+  return `vendor_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+}
+function productId() {
+  return `product_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+}
+router.post("/api/vendor/mobile-auth", async (req, res) => {
+  try {
+    const { phoneNumber } = req.body;
+    if (!phoneNumber) return res.status(400).json({ error: "\u0631\u0642\u0645 \u0627\u0644\u0647\u0627\u062A\u0641 \u0645\u0637\u0644\u0648\u0628" });
+    const db2 = getFirestore();
+    if (!db2) return res.status(500).json({ error: "\u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u063A\u064A\u0631 \u0645\u062A\u0627\u062D\u0629" });
+    const snap = await db2.collection("vendors").where("phoneNumber", "==", phoneNumber).limit(1).get();
+    if (snap.empty) {
+      return res.json({ vendor: null, token: null });
+    }
+    const vendor = snap.docs[0].data();
+    const { passwordHash: _pw, ...safeVendor } = vendor;
+    const token = makeVendorToken(vendor.id);
+    res.json({ vendor: safeVendor, token });
+  } catch (err) {
+    console.error("mobile-auth:", err);
+    res.status(500).json({ error: "\u062D\u062F\u062B \u062E\u0637\u0623 \u0641\u064A \u0627\u0644\u062E\u0627\u062F\u0645" });
+  }
+});
+router.get("/vendor/login", (_req, res) => {
+  res.sendFile(path2.resolve(process.cwd(), "server", "templates", "vendor-login.html"));
+});
+router.get("/vendor", (req, res) => {
+  const vendorId2 = getVendorSession(req);
+  if (!vendorId2) return res.redirect("/vendor/login");
+  res.sendFile(path2.resolve(process.cwd(), "server", "templates", "vendor-dashboard.html"));
+});
+router.get("/vendor/dashboard", (req, res) => {
+  const vendorId2 = getVendorSession(req);
+  if (!vendorId2) return res.redirect("/vendor/login");
+  res.sendFile(path2.resolve(process.cwd(), "server", "templates", "vendor-dashboard.html"));
+});
+router.post("/api/vendor/register", async (req, res) => {
+  try {
+    const { storeName, businessType, phoneNumber, password, ownerName, address, email } = req.body;
+    if (!storeName || !businessType || !phoneNumber || !ownerName) {
+      return res.status(400).json({ error: "\u062C\u0645\u064A\u0639 \u0627\u0644\u062D\u0642\u0648\u0644 \u0627\u0644\u0645\u0637\u0644\u0648\u0628\u0629 \u063A\u064A\u0631 \u0645\u0643\u062A\u0645\u0644\u0629" });
+    }
+    if (password && password.length < 6) {
+      return res.status(400).json({ error: "\u0643\u0644\u0645\u0629 \u0627\u0644\u0645\u0631\u0648\u0631 \u064A\u062C\u0628 \u0623\u0646 \u062A\u0643\u0648\u0646 6 \u0623\u062D\u0631\u0641 \u0639\u0644\u0649 \u0627\u0644\u0623\u0642\u0644" });
+    }
+    const db2 = getFirestore();
+    if (!db2) return res.status(500).json({ error: "\u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u063A\u064A\u0631 \u0645\u062A\u0627\u062D\u0629" });
+    const existing = await db2.collection("vendors").where("phoneNumber", "==", phoneNumber).limit(1).get();
+    if (!existing.empty) return res.status(400).json({ error: "\u0631\u0642\u0645 \u0627\u0644\u0647\u0627\u062A\u0641 \u0645\u0633\u062C\u0644 \u0645\u0633\u0628\u0642\u0627\u064B" });
+    const rawPass = password || Math.random().toString(36) + Math.random().toString(36);
+    const passwordHash = await bcrypt.hash(rawPass, 10);
+    const id = vendorId();
+    const now = (/* @__PURE__ */ new Date()).toISOString();
+    await db2.collection("vendors").doc(id).set({
+      id,
+      storeName,
+      businessType,
+      phoneNumber,
+      email: email || null,
+      passwordHash,
+      ownerName,
+      address: address || "",
+      status: "pending",
+      totalProducts: 0,
+      totalOrders: 0,
+      createdAt: now
+    });
+    await db2.collection("adminNotifications").add({
+      type: "new_vendor",
+      title: "\u0645\u062A\u062C\u0631 \u062C\u062F\u064A\u062F \u064A\u062D\u062A\u0627\u062C \u0645\u0631\u0627\u062C\u0639\u0629",
+      message: `${storeName} (${ownerName}) \u0637\u0644\u0628 \u0627\u0646\u0636\u0645\u0627\u0645 \u0643\u0634\u0631\u064A\u0643`,
+      vendorId: id,
+      status: "unread",
+      createdAt: now
+    });
+    res.status(201).json({
+      success: true,
+      message: "\u062A\u0645 \u0627\u0644\u062A\u0633\u062C\u064A\u0644 \u0628\u0646\u062C\u0627\u062D! \u0633\u064A\u062A\u0645 \u0645\u0631\u0627\u062C\u0639\u0629 \u0637\u0644\u0628\u0643 \u062E\u0644\u0627\u0644 24 \u0633\u0627\u0639\u0629."
+    });
+  } catch (err) {
+    console.error("vendor register:", err);
+    res.status(500).json({ error: "\u062D\u062F\u062B \u062E\u0637\u0623 \u0641\u064A \u0627\u0644\u062E\u0627\u062F\u0645" });
+  }
+});
+router.post("/api/vendor/login", async (req, res) => {
+  try {
+    const { phoneNumber, password } = req.body;
+    if (!phoneNumber || !password) {
+      return res.status(400).json({ error: "\u0631\u0642\u0645 \u0627\u0644\u0647\u0627\u062A\u0641 \u0648\u0643\u0644\u0645\u0629 \u0627\u0644\u0645\u0631\u0648\u0631 \u0645\u0637\u0644\u0648\u0628\u0627\u0646" });
+    }
+    const db2 = getFirestore();
+    if (!db2) return res.status(500).json({ error: "\u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u063A\u064A\u0631 \u0645\u062A\u0627\u062D\u0629" });
+    const snap = await db2.collection("vendors").where("phoneNumber", "==", phoneNumber).limit(1).get();
+    if (snap.empty) return res.status(401).json({ error: "\u0631\u0642\u0645 \u0627\u0644\u0647\u0627\u062A\u0641 \u0623\u0648 \u0643\u0644\u0645\u0629 \u0627\u0644\u0645\u0631\u0648\u0631 \u063A\u064A\u0631 \u0635\u062D\u064A\u062D\u0629" });
+    const doc = snap.docs[0];
+    const vendor = doc.data();
+    if (vendor.status === "pending") {
+      return res.status(403).json({ error: "\u062D\u0633\u0627\u0628\u0643 \u0642\u064A\u062F \u0627\u0644\u0645\u0631\u0627\u062C\u0639\u0629. \u0633\u064A\u062A\u0645 \u0625\u062E\u0628\u0627\u0631\u0643 \u0639\u0646\u062F \u0627\u0644\u0645\u0648\u0627\u0641\u0642\u0629." });
+    }
+    if (vendor.status === "suspended") {
+      return res.status(403).json({ error: "\u062D\u0633\u0627\u0628\u0643 \u0645\u0639\u0644\u0642. \u062A\u0648\u0627\u0635\u0644 \u0645\u0639 \u0627\u0644\u0625\u062F\u0627\u0631\u0629." });
+    }
+    if (vendor.status === "rejected") {
+      return res.status(403).json({ error: "\u062A\u0645 \u0631\u0641\u0636 \u0637\u0644\u0628\u0643. \u062A\u0648\u0627\u0635\u0644 \u0645\u0639 \u0627\u0644\u0625\u062F\u0627\u0631\u0629." });
+    }
+    const valid = await bcrypt.compare(password, vendor.passwordHash);
+    if (!valid) return res.status(401).json({ error: "\u0631\u0642\u0645 \u0627\u0644\u0647\u0627\u062A\u0641 \u0623\u0648 \u0643\u0644\u0645\u0629 \u0627\u0644\u0645\u0631\u0648\u0631 \u063A\u064A\u0631 \u0635\u062D\u064A\u062D\u0629" });
+    const token = makeVendorToken(vendor.id);
+    res.cookie(VENDOR_COOKIE, token, {
+      httpOnly: true,
+      maxAge: 30 * 24 * 60 * 60 * 1e3,
+      sameSite: "lax"
+    }).json({
+      success: true,
+      vendor: {
+        id: vendor.id,
+        storeName: vendor.storeName,
+        businessType: vendor.businessType,
+        status: vendor.status
+      }
+    });
+  } catch (err) {
+    console.error("vendor login:", err);
+    res.status(500).json({ error: "\u062D\u062F\u062B \u062E\u0637\u0623 \u0641\u064A \u0627\u0644\u062E\u0627\u062F\u0645" });
+  }
+});
+router.get("/api/vendor/logout", (_req, res) => {
+  res.clearCookie(VENDOR_COOKIE).redirect("/vendor/login");
+});
+router.get("/api/vendor/profile", requireVendor, async (req, res) => {
+  try {
+    const db2 = getFirestore();
+    if (!db2) return res.status(500).json({ error: "\u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u063A\u064A\u0631 \u0645\u062A\u0627\u062D\u0629" });
+    const doc = await db2.collection("vendors").doc(req.vendorId).get();
+    if (!doc.exists) return res.status(404).json({ error: "\u0627\u0644\u0645\u062A\u062C\u0631 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F" });
+    const v = doc.data();
+    const { passwordHash: _pw, ...safe } = v;
+    res.json(safe);
+  } catch (err) {
+    console.error("vendor profile:", err);
+    res.status(500).json({ error: "\u062D\u062F\u062B \u062E\u0637\u0623 \u0641\u064A \u0627\u0644\u062E\u0627\u062F\u0645" });
+  }
+});
+router.post(
+  "/api/vendor/products",
+  requireVendor,
+  upload2.single("image"),
+  async (req, res) => {
+    let tempPath = req.file?.path || null;
+    try {
+      const { name, description, price, category, stock, unit } = req.body;
+      const vid = req.vendorId;
+      if (!name || !price || !category || !req.file) {
+        await cleanTemp(tempPath);
+        return res.status(400).json({ error: "\u0627\u0644\u0627\u0633\u0645\u060C \u0627\u0644\u0633\u0639\u0631\u060C \u0627\u0644\u0641\u0626\u0629\u060C \u0648\u0627\u0644\u0635\u0648\u0631\u0629 \u0645\u0637\u0644\u0648\u0628\u0629" });
+      }
+      const db2 = getFirestore();
+      if (!db2) {
+        await cleanTemp(tempPath);
+        return res.status(500).json({ error: "\u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u063A\u064A\u0631 \u0645\u062A\u0627\u062D\u0629" });
+      }
+      const vDoc = await db2.collection("vendors").doc(vid).get();
+      if (!vDoc.exists || vDoc.data().status !== "active") {
+        await cleanTemp(tempPath);
+        return res.status(403).json({ error: "\u062D\u0633\u0627\u0628\u0643 \u063A\u064A\u0631 \u0645\u0641\u0639\u0644 \u0628\u0639\u062F" });
+      }
+      const imageHash = await generateImageHash(tempPath);
+      let imageUrl = await findDuplicateImage(imageHash);
+      let isDuplicate = !!imageUrl;
+      if (!imageUrl) {
+        imageUrl = await processAndSaveImage(tempPath, imageHash);
+        await saveImageHash(imageHash, imageUrl);
+        console.log(`\u2705 \u0635\u0648\u0631\u0629 \u062C\u062F\u064A\u062F\u0629 \u0645\u0639\u0627\u0644\u062C\u0629 \u0648\u0645\u062D\u0641\u0648\u0638\u0629: ${imageUrl}`);
+      } else {
+        console.log(`\u267B\uFE0F \u0635\u0648\u0631\u0629 \u0645\u0643\u0631\u0631\u0629 \u2014 \u0627\u0633\u062A\u062E\u062F\u0627\u0645 \u0627\u0644\u0631\u0627\u0628\u0637 \u0627\u0644\u0645\u0648\u062C\u0648\u062F: ${imageUrl}`);
+      }
+      await cleanTemp(tempPath);
+      tempPath = null;
+      const pid = productId();
+      const now = (/* @__PURE__ */ new Date()).toISOString();
+      await db2.collection("vendorProducts").doc(pid).set({
+        id: pid,
+        vendorId: vid,
+        vendorName: vDoc.data().storeName,
+        name,
+        description: description || "",
+        price: parseFloat(price),
+        category,
+        stock: parseInt(stock) || 0,
+        unit: unit || "\u0642\u0637\u0639\u0629",
+        imageUrl,
+        imageHash,
+        isDuplicateImage: isDuplicate,
+        status: "pending",
+        createdAt: now,
+        updatedAt: now
+      });
+      await db2.collection("adminNotifications").add({
+        type: "new_product",
+        title: "\u0645\u0646\u062A\u062C \u062C\u062F\u064A\u062F \u064A\u062D\u062A\u0627\u062C \u0645\u0631\u0627\u062C\u0639\u0629",
+        message: `${vDoc.data().storeName} \u0623\u0636\u0627\u0641 \u0645\u0646\u062A\u062C: ${name}`,
+        vendorId: vid,
+        productId: pid,
+        status: "unread",
+        createdAt: now
+      });
+      res.status(201).json({
+        success: true,
+        message: "\u062A\u0645 \u0625\u0636\u0627\u0641\u0629 \u0627\u0644\u0645\u0646\u062A\u062C! \u0633\u064A\u0638\u0647\u0631 \u0644\u0644\u0639\u0645\u0644\u0627\u0621 \u0628\u0639\u062F \u0645\u0631\u0627\u062C\u0639\u0629 \u0627\u0644\u0625\u062F\u0627\u0631\u0629.",
+        product: { id: pid, name, price: parseFloat(price), imageUrl, status: "pending" }
+      });
+    } catch (err) {
+      await cleanTemp(tempPath);
+      console.error("add product:", err);
+      res.status(500).json({ error: err.message || "\u062D\u062F\u062B \u062E\u0637\u0623 \u0641\u064A \u0625\u0636\u0627\u0641\u0629 \u0627\u0644\u0645\u0646\u062A\u062C" });
+    }
+  }
+);
+router.get("/api/vendor/products", requireVendor, async (req, res) => {
+  try {
+    const db2 = getFirestore();
+    if (!db2) return res.status(500).json({ error: "\u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u063A\u064A\u0631 \u0645\u062A\u0627\u062D\u0629" });
+    const vid = req.vendorId;
+    const { status } = req.query;
+    let query = db2.collection("vendorProducts").where("vendorId", "==", vid);
+    if (status) query = query.where("status", "==", status);
+    const snap = await query.orderBy("createdAt", "desc").get();
+    const products2 = snap.docs.map((d) => d.data());
+    res.json({ products: products2, total: products2.length });
+  } catch (err) {
+    console.error("get products:", err);
+    res.status(500).json({ error: "\u062D\u062F\u062B \u062E\u0637\u0623 \u0641\u064A \u0627\u0644\u062E\u0627\u062F\u0645" });
+  }
+});
+router.put("/api/vendor/products/:pid", requireVendor, async (req, res) => {
+  try {
+    const db2 = getFirestore();
+    if (!db2) return res.status(500).json({ error: "\u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u063A\u064A\u0631 \u0645\u062A\u0627\u062D\u0629" });
+    const vid = req.vendorId;
+    const { pid } = req.params;
+    const doc = await db2.collection("vendorProducts").doc(pid).get();
+    if (!doc.exists || doc.data().vendorId !== vid) {
+      return res.status(404).json({ error: "\u0627\u0644\u0645\u0646\u062A\u062C \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F" });
+    }
+    const { name, description, price, stock, unit } = req.body;
+    await db2.collection("vendorProducts").doc(pid).update({
+      ...name && { name },
+      ...description !== void 0 && { description },
+      ...price && { price: parseFloat(price) },
+      ...stock !== void 0 && { stock: parseInt(stock) },
+      ...unit && { unit },
+      status: "pending",
+      updatedAt: (/* @__PURE__ */ new Date()).toISOString()
+    });
+    res.json({ success: true, message: "\u062A\u0645 \u062A\u062D\u062F\u064A\u062B \u0627\u0644\u0645\u0646\u062A\u062C \u0648\u0623\u064F\u0639\u064A\u062F \u0644\u0642\u0627\u0626\u0645\u0629 \u0627\u0644\u0645\u0631\u0627\u062C\u0639\u0629" });
+  } catch (err) {
+    console.error("update product:", err);
+    res.status(500).json({ error: "\u062D\u062F\u062B \u062E\u0637\u0623 \u0641\u064A \u0627\u0644\u062E\u0627\u062F\u0645" });
+  }
+});
+router.delete("/api/vendor/products/:pid", requireVendor, async (req, res) => {
+  try {
+    const db2 = getFirestore();
+    if (!db2) return res.status(500).json({ error: "\u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u063A\u064A\u0631 \u0645\u062A\u0627\u062D\u0629" });
+    const vid = req.vendorId;
+    const { pid } = req.params;
+    const doc = await db2.collection("vendorProducts").doc(pid).get();
+    if (!doc.exists || doc.data().vendorId !== vid) {
+      return res.status(404).json({ error: "\u0627\u0644\u0645\u0646\u062A\u062C \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F" });
+    }
+    await db2.collection("vendorProducts").doc(pid).update({
+      status: "deleted",
+      deletedAt: (/* @__PURE__ */ new Date()).toISOString()
+    });
+    res.json({ success: true, message: "\u062A\u0645 \u062D\u0630\u0641 \u0627\u0644\u0645\u0646\u062A\u062C" });
+  } catch (err) {
+    console.error("delete product:", err);
+    res.status(500).json({ error: "\u062D\u062F\u062B \u062E\u0637\u0623 \u0641\u064A \u0627\u0644\u062E\u0627\u062F\u0645" });
+  }
+});
+router.get("/api/vendor/notifications", requireVendor, async (req, res) => {
+  try {
+    const db2 = getFirestore();
+    if (!db2) return res.status(500).json({ error: "\u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u063A\u064A\u0631 \u0645\u062A\u0627\u062D\u0629" });
+    const vid = req.vendorId;
+    const snap = await db2.collection("vendorNotifications").where("vendorId", "==", vid).orderBy("createdAt", "desc").limit(50).get();
+    res.json({ notifications: snap.docs.map((d) => d.data()) });
+  } catch (err) {
+    console.error("notifications:", err);
+    res.status(500).json({ error: "\u062D\u062F\u062B \u062E\u0637\u0623 \u0641\u064A \u0627\u0644\u062E\u0627\u062F\u0645" });
+  }
+});
+function isAdminSession(req) {
+  const cookies = req.cookies || parseCookies(req);
+  return !!cookies["onway_admin_session"];
+}
+function requireAdmin(req, res, next) {
+  if (!isAdminSession(req)) return res.status(401).json({ error: "\u063A\u064A\u0631 \u0645\u0635\u0631\u062D" });
+  next();
+}
+router.get("/api/admin/vendor-partners", requireAdmin, async (req, res) => {
+  try {
+    const db2 = getFirestore();
+    if (!db2) return res.status(500).json({ error: "\u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u063A\u064A\u0631 \u0645\u062A\u0627\u062D\u0629" });
+    const { status } = req.query;
+    let q = db2.collection("vendors");
+    if (status) q = q.where("status", "==", status);
+    const snap = await q.orderBy("createdAt", "desc").get();
+    const vendors = snap.docs.map((d) => {
+      const { passwordHash: _pw, ...safe } = d.data();
+      return safe;
+    });
+    res.json({ vendors, total: vendors.length });
+  } catch (err) {
+    console.error("admin vendor-partners:", err);
+    res.status(500).json({ error: "\u062D\u062F\u062B \u062E\u0637\u0623 \u0641\u064A \u0627\u0644\u062E\u0627\u062F\u0645" });
+  }
+});
+router.put("/api/admin/vendor-partners/:id/status", requireAdmin, async (req, res) => {
+  try {
+    const db2 = getFirestore();
+    if (!db2) return res.status(500).json({ error: "\u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u063A\u064A\u0631 \u0645\u062A\u0627\u062D\u0629" });
+    const { id } = req.params;
+    const { status, reason } = req.body;
+    if (!["active", "rejected", "suspended"].includes(status)) {
+      return res.status(400).json({ error: "\u062D\u0627\u0644\u0629 \u063A\u064A\u0631 \u0635\u0627\u0644\u062D\u0629" });
+    }
+    const doc = await db2.collection("vendors").doc(id).get();
+    if (!doc.exists) return res.status(404).json({ error: "\u0627\u0644\u0645\u062A\u062C\u0631 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F" });
+    const vendor = doc.data();
+    const now = (/* @__PURE__ */ new Date()).toISOString();
+    await db2.collection("vendors").doc(id).update({
+      status,
+      ...status === "active" && { approvedAt: now },
+      ...status === "rejected" && { rejectedAt: now, rejectionReason: reason || "" },
+      updatedAt: now
+    });
+    const notifMsg = status === "active" ? `\u062A\u0645\u062A \u0627\u0644\u0645\u0648\u0627\u0641\u0642\u0629 \u0639\u0644\u0649 \u0645\u062A\u062C\u0631\u0643 "${vendor.storeName}" \u2014 \u064A\u0645\u0643\u0646\u0643 \u0627\u0644\u0622\u0646 \u0625\u0636\u0627\u0641\u0629 \u0645\u0646\u062A\u062C\u0627\u062A\u0643` : status === "rejected" ? `\u062A\u0645 \u0631\u0641\u0636 \u0637\u0644\u0628 \u0645\u062A\u062C\u0631\u0643 "${vendor.storeName}". \u0627\u0644\u0633\u0628\u0628: ${reason || "\u063A\u064A\u0631 \u0645\u062D\u062F\u062F"}` : `\u062A\u0645 \u062A\u0639\u0644\u064A\u0642 \u0645\u062A\u062C\u0631\u0643 "${vendor.storeName}". \u062A\u0648\u0627\u0635\u0644 \u0645\u0639 \u0627\u0644\u0625\u062F\u0627\u0631\u0629.`;
+    await db2.collection("vendorNotifications").add({
+      vendorId: id,
+      type: `vendor_${status}`,
+      title: status === "active" ? "\u062A\u0645\u062A \u0627\u0644\u0645\u0648\u0627\u0641\u0642\u0629 \u0639\u0644\u0649 \u0645\u062A\u062C\u0631\u0643" : status === "rejected" ? "\u062A\u0645 \u0631\u0641\u0636 \u0637\u0644\u0628\u0643" : "\u062A\u0645 \u062A\u0639\u0644\u064A\u0642 \u062D\u0633\u0627\u0628\u0643",
+      message: notifMsg,
+      status: "unread",
+      createdAt: now
+    });
+    res.json({ success: true, message: "\u062A\u0645 \u062A\u062D\u062F\u064A\u062B \u062D\u0627\u0644\u0629 \u0627\u0644\u0645\u062A\u062C\u0631" });
+  } catch (err) {
+    console.error("update vendor status:", err);
+    res.status(500).json({ error: "\u062D\u062F\u062B \u062E\u0637\u0623 \u0641\u064A \u0627\u0644\u062E\u0627\u062F\u0645" });
+  }
+});
+router.get("/api/admin/vendor-products", requireAdmin, async (req, res) => {
+  try {
+    const db2 = getFirestore();
+    if (!db2) return res.status(500).json({ error: "\u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u063A\u064A\u0631 \u0645\u062A\u0627\u062D\u0629" });
+    const { status = "pending" } = req.query;
+    const snap = await db2.collection("vendorProducts").where("status", "==", status).orderBy("createdAt", "desc").get();
+    res.json({ products: snap.docs.map((d) => d.data()), total: snap.size });
+  } catch (err) {
+    console.error("admin vendor-products:", err);
+    res.status(500).json({ error: "\u062D\u062F\u062B \u062E\u0637\u0623 \u0641\u064A \u0627\u0644\u062E\u0627\u062F\u0645" });
+  }
+});
+router.post("/api/admin/vendor-products/:pid/approve", requireAdmin, async (req, res) => {
+  try {
+    const db2 = getFirestore();
+    if (!db2) return res.status(500).json({ error: "\u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u063A\u064A\u0631 \u0645\u062A\u0627\u062D\u0629" });
+    const { pid } = req.params;
+    const now = (/* @__PURE__ */ new Date()).toISOString();
+    const doc = await db2.collection("vendorProducts").doc(pid).get();
+    if (!doc.exists) return res.status(404).json({ error: "\u0627\u0644\u0645\u0646\u062A\u062C \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F" });
+    const product = doc.data();
+    await db2.collection("vendorProducts").doc(pid).update({
+      status: "approved",
+      approvedAt: now
+    });
+    await db2.collection("vendors").doc(product.vendorId).update({
+      totalProducts: (product.totalProducts || 0) + 1
+    }).catch(() => {
+    });
+    await db2.collection("vendorNotifications").add({
+      vendorId: product.vendorId,
+      type: "product_approved",
+      title: "\u062A\u0645\u062A \u0627\u0644\u0645\u0648\u0627\u0641\u0642\u0629 \u0639\u0644\u0649 \u0645\u0646\u062A\u062C\u0643",
+      message: `\u0645\u0646\u062A\u062C "${product.name}" \u062A\u0645\u062A \u0627\u0644\u0645\u0648\u0627\u0641\u0642\u0629 \u0639\u0644\u064A\u0647 \u0648\u0647\u0648 \u0645\u062A\u0627\u062D \u0644\u0644\u0639\u0645\u0644\u0627\u0621 \u0627\u0644\u0622\u0646`,
+      status: "unread",
+      createdAt: now
+    });
+    res.json({ success: true, message: "\u062A\u0645\u062A \u0627\u0644\u0645\u0648\u0627\u0641\u0642\u0629 \u0639\u0644\u0649 \u0627\u0644\u0645\u0646\u062A\u062C" });
+  } catch (err) {
+    console.error("approve product:", err);
+    res.status(500).json({ error: "\u062D\u062F\u062B \u062E\u0637\u0623 \u0641\u064A \u0627\u0644\u062E\u0627\u062F\u0645" });
+  }
+});
+router.post("/api/admin/vendor-products/:pid/reject", requireAdmin, async (req, res) => {
+  try {
+    const db2 = getFirestore();
+    if (!db2) return res.status(500).json({ error: "\u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u063A\u064A\u0631 \u0645\u062A\u0627\u062D\u0629" });
+    const { pid } = req.params;
+    const { reason } = req.body;
+    const now = (/* @__PURE__ */ new Date()).toISOString();
+    const doc = await db2.collection("vendorProducts").doc(pid).get();
+    if (!doc.exists) return res.status(404).json({ error: "\u0627\u0644\u0645\u0646\u062A\u062C \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F" });
+    const product = doc.data();
+    await db2.collection("vendorProducts").doc(pid).update({
+      status: "rejected",
+      rejectedAt: now,
+      rejectionReason: reason || ""
+    });
+    await db2.collection("vendorNotifications").add({
+      vendorId: product.vendorId,
+      type: "product_rejected",
+      title: "\u062A\u0645 \u0631\u0641\u0636 \u0645\u0646\u062A\u062C\u0643",
+      message: `\u0645\u0646\u062A\u062C "${product.name}" \u062A\u0645 \u0631\u0641\u0636\u0647. \u0627\u0644\u0633\u0628\u0628: ${reason || "\u063A\u064A\u0631 \u0645\u062D\u062F\u062F"}`,
+      status: "unread",
+      createdAt: now
+    });
+    res.json({ success: true, message: "\u062A\u0645 \u0631\u0641\u0636 \u0627\u0644\u0645\u0646\u062A\u062C" });
+  } catch (err) {
+    console.error("reject product:", err);
+    res.status(500).json({ error: "\u062D\u062F\u062B \u062E\u0637\u0623 \u0641\u064A \u0627\u0644\u062E\u0627\u062F\u0645" });
+  }
+});
+router.get("/api/admin/vendor-stats", requireAdmin, async (req, res) => {
+  try {
+    const db2 = getFirestore();
+    if (!db2) return res.status(500).json({ error: "\u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u063A\u064A\u0631 \u0645\u062A\u0627\u062D\u0629" });
+    const [pendingVendors, activeVendors, pendingProducts, approvedProducts] = await Promise.all([
+      db2.collection("vendors").where("status", "==", "pending").count().get(),
+      db2.collection("vendors").where("status", "==", "active").count().get(),
+      db2.collection("vendorProducts").where("status", "==", "pending").count().get(),
+      db2.collection("vendorProducts").where("status", "==", "approved").count().get()
+    ]);
+    res.json({
+      pendingVendors: pendingVendors.data().count,
+      activeVendors: activeVendors.data().count,
+      pendingProducts: pendingProducts.data().count,
+      approvedProducts: approvedProducts.data().count
+    });
+  } catch (err) {
+    console.error("vendor stats:", err);
+    res.status(500).json({ error: "\u062D\u062F\u062B \u062E\u0637\u0623 \u0641\u064A \u0627\u0644\u062E\u0627\u062F\u0645" });
+  }
+});
+var vendor_default = router;
+
+// server/index.ts
+import * as fs3 from "fs";
+import * as path3 from "path";
+import * as crypto2 from "crypto";
 initializeFirebase();
 function hashPassword(pass) {
-  return crypto.createHash("sha256").update(`onway::${pass}`).digest("hex");
+  return crypto2.createHash("sha256").update(`onway::${pass}`).digest("hex");
 }
 async function getCustomCredentials() {
   try {
@@ -4335,7 +4878,7 @@ async function validateAdminCredentials(username, password) {
   const validPass = process.env.ADMIN_PASSWORD;
   return username === validUser && password === validPass;
 }
-var app = express2();
+var app = express3();
 var log = console.log;
 function setupCors(app2) {
   app2.use((req, res, next) => {
@@ -4357,16 +4900,16 @@ function setupCors(app2) {
 }
 function setupBodyParsing(app2) {
   app2.use(
-    express2.json({
+    express3.json({
       limit: "100mb"
     })
   );
-  app2.use(express2.urlencoded({ extended: false, limit: "100mb" }));
+  app2.use(express3.urlencoded({ extended: false, limit: "100mb" }));
 }
 function setupRequestLogging(app2) {
   app2.use((req, res, next) => {
     const start = Date.now();
-    const path3 = req.path;
+    const path4 = req.path;
     let capturedJsonResponse = void 0;
     const originalResJson = res.json;
     res.json = function(bodyJson, ...args) {
@@ -4374,9 +4917,9 @@ function setupRequestLogging(app2) {
       return originalResJson.apply(res, [bodyJson, ...args]);
     };
     res.on("finish", () => {
-      if (!path3.startsWith("/api")) return;
+      if (!path4.startsWith("/api")) return;
       const duration = Date.now() - start;
-      let logLine = `${req.method} ${path3} ${res.statusCode} in ${duration}ms`;
+      let logLine = `${req.method} ${path4} ${res.statusCode} in ${duration}ms`;
       if (capturedJsonResponse) {
         logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
       }
@@ -4390,8 +4933,8 @@ function setupRequestLogging(app2) {
 }
 function getAppName() {
   try {
-    const appJsonPath = path2.resolve(process.cwd(), "app.json");
-    const appJsonContent = fs2.readFileSync(appJsonPath, "utf-8");
+    const appJsonPath = path3.resolve(process.cwd(), "app.json");
+    const appJsonContent = fs3.readFileSync(appJsonPath, "utf-8");
     const appJson = JSON.parse(appJsonContent);
     return appJson.expo?.name || "App Landing Page";
   } catch {
@@ -4399,13 +4942,13 @@ function getAppName() {
   }
 }
 function serveExpoManifest(platform, res) {
-  const manifestPath = path2.resolve(
+  const manifestPath = path3.resolve(
     process.cwd(),
     "static-build",
     platform,
     "manifest.json"
   );
-  if (!fs2.existsSync(manifestPath)) {
+  if (!fs3.existsSync(manifestPath)) {
     return res.status(404).json({ error: `Manifest not found for platform: ${platform}` });
   }
   res.setHeader("expo-protocol-version", "1");
@@ -4414,7 +4957,7 @@ function serveExpoManifest(platform, res) {
   res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
   res.setHeader("Pragma", "no-cache");
   res.setHeader("Expires", "0");
-  const manifest = fs2.readFileSync(manifestPath, "utf-8");
+  const manifest = fs3.readFileSync(manifestPath, "utf-8");
   res.send(manifest);
 }
 function serveLandingPage({
@@ -4438,14 +4981,14 @@ function serveLandingPage({
 var ADMIN_COOKIE = "onway_admin_session";
 function makeToken() {
   const secret = `${process.env.ADMIN_USERNAME}:${process.env.ADMIN_PASSWORD}`;
-  return crypto.createHmac("sha256", secret).update("onway_admin").digest("hex");
+  return crypto2.createHmac("sha256", secret).update("onway_admin").digest("hex");
 }
 function isValidSession(req) {
   const raw = req.cookies?.[ADMIN_COOKIE];
   if (!raw) return false;
   return raw === makeToken();
 }
-function parseCookies(req) {
+function parseCookies2(req) {
   const header = req.headers.cookie || "";
   const cookies = {};
   header.split(";").forEach((part) => {
@@ -4455,21 +4998,21 @@ function parseCookies(req) {
   req.cookies = cookies;
 }
 function configureExpoAndLanding(app2) {
-  const templatePath = path2.resolve(
+  const templatePath = path3.resolve(
     process.cwd(),
     "server",
     "templates",
     "landing-page.html"
   );
-  const landingPageTemplate = fs2.readFileSync(templatePath, "utf-8");
+  const landingPageTemplate = fs3.readFileSync(templatePath, "utf-8");
   const appName = getAppName();
-  const adminTemplatePath = path2.resolve(
+  const adminTemplatePath = path3.resolve(
     process.cwd(),
     "server",
     "templates",
     "admin.html"
   );
-  const loginTemplatePath = path2.resolve(
+  const loginTemplatePath = path3.resolve(
     process.cwd(),
     "server",
     "templates",
@@ -4477,12 +5020,12 @@ function configureExpoAndLanding(app2) {
   );
   log("Serving static Expo files with dynamic manifest routing");
   app2.use((req, _res, next) => {
-    parseCookies(req);
+    parseCookies2(req);
     next();
   });
   function renderLogin(errorPlaceholder, googleBtnPlaceholder) {
     const clientId = process.env.GOOGLE_CLIENT_ID || "";
-    const template = fs2.readFileSync(loginTemplatePath, "utf-8");
+    const template = fs3.readFileSync(loginTemplatePath, "utf-8");
     return template.replace("ERROR_PLACEHOLDER", errorPlaceholder).replace("GOOGLE_BTN_PLACEHOLDER", googleBtnPlaceholder);
   }
   function buildGoogleBtn(clientId) {
@@ -4519,7 +5062,7 @@ function configureExpoAndLanding(app2) {
     res.setHeader("Content-Type", "text/html; charset=utf-8");
     res.status(200).send(html);
   });
-  app2.post("/admin/login", express2.urlencoded({ extended: false }), async (req, res) => {
+  app2.post("/admin/login", express3.urlencoded({ extended: false }), async (req, res) => {
     const { username, password } = req.body || {};
     const valid = await validateAdminCredentials(username, password);
     if (valid) {
@@ -4536,7 +5079,7 @@ function configureExpoAndLanding(app2) {
     res.setHeader("Content-Type", "text/html; charset=utf-8");
     res.status(401).send(html);
   });
-  app2.post("/admin/google-signin", express2.json(), async (req, res) => {
+  app2.post("/admin/google-signin", express3.json(), async (req, res) => {
     const { credential } = req.body || {};
     if (!credential) return res.status(400).json({ error: "\u0628\u064A\u0627\u0646\u0627\u062A \u062A\u0633\u062C\u064A\u0644 \u0627\u0644\u062F\u062E\u0648\u0644 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F\u0629" });
     try {
@@ -4563,7 +5106,7 @@ function configureExpoAndLanding(app2) {
       return res.status(500).json({ error: "\u062D\u062F\u062B \u062E\u0637\u0623 \u062F\u0627\u062E\u0644\u064A. \u062D\u0627\u0648\u0644 \u0645\u0631\u0629 \u0623\u062E\u0631\u0649." });
     }
   });
-  app2.post("/admin/reset-password", express2.urlencoded({ extended: false }), async (req, res) => {
+  app2.post("/admin/reset-password", express3.urlencoded({ extended: false }), async (req, res) => {
     const { recoveryCode, newUsername, newPassword, confirmPassword } = req.body || {};
     const clientId = process.env.GOOGLE_CLIENT_ID || "";
     const send = (status, msg, isSuccess = false) => {
@@ -4585,7 +5128,7 @@ function configureExpoAndLanding(app2) {
       return send(500, "\u0641\u0634\u0644 \u0641\u064A \u062D\u0641\u0638 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A. \u062D\u0627\u0648\u0644 \u0645\u0631\u0629 \u0623\u062E\u0631\u0649.");
     }
   });
-  app2.post("/api/admin/change-credentials", express2.json(), async (req, res) => {
+  app2.post("/api/admin/change-credentials", express3.json(), async (req, res) => {
     if (!isValidSession(req)) return res.status(401).json({ error: "\u063A\u064A\u0631 \u0645\u0635\u0631\u062D" });
     const { currentPassword, newUsername, newPassword, confirmPassword } = req.body || {};
     if (!currentPassword) return res.status(400).json({ error: "\u0643\u0644\u0645\u0629 \u0627\u0644\u0645\u0631\u0648\u0631 \u0627\u0644\u062D\u0627\u0644\u064A\u0629 \u0645\u0637\u0644\u0648\u0628\u0629" });
@@ -4618,7 +5161,7 @@ function configureExpoAndLanding(app2) {
   });
   app2.get("/admin", (req, res) => {
     if (!isValidSession(req)) return res.redirect("/admin/login");
-    const adminTemplate = fs2.readFileSync(adminTemplatePath, "utf-8");
+    const adminTemplate = fs3.readFileSync(adminTemplatePath, "utf-8");
     res.setHeader("Content-Type", "text/html; charset=utf-8");
     res.status(200).send(adminTemplate);
   });
@@ -4643,7 +5186,7 @@ function configureExpoAndLanding(app2) {
     }
     next();
   });
-  app2.use("/uploads", express2.static(path2.resolve(process.cwd(), "uploads"), {
+  app2.use("/uploads", express3.static(path3.resolve(process.cwd(), "uploads"), {
     maxAge: 0,
     etag: false,
     lastModified: false,
@@ -4653,15 +5196,15 @@ function configureExpoAndLanding(app2) {
       staticRes.setHeader("Expires", "0");
     }
   }));
-  app2.use("/assets", express2.static(path2.resolve(process.cwd(), "assets"), {
+  app2.use("/assets", express3.static(path3.resolve(process.cwd(), "assets"), {
     maxAge: "7d",
     etag: true
   }));
-  app2.use(express2.static(path2.resolve(process.cwd(), "server", "public"), {
+  app2.use(express3.static(path3.resolve(process.cwd(), "server", "public"), {
     maxAge: "1d",
     etag: true
   }));
-  app2.use(express2.static(path2.resolve(process.cwd(), "static-build"), {
+  app2.use(express3.static(path3.resolve(process.cwd(), "static-build"), {
     maxAge: 0,
     etag: false,
     lastModified: false,
@@ -4705,6 +5248,7 @@ process.on("exit", (code) => {
   setupBodyParsing(app);
   setupRequestLogging(app);
   configureExpoAndLanding(app);
+  app.use(vendor_default);
   const server = await registerRoutes(app);
   setupErrorHandler(app);
   const port = parseInt(process.env.PORT || "5000", 10);

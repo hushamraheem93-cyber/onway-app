@@ -7,7 +7,7 @@ import * as Notifications from "expo-notifications";
 import * as Device from "expo-device";
 import Constants from "expo-constants";
 
-export type UserType = "customer" | "driver";
+export type UserType = "customer" | "driver" | "vendor";
 
 export interface UserProfile {
   id?: string;
@@ -21,6 +21,18 @@ export interface UserProfile {
   userType?: UserType;
 }
 
+export interface VendorProfile {
+  id: string;
+  storeName: string;
+  businessType: string;
+  phoneNumber: string;
+  ownerName: string;
+  address?: string;
+  status: "pending" | "active" | "suspended" | "rejected";
+  totalProducts?: number;
+  createdAt: string;
+}
+
 interface AuthContextType {
   isLoggedIn: boolean;
   phoneNumber: string | null;
@@ -32,6 +44,10 @@ interface AuthContextType {
   selectedUserType: UserType | null;
   isDriverRegistered: boolean;
   hasSeenSplash: boolean;
+  // Vendor
+  vendorProfile: VendorProfile | null;
+  vendorToken: string | null;
+  isVendorRegistered: boolean;
   sendOtp: (phone: string) => Promise<void>;
   verifyOtp: (code: string) => Promise<void>;
   setUserType: (type: UserType) => void;
@@ -40,6 +56,8 @@ interface AuthContextType {
   saveProfile: (profile: Omit<UserProfile, "phoneNumber" | "profileComplete">, imageUri?: string) => Promise<void>;
   refreshProfile: () => Promise<void>;
   completeDriverRegistration: () => Promise<void>;
+  completeVendorRegistration: (vendor: VendorProfile, token: string) => Promise<void>;
+  refreshVendorProfile: () => Promise<void>;
   goBackToUserType: () => void;
   goBackToPhoneLogin: () => void;
   goBackToOtp: () => void;
@@ -51,6 +69,8 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 const AUTH_STORAGE_KEY = "@onway_auth";
 const PROFILE_STORAGE_KEY = "@onway_profile";
+const VENDOR_TOKEN_KEY = "@onway_vendor_token";
+const VENDOR_PROFILE_KEY = "@onway_vendor_profile";
 
 async function registerForPushNotificationsAsync(): Promise<string | null> {
   if (Platform.OS === "web") {
@@ -58,7 +78,6 @@ async function registerForPushNotificationsAsync(): Promise<string | null> {
   }
 
   if (!Device.isDevice) {
-    console.log("Must use physical device for Push Notifications");
     return null;
   }
 
@@ -71,7 +90,6 @@ async function registerForPushNotificationsAsync(): Promise<string | null> {
   }
 
   if (finalStatus !== "granted") {
-    console.log("Failed to get push token for push notification!");
     return null;
   }
 
@@ -83,7 +101,7 @@ async function registerForPushNotificationsAsync(): Promise<string | null> {
     } else {
       token = (await Notifications.getExpoPushTokenAsync()).data;
     }
-    
+
     if (Platform.OS === "android") {
       Notifications.setNotificationChannelAsync("default", {
         name: "default",
@@ -93,10 +111,9 @@ async function registerForPushNotificationsAsync(): Promise<string | null> {
         sound: "default",
       });
     }
-    
+
     return token;
   } catch (error) {
-    console.log("Error getting push token:", error);
     return null;
   }
 }
@@ -108,10 +125,7 @@ async function savePushTokenToServer(phone: string, token: string): Promise<void
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ phoneNumber: phone, pushToken: token }),
     });
-    console.log("Push token saved to server");
-  } catch (error) {
-    console.error("Error saving push token:", error);
-  }
+  } catch {}
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -126,6 +140,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isDriverRegistered, setIsDriverRegistered] = useState(false);
   const [hasSeenSplash, setHasSeenSplash] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  // Vendor
+  const [vendorProfile, setVendorProfile] = useState<VendorProfile | null>(null);
+  const [vendorToken, setVendorToken] = useState<string | null>(null);
+  const [isVendorRegistered, setIsVendorRegistered] = useState(false);
 
   useEffect(() => {
     loadAuthState();
@@ -134,9 +152,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (isLoggedIn && phoneNumber) {
       registerForPushNotificationsAsync().then((token) => {
-        if (token) {
-          savePushTokenToServer(phoneNumber, token);
-        }
+        if (token) savePushTokenToServer(phoneNumber, token);
       });
     }
   }, [isLoggedIn, phoneNumber]);
@@ -152,14 +168,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setIsOtpVerified(true);
         setSelectedUserType(data.userType || "customer");
         setIsDriverRegistered(data.isDriverRegistered || false);
-        
-        const profileStored = await AsyncStorage.getItem(PROFILE_STORAGE_KEY);
-        if (profileStored) {
-          const profile = JSON.parse(profileStored);
-          setUserProfile(profile);
-          setIsProfileComplete(profile.profileComplete || false);
+
+        if (data.userType === "vendor") {
+          // Load vendor token + profile
+          const vToken = await AsyncStorage.getItem(VENDOR_TOKEN_KEY);
+          const vProfile = await AsyncStorage.getItem(VENDOR_PROFILE_KEY);
+          if (vToken) setVendorToken(vToken);
+          if (vProfile) {
+            const parsed = JSON.parse(vProfile) as VendorProfile;
+            setVendorProfile(parsed);
+            setIsVendorRegistered(true);
+          }
         } else {
-          await checkProfileFromServer(data.phoneNumber);
+          const profileStored = await AsyncStorage.getItem(PROFILE_STORAGE_KEY);
+          if (profileStored) {
+            const profile = JSON.parse(profileStored);
+            setUserProfile(profile);
+            setIsProfileComplete(profile.profileComplete || false);
+          } else {
+            await checkProfileFromServer(data.phoneNumber);
+          }
         }
       }
     } catch (error) {
@@ -180,8 +208,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } else {
         setIsProfileComplete(false);
       }
-    } catch (error) {
-      console.error("Error checking profile:", error);
+    } catch {
       setIsProfileComplete(false);
     }
   };
@@ -202,7 +229,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setPendingPhone(phone);
       setIsOtpSent(true);
     } catch (error: any) {
-      console.error("Error sending OTP:", error);
       throw error;
     }
   };
@@ -225,7 +251,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setPhoneNumber(pendingPhone);
       setIsOtpVerified(true);
     } catch (error: any) {
-      console.error("Error verifying OTP:", error);
       throw error;
     }
   };
@@ -235,14 +260,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const response = await fetch(new URL(`/api/drivers/check/${encodeURIComponent(phone)}`, getApiUrl()).toString());
       if (response.ok) {
         const data = await response.json();
-        if (data.exists && data.driver) {
-          return true;
-        }
+        return data.exists && !!data.driver;
       }
       return false;
-    } catch (error) {
-      console.error("Error checking existing driver:", error);
+    } catch {
       return false;
+    }
+  };
+
+  const checkExistingVendor = async (phone: string): Promise<{ vendor: VendorProfile | null; token: string | null }> => {
+    try {
+      const response = await fetch(new URL("/api/vendor/mobile-auth", getApiUrl()).toString(), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phoneNumber: phone }),
+      });
+      if (response.ok) {
+        const data = await response.json();
+        return { vendor: data.vendor || null, token: data.token || null };
+      }
+      return { vendor: null, token: null };
+    } catch {
+      return { vendor: null, token: null };
     }
   };
 
@@ -259,6 +298,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setIsLoggedIn(true);
         await checkProfileFromServer(phoneNumber);
       }
+    } else if (type === "vendor" && phoneNumber) {
+      const { vendor, token } = await checkExistingVendor(phoneNumber);
+      await AsyncStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify({ phoneNumber, userType: "vendor" }));
+      setIsLoggedIn(true);
+      if (vendor && token) {
+        setVendorProfile(vendor);
+        setVendorToken(token);
+        setIsVendorRegistered(true);
+        await AsyncStorage.setItem(VENDOR_TOKEN_KEY, token);
+        await AsyncStorage.setItem(VENDOR_PROFILE_KEY, JSON.stringify(vendor));
+      }
     }
   };
 
@@ -269,14 +319,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setIsLoggedIn(true);
       await checkProfileFromServer(phoneNumber);
     } catch (error) {
-      console.error("Error saving auth state:", error);
       throw error;
     }
+  };
+
+  const completeVendorRegistration = async (vendor: VendorProfile, token: string) => {
+    setVendorProfile(vendor);
+    setVendorToken(token);
+    setIsVendorRegistered(true);
+    await AsyncStorage.setItem(VENDOR_TOKEN_KEY, token);
+    await AsyncStorage.setItem(VENDOR_PROFILE_KEY, JSON.stringify(vendor));
+  };
+
+  const refreshVendorProfile = async () => {
+    if (!vendorToken) return;
+    try {
+      const response = await fetch(new URL("/api/vendor/profile", getApiUrl()).toString(), {
+        headers: { Authorization: `Bearer ${vendorToken}` },
+      });
+      if (response.ok) {
+        const updated = await response.json();
+        setVendorProfile(updated);
+        await AsyncStorage.setItem(VENDOR_PROFILE_KEY, JSON.stringify(updated));
+      }
+    } catch {}
   };
 
   const goBackToUserType = () => {
     setSelectedUserType(null);
     setIsDriverRegistered(false);
+    setIsVendorRegistered(false);
   };
 
   const markSplashSeen = () => {
@@ -304,7 +376,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setIsLoggedIn(true);
       await checkProfileFromServer(phoneNumber);
     } catch (error) {
-      console.error("Error completing driver registration:", error);
       throw error;
     }
   };
@@ -316,7 +387,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setIsLoggedIn(true);
       await checkProfileFromServer(phone);
     } catch (error) {
-      console.error("Error saving auth state:", error);
       throw error;
     }
   };
@@ -325,6 +395,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       await AsyncStorage.removeItem(AUTH_STORAGE_KEY);
       await AsyncStorage.removeItem(PROFILE_STORAGE_KEY);
+      await AsyncStorage.removeItem(VENDOR_TOKEN_KEY);
+      await AsyncStorage.removeItem(VENDOR_PROFILE_KEY);
       setPhoneNumber(null);
       setPendingPhone(null);
       setUserProfile(null);
@@ -335,8 +407,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setSelectedUserType(null);
       setIsDriverRegistered(false);
       setHasSeenSplash(false);
+      setVendorProfile(null);
+      setVendorToken(null);
+      setIsVendorRegistered(false);
     } catch (error) {
-      console.error("Error removing auth state:", error);
       throw error;
     }
   };
@@ -346,7 +420,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     try {
       let profileImageBase64: string | undefined;
-      
       if (imageUri) {
         profileImageBase64 = await compressAndConvertToBase64(imageUri);
       }
@@ -362,9 +435,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       const response = await fetch(new URL("/api/users", getApiUrl()).toString(), {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
 
@@ -378,7 +449,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setIsProfileComplete(true);
       await AsyncStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify(savedProfile));
     } catch (error) {
-      console.error("Error saving profile:", error);
       throw error;
     }
   };
@@ -390,9 +460,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider 
-      value={{ 
-        isLoggedIn, 
+    <AuthContext.Provider
+      value={{
+        isLoggedIn,
         phoneNumber,
         pendingPhone,
         userProfile,
@@ -402,19 +472,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         selectedUserType,
         isDriverRegistered,
         hasSeenSplash,
+        vendorProfile,
+        vendorToken,
+        isVendorRegistered,
         sendOtp,
         verifyOtp,
         setUserType,
-        login, 
-        logout, 
+        login,
+        logout,
         saveProfile,
         refreshProfile,
         completeDriverRegistration,
+        completeVendorRegistration,
+        refreshVendorProfile,
         goBackToUserType,
         goBackToPhoneLogin,
         goBackToOtp,
         markSplashSeen,
-        isLoading 
+        isLoading,
       }}
     >
       {children}

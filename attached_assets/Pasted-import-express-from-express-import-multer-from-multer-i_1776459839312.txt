@@ -1,0 +1,333 @@
+import express from 'express';
+import multer from 'multer';
+import sharp from 'sharp';
+import crypto from 'crypto';
+import path from 'path';
+import fs from 'fs/promises';
+import { db } from '../config/database';
+import { verifyVendorToken } from '../middleware/auth';
+
+const router = express.Router();
+
+// إعداد Multer للرفع المؤقت
+const upload = multer({
+  dest: 'temp-uploads/',
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
+  fileFilter: (req, file, cb) => {
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/jpg', 'image/webp'];
+    if (allowedTypes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error('نوع الملف غير مدعوم. استخدم PNG أو JPEG فقط.'));
+    }
+  },
+});
+
+// ========================================
+// دالة: توليد بصمة رقمية للصورة (Hash)
+// ========================================
+const generateImageHash = async (imagePath: string): Promise<string> => {
+  const imageBuffer = await fs.readFile(imagePath);
+  return crypto.createHash('md5').update(imageBuffer).digest('hex');
+};
+
+// ========================================
+// دالة: معالجة الصورة (تحويل لـ WebP + تصغير)
+// ========================================
+const processImage = async (
+  inputPath: string,
+  outputPath: string
+): Promise<void> => {
+  await sharp(inputPath)
+    .resize(800, 800, {
+      fit: 'cover',
+      position: 'center',
+    })
+    .webp({ quality: 80 })
+    .toFile(outputPath);
+};
+
+// ========================================
+// دالة: البحث عن صورة مكررة
+// ========================================
+const findDuplicateImage = async (hash: string): Promise<string | null> => {
+  const [results] = await db.query(
+    'SELECT image_url FROM product_images WHERE image_hash = ? LIMIT 1',
+    [hash]
+  );
+
+  if (results.length > 0) {
+    return results[0].image_url;
+  }
+
+  return null;
+};
+
+// ========================================
+// إضافة منتج جديد
+// ========================================
+router.post(
+  '/api/vendor/products',
+  verifyVendorToken,
+  upload.single('image'),
+  async (req, res) => {
+    let tempFilePath: string | null = null;
+    let processedFilePath: string | null = null;
+
+    try {
+      const {
+        name,
+        description,
+        price,
+        category,
+        stock,
+        unit,
+      } = req.body;
+
+      const vendorId = (req as any).vendorId;
+
+      // التحقق من البيانات
+      if (!name || !price || !category || !req.file) {
+        return res.status(400).json({
+          error: 'الاسم، السعر، الفئة، والصورة مطلوبة',
+        });
+      }
+
+      tempFilePath = req.file.path;
+
+      // 1. توليد بصمة الصورة
+      const imageHash = await generateImageHash(tempFilePath);
+
+      // 2. البحث عن صورة مكررة
+      let imageUrl = await findDuplicateImage(imageHash);
+
+      if (!imageUrl) {
+        // 3. معالجة الصورة (تحويل لـ WebP + تصغير)
+        const fileName = `${Date.now()}_${imageHash}.webp`;
+        processedFilePath = path.join('uploads', 'products', fileName);
+
+        // إنشاء المجلد إذا لم يكن موجوداً
+        await fs.mkdir('uploads/products', { recursive: true });
+
+        await processImage(tempFilePath, processedFilePath);
+
+        // 4. رفع الصورة (في هذا المثال نحفظها محلياً)
+        imageUrl = `/uploads/products/${fileName}`;
+
+        // 5. حفظ بصمة الصورة في قاعدة البيانات
+        await db.query(
+          'INSERT INTO product_images (image_hash, image_url, created_at) VALUES (?, ?, NOW())',
+          [imageHash, imageUrl]
+        );
+
+        console.log('✅ تم معالجة ورفع صورة جديدة');
+      } else {
+        console.log('✅ تم استخدام صورة موجودة مسبقاً (توفير المساحة)');
+      }
+
+      // 6. إنشاء معرف المنتج
+      const productId = `product_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+      // 7. إضافة المنتج إلى قاعدة البيانات (حالة: قيد المراجعة)
+      await db.query(
+        `INSERT INTO products (
+          id,
+          vendor_id,
+          name,
+          description,
+          price,
+          category,
+          stock,
+          unit,
+          image_url,
+          image_hash,
+          status,
+          created_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', NOW())`,
+        [
+          productId,
+          vendorId,
+          name,
+          description || null,
+          price,
+          category,
+          stock || 0,
+          unit || 'قطعة',
+          imageUrl,
+          imageHash,
+        ]
+      );
+
+      // 8. إرسال إشعار للإدارة (يمكن استخدام Firebase Cloud Messaging)
+      await db.query(
+        `INSERT INTO admin_notifications (
+          type,
+          title,
+          message,
+          vendor_id,
+          product_id,
+          status,
+          created_at
+        ) VALUES (?, ?, ?, ?, ?, 'unread', NOW())`,
+        [
+          'new_product',
+          'منتج جديد يحتاج مراجعة',
+          `المتجر قام بإضافة منتج جديد: ${name}`,
+          vendorId,
+          productId,
+        ]
+      );
+
+      // 9. حذف الملف المؤقت
+      if (tempFilePath) {
+        await fs.unlink(tempFilePath).catch(() => {});
+      }
+
+      res.status(201).json({
+        success: true,
+        message: 'تم إضافة المنتج بنجاح! سيتم مراجعته خلال 24 ساعة.',
+        product: {
+          id: productId,
+          name,
+          price,
+          imageUrl,
+          status: 'pending',
+        },
+      });
+    } catch (error) {
+      console.error('خطأ في إضافة المنتج:', error);
+
+      // حذف الملفات المؤقتة في حالة الخطأ
+      if (tempFilePath) {
+        await fs.unlink(tempFilePath).catch(() => {});
+      }
+      if (processedFilePath) {
+        await fs.unlink(processedFilePath).catch(() => {});
+      }
+
+      res.status(500).json({ error: 'حدث خطأ في إضافة المنتج' });
+    }
+  }
+);
+
+// ========================================
+// الحصول على منتجات المتجر
+// ========================================
+router.get('/api/vendor/products', verifyVendorToken, async (req, res) => {
+  try {
+    const vendorId = (req as any).vendorId;
+    const { status, page = 1, limit = 20 } = req.query;
+
+    const offset = (Number(page) - 1) * Number(limit);
+
+    let query = 'SELECT * FROM products WHERE vendor_id = ?';
+    const params: any[] = [vendorId];
+
+    if (status) {
+      query += ' AND status = ?';
+      params.push(status);
+    }
+
+    query += ' ORDER BY created_at DESC LIMIT ? OFFSET ?';
+    params.push(Number(limit), offset);
+
+    const [products] = await db.query(query, params);
+
+    // عدد المنتجات الكلي
+    const [countResult] = await db.query(
+      'SELECT COUNT(*) as total FROM products WHERE vendor_id = ?',
+      [vendorId]
+    );
+
+    res.json({
+      products,
+      total: countResult[0].total,
+      page: Number(page),
+      limit: Number(limit),
+    });
+  } catch (error) {
+    console.error('خطأ في جلب المنتجات:', error);
+    res.status(500).json({ error: 'حدث خطأ في الخادم' });
+  }
+});
+
+// ========================================
+// تحديث منتج
+// ========================================
+router.put(
+  '/api/vendor/products/:productId',
+  verifyVendorToken,
+  async (req, res) => {
+    try {
+      const vendorId = (req as any).vendorId;
+      const { productId } = req.params;
+      const { name, description, price, stock } = req.body;
+
+      // التحقق من ملكية المنتج
+      const [products] = await db.query(
+        'SELECT id FROM products WHERE id = ? AND vendor_id = ?',
+        [productId, vendorId]
+      );
+
+      if (products.length === 0) {
+        return res.status(404).json({ error: 'المنتج غير موجود' });
+      }
+
+      // تحديث المنتج
+      await db.query(
+        `UPDATE products 
+         SET name = ?, description = ?, price = ?, stock = ?, updated_at = NOW()
+         WHERE id = ?`,
+        [name, description, price, stock, productId]
+      );
+
+      res.json({
+        success: true,
+        message: 'تم تحديث المنتج بنجاح',
+      });
+    } catch (error) {
+      console.error('خطأ في تحديث المنتج:', error);
+      res.status(500).json({ error: 'حدث خطأ في الخادم' });
+    }
+  }
+);
+
+// ========================================
+// حذف منتج
+// ========================================
+router.delete(
+  '/api/vendor/products/:productId',
+  verifyVendorToken,
+  async (req, res) => {
+    try {
+      const vendorId = (req as any).vendorId;
+      const { productId } = req.params;
+
+      // التحقق من ملكية المنتج
+      const [products] = await db.query(
+        'SELECT id FROM products WHERE id = ? AND vendor_id = ?',
+        [productId, vendorId]
+      );
+
+      if (products.length === 0) {
+        return res.status(404).json({ error: 'المنتج غير موجود' });
+      }
+
+      // حذف المنتج (أو تغيير حالته إلى deleted)
+      await db.query(
+        'UPDATE products SET status = ?, deleted_at = NOW() WHERE id = ?',
+        ['deleted', productId]
+      );
+
+      res.json({
+        success: true,
+        message: 'تم حذف المنتج بنجاح',
+      });
+    } catch (error) {
+      console.error('خطأ في حذف المنتج:', error);
+      res.status(500).json({ error: 'حدث خطأ في الخادم' });
+    }
+  }
+);
+
+export default router;

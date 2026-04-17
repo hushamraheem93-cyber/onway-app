@@ -1,0 +1,132 @@
+-- ========================================
+-- جدول البائعين (المتاجر)
+-- ========================================
+CREATE TABLE IF NOT EXISTS vendors (
+  id VARCHAR(255) PRIMARY KEY,
+  store_name VARCHAR(255) NOT NULL,
+  business_type ENUM('restaurant', 'supermarket', 'pharmacy', 'bakery', 'other') NOT NULL,
+  phone_number VARCHAR(20) UNIQUE NOT NULL,
+  email VARCHAR(255),
+  password VARCHAR(255) NOT NULL,
+  address TEXT NOT NULL,
+  latitude FLOAT,
+  longitude FLOAT,
+  owner_name VARCHAR(255),
+  commercial_license VARCHAR(255),
+  status ENUM('pending', 'active', 'suspended', 'rejected') DEFAULT 'pending',
+  total_products INT DEFAULT 0,
+  total_orders INT DEFAULT 0,
+  total_earnings DECIMAL(10,2) DEFAULT 0,
+  rating DECIMAL(3,2) DEFAULT 0,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  approved_at TIMESTAMP NULL,
+  INDEX idx_status (status),
+  INDEX idx_business_type (business_type)
+);
+
+-- ========================================
+-- جدول المنتجات
+-- ========================================
+CREATE TABLE IF NOT EXISTS products (
+  id VARCHAR(255) PRIMARY KEY,
+  vendor_id VARCHAR(255) NOT NULL,
+  name VARCHAR(255) NOT NULL,
+  description TEXT,
+  price DECIMAL(10,2) NOT NULL,
+  category VARCHAR(100) NOT NULL,
+  stock INT DEFAULT 0,
+  unit VARCHAR(50) DEFAULT 'قطعة',
+  image_url VARCHAR(500) NOT NULL,
+  image_hash VARCHAR(32) NOT NULL,
+  status ENUM('pending', 'approved', 'rejected', 'deleted') DEFAULT 'pending',
+  approved_by VARCHAR(255),
+  rejected_by VARCHAR(255),
+  rejection_reason TEXT,
+  approved_at TIMESTAMP NULL,
+  rejected_at TIMESTAMP NULL,
+  deleted_at TIMESTAMP NULL,
+  views_count INT DEFAULT 0,
+  orders_count INT DEFAULT 0,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  FOREIGN KEY (vendor_id) REFERENCES vendors(id),
+  INDEX idx_vendor (vendor_id),
+  INDEX idx_status (status),
+  INDEX idx_category (category),
+  INDEX idx_image_hash (image_hash)
+);
+
+-- ========================================
+-- جدول بصمات الصور (منع التكرار)
+-- ========================================
+CREATE TABLE IF NOT EXISTS product_images (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  image_hash VARCHAR(32) UNIQUE NOT NULL,
+  image_url VARCHAR(500) NOT NULL,
+  usage_count INT DEFAULT 1,
+  file_size INT,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_hash (image_hash)
+);
+
+-- ========================================
+-- جدول إشعارات الإدارة
+-- ========================================
+CREATE TABLE IF NOT EXISTS admin_notifications (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  type VARCHAR(50) NOT NULL,
+  title VARCHAR(255) NOT NULL,
+  message TEXT,
+  vendor_id VARCHAR(255),
+  product_id VARCHAR(255),
+  status ENUM('unread', 'read') DEFAULT 'unread',
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  read_at TIMESTAMP NULL,
+  INDEX idx_status (status),
+  INDEX idx_type (type)
+);
+
+-- ========================================
+-- جدول إشعارات البائعين
+-- ========================================
+CREATE TABLE IF NOT EXISTS vendor_notifications (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  vendor_id VARCHAR(255) NOT NULL,
+  type VARCHAR(50) NOT NULL,
+  title VARCHAR(255) NOT NULL,
+  message TEXT,
+  status ENUM('unread', 'read') DEFAULT 'unread',
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  read_at TIMESTAMP NULL,
+  FOREIGN KEY (vendor_id) REFERENCES vendors(id),
+  INDEX idx_vendor_status (vendor_id, status)
+);
+
+-- ========================================
+-- جدول الطلبات (مع دعم Multi-Vendor)
+-- ========================================
+CREATE TABLE IF NOT EXISTS orders (
+  id VARCHAR(255) PRIMARY KEY,
+  order_number VARCHAR(50) UNIQUE NOT NULL,
+  customer_id VARCHAR(255) NOT NULL,
+  vendor_id VARCHAR(255) NOT NULL,
+  driver_id VARCHAR(255),
+  items JSON NOT NULL,
+  subtotal DECIMAL(10,2) NOT NULL,
+  delivery_fee DECIMAL(10,2) DEFAULT 0,
+  total_price DECIMAL(10,2) NOT NULL,
+  status ENUM('pending', 'confirmed', 'preparing', 'ready', 'picked_up', 'delivered', 'cancelled') DEFAULT 'pending',
+  payment_method ENUM('cash', 'card', 'wallet') DEFAULT 'cash',
+  payment_status ENUM('pending', 'paid', 'refunded') DEFAULT 'pending',
+  delivery_address TEXT NOT NULL,
+  customer_lat FLOAT,
+  customer_lng FLOAT,
+  notes TEXT,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  FOREIGN KEY (vendor_id) REFERENCES vendors(id),
+  INDEX idx_vendor_status (vendor_id, status),
+  INDEX idx_customer (customer_id),
+  INDEX idx_driver (driver_id)
+);

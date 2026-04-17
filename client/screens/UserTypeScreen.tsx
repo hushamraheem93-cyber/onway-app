@@ -5,15 +5,15 @@ import {
   Pressable,
   Animated,
   Easing,
-  Platform,
+  ScrollView,
 } from "react-native";
-import { useSafeAreaInsets, SafeAreaView } from "react-native-safe-area-context";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
-import { Feather, MaterialIcons, FontAwesome5 } from "@expo/vector-icons";
+import { Feather, MaterialIcons, FontAwesome5, MaterialCommunityIcons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 
 import { ThemedText } from "@/components/ThemedText";
-import { useAuth } from "@/context/AuthContext";
+import { useAuth, UserType } from "@/context/AuthContext";
 
 const BRAND_ORANGE = "#E86520";
 const BRAND_DARK = "#C4520F";
@@ -27,6 +27,7 @@ export default function UserTypeScreen() {
   const cardSlide = useRef(new Animated.Value(50)).current;
   const card1Anim = useRef(new Animated.Value(0)).current;
   const card2Anim = useRef(new Animated.Value(0)).current;
+  const card3Anim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     Animated.sequence([
@@ -35,23 +36,24 @@ export default function UserTypeScreen() {
         Animated.spring(headerScale, { toValue: 1, friction: 7, tension: 60, useNativeDriver: true }),
         Animated.timing(cardSlide, { toValue: 0, duration: 600, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
       ]),
-      Animated.stagger(120, [
+      Animated.stagger(100, [
         Animated.spring(card1Anim, { toValue: 1, friction: 6, useNativeDriver: true }),
         Animated.spring(card2Anim, { toValue: 1, friction: 6, useNativeDriver: true }),
+        Animated.spring(card3Anim, { toValue: 1, friction: 6, useNativeDriver: true }),
       ]),
     ]).start();
   }, []);
 
-  const handleSelect = (type: "customer" | "driver") => {
+  const handleSelect = (type: UserType) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setUserType(type);
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={["top"]}>
+    <View style={styles.container}>
       <LinearGradient
         colors={[BRAND_ORANGE, BRAND_DARK]}
-        style={[styles.topSection, { paddingTop: 20 }]}
+        style={[styles.topSection, { paddingTop: insets.top + 20 }]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
       >
@@ -88,65 +90,92 @@ export default function UserTypeScreen() {
           {
             opacity: fadeAnim,
             transform: [{ translateY: cardSlide }],
-            paddingBottom: insets.bottom + 20,
           },
         ]}
       >
         <View style={styles.handleBar} />
 
-        <Animated.View style={{ opacity: card1Anim, transform: [{ scale: card1Anim }] }}>
-          <Pressable
-            style={({ pressed }) => [
-              styles.typeCard,
-              pressed ? styles.typeCardPressed : undefined,
-            ]}
-            onPress={() => handleSelect("customer")}
-            testID="button-customer"
-          >
-            <View style={styles.cardArrow}>
-              <MaterialIcons name="keyboard-arrow-left" size={24} color="#999" />
-            </View>
-            <View style={styles.cardCenter}>
-              <ThemedText style={styles.cardTitle}>زبون</ThemedText>
-              <ThemedText style={styles.cardDesc}>
-                تصفح المنتجات واطلب التوصيل لباب منزلك
-              </ThemedText>
-            </View>
-            <View style={styles.cardLeft}>
-              <View style={[styles.iconCircle, { backgroundColor: "#FFEDD8" }]}>
-                <MaterialIcons name="person" size={30} color="#E86520" />
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={{ paddingBottom: insets.bottom + 24 }}
+        >
+          {/* Customer */}
+          <Animated.View style={{ opacity: card1Anim, transform: [{ scale: card1Anim }] }}>
+            <Pressable
+              style={({ pressed }) => [styles.typeCard, pressed ? styles.typeCardPressed : undefined]}
+              onPress={() => handleSelect("customer")}
+              testID="button-customer"
+            >
+              <View style={styles.cardArrow}>
+                <MaterialIcons name="keyboard-arrow-left" size={24} color="#999" />
               </View>
-            </View>
-          </Pressable>
-        </Animated.View>
+              <View style={styles.cardCenter}>
+                <ThemedText style={styles.cardTitle}>زبون</ThemedText>
+                <ThemedText style={styles.cardDesc}>
+                  تصفح المنتجات واطلب التوصيل لباب منزلك
+                </ThemedText>
+              </View>
+              <View style={styles.cardLeft}>
+                <View style={[styles.iconCircle, { backgroundColor: "#FFEDD8" }]}>
+                  <MaterialIcons name="person" size={30} color="#E86520" />
+                </View>
+              </View>
+            </Pressable>
+          </Animated.View>
 
-        <Animated.View style={{ opacity: card2Anim, transform: [{ scale: card2Anim }] }}>
-          <Pressable
-            style={({ pressed }) => [
-              styles.typeCard,
-              pressed ? styles.typeCardPressed : undefined,
-            ]}
-            onPress={() => handleSelect("driver")}
-            testID="button-driver"
-          >
-            <View style={styles.cardArrow}>
-              <MaterialIcons name="keyboard-arrow-left" size={24} color="#999" />
-            </View>
-            <View style={styles.cardCenter}>
-              <ThemedText style={styles.cardTitle}>سائق توصيل</ThemedText>
-              <ThemedText style={styles.cardDesc}>
-                انضم لفريق التوصيل واكسب المال بتوصيل الطلبات
-              </ThemedText>
-            </View>
-            <View style={styles.cardLeft}>
-              <View style={[styles.iconCircle, { backgroundColor: "#E0F2F1" }]}>
-                <FontAwesome5 name="motorcycle" size={28} color="#009688" />
+          {/* Vendor */}
+          <Animated.View style={{ opacity: card2Anim, transform: [{ scale: card2Anim }] }}>
+            <Pressable
+              style={({ pressed }) => [styles.typeCard, pressed ? styles.typeCardPressed : undefined]}
+              onPress={() => handleSelect("vendor")}
+              testID="button-vendor"
+            >
+              <View style={styles.cardArrow}>
+                <MaterialIcons name="keyboard-arrow-left" size={24} color="#999" />
               </View>
-            </View>
-          </Pressable>
-        </Animated.View>
+              <View style={styles.cardCenter}>
+                <ThemedText style={styles.cardTitle}>صاحب متجر</ThemedText>
+                <ThemedText style={styles.cardDesc}>
+                  أضف منتجاتك وبع عبر OnWay لآلاف الزبائن
+                </ThemedText>
+                <View style={styles.vendorBadge}>
+                  <ThemedText style={styles.vendorBadgeText}>شريك تجاري</ThemedText>
+                </View>
+              </View>
+              <View style={styles.cardLeft}>
+                <View style={[styles.iconCircle, { backgroundColor: "#EDE7F6" }]}>
+                  <MaterialCommunityIcons name="store" size={30} color="#673AB7" />
+                </View>
+              </View>
+            </Pressable>
+          </Animated.View>
+
+          {/* Driver */}
+          <Animated.View style={{ opacity: card3Anim, transform: [{ scale: card3Anim }] }}>
+            <Pressable
+              style={({ pressed }) => [styles.typeCard, pressed ? styles.typeCardPressed : undefined]}
+              onPress={() => handleSelect("driver")}
+              testID="button-driver"
+            >
+              <View style={styles.cardArrow}>
+                <MaterialIcons name="keyboard-arrow-left" size={24} color="#999" />
+              </View>
+              <View style={styles.cardCenter}>
+                <ThemedText style={styles.cardTitle}>سائق توصيل</ThemedText>
+                <ThemedText style={styles.cardDesc}>
+                  انضم لفريق التوصيل واكسب المال بتوصيل الطلبات
+                </ThemedText>
+              </View>
+              <View style={styles.cardLeft}>
+                <View style={[styles.iconCircle, { backgroundColor: "#E0F2F1" }]}>
+                  <FontAwesome5 name="motorcycle" size={28} color="#009688" />
+                </View>
+              </View>
+            </Pressable>
+          </Animated.View>
+        </ScrollView>
       </Animated.View>
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -198,58 +227,44 @@ const styles = StyleSheet.create({
   logoWrap: {
     marginBottom: 14,
     paddingVertical: 6,
+    paddingHorizontal: 20,
+    backgroundColor: "rgba(255,255,255,0.2)",
+    borderRadius: 16,
   },
   logoText: {
-    fontFamily: "Montserrat_800ExtraBold",
+    fontFamily: "Cairo_700Bold",
     fontSize: 22,
     color: "#FFFFFF",
     letterSpacing: 1,
-    textAlign: "center",
-    writingDirection: "ltr",
-    lineHeight: 38,
-    includeFontPadding: true,
   },
   headerTitle: {
     fontFamily: "Cairo_700Bold",
-    fontSize: 19,
+    fontSize: 18,
     color: "#FFFFFF",
-    lineHeight: 42,
-    includeFontPadding: true,
-    paddingTop: 4,
+    textAlign: "center",
   },
   headerSub: {
     fontFamily: "Cairo_400Regular",
-    fontSize: 14,
-    color: "rgba(255,255,255,0.8)",
-    lineHeight: 24,
-    includeFontPadding: true,
+    fontSize: 13,
+    color: "rgba(255,255,255,0.75)",
+    textAlign: "center",
   },
   card: {
     flex: 1,
     backgroundColor: "#FFFFFF",
-    borderTopLeftRadius: 32,
-    borderTopRightRadius: 32,
-    marginTop: -30,
-    paddingHorizontal: 24,
-    paddingTop: 12,
-    ...Platform.select({
-      ios: {
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: -4 },
-        shadowOpacity: 0.06,
-        shadowRadius: 12,
-      },
-      android: { elevation: 8 },
-      default: {},
-    }),
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    marginTop: -24,
+    paddingTop: 8,
+    paddingHorizontal: 20,
   },
   handleBar: {
     width: 40,
     height: 4,
-    borderRadius: 2,
     backgroundColor: "#E0E0E0",
+    borderRadius: 2,
     alignSelf: "center",
-    marginBottom: 30,
+    marginVertical: 12,
   },
   typeCard: {
     flexDirection: "row",
@@ -257,7 +272,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#F9F9F9",
     borderRadius: 18,
     padding: 18,
-    marginBottom: 16,
+    marginBottom: 14,
     borderWidth: 1.5,
     borderColor: "#F0F0F0",
   },
@@ -302,5 +317,18 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     justifyContent: "center",
     alignItems: "center",
+  },
+  vendorBadge: {
+    alignSelf: "flex-end",
+    backgroundColor: "#EDE7F6",
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    marginTop: 4,
+  },
+  vendorBadgeText: {
+    fontFamily: "Cairo_700Bold",
+    fontSize: 10,
+    color: "#673AB7",
   },
 });

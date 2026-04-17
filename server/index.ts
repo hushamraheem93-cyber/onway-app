@@ -2,6 +2,7 @@ import express from "express";
 import type { Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { initializeFirebase, getFirestore } from "./firebase";
+import vendorRouter from "./vendor";
 import * as fs from "fs";
 import * as path from "path";
 import * as crypto from "crypto";
@@ -528,6 +529,9 @@ process.on("exit", (code) => {
   setupRequestLogging(app);
 
   configureExpoAndLanding(app);
+
+  // Vendor partner portal routes
+  app.use(vendorRouter);
 
   const server = await registerRoutes(app);
 

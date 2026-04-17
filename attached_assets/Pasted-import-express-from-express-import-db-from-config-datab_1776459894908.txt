@@ -1,0 +1,205 @@
+import express from 'express';
+import { db } from '../config/database';
+import { verifyAdminToken } from '../middleware/auth';
+
+const router = express.Router();
+
+// ========================================
+// الحصول على المنتجات قيد المراجعة
+// ========================================
+router.get('/api/admin/products/pending', verifyAdminToken, async (req, res) => {
+  try {
+    const { page = 1, limit = 20 } = req.query;
+    const offset = (Number(page) - 1) * Number(limit);
+
+    const [products] = await db.query(
+      `SELECT 
+        p.*,
+        v.store_name,
+        v.phone_number as vendor_phone
+      FROM products p
+      LEFT JOIN vendors v ON p.vendor_id = v.id
+      WHERE p.status = 'pending'
+      ORDER BY p.created_at DESC
+      LIMIT ? OFFSET ?`,
+      [Number(limit), offset]
+    );
+
+    const [countResult] = await db.query(
+      'SELECT COUNT(*) as total FROM products WHERE status = ?',
+      ['pending']
+    );
+
+    res.json({
+      products,
+      total: countResult[0].total,
+      page: Number(page),
+      limit: Number(limit),
+    });
+  } catch (error) {
+    console.error('خطأ في جلب المنتجات قيد المراجعة:', error);
+    res.status(500).json({ error: 'حدث خطأ في الخادم' });
+  }
+});
+
+// ========================================
+// الموافقة على منتج
+// ========================================
+router.post(
+  '/api/admin/products/:productId/approve',
+  verifyAdminToken,
+  async (req, res) => {
+    try {
+      const { productId } = req.params;
+      const adminId = (req as any).adminId;
+
+      // تحديث حالة المنتج
+      await db.query(
+        'UPDATE products SET status = ?, approved_by = ?, approved_at = NOW() WHERE id = ?',
+        ['approved', adminId, productId]
+      );
+
+      // الحصول على معلومات البائع
+      const [products] = await db.query(
+        'SELECT vendor_id, name FROM products WHERE id = ?',
+        [productId]
+      );
+
+      if (products.length > 0) {
+        const product = products[0];
+
+        // إرسال إشعار للبائع
+        await db.query(
+          `INSERT INTO vendor_notifications (
+            vendor_id,
+            type,
+            title,
+            message,
+            status,
+            created_at
+          ) VALUES (?, ?, ?, ?, 'unread', NOW())`,
+          [
+            product.vendor_id,
+            'product_approved',
+            'تمت الموافقة على منتجك',
+            `تمت الموافقة على المنتج: ${product.name} وهو الآن متاح للعملاء`,
+          ]
+        );
+
+        // تحديث عدد المنتجات للبائع
+        await db.query(
+          'UPDATE vendors SET total_products = total_products + 1 WHERE id = ?',
+          [product.vendor_id]
+        );
+      }
+
+      res.json({
+        success: true,
+        message: 'تمت الموافقة على المنتج بنجاح',
+      });
+    } catch (error) {
+      console.error('خطأ في الموافقة على المنتج:', error);
+      res.status(500).json({ error: 'حدث خطأ في الخادم' });
+    }
+  }
+);
+
+// ========================================
+// رفض منتج
+// ========================================
+router.post(
+  '/api/admin/products/:productId/reject',
+  verifyAdminToken,
+  async (req, res) => {
+    try {
+      const { productId } = req.params;
+      const { reason } = req.body;
+      const adminId = (req as any).adminId;
+
+      // تحديث حالة المنتج
+      await db.query(
+        'UPDATE products SET status = ?, rejected_by = ?, rejected_at = NOW(), rejection_reason = ? WHERE id = ?',
+        ['rejected', adminId, reason, productId]
+      );
+
+      // الحصول على معلومات البائع
+      const [products] = await db.query(
+        'SELECT vendor_id, name FROM products WHERE id = ?',
+        [productId]
+      );
+
+      if (products.length > 0) {
+        const product = products[0];
+
+        // إرسال إشعار للبائع
+        await db.query(
+          `INSERT INTO vendor_notifications (
+            vendor_id,
+            type,
+            title,
+            message,
+            status,
+            created_at
+          ) VALUES (?, ?, ?, ?, 'unread', NOW())`,
+          [
+            product.vendor_id,
+            'product_rejected',
+            'تم رفض منتجك',
+            `تم رفض المنتج: ${product.name}\n\nالسبب: ${reason}`,
+          ]
+        );
+      }
+
+      res.json({
+        success: true,
+        message: 'تم رفض المنتج',
+      });
+    } catch (error) {
+      console.error('خطأ في رفض المنتج:', error);
+      res.status(500).json({ error: 'حدث خطأ في الخادم' });
+    }
+  }
+);
+
+// ========================================
+// الحصول على إحصائيات الإدارة
+// ========================================
+router.get('/api/admin/stats', verifyAdminToken, async (req, res) => {
+  try {
+    // عدد المنتجات قيد المراجعة
+    const [pendingProducts] = await db.query(
+      'SELECT COUNT(*) as count FROM products WHERE status = ?',
+      ['pending']
+    );
+
+    // عدد المتاجر قيد المراجعة
+    const [pendingVendors] = await db.query(
+      'SELECT COUNT(*) as count FROM vendors WHERE status = ?',
+      ['pending']
+    );
+
+    // إجمالي المنتجات المعتمدة
+    const [approvedProducts] = await db.query(
+      'SELECT COUNT(*) as count FROM products WHERE status = ?',
+      ['approved']
+    );
+
+    // إجمالي المتاجر النشطة
+    const [activeVendors] = await db.query(
+      'SELECT COUNT(*) as count FROM vendors WHERE status = ?',
+      ['active']
+    );
+
+    res.json({
+      pendingProducts: pendingProducts[0].count,
+      pendingVendors: pendingVendors[0].count,
+      approvedProducts: approvedProducts[0].count,
+      activeVendors: activeVendors[0].count,
+    });
+  } catch (error) {
+    console.error('خطأ في جلب الإحصائيات:', error);
+    res.status(500).json({ error: 'حدث خطأ في الخادم' });
+  }
+});
+
+export default router;
