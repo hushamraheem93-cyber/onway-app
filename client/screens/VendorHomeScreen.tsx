@@ -28,6 +28,7 @@ type MCIcon = ComponentProps<typeof MaterialCommunityIcons>["name"];
 
 import { ThemedText } from "@/components/ThemedText";
 import { useAuth } from "@/context/AuthContext";
+import { useVendorNotifications } from "@/context/VendorNotificationsContext";
 import { getApiUrl } from "@/lib/query-client";
 
 const PURPLE = "#673AB7";
@@ -85,6 +86,7 @@ export default function VendorHomeScreen({ navigation }: any) {
   const headerHeight = useHeaderHeight();
   const tabBarHeight = useBottomTabBarHeight();
   const { vendorProfile, vendorToken, logout, refreshVendorProfile } = useAuth();
+  const { setUnreadCount } = useVendorNotifications();
 
   const [stats, setStats] = useState<Stats>({ total: 0, approved: 0, pending: 0, rejected: 0 });
   const [refreshing, setRefreshing] = useState(false);
@@ -144,10 +146,10 @@ export default function VendorHomeScreen({ navigation }: any) {
       });
       if (!res.ok) return;
       const data = await res.json();
-      const unread = (data.notifications || []).filter(
-        (n: VendorNotification) => n.status === "unread"
-      );
+      const all: VendorNotification[] = data.notifications || [];
+      const unread = all.filter((n) => n.status === "unread");
       setNotifications(unread);
+      setUnreadCount(unread.length);
       const hasStatusChange = unread.some(
         (n: VendorNotification) =>
           n.type === "vendor_active" ||
@@ -156,7 +158,7 @@ export default function VendorHomeScreen({ navigation }: any) {
       );
       if (hasStatusChange) refreshVendorProfile();
     } catch {}
-  }, [vendorToken, refreshVendorProfile]);
+  }, [vendorToken, refreshVendorProfile, setUnreadCount]);
 
   const markNotificationsRead = useCallback(
     async (ids: string[]) => {
@@ -179,9 +181,10 @@ export default function VendorHomeScreen({ navigation }: any) {
     (notif: VendorNotification) => {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       setDismissedIds((prev) => new Set([...prev, notif.id]));
+      setUnreadCount((c) => Math.max(0, c - 1));
       markNotificationsRead([notif.id]);
     },
-    [markNotificationsRead]
+    [markNotificationsRead, setUnreadCount]
   );
 
   useFocusEffect(
