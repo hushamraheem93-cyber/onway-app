@@ -847,4 +847,94 @@ router.get("/api/admin/vendor-stats", requireAdmin, async (req, res) => {
   }
 });
 
+// ═══════════════════════════════════════════════════════════════════════════
+// PUBLIC endpoints for customer-facing store browsing
+// ═══════════════════════════════════════════════════════════════════════════
+
+// GET /api/stores — list all active vendor stores (public)
+router.get("/api/stores", async (_req, res) => {
+  try {
+    const db = getFirestore();
+    if (!db) return res.status(500).json({ error: "قاعدة البيانات غير متاحة" });
+
+    const snap = await db.collection("vendors")
+      .where("status", "==", "active")
+      .get();
+
+    const stores = snap.docs
+      .map((d) => {
+        const v = d.data() as any;
+        return {
+          id: v.id,
+          storeName: v.storeName,
+          businessType: v.businessType,
+          address: v.address || "",
+          totalProducts: v.totalProducts || 0,
+          approvedAt: v.approvedAt || v.createdAt || "",
+        };
+      })
+      .sort((a: any, b: any) => b.approvedAt.localeCompare(a.approvedAt));
+
+    res.json({ stores, total: stores.length });
+  } catch (err) {
+    console.error("public stores:", err);
+    res.status(500).json({ error: "حدث خطأ في الخادم" });
+  }
+});
+
+// GET /api/stores/:id/products — list approved products for a store (public)
+router.get("/api/stores/:id/products", async (req, res) => {
+  try {
+    const db = getFirestore();
+    if (!db) return res.status(500).json({ error: "قاعدة البيانات غير متاحة" });
+
+    const { id } = req.params;
+
+    const [storeDoc, productsSnap] = await Promise.all([
+      db.collection("vendors").doc(id).get(),
+      db.collection("vendorProducts")
+        .where("vendorId", "==", id)
+        .get(),
+    ]);
+
+    if (!storeDoc.exists || (storeDoc.data() as any).status !== "active") {
+      return res.status(404).json({ error: "المتجر غير موجود أو غير نشط" });
+    }
+
+    const storeData = storeDoc.data() as any;
+    const store = {
+      id: storeData.id,
+      storeName: storeData.storeName,
+      businessType: storeData.businessType,
+      address: storeData.address || "",
+    };
+
+    const products = productsSnap.docs
+      .map((d) => {
+        const p = d.data() as any;
+        return {
+          id: d.id,
+          vendorId: p.vendorId,
+          storeName: p.storeName,
+          name: p.name,
+          description: p.description || "",
+          price: p.price,
+          category: p.category,
+          stock: p.stock || 0,
+          unit: p.unit || "",
+          imageUrl: p.imageUrl,
+          status: p.status,
+          approvedAt: p.approvedAt || p.createdAt || "",
+        };
+      })
+      .filter((p: any) => p.status === "approved")
+      .sort((a: any, b: any) => b.approvedAt.localeCompare(a.approvedAt));
+
+    res.json({ store, products, total: products.length });
+  } catch (err) {
+    console.error("public store products:", err);
+    res.status(500).json({ error: "حدث خطأ في الخادم" });
+  }
+});
+
 export default router;

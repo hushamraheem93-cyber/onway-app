@@ -22,6 +22,7 @@ import CourierPickupScreen from "@/screens/CourierPickupScreen";
 import InternationalShoppingScreen from "@/screens/InternationalShoppingScreen";
 import SupportChatScreen from "@/screens/SupportChatScreen";
 import VendorRegistrationScreen from "@/screens/VendorRegistrationScreen";
+import StoreProductsScreen from "@/screens/StoreProductsScreen";
 import { useScreenOptions } from "@/hooks/useScreenOptions";
 import { useAuth } from "@/context/AuthContext";
 import { AppColors } from "@/constants/theme";
@@ -51,6 +52,7 @@ export type RootStackParamList = {
   CourierPickup: undefined;
   InternationalShopping: undefined;
   SupportChat: undefined;
+  StoreProducts: { storeId: string; storeName: string };
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -263,6 +265,13 @@ export default function RootStackNavigator() {
         options={{
           headerTitle: "الدعم والمساعدة",
         }}
+      />
+      <Stack.Screen
+        name="StoreProducts"
+        component={StoreProductsScreen}
+        options={({ route }) => ({
+          headerTitle: route.params.storeName,
+        })}
       />
     </Stack.Navigator>
   );

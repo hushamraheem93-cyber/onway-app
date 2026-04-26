@@ -4960,6 +4960,70 @@ router.get("/api/admin/vendor-stats", requireAdmin, async (req, res) => {
     res.status(500).json({ error: "\u062D\u062F\u062B \u062E\u0637\u0623 \u0641\u064A \u0627\u0644\u062E\u0627\u062F\u0645" });
   }
 });
+router.get("/api/stores", async (_req, res) => {
+  try {
+    const db2 = getFirestore();
+    if (!db2) return res.status(500).json({ error: "\u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u063A\u064A\u0631 \u0645\u062A\u0627\u062D\u0629" });
+    const snap = await db2.collection("vendors").where("status", "==", "active").get();
+    const stores = snap.docs.map((d) => {
+      const v = d.data();
+      return {
+        id: v.id,
+        storeName: v.storeName,
+        businessType: v.businessType,
+        address: v.address || "",
+        totalProducts: v.totalProducts || 0,
+        approvedAt: v.approvedAt || v.createdAt || ""
+      };
+    }).sort((a, b) => b.approvedAt.localeCompare(a.approvedAt));
+    res.json({ stores, total: stores.length });
+  } catch (err) {
+    console.error("public stores:", err);
+    res.status(500).json({ error: "\u062D\u062F\u062B \u062E\u0637\u0623 \u0641\u064A \u0627\u0644\u062E\u0627\u062F\u0645" });
+  }
+});
+router.get("/api/stores/:id/products", async (req, res) => {
+  try {
+    const db2 = getFirestore();
+    if (!db2) return res.status(500).json({ error: "\u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u063A\u064A\u0631 \u0645\u062A\u0627\u062D\u0629" });
+    const { id } = req.params;
+    const [storeDoc, productsSnap] = await Promise.all([
+      db2.collection("vendors").doc(id).get(),
+      db2.collection("vendorProducts").where("vendorId", "==", id).get()
+    ]);
+    if (!storeDoc.exists || storeDoc.data().status !== "active") {
+      return res.status(404).json({ error: "\u0627\u0644\u0645\u062A\u062C\u0631 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F \u0623\u0648 \u063A\u064A\u0631 \u0646\u0634\u0637" });
+    }
+    const storeData = storeDoc.data();
+    const store = {
+      id: storeData.id,
+      storeName: storeData.storeName,
+      businessType: storeData.businessType,
+      address: storeData.address || ""
+    };
+    const products2 = productsSnap.docs.map((d) => {
+      const p = d.data();
+      return {
+        id: d.id,
+        vendorId: p.vendorId,
+        storeName: p.storeName,
+        name: p.name,
+        description: p.description || "",
+        price: p.price,
+        category: p.category,
+        stock: p.stock || 0,
+        unit: p.unit || "",
+        imageUrl: p.imageUrl,
+        status: p.status,
+        approvedAt: p.approvedAt || p.createdAt || ""
+      };
+    }).filter((p) => p.status === "approved").sort((a, b) => b.approvedAt.localeCompare(a.approvedAt));
+    res.json({ store, products: products2, total: products2.length });
+  } catch (err) {
+    console.error("public store products:", err);
+    res.status(500).json({ error: "\u062D\u062F\u062B \u062E\u0637\u0623 \u0641\u064A \u0627\u0644\u062E\u0627\u062F\u0645" });
+  }
+});
 var vendor_default = router;
 
 // server/index.ts
