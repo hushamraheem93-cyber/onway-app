@@ -4549,6 +4549,69 @@ router.get("/api/vendor/profile", requireVendor, async (req, res) => {
     res.status(500).json({ error: "\u062D\u062F\u062B \u062E\u0637\u0623 \u0641\u064A \u0627\u0644\u062E\u0627\u062F\u0645" });
   }
 });
+router.patch("/api/vendor/profile", requireVendor, async (req, res) => {
+  try {
+    const db2 = getFirestore();
+    if (!db2) return res.status(500).json({ error: "\u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u063A\u064A\u0631 \u0645\u062A\u0627\u062D\u0629" });
+    const vid = req.vendorId;
+    const { bio, address } = req.body;
+    const updates = { updatedAt: (/* @__PURE__ */ new Date()).toISOString() };
+    if (bio !== void 0) updates.bio = bio;
+    if (address !== void 0) updates.address = address;
+    await db2.collection("vendors").doc(vid).update(updates);
+    const doc = await db2.collection("vendors").doc(vid).get();
+    const { passwordHash: _pw, ...safe } = doc.data();
+    res.json(safe);
+  } catch (err) {
+    console.error("patch vendor profile:", err);
+    res.status(500).json({ error: "\u062D\u062F\u062B \u062E\u0637\u0623 \u0641\u064A \u0627\u0644\u062E\u0627\u062F\u0645" });
+  }
+});
+var profileUpload = multer2({ dest: path2.resolve(process.cwd(), "uploads", "temp") });
+async function saveProfileImage(tempPath, type, vendorId2) {
+  const dir = path2.resolve(process.cwd(), "uploads", "profiles");
+  await fs2.mkdir(dir, { recursive: true });
+  const fileName = `${type}_${vendorId2}_${Date.now()}.webp`;
+  const outPath = path2.join(dir, fileName);
+  if (type === "avatar") {
+    await sharp(tempPath).resize(400, 400, { fit: "cover", position: "center" }).webp({ quality: 85 }).toFile(outPath);
+  } else {
+    await sharp(tempPath).resize(1200, 400, { fit: "cover", position: "center" }).webp({ quality: 80 }).toFile(outPath);
+  }
+  await fs2.unlink(tempPath).catch(() => {
+  });
+  return `/uploads/profiles/${fileName}`;
+}
+router.post(
+  "/api/vendor/profile/images",
+  requireVendor,
+  profileUpload.fields([{ name: "profileImage", maxCount: 1 }, { name: "coverImage", maxCount: 1 }]),
+  async (req, res) => {
+    try {
+      const db2 = getFirestore();
+      if (!db2) return res.status(500).json({ error: "\u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u063A\u064A\u0631 \u0645\u062A\u0627\u062D\u0629" });
+      const vid = req.vendorId;
+      const files = req.files;
+      const updates = { updatedAt: (/* @__PURE__ */ new Date()).toISOString() };
+      if (files?.profileImage?.[0]) {
+        updates.profileImageUrl = await saveProfileImage(files.profileImage[0].path, "avatar", vid);
+      }
+      if (files?.coverImage?.[0]) {
+        updates.coverImageUrl = await saveProfileImage(files.coverImage[0].path, "cover", vid);
+      }
+      if (Object.keys(updates).length === 1) {
+        return res.status(400).json({ error: "\u0644\u0645 \u064A\u062A\u0645 \u0625\u0631\u0633\u0627\u0644 \u0623\u064A \u0635\u0648\u0631\u0629" });
+      }
+      await db2.collection("vendors").doc(vid).update(updates);
+      const doc = await db2.collection("vendors").doc(vid).get();
+      const { passwordHash: _pw, ...safe } = doc.data();
+      res.json(safe);
+    } catch (err) {
+      console.error("profile images:", err);
+      res.status(500).json({ error: "\u062D\u062F\u062B \u062E\u0637\u0623 \u0641\u064A \u0627\u0644\u062E\u0627\u062F\u0645" });
+    }
+  }
+);
 router.post(
   "/api/vendor/products",
   requireVendor,

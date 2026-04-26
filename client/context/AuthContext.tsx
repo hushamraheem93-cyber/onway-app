@@ -31,6 +31,9 @@ export interface VendorProfile {
   status: "pending" | "active" | "suspended" | "rejected";
   totalProducts?: number;
   createdAt: string;
+  profileImageUrl?: string;
+  coverImageUrl?: string;
+  bio?: string;
 }
 
 interface AuthContextType {

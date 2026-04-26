@@ -314,6 +314,87 @@ router.get("/api/vendor/profile", requireVendor, async (req, res) => {
   }
 });
 
+// ── PATCH /api/vendor/profile ── update bio/address ─────────────────────────
+router.patch("/api/vendor/profile", requireVendor, async (req, res) => {
+  try {
+    const db = getFirestore();
+    if (!db) return res.status(500).json({ error: "قاعدة البيانات غير متاحة" });
+    const vid = (req as any).vendorId;
+    const { bio, address } = req.body;
+    const updates: any = { updatedAt: new Date().toISOString() };
+    if (bio !== undefined) updates.bio = bio;
+    if (address !== undefined) updates.address = address;
+    await db.collection("vendors").doc(vid).update(updates);
+    const doc = await db.collection("vendors").doc(vid).get();
+    const { passwordHash: _pw, ...safe } = doc.data() as any;
+    res.json(safe);
+  } catch (err) {
+    console.error("patch vendor profile:", err);
+    res.status(500).json({ error: "حدث خطأ في الخادم" });
+  }
+});
+
+// ── POST /api/vendor/profile/images ── upload avatar or cover ────────────────
+const profileUpload = multer({ dest: path.resolve(process.cwd(), "uploads", "temp") });
+
+async function saveProfileImage(
+  tempPath: string,
+  type: "avatar" | "cover",
+  vendorId: string
+): Promise<string> {
+  const dir = path.resolve(process.cwd(), "uploads", "profiles");
+  await fs.mkdir(dir, { recursive: true });
+  const fileName = `${type}_${vendorId}_${Date.now()}.webp`;
+  const outPath = path.join(dir, fileName);
+  if (type === "avatar") {
+    await sharp(tempPath)
+      .resize(400, 400, { fit: "cover", position: "center" })
+      .webp({ quality: 85 })
+      .toFile(outPath);
+  } else {
+    await sharp(tempPath)
+      .resize(1200, 400, { fit: "cover", position: "center" })
+      .webp({ quality: 80 })
+      .toFile(outPath);
+  }
+  await fs.unlink(tempPath).catch(() => {});
+  return `/uploads/profiles/${fileName}`;
+}
+
+router.post(
+  "/api/vendor/profile/images",
+  requireVendor,
+  profileUpload.fields([{ name: "profileImage", maxCount: 1 }, { name: "coverImage", maxCount: 1 }]),
+  async (req, res) => {
+    try {
+      const db = getFirestore();
+      if (!db) return res.status(500).json({ error: "قاعدة البيانات غير متاحة" });
+      const vid = (req as any).vendorId;
+      const files = req.files as Record<string, Express.Multer.File[]>;
+      const updates: any = { updatedAt: new Date().toISOString() };
+
+      if (files?.profileImage?.[0]) {
+        updates.profileImageUrl = await saveProfileImage(files.profileImage[0].path, "avatar", vid);
+      }
+      if (files?.coverImage?.[0]) {
+        updates.coverImageUrl = await saveProfileImage(files.coverImage[0].path, "cover", vid);
+      }
+
+      if (Object.keys(updates).length === 1) {
+        return res.status(400).json({ error: "لم يتم إرسال أي صورة" });
+      }
+
+      await db.collection("vendors").doc(vid).update(updates);
+      const doc = await db.collection("vendors").doc(vid).get();
+      const { passwordHash: _pw, ...safe } = doc.data() as any;
+      res.json(safe);
+    } catch (err) {
+      console.error("profile images:", err);
+      res.status(500).json({ error: "حدث خطأ في الخادم" });
+    }
+  }
+);
+
 // ── POST /api/vendor/products ───────────────────────────────────────────────
 router.post(
   "/api/vendor/products",
