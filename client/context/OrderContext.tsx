@@ -20,7 +20,7 @@ const STATUS_MESSAGES: Record<string, { title: string; body: string }> = {
 
 export interface Order {
   id: string;
-  items: { productId: string; name: string; price: number; quantity: number; image: string }[];
+  items: { productId: string; name: string; price: number; quantity: number; image: string; restaurant?: string }[];
   total: number;
   deliveryFee: number;
   phoneNumber: string;
@@ -31,6 +31,7 @@ export interface Order {
   updatedAt: string;
   latitude?: number;
   longitude?: number;
+  vendorName?: string;
 }
 
 interface OrderContextType {
@@ -161,6 +162,7 @@ export function OrderProvider({ children }: { children: ReactNode }) {
         price: item.product.price,
         quantity: item.quantity,
         image: item.product.image,
+        ...(item.product.restaurant ? { restaurant: item.product.restaurant } : {}),
       })),
       total: orderData.total,
       deliveryFee: orderData.deliveryFee,

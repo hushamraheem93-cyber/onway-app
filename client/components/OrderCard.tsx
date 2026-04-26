@@ -103,6 +103,19 @@ export function OrderCard({ order, onPress }: OrderCardProps) {
         </View>
       </View>
       <View style={styles.info}>
+        {(() => {
+          const storeName = order.vendorName || order.items.find(i => i.restaurant)?.restaurant;
+          return storeName ? (
+            <View style={[styles.infoRow, styles.storeRow]}>
+              <View style={[styles.storeBadge, { backgroundColor: AppColors.primary + "12" }]}>
+                <Feather name="shopping-bag" size={13} color={AppColors.primary} />
+                <ThemedText type="small" style={[styles.storeText, { color: AppColors.primary }]}>
+                  {"من متجر " + storeName}
+                </ThemedText>
+              </View>
+            </View>
+          ) : null;
+        })()}
         <View style={styles.infoRow}>
           <Feather name="package" size={16} color={theme.textSecondary} />
           <ThemedText type="body" style={[styles.infoText, { color: theme.textSecondary }]}>
@@ -153,6 +166,20 @@ const styles = StyleSheet.create({
     flexDirection: "row-reverse",
     alignItems: "center",
     marginBottom: Spacing.xs,
+  },
+  storeRow: {
+    marginBottom: Spacing.sm,
+  },
+  storeBadge: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 4,
+    borderRadius: BorderRadius.full,
+    gap: 4,
+  },
+  storeText: {
+    fontWeight: "600",
   },
   infoText: {
     marginRight: Spacing.sm,

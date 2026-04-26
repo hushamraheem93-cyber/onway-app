@@ -497,7 +497,17 @@ export default function OrderTrackingScreen() {
       )}
 
       <View style={[styles.itemsCard, { backgroundColor: theme.backgroundDefault }, Shadows.sm]}>
-        <ThemedText type="h4" style={styles.itemsTitle}>المنتجات ({order.items.length})</ThemedText>
+        <View style={styles.itemsHeader}>
+          <ThemedText type="h4" style={styles.itemsTitle}>المنتجات ({order.items.length})</ThemedText>
+          {order.vendorName && !order.items.some(i => i.restaurant) ? (
+            <View style={[styles.itemStoreBadge, { backgroundColor: AppColors.primary + "12" }]}>
+              <Feather name="shopping-bag" size={11} color={AppColors.primary} />
+              <ThemedText type="small" style={{ color: AppColors.primary, fontWeight: "600", marginRight: 4 }}>
+                {"من متجر " + order.vendorName}
+              </ThemedText>
+            </View>
+          ) : null}
+        </View>
         {order.items.map((item, index) => (
           <View key={index} style={[styles.itemRow, index < order.items.length - 1 && { borderBottomWidth: 1, borderBottomColor: theme.border }]}>
             <ThemedText type="body" style={{ color: AppColors.primary, fontWeight: "600" }}>
@@ -508,6 +518,14 @@ export default function OrderTrackingScreen() {
               <ThemedText type="small" style={{ color: theme.textSecondary }}>
                 {item.quantity} × {formatPrice(item.price)}
               </ThemedText>
+              {item.restaurant ? (
+                <View style={[styles.itemStoreBadge, { backgroundColor: AppColors.primary + "12" }]}>
+                  <Feather name="shopping-bag" size={11} color={AppColors.primary} />
+                  <ThemedText type="small" style={{ color: AppColors.primary, fontWeight: "600", marginRight: 4 }}>
+                    {"من متجر " + item.restaurant}
+                  </ThemedText>
+                </View>
+              ) : null}
             </View>
           </View>
         ))}
@@ -779,22 +797,36 @@ const styles = StyleSheet.create({
     padding: Spacing.lg,
     marginBottom: Spacing.lg,
   },
-  itemsTitle: {
-    textAlign: "right",
+  itemsHeader: {
+    flexDirection: "row-reverse",
+    justifyContent: "space-between",
+    alignItems: "center",
     marginBottom: Spacing.md,
     paddingBottom: Spacing.md,
     borderBottomWidth: 1,
     borderBottomColor: "#E0E0E0",
   },
+  itemsTitle: {
+    textAlign: "right",
+  },
   itemRow: {
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "center",
+    alignItems: "flex-start",
     paddingVertical: Spacing.md,
   },
   itemInfo: {
     alignItems: "flex-end",
     gap: 2,
+  },
+  itemStoreBadge: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 3,
+    borderRadius: BorderRadius.full,
+    marginTop: 2,
+    gap: 3,
   },
   totalSection: {
     flexDirection: "row",
