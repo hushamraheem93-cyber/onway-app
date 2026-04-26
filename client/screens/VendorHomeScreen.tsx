@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useRef, ComponentProps } from "react";
 import {
   View,
   StyleSheet,
@@ -9,8 +9,11 @@ import {
 } from "react-native";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
+import { useFocusEffect } from "@react-navigation/native";
 import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
+
+type MCIcon = ComponentProps<typeof MaterialCommunityIcons>["name"];
 
 import { ThemedText } from "@/components/ThemedText";
 import { useAuth } from "@/context/AuthContext";
@@ -18,6 +21,7 @@ import { getApiUrl } from "@/lib/query-client";
 
 const PURPLE = "#673AB7";
 const ORANGE = "#E86520";
+const POLL_INTERVAL_MS = 30_000;
 
 interface Stats {
   total: number;
@@ -26,14 +30,41 @@ interface Stats {
   rejected: number;
 }
 
+interface VendorNotification {
+  id: string;
+  vendorId: string;
+  type: string;
+  title: string;
+  message: string;
+  status: "unread" | "read";
+  createdAt: string;
+}
+
+function notifColor(type: string): { bg: string; border: string; icon: MCIcon; iconColor: string } {
+  if (type === "vendor_active") return { bg: "#F0FDF4", border: "#86EFAC", icon: "check-circle", iconColor: "#16A34A" };
+  if (type === "vendor_rejected") return { bg: "#FFF5F5", border: "#FECACA", icon: "close-circle", iconColor: "#DC2626" };
+  if (type === "vendor_suspended") return { bg: "#FFFBEB", border: "#FDE68A", icon: "alert-circle", iconColor: "#D97706" };
+  if (type === "product_approved") return { bg: "#F0FDF4", border: "#86EFAC", icon: "check-circle", iconColor: "#16A34A" };
+  if (type === "product_rejected") return { bg: "#FFF5F5", border: "#FECACA", icon: "close-circle", iconColor: "#DC2626" };
+  return { bg: "#F0F9FF", border: "#BAE6FD", icon: "bell", iconColor: PURPLE };
+}
+
 export default function VendorHomeScreen({ navigation }: any) {
   const headerHeight = useHeaderHeight();
   const tabBarHeight = useBottomTabBarHeight();
-  const { vendorProfile, vendorToken, logout } = useAuth();
+  const { vendorProfile, vendorToken, logout, refreshVendorProfile } = useAuth();
 
   const [stats, setStats] = useState<Stats>({ total: 0, approved: 0, pending: 0, rejected: 0 });
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [notifications, setNotifications] = useState<VendorNotification[]>([]);
+  const [dismissedIds, setDismissedIds] = useState<Set<string>>(new Set());
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => {
+    setDismissedIds(new Set());
+    setNotifications([]);
+  }, [vendorToken]);
 
   const loadStats = useCallback(async () => {
     if (!vendorToken) return;
@@ -53,17 +84,72 @@ export default function VendorHomeScreen({ navigation }: any) {
     } catch {}
   }, [vendorToken]);
 
-  useEffect(() => {
-    loadStats().finally(() => setLoading(false));
-  }, [loadStats]);
+  const loadNotifications = useCallback(async () => {
+    if (!vendorToken) return;
+    try {
+      const res = await fetch(new URL("/api/vendor/notifications", getApiUrl()).toString(), {
+        headers: { Authorization: `Bearer ${vendorToken}` },
+      });
+      if (!res.ok) return;
+      const data = await res.json();
+      const unread = (data.notifications || []).filter((n: VendorNotification) => n.status === "unread");
+      setNotifications(unread);
+
+      const hasStatusChange = unread.some((n: VendorNotification) =>
+        n.type === "vendor_active" || n.type === "vendor_rejected" || n.type === "vendor_suspended"
+      );
+      if (hasStatusChange) {
+        refreshVendorProfile();
+      }
+    } catch {}
+  }, [vendorToken, refreshVendorProfile]);
+
+  const markNotificationsRead = useCallback(async (ids: string[]) => {
+    if (!vendorToken || ids.length === 0) return;
+    try {
+      await fetch(new URL("/api/vendor/notifications/mark-read", getApiUrl()).toString(), {
+        method: "PUT",
+        headers: { Authorization: `Bearer ${vendorToken}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ ids }),
+      });
+    } catch {}
+  }, [vendorToken]);
+
+  const dismissNotification = useCallback((notif: VendorNotification) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setDismissedIds((prev) => new Set([...prev, notif.id]));
+    markNotificationsRead([notif.id]);
+  }, [markNotificationsRead]);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (!vendorToken) return;
+      Promise.all([loadStats(), loadNotifications()]).finally(() => setLoading(false));
+
+      pollRef.current = setInterval(() => {
+        loadNotifications();
+      }, POLL_INTERVAL_MS);
+
+      return () => {
+        if (pollRef.current) {
+          clearInterval(pollRef.current);
+          pollRef.current = null;
+        }
+      };
+    }, [vendorToken, loadStats, loadNotifications])
+  );
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    await loadStats();
+    await Promise.all([loadStats(), loadNotifications()]);
     setRefreshing(false);
-  }, [loadStats]);
+  }, [loadStats, loadNotifications]);
 
   const isPending = vendorProfile?.status === "pending";
+  const isRejected = vendorProfile?.status === "rejected";
+  const isSuspended = vendorProfile?.status === "suspended";
+
+  const visibleNotifications = notifications.filter((n) => !dismissedIds.has(n.id));
 
   return (
     <ScrollView
@@ -88,14 +174,56 @@ export default function VendorHomeScreen({ navigation }: any) {
         <View style={styles.welcomeRight}>
           <ThemedText style={styles.welcomeGreet}>مرحباً</ThemedText>
           <ThemedText style={styles.welcomeName}>{vendorProfile?.storeName || "متجري"}</ThemedText>
-          <View style={[styles.statusBadge, isPending ? styles.badgePending : styles.badgeActive]}>
-            <View style={[styles.statusDot, { backgroundColor: isPending ? "#F59E0B" : "#10B981" }]} />
-            <ThemedText style={[styles.statusText, { color: isPending ? "#92400E" : "#065F46" }]}>
-              {isPending ? "قيد المراجعة" : "نشط"}
+          <View style={[
+            styles.statusBadge,
+            isPending ? styles.badgePending : isRejected ? styles.badgeRejected : isSuspended ? styles.badgeSuspended : styles.badgeActive,
+          ]}>
+            <View style={[styles.statusDot, {
+              backgroundColor: isPending ? "#F59E0B" : isRejected ? "#EF4444" : isSuspended ? "#F59E0B" : "#10B981",
+            }]} />
+            <ThemedText style={[styles.statusText, {
+              color: isPending ? "#92400E" : isRejected ? "#991B1B" : isSuspended ? "#92400E" : "#065F46",
+            }]}>
+              {isPending ? "قيد المراجعة" : isRejected ? "مرفوض" : isSuspended ? "موقوف" : "نشط"}
             </ThemedText>
           </View>
         </View>
       </View>
+
+      {/* Notification banners */}
+      {visibleNotifications.length > 0 && (
+        <View style={styles.notifContainer} testID="notifications-list">
+          {visibleNotifications.map((notif) => {
+            const theme = notifColor(notif.type);
+            return (
+              <View
+                key={notif.id}
+                style={[styles.notifBanner, { backgroundColor: theme.bg, borderColor: theme.border }]}
+                testID={`notification-${notif.id}`}
+              >
+                <MaterialCommunityIcons
+                  name={theme.icon}
+                  size={22}
+                  color={theme.iconColor}
+                  style={styles.notifIcon}
+                />
+                <View style={styles.notifBody}>
+                  <ThemedText style={[styles.notifTitle, { color: theme.iconColor }]}>{notif.title}</ThemedText>
+                  <ThemedText style={styles.notifMessage}>{notif.message}</ThemedText>
+                </View>
+                <Pressable
+                  onPress={() => dismissNotification(notif)}
+                  style={styles.notifDismiss}
+                  testID={`button-dismiss-notification-${notif.id}`}
+                  hitSlop={8}
+                >
+                  <Feather name="x" size={16} color="#999" />
+                </Pressable>
+              </View>
+            );
+          })}
+        </View>
+      )}
 
       {/* Pending notice */}
       {isPending && (
@@ -145,30 +273,34 @@ export default function VendorHomeScreen({ navigation }: any) {
         ))}
       </View>
 
-      {/* Quick actions — always visible */}
-      <ThemedText style={styles.sectionTitle}>إجراءات سريعة</ThemedText>
-      <View style={styles.actionsRow}>
-        <QuickAction
-          icon="plus-circle"
-          label="إضافة منتج"
-          color={PURPLE}
-          bg="#EDE7F6"
-          onPress={() => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-            navigation.navigate("VendorProductsTab", { screen: "VendorAddProduct" });
-          }}
-        />
-        <QuickAction
-          icon="view-list"
-          label="منتجاتي"
-          color={ORANGE}
-          bg="#FFF3E0"
-          onPress={() => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-            navigation.navigate("VendorProductsTab", { screen: "VendorProducts" });
-          }}
-        />
-      </View>
+      {/* Quick actions */}
+      {!isPending && !isRejected && !isSuspended && (
+        <>
+          <ThemedText style={styles.sectionTitle}>إجراءات سريعة</ThemedText>
+          <View style={styles.actionsRow}>
+            <QuickAction
+              icon="plus-circle"
+              label="إضافة منتج"
+              color={PURPLE}
+              bg="#EDE7F6"
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                navigation.navigate("VendorProductsTab", { screen: "VendorAddProduct" });
+              }}
+            />
+            <QuickAction
+              icon="view-list"
+              label="منتجاتي"
+              color={ORANGE}
+              bg="#FFF3E0"
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                navigation.navigate("VendorProductsTab", { screen: "VendorProducts" });
+              }}
+            />
+          </View>
+        </>
+      )}
 
       {/* Logout */}
       <Pressable style={styles.logoutBtn} onPress={logout} testID="button-logout">
@@ -234,8 +366,24 @@ const styles = StyleSheet.create({
   },
   badgePending: { backgroundColor: "#FEF3C7" },
   badgeActive: { backgroundColor: "#D1FAE5" },
+  badgeRejected: { backgroundColor: "#FEE2E2" },
+  badgeSuspended: { backgroundColor: "#FEF3C7" },
   statusDot: { width: 6, height: 6, borderRadius: 3 },
   statusText: { fontFamily: "Cairo_700Bold", fontSize: 11 },
+  notifContainer: { marginBottom: 14, gap: 10 },
+  notifBanner: {
+    borderRadius: 14,
+    borderWidth: 1.5,
+    padding: 14,
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 10,
+  },
+  notifIcon: { marginTop: 1, flexShrink: 0 },
+  notifBody: { flex: 1 },
+  notifTitle: { fontFamily: "Cairo_700Bold", fontSize: 13, marginBottom: 3, textAlign: "right" },
+  notifMessage: { fontFamily: "Cairo_400Regular", fontSize: 12, color: "#444", textAlign: "right", lineHeight: 20 },
+  notifDismiss: { paddingLeft: 4, marginTop: 2, flexShrink: 0 },
   pendingNotice: {
     backgroundColor: "#FFFBEB",
     borderRadius: 12,

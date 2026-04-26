@@ -4699,9 +4699,42 @@ router.get("/api/vendor/notifications", requireVendor, async (req, res) => {
     if (!db2) return res.status(500).json({ error: "\u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u063A\u064A\u0631 \u0645\u062A\u0627\u062D\u0629" });
     const vid = req.vendorId;
     const snap = await db2.collection("vendorNotifications").where("vendorId", "==", vid).orderBy("createdAt", "desc").limit(50).get();
-    res.json({ notifications: snap.docs.map((d) => d.data()) });
+    res.json({ notifications: snap.docs.map((d) => ({ id: d.id, ...d.data() })) });
   } catch (err) {
     console.error("notifications:", err);
+    res.status(500).json({ error: "\u062D\u062F\u062B \u062E\u0637\u0623 \u0641\u064A \u0627\u0644\u062E\u0627\u062F\u0645" });
+  }
+});
+router.put("/api/vendor/notifications/mark-read", requireVendor, async (req, res) => {
+  try {
+    const db2 = getFirestore();
+    if (!db2) return res.status(500).json({ error: "\u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u063A\u064A\u0631 \u0645\u062A\u0627\u062D\u0629" });
+    const vid = req.vendorId;
+    const { ids } = req.body;
+    if (ids !== void 0 && (!Array.isArray(ids) || ids.some((x) => typeof x !== "string"))) {
+      return res.status(400).json({ error: "ids \u064A\u062C\u0628 \u0623\u0646 \u062A\u0643\u0648\u0646 \u0645\u0635\u0641\u0648\u0641\u0629 \u0645\u0646 \u0627\u0644\u0646\u0635\u0648\u0635" });
+    }
+    const validIds = ids;
+    const col = db2.collection("vendorNotifications");
+    const batch = db2.batch();
+    if (validIds && validIds.length > 0) {
+      const fetches = await Promise.all(validIds.map((id) => col.doc(id).get()));
+      fetches.forEach((doc) => {
+        if (doc.exists) {
+          const data = doc.data();
+          if (data.vendorId === vid && data.status === "unread") {
+            batch.update(doc.ref, { status: "read" });
+          }
+        }
+      });
+    } else {
+      const snap = await col.where("vendorId", "==", vid).where("status", "==", "unread").limit(500).get();
+      snap.docs.forEach((doc) => batch.update(doc.ref, { status: "read" }));
+    }
+    await batch.commit();
+    res.json({ success: true });
+  } catch (err) {
+    console.error("mark-read:", err);
     res.status(500).json({ error: "\u062D\u062F\u062B \u062E\u0637\u0623 \u0641\u064A \u0627\u0644\u062E\u0627\u062F\u0645" });
   }
 });

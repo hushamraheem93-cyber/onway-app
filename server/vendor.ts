@@ -506,9 +506,53 @@ router.get("/api/vendor/notifications", requireVendor, async (req, res) => {
       .limit(50)
       .get();
 
-    res.json({ notifications: snap.docs.map((d) => d.data()) });
+    res.json({ notifications: snap.docs.map((d) => ({ id: d.id, ...d.data() })) });
   } catch (err) {
     console.error("notifications:", err);
+    res.status(500).json({ error: "حدث خطأ في الخادم" });
+  }
+});
+
+// ── PUT /api/vendor/notifications/mark-read ─────────────────────────────
+router.put("/api/vendor/notifications/mark-read", requireVendor, async (req, res) => {
+  try {
+    const db = getFirestore();
+    if (!db) return res.status(500).json({ error: "قاعدة البيانات غير متاحة" });
+
+    const vid = (req as any).vendorId;
+    const { ids } = req.body as { ids?: unknown };
+
+    if (ids !== undefined && (!Array.isArray(ids) || ids.some((x) => typeof x !== "string"))) {
+      return res.status(400).json({ error: "ids يجب أن تكون مصفوفة من النصوص" });
+    }
+
+    const validIds = ids as string[] | undefined;
+    const col = db.collection("vendorNotifications");
+    const batch = db.batch();
+
+    if (validIds && validIds.length > 0) {
+      const fetches = await Promise.all(validIds.map((id) => col.doc(id).get()));
+      fetches.forEach((doc) => {
+        if (doc.exists) {
+          const data = doc.data() as any;
+          if (data.vendorId === vid && data.status === "unread") {
+            batch.update(doc.ref, { status: "read" });
+          }
+        }
+      });
+    } else {
+      const snap = await col
+        .where("vendorId", "==", vid)
+        .where("status", "==", "unread")
+        .limit(500)
+        .get();
+      snap.docs.forEach((doc) => batch.update(doc.ref, { status: "read" }));
+    }
+
+    await batch.commit();
+    res.json({ success: true });
+  } catch (err) {
+    console.error("mark-read:", err);
     res.status(500).json({ error: "حدث خطأ في الخادم" });
   }
 });
