@@ -426,8 +426,10 @@ router.get("/api/vendor/products", requireVendor, async (req, res) => {
     let query = db.collection("vendorProducts").where("vendorId", "==", vid);
     if (status) query = (query as any).where("status", "==", status);
 
-    const snap = await query.orderBy("createdAt", "desc").get();
-    const products = snap.docs.map((d) => d.data());
+    const snap = await query.get();
+    const products = snap.docs
+      .map((d) => d.data())
+      .sort((a: any, b: any) => (b.createdAt || "").localeCompare(a.createdAt || ""));
     res.json({ products, total: products.length });
   } catch (err) {
     console.error("get products:", err);
@@ -502,11 +504,14 @@ router.get("/api/vendor/notifications", requireVendor, async (req, res) => {
     const vid = (req as any).vendorId;
     const snap = await db.collection("vendorNotifications")
       .where("vendorId", "==", vid)
-      .orderBy("createdAt", "desc")
       .limit(50)
       .get();
 
-    res.json({ notifications: snap.docs.map((d) => ({ id: d.id, ...d.data() })) });
+    const notifications = snap.docs
+      .map((d) => ({ id: d.id, ...d.data() }))
+      .sort((a: any, b: any) => (b.createdAt || "").localeCompare(a.createdAt || ""));
+
+    res.json({ notifications });
   } catch (err) {
     console.error("notifications:", err);
     res.status(500).json({ error: "حدث خطأ في الخادم" });
@@ -579,11 +584,13 @@ router.get("/api/admin/vendor-partners", requireAdmin, async (req, res) => {
     const { status } = req.query;
     let q = db.collection("vendors") as any;
     if (status) q = q.where("status", "==", status);
-    const snap = await q.orderBy("createdAt", "desc").get();
-    const vendors = snap.docs.map((d: any) => {
-      const { passwordHash: _pw, ...safe } = d.data() as any;
-      return safe;
-    });
+    const snap = await q.get();
+    const vendors = snap.docs
+      .map((d: any) => {
+        const { passwordHash: _pw, ...safe } = d.data() as any;
+        return safe;
+      })
+      .sort((a: any, b: any) => (b.createdAt || "").localeCompare(a.createdAt || ""));
     res.json({ vendors, total: vendors.length });
   } catch (err) {
     console.error("admin vendor-partners:", err);
@@ -646,16 +653,16 @@ router.get("/api/admin/vendor-products", requireAdmin, async (req, res) => {
     if (!db) return res.status(500).json({ error: "قاعدة البيانات غير متاحة" });
     const { status } = req.query;
 
-    let query: any = db.collection("vendorProducts").orderBy("createdAt", "desc");
+    let query: any = db.collection("vendorProducts");
     if (status && status !== "all") {
-      query = db.collection("vendorProducts")
-        .where("status", "==", status)
-        .orderBy("createdAt", "desc");
+      query = db.collection("vendorProducts").where("status", "==", status);
     }
 
     const snap = await query.get();
-    const products = snap.docs.map((d: any) => ({ id: d.id, ...d.data() }));
-    res.json({ products, total: snap.size });
+    const products = snap.docs
+      .map((d: any) => ({ id: d.id, ...d.data() }))
+      .sort((a: any, b: any) => (b.createdAt || "").localeCompare(a.createdAt || ""));
+    res.json({ products, total: products.length });
   } catch (err) {
     console.error("admin vendor-products:", err);
     res.status(500).json({ error: "حدث خطأ في الخادم" });

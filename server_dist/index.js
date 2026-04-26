@@ -4639,8 +4639,8 @@ router.get("/api/vendor/products", requireVendor, async (req, res) => {
     const { status } = req.query;
     let query = db2.collection("vendorProducts").where("vendorId", "==", vid);
     if (status) query = query.where("status", "==", status);
-    const snap = await query.orderBy("createdAt", "desc").get();
-    const products2 = snap.docs.map((d) => d.data());
+    const snap = await query.get();
+    const products2 = snap.docs.map((d) => d.data()).sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || ""));
     res.json({ products: products2, total: products2.length });
   } catch (err) {
     console.error("get products:", err);
@@ -4698,8 +4698,9 @@ router.get("/api/vendor/notifications", requireVendor, async (req, res) => {
     const db2 = getFirestore();
     if (!db2) return res.status(500).json({ error: "\u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u063A\u064A\u0631 \u0645\u062A\u0627\u062D\u0629" });
     const vid = req.vendorId;
-    const snap = await db2.collection("vendorNotifications").where("vendorId", "==", vid).orderBy("createdAt", "desc").limit(50).get();
-    res.json({ notifications: snap.docs.map((d) => ({ id: d.id, ...d.data() })) });
+    const snap = await db2.collection("vendorNotifications").where("vendorId", "==", vid).limit(50).get();
+    const notifications = snap.docs.map((d) => ({ id: d.id, ...d.data() })).sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || ""));
+    res.json({ notifications });
   } catch (err) {
     console.error("notifications:", err);
     res.status(500).json({ error: "\u062D\u062F\u062B \u062E\u0637\u0623 \u0641\u064A \u0627\u0644\u062E\u0627\u062F\u0645" });
@@ -4753,11 +4754,11 @@ router.get("/api/admin/vendor-partners", requireAdmin, async (req, res) => {
     const { status } = req.query;
     let q = db2.collection("vendors");
     if (status) q = q.where("status", "==", status);
-    const snap = await q.orderBy("createdAt", "desc").get();
+    const snap = await q.get();
     const vendors = snap.docs.map((d) => {
       const { passwordHash: _pw, ...safe } = d.data();
       return safe;
-    });
+    }).sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || ""));
     res.json({ vendors, total: vendors.length });
   } catch (err) {
     console.error("admin vendor-partners:", err);
@@ -4803,13 +4804,13 @@ router.get("/api/admin/vendor-products", requireAdmin, async (req, res) => {
     const db2 = getFirestore();
     if (!db2) return res.status(500).json({ error: "\u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u063A\u064A\u0631 \u0645\u062A\u0627\u062D\u0629" });
     const { status } = req.query;
-    let query = db2.collection("vendorProducts").orderBy("createdAt", "desc");
+    let query = db2.collection("vendorProducts");
     if (status && status !== "all") {
-      query = db2.collection("vendorProducts").where("status", "==", status).orderBy("createdAt", "desc");
+      query = db2.collection("vendorProducts").where("status", "==", status);
     }
     const snap = await query.get();
-    const products2 = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-    res.json({ products: products2, total: snap.size });
+    const products2 = snap.docs.map((d) => ({ id: d.id, ...d.data() })).sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || ""));
+    res.json({ products: products2, total: products2.length });
   } catch (err) {
     console.error("admin vendor-products:", err);
     res.status(500).json({ error: "\u062D\u062F\u062B \u062E\u0637\u0623 \u0641\u064A \u0627\u0644\u062E\u0627\u062F\u0645" });
