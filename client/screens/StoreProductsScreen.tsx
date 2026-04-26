@@ -6,13 +6,14 @@ import {
   Pressable,
   ActivityIndicator,
   RefreshControl,
+  Dimensions,
 } from "react-native";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRoute, RouteProp } from "@react-navigation/native";
 import { useQuery } from "@tanstack/react-query";
 import { Image } from "expo-image";
-import { Feather } from "@expo/vector-icons";
+import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 
 import { useTheme } from "@/hooks/useTheme";
@@ -25,6 +26,11 @@ import { resolveImageUrl } from "@/utils/imageUtils";
 import { formatPrice } from "@/constants/currency";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
 import { Product } from "@/constants/categories";
+import { getApiUrl } from "@/lib/query-client";
+
+const SCREEN_W = Dimensions.get("window").width;
+const COVER_H = 160;
+const AVATAR_SIZE = 72;
 
 type StoreProductsRouteProp = RouteProp<RootStackParamList, "StoreProducts">;
 
@@ -42,12 +48,29 @@ interface VendorProduct {
   status: string;
 }
 
+const BUSINESS_CONFIG: Record<string, { label: string; icon: string; color: string }> = {
+  restaurant: { label: "مطعم", icon: "food", color: "#E86520" },
+  supermarket: { label: "سوبرماركت", icon: "cart", color: "#2E7D32" },
+  pharmacy: { label: "صيدلية", icon: "medical-bag", color: "#7B1FA2" },
+  bakery: { label: "مخبز", icon: "bread-slice", color: "#F57F17" },
+  other: { label: "متجر", icon: "store", color: "#1565C0" },
+};
+
+function resolveUrl(path?: string): string | null {
+  if (!path) return null;
+  if (path.startsWith("http")) return path;
+  try { return new URL(path, getApiUrl()).toString(); } catch { return null; }
+}
+
 interface VendorStore {
   id: string;
   storeName: string;
   businessType: string;
-  ownerName: string;
+  ownerName?: string;
   address?: string;
+  bio?: string;
+  profileImageUrl?: string;
+  coverImageUrl?: string;
 }
 
 function toCartProduct(p: VendorProduct): Product {
@@ -220,7 +243,7 @@ export default function StoreProductsScreen() {
           data={products}
           keyExtractor={(item) => item.id}
           contentContainerStyle={{
-            paddingTop: headerHeight + Spacing.lg,
+            paddingTop: headerHeight,
             paddingBottom: insets.bottom + Spacing.xl + (totalCartItems > 0 ? 80 : 0),
             paddingHorizontal: Spacing.lg,
           }}
@@ -235,24 +258,7 @@ export default function StoreProductsScreen() {
           }
           ListHeaderComponent={
             store ? (
-              <View style={styles.storeHeader}>
-                <View style={[styles.storeIconBox, { backgroundColor: AppColors.secondary }]}>
-                  <Feather name="package" size={28} color={AppColors.primary} />
-                </View>
-                <View style={styles.storeInfo}>
-                  <ThemedText type="h3" style={styles.storeTitle}>
-                    {store.storeName}
-                  </ThemedText>
-                  {store.address ? (
-                    <View style={styles.storeAddressRow}>
-                      <Feather name="map-pin" size={12} color={theme.textSecondary} />
-                      <ThemedText type="small" style={[{ color: theme.textSecondary }, styles.storeAddress]}>
-                        {store.address}
-                      </ThemedText>
-                    </View>
-                  ) : null}
-                </View>
-              </View>
+              <StoreProfileHeader store={store} theme={theme} />
             ) : null
           }
           ListEmptyComponent={
@@ -284,44 +290,128 @@ export default function StoreProductsScreen() {
   );
 }
 
+function StoreProfileHeader({ store, theme }: { store: VendorStore; theme: any }) {
+  const cfg = BUSINESS_CONFIG[store.businessType] || BUSINESS_CONFIG.other;
+  const avatarUrl = resolveUrl(store.profileImageUrl);
+  const coverUrl = resolveUrl(store.coverImageUrl);
+
+  return (
+    <View style={hStyles.wrapper}>
+      {/* Cover */}
+      <View style={[hStyles.cover, { backgroundColor: cfg.color + "22" }]}>
+        {coverUrl ? (
+          <Image
+            source={{ uri: coverUrl }}
+            style={StyleSheet.absoluteFillObject}
+            contentFit="cover"
+          />
+        ) : null}
+        {coverUrl ? <View style={hStyles.coverOverlay} /> : null}
+      </View>
+
+      {/* Avatar + info */}
+      <View style={hStyles.infoRow}>
+        <View style={[hStyles.avatarWrap, { borderColor: theme.backgroundDefault }]}>
+          {avatarUrl ? (
+            <Image source={{ uri: avatarUrl }} style={hStyles.avatar} contentFit="cover" />
+          ) : (
+            <View style={[hStyles.avatarFallback, { backgroundColor: cfg.color }]}>
+              <ThemedText style={hStyles.avatarLetter}>
+                {store.storeName?.[0] || "م"}
+              </ThemedText>
+            </View>
+          )}
+        </View>
+
+        <View style={hStyles.textBlock}>
+          <View style={[hStyles.typeBadge, { backgroundColor: cfg.color + "18" }]}>
+            <MaterialCommunityIcons name={cfg.icon as any} size={12} color={cfg.color} />
+            <ThemedText style={[hStyles.typeLabel, { color: cfg.color }]}>
+              {cfg.label}
+            </ThemedText>
+          </View>
+          <ThemedText type="h3" style={[hStyles.storeName, { color: theme.textPrimary }]}>
+            {store.storeName}
+          </ThemedText>
+          {store.bio ? (
+            <ThemedText type="small" style={[hStyles.bio, { color: theme.textSecondary }]} numberOfLines={2}>
+              {store.bio}
+            </ThemedText>
+          ) : null}
+          {store.address ? (
+            <View style={hStyles.addressRow}>
+              <Feather name="map-pin" size={11} color={theme.textSecondary} />
+              <ThemedText type="small" style={[hStyles.addressText, { color: theme.textSecondary }]}>
+                {store.address}
+              </ThemedText>
+            </View>
+          ) : null}
+        </View>
+      </View>
+    </View>
+  );
+}
+
+const hStyles = StyleSheet.create({
+  wrapper: { marginBottom: Spacing.lg, marginHorizontal: -Spacing.lg },
+  cover: { height: COVER_H, overflow: "hidden" },
+  coverOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(0,0,0,0.2)",
+  },
+  infoRow: {
+    flexDirection: "row-reverse",
+    alignItems: "flex-end",
+    paddingHorizontal: Spacing.lg,
+    paddingBottom: Spacing.md,
+    marginTop: -(AVATAR_SIZE / 2),
+    gap: Spacing.md,
+  },
+  avatarWrap: {
+    width: AVATAR_SIZE,
+    height: AVATAR_SIZE,
+    borderRadius: AVATAR_SIZE / 2,
+    borderWidth: 3,
+    overflow: "hidden",
+    elevation: 4,
+    backgroundColor: "#fff",
+  },
+  avatar: { width: "100%", height: "100%" },
+  avatarFallback: {
+    width: "100%",
+    height: "100%",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  avatarLetter: {
+    fontFamily: "Cairo_700Bold",
+    fontSize: 28,
+    color: "#fff",
+    lineHeight: 34,
+  },
+  textBlock: { flex: 1, alignItems: "flex-end", gap: 3 },
+  typeBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 10,
+    alignSelf: "flex-end",
+  },
+  typeLabel: { fontFamily: "Cairo_700Bold", fontSize: 11 },
+  storeName: { textAlign: "right" },
+  bio: { textAlign: "right", fontStyle: "italic" },
+  addressRow: { flexDirection: "row-reverse", alignItems: "center", gap: 4 },
+  addressText: { textAlign: "right" },
+});
+
 const styles = StyleSheet.create({
   center: {
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
     gap: Spacing.md,
-  },
-  storeHeader: {
-    flexDirection: "row-reverse",
-    alignItems: "center",
-    gap: Spacing.md,
-    marginBottom: Spacing.xl,
-    padding: Spacing.lg,
-    backgroundColor: "rgba(232, 101, 32, 0.06)",
-    borderRadius: BorderRadius.xl,
-  },
-  storeIconBox: {
-    width: 56,
-    height: 56,
-    borderRadius: BorderRadius.lg,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  storeInfo: {
-    flex: 1,
-    alignItems: "flex-end",
-    gap: 4,
-  },
-  storeTitle: {
-    textAlign: "right",
-  },
-  storeAddressRow: {
-    flexDirection: "row-reverse",
-    alignItems: "center",
-    gap: 4,
-  },
-  storeAddress: {
-    textAlign: "right",
   },
   productCard: {
     borderRadius: BorderRadius.xl,

@@ -4972,8 +4972,11 @@ router.get("/api/stores", async (_req, res) => {
         storeName: v.storeName,
         businessType: v.businessType,
         address: v.address || "",
+        bio: v.bio || "",
         totalProducts: v.totalProducts || 0,
-        approvedAt: v.approvedAt || v.createdAt || ""
+        approvedAt: v.approvedAt || v.createdAt || "",
+        profileImageUrl: v.profileImageUrl || "",
+        coverImageUrl: v.coverImageUrl || ""
       };
     }).sort((a, b) => b.approvedAt.localeCompare(a.approvedAt));
     res.json({ stores, total: stores.length });
@@ -4999,7 +5002,10 @@ router.get("/api/stores/:id/products", async (req, res) => {
       id: storeData.id,
       storeName: storeData.storeName,
       businessType: storeData.businessType,
-      address: storeData.address || ""
+      address: storeData.address || "",
+      bio: storeData.bio || "",
+      profileImageUrl: storeData.profileImageUrl || "",
+      coverImageUrl: storeData.coverImageUrl || ""
     };
     const products2 = productsSnap.docs.map((d) => {
       const p = d.data();
