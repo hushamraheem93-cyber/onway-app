@@ -98,6 +98,17 @@ export default function VendorHomeScreen({ navigation }: any) {
   const [savingBio, setSavingBio] = useState(false);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  // Store settings modal
+  const [settingsVisible, setSettingsVisible] = useState(false);
+  const [settDeliveryTime, setSettDeliveryTime] = useState(vendorProfile?.deliveryTime || "30-45");
+  const [settDeliveryPrice, setSettDeliveryPrice] = useState(String(vendorProfile?.deliveryPrice ?? 0));
+  const defaultWh = vendorProfile?.workingHours ?? { openTime: "09:00", closeTime: "22:00", openDays: [0, 1, 2, 3, 4, 5, 6] };
+  const [settOpenTime, setSettOpenTime] = useState(defaultWh.openTime);
+  const [settCloseTime, setSettCloseTime] = useState(defaultWh.closeTime);
+  const [settOpenDays, setSettOpenDays] = useState<number[]>(defaultWh.openDays);
+  const [settingsUseHours, setSettingsUseHours] = useState(!!vendorProfile?.workingHours);
+  const [savingSettings, setSavingSettings] = useState(false);
+
   useEffect(() => {
     setDismissedIds(new Set());
     setNotifications([]);
@@ -251,6 +262,30 @@ export default function VendorHomeScreen({ navigation }: any) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch {} finally {
       setSavingBio(false);
+    }
+  };
+
+  const saveStoreSettings = async () => {
+    if (!vendorToken) return;
+    setSavingSettings(true);
+    try {
+      const body: any = {
+        deliveryTime: settDeliveryTime.trim(),
+        deliveryPrice: Number(settDeliveryPrice) || 0,
+        workingHours: settingsUseHours
+          ? { openTime: settOpenTime, closeTime: settCloseTime, openDays: settOpenDays }
+          : null,
+      };
+      await fetch(new URL("/api/vendor/profile", getApiUrl()).toString(), {
+        method: "PATCH",
+        headers: { Authorization: `Bearer ${vendorToken}`, "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      await refreshVendorProfile();
+      setSettingsVisible(false);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } catch {} finally {
+      setSavingSettings(false);
     }
   };
 
@@ -491,6 +526,23 @@ export default function VendorHomeScreen({ navigation }: any) {
                     navigation.navigate("VendorProductsTab", { screen: "VendorProducts" });
                   }}
                 />
+                <QuickAction
+                  icon="cog"
+                  label="إعدادات"
+                  color="#1565C0"
+                  bg="#E3F2FD"
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                    setSettDeliveryTime(vendorProfile?.deliveryTime || "30-45");
+                    setSettDeliveryPrice(String(vendorProfile?.deliveryPrice ?? 0));
+                    const wh = vendorProfile?.workingHours;
+                    setSettingsUseHours(!!wh);
+                    setSettOpenTime(wh?.openTime || "09:00");
+                    setSettCloseTime(wh?.closeTime || "22:00");
+                    setSettOpenDays(wh?.openDays ?? [0, 1, 2, 3, 4, 5, 6]);
+                    setSettingsVisible(true);
+                  }}
+                />
               </View>
             </>
           ) : null}
@@ -557,6 +609,128 @@ export default function VendorHomeScreen({ navigation }: any) {
                 <ThemedText style={styles.bioBtnCancelText}>إلغاء</ThemedText>
               </Pressable>
             </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* ── Store Settings Modal ── */}
+      <Modal transparent visible={settingsVisible} animationType="slide">
+        <View style={styles.modalOverlay}>
+          <View style={[styles.bioModal, { maxHeight: "85%" }]}>
+            <ScrollView showsVerticalScrollIndicator={false}>
+              <ThemedText style={styles.bioModalTitle}>إعدادات المتجر</ThemedText>
+
+              {/* Delivery time */}
+              <ThemedText style={settStyles.label}>وقت التوصيل المتوقع (دقائق)</ThemedText>
+              <TextInput
+                style={settStyles.input}
+                value={settDeliveryTime}
+                onChangeText={setSettDeliveryTime}
+                placeholder="مثال: 20-30"
+                placeholderTextColor="#BBB"
+                textAlign="right"
+                keyboardType="default"
+              />
+
+              {/* Delivery price */}
+              <ThemedText style={settStyles.label}>سعر التوصيل (دينار عراقي)</ThemedText>
+              <TextInput
+                style={settStyles.input}
+                value={settDeliveryPrice}
+                onChangeText={setSettDeliveryPrice}
+                placeholder="0 = توصيل مجاني"
+                placeholderTextColor="#BBB"
+                textAlign="right"
+                keyboardType="numeric"
+              />
+
+              {/* Working hours toggle */}
+              <View style={settStyles.row}>
+                <Pressable
+                  onPress={() => setSettingsUseHours(!settingsUseHours)}
+                  style={[settStyles.toggle, { backgroundColor: settingsUseHours ? "#1565C0" : "#E5E7EB" }]}
+                >
+                  <View
+                    style={[
+                      settStyles.toggleThumb,
+                      { transform: [{ translateX: settingsUseHours ? 18 : 2 }] },
+                    ]}
+                  />
+                </Pressable>
+                <ThemedText style={settStyles.toggleLabel}>تحديد ساعات العمل</ThemedText>
+              </View>
+
+              {settingsUseHours ? (
+                <>
+                  {/* Open time */}
+                  <ThemedText style={settStyles.label}>وقت الفتح (تنسيق 24 ساعة، مثال: 09:00)</ThemedText>
+                  <TextInput
+                    style={settStyles.input}
+                    value={settOpenTime}
+                    onChangeText={setSettOpenTime}
+                    placeholder="09:00"
+                    placeholderTextColor="#BBB"
+                    textAlign="right"
+                    keyboardType="numbers-and-punctuation"
+                  />
+
+                  {/* Close time */}
+                  <ThemedText style={settStyles.label}>وقت الإغلاق</ThemedText>
+                  <TextInput
+                    style={settStyles.input}
+                    value={settCloseTime}
+                    onChangeText={setSettCloseTime}
+                    placeholder="22:00"
+                    placeholderTextColor="#BBB"
+                    textAlign="right"
+                    keyboardType="numbers-and-punctuation"
+                  />
+
+                  {/* Open days */}
+                  <ThemedText style={settStyles.label}>أيام العمل</ThemedText>
+                  <View style={settStyles.daysRow}>
+                    {["ح", "إ", "ث", "ر", "خ", "ج", "س"].map((d, i) => {
+                      const active = settOpenDays.includes(i);
+                      return (
+                        <Pressable
+                          key={i}
+                          onPress={() => {
+                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                            setSettOpenDays((prev) =>
+                              active ? prev.filter((x) => x !== i) : [...prev, i]
+                            );
+                          }}
+                          style={[
+                            settStyles.dayBtn,
+                            { backgroundColor: active ? "#1565C0" : "#F3F4F6", borderColor: active ? "#1565C0" : "#E5E7EB" },
+                          ]}
+                        >
+                          <ThemedText
+                            style={[settStyles.dayText, { color: active ? "#fff" : "#6B7280" }]}
+                          >
+                            {d}
+                          </ThemedText>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                </>
+              ) : null}
+
+              {/* Actions */}
+              <View style={[styles.bioActions, { marginTop: 18 }]}>
+                <Pressable style={styles.bioBtnSave} onPress={saveStoreSettings} disabled={savingSettings}>
+                  {savingSettings ? (
+                    <ActivityIndicator color="#fff" size="small" />
+                  ) : (
+                    <ThemedText style={styles.bioBtnSaveText}>حفظ الإعدادات</ThemedText>
+                  )}
+                </Pressable>
+                <Pressable style={styles.bioBtnCancel} onPress={() => setSettingsVisible(false)}>
+                  <ThemedText style={styles.bioBtnCancelText}>إلغاء</ThemedText>
+                </Pressable>
+              </View>
+            </ScrollView>
           </View>
         </View>
       </Modal>
@@ -934,4 +1108,21 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   bioBtnCancelText: { fontFamily: "Cairo_700Bold", fontSize: 14, color: "#444" },
+});
+
+const settStyles = StyleSheet.create({
+  label: { fontFamily: "Cairo_700Bold", fontSize: 13, color: "#374151", textAlign: "right", marginBottom: 6, marginTop: 14 },
+  input: {
+    borderWidth: 1.5, borderColor: "#E5E7EB", borderRadius: 10,
+    paddingHorizontal: 14, paddingVertical: 10,
+    fontFamily: "Cairo_400Regular", fontSize: 14, color: "#111",
+    textAlign: "right", backgroundColor: "#FAFAFA",
+  },
+  row: { flexDirection: "row-reverse", alignItems: "center", marginTop: 14, gap: 12 },
+  toggle: { width: 44, height: 26, borderRadius: 13, justifyContent: "center" },
+  toggleThumb: { width: 22, height: 22, borderRadius: 11, backgroundColor: "#fff", shadowColor: "#000", shadowOpacity: 0.15, shadowRadius: 3, elevation: 2 },
+  toggleLabel: { fontFamily: "Cairo_700Bold", fontSize: 13, color: "#374151" },
+  daysRow: { flexDirection: "row-reverse", gap: 6, flexWrap: "wrap", marginTop: 8 },
+  dayBtn: { width: 38, height: 38, borderRadius: 19, justifyContent: "center", alignItems: "center", borderWidth: 1.5 },
+  dayText: { fontFamily: "Cairo_700Bold", fontSize: 12 },
 });

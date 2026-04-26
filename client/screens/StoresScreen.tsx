@@ -16,6 +16,7 @@ import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useQuery } from "@tanstack/react-query";
 import { Image } from "expo-image";
 import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
 import * as Haptics from "expo-haptics";
 
 import { useTheme } from "@/hooks/useTheme";
@@ -28,6 +29,15 @@ import { getApiUrl } from "@/lib/query-client";
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
 const SCREEN_W = Dimensions.get("window").width;
+const CARD_W = SCREEN_W - 32;
+const COVER_H = 150;
+const AVATAR_SIZE = 62;
+
+interface WorkingHours {
+  openTime: string;
+  closeTime: string;
+  openDays: number[];
+}
 
 interface VendorStore {
   id: string;
@@ -39,21 +49,66 @@ interface VendorStore {
   approvedAt?: string;
   profileImageUrl?: string;
   coverImageUrl?: string;
+  rating?: number;
+  deliveryTime?: string;
+  deliveryPrice?: number;
+  workingHours?: WorkingHours | null;
 }
 
 const BUSINESS_CONFIG: Record<
   string,
-  { label: string; icon: string; color: string; bg: string }
+  { label: string; icon: string; color: string; bg: string; gradient: [string, string] }
 > = {
-  restaurant: { label: "مطعم", icon: "food", color: "#E86520", bg: "#FFF4E0" },
-  supermarket: { label: "سوبرماركت", icon: "cart", color: "#2E7D32", bg: "#E8F5E9" },
-  pharmacy: { label: "صيدلية", icon: "medical-bag", color: "#7B1FA2", bg: "#F3E5F5" },
-  bakery: { label: "مخبز", icon: "bread-slice", color: "#F57F17", bg: "#FFF8E1" },
-  other: { label: "متجر", icon: "store", color: "#1565C0", bg: "#E3F2FD" },
+  restaurant: { label: "مطعم", icon: "food", color: "#E86520", bg: "#FFF4E0", gradient: ["#E86520", "#FF8C4B"] },
+  supermarket: { label: "سوبرماركت", icon: "cart", color: "#2E7D32", bg: "#E8F5E9", gradient: ["#2E7D32", "#4CAF50"] },
+  pharmacy: { label: "صيدلية", icon: "medical-bag", color: "#7B1FA2", bg: "#F3E5F5", gradient: ["#7B1FA2", "#AB47BC"] },
+  bakery: { label: "مخبز", icon: "bread-slice", color: "#F57F17", bg: "#FFF8E1", gradient: ["#F57F17", "#FFA726"] },
+  other: { label: "متجر", icon: "store", color: "#1565C0", bg: "#E3F2FD", gradient: ["#1565C0", "#1E88E5"] },
 };
 
+const DAY_NAMES = ["الأحد", "الإثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت"];
+
+function isStoreOpen(wh: WorkingHours | null | undefined): boolean {
+  if (!wh) return true;
+  const now = new Date();
+  const day = now.getDay();
+  if (!wh.openDays?.includes(day)) return false;
+  const cur = now.getHours() * 60 + now.getMinutes();
+  const [oh, om] = (wh.openTime || "00:00").split(":").map(Number);
+  const [ch, cm] = (wh.closeTime || "23:59").split(":").map(Number);
+  return cur >= oh * 60 + om && cur < ch * 60 + cm;
+}
+
+function resolveUrl(path?: string): string | null {
+  if (!path) return null;
+  if (path.startsWith("http")) return path;
+  try { return new URL(path, getApiUrl()).toString(); } catch { return null; }
+}
+
+function StarRating({ value }: { value: number }) {
+  const full = Math.floor(value);
+  const half = value - full >= 0.5;
+  return (
+    <View style={rStyles.row}>
+      {[1, 2, 3, 4, 5].map((i) => (
+        <MaterialCommunityIcons
+          key={i}
+          name={i <= full ? "star" : half && i === full + 1 ? "star-half-full" : "star-outline"}
+          size={13}
+          color="#F59E0B"
+        />
+      ))}
+      <ThemedText style={rStyles.val}>{value.toFixed(1)}</ThemedText>
+    </View>
+  );
+}
+const rStyles = StyleSheet.create({
+  row: { flexDirection: "row", alignItems: "center", gap: 2 },
+  val: { fontFamily: "Cairo_700Bold", fontSize: 12, color: "#F59E0B", marginRight: 2 },
+});
+
 const FILTER_TABS = [
-  { key: "", label: "الكل", icon: "grid" },
+  { key: "", label: "الكل", icon: "view-grid" },
   { key: "restaurant", label: "مطاعم", icon: "food" },
   { key: "supermarket", label: "سوبرماركت", icon: "cart" },
   { key: "pharmacy", label: "صيدليات", icon: "medical-bag" },
@@ -61,119 +116,186 @@ const FILTER_TABS = [
   { key: "other", label: "متاجر", icon: "store" },
 ];
 
-function resolveUrl(path?: string): string | null {
-  if (!path) return null;
-  if (path.startsWith("http")) return path;
-  try {
-    return new URL(path, getApiUrl()).toString();
-  } catch {
-    return null;
-  }
-}
-
-function StoreCard({
-  store,
-  onPress,
-}: {
-  store: VendorStore;
-  onPress: () => void;
-}) {
+function StoreCard({ store, onPress }: { store: VendorStore; onPress: () => void }) {
   const { theme } = useTheme();
   const cfg = BUSINESS_CONFIG[store.businessType] || BUSINESS_CONFIG.other;
   const avatarUrl = resolveUrl(store.profileImageUrl);
   const coverUrl = resolveUrl(store.coverImageUrl);
+  const open = isStoreOpen(store.workingHours);
+  const rating = store.rating ?? 4.5;
+  const deliveryTime = store.deliveryTime || "30-45";
+  const deliveryPrice = store.deliveryPrice ?? 0;
 
   return (
     <Pressable
       onPress={onPress}
       style={({ pressed }) => [
-        styles.card,
-        { backgroundColor: theme.backgroundDefault, opacity: pressed ? 0.92 : 1 },
+        cardStyles.card,
+        { backgroundColor: theme.backgroundDefault, opacity: pressed ? 0.93 : 1 },
         Shadows.md,
       ]}
       testID={`store-card-${store.id}`}
     >
-      {/* Cover / top band */}
-      <View style={[styles.cardCover, { backgroundColor: cfg.bg }]}>
+      {/* ── Cover Photo ── */}
+      <View style={cardStyles.coverWrapper}>
         {coverUrl ? (
           <Image
             source={{ uri: coverUrl }}
             style={StyleSheet.absoluteFillObject}
             contentFit="cover"
+            transition={200}
           />
-        ) : null}
-        {/* Dark overlay when cover exists */}
-        {coverUrl ? <View style={styles.coverOverlay} /> : null}
+        ) : (
+          <LinearGradient
+            colors={cfg.gradient}
+            style={StyleSheet.absoluteFillObject}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+          />
+        )}
 
-        {/* Business type badge */}
-        <View style={[styles.typeBadge, { backgroundColor: cfg.color + "EE" }]}>
+        {/* Gradient overlay for readability */}
+        <LinearGradient
+          colors={["transparent", "rgba(0,0,0,0.55)"]}
+          style={StyleSheet.absoluteFillObject}
+          start={{ x: 0, y: 0.3 }}
+          end={{ x: 0, y: 1 }}
+        />
+
+        {/* Business type badge — top right */}
+        <View style={[cardStyles.typeBadge, { backgroundColor: cfg.color + "EE" }]}>
           <MaterialCommunityIcons name={cfg.icon as any} size={12} color="#fff" />
-          <ThemedText style={styles.typeBadgeText}>{cfg.label}</ThemedText>
+          <ThemedText style={cardStyles.typeBadgeText}>{cfg.label}</ThemedText>
+        </View>
+
+        {/* Open / Closed — top left */}
+        <View style={[cardStyles.openBadge, { backgroundColor: open ? "#10B981EE" : "#EF4444EE" }]}>
+          <View style={[cardStyles.openDot, { backgroundColor: open ? "#fff" : "#fca5a5" }]} />
+          <ThemedText style={cardStyles.openText}>{open ? "مفتوح" : "مغلق"}</ThemedText>
+        </View>
+
+        {/* Delivery info row — bottom of cover */}
+        <View style={cardStyles.coverBottom}>
+          <View style={cardStyles.deliveryPill}>
+            <MaterialCommunityIcons name="clock-outline" size={12} color="#fff" />
+            <ThemedText style={cardStyles.deliveryText}>{deliveryTime} دقيقة</ThemedText>
+          </View>
+          <View style={cardStyles.deliveryPill}>
+            <MaterialCommunityIcons name="moped" size={12} color="#fff" />
+            <ThemedText style={cardStyles.deliveryText}>
+              {deliveryPrice === 0 ? "توصيل مجاني" : `${deliveryPrice.toLocaleString("ar-IQ")} د.ع`}
+            </ThemedText>
+          </View>
         </View>
       </View>
 
-      {/* Bottom info section */}
-      <View style={styles.cardBody}>
-        {/* Avatar */}
-        <View style={[styles.avatarWrap, { borderColor: theme.backgroundDefault }]}>
+      {/* ── Card Body ── */}
+      <View style={cardStyles.body}>
+        {/* Avatar overlapping cover */}
+        <View style={[cardStyles.avatarWrap, { borderColor: theme.backgroundDefault }]}>
           {avatarUrl ? (
-            <Image source={{ uri: avatarUrl }} style={styles.avatar} contentFit="cover" />
+            <Image source={{ uri: avatarUrl }} style={cardStyles.avatar} contentFit="cover" />
           ) : (
-            <View style={[styles.avatarFallback, { backgroundColor: cfg.color }]}>
-              <ThemedText style={styles.avatarLetter}>
+            <LinearGradient colors={cfg.gradient} style={cardStyles.avatarFallback}>
+              <ThemedText style={cardStyles.avatarLetter}>
                 {store.storeName?.[0] || "م"}
               </ThemedText>
-            </View>
+            </LinearGradient>
           )}
         </View>
 
-        <View style={styles.cardInfo}>
-          <ThemedText
-            type="h4"
-            style={[styles.storeName, { color: theme.textPrimary }]}
-            numberOfLines={1}
-          >
+        {/* Info */}
+        <View style={cardStyles.info}>
+          <ThemedText style={[cardStyles.storeName, { color: theme.text }]} numberOfLines={1}>
             {store.storeName}
           </ThemedText>
 
-          {store.bio ? (
-            <ThemedText
-              type="small"
-              style={[styles.bio, { color: theme.textSecondary }]}
-              numberOfLines={1}
-            >
-              {store.bio}
-            </ThemedText>
-          ) : null}
+          <StarRating value={rating} />
 
-          <View style={styles.metaRow}>
-            {store.address ? (
-              <View style={styles.metaItem}>
-                <Feather name="map-pin" size={11} color={theme.textSecondary} />
-                <ThemedText
-                  type="small"
-                  style={[styles.metaText, { color: theme.textSecondary }]}
-                  numberOfLines={1}
-                >
-                  {store.address}
-                </ThemedText>
-              </View>
-            ) : null}
-            {store.totalProducts !== undefined && store.totalProducts > 0 ? (
-              <View style={[styles.productsBadge, { backgroundColor: cfg.color + "18" }]}>
-                <ThemedText style={[styles.productsText, { color: cfg.color }]}>
-                  {store.totalProducts} منتج
-                </ThemedText>
-              </View>
-            ) : null}
-          </View>
+          {store.address ? (
+            <View style={cardStyles.addressRow}>
+              <Feather name="map-pin" size={11} color={theme.textSecondary} />
+              <ThemedText
+                style={[cardStyles.addressText, { color: theme.textSecondary }]}
+                numberOfLines={1}
+              >
+                {store.address}
+              </ThemedText>
+            </View>
+          ) : null}
         </View>
 
-        <Feather name="chevron-left" size={18} color={theme.textSecondary} style={styles.chevron} />
+        {/* Arrow */}
+        <View style={[cardStyles.arrowWrap, { backgroundColor: cfg.color + "18" }]}>
+          <Feather name="chevron-left" size={18} color={cfg.color} />
+        </View>
       </View>
     </Pressable>
   );
 }
+
+const cardStyles = StyleSheet.create({
+  card: { borderRadius: BorderRadius.xl, overflow: "hidden", marginBottom: 0 },
+
+  // Cover
+  coverWrapper: { width: "100%", height: COVER_H, position: "relative" },
+  typeBadge: {
+    position: "absolute", top: 10, right: 10,
+    flexDirection: "row", alignItems: "center", gap: 4,
+    paddingHorizontal: 9, paddingVertical: 4,
+    borderRadius: 12,
+  },
+  typeBadgeText: { fontFamily: "Cairo_700Bold", fontSize: 11, color: "#fff" },
+  openBadge: {
+    position: "absolute", top: 10, left: 10,
+    flexDirection: "row", alignItems: "center", gap: 5,
+    paddingHorizontal: 9, paddingVertical: 4,
+    borderRadius: 12,
+  },
+  openDot: { width: 6, height: 6, borderRadius: 3 },
+  openText: { fontFamily: "Cairo_700Bold", fontSize: 11, color: "#fff" },
+  coverBottom: {
+    position: "absolute", bottom: 10, right: 10,
+    flexDirection: "row", gap: 6,
+  },
+  deliveryPill: {
+    flexDirection: "row", alignItems: "center", gap: 4,
+    backgroundColor: "rgba(0,0,0,0.45)",
+    paddingHorizontal: 8, paddingVertical: 3,
+    borderRadius: 10,
+  },
+  deliveryText: { fontFamily: "Cairo_700Bold", fontSize: 11, color: "#fff" },
+
+  // Body
+  body: {
+    flexDirection: "row-reverse", alignItems: "center",
+    paddingLeft: 14, paddingRight: 10,
+    paddingBottom: 14, paddingTop: 4,
+    gap: 10,
+  },
+  avatarWrap: {
+    width: AVATAR_SIZE, height: AVATAR_SIZE,
+    borderRadius: AVATAR_SIZE / 2,
+    borderWidth: 3, overflow: "hidden",
+    marginTop: -(AVATAR_SIZE / 2),
+    elevation: 4,
+    backgroundColor: "#fff",
+  },
+  avatar: { width: "100%", height: "100%" },
+  avatarFallback: { width: "100%", height: "100%", justifyContent: "center", alignItems: "center" },
+  avatarLetter: { fontFamily: "Cairo_700Bold", fontSize: 24, color: "#fff", lineHeight: 30 },
+
+  info: { flex: 1, alignItems: "flex-end", gap: 4, paddingTop: AVATAR_SIZE / 2 - 4 },
+  storeName: { fontFamily: "Cairo_700Bold", fontSize: 16, textAlign: "right" },
+  addressRow: { flexDirection: "row-reverse", alignItems: "center", gap: 4 },
+  addressText: { fontSize: 12, textAlign: "right", fontFamily: "Cairo_400Regular", maxWidth: CARD_W * 0.5 },
+
+  arrowWrap: {
+    width: 34, height: 34, borderRadius: 17,
+    justifyContent: "center", alignItems: "center",
+    alignSelf: "flex-end", marginBottom: 4,
+  },
+});
 
 export default function StoresScreen() {
   const headerHeight = useHeaderHeight();
@@ -204,40 +326,27 @@ export default function StoresScreen() {
     return map;
   }, [allStores]);
 
+  const filterTabs = FILTER_TABS.filter((f) => f.key === "" || (counts[f.key] ?? 0) > 0);
+
   const handleStorePress = (store: VendorStore) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    navigation.navigate("StoreProducts", {
-      storeId: store.id,
-      storeName: store.storeName,
-    });
+    navigation.navigate("StoreProducts", { storeId: store.id, storeName: store.storeName });
   };
-
-  const filterTabs = FILTER_TABS.filter(
-    (f) => f.key === "" || (counts[f.key] ?? 0) > 0
-  );
 
   return (
     <View style={{ flex: 1 }}>
       <GradientBackground />
 
       {isLoading ? (
-        <View style={[styles.center, { paddingTop: headerHeight }]}>
+        <View style={[screenStyles.center, { paddingTop: headerHeight }]}>
           <ActivityIndicator size="large" color={AppColors.primary} />
         </View>
       ) : isError ? (
-        <View style={[styles.center, { paddingTop: headerHeight }]}>
+        <View style={[screenStyles.center, { paddingTop: headerHeight }]}>
           <Feather name="wifi-off" size={48} color={theme.textSecondary} />
-          <ThemedText
-            type="body"
-            style={[styles.emptyText, { color: theme.textSecondary }]}
-          >
-            تعذّر تحميل المتاجر
-          </ThemedText>
-          <Pressable onPress={() => refetch()} style={styles.retryBtn}>
-            <ThemedText
-              type="body"
-              style={{ color: AppColors.primary, fontWeight: "600" }}
-            >
+          <ThemedText type="body" style={{ color: theme.textSecondary }}>تعذّر تحميل المتاجر</ThemedText>
+          <Pressable onPress={() => refetch()} style={screenStyles.retryBtn}>
+            <ThemedText type="body" style={{ color: AppColors.primary, fontWeight: "600" }}>
               إعادة المحاولة
             </ThemedText>
           </Pressable>
@@ -249,7 +358,7 @@ export default function StoresScreen() {
           contentContainerStyle={{
             paddingTop: headerHeight + Spacing.sm,
             paddingBottom: tabBarHeight + Spacing.xl,
-            paddingHorizontal: Spacing.lg,
+            paddingHorizontal: 16,
           }}
           refreshControl={
             <RefreshControl
@@ -258,6 +367,9 @@ export default function StoresScreen() {
               tintColor={AppColors.primary}
             />
           }
+          ItemSeparatorComponent={() => <View style={{ height: 14 }} />}
+          scrollIndicatorInsets={{ bottom: tabBarHeight }}
+          showsVerticalScrollIndicator={false}
           ListHeaderComponent={
             <>
               {/* Filter chips */}
@@ -265,24 +377,20 @@ export default function StoresScreen() {
                 <ScrollView
                   horizontal
                   showsHorizontalScrollIndicator={false}
-                  contentContainerStyle={styles.filterRow}
+                  contentContainerStyle={screenStyles.filterRow}
                 >
                   {filterTabs.map((f) => {
                     const active = activeFilter === f.key;
-                    const cfg = BUSINESS_CONFIG[f.key] || { color: AppColors.primary, bg: "#EDE7F6" };
+                    const cfg = BUSINESS_CONFIG[f.key];
+                    const activeColor = cfg?.color ?? AppColors.primary;
                     return (
                       <Pressable
                         key={f.key}
                         style={[
-                          styles.filterChip,
-                          active && {
-                            backgroundColor: cfg.color || AppColors.primary,
-                            borderColor: cfg.color || AppColors.primary,
-                          },
-                          !active && {
-                            backgroundColor: theme.backgroundDefault,
-                            borderColor: theme.border ?? "#E5E7EB",
-                          },
+                          screenStyles.filterChip,
+                          active
+                            ? { backgroundColor: activeColor, borderColor: activeColor }
+                            : { backgroundColor: theme.backgroundDefault, borderColor: theme.border ?? "#E5E7EB" },
                         ]}
                         onPress={() => {
                           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -295,29 +403,19 @@ export default function StoresScreen() {
                           color={active ? "#fff" : theme.textSecondary}
                         />
                         <ThemedText
-                          style={[
-                            styles.filterChipText,
-                            { color: active ? "#fff" : theme.textSecondary },
-                          ]}
+                          style={[screenStyles.filterChipText, { color: active ? "#fff" : theme.textSecondary }]}
                         >
                           {f.label}
                         </ThemedText>
                         {counts[f.key] !== undefined ? (
                           <View
                             style={[
-                              styles.filterCount,
-                              {
-                                backgroundColor: active
-                                  ? "rgba(255,255,255,0.25)"
-                                  : (cfg.color || AppColors.primary) + "18",
-                              },
+                              screenStyles.filterCount,
+                              { backgroundColor: active ? "rgba(255,255,255,0.25)" : activeColor + "18" },
                             ]}
                           >
                             <ThemedText
-                              style={[
-                                styles.filterCountText,
-                                { color: active ? "#fff" : cfg.color || AppColors.primary },
-                              ]}
+                              style={[screenStyles.filterCountText, { color: active ? "#fff" : activeColor }]}
                             >
                               {counts[f.key]}
                             </ThemedText>
@@ -329,230 +427,61 @@ export default function StoresScreen() {
                 </ScrollView>
               ) : null}
 
-              {/* Section title */}
-              <View style={styles.sectionHeader}>
-                <ThemedText
-                  type="h3"
-                  style={[styles.sectionTitle, { color: theme.textPrimary }]}
-                >
-                  {activeFilter
-                    ? BUSINESS_CONFIG[activeFilter]?.label + "s" || "المتاجر"
-                    : "جميع المتاجر"}
+              {/* Section heading */}
+              <View style={screenStyles.sectionHeader}>
+                <ThemedText type="h3" style={{ textAlign: "right", color: theme.text }}>
+                  {activeFilter ? (BUSINESS_CONFIG[activeFilter]?.label ?? "المتاجر") : "جميع المتاجر"}
                 </ThemedText>
-                <ThemedText
-                  type="small"
-                  style={{ color: theme.textSecondary }}
-                >
-                  {filtered.length} متجر
-                </ThemedText>
+                <View style={[screenStyles.countBadge, { backgroundColor: AppColors.primary + "18" }]}>
+                  <ThemedText style={[screenStyles.countText, { color: AppColors.primary }]}>
+                    {filtered.length}
+                  </ThemedText>
+                </View>
               </View>
             </>
           }
           ListEmptyComponent={
-            <View style={styles.emptyContainer}>
+            <View style={screenStyles.emptyContainer}>
               <MaterialCommunityIcons
                 name="store-off"
                 size={64}
                 color={theme.textSecondary}
-                style={{ opacity: 0.4 }}
+                style={{ opacity: 0.35 }}
               />
-              <ThemedText
-                type="h4"
-                style={[styles.emptyTitle, { color: theme.textSecondary }]}
-              >
+              <ThemedText type="h4" style={[{ textAlign: "center", color: theme.textSecondary }]}>
                 لا توجد متاجر حالياً
               </ThemedText>
-              <ThemedText
-                type="small"
-                style={[styles.emptyText, { color: theme.textSecondary }]}
-              >
-                {activeFilter
-                  ? "لا توجد متاجر من هذا النوع"
-                  : "سيتم إضافة متاجر قريباً"}
+              <ThemedText type="small" style={{ textAlign: "center", color: theme.textSecondary }}>
+                {activeFilter ? "لا توجد متاجر من هذا النوع" : "سيتم إضافة متاجر قريباً"}
               </ThemedText>
             </View>
           }
           renderItem={({ item }) => (
             <StoreCard store={item} onPress={() => handleStorePress(item)} />
           )}
-          ItemSeparatorComponent={() => <View style={{ height: Spacing.md }} />}
-          scrollIndicatorInsets={{ bottom: tabBarHeight }}
-          showsVerticalScrollIndicator={false}
         />
       )}
     </View>
   );
 }
 
-const styles = StyleSheet.create({
-  center: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    gap: Spacing.md,
-  },
-
-  // Filter
-  filterRow: {
-    flexDirection: "row",
-    gap: 8,
-    paddingBottom: Spacing.md,
-    paddingTop: Spacing.xs,
-  },
+const screenStyles = StyleSheet.create({
+  center: { flex: 1, alignItems: "center", justifyContent: "center", gap: Spacing.md },
+  retryBtn: { paddingVertical: Spacing.sm, paddingHorizontal: Spacing.lg },
+  filterRow: { flexDirection: "row", gap: 8, paddingBottom: Spacing.md, paddingTop: Spacing.xs },
   filterChip: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 5,
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-    borderRadius: 20,
-    borderWidth: 1.5,
+    flexDirection: "row", alignItems: "center", gap: 5,
+    paddingHorizontal: 12, paddingVertical: 7,
+    borderRadius: 20, borderWidth: 1.5,
   },
-  filterChipText: {
-    fontFamily: "Cairo_700Bold",
-    fontSize: 12,
-  },
-  filterCount: {
-    borderRadius: 8,
-    paddingHorizontal: 5,
-    paddingVertical: 1,
-  },
-  filterCountText: {
-    fontFamily: "Cairo_700Bold",
-    fontSize: 10,
-  },
-
-  // Section header
+  filterChipText: { fontFamily: "Cairo_700Bold", fontSize: 12 },
+  filterCount: { borderRadius: 8, paddingHorizontal: 5, paddingVertical: 1 },
+  filterCountText: { fontFamily: "Cairo_700Bold", fontSize: 10 },
   sectionHeader: {
-    flexDirection: "row-reverse",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: Spacing.md,
+    flexDirection: "row-reverse", justifyContent: "space-between",
+    alignItems: "center", marginBottom: Spacing.md,
   },
-  sectionTitle: {
-    textAlign: "right",
-  },
-
-  // Store card
-  card: {
-    borderRadius: BorderRadius.xl,
-    overflow: "hidden",
-  },
-  cardCover: {
-    height: 100,
-    position: "relative",
-    justifyContent: "flex-end",
-    alignItems: "flex-end",
-    padding: 8,
-  },
-  coverOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(0,0,0,0.25)",
-  },
-  typeBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 10,
-  },
-  typeBadgeText: {
-    fontFamily: "Cairo_700Bold",
-    fontSize: 11,
-    color: "#fff",
-  },
-  cardBody: {
-    flexDirection: "row-reverse",
-    alignItems: "center",
-    padding: Spacing.md,
-    paddingTop: 0,
-    gap: Spacing.sm,
-  },
-  avatarWrap: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    borderWidth: 3,
-    overflow: "hidden",
-    marginTop: -28,
-    elevation: 3,
-    backgroundColor: "#fff",
-  },
-  avatar: {
-    width: "100%",
-    height: "100%",
-  },
-  avatarFallback: {
-    width: "100%",
-    height: "100%",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  avatarLetter: {
-    fontFamily: "Cairo_700Bold",
-    fontSize: 22,
-    color: "#fff",
-    lineHeight: 28,
-  },
-  cardInfo: {
-    flex: 1,
-    alignItems: "flex-end",
-    paddingTop: Spacing.sm,
-  },
-  storeName: {
-    textAlign: "right",
-    marginBottom: 2,
-  },
-  bio: {
-    textAlign: "right",
-    marginBottom: 4,
-    fontStyle: "italic",
-  },
-  metaRow: {
-    flexDirection: "row-reverse",
-    alignItems: "center",
-    gap: 8,
-    flexWrap: "wrap",
-  },
-  metaItem: {
-    flexDirection: "row-reverse",
-    alignItems: "center",
-    gap: 3,
-  },
-  metaText: {
-    textAlign: "right",
-    maxWidth: SCREEN_W * 0.35,
-  },
-  productsBadge: {
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: 2,
-    borderRadius: BorderRadius.sm,
-  },
-  productsText: {
-    fontWeight: "600",
-    fontSize: 11,
-    fontFamily: "Cairo_700Bold",
-  },
-  chevron: {
-    alignSelf: "center",
-    marginTop: Spacing.sm,
-  },
-
-  // Empty
-  emptyContainer: {
-    alignItems: "center",
-    paddingTop: 80,
-    gap: Spacing.md,
-  },
-  emptyTitle: {
-    textAlign: "center",
-  },
-  emptyText: {
-    textAlign: "center",
-  },
-  retryBtn: {
-    paddingVertical: Spacing.sm,
-    paddingHorizontal: Spacing.lg,
-  },
+  countBadge: { borderRadius: 10, paddingHorizontal: 9, paddingVertical: 2 },
+  countText: { fontFamily: "Cairo_700Bold", fontSize: 12 },
+  emptyContainer: { alignItems: "center", paddingTop: 80, gap: Spacing.md },
 });

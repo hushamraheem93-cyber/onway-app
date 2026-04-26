@@ -320,10 +320,14 @@ router.patch("/api/vendor/profile", requireVendor, async (req, res) => {
     const db = getFirestore();
     if (!db) return res.status(500).json({ error: "قاعدة البيانات غير متاحة" });
     const vid = (req as any).vendorId;
-    const { bio, address } = req.body;
+    const { bio, address, deliveryTime, deliveryPrice, workingHours, rating } = req.body;
     const updates: any = { updatedAt: new Date().toISOString() };
     if (bio !== undefined) updates.bio = bio;
     if (address !== undefined) updates.address = address;
+    if (deliveryTime !== undefined) updates.deliveryTime = deliveryTime;
+    if (deliveryPrice !== undefined) updates.deliveryPrice = Number(deliveryPrice);
+    if (workingHours !== undefined) updates.workingHours = workingHours;
+    if (rating !== undefined) updates.rating = Number(rating);
     await db.collection("vendors").doc(vid).update(updates);
     const doc = await db.collection("vendors").doc(vid).get();
     const { passwordHash: _pw, ...safe } = doc.data() as any;
@@ -912,6 +916,10 @@ router.get("/api/stores", async (_req, res) => {
           approvedAt: v.approvedAt || v.createdAt || "",
           profileImageUrl: v.profileImageUrl || "",
           coverImageUrl: v.coverImageUrl || "",
+          rating: v.rating ?? 4.5,
+          deliveryTime: v.deliveryTime || "30-45",
+          deliveryPrice: v.deliveryPrice ?? 0,
+          workingHours: v.workingHours || null,
         };
       })
       .sort((a: any, b: any) => b.approvedAt.localeCompare(a.approvedAt));

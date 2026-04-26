@@ -19,7 +19,7 @@ import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useQuery } from "@tanstack/react-query";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
-import { Feather, MaterialIcons } from "@expo/vector-icons";
+import { Feather, MaterialIcons, MaterialCommunityIcons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 
 import { useTheme } from "@/hooks/useTheme";
@@ -36,6 +36,7 @@ import { useAuth } from "@/context/AuthContext";
 import { formatPrice } from "@/constants/currency";
 import { resolveImageUrl } from "@/utils/imageUtils";
 import { FloatingCartBar } from "@/components/FloatingCartBar";
+import { getApiUrl } from "@/lib/query-client";
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
@@ -53,6 +54,31 @@ interface Vendor {
   location: string;
   cuisine?: string;
   categoryType?: "restaurant" | "store";
+}
+
+interface VendorStore {
+  id: string;
+  storeName: string;
+  businessType: string;
+  address?: string;
+  bio?: string;
+  totalProducts?: number;
+  profileImageUrl?: string;
+  coverImageUrl?: string;
+}
+
+const VENDOR_BIZ_CONFIG: Record<string, { label: string; icon: string; color: string; bg: string }> = {
+  restaurant: { label: "مطعم", icon: "food", color: "#E86520", bg: "#FFF4E0" },
+  supermarket: { label: "سوبرماركت", icon: "cart", color: "#2E7D32", bg: "#E8F5E9" },
+  pharmacy: { label: "صيدلية", icon: "medical-bag", color: "#7B1FA2", bg: "#F3E5F5" },
+  bakery: { label: "مخبز", icon: "bread-slice", color: "#F57F17", bg: "#FFF8E1" },
+  other: { label: "متجر", icon: "store", color: "#1565C0", bg: "#E3F2FD" },
+};
+
+function resolveStoreUrl(path?: string): string | null {
+  if (!path) return null;
+  if (path.startsWith("http")) return path;
+  try { return new URL(path, getApiUrl()).toString(); } catch { return null; }
 }
 
 const CATEGORY_3D_IMAGES: Record<string, string> = {
@@ -124,6 +150,14 @@ export default function HomeScreen() {
     queryKey: ["/api/vendors"],
   });
 
+  const { data: storesData, isLoading: storesLoading } = useQuery<{
+    stores: VendorStore[];
+    total: number;
+  }>({
+    queryKey: ["/api/stores"],
+  });
+  const allVendorStores = storesData?.stores ?? [];
+
   interface PromotionalSection {
     type: string;
     productIds: string[];
@@ -169,6 +203,17 @@ export default function HomeScreen() {
         p.name.toLowerCase().includes(q)
     );
   }, [allProducts, searchQuery]);
+
+  // ── Vendor stores from registration system ──────────────────────────────
+  const vendorRestaurants = useMemo(() =>
+    allVendorStores.filter((s) => s.businessType === "restaurant"),
+    [allVendorStores]
+  );
+
+  const vendorOtherStores = useMemo(() =>
+    allVendorStores.filter((s) => s.businessType !== "restaurant"),
+    [allVendorStores]
+  );
 
   // ── Promotional sections ────────────────────────────────────────────────
   const bestSellerProducts = useMemo(() => {
@@ -420,6 +465,127 @@ export default function HomeScreen() {
     </Pressable>
   );
 
+  const renderVendorStoreCard = (store: VendorStore) => {
+    const cfg = VENDOR_BIZ_CONFIG[store.businessType] || VENDOR_BIZ_CONFIG.other;
+    const avatarUrl = resolveStoreUrl(store.profileImageUrl);
+    const coverUrl = resolveStoreUrl(store.coverImageUrl);
+    const open = (() => {
+      const wh = (store as any).workingHours;
+      if (!wh) return true;
+      const now = new Date();
+      const day = now.getDay();
+      if (!wh.openDays?.includes(day)) return false;
+      const cur = now.getHours() * 60 + now.getMinutes();
+      const [oh, om] = (wh.openTime || "00:00").split(":").map(Number);
+      const [ch, cm] = (wh.closeTime || "23:59").split(":").map(Number);
+      return cur >= oh * 60 + om && cur < ch * 60 + cm;
+    })();
+    const rating = (store as any).rating ?? 4.5;
+    const deliveryTime = (store as any).deliveryTime || "30-45";
+    const deliveryPrice = (store as any).deliveryPrice ?? 0;
+    return (
+      <Pressable
+        key={store.id}
+        style={{
+          backgroundColor: theme.backgroundDefault,
+          borderRadius: 18,
+          overflow: "hidden",
+          marginBottom: 14,
+          shadowColor: "#000",
+          shadowOpacity: 0.08,
+          shadowRadius: 12,
+          shadowOffset: { width: 0, height: 4 },
+          elevation: 3,
+        }}
+        onPress={() => {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          navigation.navigate("StoreProducts", { storeId: store.id, storeName: store.storeName });
+        }}
+        testID={`vendor-store-card-${store.id}`}
+      >
+        {/* Cover */}
+        <View style={{ width: "100%", height: 120, backgroundColor: cfg.bg }}>
+          {coverUrl ? (
+            <Image source={{ uri: coverUrl }} style={StyleSheet.absoluteFillObject as any} contentFit="cover" />
+          ) : null}
+          <LinearGradient
+            colors={["transparent", "rgba(0,0,0,0.5)"]}
+            style={StyleSheet.absoluteFillObject as any}
+            start={{ x: 0, y: 0.4 }}
+            end={{ x: 0, y: 1 }}
+          />
+          {/* Open badge */}
+          <View style={{
+            position: "absolute", top: 10, left: 10,
+            flexDirection: "row", alignItems: "center", gap: 5,
+            paddingHorizontal: 9, paddingVertical: 4,
+            borderRadius: 12,
+            backgroundColor: open ? "#10B981EE" : "#EF4444EE",
+          }}>
+            <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: "#fff" }} />
+            <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 11, color: "#fff" }}>
+              {open ? "مفتوح" : "مغلق"}
+            </ThemedText>
+          </View>
+          {/* Type badge */}
+          <View style={{
+            position: "absolute", top: 10, right: 10,
+            flexDirection: "row", alignItems: "center", gap: 4,
+            paddingHorizontal: 9, paddingVertical: 4,
+            borderRadius: 12, backgroundColor: cfg.color + "EE",
+          }}>
+            <MaterialCommunityIcons name={cfg.icon as any} size={12} color="#fff" />
+            <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 11, color: "#fff" }}>{cfg.label}</ThemedText>
+          </View>
+          {/* Delivery info */}
+          <View style={{ position: "absolute", bottom: 10, right: 10, flexDirection: "row", gap: 6 }}>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: "rgba(0,0,0,0.45)", paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10 }}>
+              <MaterialCommunityIcons name="clock-outline" size={12} color="#fff" />
+              <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 11, color: "#fff" }}>{deliveryTime} دقيقة</ThemedText>
+            </View>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: "rgba(0,0,0,0.45)", paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10 }}>
+              <MaterialCommunityIcons name="moped" size={12} color="#fff" />
+              <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 11, color: "#fff" }}>
+                {deliveryPrice === 0 ? "مجاني" : `${deliveryPrice.toLocaleString("ar-IQ")} د.ع`}
+              </ThemedText>
+            </View>
+          </View>
+        </View>
+        {/* Body */}
+        <View style={{ flexDirection: "row-reverse", alignItems: "center", paddingHorizontal: 14, paddingBottom: 14, paddingTop: 4, gap: 10 }}>
+          <View style={{
+            width: 56, height: 56, borderRadius: 28, borderWidth: 3,
+            borderColor: theme.backgroundDefault, overflow: "hidden",
+            marginTop: -28, elevation: 4, backgroundColor: "#fff",
+          }}>
+            {avatarUrl ? (
+              <Image source={{ uri: avatarUrl }} style={{ width: "100%", height: "100%" }} contentFit="cover" />
+            ) : (
+              <View style={{ flex: 1, backgroundColor: cfg.color, justifyContent: "center", alignItems: "center" }}>
+                <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 20, color: "#fff", lineHeight: 26 }}>{store.storeName?.[0] || "م"}</ThemedText>
+              </View>
+            )}
+          </View>
+          <View style={{ flex: 1, alignItems: "flex-end", gap: 4, paddingTop: 24 }}>
+            <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 15, color: theme.text, textAlign: "right" }} numberOfLines={1}>{store.storeName}</ThemedText>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 2 }}>
+              {[1,2,3,4,5].map((i) => (
+                <MaterialCommunityIcons key={i} name={i <= Math.floor(rating) ? "star" : rating - Math.floor(rating) >= 0.5 && i === Math.floor(rating)+1 ? "star-half-full" : "star-outline"} size={13} color="#F59E0B" />
+              ))}
+              <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 12, color: "#F59E0B" }}> {rating.toFixed(1)}</ThemedText>
+            </View>
+            {store.address ? (
+              <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 3 }}>
+                <Feather name="map-pin" size={11} color={theme.textSecondary ?? "#888"} />
+                <ThemedText style={{ fontFamily: "Cairo_400Regular", fontSize: 12, color: theme.textSecondary ?? "#888" }} numberOfLines={1}>{store.address}</ThemedText>
+              </View>
+            ) : null}
+          </View>
+        </View>
+      </Pressable>
+    );
+  };
+
   const renderSearchResults = () => {
     if (filteredStoreProducts.length === 0) {
       return (
@@ -546,21 +712,34 @@ export default function HomeScreen() {
       {/* ── RESTAURANTS TAB ── */}
       {activeTab === "restaurants" ? (
         <View style={styles.tabContent}>
-          {vendorsLoading ? (
+          {vendorsLoading || storesLoading ? (
             <View style={styles.loadingContainer}>
               <ActivityIndicator size="large" color={AppColors.primary} />
             </View>
-          ) : filteredRestaurants.length > 0 ? (
-            filteredRestaurants.map(renderRestaurantCard)
           ) : (
-            <View style={styles.emptySearch}>
-              <Feather name="coffee" size={40} color="#CCCCCC" />
-              <ThemedText style={styles.emptySearchText}>
-                {searchQuery.trim().length > 0
-                  ? `لا يوجد مطعم باسم "${searchQuery}"`
-                  : "لا توجد مطاعم متاحة حالياً"}
-              </ThemedText>
-            </View>
+            <>
+              {filteredRestaurants.length > 0 ? filteredRestaurants.map(renderRestaurantCard) : null}
+              {vendorRestaurants.length > 0 ? (
+                <>
+                  {filteredRestaurants.length > 0 ? (
+                    <View style={styles.sectionHeader}>
+                      <ThemedText style={styles.sectionTitle}>مطاعم المتاجر</ThemedText>
+                    </View>
+                  ) : null}
+                  {vendorRestaurants.map(renderVendorStoreCard)}
+                </>
+              ) : null}
+              {filteredRestaurants.length === 0 && vendorRestaurants.length === 0 ? (
+                <View style={styles.emptySearch}>
+                  <Feather name="coffee" size={40} color="#CCCCCC" />
+                  <ThemedText style={styles.emptySearchText}>
+                    {searchQuery.trim().length > 0
+                      ? `لا يوجد مطعم باسم "${searchQuery}"`
+                      : "لا توجد مطاعم متاحة حالياً"}
+                  </ThemedText>
+                </View>
+              ) : null}
+            </>
           )}
         </View>
       ) : (
@@ -603,6 +782,16 @@ export default function HomeScreen() {
                   </ScrollView>
                 </View>
               )}
+
+              {/* Vendor Stores */}
+              {vendorOtherStores.length > 0 ? (
+                <>
+                  <View style={styles.sectionHeader}>
+                    <ThemedText style={styles.sectionTitle}>المتاجر المتاحة</ThemedText>
+                  </View>
+                  {vendorOtherStores.map(renderVendorStoreCard)}
+                </>
+              ) : null}
 
               {/* Best Sellers */}
               <View style={styles.sectionHeader}>

@@ -4554,10 +4554,14 @@ router.patch("/api/vendor/profile", requireVendor, async (req, res) => {
     const db2 = getFirestore();
     if (!db2) return res.status(500).json({ error: "\u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u063A\u064A\u0631 \u0645\u062A\u0627\u062D\u0629" });
     const vid = req.vendorId;
-    const { bio, address } = req.body;
+    const { bio, address, deliveryTime, deliveryPrice, workingHours, rating } = req.body;
     const updates = { updatedAt: (/* @__PURE__ */ new Date()).toISOString() };
     if (bio !== void 0) updates.bio = bio;
     if (address !== void 0) updates.address = address;
+    if (deliveryTime !== void 0) updates.deliveryTime = deliveryTime;
+    if (deliveryPrice !== void 0) updates.deliveryPrice = Number(deliveryPrice);
+    if (workingHours !== void 0) updates.workingHours = workingHours;
+    if (rating !== void 0) updates.rating = Number(rating);
     await db2.collection("vendors").doc(vid).update(updates);
     const doc = await db2.collection("vendors").doc(vid).get();
     const { passwordHash: _pw, ...safe } = doc.data();
@@ -5013,7 +5017,11 @@ router.get("/api/stores", async (_req, res) => {
         totalProducts: v.totalProducts || 0,
         approvedAt: v.approvedAt || v.createdAt || "",
         profileImageUrl: v.profileImageUrl || "",
-        coverImageUrl: v.coverImageUrl || ""
+        coverImageUrl: v.coverImageUrl || "",
+        rating: v.rating ?? 4.5,
+        deliveryTime: v.deliveryTime || "30-45",
+        deliveryPrice: v.deliveryPrice ?? 0,
+        workingHours: v.workingHours || null
       };
     }).sort((a, b) => b.approvedAt.localeCompare(a.approvedAt));
     res.json({ stores, total: stores.length });

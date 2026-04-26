@@ -34,6 +34,14 @@ export interface VendorProfile {
   profileImageUrl?: string;
   coverImageUrl?: string;
   bio?: string;
+  rating?: number;
+  deliveryTime?: string;
+  deliveryPrice?: number;
+  workingHours?: {
+    openTime: string;
+    closeTime: string;
+    openDays: number[];
+  };
 }
 
 interface AuthContextType {
