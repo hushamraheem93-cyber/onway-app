@@ -171,6 +171,62 @@ export async function sendAdminNewOrderNotification(
   }
 }
 
+export async function sendVendorStatusNotification(
+  pushToken: string,
+  status: "active" | "rejected" | "suspended",
+  storeName: string,
+  reason?: string
+): Promise<boolean> {
+  if (!pushToken || !pushToken.startsWith("ExponentPushToken")) return false;
+
+  const messages: Record<string, { title: string; body: string }> = {
+    active: {
+      title: "تمت الموافقة على متجرك",
+      body: `تمت الموافقة على متجرك "${storeName}" — يمكنك الآن إضافة منتجاتك`,
+    },
+    rejected: {
+      title: "تم رفض طلبك",
+      body: `تم رفض طلب متجرك "${storeName}". السبب: ${reason || "غير محدد"}`,
+    },
+    suspended: {
+      title: "تم تعليق حسابك",
+      body: `تم تعليق متجرك "${storeName}". تواصل مع الإدارة.`,
+    },
+  };
+
+  const content = messages[status];
+  if (!content) return false;
+
+  const message: ExpoPushMessage = {
+    to: pushToken,
+    title: content.title,
+    body: content.body,
+    sound: "default",
+    channelId: "default",
+    priority: "high",
+    ttl: 86400,
+    data: { type: "vendor_status", status, storeName },
+  };
+
+  try {
+    const response = await fetch("https://exp.host/--/api/v2/push/send", {
+      method: "POST",
+      headers: { Accept: "application/json", "Accept-Encoding": "gzip, deflate", "Content-Type": "application/json" },
+      body: JSON.stringify(message),
+    });
+    const result = (await response.json()) as { data: ExpoPushTicket };
+    if (result.data.status === "ok") {
+      console.log(`[PUSH] Vendor status notification sent (${status}) → ${pushToken.slice(-10)}`);
+      return true;
+    }
+    console.error("[PUSH] Vendor status notification error:", result.data.message);
+    return false;
+  } catch (error) {
+    console.error("[PUSH] Error sending vendor status notification:", error);
+    return false;
+  }
+}
+
 export async function sendBroadcastNotification(
   tokens: string[],
   title: string,

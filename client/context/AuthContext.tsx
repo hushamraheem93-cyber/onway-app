@@ -139,6 +139,16 @@ async function savePushTokenToServer(phone: string, token: string): Promise<void
   } catch {}
 }
 
+async function saveVendorPushTokenToServer(vendorJwt: string, token: string): Promise<void> {
+  try {
+    await fetch(new URL("/api/vendor/push-token", getApiUrl()).toString(), {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${vendorJwt}` },
+      body: JSON.stringify({ pushToken: token }),
+    });
+  } catch {}
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [phoneNumber, setPhoneNumber] = useState<string | null>(null);
@@ -167,6 +177,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
     }
   }, [isLoggedIn, phoneNumber]);
+
+  useEffect(() => {
+    if (vendorToken) {
+      registerForPushNotificationsAsync().then((token) => {
+        if (token) saveVendorPushTokenToServer(vendorToken, token);
+      });
+    }
+  }, [vendorToken]);
 
   const loadAuthState = async () => {
     try {

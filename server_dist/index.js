@@ -1385,6 +1385,52 @@ async function sendAdminNewOrderNotification(pushToken, orderId, region, total) 
     return false;
   }
 }
+async function sendVendorStatusNotification(pushToken, status, storeName, reason) {
+  if (!pushToken || !pushToken.startsWith("ExponentPushToken")) return false;
+  const messages = {
+    active: {
+      title: "\u062A\u0645\u062A \u0627\u0644\u0645\u0648\u0627\u0641\u0642\u0629 \u0639\u0644\u0649 \u0645\u062A\u062C\u0631\u0643",
+      body: `\u062A\u0645\u062A \u0627\u0644\u0645\u0648\u0627\u0641\u0642\u0629 \u0639\u0644\u0649 \u0645\u062A\u062C\u0631\u0643 "${storeName}" \u2014 \u064A\u0645\u0643\u0646\u0643 \u0627\u0644\u0622\u0646 \u0625\u0636\u0627\u0641\u0629 \u0645\u0646\u062A\u062C\u0627\u062A\u0643`
+    },
+    rejected: {
+      title: "\u062A\u0645 \u0631\u0641\u0636 \u0637\u0644\u0628\u0643",
+      body: `\u062A\u0645 \u0631\u0641\u0636 \u0637\u0644\u0628 \u0645\u062A\u062C\u0631\u0643 "${storeName}". \u0627\u0644\u0633\u0628\u0628: ${reason || "\u063A\u064A\u0631 \u0645\u062D\u062F\u062F"}`
+    },
+    suspended: {
+      title: "\u062A\u0645 \u062A\u0639\u0644\u064A\u0642 \u062D\u0633\u0627\u0628\u0643",
+      body: `\u062A\u0645 \u062A\u0639\u0644\u064A\u0642 \u0645\u062A\u062C\u0631\u0643 "${storeName}". \u062A\u0648\u0627\u0635\u0644 \u0645\u0639 \u0627\u0644\u0625\u062F\u0627\u0631\u0629.`
+    }
+  };
+  const content = messages[status];
+  if (!content) return false;
+  const message = {
+    to: pushToken,
+    title: content.title,
+    body: content.body,
+    sound: "default",
+    channelId: "default",
+    priority: "high",
+    ttl: 86400,
+    data: { type: "vendor_status", status, storeName }
+  };
+  try {
+    const response = await fetch("https://exp.host/--/api/v2/push/send", {
+      method: "POST",
+      headers: { Accept: "application/json", "Accept-Encoding": "gzip, deflate", "Content-Type": "application/json" },
+      body: JSON.stringify(message)
+    });
+    const result = await response.json();
+    if (result.data.status === "ok") {
+      console.log(`[PUSH] Vendor status notification sent (${status}) \u2192 ${pushToken.slice(-10)}`);
+      return true;
+    }
+    console.error("[PUSH] Vendor status notification error:", result.data.message);
+    return false;
+  } catch (error) {
+    console.error("[PUSH] Error sending vendor status notification:", error);
+    return false;
+  }
+}
 async function sendBroadcastNotification(tokens, title, body, data) {
   if (!tokens.length) return { sent: 0, failed: 0 };
   const CHUNK_SIZE = 100;
@@ -4797,6 +4843,23 @@ router.delete("/api/vendor/products/:pid", requireVendor, async (req, res) => {
     res.status(500).json({ error: "\u062D\u062F\u062B \u062E\u0637\u0623 \u0641\u064A \u0627\u0644\u062E\u0627\u062F\u0645" });
   }
 });
+router.post("/api/vendor/push-token", requireVendor, async (req, res) => {
+  try {
+    const db2 = getFirestore();
+    if (!db2) return res.status(500).json({ error: "\u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u063A\u064A\u0631 \u0645\u062A\u0627\u062D\u0629" });
+    const vid = req.vendorId;
+    const { pushToken } = req.body;
+    if (!pushToken || !pushToken.startsWith("ExponentPushToken")) {
+      return res.status(400).json({ error: "\u0631\u0645\u0632 \u0625\u0634\u0639\u0627\u0631 \u063A\u064A\u0631 \u0635\u0627\u0644\u062D" });
+    }
+    await db2.collection("vendors").doc(vid).update({ pushToken, pushTokenUpdatedAt: (/* @__PURE__ */ new Date()).toISOString() });
+    console.log(`[PUSH] Saved vendor push token for ${vid}: ...${pushToken.slice(-12)}`);
+    res.json({ success: true });
+  } catch (err) {
+    console.error("vendor push-token:", err);
+    res.status(500).json({ error: "\u062D\u062F\u062B \u062E\u0637\u0623 \u0641\u064A \u0627\u0644\u062E\u0627\u062F\u0645" });
+  }
+});
 router.get("/api/vendor/notifications", requireVendor, async (req, res) => {
   try {
     const db2 = getFirestore();
@@ -4897,6 +4960,15 @@ router.put("/api/admin/vendor-partners/:id/status", requireAdmin, async (req, re
       status: "unread",
       createdAt: now
     });
+    const vendorPushToken = vendor.pushToken;
+    if (vendorPushToken) {
+      sendVendorStatusNotification(
+        vendorPushToken,
+        status,
+        vendor.storeName,
+        reason
+      ).catch((err) => console.error("[PUSH] vendor status notification failed:", err));
+    }
     res.json({ success: true, message: "\u062A\u0645 \u062A\u062D\u062F\u064A\u062B \u062D\u0627\u0644\u0629 \u0627\u0644\u0645\u062A\u062C\u0631" });
   } catch (err) {
     console.error("update vendor status:", err);

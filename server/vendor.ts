@@ -9,6 +9,7 @@ import * as fs from "fs/promises";
 import * as fsSync from "fs";
 import * as path from "path";
 import { getFirestore } from "./firebase";
+import { sendVendorStatusNotification } from "./pushNotifications";
 
 const router = express.Router();
 
@@ -618,6 +619,28 @@ router.delete("/api/vendor/products/:pid", requireVendor, async (req, res) => {
   }
 });
 
+// ── POST /api/vendor/push-token ─────────────────────────────────────────────
+router.post("/api/vendor/push-token", requireVendor, async (req, res) => {
+  try {
+    const db = getFirestore();
+    if (!db) return res.status(500).json({ error: "قاعدة البيانات غير متاحة" });
+
+    const vid = (req as any).vendorId;
+    const { pushToken } = req.body;
+
+    if (!pushToken || !pushToken.startsWith("ExponentPushToken")) {
+      return res.status(400).json({ error: "رمز إشعار غير صالح" });
+    }
+
+    await db.collection("vendors").doc(vid).update({ pushToken, pushTokenUpdatedAt: new Date().toISOString() });
+    console.log(`[PUSH] Saved vendor push token for ${vid}: ...${pushToken.slice(-12)}`);
+    res.json({ success: true });
+  } catch (err) {
+    console.error("vendor push-token:", err);
+    res.status(500).json({ error: "حدث خطأ في الخادم" });
+  }
+});
+
 // ── GET /api/vendor/notifications ───────────────────────────────────────────
 router.get("/api/vendor/notifications", requireVendor, async (req, res) => {
   try {
@@ -761,6 +784,16 @@ router.put("/api/admin/vendor-partners/:id/status", requireAdmin, async (req, re
       status: "unread",
       createdAt: now,
     });
+
+    const vendorPushToken = vendor.pushToken as string | undefined;
+    if (vendorPushToken) {
+      sendVendorStatusNotification(
+        vendorPushToken,
+        status as "active" | "rejected" | "suspended",
+        vendor.storeName,
+        reason
+      ).catch((err) => console.error("[PUSH] vendor status notification failed:", err));
+    }
 
     res.json({ success: true, message: "تم تحديث حالة المتجر" });
   } catch (err) {
