@@ -101,9 +101,14 @@ export default function VendorHomeScreen({ navigation }: any) {
       {isPending && (
         <View style={styles.pendingNotice}>
           <MaterialCommunityIcons name="clock-outline" size={20} color="#D97706" />
-          <ThemedText style={styles.pendingText}>
-            حسابك قيد المراجعة — ستتمكن من إضافة منتجاتك بعد موافقة الإدارة
-          </ThemedText>
+          <View style={{ flex: 1 }}>
+            <ThemedText style={styles.pendingText}>
+              حسابك قيد المراجعة من الإدارة
+            </ThemedText>
+            <ThemedText style={[styles.pendingText, { fontSize: 12, marginTop: 2 }]}>
+              يمكنك الآن إضافة منتجاتك وتجهيزها — ستظهر للزبائن بعد تفعيل الحساب
+            </ThemedText>
+          </View>
         </View>
       )}
 
@@ -140,34 +145,30 @@ export default function VendorHomeScreen({ navigation }: any) {
         ))}
       </View>
 
-      {/* Quick actions */}
-      {!isPending && (
-        <>
-          <ThemedText style={styles.sectionTitle}>إجراءات سريعة</ThemedText>
-          <View style={styles.actionsRow}>
-            <QuickAction
-              icon="plus-circle"
-              label="إضافة منتج"
-              color={PURPLE}
-              bg="#EDE7F6"
-              onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                navigation.navigate("VendorProductsTab", { screen: "VendorAddProduct" });
-              }}
-            />
-            <QuickAction
-              icon="view-list"
-              label="منتجاتي"
-              color={ORANGE}
-              bg="#FFF3E0"
-              onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                navigation.navigate("VendorProductsTab", { screen: "VendorProducts" });
-              }}
-            />
-          </View>
-        </>
-      )}
+      {/* Quick actions — always visible */}
+      <ThemedText style={styles.sectionTitle}>إجراءات سريعة</ThemedText>
+      <View style={styles.actionsRow}>
+        <QuickAction
+          icon="plus-circle"
+          label="إضافة منتج"
+          color={PURPLE}
+          bg="#EDE7F6"
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+            navigation.navigate("VendorProductsTab", { screen: "VendorAddProduct" });
+          }}
+        />
+        <QuickAction
+          icon="view-list"
+          label="منتجاتي"
+          color={ORANGE}
+          bg="#FFF3E0"
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+            navigation.navigate("VendorProductsTab", { screen: "VendorProducts" });
+          }}
+        />
+      </View>
 
       {/* Logout */}
       <Pressable style={styles.logoutBtn} onPress={logout} testID="button-logout">

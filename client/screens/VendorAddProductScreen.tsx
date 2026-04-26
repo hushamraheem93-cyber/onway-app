@@ -2,7 +2,6 @@ import React, { useState } from "react";
 import {
   View,
   StyleSheet,
-  ScrollView,
   TextInput,
   Pressable,
   ActivityIndicator,
@@ -22,22 +21,50 @@ import { getApiUrl } from "@/lib/query-client";
 
 const PURPLE = "#673AB7";
 const ORANGE = "#E86520";
+const AMBER = "#D97706";
 
-const CATEGORIES = [
-  "وجبات", "مشروبات", "حلويات", "مواد غذائية",
-  "أدوية", "منظفات", "خضروات وفواكه", "مخبوزات", "أخرى",
-];
-const UNITS = ["قطعة", "كيلو", "لتر", "علبة", "كرتون"];
+const CATEGORY_MAP: Record<string, string[]> = {
+  restaurant: [
+    "وجبات رئيسية", "مقبلات وسلطات", "شاورما وسندويشات", "برجر وبيتزا",
+    "مشروبات ساخنة", "مشروبات باردة", "حلويات وآيس كريم", "أطباق خاصة",
+  ],
+  supermarket: [
+    "مواد غذائية", "خضار وفواكه", "منتجات الألبان والبيض", "مشروبات",
+    "أطعمة معلبة", "حبوب وبقوليات", "أطعمة مجمدة", "منظفات ومواد تنظيف",
+    "منتجات العناية الشخصية", "منتجات الأطفال", "وجبات خفيفة وشيبس", "أخرى",
+  ],
+  pharmacy: [
+    "أدوية عامة", "مسكنات وخافضات حرارة", "فيتامينات ومكملات",
+    "مستلزمات طبية", "مستحضرات تجميل", "منتجات الأم والطفل",
+    "أدوية مزمنة", "صحة العيون", "أخرى",
+  ],
+  bakery: [
+    "خبز وأرغفة", "كعك وبسكويت", "معجنات وفطاير", "حلويات شرقية",
+    "تورتات وكيك", "كنافة وعباسية", "حلويات غربية", "عروض مناسبات",
+  ],
+  other: [
+    "منتجات غذائية", "منتجات منزلية", "ملابس وأكسسوارات",
+    "إلكترونيات", "عطور ومستحضرات", "مواد بناء", "أخرى",
+  ],
+};
+
+const ALL_CATEGORIES = Array.from(new Set(Object.values(CATEGORY_MAP).flat()));
+
+const UNITS = ["قطعة", "كيلو", "غرام", "لتر", "مل", "علبة", "كرتون", "دستة", "باكيج"];
 
 export default function VendorAddProductScreen({ navigation }: any) {
   const headerHeight = useHeaderHeight();
-  const { vendorToken } = useAuth();
+  const { vendorToken, vendorProfile } = useAuth();
+
+  const businessType = (vendorProfile as any)?.businessType || "other";
+  const categories = CATEGORY_MAP[businessType] || ALL_CATEGORIES;
+  const isPending = vendorProfile?.status === "pending";
 
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [price, setPrice] = useState("");
   const [stock, setStock] = useState("");
-  const [category, setCategory] = useState(CATEGORIES[0]);
+  const [category, setCategory] = useState(categories[0]);
   const [unit, setUnit] = useState(UNITS[0]);
   const [imageUri, setImageUri] = useState<string | null>(null);
   const [error, setError] = useState("");
@@ -121,7 +148,9 @@ export default function VendorAddProductScreen({ navigation }: any) {
         </View>
         <ThemedText style={styles.successTitle}>تم إضافة المنتج بنجاح!</ThemedText>
         <ThemedText style={styles.successDesc}>
-          سيراجع الفريق منتجك خلال 24 ساعة ويظهر للزبائن بعد الموافقة
+          {isPending
+            ? "منتجك محفوظ — سيُراجع بعد تفعيل متجرك وموافقة الإدارة"
+            : "سيراجع الفريق منتجك خلال 24 ساعة ويظهر للزبائن بعد الموافقة"}
         </ThemedText>
         <View style={styles.successActions}>
           <Pressable
@@ -129,7 +158,7 @@ export default function VendorAddProductScreen({ navigation }: any) {
             onPress={() => {
               setSuccess(false);
               setName(""); setDescription(""); setPrice(""); setStock("");
-              setCategory(CATEGORIES[0]); setUnit(UNITS[0]); setImageUri(null);
+              setCategory(categories[0]); setUnit(UNITS[0]); setImageUri(null);
             }}
             testID="button-add-another"
           >
@@ -153,6 +182,16 @@ export default function VendorAddProductScreen({ navigation }: any) {
       contentContainerStyle={{ paddingTop: headerHeight + 16, paddingHorizontal: 16, paddingBottom: 60 }}
       showsVerticalScrollIndicator={false}
     >
+      {/* Pending vendor notice */}
+      {isPending && (
+        <View style={styles.pendingBanner}>
+          <MaterialCommunityIcons name="clock-alert-outline" size={18} color={AMBER} />
+          <ThemedText style={styles.pendingBannerText}>
+            متجرك قيد المراجعة — يمكنك إعداد منتجاتك الآن، وستظهر للزبائن بعد تفعيل حسابك
+          </ThemedText>
+        </View>
+      )}
+
       {!!error && (
         <View style={styles.errorBox}>
           <Feather name="alert-circle" size={16} color="#EF4444" />
@@ -161,7 +200,9 @@ export default function VendorAddProductScreen({ navigation }: any) {
       )}
 
       {/* Image picker */}
-      <ThemedText style={styles.label}>صورة المنتج <ThemedText style={{ color: ORANGE }}>*</ThemedText></ThemedText>
+      <ThemedText style={styles.label}>
+        صورة المنتج <ThemedText style={{ color: ORANGE }}>*</ThemedText>
+      </ThemedText>
       <Pressable style={styles.imgPicker} onPress={pickImage} testID="button-pick-image">
         {imageUri ? (
           <Image source={{ uri: imageUri }} style={styles.imgPreview} resizeMode="cover" />
@@ -180,12 +221,20 @@ export default function VendorAddProductScreen({ navigation }: any) {
         </Pressable>
       )}
 
-      <ThemedText style={styles.label}>اسم المنتج <ThemedText style={{ color: ORANGE }}>*</ThemedText></ThemedText>
+      <ThemedText style={styles.label}>
+        اسم المنتج <ThemedText style={{ color: ORANGE }}>*</ThemedText>
+      </ThemedText>
       <TextInput
         style={styles.input}
         value={name}
         onChangeText={setName}
-        placeholder="مثال: برجر دجاج كريسبي"
+        placeholder={
+          businessType === "restaurant" ? "مثال: برجر دجاج كريسبي" :
+          businessType === "supermarket" ? "مثال: أرز بسمتي 5 كيلو" :
+          businessType === "pharmacy" ? "مثال: فيتامين C 1000mg" :
+          businessType === "bakery" ? "مثال: كنافة بالجبن" :
+          "اسم المنتج"
+        }
         placeholderTextColor="#bbb"
         testID="input-name"
       />
@@ -195,7 +244,7 @@ export default function VendorAddProductScreen({ navigation }: any) {
         style={[styles.input, styles.textArea]}
         value={description}
         onChangeText={setDescription}
-        placeholder="وصف مختصر..."
+        placeholder="وصف مختصر عن المنتج..."
         placeholderTextColor="#bbb"
         multiline
         numberOfLines={3}
@@ -204,7 +253,9 @@ export default function VendorAddProductScreen({ navigation }: any) {
 
       <View style={styles.row}>
         <View style={{ flex: 1 }}>
-          <ThemedText style={styles.label}>السعر (دينار) <ThemedText style={{ color: ORANGE }}>*</ThemedText></ThemedText>
+          <ThemedText style={styles.label}>
+            السعر (دينار) <ThemedText style={{ color: ORANGE }}>*</ThemedText>
+          </ThemedText>
           <TextInput
             style={styles.input}
             value={price}
@@ -230,17 +281,23 @@ export default function VendorAddProductScreen({ navigation }: any) {
         </View>
       </View>
 
-      <ThemedText style={styles.label}>الفئة <ThemedText style={{ color: ORANGE }}>*</ThemedText></ThemedText>
+      {/* Category */}
+      <ThemedText style={styles.label}>
+        القسم / الفئة <ThemedText style={{ color: ORANGE }}>*</ThemedText>
+      </ThemedText>
       <View style={styles.pickerWrap}>
         <Picker
           selectedValue={category}
           onValueChange={setCategory}
           style={styles.picker}
         >
-          {CATEGORIES.map((c) => <Picker.Item key={c} label={c} value={c} />)}
+          {categories.map((c) => (
+            <Picker.Item key={c} label={c} value={c} />
+          ))}
         </Picker>
       </View>
 
+      {/* Unit */}
       <ThemedText style={styles.label}>وحدة القياس</ThemedText>
       <View style={styles.pickerWrap}>
         <Picker
@@ -248,7 +305,9 @@ export default function VendorAddProductScreen({ navigation }: any) {
           onValueChange={setUnit}
           style={styles.picker}
         >
-          {UNITS.map((u) => <Picker.Item key={u} label={u} value={u} />)}
+          {UNITS.map((u) => (
+            <Picker.Item key={u} label={u} value={u} />
+          ))}
         </Picker>
       </View>
 
@@ -311,6 +370,15 @@ const styles = StyleSheet.create({
     alignSelf: "center", marginBottom: 14,
   },
   changeImgText: { fontFamily: "Cairo_700Bold", fontSize: 12, color: PURPLE },
+  pendingBanner: {
+    flexDirection: "row", alignItems: "flex-start", gap: 10,
+    backgroundColor: "#FFFBEB", borderWidth: 1, borderColor: "#FDE68A",
+    borderRadius: 12, padding: 12, marginBottom: 14,
+  },
+  pendingBannerText: {
+    fontFamily: "Cairo_400Regular", fontSize: 12, color: "#92400E",
+    flex: 1, textAlign: "right", lineHeight: 20,
+  },
   errorBox: {
     flexDirection: "row", alignItems: "center", gap: 8,
     backgroundColor: "#FEF2F2", borderRadius: 10,

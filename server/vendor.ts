@@ -333,11 +333,15 @@ router.post(
       const db = getFirestore();
       if (!db) { await cleanTemp(tempPath); return res.status(500).json({ error: "قاعدة البيانات غير متاحة" }); }
 
-      // Check vendor exists and is active
+      // Check vendor exists (pending vendors can add products; they queue until approved)
       const vDoc = await db.collection("vendors").doc(vid).get();
-      if (!vDoc.exists || (vDoc.data() as any).status !== "active") {
+      if (!vDoc.exists) {
         await cleanTemp(tempPath);
-        return res.status(403).json({ error: "حسابك غير مفعل بعد" });
+        return res.status(403).json({ error: "حسابك غير موجود" });
+      }
+      if ((vDoc.data() as any).status === "rejected" || (vDoc.data() as any).status === "suspended") {
+        await cleanTemp(tempPath);
+        return res.status(403).json({ error: "حسابك غير مفعل" });
       }
 
       // 1. Generate hash from original file

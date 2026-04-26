@@ -4568,9 +4568,13 @@ router.post(
         return res.status(500).json({ error: "\u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u063A\u064A\u0631 \u0645\u062A\u0627\u062D\u0629" });
       }
       const vDoc = await db2.collection("vendors").doc(vid).get();
-      if (!vDoc.exists || vDoc.data().status !== "active") {
+      if (!vDoc.exists) {
         await cleanTemp(tempPath);
-        return res.status(403).json({ error: "\u062D\u0633\u0627\u0628\u0643 \u063A\u064A\u0631 \u0645\u0641\u0639\u0644 \u0628\u0639\u062F" });
+        return res.status(403).json({ error: "\u062D\u0633\u0627\u0628\u0643 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F" });
+      }
+      if (vDoc.data().status === "rejected" || vDoc.data().status === "suspended") {
+        await cleanTemp(tempPath);
+        return res.status(403).json({ error: "\u062D\u0633\u0627\u0628\u0643 \u063A\u064A\u0631 \u0645\u0641\u0639\u0644" });
       }
       const imageHash = await generateImageHash(tempPath);
       let imageUrl = await findDuplicateImage(imageHash);

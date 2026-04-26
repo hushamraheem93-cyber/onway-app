@@ -24,8 +24,14 @@ import { getApiUrl } from "@/lib/query-client";
 const PURPLE = "#673AB7";
 
 const CATEGORIES = [
-  "وجبات", "مشروبات", "حلويات", "مواد غذائية",
-  "أدوية", "منظفات", "خضروات وفواكه", "مخبوزات", "أخرى",
+  "وجبات رئيسية", "مقبلات وسلطات", "شاورما وسندويشات", "برجر وبيتزا",
+  "مشروبات ساخنة", "مشروبات باردة", "حلويات وآيس كريم",
+  "مواد غذائية", "خضار وفواكه", "منتجات الألبان والبيض",
+  "أطعمة معلبة", "حبوب وبقوليات", "أطعمة مجمدة",
+  "منظفات ومواد تنظيف", "منتجات العناية الشخصية",
+  "أدوية عامة", "فيتامينات ومكملات", "مستلزمات طبية",
+  "خبز وأرغفة", "معجنات وفطاير", "كعك وتورتات",
+  "وجبات خفيفة وشيبس", "منتجات الأطفال", "أخرى",
 ];
 
 const UNITS = ["قطعة", "كيلو", "لتر", "علبة", "كرتون"];
@@ -117,7 +123,7 @@ export default function VendorProductsScreen({ navigation }: any) {
       <ThemedText style={styles.emptyTitle}>لا توجد منتجات</ThemedText>
       <ThemedText style={styles.emptyDesc}>
         {isPending
-          ? "انتظر موافقة الإدارة على حسابك لتبدأ بإضافة المنتجات"
+          ? "ابدأ بإضافة منتجاتك الآن — ستظهر للزبائن بعد تفعيل حسابك"
           : "ابدأ بإضافة أول منتج لمتجرك"}
       </ThemedText>
     </View>
@@ -169,19 +175,17 @@ export default function VendorProductsScreen({ navigation }: any) {
         />
       )}
 
-      {/* Add button */}
-      {!isPending && (
-        <Pressable
-          style={[styles.fab, { bottom: tabBarHeight + 20 }]}
-          onPress={() => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-            navigation.navigate("VendorAddProduct");
-          }}
-          testID="button-add-product"
-        >
-          <Feather name="plus" size={24} color="#fff" />
-        </Pressable>
-      )}
+      {/* Add button — always visible */}
+      <Pressable
+        style={[styles.fab, { bottom: tabBarHeight + 20 }]}
+        onPress={() => {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+          navigation.navigate("VendorAddProduct");
+        }}
+        testID="button-add-product"
+      >
+        <Feather name="plus" size={24} color="#fff" />
+      </Pressable>
 
       {/* Delete confirm modal */}
       <Modal transparent visible={!!deleteTarget} animationType="fade">
