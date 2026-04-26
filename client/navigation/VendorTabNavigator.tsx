@@ -9,6 +9,7 @@ import VendorProductsScreen from "@/screens/VendorProductsScreen";
 import VendorAddProductScreen from "@/screens/VendorAddProductScreen";
 import VendorEditProductScreen from "@/screens/VendorEditProductScreen";
 import VendorNotificationsScreen from "@/screens/VendorNotificationsScreen";
+import VendorOrdersScreen from "@/screens/VendorOrdersScreen";
 import { useScreenOptions } from "@/hooks/useScreenOptions";
 import {
   VendorNotificationsProvider,
@@ -108,6 +109,17 @@ function VendorTabs() {
           tabBarLabel: "المنتجات",
           tabBarIcon: ({ color, size }) => (
             <MaterialCommunityIcons name="package-variant" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tab.Screen
+        name="VendorOrdersTab"
+        component={VendorOrdersScreen}
+        options={{
+          headerTitle: "الطلبات",
+          tabBarLabel: "الطلبات",
+          tabBarIcon: ({ color, size }) => (
+            <MaterialCommunityIcons name="clipboard-list-outline" size={size} color={color} />
           ),
         }}
       />

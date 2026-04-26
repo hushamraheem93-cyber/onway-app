@@ -708,6 +708,108 @@ router.put("/api/vendor/notifications/mark-read", requireVendor, async (req, res
   }
 });
 
+// ── GET /api/vendor/orders ───────────────────────────────────────────────────
+// Returns orders that contain this vendor's products, identified in two ways:
+//  1. Top-level vendorId (set during restaurant order creation)
+//  2. Item-level product ownership (productId resolves to a product owned by this vendor)
+router.get("/api/vendor/orders", requireVendor, async (req, res) => {
+  try {
+    const db = getFirestore();
+    if (!db) return res.status(500).json({ error: "قاعدة البيانات غير متاحة" });
+
+    const vid = (req as any).vendorId;
+
+    // 1. Get all product IDs owned by this vendor (includes all statuses)
+    const productsSnap = await db.collection("vendorProducts")
+      .where("vendorId", "==", vid)
+      .get();
+    const vendorProductIds = new Set<string>(
+      productsSnap.docs.map((d) => d.id)
+    );
+
+    // 2. Fetch orders by top-level vendorId (restaurant detection flow), newest first
+    const byVendorIdSnap = await db.collection("orders")
+      .where("vendorId", "==", vid)
+      .orderBy("createdAt", "desc")
+      .limit(200)
+      .get();
+
+    // 3. Fetch the 300 most-recent orders (by createdAt desc) to check for item-level ownership.
+    //    This deterministic window covers vendor products not caught by the restaurant detection flow.
+    const recentOrdersSnap = await db.collection("orders")
+      .orderBy("createdAt", "desc")
+      .limit(300)
+      .get();
+
+    // Merge into a map keyed by order ID to deduplicate
+    const ordersMap = new Map<string, any>();
+
+    for (const doc of byVendorIdSnap.docs) {
+      ordersMap.set(doc.id, { id: doc.id, ...doc.data() });
+    }
+
+    if (vendorProductIds.size > 0) {
+      for (const doc of recentOrdersSnap.docs) {
+        if (ordersMap.has(doc.id)) continue; // already included
+        const data = doc.data() as any;
+        const items: any[] = Array.isArray(data.items) ? data.items : [];
+        const hasVendorItem = items.some(
+          (item: any) => item.productId && vendorProductIds.has(item.productId)
+        );
+        if (hasVendorItem) {
+          ordersMap.set(doc.id, { id: doc.id, ...data });
+        }
+      }
+    }
+
+    // 4. For each order, filter items to vendor's products and compute vendor subtotal
+    const toIso = (val: any): string => {
+      if (!val) return "";
+      if (typeof val === "string") return val;
+      return val.toDate?.()?.toISOString?.() ?? "";
+    };
+
+    const serialized = Array.from(ordersMap.values())
+      .map((o: any) => {
+        const allItems: any[] = Array.isArray(o.items) ? o.items : [];
+
+        // Determine vendor-owned items
+        let vendorItems: any[] = [];
+        if (vendorProductIds.size > 0) {
+          vendorItems = allItems.filter(
+            (item: any) => item.productId && vendorProductIds.has(item.productId)
+          );
+        }
+        // For orders matched via top-level vendorId (restaurant flow), all items may be restaurant items;
+        // fall back to full item list if none matched by productId
+        if (vendorItems.length === 0 && o.vendorId === vid) {
+          vendorItems = allItems;
+        }
+
+        const vendorSubtotal = vendorItems.reduce(
+          (sum: number, item: any) =>
+            sum + (Number(item.price) || 0) * (Number(item.quantity) || 1),
+          0
+        );
+
+        return {
+          ...o,
+          items: vendorItems,
+          vendorSubtotal,
+          createdAt: toIso(o.createdAt),
+          updatedAt: toIso(o.updatedAt),
+        };
+      })
+      .sort((a: any, b: any) => b.createdAt.localeCompare(a.createdAt))
+      .slice(0, 100); // cap at 100 results
+
+    res.json({ orders: serialized, total: serialized.length });
+  } catch (err) {
+    console.error("vendor orders:", err);
+    res.status(500).json({ error: "حدث خطأ في الخادم" });
+  }
+});
+
 // ═══════════════════════════════════════════════════════════════════════════
 // ADMIN endpoints for vendor partner management
 // ═══════════════════════════════════════════════════════════════════════════

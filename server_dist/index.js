@@ -4906,6 +4906,68 @@ router.put("/api/vendor/notifications/mark-read", requireVendor, async (req, res
     res.status(500).json({ error: "\u062D\u062F\u062B \u062E\u0637\u0623 \u0641\u064A \u0627\u0644\u062E\u0627\u062F\u0645" });
   }
 });
+router.get("/api/vendor/orders", requireVendor, async (req, res) => {
+  try {
+    const db2 = getFirestore();
+    if (!db2) return res.status(500).json({ error: "\u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u063A\u064A\u0631 \u0645\u062A\u0627\u062D\u0629" });
+    const vid = req.vendorId;
+    const productsSnap = await db2.collection("vendorProducts").where("vendorId", "==", vid).get();
+    const vendorProductIds = new Set(
+      productsSnap.docs.map((d) => d.id)
+    );
+    const byVendorIdSnap = await db2.collection("orders").where("vendorId", "==", vid).orderBy("createdAt", "desc").limit(200).get();
+    const recentOrdersSnap = await db2.collection("orders").orderBy("createdAt", "desc").limit(300).get();
+    const ordersMap = /* @__PURE__ */ new Map();
+    for (const doc of byVendorIdSnap.docs) {
+      ordersMap.set(doc.id, { id: doc.id, ...doc.data() });
+    }
+    if (vendorProductIds.size > 0) {
+      for (const doc of recentOrdersSnap.docs) {
+        if (ordersMap.has(doc.id)) continue;
+        const data = doc.data();
+        const items = Array.isArray(data.items) ? data.items : [];
+        const hasVendorItem = items.some(
+          (item) => item.productId && vendorProductIds.has(item.productId)
+        );
+        if (hasVendorItem) {
+          ordersMap.set(doc.id, { id: doc.id, ...data });
+        }
+      }
+    }
+    const toIso = (val) => {
+      if (!val) return "";
+      if (typeof val === "string") return val;
+      return val.toDate?.()?.toISOString?.() ?? "";
+    };
+    const serialized = Array.from(ordersMap.values()).map((o) => {
+      const allItems = Array.isArray(o.items) ? o.items : [];
+      let vendorItems = [];
+      if (vendorProductIds.size > 0) {
+        vendorItems = allItems.filter(
+          (item) => item.productId && vendorProductIds.has(item.productId)
+        );
+      }
+      if (vendorItems.length === 0 && o.vendorId === vid) {
+        vendorItems = allItems;
+      }
+      const vendorSubtotal = vendorItems.reduce(
+        (sum, item) => sum + (Number(item.price) || 0) * (Number(item.quantity) || 1),
+        0
+      );
+      return {
+        ...o,
+        items: vendorItems,
+        vendorSubtotal,
+        createdAt: toIso(o.createdAt),
+        updatedAt: toIso(o.updatedAt)
+      };
+    }).sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, 100);
+    res.json({ orders: serialized, total: serialized.length });
+  } catch (err) {
+    console.error("vendor orders:", err);
+    res.status(500).json({ error: "\u062D\u062F\u062B \u062E\u0637\u0623 \u0641\u064A \u0627\u0644\u062E\u0627\u062F\u0645" });
+  }
+});
 function isAdminSession(req) {
   const cookies = req.cookies || parseCookies(req);
   return !!cookies["onway_admin_session"];
