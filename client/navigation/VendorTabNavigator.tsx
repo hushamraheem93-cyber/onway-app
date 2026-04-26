@@ -7,6 +7,7 @@ import { Platform } from "react-native";
 import VendorHomeScreen from "@/screens/VendorHomeScreen";
 import VendorProductsScreen from "@/screens/VendorProductsScreen";
 import VendorAddProductScreen from "@/screens/VendorAddProductScreen";
+import VendorEditProductScreen from "@/screens/VendorEditProductScreen";
 import { useScreenOptions } from "@/hooks/useScreenOptions";
 
 const Tab = createBottomTabNavigator();
@@ -34,6 +35,11 @@ function ProductsStackNavigator() {
         name="VendorAddProduct"
         component={VendorAddProductScreen}
         options={{ headerTitle: "إضافة منتج جديد" }}
+      />
+      <ProductStack.Screen
+        name="VendorEditProduct"
+        component={VendorEditProductScreen}
+        options={{ headerTitle: "تعديل المنتج" }}
       />
     </ProductStack.Navigator>
   );

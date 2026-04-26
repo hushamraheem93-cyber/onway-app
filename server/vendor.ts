@@ -519,36 +519,74 @@ router.get("/api/vendor/products", requireVendor, async (req, res) => {
 });
 
 // ── PUT /api/vendor/products/:id ────────────────────────────────────────────
-router.put("/api/vendor/products/:pid", requireVendor, async (req, res) => {
-  try {
-    const db = getFirestore();
-    if (!db) return res.status(500).json({ error: "قاعدة البيانات غير متاحة" });
+router.put(
+  "/api/vendor/products/:pid",
+  requireVendor,
+  upload.single("image"),
+  async (req, res) => {
+    let tempPath: string | null = req.file?.path || null;
+    try {
+      const db = getFirestore();
+      if (!db) { await cleanTemp(tempPath); return res.status(500).json({ error: "قاعدة البيانات غير متاحة" }); }
 
-    const vid = (req as any).vendorId;
-    const { pid } = req.params;
-    const doc = await db.collection("vendorProducts").doc(pid).get();
+      const vid = (req as any).vendorId;
+      const { pid } = req.params;
+      const doc = await db.collection("vendorProducts").doc(pid).get();
 
-    if (!doc.exists || (doc.data() as any).vendorId !== vid) {
-      return res.status(404).json({ error: "المنتج غير موجود" });
+      if (!doc.exists || (doc.data() as any).vendorId !== vid) {
+        await cleanTemp(tempPath);
+        return res.status(404).json({ error: "المنتج غير موجود" });
+      }
+
+      const { name, description, price, category, stock, unit } = req.body;
+      const now = new Date().toISOString();
+      const updates: Record<string, any> = { updatedAt: now };
+
+      if (name) updates.name = name;
+      if (description !== undefined) updates.description = description;
+      if (price) updates.price = parseFloat(price);
+      if (category) updates.category = category;
+      if (stock !== undefined) updates.stock = parseInt(stock);
+      if (unit) updates.unit = unit;
+
+      if (req.file) {
+        const imageHash = await generateImageHash(tempPath!);
+        let imageUrl = await findDuplicateImage(imageHash);
+        if (!imageUrl) {
+          imageUrl = await processAndSaveImage(tempPath!, imageHash);
+          await saveImageHash(imageHash, imageUrl);
+        }
+        await cleanTemp(tempPath);
+        tempPath = null;
+        updates.imageUrl = imageUrl;
+        updates.imageHash = imageHash;
+        updates.status = "pending";
+      }
+
+      await db.collection("vendorProducts").doc(pid).update(updates);
+
+      if (req.file) {
+        const vDoc = await db.collection("vendors").doc(vid).get();
+        const productName = name || (doc.data() as any).name;
+        await db.collection("adminNotifications").add({
+          type: "product_updated",
+          title: "منتج محدّث يحتاج مراجعة",
+          message: `${(vDoc.data() as any)?.storeName || ""} حدّث صورة المنتج: ${productName}`,
+          vendorId: vid,
+          productId: pid,
+          status: "unread",
+          createdAt: now,
+        });
+      }
+
+      res.json({ success: true, message: req.file ? "تم تحديث المنتج وأُعيد لقائمة المراجعة" : "تم حفظ التعديلات بنجاح" });
+    } catch (err) {
+      await cleanTemp(tempPath);
+      console.error("update product:", err);
+      res.status(500).json({ error: "حدث خطأ في الخادم" });
     }
-
-    const { name, description, price, stock, unit } = req.body;
-    await db.collection("vendorProducts").doc(pid).update({
-      ...(name && { name }),
-      ...(description !== undefined && { description }),
-      ...(price && { price: parseFloat(price) }),
-      ...(stock !== undefined && { stock: parseInt(stock) }),
-      ...(unit && { unit }),
-      status: "pending",
-      updatedAt: new Date().toISOString(),
-    });
-
-    res.json({ success: true, message: "تم تحديث المنتج وأُعيد لقائمة المراجعة" });
-  } catch (err) {
-    console.error("update product:", err);
-    res.status(500).json({ error: "حدث خطأ في الخادم" });
   }
-});
+);
 
 // ── DELETE /api/vendor/products/:id ─────────────────────────────────────────
 router.delete("/api/vendor/products/:pid", requireVendor, async (req, res) => {

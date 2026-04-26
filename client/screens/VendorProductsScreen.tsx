@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from "react";
+import React, { useState, useCallback } from "react";
 import {
   View,
   StyleSheet,
@@ -11,6 +11,7 @@ import {
 } from "react-native";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
+import { useFocusEffect } from "@react-navigation/native";
 import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 
@@ -95,9 +96,11 @@ export default function VendorProductsScreen({ navigation }: any) {
     }
   }, [vendorToken]);
 
-  useEffect(() => {
-    load();
-  }, [load]);
+  useFocusEffect(
+    useCallback(() => {
+      load();
+    }, [load])
+  );
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
@@ -139,7 +142,14 @@ export default function VendorProductsScreen({ navigation }: any) {
   );
 
   const renderItem = ({ item }: { item: Product }) => (
-    <ProductCard item={item} onDelete={() => setDeleteTarget(item.id)} />
+    <ProductCard
+      item={item}
+      onDelete={() => setDeleteTarget(item.id)}
+      onEdit={() => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        navigation.navigate("VendorEditProduct", { product: item });
+      }}
+    />
   );
 
   const renderEmpty = () => (
@@ -268,7 +278,15 @@ export default function VendorProductsScreen({ navigation }: any) {
   );
 }
 
-function ProductCard({ item, onDelete }: { item: Product; onDelete: () => void }) {
+function ProductCard({
+  item,
+  onDelete,
+  onEdit,
+}: {
+  item: Product;
+  onDelete: () => void;
+  onEdit: () => void;
+}) {
   const statusColor = STATUS_COLORS[item.status] || "#999";
   return (
     <View style={styles.productCard} testID={`card-product-${item.id}`}>
@@ -298,13 +316,22 @@ function ProductCard({ item, onDelete }: { item: Product; onDelete: () => void }
           <ThemedText style={styles.productPrice}>
             {item.price.toLocaleString("ar-IQ")} د.ع
           </ThemedText>
-          <Pressable
-            style={styles.deleteIconBtn}
-            onPress={onDelete}
-            testID={`button-delete-${item.id}`}
-          >
-            <Feather name="trash-2" size={16} color="#EF4444" />
-          </Pressable>
+          <View style={styles.cardActions}>
+            <Pressable
+              style={styles.editIconBtn}
+              onPress={onEdit}
+              testID={`button-edit-${item.id}`}
+            >
+              <Feather name="edit-2" size={15} color={PURPLE} />
+            </Pressable>
+            <Pressable
+              style={styles.deleteIconBtn}
+              onPress={onDelete}
+              testID={`button-delete-${item.id}`}
+            >
+              <Feather name="trash-2" size={15} color="#EF4444" />
+            </Pressable>
+          </View>
         </View>
         {item.status === "rejected" && item.rejectionReason ? (
           <ThemedText style={styles.rejectionReason} numberOfLines={2}>
@@ -413,6 +440,15 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   productPrice: { fontFamily: "Cairo_700Bold", fontSize: 14, color: PURPLE },
+  cardActions: { flexDirection: "row", gap: 8, alignItems: "center" },
+  editIconBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    backgroundColor: "#EDE7F6",
+    justifyContent: "center",
+    alignItems: "center",
+  },
   deleteIconBtn: {
     width: 32,
     height: 32,

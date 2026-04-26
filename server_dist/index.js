@@ -4710,32 +4710,69 @@ router.get("/api/vendor/products", requireVendor, async (req, res) => {
     res.status(500).json({ error: "\u062D\u062F\u062B \u062E\u0637\u0623 \u0641\u064A \u0627\u0644\u062E\u0627\u062F\u0645" });
   }
 });
-router.put("/api/vendor/products/:pid", requireVendor, async (req, res) => {
-  try {
-    const db2 = getFirestore();
-    if (!db2) return res.status(500).json({ error: "\u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u063A\u064A\u0631 \u0645\u062A\u0627\u062D\u0629" });
-    const vid = req.vendorId;
-    const { pid } = req.params;
-    const doc = await db2.collection("vendorProducts").doc(pid).get();
-    if (!doc.exists || doc.data().vendorId !== vid) {
-      return res.status(404).json({ error: "\u0627\u0644\u0645\u0646\u062A\u062C \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F" });
+router.put(
+  "/api/vendor/products/:pid",
+  requireVendor,
+  upload2.single("image"),
+  async (req, res) => {
+    let tempPath = req.file?.path || null;
+    try {
+      const db2 = getFirestore();
+      if (!db2) {
+        await cleanTemp(tempPath);
+        return res.status(500).json({ error: "\u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u063A\u064A\u0631 \u0645\u062A\u0627\u062D\u0629" });
+      }
+      const vid = req.vendorId;
+      const { pid } = req.params;
+      const doc = await db2.collection("vendorProducts").doc(pid).get();
+      if (!doc.exists || doc.data().vendorId !== vid) {
+        await cleanTemp(tempPath);
+        return res.status(404).json({ error: "\u0627\u0644\u0645\u0646\u062A\u062C \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F" });
+      }
+      const { name, description, price, category, stock, unit } = req.body;
+      const now = (/* @__PURE__ */ new Date()).toISOString();
+      const updates = { updatedAt: now };
+      if (name) updates.name = name;
+      if (description !== void 0) updates.description = description;
+      if (price) updates.price = parseFloat(price);
+      if (category) updates.category = category;
+      if (stock !== void 0) updates.stock = parseInt(stock);
+      if (unit) updates.unit = unit;
+      if (req.file) {
+        const imageHash = await generateImageHash(tempPath);
+        let imageUrl = await findDuplicateImage(imageHash);
+        if (!imageUrl) {
+          imageUrl = await processAndSaveImage(tempPath, imageHash);
+          await saveImageHash(imageHash, imageUrl);
+        }
+        await cleanTemp(tempPath);
+        tempPath = null;
+        updates.imageUrl = imageUrl;
+        updates.imageHash = imageHash;
+        updates.status = "pending";
+      }
+      await db2.collection("vendorProducts").doc(pid).update(updates);
+      if (req.file) {
+        const vDoc = await db2.collection("vendors").doc(vid).get();
+        const productName = name || doc.data().name;
+        await db2.collection("adminNotifications").add({
+          type: "product_updated",
+          title: "\u0645\u0646\u062A\u062C \u0645\u062D\u062F\u0651\u062B \u064A\u062D\u062A\u0627\u062C \u0645\u0631\u0627\u062C\u0639\u0629",
+          message: `${vDoc.data()?.storeName || ""} \u062D\u062F\u0651\u062B \u0635\u0648\u0631\u0629 \u0627\u0644\u0645\u0646\u062A\u062C: ${productName}`,
+          vendorId: vid,
+          productId: pid,
+          status: "unread",
+          createdAt: now
+        });
+      }
+      res.json({ success: true, message: req.file ? "\u062A\u0645 \u062A\u062D\u062F\u064A\u062B \u0627\u0644\u0645\u0646\u062A\u062C \u0648\u0623\u064F\u0639\u064A\u062F \u0644\u0642\u0627\u0626\u0645\u0629 \u0627\u0644\u0645\u0631\u0627\u062C\u0639\u0629" : "\u062A\u0645 \u062D\u0641\u0638 \u0627\u0644\u062A\u0639\u062F\u064A\u0644\u0627\u062A \u0628\u0646\u062C\u0627\u062D" });
+    } catch (err) {
+      await cleanTemp(tempPath);
+      console.error("update product:", err);
+      res.status(500).json({ error: "\u062D\u062F\u062B \u062E\u0637\u0623 \u0641\u064A \u0627\u0644\u062E\u0627\u062F\u0645" });
     }
-    const { name, description, price, stock, unit } = req.body;
-    await db2.collection("vendorProducts").doc(pid).update({
-      ...name && { name },
-      ...description !== void 0 && { description },
-      ...price && { price: parseFloat(price) },
-      ...stock !== void 0 && { stock: parseInt(stock) },
-      ...unit && { unit },
-      status: "pending",
-      updatedAt: (/* @__PURE__ */ new Date()).toISOString()
-    });
-    res.json({ success: true, message: "\u062A\u0645 \u062A\u062D\u062F\u064A\u062B \u0627\u0644\u0645\u0646\u062A\u062C \u0648\u0623\u064F\u0639\u064A\u062F \u0644\u0642\u0627\u0626\u0645\u0629 \u0627\u0644\u0645\u0631\u0627\u062C\u0639\u0629" });
-  } catch (err) {
-    console.error("update product:", err);
-    res.status(500).json({ error: "\u062D\u062F\u062B \u062E\u0637\u0623 \u0641\u064A \u0627\u0644\u062E\u0627\u062F\u0645" });
   }
-});
+);
 router.delete("/api/vendor/products/:pid", requireVendor, async (req, res) => {
   try {
     const db2 = getFirestore();
