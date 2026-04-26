@@ -1423,6 +1423,20 @@
       </div>
 
       <div class="nav-section">
+        <div class="nav-section-title">الشركاء التجاريين</div>
+        <div class="nav-item" onclick="showSection('vendorPartners', this)">
+          <i data-lucide="store"></i>
+          <span>المتاجر</span>
+          <span class="badge" id="vendor-partners-count">0</span>
+        </div>
+        <div class="nav-item" onclick="showSection('vendorProducts', this)">
+          <i data-lucide="package-check"></i>
+          <span>منتجات قيد الموافقة</span>
+          <span class="badge" id="vendor-pending-products-count" style="background:#F59E0B;color:#fff;">0</span>
+        </div>
+      </div>
+
+      <div class="nav-section">
         <div class="nav-section-title">السائقين</div>
         <div class="nav-item" onclick="showSection('drivers', this)">
           <i data-lucide="users"></i>
@@ -2426,6 +2440,123 @@
     </div>
     <!-- ═══════════════════════════════════════════════════════════════════════════════════════ -->
 
+    <!-- ██ VENDOR PARTNERS SECTION ██ -->
+    <div id="vendorPartners-section" class="section">
+      <header class="header">
+        <div class="header-title">
+          <h2><i data-lucide="store" style="display:inline-block;vertical-align:middle;margin-left:8px;color:#673AB7;"></i> الشركاء التجاريين</h2>
+          <p>إدارة طلبات الانضمام والمتاجر النشطة</p>
+        </div>
+        <div class="header-actions">
+          <button class="btn btn-outline btn-sm" onclick="loadVendorPartners()">
+            <i data-lucide="refresh-cw"></i> تحديث
+          </button>
+        </div>
+      </header>
+
+      <!-- Filter tabs -->
+      <div style="display:flex;gap:8px;margin-bottom:18px;flex-wrap:wrap;">
+        <button class="btn btn-sm vp-filter-btn active" data-status="" onclick="filterVendorPartners('')">الكل</button>
+        <button class="btn btn-sm vp-filter-btn" data-status="pending" onclick="filterVendorPartners('pending')" style="background:#FEF3C7;color:#92400E;border-color:#FDE68A;">قيد المراجعة</button>
+        <button class="btn btn-sm vp-filter-btn" data-status="active" onclick="filterVendorPartners('active')" style="background:#D1FAE5;color:#065F46;border-color:#A7F3D0;">نشط</button>
+        <button class="btn btn-sm vp-filter-btn" data-status="suspended" onclick="filterVendorPartners('suspended')" style="background:#FEE2E2;color:#991B1B;border-color:#FECACA;">موقوف</button>
+        <button class="btn btn-sm vp-filter-btn" data-status="rejected" onclick="filterVendorPartners('rejected')" style="background:#F3F4F6;color:#374151;border-color:#D1D5DB;">مرفوض</button>
+      </div>
+
+      <div id="vendor-partners-loading" style="text-align:center;padding:40px;color:#888;display:none;">
+        <i data-lucide="loader" style="animation:spin 1s linear infinite;"></i> جارٍ التحميل...
+      </div>
+
+      <div class="table-wrap" id="vendor-partners-table-wrap">
+        <table class="table">
+          <thead><tr>
+            <th>المتجر</th>
+            <th>نوع النشاط</th>
+            <th>صاحب المتجر</th>
+            <th>رقم الهاتف</th>
+            <th>الحالة</th>
+            <th>تاريخ التسجيل</th>
+            <th>الإجراءات</th>
+          </tr></thead>
+          <tbody id="vendor-partners-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ██ VENDOR PRODUCTS SECTION ██ -->
+    <div id="vendorProducts-section" class="section">
+      <header class="header">
+        <div class="header-title">
+          <h2><i data-lucide="package-check" style="display:inline-block;vertical-align:middle;margin-left:8px;color:#673AB7;"></i> منتجات الشركاء</h2>
+          <p>مراجعة وإدارة منتجات المتاجر المرفوعة</p>
+        </div>
+        <div class="header-actions">
+          <button class="btn btn-outline btn-sm" onclick="loadVendorProductsAdmin()">
+            <i data-lucide="refresh-cw"></i> تحديث
+          </button>
+        </div>
+      </header>
+
+      <!-- Filter tabs -->
+      <div style="display:flex;gap:8px;margin-bottom:18px;flex-wrap:wrap;">
+        <button class="btn btn-sm vpp-filter-btn" data-status="pending" onclick="filterVendorProductsAdmin('pending')" style="background:#FEF3C7;color:#92400E;border-color:#FDE68A;">قيد الموافقة</button>
+        <button class="btn btn-sm vpp-filter-btn active" data-status="" onclick="filterVendorProductsAdmin('')">الكل</button>
+        <button class="btn btn-sm vpp-filter-btn" data-status="approved" onclick="filterVendorProductsAdmin('approved')" style="background:#D1FAE5;color:#065F46;border-color:#A7F3D0;">معتمدة</button>
+        <button class="btn btn-sm vpp-filter-btn" data-status="rejected" onclick="filterVendorProductsAdmin('rejected')" style="background:#FEE2E2;color:#991B1B;border-color:#FECACA;">مرفوضة</button>
+      </div>
+
+      <div id="vendor-products-loading" style="text-align:center;padding:40px;color:#888;display:none;">
+        <i data-lucide="loader" style="animation:spin 1s linear infinite;"></i> جارٍ التحميل...
+      </div>
+
+      <div id="vendor-products-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:16px;"></div>
+    </div>
+
+    <!-- Vendor Partner Review Modal -->
+    <div id="vp-review-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9000;align-items:center;justify-content:center;">
+      <div style="background:#fff;border-radius:20px;padding:32px;min-width:340px;max-width:480px;width:90%;position:relative;">
+        <button onclick="document.getElementById('vp-review-modal').style.display='none'" style="position:absolute;top:16px;left:16px;background:none;border:none;font-size:1.4rem;cursor:pointer;">&times;</button>
+        <h3 id="vp-review-title" style="margin:0 0 20px;font-size:1.1rem;font-weight:700;">مراجعة طلب المتجر</h3>
+        <input type="hidden" id="vp-review-id">
+        <div id="vp-review-info" style="background:#F9FAFB;border-radius:12px;padding:16px;margin-bottom:20px;font-size:0.9rem;line-height:1.9;"></div>
+        <div style="display:flex;flex-direction:column;gap:10px;">
+          <button class="btn btn-primary" style="background:#10B981;border-color:#10B981;" onclick="vendorPartnerAction('active')">
+            <i data-lucide="check"></i> قبول وتفعيل الحساب
+          </button>
+          <button class="btn btn-outline" style="color:#EF4444;border-color:#EF4444;" onclick="vendorPartnerAction('rejected')">
+            <i data-lucide="x"></i> رفض الطلب
+          </button>
+          <button class="btn btn-outline" style="color:#F59E0B;border-color:#F59E0B;" onclick="vendorPartnerAction('suspended')">
+            <i data-lucide="pause"></i> تعليق الحساب
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Vendor Product Review Modal -->
+    <div id="vpp-review-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9000;align-items:center;justify-content:center;">
+      <div style="background:#fff;border-radius:20px;padding:28px;min-width:340px;max-width:480px;width:90%;position:relative;">
+        <button onclick="document.getElementById('vpp-review-modal').style.display='none'" style="position:absolute;top:14px;left:14px;background:none;border:none;font-size:1.4rem;cursor:pointer;">&times;</button>
+        <h3 style="margin:0 0 16px;font-size:1rem;font-weight:700;">مراجعة المنتج</h3>
+        <input type="hidden" id="vpp-review-id">
+        <img id="vpp-review-img" src="" style="width:100%;height:180px;object-fit:cover;border-radius:12px;margin-bottom:14px;background:#f5f5f5;">
+        <div id="vpp-review-info" style="background:#F9FAFB;border-radius:10px;padding:14px;margin-bottom:16px;font-size:0.85rem;line-height:2;"></div>
+        <div style="margin-bottom:12px;">
+          <label style="font-size:0.85rem;font-weight:600;display:block;margin-bottom:6px;">سبب الرفض (اختياري)</label>
+          <textarea id="vpp-reject-reason" class="form-input" style="width:100%;min-height:70px;resize:vertical;" placeholder="اكتب سبب الرفض..."></textarea>
+        </div>
+        <div style="display:flex;gap:10px;">
+          <button class="btn btn-primary" style="flex:1;background:#10B981;border-color:#10B981;" onclick="vendorProductAction('approved')">
+            <i data-lucide="check"></i> موافقة
+          </button>
+          <button class="btn btn-outline" style="flex:1;color:#EF4444;border-color:#EF4444;" onclick="vendorProductAction('rejected')">
+            <i data-lucide="x"></i> رفض
+          </button>
+        </div>
+      </div>
+    </div>
+    <!-- ═══════════════════════════════════════════════════════════════════════════════════════ -->
+
     <div id="delivery-section" class="section">
       <header class="header">
         <div class="header-title">
@@ -3271,6 +3402,8 @@
       if (section === 'dashboard') loadDashboard();
       if (section === 'promoCodes') loadPromoCodes();
       if (section === 'vendors') { loadVendors(); loadVendorFinancials(); }
+      if (section === 'vendorPartners') loadVendorPartners();
+      if (section === 'vendorProducts') loadVendorProductsAdmin();
       if (section === 'settings') loadSettingsStats();
       if (section === 'notifications') loadNotificationsStats();
       if (section === 'appUsers') loadAppUsers();
@@ -8127,5 +8260,233 @@ function closeAssignDriverModal() {
   document.getElementById('assign-driver-modal').classList.remove('active');
   assignTargetOrderId = null;
 }
+
+/* ══════════════════════════════════════════════════════════
+   VENDOR PARTNERS  (صاحب متجر – mobile app)
+   ══════════════════════════════════════════════════════════ */
+
+let allVendorPartners = [];
+let currentVpFilter = '';
+
+async function loadVendorPartners() {
+  const loading = document.getElementById('vendor-partners-loading');
+  const tbody   = document.getElementById('vendor-partners-tbody');
+  loading.style.display = 'block';
+  tbody.innerHTML = '';
+  try {
+    const res  = await fetch(API_BASE + '/admin/vendor-partners');
+    const data = await res.json();
+    allVendorPartners = Array.isArray(data) ? data : (data.vendors || data.partners || []);
+    const pendingVendors = allVendorPartners.filter(v => v.status === 'pending').length;
+    document.getElementById('vendor-partners-count').textContent = allVendorPartners.length + (pendingVendors ? ` (${pendingVendors} جديد)` : '');
+    renderVendorPartnersTable(allVendorPartners);
+  } catch(e) {
+    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:#EF4444;">فشل تحميل البيانات</td></tr>';
+  } finally {
+    loading.style.display = 'none';
+    lucide.createIcons();
+  }
+}
+
+function filterVendorPartners(status) {
+  currentVpFilter = status;
+  document.querySelectorAll('.vp-filter-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.status === status);
+  });
+  const filtered = status ? allVendorPartners.filter(v => v.status === status) : allVendorPartners;
+  renderVendorPartnersTable(filtered);
+}
+
+const VP_STATUS_LABELS = { pending:'قيد المراجعة', active:'نشط', suspended:'موقوف', rejected:'مرفوض' };
+const VP_STATUS_COLORS = { pending:'#F59E0B', active:'#10B981', suspended:'#EF4444', rejected:'#9CA3AF' };
+const BIZ_TYPE_LABELS  = { restaurant:'مطعم', supermarket:'سوبرماركت', pharmacy:'صيدلية', bakery:'مخبز', other:'أخرى' };
+
+function renderVendorPartnersTable(list) {
+  const tbody = document.getElementById('vendor-partners-tbody');
+  if (!list.length) {
+    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:40px;color:#aaa;">لا توجد بيانات</td></tr>';
+    lucide.createIcons();
+    return;
+  }
+  tbody.innerHTML = list.map(v => {
+    const statusColor = VP_STATUS_COLORS[v.status] || '#999';
+    const statusLabel = VP_STATUS_LABELS[v.status] || v.status;
+    const bizLabel    = BIZ_TYPE_LABELS[v.businessType] || v.businessType;
+    const date        = v.createdAt ? new Date(v.createdAt).toLocaleDateString('ar-IQ') : '–';
+    return `<tr>
+      <td>
+        <div style="font-weight:700;">${v.storeName || '–'}</div>
+        <div style="font-size:0.78rem;color:#888;">${bizLabel}</div>
+      </td>
+      <td>${bizLabel}</td>
+      <td>${v.ownerName || '–'}</td>
+      <td dir="ltr">${v.phoneNumber || '–'}</td>
+      <td>
+        <span style="background:${statusColor}18;color:${statusColor};border-radius:8px;padding:3px 10px;font-size:0.8rem;font-weight:700;">
+          ${statusLabel}
+        </span>
+      </td>
+      <td>${date}</td>
+      <td>
+        <button class="btn btn-outline btn-sm" onclick="openVpReviewModal('${v.id}')">
+          <i data-lucide="eye"></i> مراجعة
+        </button>
+      </td>
+    </tr>`;
+  }).join('');
+  lucide.createIcons();
+}
+
+function openVpReviewModal(vendorId) {
+  const v = allVendorPartners.find(x => x.id === vendorId);
+  if (!v) return;
+  document.getElementById('vp-review-id').value = v.id;
+  document.getElementById('vp-review-title').textContent = 'مراجعة: ' + v.storeName;
+  document.getElementById('vp-review-info').innerHTML = `
+    <b>المتجر:</b> ${v.storeName || '–'}<br>
+    <b>صاحب المتجر:</b> ${v.ownerName || '–'}<br>
+    <b>الهاتف:</b> <span dir="ltr">${v.phoneNumber || '–'}</span><br>
+    <b>نوع النشاط:</b> ${BIZ_TYPE_LABELS[v.businessType] || v.businessType || '–'}<br>
+    <b>العنوان:</b> ${v.address || '–'}<br>
+    <b>الحالة الحالية:</b> <span style="color:${VP_STATUS_COLORS[v.status]||'#999'};font-weight:700;">${VP_STATUS_LABELS[v.status]||v.status}</span>
+  `;
+  document.getElementById('vp-review-modal').style.display = 'flex';
+  lucide.createIcons();
+}
+
+async function vendorPartnerAction(newStatus) {
+  const vendorId = document.getElementById('vp-review-id').value;
+  try {
+    const res = await fetch(`${API_BASE}/admin/vendor-partners/${vendorId}/status`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: newStatus })
+    });
+    const data = await res.json();
+    if (res.ok) {
+      showToast('success', 'تم', `تم تغيير حالة المتجر إلى ${VP_STATUS_LABELS[newStatus]}`);
+      document.getElementById('vp-review-modal').style.display = 'none';
+      await loadVendorPartners();
+    } else {
+      showToast('error', 'خطأ', data.error || 'فشل تغيير الحالة');
+    }
+  } catch(e) {
+    showToast('error', 'خطأ', 'تعذر الاتصال بالخادم');
+  }
+}
+
+/* ══════════════════════════════════════════════════════════
+   VENDOR PRODUCTS  (approve / reject)
+   ══════════════════════════════════════════════════════════ */
+
+let allVendorProductsAdmin = [];
+let currentVppFilter = '';
+
+async function loadVendorProductsAdmin() {
+  const loading = document.getElementById('vendor-products-loading');
+  const grid    = document.getElementById('vendor-products-grid');
+  loading.style.display = 'block';
+  grid.innerHTML = '';
+  try {
+    const url = currentVppFilter ? `${API_BASE}/admin/vendor-products?status=${currentVppFilter}` : `${API_BASE}/admin/vendor-products`;
+    const res  = await fetch(url);
+    const data = await res.json();
+    allVendorProductsAdmin = Array.isArray(data) ? data : (data.products || []);
+    const pendingCount = allVendorProductsAdmin.filter(p => p.status === 'pending').length;
+    const badge = document.getElementById('vendor-pending-products-count');
+    badge.textContent = pendingCount > 0 ? String(pendingCount) : '';
+    badge.style.display = pendingCount > 0 ? 'inline-flex' : 'none';
+    renderVendorProductsGrid(allVendorProductsAdmin);
+  } catch(e) {
+    grid.innerHTML = '<p style="color:#EF4444;text-align:center;padding:40px;">فشل تحميل المنتجات</p>';
+  } finally {
+    loading.style.display = 'none';
+    lucide.createIcons();
+  }
+}
+
+function filterVendorProductsAdmin(status) {
+  currentVppFilter = status;
+  document.querySelectorAll('.vpp-filter-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.status === status);
+  });
+  loadVendorProductsAdmin();
+}
+
+const VPP_STATUS_LABELS = { pending:'قيد الموافقة', approved:'معتمد', rejected:'مرفوض' };
+const VPP_STATUS_COLORS = { pending:'#F59E0B', approved:'#10B981', rejected:'#EF4444' };
+
+function renderVendorProductsGrid(list) {
+  const grid = document.getElementById('vendor-products-grid');
+  if (!list.length) {
+    grid.innerHTML = '<p style="color:#aaa;text-align:center;padding:40px;grid-column:1/-1;">لا توجد منتجات</p>';
+    lucide.createIcons();
+    return;
+  }
+  grid.innerHTML = list.map(p => {
+    const sColor = VPP_STATUS_COLORS[p.status] || '#999';
+    const sLabel = VPP_STATUS_LABELS[p.status] || p.status;
+    const imgSrc  = p.imageUrl || 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="1" height="1"></svg>';
+    return `<div style="background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08);display:flex;flex-direction:column;">
+      <img src="${imgSrc}" style="width:100%;height:160px;object-fit:cover;background:#f5f5f5;" onerror="this.src=''">
+      <div style="padding:14px;flex:1;display:flex;flex-direction:column;gap:6px;">
+        <div style="font-weight:700;font-size:0.95rem;color:#1F2937;">${p.name || '–'}</div>
+        <div style="font-size:0.8rem;color:#888;">${p.category || '–'} • ${p.storeName || '–'}</div>
+        <div style="font-size:0.85rem;font-weight:700;color:#673AB7;">${(p.price||0).toLocaleString('ar-IQ')} د.ع</div>
+        <span style="display:inline-block;background:${sColor}18;color:${sColor};border-radius:8px;padding:2px 10px;font-size:0.78rem;font-weight:700;width:fit-content;">${sLabel}</span>
+        ${p.status === 'rejected' && p.rejectionReason ? `<div style="font-size:0.75rem;color:#EF4444;">السبب: ${p.rejectionReason}</div>` : ''}
+        <button class="btn btn-outline btn-sm" style="margin-top:auto;border-color:#673AB7;color:#673AB7;" onclick="openVppReviewModal('${p.id}')">
+          <i data-lucide="eye"></i> مراجعة
+        </button>
+      </div>
+    </div>`;
+  }).join('');
+  lucide.createIcons();
+}
+
+function openVppReviewModal(productId) {
+  const p = allVendorProductsAdmin.find(x => x.id === productId);
+  if (!p) return;
+  document.getElementById('vpp-review-id').value = p.id;
+  document.getElementById('vpp-review-img').src = p.imageUrl || '';
+  document.getElementById('vpp-reject-reason').value = '';
+  document.getElementById('vpp-review-info').innerHTML = `
+    <b>اسم المنتج:</b> ${p.name || '–'}<br>
+    <b>الوصف:</b> ${p.description || '–'}<br>
+    <b>السعر:</b> ${(p.price||0).toLocaleString('ar-IQ')} دينار<br>
+    <b>الفئة:</b> ${p.category || '–'}<br>
+    <b>المتجر:</b> ${p.storeName || '–'}<br>
+    <b>الهاتف:</b> <span dir="ltr">${p.vendorPhone || '–'}</span><br>
+    <b>المخزون:</b> ${p.stock || 0} ${p.unit || ''}<br>
+    <b>الحالة:</b> <span style="color:${VPP_STATUS_COLORS[p.status]||'#999'};font-weight:700;">${VPP_STATUS_LABELS[p.status]||p.status}</span>
+  `;
+  document.getElementById('vpp-review-modal').style.display = 'flex';
+  lucide.createIcons();
+}
+
+async function vendorProductAction(action) {
+  const productId = document.getElementById('vpp-review-id').value;
+  const reason    = document.getElementById('vpp-reject-reason').value.trim();
+  const url = `${API_BASE}/admin/vendor-products/${productId}/${action}`;
+  try {
+    const body = action === 'rejected' ? { reason } : {};
+    const res  = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+    const data = await res.json();
+    if (res.ok) {
+      showToast('success', 'تم', action === 'approved' ? 'تمت الموافقة على المنتج' : 'تم رفض المنتج');
+      document.getElementById('vpp-review-modal').style.display = 'none';
+      await loadVendorProductsAdmin();
+    } else {
+      showToast('error', 'خطأ', data.error || 'فشل تحديث الحالة');
+    }
+  } catch(e) {
+    showToast('error', 'خطأ', 'تعذر الاتصال بالخادم');
+  }
+}
+
 </script>
 </html>

@@ -1,7 +1,7 @@
 import express from "express";
 import type { Request, Response } from "express";
 import * as bcrypt from "bcryptjs";
-import * as jwt from "jsonwebtoken";
+import jwt from "jsonwebtoken";
 import multer from "multer";
 import sharp from "sharp";
 import * as crypto from "crypto";
@@ -215,11 +215,24 @@ router.post("/api/vendor/register", async (req, res) => {
       createdAt: now,
     });
 
+    const token = makeVendorToken(id);
     res.status(201).json({
       success: true,
       message: "تم التسجيل بنجاح! سيتم مراجعة طلبك خلال 24 ساعة.",
+      token,
+      vendor: {
+        id,
+        storeName,
+        businessType,
+        phoneNumber,
+        ownerName,
+        address: address || "",
+        status: "pending",
+        totalProducts: 0,
+        createdAt: now,
+      },
     });
-  } catch (err) {
+  } catch (err: any) {
     console.error("vendor register:", err);
     res.status(500).json({ error: "حدث خطأ في الخادم" });
   }
@@ -352,10 +365,13 @@ router.post(
       const pid = productId();
       const now = new Date().toISOString();
 
+      const vData = vDoc.data() as any;
       await db.collection("vendorProducts").doc(pid).set({
         id: pid,
         vendorId: vid,
-        vendorName: (vDoc.data() as any).storeName,
+        vendorName: vData.storeName,
+        storeName: vData.storeName,
+        vendorPhone: vData.phoneNumber,
         name,
         description: description || "",
         price: parseFloat(price),
@@ -580,14 +596,18 @@ router.get("/api/admin/vendor-products", requireAdmin, async (req, res) => {
   try {
     const db = getFirestore();
     if (!db) return res.status(500).json({ error: "قاعدة البيانات غير متاحة" });
-    const { status = "pending" } = req.query;
+    const { status } = req.query;
 
-    const snap = await db.collection("vendorProducts")
-      .where("status", "==", status)
-      .orderBy("createdAt", "desc")
-      .get();
+    let query: any = db.collection("vendorProducts").orderBy("createdAt", "desc");
+    if (status && status !== "all") {
+      query = db.collection("vendorProducts")
+        .where("status", "==", status)
+        .orderBy("createdAt", "desc");
+    }
 
-    res.json({ products: snap.docs.map((d) => d.data()), total: snap.size });
+    const snap = await query.get();
+    const products = snap.docs.map((d: any) => ({ id: d.id, ...d.data() }));
+    res.json({ products, total: snap.size });
   } catch (err) {
     console.error("admin vendor-products:", err);
     res.status(500).json({ error: "حدث خطأ في الخادم" });

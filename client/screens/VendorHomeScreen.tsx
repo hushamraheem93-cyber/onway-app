@@ -152,7 +152,7 @@ export default function VendorHomeScreen({ navigation }: any) {
               bg="#EDE7F6"
               onPress={() => {
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                navigation.navigate("VendorAddProduct");
+                navigation.navigate("VendorProductsTab", { screen: "VendorAddProduct" });
               }}
             />
             <QuickAction
@@ -162,7 +162,7 @@ export default function VendorHomeScreen({ navigation }: any) {
               bg="#FFF3E0"
               onPress={() => {
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                navigation.navigate("VendorProducts");
+                navigation.navigate("VendorProductsTab", { screen: "VendorProducts" });
               }}
             />
           </View>

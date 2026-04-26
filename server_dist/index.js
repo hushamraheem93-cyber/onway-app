@@ -4300,7 +4300,7 @@ ${itemsList}
 // server/vendor.ts
 import express2 from "express";
 import * as bcrypt from "bcryptjs";
-import * as jwt from "jsonwebtoken";
+import jwt from "jsonwebtoken";
 import multer2 from "multer";
 import sharp from "sharp";
 import * as crypto from "crypto";
@@ -4468,9 +4468,22 @@ router.post("/api/vendor/register", async (req, res) => {
       status: "unread",
       createdAt: now
     });
+    const token = makeVendorToken(id);
     res.status(201).json({
       success: true,
-      message: "\u062A\u0645 \u0627\u0644\u062A\u0633\u062C\u064A\u0644 \u0628\u0646\u062C\u0627\u062D! \u0633\u064A\u062A\u0645 \u0645\u0631\u0627\u062C\u0639\u0629 \u0637\u0644\u0628\u0643 \u062E\u0644\u0627\u0644 24 \u0633\u0627\u0639\u0629."
+      message: "\u062A\u0645 \u0627\u0644\u062A\u0633\u062C\u064A\u0644 \u0628\u0646\u062C\u0627\u062D! \u0633\u064A\u062A\u0645 \u0645\u0631\u0627\u062C\u0639\u0629 \u0637\u0644\u0628\u0643 \u062E\u0644\u0627\u0644 24 \u0633\u0627\u0639\u0629.",
+      token,
+      vendor: {
+        id,
+        storeName,
+        businessType,
+        phoneNumber,
+        ownerName,
+        address: address || "",
+        status: "pending",
+        totalProducts: 0,
+        createdAt: now
+      }
     });
   } catch (err) {
     console.error("vendor register:", err);
@@ -4573,10 +4586,13 @@ router.post(
       tempPath = null;
       const pid = productId();
       const now = (/* @__PURE__ */ new Date()).toISOString();
+      const vData = vDoc.data();
       await db2.collection("vendorProducts").doc(pid).set({
         id: pid,
         vendorId: vid,
-        vendorName: vDoc.data().storeName,
+        vendorName: vData.storeName,
+        storeName: vData.storeName,
+        vendorPhone: vData.phoneNumber,
         name,
         description: description || "",
         price: parseFloat(price),
@@ -4749,9 +4765,14 @@ router.get("/api/admin/vendor-products", requireAdmin, async (req, res) => {
   try {
     const db2 = getFirestore();
     if (!db2) return res.status(500).json({ error: "\u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u063A\u064A\u0631 \u0645\u062A\u0627\u062D\u0629" });
-    const { status = "pending" } = req.query;
-    const snap = await db2.collection("vendorProducts").where("status", "==", status).orderBy("createdAt", "desc").get();
-    res.json({ products: snap.docs.map((d) => d.data()), total: snap.size });
+    const { status } = req.query;
+    let query = db2.collection("vendorProducts").orderBy("createdAt", "desc");
+    if (status && status !== "all") {
+      query = db2.collection("vendorProducts").where("status", "==", status).orderBy("createdAt", "desc");
+    }
+    const snap = await query.get();
+    const products2 = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    res.json({ products: products2, total: snap.size });
   } catch (err) {
     console.error("admin vendor-products:", err);
     res.status(500).json({ error: "\u062D\u062F\u062B \u062E\u0637\u0623 \u0641\u064A \u0627\u0644\u062E\u0627\u062F\u0645" });

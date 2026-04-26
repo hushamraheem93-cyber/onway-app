@@ -31,7 +31,7 @@ const BUSINESS_TYPES = [
 
 export default function VendorRegistrationScreen() {
   const insets = useSafeAreaInsets();
-  const { phoneNumber, completeVendorRegistration, goBackToUserType } = useAuth();
+  const { phoneNumber, completeVendorRegistration, goBackToUserType, setUserType } = useAuth();
 
   const [storeName, setStoreName] = useState("");
   const [ownerName, setOwnerName] = useState("");
@@ -40,6 +40,7 @@ export default function VendorRegistrationScreen() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [pendingVendorData, setPendingVendorData] = useState<{ vendor: any; token: string } | null>(null);
 
   const submit = async () => {
     if (!storeName.trim() || !ownerName.trim() || !businessType) {
@@ -66,6 +67,9 @@ export default function VendorRegistrationScreen() {
         return;
       }
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      if (data.vendor && data.token) {
+        setPendingVendorData({ vendor: data.vendor, token: data.token });
+      }
       setSuccess(true);
     } catch {
       setError("تعذر الاتصال بالخادم");
@@ -100,8 +104,18 @@ export default function VendorRegistrationScreen() {
             </View>
           ))}
         </View>
-        <Pressable style={styles.doneBtn} onPress={goBackToUserType} testID="button-done">
-          <ThemedText style={styles.doneBtnText}>العودة للشاشة الرئيسية</ThemedText>
+        <Pressable
+          style={styles.doneBtn}
+          onPress={async () => {
+            if (pendingVendorData) {
+              await completeVendorRegistration(pendingVendorData.vendor, pendingVendorData.token);
+            } else {
+              goBackToUserType();
+            }
+          }}
+          testID="button-done"
+        >
+          <ThemedText style={styles.doneBtnText}>الدخول للتطبيق</ThemedText>
         </Pressable>
       </View>
     );
