@@ -5273,6 +5273,64 @@ router.get("/api/admin/vendor-stats", requireAdmin, async (req, res) => {
     res.status(500).json({ error: "\u062D\u062F\u062B \u062E\u0637\u0623 \u0641\u064A \u0627\u0644\u062E\u0627\u062F\u0645" });
   }
 });
+router.get("/api/vendor/wallet", requireVendor, async (req, res) => {
+  try {
+    const db2 = getFirestore();
+    if (!db2) return res.status(500).json({ error: "\u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u063A\u064A\u0631 \u0645\u062A\u0627\u062D\u0629" });
+    const vid = req.vendorId;
+    const period = req.query.period || "month";
+    const productsSnap = await db2.collection("vendorProducts").where("vendorId", "==", vid).get();
+    const vendorProductIds = new Set(productsSnap.docs.map((d) => d.id));
+    const now = /* @__PURE__ */ new Date();
+    let startDate = null;
+    if (period === "today") {
+      startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    } else if (period === "week") {
+      startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1e3);
+    } else if (period === "month") {
+      startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+    }
+    const snap = await db2.collection("orders").orderBy("createdAt", "desc").limit(1e3).get();
+    const completedStatuses = /* @__PURE__ */ new Set(["delivered", "picked_up", "delivering"]);
+    const vendorOrders = [];
+    for (const doc of snap.docs) {
+      const data = doc.data();
+      if (!completedStatuses.has(data.status)) continue;
+      const createdAt = data.createdAt?.toDate?.() ?? new Date(data.createdAt ?? 0);
+      if (startDate && createdAt < startDate) continue;
+      const items = Array.isArray(data.items) ? data.items : [];
+      let vendorItems = items.filter((i) => i.productId && vendorProductIds.has(i.productId));
+      if (vendorItems.length === 0 && data.vendorId === vid) vendorItems = items;
+      if (vendorItems.length === 0) continue;
+      const subtotal = vendorItems.reduce(
+        (sum, i) => sum + (Number(i.price) || 0) * (Number(i.quantity) || 1),
+        0
+      );
+      vendorOrders.push({
+        id: doc.id,
+        date: createdAt.toISOString(),
+        subtotal,
+        status: data.status,
+        customerPhone: data.phoneNumber || "",
+        itemCount: vendorItems.reduce((s, i) => s + (Number(i.quantity) || 1), 0)
+      });
+    }
+    const totalRevenue = vendorOrders.reduce((s, o) => s + o.subtotal, 0);
+    const totalOrders = vendorOrders.length;
+    const avgOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0;
+    const dailyMap = {};
+    vendorOrders.forEach((o) => {
+      const day = o.date.substring(0, 10);
+      dailyMap[day] = (dailyMap[day] || 0) + o.subtotal;
+    });
+    const dailySales = Object.entries(dailyMap).map(([date, revenue]) => ({ date, revenue })).sort((a, b) => a.date.localeCompare(b.date)).slice(-14);
+    const recentSales = vendorOrders.slice(0, 20);
+    res.json({ totalRevenue, totalOrders, avgOrderValue, dailySales, recentSales, period });
+  } catch (err) {
+    console.error("vendor wallet:", err);
+    res.status(500).json({ error: "\u062D\u062F\u062B \u062E\u0637\u0623 \u0641\u064A \u0627\u0644\u062E\u0627\u062F\u0645" });
+  }
+});
 router.get("/api/stores", async (_req, res) => {
   try {
     const db2 = getFirestore();
