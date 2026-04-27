@@ -6,6 +6,7 @@ import {
   Pressable,
   ActivityIndicator,
   RefreshControl,
+  ScrollView,
 } from "react-native";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
@@ -22,6 +23,22 @@ import { useVendorNotifications } from "@/context/VendorNotificationsContext";
 import { getApiUrl } from "@/lib/query-client";
 
 const PURPLE = "#673AB7";
+
+const ACCOUNT_TYPES = ["vendor_active", "vendor_rejected", "vendor_suspended"];
+const PRODUCT_TYPES = ["product_approved", "product_rejected"];
+
+type FilterType = "all" | "account" | "products";
+
+interface FilterChip {
+  key: FilterType;
+  label: string;
+}
+
+const FILTER_CHIPS: FilterChip[] = [
+  { key: "all", label: "الكل" },
+  { key: "account", label: "الحساب" },
+  { key: "products", label: "المنتجات" },
+];
 
 interface VendorNotification {
   id: string;
@@ -99,6 +116,51 @@ function formatDate(iso: string): string {
   return d.toLocaleDateString("ar", { day: "numeric", month: "short", year: "numeric" });
 }
 
+function filterNotifications(
+  notifications: VendorNotification[],
+  filter: FilterType
+): VendorNotification[] {
+  if (filter === "account") return notifications.filter((n) => ACCOUNT_TYPES.includes(n.type));
+  if (filter === "products") return notifications.filter((n) => PRODUCT_TYPES.includes(n.type));
+  return notifications;
+}
+
+function FilterChips({
+  activeFilter,
+  onSelect,
+}: {
+  activeFilter: FilterType;
+  onSelect: (f: FilterType) => void;
+}) {
+  return (
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      contentContainerStyle={styles.chipsRow}
+      testID="filter-chips-row"
+    >
+      {FILTER_CHIPS.map((chip) => {
+        const isActive = chip.key === activeFilter;
+        return (
+          <Pressable
+            key={chip.key}
+            onPress={() => {
+              Haptics.selectionAsync();
+              onSelect(chip.key);
+            }}
+            style={[styles.chip, isActive ? styles.chipActive : styles.chipInactive]}
+            testID={`filter-chip-${chip.key}`}
+          >
+            <ThemedText style={[styles.chipLabel, isActive ? styles.chipLabelActive : styles.chipLabelInactive]}>
+              {chip.label}
+            </ThemedText>
+          </Pressable>
+        );
+      })}
+    </ScrollView>
+  );
+}
+
 export default function VendorNotificationsScreen() {
   const headerHeight = useHeaderHeight();
   const tabBarHeight = useBottomTabBarHeight();
@@ -108,6 +170,7 @@ export default function VendorNotificationsScreen() {
   const [notifications, setNotifications] = useState<VendorNotification[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [activeFilter, setActiveFilter] = useState<FilterType>("all");
 
   const loadNotifications = useCallback(async () => {
     if (!vendorToken) return;
@@ -214,6 +277,12 @@ export default function VendorNotificationsScreen() {
     [dismissNotification]
   );
 
+  const filteredNotifications = filterNotifications(notifications, activeFilter);
+
+  const listHeader = (
+    <FilterChips activeFilter={activeFilter} onSelect={setActiveFilter} />
+  );
+
   if (loading) {
     return (
       <View style={[styles.centered, { paddingTop: headerHeight }]}>
@@ -224,9 +293,10 @@ export default function VendorNotificationsScreen() {
 
   return (
     <FlatList
-      data={notifications}
+      data={filteredNotifications}
       keyExtractor={(item) => item.id}
       renderItem={renderItem}
+      ListHeaderComponent={listHeader}
       contentContainerStyle={{
         paddingTop: headerHeight + 12,
         paddingBottom: tabBarHeight + 24,
@@ -262,6 +332,35 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     backgroundColor: "#F8F7FF",
+  },
+  chipsRow: {
+    flexDirection: "row",
+    paddingBottom: 14,
+    gap: 8,
+  },
+  chip: {
+    paddingHorizontal: 18,
+    paddingVertical: 7,
+    borderRadius: 20,
+    borderWidth: 1.5,
+  },
+  chipActive: {
+    backgroundColor: PURPLE,
+    borderColor: PURPLE,
+  },
+  chipInactive: {
+    backgroundColor: "#F3EEFF",
+    borderColor: "#D8C8F5",
+  },
+  chipLabel: {
+    fontFamily: "Cairo_600SemiBold",
+    fontSize: 13,
+  },
+  chipLabelActive: {
+    color: "#FFFFFF",
+  },
+  chipLabelInactive: {
+    color: "#7C3AED",
   },
   notifCard: {
     flexDirection: "row",
