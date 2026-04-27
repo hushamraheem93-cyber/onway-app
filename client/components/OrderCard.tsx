@@ -16,6 +16,7 @@ import { formatPrice } from "@/constants/currency";
 interface OrderCardProps {
   order: Order;
   onPress?: () => void;
+  onStorePress?: () => void;
 }
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
@@ -46,7 +47,7 @@ const statusColors: Record<Order["status"], string> = {
   issue: "#F59E0B",
 };
 
-export function OrderCard({ order, onPress }: OrderCardProps) {
+export function OrderCard({ order, onPress, onStorePress }: OrderCardProps) {
   const { theme } = useTheme();
   const scale = useSharedValue(1);
 
@@ -105,14 +106,26 @@ export function OrderCard({ order, onPress }: OrderCardProps) {
       <View style={styles.info}>
         {(() => {
           const storeName = order.vendorName || order.items.find(i => i.restaurant)?.restaurant;
+          const canNavigate = !!(order.vendorId && onStorePress);
           return storeName ? (
             <View style={[styles.infoRow, styles.storeRow]}>
-              <View style={[styles.storeBadge, { backgroundColor: AppColors.primary + "12" }]}>
+              <Pressable
+                onPress={canNavigate ? onStorePress : undefined}
+                style={[
+                  styles.storeBadge,
+                  { backgroundColor: AppColors.primary + "12" },
+                  canNavigate && styles.storeBadgePressable,
+                ]}
+                testID="button-store-badge"
+              >
                 <Feather name="shopping-bag" size={13} color={AppColors.primary} />
                 <ThemedText type="small" style={[styles.storeText, { color: AppColors.primary }]}>
                   {"من متجر " + storeName}
                 </ThemedText>
-              </View>
+                {canNavigate ? (
+                  <Feather name="chevron-left" size={12} color={AppColors.primary} />
+                ) : null}
+              </Pressable>
             </View>
           ) : null;
         })()}
@@ -177,6 +190,10 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     borderRadius: BorderRadius.full,
     gap: 4,
+  },
+  storeBadgePressable: {
+    borderWidth: 1,
+    borderColor: AppColors.primary + "30",
   },
   storeText: {
     fontWeight: "600",

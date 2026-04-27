@@ -32,6 +32,7 @@ export interface Order {
   latitude?: number;
   longitude?: number;
   vendorName?: string;
+  vendorId?: string;
 }
 
 interface OrderContextType {

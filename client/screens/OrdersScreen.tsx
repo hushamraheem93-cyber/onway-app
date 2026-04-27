@@ -52,6 +52,12 @@ export default function OrdersScreen() {
     <OrderCard
       order={item}
       onPress={() => navigation.navigate("OrderTracking", { orderId: item.id })}
+      onStorePress={item.vendorId
+        ? () => {
+            const storeName = item.vendorName || item.items.find(i => i.restaurant)?.restaurant || "المتجر";
+            navigation.navigate("StoreProducts", { storeId: item.vendorId!, storeName });
+          }
+        : undefined}
     />
   );
 

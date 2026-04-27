@@ -500,12 +500,25 @@ export default function OrderTrackingScreen() {
         <View style={styles.itemsHeader}>
           <ThemedText type="h4" style={styles.itemsTitle}>المنتجات ({order.items.length})</ThemedText>
           {order.vendorName && !order.items.some(i => i.restaurant) ? (
-            <View style={[styles.itemStoreBadge, { backgroundColor: AppColors.primary + "12" }]}>
+            <Pressable
+              style={[
+                styles.itemStoreBadge,
+                { backgroundColor: AppColors.primary + "12" },
+                order.vendorId ? styles.itemStoreBadgePressable : null,
+              ]}
+              onPress={order.vendorId
+                ? () => navigation.navigate("StoreProducts", { storeId: order.vendorId!, storeName: order.vendorName! })
+                : undefined}
+              testID="button-tracking-store-badge"
+            >
               <Feather name="shopping-bag" size={11} color={AppColors.primary} />
               <ThemedText type="small" style={{ color: AppColors.primary, fontWeight: "600", marginRight: 4 }}>
                 {"من متجر " + order.vendorName}
               </ThemedText>
-            </View>
+              {order.vendorId ? (
+                <Feather name="chevron-left" size={11} color={AppColors.primary} />
+              ) : null}
+            </Pressable>
           ) : null}
         </View>
         {order.items.map((item, index) => (
@@ -519,12 +532,26 @@ export default function OrderTrackingScreen() {
                 {item.quantity} × {formatPrice(item.price)}
               </ThemedText>
               {item.restaurant ? (
-                <View style={[styles.itemStoreBadge, { backgroundColor: AppColors.primary + "12" }]}>
-                  <Feather name="shopping-bag" size={11} color={AppColors.primary} />
-                  <ThemedText type="small" style={{ color: AppColors.primary, fontWeight: "600", marginRight: 4 }}>
-                    {"من متجر " + item.restaurant}
-                  </ThemedText>
-                </View>
+                order.vendorId ? (
+                  <Pressable
+                    style={[styles.itemStoreBadge, { backgroundColor: AppColors.primary + "12" }, styles.itemStoreBadgePressable]}
+                    onPress={() => navigation.navigate("StoreProducts", { storeId: order.vendorId!, storeName: item.restaurant! })}
+                    testID={`button-item-store-badge-${index}`}
+                  >
+                    <Feather name="shopping-bag" size={11} color={AppColors.primary} />
+                    <ThemedText type="small" style={{ color: AppColors.primary, fontWeight: "600", marginRight: 4 }}>
+                      {"من متجر " + item.restaurant}
+                    </ThemedText>
+                    <Feather name="chevron-left" size={11} color={AppColors.primary} />
+                  </Pressable>
+                ) : (
+                  <View style={[styles.itemStoreBadge, { backgroundColor: AppColors.primary + "12" }]}>
+                    <Feather name="shopping-bag" size={11} color={AppColors.primary} />
+                    <ThemedText type="small" style={{ color: AppColors.primary, fontWeight: "600", marginRight: 4 }}>
+                      {"من متجر " + item.restaurant}
+                    </ThemedText>
+                  </View>
+                )
               ) : null}
             </View>
           </View>
@@ -827,6 +854,10 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.full,
     marginTop: 2,
     gap: 3,
+  },
+  itemStoreBadgePressable: {
+    borderWidth: 1,
+    borderColor: AppColors.primary + "30",
   },
   totalSection: {
     flexDirection: "row",
