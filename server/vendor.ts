@@ -471,26 +471,15 @@ router.post(
         imageUrl,
         imageHash,
         isDuplicateImage: isDuplicate,
-        status: "pending",
+        status: "approved",
         createdAt: now,
         updatedAt: now,
       });
 
-      // 7. Admin notification
-      await db.collection("adminNotifications").add({
-        type: "new_product",
-        title: "منتج جديد يحتاج مراجعة",
-        message: `${(vDoc.data() as any).storeName} أضاف منتج: ${name}`,
-        vendorId: vid,
-        productId: pid,
-        status: "unread",
-        createdAt: now,
-      });
-
       res.status(201).json({
         success: true,
-        message: "تم إضافة المنتج! سيظهر للعملاء بعد مراجعة الإدارة.",
-        product: { id: pid, name, price: parseFloat(price), imageUrl, status: "pending" },
+        message: "تم إضافة المنتج بنجاح! سيظهر للعملاء الآن.",
+        product: { id: pid, name, price: parseFloat(price), imageUrl, status: "approved" },
       });
     } catch (err: any) {
       await cleanTemp(tempPath);
@@ -565,26 +554,11 @@ router.put(
         tempPath = null;
         updates.imageUrl = imageUrl;
         updates.imageHash = imageHash;
-        updates.status = "pending";
       }
 
       await db.collection("vendorProducts").doc(pid).update(updates);
 
-      if (req.file) {
-        const vDoc = await db.collection("vendors").doc(vid).get();
-        const productName = name || (doc.data() as any).name;
-        await db.collection("adminNotifications").add({
-          type: "product_updated",
-          title: "منتج محدّث يحتاج مراجعة",
-          message: `${(vDoc.data() as any)?.storeName || ""} حدّث صورة المنتج: ${productName}`,
-          vendorId: vid,
-          productId: pid,
-          status: "unread",
-          createdAt: now,
-        });
-      }
-
-      res.json({ success: true, message: req.file ? "تم تحديث المنتج وأُعيد لقائمة المراجعة" : "تم حفظ التعديلات بنجاح" });
+      res.json({ success: true, message: "تم حفظ التعديلات بنجاح" });
     } catch (err) {
       await cleanTemp(tempPath);
       console.error("update product:", err);

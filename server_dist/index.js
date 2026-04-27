@@ -4719,23 +4719,14 @@ router.post(
         imageUrl,
         imageHash,
         isDuplicateImage: isDuplicate,
-        status: "pending",
+        status: "approved",
         createdAt: now,
         updatedAt: now
       });
-      await db2.collection("adminNotifications").add({
-        type: "new_product",
-        title: "\u0645\u0646\u062A\u062C \u062C\u062F\u064A\u062F \u064A\u062D\u062A\u0627\u062C \u0645\u0631\u0627\u062C\u0639\u0629",
-        message: `${vDoc.data().storeName} \u0623\u0636\u0627\u0641 \u0645\u0646\u062A\u062C: ${name}`,
-        vendorId: vid,
-        productId: pid,
-        status: "unread",
-        createdAt: now
-      });
       res.status(201).json({
         success: true,
-        message: "\u062A\u0645 \u0625\u0636\u0627\u0641\u0629 \u0627\u0644\u0645\u0646\u062A\u062C! \u0633\u064A\u0638\u0647\u0631 \u0644\u0644\u0639\u0645\u0644\u0627\u0621 \u0628\u0639\u062F \u0645\u0631\u0627\u062C\u0639\u0629 \u0627\u0644\u0625\u062F\u0627\u0631\u0629.",
-        product: { id: pid, name, price: parseFloat(price), imageUrl, status: "pending" }
+        message: "\u062A\u0645 \u0625\u0636\u0627\u0641\u0629 \u0627\u0644\u0645\u0646\u062A\u062C \u0628\u0646\u062C\u0627\u062D! \u0633\u064A\u0638\u0647\u0631 \u0644\u0644\u0639\u0645\u0644\u0627\u0621 \u0627\u0644\u0622\u0646.",
+        product: { id: pid, name, price: parseFloat(price), imageUrl, status: "approved" }
       });
     } catch (err) {
       await cleanTemp(tempPath);
@@ -4799,23 +4790,9 @@ router.put(
         tempPath = null;
         updates.imageUrl = imageUrl;
         updates.imageHash = imageHash;
-        updates.status = "pending";
       }
       await db2.collection("vendorProducts").doc(pid).update(updates);
-      if (req.file) {
-        const vDoc = await db2.collection("vendors").doc(vid).get();
-        const productName = name || doc.data().name;
-        await db2.collection("adminNotifications").add({
-          type: "product_updated",
-          title: "\u0645\u0646\u062A\u062C \u0645\u062D\u062F\u0651\u062B \u064A\u062D\u062A\u0627\u062C \u0645\u0631\u0627\u062C\u0639\u0629",
-          message: `${vDoc.data()?.storeName || ""} \u062D\u062F\u0651\u062B \u0635\u0648\u0631\u0629 \u0627\u0644\u0645\u0646\u062A\u062C: ${productName}`,
-          vendorId: vid,
-          productId: pid,
-          status: "unread",
-          createdAt: now
-        });
-      }
-      res.json({ success: true, message: req.file ? "\u062A\u0645 \u062A\u062D\u062F\u064A\u062B \u0627\u0644\u0645\u0646\u062A\u062C \u0648\u0623\u064F\u0639\u064A\u062F \u0644\u0642\u0627\u0626\u0645\u0629 \u0627\u0644\u0645\u0631\u0627\u062C\u0639\u0629" : "\u062A\u0645 \u062D\u0641\u0638 \u0627\u0644\u062A\u0639\u062F\u064A\u0644\u0627\u062A \u0628\u0646\u062C\u0627\u062D" });
+      res.json({ success: true, message: "\u062A\u0645 \u062D\u0641\u0638 \u0627\u0644\u062A\u0639\u062F\u064A\u0644\u0627\u062A \u0628\u0646\u062C\u0627\u062D" });
     } catch (err) {
       await cleanTemp(tempPath);
       console.error("update product:", err);
