@@ -1,27 +1,35 @@
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useState, useMemo } from "react";
 import {
   View,
   StyleSheet,
   FlatList,
   ActivityIndicator,
   RefreshControl,
+  Pressable,
+  ScrollView,
+  Modal,
+  Dimensions,
 } from "react-native";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useFocusEffect } from "@react-navigation/native";
-import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { MaterialCommunityIcons, Feather } from "@expo/vector-icons";
+import * as Haptics from "expo-haptics";
 
 import { ThemedText } from "@/components/ThemedText";
 import { useAuth } from "@/context/AuthContext";
 import { getApiUrl } from "@/lib/query-client";
+import { useTheme } from "@/hooks/useTheme";
 
 const PURPLE = "#673AB7";
+const SCREEN_W = Dimensions.get("window").width;
 
 interface OrderItem {
   productId: string;
   name: string;
   price: number;
   quantity: number;
+  restaurant?: string;
 }
 
 interface VendorOrder {
@@ -39,340 +47,571 @@ interface VendorOrder {
   vendorName?: string;
 }
 
-const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string }> = {
-  pending:    { label: "قيد الانتظار",  color: "#D97706", bg: "#FFFBEB" },
-  confirmed:  { label: "مؤكد",          color: "#2563EB", bg: "#EFF6FF" },
-  preparing:  { label: "قيد التحضير",   color: "#7C3AED", bg: "#F5F3FF" },
-  ready:      { label: "جاهز",          color: "#059669", bg: "#ECFDF5" },
-  picked_up:  { label: "تم الاستلام",   color: "#0891B2", bg: "#ECFEFF" },
-  delivering: { label: "في الطريق",     color: "#0284C7", bg: "#F0F9FF" },
-  delivered:  { label: "تم التوصيل",    color: "#16A34A", bg: "#F0FDF4" },
-  cancelled:  { label: "ملغي",          color: "#DC2626", bg: "#FFF5F5" },
+// ── Status config ─────────────────────────────────────────────────────────────
+const STATUS_CFG: Record<string, { label: string; color: string; bg: string; icon: string }> = {
+  pending:    { label: "طلب جديد",      color: "#D97706", bg: "#FFFBEB",  icon: "bell-ring" },
+  confirmed:  { label: "مؤكد",          color: "#2563EB", bg: "#EFF6FF",  icon: "check-circle" },
+  preparing:  { label: "قيد التحضير",  color: "#7C3AED", bg: "#F5F3FF",  icon: "chef-hat" },
+  ready:      { label: "جاهز",          color: "#059669", bg: "#ECFDF5",  icon: "package-variant-closed-check" },
+  picked_up:  { label: "استلمه السائق", color: "#0891B2", bg: "#ECFEFF",  icon: "moped" },
+  delivering: { label: "في الطريق",     color: "#0284C7", bg: "#F0F9FF",  icon: "navigation" },
+  delivered:  { label: "تم التوصيل",   color: "#16A34A", bg: "#F0FDF4",  icon: "check-all" },
+  cancelled:  { label: "ملغي",          color: "#DC2626", bg: "#FFF5F5",  icon: "close-circle" },
 };
 
-function formatDate(iso: string): string {
+// ── Tab definitions ────────────────────────────────────────────────────────────
+const TABS = [
+  { key: "new",      label: "جديد",    statuses: ["pending"],           icon: "bell-ring",             color: "#D97706" },
+  { key: "active",   label: "تحضير",   statuses: ["confirmed","preparing"], icon: "chef-hat",           color: "#7C3AED" },
+  { key: "ready",    label: "جاهز",    statuses: ["ready","picked_up"],  icon: "package-variant-closed-check", color: "#059669" },
+  { key: "done",     label: "مكتمل",   statuses: ["delivered","delivering","cancelled"], icon: "check-all", color: "#6B7280" },
+];
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+function relativeTime(iso: string): string {
   if (!iso) return "";
   try {
-    const d = new Date(iso);
-    return d.toLocaleDateString("ar-IQ", {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
+    const diff = Date.now() - new Date(iso).getTime();
+    const mins = Math.floor(diff / 60000);
+    if (mins < 1) return "الآن";
+    if (mins < 60) return `منذ ${mins} دقيقة`;
+    const hrs = Math.floor(mins / 60);
+    if (hrs < 24) return `منذ ${hrs} ساعة`;
+    return `منذ ${Math.floor(hrs / 24)} يوم`;
+  } catch { return iso; }
+}
+
+function fullDate(iso: string): string {
+  if (!iso) return "";
+  try {
+    return new Date(iso).toLocaleString("ar-IQ", {
+      year: "numeric", month: "short", day: "numeric",
+      hour: "2-digit", minute: "2-digit",
     });
-  } catch {
-    return iso;
+  } catch { return iso; }
+}
+
+// ── Action buttons per status ─────────────────────────────────────────────────
+type Action = { label: string; nextStatus: string; color: string; bg: string; icon: string; primary?: boolean };
+
+function getActions(status: string): Action[] {
+  switch (status) {
+    case "pending":
+      return [
+        { label: "قبول الطلب",   nextStatus: "confirmed", color: "#fff",     bg: "#16A34A", icon: "check",     primary: true },
+        { label: "رفض",          nextStatus: "cancelled", color: "#DC2626",  bg: "#FEE2E2", icon: "close",     primary: false },
+      ];
+    case "confirmed":
+      return [
+        { label: "بدء التحضير",  nextStatus: "preparing", color: "#fff",     bg: PURPLE,    icon: "chef-hat",  primary: true },
+        { label: "إلغاء",        nextStatus: "cancelled", color: "#DC2626",  bg: "#FEE2E2", icon: "close",     primary: false },
+      ];
+    case "preparing":
+      return [
+        { label: "الطلب جاهز",  nextStatus: "ready",     color: "#fff",     bg: "#059669", icon: "package-variant-closed-check", primary: true },
+      ];
+    default:
+      return [];
   }
 }
 
-function StatusBadge({ status }: { status: string }) {
-  const cfg = STATUS_CONFIG[status] ?? { label: status, color: "#6B7280", bg: "#F3F4F6" };
+// ── Timer Badge for pending orders ────────────────────────────────────────────
+function TimerBadge({ createdAt }: { createdAt: string }) {
+  const mins = Math.floor((Date.now() - new Date(createdAt).getTime()) / 60000);
+  const urgent = mins >= 5;
   return (
-    <View style={[styles.badge, { backgroundColor: cfg.bg }]}>
-      <ThemedText style={[styles.badgeText, { color: cfg.color }]}>{cfg.label}</ThemedText>
-    </View>
-  );
-}
-
-function OrderCard({ order }: { order: VendorOrder }) {
-  const vendorTotal = order.vendorSubtotal ?? order.restaurantSubtotal ?? order.total;
-  const displayName = order.customerName || order.customerPhone || order.phoneNumber || "عميل";
-
-  return (
-    <View style={styles.card} testID={`card-order-${order.id}`}>
-      <View style={styles.cardHeader}>
-        <View style={styles.cardHeaderLeft}>
-          <ThemedText style={styles.orderId} numberOfLines={1}>
-            #{order.id.slice(-8).toUpperCase()}
-          </ThemedText>
-          <ThemedText style={styles.orderDate}>{formatDate(order.createdAt)}</ThemedText>
-        </View>
-        <StatusBadge status={order.status} />
-      </View>
-
-      <View style={styles.divider} />
-
-      <View style={styles.customerRow}>
-        <MaterialCommunityIcons name="account-outline" size={16} color="#6B7280" />
-        <ThemedText style={styles.customerName} numberOfLines={1}>{displayName}</ThemedText>
-      </View>
-
-      {order.address ? (
-        <View style={styles.customerRow}>
-          <MaterialCommunityIcons name="map-marker-outline" size={16} color="#6B7280" />
-          <ThemedText style={styles.addressText} numberOfLines={2}>{order.address}</ThemedText>
-        </View>
-      ) : null}
-
-      <View style={styles.divider} />
-
-      <ThemedText style={styles.itemsLabel}>المنتجات المطلوبة</ThemedText>
-      {Array.isArray(order.items) && order.items.length > 0 ? (
-        order.items.map((item, idx) => (
-          <View key={idx} style={styles.itemRow}>
-            <ThemedText style={styles.itemQty}>{item.quantity}×</ThemedText>
-            <ThemedText style={styles.itemName} numberOfLines={1}>{item.name}</ThemedText>
-            <ThemedText style={styles.itemPrice}>
-              {((item.price || 0) * (item.quantity || 1)).toLocaleString("ar-IQ")} د.ع
-            </ThemedText>
-          </View>
-        ))
-      ) : null}
-
-      <View style={styles.divider} />
-
-      <View style={styles.totalRow}>
-        <ThemedText style={styles.totalLabel}>إجمالي المتجر</ThemedText>
-        <ThemedText style={styles.totalAmount}>
-          {vendorTotal.toLocaleString("ar-IQ")} د.ع
-        </ThemedText>
-      </View>
-    </View>
-  );
-}
-
-function EmptyState() {
-  return (
-    <View style={styles.empty}>
-      <MaterialCommunityIcons name="clipboard-list-outline" size={64} color="#D1D5DB" />
-      <ThemedText style={styles.emptyTitle}>لا توجد طلبات بعد</ThemedText>
-      <ThemedText style={styles.emptySubtitle}>
-        ستظهر هنا طلبات العملاء التي تحتوي منتجاتك
+    <View style={[timerStyles.badge, { backgroundColor: urgent ? "#FEE2E2" : "#FEF3C7" }]}>
+      <MaterialCommunityIcons name="timer-outline" size={13} color={urgent ? "#DC2626" : "#D97706"} />
+      <ThemedText style={[timerStyles.text, { color: urgent ? "#DC2626" : "#D97706" }]}>
+        {mins < 1 ? "أقل من دقيقة" : `${mins} دقيقة`}
       </ThemedText>
     </View>
   );
 }
+const timerStyles = StyleSheet.create({
+  badge: { flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10 },
+  text: { fontFamily: "Cairo_700Bold", fontSize: 11 },
+});
 
+// ── Progress steps ────────────────────────────────────────────────────────────
+const STEPS = ["pending", "confirmed", "preparing", "ready", "delivering", "delivered"];
+function ProgressBar({ status }: { status: string }) {
+  const idx = STEPS.indexOf(status);
+  if (idx < 0 || status === "cancelled") return null;
+  return (
+    <View style={progressStyles.row}>
+      {STEPS.slice(0, 6).map((s, i) => {
+        const done = i <= idx;
+        return (
+          <React.Fragment key={s}>
+            <View style={[progressStyles.dot, done ? progressStyles.dotActive : progressStyles.dotInactive]}>
+              {done ? <MaterialCommunityIcons name="check" size={8} color="#fff" /> : null}
+            </View>
+            {i < 5 ? <View style={[progressStyles.line, done && i < idx ? progressStyles.lineActive : {}]} /> : null}
+          </React.Fragment>
+        );
+      })}
+    </View>
+  );
+}
+const progressStyles = StyleSheet.create({
+  row: { flexDirection: "row-reverse", alignItems: "center", marginBottom: 12 },
+  dot: { width: 16, height: 16, borderRadius: 8, justifyContent: "center", alignItems: "center" },
+  dotActive: { backgroundColor: PURPLE },
+  dotInactive: { backgroundColor: "#E5E7EB" },
+  line: { flex: 1, height: 2, backgroundColor: "#E5E7EB" },
+  lineActive: { backgroundColor: PURPLE },
+});
+
+// ── Order Card ─────────────────────────────────────────────────────────────────
+function OrderCard({
+  order,
+  onUpdateStatus,
+  updatingId,
+}: {
+  order: VendorOrder;
+  onUpdateStatus: (id: string, status: string) => void;
+  updatingId: string | null;
+}) {
+  const { theme } = useTheme();
+  const [expanded, setExpanded] = useState(true);
+  const cfg = STATUS_CFG[order.status] ?? { label: order.status, color: "#6B7280", bg: "#F3F4F6", icon: "help" };
+  const actions = getActions(order.status);
+  const vendorTotal = order.vendorSubtotal ?? order.restaurantSubtotal ?? order.total;
+  const displayName = order.customerName || order.customerPhone || order.phoneNumber || "عميل";
+  const isUpdating = updatingId === order.id;
+
+  return (
+    <View style={[cardStyles.card, { backgroundColor: theme.backgroundDefault }]}>
+      {/* ── Card Header ── */}
+      <View style={[cardStyles.header, { borderLeftColor: cfg.color, borderLeftWidth: 4 }]}>
+        <View style={{ flex: 1 }}>
+          <View style={cardStyles.headerTop}>
+            <ThemedText style={[cardStyles.orderId, { color: theme.text }]}>
+              #{order.id.slice(-8).toUpperCase()}
+            </ThemedText>
+            <View style={[cardStyles.statusBadge, { backgroundColor: cfg.bg }]}>
+              <MaterialCommunityIcons name={cfg.icon as any} size={13} color={cfg.color} />
+              <ThemedText style={[cardStyles.statusText, { color: cfg.color }]}>{cfg.label}</ThemedText>
+            </View>
+          </View>
+          <View style={cardStyles.headerMeta}>
+            <ThemedText style={cardStyles.timeText}>{relativeTime(order.createdAt)}</ThemedText>
+            {order.status === "pending" ? <TimerBadge createdAt={order.createdAt} /> : null}
+          </View>
+        </View>
+        <Pressable onPress={() => setExpanded(!expanded)} style={cardStyles.expandBtn}>
+          <MaterialCommunityIcons
+            name={expanded ? "chevron-up" : "chevron-down"}
+            size={20}
+            color={theme.textSecondary}
+          />
+        </Pressable>
+      </View>
+
+      {expanded ? (
+        <>
+          {/* Progress bar */}
+          <View style={{ paddingHorizontal: 16, paddingTop: 12 }}>
+            <ProgressBar status={order.status} />
+          </View>
+
+          {/* Customer info */}
+          <View style={cardStyles.customerSection}>
+            <View style={cardStyles.infoRow}>
+              <MaterialCommunityIcons name="account-circle-outline" size={16} color={theme.textSecondary} />
+              <ThemedText style={[cardStyles.infoText, { color: theme.text }]}>{displayName}</ThemedText>
+            </View>
+            {order.address ? (
+              <View style={cardStyles.infoRow}>
+                <MaterialCommunityIcons name="map-marker-outline" size={16} color={theme.textSecondary} />
+                <ThemedText style={[cardStyles.infoText, { color: theme.textSecondary }]} numberOfLines={2}>
+                  {order.address}
+                </ThemedText>
+              </View>
+            ) : null}
+            <View style={cardStyles.infoRow}>
+              <MaterialCommunityIcons name="clock-outline" size={16} color={theme.textSecondary} />
+              <ThemedText style={[cardStyles.infoText, { color: theme.textSecondary }]}>{fullDate(order.createdAt)}</ThemedText>
+            </View>
+          </View>
+
+          <View style={[cardStyles.divider, { backgroundColor: theme.border ?? "#F3F4F6" }]} />
+
+          {/* Items */}
+          <View style={cardStyles.itemsSection}>
+            <ThemedText style={[cardStyles.sectionLabel, { color: theme.text }]}>المنتجات المطلوبة</ThemedText>
+            {Array.isArray(order.items) && order.items.map((item, i) => (
+              <View key={i} style={cardStyles.itemRow}>
+                <View style={[cardStyles.itemQtyBadge, { backgroundColor: PURPLE + "15" }]}>
+                  <ThemedText style={[cardStyles.itemQtyText, { color: PURPLE }]}>{item.quantity}</ThemedText>
+                </View>
+                <ThemedText style={[cardStyles.itemName, { color: theme.text }]} numberOfLines={2}>
+                  {item.name}
+                </ThemedText>
+                <ThemedText style={[cardStyles.itemPrice, { color: theme.textSecondary }]}>
+                  {((item.price || 0) * (item.quantity || 1)).toLocaleString("ar-IQ")} د.ع
+                </ThemedText>
+              </View>
+            ))}
+          </View>
+
+          {/* Total */}
+          <View style={[cardStyles.totalRow, { backgroundColor: PURPLE + "08" }]}>
+            <MaterialCommunityIcons name="cash-multiple" size={16} color={PURPLE} />
+            <ThemedText style={cardStyles.totalLabel}>إجمالي المتجر</ThemedText>
+            <ThemedText style={[cardStyles.totalAmount, { color: PURPLE }]}>
+              {vendorTotal.toLocaleString("ar-IQ")} د.ع
+            </ThemedText>
+          </View>
+
+          {/* Action buttons */}
+          {actions.length > 0 ? (
+            <View style={cardStyles.actionsRow}>
+              {actions.map((a) => (
+                <Pressable
+                  key={a.nextStatus}
+                  style={[
+                    cardStyles.actionBtn,
+                    a.primary ? cardStyles.actionBtnPrimary : cardStyles.actionBtnSecondary,
+                    { backgroundColor: a.bg },
+                    isUpdating && { opacity: 0.6 },
+                  ]}
+                  onPress={() => {
+                    if (isUpdating) return;
+                    Haptics.impactAsync(a.primary ? Haptics.ImpactFeedbackStyle.Medium : Haptics.ImpactFeedbackStyle.Light);
+                    onUpdateStatus(order.id, a.nextStatus);
+                  }}
+                  disabled={isUpdating}
+                  testID={`btn-order-${a.nextStatus}-${order.id}`}
+                >
+                  {isUpdating && a.primary ? (
+                    <ActivityIndicator size="small" color={a.color} />
+                  ) : (
+                    <MaterialCommunityIcons name={a.icon as any} size={16} color={a.color} />
+                  )}
+                  <ThemedText style={[cardStyles.actionBtnText, { color: a.color }]}>
+                    {a.label}
+                  </ThemedText>
+                </Pressable>
+              ))}
+            </View>
+          ) : null}
+        </>
+      ) : null}
+    </View>
+  );
+}
+
+// ── Confirm cancel modal ───────────────────────────────────────────────────────
+function CancelModal({
+  visible,
+  onConfirm,
+  onCancel,
+}: {
+  visible: boolean;
+  onConfirm: () => void;
+  onCancel: () => void;
+}) {
+  return (
+    <Modal transparent visible={visible} animationType="fade">
+      <View style={modalStyles.overlay}>
+        <View style={modalStyles.box}>
+          <MaterialCommunityIcons name="alert-circle-outline" size={48} color="#DC2626" style={{ alignSelf: "center" }} />
+          <ThemedText style={modalStyles.title}>رفض الطلب؟</ThemedText>
+          <ThemedText style={modalStyles.subtitle}>سيتم إلغاء هذا الطلب وإشعار الزبون.</ThemedText>
+          <View style={modalStyles.btns}>
+            <Pressable style={[modalStyles.btn, { backgroundColor: "#DC2626" }]} onPress={onConfirm}>
+              <ThemedText style={modalStyles.btnText}>نعم، إلغاء الطلب</ThemedText>
+            </Pressable>
+            <Pressable style={[modalStyles.btn, { backgroundColor: "#F3F4F6" }]} onPress={onCancel}>
+              <ThemedText style={[modalStyles.btnText, { color: "#374151" }]}>تراجع</ThemedText>
+            </Pressable>
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+// ── Main Screen ───────────────────────────────────────────────────────────────
 export default function VendorOrdersScreen() {
-  const { vendorToken } = useAuth();
   const headerHeight = useHeaderHeight();
   const tabBarHeight = useBottomTabBarHeight();
+  const { vendorToken } = useAuth();
+  const { theme } = useTheme();
 
   const [orders, setOrders] = useState<VendorOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState("new");
+  const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const [cancelTarget, setCancelTarget] = useState<string | null>(null);
 
-  const fetchOrders = useCallback(
-    async (isRefresh = false) => {
-      if (isRefresh) setRefreshing(true);
-      else setLoading(true);
-      setError(null);
-      try {
-        const url = new URL("/api/vendor/orders", getApiUrl());
-        const res = await fetch(url.toString(), {
-          headers: { Authorization: `Bearer ${vendorToken}` },
-        });
-        if (!res.ok) {
-          const body = await res.json().catch(() => ({}));
-          throw new Error(body.error || "فشل تحميل الطلبات");
+  const load = useCallback(async (silent = false) => {
+    if (!vendorToken) return;
+    if (!silent) setLoading(true);
+    try {
+      const res = await fetch(new URL("/api/vendor/orders", getApiUrl()).toString(), {
+        headers: { Authorization: `Bearer ${vendorToken}` },
+      });
+      if (!res.ok) throw new Error("failed");
+      const data = await res.json();
+      setOrders(data.orders ?? []);
+    } catch {} finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, [vendorToken]);
+
+  useFocusEffect(useCallback(() => { load(); }, [load]));
+
+  const handleRefresh = () => { setRefreshing(true); load(true); };
+
+  const updateStatus = useCallback(async (orderId: string, newStatus: string) => {
+    if (!vendorToken) return;
+    setUpdatingId(orderId);
+    try {
+      const res = await fetch(
+        new URL(`/api/vendor/orders/${orderId}/status`, getApiUrl()).toString(),
+        {
+          method: "PATCH",
+          headers: { Authorization: `Bearer ${vendorToken}`, "Content-Type": "application/json" },
+          body: JSON.stringify({ status: newStatus }),
         }
-        const data = await res.json();
-        setOrders(data.orders || []);
-      } catch (e: any) {
-        setError(e.message || "حدث خطأ");
-      } finally {
-        setLoading(false);
-        setRefreshing(false);
+      );
+      if (res.ok) {
+        setOrders((prev) =>
+          prev.map((o) => (o.id === orderId ? { ...o, status: newStatus } : o))
+        );
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       }
-    },
-    [vendorToken]
+    } catch {} finally {
+      setUpdatingId(null);
+    }
+  }, [vendorToken]);
+
+  const handleAction = useCallback((orderId: string, nextStatus: string) => {
+    if (nextStatus === "cancelled") {
+      setCancelTarget(orderId);
+    } else {
+      updateStatus(orderId, nextStatus);
+    }
+  }, [updateStatus]);
+
+  const tabDef = TABS.find((t) => t.key === activeTab)!;
+  const filtered = useMemo(
+    () => orders.filter((o) => tabDef.statuses.includes(o.status)),
+    [orders, activeTab, tabDef]
   );
 
-  useFocusEffect(
-    useCallback(() => {
-      fetchOrders();
-    }, [fetchOrders])
-  );
+  const tabCounts = useMemo(() => {
+    const m: Record<string, number> = {};
+    for (const t of TABS) {
+      m[t.key] = orders.filter((o) => t.statuses.includes(o.status)).length;
+    }
+    return m;
+  }, [orders]);
 
-  if (loading) {
-    return (
-      <View style={[styles.center, { paddingTop: headerHeight }]}>
-        <ActivityIndicator size="large" color={PURPLE} />
-      </View>
-    );
-  }
-
-  if (error) {
-    return (
-      <View style={[styles.center, { paddingTop: headerHeight }]}>
-        <MaterialCommunityIcons name="alert-circle-outline" size={48} color="#DC2626" />
-        <ThemedText style={styles.errorText}>{error}</ThemedText>
-      </View>
-    );
-  }
+  // Auto-switch to "new" tab when a new order arrives
+  const newCount = tabCounts["new"] ?? 0;
 
   return (
-    <FlatList
-      data={orders}
-      keyExtractor={(item) => item.id}
-      renderItem={({ item }) => <OrderCard order={item} />}
-      ListEmptyComponent={<EmptyState />}
-      contentContainerStyle={[
-        styles.listContent,
-        { paddingTop: headerHeight + 12, paddingBottom: tabBarHeight + 16 },
-      ]}
-      scrollIndicatorInsets={{ bottom: tabBarHeight }}
-      refreshControl={
-        <RefreshControl
-          refreshing={refreshing}
-          onRefresh={() => fetchOrders(true)}
-          tintColor={PURPLE}
-          progressViewOffset={headerHeight}
+    <View style={{ flex: 1 }}>
+      {/* ── Tab bar ── */}
+      <View style={[tabStyles.bar, {
+        paddingTop: headerHeight,
+        backgroundColor: theme.backgroundDefault,
+        borderBottomColor: theme.border ?? "#F3F4F6",
+      }]}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={tabStyles.tabRow}
+        >
+          {TABS.map((t) => {
+            const active = activeTab === t.key;
+            const count = tabCounts[t.key] ?? 0;
+            return (
+              <Pressable
+                key={t.key}
+                style={[
+                  tabStyles.tab,
+                  active ? { borderBottomColor: t.color, borderBottomWidth: 2.5 } : {},
+                ]}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  setActiveTab(t.key);
+                }}
+                testID={`tab-vendor-orders-${t.key}`}
+              >
+                <MaterialCommunityIcons
+                  name={t.icon as any}
+                  size={18}
+                  color={active ? t.color : (theme.textSecondary ?? "#9CA3AF")}
+                />
+                <ThemedText style={[tabStyles.tabLabel, { color: active ? t.color : (theme.textSecondary ?? "#9CA3AF") }]}>
+                  {t.label}
+                </ThemedText>
+                {count > 0 ? (
+                  <View style={[tabStyles.badge, { backgroundColor: t.key === "new" && count > 0 ? "#EF4444" : t.color }]}>
+                    <ThemedText style={tabStyles.badgeText}>{count > 9 ? "9+" : count}</ThemedText>
+                  </View>
+                ) : null}
+              </Pressable>
+            );
+          })}
+        </ScrollView>
+      </View>
+
+      {/* ── Content ── */}
+      {loading ? (
+        <View style={listStyles.center}>
+          <ActivityIndicator size="large" color={PURPLE} />
+        </View>
+      ) : (
+        <FlatList
+          data={filtered}
+          keyExtractor={(o) => o.id}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={PURPLE} />
+          }
+          contentContainerStyle={{
+            paddingTop: 12,
+            paddingBottom: tabBarHeight + 16,
+            paddingHorizontal: 14,
+            flexGrow: 1,
+          }}
+          ItemSeparatorComponent={() => <View style={{ height: 12 }} />}
+          showsVerticalScrollIndicator={false}
+          renderItem={({ item }) => (
+            <OrderCard
+              order={item}
+              onUpdateStatus={handleAction}
+              updatingId={updatingId}
+            />
+          )}
+          ListEmptyComponent={
+            <View style={listStyles.empty}>
+              <MaterialCommunityIcons
+                name={tabDef.icon as any}
+                size={64}
+                color={tabDef.color}
+                style={{ opacity: 0.25 }}
+              />
+              <ThemedText style={[listStyles.emptyTitle, { color: theme.text }]}>
+                {activeTab === "new"
+                  ? "لا طلبات جديدة"
+                  : activeTab === "active"
+                  ? "لا طلبات قيد التحضير"
+                  : activeTab === "ready"
+                  ? "لا طلبات جاهزة الآن"
+                  : "لا طلبات مكتملة بعد"}
+              </ThemedText>
+              <ThemedText style={[listStyles.emptySub, { color: theme.textSecondary }]}>
+                {activeTab === "new"
+                  ? "ستظهر هنا الطلبات الجديدة فور وصولها"
+                  : "ستنتقل الطلبات هنا تلقائياً"}
+              </ThemedText>
+            </View>
+          }
         />
-      }
-    />
+      )}
+
+      {/* Cancel confirmation modal */}
+      <CancelModal
+        visible={!!cancelTarget}
+        onConfirm={() => {
+          if (cancelTarget) updateStatus(cancelTarget, "cancelled");
+          setCancelTarget(null);
+        }}
+        onCancel={() => setCancelTarget(null)}
+      />
+    </View>
   );
 }
 
-const styles = StyleSheet.create({
-  center: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 12,
+// ── Styles ─────────────────────────────────────────────────────────────────────
+const tabStyles = StyleSheet.create({
+  bar: { borderBottomWidth: 1, elevation: 2, shadowColor: "#000", shadowOpacity: 0.05, shadowRadius: 4 },
+  tabRow: { flexDirection: "row", paddingHorizontal: 12, gap: 4 },
+  tab: {
+    flexDirection: "row", alignItems: "center", gap: 6,
+    paddingHorizontal: 14, paddingVertical: 12,
+    borderBottomWidth: 2.5, borderBottomColor: "transparent",
   },
-  errorText: {
-    fontFamily: "Cairo_400Regular",
-    fontSize: 14,
-    color: "#DC2626",
-    textAlign: "center",
-    paddingHorizontal: 24,
-  },
-  listContent: {
-    paddingHorizontal: 16,
-    flexGrow: 1,
-  },
+  tabLabel: { fontFamily: "Cairo_700Bold", fontSize: 13 },
+  badge: { borderRadius: 9, minWidth: 18, height: 18, justifyContent: "center", alignItems: "center", paddingHorizontal: 4 },
+  badgeText: { fontFamily: "Cairo_700Bold", fontSize: 10, color: "#fff" },
+});
+
+const cardStyles = StyleSheet.create({
   card: {
-    backgroundColor: "#fff",
-    borderRadius: 16,
-    marginBottom: 12,
-    padding: 16,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.06,
-    shadowRadius: 4,
-    elevation: 2,
-    borderWidth: 1,
-    borderColor: "#F3F4F6",
+    borderRadius: 16, overflow: "hidden",
+    shadowColor: "#000", shadowOpacity: 0.06, shadowRadius: 10, shadowOffset: { width: 0, height: 3 },
+    elevation: 3,
   },
-  cardHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
-    marginBottom: 10,
-  },
-  cardHeaderLeft: {
-    flex: 1,
-    marginEnd: 8,
-  },
-  orderId: {
-    fontFamily: "Cairo_700Bold",
-    fontSize: 15,
-    color: PURPLE,
-  },
-  orderDate: {
-    fontFamily: "Cairo_400Regular",
-    fontSize: 12,
-    color: "#9CA3AF",
-    marginTop: 2,
-  },
-  badge: {
-    borderRadius: 20,
-    paddingHorizontal: 10,
-    paddingVertical: 3,
-  },
-  badgeText: {
-    fontFamily: "Cairo_700Bold",
-    fontSize: 11,
-  },
-  divider: {
-    height: 1,
-    backgroundColor: "#F3F4F6",
-    marginVertical: 10,
-  },
-  customerRow: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: 6,
-    marginBottom: 4,
-  },
-  customerName: {
-    fontFamily: "Cairo_700Bold",
-    fontSize: 14,
-    color: "#374151",
-    flex: 1,
-  },
-  addressText: {
-    fontFamily: "Cairo_400Regular",
-    fontSize: 13,
-    color: "#6B7280",
-    flex: 1,
-  },
-  itemsLabel: {
-    fontFamily: "Cairo_700Bold",
-    fontSize: 13,
-    color: "#374151",
-    marginBottom: 6,
-  },
+  header: { flexDirection: "row-reverse", alignItems: "flex-start", padding: 16, gap: 10 },
+  headerTop: { flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between", marginBottom: 6 },
+  headerMeta: { flexDirection: "row-reverse", alignItems: "center", gap: 8 },
+  orderId: { fontFamily: "Cairo_700Bold", fontSize: 16 },
+  statusBadge: { flexDirection: "row", alignItems: "center", gap: 5, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20 },
+  statusText: { fontFamily: "Cairo_700Bold", fontSize: 12 },
+  timeText: { fontFamily: "Cairo_400Regular", fontSize: 12, color: "#9CA3AF" },
+  expandBtn: { padding: 4, alignSelf: "center" },
+
+  customerSection: { paddingHorizontal: 16, paddingVertical: 8, gap: 6 },
+  infoRow: { flexDirection: "row-reverse", alignItems: "flex-start", gap: 8 },
+  infoText: { fontFamily: "Cairo_400Regular", fontSize: 13, flex: 1, textAlign: "right" },
+
+  divider: { height: 1, marginHorizontal: 16, marginVertical: 4 },
+
+  itemsSection: { paddingHorizontal: 16, paddingVertical: 8 },
+  sectionLabel: { fontFamily: "Cairo_700Bold", fontSize: 13, textAlign: "right", marginBottom: 8 },
   itemRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    marginBottom: 4,
+    flexDirection: "row-reverse", alignItems: "center",
+    paddingVertical: 7, gap: 10,
+    borderBottomWidth: 1, borderBottomColor: "#F9FAFB",
   },
-  itemQty: {
-    fontFamily: "Cairo_700Bold",
-    fontSize: 13,
-    color: PURPLE,
-    minWidth: 28,
-    textAlign: "right",
-  },
-  itemName: {
-    fontFamily: "Cairo_400Regular",
-    fontSize: 13,
-    color: "#374151",
-    flex: 1,
-  },
-  itemPrice: {
-    fontFamily: "Cairo_700Bold",
-    fontSize: 13,
-    color: "#6B7280",
-  },
+  itemQtyBadge: { width: 26, height: 26, borderRadius: 8, justifyContent: "center", alignItems: "center" },
+  itemQtyText: { fontFamily: "Cairo_700Bold", fontSize: 13 },
+  itemName: { flex: 1, fontFamily: "Cairo_400Regular", fontSize: 13, textAlign: "right" },
+  itemPrice: { fontFamily: "Cairo_700Bold", fontSize: 12 },
+
   totalRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
+    flexDirection: "row-reverse", alignItems: "center",
+    padding: 14, gap: 8,
+    marginTop: 4,
   },
-  totalLabel: {
-    fontFamily: "Cairo_400Regular",
-    fontSize: 14,
-    color: "#6B7280",
+  totalLabel: { fontFamily: "Cairo_700Bold", fontSize: 14, color: PURPLE, flex: 1, textAlign: "right" },
+  totalAmount: { fontFamily: "Cairo_700Bold", fontSize: 16 },
+
+  actionsRow: { flexDirection: "row-reverse", gap: 10, padding: 14, paddingTop: 8 },
+  actionBtn: {
+    flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center",
+    gap: 6, paddingVertical: 12, borderRadius: 12,
   },
-  totalAmount: {
-    fontFamily: "Cairo_700Bold",
-    fontSize: 16,
-    color: "#111827",
+  actionBtnPrimary: { elevation: 2, shadowColor: "#000", shadowOpacity: 0.1, shadowRadius: 4 },
+  actionBtnSecondary: {},
+  actionBtnText: { fontFamily: "Cairo_700Bold", fontSize: 13 },
+});
+
+const modalStyles = StyleSheet.create({
+  overlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.45)", justifyContent: "center", alignItems: "center" },
+  box: {
+    backgroundColor: "#fff", borderRadius: 20, padding: 24,
+    width: SCREEN_W * 0.85, gap: 12,
   },
-  empty: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: 60,
-    gap: 12,
-  },
-  emptyTitle: {
-    fontFamily: "Cairo_700Bold",
-    fontSize: 18,
-    color: "#374151",
-    textAlign: "center",
-  },
-  emptySubtitle: {
-    fontFamily: "Cairo_400Regular",
-    fontSize: 14,
-    color: "#9CA3AF",
-    textAlign: "center",
-    paddingHorizontal: 32,
-  },
+  title: { fontFamily: "Cairo_700Bold", fontSize: 18, textAlign: "center", color: "#111" },
+  subtitle: { fontFamily: "Cairo_400Regular", fontSize: 14, textAlign: "center", color: "#6B7280" },
+  btns: { flexDirection: "column", gap: 8, marginTop: 8 },
+  btn: { borderRadius: 12, paddingVertical: 13, alignItems: "center" },
+  btnText: { fontFamily: "Cairo_700Bold", fontSize: 14, color: "#fff" },
+});
+
+const listStyles = StyleSheet.create({
+  center: { flex: 1, justifyContent: "center", alignItems: "center" },
+  empty: { flex: 1, alignItems: "center", justifyContent: "center", paddingTop: 80, gap: 12 },
+  emptyTitle: { fontFamily: "Cairo_700Bold", fontSize: 17, textAlign: "center" },
+  emptySub: { fontFamily: "Cairo_400Regular", fontSize: 13, textAlign: "center" },
 });

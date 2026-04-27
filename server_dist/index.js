@@ -4968,6 +4968,49 @@ router.get("/api/vendor/orders", requireVendor, async (req, res) => {
     res.status(500).json({ error: "\u062D\u062F\u062B \u062E\u0637\u0623 \u0641\u064A \u0627\u0644\u062E\u0627\u062F\u0645" });
   }
 });
+router.patch("/api/vendor/orders/:id/status", requireVendor, async (req, res) => {
+  try {
+    const db2 = getFirestore();
+    if (!db2) return res.status(500).json({ error: "\u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u063A\u064A\u0631 \u0645\u062A\u0627\u062D\u0629" });
+    const vid = req.vendorId;
+    const orderId = req.params.id;
+    const { status } = req.body;
+    const ALLOWED = {
+      pending: ["confirmed", "cancelled"],
+      confirmed: ["preparing", "cancelled"],
+      preparing: ["ready"]
+    };
+    const orderRef = db2.collection("orders").doc(orderId);
+    const orderDoc = await orderRef.get();
+    if (!orderDoc.exists) return res.status(404).json({ error: "\u0627\u0644\u0637\u0644\u0628 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F" });
+    const order = orderDoc.data();
+    const current = order.status ?? "pending";
+    if (!(ALLOWED[current] ?? []).includes(status)) {
+      return res.status(400).json({ error: `\u0644\u0627 \u064A\u0645\u0643\u0646 \u0627\u0644\u0627\u0646\u062A\u0642\u0627\u0644 \u0645\u0646 "${current}" \u0625\u0644\u0649 "${status}"` });
+    }
+    const belongsViaId = order.vendorId === vid;
+    let belongsViaProduct = false;
+    if (!belongsViaId) {
+      const productIds = (order.items || []).map((i) => i.productId).filter(Boolean);
+      for (const pid of productIds) {
+        const pDoc = await db2.collection("vendorProducts").doc(pid).get();
+        if (pDoc.exists && pDoc.data().vendorId === vid) {
+          belongsViaProduct = true;
+          break;
+        }
+      }
+    }
+    if (!belongsViaId && !belongsViaProduct) {
+      return res.status(403).json({ error: "\u0644\u064A\u0633 \u0644\u062F\u064A\u0643 \u0635\u0644\u0627\u062D\u064A\u0629 \u062A\u0639\u062F\u064A\u0644 \u0647\u0630\u0627 \u0627\u0644\u0637\u0644\u0628" });
+    }
+    const updatedAt = (/* @__PURE__ */ new Date()).toISOString();
+    await orderRef.update({ status, updatedAt, [`vendorStatusAt_${status}`]: updatedAt });
+    res.json({ success: true, status, updatedAt });
+  } catch (err) {
+    console.error("vendor order status:", err);
+    res.status(500).json({ error: "\u062D\u062F\u062B \u062E\u0637\u0623 \u0641\u064A \u0627\u0644\u062E\u0627\u062F\u0645" });
+  }
+});
 function isAdminSession(req) {
   const cookies = req.cookies || parseCookies(req);
   return !!cookies["onway_admin_session"];

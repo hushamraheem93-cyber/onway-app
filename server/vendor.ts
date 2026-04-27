@@ -810,6 +810,58 @@ router.get("/api/vendor/orders", requireVendor, async (req, res) => {
   }
 });
 
+// ── PATCH /api/vendor/orders/:id/status ─────────────────────────────────────
+// Vendor updates their order status (accept, preparing, ready, cancel)
+router.patch("/api/vendor/orders/:id/status", requireVendor, async (req, res) => {
+  try {
+    const db = getFirestore();
+    if (!db) return res.status(500).json({ error: "قاعدة البيانات غير متاحة" });
+    const vid = (req as any).vendorId as string;
+    const orderId = req.params.id;
+    const { status } = req.body as { status: string };
+
+    // Allowed transitions from vendor side
+    const ALLOWED: Record<string, string[]> = {
+      pending:    ["confirmed", "cancelled"],
+      confirmed:  ["preparing", "cancelled"],
+      preparing:  ["ready"],
+    };
+
+    const orderRef = db.collection("orders").doc(orderId);
+    const orderDoc = await orderRef.get();
+    if (!orderDoc.exists) return res.status(404).json({ error: "الطلب غير موجود" });
+
+    const order = orderDoc.data() as any;
+    const current: string = order.status ?? "pending";
+
+    if (!(ALLOWED[current] ?? []).includes(status)) {
+      return res.status(400).json({ error: `لا يمكن الانتقال من "${current}" إلى "${status}"` });
+    }
+
+    // Verify this order belongs to this vendor (vendorId field or has vendor products)
+    const belongsViaId = order.vendorId === vid;
+    let belongsViaProduct = false;
+    if (!belongsViaId) {
+      const productIds: string[] = (order.items || []).map((i: any) => i.productId).filter(Boolean);
+      for (const pid of productIds) {
+        const pDoc = await db.collection("vendorProducts").doc(pid).get();
+        if (pDoc.exists && (pDoc.data() as any).vendorId === vid) { belongsViaProduct = true; break; }
+      }
+    }
+    if (!belongsViaId && !belongsViaProduct) {
+      return res.status(403).json({ error: "ليس لديك صلاحية تعديل هذا الطلب" });
+    }
+
+    const updatedAt = new Date().toISOString();
+    await orderRef.update({ status, updatedAt, [`vendorStatusAt_${status}`]: updatedAt });
+
+    res.json({ success: true, status, updatedAt });
+  } catch (err) {
+    console.error("vendor order status:", err);
+    res.status(500).json({ error: "حدث خطأ في الخادم" });
+  }
+});
+
 // ═══════════════════════════════════════════════════════════════════════════
 // ADMIN endpoints for vendor partner management
 // ═══════════════════════════════════════════════════════════════════════════
