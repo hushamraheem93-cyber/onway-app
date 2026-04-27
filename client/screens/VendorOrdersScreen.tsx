@@ -1,4 +1,4 @@
-import React, { useCallback, useState, useMemo } from "react";
+import React, { useCallback, useState, useMemo, useRef, useEffect } from "react";
 import {
   View,
   StyleSheet,
@@ -347,6 +347,10 @@ export default function VendorOrdersScreen() {
   const [activeTab, setActiveTab] = useState("new");
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [cancelTarget, setCancelTarget] = useState<string | null>(null);
+  const [newArrived, setNewArrived] = useState(false);
+  const prevNewCount = useRef(0);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const isFocused = useRef(false);
 
   const load = useCallback(async (silent = false) => {
     if (!vendorToken) return;
@@ -357,16 +361,35 @@ export default function VendorOrdersScreen() {
       });
       if (!res.ok) throw new Error("failed");
       const data = await res.json();
-      setOrders(data.orders ?? []);
+      const incoming: VendorOrder[] = data.orders ?? [];
+      const newPending = incoming.filter((o) => o.status === "pending").length;
+      if (silent && newPending > prevNewCount.current) {
+        setNewArrived(true);
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+      }
+      prevNewCount.current = newPending;
+      setOrders(incoming);
     } catch {} finally {
       setLoading(false);
       setRefreshing(false);
     }
   }, [vendorToken]);
 
-  useFocusEffect(useCallback(() => { load(); }, [load]));
+  useFocusEffect(useCallback(() => {
+    isFocused.current = true;
+    load();
+    pollRef.current = setInterval(() => { if (isFocused.current) load(true); }, 30_000);
+    return () => {
+      isFocused.current = false;
+      if (pollRef.current) clearInterval(pollRef.current);
+    };
+  }, [load]));
 
-  const handleRefresh = () => { setRefreshing(true); load(true); };
+  const handleRefresh = () => {
+    setRefreshing(true);
+    setNewArrived(false);
+    load(true);
+  };
 
   const updateStatus = useCallback(async (orderId: string, newStatus: string) => {
     if (!vendorToken) return;
@@ -463,6 +486,20 @@ export default function VendorOrdersScreen() {
           })}
         </ScrollView>
       </View>
+
+      {/* ── New order banner ── */}
+      {newArrived ? (
+        <Pressable
+          style={bannerStyles.banner}
+          onPress={() => { setActiveTab("new"); setNewArrived(false); }}
+        >
+          <MaterialCommunityIcons name="bell-ring" size={18} color="#fff" />
+          <ThemedText style={bannerStyles.text}>وصل طلب جديد! اضغط لعرضه</ThemedText>
+          <Pressable onPress={() => setNewArrived(false)} style={bannerStyles.closeBtn}>
+            <MaterialCommunityIcons name="close" size={16} color="rgba(255,255,255,0.8)" />
+          </Pressable>
+        </Pressable>
+      ) : null}
 
       {/* ── Content ── */}
       {loading ? (
@@ -614,4 +651,13 @@ const listStyles = StyleSheet.create({
   empty: { flex: 1, alignItems: "center", justifyContent: "center", paddingTop: 80, gap: 12 },
   emptyTitle: { fontFamily: "Cairo_700Bold", fontSize: 17, textAlign: "center" },
   emptySub: { fontFamily: "Cairo_400Regular", fontSize: 13, textAlign: "center" },
+});
+
+const bannerStyles = StyleSheet.create({
+  banner: {
+    flexDirection: "row-reverse", alignItems: "center", gap: 10,
+    backgroundColor: "#D97706", paddingVertical: 12, paddingHorizontal: 16,
+  },
+  text: { flex: 1, fontFamily: "Cairo_700Bold", fontSize: 14, color: "#fff", textAlign: "right" },
+  closeBtn: { padding: 4 },
 });
