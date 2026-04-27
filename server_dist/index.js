@@ -1647,6 +1647,27 @@ var products = [
   { id: "fs9", categoryId: "food-supplies", name: "\u062D\u0645\u0635", price: 12e3, image: "/uploads/product-3d-chickpeas.png", description: "\u062D\u0645\u0635 \u062D\u0628 \u062C\u0627\u0641 1 \u0643\u064A\u0644\u0648", inStock: true, weight: "1 \u0643\u064A\u0644\u0648" }
 ];
 async function registerRoutes(app2) {
+  app2.put("/api/admin/vendor-partners/:id/commission", async (req, res) => {
+    try {
+      const db2 = getFirestore();
+      if (!db2) return res.status(500).json({ error: "\u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u063A\u064A\u0631 \u0645\u062A\u0627\u062D\u0629" });
+      const { id } = req.params;
+      const rate = Number(req.body.commissionPercent);
+      if (isNaN(rate) || rate < 0 || rate > 100) {
+        return res.status(400).json({ error: "\u0646\u0633\u0628\u0629 \u0627\u0644\u0639\u0645\u0648\u0644\u0629 \u064A\u062C\u0628 \u0623\u0646 \u062A\u0643\u0648\u0646 \u0628\u064A\u0646 0 \u0648 100" });
+      }
+      const doc = await db2.collection("vendors").doc(id).get();
+      if (!doc.exists) return res.status(404).json({ error: "\u0627\u0644\u0645\u062A\u062C\u0631 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F" });
+      await db2.collection("vendors").doc(id).update({
+        commissionPercent: rate,
+        updatedAt: (/* @__PURE__ */ new Date()).toISOString()
+      });
+      res.json({ success: true, commissionPercent: rate });
+    } catch (err) {
+      console.error("vendor commission update:", err);
+      res.status(500).json({ error: "\u062D\u062F\u062B \u062E\u0637\u0623 \u0641\u064A \u0627\u0644\u062E\u0627\u062F\u0645" });
+    }
+  });
   let productsCache = null;
   let productsCacheTime = 0;
   const PRODUCTS_CACHE_TTL = 3 * 60 * 1e3;

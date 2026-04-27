@@ -254,6 +254,29 @@ const products: Product[] = [
 ];
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // ── ADMIN: Vendor Partner Commission ─────────────────────────────────────────
+  app.put("/api/admin/vendor-partners/:id/commission", async (req: Request, res: Response) => {
+    try {
+      const db = getFirestore();
+      if (!db) return res.status(500).json({ error: "قاعدة البيانات غير متاحة" });
+      const { id } = req.params;
+      const rate = Number(req.body.commissionPercent);
+      if (isNaN(rate) || rate < 0 || rate > 100) {
+        return res.status(400).json({ error: "نسبة العمولة يجب أن تكون بين 0 و 100" });
+      }
+      const doc = await db.collection("vendors").doc(id).get();
+      if (!doc.exists) return res.status(404).json({ error: "المتجر غير موجود" });
+      await db.collection("vendors").doc(id).update({
+        commissionPercent: rate,
+        updatedAt: new Date().toISOString(),
+      });
+      res.json({ success: true, commissionPercent: rate });
+    } catch (err) {
+      console.error("vendor commission update:", err);
+      res.status(500).json({ error: "حدث خطأ في الخادم" });
+    }
+  });
+
   // Products cache
   let productsCache: any[] | null = null;
   let productsCacheTime = 0;

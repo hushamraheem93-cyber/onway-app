@@ -2479,6 +2479,7 @@
             <th>رقم الهاتف</th>
             <th>العنوان</th>
             <th>الحالة</th>
+            <th>العمولة %</th>
             <th>تاريخ التسجيل</th>
             <th>الإجراءات</th>
           </tr></thead>
@@ -8412,6 +8413,7 @@ function renderVendorPartnersTable(list) {
         </button>`;
     }
 
+    const commRate = v.commissionPercent != null ? v.commissionPercent : 10;
     return `<tr>
       <td>
         <div style="display:flex;align-items:center;">
@@ -8430,6 +8432,19 @@ function renderVendorPartnersTable(list) {
           ${statusLabel}
         </span>
       </td>
+      <td>
+        <div style="display:flex;align-items:center;gap:4px;">
+          <input id="comm-input-${v.id}" type="number" min="0" max="100" step="0.5"
+            value="${commRate}"
+            style="width:56px;padding:4px 6px;border:1px solid #D1D5DB;border-radius:6px;font-size:0.82rem;text-align:center;"
+            onchange="showCommSave('${v.id}')"
+            oninput="showCommSave('${v.id}')">
+          <span style="font-size:0.8rem;color:#6B7280;">%</span>
+          <button id="comm-save-${v.id}" class="btn btn-sm"
+            style="display:none;padding:3px 8px;background:#673AB7;color:#fff;border-color:#673AB7;font-size:0.75rem;"
+            onclick="saveVendorCommission('${v.id}')">حفظ</button>
+        </div>
+      </td>
       <td>${date}</td>
       <td>
         <div style="display:flex;gap:6px;flex-wrap:wrap;">
@@ -8442,6 +8457,41 @@ function renderVendorPartnersTable(list) {
     </tr>`;
   }).join('');
   lucide.createIcons();
+}
+
+function showCommSave(vendorId) {
+  const btn = document.getElementById('comm-save-' + vendorId);
+  if (btn) btn.style.display = 'inline-block';
+}
+
+async function saveVendorCommission(vendorId) {
+  const input = document.getElementById('comm-input-' + vendorId);
+  const btn   = document.getElementById('comm-save-' + vendorId);
+  const rate  = parseFloat(input.value);
+  if (isNaN(rate) || rate < 0 || rate > 100) {
+    showToast('error', 'خطأ', 'النسبة يجب أن تكون بين 0 و 100');
+    return;
+  }
+  btn.disabled = true;
+  btn.textContent = '...';
+  try {
+    const res = await fetch(`${API_BASE}/admin/vendor-partners/${vendorId}/commission`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ commissionPercent: rate })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'فشل الحفظ');
+    // Update local data
+    const v = allVendorPartners.find(x => x.id === vendorId);
+    if (v) v.commissionPercent = rate;
+    btn.style.display = 'none';
+    showToast('success', 'تم الحفظ', `عمولة "${allVendorPartners.find(x=>x.id===vendorId)?.storeName || ''}" أصبحت ${rate}%`);
+  } catch(e) {
+    showToast('error', 'خطأ', e.message);
+    btn.disabled = false;
+    btn.textContent = 'حفظ';
+  }
 }
 
 function openVpReviewModal(vendorId) {
