@@ -148,6 +148,20 @@ export default function OrderConfirmationScreen() {
         رقم الطلب: {order.id}
       </ThemedText>
 
+      {(() => {
+        const storeName = order.vendorName || order.items.find(i => i.restaurant)?.restaurant;
+        return storeName ? (
+          <View style={styles.storeBadgeContainer}>
+            <View style={[styles.storeBadge, { backgroundColor: AppColors.primary + "15" }]}>
+              <Feather name="shopping-bag" size={15} color={AppColors.primary} />
+              <ThemedText type="body" style={[styles.storeText, { color: AppColors.primary }]}>
+                {"من متجر " + storeName}
+              </ThemedText>
+            </View>
+          </View>
+        ) : null;
+      })()}
+
       <View style={[styles.card, { backgroundColor: theme.backgroundDefault }, Shadows.sm]}>
         <ThemedText type="h4" style={styles.cardTitle}>
           تفاصيل الطلب
@@ -463,5 +477,20 @@ const styles = StyleSheet.create({
     fontFamily: "Cairo_700Bold",
     fontSize: 15,
     color: "#EF4444",
+  },
+  storeBadgeContainer: {
+    alignItems: "center",
+    marginBottom: Spacing.xl,
+  },
+  storeBadge: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.full,
+    gap: Spacing.sm,
+  },
+  storeText: {
+    fontWeight: "600",
   },
 });
