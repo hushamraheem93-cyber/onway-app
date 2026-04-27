@@ -1,4 +1,4 @@
-import React, { useCallback, useState, ComponentProps } from "react";
+import React, { useCallback, useState, useEffect, ComponentProps } from "react";
 import {
   View,
   StyleSheet,
@@ -10,7 +10,7 @@ import {
 } from "react-native";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
-import { useFocusEffect } from "@react-navigation/native";
+import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
@@ -166,6 +166,7 @@ export default function VendorNotificationsScreen() {
   const tabBarHeight = useBottomTabBarHeight();
   const { vendorToken } = useAuth();
   const { setUnreadCount } = useVendorNotifications();
+  const navigation = useNavigation();
 
   const [notifications, setNotifications] = useState<VendorNotification[]>([]);
   const [loading, setLoading] = useState(true);
@@ -228,6 +229,34 @@ export default function VendorNotificationsScreen() {
     },
     [markRead, setUnreadCount]
   );
+
+  const markAllRead = useCallback(async () => {
+    const unreadIds = notifications.filter((n) => n.status === "unread").map((n) => n.id);
+    if (unreadIds.length === 0) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    setNotifications((prev) => prev.map((n) => ({ ...n, status: "read" as const })));
+    setUnreadCount(0);
+    await markRead(unreadIds);
+  }, [notifications, markRead, setUnreadCount]);
+
+  const hasUnread = notifications.some((n) => n.status === "unread");
+
+  useEffect(() => {
+    navigation.setOptions({
+      headerRight: hasUnread
+        ? () => (
+            <Pressable
+              onPress={markAllRead}
+              style={styles.markAllBtn}
+              testID="button-mark-all-read"
+              hitSlop={8}
+            >
+              <ThemedText style={styles.markAllText}>تحديد الكل كمقروء</ThemedText>
+            </Pressable>
+          )
+        : undefined,
+    });
+  }, [navigation, hasUnread, markAllRead]);
 
   const renderItem = useCallback(
     ({ item }: { item: VendorNotification }) => {
@@ -435,5 +464,14 @@ const styles = StyleSheet.create({
     textAlign: "center",
     paddingHorizontal: 32,
     lineHeight: 20,
+  },
+  markAllBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  markAllText: {
+    fontFamily: "Cairo_600SemiBold",
+    fontSize: 13,
+    color: PURPLE,
   },
 });
