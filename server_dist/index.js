@@ -4744,7 +4744,24 @@ router.get("/api/vendor/products", requireVendor, async (req, res) => {
     let query = db2.collection("vendorProducts").where("vendorId", "==", vid);
     if (status) query = query.where("status", "==", status);
     const snap = await query.get();
-    const products2 = snap.docs.map((d) => d.data()).sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || ""));
+    const now = (/* @__PURE__ */ new Date()).toISOString();
+    const pendingDocs = snap.docs.filter(
+      (d) => d.data().status === "pending"
+    );
+    if (pendingDocs.length > 0) {
+      const batch = db2.batch();
+      pendingDocs.forEach(
+        (d) => batch.update(d.ref, { status: "approved", updatedAt: now })
+      );
+      await batch.commit();
+    }
+    const products2 = snap.docs.map((d) => {
+      const data = d.data();
+      return {
+        ...data,
+        status: data.status === "pending" ? "approved" : data.status
+      };
+    }).sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || ""));
     res.json({ products: products2, total: products2.length });
   } catch (err) {
     console.error("get products:", err);
@@ -4925,7 +4942,7 @@ router.get("/api/vendor/orders", requireVendor, async (req, res) => {
     const vendorProductIds = new Set(
       productsSnap.docs.map((d) => d.id)
     );
-    const byVendorIdSnap = await db2.collection("orders").where("vendorId", "==", vid).orderBy("createdAt", "desc").limit(200).get();
+    const byVendorIdSnap = await db2.collection("orders").where("vendorId", "==", vid).limit(200).get();
     const recentOrdersSnap = await db2.collection("orders").orderBy("createdAt", "desc").limit(300).get();
     const ordersMap = /* @__PURE__ */ new Map();
     for (const doc of byVendorIdSnap.docs) {

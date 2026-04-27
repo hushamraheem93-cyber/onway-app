@@ -502,8 +502,28 @@ router.get("/api/vendor/products", requireVendor, async (req, res) => {
     if (status) query = (query as any).where("status", "==", status);
 
     const snap = await query.get();
+
+    // Auto-approve any legacy "pending" products — no admin approval needed
+    const now = new Date().toISOString();
+    const pendingDocs = snap.docs.filter(
+      (d) => (d.data() as any).status === "pending"
+    );
+    if (pendingDocs.length > 0) {
+      const batch = db.batch();
+      pendingDocs.forEach((d) =>
+        batch.update(d.ref, { status: "approved", updatedAt: now })
+      );
+      await batch.commit();
+    }
+
     const products = snap.docs
-      .map((d) => d.data())
+      .map((d) => {
+        const data = d.data() as any;
+        return {
+          ...data,
+          status: data.status === "pending" ? "approved" : data.status,
+        };
+      })
       .sort((a: any, b: any) => (b.createdAt || "").localeCompare(a.createdAt || ""));
     res.json({ products, total: products.length });
   } catch (err) {
@@ -743,10 +763,9 @@ router.get("/api/vendor/orders", requireVendor, async (req, res) => {
       productsSnap.docs.map((d) => d.id)
     );
 
-    // 2. Fetch orders by top-level vendorId (restaurant detection flow), newest first
+    // 2. Fetch orders by top-level vendorId (restaurant detection flow)
     const byVendorIdSnap = await db.collection("orders")
       .where("vendorId", "==", vid)
-      .orderBy("createdAt", "desc")
       .limit(200)
       .get();
 
