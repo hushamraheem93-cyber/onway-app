@@ -1,5 +1,5 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
-import { Platform } from "react-native";
+import React, { createContext, useContext, useState, useEffect, useRef, ReactNode } from "react";
+import { Platform, AppState, AppStateStatus } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { getApiUrl } from "@/lib/query-client";
 import { compressAndConvertToBase64 } from "@/lib/imageUtils";
@@ -139,6 +139,21 @@ async function savePushTokenToServer(phone: string, token: string): Promise<void
   } catch {}
 }
 
+async function getExpoPushTokenIfGranted(): Promise<string | null> {
+  if (Platform.OS === "web" || !Device.isDevice) return null;
+  try {
+    const { status } = await Notifications.getPermissionsAsync();
+    if (status !== "granted") return null;
+    const projectId = Constants.expoConfig?.extra?.eas?.projectId ?? Constants.easConfig?.projectId;
+    if (projectId) {
+      return (await Notifications.getExpoPushTokenAsync({ projectId })).data;
+    }
+    return (await Notifications.getExpoPushTokenAsync()).data;
+  } catch {
+    return null;
+  }
+}
+
 async function saveVendorPushTokenToServer(vendorJwt: string, token: string): Promise<void> {
   try {
     await fetch(new URL("/api/vendor/push-token", getApiUrl()).toString(), {
@@ -185,6 +200,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
     }
   }, [vendorToken]);
+
+  const vendorTokenRef = useRef<string | null>(null);
+  useEffect(() => {
+    vendorTokenRef.current = vendorToken;
+  }, [vendorToken]);
+
+  useEffect(() => {
+    const handleAppStateChange = (nextState: AppStateStatus) => {
+      if (nextState === "active") {
+        const currentVendorToken = vendorTokenRef.current;
+        if (currentVendorToken) {
+          getExpoPushTokenIfGranted().then((token) => {
+            if (token) saveVendorPushTokenToServer(currentVendorToken, token);
+          });
+        }
+      }
+    };
+
+    const subscription = AppState.addEventListener("change", handleAppStateChange);
+    return () => subscription.remove();
+  }, []);
 
   const loadAuthState = async () => {
     try {
