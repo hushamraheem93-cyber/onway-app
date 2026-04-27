@@ -1153,6 +1153,45 @@ router.get("/api/stores", async (_req, res) => {
   }
 });
 
+// GET /api/stores/products-preview — first 8 approved products per active store (public)
+router.get("/api/stores/products-preview", async (_req, res) => {
+  try {
+    const db = getFirestore();
+    if (!db) return res.status(500).json({ error: "قاعدة البيانات غير متاحة" });
+
+    const snap = await db.collection("vendorProducts")
+      .where("status", "==", "approved")
+      .get();
+
+    const grouped: Record<string, any[]> = {};
+    snap.docs.forEach((d) => {
+      const p = d.data() as any;
+      const vid: string = p.vendorId;
+      if (!vid) return;
+      if (!grouped[vid]) grouped[vid] = [];
+      if (grouped[vid].length < 8) {
+        grouped[vid].push({
+          id: d.id,
+          name: p.name,
+          price: p.price,
+          imageUrl: p.imageUrl || "",
+          unit: p.unit || "قطعة",
+          stock: p.stock ?? 0,
+          vendorId: vid,
+          storeName: p.storeName || "",
+          description: p.description || "",
+          category: p.category || "",
+        });
+      }
+    });
+
+    res.json({ preview: grouped });
+  } catch (err) {
+    console.error("products-preview:", err);
+    res.status(500).json({ error: "حدث خطأ في الخادم" });
+  }
+});
+
 // GET /api/stores/:id/products — list approved products for a store (public)
 router.get("/api/stores/:id/products", async (req, res) => {
   try {

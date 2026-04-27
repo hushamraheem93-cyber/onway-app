@@ -5234,6 +5234,38 @@ router.get("/api/stores", async (_req, res) => {
     res.status(500).json({ error: "\u062D\u062F\u062B \u062E\u0637\u0623 \u0641\u064A \u0627\u0644\u062E\u0627\u062F\u0645" });
   }
 });
+router.get("/api/stores/products-preview", async (_req, res) => {
+  try {
+    const db2 = getFirestore();
+    if (!db2) return res.status(500).json({ error: "\u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u063A\u064A\u0631 \u0645\u062A\u0627\u062D\u0629" });
+    const snap = await db2.collection("vendorProducts").where("status", "==", "approved").get();
+    const grouped = {};
+    snap.docs.forEach((d) => {
+      const p = d.data();
+      const vid = p.vendorId;
+      if (!vid) return;
+      if (!grouped[vid]) grouped[vid] = [];
+      if (grouped[vid].length < 8) {
+        grouped[vid].push({
+          id: d.id,
+          name: p.name,
+          price: p.price,
+          imageUrl: p.imageUrl || "",
+          unit: p.unit || "\u0642\u0637\u0639\u0629",
+          stock: p.stock ?? 0,
+          vendorId: vid,
+          storeName: p.storeName || "",
+          description: p.description || "",
+          category: p.category || ""
+        });
+      }
+    });
+    res.json({ preview: grouped });
+  } catch (err) {
+    console.error("products-preview:", err);
+    res.status(500).json({ error: "\u062D\u062F\u062B \u062E\u0637\u0623 \u0641\u064A \u0627\u0644\u062E\u0627\u062F\u0645" });
+  }
+});
 router.get("/api/stores/:id/products", async (req, res) => {
   try {
     const db2 = getFirestore();

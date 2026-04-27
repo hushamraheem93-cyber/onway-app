@@ -67,6 +67,19 @@ interface VendorStore {
   coverImageUrl?: string;
 }
 
+interface VendorProduct {
+  id: string;
+  name: string;
+  price: number;
+  imageUrl: string;
+  unit: string;
+  stock: number;
+  vendorId: string;
+  storeName: string;
+  description: string;
+  category: string;
+}
+
 const VENDOR_BIZ_CONFIG: Record<string, { label: string; icon: string; color: string; bg: string }> = {
   restaurant: { label: "مطعم", icon: "food", color: "#E86520", bg: "#FFF4E0" },
   supermarket: { label: "سوبرماركت", icon: "cart", color: "#2E7D32", bg: "#E8F5E9" },
@@ -157,6 +170,13 @@ export default function HomeScreen() {
     queryKey: ["/api/stores"],
   });
   const allVendorStores = storesData?.stores ?? [];
+
+  const { data: productsPreviewData } = useQuery<{
+    preview: Record<string, VendorProduct[]>;
+  }>({
+    queryKey: ["/api/stores/products-preview"],
+  });
+  const storeProductsPreview = productsPreviewData?.preview ?? {};
 
   interface PromotionalSection {
     type: string;
@@ -586,6 +606,138 @@ export default function HomeScreen() {
     );
   };
 
+  // ── Vendor product mini-card ─────────────────────────────────────────────
+  const renderVendorProductCard = (vp: VendorProduct, storeId: string, storeName: string) => {
+    const imgUrl = resolveStoreUrl(vp.imageUrl);
+    const cartProduct: Product = {
+      id: vp.id,
+      categoryId: "vendor-market",
+      name: vp.name,
+      price: vp.price,
+      image: vp.imageUrl,
+      description: vp.description,
+      inStock: vp.stock > 0,
+      restaurant: storeName,
+    };
+    const cartItem = items.find((i) => i.product.id === vp.id);
+    const qty = cartItem ? cartItem.quantity : 0;
+
+    return (
+      <Pressable
+        key={vp.id}
+        style={vendorProdStyles.card}
+        onPress={() => {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          navigation.navigate("StoreProducts", { storeId, storeName });
+        }}
+        testID={`vp-card-${vp.id}`}
+      >
+        <View style={vendorProdStyles.imageBox}>
+          {imgUrl ? (
+            <Image
+              source={{ uri: imgUrl }}
+              style={vendorProdStyles.image}
+              contentFit="cover"
+              cachePolicy="disk"
+              transition={200}
+            />
+          ) : (
+            <View style={[vendorProdStyles.image, { backgroundColor: "#F3F4F6", justifyContent: "center", alignItems: "center" }]}>
+              <MaterialCommunityIcons name="package-variant" size={30} color="#CBD5E1" />
+            </View>
+          )}
+          {vp.stock === 0 ? (
+            <View style={vendorProdStyles.outOfStock}>
+              <ThemedText style={vendorProdStyles.outOfStockText}>نفد</ThemedText>
+            </View>
+          ) : null}
+        </View>
+        <View style={vendorProdStyles.info}>
+          <ThemedText style={vendorProdStyles.name} numberOfLines={2}>{vp.name}</ThemedText>
+          <View style={vendorProdStyles.bottomRow}>
+            <ThemedText style={vendorProdStyles.price}>
+              {formatPrice(vp.price)}
+            </ThemedText>
+            {qty > 0 ? (
+              <View style={vendorProdStyles.qtyRow}>
+                <Pressable
+                  style={vendorProdStyles.qtyBtn}
+                  onPress={(e) => {
+                    e.stopPropagation();
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    updateQuantity(vp.id, qty - 1);
+                  }}
+                >
+                  <Feather name="minus" size={12} color={AppColors.primary} />
+                </Pressable>
+                <ThemedText style={vendorProdStyles.qtyNum}>{qty}</ThemedText>
+                <Pressable
+                  style={vendorProdStyles.qtyBtn}
+                  onPress={(e) => {
+                    e.stopPropagation();
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    addToCart(cartProduct);
+                  }}
+                >
+                  <Feather name="plus" size={12} color={AppColors.primary} />
+                </Pressable>
+              </View>
+            ) : (
+              <Pressable
+                style={[vendorProdStyles.addBtn, vp.stock === 0 && { opacity: 0.4 }]}
+                disabled={vp.stock === 0}
+                onPress={(e) => {
+                  e.stopPropagation();
+                  Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                  addToCart(cartProduct);
+                }}
+                testID={`btn-add-vp-${vp.id}`}
+              >
+                <Feather name="plus" size={14} color="#fff" />
+              </Pressable>
+            )}
+          </View>
+        </View>
+      </Pressable>
+    );
+  };
+
+  // ── Store section = card header + product strip ──────────────────────────
+  const renderVendorStoreSectionWithProducts = (store: VendorStore) => {
+    const products = storeProductsPreview[store.id] ?? [];
+    return (
+      <View key={store.id} style={vendorSectionStyles.wrapper}>
+        {renderVendorStoreCard(store)}
+        {products.length > 0 ? (
+          <View style={vendorSectionStyles.productsBlock}>
+            <View style={vendorSectionStyles.productsHeader}>
+              <Pressable
+                style={vendorSectionStyles.viewAllBtn}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  navigation.navigate("StoreProducts", { storeId: store.id, storeName: store.storeName });
+                }}
+              >
+                <ThemedText style={vendorSectionStyles.viewAllText}>عرض الكل</ThemedText>
+                <Feather name="chevron-left" size={14} color={AppColors.primary} />
+              </Pressable>
+              <ThemedText style={vendorSectionStyles.productsTitle}>منتجات المتجر</ThemedText>
+            </View>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={vendorSectionStyles.scroll}
+            >
+              {products.map((vp) =>
+                renderVendorProductCard(vp, store.id, store.storeName)
+              )}
+            </ScrollView>
+          </View>
+        ) : null}
+      </View>
+    );
+  };
+
   const renderSearchResults = () => {
     if (filteredStoreProducts.length === 0) {
       return (
@@ -726,7 +878,7 @@ export default function HomeScreen() {
                       <ThemedText style={styles.sectionTitle}>مطاعم المتاجر</ThemedText>
                     </View>
                   ) : null}
-                  {vendorRestaurants.map(renderVendorStoreCard)}
+                  {vendorRestaurants.map(renderVendorStoreSectionWithProducts)}
                 </>
               ) : null}
               {filteredRestaurants.length === 0 && vendorRestaurants.length === 0 ? (
@@ -783,13 +935,13 @@ export default function HomeScreen() {
                 </View>
               )}
 
-              {/* Vendor Stores */}
+              {/* Vendor Stores with product preview */}
               {vendorOtherStores.length > 0 ? (
                 <>
                   <View style={styles.sectionHeader}>
                     <ThemedText style={styles.sectionTitle}>المتاجر المتاحة</ThemedText>
                   </View>
-                  {vendorOtherStores.map(renderVendorStoreCard)}
+                  {vendorOtherStores.map(renderVendorStoreSectionWithProducts)}
                 </>
               ) : null}
 
@@ -1566,4 +1718,59 @@ const styles = StyleSheet.create({
     minWidth: 30,
     textAlign: "center",
   },
+});
+
+// ── Vendor product mini-card styles ──────────────────────────────────────────
+const vendorProdStyles = StyleSheet.create({
+  card: {
+    width: 140,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 14,
+    overflow: "hidden",
+    marginLeft: 10,
+    ...Platform.select({
+      ios: { shadowColor: "#000", shadowOpacity: 0.08, shadowRadius: 8, shadowOffset: { width: 0, height: 3 } },
+      android: { elevation: 3 },
+      default: { boxShadow: "0 3px 8px rgba(0,0,0,0.08)" },
+    }),
+  },
+  imageBox: { width: "100%", height: 110, position: "relative" },
+  image: { width: "100%", height: "100%" },
+  outOfStock: {
+    ...StyleSheet.absoluteFillObject as any,
+    backgroundColor: "rgba(0,0,0,0.45)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  outOfStockText: { fontFamily: "Cairo_700Bold", fontSize: 13, color: "#fff" },
+  info: { padding: 8, gap: 4 },
+  name: { fontFamily: "Cairo_600SemiBold", fontSize: 12, textAlign: "right", color: "#1F2937", lineHeight: 18 },
+  bottomRow: { flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between", marginTop: 4 },
+  price: { fontFamily: "Cairo_700Bold", fontSize: 11, color: AppColors.primary, textAlign: "right" },
+  addBtn: {
+    width: 28, height: 28, borderRadius: 14,
+    backgroundColor: AppColors.primary,
+    justifyContent: "center", alignItems: "center",
+  },
+  qtyRow: { flexDirection: "row-reverse", alignItems: "center", gap: 4 },
+  qtyBtn: {
+    width: 24, height: 24, borderRadius: 12,
+    borderWidth: 1.5, borderColor: AppColors.primary,
+    justifyContent: "center", alignItems: "center",
+  },
+  qtyNum: { fontFamily: "Cairo_700Bold", fontSize: 13, color: AppColors.primary, minWidth: 18, textAlign: "center" },
+});
+
+// ── Vendor store section (card + products strip) styles ──────────────────────
+const vendorSectionStyles = StyleSheet.create({
+  wrapper: { marginBottom: 16 },
+  productsBlock: { backgroundColor: "#FAFAFA", borderBottomLeftRadius: 18, borderBottomRightRadius: 18, paddingBottom: 14, marginTop: -4 },
+  productsHeader: {
+    flexDirection: "row", alignItems: "center", justifyContent: "space-between",
+    paddingHorizontal: 14, paddingTop: 12, paddingBottom: 6,
+  },
+  productsTitle: { fontFamily: "Cairo_700Bold", fontSize: 13, color: "#374151", textAlign: "right" },
+  viewAllBtn: { flexDirection: "row", alignItems: "center", gap: 2 },
+  viewAllText: { fontFamily: "Cairo_600SemiBold", fontSize: 12, color: AppColors.primary },
+  scroll: { paddingHorizontal: 14, paddingRight: 4 },
 });
