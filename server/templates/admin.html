@@ -1390,11 +1390,6 @@
           <span>المطاعم</span>
           <span class="badge" id="vendors-count">0</span>
         </div>
-        <div class="nav-item" onclick="showSection('liveOrders', this)">
-          <i data-lucide="activity"></i>
-          <span>الطلبات المباشرة</span>
-          <span class="badge" id="live-orders-count" style="background:#10B981;color:#fff;display:none;">0</span>
-        </div>
       </div>
 
       <div class="nav-section">
@@ -2573,56 +2568,6 @@
     </div>
     <!-- ═══════════════════════════════════════════════════════════════════════════════════════ -->
 
-    <!-- ██ LIVE ORDERS SECTION ██ -->
-    <div id="liveOrders-section" class="section">
-      <header class="header">
-        <div class="header-title">
-          <h2><i data-lucide="activity" style="display:inline-block;vertical-align:middle;margin-left:8px;color:#10B981;"></i> الطلبات المباشرة</h2>
-          <p>الطلبات النشطة الآن في الضلوعية - يتحدث كل 30 ثانية</p>
-        </div>
-        <div class="header-actions">
-          <button class="btn btn-outline btn-sm" onclick="loadLiveOrders()">
-            <i data-lucide="refresh-cw"></i> تحديث
-          </button>
-        </div>
-      </header>
-
-      <!-- Summary cards -->
-      <div id="live-orders-summary" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:20px;"></div>
-
-      <!-- Status filter -->
-      <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;">
-        <button class="btn btn-sm lo-filter active" data-status="" onclick="filterLiveOrders('')">الكل</button>
-        <button class="btn btn-sm lo-filter" data-status="pending" onclick="filterLiveOrders('pending')" style="background:#FEF3C7;color:#92400E;border-color:#FDE68A;">انتظار المتجر</button>
-        <button class="btn btn-sm lo-filter" data-status="confirmed" onclick="filterLiveOrders('confirmed')" style="background:#DBEAFE;color:#1E40AF;border-color:#93C5FD;">مقبول</button>
-        <button class="btn btn-sm lo-filter" data-status="preparing" onclick="filterLiveOrders('preparing')" style="background:#EDE9FE;color:#5B21B6;border-color:#C4B5FD;">قيد التحضير</button>
-        <button class="btn btn-sm lo-filter" data-status="ready" onclick="filterLiveOrders('ready')" style="background:#D1FAE5;color:#065F46;border-color:#6EE7B7;">جاهز</button>
-        <button class="btn btn-sm lo-filter" data-status="picked_up" onclick="filterLiveOrders('picked_up')" style="background:#FEF9C3;color:#713F12;border-color:#FDE047;">مع السائق</button>
-        <button class="btn btn-sm lo-filter" data-status="delivering" onclick="filterLiveOrders('delivering')" style="background:#DCFCE7;color:#14532D;border-color:#86EFAC;">في الطريق</button>
-      </div>
-
-      <div id="live-orders-loading" style="text-align:center;padding:40px;color:#888;display:none;">
-        <i data-lucide="loader" style="animation:spin 1s linear infinite;"></i> جارٍ التحميل...
-      </div>
-
-      <div class="table-wrap">
-        <table class="table">
-          <thead><tr>
-            <th>رقم الطلب</th>
-            <th>الحالة</th>
-            <th>المتجر</th>
-            <th>السائق</th>
-            <th>العنوان</th>
-            <th>المبلغ</th>
-            <th>منذ (دق)</th>
-          </tr></thead>
-          <tbody id="live-orders-tbody">
-            <tr><td colspan="7" style="text-align:center;padding:32px;color:#aaa;">جاري التحميل...</td></tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
-
     <!-- ═══════════════════════════════════════════════════════════════════════════════════════ -->
 
     <!-- ██ FINANCIAL REPORTS SECTION ██ -->
@@ -3526,9 +3471,7 @@
       if (section === 'vendors') { loadVendors(); loadVendorFinancials(); }
       if (section === 'vendorPartners') loadVendorPartners();
       if (section === 'vendorProducts') loadVendorProductsAdmin();
-      if (section === 'liveOrders') { loadLiveOrders(); startLiveOrdersPolling(); }
       if (section === 'financialReports') loadFinancialReports();
-      if (section !== 'liveOrders') stopLiveOrdersPolling();
       if (section === 'settings') loadSettingsStats();
       if (section === 'notifications') loadNotificationsStats();
       if (section === 'appUsers') loadAppUsers();
@@ -8700,107 +8643,6 @@ async function quickVendorStatusToggle(vendorId, newStatus) {
   } catch(e) {
     showToast('error', 'خطأ', 'تعذر الاتصال بالخادم');
   }
-}
-
-/* ══════════════════════════════════════════════════════════
-   LIVE ORDERS
-   ══════════════════════════════════════════════════════════ */
-
-let allLiveOrders = [];
-let currentLoFilter = '';
-let liveOrdersPollingTimer = null;
-
-function startLiveOrdersPolling() {
-  stopLiveOrdersPolling();
-  liveOrdersPollingTimer = setInterval(() => loadLiveOrders(true), 30000);
-}
-
-function stopLiveOrdersPolling() {
-  if (liveOrdersPollingTimer) { clearInterval(liveOrdersPollingTimer); liveOrdersPollingTimer = null; }
-}
-
-async function loadLiveOrders(silent = false) {
-  const loading = document.getElementById('live-orders-loading');
-  if (!silent) { loading.style.display = 'block'; }
-  try {
-    const res  = await fetch(`${API_BASE}/admin/live-orders`);
-    const data = await res.json();
-    allLiveOrders = data.orders || [];
-
-    // Update badge
-    const badge = document.getElementById('live-orders-count');
-    if (allLiveOrders.length > 0) {
-      badge.textContent = allLiveOrders.length;
-      badge.style.display = 'inline-flex';
-    } else {
-      badge.style.display = 'none';
-    }
-
-    // Render summary cards
-    renderLiveOrdersSummary(allLiveOrders);
-    renderLiveOrdersTable(allLiveOrders);
-  } catch(e) {
-    document.getElementById('live-orders-tbody').innerHTML =
-      '<tr><td colspan="7" style="text-align:center;color:#EF4444;padding:32px;">فشل تحميل البيانات</td></tr>';
-  } finally {
-    loading.style.display = 'none';
-    lucide.createIcons();
-  }
-}
-
-function filterLiveOrders(status) {
-  currentLoFilter = status;
-  document.querySelectorAll('.lo-filter').forEach(b => {
-    b.classList.toggle('active', b.dataset.status === status);
-  });
-  const filtered = status ? allLiveOrders.filter(o => o.status === status) : allLiveOrders;
-  renderLiveOrdersTable(filtered);
-}
-
-const LO_STATUS_COLORS = {
-  pending: '#F59E0B', confirmed: '#3B82F6', preparing: '#8B5CF6',
-  ready: '#10B981', picked_up: '#F59E0B', delivering: '#10B981'
-};
-
-function renderLiveOrdersSummary(orders) {
-  const counts = {};
-  ['pending','confirmed','preparing','ready','picked_up','delivering'].forEach(s => counts[s] = 0);
-  orders.forEach(o => { if (counts[o.status] !== undefined) counts[o.status]++; });
-  const labels = { pending:'انتظار المتجر', confirmed:'مقبول', preparing:'التحضير', ready:'جاهز', picked_up:'مع السائق', delivering:'في الطريق' };
-  const container = document.getElementById('live-orders-summary');
-  container.innerHTML = Object.entries(labels).map(([s, label]) =>
-    `<div style="background:#fff;border-radius:12px;padding:14px 16px;box-shadow:0 2px 6px rgba(0,0,0,0.06);display:flex;align-items:center;gap:10px;">
-      <div style="width:10px;height:10px;border-radius:50%;background:${LO_STATUS_COLORS[s]};flex-shrink:0;"></div>
-      <div>
-        <div style="font-size:1.4rem;font-weight:700;color:#1F2937;">${counts[s]}</div>
-        <div style="font-size:0.75rem;color:#6B7280;">${label}</div>
-      </div>
-    </div>`
-  ).join('');
-}
-
-function renderLiveOrdersTable(list) {
-  const tbody = document.getElementById('live-orders-tbody');
-  if (!list.length) {
-    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:40px;color:#aaa;">لا توجد طلبات نشطة</td></tr>';
-    return;
-  }
-  tbody.innerHTML = list.map(o => {
-    const color = LO_STATUS_COLORS[o.status] || '#999';
-    const delayed = o.minutesAgo > 45 ? 'color:#EF4444;font-weight:700;' : '';
-    return `<tr>
-      <td style="font-size:0.78rem;color:#888;font-family:monospace;">${o.id.slice(0,8)}…</td>
-      <td><span style="background:${color}18;color:${color};border-radius:8px;padding:3px 10px;font-size:0.78rem;font-weight:700;white-space:nowrap;">${o.statusLabel}</span></td>
-      <td style="font-weight:600;">${o.vendorName}</td>
-      <td>
-        <div style="font-size:0.85rem;">${o.driverName}</div>
-        ${o.driverPhone ? `<div style="font-size:0.75rem;color:#888;" dir="ltr">${o.driverPhone}</div>` : ''}
-      </td>
-      <td style="font-size:0.82rem;">${o.address || o.region || '–'}</td>
-      <td style="font-weight:700;color:#D94523;">${(o.total||0).toLocaleString('ar-IQ')} د.ع</td>
-      <td style="${delayed}">${o.minutesAgo} دق ${o.minutesAgo > 45 ? '⚠' : ''}</td>
-    </tr>`;
-  }).join('');
 }
 
 /* ══════════════════════════════════════════════════════════

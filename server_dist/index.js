@@ -4382,64 +4382,6 @@ ${itemsList}
       return res.status(500).json({ error: "Failed to mark as read" });
     }
   });
-  app2.get("/api/admin/live-orders", async (req, res) => {
-    try {
-      const db2 = getFirestore();
-      if (!db2) return res.status(500).json({ error: "\u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u063A\u064A\u0631 \u0645\u062A\u0627\u062D\u0629" });
-      const ACTIVE_STATUSES = ["pending", "confirmed", "preparing", "ready", "picked_up", "delivering"];
-      const ordersSnap = await db2.collection("orders").where("status", "in", ACTIVE_STATUSES).limit(200).get();
-      const vendorIds = /* @__PURE__ */ new Set();
-      ordersSnap.docs.forEach((d) => {
-        const data = d.data();
-        if (data.vendorId) vendorIds.add(data.vendorId);
-      });
-      const vendorMap = {};
-      if (vendorIds.size > 0) {
-        const ids = Array.from(vendorIds);
-        for (let i = 0; i < ids.length; i += 10) {
-          const chunk = ids.slice(i, i + 10);
-          const snap = await db2.collection("vendors").where("id", "in", chunk).get();
-          snap.docs.forEach((d) => {
-            vendorMap[d.id] = d.data().storeName || "\u2013";
-          });
-        }
-      }
-      const STATUS_LABELS = {
-        pending: "\u0627\u0646\u062A\u0638\u0627\u0631 \u0642\u0628\u0648\u0644 \u0627\u0644\u0645\u062A\u062C\u0631",
-        confirmed: "\u0645\u0642\u0628\u0648\u0644 \u0645\u0646 \u0627\u0644\u0645\u062A\u062C\u0631",
-        preparing: "\u0642\u064A\u062F \u0627\u0644\u062A\u062D\u0636\u064A\u0631",
-        ready: "\u062C\u0627\u0647\u0632 - \u0627\u0646\u062A\u0638\u0627\u0631 \u0627\u0644\u0633\u0627\u0626\u0642",
-        picked_up: "\u0645\u0639 \u0627\u0644\u0633\u0627\u0626\u0642",
-        delivering: "\u0641\u064A \u0627\u0644\u0637\u0631\u064A\u0642 \u0644\u0644\u0639\u0645\u064A\u0644"
-      };
-      const orders = ordersSnap.docs.map((d) => {
-        const data = d.data();
-        const createdAt = data.createdAt?.toDate?.() ?? new Date(data.createdAt ?? 0);
-        const minutesAgo = Math.floor((Date.now() - createdAt.getTime()) / 6e4);
-        return {
-          id: d.id,
-          status: data.status,
-          statusLabel: STATUS_LABELS[data.status] || data.status,
-          vendorName: vendorMap[data.vendorId] || data.vendorName || "\u2013",
-          vendorId: data.vendorId || "",
-          driverName: data.driverName || "\u0644\u0645 \u064A\u064F\u0639\u064A\u064E\u0651\u0646",
-          driverPhone: data.driverPhone || "",
-          customerPhone: data.phoneNumber || "",
-          address: data.address || "",
-          region: data.region || "",
-          total: data.total || 0,
-          itemsCount: (data.items || []).reduce((s, i) => s + (Number(i.quantity) || 1), 0),
-          minutesAgo,
-          createdAt: createdAt.toISOString()
-        };
-      });
-      orders.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-      res.json({ orders, total: orders.length });
-    } catch (err) {
-      console.error("admin live-orders:", err);
-      res.status(500).json({ error: "\u062D\u062F\u062B \u062E\u0637\u0623 \u0641\u064A \u0627\u0644\u062E\u0627\u062F\u0645" });
-    }
-  });
   app2.get("/api/admin/financial-reports", async (req, res) => {
     try {
       const db2 = getFirestore();
