@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useEffect } from "react";
 import {
   View,
   StyleSheet,
@@ -78,7 +78,44 @@ export default function VendorProductsScreen({ navigation }: any) {
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
 
+  const [selectMode, setSelectMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkDeleteModal, setBulkDeleteModal] = useState(false);
+  const [bulkDeleting, setBulkDeleting] = useState(false);
+  const [resultModal, setResultModal] = useState<{ succeeded: number; failed: number } | null>(null);
+
   const isPending = vendorProfile?.status === "pending";
+
+  const exitSelectMode = useCallback(() => {
+    setSelectMode(false);
+    setSelectedIds(new Set());
+  }, []);
+
+  useEffect(() => {
+    navigation.setOptions({
+      headerRight: () =>
+        selectMode ? (
+          <Pressable
+            onPress={exitSelectMode}
+            style={{ marginRight: 16 }}
+            testID="button-cancel-select"
+          >
+            <ThemedText style={styles.headerBtn}>إلغاء</ThemedText>
+          </Pressable>
+        ) : (
+          <Pressable
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              setSelectMode(true);
+            }}
+            style={{ marginRight: 16 }}
+            testID="button-select-mode"
+          >
+            <ThemedText style={styles.headerBtn}>تحديد</ThemedText>
+          </Pressable>
+        ),
+    });
+  }, [navigation, selectMode, exitSelectMode]);
 
   const load = useCallback(async () => {
     if (!vendorToken) return;
@@ -123,11 +160,82 @@ export default function VendorProductsScreen({ navigation }: any) {
     }
   };
 
+  const confirmBulkDelete = async () => {
+    if (!vendorToken || selectedIds.size === 0) return;
+    const count = selectedIds.size;
+    setBulkDeleting(true);
+    try {
+      const res = await fetch(
+        new URL("/api/vendor/products/bulk-delete", getApiUrl()).toString(),
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${vendorToken}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ ids: Array.from(selectedIds) }),
+        }
+      );
+      const data = await res.json();
+      setBulkDeleteModal(false);
+      exitSelectMode();
+      await load();
+      if (!res.ok) {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+        setResultModal({ succeeded: 0, failed: count });
+      } else {
+        Haptics.notificationAsync(
+          (data.failed ?? 0) === 0
+            ? Haptics.NotificationFeedbackType.Success
+            : Haptics.NotificationFeedbackType.Warning
+        );
+        setResultModal({ succeeded: data.succeeded ?? 0, failed: data.failed ?? 0 });
+      }
+    } catch {
+      setBulkDeleteModal(false);
+      exitSelectMode();
+      setResultModal({ succeeded: 0, failed: count });
+    } finally {
+      setBulkDeleting(false);
+    }
+  };
+
+  const toggleSelect = (id: string) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
+
+  const handleFilterChange = (value: string) => {
+    setFilterStatus(value);
+    if (selectMode) {
+      setSelectedIds(new Set());
+    }
+  };
+
   const filteredProducts = filterStatus
     ? products.filter((p) => p.status === filterStatus)
     : products;
 
   const sections = groupByCategory(filteredProducts);
+  const allIds = filteredProducts.map((p) => p.id);
+  const allSelected = allIds.length > 0 && allIds.every((id) => selectedIds.has(id));
+
+  const toggleSelectAll = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    if (allSelected) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(allIds));
+    }
+  };
 
   const renderSectionHeader = ({ section }: { section: SectionData }) => (
     <View style={styles.sectionHeader}>
@@ -149,6 +257,9 @@ export default function VendorProductsScreen({ navigation }: any) {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
         navigation.navigate("VendorEditProduct", { product: item });
       }}
+      selectMode={selectMode}
+      selected={selectedIds.has(item.id)}
+      onToggleSelect={() => toggleSelect(item.id)}
     />
   );
 
@@ -173,6 +284,8 @@ export default function VendorProductsScreen({ navigation }: any) {
     { label: "مرفوضة", value: "rejected" },
   ];
 
+  const bulkDeleteBottom = tabBarHeight + 20;
+
   return (
     <View style={styles.container}>
       {/* Filter tabs */}
@@ -188,7 +301,7 @@ export default function VendorProductsScreen({ navigation }: any) {
               styles.filterChip,
               filterStatus === f.value && styles.filterChipActive,
             ]}
-            onPress={() => setFilterStatus(f.value)}
+            onPress={() => handleFilterChange(f.value)}
           >
             <ThemedText
               style={[
@@ -201,6 +314,27 @@ export default function VendorProductsScreen({ navigation }: any) {
           </Pressable>
         ))}
       </ScrollView>
+
+      {/* Select-all bar */}
+      {selectMode && filteredProducts.length > 0 ? (
+        <View style={styles.selectAllBar}>
+          <Pressable
+            style={styles.selectAllBtn}
+            onPress={toggleSelectAll}
+            testID="button-select-all"
+          >
+            <View style={[styles.checkbox, allSelected && styles.checkboxChecked]}>
+              {allSelected ? <Feather name="check" size={12} color="#fff" /> : null}
+            </View>
+            <ThemedText style={styles.selectAllText}>
+              {allSelected ? "إلغاء تحديد الكل" : "تحديد الكل"}
+            </ThemedText>
+          </Pressable>
+          <ThemedText style={styles.selectedCount}>
+            {selectedIds.size > 0 ? `${selectedIds.size} محدد` : ""}
+          </ThemedText>
+        </View>
+      ) : null}
 
       {loading ? (
         <ActivityIndicator color={PURPLE} style={{ marginTop: 40 }} />
@@ -216,7 +350,9 @@ export default function VendorProductsScreen({ navigation }: any) {
           contentContainerStyle={{
             paddingHorizontal: 16,
             paddingTop: 8,
-            paddingBottom: tabBarHeight + 16,
+            paddingBottom: selectMode
+              ? tabBarHeight + 88
+              : tabBarHeight + 16,
           }}
           refreshing={refreshing}
           onRefresh={onRefresh}
@@ -226,19 +362,57 @@ export default function VendorProductsScreen({ navigation }: any) {
         />
       )}
 
-      {/* FAB */}
-      <Pressable
-        style={[styles.fab, { bottom: tabBarHeight + 20 }]}
-        onPress={() => {
-          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-          navigation.navigate("VendorAddProduct");
-        }}
-        testID="button-add-product"
-      >
-        <Feather name="plus" size={24} color="#fff" />
-      </Pressable>
+      {/* FAB — hidden in select mode */}
+      {!selectMode ? (
+        <Pressable
+          style={[styles.fab, { bottom: tabBarHeight + 20 }]}
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+            navigation.navigate("VendorAddProduct");
+          }}
+          testID="button-add-product"
+        >
+          <Feather name="plus" size={24} color="#fff" />
+        </Pressable>
+      ) : null}
 
-      {/* Delete confirm modal */}
+      {/* Bulk delete bar */}
+      {selectMode ? (
+        <View style={[styles.bulkBar, { bottom: bulkDeleteBottom }]}>
+          <Pressable
+            style={[
+              styles.bulkDeleteBtn,
+              selectedIds.size === 0 && styles.bulkDeleteBtnDisabled,
+            ]}
+            onPress={() => {
+              if (selectedIds.size > 0) {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                setBulkDeleteModal(true);
+              }
+            }}
+            disabled={selectedIds.size === 0}
+            testID="button-bulk-delete"
+          >
+            <Feather
+              name="trash-2"
+              size={16}
+              color={selectedIds.size > 0 ? "#fff" : "#aaa"}
+            />
+            <ThemedText
+              style={[
+                styles.bulkDeleteText,
+                selectedIds.size === 0 && styles.bulkDeleteTextDisabled,
+              ]}
+            >
+              {selectedIds.size > 0
+                ? `حذف المحددة (${selectedIds.size})`
+                : "حدد منتجات للحذف"}
+            </ThemedText>
+          </Pressable>
+        </View>
+      ) : null}
+
+      {/* Delete confirm modal (single) */}
       <Modal transparent visible={!!deleteTarget} animationType="fade">
         <View style={styles.modalOverlay}>
           <View style={styles.deleteModal}>
@@ -274,6 +448,74 @@ export default function VendorProductsScreen({ navigation }: any) {
           </View>
         </View>
       </Modal>
+
+      {/* Bulk delete confirm modal */}
+      <Modal transparent visible={bulkDeleteModal} animationType="fade">
+        <View style={styles.modalOverlay}>
+          <View style={styles.deleteModal}>
+            <MaterialCommunityIcons
+              name="trash-can-outline"
+              size={40}
+              color="#EF4444"
+              style={{ marginBottom: 12 }}
+            />
+            <ThemedText style={styles.deleteTitle}>حذف المنتجات المحددة</ThemedText>
+            <ThemedText style={styles.deleteDesc}>
+              {`سيتم حذف ${selectedIds.size} منتج. هذا الإجراء لا يمكن التراجع عنه.`}
+            </ThemedText>
+            <View style={styles.deleteActions}>
+              <Pressable
+                style={[styles.deleteBtn, styles.deleteBtnConfirm]}
+                onPress={confirmBulkDelete}
+                disabled={bulkDeleting}
+                testID="button-confirm-bulk-delete"
+              >
+                {bulkDeleting ? (
+                  <ActivityIndicator color="#fff" size="small" />
+                ) : (
+                  <ThemedText style={styles.deleteBtnText}>نعم، احذف</ThemedText>
+                )}
+              </Pressable>
+              <Pressable
+                style={[styles.deleteBtn, styles.deleteBtnCancel]}
+                onPress={() => setBulkDeleteModal(false)}
+                disabled={bulkDeleting}
+              >
+                <ThemedText style={styles.deleteCancelText}>إلغاء</ThemedText>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Result modal */}
+      <Modal transparent visible={!!resultModal} animationType="fade">
+        <View style={styles.modalOverlay}>
+          <View style={styles.deleteModal}>
+            <MaterialCommunityIcons
+              name={resultModal?.failed === 0 ? "check-circle-outline" : "alert-circle-outline"}
+              size={44}
+              color={resultModal?.failed === 0 ? "#10B981" : "#F59E0B"}
+              style={{ marginBottom: 12 }}
+            />
+            <ThemedText style={styles.deleteTitle}>
+              {resultModal?.failed === 0 ? "تم الحذف بنجاح" : "اكتملت العملية"}
+            </ThemedText>
+            <ThemedText style={styles.deleteDesc}>
+              {resultModal?.failed === 0
+                ? `تم حذف ${resultModal?.succeeded} منتج بنجاح`
+                : `تم حذف ${resultModal?.succeeded} منتج، وفشل حذف ${resultModal?.failed} منتج`}
+            </ThemedText>
+            <Pressable
+              style={[styles.deleteBtn, styles.deleteBtnConfirm, { width: "100%" }]}
+              onPress={() => setResultModal(null)}
+              testID="button-result-close"
+            >
+              <ThemedText style={styles.deleteBtnText}>حسناً</ThemedText>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -282,14 +524,24 @@ function ProductCard({
   item,
   onDelete,
   onEdit,
+  selectMode,
+  selected,
+  onToggleSelect,
 }: {
   item: Product;
   onDelete: () => void;
   onEdit: () => void;
+  selectMode: boolean;
+  selected: boolean;
+  onToggleSelect: () => void;
 }) {
   const statusColor = STATUS_COLORS[item.status] || "#999";
   return (
-    <View style={styles.productCard} testID={`card-product-${item.id}`}>
+    <Pressable
+      style={[styles.productCard, selected && styles.productCardSelected]}
+      onPress={selectMode ? onToggleSelect : undefined}
+      testID={`card-product-${item.id}`}
+    >
       {item.imageUrl ? (
         <Image
           source={{ uri: item.imageUrl }}
@@ -301,6 +553,13 @@ function ProductCard({
           <MaterialCommunityIcons name="image-off" size={24} color="#ccc" />
         </View>
       )}
+      {selectMode ? (
+        <View style={styles.checkboxOverlay}>
+          <View style={[styles.checkbox, selected && styles.checkboxChecked]}>
+            {selected ? <Feather name="check" size={12} color="#fff" /> : null}
+          </View>
+        </View>
+      ) : null}
       <View style={styles.productInfo}>
         <View style={styles.productRow}>
           <ThemedText style={styles.productName} numberOfLines={1}>
@@ -316,22 +575,24 @@ function ProductCard({
           <ThemedText style={styles.productPrice}>
             {item.price.toLocaleString("ar-IQ")} د.ع
           </ThemedText>
-          <View style={styles.cardActions}>
-            <Pressable
-              style={styles.editIconBtn}
-              onPress={onEdit}
-              testID={`button-edit-${item.id}`}
-            >
-              <Feather name="edit-2" size={15} color={PURPLE} />
-            </Pressable>
-            <Pressable
-              style={styles.deleteIconBtn}
-              onPress={onDelete}
-              testID={`button-delete-${item.id}`}
-            >
-              <Feather name="trash-2" size={15} color="#EF4444" />
-            </Pressable>
-          </View>
+          {!selectMode ? (
+            <View style={styles.cardActions}>
+              <Pressable
+                style={styles.editIconBtn}
+                onPress={onEdit}
+                testID={`button-edit-${item.id}`}
+              >
+                <Feather name="edit-2" size={15} color={PURPLE} />
+              </Pressable>
+              <Pressable
+                style={styles.deleteIconBtn}
+                onPress={onDelete}
+                testID={`button-delete-${item.id}`}
+              >
+                <Feather name="trash-2" size={15} color="#EF4444" />
+              </Pressable>
+            </View>
+          ) : null}
         </View>
         {item.status === "rejected" && item.rejectionReason ? (
           <ThemedText style={styles.rejectionReason} numberOfLines={2}>
@@ -339,12 +600,17 @@ function ProductCard({
           </ThemedText>
         ) : null}
       </View>
-    </View>
+    </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#F8F7FF" },
+  headerBtn: {
+    fontFamily: "Cairo_700Bold",
+    fontSize: 14,
+    color: PURPLE,
+  },
   filterRow: {
     paddingHorizontal: 16,
     paddingBottom: 10,
@@ -362,6 +628,55 @@ const styles = StyleSheet.create({
   filterChipActive: { backgroundColor: PURPLE, borderColor: PURPLE },
   filterText: { fontFamily: "Cairo_700Bold", fontSize: 12, color: "#666" },
   filterTextActive: { color: "#fff" },
+
+  // Select-all bar
+  selectAllBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    backgroundColor: "#EDE7F6",
+  },
+  selectAllBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  selectAllText: {
+    fontFamily: "Cairo_700Bold",
+    fontSize: 13,
+    color: PURPLE,
+  },
+  selectedCount: {
+    fontFamily: "Cairo_700Bold",
+    fontSize: 13,
+    color: PURPLE,
+  },
+
+  // Checkbox
+  checkbox: {
+    width: 20,
+    height: 20,
+    borderRadius: 6,
+    borderWidth: 2,
+    borderColor: PURPLE,
+    backgroundColor: "#fff",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  checkboxChecked: {
+    backgroundColor: PURPLE,
+    borderColor: PURPLE,
+  },
+
+  // Checkbox overlay on card image
+  checkboxOverlay: {
+    position: "absolute",
+    top: 8,
+    left: 8,
+    zIndex: 10,
+  },
 
   // Section header
   sectionHeader: {
@@ -409,6 +724,10 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     overflow: "hidden",
     elevation: 2,
+  },
+  productCardSelected: {
+    borderWidth: 2,
+    borderColor: PURPLE,
   },
   productImg: { width: 86, height: 86 },
   productImgPlaceholder: {
@@ -477,6 +796,34 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     elevation: 8,
+  },
+
+  // Bulk delete bar
+  bulkBar: {
+    position: "absolute",
+    left: 16,
+    right: 16,
+  },
+  bulkDeleteBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    backgroundColor: "#EF4444",
+    paddingVertical: 14,
+    borderRadius: 16,
+    elevation: 6,
+  },
+  bulkDeleteBtnDisabled: {
+    backgroundColor: "#F3F4F6",
+  },
+  bulkDeleteText: {
+    fontFamily: "Cairo_700Bold",
+    fontSize: 14,
+    color: "#fff",
+  },
+  bulkDeleteTextDisabled: {
+    color: "#aaa",
   },
 
   // Empty

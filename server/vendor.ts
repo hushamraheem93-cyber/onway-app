@@ -567,6 +567,48 @@ router.put(
   }
 );
 
+// ── POST /api/vendor/products/bulk-delete ───────────────────────────────────
+router.post("/api/vendor/products/bulk-delete", requireVendor, async (req, res) => {
+  try {
+    const db = getFirestore();
+    if (!db) return res.status(500).json({ error: "قاعدة البيانات غير متاحة" });
+
+    const vid = (req as any).vendorId;
+    const { ids } = req.body;
+
+    if (!Array.isArray(ids) || ids.length === 0) {
+      return res.status(400).json({ error: "لم يتم تحديد أي منتجات" });
+    }
+
+    const uniqueIds = [...new Set(ids.filter((id) => typeof id === "string" && id.length > 0))];
+
+    if (uniqueIds.length === 0) {
+      return res.status(400).json({ error: "لم يتم تحديد أي منتجات صالحة" });
+    }
+
+    const results = await Promise.allSettled(
+      uniqueIds.map(async (pid: string) => {
+        const doc = await db.collection("vendorProducts").doc(pid).get();
+        if (!doc.exists || (doc.data() as any).vendorId !== vid) {
+          throw new Error(`المنتج ${pid} غير موجود`);
+        }
+        await db.collection("vendorProducts").doc(pid).update({
+          status: "deleted",
+          deletedAt: new Date().toISOString(),
+        });
+      })
+    );
+
+    const succeeded = results.filter((r) => r.status === "fulfilled").length;
+    const failed = results.filter((r) => r.status === "rejected").length;
+
+    res.json({ success: true, succeeded, failed, total: ids.length });
+  } catch (err) {
+    console.error("bulk delete products:", err);
+    res.status(500).json({ error: "حدث خطأ في الخادم" });
+  }
+});
+
 // ── DELETE /api/vendor/products/:id ─────────────────────────────────────────
 router.delete("/api/vendor/products/:pid", requireVendor, async (req, res) => {
   try {

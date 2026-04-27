@@ -4800,6 +4800,39 @@ router.put(
     }
   }
 );
+router.post("/api/vendor/products/bulk-delete", requireVendor, async (req, res) => {
+  try {
+    const db2 = getFirestore();
+    if (!db2) return res.status(500).json({ error: "\u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u063A\u064A\u0631 \u0645\u062A\u0627\u062D\u0629" });
+    const vid = req.vendorId;
+    const { ids } = req.body;
+    if (!Array.isArray(ids) || ids.length === 0) {
+      return res.status(400).json({ error: "\u0644\u0645 \u064A\u062A\u0645 \u062A\u062D\u062F\u064A\u062F \u0623\u064A \u0645\u0646\u062A\u062C\u0627\u062A" });
+    }
+    const uniqueIds = [...new Set(ids.filter((id) => typeof id === "string" && id.length > 0))];
+    if (uniqueIds.length === 0) {
+      return res.status(400).json({ error: "\u0644\u0645 \u064A\u062A\u0645 \u062A\u062D\u062F\u064A\u062F \u0623\u064A \u0645\u0646\u062A\u062C\u0627\u062A \u0635\u0627\u0644\u062D\u0629" });
+    }
+    const results = await Promise.allSettled(
+      uniqueIds.map(async (pid) => {
+        const doc = await db2.collection("vendorProducts").doc(pid).get();
+        if (!doc.exists || doc.data().vendorId !== vid) {
+          throw new Error(`\u0627\u0644\u0645\u0646\u062A\u062C ${pid} \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F`);
+        }
+        await db2.collection("vendorProducts").doc(pid).update({
+          status: "deleted",
+          deletedAt: (/* @__PURE__ */ new Date()).toISOString()
+        });
+      })
+    );
+    const succeeded = results.filter((r) => r.status === "fulfilled").length;
+    const failed = results.filter((r) => r.status === "rejected").length;
+    res.json({ success: true, succeeded, failed, total: ids.length });
+  } catch (err) {
+    console.error("bulk delete products:", err);
+    res.status(500).json({ error: "\u062D\u062F\u062B \u062E\u0637\u0623 \u0641\u064A \u0627\u0644\u062E\u0627\u062F\u0645" });
+  }
+});
 router.delete("/api/vendor/products/:pid", requireVendor, async (req, res) => {
   try {
     const db2 = getFirestore();
