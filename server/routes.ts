@@ -3460,6 +3460,167 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ── ADMIN: Live Orders Monitor ───────────────────────────────────────────────
+  app.get("/api/admin/live-orders", async (req: Request, res: Response) => {
+    try {
+      const db = getFirestore();
+      if (!db) return res.status(500).json({ error: "قاعدة البيانات غير متاحة" });
+
+      const ACTIVE_STATUSES = ["pending", "confirmed", "preparing", "ready", "picked_up", "delivering"];
+
+      const ordersSnap = await db.collection("orders")
+        .where("status", "in", ACTIVE_STATUSES)
+        .limit(200)
+        .get();
+
+      const vendorIds = new Set<string>();
+      ordersSnap.docs.forEach(d => {
+        const data = d.data() as any;
+        if (data.vendorId) vendorIds.add(data.vendorId);
+      });
+
+      const vendorMap: Record<string, string> = {};
+      if (vendorIds.size > 0) {
+        const ids = Array.from(vendorIds);
+        for (let i = 0; i < ids.length; i += 10) {
+          const chunk = ids.slice(i, i + 10);
+          const snap = await db.collection("vendors").where("id", "in", chunk).get();
+          snap.docs.forEach(d => { vendorMap[d.id] = (d.data() as any).storeName || "–"; });
+        }
+      }
+
+      const STATUS_LABELS: Record<string, string> = {
+        pending: "انتظار قبول المتجر", confirmed: "مقبول من المتجر", preparing: "قيد التحضير",
+        ready: "جاهز - انتظار السائق", picked_up: "مع السائق", delivering: "في الطريق للعميل",
+      };
+
+      const orders = ordersSnap.docs.map(d => {
+        const data = d.data() as any;
+        const createdAt: Date = data.createdAt?.toDate?.() ?? new Date(data.createdAt ?? 0);
+        const minutesAgo = Math.floor((Date.now() - createdAt.getTime()) / 60000);
+        return {
+          id: d.id,
+          status: data.status,
+          statusLabel: STATUS_LABELS[data.status] || data.status,
+          vendorName: vendorMap[data.vendorId] || data.vendorName || "–",
+          vendorId: data.vendorId || "",
+          driverName: data.driverName || "لم يُعيَّن",
+          driverPhone: data.driverPhone || "",
+          customerPhone: data.phoneNumber || "",
+          address: data.address || "",
+          region: data.region || "",
+          total: data.total || 0,
+          itemsCount: (data.items || []).reduce((s: number, i: any) => s + (Number(i.quantity) || 1), 0),
+          minutesAgo,
+          createdAt: createdAt.toISOString(),
+        };
+      });
+
+      orders.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+      res.json({ orders, total: orders.length });
+    } catch (err) {
+      console.error("admin live-orders:", err);
+      res.status(500).json({ error: "حدث خطأ في الخادم" });
+    }
+  });
+
+  // ── ADMIN: Financial Reports ──────────────────────────────────────────────────
+  app.get("/api/admin/financial-reports", async (req: Request, res: Response) => {
+    try {
+      const db = getFirestore();
+      if (!db) return res.status(500).json({ error: "قاعدة البيانات غير متاحة" });
+
+      const period = (req.query.period as string) || "month";
+      const now = new Date();
+      let startDate: Date | null = null;
+      if (period === "today") {
+        startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      } else if (period === "week") {
+        startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+      } else if (period === "month") {
+        startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+      }
+
+      const snap = await db.collection("orders")
+        .where("status", "==", "delivered")
+        .limit(2000)
+        .get();
+
+      const vendorsSnap = await db.collection("vendors").get();
+      const vendorNames: Record<string, string> = {};
+      vendorsSnap.docs.forEach(d => { vendorNames[d.id] = (d.data() as any).storeName || "–"; });
+
+      const vpSnap = await db.collection("vendorProducts").get();
+      const productVendorMap: Record<string, string> = {};
+      vpSnap.docs.forEach(d => { productVendorMap[d.id] = (d.data() as any).vendorId || ""; });
+
+      let totalRevenue = 0;
+      let totalCommission = 0;
+      let totalOrders = 0;
+      let totalDriverEarnings = 0;
+
+      const vendorStats: Record<string, { vendorId: string; vendorName: string; revenue: number; commission: number; netEarning: number; orders: number }> = {};
+      const dailyMap: Record<string, { date: string; revenue: number; commission: number; orders: number }> = {};
+
+      for (const doc of snap.docs) {
+        const data = doc.data() as any;
+        const createdAt: Date = data.createdAt?.toDate?.() ?? new Date(data.createdAt ?? 0);
+        if (startDate && createdAt < startDate) continue;
+
+        const orderTotal: number = Number(data.total) || 0;
+        const deliveryFee: number = Number(data.deliveryFee) || 0;
+        const subtotal: number = orderTotal - deliveryFee;
+        const commission: number = Number(data.vendorCommissionAmount) || Math.round(subtotal * 0.1);
+        const driverEarning: number = Number(data.driverEarning) || deliveryFee;
+        const vendorNet: number = subtotal - commission;
+
+        let vid = data.vendorId || "";
+        if (!vid) {
+          const items: any[] = Array.isArray(data.items) ? data.items : [];
+          for (const item of items) {
+            if (item.productId && productVendorMap[item.productId]) {
+              vid = productVendorMap[item.productId];
+              break;
+            }
+          }
+        }
+
+        totalRevenue += orderTotal;
+        totalCommission += commission;
+        totalDriverEarnings += driverEarning;
+        totalOrders++;
+
+        if (vid) {
+          if (!vendorStats[vid]) {
+            vendorStats[vid] = { vendorId: vid, vendorName: vendorNames[vid] || "–", revenue: 0, commission: 0, netEarning: 0, orders: 0 };
+          }
+          vendorStats[vid].revenue += subtotal;
+          vendorStats[vid].commission += commission;
+          vendorStats[vid].netEarning += vendorNet;
+          vendorStats[vid].orders++;
+        }
+
+        const day = createdAt.toISOString().substring(0, 10);
+        if (!dailyMap[day]) dailyMap[day] = { date: day, revenue: 0, commission: 0, orders: 0 };
+        dailyMap[day].revenue += orderTotal;
+        dailyMap[day].commission += commission;
+        dailyMap[day].orders++;
+      }
+
+      const vendorBreakdown = Object.values(vendorStats).sort((a, b) => b.revenue - a.revenue);
+      const dailySales = Object.values(dailyMap).sort((a, b) => a.date.localeCompare(b.date)).slice(-30);
+      const onwayProfit = totalCommission;
+
+      res.json({
+        period, totalRevenue, totalCommission, totalOrders,
+        totalDriverEarnings, onwayProfit, vendorBreakdown, dailySales,
+      });
+    } catch (err) {
+      console.error("admin financial-reports:", err);
+      res.status(500).json({ error: "حدث خطأ في الخادم" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

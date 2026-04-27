@@ -4382,6 +4382,152 @@ ${itemsList}
       return res.status(500).json({ error: "Failed to mark as read" });
     }
   });
+  app2.get("/api/admin/live-orders", async (req, res) => {
+    try {
+      const db2 = getFirestore();
+      if (!db2) return res.status(500).json({ error: "\u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u063A\u064A\u0631 \u0645\u062A\u0627\u062D\u0629" });
+      const ACTIVE_STATUSES = ["pending", "confirmed", "preparing", "ready", "picked_up", "delivering"];
+      const ordersSnap = await db2.collection("orders").where("status", "in", ACTIVE_STATUSES).limit(200).get();
+      const vendorIds = /* @__PURE__ */ new Set();
+      ordersSnap.docs.forEach((d) => {
+        const data = d.data();
+        if (data.vendorId) vendorIds.add(data.vendorId);
+      });
+      const vendorMap = {};
+      if (vendorIds.size > 0) {
+        const ids = Array.from(vendorIds);
+        for (let i = 0; i < ids.length; i += 10) {
+          const chunk = ids.slice(i, i + 10);
+          const snap = await db2.collection("vendors").where("id", "in", chunk).get();
+          snap.docs.forEach((d) => {
+            vendorMap[d.id] = d.data().storeName || "\u2013";
+          });
+        }
+      }
+      const STATUS_LABELS = {
+        pending: "\u0627\u0646\u062A\u0638\u0627\u0631 \u0642\u0628\u0648\u0644 \u0627\u0644\u0645\u062A\u062C\u0631",
+        confirmed: "\u0645\u0642\u0628\u0648\u0644 \u0645\u0646 \u0627\u0644\u0645\u062A\u062C\u0631",
+        preparing: "\u0642\u064A\u062F \u0627\u0644\u062A\u062D\u0636\u064A\u0631",
+        ready: "\u062C\u0627\u0647\u0632 - \u0627\u0646\u062A\u0638\u0627\u0631 \u0627\u0644\u0633\u0627\u0626\u0642",
+        picked_up: "\u0645\u0639 \u0627\u0644\u0633\u0627\u0626\u0642",
+        delivering: "\u0641\u064A \u0627\u0644\u0637\u0631\u064A\u0642 \u0644\u0644\u0639\u0645\u064A\u0644"
+      };
+      const orders = ordersSnap.docs.map((d) => {
+        const data = d.data();
+        const createdAt = data.createdAt?.toDate?.() ?? new Date(data.createdAt ?? 0);
+        const minutesAgo = Math.floor((Date.now() - createdAt.getTime()) / 6e4);
+        return {
+          id: d.id,
+          status: data.status,
+          statusLabel: STATUS_LABELS[data.status] || data.status,
+          vendorName: vendorMap[data.vendorId] || data.vendorName || "\u2013",
+          vendorId: data.vendorId || "",
+          driverName: data.driverName || "\u0644\u0645 \u064A\u064F\u0639\u064A\u064E\u0651\u0646",
+          driverPhone: data.driverPhone || "",
+          customerPhone: data.phoneNumber || "",
+          address: data.address || "",
+          region: data.region || "",
+          total: data.total || 0,
+          itemsCount: (data.items || []).reduce((s, i) => s + (Number(i.quantity) || 1), 0),
+          minutesAgo,
+          createdAt: createdAt.toISOString()
+        };
+      });
+      orders.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+      res.json({ orders, total: orders.length });
+    } catch (err) {
+      console.error("admin live-orders:", err);
+      res.status(500).json({ error: "\u062D\u062F\u062B \u062E\u0637\u0623 \u0641\u064A \u0627\u0644\u062E\u0627\u062F\u0645" });
+    }
+  });
+  app2.get("/api/admin/financial-reports", async (req, res) => {
+    try {
+      const db2 = getFirestore();
+      if (!db2) return res.status(500).json({ error: "\u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u063A\u064A\u0631 \u0645\u062A\u0627\u062D\u0629" });
+      const period = req.query.period || "month";
+      const now = /* @__PURE__ */ new Date();
+      let startDate = null;
+      if (period === "today") {
+        startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      } else if (period === "week") {
+        startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1e3);
+      } else if (period === "month") {
+        startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+      }
+      const snap = await db2.collection("orders").where("status", "==", "delivered").limit(2e3).get();
+      const vendorsSnap = await db2.collection("vendors").get();
+      const vendorNames = {};
+      vendorsSnap.docs.forEach((d) => {
+        vendorNames[d.id] = d.data().storeName || "\u2013";
+      });
+      const vpSnap = await db2.collection("vendorProducts").get();
+      const productVendorMap = {};
+      vpSnap.docs.forEach((d) => {
+        productVendorMap[d.id] = d.data().vendorId || "";
+      });
+      let totalRevenue = 0;
+      let totalCommission = 0;
+      let totalOrders = 0;
+      let totalDriverEarnings = 0;
+      const vendorStats = {};
+      const dailyMap = {};
+      for (const doc of snap.docs) {
+        const data = doc.data();
+        const createdAt = data.createdAt?.toDate?.() ?? new Date(data.createdAt ?? 0);
+        if (startDate && createdAt < startDate) continue;
+        const orderTotal = Number(data.total) || 0;
+        const deliveryFee = Number(data.deliveryFee) || 0;
+        const subtotal = orderTotal - deliveryFee;
+        const commission = Number(data.vendorCommissionAmount) || Math.round(subtotal * 0.1);
+        const driverEarning = Number(data.driverEarning) || deliveryFee;
+        const vendorNet = subtotal - commission;
+        let vid = data.vendorId || "";
+        if (!vid) {
+          const items = Array.isArray(data.items) ? data.items : [];
+          for (const item of items) {
+            if (item.productId && productVendorMap[item.productId]) {
+              vid = productVendorMap[item.productId];
+              break;
+            }
+          }
+        }
+        totalRevenue += orderTotal;
+        totalCommission += commission;
+        totalDriverEarnings += driverEarning;
+        totalOrders++;
+        if (vid) {
+          if (!vendorStats[vid]) {
+            vendorStats[vid] = { vendorId: vid, vendorName: vendorNames[vid] || "\u2013", revenue: 0, commission: 0, netEarning: 0, orders: 0 };
+          }
+          vendorStats[vid].revenue += subtotal;
+          vendorStats[vid].commission += commission;
+          vendorStats[vid].netEarning += vendorNet;
+          vendorStats[vid].orders++;
+        }
+        const day = createdAt.toISOString().substring(0, 10);
+        if (!dailyMap[day]) dailyMap[day] = { date: day, revenue: 0, commission: 0, orders: 0 };
+        dailyMap[day].revenue += orderTotal;
+        dailyMap[day].commission += commission;
+        dailyMap[day].orders++;
+      }
+      const vendorBreakdown = Object.values(vendorStats).sort((a, b) => b.revenue - a.revenue);
+      const dailySales = Object.values(dailyMap).sort((a, b) => a.date.localeCompare(b.date)).slice(-30);
+      const onwayProfit = totalCommission;
+      res.json({
+        period,
+        totalRevenue,
+        totalCommission,
+        totalOrders,
+        totalDriverEarnings,
+        onwayProfit,
+        vendorBreakdown,
+        dailySales
+      });
+    } catch (err) {
+      console.error("admin financial-reports:", err);
+      res.status(500).json({ error: "\u062D\u062F\u062B \u062E\u0637\u0623 \u0641\u064A \u0627\u0644\u062E\u0627\u062F\u0645" });
+    }
+  });
   const httpServer = createServer(app2);
   return httpServer;
 }

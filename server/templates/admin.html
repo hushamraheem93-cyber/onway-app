@@ -1390,6 +1390,11 @@
           <span>المطاعم</span>
           <span class="badge" id="vendors-count">0</span>
         </div>
+        <div class="nav-item" onclick="showSection('liveOrders', this)">
+          <i data-lucide="activity"></i>
+          <span>الطلبات المباشرة</span>
+          <span class="badge" id="live-orders-count" style="background:#10B981;color:#fff;display:none;">0</span>
+        </div>
       </div>
 
       <div class="nav-section">
@@ -1468,6 +1473,10 @@
         <div class="nav-item" onclick="showSection('settings', this)">
           <i data-lucide="archive"></i>
           <span>الأرشفة والتقارير</span>
+        </div>
+        <div class="nav-item" onclick="showSection('financialReports', this)">
+          <i data-lucide="bar-chart-2"></i>
+          <span>التقارير المالية</span>
         </div>
       </div>
 
@@ -2471,9 +2480,9 @@
         <table class="table">
           <thead><tr>
             <th>المتجر</th>
-            <th>نوع النشاط</th>
             <th>صاحب المتجر</th>
             <th>رقم الهاتف</th>
+            <th>العنوان</th>
             <th>الحالة</th>
             <th>تاريخ التسجيل</th>
             <th>الإجراءات</th>
@@ -2498,11 +2507,18 @@
       </header>
 
       <!-- Filter tabs -->
-      <div style="display:flex;gap:8px;margin-bottom:18px;flex-wrap:wrap;">
+      <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:center;">
         <button class="btn btn-sm vpp-filter-btn" data-status="pending" onclick="filterVendorProductsAdmin('pending')" style="background:#FEF3C7;color:#92400E;border-color:#FDE68A;">قيد الموافقة</button>
         <button class="btn btn-sm vpp-filter-btn active" data-status="" onclick="filterVendorProductsAdmin('')">الكل</button>
         <button class="btn btn-sm vpp-filter-btn" data-status="approved" onclick="filterVendorProductsAdmin('approved')" style="background:#D1FAE5;color:#065F46;border-color:#A7F3D0;">معتمدة</button>
         <button class="btn btn-sm vpp-filter-btn" data-status="rejected" onclick="filterVendorProductsAdmin('rejected')" style="background:#FEE2E2;color:#991B1B;border-color:#FECACA;">مرفوضة</button>
+      </div>
+      <!-- Vendor filter -->
+      <div style="display:flex;gap:10px;margin-bottom:18px;align-items:center;">
+        <label style="font-size:0.85rem;font-weight:600;color:#374151;white-space:nowrap;">تصفية حسب المتجر:</label>
+        <select id="vpp-vendor-filter" onchange="filterVendorProductsByStore(this.value)" style="padding:7px 12px;border:1px solid #D1D5DB;border-radius:8px;font-family:Cairo,sans-serif;font-size:0.85rem;background:#fff;cursor:pointer;flex:1;max-width:320px;">
+          <option value="">كل المتاجر</option>
+        </select>
       </div>
 
       <div id="vendor-products-loading" style="text-align:center;padding:40px;color:#888;display:none;">
@@ -2555,6 +2571,112 @@
         </div>
       </div>
     </div>
+    <!-- ═══════════════════════════════════════════════════════════════════════════════════════ -->
+
+    <!-- ██ LIVE ORDERS SECTION ██ -->
+    <div id="liveOrders-section" class="section">
+      <header class="header">
+        <div class="header-title">
+          <h2><i data-lucide="activity" style="display:inline-block;vertical-align:middle;margin-left:8px;color:#10B981;"></i> الطلبات المباشرة</h2>
+          <p>الطلبات النشطة الآن في الضلوعية - يتحدث كل 30 ثانية</p>
+        </div>
+        <div class="header-actions">
+          <button class="btn btn-outline btn-sm" onclick="loadLiveOrders()">
+            <i data-lucide="refresh-cw"></i> تحديث
+          </button>
+        </div>
+      </header>
+
+      <!-- Summary cards -->
+      <div id="live-orders-summary" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:20px;"></div>
+
+      <!-- Status filter -->
+      <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;">
+        <button class="btn btn-sm lo-filter active" data-status="" onclick="filterLiveOrders('')">الكل</button>
+        <button class="btn btn-sm lo-filter" data-status="pending" onclick="filterLiveOrders('pending')" style="background:#FEF3C7;color:#92400E;border-color:#FDE68A;">انتظار المتجر</button>
+        <button class="btn btn-sm lo-filter" data-status="confirmed" onclick="filterLiveOrders('confirmed')" style="background:#DBEAFE;color:#1E40AF;border-color:#93C5FD;">مقبول</button>
+        <button class="btn btn-sm lo-filter" data-status="preparing" onclick="filterLiveOrders('preparing')" style="background:#EDE9FE;color:#5B21B6;border-color:#C4B5FD;">قيد التحضير</button>
+        <button class="btn btn-sm lo-filter" data-status="ready" onclick="filterLiveOrders('ready')" style="background:#D1FAE5;color:#065F46;border-color:#6EE7B7;">جاهز</button>
+        <button class="btn btn-sm lo-filter" data-status="picked_up" onclick="filterLiveOrders('picked_up')" style="background:#FEF9C3;color:#713F12;border-color:#FDE047;">مع السائق</button>
+        <button class="btn btn-sm lo-filter" data-status="delivering" onclick="filterLiveOrders('delivering')" style="background:#DCFCE7;color:#14532D;border-color:#86EFAC;">في الطريق</button>
+      </div>
+
+      <div id="live-orders-loading" style="text-align:center;padding:40px;color:#888;display:none;">
+        <i data-lucide="loader" style="animation:spin 1s linear infinite;"></i> جارٍ التحميل...
+      </div>
+
+      <div class="table-wrap">
+        <table class="table">
+          <thead><tr>
+            <th>رقم الطلب</th>
+            <th>الحالة</th>
+            <th>المتجر</th>
+            <th>السائق</th>
+            <th>العنوان</th>
+            <th>المبلغ</th>
+            <th>منذ (دق)</th>
+          </tr></thead>
+          <tbody id="live-orders-tbody">
+            <tr><td colspan="7" style="text-align:center;padding:32px;color:#aaa;">جاري التحميل...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════════════════════════════════════ -->
+
+    <!-- ██ FINANCIAL REPORTS SECTION ██ -->
+    <div id="financialReports-section" class="section">
+      <header class="header">
+        <div class="header-title">
+          <h2><i data-lucide="bar-chart-2" style="display:inline-block;vertical-align:middle;margin-left:8px;color:#D94523;"></i> التقارير المالية</h2>
+          <p>أرباح OnWay والعمولات ومستحقات المتاجر</p>
+        </div>
+        <div class="header-actions">
+          <button class="btn btn-outline btn-sm" onclick="loadFinancialReports()">
+            <i data-lucide="refresh-cw"></i> تحديث
+          </button>
+        </div>
+      </header>
+
+      <!-- Period filter -->
+      <div style="display:flex;gap:8px;margin-bottom:20px;flex-wrap:wrap;">
+        <button class="btn btn-sm fr-filter" data-period="today" onclick="filterFinancialReports('today')" style="background:#FEE2E2;color:#991B1B;border-color:#FECACA;">اليوم</button>
+        <button class="btn btn-sm fr-filter" data-period="week" onclick="filterFinancialReports('week')" style="background:#FEF3C7;color:#92400E;border-color:#FDE68A;">هذا الأسبوع</button>
+        <button class="btn btn-sm fr-filter active" data-period="month" onclick="filterFinancialReports('month')">هذا الشهر</button>
+        <button class="btn btn-sm fr-filter" data-period="all" onclick="filterFinancialReports('all')" style="background:#F3F4F6;color:#374151;border-color:#D1D5DB;">الكل</button>
+      </div>
+
+      <!-- KPI cards -->
+      <div id="fr-kpi-cards" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin-bottom:28px;"></div>
+
+      <!-- Vendor breakdown table -->
+      <div style="background:#fff;border-radius:16px;padding:20px;box-shadow:0 2px 8px rgba(0,0,0,0.06);margin-bottom:24px;">
+        <h3 style="margin:0 0 16px;font-size:1rem;font-weight:700;color:#1F2937;">مستحقات المتاجر</h3>
+        <div class="table-wrap" style="margin:0;">
+          <table class="table" style="margin:0;">
+            <thead><tr>
+              <th>#</th>
+              <th>اسم المتجر</th>
+              <th>الطلبات</th>
+              <th>إجمالي المبيعات</th>
+              <th>عمولة OnWay</th>
+              <th>صافي المستحق</th>
+            </tr></thead>
+            <tbody id="fr-vendor-tbody">
+              <tr><td colspan="6" style="text-align:center;padding:32px;color:#aaa;">جاري التحميل...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Daily chart -->
+      <div style="background:#fff;border-radius:16px;padding:20px;box-shadow:0 2px 8px rgba(0,0,0,0.06);">
+        <h3 style="margin:0 0 16px;font-size:1rem;font-weight:700;color:#1F2937;">المبيعات اليومية</h3>
+        <canvas id="fr-daily-chart" height="90"></canvas>
+      </div>
+    </div>
+
     <!-- ═══════════════════════════════════════════════════════════════════════════════════════ -->
 
     <div id="delivery-section" class="section">
@@ -3404,6 +3526,9 @@
       if (section === 'vendors') { loadVendors(); loadVendorFinancials(); }
       if (section === 'vendorPartners') loadVendorPartners();
       if (section === 'vendorProducts') loadVendorProductsAdmin();
+      if (section === 'liveOrders') { loadLiveOrders(); startLiveOrdersPolling(); }
+      if (section === 'financialReports') loadFinancialReports();
+      if (section !== 'liveOrders') stopLiveOrdersPolling();
       if (section === 'settings') loadSettingsStats();
       if (section === 'notifications') loadNotificationsStats();
       if (section === 'appUsers') loadAppUsers();
@@ -8304,7 +8429,7 @@ const BIZ_TYPE_LABELS  = { restaurant:'مطعم', supermarket:'سوبرمارك�
 function renderVendorPartnersTable(list) {
   const tbody = document.getElementById('vendor-partners-tbody');
   if (!list.length) {
-    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:40px;color:#aaa;">لا توجد بيانات</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:40px;color:#aaa;">لا توجد بيانات</td></tr>';
     lucide.createIcons();
     return;
   }
@@ -8313,24 +8438,63 @@ function renderVendorPartnersTable(list) {
     const statusLabel = VP_STATUS_LABELS[v.status] || v.status;
     const bizLabel    = BIZ_TYPE_LABELS[v.businessType] || v.businessType;
     const date        = v.createdAt ? new Date(v.createdAt).toLocaleDateString('ar-IQ') : '–';
+    const logo        = v.profileImageUrl
+      ? `<img src="${v.profileImageUrl}" style="width:36px;height:36px;border-radius:8px;object-fit:cover;margin-left:8px;vertical-align:middle;" onerror="this.style.display='none'">`
+      : `<span style="display:inline-flex;width:36px;height:36px;border-radius:8px;background:#F3EEF8;align-items:center;justify-content:center;margin-left:8px;vertical-align:middle;font-size:1rem;">🏪</span>`;
+
+    // Quick action buttons based on current status
+    let quickBtns = '';
+    if (v.status === 'pending') {
+      quickBtns = `
+        <button class="btn btn-sm" style="background:#D1FAE5;color:#065F46;border-color:#A7F3D0;padding:4px 10px;" onclick="quickVendorStatusToggle('${v.id}','active')">
+          <i data-lucide="check" style="width:13px;height:13px;"></i> تفعيل
+        </button>
+        <button class="btn btn-sm" style="background:#FEE2E2;color:#991B1B;border-color:#FECACA;padding:4px 10px;" onclick="quickVendorStatusToggle('${v.id}','rejected')">
+          <i data-lucide="x" style="width:13px;height:13px;"></i> رفض
+        </button>`;
+    } else if (v.status === 'active') {
+      quickBtns = `
+        <button class="btn btn-sm" style="background:#FEF3C7;color:#92400E;border-color:#FDE68A;padding:4px 10px;" onclick="quickVendorStatusToggle('${v.id}','suspended')">
+          <i data-lucide="pause" style="width:13px;height:13px;"></i> تعليق
+        </button>`;
+    } else if (v.status === 'suspended') {
+      quickBtns = `
+        <button class="btn btn-sm" style="background:#D1FAE5;color:#065F46;border-color:#A7F3D0;padding:4px 10px;" onclick="quickVendorStatusToggle('${v.id}','active')">
+          <i data-lucide="play" style="width:13px;height:13px;"></i> إعادة تفعيل
+        </button>`;
+    } else if (v.status === 'rejected') {
+      quickBtns = `
+        <button class="btn btn-sm" style="background:#D1FAE5;color:#065F46;border-color:#A7F3D0;padding:4px 10px;" onclick="quickVendorStatusToggle('${v.id}','active')">
+          <i data-lucide="rotate-ccw" style="width:13px;height:13px;"></i> قبول
+        </button>`;
+    }
+
     return `<tr>
       <td>
-        <div style="font-weight:700;">${v.storeName || '–'}</div>
-        <div style="font-size:0.78rem;color:#888;">${bizLabel}</div>
+        <div style="display:flex;align-items:center;">
+          ${logo}
+          <div>
+            <div style="font-weight:700;">${v.storeName || '–'}</div>
+            <div style="font-size:0.75rem;color:#888;">${bizLabel}</div>
+          </div>
+        </div>
       </td>
-      <td>${bizLabel}</td>
       <td>${v.ownerName || '–'}</td>
       <td dir="ltr">${v.phoneNumber || '–'}</td>
+      <td style="font-size:0.82rem;color:#888;">${v.address || '–'}</td>
       <td>
-        <span style="background:${statusColor}18;color:${statusColor};border-radius:8px;padding:3px 10px;font-size:0.8rem;font-weight:700;">
+        <span style="background:${statusColor}18;color:${statusColor};border-radius:8px;padding:3px 10px;font-size:0.8rem;font-weight:700;white-space:nowrap;">
           ${statusLabel}
         </span>
       </td>
       <td>${date}</td>
       <td>
-        <button class="btn btn-outline btn-sm" onclick="openVpReviewModal('${v.id}')">
-          <i data-lucide="eye"></i> مراجعة
-        </button>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;">
+          ${quickBtns}
+          <button class="btn btn-outline btn-sm" style="padding:4px 10px;" onclick="openVpReviewModal('${v.id}')">
+            <i data-lucide="eye" style="width:13px;height:13px;"></i> تفاصيل
+          </button>
+        </div>
       </td>
     </tr>`;
   }).join('');
@@ -8487,6 +8651,262 @@ async function vendorProductAction(action) {
     showToast('error', 'خطأ', 'تعذر الاتصال بالخادم');
   }
 }
+
+/* ══════════════════════════════════════════════════════════
+   VENDOR PRODUCTS — filter by store
+   ══════════════════════════════════════════════════════════ */
+
+let currentVppVendorFilter = '';
+
+function populateVppVendorFilter(products) {
+  const sel = document.getElementById('vpp-vendor-filter');
+  if (!sel) return;
+  const vendors = {};
+  products.forEach(p => { if (p.vendorId && p.storeName) vendors[p.vendorId] = p.storeName; });
+  const current = sel.value;
+  sel.innerHTML = '<option value="">كل المتاجر</option>' +
+    Object.entries(vendors).map(([id, name]) =>
+      `<option value="${id}" ${id === current ? 'selected' : ''}>${name}</option>`
+    ).join('');
+}
+
+function filterVendorProductsByStore(vendorId) {
+  currentVppVendorFilter = vendorId;
+  const filtered = currentVppVendorFilter
+    ? allVendorProductsAdmin.filter(p => p.vendorId === currentVppVendorFilter)
+    : allVendorProductsAdmin;
+  renderVendorProductsGrid(filtered);
+}
+
+/* ══════════════════════════════════════════════════════════
+   VENDOR PARTNERS — quick status toggle
+   ══════════════════════════════════════════════════════════ */
+
+async function quickVendorStatusToggle(vendorId, newStatus) {
+  try {
+    const res = await fetch(`${API_BASE}/admin/vendor-partners/${vendorId}/status`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: newStatus })
+    });
+    const data = await res.json();
+    if (res.ok) {
+      const label = VP_STATUS_LABELS[newStatus] || newStatus;
+      showToast('success', 'تم', `تم تغيير حالة المتجر إلى ${label}`);
+      await loadVendorPartners();
+    } else {
+      showToast('error', 'خطأ', data.error || 'فشل تغيير الحالة');
+    }
+  } catch(e) {
+    showToast('error', 'خطأ', 'تعذر الاتصال بالخادم');
+  }
+}
+
+/* ══════════════════════════════════════════════════════════
+   LIVE ORDERS
+   ══════════════════════════════════════════════════════════ */
+
+let allLiveOrders = [];
+let currentLoFilter = '';
+let liveOrdersPollingTimer = null;
+
+function startLiveOrdersPolling() {
+  stopLiveOrdersPolling();
+  liveOrdersPollingTimer = setInterval(() => loadLiveOrders(true), 30000);
+}
+
+function stopLiveOrdersPolling() {
+  if (liveOrdersPollingTimer) { clearInterval(liveOrdersPollingTimer); liveOrdersPollingTimer = null; }
+}
+
+async function loadLiveOrders(silent = false) {
+  const loading = document.getElementById('live-orders-loading');
+  if (!silent) { loading.style.display = 'block'; }
+  try {
+    const res  = await fetch(`${API_BASE}/admin/live-orders`);
+    const data = await res.json();
+    allLiveOrders = data.orders || [];
+
+    // Update badge
+    const badge = document.getElementById('live-orders-count');
+    if (allLiveOrders.length > 0) {
+      badge.textContent = allLiveOrders.length;
+      badge.style.display = 'inline-flex';
+    } else {
+      badge.style.display = 'none';
+    }
+
+    // Render summary cards
+    renderLiveOrdersSummary(allLiveOrders);
+    renderLiveOrdersTable(allLiveOrders);
+  } catch(e) {
+    document.getElementById('live-orders-tbody').innerHTML =
+      '<tr><td colspan="7" style="text-align:center;color:#EF4444;padding:32px;">فشل تحميل البيانات</td></tr>';
+  } finally {
+    loading.style.display = 'none';
+    lucide.createIcons();
+  }
+}
+
+function filterLiveOrders(status) {
+  currentLoFilter = status;
+  document.querySelectorAll('.lo-filter').forEach(b => {
+    b.classList.toggle('active', b.dataset.status === status);
+  });
+  const filtered = status ? allLiveOrders.filter(o => o.status === status) : allLiveOrders;
+  renderLiveOrdersTable(filtered);
+}
+
+const LO_STATUS_COLORS = {
+  pending: '#F59E0B', confirmed: '#3B82F6', preparing: '#8B5CF6',
+  ready: '#10B981', picked_up: '#F59E0B', delivering: '#10B981'
+};
+
+function renderLiveOrdersSummary(orders) {
+  const counts = {};
+  ['pending','confirmed','preparing','ready','picked_up','delivering'].forEach(s => counts[s] = 0);
+  orders.forEach(o => { if (counts[o.status] !== undefined) counts[o.status]++; });
+  const labels = { pending:'انتظار المتجر', confirmed:'مقبول', preparing:'التحضير', ready:'جاهز', picked_up:'مع السائق', delivering:'في الطريق' };
+  const container = document.getElementById('live-orders-summary');
+  container.innerHTML = Object.entries(labels).map(([s, label]) =>
+    `<div style="background:#fff;border-radius:12px;padding:14px 16px;box-shadow:0 2px 6px rgba(0,0,0,0.06);display:flex;align-items:center;gap:10px;">
+      <div style="width:10px;height:10px;border-radius:50%;background:${LO_STATUS_COLORS[s]};flex-shrink:0;"></div>
+      <div>
+        <div style="font-size:1.4rem;font-weight:700;color:#1F2937;">${counts[s]}</div>
+        <div style="font-size:0.75rem;color:#6B7280;">${label}</div>
+      </div>
+    </div>`
+  ).join('');
+}
+
+function renderLiveOrdersTable(list) {
+  const tbody = document.getElementById('live-orders-tbody');
+  if (!list.length) {
+    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:40px;color:#aaa;">لا توجد طلبات نشطة</td></tr>';
+    return;
+  }
+  tbody.innerHTML = list.map(o => {
+    const color = LO_STATUS_COLORS[o.status] || '#999';
+    const delayed = o.minutesAgo > 45 ? 'color:#EF4444;font-weight:700;' : '';
+    return `<tr>
+      <td style="font-size:0.78rem;color:#888;font-family:monospace;">${o.id.slice(0,8)}…</td>
+      <td><span style="background:${color}18;color:${color};border-radius:8px;padding:3px 10px;font-size:0.78rem;font-weight:700;white-space:nowrap;">${o.statusLabel}</span></td>
+      <td style="font-weight:600;">${o.vendorName}</td>
+      <td>
+        <div style="font-size:0.85rem;">${o.driverName}</div>
+        ${o.driverPhone ? `<div style="font-size:0.75rem;color:#888;" dir="ltr">${o.driverPhone}</div>` : ''}
+      </td>
+      <td style="font-size:0.82rem;">${o.address || o.region || '–'}</td>
+      <td style="font-weight:700;color:#D94523;">${(o.total||0).toLocaleString('ar-IQ')} د.ع</td>
+      <td style="${delayed}">${o.minutesAgo} دق ${o.minutesAgo > 45 ? '⚠' : ''}</td>
+    </tr>`;
+  }).join('');
+}
+
+/* ══════════════════════════════════════════════════════════
+   FINANCIAL REPORTS
+   ══════════════════════════════════════════════════════════ */
+
+let currentFrPeriod = 'month';
+let frDailyChart = null;
+
+async function loadFinancialReports() {
+  try {
+    const res  = await fetch(`${API_BASE}/admin/financial-reports?period=${currentFrPeriod}`);
+    const data = await res.json();
+    renderFinancialKpis(data);
+    renderVendorBreakdown(data.vendorBreakdown || []);
+    renderFrDailyChart(data.dailySales || []);
+  } catch(e) {
+    showToast('error', 'خطأ', 'فشل تحميل التقارير المالية');
+  }
+}
+
+function filterFinancialReports(period) {
+  currentFrPeriod = period;
+  document.querySelectorAll('.fr-filter').forEach(b => {
+    b.classList.toggle('active', b.dataset.period === period);
+  });
+  loadFinancialReports();
+}
+
+function renderFinancialKpis(data) {
+  const fmt = n => Math.round(n || 0).toLocaleString('ar-IQ');
+  const kpis = [
+    { label: 'إجمالي المبيعات', value: fmt(data.totalRevenue) + ' د.ع', icon: 'shopping-cart', color: '#3B82F6', bg: '#EFF6FF' },
+    { label: 'صافي أرباح OnWay', value: fmt(data.onwayProfit) + ' د.ع', icon: 'trending-up', color: '#10B981', bg: '#ECFDF5' },
+    { label: 'مستحقات السائقين', value: fmt(data.totalDriverEarnings) + ' د.ع', icon: 'truck', color: '#009688', bg: '#E0F2F1' },
+    { label: 'عدد الطلبات', value: (data.totalOrders||0).toLocaleString('ar-IQ'), icon: 'package', color: '#D94523', bg: '#FEF2F2' },
+  ];
+  document.getElementById('fr-kpi-cards').innerHTML = kpis.map(k =>
+    `<div style="background:#fff;border-radius:16px;padding:20px;box-shadow:0 2px 8px rgba(0,0,0,0.06);display:flex;align-items:center;gap:14px;">
+      <div style="width:48px;height:48px;border-radius:12px;background:${k.bg};display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+        <i data-lucide="${k.icon}" style="color:${k.color};width:22px;height:22px;"></i>
+      </div>
+      <div>
+        <div style="font-size:1.3rem;font-weight:700;color:#1F2937;">${k.value}</div>
+        <div style="font-size:0.8rem;color:#6B7280;">${k.label}</div>
+      </div>
+    </div>`
+  ).join('');
+  lucide.createIcons();
+}
+
+function renderVendorBreakdown(list) {
+  const tbody = document.getElementById('fr-vendor-tbody');
+  if (!list.length) {
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:32px;color:#aaa;">لا توجد بيانات</td></tr>';
+    return;
+  }
+  const fmt = n => Math.round(n || 0).toLocaleString('ar-IQ');
+  tbody.innerHTML = list.map((v, i) =>
+    `<tr>
+      <td style="color:#9CA3AF;font-weight:600;">${i + 1}</td>
+      <td style="font-weight:700;">${v.vendorName}</td>
+      <td>${(v.orders || 0).toLocaleString('ar-IQ')}</td>
+      <td style="color:#3B82F6;font-weight:600;">${fmt(v.revenue)} د.ع</td>
+      <td style="color:#EF4444;">${fmt(v.commission)} د.ع</td>
+      <td style="color:#10B981;font-weight:700;">${fmt(v.netEarning)} د.ع</td>
+    </tr>`
+  ).join('');
+}
+
+function renderFrDailyChart(dailySales) {
+  const ctx = document.getElementById('fr-daily-chart');
+  if (!ctx) return;
+  if (frDailyChart) { frDailyChart.destroy(); frDailyChart = null; }
+  if (!dailySales.length) return;
+  const labels = dailySales.map(d => {
+    const dt = new Date(d.date);
+    return dt.toLocaleDateString('ar-IQ', { month: 'short', day: 'numeric' });
+  });
+  frDailyChart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [
+        { label: 'المبيعات', data: dailySales.map(d => d.revenue), backgroundColor: '#D9452330', borderColor: '#D94523', borderWidth: 2, borderRadius: 6 },
+        { label: 'عمولة OnWay', data: dailySales.map(d => d.commission), backgroundColor: '#10B98130', borderColor: '#10B981', borderWidth: 2, borderRadius: 6 },
+      ]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { labels: { font: { family: 'Cairo' } } } },
+      scales: {
+        x: { ticks: { font: { family: 'Cairo', size: 11 } } },
+        y: { ticks: { font: { family: 'Cairo', size: 11 }, callback: v => v.toLocaleString('ar-IQ') } }
+      }
+    }
+  });
+}
+
+// Override loadVendorProductsAdmin to support vendor filter
+const __origLoadVpp = loadVendorProductsAdmin;
+loadVendorProductsAdmin = async function() {
+  await __origLoadVpp();
+  populateVppVendorFilter(allVendorProductsAdmin);
+  if (currentVppVendorFilter) filterVendorProductsByStore(currentVppVendorFilter);
+};
 
 </script>
 </html>
