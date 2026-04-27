@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useMemo } from "react";
 import {
   StyleSheet,
   View,
@@ -7,6 +7,8 @@ import {
   ActivityIndicator,
   RefreshControl,
   Dimensions,
+  TextInput,
+  ScrollView,
 } from "react-native";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -176,6 +178,100 @@ function ProductCard({
   );
 }
 
+function SearchFilterBar({
+  searchQuery,
+  onSearchChange,
+  categories,
+  selectedCategory,
+  onCategorySelect,
+  theme,
+}: {
+  searchQuery: string;
+  onSearchChange: (text: string) => void;
+  categories: string[];
+  selectedCategory: string | null;
+  onCategorySelect: (cat: string | null) => void;
+  theme: any;
+}) {
+  return (
+    <View style={sfStyles.container}>
+      <View style={[sfStyles.searchRow, { backgroundColor: theme.backgroundDefault, borderColor: theme.border }]}>
+        <Feather name="search" size={16} color={theme.textSecondary} style={sfStyles.searchIcon} />
+        <TextInput
+          value={searchQuery}
+          onChangeText={onSearchChange}
+          placeholder="ابحث في المنتجات..."
+          placeholderTextColor={theme.textSecondary}
+          style={[sfStyles.searchInput, { color: theme.textPrimary }]}
+          textAlign="right"
+          returnKeyType="search"
+          testID="input-product-search"
+        />
+        {searchQuery.length > 0 ? (
+          <Pressable onPress={() => onSearchChange("")} testID="btn-clear-search">
+            <Feather name="x" size={16} color={theme.textSecondary} />
+          </Pressable>
+        ) : null}
+      </View>
+
+      {categories.length > 1 ? (
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={sfStyles.chipsRow}
+        >
+          <Pressable
+            onPress={() => onCategorySelect(null)}
+            style={[
+              sfStyles.chip,
+              {
+                backgroundColor: selectedCategory === null ? AppColors.primary : theme.backgroundDefault,
+                borderColor: selectedCategory === null ? AppColors.primary : theme.border,
+              },
+            ]}
+            testID="chip-category-all"
+          >
+            <ThemedText
+              type="small"
+              style={[
+                sfStyles.chipText,
+                { color: selectedCategory === null ? "#fff" : theme.textSecondary },
+              ]}
+            >
+              الكل
+            </ThemedText>
+          </Pressable>
+
+          {categories.map((cat) => {
+            const active = selectedCategory === cat;
+            return (
+              <Pressable
+                key={cat}
+                onPress={() => onCategorySelect(active ? null : cat)}
+                style={[
+                  sfStyles.chip,
+                  {
+                    backgroundColor: active ? AppColors.primary : theme.backgroundDefault,
+                    borderColor: active ? AppColors.primary : theme.border,
+                  },
+                ]}
+                testID={`chip-category-${cat.replace(/\s+/g, "-")}`}
+              >
+                <ThemedText
+                  type="small"
+                  style={[sfStyles.chipText, { color: active ? "#fff" : theme.textSecondary }]}
+                >
+                  {cat}
+                </ThemedText>
+              </Pressable>
+            );
+          })}
+        </ScrollView>
+      ) : null}
+    </View>
+  );
+}
+
 export default function StoreProductsScreen() {
   const route = useRoute<StoreProductsRouteProp>();
   const { storeId } = route.params;
@@ -183,6 +279,9 @@ export default function StoreProductsScreen() {
   const insets = useSafeAreaInsets();
   const { theme } = useTheme();
   const { items, addToCart, updateQuantity } = useCart();
+
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
 
   const { data, isLoading, isError, refetch, isRefetching } = useQuery<{
     store: VendorStore;
@@ -194,6 +293,26 @@ export default function StoreProductsScreen() {
 
   const products = data?.products ?? [];
   const store = data?.store;
+
+  const categories = useMemo(() => {
+    const seen = new Set<string>();
+    products.forEach((p) => {
+      if (p.category) seen.add(p.category);
+    });
+    return Array.from(seen);
+  }, [products]);
+
+  const filteredProducts = useMemo(() => {
+    let result = products;
+    if (selectedCategory) {
+      result = result.filter((p) => p.category === selectedCategory);
+    }
+    if (searchQuery.trim()) {
+      const q = searchQuery.trim().toLowerCase();
+      result = result.filter((p) => p.name.toLowerCase().includes(q));
+    }
+    return result;
+  }, [products, selectedCategory, searchQuery]);
 
   const getQuantity = (productId: string) => {
     const item = items.find((i) => i.product.id === productId);
@@ -219,6 +338,8 @@ export default function StoreProductsScreen() {
 
   const totalCartItems = items.reduce((sum, i) => sum + i.quantity, 0);
 
+  const isFiltering = searchQuery.trim().length > 0 || selectedCategory !== null;
+
   return (
     <View style={{ flex: 1 }}>
       <GradientBackground />
@@ -240,7 +361,7 @@ export default function StoreProductsScreen() {
         </View>
       ) : (
         <FlatList
-          data={products}
+          data={filteredProducts}
           keyExtractor={(item) => item.id}
           contentContainerStyle={{
             paddingTop: headerHeight,
@@ -249,6 +370,7 @@ export default function StoreProductsScreen() {
           }}
           scrollIndicatorInsets={{ bottom: insets.bottom }}
           showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
           refreshControl={
             <RefreshControl
               refreshing={isRefetching}
@@ -257,19 +379,47 @@ export default function StoreProductsScreen() {
             />
           }
           ListHeaderComponent={
-            store ? (
-              <StoreProfileHeader store={store} theme={theme} />
-            ) : null
+            <>
+              {store ? (
+                <StoreProfileHeader store={store} theme={theme} />
+              ) : null}
+              <SearchFilterBar
+                searchQuery={searchQuery}
+                onSearchChange={setSearchQuery}
+                categories={categories}
+                selectedCategory={selectedCategory}
+                onCategorySelect={setSelectedCategory}
+                theme={theme}
+              />
+            </>
           }
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
-              <Feather name="inbox" size={64} color={theme.textSecondary} style={{ opacity: 0.4 }} />
+              <Feather
+                name={isFiltering ? "search" : "inbox"}
+                size={64}
+                color={theme.textSecondary}
+                style={{ opacity: 0.4 }}
+              />
               <ThemedText type="h4" style={[styles.emptyTitle, { color: theme.textSecondary }]}>
-                لا توجد منتجات متاحة
+                {isFiltering ? "لا توجد نتائج" : "لا توجد منتجات متاحة"}
               </ThemedText>
               <ThemedText type="small" style={[styles.emptyText, { color: theme.textSecondary }]}>
-                لم تتم الموافقة على أي منتج من هذا المتجر بعد
+                {isFiltering
+                  ? "جرّب تغيير كلمة البحث أو الفئة"
+                  : "لم تتم الموافقة على أي منتج من هذا المتجر بعد"}
               </ThemedText>
+              {isFiltering ? (
+                <Pressable
+                  onPress={() => { setSearchQuery(""); setSelectedCategory(null); }}
+                  style={styles.retryBtn}
+                  testID="btn-clear-filters"
+                >
+                  <ThemedText type="body" style={{ color: AppColors.primary, fontWeight: "600" }}>
+                    مسح الفلاتر
+                  </ThemedText>
+                </Pressable>
+              ) : null}
             </View>
           }
           renderItem={({ item }) => (
@@ -404,6 +554,46 @@ const hStyles = StyleSheet.create({
   bio: { textAlign: "right", fontStyle: "italic" },
   addressRow: { flexDirection: "row-reverse", alignItems: "center", gap: 4 },
   addressText: { textAlign: "right" },
+});
+
+const sfStyles = StyleSheet.create({
+  container: {
+    marginBottom: Spacing.lg,
+    gap: Spacing.sm,
+  },
+  searchRow: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    borderRadius: BorderRadius.lg,
+    borderWidth: 1,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    gap: Spacing.sm,
+  },
+  searchIcon: {
+    marginLeft: Spacing.xs,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 15,
+    fontFamily: "Cairo_400Regular",
+    paddingVertical: 0,
+  },
+  chipsRow: {
+    flexDirection: "row-reverse",
+    gap: Spacing.sm,
+    paddingBottom: 2,
+  },
+  chip: {
+    paddingHorizontal: Spacing.md,
+    paddingVertical: 6,
+    borderRadius: BorderRadius.full ?? 999,
+    borderWidth: 1,
+  },
+  chipText: {
+    fontFamily: "Cairo_600SemiBold",
+    fontSize: 12,
+  },
 });
 
 const styles = StyleSheet.create({
