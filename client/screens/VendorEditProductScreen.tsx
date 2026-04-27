@@ -7,6 +7,7 @@ import {
   ActivityIndicator,
   Image,
   Platform,
+  Linking,
 } from "react-native";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
@@ -106,6 +107,32 @@ export default function VendorEditProductScreen({ navigation, route }: any) {
     }
   };
 
+  const takePhoto = async () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    const permission = await ImagePicker.requestCameraPermissionsAsync();
+    if (!permission.granted) {
+      if (!permission.canAskAgain && Platform.OS !== "web") {
+        setError("تم رفض إذن الكاميرا — افتح الإعدادات للسماح بالوصول");
+        try {
+          await Linking.openSettings();
+        } catch {}
+      } else {
+        setError("يرجى السماح بالوصول إلى الكاميرا");
+      }
+      return;
+    }
+    const result = await ImagePicker.launchCameraAsync({
+      mediaTypes: ["images"],
+      quality: 0.9,
+      allowsEditing: true,
+      aspect: [1, 1],
+    });
+    if (!result.canceled && result.assets[0]) {
+      setImageUri(result.assets[0].uri);
+      setError("");
+    }
+  };
+
   const submit = async () => {
     if (!name.trim() || !price || !category) {
       setError("يرجى ملء اسم المنتج، السعر، والفئة");
@@ -191,32 +218,37 @@ export default function VendorEditProductScreen({ navigation, route }: any) {
       contentContainerStyle={{ paddingTop: headerHeight + 16, paddingHorizontal: 16, paddingBottom: 60 }}
       showsVerticalScrollIndicator={false}
     >
-      {!!error && (
+      {error ? (
         <View style={styles.errorBox}>
           <Feather name="alert-circle" size={16} color="#EF4444" />
           <ThemedText style={styles.errorText}>{error}</ThemedText>
         </View>
-      )}
+      ) : null}
 
       <ThemedText style={styles.label}>صورة المنتج</ThemedText>
-      <Pressable style={styles.imgPicker} onPress={pickImage} testID="button-pick-image">
+
+      <View style={styles.imgPicker}>
         {currentImage ? (
           <Image source={{ uri: currentImage }} style={styles.imgPreview} resizeMode="cover" />
         ) : (
           <View style={styles.imgPlaceholder}>
             <MaterialCommunityIcons name="camera-plus" size={36} color="#C4B5FD" />
-            <ThemedText style={styles.imgHint}>اضغط لاختيار صورة</ThemedText>
+            <ThemedText style={styles.imgHint}>اختر مصدر الصورة</ThemedText>
           </View>
         )}
-      </Pressable>
-      {currentImage ? (
-        <Pressable style={styles.changeImgBtn} onPress={pickImage} testID="button-change-image">
-          <Feather name="refresh-cw" size={14} color={PURPLE} />
-          <ThemedText style={styles.changeImgText}>
-            {imageUri ? "تغيير الصورة الجديدة" : "استبدال الصورة"}
-          </ThemedText>
+      </View>
+
+      <View style={styles.imgActions}>
+        <Pressable style={styles.imgActionBtn} onPress={takePhoto} testID="button-take-photo">
+          <Feather name="camera" size={16} color={PURPLE} />
+          <ThemedText style={styles.imgActionText}>التقاط صورة</ThemedText>
         </Pressable>
-      ) : null}
+        <View style={styles.imgActionDivider} />
+        <Pressable style={styles.imgActionBtn} onPress={pickImage} testID="button-pick-image">
+          <Feather name="image" size={16} color={PURPLE} />
+          <ThemedText style={styles.imgActionText}>من المعرض</ThemedText>
+        </Pressable>
+      </View>
 
       {imageUri ? (
         <View style={styles.imageChangeNotice}>
@@ -341,17 +373,24 @@ const styles = StyleSheet.create({
   picker: { height: Platform.OS === "ios" ? 140 : 50, color: "#111" },
   imgPicker: {
     borderWidth: 2, borderStyle: "dashed", borderColor: "#C4B5FD",
-    borderRadius: 16, marginBottom: 10, overflow: "hidden", backgroundColor: "#F5F3FF",
+    borderRadius: 16, borderBottomLeftRadius: 0, borderBottomRightRadius: 0,
+    overflow: "hidden", backgroundColor: "#F5F3FF",
     height: 180,
   },
   imgPreview: { width: "100%", height: "100%" },
   imgPlaceholder: { flex: 1, justifyContent: "center", alignItems: "center", gap: 6 },
   imgHint: { fontFamily: "Cairo_700Bold", fontSize: 14, color: PURPLE },
-  changeImgBtn: {
-    flexDirection: "row", alignItems: "center", gap: 6,
-    alignSelf: "center", marginBottom: 10,
+  imgActions: {
+    flexDirection: "row", borderWidth: 1.5, borderColor: "#C4B5FD",
+    borderTopWidth: 0, borderBottomLeftRadius: 16, borderBottomRightRadius: 16,
+    overflow: "hidden", marginBottom: 10, backgroundColor: "#fff",
   },
-  changeImgText: { fontFamily: "Cairo_700Bold", fontSize: 12, color: PURPLE },
+  imgActionBtn: {
+    flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center",
+    gap: 8, paddingVertical: 12,
+  },
+  imgActionDivider: { width: 1.5, backgroundColor: "#C4B5FD" },
+  imgActionText: { fontFamily: "Cairo_700Bold", fontSize: 13, color: PURPLE },
   imageChangeNotice: {
     flexDirection: "row", alignItems: "center", gap: 6,
     backgroundColor: "#EDE7F6", borderRadius: 10, padding: 10, marginBottom: 14,
