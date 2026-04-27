@@ -1385,7 +1385,7 @@ async function sendAdminNewOrderNotification(pushToken, orderId, region, total) 
     return false;
   }
 }
-async function sendVendorStatusNotification(pushToken, status, storeName, reason) {
+async function sendVendorStatusNotification(pushToken, status, storeName, reason, unreadCount) {
   if (!pushToken || !pushToken.startsWith("ExponentPushToken")) return false;
   const messages = {
     active: {
@@ -1411,7 +1411,8 @@ async function sendVendorStatusNotification(pushToken, status, storeName, reason
     channelId: "default",
     priority: "high",
     ttl: 86400,
-    data: { type: "vendor_status", status, storeName }
+    badge: unreadCount,
+    data: { type: "vendor_status", status, storeName, unreadCount }
   };
   try {
     const response = await fetch("https://exp.host/--/api/v2/push/send", {
@@ -1428,6 +1429,48 @@ async function sendVendorStatusNotification(pushToken, status, storeName, reason
     return false;
   } catch (error) {
     console.error("[PUSH] Error sending vendor status notification:", error);
+    return false;
+  }
+}
+async function sendVendorProductNotification(pushToken, event, productName, reason, unreadCount) {
+  if (!pushToken || !pushToken.startsWith("ExponentPushToken")) return false;
+  const content = event === "approved" ? {
+    title: "\u062A\u0645\u062A \u0627\u0644\u0645\u0648\u0627\u0641\u0642\u0629 \u0639\u0644\u0649 \u0645\u0646\u062A\u062C\u0643",
+    body: `\u0645\u0646\u062A\u062C "${productName}" \u062A\u0645\u062A \u0627\u0644\u0645\u0648\u0627\u0641\u0642\u0629 \u0639\u0644\u064A\u0647 \u0648\u0647\u0648 \u0645\u062A\u0627\u062D \u0644\u0644\u0639\u0645\u0644\u0627\u0621 \u0627\u0644\u0622\u0646`
+  } : {
+    title: "\u062A\u0645 \u0631\u0641\u0636 \u0645\u0646\u062A\u062C\u0643",
+    body: `\u0645\u0646\u062A\u062C "${productName}" \u062A\u0645 \u0631\u0641\u0636\u0647. \u0627\u0644\u0633\u0628\u0628: ${reason || "\u063A\u064A\u0631 \u0645\u062D\u062F\u062F"}`
+  };
+  const message = {
+    to: pushToken,
+    title: content.title,
+    body: content.body,
+    sound: "default",
+    channelId: "default",
+    priority: "high",
+    ttl: 86400,
+    badge: unreadCount,
+    data: { type: "vendor_product", event, productName, unreadCount }
+  };
+  try {
+    const response = await fetch("https://exp.host/--/api/v2/push/send", {
+      method: "POST",
+      headers: {
+        Accept: "application/json",
+        "Accept-Encoding": "gzip, deflate",
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(message)
+    });
+    const result = await response.json();
+    if (result.data.status === "ok") {
+      console.log(`[PUSH] Vendor product ${event} notification sent \u2192 ${pushToken.slice(-10)}`);
+      return true;
+    }
+    console.error(`[PUSH] Vendor product ${event} notification error:`, result.data.message);
+    return false;
+  } catch (error) {
+    console.error(`[PUSH] Error sending vendor product ${event} notification:`, error);
     return false;
   }
 }
@@ -5094,11 +5137,14 @@ router.put("/api/admin/vendor-partners/:id/status", requireAdmin, async (req, re
     });
     const vendorPushToken = vendor.pushToken;
     if (vendorPushToken) {
+      const unreadSnap = await db2.collection("vendorNotifications").where("vendorId", "==", id).where("status", "==", "unread").count().get();
+      const unreadCount = unreadSnap.data().count;
       sendVendorStatusNotification(
         vendorPushToken,
         status,
         vendor.storeName,
-        reason
+        reason,
+        unreadCount
       ).catch((err) => console.error("[PUSH] vendor status notification failed:", err));
     }
     res.json({ success: true, message: "\u062A\u0645 \u062A\u062D\u062F\u064A\u062B \u062D\u0627\u0644\u0629 \u0627\u0644\u0645\u062A\u062C\u0631" });
@@ -5149,6 +5195,17 @@ router.post("/api/admin/vendor-products/:pid/approve", requireAdmin, async (req,
       status: "unread",
       createdAt: now
     });
+    const [vendorDoc, unreadApprovedSnap] = await Promise.all([
+      db2.collection("vendors").doc(product.vendorId).get(),
+      db2.collection("vendorNotifications").where("vendorId", "==", product.vendorId).where("status", "==", "unread").count().get()
+    ]);
+    const vendorPushToken = vendorDoc.exists ? vendorDoc.data()?.pushToken : void 0;
+    if (vendorPushToken) {
+      const unreadCount = unreadApprovedSnap.data().count;
+      sendVendorProductNotification(vendorPushToken, "approved", product.name, void 0, unreadCount).catch(
+        (err) => console.error("[PUSH] vendor product approved notification failed:", err)
+      );
+    }
     res.json({ success: true, message: "\u062A\u0645\u062A \u0627\u0644\u0645\u0648\u0627\u0641\u0642\u0629 \u0639\u0644\u0649 \u0627\u0644\u0645\u0646\u062A\u062C" });
   } catch (err) {
     console.error("approve product:", err);
@@ -5178,6 +5235,17 @@ router.post("/api/admin/vendor-products/:pid/reject", requireAdmin, async (req, 
       status: "unread",
       createdAt: now
     });
+    const [vendorDocRej, unreadRejectedSnap] = await Promise.all([
+      db2.collection("vendors").doc(product.vendorId).get(),
+      db2.collection("vendorNotifications").where("vendorId", "==", product.vendorId).where("status", "==", "unread").count().get()
+    ]);
+    const vendorPushToken = vendorDocRej.exists ? vendorDocRej.data()?.pushToken : void 0;
+    if (vendorPushToken) {
+      const unreadCount = unreadRejectedSnap.data().count;
+      sendVendorProductNotification(vendorPushToken, "rejected", product.name, reason, unreadCount).catch(
+        (err) => console.error("[PUSH] vendor product rejected notification failed:", err)
+      );
+    }
     res.json({ success: true, message: "\u062A\u0645 \u0631\u0641\u0636 \u0627\u0644\u0645\u0646\u062A\u062C" });
   } catch (err) {
     console.error("reject product:", err);

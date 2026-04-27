@@ -9,7 +9,7 @@ import * as fs from "fs/promises";
 import * as fsSync from "fs";
 import * as path from "path";
 import { getFirestore } from "./firebase";
-import { sendVendorStatusNotification } from "./pushNotifications";
+import { sendVendorStatusNotification, sendVendorProductNotification } from "./pushNotifications";
 
 const router = express.Router();
 
@@ -976,11 +976,18 @@ router.put("/api/admin/vendor-partners/:id/status", requireAdmin, async (req, re
 
     const vendorPushToken = vendor.pushToken as string | undefined;
     if (vendorPushToken) {
+      const unreadSnap = await db.collection("vendorNotifications")
+        .where("vendorId", "==", id)
+        .where("status", "==", "unread")
+        .count()
+        .get();
+      const unreadCount: number = unreadSnap.data().count;
       sendVendorStatusNotification(
         vendorPushToken,
         status as "active" | "rejected" | "suspended",
         vendor.storeName,
-        reason
+        reason,
+        unreadCount
       ).catch((err) => console.error("[PUSH] vendor status notification failed:", err));
     }
 
@@ -1044,6 +1051,22 @@ router.post("/api/admin/vendor-products/:pid/approve", requireAdmin, async (req,
       createdAt: now,
     });
 
+    const [vendorDoc, unreadApprovedSnap] = await Promise.all([
+      db.collection("vendors").doc(product.vendorId).get(),
+      db.collection("vendorNotifications")
+        .where("vendorId", "==", product.vendorId)
+        .where("status", "==", "unread")
+        .count()
+        .get(),
+    ]);
+    const vendorPushToken = vendorDoc.exists ? (vendorDoc.data() as any)?.pushToken as string | undefined : undefined;
+    if (vendorPushToken) {
+      const unreadCount: number = unreadApprovedSnap.data().count;
+      sendVendorProductNotification(vendorPushToken, "approved", product.name, undefined, unreadCount).catch((err) =>
+        console.error("[PUSH] vendor product approved notification failed:", err)
+      );
+    }
+
     res.json({ success: true, message: "تمت الموافقة على المنتج" });
   } catch (err) {
     console.error("approve product:", err);
@@ -1078,6 +1101,22 @@ router.post("/api/admin/vendor-products/:pid/reject", requireAdmin, async (req, 
       status: "unread",
       createdAt: now,
     });
+
+    const [vendorDocRej, unreadRejectedSnap] = await Promise.all([
+      db.collection("vendors").doc(product.vendorId).get(),
+      db.collection("vendorNotifications")
+        .where("vendorId", "==", product.vendorId)
+        .where("status", "==", "unread")
+        .count()
+        .get(),
+    ]);
+    const vendorPushToken = vendorDocRej.exists ? (vendorDocRej.data() as any)?.pushToken as string | undefined : undefined;
+    if (vendorPushToken) {
+      const unreadCount: number = unreadRejectedSnap.data().count;
+      sendVendorProductNotification(vendorPushToken, "rejected", product.name, reason, unreadCount).catch((err) =>
+        console.error("[PUSH] vendor product rejected notification failed:", err)
+      );
+    }
 
     res.json({ success: true, message: "تم رفض المنتج" });
   } catch (err) {

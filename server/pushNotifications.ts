@@ -175,7 +175,8 @@ export async function sendVendorStatusNotification(
   pushToken: string,
   status: "active" | "rejected" | "suspended",
   storeName: string,
-  reason?: string
+  reason?: string,
+  unreadCount?: number
 ): Promise<boolean> {
   if (!pushToken || !pushToken.startsWith("ExponentPushToken")) return false;
 
@@ -205,7 +206,8 @@ export async function sendVendorStatusNotification(
     channelId: "default",
     priority: "high",
     ttl: 86400,
-    data: { type: "vendor_status", status, storeName },
+    badge: unreadCount,
+    data: { type: "vendor_status", status, storeName, unreadCount },
   };
 
   try {
@@ -223,6 +225,61 @@ export async function sendVendorStatusNotification(
     return false;
   } catch (error) {
     console.error("[PUSH] Error sending vendor status notification:", error);
+    return false;
+  }
+}
+
+export async function sendVendorProductNotification(
+  pushToken: string,
+  event: "approved" | "rejected",
+  productName: string,
+  reason?: string,
+  unreadCount?: number
+): Promise<boolean> {
+  if (!pushToken || !pushToken.startsWith("ExponentPushToken")) return false;
+
+  const content =
+    event === "approved"
+      ? {
+          title: "تمت الموافقة على منتجك",
+          body: `منتج "${productName}" تمت الموافقة عليه وهو متاح للعملاء الآن`,
+        }
+      : {
+          title: "تم رفض منتجك",
+          body: `منتج "${productName}" تم رفضه. السبب: ${reason || "غير محدد"}`,
+        };
+
+  const message: ExpoPushMessage = {
+    to: pushToken,
+    title: content.title,
+    body: content.body,
+    sound: "default",
+    channelId: "default",
+    priority: "high",
+    ttl: 86400,
+    badge: unreadCount,
+    data: { type: "vendor_product", event, productName, unreadCount },
+  };
+
+  try {
+    const response = await fetch("https://exp.host/--/api/v2/push/send", {
+      method: "POST",
+      headers: {
+        Accept: "application/json",
+        "Accept-Encoding": "gzip, deflate",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(message),
+    });
+    const result = (await response.json()) as { data: ExpoPushTicket };
+    if (result.data.status === "ok") {
+      console.log(`[PUSH] Vendor product ${event} notification sent → ${pushToken.slice(-10)}`);
+      return true;
+    }
+    console.error(`[PUSH] Vendor product ${event} notification error:`, result.data.message);
+    return false;
+  } catch (error) {
+    console.error(`[PUSH] Error sending vendor product ${event} notification:`, error);
     return false;
   }
 }
