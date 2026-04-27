@@ -1111,6 +1111,94 @@ router.get("/api/admin/vendor-stats", requireAdmin, async (req, res) => {
   }
 });
 
+// ── GET /api/vendor/wallet — earnings summary ────────────────────────────────
+router.get("/api/vendor/wallet", requireVendor, async (req, res) => {
+  try {
+    const db = getFirestore();
+    if (!db) return res.status(500).json({ error: "قاعدة البيانات غير متاحة" });
+    const vid = (req as any).vendorId as string;
+    const period = (req.query.period as string) || "month"; // today|week|month|all
+
+    // 1. Get all product IDs owned by this vendor
+    const productsSnap = await db.collection("vendorProducts")
+      .where("vendorId", "==", vid)
+      .get();
+    const vendorProductIds = new Set<string>(productsSnap.docs.map((d) => d.id));
+
+    // 2. Date range
+    const now = new Date();
+    let startDate: Date | null = null;
+    if (period === "today") {
+      startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    } else if (period === "week") {
+      startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    } else if (period === "month") {
+      startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+    }
+
+    // 3. Fetch recent orders (limit to last 1000)
+    const snap = await db.collection("orders")
+      .orderBy("createdAt", "desc")
+      .limit(1000)
+      .get();
+
+    const completedStatuses = new Set(["delivered", "picked_up", "delivering"]);
+
+    type SaleRecord = { id: string; date: string; subtotal: number; status: string; customerPhone: string; itemCount: number };
+    const vendorOrders: SaleRecord[] = [];
+
+    for (const doc of snap.docs) {
+      const data = doc.data() as any;
+      if (!completedStatuses.has(data.status)) continue;
+
+      const createdAt: Date = data.createdAt?.toDate?.() ?? new Date(data.createdAt ?? 0);
+      if (startDate && createdAt < startDate) continue;
+
+      const items: any[] = Array.isArray(data.items) ? data.items : [];
+      let vendorItems = items.filter((i: any) => i.productId && vendorProductIds.has(i.productId));
+      if (vendorItems.length === 0 && data.vendorId === vid) vendorItems = items;
+      if (vendorItems.length === 0) continue;
+
+      const subtotal = vendorItems.reduce(
+        (sum: number, i: any) => sum + (Number(i.price) || 0) * (Number(i.quantity) || 1),
+        0
+      );
+
+      vendorOrders.push({
+        id: doc.id,
+        date: createdAt.toISOString(),
+        subtotal,
+        status: data.status,
+        customerPhone: data.phoneNumber || "",
+        itemCount: vendorItems.reduce((s: number, i: any) => s + (Number(i.quantity) || 1), 0),
+      });
+    }
+
+    const totalRevenue = vendorOrders.reduce((s, o) => s + o.subtotal, 0);
+    const totalOrders = vendorOrders.length;
+    const avgOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0;
+
+    // Daily breakdown (last 14 days)
+    const dailyMap: Record<string, number> = {};
+    vendorOrders.forEach((o) => {
+      const day = o.date.substring(0, 10);
+      dailyMap[day] = (dailyMap[day] || 0) + o.subtotal;
+    });
+    const dailySales = Object.entries(dailyMap)
+      .map(([date, revenue]) => ({ date, revenue }))
+      .sort((a, b) => a.date.localeCompare(b.date))
+      .slice(-14);
+
+    // Recent 20 sales
+    const recentSales = vendorOrders.slice(0, 20);
+
+    res.json({ totalRevenue, totalOrders, avgOrderValue, dailySales, recentSales, period });
+  } catch (err) {
+    console.error("vendor wallet:", err);
+    res.status(500).json({ error: "حدث خطأ في الخادم" });
+  }
+});
+
 // ═══════════════════════════════════════════════════════════════════════════
 // PUBLIC endpoints for customer-facing store browsing
 // ═══════════════════════════════════════════════════════════════════════════

@@ -265,6 +265,23 @@ function OrderCard({
             </ThemedText>
           </View>
 
+          {/* Waiting for driver info banner */}
+          {order.status === "ready" ? (
+            <View style={[cardStyles.driverBanner, { backgroundColor: "#ECFEFF" }]}>
+              <MaterialCommunityIcons name="moped" size={18} color="#0891B2" />
+              <ThemedText style={[cardStyles.driverBannerText, { color: "#0891B2" }]}>
+                في انتظار السائق لاستلام الطلب
+              </ThemedText>
+            </View>
+          ) : order.status === "picked_up" ? (
+            <View style={[cardStyles.driverBanner, { backgroundColor: "#F0F9FF" }]}>
+              <MaterialCommunityIcons name="navigation" size={18} color="#0284C7" />
+              <ThemedText style={[cardStyles.driverBannerText, { color: "#0284C7" }]}>
+                السائق في الطريق إلى العميل
+              </ThemedText>
+            </View>
+          ) : null}
+
           {/* Action buttons */}
           {actions.length > 0 ? (
             <View style={cardStyles.actionsRow}>
@@ -622,6 +639,13 @@ const cardStyles = StyleSheet.create({
   },
   totalLabel: { fontFamily: "Cairo_700Bold", fontSize: 14, color: PURPLE, flex: 1, textAlign: "right" },
   totalAmount: { fontFamily: "Cairo_700Bold", fontSize: 16 },
+
+  driverBanner: {
+    flexDirection: "row-reverse", alignItems: "center", gap: 8,
+    marginHorizontal: 14, marginTop: 6, marginBottom: 2,
+    paddingVertical: 9, paddingHorizontal: 12, borderRadius: 10,
+  },
+  driverBannerText: { fontFamily: "Cairo_700Bold", fontSize: 13, flex: 1, textAlign: "right" },
 
   actionsRow: { flexDirection: "row-reverse", gap: 10, padding: 14, paddingTop: 8 },
   actionBtn: {

@@ -30,7 +30,7 @@ import { resolveImageUrl } from "@/utils/imageUtils";
 import { formatPrice } from "@/constants/currency";
 import { compressAndConvertToBase64, processAndUploadImage, isBase64Image, ImageSize } from "@/lib/imageUtils";
 
-type TabType = "dashboard" | "orders" | "drivers" | "users" | "banners" | "categories" | "products" | "areas" | "promoCodes" | "notifications";
+type TabType = "dashboard" | "orders" | "drivers" | "users" | "banners" | "categories" | "products" | "areas" | "promoCodes" | "notifications" | "vendors";
 
 interface AdminUser {
   id: string;
@@ -86,6 +86,36 @@ interface PromoCode {
   expiryDate: string;
   isActive: boolean;
   createdAt: string;
+}
+
+interface VendorPartner {
+  id: string;
+  storeName: string;
+  businessType: string;
+  phoneNumber: string;
+  status: "pending" | "active" | "rejected" | "suspended";
+  address?: string;
+  bio?: string;
+  profileImageUrl?: string;
+  coverImageUrl?: string;
+  totalProducts?: number;
+  rating?: number;
+  deliveryTime?: string;
+  deliveryPrice?: number;
+  createdAt?: string;
+  approvedAt?: string;
+}
+
+interface VendorProduct {
+  id: string;
+  vendorId: string;
+  name: string;
+  price: number;
+  imageUrl?: string;
+  status: "approved" | "pending" | "rejected" | "deleted";
+  stock?: number;
+  category?: string;
+  description?: string;
 }
 
 interface Driver {
@@ -229,6 +259,28 @@ export default function AdminScreen() {
   }>({
     queryKey: ["/api/admin/owner-earnings"],
   });
+
+  const { data: vendorPartnersRaw, isLoading: vendorsLoading, refetch: refetchVendors } = useQuery<{ vendors: VendorPartner[]; total: number }>({
+    queryKey: ["/api/admin/vendor-partners"],
+    queryFn: async () => {
+      const res = await fetch(`${getApiUrl()}/api/admin/vendor-partners`, { credentials: "include" });
+      if (!res.ok) throw new Error("failed");
+      return res.json();
+    },
+  });
+  const vendorPartners: VendorPartner[] = vendorPartnersRaw?.vendors ?? [];
+
+  const { data: allVendorProducts } = useQuery<{ products: VendorProduct[]; total: number }>({
+    queryKey: ["/api/admin/vendor-products"],
+    queryFn: async () => {
+      const res = await fetch(`${getApiUrl()}/api/admin/vendor-products?status=all`, { credentials: "include" });
+      if (!res.ok) throw new Error("failed");
+      return res.json();
+    },
+  });
+
+  const [selectedVendor, setSelectedVendor] = useState<VendorPartner | null>(null);
+  const [vendorStatusFilter, setVendorStatusFilter] = useState<"all" | "active" | "pending" | "rejected" | "suspended">("all");
 
   const [rechargeDriver, setRechargeDriver] = useState<string | null>(null);
   const [rechargeAmount, setRechargeAmount] = useState("");
@@ -2089,6 +2141,252 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
     );
   };
 
+  const VENDOR_STATUS_LABELS: Record<string, string> = {
+    all: "الكل", active: "نشط", pending: "قيد المراجعة", rejected: "مرفوض", suspended: "موقوف",
+  };
+  const VENDOR_STATUS_COLORS: Record<string, string> = {
+    active: "#059669", pending: "#D97706", rejected: "#DC2626", suspended: "#6B7280",
+  };
+  const BUSINESS_TYPE_LABELS: Record<string, string> = {
+    restaurant: "مطعم", supermarket: "سوبرماركت", pharmacy: "صيدلية",
+    bakery: "مخبز", other: "أخرى",
+  };
+
+  const renderVendorsTab = () => {
+    const filtered = vendorStatusFilter === "all"
+      ? vendorPartners
+      : vendorPartners.filter((v) => v.status === vendorStatusFilter);
+
+    const vendorProductsMap: Record<string, VendorProduct[]> = {};
+    (allVendorProducts?.products ?? []).forEach((p) => {
+      if (!vendorProductsMap[p.vendorId]) vendorProductsMap[p.vendorId] = [];
+      vendorProductsMap[p.vendorId].push(p);
+    });
+
+    const selectedProducts = selectedVendor ? (vendorProductsMap[selectedVendor.id] ?? []) : [];
+
+    return (
+      <View style={{ gap: Spacing.md }}>
+        {/* Summary row */}
+        <View style={{ flexDirection: "row-reverse", gap: Spacing.sm }}>
+          {[
+            { label: "الكل", count: vendorPartners.length, color: ADMIN_RED },
+            { label: "نشط", count: vendorPartners.filter((v) => v.status === "active").length, color: "#059669" },
+            { label: "قيد المراجعة", count: vendorPartners.filter((v) => v.status === "pending").length, color: "#D97706" },
+          ].map((s) => (
+            <View key={s.label} style={{ flex: 1, backgroundColor: s.color + "15", borderRadius: 14, padding: Spacing.md, alignItems: "center", gap: 4 }}>
+              <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 18, color: s.color }}>{s.count}</ThemedText>
+              <ThemedText style={{ fontFamily: "Cairo_400Regular", fontSize: 11, color: s.color, textAlign: "center" }}>{s.label}</ThemedText>
+            </View>
+          ))}
+        </View>
+
+        {/* Filter tabs */}
+        <View style={{ flexDirection: "row-reverse", gap: 6, flexWrap: "wrap" }}>
+          {(["all", "active", "pending", "rejected", "suspended"] as const).map((f) => (
+            <Pressable
+              key={f}
+              onPress={() => setVendorStatusFilter(f)}
+              style={{
+                paddingHorizontal: 14, paddingVertical: 7, borderRadius: 20,
+                backgroundColor: vendorStatusFilter === f ? ADMIN_RED : theme.backgroundDefault,
+                borderWidth: 1, borderColor: vendorStatusFilter === f ? ADMIN_RED : theme.border ?? "#E5E7EB",
+              }}
+              testID={`vendor-filter-${f}`}
+            >
+              <ThemedText style={{
+                fontFamily: "Cairo_700Bold", fontSize: 12,
+                color: vendorStatusFilter === f ? "#fff" : theme.textSecondary,
+              }}>
+                {VENDOR_STATUS_LABELS[f]}
+              </ThemedText>
+            </Pressable>
+          ))}
+        </View>
+
+        {/* Store cards */}
+        {vendorsLoading ? (
+          <ActivityIndicator size="large" color={ADMIN_RED} style={{ paddingVertical: 40 }} />
+        ) : filtered.length === 0 ? (
+          <View style={{ alignItems: "center", paddingVertical: 40, gap: 8 }}>
+            <Feather name="briefcase" size={40} color={ADMIN_RED} style={{ opacity: 0.3 }} />
+            <ThemedText style={{ fontFamily: "Cairo_700Bold", color: theme.textSecondary }}>لا متاجر في هذه الفئة</ThemedText>
+          </View>
+        ) : (
+          filtered.map((vendor) => {
+            const products = vendorProductsMap[vendor.id] ?? [];
+            const approvedCount = products.filter((p) => p.status === "approved").length;
+            return (
+              <Pressable
+                key={vendor.id}
+                onPress={() => setSelectedVendor(vendor)}
+                testID={`vendor-card-${vendor.id}`}
+                style={{
+                  backgroundColor: theme.backgroundDefault, borderRadius: 16, overflow: "hidden",
+                  shadowColor: "#000", shadowOpacity: 0.05, shadowRadius: 8, shadowOffset: { width: 0, height: 2 },
+                  elevation: 2,
+                }}
+              >
+                {/* Cover */}
+                {vendor.coverImageUrl ? (
+                  <Image source={{ uri: resolveImageUrl(vendor.coverImageUrl) }} style={{ width: "100%", height: 72, resizeMode: "cover" }} />
+                ) : (
+                  <View style={{ width: "100%", height: 72, backgroundColor: ADMIN_RED + "20", alignItems: "center", justifyContent: "center" }}>
+                    <Feather name="briefcase" size={28} color={ADMIN_RED} style={{ opacity: 0.5 }} />
+                  </View>
+                )}
+                <View style={{ padding: Spacing.md, gap: Spacing.sm }}>
+                  <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: Spacing.sm }}>
+                    {/* Logo */}
+                    {vendor.profileImageUrl ? (
+                      <Image source={{ uri: resolveImageUrl(vendor.profileImageUrl) }} style={{ width: 44, height: 44, borderRadius: 12, borderWidth: 2, borderColor: "#fff", marginTop: -20 }} />
+                    ) : (
+                      <View style={{ width: 44, height: 44, borderRadius: 12, backgroundColor: ADMIN_RED + "30", alignItems: "center", justifyContent: "center", marginTop: -20, borderWidth: 2, borderColor: "#fff" }}>
+                        <Feather name="briefcase" size={20} color={ADMIN_RED} />
+                      </View>
+                    )}
+                    <View style={{ flex: 1 }}>
+                      <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 15, color: theme.text, textAlign: "right" }}>{vendor.storeName}</ThemedText>
+                      <ThemedText style={{ fontFamily: "Cairo_400Regular", fontSize: 12, color: theme.textSecondary, textAlign: "right" }}>
+                        {BUSINESS_TYPE_LABELS[vendor.businessType] || vendor.businessType} · {vendor.phoneNumber}
+                      </ThemedText>
+                    </View>
+                    {/* Status badge */}
+                    <View style={{ paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20, backgroundColor: (VENDOR_STATUS_COLORS[vendor.status] ?? "#6B7280") + "20" }}>
+                      <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 11, color: VENDOR_STATUS_COLORS[vendor.status] ?? "#6B7280" }}>
+                        {VENDOR_STATUS_LABELS[vendor.status] ?? vendor.status}
+                      </ThemedText>
+                    </View>
+                  </View>
+                  {/* Stats */}
+                  <View style={{ flexDirection: "row-reverse", gap: Spacing.lg }}>
+                    <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 4 }}>
+                      <Feather name="package" size={13} color={theme.textSecondary} />
+                      <ThemedText style={{ fontFamily: "Cairo_400Regular", fontSize: 12, color: theme.textSecondary }}>{approvedCount} منتج</ThemedText>
+                    </View>
+                    {vendor.deliveryTime ? (
+                      <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 4 }}>
+                        <Feather name="clock" size={13} color={theme.textSecondary} />
+                        <ThemedText style={{ fontFamily: "Cairo_400Regular", fontSize: 12, color: theme.textSecondary }}>{vendor.deliveryTime}</ThemedText>
+                      </View>
+                    ) : null}
+                    {vendor.createdAt ? (
+                      <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 4 }}>
+                        <Feather name="calendar" size={13} color={theme.textSecondary} />
+                        <ThemedText style={{ fontFamily: "Cairo_400Regular", fontSize: 12, color: theme.textSecondary }}>
+                          {new Date(vendor.createdAt).toLocaleDateString("ar-IQ", { year: "numeric", month: "short", day: "numeric" })}
+                        </ThemedText>
+                      </View>
+                    ) : null}
+                  </View>
+                </View>
+              </Pressable>
+            );
+          })
+        )}
+
+        {/* Vendor Detail Modal */}
+        {selectedVendor ? (
+          <Modal transparent animationType="slide" visible onRequestClose={() => setSelectedVendor(null)}>
+            <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.5)" }}>
+              <Pressable style={{ flex: 1 }} onPress={() => setSelectedVendor(null)} />
+              <View style={{
+                backgroundColor: theme.backgroundDefault,
+                borderTopLeftRadius: 24, borderTopRightRadius: 24,
+                maxHeight: "85%",
+              }}>
+                {/* Header */}
+                <View style={{ flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between", padding: Spacing.lg, borderBottomWidth: 1, borderBottomColor: theme.border ?? "#E5E7EB" }}>
+                  <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 17, color: theme.text }}>{selectedVendor.storeName}</ThemedText>
+                  <Pressable onPress={() => setSelectedVendor(null)} style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: "#F3F4F6", alignItems: "center", justifyContent: "center" }}>
+                    <Feather name="x" size={18} color="#374151" />
+                  </Pressable>
+                </View>
+                <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: Spacing.lg, gap: Spacing.md }}>
+                  {/* Cover + logo */}
+                  {selectedVendor.coverImageUrl ? (
+                    <Image source={{ uri: resolveImageUrl(selectedVendor.coverImageUrl) }} style={{ width: "100%", height: 130, borderRadius: 14, resizeMode: "cover" }} />
+                  ) : null}
+
+                  {/* Info card */}
+                  <View style={{ backgroundColor: theme.backgroundRoot, borderRadius: 14, padding: Spacing.md, gap: 10 }}>
+                    {[
+                      { label: "نوع المتجر", value: BUSINESS_TYPE_LABELS[selectedVendor.businessType] || selectedVendor.businessType },
+                      { label: "رقم الهاتف", value: selectedVendor.phoneNumber },
+                      { label: "العنوان", value: selectedVendor.address || "—" },
+                      { label: "وقت التوصيل", value: selectedVendor.deliveryTime || "—" },
+                      { label: "رسوم التوصيل", value: selectedVendor.deliveryPrice != null ? formatPrice(selectedVendor.deliveryPrice) : "—" },
+                      { label: "تاريخ التسجيل", value: selectedVendor.createdAt ? new Date(selectedVendor.createdAt).toLocaleDateString("ar-IQ", { year: "numeric", month: "long", day: "numeric" }) : "—" },
+                      { label: "تاريخ الموافقة", value: selectedVendor.approvedAt ? new Date(selectedVendor.approvedAt).toLocaleDateString("ar-IQ", { year: "numeric", month: "long", day: "numeric" }) : "—" },
+                    ].map((item) => (
+                      <View key={item.label} style={{ flexDirection: "row-reverse", justifyContent: "space-between", alignItems: "flex-start" }}>
+                        <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 13, color: theme.textSecondary }}>{item.label}</ThemedText>
+                        <ThemedText style={{ fontFamily: "Cairo_400Regular", fontSize: 13, color: theme.text, textAlign: "left", flex: 1, marginLeft: 8 }}>{item.value}</ThemedText>
+                      </View>
+                    ))}
+                    {selectedVendor.bio ? (
+                      <View style={{ gap: 4 }}>
+                        <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 13, color: theme.textSecondary, textAlign: "right" }}>نبذة عن المتجر</ThemedText>
+                        <ThemedText style={{ fontFamily: "Cairo_400Regular", fontSize: 13, color: theme.text, textAlign: "right" }}>{selectedVendor.bio}</ThemedText>
+                      </View>
+                    ) : null}
+                  </View>
+
+                  {/* Status badge */}
+                  <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 8 }}>
+                    <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 13, color: theme.textSecondary }}>الحالة:</ThemedText>
+                    <View style={{ paddingHorizontal: 14, paddingVertical: 5, borderRadius: 20, backgroundColor: (VENDOR_STATUS_COLORS[selectedVendor.status] ?? "#6B7280") + "20" }}>
+                      <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 13, color: VENDOR_STATUS_COLORS[selectedVendor.status] ?? "#6B7280" }}>
+                        {VENDOR_STATUS_LABELS[selectedVendor.status] ?? selectedVendor.status}
+                      </ThemedText>
+                    </View>
+                  </View>
+
+                  {/* Products section */}
+                  <View style={{ gap: Spacing.sm }}>
+                    <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 8 }}>
+                      <Feather name="package" size={16} color={ADMIN_RED} />
+                      <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 15, color: theme.text }}>
+                        المنتجات ({selectedProducts.length})
+                      </ThemedText>
+                    </View>
+                    {selectedProducts.length === 0 ? (
+                      <ThemedText style={{ fontFamily: "Cairo_400Regular", fontSize: 13, color: theme.textSecondary, textAlign: "right" }}>لا توجد منتجات بعد</ThemedText>
+                    ) : (
+                      selectedProducts.map((prod) => (
+                        <View key={prod.id} style={{ backgroundColor: theme.backgroundRoot, borderRadius: 12, padding: Spacing.md, flexDirection: "row-reverse", alignItems: "center", gap: Spacing.md }}>
+                          {prod.imageUrl ? (
+                            <Image source={{ uri: resolveImageUrl(prod.imageUrl) }} style={{ width: 52, height: 52, borderRadius: 10, resizeMode: "cover" }} />
+                          ) : (
+                            <View style={{ width: 52, height: 52, borderRadius: 10, backgroundColor: ADMIN_RED + "15", alignItems: "center", justifyContent: "center" }}>
+                              <Feather name="image" size={20} color={ADMIN_RED} style={{ opacity: 0.5 }} />
+                            </View>
+                          )}
+                          <View style={{ flex: 1, gap: 2 }}>
+                            <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 14, color: theme.text, textAlign: "right" }}>{prod.name}</ThemedText>
+                            <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 13, color: ADMIN_RED, textAlign: "right" }}>{formatPrice(prod.price)}</ThemedText>
+                            {prod.description ? (
+                              <ThemedText style={{ fontFamily: "Cairo_400Regular", fontSize: 11, color: theme.textSecondary, textAlign: "right" }} numberOfLines={2}>{prod.description}</ThemedText>
+                            ) : null}
+                          </View>
+                          <View style={{ paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8, backgroundColor: prod.status === "approved" ? "#059669" + "20" : prod.status === "pending" ? "#D97706" + "20" : "#DC2626" + "20" }}>
+                            <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 10, color: prod.status === "approved" ? "#059669" : prod.status === "pending" ? "#D97706" : "#DC2626" }}>
+                              {prod.status === "approved" ? "نشط" : prod.status === "pending" ? "قيد المراجعة" : "مرفوض"}
+                            </ThemedText>
+                          </View>
+                        </View>
+                      ))
+                    )}
+                  </View>
+                </ScrollView>
+              </View>
+            </View>
+          </Modal>
+        ) : null}
+      </View>
+    );
+  };
+
   const renderContent = () => {
     switch (activeTab) {
       case "dashboard": return renderDashboardTab();
@@ -2101,6 +2399,7 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
       case "promoCodes": return renderPromoCodesTab();
       case "notifications": return renderNotificationsTab();
       case "users": return renderUsersTab();
+      case "vendors": return renderVendorsTab();
     }
   };
 
@@ -2117,6 +2416,7 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
     { key: "areas", label: "المناطق", icon: "map-pin" },
     { key: "promoCodes", label: "الخصومات", icon: "tag" },
     { key: "notifications", label: "الإشعارات", icon: "bell" },
+    { key: "vendors", label: "المتاجر", icon: "briefcase", badge: vendorPartners.filter((v) => v.status === "pending").length },
   ];
 
   return (
