@@ -1038,8 +1038,10 @@ router.post("/api/admin/vendor-products/:pid/approve", requireAdmin, async (req,
       approvedAt: now,
     });
 
+    const { FieldValue: FV } = await import("firebase-admin/firestore");
     await db.collection("vendors").doc(product.vendorId).update({
-      totalProducts: (product.totalProducts || 0) + 1,
+      totalProducts: FV.increment(1),
+      updatedAt: now,
     }).catch(() => {});
 
     await db.collection("vendorNotifications").add({
