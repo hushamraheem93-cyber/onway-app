@@ -1654,7 +1654,6 @@ async function registerRoutes(app2) {
       const authHeader = req.headers.authorization || "";
       const token = authHeader.replace("Bearer ", "").trim();
       if (!token) return res.status(401).json({ error: "\u063A\u064A\u0631 \u0645\u0635\u0631\u062D" });
-      const { FieldValue } = await import("firebase-admin/firestore");
       const vendorSnap = await db2.collection("vendors").where("vendorToken", "==", token).limit(1).get();
       if (vendorSnap.empty) return res.status(401).json({ error: "\u063A\u064A\u0631 \u0645\u0635\u0631\u062D" });
       const vendorId2 = vendorSnap.docs[0].id;
