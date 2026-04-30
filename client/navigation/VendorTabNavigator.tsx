@@ -11,15 +11,16 @@ import VendorProductsScreen from "@/screens/VendorProductsScreen";
 import VendorAddProductScreen from "@/screens/VendorAddProductScreen";
 import VendorEditProductScreen from "@/screens/VendorEditProductScreen";
 import VendorWalletScreen from "@/screens/VendorWalletScreen";
+import VendorOrdersScreen from "@/screens/VendorOrdersScreen";
 import { useScreenOptions } from "@/hooks/useScreenOptions";
 import { VendorNotificationsProvider } from "@/context/VendorNotificationsContext";
 import { ThemedText } from "@/components/ThemedText";
-import { AppColors } from "@/constants/theme";
 
 const PURPLE = "#673AB7";
 
 export type VendorTabParamList = {
   VendorHome: undefined;
+  VendorOrdersTab: undefined;
   VendorProductsTab: undefined;
   VendorWalletTab: undefined;
 };
@@ -28,9 +29,10 @@ const Tab = createBottomTabNavigator<VendorTabParamList>();
 const ProductStack = createNativeStackNavigator();
 
 const TAB_CONFIG: Record<string, { icon: keyof typeof Feather.glyphMap; label: string }> = {
-  VendorHome:        { icon: "home",    label: "الرئيسية" },
-  VendorProductsTab: { icon: "box",     label: "المنتجات" },
-  VendorWalletTab:   { icon: "credit-card", label: "المحفظة" },
+  VendorHome:        { icon: "home",         label: "الرئيسية" },
+  VendorOrdersTab:   { icon: "shopping-bag", label: "الطلبات"  },
+  VendorProductsTab: { icon: "box",          label: "المنتجات" },
+  VendorWalletTab:   { icon: "credit-card",  label: "المحفظة"  },
 };
 
 function ProductsStackNavigator() {
@@ -81,9 +83,10 @@ function VendorTabs() {
       tabBar={(props) => <VendorTabBar {...props} />}
       screenOptions={{ ...screenOptions, headerTintColor: PURPLE }}
     >
-      <Tab.Screen name="VendorHome" component={VendorHomeScreen} options={{ headerTitle: "لوحة التحكم" }} />
-      <Tab.Screen name="VendorProductsTab" component={ProductsStackNavigator} options={{ headerShown: false }} />
-      <Tab.Screen name="VendorWalletTab" component={VendorWalletScreen} options={{ headerTitle: "المحفظة" }} />
+      <Tab.Screen name="VendorHome"        component={VendorHomeScreen}        options={{ headerTitle: "لوحة التحكم" }} />
+      <Tab.Screen name="VendorOrdersTab"   component={VendorOrdersScreen}      options={{ headerTitle: "الطلبات" }} />
+      <Tab.Screen name="VendorProductsTab" component={ProductsStackNavigator}  options={{ headerShown: false }} />
+      <Tab.Screen name="VendorWalletTab"   component={VendorWalletScreen}      options={{ headerTitle: "المحفظة" }} />
     </Tab.Navigator>
   );
 }
