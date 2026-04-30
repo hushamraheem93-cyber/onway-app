@@ -4,6 +4,7 @@ import express3 from "express";
 // server/routes.ts
 import express from "express";
 import { createServer } from "node:http";
+import jwt from "jsonwebtoken";
 import multer from "multer";
 import path from "path";
 import fs from "fs";
@@ -1646,17 +1647,84 @@ var products = [
   { id: "fs8", categoryId: "food-supplies", name: "\u0639\u062F\u0633", price: 15e3, image: "/uploads/product-3d-lentils.png", description: "\u0639\u062F\u0633 \u0623\u062D\u0645\u0631 \u0645\u062C\u0631\u0648\u0634 1 \u0643\u064A\u0644\u0648", inStock: true, weight: "1 \u0643\u064A\u0644\u0648" },
   { id: "fs9", categoryId: "food-supplies", name: "\u062D\u0645\u0635", price: 12e3, image: "/uploads/product-3d-chickpeas.png", description: "\u062D\u0645\u0635 \u062D\u0628 \u062C\u0627\u0641 1 \u0643\u064A\u0644\u0648", inStock: true, weight: "1 \u0643\u064A\u0644\u0648" }
 ];
+var ROUTES_JWT_SECRET = process.env.JWT_SECRET || "onway-vendor-secret-2024";
+function extractVendorId(req) {
+  try {
+    const authHeader = req.headers.authorization || "";
+    const token = authHeader.replace("Bearer ", "").trim();
+    if (!token) return null;
+    const decoded = jwt.verify(token, ROUTES_JWT_SECRET);
+    if (decoded.role !== "vendor") return null;
+    return decoded.vendorId;
+  } catch {
+    return null;
+  }
+}
 async function registerRoutes(app2) {
+  app2.get("/api/vendor/wallet", async (req, res) => {
+    try {
+      const db2 = getFirestore();
+      if (!db2) return res.status(500).json({ error: "\u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u063A\u064A\u0631 \u0645\u062A\u0627\u062D\u0629" });
+      const vid = extractVendorId(req);
+      if (!vid) return res.status(401).json({ error: "\u063A\u064A\u0631 \u0645\u0635\u0631\u062D" });
+      const period = req.query.period || "month";
+      const productsSnap = await db2.collection("vendorProducts").where("vendorId", "==", vid).get();
+      const vendorProductIds = new Set(productsSnap.docs.map((d) => d.id));
+      const now = /* @__PURE__ */ new Date();
+      let startDate = null;
+      if (period === "today") {
+        startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      } else if (period === "week") {
+        startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1e3);
+      } else if (period === "month") {
+        startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+      }
+      const snap = await db2.collection("orders").orderBy("createdAt", "desc").limit(1e3).get();
+      const completedStatuses = /* @__PURE__ */ new Set(["delivered", "picked_up", "delivering"]);
+      const vendorOrders = [];
+      for (const doc of snap.docs) {
+        const data = doc.data();
+        if (!completedStatuses.has(data.status)) continue;
+        const createdAt = data.createdAt?.toDate?.() ?? new Date(data.createdAt ?? 0);
+        if (startDate && createdAt < startDate) continue;
+        const items = Array.isArray(data.items) ? data.items : [];
+        let vendorItems = items.filter((i) => i.productId && vendorProductIds.has(i.productId));
+        if (vendorItems.length === 0 && data.vendorId === vid) vendorItems = items;
+        if (vendorItems.length === 0) continue;
+        const subtotal = vendorItems.reduce(
+          (sum, i) => sum + (Number(i.price) || 0) * (Number(i.quantity) || 1),
+          0
+        );
+        vendorOrders.push({
+          id: doc.id,
+          date: createdAt.toISOString(),
+          subtotal,
+          status: data.status,
+          customerPhone: data.phoneNumber || "",
+          itemCount: vendorItems.reduce((s, i) => s + (Number(i.quantity) || 1), 0)
+        });
+      }
+      const totalRevenue = vendorOrders.reduce((s, o) => s + o.subtotal, 0);
+      const totalOrders = vendorOrders.length;
+      const avgOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0;
+      const dailyMap = {};
+      vendorOrders.forEach((o) => {
+        const day = o.date.substring(0, 10);
+        dailyMap[day] = (dailyMap[day] || 0) + o.subtotal;
+      });
+      const dailySales = Object.entries(dailyMap).map(([date, revenue]) => ({ date, revenue })).sort((a, b) => a.date.localeCompare(b.date)).slice(-14);
+      res.json({ totalRevenue, totalOrders, avgOrderValue, dailySales, recentSales: vendorOrders.slice(0, 20), period });
+    } catch (err) {
+      console.error("vendor wallet:", err);
+      res.status(500).json({ error: "\u062D\u062F\u062B \u062E\u0637\u0623 \u0641\u064A \u0627\u0644\u062E\u0627\u062F\u0645" });
+    }
+  });
   app2.patch("/api/vendor/products/:pid/availability", async (req, res) => {
     try {
       const db2 = getFirestore();
       if (!db2) return res.status(500).json({ error: "\u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u063A\u064A\u0631 \u0645\u062A\u0627\u062D\u0629" });
-      const authHeader = req.headers.authorization || "";
-      const token = authHeader.replace("Bearer ", "").trim();
-      if (!token) return res.status(401).json({ error: "\u063A\u064A\u0631 \u0645\u0635\u0631\u062D" });
-      const vendorSnap = await db2.collection("vendors").where("vendorToken", "==", token).limit(1).get();
-      if (vendorSnap.empty) return res.status(401).json({ error: "\u063A\u064A\u0631 \u0645\u0635\u0631\u062D" });
-      const vendorId2 = vendorSnap.docs[0].id;
+      const vendorId2 = extractVendorId(req);
+      if (!vendorId2) return res.status(401).json({ error: "\u063A\u064A\u0631 \u0645\u0635\u0631\u062D" });
       const { pid } = req.params;
       const doc = await db2.collection("vendorProducts").doc(pid).get();
       if (!doc.exists || doc.data().vendorId !== vendorId2) {
@@ -4524,7 +4592,7 @@ ${itemsList}
 // server/vendor.ts
 import express2 from "express";
 import * as bcrypt from "bcryptjs";
-import jwt from "jsonwebtoken";
+import jwt2 from "jsonwebtoken";
 import multer2 from "multer";
 import sharp from "sharp";
 import * as crypto from "crypto";
@@ -4545,7 +4613,7 @@ var upload2 = multer2({
   }
 });
 function makeVendorToken(vendorId2) {
-  return jwt.sign({ vendorId: vendorId2, role: "vendor" }, JWT_SECRET, { expiresIn: "30d" });
+  return jwt2.sign({ vendorId: vendorId2, role: "vendor" }, JWT_SECRET, { expiresIn: "30d" });
 }
 function parseCookies(req) {
   const header = req.headers.cookie || "";
@@ -4561,7 +4629,7 @@ function getVendorSession(req) {
   const token = cookies[VENDOR_COOKIE];
   if (!token) return null;
   try {
-    const decoded = jwt.verify(token, JWT_SECRET);
+    const decoded = jwt2.verify(token, JWT_SECRET);
     return decoded.role === "vendor" ? decoded.vendorId : null;
   } catch {
     return null;
@@ -4576,7 +4644,7 @@ function requireVendor(req, res, next) {
   }
   if (!token) return res.status(401).json({ error: "\u063A\u064A\u0631 \u0645\u0635\u0631\u062D - \u0633\u062C\u0644 \u062F\u062E\u0648\u0644\u0643 \u0623\u0648\u0644\u0627\u064B" });
   try {
-    const decoded = jwt.verify(token, JWT_SECRET);
+    const decoded = jwt2.verify(token, JWT_SECRET);
     if (decoded.role !== "vendor") return res.status(403).json({ error: "\u063A\u064A\u0631 \u0645\u0635\u0631\u062D" });
     req.vendorId = decoded.vendorId;
     next();

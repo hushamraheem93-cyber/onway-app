@@ -1,6 +1,7 @@
 import express from "express";
 import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "node:http";
+import jwt from "jsonwebtoken";
 import multer, { StorageEngine, FileFilterCallback } from "multer";
 import path from "path";
 import fs from "fs";
@@ -253,19 +254,102 @@ const products: Product[] = [
   { id: "fs9", categoryId: "food-supplies", name: "حمص", price: 12000, image: "/uploads/product-3d-chickpeas.png", description: "حمص حب جاف 1 كيلو", inStock: true, weight: "1 كيلو" },
 ];
 
+const ROUTES_JWT_SECRET = process.env.JWT_SECRET || "onway-vendor-secret-2024";
+
+function extractVendorId(req: Request): string | null {
+  try {
+    const authHeader = req.headers.authorization || "";
+    const token = authHeader.replace("Bearer ", "").trim();
+    if (!token) return null;
+    const decoded = jwt.verify(token, ROUTES_JWT_SECRET) as any;
+    if (decoded.role !== "vendor") return null;
+    return decoded.vendorId as string;
+  } catch {
+    return null;
+  }
+}
+
 export async function registerRoutes(app: Express): Promise<Server> {
+  // ── VENDOR: Wallet / earnings summary ─────────────────────────────────────────
+  app.get("/api/vendor/wallet", async (req: Request, res: Response) => {
+    try {
+      const db = getFirestore();
+      if (!db) return res.status(500).json({ error: "قاعدة البيانات غير متاحة" });
+      const vid = extractVendorId(req);
+      if (!vid) return res.status(401).json({ error: "غير مصرح" });
+
+      const period = (req.query.period as string) || "month";
+
+      const productsSnap = await db.collection("vendorProducts")
+        .where("vendorId", "==", vid).get();
+      const vendorProductIds = new Set<string>(productsSnap.docs.map((d) => d.id));
+
+      const now = new Date();
+      let startDate: Date | null = null;
+      if (period === "today") {
+        startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      } else if (period === "week") {
+        startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+      } else if (period === "month") {
+        startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+      }
+
+      const snap = await db.collection("orders")
+        .orderBy("createdAt", "desc").limit(1000).get();
+
+      const completedStatuses = new Set(["delivered", "picked_up", "delivering"]);
+      type SaleRecord = { id: string; date: string; subtotal: number; status: string; customerPhone: string; itemCount: number };
+      const vendorOrders: SaleRecord[] = [];
+
+      for (const doc of snap.docs) {
+        const data = doc.data() as any;
+        if (!completedStatuses.has(data.status)) continue;
+        const createdAt: Date = data.createdAt?.toDate?.() ?? new Date(data.createdAt ?? 0);
+        if (startDate && createdAt < startDate) continue;
+
+        const items: any[] = Array.isArray(data.items) ? data.items : [];
+        let vendorItems = items.filter((i: any) => i.productId && vendorProductIds.has(i.productId));
+        if (vendorItems.length === 0 && data.vendorId === vid) vendorItems = items;
+        if (vendorItems.length === 0) continue;
+
+        const subtotal = vendorItems.reduce(
+          (sum: number, i: any) => sum + (Number(i.price) || 0) * (Number(i.quantity) || 1), 0
+        );
+        vendorOrders.push({
+          id: doc.id, date: createdAt.toISOString(), subtotal,
+          status: data.status, customerPhone: data.phoneNumber || "",
+          itemCount: vendorItems.reduce((s: number, i: any) => s + (Number(i.quantity) || 1), 0),
+        });
+      }
+
+      const totalRevenue = vendorOrders.reduce((s, o) => s + o.subtotal, 0);
+      const totalOrders = vendorOrders.length;
+      const avgOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0;
+
+      const dailyMap: Record<string, number> = {};
+      vendorOrders.forEach((o) => {
+        const day = o.date.substring(0, 10);
+        dailyMap[day] = (dailyMap[day] || 0) + o.subtotal;
+      });
+      const dailySales = Object.entries(dailyMap)
+        .map(([date, revenue]) => ({ date, revenue }))
+        .sort((a, b) => a.date.localeCompare(b.date))
+        .slice(-14);
+
+      res.json({ totalRevenue, totalOrders, avgOrderValue, dailySales, recentSales: vendorOrders.slice(0, 20), period });
+    } catch (err) {
+      console.error("vendor wallet:", err);
+      res.status(500).json({ error: "حدث خطأ في الخادم" });
+    }
+  });
+
   // ── VENDOR: Product availability toggle ───────────────────────────────────────
   app.patch("/api/vendor/products/:pid/availability", async (req: Request, res: Response) => {
     try {
       const db = getFirestore();
       if (!db) return res.status(500).json({ error: "قاعدة البيانات غير متاحة" });
-      const authHeader = req.headers.authorization || "";
-      const token = authHeader.replace("Bearer ", "").trim();
-      if (!token) return res.status(401).json({ error: "غير مصرح" });
-
-      const vendorSnap = await db.collection("vendors").where("vendorToken", "==", token).limit(1).get();
-      if (vendorSnap.empty) return res.status(401).json({ error: "غير مصرح" });
-      const vendorId = vendorSnap.docs[0].id;
+      const vendorId = extractVendorId(req);
+      if (!vendorId) return res.status(401).json({ error: "غير مصرح" });
 
       const { pid } = req.params;
       const doc = await db.collection("vendorProducts").doc(pid).get();
