@@ -33,6 +33,7 @@ interface Product {
   status: "pending" | "approved" | "rejected" | "deleted";
   rejectionReason?: string;
   createdAt: string;
+  inStock?: boolean;
 }
 
 interface SectionData {
@@ -83,6 +84,7 @@ export default function VendorProductsScreen({ navigation }: any) {
   const [bulkDeleteModal, setBulkDeleteModal] = useState(false);
   const [bulkDeleting, setBulkDeleting] = useState(false);
   const [resultModal, setResultModal] = useState<{ succeeded: number; failed: number } | null>(null);
+  const [togglingId, setTogglingId] = useState<string | null>(null);
 
   const isPending = vendorProfile?.status === "pending";
 
@@ -213,6 +215,35 @@ export default function VendorProductsScreen({ navigation }: any) {
     });
   };
 
+  const toggleAvailability = useCallback(async (productId: string, currentInStock: boolean) => {
+    if (!vendorToken || togglingId) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    setTogglingId(productId);
+    const newValue = !currentInStock;
+    setProducts((prev) =>
+      prev.map((p) => (p.id === productId ? { ...p, inStock: newValue } : p))
+    );
+    try {
+      await fetch(
+        new URL(`/api/vendor/products/${productId}/availability`, getApiUrl()).toString(),
+        {
+          method: "PATCH",
+          headers: {
+            Authorization: `Bearer ${vendorToken}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ inStock: newValue }),
+        }
+      );
+    } catch {
+      setProducts((prev) =>
+        prev.map((p) => (p.id === productId ? { ...p, inStock: currentInStock } : p))
+      );
+    } finally {
+      setTogglingId(null);
+    }
+  }, [vendorToken, togglingId]);
+
   const handleFilterChange = (value: string) => {
     setFilterStatus(value);
     if (selectMode) {
@@ -260,6 +291,8 @@ export default function VendorProductsScreen({ navigation }: any) {
       selectMode={selectMode}
       selected={selectedIds.has(item.id)}
       onToggleSelect={() => toggleSelect(item.id)}
+      onToggleAvailability={() => toggleAvailability(item.id, item.inStock !== false)}
+      togglingAvailability={togglingId === item.id}
     />
   );
 
@@ -527,6 +560,8 @@ function ProductCard({
   selectMode,
   selected,
   onToggleSelect,
+  onToggleAvailability,
+  togglingAvailability,
 }: {
   item: Product;
   onDelete: () => void;
@@ -534,8 +569,12 @@ function ProductCard({
   selectMode: boolean;
   selected: boolean;
   onToggleSelect: () => void;
+  onToggleAvailability: () => void;
+  togglingAvailability: boolean;
 }) {
   const statusColor = STATUS_COLORS[item.status] || "#999";
+  const available = item.inStock !== false;
+
   return (
     <Pressable
       style={[styles.productCard, selected && styles.productCardSelected]}
@@ -577,6 +616,25 @@ function ProductCard({
           </ThemedText>
           {!selectMode ? (
             <View style={styles.cardActions}>
+              {/* availability pill toggle */}
+              <Pressable
+                style={[
+                  styles.availabilityPill,
+                  available ? styles.availablePill : styles.unavailablePill,
+                ]}
+                onPress={onToggleAvailability}
+                disabled={togglingAvailability}
+                testID={`button-availability-${item.id}`}
+              >
+                {togglingAvailability ? (
+                  <ActivityIndicator size={10} color={available ? "#10B981" : "#EF4444"} />
+                ) : (
+                  <View style={[styles.pillDot, { backgroundColor: available ? "#10B981" : "#EF4444" }]} />
+                )}
+                <ThemedText style={[styles.availabilityText, { color: available ? "#10B981" : "#EF4444" }]}>
+                  {available ? "متوفر" : "نفذ"}
+                </ThemedText>
+              </Pressable>
               <Pressable
                 style={styles.editIconBtn}
                 onPress={onEdit}
@@ -760,6 +818,32 @@ const styles = StyleSheet.create({
   },
   productPrice: { fontFamily: "Cairo_700Bold", fontSize: 14, color: PURPLE },
   cardActions: { flexDirection: "row", gap: 8, alignItems: "center" },
+  availabilityPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 20,
+    borderWidth: 1,
+  },
+  availablePill: {
+    backgroundColor: "#ECFDF5",
+    borderColor: "#A7F3D0",
+  },
+  unavailablePill: {
+    backgroundColor: "#FFF1F2",
+    borderColor: "#FECDD3",
+  },
+  pillDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  availabilityText: {
+    fontFamily: "Cairo_700Bold",
+    fontSize: 11,
+  },
   editIconBtn: {
     width: 32,
     height: 32,

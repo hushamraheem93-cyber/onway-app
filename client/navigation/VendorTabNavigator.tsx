@@ -1,70 +1,75 @@
 import React from "react";
-import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
+import { View, Pressable, StyleSheet, Platform } from "react-native";
+import { createBottomTabNavigator, BottomTabBarProps } from "@react-navigation/bottom-tabs";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
-import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { Platform, View, StyleSheet } from "react-native";
+import { Feather } from "@expo/vector-icons";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import * as Haptics from "expo-haptics";
 
 import VendorHomeScreen from "@/screens/VendorHomeScreen";
 import VendorProductsScreen from "@/screens/VendorProductsScreen";
 import VendorAddProductScreen from "@/screens/VendorAddProductScreen";
 import VendorEditProductScreen from "@/screens/VendorEditProductScreen";
-import VendorNotificationsScreen from "@/screens/VendorNotificationsScreen";
-import VendorOrdersScreen from "@/screens/VendorOrdersScreen";
 import VendorWalletScreen from "@/screens/VendorWalletScreen";
 import { useScreenOptions } from "@/hooks/useScreenOptions";
-import {
-  VendorNotificationsProvider,
-  useVendorNotifications,
-} from "@/context/VendorNotificationsContext";
+import { VendorNotificationsProvider } from "@/context/VendorNotificationsContext";
 import { ThemedText } from "@/components/ThemedText";
-
-const Tab = createBottomTabNavigator();
-const ProductStack = createNativeStackNavigator();
+import { AppColors } from "@/constants/theme";
 
 const PURPLE = "#673AB7";
-const ACTIVE_TINT = PURPLE;
-const INACTIVE_TINT = "#9CA3AF";
+
+export type VendorTabParamList = {
+  VendorHome: undefined;
+  VendorProductsTab: undefined;
+  VendorWalletTab: undefined;
+};
+
+const Tab = createBottomTabNavigator<VendorTabParamList>();
+const ProductStack = createNativeStackNavigator();
+
+const TAB_CONFIG: Record<string, { icon: keyof typeof Feather.glyphMap; label: string }> = {
+  VendorHome:        { icon: "home",    label: "الرئيسية" },
+  VendorProductsTab: { icon: "box",     label: "المنتجات" },
+  VendorWalletTab:   { icon: "credit-card", label: "المحفظة" },
+};
 
 function ProductsStackNavigator() {
   const screenOptions = useScreenOptions();
   return (
-    <ProductStack.Navigator
-      screenOptions={{
-        ...screenOptions,
-        headerTintColor: PURPLE,
-      }}
-    >
-      <ProductStack.Screen
-        name="VendorProducts"
-        component={VendorProductsScreen}
-        options={{ headerTitle: "منتجاتي" }}
-      />
-      <ProductStack.Screen
-        name="VendorAddProduct"
-        component={VendorAddProductScreen}
-        options={{ headerTitle: "إضافة منتج جديد" }}
-      />
-      <ProductStack.Screen
-        name="VendorEditProduct"
-        component={VendorEditProductScreen}
-        options={{ headerTitle: "تعديل المنتج" }}
-      />
+    <ProductStack.Navigator screenOptions={{ ...screenOptions, headerTintColor: PURPLE }}>
+      <ProductStack.Screen name="VendorProducts" component={VendorProductsScreen} options={{ headerTitle: "منتجاتي" }} />
+      <ProductStack.Screen name="VendorAddProduct" component={VendorAddProductScreen} options={{ headerTitle: "إضافة منتج" }} />
+      <ProductStack.Screen name="VendorEditProduct" component={VendorEditProductScreen} options={{ headerTitle: "تعديل المنتج" }} />
     </ProductStack.Navigator>
   );
 }
 
-function NotificationsBadgeIcon({ color, size }: { color: string; size: number }) {
-  const { unreadCount } = useVendorNotifications();
+function VendorTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
+  const insets = useSafeAreaInsets();
+
   return (
-    <View>
-      <MaterialCommunityIcons name="bell-outline" size={size} color={color} />
-      {unreadCount > 0 ? (
-        <View style={styles.badge}>
-          <ThemedText style={styles.badgeText}>
-            {unreadCount > 9 ? "9+" : String(unreadCount)}
-          </ThemedText>
-        </View>
-      ) : null}
+    <View style={[styles.tabBar, { paddingBottom: insets.bottom > 0 ? insets.bottom : 12 }]}>
+      {state.routes.map((route, index) => {
+        const isFocused = state.index === index;
+        const config = TAB_CONFIG[route.name] ?? { icon: "circle", label: "" };
+
+        const onPress = () => {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          const event = navigation.emit({ type: "tabPress", target: route.key, canPreventDefault: true });
+          if (!isFocused && !event.defaultPrevented) navigation.navigate(route.name);
+        };
+
+        return (
+          <Pressable key={route.key} onPress={onPress} style={styles.tabItem}>
+            <View style={[styles.iconWrap, isFocused && { backgroundColor: PURPLE + "15" }]}>
+              <Feather name={config.icon} size={22} color={isFocused ? PURPLE : "#9CA3AF"} />
+            </View>
+            <ThemedText style={[styles.tabLabel, { color: isFocused ? PURPLE : "#9CA3AF" }]}>
+              {config.label}
+            </ThemedText>
+          </Pressable>
+        );
+      })}
     </View>
   );
 }
@@ -73,79 +78,12 @@ function VendorTabs() {
   const screenOptions = useScreenOptions();
   return (
     <Tab.Navigator
-      screenOptions={{
-        ...screenOptions,
-        tabBarActiveTintColor: ACTIVE_TINT,
-        tabBarInactiveTintColor: INACTIVE_TINT,
-        tabBarStyle: {
-          backgroundColor: "#fff",
-          borderTopColor: "#F3F4F6",
-          borderTopWidth: 1,
-          paddingBottom: Platform.OS === "ios" ? 4 : 6,
-          height: Platform.OS === "ios" ? 82 : 64,
-        },
-        tabBarLabelStyle: {
-          fontFamily: "Cairo_700Bold",
-          fontSize: 11,
-        },
-        headerTintColor: PURPLE,
-      }}
+      tabBar={(props) => <VendorTabBar {...props} />}
+      screenOptions={{ ...screenOptions, headerTintColor: PURPLE }}
     >
-      <Tab.Screen
-        name="VendorHome"
-        component={VendorHomeScreen}
-        options={{
-          headerTitle: "لوحة التحكم",
-          tabBarLabel: "الرئيسية",
-          tabBarIcon: ({ color, size }) => (
-            <MaterialCommunityIcons name="view-dashboard" size={size} color={color} />
-          ),
-        }}
-      />
-      <Tab.Screen
-        name="VendorProductsTab"
-        component={ProductsStackNavigator}
-        options={{
-          headerShown: false,
-          tabBarLabel: "المنتجات",
-          tabBarIcon: ({ color, size }) => (
-            <MaterialCommunityIcons name="package-variant" size={size} color={color} />
-          ),
-        }}
-      />
-      <Tab.Screen
-        name="VendorOrdersTab"
-        component={VendorOrdersScreen}
-        options={{
-          headerTitle: "الطلبات",
-          tabBarLabel: "الطلبات",
-          tabBarIcon: ({ color, size }) => (
-            <MaterialCommunityIcons name="clipboard-list-outline" size={size} color={color} />
-          ),
-        }}
-      />
-      <Tab.Screen
-        name="VendorWalletTab"
-        component={VendorWalletScreen}
-        options={{
-          headerTitle: "المحفظة",
-          tabBarLabel: "المحفظة",
-          tabBarIcon: ({ color, size }) => (
-            <MaterialCommunityIcons name="wallet-outline" size={size} color={color} />
-          ),
-        }}
-      />
-      <Tab.Screen
-        name="VendorNotificationsTab"
-        component={VendorNotificationsScreen}
-        options={{
-          headerTitle: "الإشعارات",
-          tabBarLabel: "الإشعارات",
-          tabBarIcon: ({ color, size }) => (
-            <NotificationsBadgeIcon color={color} size={size} />
-          ),
-        }}
-      />
+      <Tab.Screen name="VendorHome" component={VendorHomeScreen} options={{ headerTitle: "لوحة التحكم" }} />
+      <Tab.Screen name="VendorProductsTab" component={ProductsStackNavigator} options={{ headerShown: false }} />
+      <Tab.Screen name="VendorWalletTab" component={VendorWalletScreen} options={{ headerTitle: "المحفظة" }} />
     </Tab.Navigator>
   );
 }
@@ -159,22 +97,32 @@ export default function VendorTabNavigator() {
 }
 
 const styles = StyleSheet.create({
-  badge: {
-    position: "absolute",
-    top: -4,
-    right: -6,
-    minWidth: 16,
-    height: 16,
-    borderRadius: 8,
-    backgroundColor: "#E86520",
+  tabBar: {
+    flexDirection: "row",
+    backgroundColor: "#FFFFFF",
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: "#E5E7EB",
+    paddingTop: 8,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 12,
+  },
+  tabItem: {
+    flex: 1,
+    alignItems: "center",
+    gap: 3,
+  },
+  iconWrap: {
+    width: 44,
+    height: 34,
+    borderRadius: 12,
     justifyContent: "center",
     alignItems: "center",
-    paddingHorizontal: 3,
   },
-  badgeText: {
+  tabLabel: {
+    fontSize: 11,
     fontFamily: "Cairo_700Bold",
-    fontSize: 9,
-    color: "#fff",
-    lineHeight: 14,
   },
 });

@@ -1647,6 +1647,33 @@ var products = [
   { id: "fs9", categoryId: "food-supplies", name: "\u062D\u0645\u0635", price: 12e3, image: "/uploads/product-3d-chickpeas.png", description: "\u062D\u0645\u0635 \u062D\u0628 \u062C\u0627\u0641 1 \u0643\u064A\u0644\u0648", inStock: true, weight: "1 \u0643\u064A\u0644\u0648" }
 ];
 async function registerRoutes(app2) {
+  app2.patch("/api/vendor/products/:pid/availability", async (req, res) => {
+    try {
+      const db2 = getFirestore();
+      if (!db2) return res.status(500).json({ error: "\u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u063A\u064A\u0631 \u0645\u062A\u0627\u062D\u0629" });
+      const authHeader = req.headers.authorization || "";
+      const token = authHeader.replace("Bearer ", "").trim();
+      if (!token) return res.status(401).json({ error: "\u063A\u064A\u0631 \u0645\u0635\u0631\u062D" });
+      const { FieldValue } = await import("firebase-admin/firestore");
+      const vendorSnap = await db2.collection("vendors").where("vendorToken", "==", token).limit(1).get();
+      if (vendorSnap.empty) return res.status(401).json({ error: "\u063A\u064A\u0631 \u0645\u0635\u0631\u062D" });
+      const vendorId2 = vendorSnap.docs[0].id;
+      const { pid } = req.params;
+      const doc = await db2.collection("vendorProducts").doc(pid).get();
+      if (!doc.exists || doc.data().vendorId !== vendorId2) {
+        return res.status(404).json({ error: "\u0627\u0644\u0645\u0646\u062A\u062C \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F" });
+      }
+      const inStock = req.body.inStock === true || req.body.inStock === "true";
+      await db2.collection("vendorProducts").doc(pid).update({
+        inStock,
+        updatedAt: (/* @__PURE__ */ new Date()).toISOString()
+      });
+      res.json({ success: true, inStock });
+    } catch (err) {
+      console.error("product availability:", err);
+      res.status(500).json({ error: "\u062D\u062F\u062B \u062E\u0637\u0623 \u0641\u064A \u0627\u0644\u062E\u0627\u062F\u0645" });
+    }
+  });
   app2.put("/api/admin/vendor-partners/:id/commission", async (req, res) => {
     try {
       const db2 = getFirestore();

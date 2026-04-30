@@ -254,6 +254,36 @@ const products: Product[] = [
 ];
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // ── VENDOR: Product availability toggle ───────────────────────────────────────
+  app.patch("/api/vendor/products/:pid/availability", async (req: Request, res: Response) => {
+    try {
+      const db = getFirestore();
+      if (!db) return res.status(500).json({ error: "قاعدة البيانات غير متاحة" });
+      const authHeader = req.headers.authorization || "";
+      const token = authHeader.replace("Bearer ", "").trim();
+      if (!token) return res.status(401).json({ error: "غير مصرح" });
+
+      const vendorSnap = await db.collection("vendors").where("vendorToken", "==", token).limit(1).get();
+      if (vendorSnap.empty) return res.status(401).json({ error: "غير مصرح" });
+      const vendorId = vendorSnap.docs[0].id;
+
+      const { pid } = req.params;
+      const doc = await db.collection("vendorProducts").doc(pid).get();
+      if (!doc.exists || (doc.data() as any).vendorId !== vendorId) {
+        return res.status(404).json({ error: "المنتج غير موجود" });
+      }
+      const inStock = req.body.inStock === true || req.body.inStock === "true";
+      await db.collection("vendorProducts").doc(pid).update({
+        inStock,
+        updatedAt: new Date().toISOString(),
+      });
+      res.json({ success: true, inStock });
+    } catch (err) {
+      console.error("product availability:", err);
+      res.status(500).json({ error: "حدث خطأ في الخادم" });
+    }
+  });
+
   // ── ADMIN: Vendor Partner Commission ─────────────────────────────────────────
   app.put("/api/admin/vendor-partners/:id/commission", async (req: Request, res: Response) => {
     try {
