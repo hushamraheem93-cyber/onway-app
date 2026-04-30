@@ -12,7 +12,8 @@ import {
 } from "react-native";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useRoute, RouteProp } from "@react-navigation/native";
+import { useRoute, RouteProp, useNavigation } from "@react-navigation/native";
+import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useQuery } from "@tanstack/react-query";
 import { Image } from "expo-image";
 import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
@@ -47,6 +48,7 @@ interface VendorProduct {
   stock: number;
   unit?: string;
   imageUrl: string;
+  imageUrls?: string[];
   status: string;
 }
 
@@ -94,28 +96,42 @@ function ProductCard({
   quantity,
   onIncrease,
   onDecrease,
+  onPress,
 }: {
   product: VendorProduct;
   onAdd: () => void;
   quantity: number;
   onIncrease: () => void;
   onDecrease: () => void;
+  onPress: () => void;
 }) {
   const { theme } = useTheme();
   const isOutOfStock = product.stock <= 0;
   const imageUri = resolveImageUrl(product.imageUrl);
+  const hasMultipleImages = product.imageUrls && product.imageUrls.length > 1;
 
   return (
-    <View
+    <Pressable
+      onPress={onPress}
       style={[styles.productCard, { backgroundColor: theme.backgroundDefault }, Shadows.sm]}
       testID={`product-card-${product.id}`}
     >
-      <Image
-        source={{ uri: imageUri }}
-        style={styles.productImage}
-        contentFit="cover"
-        transition={200}
-      />
+      <View style={styles.productImageWrap}>
+        <Image
+          source={{ uri: imageUri }}
+          style={styles.productImage}
+          contentFit="cover"
+          transition={200}
+        />
+        {hasMultipleImages ? (
+          <View style={styles.multiImageBadge}>
+            <Feather name="image" size={10} color="#fff" />
+            <ThemedText style={styles.multiImageCount}>
+              {product.imageUrls!.length}
+            </ThemedText>
+          </View>
+        ) : null}
+      </View>
       <View style={styles.productInfo}>
         <ThemedText type="body" style={styles.productName} numberOfLines={2}>
           {product.name}
@@ -174,7 +190,7 @@ function ProductCard({
           )}
         </View>
       </View>
-    </View>
+    </Pressable>
   );
 }
 
@@ -275,10 +291,15 @@ function SearchFilterBar({
 export default function StoreProductsScreen() {
   const route = useRoute<StoreProductsRouteProp>();
   const { storeId } = route.params;
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const headerHeight = useHeaderHeight();
   const insets = useSafeAreaInsets();
   const { theme } = useTheme();
   const { items, addToCart, updateQuantity } = useCart();
+
+  const handleProductPress = (product: VendorProduct) => {
+    navigation.navigate("ProductDetail", { product });
+  };
 
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
@@ -429,6 +450,7 @@ export default function StoreProductsScreen() {
               onAdd={() => handleAdd(item)}
               onIncrease={() => handleIncrease(item)}
               onDecrease={() => handleDecrease(item)}
+              onPress={() => handleProductPress(item)}
             />
           )}
           ItemSeparatorComponent={() => <View style={{ height: Spacing.md }} />}
@@ -608,9 +630,31 @@ const styles = StyleSheet.create({
     overflow: "hidden",
     flexDirection: "row-reverse",
   },
+  productImageWrap: {
+    position: "relative",
+    width: 110,
+    height: 110,
+  },
   productImage: {
     width: 110,
     height: 110,
+  },
+  multiImageBadge: {
+    position: "absolute",
+    top: 6,
+    right: 6,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+    backgroundColor: "rgba(0,0,0,0.55)",
+    borderRadius: 10,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
+  multiImageCount: {
+    fontFamily: "Cairo_700Bold",
+    fontSize: 10,
+    color: "#fff",
   },
   productInfo: {
     flex: 1,

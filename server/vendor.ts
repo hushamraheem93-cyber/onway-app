@@ -400,62 +400,70 @@ router.post(
   }
 );
 
+// ── Helper: process multiple uploaded images ─────────────────────────────────
+async function processUploadedImages(files: Express.Multer.File[]): Promise<{ imageUrls: string[]; tempPaths: string[] }> {
+  const imageUrls: string[] = [];
+  const tempPaths: string[] = files.map((f) => f.path);
+  for (const file of files) {
+    const hash = await generateImageHash(file.path);
+    let imageUrl = await findDuplicateImage(hash);
+    if (!imageUrl) {
+      imageUrl = await processAndSaveImage(file.path, hash);
+      await saveImageHash(hash, imageUrl);
+    }
+    imageUrls.push(imageUrl);
+  }
+  for (const tp of tempPaths) {
+    await cleanTemp(tp);
+  }
+  return { imageUrls, tempPaths: [] };
+}
+
 // ── POST /api/vendor/products ───────────────────────────────────────────────
 router.post(
   "/api/vendor/products",
   requireVendor,
-  upload.single("image"),
+  upload.fields([{ name: "image", maxCount: 1 }, { name: "images", maxCount: 5 }]),
   async (req, res) => {
-    let tempPath: string | null = req.file?.path || null;
+    const fields = (req.files as Record<string, Express.Multer.File[]>) || {};
+    const uploadedFiles = [...(fields["images"] || []), ...(fields["image"] || [])];
     try {
       const { name, description, price, category, stock, unit } = req.body;
       const vid = (req as any).vendorId;
 
-      if (!name || !price || !category || !req.file) {
-        await cleanTemp(tempPath);
+      if (!name || !price || !category || uploadedFiles.length === 0) {
+        for (const f of uploadedFiles) await cleanTemp(f.path);
         return res.status(400).json({ error: "الاسم، السعر، الفئة، والصورة مطلوبة" });
       }
 
-      const db = getFirestore();
-      if (!db) { await cleanTemp(tempPath); return res.status(500).json({ error: "قاعدة البيانات غير متاحة" }); }
+      if (uploadedFiles.length > 5) {
+        for (const f of uploadedFiles) await cleanTemp(f.path);
+        return res.status(400).json({ error: "الحد الأقصى للصور هو 5 صور" });
+      }
 
-      // Check vendor exists (pending vendors can add products; they queue until approved)
+      const db = getFirestore();
+      if (!db) {
+        for (const f of uploadedFiles) await cleanTemp(f.path);
+        return res.status(500).json({ error: "قاعدة البيانات غير متاحة" });
+      }
+
       const vDoc = await db.collection("vendors").doc(vid).get();
       if (!vDoc.exists) {
-        await cleanTemp(tempPath);
+        for (const f of uploadedFiles) await cleanTemp(f.path);
         return res.status(403).json({ error: "حسابك غير موجود" });
       }
       if ((vDoc.data() as any).status === "rejected" || (vDoc.data() as any).status === "suspended") {
-        await cleanTemp(tempPath);
+        for (const f of uploadedFiles) await cleanTemp(f.path);
         return res.status(403).json({ error: "حسابك غير مفعل" });
       }
 
-      // 1. Generate hash from original file
-      const imageHash = await generateImageHash(tempPath!);
+      const { imageUrls } = await processUploadedImages(uploadedFiles);
+      const imageUrl = imageUrls[0];
 
-      // 2. Check dedup
-      let imageUrl = await findDuplicateImage(imageHash);
-      let isDuplicate = !!imageUrl;
-
-      if (!imageUrl) {
-        // 3. Process image: WebP 800×800
-        imageUrl = await processAndSaveImage(tempPath!, imageHash);
-        // 4. Save hash → URL mapping
-        await saveImageHash(imageHash, imageUrl);
-        console.log(`✅ صورة جديدة معالجة ومحفوظة: ${imageUrl}`);
-      } else {
-        console.log(`♻️ صورة مكررة — استخدام الرابط الموجود: ${imageUrl}`);
-      }
-
-      // 5. Delete temp file
-      await cleanTemp(tempPath);
-      tempPath = null;
-
-      // 6. Save product
       const pid = productId();
       const now = new Date().toISOString();
-
       const vData = vDoc.data() as any;
+
       await db.collection("vendorProducts").doc(pid).set({
         id: pid,
         vendorId: vid,
@@ -469,8 +477,7 @@ router.post(
         stock: parseInt(stock) || 0,
         unit: unit || "قطعة",
         imageUrl,
-        imageHash,
-        isDuplicateImage: isDuplicate,
+        imageUrls,
         status: "approved",
         createdAt: now,
         updatedAt: now,
@@ -479,10 +486,10 @@ router.post(
       res.status(201).json({
         success: true,
         message: "تم إضافة المنتج بنجاح! سيظهر للعملاء الآن.",
-        product: { id: pid, name, price: parseFloat(price), imageUrl, status: "approved" },
+        product: { id: pid, name, price: parseFloat(price), imageUrl, imageUrls, status: "approved" },
       });
     } catch (err: any) {
-      await cleanTemp(tempPath);
+      for (const f of uploadedFiles) await cleanTemp(f.path);
       console.error("add product:", err);
       res.status(500).json({ error: err.message || "حدث خطأ في إضافة المنتج" });
     }
@@ -536,23 +543,27 @@ router.get("/api/vendor/products", requireVendor, async (req, res) => {
 router.put(
   "/api/vendor/products/:pid",
   requireVendor,
-  upload.single("image"),
+  upload.fields([{ name: "image", maxCount: 1 }, { name: "images", maxCount: 5 }]),
   async (req, res) => {
-    let tempPath: string | null = req.file?.path || null;
+    const fields = (req.files as Record<string, Express.Multer.File[]>) || {};
+    const uploadedFiles = [...(fields["images"] || []), ...(fields["image"] || [])];
     try {
       const db = getFirestore();
-      if (!db) { await cleanTemp(tempPath); return res.status(500).json({ error: "قاعدة البيانات غير متاحة" }); }
+      if (!db) {
+        for (const f of uploadedFiles) await cleanTemp(f.path);
+        return res.status(500).json({ error: "قاعدة البيانات غير متاحة" });
+      }
 
       const vid = (req as any).vendorId;
       const { pid } = req.params;
       const doc = await db.collection("vendorProducts").doc(pid).get();
 
       if (!doc.exists || (doc.data() as any).vendorId !== vid) {
-        await cleanTemp(tempPath);
+        for (const f of uploadedFiles) await cleanTemp(f.path);
         return res.status(404).json({ error: "المنتج غير موجود" });
       }
 
-      const { name, description, price, category, stock, unit } = req.body;
+      const { name, description, price, category, stock, unit, existingImages } = req.body;
       const now = new Date().toISOString();
       const updates: Record<string, any> = { updatedAt: now };
 
@@ -563,24 +574,38 @@ router.put(
       if (stock !== undefined) updates.stock = parseInt(stock);
       if (unit) updates.unit = unit;
 
-      if (req.file) {
-        const imageHash = await generateImageHash(tempPath!);
-        let imageUrl = await findDuplicateImage(imageHash);
-        if (!imageUrl) {
-          imageUrl = await processAndSaveImage(tempPath!, imageHash);
-          await saveImageHash(imageHash, imageUrl);
+      const currentData = doc.data() as any;
+      const storedUrls: string[] = currentData.imageUrls && currentData.imageUrls.length > 0
+        ? currentData.imageUrls
+        : (currentData.imageUrl ? [currentData.imageUrl] : []);
+
+      let keptImages: string[] = [];
+      if (existingImages) {
+        try {
+          const parsed: string[] = JSON.parse(existingImages);
+          keptImages = parsed.filter((url) => storedUrls.includes(url));
+        } catch {}
+      }
+
+      if (keptImages.length + uploadedFiles.length > 5) {
+        for (const f of uploadedFiles) await cleanTemp(f.path);
+        return res.status(400).json({ error: "الحد الأقصى للصور هو 5 صور" });
+      }
+
+      if (uploadedFiles.length > 0 || existingImages !== undefined) {
+        const { imageUrls: newUrls } = await processUploadedImages(uploadedFiles);
+        const allUrls = [...keptImages, ...newUrls];
+        if (allUrls.length > 0) {
+          updates.imageUrls = allUrls;
+          updates.imageUrl = allUrls[0];
         }
-        await cleanTemp(tempPath);
-        tempPath = null;
-        updates.imageUrl = imageUrl;
-        updates.imageHash = imageHash;
       }
 
       await db.collection("vendorProducts").doc(pid).update(updates);
 
       res.json({ success: true, message: "تم حفظ التعديلات بنجاح" });
     } catch (err) {
-      await cleanTemp(tempPath);
+      for (const f of uploadedFiles) await cleanTemp(f.path);
       console.error("update product:", err);
       res.status(500).json({ error: "حدث خطأ في الخادم" });
     }
@@ -1381,11 +1406,16 @@ router.get("/api/stores/products-preview", async (_req, res) => {
       if (!vid) return;
       if (!grouped[vid]) grouped[vid] = [];
       if (grouped[vid].length < 8) {
+        const primaryUrl = p.imageUrl || "";
+        const allUrls: string[] = (p.imageUrls && p.imageUrls.length > 0)
+          ? p.imageUrls
+          : (primaryUrl ? [primaryUrl] : []);
         grouped[vid].push({
           id: d.id,
           name: p.name,
           price: p.price,
-          imageUrl: p.imageUrl || "",
+          imageUrl: primaryUrl,
+          imageUrls: allUrls,
           unit: p.unit || "قطعة",
           stock: p.stock ?? 0,
           vendorId: vid,
@@ -1436,6 +1466,10 @@ router.get("/api/stores/:id/products", async (req, res) => {
     const products = productsSnap.docs
       .map((d) => {
         const p = d.data() as any;
+        const primaryUrl = p.imageUrl || "";
+        const allUrls: string[] = (p.imageUrls && p.imageUrls.length > 0)
+          ? p.imageUrls
+          : (primaryUrl ? [primaryUrl] : []);
         return {
           id: d.id,
           vendorId: p.vendorId,
@@ -1446,7 +1480,8 @@ router.get("/api/stores/:id/products", async (req, res) => {
           category: p.category,
           stock: p.stock || 0,
           unit: p.unit || "",
-          imageUrl: p.imageUrl,
+          imageUrl: primaryUrl,
+          imageUrls: allUrls,
           status: p.status,
           approvedAt: p.approvedAt || p.createdAt || "",
         };

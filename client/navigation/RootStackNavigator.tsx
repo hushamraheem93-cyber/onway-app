@@ -23,6 +23,7 @@ import InternationalShoppingScreen from "@/screens/InternationalShoppingScreen";
 import SupportChatScreen from "@/screens/SupportChatScreen";
 import VendorRegistrationScreen from "@/screens/VendorRegistrationScreen";
 import StoreProductsScreen from "@/screens/StoreProductsScreen";
+import ProductDetailScreen from "@/screens/ProductDetailScreen";
 import { useScreenOptions } from "@/hooks/useScreenOptions";
 import { useAuth } from "@/context/AuthContext";
 import { AppColors } from "@/constants/theme";
@@ -53,6 +54,20 @@ export type RootStackParamList = {
   InternationalShopping: undefined;
   SupportChat: undefined;
   StoreProducts: { storeId: string; storeName: string };
+  ProductDetail: {
+    product: {
+      id: string;
+      name: string;
+      description?: string;
+      price: number;
+      category?: string;
+      stock: number;
+      unit?: string;
+      imageUrl: string;
+      imageUrls?: string[];
+      storeName?: string;
+    };
+  };
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -271,6 +286,13 @@ export default function RootStackNavigator() {
         component={StoreProductsScreen}
         options={({ route }) => ({
           headerTitle: route.params.storeName,
+        })}
+      />
+      <Stack.Screen
+        name="ProductDetail"
+        component={ProductDetailScreen}
+        options={({ route }) => ({
+          headerTitle: route.params.product.name,
         })}
       />
     </Stack.Navigator>

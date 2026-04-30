@@ -5,10 +5,12 @@ import {
   TextInput,
   Pressable,
   ActivityIndicator,
-  Image,
   Platform,
   Linking,
+  ScrollView,
+  Alert,
 } from "react-native";
+import { Image } from "expo-image";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
@@ -19,9 +21,12 @@ import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import { ThemedText } from "@/components/ThemedText";
 import { useAuth } from "@/context/AuthContext";
 import { getApiUrl } from "@/lib/query-client";
+import { resolveImageUrl } from "@/utils/imageUtils";
 
 const PURPLE = "#673AB7";
 const ORANGE = "#E86520";
+const MAX_IMAGES = 5;
+const THUMB_SIZE = 88;
 
 const CATEGORY_MAP: Record<string, string[]> = {
   restaurant: [
@@ -51,6 +56,16 @@ const CATEGORY_MAP: Record<string, string[]> = {
 const ALL_CATEGORIES = Array.from(new Set(Object.values(CATEGORY_MAP).flat()));
 const UNITS = ["قطعة", "كيلو", "غرام", "لتر", "مل", "علبة", "كرتون", "دستة", "باكيج"];
 
+interface ExistingImage {
+  type: "existing";
+  url: string;
+}
+interface NewImage {
+  type: "new";
+  uri: string;
+}
+type ImageEntry = ExistingImage | NewImage;
+
 interface Product {
   id: string;
   name: string;
@@ -60,6 +75,7 @@ interface Product {
   stock: number;
   unit: string;
   imageUrl: string;
+  imageUrls?: string[];
   status: string;
 }
 
@@ -70,6 +86,16 @@ export default function VendorEditProductScreen({ navigation, route }: any) {
   const product: Product = route.params?.product;
   const businessType = (vendorProfile as any)?.businessType || "other";
   const categories = CATEGORY_MAP[businessType] || ALL_CATEGORIES;
+
+  const getInitialImages = (): ImageEntry[] => {
+    if (product?.imageUrls && product.imageUrls.length > 0) {
+      return product.imageUrls.map((url) => ({ type: "existing" as const, url }));
+    }
+    if (product?.imageUrl) {
+      return [{ type: "existing" as const, url: product.imageUrl }];
+    }
+    return [];
+  };
 
   const [name, setName] = useState(product?.name || "");
   const [description, setDescription] = useState(product?.description || "");
@@ -83,13 +109,33 @@ export default function VendorEditProductScreen({ navigation, route }: any) {
   const [unit, setUnit] = useState(
     product?.unit && UNITS.includes(product.unit) ? product.unit : UNITS[0]
   );
-  const [imageUri, setImageUri] = useState<string | null>(null);
+  const [images, setImages] = useState<ImageEntry[]>(getInitialImages());
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [imagesChanged, setImagesChanged] = useState(false);
 
-  const pickImage = async () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  const showImageSourcePicker = (onGallery: () => void, onCamera: () => void) => {
+    if (Platform.OS === "web") {
+      onGallery();
+      return;
+    }
+    Alert.alert(
+      "إضافة صورة",
+      "اختر مصدر الصورة",
+      [
+        { text: "من المعرض", onPress: onGallery },
+        { text: "التقاط صورة", onPress: onCamera },
+        { text: "إلغاء", style: "cancel" },
+      ]
+    );
+  };
+
+  const pickImageFromGallery = async () => {
+    if (images.length >= MAX_IMAGES) {
+      setError(`الحد الأقصى ${MAX_IMAGES} صور`);
+      return;
+    }
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== "granted") {
       setError("يرجى السماح بالوصول إلى مكتبة الصور");
@@ -102,20 +148,22 @@ export default function VendorEditProductScreen({ navigation, route }: any) {
       aspect: [1, 1],
     });
     if (!result.canceled && result.assets[0]) {
-      setImageUri(result.assets[0].uri);
+      setImages((prev) => [...prev, { type: "new", uri: result.assets[0].uri }]);
+      setImagesChanged(true);
       setError("");
     }
   };
 
   const takePhoto = async () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    if (images.length >= MAX_IMAGES) {
+      setError(`الحد الأقصى ${MAX_IMAGES} صور`);
+      return;
+    }
     const permission = await ImagePicker.requestCameraPermissionsAsync();
     if (!permission.granted) {
       if (!permission.canAskAgain && Platform.OS !== "web") {
         setError("تم رفض إذن الكاميرا — افتح الإعدادات للسماح بالوصول");
-        try {
-          await Linking.openSettings();
-        } catch {}
+        try { await Linking.openSettings(); } catch {}
       } else {
         setError("يرجى السماح بالوصول إلى الكاميرا");
       }
@@ -128,9 +176,16 @@ export default function VendorEditProductScreen({ navigation, route }: any) {
       aspect: [1, 1],
     });
     if (!result.canceled && result.assets[0]) {
-      setImageUri(result.assets[0].uri);
+      setImages((prev) => [...prev, { type: "new", uri: result.assets[0].uri }]);
+      setImagesChanged(true);
       setError("");
     }
+  };
+
+  const removeImage = (index: number) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setImages((prev) => prev.filter((_, i) => i !== index));
+    setImagesChanged(true);
   };
 
   const submit = async () => {
@@ -140,6 +195,10 @@ export default function VendorEditProductScreen({ navigation, route }: any) {
     }
     if (isNaN(parseFloat(price)) || parseFloat(price) <= 0) {
       setError("يرجى إدخال سعر صحيح");
+      return;
+    }
+    if (images.length === 0) {
+      setError("يجب أن يكون للمنتج صورة واحدة على الأقل");
       return;
     }
     setError("");
@@ -154,15 +213,23 @@ export default function VendorEditProductScreen({ navigation, route }: any) {
       formData.append("stock", stock || "0");
       formData.append("unit", unit);
 
-      if (imageUri) {
-        const filename = imageUri.split("/").pop() || "product.jpg";
-        const ext = filename.split(".").pop()?.toLowerCase() || "jpg";
-        const mimeType = ext === "png" ? "image/png" : "image/jpeg";
-        formData.append("image", {
-          uri: imageUri,
-          name: filename,
-          type: mimeType,
-        } as any);
+      if (imagesChanged) {
+        const existingUrls = images
+          .filter((img): img is ExistingImage => img.type === "existing")
+          .map((img) => img.url);
+        formData.append("existingImages", JSON.stringify(existingUrls));
+
+        const newImages = images.filter((img): img is NewImage => img.type === "new");
+        for (const img of newImages) {
+          const filename = img.uri.split("/").pop() || "product.jpg";
+          const ext = filename.split(".").pop()?.toLowerCase() || "jpg";
+          const mimeType = ext === "png" ? "image/png" : "image/jpeg";
+          formData.append("images", {
+            uri: img.uri,
+            name: filename,
+            type: mimeType,
+          } as any);
+        }
       }
 
       const url = new URL(`/api/vendor/products/${product.id}`, getApiUrl()).toString();
@@ -193,7 +260,7 @@ export default function VendorEditProductScreen({ navigation, route }: any) {
         </View>
         <ThemedText style={styles.successTitle}>تم تحديث المنتج بنجاح!</ThemedText>
         <ThemedText style={styles.successDesc}>
-          {imageUri
+          {imagesChanged
             ? "المنتج الآن قيد المراجعة من الإدارة وسيظهر للزبائن بعد الموافقة"
             : "تم حفظ التغييرات بنجاح"}
         </ThemedText>
@@ -210,8 +277,6 @@ export default function VendorEditProductScreen({ navigation, route }: any) {
     );
   }
 
-  const currentImage = imageUri || product?.imageUrl;
-
   return (
     <KeyboardAwareScrollView
       style={styles.container}
@@ -225,36 +290,63 @@ export default function VendorEditProductScreen({ navigation, route }: any) {
         </View>
       ) : null}
 
-      <ThemedText style={styles.label}>صورة المنتج</ThemedText>
+      <ThemedText style={styles.label}>
+        صور المنتج
+        <ThemedText style={styles.labelHint}> (حتى {MAX_IMAGES} صور، الأولى هي الصورة الرئيسية)</ThemedText>
+      </ThemedText>
 
-      <View style={styles.imgPicker}>
-        {currentImage ? (
-          <Image source={{ uri: currentImage }} style={styles.imgPreview} resizeMode="cover" />
-        ) : (
-          <View style={styles.imgPlaceholder}>
-            <MaterialCommunityIcons name="camera-plus" size={36} color="#C4B5FD" />
-            <ThemedText style={styles.imgHint}>اختر مصدر الصورة</ThemedText>
-          </View>
-        )}
-      </View>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.thumbRow} contentContainerStyle={styles.thumbRowContent}>
+        {images.map((img, index) => {
+          const uri = img.type === "existing" ? resolveImageUrl(img.url) : img.uri;
+          return (
+            <View key={`${img.type}-${index}`} style={styles.thumbWrap} testID={`image-thumb-${index}`}>
+              <Image source={{ uri }} style={styles.thumb} contentFit="cover" />
+              {index === 0 ? (
+                <View style={styles.primaryBadge}>
+                  <ThemedText style={styles.primaryBadgeText}>رئيسية</ThemedText>
+                </View>
+              ) : null}
+              <Pressable style={styles.removeBtn} onPress={() => removeImage(index)} testID={`button-remove-image-${index}`}>
+                <Feather name="x" size={12} color="#fff" />
+              </Pressable>
+            </View>
+          );
+        })}
+
+        {images.length < MAX_IMAGES ? (
+          <Pressable
+            style={styles.addThumbBtn}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              showImageSourcePicker(pickImageFromGallery, takePhoto);
+            }}
+            testID="button-add-image"
+          >
+            <MaterialCommunityIcons name="camera-plus" size={28} color="#C4B5FD" />
+            <ThemedText style={styles.addThumbText}>
+              {images.length === 0 ? "أضف صورة" : "أضف"}
+            </ThemedText>
+          </Pressable>
+        ) : null}
+      </ScrollView>
 
       <View style={styles.imgActions}>
-        <Pressable style={styles.imgActionBtn} onPress={takePhoto} testID="button-take-photo">
+        <Pressable style={styles.imgActionBtn} onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); takePhoto(); }} testID="button-take-photo">
           <Feather name="camera" size={16} color={PURPLE} />
           <ThemedText style={styles.imgActionText}>التقاط صورة</ThemedText>
         </Pressable>
         <View style={styles.imgActionDivider} />
-        <Pressable style={styles.imgActionBtn} onPress={pickImage} testID="button-pick-image">
+        <Pressable style={styles.imgActionBtn} onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); pickImageFromGallery(); }} testID="button-pick-image">
           <Feather name="image" size={16} color={PURPLE} />
           <ThemedText style={styles.imgActionText}>من المعرض</ThemedText>
         </Pressable>
       </View>
 
-      {imageUri ? (
+      {imagesChanged ? (
         <View style={styles.imageChangeNotice}>
           <MaterialCommunityIcons name="information-outline" size={14} color="#7C3AED" />
           <ThemedText style={styles.imageChangeText}>
-            تغيير الصورة سيُعيد المنتج لقائمة المراجعة
+            تغيير الصور سيُعيد المنتج لقائمة المراجعة
           </ThemedText>
         </View>
       ) : null}
@@ -358,6 +450,7 @@ const styles = StyleSheet.create({
     fontFamily: "Cairo_700Bold", fontSize: 13, color: "#444",
     textAlign: "right", marginBottom: 6, marginTop: 4,
   },
+  labelHint: { fontFamily: "Cairo_400Regular", fontSize: 11, color: "#888" },
   input: {
     borderWidth: 1.5, borderColor: "#E5E7EB", borderRadius: 12,
     paddingHorizontal: 14, paddingVertical: 11,
@@ -371,19 +464,70 @@ const styles = StyleSheet.create({
     marginBottom: 14, backgroundColor: "#fff", overflow: "hidden",
   },
   picker: { height: Platform.OS === "ios" ? 140 : 50, color: "#111" },
-  imgPicker: {
-    borderWidth: 2, borderStyle: "dashed", borderColor: "#C4B5FD",
-    borderRadius: 16, borderBottomLeftRadius: 0, borderBottomRightRadius: 0,
-    overflow: "hidden", backgroundColor: "#F5F3FF",
-    height: 180,
+  thumbRow: { marginBottom: 0 },
+  thumbRowContent: {
+    flexDirection: "row",
+    gap: 10,
+    paddingVertical: 4,
+    paddingHorizontal: 2,
   },
-  imgPreview: { width: "100%", height: "100%" },
-  imgPlaceholder: { flex: 1, justifyContent: "center", alignItems: "center", gap: 6 },
-  imgHint: { fontFamily: "Cairo_700Bold", fontSize: 14, color: PURPLE },
+  thumbWrap: {
+    width: THUMB_SIZE,
+    height: THUMB_SIZE,
+    borderRadius: 12,
+    overflow: "visible",
+    position: "relative",
+  },
+  thumb: {
+    width: THUMB_SIZE,
+    height: THUMB_SIZE,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: "#C4B5FD",
+  },
+  primaryBadge: {
+    position: "absolute",
+    bottom: 4,
+    left: 4,
+    backgroundColor: PURPLE,
+    borderRadius: 6,
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+  },
+  primaryBadgeText: {
+    fontFamily: "Cairo_700Bold", fontSize: 9, color: "#fff",
+  },
+  removeBtn: {
+    position: "absolute",
+    top: -6,
+    right: -6,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: "#EF4444",
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 10,
+  },
+  addThumbBtn: {
+    width: THUMB_SIZE,
+    height: THUMB_SIZE,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderStyle: "dashed",
+    borderColor: "#C4B5FD",
+    backgroundColor: "#F5F3FF",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 4,
+  },
+  addThumbText: {
+    fontFamily: "Cairo_700Bold", fontSize: 11, color: PURPLE,
+  },
   imgActions: {
     flexDirection: "row", borderWidth: 1.5, borderColor: "#C4B5FD",
-    borderTopWidth: 0, borderBottomLeftRadius: 16, borderBottomRightRadius: 16,
-    overflow: "hidden", marginBottom: 10, backgroundColor: "#fff",
+    borderRadius: 16,
+    overflow: "hidden", marginBottom: 10, marginTop: 10, backgroundColor: "#fff",
   },
   imgActionBtn: {
     flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center",

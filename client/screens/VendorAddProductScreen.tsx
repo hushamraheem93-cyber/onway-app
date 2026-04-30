@@ -5,10 +5,13 @@ import {
   TextInput,
   Pressable,
   ActivityIndicator,
-  Image,
   Platform,
   Linking,
+  ScrollView,
+  Alert,
+  Dimensions,
 } from "react-native";
+import { Image } from "expo-image";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
@@ -23,6 +26,8 @@ import { getApiUrl } from "@/lib/query-client";
 const PURPLE = "#673AB7";
 const ORANGE = "#E86520";
 const AMBER = "#D97706";
+const MAX_IMAGES = 5;
+const THUMB_SIZE = 88;
 
 const CATEGORY_MAP: Record<string, string[]> = {
   restaurant: [
@@ -50,7 +55,6 @@ const CATEGORY_MAP: Record<string, string[]> = {
 };
 
 const ALL_CATEGORIES = Array.from(new Set(Object.values(CATEGORY_MAP).flat()));
-
 const UNITS = ["قطعة", "كيلو", "غرام", "لتر", "مل", "علبة", "كرتون", "دستة", "باكيج"];
 
 export default function VendorAddProductScreen({ navigation }: any) {
@@ -67,13 +71,32 @@ export default function VendorAddProductScreen({ navigation }: any) {
   const [stock, setStock] = useState("");
   const [category, setCategory] = useState(categories[0]);
   const [unit, setUnit] = useState(UNITS[0]);
-  const [imageUri, setImageUri] = useState<string | null>(null);
+  const [imageUris, setImageUris] = useState<string[]>([]);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
 
-  const pickImage = async () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  const showImageSourcePicker = (onGallery: () => void, onCamera: () => void) => {
+    if (Platform.OS === "web") {
+      onGallery();
+      return;
+    }
+    Alert.alert(
+      "إضافة صورة",
+      "اختر مصدر الصورة",
+      [
+        { text: "من المعرض", onPress: onGallery },
+        { text: "التقاط صورة", onPress: onCamera },
+        { text: "إلغاء", style: "cancel" },
+      ]
+    );
+  };
+
+  const pickImageFromGallery = async () => {
+    if (imageUris.length >= MAX_IMAGES) {
+      setError(`الحد الأقصى ${MAX_IMAGES} صور`);
+      return;
+    }
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== "granted") {
       setError("يرجى السماح بالوصول إلى مكتبة الصور");
@@ -86,20 +109,21 @@ export default function VendorAddProductScreen({ navigation }: any) {
       aspect: [1, 1],
     });
     if (!result.canceled && result.assets[0]) {
-      setImageUri(result.assets[0].uri);
+      setImageUris((prev) => [...prev, result.assets[0].uri]);
       setError("");
     }
   };
 
   const takePhoto = async () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    if (imageUris.length >= MAX_IMAGES) {
+      setError(`الحد الأقصى ${MAX_IMAGES} صور`);
+      return;
+    }
     const permission = await ImagePicker.requestCameraPermissionsAsync();
     if (!permission.granted) {
       if (!permission.canAskAgain && Platform.OS !== "web") {
         setError("تم رفض إذن الكاميرا — افتح الإعدادات للسماح بالوصول");
-        try {
-          await Linking.openSettings();
-        } catch {}
+        try { await Linking.openSettings(); } catch {}
       } else {
         setError("يرجى السماح بالوصول إلى الكاميرا");
       }
@@ -112,14 +136,19 @@ export default function VendorAddProductScreen({ navigation }: any) {
       aspect: [1, 1],
     });
     if (!result.canceled && result.assets[0]) {
-      setImageUri(result.assets[0].uri);
+      setImageUris((prev) => [...prev, result.assets[0].uri]);
       setError("");
     }
   };
 
+  const removeImage = (index: number) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setImageUris((prev) => prev.filter((_, i) => i !== index));
+  };
+
   const submit = async () => {
-    if (!name.trim() || !price || !category || !imageUri) {
-      setError("يرجى ملء اسم المنتج، السعر، الفئة، ورفع صورة");
+    if (!name.trim() || !price || !category || imageUris.length === 0) {
+      setError("يرجى ملء اسم المنتج، السعر، الفئة، ورفع صورة واحدة على الأقل");
       return;
     }
     if (isNaN(parseFloat(price)) || parseFloat(price) <= 0) {
@@ -138,15 +167,16 @@ export default function VendorAddProductScreen({ navigation }: any) {
       formData.append("stock", stock || "0");
       formData.append("unit", unit);
 
-      const filename = imageUri.split("/").pop() || "product.jpg";
-      const ext = filename.split(".").pop()?.toLowerCase() || "jpg";
-      const mimeType = ext === "png" ? "image/png" : "image/jpeg";
-
-      formData.append("image", {
-        uri: imageUri,
-        name: filename,
-        type: mimeType,
-      } as any);
+      for (const uri of imageUris) {
+        const filename = uri.split("/").pop() || "product.jpg";
+        const ext = filename.split(".").pop()?.toLowerCase() || "jpg";
+        const mimeType = ext === "png" ? "image/png" : "image/jpeg";
+        formData.append("images", {
+          uri,
+          name: filename,
+          type: mimeType,
+        } as any);
+      }
 
       const res = await fetch(new URL("/api/vendor/products", getApiUrl()).toString(), {
         method: "POST",
@@ -185,7 +215,7 @@ export default function VendorAddProductScreen({ navigation }: any) {
             onPress={() => {
               setSuccess(false);
               setName(""); setDescription(""); setPrice(""); setStock("");
-              setCategory(categories[0]); setUnit(UNITS[0]); setImageUri(null);
+              setCategory(categories[0]); setUnit(UNITS[0]); setImageUris([]);
             }}
             testID="button-add-another"
           >
@@ -209,7 +239,6 @@ export default function VendorAddProductScreen({ navigation }: any) {
       contentContainerStyle={{ paddingTop: headerHeight + 16, paddingHorizontal: 16, paddingBottom: 60 }}
       showsVerticalScrollIndicator={false}
     >
-      {/* Pending vendor notice */}
       {isPending ? (
         <View style={styles.pendingBanner}>
           <MaterialCommunityIcons name="clock-alert-outline" size={18} color={AMBER} />
@@ -226,30 +255,50 @@ export default function VendorAddProductScreen({ navigation }: any) {
         </View>
       ) : null}
 
-      {/* Image picker */}
       <ThemedText style={styles.label}>
-        صورة المنتج <ThemedText style={{ color: ORANGE }}>*</ThemedText>
+        صور المنتج <ThemedText style={{ color: ORANGE }}>*</ThemedText>
+        <ThemedText style={styles.labelHint}> (1 — {MAX_IMAGES} صور، الأولى هي الصورة الرئيسية)</ThemedText>
       </ThemedText>
 
-      <View style={styles.imgPicker}>
-        {imageUri ? (
-          <Image source={{ uri: imageUri }} style={styles.imgPreview} resizeMode="cover" />
-        ) : (
-          <View style={styles.imgPlaceholder}>
-            <MaterialCommunityIcons name="camera-plus" size={36} color="#C4B5FD" />
-            <ThemedText style={styles.imgHint}>اختر مصدر الصورة</ThemedText>
-            <ThemedText style={styles.imgHintSub}>سيتم تحويلها تلقائياً لـ WebP بقياس 800×800</ThemedText>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.thumbRow} contentContainerStyle={styles.thumbRowContent}>
+        {imageUris.map((uri, index) => (
+          <View key={uri + index} style={styles.thumbWrap} testID={`image-thumb-${index}`}>
+            <Image source={{ uri }} style={styles.thumb} contentFit="cover" />
+            {index === 0 ? (
+              <View style={styles.primaryBadge}>
+                <ThemedText style={styles.primaryBadgeText}>رئيسية</ThemedText>
+              </View>
+            ) : null}
+            <Pressable style={styles.removeBtn} onPress={() => removeImage(index)} testID={`button-remove-image-${index}`}>
+              <Feather name="x" size={12} color="#fff" />
+            </Pressable>
           </View>
-        )}
-      </View>
+        ))}
+
+        {imageUris.length < MAX_IMAGES ? (
+          <Pressable
+            style={styles.addThumbBtn}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              showImageSourcePicker(pickImageFromGallery, takePhoto);
+            }}
+            testID="button-add-image"
+          >
+            <MaterialCommunityIcons name="camera-plus" size={28} color="#C4B5FD" />
+            <ThemedText style={styles.addThumbText}>
+              {imageUris.length === 0 ? "أضف صورة" : "أضف"}
+            </ThemedText>
+          </Pressable>
+        ) : null}
+      </ScrollView>
 
       <View style={styles.imgActions}>
-        <Pressable style={styles.imgActionBtn} onPress={takePhoto} testID="button-take-photo">
+        <Pressable style={styles.imgActionBtn} onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); takePhoto(); }} testID="button-take-photo">
           <Feather name="camera" size={16} color={PURPLE} />
           <ThemedText style={styles.imgActionText}>التقاط صورة</ThemedText>
         </Pressable>
         <View style={styles.imgActionDivider} />
-        <Pressable style={styles.imgActionBtn} onPress={pickImage} testID="button-pick-image">
+        <Pressable style={styles.imgActionBtn} onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); pickImageFromGallery(); }} testID="button-pick-image">
           <Feather name="image" size={16} color={PURPLE} />
           <ThemedText style={styles.imgActionText}>من المعرض</ThemedText>
         </Pressable>
@@ -315,30 +364,20 @@ export default function VendorAddProductScreen({ navigation }: any) {
         </View>
       </View>
 
-      {/* Category */}
       <ThemedText style={styles.label}>
         القسم / الفئة <ThemedText style={{ color: ORANGE }}>*</ThemedText>
       </ThemedText>
       <View style={styles.pickerWrap}>
-        <Picker
-          selectedValue={category}
-          onValueChange={setCategory}
-          style={styles.picker}
-        >
+        <Picker selectedValue={category} onValueChange={setCategory} style={styles.picker}>
           {categories.map((c) => (
             <Picker.Item key={c} label={c} value={c} />
           ))}
         </Picker>
       </View>
 
-      {/* Unit */}
       <ThemedText style={styles.label}>وحدة القياس</ThemedText>
       <View style={styles.pickerWrap}>
-        <Picker
-          selectedValue={unit}
-          onValueChange={setUnit}
-          style={styles.picker}
-        >
+        <Picker selectedValue={unit} onValueChange={setUnit} style={styles.picker}>
           {UNITS.map((u) => (
             <Picker.Item key={u} label={u} value={u} />
           ))}
@@ -348,7 +387,7 @@ export default function VendorAddProductScreen({ navigation }: any) {
       <View style={styles.noteBox}>
         <MaterialCommunityIcons name="image-filter-none" size={16} color="#7C3AED" />
         <ThemedText style={styles.noteText}>
-          الصورة ستُعالج تلقائياً: تحويل لـ WebP + ضغط 800×800 بكسل
+          الصور ستُعالج تلقائياً: تحويل لـ WebP + ضغط 800×800 بكسل
         </ThemedText>
       </View>
 
@@ -377,6 +416,7 @@ const styles = StyleSheet.create({
     fontFamily: "Cairo_700Bold", fontSize: 13, color: "#444",
     textAlign: "right", marginBottom: 6, marginTop: 4,
   },
+  labelHint: { fontFamily: "Cairo_400Regular", fontSize: 11, color: "#888" },
   input: {
     borderWidth: 1.5, borderColor: "#E5E7EB", borderRadius: 12,
     paddingHorizontal: 14, paddingVertical: 11,
@@ -390,20 +430,70 @@ const styles = StyleSheet.create({
     marginBottom: 14, backgroundColor: "#fff", overflow: "hidden",
   },
   picker: { height: Platform.OS === "ios" ? 140 : 50, color: "#111" },
-  imgPicker: {
-    borderWidth: 2, borderStyle: "dashed", borderColor: "#C4B5FD",
-    borderRadius: 16, borderBottomLeftRadius: 0, borderBottomRightRadius: 0,
-    overflow: "hidden", backgroundColor: "#F5F3FF",
-    height: 180,
+  thumbRow: { marginBottom: 0 },
+  thumbRowContent: {
+    flexDirection: "row",
+    gap: 10,
+    paddingVertical: 4,
+    paddingHorizontal: 2,
   },
-  imgPreview: { width: "100%", height: "100%" },
-  imgPlaceholder: { flex: 1, justifyContent: "center", alignItems: "center", gap: 6 },
-  imgHint: { fontFamily: "Cairo_700Bold", fontSize: 14, color: PURPLE },
-  imgHintSub: { fontFamily: "Cairo_400Regular", fontSize: 11, color: "#A78BFA", textAlign: "center", paddingHorizontal: 20 },
+  thumbWrap: {
+    width: THUMB_SIZE,
+    height: THUMB_SIZE,
+    borderRadius: 12,
+    overflow: "visible",
+    position: "relative",
+  },
+  thumb: {
+    width: THUMB_SIZE,
+    height: THUMB_SIZE,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: "#C4B5FD",
+  },
+  primaryBadge: {
+    position: "absolute",
+    bottom: 4,
+    left: 4,
+    backgroundColor: PURPLE,
+    borderRadius: 6,
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+  },
+  primaryBadgeText: {
+    fontFamily: "Cairo_700Bold", fontSize: 9, color: "#fff",
+  },
+  removeBtn: {
+    position: "absolute",
+    top: -6,
+    right: -6,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: "#EF4444",
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 10,
+  },
+  addThumbBtn: {
+    width: THUMB_SIZE,
+    height: THUMB_SIZE,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderStyle: "dashed",
+    borderColor: "#C4B5FD",
+    backgroundColor: "#F5F3FF",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 4,
+  },
+  addThumbText: {
+    fontFamily: "Cairo_700Bold", fontSize: 11, color: PURPLE,
+  },
   imgActions: {
     flexDirection: "row", borderWidth: 1.5, borderColor: "#C4B5FD",
-    borderTopWidth: 0, borderBottomLeftRadius: 16, borderBottomRightRadius: 16,
-    overflow: "hidden", marginBottom: 14, backgroundColor: "#fff",
+    borderRadius: 16,
+    overflow: "hidden", marginBottom: 14, marginTop: 10, backgroundColor: "#fff",
   },
   imgActionBtn: {
     flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center",

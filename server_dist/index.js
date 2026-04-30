@@ -4841,45 +4841,57 @@ router.post(
     }
   }
 );
+async function processUploadedImages(files) {
+  const imageUrls = [];
+  const tempPaths = files.map((f) => f.path);
+  for (const file of files) {
+    const hash2 = await generateImageHash(file.path);
+    let imageUrl = await findDuplicateImage(hash2);
+    if (!imageUrl) {
+      imageUrl = await processAndSaveImage(file.path, hash2);
+      await saveImageHash(hash2, imageUrl);
+    }
+    imageUrls.push(imageUrl);
+  }
+  for (const tp of tempPaths) {
+    await cleanTemp(tp);
+  }
+  return { imageUrls, tempPaths: [] };
+}
 router.post(
   "/api/vendor/products",
   requireVendor,
-  upload2.single("image"),
+  upload2.fields([{ name: "image", maxCount: 1 }, { name: "images", maxCount: 5 }]),
   async (req, res) => {
-    let tempPath = req.file?.path || null;
+    const fields = req.files || {};
+    const uploadedFiles = [...fields["images"] || [], ...fields["image"] || []];
     try {
       const { name, description, price, category, stock, unit } = req.body;
       const vid = req.vendorId;
-      if (!name || !price || !category || !req.file) {
-        await cleanTemp(tempPath);
+      if (!name || !price || !category || uploadedFiles.length === 0) {
+        for (const f of uploadedFiles) await cleanTemp(f.path);
         return res.status(400).json({ error: "\u0627\u0644\u0627\u0633\u0645\u060C \u0627\u0644\u0633\u0639\u0631\u060C \u0627\u0644\u0641\u0626\u0629\u060C \u0648\u0627\u0644\u0635\u0648\u0631\u0629 \u0645\u0637\u0644\u0648\u0628\u0629" });
+      }
+      if (uploadedFiles.length > 5) {
+        for (const f of uploadedFiles) await cleanTemp(f.path);
+        return res.status(400).json({ error: "\u0627\u0644\u062D\u062F \u0627\u0644\u0623\u0642\u0635\u0649 \u0644\u0644\u0635\u0648\u0631 \u0647\u0648 5 \u0635\u0648\u0631" });
       }
       const db2 = getFirestore();
       if (!db2) {
-        await cleanTemp(tempPath);
+        for (const f of uploadedFiles) await cleanTemp(f.path);
         return res.status(500).json({ error: "\u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u063A\u064A\u0631 \u0645\u062A\u0627\u062D\u0629" });
       }
       const vDoc = await db2.collection("vendors").doc(vid).get();
       if (!vDoc.exists) {
-        await cleanTemp(tempPath);
+        for (const f of uploadedFiles) await cleanTemp(f.path);
         return res.status(403).json({ error: "\u062D\u0633\u0627\u0628\u0643 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F" });
       }
       if (vDoc.data().status === "rejected" || vDoc.data().status === "suspended") {
-        await cleanTemp(tempPath);
+        for (const f of uploadedFiles) await cleanTemp(f.path);
         return res.status(403).json({ error: "\u062D\u0633\u0627\u0628\u0643 \u063A\u064A\u0631 \u0645\u0641\u0639\u0644" });
       }
-      const imageHash = await generateImageHash(tempPath);
-      let imageUrl = await findDuplicateImage(imageHash);
-      let isDuplicate = !!imageUrl;
-      if (!imageUrl) {
-        imageUrl = await processAndSaveImage(tempPath, imageHash);
-        await saveImageHash(imageHash, imageUrl);
-        console.log(`\u2705 \u0635\u0648\u0631\u0629 \u062C\u062F\u064A\u062F\u0629 \u0645\u0639\u0627\u0644\u062C\u0629 \u0648\u0645\u062D\u0641\u0648\u0638\u0629: ${imageUrl}`);
-      } else {
-        console.log(`\u267B\uFE0F \u0635\u0648\u0631\u0629 \u0645\u0643\u0631\u0631\u0629 \u2014 \u0627\u0633\u062A\u062E\u062F\u0627\u0645 \u0627\u0644\u0631\u0627\u0628\u0637 \u0627\u0644\u0645\u0648\u062C\u0648\u062F: ${imageUrl}`);
-      }
-      await cleanTemp(tempPath);
-      tempPath = null;
+      const { imageUrls } = await processUploadedImages(uploadedFiles);
+      const imageUrl = imageUrls[0];
       const pid = productId();
       const now = (/* @__PURE__ */ new Date()).toISOString();
       const vData = vDoc.data();
@@ -4896,8 +4908,7 @@ router.post(
         stock: parseInt(stock) || 0,
         unit: unit || "\u0642\u0637\u0639\u0629",
         imageUrl,
-        imageHash,
-        isDuplicateImage: isDuplicate,
+        imageUrls,
         status: "approved",
         createdAt: now,
         updatedAt: now
@@ -4905,10 +4916,10 @@ router.post(
       res.status(201).json({
         success: true,
         message: "\u062A\u0645 \u0625\u0636\u0627\u0641\u0629 \u0627\u0644\u0645\u0646\u062A\u062C \u0628\u0646\u062C\u0627\u062D! \u0633\u064A\u0638\u0647\u0631 \u0644\u0644\u0639\u0645\u0644\u0627\u0621 \u0627\u0644\u0622\u0646.",
-        product: { id: pid, name, price: parseFloat(price), imageUrl, status: "approved" }
+        product: { id: pid, name, price: parseFloat(price), imageUrl, imageUrls, status: "approved" }
       });
     } catch (err) {
-      await cleanTemp(tempPath);
+      for (const f of uploadedFiles) await cleanTemp(f.path);
       console.error("add product:", err);
       res.status(500).json({ error: err.message || "\u062D\u062F\u062B \u062E\u0637\u0623 \u0641\u064A \u0625\u0636\u0627\u0641\u0629 \u0627\u0644\u0645\u0646\u062A\u062C" });
     }
@@ -4950,23 +4961,24 @@ router.get("/api/vendor/products", requireVendor, async (req, res) => {
 router.put(
   "/api/vendor/products/:pid",
   requireVendor,
-  upload2.single("image"),
+  upload2.fields([{ name: "image", maxCount: 1 }, { name: "images", maxCount: 5 }]),
   async (req, res) => {
-    let tempPath = req.file?.path || null;
+    const fields = req.files || {};
+    const uploadedFiles = [...fields["images"] || [], ...fields["image"] || []];
     try {
       const db2 = getFirestore();
       if (!db2) {
-        await cleanTemp(tempPath);
+        for (const f of uploadedFiles) await cleanTemp(f.path);
         return res.status(500).json({ error: "\u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u063A\u064A\u0631 \u0645\u062A\u0627\u062D\u0629" });
       }
       const vid = req.vendorId;
       const { pid } = req.params;
       const doc = await db2.collection("vendorProducts").doc(pid).get();
       if (!doc.exists || doc.data().vendorId !== vid) {
-        await cleanTemp(tempPath);
+        for (const f of uploadedFiles) await cleanTemp(f.path);
         return res.status(404).json({ error: "\u0627\u0644\u0645\u0646\u062A\u062C \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F" });
       }
-      const { name, description, price, category, stock, unit } = req.body;
+      const { name, description, price, category, stock, unit, existingImages } = req.body;
       const now = (/* @__PURE__ */ new Date()).toISOString();
       const updates = { updatedAt: now };
       if (name) updates.name = name;
@@ -4975,22 +4987,32 @@ router.put(
       if (category) updates.category = category;
       if (stock !== void 0) updates.stock = parseInt(stock);
       if (unit) updates.unit = unit;
-      if (req.file) {
-        const imageHash = await generateImageHash(tempPath);
-        let imageUrl = await findDuplicateImage(imageHash);
-        if (!imageUrl) {
-          imageUrl = await processAndSaveImage(tempPath, imageHash);
-          await saveImageHash(imageHash, imageUrl);
+      const currentData = doc.data();
+      const storedUrls = currentData.imageUrls && currentData.imageUrls.length > 0 ? currentData.imageUrls : currentData.imageUrl ? [currentData.imageUrl] : [];
+      let keptImages = [];
+      if (existingImages) {
+        try {
+          const parsed = JSON.parse(existingImages);
+          keptImages = parsed.filter((url) => storedUrls.includes(url));
+        } catch {
         }
-        await cleanTemp(tempPath);
-        tempPath = null;
-        updates.imageUrl = imageUrl;
-        updates.imageHash = imageHash;
+      }
+      if (keptImages.length + uploadedFiles.length > 5) {
+        for (const f of uploadedFiles) await cleanTemp(f.path);
+        return res.status(400).json({ error: "\u0627\u0644\u062D\u062F \u0627\u0644\u0623\u0642\u0635\u0649 \u0644\u0644\u0635\u0648\u0631 \u0647\u0648 5 \u0635\u0648\u0631" });
+      }
+      if (uploadedFiles.length > 0 || existingImages !== void 0) {
+        const { imageUrls: newUrls } = await processUploadedImages(uploadedFiles);
+        const allUrls = [...keptImages, ...newUrls];
+        if (allUrls.length > 0) {
+          updates.imageUrls = allUrls;
+          updates.imageUrl = allUrls[0];
+        }
       }
       await db2.collection("vendorProducts").doc(pid).update(updates);
       res.json({ success: true, message: "\u062A\u0645 \u062D\u0641\u0638 \u0627\u0644\u062A\u0639\u062F\u064A\u0644\u0627\u062A \u0628\u0646\u062C\u0627\u062D" });
     } catch (err) {
-      await cleanTemp(tempPath);
+      for (const f of uploadedFiles) await cleanTemp(f.path);
       console.error("update product:", err);
       res.status(500).json({ error: "\u062D\u062F\u062B \u062E\u0637\u0623 \u0641\u064A \u0627\u0644\u062E\u0627\u062F\u0645" });
     }
@@ -5562,11 +5584,14 @@ router.get("/api/stores/products-preview", async (_req, res) => {
       if (!vid) return;
       if (!grouped[vid]) grouped[vid] = [];
       if (grouped[vid].length < 8) {
+        const primaryUrl = p.imageUrl || "";
+        const allUrls = p.imageUrls && p.imageUrls.length > 0 ? p.imageUrls : primaryUrl ? [primaryUrl] : [];
         grouped[vid].push({
           id: d.id,
           name: p.name,
           price: p.price,
-          imageUrl: p.imageUrl || "",
+          imageUrl: primaryUrl,
+          imageUrls: allUrls,
           unit: p.unit || "\u0642\u0637\u0639\u0629",
           stock: p.stock ?? 0,
           vendorId: vid,
@@ -5606,6 +5631,8 @@ router.get("/api/stores/:id/products", async (req, res) => {
     };
     const products2 = productsSnap.docs.map((d) => {
       const p = d.data();
+      const primaryUrl = p.imageUrl || "";
+      const allUrls = p.imageUrls && p.imageUrls.length > 0 ? p.imageUrls : primaryUrl ? [primaryUrl] : [];
       return {
         id: d.id,
         vendorId: p.vendorId,
@@ -5616,7 +5643,8 @@ router.get("/api/stores/:id/products", async (req, res) => {
         category: p.category,
         stock: p.stock || 0,
         unit: p.unit || "",
-        imageUrl: p.imageUrl,
+        imageUrl: primaryUrl,
+        imageUrls: allUrls,
         status: p.status,
         approvedAt: p.approvedAt || p.createdAt || ""
       };
