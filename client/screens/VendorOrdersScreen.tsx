@@ -1,4 +1,4 @@
-import React, { useCallback, useState, useMemo, useRef, useEffect } from "react";
+import React, { useCallback, useState, useMemo, useRef } from "react";
 import {
   View,
   StyleSheet,
@@ -365,6 +365,7 @@ export default function VendorOrdersScreen() {
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [cancelTarget, setCancelTarget] = useState<string | null>(null);
   const [newArrived, setNewArrived] = useState(false);
+  const [updateError, setUpdateError] = useState<string | null>(null);
   const prevNewCount = useRef(0);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const isFocused = useRef(false);
@@ -411,6 +412,7 @@ export default function VendorOrdersScreen() {
   const updateStatus = useCallback(async (orderId: string, newStatus: string) => {
     if (!vendorToken) return;
     setUpdatingId(orderId);
+    setUpdateError(null);
     try {
       const res = await fetch(
         new URL(`/api/vendor/orders/${orderId}/status`, getApiUrl()).toString(),
@@ -425,8 +427,18 @@ export default function VendorOrdersScreen() {
           prev.map((o) => (o.id === orderId ? { ...o, status: newStatus } : o))
         );
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      } else {
+        const body = await res.json().catch(() => ({}));
+        const msg = body?.error ?? "تعذّر تحديث حالة الطلب";
+        setUpdateError(msg);
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+        setTimeout(() => setUpdateError(null), 4000);
       }
-    } catch {} finally {
+    } catch {
+      setUpdateError("تعذّر الاتصال بالخادم");
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      setTimeout(() => setUpdateError(null), 4000);
+    } finally {
       setUpdatingId(null);
     }
   }, [vendorToken]);
@@ -452,9 +464,6 @@ export default function VendorOrdersScreen() {
     }
     return m;
   }, [orders]);
-
-  // Auto-switch to "new" tab when a new order arrives
-  const newCount = tabCounts["new"] ?? 0;
 
   return (
     <View style={{ flex: 1 }}>
@@ -516,6 +525,17 @@ export default function VendorOrdersScreen() {
             <MaterialCommunityIcons name="close" size={16} color="rgba(255,255,255,0.8)" />
           </Pressable>
         </Pressable>
+      ) : null}
+
+      {/* ── Status update error banner ── */}
+      {updateError !== null ? (
+        <View style={bannerStyles.errorBanner}>
+          <MaterialCommunityIcons name="alert-circle-outline" size={18} color="#fff" />
+          <ThemedText style={bannerStyles.text}>{updateError}</ThemedText>
+          <Pressable onPress={() => setUpdateError(null)} style={bannerStyles.closeBtn}>
+            <MaterialCommunityIcons name="close" size={16} color="rgba(255,255,255,0.8)" />
+          </Pressable>
+        </View>
       ) : null}
 
       {/* ── Content ── */}
@@ -681,6 +701,10 @@ const bannerStyles = StyleSheet.create({
   banner: {
     flexDirection: "row-reverse", alignItems: "center", gap: 10,
     backgroundColor: "#D97706", paddingVertical: 12, paddingHorizontal: 16,
+  },
+  errorBanner: {
+    flexDirection: "row-reverse", alignItems: "center", gap: 10,
+    backgroundColor: "#DC2626", paddingVertical: 12, paddingHorizontal: 16,
   },
   text: { flex: 1, fontFamily: "Cairo_700Bold", fontSize: 14, color: "#fff", textAlign: "right" },
   closeBtn: { padding: 4 },
