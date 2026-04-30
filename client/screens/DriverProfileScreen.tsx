@@ -5,9 +5,13 @@ import {
   Pressable,
   Switch,
   ActivityIndicator,
+  Linking,
+  Alert,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
+import { useNavigation } from "@react-navigation/native";
+import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 
@@ -19,6 +23,9 @@ import { useThemeMode } from "@/context/ThemeContext";
 import { useAuth } from "@/context/AuthContext";
 import { AppColors, Spacing, BorderRadius, Shadows } from "@/constants/theme";
 import { getApiUrl } from "@/lib/query-client";
+import { RootStackParamList } from "@/navigation/RootStackNavigator";
+
+type NavProp = NativeStackNavigationProp<RootStackParamList>;
 
 interface DriverInfo {
   fullName: string;
@@ -36,6 +43,7 @@ export default function DriverProfileScreen() {
   const { theme, isDark } = useTheme();
   const { themeMode, setThemeMode } = useThemeMode();
   const { phoneNumber, logout } = useAuth();
+  const navigation = useNavigation<NavProp>();
 
   const [driverInfo, setDriverInfo] = useState<DriverInfo | null>(null);
   const [loading, setLoading] = useState(true);
@@ -68,6 +76,18 @@ export default function DriverProfileScreen() {
   const handleThemeToggle = (value: boolean) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setThemeMode(value ? "dark" : "light");
+  };
+
+  const handleWhatsApp = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    Linking.openURL("https://wa.me/9647700000000").catch(() =>
+      Alert.alert("خطأ", "تعذّر فتح واتساب")
+    );
+  };
+
+  const handleSupportChat = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    (navigation as any).navigate("SupportChat");
   };
 
   const statusLabels: Record<string, { label: string; color: string }> = {
@@ -148,6 +168,54 @@ export default function DriverProfileScreen() {
             <ThemedText type="body" style={{ color: theme.text }}>{driverInfo?.fourthName || "-"}</ThemedText>
             <ThemedText type="small" style={{ color: theme.textSecondary }}>اللقب</ThemedText>
           </View>
+        </View>
+
+        {/* معلومات الحساب */}
+        <View style={[styles.card, { backgroundColor: theme.backgroundDefault }, Shadows.sm]}>
+          <ThemedText type="h4" style={[styles.cardTitle, { color: theme.text }]}>معلومات الحساب</ThemedText>
+          <View style={styles.menuRow}>
+            <View style={[styles.menuIcon, { backgroundColor: "#E3F2FD" }]}>
+              <Feather name="phone" size={18} color="#1976D2" />
+            </View>
+            <View style={{ flex: 1, alignItems: "flex-end" }}>
+              <ThemedText type="small" style={{ color: theme.textSecondary }}>رقم الهاتف</ThemedText>
+              <ThemedText type="body" style={{ color: theme.text }}>{phoneNumber || "—"}</ThemedText>
+            </View>
+          </View>
+          <View style={[styles.menuRow, { borderBottomWidth: 0 }]}>
+            <View style={[styles.menuIcon, { backgroundColor: statusInfo.color + "18" }]}>
+              <Feather name="shield" size={18} color={statusInfo.color} />
+            </View>
+            <View style={{ flex: 1, alignItems: "flex-end" }}>
+              <ThemedText type="small" style={{ color: theme.textSecondary }}>حالة الحساب</ThemedText>
+              <ThemedText type="body" style={{ color: statusInfo.color, fontWeight: "700" }}>{statusInfo.label}</ThemedText>
+            </View>
+          </View>
+        </View>
+
+        {/* الدعم الفني */}
+        <View style={[styles.card, { backgroundColor: theme.backgroundDefault }, Shadows.sm]}>
+          <ThemedText type="h4" style={[styles.cardTitle, { color: theme.text }]}>الدعم الفني</ThemedText>
+          <Pressable style={styles.menuRow} onPress={handleSupportChat} testID="button-support-chat">
+            <Feather name="chevron-left" size={18} color={theme.textSecondary} />
+            <View style={{ flex: 1, alignItems: "flex-end" }}>
+              <ThemedText type="body" style={{ color: theme.text }}>الدردشة مع الدعم</ThemedText>
+              <ThemedText type="small" style={{ color: theme.textSecondary }}>تحدث مع فريق أون وي</ThemedText>
+            </View>
+            <View style={[styles.menuIcon, { backgroundColor: AppColors.primary + "15" }]}>
+              <Feather name="message-circle" size={18} color={AppColors.primary} />
+            </View>
+          </Pressable>
+          <Pressable style={[styles.menuRow, { borderBottomWidth: 0 }]} onPress={handleWhatsApp} testID="button-support-whatsapp">
+            <Feather name="chevron-left" size={18} color={theme.textSecondary} />
+            <View style={{ flex: 1, alignItems: "flex-end" }}>
+              <ThemedText type="body" style={{ color: theme.text }}>واتساب</ThemedText>
+              <ThemedText type="small" style={{ color: theme.textSecondary }}>تواصل معنا عبر واتساب</ThemedText>
+            </View>
+            <View style={[styles.menuIcon, { backgroundColor: "#E8F5E9" }]}>
+              <Feather name="message-square" size={18} color="#25D366" />
+            </View>
+          </Pressable>
         </View>
 
         <Pressable
@@ -237,5 +305,20 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.md,
     borderWidth: 2,
     marginTop: Spacing.md,
+  },
+  menuRow: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    gap: Spacing.md,
+    paddingVertical: Spacing.sm + 2,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: "#E0E0E0",
+  },
+  menuIcon: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    justifyContent: "center",
+    alignItems: "center",
   },
 });
