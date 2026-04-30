@@ -7,7 +7,6 @@ import OrdersStackNavigator from "@/navigation/OrdersStackNavigator";
 import FavoritesStackNavigator from "@/navigation/FavoritesStackNavigator";
 import CartStackNavigator from "@/navigation/CartStackNavigator";
 import ProfileStackNavigator from "@/navigation/ProfileStackNavigator";
-import StoresStackNavigator from "@/navigation/StoresStackNavigator";
 import { CustomTabBar } from "@/components/CustomTabBar";
 
 export type MainTabParamList = {
@@ -15,7 +14,6 @@ export type MainTabParamList = {
   SearchTab: undefined;
   OrdersTab: undefined;
   FavoritesTab: undefined;
-  StoresTab: undefined;
   CartTab: undefined;
   ProfileTab: undefined;
 };
@@ -34,7 +32,6 @@ export default function MainTabNavigator() {
       <Tab.Screen name="HomeTab" component={HomeStackNavigator} />
       <Tab.Screen name="OrdersTab" component={OrdersStackNavigator} />
       <Tab.Screen name="FavoritesTab" component={FavoritesStackNavigator} />
-      <Tab.Screen name="StoresTab" component={StoresStackNavigator} />
       <Tab.Screen
         name="SearchTab"
         component={SearchStackNavigator}

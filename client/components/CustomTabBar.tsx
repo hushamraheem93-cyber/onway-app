@@ -46,7 +46,6 @@ interface TabConfig {
 const SIDE_TABS: TabConfig[] = [
   { name: "FavoritesTab", icon: "heart",        label: "المفضلة", initialScreen: "Favorites" },
   { name: "OrdersTab",    icon: "shopping-bag", label: "طلباتي",  initialScreen: "Orders"    },
-  { name: "StoresTab",    icon: "package",      label: "المتاجر", initialScreen: "Stores"    },
 ];
 
 const CENTER_TAB: TabConfig = {
