@@ -5147,6 +5147,58 @@ router.get("/api/vendor/orders", requireVendor, async (req, res) => {
     res.status(500).json({ error: "\u062D\u062F\u062B \u062E\u0637\u0623 \u0641\u064A \u0627\u0644\u062E\u0627\u062F\u0645" });
   }
 });
+router.get("/api/vendor/stats", requireVendor, async (req, res) => {
+  try {
+    const db2 = getFirestore();
+    if (!db2) return res.status(500).json({ error: "\u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u063A\u064A\u0631 \u0645\u062A\u0627\u062D\u0629" });
+    const vid = req.vendorId;
+    const productsSnap = await db2.collection("vendorProducts").where("vendorId", "==", vid).get();
+    const vendorProductIds = new Set(productsSnap.docs.map((d) => d.id));
+    const byVendorIdSnap = await db2.collection("orders").where("vendorId", "==", vid).get();
+    const allOrdersSnap = vendorProductIds.size > 0 ? await db2.collection("orders").get() : { docs: [] };
+    const ordersMap = /* @__PURE__ */ new Map();
+    for (const doc of byVendorIdSnap.docs) {
+      ordersMap.set(doc.id, { id: doc.id, ...doc.data() });
+    }
+    for (const doc of allOrdersSnap.docs) {
+      if (ordersMap.has(doc.id)) continue;
+      const data = doc.data();
+      const items = Array.isArray(data.items) ? data.items : [];
+      const hasVendorItem = items.some(
+        (item) => item.productId && vendorProductIds.has(item.productId)
+      );
+      if (hasVendorItem) ordersMap.set(doc.id, { id: doc.id, ...data });
+    }
+    let totalOrders = 0;
+    let pendingOrders = 0;
+    let totalRevenue = 0;
+    for (const o of ordersMap.values()) {
+      const status = o.status || "";
+      if (status === "cancelled") continue;
+      const allItems = Array.isArray(o.items) ? o.items : [];
+      let vendorItems = [];
+      if (vendorProductIds.size > 0) {
+        vendorItems = allItems.filter(
+          (item) => item.productId && vendorProductIds.has(item.productId)
+        );
+      }
+      if (vendorItems.length === 0 && o.vendorId === vid) {
+        vendorItems = allItems;
+      }
+      const subtotal = vendorItems.reduce(
+        (sum, item) => sum + (Number(item.price) || 0) * (Number(item.quantity) || 1),
+        0
+      );
+      totalOrders += 1;
+      if (status === "pending") pendingOrders += 1;
+      if (status === "delivered") totalRevenue += subtotal;
+    }
+    res.json({ totalOrders, pendingOrders, totalRevenue });
+  } catch (err) {
+    console.error("vendor stats:", err);
+    res.status(500).json({ error: "\u062D\u062F\u062B \u062E\u0637\u0623 \u0641\u064A \u0627\u0644\u062E\u0627\u062F\u0645" });
+  }
+});
 router.patch("/api/vendor/orders/:id/status", requireVendor, async (req, res) => {
   try {
     const db2 = getFirestore();

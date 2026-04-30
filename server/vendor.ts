@@ -845,6 +845,88 @@ router.get("/api/vendor/orders", requireVendor, async (req, res) => {
   }
 });
 
+// ── GET /api/vendor/stats ────────────────────────────────────────────────────
+// Returns aggregated sales stats for the authenticated vendor:
+//  - totalOrders: count of all non-cancelled orders that contain vendor items
+//  - totalRevenue: sum of vendorSubtotal for delivered orders
+//  - pendingOrders: count of orders with status "pending"
+router.get("/api/vendor/stats", requireVendor, async (req, res) => {
+  try {
+    const db = getFirestore();
+    if (!db) return res.status(500).json({ error: "قاعدة البيانات غير متاحة" });
+
+    const vid = (req as any).vendorId;
+
+    // Get all product IDs owned by this vendor
+    const productsSnap = await db.collection("vendorProducts")
+      .where("vendorId", "==", vid)
+      .get();
+    const vendorProductIds = new Set<string>(productsSnap.docs.map((d) => d.id));
+
+    // Fetch ALL orders by top-level vendorId (no limit — needed for accurate totals)
+    const byVendorIdSnap = await db.collection("orders")
+      .where("vendorId", "==", vid)
+      .get();
+
+    // Fetch ALL orders to check for item-level product ownership.
+    // This is an unbounded scan so that no orders are missed in aggregate counts.
+    // For vendors who only use the restaurant (top-level vendorId) flow and have no
+    // marketplace products, vendorProductIds will be empty and this scan is skipped.
+    const allOrdersSnap = vendorProductIds.size > 0
+      ? await db.collection("orders").get()
+      : { docs: [] as any[] };
+
+    const ordersMap = new Map<string, any>();
+    for (const doc of byVendorIdSnap.docs) {
+      ordersMap.set(doc.id, { id: doc.id, ...doc.data() });
+    }
+    for (const doc of allOrdersSnap.docs) {
+      if (ordersMap.has(doc.id)) continue;
+      const data = doc.data() as any;
+      const items: any[] = Array.isArray(data.items) ? data.items : [];
+      const hasVendorItem = items.some(
+        (item: any) => item.productId && vendorProductIds.has(item.productId)
+      );
+      if (hasVendorItem) ordersMap.set(doc.id, { id: doc.id, ...data });
+    }
+
+    let totalOrders = 0;
+    let pendingOrders = 0;
+    let totalRevenue = 0;
+
+    for (const o of ordersMap.values()) {
+      const status: string = o.status || "";
+      if (status === "cancelled") continue;
+
+      const allItems: any[] = Array.isArray(o.items) ? o.items : [];
+      let vendorItems: any[] = [];
+      if (vendorProductIds.size > 0) {
+        vendorItems = allItems.filter(
+          (item: any) => item.productId && vendorProductIds.has(item.productId)
+        );
+      }
+      if (vendorItems.length === 0 && o.vendorId === vid) {
+        vendorItems = allItems;
+      }
+
+      const subtotal = vendorItems.reduce(
+        (sum: number, item: any) =>
+          sum + (Number(item.price) || 0) * (Number(item.quantity) || 1),
+        0
+      );
+
+      totalOrders += 1;
+      if (status === "pending") pendingOrders += 1;
+      if (status === "delivered") totalRevenue += subtotal;
+    }
+
+    res.json({ totalOrders, pendingOrders, totalRevenue });
+  } catch (err) {
+    console.error("vendor stats:", err);
+    res.status(500).json({ error: "حدث خطأ في الخادم" });
+  }
+});
+
 // ── PATCH /api/vendor/orders/:id/status ─────────────────────────────────────
 // Vendor updates their order status (accept, preparing, ready, cancel)
 router.patch("/api/vendor/orders/:id/status", requireVendor, async (req, res) => {

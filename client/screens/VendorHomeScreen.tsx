@@ -45,6 +45,12 @@ interface Stats {
   rejected: number;
 }
 
+interface OrderStats {
+  totalOrders: number;
+  pendingOrders: number;
+  totalRevenue: number;
+}
+
 interface VendorNotification {
   id: string;
   vendorId: string;
@@ -89,6 +95,7 @@ export default function VendorHomeScreen({ navigation }: any) {
   const { setUnreadCount } = useVendorNotifications();
 
   const [stats, setStats] = useState<Stats>({ total: 0, approved: 0, pending: 0, rejected: 0 });
+  const [orderStats, setOrderStats] = useState<OrderStats>({ totalOrders: 0, pendingOrders: 0, totalRevenue: 0 });
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
   const [notifications, setNotifications] = useState<VendorNotification[]>([]);
@@ -134,6 +141,22 @@ export default function VendorHomeScreen({ navigation }: any) {
         approved: products.filter((p: any) => p.status === "approved").length,
         pending: products.filter((p: any) => p.status === "pending").length,
         rejected: products.filter((p: any) => p.status === "rejected").length,
+      });
+    } catch {}
+  }, [vendorToken]);
+
+  const loadOrderStats = useCallback(async () => {
+    if (!vendorToken) return;
+    try {
+      const res = await fetch(new URL("/api/vendor/stats", getApiUrl()).toString(), {
+        headers: { Authorization: `Bearer ${vendorToken}` },
+      });
+      if (!res.ok) return;
+      const data = await res.json();
+      setOrderStats({
+        totalOrders: data.totalOrders ?? 0,
+        pendingOrders: data.pendingOrders ?? 0,
+        totalRevenue: data.totalRevenue ?? 0,
       });
     } catch {}
   }, [vendorToken]);
@@ -190,7 +213,7 @@ export default function VendorHomeScreen({ navigation }: any) {
   useFocusEffect(
     useCallback(() => {
       if (!vendorToken) return;
-      Promise.all([loadStats(), loadNotifications()]).finally(() => setLoading(false));
+      Promise.all([loadStats(), loadOrderStats(), loadNotifications()]).finally(() => setLoading(false));
       pollRef.current = setInterval(() => {
         loadNotifications();
       }, POLL_INTERVAL_MS);
@@ -200,14 +223,14 @@ export default function VendorHomeScreen({ navigation }: any) {
           pollRef.current = null;
         }
       };
-    }, [vendorToken, loadStats, loadNotifications])
+    }, [vendorToken, loadStats, loadOrderStats, loadNotifications])
   );
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    await Promise.all([loadStats(), loadNotifications(), refreshVendorProfile()]);
+    await Promise.all([loadStats(), loadOrderStats(), loadNotifications(), refreshVendorProfile()]);
     setRefreshing(false);
-  }, [loadStats, loadNotifications, refreshVendorProfile]);
+  }, [loadStats, loadOrderStats, loadNotifications, refreshVendorProfile]);
 
   const uploadImage = useCallback(
     async (type: "profileImage" | "coverImage") => {
@@ -494,6 +517,35 @@ export default function VendorHomeScreen({ navigation }: any) {
             <ActivityIndicator color={PURPLE} style={{ marginVertical: 24 }} />
           ) : (
             <>
+              {/* Revenue summary */}
+              <ThemedText style={styles.sectionTitle}>ملخص المبيعات</ThemedText>
+              <View style={styles.revenueSummary} testID="revenue-summary">
+                <View style={[styles.revenueCard, { backgroundColor: "#EDE7F6" }]}>
+                  <MaterialCommunityIcons name="cash-multiple" size={26} color={PURPLE} />
+                  <ThemedText style={[styles.revenueValue, { color: PURPLE }]}>
+                    {orderStats.totalRevenue.toFixed(2)}
+                  </ThemedText>
+                  <ThemedText style={styles.revenueLabel}>إجمالي الإيرادات (د.ل)</ThemedText>
+                </View>
+                <View style={styles.revenueRight}>
+                  <View style={[styles.revenueSmallCard, { backgroundColor: "#D1FAE5" }]}>
+                    <MaterialCommunityIcons name="shopping" size={20} color="#10B981" />
+                    <ThemedText style={[styles.revenueSmallValue, { color: "#10B981" }]}>
+                      {orderStats.totalOrders}
+                    </ThemedText>
+                    <ThemedText style={styles.revenueSmallLabel}>إجمالي الطلبات</ThemedText>
+                  </View>
+                  <View style={[styles.revenueSmallCard, { backgroundColor: "#FEF3C7" }]}>
+                    <MaterialCommunityIcons name="clock-outline" size={20} color="#F59E0B" />
+                    <ThemedText style={[styles.revenueSmallValue, { color: "#F59E0B" }]}>
+                      {orderStats.pendingOrders}
+                    </ThemedText>
+                    <ThemedText style={styles.revenueSmallLabel}>طلبات معلقة</ThemedText>
+                  </View>
+                </View>
+              </View>
+
+              {/* Product stats */}
               <ThemedText style={styles.sectionTitle}>إحصائيات المنتجات</ThemedText>
               <View style={styles.statsGrid}>
                 <StatCard icon="package-variant" label="الكل" value={stats.total} color={PURPLE} bg="#EDE7F6" />
@@ -1001,6 +1053,54 @@ const styles = StyleSheet.create({
     color: "#777",
     textAlign: "center",
     marginTop: 2,
+  },
+
+  // Revenue summary
+  revenueSummary: {
+    flexDirection: "row",
+    gap: 12,
+    marginBottom: 20,
+  },
+  revenueCard: {
+    flex: 1,
+    borderRadius: 16,
+    padding: 16,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+  },
+  revenueValue: {
+    fontFamily: "Cairo_700Bold",
+    fontSize: 22,
+    textAlign: "center",
+  },
+  revenueLabel: {
+    fontFamily: "Cairo_400Regular",
+    fontSize: 11,
+    color: "#666",
+    textAlign: "center",
+  },
+  revenueRight: {
+    flex: 1,
+    gap: 12,
+  },
+  revenueSmallCard: {
+    flex: 1,
+    borderRadius: 14,
+    padding: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 4,
+  },
+  revenueSmallValue: {
+    fontFamily: "Cairo_700Bold",
+    fontSize: 18,
+  },
+  revenueSmallLabel: {
+    fontFamily: "Cairo_400Regular",
+    fontSize: 11,
+    color: "#666",
+    textAlign: "center",
   },
 
   // Quick actions
