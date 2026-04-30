@@ -462,12 +462,12 @@ function configureExpoAndLanding(app: express.Application) {
     maxAge: "7d",
     etag: true,
   }));
-  
+
   app.use(express.static(path.resolve(process.cwd(), "server", "public"), {
     maxAge: "1d",
     etag: true,
   }));
-  
+
   app.use(express.static(path.resolve(process.cwd(), "static-build"), {
     maxAge: 0,
     etag: false,
