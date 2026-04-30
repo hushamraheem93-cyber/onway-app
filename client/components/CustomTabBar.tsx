@@ -178,9 +178,6 @@ export function CustomTabBar({ state, navigation }: BottomTabBarProps) {
   const ordIdx   = state.routes.findIndex((r) => r.name === SIDE_TABS[1].name);
   const ordActive = state.index === ordIdx;
 
-  const storesIdx   = state.routes.findIndex((r) => r.name === SIDE_TABS[2].name);
-  const storesActive = state.index === storesIdx;
-
   return (
     <View
       style={[
@@ -238,12 +235,7 @@ export function CustomTabBar({ state, navigation }: BottomTabBarProps) {
         {/* Center placeholder so the side tabs stay on the edges */}
         <View style={{ width: (NOTCH_R + NOTCH_SPREAD) * 2 + 8 }} />
 
-        {/* Left side — المتاجر + طلباتي */}
-        <SideTab
-          config={SIDE_TABS[2]}
-          isFocused={storesActive}
-          onPress={() => navigate(SIDE_TABS[2].name, SIDE_TABS[2].initialScreen)}
-        />
+        {/* Left side — طلباتي */}
         <SideTab
           config={SIDE_TABS[1]}
           isFocused={ordActive}
