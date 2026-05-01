@@ -260,37 +260,75 @@ export default function VendorAddProductScreen({ navigation }: any) {
         <ThemedText style={styles.labelHint}> (1 — {MAX_IMAGES} صور، الأولى هي الصورة الرئيسية)</ThemedText>
       </ThemedText>
 
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.thumbRow} contentContainerStyle={styles.thumbRowContent}>
-        {imageUris.map((uri, index) => (
-          <View key={uri + index} style={styles.thumbWrap} testID={`image-thumb-${index}`}>
-            <Image source={{ uri }} style={styles.thumb} contentFit="cover" />
-            {index === 0 ? (
-              <View style={styles.primaryBadge}>
-                <ThemedText style={styles.primaryBadgeText}>رئيسية</ThemedText>
-              </View>
-            ) : null}
-            <Pressable style={styles.removeBtn} onPress={() => removeImage(index)} testID={`button-remove-image-${index}`}>
-              <Feather name="x" size={12} color="#fff" />
-            </Pressable>
+      {/* ── Large primary image preview ── */}
+      {imageUris.length > 0 ? (
+        <View style={styles.heroWrap}>
+          <Image source={{ uri: imageUris[0] }} style={styles.heroImage} contentFit="cover" />
+          <View style={styles.heroBadge}>
+            <Feather name="star" size={11} color="#fff" />
+            <ThemedText style={styles.heroBadgeText}>الصورة الرئيسية</ThemedText>
           </View>
-        ))}
-
-        {imageUris.length < MAX_IMAGES ? (
           <Pressable
-            style={styles.addThumbBtn}
-            onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              showImageSourcePicker(pickImageFromGallery, takePhoto);
-            }}
-            testID="button-add-image"
+            style={styles.heroRemoveBtn}
+            onPress={() => removeImage(0)}
+            testID="button-remove-image-0"
           >
-            <MaterialCommunityIcons name="camera-plus" size={28} color="#C4B5FD" />
-            <ThemedText style={styles.addThumbText}>
-              {imageUris.length === 0 ? "أضف صورة" : "أضف"}
-            </ThemedText>
+            <Feather name="x" size={14} color="#fff" />
           </Pressable>
-        ) : null}
-      </ScrollView>
+        </View>
+      ) : (
+        <Pressable
+          style={styles.heroPlaceholder}
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            showImageSourcePicker(pickImageFromGallery, takePhoto);
+          }}
+          testID="button-add-image"
+        >
+          <MaterialCommunityIcons name="camera-plus-outline" size={44} color="#C4B5FD" />
+          <ThemedText style={styles.heroPlaceholderTitle}>اضغط لإضافة صورة المنتج</ThemedText>
+          <ThemedText style={styles.heroPlaceholderSub}>من الكاميرا أو معرض الصور</ThemedText>
+        </Pressable>
+      )}
+
+      {/* ── Extra images thumbnail strip (images 2–5) ── */}
+      {imageUris.length > 0 ? (
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.thumbRow}
+          contentContainerStyle={styles.thumbRowContent}
+        >
+          {imageUris.slice(1).map((uri, i) => {
+            const index = i + 1;
+            return (
+              <View key={uri + index} style={styles.thumbWrap} testID={`image-thumb-${index}`}>
+                <Image source={{ uri }} style={styles.thumb} contentFit="cover" />
+                <Pressable
+                  style={styles.removeBtn}
+                  onPress={() => removeImage(index)}
+                  testID={`button-remove-image-${index}`}
+                >
+                  <Feather name="x" size={11} color="#fff" />
+                </Pressable>
+              </View>
+            );
+          })}
+          {imageUris.length < MAX_IMAGES ? (
+            <Pressable
+              style={styles.addThumbBtn}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                showImageSourcePicker(pickImageFromGallery, takePhoto);
+              }}
+              testID="button-add-extra-image"
+            >
+              <MaterialCommunityIcons name="plus" size={24} color="#C4B5FD" />
+              <ThemedText style={styles.addThumbText}>إضافة</ThemedText>
+            </Pressable>
+          ) : null}
+        </ScrollView>
+      ) : null}
 
       <View style={styles.imgActions}>
         <Pressable style={styles.imgActionBtn} onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); takePhoto(); }} testID="button-take-photo">
@@ -430,6 +468,66 @@ const styles = StyleSheet.create({
     marginBottom: 14, backgroundColor: "#fff", overflow: "hidden",
   },
   picker: { height: Platform.OS === "ios" ? 140 : 50, color: "#111" },
+  /* ── Hero image preview ── */
+  heroWrap: {
+    width: "100%",
+    height: 220,
+    borderRadius: 16,
+    overflow: "hidden",
+    marginBottom: 10,
+    position: "relative",
+    backgroundColor: "#EDE7F6",
+  },
+  heroImage: {
+    width: "100%",
+    height: "100%",
+  },
+  heroBadge: {
+    position: "absolute",
+    bottom: 10,
+    right: 10,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: PURPLE,
+    borderRadius: 20,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  heroBadgeText: {
+    fontFamily: "Cairo_700Bold", fontSize: 11, color: "#fff",
+  },
+  heroRemoveBtn: {
+    position: "absolute",
+    top: 10,
+    left: 10,
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: "rgba(0,0,0,0.55)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  heroPlaceholder: {
+    width: "100%",
+    height: 200,
+    borderRadius: 16,
+    borderWidth: 2,
+    borderStyle: "dashed",
+    borderColor: "#C4B5FD",
+    backgroundColor: "#F5F3FF",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    marginBottom: 10,
+  },
+  heroPlaceholderTitle: {
+    fontFamily: "Cairo_700Bold", fontSize: 15, color: PURPLE,
+  },
+  heroPlaceholderSub: {
+    fontFamily: "Cairo_400Regular", fontSize: 12, color: "#9CA3AF",
+  },
+  /* ── Extra thumbnails strip ── */
   thumbRow: { marginBottom: 0 },
   thumbRowContent: {
     flexDirection: "row",
@@ -450,18 +548,6 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 2,
     borderColor: "#C4B5FD",
-  },
-  primaryBadge: {
-    position: "absolute",
-    bottom: 4,
-    left: 4,
-    backgroundColor: PURPLE,
-    borderRadius: 6,
-    paddingHorizontal: 5,
-    paddingVertical: 1,
-  },
-  primaryBadgeText: {
-    fontFamily: "Cairo_700Bold", fontSize: 9, color: "#fff",
   },
   removeBtn: {
     position: "absolute",
