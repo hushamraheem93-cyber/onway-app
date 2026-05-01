@@ -2324,13 +2324,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json({ success: true, message: "OTP sent successfully" });
   });
 
+  // In-memory rate limiter for OTP verification: max 5 attempts per phone per 15 min
+  const otpAttempts = new Map<string, { count: number; resetAt: number }>();
+  const OTP_MAX_ATTEMPTS = 5;
+  const OTP_WINDOW_MS = 15 * 60 * 1000;
+
   app.post("/api/auth/verify-otp", (req: Request, res: Response) => {
     const { phoneNumber, code } = req.body;
     if (!phoneNumber || !code) {
       return res.status(400).json({ error: "Phone number and code are required" });
     }
-    // OTP verification temporarily disabled - accept any code
-    // Issue a short-lived customer JWT for authenticated endpoints
+
+    // Rate-limit: block brute-force guessing
+    const now = Date.now();
+    const entry = otpAttempts.get(phoneNumber);
+    if (entry && now < entry.resetAt) {
+      if (entry.count >= OTP_MAX_ATTEMPTS) {
+        const waitSec = Math.ceil((entry.resetAt - now) / 1000);
+        return res.status(429).json({ error: `تجاوزت عدد المحاولات. حاول مجدداً بعد ${waitSec} ثانية` });
+      }
+      entry.count += 1;
+    } else {
+      otpAttempts.set(phoneNumber, { count: 1, resetAt: now + OTP_WINDOW_MS });
+    }
+
+    // Enforce real OTP check — verifyOtpCode deletes the stored code on success
+    if (!verifyOtpCode(phoneNumber, code)) {
+      return res.status(400).json({ error: "رمز التحقق غير صحيح أو منتهي الصلاحية" });
+    }
+
+    // Clear attempt counter on success
+    otpAttempts.delete(phoneNumber);
+
+    // Issue customer JWT only after verified OTP
     const customerToken = jwt.sign(
       { phoneNumber, role: "customer" },
       ROUTES_JWT_SECRET,

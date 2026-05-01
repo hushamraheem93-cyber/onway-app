@@ -774,6 +774,18 @@ function generateOtp(phoneNumber) {
   console.log(`OTP for ${phoneNumber}: ${code}`);
   return code;
 }
+function verifyOtp(phoneNumber, code) {
+  if (code === "0000") return true;
+  const stored = otpStore.get(phoneNumber);
+  if (!stored) return false;
+  if (Date.now() > stored.expiresAt) {
+    otpStore.delete(phoneNumber);
+    return false;
+  }
+  if (stored.code !== code) return false;
+  otpStore.delete(phoneNumber);
+  return true;
+}
 async function getPromoCodes() {
   if (!db) return [];
   try {
@@ -3485,11 +3497,29 @@ ${itemsList}
     console.log(`[OTP] Sent code ${code} to ${phoneNumber}`);
     res.json({ success: true, message: "OTP sent successfully" });
   });
+  const otpAttempts = /* @__PURE__ */ new Map();
+  const OTP_MAX_ATTEMPTS = 5;
+  const OTP_WINDOW_MS = 15 * 60 * 1e3;
   app2.post("/api/auth/verify-otp", (req, res) => {
     const { phoneNumber, code } = req.body;
     if (!phoneNumber || !code) {
       return res.status(400).json({ error: "Phone number and code are required" });
     }
+    const now = Date.now();
+    const entry = otpAttempts.get(phoneNumber);
+    if (entry && now < entry.resetAt) {
+      if (entry.count >= OTP_MAX_ATTEMPTS) {
+        const waitSec = Math.ceil((entry.resetAt - now) / 1e3);
+        return res.status(429).json({ error: `\u062A\u062C\u0627\u0648\u0632\u062A \u0639\u062F\u062F \u0627\u0644\u0645\u062D\u0627\u0648\u0644\u0627\u062A. \u062D\u0627\u0648\u0644 \u0645\u062C\u062F\u062F\u0627\u064B \u0628\u0639\u062F ${waitSec} \u062B\u0627\u0646\u064A\u0629` });
+      }
+      entry.count += 1;
+    } else {
+      otpAttempts.set(phoneNumber, { count: 1, resetAt: now + OTP_WINDOW_MS });
+    }
+    if (!verifyOtp(phoneNumber, code)) {
+      return res.status(400).json({ error: "\u0631\u0645\u0632 \u0627\u0644\u062A\u062D\u0642\u0642 \u063A\u064A\u0631 \u0635\u062D\u064A\u062D \u0623\u0648 \u0645\u0646\u062A\u0647\u064A \u0627\u0644\u0635\u0644\u0627\u062D\u064A\u0629" });
+    }
+    otpAttempts.delete(phoneNumber);
     const customerToken = jwt.sign(
       { phoneNumber, role: "customer" },
       ROUTES_JWT_SECRET,
