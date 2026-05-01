@@ -47,7 +47,8 @@ const ORDER_STATUS_MESSAGES: Record<string, { title: string; body: string }> = {
 export async function sendPushNotification(
   pushToken: string,
   status: string,
-  orderId: string
+  orderId: string,
+  estimatedMinutes?: number
 ): Promise<boolean> {
   if (!pushToken || !pushToken.startsWith("ExponentPushToken")) {
     console.log("Invalid push token:", pushToken);
@@ -60,10 +61,15 @@ export async function sendPushNotification(
     return false;
   }
 
+  let body = messageContent.body;
+  if (status === "confirmed" && estimatedMinutes && estimatedMinutes > 0) {
+    body = `تم استلام طلبك وسيتم تحضيره خلال ${estimatedMinutes} دقيقة تقريباً`;
+  }
+
   const message: ExpoPushMessage = {
     to: pushToken,
     title: messageContent.title,
-    body: messageContent.body,
+    body,
     sound: "default",
     channelId: "default",
     priority: "high",

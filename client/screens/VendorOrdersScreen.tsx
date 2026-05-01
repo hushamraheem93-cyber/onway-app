@@ -45,6 +45,7 @@ interface VendorOrder {
   address?: string;
   createdAt: string;
   vendorName?: string;
+  estimatedMinutes?: number;
 }
 
 // ── Status config ─────────────────────────────────────────────────────────────
@@ -133,6 +134,11 @@ const timerStyles = StyleSheet.create({
   text: { fontFamily: "Cairo_700Bold", fontSize: 11 },
 });
 
+const etaBadgeStyles = StyleSheet.create({
+  badge: { flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10, backgroundColor: "#ECFDF5" },
+  text: { fontFamily: "Cairo_700Bold", fontSize: 11, color: "#059669" },
+});
+
 // ── Progress steps ────────────────────────────────────────────────────────────
 const STEPS = ["pending", "confirmed", "preparing", "ready", "delivering", "delivered"];
 function ProgressBar({ status }: { status: string }) {
@@ -198,6 +204,12 @@ function OrderCard({
           <View style={cardStyles.headerMeta}>
             <ThemedText style={cardStyles.timeText}>{relativeTime(order.createdAt)}</ThemedText>
             {order.status === "pending" ? <TimerBadge createdAt={order.createdAt} /> : null}
+            {order.estimatedMinutes && order.estimatedMinutes > 0 ? (
+              <View style={etaBadgeStyles.badge}>
+                <MaterialCommunityIcons name="clock-fast" size={13} color="#059669" />
+                <ThemedText style={etaBadgeStyles.text}>{order.estimatedMinutes} دقيقة</ThemedText>
+              </View>
+            ) : null}
           </View>
         </View>
         <Pressable onPress={() => setExpanded(!expanded)} style={cardStyles.expandBtn}>
@@ -320,6 +332,91 @@ function OrderCard({
   );
 }
 
+// ── ETA quick-pick options ─────────────────────────────────────────────────────
+const ETA_OPTIONS = [15, 30, 45, 60];
+
+// ── Accept with ETA modal ──────────────────────────────────────────────────────
+function ETAModal({
+  visible,
+  onConfirm,
+  onCancel,
+}: {
+  visible: boolean;
+  onConfirm: (estimatedMinutes: number | undefined) => void;
+  onCancel: () => void;
+}) {
+  const [selected, setSelected] = useState<number | null>(null);
+
+  const handleConfirm = () => {
+    onConfirm(selected ?? undefined);
+    setSelected(null);
+  };
+
+  const handleCancel = () => {
+    setSelected(null);
+    onCancel();
+  };
+
+  return (
+    <Modal transparent visible={visible} animationType="fade">
+      <View style={modalStyles.overlay}>
+        <View style={modalStyles.box}>
+          <MaterialCommunityIcons name="clock-outline" size={44} color="#16A34A" style={{ alignSelf: "center" }} />
+          <ThemedText style={modalStyles.title}>قبول الطلب</ThemedText>
+          <ThemedText style={modalStyles.subtitle}>كم تحتاج من الوقت لتحضير هذا الطلب؟</ThemedText>
+          <View style={etaStyles.optionRow}>
+            {ETA_OPTIONS.map((mins) => {
+              const isSelected = selected === mins;
+              return (
+                <Pressable
+                  key={mins}
+                  style={[etaStyles.option, isSelected && etaStyles.optionSelected]}
+                  onPress={() => setSelected(isSelected ? null : mins)}
+                  testID={`eta-option-${mins}`}
+                >
+                  <ThemedText style={[etaStyles.optionText, isSelected && etaStyles.optionTextSelected]}>
+                    {mins}
+                  </ThemedText>
+                  <ThemedText style={[etaStyles.optionUnit, isSelected && etaStyles.optionTextSelected]}>
+                    د
+                  </ThemedText>
+                </Pressable>
+              );
+            })}
+          </View>
+          <View style={modalStyles.btns}>
+            <Pressable
+              style={[modalStyles.btn, { backgroundColor: "#16A34A" }]}
+              onPress={handleConfirm}
+              testID="btn-eta-confirm"
+            >
+              <ThemedText style={modalStyles.btnText}>
+                {selected ? `قبول (${selected} دقيقة)` : "قبول بدون تحديد وقت"}
+              </ThemedText>
+            </Pressable>
+            <Pressable style={[modalStyles.btn, { backgroundColor: "#F3F4F6" }]} onPress={handleCancel} testID="btn-eta-cancel">
+              <ThemedText style={[modalStyles.btnText, { color: "#374151" }]}>تراجع</ThemedText>
+            </Pressable>
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+const etaStyles = StyleSheet.create({
+  optionRow: { flexDirection: "row-reverse", gap: 8, justifyContent: "center", flexWrap: "wrap", marginVertical: 4 },
+  option: {
+    flexDirection: "row", alignItems: "baseline", gap: 2,
+    paddingHorizontal: 16, paddingVertical: 10, borderRadius: 12,
+    backgroundColor: "#F3F4F6", borderWidth: 2, borderColor: "transparent",
+  },
+  optionSelected: { backgroundColor: "#DCFCE7", borderColor: "#16A34A" },
+  optionText: { fontFamily: "Cairo_700Bold", fontSize: 18, color: "#374151" },
+  optionTextSelected: { color: "#15803D" },
+  optionUnit: { fontFamily: "Cairo_400Regular", fontSize: 12, color: "#6B7280" },
+});
+
 // ── Confirm cancel modal ───────────────────────────────────────────────────────
 function CancelModal({
   visible,
@@ -364,6 +461,7 @@ export default function VendorOrdersScreen() {
   const [activeTab, setActiveTab] = useState("new");
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [cancelTarget, setCancelTarget] = useState<string | null>(null);
+  const [etaTarget, setEtaTarget] = useState<string | null>(null);
   const [newArrived, setNewArrived] = useState(false);
   const [updateError, setUpdateError] = useState<string | null>(null);
   const prevNewCount = useRef(0);
@@ -409,27 +507,35 @@ export default function VendorOrdersScreen() {
     load(true);
   };
 
-  const updateStatus = useCallback(async (orderId: string, newStatus: string) => {
+  const updateStatus = useCallback(async (orderId: string, newStatus: string, estimatedMinutes?: number) => {
     if (!vendorToken) return;
     setUpdatingId(orderId);
     setUpdateError(null);
     try {
+      const body: Record<string, any> = { status: newStatus };
+      if (newStatus === "confirmed" && estimatedMinutes && estimatedMinutes > 0) {
+        body.estimatedMinutes = estimatedMinutes;
+      }
       const res = await fetch(
         new URL(`/api/vendor/orders/${orderId}/status`, getApiUrl()).toString(),
         {
           method: "PATCH",
           headers: { Authorization: `Bearer ${vendorToken}`, "Content-Type": "application/json" },
-          body: JSON.stringify({ status: newStatus }),
+          body: JSON.stringify(body),
         }
       );
       if (res.ok) {
         setOrders((prev) =>
-          prev.map((o) => (o.id === orderId ? { ...o, status: newStatus } : o))
+          prev.map((o) =>
+            o.id === orderId
+              ? { ...o, status: newStatus, ...(estimatedMinutes ? { estimatedMinutes } : {}) }
+              : o
+          )
         );
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       } else {
-        const body = await res.json().catch(() => ({}));
-        const msg = body?.error ?? "تعذّر تحديث حالة الطلب";
+        const errBody = await res.json().catch(() => ({}));
+        const msg = errBody?.error ?? "تعذّر تحديث حالة الطلب";
         setUpdateError(msg);
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
         setTimeout(() => setUpdateError(null), 4000);
@@ -446,6 +552,8 @@ export default function VendorOrdersScreen() {
   const handleAction = useCallback((orderId: string, nextStatus: string) => {
     if (nextStatus === "cancelled") {
       setCancelTarget(orderId);
+    } else if (nextStatus === "confirmed") {
+      setEtaTarget(orderId);
     } else {
       updateStatus(orderId, nextStatus);
     }
@@ -600,6 +708,16 @@ export default function VendorOrdersScreen() {
           setCancelTarget(null);
         }}
         onCancel={() => setCancelTarget(null)}
+      />
+
+      {/* ETA modal for accepting orders */}
+      <ETAModal
+        visible={!!etaTarget}
+        onConfirm={(estimatedMinutes) => {
+          if (etaTarget) updateStatus(etaTarget, "confirmed", estimatedMinutes);
+          setEtaTarget(null);
+        }}
+        onCancel={() => setEtaTarget(null)}
       />
     </View>
   );

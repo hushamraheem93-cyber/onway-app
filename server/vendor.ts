@@ -8,8 +8,8 @@ import * as crypto from "crypto";
 import * as fs from "fs/promises";
 import * as fsSync from "fs";
 import * as path from "path";
-import { getFirestore } from "./firebase";
-import { sendVendorStatusNotification, sendVendorProductNotification } from "./pushNotifications";
+import { getFirestore, getUserPushToken } from "./firebase";
+import { sendVendorStatusNotification, sendVendorProductNotification, sendPushNotification } from "./pushNotifications";
 
 const router = express.Router();
 
@@ -960,7 +960,7 @@ router.patch("/api/vendor/orders/:id/status", requireVendor, async (req, res) =>
     if (!db) return res.status(500).json({ error: "قاعدة البيانات غير متاحة" });
     const vid = (req as any).vendorId as string;
     const orderId = req.params.id;
-    const { status } = req.body as { status: string };
+    const { status, estimatedMinutes } = req.body as { status: string; estimatedMinutes?: number };
 
     // Allowed transitions from vendor side
     const ALLOWED: Record<string, string[]> = {
@@ -994,10 +994,36 @@ router.patch("/api/vendor/orders/:id/status", requireVendor, async (req, res) =>
       return res.status(403).json({ error: "ليس لديك صلاحية تعديل هذا الطلب" });
     }
 
-    const updatedAt = new Date().toISOString();
-    await orderRef.update({ status, updatedAt, [`vendorStatusAt_${status}`]: updatedAt });
+    // Validate estimatedMinutes if provided (must be a positive integer ≤ 180)
+    const validatedEta =
+      status === "confirmed" &&
+      typeof estimatedMinutes === "number" &&
+      Number.isInteger(estimatedMinutes) &&
+      estimatedMinutes > 0 &&
+      estimatedMinutes <= 180
+        ? estimatedMinutes
+        : undefined;
 
-    res.json({ success: true, status, updatedAt });
+    const updatedAt = new Date().toISOString();
+    const updateData: Record<string, any> = { status, updatedAt, [`vendorStatusAt_${status}`]: updatedAt };
+    if (validatedEta) {
+      updateData.estimatedMinutes = validatedEta;
+    }
+    await orderRef.update(updateData);
+
+    // Send push notification to customer
+    const customerPhone: string | undefined = order.phoneNumber;
+    if (customerPhone) {
+      getUserPushToken(customerPhone)
+        .then((pushToken) => {
+          if (pushToken) {
+            sendPushNotification(pushToken, status, orderId, validatedEta).catch(() => {});
+          }
+        })
+        .catch(() => {});
+    }
+
+    res.json({ success: true, status, updatedAt, estimatedMinutes: validatedEta });
   } catch (err) {
     console.error("vendor order status:", err);
     res.status(500).json({ error: "حدث خطأ في الخادم" });

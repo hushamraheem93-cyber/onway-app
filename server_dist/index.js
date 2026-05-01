@@ -1284,7 +1284,7 @@ var ORDER_STATUS_MESSAGES = {
     body: "\u064A\u0631\u062C\u0649 \u0627\u0644\u0631\u062F \u0639\u0644\u0649 \u0645\u0643\u0627\u0644\u0645\u0629 \u0627\u0644\u0633\u0627\u0626\u0642 \u0623\u0648 \u0627\u0644\u062A\u062D\u0642\u0642 \u0645\u0646 \u0639\u0646\u0648\u0627\u0646\u0643"
   }
 };
-async function sendPushNotification(pushToken, status, orderId) {
+async function sendPushNotification(pushToken, status, orderId, estimatedMinutes) {
   if (!pushToken || !pushToken.startsWith("ExponentPushToken")) {
     console.log("Invalid push token:", pushToken);
     return false;
@@ -1294,10 +1294,14 @@ async function sendPushNotification(pushToken, status, orderId) {
     console.log("No message template for status:", status);
     return false;
   }
+  let body = messageContent.body;
+  if (status === "confirmed" && estimatedMinutes && estimatedMinutes > 0) {
+    body = `\u062A\u0645 \u0627\u0633\u062A\u0644\u0627\u0645 \u0637\u0644\u0628\u0643 \u0648\u0633\u064A\u062A\u0645 \u062A\u062D\u0636\u064A\u0631\u0647 \u062E\u0644\u0627\u0644 ${estimatedMinutes} \u062F\u0642\u064A\u0642\u0629 \u062A\u0642\u0631\u064A\u0628\u0627\u064B`;
+  }
   const message = {
     to: pushToken,
     title: messageContent.title,
-    body: messageContent.body,
+    body,
     sound: "default",
     channelId: "default",
     priority: "high",
@@ -5470,7 +5474,7 @@ router.patch("/api/vendor/orders/:id/status", requireVendor, async (req, res) =>
     if (!db2) return res.status(500).json({ error: "\u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u063A\u064A\u0631 \u0645\u062A\u0627\u062D\u0629" });
     const vid = req.vendorId;
     const orderId = req.params.id;
-    const { status } = req.body;
+    const { status, estimatedMinutes } = req.body;
     const ALLOWED = {
       pending: ["confirmed", "cancelled"],
       confirmed: ["preparing", "cancelled"],
@@ -5499,9 +5503,24 @@ router.patch("/api/vendor/orders/:id/status", requireVendor, async (req, res) =>
     if (!belongsViaId && !belongsViaProduct) {
       return res.status(403).json({ error: "\u0644\u064A\u0633 \u0644\u062F\u064A\u0643 \u0635\u0644\u0627\u062D\u064A\u0629 \u062A\u0639\u062F\u064A\u0644 \u0647\u0630\u0627 \u0627\u0644\u0637\u0644\u0628" });
     }
+    const validatedEta = status === "confirmed" && typeof estimatedMinutes === "number" && Number.isInteger(estimatedMinutes) && estimatedMinutes > 0 && estimatedMinutes <= 180 ? estimatedMinutes : void 0;
     const updatedAt = (/* @__PURE__ */ new Date()).toISOString();
-    await orderRef.update({ status, updatedAt, [`vendorStatusAt_${status}`]: updatedAt });
-    res.json({ success: true, status, updatedAt });
+    const updateData = { status, updatedAt, [`vendorStatusAt_${status}`]: updatedAt };
+    if (validatedEta) {
+      updateData.estimatedMinutes = validatedEta;
+    }
+    await orderRef.update(updateData);
+    const customerPhone = order.phoneNumber;
+    if (customerPhone) {
+      getUserPushToken(customerPhone).then((pushToken) => {
+        if (pushToken) {
+          sendPushNotification(pushToken, status, orderId, validatedEta).catch(() => {
+          });
+        }
+      }).catch(() => {
+      });
+    }
+    res.json({ success: true, status, updatedAt, estimatedMinutes: validatedEta });
   } catch (err) {
     console.error("vendor order status:", err);
     res.status(500).json({ error: "\u062D\u062F\u062B \u062E\u0637\u0623 \u0641\u064A \u0627\u0644\u062E\u0627\u062F\u0645" });
