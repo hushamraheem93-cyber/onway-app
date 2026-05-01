@@ -3490,7 +3490,12 @@ ${itemsList}
     if (!phoneNumber || !code) {
       return res.status(400).json({ error: "Phone number and code are required" });
     }
-    res.json({ success: true, message: "OTP verified" });
+    const customerToken = jwt.sign(
+      { phoneNumber, role: "customer" },
+      ROUTES_JWT_SECRET,
+      { expiresIn: "30d" }
+    );
+    res.json({ success: true, message: "OTP verified", customerToken });
   });
   app2.get("/api/drivers/check/:phoneNumber", async (req, res) => {
     try {
@@ -4807,8 +4812,21 @@ ${itemsList}
   app2.post("/api/orders/:orderId/rate", async (req, res) => {
     try {
       const { orderId } = req.params;
-      const { rating, phoneNumber } = req.body;
-      if (!phoneNumber) return res.status(400).json({ error: "\u0631\u0642\u0645 \u0627\u0644\u0647\u0627\u062A\u0641 \u0645\u0637\u0644\u0648\u0628" });
+      const { rating } = req.body;
+      let phoneNumber = null;
+      const authHeader = req.headers.authorization || "";
+      const token = authHeader.replace("Bearer ", "").trim();
+      if (token) {
+        try {
+          const decoded = jwt.verify(token, ROUTES_JWT_SECRET);
+          if (decoded.role === "customer" && decoded.phoneNumber) {
+            phoneNumber = decoded.phoneNumber;
+          }
+        } catch {
+        }
+      }
+      if (!phoneNumber) phoneNumber = req.body.phoneNumber || null;
+      if (!phoneNumber) return res.status(401).json({ error: "\u064A\u0631\u062C\u0649 \u062A\u0633\u062C\u064A\u0644 \u0627\u0644\u062F\u062E\u0648\u0644 \u0623\u0648\u0644\u0627\u064B" });
       const numRating = Number(rating);
       if (isNaN(numRating) || numRating < 1 || numRating > 5) {
         return res.status(400).json({ error: "\u0627\u0644\u062A\u0642\u064A\u064A\u0645 \u064A\u062C\u0628 \u0623\u0646 \u064A\u0643\u0648\u0646 \u0628\u064A\u0646 1 \u0648 5" });

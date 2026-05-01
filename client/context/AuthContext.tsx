@@ -59,6 +59,8 @@ interface AuthContextType {
   vendorProfile: VendorProfile | null;
   vendorToken: string | null;
   isVendorRegistered: boolean;
+  // Customer JWT
+  customerToken: string | null;
   sendOtp: (phone: string) => Promise<void>;
   verifyOtp: (code: string) => Promise<void>;
   setUserType: (type: UserType) => void;
@@ -82,6 +84,7 @@ const AUTH_STORAGE_KEY = "@onway_auth";
 const PROFILE_STORAGE_KEY = "@onway_profile";
 const VENDOR_TOKEN_KEY = "@onway_vendor_token";
 const VENDOR_PROFILE_KEY = "@onway_vendor_profile";
+const CUSTOMER_TOKEN_KEY = "@onway_customer_token";
 
 async function registerForPushNotificationsAsync(): Promise<string | null> {
   if (Platform.OS === "web") {
@@ -180,6 +183,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [vendorProfile, setVendorProfile] = useState<VendorProfile | null>(null);
   const [vendorToken, setVendorToken] = useState<string | null>(null);
   const [isVendorRegistered, setIsVendorRegistered] = useState(false);
+  // Customer JWT (issued by /api/auth/verify-otp)
+  const [customerToken, setCustomerToken] = useState<string | null>(null);
 
   useEffect(() => {
     loadAuthState();
@@ -253,6 +258,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           } else {
             await checkProfileFromServer(data.phoneNumber);
           }
+          // Restore customer JWT
+          const cToken = await AsyncStorage.getItem(CUSTOMER_TOKEN_KEY);
+          if (cToken) setCustomerToken(cToken);
         }
       }
     } catch (error) {
@@ -313,6 +321,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         throw new Error(err.error || "رمز التحقق غير صحيح");
       }
 
+      const data = await response.json();
+      if (data.customerToken) {
+        setCustomerToken(data.customerToken);
+        try { await AsyncStorage.setItem(CUSTOMER_TOKEN_KEY, data.customerToken); } catch {}
+      }
       setPhoneNumber(pendingPhone);
       setIsOtpVerified(true);
     } catch (error: any) {
@@ -462,6 +475,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       await AsyncStorage.removeItem(PROFILE_STORAGE_KEY);
       await AsyncStorage.removeItem(VENDOR_TOKEN_KEY);
       await AsyncStorage.removeItem(VENDOR_PROFILE_KEY);
+      await AsyncStorage.removeItem(CUSTOMER_TOKEN_KEY);
       setPhoneNumber(null);
       setPendingPhone(null);
       setUserProfile(null);
@@ -475,6 +489,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setVendorProfile(null);
       setVendorToken(null);
       setIsVendorRegistered(false);
+      setCustomerToken(null);
     } catch (error) {
       throw error;
     }
@@ -540,6 +555,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         vendorProfile,
         vendorToken,
         isVendorRegistered,
+        customerToken,
         sendOtp,
         verifyOtp,
         setUserType,

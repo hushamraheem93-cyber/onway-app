@@ -2330,7 +2330,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.status(400).json({ error: "Phone number and code are required" });
     }
     // OTP verification temporarily disabled - accept any code
-    res.json({ success: true, message: "OTP verified" });
+    // Issue a short-lived customer JWT for authenticated endpoints
+    const customerToken = jwt.sign(
+      { phoneNumber, role: "customer" },
+      ROUTES_JWT_SECRET,
+      { expiresIn: "30d" }
+    );
+    res.json({ success: true, message: "OTP verified", customerToken });
   });
 
   // Driver Routes
@@ -3882,15 +3888,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // ── Customer: Rate a delivered order (aggregates vendor rating) ───────────
-  // Entire operation is a single Firestore transaction — atomic and idempotent.
-  // Authorization uses phoneNumber to match the stored order.phoneNumber (same
-  // pattern as all customer endpoints in this app; upgrade to customer JWT is a
-  // separate auth-hardening task).
+  // Authorization: JWT from Authorization header (issued by /api/auth/verify-otp)
+  // or phoneNumber from body for backwards compatibility. Entire operation is a
+  // single Firestore transaction — atomic and idempotent.
   app.post("/api/orders/:orderId/rate", async (req: Request, res: Response) => {
     try {
       const { orderId } = req.params;
-      const { rating, phoneNumber } = req.body;
-      if (!phoneNumber) return res.status(400).json({ error: "رقم الهاتف مطلوب" });
+      const { rating } = req.body;
+
+      // Prefer JWT-based identity; fall back to body phoneNumber for compatibility
+      let phoneNumber: string | null = null;
+      const authHeader = req.headers.authorization || "";
+      const token = authHeader.replace("Bearer ", "").trim();
+      if (token) {
+        try {
+          const decoded = jwt.verify(token, ROUTES_JWT_SECRET) as any;
+          if (decoded.role === "customer" && decoded.phoneNumber) {
+            phoneNumber = decoded.phoneNumber;
+          }
+        } catch { /* invalid token — fall through to body */ }
+      }
+      if (!phoneNumber) phoneNumber = req.body.phoneNumber || null;
+      if (!phoneNumber) return res.status(401).json({ error: "يرجى تسجيل الدخول أولاً" });
       const numRating = Number(rating);
       if (isNaN(numRating) || numRating < 1 || numRating > 5) {
         return res.status(400).json({ error: "التقييم يجب أن يكون بين 1 و 5" });

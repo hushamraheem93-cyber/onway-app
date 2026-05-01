@@ -32,16 +32,17 @@ export default function OrdersScreen() {
   const { theme } = useTheme();
   const navigation = useNavigation<NavigationProp>();
   const { orders, isLoading, refreshOrders } = useOrders();
-  const { phoneNumber: authPhone } = useAuth();
+  const { phoneNumber: authPhone, customerToken } = useAuth();
 
   const [searchQuery, setSearchQuery] = useState("");
 
   const handleRate = async (orderId: string, rating: number) => {
-    const phoneNumber = authPhone || "";
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    if (customerToken) headers["Authorization"] = `Bearer ${customerToken}`;
     const res = await fetch(new URL(`/api/orders/${orderId}/rate`, getApiUrl()).toString(), {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ rating, phoneNumber }),
+      headers,
+      body: JSON.stringify({ rating, phoneNumber: authPhone || "" }),
     });
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
