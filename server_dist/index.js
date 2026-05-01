@@ -2407,6 +2407,29 @@ async function registerRoutes(app2) {
     products.splice(index, 1);
     res.json({ success: true });
   });
+  app2.post("/api/admin/cleanup-orphan-products", async (_req, res) => {
+    const db2 = getFirestore();
+    if (!db2) return res.status(500).json({ error: "\u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u063A\u064A\u0631 \u0645\u062A\u0627\u062D\u0629" });
+    try {
+      const vendorSnap = await db2.collection("vendors").get();
+      const validVendorIds = new Set(vendorSnap.docs.map((d) => d.id));
+      const vpSnap = await db2.collection("vendorProducts").get();
+      const orphans = vpSnap.docs.filter((d) => {
+        const vid = d.data().vendorId;
+        return !vid || !validVendorIds.has(vid);
+      });
+      if (orphans.length === 0) {
+        return res.json({ deleted: 0, message: "\u0644\u0627 \u062A\u0648\u062C\u062F \u0645\u0646\u062A\u062C\u0627\u062A \u064A\u062A\u064A\u0645\u0629" });
+      }
+      const batch = db2.batch();
+      orphans.forEach((d) => batch.delete(d.ref));
+      await batch.commit();
+      return res.json({ deleted: orphans.length, message: `\u062A\u0645 \u062D\u0630\u0641 ${orphans.length} \u0645\u0646\u062A\u062C \u064A\u062A\u064A\u0645 \u0628\u0646\u062C\u0627\u062D` });
+    } catch (err) {
+      console.error("cleanup-orphan-products:", err);
+      res.status(500).json({ error: "\u062D\u062F\u062B \u062E\u0637\u0623 \u0623\u062B\u0646\u0627\u0621 \u0627\u0644\u062A\u0646\u0638\u064A\u0641" });
+    }
+  });
   app2.get("/api/delivery-areas", async (req, res) => {
     try {
       const areas = await getDeliveryAreas(true);

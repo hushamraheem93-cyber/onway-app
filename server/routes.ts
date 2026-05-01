@@ -1111,6 +1111,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json({ success: true });
   });
 
+  app.post("/api/admin/cleanup-orphan-products", async (_req: Request, res: Response) => {
+    const db = getFirestore();
+    if (!db) return res.status(500).json({ error: "قاعدة البيانات غير متاحة" });
+    try {
+      const vendorSnap = await db.collection("vendors").get();
+      const validVendorIds = new Set(vendorSnap.docs.map((d) => d.id));
+
+      const vpSnap = await db.collection("vendorProducts").get();
+      const orphans = vpSnap.docs.filter((d) => {
+        const vid = (d.data() as Record<string, unknown>).vendorId;
+        return !vid || !validVendorIds.has(vid as string);
+      });
+
+      if (orphans.length === 0) {
+        return res.json({ deleted: 0, message: "لا توجد منتجات يتيمة" });
+      }
+
+      const batch = db.batch();
+      orphans.forEach((d) => batch.delete(d.ref));
+      await batch.commit();
+      return res.json({ deleted: orphans.length, message: `تم حذف ${orphans.length} منتج يتيم بنجاح` });
+    } catch (err) {
+      console.error("cleanup-orphan-products:", err);
+      res.status(500).json({ error: "حدث خطأ أثناء التنظيف" });
+    }
+  });
+
   app.get("/api/delivery-areas", async (req, res) => {
     try {
       const areas = await getFirestoreDeliveryAreas(true);
