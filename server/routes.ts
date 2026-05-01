@@ -1439,7 +1439,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.post("/api/orders", async (req: Request, res: Response) => {
-    const { userId, phoneNumber, customerName, customerPhone, notes, items, total, deliveryFee, address, region, latitude, longitude, orderType, internationalDetails, courierDetails, promoCode, promoDiscount } = req.body;
+    const { userId, phoneNumber, customerName, customerPhone, notes, items, total, deliveryFee, serviceFee, address, region, latitude, longitude, orderType, internationalDetails, courierDetails, promoCode, promoDiscount } = req.body;
     const db = getFirestore();
     
     if (db) {
@@ -1460,6 +1460,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         region,
         status: "pending",
       };
+      if (serviceFee !== undefined) orderData.serviceFee = serviceFee;
       if (customerName) orderData.customerName = customerName;
       if (customerPhone) orderData.customerPhone = customerPhone;
       if (notes) orderData.notes = notes;

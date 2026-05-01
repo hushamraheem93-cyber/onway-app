@@ -131,7 +131,8 @@ export default function CheckoutScreen() {
   const selectedAreaData = deliveryAreas.find(a => a.id === selectedArea);
   const isRestaurantOrder = items.length > 0 && items.every(item => item.product.categoryId === "restaurants");
   const deliveryFee = isRestaurantOrder ? 1000 : (selectedAreaData?.fee || 0);
-  const total = subtotal + deliveryFee - promoDiscount;
+  const SERVICE_FEE = 500;
+  const total = subtotal + deliveryFee + SERVICE_FEE - promoDiscount;
 
   const submitOrderPayload = async (payload: any) => {
     setIsSubmitting(true);
@@ -177,6 +178,7 @@ export default function CheckoutScreen() {
       items: [...items],
       total,
       deliveryFee,
+      serviceFee: SERVICE_FEE,
       address: fullAddress,
       region: areaName,
       customerName: customerName.trim(),
@@ -438,6 +440,14 @@ export default function CheckoutScreen() {
           </ThemedText>
           <ThemedText type="body" style={{ color: deliveryFee > 0 ? AppColors.primary : "#4CAF50" }}>
             {isRestaurantOrder ? formatPrice(1000) : (deliveryFee > 0 ? formatPrice(deliveryFee) : "اختر المنطقة")}
+          </ThemedText>
+        </View>
+        <View style={styles.summaryRow}>
+          <ThemedText type="body" style={{ color: theme.textSecondary }}>
+            نسبة الخدمة
+          </ThemedText>
+          <ThemedText type="body" style={{ color: AppColors.primary }}>
+            {formatPrice(SERVICE_FEE)}
           </ThemedText>
         </View>
         {promoDiscount > 0 ? (

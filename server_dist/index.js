@@ -2696,7 +2696,7 @@ async function registerRoutes(app2) {
     res.json([]);
   });
   app2.post("/api/orders", async (req, res) => {
-    const { userId, phoneNumber, customerName, customerPhone, notes, items, total, deliveryFee, address, region, latitude, longitude, orderType, internationalDetails, courierDetails, promoCode, promoDiscount } = req.body;
+    const { userId, phoneNumber, customerName, customerPhone, notes, items, total, deliveryFee, serviceFee, address, region, latitude, longitude, orderType, internationalDetails, courierDetails, promoCode, promoDiscount } = req.body;
     const db2 = getFirestore();
     if (db2) {
       if (promoCode) {
@@ -2715,6 +2715,7 @@ async function registerRoutes(app2) {
         region,
         status: "pending"
       };
+      if (serviceFee !== void 0) orderData.serviceFee = serviceFee;
       if (customerName) orderData.customerName = customerName;
       if (customerPhone) orderData.customerPhone = customerPhone;
       if (notes) orderData.notes = notes;

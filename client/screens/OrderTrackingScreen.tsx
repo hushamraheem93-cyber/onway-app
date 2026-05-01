@@ -558,7 +558,7 @@ export default function OrderTrackingScreen() {
         ))}
         <View style={[styles.totalSection, { borderTopColor: theme.border }]}>
           <ThemedText type="body" style={{ color: theme.textSecondary }}>
-            التوصيل: {formatPrice(order.deliveryFee)}
+            التوصيل: {formatPrice(order.deliveryFee)}{order.serviceFee !== undefined && order.serviceFee > 0 ? `  |  الخدمة: ${formatPrice(order.serviceFee)}` : ""}
           </ThemedText>
           <ThemedText type="h3" style={{ color: AppColors.primary }}>
             {formatPrice(order.total + order.deliveryFee)}

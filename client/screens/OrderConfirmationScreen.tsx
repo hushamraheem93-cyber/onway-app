@@ -205,6 +205,15 @@ export default function OrderConfirmationScreen() {
           <ThemedText type="body" style={{ color: theme.textSecondary }}>أجور التوصيل</ThemedText>
         </View>
 
+        {order.serviceFee !== undefined && order.serviceFee > 0 ? (
+          <View style={styles.detailRow}>
+            <ThemedText type="body" style={{ color: theme.textSecondary }}>
+              {formatPrice(order.serviceFee)}
+            </ThemedText>
+            <ThemedText type="body" style={{ color: theme.textSecondary }}>نسبة الخدمة</ThemedText>
+          </View>
+        ) : null}
+
         <View style={[styles.detailRow, styles.totalRow]}>
           <ThemedText type="h3" style={{ color: AppColors.primary }}>
             {formatPrice(order.total + order.deliveryFee)}

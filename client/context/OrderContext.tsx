@@ -23,6 +23,7 @@ export interface Order {
   items: { productId: string; name: string; price: number; quantity: number; image: string; restaurant?: string }[];
   total: number;
   deliveryFee: number;
+  serviceFee?: number;
   phoneNumber: string;
   address: string;
   region: string;
