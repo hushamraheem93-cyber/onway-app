@@ -1382,9 +1382,9 @@ router.get("/api/stores", async (req, res) => {
     });
 
     const stores = (businessType
-      ? allDocs.filter((s: any) => s.businessType === businessType)
+      ? allDocs.filter((s) => s.businessType === businessType)
       : allDocs
-    ).sort((a: any, b: any) => b.approvedAt.localeCompare(a.approvedAt));
+    ).sort((a, b) => (b.approvedAt as string).localeCompare(a.approvedAt as string));
 
     res.json({ stores, total: stores.length });
   } catch (err) {

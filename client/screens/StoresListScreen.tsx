@@ -53,10 +53,16 @@ interface VendorStore {
   workingHours?: WorkingHours | null;
 }
 
-const BUSINESS_CONFIG: Record<
-  string,
-  { label: string; icon: string; color: string; gradient: [string, string] }
-> = {
+type MCIcon = keyof typeof MaterialCommunityIcons.glyphMap;
+
+interface BizConfig {
+  label: string;
+  icon: MCIcon;
+  color: string;
+  gradient: [string, string];
+}
+
+const BUSINESS_CONFIG: Record<string, BizConfig> = {
   restaurant: { label: "مطعم", icon: "food", color: "#E86520", gradient: ["#E86520", "#FF8C4B"] },
   supermarket: { label: "سوبرماركت", icon: "cart", color: "#2E7D32", gradient: ["#2E7D32", "#4CAF50"] },
   pharmacy: { label: "صيدلية", icon: "medical-bag", color: "#7B1FA2", gradient: ["#7B1FA2", "#AB47BC"] },
@@ -149,7 +155,7 @@ function StoreCard({ store, onPress }: { store: VendorStore; onPress: () => void
           end={{ x: 0, y: 1 }}
         />
         <View style={[cardStyles.typeBadge, { backgroundColor: cfg.color + "EE" }]}>
-          <MaterialCommunityIcons name={cfg.icon as any} size={12} color="#fff" />
+          <MaterialCommunityIcons name={cfg.icon} size={12} color="#fff" />
           <ThemedText style={cardStyles.typeBadgeText}>{cfg.label}</ThemedText>
         </View>
         <View style={[cardStyles.openBadge, { backgroundColor: open ? "#10B981EE" : "#EF4444EE" }]}>
