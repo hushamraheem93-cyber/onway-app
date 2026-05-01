@@ -1880,6 +1880,25 @@ async function registerRoutes(app2) {
       res.status(500).json({ error: "\u062D\u062F\u062B \u062E\u0637\u0623 \u0641\u064A \u0627\u0644\u062E\u0627\u062F\u0645" });
     }
   });
+  app2.delete("/api/admin/vendor-partners/:id", async (req, res) => {
+    try {
+      const db2 = getFirestore();
+      if (!db2) return res.status(500).json({ error: "\u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u063A\u064A\u0631 \u0645\u062A\u0627\u062D\u0629" });
+      const { id } = req.params;
+      const vendorDoc = await db2.collection("vendors").doc(id).get();
+      if (!vendorDoc.exists) return res.status(404).json({ error: "\u0627\u0644\u0645\u062A\u062C\u0631 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F" });
+      const productsSnap = await db2.collection("vendorProducts").where("vendorId", "==", id).get();
+      const batch = db2.batch();
+      productsSnap.docs.forEach((d) => batch.delete(d.ref));
+      batch.delete(db2.collection("vendors").doc(id));
+      await batch.commit();
+      invalidateVendorsCache();
+      res.json({ success: true, deletedProducts: productsSnap.size });
+    } catch (err) {
+      console.error("admin delete vendor partner:", err);
+      res.status(500).json({ error: "\u0641\u0634\u0644 \u062D\u0630\u0641 \u0627\u0644\u0645\u062A\u062C\u0631" });
+    }
+  });
   app2.get("/api/admin/vendor-partners/:id/products", async (req, res) => {
     try {
       const db2 = getFirestore();

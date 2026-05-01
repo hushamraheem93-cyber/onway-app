@@ -492,6 +492,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ── Admin: Delete a vendor (store) and all its products ────────────────────
+  app.delete("/api/admin/vendor-partners/:id", async (req: Request, res: Response) => {
+    try {
+      const db = getFirestore();
+      if (!db) return res.status(500).json({ error: "قاعدة البيانات غير متاحة" });
+      const { id } = req.params;
+      const vendorDoc = await db.collection("vendors").doc(id).get();
+      if (!vendorDoc.exists) return res.status(404).json({ error: "المتجر غير موجود" });
+      const productsSnap = await db.collection("vendorProducts").where("vendorId", "==", id).get();
+      const batch = db.batch();
+      productsSnap.docs.forEach(d => batch.delete(d.ref));
+      batch.delete(db.collection("vendors").doc(id));
+      await batch.commit();
+      invalidateVendorsCache();
+      res.json({ success: true, deletedProducts: productsSnap.size });
+    } catch (err) {
+      console.error("admin delete vendor partner:", err);
+      res.status(500).json({ error: "فشل حذف المتجر" });
+    }
+  });
+
   // ── Admin: Get all products for a specific vendor ──────────────────────────
   app.get("/api/admin/vendor-partners/:id/products", async (req: Request, res: Response) => {
     try {

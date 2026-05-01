@@ -2501,9 +2501,12 @@
             </div>
           </div>
         </div>
-        <div class="header-actions">
+        <div class="header-actions" style="display:flex;gap:8px;">
           <button class="btn btn-outline btn-sm" onclick="loadStoreManagerData(window._smVendorId)">
             <i data-lucide="refresh-cw"></i> تحديث
+          </button>
+          <button class="btn btn-sm" style="background:#FEE2E2;color:#991B1B;border:1px solid #FECACA;" onclick="deleteVendorPartner(window._smVendorId)">
+            <i data-lucide="trash-2"></i> حذف المتجر
           </button>
         </div>
       </header>
@@ -8536,6 +8539,9 @@ function renderVendorPartnersTable(list) {
           <button class="btn btn-sm" style="padding:4px 10px;background:#673AB7;color:#fff;border-color:#673AB7;" onclick="openStoreManager('${v.id}')">
             <i data-lucide="layout-grid" style="width:13px;height:13px;"></i> إدارة المنتجات
           </button>
+          <button class="btn btn-sm" style="padding:4px 10px;background:#FEE2E2;color:#991B1B;border-color:#FECACA;" onclick="deleteVendorPartner('${v.id}','${(v.storeName||'').replace(/'/g,'\\\'') }')">
+            <i data-lucide="trash-2" style="width:13px;height:13px;"></i> حذف
+          </button>
         </div>
       </td>
     </tr>`;
@@ -8646,6 +8652,22 @@ function renderStoreProducts(list) {
       </div>`;
   }).join('');
   lucide.createIcons();
+}
+
+async function deleteVendorPartner(vendorId, storeName) {
+  if (!vendorId) return;
+  const name = storeName || document.getElementById('sm-store-name')?.textContent || 'هذا المتجر';
+  if (!confirm(`هل أنت متأكد من حذف "${name}" وجميع منتجاته؟\nلا يمكن التراجع عن هذا الإجراء.`)) return;
+  try {
+    const res = await fetch(`${API_BASE}/admin/vendor-partners/${vendorId}`, { method: 'DELETE' });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'failed');
+    showToast('success', 'تم الحذف', `تم حذف "${name}" و${data.deletedProducts || 0} منتج بنجاح`);
+    showSection('vendorPartners', document.querySelector('[onclick*=vendorPartners]'));
+    loadVendorPartners();
+  } catch (err) {
+    showToast('error', 'خطأ', err.message || 'فشل حذف المتجر');
+  }
 }
 
 async function deleteAdminVendorProduct(productId, vendorId) {
