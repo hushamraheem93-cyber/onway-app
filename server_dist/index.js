@@ -1880,6 +1880,61 @@ async function registerRoutes(app2) {
       res.status(500).json({ error: "\u062D\u062F\u062B \u062E\u0637\u0623 \u0641\u064A \u0627\u0644\u062E\u0627\u062F\u0645" });
     }
   });
+  app2.get("/api/admin/vendor-partners/:id/products", async (req, res) => {
+    try {
+      const db2 = getFirestore();
+      if (!db2) return res.status(500).json({ error: "\u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u063A\u064A\u0631 \u0645\u062A\u0627\u062D\u0629" });
+      const { id } = req.params;
+      const [vendorDoc, productsSnap] = await Promise.all([
+        db2.collection("vendors").doc(id).get(),
+        db2.collection("vendorProducts").where("vendorId", "==", id).get()
+      ]);
+      if (!vendorDoc.exists) return res.status(404).json({ error: "\u0627\u0644\u0645\u062A\u062C\u0631 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F" });
+      const v = vendorDoc.data();
+      const store = {
+        id: vendorDoc.id,
+        storeName: v.storeName || "",
+        businessType: v.businessType || "",
+        address: v.address || "",
+        phoneNumber: v.phoneNumber || "",
+        commissionPercent: v.commissionPercent ?? 10,
+        profileImageUrl: v.profileImageUrl || "",
+        status: v.status || ""
+      };
+      const products2 = productsSnap.docs.map((d) => {
+        const p = d.data();
+        return {
+          id: d.id,
+          name: p.name || "",
+          description: p.description || "",
+          price: p.price || 0,
+          imageUrl: p.imageUrl || (p.imageUrls?.[0] ?? ""),
+          status: p.status || "",
+          category: p.category || "",
+          stock: p.stock ?? 0,
+          createdAt: p.createdAt || ""
+        };
+      }).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+      res.json({ store, products: products2, total: products2.length });
+    } catch (err) {
+      console.error("admin vendor products:", err);
+      res.status(500).json({ error: "\u062D\u062F\u062B \u062E\u0637\u0623 \u0641\u064A \u0627\u0644\u062E\u0627\u062F\u0645" });
+    }
+  });
+  app2.delete("/api/admin/vendor-products/:productId", async (req, res) => {
+    try {
+      const db2 = getFirestore();
+      if (!db2) return res.status(500).json({ error: "\u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u063A\u064A\u0631 \u0645\u062A\u0627\u062D\u0629" });
+      const { productId: productId2 } = req.params;
+      const doc = await db2.collection("vendorProducts").doc(productId2).get();
+      if (!doc.exists) return res.status(404).json({ error: "\u0627\u0644\u0645\u0646\u062A\u062C \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F" });
+      await db2.collection("vendorProducts").doc(productId2).delete();
+      res.json({ success: true });
+    } catch (err) {
+      console.error("admin delete vendor product:", err);
+      res.status(500).json({ error: "\u0641\u0634\u0644 \u062D\u0630\u0641 \u0627\u0644\u0645\u0646\u062A\u062C" });
+    }
+  });
   let productsCache = null;
   let productsCacheTime = 0;
   const PRODUCTS_CACHE_TTL = 3 * 60 * 1e3;

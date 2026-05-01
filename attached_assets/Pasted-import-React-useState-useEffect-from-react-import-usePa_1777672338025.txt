@@ -1,0 +1,60 @@
+import React, { useState, useEffect } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+
+const StoreManager = () => {
+  const { storeId } = useParams();
+  const [products, setProducts] = useState([]);
+  const [storeInfo, setStoreInfo] = useState(null);
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    const loadStoreData = async () => {
+      // جلب بيانات المتجر والمنتجات المرتبطة به فقط
+      const storeRef = await db.collection('stores').doc(storeId).get();
+      const productsRef = await db.collection('products').where('store_id', '==', storeId).get();
+      
+      setStoreInfo(storeRef.data());
+      setProducts(productsRef.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    };
+    loadStoreData();
+  }, [storeId]);
+
+  const handleDelete = async (productId) => {
+    if(window.confirm("هل أنت متأكد من حذف هذا المنتج؟")) {
+      await db.collection('products').doc(productId).delete();
+      setProducts(products.filter(p => p.id !== productId));
+    }
+  };
+
+  return (
+    <div style={{ padding: '20px', direction: 'rtl' }}>
+      <button onClick={() => navigate(-1)} style={{ marginBottom: '20px', cursor: 'pointer' }}>⬅ عودة لقائمة الشركاء</button>
+      
+      {storeInfo && (
+        <div style={{ background: '#f8f9fa', padding: '20px', borderRadius: '12px', marginBottom: '20px', border: '1px solid #eee' }}>
+          <h2 style={{ color: '#333' }}>إدارة متجر: {storeInfo.name}</h2>
+          <p>📍 الموقع: {storeInfo.address} | 📞 الهاتف: {storeInfo.phone}</p>
+          <div style={{ display: 'inline-block', padding: '5px 15px', background: '#e3f2fd', color: '#1976d2', borderRadius: '20px', fontSize: '14px' }}>
+            نسبة العمولة: {storeInfo.commission || '10'}%
+          </div>
+        </div>
+      )}
+
+      <h3 style={{ marginBottom: '15px' }}>📦 المنتجات المرفوعة حالياً ({products.length})</h3>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '20px' }}>
+        {products.map(product => (
+          <div key={product.id} style={{ background: '#fff', border: '1px solid #ddd', borderRadius: '12px', padding: '15px', textAlign: 'center', boxShadow: '0 2px 5px rgba(0,0,0,0.05)' }}>
+            <img src={product.image_url} alt={product.name} style={{ width: '100%', height: '140px', objectFit: 'cover', borderRadius: '8px' }} />
+            <h4 style={{ margin: '10px 0' }}>{product.name}</h4>
+            <p style={{ color: '#ff6600', fontWeight: 'bold', fontSize: '18px' }}>{product.price} د.ع</p>
+            <div style={{ display: 'flex', justifyContent: 'center', gap: '10px', marginTop: '10px' }}>
+              <button onClick={() => navigate(`/admin/edit-product/${product.id}`)} style={{ background: '#4CAF50', color: 'white', border: 'none', padding: '8px 15px', borderRadius: '6px', cursor: 'pointer' }}>تعديل</button>
+              <button onClick={() => handleDelete(product.id)} style={{ background: '#f44336', color: 'white', border: 'none', padding: '8px 15px', borderRadius: '6px', cursor: 'pointer' }}>حذف</button>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+export default StoreManager;

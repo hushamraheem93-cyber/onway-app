@@ -492,6 +492,65 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ── Admin: Get all products for a specific vendor ──────────────────────────
+  app.get("/api/admin/vendor-partners/:id/products", async (req: Request, res: Response) => {
+    try {
+      const db = getFirestore();
+      if (!db) return res.status(500).json({ error: "قاعدة البيانات غير متاحة" });
+      const { id } = req.params;
+      const [vendorDoc, productsSnap] = await Promise.all([
+        db.collection("vendors").doc(id).get(),
+        db.collection("vendorProducts").where("vendorId", "==", id).get(),
+      ]);
+      if (!vendorDoc.exists) return res.status(404).json({ error: "المتجر غير موجود" });
+      const v = vendorDoc.data() as any;
+      const store = {
+        id: vendorDoc.id,
+        storeName: v.storeName || "",
+        businessType: v.businessType || "",
+        address: v.address || "",
+        phoneNumber: v.phoneNumber || "",
+        commissionPercent: v.commissionPercent ?? 10,
+        profileImageUrl: v.profileImageUrl || "",
+        status: v.status || "",
+      };
+      const products = productsSnap.docs.map((d) => {
+        const p = d.data() as any;
+        return {
+          id: d.id,
+          name: p.name || "",
+          description: p.description || "",
+          price: p.price || 0,
+          imageUrl: p.imageUrl || (p.imageUrls?.[0] ?? ""),
+          status: p.status || "",
+          category: p.category || "",
+          stock: p.stock ?? 0,
+          createdAt: p.createdAt || "",
+        };
+      }).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+      res.json({ store, products, total: products.length });
+    } catch (err) {
+      console.error("admin vendor products:", err);
+      res.status(500).json({ error: "حدث خطأ في الخادم" });
+    }
+  });
+
+  // ── Admin: Delete a vendor product ─────────────────────────────────────────
+  app.delete("/api/admin/vendor-products/:productId", async (req: Request, res: Response) => {
+    try {
+      const db = getFirestore();
+      if (!db) return res.status(500).json({ error: "قاعدة البيانات غير متاحة" });
+      const { productId } = req.params;
+      const doc = await db.collection("vendorProducts").doc(productId).get();
+      if (!doc.exists) return res.status(404).json({ error: "المنتج غير موجود" });
+      await db.collection("vendorProducts").doc(productId).delete();
+      res.json({ success: true });
+    } catch (err) {
+      console.error("admin delete vendor product:", err);
+      res.status(500).json({ error: "فشل حذف المنتج" });
+    }
+  });
+
   // Products cache
   let productsCache: any[] | null = null;
   let productsCacheTime = 0;
