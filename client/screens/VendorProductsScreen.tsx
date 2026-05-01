@@ -18,6 +18,7 @@ import * as Haptics from "expo-haptics";
 import { ThemedText } from "@/components/ThemedText";
 import { useAuth } from "@/context/AuthContext";
 import { getApiUrl } from "@/lib/query-client";
+import { resolveImageUrl } from "@/utils/imageUtils";
 
 const PURPLE = "#673AB7";
 
@@ -583,7 +584,7 @@ function ProductCard({
     >
       {item.imageUrl ? (
         <Image
-          source={{ uri: item.imageUrl }}
+          source={{ uri: resolveImageUrl(item.imageUrl) }}
           style={styles.productImg}
           resizeMode="cover"
         />
