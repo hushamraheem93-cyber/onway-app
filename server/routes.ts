@@ -270,6 +270,102 @@ function extractVendorId(req: Request): string | null {
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // ── PUBLIC: Stores listing & products ────────────────────────────────────────
+  app.get("/api/stores", async (_req: Request, res: Response) => {
+    try {
+      const db = getFirestore();
+      if (!db) return res.status(500).json({ error: "قاعدة البيانات غير متاحة" });
+      const snap = await db.collection("vendors").where("status", "==", "active").get();
+      const stores = snap.docs.map((d) => {
+        const v = d.data() as any;
+        return {
+          id: v.id, storeName: v.storeName, businessType: v.businessType,
+          address: v.address || "", bio: v.bio || "",
+          totalProducts: v.totalProducts || 0,
+          approvedAt: v.approvedAt || v.createdAt || "",
+          profileImageUrl: v.profileImageUrl || "",
+          coverImageUrl: v.coverImageUrl || "",
+          rating: v.rating ?? 4.5,
+          deliveryTime: v.deliveryTime || "30-45",
+          deliveryPrice: v.deliveryPrice ?? 0,
+          workingHours: v.workingHours || null,
+        };
+      }).sort((a: any, b: any) => b.approvedAt.localeCompare(a.approvedAt));
+      res.json({ stores, total: stores.length });
+    } catch (err) {
+      console.error("public stores:", err);
+      res.status(500).json({ error: "حدث خطأ في الخادم" });
+    }
+  });
+
+  app.get("/api/stores/products-preview", async (_req: Request, res: Response) => {
+    try {
+      const db = getFirestore();
+      if (!db) return res.status(500).json({ error: "قاعدة البيانات غير متاحة" });
+      const snap = await db.collection("vendorProducts").where("status", "==", "approved").get();
+      const grouped: Record<string, any[]> = {};
+      snap.docs.forEach((d) => {
+        const p = d.data() as any;
+        const vid: string = p.vendorId;
+        if (!vid) return;
+        if (!grouped[vid]) grouped[vid] = [];
+        if (grouped[vid].length < 8) {
+          const primaryUrl = p.imageUrl || "";
+          const allUrls: string[] = (p.imageUrls && p.imageUrls.length > 0) ? p.imageUrls : (primaryUrl ? [primaryUrl] : []);
+          grouped[vid].push({
+            id: d.id, name: p.name, price: p.price,
+            imageUrl: primaryUrl, imageUrls: allUrls,
+            unit: p.unit || "قطعة", stock: p.stock ?? 0,
+            vendorId: vid, storeName: p.storeName || "",
+            description: p.description || "", category: p.category || "",
+          });
+        }
+      });
+      res.json({ preview: grouped });
+    } catch (err) {
+      console.error("products-preview:", err);
+      res.status(500).json({ error: "حدث خطأ في الخادم" });
+    }
+  });
+
+  app.get("/api/stores/:id/products", async (req: Request, res: Response) => {
+    try {
+      const db = getFirestore();
+      if (!db) return res.status(500).json({ error: "قاعدة البيانات غير متاحة" });
+      const { id } = req.params;
+      const [storeDoc, productsSnap] = await Promise.all([
+        db.collection("vendors").doc(id).get(),
+        db.collection("vendorProducts").where("vendorId", "==", id).get(),
+      ]);
+      if (!storeDoc.exists || (storeDoc.data() as any).status !== "active") {
+        return res.status(404).json({ error: "المتجر غير موجود أو غير نشط" });
+      }
+      const sv = storeDoc.data() as any;
+      const store = {
+        id: sv.id, storeName: sv.storeName, businessType: sv.businessType,
+        address: sv.address || "", bio: sv.bio || "",
+        profileImageUrl: sv.profileImageUrl || "", coverImageUrl: sv.coverImageUrl || "",
+      };
+      const products = productsSnap.docs.map((d) => {
+        const p = d.data() as any;
+        const primaryUrl = p.imageUrl || "";
+        const allUrls: string[] = (p.imageUrls && p.imageUrls.length > 0) ? p.imageUrls : (primaryUrl ? [primaryUrl] : []);
+        return {
+          id: d.id, vendorId: p.vendorId, storeName: p.storeName,
+          name: p.name, description: p.description || "",
+          price: p.price, category: p.category, stock: p.stock || 0,
+          unit: p.unit || "", imageUrl: primaryUrl, imageUrls: allUrls,
+          status: p.status, approvedAt: p.approvedAt || p.createdAt || "",
+        };
+      }).filter((p: any) => p.status === "approved")
+        .sort((a: any, b: any) => b.approvedAt.localeCompare(a.approvedAt));
+      res.json({ store, products, total: products.length });
+    } catch (err) {
+      console.error("public store products:", err);
+      res.status(500).json({ error: "حدث خطأ في الخادم" });
+    }
+  });
+
   // ── VENDOR: Wallet / earnings summary ─────────────────────────────────────────
   app.get("/api/vendor/wallet", async (req: Request, res: Response) => {
     try {

@@ -46,7 +46,6 @@ interface TabConfig {
 const SIDE_TABS: TabConfig[] = [
   { name: "FavoritesTab", icon: "heart",        label: "المفضلة", initialScreen: "Favorites" },
   { name: "OrdersTab",    icon: "shopping-bag", label: "طلباتي",  initialScreen: "Orders"    },
-  { name: "StoresTab",    icon: "package",      label: "المتاجر", initialScreen: "Stores"    },
 ];
 
 const CENTER_TAB: TabConfig = {
@@ -173,14 +172,11 @@ export function CustomTabBar({ state, navigation }: BottomTabBarProps) {
   const homeIdx   = state.routes.findIndex((r) => r.name === CENTER_TAB.name);
   const homeActive = state.index === homeIdx;
 
-  const favIdx   = state.routes.findIndex((r) => r.name === SIDE_TABS[0].name);
-  const favActive = state.index === favIdx;
+  const favIdx    = state.routes.findIndex((r) => r.name === SIDE_TABS[0].name);
+  const favActive  = state.index === favIdx;
 
-  const ordIdx   = state.routes.findIndex((r) => r.name === SIDE_TABS[1].name);
-  const ordActive = state.index === ordIdx;
-
-  const storesIdx   = state.routes.findIndex((r) => r.name === SIDE_TABS[2].name);
-  const storesActive = state.index === storesIdx;
+  const ordIdx    = state.routes.findIndex((r) => r.name === SIDE_TABS[1].name);
+  const ordActive  = state.index === ordIdx;
 
   return (
     <View
@@ -239,12 +235,7 @@ export function CustomTabBar({ state, navigation }: BottomTabBarProps) {
         {/* Center placeholder so the side tabs stay on the edges */}
         <View style={{ width: (NOTCH_R + NOTCH_SPREAD) * 2 + 8 }} />
 
-        {/* Left side — المتاجر + طلباتي */}
-        <SideTab
-          config={SIDE_TABS[2]}
-          isFocused={storesActive}
-          onPress={() => navigate(SIDE_TABS[2].name, SIDE_TABS[2].initialScreen)}
-        />
+        {/* Left side — طلباتي */}
         <SideTab
           config={SIDE_TABS[1]}
           isFocused={ordActive}
