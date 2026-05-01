@@ -30,6 +30,7 @@ import { ThemedText } from "@/components/ThemedText";
 import { useAuth } from "@/context/AuthContext";
 import { useVendorNotifications } from "@/context/VendorNotificationsContext";
 import { getApiUrl } from "@/lib/query-client";
+import { usePushNotifications } from "@/hooks/usePushNotifications";
 
 const PURPLE = "#673AB7";
 const ORANGE = "#E86520";
@@ -93,6 +94,12 @@ export default function VendorHomeScreen({ navigation }: any) {
   const tabBarHeight = useBottomTabBarHeight();
   const { vendorProfile, vendorToken, logout, refreshVendorProfile } = useAuth();
   const { setUnreadCount } = useVendorNotifications();
+
+  const handleNotificationTap = useCallback(() => {
+    navigation.navigate("VendorNotifications");
+  }, [navigation]);
+
+  usePushNotifications(handleNotificationTap);
 
   const [stats, setStats] = useState<Stats>({ total: 0, approved: 0, pending: 0, rejected: 0 });
   const [orderStats, setOrderStats] = useState<OrderStats>({ totalOrders: 0, pendingOrders: 0, totalRevenue: 0 });

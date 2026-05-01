@@ -12,6 +12,7 @@ import VendorAddProductScreen from "@/screens/VendorAddProductScreen";
 import VendorEditProductScreen from "@/screens/VendorEditProductScreen";
 import VendorWalletScreen from "@/screens/VendorWalletScreen";
 import VendorOrdersScreen from "@/screens/VendorOrdersScreen";
+import VendorNotificationsScreen from "@/screens/VendorNotificationsScreen";
 import { useScreenOptions } from "@/hooks/useScreenOptions";
 import { VendorNotificationsProvider } from "@/context/VendorNotificationsContext";
 import { ThemedText } from "@/components/ThemedText";
@@ -23,6 +24,7 @@ export type VendorTabParamList = {
   VendorOrdersTab: undefined;
   VendorProductsTab: undefined;
   VendorWalletTab: undefined;
+  VendorNotifications: undefined;
 };
 
 const Tab = createBottomTabNavigator<VendorTabParamList>();
@@ -53,7 +55,8 @@ function VendorTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
     <View style={[styles.tabBar, { paddingBottom: insets.bottom > 0 ? insets.bottom : 12 }]}>
       {state.routes.map((route, index) => {
         const isFocused = state.index === index;
-        const config = TAB_CONFIG[route.name] ?? { icon: "circle", label: "" };
+        const config = TAB_CONFIG[route.name];
+        if (!config) return null;
 
         const onPress = () => {
           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -83,10 +86,11 @@ function VendorTabs() {
       tabBar={(props) => <VendorTabBar {...props} />}
       screenOptions={{ ...screenOptions, headerTintColor: PURPLE }}
     >
-      <Tab.Screen name="VendorHome"        component={VendorHomeScreen}        options={{ headerTitle: "لوحة التحكم" }} />
-      <Tab.Screen name="VendorOrdersTab"   component={VendorOrdersScreen}      options={{ headerTitle: "الطلبات" }} />
-      <Tab.Screen name="VendorProductsTab" component={ProductsStackNavigator}  options={{ headerShown: false }} />
-      <Tab.Screen name="VendorWalletTab"   component={VendorWalletScreen}      options={{ headerTitle: "المحفظة" }} />
+      <Tab.Screen name="VendorHome"          component={VendorHomeScreen}        options={{ headerTitle: "لوحة التحكم" }} />
+      <Tab.Screen name="VendorOrdersTab"     component={VendorOrdersScreen}      options={{ headerTitle: "الطلبات" }} />
+      <Tab.Screen name="VendorProductsTab"   component={ProductsStackNavigator}  options={{ headerShown: false }} />
+      <Tab.Screen name="VendorWalletTab"     component={VendorWalletScreen}      options={{ headerTitle: "المحفظة" }} />
+      <Tab.Screen name="VendorNotifications" component={VendorNotificationsScreen} options={{ headerTitle: "الإشعارات" }} />
     </Tab.Navigator>
   );
 }

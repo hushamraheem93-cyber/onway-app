@@ -20,17 +20,29 @@ export interface PushNotificationState {
   notification: Notifications.Notification | null;
 }
 
-export function usePushNotifications() {
+export function usePushNotifications(onNotificationTap?: () => void) {
   const [expoPushToken, setExpoPushToken] = useState<string | null>(null);
   const [notification, setNotification] = useState<Notifications.Notification | null>(null);
   const notificationListener = useRef<Notifications.Subscription | null>(null);
   const responseListener = useRef<Notifications.Subscription | null>(null);
   const tokenRefreshListener = useRef<Notifications.Subscription | null>(null);
+  const onNotificationTapRef = useRef(onNotificationTap);
+
+  useEffect(() => {
+    onNotificationTapRef.current = onNotificationTap;
+  }, [onNotificationTap]);
 
   useEffect(() => {
     registerForPushNotificationsAsync().then((token) => {
       if (token) {
         setExpoPushToken(token);
+      }
+    });
+
+    Notifications.getLastNotificationResponseAsync().then((response) => {
+      if (response) {
+        Notifications.clearLastNotificationResponseAsync();
+        onNotificationTapRef.current?.();
       }
     });
 
@@ -40,6 +52,7 @@ export function usePushNotifications() {
 
     responseListener.current = Notifications.addNotificationResponseReceivedListener((resp: Notifications.NotificationResponse) => {
       console.log("Notification response:", resp);
+      onNotificationTapRef.current?.();
     });
 
     tokenRefreshListener.current = Notifications.addPushTokenListener((tokenData) => {
