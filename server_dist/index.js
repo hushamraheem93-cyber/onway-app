@@ -2514,6 +2514,33 @@ async function registerRoutes(app2) {
       res.status(500).json({ error: "Failed to delete delivery area" });
     }
   });
+  app2.get("/api/settings/fees", async (req, res) => {
+    try {
+      const db2 = getFirestore();
+      if (!db2) return res.json({ serviceFee: 500 });
+      const snap = await db2.collection("appSettings").doc("fees").get();
+      const data = snap.exists ? snap.data() : {};
+      res.json({ serviceFee: data?.serviceFee ?? 500 });
+    } catch (error) {
+      console.error("Error getting app fees:", error);
+      res.json({ serviceFee: 500 });
+    }
+  });
+  app2.put("/api/admin/settings/fees", async (req, res) => {
+    try {
+      const { serviceFee } = req.body;
+      if (typeof serviceFee !== "number" || serviceFee < 0) {
+        return res.status(400).json({ error: "\u0642\u064A\u0645\u0629 \u0646\u0633\u0628\u0629 \u0627\u0644\u062E\u062F\u0645\u0629 \u063A\u064A\u0631 \u0635\u0627\u0644\u062D\u0629" });
+      }
+      const db2 = getFirestore();
+      if (!db2) return res.status(503).json({ error: "Database unavailable" });
+      await db2.collection("appSettings").doc("fees").set({ serviceFee }, { merge: true });
+      res.json({ success: true, serviceFee });
+    } catch (error) {
+      console.error("Error updating app fees:", error);
+      res.status(500).json({ error: "Failed to update service fee" });
+    }
+  });
   async function getVendorList() {
     if (vendorsCache) return vendorsCache;
     try {

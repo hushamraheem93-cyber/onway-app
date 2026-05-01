@@ -46,6 +46,10 @@ export default function CheckoutScreen() {
     queryKey: ["/api/delivery-areas"],
   });
 
+  const { data: feesData } = useQuery<{ serviceFee: number }>({
+    queryKey: ["/api/settings/fees"],
+  });
+
   const [customerName, setCustomerName] = useState("");
   const [phone, setPhone] = useState(phoneNumber || "");
   const [selectedArea, setSelectedArea] = useState("");
@@ -131,7 +135,7 @@ export default function CheckoutScreen() {
   const selectedAreaData = deliveryAreas.find(a => a.id === selectedArea);
   const isRestaurantOrder = items.length > 0 && items.every(item => item.product.categoryId === "restaurants");
   const deliveryFee = isRestaurantOrder ? 1000 : (selectedAreaData?.fee || 0);
-  const SERVICE_FEE = 500;
+  const SERVICE_FEE = feesData?.serviceFee ?? 500;
   const total = subtotal + deliveryFee + SERVICE_FEE - promoDiscount;
 
   const submitOrderPayload = async (payload: any) => {

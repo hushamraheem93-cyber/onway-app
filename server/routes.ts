@@ -1226,6 +1226,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ─── App Settings (Service Fee, etc.) ───────────────────────────────────────
+  app.get("/api/settings/fees", async (req, res) => {
+    try {
+      const db = getFirestore();
+      if (!db) return res.json({ serviceFee: 500 });
+      const snap = await db.collection("appSettings").doc("fees").get();
+      const data = snap.exists ? snap.data() : {};
+      res.json({ serviceFee: data?.serviceFee ?? 500 });
+    } catch (error) {
+      console.error("Error getting app fees:", error);
+      res.json({ serviceFee: 500 });
+    }
+  });
+
+  app.put("/api/admin/settings/fees", async (req: Request, res: Response) => {
+    try {
+      const { serviceFee } = req.body;
+      if (typeof serviceFee !== "number" || serviceFee < 0) {
+        return res.status(400).json({ error: "قيمة نسبة الخدمة غير صالحة" });
+      }
+      const db = getFirestore();
+      if (!db) return res.status(503).json({ error: "Database unavailable" });
+      await db.collection("appSettings").doc("fees").set({ serviceFee }, { merge: true });
+      res.json({ success: true, serviceFee });
+    } catch (error) {
+      console.error("Error updating app fees:", error);
+      res.status(500).json({ error: "Failed to update service fee" });
+    }
+  });
+
   // ─── Vendor (Multi-Vendor Restaurant) Routes ────────────────────────────────
 
   async function getVendorList(): Promise<Vendor[]> {
