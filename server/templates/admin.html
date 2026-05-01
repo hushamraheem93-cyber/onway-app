@@ -1469,10 +1469,6 @@
           <i data-lucide="archive"></i>
           <span>الأرشفة والتقارير</span>
         </div>
-        <div class="nav-item" onclick="showSection('financialReports', this)">
-          <i data-lucide="bar-chart-2"></i>
-          <span>التقارير المالية</span>
-        </div>
       </div>
 
     </nav>
@@ -2569,62 +2565,6 @@
     </div>
     <!-- ═══════════════════════════════════════════════════════════════════════════════════════ -->
 
-    <!-- ═══════════════════════════════════════════════════════════════════════════════════════ -->
-
-    <!-- ██ FINANCIAL REPORTS SECTION ██ -->
-    <div id="financialReports-section" class="section">
-      <header class="header">
-        <div class="header-title">
-          <h2><i data-lucide="bar-chart-2" style="display:inline-block;vertical-align:middle;margin-left:8px;color:#D94523;"></i> التقارير المالية</h2>
-          <p>أرباح OnWay والعمولات ومستحقات المتاجر</p>
-        </div>
-        <div class="header-actions">
-          <button class="btn btn-outline btn-sm" onclick="loadFinancialReports()">
-            <i data-lucide="refresh-cw"></i> تحديث
-          </button>
-        </div>
-      </header>
-
-      <!-- Period filter -->
-      <div style="display:flex;gap:8px;margin-bottom:20px;flex-wrap:wrap;">
-        <button class="btn btn-sm fr-filter" data-period="today" onclick="filterFinancialReports('today')" style="background:#FEE2E2;color:#991B1B;border-color:#FECACA;">اليوم</button>
-        <button class="btn btn-sm fr-filter" data-period="week" onclick="filterFinancialReports('week')" style="background:#FEF3C7;color:#92400E;border-color:#FDE68A;">هذا الأسبوع</button>
-        <button class="btn btn-sm fr-filter active" data-period="month" onclick="filterFinancialReports('month')">هذا الشهر</button>
-        <button class="btn btn-sm fr-filter" data-period="all" onclick="filterFinancialReports('all')" style="background:#F3F4F6;color:#374151;border-color:#D1D5DB;">الكل</button>
-      </div>
-
-      <!-- KPI cards -->
-      <div id="fr-kpi-cards" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin-bottom:28px;"></div>
-
-      <!-- Vendor breakdown table -->
-      <div style="background:#fff;border-radius:16px;padding:20px;box-shadow:0 2px 8px rgba(0,0,0,0.06);margin-bottom:24px;">
-        <h3 style="margin:0 0 16px;font-size:1rem;font-weight:700;color:#1F2937;">مستحقات المتاجر</h3>
-        <div class="table-wrap" style="margin:0;">
-          <table class="table" style="margin:0;">
-            <thead><tr>
-              <th>#</th>
-              <th>اسم المتجر</th>
-              <th>الطلبات</th>
-              <th>إجمالي المبيعات</th>
-              <th>عمولة OnWay</th>
-              <th>صافي المستحق</th>
-            </tr></thead>
-            <tbody id="fr-vendor-tbody">
-              <tr><td colspan="6" style="text-align:center;padding:32px;color:#aaa;">جاري التحميل...</td></tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      <!-- Daily chart -->
-      <div style="background:#fff;border-radius:16px;padding:20px;box-shadow:0 2px 8px rgba(0,0,0,0.06);">
-        <h3 style="margin:0 0 16px;font-size:1rem;font-weight:700;color:#1F2937;">المبيعات اليومية</h3>
-        <canvas id="fr-daily-chart" height="90"></canvas>
-      </div>
-    </div>
-
-    <!-- ═══════════════════════════════════════════════════════════════════════════════════════ -->
-
     <div id="delivery-section" class="section">
       <header class="header">
         <div class="header-title">
@@ -3507,7 +3447,6 @@
       if (section === 'vendors') { loadVendors(); loadVendorFinancials(); }
       if (section === 'vendorPartners') loadVendorPartners();
       if (section === 'vendorProducts') loadVendorProductsAdmin();
-      if (section === 'financialReports') loadFinancialReports();
       if (section === 'settings') { loadSettingsStats(); loadServiceFee(); }
       if (section === 'notifications') loadNotificationsStats();
       if (section === 'appUsers') loadAppUsers();
