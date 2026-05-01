@@ -32,7 +32,7 @@ export default function OrdersScreen() {
   const { theme } = useTheme();
   const navigation = useNavigation<NavigationProp>();
   const { orders, isLoading, refreshOrders } = useOrders();
-  const { phoneNumber: authPhone, customerToken } = useAuth();
+  const { customerToken } = useAuth();
 
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -42,7 +42,7 @@ export default function OrdersScreen() {
     const res = await fetch(new URL(`/api/orders/${orderId}/rate`, getApiUrl()).toString(), {
       method: "POST",
       headers,
-      body: JSON.stringify({ rating, phoneNumber: authPhone || "" }),
+      body: JSON.stringify({ rating }),
     });
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
