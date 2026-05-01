@@ -3888,84 +3888,86 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // ── Customer: Rate a delivered order (aggregates vendor rating) ───────────
-  // Authorization: JWT from Authorization header (issued by /api/auth/verify-otp)
-  // or phoneNumber from body for backwards compatibility. Entire operation is a
-  // single Firestore transaction — atomic and idempotent.
+  // Auth: requires a valid customer JWT issued by /api/auth/verify-otp in the
+  // Authorization: Bearer <token> header. No body-based identity fallback.
+  // All validation (ownership, status, duplicate) and both writes (order +
+  // vendor aggregate) execute inside a single Firestore transaction.
   app.post("/api/orders/:orderId/rate", async (req: Request, res: Response) => {
+    // 1. Extract and verify customer JWT — mandatory, no body fallback
+    const authHeader = req.headers.authorization || "";
+    const rawToken = authHeader.startsWith("Bearer ") ? authHeader.slice(7).trim() : "";
+    if (!rawToken) return res.status(401).json({ error: "يرجى تسجيل الدخول أولاً" });
+    let callerPhone: string;
     try {
-      const { orderId } = req.params;
-      const { rating } = req.body;
+      const decoded = jwt.verify(rawToken, ROUTES_JWT_SECRET) as any;
+      if (decoded.role !== "customer" || !decoded.phoneNumber) throw new Error("invalid");
+      callerPhone = decoded.phoneNumber;
+    } catch {
+      return res.status(401).json({ error: "انتهت صلاحية الجلسة — يرجى تسجيل الدخول مجدداً" });
+    }
 
-      // Prefer JWT-based identity; fall back to body phoneNumber for compatibility
-      let phoneNumber: string | null = null;
-      const authHeader = req.headers.authorization || "";
-      const token = authHeader.replace("Bearer ", "").trim();
-      if (token) {
-        try {
-          const decoded = jwt.verify(token, ROUTES_JWT_SECRET) as any;
-          if (decoded.role === "customer" && decoded.phoneNumber) {
-            phoneNumber = decoded.phoneNumber;
-          }
-        } catch { /* invalid token — fall through to body */ }
-      }
-      if (!phoneNumber) phoneNumber = req.body.phoneNumber || null;
-      if (!phoneNumber) return res.status(401).json({ error: "يرجى تسجيل الدخول أولاً" });
-      const numRating = Number(rating);
-      if (isNaN(numRating) || numRating < 1 || numRating > 5) {
-        return res.status(400).json({ error: "التقييم يجب أن يكون بين 1 و 5" });
-      }
+    // 2. Validate rating value before touching the database
+    const numRating = Number(req.body.rating);
+    if (isNaN(numRating) || numRating < 1 || numRating > 5) {
+      return res.status(400).json({ error: "التقييم يجب أن يكون بين 1 و 5" });
+    }
+
+    try {
       const db = getFirestore();
       if (!db) return res.status(503).json({ error: "قاعدة البيانات غير متاحة" });
 
-      const orderRef = db.collection("orders").doc(orderId);
+      const orderRef = db.collection("orders").doc(req.params.orderId);
       const ratedAt = new Date().toISOString();
+      let didUpdateVendor = false;
 
-      // Pre-flight read to get vendorId before opening the transaction
-      const preDoc = await orderRef.get();
-      if (!preDoc.exists) return res.status(404).json({ error: "الطلب غير موجود" });
-      const preOrder = preDoc.data() as any;
-      if (preOrder.phoneNumber !== phoneNumber) return res.status(403).json({ error: "غير مصرح" });
-      if (preOrder.status !== "delivered") return res.status(400).json({ error: "لا يمكن تقييم طلب لم يُسلَّم بعد" });
-
-      const vendorId = preOrder.vendorId as string | undefined;
-      const vendorRef = vendorId ? db.collection("vendors").doc(vendorId) : null;
-
-      // Single atomic transaction — reads all docs first, then writes
+      // 3. Single Firestore transaction — ALL reads first, then ALL writes.
+      //    Every business-rule check happens inside, so concurrent submissions
+      //    cannot sneak past each other.
       await db.runTransaction(async (tx) => {
-        // Re-read order inside transaction to prevent race conditions
+        // ── reads ──────────────────────────────────────────────────────────
         const orderSnap = await tx.get(orderRef);
-        if (!orderSnap.exists) throw new Error("الطلب غير موجود");
-        const orderData = orderSnap.data() as any;
-        if (orderData.customerRating) throw new Error("تم تقييم هذا الطلب مسبقاً");
+        if (!orderSnap.exists) throw Object.assign(new Error("الطلب غير موجود"), { status: 404 });
+        const order = orderSnap.data() as any;
 
-        // Update order with rating
+        // Ownership: JWT phone must match order phone
+        if (order.phoneNumber !== callerPhone) {
+          throw Object.assign(new Error("غير مصرح"), { status: 403 });
+        }
+        if (order.status !== "delivered") {
+          throw Object.assign(new Error("لا يمكن تقييم طلب لم يُسلَّم بعد"), { status: 400 });
+        }
+        if (order.customerRating) {
+          throw Object.assign(new Error("تم تقييم هذا الطلب مسبقاً"), { status: 400 });
+        }
+
+        const vendorId: string | undefined = order.vendorId;
+        const vendorRef = vendorId ? db.collection("vendors").doc(vendorId) : null;
+        const vSnap = vendorRef ? await tx.get(vendorRef) : null;
+
+        // ── writes ─────────────────────────────────────────────────────────
         tx.update(orderRef, { customerRating: numRating, ratedAt });
 
-        // Aggregate vendor rating atomically
-        if (vendorRef) {
-          const vSnap = await tx.get(vendorRef);
-          if (vSnap.exists) {
-            const v = vSnap.data() as any;
-            const oldCount: number = v.ratingCount ?? 0;
-            const oldRating: number | null = v.rating ?? null;
-            const newCount = oldCount + 1;
-            const newRating = (oldRating === null || oldCount === 0)
-              ? numRating
-              : Math.round(((oldRating * oldCount + numRating) / newCount) * 10) / 10;
-            tx.update(vendorRef, { rating: newRating, ratingCount: newCount });
-          }
+        if (vendorRef && vSnap && vSnap.exists) {
+          const v = vSnap.data() as any;
+          const oldCount: number = v.ratingCount ?? 0;
+          const oldRating: number | null = v.rating ?? null;
+          const newCount = oldCount + 1;
+          const newRating = (oldRating === null || oldCount === 0)
+            ? numRating
+            : Math.round(((oldRating * oldCount + numRating) / newCount) * 10) / 10;
+          tx.update(vendorRef, { rating: newRating, ratingCount: newCount });
+          didUpdateVendor = true;
         }
       });
 
-      if (vendorId) invalidateVendorsCache();
-      res.json({ success: true, message: "شكراً على تقييمك!" });
+      if (didUpdateVendor) invalidateVendorsCache();
+      return res.json({ success: true, message: "شكراً على تقييمك!" });
     } catch (error: any) {
-      const msg = error.message || "حدث خطأ";
-      if (msg === "تم تقييم هذا الطلب مسبقاً" || msg === "الطلب غير موجود") {
-        return res.status(400).json({ error: msg });
-      }
+      const status: number = error.status ?? 500;
+      const msg: string = error.message || "حدث خطأ";
+      if (status !== 500) return res.status(status).json({ error: msg });
       console.error("Error rating order:", error);
-      res.status(500).json({ error: msg });
+      return res.status(500).json({ error: "حدث خطأ أثناء حفظ التقييم" });
     }
   });
 

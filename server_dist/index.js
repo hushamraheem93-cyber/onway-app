@@ -4810,65 +4810,62 @@ ${itemsList}
     }
   });
   app2.post("/api/orders/:orderId/rate", async (req, res) => {
+    const authHeader = req.headers.authorization || "";
+    const rawToken = authHeader.startsWith("Bearer ") ? authHeader.slice(7).trim() : "";
+    if (!rawToken) return res.status(401).json({ error: "\u064A\u0631\u062C\u0649 \u062A\u0633\u062C\u064A\u0644 \u0627\u0644\u062F\u062E\u0648\u0644 \u0623\u0648\u0644\u0627\u064B" });
+    let callerPhone;
     try {
-      const { orderId } = req.params;
-      const { rating } = req.body;
-      let phoneNumber = null;
-      const authHeader = req.headers.authorization || "";
-      const token = authHeader.replace("Bearer ", "").trim();
-      if (token) {
-        try {
-          const decoded = jwt.verify(token, ROUTES_JWT_SECRET);
-          if (decoded.role === "customer" && decoded.phoneNumber) {
-            phoneNumber = decoded.phoneNumber;
-          }
-        } catch {
-        }
-      }
-      if (!phoneNumber) phoneNumber = req.body.phoneNumber || null;
-      if (!phoneNumber) return res.status(401).json({ error: "\u064A\u0631\u062C\u0649 \u062A\u0633\u062C\u064A\u0644 \u0627\u0644\u062F\u062E\u0648\u0644 \u0623\u0648\u0644\u0627\u064B" });
-      const numRating = Number(rating);
-      if (isNaN(numRating) || numRating < 1 || numRating > 5) {
-        return res.status(400).json({ error: "\u0627\u0644\u062A\u0642\u064A\u064A\u0645 \u064A\u062C\u0628 \u0623\u0646 \u064A\u0643\u0648\u0646 \u0628\u064A\u0646 1 \u0648 5" });
-      }
+      const decoded = jwt.verify(rawToken, ROUTES_JWT_SECRET);
+      if (decoded.role !== "customer" || !decoded.phoneNumber) throw new Error("invalid");
+      callerPhone = decoded.phoneNumber;
+    } catch {
+      return res.status(401).json({ error: "\u0627\u0646\u062A\u0647\u062A \u0635\u0644\u0627\u062D\u064A\u0629 \u0627\u0644\u062C\u0644\u0633\u0629 \u2014 \u064A\u0631\u062C\u0649 \u062A\u0633\u062C\u064A\u0644 \u0627\u0644\u062F\u062E\u0648\u0644 \u0645\u062C\u062F\u062F\u0627\u064B" });
+    }
+    const numRating = Number(req.body.rating);
+    if (isNaN(numRating) || numRating < 1 || numRating > 5) {
+      return res.status(400).json({ error: "\u0627\u0644\u062A\u0642\u064A\u064A\u0645 \u064A\u062C\u0628 \u0623\u0646 \u064A\u0643\u0648\u0646 \u0628\u064A\u0646 1 \u0648 5" });
+    }
+    try {
       const db2 = getFirestore();
       if (!db2) return res.status(503).json({ error: "\u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u063A\u064A\u0631 \u0645\u062A\u0627\u062D\u0629" });
-      const orderRef = db2.collection("orders").doc(orderId);
+      const orderRef = db2.collection("orders").doc(req.params.orderId);
       const ratedAt = (/* @__PURE__ */ new Date()).toISOString();
-      const preDoc = await orderRef.get();
-      if (!preDoc.exists) return res.status(404).json({ error: "\u0627\u0644\u0637\u0644\u0628 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F" });
-      const preOrder = preDoc.data();
-      if (preOrder.phoneNumber !== phoneNumber) return res.status(403).json({ error: "\u063A\u064A\u0631 \u0645\u0635\u0631\u062D" });
-      if (preOrder.status !== "delivered") return res.status(400).json({ error: "\u0644\u0627 \u064A\u0645\u0643\u0646 \u062A\u0642\u064A\u064A\u0645 \u0637\u0644\u0628 \u0644\u0645 \u064A\u064F\u0633\u0644\u064E\u0651\u0645 \u0628\u0639\u062F" });
-      const vendorId2 = preOrder.vendorId;
-      const vendorRef = vendorId2 ? db2.collection("vendors").doc(vendorId2) : null;
+      let didUpdateVendor = false;
       await db2.runTransaction(async (tx) => {
         const orderSnap = await tx.get(orderRef);
-        if (!orderSnap.exists) throw new Error("\u0627\u0644\u0637\u0644\u0628 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F");
-        const orderData = orderSnap.data();
-        if (orderData.customerRating) throw new Error("\u062A\u0645 \u062A\u0642\u064A\u064A\u0645 \u0647\u0630\u0627 \u0627\u0644\u0637\u0644\u0628 \u0645\u0633\u0628\u0642\u0627\u064B");
+        if (!orderSnap.exists) throw Object.assign(new Error("\u0627\u0644\u0637\u0644\u0628 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F"), { status: 404 });
+        const order = orderSnap.data();
+        if (order.phoneNumber !== callerPhone) {
+          throw Object.assign(new Error("\u063A\u064A\u0631 \u0645\u0635\u0631\u062D"), { status: 403 });
+        }
+        if (order.status !== "delivered") {
+          throw Object.assign(new Error("\u0644\u0627 \u064A\u0645\u0643\u0646 \u062A\u0642\u064A\u064A\u0645 \u0637\u0644\u0628 \u0644\u0645 \u064A\u064F\u0633\u0644\u064E\u0651\u0645 \u0628\u0639\u062F"), { status: 400 });
+        }
+        if (order.customerRating) {
+          throw Object.assign(new Error("\u062A\u0645 \u062A\u0642\u064A\u064A\u0645 \u0647\u0630\u0627 \u0627\u0644\u0637\u0644\u0628 \u0645\u0633\u0628\u0642\u0627\u064B"), { status: 400 });
+        }
+        const vendorId2 = order.vendorId;
+        const vendorRef = vendorId2 ? db2.collection("vendors").doc(vendorId2) : null;
+        const vSnap = vendorRef ? await tx.get(vendorRef) : null;
         tx.update(orderRef, { customerRating: numRating, ratedAt });
-        if (vendorRef) {
-          const vSnap = await tx.get(vendorRef);
-          if (vSnap.exists) {
-            const v = vSnap.data();
-            const oldCount = v.ratingCount ?? 0;
-            const oldRating = v.rating ?? null;
-            const newCount = oldCount + 1;
-            const newRating = oldRating === null || oldCount === 0 ? numRating : Math.round((oldRating * oldCount + numRating) / newCount * 10) / 10;
-            tx.update(vendorRef, { rating: newRating, ratingCount: newCount });
-          }
+        if (vendorRef && vSnap && vSnap.exists) {
+          const v = vSnap.data();
+          const oldCount = v.ratingCount ?? 0;
+          const oldRating = v.rating ?? null;
+          const newCount = oldCount + 1;
+          const newRating = oldRating === null || oldCount === 0 ? numRating : Math.round((oldRating * oldCount + numRating) / newCount * 10) / 10;
+          tx.update(vendorRef, { rating: newRating, ratingCount: newCount });
+          didUpdateVendor = true;
         }
       });
-      if (vendorId2) invalidateVendorsCache();
-      res.json({ success: true, message: "\u0634\u0643\u0631\u0627\u064B \u0639\u0644\u0649 \u062A\u0642\u064A\u064A\u0645\u0643!" });
+      if (didUpdateVendor) invalidateVendorsCache();
+      return res.json({ success: true, message: "\u0634\u0643\u0631\u0627\u064B \u0639\u0644\u0649 \u062A\u0642\u064A\u064A\u0645\u0643!" });
     } catch (error) {
+      const status = error.status ?? 500;
       const msg = error.message || "\u062D\u062F\u062B \u062E\u0637\u0623";
-      if (msg === "\u062A\u0645 \u062A\u0642\u064A\u064A\u0645 \u0647\u0630\u0627 \u0627\u0644\u0637\u0644\u0628 \u0645\u0633\u0628\u0642\u0627\u064B" || msg === "\u0627\u0644\u0637\u0644\u0628 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F") {
-        return res.status(400).json({ error: msg });
-      }
+      if (status !== 500) return res.status(status).json({ error: msg });
       console.error("Error rating order:", error);
-      res.status(500).json({ error: msg });
+      return res.status(500).json({ error: "\u062D\u062F\u062B \u062E\u0637\u0623 \u0623\u062B\u0646\u0627\u0621 \u062D\u0641\u0638 \u0627\u0644\u062A\u0642\u064A\u064A\u0645" });
     }
   });
   app2.get("/api/admin/users", async (_req, res) => {
