@@ -1111,27 +1111,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json({ success: true });
   });
 
-  app.post("/api/admin/cleanup-orphan-products", async (_req: Request, res: Response) => {
+  app.post("/api/admin/cleanup-orphan-products", async (req: Request, res: Response) => {
     const db = getFirestore();
     if (!db) return res.status(500).json({ error: "قاعدة البيانات غير متاحة" });
     try {
-      const vendorSnap = await db.collection("vendors").get();
-      const validVendorIds = new Set(vendorSnap.docs.map((d) => d.id));
+      const col = (req.query.collection as string) || "vendorProducts";
+      let docsToDelete: FirebaseFirestore.QueryDocumentSnapshot[] = [];
 
-      const vpSnap = await db.collection("vendorProducts").get();
-      const orphans = vpSnap.docs.filter((d) => {
-        const vid = (d.data() as Record<string, unknown>).vendorId;
-        return !vid || !validVendorIds.has(vid as string);
-      });
-
-      if (orphans.length === 0) {
-        return res.json({ deleted: 0, message: "لا توجد منتجات يتيمة" });
+      if (col === "products") {
+        const snap = await db.collection("products").get();
+        docsToDelete = snap.docs;
+      } else {
+        const vendorSnap = await db.collection("vendors").get();
+        const validVendorIds = new Set(vendorSnap.docs.map((d) => d.id));
+        const vpSnap = await db.collection("vendorProducts").get();
+        docsToDelete = vpSnap.docs.filter((d) => {
+          const vid = (d.data() as Record<string, unknown>).vendorId;
+          return !vid || !validVendorIds.has(vid as string);
+        });
       }
 
-      const batch = db.batch();
-      orphans.forEach((d) => batch.delete(d.ref));
-      await batch.commit();
-      return res.json({ deleted: orphans.length, message: `تم حذف ${orphans.length} منتج يتيم بنجاح` });
+      if (docsToDelete.length === 0) {
+        return res.json({ deleted: 0, message: "لا توجد منتجات للحذف" });
+      }
+
+      // Firestore batch max 500 ops
+      const chunks: FirebaseFirestore.QueryDocumentSnapshot[][] = [];
+      for (let i = 0; i < docsToDelete.length; i += 400) chunks.push(docsToDelete.slice(i, i + 400));
+      for (const chunk of chunks) {
+        const batch = db.batch();
+        chunk.forEach((d) => batch.delete(d.ref));
+        await batch.commit();
+      }
+
+      invalidateProductsCache();
+      return res.json({ deleted: docsToDelete.length, message: `تم حذف ${docsToDelete.length} منتج بنجاح` });
     } catch (err) {
       console.error("cleanup-orphan-products:", err);
       res.status(500).json({ error: "حدث خطأ أثناء التنظيف" });
