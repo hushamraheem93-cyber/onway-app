@@ -1,11 +1,12 @@
-import React from "react";
-import { StyleSheet, View, Pressable } from "react-native";
+import React, { useState } from "react";
+import { StyleSheet, View, Pressable, ActivityIndicator } from "react-native";
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
   withSpring,
 } from "react-native-reanimated";
 import { Feather } from "@expo/vector-icons";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 
 import { ThemedText } from "@/components/ThemedText";
 import { useTheme } from "@/hooks/useTheme";
@@ -17,6 +18,7 @@ interface OrderCardProps {
   order: Order;
   onPress?: () => void;
   onStorePress?: () => void;
+  onRate?: (orderId: string, rating: number) => Promise<void>;
 }
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
@@ -47,9 +49,27 @@ const statusColors: Record<Order["status"], string> = {
   issue: "#F59E0B",
 };
 
-export function OrderCard({ order, onPress, onStorePress }: OrderCardProps) {
+export function OrderCard({ order, onPress, onStorePress, onRate }: OrderCardProps) {
   const { theme } = useTheme();
   const scale = useSharedValue(1);
+  const [hoveredStar, setHoveredStar] = useState<number | null>(null);
+  const [submittingRating, setSubmittingRating] = useState(false);
+  const [ratedValue, setRatedValue] = useState<number | null>(order.customerRating ?? null);
+
+  const canRate = order.status === "delivered" && order.vendorId && !ratedValue && !!onRate;
+
+  const handleRate = async (star: number) => {
+    if (!onRate || submittingRating || ratedValue) return;
+    setSubmittingRating(true);
+    try {
+      await onRate(order.id, star);
+      setRatedValue(star);
+    } catch {
+      // silently ignore
+    } finally {
+      setSubmittingRating(false);
+    }
+  };
 
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }],
@@ -148,6 +168,58 @@ export function OrderCard({ order, onPress, onStorePress }: OrderCardProps) {
         </ThemedText>
         <Feather name="chevron-left" size={20} color={theme.textSecondary} />
       </View>
+
+      {/* Rating section — delivered + vendor orders only */}
+      {(canRate || ratedValue) ? (
+        <View style={[styles.ratingSection, { borderTopColor: theme.divider ?? "#E5E7EB" }]}>
+          {ratedValue ? (
+            <View style={styles.ratingRow}>
+              <ThemedText type="small" style={{ color: "#10B981", fontWeight: "600" }}>
+                شكراً على تقييمك!
+              </ThemedText>
+              <View style={styles.ratingStarsRow}>
+                {[1,2,3,4,5].map((i) => (
+                  <MaterialCommunityIcons
+                    key={i}
+                    name={i <= ratedValue ? "star" : "star-outline"}
+                    size={16}
+                    color="#F59E0B"
+                  />
+                ))}
+              </View>
+            </View>
+          ) : submittingRating ? (
+            <View style={styles.ratingRow}>
+              <ActivityIndicator size="small" color={AppColors.primary} />
+              <ThemedText type="small" style={{ color: theme.textSecondary }}>
+                جاري الحفظ...
+              </ThemedText>
+            </View>
+          ) : (
+            <View style={styles.ratingColumn}>
+              <ThemedText type="small" style={{ color: theme.textSecondary, marginBottom: 6 }}>
+                كيف كانت تجربتك؟
+              </ThemedText>
+              <View style={styles.ratingStarsRow}>
+                {[1,2,3,4,5].map((star) => (
+                  <Pressable
+                    key={star}
+                    onPress={() => handleRate(star)}
+                    testID={`button-rate-star-${star}-${order.id}`}
+                    hitSlop={6}
+                  >
+                    <MaterialCommunityIcons
+                      name={(hoveredStar !== null && star <= hoveredStar) ? "star" : "star-outline"}
+                      size={28}
+                      color="#F59E0B"
+                    />
+                  </Pressable>
+                ))}
+              </View>
+            </View>
+          )}
+        </View>
+      ) : null}
     </AnimatedPressable>
   );
 }
@@ -209,5 +281,23 @@ const styles = StyleSheet.create({
     paddingTop: Spacing.md,
     borderTopWidth: 1,
     borderTopColor: "#E0E0E0",
+  },
+  ratingSection: {
+    marginTop: Spacing.md,
+    paddingTop: Spacing.md,
+    borderTopWidth: 1,
+    alignItems: "center",
+  },
+  ratingRow: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  ratingColumn: {
+    alignItems: "center",
+  },
+  ratingStarsRow: {
+    flexDirection: "row-reverse",
+    gap: 4,
   },
 });

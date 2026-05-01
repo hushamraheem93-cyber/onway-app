@@ -115,7 +115,7 @@ function StoreCard({ store, onPress }: { store: VendorStore; onPress: () => void
   const avatarUrl = resolveUrl(store.profileImageUrl);
   const coverUrl = resolveUrl(store.coverImageUrl);
   const open = isStoreOpen(store.workingHours);
-  const rating = store.rating ?? 4.5;
+  const rating = store.rating ?? null;
   const deliveryTime = store.deliveryTime || "30-45";
   const deliveryPrice = store.deliveryPrice ?? 0;
 
@@ -189,7 +189,7 @@ function StoreCard({ store, onPress }: { store: VendorStore; onPress: () => void
           <ThemedText style={[cardStyles.storeName, { color: theme.text }]} numberOfLines={1}>
             {store.storeName}
           </ThemedText>
-          <StarRating value={rating} />
+          {rating !== null ? <StarRating value={rating} /> : null}
           {store.address ? (
             <View style={cardStyles.addressRow}>
               <Feather name="map-pin" size={11} color={theme.textSecondary} />

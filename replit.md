@@ -22,6 +22,7 @@ Onway is built with a React Native (Expo) frontend using TypeScript, and a Node.
 - **Push Notifications:** Real-time order status updates for customers.
 - **Promo Code System:** Supports fixed and percentage-based discounts with one-time-per-user enforcement.
 - **Driver Wallet System:** Manages driver commissions, balances, and transaction history.
+- **Live Vendor Ratings:** Customers rate delivered vendor orders (1–5 stars) via `POST /api/orders/:orderId/rate`. Firestore transaction updates vendor `rating` (weighted average) and `ratingCount`. Admin can override or reset ratings. UI hides stars when `rating === null` (no rating yet) — no more hardcoded 4.5 fallback.
 
 **UI/UX Design:**
 - **Branding:** Primary color #FF7622 (brand orange), secondary #FFF2EC.

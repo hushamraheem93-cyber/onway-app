@@ -1700,7 +1700,8 @@ async function registerRoutes(app2) {
           approvedAt: v.approvedAt || v.createdAt || "",
           profileImageUrl: v.profileImageUrl || "",
           coverImageUrl: v.coverImageUrl || "",
-          rating: v.rating ?? 4.5,
+          rating: v.rating ?? null,
+          ratingCount: v.ratingCount ?? 0,
           deliveryTime: v.deliveryTime || "30-45",
           deliveryPrice: v.deliveryPrice ?? 0,
           workingHours: v.workingHours || null
@@ -2117,6 +2118,46 @@ async function registerRoutes(app2) {
     } catch (err) {
       console.error("admin delete vendor partner:", err);
       res.status(500).json({ error: "\u0641\u0634\u0644 \u062D\u0630\u0641 \u0627\u0644\u0645\u062A\u062C\u0631" });
+    }
+  });
+  app2.delete("/api/admin/vendor-partners/:id/rating", async (req, res) => {
+    try {
+      const db2 = getFirestore();
+      if (!db2) return res.status(500).json({ error: "\u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u063A\u064A\u0631 \u0645\u062A\u0627\u062D\u0629" });
+      const { id } = req.params;
+      const vendorRef = db2.collection("vendors").doc(id);
+      const doc = await vendorRef.get();
+      if (!doc.exists) return res.status(404).json({ error: "\u0627\u0644\u0645\u062A\u062C\u0631 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F" });
+      await vendorRef.update({ rating: null, ratingCount: 0 });
+      invalidateVendorsCache();
+      res.json({ success: true, message: "\u062A\u0645 \u0625\u0639\u0627\u062F\u0629 \u062A\u0639\u064A\u064A\u0646 \u0627\u0644\u062A\u0642\u064A\u064A\u0645" });
+    } catch (err) {
+      console.error("admin reset vendor rating:", err);
+      res.status(500).json({ error: "\u0641\u0634\u0644 \u0625\u0639\u0627\u062F\u0629 \u062A\u0639\u064A\u064A\u0646 \u0627\u0644\u062A\u0642\u064A\u064A\u0645" });
+    }
+  });
+  app2.put("/api/admin/vendor-partners/:id/rating", async (req, res) => {
+    try {
+      const db2 = getFirestore();
+      if (!db2) return res.status(500).json({ error: "\u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u063A\u064A\u0631 \u0645\u062A\u0627\u062D\u0629" });
+      const { id } = req.params;
+      const { rating } = req.body;
+      if (rating === void 0 || rating === null || rating === "") {
+        return res.status(400).json({ error: "\u064A\u0631\u062C\u0649 \u0625\u062F\u062E\u0627\u0644 \u0642\u064A\u0645\u0629 \u0627\u0644\u062A\u0642\u064A\u064A\u0645" });
+      }
+      const numRating = Number(rating);
+      if (isNaN(numRating) || numRating < 1 || numRating > 5) {
+        return res.status(400).json({ error: "\u0627\u0644\u062A\u0642\u064A\u064A\u0645 \u064A\u062C\u0628 \u0623\u0646 \u064A\u0643\u0648\u0646 \u0628\u064A\u0646 1 \u0648 5" });
+      }
+      const vendorRef = db2.collection("vendors").doc(id);
+      const doc = await vendorRef.get();
+      if (!doc.exists) return res.status(404).json({ error: "\u0627\u0644\u0645\u062A\u062C\u0631 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F" });
+      await vendorRef.update({ rating: numRating });
+      invalidateVendorsCache();
+      res.json({ success: true, rating: numRating });
+    } catch (err) {
+      console.error("admin override vendor rating:", err);
+      res.status(500).json({ error: "\u0641\u0634\u0644 \u062A\u062D\u062F\u064A\u062B \u0627\u0644\u062A\u0642\u064A\u064A\u0645" });
     }
   });
   app2.get("/api/admin/vendor-partners/:id/products", async (req, res) => {
@@ -2875,7 +2916,8 @@ async function registerRoutes(app2) {
       whatsappNumber: String(whatsappNumber || ""),
       commissionPercent: Number(commissionPercent) || 10,
       image: String(image || "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=400"),
-      rating: Number(rating) || 4.5,
+      rating: rating !== void 0 && rating !== "" && rating !== null ? Number(rating) : null,
+      ratingCount: 0,
       deliveryTime: String(deliveryTime || "30-45"),
       isOpen: Boolean(isOpen !== false),
       createdAt: (/* @__PURE__ */ new Date()).toISOString(),
@@ -4762,6 +4804,57 @@ ${itemsList}
       return res.status(500).json({ error: error.message });
     }
   });
+  app2.post("/api/orders/:orderId/rate", async (req, res) => {
+    try {
+      const { orderId } = req.params;
+      const { rating, phoneNumber } = req.body;
+      if (!phoneNumber) return res.status(400).json({ error: "\u0631\u0642\u0645 \u0627\u0644\u0647\u0627\u062A\u0641 \u0645\u0637\u0644\u0648\u0628" });
+      const numRating = Number(rating);
+      if (isNaN(numRating) || numRating < 1 || numRating > 5) {
+        return res.status(400).json({ error: "\u0627\u0644\u062A\u0642\u064A\u064A\u0645 \u064A\u062C\u0628 \u0623\u0646 \u064A\u0643\u0648\u0646 \u0628\u064A\u0646 1 \u0648 5" });
+      }
+      const db2 = getFirestore();
+      if (!db2) return res.status(503).json({ error: "\u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u063A\u064A\u0631 \u0645\u062A\u0627\u062D\u0629" });
+      const orderRef = db2.collection("orders").doc(orderId);
+      const doc = await orderRef.get();
+      if (!doc.exists) return res.status(404).json({ error: "\u0627\u0644\u0637\u0644\u0628 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F" });
+      const order = doc.data();
+      if (order.phoneNumber !== phoneNumber) {
+        return res.status(403).json({ error: "\u063A\u064A\u0631 \u0645\u0635\u0631\u062D" });
+      }
+      if (order.status !== "delivered") {
+        return res.status(400).json({ error: "\u0644\u0627 \u064A\u0645\u0643\u0646 \u062A\u0642\u064A\u064A\u0645 \u0637\u0644\u0628 \u0644\u0645 \u064A\u064F\u0633\u0644\u064E\u0651\u0645 \u0628\u0639\u062F" });
+      }
+      if (order.customerRating) {
+        return res.status(400).json({ error: "\u062A\u0645 \u062A\u0642\u064A\u064A\u0645 \u0647\u0630\u0627 \u0627\u0644\u0637\u0644\u0628 \u0645\u0633\u0628\u0642\u0627\u064B" });
+      }
+      await orderRef.update({ customerRating: numRating, ratedAt: (/* @__PURE__ */ new Date()).toISOString() });
+      const vendorId2 = order.vendorId;
+      if (vendorId2) {
+        const vendorRef = db2.collection("vendors").doc(vendorId2);
+        await db2.runTransaction(async (tx) => {
+          const vSnap = await tx.get(vendorRef);
+          if (!vSnap.exists) return;
+          const v = vSnap.data();
+          const oldCount = v.ratingCount ?? 0;
+          const oldRating = v.rating ?? null;
+          let newCount = oldCount + 1;
+          let newRating;
+          if (oldRating === null || oldCount === 0) {
+            newRating = numRating;
+          } else {
+            newRating = Math.round((oldRating * oldCount + numRating) / newCount * 10) / 10;
+          }
+          tx.update(vendorRef, { rating: newRating, ratingCount: newCount });
+        });
+        invalidateVendorsCache();
+      }
+      res.json({ success: true, message: "\u0634\u0643\u0631\u0627\u064B \u0639\u0644\u0649 \u062A\u0642\u064A\u064A\u0645\u0643!" });
+    } catch (error) {
+      console.error("Error rating order:", error);
+      res.status(500).json({ error: error.message || "\u062D\u062F\u062B \u062E\u0637\u0623" });
+    }
+  });
   app2.get("/api/admin/users", async (_req, res) => {
     try {
       const users = await getAllUsers();
@@ -6122,7 +6215,8 @@ router.get("/api/stores", async (req, res) => {
         approvedAt: v.approvedAt || v.createdAt || "",
         profileImageUrl: v.profileImageUrl || "",
         coverImageUrl: v.coverImageUrl || "",
-        rating: v.rating ?? 4.5,
+        rating: v.rating ?? null,
+        ratingCount: v.ratingCount ?? 0,
         deliveryTime: v.deliveryTime || "30-45",
         deliveryPrice: v.deliveryPrice ?? 0,
         workingHours: v.workingHours || null

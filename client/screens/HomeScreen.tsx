@@ -474,11 +474,15 @@ export default function HomeScreen() {
           ) : null}
         </View>
         <View style={styles.restaurantMeta}>
-          <View style={styles.metaItem}>
-            <Feather name="star" size={13} color="#F59E0B" />
-            <ThemedText style={styles.metaText}>{vendor.rating?.toFixed(1) || "4.5"}</ThemedText>
-          </View>
-          <View style={styles.metaDivider} />
+          {vendor.rating != null ? (
+            <>
+              <View style={styles.metaItem}>
+                <Feather name="star" size={13} color="#F59E0B" />
+                <ThemedText style={styles.metaText}>{vendor.rating.toFixed(1)}</ThemedText>
+              </View>
+              <View style={styles.metaDivider} />
+            </>
+          ) : null}
           <View style={styles.metaItem}>
             <Feather name="clock" size={13} color="#6B7280" />
             <ThemedText style={styles.metaText}>{vendor.deliveryTime} دقيقة</ThemedText>
@@ -510,7 +514,7 @@ export default function HomeScreen() {
       const [ch, cm] = (wh.closeTime || "23:59").split(":").map(Number);
       return cur >= oh * 60 + om && cur < ch * 60 + cm;
     })();
-    const rating = (store as any).rating ?? 4.5;
+    const rating: number | null = (store as any).rating ?? null;
     const deliveryTime = (store as any).deliveryTime || "30-45";
     const deliveryPrice = (store as any).deliveryPrice ?? 0;
     return (
@@ -598,12 +602,14 @@ export default function HomeScreen() {
           </View>
           <View style={{ flex: 1, alignItems: "flex-end", gap: 4, paddingTop: 24 }}>
             <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 15, color: theme.text, textAlign: "right" }} numberOfLines={1}>{store.storeName}</ThemedText>
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 2 }}>
-              {[1,2,3,4,5].map((i) => (
-                <MaterialCommunityIcons key={i} name={i <= Math.floor(rating) ? "star" : rating - Math.floor(rating) >= 0.5 && i === Math.floor(rating)+1 ? "star-half-full" : "star-outline"} size={13} color="#F59E0B" />
-              ))}
-              <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 12, color: "#F59E0B" }}> {rating.toFixed(1)}</ThemedText>
-            </View>
+            {rating !== null ? (
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 2 }}>
+                {[1,2,3,4,5].map((i) => (
+                  <MaterialCommunityIcons key={i} name={i <= Math.floor(rating) ? "star" : rating - Math.floor(rating) >= 0.5 && i === Math.floor(rating)+1 ? "star-half-full" : "star-outline"} size={13} color="#F59E0B" />
+                ))}
+                <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 12, color: "#F59E0B" }}> {rating.toFixed(1)}</ThemedText>
+              </View>
+            ) : null}
             {store.address ? (
               <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 3 }}>
                 <Feather name="map-pin" size={11} color={theme.textSecondary ?? "#888"} />

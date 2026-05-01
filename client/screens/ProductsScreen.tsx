@@ -32,7 +32,7 @@ interface Vendor {
   whatsappNumber: string;
   commissionPercent: number;
   image: string;
-  rating: number;
+  rating: number | null;
   deliveryTime: string;
   isOpen: boolean;
 }
@@ -68,7 +68,7 @@ export default function ProductsScreen() {
     });
     return Array.from(restMap.entries()).map(([name, count]) => ({
       id: name, name, location: "", whatsappNumber: "", commissionPercent: 10,
-      image: "", rating: 4.5, deliveryTime: "30-45", isOpen: true,
+      image: "", rating: null, deliveryTime: "30-45", isOpen: true,
     } as Vendor));
   }, [isRestaurantsCategory, allProducts, vendors]);
 
@@ -225,13 +225,17 @@ function VendorCard({ vendor, theme, onPress }: { vendor: Vendor; theme: any; on
             </ThemedText>
             <Feather name="clock" size={12} color={AppColors.primary} />
           </View>
-          <View style={styles.metaDivider} />
-          <View style={styles.metaItem}>
-            <ThemedText style={[styles.metaValue, { color: theme.text }]}>
-              {vendor.rating}
-            </ThemedText>
-            <Feather name="star" size={12} color="#F59E0B" />
-          </View>
+          {vendor.rating !== null ? (
+            <>
+              <View style={styles.metaDivider} />
+              <View style={styles.metaItem}>
+                <ThemedText style={[styles.metaValue, { color: theme.text }]}>
+                  {vendor.rating}
+                </ThemedText>
+                <Feather name="star" size={12} color="#F59E0B" />
+              </View>
+            </>
+          ) : null}
         </View>
       </View>
     </Pressable>

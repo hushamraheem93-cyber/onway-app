@@ -16,11 +16,13 @@ import { Feather } from "@expo/vector-icons";
 import { useTheme } from "@/hooks/useTheme";
 import { Spacing, AppColors, BorderRadius, Shadows } from "@/constants/theme";
 import { useOrders, Order } from "@/context/OrderContext";
+import { useAuth } from "@/context/AuthContext";
 import { OrderCard } from "@/components/OrderCard";
 import { EmptyState } from "@/components/EmptyState";
 import { ThemedText } from "@/components/ThemedText";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
 import { GradientBackground } from "@/components/GradientBackground";
+import { getApiUrl } from "@/lib/query-client";
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
@@ -30,8 +32,23 @@ export default function OrdersScreen() {
   const { theme } = useTheme();
   const navigation = useNavigation<NavigationProp>();
   const { orders, isLoading, refreshOrders } = useOrders();
+  const { phoneNumber: authPhone } = useAuth();
 
   const [searchQuery, setSearchQuery] = useState("");
+
+  const handleRate = async (orderId: string, rating: number) => {
+    const phoneNumber = authPhone || "";
+    const res = await fetch(new URL(`/api/orders/${orderId}/rate`, getApiUrl()).toString(), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ rating, phoneNumber }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || "فشل تقديم التقييم");
+    }
+    refreshOrders();
+  };
 
   useEffect(() => {
     refreshOrders();
@@ -58,6 +75,7 @@ export default function OrdersScreen() {
             navigation.navigate("StoreProducts", { storeId: item.vendorId!, storeName });
           }
         : undefined}
+      onRate={handleRate}
     />
   );
 

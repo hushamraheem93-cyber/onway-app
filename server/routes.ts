@@ -307,7 +307,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           approvedAt: v.approvedAt || v.createdAt || "",
           profileImageUrl: v.profileImageUrl || "",
           coverImageUrl: v.coverImageUrl || "",
-          rating: v.rating ?? 4.5,
+          rating: v.rating ?? null,
+          ratingCount: v.ratingCount ?? 0,
           deliveryTime: v.deliveryTime || "30-45",
           deliveryPrice: v.deliveryPrice ?? 0,
           workingHours: v.workingHours || null,
@@ -749,6 +750,50 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (err) {
       console.error("admin delete vendor partner:", err);
       res.status(500).json({ error: "فشل حذف المتجر" });
+    }
+  });
+
+  // ── Admin: Reset a vendor's rating to null (no rating yet) ────────────────
+  app.delete("/api/admin/vendor-partners/:id/rating", async (req: Request, res: Response) => {
+    try {
+      const db = getFirestore();
+      if (!db) return res.status(500).json({ error: "قاعدة البيانات غير متاحة" });
+      const { id } = req.params;
+      const vendorRef = db.collection("vendors").doc(id);
+      const doc = await vendorRef.get();
+      if (!doc.exists) return res.status(404).json({ error: "المتجر غير موجود" });
+      await vendorRef.update({ rating: null, ratingCount: 0 });
+      invalidateVendorsCache();
+      res.json({ success: true, message: "تم إعادة تعيين التقييم" });
+    } catch (err) {
+      console.error("admin reset vendor rating:", err);
+      res.status(500).json({ error: "فشل إعادة تعيين التقييم" });
+    }
+  });
+
+  // ── Admin: Override a vendor's rating ──────────────────────────────────────
+  app.put("/api/admin/vendor-partners/:id/rating", async (req: Request, res: Response) => {
+    try {
+      const db = getFirestore();
+      if (!db) return res.status(500).json({ error: "قاعدة البيانات غير متاحة" });
+      const { id } = req.params;
+      const { rating } = req.body;
+      if (rating === undefined || rating === null || rating === "") {
+        return res.status(400).json({ error: "يرجى إدخال قيمة التقييم" });
+      }
+      const numRating = Number(rating);
+      if (isNaN(numRating) || numRating < 1 || numRating > 5) {
+        return res.status(400).json({ error: "التقييم يجب أن يكون بين 1 و 5" });
+      }
+      const vendorRef = db.collection("vendors").doc(id);
+      const doc = await vendorRef.get();
+      if (!doc.exists) return res.status(404).json({ error: "المتجر غير موجود" });
+      await vendorRef.update({ rating: numRating });
+      invalidateVendorsCache();
+      res.json({ success: true, rating: numRating });
+    } catch (err) {
+      console.error("admin override vendor rating:", err);
+      res.status(500).json({ error: "فشل تحديث التقييم" });
     }
   });
 
@@ -1618,7 +1663,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       whatsappNumber: String(whatsappNumber || ""),
       commissionPercent: Number(commissionPercent) || 10,
       image: String(image || "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=400"),
-      rating: Number(rating) || 4.5,
+      rating: (rating !== undefined && rating !== "" && rating !== null) ? Number(rating) : null,
+      ratingCount: 0,
       deliveryTime: String(deliveryTime || "30-45"),
       isOpen: Boolean(isOpen !== false),
       createdAt: new Date().toISOString(),
@@ -3832,6 +3878,61 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       console.error("Error cancelling order:", error);
       return res.status(500).json({ error: error.message });
+    }
+  });
+
+  // ── Customer: Rate a delivered order (aggregates vendor rating) ───────────
+  app.post("/api/orders/:orderId/rate", async (req: Request, res: Response) => {
+    try {
+      const { orderId } = req.params;
+      const { rating, phoneNumber } = req.body;
+      if (!phoneNumber) return res.status(400).json({ error: "رقم الهاتف مطلوب" });
+      const numRating = Number(rating);
+      if (isNaN(numRating) || numRating < 1 || numRating > 5) {
+        return res.status(400).json({ error: "التقييم يجب أن يكون بين 1 و 5" });
+      }
+      const db = getFirestore();
+      if (!db) return res.status(503).json({ error: "قاعدة البيانات غير متاحة" });
+      const orderRef = db.collection("orders").doc(orderId);
+      const doc = await orderRef.get();
+      if (!doc.exists) return res.status(404).json({ error: "الطلب غير موجود" });
+      const order = doc.data() as any;
+      if (order.phoneNumber !== phoneNumber) {
+        return res.status(403).json({ error: "غير مصرح" });
+      }
+      if (order.status !== "delivered") {
+        return res.status(400).json({ error: "لا يمكن تقييم طلب لم يُسلَّم بعد" });
+      }
+      if (order.customerRating) {
+        return res.status(400).json({ error: "تم تقييم هذا الطلب مسبقاً" });
+      }
+      // Save rating on the order document
+      await orderRef.update({ customerRating: numRating, ratedAt: new Date().toISOString() });
+      // Aggregate vendor rating if order is linked to a vendor
+      const vendorId = order.vendorId as string | undefined;
+      if (vendorId) {
+        const vendorRef = db.collection("vendors").doc(vendorId);
+        await db.runTransaction(async (tx) => {
+          const vSnap = await tx.get(vendorRef);
+          if (!vSnap.exists) return;
+          const v = vSnap.data() as any;
+          const oldCount: number = v.ratingCount ?? 0;
+          const oldRating: number = v.rating ?? null;
+          let newCount = oldCount + 1;
+          let newRating: number;
+          if (oldRating === null || oldCount === 0) {
+            newRating = numRating;
+          } else {
+            newRating = Math.round(((oldRating * oldCount + numRating) / newCount) * 10) / 10;
+          }
+          tx.update(vendorRef, { rating: newRating, ratingCount: newCount });
+        });
+        invalidateVendorsCache();
+      }
+      res.json({ success: true, message: "شكراً على تقييمك!" });
+    } catch (error: any) {
+      console.error("Error rating order:", error);
+      res.status(500).json({ error: error.message || "حدث خطأ" });
     }
   });
 

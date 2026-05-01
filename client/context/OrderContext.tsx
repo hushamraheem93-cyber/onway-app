@@ -34,6 +34,8 @@ export interface Order {
   longitude?: number;
   vendorName?: string;
   vendorId?: string;
+  customerRating?: number;
+  ratedAt?: string;
 }
 
 interface OrderContextType {
