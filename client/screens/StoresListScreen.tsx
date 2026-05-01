@@ -258,26 +258,29 @@ export default function StoresListScreen() {
   const route = useRoute<RouteType>();
   const { categoryName, businessType } = route.params;
 
-  const apiUrl = businessType
-    ? `${new URL("/api/stores", getApiUrl()).toString()}?businessType=${encodeURIComponent(businessType)}`
-    : new URL("/api/stores", getApiUrl()).toString();
+  const hasMapping = !!businessType;
+
+  const apiUrl = hasMapping
+    ? `${new URL("/api/stores", getApiUrl()).toString()}?businessType=${encodeURIComponent(businessType!)}`
+    : "";
 
   const { data, isLoading, isError, refetch, isRefetching } = useQuery<{
     stores: VendorStore[];
     total: number;
   }>({
-    queryKey: ["/api/stores", businessType ?? "all"],
+    queryKey: ["/api/stores", businessType ?? "__none__"],
     queryFn: () => fetch(apiUrl).then((r) => r.json()),
+    enabled: hasMapping,
   });
 
-  const stores = data?.stores ?? [];
+  const stores = hasMapping ? (data?.stores ?? []) : [];
 
   const handleStorePress = (store: VendorStore) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     navigation.navigate("StoreProducts", { storeId: store.id, storeName: store.storeName });
   };
 
-  if (isLoading) {
+  if (isLoading && hasMapping) {
     return (
       <View style={{ flex: 1 }}>
         <GradientBackground />
@@ -288,7 +291,7 @@ export default function StoresListScreen() {
     );
   }
 
-  if (isError) {
+  if (isError && hasMapping) {
     return (
       <View style={{ flex: 1 }}>
         <GradientBackground />
