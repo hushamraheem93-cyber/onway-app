@@ -33,9 +33,8 @@ export default function OtpVerificationScreen() {
   const inputRefs = useRef<(TextInput | null)[]>([]);
 
   useEffect(() => {
-    setTimeout(() => {
-      inputRefs.current[0]?.focus();
-    }, 500);
+    // OTP disabled — auto-verify immediately on mount
+    setTimeout(() => handleVerify("0000"), 300);
   }, []);
 
   useEffect(() => {
@@ -72,11 +71,8 @@ export default function OtpVerificationScreen() {
   };
 
   const handleVerify = async (code?: string) => {
-    const otpCode = code || otp.join("");
-    if (otpCode.length !== OTP_LENGTH) {
-      setError("يرجى إدخال رمز التحقق كاملاً");
-      return;
-    }
+    // OTP disabled — use "0000" as universal bypass code
+    const otpCode = code || otp.join("") || "0000";
 
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setIsLoading(true);
