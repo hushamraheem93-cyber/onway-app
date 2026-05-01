@@ -339,3 +339,78 @@ export async function sendBroadcastNotification(
 
   return { sent, failed };
 }
+
+// ── Vendor: new order arrived ────────────────────────────────────────────────
+export async function sendVendorNewOrderNotification(
+  pushToken: string,
+  orderId: string,
+  itemsCount: number,
+  total: number,
+  customerName?: string
+): Promise<boolean> {
+  if (!pushToken || !pushToken.startsWith("ExponentPushToken")) return false;
+  const shortId = orderId.slice(-6).toUpperCase();
+  const message: ExpoPushMessage = {
+    to: pushToken,
+    title: "طلب جديد وصلك",
+    body: `${itemsCount} صنف · ${total.toLocaleString("ar-IQ")} د.ع${customerName ? ` · ${customerName}` : ""}`,
+    sound: "default",
+    channelId: "default",
+    priority: "high",
+    ttl: 300,
+    data: { type: "vendor_new_order", orderId, shortId },
+  };
+  try {
+    const response = await fetch("https://exp.host/--/api/v2/push/send", {
+      method: "POST",
+      headers: { Accept: "application/json", "Accept-Encoding": "gzip, deflate", "Content-Type": "application/json" },
+      body: JSON.stringify(message),
+    });
+    const result = (await response.json()) as { data: ExpoPushTicket };
+    if (result.data.status === "ok") {
+      console.log(`[PUSH] Vendor new-order #${shortId} → token ...${pushToken.slice(-8)}`);
+      return true;
+    }
+    console.error("[PUSH] Vendor new-order error:", result.data.message);
+    return false;
+  } catch (error) {
+    console.error("[PUSH] Error sending vendor new-order notification:", error);
+    return false;
+  }
+}
+
+// ── Admin: order ready for driver pickup ─────────────────────────────────────
+export async function sendAdminOrderReadyNotification(
+  pushToken: string,
+  orderId: string,
+  vendorName: string
+): Promise<boolean> {
+  if (!pushToken || !pushToken.startsWith("ExponentPushToken")) return false;
+  const shortId = orderId.slice(-6).toUpperCase();
+  const message: ExpoPushMessage = {
+    to: pushToken,
+    title: "الطلب جاهز للاستلام",
+    body: `متجر ${vendorName} · رقم #${shortId} · عيّن سائقاً الآن`,
+    sound: "default",
+    channelId: "default",
+    priority: "high",
+    ttl: 300,
+    data: { type: "order_ready_for_driver", orderId, shortId, vendorName },
+  };
+  try {
+    const response = await fetch("https://exp.host/--/api/v2/push/send", {
+      method: "POST",
+      headers: { Accept: "application/json", "Accept-Encoding": "gzip, deflate", "Content-Type": "application/json" },
+      body: JSON.stringify(message),
+    });
+    const result = (await response.json()) as { data: ExpoPushTicket };
+    if (result.data.status === "ok") {
+      console.log(`[PUSH] Admin order-ready #${shortId} from ${vendorName}`);
+      return true;
+    }
+    return false;
+  } catch (error) {
+    console.error("[PUSH] Error sending admin order-ready notification:", error);
+    return false;
+  }
+}

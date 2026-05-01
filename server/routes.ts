@@ -5,7 +5,7 @@ import jwt from "jsonwebtoken";
 import multer, { StorageEngine, FileFilterCallback } from "multer";
 import path from "path";
 import fs from "fs";
-import { randomUUID, createHmac } from "crypto";
+import { randomUUID, createHmac, createHash } from "crypto";
 import { 
   getFirestore, getUserByPhone, createUser, updateUser, FirestoreUserProfile,
   getProducts as getFirestoreProducts, createProduct as createFirestoreProduct, 
@@ -39,7 +39,7 @@ import {
   createDeliveryBatch, getDeliveryBatch, updateDeliveryBatch, cancelDeliveryBatch, addDeliveryLog, DeliveryBatch,
   saveAdminPushToken, getAdminPushToken
 } from "./firebase";
-import { sendPushNotification, sendBroadcastNotification, sendDriverBatchNotification, sendAdminNewOrderNotification } from "./pushNotifications";
+import { sendPushNotification, sendBroadcastNotification, sendDriverBatchNotification, sendAdminNewOrderNotification, sendVendorNewOrderNotification } from "./pushNotifications";
 
 const uploadsDir = path.join(process.cwd(), "uploads");
 if (!fs.existsSync(uploadsDir)) {
@@ -74,6 +74,23 @@ const uploadWebP = multer({
     cb(null, allowed.includes(file.mimetype) || file.originalname.endsWith(".webp"));
   },
 });
+
+// ── Image content-hash deduplication map ─────────────────────────────────────
+// sha256(fileBuffer) → saved filename; prevents storing duplicate images.
+const imageHashMap = new Map<string, string>();
+
+// Seed map from existing uploads directory on startup
+try {
+  const existingFiles = fs.readdirSync(uploadsDir);
+  for (const fname of existingFiles) {
+    try {
+      const buf = fs.readFileSync(path.join(uploadsDir, fname));
+      const hash = createHash("sha256").update(buf).digest("hex");
+      imageHashMap.set(hash, fname);
+    } catch { /* skip unreadable files */ }
+  }
+  console.log(`[HASH] Seeded image dedup map with ${imageHashMap.size} existing files`);
+} catch { /* uploads dir may be empty */ }
 
 interface Category {
   id: string;
@@ -1099,6 +1116,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!req.file) {
         return res.status(400).json({ error: "لم يتم رفع أي صورة" });
       }
+      // Content-hash deduplication: if identical image was uploaded before, reuse it
+      const filePath = path.join(uploadsDir, req.file.filename);
+      const fileBuffer = fs.readFileSync(filePath);
+      const contentHash = createHash("sha256").update(fileBuffer).digest("hex");
+      const existingFilename = imageHashMap.get(contentHash);
+      if (existingFilename && existingFilename !== req.file.filename) {
+        // Delete the newly written duplicate and return the existing one
+        fs.unlink(filePath, () => {});
+        console.log(`[HASH] Dedup: reusing existing file ${existingFilename}`);
+        return res.json({ url: `/uploads/${existingFilename}`, filename: existingFilename, size: req.file.size, deduped: true });
+      }
+      imageHashMap.set(contentHash, req.file.filename);
       const url = `/uploads/${req.file.filename}`;
       res.json({ url, filename: req.file.filename, size: req.file.size });
     } catch (error) {
@@ -1834,7 +1863,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.post("/api/orders", async (req: Request, res: Response) => {
-    const { userId, phoneNumber, customerName, customerPhone, notes, items, total, deliveryFee, serviceFee, address, region, latitude, longitude, orderType, internationalDetails, courierDetails, promoCode, promoDiscount } = req.body;
+    const { userId, phoneNumber, customerName, customerPhone, notes, items, total, deliveryFee, serviceFee, address, region, latitude, longitude, orderType, internationalDetails, courierDetails, promoCode, promoDiscount, vendorId: bodyVendorId, restaurantSubtotal: bodyRestaurantSubtotal } = req.body;
     const db = getFirestore();
     
     if (db) {
@@ -1868,6 +1897,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (courierDetails) orderData.courierDetails = courierDetails;
       if (promoCode) orderData.promoCode = promoCode;
       if (promoDiscount) orderData.promoDiscount = promoDiscount;
+      // Preserve explicit vendorId/restaurantSubtotal from request body (vendor partner orders)
+      if (bodyVendorId) orderData.vendorId = bodyVendorId;
+      if (bodyRestaurantSubtotal) orderData.restaurantSubtotal = bodyRestaurantSubtotal;
 
       // Detect vendor for restaurant orders
       let vendorWhatsappUrl: string | null = null;
@@ -1941,6 +1973,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
             ).catch(() => {});
           }
         }).catch(() => {});
+
+        // Notify the specific vendor (by vendorId) about the new order
+        if (orderData.vendorId) {
+          const db = getFirestore();
+          if (db) {
+            db.collection("vendors").doc(orderData.vendorId).get().then(vDoc => {
+              const vendorPushToken = vDoc.exists ? (vDoc.data() as any)?.pushToken as string | undefined : undefined;
+              if (vendorPushToken) {
+                const itemsCount = (orderData.items as any[] || []).reduce((s: number, i: any) => s + (i.quantity || 1), 0);
+                sendVendorNewOrderNotification(
+                  vendorPushToken,
+                  newOrder.id,
+                  itemsCount,
+                  orderData.restaurantSubtotal || orderData.total || 0,
+                  orderData.customerName
+                ).catch(() => {});
+              }
+            }).catch(() => {});
+          }
+        }
         return res.json({
           ...newOrder,
           status: "pending",
@@ -3938,7 +3990,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           throw Object.assign(new Error("لا يمكن تقييم طلب لم يُسلَّم بعد"), { status: 400 });
         }
         if (order.customerRating) {
-          throw Object.assign(new Error("تم تقييم هذا الطلب مسبقاً"), { status: 400 });
+          throw Object.assign(new Error("تم تقييم هذا الطلب مسبقاً"), { status: 409 });
         }
 
         const vendorId: string | undefined = order.vendorId;

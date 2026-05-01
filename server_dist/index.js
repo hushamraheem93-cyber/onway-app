@@ -8,7 +8,7 @@ import jwt from "jsonwebtoken";
 import multer from "multer";
 import path from "path";
 import fs from "fs";
-import { randomUUID, createHmac } from "crypto";
+import { randomUUID, createHmac, createHash } from "crypto";
 
 // server/firebase.ts
 import admin from "firebase-admin";
@@ -1517,6 +1517,67 @@ async function sendBroadcastNotification(tokens, title, body, data) {
   }
   return { sent, failed };
 }
+async function sendVendorNewOrderNotification(pushToken, orderId, itemsCount, total, customerName) {
+  if (!pushToken || !pushToken.startsWith("ExponentPushToken")) return false;
+  const shortId = orderId.slice(-6).toUpperCase();
+  const message = {
+    to: pushToken,
+    title: "\u0637\u0644\u0628 \u062C\u062F\u064A\u062F \u0648\u0635\u0644\u0643",
+    body: `${itemsCount} \u0635\u0646\u0641 \xB7 ${total.toLocaleString("ar-IQ")} \u062F.\u0639${customerName ? ` \xB7 ${customerName}` : ""}`,
+    sound: "default",
+    channelId: "default",
+    priority: "high",
+    ttl: 300,
+    data: { type: "vendor_new_order", orderId, shortId }
+  };
+  try {
+    const response = await fetch("https://exp.host/--/api/v2/push/send", {
+      method: "POST",
+      headers: { Accept: "application/json", "Accept-Encoding": "gzip, deflate", "Content-Type": "application/json" },
+      body: JSON.stringify(message)
+    });
+    const result = await response.json();
+    if (result.data.status === "ok") {
+      console.log(`[PUSH] Vendor new-order #${shortId} \u2192 token ...${pushToken.slice(-8)}`);
+      return true;
+    }
+    console.error("[PUSH] Vendor new-order error:", result.data.message);
+    return false;
+  } catch (error) {
+    console.error("[PUSH] Error sending vendor new-order notification:", error);
+    return false;
+  }
+}
+async function sendAdminOrderReadyNotification(pushToken, orderId, vendorName) {
+  if (!pushToken || !pushToken.startsWith("ExponentPushToken")) return false;
+  const shortId = orderId.slice(-6).toUpperCase();
+  const message = {
+    to: pushToken,
+    title: "\u0627\u0644\u0637\u0644\u0628 \u062C\u0627\u0647\u0632 \u0644\u0644\u0627\u0633\u062A\u0644\u0627\u0645",
+    body: `\u0645\u062A\u062C\u0631 ${vendorName} \xB7 \u0631\u0642\u0645 #${shortId} \xB7 \u0639\u064A\u0651\u0646 \u0633\u0627\u0626\u0642\u0627\u064B \u0627\u0644\u0622\u0646`,
+    sound: "default",
+    channelId: "default",
+    priority: "high",
+    ttl: 300,
+    data: { type: "order_ready_for_driver", orderId, shortId, vendorName }
+  };
+  try {
+    const response = await fetch("https://exp.host/--/api/v2/push/send", {
+      method: "POST",
+      headers: { Accept: "application/json", "Accept-Encoding": "gzip, deflate", "Content-Type": "application/json" },
+      body: JSON.stringify(message)
+    });
+    const result = await response.json();
+    if (result.data.status === "ok") {
+      console.log(`[PUSH] Admin order-ready #${shortId} from ${vendorName}`);
+      return true;
+    }
+    return false;
+  } catch (error) {
+    console.error("[PUSH] Error sending admin order-ready notification:", error);
+    return false;
+  }
+}
 
 // server/routes.ts
 var uploadsDir = path.join(process.cwd(), "uploads");
@@ -1549,6 +1610,20 @@ var uploadWebP = multer({
     cb(null, allowed.includes(file.mimetype) || file.originalname.endsWith(".webp"));
   }
 });
+var imageHashMap = /* @__PURE__ */ new Map();
+try {
+  const existingFiles = fs.readdirSync(uploadsDir);
+  for (const fname of existingFiles) {
+    try {
+      const buf = fs.readFileSync(path.join(uploadsDir, fname));
+      const hash2 = createHash("sha256").update(buf).digest("hex");
+      imageHashMap.set(hash2, fname);
+    } catch {
+    }
+  }
+  console.log(`[HASH] Seeded image dedup map with ${imageHashMap.size} existing files`);
+} catch {
+}
 var defaultVendors = [
   { id: "v1", name: "\u064A\u0644\u0627 \u0627\u064A\u062A", location: "\u0627\u0644\u0636\u0644\u0648\u0639\u064A\u0629 - \u0634\u0627\u0631\u0639 \u0627\u0644\u062A\u062C\u0627\u0631\u064A", whatsappNumber: "9647701234001", commissionPercent: 10, image: "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=400", rating: 4.8, deliveryTime: "25-35", isOpen: true, createdAt: (/* @__PURE__ */ new Date()).toISOString() },
   { id: "v2", name: "\u0645\u0637\u0639\u0645 \u0627\u0644\u0645\u0634\u0648\u064A\u0627\u062A", location: "\u0627\u0644\u0636\u0644\u0648\u0639\u064A\u0629 - \u0627\u0644\u0633\u0648\u0642 \u0627\u0644\u0645\u0631\u0643\u0632\u064A", whatsappNumber: "9647701234002", commissionPercent: 12, image: "https://images.unsplash.com/photo-1544025162-d76694265947?w=400", rating: 4.6, deliveryTime: "30-45", isOpen: true, createdAt: (/* @__PURE__ */ new Date()).toISOString() },
@@ -2407,6 +2482,17 @@ async function registerRoutes(app2) {
       if (!req.file) {
         return res.status(400).json({ error: "\u0644\u0645 \u064A\u062A\u0645 \u0631\u0641\u0639 \u0623\u064A \u0635\u0648\u0631\u0629" });
       }
+      const filePath = path.join(uploadsDir, req.file.filename);
+      const fileBuffer = fs.readFileSync(filePath);
+      const contentHash = createHash("sha256").update(fileBuffer).digest("hex");
+      const existingFilename = imageHashMap.get(contentHash);
+      if (existingFilename && existingFilename !== req.file.filename) {
+        fs.unlink(filePath, () => {
+        });
+        console.log(`[HASH] Dedup: reusing existing file ${existingFilename}`);
+        return res.json({ url: `/uploads/${existingFilename}`, filename: existingFilename, size: req.file.size, deduped: true });
+      }
+      imageHashMap.set(contentHash, req.file.filename);
       const url = `/uploads/${req.file.filename}`;
       res.json({ url, filename: req.file.filename, size: req.file.size });
     } catch (error) {
@@ -3059,7 +3145,7 @@ async function registerRoutes(app2) {
     res.json([]);
   });
   app2.post("/api/orders", async (req, res) => {
-    const { userId, phoneNumber, customerName, customerPhone, notes, items, total, deliveryFee, serviceFee, address, region, latitude, longitude, orderType, internationalDetails, courierDetails, promoCode, promoDiscount } = req.body;
+    const { userId, phoneNumber, customerName, customerPhone, notes, items, total, deliveryFee, serviceFee, address, region, latitude, longitude, orderType, internationalDetails, courierDetails, promoCode, promoDiscount, vendorId: bodyVendorId, restaurantSubtotal: bodyRestaurantSubtotal } = req.body;
     const db2 = getFirestore();
     if (db2) {
       if (promoCode) {
@@ -3091,6 +3177,8 @@ async function registerRoutes(app2) {
       if (courierDetails) orderData.courierDetails = courierDetails;
       if (promoCode) orderData.promoCode = promoCode;
       if (promoDiscount) orderData.promoDiscount = promoDiscount;
+      if (bodyVendorId) orderData.vendorId = bodyVendorId;
+      if (bodyRestaurantSubtotal) orderData.restaurantSubtotal = bodyRestaurantSubtotal;
       let vendorWhatsappUrl = null;
       try {
         const allProds = await getCachedProducts();
@@ -3161,6 +3249,26 @@ ${itemsList}
           }
         }).catch(() => {
         });
+        if (orderData.vendorId) {
+          const db3 = getFirestore();
+          if (db3) {
+            db3.collection("vendors").doc(orderData.vendorId).get().then((vDoc) => {
+              const vendorPushToken = vDoc.exists ? vDoc.data()?.pushToken : void 0;
+              if (vendorPushToken) {
+                const itemsCount = (orderData.items || []).reduce((s, i) => s + (i.quantity || 1), 0);
+                sendVendorNewOrderNotification(
+                  vendorPushToken,
+                  newOrder.id,
+                  itemsCount,
+                  orderData.restaurantSubtotal || orderData.total || 0,
+                  orderData.customerName
+                ).catch(() => {
+                });
+              }
+            }).catch(() => {
+            });
+          }
+        }
         return res.json({
           ...newOrder,
           status: "pending",
@@ -4842,7 +4950,7 @@ ${itemsList}
           throw Object.assign(new Error("\u0644\u0627 \u064A\u0645\u0643\u0646 \u062A\u0642\u064A\u064A\u0645 \u0637\u0644\u0628 \u0644\u0645 \u064A\u064F\u0633\u0644\u064E\u0651\u0645 \u0628\u0639\u062F"), { status: 400 });
         }
         if (order.customerRating) {
-          throw Object.assign(new Error("\u062A\u0645 \u062A\u0642\u064A\u064A\u0645 \u0647\u0630\u0627 \u0627\u0644\u0637\u0644\u0628 \u0645\u0633\u0628\u0642\u0627\u064B"), { status: 400 });
+          throw Object.assign(new Error("\u062A\u0645 \u062A\u0642\u064A\u064A\u0645 \u0647\u0630\u0627 \u0627\u0644\u0637\u0644\u0628 \u0645\u0633\u0628\u0642\u0627\u064B"), { status: 409 });
         }
         const vendorId2 = order.vendorId;
         const vendorRef = vendorId2 ? db2.collection("vendors").doc(vendorId2) : null;
@@ -5943,6 +6051,16 @@ router.patch("/api/vendor/orders/:id/status", requireVendor, async (req, res) =>
       getUserPushToken(customerPhone).then((pushToken) => {
         if (pushToken) {
           sendPushNotification(pushToken, status, orderId, validatedEta).catch(() => {
+          });
+        }
+      }).catch(() => {
+      });
+    }
+    if (status === "ready") {
+      const vendorName = order.vendorName || "\u0627\u0644\u0645\u062A\u062C\u0631";
+      getAdminPushToken().then((adminToken) => {
+        if (adminToken) {
+          sendAdminOrderReadyNotification(adminToken, orderId, vendorName).catch(() => {
           });
         }
       }).catch(() => {

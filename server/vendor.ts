@@ -8,8 +8,8 @@ import * as crypto from "crypto";
 import * as fs from "fs/promises";
 import * as fsSync from "fs";
 import * as path from "path";
-import { getFirestore, getUserPushToken } from "./firebase";
-import { sendVendorStatusNotification, sendVendorProductNotification, sendPushNotification } from "./pushNotifications";
+import { getFirestore, getUserPushToken, getAdminPushToken } from "./firebase";
+import { sendVendorStatusNotification, sendVendorProductNotification, sendPushNotification, sendAdminOrderReadyNotification } from "./pushNotifications";
 
 const router = express.Router();
 
@@ -1021,6 +1021,16 @@ router.patch("/api/vendor/orders/:id/status", requireVendor, async (req, res) =>
           }
         })
         .catch(() => {});
+    }
+
+    // When order is "ready", notify admin to assign a driver
+    if (status === "ready") {
+      const vendorName: string = order.vendorName || "المتجر";
+      getAdminPushToken().then(adminToken => {
+        if (adminToken) {
+          sendAdminOrderReadyNotification(adminToken, orderId, vendorName).catch(() => {});
+        }
+      }).catch(() => {});
     }
 
     res.json({ success: true, status, updatedAt, estimatedMinutes: validatedEta });

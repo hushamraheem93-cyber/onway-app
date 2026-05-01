@@ -21,7 +21,7 @@ import { useAuth } from "@/context/AuthContext";
 import { getApiUrl } from "@/lib/query-client";
 import { useTheme } from "@/hooks/useTheme";
 
-const PURPLE = "#673AB7";
+const ORANGE = "#E86520";
 const SCREEN_W = Dimensions.get("window").width;
 
 interface OrderItem {
@@ -104,7 +104,7 @@ function getActions(status: string): Action[] {
       ];
     case "confirmed":
       return [
-        { label: "بدء التحضير",  nextStatus: "preparing", color: "#fff",     bg: PURPLE,    icon: "chef-hat",  primary: true },
+        { label: "بدء التحضير",  nextStatus: "preparing", color: "#fff",     bg: ORANGE,    icon: "chef-hat",  primary: true },
         { label: "إلغاء",        nextStatus: "cancelled", color: "#DC2626",  bg: "#FEE2E2", icon: "close",     primary: false },
       ];
     case "preparing":
@@ -163,10 +163,10 @@ function ProgressBar({ status }: { status: string }) {
 const progressStyles = StyleSheet.create({
   row: { flexDirection: "row-reverse", alignItems: "center", marginBottom: 12 },
   dot: { width: 16, height: 16, borderRadius: 8, justifyContent: "center", alignItems: "center" },
-  dotActive: { backgroundColor: PURPLE },
+  dotActive: { backgroundColor: ORANGE },
   dotInactive: { backgroundColor: "#E5E7EB" },
   line: { flex: 1, height: 2, backgroundColor: "#E5E7EB" },
-  lineActive: { backgroundColor: PURPLE },
+  lineActive: { backgroundColor: ORANGE },
 });
 
 // ── Order Card ─────────────────────────────────────────────────────────────────
@@ -255,8 +255,8 @@ function OrderCard({
             <ThemedText style={[cardStyles.sectionLabel, { color: theme.text }]}>المنتجات المطلوبة</ThemedText>
             {Array.isArray(order.items) && order.items.map((item, i) => (
               <View key={i} style={cardStyles.itemRow}>
-                <View style={[cardStyles.itemQtyBadge, { backgroundColor: PURPLE + "15" }]}>
-                  <ThemedText style={[cardStyles.itemQtyText, { color: PURPLE }]}>{item.quantity}</ThemedText>
+                <View style={[cardStyles.itemQtyBadge, { backgroundColor: ORANGE + "15" }]}>
+                  <ThemedText style={[cardStyles.itemQtyText, { color: ORANGE }]}>{item.quantity}</ThemedText>
                 </View>
                 <ThemedText style={[cardStyles.itemName, { color: theme.text }]} numberOfLines={2}>
                   {item.name}
@@ -269,10 +269,10 @@ function OrderCard({
           </View>
 
           {/* Total */}
-          <View style={[cardStyles.totalRow, { backgroundColor: PURPLE + "08" }]}>
-            <MaterialCommunityIcons name="cash-multiple" size={16} color={PURPLE} />
+          <View style={[cardStyles.totalRow, { backgroundColor: ORANGE + "08" }]}>
+            <MaterialCommunityIcons name="cash-multiple" size={16} color={ORANGE} />
             <ThemedText style={cardStyles.totalLabel}>إجمالي المتجر</ThemedText>
-            <ThemedText style={[cardStyles.totalAmount, { color: PURPLE }]}>
+            <ThemedText style={[cardStyles.totalAmount, { color: ORANGE }]}>
               {vendorTotal.toLocaleString("ar-IQ")} د.ع
             </ThemedText>
           </View>
@@ -649,14 +649,14 @@ export default function VendorOrdersScreen() {
       {/* ── Content ── */}
       {loading ? (
         <View style={listStyles.center}>
-          <ActivityIndicator size="large" color={PURPLE} />
+          <ActivityIndicator size="large" color={ORANGE} />
         </View>
       ) : (
         <FlatList
           data={filtered}
           keyExtractor={(o) => o.id}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={PURPLE} />
+            <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={ORANGE} />
           }
           contentContainerStyle={{
             paddingTop: 12,
@@ -775,7 +775,7 @@ const cardStyles = StyleSheet.create({
     padding: 14, gap: 8,
     marginTop: 4,
   },
-  totalLabel: { fontFamily: "Cairo_700Bold", fontSize: 14, color: PURPLE, flex: 1, textAlign: "right" },
+  totalLabel: { fontFamily: "Cairo_700Bold", fontSize: 14, color: ORANGE, flex: 1, textAlign: "right" },
   totalAmount: { fontFamily: "Cairo_700Bold", fontSize: 16 },
 
   driverBanner: {
