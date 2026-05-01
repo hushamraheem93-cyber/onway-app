@@ -572,8 +572,8 @@ export default function VendorHomeScreen({ navigation }: any) {
                 <QuickAction
                   icon="plus-circle"
                   label="إضافة منتج"
-                  color={PURPLE}
-                  bg="#EDE7F6"
+                  color={ORANGE}
+                  bg={ORANGE_LIGHT}
                   onPress={() => {
                     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
                     navigation.navigate("VendorProductsTab", { screen: "VendorAddProduct" });

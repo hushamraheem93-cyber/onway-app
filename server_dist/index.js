@@ -1664,7 +1664,19 @@ function extractVendorId(req) {
     return null;
   }
 }
+function requireAdminAuth(req, res, next) {
+  const raw = req.headers.cookie || "";
+  const cookieMap = {};
+  raw.split(";").forEach((part) => {
+    const [k, ...v] = part.trim().split("=");
+    if (k) cookieMap[k.trim()] = decodeURIComponent(v.join("=").trim());
+  });
+  const session = req.cookies?.["onway_admin_session"] ?? cookieMap["onway_admin_session"];
+  if (!session) return res.status(401).json({ error: "\u063A\u064A\u0631 \u0645\u0635\u0631\u062D" });
+  next();
+}
 async function registerRoutes(app2) {
+  app2.use("/api/admin", requireAdminAuth);
   app2.get("/api/stores", async (req, res) => {
     try {
       const db2 = getFirestore();

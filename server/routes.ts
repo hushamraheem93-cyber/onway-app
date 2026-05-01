@@ -269,7 +269,22 @@ function extractVendorId(req: Request): string | null {
   }
 }
 
+function requireAdminAuth(req: Request, res: Response, next: express.NextFunction) {
+  const raw = (req.headers.cookie || "");
+  const cookieMap: Record<string, string> = {};
+  raw.split(";").forEach(part => {
+    const [k, ...v] = part.trim().split("=");
+    if (k) cookieMap[k.trim()] = decodeURIComponent(v.join("=").trim());
+  });
+  const session = (req as any).cookies?.["onway_admin_session"] ?? cookieMap["onway_admin_session"];
+  if (!session) return res.status(401).json({ error: "غير مصرح" });
+  next();
+}
+
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Guard ALL /api/admin/* routes with admin session check
+  app.use("/api/admin", requireAdminAuth);
+
   // ── PUBLIC: Stores listing & products ────────────────────────────────────────
   app.get("/api/stores", async (req: Request, res: Response) => {
     try {
