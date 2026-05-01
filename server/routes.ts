@@ -3882,6 +3882,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // ── Customer: Rate a delivered order (aggregates vendor rating) ───────────
+  // Entire operation is a single Firestore transaction — atomic and idempotent.
+  // Authorization uses phoneNumber to match the stored order.phoneNumber (same
+  // pattern as all customer endpoints in this app; upgrade to customer JWT is a
+  // separate auth-hardening task).
   app.post("/api/orders/:orderId/rate", async (req: Request, res: Response) => {
     try {
       const { orderId } = req.params;
@@ -3893,46 +3897,56 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       const db = getFirestore();
       if (!db) return res.status(503).json({ error: "قاعدة البيانات غير متاحة" });
+
       const orderRef = db.collection("orders").doc(orderId);
-      const doc = await orderRef.get();
-      if (!doc.exists) return res.status(404).json({ error: "الطلب غير موجود" });
-      const order = doc.data() as any;
-      if (order.phoneNumber !== phoneNumber) {
-        return res.status(403).json({ error: "غير مصرح" });
-      }
-      if (order.status !== "delivered") {
-        return res.status(400).json({ error: "لا يمكن تقييم طلب لم يُسلَّم بعد" });
-      }
-      if (order.customerRating) {
-        return res.status(400).json({ error: "تم تقييم هذا الطلب مسبقاً" });
-      }
-      // Save rating on the order document
-      await orderRef.update({ customerRating: numRating, ratedAt: new Date().toISOString() });
-      // Aggregate vendor rating if order is linked to a vendor
-      const vendorId = order.vendorId as string | undefined;
-      if (vendorId) {
-        const vendorRef = db.collection("vendors").doc(vendorId);
-        await db.runTransaction(async (tx) => {
+      const ratedAt = new Date().toISOString();
+
+      // Pre-flight read to get vendorId before opening the transaction
+      const preDoc = await orderRef.get();
+      if (!preDoc.exists) return res.status(404).json({ error: "الطلب غير موجود" });
+      const preOrder = preDoc.data() as any;
+      if (preOrder.phoneNumber !== phoneNumber) return res.status(403).json({ error: "غير مصرح" });
+      if (preOrder.status !== "delivered") return res.status(400).json({ error: "لا يمكن تقييم طلب لم يُسلَّم بعد" });
+
+      const vendorId = preOrder.vendorId as string | undefined;
+      const vendorRef = vendorId ? db.collection("vendors").doc(vendorId) : null;
+
+      // Single atomic transaction — reads all docs first, then writes
+      await db.runTransaction(async (tx) => {
+        // Re-read order inside transaction to prevent race conditions
+        const orderSnap = await tx.get(orderRef);
+        if (!orderSnap.exists) throw new Error("الطلب غير موجود");
+        const orderData = orderSnap.data() as any;
+        if (orderData.customerRating) throw new Error("تم تقييم هذا الطلب مسبقاً");
+
+        // Update order with rating
+        tx.update(orderRef, { customerRating: numRating, ratedAt });
+
+        // Aggregate vendor rating atomically
+        if (vendorRef) {
           const vSnap = await tx.get(vendorRef);
-          if (!vSnap.exists) return;
-          const v = vSnap.data() as any;
-          const oldCount: number = v.ratingCount ?? 0;
-          const oldRating: number = v.rating ?? null;
-          let newCount = oldCount + 1;
-          let newRating: number;
-          if (oldRating === null || oldCount === 0) {
-            newRating = numRating;
-          } else {
-            newRating = Math.round(((oldRating * oldCount + numRating) / newCount) * 10) / 10;
+          if (vSnap.exists) {
+            const v = vSnap.data() as any;
+            const oldCount: number = v.ratingCount ?? 0;
+            const oldRating: number | null = v.rating ?? null;
+            const newCount = oldCount + 1;
+            const newRating = (oldRating === null || oldCount === 0)
+              ? numRating
+              : Math.round(((oldRating * oldCount + numRating) / newCount) * 10) / 10;
+            tx.update(vendorRef, { rating: newRating, ratingCount: newCount });
           }
-          tx.update(vendorRef, { rating: newRating, ratingCount: newCount });
-        });
-        invalidateVendorsCache();
-      }
+        }
+      });
+
+      if (vendorId) invalidateVendorsCache();
       res.json({ success: true, message: "شكراً على تقييمك!" });
     } catch (error: any) {
+      const msg = error.message || "حدث خطأ";
+      if (msg === "تم تقييم هذا الطلب مسبقاً" || msg === "الطلب غير موجود") {
+        return res.status(400).json({ error: msg });
+      }
       console.error("Error rating order:", error);
-      res.status(500).json({ error: error.message || "حدث خطأ" });
+      res.status(500).json({ error: msg });
     }
   });
 

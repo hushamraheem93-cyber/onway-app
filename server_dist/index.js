@@ -4816,43 +4816,41 @@ ${itemsList}
       const db2 = getFirestore();
       if (!db2) return res.status(503).json({ error: "\u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u063A\u064A\u0631 \u0645\u062A\u0627\u062D\u0629" });
       const orderRef = db2.collection("orders").doc(orderId);
-      const doc = await orderRef.get();
-      if (!doc.exists) return res.status(404).json({ error: "\u0627\u0644\u0637\u0644\u0628 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F" });
-      const order = doc.data();
-      if (order.phoneNumber !== phoneNumber) {
-        return res.status(403).json({ error: "\u063A\u064A\u0631 \u0645\u0635\u0631\u062D" });
-      }
-      if (order.status !== "delivered") {
-        return res.status(400).json({ error: "\u0644\u0627 \u064A\u0645\u0643\u0646 \u062A\u0642\u064A\u064A\u0645 \u0637\u0644\u0628 \u0644\u0645 \u064A\u064F\u0633\u0644\u064E\u0651\u0645 \u0628\u0639\u062F" });
-      }
-      if (order.customerRating) {
-        return res.status(400).json({ error: "\u062A\u0645 \u062A\u0642\u064A\u064A\u0645 \u0647\u0630\u0627 \u0627\u0644\u0637\u0644\u0628 \u0645\u0633\u0628\u0642\u0627\u064B" });
-      }
-      await orderRef.update({ customerRating: numRating, ratedAt: (/* @__PURE__ */ new Date()).toISOString() });
-      const vendorId2 = order.vendorId;
-      if (vendorId2) {
-        const vendorRef = db2.collection("vendors").doc(vendorId2);
-        await db2.runTransaction(async (tx) => {
+      const ratedAt = (/* @__PURE__ */ new Date()).toISOString();
+      const preDoc = await orderRef.get();
+      if (!preDoc.exists) return res.status(404).json({ error: "\u0627\u0644\u0637\u0644\u0628 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F" });
+      const preOrder = preDoc.data();
+      if (preOrder.phoneNumber !== phoneNumber) return res.status(403).json({ error: "\u063A\u064A\u0631 \u0645\u0635\u0631\u062D" });
+      if (preOrder.status !== "delivered") return res.status(400).json({ error: "\u0644\u0627 \u064A\u0645\u0643\u0646 \u062A\u0642\u064A\u064A\u0645 \u0637\u0644\u0628 \u0644\u0645 \u064A\u064F\u0633\u0644\u064E\u0651\u0645 \u0628\u0639\u062F" });
+      const vendorId2 = preOrder.vendorId;
+      const vendorRef = vendorId2 ? db2.collection("vendors").doc(vendorId2) : null;
+      await db2.runTransaction(async (tx) => {
+        const orderSnap = await tx.get(orderRef);
+        if (!orderSnap.exists) throw new Error("\u0627\u0644\u0637\u0644\u0628 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F");
+        const orderData = orderSnap.data();
+        if (orderData.customerRating) throw new Error("\u062A\u0645 \u062A\u0642\u064A\u064A\u0645 \u0647\u0630\u0627 \u0627\u0644\u0637\u0644\u0628 \u0645\u0633\u0628\u0642\u0627\u064B");
+        tx.update(orderRef, { customerRating: numRating, ratedAt });
+        if (vendorRef) {
           const vSnap = await tx.get(vendorRef);
-          if (!vSnap.exists) return;
-          const v = vSnap.data();
-          const oldCount = v.ratingCount ?? 0;
-          const oldRating = v.rating ?? null;
-          let newCount = oldCount + 1;
-          let newRating;
-          if (oldRating === null || oldCount === 0) {
-            newRating = numRating;
-          } else {
-            newRating = Math.round((oldRating * oldCount + numRating) / newCount * 10) / 10;
+          if (vSnap.exists) {
+            const v = vSnap.data();
+            const oldCount = v.ratingCount ?? 0;
+            const oldRating = v.rating ?? null;
+            const newCount = oldCount + 1;
+            const newRating = oldRating === null || oldCount === 0 ? numRating : Math.round((oldRating * oldCount + numRating) / newCount * 10) / 10;
+            tx.update(vendorRef, { rating: newRating, ratingCount: newCount });
           }
-          tx.update(vendorRef, { rating: newRating, ratingCount: newCount });
-        });
-        invalidateVendorsCache();
-      }
+        }
+      });
+      if (vendorId2) invalidateVendorsCache();
       res.json({ success: true, message: "\u0634\u0643\u0631\u0627\u064B \u0639\u0644\u0649 \u062A\u0642\u064A\u064A\u0645\u0643!" });
     } catch (error) {
+      const msg = error.message || "\u062D\u062F\u062B \u062E\u0637\u0623";
+      if (msg === "\u062A\u0645 \u062A\u0642\u064A\u064A\u0645 \u0647\u0630\u0627 \u0627\u0644\u0637\u0644\u0628 \u0645\u0633\u0628\u0642\u0627\u064B" || msg === "\u0627\u0644\u0637\u0644\u0628 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F") {
+        return res.status(400).json({ error: msg });
+      }
       console.error("Error rating order:", error);
-      res.status(500).json({ error: error.message || "\u062D\u062F\u062B \u062E\u0637\u0623" });
+      res.status(500).json({ error: msg });
     }
   });
   app2.get("/api/admin/users", async (_req, res) => {
