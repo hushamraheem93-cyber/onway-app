@@ -27,7 +27,6 @@ import { getApiUrl } from "@/lib/query-client";
 type NavProp = NativeStackNavigationProp<RootStackParamList>;
 type RouteType = RouteProp<RootStackParamList, "StoresList">;
 
-const SCREEN_W = 400;
 const COVER_H = 150;
 const AVATAR_SIZE = 62;
 
@@ -69,8 +68,6 @@ const BUSINESS_CONFIG: Record<string, BizConfig> = {
   bakery: { label: "مخبز", icon: "bread-slice", color: "#F57F17", gradient: ["#F57F17", "#FFA726"] },
   other: { label: "متجر", icon: "store", color: "#1565C0", gradient: ["#1565C0", "#1E88E5"] },
 };
-
-const DAY_NAMES = ["الأحد", "الإثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت"];
 
 function isStoreOpen(wh: WorkingHours | null | undefined): boolean {
   if (!wh) return true;
