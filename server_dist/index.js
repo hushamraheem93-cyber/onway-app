@@ -1661,12 +1661,13 @@ function extractVendorId(req) {
   }
 }
 async function registerRoutes(app2) {
-  app2.get("/api/stores", async (_req, res) => {
+  app2.get("/api/stores", async (req, res) => {
     try {
       const db2 = getFirestore();
       if (!db2) return res.status(500).json({ error: "\u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u063A\u064A\u0631 \u0645\u062A\u0627\u062D\u0629" });
+      const { businessType } = req.query;
       const snap = await db2.collection("vendors").where("status", "==", "active").get();
-      const stores = snap.docs.map((d) => {
+      const allDocs = snap.docs.map((d) => {
         const v = d.data();
         return {
           id: v.id,
@@ -1683,7 +1684,8 @@ async function registerRoutes(app2) {
           deliveryPrice: v.deliveryPrice ?? 0,
           workingHours: v.workingHours || null
         };
-      }).sort((a, b) => b.approvedAt.localeCompare(a.approvedAt));
+      });
+      const stores = (businessType ? allDocs.filter((s) => s.businessType === businessType) : allDocs).sort((a, b) => b.approvedAt.localeCompare(a.approvedAt));
       res.json({ stores, total: stores.length });
     } catch (err) {
       console.error("public stores:", err);
@@ -5722,12 +5724,13 @@ router.get("/api/vendor/wallet", requireVendor, async (req, res) => {
     res.status(500).json({ error: "\u062D\u062F\u062B \u062E\u0637\u0623 \u0641\u064A \u0627\u0644\u062E\u0627\u062F\u0645" });
   }
 });
-router.get("/api/stores", async (_req, res) => {
+router.get("/api/stores", async (req, res) => {
   try {
     const db2 = getFirestore();
     if (!db2) return res.status(500).json({ error: "\u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u063A\u064A\u0631 \u0645\u062A\u0627\u062D\u0629" });
+    const { businessType } = req.query;
     const snap = await db2.collection("vendors").where("status", "==", "active").get();
-    const stores = snap.docs.map((d) => {
+    const allDocs = snap.docs.map((d) => {
       const v = d.data();
       return {
         id: v.id,
@@ -5744,7 +5747,8 @@ router.get("/api/stores", async (_req, res) => {
         deliveryPrice: v.deliveryPrice ?? 0,
         workingHours: v.workingHours || null
       };
-    }).sort((a, b) => b.approvedAt.localeCompare(a.approvedAt));
+    });
+    const stores = (businessType ? allDocs.filter((s) => s.businessType === businessType) : allDocs).sort((a, b) => b.approvedAt.localeCompare(a.approvedAt));
     res.json({ stores, total: stores.length });
   } catch (err) {
     console.error("public stores:", err);

@@ -271,12 +271,13 @@ function extractVendorId(req: Request): string | null {
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // ── PUBLIC: Stores listing & products ────────────────────────────────────────
-  app.get("/api/stores", async (_req: Request, res: Response) => {
+  app.get("/api/stores", async (req: Request, res: Response) => {
     try {
       const db = getFirestore();
       if (!db) return res.status(500).json({ error: "قاعدة البيانات غير متاحة" });
+      const { businessType } = req.query as { businessType?: string };
       const snap = await db.collection("vendors").where("status", "==", "active").get();
-      const stores = snap.docs.map((d) => {
+      const allDocs = snap.docs.map((d) => {
         const v = d.data() as any;
         return {
           id: v.id, storeName: v.storeName, businessType: v.businessType,
@@ -290,7 +291,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           deliveryPrice: v.deliveryPrice ?? 0,
           workingHours: v.workingHours || null,
         };
-      }).sort((a: any, b: any) => b.approvedAt.localeCompare(a.approvedAt));
+      });
+      const stores = (businessType
+        ? allDocs.filter((s: any) => s.businessType === businessType)
+        : allDocs
+      ).sort((a: any, b: any) => b.approvedAt.localeCompare(a.approvedAt));
       res.json({ stores, total: stores.length });
     } catch (err) {
       console.error("public stores:", err);

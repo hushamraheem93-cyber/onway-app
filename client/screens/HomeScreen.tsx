@@ -286,13 +286,25 @@ export default function HomeScreen() {
     return resolveImageUrl(fallbackImage);
   };
 
+  const CATEGORY_TO_BUSINESS_TYPE: Record<string, string> = {
+    restaurants: "restaurant",
+    pharmacy: "pharmacy",
+    supermarket: "supermarket",
+    bakery: "bakery",
+  };
+
   const handleCategoryPress = (category: Category) => {
     if (category.id === "delivery") {
       navigation.navigate("CourierPickup");
     } else if (category.id === "international-shopping") {
       navigation.navigate("InternationalShopping");
     } else {
-      navigation.navigate("Products", { categoryId: category.id, categoryName: category.name });
+      const businessType = CATEGORY_TO_BUSINESS_TYPE[category.id];
+      navigation.navigate("StoresList", {
+        categoryId: category.id,
+        categoryName: category.name,
+        businessType,
+      });
     }
   };
 
