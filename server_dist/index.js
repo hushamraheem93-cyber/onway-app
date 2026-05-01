@@ -1880,6 +1880,176 @@ async function registerRoutes(app2) {
       res.status(500).json({ error: "\u062D\u062F\u062B \u062E\u0637\u0623 \u0641\u064A \u0627\u0644\u062E\u0627\u062F\u0645" });
     }
   });
+  app2.post("/api/admin/seed-demo-stores", async (_req, res) => {
+    try {
+      const db2 = getFirestore();
+      if (!db2) return res.status(500).json({ error: "\u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u063A\u064A\u0631 \u0645\u062A\u0627\u062D\u0629" });
+      const now = (/* @__PURE__ */ new Date()).toISOString();
+      const uid = () => `demo_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+      const demoStores = [
+        // ── سوبرماركت اون واي ──────────────────────────────────────────────────
+        {
+          storeName: "\u0633\u0648\u0628\u0631\u0645\u0627\u0631\u0643\u062A \u0627\u0648\u0646 \u0648\u0627\u064A",
+          businessType: "supermarket",
+          ownerName: "\u0623\u062D\u0645\u062F \u0627\u0644\u0633\u0648\u0628\u0631\u0645\u0627\u0631\u0643\u062A",
+          phoneNumber: "07700000001",
+          address: "\u0634\u0627\u0631\u0639 \u0627\u0644\u0631\u0634\u064A\u062F\u060C \u0628\u063A\u062F\u0627\u062F",
+          profileImageUrl: "https://images.unsplash.com/photo-1578916171728-46686eac8d58?w=400&q=80",
+          coverImageUrl: "https://images.unsplash.com/photo-1542838132-92c53300491e?w=800&q=80",
+          bio: "\u0633\u0648\u0628\u0631\u0645\u0627\u0631\u0643\u062A \u0645\u062A\u0643\u0627\u0645\u0644 \u064A\u0648\u0641\u0631 \u0643\u0644 \u0627\u062D\u062A\u064A\u0627\u062C\u0627\u062A\u0643 \u0627\u0644\u064A\u0648\u0645\u064A\u0629 \u0628\u062C\u0648\u062F\u0629 \u0639\u0627\u0644\u064A\u0629 \u0648\u0623\u0633\u0639\u0627\u0631 \u0645\u0646\u0627\u0633\u0628\u0629",
+          products: [
+            // خضروات وفواكه
+            { name: "\u0637\u0645\u0627\u0637\u0645 \u0637\u0627\u0632\u062C\u0629", description: "\u0637\u0645\u0627\u0637\u0645 \u0637\u0627\u0632\u062C\u0629 1 \u0643\u064A\u0644\u0648 \u0645\u0628\u0627\u0634\u0631\u0629 \u0645\u0646 \u0627\u0644\u0645\u0632\u0631\u0639\u0629", price: 3e3, category: "\u0627\u0644\u062E\u0636\u0631\u0648\u0627\u062A \u0648\u0627\u0644\u0641\u0648\u0627\u0643\u0647", categoryId: "fruits-vegetables", stock: 100, unit: "\u0643\u064A\u0644\u0648", imageUrl: "https://images.unsplash.com/photo-1546470427-e26264be0b11?w=400&q=80" },
+            { name: "\u062E\u064A\u0627\u0631", description: "\u062E\u064A\u0627\u0631 \u0637\u0627\u0632\u062C 1 \u0643\u064A\u0644\u0648", price: 2500, category: "\u0627\u0644\u062E\u0636\u0631\u0648\u0627\u062A \u0648\u0627\u0644\u0641\u0648\u0627\u0643\u0647", categoryId: "fruits-vegetables", stock: 80, unit: "\u0643\u064A\u0644\u0648", imageUrl: "https://images.unsplash.com/photo-1449300079323-02e209d9d3a6?w=400&q=80" },
+            { name: "\u0641\u0631\u0627\u0648\u0644\u0629 \u0637\u0627\u0632\u062C\u0629", description: "\u0641\u0631\u0627\u0648\u0644\u0629 \u0637\u0627\u0632\u062C\u0629 500 \u062C\u0631\u0627\u0645 \u0645\u0648\u0633\u0645\u064A\u0629", price: 6e3, category: "\u0627\u0644\u062E\u0636\u0631\u0648\u0627\u062A \u0648\u0627\u0644\u0641\u0648\u0627\u0643\u0647", categoryId: "fruits-vegetables", stock: 40, unit: "\u0639\u0644\u0628\u0629", imageUrl: "https://images.unsplash.com/photo-1464965911861-746a04b4bca6?w=400&q=80" },
+            { name: "\u0645\u0648\u0632", description: "\u0645\u0648\u0632 \u0637\u0627\u0632\u062C 1 \u0643\u064A\u0644\u0648", price: 4e3, category: "\u0627\u0644\u062E\u0636\u0631\u0648\u0627\u062A \u0648\u0627\u0644\u0641\u0648\u0627\u0643\u0647", categoryId: "fruits-vegetables", stock: 60, unit: "\u0643\u064A\u0644\u0648", imageUrl: "https://images.unsplash.com/photo-1571771894821-ce9b6c11b08e?w=400&q=80" },
+            { name: "\u062A\u0641\u0627\u062D \u0623\u062D\u0645\u0631", description: "\u062A\u0641\u0627\u062D \u0623\u062D\u0645\u0631 1 \u0643\u064A\u0644\u0648", price: 5e3, category: "\u0627\u0644\u062E\u0636\u0631\u0648\u0627\u062A \u0648\u0627\u0644\u0641\u0648\u0627\u0643\u0647", categoryId: "fruits-vegetables", stock: 70, unit: "\u0643\u064A\u0644\u0648", imageUrl: "https://images.unsplash.com/photo-1567306226416-28f0efdc88ce?w=400&q=80" },
+            { name: "\u0628\u0637\u0627\u0637\u0627", description: "\u0628\u0637\u0627\u0637\u0627 \u0637\u0627\u0632\u062C\u0629 1 \u0643\u064A\u0644\u0648", price: 2500, category: "\u0627\u0644\u062E\u0636\u0631\u0648\u0627\u062A \u0648\u0627\u0644\u0641\u0648\u0627\u0643\u0647", categoryId: "fruits-vegetables", stock: 90, unit: "\u0643\u064A\u0644\u0648", imageUrl: "https://images.unsplash.com/photo-1518977676601-b53f82ber8a3?w=400&q=80" },
+            // ألبان وأجبان
+            { name: "\u062D\u0644\u064A\u0628 \u0637\u0627\u0632\u062C", description: "\u062D\u0644\u064A\u0628 \u0637\u0627\u0632\u062C \u0643\u0627\u0645\u0644 \u0627\u0644\u062F\u0633\u0645 1 \u0644\u062A\u0631", price: 3500, category: "\u0627\u0644\u0623\u0644\u0628\u0627\u0646 \u0648\u0627\u0644\u0623\u062C\u0628\u0627\u0646", categoryId: "dairy-eggs", stock: 50, unit: "\u0644\u062A\u0631", imageUrl: "https://images.unsplash.com/photo-1550583724-b2692b85b150?w=400&q=80" },
+            { name: "\u062C\u0628\u0646 \u0623\u0628\u064A\u0636", description: "\u062C\u0628\u0646 \u0623\u0628\u064A\u0636 \u0637\u0627\u0632\u062C 500 \u062C\u0631\u0627\u0645", price: 5e3, category: "\u0627\u0644\u0623\u0644\u0628\u0627\u0646 \u0648\u0627\u0644\u0623\u062C\u0628\u0627\u0646", categoryId: "dairy-eggs", stock: 35, unit: "\u0639\u0644\u0628\u0629", imageUrl: "https://images.unsplash.com/photo-1486297678162-eb2a19b0a32d?w=400&q=80" },
+            { name: "\u0628\u064A\u0636 \u062F\u062C\u0627\u062C", description: "\u0628\u064A\u0636 \u062F\u062C\u0627\u062C \u0628\u0644\u062F\u064A 12 \u062D\u0628\u0629", price: 6e3, category: "\u0627\u0644\u0623\u0644\u0628\u0627\u0646 \u0648\u0627\u0644\u0623\u062C\u0628\u0627\u0646", categoryId: "dairy-eggs", stock: 45, unit: "\u0643\u0631\u062A\u0648\u0646\u0629", imageUrl: "https://images.unsplash.com/photo-1582722872445-44dc5f7e3c8f?w=400&q=80" },
+            { name: "\u0644\u0628\u0646 \u0631\u0627\u0626\u0628", description: "\u0644\u0628\u0646 \u0631\u0627\u0626\u0628 \u0643\u0627\u0645\u0644 \u0627\u0644\u062F\u0633\u0645 500 \u062C\u0631\u0627\u0645", price: 2500, category: "\u0627\u0644\u0623\u0644\u0628\u0627\u0646 \u0648\u0627\u0644\u0623\u062C\u0628\u0627\u0646", categoryId: "dairy-eggs", stock: 60, unit: "\u0639\u0644\u0628\u0629", imageUrl: "https://images.unsplash.com/photo-1563636619-e9143da7973b?w=400&q=80" },
+            // مشروبات
+            { name: "\u0645\u0627\u0621 \u0645\u0639\u062F\u0646\u064A", description: "\u0645\u0627\u0621 \u0645\u0639\u062F\u0646\u064A \u0646\u0642\u064A 1.5 \u0644\u062A\u0631", price: 1e3, category: "\u0627\u0644\u0645\u0634\u0631\u0648\u0628\u0627\u062A", categoryId: "beverages", stock: 200, unit: "\u0642\u0627\u0631\u0648\u0631\u0629", imageUrl: "https://images.unsplash.com/photo-1548839140-29a749e1cf4d?w=400&q=80" },
+            { name: "\u0639\u0635\u064A\u0631 \u0628\u0631\u062A\u0642\u0627\u0644 \u0637\u0628\u064A\u0639\u064A", description: "\u0639\u0635\u064A\u0631 \u0628\u0631\u062A\u0642\u0627\u0644 \u0637\u0628\u064A\u0639\u064A 1 \u0644\u062A\u0631", price: 4e3, category: "\u0627\u0644\u0645\u0634\u0631\u0648\u0628\u0627\u062A", categoryId: "beverages", stock: 30, unit: "\u0642\u0627\u0631\u0648\u0631\u0629", imageUrl: "https://images.unsplash.com/photo-1621506289937-a8e4df240d0b?w=400&q=80" },
+            { name: "\u0645\u0634\u0631\u0648\u0628 \u063A\u0627\u0632\u064A", description: "\u0645\u0634\u0631\u0648\u0628 \u063A\u0627\u0632\u064A \u0643\u0648\u0644\u0627 355 \u0645\u0644", price: 1500, category: "\u0627\u0644\u0645\u0634\u0631\u0648\u0628\u0627\u062A", categoryId: "beverages", stock: 120, unit: "\u0639\u0644\u0628\u0629", imageUrl: "https://images.unsplash.com/photo-1622483767028-3f66f32aef97?w=400&q=80" },
+            { name: "\u0639\u0635\u064A\u0631 \u0645\u0627\u0646\u062C\u0627", description: "\u0639\u0635\u064A\u0631 \u0645\u0627\u0646\u062C\u0627 \u0637\u0628\u064A\u0639\u064A 1 \u0644\u062A\u0631", price: 4500, category: "\u0627\u0644\u0645\u0634\u0631\u0648\u0628\u0627\u062A", categoryId: "beverages", stock: 25, unit: "\u0642\u0627\u0631\u0648\u0631\u0629", imageUrl: "https://images.unsplash.com/photo-1546173159-315724a31696?w=400&q=80" },
+            // سناكس
+            { name: "\u0634\u064A\u0628\u0633 \u0645\u0645\u0644\u062D", description: "\u0634\u064A\u0628\u0633 \u0645\u0642\u0631\u0645\u0634 \u0628\u0627\u0644\u0645\u0644\u062D 150 \u062C\u0631\u0627\u0645", price: 2e3, category: "\u0633\u0646\u0627\u0643\u0633 \u0648\u0645\u0642\u0631\u0645\u0634\u0627\u062A", categoryId: "snacks-sweets", stock: 80, unit: "\u0643\u064A\u0633", imageUrl: "https://images.unsplash.com/photo-1566478989037-eec170784d0b?w=400&q=80" },
+            { name: "\u0634\u0648\u0643\u0648\u0644\u0627\u062A\u0629 \u062D\u0644\u064A\u0628", description: "\u0634\u0648\u0643\u0648\u0644\u0627\u062A\u0629 \u0628\u0627\u0644\u062D\u0644\u064A\u0628 100 \u062C\u0631\u0627\u0645", price: 3e3, category: "\u0633\u0646\u0627\u0643\u0633 \u0648\u0645\u0642\u0631\u0645\u0634\u0627\u062A", categoryId: "snacks-sweets", stock: 60, unit: "\u0642\u0637\u0639\u0629", imageUrl: "https://images.unsplash.com/photo-1548907040-4baa42d10919?w=400&q=80" },
+            { name: "\u0628\u0633\u0643\u0648\u064A\u062A \u0634\u0627\u064A", description: "\u0628\u0633\u0643\u0648\u064A\u062A \u0644\u0644\u0634\u0627\u064A 400 \u062C\u0631\u0627\u0645", price: 2500, category: "\u0633\u0646\u0627\u0643\u0633 \u0648\u0645\u0642\u0631\u0645\u0634\u0627\u062A", categoryId: "snacks-sweets", stock: 70, unit: "\u0639\u0644\u0628\u0629", imageUrl: "https://images.unsplash.com/photo-1558961363-fa8fdf82db35?w=400&q=80" },
+            // شاي وقهوة
+            { name: "\u0634\u0627\u064A \u0623\u0633\u0648\u062F", description: "\u0634\u0627\u064A \u0623\u0633\u0648\u062F \u0641\u0627\u062E\u0631 200 \u062C\u0631\u0627\u0645", price: 5e3, category: "\u0634\u0627\u064A \u0648\u0642\u0647\u0648\u0629", categoryId: "tea-coffee", stock: 40, unit: "\u0639\u0644\u0628\u0629", imageUrl: "https://images.unsplash.com/photo-1556679343-c7306c1976bc?w=400&q=80" },
+            { name: "\u0642\u0647\u0648\u0629 \u0639\u0631\u0628\u064A\u0629", description: "\u0642\u0647\u0648\u0629 \u0639\u0631\u0628\u064A\u0629 \u0623\u0635\u064A\u0644\u0629 \u0628\u0627\u0644\u0647\u064A\u0644 250 \u062C\u0631\u0627\u0645", price: 8e3, category: "\u0634\u0627\u064A \u0648\u0642\u0647\u0648\u0629", categoryId: "tea-coffee", stock: 25, unit: "\u0639\u0644\u0628\u0629", imageUrl: "https://images.unsplash.com/photo-1509042239860-f550ce710b93?w=400&q=80" },
+            { name: "\u0646\u0633\u0643\u0627\u0641\u064A\u0647", description: "\u0646\u0633\u0643\u0627\u0641\u064A\u0647 \u0643\u0644\u0627\u0633\u064A\u0643 200 \u062C\u0631\u0627\u0645", price: 9e3, category: "\u0634\u0627\u064A \u0648\u0642\u0647\u0648\u0629", categoryId: "tea-coffee", stock: 30, unit: "\u0639\u0644\u0628\u0629", imageUrl: "https://images.unsplash.com/photo-1498804103079-a6351b050096?w=400&q=80" },
+            // منظفات
+            { name: "\u0633\u0627\u0626\u0644 \u063A\u0633\u064A\u0644 \u0645\u0644\u0627\u0628\u0633", description: "\u0633\u0627\u0626\u0644 \u063A\u0633\u064A\u0644 \u0642\u0648\u064A 3 \u0644\u062A\u0631", price: 7e3, category: "\u0627\u0644\u0645\u0646\u0638\u0641\u0627\u062A", categoryId: "cleaning-care", stock: 35, unit: "\u0642\u0627\u0631\u0648\u0631\u0629", imageUrl: "https://images.unsplash.com/photo-1585421514738-01798e348b17?w=400&q=80" },
+            { name: "\u0635\u0627\u0628\u0648\u0646 \u064A\u062F\u064A\u0646", description: "\u0635\u0627\u0628\u0648\u0646 \u0633\u0627\u0626\u0644 \u0644\u0644\u064A\u062F\u064A\u0646 500 \u0645\u0644", price: 3e3, category: "\u0627\u0644\u0645\u0646\u0638\u0641\u0627\u062A", categoryId: "cleaning-care", stock: 50, unit: "\u0642\u0627\u0631\u0648\u0631\u0629", imageUrl: "https://images.unsplash.com/photo-1584515933487-779824d29309?w=400&q=80" },
+            { name: "\u0645\u0646\u0638\u0641 \u0644\u0644\u0623\u0631\u0636\u064A\u0627\u062A", description: "\u0645\u0646\u0638\u0641 \u0623\u0631\u0636\u064A\u0627\u062A \u0628\u0639\u0637\u0631 \u0627\u0644\u0644\u064A\u0645\u0648\u0646 2 \u0644\u062A\u0631", price: 5e3, category: "\u0627\u0644\u0645\u0646\u0638\u0641\u0627\u062A", categoryId: "cleaning-care", stock: 28, unit: "\u0642\u0627\u0631\u0648\u0631\u0629", imageUrl: "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=400&q=80" },
+            // مواد غذائية
+            { name: "\u0623\u0631\u0632 \u0628\u0633\u0645\u062A\u064A", description: "\u0623\u0631\u0632 \u0628\u0633\u0645\u062A\u064A \u0641\u0627\u062E\u0631 5 \u0643\u064A\u0644\u0648", price: 12e3, category: "\u0627\u0644\u0645\u0648\u0627\u062F \u0627\u0644\u063A\u0630\u0627\u0626\u064A\u0629", categoryId: "food-supplies", stock: 40, unit: "\u0643\u064A\u0633", imageUrl: "https://images.unsplash.com/photo-1586201375761-83865001e31c?w=400&q=80" },
+            { name: "\u0632\u064A\u062A \u0646\u0628\u0627\u062A\u064A", description: "\u0632\u064A\u062A \u0646\u0628\u0627\u062A\u064A \u0635\u0627\u0641\u064A 1.5 \u0644\u062A\u0631", price: 8e3, category: "\u0627\u0644\u0645\u0648\u0627\u062F \u0627\u0644\u063A\u0630\u0627\u0626\u064A\u0629", categoryId: "food-supplies", stock: 45, unit: "\u0642\u0627\u0631\u0648\u0631\u0629", imageUrl: "https://images.unsplash.com/photo-1474979266404-7eaacbcd87c5?w=400&q=80" },
+            { name: "\u062F\u0642\u064A\u0642 \u0642\u0645\u062D", description: "\u062F\u0642\u064A\u0642 \u0642\u0645\u062D \u0623\u0628\u064A\u0636 2 \u0643\u064A\u0644\u0648", price: 6e3, category: "\u0627\u0644\u0645\u0648\u0627\u062F \u0627\u0644\u063A\u0630\u0627\u0626\u064A\u0629", categoryId: "food-supplies", stock: 55, unit: "\u0643\u064A\u0633", imageUrl: "https://images.unsplash.com/photo-1574323347407-f5e1ad6d020b?w=400&q=80" },
+            { name: "\u0633\u0643\u0631 \u0623\u0628\u064A\u0636", description: "\u0633\u0643\u0631 \u0623\u0628\u064A\u0636 \u0646\u0627\u0639\u0645 2 \u0643\u064A\u0644\u0648", price: 5e3, category: "\u0627\u0644\u0645\u0648\u0627\u062F \u0627\u0644\u063A\u0630\u0627\u0626\u064A\u0629", categoryId: "food-supplies", stock: 60, unit: "\u0643\u064A\u0633", imageUrl: "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=400&q=80" }
+          ]
+        },
+        // ── مطعم الرائد ────────────────────────────────────────────────────────
+        {
+          storeName: "\u0645\u0637\u0639\u0645 \u0627\u0644\u0631\u0627\u0626\u062F \u0627\u0644\u0639\u0631\u0627\u0642\u064A",
+          businessType: "restaurant",
+          ownerName: "\u0645\u062D\u0645\u062F \u0627\u0644\u0631\u0627\u0626\u062F",
+          phoneNumber: "07700000002",
+          address: "\u0634\u0627\u0631\u0639 \u0627\u0644\u0645\u062A\u0646\u0628\u064A\u060C \u0628\u063A\u062F\u0627\u062F",
+          profileImageUrl: "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=400&q=80",
+          coverImageUrl: "https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=800&q=80",
+          bio: "\u0645\u0637\u0639\u0645 \u0639\u0631\u0627\u0642\u064A \u0623\u0635\u064A\u0644 \u064A\u0642\u062F\u0645 \u0623\u0634\u0647\u0649 \u0627\u0644\u0623\u0643\u0644\u0627\u062A \u0627\u0644\u062A\u0631\u0627\u062B\u064A\u0629 \u0628\u0646\u0643\u0647\u0627\u062A \u0639\u0631\u0627\u0642\u064A\u0629 \u062D\u0642\u064A\u0642\u064A\u0629",
+          products: [
+            { name: "\u0643\u0628\u0627\u0628 \u0639\u0631\u0627\u0642\u064A", description: "\u0643\u0628\u0627\u0628 \u0644\u062D\u0645 \u0645\u0634\u0648\u064A \u0645\u0639 \u0627\u0644\u062E\u0628\u0632 \u0627\u0644\u0639\u0631\u0627\u0642\u064A \u0648\u0635\u062D\u0646 \u0627\u0644\u0633\u0644\u0637\u0629", price: 12e3, category: "\u0627\u0644\u0645\u0634\u0648\u064A\u0627\u062A", categoryId: "restaurants", stock: 50, unit: "\u0648\u062C\u0628\u0629", imageUrl: "https://images.unsplash.com/photo-1529692236671-f1f6cf9683ba?w=400&q=80" },
+            { name: "\u062A\u0643\u0627 \u0645\u0634\u0648\u064A\u0629", description: "\u062A\u0643\u0627 \u0644\u062D\u0645 \u0628\u0642\u0631\u064A \u0645\u0634\u0648\u064A \u0639\u0644\u0649 \u0627\u0644\u062C\u0645\u0631 4 \u0642\u0637\u0639", price: 15e3, category: "\u0627\u0644\u0645\u0634\u0648\u064A\u0627\u062A", categoryId: "restaurants", stock: 40, unit: "\u0648\u062C\u0628\u0629", imageUrl: "https://images.unsplash.com/photo-1544025162-d76538775176?w=400&q=80" },
+            { name: "\u0642\u0648\u0632\u064A \u0639\u0631\u0627\u0642\u064A", description: "\u0642\u0648\u0632\u064A \u0644\u062D\u0645 \u0636\u0623\u0646 \u0645\u0639 \u0627\u0644\u0623\u0631\u0632 \u0648\u0627\u0644\u0632\u0628\u064A\u0628", price: 25e3, category: "\u0627\u0644\u0623\u0643\u0644\u0627\u062A \u0627\u0644\u0639\u0631\u0627\u0642\u064A\u0629", categoryId: "restaurants", stock: 20, unit: "\u0648\u062C\u0628\u0629", imageUrl: "https://images.unsplash.com/photo-1574484284002-952d92456975?w=400&q=80" },
+            { name: "\u062F\u0648\u0644\u0645\u0629 \u0639\u0631\u0627\u0642\u064A\u0629", description: "\u062F\u0648\u0644\u0645\u0629 \u0645\u062D\u0634\u064A\u0629 \u0628\u0627\u0644\u0623\u0631\u0632 \u0648\u0627\u0644\u0644\u062D\u0645 \u0627\u0644\u0645\u0641\u0631\u0648\u0645", price: 14e3, category: "\u0627\u0644\u0623\u0643\u0644\u0627\u062A \u0627\u0644\u0639\u0631\u0627\u0642\u064A\u0629", categoryId: "restaurants", stock: 30, unit: "\u0637\u0628\u0642", imageUrl: "https://images.unsplash.com/photo-1512003867696-6d5ce6835040?w=400&q=80" },
+            { name: "\u0645\u0633\u0642\u0648\u0641", description: "\u0633\u0645\u0643 \u0645\u0633\u0642\u0648\u0641 \u0637\u0627\u0632\u062C \u0645\u0634\u0648\u064A \u0639\u0644\u0649 \u0627\u0644\u062C\u0645\u0631", price: 22e3, category: "\u0627\u0644\u0623\u0633\u0645\u0627\u0643", categoryId: "restaurants", stock: 15, unit: "\u0648\u062C\u0628\u0629", imageUrl: "https://images.unsplash.com/photo-1467003909585-2f8a72700288?w=400&q=80" },
+            { name: "\u0634\u0648\u0631\u0628\u0629 \u0639\u0631\u0627\u0642\u064A\u0629", description: "\u0634\u0648\u0631\u0628\u0629 \u0644\u062D\u0645 \u0645\u0639 \u0627\u0644\u062E\u0636\u0631\u0648\u0627\u062A \u0627\u0644\u0637\u0627\u0632\u062C\u0629", price: 7e3, category: "\u0627\u0644\u0634\u0648\u0631\u0628\u0627\u062A", categoryId: "restaurants", stock: 35, unit: "\u0637\u0628\u0642", imageUrl: "https://images.unsplash.com/photo-1547592180-85f173990554?w=400&q=80" },
+            { name: "\u0628\u0631\u064A\u0627\u0646\u064A \u062F\u062C\u0627\u062C", description: "\u0628\u0631\u064A\u0627\u0646\u064A \u062F\u062C\u0627\u062C \u0628\u0627\u0644\u0628\u0647\u0627\u0631\u0627\u062A \u0627\u0644\u0647\u0646\u062F\u064A\u0629 \u0645\u0639 \u0627\u0644\u0632\u0628\u064A\u0628", price: 13e3, category: "\u0627\u0644\u0623\u0631\u0632", categoryId: "restaurants", stock: 25, unit: "\u0648\u062C\u0628\u0629", imageUrl: "https://images.unsplash.com/photo-1563379091339-03b21ab4a4f8?w=400&q=80" },
+            { name: "\u0641\u0644\u0627\u0641\u0644 \u0648\u062D\u0645\u0635", description: "\u0641\u0644\u0627\u0641\u0644 \u0645\u0642\u0631\u0645\u0634 \u0645\u0639 \u062D\u0645\u0635 \u0648\u062E\u0628\u0632 \u0639\u0631\u0628\u064A", price: 5e3, category: "\u0627\u0644\u0645\u0642\u0628\u0644\u0627\u062A", categoryId: "restaurants", stock: 60, unit: "\u0637\u0628\u0642", imageUrl: "https://images.unsplash.com/photo-1593001874117-c99c800e3eb6?w=400&q=80" },
+            { name: "\u062C\u0648\u0632\u0629 \u0645\u0634\u0648\u064A\u0629", description: "\u062C\u0648\u0632\u0629 \u062F\u062C\u0627\u062C \u0643\u0627\u0645\u0644\u0629 \u0645\u0639 \u0627\u0644\u0628\u0647\u0627\u0631\u0627\u062A \u0648\u0627\u0644\u0644\u064A\u0645\u0648\u0646", price: 18e3, category: "\u0627\u0644\u062F\u062C\u0627\u062C", categoryId: "restaurants", stock: 20, unit: "\u0648\u062C\u0628\u0629", imageUrl: "https://images.unsplash.com/photo-1598103442097-8b74394b95c3?w=400&q=80" },
+            { name: "\u0644\u0642\u064A\u0645\u0627\u062A \u0628\u0627\u0644\u0639\u0633\u0644", description: "\u0644\u0642\u064A\u0645\u0627\u062A \u0639\u0631\u0627\u0642\u064A\u0629 \u0623\u0635\u064A\u0644\u0629 \u0645\u0639 \u0627\u0644\u0639\u0633\u0644 \u0648\u0627\u0644\u0633\u0645\u0633\u0645", price: 6e3, category: "\u0627\u0644\u062D\u0644\u0648\u064A\u0627\u062A", categoryId: "restaurants", stock: 40, unit: "\u0637\u0628\u0642", imageUrl: "https://images.unsplash.com/photo-1551024506-0bccd828d307?w=400&q=80" }
+          ]
+        },
+        // ── صيدلية الشفاء ──────────────────────────────────────────────────────
+        {
+          storeName: "\u0635\u064A\u062F\u0644\u064A\u0629 \u0627\u0644\u0634\u0641\u0627\u0621",
+          businessType: "pharmacy",
+          ownerName: "\u062F. \u0639\u0644\u064A \u0627\u0644\u0634\u0641\u0627\u0621",
+          phoneNumber: "07700000003",
+          address: "\u0634\u0627\u0631\u0639 \u062D\u064A\u0641\u0627\u060C \u0628\u063A\u062F\u0627\u062F",
+          profileImageUrl: "https://images.unsplash.com/photo-1586015555751-63bb77f4322a?w=400&q=80",
+          coverImageUrl: "https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=800&q=80",
+          bio: "\u0635\u064A\u062F\u0644\u064A\u0629 \u0645\u062A\u0643\u0627\u0645\u0644\u0629 \u062A\u0648\u0641\u0631 \u0627\u0644\u0623\u062F\u0648\u064A\u0629 \u0648\u0645\u0633\u062A\u0644\u0632\u0645\u0627\u062A \u0627\u0644\u0639\u0646\u0627\u064A\u0629 \u0627\u0644\u0635\u062D\u064A\u0629 \u0628\u0623\u0633\u0639\u0627\u0631 \u0645\u0646\u0627\u0633\u0628\u0629",
+          products: [
+            { name: "\u0628\u0627\u0631\u0627\u0633\u064A\u062A\u0627\u0645\u0648\u0644 500 \u0645\u063A", description: "\u0623\u0642\u0631\u0627\u0635 \u0645\u0633\u0643\u0646 \u0644\u0644\u0623\u0644\u0645 \u0648\u062E\u0627\u0641\u0636 \u0644\u0644\u062D\u0631\u0627\u0631\u0629 20 \u0642\u0631\u0635", price: 3500, category: "\u0645\u0633\u0643\u0646\u0627\u062A \u0627\u0644\u0623\u0644\u0645", categoryId: "pharmacy", stock: 100, unit: "\u0639\u0644\u0628\u0629", imageUrl: "https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=400&q=80" },
+            { name: "\u0641\u064A\u062A\u0627\u0645\u064A\u0646 \u0633\u064A 1000", description: "\u0641\u064A\u062A\u0627\u0645\u064A\u0646 \u0633\u064A \u0623\u0642\u0631\u0627\u0635 \u0641\u0648\u0627\u0631\u0629 \u0644\u062A\u0639\u0632\u064A\u0632 \u0627\u0644\u0645\u0646\u0627\u0639\u0629", price: 8e3, category: "\u0627\u0644\u0641\u064A\u062A\u0627\u0645\u064A\u0646\u0627\u062A", categoryId: "pharmacy", stock: 60, unit: "\u0639\u0644\u0628\u0629", imageUrl: "https://images.unsplash.com/photo-1550572017-edd951aa8f72?w=400&q=80" },
+            { name: "\u0628\u0627\u0646\u0627\u062F\u0648\u0644 \u0627\u0643\u0633\u062A\u0631\u0627", description: "\u0645\u0633\u0643\u0646 \u0642\u0648\u064A \u0644\u0644\u0635\u062F\u0627\u0639 \u0648\u0622\u0644\u0627\u0645 \u0627\u0644\u062C\u0633\u0645", price: 4500, category: "\u0645\u0633\u0643\u0646\u0627\u062A \u0627\u0644\u0623\u0644\u0645", categoryId: "pharmacy", stock: 80, unit: "\u0639\u0644\u0628\u0629", imageUrl: "https://images.unsplash.com/photo-1559757175-0eb30cd8c063?w=400&q=80" },
+            { name: "\u0643\u0631\u064A\u0645 \u062A\u0631\u0637\u064A\u0628 \u064A\u0648\u0645\u064A", description: "\u0643\u0631\u064A\u0645 \u0645\u0631\u0637\u0628 \u0644\u0644\u0628\u0634\u0631\u0629 \u0627\u0644\u062C\u0627\u0641\u0629 100 \u0645\u0644", price: 12e3, category: "\u0627\u0644\u0639\u0646\u0627\u064A\u0629 \u0628\u0627\u0644\u0628\u0634\u0631\u0629", categoryId: "pharmacy", stock: 35, unit: "\u0642\u0627\u0631\u0648\u0631\u0629", imageUrl: "https://images.unsplash.com/photo-1556228720-195a672e8a03?w=400&q=80" },
+            { name: "\u0634\u0627\u0645\u0628\u0648 \u0644\u0644\u0634\u0639\u0631 \u0627\u0644\u062C\u0627\u0641", description: "\u0634\u0627\u0645\u0628\u0648 \u0645\u0631\u0637\u0628 \u0644\u0644\u0634\u0639\u0631 \u0627\u0644\u062C\u0627\u0641 \u0648\u0627\u0644\u062A\u0627\u0644\u0641 400 \u0645\u0644", price: 9e3, category: "\u0627\u0644\u0639\u0646\u0627\u064A\u0629 \u0628\u0627\u0644\u0634\u0639\u0631", categoryId: "pharmacy", stock: 40, unit: "\u0642\u0627\u0631\u0648\u0631\u0629", imageUrl: "https://images.unsplash.com/photo-1571782442574-82e0b7aea0da?w=400&q=80" },
+            { name: "\u0643\u0645\u0627\u0645\u0627\u062A \u0637\u0628\u064A\u0629", description: "\u0643\u0645\u0627\u0645\u0627\u062A \u0637\u0628\u064A\u0629 \u062B\u0644\u0627\u062B\u064A\u0629 \u0627\u0644\u0637\u0628\u0642\u0627\u062A 50 \u0642\u0637\u0639\u0629", price: 7e3, category: "\u0645\u0633\u062A\u0644\u0632\u0645\u0627\u062A \u0637\u0628\u064A\u0629", categoryId: "pharmacy", stock: 55, unit: "\u0639\u0644\u0628\u0629", imageUrl: "https://images.unsplash.com/photo-1584556812952-905ffd0c611a?w=400&q=80" },
+            { name: "\u062C\u0644 \u0645\u0637\u0647\u0631 \u0644\u0644\u064A\u062F\u064A\u0646", description: "\u062C\u0644 \u0643\u062D\u0648\u0644\u064A \u0645\u0637\u0647\u0631 \u0644\u0644\u064A\u062F\u064A\u0646 300 \u0645\u0644", price: 5e3, category: "\u0645\u0633\u062A\u0644\u0632\u0645\u0627\u062A \u0637\u0628\u064A\u0629", categoryId: "pharmacy", stock: 70, unit: "\u0642\u0627\u0631\u0648\u0631\u0629", imageUrl: "https://images.unsplash.com/photo-1584362917165-526a968579e8?w=400&q=80" },
+            { name: "\u0636\u0645\u0627\u062F\u0627\u062A \u0637\u0628\u064A\u0629", description: "\u0636\u0645\u0627\u062F\u0627\u062A \u0644\u0627\u0635\u0642\u0629 \u0645\u0639\u0642\u0645\u0629 \u0645\u062E\u062A\u0644\u0641\u0629 \u0627\u0644\u0623\u062D\u062C\u0627\u0645 20 \u0642\u0637\u0639\u0629", price: 3e3, category: "\u0645\u0633\u062A\u0644\u0632\u0645\u0627\u062A \u0637\u0628\u064A\u0629", categoryId: "pharmacy", stock: 90, unit: "\u0639\u0644\u0628\u0629", imageUrl: "https://images.unsplash.com/photo-1631549916768-4119b2e5f926?w=400&q=80" }
+          ]
+        }
+      ];
+      let totalVendors = 0;
+      let totalProducts = 0;
+      const createdStores = [];
+      for (const store of demoStores) {
+        const existing = await db2.collection("vendors").where("phoneNumber", "==", store.phoneNumber).limit(1).get();
+        let vendorDocId;
+        if (!existing.empty) {
+          vendorDocId = existing.docs[0].id;
+        } else {
+          vendorDocId = uid();
+          await db2.collection("vendors").doc(vendorDocId).set({
+            id: vendorDocId,
+            storeName: store.storeName,
+            businessType: store.businessType,
+            phoneNumber: store.phoneNumber,
+            email: null,
+            passwordHash: "$2b$10$demoHashNotUsedForLogin00000000000000000000000000000",
+            ownerName: store.ownerName,
+            address: store.address,
+            profileImageUrl: store.profileImageUrl,
+            coverImageUrl: store.coverImageUrl,
+            bio: store.bio,
+            status: "active",
+            totalProducts: store.products.length,
+            totalOrders: 0,
+            createdAt: now,
+            updatedAt: now
+          });
+          totalVendors++;
+        }
+        createdStores.push(store.storeName);
+        const existingProducts = await db2.collection("vendorProducts").where("vendorId", "==", vendorDocId).get();
+        if (!existingProducts.empty) {
+          const delBatch = db2.batch();
+          existingProducts.docs.forEach((d) => delBatch.delete(d.ref));
+          await delBatch.commit();
+        }
+        const productBatch = db2.batch();
+        for (const p of store.products) {
+          const pid = uid();
+          productBatch.set(db2.collection("vendorProducts").doc(pid), {
+            id: pid,
+            vendorId: vendorDocId,
+            vendorName: store.storeName,
+            storeName: store.storeName,
+            vendorPhone: store.phoneNumber,
+            name: p.name,
+            description: p.description,
+            price: p.price,
+            category: p.category,
+            categoryId: p.categoryId,
+            stock: p.stock,
+            unit: p.unit,
+            imageUrl: p.imageUrl,
+            imageUrls: [p.imageUrl],
+            status: "approved",
+            approvedAt: now,
+            createdAt: now,
+            updatedAt: now
+          });
+          totalProducts++;
+        }
+        await productBatch.commit();
+      }
+      invalidateVendorsCache();
+      res.json({ success: true, totalVendors, totalProducts, stores: createdStores });
+    } catch (err) {
+      console.error("seed demo stores:", err);
+      res.status(500).json({ error: err.message || "\u0641\u0634\u0644 \u0625\u0646\u0634\u0627\u0621 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u062A\u062C\u0631\u064A\u0628\u064A\u0629" });
+    }
+  });
   app2.delete("/api/admin/vendor-partners/:id", async (req, res) => {
     try {
       const db2 = getFirestore();

@@ -3009,6 +3009,25 @@
           </div>
         </div>
 
+        <!-- Seed Demo Data Card -->
+        <div class="card" style="border-right:4px solid #F59E0B;margin-bottom:24px;">
+          <div class="card-body" style="padding:24px;">
+            <div style="display:flex;align-items:center;gap:14px;margin-bottom:16px;">
+              <div style="width:50px;height:50px;border-radius:12px;background:#F59E0B20;display:flex;align-items:center;justify-content:center;">
+                <i data-lucide="database" style="width:24px;height:24px;color:#F59E0B;"></i>
+              </div>
+              <div>
+                <h3 style="margin:0;font-size:1rem;font-weight:700;">بذر بيانات تجريبية</h3>
+                <p style="margin:4px 0 0;font-size:0.8rem;color:var(--gray-500);">3 متاجر — 45 منتج</p>
+              </div>
+            </div>
+            <p style="color:var(--gray-500);font-size:0.85rem;margin-bottom:16px;">ينشئ <strong>3 متاجر افتراضية</strong> (سوبرماركت، مطعم، صيدلية) مع منتجات حقيقية موزعة على جميع الأقسام. يُستخدم للاختبار وعرض المنتجات. سيُعيد تشغيل الزر استبدال المنتجات الموجودة في المتاجر الافتراضية.</p>
+            <button class="btn" id="seed-btn" style="background:#F59E0B;color:white;border:none;" onclick="seedDemoStores()">
+              <i data-lucide="zap"></i> إنشاء المتاجر الافتراضية
+            </button>
+          </div>
+        </div>
+
         <!-- Financial Stats -->
         <div class="card">
           <div class="card-header">
@@ -8652,6 +8671,22 @@ function renderStoreProducts(list) {
       </div>`;
   }).join('');
   lucide.createIcons();
+}
+
+async function seedDemoStores() {
+  const btn = document.getElementById('seed-btn');
+  if (btn) { btn.disabled = true; btn.innerHTML = '<i data-lucide="loader"></i> جاري الإنشاء...'; lucide.createIcons(); }
+  try {
+    const res = await fetch(`${API_BASE}/admin/seed-demo-stores`, { method: 'POST' });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'فشل');
+    showToast('success', 'تم بنجاح', `تم إنشاء ${data.totalVendors} متجر جديد و${data.totalProducts} منتج`);
+    loadVendorPartners();
+  } catch (err) {
+    showToast('error', 'خطأ', err.message || 'فشل إنشاء البيانات التجريبية');
+  } finally {
+    if (btn) { btn.disabled = false; btn.innerHTML = '<i data-lucide="zap"></i> إنشاء المتاجر الافتراضية'; lucide.createIcons(); }
+  }
 }
 
 async function deleteVendorPartner(vendorId, storeName) {

@@ -492,6 +492,191 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ── Admin: Seed demo stores and products (testing) ─────────────────────────
+  app.post("/api/admin/seed-demo-stores", async (_req: Request, res: Response) => {
+    try {
+      const db = getFirestore();
+      if (!db) return res.status(500).json({ error: "قاعدة البيانات غير متاحة" });
+      const now = new Date().toISOString();
+      const uid = () => `demo_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+
+      interface DemoProduct { name: string; description: string; price: number; category: string; categoryId: string; stock: number; unit: string; imageUrl: string; }
+      interface DemoStore { storeName: string; businessType: string; ownerName: string; phoneNumber: string; address: string; profileImageUrl: string; coverImageUrl: string; bio: string; products: DemoProduct[]; }
+
+      const demoStores: DemoStore[] = [
+        // ── سوبرماركت اون واي ──────────────────────────────────────────────────
+        {
+          storeName: "سوبرماركت اون واي",
+          businessType: "supermarket",
+          ownerName: "أحمد السوبرماركت",
+          phoneNumber: "07700000001",
+          address: "شارع الرشيد، بغداد",
+          profileImageUrl: "https://images.unsplash.com/photo-1578916171728-46686eac8d58?w=400&q=80",
+          coverImageUrl: "https://images.unsplash.com/photo-1542838132-92c53300491e?w=800&q=80",
+          bio: "سوبرماركت متكامل يوفر كل احتياجاتك اليومية بجودة عالية وأسعار مناسبة",
+          products: [
+            // خضروات وفواكه
+            { name: "طماطم طازجة", description: "طماطم طازجة 1 كيلو مباشرة من المزرعة", price: 3000, category: "الخضروات والفواكه", categoryId: "fruits-vegetables", stock: 100, unit: "كيلو", imageUrl: "https://images.unsplash.com/photo-1546470427-e26264be0b11?w=400&q=80" },
+            { name: "خيار", description: "خيار طازج 1 كيلو", price: 2500, category: "الخضروات والفواكه", categoryId: "fruits-vegetables", stock: 80, unit: "كيلو", imageUrl: "https://images.unsplash.com/photo-1449300079323-02e209d9d3a6?w=400&q=80" },
+            { name: "فراولة طازجة", description: "فراولة طازجة 500 جرام موسمية", price: 6000, category: "الخضروات والفواكه", categoryId: "fruits-vegetables", stock: 40, unit: "علبة", imageUrl: "https://images.unsplash.com/photo-1464965911861-746a04b4bca6?w=400&q=80" },
+            { name: "موز", description: "موز طازج 1 كيلو", price: 4000, category: "الخضروات والفواكه", categoryId: "fruits-vegetables", stock: 60, unit: "كيلو", imageUrl: "https://images.unsplash.com/photo-1571771894821-ce9b6c11b08e?w=400&q=80" },
+            { name: "تفاح أحمر", description: "تفاح أحمر 1 كيلو", price: 5000, category: "الخضروات والفواكه", categoryId: "fruits-vegetables", stock: 70, unit: "كيلو", imageUrl: "https://images.unsplash.com/photo-1567306226416-28f0efdc88ce?w=400&q=80" },
+            { name: "بطاطا", description: "بطاطا طازجة 1 كيلو", price: 2500, category: "الخضروات والفواكه", categoryId: "fruits-vegetables", stock: 90, unit: "كيلو", imageUrl: "https://images.unsplash.com/photo-1518977676601-b53f82ber8a3?w=400&q=80" },
+            // ألبان وأجبان
+            { name: "حليب طازج", description: "حليب طازج كامل الدسم 1 لتر", price: 3500, category: "الألبان والأجبان", categoryId: "dairy-eggs", stock: 50, unit: "لتر", imageUrl: "https://images.unsplash.com/photo-1550583724-b2692b85b150?w=400&q=80" },
+            { name: "جبن أبيض", description: "جبن أبيض طازج 500 جرام", price: 5000, category: "الألبان والأجبان", categoryId: "dairy-eggs", stock: 35, unit: "علبة", imageUrl: "https://images.unsplash.com/photo-1486297678162-eb2a19b0a32d?w=400&q=80" },
+            { name: "بيض دجاج", description: "بيض دجاج بلدي 12 حبة", price: 6000, category: "الألبان والأجبان", categoryId: "dairy-eggs", stock: 45, unit: "كرتونة", imageUrl: "https://images.unsplash.com/photo-1582722872445-44dc5f7e3c8f?w=400&q=80" },
+            { name: "لبن رائب", description: "لبن رائب كامل الدسم 500 جرام", price: 2500, category: "الألبان والأجبان", categoryId: "dairy-eggs", stock: 60, unit: "علبة", imageUrl: "https://images.unsplash.com/photo-1563636619-e9143da7973b?w=400&q=80" },
+            // مشروبات
+            { name: "ماء معدني", description: "ماء معدني نقي 1.5 لتر", price: 1000, category: "المشروبات", categoryId: "beverages", stock: 200, unit: "قارورة", imageUrl: "https://images.unsplash.com/photo-1548839140-29a749e1cf4d?w=400&q=80" },
+            { name: "عصير برتقال طبيعي", description: "عصير برتقال طبيعي 1 لتر", price: 4000, category: "المشروبات", categoryId: "beverages", stock: 30, unit: "قارورة", imageUrl: "https://images.unsplash.com/photo-1621506289937-a8e4df240d0b?w=400&q=80" },
+            { name: "مشروب غازي", description: "مشروب غازي كولا 355 مل", price: 1500, category: "المشروبات", categoryId: "beverages", stock: 120, unit: "علبة", imageUrl: "https://images.unsplash.com/photo-1622483767028-3f66f32aef97?w=400&q=80" },
+            { name: "عصير مانجا", description: "عصير مانجا طبيعي 1 لتر", price: 4500, category: "المشروبات", categoryId: "beverages", stock: 25, unit: "قارورة", imageUrl: "https://images.unsplash.com/photo-1546173159-315724a31696?w=400&q=80" },
+            // سناكس
+            { name: "شيبس مملح", description: "شيبس مقرمش بالملح 150 جرام", price: 2000, category: "سناكس ومقرمشات", categoryId: "snacks-sweets", stock: 80, unit: "كيس", imageUrl: "https://images.unsplash.com/photo-1566478989037-eec170784d0b?w=400&q=80" },
+            { name: "شوكولاتة حليب", description: "شوكولاتة بالحليب 100 جرام", price: 3000, category: "سناكس ومقرمشات", categoryId: "snacks-sweets", stock: 60, unit: "قطعة", imageUrl: "https://images.unsplash.com/photo-1548907040-4baa42d10919?w=400&q=80" },
+            { name: "بسكويت شاي", description: "بسكويت للشاي 400 جرام", price: 2500, category: "سناكس ومقرمشات", categoryId: "snacks-sweets", stock: 70, unit: "علبة", imageUrl: "https://images.unsplash.com/photo-1558961363-fa8fdf82db35?w=400&q=80" },
+            // شاي وقهوة
+            { name: "شاي أسود", description: "شاي أسود فاخر 200 جرام", price: 5000, category: "شاي وقهوة", categoryId: "tea-coffee", stock: 40, unit: "علبة", imageUrl: "https://images.unsplash.com/photo-1556679343-c7306c1976bc?w=400&q=80" },
+            { name: "قهوة عربية", description: "قهوة عربية أصيلة بالهيل 250 جرام", price: 8000, category: "شاي وقهوة", categoryId: "tea-coffee", stock: 25, unit: "علبة", imageUrl: "https://images.unsplash.com/photo-1509042239860-f550ce710b93?w=400&q=80" },
+            { name: "نسكافيه", description: "نسكافيه كلاسيك 200 جرام", price: 9000, category: "شاي وقهوة", categoryId: "tea-coffee", stock: 30, unit: "علبة", imageUrl: "https://images.unsplash.com/photo-1498804103079-a6351b050096?w=400&q=80" },
+            // منظفات
+            { name: "سائل غسيل ملابس", description: "سائل غسيل قوي 3 لتر", price: 7000, category: "المنظفات", categoryId: "cleaning-care", stock: 35, unit: "قارورة", imageUrl: "https://images.unsplash.com/photo-1585421514738-01798e348b17?w=400&q=80" },
+            { name: "صابون يدين", description: "صابون سائل لليدين 500 مل", price: 3000, category: "المنظفات", categoryId: "cleaning-care", stock: 50, unit: "قارورة", imageUrl: "https://images.unsplash.com/photo-1584515933487-779824d29309?w=400&q=80" },
+            { name: "منظف للأرضيات", description: "منظف أرضيات بعطر الليمون 2 لتر", price: 5000, category: "المنظفات", categoryId: "cleaning-care", stock: 28, unit: "قارورة", imageUrl: "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=400&q=80" },
+            // مواد غذائية
+            { name: "أرز بسمتي", description: "أرز بسمتي فاخر 5 كيلو", price: 12000, category: "المواد الغذائية", categoryId: "food-supplies", stock: 40, unit: "كيس", imageUrl: "https://images.unsplash.com/photo-1586201375761-83865001e31c?w=400&q=80" },
+            { name: "زيت نباتي", description: "زيت نباتي صافي 1.5 لتر", price: 8000, category: "المواد الغذائية", categoryId: "food-supplies", stock: 45, unit: "قارورة", imageUrl: "https://images.unsplash.com/photo-1474979266404-7eaacbcd87c5?w=400&q=80" },
+            { name: "دقيق قمح", description: "دقيق قمح أبيض 2 كيلو", price: 6000, category: "المواد الغذائية", categoryId: "food-supplies", stock: 55, unit: "كيس", imageUrl: "https://images.unsplash.com/photo-1574323347407-f5e1ad6d020b?w=400&q=80" },
+            { name: "سكر أبيض", description: "سكر أبيض ناعم 2 كيلو", price: 5000, category: "المواد الغذائية", categoryId: "food-supplies", stock: 60, unit: "كيس", imageUrl: "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=400&q=80" },
+          ],
+        },
+        // ── مطعم الرائد ────────────────────────────────────────────────────────
+        {
+          storeName: "مطعم الرائد العراقي",
+          businessType: "restaurant",
+          ownerName: "محمد الرائد",
+          phoneNumber: "07700000002",
+          address: "شارع المتنبي، بغداد",
+          profileImageUrl: "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=400&q=80",
+          coverImageUrl: "https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=800&q=80",
+          bio: "مطعم عراقي أصيل يقدم أشهى الأكلات التراثية بنكهات عراقية حقيقية",
+          products: [
+            { name: "كباب عراقي", description: "كباب لحم مشوي مع الخبز العراقي وصحن السلطة", price: 12000, category: "المشويات", categoryId: "restaurants", stock: 50, unit: "وجبة", imageUrl: "https://images.unsplash.com/photo-1529692236671-f1f6cf9683ba?w=400&q=80" },
+            { name: "تكا مشوية", description: "تكا لحم بقري مشوي على الجمر 4 قطع", price: 15000, category: "المشويات", categoryId: "restaurants", stock: 40, unit: "وجبة", imageUrl: "https://images.unsplash.com/photo-1544025162-d76538775176?w=400&q=80" },
+            { name: "قوزي عراقي", description: "قوزي لحم ضأن مع الأرز والزبيب", price: 25000, category: "الأكلات العراقية", categoryId: "restaurants", stock: 20, unit: "وجبة", imageUrl: "https://images.unsplash.com/photo-1574484284002-952d92456975?w=400&q=80" },
+            { name: "دولمة عراقية", description: "دولمة محشية بالأرز واللحم المفروم", price: 14000, category: "الأكلات العراقية", categoryId: "restaurants", stock: 30, unit: "طبق", imageUrl: "https://images.unsplash.com/photo-1512003867696-6d5ce6835040?w=400&q=80" },
+            { name: "مسقوف", description: "سمك مسقوف طازج مشوي على الجمر", price: 22000, category: "الأسماك", categoryId: "restaurants", stock: 15, unit: "وجبة", imageUrl: "https://images.unsplash.com/photo-1467003909585-2f8a72700288?w=400&q=80" },
+            { name: "شوربة عراقية", description: "شوربة لحم مع الخضروات الطازجة", price: 7000, category: "الشوربات", categoryId: "restaurants", stock: 35, unit: "طبق", imageUrl: "https://images.unsplash.com/photo-1547592180-85f173990554?w=400&q=80" },
+            { name: "برياني دجاج", description: "برياني دجاج بالبهارات الهندية مع الزبيب", price: 13000, category: "الأرز", categoryId: "restaurants", stock: 25, unit: "وجبة", imageUrl: "https://images.unsplash.com/photo-1563379091339-03b21ab4a4f8?w=400&q=80" },
+            { name: "فلافل وحمص", description: "فلافل مقرمش مع حمص وخبز عربي", price: 5000, category: "المقبلات", categoryId: "restaurants", stock: 60, unit: "طبق", imageUrl: "https://images.unsplash.com/photo-1593001874117-c99c800e3eb6?w=400&q=80" },
+            { name: "جوزة مشوية", description: "جوزة دجاج كاملة مع البهارات والليمون", price: 18000, category: "الدجاج", categoryId: "restaurants", stock: 20, unit: "وجبة", imageUrl: "https://images.unsplash.com/photo-1598103442097-8b74394b95c3?w=400&q=80" },
+            { name: "لقيمات بالعسل", description: "لقيمات عراقية أصيلة مع العسل والسمسم", price: 6000, category: "الحلويات", categoryId: "restaurants", stock: 40, unit: "طبق", imageUrl: "https://images.unsplash.com/photo-1551024506-0bccd828d307?w=400&q=80" },
+          ],
+        },
+        // ── صيدلية الشفاء ──────────────────────────────────────────────────────
+        {
+          storeName: "صيدلية الشفاء",
+          businessType: "pharmacy",
+          ownerName: "د. علي الشفاء",
+          phoneNumber: "07700000003",
+          address: "شارع حيفا، بغداد",
+          profileImageUrl: "https://images.unsplash.com/photo-1586015555751-63bb77f4322a?w=400&q=80",
+          coverImageUrl: "https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=800&q=80",
+          bio: "صيدلية متكاملة توفر الأدوية ومستلزمات العناية الصحية بأسعار مناسبة",
+          products: [
+            { name: "باراسيتامول 500 مغ", description: "أقراص مسكن للألم وخافض للحرارة 20 قرص", price: 3500, category: "مسكنات الألم", categoryId: "pharmacy", stock: 100, unit: "علبة", imageUrl: "https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=400&q=80" },
+            { name: "فيتامين سي 1000", description: "فيتامين سي أقراص فوارة لتعزيز المناعة", price: 8000, category: "الفيتامينات", categoryId: "pharmacy", stock: 60, unit: "علبة", imageUrl: "https://images.unsplash.com/photo-1550572017-edd951aa8f72?w=400&q=80" },
+            { name: "بانادول اكسترا", description: "مسكن قوي للصداع وآلام الجسم", price: 4500, category: "مسكنات الألم", categoryId: "pharmacy", stock: 80, unit: "علبة", imageUrl: "https://images.unsplash.com/photo-1559757175-0eb30cd8c063?w=400&q=80" },
+            { name: "كريم ترطيب يومي", description: "كريم مرطب للبشرة الجافة 100 مل", price: 12000, category: "العناية بالبشرة", categoryId: "pharmacy", stock: 35, unit: "قارورة", imageUrl: "https://images.unsplash.com/photo-1556228720-195a672e8a03?w=400&q=80" },
+            { name: "شامبو للشعر الجاف", description: "شامبو مرطب للشعر الجاف والتالف 400 مل", price: 9000, category: "العناية بالشعر", categoryId: "pharmacy", stock: 40, unit: "قارورة", imageUrl: "https://images.unsplash.com/photo-1571782442574-82e0b7aea0da?w=400&q=80" },
+            { name: "كمامات طبية", description: "كمامات طبية ثلاثية الطبقات 50 قطعة", price: 7000, category: "مستلزمات طبية", categoryId: "pharmacy", stock: 55, unit: "علبة", imageUrl: "https://images.unsplash.com/photo-1584556812952-905ffd0c611a?w=400&q=80" },
+            { name: "جل مطهر لليدين", description: "جل كحولي مطهر لليدين 300 مل", price: 5000, category: "مستلزمات طبية", categoryId: "pharmacy", stock: 70, unit: "قارورة", imageUrl: "https://images.unsplash.com/photo-1584362917165-526a968579e8?w=400&q=80" },
+            { name: "ضمادات طبية", description: "ضمادات لاصقة معقمة مختلفة الأحجام 20 قطعة", price: 3000, category: "مستلزمات طبية", categoryId: "pharmacy", stock: 90, unit: "علبة", imageUrl: "https://images.unsplash.com/photo-1631549916768-4119b2e5f926?w=400&q=80" },
+          ],
+        },
+      ];
+
+      let totalVendors = 0;
+      let totalProducts = 0;
+      const createdStores: string[] = [];
+
+      for (const store of demoStores) {
+        // Check if demo store already exists
+        const existing = await db.collection("vendors").where("phoneNumber", "==", store.phoneNumber).limit(1).get();
+        let vendorDocId: string;
+
+        if (!existing.empty) {
+          vendorDocId = existing.docs[0].id;
+        } else {
+          vendorDocId = uid();
+          await db.collection("vendors").doc(vendorDocId).set({
+            id: vendorDocId,
+            storeName: store.storeName,
+            businessType: store.businessType,
+            phoneNumber: store.phoneNumber,
+            email: null,
+            passwordHash: "$2b$10$demoHashNotUsedForLogin00000000000000000000000000000",
+            ownerName: store.ownerName,
+            address: store.address,
+            profileImageUrl: store.profileImageUrl,
+            coverImageUrl: store.coverImageUrl,
+            bio: store.bio,
+            status: "active",
+            totalProducts: store.products.length,
+            totalOrders: 0,
+            createdAt: now,
+            updatedAt: now,
+          });
+          totalVendors++;
+        }
+        createdStores.push(store.storeName);
+
+        // Delete existing products for this vendor and re-seed
+        const existingProducts = await db.collection("vendorProducts").where("vendorId", "==", vendorDocId).get();
+        if (!existingProducts.empty) {
+          const delBatch = db.batch();
+          existingProducts.docs.forEach(d => delBatch.delete(d.ref));
+          await delBatch.commit();
+        }
+
+        // Add all products in batches of 500
+        const productBatch = db.batch();
+        for (const p of store.products) {
+          const pid = uid();
+          productBatch.set(db.collection("vendorProducts").doc(pid), {
+            id: pid,
+            vendorId: vendorDocId,
+            vendorName: store.storeName,
+            storeName: store.storeName,
+            vendorPhone: store.phoneNumber,
+            name: p.name,
+            description: p.description,
+            price: p.price,
+            category: p.category,
+            categoryId: p.categoryId,
+            stock: p.stock,
+            unit: p.unit,
+            imageUrl: p.imageUrl,
+            imageUrls: [p.imageUrl],
+            status: "approved",
+            approvedAt: now,
+            createdAt: now,
+            updatedAt: now,
+          });
+          totalProducts++;
+        }
+        await productBatch.commit();
+      }
+
+      invalidateVendorsCache();
+      res.json({ success: true, totalVendors, totalProducts, stores: createdStores });
+    } catch (err: any) {
+      console.error("seed demo stores:", err);
+      res.status(500).json({ error: err.message || "فشل إنشاء البيانات التجريبية" });
+    }
+  });
+
   // ── Admin: Delete a vendor (store) and all its products ────────────────────
   app.delete("/api/admin/vendor-partners/:id", async (req: Request, res: Response) => {
     try {
