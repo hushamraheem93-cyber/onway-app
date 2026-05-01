@@ -5,7 +5,7 @@ import jwt from "jsonwebtoken";
 import multer, { StorageEngine, FileFilterCallback } from "multer";
 import path from "path";
 import fs from "fs";
-import { randomUUID } from "crypto";
+import { randomUUID, createHmac } from "crypto";
 import { 
   getFirestore, getUserByPhone, createUser, updateUser, FirestoreUserProfile,
   getProducts as getFirestoreProducts, createProduct as createFirestoreProduct, 
@@ -269,15 +269,21 @@ function extractVendorId(req: Request): string | null {
   }
 }
 
-function requireAdminAuth(req: Request, res: Response, next: express.NextFunction) {
-  const raw = (req.headers.cookie || "");
-  const cookieMap: Record<string, string> = {};
-  raw.split(";").forEach(part => {
+function isAdminSessionValid(req: Request): boolean {
+  const parsedCookies: Record<string, string> = {};
+  (req.headers.cookie || "").split(";").forEach(part => {
     const [k, ...v] = part.trim().split("=");
-    if (k) cookieMap[k.trim()] = decodeURIComponent(v.join("=").trim());
+    if (k) parsedCookies[k.trim()] = decodeURIComponent(v.join("=").trim());
   });
-  const session = (req as any).cookies?.["onway_admin_session"] ?? cookieMap["onway_admin_session"];
-  if (!session) return res.status(401).json({ error: "غير مصرح" });
+  const raw = (req as any).cookies?.["onway_admin_session"] ?? parsedCookies["onway_admin_session"];
+  if (!raw) return false;
+  const secret = `${process.env.ADMIN_USERNAME}:${process.env.ADMIN_PASSWORD}`;
+  const expected = createHmac("sha256", secret).update("onway_admin").digest("hex");
+  return raw === expected;
+}
+
+function requireAdminAuth(req: Request, res: Response, next: express.NextFunction) {
+  if (!isAdminSessionValid(req)) return res.status(401).json({ error: "غير مصرح" });
   next();
 }
 

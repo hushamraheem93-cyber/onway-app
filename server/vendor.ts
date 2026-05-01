@@ -1036,7 +1036,11 @@ router.patch("/api/vendor/orders/:id/status", requireVendor, async (req, res) =>
 
 function isAdminSession(req: Request): boolean {
   const cookies = (req as any).cookies || parseCookies(req);
-  return !!cookies["onway_admin_session"];
+  const raw = cookies["onway_admin_session"];
+  if (!raw) return false;
+  const secret = `${process.env.ADMIN_USERNAME}:${process.env.ADMIN_PASSWORD}`;
+  const expected = crypto.createHmac("sha256", secret).update("onway_admin").digest("hex");
+  return raw === expected;
 }
 
 function requireAdmin(req: Request, res: Response, next: express.NextFunction) {
