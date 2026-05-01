@@ -20,7 +20,9 @@ import { useAuth } from "@/context/AuthContext";
 import { getApiUrl } from "@/lib/query-client";
 import { resolveImageUrl } from "@/utils/imageUtils";
 
-const PURPLE = "#673AB7";
+const ORANGE = "#E86520";
+const ORANGE_LIGHT = "#FFF0E6";
+const ORANGE_BG = "#FFF8F4";
 
 interface Product {
   id: string;
@@ -371,7 +373,7 @@ export default function VendorProductsScreen({ navigation }: any) {
       ) : null}
 
       {loading ? (
-        <ActivityIndicator color={PURPLE} style={{ marginTop: 40 }} />
+        <ActivityIndicator color={ORANGE} style={{ marginTop: 40 }} />
       ) : sections.length === 0 ? (
         renderEmpty()
       ) : (
@@ -641,7 +643,7 @@ function ProductCard({
                 onPress={onEdit}
                 testID={`button-edit-${item.id}`}
               >
-                <Feather name="edit-2" size={15} color={PURPLE} />
+                <Feather name="edit-2" size={15} color={ORANGE} />
               </Pressable>
               <Pressable
                 style={styles.deleteIconBtn}
@@ -664,11 +666,11 @@ function ProductCard({
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#F8F7FF" },
+  container: { flex: 1, backgroundColor: ORANGE_BG },
   headerBtn: {
     fontFamily: "Cairo_700Bold",
     fontSize: 14,
-    color: PURPLE,
+    color: ORANGE,
   },
   filterRow: {
     paddingHorizontal: 16,
@@ -684,7 +686,7 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: "#E5E7EB",
   },
-  filterChipActive: { backgroundColor: PURPLE, borderColor: PURPLE },
+  filterChipActive: { backgroundColor: ORANGE, borderColor: ORANGE },
   filterText: { fontFamily: "Cairo_700Bold", fontSize: 12, color: "#666" },
   filterTextActive: { color: "#fff" },
 
@@ -695,7 +697,7 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     paddingHorizontal: 16,
     paddingVertical: 8,
-    backgroundColor: "#EDE7F6",
+    backgroundColor: ORANGE_LIGHT,
   },
   selectAllBtn: {
     flexDirection: "row",
@@ -705,12 +707,12 @@ const styles = StyleSheet.create({
   selectAllText: {
     fontFamily: "Cairo_700Bold",
     fontSize: 13,
-    color: PURPLE,
+    color: ORANGE,
   },
   selectedCount: {
     fontFamily: "Cairo_700Bold",
     fontSize: 13,
-    color: PURPLE,
+    color: ORANGE,
   },
 
   // Checkbox
@@ -719,14 +721,14 @@ const styles = StyleSheet.create({
     height: 20,
     borderRadius: 6,
     borderWidth: 2,
-    borderColor: PURPLE,
+    borderColor: ORANGE,
     backgroundColor: "#fff",
     justifyContent: "center",
     alignItems: "center",
   },
   checkboxChecked: {
-    backgroundColor: PURPLE,
-    borderColor: PURPLE,
+    backgroundColor: ORANGE,
+    borderColor: ORANGE,
   },
 
   // Checkbox overlay on card image
@@ -755,7 +757,7 @@ const styles = StyleSheet.create({
     width: 4,
     height: 18,
     borderRadius: 2,
-    backgroundColor: PURPLE,
+    backgroundColor: ORANGE,
   },
   sectionTitle: {
     fontFamily: "Cairo_700Bold",
@@ -764,7 +766,7 @@ const styles = StyleSheet.create({
     textAlign: "right",
   },
   sectionCount: {
-    backgroundColor: PURPLE + "18",
+    backgroundColor: ORANGE + "22",
     borderRadius: 10,
     paddingHorizontal: 9,
     paddingVertical: 2,
@@ -772,27 +774,31 @@ const styles = StyleSheet.create({
   sectionCountText: {
     fontFamily: "Cairo_700Bold",
     fontSize: 12,
-    color: PURPLE,
+    color: ORANGE,
   },
 
   // Product card
   productCard: {
     backgroundColor: "#fff",
-    borderRadius: 14,
+    borderRadius: 16,
     marginBottom: 10,
     flexDirection: "row",
     overflow: "hidden",
     elevation: 2,
+    shadowColor: "#E8652020",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
   },
   productCardSelected: {
     borderWidth: 2,
-    borderColor: PURPLE,
+    borderColor: ORANGE,
   },
-  productImg: { width: 86, height: 86 },
+  productImg: { width: 90, height: 90 },
   productImgPlaceholder: {
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "#F5F5F5",
+    backgroundColor: "#FFF5EE",
   },
   productInfo: { flex: 1, padding: 12 },
   productRow: {
@@ -804,12 +810,12 @@ const styles = StyleSheet.create({
   productName: {
     fontFamily: "Cairo_700Bold",
     fontSize: 14,
-    color: "#222",
+    color: "#1A1A1A",
     flex: 1,
     textAlign: "right",
     marginLeft: 6,
   },
-  statusBadge: { borderRadius: 8, paddingHorizontal: 7, paddingVertical: 2, flexShrink: 0 },
+  statusBadge: { borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3, flexShrink: 0 },
   statusText: { fontFamily: "Cairo_700Bold", fontSize: 10 },
   productBottom: {
     flexDirection: "row",
@@ -817,7 +823,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginTop: 8,
   },
-  productPrice: { fontFamily: "Cairo_700Bold", fontSize: 14, color: PURPLE },
+  productPrice: { fontFamily: "Cairo_700Bold", fontSize: 15, color: ORANGE },
   cardActions: { flexDirection: "row", gap: 8, alignItems: "center" },
   availabilityPill: {
     flexDirection: "row",
@@ -849,7 +855,7 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 8,
-    backgroundColor: "#EDE7F6",
+    backgroundColor: ORANGE_LIGHT,
     justifyContent: "center",
     alignItems: "center",
   },
@@ -874,13 +880,17 @@ const styles = StyleSheet.create({
   fab: {
     position: "absolute",
     left: 20,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: PURPLE,
+    width: 58,
+    height: 58,
+    borderRadius: 29,
+    backgroundColor: ORANGE,
     justifyContent: "center",
     alignItems: "center",
     elevation: 8,
+    shadowColor: ORANGE,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35,
+    shadowRadius: 8,
   },
 
   // Bulk delete bar

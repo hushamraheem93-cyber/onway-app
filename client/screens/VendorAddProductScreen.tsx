@@ -23,8 +23,8 @@ import { ThemedText } from "@/components/ThemedText";
 import { useAuth } from "@/context/AuthContext";
 import { getApiUrl } from "@/lib/query-client";
 
-const PURPLE = "#673AB7";
 const ORANGE = "#E86520";
+const ORANGE_LIGHT = "#FFF0E6";
 const AMBER = "#D97706";
 const MAX_IMAGES = 5;
 const THUMB_SIZE = 88;
@@ -201,7 +201,7 @@ export default function VendorAddProductScreen({ navigation }: any) {
     return (
       <View style={[styles.successWrap, { paddingTop: headerHeight + 40 }]}>
         <View style={styles.successIcon}>
-          <MaterialCommunityIcons name="check-circle" size={64} color={PURPLE} />
+          <MaterialCommunityIcons name="check-circle" size={64} color={ORANGE} />
         </View>
         <ThemedText style={styles.successTitle}>تم إضافة المنتج بنجاح!</ThemedText>
         <ThemedText style={styles.successDesc}>
@@ -211,7 +211,7 @@ export default function VendorAddProductScreen({ navigation }: any) {
         </ThemedText>
         <View style={styles.successActions}>
           <Pressable
-            style={[styles.successBtn, { backgroundColor: PURPLE }]}
+            style={[styles.successBtn, { backgroundColor: ORANGE }]}
             onPress={() => {
               setSuccess(false);
               setName(""); setDescription(""); setPrice(""); setStock("");
@@ -332,12 +332,12 @@ export default function VendorAddProductScreen({ navigation }: any) {
 
       <View style={styles.imgActions}>
         <Pressable style={styles.imgActionBtn} onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); takePhoto(); }} testID="button-take-photo">
-          <Feather name="camera" size={16} color={PURPLE} />
+          <Feather name="camera" size={16} color={ORANGE} />
           <ThemedText style={styles.imgActionText}>التقاط صورة</ThemedText>
         </Pressable>
         <View style={styles.imgActionDivider} />
         <Pressable style={styles.imgActionBtn} onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); pickImageFromGallery(); }} testID="button-pick-image">
-          <Feather name="image" size={16} color={PURPLE} />
+          <Feather name="image" size={16} color={ORANGE} />
           <ThemedText style={styles.imgActionText}>من المعرض</ThemedText>
         </Pressable>
       </View>
@@ -449,7 +449,7 @@ export default function VendorAddProductScreen({ navigation }: any) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#F8F7FF" },
+  container: { flex: 1, backgroundColor: "#FFF8F4" },
   label: {
     fontFamily: "Cairo_700Bold", fontSize: 13, color: "#444",
     textAlign: "right", marginBottom: 6, marginTop: 4,
@@ -476,7 +476,7 @@ const styles = StyleSheet.create({
     overflow: "hidden",
     marginBottom: 10,
     position: "relative",
-    backgroundColor: "#EDE7F6",
+    backgroundColor: ORANGE_LIGHT,
   },
   heroImage: {
     width: "100%",
@@ -489,7 +489,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
-    backgroundColor: PURPLE,
+    backgroundColor: ORANGE,
     borderRadius: 20,
     paddingHorizontal: 10,
     paddingVertical: 4,
@@ -514,15 +514,15 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     borderWidth: 2,
     borderStyle: "dashed",
-    borderColor: "#C4B5FD",
-    backgroundColor: "#F5F3FF",
+    borderColor: "#FFB380",
+    backgroundColor: "#FFF5EE",
     alignItems: "center",
     justifyContent: "center",
     gap: 8,
     marginBottom: 10,
   },
   heroPlaceholderTitle: {
-    fontFamily: "Cairo_700Bold", fontSize: 15, color: PURPLE,
+    fontFamily: "Cairo_700Bold", fontSize: 15, color: ORANGE,
   },
   heroPlaceholderSub: {
     fontFamily: "Cairo_400Regular", fontSize: 12, color: "#9CA3AF",
@@ -547,7 +547,7 @@ const styles = StyleSheet.create({
     height: THUMB_SIZE,
     borderRadius: 12,
     borderWidth: 2,
-    borderColor: "#C4B5FD",
+    borderColor: "#FFB380",
   },
   removeBtn: {
     position: "absolute",
@@ -567,17 +567,17 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 2,
     borderStyle: "dashed",
-    borderColor: "#C4B5FD",
-    backgroundColor: "#F5F3FF",
+    borderColor: "#FFB380",
+    backgroundColor: "#FFF5EE",
     alignItems: "center",
     justifyContent: "center",
     gap: 4,
   },
   addThumbText: {
-    fontFamily: "Cairo_700Bold", fontSize: 11, color: PURPLE,
+    fontFamily: "Cairo_700Bold", fontSize: 11, color: ORANGE,
   },
   imgActions: {
-    flexDirection: "row", borderWidth: 1.5, borderColor: "#C4B5FD",
+    flexDirection: "row", borderWidth: 1.5, borderColor: "#FFB380",
     borderRadius: 16,
     overflow: "hidden", marginBottom: 14, marginTop: 10, backgroundColor: "#fff",
   },
@@ -585,8 +585,8 @@ const styles = StyleSheet.create({
     flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center",
     gap: 8, paddingVertical: 12,
   },
-  imgActionDivider: { width: 1.5, backgroundColor: "#C4B5FD" },
-  imgActionText: { fontFamily: "Cairo_700Bold", fontSize: 13, color: PURPLE },
+  imgActionDivider: { width: 1.5, backgroundColor: "#FFB380" },
+  imgActionText: { fontFamily: "Cairo_700Bold", fontSize: 13, color: ORANGE },
   pendingBanner: {
     flexDirection: "row", alignItems: "flex-start", gap: 10,
     backgroundColor: "#FFFBEB", borderWidth: 1, borderColor: "#FDE68A",
@@ -604,11 +604,11 @@ const styles = StyleSheet.create({
   errorText: { fontFamily: "Cairo_400Regular", fontSize: 13, color: "#EF4444", flex: 1, textAlign: "right" },
   noteBox: {
     flexDirection: "row", alignItems: "center", gap: 8,
-    backgroundColor: "#EDE7F6", borderRadius: 10, padding: 12, marginBottom: 20,
+    backgroundColor: ORANGE_LIGHT, borderRadius: 10, padding: 12, marginBottom: 20,
   },
-  noteText: { fontFamily: "Cairo_400Regular", fontSize: 12, color: "#5B21B6", flex: 1, textAlign: "right", lineHeight: 20 },
+  noteText: { fontFamily: "Cairo_400Regular", fontSize: 12, color: "#7C3A00", flex: 1, textAlign: "right", lineHeight: 20 },
   submitBtn: {
-    backgroundColor: PURPLE, borderRadius: 14, paddingVertical: 14,
+    backgroundColor: ORANGE, borderRadius: 14, paddingVertical: 14,
     flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 10,
   },
   submitDisabled: { opacity: 0.6 },
@@ -619,7 +619,7 @@ const styles = StyleSheet.create({
   },
   successIcon: {
     width: 100, height: 100, borderRadius: 28,
-    backgroundColor: "#EDE7F6", justifyContent: "center", alignItems: "center", marginBottom: 24,
+    backgroundColor: ORANGE_LIGHT, justifyContent: "center", alignItems: "center", marginBottom: 24,
   },
   successTitle: { fontFamily: "Cairo_700Bold", fontSize: 22, color: "#333", textAlign: "center", marginBottom: 10 },
   successDesc: { fontFamily: "Cairo_400Regular", fontSize: 14, color: "#666", textAlign: "center", lineHeight: 24, marginBottom: 32 },

@@ -32,8 +32,9 @@ import { useVendorNotifications } from "@/context/VendorNotificationsContext";
 import { getApiUrl } from "@/lib/query-client";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
 
-const PURPLE = "#673AB7";
 const ORANGE = "#E86520";
+const ORANGE_LIGHT = "#FFF0E6";
+const ORANGE_BG = "#FFF8F4";
 const POLL_INTERVAL_MS = 30_000;
 const SCREEN_W = Dimensions.get("window").width;
 const COVER_H = 190;
@@ -78,7 +79,7 @@ function notifColor(type: string): {
     return { bg: "#F0FDF4", border: "#86EFAC", icon: "check-circle", iconColor: "#16A34A" };
   if (type === "product_rejected")
     return { bg: "#FFF5F5", border: "#FECACA", icon: "close-circle", iconColor: "#DC2626" };
-  return { bg: "#F0F9FF", border: "#BAE6FD", icon: "bell", iconColor: PURPLE };
+  return { bg: "#FFF5EE", border: "#FFCBA4", icon: "bell", iconColor: ORANGE };
 }
 
 const BUSINESS_LABELS: Record<string, string> = {
@@ -369,7 +370,7 @@ export default function VendorHomeScreen({ navigation }: any) {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            tintColor={PURPLE}
+            tintColor={ORANGE}
             progressViewOffset={headerHeight}
           />
         }
@@ -450,7 +451,7 @@ export default function VendorHomeScreen({ navigation }: any) {
               </ThemedText>
             )}
             <Pressable onPress={() => setBioModalVisible(true)} style={styles.editBioBtn}>
-              <Feather name="edit-2" size={13} color={PURPLE} />
+              <Feather name="edit-2" size={13} color={ORANGE} />
             </Pressable>
           </View>
 
@@ -521,18 +522,18 @@ export default function VendorHomeScreen({ navigation }: any) {
 
           {/* Stats */}
           {loading ? (
-            <ActivityIndicator color={PURPLE} style={{ marginVertical: 24 }} />
+            <ActivityIndicator color={ORANGE} style={{ marginVertical: 24 }} />
           ) : (
             <>
               {/* Revenue summary */}
               <ThemedText style={styles.sectionTitle}>ملخص المبيعات</ThemedText>
               <View style={styles.revenueSummary} testID="revenue-summary">
-                <View style={[styles.revenueCard, { backgroundColor: "#EDE7F6" }]}>
-                  <MaterialCommunityIcons name="cash-multiple" size={26} color={PURPLE} />
-                  <ThemedText style={[styles.revenueValue, { color: PURPLE }]}>
+                <View style={[styles.revenueCard, { backgroundColor: ORANGE_LIGHT }]}>
+                  <MaterialCommunityIcons name="cash-multiple" size={26} color={ORANGE} />
+                  <ThemedText style={[styles.revenueValue, { color: ORANGE }]}>
                     {orderStats.totalRevenue.toFixed(2)}
                   </ThemedText>
-                  <ThemedText style={styles.revenueLabel}>إجمالي الإيرادات (د.ل)</ThemedText>
+                  <ThemedText style={styles.revenueLabel}>إجمالي الإيرادات (د.ع)</ThemedText>
                 </View>
                 <View style={styles.revenueRight}>
                   <View style={[styles.revenueSmallCard, { backgroundColor: "#D1FAE5" }]}>
@@ -555,7 +556,7 @@ export default function VendorHomeScreen({ navigation }: any) {
               {/* Product stats */}
               <ThemedText style={styles.sectionTitle}>إحصائيات المنتجات</ThemedText>
               <View style={styles.statsGrid}>
-                <StatCard icon="package-variant" label="الكل" value={stats.total} color={PURPLE} bg="#EDE7F6" />
+                <StatCard icon="package-variant" label="الكل" value={stats.total} color={ORANGE} bg={ORANGE_LIGHT} />
                 <StatCard icon="check-circle" label="معتمدة" value={stats.approved} color="#10B981" bg="#D1FAE5" />
                 <StatCard icon="clock-outline" label="مراجعة" value={stats.pending} color="#F59E0B" bg="#FEF3C7" />
                 <StatCard icon="close-circle" label="مرفوضة" value={stats.rejected} color="#EF4444" bg="#FEE2E2" />
@@ -591,8 +592,8 @@ export default function VendorHomeScreen({ navigation }: any) {
                 <QuickAction
                   icon="cog"
                   label="إعدادات"
-                  color="#1565C0"
-                  bg="#E3F2FD"
+                  color="#64748B"
+                  bg="#F1F5F9"
                   onPress={() => {
                     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
                     setSettDeliveryTime(vendorProfile?.deliveryTime || "30-45");
@@ -613,7 +614,7 @@ export default function VendorHomeScreen({ navigation }: any) {
           <ThemedText style={styles.sectionTitle}>كيف يعمل النظام</ThemedText>
           <View style={styles.stepsCard}>
             {[
-              { n: "1", icon: "upload", title: "أضف منتجاتك", desc: "ارفع صورة واضحة وحدد السعر والتفاصيل", color: PURPLE },
+              { n: "1", icon: "upload", title: "أضف منتجاتك", desc: "ارفع صورة واضحة وحدد السعر والتفاصيل", color: ORANGE },
               { n: "2", icon: "eye", title: "مراجعة الإدارة", desc: "يراجع الفريق منتجك خلال 24 ساعة", color: ORANGE },
               { n: "3", icon: "storefront", title: "يظهر للزبائن", desc: "بعد الموافقة يُعرض منتجك في التطبيق فوراً", color: "#10B981" },
             ].map((step, i) => (
@@ -710,7 +711,7 @@ export default function VendorHomeScreen({ navigation }: any) {
               <View style={settStyles.row}>
                 <Pressable
                   onPress={() => setSettingsUseHours(!settingsUseHours)}
-                  style={[settStyles.toggle, { backgroundColor: settingsUseHours ? "#1565C0" : "#E5E7EB" }]}
+                  style={[settStyles.toggle, { backgroundColor: settingsUseHours ? ORANGE : "#E5E7EB" }]}
                 >
                   <View
                     style={[
@@ -764,7 +765,7 @@ export default function VendorHomeScreen({ navigation }: any) {
                           }}
                           style={[
                             settStyles.dayBtn,
-                            { backgroundColor: active ? "#1565C0" : "#F3F4F6", borderColor: active ? "#1565C0" : "#E5E7EB" },
+                            { backgroundColor: active ? ORANGE : "#F3F4F6", borderColor: active ? ORANGE : "#E5E7EB" },
                           ]}
                         >
                           <ThemedText
@@ -825,14 +826,14 @@ function QuickAction({ icon, label, color, bg, onPress }: any) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#F8F7FF" },
+  container: { flex: 1, backgroundColor: ORANGE_BG },
 
   // Profile header
   profileHeader: { backgroundColor: "#fff" },
   coverWrapper: {
     width: SCREEN_W,
     height: COVER_H,
-    backgroundColor: "#EDE7F6",
+    backgroundColor: ORANGE_LIGHT,
     overflow: "hidden",
   },
   coverImg: { width: "100%", height: "100%" },
@@ -840,7 +841,7 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "#EDE7F6",
+    backgroundColor: ORANGE_LIGHT,
   },
   editCoverBtn: {
     position: "absolute",
@@ -875,7 +876,7 @@ const styles = StyleSheet.create({
     width: AVATAR_SIZE,
     height: AVATAR_SIZE,
     borderRadius: AVATAR_SIZE / 2,
-    backgroundColor: PURPLE,
+    backgroundColor: ORANGE,
     justifyContent: "center",
     alignItems: "center",
     borderWidth: 3,
@@ -894,7 +895,7 @@ const styles = StyleSheet.create({
     width: 26,
     height: 26,
     borderRadius: 13,
-    backgroundColor: PURPLE,
+    backgroundColor: ORANGE,
     justifyContent: "center",
     alignItems: "center",
     borderWidth: 2,
@@ -956,7 +957,7 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 8,
-    backgroundColor: "#EDE7F6",
+    backgroundColor: ORANGE_LIGHT,
     justifyContent: "center",
     alignItems: "center",
   },
@@ -973,7 +974,7 @@ const styles = StyleSheet.create({
     color: "#999",
     textAlign: "right",
   },
-  divider: { height: 8, backgroundColor: "#F0EEF8" },
+  divider: { height: 8, backgroundColor: "#FFE8D6" },
 
   // Body
   body: { paddingHorizontal: 16, paddingTop: 16 },
@@ -1204,7 +1205,7 @@ const styles = StyleSheet.create({
   bioActions: { flexDirection: "row", gap: 12 },
   bioBtnSave: {
     flex: 1,
-    backgroundColor: PURPLE,
+    backgroundColor: ORANGE,
     borderRadius: 12,
     paddingVertical: 12,
     alignItems: "center",
