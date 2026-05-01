@@ -19,7 +19,7 @@ import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useQuery } from "@tanstack/react-query";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
-import { Feather, MaterialIcons, MaterialCommunityIcons } from "@expo/vector-icons";
+import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 
 import { useTheme } from "@/hooks/useTheme";
@@ -95,7 +95,7 @@ function resolveStoreUrl(path?: string): string | null {
 }
 
 const CATEGORY_3D_IMAGES: Record<string, string> = {
-  restaurants: "/uploads/category-3d-restaurants.png",
+  restaurants: "/uploads/tab-icon-restaurants.png",
   "fruits-vegetables": "/uploads/category-3d-vegetables.png",
   "meat-poultry": "/uploads/category-3d-meat.png",
   "dairy-eggs": "/uploads/category-3d-dairy.png",
@@ -806,12 +806,12 @@ export default function HomeScreen() {
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
               >
-                <MaterialIcons name="local-grocery-store" size={18} color="#FFFFFF" />
+                <Image source={{ uri: resolveImageUrl("/uploads/tab-icon-stores.png") }} style={styles.tabIconImg} contentFit="contain" />
                 <ThemedText style={styles.tabTextActive}>متاجر</ThemedText>
               </LinearGradient>
             ) : (
               <>
-                <MaterialIcons name="local-grocery-store" size={18} color="#7F8C8D" />
+                <Image source={{ uri: resolveImageUrl("/uploads/tab-icon-stores.png") }} style={styles.tabIconImg} contentFit="contain" />
                 <ThemedText style={styles.tabText}>متاجر</ThemedText>
               </>
             )}
@@ -834,14 +834,14 @@ export default function HomeScreen() {
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
               >
-                <MaterialIcons name="restaurant" size={18} color="#FFFFFF" />
+                <Image source={{ uri: resolveImageUrl("/uploads/tab-icon-restaurants.png") }} style={styles.tabIconImg} contentFit="contain" />
                 <ThemedText style={styles.tabTextActive}>
                   {restaurantVendors.length > 0 ? `${restaurantVendors.length} مطاعم` : "مطاعم"}
                 </ThemedText>
               </LinearGradient>
             ) : (
               <>
-                <MaterialIcons name="restaurant" size={18} color="#7F8C8D" />
+                <Image source={{ uri: resolveImageUrl("/uploads/tab-icon-restaurants.png") }} style={styles.tabIconImg} contentFit="contain" />
                 <ThemedText style={styles.tabText}>مطاعم</ThemedText>
               </>
             )}
@@ -1242,6 +1242,10 @@ const styles = StyleSheet.create({
     fontFamily: "Cairo_700Bold",
     fontSize: 14,
     color: "#FFFFFF",
+  },
+  tabIconImg: {
+    width: 26,
+    height: 26,
   },
   // ── Search ──
   searchBox: {
