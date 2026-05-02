@@ -20,8 +20,9 @@ import { useQuery } from "@tanstack/react-query";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
-import Svg, { Path, Rect, Ellipse, Circle } from "react-native-svg";
 import * as Haptics from "expo-haptics";
+import tabCartImg from "../../assets/images/tab-cart-groceries.png";
+import tabBurgerImg from "../../assets/images/tab-burger-meal.png";
 
 import { useTheme } from "@/hooks/useTheme";
 import { Spacing, AppColors, DesignSystem, BorderRadius } from "@/constants/theme";
@@ -129,57 +130,24 @@ const CATEGORY_COLORS: Record<string, string> = {
   "international-shopping": "#E8EAF6",
 };
 
-// ── Colorful SVG tab icons ────────────────────────────────────────────────────
-function StoreTabIcon({ size = 38 }: { size?: number }) {
+// ── Tab icon images (transparent PNG, no background) ─────────────────────────
+function StoreTabIcon({ size = 48 }: { size?: number }) {
   return (
-    <Svg width={size} height={size} viewBox="0 0 48 48">
-      {/* Shopping bag handle */}
-      <Path
-        d="M17 21 C17 13 31 13 31 21"
-        stroke="#6D4C41" strokeWidth="3.5" fill="none" strokeLinecap="round"
-      />
-      {/* Bag body */}
-      <Rect x="9" y="21" width="30" height="21" rx="5" fill="#FF7043" />
-      {/* Bag bottom stripe */}
-      <Rect x="9" y="34" width="30" height="8" rx="5" fill="#F4511E" />
-      {/* Shine */}
-      <Rect x="13" y="25" width="9" height="5" rx="2.5" fill="rgba(255,255,255,0.28)" />
-      {/* Yellow star */}
-      <Path
-        d="M24 28 L25.5 32 L29.8 32 L26.4 34.5 L27.7 38.5 L24 36.2 L20.3 38.5 L21.6 34.5 L18.2 32 L22.5 32 Z"
-        fill="#FFD740"
-      />
-      {/* Small green bag tag */}
-      <Rect x="22" y="18" width="4" height="4" rx="1" fill="#66BB6A" />
-    </Svg>
+    <Image
+      source={tabCartImg}
+      style={{ width: size, height: size }}
+      contentFit="contain"
+    />
   );
 }
 
-function RestaurantTabIcon({ size = 38 }: { size?: number }) {
+function RestaurantTabIcon({ size = 48 }: { size?: number }) {
   return (
-    <Svg width={size} height={size} viewBox="0 0 48 48">
-      {/* Top bun */}
-      <Ellipse cx="24" cy="16" rx="15" ry="8.5" fill="#FFA726" />
-      {/* Bun top highlight */}
-      <Ellipse cx="20" cy="12" rx="4" ry="2.5" fill="#FFB74D" />
-      {/* Sesame seeds */}
-      <Ellipse cx="19" cy="12" rx="2.2" ry="1.1" fill="#FFF8E1" transform="rotate(-20,19,12)" />
-      <Ellipse cx="28" cy="11" rx="2.2" ry="1.1" fill="#FFF8E1" transform="rotate(15,28,11)" />
-      <Ellipse cx="24" cy="10" rx="2" ry="1" fill="#FFF8E1" />
-      {/* Lettuce */}
-      <Path
-        d="M9 25 Q12 21 15 25 Q18 21 21 25 Q24 21 27 25 Q30 21 33 25 Q36 21 39 25 L39 28 L9 28 Z"
-        fill="#66BB6A"
-      />
-      {/* Tomato stripe */}
-      <Rect x="9" y="28" width="30" height="4" rx="1.5" fill="#EF5350" />
-      {/* Cheese */}
-      <Rect x="8" y="32" width="32" height="3.5" rx="1" fill="#FDD835" />
-      {/* Patty */}
-      <Rect x="9" y="35.5" width="30" height="5" rx="2.5" fill="#6D4C41" />
-      {/* Bottom bun */}
-      <Ellipse cx="24" cy="43" rx="15" ry="5" fill="#FFB74D" />
-    </Svg>
+    <Image
+      source={tabBurgerImg}
+      style={{ width: size, height: size }}
+      contentFit="contain"
+    />
   );
 }
 // ─────────────────────────────────────────────────────────────────────────────
@@ -868,12 +836,12 @@ export default function HomeScreen() {
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
               >
-                <StoreTabIcon size={34} />
+                <StoreTabIcon size={52} />
                 <ThemedText style={styles.tabTextActive}>متاجر</ThemedText>
               </LinearGradient>
             ) : (
               <>
-                <StoreTabIcon size={34} />
+                <StoreTabIcon size={52} />
                 <ThemedText style={styles.tabText}>متاجر</ThemedText>
               </>
             )}
@@ -896,14 +864,14 @@ export default function HomeScreen() {
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
               >
-                <RestaurantTabIcon size={34} />
+                <RestaurantTabIcon size={52} />
                 <ThemedText style={styles.tabTextActive}>
                   {restaurantVendors.length > 0 ? `${restaurantVendors.length} مطاعم` : "مطاعم"}
                 </ThemedText>
               </LinearGradient>
             ) : (
               <>
-                <RestaurantTabIcon size={34} />
+                <RestaurantTabIcon size={52} />
                 <ThemedText style={styles.tabText}>مطاعم</ThemedText>
               </>
             )}
@@ -1264,9 +1232,9 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: 8,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
+    gap: 6,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
     borderRadius: 12,
     overflow: "hidden",
   },
@@ -1285,9 +1253,9 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: 8,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
+    gap: 6,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
     borderRadius: 10,
     position: "absolute",
     top: 0,
