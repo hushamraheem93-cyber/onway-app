@@ -21,8 +21,8 @@ import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
-import tabCartImg from "../../assets/images/tab-cart-groceries.png";
-import tabBurgerImg from "../../assets/images/tab-burger-meal.png";
+import tabCartImg from "../assets/images/tab-cart-groceries.png";
+import tabBurgerImg from "../assets/images/tab-burger-meal.png";
 
 import { useTheme } from "@/hooks/useTheme";
 import { Spacing, AppColors, DesignSystem, BorderRadius } from "@/constants/theme";
