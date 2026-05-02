@@ -22,9 +22,11 @@ import { ThemedText } from "@/components/ThemedText";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
-const ACTIVE_COLOR  = "#E86520";
-const INACTIVE_COLOR = "#AAAAAA";
-const BAR_BG        = "#FFFFFF";
+const BAR_BG         = "#E86520";
+const ACTIVE_COLOR   = "#FFFFFF";
+const INACTIVE_COLOR = "rgba(255,255,255,0.55)";
+const CIRCLE_BG      = "#FFFFFF";
+const CIRCLE_ICON    = "#E86520";
 
 const CIRCLE_SIZE     = 64;
 const CIRCLE_OVERFLOW = 26;           // px the circle pops above the bar top
@@ -138,10 +140,10 @@ function CenterButton({
         <View
           style={[
             styles.centerCircle,
-            { backgroundColor: ACTIVE_COLOR, shadowColor: ACTIVE_COLOR },
+            { backgroundColor: CIRCLE_BG, shadowColor: "#000" },
           ]}
         >
-          <Feather name={CENTER_TAB.icon} size={28} color="#FFFFFF" />
+          <Feather name={CENTER_TAB.icon} size={28} color={CIRCLE_ICON} />
         </View>
         <ThemedText style={styles.centerLabel}>{CENTER_TAB.label}</ThemedText>
       </Animated.View>
@@ -287,7 +289,7 @@ const styles = StyleSheet.create({
   centerLabel: {
     fontFamily: "Cairo_700Bold",
     fontSize: 11,
-    color: ACTIVE_COLOR,
+    color: "#FFFFFF",
     includeFontPadding: false,
   },
   row: {
