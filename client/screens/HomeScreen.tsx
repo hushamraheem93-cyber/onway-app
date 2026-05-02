@@ -812,12 +812,12 @@ export default function HomeScreen() {
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
               >
-                <Image source={{ uri: resolveImageUrl("/uploads/tab-icon-stores.png") }} style={styles.tabIconImg} contentFit="contain" />
+                <MaterialCommunityIcons name="store" size={30} color="#FFFFFF" />
                 <ThemedText style={styles.tabTextActive}>متاجر</ThemedText>
               </LinearGradient>
             ) : (
               <>
-                <Image source={{ uri: resolveImageUrl("/uploads/tab-icon-stores.png") }} style={styles.tabIconImg} contentFit="contain" />
+                <MaterialCommunityIcons name="store" size={30} color="#E86520" />
                 <ThemedText style={styles.tabText}>متاجر</ThemedText>
               </>
             )}
@@ -840,14 +840,14 @@ export default function HomeScreen() {
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
               >
-                <Image source={{ uri: resolveImageUrl("/uploads/tab-icon-restaurants.png") }} style={styles.tabIconImg} contentFit="contain" />
+                <MaterialCommunityIcons name="food-fork-drink" size={30} color="#FFFFFF" />
                 <ThemedText style={styles.tabTextActive}>
                   {restaurantVendors.length > 0 ? `${restaurantVendors.length} مطاعم` : "مطاعم"}
                 </ThemedText>
               </LinearGradient>
             ) : (
               <>
-                <Image source={{ uri: resolveImageUrl("/uploads/tab-icon-restaurants.png") }} style={styles.tabIconImg} contentFit="contain" />
+                <MaterialCommunityIcons name="food-fork-drink" size={30} color="#E86520" />
                 <ThemedText style={styles.tabText}>مطاعم</ThemedText>
               </>
             )}
