@@ -1105,6 +1105,23 @@
     .online-dot { width: 10px; height: 10px; border-radius: 50%; background: #10B981; display: inline-block; margin-left: 6px; animation: blink 1.5s infinite; }
     @keyframes blink { 0%,100% { opacity:1; } 50% { opacity: 0.3; } }
 
+    /* Live Monitor Card */
+    .live-monitor-card { background: #111827; border-radius: 16px; overflow: hidden; box-shadow: 0 2px 12px rgba(0,0,0,0.18); margin-bottom: 24px; }
+    .live-monitor-header { padding: 14px 20px; border-bottom: 1px solid rgba(255,255,255,0.08); display: flex; align-items: center; justify-content: space-between; }
+    .live-monitor-title { display: flex; align-items: center; gap: 10px; font-size: 0.97rem; font-weight: 700; color: #f9fafb; }
+    .live-monitor-badge { font-size: 0.7rem; font-weight: 700; padding: 3px 10px; border-radius: 20px; background: rgba(16,185,129,0.18); color: #10b981; border: 1px solid rgba(16,185,129,0.35); display: flex; align-items: center; gap: 5px; }
+    .live-monitor-badge::before { content: ''; display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: #10b981; animation: blink 1.5s infinite; }
+    .live-monitor-body { padding: 14px 20px; min-height: 52px; }
+    .monitor-ok { color: #6b7280; font-size: 0.88rem; margin: 0; display: flex; align-items: center; gap: 8px; }
+    .monitor-ok::before { content: '✓'; color: #10b981; font-weight: 800; }
+    .monitor-alerts-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 7px; }
+    .monitor-alert-item { padding: 10px 14px; border-radius: 8px; font-size: 0.85rem; line-height: 1.5; color: #f9fafb; display: flex; align-items: flex-start; gap: 10px; animation: slideIn 0.3s ease; }
+    .monitor-alert-info { background: rgba(33,150,243,0.12); border-right: 4px solid #2196f3; }
+    .monitor-alert-warning { background: rgba(245,158,11,0.12); border-right: 4px solid #f59e0b; }
+    .monitor-alert-icon { flex-shrink: 0; font-size: 1rem; }
+    .monitor-alert-time { font-size: 0.75rem; color: #6b7280; margin-right: auto; white-space: nowrap; }
+    @keyframes slideIn { from { opacity: 0; transform: translateX(12px); } to { opacity: 1; transform: translateX(0); } }
+
     /* New order pulse */
     @keyframes rowPulse {
       0% { background: rgba(217,69,35,0.15); }
@@ -1523,6 +1540,23 @@
           <div class="stat-card">
             <div class="stat-icon" style="background:linear-gradient(135deg,#8b5cf6,#6d28d9);"><i data-lucide="percent" style="width:28px;height:28px;color:#fff;"></i></div>
             <div class="stat-info"><h3 id="dash-commission" style="font-size:1.1rem;">0</h3><p>عمولة أون وي</p></div>
+          </div>
+        </div>
+
+        <!-- Live System Monitor -->
+        <div class="live-monitor-card">
+          <div class="live-monitor-header">
+            <div class="live-monitor-title">
+              <i data-lucide="bell" style="width:18px;height:18px;color:#f59e0b;"></i>
+              مراقب النظام اللحظي (OnWay Live)
+            </div>
+            <div style="display:flex;align-items:center;gap:10px;">
+              <span id="monitor-stats" style="font-size:0.75rem;color:#6b7280;"></span>
+              <div class="live-monitor-badge">مباشر</div>
+            </div>
+          </div>
+          <div class="live-monitor-body" id="live-monitor-body">
+            <p class="monitor-ok">جميع الأنظمة تعمل بشكل صحيح في الضلوعية</p>
           </div>
         </div>
 
@@ -4214,6 +4248,137 @@
       } catch (_e) {}
     }
     setInterval(pollRejectionEvents, 8000);
+
+    // ── Live System Monitor ───────────────────────────────────────────────────
+    const liveMonitor = {
+      seenIds: new Set(),            // order IDs seen on first boot
+      pendingFirstSeen: {},          // orderId → timestamp when first seen as pending
+      warnedPending: new Set(),      // orderIds already warned about delay
+      alerts: [],                    // { id, message, type, time, expireAt }
+      initialized: false,
+      DELAY_MS: 5 * 60 * 1000,      // 5 minutes
+      MAX_ALERTS: 5,
+      EXPIRE_MS: 60 * 1000,         // dismiss after 60 s
+
+      // Format time as HH:MM
+      _timeStr() {
+        return new Date().toLocaleTimeString('ar-IQ', { hour: '2-digit', minute: '2-digit' });
+      },
+
+      // Add alert (newest-first, max 5, remove duplicates by message)
+      addAlert(message, type) {
+        // Avoid exact duplicates within the alert list
+        if (this.alerts.some(a => a.message === message)) return;
+        const alert = { id: Date.now() + Math.random(), message, type, time: this._timeStr(), expireAt: Date.now() + this.EXPIRE_MS };
+        this.alerts.unshift(alert);
+        if (this.alerts.length > this.MAX_ALERTS) this.alerts.pop();
+        this.render();
+      },
+
+      // Remove expired alerts and re-render
+      purgeExpired() {
+        const before = this.alerts.length;
+        this.alerts = this.alerts.filter(a => Date.now() < a.expireAt);
+        if (this.alerts.length !== before) this.render();
+      },
+
+      // Update the DOM
+      render() {
+        const body = document.getElementById('live-monitor-body');
+        const statsEl = document.getElementById('monitor-stats');
+        if (!body) return;
+        if (this.alerts.length === 0) {
+          body.innerHTML = '<p class="monitor-ok">جميع الأنظمة تعمل بشكل صحيح في الضلوعية</p>';
+          if (statsEl) statsEl.textContent = '';
+          return;
+        }
+        const warnCount = this.alerts.filter(a => a.type === 'warning').length;
+        const infoCount = this.alerts.filter(a => a.type === 'info').length;
+        if (statsEl) {
+          const parts = [];
+          if (infoCount) parts.push(`${infoCount} جديد`);
+          if (warnCount) parts.push(`${warnCount} تنبيه`);
+          statsEl.textContent = parts.join(' · ');
+        }
+        const items = this.alerts.map(a => {
+          const icon = a.type === 'warning' ? '⚠' : 'ℹ';
+          return `<li class="monitor-alert-item monitor-alert-${a.type}">
+            <span class="monitor-alert-icon">${icon}</span>
+            <span style="flex:1;">${a.message}</span>
+            <span class="monitor-alert-time">${a.time}</span>
+          </li>`;
+        }).join('');
+        body.innerHTML = `<ul class="monitor-alerts-list">${items}</ul>`;
+      },
+
+      // Called on each poll tick
+      processOrders(fetchedOrders) {
+        const now = Date.now();
+        fetchedOrders.forEach(order => {
+          const id = order.id;
+          if (!id) return;
+
+          if (!this.initialized) {
+            // First boot: seed without showing alerts
+            this.seenIds.add(id);
+            if (order.status === 'pending') {
+              this.pendingFirstSeen[id] = new Date(order.createdAt).getTime() || now;
+            }
+            return;
+          }
+
+          // New order not seen before
+          if (!this.seenIds.has(id)) {
+            this.seenIds.add(id);
+            const store = order.restaurantName || order.storeName || 'متجر';
+            this.addAlert(`طلب جديد #${id.slice(-5)} من ${store}`, 'info');
+          }
+
+          // Track pending orders
+          if (order.status === 'pending') {
+            if (!this.pendingFirstSeen[id]) {
+              this.pendingFirstSeen[id] = now;
+            }
+            const elapsed = now - this.pendingFirstSeen[id];
+            if (elapsed >= this.DELAY_MS && !this.warnedPending.has(id)) {
+              this.warnedPending.add(id);
+              const store = order.restaurantName || order.storeName || 'المتجر';
+              const mins = Math.floor(elapsed / 60000);
+              this.addAlert(`تأخير في الاستجابة! ${store} لم يقبل الطلب #${id.slice(-5)} منذ ${mins} دقيقة`, 'warning');
+            }
+          } else {
+            // Order moved past pending — clean up tracking
+            delete this.pendingFirstSeen[id];
+          }
+        });
+
+        if (!this.initialized) {
+          this.initialized = true;
+          this.render(); // show "all OK" on first boot
+        }
+      },
+
+      // Poll the orders API
+      async poll() {
+        try {
+          const res = await fetch(API_BASE + '/admin/orders');
+          if (!res.ok) return;
+          const fetched = await res.json();
+          this.processOrders(Array.isArray(fetched) ? fetched : []);
+        } catch (_e) {}
+        this.purgeExpired();
+      },
+
+      // Bootstrap
+      start() {
+        this.poll(); // immediate first call
+        setInterval(() => this.poll(), 10000);
+        setInterval(() => this.purgeExpired(), 15000);
+      }
+    };
+
+    liveMonitor.start();
+    // ── End Live Monitor ──────────────────────────────────────────────────────
 
     // Global search
     function globalSearch(query) {
