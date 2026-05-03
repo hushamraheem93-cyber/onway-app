@@ -6,9 +6,9 @@ channel = "stable-24_05"
 packages = ["vips"]
 
 [deployment]
-deploymentTarget = "autoscale"
+deploymentTarget = "vm"
 build = ["npm", "run", "server:build"]
-run = ["node", "server_dist/index.js"]
+run = ["npm", "run", "server:prod"]
 
 [env]
 PORT = "5000"
