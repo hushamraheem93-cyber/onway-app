@@ -418,9 +418,6 @@ function configureExpoAndLanding(app: express.Application) {
     if (!isValidSession(req)) return res.redirect("/admin/login");
     const adminTemplate = fs.readFileSync(adminTemplatePath, "utf-8");
     res.setHeader("Content-Type", "text/html; charset=utf-8");
-    res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
-    res.setHeader("Pragma", "no-cache");
-    res.setHeader("Expires", "0");
     res.status(200).send(adminTemplate);
   });
 
