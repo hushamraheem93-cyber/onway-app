@@ -7,6 +7,15 @@
         "EXPO_PUBLIC_DOMAIN": "onway-hushamraheem93.replit.app"
       }
     },
+    "preview": {
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk"
+      },
+      "env": {
+        "EXPO_PUBLIC_DOMAIN": "onway-hushamraheem93.replit.app"
+      }
+    },
     "production": {
       "env": {
         "EXPO_PUBLIC_DOMAIN": "onway-hushamraheem93.replit.app"
