@@ -1682,7 +1682,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.post("/api/admin/vendors", async (req: Request, res: Response) => {
-    const { name, location, whatsappNumber, commissionPercent, image, rating, deliveryTime, isOpen, categoryType, cuisine } = req.body;
+    const { name, location, whatsappNumber, commissionPercent, image, rating, deliveryTime, isOpen, categoryType, cuisine, hasDelivery, minOrder, openTime, closeTime, description } = req.body;
     if (!name) return res.status(400).json({ error: "اسم المطعم مطلوب" });
     const existingVendors = await getVendorList();
     const maxOrder = existingVendors.reduce((max, v) => Math.max(max, v.sortOrder ?? 0), 0);
@@ -1697,8 +1697,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       deliveryTime: String(deliveryTime || "30-45"),
       isOpen: Boolean(isOpen !== false),
       createdAt: new Date().toISOString(),
-      categoryType: (categoryType as "restaurant" | "store") || "restaurant",
+      categoryType: (categoryType as any) || "restaurant",
       cuisine: cuisine ? String(cuisine) : "",
+      hasDelivery: hasDelivery !== undefined ? Boolean(hasDelivery) : true,
+      minOrder: minOrder !== undefined ? Number(minOrder) : 0,
+      openTime: openTime ? String(openTime) : "",
+      closeTime: closeTime ? String(closeTime) : "",
+      description: description ? String(description) : "",
       sortOrder: maxOrder + 1,
     };
     try {
@@ -1774,7 +1779,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.put("/api/admin/vendors/:id", async (req: Request, res: Response) => {
     const { id } = req.params;
-    const { name, location, whatsappNumber, commissionPercent, image, rating, deliveryTime, isOpen, categoryType, cuisine } = req.body;
+    const { name, location, whatsappNumber, commissionPercent, image, rating, deliveryTime, isOpen, categoryType, cuisine, hasDelivery, minOrder, openTime, closeTime, description } = req.body;
     const updates: any = {};
     if (name !== undefined) updates.name = String(name);
     if (location !== undefined) updates.location = String(location);
@@ -1786,6 +1791,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     if (isOpen !== undefined) updates.isOpen = Boolean(isOpen);
     if (categoryType !== undefined) updates.categoryType = categoryType;
     if (cuisine !== undefined) updates.cuisine = String(cuisine);
+    if (hasDelivery !== undefined) updates.hasDelivery = Boolean(hasDelivery);
+    if (minOrder !== undefined) updates.minOrder = Number(minOrder);
+    if (openTime !== undefined) updates.openTime = String(openTime);
+    if (closeTime !== undefined) updates.closeTime = String(closeTime);
+    if (description !== undefined) updates.description = String(description);
     try {
       await updateFirestoreVendor(id, updates);
       invalidateVendorsCache();

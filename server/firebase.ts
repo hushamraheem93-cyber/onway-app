@@ -1409,8 +1409,13 @@ export interface FirestoreVendor {
   deliveryTime: string;
   isOpen: boolean;
   createdAt: string;
-  categoryType?: "restaurant" | "store";
+  categoryType?: "restaurant" | "store" | "grocery" | "pharmacy" | "cafe";
   cuisine?: string;
+  hasDelivery?: boolean;
+  minOrder?: number;
+  openTime?: string;
+  closeTime?: string;
+  description?: string;
 }
 
 export async function getVendors(): Promise<(FirestoreVendor & { id: string })[]> {

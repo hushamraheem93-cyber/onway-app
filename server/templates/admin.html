@@ -2018,38 +2018,108 @@
     <div id="vendors-section" class="section">
       <header class="header">
         <div class="header-title">
-          <h2>إدارة المطاعم</h2>
-          <p>نظام Multi-vendor لإدارة المطاعم والعمولات والتقارير المالية</p>
+          <h2>إدارة المتاجر والمطاعم</h2>
+          <p>إدارة شاملة للمطاعم والمتاجر — الحالة، العمولة، التقييم، خيارات التوصيل</p>
         </div>
-        <button class="btn btn-primary" onclick="openVendorModal()">
-          <i data-lucide="plus"></i> إضافة مطعم
-        </button>
+        <div style="display:flex;gap:8px;">
+          <button class="btn btn-outline btn-sm" onclick="loadVendors()"><i data-lucide="refresh-cw" style="width:14px;height:14px;"></i></button>
+          <button class="btn btn-primary" onclick="openVendorModal()">
+            <i data-lucide="plus"></i> إضافة متجر / مطعم
+          </button>
+        </div>
       </header>
 
-      <!-- Vendors stats bar -->
-      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:24px;">
+      <!-- Stats bar -->
+      <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin-bottom:22px;">
         <div class="stat-card">
-          <div class="stat-icon" style="background:#FFF3E0;"><i data-lucide="store" style="color:#E86520;width:22px;height:22px;"></i></div>
-          <div><div class="stat-value" id="vstat-total">0</div><div class="stat-label">إجمالي المطاعم</div></div>
+          <div class="stat-icon" style="background:#FFF3E0;"><i data-lucide="store" style="color:#E86520;width:20px;height:20px;"></i></div>
+          <div><div class="stat-value" id="vstat-total">0</div><div class="stat-label">إجمالي المتاجر</div></div>
         </div>
         <div class="stat-card">
-          <div class="stat-icon" style="background:#E8F5E9;"><i data-lucide="check-circle" style="color:#10B981;width:22px;height:22px;"></i></div>
-          <div><div class="stat-value" id="vstat-open">0</div><div class="stat-label">مطاعم مفتوحة</div></div>
+          <div class="stat-icon" style="background:#E8F5E9;"><i data-lucide="check-circle" style="color:#10B981;width:20px;height:20px;"></i></div>
+          <div><div class="stat-value" id="vstat-open">0</div><div class="stat-label">مفتوحة الآن</div></div>
         </div>
         <div class="stat-card">
-          <div class="stat-icon" style="background:#FFF9C4;"><i data-lucide="percent" style="color:#F59E0B;width:22px;height:22px;"></i></div>
+          <div class="stat-icon" style="background:#FFF9C4;"><i data-lucide="percent" style="color:#F59E0B;width:20px;height:20px;"></i></div>
           <div><div class="stat-value" id="vstat-avg-commission">0%</div><div class="stat-label">متوسط العمولة</div></div>
         </div>
         <div class="stat-card">
-          <div class="stat-icon" style="background:#E3F2FD;"><i data-lucide="star" style="color:#2563EB;width:22px;height:22px;"></i></div>
+          <div class="stat-icon" style="background:#E3F2FD;"><i data-lucide="star" style="color:#2563EB;width:20px;height:20px;"></i></div>
           <div><div class="stat-value" id="vstat-avg-rating">0</div><div class="stat-label">متوسط التقييم</div></div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon" style="background:#EDE9FE;"><i data-lucide="truck" style="color:#673AB7;width:20px;height:20px;"></i></div>
+          <div><div class="stat-value" id="vstat-delivery">0</div><div class="stat-label">يقدم توصيل</div></div>
         </div>
       </div>
 
-      <!-- Financial Summary Cards Per Vendor -->
-      <div class="card" style="margin-bottom:20px;">
+      <!-- Category filter tabs -->
+      <div style="display:flex;gap:8px;margin-bottom:18px;flex-wrap:wrap;align-items:center;">
+        <span style="font-size:0.85rem;font-weight:700;color:var(--gray-500);">تصفية:</span>
+        <button class="btn btn-sm vendor-type-btn active" data-type="" onclick="filterVendorsByType('')" style="background:var(--primary);color:#fff;border-color:var(--primary);">الكل <span id="vtype-all-count" style="background:rgba(255,255,255,0.25);border-radius:10px;padding:1px 6px;font-size:0.75rem;margin-right:4px;">0</span></button>
+        <button class="btn btn-sm vendor-type-btn" data-type="restaurant" onclick="filterVendorsByType('restaurant')" style="background:#FFF3E0;color:#E86520;border-color:#FDBA74;">مطاعم <span id="vtype-restaurant-count" style="background:rgba(232,101,32,0.12);border-radius:10px;padding:1px 6px;font-size:0.75rem;margin-right:4px;">0</span></button>
+        <button class="btn btn-sm vendor-type-btn" data-type="store" onclick="filterVendorsByType('store')" style="background:#EDE9FE;color:#673AB7;border-color:#C4B5FD;">متاجر <span id="vtype-store-count" style="background:rgba(103,58,183,0.12);border-radius:10px;padding:1px 6px;font-size:0.75rem;margin-right:4px;">0</span></button>
+        <button class="btn btn-sm vendor-type-btn" data-type="grocery" onclick="filterVendorsByType('grocery')" style="background:#D1FAE5;color:#065F46;border-color:#6EE7B7;">بقالة <span id="vtype-grocery-count" style="background:rgba(16,185,129,0.12);border-radius:10px;padding:1px 6px;font-size:0.75rem;margin-right:4px;">0</span></button>
+        <button class="btn btn-sm vendor-type-btn" data-type="cafe" onclick="filterVendorsByType('cafe')" style="background:#FEF3C7;color:#92400E;border-color:#FDE68A;">مقاهي <span id="vtype-cafe-count" style="background:rgba(245,158,11,0.12);border-radius:10px;padding:1px 6px;font-size:0.75rem;margin-right:4px;">0</span></button>
+        <button class="btn btn-sm vendor-type-btn" data-type="pharmacy" onclick="filterVendorsByType('pharmacy')" style="background:#E0F2FE;color:#0369A1;border-color:#7DD3FC;">صيدليات <span id="vtype-pharmacy-count" style="background:rgba(3,105,161,0.12);border-radius:10px;padding:1px 6px;font-size:0.75rem;margin-right:4px;">0</span></button>
+        <div style="margin-right:auto;display:flex;gap:6px;">
+          <button class="btn btn-sm" id="vview-cards" onclick="setVendorView('cards')" style="background:var(--primary);color:#fff;border-color:var(--primary);" title="عرض بطاقات"><i data-lucide="layout-grid" style="width:13px;height:13px;"></i></button>
+          <button class="btn btn-sm btn-outline" id="vview-table" onclick="setVendorView('table')" title="عرض جدول"><i data-lucide="list" style="width:13px;height:13px;"></i></button>
+        </div>
+      </div>
+
+      <!-- Cards View -->
+      <div id="vendors-cards-view">
+        <div id="vendors-cards-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:18px;"></div>
+        <div id="vendors-cards-empty" style="display:none;text-align:center;padding:60px;color:var(--gray-400);">
+          <i data-lucide="store" style="width:48px;height:48px;opacity:0.3;"></i>
+          <p style="margin-top:12px;font-size:1rem;">لا توجد متاجر في هذه الفئة</p>
+        </div>
+      </div>
+
+      <!-- Table View (hidden by default) -->
+      <div id="vendors-table-view" style="display:none;">
+        <div class="card">
+          <div class="card-header">
+            <h3><i data-lucide="list"></i> قائمة المتاجر (<span id="vendors-count-label">0</span>)</h3>
+          </div>
+          <div style="overflow-x:auto;">
+            <p style="font-size:0.8rem;color:var(--gray-400);margin:0 0 10px;display:flex;align-items:center;gap:6px;">
+              <i data-lucide="grip-vertical" style="width:14px;height:14px;"></i> اسحب المتجر لتغيير ترتيبه
+            </p>
+            <table class="table" id="vendors-table">
+              <thead>
+                <tr>
+                  <th style="width:44px;"></th>
+                  <th style="width:44px;text-align:center;">#</th>
+                  <th>المتجر</th>
+                  <th>النوع</th>
+                  <th>الموقع</th>
+                  <th>العمولة</th>
+                  <th>التقييم</th>
+                  <th>التوصيل</th>
+                  <th>وقت الفتح</th>
+                  <th>الحالة</th>
+                  <th>الإجراءات</th>
+                </tr>
+              </thead>
+              <tbody id="vendors-tbody"></tbody>
+            </table>
+            <style>
+              #vendors-tbody tr { transition: background 0.15s; }
+              #vendors-tbody tr.drag-over { background: #FFF3E0 !important; outline: 2px dashed #E86520; outline-offset: -2px; }
+              #vendors-tbody tr.dragging { opacity: 0.4; }
+              .drag-handle { cursor: grab; color: var(--gray-400); display:flex;align-items:center;justify-content:center;padding:8px 4px; }
+              .drag-handle:active { cursor: grabbing; }
+            </style>
+          </div>
+        </div>
+      </div>
+
+      <!-- Financial Summary -->
+      <div class="card" style="margin-top:20px;">
         <div class="card-header">
-          <h3><i data-lucide="trending-up"></i> الملخص المالي للمطاعم</h3>
+          <h3><i data-lucide="trending-up"></i> الملخص المالي للمتاجر</h3>
           <button class="btn btn-outline btn-sm" onclick="loadVendorFinancials()" id="vendor-fin-refresh-btn">
             <i data-lucide="refresh-cw" style="width:14px;height:14px;"></i> تحديث
           </button>
@@ -2061,106 +2131,132 @@
           </div>
         </div>
       </div>
-
-      <div class="card">
-        <div class="card-header">
-          <h3><i data-lucide="list"></i> قائمة المطاعم (<span id="vendors-count-label">0</span>)</h3>
-          <button class="btn btn-outline btn-sm" onclick="loadVendors()"><i data-lucide="refresh-cw" style="width:14px;height:14px;"></i></button>
-        </div>
-        <div style="overflow-x:auto;">
-          <p style="font-size:0.8rem;color:var(--gray-400);margin:0 0 10px;display:flex;align-items:center;gap:6px;">
-            <i data-lucide="grip-vertical" style="width:14px;height:14px;"></i>
-            اسحب المطعم لتغيير ترتيبه
-          </p>
-          <table class="table" id="vendors-table">
-            <thead>
-              <tr>
-                <th style="width:44px;"></th>
-                <th style="width:44px;text-align:center;">#</th>
-                <th>المطعم</th>
-                <th>الموقع</th>
-                <th>واتساب</th>
-                <th>العمولة</th>
-                <th>التقييم</th>
-                <th>وقت التوصيل</th>
-                <th>الحالة</th>
-                <th>الإجراءات</th>
-              </tr>
-            </thead>
-            <tbody id="vendors-tbody"></tbody>
-          </table>
-          <style>
-            #vendors-tbody tr { transition: background 0.15s; }
-            #vendors-tbody tr.drag-over { background: #FFF3E0 !important; outline: 2px dashed #E86520; outline-offset: -2px; }
-            #vendors-tbody tr.dragging { opacity: 0.4; }
-            .drag-handle { cursor: grab; color: var(--gray-400); display:flex;align-items:center;justify-content:center;padding:8px 4px; }
-            .drag-handle:active { cursor: grabbing; }
-          </style>
-        </div>
-      </div>
     </div>
 
     <!-- Vendor Modal (Add/Edit) -->
     <div id="vendor-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9000;align-items:center;justify-content:center;">
-      <div style="background:#fff;border-radius:20px;padding:32px;width:560px;max-width:95vw;max-height:90vh;overflow-y:auto;position:relative;">
-        <button onclick="closeVendorModal()" style="position:absolute;top:16px;left:16px;background:none;border:none;font-size:1.4rem;cursor:pointer;color:var(--gray-500);">&times;</button>
-        <h3 style="margin:0 0 24px;font-size:1.1rem;font-weight:700;" id="vendor-modal-title">إضافة مطعم جديد</h3>
-        <input type="hidden" id="vendor-edit-id">
-        <div style="display:grid;gap:16px;">
-          <div>
-            <label style="font-size:0.85rem;font-weight:600;color:var(--gray-700);display:block;margin-bottom:6px;">اسم المطعم *</label>
-            <input id="vendor-name" class="form-input" placeholder="مثال: مطعم البركة" style="width:100%;">
-          </div>
-          <div>
-            <label style="font-size:0.85rem;font-weight:600;color:var(--gray-700);display:block;margin-bottom:6px;">الموقع</label>
-            <input id="vendor-location" class="form-input" placeholder="مثال: الضلوعية - شارع التجاري" style="width:100%;">
-          </div>
-          <div>
-            <label style="font-size:0.85rem;font-weight:600;color:var(--gray-700);display:block;margin-bottom:6px;">رقم واتساب صاحب المطعم</label>
-            <input id="vendor-whatsapp" class="form-input" placeholder="964770XXXXXXX" style="width:100%;">
-          </div>
-          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;">
-            <div>
-              <label style="font-size:0.85rem;font-weight:600;color:var(--gray-700);display:block;margin-bottom:6px;">العمولة %</label>
-              <input id="vendor-commission" type="number" min="0" max="100" class="form-input" placeholder="10" style="width:100%;">
-            </div>
-            <div>
-              <label style="font-size:0.85rem;font-weight:600;color:var(--gray-700);display:block;margin-bottom:6px;">التقييم</label>
-              <input id="vendor-rating" type="number" min="1" max="5" step="0.1" class="form-input" placeholder="اتركه فارغاً (يُحسب تلقائياً)" style="width:100%;">
-            </div>
-            <div>
-              <label style="font-size:0.85rem;font-weight:600;color:var(--gray-700);display:block;margin-bottom:6px;">وقت التوصيل</label>
-              <input id="vendor-delivery-time" class="form-input" placeholder="30-45 دقيقة" style="width:100%;">
-            </div>
-          </div>
-          <div>
-            <label style="font-size:0.85rem;font-weight:600;color:var(--gray-700);display:block;margin-bottom:6px;">رابط صورة المطعم</label>
-            <input id="vendor-image" class="form-input" placeholder="https://..." style="width:100%;">
-          </div>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
-            <div>
-              <label style="font-size:0.85rem;font-weight:600;color:var(--gray-700);display:block;margin-bottom:6px;">نوع البائع</label>
-              <select id="vendor-category-type" class="form-input" style="width:100%;">
-                <option value="restaurant">مطعم</option>
-                <option value="store">متجر</option>
-              </select>
-            </div>
-            <div>
-              <label style="font-size:0.85rem;font-weight:600;color:var(--gray-700);display:block;margin-bottom:6px;">نوع المطبخ / التخصص</label>
-              <input id="vendor-cuisine" class="form-input" placeholder="مثال: مشاوي، برغر، سمك..." style="width:100%;">
-            </div>
-          </div>
+      <div style="background:#fff;border-radius:20px;width:620px;max-width:96vw;max-height:92vh;overflow-y:auto;position:relative;">
+        <!-- Modal Header -->
+        <div style="padding:20px 28px 0;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;background:#fff;z-index:2;padding-bottom:16px;border-bottom:1px solid #F3F4F6;">
           <div style="display:flex;align-items:center;gap:10px;">
-            <label style="font-size:0.85rem;font-weight:600;color:var(--gray-700);">الحالة:</label>
-            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;">
-              <input type="checkbox" id="vendor-is-open" checked style="width:18px;height:18px;accent-color:var(--primary);">
-              <span style="font-size:0.85rem;">مفتوح الآن</span>
+            <div style="width:36px;height:36px;border-radius:10px;background:#FFF3E0;display:flex;align-items:center;justify-content:center;">
+              <i data-lucide="store" style="width:18px;height:18px;color:var(--primary);"></i>
+            </div>
+            <h3 style="margin:0;font-size:1.05rem;font-weight:800;" id="vendor-modal-title">إضافة متجر جديد</h3>
+          </div>
+          <button onclick="closeVendorModal()" style="background:var(--gray-100);border:none;border-radius:8px;padding:6px 10px;cursor:pointer;font-size:1.1rem;color:var(--gray-500);">&times;</button>
+        </div>
+        <input type="hidden" id="vendor-edit-id">
+
+        <div style="padding:20px 28px;display:grid;gap:16px;">
+
+          <!-- Basic Info -->
+          <div style="background:#FAFAFA;border-radius:12px;padding:16px;display:grid;gap:12px;">
+            <div style="font-size:0.8rem;font-weight:700;color:var(--gray-500);text-transform:uppercase;letter-spacing:.5px;">المعلومات الأساسية</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+              <div style="grid-column:1/-1;">
+                <label style="font-size:0.82rem;font-weight:600;color:var(--gray-700);display:block;margin-bottom:5px;">اسم المتجر / المطعم *</label>
+                <input id="vendor-name" class="form-input" placeholder="مثال: مطعم البركة" style="width:100%;">
+              </div>
+              <div>
+                <label style="font-size:0.82rem;font-weight:600;color:var(--gray-700);display:block;margin-bottom:5px;">نوع المنشأة</label>
+                <select id="vendor-category-type" class="form-input" style="width:100%;">
+                  <option value="restaurant">مطعم</option>
+                  <option value="store">متجر</option>
+                  <option value="grocery">بقالة / سوبرماركت</option>
+                  <option value="cafe">مقهى / كافيه</option>
+                  <option value="pharmacy">صيدلية</option>
+                </select>
+              </div>
+              <div>
+                <label style="font-size:0.82rem;font-weight:600;color:var(--gray-700);display:block;margin-bottom:5px;">التخصص / نوع المطبخ</label>
+                <input id="vendor-cuisine" class="form-input" placeholder="مشاوي، برغر، حلويات..." style="width:100%;">
+              </div>
+              <div style="grid-column:1/-1;">
+                <label style="font-size:0.82rem;font-weight:600;color:var(--gray-700);display:block;margin-bottom:5px;">الموقع / العنوان</label>
+                <input id="vendor-location" class="form-input" placeholder="مثال: الضلوعية - شارع التجاري" style="width:100%;">
+              </div>
+              <div style="grid-column:1/-1;">
+                <label style="font-size:0.82rem;font-weight:600;color:var(--gray-700);display:block;margin-bottom:5px;">وصف المتجر</label>
+                <input id="vendor-description" class="form-input" placeholder="نبذة مختصرة عن المتجر أو المطعم..." style="width:100%;">
+              </div>
+              <div style="grid-column:1/-1;">
+                <label style="font-size:0.82rem;font-weight:600;color:var(--gray-700);display:block;margin-bottom:5px;">رابط الصورة</label>
+                <input id="vendor-image" class="form-input" placeholder="https://..." style="width:100%;">
+              </div>
+            </div>
+          </div>
+
+          <!-- Contact & Commission -->
+          <div style="background:#FAFAFA;border-radius:12px;padding:16px;display:grid;gap:12px;">
+            <div style="font-size:0.8rem;font-weight:700;color:var(--gray-500);text-transform:uppercase;letter-spacing:.5px;">التواصل والعمولة</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;">
+              <div style="grid-column:1/-1;">
+                <label style="font-size:0.82rem;font-weight:600;color:var(--gray-700);display:block;margin-bottom:5px;">رقم واتساب</label>
+                <input id="vendor-whatsapp" class="form-input" placeholder="964770XXXXXXX" style="width:100%;">
+              </div>
+              <div>
+                <label style="font-size:0.82rem;font-weight:600;color:var(--gray-700);display:block;margin-bottom:5px;">العمولة %</label>
+                <input id="vendor-commission" type="number" min="0" max="100" class="form-input" placeholder="10" style="width:100%;">
+              </div>
+              <div>
+                <label style="font-size:0.82rem;font-weight:600;color:var(--gray-700);display:block;margin-bottom:5px;">الحد الأدنى للطلب (د.ع)</label>
+                <input id="vendor-min-order" type="number" min="0" class="form-input" placeholder="0" style="width:100%;">
+              </div>
+              <div>
+                <label style="font-size:0.82rem;font-weight:600;color:var(--gray-700);display:block;margin-bottom:5px;">التقييم (فارغ=تلقائي)</label>
+                <input id="vendor-rating" type="number" min="1" max="5" step="0.1" class="form-input" placeholder="مثال: 4.5" style="width:100%;">
+              </div>
+            </div>
+          </div>
+
+          <!-- Delivery & Hours -->
+          <div style="background:#FAFAFA;border-radius:12px;padding:16px;display:grid;gap:12px;">
+            <div style="font-size:0.8rem;font-weight:700;color:var(--gray-500);text-transform:uppercase;letter-spacing:.5px;">التوصيل وأوقات العمل</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+              <div>
+                <label style="font-size:0.82rem;font-weight:600;color:var(--gray-700);display:block;margin-bottom:5px;">وقت التوصيل المتوقع</label>
+                <input id="vendor-delivery-time" class="form-input" placeholder="30-45 دقيقة" style="width:100%;">
+              </div>
+              <div style="display:flex;flex-direction:column;justify-content:flex-end;">
+                <label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:10px 12px;background:#fff;border:1px solid #E5E7EB;border-radius:8px;">
+                  <input type="checkbox" id="vendor-has-delivery" checked style="width:16px;height:16px;accent-color:var(--primary);">
+                  <span style="font-size:0.85rem;font-weight:600;">خيار التوصيل متاح</span>
+                </label>
+              </div>
+              <div>
+                <label style="font-size:0.82rem;font-weight:600;color:var(--gray-700);display:block;margin-bottom:5px;">وقت الفتح</label>
+                <input id="vendor-open-time" type="time" class="form-input" style="width:100%;">
+              </div>
+              <div>
+                <label style="font-size:0.82rem;font-weight:600;color:var(--gray-700);display:block;margin-bottom:5px;">وقت الإغلاق</label>
+                <input id="vendor-close-time" type="time" class="form-input" style="width:100%;">
+              </div>
+            </div>
+          </div>
+
+          <!-- Status -->
+          <div style="display:flex;align-items:center;justify-content:space-between;background:#FAFAFA;border-radius:12px;padding:14px 16px;">
+            <div>
+              <div style="font-size:0.9rem;font-weight:700;color:var(--gray-800);">حالة المتجر الآن</div>
+              <div style="font-size:0.8rem;color:var(--gray-500);margin-top:2px;">يظهر للزبائن في التطبيق</div>
+            </div>
+            <label style="display:flex;align-items:center;gap:10px;cursor:pointer;">
+              <span id="vendor-open-label" style="font-size:0.9rem;font-weight:700;color:#10B981;">مفتوح</span>
+              <div style="position:relative;width:48px;height:26px;">
+                <input type="checkbox" id="vendor-is-open" checked style="opacity:0;position:absolute;width:100%;height:100%;cursor:pointer;z-index:2;" onchange="document.getElementById('vendor-open-label').textContent=this.checked?'مفتوح':'مغلق';document.getElementById('vendor-open-label').style.color=this.checked?'#10B981':'#EF4444';">
+                <div id="vendor-toggle-track" style="position:absolute;inset:0;border-radius:13px;background:#10B981;transition:background .2s;pointer-events:none;"></div>
+                <div id="vendor-toggle-thumb" style="position:absolute;top:3px;right:3px;width:20px;height:20px;border-radius:50%;background:#fff;transition:right .2s;box-shadow:0 1px 3px rgba(0,0,0,0.2);pointer-events:none;"></div>
+              </div>
             </label>
           </div>
+
         </div>
-        <div style="display:flex;gap:10px;margin-top:24px;justify-content:flex-end;">
+        <div style="padding:16px 28px 24px;display:flex;gap:10px;justify-content:flex-end;border-top:1px solid #F3F4F6;">
           <button onclick="closeVendorModal()" class="btn btn-outline">إلغاء</button>
-          <button onclick="saveVendor()" class="btn btn-primary" id="vendor-save-btn">حفظ</button>
+          <button onclick="saveVendor()" class="btn btn-primary" id="vendor-save-btn">
+            <i data-lucide="save" style="width:14px;height:14px;"></i> حفظ
+          </button>
         </div>
       </div>
     </div>
@@ -5376,14 +5472,17 @@
     // ========================= Vendors (Multi-Vendor) =========================
     let vendorsList = [];
 
+    let currentVendorTypeFilter = '';
+    let currentVendorView = 'cards';
+
     async function loadVendors() {
       try {
         const res = await fetch(API_BASE + '/admin/vendors');
         vendorsList = await res.json();
-        renderVendorsTable(vendorsList);
         updateVendorStats(vendorsList);
+        updateVendorTypeCounts(vendorsList);
+        renderVendors(vendorsList);
         document.getElementById('vendors-count').textContent = vendorsList.length;
-        document.getElementById('vendors-count-label').textContent = vendorsList.length;
       } catch (e) {
         console.error('loadVendors error', e);
       }
@@ -5392,11 +5491,188 @@
     function updateVendorStats(vendors) {
       document.getElementById('vstat-total').textContent = vendors.length;
       document.getElementById('vstat-open').textContent = vendors.filter(v => v.isOpen).length;
-      const avgComm = vendors.length ? (vendors.reduce((s, v) => s + v.commissionPercent, 0) / vendors.length).toFixed(1) : 0;
+      const avgComm = vendors.length ? (vendors.reduce((s, v) => s + (v.commissionPercent || 0), 0) / vendors.length).toFixed(1) : 0;
       document.getElementById('vstat-avg-commission').textContent = avgComm + '%';
       const ratedVendors = vendors.filter(v => v.rating !== null && v.rating !== undefined);
       const avgRating = ratedVendors.length ? (ratedVendors.reduce((s, v) => s + v.rating, 0) / ratedVendors.length).toFixed(1) : '–';
       document.getElementById('vstat-avg-rating').textContent = avgRating;
+      document.getElementById('vstat-delivery').textContent = vendors.filter(v => v.hasDelivery !== false).length;
+    }
+
+    function updateVendorTypeCounts(vendors) {
+      const types = ['restaurant','store','grocery','cafe','pharmacy'];
+      document.getElementById('vtype-all-count').textContent = vendors.length;
+      types.forEach(t => {
+        const el = document.getElementById('vtype-' + t + '-count');
+        if (el) el.textContent = vendors.filter(v => v.categoryType === t).length;
+      });
+    }
+
+    function filterVendorsByType(type) {
+      currentVendorTypeFilter = type;
+      document.querySelectorAll('.vendor-type-btn').forEach(b => {
+        const isActive = b.dataset.type === type;
+        b.classList.toggle('active', isActive);
+        if (isActive) {
+          b.style.opacity = '1';
+          b.style.fontWeight = '700';
+        } else {
+          b.style.opacity = '0.7';
+          b.style.fontWeight = '500';
+        }
+      });
+      const filtered = type ? vendorsList.filter(v => v.categoryType === type) : vendorsList;
+      renderVendors(filtered);
+    }
+
+    function setVendorView(view) {
+      currentVendorView = view;
+      document.getElementById('vendors-cards-view').style.display = view === 'cards' ? '' : 'none';
+      document.getElementById('vendors-table-view').style.display = view === 'table' ? '' : 'none';
+      document.getElementById('vview-cards').style.background = view === 'cards' ? 'var(--primary)' : '';
+      document.getElementById('vview-cards').style.color = view === 'cards' ? '#fff' : '';
+      document.getElementById('vview-table').style.background = view === 'table' ? 'var(--primary)' : '';
+      document.getElementById('vview-table').style.color = view === 'table' ? '#fff' : '';
+      lucide.createIcons();
+    }
+
+    function renderVendors(vendors) {
+      const sorted = [...vendors].sort((a, b) => (a.sortOrder ?? 999) - (b.sortOrder ?? 999));
+      document.getElementById('vendors-count-label').textContent = sorted.length;
+      if (currentVendorView === 'cards') {
+        renderVendorCards(sorted);
+      } else {
+        renderVendorsTable(sorted);
+      }
+    }
+
+    const VENDOR_TYPE_LABELS = { restaurant: 'مطعم', store: 'متجر', grocery: 'بقالة', cafe: 'مقهى', pharmacy: 'صيدلية' };
+    const VENDOR_TYPE_COLORS = { restaurant: '#E86520', store: '#673AB7', grocery: '#10B981', cafe: '#F59E0B', pharmacy: '#2563EB' };
+    const VENDOR_TYPE_BG = { restaurant: '#FFF3E0', store: '#EDE9FE', grocery: '#D1FAE5', cafe: '#FEF3C7', pharmacy: '#EFF6FF' };
+
+    function renderVendorCards(vendors) {
+      const grid = document.getElementById('vendors-cards-grid');
+      const empty = document.getElementById('vendors-cards-empty');
+      if (!vendors.length) {
+        grid.innerHTML = '';
+        empty.style.display = '';
+        return;
+      }
+      empty.style.display = 'none';
+      grid.innerHTML = vendors.map(v => {
+        const type = v.categoryType || 'restaurant';
+        const typeLabel = VENDOR_TYPE_LABELS[type] || type;
+        const typeColor = VENDOR_TYPE_COLORS[type] || '#E86520';
+        const typeBg = VENDOR_TYPE_BG[type] || '#FFF3E0';
+        const rating = (v.rating !== null && v.rating !== undefined) ? v.rating : null;
+        const stars = rating ? '★'.repeat(Math.floor(rating)) + (rating % 1 >= 0.5 ? '½' : '') : null;
+        const hasDelivery = v.hasDelivery !== false;
+        const minOrder = v.minOrder || 0;
+        const openTimeTxt = (v.openTime && v.closeTime) ? `${v.openTime} – ${v.closeTime}` : null;
+
+        return `<div style="background:#fff;border-radius:16px;border:1px solid #E5E7EB;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,0.06);transition:box-shadow .15s;" onmouseenter="this.style.boxShadow='0 4px 16px rgba(0,0,0,0.1)'" onmouseleave="this.style.boxShadow='0 1px 4px rgba(0,0,0,0.06)'">
+
+          <!-- Card Top -->
+          <div style="display:flex;align-items:flex-start;gap:12px;padding:16px 16px 12px;">
+            <div style="position:relative;flex-shrink:0;">
+              <img src="${v.image || ''}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';" style="width:58px;height:58px;border-radius:12px;object-fit:cover;">
+              <div style="display:none;width:58px;height:58px;border-radius:12px;background:${typeBg};align-items:center;justify-content:center;font-size:1.5rem;">
+                ${type === 'restaurant' ? '🍽️' : type === 'cafe' ? '☕' : type === 'grocery' ? '🛒' : type === 'pharmacy' ? '💊' : '🏪'}
+              </div>
+              <div style="position:absolute;bottom:-4px;right:-4px;width:16px;height:16px;border-radius:50%;background:${v.isOpen ? '#10B981' : '#EF4444'};border:2px solid #fff;"></div>
+            </div>
+            <div style="flex:1;min-width:0;">
+              <div style="font-weight:800;font-size:0.95rem;color:#111827;margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${v.name}</div>
+              <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:4px;">
+                <span style="background:${typeBg};color:${typeColor};padding:2px 8px;border-radius:20px;font-size:0.72rem;font-weight:700;">${typeLabel}</span>
+                ${v.cuisine ? `<span style="background:#F3F4F6;color:#6B7280;padding:2px 8px;border-radius:20px;font-size:0.72rem;">${v.cuisine}</span>` : ''}
+              </div>
+              ${v.location ? `<div style="font-size:0.75rem;color:#9CA3AF;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">📍 ${v.location}</div>` : ''}
+            </div>
+            <!-- Open/Close Toggle -->
+            <div style="flex-shrink:0;">
+              <label title="${v.isOpen ? 'انقر لإغلاق' : 'انقر لفتح'}" style="cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px;">
+                <div onclick="toggleVendorStatus('${v.id}', ${v.isOpen}, this)" style="width:40px;height:22px;border-radius:11px;background:${v.isOpen ? '#10B981' : '#D1D5DB'};position:relative;transition:background .2s;cursor:pointer;">
+                  <div style="position:absolute;top:2px;${v.isOpen ? 'right:2px' : 'left:2px'};width:18px;height:18px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,0.2);transition:all .2s;"></div>
+                </div>
+                <span style="font-size:0.65rem;font-weight:700;color:${v.isOpen ? '#10B981' : '#9CA3AF'};">${v.isOpen ? 'مفتوح' : 'مغلق'}</span>
+              </label>
+            </div>
+          </div>
+
+          <!-- Stats row -->
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:0;border-top:1px solid #F3F4F6;border-bottom:1px solid #F3F4F6;">
+            <div style="padding:10px 8px;text-align:center;border-left:1px solid #F3F4F6;">
+              <div style="font-size:0.8rem;font-weight:800;color:#E86520;">${v.commissionPercent || 0}%</div>
+              <div style="font-size:0.65rem;color:#9CA3AF;margin-top:1px;">عمولة</div>
+            </div>
+            <div style="padding:10px 8px;text-align:center;border-left:1px solid #F3F4F6;">
+              <div style="font-size:0.8rem;font-weight:800;color:#F59E0B;">${rating ? rating + '★' : '—'}</div>
+              <div style="font-size:0.65rem;color:#9CA3AF;margin-top:1px;">تقييم</div>
+            </div>
+            <div style="padding:10px 8px;text-align:center;border-left:1px solid #F3F4F6;">
+              <div style="font-size:0.8rem;font-weight:800;color:#2563EB;">${v.deliveryTime || '—'}</div>
+              <div style="font-size:0.65rem;color:#9CA3AF;margin-top:1px;">دقيقة</div>
+            </div>
+            <div style="padding:10px 8px;text-align:center;">
+              <div style="font-size:0.8rem;font-weight:800;color:${hasDelivery ? '#10B981' : '#9CA3AF'};">${hasDelivery ? '✓' : '✗'}</div>
+              <div style="font-size:0.65rem;color:#9CA3AF;margin-top:1px;">توصيل</div>
+            </div>
+          </div>
+
+          <!-- Extra info -->
+          ${(minOrder > 0 || openTimeTxt || v.description) ? `
+          <div style="padding:8px 16px;background:#FAFAFA;font-size:0.75rem;color:#6B7280;display:flex;gap:10px;flex-wrap:wrap;">
+            ${minOrder > 0 ? `<span>حد أدنى: ${minOrder.toLocaleString('ar-IQ')} د.ع</span>` : ''}
+            ${openTimeTxt ? `<span>⏰ ${openTimeTxt}</span>` : ''}
+            ${v.description ? `<span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${v.description}</span>` : ''}
+          </div>` : ''}
+
+          <!-- Actions -->
+          <div style="padding:10px 12px;display:flex;gap:6px;flex-wrap:wrap;">
+            <button class="btn btn-sm" style="flex:1;background:#E86520;color:#fff;border:none;font-size:0.78rem;" onclick="openVendorMeals('${v.id}','${v.name.replace(/'/g,"\\'")}')">
+              <i data-lucide="utensils" style="width:12px;height:12px;"></i> الوجبات
+            </button>
+            <button class="btn btn-outline btn-sm" onclick="openVendorModal('${v.id}')" title="تعديل" style="font-size:0.78rem;">
+              <i data-lucide="edit-2" style="width:12px;height:12px;"></i>
+            </button>
+            <button class="btn btn-outline btn-sm" onclick="openVendorStatement('${v.id}')" title="كشف الحساب" style="font-size:0.78rem;">
+              <i data-lucide="bar-chart-2" style="width:12px;height:12px;"></i>
+            </button>
+            ${v.whatsappNumber ? `<a href="https://wa.me/${v.whatsappNumber}" target="_blank" class="btn btn-sm" style="background:#25D366;color:#fff;border:none;font-size:0.78rem;" title="واتساب"><i data-lucide="message-circle" style="width:12px;height:12px;"></i></a>` : ''}
+            <button class="btn btn-sm" style="background:#FEF2F2;color:#EF4444;border:1px solid #FECACA;font-size:0.78rem;" onclick="confirmDeleteVendor('${v.id}','${v.name.replace(/'/g,"\\'")}')">
+              <i data-lucide="trash-2" style="width:12px;height:12px;"></i>
+            </button>
+          </div>
+        </div>`;
+      }).join('');
+      lucide.createIcons();
+    }
+
+    async function toggleVendorStatus(id, currentIsOpen, toggleEl) {
+      const newIsOpen = !currentIsOpen;
+      try {
+        const res = await fetch(`${API_BASE}/admin/vendors/${id}`, {
+          method: 'PUT', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ isOpen: newIsOpen }),
+        });
+        if (res.ok) {
+          const v = vendorsList.find(x => x.id === id);
+          if (v) v.isOpen = newIsOpen;
+          // Update toggle UI
+          const track = toggleEl;
+          track.style.background = newIsOpen ? '#10B981' : '#D1D5DB';
+          const thumb = track.querySelector('div');
+          if (thumb) { thumb.style.right = newIsOpen ? '2px' : ''; thumb.style.left = newIsOpen ? '' : '2px'; }
+          const label = track.parentElement.nextElementSibling;
+          if (label) { label.textContent = newIsOpen ? 'مفتوح' : 'مغلق'; label.style.color = newIsOpen ? '#10B981' : '#9CA3AF'; }
+          // Update dot
+          const dot = track.closest('[style*="position:relative"]');
+          if (dot) { const dotEl = dot.querySelector('[style*="bottom:-4px"]'); if (dotEl) dotEl.style.background = newIsOpen ? '#10B981' : '#EF4444'; }
+          updateVendorStats(vendorsList);
+          showToast('success', newIsOpen ? 'تم الفتح' : 'تم الإغلاق', `${vendorsList.find(x=>x.id===id)?.name || ''} - ${newIsOpen ? 'مفتوح الآن' : 'مغلق الآن'}`);
+        }
+      } catch { showToast('error', 'خطأ', 'تعذّر تغيير الحالة'); }
     }
 
     // ── Drag-and-drop state ──────────────────────────────────────
@@ -5405,11 +5681,15 @@
     function renderVendorsTable(vendors) {
       const tbody = document.getElementById('vendors-tbody');
       if (!vendors.length) {
-        tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;color:var(--gray-400);padding:32px;">لا يوجد مطاعم مسجلة</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="11" style="text-align:center;color:var(--gray-400);padding:32px;">لا توجد متاجر في هذه الفئة</td></tr>';
         return;
       }
-      const sorted = [...vendors].sort((a, b) => (a.sortOrder ?? 999) - (b.sortOrder ?? 999));
-      tbody.innerHTML = sorted.map((v, idx) => `
+      tbody.innerHTML = vendors.map((v, idx) => {
+        const type = v.categoryType || 'restaurant';
+        const typeLabel = VENDOR_TYPE_LABELS[type] || type;
+        const typeColor = VENDOR_TYPE_COLORS[type] || '#E86520';
+        const typeBg = VENDOR_TYPE_BG[type] || '#FFF3E0';
+        return `
         <tr draggable="true" data-id="${v.id}" style="cursor:default;">
           <td class="drag-handle" title="اسحب لإعادة الترتيب">
             <i data-lucide="grip-vertical" style="width:18px;height:18px;pointer-events:none;"></i>
@@ -5417,45 +5697,43 @@
           <td style="text-align:center;font-size:0.9rem;font-weight:800;color:var(--primary);">${idx + 1}</td>
           <td>
             <div style="display:flex;align-items:center;gap:10px;">
-              <img src="${v.image || ''}" onerror="this.style.display='none'" style="width:40px;height:40px;border-radius:10px;object-fit:cover;flex-shrink:0;">
+              <img src="${v.image || ''}" onerror="this.style.display='none'" style="width:38px;height:38px;border-radius:8px;object-fit:cover;flex-shrink:0;">
               <div>
-                <div style="font-weight:700;">${v.name}</div>
-                <div style="font-size:0.75rem;color:var(--gray-500);">ID: ${v.id}</div>
+                <div style="font-weight:700;font-size:0.88rem;">${v.name}</div>
+                ${v.cuisine ? `<div style="font-size:0.72rem;color:var(--gray-500);">${v.cuisine}</div>` : ''}
               </div>
             </div>
           </td>
-          <td style="font-size:0.85rem;color:var(--gray-600);">${v.location || '—'}</td>
+          <td><span style="background:${typeBg};color:${typeColor};padding:2px 8px;border-radius:20px;font-size:0.75rem;font-weight:700;">${typeLabel}</span></td>
+          <td style="font-size:0.82rem;color:var(--gray-600);max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${v.location || '—'}</td>
+          <td><span style="background:#FFF3E0;color:#E86520;padding:3px 8px;border-radius:20px;font-size:0.78rem;font-weight:700;">${v.commissionPercent || 0}%</span></td>
+          <td>${v.rating !== null && v.rating !== undefined ? `<span style="color:#F59E0B;font-weight:700;font-size:0.85rem;">★ ${v.rating}</span>` : '<span style="color:var(--gray-400);font-size:0.8rem;">—</span>'}</td>
           <td>
-            ${v.whatsappNumber ? `<a href="https://wa.me/${v.whatsappNumber}" target="_blank" style="color:#25D366;display:flex;align-items:center;gap:4px;font-size:0.85rem;"><i data-lucide="message-circle" style="width:14px;height:14px;"></i>${v.whatsappNumber}</a>` : '—'}
-          </td>
-          <td><span style="background:#FFF3E0;color:#E86520;padding:3px 10px;border-radius:20px;font-size:0.8rem;font-weight:700;">${v.commissionPercent}%</span></td>
-          <td>
-            ${v.rating !== null && v.rating !== undefined ? `<div style="display:flex;align-items:center;gap:4px;"><i data-lucide="star" style="width:13px;height:13px;color:#F59E0B;fill:#F59E0B;"></i><span style="font-size:0.85rem;font-weight:600;">${v.rating}</span></div>` : '<span style="color:var(--gray-400);font-size:0.82rem;">لا تقييم</span>'}
-          </td>
-          <td style="font-size:0.85rem;">${v.deliveryTime} د</td>
-          <td>
-            <span style="padding:4px 10px;border-radius:20px;font-size:0.78rem;font-weight:700;background:${v.isOpen ? '#E8F5E9' : '#FFEBEE'};color:${v.isOpen ? '#10B981' : '#EF4444'};">
-              ${v.isOpen ? 'مفتوح' : 'مغلق'}
+            <span style="font-size:0.78rem;font-weight:700;color:${v.hasDelivery !== false ? '#10B981' : '#9CA3AF'};">
+              ${v.hasDelivery !== false ? '✓ متاح' : '✗ غير متاح'}
             </span>
+            ${v.deliveryTime ? `<div style="font-size:0.7rem;color:var(--gray-500);">${v.deliveryTime} د</div>` : ''}
+          </td>
+          <td style="font-size:0.78rem;color:var(--gray-600);">${(v.openTime && v.closeTime) ? v.openTime + '–' + v.closeTime : '—'}</td>
+          <td>
+            <div onclick="toggleVendorStatus('${v.id}', ${v.isOpen}, this)" style="width:38px;height:20px;border-radius:10px;background:${v.isOpen ? '#10B981' : '#D1D5DB'};position:relative;transition:background .2s;cursor:pointer;">
+              <div style="position:absolute;top:2px;${v.isOpen ? 'right:2px' : 'left:2px'};width:16px;height:16px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,0.2);transition:all .2s;"></div>
+            </div>
           </td>
           <td>
-            <div style="display:flex;gap:6px;flex-wrap:wrap;">
+            <div style="display:flex;gap:4px;">
               <button class="btn btn-sm" style="background:#E86520;color:#fff;border:none;" onclick="openVendorMeals('${v.id}','${v.name.replace(/'/g,"\\'")}')">
-                <i data-lucide="utensils" style="width:13px;height:13px;"></i> الوجبات
-              </button>
-              <button class="btn btn-outline btn-sm" onclick="openVendorStatement('${v.id}')" title="كشف الحساب">
-                <i data-lucide="bar-chart-2" style="width:13px;height:13px;"></i>
+                <i data-lucide="utensils" style="width:12px;height:12px;"></i>
               </button>
               <button class="btn btn-outline btn-sm" onclick="openVendorModal('${v.id}')" title="تعديل">
-                <i data-lucide="edit-2" style="width:13px;height:13px;"></i>
+                <i data-lucide="edit-2" style="width:12px;height:12px;"></i>
               </button>
-              <button class="btn btn-sm" style="background:#FEF2F2;color:#EF4444;border:1px solid #FECACA;" onclick="confirmDeleteVendor('${v.id}','${v.name}')" title="حذف">
-                <i data-lucide="trash-2" style="width:13px;height:13px;"></i>
+              <button class="btn btn-sm" style="background:#FEF2F2;color:#EF4444;border:1px solid #FECACA;" onclick="confirmDeleteVendor('${v.id}','${v.name}')">
+                <i data-lucide="trash-2" style="width:12px;height:12px;"></i>
               </button>
             </div>
           </td>
-        </tr>
-      `).join('');
+        </tr>`; }).join('');
       lucide.createIcons();
       initVendorDragDrop();
     }
@@ -5523,28 +5801,41 @@
 
     function openVendorModal(id = null) {
       const modal = document.getElementById('vendor-modal');
-      document.getElementById('vendor-modal-title').textContent = id ? 'تعديل المطعم' : 'إضافة مطعم جديد';
+      document.getElementById('vendor-modal-title').textContent = id ? 'تعديل المتجر / المطعم' : 'إضافة متجر / مطعم جديد';
       document.getElementById('vendor-edit-id').value = id || '';
+      const isOpen = id ? (vendorsList.find(x => x.id === id)?.isOpen !== false) : true;
+      // Sync toggle visual
+      const track = document.getElementById('vendor-is-open')?.parentElement?.querySelector('[style*="border-radius:13px"]');
+      if (track) track.style.background = isOpen ? '#10B981' : '#D1D5DB';
+      const label = document.getElementById('vendor-open-label');
+      if (label) { label.textContent = isOpen ? 'مفتوح' : 'مغلق'; label.style.color = isOpen ? '#10B981' : '#EF4444'; }
       if (id) {
         const v = vendorsList.find(x => x.id === id);
         if (v) {
           document.getElementById('vendor-name').value = v.name || '';
           document.getElementById('vendor-location').value = v.location || '';
+          document.getElementById('vendor-description').value = v.description || '';
           document.getElementById('vendor-whatsapp').value = v.whatsappNumber || '';
           document.getElementById('vendor-commission').value = v.commissionPercent || 10;
+          document.getElementById('vendor-min-order').value = v.minOrder || 0;
           document.getElementById('vendor-rating').value = (v.rating !== null && v.rating !== undefined) ? v.rating : '';
           document.getElementById('vendor-delivery-time').value = v.deliveryTime || '30-45';
           document.getElementById('vendor-image').value = v.image || '';
           document.getElementById('vendor-is-open').checked = v.isOpen !== false;
+          document.getElementById('vendor-has-delivery').checked = v.hasDelivery !== false;
+          document.getElementById('vendor-open-time').value = v.openTime || '';
+          document.getElementById('vendor-close-time').value = v.closeTime || '';
           document.getElementById('vendor-category-type').value = v.categoryType || 'restaurant';
           document.getElementById('vendor-cuisine').value = v.cuisine || '';
         }
       } else {
-        ['vendor-name','vendor-location','vendor-whatsapp','vendor-image','vendor-cuisine','vendor-rating'].forEach(id => document.getElementById(id).value = '');
+        ['vendor-name','vendor-location','vendor-description','vendor-whatsapp','vendor-image','vendor-cuisine','vendor-rating','vendor-open-time','vendor-close-time'].forEach(fid => document.getElementById(fid).value = '');
         document.getElementById('vendor-commission').value = 10;
+        document.getElementById('vendor-min-order').value = 0;
         document.getElementById('vendor-delivery-time').value = '30-45';
         document.getElementById('vendor-is-open').checked = true;
-        document.getElementById('vendor-category-type').value = 'restaurant';
+        document.getElementById('vendor-has-delivery').checked = true;
+        document.getElementById('vendor-category-type').value = currentVendorTypeFilter || 'restaurant';
       }
       modal.style.display = 'flex';
       lucide.createIcons();
@@ -5557,35 +5848,43 @@
     async function saveVendor() {
       const id = document.getElementById('vendor-edit-id').value;
       const name = document.getElementById('vendor-name').value.trim();
-      if (!name) { showToast('error', 'خطأ', 'اسم المطعم مطلوب'); return; }
+      if (!name) { showToast('error', 'خطأ', 'اسم المتجر / المطعم مطلوب'); return; }
+      const ratingVal = document.getElementById('vendor-rating').value;
       const payload = {
         name,
         location: document.getElementById('vendor-location').value.trim(),
+        description: document.getElementById('vendor-description').value.trim(),
         whatsappNumber: document.getElementById('vendor-whatsapp').value.trim(),
         commissionPercent: parseFloat(document.getElementById('vendor-commission').value) || 10,
-        rating: document.getElementById('vendor-rating').value !== '' ? parseFloat(document.getElementById('vendor-rating').value) : null,
+        minOrder: parseFloat(document.getElementById('vendor-min-order').value) || 0,
+        rating: ratingVal !== '' ? parseFloat(ratingVal) : null,
         deliveryTime: document.getElementById('vendor-delivery-time').value.trim() || '30-45',
         image: document.getElementById('vendor-image').value.trim(),
         isOpen: document.getElementById('vendor-is-open').checked,
+        hasDelivery: document.getElementById('vendor-has-delivery').checked,
+        openTime: document.getElementById('vendor-open-time').value,
+        closeTime: document.getElementById('vendor-close-time').value,
         categoryType: document.getElementById('vendor-category-type').value,
         cuisine: document.getElementById('vendor-cuisine').value.trim(),
       };
       const btn = document.getElementById('vendor-save-btn');
-      btn.disabled = true; btn.textContent = 'جاري الحفظ...';
+      btn.disabled = true; btn.innerHTML = '<i data-lucide="loader" style="width:13px;height:13px;animation:spin 1s linear infinite;"></i> جاري الحفظ...';
+      lucide.createIcons();
       try {
         const url = id ? API_BASE + '/admin/vendors/' + id : API_BASE + '/admin/vendors';
         const method = id ? 'PUT' : 'POST';
         const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
         if (res.ok) {
-          showToast('success', 'تم', id ? 'تم تحديث المطعم' : 'تمت إضافة المطعم');
+          showToast('success', 'تم الحفظ', id ? `تم تحديث ${name}` : `تمت إضافة ${name}`);
           closeVendorModal();
           loadVendors();
         } else {
-          const err = await res.json();
+          const err = await res.json().catch(() => ({}));
           showToast('error', 'خطأ', err.error || 'فشل الحفظ');
         }
       } catch { showToast('error', 'خطأ', 'تعذّر الاتصال بالخادم'); }
-      btn.disabled = false; btn.textContent = 'حفظ';
+      btn.disabled = false; btn.innerHTML = '<i data-lucide="save" style="width:14px;height:14px;"></i> حفظ';
+      lucide.createIcons();
     }
 
     // ── Vendor Rating Management ─────────────────────────────────────────────

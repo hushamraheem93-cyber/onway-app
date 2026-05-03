@@ -2992,7 +2992,7 @@ async function registerRoutes(app2) {
     res.json(vendors);
   });
   app2.post("/api/admin/vendors", async (req, res) => {
-    const { name, location, whatsappNumber, commissionPercent, image, rating, deliveryTime, isOpen, categoryType, cuisine } = req.body;
+    const { name, location, whatsappNumber, commissionPercent, image, rating, deliveryTime, isOpen, categoryType, cuisine, hasDelivery, minOrder, openTime, closeTime, description } = req.body;
     if (!name) return res.status(400).json({ error: "\u0627\u0633\u0645 \u0627\u0644\u0645\u0637\u0639\u0645 \u0645\u0637\u0644\u0648\u0628" });
     const existingVendors = await getVendorList();
     const maxOrder = existingVendors.reduce((max, v) => Math.max(max, v.sortOrder ?? 0), 0);
@@ -3009,6 +3009,11 @@ async function registerRoutes(app2) {
       createdAt: (/* @__PURE__ */ new Date()).toISOString(),
       categoryType: categoryType || "restaurant",
       cuisine: cuisine ? String(cuisine) : "",
+      hasDelivery: hasDelivery !== void 0 ? Boolean(hasDelivery) : true,
+      minOrder: minOrder !== void 0 ? Number(minOrder) : 0,
+      openTime: openTime ? String(openTime) : "",
+      closeTime: closeTime ? String(closeTime) : "",
+      description: description ? String(description) : "",
       sortOrder: maxOrder + 1
     };
     try {
@@ -3067,7 +3072,7 @@ async function registerRoutes(app2) {
   });
   app2.put("/api/admin/vendors/:id", async (req, res) => {
     const { id } = req.params;
-    const { name, location, whatsappNumber, commissionPercent, image, rating, deliveryTime, isOpen, categoryType, cuisine } = req.body;
+    const { name, location, whatsappNumber, commissionPercent, image, rating, deliveryTime, isOpen, categoryType, cuisine, hasDelivery, minOrder, openTime, closeTime, description } = req.body;
     const updates = {};
     if (name !== void 0) updates.name = String(name);
     if (location !== void 0) updates.location = String(location);
@@ -3079,6 +3084,11 @@ async function registerRoutes(app2) {
     if (isOpen !== void 0) updates.isOpen = Boolean(isOpen);
     if (categoryType !== void 0) updates.categoryType = categoryType;
     if (cuisine !== void 0) updates.cuisine = String(cuisine);
+    if (hasDelivery !== void 0) updates.hasDelivery = Boolean(hasDelivery);
+    if (minOrder !== void 0) updates.minOrder = Number(minOrder);
+    if (openTime !== void 0) updates.openTime = String(openTime);
+    if (closeTime !== void 0) updates.closeTime = String(closeTime);
+    if (description !== void 0) updates.description = String(description);
     try {
       await updateVendor(id, updates);
       invalidateVendorsCache();

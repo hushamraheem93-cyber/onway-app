@@ -17,7 +17,7 @@ Onway is built with a React Native (Expo) frontend using TypeScript, and a Node.
 - **Dynamic Banners:** Engaging offer and auto-sliding carousel banners.
 - **Admin Panel:** Comprehensive content management system for banners, categories, products, delivery areas, promo codes, and driver wallets.
 - **Shopping Cart & Order History:** Standard e-commerce functionalities with status tracking.
-- **Multi-Vendor System:** Specifically designed for restaurants, including vendor-specific order integration, financial statements, and a dedicated UI.
+- **Multi-Vendor System:** Full store/restaurant management — card-based UI with category filters (Restaurants, Stores, Grocery, Cafes, Pharmacies), inline open/close toggle, delivery options, working hours, min-order, description. Backend stores `hasDelivery`, `minOrder`, `openTime`, `closeTime`, `description`, and 5 `categoryType` values in Firestore.
 - **Promotional Sections:** Admin-managed sections for Best Sellers, Featured Products, and Discounts.
 - **Push Notifications:** Real-time order status updates for customers.
 - **Promo Code System:** Supports fixed and percentage-based discounts with one-time-per-user enforcement.
