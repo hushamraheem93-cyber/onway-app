@@ -3059,6 +3059,7 @@
             <button class="btn btn-outline order-filter" data-status="pending" onclick="filterOrders('pending', this)">قيد الانتظار</button>
             <button class="btn btn-outline order-filter" data-status="confirmed" onclick="filterOrders('confirmed', this)">تم التأكيد</button>
             <button class="btn btn-outline order-filter" data-status="preparing" onclick="filterOrders('preparing', this)">جاري التحضير</button>
+            <button class="btn btn-outline order-filter" data-status="ready" onclick="filterOrders('ready', this)" style="color:#059669;border-color:#059669;">جاهز</button>
             <button class="btn btn-outline order-filter" data-status="delivering" onclick="filterOrders('delivering', this)">جاري التوصيل</button>
             <button class="btn btn-outline order-filter" data-status="delivered" onclick="filterOrders('delivered', this)">تم التوصيل</button>
             <button class="btn btn-outline order-filter" data-status="cancelled" onclick="filterOrders('cancelled', this)">ملغي</button>
@@ -6758,6 +6759,9 @@
         pending: 'قيد الانتظار',
         confirmed: 'تم التأكيد',
         preparing: 'جاري التحضير',
+        ready: 'جاهز للاستلام',
+        picked_up: 'تم الاستلام',
+        in_delivery: 'في الطريق',
         delivering: 'جاري التوصيل',
         delivered: 'تم التوصيل',
         cancelled: 'ملغي',
@@ -6771,6 +6775,9 @@
         pending: '#F59E0B',
         confirmed: '#3B82F6',
         preparing: '#8B5CF6',
+        ready: '#059669',
+        picked_up: '#0891B2',
+        in_delivery: '#0891B2',
         delivering: '#06B6D4',
         delivered: '#10B981',
         cancelled: '#EF4444',
@@ -6863,8 +6870,8 @@
       const totalOrders = orders.length;
       const deliveredOrders = orders.filter(o => o.status === 'delivered').length;
       const pendingOrders = orders.filter(o => o.status === 'pending').length;
-      const preparingOrders = orders.filter(o => o.status === 'preparing' || o.status === 'confirmed').length;
-      const deliveringOrders = orders.filter(o => o.status === 'delivering').length;
+      const preparingOrders = orders.filter(o => ['preparing', 'confirmed', 'ready', 'picked_up', 'in_delivery'].includes(o.status)).length;
+      const deliveringOrders = orders.filter(o => ['delivering', 'in_delivery'].includes(o.status)).length;
       const cancelledOrders = orders.filter(o => o.status === 'cancelled').length;
       const totalRevenue = orders
         .filter(o => o.status !== 'cancelled')
@@ -7754,7 +7761,7 @@
 
     // ========================= Excel Export =========================
     function getOrderStatusLabel_export(status) {
-      const map = { pending: 'قيد الانتظار', confirmed: 'مؤكد', preparing: 'قيد التحضير', delivering: 'قيد التوصيل', delivered: 'تم التوصيل', cancelled: 'ملغي' };
+      const map = { pending: 'قيد الانتظار', confirmed: 'مؤكد', preparing: 'قيد التحضير', ready: 'جاهز للاستلام', picked_up: 'تم الاستلام', in_delivery: 'في الطريق', delivering: 'قيد التوصيل', delivered: 'تم التوصيل', cancelled: 'ملغي', issue: 'مشكلة' };
       return map[status] || status;
     }
 
@@ -8949,7 +8956,7 @@ async function openAssignDriverModal(orderId) {
     const onlinePhones = new Set((queueData.queue || []).map(d => d.phoneNumber));
 
     // Filter approved drivers
-    assignDriversCache = (allDrivers || [])
+    assignDriversCache = (Array.isArray(allDrivers) ? allDrivers : [])
       .filter(d => d.status === 'approved')
       .map(d => ({ ...d, isOnline: onlinePhones.has(d.phoneNumber) }))
       .sort((a, b) => {
@@ -8987,7 +8994,7 @@ function renderAssignDriverList() {
     const name = [d.firstName, d.secondName].filter(Boolean).join(' ') || d.fullName || d.phoneNumber;
     const wallet = (d.walletBalance || 0).toLocaleString('ar-IQ');
     return `
-      <div onclick="confirmAssignDriver('${d.phoneNumber}','${escapeHtml(name)}')"
+      <div onclick="confirmAssignDriver(${JSON.stringify(d.phoneNumber)},${JSON.stringify(name)})"
            style="display:flex;align-items:center;gap:12px;padding:12px 16px;cursor:pointer;transition:background 0.12s;border-bottom:1px solid var(--gray-100);"
            onmouseover="this.style.background='var(--gray-50)'" onmouseout="this.style.background=''">
         <div style="width:40px;height:40px;border-radius:50%;background:${d.isOnline ? '#DCFCE7' : 'var(--gray-200)'};display:flex;align-items:center;justify-content:center;flex-shrink:0;">
@@ -9024,16 +9031,8 @@ async function confirmAssignDriver(driverPhone, driverName) {
     const data = await res.json();
     if (res.ok) {
       showToast('success', 'تم التحويل', `تم تحويل الطلب إلى ${driverName} بنجاح`);
-      // Update local order data
-      const order = orders.find(o => o.id === orderId);
-      if (order) {
-        order.driverPhone = driverPhone;
-        order.driverName = driverName;
-        delete order.rejectedAt;
-        delete order.rejectedByDriver;
-        delete order.rejectedByPhone;
-        renderOrders();
-      }
+      // Reload fresh orders from server
+      loadOrders(true);
     } else {
       showToast('error', 'فشل التحويل', data.error || 'حدث خطأ أثناء التحويل');
     }
