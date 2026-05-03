@@ -4244,6 +4244,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Admin: get messages for a specific chat (without marking as read by user)
+  app.get("/api/admin/support/messages/:phoneNumber", async (req: Request, res: Response) => {
+    const { phoneNumber } = req.params;
+    try {
+      const chat = await getSupportChat(decodeURIComponent(phoneNumber));
+      if (!chat) return res.json({ messages: [] });
+      return res.json({ messages: chat.messages || [] });
+    } catch (e) {
+      return res.status(500).json({ error: "Failed to get messages" });
+    }
+  });
+
   // Admin: get all chats
   app.get("/api/admin/support/chats", async (_req: Request, res: Response) => {
     try {

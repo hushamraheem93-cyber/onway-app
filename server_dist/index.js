@@ -5158,6 +5158,16 @@ ${itemsList}
       return res.status(500).json({ error: "Failed to send message" });
     }
   });
+  app2.get("/api/admin/support/messages/:phoneNumber", async (req, res) => {
+    const { phoneNumber } = req.params;
+    try {
+      const chat = await getSupportChat(decodeURIComponent(phoneNumber));
+      if (!chat) return res.json({ messages: [] });
+      return res.json({ messages: chat.messages || [] });
+    } catch (e) {
+      return res.status(500).json({ error: "Failed to get messages" });
+    }
+  });
   app2.get("/api/admin/support/chats", async (_req, res) => {
     try {
       const chats = await getAllSupportChats();

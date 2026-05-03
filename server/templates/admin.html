@@ -8281,7 +8281,7 @@
           <textarea id="support-reply-input" placeholder="اكتب ردك هنا..." rows="2"
             style="flex:1;border:1px solid #E5E7EB;border-radius:10px;padding:10px 14px;font-family:'Cairo',sans-serif;font-size:0.9rem;resize:none;outline:none;max-height:100px;"
             onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendSupportReply();}"></textarea>
-          <button onclick="sendSupportReply()"
+          <button id="support-send-btn" onclick="sendSupportReply()"
             style="background:var(--primary);color:#fff;border:none;border-radius:10px;padding:10px 20px;cursor:pointer;font-family:'Cairo',sans-serif;font-size:0.9rem;font-weight:600;white-space:nowrap;height:42px;">
             إرسال
           </button>
@@ -8430,7 +8430,7 @@ async function openSupportChat(phone, name, phoneDisplay) {
 
 async function loadSupportMessages(phone, silent) {
   try {
-    const url = `/api/support/messages?phoneNumber=${encodeURIComponent(phone)}`;
+    const url = `/api/admin/support/messages/${encodeURIComponent(phone)}`;
     const res = await fetch(url);
     const data = await res.json();
     if (phone !== activeSupportPhone) return;
@@ -8496,9 +8496,11 @@ function renderSupportMessages(messages) {
 async function sendSupportReply() {
   if (!activeSupportPhone) { alert('اختر محادثة أولاً'); return; }
   const input = document.getElementById('support-reply-input');
+  const btn = document.getElementById('support-send-btn');
   const text = input.value.trim();
   if (!text) return;
   input.value = '';
+  if (btn) { btn.disabled = true; btn.textContent = '...'; }
   try {
     const res = await fetch('/api/admin/support/reply', {
       method: 'POST',
@@ -8506,9 +8508,22 @@ async function sendSupportReply() {
       body: JSON.stringify({ phoneNumber: activeSupportPhone, text })
     });
     if (res.ok) {
-      await loadSupportChats();
+      await Promise.all([
+        loadSupportChats(),
+        loadSupportMessages(activeSupportPhone, false)
+      ]);
+    } else {
+      const data = await res.json().catch(() => ({}));
+      showToast('error', 'خطأ', data.error || 'فشل إرسال الرد');
+      input.value = text;
     }
-  } catch(e) { console.error(e); }
+  } catch(e) {
+    console.error(e);
+    showToast('error', 'خطأ', 'تعذر الاتصال بالخادم');
+    input.value = text;
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = 'إرسال'; }
+  }
 }
 
 // Load badge on page load
