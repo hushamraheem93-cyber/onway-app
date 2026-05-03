@@ -5945,6 +5945,12 @@ router.get("/api/vendor/orders", requireVendor, async (req, res) => {
       if (typeof val === "string") return val;
       return val.toDate?.()?.toISOString?.() ?? "";
     };
+    const productImageMap = /* @__PURE__ */ new Map();
+    for (const doc of productsSnap.docs) {
+      const d = doc.data();
+      const url = d.imageUrl || Array.isArray(d.imageUrls) && d.imageUrls[0] || "";
+      if (url) productImageMap.set(doc.id, url);
+    }
     const serialized = Array.from(ordersMap.values()).map((o) => {
       const allItems = Array.isArray(o.items) ? o.items : [];
       let vendorItems = [];
@@ -5956,6 +5962,10 @@ router.get("/api/vendor/orders", requireVendor, async (req, res) => {
       if (vendorItems.length === 0 && o.vendorId === vid) {
         vendorItems = allItems;
       }
+      vendorItems = vendorItems.map((item) => ({
+        ...item,
+        imageUrl: item.imageUrl || (item.productId ? productImageMap.get(item.productId) || "" : "")
+      }));
       const vendorSubtotal = vendorItems.reduce(
         (sum, item) => sum + (Number(item.price) || 0) * (Number(item.quantity) || 1),
         0
@@ -5964,6 +5974,8 @@ router.get("/api/vendor/orders", requireVendor, async (req, res) => {
         ...o,
         items: vendorItems,
         vendorSubtotal,
+        driverName: o.driverName || "",
+        driverPhone: o.driverPhone || "",
         createdAt: toIso(o.createdAt),
         updatedAt: toIso(o.updatedAt),
         vendorStatusAt_confirmed: toIso(o.vendorStatusAt_confirmed),

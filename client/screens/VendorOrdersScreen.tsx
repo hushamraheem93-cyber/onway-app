@@ -9,6 +9,7 @@ import {
   ScrollView,
   Modal,
   Dimensions,
+  Image,
 } from "react-native";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
@@ -30,6 +31,7 @@ interface OrderItem {
   price: number;
   quantity: number;
   restaurant?: string;
+  imageUrl?: string;
 }
 
 interface VendorOrder {
@@ -46,6 +48,8 @@ interface VendorOrder {
   createdAt: string;
   vendorName?: string;
   estimatedMinutes?: number;
+  driverName?: string;
+  driverPhone?: string;
   vendorStatusAt_confirmed?: string;
   vendorStatusAt_preparing?: string;
   vendorStatusAt_ready?: string;
@@ -281,39 +285,68 @@ function OrderCard({
 
           {/* Customer info */}
           <View style={cardStyles.customerSection}>
-            <View style={cardStyles.infoRow}>
-              <MaterialCommunityIcons name="account-circle-outline" size={16} color={theme.textSecondary} />
-              <ThemedText style={[cardStyles.infoText, { color: theme.text }]}>{displayName}</ThemedText>
+            <View style={[cardStyles.customerCard, { backgroundColor: ORANGE + "08", borderColor: ORANGE + "22" }]}>
+              <View style={[cardStyles.customerAvatar, { backgroundColor: ORANGE + "18" }]}>
+                <MaterialCommunityIcons name="account" size={20} color={ORANGE} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <ThemedText style={[cardStyles.customerName, { color: theme.text }]}>{displayName}</ThemedText>
+                {(order.customerPhone || order.phoneNumber) ? (
+                  <ThemedText style={[cardStyles.customerPhone, { color: theme.textSecondary }]}>
+                    {order.customerPhone || order.phoneNumber}
+                  </ThemedText>
+                ) : null}
+              </View>
+              <MaterialCommunityIcons name="account-circle" size={14} color={ORANGE} style={{ opacity: 0.5 }} />
             </View>
             {order.address ? (
               <View style={cardStyles.infoRow}>
-                <MaterialCommunityIcons name="map-marker-outline" size={16} color={theme.textSecondary} />
+                <MaterialCommunityIcons name="map-marker-outline" size={15} color={theme.textSecondary} />
                 <ThemedText style={[cardStyles.infoText, { color: theme.textSecondary }]} numberOfLines={2}>
                   {order.address}
                 </ThemedText>
               </View>
             ) : null}
             <View style={cardStyles.infoRow}>
-              <MaterialCommunityIcons name="clock-outline" size={16} color={theme.textSecondary} />
+              <MaterialCommunityIcons name="clock-outline" size={15} color={theme.textSecondary} />
               <ThemedText style={[cardStyles.infoText, { color: theme.textSecondary }]}>{fullDate(order.createdAt)}</ThemedText>
             </View>
           </View>
 
           <View style={[cardStyles.divider, { backgroundColor: theme.border ?? "#F3F4F6" }]} />
 
-          {/* Items */}
+          {/* Items with images */}
           <View style={cardStyles.itemsSection}>
-            <ThemedText style={[cardStyles.sectionLabel, { color: theme.text }]}>المنتجات المطلوبة</ThemedText>
+            <ThemedText style={[cardStyles.sectionLabel, { color: theme.text }]}>
+              المنتجات المطلوبة ({order.items?.length ?? 0})
+            </ThemedText>
             {Array.isArray(order.items) && order.items.map((item, i) => (
-              <View key={i} style={cardStyles.itemRow}>
+              <View key={i} style={[cardStyles.itemRow, { borderBottomColor: theme.border ?? "#F3F4F6" }]}>
+                {/* Product image / placeholder */}
+                {item.imageUrl ? (
+                  <Image
+                    source={{ uri: item.imageUrl }}
+                    style={cardStyles.itemImage}
+                    resizeMode="cover"
+                  />
+                ) : (
+                  <View style={[cardStyles.itemImagePlaceholder, { backgroundColor: ORANGE + "12" }]}>
+                    <MaterialCommunityIcons name="food" size={18} color={ORANGE} style={{ opacity: 0.6 }} />
+                  </View>
+                )}
+                {/* Qty badge */}
                 <View style={[cardStyles.itemQtyBadge, { backgroundColor: ORANGE + "15" }]}>
-                  <ThemedText style={[cardStyles.itemQtyText, { color: ORANGE }]}>{item.quantity}</ThemedText>
+                  <ThemedText style={[cardStyles.itemQtyText, { color: ORANGE }]}>×{item.quantity}</ThemedText>
                 </View>
+                {/* Name */}
                 <ThemedText style={[cardStyles.itemName, { color: theme.text }]} numberOfLines={2}>
                   {item.name}
                 </ThemedText>
-                <ThemedText style={[cardStyles.itemPrice, { color: theme.textSecondary }]}>
-                  {((item.price || 0) * (item.quantity || 1)).toLocaleString("ar-IQ")} د.ع
+                {/* Price */}
+                <ThemedText style={[cardStyles.itemPrice, { color: ORANGE }]}>
+                  {((item.price || 0) * (item.quantity || 1)).toLocaleString("ar-IQ")}
+                  {"\n"}
+                  <ThemedText style={{ fontSize: 10, color: theme.textSecondary }}>د.ع</ThemedText>
                 </ThemedText>
               </View>
             ))}
@@ -328,15 +361,37 @@ function OrderCard({
             </ThemedText>
           </View>
 
-          {/* Waiting for driver info banner */}
+          {/* Driver info section */}
           {order.status === "ready" ? (
             <View style={[cardStyles.driverBanner, { backgroundColor: "#ECFEFF" }]}>
-              <MaterialCommunityIcons name="moped" size={18} color="#0891B2" />
-              <ThemedText style={[cardStyles.driverBannerText, { color: "#0891B2" }]}>
-                في انتظار السائق لاستلام الطلب
-              </ThemedText>
+              <MaterialCommunityIcons name="moped" size={20} color="#0891B2" />
+              <View style={{ flex: 1 }}>
+                <ThemedText style={[cardStyles.driverBannerText, { color: "#0891B2" }]}>
+                  في انتظار السائق لاستلام الطلب
+                </ThemedText>
+              </View>
             </View>
-          ) : order.status === "picked_up" ? (
+          ) : (order.status === "picked_up" || order.status === "delivering") && order.driverName ? (
+            <View style={[cardStyles.driverCard, { backgroundColor: "#F0F9FF", borderColor: "#BAE6FD" }]}>
+              <View style={[cardStyles.driverAvatar, { backgroundColor: "#0891B2" }]}>
+                <MaterialCommunityIcons name="moped" size={18} color="#fff" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <ThemedText style={[cardStyles.driverName, { color: "#0369A1" }]}>
+                  {order.driverName}
+                </ThemedText>
+                <ThemedText style={[cardStyles.driverSub, { color: "#0891B2" }]}>
+                  {order.status === "picked_up" ? "استلم الطلب · في الطريق للزبون" : "في الطريق إلى الزبون"}
+                </ThemedText>
+                {order.driverPhone ? (
+                  <ThemedText style={[cardStyles.driverSub, { color: "#64748B", marginTop: 1 }]}>
+                    {order.driverPhone}
+                  </ThemedText>
+                ) : null}
+              </View>
+              <MaterialCommunityIcons name="navigation" size={18} color="#0891B2" />
+            </View>
+          ) : (order.status === "picked_up" || order.status === "delivering") ? (
             <View style={[cardStyles.driverBanner, { backgroundColor: "#F0F9FF" }]}>
               <MaterialCommunityIcons name="navigation" size={18} color="#0284C7" />
               <ThemedText style={[cardStyles.driverBannerText, { color: "#0284C7" }]}>
@@ -809,38 +864,69 @@ const cardStyles = StyleSheet.create({
   timeText: { fontFamily: "Cairo_400Regular", fontSize: 12, color: "#9CA3AF" },
   expandBtn: { padding: 4, alignSelf: "center" },
 
-  customerSection: { paddingHorizontal: 16, paddingVertical: 8, gap: 6 },
+  customerSection: { paddingHorizontal: 14, paddingVertical: 10, gap: 8 },
+  customerCard: {
+    flexDirection: "row-reverse", alignItems: "center", gap: 10,
+    paddingVertical: 10, paddingHorizontal: 12, borderRadius: 12, borderWidth: 1,
+  },
+  customerAvatar: {
+    width: 38, height: 38, borderRadius: 19,
+    justifyContent: "center", alignItems: "center", flexShrink: 0,
+  },
+  customerName: { fontFamily: "Cairo_700Bold", fontSize: 14, textAlign: "right" },
+  customerPhone: { fontFamily: "Cairo_400Regular", fontSize: 11, textAlign: "right", marginTop: 1 },
   infoRow: { flexDirection: "row-reverse", alignItems: "flex-start", gap: 8 },
-  infoText: { fontFamily: "Cairo_400Regular", fontSize: 13, flex: 1, textAlign: "right" },
+  infoText: { fontFamily: "Cairo_400Regular", fontSize: 12, flex: 1, textAlign: "right" },
 
-  divider: { height: 1, marginHorizontal: 16, marginVertical: 4 },
+  divider: { height: 1, marginHorizontal: 14, marginVertical: 2 },
 
-  itemsSection: { paddingHorizontal: 16, paddingVertical: 8 },
-  sectionLabel: { fontFamily: "Cairo_700Bold", fontSize: 13, textAlign: "right", marginBottom: 8 },
+  itemsSection: { paddingHorizontal: 14, paddingVertical: 10 },
+  sectionLabel: { fontFamily: "Cairo_700Bold", fontSize: 13, textAlign: "right", marginBottom: 10 },
   itemRow: {
     flexDirection: "row-reverse", alignItems: "center",
-    paddingVertical: 7, gap: 10,
-    borderBottomWidth: 1, borderBottomColor: "#F9FAFB",
+    paddingVertical: 8, gap: 10,
+    borderBottomWidth: 1,
   },
-  itemQtyBadge: { width: 26, height: 26, borderRadius: 8, justifyContent: "center", alignItems: "center" },
-  itemQtyText: { fontFamily: "Cairo_700Bold", fontSize: 13 },
-  itemName: { flex: 1, fontFamily: "Cairo_400Regular", fontSize: 13, textAlign: "right" },
-  itemPrice: { fontFamily: "Cairo_700Bold", fontSize: 12 },
+  itemImage: {
+    width: 48, height: 48, borderRadius: 10, flexShrink: 0,
+    backgroundColor: "#F3F4F6",
+  },
+  itemImagePlaceholder: {
+    width: 48, height: 48, borderRadius: 10, flexShrink: 0,
+    justifyContent: "center", alignItems: "center",
+  },
+  itemQtyBadge: {
+    minWidth: 30, height: 24, borderRadius: 8,
+    justifyContent: "center", alignItems: "center", paddingHorizontal: 4,
+  },
+  itemQtyText: { fontFamily: "Cairo_700Bold", fontSize: 12 },
+  itemName: { flex: 1, fontFamily: "Cairo_600SemiBold", fontSize: 13, textAlign: "right" },
+  itemPrice: { fontFamily: "Cairo_700Bold", fontSize: 13, textAlign: "center" },
 
   totalRow: {
     flexDirection: "row-reverse", alignItems: "center",
-    padding: 14, gap: 8,
-    marginTop: 4,
+    padding: 14, gap: 8, marginTop: 2,
   },
   totalLabel: { fontFamily: "Cairo_700Bold", fontSize: 14, color: ORANGE, flex: 1, textAlign: "right" },
   totalAmount: { fontFamily: "Cairo_700Bold", fontSize: 16 },
 
   driverBanner: {
-    flexDirection: "row-reverse", alignItems: "center", gap: 8,
-    marginHorizontal: 14, marginTop: 6, marginBottom: 2,
-    paddingVertical: 9, paddingHorizontal: 12, borderRadius: 10,
+    flexDirection: "row-reverse", alignItems: "center", gap: 10,
+    marginHorizontal: 14, marginTop: 6, marginBottom: 4,
+    paddingVertical: 10, paddingHorizontal: 12, borderRadius: 12,
   },
   driverBannerText: { fontFamily: "Cairo_700Bold", fontSize: 13, flex: 1, textAlign: "right" },
+  driverCard: {
+    flexDirection: "row-reverse", alignItems: "center", gap: 10,
+    marginHorizontal: 14, marginTop: 6, marginBottom: 4,
+    paddingVertical: 10, paddingHorizontal: 12, borderRadius: 12, borderWidth: 1,
+  },
+  driverAvatar: {
+    width: 36, height: 36, borderRadius: 18,
+    justifyContent: "center", alignItems: "center", flexShrink: 0,
+  },
+  driverName: { fontFamily: "Cairo_700Bold", fontSize: 14, textAlign: "right" },
+  driverSub: { fontFamily: "Cairo_400Regular", fontSize: 11, textAlign: "right", marginTop: 1 },
 
   actionsRow: { flexDirection: "row-reverse", gap: 10, padding: 14, paddingTop: 8 },
   actionBtn: {
