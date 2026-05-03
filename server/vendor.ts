@@ -858,6 +858,10 @@ router.get("/api/vendor/orders", requireVendor, async (req, res) => {
           vendorSubtotal,
           createdAt: toIso(o.createdAt),
           updatedAt: toIso(o.updatedAt),
+          vendorStatusAt_confirmed: toIso(o.vendorStatusAt_confirmed),
+          vendorStatusAt_preparing: toIso(o.vendorStatusAt_preparing),
+          vendorStatusAt_ready: toIso(o.vendorStatusAt_ready),
+          vendorStatusAt_cancelled: toIso(o.vendorStatusAt_cancelled),
         };
       })
       .sort((a: any, b: any) => b.createdAt.localeCompare(a.createdAt))

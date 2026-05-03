@@ -46,6 +46,10 @@ interface VendorOrder {
   createdAt: string;
   vendorName?: string;
   estimatedMinutes?: number;
+  vendorStatusAt_confirmed?: string;
+  vendorStatusAt_preparing?: string;
+  vendorStatusAt_ready?: string;
+  vendorStatusAt_cancelled?: string;
 }
 
 // ── Status config ─────────────────────────────────────────────────────────────
@@ -139,6 +143,47 @@ const etaBadgeStyles = StyleSheet.create({
   text: { fontFamily: "Cairo_700Bold", fontSize: 11, color: "#059669" },
 });
 
+// ── Per-status urgency thresholds (minutes) ───────────────────────────────────
+const STATUS_URGENCY_THRESHOLD: Record<string, number> = {
+  confirmed: 10,
+  preparing: 25,
+  ready:     15,
+};
+
+// Labels shown in the status timer badge for each status
+const STATUS_TIMER_LABEL: Record<string, string> = {
+  confirmed: "مؤكد منذ",
+  preparing: "في التحضير منذ",
+  ready:     "جاهز منذ",
+};
+
+// ── Status-specific elapsed timer badge ──────────────────────────────────────
+function StatusTimerBadge({ status, statusAt }: { status: string; statusAt: string }) {
+  if (!statusAt) return null;
+  const label = STATUS_TIMER_LABEL[status];
+  if (!label) return null;
+
+  const mins = Math.floor((Date.now() - new Date(statusAt).getTime()) / 60000);
+  const threshold = STATUS_URGENCY_THRESHOLD[status] ?? 15;
+  const urgent = mins >= threshold;
+
+  const normalColor = "#7C3AED";
+  const normalBg = "#F5F3FF";
+
+  return (
+    <View style={[statusTimerStyles.badge, { backgroundColor: urgent ? "#FEE2E2" : normalBg }]}>
+      <MaterialCommunityIcons name="clock-alert-outline" size={13} color={urgent ? "#DC2626" : normalColor} />
+      <ThemedText style={[statusTimerStyles.text, { color: urgent ? "#DC2626" : normalColor }]}>
+        {label} {mins < 1 ? "أقل من دقيقة" : `${mins} دقيقة`}
+      </ThemedText>
+    </View>
+  );
+}
+const statusTimerStyles = StyleSheet.create({
+  badge: { flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10 },
+  text: { fontFamily: "Cairo_700Bold", fontSize: 11 },
+});
+
 // ── Progress steps ────────────────────────────────────────────────────────────
 const STEPS = ["pending", "confirmed", "preparing", "ready", "delivering", "delivered"];
 function ProgressBar({ status }: { status: string }) {
@@ -187,6 +232,9 @@ function OrderCard({
   const displayName = order.customerName || order.customerPhone || order.phoneNumber || "عميل";
   const isUpdating = updatingId === order.id;
 
+  const statusAtKey = `vendorStatusAt_${order.status}` as keyof VendorOrder;
+  const currentStatusAt = (order[statusAtKey] as string | undefined) ?? "";
+
   return (
     <View style={[cardStyles.card, { backgroundColor: theme.backgroundDefault }]}>
       {/* ── Card Header ── */}
@@ -204,6 +252,9 @@ function OrderCard({
           <View style={cardStyles.headerMeta}>
             <ThemedText style={cardStyles.timeText}>{relativeTime(order.createdAt)}</ThemedText>
             {order.status === "pending" ? <TimerBadge createdAt={order.createdAt} /> : null}
+            {currentStatusAt.length > 0 ? (
+              <StatusTimerBadge status={order.status} statusAt={currentStatusAt} />
+            ) : null}
             {order.estimatedMinutes && order.estimatedMinutes > 0 ? (
               <View style={etaBadgeStyles.badge}>
                 <MaterialCommunityIcons name="clock-fast" size={13} color="#059669" />
@@ -525,10 +576,16 @@ export default function VendorOrdersScreen() {
         }
       );
       if (res.ok) {
+        const nowIso = new Date().toISOString();
         setOrders((prev) =>
           prev.map((o) =>
             o.id === orderId
-              ? { ...o, status: newStatus, ...(estimatedMinutes ? { estimatedMinutes } : {}) }
+              ? {
+                  ...o,
+                  status: newStatus,
+                  [`vendorStatusAt_${newStatus}`]: nowIso,
+                  ...(estimatedMinutes ? { estimatedMinutes } : {}),
+                }
               : o
           )
         );
@@ -745,7 +802,7 @@ const cardStyles = StyleSheet.create({
   },
   header: { flexDirection: "row-reverse", alignItems: "flex-start", padding: 16, gap: 10 },
   headerTop: { flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between", marginBottom: 6 },
-  headerMeta: { flexDirection: "row-reverse", alignItems: "center", gap: 8 },
+  headerMeta: { flexDirection: "row-reverse", alignItems: "center", gap: 8, flexWrap: "wrap" },
   orderId: { fontFamily: "Cairo_700Bold", fontSize: 16 },
   statusBadge: { flexDirection: "row", alignItems: "center", gap: 5, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20 },
   statusText: { fontFamily: "Cairo_700Bold", fontSize: 12 },
