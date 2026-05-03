@@ -6790,6 +6790,9 @@ function configureExpoAndLanding(app2) {
     if (!isValidSession(req)) return res.redirect("/admin/login");
     const adminTemplate = fs3.readFileSync(adminTemplatePath, "utf-8");
     res.setHeader("Content-Type", "text/html; charset=utf-8");
+    res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
+    res.setHeader("Pragma", "no-cache");
+    res.setHeader("Expires", "0");
     res.status(200).send(adminTemplate);
   });
   app2.use((req, res, next) => {
