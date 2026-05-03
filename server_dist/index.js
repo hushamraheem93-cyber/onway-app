@@ -5161,6 +5161,7 @@ ${itemsList}
   app2.get("/api/admin/support/messages/:phoneNumber", async (req, res) => {
     const { phoneNumber } = req.params;
     try {
+      res.set("Cache-Control", "no-store");
       const chat = await getSupportChat(decodeURIComponent(phoneNumber));
       if (!chat) return res.json({ messages: [] });
       return res.json({ messages: chat.messages || [] });
@@ -5170,6 +5171,7 @@ ${itemsList}
   });
   app2.get("/api/admin/support/chats", async (_req, res) => {
     try {
+      res.set("Cache-Control", "no-store");
       const chats = await getAllSupportChats();
       return res.json(chats);
     } catch (e) {
