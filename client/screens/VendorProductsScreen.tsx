@@ -58,6 +58,44 @@ const STATUS_COLORS: Record<string, string> = {
   deleted: "#9CA3AF",
 };
 
+// Map Arabic category names (or categoryId keys) to icon + color
+const CATEGORY_CFG: Record<string, { icon: string; color: string; bg: string }> = {
+  "مواد غذائية":            { icon: "food-variant",              color: "#F57F17", bg: "#FFF8E1" },
+  "food-supplies":          { icon: "food-variant",              color: "#F57F17", bg: "#FFF8E1" },
+  "مشروبات":                { icon: "cup-water",                 color: "#0288D1", bg: "#E1F5FE" },
+  "beverages":              { icon: "cup-water",                 color: "#0288D1", bg: "#E1F5FE" },
+  "منظفات":                 { icon: "spray-bottle",              color: "#0097A7", bg: "#E0F7FA" },
+  "cleaning-care":          { icon: "spray-bottle",              color: "#0097A7", bg: "#E0F7FA" },
+  "خضروات وفواكه":          { icon: "food-apple",               color: "#388E3C", bg: "#E8F5E9" },
+  "fruits-vegetables":      { icon: "food-apple",               color: "#388E3C", bg: "#E8F5E9" },
+  "لحوم":                   { icon: "food-steak",               color: "#C62828", bg: "#FFEBEE" },
+  "meat-poultry":           { icon: "food-steak",               color: "#C62828", bg: "#FFEBEE" },
+  "ألبان وأجبان":           { icon: "cheese",                   color: "#7B1FA2", bg: "#F3E5F5" },
+  "dairy-eggs":             { icon: "cheese",                   color: "#7B1FA2", bg: "#F3E5F5" },
+  "سناكس وحلويات":          { icon: "cookie",                   color: "#E65100", bg: "#FBE9E7" },
+  "snacks-sweets":          { icon: "cookie",                   color: "#E65100", bg: "#FBE9E7" },
+  "شاي وقهوة":              { icon: "coffee",                   color: "#5D4037", bg: "#EFEBE9" },
+  "tea-coffee":             { icon: "coffee",                   color: "#5D4037", bg: "#EFEBE9" },
+  "مطاعم":                  { icon: "silverware-fork-knife",    color: "#E86520", bg: "#FFF0E6" },
+  "restaurants":            { icon: "silverware-fork-knife",    color: "#E86520", bg: "#FFF0E6" },
+  "أطفال":                  { icon: "baby-carriage",            color: "#E91E63", bg: "#FCE4EC" },
+  "baby":                   { icon: "baby-carriage",            color: "#E91E63", bg: "#FCE4EC" },
+  "هدايا وورود":            { icon: "flower",                   color: "#D81B60", bg: "#FCE4EC" },
+  "flowers":                { icon: "flower",                   color: "#D81B60", bg: "#FCE4EC" },
+  "صيدلية":                 { icon: "medical-bag",              color: "#6A1B9A", bg: "#EDE7F6" },
+  "pharmacy":               { icon: "medical-bag",              color: "#6A1B9A", bg: "#EDE7F6" },
+  "حقائب":                  { icon: "bag-personal",             color: "#AD1457", bg: "#FCE4EC" },
+  "women-bags":             { icon: "bag-personal",             color: "#AD1457", bg: "#FCE4EC" },
+};
+
+function getCategoryCfg(name: string) {
+  return (
+    CATEGORY_CFG[name] ||
+    CATEGORY_CFG[name.toLowerCase()] ||
+    { icon: "tag-multiple", color: ORANGE, bg: ORANGE_LIGHT }
+  );
+}
+
 function groupByCategory(products: Product[]): SectionData[] {
   const map: Record<string, Product[]> = {};
   for (const p of products) {
@@ -271,17 +309,22 @@ export default function VendorProductsScreen({ navigation }: any) {
     }
   };
 
-  const renderSectionHeader = ({ section }: { section: SectionData }) => (
-    <View style={styles.sectionHeader}>
-      <View style={styles.sectionHeaderLeft}>
-        <View style={styles.sectionDot} />
-        <ThemedText style={styles.sectionTitle}>{section.title}</ThemedText>
+  const renderSectionHeader = ({ section }: { section: SectionData }) => {
+    const cfg = getCategoryCfg(section.title);
+    return (
+      <View style={[styles.sectionHeader, { backgroundColor: cfg.bg, borderLeftColor: cfg.color }]}>
+        <View style={styles.sectionHeaderLeft}>
+          <View style={[styles.sectionIconBox, { backgroundColor: cfg.color + "22" }]}>
+            <MaterialCommunityIcons name={cfg.icon as any} size={18} color={cfg.color} />
+          </View>
+          <ThemedText style={[styles.sectionTitle, { color: cfg.color }]}>{section.title}</ThemedText>
+        </View>
+        <View style={[styles.sectionCount, { backgroundColor: cfg.color + "22" }]}>
+          <ThemedText style={[styles.sectionCountText, { color: cfg.color }]}>{section.count} منتج</ThemedText>
+        </View>
       </View>
-      <View style={styles.sectionCount}>
-        <ThemedText style={styles.sectionCountText}>{section.count}</ThemedText>
-      </View>
-    </View>
-  );
+    );
+  };
 
   const renderItem = ({ item }: { item: Product }) => (
     <ProductCard
@@ -744,14 +787,24 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingVertical: 10,
-    paddingHorizontal: 2,
-    marginTop: 8,
+    paddingVertical: 11,
+    paddingHorizontal: 14,
+    marginTop: 12,
+    marginBottom: 4,
+    borderRadius: 14,
+    borderLeftWidth: 4,
   },
   sectionHeaderLeft: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
+    gap: 10,
+  },
+  sectionIconBox: {
+    width: 34,
+    height: 34,
+    borderRadius: 10,
+    justifyContent: "center",
+    alignItems: "center",
   },
   sectionDot: {
     width: 4,
@@ -761,20 +814,17 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontFamily: "Cairo_700Bold",
-    fontSize: 14,
-    color: "#333",
+    fontSize: 15,
     textAlign: "right",
   },
   sectionCount: {
-    backgroundColor: ORANGE + "22",
-    borderRadius: 10,
-    paddingHorizontal: 9,
-    paddingVertical: 2,
+    borderRadius: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 3,
   },
   sectionCountText: {
     fontFamily: "Cairo_700Bold",
     fontSize: 12,
-    color: ORANGE,
   },
 
   // Product card
@@ -785,7 +835,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     overflow: "hidden",
     elevation: 2,
-    shadowColor: "#E8652020",
+    shadowColor: "#00000018",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.08,
     shadowRadius: 6,
@@ -794,7 +844,7 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: ORANGE,
   },
-  productImg: { width: 90, height: 90 },
+  productImg: { width: 100, height: 100 },
   productImgPlaceholder: {
     justifyContent: "center",
     alignItems: "center",

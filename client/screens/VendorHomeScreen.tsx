@@ -40,13 +40,6 @@ const SCREEN_W = Dimensions.get("window").width;
 const COVER_H = 190;
 const AVATAR_SIZE = 88;
 
-interface Stats {
-  total: number;
-  approved: number;
-  pending: number;
-  rejected: number;
-}
-
 interface OrderStats {
   totalOrders: number;
   pendingOrders: number;
@@ -102,7 +95,6 @@ export default function VendorHomeScreen({ navigation }: any) {
 
   usePushNotifications(handleNotificationTap);
 
-  const [stats, setStats] = useState<Stats>({ total: 0, approved: 0, pending: 0, rejected: 0 });
   const [orderStats, setOrderStats] = useState<OrderStats>({ totalOrders: 0, pendingOrders: 0, totalRevenue: 0 });
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -134,24 +126,6 @@ export default function VendorHomeScreen({ navigation }: any) {
   useEffect(() => {
     setBioText(vendorProfile?.bio || "");
   }, [vendorProfile?.bio]);
-
-  const loadStats = useCallback(async () => {
-    if (!vendorToken) return;
-    try {
-      const res = await fetch(new URL("/api/vendor/products", getApiUrl()).toString(), {
-        headers: { Authorization: `Bearer ${vendorToken}` },
-      });
-      if (!res.ok) return;
-      const data = await res.json();
-      const products = (data.products || []).filter((p: any) => p.status !== "deleted");
-      setStats({
-        total: products.length,
-        approved: products.filter((p: any) => p.status === "approved").length,
-        pending: products.filter((p: any) => p.status === "pending").length,
-        rejected: products.filter((p: any) => p.status === "rejected").length,
-      });
-    } catch {}
-  }, [vendorToken]);
 
   const loadOrderStats = useCallback(async () => {
     if (!vendorToken) return;
@@ -221,7 +195,7 @@ export default function VendorHomeScreen({ navigation }: any) {
   useFocusEffect(
     useCallback(() => {
       if (!vendorToken) return;
-      Promise.all([loadStats(), loadOrderStats(), loadNotifications()]).finally(() => setLoading(false));
+      Promise.all([loadOrderStats(), loadNotifications()]).finally(() => setLoading(false));
       pollRef.current = setInterval(() => {
         loadNotifications();
       }, POLL_INTERVAL_MS);
@@ -231,14 +205,14 @@ export default function VendorHomeScreen({ navigation }: any) {
           pollRef.current = null;
         }
       };
-    }, [vendorToken, loadStats, loadOrderStats, loadNotifications])
+    }, [vendorToken, loadOrderStats, loadNotifications])
   );
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    await Promise.all([loadStats(), loadOrderStats(), loadNotifications(), refreshVendorProfile()]);
+    await Promise.all([loadOrderStats(), loadNotifications(), refreshVendorProfile()]);
     setRefreshing(false);
-  }, [loadStats, loadOrderStats, loadNotifications, refreshVendorProfile]);
+  }, [loadOrderStats, loadNotifications, refreshVendorProfile]);
 
   const uploadImage = useCallback(
     async (type: "profileImage" | "coverImage") => {
@@ -553,14 +527,6 @@ export default function VendorHomeScreen({ navigation }: any) {
                 </View>
               </View>
 
-              {/* Product stats */}
-              <ThemedText style={styles.sectionTitle}>إحصائيات المنتجات</ThemedText>
-              <View style={styles.statsGrid}>
-                <StatCard icon="package-variant" label="الكل" value={stats.total} color={ORANGE} bg={ORANGE_LIGHT} />
-                <StatCard icon="check-circle" label="معتمدة" value={stats.approved} color="#10B981" bg="#D1FAE5" />
-                <StatCard icon="clock-outline" label="مراجعة" value={stats.pending} color="#F59E0B" bg="#FEF3C7" />
-                <StatCard icon="close-circle" label="مرفوضة" value={stats.rejected} color="#EF4444" bg="#FEE2E2" />
-              </View>
             </>
           )}
 
@@ -801,18 +767,6 @@ export default function VendorHomeScreen({ navigation }: any) {
   );
 }
 
-function StatCard({ icon, label, value, color, bg }: any) {
-  return (
-    <View style={[styles.statCard, { borderTopColor: color }]}>
-      <View style={[styles.statIconWrap, { backgroundColor: bg }]}>
-        <MaterialCommunityIcons name={icon} size={22} color={color} />
-      </View>
-      <ThemedText style={[styles.statValue, { color }]}>{value}</ThemedText>
-      <ThemedText style={styles.statLabel}>{label}</ThemedText>
-    </View>
-  );
-}
-
 function QuickAction({ icon, label, color, bg, onPress }: any) {
   return (
     <Pressable
@@ -1035,32 +989,6 @@ const styles = StyleSheet.create({
     textAlign: "right",
     marginBottom: 10,
     marginTop: 4,
-  },
-  statsGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10, marginBottom: 20 },
-  statCard: {
-    width: "47.5%",
-    backgroundColor: "#fff",
-    borderRadius: 14,
-    padding: 14,
-    alignItems: "center",
-    borderTopWidth: 3,
-    elevation: 2,
-  },
-  statIconWrap: {
-    width: 42,
-    height: 42,
-    borderRadius: 12,
-    justifyContent: "center",
-    alignItems: "center",
-    marginBottom: 8,
-  },
-  statValue: { fontFamily: "Cairo_700Bold", fontSize: 24 },
-  statLabel: {
-    fontFamily: "Cairo_400Regular",
-    fontSize: 12,
-    color: "#777",
-    textAlign: "center",
-    marginTop: 2,
   },
 
   // Revenue summary
