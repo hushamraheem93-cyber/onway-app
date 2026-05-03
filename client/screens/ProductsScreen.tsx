@@ -54,6 +54,8 @@ export default function ProductsScreen() {
 
   const { data: vendors = [], isLoading: vendorsLoading } = useQuery<Vendor[]>({
     queryKey: ["/api/vendors"],
+    staleTime: 30 * 1000,
+    refetchOnMount: true,
   });
 
   const isRestaurantsCategory = categoryId === "restaurants" && !restaurant && !searchQuery;

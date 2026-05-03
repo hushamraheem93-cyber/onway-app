@@ -185,6 +185,8 @@ export default function HomeScreen() {
 
   const { data: allVendors = [], isLoading: vendorsLoading } = useQuery<Vendor[]>({
     queryKey: ["/api/vendors"],
+    staleTime: 30 * 1000,
+    refetchOnMount: true,
   });
 
   const { data: storesData, isLoading: storesLoading } = useQuery<{
@@ -192,6 +194,8 @@ export default function HomeScreen() {
     total: number;
   }>({
     queryKey: ["/api/stores"],
+    staleTime: 30 * 1000,
+    refetchOnMount: true,
   });
   const allVendorStores = storesData?.stores ?? [];
 
