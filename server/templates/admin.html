@@ -3090,6 +3090,72 @@
         </div>
       </div>
     </div>
+
+    <!-- ══════════════════════ SUPPORT CHAT SECTION ══════════════════════ -->
+    <div id="supportChat-section" class="section">
+      <header class="header">
+        <div class="header-title">
+          <i class="fas fa-headset" style="color:var(--primary);font-size:1.3rem;"></i>
+          <div>
+            <h1>دعم المستخدمين</h1>
+            <p>تواصل مع المستخدمين ورد على استفساراتهم</p>
+          </div>
+        </div>
+      </header>
+
+      <div style="display:flex;gap:16px;height:calc(100vh - 130px);min-height:500px;">
+        <!-- Chats list -->
+        <div style="width:320px;flex-shrink:0;background:#fff;border-radius:16px;border:1px solid #E5E7EB;display:flex;flex-direction:column;overflow:hidden;">
+          <div style="padding:16px;border-bottom:1px solid #F3F4F6;">
+            <input id="support-search" type="text" placeholder="بحث..." oninput="filterSupportChats()"
+              style="width:100%;border:1px solid #E5E7EB;border-radius:8px;padding:8px 12px;font-family:'Cairo',sans-serif;font-size:0.9rem;outline:none;box-sizing:border-box;" />
+          </div>
+          <div id="support-chats-list" style="flex:1;overflow-y:auto;padding:8px;">
+            <div style="text-align:center;padding:40px 20px;color:#9CA3AF;">
+              <i class="fas fa-spinner fa-spin" style="font-size:2rem;"></i>
+              <p style="margin-top:12px;">جاري التحميل...</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Chat window -->
+        <div style="flex:1;background:#fff;border-radius:16px;border:1px solid #E5E7EB;display:flex;flex-direction:column;overflow:hidden;">
+          <div id="support-chat-header" style="padding:14px 20px;border-bottom:1px solid #F3F4F6;display:flex;align-items:center;gap:14px;background:#FAFAFA;">
+            <div id="support-user-avatar" style="width:46px;height:46px;border-radius:23px;background:var(--primary);display:flex;align-items:center;justify-content:center;color:#fff;font-size:1.2rem;font-family:'Cairo',sans-serif;font-weight:700;flex-shrink:0;">
+              <i class="fas fa-user"></i>
+            </div>
+            <div style="flex:1;min-width:0;">
+              <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+                <div id="support-chat-user-name" style="font-weight:800;font-family:'Cairo',sans-serif;color:#111827;font-size:1rem;">اختر محادثة</div>
+                <div id="support-chat-user-gender-badge" style="display:none;padding:2px 10px;border-radius:20px;font-size:0.75rem;font-family:'Cairo',sans-serif;font-weight:600;"></div>
+              </div>
+              <div style="display:flex;align-items:center;gap:14px;margin-top:4px;flex-wrap:wrap;">
+                <div id="support-chat-user-phone" style="font-size:0.82rem;color:#6B7280;font-family:'Cairo',sans-serif;display:flex;align-items:center;gap:4px;"></div>
+                <div id="support-chat-user-region" style="display:none;font-size:0.82rem;color:#6B7280;font-family:'Cairo',sans-serif;align-items:center;gap:4px;"></div>
+              </div>
+            </div>
+          </div>
+
+          <div id="support-messages-area" style="flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:8px;background:#F9FAFB;">
+            <div style="text-align:center;color:#9CA3AF;margin:auto;">
+              <i class="fas fa-comments" style="font-size:3rem;display:block;margin-bottom:12px;"></i>
+              اختر محادثة لعرض الرسائل
+            </div>
+          </div>
+
+          <div style="padding:12px 16px;border-top:1px solid #F3F4F6;display:flex;gap:8px;align-items:flex-end;">
+            <textarea id="support-reply-input" placeholder="اكتب ردك هنا..." rows="2"
+              style="flex:1;border:1px solid #E5E7EB;border-radius:10px;padding:10px 14px;font-family:'Cairo',sans-serif;font-size:0.9rem;resize:none;outline:none;max-height:100px;"
+              onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendSupportReply();}"></textarea>
+            <button id="support-send-btn" onclick="sendSupportReply()"
+              style="background:var(--primary);color:#fff;border:none;border-radius:10px;padding:10px 20px;cursor:pointer;font-family:'Cairo',sans-serif;font-size:0.9rem;font-weight:600;white-space:nowrap;height:42px;">
+              إرسال
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
   </main>
 
   <!-- Driver Tracking Modal -->
@@ -8223,74 +8289,6 @@
         </div>
       </div>
     </div>
-  <!-- ══════════════════════ SUPPORT CHAT SECTION ══════════════════════ -->
-  <div id="supportChat-section" class="section">
-    <header class="header">
-      <div class="header-title">
-        <i class="fas fa-headset" style="color:var(--primary);font-size:1.3rem;"></i>
-        <div>
-          <h1>دعم المستخدمين</h1>
-          <p>تواصل مع المستخدمين ورد على استفساراتهم</p>
-        </div>
-      </div>
-    </header>
-
-    <div style="display:flex;gap:16px;height:calc(100vh - 130px);min-height:500px;">
-      <!-- Chats list -->
-      <div style="width:320px;flex-shrink:0;background:#fff;border-radius:16px;border:1px solid #E5E7EB;display:flex;flex-direction:column;overflow:hidden;">
-        <div style="padding:16px;border-bottom:1px solid #F3F4F6;">
-          <input id="support-search" type="text" placeholder="بحث..." oninput="filterSupportChats()"
-            style="width:100%;border:1px solid #E5E7EB;border-radius:8px;padding:8px 12px;font-family:'Cairo',sans-serif;font-size:0.9rem;outline:none;box-sizing:border-box;" />
-        </div>
-        <div id="support-chats-list" style="flex:1;overflow-y:auto;padding:8px;">
-          <div style="text-align:center;padding:40px 20px;color:#9CA3AF;">
-            <i class="fas fa-spinner fa-spin" style="font-size:2rem;"></i>
-            <p style="margin-top:12px;">جاري التحميل...</p>
-          </div>
-        </div>
-      </div>
-
-      <!-- Chat window -->
-      <div style="flex:1;background:#fff;border-radius:16px;border:1px solid #E5E7EB;display:flex;flex-direction:column;overflow:hidden;">
-        <div id="support-chat-header" style="padding:14px 20px;border-bottom:1px solid #F3F4F6;display:flex;align-items:center;gap:14px;background:#FAFAFA;">
-          <div id="support-user-avatar" style="width:46px;height:46px;border-radius:23px;background:var(--primary);display:flex;align-items:center;justify-content:center;color:#fff;font-size:1.2rem;font-family:'Cairo',sans-serif;font-weight:700;flex-shrink:0;">
-            <i class="fas fa-user"></i>
-          </div>
-          <div style="flex:1;min-width:0;">
-            <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
-              <div id="support-chat-user-name" style="font-weight:800;font-family:'Cairo',sans-serif;color:#111827;font-size:1rem;">اختر محادثة</div>
-              <div id="support-chat-user-gender-badge" style="display:none;padding:2px 10px;border-radius:20px;font-size:0.75rem;font-family:'Cairo',sans-serif;font-weight:600;"></div>
-            </div>
-            <div style="display:flex;align-items:center;gap:14px;margin-top:4px;flex-wrap:wrap;">
-              <div id="support-chat-user-phone" style="font-size:0.82rem;color:#6B7280;font-family:'Cairo',sans-serif;display:flex;align-items:center;gap:4px;">
-              </div>
-              <div id="support-chat-user-region" style="display:none;font-size:0.82rem;color:#6B7280;font-family:'Cairo',sans-serif;align-items:center;gap:4px;">
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div id="support-messages-area" style="flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:8px;background:#F9FAFB;">
-          <div style="text-align:center;color:#9CA3AF;margin:auto;">
-            <i class="fas fa-comments" style="font-size:3rem;display:block;margin-bottom:12px;"></i>
-            اختر محادثة لعرض الرسائل
-          </div>
-        </div>
-
-        <div style="padding:12px 16px;border-top:1px solid #F3F4F6;display:flex;gap:8px;align-items:flex-end;">
-          <textarea id="support-reply-input" placeholder="اكتب ردك هنا..." rows="2"
-            style="flex:1;border:1px solid #E5E7EB;border-radius:10px;padding:10px 14px;font-family:'Cairo',sans-serif;font-size:0.9rem;resize:none;outline:none;max-height:100px;"
-            onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendSupportReply();}"></textarea>
-          <button id="support-send-btn" onclick="sendSupportReply()"
-            style="background:var(--primary);color:#fff;border:none;border-radius:10px;padding:10px 20px;cursor:pointer;font-family:'Cairo',sans-serif;font-size:0.9rem;font-weight:600;white-space:nowrap;height:42px;">
-            إرسال
-          </button>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  </div>
 
   <!-- ─── Assign Driver Modal ─── -->
   <div id="assign-driver-modal" class="modal-overlay" onclick="if(event.target===this)closeAssignDriverModal()">
