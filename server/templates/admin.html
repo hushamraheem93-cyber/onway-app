@@ -2009,91 +2009,157 @@
       </div>
     </div>
 
-    <!-- Vendors (Restaurants) Section -->
+    <!-- Vendors Section -->
     <div id="vendors-section" class="section">
-      <header class="header">
-        <div class="header-title">
-          <h2>إدارة المتاجر والمطاعم</h2>
-          <p>إدارة شاملة للمطاعم والمتاجر — الحالة، العمولة، التقييم، خيارات التوصيل</p>
-        </div>
-        <div style="display:flex;gap:8px;">
-          <button class="btn btn-outline btn-sm" onclick="loadVendors()"><i data-lucide="refresh-cw" style="width:14px;height:14px;"></i></button>
-          <button class="btn btn-primary" onclick="openVendorModal()">
-            <i data-lucide="plus"></i> إضافة متجر / مطعم
-          </button>
-        </div>
-      </header>
 
-      <!-- Stats bar -->
-      <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin-bottom:22px;">
-        <div class="stat-card">
-          <div class="stat-icon" style="background:#FFF3E0;"><i data-lucide="store" style="color:#E86520;width:20px;height:20px;"></i></div>
-          <div><div class="stat-value" id="vstat-total">0</div><div class="stat-label">إجمالي المتاجر</div></div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-icon" style="background:#E8F5E9;"><i data-lucide="check-circle" style="color:#10B981;width:20px;height:20px;"></i></div>
-          <div><div class="stat-value" id="vstat-open">0</div><div class="stat-label">مفتوحة الآن</div></div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-icon" style="background:#FFF9C4;"><i data-lucide="percent" style="color:#F59E0B;width:20px;height:20px;"></i></div>
-          <div><div class="stat-value" id="vstat-avg-commission">0%</div><div class="stat-label">متوسط العمولة</div></div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-icon" style="background:#E3F2FD;"><i data-lucide="star" style="color:#2563EB;width:20px;height:20px;"></i></div>
-          <div><div class="stat-value" id="vstat-avg-rating">0</div><div class="stat-label">متوسط التقييم</div></div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-icon" style="background:#EDE9FE;"><i data-lucide="truck" style="color:#673AB7;width:20px;height:20px;"></i></div>
-          <div><div class="stat-value" id="vstat-delivery">0</div><div class="stat-label">يقدم توصيل</div></div>
+      <!-- Hero Header -->
+      <div style="background:linear-gradient(135deg,#1a1a2e 0%,#16213e 100%);border-radius:18px;padding:26px 28px;margin-bottom:24px;position:relative;overflow:hidden;">
+        <div style="position:absolute;top:-40px;right:-40px;width:140px;height:140px;background:rgba(232,101,32,0.12);border-radius:50%;pointer-events:none;"></div>
+        <div style="position:absolute;bottom:-30px;left:60px;width:100px;height:100px;background:rgba(103,58,183,0.1);border-radius:50%;pointer-events:none;"></div>
+        <div style="position:absolute;top:20px;left:200px;width:60px;height:60px;background:rgba(16,185,129,0.08);border-radius:50%;pointer-events:none;"></div>
+        <div style="display:flex;align-items:center;justify-content:space-between;position:relative;gap:16px;flex-wrap:wrap;">
+          <div style="display:flex;align-items:center;gap:14px;">
+            <div style="width:48px;height:48px;background:linear-gradient(135deg,#E86520,#FF9A4D);border-radius:14px;display:flex;align-items:center;justify-content:center;flex-shrink:0;box-shadow:0 4px 12px rgba(232,101,32,0.4);">
+              <i data-lucide="store" style="width:22px;height:22px;color:#fff;"></i>
+            </div>
+            <div>
+              <h2 style="margin:0;color:#fff;font-size:1.25rem;font-weight:800;letter-spacing:-0.02em;">إدارة المتاجر</h2>
+              <p style="margin:4px 0 0;color:rgba(255,255,255,0.5);font-size:0.8rem;">إدارة شاملة — الحالة، العمولة، التقييم، خيارات التوصيل</p>
+            </div>
+          </div>
+          <div style="display:flex;gap:8px;align-items:center;">
+            <button onclick="loadVendors()" title="تحديث" style="background:rgba(255,255,255,0.08);color:#fff;border:1px solid rgba(255,255,255,0.15);padding:8px 12px;border-radius:10px;cursor:pointer;display:flex;align-items:center;gap:6px;font-size:0.82rem;font-family:inherit;backdrop-filter:blur(8px);transition:background .15s;" onmouseenter="this.style.background='rgba(255,255,255,0.14)'" onmouseleave="this.style.background='rgba(255,255,255,0.08)'">
+              <i data-lucide="refresh-cw" style="width:14px;height:14px;"></i>
+            </button>
+            <button onclick="openVendorModal()" style="background:linear-gradient(135deg,#E86520,#FF9A4D);color:#fff;border:none;padding:9px 18px;border-radius:10px;font-weight:700;font-size:0.85rem;cursor:pointer;display:flex;align-items:center;gap:7px;font-family:inherit;box-shadow:0 4px 12px rgba(232,101,32,0.4);transition:transform .15s;" onmouseenter="this.style.transform='translateY(-1px)'" onmouseleave="this.style.transform='translateY(0)'">
+              <i data-lucide="plus" style="width:16px;height:16px;"></i> إضافة متجر
+            </button>
+          </div>
         </div>
       </div>
 
-      <!-- Category filter tabs -->
-      <div style="display:flex;gap:8px;margin-bottom:18px;flex-wrap:wrap;align-items:center;">
-        <span style="font-size:0.85rem;font-weight:700;color:var(--gray-500);">تصفية:</span>
-        <button class="btn btn-sm vendor-type-btn active" data-type="" onclick="filterVendorsByType('')" style="background:var(--primary);color:#fff;border-color:var(--primary);">الكل <span id="vtype-all-count" style="background:rgba(255,255,255,0.25);border-radius:10px;padding:1px 6px;font-size:0.75rem;margin-right:4px;">0</span></button>
-        <button class="btn btn-sm vendor-type-btn" data-type="restaurant" onclick="filterVendorsByType('restaurant')" style="background:#FFF3E0;color:#E86520;border-color:#FDBA74;">مطاعم <span id="vtype-restaurant-count" style="background:rgba(232,101,32,0.12);border-radius:10px;padding:1px 6px;font-size:0.75rem;margin-right:4px;">0</span></button>
-        <button class="btn btn-sm vendor-type-btn" data-type="store" onclick="filterVendorsByType('store')" style="background:#EDE9FE;color:#673AB7;border-color:#C4B5FD;">متاجر <span id="vtype-store-count" style="background:rgba(103,58,183,0.12);border-radius:10px;padding:1px 6px;font-size:0.75rem;margin-right:4px;">0</span></button>
-        <button class="btn btn-sm vendor-type-btn" data-type="grocery" onclick="filterVendorsByType('grocery')" style="background:#D1FAE5;color:#065F46;border-color:#6EE7B7;">بقالة <span id="vtype-grocery-count" style="background:rgba(16,185,129,0.12);border-radius:10px;padding:1px 6px;font-size:0.75rem;margin-right:4px;">0</span></button>
-        <button class="btn btn-sm vendor-type-btn" data-type="cafe" onclick="filterVendorsByType('cafe')" style="background:#FEF3C7;color:#92400E;border-color:#FDE68A;">مقاهي <span id="vtype-cafe-count" style="background:rgba(245,158,11,0.12);border-radius:10px;padding:1px 6px;font-size:0.75rem;margin-right:4px;">0</span></button>
-        <button class="btn btn-sm vendor-type-btn" data-type="pharmacy" onclick="filterVendorsByType('pharmacy')" style="background:#E0F2FE;color:#0369A1;border-color:#7DD3FC;">صيدليات <span id="vtype-pharmacy-count" style="background:rgba(3,105,161,0.12);border-radius:10px;padding:1px 6px;font-size:0.75rem;margin-right:4px;">0</span></button>
-        <div style="margin-right:auto;display:flex;gap:6px;">
-          <button class="btn btn-sm" id="vview-cards" onclick="setVendorView('cards')" style="background:var(--primary);color:#fff;border-color:var(--primary);" title="عرض بطاقات"><i data-lucide="layout-grid" style="width:13px;height:13px;"></i></button>
-          <button class="btn btn-sm btn-outline" id="vview-table" onclick="setVendorView('table')" title="عرض جدول"><i data-lucide="list" style="width:13px;height:13px;"></i></button>
+      <!-- Stats Grid -->
+      <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin-bottom:22px;">
+        <div style="background:#fff;border-radius:14px;padding:16px 14px;display:flex;align-items:center;gap:12px;box-shadow:0 1px 4px rgba(0,0,0,0.06);border:1px solid #F3F4F6;">
+          <div style="width:42px;height:42px;background:linear-gradient(135deg,#FFF3E0,#FED7AA);border-radius:12px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+            <i data-lucide="store" style="color:#E86520;width:19px;height:19px;"></i>
+          </div>
+          <div><div style="font-size:1.4rem;font-weight:800;color:#111827;line-height:1;" id="vstat-total">0</div><div style="font-size:0.7rem;color:#9CA3AF;margin-top:3px;font-weight:500;">إجمالي المتاجر</div></div>
+        </div>
+        <div style="background:#fff;border-radius:14px;padding:16px 14px;display:flex;align-items:center;gap:12px;box-shadow:0 1px 4px rgba(0,0,0,0.06);border:1px solid #F3F4F6;">
+          <div style="width:42px;height:42px;background:linear-gradient(135deg,#D1FAE5,#6EE7B7);border-radius:12px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+            <i data-lucide="circle-check" style="color:#059669;width:19px;height:19px;"></i>
+          </div>
+          <div><div style="font-size:1.4rem;font-weight:800;color:#111827;line-height:1;" id="vstat-open">0</div><div style="font-size:0.7rem;color:#9CA3AF;margin-top:3px;font-weight:500;">مفتوحة الآن</div></div>
+        </div>
+        <div style="background:#fff;border-radius:14px;padding:16px 14px;display:flex;align-items:center;gap:12px;box-shadow:0 1px 4px rgba(0,0,0,0.06);border:1px solid #F3F4F6;">
+          <div style="width:42px;height:42px;background:linear-gradient(135deg,#FEF3C7,#FDE68A);border-radius:12px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+            <i data-lucide="percent" style="color:#D97706;width:19px;height:19px;"></i>
+          </div>
+          <div><div style="font-size:1.4rem;font-weight:800;color:#111827;line-height:1;" id="vstat-avg-commission">0%</div><div style="font-size:0.7rem;color:#9CA3AF;margin-top:3px;font-weight:500;">متوسط العمولة</div></div>
+        </div>
+        <div style="background:#fff;border-radius:14px;padding:16px 14px;display:flex;align-items:center;gap:12px;box-shadow:0 1px 4px rgba(0,0,0,0.06);border:1px solid #F3F4F6;">
+          <div style="width:42px;height:42px;background:linear-gradient(135deg,#EDE9FE,#C4B5FD);border-radius:12px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+            <i data-lucide="star" style="color:#7C3AED;width:19px;height:19px;"></i>
+          </div>
+          <div><div style="font-size:1.4rem;font-weight:800;color:#111827;line-height:1;" id="vstat-avg-rating">0</div><div style="font-size:0.7rem;color:#9CA3AF;margin-top:3px;font-weight:500;">متوسط التقييم</div></div>
+        </div>
+        <div style="background:#fff;border-radius:14px;padding:16px 14px;display:flex;align-items:center;gap:12px;box-shadow:0 1px 4px rgba(0,0,0,0.06);border:1px solid #F3F4F6;">
+          <div style="width:42px;height:42px;background:linear-gradient(135deg,#E0F2FE,#7DD3FC);border-radius:12px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+            <i data-lucide="truck" style="color:#0369A1;width:19px;height:19px;"></i>
+          </div>
+          <div><div style="font-size:1.4rem;font-weight:800;color:#111827;line-height:1;" id="vstat-delivery">0</div><div style="font-size:0.7rem;color:#9CA3AF;margin-top:3px;font-weight:500;">يقدم توصيل</div></div>
+        </div>
+      </div>
+
+      <!-- Search + Filter + View Toggle -->
+      <div style="background:#fff;border-radius:14px;padding:14px 16px;margin-bottom:20px;box-shadow:0 1px 4px rgba(0,0,0,0.06);border:1px solid #F3F4F6;">
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+          <!-- Search -->
+          <div style="flex:1;min-width:180px;position:relative;">
+            <i data-lucide="search" style="position:absolute;right:11px;top:50%;transform:translateY(-50%);width:14px;height:14px;color:#9CA3AF;pointer-events:none;"></i>
+            <input id="vendors-search" type="text" placeholder="ابحث عن متجر بالاسم..." oninput="filterVendorsSearch()"
+              style="width:100%;padding:8px 34px 8px 12px;border:1.5px solid #E5E7EB;border-radius:9px;font-size:0.83rem;outline:none;background:#F9FAFB;font-family:inherit;transition:border-color .15s;box-sizing:border-box;"
+              onfocus="this.style.borderColor='#E86520';this.style.background='#fff'" onblur="this.style.borderColor='#E5E7EB';this.style.background='#F9FAFB'">
+          </div>
+          <!-- Category pills -->
+          <div style="display:flex;gap:5px;flex-wrap:wrap;">
+            <button class="vendor-type-btn vtype-pill" data-type="" onclick="filterVendorsByType('')"
+              style="padding:6px 13px;border-radius:20px;border:1.5px solid #E86520;background:#E86520;color:#fff;font-size:0.77rem;font-weight:700;cursor:pointer;font-family:inherit;transition:all .15s;">
+              الكل&nbsp;<span id="vtype-all-count">0</span>
+            </button>
+            <button class="vendor-type-btn vtype-pill" data-type="restaurant" onclick="filterVendorsByType('restaurant')"
+              style="padding:6px 13px;border-radius:20px;border:1.5px solid #E5E7EB;background:#fff;color:#6B7280;font-size:0.77rem;font-weight:600;cursor:pointer;font-family:inherit;transition:all .15s;">
+              مطاعم&nbsp;<span id="vtype-restaurant-count">0</span>
+            </button>
+            <button class="vendor-type-btn vtype-pill" data-type="store" onclick="filterVendorsByType('store')"
+              style="padding:6px 13px;border-radius:20px;border:1.5px solid #E5E7EB;background:#fff;color:#6B7280;font-size:0.77rem;font-weight:600;cursor:pointer;font-family:inherit;transition:all .15s;">
+              متاجر&nbsp;<span id="vtype-store-count">0</span>
+            </button>
+            <button class="vendor-type-btn vtype-pill" data-type="grocery" onclick="filterVendorsByType('grocery')"
+              style="padding:6px 13px;border-radius:20px;border:1.5px solid #E5E7EB;background:#fff;color:#6B7280;font-size:0.77rem;font-weight:600;cursor:pointer;font-family:inherit;transition:all .15s;">
+              بقالة&nbsp;<span id="vtype-grocery-count">0</span>
+            </button>
+            <button class="vendor-type-btn vtype-pill" data-type="cafe" onclick="filterVendorsByType('cafe')"
+              style="padding:6px 13px;border-radius:20px;border:1.5px solid #E5E7EB;background:#fff;color:#6B7280;font-size:0.77rem;font-weight:600;cursor:pointer;font-family:inherit;transition:all .15s;">
+              مقاهي&nbsp;<span id="vtype-cafe-count">0</span>
+            </button>
+            <button class="vendor-type-btn vtype-pill" data-type="pharmacy" onclick="filterVendorsByType('pharmacy')"
+              style="padding:6px 13px;border-radius:20px;border:1.5px solid #E5E7EB;background:#fff;color:#6B7280;font-size:0.77rem;font-weight:600;cursor:pointer;font-family:inherit;transition:all .15s;">
+              صيدليات&nbsp;<span id="vtype-pharmacy-count">0</span>
+            </button>
+          </div>
+          <!-- View toggle -->
+          <div style="display:flex;background:#F3F4F6;border-radius:9px;padding:3px;gap:2px;flex-shrink:0;">
+            <button id="vview-cards" onclick="setVendorView('cards')" title="بطاقات"
+              style="padding:6px 10px;border:none;border-radius:6px;background:#fff;color:#E86520;cursor:pointer;box-shadow:0 1px 3px rgba(0,0,0,0.1);transition:all .15s;font-family:inherit;">
+              <i data-lucide="layout-grid" style="width:14px;height:14px;"></i>
+            </button>
+            <button id="vview-table" onclick="setVendorView('table')" title="جدول"
+              style="padding:6px 10px;border:none;border-radius:6px;background:transparent;color:#9CA3AF;cursor:pointer;transition:all .15s;font-family:inherit;">
+              <i data-lucide="list" style="width:14px;height:14px;"></i>
+            </button>
+          </div>
         </div>
       </div>
 
       <!-- Cards View -->
       <div id="vendors-cards-view">
-        <div id="vendors-cards-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:18px;"></div>
-        <div id="vendors-cards-empty" style="display:none;text-align:center;padding:60px;color:var(--gray-400);">
-          <i data-lucide="store" style="width:48px;height:48px;opacity:0.3;"></i>
-          <p style="margin-top:12px;font-size:1rem;">لا توجد متاجر في هذه الفئة</p>
+        <div id="vendors-cards-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px;"></div>
+        <div id="vendors-cards-empty" style="display:none;text-align:center;padding:80px 40px;background:#fff;border-radius:16px;border:1px solid #F3F4F6;">
+          <div style="width:64px;height:64px;background:#F3F4F6;border-radius:16px;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;">
+            <i data-lucide="store" style="width:28px;height:28px;color:#9CA3AF;"></i>
+          </div>
+          <p style="font-size:1rem;font-weight:700;color:#374151;margin:0 0 6px;">لا توجد متاجر</p>
+          <p style="font-size:0.82rem;color:#9CA3AF;margin:0;">جرّب تغيير الفئة أو أضف متجراً جديداً</p>
         </div>
       </div>
 
-      <!-- Table View (hidden by default) -->
+      <!-- Table View -->
       <div id="vendors-table-view" style="display:none;">
-        <div class="card">
-          <div class="card-header">
-            <h3><i data-lucide="list"></i> قائمة المتاجر (<span id="vendors-count-label">0</span>)</h3>
+        <div style="background:#fff;border-radius:16px;border:1px solid #F3F4F6;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,0.06);">
+          <div style="padding:16px 20px;border-bottom:1px solid #F3F4F6;display:flex;align-items:center;justify-content:space-between;">
+            <div style="font-size:0.9rem;font-weight:700;color:#374151;display:flex;align-items:center;gap:8px;">
+              <i data-lucide="list" style="width:16px;height:16px;color:#9CA3AF;"></i>
+              قائمة المتاجر (<span id="vendors-count-label">0</span>)
+            </div>
+            <div style="font-size:0.75rem;color:#9CA3AF;display:flex;align-items:center;gap:4px;">
+              <i data-lucide="grip-vertical" style="width:13px;height:13px;"></i> اسحب لتغيير الترتيب
+            </div>
           </div>
           <div style="overflow-x:auto;">
-            <p style="font-size:0.8rem;color:var(--gray-400);margin:0 0 10px;display:flex;align-items:center;gap:6px;">
-              <i data-lucide="grip-vertical" style="width:14px;height:14px;"></i> اسحب المتجر لتغيير ترتيبه
-            </p>
-            <table class="table" id="vendors-table">
+            <table class="table" id="vendors-table" style="margin:0;">
               <thead>
-                <tr>
+                <tr style="background:#F9FAFB;">
                   <th style="width:44px;"></th>
-                  <th style="width:44px;text-align:center;">#</th>
+                  <th style="width:36px;text-align:center;">#</th>
                   <th>المتجر</th>
                   <th>النوع</th>
                   <th>الموقع</th>
                   <th>العمولة</th>
                   <th>التقييم</th>
                   <th>التوصيل</th>
-                  <th>وقت الفتح</th>
+                  <th>وقت العمل</th>
                   <th>الحالة</th>
                   <th>الإجراءات</th>
                 </tr>
@@ -2101,28 +2167,35 @@
               <tbody id="vendors-tbody"></tbody>
             </table>
             <style>
-              #vendors-tbody tr { transition: background 0.15s; }
-              #vendors-tbody tr.drag-over { background: #FFF3E0 !important; outline: 2px dashed #E86520; outline-offset: -2px; }
-              #vendors-tbody tr.dragging { opacity: 0.4; }
-              .drag-handle { cursor: grab; color: var(--gray-400); display:flex;align-items:center;justify-content:center;padding:8px 4px; }
-              .drag-handle:active { cursor: grabbing; }
+              #vendors-tbody tr { transition:background 0.12s; }
+              #vendors-tbody tr:hover { background:#FAFAFA; }
+              #vendors-tbody tr.drag-over { background:#FFF3E0 !important;outline:2px dashed #E86520;outline-offset:-2px; }
+              #vendors-tbody tr.dragging { opacity:0.4; }
+              .drag-handle { cursor:grab;color:var(--gray-400);display:flex;align-items:center;justify-content:center;padding:8px 4px; }
+              .drag-handle:active { cursor:grabbing; }
+              .vtype-pill.pill-active { border-color:#E86520 !important;background:#E86520 !important;color:#fff !important;font-weight:700 !important; }
             </style>
           </div>
         </div>
       </div>
 
       <!-- Financial Summary -->
-      <div class="card" style="margin-top:20px;">
-        <div class="card-header">
-          <h3><i data-lucide="trending-up"></i> الملخص المالي للمتاجر</h3>
-          <button class="btn btn-outline btn-sm" onclick="loadVendorFinancials()" id="vendor-fin-refresh-btn">
-            <i data-lucide="refresh-cw" style="width:14px;height:14px;"></i> تحديث
+      <div style="background:#fff;border-radius:16px;border:1px solid #F3F4F6;margin-top:20px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,0.06);">
+        <div style="padding:16px 20px;border-bottom:1px solid #F3F4F6;display:flex;align-items:center;justify-content:space-between;">
+          <div style="font-size:0.9rem;font-weight:700;color:#374151;display:flex;align-items:center;gap:8px;">
+            <i data-lucide="trending-up" style="width:16px;height:16px;color:#10B981;"></i>
+            الملخص المالي للمتاجر
+          </div>
+          <button onclick="loadVendorFinancials()" id="vendor-fin-refresh-btn"
+            style="background:#F3F4F6;border:none;padding:6px 13px;border-radius:8px;font-size:0.8rem;color:#6B7280;cursor:pointer;display:flex;align-items:center;gap:5px;font-family:inherit;transition:background .15s;"
+            onmouseenter="this.style.background='#E5E7EB'" onmouseleave="this.style.background='#F3F4F6'">
+            <i data-lucide="refresh-cw" style="width:13px;height:13px;"></i> تحديث
           </button>
         </div>
-        <div id="vendor-financials-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px;padding:4px 0 8px;">
-          <div style="text-align:center;padding:40px;color:var(--gray-400);grid-column:1/-1;">
+        <div id="vendor-financials-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px;padding:20px;">
+          <div style="text-align:center;padding:40px;color:#9CA3AF;grid-column:1/-1;display:flex;flex-direction:column;align-items:center;gap:10px;">
             <div class="loading-spinner"></div>
-            <p style="margin-top:12px;">جاري تحميل البيانات المالية...</p>
+            <p style="margin:0;font-size:0.85rem;">جاري تحميل البيانات المالية...</p>
           </div>
         </div>
       </div>
@@ -5503,20 +5576,26 @@
       });
     }
 
+    function filterVendorsSearch() {
+      const q = (document.getElementById('vendors-search')?.value || '').trim().toLowerCase();
+      const byType = currentVendorTypeFilter ? vendorsList.filter(v => v.categoryType === currentVendorTypeFilter) : vendorsList;
+      const filtered = q ? byType.filter(v => (v.name || '').toLowerCase().includes(q) || (v.location || '').toLowerCase().includes(q)) : byType;
+      renderVendors(filtered);
+    }
+
     function filterVendorsByType(type) {
       currentVendorTypeFilter = type;
-      document.querySelectorAll('.vendor-type-btn').forEach(b => {
+      document.querySelectorAll('.vendor-type-btn.vtype-pill').forEach(b => {
         const isActive = b.dataset.type === type;
-        b.classList.toggle('active', isActive);
         if (isActive) {
-          b.style.opacity = '1';
-          b.style.fontWeight = '700';
+          b.style.background = '#E86520'; b.style.borderColor = '#E86520'; b.style.color = '#fff'; b.style.fontWeight = '700';
         } else {
-          b.style.opacity = '0.7';
-          b.style.fontWeight = '500';
+          b.style.background = '#fff'; b.style.borderColor = '#E5E7EB'; b.style.color = '#6B7280'; b.style.fontWeight = '600';
         }
       });
-      const filtered = type ? vendorsList.filter(v => v.categoryType === type) : vendorsList;
+      const q = (document.getElementById('vendors-search')?.value || '').trim().toLowerCase();
+      let filtered = type ? vendorsList.filter(v => v.categoryType === type) : vendorsList;
+      if (q) filtered = filtered.filter(v => (v.name || '').toLowerCase().includes(q) || (v.location || '').toLowerCase().includes(q));
       renderVendors(filtered);
     }
 
@@ -5524,10 +5603,15 @@
       currentVendorView = view;
       document.getElementById('vendors-cards-view').style.display = view === 'cards' ? '' : 'none';
       document.getElementById('vendors-table-view').style.display = view === 'table' ? '' : 'none';
-      document.getElementById('vview-cards').style.background = view === 'cards' ? 'var(--primary)' : '';
-      document.getElementById('vview-cards').style.color = view === 'cards' ? '#fff' : '';
-      document.getElementById('vview-table').style.background = view === 'table' ? 'var(--primary)' : '';
-      document.getElementById('vview-table').style.color = view === 'table' ? '#fff' : '';
+      const cBtn = document.getElementById('vview-cards');
+      const tBtn = document.getElementById('vview-table');
+      if (view === 'cards') {
+        cBtn.style.background = '#fff'; cBtn.style.color = '#E86520'; cBtn.style.boxShadow = '0 1px 3px rgba(0,0,0,0.1)';
+        tBtn.style.background = 'transparent'; tBtn.style.color = '#9CA3AF'; tBtn.style.boxShadow = 'none';
+      } else {
+        tBtn.style.background = '#fff'; tBtn.style.color = '#E86520'; tBtn.style.boxShadow = '0 1px 3px rgba(0,0,0,0.1)';
+        cBtn.style.background = 'transparent'; cBtn.style.color = '#9CA3AF'; cBtn.style.boxShadow = 'none';
+      }
       lucide.createIcons();
     }
 
@@ -5548,96 +5632,110 @@
     function renderVendorCards(vendors) {
       const grid = document.getElementById('vendors-cards-grid');
       const empty = document.getElementById('vendors-cards-empty');
-      if (!vendors.length) {
-        grid.innerHTML = '';
-        empty.style.display = '';
-        return;
-      }
+      if (!vendors.length) { grid.innerHTML = ''; empty.style.display = ''; return; }
       empty.style.display = 'none';
       grid.innerHTML = vendors.map(v => {
         const type = v.categoryType || 'restaurant';
         const typeLabel = VENDOR_TYPE_LABELS[type] || type;
         const typeColor = VENDOR_TYPE_COLORS[type] || '#E86520';
         const typeBg = VENDOR_TYPE_BG[type] || '#FFF3E0';
-        const rating = (v.rating !== null && v.rating !== undefined) ? v.rating : null;
-        const stars = rating ? '★'.repeat(Math.floor(rating)) + (rating % 1 >= 0.5 ? '½' : '') : null;
+        const rating = (v.rating !== null && v.rating !== undefined) ? Number(v.rating).toFixed(1) : null;
         const hasDelivery = v.hasDelivery !== false;
         const minOrder = v.minOrder || 0;
         const openTimeTxt = (v.openTime && v.closeTime) ? `${v.openTime} – ${v.closeTime}` : null;
+        const nameEsc = (v.name || '').replace(/'/g, "\\'");
 
-        return `<div style="background:#fff;border-radius:16px;border:1px solid #E5E7EB;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,0.06);transition:box-shadow .15s;" onmouseenter="this.style.boxShadow='0 4px 16px rgba(0,0,0,0.1)'" onmouseleave="this.style.boxShadow='0 1px 4px rgba(0,0,0,0.06)'">
-
-          <!-- Card Top -->
-          <div style="display:flex;align-items:flex-start;gap:12px;padding:16px 16px 12px;">
-            <div style="position:relative;flex-shrink:0;">
-              <img src="${v.image || ''}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';" style="width:58px;height:58px;border-radius:12px;object-fit:cover;">
-              <div style="display:none;width:58px;height:58px;border-radius:12px;background:${typeBg};align-items:center;justify-content:center;font-size:1.5rem;">
-                ${type === 'restaurant' ? '🍽️' : type === 'cafe' ? '☕' : type === 'grocery' ? '🛒' : type === 'pharmacy' ? '💊' : '🏪'}
-              </div>
-              <div style="position:absolute;bottom:-4px;right:-4px;width:16px;height:16px;border-radius:50%;background:${v.isOpen ? '#10B981' : '#EF4444'};border:2px solid #fff;"></div>
-            </div>
-            <div style="flex:1;min-width:0;">
-              <div style="font-weight:800;font-size:0.95rem;color:#111827;margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${v.name}</div>
-              <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:4px;">
-                <span style="background:${typeBg};color:${typeColor};padding:2px 8px;border-radius:20px;font-size:0.72rem;font-weight:700;">${typeLabel}</span>
-                ${v.cuisine ? `<span style="background:#F3F4F6;color:#6B7280;padding:2px 8px;border-radius:20px;font-size:0.72rem;">${v.cuisine}</span>` : ''}
-              </div>
-              ${v.location ? `<div style="font-size:0.75rem;color:#9CA3AF;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">📍 ${v.location}</div>` : ''}
-            </div>
-            <!-- Open/Close Toggle -->
-            <div style="flex-shrink:0;">
-              <label title="${v.isOpen ? 'انقر لإغلاق' : 'انقر لفتح'}" style="cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px;">
-                <div onclick="toggleVendorStatus('${v.id}', ${v.isOpen}, this)" style="width:40px;height:22px;border-radius:11px;background:${v.isOpen ? '#10B981' : '#D1D5DB'};position:relative;transition:background .2s;cursor:pointer;">
-                  <div style="position:absolute;top:2px;${v.isOpen ? 'right:2px' : 'left:2px'};width:18px;height:18px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,0.2);transition:all .2s;"></div>
+        return `
+        <div style="background:#fff;border-radius:16px;border:1px solid #E5E7EB;overflow:hidden;box-shadow:0 1px 6px rgba(0,0,0,0.05);transition:all .2s;display:flex;flex-direction:column;"
+             onmouseenter="this.style.boxShadow='0 8px 28px rgba(0,0,0,0.10)';this.style.transform='translateY(-2px)'"
+             onmouseleave="this.style.boxShadow='0 1px 6px rgba(0,0,0,0.05)';this.style.transform='translateY(0)'">
+          <!-- Accent bar -->
+          <div style="height:3px;background:linear-gradient(90deg,${typeColor},${typeColor}55);flex-shrink:0;"></div>
+          <div style="padding:16px;flex:1;display:flex;flex-direction:column;gap:12px;">
+            <!-- Top: Logo + Info + Toggle -->
+            <div style="display:flex;align-items:flex-start;gap:12px;">
+              <!-- Logo -->
+              <div style="position:relative;flex-shrink:0;">
+                <div style="width:54px;height:54px;border-radius:13px;background:${typeBg};border:1px solid ${typeColor}22;overflow:hidden;display:flex;align-items:center;justify-content:center;">
+                  <img src="${v.image || ''}" onerror="this.style.display='none'" style="width:100%;height:100%;object-fit:cover;">
                 </div>
-                <span style="font-size:0.65rem;font-weight:700;color:${v.isOpen ? '#10B981' : '#9CA3AF'};">${v.isOpen ? 'مفتوح' : 'مغلق'}</span>
-              </label>
+                <div style="position:absolute;bottom:-2px;right:-2px;width:13px;height:13px;border-radius:50%;background:${v.isOpen ? '#10B981' : '#EF4444'};border:2px solid #fff;"></div>
+              </div>
+              <!-- Name + badges -->
+              <div style="flex:1;min-width:0;">
+                <div style="font-weight:800;font-size:0.93rem;color:#111827;margin-bottom:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${v.name}</div>
+                <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:4px;">
+                  <span style="background:${typeBg};color:${typeColor};padding:2px 9px;border-radius:20px;font-size:0.69rem;font-weight:700;border:1px solid ${typeColor}33;">${typeLabel}</span>
+                  <span style="background:${v.isOpen ? '#D1FAE5' : '#FEE2E2'};color:${v.isOpen ? '#065F46' : '#991B1B'};padding:2px 9px;border-radius:20px;font-size:0.69rem;font-weight:700;">${v.isOpen ? 'مفتوح' : 'مغلق'}</span>
+                  ${v.cuisine ? `<span style="background:#F9FAFB;color:#6B7280;padding:2px 8px;border-radius:20px;font-size:0.69rem;border:1px solid #E5E7EB;">${v.cuisine}</span>` : ''}
+                </div>
+                ${v.location ? `<div style="font-size:0.71rem;color:#9CA3AF;display:flex;align-items:center;gap:3px;overflow:hidden;"><i data-lucide="map-pin" style="width:10px;height:10px;flex-shrink:0;"></i><span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${v.location}</span></div>` : ''}
+              </div>
+              <!-- Toggle -->
+              <div style="flex-shrink:0;">
+                <div onclick="toggleVendorStatus('${v.id}', ${v.isOpen}, this)"
+                     style="width:42px;height:24px;border-radius:12px;background:${v.isOpen ? '#10B981' : '#D1D5DB'};position:relative;cursor:pointer;transition:background .25s;box-shadow:inset 0 1px 3px rgba(0,0,0,0.15);" title="${v.isOpen ? 'انقر لإغلاق' : 'انقر لفتح'}">
+                  <div style="position:absolute;top:3px;${v.isOpen ? 'right:3px' : 'left:3px'};width:18px;height:18px;border-radius:50%;background:#fff;box-shadow:0 1px 4px rgba(0,0,0,0.25);transition:all .25s;"></div>
+                </div>
+              </div>
             </div>
-          </div>
 
-          <!-- Stats row -->
-          <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:0;border-top:1px solid #F3F4F6;border-bottom:1px solid #F3F4F6;">
-            <div style="padding:10px 8px;text-align:center;border-left:1px solid #F3F4F6;">
-              <div style="font-size:0.8rem;font-weight:800;color:#E86520;">${v.commissionPercent || 0}%</div>
-              <div style="font-size:0.65rem;color:#9CA3AF;margin-top:1px;">عمولة</div>
+            <!-- Metrics row -->
+            <div style="display:grid;grid-template-columns:repeat(4,1fr);background:#F9FAFB;border-radius:10px;overflow:hidden;border:1px solid #F0F0F0;">
+              <div style="padding:9px 6px;text-align:center;border-left:1px solid #EBEBEB;">
+                <div style="font-size:0.85rem;font-weight:800;color:#E86520;">${v.commissionPercent || 0}%</div>
+                <div style="font-size:0.6rem;color:#9CA3AF;margin-top:1px;font-weight:500;">عمولة</div>
+              </div>
+              <div style="padding:9px 6px;text-align:center;border-left:1px solid #EBEBEB;">
+                ${rating
+                  ? `<div style="font-size:0.85rem;font-weight:800;color:#D97706;display:flex;align-items:center;justify-content:center;gap:2px;"><i data-lucide="star" style="width:11px;height:11px;fill:#D97706;color:#D97706;"></i>${rating}</div>`
+                  : `<div style="font-size:0.82rem;font-weight:700;color:#D1D5DB;">—</div>`}
+                <div style="font-size:0.6rem;color:#9CA3AF;margin-top:1px;font-weight:500;">تقييم</div>
+              </div>
+              <div style="padding:9px 6px;text-align:center;border-left:1px solid #EBEBEB;">
+                <div style="font-size:0.85rem;font-weight:800;color:#2563EB;">${v.deliveryTime || '—'}</div>
+                <div style="font-size:0.6rem;color:#9CA3AF;margin-top:1px;font-weight:500;">دقيقة</div>
+              </div>
+              <div style="padding:9px 6px;text-align:center;">
+                <div style="font-size:0.85rem;font-weight:800;color:${hasDelivery ? '#10B981' : '#9CA3AF'};">${hasDelivery ? 'متاح' : '—'}</div>
+                <div style="font-size:0.6rem;color:#9CA3AF;margin-top:1px;font-weight:500;">توصيل</div>
+              </div>
             </div>
-            <div style="padding:10px 8px;text-align:center;border-left:1px solid #F3F4F6;">
-              <div style="font-size:0.8rem;font-weight:800;color:#F59E0B;">${rating ? rating + '★' : '—'}</div>
-              <div style="font-size:0.65rem;color:#9CA3AF;margin-top:1px;">تقييم</div>
-            </div>
-            <div style="padding:10px 8px;text-align:center;border-left:1px solid #F3F4F6;">
-              <div style="font-size:0.8rem;font-weight:800;color:#2563EB;">${v.deliveryTime || '—'}</div>
-              <div style="font-size:0.65rem;color:#9CA3AF;margin-top:1px;">دقيقة</div>
-            </div>
-            <div style="padding:10px 8px;text-align:center;">
-              <div style="font-size:0.8rem;font-weight:800;color:${hasDelivery ? '#10B981' : '#9CA3AF'};">${hasDelivery ? '✓' : '✗'}</div>
-              <div style="font-size:0.65rem;color:#9CA3AF;margin-top:1px;">توصيل</div>
-            </div>
-          </div>
 
-          <!-- Extra info -->
-          ${(minOrder > 0 || openTimeTxt || v.description) ? `
-          <div style="padding:8px 16px;background:#FAFAFA;font-size:0.75rem;color:#6B7280;display:flex;gap:10px;flex-wrap:wrap;">
-            ${minOrder > 0 ? `<span>حد أدنى: ${minOrder.toLocaleString('ar-IQ')} د.ع</span>` : ''}
-            ${openTimeTxt ? `<span>⏰ ${openTimeTxt}</span>` : ''}
-            ${v.description ? `<span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${v.description}</span>` : ''}
-          </div>` : ''}
+            <!-- Extra info -->
+            ${(minOrder > 0 || openTimeTxt) ? `
+            <div style="display:flex;gap:12px;font-size:0.72rem;color:#6B7280;flex-wrap:wrap;">
+              ${minOrder > 0 ? `<span style="display:flex;align-items:center;gap:3px;"><i data-lucide="shopping-bag" style="width:11px;height:11px;color:#9CA3AF;"></i>${minOrder.toLocaleString('ar-IQ')} د.ع حد أدنى</span>` : ''}
+              ${openTimeTxt ? `<span style="display:flex;align-items:center;gap:3px;"><i data-lucide="clock" style="width:11px;height:11px;color:#9CA3AF;"></i>${openTimeTxt}</span>` : ''}
+            </div>` : ''}
 
-          <!-- Actions -->
-          <div style="padding:10px 12px;display:flex;gap:6px;flex-wrap:wrap;">
-            <button class="btn btn-sm" style="flex:1;background:#E86520;color:#fff;border:none;font-size:0.78rem;" onclick="openVendorMeals('${v.id}','${v.name.replace(/'/g,"\\'")}')">
-              <i data-lucide="utensils" style="width:12px;height:12px;"></i> الوجبات
-            </button>
-            <button class="btn btn-outline btn-sm" onclick="openVendorModal('${v.id}')" title="تعديل" style="font-size:0.78rem;">
-              <i data-lucide="edit-2" style="width:12px;height:12px;"></i>
-            </button>
-            <button class="btn btn-outline btn-sm" onclick="openVendorStatement('${v.id}')" title="كشف الحساب" style="font-size:0.78rem;">
-              <i data-lucide="bar-chart-2" style="width:12px;height:12px;"></i>
-            </button>
-            ${v.whatsappNumber ? `<a href="https://wa.me/${v.whatsappNumber}" target="_blank" class="btn btn-sm" style="background:#25D366;color:#fff;border:none;font-size:0.78rem;" title="واتساب"><i data-lucide="message-circle" style="width:12px;height:12px;"></i></a>` : ''}
-            <button class="btn btn-sm" style="background:#FEF2F2;color:#EF4444;border:1px solid #FECACA;font-size:0.78rem;" onclick="confirmDeleteVendor('${v.id}','${v.name.replace(/'/g,"\\'")}')">
-              <i data-lucide="trash-2" style="width:12px;height:12px;"></i>
-            </button>
+            <!-- Actions -->
+            <div style="display:flex;gap:6px;margin-top:auto;">
+              <button onclick="openVendorMeals('${v.id}','${nameEsc}')"
+                style="flex:1;background:linear-gradient(135deg,#E86520,#FF9A4D);color:#fff;border:none;padding:8px 6px;border-radius:9px;font-size:0.77rem;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:5px;font-family:inherit;">
+                <i data-lucide="package" style="width:13px;height:13px;"></i> المنتجات
+              </button>
+              <button onclick="openVendorModal('${v.id}')" title="تعديل"
+                style="background:#F3F4F6;color:#374151;border:none;padding:8px 11px;border-radius:9px;cursor:pointer;display:flex;align-items:center;font-family:inherit;"
+                onmouseenter="this.style.background='#E5E7EB'" onmouseleave="this.style.background='#F3F4F6'">
+                <i data-lucide="edit-2" style="width:14px;height:14px;"></i>
+              </button>
+              <button onclick="openVendorStatement('${v.id}')" title="كشف الحساب"
+                style="background:#F3F4F6;color:#374151;border:none;padding:8px 11px;border-radius:9px;cursor:pointer;display:flex;align-items:center;font-family:inherit;"
+                onmouseenter="this.style.background='#E5E7EB'" onmouseleave="this.style.background='#F3F4F6'">
+                <i data-lucide="bar-chart-2" style="width:14px;height:14px;"></i>
+              </button>
+              ${v.whatsappNumber ? `
+              <a href="https://wa.me/${v.whatsappNumber}" target="_blank" title="واتساب"
+                style="background:#25D366;color:#fff;padding:8px 11px;border-radius:9px;display:flex;align-items:center;text-decoration:none;">
+                <i data-lucide="message-circle" style="width:14px;height:14px;"></i>
+              </a>` : ''}
+              <button onclick="confirmDeleteVendor('${v.id}','${nameEsc}')" title="حذف"
+                style="background:#FEF2F2;color:#EF4444;border:1px solid #FECACA;padding:8px 11px;border-radius:9px;cursor:pointer;display:flex;align-items:center;font-family:inherit;"
+                onmouseenter="this.style.background='#FEE2E2'" onmouseleave="this.style.background='#FEF2F2'">
+                <i data-lucide="trash-2" style="width:14px;height:14px;"></i>
+              </button>
+            </div>
           </div>
         </div>`;
       }).join('');
