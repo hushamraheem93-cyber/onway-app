@@ -3,7 +3,7 @@ modules = ["nodejs-22", "python-3.11", "postgresql-16"]
 
 [nix]
 channel = "stable-24_05"
-packages = ["vips"]
+packages = ["vips", "zip"]
 
 [deployment]
 deploymentTarget = "vm"
