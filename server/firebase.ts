@@ -1254,7 +1254,7 @@ export async function getDriverCompletedOrdersFromDB(
 
 // ========== Driver Activity Log ==========
 // Saves any driver event: online, offline, accepted, rejected, completed
-export type DriverActivityType = "online" | "offline" | "accepted" | "rejected" | "completed";
+export type DriverActivityType = "online" | "offline" | "accepted" | "rejected" | "completed" | "in_delivery" | "issue";
 
 export async function saveDriverActivity(data: {
   phoneNumber: string;
@@ -1405,7 +1405,8 @@ export interface FirestoreVendor {
   whatsappNumber: string;
   commissionPercent: number;
   image: string;
-  rating: number;
+  rating: number | null;
+  ratingCount?: number;
   deliveryTime: string;
   isOpen: boolean;
   createdAt: string;
@@ -1416,6 +1417,7 @@ export interface FirestoreVendor {
   openTime?: string;
   closeTime?: string;
   description?: string;
+  sortOrder?: number;
 }
 
 export async function getVendors(): Promise<(FirestoreVendor & { id: string })[]> {

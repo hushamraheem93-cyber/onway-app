@@ -125,6 +125,8 @@ interface Product {
   inStock: boolean;
   restaurant?: string;
   vendorId?: string;
+  weight?: string;
+  unit?: string;
 }
 
 interface Vendor {
@@ -376,7 +378,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const db = getFirestore();
       if (!db) return res.status(500).json({ error: "قاعدة البيانات غير متاحة" });
-      const { id } = req.params;
+      const id = req.params.id as string;
       const [storeDoc, productsSnap] = await Promise.all([
         db.collection("vendors").doc(id).get(),
         db.collection("vendorProducts").where("vendorId", "==", id).get(),
@@ -491,7 +493,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const vendorId = extractVendorId(req);
       if (!vendorId) return res.status(401).json({ error: "غير مصرح" });
 
-      const { pid } = req.params;
+      const pid = req.params.pid as string;
       const doc = await db.collection("vendorProducts").doc(pid).get();
       if (!doc.exists || (doc.data() as any).vendorId !== vendorId) {
         return res.status(404).json({ error: "المنتج غير موجود" });
@@ -513,7 +515,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const db = getFirestore();
       if (!db) return res.status(500).json({ error: "قاعدة البيانات غير متاحة" });
-      const { id } = req.params;
+      const id = req.params.id as string;
       const rate = Number(req.body.commissionPercent);
       if (isNaN(rate) || rate < 0 || rate > 100) {
         return res.status(400).json({ error: "نسبة العمولة يجب أن تكون بين 0 و 100" });
@@ -754,7 +756,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const db = getFirestore();
       if (!db) return res.status(500).json({ error: "قاعدة البيانات غير متاحة" });
-      const { id } = req.params;
+      const id = req.params.id as string;
       const vendorDoc = await db.collection("vendors").doc(id).get();
       if (!vendorDoc.exists) return res.status(404).json({ error: "المتجر غير موجود" });
       const productsSnap = await db.collection("vendorProducts").where("vendorId", "==", id).get();
@@ -775,7 +777,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const db = getFirestore();
       if (!db) return res.status(500).json({ error: "قاعدة البيانات غير متاحة" });
-      const { id } = req.params;
+      const id = req.params.id as string;
       const vendorRef = db.collection("vendors").doc(id);
       const doc = await vendorRef.get();
       if (!doc.exists) return res.status(404).json({ error: "المتجر غير موجود" });
@@ -793,7 +795,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const db = getFirestore();
       if (!db) return res.status(500).json({ error: "قاعدة البيانات غير متاحة" });
-      const { id } = req.params;
+      const id = req.params.id as string;
       const { rating } = req.body;
       if (rating === undefined || rating === null || rating === "") {
         return res.status(400).json({ error: "يرجى إدخال قيمة التقييم" });
@@ -819,7 +821,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const db = getFirestore();
       if (!db) return res.status(500).json({ error: "قاعدة البيانات غير متاحة" });
-      const { id } = req.params;
+      const id = req.params.id as string;
       const [vendorDoc, productsSnap] = await Promise.all([
         db.collection("vendors").doc(id).get(),
         db.collection("vendorProducts").where("vendorId", "==", id).get(),
@@ -862,7 +864,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const db = getFirestore();
       if (!db) return res.status(500).json({ error: "قاعدة البيانات غير متاحة" });
-      const { productId } = req.params;
+      const productId = req.params.productId as string;
       const doc = await db.collection("vendorProducts").doc(productId).get();
       if (!doc.exists) return res.status(404).json({ error: "المنتج غير موجود" });
       await db.collection("vendorProducts").doc(productId).delete();
@@ -1324,7 +1326,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (order !== undefined) updates.order = parseInt(order);
       if (isActive !== undefined) updates.isActive = isActive;
       
-      const banner = await updateFirestoreBanner(req.params.id, updates);
+      const banner = await updateFirestoreBanner(req.params.id as string, updates);
       if (!banner) {
         return res.status(404).json({ error: "Banner not found" });
       }
@@ -1475,8 +1477,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       name: name !== undefined ? String(name) : products[index].name,
       categoryId: categoryId !== undefined ? String(categoryId) : products[index].categoryId,
       price: priceNum !== undefined ? priceNum : products[index].price,
-      originalPrice: originalPriceNum !== undefined ? originalPriceNum : products[index].originalPrice,
-      discount: discountNum !== undefined ? discountNum : products[index].discount,
+      originalPrice: (originalPriceNum !== undefined && originalPriceNum !== null) ? originalPriceNum : (products[index].originalPrice ?? undefined),
+      discount: (discountNum !== undefined && discountNum !== null) ? discountNum : (products[index].discount ?? undefined),
       image: image !== undefined ? String(image) : products[index].image,
       description: description !== undefined ? String(description) : products[index].description,
       inStock: inStockBool !== undefined ? inStockBool : products[index].inStock,
@@ -1595,7 +1597,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (lat !== undefined && lat !== null && lat !== "") updates.lat = parseFloat(lat);
       if (lng !== undefined && lng !== null && lng !== "") updates.lng = parseFloat(lng);
       
-      const area = await updateFirestoreDeliveryArea(req.params.id, updates);
+      const area = await updateFirestoreDeliveryArea(req.params.id as string, updates);
       if (!area) {
         return res.status(404).json({ error: "Delivery area not found" });
       }
@@ -1778,7 +1780,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.put("/api/admin/vendors/:id", async (req: Request, res: Response) => {
-    const { id } = req.params;
+    const id = req.params.id as string;
     const { name, location, whatsappNumber, commissionPercent, image, rating, deliveryTime, isOpen, categoryType, cuisine, hasDelivery, minOrder, openTime, closeTime, description } = req.body;
     const updates: any = {};
     if (name !== undefined) updates.name = String(name);
@@ -1806,7 +1808,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.delete("/api/admin/vendors/:id", async (req: Request, res: Response) => {
-    const { id } = req.params;
+    const id = req.params.id as string;
     try {
       await deleteFirestoreVendor(id);
       invalidateVendorsCache();
@@ -2405,7 +2407,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Driver Routes
   app.get("/api/drivers/check/:phoneNumber", async (req: Request, res: Response) => {
     try {
-      const phoneNumber = req.params.phoneNumber;
+      const phoneNumber = req.params.phoneNumber as string;
       const driver = await getDriverByPhone(phoneNumber);
       if (driver) {
         res.json({
@@ -2636,7 +2638,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Get driver location for a specific order (customer-facing)
   app.get("/api/orders/:orderId/driver-location", async (req: Request, res: Response) => {
-    const { orderId } = req.params;
+    const orderId = req.params.orderId as string;
     const driverPhone = driverAssignments.get(orderId);
     if (!driverPhone) return res.json({ available: false });
     const location = driverLocations.get(driverPhone);
@@ -3841,7 +3843,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.put("/api/admin/promo-codes/:id", async (req: Request, res: Response) => {
     try {
       const { code, type, value, expiryDate, isActive } = req.body;
-      await updatePromoCode(req.params.id, {
+      await updatePromoCode(req.params.id as string, {
         ...(code && { code: code.toUpperCase() }),
         ...(type && { type }),
         ...(value !== undefined && { value: Number(value) }),
@@ -3856,7 +3858,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.delete("/api/admin/promo-codes/:id", async (req: Request, res: Response) => {
     try {
-      await deletePromoCodeFn(req.params.id);
+      await deletePromoCodeFn(req.params.id as string);
       res.json({ success: true });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
@@ -3913,7 +3915,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ── Cancel Order (within 1 minute) ───────────────────────────────────────
   app.post("/api/orders/:orderId/cancel", async (req: Request, res: Response) => {
     try {
-      const { orderId } = req.params;
+      const orderId = req.params.orderId as string;
       const db = getFirestore();
       if (!db) return res.status(503).json({ error: "قاعدة البيانات غير متاحة" });
 
@@ -3979,7 +3981,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const db = getFirestore();
       if (!db) return res.status(503).json({ error: "قاعدة البيانات غير متاحة" });
 
-      const orderRef = db.collection("orders").doc(req.params.orderId);
+      const orderRef = db.collection("orders").doc(req.params.orderId as string);
       const ratedAt = new Date().toISOString();
       let didUpdateVendor = false;
 
@@ -4103,9 +4105,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.get("/api/reverse-geocode", async (req: Request, res: Response) => {
+    const lat = parseFloat(req.query.lat as string);
+    const lng = parseFloat(req.query.lng as string);
     try {
-      const lat = parseFloat(req.query.lat as string);
-      const lng = parseFloat(req.query.lng as string);
       if (isNaN(lat) || isNaN(lng)) {
         return res.status(400).json({ error: "Invalid coordinates" });
       }
@@ -4256,7 +4258,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Admin: get messages for a specific chat (without marking as read by user)
   app.get("/api/admin/support/messages/:phoneNumber", async (req: Request, res: Response) => {
-    const { phoneNumber } = req.params;
+    const phoneNumber = req.params.phoneNumber as string;
     try {
       res.set("Cache-Control", "no-store");
       const chat = await getSupportChat(decodeURIComponent(phoneNumber));
@@ -4293,7 +4295,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Admin: mark chat as read
   app.put("/api/admin/support/read/:phoneNumber", async (req: Request, res: Response) => {
-    const { phoneNumber } = req.params;
+    const phoneNumber = req.params.phoneNumber as string;
     try {
       await markSupportChatRead(phoneNumber, "admin");
       return res.json({ success: true });

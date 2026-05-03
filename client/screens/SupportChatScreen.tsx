@@ -23,6 +23,7 @@ import { useTheme } from "@/hooks/useTheme";
 import { useAuth } from "@/context/AuthContext";
 import { AppColors, Spacing, BorderRadius } from "@/constants/theme";
 import { resolveImageUrl } from "@/utils/imageUtils";
+import { getApiUrl } from "@/lib/query-client";
 
 interface ProductData {
   id: string;

@@ -171,7 +171,7 @@ export function OrderCard({ order, onPress, onStorePress, onRate }: OrderCardPro
 
       {/* Rating section — delivered + vendor orders only */}
       {(canRate || ratedValue) ? (
-        <View style={[styles.ratingSection, { borderTopColor: theme.divider ?? "#E5E7EB" }]}>
+        <View style={[styles.ratingSection, { borderTopColor: theme.border ?? "#E5E7EB" }]}>
           {ratedValue ? (
             <View style={styles.ratingRow}>
               <ThemedText type="small" style={{ color: "#10B981", fontWeight: "600" }}>

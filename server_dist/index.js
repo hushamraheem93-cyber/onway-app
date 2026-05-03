@@ -925,14 +925,14 @@ async function getDriverActivityLog(phoneNumber, limitCount = 200) {
     return [];
   }
 }
-async function updateDriverLastLocation(phoneNumber, lat2, lng2) {
+async function updateDriverLastLocation(phoneNumber, lat, lng) {
   if (!db) return;
   try {
     const snapshot = await db.collection("drivers").where("phoneNumber", "==", phoneNumber).limit(1).get();
     if (!snapshot.empty) {
       await snapshot.docs[0].ref.update({
-        lastLat: lat2,
-        lastLng: lng2,
+        lastLat: lat,
+        lastLng: lng,
         lastLocationAt: admin.firestore.Timestamp.now()
       });
     }
@@ -1828,7 +1828,7 @@ async function registerRoutes(app2) {
     try {
       const db2 = getFirestore();
       if (!db2) return res.status(500).json({ error: "\u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u063A\u064A\u0631 \u0645\u062A\u0627\u062D\u0629" });
-      const { id } = req.params;
+      const id = req.params.id;
       const [storeDoc, productsSnap] = await Promise.all([
         db2.collection("vendors").doc(id).get(),
         db2.collection("vendorProducts").where("vendorId", "==", id).get()
@@ -1936,7 +1936,7 @@ async function registerRoutes(app2) {
       if (!db2) return res.status(500).json({ error: "\u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u063A\u064A\u0631 \u0645\u062A\u0627\u062D\u0629" });
       const vendorId2 = extractVendorId(req);
       if (!vendorId2) return res.status(401).json({ error: "\u063A\u064A\u0631 \u0645\u0635\u0631\u062D" });
-      const { pid } = req.params;
+      const pid = req.params.pid;
       const doc = await db2.collection("vendorProducts").doc(pid).get();
       if (!doc.exists || doc.data().vendorId !== vendorId2) {
         return res.status(404).json({ error: "\u0627\u0644\u0645\u0646\u062A\u062C \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F" });
@@ -1956,7 +1956,7 @@ async function registerRoutes(app2) {
     try {
       const db2 = getFirestore();
       if (!db2) return res.status(500).json({ error: "\u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u063A\u064A\u0631 \u0645\u062A\u0627\u062D\u0629" });
-      const { id } = req.params;
+      const id = req.params.id;
       const rate = Number(req.body.commissionPercent);
       if (isNaN(rate) || rate < 0 || rate > 100) {
         return res.status(400).json({ error: "\u0646\u0633\u0628\u0629 \u0627\u0644\u0639\u0645\u0648\u0644\u0629 \u064A\u062C\u0628 \u0623\u0646 \u062A\u0643\u0648\u0646 \u0628\u064A\u0646 0 \u0648 100" });
@@ -2180,7 +2180,7 @@ async function registerRoutes(app2) {
     try {
       const db2 = getFirestore();
       if (!db2) return res.status(500).json({ error: "\u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u063A\u064A\u0631 \u0645\u062A\u0627\u062D\u0629" });
-      const { id } = req.params;
+      const id = req.params.id;
       const vendorDoc = await db2.collection("vendors").doc(id).get();
       if (!vendorDoc.exists) return res.status(404).json({ error: "\u0627\u0644\u0645\u062A\u062C\u0631 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F" });
       const productsSnap = await db2.collection("vendorProducts").where("vendorId", "==", id).get();
@@ -2199,7 +2199,7 @@ async function registerRoutes(app2) {
     try {
       const db2 = getFirestore();
       if (!db2) return res.status(500).json({ error: "\u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u063A\u064A\u0631 \u0645\u062A\u0627\u062D\u0629" });
-      const { id } = req.params;
+      const id = req.params.id;
       const vendorRef = db2.collection("vendors").doc(id);
       const doc = await vendorRef.get();
       if (!doc.exists) return res.status(404).json({ error: "\u0627\u0644\u0645\u062A\u062C\u0631 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F" });
@@ -2215,7 +2215,7 @@ async function registerRoutes(app2) {
     try {
       const db2 = getFirestore();
       if (!db2) return res.status(500).json({ error: "\u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u063A\u064A\u0631 \u0645\u062A\u0627\u062D\u0629" });
-      const { id } = req.params;
+      const id = req.params.id;
       const { rating } = req.body;
       if (rating === void 0 || rating === null || rating === "") {
         return res.status(400).json({ error: "\u064A\u0631\u062C\u0649 \u0625\u062F\u062E\u0627\u0644 \u0642\u064A\u0645\u0629 \u0627\u0644\u062A\u0642\u064A\u064A\u0645" });
@@ -2239,7 +2239,7 @@ async function registerRoutes(app2) {
     try {
       const db2 = getFirestore();
       if (!db2) return res.status(500).json({ error: "\u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u063A\u064A\u0631 \u0645\u062A\u0627\u062D\u0629" });
-      const { id } = req.params;
+      const id = req.params.id;
       const [vendorDoc, productsSnap] = await Promise.all([
         db2.collection("vendors").doc(id).get(),
         db2.collection("vendorProducts").where("vendorId", "==", id).get()
@@ -2280,7 +2280,7 @@ async function registerRoutes(app2) {
     try {
       const db2 = getFirestore();
       if (!db2) return res.status(500).json({ error: "\u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u063A\u064A\u0631 \u0645\u062A\u0627\u062D\u0629" });
-      const { productId: productId2 } = req.params;
+      const productId2 = req.params.productId;
       const doc = await db2.collection("vendorProducts").doc(productId2).get();
       if (!doc.exists) return res.status(404).json({ error: "\u0627\u0644\u0645\u0646\u062A\u062C \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F" });
       await db2.collection("vendorProducts").doc(productId2).delete();
@@ -2806,8 +2806,8 @@ async function registerRoutes(app2) {
       name: name !== void 0 ? String(name) : products[index].name,
       categoryId: categoryId !== void 0 ? String(categoryId) : products[index].categoryId,
       price: priceNum !== void 0 ? priceNum : products[index].price,
-      originalPrice: originalPriceNum !== void 0 ? originalPriceNum : products[index].originalPrice,
-      discount: discountNum !== void 0 ? discountNum : products[index].discount,
+      originalPrice: originalPriceNum !== void 0 && originalPriceNum !== null ? originalPriceNum : products[index].originalPrice ?? void 0,
+      discount: discountNum !== void 0 && discountNum !== null ? discountNum : products[index].discount ?? void 0,
       image: image !== void 0 ? String(image) : products[index].image,
       description: description !== void 0 ? String(description) : products[index].description,
       inStock: inStockBool !== void 0 ? inStockBool : products[index].inStock,
@@ -2887,13 +2887,13 @@ async function registerRoutes(app2) {
   });
   app2.post("/api/admin/delivery-areas", async (req, res) => {
     try {
-      const { name, fee, lat: lat2, lng: lng2 } = req.body;
+      const { name, fee, lat, lng } = req.body;
       const area = await createDeliveryArea({
         name,
         fee: parseInt(fee) || 0,
         isActive: true,
-        ...lat2 !== void 0 && lat2 !== null && lat2 !== "" && { lat: parseFloat(lat2) },
-        ...lng2 !== void 0 && lng2 !== null && lng2 !== "" && { lng: parseFloat(lng2) }
+        ...lat !== void 0 && lat !== null && lat !== "" && { lat: parseFloat(lat) },
+        ...lng !== void 0 && lng !== null && lng !== "" && { lng: parseFloat(lng) }
       });
       if (!area) {
         return res.status(500).json({ error: "Failed to create delivery area" });
@@ -2906,13 +2906,13 @@ async function registerRoutes(app2) {
   });
   app2.put("/api/admin/delivery-areas/:id", async (req, res) => {
     try {
-      const { name, fee, isActive, lat: lat2, lng: lng2 } = req.body;
+      const { name, fee, isActive, lat, lng } = req.body;
       const updates = {};
       if (name !== void 0) updates.name = name;
       if (fee !== void 0) updates.fee = parseInt(fee);
       if (isActive !== void 0) updates.isActive = isActive !== "false" && isActive !== false;
-      if (lat2 !== void 0 && lat2 !== null && lat2 !== "") updates.lat = parseFloat(lat2);
-      if (lng2 !== void 0 && lng2 !== null && lng2 !== "") updates.lng = parseFloat(lng2);
+      if (lat !== void 0 && lat !== null && lat !== "") updates.lat = parseFloat(lat);
+      if (lng !== void 0 && lng !== null && lng !== "") updates.lng = parseFloat(lng);
       const area = await updateDeliveryArea(req.params.id, updates);
       if (!area) {
         return res.status(404).json({ error: "Delivery area not found" });
@@ -3071,7 +3071,7 @@ async function registerRoutes(app2) {
     }
   });
   app2.put("/api/admin/vendors/:id", async (req, res) => {
-    const { id } = req.params;
+    const id = req.params.id;
     const { name, location, whatsappNumber, commissionPercent, image, rating, deliveryTime, isOpen, categoryType, cuisine, hasDelivery, minOrder, openTime, closeTime, description } = req.body;
     const updates = {};
     if (name !== void 0) updates.name = String(name);
@@ -3098,7 +3098,7 @@ async function registerRoutes(app2) {
     }
   });
   app2.delete("/api/admin/vendors/:id", async (req, res) => {
-    const { id } = req.params;
+    const id = req.params.id;
     try {
       await deleteVendor(id);
       invalidateVendorsCache();
@@ -3803,18 +3803,18 @@ ${itemsList}
     }
   });
   app2.post("/api/driver/location", async (req, res) => {
-    const { phoneNumber, lat: lat2, lng: lng2 } = req.body;
-    if (!phoneNumber || lat2 === void 0 || lng2 === void 0) return res.status(400).json({ error: "Missing fields" });
+    const { phoneNumber, lat, lng } = req.body;
+    if (!phoneNumber || lat === void 0 || lng === void 0) return res.status(400).json({ error: "Missing fields" });
     const driver = await getDriverByPhone(phoneNumber).catch(() => null);
-    driverLocations.set(phoneNumber, { lat: Number(lat2), lng: Number(lng2), updatedAt: Date.now(), fullName: driver?.fullName });
+    driverLocations.set(phoneNumber, { lat: Number(lat), lng: Number(lng), updatedAt: Date.now(), fullName: driver?.fullName });
     const qd = driverQueue.find((d) => d.phoneNumber === phoneNumber);
     if (qd) qd.lastSeenAt = Date.now();
-    updateDriverLastLocation(phoneNumber, Number(lat2), Number(lng2)).catch(() => {
+    updateDriverLastLocation(phoneNumber, Number(lat), Number(lng)).catch(() => {
     });
     res.json({ success: true });
   });
   app2.get("/api/orders/:orderId/driver-location", async (req, res) => {
-    const { orderId } = req.params;
+    const orderId = req.params.orderId;
     const driverPhone = driverAssignments.get(orderId);
     if (!driverPhone) return res.json({ available: false });
     const location = driverLocations.get(driverPhone);
@@ -4080,7 +4080,7 @@ ${itemsList}
     }
   });
   app2.post("/api/driver/batch/pickup-order", async (req, res) => {
-    const { phoneNumber, orderId, batchId, lat: lat2, lng: lng2 } = req.body;
+    const { phoneNumber, orderId, batchId, lat, lng } = req.body;
     if (!phoneNumber || !orderId) return res.status(400).json({ error: "Missing fields" });
     try {
       const db2 = getFirestore();
@@ -4088,7 +4088,7 @@ ${itemsList}
       const now = /* @__PURE__ */ new Date();
       await updateOrderStatus(orderId, "in_delivery");
       await db2.collection("orders").doc(orderId).update({ pickedUpAt: now, updatedAt: now });
-      addDeliveryLog({ orderId, driverPhone: phoneNumber, action: "in_delivery", lat: lat2, lng: lng2 }).catch(() => {
+      addDeliveryLog({ orderId, driverPhone: phoneNumber, action: "in_delivery", lat, lng }).catch(() => {
       });
       saveDriverActivity({ phoneNumber, type: "in_delivery", orderId }).catch(() => {
       });
@@ -4098,7 +4098,7 @@ ${itemsList}
     }
   });
   app2.post("/api/driver/batch/complete-order", async (req, res) => {
-    const { phoneNumber, orderId, batchId, lat: lat2, lng: lng2 } = req.body;
+    const { phoneNumber, orderId, batchId, lat, lng } = req.body;
     if (!phoneNumber || !orderId || !batchId) return res.status(400).json({ error: "Missing fields" });
     try {
       const db2 = getFirestore();
@@ -4106,7 +4106,7 @@ ${itemsList}
       const now = /* @__PURE__ */ new Date();
       await updateOrderStatus(orderId, "delivered");
       await db2.collection("orders").doc(orderId).update({ deliveredAt: now, updatedAt: now });
-      addDeliveryLog({ orderId, driverPhone: phoneNumber, action: "delivered", lat: lat2, lng: lng2 }).catch(() => {
+      addDeliveryLog({ orderId, driverPhone: phoneNumber, action: "delivered", lat, lng }).catch(() => {
       });
       const allOrders = await getOrders();
       const order = allOrders.find((o) => o.id === orderId);
@@ -4897,7 +4897,7 @@ ${itemsList}
   });
   app2.post("/api/orders/:orderId/cancel", async (req, res) => {
     try {
-      const { orderId } = req.params;
+      const orderId = req.params.orderId;
       const db2 = getFirestore();
       if (!db2) return res.status(503).json({ error: "\u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u063A\u064A\u0631 \u0645\u062A\u0627\u062D\u0629" });
       const doc = await db2.collection("orders").doc(orderId).get();
@@ -5045,6 +5045,8 @@ ${itemsList}
     }
   });
   app2.get("/api/reverse-geocode", async (req, res) => {
+    const lat = parseFloat(req.query.lat);
+    const lng = parseFloat(req.query.lng);
     try {
       let cleanAddr2 = function(raw) {
         return raw.replace(/،\s*العراق\s*$/g, "").replace(/,\s*العراق\s*$/g, "").replace(/\b\w{2,6}\+\w+[،,]?\s*/g, "").replace(/^\s*[،,]\s*/, "").trim();
@@ -5054,17 +5056,15 @@ ${itemsList}
         return true;
       };
       var cleanAddr = cleanAddr2, isUseful = isUseful2;
-      const lat2 = parseFloat(req.query.lat);
-      const lng2 = parseFloat(req.query.lng);
-      if (isNaN(lat2) || isNaN(lng2)) {
+      if (isNaN(lat) || isNaN(lng)) {
         return res.status(400).json({ error: "Invalid coordinates" });
       }
       const googleApiKey = process.env.GOOGLE_MAPS_API_KEY;
       if (!googleApiKey) {
-        return res.json({ address: `${lat2.toFixed(5)}, ${lng2.toFixed(5)}` });
+        return res.json({ address: `${lat.toFixed(5)}, ${lng.toFixed(5)}` });
       }
-      const geocodeUrl = `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat2},${lng2}&language=ar&key=${googleApiKey}`;
-      const placesUrl = `https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=${lat2},${lng2}&radius=100&language=ar&key=${googleApiKey}`;
+      const geocodeUrl = `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&language=ar&key=${googleApiKey}`;
+      const placesUrl = `https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=${lat},${lng}&radius=100&language=ar&key=${googleApiKey}`;
       const [geocodeRes, placesRes] = await Promise.all([
         fetch(geocodeUrl).then((r) => r.json()).catch(() => null),
         fetch(placesUrl).then((r) => r.json()).catch(() => null)
@@ -5119,10 +5119,10 @@ ${itemsList}
       }
       if (placeName || bestAddress) {
         const finalAddress = placeName ? bestAddress ? `${placeName}\u060C ${bestAddress}` : placeName : bestAddress;
-        console.log(`Geocode ${lat2},${lng2} => ${finalAddress}`);
+        console.log(`Geocode ${lat},${lng} => ${finalAddress}`);
         return res.json({ address: finalAddress, placeName: placeName || null });
       }
-      res.json({ address: `${lat2.toFixed(5)}, ${lng2.toFixed(5)}` });
+      res.json({ address: `${lat.toFixed(5)}, ${lng.toFixed(5)}` });
     } catch (error) {
       console.error("Geocode error:", error.message);
       res.json({ address: `${lat.toFixed(5)}, ${lng.toFixed(5)}` });
@@ -5169,7 +5169,7 @@ ${itemsList}
     }
   });
   app2.get("/api/admin/support/messages/:phoneNumber", async (req, res) => {
-    const { phoneNumber } = req.params;
+    const phoneNumber = req.params.phoneNumber;
     try {
       res.set("Cache-Control", "no-store");
       const chat = await getSupportChat(decodeURIComponent(phoneNumber));
@@ -5200,7 +5200,7 @@ ${itemsList}
     }
   });
   app2.put("/api/admin/support/read/:phoneNumber", async (req, res) => {
-    const { phoneNumber } = req.params;
+    const phoneNumber = req.params.phoneNumber;
     try {
       await markSupportChatRead(phoneNumber, "admin");
       return res.json({ success: true });
@@ -5750,7 +5750,7 @@ router.put(
         return res.status(500).json({ error: "\u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u063A\u064A\u0631 \u0645\u062A\u0627\u062D\u0629" });
       }
       const vid = req.vendorId;
-      const { pid } = req.params;
+      const pid = req.params.pid;
       const doc = await db2.collection("vendorProducts").doc(pid).get();
       if (!doc.exists || doc.data().vendorId !== vid) {
         for (const f of uploadedFiles) await cleanTemp(f.path);
@@ -5834,7 +5834,7 @@ router.delete("/api/vendor/products/:pid", requireVendor, async (req, res) => {
     const db2 = getFirestore();
     if (!db2) return res.status(500).json({ error: "\u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u063A\u064A\u0631 \u0645\u062A\u0627\u062D\u0629" });
     const vid = req.vendorId;
-    const { pid } = req.params;
+    const pid = req.params.pid;
     const doc = await db2.collection("vendorProducts").doc(pid).get();
     if (!doc.exists || doc.data().vendorId !== vid) {
       return res.status(404).json({ error: "\u0627\u0644\u0645\u0646\u062A\u062C \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F" });
@@ -6132,7 +6132,7 @@ router.put("/api/admin/vendor-partners/:id/status", requireAdmin, async (req, re
   try {
     const db2 = getFirestore();
     if (!db2) return res.status(500).json({ error: "\u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u063A\u064A\u0631 \u0645\u062A\u0627\u062D\u0629" });
-    const { id } = req.params;
+    const id = req.params.id;
     const { status, reason } = req.body;
     if (!["active", "rejected", "suspended"].includes(status)) {
       return res.status(400).json({ error: "\u062D\u0627\u0644\u0629 \u063A\u064A\u0631 \u0635\u0627\u0644\u062D\u0629" });
@@ -6195,7 +6195,7 @@ router.post("/api/admin/vendor-products/:pid/approve", requireAdmin, async (req,
   try {
     const db2 = getFirestore();
     if (!db2) return res.status(500).json({ error: "\u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u063A\u064A\u0631 \u0645\u062A\u0627\u062D\u0629" });
-    const { pid } = req.params;
+    const pid = req.params.pid;
     const now = (/* @__PURE__ */ new Date()).toISOString();
     const doc = await db2.collection("vendorProducts").doc(pid).get();
     if (!doc.exists) return res.status(404).json({ error: "\u0627\u0644\u0645\u0646\u062A\u062C \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F" });
@@ -6239,7 +6239,7 @@ router.post("/api/admin/vendor-products/:pid/reject", requireAdmin, async (req, 
   try {
     const db2 = getFirestore();
     if (!db2) return res.status(500).json({ error: "\u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u063A\u064A\u0631 \u0645\u062A\u0627\u062D\u0629" });
-    const { pid } = req.params;
+    const pid = req.params.pid;
     const { reason } = req.body;
     const now = (/* @__PURE__ */ new Date()).toISOString();
     const doc = await db2.collection("vendorProducts").doc(pid).get();

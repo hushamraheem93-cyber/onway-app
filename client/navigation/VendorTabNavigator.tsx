@@ -81,10 +81,17 @@ function VendorTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
 
 function VendorTabs() {
   const screenOptions = useScreenOptions();
+  const tabScreenOptions = {
+    headerTitleAlign: screenOptions.headerTitleAlign as "center" | "left",
+    headerTransparent: screenOptions.headerTransparent,
+    headerTintColor: PURPLE,
+    headerShadowVisible: screenOptions.headerShadowVisible,
+    headerStyle: screenOptions.headerStyle as any,
+  };
   return (
     <Tab.Navigator
       tabBar={(props) => <VendorTabBar {...props} />}
-      screenOptions={{ ...screenOptions, headerTintColor: PURPLE }}
+      screenOptions={tabScreenOptions}
     >
       <Tab.Screen name="VendorHome"          component={VendorHomeScreen}        options={{ headerTitle: "لوحة التحكم" }} />
       <Tab.Screen name="VendorOrdersTab"     component={VendorOrdersScreen}      options={{ headerTitle: "الطلبات" }} />

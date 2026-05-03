@@ -1233,7 +1233,7 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
     if (!assigningOrderId) return null;
     return (
       <View style={styles.modalOverlay}>
-        <View style={[styles.modalBox, { backgroundColor: theme.background }]}>
+        <View style={[styles.modalBox, { backgroundColor: theme.backgroundDefault }]}>
           <ThemedText type="h4" style={{ textAlign: "center", marginBottom: Spacing.md }}>اختر السائق</ThemedText>
           {assignError ? (
             <ThemedText type="small" style={{ color: "#EF4444", textAlign: "center", marginBottom: Spacing.sm }}>
@@ -1479,7 +1479,7 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
 
   const renderDriversTab = () => (
     <View>
-      <ThemedText type="subtitle" style={styles.formTitle}>
+      <ThemedText type="h4" style={styles.formTitle}>
         سائقي التوصيل ({drivers.length})
       </ThemedText>
 
@@ -1501,11 +1501,11 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
                 paddingVertical: 4,
                 borderRadius: BorderRadius.full,
               }}>
-                <ThemedText type="caption" style={{ color: getDriverStatusColor(driver.status), fontWeight: "700" }}>
+                <ThemedText type="small" style={{ color: getDriverStatusColor(driver.status), fontWeight: "700" }}>
                   {getDriverStatusText(driver.status)}
                 </ThemedText>
               </View>
-              <ThemedText type="subtitle" style={{ textAlign: "right", flex: 1, marginRight: Spacing.sm }}>
+              <ThemedText type="h4" style={{ textAlign: "right", flex: 1, marginRight: Spacing.sm }}>
                 {driver.fullName}
               </ThemedText>
             </View>
@@ -1523,7 +1523,7 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
               </View>
               {driver.createdAt ? (
                 <View style={{ flexDirection: "row", justifyContent: "flex-end", gap: Spacing.sm }}>
-                  <ThemedText type="caption" style={{ color: "#9CA3AF" }}>
+                  <ThemedText type="small" style={{ color: "#9CA3AF" }}>
                     {new Date(driver.createdAt).toLocaleDateString("ar-IQ")}
                   </ThemedText>
                   <Feather name="calendar" size={14} color="#9CA3AF" />

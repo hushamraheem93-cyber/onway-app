@@ -555,7 +555,7 @@ router.put(
       }
 
       const vid = (req as any).vendorId;
-      const { pid } = req.params;
+      const pid = req.params.pid as string;
       const doc = await db.collection("vendorProducts").doc(pid).get();
 
       if (!doc.exists || (doc.data() as any).vendorId !== vid) {
@@ -661,7 +661,7 @@ router.delete("/api/vendor/products/:pid", requireVendor, async (req, res) => {
     if (!db) return res.status(500).json({ error: "قاعدة البيانات غير متاحة" });
 
     const vid = (req as any).vendorId;
-    const { pid } = req.params;
+    const pid = req.params.pid as string;
     const doc = await db.collection("vendorProducts").doc(pid).get();
 
     if (!doc.exists || (doc.data() as any).vendorId !== vid) {
@@ -963,7 +963,7 @@ router.patch("/api/vendor/orders/:id/status", requireVendor, async (req, res) =>
     const db = getFirestore();
     if (!db) return res.status(500).json({ error: "قاعدة البيانات غير متاحة" });
     const vid = (req as any).vendorId as string;
-    const orderId = req.params.id;
+    const orderId = req.params.id as string;
     const { status, estimatedMinutes } = req.body as { status: string; estimatedMinutes?: number };
 
     // Allowed transitions from vendor side
@@ -1089,7 +1089,7 @@ router.put("/api/admin/vendor-partners/:id/status", requireAdmin, async (req, re
   try {
     const db = getFirestore();
     if (!db) return res.status(500).json({ error: "قاعدة البيانات غير متاحة" });
-    const { id } = req.params;
+    const id = req.params.id as string;
     const { status, reason } = req.body;
 
     if (!["active", "rejected", "suspended"].includes(status)) {
@@ -1177,7 +1177,7 @@ router.post("/api/admin/vendor-products/:pid/approve", requireAdmin, async (req,
   try {
     const db = getFirestore();
     if (!db) return res.status(500).json({ error: "قاعدة البيانات غير متاحة" });
-    const { pid } = req.params;
+    const pid = req.params.pid as string;
     const now = new Date().toISOString();
 
     const doc = await db.collection("vendorProducts").doc(pid).get();
@@ -1232,7 +1232,7 @@ router.post("/api/admin/vendor-products/:pid/reject", requireAdmin, async (req, 
   try {
     const db = getFirestore();
     if (!db) return res.status(500).json({ error: "قاعدة البيانات غير متاحة" });
-    const { pid } = req.params;
+    const pid = req.params.pid as string;
     const { reason } = req.body;
     const now = new Date().toISOString();
 

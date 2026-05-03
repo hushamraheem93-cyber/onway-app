@@ -126,7 +126,7 @@ export function ErrorFallback({ error, resetError }: ErrorFallbackProps) {
                       styles.errorText,
                       {
                         color: theme.text,
-                        fontFamily: Fonts?.mono || "monospace",
+                        fontFamily: "monospace",
                       },
                     ]}
                     selectable

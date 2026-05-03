@@ -404,6 +404,14 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     textAlign: "right",
   },
+  addressInput: {
+    fontWeight: "600",
+    textAlign: "right",
+    color: "#333",
+    fontSize: 13,
+    paddingVertical: 2,
+    width: "100%",
+  },
   confirmButton: {
     flexDirection: "row-reverse",
     alignItems: "center",
