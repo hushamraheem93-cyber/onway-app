@@ -66,6 +66,7 @@ interface AuthContextType {
   setUserType: (type: UserType) => void;
   login: (phone: string) => Promise<void>;
   logout: () => Promise<void>;
+  deleteAccount: () => Promise<void>;
   saveProfile: (profile: Omit<UserProfile, "phoneNumber" | "profileComplete">, imageUri?: string) => Promise<void>;
   refreshProfile: () => Promise<void>;
   completeDriverRegistration: () => Promise<void>;
@@ -469,6 +470,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const deleteAccount = async () => {
+    if (!phoneNumber) throw new Error("No phone number");
+    const response = await fetch(
+      new URL(`/api/users/${encodeURIComponent(phoneNumber)}`, getApiUrl()).toString(),
+      { method: "DELETE" }
+    );
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      throw new Error(err.error || "فشل حذف الحساب");
+    }
+    await logout();
+  };
+
   const logout = async () => {
     try {
       await AsyncStorage.removeItem(AUTH_STORAGE_KEY);
@@ -561,6 +575,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUserType,
         login,
         logout,
+        deleteAccount,
         saveProfile,
         refreshProfile,
         completeDriverRegistration,

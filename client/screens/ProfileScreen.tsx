@@ -1,5 +1,5 @@
-import React from "react";
-import { StyleSheet, View, Pressable, Switch } from "react-native";
+import React, { useState } from "react";
+import { StyleSheet, View, Pressable, Switch, Modal, ActivityIndicator } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
@@ -68,7 +68,10 @@ export default function ProfileScreen() {
   const tabBarHeight = useBottomTabBarHeight();
   const { theme, isDark } = useTheme();
   const { themeMode, setThemeMode } = useThemeMode();
-  const { phoneNumber, userProfile, logout } = useAuth();
+  const { phoneNumber, userProfile, logout, deleteAccount } = useAuth();
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const navigation = useNavigation<NavigationProp>();
 
   const profileImageUrl = userProfile?.profileImage || null;
@@ -76,6 +79,18 @@ export default function ProfileScreen() {
   const handleLogout = async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     await logout();
+  };
+
+  const handleDeleteAccount = async () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+    setIsDeleting(true);
+    setDeleteError(null);
+    try {
+      await deleteAccount();
+    } catch (e: any) {
+      setDeleteError(e.message || "حدث خطأ، حاول مجدداً");
+      setIsDeleting(false);
+    }
   };
 
   const handleThemeToggle = (value: boolean) => {
@@ -224,6 +239,91 @@ export default function ProfileScreen() {
         onPress={handleLogout}
       />
 
+      <Pressable
+        testID="button-delete-account"
+        onPress={() => {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+          setShowDeleteModal(true);
+        }}
+        style={({ pressed }) => [
+          styles.settingsItem,
+          styles.deleteItem,
+          { opacity: pressed ? 0.7 : 1 },
+        ]}
+      >
+        <View style={[styles.iconContainer, { backgroundColor: "#FEE2E2" }]}>
+          <Feather name="trash-2" size={20} color="#EF4444" />
+        </View>
+        <View style={styles.settingsContent}>
+          <ThemedText type="body" style={[styles.settingsTitle, { color: "#EF4444" }]}>
+            مسح حسابي
+          </ThemedText>
+          <ThemedText type="small" style={[styles.settingsSubtitle, { color: "#F87171" }]}>
+            حذف الحساب وجميع البيانات نهائياً
+          </ThemedText>
+        </View>
+        <Feather name="chevron-left" size={20} color="#F87171" />
+      </Pressable>
+
+      <Modal
+        visible={showDeleteModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowDeleteModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalCard, { backgroundColor: theme.backgroundDefault }]}>
+            <View style={styles.modalIconWrap}>
+              <Feather name="alert-triangle" size={32} color="#EF4444" />
+            </View>
+            <ThemedText type="h3" style={styles.modalTitle}>
+              مسح الحساب
+            </ThemedText>
+            <ThemedText type="body" style={[styles.modalBody, { color: theme.textSecondary }]}>
+              سيتم حذف حسابك وجميع بياناتك الشخصية بشكل نهائي ولا يمكن التراجع عن هذا الإجراء.
+            </ThemedText>
+            {deleteError ? (
+              <ThemedText type="small" style={styles.errorText}>
+                {deleteError}
+              </ThemedText>
+            ) : null}
+            <Pressable
+              testID="button-confirm-delete"
+              onPress={handleDeleteAccount}
+              disabled={isDeleting}
+              style={({ pressed }) => [
+                styles.modalDeleteBtn,
+                { opacity: pressed || isDeleting ? 0.7 : 1 },
+              ]}
+            >
+              {isDeleting ? (
+                <ActivityIndicator color="#fff" size="small" />
+              ) : (
+                <ThemedText type="body" style={styles.modalDeleteBtnText}>
+                  نعم، امسح حسابي
+                </ThemedText>
+              )}
+            </Pressable>
+            <Pressable
+              testID="button-cancel-delete"
+              onPress={() => {
+                setShowDeleteModal(false);
+                setDeleteError(null);
+              }}
+              disabled={isDeleting}
+              style={({ pressed }) => [
+                styles.modalCancelBtn,
+                { borderColor: theme.border, opacity: pressed ? 0.7 : 1 },
+              ]}
+            >
+              <ThemedText type="body" style={{ textAlign: "center" }}>
+                إلغاء
+              </ThemedText>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
+
       <View style={styles.versionContainer}>
         <ThemedText type="small" style={{ color: theme.textSecondary, textAlign: "center" }}>
           الإصدار 1.0.0
@@ -327,5 +427,67 @@ const styles = StyleSheet.create({
   versionContainer: {
     marginTop: Spacing.xl,
     paddingVertical: Spacing.lg,
+  },
+  deleteItem: {
+    borderWidth: 1,
+    borderColor: "#FECACA",
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: Spacing.xl,
+  },
+  modalCard: {
+    width: "100%",
+    borderRadius: BorderRadius.xl,
+    padding: Spacing.xl,
+    alignItems: "center",
+  },
+  modalIconWrap: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: "#FEE2E2",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: Spacing.lg,
+  },
+  modalTitle: {
+    textAlign: "center",
+    marginBottom: Spacing.md,
+  },
+  modalBody: {
+    textAlign: "center",
+    lineHeight: 22,
+    marginBottom: Spacing.lg,
+  },
+  errorText: {
+    color: "#EF4444",
+    textAlign: "center",
+    marginBottom: Spacing.md,
+  },
+  modalDeleteBtn: {
+    width: "100%",
+    backgroundColor: "#EF4444",
+    borderRadius: BorderRadius.lg,
+    paddingVertical: Spacing.md,
+    alignItems: "center",
+    marginBottom: Spacing.sm,
+    minHeight: 48,
+    justifyContent: "center",
+  },
+  modalDeleteBtnText: {
+    color: "#fff",
+    fontFamily: "Cairo_700Bold",
+    textAlign: "center",
+  },
+  modalCancelBtn: {
+    width: "100%",
+    borderWidth: 1,
+    borderRadius: BorderRadius.lg,
+    paddingVertical: Spacing.md,
+    alignItems: "center",
   },
 });

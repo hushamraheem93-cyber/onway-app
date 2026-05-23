@@ -3594,6 +3594,28 @@ ${itemsList}
     };
     res.json({ ...userProfiles[index], profileComplete: true });
   });
+  app2.delete("/api/users/:phoneNumber", async (req, res) => {
+    const phoneNumber = decodeURIComponent(req.params.phoneNumber);
+    const db2 = getFirestore();
+    if (!db2) {
+      return res.status(500).json({ error: "Database not available" });
+    }
+    try {
+      const usersRef = db2.collection("users");
+      const snap = await usersRef.where("phoneNumber", "==", phoneNumber).limit(1).get();
+      if (!snap.empty) {
+        await snap.docs[0].ref.delete();
+      }
+      const addressesSnap = await db2.collection("addresses").where("phoneNumber", "==", phoneNumber).get();
+      const batch = db2.batch();
+      addressesSnap.docs.forEach((d) => batch.delete(d.ref));
+      if (!addressesSnap.empty) await batch.commit();
+      return res.json({ success: true });
+    } catch (err) {
+      console.error("[DELETE USER]", err);
+      return res.status(500).json({ error: "\u0641\u0634\u0644 \u062D\u0630\u0641 \u0627\u0644\u062D\u0633\u0627\u0628" });
+    }
+  });
   app2.post("/api/auth/send-otp", (req, res) => {
     const { phoneNumber } = req.body;
     if (!phoneNumber) {

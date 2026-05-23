@@ -2377,6 +2377,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json({ ...userProfiles[index], profileComplete: true });
   });
 
+  // DELETE /api/users/:phoneNumber — delete user account and all related data
+  app.delete("/api/users/:phoneNumber", async (req: Request, res: Response) => {
+    const phoneNumber = decodeURIComponent(req.params.phoneNumber as string);
+    const db = getFirestore();
+    if (!db) {
+      return res.status(500).json({ error: "Database not available" });
+    }
+    try {
+      // Delete user document
+      const usersRef = db.collection("users");
+      const snap = await usersRef.where("phoneNumber", "==", phoneNumber).limit(1).get();
+      if (!snap.empty) {
+        await snap.docs[0].ref.delete();
+      }
+      // Delete user's addresses sub-collection entries if any
+      const addressesSnap = await db.collection("addresses").where("phoneNumber", "==", phoneNumber).get();
+      const batch = db.batch();
+      addressesSnap.docs.forEach(d => batch.delete(d.ref));
+      if (!addressesSnap.empty) await batch.commit();
+
+      return res.json({ success: true });
+    } catch (err: any) {
+      console.error("[DELETE USER]", err);
+      return res.status(500).json({ error: "فشل حذف الحساب" });
+    }
+  });
+
   // OTP Auth Routes
   app.post("/api/auth/send-otp", (req: Request, res: Response) => {
     const { phoneNumber } = req.body;
