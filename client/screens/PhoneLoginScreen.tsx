@@ -151,7 +151,7 @@ export default function PhoneLoginScreen() {
               {isLoading ? (
                 <ActivityIndicator size="small" color={BRAND_ORANGE} />
               ) : (
-                <ThemedText style={styles.submitText}>إرسال رمز التحقق</ThemedText>
+                <ThemedText style={styles.submitText}>دخول</ThemedText>
               )}
             </Pressable>
 
@@ -160,7 +160,7 @@ export default function PhoneLoginScreen() {
                 onPress={() =>
                   showInfoModal(
                     "استعادة الحساب",
-                    "لا حاجة لكلمة سر! أدخل رقم هاتفك وسنرسل لك رمز تحقق للدخول إلى حسابك."
+                    "أدخل رقم هاتفك واضغط دخول. سيتم توجيهك مباشرةً إلى حسابك."
                   )
                 }
                 testID="button-forgot-password"
