@@ -16,6 +16,7 @@ import { useHeaderHeight } from "@react-navigation/elements";
 import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import * as Haptics from "expo-haptics";
+import { manipulateAsync, SaveFormat } from "expo-image-manipulator";
 import { Picker } from "@react-native-picker/picker";
 import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 
@@ -167,14 +168,27 @@ export default function VendorAddProductScreen({ navigation }: any) {
       formData.append("stock", stock || "0");
       formData.append("unit", unit);
 
-      for (const uri of imageUris) {
-        const filename = uri.split("/").pop() || "product.jpg";
-        const ext = filename.split(".").pop()?.toLowerCase() || "jpg";
-        const mimeType = ext === "png" ? "image/png" : "image/jpeg";
+      const compressedUris = await Promise.all(
+        imageUris.map(async (uri) => {
+          try {
+            const result = await manipulateAsync(
+              uri,
+              [{ resize: { width: 800 } }],
+              { compress: 0.72, format: SaveFormat.WEBP }
+            );
+            return result.uri;
+          } catch {
+            return uri;
+          }
+        })
+      );
+
+      for (const uri of compressedUris) {
+        const filename = uri.split("/").pop() || "product.webp";
         formData.append("images", {
           uri,
           name: filename,
-          type: mimeType,
+          type: "image/webp",
         } as any);
       }
 

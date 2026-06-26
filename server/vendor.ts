@@ -413,20 +413,21 @@ router.post(
 
 // ── Helper: process multiple uploaded images ─────────────────────────────────
 async function processUploadedImages(files: Express.Multer.File[]): Promise<{ imageUrls: string[]; tempPaths: string[] }> {
-  const imageUrls: string[] = [];
   const tempPaths: string[] = files.map((f) => f.path);
-  for (const file of files) {
-    const hash = await generateImageHash(file.path);
-    let imageUrl = await findDuplicateImage(hash);
-    if (!imageUrl) {
-      imageUrl = await processAndSaveImage(file.path, hash);
-      await saveImageHash(hash, imageUrl);
-    }
-    imageUrls.push(imageUrl);
-  }
-  for (const tp of tempPaths) {
-    await cleanTemp(tp);
-  }
+
+  const imageUrls = await Promise.all(
+    files.map(async (file) => {
+      const hash = await generateImageHash(file.path);
+      let imageUrl = await findDuplicateImage(hash);
+      if (!imageUrl) {
+        imageUrl = await processAndSaveImage(file.path, hash);
+        await saveImageHash(hash, imageUrl);
+      }
+      return imageUrl;
+    })
+  );
+
+  await Promise.all(tempPaths.map((tp) => cleanTemp(tp)));
   return { imageUrls, tempPaths: [] };
 }
 

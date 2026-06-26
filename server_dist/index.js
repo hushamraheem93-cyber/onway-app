@@ -5708,20 +5708,19 @@ router.post(
   }
 );
 async function processUploadedImages(files) {
-  const imageUrls = [];
   const tempPaths = files.map((f) => f.path);
-  for (const file of files) {
-    const hash2 = await generateImageHash(file.path);
-    let imageUrl = await findDuplicateImage(hash2);
-    if (!imageUrl) {
-      imageUrl = await processAndSaveImage(file.path, hash2);
-      await saveImageHash(hash2, imageUrl);
-    }
-    imageUrls.push(imageUrl);
-  }
-  for (const tp of tempPaths) {
-    await cleanTemp(tp);
-  }
+  const imageUrls = await Promise.all(
+    files.map(async (file) => {
+      const hash2 = await generateImageHash(file.path);
+      let imageUrl = await findDuplicateImage(hash2);
+      if (!imageUrl) {
+        imageUrl = await processAndSaveImage(file.path, hash2);
+        await saveImageHash(hash2, imageUrl);
+      }
+      return imageUrl;
+    })
+  );
+  await Promise.all(tempPaths.map((tp) => cleanTemp(tp)));
   return { imageUrls, tempPaths: [] };
 }
 router.post(
