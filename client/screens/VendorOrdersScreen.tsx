@@ -802,6 +802,10 @@ export default function VendorOrdersScreen() {
           }}
           ItemSeparatorComponent={() => <View style={{ height: 12 }} />}
           showsVerticalScrollIndicator={false}
+          initialNumToRender={10}
+          windowSize={5}
+          maxToRenderPerBatch={8}
+          removeClippedSubviews={true}
           renderItem={({ item }) => (
             <OrderCard
               order={item}

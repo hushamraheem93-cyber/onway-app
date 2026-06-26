@@ -70,7 +70,7 @@ function setupCompression(app: express.Application) {
   app.use(compression({
     level: 6,
     threshold: 1024,
-    filter: (req, res) => {
+    filter: (req: express.Request, res: express.Response) => {
       if (req.headers["x-no-compression"]) return false;
       return compression.filter(req, res);
     },
@@ -203,7 +203,7 @@ function setupCors(app: express.Application) {
   const isProd = process.env.NODE_ENV === "production";
   const allowedDomains = (process.env.ALLOWED_ORIGINS || "")
     .split(",")
-    .map((s) => s.trim())
+    .map((s: string) => s.trim())
     .filter(Boolean);
 
   app.use((req, res, next) => {
@@ -213,7 +213,7 @@ function setupCors(app: express.Application) {
       const allowed =
         !isProd ||
         allowedDomains.length === 0 ||
-        allowedDomains.some((d) => origin === d || origin.endsWith(`.${d}`));
+        allowedDomains.some((d: string) => origin === d || origin.endsWith(`.${d}`));
 
       if (allowed) {
         res.header("Access-Control-Allow-Origin", origin);
