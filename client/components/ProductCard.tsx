@@ -6,7 +6,6 @@ import Animated, {
   withSpring,
   withSequence,
   withTiming,
-  interpolateColor,
 } from "react-native-reanimated";
 import { Image } from "expo-image";
 import { Feather, FontAwesome } from "@expo/vector-icons";
@@ -31,7 +30,7 @@ interface ProductCardProps {
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
-export function ProductCard({ product, onPress }: ProductCardProps) {
+function ProductCardComponent({ product, onPress }: ProductCardProps) {
   const { theme } = useTheme();
   const { addToCart, updateQuantity, items } = useCart();
   const { isFavorite, toggleFavorite } = useFavorites();
@@ -332,3 +331,5 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
 });
+
+export const ProductCard = React.memo(ProductCardComponent);

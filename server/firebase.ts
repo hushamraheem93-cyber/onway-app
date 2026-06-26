@@ -22,7 +22,6 @@ export function initializeFirebase() {
     
     db = admin.firestore();
     db.settings({ ignoreUndefinedProperties: true });
-    console.log("Firebase Firestore initialized successfully");
     return db;
   } catch (error) {
     console.error("Error initializing Firebase:", error);
@@ -81,7 +80,6 @@ export async function createUser(userData: {
   }
   
   try {
-    console.log("Creating user in Firestore:", userData.phoneNumber);
     const now = admin.firestore.Timestamp.now();
     const userDoc: any = {
       phoneNumber: userData.phoneNumber,
@@ -100,7 +98,6 @@ export async function createUser(userData: {
     if (userData.longitude !== undefined) userDoc.longitude = userData.longitude;
     
     const docRef = await db.collection("users").add(userDoc);
-    console.log("User created successfully with id:", docRef.id);
     return { id: docRef.id, ...userDoc };
   } catch (error: any) {
     console.error("Error creating user in Firestore:", error?.message || error);
@@ -165,7 +162,6 @@ export async function updateUserPushToken(phoneNumber: string, pushToken: string
       { phoneNumber, pushToken, updatedAt: admin.firestore.Timestamp.now() },
       { merge: true }
     );
-    console.log(`Push token saved for ${phoneNumber}`);
 
     // Also update the user document if it exists
     const usersRef = db.collection("users");
@@ -276,7 +272,6 @@ export async function getAllUserPushTokens(): Promise<string[]> {
   }
 
   const tokens = Array.from(tokenSet);
-  console.log(`getAllUserPushTokens: found ${tokens.length} token(s)`);
   return tokens;
 }
 
@@ -323,7 +318,6 @@ export async function createProduct(data: {
 }): Promise<(FirestoreProduct & { id: string }) | null> {
   if (!db) throw new Error("Database not initialized");
   
-  console.log("createProduct called with:", { ...data, image: data.image ? `[Base64 ${data.image.length} chars]` : "none" });
   
   const now = admin.firestore.Timestamp.now();
   
@@ -349,7 +343,6 @@ export async function createProduct(data: {
   }
   
   const docRef = await db.collection("products").add(productDoc);
-  console.log("Product created with ID:", docRef.id);
   return { id: docRef.id, ...productDoc } as FirestoreProduct & { id: string };
 }
 
@@ -940,7 +933,6 @@ export async function initializeDefaultBanners(defaultBanners: any[]): Promise<v
       return data.image && (data.image.startsWith("http") || !data.image.startsWith("/uploads/banners/"));
     });
     if (needsUpdate) {
-      console.log("Updating banners in Firestore...");
       const deleteBatch = db.batch();
       existing.docs.forEach(doc => deleteBatch.delete(doc.ref));
       await deleteBatch.commit();
@@ -958,7 +950,6 @@ export async function initializeDefaultBanners(defaultBanners: any[]): Promise<v
         });
       });
       await createBatch.commit();
-      console.log("Banners updated successfully");
     }
   } catch (error) {
     console.error("Error initializing default banners:", error);
@@ -1046,7 +1037,6 @@ export async function initializeDefaultDeliveryAreas(defaultAreas: any[]): Promi
   try {
     const existing = await db.collection("deliveryAreas").get();
     if (existing.empty) {
-      console.log("Initializing default delivery areas in Firestore...");
       const batch = db.batch();
       defaultAreas.forEach(area => {
         const docRef = db!.collection("deliveryAreas").doc(area.id);
@@ -1057,7 +1047,6 @@ export async function initializeDefaultDeliveryAreas(defaultAreas: any[]): Promi
         });
       });
       await batch.commit();
-      console.log("Default delivery areas initialized successfully");
     }
   } catch (error) {
     console.error("Error initializing default delivery areas:", error);
@@ -1073,7 +1062,6 @@ export function generateOtp(phoneNumber: string): string {
     code,
     expiresAt: Date.now() + 5 * 60 * 1000,
   });
-  console.log(`OTP for ${phoneNumber}: ${code}`);
   return code;
 }
 
@@ -1386,7 +1374,6 @@ export async function initializeDefaultCategories(defaultCategories: any[]): Pro
     // Only initialize when the collection is completely empty (first run).
     // Never re-add deleted categories on subsequent restarts.
     if (existing.empty) {
-      console.log("Initializing default categories in Firestore (first run)...");
       const batch = db.batch();
       defaultCategories.forEach(cat => {
         const docRef = db!.collection("categories").doc(cat.id);
@@ -1400,7 +1387,6 @@ export async function initializeDefaultCategories(defaultCategories: any[]): Pro
         });
       });
       await batch.commit();
-      console.log("Default categories initialized successfully");
     }
   } catch (error) {
     console.error("Error initializing default categories:", error);
@@ -1477,7 +1463,6 @@ export async function initializeDefaultVendors(defaults: any[]): Promise<void> {
       batch.set(ref, data);
     });
     await batch.commit();
-    console.log("Default vendors initialized");
   } catch (e) { console.error("Error initializing vendors:", e); }
 }
 

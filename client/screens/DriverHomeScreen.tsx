@@ -244,23 +244,19 @@ export default function DriverHomeScreen() {
         }
         const { status } = await Notifications.requestPermissionsAsync();
         if (status !== "granted") {
-          console.log("[PUSH] Permission not granted on iOS");
           return;
         }
         const tokenData = await Notifications.getExpoPushTokenAsync().catch(() => null);
         if (!tokenData?.data) {
-          console.log("[PUSH] Could not get Expo push token");
           return;
         }
-        console.log("[PUSH] Got token, saving to server:", tokenData.data.slice(-12));
         await fetch(new URL("/api/driver/refresh-push-token", getApiUrl()).toString(), {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ phoneNumber, pushToken: tokenData.data }),
         });
-        console.log("[PUSH] Token saved to server successfully");
-      } catch (e) {
-        console.log("[PUSH] Error in token setup:", e);
+      } catch {
+        // silent
       }
     })();
   }, [phoneNumber]);

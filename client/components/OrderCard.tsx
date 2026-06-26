@@ -5,8 +5,7 @@ import Animated, {
   useSharedValue,
   withSpring,
 } from "react-native-reanimated";
-import { Feather } from "@expo/vector-icons";
-import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
 
 import { ThemedText } from "@/components/ThemedText";
 import { useTheme } from "@/hooks/useTheme";
@@ -49,7 +48,7 @@ const statusColors: Record<Order["status"], string> = {
   issue: "#F59E0B",
 };
 
-export function OrderCard({ order, onPress, onStorePress, onRate }: OrderCardProps) {
+function OrderCardComponent({ order, onPress, onStorePress, onRate }: OrderCardProps) {
   const { theme } = useTheme();
   const scale = useSharedValue(1);
   const [hoveredStar, setHoveredStar] = useState<number | null>(null);
@@ -301,3 +300,5 @@ const styles = StyleSheet.create({
     gap: 4,
   },
 });
+
+export const OrderCard = React.memo(OrderCardComponent);

@@ -75,6 +75,10 @@ export default function CartScreen() {
         renderItem={renderItem}
         keyExtractor={(item) => item.product.id}
         showsVerticalScrollIndicator={false}
+        initialNumToRender={10}
+        windowSize={5}
+        maxToRenderPerBatch={8}
+        removeClippedSubviews={true}
         ListEmptyComponent={renderEmpty}
         ListHeaderComponent={
           items.length > 0 ? (

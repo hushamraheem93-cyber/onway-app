@@ -132,6 +132,10 @@ export default function ProductsScreen() {
           )}
           keyExtractor={(item) => item.id}
           showsVerticalScrollIndicator={false}
+          initialNumToRender={8}
+          windowSize={5}
+          maxToRenderPerBatch={6}
+          removeClippedSubviews={true}
           ListEmptyComponent={() => (
             <EmptyState title="لا توجد مطاعم" subtitle="لم يتم إضافة مطاعم بعد" />
           )}
@@ -160,6 +164,10 @@ export default function ProductsScreen() {
         keyExtractor={(item) => item.id}
         numColumns={2}
         showsVerticalScrollIndicator={false}
+        initialNumToRender={10}
+        windowSize={7}
+        maxToRenderPerBatch={8}
+        removeClippedSubviews={true}
         ListEmptyComponent={() => (
           <EmptyState title="لا توجد منتجات" subtitle="لم نجد منتجات في هذا القسم" />
         )}

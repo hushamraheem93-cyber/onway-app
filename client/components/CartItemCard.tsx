@@ -24,7 +24,7 @@ interface CartItemCardProps {
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 
-export function CartItemCard({ item }: CartItemCardProps) {
+function CartItemCardComponent({ item }: CartItemCardProps) {
   const { theme, isDark } = useTheme();
   const { updateQuantity, removeFromCart } = useCart();
   const scale = useSharedValue(1);
@@ -146,3 +146,5 @@ const styles = StyleSheet.create({
     padding: 10,
   },
 });
+
+export const CartItemCard = React.memo(CartItemCardComponent);

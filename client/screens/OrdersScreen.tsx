@@ -194,6 +194,10 @@ export default function OrdersScreen() {
         renderItem={renderItem}
         keyExtractor={(item) => item.id}
         showsVerticalScrollIndicator={false}
+        initialNumToRender={8}
+        windowSize={5}
+        maxToRenderPerBatch={6}
+        removeClippedSubviews={true}
         ListEmptyComponent={renderEmpty}
         refreshControl={
           <RefreshControl

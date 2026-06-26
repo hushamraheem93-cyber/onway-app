@@ -1,0 +1,150 @@
+قم بإجراء عملية تنظيف وتحسين شاملة (Code Cleanup + Performance Optimization) لمشروع OnWay دون تغيير أي وظيفة أو تصميم أو API.
+
+المطلوب:
+
+1. تنظيف الكود
+
+* حذف جميع الملفات غير المستخدمة.
+* حذف جميع Components غير المستخدمة.
+* حذف جميع Screens غير المستخدمة.
+* حذف جميع Functions غير المستخدمة.
+* حذف Imports غير المستخدمة.
+* حذف Variables غير المستخدمة.
+* حذف Console.log الخاصة بالتطوير.
+* حذف الأكواد المكررة (Duplicate Code).
+* حذف أي Dead Code.
+
+⸻
+
+2. تحسين React Native
+
+* استخدم React.memo لجميع Components المناسبة.
+* استخدم useMemo للحسابات الثقيلة.
+* استخدم useCallback للدوال المرسلة إلى Components.
+* امنع إعادة الرسم (Re-render) غير الضرورية.
+* حسّن FlatList:
+    * initialNumToRender
+    * windowSize
+    * maxToRenderPerBatch
+    * removeClippedSubviews
+    * keyExtractor
+    * getItemLayout عند الإمكان.
+* استخدم Lazy Loading للشاشات.
+
+⸻
+
+3. تحسين الصور
+
+* استخدم expo-image بدلاً من Image حيث أمكن.
+* فعّل Image Caching.
+* لا تحمل الصور بالحجم الكامل إذا كانت مصغرة.
+* اضغط الصور تلقائياً قبل الرفع.
+
+⸻
+
+4. تحسين الشبكة
+
+* تقليل عدد طلبات API.
+* دمج الطلبات المتشابهة.
+* استخدام React Query Cache بأفضل إعدادات.
+* منع إعادة الطلبات غير الضرورية.
+* تحسين Retry Policies.
+
+⸻
+
+5. تحسين Firestore
+
+* إزالة أي Queries مكررة.
+* استخدام Batch Reads عند الإمكان.
+* استخدام Pagination.
+* استخدام Indexes المناسبة.
+* عدم قراءة Collections كاملة عند عدم الحاجة.
+
+⸻
+
+6. تحسين الأداء
+
+* إزالة أي Memory Leak.
+* إزالة Timers غير المستخدمة.
+* إزالة Listeners غير المنظفة.
+* تنظيف جميع useEffect.
+* تحسين استخدام WebSocket.
+
+⸻
+
+7. تحسين البناء
+
+* إزالة المكتبات غير المستخدمة من package.json.
+* إزالة Dependencies غير المستخدمة.
+* إزالة Dev Dependencies غير الضرورية.
+* تقليل حجم Bundle.
+* إزالة الملفات المؤقتة.
+
+⸻
+
+8. تحسين الأمان
+
+* إزالة أي Secrets داخل الكود.
+* إزالة أي Keys ثابتة.
+* التأكد من استخدام Environment Variables فقط.
+
+⸻
+
+9. تحسين Expo
+
+* مراجعة app.config.js.
+* مراجعة eas.json.
+* تحسين إعدادات Production.
+* إزالة أي إعدادات Debug.
+
+⸻
+
+10. تحسين Backend
+
+* إزالة Endpoints غير المستخدمة.
+* إزالة Middlewares غير المستخدمة.
+* إزالة Imports غير المستخدمة.
+* تحسين Caching.
+* تحسين Compression.
+* تحسين Error Handling.
+
+⸻
+
+11. تحسين Frontend
+
+* تحسين Navigation.
+* تحسين Animations.
+* إزالة أي Render غير ضروري.
+* تحسين Context Providers.
+
+⸻
+
+12. عدم تغيير
+
+لا تغيّر:
+
+* تصميم التطبيق.
+* قواعد البيانات.
+* APIs.
+* منطق العمل.
+* Navigation.
+* Authentication.
+
+⸻
+
+13. التقرير النهائي
+
+بعد الانتهاء أعطني تقريراً يحتوي على:
+
+* عدد الملفات التي تم تنظيفها.
+* عدد Imports المحذوفة.
+* عدد Functions المحذوفة.
+* عدد Components المحذوفة.
+* عدد المكتبات المحذوفة.
+* حجم المشروع قبل وبعد.
+* حجم Bundle قبل وبعد.
+* نسبة تحسين الأداء.
+* نسبة تقليل استهلاك الذاكرة.
+* أي ملاحظات إضافية.
+
+نفّذ جميع التحسينات وفق أفضل ممارسات React Native + Expo + TypeScript مع الحفاظ على استقرار المشروع بنسبة

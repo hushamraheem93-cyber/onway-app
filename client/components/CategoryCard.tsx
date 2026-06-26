@@ -23,7 +23,7 @@ interface CategoryCardProps {
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
-export function CategoryCard({ category, onPress, compact = false, sliderMode = false }: CategoryCardProps) {
+function CategoryCardComponent({ category, onPress, compact = false, sliderMode = false }: CategoryCardProps) {
   const { theme } = useTheme();
   const scale = useSharedValue(1);
   const [isLoading, setIsLoading] = useState(true);
@@ -127,3 +127,5 @@ const styles = StyleSheet.create({
     fontSize: 11,
   },
 });
+
+export const CategoryCard = React.memo(CategoryCardComponent);

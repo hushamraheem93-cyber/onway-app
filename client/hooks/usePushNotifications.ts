@@ -50,15 +50,13 @@ export function usePushNotifications(onNotificationTap?: () => void) {
       setNotification(notif);
     });
 
-    responseListener.current = Notifications.addNotificationResponseReceivedListener((resp: Notifications.NotificationResponse) => {
-      console.log("Notification response:", resp);
+    responseListener.current = Notifications.addNotificationResponseReceivedListener(() => {
       onNotificationTapRef.current?.();
     });
 
     tokenRefreshListener.current = Notifications.addPushTokenListener((tokenData) => {
       if (tokenData.data) {
         setExpoPushToken(tokenData.data);
-        console.log("[PUSH] Token refreshed:", tokenData.data.slice(-10));
       }
     });
 
@@ -80,7 +78,6 @@ export async function registerForPushNotificationsAsync(): Promise<string | null
   }
 
   if (!Device.isDevice) {
-    console.log("Must use physical device for Push Notifications");
     return null;
   }
 
@@ -105,7 +102,6 @@ export async function registerForPushNotificationsAsync(): Promise<string | null
   }
 
   if (finalStatus !== "granted") {
-    console.log("Failed to get push token for push notification!");
     return null;
   }
 
@@ -116,8 +112,8 @@ export async function registerForPushNotificationsAsync(): Promise<string | null
     } else {
       token = (await Notifications.getExpoPushTokenAsync()).data;
     }
-  } catch (error) {
-    console.log("Error getting push token:", error);
+  } catch {
+    // silent
   }
 
   return token;
@@ -132,9 +128,8 @@ export async function refreshDriverPushToken(phoneNumber: string): Promise<void>
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ phoneNumber, pushToken: token }),
     });
-    console.log("[PUSH] Driver token refreshed and saved");
-  } catch (error) {
-    console.log("[PUSH] Error refreshing driver token:", error);
+  } catch {
+    // silent
   }
 }
 
