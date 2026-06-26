@@ -1,25 +1,33 @@
-import React, { useRef, useState, useCallback } from "react";
+import React, { useRef, useState } from "react";
 import {
   View,
   StyleSheet,
   Dimensions,
   Pressable,
-  FlatList,
   Platform,
-  ViewToken,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Image } from "expo-image";
-import { Feather } from "@expo/vector-icons";
+import PagerView from "react-native-pager-view";
+import { LinearGradient } from "expo-linear-gradient";
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withRepeat,
+  withSequence,
+  withTiming,
+  Easing,
+} from "react-native-reanimated";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
+import { Feather } from "@expo/vector-icons";
 
 import { ThemedText } from "@/components/ThemedText";
+import OnboardingSlide from "@/components/OnboardingSlide";
+import PageIndicator from "@/components/PageIndicator";
+import PrimaryButton from "@/components/PrimaryButton";
 import { useAuth } from "@/context/AuthContext";
 
-const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
-
-const BRAND_ORANGE = "#E86520";
+const { width: W, height: H } = Dimensions.get("window");
 
 const onboarding1 = require("../assets/images/onboarding-1.png");
 const onboarding2 = require("../assets/images/onboarding-2.png");
@@ -27,60 +35,75 @@ const onboarding3 = require("../assets/images/onboarding-3.png");
 
 type RootStackParamList = { PhoneLogin: undefined };
 
-interface SlideData {
-  id: string;
-  image: any;
-  title: string;
-  subtitle: string;
-}
-
-const SLIDES: SlideData[] = [
+const SLIDES = [
   {
     id: "1",
     image: onboarding1,
     title: "توصيل سريع وموثوق",
-    subtitle: "نوصل طلبك بأسرع وقت ممكن\nداخل قضاء الضلوعية",
+    subtitle: "اطلب من مطاعم وأسواق الضلوعية\nووصل طلبك خلال دقائق.",
+    imageSize: Math.round(W * 0.52),
   },
   {
     id: "2",
     image: onboarding2,
-    title: "تسوق بسهولة",
-    subtitle: "تصفح مئات المنتجات من متاجر متنوعة\nواختر ما يناسبك",
+    title: "كلشي بمكان واحد",
+    subtitle: "",
+    imageSize: Math.round(W * 0.62),
   },
   {
     id: "3",
     image: onboarding3,
     title: "لحد باب بيتك",
-    subtitle: "استلم طلبك وأنت مرتاح في بيتك\nبضغطة زر واحدة",
+    subtitle: "تتبع طلبك لحظة بلحظة\nحتى يوصل لباب بيتك.",
+    imageSize: Math.round(W * 0.52),
   },
 ];
 
-const IMAGE_SIZE = Math.min(SCREEN_WIDTH * 0.4, 160);
+// Decorative pulsing circle in background
+function BgCircle({ size, top, left, right, bottom, delay }: {
+  size: number; top?: number; left?: number; right?: number; bottom?: number; delay: number;
+}) {
+  const s = useSharedValue(1);
+  React.useEffect(() => {
+    s.value = withRepeat(
+      withSequence(
+        withTiming(1.12, { duration: 2200 + delay, easing: Easing.inOut(Easing.ease) }),
+        withTiming(1,    { duration: 2200 + delay, easing: Easing.inOut(Easing.ease) })
+      ),
+      -1,
+      true
+    );
+  }, []);
+  const aStyle = useAnimatedStyle(() => ({ transform: [{ scale: s.value }] }));
+
+  return (
+    <Animated.View
+      style={[
+        styles.bgCircle,
+        aStyle,
+        { width: size, height: size, borderRadius: size / 2, top, left, right, bottom },
+      ]}
+    />
+  );
+}
 
 export default function SplashScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { markSplashSeen } = useAuth();
-  const flatListRef = useRef<FlatList>(null);
+  const pagerRef = useRef<PagerView>(null);
   const [activeIndex, setActiveIndex] = useState(0);
+  const scrollX = useSharedValue(0);
 
-  const onViewableItemsChanged = useCallback(
-    ({ viewableItems }: { viewableItems: ViewToken[] }) => {
-      if (viewableItems.length > 0 && viewableItems[0].index != null) {
-        setActiveIndex(viewableItems[0].index);
-      }
-    },
-    []
-  );
-
-  const viewabilityConfig = useRef({
-    viewAreaCoveragePercentThreshold: 50,
-  }).current;
+  const handlePageScroll = (e: any) => {
+    const { position, offset } = e.nativeEvent;
+    scrollX.value = (position + offset) * W;
+  };
 
   const handleNext = () => {
     if (activeIndex < SLIDES.length - 1) {
-      const nextIndex = activeIndex + 1;
-      setActiveIndex(nextIndex);
-      flatListRef.current?.scrollToIndex({ index: nextIndex, animated: true });
+      const next = activeIndex + 1;
+      pagerRef.current?.setPage(next);
+      setActiveIndex(next);
     } else {
       markSplashSeen();
       navigation.navigate("PhoneLogin");
@@ -92,201 +115,143 @@ export default function SplashScreen() {
     navigation.navigate("PhoneLogin");
   };
 
-  const renderSlide = ({ item }: { item: SlideData }) => (
-    <View style={styles.slideContainer}>
-      <View style={styles.imageCircle}>
-        <Image source={item.image} style={styles.slideImage} contentFit="contain" />
-      </View>
-      <View style={styles.slideTextWrap}>
-        <ThemedText style={styles.slideTitle}>{item.title}</ThemedText>
-        <ThemedText style={styles.slideSubtitle}>{item.subtitle}</ThemedText>
-      </View>
-    </View>
-  );
-
-  const isLastSlide = activeIndex === SLIDES.length - 1;
+  const isLast = activeIndex === SLIDES.length - 1;
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={["top", "bottom", "left", "right"]}>
-      <View style={styles.topRow}>
-        <Pressable onPress={handleSkip} style={styles.skipBtn} testID="button-skip">
-          <ThemedText style={styles.skipText}>تخطي</ThemedText>
-        </Pressable>
+    <View style={styles.root}>
+      {/* Gradient background */}
+      <LinearGradient
+        colors={["#F97316", "#EA580C"]}
+        start={{ x: 0.1, y: 0 }}
+        end={{ x: 0.9, y: 1 }}
+        style={StyleSheet.absoluteFill}
+      />
 
-        <View style={styles.logoWrap}>
-          <ThemedText style={styles.logoText}>OnWay</ThemedText>
+      {/* Decorative circles */}
+      <BgCircle size={W * 0.85} top={-W * 0.28} right={-W * 0.28} delay={0} />
+      <BgCircle size={W * 0.55} bottom={H * 0.12} left={-W * 0.18} delay={400} />
+      <BgCircle size={W * 0.35} bottom={H * 0.35} right={-W * 0.08} delay={800} />
+
+      <SafeAreaView style={styles.safe} edges={["top", "bottom", "left", "right"]}>
+
+        {/* Header */}
+        <View style={styles.header}>
+          {/* Logo + tagline */}
+          <View style={styles.logoBlock}>
+            <ThemedText style={styles.logoText}>OnWay</ThemedText>
+            <ThemedText style={styles.tagline}>من الضلوعية… إلى باب بيتك</ThemedText>
+          </View>
+
+          {/* Skip — top right */}
+          <Pressable onPress={handleSkip} style={styles.skipBtn} testID="button-skip">
+            <ThemedText style={styles.skipText}>تخطي</ThemedText>
+          </Pressable>
         </View>
 
-        <View style={{ width: 60 }} />
-      </View>
-
-      <View style={styles.expandedCenter}>
-        <FlatList
-          ref={flatListRef}
-          data={SLIDES}
-          renderItem={renderSlide}
-          keyExtractor={(item) => item.id}
-          horizontal
-          pagingEnabled
-          showsHorizontalScrollIndicator={false}
-          onViewableItemsChanged={onViewableItemsChanged}
-          viewabilityConfig={viewabilityConfig}
-          bounces={false}
-        />
-      </View>
-
-      <View style={styles.bottomSection}>
-        <View style={styles.dotsRow}>
-          {SLIDES.map((_, i) => (
-            <View
-              key={i}
-              style={[styles.dot, i === activeIndex ? styles.dotActive : undefined]}
-            />
-          ))}
-        </View>
-
-        <Pressable
-          style={({ pressed }) => [
-            styles.ctaButton,
-            pressed ? styles.ctaPressed : undefined,
-          ]}
-          onPress={handleNext}
-          testID="button-get-started"
+        {/* Slides */}
+        <PagerView
+          ref={pagerRef}
+          style={styles.pager}
+          initialPage={0}
+          onPageSelected={(e) => setActiveIndex(e.nativeEvent.position)}
+          onPageScroll={handlePageScroll}
+          overdrag={false}
         >
-          <ThemedText style={styles.ctaText}>
-            {isLastSlide ? "ابدأ" : "التالي"}
-          </ThemedText>
-        </Pressable>
-      </View>
-    </SafeAreaView>
+          {SLIDES.map((slide, i) => (
+            <View key={slide.id} style={styles.page}>
+              <OnboardingSlide
+                image={slide.image}
+                title={slide.title}
+                subtitle={slide.subtitle}
+                imageSize={slide.imageSize}
+                scrollX={scrollX}
+                slideIndex={i}
+              />
+            </View>
+          ))}
+        </PagerView>
+
+        {/* Bottom controls */}
+        <View style={styles.bottom}>
+          <PageIndicator count={SLIDES.length} activeIndex={activeIndex} />
+
+          <PrimaryButton
+            label={isLast ? "ابدأ الآن" : "التالي"}
+            onPress={handleNext}
+            testID="button-get-started"
+            icon={
+              isLast ? (
+                <Feather name="arrow-left" size={18} color="#F97316" />
+              ) : null
+            }
+          />
+        </View>
+      </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: {
+  root: {
     flex: 1,
-    backgroundColor: BRAND_ORANGE,
-    paddingHorizontal: 24,
   },
-  topRow: {
+  safe: {
+    flex: 1,
+    backgroundColor: "transparent",
+  },
+  header: {
     flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginTop: 8,
+    alignItems: "flex-start",
+    justifyContent: "center",
+    paddingHorizontal: 20,
     paddingTop: 4,
+    paddingBottom: 4,
+    position: "relative",
+  },
+  logoBlock: {
+    alignItems: "center",
+  },
+  logoText: {
+    fontFamily: "Montserrat_800ExtraBold",
+    fontSize: 30,
+    color: "#FFFFFF",
+    letterSpacing: 1.5,
+    writingDirection: "ltr",
+    includeFontPadding: false,
+    lineHeight: 38,
+  },
+  tagline: {
+    fontFamily: "Cairo_400Regular",
+    fontSize: 13,
+    color: "rgba(255,255,255,0.75)",
+    textAlign: "center",
+    includeFontPadding: false,
+    marginTop: 2,
   },
   skipBtn: {
-    width: 60,
-    alignItems: "center",
+    position: "absolute",
+    right: 20,
+    top: 6,
+    paddingVertical: 4,
+    paddingHorizontal: 4,
   },
   skipText: {
     fontFamily: "Cairo_600SemiBold",
     fontSize: 14,
     color: "rgba(255,255,255,0.8)",
   },
-  logoWrap: {
-    paddingVertical: 6,
-  },
-  logoText: {
-    fontFamily: "Montserrat_800ExtraBold",
-    fontSize: 28,
-    color: "#FFFFFF",
-    letterSpacing: 1,
-    writingDirection: "ltr",
-    lineHeight: 38,
-    includeFontPadding: true,
-  },
-  expandedCenter: {
+  pager: {
     flex: 1,
-    justifyContent: "center",
   },
-  slideContainer: {
-    width: SCREEN_WIDTH - 48,
-    alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: 10,
+  page: {
+    flex: 1,
   },
-  imageCircle: {
-    width: IMAGE_SIZE + 36,
-    height: IMAGE_SIZE + 36,
-    borderRadius: (IMAGE_SIZE + 36) / 2,
-    backgroundColor: "rgba(255,255,255,0.12)",
-    alignItems: "center",
-    justifyContent: "center",
+  bottom: {
+    paddingHorizontal: 24,
+    paddingBottom: 8,
   },
-  slideImage: {
-    width: IMAGE_SIZE,
-    height: IMAGE_SIZE,
-  },
-  slideTextWrap: {
-    marginTop: 28,
-    alignItems: "center",
-    paddingHorizontal: 8,
-    paddingTop: 6,
-  },
-  slideTitle: {
-    fontFamily: "Cairo_700Bold",
-    fontSize: 22,
-    color: "#FFFFFF",
-    textAlign: "center",
-    marginBottom: 8,
-    lineHeight: 38,
-    includeFontPadding: true,
-    paddingTop: 4,
-  },
-  slideSubtitle: {
-    fontFamily: "Cairo_400Regular",
-    fontSize: 15,
-    color: "rgba(255,255,255,0.75)",
-    textAlign: "center",
-    lineHeight: 26,
-    includeFontPadding: true,
-  },
-  bottomSection: {
-    paddingBottom: 12,
-  },
-  dotsRow: {
-    flexDirection: "row",
-    justifyContent: "center",
-    gap: 8,
-    marginBottom: 20,
-  },
-  dot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: "rgba(255,255,255,0.4)",
-  },
-  dotActive: {
-    width: 16,
-    borderRadius: 4,
-    backgroundColor: "#FFFFFF",
-  },
-  ctaButton: {
-    width: "100%",
-    backgroundColor: "#FFFFFF",
-    borderRadius: 12,
-    paddingVertical: 16,
-    alignItems: "center",
-    justifyContent: "center",
-    ...Platform.select({
-      ios: {
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 6,
-      },
-      android: { elevation: 4 },
-      default: {},
-    }),
-  },
-  ctaPressed: {
-    transform: [{ scale: 0.97 }],
-    opacity: 0.9,
-  },
-  ctaText: {
-    fontFamily: "Cairo_700Bold",
-    fontSize: 16,
-    color: BRAND_ORANGE,
+  bgCircle: {
+    position: "absolute",
+    backgroundColor: "rgba(255,255,255,0.07)",
   },
 });
