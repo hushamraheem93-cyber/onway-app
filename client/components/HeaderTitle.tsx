@@ -55,7 +55,7 @@ export function HeaderTitle({ title }: HeaderTitleProps) {
 
         <View style={styles.centerSection}>
           <Image
-            source={require("../assets/images/onway-header-logo.png")}
+            source={require("../assets/images/onway-header-logo-transparent.png")}
             style={styles.logo}
             contentFit="contain"
           />

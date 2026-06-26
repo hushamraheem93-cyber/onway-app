@@ -47,3 +47,9 @@ id = "aaowI2qXopw_0ixkf8Qdq"
 uri = "file://uploads/category-bakery.png"
 type = "image"
 title = "صورة قسم المخبوزات"
+
+[[outputs]]
+id = "KKSlLHtOrZjxjh0i_QT2p"
+uri = "file://client/assets/images/onway-header-logo-transparent.png"
+type = "image"
+title = "شعار OnWay بخلفية شفافة"
