@@ -12,7 +12,7 @@ interface SearchBarProps {
   onSubmitEditing?: () => void;
 }
 
-export function SearchBar({
+function SearchBarComponent({
   value,
   onChangeText,
   placeholder = "ابحث عن منتجاتك...",
@@ -52,6 +52,7 @@ export function SearchBar({
   );
 }
 
+export const SearchBar = React.memo(SearchBarComponent);
 const styles = StyleSheet.create({
   container: {
     flexDirection: "row",

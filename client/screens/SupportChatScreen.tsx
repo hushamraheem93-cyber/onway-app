@@ -315,7 +315,6 @@ export default function SupportChatScreen() {
         await sendMessage({ type: "image", imageUrl: data.imageUrl });
       }
     } catch (e) {
-      console.error("Image upload error:", e);
     } finally {
       setUploadingImage(false);
     }

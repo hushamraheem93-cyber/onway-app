@@ -107,7 +107,7 @@ export default function DriverOrderDetailScreen() {
       ? `tel:${order.customerPhone}`
       : `telprompt:${order.customerPhone}`;
     Linking.openURL(phoneUrl).catch(() => {
-      Linking.openURL(`tel:${order.customerPhone}`).catch(console.error);
+      Linking.openURL(`tel:${order.customerPhone}`).catch(() => {});
     });
   };
 
@@ -124,7 +124,7 @@ export default function DriverOrderDetailScreen() {
     });
     if (url) {
       Linking.openURL(url).catch(() => {
-        Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${lat},${lng}`).catch(console.error);
+        Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${lat},${lng}`).catch(() => {});
       });
     }
   };

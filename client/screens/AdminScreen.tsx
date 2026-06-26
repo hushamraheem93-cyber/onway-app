@@ -446,7 +446,6 @@ export default function AdminScreen() {
       queryClient.invalidateQueries({ queryKey: ["/api/banners"] });
       resetForm();
     } catch (error) {
-      console.error("Error saving banner:", error);
       Alert.alert("خطأ", "فشل في حفظ البانر");
     }
   };
@@ -478,7 +477,6 @@ export default function AdminScreen() {
       setHasCategoryChanges(true);
       resetForm();
     } catch (error) {
-      console.error("Error saving category:", error);
       Alert.alert("خطأ", "فشل في حفظ القسم");
     }
   };
@@ -532,7 +530,6 @@ export default function AdminScreen() {
       queryClient.invalidateQueries({ queryKey: ["/api/products"] });
       resetForm();
     } catch (error: any) {
-      console.error("Error saving product:", error);
       Alert.alert("خطأ", `فشل في حفظ المنتج: ${error?.message || "خطأ غير معروف"}`);
     } finally {
       setIsSavingProduct(false);
@@ -557,7 +554,6 @@ export default function AdminScreen() {
       queryClient.invalidateQueries({ queryKey: ["/api/delivery-areas"] });
       resetForm();
     } catch (error) {
-      console.error("Error saving area:", error);
     }
   };
 
@@ -585,7 +581,6 @@ export default function AdminScreen() {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/promo-codes"] });
       resetForm();
     } catch (error: any) {
-      console.error("Error saving promo code:", error?.message || error);
     }
   };
 

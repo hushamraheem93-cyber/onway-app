@@ -162,7 +162,6 @@ export default function DriverOrdersScreen() {
         setOptimized(false);
       }
     } catch (e) {
-      console.error("DriverOrdersScreen fetchStatus error:", e);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -206,7 +205,6 @@ export default function DriverOrdersScreen() {
       });
       if (res.ok) await fetchStatus();
     } catch (e) {
-      console.error("pickup error:", e);
     } finally {
       setActionLoading(false);
       hideConfirm();
@@ -224,7 +222,6 @@ export default function DriverOrdersScreen() {
       });
       if (res.ok) await fetchStatus();
     } catch (e) {
-      console.error("deliver error:", e);
     } finally {
       setActionLoading(false);
       hideConfirm();
@@ -234,7 +231,7 @@ export default function DriverOrdersScreen() {
   const callCustomer = (phone: string) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     const url = Platform.OS === "android" ? `tel:${phone}` : `telprompt:${phone}`;
-    Linking.openURL(url).catch(() => Linking.openURL(`tel:${phone}`).catch(console.error));
+    Linking.openURL(url).catch(() => Linking.openURL(`tel:${phone}`).catch(() => {}));
   };
 
   const openMap = (order: BatchOrder) => {
@@ -246,7 +243,7 @@ export default function DriverOrdersScreen() {
       ? `maps:0,0?q=${label}@${lat},${lng}`
       : `geo:0,0?q=${lat},${lng}(${label})`;
     Linking.openURL(url).catch(() =>
-      Linking.openURL(`https://maps.google.com/?q=${lat},${lng}`).catch(console.error)
+      Linking.openURL(`https://maps.google.com/?q=${lat},${lng}`).catch(() => {})
     );
   };
 

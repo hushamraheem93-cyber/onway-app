@@ -171,7 +171,6 @@ export default function DriverEarningsScreen() {
         setWalletHistory(wd.history || []);
       }
     } catch (e) {
-      console.error("DriverEarningsScreen fetch error:", e);
     } finally {
       setLoading(false);
       setRefreshing(false);

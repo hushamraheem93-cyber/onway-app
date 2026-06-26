@@ -43,7 +43,6 @@ export async function compressAndConvertToBase64(
       reader.readAsDataURL(blob);
     });
   } catch (error) {
-    console.error("Error compressing image:", error);
     throw new Error("فشل في معالجة الصورة");
   }
 }

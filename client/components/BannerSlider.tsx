@@ -24,7 +24,7 @@ const BANNER_WIDTH = SCREEN_WIDTH - DesignSystem.screenPadding * 2;
 const BANNER_HEIGHT = DesignSystem.bannerHeight;
 const BANNER_RADIUS = DesignSystem.bannerRadius;
 
-export function BannerSlider({ banners, autoPlayInterval = 4000 }: BannerSliderProps) {
+function BannerSliderComponent({ banners, autoPlayInterval = 4000 }: BannerSliderProps) {
   const { theme } = useTheme();
   const navigation = useNavigation<NavigationProp>();
   const scrollRef = useRef<ScrollView>(null);
@@ -157,6 +157,7 @@ export function BannerSlider({ banners, autoPlayInterval = 4000 }: BannerSliderP
   );
 }
 
+export const BannerSlider = React.memo(BannerSliderComponent);
 const styles = StyleSheet.create({
   container: {
     marginBottom: Spacing.lg,

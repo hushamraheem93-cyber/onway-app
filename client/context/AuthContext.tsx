@@ -267,7 +267,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       }
     } catch (error) {
-      console.error("Error loading auth state:", error);
     } finally {
       setIsLoading(false);
     }

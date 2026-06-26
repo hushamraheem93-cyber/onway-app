@@ -16,7 +16,7 @@ interface EmptyStateProps {
   onButtonPress?: () => void;
 }
 
-export function EmptyState({
+function EmptyStateComponent({
   icon = "cart",
   image,
   title,
@@ -63,6 +63,7 @@ export function EmptyState({
   );
 }
 
+export const EmptyState = React.memo(EmptyStateComponent);
 const styles = StyleSheet.create({
   container: {
     flex: 1,

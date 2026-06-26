@@ -146,7 +146,6 @@ export default function CheckoutScreen() {
       clearCart();
       navigation.replace("OrderConfirmation", { order });
     } catch (error: any) {
-      console.error("[Checkout] Order failed:", error);
       setIsNetworkError(error?.isNetworkError === true);
       setErrorMessage(error?.message || "فشل في إنشاء الطلب");
     } finally {

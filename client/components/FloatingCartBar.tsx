@@ -23,7 +23,7 @@ interface FloatingCartBarProps {
   bottomOffset: number;
 }
 
-export function FloatingCartBar({ bottomOffset }: FloatingCartBarProps) {
+function FloatingCartBarComponent({ bottomOffset }: FloatingCartBarProps) {
   const { items, updateQuantity, getTotal } = useCart();
   const navigation = useNavigation<any>();
   const [expanded, setExpanded] = useState(false);
@@ -150,6 +150,7 @@ export function FloatingCartBar({ bottomOffset }: FloatingCartBarProps) {
   );
 }
 
+export const FloatingCartBar = React.memo(FloatingCartBarComponent);
 const styles = StyleSheet.create({
   wrapper: {
     position: "absolute",

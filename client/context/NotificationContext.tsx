@@ -70,7 +70,6 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
         }
       }
     } catch (error) {
-      console.error("Error loading notifications:", error);
       setNotifications([]);
     }
   };
@@ -79,7 +78,6 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     try {
       await AsyncStorage.setItem(NOTIFICATIONS_STORAGE_KEY, JSON.stringify(notifs));
     } catch (error) {
-      console.error("Error saving notifications:", error);
     }
   };
 

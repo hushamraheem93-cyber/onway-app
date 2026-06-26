@@ -80,7 +80,6 @@ export default function NotificationsScreen() {
         setSettings(JSON.parse(stored));
       }
     } catch (error) {
-      console.error("Error loading notification settings:", error);
     }
   };
 
@@ -89,7 +88,6 @@ export default function NotificationsScreen() {
       await AsyncStorage.setItem(NOTIFICATIONS_KEY, JSON.stringify(newSettings));
       setSettings(newSettings);
     } catch (error) {
-      console.error("Error saving notification settings:", error);
       Alert.alert("خطأ", "حدث خطأ أثناء حفظ الإعدادات");
     }
   };

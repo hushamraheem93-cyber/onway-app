@@ -92,7 +92,6 @@ export default function DriverRegistrationScreen() {
 
       handleImageResult(result, imageType);
     } catch (error) {
-      console.error("Error picking image:", error);
       setErrorMessage("حدث خطأ أثناء اختيار الصورة");
     }
   }, []);
@@ -114,7 +113,6 @@ export default function DriverRegistrationScreen() {
 
       handleImageResult(result, imageType);
     } catch (error) {
-      console.error("Error taking photo:", error);
       setErrorMessage("حدث خطأ أثناء التقاط الصورة");
     }
   }, []);

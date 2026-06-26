@@ -97,7 +97,6 @@ export default function DriverBatchScreen() {
       });
       if (res.ok) await refreshBatch();
     } catch (e) {
-      console.error("pickup error:", e);
     } finally {
       setLoadingOrderId(null);
     }
@@ -128,7 +127,6 @@ export default function DriverBatchScreen() {
         }
       }
     } catch (e) {
-      console.error("deliver error:", e);
     } finally {
       setLoadingOrderId(null);
     }
@@ -137,7 +135,7 @@ export default function DriverBatchScreen() {
   const handleCallCustomer = (phone: string) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     const url = Platform.OS === "android" ? `tel:${phone}` : `telprompt:${phone}`;
-    Linking.openURL(url).catch(() => Linking.openURL(`tel:${phone}`).catch(console.error));
+    Linking.openURL(url).catch(() => Linking.openURL(`tel:${phone}`).catch(() => {}));
   };
 
   const handleOpenMap = (order: BatchOrder) => {
@@ -184,7 +182,6 @@ export default function DriverBatchScreen() {
         body: JSON.stringify({ phoneNumber, batchId: batch.id }),
       });
     } catch (e) {
-      console.error("Error rejecting batch:", e);
     } finally {
       setIsRejecting(false);
       navigation.goBack();

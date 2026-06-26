@@ -28,7 +28,6 @@ export function FavoritesProvider({ children }: { children: ReactNode }) {
         setFavorites(JSON.parse(stored));
       }
     } catch (error) {
-      console.error("Error loading favorites:", error);
     }
   };
 
@@ -36,7 +35,6 @@ export function FavoritesProvider({ children }: { children: ReactNode }) {
     try {
       await AsyncStorage.setItem(FAVORITES_STORAGE_KEY, JSON.stringify(newFavorites));
     } catch (error) {
-      console.error("Error saving favorites:", error);
     }
   };
 

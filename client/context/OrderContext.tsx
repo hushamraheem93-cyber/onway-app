@@ -77,7 +77,6 @@ export function OrderProvider({ children }: { children: ReactNode }) {
         }
         isInitializedRef.current = true;
       } catch (error) {
-        console.error("Error loading order statuses:", error);
         isInitializedRef.current = true;
       }
     };
@@ -88,7 +87,6 @@ export function OrderProvider({ children }: { children: ReactNode }) {
     try {
       await AsyncStorage.setItem(ORDER_STATUSES_KEY, JSON.stringify(statuses));
     } catch (error) {
-      console.error("Error saving order statuses:", error);
     }
   }, []);
 
@@ -125,7 +123,6 @@ export function OrderProvider({ children }: { children: ReactNode }) {
         setOrders(data);
       }
     } catch (error) {
-      console.error("Error fetching orders:", error);
     } finally {
       setIsLoading(false);
     }
@@ -191,7 +188,6 @@ export function OrderProvider({ children }: { children: ReactNode }) {
         body: JSON.stringify(bodyData),
       });
     } catch (networkError: any) {
-      console.error("[addOrder] Network error:", networkError);
       const netErr = new Error("تعذّر الاتصال بالخادم، تحقق من اتصالك بالإنترنت");
       (netErr as any).isNetworkError = true;
       throw netErr;
@@ -204,7 +200,6 @@ export function OrderProvider({ children }: { children: ReactNode }) {
         if (errBody?.error) serverMessage = errBody.error;
         else if (errBody?.message) serverMessage = errBody.message;
       } catch {}
-      console.error("[addOrder] Server error:", response.status, serverMessage);
       throw new Error(serverMessage);
     }
 

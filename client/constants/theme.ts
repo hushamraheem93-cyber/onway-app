@@ -25,7 +25,47 @@ export const AppColors = {
   textSecondary: "#555555",
   border: "#E0E0E0",
   success: "#4CAF50",
+  successLight: "#E8F5E9",
   error: "#F44336",
+  errorLight: "#FFEBEE",
+  warning: "#F59E0B",
+  warningLight: "#FFF8E1",
+  info: "#3B82F6",
+  infoLight: "#EFF6FF",
+  // Vendor portal
+  vendorPurple: "#673AB7",
+  vendorPurpleLight: "#F3EEFF",
+  // Driver portal
+  driverBlue: "#1565C0",
+  driverBlueLight: "#E3F2FD",
+};
+
+/** Order status → display color mapping */
+export const ORDER_STATUS_COLORS: Record<string, string> = {
+  pending: "#F59E0B",
+  confirmed: "#3B82F6",
+  preparing: "#8B5CF6",
+  ready: "#E86520",
+  picked_up: "#F97316",
+  in_delivery: "#06B6D4",
+  delivering: "#06B6D4",
+  delivered: "#10B981",
+  cancelled: "#EF4444",
+  issue: "#EF4444",
+};
+
+/** Order status → Arabic label */
+export const ORDER_STATUS_LABELS: Record<string, string> = {
+  pending: "قيد الانتظار",
+  confirmed: "تم التأكيد",
+  preparing: "جاري التحضير",
+  ready: "جاهز للاستلام",
+  picked_up: "استلم السائق",
+  in_delivery: "في الطريق إليك",
+  delivering: "في الطريق إليك",
+  delivered: "تم التوصيل",
+  cancelled: "ملغي",
+  issue: "يوجد مشكلة",
 };
 
 // Design System Constants

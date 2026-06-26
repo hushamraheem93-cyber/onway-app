@@ -60,7 +60,6 @@ export default function DriverProfileScreen() {
           setDriverInfo(data);
         }
       } catch (e) {
-        console.error("Error fetching driver profile:", e);
       } finally {
         setLoading(false);
       }

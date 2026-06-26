@@ -53,7 +53,6 @@ export default function AddressesScreen() {
         setAdditionalAddresses(JSON.parse(stored));
       }
     } catch (error) {
-      console.error("Error loading addresses:", error);
     } finally {
       setIsLoading(false);
     }
@@ -64,7 +63,6 @@ export default function AddressesScreen() {
       await AsyncStorage.setItem(ADDRESSES_KEY, JSON.stringify(addresses));
       setAdditionalAddresses(addresses);
     } catch (error) {
-      console.error("Error saving addresses:", error);
       Alert.alert("خطأ", "حدث خطأ أثناء حفظ العنوان");
     }
   };

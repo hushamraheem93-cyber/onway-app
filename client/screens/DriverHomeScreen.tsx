@@ -184,7 +184,6 @@ export default function DriverHomeScreen() {
         setTodayEarnings(data.todayEarnings || 0);
       }
     } catch (e) {
-      console.error("Error fetching driver status:", e);
     } finally {
       setLoading(false);
     }
@@ -335,7 +334,6 @@ export default function DriverHomeScreen() {
         }
       }
     } catch (e) {
-      console.error("Error toggling online:", e);
     } finally {
       setIsToggling(false);
     }
@@ -356,7 +354,6 @@ export default function DriverHomeScreen() {
       });
       if (res.ok) await fetchDriverStatus();
     } catch (e) {
-      console.error("Error accepting batch:", e);
     }
   };
 
@@ -381,7 +378,6 @@ export default function DriverHomeScreen() {
       });
       await fetchDriverStatus();
     } catch (e) {
-      console.error("Error rejecting batch:", e);
     } finally {
       isRejectingRef.current = false;
     }
@@ -417,7 +413,6 @@ export default function DriverHomeScreen() {
         }, 1800);
       }
     } catch (e) {
-      console.error("Error reporting issue:", e);
     } finally {
       setIssueSending(false);
     }
@@ -428,7 +423,7 @@ export default function DriverHomeScreen() {
     const supportNumber = "9647702891104";
     const message = encodeURIComponent("مرحباً، أحتاج شحن رصيد محفظتي في تطبيق OnWay");
     Linking.openURL(`https://wa.me/${supportNumber}?text=${message}`).catch(() => {
-      Linking.openURL(`whatsapp://send?phone=${supportNumber}&text=${message}`).catch(console.error);
+      Linking.openURL(`whatsapp://send?phone=${supportNumber}&text=${message}`).catch(() => {});
     });
   };
 

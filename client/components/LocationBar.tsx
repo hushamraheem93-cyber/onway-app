@@ -13,7 +13,7 @@ import { reverseGeocodeArabic, isGenericAddress } from "@/lib/geocoding";
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
-export function LocationBar() {
+function LocationBarComponent() {
   const navigation = useNavigation<NavigationProp>();
   const { savedLocation, setSavedLocation } = useLocation();
   const [autoDetecting, setAutoDetecting] = useState(false);
@@ -70,6 +70,7 @@ export function LocationBar() {
   );
 }
 
+export const LocationBar = React.memo(LocationBarComponent);
 const styles = StyleSheet.create({
   row: {
     flexDirection: "row",

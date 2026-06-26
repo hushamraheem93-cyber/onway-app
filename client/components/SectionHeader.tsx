@@ -11,7 +11,7 @@ interface SectionHeaderProps {
   onSeeAll?: () => void;
 }
 
-export function SectionHeader({ title, onSeeAll }: SectionHeaderProps) {
+function SectionHeaderComponent({ title, onSeeAll }: SectionHeaderProps) {
   const { theme } = useTheme();
 
   return (
@@ -36,6 +36,7 @@ export function SectionHeader({ title, onSeeAll }: SectionHeaderProps) {
   );
 }
 
+export const SectionHeader = React.memo(SectionHeaderComponent);
 const styles = StyleSheet.create({
   container: {
     flexDirection: "row-reverse",
