@@ -30,7 +30,6 @@ function initializeFirebase() {
     }
     db = admin.firestore();
     db.settings({ ignoreUndefinedProperties: true });
-    console.log("Firebase Firestore initialized successfully");
     return db;
   } catch (error) {
     console.error("Error initializing Firebase:", error);
@@ -61,7 +60,6 @@ async function createUser(userData) {
     return null;
   }
   try {
-    console.log("Creating user in Firestore:", userData.phoneNumber);
     const now = admin.firestore.Timestamp.now();
     const userDoc = {
       phoneNumber: userData.phoneNumber,
@@ -78,7 +76,6 @@ async function createUser(userData) {
     if (userData.latitude !== void 0) userDoc.latitude = userData.latitude;
     if (userData.longitude !== void 0) userDoc.longitude = userData.longitude;
     const docRef = await db.collection("users").add(userDoc);
-    console.log("User created successfully with id:", docRef.id);
     return { id: docRef.id, ...userDoc };
   } catch (error) {
     console.error("Error creating user in Firestore:", error?.message || error);
@@ -121,7 +118,6 @@ async function updateUserPushToken(phoneNumber, pushToken) {
       { phoneNumber, pushToken, updatedAt: admin.firestore.Timestamp.now() },
       { merge: true }
     );
-    console.log(`Push token saved for ${phoneNumber}`);
     const usersRef = db.collection("users");
     const snapshot = await usersRef.where("phoneNumber", "==", phoneNumber).limit(1).get();
     if (!snapshot.empty) {
@@ -214,7 +210,6 @@ async function getAllUserPushTokens() {
     console.error("Error reading users push tokens:", error);
   }
   const tokens = Array.from(tokenSet);
-  console.log(`getAllUserPushTokens: found ${tokens.length} token(s)`);
   return tokens;
 }
 async function getProducts(categoryId) {
@@ -233,7 +228,6 @@ async function getProducts(categoryId) {
 }
 async function createProduct(data) {
   if (!db) throw new Error("Database not initialized");
-  console.log("createProduct called with:", { ...data, image: data.image ? `[Base64 ${data.image.length} chars]` : "none" });
   const now = admin.firestore.Timestamp.now();
   const productDoc = {
     name: data.name,
@@ -255,7 +249,6 @@ async function createProduct(data) {
     productDoc.restaurant = data.restaurant;
   }
   const docRef = await db.collection("products").add(productDoc);
-  console.log("Product created with ID:", docRef.id);
   return { id: docRef.id, ...productDoc };
 }
 async function updateProduct(id, updates) {
@@ -666,7 +659,6 @@ async function initializeDefaultBanners(defaultBanners) {
       return data.image && (data.image.startsWith("http") || !data.image.startsWith("/uploads/banners/"));
     });
     if (needsUpdate) {
-      console.log("Updating banners in Firestore...");
       const deleteBatch = db.batch();
       existing.docs.forEach((doc) => deleteBatch.delete(doc.ref));
       await deleteBatch.commit();
@@ -684,7 +676,6 @@ async function initializeDefaultBanners(defaultBanners) {
         });
       });
       await createBatch.commit();
-      console.log("Banners updated successfully");
     }
   } catch (error) {
     console.error("Error initializing default banners:", error);
@@ -752,7 +743,6 @@ async function initializeDefaultDeliveryAreas(defaultAreas) {
   try {
     const existing = await db.collection("deliveryAreas").get();
     if (existing.empty) {
-      console.log("Initializing default delivery areas in Firestore...");
       const batch = db.batch();
       defaultAreas.forEach((area) => {
         const docRef = db.collection("deliveryAreas").doc(area.id);
@@ -763,7 +753,6 @@ async function initializeDefaultDeliveryAreas(defaultAreas) {
         });
       });
       await batch.commit();
-      console.log("Default delivery areas initialized successfully");
     }
   } catch (error) {
     console.error("Error initializing default delivery areas:", error);
@@ -776,7 +765,6 @@ function generateOtp(phoneNumber) {
     code,
     expiresAt: Date.now() + 5 * 60 * 1e3
   });
-  console.log(`OTP for ${phoneNumber}: ${code}`);
   return code;
 }
 async function getPromoCodes() {
@@ -980,7 +968,6 @@ async function initializeDefaultCategories(defaultCategories) {
   try {
     const existing = await db.collection("categories").get();
     if (existing.empty) {
-      console.log("Initializing default categories in Firestore (first run)...");
       const batch = db.batch();
       defaultCategories.forEach((cat) => {
         const docRef = db.collection("categories").doc(cat.id);
@@ -994,7 +981,6 @@ async function initializeDefaultCategories(defaultCategories) {
         });
       });
       await batch.commit();
-      console.log("Default categories initialized successfully");
     }
   } catch (error) {
     console.error("Error initializing default categories:", error);
@@ -1049,7 +1035,6 @@ async function initializeDefaultVendors(defaults) {
       batch.set(ref, data);
     });
     await batch.commit();
-    console.log("Default vendors initialized");
   } catch (e) {
     console.error("Error initializing vendors:", e);
   }
