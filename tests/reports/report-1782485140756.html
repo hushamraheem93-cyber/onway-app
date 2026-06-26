@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>OnWay — تقرير الاختبار الشامل</title>
+<style>
+  :root { --orange:#E86520; --green:#10b981; --red:#ef4444; --yellow:#f59e0b; --bg:#0f172a; --card:#1e293b; --text:#e2e8f0; --sub:#94a3b8; }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { font-family:'Segoe UI',Tahoma,sans-serif; background:var(--bg); color:var(--text); padding:24px; }
+  h1 { color:var(--orange); font-size:28px; margin-bottom:4px; }
+  h2 { color:var(--text); font-size:18px; margin:28px 0 12px; border-right:4px solid var(--orange); padding-right:10px; }
+  .meta { color:var(--sub); font-size:14px; margin-bottom:28px; }
+  .summary { display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:16px; margin-bottom:32px; }
+  .card { background:var(--card); border-radius:12px; padding:20px; text-align:center; }
+  .card .num { font-size:36px; font-weight:700; }
+  .card .lbl { font-size:13px; color:var(--sub); margin-top:4px; }
+  .card.ok .num { color:var(--green); }
+  .card.err .num { color:var(--red); }
+  .card.rate .num { color:var(--orange); }
+  .card.time .num { color:#60a5fa; }
+  table { width:100%; border-collapse:collapse; background:var(--card); border-radius:10px; overflow:hidden; margin-bottom:24px; font-size:14px; }
+  thead th { background:#0f172a; padding:10px 14px; color:var(--sub); font-weight:600; text-align:right; }
+  tbody tr:nth-child(even) { background:#162032; }
+  td { padding:9px 14px; border-bottom:1px solid #1e293b; }
+  tr.pass td:first-child { color:var(--green); font-weight:700; }
+  tr.fail td:first-child { color:var(--red); font-weight:700; }
+  tr.warn td { color:var(--yellow); }
+  .pass { color:var(--green); }
+  .fail { color:var(--red); }
+  .warn { color:var(--yellow); }
+  .error-msg { color:#fb7185; font-size:12px; }
+  .progress-bar { background:#1e293b; border-radius:99px; height:12px; margin-bottom:24px; overflow:hidden; }
+  .progress-fill { height:100%; background:linear-gradient(90deg,var(--green),var(--orange)); border-radius:99px; transition:width .5s; }
+  .badge { display:inline-block; padding:2px 10px; border-radius:99px; font-size:12px; font-weight:600; }
+  .badge-pass { background:#052e16; color:var(--green); }
+  .badge-fail { background:#450a0a; color:var(--red); }
+  .recs { background:var(--card); border-radius:10px; padding:20px; }
+  .recs li { margin:8px 0; color:var(--sub); font-size:14px; }
+  .recs li::before { content:"→ "; color:var(--orange); }
+</style>
+</head>
+<body>
+<h1>OnWay — تقرير الاختبار الشامل</h1>
+<p class="meta">تاريخ التشغيل: ٢٦‏/٦‏/٢٠٢٦، ٢:٤٥:٤٠ م | المدة الإجمالية: 16.4 ثانية</p>
+
+<div class="summary">
+  <div class="card ok"><div class="num">78</div><div class="lbl">✓ ناجح</div></div>
+  <div class="card err"><div class="num">16</div><div class="lbl">✗ فاشل</div></div>
+  <div class="card"><div class="num">94</div><div class="lbl">إجمالي الاختبارات</div></div>
+  <div class="card rate"><div class="num">83%</div><div class="lbl">معدل النجاح</div></div>
+  <div class="card time"><div class="num">16.4s</div><div class="lbl">وقت التنفيذ</div></div>
+</div>
+
+<div class="progress-bar"><div class="progress-fill" style="width:83%"></div></div>
+
+
+    <h2>❌ الاختبارات الفاشلة</h2>
+    <table>
+      <thead><tr><th>الاختبار</th><th>السبب</th></tr></thead>
+      <tbody>
+        <tr class="fail"><td>GET /api/stores returns array</td><td class="error-msg">Expected array</td></tr>
+<tr class="fail"><td>POST /api/users creates new user</td><td class="error-msg">Unexpected status 400: {&quot;error&quot;:&quot;All fields are required&quot;}</td></tr>
+<tr class="fail"><td>GET /api/vendor/products with token returns array</td><td class="error-msg">Expected array</td></tr>
+<tr class="fail"><td>POST /api/vendor/products creates product</td><td class="error-msg">Expected 200/201, got 400: {&quot;error&quot;:&quot;الاسم، السعر، الفئة، والصورة مطلوبة&quot;}</td></tr>
+<tr class="fail"><td>PATCH /api/vendor/products/:id/availability toggles availability</td><td class="error-msg">No token or product</td></tr>
+<tr class="fail"><td>PUT /api/vendor/products/:id updates product</td><td class="error-msg">No token or product</td></tr>
+<tr class="fail"><td>GET /api/vendor/orders returns array</td><td class="error-msg">Expected array</td></tr>
+<tr class="fail"><td>POST /api/drivers registers new driver</td><td class="error-msg">Expected 200/201/409, got 400: {&quot;error&quot;:&quot;All fields are required&quot;}</td></tr>
+<tr class="fail"><td>POST /api/driver/reject-order with no active order gracefully fails</td><td class="error-msg">Should not succeed for fake order</td></tr>
+<tr class="fail"><td>POST /api/admin/promo-codes creates promo code</td><td class="error-msg">Expected 200/201/409, got 400: {&quot;error&quot;:&quot;Missing required fields&quot;}</td></tr>
+<tr class="fail"><td>PUT /api/admin/promo-codes/:id updates promo</td><td class="error-msg">No promo id</td></tr>
+<tr class="fail"><td>DELETE /api/admin/promo-codes/:id deletes promo</td><td class="error-msg">No promo id</td></tr>
+<tr class="fail"><td>Setup: register test customer</td><td class="error-msg">Customer register failed: 400</td></tr>
+<tr class="fail"><td>Step 2: Vendor sees order in their orders list</td><td class="error-msg">ASSERTION FAILED: Expected array</td></tr>
+<tr class="fail"><td>Step 7: Driver registers and goes online</td><td class="error-msg">Driver register failed: 400</td></tr>
+<tr class="fail"><td>POST /api/orders with empty body → 400/422/500</td><td class="error-msg">Should reject empty order</td></tr>
+      </tbody>
+    </table>
+
+<h2>📋 نتائج الاختبارات التفصيلية</h2>
+<table>
+  <thead><tr><th>النتيجة</th><th>اسم الاختبار</th><th>المدة</th><th>التفاصيل</th></tr></thead>
+  <tbody><tr class="pass"><td>✓</td><td>GET /api/categories returns array</td><td>275ms</td><td>—</td></tr>
+<tr class="pass"><td>✓</td><td>GET /api/banners returns array</td><td>411ms</td><td>—</td></tr>
+<tr class="fail"><td>✗</td><td>GET /api/stores returns array</td><td>101ms</td><td><br><small class="error-msg">Expected array</small></td></tr>
+<tr class="pass"><td>✓</td><td>GET /api/products returns array</td><td>173ms</td><td>—</td></tr>
+<tr class="pass"><td>✓</td><td>GET /api/delivery-areas returns array</td><td>146ms</td><td>—</td></tr>
+<tr class="pass"><td>✓</td><td>GET /api/settings/fees returns fee data</td><td>168ms</td><td>—</td></tr>
+<tr class="pass"><td>✓</td><td>GET /api/vendors returns array</td><td>104ms</td><td>—</td></tr>
+<tr class="pass"><td>✓</td><td>GET /api/promotional-sections returns array</td><td>163ms</td><td>—</td></tr>
+<tr class="pass"><td>✓</td><td>GET /api/stores/:id/products for first store</td><td>116ms</td><td>—</td></tr>
+<tr class="pass"><td>✓</td><td>Invalid endpoint returns 404</td><td>5ms</td><td>—</td></tr>
+<tr class="fail"><td>✗</td><td>POST /api/users creates new user</td><td>118ms</td><td><br><small class="error-msg">Unexpected status 400: {&quot;error&quot;:&quot;All fields are required&quot;}</small></td></tr>
+<tr class="pass"><td>✓</td><td>GET /api/users/:phone returns user</td><td>123ms</td><td>—</td></tr>
+<tr class="pass"><td>✓</td><td>PUT /api/users/:phone updates user</td><td>192ms</td><td>—</td></tr>
+<tr class="pass"><td>✓</td><td>POST /api/users/push-token saves push token</td><td>368ms</td><td>—</td></tr>
+<tr class="pass"><td>✓</td><td>POST /api/orders creates order</td><td>107ms</td><td>—</td></tr>
+<tr class="pass"><td>✓</td><td>GET /api/orders?phoneNumber=... returns orders list</td><td>307ms</td><td>—</td></tr>
+<tr class="pass"><td>✓</td><td>POST /api/orders/:id/cancel cancels the order</td><td>320ms</td><td>—</td></tr>
+<tr class="pass"><td>✓</td><td>POST /api/orders/:id/rate — returns 400/404 for cancelled order</td><td>3ms</td><td>—</td></tr>
+<tr class="pass"><td>✓</td><td>POST /api/promo-codes/apply with invalid code returns error</td><td>90ms</td><td>—</td></tr>
+<tr class="pass"><td>✓</td><td>DELETE /api/users/:phone removes test user</td><td>0ms</td><td>—</td></tr>
+<tr class="pass"><td>✓</td><td>POST /api/vendor/mobile-auth with demo vendor returns token</td><td>428ms</td><td>—</td></tr>
+<tr class="pass"><td>✓</td><td>POST /api/vendor/mobile-auth with unknown phone returns null token</td><td>157ms</td><td>—</td></tr>
+<tr class="pass"><td>✓</td><td>POST /api/vendor/mobile-auth without phone returns 400</td><td>5ms</td><td>—</td></tr>
+<tr class="pass"><td>✓</td><td>GET /api/vendor/products requires auth</td><td>5ms</td><td>—</td></tr>
+<tr class="fail"><td>✗</td><td>GET /api/vendor/products with token returns array</td><td>154ms</td><td><br><small class="error-msg">Expected array</small></td></tr>
+<tr class="fail"><td>✗</td><td>POST /api/vendor/products creates product</td><td>4ms</td><td><br><small class="error-msg">Expected 200/201, got 400: {&quot;error&quot;:&quot;الاسم، السعر، الفئة، والصورة مطلوبة&quot;}</small></td></tr>
+<tr class="fail"><td>✗</td><td>PATCH /api/vendor/products/:id/availability toggles availability</td><td>0ms</td><td><br><small class="error-msg">No token or product</small></td></tr>
+<tr class="fail"><td>✗</td><td>PUT /api/vendor/products/:id updates product</td><td>0ms</td><td><br><small class="error-msg">No token or product</small></td></tr>
+<tr class="pass"><td>✓</td><td>GET /api/vendor/stats returns stats object</td><td>739ms</td><td>—</td></tr>
+<tr class="pass"><td>✓</td><td>GET /api/vendor/wallet returns wallet data</td><td>312ms</td><td>—</td></tr>
+<tr class="fail"><td>✗</td><td>GET /api/vendor/orders returns array</td><td>459ms</td><td><br><small class="error-msg">Expected array</small></td></tr>
+<tr class="pass"><td>✓</td><td>DELETE test products</td><td>0ms</td><td>—</td></tr>
+<tr class="pass"><td>✓</td><td>GET /api/drivers/check/:phone for non-existent returns not found</td><td>73ms</td><td>—</td></tr>
+<tr class="fail"><td>✗</td><td>POST /api/drivers registers new driver</td><td>3ms</td><td><br><small class="error-msg">Expected 200/201/409, got 400: {&quot;error&quot;:&quot;All fields are required&quot;}</small></td></tr>
+<tr class="pass"><td>✓</td><td>GET /api/drivers/check/:phone confirms driver exists</td><td>175ms</td><td>—</td></tr>
+<tr class="pass"><td>✓</td><td>POST /api/driver/toggle-online changes status</td><td>4ms</td><td>—</td></tr>
+<tr class="pass"><td>✓</td><td>POST /api/driver/location updates GPS</td><td>259ms</td><td>—</td></tr>
+<tr class="pass"><td>✓</td><td>GET /api/driver/profile returns driver profile</td><td>250ms</td><td>—</td></tr>
+<tr class="pass"><td>✓</td><td>GET /api/driver/earnings returns earnings data</td><td>79ms</td><td>—</td></tr>
+<tr class="pass"><td>✓</td><td>GET /api/driver/wallet returns wallet data</td><td>302ms</td><td>—</td></tr>
+<tr class="pass"><td>✓</td><td>GET /api/driver/orders returns array or empty</td><td>327ms</td><td>—</td></tr>
+<tr class="fail"><td>✗</td><td>POST /api/driver/reject-order with no active order gracefully fails</td><td>205ms</td><td><br><small class="error-msg">Should not succeed for fake order</small></td></tr>
+<tr class="pass"><td>✓</td><td>GET /api/admin/categories without auth returns 401</td><td>5ms</td><td>—</td></tr>
+<tr class="pass"><td>✓</td><td>GET /api/admin/categories with valid cookie returns array</td><td>482ms</td><td>—</td></tr>
+<tr class="pass"><td>✓</td><td>GET /api/admin/vendors returns array</td><td>4ms</td><td>—</td></tr>
+<tr class="pass"><td>✓</td><td>GET /api/admin/orders returns array</td><td>94ms</td><td>—</td></tr>
+<tr class="pass"><td>✓</td><td>GET /api/admin/drivers returns array</td><td>290ms</td><td>—</td></tr>
+<tr class="pass"><td>✓</td><td>GET /api/admin/users returns array</td><td>151ms</td><td>—</td></tr>
+<tr class="pass"><td>✓</td><td>GET /api/admin/promo-codes returns array</td><td>106ms</td><td>—</td></tr>
+<tr class="pass"><td>✓</td><td>GET /api/admin/driver-stats returns stats</td><td>2344ms</td><td>—</td></tr>
+<tr class="pass"><td>✓</td><td>GET /api/admin/financial-reports returns data</td><td>461ms</td><td>—</td></tr>
+<tr class="pass"><td>✓</td><td>GET /api/admin/owner-earnings returns data</td><td>118ms</td><td>—</td></tr>
+<tr class="pass"><td>✓</td><td>GET /api/admin/notification-stats returns data</td><td>577ms</td><td>—</td></tr>
+<tr class="pass"><td>✓</td><td>GET /api/admin/delivery-areas returns array</td><td>90ms</td><td>—</td></tr>
+<tr class="pass"><td>✓</td><td>GET /api/admin/banners returns array</td><td>154ms</td><td>—</td></tr>
+<tr class="pass"><td>✓</td><td>GET /api/admin/products returns array</td><td>3ms</td><td>—</td></tr>
+<tr class="pass"><td>✓</td><td>POST /api/admin/categories creates category</td><td>161ms</td><td>—</td></tr>
+<tr class="pass"><td>✓</td><td>PUT /api/admin/categories/:id updates category</td><td>246ms</td><td>—</td></tr>
+<tr class="pass"><td>✓</td><td>DELETE /api/admin/categories/:id deletes category</td><td>345ms</td><td>—</td></tr>
+<tr class="fail"><td>✗</td><td>POST /api/admin/promo-codes creates promo code</td><td>4ms</td><td><br><small class="error-msg">Expected 200/201/409, got 400: {&quot;error&quot;:&quot;Missing required fields&quot;}</small></td></tr>
+<tr class="fail"><td>✗</td><td>PUT /api/admin/promo-codes/:id updates promo</td><td>0ms</td><td><br><small class="error-msg">No promo id</small></td></tr>
+<tr class="fail"><td>✗</td><td>DELETE /api/admin/promo-codes/:id deletes promo</td><td>0ms</td><td><br><small class="error-msg">No promo id</small></td></tr>
+<tr class="pass"><td>✓</td><td>POST /api/admin/delivery-areas creates area</td><td>92ms</td><td>—</td></tr>
+<tr class="pass"><td>✓</td><td>PUT /api/admin/delivery-areas/:id updates area</td><td>298ms</td><td>—</td></tr>
+<tr class="pass"><td>✓</td><td>DELETE /api/admin/delivery-areas/:id deletes area</td><td>200ms</td><td>—</td></tr>
+<tr class="pass"><td>✓</td><td>Setup: get vendor token</td><td>103ms</td><td>—</td></tr>
+<tr class="fail"><td>✗</td><td>Setup: register test customer</td><td>2ms</td><td><br><small class="error-msg">Customer register failed: 400</small></td></tr>
+<tr class="pass"><td>✓</td><td>Step 1: Customer creates order</td><td>159ms</td><td>—</td></tr>
+<tr class="fail"><td>✗</td><td>Step 2: Vendor sees order in their orders list</td><td>589ms</td><td><br><small class="error-msg">ASSERTION FAILED: Expected array</small></td></tr>
+<tr class="pass"><td>✓</td><td>Step 3: Admin views the order</td><td>79ms</td><td>—</td></tr>
+<tr class="pass"><td>✓</td><td>Step 4: Admin updates order status to confirmed</td><td>101ms</td><td>—</td></tr>
+<tr class="pass"><td>✓</td><td>Step 5: Admin updates order status to preparing</td><td>88ms</td><td>—</td></tr>
+<tr class="pass"><td>✓</td><td>Step 6: Admin updates order status to ready</td><td>88ms</td><td>—</td></tr>
+<tr class="fail"><td>✗</td><td>Step 7: Driver registers and goes online</td><td>3ms</td><td><br><small class="error-msg">Driver register failed: 400</small></td></tr>
+<tr class="pass"><td>✓</td><td>Step 8: Admin assigns driver to order</td><td>175ms</td><td>—</td></tr>
+<tr class="pass"><td>✓</td><td>Step 9: Customer sees updated order status</td><td>78ms</td><td>—</td></tr>
+<tr class="pass"><td>✓</td><td>Cleanup: cancel/archive order</td><td>106ms</td><td>—</td></tr>
+<tr class="pass"><td>✓</td><td>Cleanup: delete test customer</td><td>195ms</td><td>—</td></tr>
+<tr class="pass"><td>✓</td><td>Admin route without cookie → 401</td><td>3ms</td><td>—</td></tr>
+<tr class="pass"><td>✓</td><td>Admin route with wrong cookie value → 401</td><td>5ms</td><td>—</td></tr>
+<tr class="pass"><td>✓</td><td>Vendor route without token → 401/403</td><td>2ms</td><td>—</td></tr>
+<tr class="pass"><td>✓</td><td>Vendor route with malformed token → 401/403</td><td>10ms</td><td>—</td></tr>
+<tr class="pass"><td>✓</td><td>Vendor route with tampered JWT → 401/403</td><td>2ms</td><td>—</td></tr>
+<tr class="pass"><td>✓</td><td>Admin route with Basic auth (no cookie) → 401</td><td>3ms</td><td>—</td></tr>
+<tr class="pass"><td>✓</td><td>POST /api/users with missing phone → 400/422</td><td>4ms</td><td>—</td></tr>
+<tr class="fail"><td>✗</td><td>POST /api/orders with empty body → 400/422/500</td><td>98ms</td><td><br><small class="error-msg">Should reject empty order</small></td></tr>
+<tr class="pass"><td>✓</td><td>POST /api/vendor/mobile-auth with empty body → 400</td><td>3ms</td><td>—</td></tr>
+<tr class="pass"><td>✓</td><td>POST /api/drivers with missing fields → 400/422/500</td><td>5ms</td><td>—</td></tr>
+<tr class="pass"><td>✓</td><td>SQL injection attempt in phone → safe response</td><td>60ms</td><td>—</td></tr>
+<tr class="pass"><td>✓</td><td>XSS payload in order notes → stored safely</td><td>75ms</td><td>—</td></tr>
+<tr class="pass"><td>✓</td><td>Oversized payload → rejected or handled</td><td>325ms</td><td>—</td></tr>
+<tr class="pass"><td>✓</td><td>Admin endpoint for driver wallet requires admin auth</td><td>2ms</td><td>—</td></tr>
+<tr class="pass"><td>✓</td><td>Admin delete vendor requires auth</td><td>3ms</td><td>—</td></tr>
+<tr class="pass"><td>✓</td><td>Admin send notification requires auth</td><td>3ms</td><td>—</td></tr></tbody>
+</table>
+
+
+
+
+
+<h2>🔍 التوصيات</h2>
+<div class="recs">
+<ul>
+<li>إصلاح 16 اختبار فاشل قبل النشر</li>
+<li>أداء الـ API مقبول لجميع نقاط النهاية</li>
+<li>الخادم مستقر تحت الحمل الاختباري</li>
+<li>تفعيل HTTPS وضبط CORS قبل الإطلاق الإنتاجي</li>
+<li>ضبط Rate Limiting على نقاط التسجيل ووالمصادقة</li>
+<li>تفعيل Firebase Security Rules لحماية البيانات المباشرة</li>
+<li>مراجعة وقت انتهاء JWT للتجار والسائقين</li>
+<li>تفعيل مراقبة الأخطاء (Sentry) في الإنتاج</li>
+</ul>
+</div>
+
+<p style="text-align:center;color:var(--sub);margin-top:32px;font-size:13px">OnWay Testing Framework — تشغيل تلقائي</p>
+</body>
+</html>
