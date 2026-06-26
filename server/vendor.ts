@@ -15,10 +15,15 @@ const router = express.Router();
 
 const JWT_SECRET = (() => {
   const secret = process.env.JWT_SECRET;
-  if (!secret || secret === "onway-vendor-secret-2024") {
-    console.warn("[SECURITY] JWT_SECRET env var is not set or uses insecure default. Set a strong secret in production.");
+  if (!secret) {
+    if (process.env.NODE_ENV === "production") {
+      console.error("[FATAL] JWT_SECRET is not set. Server cannot start in production without a secure JWT secret. Add JWT_SECRET to Replit Secrets.");
+      process.exit(1);
+    }
+    console.warn("[SECURITY] JWT_SECRET not set — using insecure dev fallback. Set JWT_SECRET in Replit Secrets before deploying to production.");
+    return "onway-dev-only-do-not-use-in-production";
   }
-  return secret || "onway-vendor-secret-2024";
+  return secret;
 })();
 const VENDOR_COOKIE = "onway_vendor_session";
 
@@ -700,7 +705,6 @@ router.post("/api/vendor/push-token", requireVendor, async (req, res) => {
     }
 
     await db.collection("vendors").doc(vid).update({ pushToken, pushTokenUpdatedAt: new Date().toISOString() });
-    console.log(`[PUSH] Saved vendor push token for ${vid}: ...${pushToken.slice(-12)}`);
     res.json({ success: true });
   } catch (err) {
     console.error("vendor push-token:", err);

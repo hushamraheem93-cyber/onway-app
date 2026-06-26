@@ -89,7 +89,7 @@ try {
       imageHashMap.set(hash, fname);
     } catch { /* skip unreadable files */ }
   }
-  console.log(`[HASH] Seeded image dedup map with ${imageHashMap.size} existing files`);
+
 } catch { /* uploads dir may be empty */ }
 
 interface Category {
@@ -275,10 +275,15 @@ const products: Product[] = [
 
 const ROUTES_JWT_SECRET = (() => {
   const secret = process.env.JWT_SECRET;
-  if (!secret || secret === "onway-vendor-secret-2024") {
-    console.warn("[SECURITY] JWT_SECRET env var is not set or uses insecure default. Set a strong secret in production.");
+  if (!secret) {
+    if (process.env.NODE_ENV === "production") {
+      console.error("[FATAL] JWT_SECRET is not set. Server cannot start in production without a secure JWT secret. Add JWT_SECRET to Replit Secrets.");
+      process.exit(1);
+    }
+    console.warn("[SECURITY] JWT_SECRET not set — using insecure dev fallback. Set JWT_SECRET in Replit Secrets before deploying to production.");
+    return "onway-dev-only-do-not-use-in-production";
   }
-  return secret || "onway-vendor-secret-2024";
+  return secret;
 })();
 
 function extractVendorId(req: Request): string | null {
@@ -1065,7 +1070,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
     }
     if (onlineDrivers.length > 0) {
-      console.log(`Restored ${onlineDrivers.length} online driver(s) from Firestore`);
       try {
         const db = getFirestore();
         if (db) {
@@ -1087,7 +1091,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
               db.collection("delivery_batches").doc(bDoc.id)
                 .update({ status: "completed", updatedAt: new Date() })
                 .catch(() => {});
-              console.log(`[RESTART] Stale batch ${bDoc.id} auto-completed (all orders done)`);
               continue;
             }
             const driverPhone = bData.driverId; // driverId = phone number
@@ -1096,7 +1099,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
               qd.currentBatchId = bDoc.id;
               qd.lastSeenAt = Date.now();
               bData.orderIds.forEach(id => batchedOrderIds.add(id));
-              console.log(`[RESTART] Restored batch ${bDoc.id} → driver ${driverPhone}`);
             }
           }
           // For drivers without a batch, assign waiting confirmed orders
@@ -1118,7 +1120,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   qd.currentBatchId = batchId;
                   qd.lastSeenAt = Date.now();
                   orderIds.forEach(id => batchedOrderIds.add(id));
-                  console.log(`[RESTART] Created new batch ${batchId} for driver ${qd.phoneNumber}`);
                 }
               }
             }
@@ -1197,7 +1198,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (existingFilename && existingFilename !== req.file.filename) {
         // Delete the newly written duplicate and return the existing one
         fs.unlink(filePath, () => {});
-        console.log(`[HASH] Dedup: reusing existing file ${existingFilename}`);
         return res.json({ url: `/uploads/${existingFilename}`, filename: existingFilename, size: req.file.size, deduped: true });
       }
       imageHashMap.set(contentHash, req.file.filename);
@@ -2110,7 +2110,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const pushToken = await getUserPushToken(phoneNumber);
           if (pushToken) {
             await sendPushNotification(pushToken, status, orderId);
-            console.log(`Push notification sent for order ${orderId} to ${phoneNumber}`);
           }
         }
 
@@ -2212,7 +2211,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         sendDriverBatchNotification(driverPushToken, 1, batchId).catch(() => {});
       }
 
-      console.log(`[ADMIN] Manually assigned order ${orderId} → driver ${driverPhone} (batch ${batchId})`);
       res.json({ success: true, batchId, driverPhone, driverName });
     } catch (error: any) {
       console.error("assign-driver error:", error);
@@ -2491,7 +2489,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.status(400).json({ error: "Phone number is required" });
     }
     const code = generateOtp(phoneNumber);
-    console.log(`[OTP] Sent code ${code} to ${phoneNumber}`);
     res.json({ success: true, message: "OTP sent successfully" });
   });
 
@@ -2651,8 +2648,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (queuedDriver?.currentBatchId) {
         const batchDoc = await getDeliveryBatch(queuedDriver.currentBatchId);
         if (!batchDoc) {
-          // Batch no longer exists in Firestore — clear stale reference
-          console.log(`[STATUS] Clearing stale batchId ${queuedDriver.currentBatchId} for driver ${phoneNumber} (not found in DB)`);
           queuedDriver.currentBatchId = undefined;
         } else {
           const allOrders = await getOrders();
@@ -2678,7 +2673,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const completedCount = resolvedOrders.filter(o => o.status === "delivered" || o.status === "issue" || o.status === "cancelled").length;
           // If all orders in the batch are done (delivered/issue/cancelled), auto-clear the batch
           if (resolvedOrders.length > 0 && completedCount === resolvedOrders.length) {
-            console.log(`[STATUS] All orders delivered in batch ${batchDoc.id} — auto-clearing for driver ${phoneNumber}`);
             queuedDriver.currentBatchId = undefined;
             batchDoc.orderIds.forEach(id => batchedOrderIds.delete(id));
             // Mark batch as completed in Firestore
@@ -2804,9 +2798,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const qd = driverQueue.find(d => d.phoneNumber === phoneNumber);
           if (qd) qd.pushToken = pushToken;
           saveDriverPushToken(phoneNumber, pushToken).catch(() => {});
-          console.log(`[PUSH] Saved driver push token for ${phoneNumber}: ...${pushToken.slice(-12)}`);
-        } else {
-          console.log(`[PUSH] No valid push token provided for ${phoneNumber} on toggle-online`);
         }
         // Persist online status to Firestore
         updateDriverOnlineStatus(phoneNumber, true).catch(() => {});
@@ -2842,7 +2833,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Also update in-memory queue entry if driver is online
       const qd = driverQueue.find(d => d.phoneNumber === phoneNumber);
       if (qd) qd.pushToken = pushToken;
-      console.log(`[PUSH] Refreshed driver push token for ${phoneNumber}: ...${pushToken.slice(-12)}`);
       res.json({ ok: true });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
@@ -3003,7 +2993,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }).catch(() => {});
         }
       }
-      console.log(`[REJECT] Driver ${phoneNumber} (${driverName}) rejected batch ${targetBatchId} (${orderCount} orders) — cooldown set`);
       saveDriverActivity({ phoneNumber, type: "rejected", orderId: targetBatchId || orderId }).catch(() => {});
       // Offer waiting orders to another available driver (NOT the one who just rejected)
       // Note: do NOT also call assignWaitingBatchToDriver here — onOrderConfirmed handles it
@@ -3481,21 +3470,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ─── End Utilities ────────────────────────────────────────────────────────
 
   async function assignWaitingBatchToDriver(phoneNumber: string, maxOrders: number = 3) {
-    console.log(`[BATCH_ASSIGN] Starting for driver ${phoneNumber}`);
     try {
       const db = getFirestore();
-      if (!db) { console.log(`[BATCH_ASSIGN] No DB`); return; }
+      if (!db) return;
       const qd = driverQueue.find(d => d.phoneNumber === phoneNumber && !d.currentBatchId);
-      if (!qd) {
-        const inQueue = driverQueue.find(d => d.phoneNumber === phoneNumber);
-        console.log(`[BATCH_ASSIGN] Driver not eligible — inQueue=${!!inQueue}, currentBatchId=${inQueue?.currentBatchId}`);
-        return;
-      }
+      if (!qd) return;
       const allOrders = await getOrders();
       const confirmedOrders = allOrders.filter(o => o.status === "confirmed");
       // Get active batch IDs from all drivers in queue (in-memory)
       const activeBatchIds = new Set(driverQueue.map(d => d.currentBatchId).filter(Boolean) as string[]);
-      console.log(`[BATCH_ASSIGN] Total orders=${allOrders.length}, confirmed=${confirmedOrders.length}, activeBatches=${activeBatchIds.size}, batchedSet-size=${batchedOrderIds.size}`);
       // FIFO: take earliest confirmed orders not in any ACTIVE batch
       // An order is truly available if:
       //   - It has no batchId field in Firestore, OR
@@ -3510,7 +3493,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
           if (driverCooldowns) {
             const rejectedAt = driverCooldowns.get(o.id);
             if (rejectedAt && (now - rejectedAt) < REJECTION_COOLDOWN_MS) {
-              console.log(`[BATCH_ASSIGN] Skipping order ${o.id} — in cooldown for driver ${phoneNumber}`);
               return false;
             }
           }
@@ -3528,7 +3510,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return aTime - bTime;
         })
         .slice(0, maxOrders);
-      console.log(`[BATCH_ASSIGN] Waiting orders to assign: ${waitingOrders.length} (${waitingOrders.map(o => o.id).join(",")})`);
       if (waitingOrders.length === 0) return;
 
       // Nearest-Neighbor route optimization
@@ -3554,15 +3535,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (batchId) {
         qd.currentBatchId = batchId;
         optimizedIds.forEach(id => batchedOrderIds.add(id));
-        console.log(`[BATCH] Created batch ${batchId} (${optimizedIds.length} orders, ~${totalDistance.toFixed(1)} km) for driver ${phoneNumber}`);
         // Send push notification: use in-memory token first (fast), fallback to Firestore
         const inMemoryToken = qd?.pushToken;
         const driverPushToken = inMemoryToken || await getDriverPushToken(phoneNumber);
         if (driverPushToken) {
-          console.log(`[PUSH] Sending batch notification to driver ${phoneNumber} (token: ...${driverPushToken.slice(-12)})`);
           sendDriverBatchNotification(driverPushToken, optimizedIds.length, batchId)
-            .then(ok => console.log(`[PUSH] Batch notification ${ok ? "sent OK" : "FAILED"} → ${phoneNumber}`))
-            .catch(e => console.error(`[PUSH] Batch notification error → ${phoneNumber}:`, e));
+            .catch(e => console.error("[PUSH] Batch notification error:", e));
         } else {
           console.warn(`[PUSH] No push token for driver ${phoneNumber} — notification NOT sent`);
         }
@@ -3616,7 +3594,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (availableDriver) {
           availableDriver.currentBatchId = order.id;
           assigned++;
-          console.log(`[FIFO] Order ${order.id} assigned to driver ${availableDriver.phoneNumber}`);
         } else {
           break;
         }
@@ -4304,7 +4281,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const finalAddress = placeName
           ? (bestAddress ? `${placeName}، ${bestAddress}` : placeName)
           : bestAddress;
-        console.log(`Geocode ${lat},${lng} => ${finalAddress}`);
         return res.json({ address: finalAddress, placeName: placeName || null });
       }
 

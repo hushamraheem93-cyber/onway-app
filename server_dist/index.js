@@ -1287,12 +1287,10 @@ var ORDER_STATUS_MESSAGES = {
 };
 async function sendPushNotification(pushToken, status, orderId, estimatedMinutes) {
   if (!pushToken || !pushToken.startsWith("ExponentPushToken")) {
-    console.log("Invalid push token:", pushToken);
     return false;
   }
   const messageContent = ORDER_STATUS_MESSAGES[status];
   if (!messageContent) {
-    console.log("No message template for status:", status);
     return false;
   }
   let body = messageContent.body;
@@ -1321,7 +1319,6 @@ async function sendPushNotification(pushToken, status, orderId, estimatedMinutes
     });
     const result = await response.json();
     if (result.data.status === "ok") {
-      console.log("Push notification sent successfully to:", pushToken);
       return true;
     } else {
       console.error("Push notification error:", result.data.message);
@@ -1622,7 +1619,6 @@ try {
     } catch {
     }
   }
-  console.log(`[HASH] Seeded image dedup map with ${imageHashMap.size} existing files`);
 } catch {
 }
 var defaultVendors = [
@@ -1729,10 +1725,15 @@ var products = [
 ];
 var ROUTES_JWT_SECRET = (() => {
   const secret = process.env.JWT_SECRET;
-  if (!secret || secret === "onway-vendor-secret-2024") {
-    console.warn("[SECURITY] JWT_SECRET env var is not set or uses insecure default. Set a strong secret in production.");
+  if (!secret) {
+    if (process.env.NODE_ENV === "production") {
+      console.error("[FATAL] JWT_SECRET is not set. Server cannot start in production without a secure JWT secret. Add JWT_SECRET to Replit Secrets.");
+      process.exit(1);
+    }
+    console.warn("[SECURITY] JWT_SECRET not set \u2014 using insecure dev fallback. Set JWT_SECRET in Replit Secrets before deploying to production.");
+    return "onway-dev-only-do-not-use-in-production";
   }
-  return secret || "onway-vendor-secret-2024";
+  return secret;
 })();
 function extractVendorId(req) {
   try {
@@ -2440,7 +2441,6 @@ async function registerRoutes(app2) {
       }
     }
     if (onlineDrivers.length > 0) {
-      console.log(`Restored ${onlineDrivers.length} online driver(s) from Firestore`);
       try {
         const db2 = getFirestore();
         if (db2) {
@@ -2456,7 +2456,6 @@ async function registerRoutes(app2) {
             if (allDone) {
               db2.collection("delivery_batches").doc(bDoc.id).update({ status: "completed", updatedAt: /* @__PURE__ */ new Date() }).catch(() => {
               });
-              console.log(`[RESTART] Stale batch ${bDoc.id} auto-completed (all orders done)`);
               continue;
             }
             const driverPhone = bData.driverId;
@@ -2465,7 +2464,6 @@ async function registerRoutes(app2) {
               qd.currentBatchId = bDoc.id;
               qd.lastSeenAt = Date.now();
               bData.orderIds.forEach((id) => batchedOrderIds.add(id));
-              console.log(`[RESTART] Restored batch ${bDoc.id} \u2192 driver ${driverPhone}`);
             }
           }
           const allOrders = await getOrders();
@@ -2483,7 +2481,6 @@ async function registerRoutes(app2) {
                   qd.currentBatchId = batchId;
                   qd.lastSeenAt = Date.now();
                   orderIds.forEach((id) => batchedOrderIds.add(id));
-                  console.log(`[RESTART] Created new batch ${batchId} for driver ${qd.phoneNumber}`);
                 }
               }
             }
@@ -2555,7 +2552,6 @@ async function registerRoutes(app2) {
       if (existingFilename && existingFilename !== req.file.filename) {
         fs.unlink(filePath, () => {
         });
-        console.log(`[HASH] Dedup: reusing existing file ${existingFilename}`);
         return res.json({ url: `/uploads/${existingFilename}`, filename: existingFilename, size: req.file.size, deduped: true });
       }
       imageHashMap.set(contentHash, req.file.filename);
@@ -3378,7 +3374,6 @@ ${itemsList}
           const pushToken = await getUserPushToken(phoneNumber);
           if (pushToken) {
             await sendPushNotification(pushToken, status, orderId);
-            console.log(`Push notification sent for order ${orderId} to ${phoneNumber}`);
           }
         }
         if (status === "confirmed") {
@@ -3456,7 +3451,6 @@ ${itemsList}
         sendDriverBatchNotification(driverPushToken, 1, batchId).catch(() => {
         });
       }
-      console.log(`[ADMIN] Manually assigned order ${orderId} \u2192 driver ${driverPhone} (batch ${batchId})`);
       res.json({ success: true, batchId, driverPhone, driverName });
     } catch (error) {
       console.error("assign-driver error:", error);
@@ -3698,7 +3692,6 @@ ${itemsList}
       return res.status(400).json({ error: "Phone number is required" });
     }
     const code = generateOtp(phoneNumber);
-    console.log(`[OTP] Sent code ${code} to ${phoneNumber}`);
     res.json({ success: true, message: "OTP sent successfully" });
   });
   app2.post("/api/auth/verify-otp", (req, res) => {
@@ -3834,7 +3827,6 @@ ${itemsList}
       if (queuedDriver?.currentBatchId) {
         const batchDoc = await getDeliveryBatch(queuedDriver.currentBatchId);
         if (!batchDoc) {
-          console.log(`[STATUS] Clearing stale batchId ${queuedDriver.currentBatchId} for driver ${phoneNumber} (not found in DB)`);
           queuedDriver.currentBatchId = void 0;
         } else {
           const allOrders = await getOrders();
@@ -3856,7 +3848,6 @@ ${itemsList}
           const resolvedOrders = await Promise.all(batchOrders);
           const completedCount = resolvedOrders.filter((o) => o.status === "delivered" || o.status === "issue" || o.status === "cancelled").length;
           if (resolvedOrders.length > 0 && completedCount === resolvedOrders.length) {
-            console.log(`[STATUS] All orders delivered in batch ${batchDoc.id} \u2014 auto-clearing for driver ${phoneNumber}`);
             queuedDriver.currentBatchId = void 0;
             batchDoc.orderIds.forEach((id) => batchedOrderIds.delete(id));
             const db2 = getFirestore();
@@ -3966,9 +3957,6 @@ ${itemsList}
           if (qd) qd.pushToken = pushToken;
           saveDriverPushToken(phoneNumber, pushToken).catch(() => {
           });
-          console.log(`[PUSH] Saved driver push token for ${phoneNumber}: ...${pushToken.slice(-12)}`);
-        } else {
-          console.log(`[PUSH] No valid push token provided for ${phoneNumber} on toggle-online`);
         }
         updateDriverOnlineStatus(phoneNumber, true).catch(() => {
         });
@@ -4001,7 +3989,6 @@ ${itemsList}
       await saveDriverPushToken(phoneNumber, pushToken);
       const qd = driverQueue.find((d) => d.phoneNumber === phoneNumber);
       if (qd) qd.pushToken = pushToken;
-      console.log(`[PUSH] Refreshed driver push token for ${phoneNumber}: ...${pushToken.slice(-12)}`);
       res.json({ ok: true });
     } catch (error) {
       res.status(500).json({ error: error.message });
@@ -4141,7 +4128,6 @@ ${itemsList}
           });
         }
       }
-      console.log(`[REJECT] Driver ${phoneNumber} (${driverName}) rejected batch ${targetBatchId} (${orderCount} orders) \u2014 cooldown set`);
       saveDriverActivity({ phoneNumber, type: "rejected", orderId: targetBatchId || orderId }).catch(() => {
       });
       onOrderConfirmed();
@@ -4554,23 +4540,14 @@ ${itemsList}
     });
   }
   async function assignWaitingBatchToDriver(phoneNumber, maxOrders = 3) {
-    console.log(`[BATCH_ASSIGN] Starting for driver ${phoneNumber}`);
     try {
       const db2 = getFirestore();
-      if (!db2) {
-        console.log(`[BATCH_ASSIGN] No DB`);
-        return;
-      }
+      if (!db2) return;
       const qd = driverQueue.find((d) => d.phoneNumber === phoneNumber && !d.currentBatchId);
-      if (!qd) {
-        const inQueue = driverQueue.find((d) => d.phoneNumber === phoneNumber);
-        console.log(`[BATCH_ASSIGN] Driver not eligible \u2014 inQueue=${!!inQueue}, currentBatchId=${inQueue?.currentBatchId}`);
-        return;
-      }
+      if (!qd) return;
       const allOrders = await getOrders();
       const confirmedOrders = allOrders.filter((o) => o.status === "confirmed");
       const activeBatchIds = new Set(driverQueue.map((d) => d.currentBatchId).filter(Boolean));
-      console.log(`[BATCH_ASSIGN] Total orders=${allOrders.length}, confirmed=${confirmedOrders.length}, activeBatches=${activeBatchIds.size}, batchedSet-size=${batchedOrderIds.size}`);
       const now = Date.now();
       const driverCooldowns = driverRejectionCooldowns.get(phoneNumber);
       const waitingOrders = confirmedOrders.filter((o) => {
@@ -4578,7 +4555,6 @@ ${itemsList}
         if (driverCooldowns) {
           const rejectedAt = driverCooldowns.get(o.id);
           if (rejectedAt && now - rejectedAt < REJECTION_COOLDOWN_MS) {
-            console.log(`[BATCH_ASSIGN] Skipping order ${o.id} \u2014 in cooldown for driver ${phoneNumber}`);
             return false;
           }
         }
@@ -4591,7 +4567,6 @@ ${itemsList}
         const bTime = b.createdAt?.toDate?.() ? b.createdAt.toDate().getTime() : 0;
         return aTime - bTime;
       }).slice(0, maxOrders);
-      console.log(`[BATCH_ASSIGN] Waiting orders to assign: ${waitingOrders.length} (${waitingOrders.map((o) => o.id).join(",")})`);
       if (waitingOrders.length === 0) return;
       const routeInfo = optimizeDeliveryRoute(waitingOrders);
       const totalDistance = routeInfo.reduce((sum, r) => sum + r.distance, 0);
@@ -4612,12 +4587,10 @@ ${itemsList}
       if (batchId) {
         qd.currentBatchId = batchId;
         optimizedIds.forEach((id) => batchedOrderIds.add(id));
-        console.log(`[BATCH] Created batch ${batchId} (${optimizedIds.length} orders, ~${totalDistance.toFixed(1)} km) for driver ${phoneNumber}`);
         const inMemoryToken = qd?.pushToken;
         const driverPushToken = inMemoryToken || await getDriverPushToken(phoneNumber);
         if (driverPushToken) {
-          console.log(`[PUSH] Sending batch notification to driver ${phoneNumber} (token: ...${driverPushToken.slice(-12)})`);
-          sendDriverBatchNotification(driverPushToken, optimizedIds.length, batchId).then((ok) => console.log(`[PUSH] Batch notification ${ok ? "sent OK" : "FAILED"} \u2192 ${phoneNumber}`)).catch((e) => console.error(`[PUSH] Batch notification error \u2192 ${phoneNumber}:`, e));
+          sendDriverBatchNotification(driverPushToken, optimizedIds.length, batchId).catch((e) => console.error("[PUSH] Batch notification error:", e));
         } else {
           console.warn(`[PUSH] No push token for driver ${phoneNumber} \u2014 notification NOT sent`);
         }
@@ -4661,7 +4634,6 @@ ${itemsList}
         if (availableDriver) {
           availableDriver.currentBatchId = order.id;
           assigned++;
-          console.log(`[FIFO] Order ${order.id} assigned to driver ${availableDriver.phoneNumber}`);
         } else {
           break;
         }
@@ -5217,7 +5189,6 @@ ${itemsList}
       }
       if (placeName || bestAddress) {
         const finalAddress = placeName ? bestAddress ? `${placeName}\u060C ${bestAddress}` : placeName : bestAddress;
-        console.log(`Geocode ${lat},${lng} => ${finalAddress}`);
         return res.json({ address: finalAddress, placeName: placeName || null });
       }
       res.json({ address: `${lat.toFixed(5)}, ${lng.toFixed(5)}` });
@@ -5410,10 +5381,15 @@ import * as path2 from "path";
 var router = express2.Router();
 var JWT_SECRET = (() => {
   const secret = process.env.JWT_SECRET;
-  if (!secret || secret === "onway-vendor-secret-2024") {
-    console.warn("[SECURITY] JWT_SECRET env var is not set or uses insecure default. Set a strong secret in production.");
+  if (!secret) {
+    if (process.env.NODE_ENV === "production") {
+      console.error("[FATAL] JWT_SECRET is not set. Server cannot start in production without a secure JWT secret. Add JWT_SECRET to Replit Secrets.");
+      process.exit(1);
+    }
+    console.warn("[SECURITY] JWT_SECRET not set \u2014 using insecure dev fallback. Set JWT_SECRET in Replit Secrets before deploying to production.");
+    return "onway-dev-only-do-not-use-in-production";
   }
-  return secret || "onway-vendor-secret-2024";
+  return secret;
 })();
 var VENDOR_COOKIE = "onway_vendor_session";
 var upload2 = multer2({
@@ -5963,7 +5939,6 @@ router.post("/api/vendor/push-token", requireVendor, async (req, res) => {
       return res.status(400).json({ error: "\u0631\u0645\u0632 \u0625\u0634\u0639\u0627\u0631 \u063A\u064A\u0631 \u0635\u0627\u0644\u062D" });
     }
     await db2.collection("vendors").doc(vid).update({ pushToken, pushTokenUpdatedAt: (/* @__PURE__ */ new Date()).toISOString() });
-    console.log(`[PUSH] Saved vendor push token for ${vid}: ...${pushToken.slice(-12)}`);
     res.json({ success: true });
   } catch (err) {
     console.error("vendor push-token:", err);
@@ -6634,7 +6609,13 @@ async function validateAdminCredentials(username, password) {
   return username === validUser && password === validPass;
 }
 var app = express3();
-var log = console.log;
+if (!process.env.JWT_SECRET) {
+  if (process.env.NODE_ENV === "production") {
+    console.error("[FATAL] JWT_SECRET environment variable is not set. Refusing to start in production. Add JWT_SECRET to Replit Secrets.");
+    process.exit(1);
+  }
+  console.warn("[SECURITY] JWT_SECRET not set \u2014 server running in DEVELOPMENT mode with insecure defaults.");
+}
 function setupCompression(app2) {
   app2.use(compression({
     level: 6,
@@ -6789,7 +6770,7 @@ function setupRequestLogging(app2) {
       if (logLine.length > 80) {
         logLine = logLine.slice(0, 79) + "\u2026";
       }
-      log(logLine);
+      console.log(logLine);
     });
     next();
   });
@@ -6835,8 +6816,6 @@ function serveLandingPage({
   const host = forwardedHost || req.get("host");
   const baseUrl = `${protocol}://${host}`;
   const expsUrl = `${host}`;
-  log(`baseUrl`, baseUrl);
-  log(`expsUrl`, expsUrl);
   const html = landingPageTemplate.replace(/BASE_URL_PLACEHOLDER/g, baseUrl).replace(/EXPS_URL_PLACEHOLDER/g, expsUrl).replace(/APP_NAME_PLACEHOLDER/g, appName);
   res.setHeader("Content-Type", "text/html; charset=utf-8");
   res.status(200).send(html);
@@ -6881,7 +6860,6 @@ function configureExpoAndLanding(app2) {
     "templates",
     "login.html"
   );
-  log("Serving static Expo files with dynamic manifest routing");
   app2.use((req, _res, next) => {
     parseCookies2(req);
     next();
@@ -7079,7 +7057,6 @@ function configureExpoAndLanding(app2) {
       staticRes.setHeader("Expires", "0");
     }
   }));
-  log("Expo routing: Checking expo-platform header on / and /manifest");
 }
 function setupErrorHandler(app2) {
   app2.use((err, _req, res, next) => {
@@ -7142,7 +7119,7 @@ process.on("exit", (code) => {
       reusePort: true
     },
     () => {
-      log(`express server serving on port ${port}`);
+      console.log(`[OnWay] Server listening on port ${port}`);
     }
   );
   setHttpServer(server);

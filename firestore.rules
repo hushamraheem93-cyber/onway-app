@@ -1,0 +1,116 @@
+rules_version = '2';
+// OnWay — Firestore Security Rules
+// Architecture: All mutations go through Express backend using Firebase Admin SDK
+// (Admin SDK bypasses these rules entirely).
+// These rules only restrict direct client-side Firestore access.
+//
+// Principle of least privilege:
+//   • Public collections (categories, banners, vendors, products, deliveryAreas)
+//     allow public reads — app displays this data without authentication.
+//   • All write operations are denied (handled by backend API only).
+//   • Sensitive collections (orders, users, adminConfig, drivers, wallets, etc.)
+//     are fully restricted.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ── Default deny all ────────────────────────────────────────────────────
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // ── Public read-only collections ─────────────────────────────────────────
+    // Categories: browsed by all users without login
+    match /categories/{docId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // Banners: home screen carousels — public
+    match /banners/{docId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // Delivery areas: shown during checkout
+    match /deliveryAreas/{docId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // Vendors / stores: public listing
+    match /vendors/{docId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // Vendor products: browsed by all users
+    match /vendorProducts/{docId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // ── Fully restricted — backend only ──────────────────────────────────────
+    // Orders contain personal data (name, phone, address, items)
+    match /orders/{docId} {
+      allow read, write: if false;
+    }
+
+    // User profiles: name, phone, addresses, push tokens
+    match /users/{docId} {
+      allow read, write: if false;
+    }
+
+    // Admin configuration and credentials
+    match /adminConfig/{docId} {
+      allow read, write: if false;
+    }
+
+    // Driver accounts and wallets
+    match /drivers/{docId} {
+      allow read, write: if false;
+    }
+
+    match /driverWallets/{docId} {
+      allow read, write: if false;
+    }
+
+    match /driverActivities/{docId} {
+      allow read, write: if false;
+    }
+
+    // Delivery batches (driver dispatch system)
+    match /delivery_batches/{docId} {
+      allow read, write: if false;
+    }
+
+    // Promo codes and usage tracking
+    match /promoCodes/{docId} {
+      allow read, write: if false;
+    }
+
+    match /promoUsage/{docId} {
+      allow read, write: if false;
+    }
+
+    // Push notification tokens
+    match /pushTokens/{docId} {
+      allow read, write: if false;
+    }
+
+    // Notifications
+    match /notifications/{docId} {
+      allow read, write: if false;
+    }
+
+    // Support chat (customer ↔ admin)
+    match /support_chats/{docId} {
+      allow read, write: if false;
+    }
+
+    // App settings (delivery fees, etc.)
+    match /appSettings/{docId} {
+      allow read: if true;
+      allow write: if false;
+    }
+  }
+}

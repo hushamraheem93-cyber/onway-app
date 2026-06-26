@@ -51,13 +51,11 @@ export async function sendPushNotification(
   estimatedMinutes?: number
 ): Promise<boolean> {
   if (!pushToken || !pushToken.startsWith("ExponentPushToken")) {
-    console.log("Invalid push token:", pushToken);
     return false;
   }
 
   const messageContent = ORDER_STATUS_MESSAGES[status];
   if (!messageContent) {
-    console.log("No message template for status:", status);
     return false;
   }
 
@@ -91,7 +89,6 @@ export async function sendPushNotification(
     const result = (await response.json()) as { data: ExpoPushTicket };
     
     if (result.data.status === "ok") {
-      console.log("Push notification sent successfully to:", pushToken);
       return true;
     } else {
       console.error("Push notification error:", result.data.message);

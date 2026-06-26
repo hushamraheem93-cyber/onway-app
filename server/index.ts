@@ -49,7 +49,15 @@ async function validateAdminCredentials(username: string, password: string): Pro
 }
 
 const app = express();
-const log = console.log;
+
+// ── JWT startup guard ─────────────────────────────────────────────────────
+if (!process.env.JWT_SECRET) {
+  if (process.env.NODE_ENV === "production") {
+    console.error("[FATAL] JWT_SECRET environment variable is not set. Refusing to start in production. Add JWT_SECRET to Replit Secrets.");
+    process.exit(1);
+  }
+  console.warn("[SECURITY] JWT_SECRET not set — server running in DEVELOPMENT mode with insecure defaults.");
+}
 
 declare module "http" {
   interface IncomingMessage {
@@ -261,7 +269,7 @@ function setupRequestLogging(app: express.Application) {
         logLine = logLine.slice(0, 79) + "…";
       }
 
-      log(logLine);
+      console.log(logLine);
     });
 
     next();
@@ -322,8 +330,6 @@ function serveLandingPage({
   const baseUrl = `${protocol}://${host}`;
   const expsUrl = `${host}`;
 
-  log(`baseUrl`, baseUrl);
-  log(`expsUrl`, expsUrl);
 
   const html = landingPageTemplate
     .replace(/BASE_URL_PLACEHOLDER/g, baseUrl)
@@ -383,7 +389,6 @@ function configureExpoAndLanding(app: express.Application) {
     "login.html",
   );
 
-  log("Serving static Expo files with dynamic manifest routing");
 
   // Cookie parser middleware (lightweight, no dep)
   app.use((req: Request, _res: Response, next: NextFunction) => {
@@ -627,7 +632,6 @@ function configureExpoAndLanding(app: express.Application) {
     },
   }));
 
-  log("Expo routing: Checking expo-platform header on / and /manifest");
 }
 
 function setupErrorHandler(app: express.Application) {
@@ -710,7 +714,7 @@ process.on("exit", (code) => {
       reusePort: true,
     },
     () => {
-      log(`express server serving on port ${port}`);
+      console.log(`[OnWay] Server listening on port ${port}`);
     },
   );
   setHttpServer(server);
