@@ -324,12 +324,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ── PUBLIC: Stores listing & products ────────────────────────────────────────
   app.get("/api/stores", async (req: Request, res: Response) => {
     try {
-      const { businessType } = req.query as { businessType?: string };
+      const { businessType, name } = req.query as { businessType?: string; name?: string };
       const allDocs = await getCachedStores();
-      const stores = (businessType
-        ? allDocs.filter((s) => s.businessType === businessType)
-        : allDocs
-      ).sort((a, b) => (b.approvedAt as string).localeCompare(a.approvedAt as string));
+      const nameQuery = name ? name.trim().toLowerCase() : "";
+      const stores = allDocs
+        .filter((s) => (businessType ? s.businessType === businessType : true))
+        .filter((s) => (nameQuery ? (s.storeName || "").toLowerCase().includes(nameQuery) : true))
+        .sort((a, b) => (b.approvedAt as string).localeCompare(a.approvedAt as string));
       res.set("Cache-Control", "public, max-age=30");
       res.set("Vary", "Accept-Encoding");
       res.json({ stores, total: stores.length });

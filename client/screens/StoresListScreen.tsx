@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useMemo } from "react";
 import {
   StyleSheet,
   View,
@@ -6,6 +6,7 @@ import {
   Pressable,
   ActivityIndicator,
   RefreshControl,
+  TextInput,
 } from "react-native";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -260,6 +261,7 @@ export default function StoresListScreen() {
   const navigation = useNavigation<NavProp>();
   const route = useRoute<RouteType>();
   const { categoryName, businessType } = route.params;
+  const [searchQuery, setSearchQuery] = useState("");
 
   const hasMapping = !!businessType;
 
@@ -276,7 +278,13 @@ export default function StoresListScreen() {
     enabled: hasMapping,
   });
 
-  const stores = hasMapping ? (data?.stores ?? []) : [];
+  const allStores = hasMapping ? (data?.stores ?? []) : [];
+
+  const stores = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return allStores;
+    return allStores.filter((s) => (s.storeName || "").toLowerCase().includes(q));
+  }, [allStores, searchQuery]);
 
   const handleStorePress = (store: VendorStore) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -311,7 +319,7 @@ export default function StoresListScreen() {
     );
   }
 
-  if (stores.length === 0) {
+  if (allStores.length === 0) {
     return (
       <View style={{ flex: 1 }}>
         <GradientBackground />
@@ -360,15 +368,43 @@ export default function StoresListScreen() {
         scrollIndicatorInsets={{ bottom: insets.bottom }}
         showsVerticalScrollIndicator={false}
         ListHeaderComponent={
-          <View style={styles.sectionHeader}>
-            <ThemedText type="h3" style={{ textAlign: "right", color: theme.text }}>
-              {categoryName}
-            </ThemedText>
-            <View style={[styles.countBadge, { backgroundColor: AppColors.primary + "18" }]}>
-              <ThemedText style={[styles.countText, { color: AppColors.primary }]}>
-                {stores.length}
+          <View style={{ gap: Spacing.sm }}>
+            <View style={styles.sectionHeader}>
+              <ThemedText type="h3" style={{ textAlign: "right", color: theme.text }}>
+                {categoryName}
               </ThemedText>
+              <View style={[styles.countBadge, { backgroundColor: AppColors.primary + "18" }]}>
+                <ThemedText style={[styles.countText, { color: AppColors.primary }]}>
+                  {stores.length}
+                </ThemedText>
+              </View>
             </View>
+            <View style={[styles.searchBar, { backgroundColor: theme.backgroundDefault }]}>
+              <Feather name="search" size={17} color={theme.textSecondary} />
+              <TextInput
+                style={[styles.searchInput, { color: theme.text }]}
+                placeholder="ابحث عن متجر..."
+                placeholderTextColor={theme.textSecondary}
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+                returnKeyType="search"
+                textAlign="right"
+                testID="input-store-search"
+              />
+              {searchQuery.length > 0 ? (
+                <Pressable onPress={() => setSearchQuery("")} testID="button-clear-search">
+                  <Feather name="x" size={16} color={theme.textSecondary} />
+                </Pressable>
+              ) : null}
+            </View>
+          </View>
+        }
+        ListEmptyComponent={
+          <View style={[styles.searchEmptyWrap]}>
+            <Feather name="search" size={48} color={theme.textSecondary} style={{ opacity: 0.4 }} />
+            <ThemedText style={[styles.searchEmptyText, { color: theme.textSecondary }]}>
+              لا توجد متاجر تطابق بحثك
+            </ThemedText>
           </View>
         }
         renderItem={({ item }) => (
@@ -415,8 +451,24 @@ const styles = StyleSheet.create({
   },
   sectionHeader: {
     flexDirection: "row-reverse", justifyContent: "space-between",
-    alignItems: "center", marginBottom: Spacing.sm,
+    alignItems: "center",
   },
   countBadge: { borderRadius: 10, paddingHorizontal: 9, paddingVertical: 2 },
   countText: { fontFamily: "Cairo_700Bold", fontSize: 12 },
+  searchBar: {
+    flexDirection: "row-reverse", alignItems: "center", gap: 10,
+    borderRadius: BorderRadius.lg, paddingHorizontal: 14, paddingVertical: 10,
+    ...Shadows.sm,
+  },
+  searchInput: {
+    flex: 1, fontFamily: "Cairo_400Regular", fontSize: 15,
+    paddingVertical: 0,
+  },
+  searchEmptyWrap: {
+    alignItems: "center", justifyContent: "center",
+    paddingTop: 60, gap: Spacing.md,
+  },
+  searchEmptyText: {
+    fontFamily: "Cairo_400Regular", fontSize: 15, textAlign: "center",
+  },
 });

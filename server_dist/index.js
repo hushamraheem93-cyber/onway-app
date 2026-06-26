@@ -1771,9 +1771,10 @@ async function registerRoutes(app2) {
   app2.use("/api/admin", requireAdminAuth);
   app2.get("/api/stores", async (req, res) => {
     try {
-      const { businessType } = req.query;
+      const { businessType, name } = req.query;
       const allDocs = await getCachedStores();
-      const stores = (businessType ? allDocs.filter((s) => s.businessType === businessType) : allDocs).sort((a, b) => b.approvedAt.localeCompare(a.approvedAt));
+      const nameQuery = name ? name.trim().toLowerCase() : "";
+      const stores = allDocs.filter((s) => businessType ? s.businessType === businessType : true).filter((s) => nameQuery ? (s.storeName || "").toLowerCase().includes(nameQuery) : true).sort((a, b) => b.approvedAt.localeCompare(a.approvedAt));
       res.set("Cache-Control", "public, max-age=30");
       res.set("Vary", "Accept-Encoding");
       res.json({ stores, total: stores.length });
@@ -6464,7 +6465,7 @@ router.get("/api/stores", async (req, res) => {
   try {
     const db2 = getFirestore();
     if (!db2) return res.status(500).json({ error: "\u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u063A\u064A\u0631 \u0645\u062A\u0627\u062D\u0629" });
-    const { businessType } = req.query;
+    const { businessType, name } = req.query;
     const snap = await db2.collection("vendors").where("status", "==", "active").get();
     const allDocs = snap.docs.map((d) => {
       const v = d.data();
@@ -6485,7 +6486,8 @@ router.get("/api/stores", async (req, res) => {
         workingHours: v.workingHours || null
       };
     });
-    const stores = (businessType ? allDocs.filter((s) => s.businessType === businessType) : allDocs).sort((a, b) => b.approvedAt.localeCompare(a.approvedAt));
+    const nameQuery = name ? name.trim().toLowerCase() : "";
+    const stores = allDocs.filter((s) => businessType ? s.businessType === businessType : true).filter((s) => nameQuery ? (s.storeName || "").toLowerCase().includes(nameQuery) : true).sort((a, b) => b.approvedAt.localeCompare(a.approvedAt));
     res.json({ stores, total: stores.length });
   } catch (err) {
     console.error("public stores:", err);

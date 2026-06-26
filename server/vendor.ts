@@ -1438,7 +1438,7 @@ router.get("/api/stores", async (req, res) => {
     const db = getFirestore();
     if (!db) return res.status(500).json({ error: "قاعدة البيانات غير متاحة" });
 
-    const { businessType } = req.query as { businessType?: string };
+    const { businessType, name } = req.query as { businessType?: string; name?: string };
     const snap = await db.collection("vendors")
       .where("status", "==", "active")
       .get();
@@ -1463,10 +1463,11 @@ router.get("/api/stores", async (req, res) => {
       };
     });
 
-    const stores = (businessType
-      ? allDocs.filter((s) => s.businessType === businessType)
-      : allDocs
-    ).sort((a, b) => (b.approvedAt as string).localeCompare(a.approvedAt as string));
+    const nameQuery = name ? name.trim().toLowerCase() : "";
+    const stores = allDocs
+      .filter((s) => (businessType ? s.businessType === businessType : true))
+      .filter((s) => (nameQuery ? (s.storeName || "").toLowerCase().includes(nameQuery) : true))
+      .sort((a, b) => (b.approvedAt as string).localeCompare(a.approvedAt as string));
 
     res.json({ stores, total: stores.length });
   } catch (err) {
