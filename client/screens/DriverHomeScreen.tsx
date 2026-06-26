@@ -21,6 +21,7 @@ import * as Haptics from "expo-haptics";
 import * as Location from "expo-location";
 import * as Notifications from "expo-notifications";
 import Svg, { Circle } from "react-native-svg";
+import { Image } from "expo-image";
 
 import { ThemedText } from "@/components/ThemedText";
 import { GradientBackground } from "@/components/GradientBackground";
@@ -776,7 +777,7 @@ export default function DriverHomeScreen() {
       <View style={[styles.header, { paddingTop: insets.top + 4, backgroundColor: AppColors.primary }]}>
         <View style={styles.headerRow}>
           <View style={[styles.onlineDot, { backgroundColor: isOnline ? "#4CAF50" : "#78909C" }]} />
-          <ThemedText type="h2" style={styles.headerTitle}>ONWAY</ThemedText>
+          <Image source={require("../assets/images/onway-header-logo.png")} style={styles.headerLogo} contentFit="contain" />
           <View style={styles.headerNameWrap}>
             <Feather name="user" size={13} color="rgba(255,255,255,0.8)" />
             <ThemedText type="small" style={styles.headerName} numberOfLines={1}>{driverName}</ThemedText>
@@ -890,7 +891,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
   },
-  headerTitle: { color: "#fff", fontWeight: "800", fontSize: 18 },
+  headerLogo: { width: 90, height: 30, tintColor: "#FFFFFF" },
   onlineDot: { width: 10, height: 10, borderRadius: 5 },
   headerNameWrap: { flexDirection: "row", alignItems: "center", gap: 4, flex: 1, justifyContent: "flex-end" },
   headerName: { color: "rgba(255,255,255,0.85)", maxWidth: 110 },

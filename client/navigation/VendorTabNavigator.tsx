@@ -1,5 +1,6 @@
 import React from "react";
 import { View, Pressable, StyleSheet } from "react-native";
+import { Image } from "expo-image";
 import { createBottomTabNavigator, BottomTabBarProps } from "@react-navigation/bottom-tabs";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { Feather } from "@expo/vector-icons";
@@ -103,7 +104,7 @@ function VendorTabs() {
       tabBar={(props) => <VendorTabBar {...props} />}
       screenOptions={tabScreenOptions}
     >
-      <Tab.Screen name="VendorHome"          component={VendorHomeScreen}        options={{ headerTitle: "لوحة التحكم" }} />
+      <Tab.Screen name="VendorHome" component={VendorHomeScreen} options={{ headerTitle: () => <Image source={require("../assets/images/onway-header-logo.png")} style={{ width: 90, height: 30 }} contentFit="contain" /> }} />
       <Tab.Screen name="VendorOrdersTab"     component={VendorOrdersScreen}      options={{ headerTitle: "الطلبات" }} />
       <Tab.Screen name="VendorProductsTab"   component={ProductsStackNavigator}  options={{ headerShown: false }} />
       <Tab.Screen name="VendorWalletTab"     component={VendorWalletScreen}      options={{ headerTitle: "الأرباح" }} />

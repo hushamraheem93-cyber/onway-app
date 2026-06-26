@@ -1,5 +1,6 @@
 import React from "react";
 import { View, StyleSheet, Pressable, Dimensions, Text } from "react-native";
+import { Image } from "expo-image";
 import { useNavigation } from "@react-navigation/native";
 import { Feather } from "@expo/vector-icons";
 
@@ -52,7 +53,13 @@ export function HeaderTitle({ title }: HeaderTitleProps) {
           </Pressable>
         </View>
 
-        <View style={styles.centerSection} />
+        <View style={styles.centerSection}>
+          <Image
+            source={require("../assets/images/onway-header-logo.png")}
+            style={styles.logo}
+            contentFit="contain"
+          />
+        </View>
 
         <View style={styles.rightSection}>
           <Pressable
@@ -99,6 +106,10 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
+  },
+  logo: {
+    width: 90,
+    height: 32,
   },
   rightSection: {
     flex: 1,

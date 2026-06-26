@@ -83,7 +83,11 @@ export function ThemedText({
   return (
     <Text
       style={[
-        { color: getColor(), fontFamily: getFontFamily() },
+        {
+          color: getColor(),
+          fontFamily: getFontFamily(),
+          includeFontPadding: false,
+        },
         getTypeStyle(),
         style,
       ]}
