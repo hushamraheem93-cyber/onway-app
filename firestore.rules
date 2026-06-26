@@ -1,71 +1,116 @@
 rules_version = '2';
-// OnWay — Firestore Security Rules
-// Architecture: All mutations go through Express backend using Firebase Admin SDK
-// (Admin SDK bypasses these rules entirely).
-// These rules only restrict direct client-side Firestore access.
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  OnWay — Firestore Security Rules
+//  Last updated: 2026-06-26
 //
-// Principle of least privilege:
-//   • Public collections (categories, banners, vendors, products, deliveryAreas)
-//     allow public reads — app displays this data without authentication.
-//   • All write operations are denied (handled by backend API only).
-//   • Sensitive collections (orders, users, adminConfig, drivers, wallets, etc.)
-//     are fully restricted.
+//  Architecture note:
+//  ──────────────────
+//  ALL mutations (create / update / delete) happen exclusively through the
+//  Express backend using Firebase Admin SDK, which bypasses these rules.
+//  These rules therefore protect against:
+//    • Direct client-side writes using the public Firebase config
+//    • Unauthorized reads of sensitive data via client SDK
+//    • Future accidental direct-read code paths
+//
+//  Access model:
+//  ─────────────
+//  PUBLIC READ     — browsable product/store data (no auth required)
+//  BACKEND ONLY    — sensitive user, order, driver, financial data
+//  DEFAULT DENY    — anything not explicitly listed → denied
+// ═══════════════════════════════════════════════════════════════════════════
+
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // ── Default deny all ────────────────────────────────────────────────────
+    // ── DEFAULT: deny everything not explicitly allowed ────────────────────
     match /{document=**} {
       allow read, write: if false;
     }
 
-    // ── Public read-only collections ─────────────────────────────────────────
-    // Categories: browsed by all users without login
+
+    // ══════════════════════════════════════════════════════════════════════
+    //  PUBLIC READ-ONLY collections
+    //  (client app displays this data before user logs in)
+    // ══════════════════════════════════════════════════════════════════════
+
+    // Product categories (grid on home screen)
     match /categories/{docId} {
       allow read: if true;
       allow write: if false;
     }
 
-    // Banners: home screen carousels — public
+    // Home-screen banners and offer carousels
     match /banners/{docId} {
       allow read: if true;
       allow write: if false;
     }
 
-    // Delivery areas: shown during checkout
+    // Delivery areas and fees (shown during checkout)
     match /deliveryAreas/{docId} {
       allow read: if true;
       allow write: if false;
     }
 
-    // Vendors / stores: public listing
+    // Vendor / store listings (restaurants, pharmacies, etc.)
     match /vendors/{docId} {
       allow read: if true;
       allow write: if false;
     }
 
-    // Vendor products: browsed by all users
+    // Products inside vendor stores
     match /vendorProducts/{docId} {
       allow read: if true;
       allow write: if false;
     }
 
-    // ── Fully restricted — backend only ──────────────────────────────────────
-    // Orders contain personal data (name, phone, address, items)
-    match /orders/{docId} {
-      allow read, write: if false;
+    // Legacy product collection (used alongside vendorProducts)
+    match /products/{docId} {
+      allow read: if true;
+      allow write: if false;
     }
 
-    // User profiles: name, phone, addresses, push tokens
+    // App-wide settings: delivery fee config, minimum order thresholds
+    match /appSettings/{docId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // Alternate casing used in some code paths
+    match /app_settings/{docId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // Promotional sections: Best Sellers, Featured, Discounts
+    match /promotionalSections/{docId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+
+    // ══════════════════════════════════════════════════════════════════════
+    //  BACKEND-ONLY — all writes AND reads via Admin SDK only
+    //  (any direct client access → denied)
+    // ══════════════════════════════════════════════════════════════════════
+
+    // ── User data ──────────────────────────────────────────────────────────
+    // Contains: name, phone, push token, saved addresses, loyalty points
     match /users/{docId} {
       allow read, write: if false;
     }
 
-    // Admin configuration and credentials
-    match /adminConfig/{docId} {
+    match /addresses/{docId} {
       allow read, write: if false;
     }
 
-    // Driver accounts and wallets
+    // ── Orders ────────────────────────────────────────────────────────────
+    // Contains: items, prices, customer PII, delivery address
+    match /orders/{docId} {
+      allow read, write: if false;
+    }
+
+    // ── Driver system ─────────────────────────────────────────────────────
     match /drivers/{docId} {
       allow read, write: if false;
     }
@@ -74,16 +119,32 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    match /walletHistory/{docId} {
+      allow read, write: if false;
+    }
+
+    match /driverActivityLog/{docId} {
+      allow read, write: if false;
+    }
+
+    match /driverCompletedOrders/{docId} {
+      allow read, write: if false;
+    }
+
     match /driverActivities/{docId} {
       allow read, write: if false;
     }
 
-    // Delivery batches (driver dispatch system)
+    // ── Batch delivery ────────────────────────────────────────────────────
     match /delivery_batches/{docId} {
       allow read, write: if false;
     }
 
-    // Promo codes and usage tracking
+    match /delivery_logs/{docId} {
+      allow read, write: if false;
+    }
+
+    // ── Promo codes ───────────────────────────────────────────────────────
     match /promoCodes/{docId} {
       allow read, write: if false;
     }
@@ -92,25 +153,48 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
-    // Push notification tokens
+    match /promoUsageHistory/{docId} {
+      allow read, write: if false;
+    }
+
+    // ── Notifications & push tokens ───────────────────────────────────────
     match /pushTokens/{docId} {
       allow read, write: if false;
     }
 
-    // Notifications
     match /notifications/{docId} {
       allow read, write: if false;
     }
 
-    // Support chat (customer ↔ admin)
+    match /adminNotifications/{docId} {
+      allow read, write: if false;
+    }
+
+    match /adminAlerts/{docId} {
+      allow read, write: if false;
+    }
+
+    match /vendorNotifications/{docId} {
+      allow read, write: if false;
+    }
+
+    // ── Support chat ──────────────────────────────────────────────────────
+    match /supportChats/{docId} {
+      allow read, write: if false;
+    }
+
     match /support_chats/{docId} {
       allow read, write: if false;
     }
 
-    // App settings (delivery fees, etc.)
-    match /appSettings/{docId} {
-      allow read: if true;
-      allow write: if false;
+    // ── Admin ─────────────────────────────────────────────────────────────
+    match /adminConfig/{docId} {
+      allow read, write: if false;
+    }
+
+    // ── Internal / cache ──────────────────────────────────────────────────
+    match /productImageHashes/{docId} {
+      allow read, write: if false;
     }
   }
 }

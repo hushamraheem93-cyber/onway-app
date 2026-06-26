@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OnWay — تقرير أمان Firestore</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', Tahoma, sans-serif; background: #0f1117; color: #e2e8f0; direction: rtl; }
+  .header { background: linear-gradient(135deg, #1a1f2e 0%, #0f1117 100%); padding: 40px; border-bottom: 1px solid #2d3748; }
+  .header h1 { font-size: 28px; color: #FF7622; margin-bottom: 8px; }
+  .header .subtitle { color: #718096; font-size: 14px; }
+  .header .date { color: #4a5568; font-size: 13px; margin-top: 4px; }
+  .container { max-width: 1000px; margin: 0 auto; padding: 32px 24px; }
+
+  .verdict-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 32px; }
+  .verdict-card { background: #1a1f2e; border-radius: 12px; padding: 20px; text-align: center; border: 1px solid #2d3748; }
+  .verdict-card .icon { font-size: 32px; margin-bottom: 8px; }
+  .verdict-card .label { font-size: 12px; color: #718096; margin-bottom: 6px; }
+  .verdict-card .value { font-size: 18px; font-weight: 700; }
+  .verdict-card.pass .value { color: #48bb78; }
+  .verdict-card.warn .value { color: #ed8936; }
+
+  .section { background: #1a1f2e; border-radius: 12px; margin-bottom: 24px; overflow: hidden; border: 1px solid #2d3748; }
+  .section-header { padding: 16px 20px; background: #161b27; border-bottom: 1px solid #2d3748; display: flex; align-items: center; gap: 10px; }
+  .section-header h2 { font-size: 16px; color: #e2e8f0; }
+  .badge { padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+  .badge.secure { background: #22543d; color: #68d391; }
+  .badge.warning { background: #7b341e; color: #fbd38d; }
+  .badge.manual { background: #2a4365; color: #90cdf4; }
+  .section-body { padding: 20px; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { text-align: right; padding: 10px 12px; background: #161b27; color: #718096; font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; }
+  td { padding: 10px 12px; border-bottom: 1px solid #2d3748; vertical-align: middle; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: #161b27; }
+
+  .pill { display: inline-flex; align-items: center; gap: 4px; padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+  .pill.public { background: #1a365d; color: #90cdf4; }
+  .pill.deny { background: #1a202c; color: #a0aec0; border: 1px solid #2d3748; }
+  .pill.pass { background: #22543d; color: #68d391; }
+
+  .finding { display: flex; gap: 12px; padding: 14px; border-radius: 8px; margin-bottom: 10px; }
+  .finding:last-child { margin-bottom: 0; }
+  .finding.ok { background: #1c3129; border: 1px solid #276749; }
+  .finding.caution { background: #2d2011; border: 1px solid #744210; }
+  .finding.info-box { background: #1a2535; border: 1px solid #2c4a6e; }
+  .finding-icon { font-size: 18px; flex-shrink: 0; margin-top: 1px; }
+  .finding-title { font-size: 13px; font-weight: 600; color: #e2e8f0; margin-bottom: 4px; }
+  .finding-desc { font-size: 12px; color: #a0aec0; line-height: 1.6; }
+
+  .steps { counter-reset: step; padding: 0; list-style: none; }
+  .steps li { counter-increment: step; display: flex; gap: 14px; padding: 12px 0; border-bottom: 1px solid #2d3748; }
+  .steps li:last-child { border-bottom: none; }
+  .steps li::before { content: counter(step); background: #FF7622; color: white; width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; flex-shrink: 0; }
+  .step-title { font-size: 13px; font-weight: 600; color: #e2e8f0; margin-bottom: 3px; }
+  .step-desc { font-size: 12px; color: #718096; line-height: 1.5; }
+
+  .cmd { background: #0d1117; border: 1px solid #2d3748; border-radius: 6px; padding: 10px 14px; font-family: 'Courier New', monospace; font-size: 12px; color: #79c0ff; margin-top: 8px; direction: ltr; text-align: left; }
+  .deploy-block { background: #0d1117; border: 1px solid #2d3748; border-radius: 8px; padding: 16px; margin-top: 12px; }
+  .deploy-title { font-size: 12px; color: #718096; margin-bottom: 8px; font-weight: 600; }
+
+  .summary-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  a { color: #63b3ed; }
+  code { background: #161b27; padding: 1px 5px; border-radius: 4px; font-family: 'Courier New', monospace; font-size: 12px; color: #79c0ff; }
+  @media (max-width: 600px) {
+    .verdict-row { grid-template-columns: repeat(2, 1fr); }
+    .summary-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div style="max-width:1000px; margin:0 auto;">
+    <h1>🔒 تقرير أمان Firestore — OnWay</h1>
+    <div class="subtitle">مراجعة شاملة لقواعد الوصول، البيانات الحساسة، والنسخ الاحتياطي</div>
+    <div class="date">تاريخ التقرير: 26 يونيو 2026 &nbsp;|&nbsp; المشروع: onway-74c20</div>
+  </div>
+</div>
+
+<div class="container">
+
+  <div class="verdict-row">
+    <div class="verdict-card pass">
+      <div class="icon">🛡️</div>
+      <div class="label">قواعد Firestore</div>
+      <div class="value">آمنة</div>
+    </div>
+    <div class="verdict-card pass">
+      <div class="icon">🗂️</div>
+      <div class="label">المجموعات الحساسة</div>
+      <div class="value">محمية بالكامل</div>
+    </div>
+    <div class="verdict-card warn">
+      <div class="icon">💾</div>
+      <div class="label">النسخ الاحتياطي</div>
+      <div class="value">يتطلب إجراء يدوي</div>
+    </div>
+    <div class="verdict-card pass">
+      <div class="icon">✅</div>
+      <div class="label">ثغرات مكتشفة</div>
+      <div class="value">0 ثغرات</div>
+    </div>
+  </div>
+
+  <!-- Architecture -->
+  <div class="section">
+    <div class="section-header">
+      <h2>📐 تحليل المعمارية — كيف يعمل التطبيق مع Firestore</h2>
+      <span class="badge secure">نتيجة: آمنة</span>
+    </div>
+    <div class="section-body">
+      <div class="finding ok">
+        <div class="finding-icon">✅</div>
+        <div>
+          <div class="finding-title">جميع العمليات تمر عبر Express Backend — لا قراءة مباشرة</div>
+          <div class="finding-desc">فُحصت جميع ملفات <code>client/</code> — لا يوجد أي استخدام مباشر لـ Firestore SDK (لا <code>getDocs</code> ولا <code>onSnapshot</code> ولا <code>setDoc</code>). البيانات تُقرأ وتُكتب حصراً عبر REST API على المنفذ 5000.</div>
+        </div>
+      </div>
+      <div class="finding ok">
+        <div class="finding-icon">✅</div>
+        <div>
+          <div class="finding-title">Firebase Admin SDK يتجاوز القواعد — وهذا مقصود</div>
+          <div class="finding-desc">الخادم يستخدم Admin SDK الذي يتجاوز قواعد Firestore. القواعد تعمل كطبقة دفاع ثانية ضد أي وصول مباشر محتمل من العميل أو من مهاجم استخدم مفاتيح Firebase العامة لكتابة استعلامات مباشرة.</div>
+        </div>
+      </div>
+      <div class="finding info-box">
+        <div class="finding-icon">ℹ️</div>
+        <div>
+          <div class="finding-title">client/lib/firebase.ts — مُهيّأ لكنه غير مُستخدم للقراءة المباشرة</div>
+          <div class="finding-desc">الملف يُهيّئ Firebase app ويُصدّر <code>db</code>، لكن لا يوجد أي ملف آخر في <code>client/</code> يستورد هذا الـ <code>db</code> ويستخدمه للاستعلام. المفتاح العام (apiKey) في هذا الملف مقبول — Firebase يُصمّمه ليكون عاماً.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Collections Table -->
+  <div class="section">
+    <div class="section-header">
+      <h2>🗂️ تغطية المجموعات — 25+ مجموعة</h2>
+      <span class="badge secure">جميعها مُغطّاة</span>
+    </div>
+    <div class="section-body">
+      <table>
+        <thead>
+          <tr>
+            <th>المجموعة</th>
+            <th>نوع البيانات</th>
+            <th>قراءة العميل</th>
+            <th>كتابة العميل</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td><code>categories</code></td><td>تصنيفات المنتجات</td><td><span class="pill public">عامة ✓</span></td><td><span class="pill deny">مرفوضة</span></td></tr>
+          <tr><td><code>banners</code></td><td>بانرات الصفحة الرئيسية</td><td><span class="pill public">عامة ✓</span></td><td><span class="pill deny">مرفوضة</span></td></tr>
+          <tr><td><code>deliveryAreas</code></td><td>مناطق التوصيل والأسعار</td><td><span class="pill public">عامة ✓</span></td><td><span class="pill deny">مرفوضة</span></td></tr>
+          <tr><td><code>vendors</code></td><td>المتاجر والمطاعم</td><td><span class="pill public">عامة ✓</span></td><td><span class="pill deny">مرفوضة</span></td></tr>
+          <tr><td><code>vendorProducts</code> / <code>products</code></td><td>منتجات المتاجر</td><td><span class="pill public">عامة ✓</span></td><td><span class="pill deny">مرفوضة</span></td></tr>
+          <tr><td><code>appSettings</code> / <code>app_settings</code></td><td>إعدادات التطبيق العامة</td><td><span class="pill public">عامة ✓</span></td><td><span class="pill deny">مرفوضة</span></td></tr>
+          <tr><td><code>promotionalSections</code></td><td>أكثر مبيعاً، مميزة، تخفيضات</td><td><span class="pill public">عامة ✓</span></td><td><span class="pill deny">مرفوضة</span></td></tr>
+          <tr style="background:#1c1c2e;"><td><code>users</code> / <code>addresses</code></td><td>بيانات المستخدمين (اسم، هاتف، عنوان)</td><td><span class="pill deny">مرفوضة 🔒</span></td><td><span class="pill deny">مرفوضة</span></td></tr>
+          <tr style="background:#1c1c2e;"><td><code>orders</code></td><td>الطلبات + بيانات شخصية</td><td><span class="pill deny">مرفوضة 🔒</span></td><td><span class="pill deny">مرفوضة</span></td></tr>
+          <tr style="background:#1c1c2e;"><td><code>drivers</code></td><td>حسابات السائقين</td><td><span class="pill deny">مرفوضة 🔒</span></td><td><span class="pill deny">مرفوضة</span></td></tr>
+          <tr style="background:#1c1c2e;"><td><code>driverWallets</code> / <code>walletHistory</code></td><td>المحفظة المالية للسائق</td><td><span class="pill deny">مرفوضة 🔒</span></td><td><span class="pill deny">مرفوضة</span></td></tr>
+          <tr style="background:#1c1c2e;"><td><code>driverActivityLog</code> / <code>driverCompletedOrders</code></td><td>نشاط السائق</td><td><span class="pill deny">مرفوضة 🔒</span></td><td><span class="pill deny">مرفوضة</span></td></tr>
+          <tr style="background:#1c1c2e;"><td><code>delivery_batches</code> / <code>delivery_logs</code></td><td>نظام التوصيل المجمّع</td><td><span class="pill deny">مرفوضة 🔒</span></td><td><span class="pill deny">مرفوضة</span></td></tr>
+          <tr style="background:#1c1c2e;"><td><code>promoCodes</code> / <code>promoUsage</code> / <code>promoUsageHistory</code></td><td>الأكواد الترويجية</td><td><span class="pill deny">مرفوضة 🔒</span></td><td><span class="pill deny">مرفوضة</span></td></tr>
+          <tr style="background:#1c1c2e;"><td><code>pushTokens</code></td><td>رموز الإشعارات الفورية</td><td><span class="pill deny">مرفوضة 🔒</span></td><td><span class="pill deny">مرفوضة</span></td></tr>
+          <tr style="background:#1c1c2e;"><td><code>notifications</code> / <code>adminNotifications</code> / <code>adminAlerts</code> / <code>vendorNotifications</code></td><td>الإشعارات</td><td><span class="pill deny">مرفوضة 🔒</span></td><td><span class="pill deny">مرفوضة</span></td></tr>
+          <tr style="background:#1c1c2e;"><td><code>supportChats</code> / <code>support_chats</code></td><td>محادثات الدعم الفني</td><td><span class="pill deny">مرفوضة 🔒</span></td><td><span class="pill deny">مرفوضة</span></td></tr>
+          <tr style="background:#1c1c2e;"><td><code>adminConfig</code></td><td>إعدادات الأدمن</td><td><span class="pill deny">مرفوضة 🔒</span></td><td><span class="pill deny">مرفوضة</span></td></tr>
+          <tr style="background:#1c1c2e;"><td><code>productImageHashes</code></td><td>هاشات الصور (داخلي)</td><td><span class="pill deny">مرفوضة 🔒</span></td><td><span class="pill deny">مرفوضة</span></td></tr>
+          <tr style="background:#161b27;"><td colspan="4" style="color:#4a5568; font-size:12px; text-align:center;">أي مجموعة غير مذكورة → محمية تلقائياً بالقاعدة الافتراضية <code>allow read, write: if false</code></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Security Findings -->
+  <div class="section">
+    <div class="section-header">
+      <h2>🔍 نتائج المراجعة الأمنية</h2>
+      <span class="badge secure">0 ثغرات حرجة</span>
+    </div>
+    <div class="section-body">
+      <div class="finding ok">
+        <div class="finding-icon">✅</div>
+        <div>
+          <div class="finding-title">لا يوجد <code>allow read, write: if true</code> في أي مكان</div>
+          <div class="finding-desc">فُحص الملف كاملاً — لا توجد قاعدة خطيرة تسمح بوصول كامل. القاعدة الافتراضية <code>match /{'{'}document=**{'}'}</code> تمنع أي مجموعة غير مصرّح بها.</div>
+        </div>
+      </div>
+      <div class="finding ok">
+        <div class="finding-icon">✅</div>
+        <div>
+          <div class="finding-title">بيانات المستخدمين (هاتف، عنوان، طلبات) محمية بالكامل</div>
+          <div class="finding-desc"><code>users</code> و<code>addresses</code> و<code>orders</code> — مرفوض الوصول إليها كلياً من العميل. لا يمكن لأي مستخدم قراءة بيانات مستخدم آخر حتى لو عرف معرّفه.</div>
+        </div>
+      </div>
+      <div class="finding ok">
+        <div class="finding-icon">✅</div>
+        <div>
+          <div class="finding-title">البيانات المالية للسائقين محمية</div>
+          <div class="finding-desc"><code>driverWallets</code> و<code>walletHistory</code> — محمية بالكامل. لا يمكن لأي طرف قراءة أرصدة السائقين أو معاملاتهم مباشرةً.</div>
+        </div>
+      </div>
+      <div class="finding ok">
+        <div class="finding-icon">✅</div>
+        <div>
+          <div class="finding-title">أكواد الترويج محمية من الاستغلال المباشر</div>
+          <div class="finding-desc"><code>promoCodes</code> و<code>promoUsage</code> — مرفوضة. لا يمكن لأي مستخدم استعراض الأكواد المتاحة أو التحايل على منطق التحقق من الكود.</div>
+        </div>
+      </div>
+      <div class="finding ok">
+        <div class="finding-icon">✅</div>
+        <div>
+          <div class="finding-title">رموز Push Tokens محمية من الحصاد</div>
+          <div class="finding-desc"><code>pushTokens</code> — مرفوضة. لا يمكن لجهة خارجية جمع رموز الإشعارات وإرسال إشعارات مزيفة للمستخدمين.</div>
+        </div>
+      </div>
+      <div class="finding ok">
+        <div class="finding-icon">✅</div>
+        <div>
+          <div class="finding-title">القاعدة الافتراضية تحمي المجموعات المستقبلية تلقائياً</div>
+          <div class="finding-desc">إذا أُضيفت مجموعة Firestore جديدة في المستقبل دون تحديث القواعد، ستكون محمية تلقائياً بقاعدة الرفض الافتراضية.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Deploy Rules -->
+  <div class="section">
+    <div class="section-header">
+      <h2>🚀 نشر القواعد على Firebase</h2>
+      <span class="badge warning">إجراء مطلوب قبل الإطلاق</span>
+    </div>
+    <div class="section-body">
+      <p style="font-size:13px; color:#a0aec0; margin-bottom:16px;">ملف <code>firestore.rules</code> جاهز في المشروع. لتفعيله على Firebase:</p>
+
+      <div class="deploy-block">
+        <div class="deploy-title">الطريقة 1 — Firebase CLI (موصى بها)</div>
+        <div class="cmd">npm install -g firebase-tools</div>
+        <div class="cmd" style="margin-top:6px;">firebase login</div>
+        <div class="cmd" style="margin-top:6px;">firebase deploy --only firestore:rules</div>
+      </div>
+
+      <div class="deploy-block" style="margin-top:12px;">
+        <div class="deploy-title">الطريقة 2 — يدوياً عبر Firebase Console</div>
+        <ol style="font-size:13px; color:#a0aec0; padding-right:20px; line-height:2.2;">
+          <li>افتح <a href="https://console.firebase.google.com/project/onway-74c20/firestore/rules" target="_blank">console.firebase.google.com ← Firestore ← Rules</a></li>
+          <li>انسخ محتوى ملف <code>firestore.rules</code> من المشروع</li>
+          <li>الصقه في المحرر واضغط <strong style="color:#e2e8f0;">Publish</strong></li>
+        </ol>
+      </div>
+
+      <div class="finding caution" style="margin-top:14px;">
+        <div class="finding-icon">⚠️</div>
+        <div>
+          <div class="finding-title">القواعد الحالية في Firebase Console قد تكون مختلفة</div>
+          <div class="finding-desc">حتى يتم نشر الملف الجديد، القواعد الحالية في Firebase لا تزال سارية. يجب النشر قبل الإطلاق الإنتاجي.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Backups -->
+  <div class="section">
+    <div class="section-header">
+      <h2>💾 تفعيل النسخ الاحتياطي اليومي لـ Firestore</h2>
+      <span class="badge manual">لا يمكن تفعيله برمجياً — خطوات يدوية</span>
+    </div>
+    <div class="section-body">
+      <p style="font-size:13px; color:#a0aec0; margin-bottom:16px;">تفعيل النسخ الاحتياطي يتطلب خطة <strong style="color:#e2e8f0;">Blaze (Pay-as-you-go)</strong> في Firebase. إليك الخطوات:</p>
+      <ol class="steps">
+        <li>
+          <div>
+            <div class="step-title">افتح Firebase Console للمشروع</div>
+            <div class="step-desc">اذهب إلى <a href="https://console.firebase.google.com/project/onway-74c20/firestore" target="_blank">console.firebase.google.com ← onway-74c20 ← Firestore Database</a></div>
+          </div>
+        </li>
+        <li>
+          <div>
+            <div class="step-title">افتح تبويب "Backups"</div>
+            <div class="step-desc">في القائمة الجانبية لـ Firestore، ابحث عن تبويب <strong style="color:#e2e8f0;">"Backups"</strong> أو <strong style="color:#e2e8f0;">"Scheduled backups"</strong>.</div>
+          </div>
+        </li>
+        <li>
+          <div>
+            <div class="step-title">أنشئ جدول نسخ احتياطي جديد</div>
+            <div class="step-desc">اضغط <strong style="color:#e2e8f0;">"Create schedule"</strong> واختر:
+              الجدول: <strong style="color:#FF7622;">يومي (Daily)</strong> —
+              الاحتفاظ: <strong style="color:#FF7622;">7 أيام</strong> —
+              الموقع: <strong style="color:#FF7622;">nam5 أو me-central1</strong></div>
+          </div>
+        </li>
+        <li>
+          <div>
+            <div class="step-title">تحقق من وصول النسخة الأولى</div>
+            <div class="step-desc">بعد الحفظ، ستظهر النسخة الاحتياطية الأولى خلال 24 ساعة في Cloud Storage. تحقق من وصولها للتأكد من عمل الإعداد.</div>
+          </div>
+        </li>
+      </ol>
+
+      <div class="finding caution" style="margin-top:16px;">
+        <div class="finding-icon">⚠️</div>
+        <div>
+          <div class="finding-title">بديل: تصدير يدوي عبر gcloud CLI</div>
+          <div class="finding-desc">إذا لم تكن خطة Blaze متاحة حالياً:
+            <div class="cmd">gcloud firestore export gs://onway-74c20.appspot.com/backups/$(date +%Y%m%d)</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Pre-launch Summary -->
+  <div class="section">
+    <div class="section-header">
+      <h2>📋 ملخص ما قبل الإطلاق الإنتاجي</h2>
+    </div>
+    <div class="section-body">
+      <div class="summary-grid">
+        <div>
+          <div class="finding ok" style="margin-bottom:10px;">
+            <div class="finding-icon">✅</div>
+            <div>
+              <div class="finding-title">Firestore Rules جاهزة — 0 ثغرات</div>
+              <div class="finding-desc">ملف <code>firestore.rules</code> يغطي 25+ مجموعة. ينتظر النشر فقط.</div>
+            </div>
+          </div>
+          <div class="finding ok" style="margin-bottom:10px;">
+            <div class="finding-icon">✅</div>
+            <div>
+              <div class="finding-title">البيانات التجريبية مُحذوفة</div>
+              <div class="finding-desc">حُذف 3 vendors + 45 منتج + 2 منتج إضافي (48 مستند) من Firestore.</div>
+            </div>
+          </div>
+          <div class="finding ok" style="margin-bottom:10px;">
+            <div class="finding-icon">✅</div>
+            <div>
+              <div class="finding-title">سجلات OTP محذوفة من الكود</div>
+              <div class="finding-desc">لا يوجد أي <code>console.log</code> يُظهر رمز OTP أو رقم هاتف.</div>
+            </div>
+          </div>
+          <div class="finding ok">
+            <div class="finding-icon">✅</div>
+            <div>
+              <div class="finding-title">JWT Fail-Fast مُفعّل</div>
+              <div class="finding-desc">الخادم يرفض الانطلاق في الإنتاج بدون <code>JWT_SECRET</code>.</div>
+            </div>
+          </div>
+        </div>
+        <div>
+          <div class="finding caution" style="margin-bottom:10px;">
+            <div class="finding-icon">⚠️</div>
+            <div>
+              <div class="finding-title">JWT_SECRET — يحتاج إضافة في Secrets</div>
+              <div class="finding-desc">أضف <code>JWT_SECRET</code> في Replit Secrets قبل النشر. راجع <code>docs/JWT_SECRET.md</code>.</div>
+            </div>
+          </div>
+          <div class="finding caution" style="margin-bottom:10px;">
+            <div class="finding-icon">⚠️</div>
+            <div>
+              <div class="finding-title">نشر Firestore Rules — ينتظر تنفيذك</div>
+              <div class="finding-desc">نفّذ <code>firebase deploy --only firestore:rules</code> أو انشرها يدوياً من Console.</div>
+            </div>
+          </div>
+          <div class="finding caution" style="margin-bottom:10px;">
+            <div class="finding-icon">⚠️</div>
+            <div>
+              <div class="finding-title">النسخ الاحتياطي — ينتظر تفعيلك</div>
+              <div class="finding-desc">فعّل Scheduled Backups من Firebase Console (خطة Blaze مطلوبة).</div>
+            </div>
+          </div>
+          <div class="finding caution">
+            <div class="finding-icon">⚠️</div>
+            <div>
+              <div class="finding-title">ALLOWED_ORIGINS — اختياري قبل الإطلاق</div>
+              <div class="finding-desc">أضف نطاق الإنتاج في <code>ALLOWED_ORIGINS</code> لتقييد CORS على نطاق محدد.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>
