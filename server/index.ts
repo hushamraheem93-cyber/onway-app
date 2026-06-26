@@ -81,6 +81,70 @@ function setupRateLimiter(app: express.Application) {
     default: 600,
   };
 
+  function rateLimitMiddleware(pathKey: string, overrideLimit?: number) {
+    return (req: Request, res: Response, next: NextFunction) => {
+      const ip =
+        (req.headers["x-forwarded-for"] as string || "").split(",")[0].trim() ||
+        req.socket.remoteAddress ||
+        "unknown";
+      const key = `${ip}:${pathKey}`;
+      const now = Date.now();
+      const limit = overrideLimit ?? LIMITS[pathKey] ?? LIMITS.default;
+
+      let entry = rateLimitStore.get(key);
+      if (!entry || now > entry.resetAt) {
+        entry = { count: 1, resetAt: now + WINDOW_MS };
+        rateLimitStore.set(key, entry);
+      } else {
+        entry.count++;
+      }
+
+      res.setHeader("X-RateLimit-Limit", limit);
+      res.setHeader("X-RateLimit-Remaining", Math.max(0, limit - entry.count));
+      res.setHeader("X-RateLimit-Reset", Math.ceil(entry.resetAt / 1000));
+
+      if (entry.count > limit) {
+        // Return HTML for browser-facing endpoints, JSON for API
+        if (req.accepts("html") && !req.path.startsWith("/api")) {
+          return res.status(429).send("<h1>429 - Too Many Requests</h1><p>حاول لاحقاً</p>");
+        }
+        return res.status(429).json({ error: "طلبات كثيرة، حاول لاحقاً" });
+      }
+      next();
+    };
+  }
+
+  // Rate limit HTML admin endpoints (outside /api)
+  const ADMIN_HTML_RATE: Record<string, number> = {
+    "POST:/admin/login": 10,
+    "POST:/admin/google-signin": 10,
+    "POST:/admin/reset-password": 5,
+  };
+  app.use((req: Request, res: Response, next: NextFunction) => {
+    const routeKey = `${req.method}:${req.path}`;
+    const limit = ADMIN_HTML_RATE[routeKey];
+    if (!limit) return next();
+
+    const ip =
+      (req.headers["x-forwarded-for"] as string || "").split(",")[0].trim() ||
+      req.socket.remoteAddress || "unknown";
+    const key = `${ip}:${routeKey}`;
+    const now = Date.now();
+
+    let entry = rateLimitStore.get(key);
+    if (!entry || now > entry.resetAt) {
+      entry = { count: 1, resetAt: now + WINDOW_MS };
+      rateLimitStore.set(key, entry);
+    } else {
+      entry.count++;
+    }
+
+    if (entry.count > limit) {
+      return res.status(429).send("<h1>429</h1><p>محاولات كثيرة. حاول بعد دقيقة.</p>");
+    }
+    next();
+  });
+
   app.use("/api", (req: Request, res: Response, next: NextFunction) => {
     const ip =
       (req.headers["x-forwarded-for"] as string || "").split(",")[0].trim() ||
@@ -128,18 +192,29 @@ function setupSecurityHeaders(app: express.Application) {
 }
 
 function setupCors(app: express.Application) {
+  const isProd = process.env.NODE_ENV === "production";
+  const allowedDomains = (process.env.ALLOWED_ORIGINS || "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+
   app.use((req, res, next) => {
     const origin = req.header("origin");
 
-    // Allow all origins in development for hotspot/network access
     if (origin) {
-      res.header("Access-Control-Allow-Origin", origin);
-      res.header(
-        "Access-Control-Allow-Methods",
-        "GET, POST, PUT, DELETE, OPTIONS",
-      );
-      res.header("Access-Control-Allow-Headers", "Content-Type, Accept, Authorization");
-      res.header("Access-Control-Allow-Credentials", "true");
+      const allowed =
+        !isProd ||
+        allowedDomains.length === 0 ||
+        allowedDomains.some((d) => origin === d || origin.endsWith(`.${d}`));
+
+      if (allowed) {
+        res.header("Access-Control-Allow-Origin", origin);
+        res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, PATCH, OPTIONS");
+        res.header("Access-Control-Allow-Headers", "Content-Type, Accept, Authorization");
+        res.header("Access-Control-Allow-Credentials", "true");
+      } else {
+        return res.status(403).json({ error: "Origin not allowed" });
+      }
     }
 
     if (req.method === "OPTIONS") {
@@ -369,9 +444,10 @@ function configureExpoAndLanding(app: express.Application) {
     if (valid) {
       const token = makeToken();
       const maxAge = 60 * 60 * 24 * 7; // 7 days
+      const secureFlagAdmin = process.env.NODE_ENV === "production" ? "; Secure" : "";
       res.setHeader(
         "Set-Cookie",
-        `${ADMIN_COOKIE}=${token}; HttpOnly; SameSite=Strict; Max-Age=${maxAge}; Path=/`
+        `${ADMIN_COOKIE}=${token}; HttpOnly; SameSite=Strict; Max-Age=${maxAge}; Path=/${secureFlagAdmin}`
       );
       return res.redirect("/admin");
     }
@@ -413,7 +489,8 @@ function configureExpoAndLanding(app: express.Application) {
       // Valid — create session
       const token = makeToken();
       const maxAge = 60 * 60 * 24 * 7; // 7 days
-      res.setHeader("Set-Cookie", `${ADMIN_COOKIE}=${token}; HttpOnly; SameSite=Strict; Max-Age=${maxAge}; Path=/`);
+      const secureFlagGoogle = process.env.NODE_ENV === "production" ? "; Secure" : "";
+      res.setHeader("Set-Cookie", `${ADMIN_COOKIE}=${token}; HttpOnly; SameSite=Strict; Max-Age=${maxAge}; Path=/${secureFlagGoogle}`);
       return res.json({ success: true, redirect: "/admin" });
     } catch (e) {
       console.error("[Google signin error]", e);
@@ -574,20 +651,34 @@ function setupErrorHandler(app: express.Application) {
   });
 }
 
+let _httpServer: import("http").Server | null = null;
+export function setHttpServer(s: import("http").Server) { _httpServer = s; }
+
+function gracefulShutdown(signal: string) {
+  console.error(`[Shutdown] Received ${signal} — closing server gracefully`);
+  if (_httpServer) {
+    _httpServer.close(() => {
+      console.error("[Shutdown] All connections drained. Exiting.");
+      process.exit(0);
+    });
+    setTimeout(() => {
+      console.error("[Shutdown] Forced exit after 10s timeout");
+      process.exit(1);
+    }, 10_000).unref();
+  } else {
+    process.exit(0);
+  }
+}
+
+process.on("SIGTERM", () => gracefulShutdown("SIGTERM"));
+process.on("SIGINT",  () => gracefulShutdown("SIGINT"));
+
 process.on("uncaughtException", (err) => {
   console.error("Uncaught Exception:", err);
 });
 
 process.on("unhandledRejection", (reason) => {
   console.error("Unhandled Rejection:", reason);
-});
-
-process.on("SIGTERM", () => {
-  console.error("Received SIGTERM");
-});
-
-process.on("SIGINT", () => {
-  console.error("Received SIGINT");
 });
 
 process.on("exit", (code) => {
@@ -622,4 +713,5 @@ process.on("exit", (code) => {
       log(`express server serving on port ${port}`);
     },
   );
+  setHttpServer(server);
 })();

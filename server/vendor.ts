@@ -13,7 +13,13 @@ import { sendVendorStatusNotification, sendVendorProductNotification, sendPushNo
 
 const router = express.Router();
 
-const JWT_SECRET = process.env.JWT_SECRET || "onway-vendor-secret-2024";
+const JWT_SECRET = (() => {
+  const secret = process.env.JWT_SECRET;
+  if (!secret || secret === "onway-vendor-secret-2024") {
+    console.warn("[SECURITY] JWT_SECRET env var is not set or uses insecure default. Set a strong secret in production.");
+  }
+  return secret || "onway-vendor-secret-2024";
+})();
 const VENDOR_COOKIE = "onway_vendor_session";
 
 // ── Multer: temp storage ────────────────────────────────────────────────────

@@ -273,7 +273,13 @@ const products: Product[] = [
   { id: "fs9", categoryId: "food-supplies", name: "حمص", price: 12000, image: "/uploads/product-3d-chickpeas.png", description: "حمص حب جاف 1 كيلو", inStock: true, weight: "1 كيلو" },
 ];
 
-const ROUTES_JWT_SECRET = process.env.JWT_SECRET || "onway-vendor-secret-2024";
+const ROUTES_JWT_SECRET = (() => {
+  const secret = process.env.JWT_SECRET;
+  if (!secret || secret === "onway-vendor-secret-2024") {
+    console.warn("[SECURITY] JWT_SECRET env var is not set or uses insecure default. Set a strong secret in production.");
+  }
+  return secret || "onway-vendor-secret-2024";
+})();
 
 function extractVendorId(req: Request): string | null {
   try {
@@ -517,8 +523,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // ── Admin: Seed demo stores and products (testing) ─────────────────────────
+  // ── Admin: Seed demo stores and products (dev/staging only) ────────────────
   app.post("/api/admin/seed-demo-stores", async (_req: Request, res: Response) => {
+    if (process.env.NODE_ENV === "production") {
+      return res.status(403).json({ error: "هذا الإجراء غير متاح في بيئة الإنتاج" });
+    }
     try {
       const db = getFirestore();
       if (!db) return res.status(500).json({ error: "قاعدة البيانات غير متاحة" });

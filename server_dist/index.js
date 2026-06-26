@@ -1727,7 +1727,13 @@ var products = [
   { id: "fs8", categoryId: "food-supplies", name: "\u0639\u062F\u0633", price: 15e3, image: "/uploads/product-3d-lentils.png", description: "\u0639\u062F\u0633 \u0623\u062D\u0645\u0631 \u0645\u062C\u0631\u0648\u0634 1 \u0643\u064A\u0644\u0648", inStock: true, weight: "1 \u0643\u064A\u0644\u0648" },
   { id: "fs9", categoryId: "food-supplies", name: "\u062D\u0645\u0635", price: 12e3, image: "/uploads/product-3d-chickpeas.png", description: "\u062D\u0645\u0635 \u062D\u0628 \u062C\u0627\u0641 1 \u0643\u064A\u0644\u0648", inStock: true, weight: "1 \u0643\u064A\u0644\u0648" }
 ];
-var ROUTES_JWT_SECRET = process.env.JWT_SECRET || "onway-vendor-secret-2024";
+var ROUTES_JWT_SECRET = (() => {
+  const secret = process.env.JWT_SECRET;
+  if (!secret || secret === "onway-vendor-secret-2024") {
+    console.warn("[SECURITY] JWT_SECRET env var is not set or uses insecure default. Set a strong secret in production.");
+  }
+  return secret || "onway-vendor-secret-2024";
+})();
 function extractVendorId(req) {
   try {
     const authHeader = req.headers.authorization || "";
@@ -1956,6 +1962,9 @@ async function registerRoutes(app2) {
     }
   });
   app2.post("/api/admin/seed-demo-stores", async (_req, res) => {
+    if (process.env.NODE_ENV === "production") {
+      return res.status(403).json({ error: "\u0647\u0630\u0627 \u0627\u0644\u0625\u062C\u0631\u0627\u0621 \u063A\u064A\u0631 \u0645\u062A\u0627\u062D \u0641\u064A \u0628\u064A\u0626\u0629 \u0627\u0644\u0625\u0646\u062A\u0627\u062C" });
+    }
     try {
       const db2 = getFirestore();
       if (!db2) return res.status(500).json({ error: "\u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u063A\u064A\u0631 \u0645\u062A\u0627\u062D\u0629" });
@@ -5399,7 +5408,13 @@ import * as crypto from "crypto";
 import * as fs2 from "fs/promises";
 import * as path2 from "path";
 var router = express2.Router();
-var JWT_SECRET = process.env.JWT_SECRET || "onway-vendor-secret-2024";
+var JWT_SECRET = (() => {
+  const secret = process.env.JWT_SECRET;
+  if (!secret || secret === "onway-vendor-secret-2024") {
+    console.warn("[SECURITY] JWT_SECRET env var is not set or uses insecure default. Set a strong secret in production.");
+  }
+  return secret || "onway-vendor-secret-2024";
+})();
 var VENDOR_COOKIE = "onway_vendor_session";
 var upload2 = multer2({
   dest: path2.resolve(process.cwd(), "uploads", "temp"),
@@ -6639,6 +6654,55 @@ function setupRateLimiter(app2) {
     "/api/users": 30,
     default: 600
   };
+  function rateLimitMiddleware(pathKey, overrideLimit) {
+    return (req, res, next) => {
+      const ip = (req.headers["x-forwarded-for"] || "").split(",")[0].trim() || req.socket.remoteAddress || "unknown";
+      const key = `${ip}:${pathKey}`;
+      const now = Date.now();
+      const limit = overrideLimit ?? LIMITS[pathKey] ?? LIMITS.default;
+      let entry = rateLimitStore.get(key);
+      if (!entry || now > entry.resetAt) {
+        entry = { count: 1, resetAt: now + WINDOW_MS };
+        rateLimitStore.set(key, entry);
+      } else {
+        entry.count++;
+      }
+      res.setHeader("X-RateLimit-Limit", limit);
+      res.setHeader("X-RateLimit-Remaining", Math.max(0, limit - entry.count));
+      res.setHeader("X-RateLimit-Reset", Math.ceil(entry.resetAt / 1e3));
+      if (entry.count > limit) {
+        if (req.accepts("html") && !req.path.startsWith("/api")) {
+          return res.status(429).send("<h1>429 - Too Many Requests</h1><p>\u062D\u0627\u0648\u0644 \u0644\u0627\u062D\u0642\u0627\u064B</p>");
+        }
+        return res.status(429).json({ error: "\u0637\u0644\u0628\u0627\u062A \u0643\u062B\u064A\u0631\u0629\u060C \u062D\u0627\u0648\u0644 \u0644\u0627\u062D\u0642\u0627\u064B" });
+      }
+      next();
+    };
+  }
+  const ADMIN_HTML_RATE = {
+    "POST:/admin/login": 10,
+    "POST:/admin/google-signin": 10,
+    "POST:/admin/reset-password": 5
+  };
+  app2.use((req, res, next) => {
+    const routeKey = `${req.method}:${req.path}`;
+    const limit = ADMIN_HTML_RATE[routeKey];
+    if (!limit) return next();
+    const ip = (req.headers["x-forwarded-for"] || "").split(",")[0].trim() || req.socket.remoteAddress || "unknown";
+    const key = `${ip}:${routeKey}`;
+    const now = Date.now();
+    let entry = rateLimitStore.get(key);
+    if (!entry || now > entry.resetAt) {
+      entry = { count: 1, resetAt: now + WINDOW_MS };
+      rateLimitStore.set(key, entry);
+    } else {
+      entry.count++;
+    }
+    if (entry.count > limit) {
+      return res.status(429).send("<h1>429</h1><p>\u0645\u062D\u0627\u0648\u0644\u0627\u062A \u0643\u062B\u064A\u0631\u0629. \u062D\u0627\u0648\u0644 \u0628\u0639\u062F \u062F\u0642\u064A\u0642\u0629.</p>");
+    }
+    next();
+  });
   app2.use("/api", (req, res, next) => {
     const ip = (req.headers["x-forwarded-for"] || "").split(",")[0].trim() || req.socket.remoteAddress || "unknown";
     const key = `${ip}:${req.path}`;
@@ -6676,16 +6740,20 @@ function setupSecurityHeaders(app2) {
   });
 }
 function setupCors(app2) {
+  const isProd = process.env.NODE_ENV === "production";
+  const allowedDomains = (process.env.ALLOWED_ORIGINS || "").split(",").map((s) => s.trim()).filter(Boolean);
   app2.use((req, res, next) => {
     const origin = req.header("origin");
     if (origin) {
-      res.header("Access-Control-Allow-Origin", origin);
-      res.header(
-        "Access-Control-Allow-Methods",
-        "GET, POST, PUT, DELETE, OPTIONS"
-      );
-      res.header("Access-Control-Allow-Headers", "Content-Type, Accept, Authorization");
-      res.header("Access-Control-Allow-Credentials", "true");
+      const allowed = !isProd || allowedDomains.length === 0 || allowedDomains.some((d) => origin === d || origin.endsWith(`.${d}`));
+      if (allowed) {
+        res.header("Access-Control-Allow-Origin", origin);
+        res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, PATCH, OPTIONS");
+        res.header("Access-Control-Allow-Headers", "Content-Type, Accept, Authorization");
+        res.header("Access-Control-Allow-Credentials", "true");
+      } else {
+        return res.status(403).json({ error: "Origin not allowed" });
+      }
     }
     if (req.method === "OPTIONS") {
       return res.sendStatus(200);
@@ -6863,9 +6931,10 @@ function configureExpoAndLanding(app2) {
     if (valid) {
       const token = makeToken();
       const maxAge = 60 * 60 * 24 * 7;
+      const secureFlagAdmin = process.env.NODE_ENV === "production" ? "; Secure" : "";
       res.setHeader(
         "Set-Cookie",
-        `${ADMIN_COOKIE}=${token}; HttpOnly; SameSite=Strict; Max-Age=${maxAge}; Path=/`
+        `${ADMIN_COOKIE}=${token}; HttpOnly; SameSite=Strict; Max-Age=${maxAge}; Path=/${secureFlagAdmin}`
       );
       return res.redirect("/admin");
     }
@@ -6894,7 +6963,8 @@ function configureExpoAndLanding(app2) {
       }
       const token = makeToken();
       const maxAge = 60 * 60 * 24 * 7;
-      res.setHeader("Set-Cookie", `${ADMIN_COOKIE}=${token}; HttpOnly; SameSite=Strict; Max-Age=${maxAge}; Path=/`);
+      const secureFlagGoogle = process.env.NODE_ENV === "production" ? "; Secure" : "";
+      res.setHeader("Set-Cookie", `${ADMIN_COOKIE}=${token}; HttpOnly; SameSite=Strict; Max-Age=${maxAge}; Path=/${secureFlagGoogle}`);
       return res.json({ success: true, redirect: "/admin" });
     } catch (e) {
       console.error("[Google signin error]", e);
@@ -7023,17 +7093,32 @@ function setupErrorHandler(app2) {
     return res.status(status).json({ message });
   });
 }
+var _httpServer = null;
+function setHttpServer(s) {
+  _httpServer = s;
+}
+function gracefulShutdown(signal) {
+  console.error(`[Shutdown] Received ${signal} \u2014 closing server gracefully`);
+  if (_httpServer) {
+    _httpServer.close(() => {
+      console.error("[Shutdown] All connections drained. Exiting.");
+      process.exit(0);
+    });
+    setTimeout(() => {
+      console.error("[Shutdown] Forced exit after 10s timeout");
+      process.exit(1);
+    }, 1e4).unref();
+  } else {
+    process.exit(0);
+  }
+}
+process.on("SIGTERM", () => gracefulShutdown("SIGTERM"));
+process.on("SIGINT", () => gracefulShutdown("SIGINT"));
 process.on("uncaughtException", (err) => {
   console.error("Uncaught Exception:", err);
 });
 process.on("unhandledRejection", (reason) => {
   console.error("Unhandled Rejection:", reason);
-});
-process.on("SIGTERM", () => {
-  console.error("Received SIGTERM");
-});
-process.on("SIGINT", () => {
-  console.error("Received SIGINT");
 });
 process.on("exit", (code) => {
   console.error("Process exit with code:", code);
@@ -7060,4 +7145,8 @@ process.on("exit", (code) => {
       log(`express server serving on port ${port}`);
     }
   );
+  setHttpServer(server);
 })();
+export {
+  setHttpServer
+};
