@@ -1,6 +1,5 @@
 import React, { useState } from "react";
-import { StyleSheet, View, Pressable, Switch, Modal, ActivityIndicator } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { StyleSheet, View, Pressable, Modal, ActivityIndicator } from "react-native";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useNavigation } from "@react-navigation/native";
@@ -11,7 +10,6 @@ import * as Haptics from "expo-haptics";
 
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import { useTheme } from "@/hooks/useTheme";
-import { useThemeMode } from "@/context/ThemeContext";
 import { useAuth } from "@/context/AuthContext";
 import { Spacing, BorderRadius, Shadows, AppColors } from "@/constants/theme";
 import { ThemedText } from "@/components/ThemedText";
@@ -28,14 +26,12 @@ interface SettingsItemProps {
 function SettingsItem({ icon, title, subtitle, onPress }: SettingsItemProps) {
   const { theme } = useTheme();
 
-  const handlePress = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    onPress?.();
-  };
-
   return (
     <Pressable
-      onPress={handlePress}
+      onPress={() => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        onPress?.();
+      }}
       style={({ pressed }) => [
         styles.settingsItem,
         { backgroundColor: theme.backgroundDefault, opacity: pressed ? 0.8 : 1 },
@@ -63,11 +59,9 @@ function SettingsItem({ icon, title, subtitle, onPress }: SettingsItemProps) {
 type NavigationProp = NativeStackNavigationProp<ProfileStackParamList>;
 
 export default function ProfileScreen() {
-  const insets = useSafeAreaInsets();
   const headerHeight = useHeaderHeight();
   const tabBarHeight = useBottomTabBarHeight();
-  const { theme, isDark } = useTheme();
-  const { themeMode, setThemeMode } = useThemeMode();
+  const { theme } = useTheme();
   const { phoneNumber, userProfile, logout, deleteAccount } = useAuth();
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -93,243 +87,212 @@ export default function ProfileScreen() {
     }
   };
 
-  const handleThemeToggle = (value: boolean) => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setThemeMode(value ? "dark" : "light");
-  };
-
   return (
     <View style={{ flex: 1 }}>
       <GradientBackground />
-    <KeyboardAwareScrollViewCompat
-      style={{ flex: 1 }}
-      contentContainerStyle={{
-        paddingTop: headerHeight + Spacing.lg,
-        paddingBottom: tabBarHeight,
-        paddingHorizontal: Spacing.lg,
-      }}
-    >
-      <View style={[styles.profileCard, { backgroundColor: theme.backgroundDefault }, Shadows.md]}>
-        <Pressable 
-          style={styles.editButton}
-          onPress={() => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            navigation.navigate("EditProfile");
-          }}
-        >
-          <Feather name="edit-2" size={18} color={AppColors.primary} />
-        </Pressable>
-        {profileImageUrl ? (
-          <Image
-            source={{ uri: profileImageUrl }}
-            style={styles.avatarImage}
-            contentFit="cover"
-          />
-        ) : (
-          <View style={[styles.avatar, { backgroundColor: AppColors.primary }]}>
-            <Feather name="user" size={40} color="#FFFFFF" />
-          </View>
-        )}
-        <ThemedText type="h2" style={styles.name}>
-          {userProfile?.fullName || "مستخدم زائر"}
-        </ThemedText>
-        <ThemedText type="body" style={[styles.email, { color: theme.textSecondary }]}>
-          {phoneNumber || "مرحباً بك في Onway"}
-        </ThemedText>
-        {userProfile?.region ? (
-          <ThemedText type="small" style={[styles.region, { color: theme.textSecondary }]}>
-            📍 {userProfile.region}
-          </ThemedText>
-        ) : null}
-      </View>
-
-      <ThemedText type="h4" style={styles.sectionTitle}>
-        طلباتي
-      </ThemedText>
-
-      <SettingsItem
-        icon="package"
-        title="طلباتي"
-        subtitle="متابعة حالة الطلبات"
-        onPress={() => navigation.navigate("Orders")}
-      />
-
-      <ThemedText type="h4" style={styles.sectionTitle}>
-        الإعدادات
-      </ThemedText>
-
-      <SettingsItem
-        icon="bell"
-        title="الإشعارات"
-        subtitle="إدارة إشعارات التطبيق"
-        onPress={() => navigation.navigate("Notifications")}
-      />
-      <SettingsItem
-        icon="map-pin"
-        title="العناوين المحفوظة"
-        subtitle="إدارة عناوين التوصيل"
-        onPress={() => navigation.navigate("Addresses")}
-      />
-      <SettingsItem
-        icon="credit-card"
-        title="طرق الدفع"
-        subtitle="إدارة بطاقات الدفع"
-        onPress={() => navigation.navigate("Payment")}
-      />
-      <View style={[styles.settingsItem, { backgroundColor: theme.backgroundDefault }, Shadows.sm]}>
-        <View style={[styles.iconContainer, { backgroundColor: AppColors.primary + "15" }]}>
-          <Feather name={isDark ? "moon" : "sun"} size={20} color={AppColors.primary} />
-        </View>
-        <View style={styles.settingsContent}>
-          <ThemedText type="body" style={styles.settingsTitle}>
-            الوضع الليلي
-          </ThemedText>
-          <ThemedText type="small" style={[styles.settingsSubtitle, { color: theme.textSecondary }]}>
-            {isDark ? "مفعّل" : "غير مفعّل"}
-          </ThemedText>
-        </View>
-        <Switch
-          value={isDark}
-          onValueChange={handleThemeToggle}
-          trackColor={{ false: "#ccc", true: AppColors.primary }}
-          thumbColor="#fff"
-        />
-      </View>
-      <SettingsItem
-        icon="globe"
-        title="اللغة"
-        subtitle="العربية"
-      />
-
-      <ThemedText type="h4" style={styles.sectionTitle}>
-        المساعدة
-      </ThemedText>
-
-      <SettingsItem
-        icon="message-circle"
-        title="تواصل مع الدعم"
-        subtitle="تحدث مع فريق الدعم مباشرة"
-        onPress={() => (navigation as any).navigate("SupportChat")}
-      />
-      <SettingsItem
-        icon="help-circle"
-        title="الأسئلة الشائعة"
-        onPress={() => navigation.navigate("FAQ")}
-      />
-      <SettingsItem
-        icon="message-circle"
-        title="من نحن"
-        subtitle="تعرف علينا وتواصل معنا"
-        onPress={() => navigation.navigate("About")}
-      />
-      <SettingsItem
-        icon="file-text"
-        title="الشروط والأحكام"
-        onPress={() => navigation.navigate("Terms")}
-      />
-      <SettingsItem
-        icon="shield"
-        title="سياسة الخصوصية"
-        onPress={() => navigation.navigate("Policy")}
-      />
-
-      <SettingsItem
-        icon="log-out"
-        title="تسجيل الخروج"
-        onPress={handleLogout}
-      />
-
-      <Pressable
-        testID="button-delete-account"
-        onPress={() => {
-          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-          setShowDeleteModal(true);
+      <KeyboardAwareScrollViewCompat
+        style={{ flex: 1 }}
+        contentContainerStyle={{
+          paddingTop: headerHeight + Spacing.lg,
+          paddingBottom: tabBarHeight,
+          paddingHorizontal: Spacing.lg,
         }}
-        style={({ pressed }) => [
-          styles.settingsItem,
-          styles.deleteItem,
-          { opacity: pressed ? 0.7 : 1 },
-        ]}
       >
-        <View style={[styles.iconContainer, { backgroundColor: "#FEE2E2" }]}>
-          <Feather name="trash-2" size={20} color="#EF4444" />
-        </View>
-        <View style={styles.settingsContent}>
-          <ThemedText type="body" style={[styles.settingsTitle, { color: "#EF4444" }]}>
-            مسح حسابي
-          </ThemedText>
-          <ThemedText type="small" style={[styles.settingsSubtitle, { color: "#F87171" }]}>
-            حذف الحساب وجميع البيانات نهائياً
-          </ThemedText>
-        </View>
-        <Feather name="chevron-left" size={20} color="#F87171" />
-      </Pressable>
-
-      <Modal
-        visible={showDeleteModal}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setShowDeleteModal(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalCard, { backgroundColor: theme.backgroundDefault }]}>
-            <View style={styles.modalIconWrap}>
-              <Feather name="alert-triangle" size={32} color="#EF4444" />
+        <View style={[styles.profileCard, { backgroundColor: theme.backgroundDefault }, Shadows.md]}>
+          <Pressable
+            style={styles.editButton}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              navigation.navigate("EditProfile");
+            }}
+          >
+            <Feather name="edit-2" size={18} color={AppColors.primary} />
+          </Pressable>
+          {profileImageUrl ? (
+            <Image
+              source={{ uri: profileImageUrl }}
+              style={styles.avatarImage}
+              contentFit="cover"
+            />
+          ) : (
+            <View style={[styles.avatar, { backgroundColor: AppColors.primary }]}>
+              <Feather name="user" size={40} color="#FFFFFF" />
             </View>
-            <ThemedText type="h3" style={styles.modalTitle}>
-              مسح الحساب
+          )}
+          <ThemedText type="h2" style={styles.name}>
+            {userProfile?.fullName || "مستخدم زائر"}
+          </ThemedText>
+          <ThemedText type="body" style={[styles.email, { color: theme.textSecondary }]}>
+            {phoneNumber || "مرحباً بك في Onway"}
+          </ThemedText>
+          {userProfile?.region ? (
+            <ThemedText type="small" style={[styles.region, { color: theme.textSecondary }]}>
+              {userProfile.region}
             </ThemedText>
-            <ThemedText type="body" style={[styles.modalBody, { color: theme.textSecondary }]}>
-              سيتم حذف حسابك وجميع بياناتك الشخصية بشكل نهائي ولا يمكن التراجع عن هذا الإجراء.
-            </ThemedText>
-            {deleteError ? (
-              <ThemedText type="small" style={styles.errorText}>
-                {deleteError}
-              </ThemedText>
-            ) : null}
-            <Pressable
-              testID="button-confirm-delete"
-              onPress={handleDeleteAccount}
-              disabled={isDeleting}
-              style={({ pressed }) => [
-                styles.modalDeleteBtn,
-                { opacity: pressed || isDeleting ? 0.7 : 1 },
-              ]}
-            >
-              {isDeleting ? (
-                <ActivityIndicator color="#fff" size="small" />
-              ) : (
-                <ThemedText type="body" style={styles.modalDeleteBtnText}>
-                  نعم، امسح حسابي
-                </ThemedText>
-              )}
-            </Pressable>
-            <Pressable
-              testID="button-cancel-delete"
-              onPress={() => {
-                setShowDeleteModal(false);
-                setDeleteError(null);
-              }}
-              disabled={isDeleting}
-              style={({ pressed }) => [
-                styles.modalCancelBtn,
-                { borderColor: theme.border, opacity: pressed ? 0.7 : 1 },
-              ]}
-            >
-              <ThemedText type="body" style={{ textAlign: "center" }}>
-                إلغاء
-              </ThemedText>
-            </Pressable>
-          </View>
+          ) : null}
         </View>
-      </Modal>
 
-      <View style={styles.versionContainer}>
-        <ThemedText type="small" style={{ color: theme.textSecondary, textAlign: "center" }}>
-          الإصدار 1.0.0
+        <ThemedText type="h4" style={styles.sectionTitle}>
+          طلباتي
         </ThemedText>
-      </View>
-    </KeyboardAwareScrollViewCompat>
+
+        <SettingsItem
+          icon="package"
+          title="طلباتي"
+          subtitle="متابعة حالة الطلبات"
+          onPress={() => navigation.navigate("Orders")}
+        />
+
+        <ThemedText type="h4" style={styles.sectionTitle}>
+          الإعدادات
+        </ThemedText>
+
+        <SettingsItem
+          icon="bell"
+          title="الإشعارات"
+          subtitle="إدارة إشعارات التطبيق"
+          onPress={() => navigation.navigate("Notifications")}
+        />
+        <SettingsItem
+          icon="map-pin"
+          title="العناوين المحفوظة"
+          subtitle="إدارة عناوين التوصيل"
+          onPress={() => navigation.navigate("Addresses")}
+        />
+        <SettingsItem
+          icon="globe"
+          title="اللغة"
+          subtitle="العربية"
+        />
+
+        <ThemedText type="h4" style={styles.sectionTitle}>
+          المساعدة
+        </ThemedText>
+
+        <SettingsItem
+          icon="message-circle"
+          title="تواصل مع الدعم"
+          subtitle="تحدث مع فريق الدعم مباشرة"
+          onPress={() => (navigation as any).navigate("SupportChat")}
+        />
+        <SettingsItem
+          icon="help-circle"
+          title="الأسئلة الشائعة"
+          onPress={() => navigation.navigate("FAQ")}
+        />
+        <SettingsItem
+          icon="message-circle"
+          title="من نحن"
+          subtitle="تعرف علينا وتواصل معنا"
+          onPress={() => navigation.navigate("About")}
+        />
+        <SettingsItem
+          icon="file-text"
+          title="الشروط والأحكام"
+          onPress={() => navigation.navigate("Terms")}
+        />
+        <SettingsItem
+          icon="shield"
+          title="سياسة الخصوصية"
+          onPress={() => navigation.navigate("Policy")}
+        />
+        <SettingsItem
+          icon="log-out"
+          title="تسجيل الخروج"
+          onPress={handleLogout}
+        />
+
+        <Pressable
+          testID="button-delete-account"
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+            setShowDeleteModal(true);
+          }}
+          style={({ pressed }) => [
+            styles.settingsItem,
+            styles.deleteItem,
+            { opacity: pressed ? 0.7 : 1 },
+          ]}
+        >
+          <View style={[styles.iconContainer, { backgroundColor: "#FEE2E2" }]}>
+            <Feather name="trash-2" size={20} color="#EF4444" />
+          </View>
+          <View style={styles.settingsContent}>
+            <ThemedText type="body" style={[styles.settingsTitle, { color: "#EF4444" }]}>
+              مسح حسابي
+            </ThemedText>
+            <ThemedText type="small" style={[styles.settingsSubtitle, { color: "#F87171" }]}>
+              حذف الحساب وجميع البيانات نهائياً
+            </ThemedText>
+          </View>
+          <Feather name="chevron-left" size={20} color="#F87171" />
+        </Pressable>
+
+        <Modal
+          visible={showDeleteModal}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setShowDeleteModal(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={[styles.modalCard, { backgroundColor: theme.backgroundDefault }]}>
+              <View style={styles.modalIconWrap}>
+                <Feather name="alert-triangle" size={32} color="#EF4444" />
+              </View>
+              <ThemedText type="h3" style={styles.modalTitle}>
+                مسح الحساب
+              </ThemedText>
+              <ThemedText type="body" style={[styles.modalBody, { color: theme.textSecondary }]}>
+                سيتم حذف حسابك وجميع بياناتك الشخصية بشكل نهائي ولا يمكن التراجع عن هذا الإجراء.
+              </ThemedText>
+              {deleteError ? (
+                <ThemedText type="small" style={styles.errorText}>
+                  {deleteError}
+                </ThemedText>
+              ) : null}
+              <Pressable
+                testID="button-confirm-delete"
+                onPress={handleDeleteAccount}
+                disabled={isDeleting}
+                style={({ pressed }) => [
+                  styles.modalDeleteBtn,
+                  { opacity: pressed || isDeleting ? 0.7 : 1 },
+                ]}
+              >
+                {isDeleting ? (
+                  <ActivityIndicator color="#fff" size="small" />
+                ) : (
+                  <ThemedText type="body" style={styles.modalDeleteBtnText}>
+                    نعم، امسح حسابي
+                  </ThemedText>
+                )}
+              </Pressable>
+              <Pressable
+                testID="button-cancel-delete"
+                onPress={() => {
+                  setShowDeleteModal(false);
+                  setDeleteError(null);
+                }}
+                disabled={isDeleting}
+                style={({ pressed }) => [
+                  styles.modalCancelBtn,
+                  { borderColor: theme.border, opacity: pressed ? 0.7 : 1 },
+                ]}
+              >
+                <ThemedText type="body" style={{ textAlign: "center" }}>
+                  إلغاء
+                </ThemedText>
+              </Pressable>
+            </View>
+          </View>
+        </Modal>
+
+        <View style={styles.versionContainer}>
+          <ThemedText type="small" style={{ color: theme.textSecondary, textAlign: "center" }}>
+            الإصدار 1.0.0
+          </ThemedText>
+        </View>
+      </KeyboardAwareScrollViewCompat>
     </View>
   );
 }

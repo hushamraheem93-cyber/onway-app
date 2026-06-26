@@ -9,7 +9,6 @@ import FAQScreen from "@/screens/FAQScreen";
 import NotificationsScreen from "@/screens/NotificationsScreen";
 import NotificationsListScreen from "@/screens/NotificationsListScreen";
 import AddressesScreen from "@/screens/AddressesScreen";
-import PaymentScreen from "@/screens/PaymentScreen";
 import OrdersScreen from "@/screens/OrdersScreen";
 import { useScreenOptions } from "@/hooks/useScreenOptions";
 
@@ -23,7 +22,6 @@ export type ProfileStackParamList = {
   Notifications: undefined;
   NotificationsList: undefined;
   Addresses: undefined;
-  Payment: undefined;
   Orders: undefined;
 };
 
@@ -95,13 +93,6 @@ export default function ProfileStackNavigator() {
         component={AddressesScreen}
         options={{
           headerTitle: "العناوين المحفوظة",
-        }}
-      />
-      <Stack.Screen
-        name="Payment"
-        component={PaymentScreen}
-        options={{
-          headerTitle: "طرق الدفع",
         }}
       />
       <Stack.Screen

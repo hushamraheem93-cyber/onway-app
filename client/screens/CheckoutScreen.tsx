@@ -1,5 +1,6 @@
 import React, { useState, useRef } from "react";
 import { StyleSheet, View, TextInput, Modal, Pressable, FlatList, ActivityIndicator } from "react-native";
+import Svg, { Circle } from "react-native-svg";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useNavigation } from "@react-navigation/native";
@@ -422,6 +423,52 @@ export default function CheckoutScreen() {
       </View>
 
       <ThemedText type="h3" style={styles.sectionTitle}>
+        طريقة الدفع
+      </ThemedText>
+
+      <View style={[styles.paymentCard, { backgroundColor: theme.backgroundDefault }, Shadows.sm]}>
+        <View style={styles.paymentRow}>
+          <View style={styles.paymentMethodItem}>
+            <Svg width={44} height={28}>
+              <Circle cx={15} cy={14} r={13} fill="#EB001B" opacity={0.9} />
+              <Circle cx={29} cy={14} r={13} fill="#F79E1B" opacity={0.9} />
+            </Svg>
+            <ThemedText type="small" style={[styles.paymentLabel, { color: theme.text }]}>
+              ماستر كارد
+            </ThemedText>
+          </View>
+
+          <View style={styles.paymentMethodItem}>
+            <View style={styles.dinarCashIcon}>
+              <ThemedText type="small" style={styles.dinarCashText}>IQD</ThemedText>
+            </View>
+            <ThemedText type="small" style={[styles.paymentLabel, { color: theme.text }]}>
+              الدينار كاش
+            </ThemedText>
+          </View>
+
+          <View style={[styles.paymentMethodItem, styles.paymentMethodDisabled]}>
+            <View style={[styles.cardIcon, { borderColor: theme.border }]}>
+              <Feather name="credit-card" size={20} color={theme.textSecondary} />
+            </View>
+            <ThemedText type="small" style={[styles.paymentLabel, { color: theme.textSecondary }]}>
+              بواسطة البطاقة
+            </ThemedText>
+            <View style={styles.comingSoonBadge}>
+              <ThemedText style={styles.comingSoonText}>قريباً</ThemedText>
+            </View>
+          </View>
+        </View>
+
+        <View style={[styles.cashNote, { backgroundColor: AppColors.primary + "10", borderColor: AppColors.primary + "30" }]}>
+          <Feather name="check-circle" size={16} color={AppColors.primary} />
+          <ThemedText type="small" style={{ color: AppColors.primary, fontWeight: "600", textAlign: "right" }}>
+            الدفع نقداً عند الاستلام
+          </ThemedText>
+        </View>
+      </View>
+
+      <ThemedText type="h3" style={styles.sectionTitle}>
         ملخص الطلب
       </ThemedText>
 
@@ -605,6 +652,72 @@ const styles = StyleSheet.create({
   },
   areaFee: {
     textAlign: "right",
+  },
+  paymentCard: {
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.lg,
+    marginBottom: Spacing.md,
+  },
+  paymentRow: {
+    flexDirection: "row-reverse",
+    justifyContent: "space-around",
+    alignItems: "flex-start",
+    marginBottom: Spacing.md,
+  },
+  paymentMethodItem: {
+    alignItems: "center",
+    gap: 6,
+    flex: 1,
+  },
+  paymentMethodDisabled: {
+    opacity: 0.5,
+  },
+  paymentLabel: {
+    textAlign: "center",
+    fontSize: 11,
+    fontWeight: "600",
+  },
+  dinarCashIcon: {
+    width: 44,
+    height: 28,
+    borderRadius: 6,
+    backgroundColor: "#006B3F",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  dinarCashText: {
+    color: "#FFFFFF",
+    fontWeight: "700",
+    fontSize: 13,
+    letterSpacing: 0.5,
+  },
+  cardIcon: {
+    width: 44,
+    height: 28,
+    borderRadius: 6,
+    borderWidth: 1.5,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  comingSoonBadge: {
+    backgroundColor: "#F3F4F6",
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  comingSoonText: {
+    fontSize: 9,
+    color: "#9CA3AF",
+    fontWeight: "700",
+  },
+  cashNote: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    gap: 8,
+    borderRadius: BorderRadius.md,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    borderWidth: 1,
   },
   summaryCard: {
     borderRadius: BorderRadius.lg,
