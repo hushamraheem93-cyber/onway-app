@@ -1,5 +1,6 @@
 // server/index.ts
 import express3 from "express";
+import compression from "compression";
 
 // server/routes.ts
 import express from "express";
@@ -1759,30 +1760,11 @@ async function registerRoutes(app2) {
   app2.use("/api/admin", requireAdminAuth);
   app2.get("/api/stores", async (req, res) => {
     try {
-      const db2 = getFirestore();
-      if (!db2) return res.status(500).json({ error: "\u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u063A\u064A\u0631 \u0645\u062A\u0627\u062D\u0629" });
       const { businessType } = req.query;
-      const snap = await db2.collection("vendors").where("status", "==", "active").get();
-      const allDocs = snap.docs.map((d) => {
-        const v = d.data();
-        return {
-          id: v.id,
-          storeName: v.storeName,
-          businessType: v.businessType,
-          address: v.address || "",
-          bio: v.bio || "",
-          totalProducts: v.totalProducts || 0,
-          approvedAt: v.approvedAt || v.createdAt || "",
-          profileImageUrl: v.profileImageUrl || "",
-          coverImageUrl: v.coverImageUrl || "",
-          rating: v.rating ?? null,
-          ratingCount: v.ratingCount ?? 0,
-          deliveryTime: v.deliveryTime || "30-45",
-          deliveryPrice: v.deliveryPrice ?? 0,
-          workingHours: v.workingHours || null
-        };
-      });
+      const allDocs = await getCachedStores();
       const stores = (businessType ? allDocs.filter((s) => s.businessType === businessType) : allDocs).sort((a, b) => b.approvedAt.localeCompare(a.approvedAt));
+      res.set("Cache-Control", "public, max-age=30");
+      res.set("Vary", "Accept-Encoding");
       res.json({ stores, total: stores.length });
     } catch (err) {
       console.error("public stores:", err);
@@ -2170,6 +2152,7 @@ async function registerRoutes(app2) {
         await productBatch.commit();
       }
       invalidateVendorsCache();
+      invalidateStoresCache();
       res.json({ success: true, totalVendors, totalProducts, stores: createdStores });
     } catch (err) {
       console.error("seed demo stores:", err);
@@ -2189,6 +2172,7 @@ async function registerRoutes(app2) {
       batch.delete(db2.collection("vendors").doc(id));
       await batch.commit();
       invalidateVendorsCache();
+      invalidateStoresCache();
       res.json({ success: true, deletedProducts: productsSnap.size });
     } catch (err) {
       console.error("admin delete vendor partner:", err);
@@ -2205,6 +2189,7 @@ async function registerRoutes(app2) {
       if (!doc.exists) return res.status(404).json({ error: "\u0627\u0644\u0645\u062A\u062C\u0631 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F" });
       await vendorRef.update({ rating: null, ratingCount: 0 });
       invalidateVendorsCache();
+      invalidateStoresCache();
       res.json({ success: true, message: "\u062A\u0645 \u0625\u0639\u0627\u062F\u0629 \u062A\u0639\u064A\u064A\u0646 \u0627\u0644\u062A\u0642\u064A\u064A\u0645" });
     } catch (err) {
       console.error("admin reset vendor rating:", err);
@@ -2229,6 +2214,7 @@ async function registerRoutes(app2) {
       if (!doc.exists) return res.status(404).json({ error: "\u0627\u0644\u0645\u062A\u062C\u0631 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F" });
       await vendorRef.update({ rating: numRating });
       invalidateVendorsCache();
+      invalidateStoresCache();
       res.json({ success: true, rating: numRating });
     } catch (err) {
       console.error("admin override vendor rating:", err);
@@ -2290,9 +2276,18 @@ async function registerRoutes(app2) {
       res.status(500).json({ error: "\u0641\u0634\u0644 \u062D\u0630\u0641 \u0627\u0644\u0645\u0646\u062A\u062C" });
     }
   });
+  const PRODUCTS_CACHE_TTL = 3 * 60 * 1e3;
+  const CATEGORIES_CACHE_TTL = 2 * 60 * 1e3;
+  const BANNERS_CACHE_TTL = 2 * 60 * 1e3;
+  const STORES_CACHE_TTL = 30 * 1e3;
   let productsCache = null;
   let productsCacheTime = 0;
-  const PRODUCTS_CACHE_TTL = 3 * 60 * 1e3;
+  let categoriesCache = null;
+  let categoriesCacheTime = 0;
+  let bannersCache = null;
+  let bannersCacheTime = 0;
+  let storesCache = null;
+  let storesCacheTime = 0;
   async function getCachedProducts(categoryId) {
     const now = Date.now();
     if (!productsCache || now - productsCacheTime > PRODUCTS_CACHE_TTL) {
@@ -2316,9 +2311,82 @@ async function registerRoutes(app2) {
     }
     return productsCache;
   }
+  async function getCachedCategories() {
+    const now = Date.now();
+    if (!categoriesCache || now - categoriesCacheTime > CATEGORIES_CACHE_TTL) {
+      const db2 = getFirestore();
+      if (db2) {
+        const result = await getCategories();
+        categoriesCache = result.map((c) => ({ ...c, image: limitImageSize(c.image) }));
+      } else {
+        categoriesCache = [...categories].sort((a, b) => a.order - b.order);
+      }
+      categoriesCacheTime = now;
+    }
+    return categoriesCache;
+  }
+  async function getCachedBanners(activeOnly) {
+    const now = Date.now();
+    if (!bannersCache || now - bannersCacheTime > BANNERS_CACHE_TTL) {
+      const result = await getBanners(true);
+      bannersCache = result.map((b) => ({
+        ...b,
+        image: limitImageSize(b.image, 1e5)
+      }));
+      bannersCacheTime = now;
+    }
+    return activeOnly ? bannersCache.filter((b) => b.isActive !== false) : bannersCache;
+  }
+  async function getCachedStores() {
+    const now = Date.now();
+    if (!storesCache || now - storesCacheTime > STORES_CACHE_TTL) {
+      const db2 = getFirestore();
+      if (!db2) return [];
+      const snap = await db2.collection("vendors").where("status", "==", "active").get();
+      storesCache = snap.docs.map((d) => {
+        const v = d.data();
+        return {
+          id: v.id,
+          storeName: v.storeName,
+          businessType: v.businessType,
+          address: v.address || "",
+          bio: v.bio || "",
+          totalProducts: v.totalProducts || 0,
+          approvedAt: v.approvedAt || v.createdAt || "",
+          profileImageUrl: limitImageSize(v.profileImageUrl || "", 8e4),
+          coverImageUrl: limitImageSize(v.coverImageUrl || "", 8e4),
+          rating: v.rating ?? null,
+          ratingCount: v.ratingCount ?? 0,
+          deliveryTime: v.deliveryTime || "30-45",
+          deliveryPrice: v.deliveryPrice ?? 0,
+          workingHours: v.workingHours || null,
+          hasDelivery: v.hasDelivery ?? true,
+          minOrder: v.minOrder ?? 0,
+          openTime: v.openTime || "",
+          closeTime: v.closeTime || "",
+          description: v.description || "",
+          categoryType: v.categoryType || ""
+        };
+      });
+      storesCacheTime = now;
+    }
+    return storesCache;
+  }
   function invalidateProductsCache() {
     productsCache = null;
     productsCacheTime = 0;
+  }
+  function invalidateCategoriesCache() {
+    categoriesCache = null;
+    categoriesCacheTime = 0;
+  }
+  function invalidateBannersCache() {
+    bannersCache = null;
+    bannersCacheTime = 0;
+  }
+  function invalidateStoresCache() {
+    storesCache = null;
+    storesCacheTime = 0;
   }
   const driverQueue = [];
   const driverAssignments = /* @__PURE__ */ new Map();
@@ -2431,21 +2499,10 @@ async function registerRoutes(app2) {
   }
   app2.get("/api/categories", async (req, res) => {
     try {
-      const db2 = getFirestore();
-      if (db2) {
-        const firestoreCategories = await getCategories();
-        if (firestoreCategories.length > 0) {
-          const lightCategories = firestoreCategories.map((c) => ({
-            ...c,
-            image: limitImageSize(c.image)
-          }));
-          res.set("Cache-Control", "public, max-age=120");
-          return res.json(lightCategories);
-        }
-      }
-      const sortedCategories = [...categories].sort((a, b) => a.order - b.order);
+      const cached = await getCachedCategories();
       res.set("Cache-Control", "public, max-age=120");
-      res.json(sortedCategories);
+      res.set("Vary", "Accept-Encoding");
+      return res.json(cached);
     } catch (error) {
       console.error("Error fetching categories:", error);
       const sortedCategories = [...categories].sort((a, b) => a.order - b.order);
@@ -2530,6 +2587,7 @@ async function registerRoutes(app2) {
           iconColor
         });
         if (newCategory2) {
+          invalidateCategoriesCache();
           return res.json(newCategory2);
         }
       }
@@ -2543,6 +2601,7 @@ async function registerRoutes(app2) {
         iconColor
       };
       categories.push(newCategory);
+      invalidateCategoriesCache();
       res.json(newCategory);
     } catch (error) {
       console.error("Error creating category:", error);
@@ -2563,6 +2622,7 @@ async function registerRoutes(app2) {
           iconColor
         });
         if (updated) {
+          invalidateCategoriesCache();
           return res.json(updated);
         }
       }
@@ -2577,6 +2637,7 @@ async function registerRoutes(app2) {
         productCount: productCount ? parseInt(productCount) : categories[index].productCount,
         order: order ? parseInt(order) : categories[index].order
       };
+      invalidateCategoriesCache();
       res.json(categories[index]);
     } catch (error) {
       console.error("Error updating category:", error);
@@ -2589,6 +2650,7 @@ async function registerRoutes(app2) {
       if (db2) {
         const deleted = await deleteCategory(req.params.id);
         if (deleted) {
+          invalidateCategoriesCache();
           return res.json({ success: true });
         }
       }
@@ -2597,6 +2659,7 @@ async function registerRoutes(app2) {
         return res.status(404).json({ error: "Category not found" });
       }
       categories.splice(index, 1);
+      invalidateCategoriesCache();
       res.json({ success: true });
     } catch (error) {
       console.error("Error deleting category:", error);
@@ -2612,19 +2675,18 @@ async function registerRoutes(app2) {
   app2.get("/api/banners", async (req, res) => {
     try {
       const type = req.query.type;
-      let result = await getBanners(true);
-      if (type) {
-        result = result.filter((b) => b.type === type);
-      }
+      let result = await getCachedBanners(true);
+      if (type) result = result.filter((b) => b.type === type);
       const lightResult = result.map((b) => {
         const link = bannerLinks[b.id] || {};
         return {
           ...b,
-          image: limitImageSize(b.image, 1e5),
           linkType: b.linkType || link.linkType || "",
           linkTarget: b.linkTarget || link.linkTarget || ""
         };
       });
+      res.set("Cache-Control", "public, max-age=120");
+      res.set("Vary", "Accept-Encoding");
       res.json(lightResult);
     } catch (error) {
       console.error("Error getting banners:", error);
@@ -2654,6 +2716,7 @@ async function registerRoutes(app2) {
       if (!banner) {
         return res.status(500).json({ error: "Failed to create banner" });
       }
+      invalidateBannersCache();
       res.json(banner);
     } catch (error) {
       console.error("Error creating banner:", error);
@@ -2673,6 +2736,7 @@ async function registerRoutes(app2) {
       if (!banner) {
         return res.status(404).json({ error: "Banner not found" });
       }
+      invalidateBannersCache();
       res.json(banner);
     } catch (error) {
       console.error("Error updating banner:", error);
@@ -2685,6 +2749,7 @@ async function registerRoutes(app2) {
       if (!success) {
         return res.status(404).json({ error: "Banner not found" });
       }
+      invalidateBannersCache();
       res.json({ success: true });
     } catch (error) {
       console.error("Error deleting banner:", error);
@@ -3092,6 +3157,7 @@ async function registerRoutes(app2) {
     try {
       await updateVendor(id, updates);
       invalidateVendorsCache();
+      invalidateStoresCache();
       res.json({ success: true, id, ...updates });
     } catch {
       res.status(500).json({ error: "\u0641\u0634\u0644 \u062A\u062D\u062F\u064A\u062B \u0627\u0644\u0645\u0637\u0639\u0645" });
@@ -3102,6 +3168,7 @@ async function registerRoutes(app2) {
     try {
       await deleteVendor(id);
       invalidateVendorsCache();
+      invalidateStoresCache();
       res.json({ success: true });
     } catch {
       res.status(500).json({ error: "\u0641\u0634\u0644 \u062D\u0630\u0641 \u0627\u0644\u0645\u0637\u0639\u0645" });
@@ -6553,6 +6620,61 @@ async function validateAdminCredentials(username, password) {
 }
 var app = express3();
 var log = console.log;
+function setupCompression(app2) {
+  app2.use(compression({
+    level: 6,
+    threshold: 1024,
+    filter: (req, res) => {
+      if (req.headers["x-no-compression"]) return false;
+      return compression.filter(req, res);
+    }
+  }));
+}
+var rateLimitStore = /* @__PURE__ */ new Map();
+function setupRateLimiter(app2) {
+  const WINDOW_MS = 60 * 1e3;
+  const LIMITS = {
+    "/api/admin/login": 10,
+    "/api/vendor/mobile-auth": 20,
+    "/api/users": 30,
+    default: 600
+  };
+  app2.use("/api", (req, res, next) => {
+    const ip = (req.headers["x-forwarded-for"] || "").split(",")[0].trim() || req.socket.remoteAddress || "unknown";
+    const key = `${ip}:${req.path}`;
+    const now = Date.now();
+    const limit = LIMITS[req.path] ?? LIMITS.default;
+    let entry = rateLimitStore.get(key);
+    if (!entry || now > entry.resetAt) {
+      entry = { count: 1, resetAt: now + WINDOW_MS };
+      rateLimitStore.set(key, entry);
+    } else {
+      entry.count++;
+    }
+    res.setHeader("X-RateLimit-Limit", limit);
+    res.setHeader("X-RateLimit-Remaining", Math.max(0, limit - entry.count));
+    res.setHeader("X-RateLimit-Reset", Math.ceil(entry.resetAt / 1e3));
+    if (entry.count > limit) {
+      return res.status(429).json({ error: "\u0637\u0644\u0628\u0627\u062A \u0643\u062B\u064A\u0631\u0629\u060C \u062D\u0627\u0648\u0644 \u0644\u0627\u062D\u0642\u0627\u064B" });
+    }
+    next();
+  });
+  setInterval(() => {
+    const now = Date.now();
+    for (const [key, entry] of rateLimitStore) {
+      if (now > entry.resetAt) rateLimitStore.delete(key);
+    }
+  }, 5 * 60 * 1e3);
+}
+function setupSecurityHeaders(app2) {
+  app2.use((req, res, next) => {
+    res.setHeader("X-Content-Type-Options", "nosniff");
+    res.setHeader("X-Frame-Options", "DENY");
+    res.setHeader("X-XSS-Protection", "1; mode=block");
+    res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
+    next();
+  });
+}
 function setupCors(app2) {
   app2.use((req, res, next) => {
     const origin = req.header("origin");
@@ -6562,7 +6684,7 @@ function setupCors(app2) {
         "Access-Control-Allow-Methods",
         "GET, POST, PUT, DELETE, OPTIONS"
       );
-      res.header("Access-Control-Allow-Headers", "Content-Type, Accept");
+      res.header("Access-Control-Allow-Headers", "Content-Type, Accept, Authorization");
       res.header("Access-Control-Allow-Credentials", "true");
     }
     if (req.method === "OPTIONS") {
@@ -6574,10 +6696,10 @@ function setupCors(app2) {
 function setupBodyParsing(app2) {
   app2.use(
     express3.json({
-      limit: "100mb"
+      limit: "10mb"
     })
   );
-  app2.use(express3.urlencoded({ extended: false, limit: "100mb" }));
+  app2.use(express3.urlencoded({ extended: false, limit: "10mb" }));
 }
 function setupRequestLogging(app2) {
   app2.use((req, res, next) => {
@@ -6917,8 +7039,11 @@ process.on("exit", (code) => {
   console.error("Process exit with code:", code);
 });
 (async () => {
+  setupCompression(app);
+  setupSecurityHeaders(app);
   setupCors(app);
   setupBodyParsing(app);
+  setupRateLimiter(app);
   setupRequestLogging(app);
   configureExpoAndLanding(app);
   app.use(vendor_default);

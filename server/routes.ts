@@ -313,30 +313,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ── PUBLIC: Stores listing & products ────────────────────────────────────────
   app.get("/api/stores", async (req: Request, res: Response) => {
     try {
-      const db = getFirestore();
-      if (!db) return res.status(500).json({ error: "قاعدة البيانات غير متاحة" });
       const { businessType } = req.query as { businessType?: string };
-      const snap = await db.collection("vendors").where("status", "==", "active").get();
-      const allDocs = snap.docs.map((d) => {
-        const v = d.data() as any;
-        return {
-          id: v.id, storeName: v.storeName, businessType: v.businessType,
-          address: v.address || "", bio: v.bio || "",
-          totalProducts: v.totalProducts || 0,
-          approvedAt: v.approvedAt || v.createdAt || "",
-          profileImageUrl: v.profileImageUrl || "",
-          coverImageUrl: v.coverImageUrl || "",
-          rating: v.rating ?? null,
-          ratingCount: v.ratingCount ?? 0,
-          deliveryTime: v.deliveryTime || "30-45",
-          deliveryPrice: v.deliveryPrice ?? 0,
-          workingHours: v.workingHours || null,
-        };
-      });
+      const allDocs = await getCachedStores();
       const stores = (businessType
         ? allDocs.filter((s) => s.businessType === businessType)
         : allDocs
       ).sort((a, b) => (b.approvedAt as string).localeCompare(a.approvedAt as string));
+      res.set("Cache-Control", "public, max-age=30");
+      res.set("Vary", "Accept-Encoding");
       res.json({ stores, total: stores.length });
     } catch (err) {
       console.error("public stores:", err);
@@ -743,7 +727,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         await productBatch.commit();
       }
 
-      invalidateVendorsCache();
+      invalidateVendorsCache(); invalidateStoresCache();
       res.json({ success: true, totalVendors, totalProducts, stores: createdStores });
     } catch (err: any) {
       console.error("seed demo stores:", err);
@@ -764,7 +748,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       productsSnap.docs.forEach(d => batch.delete(d.ref));
       batch.delete(db.collection("vendors").doc(id));
       await batch.commit();
-      invalidateVendorsCache();
+      invalidateVendorsCache(); invalidateStoresCache();
       res.json({ success: true, deletedProducts: productsSnap.size });
     } catch (err) {
       console.error("admin delete vendor partner:", err);
@@ -782,7 +766,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const doc = await vendorRef.get();
       if (!doc.exists) return res.status(404).json({ error: "المتجر غير موجود" });
       await vendorRef.update({ rating: null, ratingCount: 0 });
-      invalidateVendorsCache();
+      invalidateVendorsCache(); invalidateStoresCache();
       res.json({ success: true, message: "تم إعادة تعيين التقييم" });
     } catch (err) {
       console.error("admin reset vendor rating:", err);
@@ -808,7 +792,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const doc = await vendorRef.get();
       if (!doc.exists) return res.status(404).json({ error: "المتجر غير موجود" });
       await vendorRef.update({ rating: numRating });
-      invalidateVendorsCache();
+      invalidateVendorsCache(); invalidateStoresCache();
       res.json({ success: true, rating: numRating });
     } catch (err) {
       console.error("admin override vendor rating:", err);
@@ -875,10 +859,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Products cache
+  // ── Unified TTL Cache Layer ────────────────────────────────────────────────
+  const PRODUCTS_CACHE_TTL   = 3  * 60 * 1000; // 3 min
+  const CATEGORIES_CACHE_TTL = 2  * 60 * 1000; // 2 min
+  const BANNERS_CACHE_TTL    = 2  * 60 * 1000; // 2 min
+  const STORES_CACHE_TTL     = 30 * 1000;       // 30 sec (real-time open/close)
+
   let productsCache: any[] | null = null;
   let productsCacheTime = 0;
-  const PRODUCTS_CACHE_TTL = 3 * 60 * 1000; // 3 minutes
+
+  let categoriesCache: any[] | null = null;
+  let categoriesCacheTime = 0;
+
+  let bannersCache: any[] | null = null;
+  let bannersCacheTime = 0;
+
+  let storesCache: any[] | null = null;
+  let storesCacheTime = 0;
 
   async function getCachedProducts(categoryId?: string): Promise<any[]> {
     const now = Date.now();
@@ -899,14 +896,90 @@ export async function registerRoutes(app: Express): Promise<Server> {
       productsCacheTime = now;
     }
     if (categoryId) {
-      return productsCache.filter(p => p.categoryId === categoryId);
+      return productsCache!.filter(p => p.categoryId === categoryId);
     }
-    return productsCache;
+    return productsCache!;
+  }
+
+  async function getCachedCategories(): Promise<any[]> {
+    const now = Date.now();
+    if (!categoriesCache || now - categoriesCacheTime > CATEGORIES_CACHE_TTL) {
+      const db = getFirestore();
+      if (db) {
+        const result = await getFirestoreCategories();
+        categoriesCache = result.map(c => ({ ...c, image: limitImageSize(c.image) }));
+      } else {
+        categoriesCache = [...categories].sort((a, b) => a.order - b.order);
+      }
+      categoriesCacheTime = now;
+    }
+    return categoriesCache!;
+  }
+
+  async function getCachedBanners(activeOnly: boolean): Promise<any[]> {
+    const now = Date.now();
+    if (!bannersCache || now - bannersCacheTime > BANNERS_CACHE_TTL) {
+      const result = await getFirestoreBanners(true);
+      bannersCache = result.map(b => ({
+        ...b,
+        image: limitImageSize(b.image, 100000),
+      }));
+      bannersCacheTime = now;
+    }
+    return activeOnly ? bannersCache!.filter(b => (b as any).isActive !== false) : bannersCache!;
+  }
+
+  async function getCachedStores(): Promise<any[]> {
+    const now = Date.now();
+    if (!storesCache || now - storesCacheTime > STORES_CACHE_TTL) {
+      const db = getFirestore();
+      if (!db) return [];
+      const snap = await db.collection("vendors").where("status", "==", "active").get();
+      storesCache = snap.docs.map((d) => {
+        const v = d.data() as any;
+        return {
+          id: v.id, storeName: v.storeName, businessType: v.businessType,
+          address: v.address || "", bio: v.bio || "",
+          totalProducts: v.totalProducts || 0,
+          approvedAt: v.approvedAt || v.createdAt || "",
+          profileImageUrl: limitImageSize(v.profileImageUrl || "", 80000),
+          coverImageUrl: limitImageSize(v.coverImageUrl || "", 80000),
+          rating: v.rating ?? null,
+          ratingCount: v.ratingCount ?? 0,
+          deliveryTime: v.deliveryTime || "30-45",
+          deliveryPrice: v.deliveryPrice ?? 0,
+          workingHours: v.workingHours || null,
+          hasDelivery: v.hasDelivery ?? true,
+          minOrder: v.minOrder ?? 0,
+          openTime: v.openTime || "",
+          closeTime: v.closeTime || "",
+          description: v.description || "",
+          categoryType: v.categoryType || "",
+        };
+      });
+      storesCacheTime = now;
+    }
+    return storesCache!;
   }
 
   function invalidateProductsCache() {
     productsCache = null;
     productsCacheTime = 0;
+  }
+
+  function invalidateCategoriesCache() {
+    categoriesCache = null;
+    categoriesCacheTime = 0;
+  }
+
+  function invalidateBannersCache() {
+    bannersCache = null;
+    bannersCacheTime = 0;
+  }
+
+  function invalidateStoresCache() {
+    storesCache = null;
+    storesCacheTime = 0;
   }
 
   // FIFO driver queue (in-memory)
@@ -1064,21 +1137,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/categories", async (req, res) => {
     try {
-      const db = getFirestore();
-      if (db) {
-        const firestoreCategories = await getFirestoreCategories();
-        if (firestoreCategories.length > 0) {
-          const lightCategories = firestoreCategories.map(c => ({
-            ...c,
-            image: limitImageSize(c.image),
-          }));
-          res.set("Cache-Control", "public, max-age=120");
-          return res.json(lightCategories);
-        }
-      }
-      const sortedCategories = [...categories].sort((a, b) => a.order - b.order);
+      const cached = await getCachedCategories();
       res.set("Cache-Control", "public, max-age=120");
-      res.json(sortedCategories);
+      res.set("Vary", "Accept-Encoding");
+      return res.json(cached);
     } catch (error) {
       console.error("Error fetching categories:", error);
       const sortedCategories = [...categories].sort((a, b) => a.order - b.order);
@@ -1170,6 +1232,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           iconColor,
         });
         if (newCategory) {
+          invalidateCategoriesCache();
           return res.json(newCategory);
         }
       }
@@ -1185,6 +1248,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         iconColor,
       };
       categories.push(newCategory);
+      invalidateCategoriesCache();
       res.json(newCategory);
     } catch (error) {
       console.error("Error creating category:", error);
@@ -1207,6 +1271,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           iconColor,
         });
         if (updated) {
+          invalidateCategoriesCache();
           return res.json(updated);
         }
       }
@@ -1224,7 +1289,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         productCount: productCount ? parseInt(productCount) : categories[index].productCount,
         order: order ? parseInt(order) : categories[index].order,
       };
-      
+      invalidateCategoriesCache();
       res.json(categories[index]);
     } catch (error) {
       console.error("Error updating category:", error);
@@ -1238,6 +1303,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (db) {
         const deleted = await deleteFirestoreCategory(req.params.id);
         if (deleted) {
+          invalidateCategoriesCache();
           return res.json({ success: true });
         }
       }
@@ -1248,6 +1314,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "Category not found" });
       }
       categories.splice(index, 1);
+      invalidateCategoriesCache();
       res.json({ success: true });
     } catch (error) {
       console.error("Error deleting category:", error);
@@ -1265,19 +1332,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/banners", async (req, res) => {
     try {
       const type = req.query.type as string;
-      let result = await getFirestoreBanners(true);
-      if (type) {
-        result = result.filter(b => b.type === type);
-      }
+      let result = await getCachedBanners(true);
+      if (type) result = result.filter(b => b.type === type);
       const lightResult = result.map(b => {
-        const link = bannerLinks[b.id] || {};
+        const link = bannerLinks[(b as any).id] || {};
         return {
           ...b,
-          image: limitImageSize(b.image, 100000),
           linkType: (b as any).linkType || link.linkType || "",
           linkTarget: (b as any).linkTarget || link.linkTarget || "",
         };
       });
+      res.set("Cache-Control", "public, max-age=120");
+      res.set("Vary", "Accept-Encoding");
       res.json(lightResult);
     } catch (error) {
       console.error("Error getting banners:", error);
@@ -1309,6 +1375,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!banner) {
         return res.status(500).json({ error: "Failed to create banner" });
       }
+      invalidateBannersCache();
       res.json(banner);
     } catch (error) {
       console.error("Error creating banner:", error);
@@ -1330,6 +1397,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!banner) {
         return res.status(404).json({ error: "Banner not found" });
       }
+      invalidateBannersCache();
       res.json(banner);
     } catch (error) {
       console.error("Error updating banner:", error);
@@ -1343,6 +1411,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!success) {
         return res.status(404).json({ error: "Banner not found" });
       }
+      invalidateBannersCache();
       res.json({ success: true });
     } catch (error) {
       console.error("Error deleting banner:", error);
@@ -1801,6 +1870,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       await updateFirestoreVendor(id, updates);
       invalidateVendorsCache();
+      invalidateStoresCache();
       res.json({ success: true, id, ...updates });
     } catch {
       res.status(500).json({ error: "فشل تحديث المطعم" });
@@ -1812,6 +1882,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       await deleteFirestoreVendor(id);
       invalidateVendorsCache();
+      invalidateStoresCache();
       res.json({ success: true });
     } catch {
       res.status(500).json({ error: "فشل حذف المطعم" });

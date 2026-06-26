@@ -1,5 +1,6 @@
 import express from "express";
 import type { Request, Response, NextFunction } from "express";
+import compression from "compression";
 import { registerRoutes } from "./routes";
 import { initializeFirebase, getFirestore } from "./firebase";
 import vendorRouter from "./vendor";
@@ -56,6 +57,76 @@ declare module "http" {
   }
 }
 
+// ── Gzip/Brotli Compression ──────────────────────────────────────────────────
+function setupCompression(app: express.Application) {
+  app.use(compression({
+    level: 6,
+    threshold: 1024,
+    filter: (req, res) => {
+      if (req.headers["x-no-compression"]) return false;
+      return compression.filter(req, res);
+    },
+  }));
+}
+
+// ── In-Memory Rate Limiter ────────────────────────────────────────────────────
+const rateLimitStore = new Map<string, { count: number; resetAt: number }>();
+
+function setupRateLimiter(app: express.Application) {
+  const WINDOW_MS = 60 * 1000;
+  const LIMITS: Record<string, number> = {
+    "/api/admin/login": 10,
+    "/api/vendor/mobile-auth": 20,
+    "/api/users": 30,
+    default: 600,
+  };
+
+  app.use("/api", (req: Request, res: Response, next: NextFunction) => {
+    const ip =
+      (req.headers["x-forwarded-for"] as string || "").split(",")[0].trim() ||
+      req.socket.remoteAddress ||
+      "unknown";
+    const key = `${ip}:${req.path}`;
+    const now = Date.now();
+    const limit = LIMITS[req.path] ?? LIMITS.default;
+
+    let entry = rateLimitStore.get(key);
+    if (!entry || now > entry.resetAt) {
+      entry = { count: 1, resetAt: now + WINDOW_MS };
+      rateLimitStore.set(key, entry);
+    } else {
+      entry.count++;
+    }
+
+    res.setHeader("X-RateLimit-Limit", limit);
+    res.setHeader("X-RateLimit-Remaining", Math.max(0, limit - entry.count));
+    res.setHeader("X-RateLimit-Reset", Math.ceil(entry.resetAt / 1000));
+
+    if (entry.count > limit) {
+      return res.status(429).json({ error: "طلبات كثيرة، حاول لاحقاً" });
+    }
+    next();
+  });
+
+  setInterval(() => {
+    const now = Date.now();
+    for (const [key, entry] of rateLimitStore) {
+      if (now > entry.resetAt) rateLimitStore.delete(key);
+    }
+  }, 5 * 60 * 1000);
+}
+
+// ── Security Headers ──────────────────────────────────────────────────────────
+function setupSecurityHeaders(app: express.Application) {
+  app.use((req: Request, res: Response, next: NextFunction) => {
+    res.setHeader("X-Content-Type-Options", "nosniff");
+    res.setHeader("X-Frame-Options", "DENY");
+    res.setHeader("X-XSS-Protection", "1; mode=block");
+    res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
+    next();
+  });
+}
+
 function setupCors(app: express.Application) {
   app.use((req, res, next) => {
     const origin = req.header("origin");
@@ -67,7 +138,7 @@ function setupCors(app: express.Application) {
         "Access-Control-Allow-Methods",
         "GET, POST, PUT, DELETE, OPTIONS",
       );
-      res.header("Access-Control-Allow-Headers", "Content-Type, Accept");
+      res.header("Access-Control-Allow-Headers", "Content-Type, Accept, Authorization");
       res.header("Access-Control-Allow-Credentials", "true");
     }
 
@@ -82,11 +153,11 @@ function setupCors(app: express.Application) {
 function setupBodyParsing(app: express.Application) {
   app.use(
     express.json({
-      limit: "100mb",
+      limit: "10mb",
     }),
   );
 
-  app.use(express.urlencoded({ extended: false, limit: "100mb" }));
+  app.use(express.urlencoded({ extended: false, limit: "10mb" }));
 }
 
 function setupRequestLogging(app: express.Application) {
@@ -524,8 +595,11 @@ process.on("exit", (code) => {
 });
 
 (async () => {
+  setupCompression(app);
+  setupSecurityHeaders(app);
   setupCors(app);
   setupBodyParsing(app);
+  setupRateLimiter(app);
   setupRequestLogging(app);
 
   configureExpoAndLanding(app);
