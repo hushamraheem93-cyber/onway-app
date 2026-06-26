@@ -937,6 +937,8 @@ router.get("/api/vendor/stats", requireVendor, async (req, res) => {
 
     let totalOrders = 0;
     let pendingOrders = 0;
+    let preparingOrders = 0;
+    let readyOrders = 0;
     let totalRevenue = 0;
 
     for (const o of ordersMap.values()) {
@@ -962,10 +964,18 @@ router.get("/api/vendor/stats", requireVendor, async (req, res) => {
 
       totalOrders += 1;
       if (status === "pending") pendingOrders += 1;
+      if (status === "confirmed" || status === "preparing") preparingOrders += 1;
+      if (status === "ready") readyOrders += 1;
       if (status === "delivered") totalRevenue += subtotal;
     }
 
-    res.json({ totalOrders, pendingOrders, totalRevenue });
+    // Get vendor rating
+    const vendorDoc = await db.collection("vendors").doc(vid).get();
+    const vendorData = vendorDoc.exists ? (vendorDoc.data() as any) : {};
+    const rating: number | null = vendorData.rating ?? null;
+    const ratingCount: number = vendorData.ratingCount ?? 0;
+
+    res.json({ totalOrders, pendingOrders, preparingOrders, readyOrders, totalRevenue, rating, ratingCount });
   } catch (err) {
     console.error("vendor stats:", err);
     res.status(500).json({ error: "حدث خطأ في الخادم" });

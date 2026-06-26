@@ -1,0 +1,1 @@
+- [Vendor UI architecture](vendor-ui-arch.md) — VendorTabNavigator now has 5 tabs: Home, Orders, Products, Profits(wallet), Account(profile). Notifications tab removed; new-order popup is global in VendorNotificationsContext.

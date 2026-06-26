@@ -43,7 +43,11 @@ const AVATAR_SIZE = 88;
 interface OrderStats {
   totalOrders: number;
   pendingOrders: number;
+  preparingOrders: number;
+  readyOrders: number;
   totalRevenue: number;
+  rating: number | null;
+  ratingCount: number;
 }
 
 interface VendorNotification {
@@ -90,12 +94,12 @@ export default function VendorHomeScreen({ navigation }: any) {
   const { setUnreadCount } = useVendorNotifications();
 
   const handleNotificationTap = useCallback(() => {
-    navigation.navigate("VendorNotifications");
+    navigation.navigate("VendorOrdersTab");
   }, [navigation]);
 
   usePushNotifications(handleNotificationTap);
 
-  const [orderStats, setOrderStats] = useState<OrderStats>({ totalOrders: 0, pendingOrders: 0, totalRevenue: 0 });
+  const [orderStats, setOrderStats] = useState<OrderStats>({ totalOrders: 0, pendingOrders: 0, preparingOrders: 0, readyOrders: 0, totalRevenue: 0, rating: null, ratingCount: 0 });
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
   const [notifications, setNotifications] = useState<VendorNotification[]>([]);
@@ -138,7 +142,11 @@ export default function VendorHomeScreen({ navigation }: any) {
       setOrderStats({
         totalOrders: data.totalOrders ?? 0,
         pendingOrders: data.pendingOrders ?? 0,
+        preparingOrders: data.preparingOrders ?? 0,
+        readyOrders: data.readyOrders ?? 0,
         totalRevenue: data.totalRevenue ?? 0,
+        rating: data.rating ?? null,
+        ratingCount: data.ratingCount ?? 0,
       });
     } catch {}
   }, [vendorToken]);
@@ -494,40 +502,76 @@ export default function VendorHomeScreen({ navigation }: any) {
             </View>
           ) : null}
 
-          {/* Stats */}
+          {/* Live order stats grid */}
           {loading ? (
-            <ActivityIndicator color={ORANGE} style={{ marginVertical: 24 }} />
+            <View style={styles.statsGrid}>
+              {[0,1,2,3].map(i => (
+                <View key={i} style={[styles.statCard, { backgroundColor: "#F3F4F6" }]}>
+                  <ActivityIndicator color={ORANGE} size="small" />
+                </View>
+              ))}
+            </View>
           ) : (
-            <>
-              {/* Revenue summary */}
-              <ThemedText style={styles.sectionTitle}>ملخص المبيعات</ThemedText>
-              <View style={styles.revenueSummary} testID="revenue-summary">
-                <View style={[styles.revenueCard, { backgroundColor: ORANGE_LIGHT }]}>
-                  <MaterialCommunityIcons name="cash-multiple" size={26} color={ORANGE} />
-                  <ThemedText style={[styles.revenueValue, { color: ORANGE }]}>
-                    {orderStats.totalRevenue.toFixed(2)}
-                  </ThemedText>
-                  <ThemedText style={styles.revenueLabel}>إجمالي الإيرادات (د.ع)</ThemedText>
+            <View style={styles.statsGrid} testID="stats-grid">
+              {/* New orders */}
+              <Pressable
+                style={[styles.statCard, { backgroundColor: "#FFFBEB" }]}
+                onPress={() => navigation.navigate("VendorOrdersTab")}
+                testID="stat-pending"
+              >
+                <View style={[styles.statIconBox, { backgroundColor: "#FEF3C7" }]}>
+                  <MaterialCommunityIcons name="bell-ring" size={22} color="#D97706" />
                 </View>
-                <View style={styles.revenueRight}>
-                  <View style={[styles.revenueSmallCard, { backgroundColor: "#D1FAE5" }]}>
-                    <MaterialCommunityIcons name="shopping" size={20} color="#10B981" />
-                    <ThemedText style={[styles.revenueSmallValue, { color: "#10B981" }]}>
-                      {orderStats.totalOrders}
-                    </ThemedText>
-                    <ThemedText style={styles.revenueSmallLabel}>إجمالي الطلبات</ThemedText>
-                  </View>
-                  <View style={[styles.revenueSmallCard, { backgroundColor: "#FEF3C7" }]}>
-                    <MaterialCommunityIcons name="clock-outline" size={20} color="#F59E0B" />
-                    <ThemedText style={[styles.revenueSmallValue, { color: "#F59E0B" }]}>
-                      {orderStats.pendingOrders}
-                    </ThemedText>
-                    <ThemedText style={styles.revenueSmallLabel}>طلبات معلقة</ThemedText>
-                  </View>
-                </View>
-              </View>
+                <ThemedText style={[styles.statValue, { color: "#D97706" }]}>
+                  {orderStats.pendingOrders}
+                </ThemedText>
+                <ThemedText style={styles.statLabel}>طلبات جديدة</ThemedText>
+                {orderStats.pendingOrders > 0 ? (
+                  <View style={[styles.statDot, { backgroundColor: "#D97706" }]} />
+                ) : null}
+              </Pressable>
 
-            </>
+              {/* Preparing */}
+              <Pressable
+                style={[styles.statCard, { backgroundColor: "#F5F3FF" }]}
+                onPress={() => navigation.navigate("VendorOrdersTab")}
+                testID="stat-preparing"
+              >
+                <View style={[styles.statIconBox, { backgroundColor: "#EDE9FE" }]}>
+                  <MaterialCommunityIcons name="chef-hat" size={22} color="#7C3AED" />
+                </View>
+                <ThemedText style={[styles.statValue, { color: "#7C3AED" }]}>
+                  {orderStats.preparingOrders}
+                </ThemedText>
+                <ThemedText style={styles.statLabel}>في التحضير</ThemedText>
+              </Pressable>
+
+              {/* Waiting for driver */}
+              <Pressable
+                style={[styles.statCard, { backgroundColor: "#ECFEFF" }]}
+                onPress={() => navigation.navigate("VendorOrdersTab")}
+                testID="stat-ready"
+              >
+                <View style={[styles.statIconBox, { backgroundColor: "#CFFAFE" }]}>
+                  <MaterialCommunityIcons name="moped" size={22} color="#0891B2" />
+                </View>
+                <ThemedText style={[styles.statValue, { color: "#0891B2" }]}>
+                  {orderStats.readyOrders}
+                </ThemedText>
+                <ThemedText style={styles.statLabel}>ينتظر السائق</ThemedText>
+              </Pressable>
+
+              {/* Store rating */}
+              <View style={[styles.statCard, { backgroundColor: "#FEFCE8" }]} testID="stat-rating">
+                <View style={[styles.statIconBox, { backgroundColor: "#FEF9C3" }]}>
+                  <MaterialCommunityIcons name="star" size={22} color="#EAB308" />
+                </View>
+                <ThemedText style={[styles.statValue, { color: "#EAB308" }]}>
+                  {orderStats.rating != null ? (orderStats.rating as number).toFixed(1) : "--"}
+                </ThemedText>
+                <ThemedText style={styles.statLabel}>تقييم المتجر</ThemedText>
+              </View>
+            </View>
           )}
 
           {/* Quick actions */}
@@ -991,52 +1035,52 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
 
-  // Revenue summary
-  revenueSummary: {
+  // Live stats grid (2×2)
+  statsGrid: {
     flexDirection: "row",
+    flexWrap: "wrap",
     gap: 12,
     marginBottom: 20,
   },
-  revenueCard: {
-    flex: 1,
+  statCard: {
+    width: "47%",
     borderRadius: 16,
-    padding: 16,
+    padding: 14,
     alignItems: "center",
-    justifyContent: "center",
     gap: 6,
+    shadowColor: "#000",
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 2,
+    position: "relative",
   },
-  revenueValue: {
-    fontFamily: "Cairo_700Bold",
-    fontSize: 22,
-    textAlign: "center",
-  },
-  revenueLabel: {
-    fontFamily: "Cairo_400Regular",
-    fontSize: 11,
-    color: "#666",
-    textAlign: "center",
-  },
-  revenueRight: {
-    flex: 1,
-    gap: 12,
-  },
-  revenueSmallCard: {
-    flex: 1,
+  statIconBox: {
+    width: 42,
+    height: 42,
     borderRadius: 14,
-    padding: 12,
     alignItems: "center",
     justifyContent: "center",
-    gap: 4,
+    marginBottom: 2,
   },
-  revenueSmallValue: {
+  statValue: {
     fontFamily: "Cairo_700Bold",
-    fontSize: 18,
-  },
-  revenueSmallLabel: {
-    fontFamily: "Cairo_400Regular",
-    fontSize: 11,
-    color: "#666",
+    fontSize: 26,
     textAlign: "center",
+  },
+  statLabel: {
+    fontFamily: "Cairo_400Regular",
+    fontSize: 12,
+    color: "#6B7280",
+    textAlign: "center",
+  },
+  statDot: {
+    position: "absolute",
+    top: 10,
+    left: 10,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
   },
 
   // Quick actions

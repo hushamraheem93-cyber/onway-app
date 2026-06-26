@@ -326,6 +326,32 @@ export default function VendorProductsScreen({ navigation }: any) {
     );
   };
 
+  const copyProduct = useCallback(async (product: Product) => {
+    if (!vendorToken) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    try {
+      const { id, ...productData } = product;
+      const copyData = {
+        ...productData,
+        name: `${product.name} (نسخة)`,
+        status: "pending",
+        inStock: true,
+      };
+      await fetch(new URL("/api/vendor/products", getApiUrl()).toString(), {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${vendorToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(copyData),
+      });
+      await load();
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } catch {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+    }
+  }, [vendorToken, load]);
+
   const renderItem = ({ item }: { item: Product }) => (
     <ProductCard
       item={item}
@@ -334,6 +360,7 @@ export default function VendorProductsScreen({ navigation }: any) {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
         navigation.navigate("VendorEditProduct", { product: item });
       }}
+      onCopy={() => copyProduct(item)}
       selectMode={selectMode}
       selected={selectedIds.has(item.id)}
       onToggleSelect={() => toggleSelect(item.id)}
@@ -603,6 +630,7 @@ function ProductCard({
   item,
   onDelete,
   onEdit,
+  onCopy,
   selectMode,
   selected,
   onToggleSelect,
@@ -612,6 +640,7 @@ function ProductCard({
   item: Product;
   onDelete: () => void;
   onEdit: () => void;
+  onCopy: () => void;
   selectMode: boolean;
   selected: boolean;
   onToggleSelect: () => void;
@@ -680,6 +709,13 @@ function ProductCard({
                 <ThemedText style={[styles.availabilityText, { color: available ? "#10B981" : "#EF4444" }]}>
                   {available ? "متوفر" : "نفذ"}
                 </ThemedText>
+              </Pressable>
+              <Pressable
+                style={styles.copyIconBtn}
+                onPress={onCopy}
+                testID={`button-copy-${item.id}`}
+              >
+                <Feather name="copy" size={15} color="#6366F1" />
               </Pressable>
               <Pressable
                 style={styles.editIconBtn}
@@ -900,6 +936,14 @@ const styles = StyleSheet.create({
   availabilityText: {
     fontFamily: "Cairo_700Bold",
     fontSize: 11,
+  },
+  copyIconBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    backgroundColor: "#EEF2FF",
+    justifyContent: "center",
+    alignItems: "center",
   },
   editIconBtn: {
     width: 32,

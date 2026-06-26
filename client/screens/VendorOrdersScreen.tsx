@@ -50,6 +50,8 @@ interface VendorOrder {
   estimatedMinutes?: number;
   driverName?: string;
   driverPhone?: string;
+  paymentMethod?: string;
+  notes?: string;
   vendorStatusAt_confirmed?: string;
   vendorStatusAt_preparing?: string;
   vendorStatusAt_ready?: string;
@@ -240,7 +242,11 @@ function OrderCard({
   const currentStatusAt = (order[statusAtKey] as string | undefined) ?? "";
 
   return (
-    <View style={[cardStyles.card, { backgroundColor: theme.backgroundDefault }]}>
+    <View style={[
+      cardStyles.card,
+      { backgroundColor: theme.backgroundDefault },
+      order.status === "pending" && cardStyles.cardPending,
+    ]}>
       {/* ── Card Header ── */}
       <View style={[cardStyles.header, { borderLeftColor: cfg.color, borderLeftWidth: 4 }]}>
         <View style={{ flex: 1 }}>
@@ -263,6 +269,18 @@ function OrderCard({
               <View style={etaBadgeStyles.badge}>
                 <MaterialCommunityIcons name="clock-fast" size={13} color="#059669" />
                 <ThemedText style={etaBadgeStyles.text}>{order.estimatedMinutes} دقيقة</ThemedText>
+              </View>
+            ) : null}
+            {order.paymentMethod ? (
+              <View style={cardStyles.paymentBadge}>
+                <MaterialCommunityIcons
+                  name={order.paymentMethod === "cash" ? "cash" : "credit-card-outline"}
+                  size={13}
+                  color="#6B7280"
+                />
+                <ThemedText style={cardStyles.paymentText}>
+                  {order.paymentMethod === "cash" ? "كاش" : order.paymentMethod === "card" ? "بطاقة" : order.paymentMethod}
+                </ThemedText>
               </View>
             ) : null}
           </View>
@@ -311,6 +329,12 @@ function OrderCard({
               <MaterialCommunityIcons name="clock-outline" size={15} color={theme.textSecondary} />
               <ThemedText style={[cardStyles.infoText, { color: theme.textSecondary }]}>{fullDate(order.createdAt)}</ThemedText>
             </View>
+            {order.notes ? (
+              <View style={[cardStyles.notesRow, { backgroundColor: "#FFFBEB", borderColor: "#FDE68A" }]}>
+                <MaterialCommunityIcons name="note-text-outline" size={14} color="#D97706" />
+                <ThemedText style={cardStyles.notesText} numberOfLines={3}>{order.notes}</ThemedText>
+              </View>
+            ) : null}
           </View>
 
           <View style={[cardStyles.divider, { backgroundColor: theme.border ?? "#F3F4F6" }]} />
@@ -855,6 +879,24 @@ const cardStyles = StyleSheet.create({
     shadowColor: "#000", shadowOpacity: 0.06, shadowRadius: 10, shadowOffset: { width: 0, height: 3 },
     elevation: 3,
   },
+  cardPending: {
+    borderWidth: 2,
+    borderColor: "#FCD34D",
+    shadowColor: "#D97706",
+    shadowOpacity: 0.15,
+    elevation: 5,
+  },
+  paymentBadge: {
+    flexDirection: "row", alignItems: "center", gap: 4,
+    paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10,
+    backgroundColor: "#F3F4F6",
+  },
+  paymentText: { fontFamily: "Cairo_700Bold", fontSize: 11, color: "#6B7280" },
+  notesRow: {
+    flexDirection: "row-reverse", alignItems: "flex-start", gap: 6,
+    paddingHorizontal: 10, paddingVertical: 8, borderRadius: 10, borderWidth: 1,
+  },
+  notesText: { fontFamily: "Cairo_400Regular", fontSize: 12, color: "#92400E", flex: 1, textAlign: "right" },
   header: { flexDirection: "row-reverse", alignItems: "flex-start", padding: 16, gap: 10 },
   headerTop: { flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between", marginBottom: 6 },
   headerMeta: { flexDirection: "row-reverse", alignItems: "center", gap: 8, flexWrap: "wrap" },

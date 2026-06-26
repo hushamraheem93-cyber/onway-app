@@ -1,5 +1,5 @@
 import React from "react";
-import { View, Pressable, StyleSheet, Platform } from "react-native";
+import { View, Pressable, StyleSheet } from "react-native";
 import { createBottomTabNavigator, BottomTabBarProps } from "@react-navigation/bottom-tabs";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { Feather } from "@expo/vector-icons";
@@ -12,19 +12,20 @@ import VendorAddProductScreen from "@/screens/VendorAddProductScreen";
 import VendorEditProductScreen from "@/screens/VendorEditProductScreen";
 import VendorWalletScreen from "@/screens/VendorWalletScreen";
 import VendorOrdersScreen from "@/screens/VendorOrdersScreen";
-import VendorNotificationsScreen from "@/screens/VendorNotificationsScreen";
+import VendorProfileScreen from "@/screens/VendorProfileScreen";
 import { useScreenOptions } from "@/hooks/useScreenOptions";
-import { VendorNotificationsProvider } from "@/context/VendorNotificationsContext";
+import { VendorNotificationsProvider, useVendorNotifications } from "@/context/VendorNotificationsContext";
 import { ThemedText } from "@/components/ThemedText";
 
 const PURPLE = "#673AB7";
+const ORANGE = "#E86520";
 
 export type VendorTabParamList = {
   VendorHome: undefined;
   VendorOrdersTab: undefined;
   VendorProductsTab: undefined;
   VendorWalletTab: undefined;
-  VendorNotifications: undefined;
+  VendorProfileTab: undefined;
 };
 
 const Tab = createBottomTabNavigator<VendorTabParamList>();
@@ -34,7 +35,8 @@ const TAB_CONFIG: Record<string, { icon: keyof typeof Feather.glyphMap; label: s
   VendorHome:        { icon: "home",         label: "الرئيسية" },
   VendorOrdersTab:   { icon: "shopping-bag", label: "الطلبات"  },
   VendorProductsTab: { icon: "box",          label: "المنتجات" },
-  VendorWalletTab:   { icon: "credit-card",  label: "المحفظة"  },
+  VendorWalletTab:   { icon: "bar-chart-2",  label: "الأرباح"  },
+  VendorProfileTab:  { icon: "user",         label: "الحساب"   },
 };
 
 function ProductsStackNavigator() {
@@ -50,6 +52,7 @@ function ProductsStackNavigator() {
 
 function VendorTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
+  const { unreadCount } = useVendorNotifications();
 
   return (
     <View style={[styles.tabBar, { paddingBottom: insets.bottom > 0 ? insets.bottom : 12 }]}>
@@ -57,6 +60,8 @@ function VendorTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
         const isFocused = state.index === index;
         const config = TAB_CONFIG[route.name];
         if (!config) return null;
+
+        const isOrders = route.name === "VendorOrdersTab";
 
         const onPress = () => {
           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -68,6 +73,11 @@ function VendorTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
           <Pressable key={route.key} onPress={onPress} style={styles.tabItem}>
             <View style={[styles.iconWrap, isFocused && { backgroundColor: PURPLE + "15" }]}>
               <Feather name={config.icon} size={22} color={isFocused ? PURPLE : "#9CA3AF"} />
+              {isOrders && unreadCount > 0 ? (
+                <View style={styles.badge}>
+                  <ThemedText style={styles.badgeText}>{unreadCount > 9 ? "9+" : String(unreadCount)}</ThemedText>
+                </View>
+              ) : null}
             </View>
             <ThemedText style={[styles.tabLabel, { color: isFocused ? PURPLE : "#9CA3AF" }]}>
               {config.label}
@@ -96,8 +106,8 @@ function VendorTabs() {
       <Tab.Screen name="VendorHome"          component={VendorHomeScreen}        options={{ headerTitle: "لوحة التحكم" }} />
       <Tab.Screen name="VendorOrdersTab"     component={VendorOrdersScreen}      options={{ headerTitle: "الطلبات" }} />
       <Tab.Screen name="VendorProductsTab"   component={ProductsStackNavigator}  options={{ headerShown: false }} />
-      <Tab.Screen name="VendorWalletTab"     component={VendorWalletScreen}      options={{ headerTitle: "المحفظة" }} />
-      <Tab.Screen name="VendorNotifications" component={VendorNotificationsScreen} options={{ headerTitle: "الإشعارات" }} />
+      <Tab.Screen name="VendorWalletTab"     component={VendorWalletScreen}      options={{ headerTitle: "الأرباح" }} />
+      <Tab.Screen name="VendorProfileTab"    component={VendorProfileScreen}     options={{ headerTitle: "الحساب" }} />
     </Tab.Navigator>
   );
 }
@@ -134,9 +144,27 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     justifyContent: "center",
     alignItems: "center",
+    position: "relative",
   },
   tabLabel: {
     fontSize: 11,
     fontFamily: "Cairo_700Bold",
+  },
+  badge: {
+    position: "absolute",
+    top: -2,
+    right: -2,
+    backgroundColor: "#EF4444",
+    borderRadius: 8,
+    minWidth: 16,
+    height: 16,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 3,
+  },
+  badgeText: {
+    fontFamily: "Cairo_700Bold",
+    fontSize: 9,
+    color: "#fff",
   },
 });

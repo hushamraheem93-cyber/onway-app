@@ -6036,6 +6036,8 @@ router.get("/api/vendor/stats", requireVendor, async (req, res) => {
     }
     let totalOrders = 0;
     let pendingOrders = 0;
+    let preparingOrders = 0;
+    let readyOrders = 0;
     let totalRevenue = 0;
     for (const o of ordersMap.values()) {
       const status = o.status || "";
@@ -6056,9 +6058,15 @@ router.get("/api/vendor/stats", requireVendor, async (req, res) => {
       );
       totalOrders += 1;
       if (status === "pending") pendingOrders += 1;
+      if (status === "confirmed" || status === "preparing") preparingOrders += 1;
+      if (status === "ready") readyOrders += 1;
       if (status === "delivered") totalRevenue += subtotal;
     }
-    res.json({ totalOrders, pendingOrders, totalRevenue });
+    const vendorDoc = await db2.collection("vendors").doc(vid).get();
+    const vendorData = vendorDoc.exists ? vendorDoc.data() : {};
+    const rating = vendorData.rating ?? null;
+    const ratingCount = vendorData.ratingCount ?? 0;
+    res.json({ totalOrders, pendingOrders, preparingOrders, readyOrders, totalRevenue, rating, ratingCount });
   } catch (err) {
     console.error("vendor stats:", err);
     res.status(500).json({ error: "\u062D\u062F\u062B \u062E\u0637\u0623 \u0641\u064A \u0627\u0644\u062E\u0627\u062F\u0645" });
