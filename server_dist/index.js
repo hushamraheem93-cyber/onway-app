@@ -1625,13 +1625,7 @@ try {
   }
 } catch {
 }
-var defaultVendors = [
-  { id: "v1", name: "\u064A\u0644\u0627 \u0627\u064A\u062A", location: "\u0627\u0644\u0636\u0644\u0648\u0639\u064A\u0629 - \u0634\u0627\u0631\u0639 \u0627\u0644\u062A\u062C\u0627\u0631\u064A", whatsappNumber: "9647701234001", commissionPercent: 10, image: "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=400", rating: 4.8, deliveryTime: "25-35", isOpen: true, createdAt: (/* @__PURE__ */ new Date()).toISOString() },
-  { id: "v2", name: "\u0645\u0637\u0639\u0645 \u0627\u0644\u0645\u0634\u0648\u064A\u0627\u062A", location: "\u0627\u0644\u0636\u0644\u0648\u0639\u064A\u0629 - \u0627\u0644\u0633\u0648\u0642 \u0627\u0644\u0645\u0631\u0643\u0632\u064A", whatsappNumber: "9647701234002", commissionPercent: 12, image: "https://images.unsplash.com/photo-1544025162-d76694265947?w=400", rating: 4.6, deliveryTime: "30-45", isOpen: true, createdAt: (/* @__PURE__ */ new Date()).toISOString() },
-  { id: "v3", name: "\u0645\u0637\u0639\u0645 \u0627\u0644\u0623\u0633\u0645\u0627\u0643", location: "\u0627\u0644\u0636\u0644\u0648\u0639\u064A\u0629 - \u0642\u0631\u0628 \u0627\u0644\u0646\u0647\u0631", whatsappNumber: "9647701234003", commissionPercent: 10, image: "https://images.unsplash.com/photo-1519708227418-c8fd9a32b7a2?w=400", rating: 4.5, deliveryTime: "35-50", isOpen: false, createdAt: (/* @__PURE__ */ new Date()).toISOString() },
-  { id: "v4", name: "\u0645\u0637\u0639\u0645 \u0627\u0644\u062F\u062C\u0627\u062C", location: "\u0627\u0644\u0636\u0644\u0648\u0639\u064A\u0629 - \u0627\u0644\u062D\u064A \u0627\u0644\u0634\u0645\u0627\u0644\u064A", whatsappNumber: "9647701234004", commissionPercent: 10, image: "https://images.unsplash.com/photo-1598103442097-8b74394b95c6?w=400", rating: 4.4, deliveryTime: "20-30", isOpen: true, createdAt: (/* @__PURE__ */ new Date()).toISOString() },
-  { id: "v5", name: "\u0645\u0637\u0639\u0645 \u0627\u0644\u0644\u062D\u0648\u0645", location: "\u0627\u0644\u0636\u0644\u0648\u0639\u064A\u0629 - \u0642\u0631\u0628 \u0627\u0644\u062C\u0627\u0645\u0639 \u0627\u0644\u0643\u0628\u064A\u0631", whatsappNumber: "9647701234005", commissionPercent: 12, image: "https://images.unsplash.com/photo-1600891964092-4316c288032e?w=400", rating: 4.7, deliveryTime: "30-40", isOpen: true, createdAt: (/* @__PURE__ */ new Date()).toISOString() }
-];
+var defaultVendors = [];
 var vendorsCache = null;
 var userProfiles = [];
 var deliveryAreas = [

@@ -143,13 +143,7 @@ interface Vendor {
   sortOrder?: number;
 }
 
-const defaultVendors: Vendor[] = [
-  { id: "v1", name: "يلا ايت", location: "الضلوعية - شارع التجاري", whatsappNumber: "9647701234001", commissionPercent: 10, image: "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=400", rating: 4.8, deliveryTime: "25-35", isOpen: true, createdAt: new Date().toISOString() },
-  { id: "v2", name: "مطعم المشويات", location: "الضلوعية - السوق المركزي", whatsappNumber: "9647701234002", commissionPercent: 12, image: "https://images.unsplash.com/photo-1544025162-d76694265947?w=400", rating: 4.6, deliveryTime: "30-45", isOpen: true, createdAt: new Date().toISOString() },
-  { id: "v3", name: "مطعم الأسماك", location: "الضلوعية - قرب النهر", whatsappNumber: "9647701234003", commissionPercent: 10, image: "https://images.unsplash.com/photo-1519708227418-c8fd9a32b7a2?w=400", rating: 4.5, deliveryTime: "35-50", isOpen: false, createdAt: new Date().toISOString() },
-  { id: "v4", name: "مطعم الدجاج", location: "الضلوعية - الحي الشمالي", whatsappNumber: "9647701234004", commissionPercent: 10, image: "https://images.unsplash.com/photo-1598103442097-8b74394b95c6?w=400", rating: 4.4, deliveryTime: "20-30", isOpen: true, createdAt: new Date().toISOString() },
-  { id: "v5", name: "مطعم اللحوم", location: "الضلوعية - قرب الجامع الكبير", whatsappNumber: "9647701234005", commissionPercent: 12, image: "https://images.unsplash.com/photo-1600891964092-4316c288032e?w=400", rating: 4.7, deliveryTime: "30-40", isOpen: true, createdAt: new Date().toISOString() },
-];
+const defaultVendors: Vendor[] = [];
 
 let vendorsCache: Vendor[] | null = null;
 
