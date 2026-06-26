@@ -50,6 +50,9 @@ module.exports = {
     },
     extra: {
       supportsRTL: true,
+      eas: {
+        projectId: "31018b2b-d742-4f09-8d17-48d00575216c",
+      },
     },
   },
 };
