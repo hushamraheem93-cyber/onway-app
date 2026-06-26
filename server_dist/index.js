@@ -75,6 +75,8 @@ async function createUser(userData) {
     if (userData.profileImage) {
       userDoc.profileImage = userData.profileImage;
     }
+    if (userData.latitude !== void 0) userDoc.latitude = userData.latitude;
+    if (userData.longitude !== void 0) userDoc.longitude = userData.longitude;
     const docRef = await db.collection("users").add(userDoc);
     console.log("User created successfully with id:", docRef.id);
     return { id: docRef.id, ...userDoc };
@@ -101,6 +103,8 @@ async function updateUser(phoneNumber, updates) {
     if (updates.address !== void 0) updateData.address = updates.address;
     if (updates.profileImage !== void 0) updateData.profileImage = updates.profileImage;
     if (updates.pushToken !== void 0) updateData.pushToken = updates.pushToken;
+    if (updates.latitude !== void 0) updateData.latitude = updates.latitude;
+    if (updates.longitude !== void 0) updateData.longitude = updates.longitude;
     await doc.ref.update(updateData);
     const updatedDoc = await doc.ref.get();
     return { id: updatedDoc.id, ...updatedDoc.data() };
@@ -3540,7 +3544,7 @@ ${itemsList}
     res.json({ ...user, profileComplete: true });
   });
   app2.post("/api/users", async (req, res) => {
-    const { phoneNumber, fullName, gender, region, address, profileImage } = req.body;
+    const { phoneNumber, fullName, gender, region, address, profileImage, latitude, longitude } = req.body;
     if (!phoneNumber || !fullName || !gender || !region || !address) {
       return res.status(400).json({ error: "All fields are required" });
     }
@@ -3550,6 +3554,8 @@ ${itemsList}
       if (existingUser) {
         const updates = { fullName, gender, region, address };
         if (profileImage) updates.profileImage = profileImage;
+        if (latitude !== void 0) updates.latitude = latitude;
+        if (longitude !== void 0) updates.longitude = longitude;
         const updatedUser = await updateUser(phoneNumber, updates);
         if (updatedUser) {
           return res.json({
@@ -3572,7 +3578,9 @@ ${itemsList}
           gender,
           region,
           address,
-          profileImage
+          profileImage,
+          ...latitude !== void 0 && { latitude },
+          ...longitude !== void 0 && { longitude }
         });
         if (newUser) {
           return res.json({

@@ -19,6 +19,8 @@ export interface UserProfile {
   profileImage?: string;
   profileComplete: boolean;
   userType?: UserType;
+  latitude?: number;
+  longitude?: number;
 }
 
 export interface VendorProfile {
@@ -524,6 +526,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         gender: profile.gender,
         region: profile.region,
         address: profile.address,
+        ...(profile.latitude !== undefined && { latitude: profile.latitude }),
+        ...(profile.longitude !== undefined && { longitude: profile.longitude }),
         ...(profileImageBase64 && { profileImage: profileImageBase64 }),
       };
 

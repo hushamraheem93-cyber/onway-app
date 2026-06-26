@@ -72,6 +72,8 @@ export async function createUser(userData: {
   region: string;
   address: string;
   profileImage?: string;
+  latitude?: number;
+  longitude?: number;
 }): Promise<(FirestoreUserProfile & { id: string }) | null> {
   if (!db) {
     console.error("Firestore db is null in createUser");
@@ -94,6 +96,8 @@ export async function createUser(userData: {
     if (userData.profileImage) {
       userDoc.profileImage = userData.profileImage;
     }
+    if (userData.latitude !== undefined) userDoc.latitude = userData.latitude;
+    if (userData.longitude !== undefined) userDoc.longitude = userData.longitude;
     
     const docRef = await db.collection("users").add(userDoc);
     console.log("User created successfully with id:", docRef.id);
@@ -113,6 +117,8 @@ export async function updateUser(
     address: string;
     profileImage: string;
     pushToken: string;
+    latitude: number;
+    longitude: number;
   }>
 ): Promise<(FirestoreUserProfile & { id: string }) | null> {
   if (!db) return null;
@@ -136,6 +142,8 @@ export async function updateUser(
     if (updates.address !== undefined) updateData.address = updates.address;
     if (updates.profileImage !== undefined) updateData.profileImage = updates.profileImage;
     if (updates.pushToken !== undefined) updateData.pushToken = updates.pushToken;
+    if (updates.latitude !== undefined) updateData.latitude = updates.latitude;
+    if (updates.longitude !== undefined) updateData.longitude = updates.longitude;
     
     await doc.ref.update(updateData);
     

@@ -2314,7 +2314,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.post("/api/users", async (req: Request, res: Response) => {
-    const { phoneNumber, fullName, gender, region, address, profileImage } = req.body;
+    const { phoneNumber, fullName, gender, region, address, profileImage, latitude, longitude } = req.body;
     
     if (!phoneNumber || !fullName || !gender || !region || !address) {
       return res.status(400).json({ error: "All fields are required" });
@@ -2328,6 +2328,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (existingUser) {
         const updates: any = { fullName, gender, region, address };
         if (profileImage) updates.profileImage = profileImage;
+        if (latitude !== undefined) updates.latitude = latitude;
+        if (longitude !== undefined) updates.longitude = longitude;
         
         const updatedUser = await updateUser(phoneNumber, updates);
         if (updatedUser) {
@@ -2352,6 +2354,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           region,
           address,
           profileImage,
+          ...(latitude !== undefined && { latitude }),
+          ...(longitude !== undefined && { longitude }),
         });
         
         if (newUser) {

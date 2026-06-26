@@ -180,6 +180,14 @@ export default function RootStackNavigator() {
           component={ProfileCompletionScreen}
           options={{ headerShown: false }}
         />
+        <Stack.Screen
+          name="MapPicker"
+          component={MapPickerScreen}
+          options={{
+            headerTitle: "تحديد الموقع",
+            presentation: "modal",
+          }}
+        />
       </Stack.Navigator>
     );
   }
