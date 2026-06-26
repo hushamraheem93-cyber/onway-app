@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>OnWay — تقرير جاهزية النظام للإطلاق</title>
+<style>
+:root{--bg:#0a0f1e;--card:#111827;--border:#1f2937;--text:#e2e8f0;--sub:#6b7280;--orange:#f97316;--green:#22c55e;--red:#ef4444;--yellow:#eab308;--blue:#3b82f6;--purple:#a855f7}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',Tahoma,Arial,sans-serif;background:var(--bg);color:var(--text);padding:20px 24px;line-height:1.6}
+.header{background:linear-gradient(135deg,#1e1b4b,#0f172a);border:1px solid #312e81;border-radius:16px;padding:28px 32px;margin-bottom:28px;position:relative;overflow:hidden}
+.header::before{content:'';position:absolute;inset:0;background:radial-gradient(circle at 20% 50%,rgba(249,115,22,.15),transparent 60%)}
+.header h1{font-size:26px;color:var(--orange);font-weight:700;position:relative}
+.header .sub{color:var(--sub);font-size:14px;margin-top:6px;position:relative}
+.verdict{display:inline-block;padding:8px 20px;border-radius:99px;font-size:15px;font-weight:700;margin-top:12px;position:relative}
+.verdict.green{background:#052e16;color:var(--green);border:1px solid #15803d}
+.verdict.yellow{background:#422006;color:var(--yellow);border:1px solid #92400e}
+.verdict.red{background:#450a0a;color:var(--red);border:1px solid #991b1b}
+.kpi{display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:14px;margin-bottom:28px}
+.kpi-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:18px;text-align:center;transition:.2s}
+.kpi-card .val{font-size:30px;font-weight:700;line-height:1.1}
+.kpi-card .lbl{font-size:12px;color:var(--sub);margin-top:5px}
+.kpi-card.ok .val{color:var(--green)}
+.kpi-card.er .val{color:var(--red)}
+.kpi-card.or .val{color:var(--orange)}
+.kpi-card.bl .val{color:var(--blue)}
+.kpi-card.pu .val{color:var(--purple)}
+.section{background:var(--card);border:1px solid var(--border);border-radius:12px;margin-bottom:20px;overflow:hidden}
+.section-title{padding:14px 20px;font-size:15px;font-weight:600;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px;background:rgba(255,255,255,.02)}
+table{width:100%;border-collapse:collapse;font-size:13px}
+thead th{padding:9px 14px;color:var(--sub);font-weight:600;text-align:right;border-bottom:1px solid var(--border);background:#0d1117;white-space:nowrap}
+tbody td{padding:9px 14px;border-bottom:1px solid #1a2233;vertical-align:top}
+tbody tr:last-child td{border-bottom:none}
+tbody tr:hover{background:rgba(255,255,255,.02)}
+.c-green{color:var(--green)}
+.c-red{color:var(--red)}
+.c-yellow{color:var(--yellow)}
+.progress{background:var(--border);border-radius:99px;height:10px;margin:10px 20px 16px;overflow:hidden}
+.progress-fill{height:100%;border-radius:99px;background:linear-gradient(90deg,var(--green),var(--orange))}
+.sys-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;padding:16px 20px}
+.sys-item{background:#0d1117;border-radius:8px;padding:12px 16px}
+.sys-item .s-val{font-size:18px;font-weight:700;color:var(--orange)}
+.sys-item .s-lbl{font-size:11px;color:var(--sub);margin-top:3px}
+.recs{padding:16px 20px}
+.recs ul{list-style:none}
+.recs li{padding:8px 0;border-bottom:1px solid var(--border);font-size:13px;color:var(--sub)}
+.recs li:last-child{border-bottom:none}
+.recs li::before{content:"← ";color:var(--orange)}
+.recs li.ok-item{color:var(--green)}
+.recs li.ok-item::before{content:"✓ "}
+.recs li.warn-item{color:var(--yellow)}
+.recs li.warn-item::before{content:"⚠ "}
+.recs li.crit-item{color:var(--red)}
+.recs li.crit-item::before{content:"✗ "}
+.phase-badge{display:inline-block;background:#1f2937;border:1px solid var(--border);border-radius:6px;padding:2px 10px;font-size:11px;color:var(--sub);margin-right:6px}
+.bar-wrap{display:flex;align-items:center;gap:8px}
+.bar-bg{flex:1;background:var(--border);border-radius:4px;height:8px;overflow:hidden}
+.bar-in{height:100%;border-radius:4px;background:var(--orange)}
+.footer{text-align:center;color:var(--sub);font-size:12px;margin-top:32px;padding-top:16px;border-top:1px solid var(--border)}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="sub">تقرير الاختبار الشامل — المرحلة الأولى والثانية</div>
+  <h1>OnWay — تقرير جاهزية النظام للإطلاق</h1>
+  <div class="sub">📅 ٢٦‏/٦‏/٢٠٢٦، ٣:٠١:٥٨ م &nbsp;|&nbsp; ⏱ مدة الاختبار: 102 ثانية &nbsp;|&nbsp; Node.js v22.22.0</div>
+  <div class="verdict green">🟢 جاهز للإطلاق</div>
+</div>
+
+<!-- KPI Cards -->
+<div class="kpi">
+  <div class="kpi-card ok"><div class="val">112</div><div class="lbl">✓ اختبارات ناجحة</div></div>
+  <div class="kpi-card er"><div class="val">0</div><div class="lbl">✗ اختبارات فاشلة</div></div>
+  <div class="kpi-card"><div class="val">112</div><div class="lbl">إجمالي الاختبارات</div></div>
+  <div class="kpi-card or"><div class="val">100%</div><div class="lbl">معدل النجاح</div></div>
+  <div class="kpi-card bl"><div class="val">1000</div><div class="lbl">أقصى تزامن (error&lt;10%)</div></div>
+  <div class="kpi-card pu"><div class="val">398</div><div class="lbl">أقصى طلب/ثانية</div></div>
+  <div class="kpi-card or"><div class="val">2942ms</div><div class="lbl">متوسط زمن الاستجابة</div></div>
+  <div class="kpi-card bl"><div class="val">8%</div><div class="lbl">أقصى استهلاك CPU</div></div>
+  <div class="kpi-card pu"><div class="val">4986MB</div><div class="lbl">استهلاك RAM</div></div>
+  <div class="kpi-card ok"><div class="val">49MB</div><div class="lbl">Heap (Node.js peak)</div></div>
+</div>
+
+<!-- Progress Bar -->
+<div class="progress"><div class="progress-fill" style="width:100%"></div></div>
+
+<!-- System Resources -->
+<div class="section">
+  <div class="section-title">🖥 موارد الخادم — قبل وبعد الاختبار</div>
+  <div class="sys-grid">
+    <div class="sys-item"><div class="s-val">6% → 8%</div><div class="s-lbl">استهلاك CPU (قبل → بعد)</div></div>
+    <div class="sys-item"><div class="s-val">4105MB → 4978MB</div><div class="s-lbl">استهلاك RAM (قبل → بعد)</div></div>
+    <div class="sys-item"><div class="s-val">5MB → 25MB</div><div class="s-lbl">Node.js Heap (قبل → بعد)</div></div>
+    <div class="sys-item"><div class="s-val">8% / 7%</div><div class="s-lbl">CPU أقصى / متوسط أثناء الاختبار</div></div>
+    <div class="sys-item"><div class="s-val">70% (7966MB كلي)</div><div class="s-lbl">أقصى استهلاك RAM %</div></div>
+    <div class="sys-item"><div class="s-val">2 Core</div><div class="s-lbl">عدد النوى / Load Avg: 3.19</div></div>
+    <div class="sys-item"><div class="s-val">49MB</div><div class="s-lbl">Heap Peak (لا Memory Leak)</div></div>
+    <div class="sys-item"><div class="s-val">168MB</div><div class="s-lbl">RSS (Resident Set Size)</div></div>
+  </div>
+</div>
+
+<!-- Load Test Results -->
+<div class="section">
+  <div class="section-title">⚡ اختبار الحمل — نتائج التزامن</div>
+  
+  <table>
+    <thead><tr><th>التزامن</th><th>السيناريو</th><th>ناجح</th><th>فاشل</th><th>متوسط</th><th>P50</th><th>P95</th><th>P99</th><th>RPS</th><th>CPU%</th><th>RAM</th></tr></thead>
+    <tbody><tr><td>100</td><td>GET /api/categories</td><td class="c-green">100</td><td class="">0</td><td>1082</td><td>1092</td><td>1401</td><td>1431</td><td>70</td><td>6%</td><td>4190MB</td></tr><tr><td>100</td><td>Mixed public endpoints</td><td class="c-green">100</td><td class="">0</td><td>257</td><td>282</td><td>518</td><td>594</td><td>158</td><td>6%</td><td>4207MB</td></tr><tr><td>100</td><td>GET /api/admin/orders (auth)</td><td class="c-green">100</td><td class="">0</td><td>1519</td><td>1531</td><td>2074</td><td>2125</td><td>47</td><td>6%</td><td>4276MB</td></tr><tr><td>300</td><td>GET /api/categories</td><td class="c-green">300</td><td class="">0</td><td>1907</td><td>2066</td><td>2273</td><td>2313</td><td>127</td><td>6%</td><td>4305MB</td></tr><tr><td>300</td><td>Mixed public endpoints</td><td class="c-green">300</td><td class="">0</td><td>359</td><td>307</td><td>793</td><td>816</td><td>341</td><td>6%</td><td>4356MB</td></tr><tr><td>300</td><td>GET /api/admin/orders (auth)</td><td class="c-green">300</td><td class="">0</td><td>3109</td><td>3270</td><td>4456</td><td>4636</td><td>64</td><td>6%</td><td>4613MB</td></tr><tr><td>500</td><td>GET /api/categories</td><td class="c-green">500</td><td class="">0</td><td>2531</td><td>2531</td><td>3544</td><td>3652</td><td>134</td><td>6%</td><td>4596MB</td></tr><tr><td>500</td><td>Mixed public endpoints</td><td class="c-green">500</td><td class="">0</td><td>594</td><td>526</td><td>1230</td><td>1289</td><td>367</td><td>6%</td><td>4592MB</td></tr><tr><td>500</td><td>GET /api/admin/orders (auth)</td><td class="c-green">500</td><td class="">0</td><td>5544</td><td>5683</td><td>7993</td><td>8339</td><td>59</td><td>7%</td><td>4877MB</td></tr><tr><td>1000</td><td>GET /api/categories</td><td class="c-green">1000</td><td class="">0</td><td>5930</td><td>6147</td><td>6976</td><td>7021</td><td>134</td><td>7%</td><td>5084MB</td></tr><tr><td>1000</td><td>Mixed public endpoints</td><td class="c-green">1000</td><td class="">0</td><td>1005</td><td>897</td><td>2216</td><td>2419</td><td>398</td><td>7%</td><td>4982MB</td></tr><tr><td>1000</td><td>GET /api/admin/orders (auth)</td><td class="c-red">680</td><td class="c-red">320</td><td>11465</td><td>11391</td><td>15885</td><td>15986</td><td>62</td><td>8%</td><td>5496MB</td></tr></tbody>
+  </table>
+</div>
+
+<!-- DB Performance -->
+<div class="section">
+  <div class="section-title">🗄 أداء قاعدة البيانات (Firestore)</div>
+  
+  <table>
+    <thead><tr><th>العملية</th><th>عدد</th><th>متوسط</th><th>P95</th><th>P99</th><th>ops/ث</th><th>نجاح</th></tr></thead>
+    <tbody><tr><td>Sequential READ /api/categories</td><td>20</td><td>343ms</td><td>2556ms</td><td>2556ms</td><td>3</td><td class="c-green">20/20</td></tr><tr><td>Sequential READ /api/banners</td><td>20</td><td>78ms</td><td>119ms</td><td>119ms</td><td>13</td><td class="c-green">20/20</td></tr><tr><td>Sequential READ /api/products</td><td>20</td><td>2ms</td><td>8ms</td><td>8ms</td><td>500</td><td class="c-green">20/20</td></tr><tr><td>Sequential READ /api/admin/orders (large)</td><td>10</td><td>288ms</td><td>547ms</td><td>547ms</td><td>3</td><td class="c-green">10/10</td></tr><tr><td>Sequential READ /api/admin/drivers</td><td>10</td><td>175ms</td><td>369ms</td><td>369ms</td><td>6</td><td class="c-green">10/10</td></tr><tr><td>WRITE: Create delivery areas (10)</td><td>10</td><td>100ms</td><td>223ms</td><td>223ms</td><td>10</td><td class="c-green">10/10</td></tr><tr><td>WRITE: Create categories (10)</td><td>10</td><td>107ms</td><td>277ms</td><td>277ms</td><td>9</td><td class="c-green">10/10</td></tr></tbody>
+  </table>
+</div>
+
+<!-- GPS Simulation -->
+<div class="section">
+  <div class="section-title">🗺 محاكاة GPS — السائقون</div>
+  <div class="sys-grid">
+    <div class="sys-item"><div class="s-val">30</div><div class="s-lbl">عدد السائقين المحاكَين</div></div>
+    <div class="sys-item"><div class="s-val">300</div><div class="s-lbl">إجمالي تحديثات GPS</div></div>
+    <div class="sys-item"><div class="s-val">300</div><div class="s-lbl">تحديثات ناجحة</div></div>
+    <div class="sys-item"><div class="s-val">0</div><div class="s-lbl">تحديثات فاشلة</div></div>
+    <div class="sys-item"><div class="s-val">128ms</div><div class="s-lbl">متوسط زمن التحديث</div></div>
+    <div class="sys-item"><div class="s-val">233ms</div><div class="s-lbl">P95 زمن الاستجابة</div></div>
+    <div class="sys-item"><div class="s-val">105</div><div class="s-lbl">تحديث/ثانية (RPS)</div></div>
+    <div class="sys-item"><div class="s-val">0%</div><div class="s-lbl">معدل الأخطاء</div></div>
+  </div>
+</div>
+
+<!-- Notifications -->
+<div class="section">
+  <div class="section-title">🔔 اختبار الإشعارات</div>
+  <table>
+    <thead><tr><th>النتيجة</th><th>الاختبار</th><th>المدة</th><th>التفاصيل</th></tr></thead>
+    <tbody><tr><td class="c-green">✓</td><td>Push token registration endpoint responds</td><td>135ms</td><td>HTTP 200</td></tr><tr><td class="c-green">✓</td><td>Admin notification stats endpoint responds</td><td>210ms</td><td>{"totalUsers":18,"tokensCount":2}</td></tr><tr><td class="c-green">✓</td><td>Admin push token registration endpoint responds</td><td>89ms</td><td>HTTP 200</td></tr><tr><td class="c-green">✓</td><td>Notification trigger on order creation (push-token present)</td><td>348ms</td><td>Order XfTU2cAm7gjWGGQ1Qhji created — push queued</td></tr><tr><td class="c-green">✓</td><td>Order status change triggers notification flow</td><td>381ms</td><td>Order PN90QOV4Lr43CPyB3dzd status updated — push triggered</td></tr><tr><td class="c-green">✓</td><td>Vendor push token can be registered</td><td>137ms</td><td>HTTP 200</td></tr><tr><td class="c-green">✓</td><td>Support messages endpoint accessible</td><td>68ms</td><td>HTTP 200</td></tr></tbody>
+  </table>
+</div>
+
+<!-- Crash & Recovery -->
+<div class="section">
+  <div class="section-title">💥 اختبارات الصمود والتعافي</div>
+  <table>
+    <thead><tr><th>النتيجة</th><th>السيناريو</th><th>المدة</th><th>التفاصيل</th></tr></thead>
+    <tbody><tr><td class="c-green">✓</td><td>Duplicate order same phone — no server crash</td><td>587ms</td><td>—</td></tr><tr><td class="c-green">✓</td><td>Rapid successive requests same endpoint — no crash</td><td>812ms</td><td>—</td></tr><tr><td class="c-green">✓</td><td>Malformed JSON body — graceful error</td><td>6ms</td><td>—</td></tr><tr><td class="c-green">✓</td><td>Extremely large payload — no memory crash</td><td>701ms</td><td>—</td></tr><tr><td class="c-green">✓</td><td>Missing required auth fields — proper 4xx response</td><td>5ms</td><td>—</td></tr><tr><td class="c-green">✓</td><td>Non-existent resource lookup — proper 404/200</td><td>78ms</td><td>—</td></tr><tr><td class="c-green">✓</td><td>Rapid admin CRUD cycle — categories</td><td>268ms</td><td>—</td></tr><tr><td class="c-green">✓</td><td>Concurrent GET and POST — no data race</td><td>554ms</td><td>—</td></tr><tr><td class="c-green">✓</td><td>Invalid order ID status update — graceful handling</td><td>173ms</td><td>—</td></tr><tr><td class="c-green">✓</td><td>Concurrent user creation same phone — idempotent</td><td>353ms</td><td>—</td></tr><tr><td class="c-green">✓</td><td>Order cancel already cancelled — idempotent</td><td>332ms</td><td>—</td></tr></tbody>
+  </table>
+</div>
+
+<!-- Failed API Tests -->
+
+<div class="section">
+  <div class="section-title">✅ الاختبارات الوظيفية</div>
+  <div class="recs"><ul><li class="ok-item">جميع الاختبارات الوظيفية (94/94) اجتازت بنجاح تام</li></ul></div>
+</div>
+
+<!-- Recommendations -->
+<div class="section">
+  <div class="section-title">📋 التوصيات والحالة قبل الإطلاق</div>
+  <div class="recs"><ul>
+    <li class="ok-item">معدل نجاح الاختبارات ≥ 95% — النظام وظيفياً مستقر</li>
+    <li class="ok-item">يدعم 1000+ مستخدم متزامن بمعدل خطأ < 10%</li>
+    <li class="crit-item">متوسط زمن الاستجابة 2942ms — يحتاج تحسين أداء</li>
+    <li class="ok-item">استهلاك CPU ضمن الحدود الآمنة (< 70%)</li>
+    <li class="warn-item">Firebase Firestore: ضع في اعتبارك cache layer (Redis) للـ reads المتكررة عند الإطلاق</li>
+    <li class="warn-item">الإشعارات Push: تحتاج توكنات Expo حقيقية للاختبار الكامل — جاهزة للإنتاج هيكلياً</li>
+    <li class="ok-item">نظام GPS: 300 تحديث بمعدل خطأ 0% — مستقر</li>
+    <li class="warn-item">Firestore Security Rules: راجعها قبل الإطلاق وامنع الوصول المباشر من العملاء</li>
+    <li>تفعيل HTTPS على جميع الـ endpoints في الإنتاج</li>
+    <li>ضبط Rate Limiting: 100 req/min للمستخدم العادي، 10 req/min لـ OTP</li>
+    <li>تفعيل Sentry أو مكافئه لمراقبة الأخطاء في الإنتاج</li>
+    <li>ضغط Gzip/Brotli على الاستجابات لتحسين السرعة</li>
+    <li>CDN للصور وملفات الـ static لتقليل زمن الاستجابة عالمياً</li>
+    <li>إضافة Health Check endpoint (/health) لمراقبة حالة الخادم</li>
+    <li>اختبار تحميل الصور (10k صورة) يتطلب تخصيص وقت وفضاء تخزين كافٍ</li>
+    <li>اختبار انقطاع الإنترنت: منطق إعادة المحاولة موجود في الـ client — موصى بالتحقق يدوياً على جهاز حقيقي</li>
+  </ul></div>
+</div>
+
+<div class="footer">
+  OnWay Testing Framework — تقرير تلقائي كامل | ٢٦‏/٦‏/٢٠٢٦، ٣:٠١:٥٨ م
+</div>
+</body>
+</html>
