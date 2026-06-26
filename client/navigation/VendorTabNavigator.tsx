@@ -104,7 +104,7 @@ function VendorTabs() {
       tabBar={(props) => <VendorTabBar {...props} />}
       screenOptions={tabScreenOptions}
     >
-      <Tab.Screen name="VendorHome" component={VendorHomeScreen} options={{ headerTitle: () => <Image source={require("../assets/images/onway-header-logo-transparent.png")} style={{ width: 90, height: 30 }} contentFit="contain" /> }} />
+      <Tab.Screen name="VendorHome" component={VendorHomeScreen} options={{ headerTitle: () => <Image source={require("../assets/images/onway-header-logo-transparent.png")} style={{ width: 130, height: 50 }} contentFit="contain" /> }} />
       <Tab.Screen name="VendorOrdersTab"     component={VendorOrdersScreen}      options={{ headerTitle: "الطلبات" }} />
       <Tab.Screen name="VendorProductsTab"   component={ProductsStackNavigator}  options={{ headerShown: false }} />
       <Tab.Screen name="VendorWalletTab"     component={VendorWalletScreen}      options={{ headerTitle: "الأرباح" }} />

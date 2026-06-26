@@ -891,7 +891,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
   },
-  headerLogo: { width: 90, height: 30 },
+  headerLogo: { width: 130, height: 50 },
   onlineDot: { width: 10, height: 10, borderRadius: 5 },
   headerNameWrap: { flexDirection: "row", alignItems: "center", gap: 4, flex: 1, justifyContent: "flex-end" },
   headerName: { color: "rgba(255,255,255,0.85)", maxWidth: 110 },
