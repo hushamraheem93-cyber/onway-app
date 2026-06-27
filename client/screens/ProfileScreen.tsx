@@ -18,13 +18,18 @@ import { GradientBackground } from "@/components/GradientBackground";
 
 interface SettingsItemProps {
   icon: keyof typeof Feather.glyphMap;
+  iconBg?: string;
+  iconColor?: string;
   title: string;
+  titleColor?: string;
   subtitle?: string;
   onPress?: () => void;
 }
 
-function SettingsItem({ icon, title, subtitle, onPress }: SettingsItemProps) {
+function SettingsItem({ icon, iconBg, iconColor, title, titleColor, subtitle, onPress }: SettingsItemProps) {
   const { theme } = useTheme();
+  const resolvedIconBg = iconBg ?? AppColors.primary + "15";
+  const resolvedIconColor = iconColor ?? AppColors.primary;
 
   return (
     <Pressable
@@ -38,11 +43,11 @@ function SettingsItem({ icon, title, subtitle, onPress }: SettingsItemProps) {
         Shadows.sm,
       ]}
     >
-      <View style={[styles.iconContainer, { backgroundColor: AppColors.primary + "15" }]}>
-        <Feather name={icon} size={20} color={AppColors.primary} />
+      <View style={[styles.iconContainer, { backgroundColor: resolvedIconBg }]}>
+        <Feather name={icon} size={20} color={resolvedIconColor} />
       </View>
       <View style={styles.settingsContent}>
-        <ThemedText type="body" style={styles.settingsTitle}>
+        <ThemedText type="body" style={[styles.settingsTitle, titleColor ? { color: titleColor } : null]}>
           {title}
         </ThemedText>
         {subtitle ? (
@@ -51,7 +56,7 @@ function SettingsItem({ icon, title, subtitle, onPress }: SettingsItemProps) {
           </ThemedText>
         ) : null}
       </View>
-      <Feather name="chevron-left" size={20} color={theme.textSecondary} />
+      <Feather name="chevron-left" size={20} color={titleColor ?? theme.textSecondary} />
     </Pressable>
   );
 }
@@ -98,6 +103,7 @@ export default function ProfileScreen() {
           paddingHorizontal: Spacing.lg,
         }}
       >
+        {/* بطاقة الملف الشخصي */}
         <View style={[styles.profileCard, { backgroundColor: theme.backgroundDefault }, Shadows.md]}>
           <Pressable
             style={styles.editButton}
@@ -132,10 +138,8 @@ export default function ProfileScreen() {
           ) : null}
         </View>
 
-        <ThemedText type="h4" style={styles.sectionTitle}>
-          طلباتي
-        </ThemedText>
-
+        {/* قسم: طلباتي */}
+        <ThemedText type="h4" style={styles.sectionTitle}>طلباتي</ThemedText>
         <SettingsItem
           icon="package"
           title="طلباتي"
@@ -143,10 +147,8 @@ export default function ProfileScreen() {
           onPress={() => navigation.navigate("Orders")}
         />
 
-        <ThemedText type="h4" style={styles.sectionTitle}>
-          الإعدادات
-        </ThemedText>
-
+        {/* قسم: الإعدادات */}
+        <ThemedText type="h4" style={styles.sectionTitle}>الإعدادات</ThemedText>
         <SettingsItem
           icon="bell"
           title="الإشعارات"
@@ -165,10 +167,8 @@ export default function ProfileScreen() {
           subtitle="العربية"
         />
 
-        <ThemedText type="h4" style={styles.sectionTitle}>
-          المساعدة
-        </ThemedText>
-
+        {/* قسم: المساعدة */}
+        <ThemedText type="h4" style={styles.sectionTitle}>المساعدة</ThemedText>
         <SettingsItem
           icon="message-circle"
           title="تواصل مع الدعم"
@@ -176,58 +176,38 @@ export default function ProfileScreen() {
           onPress={() => (navigation as any).navigate("SupportChat")}
         />
         <SettingsItem
-          icon="help-circle"
-          title="الأسئلة الشائعة"
-          onPress={() => navigation.navigate("FAQ")}
+          icon="life-buoy"
+          title="مركز المساعدة"
+          subtitle="الأسئلة الشائعة، الشروط، الخصوصية"
+          onPress={() => navigation.navigate("HelpCenter")}
         />
         <SettingsItem
-          icon="message-circle"
-          title="من نحن"
-          subtitle="تعرف علينا وتواصل معنا"
+          icon="info"
+          title="حول OnWay"
+          subtitle="معلومات التطبيق والتواصل"
           onPress={() => navigation.navigate("About")}
         />
-        <SettingsItem
-          icon="file-text"
-          title="الشروط والأحكام"
-          onPress={() => navigation.navigate("Terms")}
-        />
-        <SettingsItem
-          icon="shield"
-          title="سياسة الخصوصية"
-          onPress={() => navigation.navigate("Policy")}
-        />
+
+        {/* قسم: الحساب */}
+        <ThemedText type="h4" style={styles.sectionTitle}>الحساب</ThemedText>
         <SettingsItem
           icon="log-out"
           title="تسجيل الخروج"
           onPress={handleLogout}
         />
-
-        <Pressable
-          testID="button-delete-account"
+        <SettingsItem
+          icon="trash-2"
+          iconBg="#FEE2E2"
+          iconColor="#EF4444"
+          title="حذف الحساب"
+          titleColor="#EF4444"
           onPress={() => {
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
             setShowDeleteModal(true);
           }}
-          style={({ pressed }) => [
-            styles.settingsItem,
-            styles.deleteItem,
-            { opacity: pressed ? 0.7 : 1 },
-          ]}
-        >
-          <View style={[styles.iconContainer, { backgroundColor: "#FEE2E2" }]}>
-            <Feather name="trash-2" size={20} color="#EF4444" />
-          </View>
-          <View style={styles.settingsContent}>
-            <ThemedText type="body" style={[styles.settingsTitle, { color: "#EF4444" }]}>
-              مسح حسابي
-            </ThemedText>
-            <ThemedText type="small" style={[styles.settingsSubtitle, { color: "#F87171" }]}>
-              حذف الحساب وجميع البيانات نهائياً
-            </ThemedText>
-          </View>
-          <Feather name="chevron-left" size={20} color="#F87171" />
-        </Pressable>
+        />
 
+        {/* مودال تأكيد الحذف */}
         <Modal
           visible={showDeleteModal}
           transparent
@@ -286,12 +266,6 @@ export default function ProfileScreen() {
             </View>
           </View>
         </Modal>
-
-        <View style={styles.versionContainer}>
-          <ThemedText type="small" style={{ color: theme.textSecondary, textAlign: "center" }}>
-            الإصدار 1.0.0
-          </ThemedText>
-        </View>
       </KeyboardAwareScrollViewCompat>
     </View>
   );
@@ -386,14 +360,6 @@ const styles = StyleSheet.create({
   settingsSubtitle: {
     textAlign: "right",
     marginTop: Spacing.xs,
-  },
-  versionContainer: {
-    marginTop: Spacing.xl,
-    paddingVertical: Spacing.lg,
-  },
-  deleteItem: {
-    borderWidth: 1,
-    borderColor: "#FECACA",
   },
   modalOverlay: {
     flex: 1,
