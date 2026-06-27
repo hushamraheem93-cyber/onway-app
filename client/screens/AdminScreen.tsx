@@ -30,7 +30,7 @@ import { resolveImageUrl } from "@/utils/imageUtils";
 import { formatPrice } from "@/constants/currency";
 import { compressAndConvertToBase64, processAndUploadImage, isBase64Image, ImageSize } from "@/lib/imageUtils";
 
-type TabType = "dashboard" | "orders" | "drivers" | "users" | "banners" | "categories" | "products" | "areas" | "promoCodes" | "notifications" | "vendors";
+type TabType = "dashboard" | "orders" | "drivers" | "users" | "banners" | "categories" | "products" | "areas" | "promoCodes" | "notifications" | "vendors" | "settings";
 
 interface AdminUser {
   id: string;
@@ -192,6 +192,9 @@ export default function AdminScreen() {
 
   const [usersSearch, setUsersSearch] = useState("");
 
+  const [serviceFeeInput, setServiceFeeInput] = useState("");
+  const [isSavingFee, setIsSavingFee] = useState(false);
+
   // Register admin push token so server can send new-order notifications
   useEffect(() => {
     (async () => {
@@ -277,6 +280,10 @@ export default function AdminScreen() {
       if (!res.ok) throw new Error("failed");
       return res.json();
     },
+  });
+
+  const { data: feesSettings, refetch: refetchFees } = useQuery<{ serviceFee: number }>({
+    queryKey: ["/api/settings/fees"],
   });
 
   const [selectedVendor, setSelectedVendor] = useState<VendorPartner | null>(null);
@@ -2382,6 +2389,97 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
     );
   };
 
+  const renderSettingsTab = () => {
+    const currentFee = feesSettings?.serviceFee ?? 500;
+    const handleSaveFee = async () => {
+      const parsed = parseInt(serviceFeeInput, 10);
+      if (isNaN(parsed) || parsed < 0) {
+        Alert.alert("خطأ", "الرجاء إدخال قيمة صحيحة");
+        return;
+      }
+      setIsSavingFee(true);
+      try {
+        const res = await fetch(`${getApiUrl()}/api/admin/settings/fees`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ serviceFee: parsed }),
+        });
+        if (!res.ok) throw new Error("failed");
+        await refetchFees();
+        queryClient.invalidateQueries({ queryKey: ["/api/settings/fees"] });
+        setServiceFeeInput("");
+        Alert.alert("تم", "تم تحديث رسوم الخدمة بنجاح");
+      } catch {
+        Alert.alert("خطأ", "فشل تحديث رسوم الخدمة");
+      } finally {
+        setIsSavingFee(false);
+      }
+    };
+
+    return (
+      <View style={{ gap: Spacing.lg }}>
+        <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 18, textAlign: "right" }}>إعدادات التطبيق</ThemedText>
+
+        <View style={{ backgroundColor: theme.backgroundSecondary, borderRadius: BorderRadius.lg, padding: Spacing.lg, gap: Spacing.md }}>
+          <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: Spacing.sm }}>
+            <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: "#F59E0B20", alignItems: "center", justifyContent: "center" }}>
+              <Feather name="dollar-sign" size={20} color="#F59E0B" />
+            </View>
+            <View style={{ flex: 1, alignItems: "flex-end" }}>
+              <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 15 }}>رسوم الخدمة</ThemedText>
+              <ThemedText style={{ fontFamily: "Cairo_400Regular", fontSize: 13, color: theme.textSecondary }}>
+                القيمة الحالية: {formatPrice(currentFee)}
+              </ThemedText>
+            </View>
+          </View>
+
+          <View style={{ flexDirection: "row-reverse", gap: Spacing.sm, alignItems: "center" }}>
+            <TextInput
+              style={{
+                flex: 1,
+                borderWidth: 1,
+                borderColor: theme.border,
+                borderRadius: BorderRadius.md,
+                padding: Spacing.md,
+                fontFamily: "Cairo_400Regular",
+                fontSize: 15,
+                color: theme.text,
+                backgroundColor: theme.backgroundDefault,
+                textAlign: "right",
+              }}
+              placeholder="أدخل القيمة الجديدة (دينار)"
+              placeholderTextColor={theme.textSecondary}
+              keyboardType="numeric"
+              value={serviceFeeInput}
+              onChangeText={setServiceFeeInput}
+              testID="input-service-fee"
+            />
+            <Pressable
+              onPress={handleSaveFee}
+              disabled={isSavingFee || serviceFeeInput.trim() === ""}
+              style={{
+                backgroundColor: isSavingFee || serviceFeeInput.trim() === "" ? theme.border : "#F59E0B",
+                borderRadius: BorderRadius.md,
+                paddingHorizontal: Spacing.lg,
+                paddingVertical: Spacing.md,
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+              testID="button-save-service-fee"
+            >
+              {isSavingFee ? (
+                <ActivityIndicator size="small" color="#fff" />
+              ) : (
+                <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 14, color: "#fff" }}>حفظ</ThemedText>
+              )}
+            </Pressable>
+          </View>
+        </View>
+      </View>
+    );
+  };
+
   const renderContent = () => {
     switch (activeTab) {
       case "dashboard": return renderDashboardTab();
@@ -2395,6 +2493,7 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
       case "notifications": return renderNotificationsTab();
       case "users": return renderUsersTab();
       case "vendors": return renderVendorsTab();
+      case "settings": return renderSettingsTab();
     }
   };
 
@@ -2412,6 +2511,7 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
     { key: "promoCodes", label: "الخصومات", icon: "tag" },
     { key: "notifications", label: "الإشعارات", icon: "bell" },
     { key: "vendors", label: "المتاجر", icon: "briefcase", badge: vendorPartners.filter((v) => v.status === "pending").length },
+    { key: "settings", label: "الإعدادات", icon: "settings" },
   ];
 
   return (
