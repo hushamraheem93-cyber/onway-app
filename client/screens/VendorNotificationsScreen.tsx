@@ -7,6 +7,7 @@ import {
   ActivityIndicator,
   RefreshControl,
   ScrollView,
+  Platform,
 } from "react-native";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
@@ -14,6 +15,7 @@ import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
+import * as Notifications from "expo-notifications";
 
 type MCIcon = ComponentProps<typeof MaterialCommunityIcons>["name"];
 
@@ -185,6 +187,9 @@ export default function VendorNotificationsScreen() {
       setNotifications(all);
       const unread = all.filter((n) => n.status === "unread").length;
       setUnreadCount(unread);
+      if (Platform.OS !== "web") {
+        Notifications.setBadgeCountAsync(unread).catch(() => {});
+      }
     } catch {}
   }, [vendorToken, setUnreadCount]);
 
@@ -236,6 +241,9 @@ export default function VendorNotificationsScreen() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setNotifications((prev) => prev.map((n) => ({ ...n, status: "read" as const })));
     setUnreadCount(0);
+    if (Platform.OS !== "web") {
+      Notifications.setBadgeCountAsync(0).catch(() => {});
+    }
     await markRead(unreadIds);
   }, [notifications, markRead, setUnreadCount]);
 
