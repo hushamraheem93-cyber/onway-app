@@ -5353,6 +5353,229 @@ ${itemsList}
       res.status(500).json({ error: "\u062D\u062F\u062B \u062E\u0637\u0623 \u0641\u064A \u0627\u0644\u062E\u0627\u062F\u0645" });
     }
   });
+  app2.get("/api/admin/dashboard-stats", async (_req, res) => {
+    try {
+      const db2 = getFirestore();
+      if (!db2) return res.json({ orders: {}, revenue: {}, users: 0, drivers: {}, vendors: {}, products: 0, topVendors: [] });
+      const now = /* @__PURE__ */ new Date();
+      const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
+      const weekStart = new Date(now.getTime() - 7 * 864e5).toISOString();
+      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+      const [ordersSnap, usersSnap, driversSnap, vendorsSnap, productsSnap] = await Promise.all([
+        db2.collection("orders").orderBy("createdAt", "desc").get(),
+        db2.collection("users").get(),
+        db2.collection("drivers").get(),
+        db2.collection("vendors").get(),
+        db2.collection("products").get()
+      ]);
+      const allOrders = ordersSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      const todayOrders = allOrders.filter((o) => (o.createdAt || "") >= todayStart);
+      const weekOrders = allOrders.filter((o) => (o.createdAt || "") >= weekStart);
+      const monthOrders = allOrders.filter((o) => (o.createdAt || "") >= monthStart);
+      const delivered = allOrders.filter((o) => o.status === "delivered");
+      const active = allOrders.filter((o) => !["delivered", "cancelled"].includes(o.status));
+      const cancelled = allOrders.filter((o) => o.status === "cancelled");
+      const totalRevenue = delivered.reduce((s, o) => s + (o.total || 0) + (o.deliveryFee || 0), 0);
+      const todayRevenue = todayOrders.filter((o) => o.status === "delivered").reduce((s, o) => s + (o.total || 0) + (o.deliveryFee || 0), 0);
+      const vendors = vendorsSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      const restaurants = vendors.filter((v) => v.categoryType === "restaurant" || v.businessType === "restaurant");
+      const stores = vendors.filter((v) => v.categoryType !== "restaurant" && v.businessType !== "restaurant");
+      const onlineDrivers = driversSnap.docs.filter((d) => d.data().isOnline).length;
+      const vendorOrderCount = {};
+      allOrders.forEach((o) => {
+        if (o.vendorId) vendorOrderCount[o.vendorId] = (vendorOrderCount[o.vendorId] || 0) + 1;
+      });
+      const topVendors = Object.entries(vendorOrderCount).sort((a, b) => b[1] - a[1]).slice(0, 5).map(([id, count]) => {
+        const v = vendors.find((x) => x.id === id);
+        return { id, name: v?.name || id, orders: count };
+      });
+      res.json({
+        orders: { total: allOrders.length, today: todayOrders.length, week: weekOrders.length, month: monthOrders.length, active: active.length, delivered: delivered.length, cancelled: cancelled.length },
+        revenue: { total: totalRevenue, today: todayRevenue },
+        users: usersSnap.size,
+        drivers: { total: driversSnap.size, online: onlineDrivers },
+        vendors: { total: vendors.length, restaurants: restaurants.length, stores: stores.length },
+        products: productsSnap.size,
+        topVendors
+      });
+    } catch (err) {
+      res.status(500).json({ error: "\u062D\u062F\u062B \u062E\u0637\u0623" });
+    }
+  });
+  app2.get("/api/admin/operations", async (_req, res) => {
+    try {
+      const db2 = getFirestore();
+      if (!db2) return res.json({ newOrders: 0, preparingOrders: 0, inDelivery: 0, onlineDrivers: 0, activeBatches: 0, lateOrders: 0, issues: 0, recentOrders: [], lateOrdersList: [] });
+      const now = /* @__PURE__ */ new Date();
+      const since = new Date(now.getTime() - 24 * 36e5).toISOString();
+      const [ordersSnap, driversSnap, batchesSnap] = await Promise.all([
+        db2.collection("orders").where("createdAt", ">=", since).orderBy("createdAt", "desc").limit(100).get(),
+        db2.collection("drivers").where("isOnline", "==", true).get(),
+        db2.collection("deliveryBatches").where("status", "==", "in_progress").get()
+      ]);
+      const orders = ordersSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      const newOrders = orders.filter((o) => o.status === "pending").length;
+      const preparingOrders = orders.filter((o) => ["confirmed", "preparing", "ready"].includes(o.status)).length;
+      const inDelivery = orders.filter((o) => ["picked_up", "in_delivery", "delivering"].includes(o.status)).length;
+      const lateOrders = orders.filter((o) => {
+        if (o.status !== "pending" && o.status !== "confirmed") return false;
+        const age = now.getTime() - new Date(o.createdAt).getTime();
+        return age > 30 * 6e4;
+      });
+      const issues = orders.filter((o) => o.status === "issue");
+      res.json({
+        newOrders,
+        preparingOrders,
+        inDelivery,
+        onlineDrivers: driversSnap.size,
+        activeBatches: batchesSnap.size,
+        lateOrders: lateOrders.length,
+        issues: issues.length,
+        recentOrders: orders.slice(0, 20).map((o) => ({
+          id: o.id,
+          status: o.status,
+          phoneNumber: o.phoneNumber,
+          area: o.area || o.region || "",
+          createdAt: o.createdAt,
+          total: (o.total || 0) + (o.deliveryFee || 0)
+        })),
+        lateOrdersList: lateOrders.slice(0, 10).map((o) => ({
+          id: o.id,
+          phoneNumber: o.phoneNumber,
+          createdAt: o.createdAt,
+          area: o.area || o.region || ""
+        }))
+      });
+    } catch (err) {
+      res.status(500).json({ error: "\u062D\u062F\u062B \u062E\u0637\u0623" });
+    }
+  });
+  app2.get("/api/admin/analytics", async (req, res) => {
+    try {
+      const db2 = getFirestore();
+      if (!db2) return res.json({ totalOrders: 0, totalRevenue: 0, avgOrderValue: 0, deliveredRate: 0, newUsers: 0, dailyData: [], topCategories: [] });
+      const days = parseInt(req.query.days || "30", 10);
+      const since = new Date(Date.now() - days * 864e5).toISOString();
+      const [ordersSnap, usersSnap] = await Promise.all([
+        db2.collection("orders").where("createdAt", ">=", since).orderBy("createdAt", "desc").get(),
+        db2.collection("users").where("createdAt", ">=", since).get()
+      ]);
+      const orders = ordersSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      const delivered = orders.filter((o) => o.status === "delivered");
+      const dailyMap = {};
+      orders.forEach((o) => {
+        const day = (o.createdAt || "").substring(0, 10);
+        if (!dailyMap[day]) dailyMap[day] = { date: day, orders: 0, revenue: 0, newUsers: 0 };
+        dailyMap[day].orders++;
+        if (o.status === "delivered") dailyMap[day].revenue += (o.total || 0) + (o.deliveryFee || 0);
+      });
+      usersSnap.docs.forEach((d) => {
+        const day = (d.data().createdAt || "").substring(0, 10);
+        if (dailyMap[day]) dailyMap[day].newUsers++;
+      });
+      const dailyData = Object.values(dailyMap).sort((a, b) => a.date.localeCompare(b.date));
+      const catCount = {};
+      orders.forEach((o) => {
+        (o.items || []).forEach((item) => {
+          const cat = item.categoryId || "\u0623\u062E\u0631\u0649";
+          catCount[cat] = (catCount[cat] || 0) + item.quantity;
+        });
+      });
+      const topCategories = Object.entries(catCount).sort((a, b) => b[1] - a[1]).slice(0, 10).map(([name, count]) => ({ name, count }));
+      const totalRevenue = delivered.reduce((s, o) => s + (o.total || 0) + (o.deliveryFee || 0), 0);
+      const avgOrderValue = delivered.length ? Math.round(totalRevenue / delivered.length) : 0;
+      res.json({
+        period: days,
+        totalOrders: orders.length,
+        totalRevenue,
+        avgOrderValue,
+        deliveredRate: orders.length ? Math.round(delivered.length / orders.length * 100) : 0,
+        newUsers: usersSnap.size,
+        dailyData,
+        topCategories
+      });
+    } catch (err) {
+      res.status(500).json({ error: "\u062D\u062F\u062B \u062E\u0637\u0623" });
+    }
+  });
+  app2.get("/api/admin/zones", async (_req, res) => {
+    try {
+      const db2 = getFirestore();
+      if (!db2) return res.json([]);
+      const snap = await db2.collection("zones").orderBy("order", "asc").get();
+      const zones = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      res.json(zones);
+    } catch {
+      res.status(500).json({ error: "\u062D\u062F\u062B \u062E\u0637\u0623" });
+    }
+  });
+  app2.post("/api/admin/zones", async (req, res) => {
+    try {
+      const db2 = getFirestore();
+      if (!db2) return res.status(500).json({ error: "DB unavailable" });
+      const { name, nameEn, type, parentId, deliveryFee, isActive, order } = req.body;
+      if (!name || !type) return res.status(400).json({ error: "\u0627\u0644\u0627\u0633\u0645 \u0648\u0627\u0644\u0646\u0648\u0639 \u0645\u0637\u0644\u0648\u0628\u0627\u0646" });
+      const ref = await db2.collection("zones").add({
+        name,
+        nameEn: nameEn || "",
+        type,
+        parentId: parentId || null,
+        deliveryFee: Number(deliveryFee) || 0,
+        isActive: isActive !== false,
+        order: Number(order) || 0,
+        createdAt: (/* @__PURE__ */ new Date()).toISOString()
+      });
+      res.json({ id: ref.id, success: true });
+    } catch {
+      res.status(500).json({ error: "\u062D\u062F\u062B \u062E\u0637\u0623" });
+    }
+  });
+  app2.put("/api/admin/zones/:id", async (req, res) => {
+    try {
+      const db2 = getFirestore();
+      if (!db2) return res.status(500).json({ error: "DB unavailable" });
+      const id = req.params["id"];
+      const { name, nameEn, type, parentId, deliveryFee, isActive, order } = req.body;
+      await db2.collection("zones").doc(id).update({
+        name,
+        nameEn: nameEn || "",
+        type,
+        parentId: parentId || null,
+        deliveryFee: Number(deliveryFee) || 0,
+        isActive: isActive !== false,
+        order: Number(order) || 0,
+        updatedAt: (/* @__PURE__ */ new Date()).toISOString()
+      });
+      res.json({ success: true });
+    } catch {
+      res.status(500).json({ error: "\u062D\u062F\u062B \u062E\u0637\u0623" });
+    }
+  });
+  app2.delete("/api/admin/zones/:id", async (req, res) => {
+    try {
+      const db2 = getFirestore();
+      if (!db2) return res.status(500).json({ error: "DB unavailable" });
+      const id = req.params["id"];
+      await db2.collection("zones").doc(id).delete();
+      res.json({ success: true });
+    } catch {
+      res.status(500).json({ error: "\u062D\u062F\u062B \u062E\u0637\u0623" });
+    }
+  });
+  app2.patch("/api/admin/zones/:id/toggle", async (req, res) => {
+    try {
+      const db2 = getFirestore();
+      if (!db2) return res.status(500).json({ error: "DB unavailable" });
+      const id = req.params["id"];
+      const doc = await db2.collection("zones").doc(id).get();
+      if (!doc.exists) return res.status(404).json({ error: "\u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F" });
+      const current = doc.data().isActive;
+      await doc.ref.update({ isActive: !current, updatedAt: (/* @__PURE__ */ new Date()).toISOString() });
+      res.json({ success: true, isActive: !current });
+    } catch {
+      res.status(500).json({ error: "\u062D\u062F\u062B \u062E\u0637\u0623" });
+    }
+  });
   const httpServer = createServer(app2);
   return httpServer;
 }

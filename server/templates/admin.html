@@ -1463,6 +1463,32 @@
       </div>
 
       <div class="nav-section">
+        <div class="nav-section-title">المراقبة والتحليلات</div>
+        <div class="nav-item" onclick="showSection('operationsCenter', this)">
+          <i data-lucide="monitor"></i>
+          <span>مركز العمليات</span>
+          <span class="badge" id="ops-alerts-badge" style="background:#ef4444;display:none;">0</span>
+        </div>
+        <div class="nav-item" onclick="showSection('analytics', this)">
+          <i data-lucide="bar-chart-3"></i>
+          <span>التحليلات</span>
+        </div>
+        <div class="nav-item" onclick="showSection('reports', this)">
+          <i data-lucide="file-text"></i>
+          <span>التقارير والتصدير</span>
+        </div>
+      </div>
+
+      <div class="nav-section">
+        <div class="nav-section-title">إدارة المناطق</div>
+        <div class="nav-item" onclick="showSection('zoneManagement', this)">
+          <i data-lucide="map"></i>
+          <span>المناطق والأقضية</span>
+          <span class="badge" id="zones-count">0</span>
+        </div>
+      </div>
+
+      <div class="nav-section">
         <div class="nav-section-title">التقارير والإعدادات</div>
         <div class="nav-item" id="nav-supportChat" onclick="showSection('supportChat', this)">
           <i class="fas fa-headset"></i>
@@ -1510,31 +1536,75 @@
       </header>
 
       <div class="content">
-        <!-- Quick stats grid -->
-        <div class="stats-grid" style="margin-bottom:24px;">
-          <div class="stat-card" style="cursor:pointer;" onclick="showSection('orders', document.querySelector('.nav-item:nth-child(2)'))">
+        <!-- Quick stats grid — Row 1: Orders & Revenue -->
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:14px;margin-bottom:14px;">
+          <div class="stat-card" style="cursor:pointer;border-right:4px solid #D94523;" onclick="showSection('orders', document.querySelector('.nav-item'))">
             <div class="stat-icon orange"><i data-lucide="shopping-bag"></i></div>
             <div class="stat-info"><h3 id="stat-products">0</h3><p>إجمالي الطلبات</p></div>
           </div>
-          <div class="stat-card" style="cursor:pointer;" onclick="showSection('driverQueue', document.querySelectorAll('.nav-item')[7])">
-            <div class="stat-icon green"><i data-lucide="truck"></i></div>
-            <div class="stat-info"><h3 id="dash-online-drivers">0</h3><p>سائقون متصلون</p></div>
+          <div class="stat-card" style="border-right:4px solid #f59e0b;">
+            <div class="stat-icon" style="background:linear-gradient(135deg,#f59e0b,#d97706);"><i data-lucide="sun" style="width:28px;height:28px;color:#fff;"></i></div>
+            <div class="stat-info"><h3 id="dash-today-orders">0</h3><p>طلبات اليوم</p></div>
           </div>
-          <div class="stat-card">
-            <div class="stat-icon blue"><i data-lucide="clock"></i></div>
-            <div class="stat-info"><h3 id="dash-pending">0</h3><p>قيد الانتظار</p></div>
+          <div class="stat-card" style="border-right:4px solid #3b82f6;">
+            <div class="stat-icon blue"><i data-lucide="calendar-days"></i></div>
+            <div class="stat-info"><h3 id="dash-week-orders">0</h3><p>طلبات الأسبوع</p></div>
           </div>
-          <div class="stat-card">
-            <div class="stat-icon purple"><i data-lucide="banknote"></i></div>
-            <div class="stat-info"><h3 id="dash-revenue" style="font-size:1.1rem;">0</h3><p>إجمالي المبيعات</p></div>
+          <div class="stat-card" style="border-right:4px solid #8b5cf6;">
+            <div class="stat-icon purple"><i data-lucide="calendar"></i></div>
+            <div class="stat-info"><h3 id="dash-month-orders">0</h3><p>طلبات الشهر</p></div>
           </div>
-          <div class="stat-card">
+          <div class="stat-card" style="border-right:4px solid #10b981;">
             <div class="stat-icon" style="background:linear-gradient(135deg,#10b981,#059669);"><i data-lucide="check-circle" style="width:28px;height:28px;color:#fff;"></i></div>
             <div class="stat-info"><h3 id="dash-delivered">0</h3><p>طلبات مُسلَّمة</p></div>
           </div>
-          <div class="stat-card">
+          <div class="stat-card" style="border-right:4px solid #ef4444;">
+            <div class="stat-icon" style="background:linear-gradient(135deg,#ef4444,#dc2626);"><i data-lucide="x-circle" style="width:28px;height:28px;color:#fff;"></i></div>
+            <div class="stat-info"><h3 id="dash-cancelled">0</h3><p>طلبات ملغاة</p></div>
+          </div>
+        </div>
+
+        <!-- Row 2: Revenue, Users, Drivers, Vendors -->
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:14px;margin-bottom:24px;">
+          <div class="stat-card" style="border-right:4px solid #D94523;">
+            <div class="stat-icon orange"><i data-lucide="banknote"></i></div>
+            <div class="stat-info"><h3 id="dash-revenue" style="font-size:1rem;">0</h3><p>إجمالي المبيعات</p></div>
+          </div>
+          <div class="stat-card" style="border-right:4px solid #f59e0b;">
+            <div class="stat-icon" style="background:linear-gradient(135deg,#f59e0b,#d97706);"><i data-lucide="banknote" style="width:28px;height:28px;color:#fff;"></i></div>
+            <div class="stat-info"><h3 id="dash-today-revenue" style="font-size:1rem;">0</h3><p>مبيعات اليوم</p></div>
+          </div>
+          <div class="stat-card" style="border-right:4px solid #8b5cf6;">
             <div class="stat-icon" style="background:linear-gradient(135deg,#8b5cf6,#6d28d9);"><i data-lucide="percent" style="width:28px;height:28px;color:#fff;"></i></div>
-            <div class="stat-info"><h3 id="dash-commission" style="font-size:1.1rem;">0</h3><p>عمولة أون وي</p></div>
+            <div class="stat-info"><h3 id="dash-commission" style="font-size:1rem;">0</h3><p>عمولة أون وي</p></div>
+          </div>
+          <div class="stat-card" style="cursor:pointer;border-right:4px solid #06b6d4;">
+            <div class="stat-icon" style="background:linear-gradient(135deg,#06b6d4,#0891b2);"><i data-lucide="users" style="width:28px;height:28px;color:#fff;"></i></div>
+            <div class="stat-info"><h3 id="dash-users-count">0</h3><p>المستخدمون</p></div>
+          </div>
+          <div class="stat-card" style="cursor:pointer;border-right:4px solid #10b981;" onclick="showSection('driverQueue', document.querySelectorAll('.nav-item')[8])">
+            <div class="stat-icon green"><i data-lucide="truck"></i></div>
+            <div class="stat-info"><h3 id="dash-online-drivers">0</h3><p>سائقون متصلون</p></div>
+          </div>
+          <div class="stat-card" style="border-right:4px solid #D94523;">
+            <div class="stat-icon orange"><i data-lucide="store"></i></div>
+            <div class="stat-info"><h3 id="dash-vendors-count">0</h3><p>التجار والمتاجر</p></div>
+          </div>
+          <div class="stat-card" style="border-right:4px solid #f97316;">
+            <div class="stat-icon" style="background:linear-gradient(135deg,#f97316,#ea580c);"><i data-lucide="utensils" style="width:28px;height:28px;color:#fff;"></i></div>
+            <div class="stat-info"><h3 id="dash-restaurants-count">0</h3><p>المطاعم</p></div>
+          </div>
+          <div class="stat-card" style="border-right:4px solid #3b82f6;">
+            <div class="stat-icon blue"><i data-lucide="package"></i></div>
+            <div class="stat-info"><h3 id="dash-products-count">0</h3><p>المنتجات</p></div>
+          </div>
+          <div class="stat-card" style="border-right:4px solid #f59e0b;">
+            <div class="stat-icon" style="background:linear-gradient(135deg,#f59e0b,#d97706);"><i data-lucide="clock" style="width:28px;height:28px;color:#fff;"></i></div>
+            <div class="stat-info"><h3 id="dash-pending">0</h3><p>قيد الانتظار</p></div>
+          </div>
+          <div class="stat-card" style="border-right:4px solid #06b6d4;">
+            <div class="stat-icon" style="background:linear-gradient(135deg,#06b6d4,#0891b2);"><i data-lucide="zap" style="width:28px;height:28px;color:#fff;"></i></div>
+            <div class="stat-info"><h3 id="dash-active-orders">0</h3><p>طلبات نشطة</p></div>
           </div>
         </div>
 
@@ -3321,6 +3391,387 @@
       </div>
     </div>
 
+
+    <!-- ══════════════════════ OPERATIONS CENTER ══════════════════════ -->
+    <div id="operationsCenter-section" class="section">
+      <header class="header">
+        <div class="header-title">
+          <i data-lucide="monitor" style="color:var(--primary);width:24px;height:24px;"></i>
+          <div>
+            <h2>مركز العمليات اللحظي</h2>
+            <p>مراقبة الطلبات والسائقين في الوقت الفعلي</p>
+          </div>
+        </div>
+        <div class="header-actions">
+          <span id="ops-last-refresh" style="font-size:0.78rem;color:var(--gray-400);margin-left:8px;"></span>
+          <button class="btn btn-outline" onclick="doRefresh(this, loadOperationsCenter, 'مركز العمليات')">
+            <i data-lucide="refresh-cw"></i> تحديث
+          </button>
+          <button class="btn" style="background:#10b981;color:#fff;" onclick="toggleOpsAutoRefresh()">
+            <i data-lucide="play"></i> <span id="ops-auto-label">تشغيل تلقائي</span>
+          </button>
+        </div>
+      </header>
+      <div class="content">
+        <!-- KPI Row -->
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px;margin-bottom:20px;">
+          <div class="stat-card" style="border-right:4px solid #f59e0b;">
+            <div class="stat-icon" style="background:linear-gradient(135deg,#f59e0b,#d97706);"><i data-lucide="bell" style="width:28px;height:28px;color:#fff;"></i></div>
+            <div class="stat-info"><h3 id="ops-new-orders">—</h3><p>طلبات جديدة</p></div>
+          </div>
+          <div class="stat-card" style="border-right:4px solid #3b82f6;">
+            <div class="stat-icon blue"><i data-lucide="chef-hat"></i></div>
+            <div class="stat-info"><h3 id="ops-preparing">—</h3><p>قيد التحضير</p></div>
+          </div>
+          <div class="stat-card" style="border-right:4px solid #8b5cf6;">
+            <div class="stat-icon purple"><i data-lucide="truck"></i></div>
+            <div class="stat-info"><h3 id="ops-in-delivery">—</h3><p>في التوصيل</p></div>
+          </div>
+          <div class="stat-card" style="border-right:4px solid #10b981;">
+            <div class="stat-icon green"><i data-lucide="user-check"></i></div>
+            <div class="stat-info"><h3 id="ops-online-drivers">—</h3><p>سائقون متصلون</p></div>
+          </div>
+          <div class="stat-card" style="border-right:4px solid #06b6d4;">
+            <div class="stat-icon" style="background:linear-gradient(135deg,#06b6d4,#0891b2);"><i data-lucide="layers" style="width:28px;height:28px;color:#fff;"></i></div>
+            <div class="stat-info"><h3 id="ops-batches">—</h3><p>مجموعات نشطة</p></div>
+          </div>
+          <div class="stat-card" style="border-right:4px solid #ef4444;">
+            <div class="stat-icon" style="background:linear-gradient(135deg,#ef4444,#dc2626);"><i data-lucide="alert-triangle" style="width:28px;height:28px;color:#fff;"></i></div>
+            <div class="stat-info"><h3 id="ops-late">—</h3><p>طلبات متأخرة</p></div>
+          </div>
+        </div>
+
+        <!-- Two columns: recent orders + late alerts -->
+        <div style="display:grid;grid-template-columns:1fr 380px;gap:16px;">
+          <!-- Recent orders table -->
+          <div class="card">
+            <div class="card-header"><h3><i data-lucide="list" style="width:16px;height:16px;margin-left:6px;"></i>آخر الطلبات (24 ساعة)</h3></div>
+            <div class="table-container" style="max-height:440px;overflow-y:auto;">
+              <table>
+                <thead><tr><th>رقم الطلب</th><th>المستخدم</th><th>المنطقة</th><th>الإجمالي</th><th>الحالة</th><th>الوقت</th></tr></thead>
+                <tbody id="ops-orders-table"><tr><td colspan="6" style="text-align:center;color:var(--gray-400);padding:24px;">جارٍ التحميل...</td></tr></tbody>
+              </table>
+            </div>
+          </div>
+          <!-- Late orders alerts -->
+          <div class="card" style="border-right:4px solid #ef4444;">
+            <div class="card-header" style="background:linear-gradient(135deg,#fef2f2,#fff);">
+              <h3 style="color:#ef4444;"><i data-lucide="alert-triangle" style="width:16px;height:16px;margin-left:6px;"></i>طلبات متأخرة (+30 دقيقة)</h3>
+            </div>
+            <div id="ops-late-list" style="padding:12px;max-height:440px;overflow-y:auto;">
+              <p style="text-align:center;color:var(--gray-400);padding:24px;">لا توجد طلبات متأخرة</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════════════════ ANALYTICS ══════════════════════ -->
+    <div id="analytics-section" class="section">
+      <header class="header">
+        <div class="header-title">
+          <i data-lucide="bar-chart-3" style="color:var(--primary);width:24px;height:24px;"></i>
+          <div><h2>التحليلات والإحصائيات</h2><p>نظرة شاملة على أداء المنصة</p></div>
+        </div>
+        <div class="header-actions">
+          <select id="analytics-period" onchange="loadAnalytics()" class="form-control" style="width:130px;font-size:0.85rem;">
+            <option value="7">7 أيام</option>
+            <option value="30" selected>30 يوم</option>
+            <option value="90">90 يوم</option>
+          </select>
+          <button class="btn btn-outline" onclick="doRefresh(this, loadAnalytics, 'التحليلات')">
+            <i data-lucide="refresh-cw"></i> تحديث
+          </button>
+        </div>
+      </header>
+      <div class="content">
+        <!-- KPI cards -->
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:14px;margin-bottom:20px;">
+          <div class="stat-card" style="border-right:4px solid #D94523;">
+            <div class="stat-icon orange"><i data-lucide="shopping-bag"></i></div>
+            <div class="stat-info"><h3 id="an-total-orders">—</h3><p>إجمالي الطلبات</p></div>
+          </div>
+          <div class="stat-card" style="border-right:4px solid #10b981;">
+            <div class="stat-icon green"><i data-lucide="banknote"></i></div>
+            <div class="stat-info"><h3 id="an-revenue" style="font-size:0.95rem;">—</h3><p>إجمالي الإيرادات</p></div>
+          </div>
+          <div class="stat-card" style="border-right:4px solid #3b82f6;">
+            <div class="stat-icon blue"><i data-lucide="trending-up"></i></div>
+            <div class="stat-info"><h3 id="an-avg-order" style="font-size:0.95rem;">—</h3><p>متوسط قيمة الطلب</p></div>
+          </div>
+          <div class="stat-card" style="border-right:4px solid #8b5cf6;">
+            <div class="stat-icon purple"><i data-lucide="percent"></i></div>
+            <div class="stat-info"><h3 id="an-delivered-rate">—</h3><p>معدل التسليم</p></div>
+          </div>
+          <div class="stat-card" style="border-right:4px solid #f59e0b;">
+            <div class="stat-icon" style="background:linear-gradient(135deg,#f59e0b,#d97706);"><i data-lucide="user-plus" style="width:28px;height:28px;color:#fff;"></i></div>
+            <div class="stat-info"><h3 id="an-new-users">—</h3><p>مستخدمون جدد</p></div>
+          </div>
+        </div>
+
+        <!-- Charts grid -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;">
+          <div class="card">
+            <div class="card-header"><h3>الطلبات اليومية</h3></div>
+            <div class="card-body"><canvas id="analytics-orders-chart" height="200"></canvas></div>
+          </div>
+          <div class="card">
+            <div class="card-header"><h3>الإيرادات اليومية</h3></div>
+            <div class="card-body"><canvas id="analytics-revenue-chart" height="200"></canvas></div>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+          <div class="card">
+            <div class="card-header"><h3>المستخدمون الجدد يومياً</h3></div>
+            <div class="card-body"><canvas id="analytics-users-chart" height="200"></canvas></div>
+          </div>
+          <div class="card">
+            <div class="card-header"><h3>أفضل الفئات (بالكمية)</h3></div>
+            <div class="card-body" style="max-height:220px;overflow-y:auto;" id="analytics-cats-body">
+              <p style="text-align:center;color:var(--gray-400);padding:24px;">جارٍ التحميل...</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════════════════ REPORTS ══════════════════════ -->
+    <div id="reports-section" class="section">
+      <header class="header">
+        <div class="header-title">
+          <i data-lucide="file-text" style="color:var(--primary);width:24px;height:24px;"></i>
+          <div><h2>التقارير والتصدير</h2><p>تصدير بيانات المنصة بصيغ متعددة</p></div>
+        </div>
+      </header>
+      <div class="content">
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px;">
+          <!-- Orders Report -->
+          <div class="card">
+            <div class="card-header" style="background:linear-gradient(135deg,#D9452308,#fff);">
+              <h3><i data-lucide="shopping-bag" style="width:16px;height:16px;color:#D94523;margin-left:6px;"></i>تقرير الطلبات</h3>
+            </div>
+            <div class="card-body" style="padding:20px;">
+              <div style="margin-bottom:14px;">
+                <label style="font-size:0.82rem;color:var(--gray-600);display:block;margin-bottom:4px;">من تاريخ</label>
+                <input type="date" id="rep-orders-from" class="form-control" style="font-family:Cairo,sans-serif;">
+              </div>
+              <div style="margin-bottom:16px;">
+                <label style="font-size:0.82rem;color:var(--gray-600);display:block;margin-bottom:4px;">إلى تاريخ</label>
+                <input type="date" id="rep-orders-to" class="form-control" style="font-family:Cairo,sans-serif;">
+              </div>
+              <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                <button class="btn btn-primary btn-sm" onclick="exportOrdersExcel()">
+                  <i data-lucide="file-spreadsheet"></i> Excel
+                </button>
+                <button class="btn btn-outline btn-sm" onclick="exportOrdersCsv()">
+                  <i data-lucide="file"></i> CSV
+                </button>
+                <button class="btn btn-outline btn-sm" onclick="printOrdersReport()">
+                  <i data-lucide="printer"></i> طباعة
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Financial Report -->
+          <div class="card">
+            <div class="card-header" style="background:linear-gradient(135deg,#10b98108,#fff);">
+              <h3><i data-lucide="banknote" style="width:16px;height:16px;color:#10b981;margin-left:6px;"></i>التقرير المالي</h3>
+            </div>
+            <div class="card-body" style="padding:20px;">
+              <div style="margin-bottom:14px;">
+                <label style="font-size:0.82rem;color:var(--gray-600);display:block;margin-bottom:4px;">الفترة</label>
+                <select id="rep-fin-period" class="form-control" style="font-family:Cairo,sans-serif;">
+                  <option value="today">اليوم</option>
+                  <option value="week">هذا الأسبوع</option>
+                  <option value="month" selected>هذا الشهر</option>
+                  <option value="year">هذا العام</option>
+                </select>
+              </div>
+              <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                <button class="btn btn-primary btn-sm" onclick="exportFinancialExcel()">
+                  <i data-lucide="file-spreadsheet"></i> Excel
+                </button>
+                <button class="btn btn-outline btn-sm" onclick="printFinancialReport()">
+                  <i data-lucide="printer"></i> طباعة
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Users Report -->
+          <div class="card">
+            <div class="card-header" style="background:linear-gradient(135deg,#3b82f608,#fff);">
+              <h3><i data-lucide="users" style="width:16px;height:16px;color:#3b82f6;margin-left:6px;"></i>تقرير المستخدمين</h3>
+            </div>
+            <div class="card-body" style="padding:20px;">
+              <p style="font-size:0.85rem;color:var(--gray-500);margin-bottom:16px;">تصدير قائمة المستخدمين المسجلين</p>
+              <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                <button class="btn btn-primary btn-sm" onclick="exportUsersExcel()">
+                  <i data-lucide="file-spreadsheet"></i> Excel
+                </button>
+                <button class="btn btn-outline btn-sm" onclick="exportUsersCsv()">
+                  <i data-lucide="file"></i> CSV
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Drivers Report -->
+          <div class="card">
+            <div class="card-header" style="background:linear-gradient(135deg,#8b5cf608,#fff);">
+              <h3><i data-lucide="truck" style="width:16px;height:16px;color:#8b5cf6;margin-left:6px;"></i>تقرير السائقين</h3>
+            </div>
+            <div class="card-body" style="padding:20px;">
+              <p style="font-size:0.85rem;color:var(--gray-500);margin-bottom:16px;">أداء السائقين والأرباح</p>
+              <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                <button class="btn btn-primary btn-sm" onclick="exportDriversExcel()">
+                  <i data-lucide="file-spreadsheet"></i> Excel
+                </button>
+                <button class="btn btn-outline btn-sm" onclick="printDriversReport()">
+                  <i data-lucide="printer"></i> طباعة
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Vendors Report -->
+          <div class="card">
+            <div class="card-header" style="background:linear-gradient(135deg,#f59e0b08,#fff);">
+              <h3><i data-lucide="store" style="width:16px;height:16px;color:#f59e0b;margin-left:6px;"></i>تقرير التجار</h3>
+            </div>
+            <div class="card-body" style="padding:20px;">
+              <p style="font-size:0.85rem;color:var(--gray-500);margin-bottom:16px;">مبيعات وأداء المتاجر والمطاعم</p>
+              <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                <button class="btn btn-primary btn-sm" onclick="exportVendorsExcel()">
+                  <i data-lucide="file-spreadsheet"></i> Excel
+                </button>
+                <button class="btn btn-outline btn-sm" onclick="exportVendorsCsv()">
+                  <i data-lucide="file"></i> CSV
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════════════════ ZONE MANAGEMENT ══════════════════════ -->
+    <div id="zoneManagement-section" class="section">
+      <header class="header">
+        <div class="header-title">
+          <i data-lucide="map" style="color:var(--primary);width:24px;height:24px;"></i>
+          <div><h2>إدارة المناطق الجغرافية</h2><p>محافظات / مدن / أقضية / أحياء — رسوم التوصيل والتفعيل</p></div>
+        </div>
+        <div class="header-actions">
+          <select id="zone-filter-type" onchange="renderZones()" class="form-control" style="width:140px;font-size:0.85rem;">
+            <option value="">الكل</option>
+            <option value="governorate">المحافظات</option>
+            <option value="city">المدن</option>
+            <option value="district">الأقضية</option>
+            <option value="neighborhood">الأحياء</option>
+          </select>
+          <button class="btn btn-primary" onclick="openZoneModal(null)">
+            <i data-lucide="plus"></i> إضافة منطقة
+          </button>
+        </div>
+      </header>
+      <div class="content">
+        <!-- Hierarchy tabs -->
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;">
+          <button class="btn btn-sm" id="ztab-all" style="background:#D94523;color:#fff;" onclick="filterZoneTab('', this)">الكل</button>
+          <button class="btn btn-outline btn-sm" id="ztab-gov" onclick="filterZoneTab('governorate', this)">محافظات</button>
+          <button class="btn btn-outline btn-sm" id="ztab-city" onclick="filterZoneTab('city', this)">مدن</button>
+          <button class="btn btn-outline btn-sm" id="ztab-district" onclick="filterZoneTab('district', this)">أقضية</button>
+          <button class="btn btn-outline btn-sm" id="ztab-neighborhood" onclick="filterZoneTab('neighborhood', this)">أحياء</button>
+        </div>
+
+        <div class="card">
+          <div class="table-container">
+            <table>
+              <thead>
+                <tr>
+                  <th>الاسم (عربي)</th>
+                  <th>الاسم (إنجليزي)</th>
+                  <th>النوع</th>
+                  <th>الأصل</th>
+                  <th>رسوم التوصيل</th>
+                  <th>الحالة</th>
+                  <th>الإجراءات</th>
+                </tr>
+              </thead>
+              <tbody id="zones-table-body">
+                <tr><td colspan="7" style="text-align:center;padding:32px;color:var(--gray-400);">جارٍ التحميل...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Zone Modal -->
+    <div id="zone-modal" class="modal-overlay">
+      <div class="modal" style="max-width:520px;">
+        <div class="modal-header">
+          <h3 id="zone-modal-title">إضافة منطقة جديدة</h3>
+          <button onclick="closeModal('zone-modal')" class="modal-close">&times;</button>
+        </div>
+        <form onsubmit="saveZone(event)">
+          <div class="modal-body">
+            <div class="form-row">
+              <div class="form-group">
+                <label>الاسم بالعربية <span class="required">*</span></label>
+                <input type="text" class="form-control" id="zone-name" required placeholder="مثال: الضلوعية">
+              </div>
+              <div class="form-group">
+                <label>الاسم بالإنجليزية</label>
+                <input type="text" class="form-control" id="zone-name-en" placeholder="e.g. Al-Diwaniyah">
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>النوع <span class="required">*</span></label>
+                <select class="form-control" id="zone-type" onchange="updateZoneParentSelect()" required>
+                  <option value="governorate">محافظة</option>
+                  <option value="city">مدينة</option>
+                  <option value="district">قضاء</option>
+                  <option value="neighborhood">حي</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>المنطقة الأصل</label>
+                <select class="form-control" id="zone-parent">
+                  <option value="">— لا يوجد —</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>رسوم التوصيل (د.ع)</label>
+                <input type="number" class="form-control" id="zone-fee" min="0" step="250" placeholder="1000">
+              </div>
+              <div class="form-group">
+                <label>الترتيب</label>
+                <input type="number" class="form-control" id="zone-order" min="0" placeholder="0">
+              </div>
+            </div>
+            <div class="form-group">
+              <label>الحالة</label>
+              <select class="form-control" id="zone-active">
+                <option value="true">مفعّلة</option>
+                <option value="false">معطّلة</option>
+              </select>
+            </div>
+            <input type="hidden" id="zone-edit-id">
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-outline" onclick="closeModal('zone-modal')">إلغاء</button>
+            <button type="submit" class="btn btn-primary"><i data-lucide="check"></i> حفظ المنطقة</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
   </main>
 
   <!-- Driver Tracking Modal -->
@@ -3805,6 +4256,10 @@
       if (section === 'vendorProducts') loadVendorProductsAdmin();
       if (section === 'settings') { loadSettingsStats(); loadServiceFee(); }
       if (section === 'notifications') loadNotificationsStats();
+      if (section === 'operationsCenter') loadOperationsCenter();
+      if (section === 'analytics') loadAnalytics();
+      if (section === 'reports') loadReports();
+      if (section === 'zoneManagement') loadZones();
       if (section === 'appUsers') loadAppUsers();
       if (section === 'supportChat') {
         loadSupportChats();
@@ -9676,6 +10131,533 @@ loadVendorProductsAdmin = async function() {
   populateVppVendorFilter(allVendorProductsAdmin);
   if (currentVppVendorFilter) filterVendorProductsByStore(currentVppVendorFilter);
 };
+
+// ═══════════════════════════════════════════════════════════════════════
+//  DASHBOARD STATS — enhanced (new comprehensive API)
+// ═══════════════════════════════════════════════════════════════════════
+async function loadDashboardStats() {
+  try {
+    const res = await fetch(API_BASE + '/admin/dashboard-stats');
+    if (!res.ok) return;
+    const d = await res.json();
+
+    // Orders row
+    const sv = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+    sv('stat-products',         (d.orders?.total  || 0).toLocaleString('ar-IQ'));
+    sv('dash-today-orders',     (d.orders?.today  || 0).toLocaleString('ar-IQ'));
+    sv('dash-week-orders',      (d.orders?.week   || 0).toLocaleString('ar-IQ'));
+    sv('dash-month-orders',     (d.orders?.month  || 0).toLocaleString('ar-IQ'));
+    sv('dash-delivered',        (d.orders?.delivered || 0).toLocaleString('ar-IQ'));
+    sv('dash-cancelled',        (d.orders?.cancelled || 0).toLocaleString('ar-IQ'));
+    sv('dash-active-orders',    (d.orders?.active  || 0).toLocaleString('ar-IQ'));
+    sv('dash-pending',          (d.orders?.active  || 0).toLocaleString('ar-IQ'));
+
+    // Revenue row
+    sv('dash-revenue',       (d.revenue?.total || 0).toLocaleString('ar-IQ') + ' د.ع');
+    sv('dash-today-revenue', (d.revenue?.today || 0).toLocaleString('ar-IQ') + ' د.ع');
+    const commission = Math.round((d.revenue?.total || 0) * 0.08);
+    sv('dash-commission',    commission.toLocaleString('ar-IQ') + ' د.ع');
+
+    // Users & Drivers
+    sv('dash-users-count',      (d.users || 0).toLocaleString('ar-IQ'));
+    sv('dash-online-drivers',   (d.drivers?.online || 0).toLocaleString('ar-IQ'));
+
+    // Vendors
+    sv('dash-vendors-count',     (d.vendors?.total       || 0).toLocaleString('ar-IQ'));
+    sv('dash-restaurants-count', (d.vendors?.restaurants || 0).toLocaleString('ar-IQ'));
+    sv('dash-products-count',    (d.products || 0).toLocaleString('ar-IQ'));
+
+    // Nav badges
+    sv('users-nav-count', d.users || 0);
+  } catch (e) { /* silent */ }
+}
+
+// Patch loadDashboard to also call loadDashboardStats
+const _origLoadDashboard = typeof loadDashboard === 'function' ? loadDashboard : null;
+if (_origLoadDashboard) {
+  loadDashboard = async function() {
+    await _origLoadDashboard();
+    await loadDashboardStats();
+  };
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+//  OPERATIONS CENTER
+// ═══════════════════════════════════════════════════════════════════════
+let _opsAutoInterval = null;
+
+async function loadOperationsCenter() {
+  try {
+    const res = await fetch(API_BASE + '/admin/operations');
+    if (!res.ok) return;
+    const d = await res.json();
+
+    const sv = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+    sv('ops-new-orders',    d.newOrders     ?? '—');
+    sv('ops-preparing',     d.preparingOrders ?? '—');
+    sv('ops-in-delivery',   d.inDelivery    ?? '—');
+    sv('ops-online-drivers',d.onlineDrivers ?? '—');
+    sv('ops-batches',       d.activeBatches ?? '—');
+    sv('ops-late',          d.lateOrders    ?? '—');
+
+    // Update badge in sidebar
+    const badge = document.getElementById('ops-alerts-badge');
+    if (badge) {
+      const alerts = (d.lateOrders || 0) + (d.issues || 0);
+      badge.textContent = alerts;
+      badge.style.display = alerts > 0 ? 'inline-flex' : 'none';
+    }
+
+    // Last refresh time
+    const lr = document.getElementById('ops-last-refresh');
+    if (lr) lr.textContent = 'آخر تحديث: ' + new Date().toLocaleTimeString('ar-IQ');
+
+    // Recent orders table
+    const tbody = document.getElementById('ops-orders-table');
+    const statusColors = {
+      pending: '#f59e0b', confirmed: '#3b82f6', preparing: '#8b5cf6',
+      ready: '#06b6d4', picked_up: '#10b981', in_delivery: '#D94523',
+      delivered: '#10b981', cancelled: '#ef4444'
+    };
+    const statusLabels = {
+      pending: 'انتظار', confirmed: 'مؤكد', preparing: 'تحضير',
+      ready: 'جاهز', picked_up: 'مُستلم', in_delivery: 'بالطريق',
+      delivered: 'مُسلَّم', cancelled: 'ملغي'
+    };
+    if (tbody) {
+      const rows = (d.recentOrders || []).map(o => {
+        const clr = statusColors[o.status] || '#9ca3af';
+        const lbl = statusLabels[o.status] || o.status;
+        const ago = getTimeAgo(o.createdAt);
+        return `<tr>
+          <td style="font-family:monospace;font-size:0.8rem;">#${(o.id||'').slice(-6)}</td>
+          <td>${escapeHtml(o.phoneNumber || '—')}</td>
+          <td>${escapeHtml(o.area || '—')}</td>
+          <td style="font-weight:600;">${(o.total||0).toLocaleString('ar-IQ')} د.ع</td>
+          <td><span style="background:${clr}22;color:${clr};padding:2px 8px;border-radius:20px;font-size:0.78rem;font-weight:600;">${lbl}</span></td>
+          <td style="font-size:0.8rem;color:var(--gray-500);">${ago}</td>
+        </tr>`;
+      }).join('');
+      tbody.innerHTML = rows || '<tr><td colspan="6" style="text-align:center;padding:24px;color:var(--gray-400);">لا توجد طلبات</td></tr>';
+    }
+
+    // Late orders list
+    const lateList = document.getElementById('ops-late-list');
+    if (lateList) {
+      if ((d.lateOrdersList || []).length === 0) {
+        lateList.innerHTML = '<p style="text-align:center;color:#10b981;padding:24px;font-weight:600;">لا توجد طلبات متأخرة</p>';
+      } else {
+        lateList.innerHTML = (d.lateOrdersList || []).map(o => {
+          const ago = getTimeAgo(o.createdAt);
+          return `<div style="padding:10px;border-radius:8px;background:#fef2f2;margin-bottom:8px;border-right:3px solid #ef4444;">
+            <div style="font-weight:700;color:#ef4444;font-size:0.85rem;">#${(o.id||'').slice(-6)} — ${escapeHtml(o.area||'')}</div>
+            <div style="font-size:0.78rem;color:var(--gray-500);">${escapeHtml(o.phoneNumber||'')} · ${ago}</div>
+          </div>`;
+        }).join('');
+      }
+    }
+  } catch (e) { showToast('error', 'خطأ', 'تعذّر تحميل مركز العمليات'); }
+}
+
+function toggleOpsAutoRefresh() {
+  const btn = document.getElementById('ops-auto-label');
+  if (_opsAutoInterval) {
+    clearInterval(_opsAutoInterval);
+    _opsAutoInterval = null;
+    if (btn) btn.textContent = 'تشغيل تلقائي';
+  } else {
+    _opsAutoInterval = setInterval(loadOperationsCenter, 15000);
+    if (btn) btn.textContent = 'إيقاف التلقائي';
+    loadOperationsCenter();
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+//  ANALYTICS
+// ═══════════════════════════════════════════════════════════════════════
+let _anOrdersChart = null, _anRevenueChart = null, _anUsersChart = null;
+
+async function loadAnalytics() {
+  const period = document.getElementById('analytics-period')?.value || '30';
+  try {
+    const res = await fetch(`${API_BASE}/admin/analytics?days=${period}`);
+    if (!res.ok) return;
+    const d = await res.json();
+
+    const sv = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+    sv('an-total-orders', (d.totalOrders||0).toLocaleString('ar-IQ'));
+    sv('an-revenue',      (d.totalRevenue||0).toLocaleString('ar-IQ') + ' د.ع');
+    sv('an-avg-order',    (d.avgOrderValue||0).toLocaleString('ar-IQ') + ' د.ع');
+    sv('an-delivered-rate', (d.deliveredRate||0) + '%');
+    sv('an-new-users',    (d.newUsers||0).toLocaleString('ar-IQ'));
+
+    const daily = d.dailyData || [];
+    const labels = daily.map(r => {
+      const dt = new Date(r.date);
+      return dt.toLocaleDateString('ar-IQ', { month: 'short', day: 'numeric' });
+    });
+    const chartDefaults = { responsive: true, plugins: { legend: { display: false } }, scales: {
+      x: { ticks: { font: { family: 'Cairo', size: 10 }, maxRotation: 45 } },
+      y: { ticks: { font: { family: 'Cairo', size: 10 }, callback: v => v.toLocaleString('ar-IQ') } }
+    }};
+
+    // Orders chart
+    const ctxO = document.getElementById('analytics-orders-chart');
+    if (ctxO) {
+      if (_anOrdersChart) _anOrdersChart.destroy();
+      _anOrdersChart = new Chart(ctxO, { type: 'bar', data: {
+        labels, datasets: [{ label: 'طلبات', data: daily.map(r => r.orders), backgroundColor: '#D9452360', borderColor: '#D94523', borderWidth: 2, borderRadius: 6 }]
+      }, options: chartDefaults });
+    }
+
+    // Revenue chart
+    const ctxR = document.getElementById('analytics-revenue-chart');
+    if (ctxR) {
+      if (_anRevenueChart) _anRevenueChart.destroy();
+      _anRevenueChart = new Chart(ctxR, { type: 'line', data: {
+        labels, datasets: [{ label: 'إيرادات', data: daily.map(r => r.revenue), borderColor: '#10b981', backgroundColor: '#10b98120', fill: true, tension: 0.4 }]
+      }, options: chartDefaults });
+    }
+
+    // Users chart
+    const ctxU = document.getElementById('analytics-users-chart');
+    if (ctxU) {
+      if (_anUsersChart) _anUsersChart.destroy();
+      _anUsersChart = new Chart(ctxU, { type: 'bar', data: {
+        labels, datasets: [{ label: 'مستخدمون جدد', data: daily.map(r => r.newUsers), backgroundColor: '#3b82f660', borderColor: '#3b82f6', borderWidth: 2, borderRadius: 6 }]
+      }, options: chartDefaults });
+    }
+
+    // Top categories
+    const catsBody = document.getElementById('analytics-cats-body');
+    if (catsBody) {
+      const cats = d.topCategories || [];
+      if (cats.length === 0) {
+        catsBody.innerHTML = '<p style="text-align:center;color:var(--gray-400);padding:24px;">لا توجد بيانات</p>';
+      } else {
+        const max = cats[0]?.count || 1;
+        catsBody.innerHTML = cats.map((c, i) => `
+          <div style="display:flex;align-items:center;gap:8px;padding:6px 12px;border-bottom:1px solid var(--gray-100);">
+            <span style="width:20px;text-align:center;font-weight:700;color:var(--primary);font-size:0.82rem;">${i+1}</span>
+            <span style="flex:1;font-size:0.85rem;">${escapeHtml(c.name)}</span>
+            <div style="width:120px;height:6px;background:var(--gray-200);border-radius:3px;">
+              <div style="width:${Math.round(c.count/max*100)}%;height:100%;background:var(--primary);border-radius:3px;"></div>
+            </div>
+            <span style="font-size:0.8rem;color:var(--gray-500);min-width:40px;text-align:left;">${c.count}</span>
+          </div>`).join('');
+      }
+    }
+  } catch (e) { showToast('error', 'خطأ', 'تعذّر تحميل التحليلات'); }
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+//  REPORTS
+// ═══════════════════════════════════════════════════════════════════════
+function loadReports() {
+  // Set default date range (last 30 days)
+  const today = new Date().toISOString().substring(0, 10);
+  const monthAgo = new Date(Date.now() - 30 * 86400000).toISOString().substring(0, 10);
+  const fromEl = document.getElementById('rep-orders-from');
+  const toEl   = document.getElementById('rep-orders-to');
+  if (fromEl && !fromEl.value) fromEl.value = monthAgo;
+  if (toEl   && !toEl.value)   toEl.value   = today;
+}
+
+function exportOrdersExcel() {
+  const from = document.getElementById('rep-orders-from')?.value || '';
+  const to   = document.getElementById('rep-orders-to')?.value   || '';
+  const filtered = orders.filter(o => {
+    if (!o.createdAt) return false;
+    const d = o.createdAt.substring(0, 10);
+    return (!from || d >= from) && (!to || d <= to);
+  });
+  const rows = filtered.map(o => ({
+    'رقم الطلب': (o.id||'').slice(-6),
+    'المستخدم': o.phoneNumber || '',
+    'المنطقة': o.area || o.region || '',
+    'الإجمالي': (o.total || 0) + (o.deliveryFee || 0),
+    'رسوم التوصيل': o.deliveryFee || 0,
+    'الحالة': o.status || '',
+    'التاريخ': o.createdAt ? new Date(o.createdAt).toLocaleDateString('ar-IQ') : '',
+  }));
+  const ws = XLSX.utils.json_to_sheet(rows);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'الطلبات');
+  XLSX.writeFile(wb, `onway-orders-${new Date().toISOString().substring(0,10)}.xlsx`);
+  showToast('success', 'تم التصدير', `تم تصدير ${rows.length} طلب`);
+}
+
+function exportOrdersCsv() {
+  const from = document.getElementById('rep-orders-from')?.value || '';
+  const to   = document.getElementById('rep-orders-to')?.value   || '';
+  const filtered = orders.filter(o => {
+    if (!o.createdAt) return false;
+    const d = o.createdAt.substring(0, 10);
+    return (!from || d >= from) && (!to || d <= to);
+  });
+  const header = ['رقم الطلب', 'المستخدم', 'المنطقة', 'الإجمالي', 'الحالة', 'التاريخ'].join(',');
+  const csvRows = filtered.map(o => [
+    (o.id||'').slice(-6), o.phoneNumber||'', o.area||'',
+    (o.total||0)+(o.deliveryFee||0), o.status||'',
+    o.createdAt ? new Date(o.createdAt).toLocaleDateString('ar-IQ') : ''
+  ].map(v => `"${v}"`).join(','));
+  const csv = '\uFEFF' + header + '\n' + csvRows.join('\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href = url; a.download = `onway-orders-${new Date().toISOString().substring(0,10)}.csv`;
+  a.click(); URL.revokeObjectURL(url);
+  showToast('success', 'تم التصدير', 'ملف CSV جاهز');
+}
+
+function printOrdersReport() {
+  const from = document.getElementById('rep-orders-from')?.value || '';
+  const to   = document.getElementById('rep-orders-to')?.value   || '';
+  const filtered = orders.filter(o => {
+    if (!o.createdAt) return false;
+    const d = o.createdAt.substring(0, 10);
+    return (!from || d >= from) && (!to || d <= to);
+  });
+  const total = filtered.reduce((s, o) => s + (o.total||0) + (o.deliveryFee||0), 0);
+  const rows = filtered.map(o => `<tr><td>#${(o.id||'').slice(-6)}</td><td>${o.phoneNumber||''}</td><td>${o.area||''}</td><td>${((o.total||0)+(o.deliveryFee||0)).toLocaleString('ar-IQ')} د.ع</td><td>${o.status||''}</td></tr>`).join('');
+  const html = `<html dir="rtl"><head><meta charset="UTF-8"><link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet"><title>تقرير الطلبات</title><style>body{font-family:Cairo,sans-serif;padding:20px;} table{width:100%;border-collapse:collapse;} th,td{padding:8px;border:1px solid #ddd;font-size:0.85rem;} th{background:#D94523;color:#fff;} h2{color:#D94523;}</style></head><body><h2>OnWay — تقرير الطلبات</h2><p>${from} — ${to} | إجمالي: ${total.toLocaleString('ar-IQ')} د.ع | عدد الطلبات: ${filtered.length}</p><table><thead><tr><th>رقم الطلب</th><th>المستخدم</th><th>المنطقة</th><th>الإجمالي</th><th>الحالة</th></tr></thead><tbody>${rows}</tbody></table><script>window.onload=()=>{window.print();window.close();}<\/script></body></html>`;
+  const w = window.open('', '_blank', 'width=800,height=700');
+  w.document.write(html); w.document.close();
+}
+
+function exportFinancialExcel() {
+  const period = document.getElementById('rep-fin-period')?.value || 'month';
+  const now = new Date();
+  let since;
+  if (period === 'today') since = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  else if (period === 'week') since = new Date(now.getTime() - 7 * 86400000);
+  else if (period === 'month') since = new Date(now.getFullYear(), now.getMonth(), 1);
+  else since = new Date(now.getFullYear(), 0, 1);
+
+  const filtered = orders.filter(o => o.status === 'delivered' && o.createdAt && new Date(o.createdAt) >= since);
+  const rows = filtered.map(o => ({
+    'رقم الطلب': (o.id||'').slice(-6),
+    'التاريخ': o.createdAt ? new Date(o.createdAt).toLocaleDateString('ar-IQ') : '',
+    'قيمة الطلب': o.total || 0,
+    'رسوم التوصيل': o.deliveryFee || 0,
+    'الإجمالي': (o.total||0) + (o.deliveryFee||0),
+  }));
+  const ws = XLSX.utils.json_to_sheet(rows);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'التقرير المالي');
+  XLSX.writeFile(wb, `onway-financial-${period}-${new Date().toISOString().substring(0,10)}.xlsx`);
+  showToast('success', 'تم التصدير', `${rows.length} طلب مُصدَّر`);
+}
+
+function printFinancialReport() {
+  const period = document.getElementById('rep-fin-period')?.value || 'month';
+  const periodNames = { today: 'اليوم', week: 'الأسبوع', month: 'الشهر', year: 'العام' };
+  const now = new Date();
+  let since;
+  if (period === 'today') since = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  else if (period === 'week') since = new Date(now.getTime() - 7 * 86400000);
+  else if (period === 'month') since = new Date(now.getFullYear(), now.getMonth(), 1);
+  else since = new Date(now.getFullYear(), 0, 1);
+  const filtered = orders.filter(o => o.status === 'delivered' && o.createdAt && new Date(o.createdAt) >= since);
+  const totalRev = filtered.reduce((s, o) => s + (o.total||0) + (o.deliveryFee||0), 0);
+  const rows = filtered.map(o => `<tr><td>#${(o.id||'').slice(-6)}</td><td>${o.createdAt ? new Date(o.createdAt).toLocaleDateString('ar-IQ') : ''}</td><td>${(o.total||0).toLocaleString('ar-IQ')}</td><td>${(o.deliveryFee||0).toLocaleString('ar-IQ')}</td><td style="font-weight:700;">${((o.total||0)+(o.deliveryFee||0)).toLocaleString('ar-IQ')}</td></tr>`).join('');
+  const html = `<html dir="rtl"><head><meta charset="UTF-8"><link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet"><style>body{font-family:Cairo,sans-serif;padding:20px;}table{width:100%;border-collapse:collapse;}th,td{padding:8px;border:1px solid #ddd;font-size:0.85rem;}th{background:#10b981;color:#fff;}h2{color:#10b981;}.total{font-size:1.2rem;font-weight:700;color:#10b981;margin-top:12px;}</style></head><body><h2>OnWay — التقرير المالي (${periodNames[period]||period})</h2><p>إجمالي الإيرادات: ${totalRev.toLocaleString('ar-IQ')} د.ع | عدد الطلبات: ${filtered.length}</p><table><thead><tr><th>رقم الطلب</th><th>التاريخ</th><th>قيمة الطلب</th><th>رسوم التوصيل</th><th>الإجمالي</th></tr></thead><tbody>${rows}</tbody></table><script>window.onload=()=>{window.print();window.close();}<\/script></body></html>`;
+  const w = window.open('', '_blank', 'width=800,height=700'); w.document.write(html); w.document.close();
+}
+
+function exportUsersExcel() {
+  fetch(API_BASE + '/admin/users').then(r => r.json()).then(users => {
+    const rows = (users || []).map(u => ({ 'الاسم': u.name||'', 'الهاتف': u.phoneNumber||'', 'المدينة': u.city||'', 'تاريخ التسجيل': u.createdAt ? new Date(u.createdAt).toLocaleDateString('ar-IQ') : '' }));
+    const ws = XLSX.utils.json_to_sheet(rows);
+    const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, 'المستخدمون');
+    XLSX.writeFile(wb, `onway-users-${new Date().toISOString().substring(0,10)}.xlsx`);
+    showToast('success', 'تم التصدير', `${rows.length} مستخدم`);
+  }).catch(() => showToast('error', 'خطأ', 'تعذّر تصدير المستخدمين'));
+}
+
+function exportUsersCsv() {
+  fetch(API_BASE + '/admin/users').then(r => r.json()).then(users => {
+    const header = 'الاسم,الهاتف,المدينة,تاريخ التسجيل';
+    const csvRows = (users || []).map(u => [`"${u.name||''}"`, `"${u.phoneNumber||''}"`, `"${u.city||''}"`, `"${u.createdAt ? new Date(u.createdAt).toLocaleDateString('ar-IQ') : ''}"`].join(','));
+    const csv = '\uFEFF' + header + '\n' + csvRows.join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = `onway-users-${new Date().toISOString().substring(0,10)}.csv`; a.click(); URL.revokeObjectURL(url);
+    showToast('success', 'تم التصدير', 'ملف CSV جاهز');
+  });
+}
+
+function exportDriversExcel() {
+  fetch(API_BASE + '/admin/drivers').then(r => r.json()).then(data => {
+    const driversArr = Array.isArray(data) ? data : (data.drivers || []);
+    const rows = driversArr.map(d => ({ 'الاسم': d.name||'', 'الهاتف': d.phoneNumber||'', 'الحالة': d.status||'', 'أون لاين': d.isOnline ? 'نعم' : 'لا', 'الرصيد': d.walletBalance||0 }));
+    const ws = XLSX.utils.json_to_sheet(rows); const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, 'السائقون');
+    XLSX.writeFile(wb, `onway-drivers-${new Date().toISOString().substring(0,10)}.xlsx`);
+    showToast('success', 'تم التصدير', `${rows.length} سائق`);
+  }).catch(() => showToast('error', 'خطأ', 'تعذّر تصدير السائقين'));
+}
+
+function printDriversReport() {
+  fetch(API_BASE + '/admin/drivers').then(r => r.json()).then(data => {
+    const driversArr = Array.isArray(data) ? data : (data.drivers || []);
+    const rows = driversArr.map(d => `<tr><td>${d.name||''}</td><td>${d.phoneNumber||''}</td><td>${d.isOnline ? '<span style="color:green;">متصل</span>' : '<span style="color:#999;">غير متصل</span>'}</td><td>${(d.walletBalance||0).toLocaleString('ar-IQ')} د.ع</td></tr>`).join('');
+    const html = `<html dir="rtl"><head><meta charset="UTF-8"><link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet"><style>body{font-family:Cairo,sans-serif;padding:20px;}table{width:100%;border-collapse:collapse;}th,td{padding:8px;border:1px solid #ddd;}th{background:#8b5cf6;color:#fff;}h2{color:#8b5cf6;}</style></head><body><h2>OnWay — تقرير السائقين</h2><table><thead><tr><th>الاسم</th><th>الهاتف</th><th>الحالة</th><th>الرصيد</th></tr></thead><tbody>${rows}</tbody></table><script>window.onload=()=>{window.print();window.close();}<\/script></body></html>`;
+    const w = window.open('', '_blank', 'width=700,height=600'); w.document.write(html); w.document.close();
+  });
+}
+
+function exportVendorsExcel() {
+  fetch(API_BASE + '/admin/vendor-partners').then(r => r.json()).then(data => {
+    const arr = Array.isArray(data) ? data : (data.vendors || []);
+    const rows = arr.map(v => ({ 'الاسم': v.name||'', 'النوع': v.categoryType||'', 'الهاتف': v.phoneNumber||'', 'التقييم': v.rating||0, 'الطلبات': v.totalOrders||0, 'الحالة': v.status||'' }));
+    const ws = XLSX.utils.json_to_sheet(rows); const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, 'التجار');
+    XLSX.writeFile(wb, `onway-vendors-${new Date().toISOString().substring(0,10)}.xlsx`);
+    showToast('success', 'تم التصدير', `${rows.length} تاجر`);
+  }).catch(() => showToast('error', 'خطأ', 'تعذّر تصدير التجار'));
+}
+
+function exportVendorsCsv() {
+  fetch(API_BASE + '/admin/vendor-partners').then(r => r.json()).then(data => {
+    const arr = Array.isArray(data) ? data : (data.vendors || []);
+    const header = 'الاسم,النوع,الهاتف,التقييم,الطلبات,الحالة';
+    const csvRows = arr.map(v => [`"${v.name||''}"`,`"${v.categoryType||''}"`,`"${v.phoneNumber||''}"`,v.rating||0,v.totalOrders||0,`"${v.status||''}"`].join(','));
+    const csv = '\uFEFF' + header + '\n' + csvRows.join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = `onway-vendors-${new Date().toISOString().substring(0,10)}.csv`; a.click(); URL.revokeObjectURL(url);
+    showToast('success', 'تم التصدير', 'ملف CSV جاهز');
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+//  ZONE MANAGEMENT
+// ═══════════════════════════════════════════════════════════════════════
+let _zonesData = [];
+let _zoneTypeFilter = '';
+
+async function loadZones() {
+  try {
+    const res = await fetch(API_BASE + '/admin/zones');
+    _zonesData = await res.json();
+    const badge = document.getElementById('zones-count');
+    if (badge) badge.textContent = _zonesData.length;
+    renderZones();
+  } catch { showToast('error', 'خطأ', 'تعذّر تحميل المناطق'); }
+}
+
+function filterZoneTab(type, btn) {
+  _zoneTypeFilter = type;
+  document.getElementById('zone-filter-type').value = type;
+  document.querySelectorAll('[id^="ztab-"]').forEach(b => {
+    b.className = 'btn btn-outline btn-sm';
+    b.style.background = ''; b.style.color = '';
+  });
+  if (btn) { btn.style.background = '#D94523'; btn.style.color = '#fff'; btn.className = 'btn btn-sm'; }
+  renderZones();
+}
+
+function renderZones() {
+  const typeFilter = _zoneTypeFilter || document.getElementById('zone-filter-type')?.value || '';
+  const tbody = document.getElementById('zones-table-body');
+  if (!tbody) return;
+  const typeLabels = { governorate: 'محافظة', city: 'مدينة', district: 'قضاء', neighborhood: 'حي' };
+  const typeColors = { governorate: '#D94523', city: '#3b82f6', district: '#10b981', neighborhood: '#8b5cf6' };
+  const filtered = _zonesData.filter(z => !typeFilter || z.type === typeFilter);
+
+  if (filtered.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:32px;color:var(--gray-400);">لا توجد مناطق. أضف منطقة جديدة.</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = filtered.map(z => {
+    const parent = _zonesData.find(p => p.id === z.parentId);
+    const clr = typeColors[z.type] || '#9ca3af';
+    return `<tr>
+      <td style="font-weight:600;">${escapeHtml(z.name || '')}</td>
+      <td style="color:var(--gray-500);font-size:0.85rem;">${escapeHtml(z.nameEn || '—')}</td>
+      <td><span style="background:${clr}20;color:${clr};padding:2px 10px;border-radius:20px;font-size:0.78rem;font-weight:700;">${typeLabels[z.type] || z.type}</span></td>
+      <td style="font-size:0.85rem;">${parent ? escapeHtml(parent.name) : '—'}</td>
+      <td style="font-weight:600;color:#10b981;">${(z.deliveryFee||0).toLocaleString('ar-IQ')} د.ع</td>
+      <td>
+        <span onclick="toggleZone('${z.id}', ${!z.isActive})" style="cursor:pointer;padding:3px 12px;border-radius:20px;font-size:0.78rem;font-weight:700;${z.isActive !== false ? 'background:#d1fae5;color:#10b981;' : 'background:#fee2e2;color:#ef4444;'}">
+          ${z.isActive !== false ? 'مفعّلة' : 'معطّلة'}
+        </span>
+      </td>
+      <td>
+        <div style="display:flex;gap:6px;">
+          <button class="btn btn-outline btn-sm" onclick="openZoneModal(${JSON.stringify(z).replace(/"/g, '&quot;')})">
+            <i data-lucide="pencil" style="width:14px;height:14px;"></i>
+          </button>
+          <button class="btn btn-sm" style="background:#ef444420;color:#ef4444;border:1px solid #ef444440;" onclick="deleteZone('${z.id}')">
+            <i data-lucide="trash-2" style="width:14px;height:14px;"></i>
+          </button>
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+  if (window.lucide) lucide.createIcons();
+}
+
+function openZoneModal(zone) {
+  const isEdit = !!zone;
+  document.getElementById('zone-modal-title').textContent = isEdit ? 'تعديل المنطقة' : 'إضافة منطقة جديدة';
+  document.getElementById('zone-edit-id').value = zone?.id || '';
+  document.getElementById('zone-name').value = zone?.name || '';
+  document.getElementById('zone-name-en').value = zone?.nameEn || '';
+  document.getElementById('zone-type').value = zone?.type || 'governorate';
+  document.getElementById('zone-fee').value = zone?.deliveryFee ?? '';
+  document.getElementById('zone-order').value = zone?.order ?? 0;
+  document.getElementById('zone-active').value = String(zone?.isActive !== false);
+  updateZoneParentSelect(zone?.parentId);
+  openModal('zone-modal');
+}
+
+function updateZoneParentSelect(selectedParentId) {
+  const type = document.getElementById('zone-type')?.value;
+  const parentTypes = { city: ['governorate'], district: ['governorate','city'], neighborhood: ['city','district'], governorate: [] };
+  const allowed = parentTypes[type] || [];
+  const select = document.getElementById('zone-parent');
+  if (!select) return;
+  const parents = _zonesData.filter(z => allowed.includes(z.type));
+  select.innerHTML = '<option value="">— لا يوجد —</option>' + parents.map(p => `<option value="${p.id}" ${p.id === selectedParentId ? 'selected' : ''}>${escapeHtml(p.name)}</option>`).join('');
+}
+
+async function saveZone(event) {
+  event.preventDefault();
+  const editId = document.getElementById('zone-edit-id').value;
+  const payload = {
+    name: document.getElementById('zone-name').value.trim(),
+    nameEn: document.getElementById('zone-name-en').value.trim(),
+    type: document.getElementById('zone-type').value,
+    parentId: document.getElementById('zone-parent').value || null,
+    deliveryFee: Number(document.getElementById('zone-fee').value) || 0,
+    order: Number(document.getElementById('zone-order').value) || 0,
+    isActive: document.getElementById('zone-active').value === 'true',
+  };
+  try {
+    const url = editId ? `${API_BASE}/admin/zones/${editId}` : `${API_BASE}/admin/zones`;
+    const method = editId ? 'PUT' : 'POST';
+    const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+    if (!res.ok) throw new Error();
+    closeModal('zone-modal');
+    await loadZones();
+    showToast('success', 'تم الحفظ', editId ? 'تم تحديث المنطقة' : 'تمت الإضافة بنجاح');
+  } catch { showToast('error', 'خطأ', 'تعذّر حفظ المنطقة'); }
+}
+
+async function toggleZone(id, newState) {
+  try {
+    await fetch(`${API_BASE}/admin/zones/${id}/toggle`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' } });
+    await loadZones();
+  } catch { showToast('error', 'خطأ', 'تعذّر تغيير حالة المنطقة'); }
+}
+
+async function deleteZone(id) {
+  if (!confirm('هل أنت متأكد من حذف هذه المنطقة؟')) return;
+  try {
+    const res = await fetch(`${API_BASE}/admin/zones/${id}`, { method: 'DELETE' });
+    if (!res.ok) throw new Error();
+    await loadZones();
+    showToast('success', 'تم الحذف', 'تم حذف المنطقة');
+  } catch { showToast('error', 'خطأ', 'تعذّر حذف المنطقة'); }
+}
 
 </script>
 </html>
