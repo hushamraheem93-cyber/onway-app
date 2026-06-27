@@ -13,7 +13,7 @@ import * as Haptics from "expo-haptics";
 
 import { ThemedText } from "@/components/ThemedText";
 import { useTheme } from "@/hooks/useTheme";
-import { Spacing, BorderRadius, Shadows, AppColors, Anim} from "@/constants/theme";
+import { Spacing, BorderRadius, Shadows, AppColors, Anim, FontWeight} from "@/constants/theme";
 import { Product } from "@/constants/categories";
 import { useCart } from "@/context/CartContext";
 import { useFavorites } from "@/context/FavoritesContext";
@@ -260,7 +260,7 @@ const styles = StyleSheet.create({
   },
   name: {
     textAlign: "right",
-    fontWeight: "bold",
+    fontWeight: FontWeight.bold,
     fontSize: 14,
     minHeight: 34,
   },
@@ -289,14 +289,14 @@ const styles = StyleSheet.create({
   discountBadgeText: {
     color: AppColors.white,
     fontSize: 11,
-    fontWeight: "800",
+    fontWeight: FontWeight.xBold,
   },
   priceBlock: {
     flex: 1,
     alignItems: "flex-end",
   },
   price: {
-    fontWeight: "700",
+    fontWeight: FontWeight.bold,
     textAlign: "right",
   },
   originalPrice: {
@@ -328,7 +328,7 @@ const styles = StyleSheet.create({
   quantityText: {
     minWidth: 20,
     textAlign: "center",
-    fontWeight: "700",
+    fontWeight: FontWeight.bold,
   },
 });
 

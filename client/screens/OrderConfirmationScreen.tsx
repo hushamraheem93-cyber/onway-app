@@ -9,7 +9,7 @@ import * as Haptics from "expo-haptics";
 
 import { useTheme } from "@/hooks/useTheme";
 import { ThemedText } from "@/components/ThemedText";
-import { Spacing, BorderRadius, AppColors, Shadows } from "@/constants/theme";
+import { Spacing, BorderRadius, AppColors, Shadows, FontWeight} from "@/constants/theme";
 import { formatPrice } from "@/constants/currency";
 import { Button } from "@/components/Button";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
@@ -231,7 +231,7 @@ export default function OrderConfirmationScreen() {
           <Feather name="clock" size={24} color={AppColors.white} />
         </View>
         <View style={styles.statusContent}>
-          <ThemedText type="body" style={{ fontWeight: "600" }}>
+          <ThemedText type="body" style={{ fontWeight: FontWeight.semiBold }}>
             حالة الطلب
           </ThemedText>
           <ThemedText type="h4" style={{ color: getStatusColor(order.status) }}>
@@ -500,6 +500,6 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
   },
   storeText: {
-    fontWeight: "600",
+    fontWeight: FontWeight.semiBold,
   },
 });

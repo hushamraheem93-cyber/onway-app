@@ -10,7 +10,7 @@ import * as Haptics from "expo-haptics";
 
 import { ThemedText } from "@/components/ThemedText";
 import { useTheme } from "@/hooks/useTheme";
-import { Spacing, BorderRadius, AppColors, DesignSystem, Shadows } from "@/constants/theme";
+import { Spacing, BorderRadius, AppColors, DesignSystem, Shadows, FontWeight} from "@/constants/theme";
 import { Category } from "@/constants/categories";
 import { resolveImageUrl } from "@/utils/imageUtils";
 
@@ -119,7 +119,7 @@ const styles = StyleSheet.create({
   },
   name: {
     textAlign: "center",
-    fontWeight: "700",
+    fontWeight: FontWeight.bold,
     fontSize: 13,
     color: AppColors.textPrimary,
   },

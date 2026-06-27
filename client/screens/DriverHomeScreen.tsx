@@ -27,7 +27,7 @@ import { ThemedText } from "@/components/ThemedText";
 import { GradientBackground } from "@/components/GradientBackground";
 import { useTheme } from "@/hooks/useTheme";
 import { useAuth } from "@/context/AuthContext";
-import { AppColors, Spacing, BorderRadius, Shadows } from "@/constants/theme";
+import { AppColors, Spacing, BorderRadius, Shadows, FontWeight} from "@/constants/theme";
 import { getApiUrl } from "@/lib/query-client";
 import { formatPrice } from "@/constants/currency";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
@@ -560,7 +560,7 @@ export default function DriverHomeScreen() {
       ) : (
         <>
           <View style={[styles.toggleDot, { backgroundColor: isOnline ? AppColors.white : AppColors.gray300 }]} />
-          <ThemedText type="h3" style={{ color: isOnline ? AppColors.white : theme.text, fontWeight: "700" }}>
+          <ThemedText type="h3" style={{ color: isOnline ? AppColors.white : theme.text, fontWeight: FontWeight.bold }}>
             {isOnline ? "متصل" : "غير متصل"}
           </ThemedText>
           <Feather name={isOnline ? "wifi" : "wifi-off"} size={22} color={isOnline ? AppColors.white : AppColors.gray300} />
@@ -582,7 +582,7 @@ export default function DriverHomeScreen() {
         {/* Card top: "طلب جديد" badge */}
         <View style={[styles.incomingBadgeRow, { backgroundColor: AppColors.primary + "15" }]}>
           <View style={[styles.incomingDot]} />
-          <ThemedText type="body" style={{ color: AppColors.primary, fontWeight: "800", flex: 1, textAlign: "right" }}>
+          <ThemedText type="body" style={{ color: AppColors.primary, fontWeight: FontWeight.xBold, flex: 1, textAlign: "right" }}>
             طلب جديد وصل!
           </ThemedText>
         </View>
@@ -605,7 +605,7 @@ export default function DriverHomeScreen() {
               />
             </Svg>
             <View style={styles.countdownCenter}>
-              <ThemedText type="h2" style={{ color: ringColor, fontWeight: "800" }}>{countdown}</ThemedText>
+              <ThemedText type="h2" style={{ color: ringColor, fontWeight: FontWeight.xBold }}>{countdown}</ThemedText>
               <ThemedText style={{ fontSize: 9, color: theme.textSecondary }}>ثانية</ThemedText>
             </View>
           </View>
@@ -615,13 +615,13 @@ export default function DriverHomeScreen() {
             <View style={styles.incomingStatRow}>
               <View style={[styles.incomingStatBadge, { backgroundColor: "#4CAF5018" }]}>
                 <Feather name="package" size={14} color={AppColors.success} />
-                <ThemedText type="small" style={{ color: AppColors.success, fontWeight: "700" }}>
+                <ThemedText type="small" style={{ color: AppColors.success, fontWeight: FontWeight.bold }}>
                   {currentBatch.totalOrders} طلبات
                 </ThemedText>
               </View>
               <View style={[styles.incomingStatBadge, { backgroundColor: AppColors.primary + "18" }]}>
                 <Feather name="dollar-sign" size={14} color={AppColors.primary} />
-                <ThemedText type="small" style={{ color: AppColors.primary, fontWeight: "700" }}>
+                <ThemedText type="small" style={{ color: AppColors.primary, fontWeight: FontWeight.bold }}>
                   {formatPrice(estimatedEarning)}
                 </ThemedText>
               </View>
@@ -630,10 +630,10 @@ export default function DriverHomeScreen() {
             {currentBatch.orders.slice(0, 2).map((order, idx) => (
               <View key={order.id} style={[styles.incomingOrderRow, idx === 0 && { borderTopWidth: 0 }, { borderTopColor: theme.border }]}>
                 <View style={[styles.seqDot, { backgroundColor: AppColors.primary }]}>
-                  <ThemedText style={{ color: AppColors.white, fontSize: 10, fontWeight: "800" }}>{order.deliverySequence}</ThemedText>
+                  <ThemedText style={{ color: AppColors.white, fontSize: 10, fontWeight: FontWeight.xBold }}>{order.deliverySequence}</ThemedText>
                 </View>
                 <View style={{ flex: 1, alignItems: "flex-end" }}>
-                  <ThemedText type="body" style={{ color: theme.text, fontWeight: "700" }} numberOfLines={1}>
+                  <ThemedText type="body" style={{ color: theme.text, fontWeight: FontWeight.bold }} numberOfLines={1}>
                     {order.customerName || "زبون"}
                   </ThemedText>
                   <ThemedText type="small" style={{ color: theme.textSecondary }} numberOfLines={1}>
@@ -654,7 +654,7 @@ export default function DriverHomeScreen() {
         <View style={styles.incomingActions}>
           <Pressable style={styles.rejectBtn} onPress={handleRejectBatch} testID="button-reject-batch">
             <Feather name="x" size={18} color={AppColors.error} />
-            <ThemedText type="body" style={{ color: AppColors.error, fontWeight: "700" }}>رفض</ThemedText>
+            <ThemedText type="body" style={{ color: AppColors.error, fontWeight: FontWeight.bold }}>رفض</ThemedText>
           </Pressable>
           <Pressable
             style={[styles.acceptBtn, { opacity: isAccepting ? 0.75 : 1 }]}
@@ -667,7 +667,7 @@ export default function DriverHomeScreen() {
             ) : (
               <>
                 <Feather name="check" size={20} color={AppColors.white} />
-                <ThemedText type="h4" style={{ color: AppColors.white, fontWeight: "800" }}>قبول الطلب</ThemedText>
+                <ThemedText type="h4" style={{ color: AppColors.white, fontWeight: FontWeight.xBold }}>قبول الطلب</ThemedText>
               </>
             )}
           </Pressable>
@@ -686,7 +686,7 @@ export default function DriverHomeScreen() {
         <View style={styles.activeBatchHeader}>
           <View style={[styles.activeBadge, { backgroundColor: "#8B5CF620" }]}>
             <View style={[styles.activePulse, { backgroundColor: AppColors.statusPurple }]} />
-            <ThemedText type="small" style={{ color: AppColors.statusPurple, fontWeight: "700" }}>جارٍ التوصيل</ThemedText>
+            <ThemedText type="small" style={{ color: AppColors.statusPurple, fontWeight: FontWeight.bold }}>جارٍ التوصيل</ThemedText>
           </View>
           <View style={styles.activeBatchMeta}>
             <Feather name="layers" size={14} color={theme.textSecondary} />
@@ -725,7 +725,7 @@ export default function DriverHomeScreen() {
                     {order.region || order.address}
                   </ThemedText>
                 </View>
-                <ThemedText type="small" style={{ color: dotColor, fontWeight: "700" }}>
+                <ThemedText type="small" style={{ color: dotColor, fontWeight: FontWeight.bold }}>
                   {done ? "تم" : active ? "جارٍ" : "لاحقاً"}
                 </ThemedText>
               </View>
@@ -739,7 +739,7 @@ export default function DriverHomeScreen() {
           testID="button-manage-batch"
         >
           <Feather name="navigation" size={18} color={AppColors.white} />
-          <ThemedText type="h4" style={{ color: AppColors.white, fontWeight: "700" }}>إدارة التوصيل</ThemedText>
+          <ThemedText type="h4" style={{ color: AppColors.white, fontWeight: FontWeight.bold }}>إدارة التوصيل</ThemedText>
           <Feather name="chevron-left" size={18} color={AppColors.white} />
         </Pressable>
       </View>
@@ -765,7 +765,7 @@ export default function DriverHomeScreen() {
         <View style={styles.walletAlertRow}>
           <Feather name="alert-triangle" size={18} color={AppColors.primary} />
           <View style={{ flex: 1, alignItems: "flex-end" }}>
-            <ThemedText type="body" style={{ color: AppColors.primary, fontWeight: "700" }}>رصيد المحفظة منخفض</ThemedText>
+            <ThemedText type="body" style={{ color: AppColors.primary, fontWeight: FontWeight.bold }}>رصيد المحفظة منخفض</ThemedText>
             <ThemedText type="small" style={{ color: AppColors.error }}>
               {formatPrice(walletBalance)} — الحد الأدنى {formatPrice(250)}
             </ThemedText>
@@ -773,7 +773,7 @@ export default function DriverHomeScreen() {
         </View>
         <Pressable onPress={handleWhatsAppSupport} style={styles.whatsappBtn} testID="button-whatsapp-support">
           <Feather name="message-circle" size={18} color={AppColors.white} />
-          <ThemedText type="body" style={{ color: AppColors.white, fontWeight: "700" }}>شحن الرصيد عبر واتساب</ThemedText>
+          <ThemedText type="body" style={{ color: AppColors.white, fontWeight: FontWeight.bold }}>شحن الرصيد عبر واتساب</ThemedText>
         </Pressable>
       </View>
     );
@@ -824,7 +824,7 @@ export default function DriverHomeScreen() {
               <>
                 <View style={styles.modalHeaderRow}>
                   <Feather name="alert-triangle" size={20} color={AppColors.primary} />
-                  <ThemedText type="h4" style={{ color: theme.text, fontWeight: "700" }}>إبلاغ عن مشكلة</ThemedText>
+                  <ThemedText type="h4" style={{ color: theme.text, fontWeight: FontWeight.bold }}>إبلاغ عن مشكلة</ThemedText>
                 </View>
                 <ThemedText type="small" style={{ color: theme.textSecondary, textAlign: "center", marginBottom: Spacing.lg }}>
                   اختر نوع المشكلة
@@ -842,7 +842,7 @@ export default function DriverHomeScreen() {
                     ) : (
                       <Feather name="chevron-left" size={18} color={AppColors.primary} />
                     )}
-                    <ThemedText type="body" style={{ color: theme.text, fontWeight: "600", flex: 1, textAlign: "right" }}>
+                    <ThemedText type="body" style={{ color: theme.text, fontWeight: FontWeight.semiBold, flex: 1, textAlign: "right" }}>
                       {opt.label}
                     </ThemedText>
                   </Pressable>
@@ -920,7 +920,7 @@ const styles = StyleSheet.create({
   },
   earningsStripItem: { flex: 1, alignItems: "center" },
   earningsStripLabel: { color: "rgba(255,255,255,0.75)", fontSize: 10, marginBottom: 2 },
-  earningsStripValue: { color: AppColors.white, fontWeight: "700", fontSize: 15 },
+  earningsStripValue: { color: AppColors.white, fontWeight: FontWeight.bold, fontSize: 15 },
   earningsStripDivider: { width: 1, backgroundColor: "rgba(255,255,255,0.25)", marginVertical: 2 },
 
   // Content

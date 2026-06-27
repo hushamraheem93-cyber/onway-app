@@ -21,7 +21,7 @@ import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollV
 import { useTheme } from "@/hooks/useTheme";
 import { useAuth } from "@/context/AuthContext";
 import { useLocation } from "@/context/LocationContext";
-import { AppColors, Spacing, BorderRadius, Shadows } from "@/constants/theme";
+import { AppColors, Spacing, BorderRadius, Shadows, FontWeight} from "@/constants/theme";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
 
 type NavProp = NativeStackNavigationProp<RootStackParamList, "ProfileCompletion">;
@@ -170,7 +170,7 @@ export default function ProfileCompletionScreen() {
           testID="button-back"
         >
           <Feather name="arrow-right" size={22} color={theme.text} />
-          <ThemedText type="body" style={{ fontWeight: "600" }}>رجوع</ThemedText>
+          <ThemedText type="body" style={{ fontWeight: FontWeight.semiBold }}>رجوع</ThemedText>
         </Pressable>
 
         <View style={styles.header}>
@@ -348,7 +348,7 @@ export default function ProfileCompletionScreen() {
                   </View>
                 </View>
                 <View style={styles.changeBtn}>
-                  <ThemedText type="small" style={{ color: AppColors.primary, fontWeight: "700" }}>
+                  <ThemedText type="small" style={{ color: AppColors.primary, fontWeight: FontWeight.bold }}>
                     تغيير
                   </ThemedText>
                 </View>
@@ -363,7 +363,7 @@ export default function ProfileCompletionScreen() {
                   <Feather name="map-pin" size={22} color={AppColors.primary} />
                 </View>
                 <View style={styles.mapButtonText}>
-                  <ThemedText type="body" style={{ fontWeight: "700", color: theme.text, textAlign: "right" }}>
+                  <ThemedText type="body" style={{ fontWeight: FontWeight.bold, color: theme.text, textAlign: "right" }}>
                     تحديد موقعي على الخريطة
                   </ThemedText>
                   <ThemedText type="small" style={{ color: theme.textSecondary, textAlign: "right" }}>
@@ -495,7 +495,7 @@ const styles = StyleSheet.create({
   },
   label: {
     textAlign: "right",
-    fontWeight: "600",
+    fontWeight: FontWeight.semiBold,
     marginBottom: Spacing.sm,
   },
   input: {
@@ -545,7 +545,7 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
   },
   genderText: {
-    fontWeight: "600",
+    fontWeight: FontWeight.semiBold,
   },
   mapButton: {
     flexDirection: "row-reverse",
@@ -601,7 +601,7 @@ const styles = StyleSheet.create({
   },
   locationAddress: {
     textAlign: "right",
-    fontWeight: "600",
+    fontWeight: FontWeight.semiBold,
     fontSize: 13,
     lineHeight: 20,
   },
@@ -625,7 +625,7 @@ const styles = StyleSheet.create({
   },
   saveButtonText: {
     color: AppColors.white,
-    fontWeight: "bold",
+    fontWeight: FontWeight.bold,
     marginRight: Spacing.sm,
   },
   buttonIcon: {

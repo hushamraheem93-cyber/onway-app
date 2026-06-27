@@ -20,7 +20,7 @@ import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 
 import { useTheme } from "@/hooks/useTheme";
-import { Spacing, AppColors, BorderRadius, Shadows } from "@/constants/theme";
+import { Spacing, AppColors, BorderRadius, Shadows, FontWeight} from "@/constants/theme";
 import { ThemedText } from "@/components/ThemedText";
 import { GradientBackground } from "@/components/GradientBackground";
 import { FloatingCartBar } from "@/components/FloatingCartBar";
@@ -154,7 +154,7 @@ function ProductCard({
           </ThemedText>
           {isOutOfStock ? (
             <View style={[styles.outOfStockBadge, { backgroundColor: AppColors.errorLight }]}>
-              <ThemedText type="small" style={{ color: AppColors.error, fontWeight: "600", fontSize: 11 }}>
+              <ThemedText type="small" style={{ color: AppColors.error, fontWeight: FontWeight.semiBold, fontSize: 11 }}>
                 نفذت الكمية
               </ThemedText>
             </View>
@@ -377,7 +377,7 @@ export default function StoreProductsScreen() {
             تعذّر تحميل المنتجات
           </ThemedText>
           <Pressable onPress={() => refetch()} style={styles.retryBtn}>
-            <ThemedText type="body" style={{ color: AppColors.primary, fontWeight: "600" }}>
+            <ThemedText type="body" style={{ color: AppColors.primary, fontWeight: FontWeight.semiBold }}>
               إعادة المحاولة
             </ThemedText>
           </Pressable>
@@ -442,7 +442,7 @@ export default function StoreProductsScreen() {
                   style={styles.retryBtn}
                   testID="btn-clear-filters"
                 >
-                  <ThemedText type="body" style={{ color: AppColors.primary, fontWeight: "600" }}>
+                  <ThemedText type="body" style={{ color: AppColors.primary, fontWeight: FontWeight.semiBold }}>
                     مسح الفلاتر
                   </ThemedText>
                 </Pressable>
@@ -692,7 +692,7 @@ const styles = StyleSheet.create({
   },
   productName: {
     textAlign: "right",
-    fontWeight: "600",
+    fontWeight: FontWeight.semiBold,
   },
   productDesc: {
     textAlign: "right",
@@ -724,7 +724,7 @@ const styles = StyleSheet.create({
   },
   addBtnText: {
     color: AppColors.white,
-    fontWeight: "700",
+    fontWeight: FontWeight.bold,
   },
   quantityControl: {
     flexDirection: "row-reverse",
@@ -739,7 +739,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   qtyText: {
-    fontWeight: "700",
+    fontWeight: FontWeight.bold,
     minWidth: 24,
     textAlign: "center",
   },

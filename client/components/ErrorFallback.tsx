@@ -12,7 +12,7 @@ import { Feather } from "@expo/vector-icons";
 import { ThemedView } from "@/components/ThemedView";
 import { ThemedText } from "@/components/ThemedText";
 import { useTheme } from "@/hooks/useTheme";
-import { Spacing, BorderRadius, Fonts, AppColors} from "@/constants/theme";
+import { Spacing, BorderRadius, Fonts, AppColors, FontWeight} from "@/constants/theme";
 
 export type ErrorFallbackProps = {
   error: Error;
@@ -195,7 +195,7 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   buttonText: {
-    fontWeight: "600",
+    fontWeight: FontWeight.semiBold,
     textAlign: "center",
     fontSize: 13,
   },
@@ -221,7 +221,7 @@ const styles = StyleSheet.create({
     borderBottomColor: "rgba(128, 128, 128, 0.2)",
   },
   modalTitle: {
-    fontWeight: "600",
+    fontWeight: FontWeight.semiBold,
   },
   closeButton: {
     padding: Spacing.xs,

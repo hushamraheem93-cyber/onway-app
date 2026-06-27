@@ -19,7 +19,7 @@ import { useCart } from "@/context/CartContext";
 import { useFavorites } from "@/context/FavoritesContext";
 import { resolveImageUrl } from "@/utils/imageUtils";
 import { formatPrice } from "@/constants/currency";
-import { AppColors, Spacing, BorderRadius, Shadows } from "@/constants/theme";
+import { AppColors, Spacing, BorderRadius, Shadows, FontWeight} from "@/constants/theme";
 import { useTheme } from "@/hooks/useTheme";
 import { Product } from "@/constants/categories";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
@@ -344,7 +344,7 @@ const styles = StyleSheet.create({
   productName: {
     flex: 1,
     textAlign: "right",
-    fontWeight: "700",
+    fontWeight: FontWeight.bold,
   },
   unitBadge: {
     backgroundColor: AppColors.primary + "18",
@@ -381,7 +381,7 @@ const styles = StyleSheet.create({
     marginTop: Spacing.sm,
   },
   price: {
-    fontWeight: "700",
+    fontWeight: FontWeight.bold,
   },
   outOfStockBadge: {
     backgroundColor: AppColors.errorLight,
@@ -436,7 +436,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   qtyText: {
-    fontWeight: "700",
+    fontWeight: FontWeight.bold,
     minWidth: 32,
     textAlign: "center",
     fontSize: 22,

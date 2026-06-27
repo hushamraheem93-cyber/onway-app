@@ -11,7 +11,7 @@ import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 
 import { useTheme } from "@/hooks/useTheme";
-import { Spacing, BorderRadius, AppColors } from "@/constants/theme";
+import { Spacing, BorderRadius, AppColors, FontWeight} from "@/constants/theme";
 import { Product } from "@/constants/categories";
 import { ProductCard } from "@/components/ProductCard";
 import { EmptyState } from "@/components/EmptyState";
@@ -290,7 +290,7 @@ const styles = StyleSheet.create({
   openBadgeText: {
     color: AppColors.white,
     fontSize: 11,
-    fontWeight: "700",
+    fontWeight: FontWeight.bold,
   },
   vendorBody: {
     padding: Spacing.md,
@@ -319,7 +319,7 @@ const styles = StyleSheet.create({
   },
   metaValue: {
     fontSize: 12,
-    fontWeight: "600",
+    fontWeight: FontWeight.semiBold,
   },
   metaDivider: {
     width: 1,

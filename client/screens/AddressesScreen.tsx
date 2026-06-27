@@ -9,7 +9,7 @@ import * as Haptics from "expo-haptics";
 import { useTheme } from "@/hooks/useTheme";
 import { useAuth } from "@/context/AuthContext";
 import { GradientBackground } from "@/components/GradientBackground";
-import { Spacing, BorderRadius, Shadows, AppColors } from "@/constants/theme";
+import { Spacing, BorderRadius, Shadows, AppColors, FontWeight} from "@/constants/theme";
 import { ThemedText } from "@/components/ThemedText";
 
 const ADDRESSES_KEY = "@onway_addresses";
@@ -286,7 +286,7 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
   },
   addressTitle: {
-    fontWeight: "600",
+    fontWeight: FontWeight.semiBold,
   },
   defaultBadge: {
     backgroundColor: AppColors.primary + "20",
@@ -296,7 +296,7 @@ const styles = StyleSheet.create({
   },
   defaultText: {
     color: AppColors.primary,
-    fontWeight: "600",
+    fontWeight: FontWeight.semiBold,
   },
   profileBadge: {
     backgroundColor: AppColors.success + "20",
@@ -306,7 +306,7 @@ const styles = StyleSheet.create({
   },
   profileBadgeText: {
     color: AppColors.success,
-    fontWeight: "600",
+    fontWeight: FontWeight.semiBold,
   },
   regionRow: {
     flexDirection: "row-reverse",
@@ -315,7 +315,7 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.xs,
   },
   regionText: {
-    fontWeight: "600",
+    fontWeight: FontWeight.semiBold,
   },
   addressText: {
     textAlign: "right",

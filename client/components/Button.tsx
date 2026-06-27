@@ -9,7 +9,7 @@ import Animated, {
 
 import { ThemedText } from "@/components/ThemedText";
 import { useTheme } from "@/hooks/useTheme";
-import { BorderRadius, Spacing, AppColors } from "@/constants/theme";
+import { BorderRadius, Spacing, AppColors, FontWeight} from "@/constants/theme";
 
 interface ButtonProps {
   onPress?: () => void;
@@ -114,7 +114,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.xl,
   },
   buttonText: {
-    fontWeight: "700",
+    fontWeight: FontWeight.bold,
     fontSize: 13,
   },
 });

@@ -14,7 +14,7 @@ import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Feather } from "@expo/vector-icons";
 
 import { useTheme } from "@/hooks/useTheme";
-import { Spacing, AppColors, BorderRadius, Shadows } from "@/constants/theme";
+import { Spacing, AppColors, BorderRadius, Shadows, FontWeight} from "@/constants/theme";
 import { useOrders, Order } from "@/context/OrderContext";
 import { useAuth } from "@/context/AuthContext";
 import { OrderCard } from "@/components/OrderCard";
@@ -97,7 +97,7 @@ export default function OrdersScreen() {
             onPress={() => setSearchQuery("")}
             style={[styles.resetBtn, { backgroundColor: AppColors.primary + "15" }]}
           >
-            <ThemedText type="small" style={{ color: AppColors.primary, fontWeight: "700" }}>
+            <ThemedText type="small" style={{ color: AppColors.primary, fontWeight: FontWeight.bold }}>
               عرض جميع الطلبات
             </ThemedText>
           </Pressable>
@@ -251,7 +251,7 @@ const styles = StyleSheet.create({
   },
   resultsBannerText: {
     color: AppColors.primary,
-    fontWeight: "600",
+    fontWeight: FontWeight.semiBold,
   },
   noResults: {
     flex: 1,

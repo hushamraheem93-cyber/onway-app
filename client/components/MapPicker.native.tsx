@@ -6,7 +6,7 @@ import MapView, { Marker } from "react-native-maps";
 
 import { ThemedText } from "@/components/ThemedText";
 import { useTheme } from "@/hooks/useTheme";
-import { AppColors, Spacing, BorderRadius, Shadows } from "@/constants/theme";
+import { AppColors, Spacing, BorderRadius, Shadows, FontWeight} from "@/constants/theme";
 
 interface MapPickerProps {
   selectedLocation: { latitude: number; longitude: number } | null;
@@ -65,7 +65,7 @@ export default function MapPicker({ selectedLocation, onLocationSelect, onGetCur
       </View>
 
       <View style={styles.hint}>
-        <ThemedText type="small" style={{ color: AppColors.white, fontWeight: "600" }}>
+        <ThemedText type="small" style={{ color: AppColors.white, fontWeight: FontWeight.semiBold }}>
           انقر على الخريطة أو اسحب المؤشر لتحديد موقعك
         </ThemedText>
       </View>

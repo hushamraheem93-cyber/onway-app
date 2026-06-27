@@ -6,7 +6,7 @@ import { Feather } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 
 import { useTheme } from "@/hooks/useTheme";
-import { Spacing, BorderRadius, Shadows, AppColors } from "@/constants/theme";
+import { Spacing, BorderRadius, Shadows, AppColors, FontWeight} from "@/constants/theme";
 import { ThemedText } from "@/components/ThemedText";
 import { useNotifications, AppNotification } from "@/context/NotificationContext";
 import { GradientBackground } from "@/components/GradientBackground";
@@ -40,7 +40,7 @@ function NotificationItem({ notification, onPress }: { notification: AppNotifica
     >
       <View style={styles.notificationContent}>
         <View style={styles.notificationHeader}>
-          <ThemedText type="body" style={[styles.notificationTitle, !notification.read && { fontWeight: "700" }]}>
+          <ThemedText type="body" style={[styles.notificationTitle, !notification.read && { fontWeight: FontWeight.bold }]}>
             {notification.title}
           </ThemedText>
           {!notification.read ? (

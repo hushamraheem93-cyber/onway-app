@@ -7,7 +7,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Haptics from "expo-haptics";
 
 import { useTheme } from "@/hooks/useTheme";
-import { Spacing, BorderRadius, Shadows, AppColors } from "@/constants/theme";
+import { Spacing, BorderRadius, Shadows, AppColors, FontWeight} from "@/constants/theme";
 import { ThemedText } from "@/components/ThemedText";
 import { GradientBackground } from "@/components/GradientBackground";
 
@@ -154,7 +154,7 @@ export default function NotificationsScreen() {
 
       <View style={[styles.savedBadge, { backgroundColor: AppColors.success + "15" }]}>
         <Feather name="check-circle" size={16} color={AppColors.success} />
-        <ThemedText type="small" style={{ color: AppColors.success, fontWeight: "600" }}>
+        <ThemedText type="small" style={{ color: AppColors.success, fontWeight: FontWeight.semiBold }}>
           يتم حفظ الإعدادات تلقائياً
         </ThemedText>
       </View>
@@ -188,7 +188,7 @@ const styles = StyleSheet.create({
   },
   settingTitle: {
     textAlign: "right",
-    fontWeight: "600",
+    fontWeight: FontWeight.semiBold,
   },
   settingSubtitle: {
     textAlign: "right",

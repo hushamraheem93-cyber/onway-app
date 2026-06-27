@@ -20,7 +20,7 @@ import { GradientBackground } from "@/components/GradientBackground";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import { useTheme } from "@/hooks/useTheme";
 import { useAuth } from "@/context/AuthContext";
-import { AppColors, Spacing, BorderRadius, Shadows } from "@/constants/theme";
+import { AppColors, Spacing, BorderRadius, Shadows, FontWeight} from "@/constants/theme";
 import { getApiUrl } from "@/lib/query-client";
 
 export default function DriverRegistrationScreen() {
@@ -216,7 +216,7 @@ export default function DriverRegistrationScreen() {
         testID="button-back"
       >
         <Feather name="arrow-right" size={22} color={theme.text} />
-        <ThemedText type="body" style={{ fontWeight: "600" }}>رجوع</ThemedText>
+        <ThemedText type="body" style={{ fontWeight: FontWeight.semiBold }}>رجوع</ThemedText>
       </Pressable>
 
       <View style={styles.header}>
@@ -304,7 +304,7 @@ export default function DriverRegistrationScreen() {
           </ThemedText>
           <Feather name="phone" size={18} color={AppColors.primary} />
         </View>
-        <ThemedText type="small" style={{ textAlign: "right", color: AppColors.success, marginTop: Spacing.xs, fontWeight: "600" }}>
+        <ThemedText type="small" style={{ textAlign: "right", color: AppColors.success, marginTop: Spacing.xs, fontWeight: FontWeight.semiBold }}>
           تم تعبئة الرقم تلقائياً من تسجيل الدخول
         </ThemedText>
       </View>
@@ -529,7 +529,7 @@ const styles = StyleSheet.create({
   errorBannerText: {
     flex: 1,
     color: AppColors.white,
-    fontWeight: "600",
+    fontWeight: FontWeight.semiBold,
     textAlign: "right",
     fontSize: 14,
   },
@@ -559,7 +559,7 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     textAlign: "right",
-    fontWeight: "700",
+    fontWeight: FontWeight.bold,
     marginBottom: Spacing.md,
     color: AppColors.textPrimary,
   },
@@ -579,14 +579,14 @@ const styles = StyleSheet.create({
   optionalText: {
     color: AppColors.success,
     fontSize: 11,
-    fontWeight: "600",
+    fontWeight: FontWeight.semiBold,
   },
   field: {
     marginBottom: Spacing.md,
   },
   label: {
     textAlign: "right",
-    fontWeight: "600",
+    fontWeight: FontWeight.semiBold,
     marginBottom: Spacing.sm,
     fontSize: 14,
   },
@@ -610,7 +610,7 @@ const styles = StyleSheet.create({
     flex: 1,
     textAlign: "right",
     fontSize: 13,
-    fontWeight: "600",
+    fontWeight: FontWeight.semiBold,
   },
   idHint: {
     textAlign: "right",
@@ -641,7 +641,7 @@ const styles = StyleSheet.create({
   },
   uploadedText: {
     color: AppColors.white,
-    fontWeight: "700",
+    fontWeight: FontWeight.bold,
     fontSize: 12,
   },
   idPlaceholder: {
@@ -668,7 +668,7 @@ const styles = StyleSheet.create({
   },
   submitButtonText: {
     color: AppColors.white,
-    fontWeight: "bold",
+    fontWeight: FontWeight.bold,
     marginRight: Spacing.sm,
   },
   buttonIcon: {
@@ -694,7 +694,7 @@ const styles = StyleSheet.create({
     lineHeight: 24,
   },
   agreementBold: {
-    fontWeight: "700",
+    fontWeight: FontWeight.bold,
     color: AppColors.black,
   },
   checkboxRow: {

@@ -16,7 +16,7 @@ import { WebView } from "react-native-webview";
 import { ThemedText } from "@/components/ThemedText";
 import { GradientBackground } from "@/components/GradientBackground";
 import { useTheme } from "@/hooks/useTheme";
-import { AppColors, Spacing, BorderRadius, Shadows } from "@/constants/theme";
+import { AppColors, Spacing, BorderRadius, Shadows, FontWeight} from "@/constants/theme";
 import { formatPrice } from "@/constants/currency";
 
 function getMiniMapHTML(lat: number, lng: number, label: string) {
@@ -165,7 +165,7 @@ export default function DriverOrderDetailScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={[styles.statusBanner, { backgroundColor: (statusColor[order.status] || AppColors.gray400) + "15" }]}>
-          <ThemedText type="h4" style={{ color: statusColor[order.status] || AppColors.gray400, fontWeight: "700" }}>
+          <ThemedText type="h4" style={{ color: statusColor[order.status] || AppColors.gray400, fontWeight: FontWeight.bold }}>
             {statusLabel[order.status] || order.status}
           </ThemedText>
           <ThemedText type="small" style={{ color: theme.textSecondary, marginTop: 2 }}>
@@ -197,11 +197,11 @@ export default function DriverOrderDetailScreen() {
             <View style={[styles.card, { backgroundColor: theme.backgroundDefault }, Shadows.sm]}>
               <View style={styles.cardHeader}>
                 <Feather name="shopping-bag" size={20} color={AppColors.primary} />
-                <ThemedText type="h4" style={{ color: theme.text, fontWeight: "700" }}>مصدر الطلب</ThemedText>
+                <ThemedText type="h4" style={{ color: theme.text, fontWeight: FontWeight.bold }}>مصدر الطلب</ThemedText>
               </View>
               {sources.map((src, i) => (
                 <View key={i} style={styles.sourceRow}>
-                  <ThemedText type="body" style={{ color: theme.text, fontWeight: "600" }}>{src}</ThemedText>
+                  <ThemedText type="body" style={{ color: theme.text, fontWeight: FontWeight.semiBold }}>{src}</ThemedText>
                   <View style={[styles.sourceBadge, { backgroundColor: AppColors.primary + "15" }]}>
                     <ThemedText type="small" style={{ color: AppColors.primary }}>مطعم</ThemedText>
                   </View>
@@ -209,7 +209,7 @@ export default function DriverOrderDetailScreen() {
               ))}
               {hasStoreItems ? (
                 <View style={styles.sourceRow}>
-                  <ThemedText type="body" style={{ color: theme.text, fontWeight: "600" }}>متجر OnWay</ThemedText>
+                  <ThemedText type="body" style={{ color: theme.text, fontWeight: FontWeight.semiBold }}>متجر OnWay</ThemedText>
                   <View style={[styles.sourceBadge, { backgroundColor: "#3B82F620" }]}>
                     <ThemedText type="small" style={{ color: AppColors.info }}>متجر</ThemedText>
                   </View>
@@ -222,7 +222,7 @@ export default function DriverOrderDetailScreen() {
         <View style={[styles.card, { backgroundColor: theme.backgroundDefault }, Shadows.sm]}>
           <View style={styles.cardHeader}>
             <Feather name="user" size={20} color={AppColors.primary} />
-            <ThemedText type="h4" style={{ color: theme.text, fontWeight: "700" }}>بيانات الزبون</ThemedText>
+            <ThemedText type="h4" style={{ color: theme.text, fontWeight: FontWeight.bold }}>بيانات الزبون</ThemedText>
           </View>
 
           <View style={styles.infoRow}>
@@ -259,14 +259,14 @@ export default function DriverOrderDetailScreen() {
           <View style={[styles.card, { backgroundColor: theme.backgroundDefault, padding: 0, overflow: "hidden" }, Shadows.sm]}>
             <View style={styles.mapCardHeader}>
               <Feather name="map" size={20} color={AppColors.primary} />
-              <ThemedText type="h4" style={{ color: theme.text, fontWeight: "700", flex: 1 }}>موقع التوصيل</ThemedText>
+              <ThemedText type="h4" style={{ color: theme.text, fontWeight: FontWeight.bold, flex: 1 }}>موقع التوصيل</ThemedText>
               <Pressable
                 style={styles.openMapsBtn}
                 onPress={openInMaps}
                 testID="button-open-maps"
               >
                 <Feather name="external-link" size={14} color={AppColors.primary} />
-                <ThemedText type="small" style={{ color: AppColors.primary, fontWeight: "600" }}>افتح بالخرائط</ThemedText>
+                <ThemedText type="small" style={{ color: AppColors.primary, fontWeight: FontWeight.semiBold }}>افتح بالخرائط</ThemedText>
               </Pressable>
             </View>
             <View style={styles.mapCardAddress}>
@@ -297,12 +297,12 @@ export default function DriverOrderDetailScreen() {
         <View style={[styles.card, { backgroundColor: theme.backgroundDefault }, Shadows.sm]}>
           <View style={styles.cardHeader}>
             <Feather name="shopping-bag" size={20} color={AppColors.primary} />
-            <ThemedText type="h4" style={{ color: theme.text, fontWeight: "700" }}>ملخص الطلب</ThemedText>
+            <ThemedText type="h4" style={{ color: theme.text, fontWeight: FontWeight.bold }}>ملخص الطلب</ThemedText>
           </View>
 
           {order.orderType ? (
             <View style={[styles.orderTypeBadge, { backgroundColor: AppColors.primary + "15" }]}>
-              <ThemedText type="small" style={{ color: AppColors.primary, fontWeight: "600" }}>
+              <ThemedText type="small" style={{ color: AppColors.primary, fontWeight: FontWeight.semiBold }}>
                 {order.orderType === "delivery" ? "توصيل" : order.orderType}
               </ThemedText>
             </View>
@@ -320,7 +320,7 @@ export default function DriverOrderDetailScreen() {
               key={item.id || `item-${index}`}
               style={[styles.tableRow, { borderBottomColor: theme.border }]}
             >
-              <ThemedText type="body" style={[styles.tableCell, { flex: 1, fontWeight: "600", color: AppColors.primary }]}>
+              <ThemedText type="body" style={[styles.tableCell, { flex: 1, fontWeight: FontWeight.semiBold, color: AppColors.primary }]}>
                 {formatPrice(item.price * item.quantity)}
               </ThemedText>
               <ThemedText type="body" style={[styles.tableCell, { width: 40, textAlign: "center", color: theme.text }]}>
@@ -329,7 +329,7 @@ export default function DriverOrderDetailScreen() {
               <ThemedText type="body" style={[styles.tableCell, { flex: 1, textAlign: "center", color: theme.textSecondary }]}>
                 {formatPrice(item.price)}
               </ThemedText>
-              <ThemedText type="body" style={[styles.tableCell, { flex: 2, textAlign: "right", color: theme.text, fontWeight: "500" }]}>
+              <ThemedText type="body" style={[styles.tableCell, { flex: 2, textAlign: "right", color: theme.text, fontWeight: FontWeight.medium }]}>
                 {item.name}
               </ThemedText>
             </View>
@@ -345,10 +345,10 @@ export default function DriverOrderDetailScreen() {
               <ThemedText type="body" style={{ color: theme.textSecondary }}>أجرة التوصيل</ThemedText>
             </View>
             <View style={[styles.totalRow, styles.grandTotalRow]}>
-              <ThemedText type="h3" style={{ color: AppColors.primary, fontWeight: "800" }}>
+              <ThemedText type="h3" style={{ color: AppColors.primary, fontWeight: FontWeight.xBold }}>
                 {formatPrice(orderTotal)}
               </ThemedText>
-              <ThemedText type="h4" style={{ color: theme.text, fontWeight: "700" }}>المجموع الكلي</ThemedText>
+              <ThemedText type="h4" style={{ color: theme.text, fontWeight: FontWeight.bold }}>المجموع الكلي</ThemedText>
             </View>
           </View>
         </View>
@@ -357,7 +357,7 @@ export default function DriverOrderDetailScreen() {
           <View style={[styles.card, { backgroundColor: theme.backgroundDefault }, Shadows.sm]}>
             <View style={styles.cardHeader}>
               <Feather name="file-text" size={20} color={AppColors.primary} />
-              <ThemedText type="h4" style={{ color: theme.text, fontWeight: "700" }}>ملاحظات</ThemedText>
+              <ThemedText type="h4" style={{ color: theme.text, fontWeight: FontWeight.bold }}>ملاحظات</ThemedText>
             </View>
             <ThemedText type="body" style={{ color: theme.text, lineHeight: 24 }}>
               {order.notes}
@@ -368,7 +368,7 @@ export default function DriverOrderDetailScreen() {
         <View style={[styles.card, { backgroundColor: theme.backgroundDefault }, Shadows.sm]}>
           <View style={styles.cardHeader}>
             <Feather name="clock" size={20} color={AppColors.primary} />
-            <ThemedText type="h4" style={{ color: theme.text, fontWeight: "700" }}>معلومات إضافية</ThemedText>
+            <ThemedText type="h4" style={{ color: theme.text, fontWeight: FontWeight.bold }}>معلومات إضافية</ThemedText>
           </View>
           <View style={styles.infoRow}>
             <ThemedText type="body" style={{ color: theme.text }}>
@@ -405,7 +405,7 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     color: AppColors.white,
-    fontWeight: "700",
+    fontWeight: FontWeight.bold,
   },
   backBtn: {
     width: 40,
@@ -487,7 +487,7 @@ const styles = StyleSheet.create({
   },
   callButtonText: {
     color: AppColors.white,
-    fontWeight: "700",
+    fontWeight: FontWeight.bold,
   },
   orderTypeBadge: {
     alignSelf: "flex-end",
@@ -503,7 +503,7 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.xs,
   },
   tableHeaderText: {
-    fontWeight: "700",
+    fontWeight: FontWeight.bold,
     fontSize: 12,
   },
   tableRow: {

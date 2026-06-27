@@ -9,7 +9,7 @@ import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
 
 import { ThemedText } from "@/components/ThemedText";
 import { useTheme } from "@/hooks/useTheme";
-import { Spacing, BorderRadius, Shadows, AppColors, ORDER_STATUS_COLORS, ORDER_STATUS_LABELS } from "@/constants/theme";
+import { Spacing, BorderRadius, Shadows, AppColors, ORDER_STATUS_COLORS, ORDER_STATUS_LABELS, FontWeight} from "@/constants/theme";
 import { Order } from "@/context/OrderContext";
 import { formatPrice } from "@/constants/currency";
 
@@ -101,7 +101,7 @@ function OrderCardComponent({ order, onPress, onStorePress, onRate }: OrderCardP
         >
           <ThemedText
             type="small"
-            style={{ color: ORDER_STATUS_COLORS[order.status] ?? AppColors.gray400, fontWeight: "600" }}
+            style={{ color: ORDER_STATUS_COLORS[order.status] ?? AppColors.gray400, fontWeight: FontWeight.semiBold }}
           >
             {ORDER_STATUS_LABELS[order.status] ?? order.status}
           </ThemedText>
@@ -158,7 +158,7 @@ function OrderCardComponent({ order, onPress, onStorePress, onRate }: OrderCardP
         <View style={[styles.ratingSection, { borderTopColor: theme.border ?? AppColors.divider }]}>
           {ratedValue ? (
             <View style={styles.ratingRow}>
-              <ThemedText type="small" style={{ color: AppColors.success, fontWeight: "600" }}>
+              <ThemedText type="small" style={{ color: AppColors.success, fontWeight: FontWeight.semiBold }}>
                 شكراً على تقييمك!
               </ThemedText>
               <View style={styles.ratingStarsRow}>
@@ -308,7 +308,7 @@ const styles = StyleSheet.create({
     borderColor: AppColors.primary + "30",
   },
   storeText: {
-    fontWeight: "600",
+    fontWeight: FontWeight.semiBold,
   },
   infoText: {
     marginRight: Spacing.sm,

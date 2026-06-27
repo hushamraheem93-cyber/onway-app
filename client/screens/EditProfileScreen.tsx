@@ -19,7 +19,7 @@ import { ThemedText } from "@/components/ThemedText";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import { useTheme } from "@/hooks/useTheme";
 import { useAuth } from "@/context/AuthContext";
-import { AppColors, Spacing, BorderRadius, Shadows } from "@/constants/theme";
+import { AppColors, Spacing, BorderRadius, Shadows, FontWeight} from "@/constants/theme";
 import { GradientBackground } from "@/components/GradientBackground";
 
 const REGIONS = [
@@ -410,7 +410,7 @@ const styles = StyleSheet.create({
   label: {
     textAlign: "right",
     marginBottom: Spacing.sm,
-    fontWeight: "600",
+    fontWeight: FontWeight.semiBold,
   },
   input: {
     borderRadius: BorderRadius.lg,
@@ -438,7 +438,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   genderText: {
-    fontWeight: "500",
+    fontWeight: FontWeight.medium,
   },
   dropdown: {
     flexDirection: "row",
@@ -481,7 +481,7 @@ const styles = StyleSheet.create({
   },
   saveButtonText: {
     color: AppColors.white,
-    fontWeight: "bold",
+    fontWeight: FontWeight.bold,
   },
   note: {
     textAlign: "center",

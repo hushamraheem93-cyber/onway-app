@@ -21,7 +21,7 @@ import { ThemedText } from "@/components/ThemedText";
 import { GradientBackground } from "@/components/GradientBackground";
 import { useTheme } from "@/hooks/useTheme";
 import { useAuth } from "@/context/AuthContext";
-import { AppColors, Spacing, BorderRadius } from "@/constants/theme";
+import { AppColors, Spacing, BorderRadius, FontWeight} from "@/constants/theme";
 import { resolveImageUrl } from "@/utils/imageUtils";
 import { getApiUrl } from "@/lib/query-client";
 
@@ -92,10 +92,10 @@ function MessageBubble({ msg }: { msg: SupportMessage }) {
               contentFit="cover"
             />
             <View style={styles.productInfo}>
-              <ThemedText type="body" style={{ fontWeight: "700", color: theme.text, fontSize: 13 }}>
+              <ThemedText type="body" style={{ fontWeight: FontWeight.bold, color: theme.text, fontSize: 13 }}>
                 {msg.productData.name}
               </ThemedText>
-              <ThemedText type="small" style={{ color: AppColors.primary, fontWeight: "700" }}>
+              <ThemedText type="small" style={{ color: AppColors.primary, fontWeight: FontWeight.bold }}>
                 {formatPrice(msg.productData.price)}
               </ThemedText>
               <ThemedText type="small" style={[styles.bubbleTime, { color: theme.textSecondary, marginTop: 2 }]}>
@@ -191,7 +191,7 @@ function ProductPickerModal({
               >
                 <Image source={{ uri: resolveImageUrl(p.image) }} style={styles.productRowImage} contentFit="cover" />
                 <View style={{ flex: 1 }}>
-                  <ThemedText type="body" style={{ fontWeight: "700" }}>{p.name}</ThemedText>
+                  <ThemedText type="body" style={{ fontWeight: FontWeight.bold }}>{p.name}</ThemedText>
                   <ThemedText type="small" style={{ color: AppColors.primary }}>{formatPrice(p.price)}</ThemedText>
                 </View>
                 <Feather name="send" size={18} color={AppColors.primary} />

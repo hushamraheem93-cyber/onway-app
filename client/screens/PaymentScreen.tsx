@@ -7,7 +7,7 @@ import Svg, { Path, Rect, Circle } from "react-native-svg";
 import { Image } from "expo-image";
 
 import { useTheme } from "@/hooks/useTheme";
-import { Spacing, BorderRadius, Shadows, AppColors } from "@/constants/theme";
+import { Spacing, BorderRadius, Shadows, AppColors, FontWeight} from "@/constants/theme";
 import { ThemedText } from "@/components/ThemedText";
 import { GradientBackground } from "@/components/GradientBackground";
 
@@ -149,7 +149,7 @@ const styles = StyleSheet.create({
   },
   badgeText: {
     color: AppColors.white,
-    fontWeight: "600",
+    fontWeight: FontWeight.semiBold,
   },
   infoCard: {
     borderRadius: BorderRadius.xl,
@@ -173,7 +173,7 @@ const styles = StyleSheet.create({
   },
   comingSoonBadgeText: {
     color: AppColors.black,
-    fontWeight: "700",
+    fontWeight: FontWeight.bold,
     fontSize: 10,
   },
   paymentMethod: {
@@ -206,7 +206,7 @@ const styles = StyleSheet.create({
     alignItems: "flex-end",
   },
   paymentTitle: {
-    fontWeight: "700",
+    fontWeight: FontWeight.bold,
     textAlign: "right",
     marginBottom: 2,
   },
@@ -219,7 +219,7 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.sm,
   },
   statusText: {
-    fontWeight: "600",
+    fontWeight: FontWeight.semiBold,
     fontSize: 11,
   },
   divider: {

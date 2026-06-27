@@ -10,7 +10,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import * as Haptics from "expo-haptics";
 
 import { useTheme } from "@/hooks/useTheme";
-import { Spacing, AppColors } from "@/constants/theme";
+import { Spacing, AppColors, FontWeight} from "@/constants/theme";
 import { Category } from "@/constants/categories";
 import { ThemedText } from "@/components/ThemedText";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
@@ -212,7 +212,7 @@ const styles = StyleSheet.create({
   },
   name: {
     fontSize: 14,
-    fontWeight: "700",
+    fontWeight: FontWeight.bold,
     color: AppColors.gray700,
     textAlign: "center",
     marginTop: 8,

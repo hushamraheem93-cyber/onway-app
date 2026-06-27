@@ -19,7 +19,7 @@ import { Feather } from "@expo/vector-icons";
 import { ThemedText } from "@/components/ThemedText";
 import { useAuth } from "@/context/AuthContext";
 import { useNavigation } from "@react-navigation/native";
-import { AppColors } from "@/constants/theme";
+import { AppColors, FontWeight} from "@/constants/theme";
 
 const BRAND_ORANGE = AppColors.primary;
 
@@ -375,7 +375,7 @@ const styles = StyleSheet.create({
   signUpText: {
     color: AppColors.white,
     fontSize: 12,
-    fontWeight: "bold",
+    fontWeight: FontWeight.bold,
     textDecorationLine: "underline",
     fontFamily: "Cairo_700Bold",
   },

@@ -7,7 +7,7 @@ import { resolveImageUrl } from "@/utils/imageUtils";
 
 import { ThemedText } from "@/components/ThemedText";
 import { useTheme } from "@/hooks/useTheme";
-import { AppColors } from "@/constants/theme";
+import { AppColors, FontWeight} from "@/constants/theme";
 import { formatPrice } from "@/constants/currency";
 import { Product } from "@/constants/categories";
 import { useCart } from "@/context/CartContext";
@@ -96,7 +96,7 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 14,
-    fontWeight: "bold",
+    fontWeight: FontWeight.bold,
   },
   viewAll: {
     color: AppColors.primary,
@@ -122,13 +122,13 @@ const styles = StyleSheet.create({
   itemName: {
     fontSize: 13,
     textAlign: "center",
-    fontWeight: "600",
+    fontWeight: FontWeight.semiBold,
   },
   itemPrice: {
     fontSize: 12,
     color: AppColors.primary,
     marginTop: 4,
-    fontWeight: "bold",
+    fontWeight: FontWeight.bold,
   },
   miniAddBtn: {
     position: "absolute",

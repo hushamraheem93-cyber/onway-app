@@ -21,7 +21,7 @@ import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollV
 import { useTheme } from "@/hooks/useTheme";
 import { useThemeMode } from "@/context/ThemeContext";
 import { useAuth } from "@/context/AuthContext";
-import { AppColors, Spacing, BorderRadius, Shadows } from "@/constants/theme";
+import { AppColors, Spacing, BorderRadius, Shadows, FontWeight} from "@/constants/theme";
 import { getApiUrl } from "@/lib/query-client";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
 
@@ -117,7 +117,7 @@ export default function DriverProfileScreen() {
         </ThemedText>
         <ThemedText type="small" style={styles.driverPhone}>{phoneNumber}</ThemedText>
         <View style={[styles.statusPill, { backgroundColor: statusInfo.color + "30" }]}>
-          <ThemedText type="small" style={{ color: statusInfo.color, fontWeight: "700" }}>
+          <ThemedText type="small" style={{ color: statusInfo.color, fontWeight: FontWeight.bold }}>
             {statusInfo.label}
           </ThemedText>
         </View>
@@ -187,7 +187,7 @@ export default function DriverProfileScreen() {
             </View>
             <View style={{ flex: 1, alignItems: "flex-end" }}>
               <ThemedText type="small" style={{ color: theme.textSecondary }}>حالة الحساب</ThemedText>
-              <ThemedText type="body" style={{ color: statusInfo.color, fontWeight: "700" }}>{statusInfo.label}</ThemedText>
+              <ThemedText type="body" style={{ color: statusInfo.color, fontWeight: FontWeight.bold }}>{statusInfo.label}</ThemedText>
             </View>
           </View>
         </View>
@@ -250,7 +250,7 @@ const styles = StyleSheet.create({
   },
   driverName: {
     color: AppColors.white,
-    fontWeight: "700",
+    fontWeight: FontWeight.bold,
   },
   driverPhone: {
     color: AppColors.textOnBrandMuted,
@@ -269,7 +269,7 @@ const styles = StyleSheet.create({
   },
   cardTitle: {
     textAlign: "right",
-    fontWeight: "700",
+    fontWeight: FontWeight.bold,
     marginBottom: Spacing.md,
   },
   settingRow: {

@@ -6,7 +6,7 @@ import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 
 import { useTheme } from "@/hooks/useTheme";
-import { Spacing, BorderRadius, Shadows, AppColors } from "@/constants/theme";
+import { Spacing, BorderRadius, Shadows, AppColors, FontWeight} from "@/constants/theme";
 import { ThemedText } from "@/components/ThemedText";
 import { GradientBackground } from "@/components/GradientBackground";
 
@@ -145,7 +145,7 @@ const styles = StyleSheet.create({
   question: {
     flex: 1,
     textAlign: "right",
-    fontWeight: "600",
+    fontWeight: FontWeight.semiBold,
   },
   answer: {
     textAlign: "right",

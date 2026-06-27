@@ -6,7 +6,7 @@ import { Feather } from "@expo/vector-icons";
 import { ThemedText } from "@/components/ThemedText";
 import { useTheme } from "@/hooks/useTheme";
 import { useLocation } from "@/context/LocationContext";
-import { AppColors } from "@/constants/theme";
+import { AppColors, FontWeight} from "@/constants/theme";
 import { reverseGeocodeArabic, DHULUIYAH_CENTER } from "@/lib/geocoding";
 
 function getLeafletHTML(lat: number, lng: number) {
@@ -300,7 +300,7 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   addressValue: {
-    fontWeight: "600",
+    fontWeight: FontWeight.semiBold,
     textAlign: "right",
   },
   confirmButton: {
@@ -313,7 +313,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   confirmText: {
-    fontWeight: "700",
+    fontWeight: FontWeight.bold,
     color: AppColors.black,
     fontSize: 13,
   },

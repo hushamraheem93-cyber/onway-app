@@ -25,7 +25,7 @@ import tabCartImg from "../assets/images/tab-cart-groceries.png";
 import tabBurgerImg from "../assets/images/tab-burger-meal.png";
 
 import { useTheme } from "@/hooks/useTheme";
-import { Spacing, AppColors, DesignSystem, BorderRadius } from "@/constants/theme";
+import { Spacing, AppColors, DesignSystem, BorderRadius, FontWeight} from "@/constants/theme";
 import { Category, Banner, Product } from "@/constants/categories";
 import { ThemedText } from "@/components/ThemedText";
 import { LocationBar } from "@/components/LocationBar";
@@ -1492,7 +1492,7 @@ const styles = StyleSheet.create({
   catName: {
     fontFamily: "Cairo_700Bold",
     fontSize: 12,
-    fontWeight: "700",
+    fontWeight: FontWeight.bold,
     color: AppColors.gray700,
     textAlign: "center",
     marginTop: 4,

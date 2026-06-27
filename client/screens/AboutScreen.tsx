@@ -7,7 +7,7 @@ import * as Haptics from "expo-haptics";
 import Constants from "expo-constants";
 
 import { useTheme } from "@/hooks/useTheme";
-import { Spacing, BorderRadius, Shadows, AppColors } from "@/constants/theme";
+import { Spacing, BorderRadius, Shadows, AppColors, FontWeight} from "@/constants/theme";
 import { ThemedText } from "@/components/ThemedText";
 import { GradientBackground } from "@/components/GradientBackground";
 
@@ -259,7 +259,7 @@ const styles = StyleSheet.create({
   },
   contactButtonText: {
     color: AppColors.white,
-    fontWeight: "600",
+    fontWeight: FontWeight.semiBold,
   },
   info: {
     textAlign: "center",

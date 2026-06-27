@@ -11,7 +11,7 @@ import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 
 import { useTheme } from "@/hooks/useTheme";
-import { Spacing, AppColors, BorderRadius, Shadows } from "@/constants/theme";
+import { Spacing, AppColors, BorderRadius, Shadows, FontWeight} from "@/constants/theme";
 import { Product, Category } from "@/constants/categories";
 import { ThemedText } from "@/components/ThemedText";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
@@ -193,7 +193,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
   },
   chipText: {
-    fontWeight: "500",
+    fontWeight: FontWeight.medium,
   },
   productRow: {
     flexDirection: "row-reverse",
@@ -213,7 +213,7 @@ const styles = StyleSheet.create({
     alignItems: "flex-end",
   },
   productName: {
-    fontWeight: "600",
+    fontWeight: FontWeight.semiBold,
     textAlign: "right",
   },
   productDesc: {
@@ -221,7 +221,7 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   productPrice: {
-    fontWeight: "700",
+    fontWeight: FontWeight.bold,
     marginTop: 4,
   },
   addBtn: {

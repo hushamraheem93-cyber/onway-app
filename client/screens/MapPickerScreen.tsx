@@ -9,7 +9,7 @@ import { WebView } from "react-native-webview";
 import { ThemedText } from "@/components/ThemedText";
 import { useTheme } from "@/hooks/useTheme";
 import { useLocation } from "@/context/LocationContext";
-import { AppColors } from "@/constants/theme";
+import { AppColors, FontWeight} from "@/constants/theme";
 import { reverseGeocodeDetailed, DHULUIYAH_CENTER, DEFAULT_DISTRICT } from "@/lib/geocoding";
 
 function getLeafletHTML(lat: number, lng: number) {
@@ -373,7 +373,7 @@ const styles = StyleSheet.create({
   },
   placeNameValue: {
     flex: 1,
-    fontWeight: "700",
+    fontWeight: FontWeight.bold,
     fontSize: 12,
     color: AppColors.gray700,
     textAlign: "right",
@@ -401,11 +401,11 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   addressValue: {
-    fontWeight: "600",
+    fontWeight: FontWeight.semiBold,
     textAlign: "right",
   },
   addressInput: {
-    fontWeight: "600",
+    fontWeight: FontWeight.semiBold,
     textAlign: "right",
     color: AppColors.gray700,
     fontSize: 13,
@@ -422,7 +422,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   confirmText: {
-    fontWeight: "700",
+    fontWeight: FontWeight.bold,
     color: AppColors.black,
     fontSize: 13,
   },

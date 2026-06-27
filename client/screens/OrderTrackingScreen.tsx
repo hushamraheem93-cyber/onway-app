@@ -17,7 +17,7 @@ import Animated, {
 
 import { useTheme } from "@/hooks/useTheme";
 import { ThemedText } from "@/components/ThemedText";
-import { Spacing, BorderRadius, AppColors, Shadows } from "@/constants/theme";
+import { Spacing, BorderRadius, AppColors, Shadows, FontWeight} from "@/constants/theme";
 import { formatPrice } from "@/constants/currency";
 import { Button } from "@/components/Button";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
@@ -326,7 +326,7 @@ export default function OrderTrackingScreen() {
           }]}>
             <ThemedText type="small" style={{
               color: isCancelled ? AppColors.error : currentStepIndex >= 4 ? AppColors.success : AppColors.primary,
-              fontWeight: "700",
+              fontWeight: FontWeight.bold,
             }}>
               {order.status === "issue" ? "مشكلة" : isCancelled ? "ملغي" : STEPS[Math.min(currentStepIndex, 4)]?.label}
             </ThemedText>
@@ -401,13 +401,13 @@ export default function OrderTrackingScreen() {
                 </View>
                 <View style={styles.driverInfoText}>
                   <ThemedText type="small" style={{ color: theme.textSecondary }}>المندوب</ThemedText>
-                  <ThemedText type="body" style={{ fontWeight: "600" }}>
+                  <ThemedText type="body" style={{ fontWeight: FontWeight.semiBold }}>
                     {driverLocation.fullName || "المندوب"}
                   </ThemedText>
                 </View>
                 <View style={styles.driverStatus}>
                   <View style={styles.statusDot} />
-                  <ThemedText type="small" style={{ color: AppColors.success, fontWeight: "600" }}>في الطريق</ThemedText>
+                  <ThemedText type="small" style={{ color: AppColors.success, fontWeight: FontWeight.semiBold }}>في الطريق</ThemedText>
                 </View>
               </View>
             </View>
@@ -474,7 +474,7 @@ export default function OrderTrackingScreen() {
                       style={[
                         styles.stepLabel,
                         { color: isCompleted ? theme.text : theme.textSecondary },
-                        isCurrent && { fontWeight: "700" },
+                        isCurrent && { fontWeight: FontWeight.bold },
                       ]}
                     >
                       {step.label}
@@ -512,7 +512,7 @@ export default function OrderTrackingScreen() {
               testID="button-tracking-store-badge"
             >
               <Feather name="shopping-bag" size={11} color={AppColors.primary} />
-              <ThemedText type="small" style={{ color: AppColors.primary, fontWeight: "600", marginRight: 4 }}>
+              <ThemedText type="small" style={{ color: AppColors.primary, fontWeight: FontWeight.semiBold, marginRight: 4 }}>
                 {"من متجر " + order.vendorName}
               </ThemedText>
               {order.vendorId ? (
@@ -523,11 +523,11 @@ export default function OrderTrackingScreen() {
         </View>
         {order.items.map((item, index) => (
           <View key={index} style={[styles.itemRow, index < order.items.length - 1 && { borderBottomWidth: 1, borderBottomColor: theme.border }]}>
-            <ThemedText type="body" style={{ color: AppColors.primary, fontWeight: "600" }}>
+            <ThemedText type="body" style={{ color: AppColors.primary, fontWeight: FontWeight.semiBold }}>
               {formatPrice(item.price * item.quantity)}
             </ThemedText>
             <View style={styles.itemInfo}>
-              <ThemedText type="body" style={{ fontWeight: "500" }}>{item.name}</ThemedText>
+              <ThemedText type="body" style={{ fontWeight: FontWeight.medium }}>{item.name}</ThemedText>
               <ThemedText type="small" style={{ color: theme.textSecondary }}>
                 {item.quantity} × {formatPrice(item.price)}
               </ThemedText>
@@ -539,7 +539,7 @@ export default function OrderTrackingScreen() {
                     testID={`button-item-store-badge-${index}`}
                   >
                     <Feather name="shopping-bag" size={11} color={AppColors.primary} />
-                    <ThemedText type="small" style={{ color: AppColors.primary, fontWeight: "600", marginRight: 4 }}>
+                    <ThemedText type="small" style={{ color: AppColors.primary, fontWeight: FontWeight.semiBold, marginRight: 4 }}>
                       {"من متجر " + item.restaurant}
                     </ThemedText>
                     <Feather name="chevron-left" size={11} color={AppColors.primary} />
@@ -547,7 +547,7 @@ export default function OrderTrackingScreen() {
                 ) : (
                   <View style={[styles.itemStoreBadge, { backgroundColor: AppColors.primary + "12" }]}>
                     <Feather name="shopping-bag" size={11} color={AppColors.primary} />
-                    <ThemedText type="small" style={{ color: AppColors.primary, fontWeight: "600", marginRight: 4 }}>
+                    <ThemedText type="small" style={{ color: AppColors.primary, fontWeight: FontWeight.semiBold, marginRight: 4 }}>
                       {"من متجر " + item.restaurant}
                     </ThemedText>
                   </View>
@@ -572,7 +572,7 @@ export default function OrderTrackingScreen() {
         ) : (
           <Feather name="refresh-cw" size={16} color={AppColors.primary} />
         )}
-        <ThemedText type="small" style={{ color: AppColors.primary, fontWeight: "600", marginRight: 6 }}>
+        <ThemedText type="small" style={{ color: AppColors.primary, fontWeight: FontWeight.semiBold, marginRight: 6 }}>
           تحديث حالة الطلب
         </ThemedText>
       </Pressable>
@@ -659,7 +659,7 @@ const styles = StyleSheet.create({
   },
   liveText: {
     color: AppColors.success,
-    fontWeight: "700",
+    fontWeight: FontWeight.bold,
   },
   mapView: {
     height: 260,
@@ -682,7 +682,7 @@ const styles = StyleSheet.create({
   webFallbackText: {
     textAlign: "center",
     color: AppColors.primary,
-    fontWeight: "500",
+    fontWeight: FontWeight.medium,
     lineHeight: 22,
   },
   driverInfoBar: {
@@ -779,7 +779,7 @@ const styles = StyleSheet.create({
   },
   stepLabel: {
     fontSize: 12,
-    fontWeight: "600",
+    fontWeight: FontWeight.semiBold,
   },
   stepDesc: {
     textAlign: "right",

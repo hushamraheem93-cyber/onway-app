@@ -20,7 +20,7 @@ import { ThemedText } from "@/components/ThemedText";
 import { GradientBackground } from "@/components/GradientBackground";
 import { useTheme } from "@/hooks/useTheme";
 import { useAuth } from "@/context/AuthContext";
-import { AppColors, Spacing, BorderRadius, Shadows } from "@/constants/theme";
+import { AppColors, Spacing, BorderRadius, Shadows, FontWeight} from "@/constants/theme";
 import { getApiUrl } from "@/lib/query-client";
 import { formatPrice } from "@/constants/currency";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
@@ -87,7 +87,7 @@ function ConfirmModal({ visible, title, message, confirmLabel, confirmColor, loa
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onCancel}>
       <Pressable style={styles.modalOverlay} onPress={loading ? undefined : onCancel}>
         <Pressable style={[styles.modalBox, { backgroundColor: theme.backgroundDefault }]} onPress={() => {}}>
-          <ThemedText type="h4" style={{ color: theme.text, fontWeight: "700", textAlign: "center", marginBottom: Spacing.sm }}>
+          <ThemedText type="h4" style={{ color: theme.text, fontWeight: FontWeight.bold, textAlign: "center", marginBottom: Spacing.sm }}>
             {title}
           </ThemedText>
           <ThemedText type="body" style={{ color: theme.textSecondary, textAlign: "center", lineHeight: 24, marginBottom: Spacing.xl }}>
@@ -99,7 +99,7 @@ function ConfirmModal({ visible, title, message, confirmLabel, confirmColor, loa
               onPress={onCancel}
               disabled={loading}
             >
-              <ThemedText type="body" style={{ color: theme.textSecondary, fontWeight: "600" }}>إلغاء</ThemedText>
+              <ThemedText type="body" style={{ color: theme.textSecondary, fontWeight: FontWeight.semiBold }}>إلغاء</ThemedText>
             </Pressable>
             <Pressable
               style={[styles.modalBtn, { backgroundColor: confirmColor ?? AppColors.primary }]}
@@ -108,7 +108,7 @@ function ConfirmModal({ visible, title, message, confirmLabel, confirmColor, loa
             >
               {loading
                 ? <ActivityIndicator size="small" color={AppColors.white} />
-                : <ThemedText type="body" style={{ color: AppColors.white, fontWeight: "700" }}>{confirmLabel}</ThemedText>
+                : <ThemedText type="body" style={{ color: AppColors.white, fontWeight: FontWeight.bold }}>{confirmLabel}</ThemedText>
               }
             </Pressable>
           </View>
@@ -252,7 +252,7 @@ export default function DriverOrdersScreen() {
       <View style={[styles.emptyIconBox, { backgroundColor: AppColors.primary + "15" }]}>
         <Feather name="package" size={48} color={AppColors.primary} />
       </View>
-      <ThemedText type="h3" style={{ color: theme.text, fontWeight: "700", marginTop: Spacing.lg, textAlign: "center" }}>
+      <ThemedText type="h3" style={{ color: theme.text, fontWeight: FontWeight.bold, marginTop: Spacing.lg, textAlign: "center" }}>
         لا توجد طلبات نشطة
       </ThemedText>
       <ThemedText type="body" style={{ color: theme.textSecondary, marginTop: Spacing.xs, textAlign: "center", lineHeight: 24 }}>
@@ -288,7 +288,7 @@ export default function DriverOrdersScreen() {
         <View style={[styles.seqBadge, { backgroundColor: isDelivered ? AppColors.success : cfg.color }]}>
           {isDelivered
             ? <Feather name="check" size={14} color={AppColors.white} />
-            : <ThemedText type="small" style={{ color: AppColors.white, fontWeight: "800", fontSize: 13 }}>{order.deliverySequence}</ThemedText>
+            : <ThemedText type="small" style={{ color: AppColors.white, fontWeight: FontWeight.xBold, fontSize: 13 }}>{order.deliverySequence}</ThemedText>
           }
         </View>
 
@@ -296,13 +296,13 @@ export default function DriverOrdersScreen() {
         <View style={[styles.cardHeader, { borderBottomColor: theme.border }]}>
           <View style={[styles.statusChip, { backgroundColor: cfg.color + "20" }]}>
             <Feather name={cfg.icon} size={12} color={cfg.color} />
-            <ThemedText type="small" style={{ color: cfg.color, fontWeight: "700", fontSize: 11 }}>{cfg.label}</ThemedText>
+            <ThemedText type="small" style={{ color: cfg.color, fontWeight: FontWeight.bold, fontSize: 11 }}>{cfg.label}</ThemedText>
           </View>
           <View style={styles.cardHeaderRight}>
-            <ThemedText type="h4" style={{ color: theme.text, fontWeight: "700" }}>
+            <ThemedText type="h4" style={{ color: theme.text, fontWeight: FontWeight.bold }}>
               {order.customerName || "زبون"}
             </ThemedText>
-            <ThemedText type="h4" style={{ color: AppColors.primary, fontWeight: "800" }}>
+            <ThemedText type="h4" style={{ color: AppColors.primary, fontWeight: FontWeight.xBold }}>
               {formatPrice((order.totalPrice ?? order.total ?? 0) + (order.deliveryFee ?? 0))}
             </ThemedText>
           </View>
@@ -337,18 +337,18 @@ export default function DriverOrdersScreen() {
           {(order.distance ?? 0) > 0 ? (
             <View style={[styles.metaChip, { backgroundColor: "#2196F315" }]}>
               <Feather name="map" size={13} color={AppColors.info} />
-              <ThemedText type="small" style={{ color: AppColors.info, fontWeight: "600" }}>{order.distance} كم</ThemedText>
+              <ThemedText type="small" style={{ color: AppColors.info, fontWeight: FontWeight.semiBold }}>{order.distance} كم</ThemedText>
             </View>
           ) : null}
           {order.estimatedTime ? (
             <View style={[styles.metaChip, { backgroundColor: "#FF980015" }]}>
               <Feather name="clock" size={13} color={AppColors.warning} />
-              <ThemedText type="small" style={{ color: AppColors.warning, fontWeight: "600" }}>{order.estimatedTime}</ThemedText>
+              <ThemedText type="small" style={{ color: AppColors.warning, fontWeight: FontWeight.semiBold }}>{order.estimatedTime}</ThemedText>
             </View>
           ) : null}
           <View style={[styles.metaChip, { backgroundColor: "#4CAF5015" }]}>
             <Feather name="dollar-sign" size={13} color={AppColors.success} />
-            <ThemedText type="small" style={{ color: AppColors.success, fontWeight: "600" }}>{formatPrice(order.deliveryFee ?? 0)}</ThemedText>
+            <ThemedText type="small" style={{ color: AppColors.success, fontWeight: FontWeight.semiBold }}>{formatPrice(order.deliveryFee ?? 0)}</ThemedText>
           </View>
         </View>
 
@@ -384,7 +384,7 @@ export default function DriverOrdersScreen() {
               onPress={() => callCustomer(order.customerPhone)}
             >
               <Feather name="phone" size={16} color={AppColors.success} />
-              <ThemedText type="small" style={{ color: AppColors.success, fontWeight: "600" }}>اتصال</ThemedText>
+              <ThemedText type="small" style={{ color: AppColors.success, fontWeight: FontWeight.semiBold }}>اتصال</ThemedText>
             </Pressable>
           ) : null}
           {hasMap ? (
@@ -394,7 +394,7 @@ export default function DriverOrdersScreen() {
               onPress={() => openMap(order)}
             >
               <Feather name="map" size={16} color={AppColors.info} />
-              <ThemedText type="small" style={{ color: AppColors.info, fontWeight: "600" }}>خريطة</ThemedText>
+              <ThemedText type="small" style={{ color: AppColors.info, fontWeight: FontWeight.semiBold }}>خريطة</ThemedText>
             </Pressable>
           ) : null}
         </View>
@@ -403,7 +403,7 @@ export default function DriverOrdersScreen() {
         {isDelivered ? (
           <View style={[styles.deliveredBanner, { backgroundColor: "#4CAF5015" }]}>
             <Feather name="check-circle" size={18} color={AppColors.success} />
-            <ThemedText type="body" style={{ color: AppColors.success, fontWeight: "700" }}>تم التوصيل بنجاح</ThemedText>
+            <ThemedText type="body" style={{ color: AppColors.success, fontWeight: FontWeight.bold }}>تم التوصيل بنجاح</ThemedText>
           </View>
         ) : canDeliver ? (
           <Pressable
@@ -418,7 +418,7 @@ export default function DriverOrdersScreen() {
             })}
           >
             <Feather name="check-circle" size={20} color={AppColors.white} />
-            <ThemedText type="h4" style={{ color: AppColors.white, fontWeight: "700" }}>تم التوصيل</ThemedText>
+            <ThemedText type="h4" style={{ color: AppColors.white, fontWeight: FontWeight.bold }}>تم التوصيل</ThemedText>
           </Pressable>
         ) : canPickup ? (
           <Pressable
@@ -433,12 +433,12 @@ export default function DriverOrdersScreen() {
             })}
           >
             <Feather name="package" size={20} color={AppColors.white} />
-            <ThemedText type="h4" style={{ color: AppColors.white, fontWeight: "700" }}>تم الاستلام من المحل</ThemedText>
+            <ThemedText type="h4" style={{ color: AppColors.white, fontWeight: FontWeight.bold }}>تم الاستلام من المحل</ThemedText>
           </Pressable>
         ) : (
           <View style={[styles.primaryBtn, { backgroundColor: AppColors.gray400 }]}>
             <Feather name="clock" size={18} color={AppColors.white} />
-            <ThemedText type="body" style={{ color: AppColors.white, fontWeight: "600" }}>بانتظار تجهيز الطلب</ThemedText>
+            <ThemedText type="body" style={{ color: AppColors.white, fontWeight: FontWeight.semiBold }}>بانتظار تجهيز الطلب</ThemedText>
           </View>
         )}
       </View>
@@ -518,7 +518,7 @@ export default function DriverOrdersScreen() {
           <View style={styles.section}>
             {/* Section header */}
             <View style={styles.sectionHeader}>
-              <ThemedText type="h4" style={{ color: theme.text, fontWeight: "700" }}>
+              <ThemedText type="h4" style={{ color: theme.text, fontWeight: FontWeight.bold }}>
                 الطلبات ({orders.length})
               </ThemedText>
               {orders.length > 1 ? (
@@ -528,7 +528,7 @@ export default function DriverOrdersScreen() {
                   style={[styles.optimizeBtn, { backgroundColor: optimized ? "#4CAF5015" : "#8B5CF615" }]}
                 >
                   <Feather name="navigation" size={14} color={optimized ? AppColors.success : AppColors.statusPurple} />
-                  <ThemedText type="small" style={{ color: optimized ? AppColors.success : AppColors.statusPurple, fontWeight: "700" }}>
+                  <ThemedText type="small" style={{ color: optimized ? AppColors.success : AppColors.statusPurple, fontWeight: FontWeight.bold }}>
                     {optimized ? "تم التحسين" : "تحسين المسار"}
                   </ThemedText>
                 </Pressable>
@@ -547,7 +547,7 @@ export default function DriverOrdersScreen() {
             onPress={() => navigation.navigate("DriverBatch", { batch })}
           >
             <Feather name="list" size={20} color={AppColors.white} />
-            <ThemedText type="h4" style={{ color: AppColors.white, fontWeight: "700" }}>
+            <ThemedText type="h4" style={{ color: AppColors.white, fontWeight: FontWeight.bold }}>
               إدارة الدفعة بالتفصيل
             </ThemedText>
             <Feather name="chevron-left" size={20} color={AppColors.white} />
@@ -575,14 +575,14 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.sm,
   },
   headerLeft: { alignItems: "flex-end" },
-  headerTitle: { fontWeight: "800" },
+  headerTitle: { fontWeight: FontWeight.xBold },
   headerBadge: {
     borderRadius: 16,
     paddingHorizontal: 14,
     paddingVertical: 6,
     alignItems: "center",
   },
-  headerBadgeText: { fontWeight: "800" },
+  headerBadgeText: { fontWeight: FontWeight.xBold },
   headerProgressRow: {
     flexDirection: "row-reverse",
     alignItems: "center",
@@ -595,7 +595,7 @@ const styles = StyleSheet.create({
     overflow: "hidden",
   },
   progressFill: { height: "100%", borderRadius: 3 },
-  headerProgressText: { fontWeight: "700", width: 36, textAlign: "right" },
+  headerProgressText: { fontWeight: FontWeight.bold, width: 36, textAlign: "right" },
   // Scroll
   scrollContent: { padding: Spacing.lg },
   // Section

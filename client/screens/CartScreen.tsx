@@ -9,7 +9,7 @@ import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 
 import { useTheme } from "@/hooks/useTheme";
-import { Spacing, AppColors } from "@/constants/theme";
+import { Spacing, AppColors, FontWeight} from "@/constants/theme";
 import { useCart, CartItem } from "@/context/CartContext";
 import { formatPrice } from "@/constants/currency";
 import { CartItemCard } from "@/components/CartItemCard";
@@ -165,11 +165,11 @@ const styles = StyleSheet.create({
     marginBottom: 0,
   },
   totalLabel: {
-    fontWeight: "bold",
+    fontWeight: FontWeight.bold,
     color: AppColors.gray700,
   },
   totalValue: {
-    fontWeight: "bold",
+    fontWeight: FontWeight.bold,
     color: AppColors.primary,
   },
   checkoutBtn: {
@@ -183,7 +183,7 @@ const styles = StyleSheet.create({
   },
   checkoutText: {
     color: AppColors.white,
-    fontWeight: "bold",
+    fontWeight: FontWeight.bold,
     marginRight: 10,
   },
   btnIcon: {

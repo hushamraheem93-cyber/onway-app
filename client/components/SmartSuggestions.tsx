@@ -7,7 +7,7 @@ import * as Haptics from "expo-haptics";
 
 import { ThemedText } from "@/components/ThemedText";
 import { useTheme } from "@/hooks/useTheme";
-import { AppColors, BorderRadius, Spacing, Shadows } from "@/constants/theme";
+import { AppColors, BorderRadius, Spacing, Shadows, FontWeight} from "@/constants/theme";
 import { formatPrice } from "@/constants/currency";
 import { Product, PRODUCTS } from "@/constants/categories";
 import { useCart, CartItem } from "@/context/CartContext";
@@ -147,7 +147,7 @@ const styles = StyleSheet.create({
     gap: Spacing.xs,
   },
   title: {
-    fontWeight: "bold",
+    fontWeight: FontWeight.bold,
   },
   subtitle: {
     marginTop: 4,
@@ -174,7 +174,7 @@ const styles = StyleSheet.create({
   },
   itemName: {
     fontSize: 12,
-    fontWeight: "600",
+    fontWeight: FontWeight.semiBold,
     textAlign: "right",
     lineHeight: 18,
     minHeight: 36,
@@ -182,7 +182,7 @@ const styles = StyleSheet.create({
   itemPrice: {
     fontSize: 13,
     color: AppColors.primary,
-    fontWeight: "bold",
+    fontWeight: FontWeight.bold,
     marginTop: 4,
   },
   addBtn: {

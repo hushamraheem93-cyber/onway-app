@@ -15,7 +15,7 @@ import { ThemedText } from "@/components/ThemedText";
 import { GradientBackground } from "@/components/GradientBackground";
 import { useTheme } from "@/hooks/useTheme";
 import { useAuth } from "@/context/AuthContext";
-import { AppColors, Spacing, BorderRadius, Shadows } from "@/constants/theme";
+import { AppColors, Spacing, BorderRadius, Shadows, FontWeight} from "@/constants/theme";
 import { getApiUrl } from "@/lib/query-client";
 import { formatPrice } from "@/constants/currency";
 
@@ -75,7 +75,7 @@ function EarningsBarChart({ orders }: { orders: CompletedOrder[] }) {
     <View style={[chartStyles.card, { backgroundColor: theme.backgroundDefault }, Shadows.sm]}>
       <View style={chartStyles.titleRow}>
         <ThemedText type="small" style={{ color: theme.textSecondary }}>أرباح الأسبوع</ThemedText>
-        <ThemedText type="h4" style={{ color: theme.text, fontWeight: "700" }}>آخر 7 أيام</ThemedText>
+        <ThemedText type="h4" style={{ color: theme.text, fontWeight: FontWeight.bold }}>آخر 7 أيام</ThemedText>
       </View>
       <View style={chartStyles.barsRow}>
         {data.map((d, i) => {
@@ -193,7 +193,7 @@ export default function DriverEarningsScreen() {
       <View style={[styles.statIcon, { backgroundColor: color + "18" }]}>
         <Feather name={icon} size={20} color={color} />
       </View>
-      <ThemedText type="h3" style={{ color: theme.text, fontWeight: "700", marginTop: Spacing.xs }}>{value}</ThemedText>
+      <ThemedText type="h3" style={{ color: theme.text, fontWeight: FontWeight.bold, marginTop: Spacing.xs }}>{value}</ThemedText>
       <ThemedText type="small" style={{ color: theme.textSecondary, marginTop: 2 }}>{title}</ThemedText>
     </View>
   );
@@ -205,7 +205,7 @@ export default function DriverEarningsScreen() {
         <Feather name="check-circle" size={18} color={AppColors.success} />
       </View>
       <View style={{ flex: 1, alignItems: "flex-end", gap: 2 }}>
-        <ThemedText type="body" style={{ color: theme.text, fontWeight: "600" }}>
+        <ThemedText type="body" style={{ color: theme.text, fontWeight: FontWeight.semiBold }}>
           {item.customerName || "زبون"}
         </ThemedText>
         <ThemedText type="small" style={{ color: theme.textSecondary }}>
@@ -213,7 +213,7 @@ export default function DriverEarningsScreen() {
         </ThemedText>
       </View>
       <View style={{ alignItems: "flex-start", gap: 2 }}>
-        <ThemedText type="body" style={{ color: AppColors.primary, fontWeight: "700" }}>
+        <ThemedText type="body" style={{ color: AppColors.primary, fontWeight: FontWeight.bold }}>
           {formatPrice(item.driverEarning || 0)}
         </ThemedText>
         <ThemedText type="small" style={{ color: theme.textSecondary, fontSize: 10 }}>
@@ -233,14 +233,14 @@ export default function DriverEarningsScreen() {
           <Feather name={isDeduction ? "minus-circle" : "plus-circle"} size={18} color={color} />
         </View>
         <View style={{ flex: 1, alignItems: "flex-end", gap: 2 }}>
-          <ThemedText type="body" style={{ color: theme.text, fontWeight: "600" }}>
+          <ThemedText type="body" style={{ color: theme.text, fontWeight: FontWeight.semiBold }}>
             {isDeduction ? "خصم عمولة" : "شحن رصيد"}
           </ThemedText>
           <ThemedText type="small" style={{ color: theme.textSecondary }}>
             {item.service} · {item.timestamp ? new Date(item.timestamp).toLocaleDateString("ar-IQ") : ""}
           </ThemedText>
         </View>
-        <ThemedText type="body" style={{ color, fontWeight: "700" }}>
+        <ThemedText type="body" style={{ color, fontWeight: FontWeight.bold }}>
           {isDeduction ? "-" : "+"}{formatPrice(item.amount)}
         </ThemedText>
       </View>
@@ -327,18 +327,18 @@ export default function DriverEarningsScreen() {
           <View style={{ flexDirection: "row-reverse", justifyContent: "space-between", alignItems: "center", marginBottom: Spacing.xs }}>
             <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: Spacing.xs }}>
               <Feather name="shopping-bag" size={13} color={AppColors.warning} />
-              <ThemedText type="body" style={{ color: theme.text, fontWeight: "600" }}>توصيل مطعم</ThemedText>
+              <ThemedText type="body" style={{ color: theme.text, fontWeight: FontWeight.semiBold }}>توصيل مطعم</ThemedText>
             </View>
             <View style={{ flexDirection: "row", gap: Spacing.sm, alignItems: "center" }}>
-              <ThemedText type="small" style={{ color: AppColors.error, fontWeight: "600" }}>-{formatPrice(250)}</ThemedText>
-              <ThemedText type="small" style={{ color: AppColors.success, fontWeight: "700" }}>+{formatPrice(750)}</ThemedText>
+              <ThemedText type="small" style={{ color: AppColors.error, fontWeight: FontWeight.semiBold }}>-{formatPrice(250)}</ThemedText>
+              <ThemedText type="small" style={{ color: AppColors.success, fontWeight: FontWeight.bold }}>+{formatPrice(750)}</ThemedText>
             </View>
           </View>
           <View style={{ height: 10, borderRadius: 5, backgroundColor: AppColors.border, overflow: "hidden" }}>
             <View style={{ width: "75%", height: "100%", backgroundColor: AppColors.success, borderRadius: 5 }} />
           </View>
           <View style={{ flexDirection: "row-reverse", justifyContent: "space-between", marginTop: 3 }}>
-            <ThemedText style={{ fontSize: 10, color: AppColors.success, fontWeight: "700" }}>75% للسائق</ThemedText>
+            <ThemedText style={{ fontSize: 10, color: AppColors.success, fontWeight: FontWeight.bold }}>75% للسائق</ThemedText>
             <ThemedText style={{ fontSize: 10, color: theme.textSecondary }}>25% للتطبيق</ThemedText>
           </View>
         </View>
@@ -348,18 +348,18 @@ export default function DriverEarningsScreen() {
           <View style={{ flexDirection: "row-reverse", justifyContent: "space-between", alignItems: "center", marginBottom: Spacing.xs }}>
             <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: Spacing.xs }}>
               <Feather name="truck" size={13} color={AppColors.info} />
-              <ThemedText type="body" style={{ color: theme.text, fontWeight: "600" }}>توصيل تسويق</ThemedText>
+              <ThemedText type="body" style={{ color: theme.text, fontWeight: FontWeight.semiBold }}>توصيل تسويق</ThemedText>
             </View>
             <View style={{ flexDirection: "row", gap: Spacing.sm, alignItems: "center" }}>
-              <ThemedText type="small" style={{ color: AppColors.error, fontWeight: "600" }}>-{formatPrice(1000)}</ThemedText>
-              <ThemedText type="small" style={{ color: AppColors.success, fontWeight: "700" }}>+{formatPrice(2000)}</ThemedText>
+              <ThemedText type="small" style={{ color: AppColors.error, fontWeight: FontWeight.semiBold }}>-{formatPrice(1000)}</ThemedText>
+              <ThemedText type="small" style={{ color: AppColors.success, fontWeight: FontWeight.bold }}>+{formatPrice(2000)}</ThemedText>
             </View>
           </View>
           <View style={{ height: 10, borderRadius: 5, backgroundColor: AppColors.border, overflow: "hidden" }}>
             <View style={{ width: "67%", height: "100%", backgroundColor: AppColors.success, borderRadius: 5 }} />
           </View>
           <View style={{ flexDirection: "row-reverse", justifyContent: "space-between", marginTop: 3 }}>
-            <ThemedText style={{ fontSize: 10, color: AppColors.success, fontWeight: "700" }}>67% للسائق</ThemedText>
+            <ThemedText style={{ fontSize: 10, color: AppColors.success, fontWeight: FontWeight.bold }}>67% للسائق</ThemedText>
             <ThemedText style={{ fontSize: 10, color: theme.textSecondary }}>33% للتطبيق</ThemedText>
           </View>
         </View>
@@ -393,7 +393,7 @@ export default function DriverEarningsScreen() {
             onPress={() => setActiveTab("earnings")}
           >
             <Feather name="trending-up" size={16} color={activeTab === "earnings" ? AppColors.primary : theme.textSecondary} />
-            <ThemedText type="body" style={{ color: activeTab === "earnings" ? AppColors.primary : theme.textSecondary, fontWeight: "600" }}>
+            <ThemedText type="body" style={{ color: activeTab === "earnings" ? AppColors.primary : theme.textSecondary, fontWeight: FontWeight.semiBold }}>
               الأرباح
             </ThemedText>
           </Pressable>
@@ -402,7 +402,7 @@ export default function DriverEarningsScreen() {
             onPress={() => setActiveTab("wallet")}
           >
             <Feather name="credit-card" size={16} color={activeTab === "wallet" ? AppColors.primary : theme.textSecondary} />
-            <ThemedText type="body" style={{ color: activeTab === "wallet" ? AppColors.primary : theme.textSecondary, fontWeight: "600" }}>
+            <ThemedText type="body" style={{ color: activeTab === "wallet" ? AppColors.primary : theme.textSecondary, fontWeight: FontWeight.semiBold }}>
               المحفظة
             </ThemedText>
           </Pressable>

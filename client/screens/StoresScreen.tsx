@@ -20,7 +20,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import * as Haptics from "expo-haptics";
 
 import { useTheme } from "@/hooks/useTheme";
-import { Spacing, AppColors, BorderRadius, Shadows } from "@/constants/theme";
+import { Spacing, AppColors, BorderRadius, Shadows, FontWeight} from "@/constants/theme";
 import { ThemedText } from "@/components/ThemedText";
 import { GradientBackground } from "@/components/GradientBackground";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
@@ -346,7 +346,7 @@ export default function StoresScreen() {
           <Feather name="wifi-off" size={48} color={theme.textSecondary} />
           <ThemedText type="body" style={{ color: theme.textSecondary }}>تعذّر تحميل المتاجر</ThemedText>
           <Pressable onPress={() => refetch()} style={screenStyles.retryBtn}>
-            <ThemedText type="body" style={{ color: AppColors.primary, fontWeight: "600" }}>
+            <ThemedText type="body" style={{ color: AppColors.primary, fontWeight: FontWeight.semiBold }}>
               إعادة المحاولة
             </ThemedText>
           </Pressable>

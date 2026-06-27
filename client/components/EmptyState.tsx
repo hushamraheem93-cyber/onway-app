@@ -5,7 +5,7 @@ import * as Haptics from "expo-haptics";
 
 import { ThemedText } from "@/components/ThemedText";
 import { useTheme } from "@/hooks/useTheme";
-import { AppColors } from "@/constants/theme";
+import { AppColors, FontWeight} from "@/constants/theme";
 
 interface EmptyStateProps {
   icon?: keyof typeof Ionicons.glyphMap;
@@ -94,7 +94,7 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 17,
-    fontWeight: "bold",
+    fontWeight: FontWeight.bold,
     textAlign: "center",
     marginBottom: 10,
   },
@@ -115,7 +115,7 @@ const styles = StyleSheet.create({
   },
   buttonText: {
     color: AppColors.white,
-    fontWeight: "bold",
+    fontWeight: FontWeight.bold,
     marginRight: 15,
   },
   btnIconCircle: {

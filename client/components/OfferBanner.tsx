@@ -3,7 +3,7 @@ import { StyleSheet, View, Pressable, Dimensions } from "react-native";
 import { Image } from "expo-image";
 
 import { ThemedText } from "@/components/ThemedText";
-import { Spacing, BorderRadius, AppColors, DesignSystem } from "@/constants/theme";
+import { Spacing, BorderRadius, AppColors, DesignSystem, FontWeight} from "@/constants/theme";
 import { Banner } from "@/constants/categories";
 import { resolveImageUrl } from "@/utils/imageUtils";
 
@@ -81,6 +81,6 @@ const styles = StyleSheet.create({
   },
   ctaText: {
     color: AppColors.white,
-    fontWeight: "600",
+    fontWeight: FontWeight.semiBold,
   },
 });

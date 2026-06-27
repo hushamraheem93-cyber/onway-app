@@ -23,7 +23,7 @@ import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { useTheme } from "@/hooks/useTheme";
 import { ThemedText } from "@/components/ThemedText";
-import { Spacing, BorderRadius, AppColors } from "@/constants/theme";
+import { Spacing, BorderRadius, AppColors, FontWeight} from "@/constants/theme";
 import { Banner, Category } from "@/constants/categories";
 import { apiRequest, getApiUrl } from "@/lib/query-client";
 import { resolveImageUrl } from "@/utils/imageUtils";
@@ -1055,12 +1055,12 @@ export default function AdminScreen() {
             <View style={styles.listItemContent}>
               <ThemedText type="body" numberOfLines={1}>{product.name}</ThemedText>
               <View style={styles.productPriceRow}>
-                <ThemedText type="small" style={{ color: AppColors.primary, fontWeight: "600" }}>
+                <ThemedText type="small" style={{ color: AppColors.primary, fontWeight: FontWeight.semiBold }}>
                   {formatPrice(product.price)}
                 </ThemedText>
                 {(product as any).restaurant ? (
                   <View style={[styles.discountBadge, { backgroundColor: "#E8652020" }]}>
-                    <ThemedText type="small" style={{ color: AppColors.primary, fontWeight: "600", fontSize: 10 }}>{(product as any).restaurant}</ThemedText>
+                    <ThemedText type="small" style={{ color: AppColors.primary, fontWeight: FontWeight.semiBold, fontSize: 10 }}>{(product as any).restaurant}</ThemedText>
                   </View>
                 ) : null}
                 {product.discount ? (
@@ -1130,7 +1130,7 @@ export default function AdminScreen() {
             </View>
             <View style={styles.listItemContent}>
               <ThemedText type="body" numberOfLines={1}>{area.name}</ThemedText>
-              <ThemedText type="small" style={{ color: AppColors.primary, fontWeight: "600" }}>
+              <ThemedText type="small" style={{ color: AppColors.primary, fontWeight: FontWeight.semiBold }}>
                 {formatPrice(area.fee)}
               </ThemedText>
             </View>
@@ -1316,7 +1316,7 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
                 >
                   <Feather name="user" size={18} color={AppColors.primary} />
                   <View style={{ flex: 1, marginRight: Spacing.sm }}>
-                    <ThemedText type="body" style={{ fontWeight: "700" }}>{name}</ThemedText>
+                    <ThemedText type="body" style={{ fontWeight: FontWeight.bold }}>{name}</ThemedText>
                     <ThemedText type="small" style={{ color: theme.textSecondary }}>{drv.phoneNumber}</ThemedText>
                   </View>
                   {assignDriverMutation.isPending ? (
@@ -1370,7 +1370,7 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
           <View style={{ borderTopWidth: 1, borderTopColor: AppColors.divider, paddingTop: Spacing.md }}>
             <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: Spacing.sm, marginBottom: Spacing.sm }}>
               <Feather name="percent" size={13} color={theme.textSecondary} />
-              <ThemedText type="small" style={{ color: theme.text, fontWeight: "700" }}>توزيع العمولة لكل طلب</ThemedText>
+              <ThemedText type="small" style={{ color: theme.text, fontWeight: FontWeight.bold }}>توزيع العمولة لكل طلب</ThemedText>
             </View>
 
             {/* Restaurant */}
@@ -1430,9 +1430,9 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
         adminOrders.map((order) => (
           <View key={order.id} style={[styles.orderCard, { backgroundColor: theme.backgroundSecondary }]}>
             <View style={styles.orderHeader}>
-              <ThemedText type="body" style={{ fontWeight: "700" }}>#{order.id.slice(-6)}</ThemedText>
+              <ThemedText type="body" style={{ fontWeight: FontWeight.bold }}>#{order.id.slice(-6)}</ThemedText>
               <View style={[styles.statusBadge, { backgroundColor: getStatusColor(order.status) + "20" }]}>
-                <ThemedText type="small" style={{ color: getStatusColor(order.status), fontWeight: "600" }}>
+                <ThemedText type="small" style={{ color: getStatusColor(order.status), fontWeight: FontWeight.semiBold }}>
                   {getStatusLabel(order.status)}
                 </ThemedText>
               </View>
@@ -1452,12 +1452,12 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
                 onPress={() => openTrackingModal(order.id)}
               >
                 <Feather name="map-pin" size={14} color={AppColors.white} />
-                <ThemedText type="small" style={{ color: AppColors.white, fontWeight: "700" }}>تتبع المندوب مباشر</ThemedText>
+                <ThemedText type="small" style={{ color: AppColors.white, fontWeight: FontWeight.bold }}>تتبع المندوب مباشر</ThemedText>
                 <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: AppColors.success }} />
               </Pressable>
             ) : null}
             <View style={styles.orderFooter}>
-              <ThemedText type="body" style={{ color: AppColors.primary, fontWeight: "700" }}>
+              <ThemedText type="body" style={{ color: AppColors.primary, fontWeight: FontWeight.bold }}>
                 {formatPrice(order.total + order.deliveryFee)}
               </ThemedText>
               <View style={styles.statusButtons}>
@@ -1558,7 +1558,7 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
                 paddingVertical: 4,
                 borderRadius: BorderRadius.full,
               }}>
-                <ThemedText type="small" style={{ color: getDriverStatusColor(driver.status), fontWeight: "700" }}>
+                <ThemedText type="small" style={{ color: getDriverStatusColor(driver.status), fontWeight: FontWeight.bold }}>
                   {getDriverStatusText(driver.status)}
                 </ThemedText>
               </View>
@@ -1590,7 +1590,7 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
 
             {driver.nationalIdImage ? (
               <View style={{ marginBottom: Spacing.md }}>
-                <ThemedText type="body" style={{ textAlign: "right", marginBottom: Spacing.xs, fontWeight: "600" }}>
+                <ThemedText type="body" style={{ textAlign: "right", marginBottom: Spacing.xs, fontWeight: FontWeight.semiBold }}>
                   البطاقة الوطنية:
                 </ThemedText>
                 <Image
@@ -1603,7 +1603,7 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
 
             {driver.driverLicenseImage ? (
               <View style={{ marginBottom: Spacing.md }}>
-                <ThemedText type="body" style={{ textAlign: "right", marginBottom: Spacing.xs, fontWeight: "600" }}>
+                <ThemedText type="body" style={{ textAlign: "right", marginBottom: Spacing.xs, fontWeight: FontWeight.semiBold }}>
                   إجازة السوق:
                 </ThemedText>
                 <Image
@@ -1634,7 +1634,7 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
                   }}
                   onPress={() => updateDriverStatusMutation.mutate({ id: driver.id, status: "rejected" })}
                 >
-                  <ThemedText type="body" style={{ color: AppColors.white, fontWeight: "600" }}>رفض</ThemedText>
+                  <ThemedText type="body" style={{ color: AppColors.white, fontWeight: FontWeight.semiBold }}>رفض</ThemedText>
                 </Pressable>
                 <Pressable
                   style={{
@@ -1648,7 +1648,7 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
                   }}
                   onPress={() => updateDriverStatusMutation.mutate({ id: driver.id, status: "approved" })}
                 >
-                  <ThemedText type="body" style={{ color: AppColors.white, fontWeight: "600" }}>قبول</ThemedText>
+                  <ThemedText type="body" style={{ color: AppColors.white, fontWeight: FontWeight.semiBold }}>قبول</ThemedText>
                 </Pressable>
               </View>
             ) : (
@@ -1666,7 +1666,7 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
                   status: driver.status === "approved" ? "pending" : "approved",
                 })}
               >
-                <ThemedText type="body" style={{ color: AppColors.white, fontWeight: "600" }}>
+                <ThemedText type="body" style={{ color: AppColors.white, fontWeight: FontWeight.semiBold }}>
                   {driver.status === "approved" ? "تعليق" : "قبول"}
                 </ThemedText>
               </Pressable>
@@ -1676,13 +1676,13 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
               <View style={{ flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between", marginBottom: Spacing.sm }}>
                 <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: Spacing.xs }}>
                   <Feather name="credit-card" size={16} color={AppColors.primary} />
-                  <ThemedText type="body" style={{ fontWeight: "600", textAlign: "right" }}>المحفظة</ThemedText>
+                  <ThemedText type="body" style={{ fontWeight: FontWeight.semiBold, textAlign: "right" }}>المحفظة</ThemedText>
                 </View>
                 <Pressable
                   style={{ backgroundColor: AppColors.success, paddingHorizontal: Spacing.md, paddingVertical: 6, borderRadius: BorderRadius.md }}
                   onPress={() => setRechargeDriver(rechargeDriver === driver.phoneNumber ? null : driver.phoneNumber)}
                 >
-                  <ThemedText type="small" style={{ color: AppColors.white, fontWeight: "600" }}>شحن رصيد</ThemedText>
+                  <ThemedText type="small" style={{ color: AppColors.white, fontWeight: FontWeight.semiBold }}>شحن رصيد</ThemedText>
                 </Pressable>
               </View>
               {rechargeDriver === driver.phoneNumber ? (
@@ -1695,7 +1695,7 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
                       }
                     }}
                   >
-                    <ThemedText type="small" style={{ color: AppColors.white, fontWeight: "600" }}>تأكيد</ThemedText>
+                    <ThemedText type="small" style={{ color: AppColors.white, fontWeight: FontWeight.semiBold }}>تأكيد</ThemedText>
                   </Pressable>
                   <TextInput
                     style={[styles.input, { flex: 1, backgroundColor: theme.backgroundSecondary, color: theme.text, marginBottom: 0 }]}
@@ -2721,7 +2721,7 @@ const styles = StyleSheet.create({
   },
   tabActive: { backgroundColor: AppColors.primary },
   tabText: { color: AppColors.gray500, fontSize: 12 },
-  tabTextActive: { color: AppColors.white, fontWeight: "600" },
+  tabTextActive: { color: AppColors.white, fontWeight: FontWeight.semiBold },
   formCard: {
     backgroundColor: AppColors.white,
     borderRadius: BorderRadius.lg,
@@ -2853,7 +2853,7 @@ const styles = StyleSheet.create({
   },
   saveButtonText: {
     color: AppColors.white,
-    fontWeight: "700",
+    fontWeight: FontWeight.bold,
     fontSize: 13,
   },
   cancelButton: {
@@ -2921,7 +2921,7 @@ const styles = StyleSheet.create({
   discountText: {
     color: AppColors.white,
     fontSize: 10,
-    fontWeight: "600",
+    fontWeight: FontWeight.semiBold,
   },
   orderCard: {
     borderRadius: BorderRadius.lg,
@@ -2988,7 +2988,7 @@ const styles = StyleSheet.create({
   },
   saveCategoryChangesBtnText: {
     color: AppColors.white,
-    fontWeight: "700",
+    fontWeight: FontWeight.bold,
     fontSize: 12,
   },
   // ── Notifications Tab ──

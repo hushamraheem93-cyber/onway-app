@@ -10,7 +10,7 @@ import { Feather } from "@expo/vector-icons";
 
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import { useTheme } from "@/hooks/useTheme";
-import { Spacing, BorderRadius, AppColors, Shadows } from "@/constants/theme";
+import { Spacing, BorderRadius, AppColors, Shadows, FontWeight} from "@/constants/theme";
 import { useCart } from "@/context/CartContext";
 import { formatPrice } from "@/constants/currency";
 import { useOrders } from "@/context/OrderContext";
@@ -305,7 +305,7 @@ export default function CheckoutScreen() {
                       type="body" 
                       style={[
                         styles.areaName,
-                        selectedArea === item.id && { color: AppColors.primary, fontWeight: "700" }
+                        selectedArea === item.id && { color: AppColors.primary, fontWeight: FontWeight.bold }
                       ]}
                     >
                       {item.name}
@@ -329,7 +329,7 @@ export default function CheckoutScreen() {
           {savedLocation ? (
             <View style={styles.autoFilledBadge}>
               <Feather name="map-pin" size={12} color={AppColors.primary} />
-              <ThemedText type="small" style={{ color: AppColors.primary, fontWeight: "600", fontSize: 11 }}>
+              <ThemedText type="small" style={{ color: AppColors.primary, fontWeight: FontWeight.semiBold, fontSize: 11 }}>
                 من الخريطة
               </ThemedText>
             </View>
@@ -396,7 +396,7 @@ export default function CheckoutScreen() {
             {isApplyingPromo ? (
               <ActivityIndicator size="small" color={AppColors.white} />
             ) : (
-              <ThemedText type="body" style={{ color: AppColors.white, fontWeight: "600" }}>
+              <ThemedText type="body" style={{ color: AppColors.white, fontWeight: FontWeight.semiBold }}>
                 تطبيق
               </ThemedText>
             )}
@@ -461,7 +461,7 @@ export default function CheckoutScreen() {
 
         <View style={[styles.cashNote, { backgroundColor: AppColors.primary + "10", borderColor: AppColors.primary + "30" }]}>
           <Feather name="check-circle" size={16} color={AppColors.primary} />
-          <ThemedText type="small" style={{ color: AppColors.primary, fontWeight: "600", textAlign: "right" }}>
+          <ThemedText type="small" style={{ color: AppColors.primary, fontWeight: FontWeight.semiBold, textAlign: "right" }}>
             الدفع نقداً عند الاستلام
           </ThemedText>
         </View>
@@ -674,7 +674,7 @@ const styles = StyleSheet.create({
   paymentLabel: {
     textAlign: "center",
     fontSize: 11,
-    fontWeight: "600",
+    fontWeight: FontWeight.semiBold,
   },
   dinarCashIcon: {
     width: 44,
@@ -686,7 +686,7 @@ const styles = StyleSheet.create({
   },
   dinarCashText: {
     color: AppColors.white,
-    fontWeight: "700",
+    fontWeight: FontWeight.bold,
     fontSize: 13,
     letterSpacing: 0.5,
   },
@@ -707,7 +707,7 @@ const styles = StyleSheet.create({
   comingSoonText: {
     fontSize: 9,
     color: AppColors.gray400,
-    fontWeight: "700",
+    fontWeight: FontWeight.bold,
   },
   cashNote: {
     flexDirection: "row-reverse",
