@@ -23,6 +23,7 @@ import InternationalShoppingScreen from "@/screens/InternationalShoppingScreen";
 import SupportChatScreen from "@/screens/SupportChatScreen";
 import VendorRegistrationScreen from "@/screens/VendorRegistrationScreen";
 import StoreProductsScreen from "@/screens/StoreProductsScreen";
+import StoreRatingsScreen from "@/screens/StoreRatingsScreen";
 import StoresListScreen from "@/screens/StoresListScreen";
 import ProductDetailScreen from "@/screens/ProductDetailScreen";
 import { useScreenOptions } from "@/hooks/useScreenOptions";
@@ -55,6 +56,7 @@ export type RootStackParamList = {
   InternationalShopping: undefined;
   SupportChat: undefined;
   StoreProducts: { storeId: string; storeName: string };
+  StoreRatings: { storeId: string; storeName: string };
   StoresList: { categoryId: string; categoryName: string; businessType?: string };
   ProductDetail: {
     product: {
@@ -296,6 +298,13 @@ export default function RootStackNavigator() {
         component={StoreProductsScreen}
         options={({ route }) => ({
           headerTitle: route.params.storeName,
+        })}
+      />
+      <Stack.Screen
+        name="StoreRatings"
+        component={StoreRatingsScreen}
+        options={({ route }) => ({
+          headerTitle: `تقييمات ${route.params.storeName}`,
         })}
       />
       <Stack.Screen

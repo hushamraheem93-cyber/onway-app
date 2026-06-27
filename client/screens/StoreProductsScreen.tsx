@@ -75,6 +75,8 @@ interface VendorStore {
   bio?: string;
   profileImageUrl?: string;
   coverImageUrl?: string;
+  rating?: number | null;
+  ratingCount?: number;
 }
 
 function toCartProduct(p: VendorProduct): Product {
@@ -402,7 +404,11 @@ export default function StoreProductsScreen() {
           ListHeaderComponent={
             <>
               {store ? (
-                <StoreProfileHeader store={store} theme={theme} />
+                <StoreProfileHeader
+                  store={store}
+                  theme={theme}
+                  onRatingsPress={() => navigation.navigate("StoreRatings", { storeId, storeName: store.storeName })}
+                />
               ) : null}
               <SearchFilterBar
                 searchQuery={searchQuery}
@@ -462,7 +468,7 @@ export default function StoreProductsScreen() {
   );
 }
 
-function StoreProfileHeader({ store, theme }: { store: VendorStore; theme: any }) {
+function StoreProfileHeader({ store, theme, onRatingsPress }: { store: VendorStore; theme: any; onRatingsPress?: () => void }) {
   const cfg = BUSINESS_CONFIG[store.businessType] || BUSINESS_CONFIG.other;
   const avatarUrl = resolveUrl(store.profileImageUrl);
   const coverUrl = resolveUrl(store.coverImageUrl);
@@ -517,6 +523,24 @@ function StoreProfileHeader({ store, theme }: { store: VendorStore; theme: any }
                 {store.address}
               </ThemedText>
             </View>
+          ) : null}
+
+          {/* Rating row */}
+          {store.rating != null ? (
+            <Pressable onPress={onRatingsPress} style={hStyles.ratingRow}>
+              <MaterialCommunityIcons name="star" size={14} color="#F59E0B" />
+              <ThemedText type="small" style={[hStyles.ratingText, { color: theme.textPrimary }]}>
+                {(store.rating as number).toFixed(1)}
+              </ThemedText>
+              <ThemedText type="small" style={[hStyles.ratingCount, { color: theme.textSecondary }]}>
+                ({store.ratingCount ?? 0} تقييم)
+              </ThemedText>
+              {onRatingsPress ? (
+                <ThemedText type="small" style={[hStyles.ratingLink, { color: AppColors.primary }]}>
+                  عرض التقييمات
+                </ThemedText>
+              ) : null}
+            </Pressable>
           ) : null}
         </View>
       </View>
@@ -576,6 +600,10 @@ const hStyles = StyleSheet.create({
   bio: { textAlign: "right", fontStyle: "italic" },
   addressRow: { flexDirection: "row-reverse", alignItems: "center", gap: 4 },
   addressText: { textAlign: "right" },
+  ratingRow: { flexDirection: "row-reverse", alignItems: "center", gap: 4, marginTop: 6, flexWrap: "wrap" as const },
+  ratingText: { fontFamily: "Cairo_700Bold" },
+  ratingCount: { fontFamily: "Cairo_400Regular" },
+  ratingLink: { fontFamily: "Cairo_700Bold", marginRight: 4, textDecorationLine: "underline" as const },
 });
 
 const sfStyles = StyleSheet.create({

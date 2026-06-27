@@ -1486,6 +1486,15 @@
           <span>المناطق والأقضية</span>
           <span class="badge" id="zones-count">0</span>
         </div>
+        <div class="nav-item" onclick="showSection('ratingsManagement', this)">
+          <i data-lucide="star"></i>
+          <span>إدارة التقييمات</span>
+          <span class="badge" id="ratings-count">0</span>
+        </div>
+        <div class="nav-item" onclick="showSection('storeRanking', this)">
+          <i data-lucide="trophy"></i>
+          <span>ترتيب المتاجر</span>
+        </div>
       </div>
 
       <div class="nav-section">
@@ -3803,6 +3812,191 @@
     </div>
   </div>
 
+  <!-- ══════════════════════ RATINGS MANAGEMENT ══════════════════════ -->
+  <div id="ratingsManagement-section" class="section">
+    <header class="header">
+      <div class="header-title">
+        <i data-lucide="star" style="color:var(--primary);width:24px;height:24px;"></i>
+        <div><h2>إدارة التقييمات</h2><p>عرض وإدارة تقييمات الزبائن لجميع المتاجر</p></div>
+      </div>
+      <div class="header-actions">
+        <button class="btn btn-primary" onclick="openAdminRatingModal()">
+          <i data-lucide="plus"></i> إضافة تقييم إداري
+        </button>
+      </div>
+    </header>
+
+    <!-- Filters -->
+    <div class="card" style="margin-bottom:16px;">
+      <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center;padding:16px;">
+        <input type="text" id="ratings-search" class="form-control" placeholder="ابحث في التعليقات أو رقم الهاتف..." oninput="loadAdminRatings()" style="max-width:280px;" />
+        <select id="ratings-filter-stars" class="form-control" onchange="loadAdminRatings()" style="max-width:130px;">
+          <option value="">كل النجوم</option>
+          <option value="5">5 نجوم</option>
+          <option value="4">4 نجوم</option>
+          <option value="3">3 نجوم</option>
+          <option value="2">2 نجوم</option>
+          <option value="1">نجمة واحدة</option>
+        </select>
+        <select id="ratings-filter-hidden" class="form-control" onchange="loadAdminRatings()" style="max-width:130px;">
+          <option value="">الكل</option>
+          <option value="false">مرئية</option>
+          <option value="true">مخفية</option>
+        </select>
+        <button class="btn btn-outline btn-sm" onclick="loadAdminRatings()"><i data-lucide="refresh-cw"></i> تحديث</button>
+      </div>
+    </div>
+
+    <!-- Top 10 / Worst 10 -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;" id="ratings-dashboard-grids">
+      <div class="card">
+        <div class="card-header" style="padding:14px 16px;border-bottom:1px solid #e5e7eb;">
+          <h3 style="margin:0;font-size:0.95rem;display:flex;align-items:center;gap:8px;"><i data-lucide="trending-up" style="color:#10b981;width:18px;height:18px;"></i> أفضل 10 متاجر</h3>
+        </div>
+        <div id="top-stores-list" style="padding:12px;"></div>
+      </div>
+      <div class="card">
+        <div class="card-header" style="padding:14px 16px;border-bottom:1px solid #e5e7eb;">
+          <h3 style="margin:0;font-size:0.95rem;display:flex;align-items:center;gap:8px;"><i data-lucide="trending-down" style="color:#ef4444;width:18px;height:18px;"></i> أدنى 10 متاجر</h3>
+        </div>
+        <div id="worst-stores-list" style="padding:12px;"></div>
+      </div>
+    </div>
+
+    <!-- Ratings Table -->
+    <div class="card">
+      <div class="table-wrapper">
+        <table class="table">
+          <thead><tr>
+            <th>المتجر</th>
+            <th>النجوم</th>
+            <th>التعليق</th>
+            <th>الزبون</th>
+            <th>التاريخ</th>
+            <th>الحالة</th>
+            <th>الإجراءات</th>
+          </tr></thead>
+          <tbody id="ratings-table-body"><tr><td colspan="7" style="text-align:center;padding:32px;color:#9ca3af;">جاري التحميل...</td></tr></tbody>
+        </table>
+      </div>
+      <div id="ratings-pagination" style="display:flex;justify-content:center;gap:8px;padding:16px;"></div>
+    </div>
+  </div>
+
+  <!-- Admin Rating Modal -->
+  <div id="admin-rating-modal" class="modal-overlay" style="display:none;">
+    <div class="modal" style="max-width:480px;">
+      <div class="modal-header">
+        <h3><i data-lucide="star"></i> إضافة تقييم إداري</h3>
+        <button class="modal-close" onclick="closeModal('admin-rating-modal')"><i data-lucide="x"></i></button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label>المتجر <span class="required">*</span></label>
+          <select class="form-control" id="admin-rating-vendor-id">
+            <option value="">اختر المتجر...</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>التقييم (1-5) <span class="required">*</span></label>
+          <input type="number" class="form-control" id="admin-rating-stars" min="1" max="5" value="5" />
+        </div>
+        <div class="form-group">
+          <label>التعليق</label>
+          <textarea class="form-control" id="admin-rating-comment" rows="3" placeholder="اكتب التعليق..."></textarea>
+        </div>
+        <div class="form-group">
+          <label>السبب (داخلي)</label>
+          <input type="text" class="form-control" id="admin-rating-reason" placeholder="سبب التقييم الإداري..." />
+        </div>
+        <div class="form-group">
+          <label><input type="checkbox" id="admin-rating-visible" checked /> مرئي للعملاء</label>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline" onclick="closeModal('admin-rating-modal')">إلغاء</button>
+        <button class="btn btn-primary" onclick="submitAdminRating()">إضافة التقييم</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════ STORE RANKING ══════════════════════ -->
+  <div id="storeRanking-section" class="section">
+    <header class="header">
+      <div class="header-title">
+        <i data-lucide="trophy" style="color:var(--primary);width:24px;height:24px;"></i>
+        <div><h2>ترتيب المتاجر</h2><p>تثبيت وترتيب المتاجر يدوياً في التطبيق</p></div>
+      </div>
+      <div class="header-actions">
+        <input type="text" id="ranking-search" class="form-control" placeholder="بحث..." oninput="filterRanking()" style="max-width:200px;" />
+        <select id="ranking-filter-type" class="form-control" onchange="filterRanking()" style="max-width:140px;">
+          <option value="">كل الأنواع</option>
+          <option value="restaurant">مطاعم</option>
+          <option value="supermarket">سوبرماركت</option>
+          <option value="pharmacy">صيدلية</option>
+          <option value="bakery">مخابز</option>
+          <option value="other">أخرى</option>
+        </select>
+        <button class="btn btn-outline btn-sm" onclick="loadStoreRanking()"><i data-lucide="refresh-cw"></i> تحديث</button>
+      </div>
+    </header>
+
+    <div class="card">
+      <div class="table-wrapper">
+        <table class="table">
+          <thead><tr>
+            <th>المتجر</th>
+            <th>النوع</th>
+            <th>التقييم</th>
+            <th>مثبّت</th>
+            <th>ترتيب يدوي</th>
+            <th>الأولوية</th>
+            <th>مميّز حتى</th>
+            <th>الإجراءات</th>
+          </tr></thead>
+          <tbody id="ranking-table-body"><tr><td colspan="8" style="text-align:center;padding:32px;color:#9ca3af;">جاري التحميل...</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Store Rank Edit Modal -->
+  <div id="rank-edit-modal" class="modal-overlay" style="display:none;">
+    <div class="modal" style="max-width:440px;">
+      <div class="modal-header">
+        <h3><i data-lucide="sliders"></i> تعديل ترتيب المتجر</h3>
+        <button class="modal-close" onclick="closeModal('rank-edit-modal')"><i data-lucide="x"></i></button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="rank-edit-vendor-id" />
+        <div class="form-group">
+          <label><input type="checkbox" id="rank-pinned" /> تثبيت في الأعلى</label>
+        </div>
+        <div class="form-group">
+          <label><input type="checkbox" id="rank-featured" /> متجر مميّز</label>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>الترتيب اليدوي</label>
+            <input type="number" class="form-control" id="rank-manual" min="1" placeholder="فارغ = غير محدد" />
+          </div>
+          <div class="form-group">
+            <label>الأولوية</label>
+            <input type="number" class="form-control" id="rank-priority" min="0" value="0" />
+          </div>
+        </div>
+        <div class="form-group">
+          <label>مميّز حتى تاريخ</label>
+          <input type="date" class="form-control" id="rank-featured-until" />
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline" onclick="closeModal('rank-edit-modal')">إلغاء</button>
+        <button class="btn btn-primary" onclick="saveStoreRank()">حفظ</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Product Modal -->
   <div id="product-modal" class="modal-overlay">
     <div class="modal">
@@ -4260,6 +4454,8 @@
       if (section === 'analytics') loadAnalytics();
       if (section === 'reports') loadReports();
       if (section === 'zoneManagement') loadZones();
+      if (section === 'ratingsManagement') loadAdminRatings();
+      if (section === 'storeRanking') loadStoreRanking();
       if (section === 'appUsers') loadAppUsers();
       if (section === 'supportChat') {
         loadSupportChats();
@@ -10657,6 +10853,324 @@ async function deleteZone(id) {
     await loadZones();
     showToast('success', 'تم الحذف', 'تم حذف المنطقة');
   } catch { showToast('error', 'خطأ', 'تعذّر حذف المنطقة'); }
+}
+
+// ══════════════════════════════════════════════════════════════
+// RATINGS MANAGEMENT
+// ══════════════════════════════════════════════════════════════
+let _ratingsPage = 1;
+let _ratingsData = [];
+
+function starsHtml(n, size) {
+  size = size || 14;
+  let h = '';
+  for (let i = 1; i <= 5; i++) {
+    h += `<i data-lucide="star" style="width:${size}px;height:${size}px;color:${i <= n ? '#F59E0B' : '#D1D5DB'};fill:${i <= n ? '#F59E0B' : 'none'};"></i>`;
+  }
+  return h;
+}
+
+async function loadAdminRatings() {
+  _ratingsPage = 1;
+  const q       = document.getElementById('ratings-search')?.value?.trim() || '';
+  const stars   = document.getElementById('ratings-filter-stars')?.value || '';
+  const hidden  = document.getElementById('ratings-filter-hidden')?.value ?? '';
+
+  try {
+    // Load dashboard stats
+    const dashRes = await fetch(`${API_BASE}/admin/ratings-dashboard`);
+    const dash    = await dashRes.json();
+
+    // Top stores
+    const topEl = document.getElementById('top-stores-list');
+    if (topEl) {
+      topEl.innerHTML = dash.topStores.length === 0
+        ? '<p style="color:#9ca3af;font-size:0.85rem;text-align:center;">لا توجد بيانات</p>'
+        : dash.topStores.map((s, i) => `
+          <div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid #f3f4f6;">
+            <span style="font-weight:700;color:#10b981;min-width:20px;">${i+1}</span>
+            <span style="flex:1;font-size:0.88rem;">${s.storeName}</span>
+            <span style="display:flex;align-items:center;gap:2px;">${starsHtml(Math.round(s.rating), 12)}</span>
+            <span style="font-weight:700;font-size:0.85rem;color:#F59E0B;">${(s.rating||0).toFixed(1)}</span>
+            <span style="font-size:0.75rem;color:#9ca3af;">(${s.ratingCount})</span>
+          </div>`).join('');
+      if (topEl && typeof lucide !== 'undefined') lucide.createIcons({el: topEl});
+    }
+
+    // Worst stores
+    const worstEl = document.getElementById('worst-stores-list');
+    if (worstEl) {
+      worstEl.innerHTML = dash.worstStores.length === 0
+        ? '<p style="color:#9ca3af;font-size:0.85rem;text-align:center;">لا توجد بيانات</p>'
+        : dash.worstStores.map((s, i) => `
+          <div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid #f3f4f6;">
+            <span style="font-weight:700;color:#ef4444;min-width:20px;">${i+1}</span>
+            <span style="flex:1;font-size:0.88rem;">${s.storeName}</span>
+            <span style="display:flex;align-items:center;gap:2px;">${starsHtml(Math.round(s.rating), 12)}</span>
+            <span style="font-weight:700;font-size:0.85rem;color:#ef4444;">${(s.rating||0).toFixed(1)}</span>
+            <span style="font-size:0.75rem;color:#9ca3af;">(${s.ratingCount})</span>
+          </div>`).join('');
+      if (worstEl && typeof lucide !== 'undefined') lucide.createIcons({el: worstEl});
+    }
+
+    // Ratings table
+    const url = new URL(`${API_BASE}/admin/ratings`);
+    if (q)      url.searchParams.set('q', q);
+    if (stars)  url.searchParams.set('stars', stars);
+    if (hidden !== '') url.searchParams.set('hidden', hidden);
+    url.searchParams.set('page', '1');
+    url.searchParams.set('limit', '50');
+
+    const res  = await fetch(url.toString());
+    const data = await res.json();
+    _ratingsData = data.items || [];
+
+    const badge = document.getElementById('ratings-count');
+    if (badge) badge.textContent = data.total || 0;
+
+    renderRatingsTable();
+
+  } catch(e) {
+    console.error('loadAdminRatings:', e);
+  }
+}
+
+function renderRatingsTable() {
+  const tbody = document.getElementById('ratings-table-body');
+  if (!tbody) return;
+
+  if (_ratingsData.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:32px;color:#9ca3af;">لا توجد تقييمات</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = _ratingsData.map(r => {
+    const date    = r.createdAt ? new Date(r.createdAt).toLocaleDateString('ar-IQ') : '';
+    const hiddenBadge = r.hidden
+      ? '<span style="background:#fef3c7;color:#d97706;padding:2px 8px;border-radius:8px;font-size:0.75rem;">مخفي</span>'
+      : '<span style="background:#d1fae5;color:#065f46;padding:2px 8px;border-radius:8px;font-size:0.75rem;">مرئي</span>';
+    const deletedBadge = r.deleted
+      ? '<span style="background:#fee2e2;color:#dc2626;padding:2px 8px;border-radius:8px;font-size:0.75rem;margin-right:4px;">محذوف</span>'
+      : '';
+    const adminBadge = r.ratingType === 'admin'
+      ? '<span style="background:#ede9fe;color:#7c3aed;padding:2px 8px;border-radius:8px;font-size:0.75rem;margin-right:4px;">إداري</span>'
+      : '';
+
+    return `<tr>
+      <td style="font-weight:600;">${r.storeName || r.vendorId || '—'}</td>
+      <td><div style="display:flex;align-items:center;gap:2px;">${starsHtml(r.stars, 13)}<span style="margin-right:4px;font-weight:700;">${r.stars}</span></div></td>
+      <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${(r.comment||'').replace(/"/g,'&quot;')}">${r.comment || '<span style="color:#9ca3af;">—</span>'}</td>
+      <td style="font-size:0.8rem;color:#6b7280;">${r.customerPhone ? '*'.repeat(5) + r.customerPhone.slice(-4) : '—'}</td>
+      <td style="font-size:0.8rem;">${date}</td>
+      <td>${deletedBadge}${adminBadge}${hiddenBadge}</td>
+      <td>
+        <div style="display:flex;gap:4px;flex-wrap:wrap;">
+          ${r.hidden
+            ? `<button class="btn btn-outline btn-sm" onclick="ratingAction('${r.id}','show')">إظهار</button>`
+            : `<button class="btn btn-outline btn-sm" onclick="ratingAction('${r.id}','hide')">إخفاء</button>`}
+          ${r.deleted
+            ? `<button class="btn btn-outline btn-sm" onclick="ratingAction('${r.id}','restore')" style="color:#10b981;">استعادة</button>`
+            : `<button class="btn btn-sm" style="background:#fee2e2;color:#dc2626;border:none;" onclick="ratingAction('${r.id}','delete')">حذف</button>`}
+          <button class="btn btn-outline btn-sm" onclick="openRatingNoteModal('${r.id}','${(r.adminNote||'').replace(/'/g,'\\\'')}')" title="ملاحظة إدارية">
+            <i data-lucide="message-square" style="width:13px;height:13px;"></i>
+          </button>
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+
+  if (typeof lucide !== 'undefined') lucide.createIcons({el: tbody});
+}
+
+async function ratingAction(id, action) {
+  try {
+    const res = await fetch(`${API_BASE}/admin/ratings/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action })
+    });
+    if (!res.ok) throw new Error();
+    showToast('success', 'تم', action === 'hide' ? 'تم إخفاء التقييم' : action === 'show' ? 'تم إظهار التقييم' : action === 'delete' ? 'تم حذف التقييم' : 'تم الاستعادة');
+    await loadAdminRatings();
+  } catch { showToast('error', 'خطأ', 'تعذّر تنفيذ الإجراء'); }
+}
+
+let _ratingNoteId = '';
+function openRatingNoteModal(id, existingNote) {
+  _ratingNoteId = id;
+  const note = prompt('أدخل الملاحظة الإدارية:', existingNote || '');
+  if (note === null) return;
+  fetch(`${API_BASE}/admin/ratings/${id}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: 'note', note })
+  }).then(() => { showToast('success', 'تم', 'تم حفظ الملاحظة'); loadAdminRatings(); })
+    .catch(() => showToast('error', 'خطأ', 'تعذّر حفظ الملاحظة'));
+}
+
+async function openAdminRatingModal() {
+  // Load vendors for the dropdown
+  try {
+    const res  = await fetch(`${API_BASE}/admin/store-ranking`);
+    const list = await res.json();
+    const sel  = document.getElementById('admin-rating-vendor-id');
+    if (sel) {
+      sel.innerHTML = '<option value="">اختر المتجر...</option>' +
+        list.map(v => `<option value="${v.id}">${v.storeName}</option>`).join('');
+    }
+  } catch {}
+  const modal = document.getElementById('admin-rating-modal');
+  if (modal) { modal.style.display = 'flex'; }
+}
+
+async function submitAdminRating() {
+  const vendorId = document.getElementById('admin-rating-vendor-id')?.value;
+  const stars    = parseInt(document.getElementById('admin-rating-stars')?.value || '0', 10);
+  const comment  = document.getElementById('admin-rating-comment')?.value?.trim() || '';
+  const reason   = document.getElementById('admin-rating-reason')?.value?.trim() || '';
+  const visible  = document.getElementById('admin-rating-visible')?.checked;
+
+  if (!vendorId || !stars || stars < 1 || stars > 5) {
+    showToast('error', 'خطأ', 'يرجى اختيار المتجر وتقييم صحيح (1-5)');
+    return;
+  }
+
+  try {
+    const res = await fetch(`${API_BASE}/admin/ratings`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ vendorId, stars, comment, reason, visible })
+    });
+    if (!res.ok) throw new Error();
+    closeModal('admin-rating-modal');
+    showToast('success', 'تم', 'تم إضافة التقييم الإداري');
+    await loadAdminRatings();
+  } catch { showToast('error', 'خطأ', 'تعذّر إضافة التقييم'); }
+}
+
+// ══════════════════════════════════════════════════════════════
+// STORE RANKING
+// ══════════════════════════════════════════════════════════════
+let _rankingData = [];
+
+async function loadStoreRanking() {
+  try {
+    const res  = await fetch(`${API_BASE}/admin/store-ranking`);
+    _rankingData = await res.json();
+    filterRanking();
+  } catch(e) {
+    console.error('loadStoreRanking:', e);
+  }
+}
+
+function filterRanking() {
+  const q    = (document.getElementById('ranking-search')?.value || '').toLowerCase();
+  const type = document.getElementById('ranking-filter-type')?.value || '';
+  let data   = _rankingData;
+  if (q)    data = data.filter(v => v.storeName.toLowerCase().includes(q));
+  if (type) data = data.filter(v => v.categoryType === type);
+  renderRankingTable(data);
+}
+
+const BUSINESS_LABELS_AR = {
+  restaurant: 'مطعم', supermarket: 'سوبرماركت', pharmacy: 'صيدلية',
+  bakery: 'مخبز', other: 'متجر'
+};
+
+function renderRankingTable(data) {
+  const tbody = document.getElementById('ranking-table-body');
+  if (!tbody) return;
+
+  if (!data || data.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:32px;color:#9ca3af;">لا توجد متاجر</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = data.map((v, idx) => {
+    const pinnedBadge = v.pinnedToTop
+      ? '<span style="background:#fef3c7;color:#d97706;padding:2px 6px;border-radius:6px;font-size:0.75rem;">مثبّت</span>'
+      : '<span style="color:#9ca3af;font-size:0.8rem;">—</span>';
+    const featuredBadge = v.featured
+      ? '<span style="background:#ede9fe;color:#7c3aed;padding:2px 6px;border-radius:6px;font-size:0.75rem;margin-right:4px;">مميّز</span>'
+      : '';
+    const ratingStr = v.rating != null
+      ? `<div style="display:flex;align-items:center;gap:4px;">${starsHtml(Math.round(v.rating), 12)}<span style="font-weight:700;">${v.rating.toFixed(1)}</span> <span style="color:#9ca3af;font-size:0.75rem;">(${v.ratingCount})</span></div>`
+      : '<span style="color:#9ca3af;">—</span>';
+    const featuredUntil = v.featuredUntil
+      ? `<span style="font-size:0.8rem;">${new Date(v.featuredUntil).toLocaleDateString('ar-IQ')}</span>`
+      : '<span style="color:#9ca3af;">—</span>';
+
+    return `<tr style="${v.pinnedToTop ? 'background:#fffbeb;' : ''}">
+      <td>
+        <div style="display:flex;align-items:center;gap:6px;">
+          <span style="color:#9ca3af;font-size:0.8rem;min-width:20px;">#${idx+1}</span>
+          <span style="font-weight:600;">${v.storeName}</span>
+          ${featuredBadge}
+        </div>
+      </td>
+      <td>${BUSINESS_LABELS_AR[v.categoryType] || v.categoryType || '—'}</td>
+      <td>${ratingStr}</td>
+      <td>${pinnedBadge}</td>
+      <td style="font-weight:600;">${v.manualRank ?? '<span style="color:#9ca3af;">—</span>'}</td>
+      <td>${v.priority || 0}</td>
+      <td>${featuredUntil}</td>
+      <td>
+        <button class="btn btn-outline btn-sm" onclick="openRankEdit('${v.id}')">تعديل</button>
+        ${v.pinnedToTop
+          ? `<button class="btn btn-sm" style="background:#fef3c7;color:#d97706;border:none;margin-right:4px;" onclick="quickRankAction('${v.id}',{pinnedToTop:false})">إلغاء التثبيت</button>`
+          : `<button class="btn btn-sm" style="background:#d1fae5;color:#065f46;border:none;margin-right:4px;" onclick="quickRankAction('${v.id}',{pinnedToTop:true})">تثبيت</button>`}
+      </td>
+    </tr>`;
+  }).join('');
+
+  if (typeof lucide !== 'undefined') lucide.createIcons({el: tbody});
+}
+
+function openRankEdit(vendorId) {
+  const v = _rankingData.find(x => x.id === vendorId);
+  if (!v) return;
+  document.getElementById('rank-edit-vendor-id').value = vendorId;
+  document.getElementById('rank-pinned').checked  = !!v.pinnedToTop;
+  document.getElementById('rank-featured').checked = !!v.featured;
+  document.getElementById('rank-manual').value    = v.manualRank ?? '';
+  document.getElementById('rank-priority').value  = v.priority ?? 0;
+  document.getElementById('rank-featured-until').value = v.featuredUntil
+    ? new Date(v.featuredUntil).toISOString().slice(0,10) : '';
+  const modal = document.getElementById('rank-edit-modal');
+  if (modal) modal.style.display = 'flex';
+}
+
+async function saveStoreRank() {
+  const vendorId      = document.getElementById('rank-edit-vendor-id')?.value;
+  const pinnedToTop   = document.getElementById('rank-pinned')?.checked;
+  const featured      = document.getElementById('rank-featured')?.checked;
+  const manualRankVal = document.getElementById('rank-manual')?.value;
+  const manualRank    = manualRankVal !== '' ? parseInt(manualRankVal, 10) : null;
+  const priority      = parseInt(document.getElementById('rank-priority')?.value || '0', 10);
+  const featuredUntil = document.getElementById('rank-featured-until')?.value || null;
+
+  try {
+    const res = await fetch(`${API_BASE}/admin/stores/${vendorId}/rank`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pinnedToTop, featured, manualRank, priority, featuredUntil })
+    });
+    if (!res.ok) throw new Error();
+    closeModal('rank-edit-modal');
+    showToast('success', 'تم الحفظ', 'تم تحديث ترتيب المتجر');
+    await loadStoreRanking();
+  } catch { showToast('error', 'خطأ', 'تعذّر حفظ الترتيب'); }
+}
+
+async function quickRankAction(vendorId, updates) {
+  try {
+    await fetch(`${API_BASE}/admin/stores/${vendorId}/rank`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(updates)
+    });
+    await loadStoreRanking();
+  } catch { showToast('error', 'خطأ', 'تعذّر تحديث الترتيب'); }
 }
 
 </script>

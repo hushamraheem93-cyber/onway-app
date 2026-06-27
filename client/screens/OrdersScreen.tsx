@@ -36,13 +36,13 @@ export default function OrdersScreen() {
 
   const [searchQuery, setSearchQuery] = useState("");
 
-  const handleRate = async (orderId: string, rating: number) => {
+  const handleRate = async (orderId: string, rating: number, comment?: string, image?: string) => {
     const headers: Record<string, string> = { "Content-Type": "application/json" };
     if (customerToken) headers["Authorization"] = `Bearer ${customerToken}`;
     const res = await fetch(new URL(`/api/orders/${orderId}/rate`, getApiUrl()).toString(), {
       method: "POST",
       headers,
-      body: JSON.stringify({ rating }),
+      body: JSON.stringify({ rating, comment: comment ?? "", image: image ?? "" }),
     });
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));

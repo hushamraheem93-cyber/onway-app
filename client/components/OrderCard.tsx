@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { StyleSheet, View, Pressable, ActivityIndicator } from "react-native";
+import { StyleSheet, View, Pressable, ActivityIndicator, Modal, TextInput, KeyboardAvoidingView, Platform } from "react-native";
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -17,7 +17,7 @@ interface OrderCardProps {
   order: Order;
   onPress?: () => void;
   onStorePress?: () => void;
-  onRate?: (orderId: string, rating: number) => Promise<void>;
+  onRate?: (orderId: string, rating: number, comment?: string, image?: string) => Promise<void>;
 }
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
@@ -51,18 +51,28 @@ const statusColors: Record<Order["status"], string> = {
 function OrderCardComponent({ order, onPress, onStorePress, onRate }: OrderCardProps) {
   const { theme } = useTheme();
   const scale = useSharedValue(1);
-  const [hoveredStar, setHoveredStar] = useState<number | null>(null);
   const [submittingRating, setSubmittingRating] = useState(false);
   const [ratedValue, setRatedValue] = useState<number | null>(order.customerRating ?? null);
+  const [ratingModal, setRatingModal] = useState(false);
+  const [selectedStar, setSelectedStar] = useState<number>(5);
+  const [commentText, setCommentText] = useState("");
 
   const canRate = order.status === "delivered" && order.vendorId && !ratedValue && !!onRate;
 
-  const handleRate = async (star: number) => {
+  const handleOpenRatingModal = () => {
+    if (!onRate || ratedValue) return;
+    setSelectedStar(5);
+    setCommentText("");
+    setRatingModal(true);
+  };
+
+  const handleSubmitRating = async () => {
     if (!onRate || submittingRating || ratedValue) return;
     setSubmittingRating(true);
     try {
-      await onRate(order.id, star);
-      setRatedValue(star);
+      await onRate(order.id, selectedStar, commentText.trim());
+      setRatedValue(selectedStar);
+      setRatingModal(false);
     } catch {
       // silently ignore
     } finally {
@@ -195,30 +205,86 @@ function OrderCardComponent({ order, onPress, onStorePress, onRate }: OrderCardP
               </ThemedText>
             </View>
           ) : (
-            <View style={styles.ratingColumn}>
-              <ThemedText type="small" style={{ color: theme.textSecondary, marginBottom: 6 }}>
-                كيف كانت تجربتك؟
+            <Pressable
+              onPress={handleOpenRatingModal}
+              style={styles.rateBtn}
+              testID={`button-rate-open-${order.id}`}
+            >
+              <MaterialCommunityIcons name="star" size={16} color="#fff" />
+              <ThemedText type="small" style={{ color: "#fff", fontFamily: "Cairo_700Bold" }}>
+                قيّم طلبك
               </ThemedText>
-              <View style={styles.ratingStarsRow}>
-                {[1,2,3,4,5].map((star) => (
-                  <Pressable
-                    key={star}
-                    onPress={() => handleRate(star)}
-                    testID={`button-rate-star-${star}-${order.id}`}
-                    hitSlop={6}
-                  >
-                    <MaterialCommunityIcons
-                      name={(hoveredStar !== null && star <= hoveredStar) ? "star" : "star-outline"}
-                      size={28}
-                      color="#F59E0B"
-                    />
-                  </Pressable>
-                ))}
-              </View>
-            </View>
+            </Pressable>
           )}
         </View>
       ) : null}
+
+      {/* Rating Modal */}
+      <Modal visible={ratingModal} transparent animationType="slide" onRequestClose={() => setRatingModal(false)}>
+        <KeyboardAvoidingView
+          style={styles.modalOverlay}
+          behavior={Platform.OS === "ios" ? "padding" : undefined}
+        >
+          <Pressable style={styles.modalBg} onPress={() => setRatingModal(false)} />
+          <View style={[styles.modalSheet, { backgroundColor: theme.backgroundDefault }]}>
+            <ThemedText type="h4" style={[styles.modalTitle, { color: theme.text }]}>
+              كيف كانت تجربتك؟
+            </ThemedText>
+
+            {/* Star selector */}
+            <View style={styles.modalStarsRow}>
+              {[1, 2, 3, 4, 5].map((star) => (
+                <Pressable key={star} onPress={() => setSelectedStar(star)} hitSlop={8} testID={`modal-star-${star}`}>
+                  <MaterialCommunityIcons
+                    name={star <= selectedStar ? "star" : "star-outline"}
+                    size={36}
+                    color="#F59E0B"
+                  />
+                </Pressable>
+              ))}
+            </View>
+
+            {/* Comment */}
+            <TextInput
+              style={[styles.modalComment, { backgroundColor: theme.backgroundRoot, color: theme.text, borderColor: theme.border ?? "#E5E7EB" }]}
+              placeholder="أضف تعليقاً (اختياري)..."
+              placeholderTextColor={theme.textSecondary}
+              value={commentText}
+              onChangeText={setCommentText}
+              multiline
+              numberOfLines={3}
+              textAlignVertical="top"
+              textAlign="right"
+              maxLength={500}
+            />
+            <ThemedText type="small" style={{ color: theme.textSecondary, textAlign: "left", marginTop: 2 }}>
+              {commentText.length}/500
+            </ThemedText>
+
+            {/* Actions */}
+            <View style={styles.modalActions}>
+              <Pressable
+                onPress={() => setRatingModal(false)}
+                style={[styles.modalBtn, { backgroundColor: theme.backgroundRoot }]}
+              >
+                <ThemedText type="body" style={{ color: theme.textSecondary, fontFamily: "Cairo_700Bold" }}>إلغاء</ThemedText>
+              </Pressable>
+              <Pressable
+                onPress={handleSubmitRating}
+                disabled={submittingRating}
+                style={[styles.modalBtn, { backgroundColor: AppColors.primary, opacity: submittingRating ? 0.6 : 1 }]}
+                testID="button-submit-rating"
+              >
+                {submittingRating ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <ThemedText type="body" style={{ color: "#fff", fontFamily: "Cairo_700Bold" }}>إرسال</ThemedText>
+                )}
+              </Pressable>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
     </AnimatedPressable>
   );
 }
@@ -298,6 +364,57 @@ const styles = StyleSheet.create({
   ratingStarsRow: {
     flexDirection: "row-reverse",
     gap: 4,
+  },
+  rateBtn: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    gap: 6,
+    backgroundColor: AppColors.primary,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+  },
+  modalOverlay: {
+    flex: 1,
+    justifyContent: "flex-end",
+  },
+  modalBg: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.5)",
+  },
+  modalSheet: {
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 24,
+    gap: 14,
+  },
+  modalTitle: {
+    textAlign: "center",
+    fontFamily: "Cairo_700Bold",
+  },
+  modalStarsRow: {
+    flexDirection: "row-reverse",
+    justifyContent: "center",
+    gap: 8,
+  },
+  modalComment: {
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 12,
+    minHeight: 80,
+    fontFamily: "Cairo_400Regular",
+    fontSize: 14,
+  },
+  modalActions: {
+    flexDirection: "row-reverse",
+    gap: 10,
+    marginTop: 4,
+  },
+  modalBtn: {
+    flex: 1,
+    padding: 13,
+    borderRadius: 12,
+    alignItems: "center",
   },
 });
 

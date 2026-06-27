@@ -5076,12 +5076,16 @@ ${itemsList}
     if (isNaN(numRating) || numRating < 1 || numRating > 5) {
       return res.status(400).json({ error: "\u0627\u0644\u062A\u0642\u064A\u064A\u0645 \u064A\u062C\u0628 \u0623\u0646 \u064A\u0643\u0648\u0646 \u0628\u064A\u0646 1 \u0648 5" });
     }
+    const ratingComment = typeof req.body.comment === "string" ? req.body.comment.trim().slice(0, 500) : "";
+    const ratingImage = typeof req.body.image === "string" ? req.body.image.slice(0, 4e5) : "";
     try {
       const db2 = getFirestore();
       if (!db2) return res.status(503).json({ error: "\u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u063A\u064A\u0631 \u0645\u062A\u0627\u062D\u0629" });
       const orderRef = db2.collection("orders").doc(req.params.orderId);
+      const capturedOrderId = req.params.orderId;
       const ratedAt = (/* @__PURE__ */ new Date()).toISOString();
       let didUpdateVendor = false;
+      let capturedVendorId;
       await db2.runTransaction(async (tx) => {
         const orderSnap = await tx.get(orderRef);
         if (!orderSnap.exists) throw Object.assign(new Error("\u0627\u0644\u0637\u0644\u0628 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F"), { status: 404 });
@@ -5095,7 +5099,8 @@ ${itemsList}
         if (order.customerRating) {
           throw Object.assign(new Error("\u062A\u0645 \u062A\u0642\u064A\u064A\u0645 \u0647\u0630\u0627 \u0627\u0644\u0637\u0644\u0628 \u0645\u0633\u0628\u0642\u0627\u064B"), { status: 409 });
         }
-        const vendorId2 = order.vendorId;
+        capturedVendorId = order.vendorId;
+        const vendorId2 = capturedVendorId;
         const vendorRef = vendorId2 ? db2.collection("vendors").doc(vendorId2) : null;
         const vSnap = vendorRef ? await tx.get(vendorRef) : null;
         tx.update(orderRef, { customerRating: numRating, ratedAt });
@@ -5110,6 +5115,26 @@ ${itemsList}
         }
       });
       if (didUpdateVendor) invalidateVendorsCache();
+      try {
+        await db2.collection("ratings").add({
+          orderId: capturedOrderId,
+          vendorId: capturedVendorId ?? null,
+          customerPhone: callerPhone,
+          stars: numRating,
+          comment: ratingComment,
+          image: ratingImage,
+          ratingType: "customer",
+          hidden: false,
+          deleted: false,
+          adminNote: "",
+          vendorReply: "",
+          vendorRepliedAt: null,
+          createdAt: ratedAt,
+          updatedAt: ratedAt
+        });
+      } catch (e) {
+        console.error("ratings collection write:", e);
+      }
       return res.json({ success: true, message: "\u0634\u0643\u0631\u0627\u064B \u0639\u0644\u0649 \u062A\u0642\u064A\u064A\u0645\u0643!" });
     } catch (error) {
       const status = error.status ?? 500;
@@ -5649,6 +5674,327 @@ ${itemsList}
       res.json({ success: true, isActive: !current });
     } catch {
       res.status(500).json({ error: "\u062D\u062F\u062B \u062E\u0637\u0623" });
+    }
+  });
+  app2.get("/api/stores/:id/ratings", async (req, res) => {
+    try {
+      const db2 = getFirestore();
+      if (!db2) return res.json({ average: 0, total: 0, breakdown: [], items: [], hasMore: false });
+      const vendorId2 = req.params["id"];
+      const filterParam = req.query["filter"] ?? "newest";
+      const pageParam = Math.max(1, parseInt(req.query["page"] ?? "1", 10));
+      const limitParam = Math.min(50, Math.max(1, parseInt(req.query["limit"] ?? "20", 10)));
+      const qParam = req.query["q"]?.trim().toLowerCase() ?? "";
+      let query = db2.collection("ratings").where("vendorId", "==", vendorId2).where("hidden", "==", false).where("deleted", "==", false);
+      if (filterParam === "with_images") {
+        query = query.where("image", "!=", "");
+      }
+      const snap = await query.get();
+      let items = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      if (qParam) {
+        items = items.filter(
+          (r) => (r.comment ?? "").toLowerCase().includes(qParam)
+        );
+      }
+      const breakdown = [5, 4, 3, 2, 1].map((s) => ({
+        stars: s,
+        count: items.filter((r) => r.stars === s).length
+      }));
+      const totalRatings = items.reduce((s, r) => s + (r.stars ?? 0), 0);
+      const average = items.length > 0 ? Math.round(totalRatings / items.length * 10) / 10 : 0;
+      const total = items.length;
+      if (filterParam === "highest") items.sort((a, b) => b.stars - a.stars);
+      else if (filterParam === "lowest") items.sort((a, b) => a.stars - b.stars);
+      else items.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      const offset = (pageParam - 1) * limitParam;
+      const paginated = items.slice(offset, offset + limitParam);
+      const hasMore = offset + limitParam < items.length;
+      const mapped = paginated.map((r) => ({
+        id: r.id,
+        stars: r.stars,
+        comment: r.comment ?? "",
+        image: r.image ?? "",
+        customerPhone: r.customerPhone ?? "",
+        createdAt: r.createdAt,
+        vendorReply: r.vendorReply ?? "",
+        vendorRepliedAt: r.vendorRepliedAt ?? null,
+        ratingType: r.ratingType ?? "customer"
+      }));
+      res.json({ average, total, breakdown, items: mapped, hasMore });
+    } catch (err) {
+      console.error("GET store ratings:", err);
+      res.json({ average: 0, total: 0, breakdown: [], items: [], hasMore: false });
+    }
+  });
+  app2.put("/api/ratings/:id", async (req, res) => {
+    const authHeader = req.headers.authorization || "";
+    const rawToken = authHeader.startsWith("Bearer ") ? authHeader.slice(7).trim() : "";
+    if (!rawToken) return res.status(401).json({ error: "\u064A\u0631\u062C\u0649 \u062A\u0633\u062C\u064A\u0644 \u0627\u0644\u062F\u062E\u0648\u0644" });
+    let callerPhone;
+    try {
+      const decoded = jwt.verify(rawToken, ROUTES_JWT_SECRET);
+      if (decoded.role !== "customer" || !decoded.phoneNumber) throw new Error("invalid");
+      callerPhone = decoded.phoneNumber;
+    } catch {
+      return res.status(401).json({ error: "\u0627\u0646\u062A\u0647\u062A \u0635\u0644\u0627\u062D\u064A\u0629 \u0627\u0644\u062C\u0644\u0633\u0629" });
+    }
+    try {
+      const db2 = getFirestore();
+      if (!db2) return res.status(503).json({ error: "DB unavailable" });
+      const ratingId = req.params["id"];
+      const doc = await db2.collection("ratings").doc(ratingId).get();
+      if (!doc.exists) return res.status(404).json({ error: "\u0627\u0644\u062A\u0642\u064A\u064A\u0645 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F" });
+      const data = doc.data();
+      if (data.customerPhone !== callerPhone) return res.status(403).json({ error: "\u063A\u064A\u0631 \u0645\u0635\u0631\u062D" });
+      const createdAt = new Date(data.createdAt).getTime();
+      const sevenDays = 7 * 24 * 60 * 60 * 1e3;
+      if (Date.now() - createdAt > sevenDays) {
+        return res.status(403).json({ error: "\u0627\u0646\u062A\u0647\u062A \u0645\u062F\u0629 \u062A\u0639\u062F\u064A\u0644 \u0627\u0644\u062A\u0642\u064A\u064A\u0645 (7 \u0623\u064A\u0627\u0645)" });
+      }
+      const stars = Number(req.body.stars);
+      const comment = typeof req.body.comment === "string" ? req.body.comment.trim().slice(0, 500) : data.comment;
+      const image = typeof req.body.image === "string" ? req.body.image.slice(0, 4e5) : data.image;
+      if (!isNaN(stars) && (stars < 1 || stars > 5)) {
+        return res.status(400).json({ error: "\u0627\u0644\u062A\u0642\u064A\u064A\u0645 \u064A\u062C\u0628 \u0623\u0646 \u064A\u0643\u0648\u0646 \u0628\u064A\u0646 1 \u0648 5" });
+      }
+      const updatedAt = (/* @__PURE__ */ new Date()).toISOString();
+      const updates = { comment, image, updatedAt };
+      if (!isNaN(stars) && stars >= 1) updates.stars = stars;
+      await doc.ref.update(updates);
+      res.json({ success: true });
+    } catch (err) {
+      console.error("PUT rating:", err);
+      res.status(500).json({ error: "\u062D\u062F\u062B \u062E\u0637\u0623" });
+    }
+  });
+  app2.patch("/api/ratings/:id/vendor-reply", async (req, res) => {
+    try {
+      const db2 = getFirestore();
+      if (!db2) return res.status(503).json({ error: "DB unavailable" });
+      const ratingId = req.params["id"];
+      const reply = typeof req.body.reply === "string" ? req.body.reply.trim().slice(0, 1e3) : "";
+      if (!reply) return res.status(400).json({ error: "\u0627\u0644\u0631\u062F \u0641\u0627\u0631\u063A" });
+      await db2.collection("ratings").doc(ratingId).update({
+        vendorReply: reply,
+        vendorRepliedAt: (/* @__PURE__ */ new Date()).toISOString()
+      });
+      res.json({ success: true });
+    } catch (err) {
+      console.error("vendor reply:", err);
+      res.status(500).json({ error: "\u062D\u062F\u062B \u062E\u0637\u0623" });
+    }
+  });
+  app2.get("/api/admin/ratings", async (req, res) => {
+    try {
+      const db2 = getFirestore();
+      if (!db2) return res.json({ items: [], total: 0 });
+      const vendorId2 = req.query["vendorId"] ?? "";
+      const starsParam = req.query["stars"];
+      const hiddenParam = req.query["hidden"];
+      const qParam = (req.query["q"] ?? "").trim().toLowerCase();
+      const pageParam = Math.max(1, parseInt(req.query["page"] ?? "1", 10));
+      const limitParam = Math.min(100, parseInt(req.query["limit"] ?? "50", 10));
+      let query = db2.collection("ratings").orderBy("createdAt", "desc");
+      if (vendorId2) query = query.where("vendorId", "==", vendorId2);
+      if (starsParam) query = query.where("stars", "==", parseInt(starsParam, 10));
+      const snap = await query.limit(500).get();
+      let items = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      if (hiddenParam === "true") items = items.filter((r) => r.hidden === true);
+      if (hiddenParam === "false") items = items.filter((r) => r.hidden !== true);
+      if (qParam) {
+        items = items.filter(
+          (r) => (r.comment ?? "").toLowerCase().includes(qParam) || (r.customerPhone ?? "").includes(qParam)
+        );
+      }
+      const total = items.length;
+      const offset = (pageParam - 1) * limitParam;
+      const paginated = items.slice(offset, offset + limitParam);
+      const vendorIds = [...new Set(paginated.map((r) => r.vendorId).filter(Boolean))];
+      const vendorMap = {};
+      if (vendorIds.length > 0) {
+        await Promise.all(
+          vendorIds.map(async (vid) => {
+            const vSnap = await db2.collection("vendors").doc(vid).get();
+            if (vSnap.exists) vendorMap[vid] = vSnap.data().storeName ?? vid;
+          })
+        );
+      }
+      const mapped = paginated.map((r) => ({
+        ...r,
+        storeName: vendorMap[r.vendorId] ?? ""
+      }));
+      res.json({ items: mapped, total, hasMore: offset + limitParam < total });
+    } catch (err) {
+      console.error("GET admin/ratings:", err);
+      res.json({ items: [], total: 0 });
+    }
+  });
+  app2.post("/api/admin/ratings", async (req, res) => {
+    try {
+      const db2 = getFirestore();
+      if (!db2) return res.status(503).json({ error: "DB unavailable" });
+      const { vendorId: vendorId2, stars, comment, reason, visible } = req.body;
+      if (!vendorId2 || !stars) return res.status(400).json({ error: "\u0628\u064A\u0627\u0646\u0627\u062A \u0646\u0627\u0642\u0635\u0629" });
+      const numStars = Number(stars);
+      if (isNaN(numStars) || numStars < 1 || numStars > 5) {
+        return res.status(400).json({ error: "\u0627\u0644\u062A\u0642\u064A\u064A\u0645 \u064A\u062C\u0628 \u0623\u0646 \u064A\u0643\u0648\u0646 \u0628\u064A\u0646 1 \u0648 5" });
+      }
+      const now = (/* @__PURE__ */ new Date()).toISOString();
+      const ratingRef = await db2.collection("ratings").add({
+        orderId: null,
+        vendorId: vendorId2,
+        customerPhone: "admin",
+        stars: numStars,
+        comment: comment ?? "",
+        image: "",
+        ratingType: "admin",
+        reason: reason ?? "",
+        hidden: visible === false,
+        deleted: false,
+        adminNote: "",
+        vendorReply: "",
+        vendorRepliedAt: null,
+        createdAt: now,
+        updatedAt: now
+      });
+      const vendorRef = db2.collection("vendors").doc(vendorId2);
+      await db2.runTransaction(async (tx) => {
+        const vSnap = await tx.get(vendorRef);
+        if (!vSnap.exists) return;
+        const v = vSnap.data();
+        const oldCount = v.ratingCount ?? 0;
+        const oldRating = v.rating ?? null;
+        const newCount = oldCount + 1;
+        const newRating = oldRating === null || oldCount === 0 ? numStars : Math.round((oldRating * oldCount + numStars) / newCount * 10) / 10;
+        tx.update(vendorRef, { rating: newRating, ratingCount: newCount });
+      });
+      invalidateVendorsCache();
+      res.json({ success: true, id: ratingRef.id });
+    } catch (err) {
+      console.error("POST admin/ratings:", err);
+      res.status(500).json({ error: "\u062D\u062F\u062B \u062E\u0637\u0623" });
+    }
+  });
+  app2.patch("/api/admin/ratings/:id", async (req, res) => {
+    try {
+      const db2 = getFirestore();
+      if (!db2) return res.status(503).json({ error: "DB unavailable" });
+      const ratingId = req.params["id"];
+      const doc = await db2.collection("ratings").doc(ratingId).get();
+      if (!doc.exists) return res.status(404).json({ error: "\u0627\u0644\u062A\u0642\u064A\u064A\u0645 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F" });
+      const { action, note, reply } = req.body;
+      const updates = { updatedAt: (/* @__PURE__ */ new Date()).toISOString() };
+      if (action === "hide") updates.hidden = true;
+      if (action === "show") updates.hidden = false;
+      if (action === "delete") updates.deleted = true;
+      if (action === "restore") updates.deleted = false;
+      if (action === "note" && typeof note === "string") updates.adminNote = note.slice(0, 500);
+      if (action === "reply" && typeof reply === "string") updates.adminReply = reply.slice(0, 1e3);
+      await doc.ref.update(updates);
+      res.json({ success: true });
+    } catch (err) {
+      console.error("PATCH admin/ratings/:id:", err);
+      res.status(500).json({ error: "\u062D\u062F\u062B \u062E\u0637\u0623" });
+    }
+  });
+  app2.patch("/api/admin/stores/:id/rank", async (req, res) => {
+    try {
+      const db2 = getFirestore();
+      if (!db2) return res.status(503).json({ error: "DB unavailable" });
+      const vendorId2 = req.params["id"];
+      const { featured, pinnedToTop, manualRank, priority, featuredUntil } = req.body;
+      const updates = { vendorId: vendorId2, updatedAt: (/* @__PURE__ */ new Date()).toISOString() };
+      if (featured !== void 0) updates.featured = Boolean(featured);
+      if (pinnedToTop !== void 0) updates.pinnedToTop = Boolean(pinnedToTop);
+      if (manualRank !== void 0) updates.manualRank = manualRank === null ? null : Number(manualRank);
+      if (priority !== void 0) updates.priority = Number(priority) || 0;
+      if (featuredUntil !== void 0) updates.featuredUntil = featuredUntil || null;
+      await db2.collection("storeRankings").doc(vendorId2).set(updates, { merge: true });
+      invalidateVendorsCache();
+      res.json({ success: true });
+    } catch (err) {
+      console.error("PATCH admin/stores/:id/rank:", err);
+      res.status(500).json({ error: "\u062D\u062F\u062B \u062E\u0637\u0623" });
+    }
+  });
+  app2.get("/api/admin/store-ranking", async (req, res) => {
+    try {
+      const db2 = getFirestore();
+      if (!db2) return res.json([]);
+      const [vendorSnap, rankSnap] = await Promise.all([
+        db2.collection("vendors").get(),
+        db2.collection("storeRankings").get()
+      ]);
+      const rankMap = {};
+      rankSnap.docs.forEach((d) => {
+        rankMap[d.id] = d.data();
+      });
+      const vendors = vendorSnap.docs.map((d) => {
+        const v = d.data();
+        const rank = rankMap[d.id] ?? {};
+        return {
+          id: d.id,
+          storeName: v.storeName ?? "",
+          categoryType: v.categoryType ?? "",
+          rating: v.rating ?? null,
+          ratingCount: v.ratingCount ?? 0,
+          isOpen: v.isOpen ?? false,
+          featured: rank.featured ?? false,
+          pinnedToTop: rank.pinnedToTop ?? false,
+          manualRank: rank.manualRank ?? null,
+          priority: rank.priority ?? 0,
+          featuredUntil: rank.featuredUntil ?? null,
+          createdAt: v.createdAt ?? ""
+        };
+      });
+      vendors.sort((a, b) => {
+        if (a.pinnedToTop !== b.pinnedToTop) return a.pinnedToTop ? -1 : 1;
+        if ((a.manualRank ?? 999999) !== (b.manualRank ?? 999999))
+          return (a.manualRank ?? 999999) - (b.manualRank ?? 999999);
+        if (a.priority !== b.priority) return b.priority - a.priority;
+        if ((a.rating ?? 0) !== (b.rating ?? 0)) return (b.rating ?? 0) - (a.rating ?? 0);
+        if (a.ratingCount !== b.ratingCount) return b.ratingCount - a.ratingCount;
+        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      });
+      res.json(vendors);
+    } catch (err) {
+      console.error("GET admin/store-ranking:", err);
+      res.json([]);
+    }
+  });
+  app2.get("/api/admin/ratings-dashboard", async (req, res) => {
+    try {
+      const db2 = getFirestore();
+      if (!db2) return res.json({ topStores: [], worstStores: [], recentRatings: [] });
+      const [vendorSnap, ratingsSnap] = await Promise.all([
+        db2.collection("vendors").get(),
+        db2.collection("ratings").where("hidden", "==", false).where("deleted", "==", false).orderBy("createdAt", "desc").limit(100).get()
+      ]);
+      const vendors = vendorSnap.docs.map((d) => ({
+        id: d.id,
+        storeName: d.data().storeName ?? "",
+        rating: d.data().rating ?? null,
+        ratingCount: d.data().ratingCount ?? 0
+      }));
+      const withRating = vendors.filter((v) => v.rating !== null && v.ratingCount >= 1);
+      const topStores = [...withRating].sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0)).slice(0, 10);
+      const worstStores = [...withRating].sort((a, b) => (a.rating ?? 0) - (b.rating ?? 0)).slice(0, 10);
+      const recentRatings = ratingsSnap.docs.slice(0, 20).map((d) => {
+        const r = d.data();
+        const vendor = vendors.find((v) => v.id === r.vendorId);
+        return {
+          id: d.id,
+          stars: r.stars,
+          comment: r.comment ?? "",
+          createdAt: r.createdAt,
+          storeName: vendor?.storeName ?? "",
+          customerPhone: r.customerPhone ?? ""
+        };
+      });
+      res.json({ topStores, worstStores, recentRatings });
+    } catch (err) {
+      console.error("GET admin/ratings-dashboard:", err);
+      res.json({ topStores: [], worstStores: [], recentRatings: [] });
     }
   });
   const httpServer = createServer(app2);

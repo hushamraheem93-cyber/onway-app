@@ -8,6 +8,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as Haptics from "expo-haptics";
 
 import VendorHomeScreen from "@/screens/VendorHomeScreen";
+import VendorRatingsScreen from "@/screens/VendorRatingsScreen";
 import VendorProductsScreen from "@/screens/VendorProductsScreen";
 import VendorAddProductScreen from "@/screens/VendorAddProductScreen";
 import VendorEditProductScreen from "@/screens/VendorEditProductScreen";
@@ -26,6 +27,7 @@ export type VendorTabParamList = {
   VendorOrdersTab: undefined;
   VendorProductsTab: undefined;
   VendorWalletTab: undefined;
+  VendorRatingsTab: undefined;
   VendorProfileTab: undefined;
 };
 
@@ -37,6 +39,7 @@ const TAB_CONFIG: Record<string, { icon: keyof typeof Feather.glyphMap; label: s
   VendorOrdersTab:   { icon: "shopping-bag", label: "الطلبات"  },
   VendorProductsTab: { icon: "box",          label: "المنتجات" },
   VendorWalletTab:   { icon: "bar-chart-2",  label: "الأرباح"  },
+  VendorRatingsTab:  { icon: "star",         label: "التقييمات"},
   VendorProfileTab:  { icon: "user",         label: "الحساب"   },
 };
 
@@ -108,6 +111,7 @@ function VendorTabs() {
       <Tab.Screen name="VendorOrdersTab"     component={VendorOrdersScreen}      options={{ headerTitle: "الطلبات" }} />
       <Tab.Screen name="VendorProductsTab"   component={ProductsStackNavigator}  options={{ headerShown: false }} />
       <Tab.Screen name="VendorWalletTab"     component={VendorWalletScreen}      options={{ headerTitle: "الأرباح" }} />
+      <Tab.Screen name="VendorRatingsTab"    component={VendorRatingsScreen}     options={{ headerTitle: "التقييمات" }} />
       <Tab.Screen name="VendorProfileTab"    component={VendorProfileScreen}     options={{ headerTitle: "الحساب" }} />
     </Tab.Navigator>
   );

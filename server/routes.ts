@@ -4107,14 +4107,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     if (isNaN(numRating) || numRating < 1 || numRating > 5) {
       return res.status(400).json({ error: "التقييم يجب أن يكون بين 1 و 5" });
     }
+    const ratingComment = typeof req.body.comment === "string" ? req.body.comment.trim().slice(0, 500) : "";
+    const ratingImage = typeof req.body.image === "string" ? req.body.image.slice(0, 400000) : "";
 
     try {
       const db = getFirestore();
       if (!db) return res.status(503).json({ error: "قاعدة البيانات غير متاحة" });
 
       const orderRef = db.collection("orders").doc(req.params.orderId as string);
+      const capturedOrderId: string = req.params.orderId as string;
       const ratedAt = new Date().toISOString();
       let didUpdateVendor = false;
+      let capturedVendorId: string | undefined;
 
       // 3. Single Firestore transaction — ALL reads first, then ALL writes.
       //    Every business-rule check happens inside, so concurrent submissions
@@ -4136,7 +4140,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           throw Object.assign(new Error("تم تقييم هذا الطلب مسبقاً"), { status: 409 });
         }
 
-        const vendorId: string | undefined = order.vendorId;
+        capturedVendorId = order.vendorId;
+        const vendorId: string | undefined = capturedVendorId;
         const vendorRef = vendorId ? db.collection("vendors").doc(vendorId) : null;
         const vSnap = vendorRef ? await tx.get(vendorRef) : null;
 
@@ -4157,6 +4162,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
 
       if (didUpdateVendor) invalidateVendorsCache();
+
+      // Save detailed rating to ratings collection (non-fatal)
+      try {
+        await db.collection("ratings").add({
+          orderId: capturedOrderId,
+          vendorId: capturedVendorId ?? null,
+          customerPhone: callerPhone,
+          stars: numRating,
+          comment: ratingComment,
+          image: ratingImage,
+          ratingType: "customer",
+          hidden: false,
+          deleted: false,
+          adminNote: "",
+          vendorReply: "",
+          vendorRepliedAt: null,
+          createdAt: ratedAt,
+          updatedAt: ratedAt,
+        });
+      } catch (e) {
+        console.error("ratings collection write:", e);
+      }
+
       return res.json({ success: true, message: "شكراً على تقييمك!" });
     } catch (error: any) {
       const status: number = error.status ?? 500;
@@ -4783,6 +4811,418 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ error: "حدث خطأ" });
     }
   });
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // ENTERPRISE RATING & STORE RANKING SYSTEM
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  // ── GET /api/stores/:id/ratings — paginated ratings for a vendor (public) ──
+  app.get("/api/stores/:id/ratings", async (req: Request, res: Response) => {
+    try {
+      const db = getFirestore();
+      if (!db) return res.json({ average: 0, total: 0, breakdown: [], items: [], hasMore: false });
+
+      const vendorId = req.params["id"] as string;
+      const filterParam = (req.query["filter"] as string) ?? "newest";
+      const pageParam   = Math.max(1, parseInt((req.query["page"] as string) ?? "1", 10));
+      const limitParam  = Math.min(50, Math.max(1, parseInt((req.query["limit"] as string) ?? "20", 10)));
+      const qParam      = (req.query["q"] as string)?.trim().toLowerCase() ?? "";
+
+      let query = db.collection("ratings")
+        .where("vendorId", "==", vendorId)
+        .where("hidden",   "==", false)
+        .where("deleted",  "==", false);
+
+      if (filterParam === "with_images") {
+        query = (query as any).where("image", "!=", "");
+      }
+
+      const snap = await query.get();
+      let items = snap.docs.map((d) => ({ id: d.id, ...d.data() } as any));
+
+      // text search
+      if (qParam) {
+        items = items.filter((r: any) =>
+          (r.comment ?? "").toLowerCase().includes(qParam)
+        );
+      }
+
+      // breakdown
+      const breakdown: { stars: number; count: number }[] = [5, 4, 3, 2, 1].map((s) => ({
+        stars: s,
+        count: items.filter((r: any) => r.stars === s).length,
+      }));
+
+      const totalRatings = items.reduce((s: number, r: any) => s + (r.stars ?? 0), 0);
+      const average = items.length > 0 ? Math.round((totalRatings / items.length) * 10) / 10 : 0;
+      const total   = items.length;
+
+      // sort
+      if (filterParam === "highest") items.sort((a: any, b: any) => b.stars - a.stars);
+      else if (filterParam === "lowest") items.sort((a: any, b: any) => a.stars - b.stars);
+      else items.sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+      const offset   = (pageParam - 1) * limitParam;
+      const paginated = items.slice(offset, offset + limitParam);
+      const hasMore  = offset + limitParam < items.length;
+
+      const mapped = paginated.map((r: any) => ({
+        id:              r.id,
+        stars:           r.stars,
+        comment:         r.comment ?? "",
+        image:           r.image ?? "",
+        customerPhone:   r.customerPhone ?? "",
+        createdAt:       r.createdAt,
+        vendorReply:     r.vendorReply ?? "",
+        vendorRepliedAt: r.vendorRepliedAt ?? null,
+        ratingType:      r.ratingType ?? "customer",
+      }));
+
+      res.json({ average, total, breakdown, items: mapped, hasMore });
+    } catch (err) {
+      console.error("GET store ratings:", err);
+      res.json({ average: 0, total: 0, breakdown: [], items: [], hasMore: false });
+    }
+  });
+
+  // ── PUT /api/ratings/:id — customer edits rating (7-day window) ────────────
+  app.put("/api/ratings/:id", async (req: Request, res: Response) => {
+    const authHeader = req.headers.authorization || "";
+    const rawToken = authHeader.startsWith("Bearer ") ? authHeader.slice(7).trim() : "";
+    if (!rawToken) return res.status(401).json({ error: "يرجى تسجيل الدخول" });
+    let callerPhone: string;
+    try {
+      const decoded = jwt.verify(rawToken, ROUTES_JWT_SECRET) as any;
+      if (decoded.role !== "customer" || !decoded.phoneNumber) throw new Error("invalid");
+      callerPhone = decoded.phoneNumber;
+    } catch {
+      return res.status(401).json({ error: "انتهت صلاحية الجلسة" });
+    }
+
+    try {
+      const db = getFirestore();
+      if (!db) return res.status(503).json({ error: "DB unavailable" });
+
+      const ratingId = req.params["id"] as string;
+      const doc = await db.collection("ratings").doc(ratingId).get();
+      if (!doc.exists) return res.status(404).json({ error: "التقييم غير موجود" });
+
+      const data = doc.data() as any;
+      if (data.customerPhone !== callerPhone) return res.status(403).json({ error: "غير مصرح" });
+
+      // 7-day edit window
+      const createdAt = new Date(data.createdAt).getTime();
+      const sevenDays = 7 * 24 * 60 * 60 * 1000;
+      if (Date.now() - createdAt > sevenDays) {
+        return res.status(403).json({ error: "انتهت مدة تعديل التقييم (7 أيام)" });
+      }
+
+      const stars   = Number(req.body.stars);
+      const comment = typeof req.body.comment === "string" ? req.body.comment.trim().slice(0, 500) : data.comment;
+      const image   = typeof req.body.image   === "string" ? req.body.image.slice(0, 400000) : data.image;
+
+      if (!isNaN(stars) && (stars < 1 || stars > 5)) {
+        return res.status(400).json({ error: "التقييم يجب أن يكون بين 1 و 5" });
+      }
+
+      const updatedAt = new Date().toISOString();
+      const updates: any = { comment, image, updatedAt };
+      if (!isNaN(stars) && stars >= 1) updates.stars = stars;
+
+      await doc.ref.update(updates);
+      res.json({ success: true });
+    } catch (err) {
+      console.error("PUT rating:", err);
+      res.status(500).json({ error: "حدث خطأ" });
+    }
+  });
+
+  // ── PATCH /api/ratings/:id/vendor-reply — vendor replies to a rating ───────
+  app.patch("/api/ratings/:id/vendor-reply", async (req: Request, res: Response) => {
+    try {
+      const db = getFirestore();
+      if (!db) return res.status(503).json({ error: "DB unavailable" });
+
+      const ratingId = req.params["id"] as string;
+      const reply = typeof req.body.reply === "string" ? req.body.reply.trim().slice(0, 1000) : "";
+      if (!reply) return res.status(400).json({ error: "الرد فارغ" });
+
+      await db.collection("ratings").doc(ratingId).update({
+        vendorReply:     reply,
+        vendorRepliedAt: new Date().toISOString(),
+      });
+      res.json({ success: true });
+    } catch (err) {
+      console.error("vendor reply:", err);
+      res.status(500).json({ error: "حدث خطأ" });
+    }
+  });
+
+  // ── GET /api/admin/ratings — all ratings with filters ─────────────────────
+  app.get("/api/admin/ratings", async (req: Request, res: Response) => {
+    try {
+      const db = getFirestore();
+      if (!db) return res.json({ items: [], total: 0 });
+
+      const vendorId   = (req.query["vendorId"]  as string) ?? "";
+      const starsParam = req.query["stars"]   as string;
+      const hiddenParam= req.query["hidden"]  as string;
+      const qParam     = ((req.query["q"] as string) ?? "").trim().toLowerCase();
+      const pageParam  = Math.max(1, parseInt((req.query["page"] as string) ?? "1", 10));
+      const limitParam = Math.min(100, parseInt((req.query["limit"] as string) ?? "50", 10));
+
+      let query: any = db.collection("ratings").orderBy("createdAt", "desc");
+      if (vendorId) query = query.where("vendorId", "==", vendorId);
+      if (starsParam) query = query.where("stars", "==", parseInt(starsParam, 10));
+
+      const snap = await query.limit(500).get();
+      let items = snap.docs.map((d: any) => ({ id: d.id, ...d.data() })) as any[];
+
+      if (hiddenParam === "true")  items = items.filter((r) => r.hidden  === true);
+      if (hiddenParam === "false") items = items.filter((r) => r.hidden  !== true);
+      if (qParam) {
+        items = items.filter((r: any) =>
+          (r.comment ?? "").toLowerCase().includes(qParam) ||
+          (r.customerPhone ?? "").includes(qParam)
+        );
+      }
+
+      const total  = items.length;
+      const offset = (pageParam - 1) * limitParam;
+      const paginated = items.slice(offset, offset + limitParam);
+
+      // Attach vendor names
+      const vendorIds = [...new Set(paginated.map((r: any) => r.vendorId).filter(Boolean))] as string[];
+      const vendorMap: Record<string, string> = {};
+      if (vendorIds.length > 0) {
+        await Promise.all(
+          vendorIds.map(async (vid) => {
+            const vSnap = await db.collection("vendors").doc(vid).get();
+            if (vSnap.exists) vendorMap[vid] = (vSnap.data() as any).storeName ?? vid;
+          })
+        );
+      }
+
+      const mapped = paginated.map((r: any) => ({
+        ...r,
+        storeName: vendorMap[r.vendorId] ?? "",
+      }));
+
+      res.json({ items: mapped, total, hasMore: offset + limitParam < total });
+    } catch (err) {
+      console.error("GET admin/ratings:", err);
+      res.json({ items: [], total: 0 });
+    }
+  });
+
+  // ── POST /api/admin/ratings — admin adds a rating to a store ──────────────
+  app.post("/api/admin/ratings", async (req: Request, res: Response) => {
+    try {
+      const db = getFirestore();
+      if (!db) return res.status(503).json({ error: "DB unavailable" });
+
+      const { vendorId, stars, comment, reason, visible } = req.body;
+      if (!vendorId || !stars) return res.status(400).json({ error: "بيانات ناقصة" });
+
+      const numStars = Number(stars);
+      if (isNaN(numStars) || numStars < 1 || numStars > 5) {
+        return res.status(400).json({ error: "التقييم يجب أن يكون بين 1 و 5" });
+      }
+
+      const now = new Date().toISOString();
+      const ratingRef = await db.collection("ratings").add({
+        orderId:      null,
+        vendorId,
+        customerPhone: "admin",
+        stars:        numStars,
+        comment:      comment ?? "",
+        image:        "",
+        ratingType:   "admin",
+        reason:       reason ?? "",
+        hidden:       visible === false,
+        deleted:      false,
+        adminNote:    "",
+        vendorReply:  "",
+        vendorRepliedAt: null,
+        createdAt:    now,
+        updatedAt:    now,
+      });
+
+      // Update vendor aggregate
+      const vendorRef = db.collection("vendors").doc(vendorId);
+      await db.runTransaction(async (tx) => {
+        const vSnap = await tx.get(vendorRef);
+        if (!vSnap.exists) return;
+        const v = vSnap.data() as any;
+        const oldCount  = v.ratingCount ?? 0;
+        const oldRating = v.rating ?? null;
+        const newCount  = oldCount + 1;
+        const newRating = (oldRating === null || oldCount === 0)
+          ? numStars
+          : Math.round(((oldRating * oldCount + numStars) / newCount) * 10) / 10;
+        tx.update(vendorRef, { rating: newRating, ratingCount: newCount });
+      });
+
+      invalidateVendorsCache();
+      res.json({ success: true, id: ratingRef.id });
+    } catch (err) {
+      console.error("POST admin/ratings:", err);
+      res.status(500).json({ error: "حدث خطأ" });
+    }
+  });
+
+  // ── PATCH /api/admin/ratings/:id — hide/show/delete/note/admin-reply ───────
+  app.patch("/api/admin/ratings/:id", async (req: Request, res: Response) => {
+    try {
+      const db = getFirestore();
+      if (!db) return res.status(503).json({ error: "DB unavailable" });
+
+      const ratingId = req.params["id"] as string;
+      const doc = await db.collection("ratings").doc(ratingId).get();
+      if (!doc.exists) return res.status(404).json({ error: "التقييم غير موجود" });
+
+      const { action, note, reply } = req.body;
+      const updates: any = { updatedAt: new Date().toISOString() };
+
+      if (action === "hide")    updates.hidden  = true;
+      if (action === "show")    updates.hidden  = false;
+      if (action === "delete")  updates.deleted = true;
+      if (action === "restore") updates.deleted = false;
+      if (action === "note"  && typeof note  === "string") updates.adminNote  = note.slice(0, 500);
+      if (action === "reply" && typeof reply === "string") updates.adminReply = reply.slice(0, 1000);
+
+      await doc.ref.update(updates);
+      res.json({ success: true });
+    } catch (err) {
+      console.error("PATCH admin/ratings/:id:", err);
+      res.status(500).json({ error: "حدث خطأ" });
+    }
+  });
+
+  // ── PATCH /api/admin/stores/:id/rank — update store ranking fields ─────────
+  app.patch("/api/admin/stores/:id/rank", async (req: Request, res: Response) => {
+    try {
+      const db = getFirestore();
+      if (!db) return res.status(503).json({ error: "DB unavailable" });
+
+      const vendorId = req.params["id"] as string;
+      const { featured, pinnedToTop, manualRank, priority, featuredUntil } = req.body;
+
+      const updates: any = { vendorId, updatedAt: new Date().toISOString() };
+      if (featured    !== undefined) updates.featured    = Boolean(featured);
+      if (pinnedToTop !== undefined) updates.pinnedToTop = Boolean(pinnedToTop);
+      if (manualRank  !== undefined) updates.manualRank  = manualRank === null ? null : Number(manualRank);
+      if (priority    !== undefined) updates.priority    = Number(priority) || 0;
+      if (featuredUntil !== undefined) updates.featuredUntil = featuredUntil || null;
+
+      await db.collection("storeRankings").doc(vendorId).set(updates, { merge: true });
+      invalidateVendorsCache();
+      res.json({ success: true });
+    } catch (err) {
+      console.error("PATCH admin/stores/:id/rank:", err);
+      res.status(500).json({ error: "حدث خطأ" });
+    }
+  });
+
+  // ── GET /api/admin/store-ranking — get all vendors with ranking data ────────
+  app.get("/api/admin/store-ranking", async (req: Request, res: Response) => {
+    try {
+      const db = getFirestore();
+      if (!db) return res.json([]);
+
+      const [vendorSnap, rankSnap] = await Promise.all([
+        db.collection("vendors").get(),
+        db.collection("storeRankings").get(),
+      ]);
+
+      const rankMap: Record<string, any> = {};
+      rankSnap.docs.forEach((d) => { rankMap[d.id] = d.data(); });
+
+      const vendors = vendorSnap.docs.map((d) => {
+        const v    = d.data() as any;
+        const rank = rankMap[d.id] ?? {};
+        return {
+          id:            d.id,
+          storeName:     v.storeName ?? "",
+          categoryType:  v.categoryType ?? "",
+          rating:        v.rating ?? null,
+          ratingCount:   v.ratingCount ?? 0,
+          isOpen:        v.isOpen ?? false,
+          featured:      rank.featured    ?? false,
+          pinnedToTop:   rank.pinnedToTop ?? false,
+          manualRank:    rank.manualRank  ?? null,
+          priority:      rank.priority    ?? 0,
+          featuredUntil: rank.featuredUntil ?? null,
+          createdAt:     v.createdAt ?? "",
+        };
+      });
+
+      // Sort by: pinned → manualRank → priority → rating → ratingCount → createdAt
+      vendors.sort((a, b) => {
+        if (a.pinnedToTop !== b.pinnedToTop) return a.pinnedToTop ? -1 : 1;
+        if ((a.manualRank ?? 999999) !== (b.manualRank ?? 999999))
+          return (a.manualRank ?? 999999) - (b.manualRank ?? 999999);
+        if (a.priority !== b.priority) return b.priority - a.priority;
+        if ((a.rating ?? 0) !== (b.rating ?? 0)) return (b.rating ?? 0) - (a.rating ?? 0);
+        if (a.ratingCount !== b.ratingCount) return b.ratingCount - a.ratingCount;
+        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      });
+
+      res.json(vendors);
+    } catch (err) {
+      console.error("GET admin/store-ranking:", err);
+      res.json([]);
+    }
+  });
+
+  // ── GET /api/admin/ratings-dashboard — top/worst rated + recent comments ───
+  app.get("/api/admin/ratings-dashboard", async (req: Request, res: Response) => {
+    try {
+      const db = getFirestore();
+      if (!db) return res.json({ topStores: [], worstStores: [], recentRatings: [] });
+
+      const [vendorSnap, ratingsSnap] = await Promise.all([
+        db.collection("vendors").get(),
+        db.collection("ratings")
+          .where("hidden",  "==", false)
+          .where("deleted", "==", false)
+          .orderBy("createdAt", "desc")
+          .limit(100)
+          .get(),
+      ]);
+
+      const vendors = vendorSnap.docs.map((d) => ({
+        id:          d.id,
+        storeName:   (d.data() as any).storeName ?? "",
+        rating:      (d.data() as any).rating ?? null,
+        ratingCount: (d.data() as any).ratingCount ?? 0,
+      }));
+
+      const withRating = vendors.filter((v) => v.rating !== null && v.ratingCount >= 1);
+      const topStores    = [...withRating].sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0)).slice(0, 10);
+      const worstStores  = [...withRating].sort((a, b) => (a.rating ?? 0) - (b.rating ?? 0)).slice(0, 10);
+
+      const recentRatings = ratingsSnap.docs.slice(0, 20).map((d) => {
+        const r = d.data() as any;
+        const vendor = vendors.find((v) => v.id === r.vendorId);
+        return {
+          id:          d.id,
+          stars:       r.stars,
+          comment:     r.comment ?? "",
+          createdAt:   r.createdAt,
+          storeName:   vendor?.storeName ?? "",
+          customerPhone: r.customerPhone ?? "",
+        };
+      });
+
+      res.json({ topStores, worstStores, recentRatings });
+    } catch (err) {
+      console.error("GET admin/ratings-dashboard:", err);
+      res.json({ topStores: [], worstStores: [], recentRatings: [] });
+    }
+  });
+
+  // ═══════════════════════════════════════════════════════════════════════════
 
   const httpServer = createServer(app);
   return httpServer;
