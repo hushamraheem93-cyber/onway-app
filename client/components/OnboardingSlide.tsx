@@ -13,7 +13,7 @@ import Animated, {
   SharedValue,
 } from "react-native-reanimated";
 import { ThemedText } from "@/components/ThemedText";
-import { AppColors } from "@/constants/theme";
+import { AppColors, Anim} from "@/constants/theme";
 
 const { width: W } = Dimensions.get("window");
 
@@ -44,8 +44,8 @@ export default function OnboardingSlide({
     // Floating image
     floatY.value = withRepeat(
       withSequence(
-        withTiming(-10, { duration: 1600, easing: Easing.inOut(Easing.sin) }),
-        withTiming(10,  { duration: 1600, easing: Easing.inOut(Easing.sin) })
+        withTiming(-10, { duration: Anim.duration.splash, easing: Easing.inOut(Easing.sin) }),
+        withTiming(10,  { duration: Anim.duration.splash, easing: Easing.inOut(Easing.sin) })
       ),
       -1,
       true
@@ -65,9 +65,9 @@ export default function OnboardingSlide({
     );
 
     // Enter animation
-    opacity.value = withTiming(1, { duration: 700 });
-    scale.value   = withTiming(1, { duration: 700, easing: Easing.out(Easing.exp) });
-    transY.value  = withTiming(0, { duration: 700, easing: Easing.out(Easing.exp) });
+    opacity.value = withTiming(1, { duration: Anim.duration.slower });
+    scale.value   = withTiming(1, { duration: Anim.duration.slower, easing: Easing.out(Easing.exp) });
+    transY.value  = withTiming(0, { duration: Anim.duration.slower, easing: Easing.out(Easing.exp) });
   }, []);
 
   const circleStyle = useAnimatedStyle(() => ({

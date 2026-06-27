@@ -294,12 +294,12 @@ export const Colors = {
 
 // ─── Design System Constants ──────────────────────────────────────────────────
 export const DesignSystem = {
-  screenPadding:   16,
-  gridGap:         12,
-  categoryCard:    { width: 110, height: 140 },
+  screenPadding:     16,
+  gridGap:           12,
+  categoryCard:      { width: 110, height: 140 },
   categoryImageSize: 85,
-  bannerHeight:    195,
-  bannerRadius:    16,
+  bannerHeight:      195,
+  bannerRadius:      16,
 };
 
 // ─── Spacing ─────────────────────────────────────────────────────────────────
@@ -329,24 +329,61 @@ export const BorderRadius = {
   full:  9999,
 };
 
-// ─── Typography ───────────────────────────────────────────────────────────────
-export const Typography = {
-  h1:       { fontSize: 22, lineHeight: 36, fontWeight: "700" as const },
-  h2:       { fontSize: 18, lineHeight: 30, fontWeight: "700" as const },
-  h3:       { fontSize: 15, lineHeight: 26, fontWeight: "600" as const },
-  h4:       { fontSize: 13, lineHeight: 22, fontWeight: "600" as const },
-  body:     { fontSize: 13, lineHeight: 22, fontWeight: "400" as const },
-  small:    { fontSize: 11, lineHeight: 19, fontWeight: "400" as const },
-  category: { fontSize: 13, lineHeight: 22, fontWeight: "600" as const },
-  link:     { fontSize: 13, lineHeight: 22, fontWeight: "400" as const },
+// ─── Font Size Scale ─────────────────────────────────────────────────────────
+export const FontSize = {
+  xs:    10,
+  sm:    11,
+  base:  13,
+  md:    14,
+  lg:    15,
+  xl:    18,
+  "2xl": 22,
+  "3xl": 28,
+  "4xl": 32,
 };
 
-// ─── Fonts ────────────────────────────────────────────────────────────────────
+// ─── Font Families ────────────────────────────────────────────────────────────
+export const FontFamily = {
+  // Tajawal — primary UI font (Arabic)
+  tajawal:        "Tajawal_400Regular",
+  tajawalMedium:  "Tajawal_500Medium",
+  tajawalBold:    "Tajawal_700Bold",
+  tajawalXBold:   "Tajawal_800ExtraBold",
+  // Cairo — headings and labels (Arabic)
+  cairo:          "Cairo_400Regular",
+  cairoMedium:    "Cairo_600SemiBold",
+  cairoBold:      "Cairo_700Bold",
+  cairoXBold:     "Cairo_900Black",
+  // Montserrat — Latin branding
+  montserrat:     "Montserrat_400Regular",
+  montserratBold: "Montserrat_700Bold",
+  montserratXBold:"Montserrat_800ExtraBold",
+};
+
+// ─── Typography ───────────────────────────────────────────────────────────────
+// Full text styles — spread into StyleSheet definitions.
+// Individual overrides: use FontSize, FontFamily separately.
+export const Typography = {
+  h1:       { fontSize: FontSize["2xl"], lineHeight: 36, fontFamily: FontFamily.cairoBold,    fontWeight: "700" as const },
+  h2:       { fontSize: FontSize.xl,    lineHeight: 30, fontFamily: FontFamily.cairoBold,    fontWeight: "700" as const },
+  h3:       { fontSize: FontSize.lg,    lineHeight: 26, fontFamily: FontFamily.cairoMedium,  fontWeight: "600" as const },
+  h4:       { fontSize: FontSize.base,  lineHeight: 22, fontFamily: FontFamily.cairoMedium,  fontWeight: "600" as const },
+  body:     { fontSize: FontSize.base,  lineHeight: 22, fontFamily: FontFamily.tajawal,      fontWeight: "400" as const },
+  bodyMd:   { fontSize: FontSize.md,    lineHeight: 24, fontFamily: FontFamily.tajawal,      fontWeight: "400" as const },
+  small:    { fontSize: FontSize.sm,    lineHeight: 19, fontFamily: FontFamily.tajawal,      fontWeight: "400" as const },
+  caption:  { fontSize: FontSize.xs,    lineHeight: 16, fontFamily: FontFamily.tajawal,      fontWeight: "400" as const },
+  label:    { fontSize: FontSize.base,  lineHeight: 22, fontFamily: FontFamily.cairoMedium,  fontWeight: "600" as const },
+  link:     { fontSize: FontSize.base,  lineHeight: 22, fontFamily: FontFamily.tajawal,      fontWeight: "400" as const },
+  price:    { fontSize: FontSize.lg,    lineHeight: 26, fontFamily: FontFamily.cairoBold,    fontWeight: "700" as const },
+  badge:    { fontSize: FontSize.xs,    lineHeight: 14, fontFamily: FontFamily.cairoBold,    fontWeight: "700" as const },
+};
+
+// ─── Fonts (platform-specific fallback) ──────────────────────────────────────
 export const Fonts = Platform.select({
-  ios:     { sans: "Tajawal_400Regular", sansBold: "Tajawal_700Bold", sansMedium: "Tajawal_500Medium" },
-  android: { sans: "Tajawal_400Regular", sansBold: "Tajawal_700Bold", sansMedium: "Tajawal_500Medium" },
-  default: { sans: "Tajawal_400Regular", sansBold: "Tajawal_700Bold", sansMedium: "Tajawal_500Medium" },
-  web:     {
+  ios:     { sans: FontFamily.tajawal, sansBold: FontFamily.tajawalBold, sansMedium: FontFamily.tajawalMedium },
+  android: { sans: FontFamily.tajawal, sansBold: FontFamily.tajawalBold, sansMedium: FontFamily.tajawalMedium },
+  default: { sans: FontFamily.tajawal, sansBold: FontFamily.tajawalBold, sansMedium: FontFamily.tajawalMedium },
+  web: {
     sans:       "Tajawal, system-ui, -apple-system, sans-serif",
     sansBold:   "Tajawal, system-ui, -apple-system, sans-serif",
     sansMedium: "Tajawal, system-ui, -apple-system, sans-serif",
@@ -355,7 +392,59 @@ export const Fonts = Platform.select({
 
 // ─── Shadows ──────────────────────────────────────────────────────────────────
 export const Shadows = {
+  xs: { shadowColor: black, shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.03, shadowRadius: 3,  elevation: 1 },
   sm: { shadowColor: black, shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 6,  elevation: 2 },
-  md: { shadowColor: black, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 10, elevation: 3 },
-  lg: { shadowColor: black, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.08, shadowRadius: 12, elevation: 4 },
+  md: { shadowColor: black, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.07, shadowRadius: 10, elevation: 4 },
+  lg: { shadowColor: black, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.10, shadowRadius: 16, elevation: 8 },
+  xl: { shadowColor: black, shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.14, shadowRadius: 24, elevation: 12 },
 };
+
+// ─── Animation Durations & Easing ─────────────────────────────────────────────
+export const Anim = {
+  // Durations (ms)
+  duration: {
+    instant:  80,
+    fastest:  150,
+    fast:     200,
+    normal:   300,
+    slow:     500,
+    slower:   700,
+    slowest:  1000,
+    splash:   1600,
+  },
+  // Spring configs for react-native-reanimated / Animated.spring
+  spring: {
+    snappy: { friction: 8,  tension: 80 },
+    normal: { friction: 7,  tension: 60 },
+    bouncy: { friction: 5,  tension: 50 },
+    gentle: { friction: 10, tension: 40 },
+  },
+};
+
+// ─── Z-Index Layers ───────────────────────────────────────────────────────────
+export const ZIndex = {
+  base:    0,
+  raised:  1,
+  sticky:  10,
+  overlay: 100,
+  modal:   200,
+  toast:   300,
+};
+
+// ─── Breakpoints (for web / responsive layouts) ───────────────────────────────
+export const Breakpoints = {
+  sm:  480,   // Large phone landscape
+  md:  768,   // Tablet portrait
+  lg:  1024,  // Tablet landscape / small desktop
+  xl:  1280,  // Desktop
+  "2xl": 1536, // Wide desktop
+};
+
+// ─── Helper: responsive value by current width ────────────────────────────────
+export function responsive<T>(width: number, values: { sm?: T; md?: T; lg?: T; xl?: T; default: T }): T {
+  if (width >= Breakpoints.xl && values.xl  !== undefined) return values.xl;
+  if (width >= Breakpoints.lg && values.lg  !== undefined) return values.lg;
+  if (width >= Breakpoints.md && values.md  !== undefined) return values.md;
+  if (width >= Breakpoints.sm && values.sm  !== undefined) return values.sm;
+  return values.default;
+}

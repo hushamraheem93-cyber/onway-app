@@ -14,7 +14,7 @@ import * as Haptics from "expo-haptics";
 
 import { ThemedText } from "@/components/ThemedText";
 import { useAuth, UserType } from "@/context/AuthContext";
-import { AppColors } from "@/constants/theme";
+import { AppColors, Anim} from "@/constants/theme";
 
 const BRAND_ORANGE = AppColors.primary;
 const BRAND_DARK = AppColors.primaryDark;
@@ -33,7 +33,7 @@ export default function UserTypeScreen() {
   useEffect(() => {
     Animated.sequence([
       Animated.parallel([
-        Animated.timing(fadeAnim, { toValue: 1, duration: 500, useNativeDriver: true }),
+        Animated.timing(fadeAnim, { toValue: 1, duration: Anim.duration.slow, useNativeDriver: true }),
         Animated.spring(headerScale, { toValue: 1, friction: 7, tension: 60, useNativeDriver: true }),
         Animated.timing(cardSlide, { toValue: 0, duration: 600, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
       ]),

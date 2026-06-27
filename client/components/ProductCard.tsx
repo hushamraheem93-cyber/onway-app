@@ -13,7 +13,7 @@ import * as Haptics from "expo-haptics";
 
 import { ThemedText } from "@/components/ThemedText";
 import { useTheme } from "@/hooks/useTheme";
-import { Spacing, BorderRadius, Shadows, AppColors } from "@/constants/theme";
+import { Spacing, BorderRadius, Shadows, AppColors, Anim} from "@/constants/theme";
 import { Product } from "@/constants/categories";
 import { useCart } from "@/context/CartContext";
 import { useFavorites } from "@/context/FavoritesContext";
@@ -101,7 +101,7 @@ function ProductCardComponent({ product, onPress }: ProductCardProps) {
   const handleToggleFavorite = () => {
     // Bounce animation: shrink -> expand big -> settle
     favoriteScale.value = withSequence(
-      withTiming(0.6, { duration: 80 }),
+      withTiming(0.6, { duration: Anim.duration.instant }),
       withSpring(1.4, { damping: 4, stiffness: 300 }),
       withSpring(1, { damping: 8, stiffness: 200 })
     );

@@ -13,7 +13,7 @@ import * as Haptics from "expo-haptics";
 
 import { ThemedText } from "@/components/ThemedText";
 import { useCart } from "@/context/CartContext";
-import { AppColors, BorderRadius } from "@/constants/theme";
+import { AppColors, BorderRadius, Anim} from "@/constants/theme";
 import { formatPrice } from "@/constants/currency";
 import { resolveImageUrl } from "@/utils/imageUtils";
 
@@ -46,7 +46,7 @@ function FloatingCartBarComponent({ bottomOffset }: FloatingCartBarProps) {
       }),
       Animated.timing(animOpacity, {
         toValue: toExpand ? 1 : 0,
-        duration: 200,
+        duration: Anim.duration.fast,
         useNativeDriver: false,
       }),
     ]).start();
@@ -57,7 +57,7 @@ function FloatingCartBarComponent({ bottomOffset }: FloatingCartBarProps) {
     setExpanded(false);
     Animated.parallel([
       Animated.spring(animHeight, { toValue: 0, useNativeDriver: false, damping: 20, stiffness: 180 }),
-      Animated.timing(animOpacity, { toValue: 0, duration: 150, useNativeDriver: false }),
+      Animated.timing(animOpacity, { toValue: 0, duration: Anim.duration.fastest, useNativeDriver: false }),
     ]).start();
     navigation.navigate("Main", { screen: "CartTab" });
   };

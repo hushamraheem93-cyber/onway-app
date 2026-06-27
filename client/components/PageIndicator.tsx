@@ -4,7 +4,7 @@ import Animated, {
   useAnimatedStyle,
   withTiming,
 } from "react-native-reanimated";
-import { AppColors } from "@/constants/theme";
+import { AppColors, Anim} from "@/constants/theme";
 
 interface Props {
   count: number;
@@ -13,8 +13,8 @@ interface Props {
 
 function Dot({ isActive }: { isActive: boolean }) {
   const animStyle = useAnimatedStyle(() => ({
-    width: withTiming(isActive ? 30 : 8, { duration: 300 }),
-    opacity: withTiming(isActive ? 1 : 0.4, { duration: 300 }),
+    width: withTiming(isActive ? 30 : 8, { duration: Anim.duration.normal }),
+    opacity: withTiming(isActive ? 1 : 0.4, { duration: Anim.duration.normal }),
   }));
 
   return <Animated.View style={[styles.dot, animStyle]} />;
