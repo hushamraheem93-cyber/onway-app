@@ -242,6 +242,16 @@ export default function DriverBatchScreen() {
             </ThemedText>
             <Feather name="dollar-sign" size={16} color={AppColors.primary} />
           </View>
+          {order.serviceFee !== undefined && order.serviceFee > 0 ? (
+            <View style={[styles.serviceFeeRow]}>
+              <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 4, flex: 1 }}>
+                <ThemedText type="small" style={{ color: "#6B7280", textAlign: "right" }}>
+                  رسوم الخدمة (للتطبيق): {formatPrice(order.serviceFee)}
+                </ThemedText>
+              </View>
+              <Feather name="shield" size={13} color="#6B7280" />
+            </View>
+          ) : null}
           {order.vendorName ? (
             <View style={styles.detailRow}>
               <ThemedText type="small" style={{ color: theme.textSecondary }}>{order.vendorName}</ThemedText>
@@ -580,6 +590,7 @@ const styles = StyleSheet.create({
   },
   orderDetails: { gap: Spacing.sm, marginBottom: Spacing.md },
   detailRow: { flexDirection: "row-reverse", alignItems: "center", gap: Spacing.sm },
+  serviceFeeRow: { flexDirection: "row-reverse", alignItems: "center", gap: Spacing.sm, opacity: 0.75 },
   notesBox: { padding: Spacing.sm, borderRadius: BorderRadius.sm, marginTop: 2 },
   itemsBox: { padding: Spacing.sm, borderRadius: BorderRadius.sm, borderWidth: 1, marginTop: 2, gap: 4 },
   itemRow: { flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between" },

@@ -63,6 +63,7 @@ export interface BatchOrder {
   total: number;
   totalPrice?: number;
   deliveryFee: number;
+  serviceFee?: number;
   status: OrderStatus;
   deliverySequence: number;
   distance?: number;

@@ -43,6 +43,8 @@ interface VendorOrder {
   total: number;
   vendorSubtotal?: number;
   restaurantSubtotal?: number;
+  deliveryFee?: number;
+  serviceFee?: number;
   status: string;
   address?: string;
   createdAt: string;
@@ -376,13 +378,52 @@ function OrderCard({
             ))}
           </View>
 
-          {/* Total */}
-          <View style={[cardStyles.totalRow, { backgroundColor: ORANGE + "08" }]}>
-            <MaterialCommunityIcons name="cash-multiple" size={16} color={ORANGE} />
-            <ThemedText style={cardStyles.totalLabel}>إجمالي المتجر</ThemedText>
-            <ThemedText style={[cardStyles.totalAmount, { color: ORANGE }]}>
-              {vendorTotal.toLocaleString("ar-IQ")} د.ع
-            </ThemedText>
+          {/* Cost breakdown */}
+          <View style={[cardStyles.breakdownBox, { backgroundColor: ORANGE + "06", borderColor: ORANGE + "20" }]}>
+            {/* Vendor subtotal */}
+            <View style={cardStyles.breakdownRow}>
+              <MaterialCommunityIcons name="store-outline" size={14} color={ORANGE} />
+              <ThemedText style={[cardStyles.breakdownLabel, { color: theme.text }]}>إجمالي المتجر</ThemedText>
+              <ThemedText style={[cardStyles.breakdownAmount, { color: ORANGE }]}>
+                {vendorTotal.toLocaleString("ar-IQ")} د.ع
+              </ThemedText>
+            </View>
+            {/* Delivery fee */}
+            {order.deliveryFee !== undefined && order.deliveryFee > 0 ? (
+              <View style={cardStyles.breakdownRow}>
+                <MaterialCommunityIcons name="moped-outline" size={14} color={theme.textSecondary} />
+                <ThemedText style={[cardStyles.breakdownLabel, { color: theme.textSecondary }]}>رسوم التوصيل</ThemedText>
+                <ThemedText style={[cardStyles.breakdownAmount, { color: theme.textSecondary }]}>
+                  {(order.deliveryFee).toLocaleString("ar-IQ")} د.ع
+                </ThemedText>
+              </View>
+            ) : null}
+            {/* Service fee */}
+            {order.serviceFee !== undefined && order.serviceFee > 0 ? (
+              <View style={cardStyles.breakdownRow}>
+                <MaterialCommunityIcons name="shield-check-outline" size={14} color="#6B7280" />
+                <View style={{ flex: 1 }}>
+                  <ThemedText style={[cardStyles.breakdownLabel, { color: "#6B7280" }]}>رسوم الخدمة</ThemedText>
+                  <ThemedText style={cardStyles.breakdownNote}>تذهب للتطبيق</ThemedText>
+                </View>
+                <ThemedText style={[cardStyles.breakdownAmount, { color: "#6B7280" }]}>
+                  {(order.serviceFee).toLocaleString("ar-IQ")} د.ع
+                </ThemedText>
+              </View>
+            ) : null}
+            {/* Divider + grand total */}
+            {(order.deliveryFee !== undefined && order.deliveryFee > 0) || (order.serviceFee !== undefined && order.serviceFee > 0) ? (
+              <>
+                <View style={[cardStyles.breakdownDivider, { backgroundColor: ORANGE + "25" }]} />
+                <View style={cardStyles.breakdownRow}>
+                  <MaterialCommunityIcons name="cash-multiple" size={14} color={ORANGE} />
+                  <ThemedText style={[cardStyles.breakdownLabel, { color: theme.text, fontFamily: "Cairo_700Bold" }]}>إجمالي الزبون</ThemedText>
+                  <ThemedText style={[cardStyles.breakdownAmount, { color: ORANGE, fontFamily: "Cairo_700Bold", fontSize: 15 }]}>
+                    {(order.total).toLocaleString("ar-IQ")} د.ع
+                  </ThemedText>
+                </View>
+              </>
+            ) : null}
           </View>
 
           {/* Driver info section */}
@@ -949,12 +990,18 @@ const cardStyles = StyleSheet.create({
   itemName: { flex: 1, fontFamily: "Cairo_600SemiBold", fontSize: 13, textAlign: "right" },
   itemPrice: { fontFamily: "Cairo_700Bold", fontSize: 13, textAlign: "center" },
 
-  totalRow: {
-    flexDirection: "row-reverse", alignItems: "center",
-    padding: 14, gap: 8, marginTop: 2,
+  breakdownBox: {
+    marginHorizontal: 14, marginTop: 2, marginBottom: 4,
+    borderRadius: 12, borderWidth: 1,
+    paddingHorizontal: 12, paddingVertical: 10, gap: 8,
   },
-  totalLabel: { fontFamily: "Cairo_700Bold", fontSize: 14, color: ORANGE, flex: 1, textAlign: "right" },
-  totalAmount: { fontFamily: "Cairo_700Bold", fontSize: 16 },
+  breakdownRow: {
+    flexDirection: "row-reverse", alignItems: "center", gap: 8,
+  },
+  breakdownLabel: { fontFamily: "Cairo_600SemiBold", fontSize: 13, flex: 1, textAlign: "right" },
+  breakdownNote: { fontFamily: "Cairo_400Regular", fontSize: 10, color: "#9CA3AF", textAlign: "right" },
+  breakdownAmount: { fontFamily: "Cairo_700Bold", fontSize: 13 },
+  breakdownDivider: { height: 1, marginVertical: 2 },
 
   driverBanner: {
     flexDirection: "row-reverse", alignItems: "center", gap: 10,
