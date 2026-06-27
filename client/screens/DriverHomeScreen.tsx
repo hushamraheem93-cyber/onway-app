@@ -76,6 +76,9 @@ export interface BatchOrder {
   vendorId?: string;
   batchId?: string;
   driverId?: string;
+  storeName?: string;
+  storeAddress?: string;
+  storePhone?: string;
 }
 
 export interface CurrentBatch {
@@ -119,6 +122,7 @@ export default function DriverHomeScreen() {
   const [issueModalVisible, setIssueModalVisible] = useState(false);
   const [issueSent, setIssueSent] = useState(false);
   const [issueSending, setIssueSending] = useState(false);
+  const [isAccepting, setIsAccepting] = useState(false);
   const [issueOrderId, setIssueOrderId] = useState<string | null>(null);
 
   const [countdown, setCountdown] = useState(COUNTDOWN_SECONDS);
@@ -341,7 +345,8 @@ export default function DriverHomeScreen() {
   };
 
   const handleAcceptBatch = async () => {
-    if (!phoneNumber || !currentBatch) return;
+    if (!phoneNumber || !currentBatch || isAccepting) return;
+    setIsAccepting(true);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
     if (countdownRef.current) {
       clearInterval(countdownRef.current);
@@ -353,8 +358,16 @@ export default function DriverHomeScreen() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ phoneNumber, batchId: currentBatch.id }),
       });
-      if (res.ok) await fetchDriverStatus();
+      if (res.ok) {
+        await fetchDriverStatus();
+      } else {
+        const err = await res.json().catch(() => ({}));
+        console.error("accept batch failed:", res.status, err);
+      }
     } catch (e) {
+      console.error("accept batch error:", e);
+    } finally {
+      setIsAccepting(false);
     }
   };
 
@@ -643,9 +656,20 @@ export default function DriverHomeScreen() {
             <Feather name="x" size={18} color="#F44336" />
             <ThemedText type="body" style={{ color: "#F44336", fontWeight: "700" }}>رفض</ThemedText>
           </Pressable>
-          <Pressable style={styles.acceptBtn} onPress={handleAcceptBatch} testID="button-accept-batch">
-            <Feather name="check" size={20} color="#fff" />
-            <ThemedText type="h4" style={{ color: "#fff", fontWeight: "800" }}>قبول الطلب</ThemedText>
+          <Pressable
+            style={[styles.acceptBtn, { opacity: isAccepting ? 0.75 : 1 }]}
+            onPress={handleAcceptBatch}
+            disabled={isAccepting}
+            testID="button-accept-batch"
+          >
+            {isAccepting ? (
+              <ActivityIndicator size="small" color="#fff" />
+            ) : (
+              <>
+                <Feather name="check" size={20} color="#fff" />
+                <ThemedText type="h4" style={{ color: "#fff", fontWeight: "800" }}>قبول الطلب</ThemedText>
+              </>
+            )}
           </Pressable>
         </View>
       </Animated.View>

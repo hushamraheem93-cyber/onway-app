@@ -230,11 +230,50 @@ export default function DriverBatchScreen() {
           </View>
         </View>
 
+        {/* Store / Pickup info — shown during pickup phase */}
+        {(order.storeName || order.storeAddress) && !isDelivered ? (
+          <View style={[styles.storeBox, { backgroundColor: "#8B5CF608", borderColor: "#8B5CF630" }]}>
+            <View style={styles.storeBoxHeader}>
+              <Feather name="shopping-bag" size={14} color="#8B5CF6" />
+              <ThemedText type="small" style={{ color: "#8B5CF6", fontWeight: "800", flex: 1, textAlign: "right" }}>
+                نقطة الاستلام — {order.storeName || "المتجر"}
+              </ThemedText>
+            </View>
+            {order.storeAddress ? (
+              <View style={[styles.storeRow]}>
+                <ThemedText type="small" style={{ color: theme.text, flex: 1, textAlign: "right" }} numberOfLines={2}>
+                  {order.storeAddress}
+                </ThemedText>
+                <Feather name="map-pin" size={13} color="#8B5CF6" />
+              </View>
+            ) : null}
+            <View style={styles.storeActions}>
+              {order.storePhone ? (
+                <Pressable
+                  style={[styles.storeBtn, { backgroundColor: "#4CAF5015" }]}
+                  onPress={() => {
+                    const url = Platform.OS === "android"
+                      ? `tel:${order.storePhone}`
+                      : `telprompt:${order.storePhone}`;
+                    Linking.openURL(url).catch(() => Linking.openURL(`tel:${order.storePhone}`).catch(() => {}));
+                  }}
+                >
+                  <Feather name="phone" size={14} color="#4CAF50" />
+                  <ThemedText type="small" style={{ color: "#4CAF50", fontWeight: "600" }}>اتصال بالمتجر</ThemedText>
+                </Pressable>
+              ) : null}
+            </View>
+          </View>
+        ) : null}
+
+        {/* Delivery destination */}
         {/* Order details */}
         <View style={styles.orderDetails}>
-          <View style={styles.detailRow}>
-            <ThemedText type="body" style={{ color: theme.text }} numberOfLines={2}>{order.region || order.address}</ThemedText>
-            <Feather name="map-pin" size={16} color={theme.textSecondary} />
+          <View style={[styles.detailRow, { backgroundColor: "#2196F308", borderRadius: 8, padding: 8, marginBottom: 4 }]}>
+            <ThemedText type="body" style={{ color: theme.text, flex: 1, textAlign: "right" }} numberOfLines={2}>
+              {order.region || order.address}
+            </ThemedText>
+            <Feather name="navigation" size={16} color="#2196F3" />
           </View>
           <View style={styles.detailRow}>
             <ThemedText type="body" style={{ color: AppColors.primary, fontWeight: "700" }}>
@@ -588,6 +627,11 @@ const styles = StyleSheet.create({
     flexDirection: "row", alignItems: "center", gap: 4,
     paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12,
   },
+  storeBox: { borderWidth: 1, borderRadius: BorderRadius.md, padding: Spacing.sm, marginBottom: Spacing.sm, gap: Spacing.xs },
+  storeBoxHeader: { flexDirection: "row-reverse", alignItems: "center", gap: Spacing.xs },
+  storeRow: { flexDirection: "row-reverse", alignItems: "flex-start", gap: Spacing.xs, paddingRight: 2 },
+  storeActions: { flexDirection: "row-reverse", gap: Spacing.xs, marginTop: 2 },
+  storeBtn: { flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 10, paddingVertical: 6, borderRadius: BorderRadius.sm },
   orderDetails: { gap: Spacing.sm, marginBottom: Spacing.md },
   detailRow: { flexDirection: "row-reverse", alignItems: "center", gap: Spacing.sm },
   serviceFeeRow: { flexDirection: "row-reverse", alignItems: "center", gap: Spacing.sm, opacity: 0.75 },

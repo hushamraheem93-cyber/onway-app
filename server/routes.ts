@@ -2697,6 +2697,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
             .filter(Boolean)
             .map(async (order: any) => {
               const customerProfile = await getUserByPhone(order.phoneNumber || "");
+              // Fetch store/vendor info so the driver knows where to pick up
+              let storeName = order.vendorName || order.storeName || "";
+              let storeAddress = "";
+              let storePhone = "";
+              if (order.vendorId) {
+                try {
+                  const dbInner = getFirestore();
+                  if (dbInner) {
+                    const vDoc = await dbInner.collection("vendors").doc(order.vendorId).get();
+                    if (vDoc.exists) {
+                      const vd = vDoc.data() as any;
+                      storeName = vd.storeName || vd.name || storeName;
+                      storeAddress = vd.address || vd.location || "";
+                      storePhone = vd.phoneNumber || vd.whatsappNumber || "";
+                    }
+                  }
+                } catch {}
+              }
               return {
                 ...order,
                 customerName: order.customerName || customerProfile?.fullName || "زبون",
@@ -2708,6 +2726,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 deliverySequence: order.deliverySequence || 1,
                 createdAt: order.createdAt?.toDate?.() ? order.createdAt.toDate().toISOString() : order.createdAt,
                 updatedAt: order.updatedAt?.toDate?.() ? order.updatedAt.toDate().toISOString() : order.updatedAt,
+                storeName,
+                storeAddress,
+                storePhone,
               };
             });
           const resolvedOrders = await Promise.all(batchOrders);

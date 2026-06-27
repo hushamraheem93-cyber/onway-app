@@ -3893,6 +3893,24 @@ ${itemsList}
           const allOrders = await getOrders();
           const batchOrders = batchDoc.orderIds.map((oid) => allOrders.find((o) => o.id === oid)).filter(Boolean).map(async (order) => {
             const customerProfile = await getUserByPhone(order.phoneNumber || "");
+            let storeName = order.vendorName || order.storeName || "";
+            let storeAddress = "";
+            let storePhone = "";
+            if (order.vendorId) {
+              try {
+                const dbInner = getFirestore();
+                if (dbInner) {
+                  const vDoc = await dbInner.collection("vendors").doc(order.vendorId).get();
+                  if (vDoc.exists) {
+                    const vd = vDoc.data();
+                    storeName = vd.storeName || vd.name || storeName;
+                    storeAddress = vd.address || vd.location || "";
+                    storePhone = vd.phoneNumber || vd.whatsappNumber || "";
+                  }
+                }
+              } catch {
+              }
+            }
             return {
               ...order,
               customerName: order.customerName || customerProfile?.fullName || "\u0632\u0628\u0648\u0646",
@@ -3903,7 +3921,10 @@ ${itemsList}
               deliveredAt: order.deliveredAt || null,
               deliverySequence: order.deliverySequence || 1,
               createdAt: order.createdAt?.toDate?.() ? order.createdAt.toDate().toISOString() : order.createdAt,
-              updatedAt: order.updatedAt?.toDate?.() ? order.updatedAt.toDate().toISOString() : order.updatedAt
+              updatedAt: order.updatedAt?.toDate?.() ? order.updatedAt.toDate().toISOString() : order.updatedAt,
+              storeName,
+              storeAddress,
+              storePhone
             };
           });
           const resolvedOrders = await Promise.all(batchOrders);
