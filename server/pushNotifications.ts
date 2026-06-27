@@ -378,6 +378,55 @@ export async function sendVendorNewOrderNotification(
   }
 }
 
+// ── Vendor: stale order reminder ─────────────────────────────────────────────
+const VENDOR_REMINDER_BODIES: Record<string, (shortId: string, mins: number) => string> = {
+  pending:    (id, m) => `طلب #${id} لم يُؤكد منذ ${m} دقيقة`,
+  confirmed:  (id, m) => `طلب #${id} لم يبدأ التحضير منذ ${m} دقيقة`,
+  preparing:  (id, m) => `طلب #${id} لم يُجهز بعد منذ ${m} دقيقة`,
+  ready:      (id, m) => `طلب #${id} جاهز ولم يُستلم منذ ${m} دقيقة`,
+};
+
+export async function sendVendorOrderReminderNotification(
+  pushToken: string,
+  orderId: string,
+  shortId: string,
+  status: string,
+  elapsedMinutes: number
+): Promise<boolean> {
+  if (!pushToken || !pushToken.startsWith("ExponentPushToken")) return false;
+  const bodyFn = VENDOR_REMINDER_BODIES[status];
+  if (!bodyFn) return false;
+
+  const message: ExpoPushMessage = {
+    to: pushToken,
+    title: "تنبيه: طلب بحاجة لاهتمامك",
+    body: bodyFn(shortId, elapsedMinutes),
+    sound: "default",
+    channelId: "default",
+    priority: "high",
+    ttl: 300,
+    data: { type: "vendor_order_reminder", orderId, shortId, status },
+  };
+
+  try {
+    const response = await fetch("https://exp.host/--/api/v2/push/send", {
+      method: "POST",
+      headers: { Accept: "application/json", "Accept-Encoding": "gzip, deflate", "Content-Type": "application/json" },
+      body: JSON.stringify(message),
+    });
+    const result = (await response.json()) as { data: ExpoPushTicket };
+    if (result.data.status === "ok") {
+      console.log(`[PUSH] Vendor reminder #${shortId} (${status} ${elapsedMinutes}min) → ...${pushToken.slice(-8)}`);
+      return true;
+    }
+    console.error("[PUSH] Vendor reminder error:", result.data.message);
+    return false;
+  } catch (error) {
+    console.error("[PUSH] Error sending vendor reminder:", error);
+    return false;
+  }
+}
+
 // ── Admin: order ready for driver pickup ─────────────────────────────────────
 export async function sendAdminOrderReadyNotification(
   pushToken: string,

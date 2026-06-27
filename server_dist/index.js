@@ -1536,6 +1536,44 @@ async function sendVendorNewOrderNotification(pushToken, orderId, itemsCount, to
     return false;
   }
 }
+var VENDOR_REMINDER_BODIES = {
+  pending: (id, m) => `\u0637\u0644\u0628 #${id} \u0644\u0645 \u064A\u064F\u0624\u0643\u062F \u0645\u0646\u0630 ${m} \u062F\u0642\u064A\u0642\u0629`,
+  confirmed: (id, m) => `\u0637\u0644\u0628 #${id} \u0644\u0645 \u064A\u0628\u062F\u0623 \u0627\u0644\u062A\u062D\u0636\u064A\u0631 \u0645\u0646\u0630 ${m} \u062F\u0642\u064A\u0642\u0629`,
+  preparing: (id, m) => `\u0637\u0644\u0628 #${id} \u0644\u0645 \u064A\u064F\u062C\u0647\u0632 \u0628\u0639\u062F \u0645\u0646\u0630 ${m} \u062F\u0642\u064A\u0642\u0629`,
+  ready: (id, m) => `\u0637\u0644\u0628 #${id} \u062C\u0627\u0647\u0632 \u0648\u0644\u0645 \u064A\u064F\u0633\u062A\u0644\u0645 \u0645\u0646\u0630 ${m} \u062F\u0642\u064A\u0642\u0629`
+};
+async function sendVendorOrderReminderNotification(pushToken, orderId, shortId, status, elapsedMinutes) {
+  if (!pushToken || !pushToken.startsWith("ExponentPushToken")) return false;
+  const bodyFn = VENDOR_REMINDER_BODIES[status];
+  if (!bodyFn) return false;
+  const message = {
+    to: pushToken,
+    title: "\u062A\u0646\u0628\u064A\u0647: \u0637\u0644\u0628 \u0628\u062D\u0627\u062C\u0629 \u0644\u0627\u0647\u062A\u0645\u0627\u0645\u0643",
+    body: bodyFn(shortId, elapsedMinutes),
+    sound: "default",
+    channelId: "default",
+    priority: "high",
+    ttl: 300,
+    data: { type: "vendor_order_reminder", orderId, shortId, status }
+  };
+  try {
+    const response = await fetch("https://exp.host/--/api/v2/push/send", {
+      method: "POST",
+      headers: { Accept: "application/json", "Accept-Encoding": "gzip, deflate", "Content-Type": "application/json" },
+      body: JSON.stringify(message)
+    });
+    const result = await response.json();
+    if (result.data.status === "ok") {
+      console.log(`[PUSH] Vendor reminder #${shortId} (${status} ${elapsedMinutes}min) \u2192 ...${pushToken.slice(-8)}`);
+      return true;
+    }
+    console.error("[PUSH] Vendor reminder error:", result.data.message);
+    return false;
+  } catch (error) {
+    console.error("[PUSH] Error sending vendor reminder:", error);
+    return false;
+  }
+}
 async function sendAdminOrderReadyNotification(pushToken, orderId, vendorName) {
   if (!pushToken || !pushToken.startsWith("ExponentPushToken")) return false;
   const shortId = orderId.slice(-6).toUpperCase();
@@ -7322,6 +7360,81 @@ var _httpServer = null;
 function setHttpServer(s) {
   _httpServer = s;
 }
+var STALE_ORDER_THRESHOLDS_MIN = {
+  pending: 10,
+  confirmed: 10,
+  preparing: 25,
+  ready: 15
+};
+function toTimestampMs(value) {
+  if (!value) return NaN;
+  if (typeof value.toDate === "function") {
+    return value.toDate().getTime();
+  }
+  if (typeof value.seconds === "number") {
+    return value.seconds * 1e3 + Math.floor((value.nanoseconds ?? 0) / 1e6);
+  }
+  const ms = typeof value === "number" ? value : new Date(value).getTime();
+  return ms;
+}
+async function checkStaleOrders() {
+  const db2 = getFirestore();
+  if (!db2) return;
+  const activeStatuses = Object.keys(STALE_ORDER_THRESHOLDS_MIN);
+  let snapshot;
+  try {
+    snapshot = await db2.collection("orders").where("status", "in", activeStatuses).get();
+  } catch (err) {
+    console.error("[StaleOrders] Firestore query failed:", err);
+    return;
+  }
+  const now = Date.now();
+  const vendorTokenCache = /* @__PURE__ */ new Map();
+  for (const doc of snapshot.docs) {
+    try {
+      const order = doc.data();
+      const status = order.status;
+      const thresholdMin = STALE_ORDER_THRESHOLDS_MIN[status];
+      if (!thresholdMin) continue;
+      const rawTimestamp = status === "pending" ? order.createdAt : order[`vendorStatusAt_${status}`];
+      if (!rawTimestamp) continue;
+      if (order[`urgencyNotifiedAt_${status}`]) continue;
+      const refMs = toTimestampMs(rawTimestamp);
+      if (!Number.isFinite(refMs)) {
+        console.warn(`[StaleOrders] Order ${doc.id}: unparseable timestamp for status '${status}', skipping`);
+        continue;
+      }
+      const elapsedMin = (now - refMs) / 6e4;
+      if (elapsedMin < thresholdMin) continue;
+      const vendorId2 = order.vendorId;
+      if (!vendorId2) continue;
+      if (!vendorTokenCache.has(vendorId2)) {
+        const vendorDoc = await db2.collection("vendors").doc(vendorId2).get();
+        const token = vendorDoc.exists ? vendorDoc.data().pushToken ?? null : null;
+        vendorTokenCache.set(vendorId2, token);
+      }
+      const pushToken = vendorTokenCache.get(vendorId2);
+      if (!pushToken) continue;
+      const shortId = doc.id.slice(-6).toUpperCase();
+      const elapsedRounded = Math.floor(elapsedMin);
+      const sent = await sendVendorOrderReminderNotification(pushToken, doc.id, shortId, status, elapsedRounded);
+      if (sent) {
+        await doc.ref.update({ [`urgencyNotifiedAt_${status}`]: (/* @__PURE__ */ new Date()).toISOString() });
+      }
+    } catch (err) {
+      console.error(`[StaleOrders] Error processing order ${doc.id}:`, err);
+    }
+  }
+}
+function startStaleOrderJob() {
+  const INTERVAL_MS = 60 * 1e3;
+  setInterval(() => {
+    checkStaleOrders().catch(
+      (err) => console.error("[StaleOrders] Unhandled error:", err)
+    );
+  }, INTERVAL_MS);
+  console.log("[StaleOrders] Reminder job started (runs every 60s)");
+}
 function gracefulShutdown(signal) {
   console.error(`[Shutdown] Received ${signal} \u2014 closing server gracefully`);
   if (_httpServer) {
@@ -7368,6 +7481,7 @@ process.on("exit", (code) => {
     },
     () => {
       console.log(`[OnWay] Server listening on port ${port}`);
+      startStaleOrderJob();
     }
   );
   setHttpServer(server);

@@ -4,6 +4,7 @@ import compression from "compression";
 import { registerRoutes } from "./routes";
 import { initializeFirebase, getFirestore } from "./firebase";
 import vendorRouter from "./vendor";
+import { sendVendorOrderReminderNotification } from "./pushNotifications";
 import * as fs from "fs";
 import * as path from "path";
 import * as crypto from "crypto";
@@ -658,6 +659,115 @@ function setupErrorHandler(app: express.Application) {
 let _httpServer: import("http").Server | null = null;
 export function setHttpServer(s: import("http").Server) { _httpServer = s; }
 
+// ── Stale-order reminder job ──────────────────────────────────────────────────
+// Thresholds match the urgency timers shown in VendorOrdersScreen.
+const STALE_ORDER_THRESHOLDS_MIN: Record<string, number> = {
+  pending:   10,
+  confirmed: 10,
+  preparing: 25,
+  ready:     15,
+};
+
+/**
+ * Safely convert a Firestore field value to a JS timestamp (ms).
+ * Handles: Firestore Timestamp objects, ISO strings, and numeric epochs.
+ * Returns NaN if the value cannot be interpreted.
+ */
+function toTimestampMs(value: unknown): number {
+  if (!value) return NaN;
+  // Firestore Admin SDK Timestamp: has toDate() or { seconds, nanoseconds }
+  if (typeof (value as any).toDate === "function") {
+    return (value as any).toDate().getTime();
+  }
+  if (typeof (value as any).seconds === "number") {
+    return (value as any).seconds * 1000 + Math.floor(((value as any).nanoseconds ?? 0) / 1e6);
+  }
+  // ISO string or numeric epoch
+  const ms = typeof value === "number" ? value : new Date(value as string).getTime();
+  return ms;
+}
+
+async function checkStaleOrders(): Promise<void> {
+  const db = getFirestore();
+  if (!db) return;
+
+  const activeStatuses = Object.keys(STALE_ORDER_THRESHOLDS_MIN);
+  let snapshot: FirebaseFirestore.QuerySnapshot;
+  try {
+    snapshot = await db.collection("orders")
+      .where("status", "in", activeStatuses)
+      .get();
+  } catch (err) {
+    console.error("[StaleOrders] Firestore query failed:", err);
+    return;
+  }
+
+  const now = Date.now();
+  // Cache vendor tokens to avoid redundant Firestore reads within one pass.
+  const vendorTokenCache = new Map<string, string | null>();
+
+  for (const doc of snapshot.docs) {
+    try {
+      const order = doc.data() as Record<string, any>;
+      const status: string = order.status;
+      const thresholdMin = STALE_ORDER_THRESHOLDS_MIN[status];
+      if (!thresholdMin) continue;
+
+      // Determine the reference timestamp for how long we've been in this status.
+      // `pending` uses `createdAt`; all other statuses use `vendorStatusAt_<status>`.
+      const rawTimestamp: unknown =
+        status === "pending" ? order.createdAt : order[`vendorStatusAt_${status}`];
+      if (!rawTimestamp) continue;
+
+      // Already notified for this status crossing — skip.
+      if (order[`urgencyNotifiedAt_${status}`]) continue;
+
+      const refMs = toTimestampMs(rawTimestamp);
+      if (!Number.isFinite(refMs)) {
+        console.warn(`[StaleOrders] Order ${doc.id}: unparseable timestamp for status '${status}', skipping`);
+        continue;
+      }
+
+      const elapsedMin = (now - refMs) / 60000;
+      if (elapsedMin < thresholdMin) continue;
+
+      // Resolve vendor push token (cached per run).
+      const vendorId: string | undefined = order.vendorId;
+      if (!vendorId) continue;
+
+      if (!vendorTokenCache.has(vendorId)) {
+        const vendorDoc = await db.collection("vendors").doc(vendorId).get();
+        const token = vendorDoc.exists ? ((vendorDoc.data() as any).pushToken as string | undefined) ?? null : null;
+        vendorTokenCache.set(vendorId, token);
+      }
+
+      const pushToken = vendorTokenCache.get(vendorId);
+      if (!pushToken) continue;
+
+      const shortId = doc.id.slice(-6).toUpperCase();
+      const elapsedRounded = Math.floor(elapsedMin);
+
+      const sent = await sendVendorOrderReminderNotification(pushToken, doc.id, shortId, status, elapsedRounded);
+      if (sent) {
+        // Mark this crossing as notified so we don't spam.
+        await doc.ref.update({ [`urgencyNotifiedAt_${status}`]: new Date().toISOString() });
+      }
+    } catch (err) {
+      console.error(`[StaleOrders] Error processing order ${doc.id}:`, err);
+    }
+  }
+}
+
+function startStaleOrderJob(): void {
+  const INTERVAL_MS = 60 * 1000; // run every minute
+  setInterval(() => {
+    checkStaleOrders().catch((err) =>
+      console.error("[StaleOrders] Unhandled error:", err)
+    );
+  }, INTERVAL_MS);
+  console.log("[StaleOrders] Reminder job started (runs every 60s)");
+}
+
 function gracefulShutdown(signal: string) {
   console.error(`[Shutdown] Received ${signal} — closing server gracefully`);
   if (_httpServer) {
@@ -715,6 +825,7 @@ process.on("exit", (code) => {
     },
     () => {
       console.log(`[OnWay] Server listening on port ${port}`);
+      startStaleOrderJob();
     },
   );
   setHttpServer(server);
