@@ -107,7 +107,8 @@ export function getStatusMessage(status: string): { title: string; body: string 
 export async function sendDriverBatchNotification(
   pushToken: string,
   totalOrders: number,
-  batchId: string
+  batchId: string,
+  badge?: number
 ): Promise<boolean> {
   if (!pushToken || !pushToken.startsWith("ExponentPushToken")) return false;
   const message: ExpoPushMessage = {
@@ -118,6 +119,7 @@ export async function sendDriverBatchNotification(
     channelId: "default",
     priority: "high",
     ttl: 300,
+    badge,
     data: { type: "new_batch", batchId },
   };
   try {

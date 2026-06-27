@@ -2203,7 +2203,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // 9. Notify driver via push
       const driverPushToken = await getDriverPushToken(driverPhone);
       if (driverPushToken) {
-        sendDriverBatchNotification(driverPushToken, 1, batchId).catch(() => {});
+        const pendingBatchSnap = await db.collection("delivery_batches")
+          .where("driverId", "==", driverPhone)
+          .where("status", "==", "pending")
+          .count()
+          .get();
+        const driverBadge = pendingBatchSnap.data().count;
+        sendDriverBatchNotification(driverPushToken, 1, batchId, driverBadge).catch(() => {});
       }
 
       res.json({ success: true, batchId, driverPhone, driverName });
@@ -3538,7 +3544,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const inMemoryToken = qd?.pushToken;
         const driverPushToken = inMemoryToken || await getDriverPushToken(phoneNumber);
         if (driverPushToken) {
-          sendDriverBatchNotification(driverPushToken, optimizedIds.length, batchId)
+          const pendingSnap = await db.collection("delivery_batches")
+            .where("driverId", "==", phoneNumber)
+            .where("status", "==", "pending")
+            .count()
+            .get();
+          const driverBadge = pendingSnap.data().count;
+          sendDriverBatchNotification(driverPushToken, optimizedIds.length, batchId, driverBadge)
             .catch(e => console.error("[PUSH] Batch notification error:", e));
         } else {
           console.warn(`[PUSH] No push token for driver ${phoneNumber} — notification NOT sent`);

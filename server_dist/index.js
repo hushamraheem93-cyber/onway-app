@@ -1318,7 +1318,7 @@ async function sendPushNotification(pushToken, status, orderId, estimatedMinutes
     return false;
   }
 }
-async function sendDriverBatchNotification(pushToken, totalOrders, batchId) {
+async function sendDriverBatchNotification(pushToken, totalOrders, batchId, badge) {
   if (!pushToken || !pushToken.startsWith("ExponentPushToken")) return false;
   const message = {
     to: pushToken,
@@ -1328,6 +1328,7 @@ async function sendDriverBatchNotification(pushToken, totalOrders, batchId) {
     channelId: "default",
     priority: "high",
     ttl: 300,
+    badge,
     data: { type: "new_batch", batchId }
   };
   try {
@@ -3432,7 +3433,9 @@ ${itemsList}
       });
       const driverPushToken = await getDriverPushToken(driverPhone);
       if (driverPushToken) {
-        sendDriverBatchNotification(driverPushToken, 1, batchId).catch(() => {
+        const pendingBatchSnap = await db2.collection("delivery_batches").where("driverId", "==", driverPhone).where("status", "==", "pending").count().get();
+        const driverBadge = pendingBatchSnap.data().count;
+        sendDriverBatchNotification(driverPushToken, 1, batchId, driverBadge).catch(() => {
         });
       }
       res.json({ success: true, batchId, driverPhone, driverName });
@@ -4578,7 +4581,9 @@ ${itemsList}
         const inMemoryToken = qd?.pushToken;
         const driverPushToken = inMemoryToken || await getDriverPushToken(phoneNumber);
         if (driverPushToken) {
-          sendDriverBatchNotification(driverPushToken, optimizedIds.length, batchId).catch((e) => console.error("[PUSH] Batch notification error:", e));
+          const pendingSnap = await db2.collection("delivery_batches").where("driverId", "==", phoneNumber).where("status", "==", "pending").count().get();
+          const driverBadge = pendingSnap.data().count;
+          sendDriverBatchNotification(driverPushToken, optimizedIds.length, batchId, driverBadge).catch((e) => console.error("[PUSH] Batch notification error:", e));
         } else {
           console.warn(`[PUSH] No push token for driver ${phoneNumber} \u2014 notification NOT sent`);
         }
