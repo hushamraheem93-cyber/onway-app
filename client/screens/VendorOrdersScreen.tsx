@@ -128,9 +128,20 @@ function getActions(status: string): Action[] {
   }
 }
 
+// ── Live-ticking clock hook (updates every 60 s) ──────────────────────────────
+function useMinuteClock(): number {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 60_000);
+    return () => clearInterval(id);
+  }, []);
+  return now;
+}
+
 // ── Timer Badge for pending orders ────────────────────────────────────────────
 function TimerBadge({ createdAt }: { createdAt: string }) {
-  const mins = Math.floor((Date.now() - new Date(createdAt).getTime()) / 60000);
+  const now = useMinuteClock();
+  const mins = Math.floor((now - new Date(createdAt).getTime()) / 60000);
   const urgent = mins >= 5;
   return (
     <View style={[timerStyles.badge, { backgroundColor: urgent ? "#FEE2E2" : "#FEF3C7" }]}>
@@ -175,11 +186,12 @@ function StatusTimerBadge({
   statusAt: string;
   thresholds: Record<string, number>;
 }) {
+  const now = useMinuteClock();
   if (!statusAt) return null;
   const label = STATUS_TIMER_LABEL[status];
   if (!label) return null;
 
-  const mins = Math.floor((Date.now() - new Date(statusAt).getTime()) / 60000);
+  const mins = Math.floor((now - new Date(statusAt).getTime()) / 60000);
   const threshold = thresholds[status] ?? DEFAULT_URGENCY_THRESHOLD[status] ?? 15;
   const urgent = mins >= threshold;
 
