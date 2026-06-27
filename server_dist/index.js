@@ -3017,6 +3017,38 @@ async function registerRoutes(app2) {
       res.status(500).json({ error: "Failed to update service fee" });
     }
   });
+  app2.get("/api/settings/urgency-thresholds", async (req, res) => {
+    try {
+      const db2 = getFirestore();
+      const defaults = { confirmed: 10, preparing: 25, ready: 15 };
+      if (!db2) return res.json(defaults);
+      const snap = await db2.collection("appSettings").doc("urgencyThresholds").get();
+      const data = snap.exists ? snap.data() : {};
+      res.json({
+        confirmed: data?.confirmed ?? defaults.confirmed,
+        preparing: data?.preparing ?? defaults.preparing,
+        ready: data?.ready ?? defaults.ready
+      });
+    } catch (error) {
+      console.error("Error getting urgency thresholds:", error);
+      res.json({ confirmed: 10, preparing: 25, ready: 15 });
+    }
+  });
+  app2.put("/api/admin/settings/urgency-thresholds", async (req, res) => {
+    try {
+      const { confirmed, preparing, ready } = req.body;
+      if (!Number.isFinite(confirmed) || !Number.isFinite(preparing) || !Number.isFinite(ready) || confirmed <= 0 || preparing <= 0 || ready <= 0) {
+        return res.status(400).json({ error: "\u0642\u064A\u0645 \u0627\u0644\u062D\u062F\u0648\u062F \u0627\u0644\u0632\u0645\u0646\u064A\u0629 \u063A\u064A\u0631 \u0635\u0627\u0644\u062D\u0629" });
+      }
+      const db2 = getFirestore();
+      if (!db2) return res.status(503).json({ error: "Database unavailable" });
+      await db2.collection("appSettings").doc("urgencyThresholds").set({ confirmed, preparing, ready });
+      res.json({ success: true, confirmed, preparing, ready });
+    } catch (error) {
+      console.error("Error updating urgency thresholds:", error);
+      res.status(500).json({ error: "Failed to update urgency thresholds" });
+    }
+  });
   async function getVendorList() {
     if (vendorsCache) return vendorsCache;
     try {

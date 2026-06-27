@@ -1,4 +1,4 @@
-import React, { useCallback, useState, useMemo, useRef } from "react";
+import React, { useCallback, useState, useMemo, useRef, useEffect } from "react";
 import {
   View,
   StyleSheet,
@@ -151,8 +151,8 @@ const etaBadgeStyles = StyleSheet.create({
   text: { fontFamily: "Cairo_700Bold", fontSize: 11, color: "#059669" },
 });
 
-// ── Per-status urgency thresholds (minutes) ───────────────────────────────────
-const STATUS_URGENCY_THRESHOLD: Record<string, number> = {
+// ── Default per-status urgency thresholds (minutes) — overridden by server config ──
+const DEFAULT_URGENCY_THRESHOLD: Record<string, number> = {
   confirmed: 10,
   preparing: 25,
   ready:     15,
@@ -166,13 +166,21 @@ const STATUS_TIMER_LABEL: Record<string, string> = {
 };
 
 // ── Status-specific elapsed timer badge ──────────────────────────────────────
-function StatusTimerBadge({ status, statusAt }: { status: string; statusAt: string }) {
+function StatusTimerBadge({
+  status,
+  statusAt,
+  thresholds,
+}: {
+  status: string;
+  statusAt: string;
+  thresholds: Record<string, number>;
+}) {
   if (!statusAt) return null;
   const label = STATUS_TIMER_LABEL[status];
   if (!label) return null;
 
   const mins = Math.floor((Date.now() - new Date(statusAt).getTime()) / 60000);
-  const threshold = STATUS_URGENCY_THRESHOLD[status] ?? 15;
+  const threshold = thresholds[status] ?? DEFAULT_URGENCY_THRESHOLD[status] ?? 15;
   const urgent = mins >= threshold;
 
   const normalColor = "#7C3AED";
@@ -227,10 +235,12 @@ function OrderCard({
   order,
   onUpdateStatus,
   updatingId,
+  urgencyThresholds,
 }: {
   order: VendorOrder;
   onUpdateStatus: (id: string, status: string) => void;
   updatingId: string | null;
+  urgencyThresholds: Record<string, number>;
 }) {
   const { theme } = useTheme();
   const [expanded, setExpanded] = useState(true);
@@ -265,7 +275,7 @@ function OrderCard({
             <ThemedText style={cardStyles.timeText}>{relativeTime(order.createdAt)}</ThemedText>
             {order.status === "pending" ? <TimerBadge createdAt={order.createdAt} /> : null}
             {currentStatusAt.length > 0 ? (
-              <StatusTimerBadge status={order.status} statusAt={currentStatusAt} />
+              <StatusTimerBadge status={order.status} statusAt={currentStatusAt} thresholds={urgencyThresholds} />
             ) : null}
             {order.estimatedMinutes && order.estimatedMinutes > 0 ? (
               <View style={etaBadgeStyles.badge}>
@@ -627,6 +637,7 @@ export default function VendorOrdersScreen() {
   const { theme } = useTheme();
 
   const [orders, setOrders] = useState<VendorOrder[]>([]);
+  const [urgencyThresholds, setUrgencyThresholds] = useState<Record<string, number>>(DEFAULT_URGENCY_THRESHOLD);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [activeTab, setActiveTab] = useState("new");
@@ -661,6 +672,22 @@ export default function VendorOrdersScreen() {
       setRefreshing(false);
     }
   }, [vendorToken]);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetch(new URL("/api/settings/urgency-thresholds", getApiUrl()).toString());
+        if (res.ok) {
+          const data = await res.json();
+          setUrgencyThresholds({
+            confirmed: data.confirmed ?? DEFAULT_URGENCY_THRESHOLD.confirmed,
+            preparing: data.preparing ?? DEFAULT_URGENCY_THRESHOLD.preparing,
+            ready: data.ready ?? DEFAULT_URGENCY_THRESHOLD.ready,
+          });
+        }
+      } catch (_) {}
+    })();
+  }, []);
 
   useFocusEffect(useCallback(() => {
     isFocused.current = true;
@@ -852,6 +879,7 @@ export default function VendorOrdersScreen() {
               order={item}
               onUpdateStatus={handleAction}
               updatingId={updatingId}
+              urgencyThresholds={urgencyThresholds}
             />
           )}
           ListEmptyComponent={

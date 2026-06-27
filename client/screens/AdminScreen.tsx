@@ -190,6 +190,11 @@ export default function AdminScreen() {
   const [notifResult, setNotifResult] = useState<{ sent: number; total: number } | null>(null);
   const [notifError, setNotifError] = useState<string | null>(null);
 
+  const [urgencyForm, setUrgencyForm] = useState({ confirmed: "10", preparing: "25", ready: "15" });
+  const [isSavingUrgency, setIsSavingUrgency] = useState(false);
+  const [urgencySaveError, setUrgencySaveError] = useState<string | null>(null);
+  const [urgencySaveOk, setUrgencySaveOk] = useState(false);
+
   const [usersSearch, setUsersSearch] = useState("");
 
   const [serviceFeeInput, setServiceFeeInput] = useState("");
@@ -219,6 +224,56 @@ export default function AdminScreen() {
       } catch (_) {}
     })();
   }, []);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetch(`${getApiUrl()}/api/settings/urgency-thresholds`);
+        if (res.ok) {
+          const data = await res.json();
+          setUrgencyForm({
+            confirmed: String(data.confirmed ?? 10),
+            preparing: String(data.preparing ?? 25),
+            ready: String(data.ready ?? 15),
+          });
+        }
+      } catch (_) {}
+    })();
+  }, []);
+
+  const saveUrgencyThresholds = async () => {
+    const confirmed = parseInt(urgencyForm.confirmed, 10);
+    const preparing = parseInt(urgencyForm.preparing, 10);
+    const ready = parseInt(urgencyForm.ready, 10);
+    if (isNaN(confirmed) || isNaN(preparing) || isNaN(ready) || confirmed <= 0 || preparing <= 0 || ready <= 0) {
+      setUrgencySaveError("أدخل أرقاماً صحيحة وأكبر من صفر");
+      setTimeout(() => setUrgencySaveError(null), 3000);
+      return;
+    }
+    setIsSavingUrgency(true);
+    setUrgencySaveError(null);
+    setUrgencySaveOk(false);
+    try {
+      const res = await fetch(`${getApiUrl()}/api/admin/settings/urgency-thresholds`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ confirmed, preparing, ready }),
+      });
+      if (res.ok) {
+        setUrgencySaveOk(true);
+        setTimeout(() => setUrgencySaveOk(false), 3000);
+      } else {
+        const err = await res.json().catch(() => ({}));
+        setUrgencySaveError(err?.error ?? "فشل الحفظ");
+        setTimeout(() => setUrgencySaveError(null), 3000);
+      }
+    } catch (_) {
+      setUrgencySaveError("تعذّر الاتصال بالخادم");
+      setTimeout(() => setUrgencySaveError(null), 3000);
+    } finally {
+      setIsSavingUrgency(false);
+    }
+  };
 
   const { data: adminUsers = [], isLoading: usersLoading, refetch: refetchUsers } = useQuery<AdminUser[]>({
     queryKey: ["/api/admin/users"],
@@ -2121,6 +2176,63 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
               ))}
             </View>
           )}
+        </View>
+
+        {/* Urgency Thresholds Settings */}
+        <View style={{ backgroundColor: theme.backgroundSecondary, borderRadius: BorderRadius.xl, padding: Spacing.lg, gap: Spacing.md }}>
+          <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: Spacing.sm, marginBottom: 2 }}>
+            <View style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: "#FEE2E220", alignItems: "center", justifyContent: "center" }}>
+              <Feather name="clock" size={18} color="#DC2626" />
+            </View>
+            <View style={{ flex: 1, alignItems: "flex-end" }}>
+              <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 14, color: theme.text }}>حدود تنبيه الوقت للبائعين</ThemedText>
+              <ThemedText style={{ fontFamily: "Cairo_400Regular", fontSize: 12, color: theme.textSecondary }}>عدد الدقائق قبل تحوّل المؤقت إلى اللون الأحمر</ThemedText>
+            </View>
+          </View>
+          <View style={{ gap: Spacing.sm }}>
+            {([
+              { key: "confirmed" as const, label: "بعد التأكيد (مؤكد)" },
+              { key: "preparing" as const, label: "أثناء التحضير" },
+              { key: "ready" as const, label: "جاهز وينتظر السائق" },
+            ]).map(({ key, label }) => (
+              <View key={key} style={{ flexDirection: "row-reverse", alignItems: "center", gap: Spacing.sm }}>
+                <ThemedText style={{ flex: 1, fontFamily: "Cairo_400Regular", fontSize: 13, color: theme.text, textAlign: "right" }}>{label}</ThemedText>
+                <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 6 }}>
+                  <TextInput
+                    value={urgencyForm[key]}
+                    onChangeText={(t) => setUrgencyForm((prev) => ({ ...prev, [key]: t.replace(/[^0-9]/g, "") }))}
+                    keyboardType="number-pad"
+                    style={{
+                      width: 60, textAlign: "center", fontFamily: "Cairo_700Bold", fontSize: 15,
+                      color: theme.text, backgroundColor: theme.backgroundDefault,
+                      borderRadius: BorderRadius.md, borderWidth: 1, borderColor: theme.border ?? "#E5E7EB",
+                      paddingVertical: 6, paddingHorizontal: 8,
+                    }}
+                    testID={`urgency-input-${key}`}
+                  />
+                  <ThemedText style={{ fontFamily: "Cairo_400Regular", fontSize: 12, color: theme.textSecondary }}>دقيقة</ThemedText>
+                </View>
+              </View>
+            ))}
+          </View>
+          {urgencySaveError ? (
+            <ThemedText style={{ fontFamily: "Cairo_400Regular", fontSize: 13, color: "#DC2626", textAlign: "right" }}>{urgencySaveError}</ThemedText>
+          ) : null}
+          {urgencySaveOk ? (
+            <ThemedText style={{ fontFamily: "Cairo_400Regular", fontSize: 13, color: "#059669", textAlign: "right" }}>تم الحفظ بنجاح</ThemedText>
+          ) : null}
+          <Pressable
+            onPress={saveUrgencyThresholds}
+            disabled={isSavingUrgency}
+            testID="button-save-urgency"
+            style={{ backgroundColor: ADMIN_RED, borderRadius: BorderRadius.lg, paddingVertical: 10, alignItems: "center" }}
+          >
+            {isSavingUrgency ? (
+              <ActivityIndicator color="#fff" size="small" />
+            ) : (
+              <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 14, color: "#fff" }}>حفظ الحدود الزمنية</ThemedText>
+            )}
+          </Pressable>
         </View>
 
         {/* Commission summary shortcut */}

@@ -1724,6 +1724,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ─── Urgency Thresholds ──────────────────────────────────────────────────────
+  app.get("/api/settings/urgency-thresholds", async (req, res) => {
+    try {
+      const db = getFirestore();
+      const defaults = { confirmed: 10, preparing: 25, ready: 15 };
+      if (!db) return res.json(defaults);
+      const snap = await db.collection("appSettings").doc("urgencyThresholds").get();
+      const data = snap.exists ? snap.data() : {};
+      res.json({
+        confirmed: data?.confirmed ?? defaults.confirmed,
+        preparing: data?.preparing ?? defaults.preparing,
+        ready: data?.ready ?? defaults.ready,
+      });
+    } catch (error) {
+      console.error("Error getting urgency thresholds:", error);
+      res.json({ confirmed: 10, preparing: 25, ready: 15 });
+    }
+  });
+
+  app.put("/api/admin/settings/urgency-thresholds", async (req: Request, res: Response) => {
+    try {
+      const { confirmed, preparing, ready } = req.body;
+      if (!Number.isFinite(confirmed) || !Number.isFinite(preparing) || !Number.isFinite(ready) ||
+          confirmed <= 0 || preparing <= 0 || ready <= 0) {
+        return res.status(400).json({ error: "قيم الحدود الزمنية غير صالحة" });
+      }
+      const db = getFirestore();
+      if (!db) return res.status(503).json({ error: "Database unavailable" });
+      await db.collection("appSettings").doc("urgencyThresholds").set({ confirmed, preparing, ready });
+      res.json({ success: true, confirmed, preparing, ready });
+    } catch (error) {
+      console.error("Error updating urgency thresholds:", error);
+      res.status(500).json({ error: "Failed to update urgency thresholds" });
+    }
+  });
+
   // ─── Vendor (Multi-Vendor Restaurant) Routes ────────────────────────────────
 
   async function getVendorList(): Promise<Vendor[]> {
