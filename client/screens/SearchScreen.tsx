@@ -81,7 +81,7 @@ export default function SearchScreen() {
         </ThemedText>
       </View>
       <Pressable onPress={() => handleAddToCart(item)} style={[styles.addBtn, { backgroundColor: AppColors.primary }]}>
-        <Feather name="plus" size={18} color="#FFF" />
+        <Feather name="plus" size={18} color={AppColors.white} />
       </Pressable>
     </View>
   );
@@ -99,13 +99,13 @@ export default function SearchScreen() {
     <View style={[styles.container]}>
       <GradientBackground />
       <View style={[styles.searchContainer, { paddingTop: headerHeight + Spacing.sm }]}>
-        <View style={[styles.searchBar, { backgroundColor: isDark ? theme.backgroundDefault : "#F5F5F5", borderColor: isDark ? theme.border : "#EEE" }]}>
+        <View style={[styles.searchBar, { backgroundColor: isDark ? theme.backgroundDefault : AppColors.gray50, borderColor: isDark ? theme.border : AppColors.divider }]}>
           <Feather name="search" size={20} color={AppColors.primary} />
           <TextInput
             value={searchQuery}
             onChangeText={setSearchQuery}
             placeholder="ابحث عن منتجات..."
-            placeholderTextColor="#999"
+            placeholderTextColor={AppColors.gray400}
             style={[styles.searchInput, { color: theme.text }]}
             textAlign="right"
             autoFocus
@@ -113,7 +113,7 @@ export default function SearchScreen() {
           />
           {searchQuery.length > 0 ? (
             <Pressable onPress={() => setSearchQuery("")}>
-              <Feather name="x" size={18} color="#999" />
+              <Feather name="x" size={18} color={AppColors.gray400} />
             </Pressable>
           ) : null}
         </View>
@@ -134,7 +134,7 @@ export default function SearchScreen() {
         </View>
       ) : filteredProducts.length === 0 ? (
         <View style={styles.emptyContainer}>
-          <Feather name="search" size={48} color="#CCC" />
+          <Feather name="search" size={48} color={AppColors.gray300} />
           <ThemedText type="body" style={[styles.emptyText, { color: theme.textSecondary }]}>
             لا توجد نتائج لـ "{searchQuery}"
           </ThemedText>

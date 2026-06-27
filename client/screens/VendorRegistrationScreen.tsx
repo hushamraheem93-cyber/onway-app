@@ -18,9 +18,10 @@ import { ThemedText } from "@/components/ThemedText";
 import { useAuth } from "@/context/AuthContext";
 import { getApiUrl } from "@/lib/query-client";
 import { BUSINESS_TYPES } from "@/constants/businessCategories";
+import { AppColors } from "@/constants/theme";
 
-const ORANGE = "#E86520";
-const PURPLE = "#673AB7";
+const ORANGE = AppColors.primary;
+const PURPLE = AppColors.vendorPurple;
 
 export default function VendorRegistrationScreen() {
   const insets = useSafeAreaInsets();
@@ -74,7 +75,7 @@ export default function VendorRegistrationScreen() {
   if (success) {
     return (
       <View style={[styles.successWrap, { paddingTop: insets.top + 40, paddingBottom: insets.bottom + 40 }]}>
-        <LinearGradient colors={["#EDE7F6", "#D1C4E9"]} style={styles.successIconBg}>
+        <LinearGradient colors={[AppColors.vendorPurpleLight, AppColors.vendorPurpleLight]} style={styles.successIconBg}>
           <MaterialCommunityIcons name="store-check" size={56} color={PURPLE} />
         </LinearGradient>
         <ThemedText style={styles.successTitle}>تم إرسال طلبك بنجاح!</ThemedText>
@@ -89,11 +90,11 @@ export default function VendorRegistrationScreen() {
             { icon: "storefront", label: "البدء في بيع منتجاتك" },
           ].map((step, i) => (
             <View key={i} style={styles.stepRow}>
-              <View style={[styles.stepNum, { backgroundColor: i === 0 ? PURPLE : "#ccc" }]}>
+              <View style={[styles.stepNum, { backgroundColor: i === 0 ? PURPLE : AppColors.gray300 }]}>
                 <ThemedText style={styles.stepNumText}>{i + 1}</ThemedText>
               </View>
-              <MaterialCommunityIcons name={step.icon as any} size={20} color={i === 0 ? PURPLE : "#aaa"} style={{ marginHorizontal: 10 }} />
-              <ThemedText style={[styles.stepLabel, { color: i === 0 ? "#333" : "#aaa" }]}>{step.label}</ThemedText>
+              <MaterialCommunityIcons name={step.icon as any} size={20} color={i === 0 ? PURPLE : AppColors.gray400} style={{ marginHorizontal: 10 }} />
+              <ThemedText style={[styles.stepLabel, { color: i === 0 ? AppColors.gray700 : AppColors.gray400 }]}>{step.label}</ThemedText>
             </View>
           ))}
         </View>
@@ -117,14 +118,14 @@ export default function VendorRegistrationScreen() {
   return (
     <View style={styles.container}>
       <LinearGradient
-        colors={[PURPLE, "#4527A0"]}
+        colors={[PURPLE, AppColors.vendorPurple]}
         style={[styles.header, { paddingTop: insets.top + 16 }]}
       >
         <Pressable style={styles.backBtn} onPress={goBackToUserType} testID="button-back">
-          <Feather name="arrow-right" size={20} color="#fff" />
+          <Feather name="arrow-right" size={20} color={AppColors.white} />
         </Pressable>
         <View style={styles.headerTextWrap}>
-          <MaterialCommunityIcons name="store" size={32} color="#fff" style={{ marginBottom: 6 }} />
+          <MaterialCommunityIcons name="store" size={32} color={AppColors.white} style={{ marginBottom: 6 }} />
           <ThemedText style={styles.headerTitle}>تسجيل متجر جديد</ThemedText>
           <ThemedText style={styles.headerSub}>انضم كشريك تجاري في OnWay</ThemedText>
         </View>
@@ -137,7 +138,7 @@ export default function VendorRegistrationScreen() {
       >
         {!!error && (
           <View style={styles.errorBox}>
-            <Feather name="alert-circle" size={16} color="#EF4444" />
+            <Feather name="alert-circle" size={16} color={AppColors.error} />
             <ThemedText style={styles.errorText}>{error}</ThemedText>
           </View>
         )}
@@ -153,7 +154,7 @@ export default function VendorRegistrationScreen() {
           value={storeName}
           onChangeText={setStoreName}
           placeholder="مثال: مطعم النخيل"
-          placeholderTextColor="#bbb"
+          placeholderTextColor={AppColors.gray300}
           testID="input-storeName"
         />
 
@@ -163,7 +164,7 @@ export default function VendorRegistrationScreen() {
           value={ownerName}
           onChangeText={setOwnerName}
           placeholder="الاسم الكامل"
-          placeholderTextColor="#bbb"
+          placeholderTextColor={AppColors.gray300}
           testID="input-ownerName"
         />
 
@@ -187,12 +188,12 @@ export default function VendorRegistrationScreen() {
           value={address}
           onChangeText={setAddress}
           placeholder="بغداد، المنصور..."
-          placeholderTextColor="#bbb"
+          placeholderTextColor={AppColors.gray300}
           testID="input-address"
         />
 
         <View style={styles.infoBox}>
-          <Feather name="info" size={14} color="#666" />
+          <Feather name="info" size={14} color={AppColors.gray500} />
           <ThemedText style={styles.infoText}>
             سيتم مراجعة طلبك خلال 24 ساعة وستصلك إشعار عند الموافقة
           </ThemedText>
@@ -205,7 +206,7 @@ export default function VendorRegistrationScreen() {
           testID="button-submit"
         >
           {loading ? (
-            <ActivityIndicator color="#fff" />
+            <ActivityIndicator color={AppColors.white} />
           ) : (
             <ThemedText style={styles.submitText}>إرسال طلب الانضمام</ThemedText>
           )}
@@ -225,7 +226,7 @@ function Label({ text, required }: { text: string; required?: boolean }) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#fff" },
+  container: { flex: 1, backgroundColor: AppColors.white },
   header: {
     paddingBottom: 32,
     paddingHorizontal: 20,
@@ -239,65 +240,65 @@ const styles = StyleSheet.create({
     alignSelf: "flex-end",
   },
   headerTextWrap: { alignItems: "center", marginTop: 8 },
-  headerTitle: { fontFamily: "Cairo_700Bold", fontSize: 20, color: "#fff", textAlign: "center" },
+  headerTitle: { fontFamily: "Cairo_700Bold", fontSize: 20, color: AppColors.white, textAlign: "center" },
   headerSub: { fontFamily: "Cairo_400Regular", fontSize: 13, color: "rgba(255,255,255,0.75)", textAlign: "center", marginTop: 4 },
   scroll: { flex: 1 },
-  label: { fontFamily: "Cairo_700Bold", fontSize: 13, color: "#444", marginBottom: 6, textAlign: "right" },
+  label: { fontFamily: "Cairo_700Bold", fontSize: 13, color: AppColors.gray700, marginBottom: 6, textAlign: "right" },
   input: {
-    borderWidth: 1.5, borderColor: "#E5E7EB", borderRadius: 12,
+    borderWidth: 1.5, borderColor: AppColors.divider, borderRadius: 12,
     paddingHorizontal: 14, paddingVertical: 12,
-    fontFamily: "Cairo_400Regular", fontSize: 14, color: "#111",
+    fontFamily: "Cairo_400Regular", fontSize: 14, color: AppColors.black,
     textAlign: "right", marginBottom: 16,
-    backgroundColor: "#FAFAFA",
+    backgroundColor: AppColors.gray50,
   },
   pickerWrap: {
-    borderWidth: 1.5, borderColor: "#E5E7EB", borderRadius: 12,
-    marginBottom: 16, backgroundColor: "#FAFAFA", overflow: "hidden",
+    borderWidth: 1.5, borderColor: AppColors.divider, borderRadius: 12,
+    marginBottom: 16, backgroundColor: AppColors.gray50, overflow: "hidden",
   },
-  picker: { height: Platform.OS === "ios" ? 150 : 50, color: "#111" },
+  picker: { height: Platform.OS === "ios" ? 150 : 50, color: AppColors.black },
   errorBox: {
     flexDirection: "row", alignItems: "center", gap: 8,
-    backgroundColor: "#FEF2F2", borderRadius: 10,
-    padding: 12, marginBottom: 16, borderWidth: 1, borderColor: "#FECACA",
+    backgroundColor: AppColors.errorLight, borderRadius: 10,
+    padding: 12, marginBottom: 16, borderWidth: 1, borderColor: AppColors.error,
   },
-  errorText: { fontFamily: "Cairo_400Regular", fontSize: 13, color: "#EF4444", flex: 1, textAlign: "right" },
+  errorText: { fontFamily: "Cairo_400Regular", fontSize: 13, color: AppColors.error, flex: 1, textAlign: "right" },
   phoneNote: {
     flexDirection: "row", alignItems: "center", gap: 6,
-    backgroundColor: "#FFF7ED", borderRadius: 10,
-    padding: 10, marginBottom: 20, borderWidth: 1, borderColor: "#FED7AA",
+    backgroundColor: AppColors.secondary, borderRadius: 10,
+    padding: 10, marginBottom: 20, borderWidth: 1, borderColor: AppColors.secondary,
   },
-  phoneNoteText: { fontFamily: "Cairo_400Regular", fontSize: 13, color: "#92400E", flex: 1, textAlign: "right" },
+  phoneNoteText: { fontFamily: "Cairo_400Regular", fontSize: 13, color: AppColors.primaryDark, flex: 1, textAlign: "right" },
   infoBox: {
     flexDirection: "row", alignItems: "flex-start", gap: 8,
-    backgroundColor: "#F9FAFB", borderRadius: 10,
-    padding: 12, marginBottom: 20, borderWidth: 1, borderColor: "#E5E7EB",
+    backgroundColor: AppColors.gray50, borderRadius: 10,
+    padding: 12, marginBottom: 20, borderWidth: 1, borderColor: AppColors.divider,
   },
-  infoText: { fontFamily: "Cairo_400Regular", fontSize: 12, color: "#666", flex: 1, textAlign: "right", lineHeight: 20 },
+  infoText: { fontFamily: "Cairo_400Regular", fontSize: 12, color: AppColors.gray500, flex: 1, textAlign: "right", lineHeight: 20 },
   submitBtn: {
     backgroundColor: PURPLE, borderRadius: 14, paddingVertical: 14,
     alignItems: "center",
   },
   submitDisabled: { opacity: 0.6 },
-  submitText: { fontFamily: "Cairo_700Bold", fontSize: 16, color: "#fff" },
+  submitText: { fontFamily: "Cairo_700Bold", fontSize: 16, color: AppColors.white },
   // Success
-  successWrap: { flex: 1, backgroundColor: "#fff", alignItems: "center", paddingHorizontal: 32 },
+  successWrap: { flex: 1, backgroundColor: AppColors.white, alignItems: "center", paddingHorizontal: 32 },
   successIconBg: {
     width: 110, height: 110, borderRadius: 32,
     justifyContent: "center", alignItems: "center", marginBottom: 24,
   },
-  successTitle: { fontFamily: "Cairo_700Bold", fontSize: 22, color: "#333", textAlign: "center", marginBottom: 12 },
-  successSub: { fontFamily: "Cairo_400Regular", fontSize: 14, color: "#666", textAlign: "center", lineHeight: 24, marginBottom: 32 },
+  successTitle: { fontFamily: "Cairo_700Bold", fontSize: 22, color: AppColors.gray700, textAlign: "center", marginBottom: 12 },
+  successSub: { fontFamily: "Cairo_400Regular", fontSize: 14, color: AppColors.gray500, textAlign: "center", lineHeight: 24, marginBottom: 32 },
   pendingSteps: { width: "100%", gap: 14, marginBottom: 40 },
   stepRow: { flexDirection: "row", alignItems: "center" },
   stepNum: {
     width: 26, height: 26, borderRadius: 13,
     justifyContent: "center", alignItems: "center",
   },
-  stepNumText: { fontFamily: "Cairo_700Bold", fontSize: 12, color: "#fff" },
+  stepNumText: { fontFamily: "Cairo_700Bold", fontSize: 12, color: AppColors.white },
   stepLabel: { fontFamily: "Cairo_400Regular", fontSize: 14 },
   doneBtn: {
     backgroundColor: PURPLE, borderRadius: 14, paddingVertical: 14,
     paddingHorizontal: 32, alignItems: "center", width: "100%",
   },
-  doneBtnText: { fontFamily: "Cairo_700Bold", fontSize: 16, color: "#fff" },
+  doneBtnText: { fontFamily: "Cairo_700Bold", fontSize: 16, color: AppColors.white },
 });

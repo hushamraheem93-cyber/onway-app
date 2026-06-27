@@ -25,7 +25,7 @@ import { useAuth } from "@/context/AuthContext";
 import { getApiUrl, apiRequest } from "@/lib/query-client";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
 
-const BRAND_ORANGE = "#E86520";
+const BRAND_ORANGE = AppColors.primary;
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
@@ -153,11 +153,11 @@ export default function CourierPickupScreen() {
           <View style={styles.inputGroup}>
             <ThemedText style={styles.label}>اسم صاحب الطلب</ThemedText>
             <View style={[styles.inputContainer, { backgroundColor: theme.backgroundSecondary }]}>
-              <Feather name="user" size={18} color="#999" style={styles.inputIcon} />
+              <Feather name="user" size={18} color={AppColors.gray400} style={styles.inputIcon} />
               <TextInput
                 style={[styles.input, { color: theme.text }]}
                 placeholder="أدخل اسم صاحب الطلب"
-                placeholderTextColor="#BBB"
+                placeholderTextColor={AppColors.gray300}
                 value={customerName}
                 onChangeText={setCustomerName}
                 textAlign="right"
@@ -169,11 +169,11 @@ export default function CourierPickupScreen() {
           <View style={styles.inputGroup}>
             <ThemedText style={styles.label}>رقم هاتف صاحب الطلب</ThemedText>
             <View style={[styles.inputContainer, { backgroundColor: theme.backgroundSecondary }]}>
-              <Feather name="phone" size={18} color="#999" style={styles.inputIcon} />
+              <Feather name="phone" size={18} color={AppColors.gray400} style={styles.inputIcon} />
               <TextInput
                 style={[styles.input, { color: theme.text }]}
                 placeholder="07xxxxxxxxx"
-                placeholderTextColor="#BBB"
+                placeholderTextColor={AppColors.gray300}
                 value={customerPhone}
                 onChangeText={setCustomerPhone}
                 keyboardType="phone-pad"
@@ -186,11 +186,11 @@ export default function CourierPickupScreen() {
           <View style={styles.inputGroup}>
             <ThemedText style={styles.label}>سعر الطلب (د.ع)</ThemedText>
             <View style={[styles.inputContainer, { backgroundColor: theme.backgroundSecondary }]}>
-              <Feather name="dollar-sign" size={18} color="#999" style={styles.inputIcon} />
+              <Feather name="dollar-sign" size={18} color={AppColors.gray400} style={styles.inputIcon} />
               <TextInput
                 style={[styles.input, { color: theme.text }]}
                 placeholder="أدخل سعر الطلب بالدينار"
-                placeholderTextColor="#BBB"
+                placeholderTextColor={AppColors.gray300}
                 value={orderPrice}
                 onChangeText={setOrderPrice}
                 keyboardType="numeric"
@@ -207,11 +207,11 @@ export default function CourierPickupScreen() {
           <View style={styles.inputGroup}>
             <ThemedText style={styles.label}>موقع المندوب</ThemedText>
             <View style={[styles.inputContainer, { backgroundColor: theme.backgroundSecondary }]}>
-              <Feather name="map-pin" size={18} color="#999" style={styles.inputIcon} />
+              <Feather name="map-pin" size={18} color={AppColors.gray400} style={styles.inputIcon} />
               <TextInput
                 style={[styles.input, { color: theme.text }]}
                 placeholder="أدخل موقع أو عنوان المندوب"
-                placeholderTextColor="#BBB"
+                placeholderTextColor={AppColors.gray300}
                 value={courierLocation}
                 onChangeText={setCourierLocation}
                 textAlign="right"
@@ -223,11 +223,11 @@ export default function CourierPickupScreen() {
           <View style={styles.inputGroup}>
             <ThemedText style={styles.label}>رقم هاتف المندوب</ThemedText>
             <View style={[styles.inputContainer, { backgroundColor: theme.backgroundSecondary }]}>
-              <Feather name="phone-call" size={18} color="#999" style={styles.inputIcon} />
+              <Feather name="phone-call" size={18} color={AppColors.gray400} style={styles.inputIcon} />
               <TextInput
                 style={[styles.input, { color: theme.text }]}
                 placeholder="07xxxxxxxxx"
-                placeholderTextColor="#BBB"
+                placeholderTextColor={AppColors.gray300}
                 value={courierPhone}
                 onChangeText={setCourierPhone}
                 keyboardType="phone-pad"
@@ -243,7 +243,7 @@ export default function CourierPickupScreen() {
               <TextInput
                 style={[styles.input, styles.textAreaInput, { color: theme.text }]}
                 placeholder="أي تفاصيل إضافية عن الطلب..."
-                placeholderTextColor="#BBB"
+                placeholderTextColor={AppColors.gray300}
                 value={notes}
                 onChangeText={setNotes}
                 multiline
@@ -266,10 +266,10 @@ export default function CourierPickupScreen() {
           testID="button-submit-courier"
         >
           {isSubmitting ? (
-            <ActivityIndicator size="small" color="#FFF" />
+            <ActivityIndicator size="small" color={AppColors.white} />
           ) : (
             <>
-              <Feather name="send" size={18} color="#FFF" style={{ marginLeft: 8 }} />
+              <Feather name="send" size={18} color={AppColors.white} style={{ marginLeft: 8 }} />
               <ThemedText style={styles.submitButtonText}>تقديم الطلب</ThemedText>
             </>
           )}
@@ -291,7 +291,7 @@ const styles = StyleSheet.create({
     width: 70,
     height: 70,
     borderRadius: 20,
-    backgroundColor: "#FFF5EE",
+    backgroundColor: AppColors.secondary,
     justifyContent: "center",
     alignItems: "center",
     marginBottom: 16,
@@ -299,7 +299,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontFamily: "Cairo_700Bold",
     fontSize: 17,
-    color: "#2D2D2D",
+    color: AppColors.textPrimary,
     textAlign: "center",
     lineHeight: 38,
     includeFontPadding: true,
@@ -330,7 +330,7 @@ const styles = StyleSheet.create({
   label: {
     fontFamily: "Cairo_600SemiBold",
     fontSize: 14,
-    color: "#444",
+    color: AppColors.gray700,
     textAlign: "right",
     marginBottom: 8,
     lineHeight: 24,
@@ -341,7 +341,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     borderRadius: 14,
     borderWidth: 1.5,
-    borderColor: "#F0F0F0",
+    borderColor: AppColors.backgroundSecondary,
     paddingHorizontal: 14,
     height: 52,
   },
@@ -365,7 +365,7 @@ const styles = StyleSheet.create({
   },
   divider: {
     height: 1,
-    backgroundColor: "#F0F0F0",
+    backgroundColor: AppColors.backgroundSecondary,
     marginVertical: 20,
   },
   submitButton: {
@@ -383,7 +383,7 @@ const styles = StyleSheet.create({
   submitButtonText: {
     fontFamily: "Cairo_700Bold",
     fontSize: 13,
-    color: "#FFFFFF",
+    color: AppColors.white,
     lineHeight: 28,
     includeFontPadding: true,
   },
@@ -399,7 +399,7 @@ const styles = StyleSheet.create({
   successTitle: {
     fontFamily: "Cairo_700Bold",
     fontSize: 17,
-    color: "#2D2D2D",
+    color: AppColors.textPrimary,
     textAlign: "center",
     lineHeight: 38,
     includeFontPadding: true,
@@ -408,7 +408,7 @@ const styles = StyleSheet.create({
   successSubtitle: {
     fontFamily: "Cairo_400Regular",
     fontSize: 14,
-    color: "#888",
+    color: AppColors.gray500,
     textAlign: "center",
     lineHeight: 24,
     includeFontPadding: true,
@@ -423,7 +423,7 @@ const styles = StyleSheet.create({
   backButtonText: {
     fontFamily: "Cairo_700Bold",
     fontSize: 12,
-    color: "#FFFFFF",
+    color: AppColors.white,
     lineHeight: 26,
     includeFontPadding: true,
   },

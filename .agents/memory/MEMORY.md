@@ -1,3 +1,4 @@
 - [Vendor UI architecture](vendor-ui-arch.md) — VendorTabNavigator now has 5 tabs: Home, Orders, Products, Profits(wallet), Account(profile). Notifications tab removed; new-order popup is global in VendorNotificationsContext.
 - [Firestore Architecture](firestore-architecture.md) — client SDK initialized but never used for direct reads; all data goes through Express Admin SDK.
 - [Security Audit Baseline](security-audit-baseline.md) — JWT fail-fast, OTP log removal, demo data cleanup, Firestore rules — completed Jun 2026.
+- [Design System Color Tokens](design-system-colors.md) — All colors live in client/constants/theme.ts (AppColors, ORDER_STATUS_COLORS, ORDER_STATUS_LABELS, Gradients). Zero hardcoded hex across screens/components/navigation.

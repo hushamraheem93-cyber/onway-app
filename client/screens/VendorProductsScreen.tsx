@@ -19,10 +19,11 @@ import { ThemedText } from "@/components/ThemedText";
 import { useAuth } from "@/context/AuthContext";
 import { getApiUrl } from "@/lib/query-client";
 import { resolveImageUrl } from "@/utils/imageUtils";
+import { AppColors } from "@/constants/theme";
 
-const ORANGE = "#E86520";
-const ORANGE_LIGHT = "#FFF0E6";
-const ORANGE_BG = "#FFF8F4";
+const ORANGE = AppColors.primary;
+const ORANGE_LIGHT = AppColors.secondary;
+const ORANGE_BG = AppColors.secondary;
 
 interface Product {
   id: string;
@@ -52,40 +53,40 @@ const STATUS_LABELS: Record<string, string> = {
   deleted: "محذوف",
 };
 const STATUS_COLORS: Record<string, string> = {
-  pending: "#F59E0B",
-  approved: "#10B981",
-  rejected: "#EF4444",
-  deleted: "#9CA3AF",
+  pending: AppColors.warning,
+  approved: AppColors.success,
+  rejected: AppColors.error,
+  deleted: AppColors.gray400,
 };
 
 // Map Arabic category names (or categoryId keys) to icon + color
 const CATEGORY_CFG: Record<string, { icon: string; color: string; bg: string }> = {
-  "مواد غذائية":            { icon: "food-variant",              color: "#F57F17", bg: "#FFF8E1" },
-  "food-supplies":          { icon: "food-variant",              color: "#F57F17", bg: "#FFF8E1" },
-  "مشروبات":                { icon: "cup-water",                 color: "#0288D1", bg: "#E1F5FE" },
-  "beverages":              { icon: "cup-water",                 color: "#0288D1", bg: "#E1F5FE" },
-  "منظفات":                 { icon: "spray-bottle",              color: "#0097A7", bg: "#E0F7FA" },
-  "cleaning-care":          { icon: "spray-bottle",              color: "#0097A7", bg: "#E0F7FA" },
-  "خضروات وفواكه":          { icon: "food-apple",               color: "#388E3C", bg: "#E8F5E9" },
-  "fruits-vegetables":      { icon: "food-apple",               color: "#388E3C", bg: "#E8F5E9" },
-  "لحوم":                   { icon: "food-steak",               color: "#C62828", bg: "#FFEBEE" },
-  "meat-poultry":           { icon: "food-steak",               color: "#C62828", bg: "#FFEBEE" },
-  "ألبان وأجبان":           { icon: "cheese",                   color: "#7B1FA2", bg: "#F3E5F5" },
-  "dairy-eggs":             { icon: "cheese",                   color: "#7B1FA2", bg: "#F3E5F5" },
-  "سناكس وحلويات":          { icon: "cookie",                   color: "#E65100", bg: "#FBE9E7" },
-  "snacks-sweets":          { icon: "cookie",                   color: "#E65100", bg: "#FBE9E7" },
-  "شاي وقهوة":              { icon: "coffee",                   color: "#5D4037", bg: "#EFEBE9" },
-  "tea-coffee":             { icon: "coffee",                   color: "#5D4037", bg: "#EFEBE9" },
-  "مطاعم":                  { icon: "silverware-fork-knife",    color: "#E86520", bg: "#FFF0E6" },
-  "restaurants":            { icon: "silverware-fork-knife",    color: "#E86520", bg: "#FFF0E6" },
-  "أطفال":                  { icon: "baby-carriage",            color: "#E91E63", bg: "#FCE4EC" },
-  "baby":                   { icon: "baby-carriage",            color: "#E91E63", bg: "#FCE4EC" },
-  "هدايا وورود":            { icon: "flower",                   color: "#D81B60", bg: "#FCE4EC" },
-  "flowers":                { icon: "flower",                   color: "#D81B60", bg: "#FCE4EC" },
-  "صيدلية":                 { icon: "medical-bag",              color: "#6A1B9A", bg: "#EDE7F6" },
-  "pharmacy":               { icon: "medical-bag",              color: "#6A1B9A", bg: "#EDE7F6" },
-  "حقائب":                  { icon: "bag-personal",             color: "#AD1457", bg: "#FCE4EC" },
-  "women-bags":             { icon: "bag-personal",             color: "#AD1457", bg: "#FCE4EC" },
+  "مواد غذائية":            { icon: "food-variant",              color: AppColors.warning, bg: AppColors.warningLight },
+  "food-supplies":          { icon: "food-variant",              color: AppColors.warning, bg: AppColors.warningLight },
+  "مشروبات":                { icon: "cup-water",                 color: AppColors.info, bg: AppColors.infoLight },
+  "beverages":              { icon: "cup-water",                 color: AppColors.info, bg: AppColors.infoLight },
+  "منظفات":                 { icon: "spray-bottle",              color: AppColors.statusCyan, bg: AppColors.infoLight },
+  "cleaning-care":          { icon: "spray-bottle",              color: AppColors.statusCyan, bg: AppColors.infoLight },
+  "خضروات وفواكه":          { icon: "food-apple",               color: AppColors.success, bg: AppColors.successLight },
+  "fruits-vegetables":      { icon: "food-apple",               color: AppColors.success, bg: AppColors.successLight },
+  "لحوم":                   { icon: "food-steak",               color: AppColors.error, bg: AppColors.errorLight },
+  "meat-poultry":           { icon: "food-steak",               color: AppColors.error, bg: AppColors.errorLight },
+  "ألبان وأجبان":           { icon: "cheese",                   color: AppColors.vendorPurple, bg: AppColors.vendorPurpleLight },
+  "dairy-eggs":             { icon: "cheese",                   color: AppColors.vendorPurple, bg: AppColors.vendorPurpleLight },
+  "سناكس وحلويات":          { icon: "cookie",                   color: AppColors.primary, bg: AppColors.errorLight },
+  "snacks-sweets":          { icon: "cookie",                   color: AppColors.primary, bg: AppColors.errorLight },
+  "شاي وقهوة":              { icon: "coffee",                   color: AppColors.gray700, bg: AppColors.gray100 },
+  "tea-coffee":             { icon: "coffee",                   color: AppColors.gray700, bg: AppColors.gray100 },
+  "مطاعم":                  { icon: "silverware-fork-knife",    color: AppColors.primary, bg: AppColors.secondary },
+  "restaurants":            { icon: "silverware-fork-knife",    color: AppColors.primary, bg: AppColors.secondary },
+  "أطفال":                  { icon: "baby-carriage",            color: AppColors.error, bg: AppColors.errorLight },
+  "baby":                   { icon: "baby-carriage",            color: AppColors.error, bg: AppColors.errorLight },
+  "هدايا وورود":            { icon: "flower",                   color: AppColors.error, bg: AppColors.errorLight },
+  "flowers":                { icon: "flower",                   color: AppColors.error, bg: AppColors.errorLight },
+  "صيدلية":                 { icon: "medical-bag",              color: AppColors.vendorPurple, bg: AppColors.vendorPurpleLight },
+  "pharmacy":               { icon: "medical-bag",              color: AppColors.vendorPurple, bg: AppColors.vendorPurpleLight },
+  "حقائب":                  { icon: "bag-personal",             color: AppColors.error, bg: AppColors.errorLight },
+  "women-bags":             { icon: "bag-personal",             color: AppColors.error, bg: AppColors.errorLight },
 };
 
 function getCategoryCfg(name: string) {
@@ -371,7 +372,7 @@ export default function VendorProductsScreen({ navigation }: any) {
 
   const renderEmpty = () => (
     <View style={styles.empty}>
-      <MaterialCommunityIcons name="package-variant-closed" size={56} color="#DDD" />
+      <MaterialCommunityIcons name="package-variant-closed" size={56} color={AppColors.gray300} />
       <ThemedText style={styles.emptyTitle}>لا توجد منتجات</ThemedText>
       <ThemedText style={styles.emptyDesc}>
         {isPending
@@ -430,7 +431,7 @@ export default function VendorProductsScreen({ navigation }: any) {
             testID="button-select-all"
           >
             <View style={[styles.checkbox, allSelected && styles.checkboxChecked]}>
-              {allSelected ? <Feather name="check" size={12} color="#fff" /> : null}
+              {allSelected ? <Feather name="check" size={12} color={AppColors.white} /> : null}
             </View>
             <ThemedText style={styles.selectAllText}>
               {allSelected ? "إلغاء تحديد الكل" : "تحديد الكل"}
@@ -478,7 +479,7 @@ export default function VendorProductsScreen({ navigation }: any) {
           }}
           testID="button-add-product"
         >
-          <Feather name="plus" size={24} color="#fff" />
+          <Feather name="plus" size={24} color={AppColors.white} />
         </Pressable>
       ) : null}
 
@@ -502,7 +503,7 @@ export default function VendorProductsScreen({ navigation }: any) {
             <Feather
               name="trash-2"
               size={16}
-              color={selectedIds.size > 0 ? "#fff" : "#aaa"}
+              color={selectedIds.size > 0 ? AppColors.white : AppColors.gray400}
             />
             <ThemedText
               style={[
@@ -525,7 +526,7 @@ export default function VendorProductsScreen({ navigation }: any) {
             <MaterialCommunityIcons
               name="trash-can-outline"
               size={40}
-              color="#EF4444"
+              color={AppColors.error}
               style={{ marginBottom: 12 }}
             />
             <ThemedText style={styles.deleteTitle}>حذف المنتج</ThemedText>
@@ -539,7 +540,7 @@ export default function VendorProductsScreen({ navigation }: any) {
                 disabled={deleting}
               >
                 {deleting ? (
-                  <ActivityIndicator color="#fff" size="small" />
+                  <ActivityIndicator color={AppColors.white} size="small" />
                 ) : (
                   <ThemedText style={styles.deleteBtnText}>نعم، احذف</ThemedText>
                 )}
@@ -562,7 +563,7 @@ export default function VendorProductsScreen({ navigation }: any) {
             <MaterialCommunityIcons
               name="trash-can-outline"
               size={40}
-              color="#EF4444"
+              color={AppColors.error}
               style={{ marginBottom: 12 }}
             />
             <ThemedText style={styles.deleteTitle}>حذف المنتجات المحددة</ThemedText>
@@ -577,7 +578,7 @@ export default function VendorProductsScreen({ navigation }: any) {
                 testID="button-confirm-bulk-delete"
               >
                 {bulkDeleting ? (
-                  <ActivityIndicator color="#fff" size="small" />
+                  <ActivityIndicator color={AppColors.white} size="small" />
                 ) : (
                   <ThemedText style={styles.deleteBtnText}>نعم، احذف</ThemedText>
                 )}
@@ -601,7 +602,7 @@ export default function VendorProductsScreen({ navigation }: any) {
             <MaterialCommunityIcons
               name={resultModal?.failed === 0 ? "check-circle-outline" : "alert-circle-outline"}
               size={44}
-              color={resultModal?.failed === 0 ? "#10B981" : "#F59E0B"}
+              color={resultModal?.failed === 0 ? AppColors.success : AppColors.warning}
               style={{ marginBottom: 12 }}
             />
             <ThemedText style={styles.deleteTitle}>
@@ -647,7 +648,7 @@ function ProductCard({
   onToggleAvailability: () => void;
   togglingAvailability: boolean;
 }) {
-  const statusColor = STATUS_COLORS[item.status] || "#999";
+  const statusColor = STATUS_COLORS[item.status] || AppColors.gray400;
   const available = item.inStock !== false;
 
   return (
@@ -664,13 +665,13 @@ function ProductCard({
         />
       ) : (
         <View style={[styles.productImg, styles.productImgPlaceholder]}>
-          <MaterialCommunityIcons name="image-off" size={24} color="#ccc" />
+          <MaterialCommunityIcons name="image-off" size={24} color={AppColors.gray300} />
         </View>
       )}
       {selectMode ? (
         <View style={styles.checkboxOverlay}>
           <View style={[styles.checkbox, selected && styles.checkboxChecked]}>
-            {selected ? <Feather name="check" size={12} color="#fff" /> : null}
+            {selected ? <Feather name="check" size={12} color={AppColors.white} /> : null}
           </View>
         </View>
       ) : null}
@@ -702,11 +703,11 @@ function ProductCard({
                 testID={`button-availability-${item.id}`}
               >
                 {togglingAvailability ? (
-                  <ActivityIndicator size={10} color={available ? "#10B981" : "#EF4444"} />
+                  <ActivityIndicator size={10} color={available ? AppColors.success : AppColors.error} />
                 ) : (
-                  <View style={[styles.pillDot, { backgroundColor: available ? "#10B981" : "#EF4444" }]} />
+                  <View style={[styles.pillDot, { backgroundColor: available ? AppColors.success : AppColors.error }]} />
                 )}
-                <ThemedText style={[styles.availabilityText, { color: available ? "#10B981" : "#EF4444" }]}>
+                <ThemedText style={[styles.availabilityText, { color: available ? AppColors.success : AppColors.error }]}>
                   {available ? "متوفر" : "نفذ"}
                 </ThemedText>
               </Pressable>
@@ -715,7 +716,7 @@ function ProductCard({
                 onPress={onCopy}
                 testID={`button-copy-${item.id}`}
               >
-                <Feather name="copy" size={15} color="#6366F1" />
+                <Feather name="copy" size={15} color={AppColors.statusPurple} />
               </Pressable>
               <Pressable
                 style={styles.editIconBtn}
@@ -729,7 +730,7 @@ function ProductCard({
                 onPress={onDelete}
                 testID={`button-delete-${item.id}`}
               >
-                <Feather name="trash-2" size={15} color="#EF4444" />
+                <Feather name="trash-2" size={15} color={AppColors.error} />
               </Pressable>
             </View>
           ) : null}
@@ -761,13 +762,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 7,
     borderRadius: 20,
-    backgroundColor: "#fff",
+    backgroundColor: AppColors.white,
     borderWidth: 1.5,
-    borderColor: "#E5E7EB",
+    borderColor: AppColors.divider,
   },
   filterChipActive: { backgroundColor: ORANGE, borderColor: ORANGE },
-  filterText: { fontFamily: "Cairo_700Bold", fontSize: 12, color: "#666" },
-  filterTextActive: { color: "#fff" },
+  filterText: { fontFamily: "Cairo_700Bold", fontSize: 12, color: AppColors.gray500 },
+  filterTextActive: { color: AppColors.white },
 
   // Select-all bar
   selectAllBar: {
@@ -801,7 +802,7 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     borderWidth: 2,
     borderColor: ORANGE,
-    backgroundColor: "#fff",
+    backgroundColor: AppColors.white,
     justifyContent: "center",
     alignItems: "center",
   },
@@ -865,7 +866,7 @@ const styles = StyleSheet.create({
 
   // Product card
   productCard: {
-    backgroundColor: "#fff",
+    backgroundColor: AppColors.white,
     borderRadius: 16,
     marginBottom: 10,
     flexDirection: "row",
@@ -884,7 +885,7 @@ const styles = StyleSheet.create({
   productImgPlaceholder: {
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "#FFF5EE",
+    backgroundColor: AppColors.secondary,
   },
   productInfo: { flex: 1, padding: 12 },
   productRow: {
@@ -896,7 +897,7 @@ const styles = StyleSheet.create({
   productName: {
     fontFamily: "Cairo_700Bold",
     fontSize: 14,
-    color: "#1A1A1A",
+    color: AppColors.black,
     flex: 1,
     textAlign: "right",
     marginLeft: 6,
@@ -921,12 +922,12 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   availablePill: {
-    backgroundColor: "#ECFDF5",
-    borderColor: "#A7F3D0",
+    backgroundColor: AppColors.successLight,
+    borderColor: AppColors.successLight,
   },
   unavailablePill: {
-    backgroundColor: "#FFF1F2",
-    borderColor: "#FECDD3",
+    backgroundColor: AppColors.secondary,
+    borderColor: AppColors.errorLight,
   },
   pillDot: {
     width: 6,
@@ -941,7 +942,7 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 8,
-    backgroundColor: "#EEF2FF",
+    backgroundColor: AppColors.vendorPurpleLight,
     justifyContent: "center",
     alignItems: "center",
   },
@@ -957,14 +958,14 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 8,
-    backgroundColor: "#FEF2F2",
+    backgroundColor: AppColors.errorLight,
     justifyContent: "center",
     alignItems: "center",
   },
   rejectionReason: {
     fontFamily: "Cairo_400Regular",
     fontSize: 11,
-    color: "#EF4444",
+    color: AppColors.error,
     textAlign: "right",
     marginTop: 4,
     lineHeight: 18,
@@ -998,21 +999,21 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     gap: 8,
-    backgroundColor: "#EF4444",
+    backgroundColor: AppColors.error,
     paddingVertical: 14,
     borderRadius: 16,
     elevation: 6,
   },
   bulkDeleteBtnDisabled: {
-    backgroundColor: "#F3F4F6",
+    backgroundColor: AppColors.gray100,
   },
   bulkDeleteText: {
     fontFamily: "Cairo_700Bold",
     fontSize: 14,
-    color: "#fff",
+    color: AppColors.white,
   },
   bulkDeleteTextDisabled: {
-    color: "#aaa",
+    color: AppColors.gray400,
   },
 
   // Empty
@@ -1025,14 +1026,14 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontFamily: "Cairo_700Bold",
     fontSize: 16,
-    color: "#aaa",
+    color: AppColors.gray400,
     textAlign: "center",
     marginTop: 12,
   },
   emptyDesc: {
     fontFamily: "Cairo_400Regular",
     fontSize: 13,
-    color: "#ccc",
+    color: AppColors.gray300,
     textAlign: "center",
     marginTop: 6,
     lineHeight: 22,
@@ -1042,13 +1043,13 @@ const styles = StyleSheet.create({
   // Modals
   modalOverlay: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.5)",
+    backgroundColor: AppColors.overlay,
     justifyContent: "center",
     alignItems: "center",
     padding: 24,
   },
   deleteModal: {
-    backgroundColor: "#fff",
+    backgroundColor: AppColors.white,
     borderRadius: 20,
     padding: 28,
     width: "100%",
@@ -1057,20 +1058,20 @@ const styles = StyleSheet.create({
   deleteTitle: {
     fontFamily: "Cairo_700Bold",
     fontSize: 18,
-    color: "#222",
+    color: AppColors.black,
     marginBottom: 6,
   },
   deleteDesc: {
     fontFamily: "Cairo_400Regular",
     fontSize: 14,
-    color: "#666",
+    color: AppColors.gray500,
     textAlign: "center",
     marginBottom: 24,
   },
   deleteActions: { flexDirection: "row", gap: 12, width: "100%" },
   deleteBtn: { flex: 1, paddingVertical: 12, borderRadius: 12, alignItems: "center" },
-  deleteBtnConfirm: { backgroundColor: "#EF4444" },
-  deleteBtnCancel: { backgroundColor: "#F3F4F6" },
-  deleteBtnText: { fontFamily: "Cairo_700Bold", fontSize: 14, color: "#fff" },
-  deleteCancelText: { fontFamily: "Cairo_700Bold", fontSize: 14, color: "#444" },
+  deleteBtnConfirm: { backgroundColor: AppColors.error },
+  deleteBtnCancel: { backgroundColor: AppColors.gray100 },
+  deleteBtnText: { fontFamily: "Cairo_700Bold", fontSize: 14, color: AppColors.white },
+  deleteCancelText: { fontFamily: "Cairo_700Bold", fontSize: 14, color: AppColors.gray700 },
 });

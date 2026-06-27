@@ -14,9 +14,10 @@ import * as Haptics from "expo-haptics";
 
 import { ThemedText } from "@/components/ThemedText";
 import { useAuth, UserType } from "@/context/AuthContext";
+import { AppColors } from "@/constants/theme";
 
-const BRAND_ORANGE = "#E86520";
-const BRAND_DARK = "#C4520F";
+const BRAND_ORANGE = AppColors.primary;
+const BRAND_DARK = AppColors.primaryDark;
 
 export default function UserTypeScreen() {
   const insets = useSafeAreaInsets();
@@ -65,7 +66,7 @@ export default function UserTypeScreen() {
           }}
           testID="button-back"
         >
-          <Feather name="arrow-right" size={22} color="#FFFFFF" />
+          <Feather name="arrow-right" size={22} color={AppColors.white} />
         </Pressable>
         <View style={styles.decorCircle1} />
         <View style={styles.decorCircle2} />
@@ -107,7 +108,7 @@ export default function UserTypeScreen() {
               testID="button-customer"
             >
               <View style={styles.cardArrow}>
-                <MaterialIcons name="keyboard-arrow-left" size={24} color="#999" />
+                <MaterialIcons name="keyboard-arrow-left" size={24} color={AppColors.gray400} />
               </View>
               <View style={styles.cardCenter}>
                 <ThemedText style={styles.cardTitle}>زبون</ThemedText>
@@ -116,8 +117,8 @@ export default function UserTypeScreen() {
                 </ThemedText>
               </View>
               <View style={styles.cardLeft}>
-                <View style={[styles.iconCircle, { backgroundColor: "#FFEDD8" }]}>
-                  <MaterialIcons name="person" size={30} color="#E86520" />
+                <View style={[styles.iconCircle, { backgroundColor: AppColors.secondary }]}>
+                  <MaterialIcons name="person" size={30} color={AppColors.primary} />
                 </View>
               </View>
             </Pressable>
@@ -131,7 +132,7 @@ export default function UserTypeScreen() {
               testID="button-vendor"
             >
               <View style={styles.cardArrow}>
-                <MaterialIcons name="keyboard-arrow-left" size={24} color="#999" />
+                <MaterialIcons name="keyboard-arrow-left" size={24} color={AppColors.gray400} />
               </View>
               <View style={styles.cardCenter}>
                 <ThemedText style={styles.cardTitle}>صاحب متجر</ThemedText>
@@ -143,8 +144,8 @@ export default function UserTypeScreen() {
                 </View>
               </View>
               <View style={styles.cardLeft}>
-                <View style={[styles.iconCircle, { backgroundColor: "#EDE7F6" }]}>
-                  <MaterialCommunityIcons name="store" size={30} color="#673AB7" />
+                <View style={[styles.iconCircle, { backgroundColor: AppColors.vendorPurpleLight }]}>
+                  <MaterialCommunityIcons name="store" size={30} color={AppColors.vendorPurple} />
                 </View>
               </View>
             </Pressable>
@@ -158,7 +159,7 @@ export default function UserTypeScreen() {
               testID="button-driver"
             >
               <View style={styles.cardArrow}>
-                <MaterialIcons name="keyboard-arrow-left" size={24} color="#999" />
+                <MaterialIcons name="keyboard-arrow-left" size={24} color={AppColors.gray400} />
               </View>
               <View style={styles.cardCenter}>
                 <ThemedText style={styles.cardTitle}>سائق توصيل</ThemedText>
@@ -167,8 +168,8 @@ export default function UserTypeScreen() {
                 </ThemedText>
               </View>
               <View style={styles.cardLeft}>
-                <View style={[styles.iconCircle, { backgroundColor: "#E0F2F1" }]}>
-                  <FontAwesome5 name="motorcycle" size={28} color="#009688" />
+                <View style={[styles.iconCircle, { backgroundColor: AppColors.successLight }]}>
+                  <FontAwesome5 name="motorcycle" size={28} color={AppColors.statusCyan} />
                 </View>
               </View>
             </Pressable>
@@ -182,7 +183,7 @@ export default function UserTypeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: AppColors.white,
   },
   backBtn: {
     position: "absolute",
@@ -209,7 +210,7 @@ const styles = StyleSheet.create({
     width: 180,
     height: 180,
     borderRadius: 90,
-    backgroundColor: "rgba(255,255,255,0.08)",
+    backgroundColor: AppColors.decorativeOnBrand,
   },
   decorCircle2: {
     position: "absolute",
@@ -218,7 +219,7 @@ const styles = StyleSheet.create({
     width: 140,
     height: 140,
     borderRadius: 70,
-    backgroundColor: "rgba(255,255,255,0.06)",
+    backgroundColor: AppColors.decorativeOnBrand,
   },
   headerContent: {
     alignItems: "center",
@@ -234,13 +235,13 @@ const styles = StyleSheet.create({
   logoText: {
     fontFamily: "Cairo_700Bold",
     fontSize: 22,
-    color: "#FFFFFF",
+    color: AppColors.white,
     letterSpacing: 1,
   },
   headerTitle: {
     fontFamily: "Cairo_700Bold",
     fontSize: 18,
-    color: "#FFFFFF",
+    color: AppColors.white,
     textAlign: "center",
   },
   headerSub: {
@@ -251,7 +252,7 @@ const styles = StyleSheet.create({
   },
   card: {
     flex: 1,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: AppColors.white,
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
     marginTop: -24,
@@ -261,7 +262,7 @@ const styles = StyleSheet.create({
   handleBar: {
     width: 40,
     height: 4,
-    backgroundColor: "#E0E0E0",
+    backgroundColor: AppColors.border,
     borderRadius: 2,
     alignSelf: "center",
     marginVertical: 12,
@@ -269,16 +270,16 @@ const styles = StyleSheet.create({
   typeCard: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#F9F9F9",
+    backgroundColor: AppColors.gray50,
     borderRadius: 18,
     padding: 18,
     marginBottom: 14,
     borderWidth: 1.5,
-    borderColor: "#F0F0F0",
+    borderColor: AppColors.backgroundSecondary,
   },
   typeCardPressed: {
     transform: [{ scale: 0.97 }],
-    backgroundColor: "#F5F5F5",
+    backgroundColor: AppColors.gray50,
   },
   cardLeft: {
     marginLeft: 0,
@@ -297,7 +298,7 @@ const styles = StyleSheet.create({
   cardTitle: {
     fontFamily: "Cairo_700Bold",
     fontSize: 14,
-    color: "#2D2D2D",
+    color: AppColors.textPrimary,
     textAlign: "right",
     marginBottom: 2,
     lineHeight: 32,
@@ -306,7 +307,7 @@ const styles = StyleSheet.create({
   cardDesc: {
     fontFamily: "Cairo_400Regular",
     fontSize: 13,
-    color: "#888",
+    color: AppColors.gray500,
     textAlign: "right",
     lineHeight: 22,
     includeFontPadding: true,
@@ -320,7 +321,7 @@ const styles = StyleSheet.create({
   },
   vendorBadge: {
     alignSelf: "flex-end",
-    backgroundColor: "#EDE7F6",
+    backgroundColor: AppColors.vendorPurpleLight,
     borderRadius: 8,
     paddingHorizontal: 8,
     paddingVertical: 2,
@@ -329,6 +330,6 @@ const styles = StyleSheet.create({
   vendorBadgeText: {
     fontFamily: "Cairo_700Bold",
     fontSize: 10,
-    color: "#673AB7",
+    color: AppColors.vendorPurple,
   },
 });

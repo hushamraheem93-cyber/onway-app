@@ -23,8 +23,9 @@ import { ThemedText } from "@/components/ThemedText";
 import { useAuth } from "@/context/AuthContext";
 import { useVendorNotifications } from "@/context/VendorNotificationsContext";
 import { getApiUrl } from "@/lib/query-client";
+import { AppColors } from "@/constants/theme";
 
-const PURPLE = "#673AB7";
+const PURPLE = AppColors.vendorPurple;
 
 const ACCOUNT_TYPES = ["vendor_active", "vendor_rejected", "vendor_suspended"];
 const PRODUCT_TYPES = ["product_approved", "product_rejected"];
@@ -63,42 +64,42 @@ function notifTheme(type: string): {
 } {
   if (type === "vendor_active" || type === "product_approved")
     return {
-      bg: "#F0FDF4",
-      border: "#86EFAC",
+      bg: AppColors.successLight,
+      border: AppColors.success,
       icon: "check-circle",
-      iconColor: "#16A34A",
-      readBg: "#F9FEFB",
-      readBorder: "#D1FAE5",
-      readIconColor: "#6EE7A6",
+      iconColor: AppColors.success,
+      readBg: AppColors.successLight,
+      readBorder: AppColors.successLight,
+      readIconColor: AppColors.success,
     };
   if (type === "vendor_rejected" || type === "product_rejected")
     return {
-      bg: "#FFF5F5",
-      border: "#FECACA",
+      bg: AppColors.errorLight,
+      border: AppColors.error,
       icon: "close-circle",
-      iconColor: "#DC2626",
-      readBg: "#FFFAFA",
-      readBorder: "#FEE2E2",
-      readIconColor: "#FCA5A5",
+      iconColor: AppColors.error,
+      readBg: AppColors.secondary,
+      readBorder: AppColors.errorLight,
+      readIconColor: AppColors.error,
     };
   if (type === "vendor_suspended")
     return {
-      bg: "#FFFBEB",
-      border: "#FDE68A",
+      bg: AppColors.warningLight,
+      border: AppColors.warning,
       icon: "alert-circle",
-      iconColor: "#D97706",
-      readBg: "#FFFDF5",
-      readBorder: "#FEF3C7",
-      readIconColor: "#FCD34D",
+      iconColor: AppColors.warning,
+      readBg: AppColors.secondary,
+      readBorder: AppColors.warningLight,
+      readIconColor: AppColors.warning,
     };
   return {
-    bg: "#F0F9FF",
-    border: "#BAE6FD",
+    bg: AppColors.infoLight,
+    border: AppColors.infoLight,
     icon: "bell",
     iconColor: PURPLE,
-    readBg: "#F8FBFF",
-    readBorder: "#E0F2FE",
-    readIconColor: "#93C5FD",
+    readBg: AppColors.infoLight,
+    readBorder: AppColors.infoLight,
+    readIconColor: AppColors.info,
   };
 }
 
@@ -287,7 +288,7 @@ export default function VendorNotificationsScreen() {
           />
           <View style={styles.notifBody}>
             <ThemedText
-              style={[styles.notifTitle, isRead ? styles.readTitle : null, { color: isRead ? "#888" : theme.iconColor }]}
+              style={[styles.notifTitle, isRead ? styles.readTitle : null, { color: isRead ? AppColors.gray500 : theme.iconColor }]}
             >
               {item.title}
             </ThemedText>
@@ -303,7 +304,7 @@ export default function VendorNotificationsScreen() {
               testID={`button-dismiss-notification-${item.id}`}
               hitSlop={8}
             >
-              <Feather name="x" size={16} color="#999" />
+              <Feather name="x" size={16} color={AppColors.gray400} />
             </Pressable>
           ) : (
             <View style={styles.readDot} />
@@ -351,7 +352,7 @@ export default function VendorNotificationsScreen() {
       }
       ListEmptyComponent={
         <View style={styles.emptyContainer} testID="notifications-empty">
-          <MaterialCommunityIcons name="bell-off-outline" size={56} color="#D1C4E9" />
+          <MaterialCommunityIcons name="bell-off-outline" size={56} color={AppColors.vendorPurpleLight} />
           <ThemedText style={styles.emptyTitle}>لا توجد إشعارات</ThemedText>
           <ThemedText style={styles.emptySubtitle}>
             ستظهر هنا إشعارات الموافقة والرفض وتحديثات حسابك
@@ -368,7 +369,7 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "#F8F7FF",
+    backgroundColor: AppColors.vendorPurpleLight,
   },
   chipsRow: {
     flexDirection: "row",
@@ -386,18 +387,18 @@ const styles = StyleSheet.create({
     borderColor: PURPLE,
   },
   chipInactive: {
-    backgroundColor: "#F3EEFF",
-    borderColor: "#D8C8F5",
+    backgroundColor: AppColors.vendorPurpleLight,
+    borderColor: AppColors.vendorPurpleLight,
   },
   chipLabel: {
     fontFamily: "Cairo_600SemiBold",
     fontSize: 13,
   },
   chipLabelActive: {
-    color: "#FFFFFF",
+    color: AppColors.white,
   },
   chipLabelInactive: {
-    color: "#7C3AED",
+    color: AppColors.statusPurple,
   },
   notifCard: {
     flexDirection: "row",
@@ -427,17 +428,17 @@ const styles = StyleSheet.create({
   notifMessage: {
     fontFamily: "Cairo_400Regular",
     fontSize: 13,
-    color: "#444",
+    color: AppColors.gray700,
     textAlign: "right",
     lineHeight: 20,
   },
   readMessage: {
-    color: "#999",
+    color: AppColors.gray400,
   },
   notifDate: {
     fontFamily: "Cairo_400Regular",
     fontSize: 11,
-    color: "#BBB",
+    color: AppColors.gray300,
     marginTop: 4,
     textAlign: "right",
   },
@@ -449,7 +450,7 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: "#E5E7EB",
+    backgroundColor: AppColors.divider,
     marginTop: 8,
   },
   emptyContainer: {
@@ -461,13 +462,13 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontFamily: "Cairo_700Bold",
     fontSize: 18,
-    color: "#9CA3AF",
+    color: AppColors.gray400,
     marginTop: 16,
   },
   emptySubtitle: {
     fontFamily: "Cairo_400Regular",
     fontSize: 13,
-    color: "#C4B5FD",
+    color: AppColors.vendorPurpleLight,
     marginTop: 6,
     textAlign: "center",
     paddingHorizontal: 32,

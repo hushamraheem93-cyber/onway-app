@@ -195,15 +195,15 @@ function VendorCard({ vendor, theme, onPress }: { vendor: Vendor; theme: any; on
           />
         ) : (
           <LinearGradient
-            colors={["#E86520", "#D94523"]}
+            colors={[AppColors.primary, AppColors.error]}
             style={styles.vendorImageFallback}
           >
-            <Feather name="coffee" size={36} color="#fff" />
+            <Feather name="coffee" size={36} color={AppColors.white} />
           </LinearGradient>
         )}
         <View style={[
           styles.openBadge,
-          { backgroundColor: vendor.isOpen ? "#10B981" : "#EF4444" },
+          { backgroundColor: vendor.isOpen ? AppColors.success : AppColors.error },
         ]}>
           <ThemedText style={styles.openBadgeText}>
             {vendor.isOpen ? "مفتوح" : "مغلق"}
@@ -242,7 +242,7 @@ function VendorCard({ vendor, theme, onPress }: { vendor: Vendor; theme: any; on
                 <ThemedText style={[styles.metaValue, { color: theme.text }]}>
                   {vendor.rating}
                 </ThemedText>
-                <Feather name="star" size={12} color="#F59E0B" />
+                <Feather name="star" size={12} color={AppColors.warning} />
               </View>
             </>
           ) : null}
@@ -288,7 +288,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
   },
   openBadgeText: {
-    color: "#fff",
+    color: AppColors.white,
     fontSize: 11,
     fontWeight: "700",
   },
@@ -324,6 +324,6 @@ const styles = StyleSheet.create({
   metaDivider: {
     width: 1,
     height: 14,
-    backgroundColor: "#E5E7EB",
+    backgroundColor: AppColors.divider,
   },
 });

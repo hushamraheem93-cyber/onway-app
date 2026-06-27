@@ -25,7 +25,7 @@ import { AppColors, Spacing, BorderRadius, Shadows } from "@/constants/theme";
 import { getApiUrl } from "@/lib/query-client";
 import { useAuth } from "@/context/AuthContext";
 
-const PURPLE = "#673AB7";
+const PURPLE = AppColors.vendorPurple;
 
 type FilterType = "all" | "unanswered" | "high" | "low";
 
@@ -57,7 +57,7 @@ function StarRow({ value, size = 14 }: { value: number; size?: number }) {
           key={i}
           name={i <= Math.round(value) ? "star" : "star-outline"}
           size={size}
-          color="#F59E0B"
+          color={AppColors.warning}
         />
       ))}
     </View>
@@ -113,7 +113,7 @@ function ReplyModal({
             </Pressable>
           </View>
           <TextInput
-            style={[mStyles.input, { backgroundColor: theme.backgroundRoot, color: theme.text, borderColor: theme.border ?? "#E5E7EB" }]}
+            style={[mStyles.input, { backgroundColor: theme.backgroundRoot, color: theme.text, borderColor: theme.border ?? AppColors.divider }]}
             multiline
             numberOfLines={4}
             textAlignVertical="top"
@@ -136,9 +136,9 @@ function ReplyModal({
               style={[mStyles.btn, { backgroundColor: PURPLE, opacity: saving || !text.trim() ? 0.6 : 1 }]}
             >
               {saving ? (
-                <ActivityIndicator size="small" color="#fff" />
+                <ActivityIndicator size="small" color={AppColors.white} />
               ) : (
-                <ThemedText style={{ color: "#fff", fontFamily: "Cairo_700Bold" }}>
+                <ThemedText style={{ color: AppColors.white, fontFamily: "Cairo_700Bold" }}>
                   {existingReply ? "تعديل الرد" : "إرسال الرد"}
                 </ThemedText>
               )}
@@ -151,7 +151,7 @@ function ReplyModal({
 }
 
 const mStyles = StyleSheet.create({
-  overlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "flex-end" },
+  overlay: { flex: 1, backgroundColor: AppColors.overlay, justifyContent: "flex-end" },
   sheet: { borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 20, gap: 16 },
   header: { flexDirection: "row-reverse", justifyContent: "space-between", alignItems: "center" },
   title: { fontFamily: "Cairo_700Bold", fontSize: 16 },
@@ -266,8 +266,8 @@ export default function VendorRatingsScreen() {
             { borderColor: PURPLE, backgroundColor: item.vendorReply ? PURPLE + "10" : PURPLE },
           ]}
         >
-          <Feather name="message-circle" size={13} color={item.vendorReply ? PURPLE : "#fff"} />
-          <ThemedText style={[itemStyles.replyBtnText, { color: item.vendorReply ? PURPLE : "#fff" }]}>
+          <Feather name="message-circle" size={13} color={item.vendorReply ? PURPLE : AppColors.white} />
+          <ThemedText style={[itemStyles.replyBtnText, { color: item.vendorReply ? PURPLE : AppColors.white }]}>
             {item.vendorReply ? "تعديل الرد" : "الرد على التقييم"}
           </ThemedText>
         </Pressable>
@@ -281,20 +281,20 @@ export default function VendorRatingsScreen() {
       <View style={[statsStyles.card, { backgroundColor: theme.backgroundDefault }, Shadows.sm]}>
         <View style={statsStyles.row}>
           <View style={statsStyles.stat}>
-            <ThemedText style={[statsStyles.num, { color: "#F59E0B" }]}>
+            <ThemedText style={[statsStyles.num, { color: AppColors.warning }]}>
               {summary.average > 0 ? summary.average.toFixed(1) : "—"}
             </ThemedText>
             <StarRow value={summary.average} size={16} />
             <ThemedText style={[statsStyles.label, { color: theme.textSecondary }]}>متوسط التقييم</ThemedText>
           </View>
-          <View style={[statsStyles.divider, { backgroundColor: theme.border ?? "#E5E7EB" }]} />
+          <View style={[statsStyles.divider, { backgroundColor: theme.border ?? AppColors.divider }]} />
           <View style={statsStyles.stat}>
             <ThemedText style={[statsStyles.num, { color: PURPLE }]}>{summary.total}</ThemedText>
             <ThemedText style={[statsStyles.label, { color: theme.textSecondary }]}>إجمالي التقييمات</ThemedText>
           </View>
-          <View style={[statsStyles.divider, { backgroundColor: theme.border ?? "#E5E7EB" }]} />
+          <View style={[statsStyles.divider, { backgroundColor: theme.border ?? AppColors.divider }]} />
           <View style={statsStyles.stat}>
-            <ThemedText style={[statsStyles.num, { color: "#10B981" }]}>
+            <ThemedText style={[statsStyles.num, { color: AppColors.success }]}>
               {summary.items.filter((i) => i.vendorReply).length}
             </ThemedText>
             <ThemedText style={[statsStyles.label, { color: theme.textSecondary }]}>تم الرد</ThemedText>
@@ -312,10 +312,10 @@ export default function VendorRatingsScreen() {
               fStyles.tab,
               filter === tab.key
                 ? { backgroundColor: PURPLE }
-                : { backgroundColor: theme.backgroundDefault, borderColor: theme.border ?? "#E5E7EB", borderWidth: 1 },
+                : { backgroundColor: theme.backgroundDefault, borderColor: theme.border ?? AppColors.divider, borderWidth: 1 },
             ]}
           >
-            <ThemedText style={[fStyles.label, { color: filter === tab.key ? "#fff" : theme.textSecondary }]}>
+            <ThemedText style={[fStyles.label, { color: filter === tab.key ? AppColors.white : theme.textSecondary }]}>
               {tab.label}
             </ThemedText>
           </Pressable>

@@ -457,7 +457,7 @@ export default function DriverHomeScreen() {
 
   // ─── Earning ring color based on countdown ──────────────────────────────────
   const countdownProgress = countdown / COUNTDOWN_SECONDS;
-  const ringColor = countdown > 15 ? AppColors.primary : countdown > 8 ? "#FF9800" : "#F44336";
+  const ringColor = countdown > 15 ? AppColors.primary : countdown > 8 ? AppColors.warning : AppColors.error;
   const ringDashoffset = RING_CIRC * (1 - countdownProgress);
 
   // ────────────────────────────────────────────────────────────────────────────
@@ -466,8 +466,8 @@ export default function DriverHomeScreen() {
 
   const renderStatusPending = () => (
     <View style={[styles.statusCard, { backgroundColor: theme.backgroundDefault }, Shadows.sm]}>
-      <View style={[styles.statusIconWrap, { backgroundColor: "#FFF3E0" }]}>
-        <Feather name="clock" size={36} color="#FF9800" />
+      <View style={[styles.statusIconWrap, { backgroundColor: AppColors.secondary }]}>
+        <Feather name="clock" size={36} color={AppColors.warning} />
       </View>
       <ThemedText type="h3" style={{ color: theme.text, marginTop: Spacing.md }}>قيد المراجعة</ThemedText>
       <ThemedText type="body" style={{ color: theme.textSecondary, textAlign: "center", marginTop: Spacing.sm }}>
@@ -478,8 +478,8 @@ export default function DriverHomeScreen() {
 
   const renderStatusRejected = () => (
     <View style={[styles.statusCard, { backgroundColor: theme.backgroundDefault }, Shadows.sm]}>
-      <View style={[styles.statusIconWrap, { backgroundColor: "#FFEBEE" }]}>
-        <Feather name="x-circle" size={36} color="#F44336" />
+      <View style={[styles.statusIconWrap, { backgroundColor: AppColors.errorLight }]}>
+        <Feather name="x-circle" size={36} color={AppColors.error} />
       </View>
       <ThemedText type="h3" style={{ color: theme.text, marginTop: Spacing.md }}>تم رفض الطلب</ThemedText>
       <ThemedText type="body" style={{ color: theme.textSecondary, textAlign: "center", marginTop: Spacing.sm }}>
@@ -498,7 +498,7 @@ export default function DriverHomeScreen() {
       <View style={styles.earningsStripDivider} />
       <View style={styles.earningsStripItem}>
         <ThemedText type="small" style={styles.earningsStripLabel}>المحفظة</ThemedText>
-        <ThemedText type="h3" style={[styles.earningsStripValue, walletBalance < 250 ? { color: "#FFCDD2" } : null]}>
+        <ThemedText type="h3" style={[styles.earningsStripValue, walletBalance < 250 ? { color: AppColors.errorLight } : null]}>
           {formatPrice(walletBalance)}
         </ThemedText>
       </View>
@@ -516,24 +516,24 @@ export default function DriverHomeScreen() {
   const renderOfflineHero = () => (
     <View style={[styles.offlineHero, { backgroundColor: theme.backgroundDefault }, Shadows.sm]}>
       <View style={[styles.offlineIconCircle, { backgroundColor: theme.backgroundRoot }]}>
-        <Feather name="truck" size={44} color={isDark ? "#555" : "#BDBDBD"} />
+        <Feather name="truck" size={44} color={isDark ? AppColors.gray500 : AppColors.gray300} />
       </View>
       <ThemedText type="h3" style={{ color: theme.text, marginTop: Spacing.lg }}>أنت غير متصل</ThemedText>
       <ThemedText type="body" style={{ color: theme.textSecondary, textAlign: "center", marginTop: Spacing.sm, marginBottom: Spacing.xl }}>
         شغّل زر الاتصال لبدء استقبال الطلبات
       </ThemedText>
       {walletBalance < 250 ? (
-        <View style={[styles.walletWarningBanner, { backgroundColor: "#FFF3E0" }]}>
-          <Feather name="alert-triangle" size={14} color="#E65100" />
-          <ThemedText type="small" style={{ color: "#E65100", flex: 1, textAlign: "right", marginRight: 4 }}>
+        <View style={[styles.walletWarningBanner, { backgroundColor: AppColors.secondary }]}>
+          <Feather name="alert-triangle" size={14} color={AppColors.primary} />
+          <ThemedText type="small" style={{ color: AppColors.primary, flex: 1, textAlign: "right", marginRight: 4 }}>
             رصيدك غير كافٍ ({formatPrice(walletBalance)}) — يجب على الأقل {formatPrice(250)} للعمل
           </ThemedText>
         </View>
       ) : null}
       {walletError ? (
-        <View style={[styles.walletWarningBanner, { backgroundColor: "#FFEBEE" }]}>
-          <Feather name="alert-circle" size={14} color="#C62828" />
-          <ThemedText type="small" style={{ color: "#C62828", flex: 1, textAlign: "right", marginRight: 4 }}>
+        <View style={[styles.walletWarningBanner, { backgroundColor: AppColors.errorLight }]}>
+          <Feather name="alert-circle" size={14} color={AppColors.error} />
+          <ThemedText type="small" style={{ color: AppColors.error, flex: 1, textAlign: "right", marginRight: 4 }}>
             {walletError}
           </ThemedText>
         </View>
@@ -549,21 +549,21 @@ export default function DriverHomeScreen() {
       style={[
         styles.toggleButton,
         {
-          backgroundColor: isOnline ? AppColors.primary : (isDark ? theme.backgroundSecondary : "#F5F5F5"),
+          backgroundColor: isOnline ? AppColors.primary : (isDark ? theme.backgroundSecondary : AppColors.gray50),
           borderColor: isOnline ? AppColors.primary : theme.border,
         },
       ]}
       testID="button-toggle-online"
     >
       {isToggling ? (
-        <ActivityIndicator size="small" color={isOnline ? "#fff" : AppColors.primary} />
+        <ActivityIndicator size="small" color={isOnline ? AppColors.white : AppColors.primary} />
       ) : (
         <>
-          <View style={[styles.toggleDot, { backgroundColor: isOnline ? "#fff" : "#BDBDBD" }]} />
-          <ThemedText type="h3" style={{ color: isOnline ? "#fff" : theme.text, fontWeight: "700" }}>
+          <View style={[styles.toggleDot, { backgroundColor: isOnline ? AppColors.white : AppColors.gray300 }]} />
+          <ThemedText type="h3" style={{ color: isOnline ? AppColors.white : theme.text, fontWeight: "700" }}>
             {isOnline ? "متصل" : "غير متصل"}
           </ThemedText>
-          <Feather name={isOnline ? "wifi" : "wifi-off"} size={22} color={isOnline ? "#fff" : "#BDBDBD"} />
+          <Feather name={isOnline ? "wifi" : "wifi-off"} size={22} color={isOnline ? AppColors.white : AppColors.gray300} />
         </>
       )}
     </Pressable>
@@ -614,8 +614,8 @@ export default function DriverHomeScreen() {
           <View style={styles.incomingDetails}>
             <View style={styles.incomingStatRow}>
               <View style={[styles.incomingStatBadge, { backgroundColor: "#4CAF5018" }]}>
-                <Feather name="package" size={14} color="#4CAF50" />
-                <ThemedText type="small" style={{ color: "#4CAF50", fontWeight: "700" }}>
+                <Feather name="package" size={14} color={AppColors.success} />
+                <ThemedText type="small" style={{ color: AppColors.success, fontWeight: "700" }}>
                   {currentBatch.totalOrders} طلبات
                 </ThemedText>
               </View>
@@ -630,7 +630,7 @@ export default function DriverHomeScreen() {
             {currentBatch.orders.slice(0, 2).map((order, idx) => (
               <View key={order.id} style={[styles.incomingOrderRow, idx === 0 && { borderTopWidth: 0 }, { borderTopColor: theme.border }]}>
                 <View style={[styles.seqDot, { backgroundColor: AppColors.primary }]}>
-                  <ThemedText style={{ color: "#fff", fontSize: 10, fontWeight: "800" }}>{order.deliverySequence}</ThemedText>
+                  <ThemedText style={{ color: AppColors.white, fontSize: 10, fontWeight: "800" }}>{order.deliverySequence}</ThemedText>
                 </View>
                 <View style={{ flex: 1, alignItems: "flex-end" }}>
                   <ThemedText type="body" style={{ color: theme.text, fontWeight: "700" }} numberOfLines={1}>
@@ -653,8 +653,8 @@ export default function DriverHomeScreen() {
         {/* Accept / Reject */}
         <View style={styles.incomingActions}>
           <Pressable style={styles.rejectBtn} onPress={handleRejectBatch} testID="button-reject-batch">
-            <Feather name="x" size={18} color="#F44336" />
-            <ThemedText type="body" style={{ color: "#F44336", fontWeight: "700" }}>رفض</ThemedText>
+            <Feather name="x" size={18} color={AppColors.error} />
+            <ThemedText type="body" style={{ color: AppColors.error, fontWeight: "700" }}>رفض</ThemedText>
           </Pressable>
           <Pressable
             style={[styles.acceptBtn, { opacity: isAccepting ? 0.75 : 1 }]}
@@ -663,11 +663,11 @@ export default function DriverHomeScreen() {
             testID="button-accept-batch"
           >
             {isAccepting ? (
-              <ActivityIndicator size="small" color="#fff" />
+              <ActivityIndicator size="small" color={AppColors.white} />
             ) : (
               <>
-                <Feather name="check" size={20} color="#fff" />
-                <ThemedText type="h4" style={{ color: "#fff", fontWeight: "800" }}>قبول الطلب</ThemedText>
+                <Feather name="check" size={20} color={AppColors.white} />
+                <ThemedText type="h4" style={{ color: AppColors.white, fontWeight: "800" }}>قبول الطلب</ThemedText>
               </>
             )}
           </Pressable>
@@ -685,8 +685,8 @@ export default function DriverHomeScreen() {
       <View style={[styles.activeBatchCard, { backgroundColor: theme.backgroundDefault }, Shadows.sm]}>
         <View style={styles.activeBatchHeader}>
           <View style={[styles.activeBadge, { backgroundColor: "#8B5CF620" }]}>
-            <View style={[styles.activePulse, { backgroundColor: "#8B5CF6" }]} />
-            <ThemedText type="small" style={{ color: "#8B5CF6", fontWeight: "700" }}>جارٍ التوصيل</ThemedText>
+            <View style={[styles.activePulse, { backgroundColor: AppColors.statusPurple }]} />
+            <ThemedText type="small" style={{ color: AppColors.statusPurple, fontWeight: "700" }}>جارٍ التوصيل</ThemedText>
           </View>
           <View style={styles.activeBatchMeta}>
             <Feather name="layers" size={14} color={theme.textSecondary} />
@@ -701,7 +701,7 @@ export default function DriverHomeScreen() {
           <View
             style={[styles.progressFill, {
               width: `${Math.round(progress * 100)}%` as any,
-              backgroundColor: "#8B5CF6",
+              backgroundColor: AppColors.statusPurple,
             }]}
           />
         </View>
@@ -711,11 +711,11 @@ export default function DriverHomeScreen() {
           {currentBatch.orders.slice(0, 3).map((order) => {
             const done = order.status === "delivered";
             const active = order.status === "in_delivery" || order.status === "picked_up";
-            const dotColor = done ? "#4CAF50" : active ? "#2196F3" : "#BDBDBD";
+            const dotColor = done ? AppColors.success : active ? AppColors.info : AppColors.gray300;
             return (
               <View key={order.id} style={styles.activeBatchOrderRow}>
                 <View style={[styles.orderDot, { backgroundColor: dotColor }]}>
-                  {done ? <Feather name="check" size={10} color="#fff" /> : null}
+                  {done ? <Feather name="check" size={10} color={AppColors.white} /> : null}
                 </View>
                 <View style={{ flex: 1, alignItems: "flex-end" }}>
                   <ThemedText type="body" style={{ color: done ? theme.textSecondary : theme.text, fontWeight: done ? "400" : "600", textDecorationLine: done ? "line-through" : "none" }} numberOfLines={1}>
@@ -734,13 +734,13 @@ export default function DriverHomeScreen() {
         </View>
 
         <Pressable
-          style={[styles.manageBatchBtn, { backgroundColor: "#8B5CF6" }]}
+          style={[styles.manageBatchBtn, { backgroundColor: AppColors.statusPurple }]}
           onPress={() => navigation.navigate("DriverBatch", { batch: currentBatch })}
           testID="button-manage-batch"
         >
-          <Feather name="navigation" size={18} color="#fff" />
-          <ThemedText type="h4" style={{ color: "#fff", fontWeight: "700" }}>إدارة التوصيل</ThemedText>
-          <Feather name="chevron-left" size={18} color="#fff" />
+          <Feather name="navigation" size={18} color={AppColors.white} />
+          <ThemedText type="h4" style={{ color: AppColors.white, fontWeight: "700" }}>إدارة التوصيل</ThemedText>
+          <Feather name="chevron-left" size={18} color={AppColors.white} />
         </Pressable>
       </View>
     );
@@ -761,19 +761,19 @@ export default function DriverHomeScreen() {
   const renderWalletWarning = () => {
     if (walletBalance >= 250) return null;
     return (
-      <View style={[styles.walletAlertCard, { backgroundColor: "#FFF3E0" }, Shadows.sm]}>
+      <View style={[styles.walletAlertCard, { backgroundColor: AppColors.secondary }, Shadows.sm]}>
         <View style={styles.walletAlertRow}>
-          <Feather name="alert-triangle" size={18} color="#E65100" />
+          <Feather name="alert-triangle" size={18} color={AppColors.primary} />
           <View style={{ flex: 1, alignItems: "flex-end" }}>
-            <ThemedText type="body" style={{ color: "#E65100", fontWeight: "700" }}>رصيد المحفظة منخفض</ThemedText>
-            <ThemedText type="small" style={{ color: "#BF360C" }}>
+            <ThemedText type="body" style={{ color: AppColors.primary, fontWeight: "700" }}>رصيد المحفظة منخفض</ThemedText>
+            <ThemedText type="small" style={{ color: AppColors.error }}>
               {formatPrice(walletBalance)} — الحد الأدنى {formatPrice(250)}
             </ThemedText>
           </View>
         </View>
         <Pressable onPress={handleWhatsAppSupport} style={styles.whatsappBtn} testID="button-whatsapp-support">
-          <Feather name="message-circle" size={18} color="#fff" />
-          <ThemedText type="body" style={{ color: "#fff", fontWeight: "700" }}>شحن الرصيد عبر واتساب</ThemedText>
+          <Feather name="message-circle" size={18} color={AppColors.white} />
+          <ThemedText type="body" style={{ color: AppColors.white, fontWeight: "700" }}>شحن الرصيد عبر واتساب</ThemedText>
         </Pressable>
       </View>
     );
@@ -792,10 +792,10 @@ export default function DriverHomeScreen() {
       {/* Header */}
       <View style={[styles.header, { paddingTop: insets.top + 4, backgroundColor: AppColors.primary }]}>
         <View style={styles.headerRow}>
-          <View style={[styles.onlineDot, { backgroundColor: isOnline ? "#4CAF50" : "#78909C" }]} />
+          <View style={[styles.onlineDot, { backgroundColor: isOnline ? AppColors.success : AppColors.gray500 }]} />
           <Image source={require("../assets/images/onway-header-logo-transparent.png")} style={styles.headerLogo} contentFit="contain" />
           <View style={styles.headerNameWrap}>
-            <Feather name="user" size={13} color="rgba(255,255,255,0.8)" />
+            <Feather name="user" size={13} color={AppColors.textOnBrandMuted} />
             <ThemedText type="small" style={styles.headerName} numberOfLines={1}>{driverName}</ThemedText>
           </View>
         </View>
@@ -815,10 +815,10 @@ export default function DriverHomeScreen() {
           <Pressable style={[styles.modalBox, { backgroundColor: theme.backgroundDefault }]} onPress={() => {}}>
             {issueSent ? (
               <View style={{ alignItems: "center", paddingVertical: Spacing.xl }}>
-                <View style={[styles.statusIconWrap, { backgroundColor: "#E8F5E9" }]}>
-                  <Feather name="check-circle" size={36} color="#4CAF50" />
+                <View style={[styles.statusIconWrap, { backgroundColor: AppColors.successLight }]}>
+                  <Feather name="check-circle" size={36} color={AppColors.success} />
                 </View>
-                <ThemedText type="h4" style={{ color: "#4CAF50", marginTop: Spacing.md }}>تم إرسال المشكلة</ThemedText>
+                <ThemedText type="h4" style={{ color: AppColors.success, marginTop: Spacing.md }}>تم إرسال المشكلة</ThemedText>
               </View>
             ) : (
               <>
@@ -910,7 +910,7 @@ const styles = StyleSheet.create({
   headerLogo: { width: 130, height: 50 },
   onlineDot: { width: 10, height: 10, borderRadius: 5 },
   headerNameWrap: { flexDirection: "row", alignItems: "center", gap: 4, flex: 1, justifyContent: "flex-end" },
-  headerName: { color: "rgba(255,255,255,0.85)", maxWidth: 110 },
+  headerName: { color: AppColors.textOnBrandSubtle, maxWidth: 110 },
 
   // Earnings strip
   earningsStrip: {
@@ -920,7 +920,7 @@ const styles = StyleSheet.create({
   },
   earningsStripItem: { flex: 1, alignItems: "center" },
   earningsStripLabel: { color: "rgba(255,255,255,0.75)", fontSize: 10, marginBottom: 2 },
-  earningsStripValue: { color: "#fff", fontWeight: "700", fontSize: 15 },
+  earningsStripValue: { color: AppColors.white, fontWeight: "700", fontSize: 15 },
   earningsStripDivider: { width: 1, backgroundColor: "rgba(255,255,255,0.25)", marginVertical: 2 },
 
   // Content
@@ -992,7 +992,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     gap: Spacing.sm,
-    backgroundColor: "#25D366",
+    backgroundColor: AppColors.whatsapp,
     paddingVertical: Spacing.md,
     borderRadius: BorderRadius.lg,
   },
@@ -1071,7 +1071,7 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.md,
     borderRadius: BorderRadius.lg,
     borderWidth: 2,
-    borderColor: "#F44336",
+    borderColor: AppColors.error,
   },
   acceptBtn: {
     flex: 2,
@@ -1140,7 +1140,7 @@ const styles = StyleSheet.create({
   // Modal
   modalOverlay: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.45)",
+    backgroundColor: AppColors.overlay,
     justifyContent: "center",
     alignItems: "center",
     padding: Spacing.xl,

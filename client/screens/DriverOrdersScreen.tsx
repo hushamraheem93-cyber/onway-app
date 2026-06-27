@@ -30,12 +30,12 @@ type Nav = NativeStackNavigationProp<RootStackParamList>;
 
 // ─── Status chip config ───────────────────────────────────────────────────────
 const STATUS_CFG: Record<string, { label: string; color: string; icon: keyof typeof Feather.glyphMap }> = {
-  confirmed:   { label: "منتظر",             color: "#9E9E9E", icon: "clock" },
-  preparing:   { label: "يُحضَّر",            color: "#8B5CF6", icon: "shopping-bag" },
+  confirmed:   { label: "منتظر",             color: AppColors.gray400, icon: "clock" },
+  preparing:   { label: "يُحضَّر",            color: AppColors.statusPurple, icon: "shopping-bag" },
   ready:       { label: "جاهز",              color: AppColors.primary, icon: "check-square" },
-  picked_up:   { label: "استُلم",             color: "#FF9800", icon: "package" },
-  in_delivery: { label: "في الطريق",          color: "#2196F3", icon: "navigation" },
-  delivered:   { label: "مُوصَّل",            color: "#4CAF50", icon: "check-circle" },
+  picked_up:   { label: "استُلم",             color: AppColors.warning, icon: "package" },
+  in_delivery: { label: "في الطريق",          color: AppColors.info, icon: "navigation" },
+  delivered:   { label: "مُوصَّل",            color: AppColors.success, icon: "check-circle" },
 };
 
 // ─── Haversine distance ───────────────────────────────────────────────────────
@@ -107,8 +107,8 @@ function ConfirmModal({ visible, title, message, confirmLabel, confirmColor, loa
               disabled={loading}
             >
               {loading
-                ? <ActivityIndicator size="small" color="#FFFFFF" />
-                : <ThemedText type="body" style={{ color: "#FFFFFF", fontWeight: "700" }}>{confirmLabel}</ThemedText>
+                ? <ActivityIndicator size="small" color={AppColors.white} />
+                : <ThemedText type="body" style={{ color: AppColors.white, fontWeight: "700" }}>{confirmLabel}</ThemedText>
               }
             </Pressable>
           </View>
@@ -285,10 +285,10 @@ export default function DriverOrdersScreen() {
         ]}
       >
         {/* Sequence badge */}
-        <View style={[styles.seqBadge, { backgroundColor: isDelivered ? "#4CAF50" : cfg.color }]}>
+        <View style={[styles.seqBadge, { backgroundColor: isDelivered ? AppColors.success : cfg.color }]}>
           {isDelivered
-            ? <Feather name="check" size={14} color="#FFFFFF" />
-            : <ThemedText type="small" style={{ color: "#FFFFFF", fontWeight: "800", fontSize: 13 }}>{order.deliverySequence}</ThemedText>
+            ? <Feather name="check" size={14} color={AppColors.white} />
+            : <ThemedText type="small" style={{ color: AppColors.white, fontWeight: "800", fontSize: 13 }}>{order.deliverySequence}</ThemedText>
           }
         </View>
 
@@ -336,19 +336,19 @@ export default function DriverOrdersScreen() {
         <View style={styles.metaRow}>
           {(order.distance ?? 0) > 0 ? (
             <View style={[styles.metaChip, { backgroundColor: "#2196F315" }]}>
-              <Feather name="map" size={13} color="#2196F3" />
-              <ThemedText type="small" style={{ color: "#2196F3", fontWeight: "600" }}>{order.distance} كم</ThemedText>
+              <Feather name="map" size={13} color={AppColors.info} />
+              <ThemedText type="small" style={{ color: AppColors.info, fontWeight: "600" }}>{order.distance} كم</ThemedText>
             </View>
           ) : null}
           {order.estimatedTime ? (
             <View style={[styles.metaChip, { backgroundColor: "#FF980015" }]}>
-              <Feather name="clock" size={13} color="#FF9800" />
-              <ThemedText type="small" style={{ color: "#FF9800", fontWeight: "600" }}>{order.estimatedTime}</ThemedText>
+              <Feather name="clock" size={13} color={AppColors.warning} />
+              <ThemedText type="small" style={{ color: AppColors.warning, fontWeight: "600" }}>{order.estimatedTime}</ThemedText>
             </View>
           ) : null}
           <View style={[styles.metaChip, { backgroundColor: "#4CAF5015" }]}>
-            <Feather name="dollar-sign" size={13} color="#4CAF50" />
-            <ThemedText type="small" style={{ color: "#4CAF50", fontWeight: "600" }}>{formatPrice(order.deliveryFee ?? 0)}</ThemedText>
+            <Feather name="dollar-sign" size={13} color={AppColors.success} />
+            <ThemedText type="small" style={{ color: AppColors.success, fontWeight: "600" }}>{formatPrice(order.deliveryFee ?? 0)}</ThemedText>
           </View>
         </View>
 
@@ -369,9 +369,9 @@ export default function DriverOrdersScreen() {
 
         {/* Notes */}
         {order.notes ? (
-          <View style={[styles.notesBox, { backgroundColor: "#FFF3E0" }]}>
-            <Feather name="alert-circle" size={14} color="#E65100" />
-            <ThemedText type="small" style={{ color: "#E65100", flex: 1, textAlign: "right" }}>{order.notes}</ThemedText>
+          <View style={[styles.notesBox, { backgroundColor: AppColors.secondary }]}>
+            <Feather name="alert-circle" size={14} color={AppColors.primary} />
+            <ThemedText type="small" style={{ color: AppColors.primary, flex: 1, textAlign: "right" }}>{order.notes}</ThemedText>
           </View>
         ) : null}
 
@@ -383,8 +383,8 @@ export default function DriverOrdersScreen() {
               style={[styles.quickBtn, { backgroundColor: "#4CAF5015" }]}
               onPress={() => callCustomer(order.customerPhone)}
             >
-              <Feather name="phone" size={16} color="#4CAF50" />
-              <ThemedText type="small" style={{ color: "#4CAF50", fontWeight: "600" }}>اتصال</ThemedText>
+              <Feather name="phone" size={16} color={AppColors.success} />
+              <ThemedText type="small" style={{ color: AppColors.success, fontWeight: "600" }}>اتصال</ThemedText>
             </Pressable>
           ) : null}
           {hasMap ? (
@@ -393,8 +393,8 @@ export default function DriverOrdersScreen() {
               style={[styles.quickBtn, { backgroundColor: "#2196F315" }]}
               onPress={() => openMap(order)}
             >
-              <Feather name="map" size={16} color="#2196F3" />
-              <ThemedText type="small" style={{ color: "#2196F3", fontWeight: "600" }}>خريطة</ThemedText>
+              <Feather name="map" size={16} color={AppColors.info} />
+              <ThemedText type="small" style={{ color: AppColors.info, fontWeight: "600" }}>خريطة</ThemedText>
             </Pressable>
           ) : null}
         </View>
@@ -402,43 +402,43 @@ export default function DriverOrdersScreen() {
         {/* Primary action */}
         {isDelivered ? (
           <View style={[styles.deliveredBanner, { backgroundColor: "#4CAF5015" }]}>
-            <Feather name="check-circle" size={18} color="#4CAF50" />
-            <ThemedText type="body" style={{ color: "#4CAF50", fontWeight: "700" }}>تم التوصيل بنجاح</ThemedText>
+            <Feather name="check-circle" size={18} color={AppColors.success} />
+            <ThemedText type="body" style={{ color: AppColors.success, fontWeight: "700" }}>تم التوصيل بنجاح</ThemedText>
           </View>
         ) : canDeliver ? (
           <Pressable
             testID={`button-deliver-${order.id}`}
-            style={[styles.primaryBtn, { backgroundColor: "#4CAF50" }]}
+            style={[styles.primaryBtn, { backgroundColor: AppColors.success }]}
             onPress={() => showConfirm({
               title: "تأكيد التوصيل",
               message: `هل تم توصيل الطلب لـ ${order.customerName || "الزبون"} بنجاح؟`,
               confirmLabel: "نعم، تم التوصيل",
-              confirmColor: "#4CAF50",
+              confirmColor: AppColors.success,
               onConfirm: () => doDeliver(order),
             })}
           >
-            <Feather name="check-circle" size={20} color="#FFFFFF" />
-            <ThemedText type="h4" style={{ color: "#FFFFFF", fontWeight: "700" }}>تم التوصيل</ThemedText>
+            <Feather name="check-circle" size={20} color={AppColors.white} />
+            <ThemedText type="h4" style={{ color: AppColors.white, fontWeight: "700" }}>تم التوصيل</ThemedText>
           </Pressable>
         ) : canPickup ? (
           <Pressable
             testID={`button-pickup-${order.id}`}
-            style={[styles.primaryBtn, { backgroundColor: "#8B5CF6" }]}
+            style={[styles.primaryBtn, { backgroundColor: AppColors.statusPurple }]}
             onPress={() => showConfirm({
               title: "تم الاستلام؟",
               message: `هل استلمت الطلب من ${order.vendorName || "المحل"}؟`,
               confirmLabel: "نعم، تم الاستلام",
-              confirmColor: "#8B5CF6",
+              confirmColor: AppColors.statusPurple,
               onConfirm: () => doPickup(order),
             })}
           >
-            <Feather name="package" size={20} color="#FFFFFF" />
-            <ThemedText type="h4" style={{ color: "#FFFFFF", fontWeight: "700" }}>تم الاستلام من المحل</ThemedText>
+            <Feather name="package" size={20} color={AppColors.white} />
+            <ThemedText type="h4" style={{ color: AppColors.white, fontWeight: "700" }}>تم الاستلام من المحل</ThemedText>
           </Pressable>
         ) : (
-          <View style={[styles.primaryBtn, { backgroundColor: "#9E9E9E" }]}>
-            <Feather name="clock" size={18} color="#FFFFFF" />
-            <ThemedText type="body" style={{ color: "#FFFFFF", fontWeight: "600" }}>بانتظار تجهيز الطلب</ThemedText>
+          <View style={[styles.primaryBtn, { backgroundColor: AppColors.gray400 }]}>
+            <Feather name="clock" size={18} color={AppColors.white} />
+            <ThemedText type="body" style={{ color: AppColors.white, fontWeight: "600" }}>بانتظار تجهيز الطلب</ThemedText>
           </View>
         )}
       </View>
@@ -527,8 +527,8 @@ export default function DriverOrdersScreen() {
                   onPress={handleOptimizeRoute}
                   style={[styles.optimizeBtn, { backgroundColor: optimized ? "#4CAF5015" : "#8B5CF615" }]}
                 >
-                  <Feather name="navigation" size={14} color={optimized ? "#4CAF50" : "#8B5CF6"} />
-                  <ThemedText type="small" style={{ color: optimized ? "#4CAF50" : "#8B5CF6", fontWeight: "700" }}>
+                  <Feather name="navigation" size={14} color={optimized ? AppColors.success : AppColors.statusPurple} />
+                  <ThemedText type="small" style={{ color: optimized ? AppColors.success : AppColors.statusPurple, fontWeight: "700" }}>
                     {optimized ? "تم التحسين" : "تحسين المسار"}
                   </ThemedText>
                 </Pressable>
@@ -543,14 +543,14 @@ export default function DriverOrdersScreen() {
         {batch?.status === "in_progress" ? (
           <Pressable
             testID="button-manage-batch"
-            style={[styles.manageBatchBtn, { backgroundColor: "#8B5CF6" }, Shadows.sm]}
+            style={[styles.manageBatchBtn, { backgroundColor: AppColors.statusPurple }, Shadows.sm]}
             onPress={() => navigation.navigate("DriverBatch", { batch })}
           >
-            <Feather name="list" size={20} color="#FFFFFF" />
-            <ThemedText type="h4" style={{ color: "#FFFFFF", fontWeight: "700" }}>
+            <Feather name="list" size={20} color={AppColors.white} />
+            <ThemedText type="h4" style={{ color: AppColors.white, fontWeight: "700" }}>
               إدارة الدفعة بالتفصيل
             </ThemedText>
-            <Feather name="chevron-left" size={20} color="#FFFFFF" />
+            <Feather name="chevron-left" size={20} color={AppColors.white} />
           </Pressable>
         ) : null}
       </ScrollView>
@@ -631,7 +631,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     borderWidth: 3,
-    borderColor: "#FFFFFF",
+    borderColor: AppColors.white,
   },
   cardHeader: {
     flexDirection: "row-reverse",
@@ -717,7 +717,7 @@ const styles = StyleSheet.create({
   // Confirm modal
   modalOverlay: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.45)",
+    backgroundColor: AppColors.overlay,
     justifyContent: "center",
     alignItems: "center",
     padding: Spacing.xl,
@@ -726,7 +726,7 @@ const styles = StyleSheet.create({
     width: "100%",
     borderRadius: BorderRadius.xl,
     padding: Spacing.xl,
-    shadowColor: "#000",
+    shadowColor: AppColors.black,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.15,
     shadowRadius: 12,

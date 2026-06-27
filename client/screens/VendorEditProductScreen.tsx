@@ -24,9 +24,10 @@ import { getApiUrl } from "@/lib/query-client";
 import { resolveImageUrl } from "@/utils/imageUtils";
 import { CATEGORY_MAP, ALL_CATEGORIES } from "@/constants/businessCategories";
 import DynamicProductFields from "@/components/DynamicProductFields";
+import { AppColors } from "@/constants/theme";
 
-const PURPLE = "#673AB7";
-const ORANGE = "#E86520";
+const PURPLE = AppColors.vendorPurple;
+const ORANGE = AppColors.primary;
 const MAX_IMAGES = 5;
 const THUMB_SIZE = 88;
 const UNITS = ["قطعة", "كيلو", "غرام", "لتر", "مل", "علبة", "كرتون", "دستة", "باكيج"];
@@ -245,11 +246,11 @@ export default function VendorEditProductScreen({ navigation, route }: any) {
         </ThemedText>
         <View style={styles.successActions}>
           <Pressable
-            style={[styles.successBtn, { backgroundColor: "#F3F4F6" }]}
+            style={[styles.successBtn, { backgroundColor: AppColors.gray100 }]}
             onPress={() => navigation.navigate("VendorProducts")}
             testID="button-view-products"
           >
-            <ThemedText style={[styles.successBtnText, { color: "#444" }]}>عرض منتجاتي</ThemedText>
+            <ThemedText style={[styles.successBtnText, { color: AppColors.gray700 }]}>عرض منتجاتي</ThemedText>
           </Pressable>
         </View>
       </View>
@@ -264,7 +265,7 @@ export default function VendorEditProductScreen({ navigation, route }: any) {
     >
       {error ? (
         <View style={styles.errorBox}>
-          <Feather name="alert-circle" size={16} color="#EF4444" />
+          <Feather name="alert-circle" size={16} color={AppColors.error} />
           <ThemedText style={styles.errorText}>{error}</ThemedText>
         </View>
       ) : null}
@@ -283,11 +284,11 @@ export default function VendorEditProductScreen({ navigation, route }: any) {
             contentFit="cover"
           />
           <View style={styles.heroBadge}>
-            <Feather name="star" size={11} color="#fff" />
+            <Feather name="star" size={11} color={AppColors.white} />
             <ThemedText style={styles.heroBadgeText}>الصورة الرئيسية</ThemedText>
           </View>
           <Pressable style={styles.heroRemoveBtn} onPress={() => removeImage(0)} testID="button-remove-image-0">
-            <Feather name="x" size={14} color="#fff" />
+            <Feather name="x" size={14} color={AppColors.white} />
           </Pressable>
         </View>
       ) : (
@@ -299,7 +300,7 @@ export default function VendorEditProductScreen({ navigation, route }: any) {
           }}
           testID="button-add-image"
         >
-          <MaterialCommunityIcons name="camera-plus-outline" size={44} color="#C4B5FD" />
+          <MaterialCommunityIcons name="camera-plus-outline" size={44} color={AppColors.vendorPurpleLight} />
           <ThemedText style={styles.heroPlaceholderTitle}>اضغط لإضافة صورة المنتج</ThemedText>
           <ThemedText style={styles.heroPlaceholderSub}>من الكاميرا أو معرض الصور</ThemedText>
         </Pressable>
@@ -315,7 +316,7 @@ export default function VendorEditProductScreen({ navigation, route }: any) {
               <View key={`${img.type}-${index}`} style={styles.thumbWrap} testID={`image-thumb-${index}`}>
                 <Image source={{ uri }} style={styles.thumb} contentFit="cover" />
                 <Pressable style={styles.removeBtn} onPress={() => removeImage(index)} testID={`button-remove-image-${index}`}>
-                  <Feather name="x" size={11} color="#fff" />
+                  <Feather name="x" size={11} color={AppColors.white} />
                 </Pressable>
               </View>
             );
@@ -329,7 +330,7 @@ export default function VendorEditProductScreen({ navigation, route }: any) {
               }}
               testID="button-add-extra-image"
             >
-              <MaterialCommunityIcons name="plus" size={24} color="#C4B5FD" />
+              <MaterialCommunityIcons name="plus" size={24} color={AppColors.vendorPurpleLight} />
               <ThemedText style={styles.addThumbText}>إضافة</ThemedText>
             </Pressable>
           ) : null}
@@ -350,7 +351,7 @@ export default function VendorEditProductScreen({ navigation, route }: any) {
 
       {imagesChanged ? (
         <View style={styles.imageChangeNotice}>
-          <MaterialCommunityIcons name="information-outline" size={14} color="#7C3AED" />
+          <MaterialCommunityIcons name="information-outline" size={14} color={AppColors.statusPurple} />
           <ThemedText style={styles.imageChangeText}>
             تغيير الصور سيُعيد المنتج لقائمة المراجعة
           </ThemedText>
@@ -365,7 +366,7 @@ export default function VendorEditProductScreen({ navigation, route }: any) {
         value={name}
         onChangeText={setName}
         placeholder="اسم المنتج"
-        placeholderTextColor="#bbb"
+        placeholderTextColor={AppColors.gray300}
         testID="input-name"
       />
 
@@ -375,7 +376,7 @@ export default function VendorEditProductScreen({ navigation, route }: any) {
         value={description}
         onChangeText={setDescription}
         placeholder="وصف مختصر عن المنتج..."
-        placeholderTextColor="#bbb"
+        placeholderTextColor={AppColors.gray300}
         multiline
         numberOfLines={3}
         testID="input-description"
@@ -391,7 +392,7 @@ export default function VendorEditProductScreen({ navigation, route }: any) {
             value={price}
             onChangeText={setPrice}
             placeholder="5000"
-            placeholderTextColor="#bbb"
+            placeholderTextColor={AppColors.gray300}
             keyboardType="numeric"
             testID="input-price"
           />
@@ -404,7 +405,7 @@ export default function VendorEditProductScreen({ navigation, route }: any) {
             value={stock}
             onChangeText={setStock}
             placeholder="100"
-            placeholderTextColor="#bbb"
+            placeholderTextColor={AppColors.gray300}
             keyboardType="numeric"
             testID="input-stock"
           />
@@ -444,10 +445,10 @@ export default function VendorEditProductScreen({ navigation, route }: any) {
         testID="button-submit"
       >
         {loading ? (
-          <ActivityIndicator color="#fff" />
+          <ActivityIndicator color={AppColors.white} />
         ) : (
           <>
-            <Feather name="save" size={18} color="#fff" />
+            <Feather name="save" size={18} color={AppColors.white} />
             <ThemedText style={styles.submitText}>حفظ التعديلات</ThemedText>
           </>
         )}
@@ -457,25 +458,25 @@ export default function VendorEditProductScreen({ navigation, route }: any) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#F8F7FF" },
+  container: { flex: 1, backgroundColor: AppColors.vendorPurpleLight },
   label: {
-    fontFamily: "Cairo_700Bold", fontSize: 13, color: "#444",
+    fontFamily: "Cairo_700Bold", fontSize: 13, color: AppColors.gray700,
     textAlign: "right", marginBottom: 6, marginTop: 4,
   },
-  labelHint: { fontFamily: "Cairo_400Regular", fontSize: 11, color: "#888" },
+  labelHint: { fontFamily: "Cairo_400Regular", fontSize: 11, color: AppColors.gray500 },
   input: {
-    borderWidth: 1.5, borderColor: "#E5E7EB", borderRadius: 12,
+    borderWidth: 1.5, borderColor: AppColors.divider, borderRadius: 12,
     paddingHorizontal: 14, paddingVertical: 11,
-    fontFamily: "Cairo_400Regular", fontSize: 14, color: "#111",
-    textAlign: "right", marginBottom: 14, backgroundColor: "#fff",
+    fontFamily: "Cairo_400Regular", fontSize: 14, color: AppColors.black,
+    textAlign: "right", marginBottom: 14, backgroundColor: AppColors.white,
   },
   textArea: { minHeight: 80, textAlignVertical: "top", paddingTop: 10 },
   row: { flexDirection: "row" },
   pickerWrap: {
-    borderWidth: 1.5, borderColor: "#E5E7EB", borderRadius: 12,
-    marginBottom: 14, backgroundColor: "#fff", overflow: "hidden",
+    borderWidth: 1.5, borderColor: AppColors.divider, borderRadius: 12,
+    marginBottom: 14, backgroundColor: AppColors.white, overflow: "hidden",
   },
-  picker: { height: Platform.OS === "ios" ? 140 : 50, color: "#111" },
+  picker: { height: Platform.OS === "ios" ? 140 : 50, color: AppColors.black },
   /* ── Hero image preview ── */
   heroWrap: {
     width: "100%",
@@ -484,7 +485,7 @@ const styles = StyleSheet.create({
     overflow: "hidden",
     marginBottom: 10,
     position: "relative",
-    backgroundColor: "#EDE7F6",
+    backgroundColor: AppColors.vendorPurpleLight,
   },
   heroImage: { width: "100%", height: "100%" },
   heroBadge: {
@@ -499,7 +500,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 4,
   },
-  heroBadgeText: { fontFamily: "Cairo_700Bold", fontSize: 11, color: "#fff" },
+  heroBadgeText: { fontFamily: "Cairo_700Bold", fontSize: 11, color: AppColors.white },
   heroRemoveBtn: {
     position: "absolute",
     top: 10,
@@ -507,7 +508,7 @@ const styles = StyleSheet.create({
     width: 30,
     height: 30,
     borderRadius: 15,
-    backgroundColor: "rgba(0,0,0,0.55)",
+    backgroundColor: AppColors.overlay,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -517,15 +518,15 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     borderWidth: 2,
     borderStyle: "dashed",
-    borderColor: "#C4B5FD",
-    backgroundColor: "#F5F3FF",
+    borderColor: AppColors.vendorPurpleLight,
+    backgroundColor: AppColors.vendorPurpleLight,
     alignItems: "center",
     justifyContent: "center",
     gap: 8,
     marginBottom: 10,
   },
   heroPlaceholderTitle: { fontFamily: "Cairo_700Bold", fontSize: 15, color: PURPLE },
-  heroPlaceholderSub: { fontFamily: "Cairo_400Regular", fontSize: 12, color: "#9CA3AF" },
+  heroPlaceholderSub: { fontFamily: "Cairo_400Regular", fontSize: 12, color: AppColors.gray400 },
   /* ── Extra thumbnails strip ── */
   thumbRow: { marginBottom: 0 },
   thumbRowContent: {
@@ -546,7 +547,7 @@ const styles = StyleSheet.create({
     height: THUMB_SIZE,
     borderRadius: 12,
     borderWidth: 2,
-    borderColor: "#C4B5FD",
+    borderColor: AppColors.vendorPurpleLight,
   },
   removeBtn: {
     position: "absolute",
@@ -555,7 +556,7 @@ const styles = StyleSheet.create({
     width: 20,
     height: 20,
     borderRadius: 10,
-    backgroundColor: "#EF4444",
+    backgroundColor: AppColors.error,
     alignItems: "center",
     justifyContent: "center",
     zIndex: 10,
@@ -566,8 +567,8 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 2,
     borderStyle: "dashed",
-    borderColor: "#C4B5FD",
-    backgroundColor: "#F5F3FF",
+    borderColor: AppColors.vendorPurpleLight,
+    backgroundColor: AppColors.vendorPurpleLight,
     alignItems: "center",
     justifyContent: "center",
     gap: 4,
@@ -576,47 +577,47 @@ const styles = StyleSheet.create({
     fontFamily: "Cairo_700Bold", fontSize: 11, color: PURPLE,
   },
   imgActions: {
-    flexDirection: "row", borderWidth: 1.5, borderColor: "#C4B5FD",
+    flexDirection: "row", borderWidth: 1.5, borderColor: AppColors.vendorPurpleLight,
     borderRadius: 16,
-    overflow: "hidden", marginBottom: 10, marginTop: 10, backgroundColor: "#fff",
+    overflow: "hidden", marginBottom: 10, marginTop: 10, backgroundColor: AppColors.white,
   },
   imgActionBtn: {
     flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center",
     gap: 8, paddingVertical: 12,
   },
-  imgActionDivider: { width: 1.5, backgroundColor: "#C4B5FD" },
+  imgActionDivider: { width: 1.5, backgroundColor: AppColors.vendorPurpleLight },
   imgActionText: { fontFamily: "Cairo_700Bold", fontSize: 13, color: PURPLE },
   imageChangeNotice: {
     flexDirection: "row", alignItems: "center", gap: 6,
-    backgroundColor: "#EDE7F6", borderRadius: 10, padding: 10, marginBottom: 14,
+    backgroundColor: AppColors.vendorPurpleLight, borderRadius: 10, padding: 10, marginBottom: 14,
   },
   imageChangeText: {
-    fontFamily: "Cairo_400Regular", fontSize: 12, color: "#5B21B6",
+    fontFamily: "Cairo_400Regular", fontSize: 12, color: AppColors.statusPurple,
     flex: 1, textAlign: "right",
   },
   errorBox: {
     flexDirection: "row", alignItems: "center", gap: 8,
-    backgroundColor: "#FEF2F2", borderRadius: 10,
-    padding: 12, marginBottom: 14, borderWidth: 1, borderColor: "#FECACA",
+    backgroundColor: AppColors.errorLight, borderRadius: 10,
+    padding: 12, marginBottom: 14, borderWidth: 1, borderColor: AppColors.error,
   },
-  errorText: { fontFamily: "Cairo_400Regular", fontSize: 13, color: "#EF4444", flex: 1, textAlign: "right" },
+  errorText: { fontFamily: "Cairo_400Regular", fontSize: 13, color: AppColors.error, flex: 1, textAlign: "right" },
   submitBtn: {
     backgroundColor: PURPLE, borderRadius: 14, paddingVertical: 14,
     flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 10,
   },
   submitDisabled: { opacity: 0.6 },
-  submitText: { fontFamily: "Cairo_700Bold", fontSize: 16, color: "#fff" },
+  submitText: { fontFamily: "Cairo_700Bold", fontSize: 16, color: AppColors.white },
   successWrap: {
-    flex: 1, backgroundColor: "#fff", alignItems: "center",
+    flex: 1, backgroundColor: AppColors.white, alignItems: "center",
     paddingHorizontal: 28, paddingBottom: 60,
   },
   successIcon: {
     width: 100, height: 100, borderRadius: 28,
-    backgroundColor: "#EDE7F6", justifyContent: "center", alignItems: "center", marginBottom: 24,
+    backgroundColor: AppColors.vendorPurpleLight, justifyContent: "center", alignItems: "center", marginBottom: 24,
   },
-  successTitle: { fontFamily: "Cairo_700Bold", fontSize: 22, color: "#333", textAlign: "center", marginBottom: 10 },
-  successDesc: { fontFamily: "Cairo_400Regular", fontSize: 14, color: "#666", textAlign: "center", lineHeight: 24, marginBottom: 32 },
+  successTitle: { fontFamily: "Cairo_700Bold", fontSize: 22, color: AppColors.gray700, textAlign: "center", marginBottom: 10 },
+  successDesc: { fontFamily: "Cairo_400Regular", fontSize: 14, color: AppColors.gray500, textAlign: "center", lineHeight: 24, marginBottom: 32 },
   successActions: { width: "100%", gap: 12 },
   successBtn: { paddingVertical: 14, borderRadius: 14, alignItems: "center" },
-  successBtnText: { fontFamily: "Cairo_700Bold", fontSize: 15, color: "#fff" },
+  successBtnText: { fontFamily: "Cairo_700Bold", fontSize: 15, color: AppColors.white },
 });

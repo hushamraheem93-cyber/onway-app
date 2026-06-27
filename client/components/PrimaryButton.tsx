@@ -7,6 +7,7 @@ import Animated, {
   withSequence,
 } from "react-native-reanimated";
 import { ThemedText } from "@/components/ThemedText";
+import { AppColors } from "@/constants/theme";
 
 interface Props {
   label: string;
@@ -52,7 +53,7 @@ const styles = StyleSheet.create({
   shadow: {
     ...Platform.select({
       ios: {
-        shadowColor: "#000",
+        shadowColor: AppColors.shadowColor,
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.15,
         shadowRadius: 10,
@@ -64,7 +65,7 @@ const styles = StyleSheet.create({
   btn: {
     height: 58,
     borderRadius: 18,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: AppColors.white,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
@@ -73,7 +74,7 @@ const styles = StyleSheet.create({
   label: {
     fontFamily: "Cairo_700Bold",
     fontSize: 17,
-    color: "#F97316",
+    color: AppColors.primary,
     includeFontPadding: false,
   },
   icon: {

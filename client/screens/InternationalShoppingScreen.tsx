@@ -25,7 +25,7 @@ import { useAuth } from "@/context/AuthContext";
 import { getApiUrl } from "@/lib/query-client";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
 
-const BRAND_ORANGE = "#E86520";
+const BRAND_ORANGE = AppColors.primary;
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
@@ -39,9 +39,9 @@ interface ShoppingSite {
 }
 
 const SHOPPING_SITES: ShoppingSite[] = [
-  { id: "shein", name: "SHEIN", nameAr: "شي إن", icon: "shopping-bag", color: "#000000", bgColor: "#F5F5F5" },
-  { id: "aliexpress", name: "AliExpress", nameAr: "علي إكسبرس", icon: "package", color: "#E53935", bgColor: "#FFEBEE" },
-  { id: "alibaba", name: "Alibaba", nameAr: "علي بابا", icon: "globe", color: "#FF6F00", bgColor: "#FFF3E0" },
+  { id: "shein", name: "SHEIN", nameAr: "شي إن", icon: "shopping-bag", color: AppColors.black, bgColor: AppColors.gray50 },
+  { id: "aliexpress", name: "AliExpress", nameAr: "علي إكسبرس", icon: "package", color: AppColors.error, bgColor: AppColors.errorLight },
+  { id: "alibaba", name: "Alibaba", nameAr: "علي بابا", icon: "globe", color: AppColors.primary, bgColor: AppColors.secondary },
 ];
 
 export default function InternationalShoppingScreen() {
@@ -146,15 +146,15 @@ export default function InternationalShoppingScreen() {
             onPress={resetForm}
             testID="button-new-order"
           >
-            <Feather name="plus" size={18} color="#FFF" style={{ marginLeft: 8 }} />
+            <Feather name="plus" size={18} color={AppColors.white} style={{ marginLeft: 8 }} />
             <ThemedText style={styles.submitButtonText}>طلب جديد</ThemedText>
           </Pressable>
           <Pressable
-            style={[styles.submitButton, { backgroundColor: "#F0F0F0", marginTop: 12 }]}
+            style={[styles.submitButton, { backgroundColor: AppColors.backgroundSecondary, marginTop: 12 }]}
             onPress={() => navigation.goBack()}
             testID="button-back-home"
           >
-            <ThemedText style={[styles.submitButtonText, { color: "#666" }]}>
+            <ThemedText style={[styles.submitButtonText, { color: AppColors.gray500 }]}>
               العودة للرئيسية
             </ThemedText>
           </Pressable>
@@ -206,7 +206,7 @@ export default function InternationalShoppingScreen() {
               }}
               testID={`button-site-${site.id}`}
             >
-              <View style={[styles.siteIconWrap, { backgroundColor: "#FFF" }]}>
+              <View style={[styles.siteIconWrap, { backgroundColor: AppColors.white }]}>
                 <Feather name={site.icon as any} size={26} color={site.color} />
               </View>
               <ThemedText style={[styles.siteName, { color: site.color }]}>
@@ -215,7 +215,7 @@ export default function InternationalShoppingScreen() {
               <ThemedText style={styles.siteNameAr}>{site.nameAr}</ThemedText>
               {selectedSite === site.id ? (
                 <View style={styles.checkMark}>
-                  <Feather name="check" size={14} color="#FFF" />
+                  <Feather name="check" size={14} color={AppColors.white} />
                 </View>
               ) : null}
             </Pressable>
@@ -230,11 +230,11 @@ export default function InternationalShoppingScreen() {
           <View style={styles.inputGroup}>
             <ThemedText style={styles.label}>رابط المنتج</ThemedText>
             <View style={[styles.inputContainer, { backgroundColor: theme.backgroundSecondary }]}>
-              <Feather name="link" size={18} color="#999" style={styles.inputIcon} />
+              <Feather name="link" size={18} color={AppColors.gray400} style={styles.inputIcon} />
               <TextInput
                 style={[styles.input, { color: theme.text }]}
                 placeholder="الصق رابط المنتج هنا"
-                placeholderTextColor="#BBB"
+                placeholderTextColor={AppColors.gray300}
                 value={productLink}
                 onChangeText={setProductLink}
                 textAlign="right"
@@ -257,7 +257,7 @@ export default function InternationalShoppingScreen() {
               <TextInput
                 style={[styles.input, styles.textAreaInput, { color: theme.text }]}
                 placeholder="اكتب تفاصيل المنتج المطلوب (الاسم، النوع، اللون المفضل...)"
-                placeholderTextColor="#BBB"
+                placeholderTextColor={AppColors.gray300}
                 value={productDetails}
                 onChangeText={setProductDetails}
                 multiline
@@ -275,7 +275,7 @@ export default function InternationalShoppingScreen() {
               <TextInput
                 style={[styles.input, { color: theme.text, textAlign: "center" }]}
                 placeholder="1"
-                placeholderTextColor="#BBB"
+                placeholderTextColor={AppColors.gray300}
                 value={quantity}
                 onChangeText={setQuantity}
                 keyboardType="numeric"
@@ -296,7 +296,7 @@ export default function InternationalShoppingScreen() {
               <TextInput
                 style={[styles.input, styles.textAreaInput, { color: theme.text }]}
                 placeholder="أي ملاحظات أخرى..."
-                placeholderTextColor="#BBB"
+                placeholderTextColor={AppColors.gray300}
                 value={customerNotes}
                 onChangeText={setCustomerNotes}
                 multiline
@@ -319,10 +319,10 @@ export default function InternationalShoppingScreen() {
           testID="button-submit-international"
         >
           {isSubmitting ? (
-            <ActivityIndicator size="small" color="#FFF" />
+            <ActivityIndicator size="small" color={AppColors.white} />
           ) : (
             <>
-              <Feather name="send" size={18} color="#FFF" style={{ marginLeft: 8 }} />
+              <Feather name="send" size={18} color={AppColors.white} style={{ marginLeft: 8 }} />
               <ThemedText style={styles.submitButtonText}>تقديم الطلب</ThemedText>
             </>
           )}
@@ -348,7 +348,7 @@ const styles = StyleSheet.create({
     width: 70,
     height: 70,
     borderRadius: 20,
-    backgroundColor: "#EDE7F6",
+    backgroundColor: AppColors.vendorPurpleLight,
     justifyContent: "center",
     alignItems: "center",
     marginBottom: 16,
@@ -356,7 +356,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontFamily: "Cairo_700Bold",
     fontSize: 17,
-    color: "#2D2D2D",
+    color: AppColors.textPrimary,
     textAlign: "center",
     lineHeight: 38,
     includeFontPadding: true,
@@ -414,7 +414,7 @@ const styles = StyleSheet.create({
   siteNameAr: {
     fontFamily: "Cairo_400Regular",
     fontSize: 11,
-    color: "#999",
+    color: AppColors.gray400,
     textAlign: "center",
     lineHeight: 18,
     includeFontPadding: true,
@@ -432,7 +432,7 @@ const styles = StyleSheet.create({
   },
   divider: {
     height: 1,
-    backgroundColor: "#F0F0F0",
+    backgroundColor: AppColors.backgroundSecondary,
     marginVertical: 24,
   },
   formSection: {
@@ -444,7 +444,7 @@ const styles = StyleSheet.create({
   label: {
     fontFamily: "Cairo_600SemiBold",
     fontSize: 14,
-    color: "#444",
+    color: AppColors.gray700,
     textAlign: "right",
     marginBottom: 8,
     lineHeight: 24,
@@ -455,7 +455,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     borderRadius: 14,
     borderWidth: 1.5,
-    borderColor: "#F0F0F0",
+    borderColor: AppColors.backgroundSecondary,
     paddingHorizontal: 14,
     height: 52,
   },
@@ -495,7 +495,7 @@ const styles = StyleSheet.create({
   submitButtonText: {
     fontFamily: "Cairo_700Bold",
     fontSize: 13,
-    color: "#FFFFFF",
+    color: AppColors.white,
     lineHeight: 28,
     includeFontPadding: true,
   },
@@ -520,7 +520,7 @@ const styles = StyleSheet.create({
   successTitle: {
     fontFamily: "Cairo_700Bold",
     fontSize: 17,
-    color: "#2D2D2D",
+    color: AppColors.textPrimary,
     textAlign: "center",
     lineHeight: 38,
     includeFontPadding: true,
@@ -529,7 +529,7 @@ const styles = StyleSheet.create({
   successSubtitle: {
     fontFamily: "Cairo_400Regular",
     fontSize: 14,
-    color: "#888",
+    color: AppColors.gray500,
     textAlign: "center",
     lineHeight: 24,
     includeFontPadding: true,

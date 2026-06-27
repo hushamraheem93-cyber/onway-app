@@ -156,7 +156,7 @@ export default function EditProfileScreen() {
             />
           ) : (
             <View style={[styles.avatarPlaceholder, { backgroundColor: AppColors.primary }]}>
-              <Feather name="user" size={40} color="#FFFFFF" />
+              <Feather name="user" size={40} color={AppColors.white} />
             </View>
           )}
           <View style={[styles.cameraButton, { backgroundColor: theme.backgroundDefault }]}>
@@ -205,13 +205,13 @@ export default function EditProfileScreen() {
               <Feather 
                 name="user" 
                 size={20} 
-                color={gender === "female" ? "#FFFFFF" : theme.textSecondary} 
+                color={gender === "female" ? AppColors.white : theme.textSecondary} 
               />
               <ThemedText 
                 type="body" 
                 style={[
                   styles.genderText,
-                  { color: gender === "female" ? "#FFFFFF" : theme.text },
+                  { color: gender === "female" ? AppColors.white : theme.text },
                 ]}
               >
                 أنثى
@@ -231,13 +231,13 @@ export default function EditProfileScreen() {
               <Feather 
                 name="user" 
                 size={20} 
-                color={gender === "male" ? "#FFFFFF" : theme.textSecondary} 
+                color={gender === "male" ? AppColors.white : theme.textSecondary} 
               />
               <ThemedText 
                 type="body" 
                 style={[
                   styles.genderText,
-                  { color: gender === "male" ? "#FFFFFF" : theme.text },
+                  { color: gender === "male" ? AppColors.white : theme.text },
                 ]}
               >
                 ذكر
@@ -327,7 +327,7 @@ export default function EditProfileScreen() {
         disabled={!isFormValid || isLoading}
       >
         {isLoading ? (
-          <ActivityIndicator color="#FFFFFF" />
+          <ActivityIndicator color={AppColors.white} />
         ) : (
           <ThemedText type="h4" style={styles.saveButtonText}>
             حفظ التغييرات
@@ -357,8 +357,8 @@ const styles = StyleSheet.create({
     width: 110,
     height: 110,
     borderRadius: 55,
-    backgroundColor: "#FFFFFF",
-    shadowColor: "#000",
+    backgroundColor: AppColors.white,
+    shadowColor: AppColors.black,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.15,
     shadowRadius: 8,
@@ -371,7 +371,7 @@ const styles = StyleSheet.create({
     height: 100,
     borderRadius: 50,
     borderWidth: 3,
-    borderColor: "#FFFFFF",
+    borderColor: AppColors.white,
     overflow: "hidden",
   },
   avatarPlaceholder: {
@@ -381,7 +381,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     borderWidth: 3,
-    borderColor: "#FFFFFF",
+    borderColor: AppColors.white,
     overflow: "hidden",
   },
   cameraButton: {
@@ -394,7 +394,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     borderWidth: 2,
-    borderColor: "#FFFFFF",
+    borderColor: AppColors.white,
   },
   avatarHint: {
     marginBottom: Spacing.md,
@@ -480,7 +480,7 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
   saveButtonText: {
-    color: "#FFFFFF",
+    color: AppColors.white,
     fontWeight: "bold",
   },
   note: {

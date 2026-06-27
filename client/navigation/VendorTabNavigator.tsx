@@ -18,9 +18,7 @@ import VendorProfileScreen from "@/screens/VendorProfileScreen";
 import { useScreenOptions } from "@/hooks/useScreenOptions";
 import { VendorNotificationsProvider, useVendorNotifications } from "@/context/VendorNotificationsContext";
 import { ThemedText } from "@/components/ThemedText";
-
-const PURPLE = "#673AB7";
-const ORANGE = "#E86520";
+import { AppColors } from "@/constants/theme";
 
 export type VendorTabParamList = {
   VendorHome: undefined;
@@ -46,7 +44,7 @@ const TAB_CONFIG: Record<string, { icon: keyof typeof Feather.glyphMap; label: s
 function ProductsStackNavigator() {
   const screenOptions = useScreenOptions();
   return (
-    <ProductStack.Navigator screenOptions={{ ...screenOptions, headerTintColor: PURPLE }}>
+    <ProductStack.Navigator screenOptions={{ ...screenOptions, headerTintColor: AppColors.vendorPurple }}>
       <ProductStack.Screen name="VendorProducts" component={VendorProductsScreen} options={{ headerTitle: "منتجاتي" }} />
       <ProductStack.Screen name="VendorAddProduct" component={VendorAddProductScreen} options={{ headerTitle: "إضافة منتج" }} />
       <ProductStack.Screen name="VendorEditProduct" component={VendorEditProductScreen} options={{ headerTitle: "تعديل المنتج" }} />
@@ -75,15 +73,15 @@ function VendorTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
 
         return (
           <Pressable key={route.key} onPress={onPress} style={styles.tabItem}>
-            <View style={[styles.iconWrap, isFocused && { backgroundColor: PURPLE + "15" }]}>
-              <Feather name={config.icon} size={22} color={isFocused ? PURPLE : "#9CA3AF"} />
+            <View style={[styles.iconWrap, isFocused && { backgroundColor: AppColors.vendorPurple + "15" }]}>
+              <Feather name={config.icon} size={22} color={isFocused ? AppColors.vendorPurple : AppColors.gray400} />
               {isOrders && unreadCount > 0 ? (
                 <View style={styles.badge}>
                   <ThemedText style={styles.badgeText}>{unreadCount > 9 ? "9+" : String(unreadCount)}</ThemedText>
                 </View>
               ) : null}
             </View>
-            <ThemedText style={[styles.tabLabel, { color: isFocused ? PURPLE : "#9CA3AF" }]}>
+            <ThemedText style={[styles.tabLabel, { color: isFocused ? AppColors.vendorPurple : AppColors.gray400 }]}>
               {config.label}
             </ThemedText>
           </Pressable>
@@ -98,7 +96,7 @@ function VendorTabs() {
   const tabScreenOptions = {
     headerTitleAlign: screenOptions.headerTitleAlign as "center" | "left",
     headerTransparent: screenOptions.headerTransparent,
-    headerTintColor: PURPLE,
+    headerTintColor: AppColors.vendorPurple,
     headerShadowVisible: screenOptions.headerShadowVisible,
     headerStyle: screenOptions.headerStyle as any,
   };
@@ -128,11 +126,11 @@ export default function VendorTabNavigator() {
 const styles = StyleSheet.create({
   tabBar: {
     flexDirection: "row",
-    backgroundColor: "#FFFFFF",
+    backgroundColor: AppColors.white,
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: "#E5E7EB",
+    borderTopColor: AppColors.divider,
     paddingTop: 8,
-    shadowColor: "#000",
+    shadowColor: AppColors.shadowColor,
     shadowOffset: { width: 0, height: -2 },
     shadowOpacity: 0.06,
     shadowRadius: 8,
@@ -159,7 +157,7 @@ const styles = StyleSheet.create({
     position: "absolute",
     top: -2,
     right: -2,
-    backgroundColor: "#EF4444",
+    backgroundColor: AppColors.error,
     borderRadius: 8,
     minWidth: 16,
     height: 16,
@@ -170,6 +168,6 @@ const styles = StyleSheet.create({
   badgeText: {
     fontFamily: "Cairo_700Bold",
     fontSize: 9,
-    color: "#fff",
+    color: AppColors.white,
   },
 });

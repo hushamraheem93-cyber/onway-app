@@ -251,8 +251,8 @@ export default function MapPickerScreen() {
         startInLoadingState
         renderLoading={() => (
           <View style={styles.loadingOverlay}>
-            <ActivityIndicator size="large" color={AppColors.wayYellow} />
-            <ThemedText type="body" style={{ marginTop: 10, color: "#999" }}>جاري تحميل الخريطة...</ThemedText>
+            <ActivityIndicator size="large" color={AppColors.primary} />
+            <ThemedText type="body" style={{ marginTop: 10, color: AppColors.gray400 }}>جاري تحميل الخريطة...</ThemedText>
           </View>
         )}
       />
@@ -268,7 +268,7 @@ export default function MapPickerScreen() {
         {placeNameText ? (
           <View style={styles.placeNameRow}>
             <View style={styles.placeNameBadge}>
-              <Feather name="navigation" size={14} color="#FFF" />
+              <Feather name="navigation" size={14} color={AppColors.white} />
             </View>
             <ThemedText type="body" style={styles.placeNameValue}>{placeNameText}</ThemedText>
           </View>
@@ -276,18 +276,18 @@ export default function MapPickerScreen() {
 
         <View style={styles.addressRow}>
           <View style={styles.addressIcon}>
-            <Feather name="map-pin" size={20} color={AppColors.wayYellow} />
+            <Feather name="map-pin" size={20} color={AppColors.primary} />
           </View>
           <View style={styles.addressContent}>
             <ThemedText type="small" style={styles.addressLabel}>العنوان المحدد</ThemedText>
             {loadingAddress ? (
-              <ActivityIndicator size="small" color={AppColors.wayYellow} />
+              <ActivityIndicator size="small" color={AppColors.primary} />
             ) : (
               <TextInput
                 value={addressText}
                 onChangeText={setAddressText}
                 placeholder="اكتب عنوانك هنا (مثال: قرب أسوق دزني)"
-                placeholderTextColor="#999"
+                placeholderTextColor={AppColors.gray400}
                 style={styles.addressInput}
                 textAlign="right"
                 multiline
@@ -298,7 +298,7 @@ export default function MapPickerScreen() {
         </View>
 
         <Pressable style={styles.confirmButton} onPress={handleConfirm}>
-          <Feather name="check" size={20} color="#000" />
+          <Feather name="check" size={20} color={AppColors.black} />
           <ThemedText type="body" style={styles.confirmText}>تثبيت الموقع</ThemedText>
         </Pressable>
       </View>
@@ -315,7 +315,7 @@ const styles = StyleSheet.create({
   },
   loadingOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: "#F9F9F9",
+    backgroundColor: AppColors.gray50,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -325,10 +325,10 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 12,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: AppColors.white,
     alignItems: "center",
     justifyContent: "center",
-    shadowColor: "#000",
+    shadowColor: AppColors.black,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.15,
     shadowRadius: 6,
@@ -340,12 +340,12 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: AppColors.white,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     paddingHorizontal: 20,
     paddingTop: 20,
-    shadowColor: "#000",
+    shadowColor: AppColors.black,
     shadowOffset: { width: 0, height: -3 },
     shadowOpacity: 0.1,
     shadowRadius: 10,
@@ -356,18 +356,18 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 12,
     gap: 10,
-    backgroundColor: "#FFF7F2",
+    backgroundColor: AppColors.secondary,
     borderRadius: 12,
     paddingHorizontal: 14,
     paddingVertical: 10,
     borderWidth: 1,
-    borderColor: "#FFE0CC",
+    borderColor: AppColors.secondary,
   },
   placeNameBadge: {
     width: 28,
     height: 28,
     borderRadius: 8,
-    backgroundColor: AppColors.wayYellow,
+    backgroundColor: AppColors.primary,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -375,7 +375,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontWeight: "700",
     fontSize: 12,
-    color: "#333",
+    color: AppColors.gray700,
     textAlign: "right",
   },
   addressRow: {
@@ -388,7 +388,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 12,
-    backgroundColor: "#FFF2EC",
+    backgroundColor: AppColors.secondary,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -397,7 +397,7 @@ const styles = StyleSheet.create({
     alignItems: "flex-end",
   },
   addressLabel: {
-    color: "#999",
+    color: AppColors.gray400,
     marginBottom: 2,
   },
   addressValue: {
@@ -407,7 +407,7 @@ const styles = StyleSheet.create({
   addressInput: {
     fontWeight: "600",
     textAlign: "right",
-    color: "#333",
+    color: AppColors.gray700,
     fontSize: 13,
     paddingVertical: 2,
     width: "100%",
@@ -416,14 +416,14 @@ const styles = StyleSheet.create({
     flexDirection: "row-reverse",
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: AppColors.wayYellow,
+    backgroundColor: AppColors.primary,
     borderRadius: 14,
     height: 52,
     gap: 8,
   },
   confirmText: {
     fontWeight: "700",
-    color: "#000",
+    color: AppColors.black,
     fontSize: 13,
   },
 });

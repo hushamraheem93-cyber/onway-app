@@ -113,14 +113,14 @@ export default function OrderConfirmationScreen() {
 
   const getStatusColor = (status: string) => {
     const colors: Record<string, string> = {
-      pending: "#F59E0B",
-      confirmed: "#3B82F6",
-      preparing: "#8B5CF6",
-      delivering: "#06B6D4",
-      delivered: "#10B981",
-      cancelled: "#EF4444",
+      pending: AppColors.warning,
+      confirmed: AppColors.info,
+      preparing: AppColors.statusPurple,
+      delivering: AppColors.statusCyan,
+      delivered: AppColors.success,
+      cancelled: AppColors.error,
     };
-    return colors[status] || "#6B7280";
+    return colors[status] || AppColors.gray500;
   };
 
   return (
@@ -136,7 +136,7 @@ export default function OrderConfirmationScreen() {
     >
       <View style={styles.successIcon}>
         <View style={[styles.iconCircle, { backgroundColor: AppColors.success }]}>
-          <Feather name="check" size={48} color="#FFFFFF" />
+          <Feather name="check" size={48} color={AppColors.white} />
         </View>
       </View>
 
@@ -228,7 +228,7 @@ export default function OrderConfirmationScreen() {
 
       <View style={[styles.statusCard, { backgroundColor: getStatusColor(order.status) + "15" }]}>
         <View style={[styles.statusIcon, { backgroundColor: getStatusColor(order.status) }]}>
-          <Feather name="clock" size={24} color="#FFFFFF" />
+          <Feather name="clock" size={24} color={AppColors.white} />
         </View>
         <View style={styles.statusContent}>
           <ThemedText type="body" style={{ fontWeight: "600" }}>
@@ -250,7 +250,7 @@ export default function OrderConfirmationScreen() {
       {/* ── Cancel within 1 minute ─────────────────────────── */}
       {cancelled ? (
         <View style={styles.cancelledBox}>
-          <Feather name="x-circle" size={22} color="#EF4444" />
+          <Feather name="x-circle" size={22} color={AppColors.error} />
           <ThemedText style={styles.cancelledText}>تم إلغاء الطلب بنجاح</ThemedText>
         </View>
       ) : secsLeft > 0 ? (
@@ -262,7 +262,7 @@ export default function OrderConfirmationScreen() {
 
           <View style={styles.cancelRow}>
             <View style={styles.timerBadge}>
-              <Feather name="clock" size={13} color="#EF4444" />
+              <Feather name="clock" size={13} color={AppColors.error} />
               <ThemedText style={styles.timerText}>{secsLeft}ث</ThemedText>
             </View>
             <ThemedText style={[styles.cancelHint, { color: theme.textSecondary }]}>
@@ -281,9 +281,9 @@ export default function OrderConfirmationScreen() {
             testID="button-cancel-order"
           >
             {cancelling ? (
-              <ActivityIndicator color="#EF4444" size="small" />
+              <ActivityIndicator color={AppColors.error} size="small" />
             ) : (
-              <Feather name="x" size={16} color="#EF4444" />
+              <Feather name="x" size={16} color={AppColors.error} />
             )}
             <ThemedText style={styles.cancelBtnText}>
               {cancelling ? "جاري الإلغاء..." : "إلغاء الطلب"}
@@ -337,7 +337,7 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.md,
     paddingBottom: Spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: "#E0E0E0",
+    borderBottomColor: AppColors.border,
   },
   detailRow: {
     flexDirection: "row",
@@ -347,7 +347,7 @@ const styles = StyleSheet.create({
   },
   divider: {
     borderTopWidth: 1,
-    borderTopColor: "#E0E0E0",
+    borderTopColor: AppColors.border,
     marginTop: Spacing.sm,
     paddingTop: Spacing.md,
   },
@@ -360,7 +360,7 @@ const styles = StyleSheet.create({
   },
   totalRow: {
     borderTopWidth: 1,
-    borderTopColor: "#E0E0E0",
+    borderTopColor: AppColors.border,
     marginTop: Spacing.md,
     paddingTop: Spacing.lg,
   },
@@ -410,17 +410,17 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.lg,
     gap: Spacing.sm,
     borderWidth: 1,
-    borderColor: "rgba(239,68,68,0.2)",
+    borderColor: AppColors.error + "33",
   },
   progressTrack: {
     height: 3,
     borderRadius: 2,
-    backgroundColor: "rgba(239,68,68,0.15)",
+    backgroundColor: AppColors.error + "26",
     overflow: "hidden",
   },
   progressFill: {
     height: 3,
-    backgroundColor: "#EF4444",
+    backgroundColor: AppColors.error,
     borderRadius: 2,
   },
   cancelRow: {
@@ -432,7 +432,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
-    backgroundColor: "rgba(239,68,68,0.1)",
+    backgroundColor: AppColors.error + "1A",
     paddingHorizontal: Spacing.sm,
     paddingVertical: 3,
     borderRadius: BorderRadius.sm,
@@ -440,7 +440,7 @@ const styles = StyleSheet.create({
   timerText: {
     fontFamily: "Cairo_700Bold",
     fontSize: 13,
-    color: "#EF4444",
+    color: AppColors.error,
   },
   cancelHint: {
     fontFamily: "Cairo_400Regular",
@@ -455,18 +455,18 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.sm + 2,
     borderRadius: BorderRadius.md,
     borderWidth: 1.5,
-    borderColor: "#EF4444",
-    backgroundColor: "rgba(239,68,68,0.06)",
+    borderColor: AppColors.error,
+    backgroundColor: AppColors.error + "0F",
   },
   cancelBtnText: {
     fontFamily: "Cairo_700Bold",
     fontSize: 14,
-    color: "#EF4444",
+    color: AppColors.error,
   },
   cancelErrorText: {
     fontFamily: "Cairo_400Regular",
     fontSize: 12,
-    color: "#EF4444",
+    color: AppColors.error,
     textAlign: "center",
   },
   cancelledBox: {
@@ -474,18 +474,18 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     gap: Spacing.sm,
-    backgroundColor: "rgba(239,68,68,0.08)",
+    backgroundColor: AppColors.error + "14",
     borderRadius: BorderRadius.lg,
     paddingVertical: Spacing.md,
     paddingHorizontal: Spacing.lg,
     marginBottom: Spacing.lg,
     borderWidth: 1,
-    borderColor: "rgba(239,68,68,0.2)",
+    borderColor: AppColors.error + "33",
   },
   cancelledText: {
     fontFamily: "Cairo_700Bold",
     fontSize: 15,
-    color: "#EF4444",
+    color: AppColors.error,
   },
   storeBadgeContainer: {
     alignItems: "center",

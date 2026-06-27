@@ -65,7 +65,7 @@ export default function MapPicker({ selectedLocation, onLocationSelect, onGetCur
       </View>
 
       <View style={styles.hint}>
-        <ThemedText type="small" style={{ color: "#FFFFFF", fontWeight: "600" }}>
+        <ThemedText type="small" style={{ color: AppColors.white, fontWeight: "600" }}>
           انقر على الخريطة أو اسحب المؤشر لتحديد موقعك
         </ThemedText>
       </View>

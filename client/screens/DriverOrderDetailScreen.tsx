@@ -43,7 +43,7 @@ html,body{width:100%;height:100%;overflow:hidden;}
 </head><body>
 <div id="map"></div>
 <button class="open-btn" onclick="window.ReactNativeWebView.postMessage('openMaps')">
-<svg width="16" height="16" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+<svg width="16" height="16" fill="none" stroke={AppColors.white} stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
 افتح بالخرائط
 </button>
 <script>
@@ -139,12 +139,12 @@ export default function DriverOrderDetailScreen() {
   };
 
   const statusColor: Record<string, string> = {
-    pending: "#FF9800",
-    confirmed: "#3B82F6",
-    preparing: "#8B5CF6",
-    delivering: "#2196F3",
-    delivered: "#4CAF50",
-    cancelled: "#F44336",
+    pending: AppColors.warning,
+    confirmed: AppColors.info,
+    preparing: AppColors.statusPurple,
+    delivering: AppColors.info,
+    delivered: AppColors.success,
+    cancelled: AppColors.error,
   };
 
   const orderTotal = (order.total || 0) + (order.deliveryFee || 0);
@@ -154,7 +154,7 @@ export default function DriverOrderDetailScreen() {
       <GradientBackground />
       <View style={[styles.header, { paddingTop: insets.top + Spacing.sm, backgroundColor: AppColors.primary }]}>
         <Pressable onPress={() => navigation.goBack()} style={styles.backBtn} testID="button-back">
-          <Feather name="arrow-right" size={24} color="#FFFFFF" />
+          <Feather name="arrow-right" size={24} color={AppColors.white} />
         </Pressable>
         <ThemedText type="h3" style={styles.headerTitle}>تفاصيل الطلب</ThemedText>
         <View style={{ width: 40 }} />
@@ -164,8 +164,8 @@ export default function DriverOrderDetailScreen() {
         contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + Spacing.xl }]}
         showsVerticalScrollIndicator={false}
       >
-        <View style={[styles.statusBanner, { backgroundColor: (statusColor[order.status] || "#9E9E9E") + "15" }]}>
-          <ThemedText type="h4" style={{ color: statusColor[order.status] || "#9E9E9E", fontWeight: "700" }}>
+        <View style={[styles.statusBanner, { backgroundColor: (statusColor[order.status] || AppColors.gray400) + "15" }]}>
+          <ThemedText type="h4" style={{ color: statusColor[order.status] || AppColors.gray400, fontWeight: "700" }}>
             {statusLabel[order.status] || order.status}
           </ThemedText>
           <ThemedText type="small" style={{ color: theme.textSecondary, marginTop: 2 }}>
@@ -211,7 +211,7 @@ export default function DriverOrderDetailScreen() {
                 <View style={styles.sourceRow}>
                   <ThemedText type="body" style={{ color: theme.text, fontWeight: "600" }}>متجر OnWay</ThemedText>
                   <View style={[styles.sourceBadge, { backgroundColor: "#3B82F620" }]}>
-                    <ThemedText type="small" style={{ color: "#3B82F6" }}>متجر</ThemedText>
+                    <ThemedText type="small" style={{ color: AppColors.info }}>متجر</ThemedText>
                   </View>
                 </View>
               ) : null}
@@ -250,7 +250,7 @@ export default function DriverOrderDetailScreen() {
             onPress={handleCallCustomer}
             testID="button-call-customer"
           >
-            <Feather name="phone" size={20} color="#FFFFFF" />
+            <Feather name="phone" size={20} color={AppColors.white} />
             <ThemedText type="h4" style={styles.callButtonText}>اتصال بالزبون</ThemedText>
           </Pressable>
         </View>
@@ -404,7 +404,7 @@ const styles = StyleSheet.create({
     paddingBottom: Spacing.md,
   },
   headerTitle: {
-    color: "#FFFFFF",
+    color: AppColors.white,
     fontWeight: "700",
   },
   backBtn: {
@@ -435,7 +435,7 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.lg,
     paddingBottom: Spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: "#F0F0F0",
+    borderBottomColor: AppColors.backgroundSecondary,
   },
   infoRow: {
     flexDirection: "row-reverse",
@@ -448,7 +448,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     gap: Spacing.sm,
-    backgroundColor: "#4CAF50",
+    backgroundColor: AppColors.success,
     paddingVertical: Spacing.md,
     borderRadius: BorderRadius.md,
     marginTop: Spacing.md,
@@ -480,13 +480,13 @@ const styles = StyleSheet.create({
   miniMapContainer: {
     height: 200,
     borderTopWidth: 1,
-    borderTopColor: "#F0F0F0",
+    borderTopColor: AppColors.backgroundSecondary,
   },
   miniMap: {
     flex: 1,
   },
   callButtonText: {
-    color: "#FFFFFF",
+    color: AppColors.white,
     fontWeight: "700",
   },
   orderTypeBadge: {
@@ -528,7 +528,7 @@ const styles = StyleSheet.create({
   },
   grandTotalRow: {
     borderTopWidth: 1,
-    borderTopColor: "#E0E0E0",
+    borderTopColor: AppColors.border,
     paddingTop: Spacing.md,
     marginTop: Spacing.sm,
   },

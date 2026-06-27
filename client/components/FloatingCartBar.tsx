@@ -91,7 +91,7 @@ function FloatingCartBarComponent({ bottomOffset }: FloatingCartBarProps) {
                     onPress={() => increase(cartItem.product.id, cartItem.quantity)}
                     testID={`float-increase-${cartItem.product.id}`}
                   >
-                    <Feather name="plus" size={14} color="#fff" />
+                    <Feather name="plus" size={14} color={AppColors.white} />
                   </Pressable>
                   <ThemedText style={styles.qtyNum}>{cartItem.quantity}</ThemedText>
                   <Pressable
@@ -99,7 +99,7 @@ function FloatingCartBarComponent({ bottomOffset }: FloatingCartBarProps) {
                     onPress={() => decrease(cartItem.product.id, cartItem.quantity)}
                     testID={`float-decrease-${cartItem.product.id}`}
                   >
-                    <Feather name={cartItem.quantity === 1 ? "trash-2" : "minus"} size={14} color={cartItem.quantity === 1 ? "#EF4444" : "#E86520"} />
+                    <Feather name={cartItem.quantity === 1 ? "trash-2" : "minus"} size={14} color={cartItem.quantity === 1 ? AppColors.error : AppColors.primary} />
                   </Pressable>
                 </View>
                 <View style={styles.itemInfo}>
@@ -131,7 +131,7 @@ function FloatingCartBarComponent({ bottomOffset }: FloatingCartBarProps) {
           <Feather
             name={expanded ? "chevron-down" : "chevron-up"}
             size={18}
-            color="#fff"
+            color={AppColors.white}
           />
         </View>
         <View style={styles.barLeft}>
@@ -142,7 +142,7 @@ function FloatingCartBarComponent({ bottomOffset }: FloatingCartBarProps) {
 
       {expanded ? (
         <Pressable style={styles.checkoutBtn} onPress={handleCheckout} testID="float-checkout-btn">
-          <Feather name="shopping-cart" size={16} color="#fff" />
+          <Feather name="shopping-cart" size={16} color={AppColors.white} />
           <ThemedText style={styles.checkoutText}>إتمام الطلب</ThemedText>
         </Pressable>
       ) : null}
@@ -159,12 +159,12 @@ const styles = StyleSheet.create({
     zIndex: 999,
   },
   panel: {
-    backgroundColor: "#fff",
+    backgroundColor: AppColors.white,
     borderRadius: BorderRadius.lg,
     overflow: "hidden",
     marginBottom: 6,
     borderWidth: 1,
-    borderColor: "#F0E8E3",
+    borderColor: AppColors.gray100,
   },
   listContent: {
     paddingVertical: 8,
@@ -177,7 +177,7 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     paddingVertical: 6,
     borderBottomWidth: 1,
-    borderBottomColor: "#F3F4F6",
+    borderBottomColor: AppColors.gray100,
   },
   rowLeft: {
     flexDirection: "row",
@@ -189,7 +189,7 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 10,
-    backgroundColor: "#F3F4F6",
+    backgroundColor: AppColors.gray100,
   },
   itemInfo: {
     flex: 1,
@@ -198,7 +198,7 @@ const styles = StyleSheet.create({
   itemName: {
     fontFamily: "Cairo_600SemiBold",
     fontSize: 12,
-    color: "#1A1A1A",
+    color: AppColors.black,
     textAlign: "right",
   },
   itemPrice: {
@@ -221,12 +221,12 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   qtyBtnMinus: {
-    backgroundColor: "#FFF0E8",
+    backgroundColor: AppColors.secondary,
   },
   qtyNum: {
     fontFamily: "Cairo_700Bold",
     fontSize: 13,
-    color: "#1A1A1A",
+    color: AppColors.black,
     minWidth: 20,
     textAlign: "center",
   },
@@ -256,12 +256,12 @@ const styles = StyleSheet.create({
   countText: {
     fontFamily: "Cairo_700Bold",
     fontSize: 12,
-    color: "#fff",
+    color: AppColors.white,
   },
   barLabel: {
     fontFamily: "Cairo_700Bold",
     fontSize: 13,
-    color: "#fff",
+    color: AppColors.white,
   },
   barLeft: {
     alignItems: "flex-end",
@@ -269,19 +269,19 @@ const styles = StyleSheet.create({
   totalLabel: {
     fontFamily: "Cairo_400Regular",
     fontSize: 10,
-    color: "rgba(255,255,255,0.8)",
+    color: AppColors.textOnBrandMuted,
   },
   totalAmount: {
     fontFamily: "Cairo_700Bold",
     fontSize: 13,
-    color: "#fff",
+    color: AppColors.white,
   },
   checkoutBtn: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     gap: 8,
-    backgroundColor: "#1A1A1A",
+    backgroundColor: AppColors.black,
     borderRadius: BorderRadius.lg,
     paddingVertical: 12,
     marginTop: 6,
@@ -289,6 +289,6 @@ const styles = StyleSheet.create({
   checkoutText: {
     fontFamily: "Cairo_700Bold",
     fontSize: 13,
-    color: "#fff",
+    color: AppColors.white,
   },
 });

@@ -151,7 +151,7 @@ export default function AddressesScreen() {
           <View style={styles.addressHeader}>
             {addr.id !== "profile-address" ? (
               <Pressable onPress={() => handleDelete(addr.id)} hitSlop={8}>
-                <Feather name="trash-2" size={18} color="#E53935" />
+                <Feather name="trash-2" size={18} color={AppColors.error} />
               </Pressable>
             ) : (
               <View style={styles.profileBadge}>
@@ -224,15 +224,15 @@ export default function AddressesScreen() {
                 setNewTitle("");
                 setNewAddress("");
               }}
-              style={[styles.formBtn, { backgroundColor: "#ccc" }]}
+              style={[styles.formBtn, { backgroundColor: AppColors.gray300 }]}
             >
-              <ThemedText type="body" style={{ color: "#333" }}>إلغاء</ThemedText>
+              <ThemedText type="body" style={{ color: AppColors.gray700 }}>إلغاء</ThemedText>
             </Pressable>
             <Pressable
               onPress={handleAddAddress}
               style={[styles.formBtn, { backgroundColor: AppColors.primary }]}
             >
-              <ThemedText type="body" style={{ color: "#fff" }}>حفظ</ThemedText>
+              <ThemedText type="body" style={{ color: AppColors.white }}>حفظ</ThemedText>
             </Pressable>
           </View>
         </View>
@@ -299,13 +299,13 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   profileBadge: {
-    backgroundColor: "#4CAF50" + "20",
+    backgroundColor: AppColors.success + "20",
     paddingHorizontal: Spacing.sm,
     paddingVertical: 2,
     borderRadius: BorderRadius.sm,
   },
   profileBadgeText: {
-    color: "#4CAF50",
+    color: AppColors.success,
     fontWeight: "600",
   },
   regionRow: {

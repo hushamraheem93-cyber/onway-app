@@ -18,9 +18,10 @@ import { ThemedText } from "@/components/ThemedText";
 import { useAuth } from "@/context/AuthContext";
 import { getApiUrl } from "@/lib/query-client";
 import { formatPrice } from "@/constants/currency";
+import { AppColors } from "@/constants/theme";
 
-const PURPLE = "#673AB7";
-const LIGHT_PURPLE = "#F3EEFF";
+const PURPLE = AppColors.vendorPurple;
+const LIGHT_PURPLE = AppColors.vendorPurpleLight;
 const { width: SCREEN_W } = Dimensions.get("window");
 
 type Period = "today" | "week" | "month" | "all";
@@ -95,7 +96,7 @@ const chartStyles = StyleSheet.create({
   barsRow: { flexDirection: "row-reverse", alignItems: "flex-end", gap: 4, paddingHorizontal: 4 },
   barCol: { alignItems: "center", gap: 4 },
   bar: { borderRadius: 6, backgroundColor: PURPLE, opacity: 0.8, minWidth: 10 },
-  barLabel: { fontFamily: "Cairo_400Regular", fontSize: 9, color: "#6B7280", textAlign: "center" },
+  barLabel: { fontFamily: "Cairo_400Regular", fontSize: 9, color: AppColors.gray500, textAlign: "center" },
 });
 
 export default function VendorWalletScreen() {
@@ -165,7 +166,7 @@ export default function VendorWalletScreen() {
         <>
           {/* Main revenue card */}
           <View style={[styles.revenueCard, { backgroundColor: PURPLE }]}>
-            <MaterialCommunityIcons name="wallet-outline" size={32} color="rgba(255,255,255,0.7)" />
+            <MaterialCommunityIcons name="wallet-outline" size={32} color={AppColors.textOnBrandSubtle} />
             <ThemedText style={styles.revenueLabel}>إجمالي المبيعات</ThemedText>
             <ThemedText style={styles.revenueValue}>{formatPrice(totalRevenue)}</ThemedText>
             <ThemedText style={styles.revenuePeriod}>{PERIOD_LABELS[period]}</ThemedText>
@@ -179,8 +180,8 @@ export default function VendorWalletScreen() {
               <ThemedText style={styles.statLabel}>طلب مكتمل</ThemedText>
             </View>
             <View style={[styles.statCard, { backgroundColor: theme.backgroundDefault }]}>
-              <MaterialCommunityIcons name="chart-line" size={22} color="#059669" />
-              <ThemedText style={[styles.statValue, { color: "#059669" }]}>{formatPrice(avgOrder)}</ThemedText>
+              <MaterialCommunityIcons name="chart-line" size={22} color={AppColors.success} />
+              <ThemedText style={[styles.statValue, { color: AppColors.success }]}>{formatPrice(avgOrder)}</ThemedText>
               <ThemedText style={styles.statLabel}>متوسط الطلب</ThemedText>
             </View>
           </View>
@@ -209,7 +210,7 @@ export default function VendorWalletScreen() {
                   style={[
                     styles.saleRow,
                     i < recentSales.length - 1 && styles.saleRowBorder,
-                    { borderBottomColor: theme.border ?? "#F3F4F6" },
+                    { borderBottomColor: theme.border ?? AppColors.gray100 },
                   ]}
                 >
                   <View style={styles.saleLeft}>
@@ -247,7 +248,7 @@ export default function VendorWalletScreen() {
 const styles = StyleSheet.create({
   loader: { flex: 1, alignItems: "center", justifyContent: "center", paddingTop: 60 },
   periodRow: {
-    flexDirection: "row-reverse", gap: 8, backgroundColor: "#F3F4F6",
+    flexDirection: "row-reverse", gap: 8, backgroundColor: AppColors.gray100,
     borderRadius: 14, padding: 4,
   },
   periodBtn: {
@@ -255,29 +256,29 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   periodBtnActive: { backgroundColor: PURPLE },
-  periodText: { fontFamily: "Cairo_700Bold", fontSize: 13, color: "#6B7280" },
-  periodTextActive: { color: "#fff" },
+  periodText: { fontFamily: "Cairo_700Bold", fontSize: 13, color: AppColors.gray500 },
+  periodTextActive: { color: AppColors.white },
   revenueCard: {
     borderRadius: 20, padding: 24, alignItems: "center", gap: 6,
   },
-  revenueLabel: { fontFamily: "Cairo_400Regular", fontSize: 14, color: "rgba(255,255,255,0.8)", textAlign: "center" },
-  revenueValue: { fontFamily: "Cairo_700Bold", fontSize: 30, color: "#fff", textAlign: "center" },
-  revenuePeriod: { fontFamily: "Cairo_400Regular", fontSize: 12, color: "rgba(255,255,255,0.6)", textAlign: "center" },
+  revenueLabel: { fontFamily: "Cairo_400Regular", fontSize: 14, color: AppColors.textOnBrandMuted, textAlign: "center" },
+  revenueValue: { fontFamily: "Cairo_700Bold", fontSize: 30, color: AppColors.white, textAlign: "center" },
+  revenuePeriod: { fontFamily: "Cairo_400Regular", fontSize: 12, color: AppColors.iconOnBrand, textAlign: "center" },
   statsRow: { flexDirection: "row-reverse", gap: 10 },
   statCard: {
     flex: 1, borderRadius: 16, padding: 16, alignItems: "center", gap: 6,
-    shadowColor: "#000", shadowOpacity: 0.05, shadowRadius: 8, shadowOffset: { width: 0, height: 2 },
+    shadowColor: AppColors.black, shadowOpacity: 0.05, shadowRadius: 8, shadowOffset: { width: 0, height: 2 },
     elevation: 2,
   },
   statValue: { fontFamily: "Cairo_700Bold", fontSize: 18, color: PURPLE, textAlign: "center" },
-  statLabel: { fontFamily: "Cairo_400Regular", fontSize: 12, color: "#6B7280", textAlign: "center" },
+  statLabel: { fontFamily: "Cairo_400Regular", fontSize: 12, color: AppColors.gray500, textAlign: "center" },
   section: {
     borderRadius: 16, padding: 16,
-    shadowColor: "#000", shadowOpacity: 0.04, shadowRadius: 8, shadowOffset: { width: 0, height: 2 },
+    shadowColor: AppColors.black, shadowOpacity: 0.04, shadowRadius: 8, shadowOffset: { width: 0, height: 2 },
     elevation: 2,
   },
   sectionHeader: { flexDirection: "row-reverse", alignItems: "center", gap: 8, marginBottom: 12 },
-  sectionTitle: { fontFamily: "Cairo_700Bold", fontSize: 14, color: "#1F2937" },
+  sectionTitle: { fontFamily: "Cairo_700Bold", fontSize: 14, color: AppColors.gray800 },
   saleRow: { flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between", paddingVertical: 10 },
   saleRowBorder: { borderBottomWidth: 1 },
   saleLeft: { alignItems: "flex-end", gap: 4 },
@@ -285,8 +286,8 @@ const styles = StyleSheet.create({
   saleAmount: { fontFamily: "Cairo_700Bold", fontSize: 15, color: PURPLE, textAlign: "right" },
   saleBadge: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 8 },
   saleBadgeText: { fontFamily: "Cairo_700Bold", fontSize: 10 },
-  saleDate: { fontFamily: "Cairo_700Bold", fontSize: 12, color: "#374151" },
-  saleMeta: { fontFamily: "Cairo_400Regular", fontSize: 11, color: "#9CA3AF" },
+  saleDate: { fontFamily: "Cairo_700Bold", fontSize: 12, color: AppColors.gray700 },
+  saleMeta: { fontFamily: "Cairo_400Regular", fontSize: 11, color: AppColors.gray400 },
   emptyState: { alignItems: "center", justifyContent: "center", paddingVertical: 48, gap: 10 },
   emptyTitle: { fontFamily: "Cairo_700Bold", fontSize: 17, textAlign: "center" },
   emptySub: { fontFamily: "Cairo_400Regular", fontSize: 13, textAlign: "center" },

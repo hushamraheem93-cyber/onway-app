@@ -9,7 +9,7 @@ import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
 
 import { ThemedText } from "@/components/ThemedText";
 import { useTheme } from "@/hooks/useTheme";
-import { Spacing, BorderRadius, Shadows, AppColors } from "@/constants/theme";
+import { Spacing, BorderRadius, Shadows, AppColors, ORDER_STATUS_COLORS, ORDER_STATUS_LABELS } from "@/constants/theme";
 import { Order } from "@/context/OrderContext";
 import { formatPrice } from "@/constants/currency";
 
@@ -22,31 +22,6 @@ interface OrderCardProps {
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
-const statusLabels: Record<Order["status"], string> = {
-  pending: "قيد الانتظار",
-  confirmed: "تم تأكيد الطلب",
-  preparing: "جاري التحضير",
-  ready: "جاهز للاستلام",
-  picked_up: "استُلم من المتجر",
-  in_delivery: "في الطريق إليك",
-  delivering: "في الطريق إليك",
-  delivered: "تم التوصيل",
-  cancelled: "ملغي",
-  issue: "توجد مشكلة",
-};
-
-const statusColors: Record<Order["status"], string> = {
-  pending: "#FFA726",
-  confirmed: "#3B82F6",
-  preparing: "#8B5CF6",
-  ready: "#8B5CF6",
-  picked_up: "#06B6D4",
-  in_delivery: "#06B6D4",
-  delivering: "#06B6D4",
-  delivered: "#10B981",
-  cancelled: "#EF4444",
-  issue: "#F59E0B",
-};
 
 function OrderCardComponent({ order, onPress, onStorePress, onRate }: OrderCardProps) {
   const { theme } = useTheme();
@@ -121,14 +96,14 @@ function OrderCardComponent({ order, onPress, onStorePress, onRate }: OrderCardP
         <View
           style={[
             styles.statusBadge,
-            { backgroundColor: statusColors[order.status] + "20" },
+            { backgroundColor: (ORDER_STATUS_COLORS[order.status] ?? AppColors.gray400) + "20" },
           ]}
         >
           <ThemedText
             type="small"
-            style={{ color: statusColors[order.status], fontWeight: "600" }}
+            style={{ color: ORDER_STATUS_COLORS[order.status] ?? AppColors.gray400, fontWeight: "600" }}
           >
-            {statusLabels[order.status]}
+            {ORDER_STATUS_LABELS[order.status] ?? order.status}
           </ThemedText>
         </View>
       </View>
@@ -180,10 +155,10 @@ function OrderCardComponent({ order, onPress, onStorePress, onRate }: OrderCardP
 
       {/* Rating section — delivered + vendor orders only */}
       {(canRate || ratedValue) ? (
-        <View style={[styles.ratingSection, { borderTopColor: theme.border ?? "#E5E7EB" }]}>
+        <View style={[styles.ratingSection, { borderTopColor: theme.border ?? AppColors.divider }]}>
           {ratedValue ? (
             <View style={styles.ratingRow}>
-              <ThemedText type="small" style={{ color: "#10B981", fontWeight: "600" }}>
+              <ThemedText type="small" style={{ color: AppColors.success, fontWeight: "600" }}>
                 شكراً على تقييمك!
               </ThemedText>
               <View style={styles.ratingStarsRow}>
@@ -192,7 +167,7 @@ function OrderCardComponent({ order, onPress, onStorePress, onRate }: OrderCardP
                     key={i}
                     name={i <= ratedValue ? "star" : "star-outline"}
                     size={16}
-                    color="#F59E0B"
+                    color={AppColors.warning}
                   />
                 ))}
               </View>
@@ -210,8 +185,8 @@ function OrderCardComponent({ order, onPress, onStorePress, onRate }: OrderCardP
               style={styles.rateBtn}
               testID={`button-rate-open-${order.id}`}
             >
-              <MaterialCommunityIcons name="star" size={16} color="#fff" />
-              <ThemedText type="small" style={{ color: "#fff", fontFamily: "Cairo_700Bold" }}>
+              <MaterialCommunityIcons name="star" size={16} color={AppColors.white} />
+              <ThemedText type="small" style={{ color: AppColors.white, fontFamily: "Cairo_700Bold" }}>
                 قيّم طلبك
               </ThemedText>
             </Pressable>
@@ -238,7 +213,7 @@ function OrderCardComponent({ order, onPress, onStorePress, onRate }: OrderCardP
                   <MaterialCommunityIcons
                     name={star <= selectedStar ? "star" : "star-outline"}
                     size={36}
-                    color="#F59E0B"
+                    color={AppColors.warning}
                   />
                 </Pressable>
               ))}
@@ -246,7 +221,7 @@ function OrderCardComponent({ order, onPress, onStorePress, onRate }: OrderCardP
 
             {/* Comment */}
             <TextInput
-              style={[styles.modalComment, { backgroundColor: theme.backgroundRoot, color: theme.text, borderColor: theme.border ?? "#E5E7EB" }]}
+              style={[styles.modalComment, { backgroundColor: theme.backgroundRoot, color: theme.text, borderColor: theme.border ?? AppColors.divider }]}
               placeholder="أضف تعليقاً (اختياري)..."
               placeholderTextColor={theme.textSecondary}
               value={commentText}
@@ -276,9 +251,9 @@ function OrderCardComponent({ order, onPress, onStorePress, onRate }: OrderCardP
                 testID="button-submit-rating"
               >
                 {submittingRating ? (
-                  <ActivityIndicator size="small" color="#fff" />
+                  <ActivityIndicator size="small" color={AppColors.white} />
                 ) : (
-                  <ThemedText type="body" style={{ color: "#fff", fontFamily: "Cairo_700Bold" }}>إرسال</ThemedText>
+                  <ThemedText type="body" style={{ color: AppColors.white, fontFamily: "Cairo_700Bold" }}>إرسال</ThemedText>
                 )}
               </Pressable>
             </View>
@@ -345,12 +320,13 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingTop: Spacing.md,
     borderTopWidth: 1,
-    borderTopColor: "#E0E0E0",
+    borderTopColor: AppColors.border,
   },
   ratingSection: {
     marginTop: Spacing.md,
     paddingTop: Spacing.md,
     borderTopWidth: 1,
+    borderTopColor: AppColors.border,
     alignItems: "center",
   },
   ratingRow: {
@@ -380,7 +356,7 @@ const styles = StyleSheet.create({
   },
   modalBg: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.5)",
+    backgroundColor: AppColors.overlay,
   },
   modalSheet: {
     borderTopLeftRadius: 24,

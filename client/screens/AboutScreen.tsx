@@ -128,11 +128,11 @@ export default function AboutScreen() {
             onPress={handleWhatsApp}
             style={({ pressed }) => [
               styles.contactButton,
-              { backgroundColor: "#25D366", opacity: pressed ? 0.8 : 1 },
+              { backgroundColor: AppColors.whatsapp, opacity: pressed ? 0.8 : 1 },
             ]}
           >
             <ThemedText type="body" style={styles.contactButtonText}>تواصل عبر واتساب</ThemedText>
-            <Feather name="message-circle" size={20} color="#FFFFFF" />
+            <Feather name="message-circle" size={20} color={AppColors.white} />
           </Pressable>
 
           <Pressable
@@ -143,18 +143,18 @@ export default function AboutScreen() {
             ]}
           >
             <ThemedText type="body" style={styles.contactButtonText}>اتصل بنا</ThemedText>
-            <Feather name="phone" size={20} color="#FFFFFF" />
+            <Feather name="phone" size={20} color={AppColors.white} />
           </Pressable>
 
           <Pressable
             onPress={handleEmail}
             style={({ pressed }) => [
               styles.contactButton,
-              { backgroundColor: "#6366F1", opacity: pressed ? 0.8 : 1 },
+              { backgroundColor: AppColors.statusPurple, opacity: pressed ? 0.8 : 1 },
             ]}
           >
             <ThemedText type="body" style={styles.contactButtonText}>راسلنا بالبريد</ThemedText>
-            <Feather name="mail" size={20} color="#FFFFFF" />
+            <Feather name="mail" size={20} color={AppColors.white} />
           </Pressable>
 
           <ThemedText type="small" style={[styles.info, { color: theme.textSecondary }]}>
@@ -181,7 +181,7 @@ const styles = StyleSheet.create({
   },
   logoText: {
     fontFamily: "Montserrat_800ExtraBold",
-    color: "#FFFFFF",
+    color: AppColors.white,
     fontSize: 28,
     letterSpacing: 1,
     writingDirection: "ltr",
@@ -189,7 +189,7 @@ const styles = StyleSheet.create({
     includeFontPadding: true,
   },
   logoSubtext: {
-    color: "rgba(255,255,255,0.8)",
+    color: AppColors.textOnBrandMuted,
     fontSize: 14,
     marginTop: Spacing.xs,
     lineHeight: 30,
@@ -258,7 +258,7 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
   },
   contactButtonText: {
-    color: "#FFFFFF",
+    color: AppColors.white,
     fontWeight: "600",
   },
   info: {

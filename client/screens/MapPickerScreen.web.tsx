@@ -213,12 +213,12 @@ export default function MapPickerScreen() {
       <View style={styles.bottomSheet}>
         <View style={styles.addressRow}>
           <View style={styles.addressIcon}>
-            <Feather name="map-pin" size={20} color={AppColors.wayYellow} />
+            <Feather name="map-pin" size={20} color={AppColors.primary} />
           </View>
           <View style={styles.addressContent}>
             <ThemedText type="small" style={styles.addressLabel}>العنوان المحدد</ThemedText>
             {loadingAddress ? (
-              <ActivityIndicator size="small" color={AppColors.wayYellow} />
+              <ActivityIndicator size="small" color={AppColors.primary} />
             ) : (
               <ThemedText type="body" numberOfLines={2} style={styles.addressValue}>
                 {addressText || "انقر على الخريطة لتحديد موقعك"}
@@ -228,7 +228,7 @@ export default function MapPickerScreen() {
         </View>
 
         <Pressable style={styles.confirmButton} onPress={handleConfirm}>
-          <Feather name="check" size={20} color="#000" />
+          <Feather name="check" size={20} color={AppColors.black} />
           <ThemedText type="body" style={styles.confirmText}>تثبيت الموقع</ThemedText>
         </Pressable>
       </View>
@@ -250,10 +250,10 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 12,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: AppColors.white,
     alignItems: "center",
     justifyContent: "center",
-    shadowColor: "#000",
+    shadowColor: AppColors.black,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.15,
     shadowRadius: 6,
@@ -265,13 +265,13 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: AppColors.white,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     paddingHorizontal: 20,
     paddingTop: 20,
     paddingBottom: 24,
-    shadowColor: "#000",
+    shadowColor: AppColors.black,
     shadowOffset: { width: 0, height: -3 },
     shadowOpacity: 0.1,
     shadowRadius: 10,
@@ -287,7 +287,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 12,
-    backgroundColor: "#FFF2EC",
+    backgroundColor: AppColors.secondary,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -296,7 +296,7 @@ const styles = StyleSheet.create({
     alignItems: "flex-end",
   },
   addressLabel: {
-    color: "#999",
+    color: AppColors.gray400,
     marginBottom: 2,
   },
   addressValue: {
@@ -307,14 +307,14 @@ const styles = StyleSheet.create({
     flexDirection: "row-reverse",
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: AppColors.wayYellow,
+    backgroundColor: AppColors.primary,
     borderRadius: 14,
     height: 52,
     gap: 8,
   },
   confirmText: {
     fontWeight: "700",
-    color: "#000",
+    color: AppColors.black,
     fontSize: 13,
   },
 });

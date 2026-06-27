@@ -221,7 +221,7 @@ export default function DriverRegistrationScreen() {
 
       <View style={styles.header}>
         <View style={[styles.iconCircle, { backgroundColor: "#E8F5E915" }]}>
-          <Feather name="truck" size={36} color="#4CAF50" />
+          <Feather name="truck" size={36} color={AppColors.success} />
         </View>
         <ThemedText type="h2" style={styles.title}>تسجيل سائق توصيل</ThemedText>
         <ThemedText type="body" style={[styles.subtitle, { color: theme.textSecondary }]}>
@@ -231,10 +231,10 @@ export default function DriverRegistrationScreen() {
 
       {errorMessage ? (
         <View style={styles.errorBanner}>
-          <Feather name="alert-circle" size={18} color="#FFFFFF" />
+          <Feather name="alert-circle" size={18} color={AppColors.white} />
           <ThemedText type="body" style={styles.errorBannerText}>{errorMessage}</ThemedText>
           <Pressable onPress={() => setErrorMessage("")}>
-            <Feather name="x" size={18} color="#FFFFFF" />
+            <Feather name="x" size={18} color={AppColors.white} />
           </Pressable>
         </View>
       ) : null}
@@ -298,13 +298,13 @@ export default function DriverRegistrationScreen() {
       <View style={[styles.card, { backgroundColor: theme.backgroundDefault }, Shadows.sm]}>
         <ThemedText type="h4" style={styles.sectionTitle}>رقم الهاتف</ThemedText>
         <View style={[styles.phoneDisplay, { backgroundColor: AppColors.primary + "08", borderColor: AppColors.primary + "30" }]}>
-          <Feather name="check-circle" size={18} color="#4CAF50" />
+          <Feather name="check-circle" size={18} color={AppColors.success} />
           <ThemedText type="body" style={[styles.phoneText, { color: theme.text }]}>
             {phoneNumber}
           </ThemedText>
           <Feather name="phone" size={18} color={AppColors.primary} />
         </View>
-        <ThemedText type="small" style={{ textAlign: "right", color: "#4CAF50", marginTop: Spacing.xs, fontWeight: "600" }}>
+        <ThemedText type="small" style={{ textAlign: "right", color: AppColors.success, marginTop: Spacing.xs, fontWeight: "600" }}>
           تم تعبئة الرقم تلقائياً من تسجيل الدخول
         </ThemedText>
       </View>
@@ -341,7 +341,7 @@ export default function DriverRegistrationScreen() {
                 contentFit="cover"
               />
               <View style={styles.uploadedBadge}>
-                <Feather name="check-circle" size={16} color="#FFFFFF" />
+                <Feather name="check-circle" size={16} color={AppColors.white} />
                 <ThemedText type="small" style={styles.uploadedText}>تم الرفع</ThemedText>
               </View>
             </View>
@@ -363,7 +363,7 @@ export default function DriverRegistrationScreen() {
         </ThemedText>
 
         <Pressable
-          style={[styles.idUpload, { borderColor: residenceCardImage ? "#4CAF50" : theme.border, backgroundColor: theme.backgroundSecondary }]}
+          style={[styles.idUpload, { borderColor: residenceCardImage ? AppColors.success : theme.border, backgroundColor: theme.backgroundSecondary }]}
           onPress={() => showImageOptions("residenceCard")}
           testID="button-upload-residence-card"
         >
@@ -374,8 +374,8 @@ export default function DriverRegistrationScreen() {
                 style={styles.idPreview}
                 contentFit="cover"
               />
-              <View style={[styles.uploadedBadge, { backgroundColor: "#4CAF50" }]}>
-                <Feather name="check-circle" size={16} color="#FFFFFF" />
+              <View style={[styles.uploadedBadge, { backgroundColor: AppColors.success }]}>
+                <Feather name="check-circle" size={16} color={AppColors.white} />
                 <ThemedText type="small" style={styles.uploadedText}>تم الرفع</ThemedText>
               </View>
             </View>
@@ -402,7 +402,7 @@ export default function DriverRegistrationScreen() {
         </ThemedText>
 
         <Pressable
-          style={[styles.idUpload, { borderColor: driverLicenseImage ? "#4CAF50" : theme.border, backgroundColor: theme.backgroundSecondary }]}
+          style={[styles.idUpload, { borderColor: driverLicenseImage ? AppColors.success : theme.border, backgroundColor: theme.backgroundSecondary }]}
           onPress={() => showImageOptions("driverLicense")}
           testID="button-upload-license"
         >
@@ -413,8 +413,8 @@ export default function DriverRegistrationScreen() {
                 style={styles.idPreview}
                 contentFit="cover"
               />
-              <View style={[styles.uploadedBadge, { backgroundColor: "#4CAF50" }]}>
-                <Feather name="check-circle" size={16} color="#FFFFFF" />
+              <View style={[styles.uploadedBadge, { backgroundColor: AppColors.success }]}>
+                <Feather name="check-circle" size={16} color={AppColors.white} />
                 <ThemedText type="small" style={styles.uploadedText}>تم الرفع</ThemedText>
               </View>
             </View>
@@ -464,7 +464,7 @@ export default function DriverRegistrationScreen() {
         >
           <View style={[styles.checkbox, agreementAccepted ? styles.checkboxChecked : { borderColor: theme.border }]}>
             {agreementAccepted ? (
-              <Feather name="check" size={14} color="#FFFFFF" />
+              <Feather name="check" size={14} color={AppColors.white} />
             ) : null}
           </View>
           <ThemedText type="body" style={[styles.checkboxLabel, { color: theme.textSecondary }]}>
@@ -480,7 +480,7 @@ export default function DriverRegistrationScreen() {
         testID="button-submit-driver"
       >
         {isLoading ? (
-          <ActivityIndicator color="#FFFFFF" />
+          <ActivityIndicator color={AppColors.white} />
         ) : (
           <>
             <ThemedText type="h4" style={styles.submitButtonText}>
@@ -520,7 +520,7 @@ const styles = StyleSheet.create({
     flexDirection: "row-reverse",
     alignItems: "center",
     gap: 10,
-    backgroundColor: "#EF4444",
+    backgroundColor: AppColors.error,
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderRadius: BorderRadius.md,
@@ -528,7 +528,7 @@ const styles = StyleSheet.create({
   },
   errorBannerText: {
     flex: 1,
-    color: "#FFFFFF",
+    color: AppColors.white,
     fontWeight: "600",
     textAlign: "right",
     fontSize: 14,
@@ -561,7 +561,7 @@ const styles = StyleSheet.create({
     textAlign: "right",
     fontWeight: "700",
     marginBottom: Spacing.md,
-    color: "#2D2D2D",
+    color: AppColors.textPrimary,
   },
   sectionTitleRow: {
     flexDirection: "row",
@@ -571,13 +571,13 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.md,
   },
   optionalBadge: {
-    backgroundColor: "#E8F5E9",
+    backgroundColor: AppColors.successLight,
     paddingHorizontal: 10,
     paddingVertical: 3,
     borderRadius: 12,
   },
   optionalText: {
-    color: "#4CAF50",
+    color: AppColors.success,
     fontSize: 11,
     fontWeight: "600",
   },
@@ -640,7 +640,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
   },
   uploadedText: {
-    color: "#FFFFFF",
+    color: AppColors.white,
     fontWeight: "700",
     fontSize: 12,
   },
@@ -655,7 +655,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   submitButton: {
-    backgroundColor: "#4CAF50",
+    backgroundColor: AppColors.success,
     flexDirection: "row",
     height: 60,
     borderRadius: BorderRadius.lg,
@@ -667,12 +667,12 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
   submitButtonText: {
-    color: "#FFFFFF",
+    color: AppColors.white,
     fontWeight: "bold",
     marginRight: Spacing.sm,
   },
   buttonIcon: {
-    backgroundColor: "#FFFFFF",
+    backgroundColor: AppColors.white,
     borderRadius: 10,
     padding: 5,
   },
@@ -689,13 +689,13 @@ const styles = StyleSheet.create({
   },
   agreementText: {
     fontSize: 14,
-    color: "#333",
+    color: AppColors.gray700,
     textAlign: "right",
     lineHeight: 24,
   },
   agreementBold: {
     fontWeight: "700",
-    color: "#000",
+    color: AppColors.black,
   },
   checkboxRow: {
     flexDirection: "row-reverse",

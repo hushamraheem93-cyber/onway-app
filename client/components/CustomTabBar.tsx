@@ -19,14 +19,9 @@ import Animated, {
 } from "react-native-reanimated";
 import Svg, { Path } from "react-native-svg";
 import { ThemedText } from "@/components/ThemedText";
+import { AppColors } from "@/constants/theme";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
-
-const BAR_BG         = "#E86520";
-const ACTIVE_COLOR   = "#FFFFFF";
-const INACTIVE_COLOR = "rgba(255,255,255,0.55)";
-const CIRCLE_BG      = "#FFFFFF";
-const CIRCLE_ICON    = "#E86520";
 
 const CIRCLE_SIZE     = 64;
 const CIRCLE_OVERFLOW = 26;           // px the circle pops above the bar top
@@ -96,7 +91,7 @@ function SideTab({
 
   const iconStyle = useAnimatedStyle(() => ({ transform: [{ scale: bounce.value }] }));
 
-  const color = isFocused ? ACTIVE_COLOR : INACTIVE_COLOR;
+  const color = isFocused ? AppColors.white : AppColors.iconOnBrand;
 
   return (
     <Pressable onPress={onPress} style={styles.sideTab} testID={`tab-${config.name}`}>
@@ -140,10 +135,10 @@ function CenterButton({
         <View
           style={[
             styles.centerCircle,
-            { backgroundColor: CIRCLE_BG, shadowColor: "#000" },
+            { backgroundColor: AppColors.white, shadowColor: AppColors.shadowColor },
           ]}
         >
-          <Feather name={CENTER_TAB.icon} size={28} color={CIRCLE_ICON} />
+          <Feather name={CENTER_TAB.icon} size={28} color={AppColors.primary} />
         </View>
         <ThemedText style={styles.centerLabel}>{CENTER_TAB.label}</ThemedText>
       </Animated.View>
@@ -195,7 +190,7 @@ export function CustomTabBar({ state, navigation }: BottomTabBarProps) {
           {
             ...Platform.select({
               ios: {
-                shadowColor: "#000",
+                shadowColor: AppColors.shadowColor,
                 shadowOffset: { width: 0, height: -3 },
                 shadowOpacity: 0.08,
                 shadowRadius: 8,
@@ -214,7 +209,7 @@ export function CustomTabBar({ state, navigation }: BottomTabBarProps) {
         style={StyleSheet.absoluteFill}
         pointerEvents="none"
       >
-        <Path d={buildPath(SCREEN_WIDTH, totalSvgH)} fill={BAR_BG} />
+        <Path d={buildPath(SCREEN_WIDTH, totalSvgH)} fill={AppColors.primary} />
       </Svg>
 
       {/* ── Floating center button ──────────────────────────── */}
@@ -289,7 +284,7 @@ const styles = StyleSheet.create({
   centerLabel: {
     fontFamily: "Cairo_700Bold",
     fontSize: 11,
-    color: "#FFFFFF",
+    color: AppColors.white,
     includeFontPadding: false,
   },
   row: {

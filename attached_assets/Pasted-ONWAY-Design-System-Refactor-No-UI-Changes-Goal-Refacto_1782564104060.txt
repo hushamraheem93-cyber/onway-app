@@ -1,0 +1,285 @@
+ONWAY — Design System Refactor (No UI Changes)
+
+Goal
+
+Refactor the entire application’s color system into a single source of truth without changing the current UI or breaking any functionality.
+
+Requirements
+
+1. Single Color Source
+
+Use only:
+
+client/constants/theme.ts
+
+as the only place that defines colors.
+
+No component or screen may define hardcoded colors anymore.
+
+⸻
+
+2. Remove Duplicate Colors
+
+Delete duplicated variables such as:
+
+wayYellow
+primaryColor duplicates
+local ORANGE constants
+local SUCCESS constants
+local ERROR constants
+
+Everything must reference:
+
+AppColors
+Colors
+ORDER_STATUS_COLORS
+
+only.
+
+⸻
+
+3. Unify Primary Orange
+
+Official primary color:
+
+#E86520
+
+Keep only:
+
+primary
+primaryLight
+primaryDark
+
+Replace everywhere:
+
+#F97316
+#FF8C42
+#EA580C
+#E65100
+#FF9800
+#FF8C4B
+#FFB380
+
+unless a different color is intentionally required.
+
+⸻
+
+4. Unify Success & Error
+
+Use only:
+
+Success = #10B981
+
+Error = #EF4444
+
+Replace:
+
+#4CAF50
+#F44336
+
+throughout the project.
+
+⸻
+
+5. Add Missing Tokens
+
+theme.ts should include:
+
+gray50
+gray100
+gray200
+gray300
+gray400
+gray500
+gray600
+gray700
+gray800
+
+backgroundRoot
+backgroundCard
+backgroundSecondary
+backgroundTertiary
+
+border
+divider
+
+success
+warning
+error
+info
+
+shadowSm
+shadowMd
+shadowLg
+
+overlay
+
+white
+black
+
+transparent
+
+vendorPurple
+driverBlue
+
+⸻
+
+6. Order Status Colors
+
+Every order status must use
+
+ORDER_STATUS_COLORS
+
+Remove any duplicated status color maps from:
+
+OrderCard
+Orders Screens
+Vendor
+Driver
+Admin
+
+⸻
+
+7. Replace Hardcoded Colors
+
+Search the whole project.
+
+Replace every inline color:
+
+backgroundColor
+borderColor
+color
+shadowColor
+icon colors
+
+with Theme references.
+
+Target:
+
+Zero hardcoded colors.
+
+⸻
+
+8. Bottom Navigation
+
+Customer
+Vendor
+Driver
+
+must all read colors from theme.ts.
+
+No navigator may define its own colors.
+
+⸻
+
+9. Buttons
+
+Every button must use:
+
+Primary
+Secondary
+Outline
+Danger
+Success
+Disabled
+
+from the Design System.
+
+Remove any local colors inside PrimaryButton or Button components.
+
+⸻
+
+10. Icons
+
+Create centralized icon colors.
+
+Examples:
+
+iconPrimary
+iconSecondary
+iconMuted
+iconDanger
+iconSuccess
+
+Replace every hardcoded icon color.
+
+⸻
+
+11. Gradient Colors
+
+Move all gradients into:
+
+theme.ts
+
+Examples:
+
+Splash gradient
+
+Background gradient
+
+Card gradient
+
+No screen should define gradients directly.
+
+⸻
+
+12. Dark Mode
+
+Every newly created color token must have:
+
+Light
+Dark
+
+versions.
+
+No manual dark colors inside screens.
+
+⸻
+
+13. Clean Theme
+
+Delete:
+
+unused colors
+
+duplicated colors
+
+legacy colors
+
+dead constants
+
+unused exports
+
+⸻
+
+14. Validation
+
+After finishing:
+
+• Search entire project for remaining hardcoded HEX values.
+
+• Search for duplicated color constants.
+
+• Search for duplicate status color maps.
+
+• Search for duplicate button colors.
+
+Everything must come from theme.ts.
+
+⸻
+
+15. Important
+
+Do NOT redesign the UI.
+
+Do NOT change spacing.
+
+Do NOT change typography.
+
+Do NOT change layouts.
+
+Do NOT change animations.
+
+Only refactor and centralize colors.
+
+The application should look exactly the same while becoming fully maintainable.

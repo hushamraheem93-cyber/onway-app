@@ -6,6 +6,7 @@ import { Feather } from "@expo/vector-icons";
 
 import { useCart } from "@/context/CartContext";
 import { useNotifications } from "@/context/NotificationContext";
+import { AppColors } from "@/constants/theme";
 
 const SCREEN_WIDTH = Dimensions.get("window").width;
 
@@ -32,7 +33,7 @@ export function HeaderTitle({ title }: HeaderTitleProps) {
       <View style={styles.container}>
         <View style={styles.leftSection}>
           <Pressable style={styles.iconButton} onPress={handleNotificationsPress} testID="button-notifications">
-            <Feather name="bell" size={22} color="#E86520" />
+            <Feather name="bell" size={22} color={AppColors.primary} />
             {unreadCount > 0 ? (
               <View style={styles.badge}>
                 <Text style={styles.badgeText}>
@@ -42,7 +43,7 @@ export function HeaderTitle({ title }: HeaderTitleProps) {
             ) : null}
           </Pressable>
           <Pressable style={styles.iconButton} onPress={handleCartPress} testID="button-cart">
-            <Feather name="shopping-cart" size={22} color="#E86520" />
+            <Feather name="shopping-cart" size={22} color={AppColors.primary} />
             {cartCount > 0 ? (
               <View style={styles.badge}>
                 <Text style={styles.badgeText}>
@@ -129,7 +130,7 @@ const styles = StyleSheet.create({
   menuLine: {
     width: 22,
     height: 2.5,
-    backgroundColor: "#E86520",
+    backgroundColor: AppColors.primary,
     borderRadius: 2,
   },
   menuLineShort: {
@@ -150,7 +151,7 @@ const styles = StyleSheet.create({
     position: "absolute",
     top: 0,
     left: 0,
-    backgroundColor: "#E86520",
+    backgroundColor: AppColors.primary,
     borderRadius: 10,
     minWidth: 20,
     height: 20,
@@ -161,6 +162,6 @@ const styles = StyleSheet.create({
   badgeText: {
     fontFamily: "Cairo_700Bold",
     fontSize: 10,
-    color: "#FFFFFF",
+    color: AppColors.white,
   },
 });

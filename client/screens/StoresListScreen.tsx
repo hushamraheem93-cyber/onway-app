@@ -63,11 +63,11 @@ interface BizConfig {
 }
 
 const BUSINESS_CONFIG: Record<string, BizConfig> = {
-  restaurant: { label: "مطعم", icon: "food", color: "#E86520", gradient: ["#E86520", "#FF8C4B"] },
-  supermarket: { label: "سوبرماركت", icon: "cart", color: "#2E7D32", gradient: ["#2E7D32", "#4CAF50"] },
-  pharmacy: { label: "صيدلية", icon: "medical-bag", color: "#7B1FA2", gradient: ["#7B1FA2", "#AB47BC"] },
-  bakery: { label: "مخبز", icon: "bread-slice", color: "#F57F17", gradient: ["#F57F17", "#FFA726"] },
-  other: { label: "متجر", icon: "store", color: "#1565C0", gradient: ["#1565C0", "#1E88E5"] },
+  restaurant: { label: "مطعم", icon: "food", color: AppColors.primary, gradient: [AppColors.primary, AppColors.primaryLight] },
+  supermarket: { label: "سوبرماركت", icon: "cart", color: AppColors.success, gradient: [AppColors.success, AppColors.success] },
+  pharmacy: { label: "صيدلية", icon: "medical-bag", color: AppColors.vendorPurple, gradient: [AppColors.vendorPurple, AppColors.vendorPurple] },
+  bakery: { label: "مخبز", icon: "bread-slice", color: AppColors.warning, gradient: [AppColors.warning, AppColors.primaryLight] },
+  other: { label: "متجر", icon: "store", color: AppColors.driverBlue, gradient: [AppColors.driverBlue, AppColors.info] },
 };
 
 function isStoreOpen(wh: WorkingHours | null | undefined): boolean {
@@ -97,7 +97,7 @@ function StarRating({ value }: { value: number }) {
           key={i}
           name={i <= full ? "star" : half && i === full + 1 ? "star-half-full" : "star-outline"}
           size={13}
-          color="#F59E0B"
+          color={AppColors.warning}
         />
       ))}
       <ThemedText style={sStyles.starVal}>{value.toFixed(1)}</ThemedText>
@@ -107,7 +107,7 @@ function StarRating({ value }: { value: number }) {
 
 const sStyles = StyleSheet.create({
   starRow: { flexDirection: "row", alignItems: "center", gap: 2 },
-  starVal: { fontFamily: "Cairo_700Bold", fontSize: 12, color: "#F59E0B", marginRight: 2 },
+  starVal: { fontFamily: "Cairo_700Bold", fontSize: 12, color: AppColors.warning, marginRight: 2 },
 });
 
 function StoreCard({ store, onPress }: { store: VendorStore; onPress: () => void }) {
@@ -147,26 +147,26 @@ function StoreCard({ store, onPress }: { store: VendorStore; onPress: () => void
           />
         )}
         <LinearGradient
-          colors={["transparent", "rgba(0,0,0,0.55)"]}
+          colors={["transparent", AppColors.overlay]}
           style={StyleSheet.absoluteFillObject}
           start={{ x: 0, y: 0.3 }}
           end={{ x: 0, y: 1 }}
         />
         <View style={[cardStyles.typeBadge, { backgroundColor: cfg.color + "EE" }]}>
-          <MaterialCommunityIcons name={cfg.icon} size={12} color="#fff" />
+          <MaterialCommunityIcons name={cfg.icon} size={12} color={AppColors.white} />
           <ThemedText style={cardStyles.typeBadgeText}>{cfg.label}</ThemedText>
         </View>
         <View style={[cardStyles.openBadge, { backgroundColor: open ? "#10B981EE" : "#EF4444EE" }]}>
-          <View style={[cardStyles.openDot, { backgroundColor: open ? "#fff" : "#fca5a5" }]} />
+          <View style={[cardStyles.openDot, { backgroundColor: open ? AppColors.white : AppColors.error }]} />
           <ThemedText style={cardStyles.openText}>{open ? "مفتوح" : "مغلق"}</ThemedText>
         </View>
         <View style={cardStyles.coverBottom}>
           <View style={cardStyles.deliveryPill}>
-            <MaterialCommunityIcons name="clock-outline" size={12} color="#fff" />
+            <MaterialCommunityIcons name="clock-outline" size={12} color={AppColors.white} />
             <ThemedText style={cardStyles.deliveryText}>{deliveryTime} دقيقة</ThemedText>
           </View>
           <View style={cardStyles.deliveryPill}>
-            <MaterialCommunityIcons name="moped" size={12} color="#fff" />
+            <MaterialCommunityIcons name="moped" size={12} color={AppColors.white} />
             <ThemedText style={cardStyles.deliveryText}>
               {deliveryPrice === 0 ? "توصيل مجاني" : `${deliveryPrice.toLocaleString("ar-IQ")} د.ع`}
             </ThemedText>
@@ -216,21 +216,21 @@ const cardStyles = StyleSheet.create({
     flexDirection: "row", alignItems: "center", gap: 4,
     paddingHorizontal: 9, paddingVertical: 4, borderRadius: 12,
   },
-  typeBadgeText: { fontFamily: "Cairo_700Bold", fontSize: 11, color: "#fff" },
+  typeBadgeText: { fontFamily: "Cairo_700Bold", fontSize: 11, color: AppColors.white },
   openBadge: {
     position: "absolute", top: 10, left: 10,
     flexDirection: "row", alignItems: "center", gap: 5,
     paddingHorizontal: 9, paddingVertical: 4, borderRadius: 12,
   },
   openDot: { width: 6, height: 6, borderRadius: 3 },
-  openText: { fontFamily: "Cairo_700Bold", fontSize: 11, color: "#fff" },
+  openText: { fontFamily: "Cairo_700Bold", fontSize: 11, color: AppColors.white },
   coverBottom: { position: "absolute", bottom: 10, right: 10, flexDirection: "row", gap: 6 },
   deliveryPill: {
     flexDirection: "row", alignItems: "center", gap: 4,
-    backgroundColor: "rgba(0,0,0,0.45)",
+    backgroundColor: AppColors.overlay,
     paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10,
   },
-  deliveryText: { fontFamily: "Cairo_700Bold", fontSize: 11, color: "#fff" },
+  deliveryText: { fontFamily: "Cairo_700Bold", fontSize: 11, color: AppColors.white },
   body: {
     flexDirection: "row-reverse", alignItems: "center",
     paddingLeft: 14, paddingRight: 10, paddingBottom: 14, paddingTop: 4, gap: 10,
@@ -238,11 +238,11 @@ const cardStyles = StyleSheet.create({
   avatarWrap: {
     width: AVATAR_SIZE, height: AVATAR_SIZE, borderRadius: AVATAR_SIZE / 2,
     borderWidth: 3, overflow: "hidden", marginTop: -(AVATAR_SIZE / 2),
-    elevation: 4, backgroundColor: "#fff",
+    elevation: 4, backgroundColor: AppColors.white,
   },
   avatar: { width: "100%", height: "100%" },
   avatarFallback: { width: "100%", height: "100%", justifyContent: "center", alignItems: "center" },
-  avatarLetter: { fontFamily: "Cairo_700Bold", fontSize: 24, color: "#fff", lineHeight: 30 },
+  avatarLetter: { fontFamily: "Cairo_700Bold", fontSize: 24, color: AppColors.white, lineHeight: 30 },
   info: { flex: 1, alignItems: "flex-end", gap: 4, paddingTop: AVATAR_SIZE / 2 - 4 },
   storeName: { fontFamily: "Cairo_700Bold", fontSize: 16, textAlign: "right" },
   addressRow: { flexDirection: "row-reverse", alignItems: "center", gap: 4 },
@@ -337,7 +337,7 @@ export default function StoresListScreen() {
               style={[styles.backBtn, { backgroundColor: AppColors.primary }]}
               testID="button-back-coming-soon"
             >
-              <Feather name="arrow-right" size={18} color="#fff" />
+              <Feather name="arrow-right" size={18} color={AppColors.white} />
               <ThemedText style={styles.backBtnText}>رجوع للرئيسية</ThemedText>
             </Pressable>
           </View>
@@ -435,7 +435,7 @@ const styles = StyleSheet.create({
   },
   emptyTitle: {
     fontFamily: "Cairo_700Bold", fontSize: 22,
-    color: "#1A1A2E", textAlign: "center",
+    color: AppColors.black, textAlign: "center",
   },
   emptySubtitle: {
     fontFamily: "Cairo_400Regular", fontSize: 15,
@@ -447,7 +447,7 @@ const styles = StyleSheet.create({
     borderRadius: 16, marginTop: 8,
   },
   backBtnText: {
-    fontFamily: "Cairo_700Bold", fontSize: 15, color: "#fff",
+    fontFamily: "Cairo_700Bold", fontSize: 15, color: AppColors.white,
   },
   sectionHeader: {
     flexDirection: "row-reverse", justifyContent: "space-between",

@@ -25,17 +25,17 @@ function SearchBarComponent({
       style={[
         styles.container,
         { 
-          backgroundColor: isDark ? theme.backgroundDefault : "#F5F5F5",
-          borderColor: isDark ? theme.border : "#EEE",
+          backgroundColor: isDark ? theme.backgroundDefault : AppColors.gray50,
+          borderColor: isDark ? theme.border : AppColors.divider,
         },
       ]}
     >
-      <Feather name="mic" size={20} color="#999" style={styles.micIcon} />
+      <Feather name="mic" size={20} color={AppColors.gray400} style={styles.micIcon} />
       <TextInput
         value={value}
         onChangeText={onChangeText}
         placeholder={placeholder}
-        placeholderTextColor="#999"
+        placeholderTextColor={AppColors.gray400}
         style={[styles.input, { color: theme.text }]}
         textAlign="right"
         returnKeyType="search"
@@ -43,7 +43,7 @@ function SearchBarComponent({
       />
       {value.length > 0 ? (
         <Pressable onPress={() => onChangeText("")} style={styles.clearButton}>
-          <Feather name="x" size={18} color="#999" />
+          <Feather name="x" size={18} color={AppColors.gray400} />
         </Pressable>
       ) : (
         <Feather name="search" size={20} color={AppColors.onGrey} />

@@ -835,7 +835,7 @@ export default function AdminScreen() {
                 <Feather name="edit-2" size={18} color={AppColors.primary} />
               </Pressable>
               <Pressable onPress={() => confirmDelete(banner.id, "banner")} style={styles.actionButton}>
-                <Feather name="trash-2" size={18} color="#EF4444" />
+                <Feather name="trash-2" size={18} color={AppColors.error} />
               </Pressable>
             </View>
           </View>
@@ -899,7 +899,7 @@ export default function AdminScreen() {
                 <Feather name="edit-2" size={18} color={AppColors.primary} />
               </Pressable>
               <Pressable onPress={() => confirmDelete(category.id, "category")} style={styles.actionButton}>
-                <Feather name="trash-2" size={18} color="#EF4444" />
+                <Feather name="trash-2" size={18} color={AppColors.error} />
               </Pressable>
             </View>
           </View>
@@ -913,9 +913,9 @@ export default function AdminScreen() {
           style={[styles.saveCategoryChangesBtn, isSavingCategories && { opacity: 0.7 }]}
         >
           {isSavingCategories ? (
-            <ActivityIndicator size="small" color="#fff" />
+            <ActivityIndicator size="small" color={AppColors.white} />
           ) : (
-            <Feather name="check-circle" size={20} color="#fff" />
+            <Feather name="check-circle" size={20} color={AppColors.white} />
           )}
           <ThemedText type="body" style={styles.saveCategoryChangesBtnText}>
             {isSavingCategories ? "جارٍ الحفظ..." : "حفظ التغيير"}
@@ -998,8 +998,8 @@ export default function AdminScreen() {
             <Switch
               value={productForm.inStock}
               onValueChange={(value) => setProductForm({ ...productForm, inStock: value })}
-              trackColor={{ false: "#ccc", true: AppColors.primary }}
-              thumbColor="#fff"
+              trackColor={{ false: AppColors.gray300, true: AppColors.primary }}
+              thumbColor={AppColors.white}
             />
           </View>
         </View>
@@ -1036,7 +1036,7 @@ export default function AdminScreen() {
           ) : null}
           <Pressable style={[styles.saveButton, isSavingProduct && { opacity: 0.7 }]} onPress={saveProduct} disabled={isSavingProduct}>
             {isSavingProduct ? (
-              <ActivityIndicator color="#FFFFFF" size="small" />
+              <ActivityIndicator color={AppColors.white} size="small" />
             ) : (
               <ThemedText type="body" style={styles.saveButtonText}>{editItem ? "حفظ التعديلات" : "إضافة"}</ThemedText>
             )}
@@ -1075,7 +1075,7 @@ export default function AdminScreen() {
                 <Feather name="edit-2" size={18} color={AppColors.primary} />
               </Pressable>
               <Pressable onPress={() => confirmDelete(product.id, "product")} style={styles.actionButton}>
-                <Feather name="trash-2" size={18} color="#EF4444" />
+                <Feather name="trash-2" size={18} color={AppColors.error} />
               </Pressable>
             </View>
           </View>
@@ -1139,7 +1139,7 @@ export default function AdminScreen() {
                 <Feather name="edit-2" size={18} color={AppColors.primary} />
               </Pressable>
               <Pressable onPress={() => confirmDelete(area.id, "area")} style={styles.actionButton}>
-                <Feather name="trash-2" size={18} color="#EF4444" />
+                <Feather name="trash-2" size={18} color={AppColors.error} />
               </Pressable>
             </View>
           </View>
@@ -1166,18 +1166,18 @@ export default function AdminScreen() {
 
   const getStatusColor = (status: OrderStatus) => {
     const colors: Record<OrderStatus, string> = {
-      pending: "#F59E0B",
-      confirmed: "#3B82F6",
-      preparing: "#8B5CF6",
-      ready: "#8B5CF6",
-      picked_up: "#06B6D4",
-      in_delivery: "#06B6D4",
-      delivering: "#06B6D4",
-      delivered: "#10B981",
-      cancelled: "#EF4444",
-      issue: "#F59E0B",
+      pending: AppColors.warning,
+      confirmed: AppColors.info,
+      preparing: AppColors.statusPurple,
+      ready: AppColors.statusPurple,
+      picked_up: AppColors.statusCyan,
+      in_delivery: AppColors.statusCyan,
+      delivering: AppColors.statusCyan,
+      delivered: AppColors.success,
+      cancelled: AppColors.error,
+      issue: AppColors.warning,
     };
-    return colors[status] ?? "#9CA3AF";
+    return colors[status] ?? AppColors.gray400;
   };
 
   // Approved drivers for assignment picker
@@ -1206,7 +1206,7 @@ export default function AdminScreen() {
 <script>
 var map=L.map('map',{zoomControl:true,attributionControl:false}).setView([${driverLat},${driverLng}],15);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19}).addTo(map);
-var icon=L.divIcon({className:'',html:'<div class="driver-pulse"><div class="driver-inner"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg></div></div>',iconSize:[48,48],iconAnchor:[24,24]});
+var icon=L.divIcon({className:'',html:'<div class="driver-pulse"><div class="driver-inner"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={AppColors.white} stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg></div></div>',iconSize:[48,48],iconAnchor:[24,24]});
 var marker=L.marker([${driverLat},${driverLng}],{icon}).addTo(map);
 function updateDriverLocation(lat,lng){var ll=L.latLng(lat,lng);marker.setLatLng(ll);map.panTo(ll,{animate:true,duration:0.8});}
 document.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.type==='updateDriver')updateDriverLocation(d.lat,d.lng);}catch(err){}});
@@ -1247,20 +1247,20 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
     if (!trackingOrderId) return null;
     return (
       <Modal visible animationType="slide" onRequestClose={closeTrackingModal}>
-        <View style={{ flex: 1, backgroundColor: "#000" }}>
-          <View style={{ flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between", backgroundColor: "#1a1a1a", paddingHorizontal: Spacing.lg, paddingTop: 50, paddingBottom: Spacing.md }}>
+        <View style={{ flex: 1, backgroundColor: AppColors.black }}>
+          <View style={{ flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between", backgroundColor: AppColors.black, paddingHorizontal: Spacing.lg, paddingTop: 50, paddingBottom: Spacing.md }}>
             <Pressable onPress={closeTrackingModal} style={{ padding: 8 }}>
-              <Feather name="x" size={24} color="#fff" />
+              <Feather name="x" size={24} color={AppColors.white} />
             </Pressable>
             <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: Spacing.sm }}>
-              <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: "#4CAF50" }} />
-              <ThemedText type="h4" style={{ color: "#fff" }}>تتبع المندوب {trackingDriverName ? `— ${trackingDriverName}` : ""}</ThemedText>
+              <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: AppColors.success }} />
+              <ThemedText type="h4" style={{ color: AppColors.white }}>تتبع المندوب {trackingDriverName ? `— ${trackingDriverName}` : ""}</ThemedText>
             </View>
           </View>
           {Platform.OS === "web" ? (
             <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
               <Feather name="smartphone" size={48} color={AppColors.primary} />
-              <ThemedText type="body" style={{ color: "#fff", marginTop: Spacing.md, textAlign: "center", paddingHorizontal: Spacing.xl }}>
+              <ThemedText type="body" style={{ color: AppColors.white, marginTop: Spacing.md, textAlign: "center", paddingHorizontal: Spacing.xl }}>
                 التتبع المباشر متاح في تطبيق الجوال فقط
               </ThemedText>
             </View>
@@ -1276,7 +1276,7 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
           ) : (
             <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
               <ActivityIndicator size="large" color={AppColors.primary} />
-              <ThemedText type="body" style={{ color: "#fff", marginTop: Spacing.md }}>
+              <ThemedText type="body" style={{ color: AppColors.white, marginTop: Spacing.md }}>
                 جاري تحديد موقع المندوب...
               </ThemedText>
             </View>
@@ -1293,7 +1293,7 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
         <View style={[styles.modalBox, { backgroundColor: theme.backgroundDefault }]}>
           <ThemedText type="h4" style={{ textAlign: "center", marginBottom: Spacing.md }}>اختر السائق</ThemedText>
           {assignError ? (
-            <ThemedText type="small" style={{ color: "#EF4444", textAlign: "center", marginBottom: Spacing.sm }}>
+            <ThemedText type="small" style={{ color: AppColors.error, textAlign: "center", marginBottom: Spacing.sm }}>
               {assignError}
             </ThemedText>
           ) : null}
@@ -1329,10 +1329,10 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
             })
           )}
           <Pressable
-            style={[styles.statusBtn, { backgroundColor: "#6B7280", marginTop: Spacing.md, alignSelf: "center", paddingHorizontal: Spacing.xl }]}
+            style={[styles.statusBtn, { backgroundColor: AppColors.gray500, marginTop: Spacing.md, alignSelf: "center", paddingHorizontal: Spacing.xl }]}
             onPress={() => { setAssigningOrderId(null); setAssignError(null); }}
           >
-            <ThemedText type="small" style={{ color: "#fff" }}>إلغاء</ThemedText>
+            <ThemedText type="small" style={{ color: AppColors.white }}>إلغاء</ThemedText>
           </Pressable>
         </View>
       </View>
@@ -1350,13 +1350,13 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
           {/* Stats row */}
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: Spacing.sm, marginBottom: Spacing.lg }}>
             <View style={{ flex: 1, minWidth: 120, backgroundColor: "#4CAF5015", padding: Spacing.md, borderRadius: BorderRadius.lg, alignItems: "center" }}>
-              <Feather name="trending-up" size={20} color="#4CAF50" />
-              <ThemedText type="h3" style={{ color: "#4CAF50", marginTop: Spacing.xs }}>{formatPrice(ownerEarnings.totalOwnerEarnings)}</ThemedText>
+              <Feather name="trending-up" size={20} color={AppColors.success} />
+              <ThemedText type="h3" style={{ color: AppColors.success, marginTop: Spacing.xs }}>{formatPrice(ownerEarnings.totalOwnerEarnings)}</ThemedText>
               <ThemedText type="small" style={{ color: theme.textSecondary, textAlign: "center" }}>عمولة التطبيق</ThemedText>
             </View>
             <View style={{ flex: 1, minWidth: 120, backgroundColor: "#2196F315", padding: Spacing.md, borderRadius: BorderRadius.lg, alignItems: "center" }}>
-              <Feather name="truck" size={20} color="#2196F3" />
-              <ThemedText type="h3" style={{ color: "#2196F3", marginTop: Spacing.xs }}>{formatPrice(ownerEarnings.totalDriverEarnings)}</ThemedText>
+              <Feather name="truck" size={20} color={AppColors.info} />
+              <ThemedText type="h3" style={{ color: AppColors.info, marginTop: Spacing.xs }}>{formatPrice(ownerEarnings.totalDriverEarnings)}</ThemedText>
               <ThemedText type="small" style={{ color: theme.textSecondary, textAlign: "center" }}>أرباح السائقين</ThemedText>
             </View>
             <View style={{ flex: 1, minWidth: 120, backgroundColor: "#FF962215", padding: Spacing.md, borderRadius: BorderRadius.lg, alignItems: "center" }}>
@@ -1367,7 +1367,7 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
           </View>
 
           {/* Commission split visualization */}
-          <View style={{ borderTopWidth: 1, borderTopColor: "#E5E7EB", paddingTop: Spacing.md }}>
+          <View style={{ borderTopWidth: 1, borderTopColor: AppColors.divider, paddingTop: Spacing.md }}>
             <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: Spacing.sm, marginBottom: Spacing.sm }}>
               <Feather name="percent" size={13} color={theme.textSecondary} />
               <ThemedText type="small" style={{ color: theme.text, fontWeight: "700" }}>توزيع العمولة لكل طلب</ThemedText>
@@ -1379,11 +1379,11 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
                 <ThemedText type="small" style={{ color: theme.text }}>مطعم (1,000 د.ع)</ThemedText>
                 <View style={{ flexDirection: "row", gap: 8 }}>
                   <ThemedText style={{ fontSize: 10, color: AppColors.primary }}>25% للتطبيق</ThemedText>
-                  <ThemedText style={{ fontSize: 10, color: "#4CAF50" }}>75% للسائق</ThemedText>
+                  <ThemedText style={{ fontSize: 10, color: AppColors.success }}>75% للسائق</ThemedText>
                 </View>
               </View>
-              <View style={{ height: 8, borderRadius: 4, backgroundColor: "#E5E7EB", overflow: "hidden", flexDirection: "row-reverse" }}>
-                <View style={{ width: "75%", height: "100%", backgroundColor: "#4CAF50" }} />
+              <View style={{ height: 8, borderRadius: 4, backgroundColor: AppColors.divider, overflow: "hidden", flexDirection: "row-reverse" }}>
+                <View style={{ width: "75%", height: "100%", backgroundColor: AppColors.success }} />
                 <View style={{ width: "25%", height: "100%", backgroundColor: AppColors.primary }} />
               </View>
             </View>
@@ -1394,11 +1394,11 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
                 <ThemedText type="small" style={{ color: theme.text }}>تسويق (3,000 د.ع)</ThemedText>
                 <View style={{ flexDirection: "row", gap: 8 }}>
                   <ThemedText style={{ fontSize: 10, color: AppColors.primary }}>33% للتطبيق</ThemedText>
-                  <ThemedText style={{ fontSize: 10, color: "#4CAF50" }}>67% للسائق</ThemedText>
+                  <ThemedText style={{ fontSize: 10, color: AppColors.success }}>67% للسائق</ThemedText>
                 </View>
               </View>
-              <View style={{ height: 8, borderRadius: 4, backgroundColor: "#E5E7EB", overflow: "hidden", flexDirection: "row-reverse" }}>
-                <View style={{ width: "67%", height: "100%", backgroundColor: "#4CAF50" }} />
+              <View style={{ height: 8, borderRadius: 4, backgroundColor: AppColors.divider, overflow: "hidden", flexDirection: "row-reverse" }}>
+                <View style={{ width: "67%", height: "100%", backgroundColor: AppColors.success }} />
                 <View style={{ width: "33%", height: "100%", backgroundColor: AppColors.primary }} />
               </View>
             </View>
@@ -1410,7 +1410,7 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
                 <ThemedText type="small" style={{ color: theme.textSecondary }}>التطبيق</ThemedText>
               </View>
               <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
-                <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: "#4CAF50" }} />
+                <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: AppColors.success }} />
                 <ThemedText type="small" style={{ color: theme.textSecondary }}>السائق</ThemedText>
               </View>
             </View>
@@ -1451,9 +1451,9 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
                 style={[styles.trackBtn]}
                 onPress={() => openTrackingModal(order.id)}
               >
-                <Feather name="map-pin" size={14} color="#fff" />
-                <ThemedText type="small" style={{ color: "#fff", fontWeight: "700" }}>تتبع المندوب مباشر</ThemedText>
-                <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: "#4CAF50" }} />
+                <Feather name="map-pin" size={14} color={AppColors.white} />
+                <ThemedText type="small" style={{ color: AppColors.white, fontWeight: "700" }}>تتبع المندوب مباشر</ThemedText>
+                <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: AppColors.success }} />
               </Pressable>
             ) : null}
             <View style={styles.orderFooter}>
@@ -1465,48 +1465,48 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
                   <>
                     {order.status === "pending" ? (
                       <Pressable
-                        style={[styles.statusBtn, { backgroundColor: "#3B82F6" }]}
+                        style={[styles.statusBtn, { backgroundColor: AppColors.info }]}
                         onPress={() => updateOrderStatus.mutate({ id: order.id, status: "confirmed" })}
                       >
-                        <ThemedText type="small" style={{ color: "#fff" }}>تأكيد</ThemedText>
+                        <ThemedText type="small" style={{ color: AppColors.white }}>تأكيد</ThemedText>
                       </Pressable>
                     ) : null}
                     {order.status === "confirmed" ? (
                       <Pressable
-                        style={[styles.statusBtn, { backgroundColor: "#8B5CF6" }]}
+                        style={[styles.statusBtn, { backgroundColor: AppColors.statusPurple }]}
                         onPress={() => updateOrderStatus.mutate({ id: order.id, status: "preparing" })}
                       >
-                        <ThemedText type="small" style={{ color: "#fff" }}>تحضير</ThemedText>
+                        <ThemedText type="small" style={{ color: AppColors.white }}>تحضير</ThemedText>
                       </Pressable>
                     ) : null}
                     {order.status === "preparing" ? (
                       <Pressable
-                        style={[styles.statusBtn, { backgroundColor: "#06B6D4" }]}
+                        style={[styles.statusBtn, { backgroundColor: AppColors.statusCyan }]}
                         onPress={() => updateOrderStatus.mutate({ id: order.id, status: "delivering" })}
                       >
-                        <ThemedText type="small" style={{ color: "#fff" }}>توصيل</ThemedText>
+                        <ThemedText type="small" style={{ color: AppColors.white }}>توصيل</ThemedText>
                       </Pressable>
                     ) : null}
                     {order.status === "delivering" ? (
                       <Pressable
-                        style={[styles.statusBtn, { backgroundColor: "#10B981" }]}
+                        style={[styles.statusBtn, { backgroundColor: AppColors.success }]}
                         onPress={() => updateOrderStatus.mutate({ id: order.id, status: "delivered" })}
                       >
-                        <ThemedText type="small" style={{ color: "#fff" }}>تم</ThemedText>
+                        <ThemedText type="small" style={{ color: AppColors.white }}>تم</ThemedText>
                       </Pressable>
                     ) : null}
                     <Pressable
-                      style={[styles.statusBtn, { backgroundColor: "#EF4444" }]}
+                      style={[styles.statusBtn, { backgroundColor: AppColors.error }]}
                       onPress={() => updateOrderStatus.mutate({ id: order.id, status: "cancelled" })}
                     >
-                      <ThemedText type="small" style={{ color: "#fff" }}>إلغاء</ThemedText>
+                      <ThemedText type="small" style={{ color: AppColors.white }}>إلغاء</ThemedText>
                     </Pressable>
                     <Pressable
                       style={[styles.statusBtn, { backgroundColor: AppColors.primary, flexDirection: "row", alignItems: "center", gap: 4 }]}
                       onPress={() => { setAssigningOrderId(order.id); setAssignError(null); }}
                     >
-                      <Feather name="user-plus" size={12} color="#fff" />
-                      <ThemedText type="small" style={{ color: "#fff" }}>تعيين سائق</ThemedText>
+                      <Feather name="user-plus" size={12} color={AppColors.white} />
+                      <ThemedText type="small" style={{ color: AppColors.white }}>تعيين سائق</ThemedText>
                     </Pressable>
                   </>
                 ) : null}
@@ -1520,9 +1520,9 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
 
   const getDriverStatusColor = (status: string) => {
     switch (status) {
-      case "approved": return "#16A34A";
-      case "rejected": return "#DC2626";
-      default: return "#F59E0B";
+      case "approved": return AppColors.success;
+      case "rejected": return AppColors.error;
+      default: return AppColors.warning;
     }
   };
 
@@ -1544,7 +1544,7 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
         <ActivityIndicator size="large" color={AppColors.primary} />
       ) : drivers.length === 0 ? (
         <View style={styles.formCard}>
-          <ThemedText type="body" style={{ textAlign: "center", color: "#9CA3AF" }}>
+          <ThemedText type="body" style={{ textAlign: "center", color: AppColors.gray400 }}>
             لا يوجد سائقين مسجلين
           </ThemedText>
         </View>
@@ -1569,21 +1569,21 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
 
             <View style={{ gap: Spacing.xs, marginBottom: Spacing.md }}>
               <View style={{ flexDirection: "row", justifyContent: "flex-end", gap: Spacing.sm }}>
-                <ThemedText type="body" style={{ color: "#6B7280" }}>{driver.phoneNumber}</ThemedText>
-                <Feather name="phone" size={16} color="#6B7280" />
+                <ThemedText type="body" style={{ color: AppColors.gray500 }}>{driver.phoneNumber}</ThemedText>
+                <Feather name="phone" size={16} color={AppColors.gray500} />
               </View>
               <View style={{ flexDirection: "row", justifyContent: "flex-end", gap: Spacing.sm }}>
-                <ThemedText type="body" style={{ color: "#6B7280" }}>
+                <ThemedText type="body" style={{ color: AppColors.gray500 }}>
                   {driver.firstName} {driver.secondName} {driver.thirdName} {driver.fourthName}
                 </ThemedText>
-                <Feather name="user" size={16} color="#6B7280" />
+                <Feather name="user" size={16} color={AppColors.gray500} />
               </View>
               {driver.createdAt ? (
                 <View style={{ flexDirection: "row", justifyContent: "flex-end", gap: Spacing.sm }}>
-                  <ThemedText type="small" style={{ color: "#9CA3AF" }}>
+                  <ThemedText type="small" style={{ color: AppColors.gray400 }}>
                     {new Date(driver.createdAt).toLocaleDateString("ar-IQ")}
                   </ThemedText>
-                  <Feather name="calendar" size={14} color="#9CA3AF" />
+                  <Feather name="calendar" size={14} color={AppColors.gray400} />
                 </View>
               ) : null}
             </View>
@@ -1614,7 +1614,7 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
               </View>
             ) : (
               <View style={{ marginBottom: Spacing.md }}>
-                <ThemedText type="body" style={{ textAlign: "right", color: "#9CA3AF" }}>
+                <ThemedText type="body" style={{ textAlign: "right", color: AppColors.gray400 }}>
                   لم يتم رفع إجازة السوق
                 </ThemedText>
               </View>
@@ -1626,7 +1626,7 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
                   style={{
                     flex: 1,
                     minHeight: 48,
-                    backgroundColor: "#DC2626",
+                    backgroundColor: AppColors.error,
                     borderRadius: BorderRadius.lg,
                     alignItems: "center",
                     justifyContent: "center",
@@ -1634,13 +1634,13 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
                   }}
                   onPress={() => updateDriverStatusMutation.mutate({ id: driver.id, status: "rejected" })}
                 >
-                  <ThemedText type="body" style={{ color: "#FFFFFF", fontWeight: "600" }}>رفض</ThemedText>
+                  <ThemedText type="body" style={{ color: AppColors.white, fontWeight: "600" }}>رفض</ThemedText>
                 </Pressable>
                 <Pressable
                   style={{
                     flex: 1,
                     minHeight: 48,
-                    backgroundColor: "#16A34A",
+                    backgroundColor: AppColors.success,
                     borderRadius: BorderRadius.lg,
                     alignItems: "center",
                     justifyContent: "center",
@@ -1648,14 +1648,14 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
                   }}
                   onPress={() => updateDriverStatusMutation.mutate({ id: driver.id, status: "approved" })}
                 >
-                  <ThemedText type="body" style={{ color: "#FFFFFF", fontWeight: "600" }}>قبول</ThemedText>
+                  <ThemedText type="body" style={{ color: AppColors.white, fontWeight: "600" }}>قبول</ThemedText>
                 </Pressable>
               </View>
             ) : (
               <Pressable
                 style={{
                   minHeight: 48,
-                  backgroundColor: driver.status === "approved" ? "#F59E0B" : "#16A34A",
+                  backgroundColor: driver.status === "approved" ? AppColors.warning : AppColors.success,
                   borderRadius: BorderRadius.lg,
                   alignItems: "center",
                   justifyContent: "center",
@@ -1666,23 +1666,23 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
                   status: driver.status === "approved" ? "pending" : "approved",
                 })}
               >
-                <ThemedText type="body" style={{ color: "#FFFFFF", fontWeight: "600" }}>
+                <ThemedText type="body" style={{ color: AppColors.white, fontWeight: "600" }}>
                   {driver.status === "approved" ? "تعليق" : "قبول"}
                 </ThemedText>
               </Pressable>
             )}
 
-            <View style={{ marginTop: Spacing.md, borderTopWidth: 1, borderTopColor: "#E5E7EB", paddingTop: Spacing.md }}>
+            <View style={{ marginTop: Spacing.md, borderTopWidth: 1, borderTopColor: AppColors.divider, paddingTop: Spacing.md }}>
               <View style={{ flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between", marginBottom: Spacing.sm }}>
                 <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: Spacing.xs }}>
                   <Feather name="credit-card" size={16} color={AppColors.primary} />
                   <ThemedText type="body" style={{ fontWeight: "600", textAlign: "right" }}>المحفظة</ThemedText>
                 </View>
                 <Pressable
-                  style={{ backgroundColor: "#4CAF50", paddingHorizontal: Spacing.md, paddingVertical: 6, borderRadius: BorderRadius.md }}
+                  style={{ backgroundColor: AppColors.success, paddingHorizontal: Spacing.md, paddingVertical: 6, borderRadius: BorderRadius.md }}
                   onPress={() => setRechargeDriver(rechargeDriver === driver.phoneNumber ? null : driver.phoneNumber)}
                 >
-                  <ThemedText type="small" style={{ color: "#FFFFFF", fontWeight: "600" }}>شحن رصيد</ThemedText>
+                  <ThemedText type="small" style={{ color: AppColors.white, fontWeight: "600" }}>شحن رصيد</ThemedText>
                 </Pressable>
               </View>
               {rechargeDriver === driver.phoneNumber ? (
@@ -1695,7 +1695,7 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
                       }
                     }}
                   >
-                    <ThemedText type="small" style={{ color: "#FFFFFF", fontWeight: "600" }}>تأكيد</ThemedText>
+                    <ThemedText type="small" style={{ color: AppColors.white, fontWeight: "600" }}>تأكيد</ThemedText>
                   </Pressable>
                   <TextInput
                     style={[styles.input, { flex: 1, backgroundColor: theme.backgroundSecondary, color: theme.text, marginBottom: 0 }]}
@@ -1790,7 +1790,7 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
             <View style={styles.listItemContent}>
               <ThemedText type="body" numberOfLines={1}>{promo.code}</ThemedText>
               <View style={{ flexDirection: "row", alignItems: "center", gap: Spacing.xs }}>
-                <View style={[styles.discountBadge, { backgroundColor: promo.type === "percentage" ? "#16A34A" : "#F59E0B" }]}>
+                <View style={[styles.discountBadge, { backgroundColor: promo.type === "percentage" ? AppColors.success : AppColors.warning }]}>
                   <ThemedText type="small" style={styles.discountText}>
                     {promo.type === "percentage" ? "نسبة" : "ثابت"}
                   </ThemedText>
@@ -1798,7 +1798,7 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
                 <ThemedText type="small" style={{ color: theme.textSecondary }}>
                   {promo.type === "percentage" ? `${promo.value}%` : formatPrice(promo.value)}
                 </ThemedText>
-                <ThemedText type="small" style={{ color: promo.isActive ? "#16A34A" : "#EF4444" }}>
+                <ThemedText type="small" style={{ color: promo.isActive ? AppColors.success : AppColors.error }}>
                   {promo.isActive ? "فعال" : "غير فعال"}
                 </ThemedText>
               </View>
@@ -1808,7 +1808,7 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
                 <Feather name="edit-2" size={18} color={AppColors.primary} />
               </Pressable>
               <Pressable onPress={() => confirmDelete(promo.id, "promoCode")} style={styles.actionButton}>
-                <Feather name="trash-2" size={18} color="#EF4444" />
+                <Feather name="trash-2" size={18} color={AppColors.error} />
               </Pressable>
             </View>
           </View>
@@ -1844,8 +1844,8 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
           </View>
           <View style={styles.usersStatDivider} />
           <View style={styles.usersStatBox}>
-            <Feather name="bell" size={26} color="#22C55E" />
-            <ThemedText style={[styles.usersStatNum, { color: "#22C55E" }]}>
+            <Feather name="bell" size={26} color={AppColors.success} />
+            <ThemedText style={[styles.usersStatNum, { color: AppColors.success }]}>
               {usersLoading ? "..." : adminUsers.filter((u) => !!u.pushToken).length}
             </ThemedText>
             <ThemedText style={styles.usersStatLabel}>مفعّل الإشعارات</ThemedText>
@@ -1854,18 +1854,18 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
 
         {/* Search */}
         <View style={[styles.usersSearchBox, { backgroundColor: theme.backgroundSecondary }]}>
-          <Feather name="search" size={16} color="#9CA3AF" />
+          <Feather name="search" size={16} color={AppColors.gray400} />
           <TextInput
             style={[styles.usersSearchInput, { color: theme.text }]}
             placeholder="ابحث بالاسم أو رقم الهاتف..."
-            placeholderTextColor="#9CA3AF"
+            placeholderTextColor={AppColors.gray400}
             value={usersSearch}
             onChangeText={setUsersSearch}
             textAlign="right"
           />
           {usersSearch.length > 0 ? (
             <Pressable onPress={() => setUsersSearch("")}>
-              <Feather name="x" size={15} color="#9CA3AF" />
+              <Feather name="x" size={15} color={AppColors.gray400} />
             </Pressable>
           ) : null}
         </View>
@@ -1884,7 +1884,7 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
           <ActivityIndicator color={AppColors.primary} style={{ marginTop: Spacing.xl }} />
         ) : filtered.length === 0 ? (
           <View style={styles.usersEmpty}>
-            <Feather name="user-x" size={40} color="#D1D5DB" />
+            <Feather name="user-x" size={40} color={AppColors.gray300} />
             <ThemedText style={styles.usersEmptyText}>
               {usersSearch ? "لا نتائج مطابقة" : "لا يوجد مستخدمون بعد"}
             </ThemedText>
@@ -1908,12 +1908,12 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
                     {user.fullName || "بدون اسم"}
                   </ThemedText>
                   <View style={styles.userRowMeta}>
-                    <Feather name="phone" size={11} color="#9CA3AF" />
+                    <Feather name="phone" size={11} color={AppColors.gray400} />
                     <ThemedText style={styles.userRowPhone}>{user.phoneNumber}</ThemedText>
                   </View>
                   {user.region ? (
                     <View style={styles.userRowMeta}>
-                      <Feather name="map-pin" size={11} color="#9CA3AF" />
+                      <Feather name="map-pin" size={11} color={AppColors.gray400} />
                       <ThemedText style={styles.userRowPhone}>{user.region}</ThemedText>
                     </View>
                   ) : null}
@@ -1926,7 +1926,7 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
                 <View style={styles.userRowRight}>
                   {user.pushToken ? (
                     <View style={styles.userNotifBadge}>
-                      <Feather name="bell" size={10} color="#16A34A" />
+                      <Feather name="bell" size={10} color={AppColors.success} />
                     </View>
                   ) : null}
                   <ThemedText style={styles.userRowIndex}>#{idx + 1}</ThemedText>
@@ -1979,7 +1979,7 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
         <TextInput
           style={[styles.notifInput, { color: theme.text, borderColor: theme.backgroundSecondary }]}
           placeholder="مثال: تخفيضات حصرية اليوم!"
-          placeholderTextColor="#9CA3AF"
+          placeholderTextColor={AppColors.gray400}
           value={notifForm.title}
           onChangeText={(v) => setNotifForm((f) => ({ ...f, title: v }))}
           textAlign="right"
@@ -1989,7 +1989,7 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
         <TextInput
           style={[styles.notifInput, styles.notifTextArea, { color: theme.text, borderColor: theme.backgroundSecondary }]}
           placeholder="اكتب تفاصيل الإشعار هنا..."
-          placeholderTextColor="#9CA3AF"
+          placeholderTextColor={AppColors.gray400}
           value={notifForm.body}
           onChangeText={(v) => setNotifForm((f) => ({ ...f, body: v }))}
           multiline
@@ -2001,7 +2001,7 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
 
       {notifResult !== null ? (
         <View style={styles.notifSuccess}>
-          <Feather name="check-circle" size={22} color="#22C55E" />
+          <Feather name="check-circle" size={22} color={AppColors.success} />
           <ThemedText style={styles.notifSuccessText}>
             تم الإرسال بنجاح — وصل إلى {notifResult.sent} من {notifResult.total} مستخدم
           </ThemedText>
@@ -2010,7 +2010,7 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
 
       {notifError !== null ? (
         <View style={styles.notifErrorBox}>
-          <Feather name="alert-circle" size={18} color="#EF4444" />
+          <Feather name="alert-circle" size={18} color={AppColors.error} />
           <ThemedText style={styles.notifErrorText}>{notifError}</ThemedText>
         </View>
       ) : null}
@@ -2021,9 +2021,9 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
         disabled={isSendingNotif}
       >
         {isSendingNotif ? (
-          <ActivityIndicator color="#FFFFFF" size="small" />
+          <ActivityIndicator color={AppColors.white} size="small" />
         ) : (
-          <Feather name="send" size={18} color="#FFFFFF" />
+          <Feather name="send" size={18} color={AppColors.white} />
         )}
         <ThemedText style={styles.notifSendBtnText}>
           {isSendingNotif ? "جاري الإرسال..." : "إرسال للجميع"}
@@ -2033,7 +2033,7 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
   );
 
   const renderDashboardTab = () => {
-    const ADMIN_RED = "#D94523";
+    const ADMIN_RED = AppColors.error;
     const totalOrders = adminOrders.length;
     const pendingOrders = adminOrders.filter(o => o.status === "pending").length;
     const activeOrders = adminOrders.filter(o => ["confirmed","preparing","ready","picked_up","in_delivery"].includes(o.status)).length;
@@ -2044,19 +2044,19 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
     const recentOrders = [...adminOrders].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).slice(0, 5);
 
     const kpiCards = [
-      { label: "طلبات اليوم", value: totalOrders, icon: "shopping-cart" as const, color: "#3B82F6", bg: "#EFF6FF" },
-      { label: "بانتظار القبول", value: pendingOrders, icon: "clock" as const, color: "#F59E0B", bg: "#FFFBEB" },
-      { label: "قيد التوصيل", value: activeOrders, icon: "navigation" as const, color: "#8B5CF6", bg: "#F5F3FF" },
-      { label: "تمت التوصيل", value: deliveredOrders, icon: "check-circle" as const, color: "#10B981", bg: "#ECFDF5" },
-      { label: "إجمالي السائقين", value: approvedDrivers, icon: "truck" as const, color: ADMIN_RED, bg: "#FFF1EE" },
-      { label: "طلبات السائقين", value: pendingDrivers, icon: "user-check" as const, color: "#6366F1", bg: "#EEF2FF" },
-      { label: "المستخدمون", value: adminUsers.length, icon: "users" as const, color: "#0EA5E9", bg: "#F0F9FF" },
-      { label: "عمولة التطبيق", value: formatPrice(todayRevenue), icon: "trending-up" as const, color: "#10B981", bg: "#ECFDF5", isText: true },
+      { label: "طلبات اليوم", value: totalOrders, icon: "shopping-cart" as const, color: AppColors.info, bg: AppColors.infoLight },
+      { label: "بانتظار القبول", value: pendingOrders, icon: "clock" as const, color: AppColors.warning, bg: AppColors.warningLight },
+      { label: "قيد التوصيل", value: activeOrders, icon: "navigation" as const, color: AppColors.statusPurple, bg: AppColors.vendorPurpleLight },
+      { label: "تمت التوصيل", value: deliveredOrders, icon: "check-circle" as const, color: AppColors.success, bg: AppColors.successLight },
+      { label: "إجمالي السائقين", value: approvedDrivers, icon: "truck" as const, color: ADMIN_RED, bg: AppColors.secondary },
+      { label: "طلبات السائقين", value: pendingDrivers, icon: "user-check" as const, color: AppColors.statusPurple, bg: AppColors.vendorPurpleLight },
+      { label: "المستخدمون", value: adminUsers.length, icon: "users" as const, color: AppColors.info, bg: AppColors.infoLight },
+      { label: "عمولة التطبيق", value: formatPrice(todayRevenue), icon: "trending-up" as const, color: AppColors.success, bg: AppColors.successLight, isText: true },
     ];
 
     const getStatusColor = (s: string) => {
-      const m: Record<string, string> = { pending:"#F59E0B", confirmed:"#3B82F6", preparing:"#8B5CF6", ready:"#E86520", picked_up:"#F97316", in_delivery:"#06B6D4", delivered:"#10B981", cancelled:"#EF4444", issue:"#EF4444" };
-      return m[s] || "#6B7280";
+      const m: Record<string, string> = { pending:AppColors.warning, confirmed:AppColors.info, preparing:AppColors.statusPurple, ready:AppColors.primary, picked_up:AppColors.primary, in_delivery:AppColors.statusCyan, delivered:AppColors.success, cancelled:AppColors.error, issue:AppColors.error };
+      return m[s] || AppColors.gray500;
     };
     const getStatusLabel = (s: string) => {
       const m: Record<string, string> = { pending:"انتظار", confirmed:"مؤكد", preparing:"يتحضر", ready:"جاهز", picked_up:"استُلم", in_delivery:"بالطريق", delivered:"وصل", cancelled:"ملغي", issue:"مشكلة" };
@@ -2064,12 +2064,12 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
     };
 
     const quickLinks: { label: string; tab: TabType; icon: keyof typeof Feather.glyphMap; color: string }[] = [
-      { label: "البانرات", tab: "banners", icon: "image", color: "#3B82F6" },
-      { label: "الأقسام", tab: "categories", icon: "grid", color: "#8B5CF6" },
-      { label: "المنتجات", tab: "products", icon: "package", color: "#F59E0B" },
-      { label: "المناطق", tab: "areas", icon: "map-pin", color: "#10B981" },
-      { label: "أكواد الخصم", tab: "promoCodes", icon: "tag", color: "#EF4444" },
-      { label: "الإشعارات", tab: "notifications", icon: "bell", color: "#6366F1" },
+      { label: "البانرات", tab: "banners", icon: "image", color: AppColors.info },
+      { label: "الأقسام", tab: "categories", icon: "grid", color: AppColors.statusPurple },
+      { label: "المنتجات", tab: "products", icon: "package", color: AppColors.warning },
+      { label: "المناطق", tab: "areas", icon: "map-pin", color: AppColors.success },
+      { label: "أكواد الخصم", tab: "promoCodes", icon: "tag", color: AppColors.error },
+      { label: "الإشعارات", tab: "notifications", icon: "bell", color: AppColors.statusPurple },
     ];
 
     return (
@@ -2078,22 +2078,22 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
         <View style={{ borderRadius: BorderRadius.xl, overflow: "hidden", backgroundColor: ADMIN_RED }}>
           <View style={{ padding: Spacing.lg, flexDirection: "row-reverse", alignItems: "center", gap: Spacing.md }}>
             <View style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: "rgba(255,255,255,0.2)", alignItems: "center", justifyContent: "center" }}>
-              <Feather name="shield" size={24} color="#fff" />
+              <Feather name="shield" size={24} color={AppColors.white} />
             </View>
             <View style={{ flex: 1, alignItems: "flex-end" }}>
-              <ThemedText style={{ color: "#fff", fontSize: 18, fontFamily: "Cairo_700Bold" }}>لوحة التحكم</ThemedText>
-              <ThemedText style={{ color: "rgba(255,255,255,0.8)", fontSize: 13, fontFamily: "Cairo_400Regular" }}>مرحباً بك في نظام إدارة أونواي</ThemedText>
+              <ThemedText style={{ color: AppColors.white, fontSize: 18, fontFamily: "Cairo_700Bold" }}>لوحة التحكم</ThemedText>
+              <ThemedText style={{ color: AppColors.textOnBrandMuted, fontSize: 13, fontFamily: "Cairo_400Regular" }}>مرحباً بك في نظام إدارة أونواي</ThemedText>
             </View>
           </View>
           {/* Mini status bar */}
           <View style={{ flexDirection: "row-reverse", backgroundColor: "rgba(0,0,0,0.15)", paddingHorizontal: Spacing.lg, paddingVertical: Spacing.sm, gap: Spacing.lg }}>
             <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 4 }}>
-              <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: pendingOrders > 0 ? "#FCD34D" : "#4ADE80" }} />
-              <ThemedText style={{ color: "#fff", fontSize: 12, fontFamily: "Cairo_400Regular" }}>{pendingOrders > 0 ? `${pendingOrders} طلب ينتظر` : "لا طلبات معلقة"}</ThemedText>
+              <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: pendingOrders > 0 ? AppColors.warning : AppColors.success }} />
+              <ThemedText style={{ color: AppColors.white, fontSize: 12, fontFamily: "Cairo_400Regular" }}>{pendingOrders > 0 ? `${pendingOrders} طلب ينتظر` : "لا طلبات معلقة"}</ThemedText>
             </View>
             <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 4 }}>
-              <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: "#4ADE80" }} />
-              <ThemedText style={{ color: "#fff", fontSize: 12, fontFamily: "Cairo_400Regular" }}>{approvedDrivers} سائق نشط</ThemedText>
+              <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: AppColors.success }} />
+              <ThemedText style={{ color: AppColors.white, fontSize: 12, fontFamily: "Cairo_400Regular" }}>{approvedDrivers} سائق نشط</ThemedText>
             </View>
           </View>
         </View>
@@ -2114,7 +2114,7 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
                     <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 26, color: card.color }}>{card.value as number}</ThemedText>
                   )}
                 </View>
-                <ThemedText style={{ fontFamily: "Cairo_400Regular", fontSize: 12, color: "#6B7280", textAlign: "right" }}>{card.label}</ThemedText>
+                <ThemedText style={{ fontFamily: "Cairo_400Regular", fontSize: 12, color: AppColors.gray500, textAlign: "right" }}>{card.label}</ThemedText>
               </View>
             ))}
           </View>
@@ -2182,7 +2182,7 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
         <View style={{ backgroundColor: theme.backgroundSecondary, borderRadius: BorderRadius.xl, padding: Spacing.lg, gap: Spacing.md }}>
           <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: Spacing.sm, marginBottom: 2 }}>
             <View style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: "#FEE2E220", alignItems: "center", justifyContent: "center" }}>
-              <Feather name="clock" size={18} color="#DC2626" />
+              <Feather name="clock" size={18} color={AppColors.error} />
             </View>
             <View style={{ flex: 1, alignItems: "flex-end" }}>
               <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 14, color: theme.text }}>حدود تنبيه الوقت للبائعين</ThemedText>
@@ -2205,7 +2205,7 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
                     style={{
                       width: 60, textAlign: "center", fontFamily: "Cairo_700Bold", fontSize: 15,
                       color: theme.text, backgroundColor: theme.backgroundDefault,
-                      borderRadius: BorderRadius.md, borderWidth: 1, borderColor: theme.border ?? "#E5E7EB",
+                      borderRadius: BorderRadius.md, borderWidth: 1, borderColor: theme.border ?? AppColors.divider,
                       paddingVertical: 6, paddingHorizontal: 8,
                     }}
                     testID={`urgency-input-${key}`}
@@ -2216,10 +2216,10 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
             ))}
           </View>
           {urgencySaveError ? (
-            <ThemedText style={{ fontFamily: "Cairo_400Regular", fontSize: 13, color: "#DC2626", textAlign: "right" }}>{urgencySaveError}</ThemedText>
+            <ThemedText style={{ fontFamily: "Cairo_400Regular", fontSize: 13, color: AppColors.error, textAlign: "right" }}>{urgencySaveError}</ThemedText>
           ) : null}
           {urgencySaveOk ? (
-            <ThemedText style={{ fontFamily: "Cairo_400Regular", fontSize: 13, color: "#059669", textAlign: "right" }}>تم الحفظ بنجاح</ThemedText>
+            <ThemedText style={{ fontFamily: "Cairo_400Regular", fontSize: 13, color: AppColors.success, textAlign: "right" }}>تم الحفظ بنجاح</ThemedText>
           ) : null}
           <Pressable
             onPress={saveUrgencyThresholds}
@@ -2228,9 +2228,9 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
             style={{ backgroundColor: ADMIN_RED, borderRadius: BorderRadius.lg, paddingVertical: 10, alignItems: "center" }}
           >
             {isSavingUrgency ? (
-              <ActivityIndicator color="#fff" size="small" />
+              <ActivityIndicator color={AppColors.white} size="small" />
             ) : (
-              <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 14, color: "#fff" }}>حفظ الحدود الزمنية</ThemedText>
+              <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 14, color: AppColors.white }}>حفظ الحدود الزمنية</ThemedText>
             )}
           </Pressable>
         </View>
@@ -2239,14 +2239,14 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
         {ownerEarnings ? (
           <Pressable
             onPress={() => { setActiveTab("orders"); resetForm(); }}
-            style={{ backgroundColor: "#FFF1EE", borderRadius: BorderRadius.xl, padding: Spacing.lg, flexDirection: "row-reverse", alignItems: "center", gap: Spacing.md, borderWidth: 1, borderColor: "#FECDC4" }}
+            style={{ backgroundColor: AppColors.secondary, borderRadius: BorderRadius.xl, padding: Spacing.lg, flexDirection: "row-reverse", alignItems: "center", gap: Spacing.md, borderWidth: 1, borderColor: AppColors.errorLight }}
           >
-            <View style={{ width: 44, height: 44, borderRadius: 14, backgroundColor: "#FECDC4", alignItems: "center", justifyContent: "center" }}>
+            <View style={{ width: 44, height: 44, borderRadius: 14, backgroundColor: AppColors.errorLight, alignItems: "center", justifyContent: "center" }}>
               <Feather name="dollar-sign" size={22} color={ADMIN_RED} />
             </View>
             <View style={{ flex: 1, alignItems: "flex-end" }}>
               <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 15, color: ADMIN_RED }}>{formatPrice(ownerEarnings.totalOwnerEarnings)}</ThemedText>
-              <ThemedText style={{ fontFamily: "Cairo_400Regular", fontSize: 12, color: "#6B7280" }}>إجمالي عمولة التطبيق — {ownerEarnings.totalDeliveredOrders} طلب مكتمل</ThemedText>
+              <ThemedText style={{ fontFamily: "Cairo_400Regular", fontSize: 12, color: AppColors.gray500 }}>إجمالي عمولة التطبيق — {ownerEarnings.totalDeliveredOrders} طلب مكتمل</ThemedText>
             </View>
             <Feather name="chevron-left" size={16} color={ADMIN_RED} />
           </Pressable>
@@ -2259,7 +2259,7 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
     all: "الكل", active: "نشط", pending: "قيد المراجعة", rejected: "مرفوض", suspended: "موقوف",
   };
   const VENDOR_STATUS_COLORS: Record<string, string> = {
-    active: "#059669", pending: "#D97706", rejected: "#DC2626", suspended: "#6B7280",
+    active: AppColors.success, pending: AppColors.warning, rejected: AppColors.error, suspended: AppColors.gray500,
   };
   const BUSINESS_TYPE_LABELS: Record<string, string> = {
     restaurant: "مطعم", supermarket: "سوبرماركت", pharmacy: "صيدلية",
@@ -2285,8 +2285,8 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
         <View style={{ flexDirection: "row-reverse", gap: Spacing.sm }}>
           {[
             { label: "الكل", count: vendorPartners.length, color: ADMIN_RED },
-            { label: "نشط", count: vendorPartners.filter((v) => v.status === "active").length, color: "#059669" },
-            { label: "قيد المراجعة", count: vendorPartners.filter((v) => v.status === "pending").length, color: "#D97706" },
+            { label: "نشط", count: vendorPartners.filter((v) => v.status === "active").length, color: AppColors.success },
+            { label: "قيد المراجعة", count: vendorPartners.filter((v) => v.status === "pending").length, color: AppColors.warning },
           ].map((s) => (
             <View key={s.label} style={{ flex: 1, backgroundColor: s.color + "15", borderRadius: 14, padding: Spacing.md, alignItems: "center", gap: 4 }}>
               <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 18, color: s.color }}>{s.count}</ThemedText>
@@ -2304,13 +2304,13 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
               style={{
                 paddingHorizontal: 14, paddingVertical: 7, borderRadius: 20,
                 backgroundColor: vendorStatusFilter === f ? ADMIN_RED : theme.backgroundDefault,
-                borderWidth: 1, borderColor: vendorStatusFilter === f ? ADMIN_RED : theme.border ?? "#E5E7EB",
+                borderWidth: 1, borderColor: vendorStatusFilter === f ? ADMIN_RED : theme.border ?? AppColors.divider,
               }}
               testID={`vendor-filter-${f}`}
             >
               <ThemedText style={{
                 fontFamily: "Cairo_700Bold", fontSize: 12,
-                color: vendorStatusFilter === f ? "#fff" : theme.textSecondary,
+                color: vendorStatusFilter === f ? AppColors.white : theme.textSecondary,
               }}>
                 {VENDOR_STATUS_LABELS[f]}
               </ThemedText>
@@ -2337,7 +2337,7 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
                 testID={`vendor-card-${vendor.id}`}
                 style={{
                   backgroundColor: theme.backgroundDefault, borderRadius: 16, overflow: "hidden",
-                  shadowColor: "#000", shadowOpacity: 0.05, shadowRadius: 8, shadowOffset: { width: 0, height: 2 },
+                  shadowColor: AppColors.black, shadowOpacity: 0.05, shadowRadius: 8, shadowOffset: { width: 0, height: 2 },
                   elevation: 2,
                 }}
               >
@@ -2353,9 +2353,9 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
                   <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: Spacing.sm }}>
                     {/* Logo */}
                     {vendor.profileImageUrl ? (
-                      <Image source={{ uri: resolveImageUrl(vendor.profileImageUrl) }} style={{ width: 44, height: 44, borderRadius: 12, borderWidth: 2, borderColor: "#fff", marginTop: -20 }} />
+                      <Image source={{ uri: resolveImageUrl(vendor.profileImageUrl) }} style={{ width: 44, height: 44, borderRadius: 12, borderWidth: 2, borderColor: AppColors.white, marginTop: -20 }} />
                     ) : (
-                      <View style={{ width: 44, height: 44, borderRadius: 12, backgroundColor: ADMIN_RED + "30", alignItems: "center", justifyContent: "center", marginTop: -20, borderWidth: 2, borderColor: "#fff" }}>
+                      <View style={{ width: 44, height: 44, borderRadius: 12, backgroundColor: ADMIN_RED + "30", alignItems: "center", justifyContent: "center", marginTop: -20, borderWidth: 2, borderColor: AppColors.white }}>
                         <Feather name="briefcase" size={20} color={ADMIN_RED} />
                       </View>
                     )}
@@ -2366,8 +2366,8 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
                       </ThemedText>
                     </View>
                     {/* Status badge */}
-                    <View style={{ paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20, backgroundColor: (VENDOR_STATUS_COLORS[vendor.status] ?? "#6B7280") + "20" }}>
-                      <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 11, color: VENDOR_STATUS_COLORS[vendor.status] ?? "#6B7280" }}>
+                    <View style={{ paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20, backgroundColor: (VENDOR_STATUS_COLORS[vendor.status] ?? AppColors.gray500) + "20" }}>
+                      <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 11, color: VENDOR_STATUS_COLORS[vendor.status] ?? AppColors.gray500 }}>
                         {VENDOR_STATUS_LABELS[vendor.status] ?? vendor.status}
                       </ThemedText>
                     </View>
@@ -2402,7 +2402,7 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
         {/* Vendor Detail Modal */}
         {selectedVendor ? (
           <Modal transparent animationType="slide" visible onRequestClose={() => setSelectedVendor(null)}>
-            <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.5)" }}>
+            <View style={{ flex: 1, backgroundColor: AppColors.overlay }}>
               <Pressable style={{ flex: 1 }} onPress={() => setSelectedVendor(null)} />
               <View style={{
                 backgroundColor: theme.backgroundDefault,
@@ -2410,10 +2410,10 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
                 maxHeight: "85%",
               }}>
                 {/* Header */}
-                <View style={{ flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between", padding: Spacing.lg, borderBottomWidth: 1, borderBottomColor: theme.border ?? "#E5E7EB" }}>
+                <View style={{ flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between", padding: Spacing.lg, borderBottomWidth: 1, borderBottomColor: theme.border ?? AppColors.divider }}>
                   <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 17, color: theme.text }}>{selectedVendor.storeName}</ThemedText>
-                  <Pressable onPress={() => setSelectedVendor(null)} style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: "#F3F4F6", alignItems: "center", justifyContent: "center" }}>
-                    <Feather name="x" size={18} color="#374151" />
+                  <Pressable onPress={() => setSelectedVendor(null)} style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: AppColors.gray100, alignItems: "center", justifyContent: "center" }}>
+                    <Feather name="x" size={18} color={AppColors.gray700} />
                   </Pressable>
                 </View>
                 <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: Spacing.lg, gap: Spacing.md }}>
@@ -2449,8 +2449,8 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
                   {/* Status badge */}
                   <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 8 }}>
                     <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 13, color: theme.textSecondary }}>الحالة:</ThemedText>
-                    <View style={{ paddingHorizontal: 14, paddingVertical: 5, borderRadius: 20, backgroundColor: (VENDOR_STATUS_COLORS[selectedVendor.status] ?? "#6B7280") + "20" }}>
-                      <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 13, color: VENDOR_STATUS_COLORS[selectedVendor.status] ?? "#6B7280" }}>
+                    <View style={{ paddingHorizontal: 14, paddingVertical: 5, borderRadius: 20, backgroundColor: (VENDOR_STATUS_COLORS[selectedVendor.status] ?? AppColors.gray500) + "20" }}>
+                      <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 13, color: VENDOR_STATUS_COLORS[selectedVendor.status] ?? AppColors.gray500 }}>
                         {VENDOR_STATUS_LABELS[selectedVendor.status] ?? selectedVendor.status}
                       </ThemedText>
                     </View>
@@ -2483,8 +2483,8 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
                               <ThemedText style={{ fontFamily: "Cairo_400Regular", fontSize: 11, color: theme.textSecondary, textAlign: "right" }} numberOfLines={2}>{prod.description}</ThemedText>
                             ) : null}
                           </View>
-                          <View style={{ paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8, backgroundColor: prod.status === "approved" ? "#059669" + "20" : prod.status === "pending" ? "#D97706" + "20" : "#DC2626" + "20" }}>
-                            <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 10, color: prod.status === "approved" ? "#059669" : prod.status === "pending" ? "#D97706" : "#DC2626" }}>
+                          <View style={{ paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8, backgroundColor: prod.status === "approved" ? AppColors.success + "20" : prod.status === "pending" ? AppColors.warning + "20" : AppColors.error + "20" }}>
+                            <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 10, color: prod.status === "approved" ? AppColors.success : prod.status === "pending" ? AppColors.warning : AppColors.error }}>
                               {prod.status === "approved" ? "نشط" : prod.status === "pending" ? "قيد المراجعة" : "مرفوض"}
                             </ThemedText>
                           </View>
@@ -2536,7 +2536,7 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
         <View style={{ backgroundColor: theme.backgroundSecondary, borderRadius: BorderRadius.lg, padding: Spacing.lg, gap: Spacing.md }}>
           <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: Spacing.sm }}>
             <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: "#F59E0B20", alignItems: "center", justifyContent: "center" }}>
-              <Feather name="dollar-sign" size={20} color="#F59E0B" />
+              <Feather name="dollar-sign" size={20} color={AppColors.warning} />
             </View>
             <View style={{ flex: 1, alignItems: "flex-end" }}>
               <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 15 }}>رسوم الخدمة</ThemedText>
@@ -2571,7 +2571,7 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
               onPress={handleSaveFee}
               disabled={isSavingFee || serviceFeeInput.trim() === ""}
               style={{
-                backgroundColor: isSavingFee || serviceFeeInput.trim() === "" ? theme.border : "#F59E0B",
+                backgroundColor: isSavingFee || serviceFeeInput.trim() === "" ? theme.border : AppColors.warning,
                 borderRadius: BorderRadius.md,
                 paddingHorizontal: Spacing.lg,
                 paddingVertical: Spacing.md,
@@ -2581,9 +2581,9 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
               testID="button-save-service-fee"
             >
               {isSavingFee ? (
-                <ActivityIndicator size="small" color="#fff" />
+                <ActivityIndicator size="small" color={AppColors.white} />
               ) : (
-                <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 14, color: "#fff" }}>حفظ</ThemedText>
+                <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 14, color: AppColors.white }}>حفظ</ThemedText>
               )}
             </Pressable>
           </View>
@@ -2609,7 +2609,7 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
     }
   };
 
-  const ADMIN_RED = "#D94523";
+  const ADMIN_RED = AppColors.error;
 
   const TABS: { key: TabType; label: string; icon: keyof typeof Feather.glyphMap; badge?: number }[] = [
     { key: "dashboard", label: "الرئيسية", icon: "home" },
@@ -2644,7 +2644,7 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
                   <Feather name={tab.icon} size={20} color={isActive ? ADMIN_RED : theme.textSecondary} />
                   {tab.badge && tab.badge > 0 ? (
                     <View style={styles.adminTabBadge}>
-                      <ThemedText style={{ fontSize: 9, color: "#fff", fontFamily: "Cairo_700Bold", lineHeight: 14 }}>{tab.badge > 9 ? "9+" : tab.badge}</ThemedText>
+                      <ThemedText style={{ fontSize: 9, color: AppColors.white, fontFamily: "Cairo_700Bold", lineHeight: 14 }}>{tab.badge > 9 ? "9+" : tab.badge}</ThemedText>
                     </View>
                   ) : null}
                 </View>
@@ -2674,7 +2674,7 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
 const styles = StyleSheet.create({
   // ── Admin tab bar ─────────────────────────────────────────
   adminTabBar: {
-    shadowColor: "#000",
+    shadowColor: AppColors.black,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.06,
     shadowRadius: 4,
@@ -2706,7 +2706,7 @@ const styles = StyleSheet.create({
     minWidth: 15,
     height: 15,
     borderRadius: 8,
-    backgroundColor: "#EF4444",
+    backgroundColor: AppColors.error,
     alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: 2,
@@ -2716,18 +2716,18 @@ const styles = StyleSheet.create({
   tabs: { flexDirection: "row", gap: Spacing.sm, paddingVertical: Spacing.xs },
   tab: {
     minHeight: 48, paddingVertical: Spacing.md, paddingHorizontal: Spacing.xl,
-    borderRadius: BorderRadius.lg, backgroundColor: "#F3F4F6",
+    borderRadius: BorderRadius.lg, backgroundColor: AppColors.gray100,
     alignItems: "center", justifyContent: "center", overflow: "visible",
   },
   tabActive: { backgroundColor: AppColors.primary },
-  tabText: { color: "#6B7280", fontSize: 12 },
-  tabTextActive: { color: "#FFFFFF", fontWeight: "600" },
+  tabText: { color: AppColors.gray500, fontSize: 12 },
+  tabTextActive: { color: AppColors.white, fontWeight: "600" },
   formCard: {
-    backgroundColor: "#FFFFFF",
+    backgroundColor: AppColors.white,
     borderRadius: BorderRadius.lg,
     padding: Spacing.lg,
     marginBottom: Spacing.lg,
-    shadowColor: "#000",
+    shadowColor: AppColors.black,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
@@ -2783,7 +2783,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.md,
     borderRadius: BorderRadius.full,
-    backgroundColor: "#F3F4F6",
+    backgroundColor: AppColors.gray100,
     marginRight: Spacing.sm,
     alignItems: "center",
     justifyContent: "center",
@@ -2792,10 +2792,10 @@ const styles = StyleSheet.create({
     backgroundColor: AppColors.primary,
   },
   categoryChipText: {
-    color: "#6B7280",
+    color: AppColors.gray500,
   },
   categoryChipTextActive: {
-    color: "#FFFFFF",
+    color: AppColors.white,
   },
   typeSelector: {
     flexDirection: "row",
@@ -2807,7 +2807,7 @@ const styles = StyleSheet.create({
     minHeight: 48,
     paddingVertical: Spacing.md,
     borderRadius: BorderRadius.lg,
-    backgroundColor: "#F3F4F6",
+    backgroundColor: AppColors.gray100,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -2815,10 +2815,10 @@ const styles = StyleSheet.create({
     backgroundColor: AppColors.primary,
   },
   typeButtonText: {
-    color: "#6B7280",
+    color: AppColors.gray500,
   },
   typeButtonTextActive: {
-    color: "#FFFFFF",
+    color: AppColors.white,
   },
   imagePicker: {
     height: 140,
@@ -2852,13 +2852,13 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   saveButtonText: {
-    color: "#FFFFFF",
+    color: AppColors.white,
     fontWeight: "700",
     fontSize: 13,
   },
   cancelButton: {
     flex: 1,
-    backgroundColor: "#F3F4F6",
+    backgroundColor: AppColors.gray100,
     minHeight: 52,
     paddingVertical: Spacing.lg,
     borderRadius: BorderRadius.lg,
@@ -2866,7 +2866,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   cancelButtonText: {
-    color: "#6B7280",
+    color: AppColors.gray500,
     fontSize: 13,
   },
   listTitle: {
@@ -2913,13 +2913,13 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
   },
   discountBadge: {
-    backgroundColor: "#EF4444",
+    backgroundColor: AppColors.error,
     paddingHorizontal: Spacing.sm,
     paddingVertical: 2,
     borderRadius: BorderRadius.sm,
   },
   discountText: {
-    color: "#FFFFFF",
+    color: AppColors.white,
     fontSize: 10,
     fontWeight: "600",
   },
@@ -2934,7 +2934,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     gap: Spacing.sm,
-    backgroundColor: "#1a1a2e",
+    backgroundColor: AppColors.black,
     borderRadius: BorderRadius.md,
     paddingVertical: Spacing.sm,
     paddingHorizontal: Spacing.md,
@@ -2987,7 +2987,7 @@ const styles = StyleSheet.create({
     elevation: 6,
   },
   saveCategoryChangesBtnText: {
-    color: "#FFFFFF",
+    color: AppColors.white,
     fontWeight: "700",
     fontSize: 12,
   },
@@ -3001,7 +3001,7 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
     paddingVertical: Spacing.xl,
     paddingHorizontal: Spacing.lg,
-    backgroundColor: "rgba(232,101,32,0.06)",
+    backgroundColor: AppColors.primary + "0F",
     borderRadius: BorderRadius.xl,
     borderWidth: 1,
     borderColor: "rgba(232,101,32,0.15)",
@@ -3015,7 +3015,7 @@ const styles = StyleSheet.create({
   notifSubtitle: {
     fontFamily: "Cairo_400Regular",
     fontSize: 13,
-    color: "#6B7280",
+    color: AppColors.gray500,
     textAlign: "center",
   },
   notifCard: {
@@ -3036,8 +3036,8 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.md,
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm + 2,
-    backgroundColor: "#F9FAFB",
-    color: "#1F2937",
+    backgroundColor: AppColors.gray50,
+    color: AppColors.gray800,
   },
   notifTextArea: {
     minHeight: 110,
@@ -3058,7 +3058,7 @@ const styles = StyleSheet.create({
     elevation: 6,
   },
   notifSendBtnText: {
-    color: "#FFFFFF",
+    color: AppColors.white,
     fontFamily: "Cairo_700Bold",
     fontSize: 16,
   },
@@ -3066,16 +3066,16 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: Spacing.sm,
-    backgroundColor: "#F0FDF4",
+    backgroundColor: AppColors.successLight,
     borderRadius: BorderRadius.lg,
     padding: Spacing.md,
     borderWidth: 1,
-    borderColor: "#BBF7D0",
+    borderColor: AppColors.successLight,
   },
   notifSuccessText: {
     fontFamily: "Cairo_600SemiBold",
     fontSize: 14,
-    color: "#15803D",
+    color: AppColors.success,
     flex: 1,
     textAlign: "right",
   },
@@ -3083,16 +3083,16 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: Spacing.sm,
-    backgroundColor: "#FEF2F2",
+    backgroundColor: AppColors.errorLight,
     borderRadius: BorderRadius.lg,
     padding: Spacing.md,
     borderWidth: 1,
-    borderColor: "#FECACA",
+    borderColor: AppColors.error,
   },
   notifErrorText: {
     fontFamily: "Cairo_400Regular",
     fontSize: 13,
-    color: "#DC2626",
+    color: AppColors.error,
     flex: 1,
     textAlign: "right",
   },
@@ -3126,7 +3126,7 @@ const styles = StyleSheet.create({
   usersStatLabel: {
     fontFamily: "Cairo_400Regular",
     fontSize: 12,
-    color: "#6B7280",
+    color: AppColors.gray500,
     textAlign: "center",
   },
   usersSearchBox: {
@@ -3199,12 +3199,12 @@ const styles = StyleSheet.create({
   userRowPhone: {
     fontFamily: "Cairo_400Regular",
     fontSize: 12,
-    color: "#6B7280",
+    color: AppColors.gray500,
   },
   userRowDate: {
     fontFamily: "Cairo_400Regular",
     fontSize: 11,
-    color: "#9CA3AF",
+    color: AppColors.gray400,
     textAlign: "right",
   },
   userRowRight: {
@@ -3215,14 +3215,14 @@ const styles = StyleSheet.create({
     width: 20,
     height: 20,
     borderRadius: 10,
-    backgroundColor: "#DCFCE7",
+    backgroundColor: AppColors.successLight,
     alignItems: "center",
     justifyContent: "center",
   },
   userRowIndex: {
     fontFamily: "Cairo_400Regular",
     fontSize: 11,
-    color: "#9CA3AF",
+    color: AppColors.gray400,
   },
   usersEmpty: {
     alignItems: "center",
@@ -3232,13 +3232,13 @@ const styles = StyleSheet.create({
   usersEmptyText: {
     fontFamily: "Cairo_400Regular",
     fontSize: 15,
-    color: "#9CA3AF",
+    color: AppColors.gray400,
     textAlign: "center",
   },
   modalOverlay: {
     position: "absolute",
     top: 0, left: 0, right: 0, bottom: 0,
-    backgroundColor: "rgba(0,0,0,0.55)",
+    backgroundColor: AppColors.overlay,
     justifyContent: "center",
     alignItems: "center",
     zIndex: 999,
@@ -3247,7 +3247,7 @@ const styles = StyleSheet.create({
     width: "85%",
     borderRadius: BorderRadius.xl,
     padding: Spacing.xl,
-    shadowColor: "#000",
+    shadowColor: AppColors.black,
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.3,
     shadowRadius: 20,

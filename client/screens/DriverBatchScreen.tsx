@@ -28,12 +28,12 @@ import { CurrentBatch, BatchOrder } from "@/screens/DriverHomeScreen";
 type BatchScreenRoute = RouteProp<RootStackParamList, "DriverBatch">;
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; icon: keyof typeof Feather.glyphMap }> = {
-  confirmed:   { label: "منتظر", color: "#9E9E9E", icon: "clock" },
-  preparing:   { label: "يُحضَّر", color: "#8B5CF6", icon: "shopping-bag" },
+  confirmed:   { label: "منتظر", color: AppColors.gray400, icon: "clock" },
+  preparing:   { label: "يُحضَّر", color: AppColors.statusPurple, icon: "shopping-bag" },
   ready:       { label: "جاهز للاستلام", color: AppColors.primary, icon: "check-square" },
-  picked_up:   { label: "استُلم", color: "#FF9800", icon: "package" },
-  in_delivery: { label: "في الطريق", color: "#2196F3", icon: "navigation" },
-  delivered:   { label: "تم التوصيل", color: "#4CAF50", icon: "check-circle" },
+  picked_up:   { label: "استُلم", color: AppColors.warning, icon: "package" },
+  in_delivery: { label: "في الطريق", color: AppColors.info, icon: "navigation" },
+  delivered:   { label: "تم التوصيل", color: AppColors.success, icon: "check-circle" },
 };
 
 export default function DriverBatchScreen() {
@@ -216,7 +216,7 @@ export default function DriverBatchScreen() {
           <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: Spacing.sm }}>
             <View style={[styles.seqCircle, { backgroundColor: isDelivered ? "#4CAF5020" : AppColors.primary + "15" }]}>
               {isDelivered
-                ? <Feather name="check" size={14} color="#4CAF50" />
+                ? <Feather name="check" size={14} color={AppColors.success} />
                 : <ThemedText type="small" style={{ color: AppColors.primary, fontWeight: "800" }}>{order.deliverySequence}</ThemedText>
               }
             </View>
@@ -234,8 +234,8 @@ export default function DriverBatchScreen() {
         {(order.storeName || order.storeAddress) && !isDelivered ? (
           <View style={[styles.storeBox, { backgroundColor: "#8B5CF608", borderColor: "#8B5CF630" }]}>
             <View style={styles.storeBoxHeader}>
-              <Feather name="shopping-bag" size={14} color="#8B5CF6" />
-              <ThemedText type="small" style={{ color: "#8B5CF6", fontWeight: "800", flex: 1, textAlign: "right" }}>
+              <Feather name="shopping-bag" size={14} color={AppColors.statusPurple} />
+              <ThemedText type="small" style={{ color: AppColors.statusPurple, fontWeight: "800", flex: 1, textAlign: "right" }}>
                 نقطة الاستلام — {order.storeName || "المتجر"}
               </ThemedText>
             </View>
@@ -244,7 +244,7 @@ export default function DriverBatchScreen() {
                 <ThemedText type="small" style={{ color: theme.text, flex: 1, textAlign: "right" }} numberOfLines={2}>
                   {order.storeAddress}
                 </ThemedText>
-                <Feather name="map-pin" size={13} color="#8B5CF6" />
+                <Feather name="map-pin" size={13} color={AppColors.statusPurple} />
               </View>
             ) : null}
             <View style={styles.storeActions}>
@@ -258,8 +258,8 @@ export default function DriverBatchScreen() {
                     Linking.openURL(url).catch(() => Linking.openURL(`tel:${order.storePhone}`).catch(() => {}));
                   }}
                 >
-                  <Feather name="phone" size={14} color="#4CAF50" />
-                  <ThemedText type="small" style={{ color: "#4CAF50", fontWeight: "600" }}>اتصال بالمتجر</ThemedText>
+                  <Feather name="phone" size={14} color={AppColors.success} />
+                  <ThemedText type="small" style={{ color: AppColors.success, fontWeight: "600" }}>اتصال بالمتجر</ThemedText>
                 </Pressable>
               ) : null}
             </View>
@@ -273,7 +273,7 @@ export default function DriverBatchScreen() {
             <ThemedText type="body" style={{ color: theme.text, flex: 1, textAlign: "right" }} numberOfLines={2}>
               {order.region || order.address}
             </ThemedText>
-            <Feather name="navigation" size={16} color="#2196F3" />
+            <Feather name="navigation" size={16} color={AppColors.info} />
           </View>
           <View style={styles.detailRow}>
             <ThemedText type="body" style={{ color: AppColors.primary, fontWeight: "700" }}>
@@ -284,11 +284,11 @@ export default function DriverBatchScreen() {
           {order.serviceFee !== undefined && order.serviceFee > 0 ? (
             <View style={[styles.serviceFeeRow]}>
               <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 4, flex: 1 }}>
-                <ThemedText type="small" style={{ color: "#6B7280", textAlign: "right" }}>
+                <ThemedText type="small" style={{ color: AppColors.gray500, textAlign: "right" }}>
                   رسوم الخدمة (للتطبيق): {formatPrice(order.serviceFee)}
                 </ThemedText>
               </View>
-              <Feather name="shield" size={13} color="#6B7280" />
+              <Feather name="shield" size={13} color={AppColors.gray500} />
             </View>
           ) : null}
           {order.vendorName ? (
@@ -319,8 +319,8 @@ export default function DriverBatchScreen() {
             </View>
           ) : null}
           {order.notes ? (
-            <View style={[styles.notesBox, { backgroundColor: "#FFF3E0" }]}>
-              <ThemedText type="small" style={{ color: "#E65100", textAlign: "right" }}>{order.notes}</ThemedText>
+            <View style={[styles.notesBox, { backgroundColor: AppColors.secondary }]}>
+              <ThemedText type="small" style={{ color: AppColors.primary, textAlign: "right" }}>{order.notes}</ThemedText>
             </View>
           ) : null}
         </View>
@@ -332,8 +332,8 @@ export default function DriverBatchScreen() {
             onPress={() => handleCallCustomer(order.customerPhone)}
             testID={`button-call-${order.id}`}
           >
-            <Feather name="phone" size={18} color="#4CAF50" />
-            <ThemedText type="small" style={{ color: "#4CAF50", fontWeight: "600" }}>اتصال</ThemedText>
+            <Feather name="phone" size={18} color={AppColors.success} />
+            <ThemedText type="small" style={{ color: AppColors.success, fontWeight: "600" }}>اتصال</ThemedText>
           </Pressable>
           {order.latitude && order.longitude ? (
             <Pressable
@@ -341,8 +341,8 @@ export default function DriverBatchScreen() {
               onPress={() => handleOpenMap(order)}
               testID={`button-map-${order.id}`}
             >
-              <Feather name="map" size={18} color="#2196F3" />
-              <ThemedText type="small" style={{ color: "#2196F3", fontWeight: "600" }}>الخريطة</ThemedText>
+              <Feather name="map" size={18} color={AppColors.info} />
+              <ThemedText type="small" style={{ color: AppColors.info, fontWeight: "600" }}>الخريطة</ThemedText>
             </Pressable>
           ) : null}
           {canAct ? (
@@ -363,7 +363,7 @@ export default function DriverBatchScreen() {
             style={[
               styles.mainActionBtn,
               {
-                backgroundColor: isInDelivery ? "#4CAF50" : canPickup ? "#8B5CF6" : "#BDBDBD",
+                backgroundColor: isInDelivery ? AppColors.success : canPickup ? AppColors.statusPurple : AppColors.gray300,
                 opacity: isLoading ? 0.7 : 1,
               },
             ]}
@@ -375,15 +375,15 @@ export default function DriverBatchScreen() {
             testID={`button-action-${order.id}`}
           >
             {isLoading ? (
-              <ActivityIndicator size="small" color="#FFFFFF" />
+              <ActivityIndicator size="small" color={AppColors.white} />
             ) : (
               <>
                 <Feather
                   name={isInDelivery ? "check-circle" : canPickup ? "package" : "clock"}
                   size={20}
-                  color="#FFFFFF"
+                  color={AppColors.white}
                 />
-                <ThemedText type="h4" style={{ color: "#FFFFFF", fontWeight: "700" }}>
+                <ThemedText type="h4" style={{ color: AppColors.white, fontWeight: "700" }}>
                   {isInDelivery ? "تم التوصيل" : canPickup ? "تم الاستلام من المحل" : "بانتظار القبول"}
                 </ThemedText>
               </>
@@ -391,8 +391,8 @@ export default function DriverBatchScreen() {
           </Pressable>
         ) : (
           <View style={[styles.deliveredBanner, { backgroundColor: "#4CAF5015" }]}>
-            <Feather name="check-circle" size={18} color="#4CAF50" />
-            <ThemedText type="body" style={{ color: "#4CAF50", fontWeight: "700" }}>تم التوصيل بنجاح</ThemedText>
+            <Feather name="check-circle" size={18} color={AppColors.success} />
+            <ThemedText type="body" style={{ color: AppColors.success, fontWeight: "700" }}>تم التوصيل بنجاح</ThemedText>
           </View>
         )}
       </View>
@@ -404,9 +404,9 @@ export default function DriverBatchScreen() {
       <GradientBackground />
 
       {/* Header */}
-      <View style={[styles.header, { paddingTop: insets.top + Spacing.md, backgroundColor: "#8B5CF6" }]}>
+      <View style={[styles.header, { paddingTop: insets.top + Spacing.md, backgroundColor: AppColors.statusPurple }]}>
         <Pressable onPress={() => navigation.goBack()} style={styles.backBtn} testID="button-back">
-          <Feather name="chevron-right" size={26} color="#FFFFFF" />
+          <Feather name="chevron-right" size={26} color={AppColors.white} />
         </Pressable>
         <View style={styles.headerCenter}>
           <ThemedText type="h3" style={styles.headerTitle}>إدارة الدفعة</ThemedText>
@@ -422,9 +422,9 @@ export default function DriverBatchScreen() {
             testID="button-reject-batch"
           >
             {isRejecting ? (
-              <ActivityIndicator size="small" color="#FFFFFF" />
+              <ActivityIndicator size="small" color={AppColors.white} />
             ) : (
-              <Feather name="x" size={22} color="#FFFFFF" />
+              <Feather name="x" size={22} color={AppColors.white} />
             )}
           </Pressable>
         ) : (
@@ -435,7 +435,7 @@ export default function DriverBatchScreen() {
       {/* Reject banner for pending batches */}
       {batch.status === "pending" ? (
         <View style={styles.rejectBanner}>
-          <Feather name="clock" size={15} color="#F44336" />
+          <Feather name="clock" size={15} color={AppColors.error} />
           <ThemedText type="small" style={styles.rejectBannerText}>طلب معلق — قبول أو رفض مطلوب</ThemedText>
           <Pressable
             style={styles.rejectBannerBtn}
@@ -444,9 +444,9 @@ export default function DriverBatchScreen() {
             testID="button-reject-batch-banner"
           >
             {isRejecting ? (
-              <ActivityIndicator size="small" color="#F44336" />
+              <ActivityIndicator size="small" color={AppColors.error} />
             ) : (
-              <ThemedText type="small" style={{ color: "#F44336", fontWeight: "700" }}>رفض</ThemedText>
+              <ThemedText type="small" style={{ color: AppColors.error, fontWeight: "700" }}>رفض</ThemedText>
             )}
           </Pressable>
         </View>
@@ -455,7 +455,7 @@ export default function DriverBatchScreen() {
       {/* Progress */}
       <View style={[styles.progressBox, { backgroundColor: theme.backgroundDefault }]}>
         <View style={styles.progressLabelRow}>
-          <ThemedText type="small" style={{ color: "#8B5CF6", fontWeight: "700" }}>
+          <ThemedText type="small" style={{ color: AppColors.statusPurple, fontWeight: "700" }}>
             {Math.round(progress * 100)}%
           </ThemedText>
           <ThemedText type="small" style={{ color: theme.textSecondary }}>
@@ -476,22 +476,22 @@ export default function DriverBatchScreen() {
         ].map((step, idx) => {
           const done = idx < currentStep;
           const active = idx === currentStep;
-          const stepColor = done ? "#4CAF50" : active ? "#8B5CF6" : theme.border;
+          const stepColor = done ? AppColors.success : active ? AppColors.statusPurple : theme.border;
           return (
             <React.Fragment key={idx}>
               <View style={styles.stepItem}>
                 <View style={[styles.stepCircle, {
-                  backgroundColor: done ? "#4CAF50" : active ? "#8B5CF6" : theme.backgroundRoot,
+                  backgroundColor: done ? AppColors.success : active ? AppColors.statusPurple : theme.backgroundRoot,
                   borderColor: stepColor,
                 }]}>
-                  <Feather name={step.icon} size={14} color={done || active ? "#fff" : theme.textSecondary} />
+                  <Feather name={step.icon} size={14} color={done || active ? AppColors.white : theme.textSecondary} />
                 </View>
-                <ThemedText type="small" style={{ color: active ? "#8B5CF6" : done ? "#4CAF50" : theme.textSecondary, fontWeight: active ? "700" : "400", fontSize: 11, marginTop: 4 }}>
+                <ThemedText type="small" style={{ color: active ? AppColors.statusPurple : done ? AppColors.success : theme.textSecondary, fontWeight: active ? "700" : "400", fontSize: 11, marginTop: 4 }}>
                   {step.label}
                 </ThemedText>
               </View>
               {idx < 2 ? (
-                <View style={[styles.stepLine, { backgroundColor: idx < currentStep ? "#4CAF50" : theme.border }]} />
+                <View style={[styles.stepLine, { backgroundColor: idx < currentStep ? AppColors.success : theme.border }]} />
               ) : null}
             </React.Fragment>
           );
@@ -517,10 +517,10 @@ export default function DriverBatchScreen() {
           <Pressable style={[styles.modalBox, { backgroundColor: theme.backgroundDefault }]} onPress={() => {}}>
             {issueSent ? (
               <View style={styles.modalSent}>
-                <View style={[styles.modalSentIcon, { backgroundColor: "#E8F5E9" }]}>
-                  <Feather name="check-circle" size={36} color="#4CAF50" />
+                <View style={[styles.modalSentIcon, { backgroundColor: AppColors.successLight }]}>
+                  <Feather name="check-circle" size={36} color={AppColors.success} />
                 </View>
-                <ThemedText type="h4" style={{ color: "#4CAF50", fontWeight: "700", marginTop: Spacing.md }}>
+                <ThemedText type="h4" style={{ color: AppColors.success, fontWeight: "700", marginTop: Spacing.md }}>
                   تم إرسال المشكلة
                 </ThemedText>
               </View>
@@ -576,24 +576,24 @@ const styles = StyleSheet.create({
   rejectBanner: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#FFF3F3",
+    backgroundColor: AppColors.secondary,
     borderBottomWidth: 1,
-    borderBottomColor: "#FFCDD2",
+    borderBottomColor: AppColors.errorLight,
     paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.sm,
     gap: Spacing.sm,
   },
-  rejectBannerText: { flex: 1, color: "#C62828", fontWeight: "600", textAlign: "right" },
+  rejectBannerText: { flex: 1, color: AppColors.error, fontWeight: "600", textAlign: "right" },
   rejectBannerBtn: {
-    backgroundColor: "#FFF",
+    backgroundColor: AppColors.white,
     borderWidth: 1.5,
-    borderColor: "#F44336",
+    borderColor: AppColors.error,
     borderRadius: BorderRadius.md,
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.xs,
   },
-  headerTitle: { color: "#FFFFFF", fontWeight: "800" },
-  headerSub: { color: "rgba(255,255,255,0.8)", marginTop: 2 },
+  headerTitle: { color: AppColors.white, fontWeight: "800" },
+  headerSub: { color: AppColors.textOnBrandMuted, marginTop: 2 },
   progressBox: {
     marginHorizontal: Spacing.lg,
     marginTop: Spacing.md,
@@ -607,7 +607,7 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   progressBar: { height: 8, borderRadius: 4, overflow: "hidden" },
-  progressFill: { height: "100%", borderRadius: 4, backgroundColor: "#8B5CF6" },
+  progressFill: { height: "100%", borderRadius: 4, backgroundColor: AppColors.statusPurple },
   scrollContent: { padding: Spacing.lg, gap: Spacing.md },
   orderCard: { borderRadius: BorderRadius.xl, padding: Spacing.lg },
   orderCardDelivered: { opacity: 0.75 },
@@ -652,12 +652,12 @@ const styles = StyleSheet.create({
     gap: Spacing.sm, paddingVertical: Spacing.md, borderRadius: BorderRadius.md,
   },
   modalOverlay: {
-    flex: 1, backgroundColor: "rgba(0,0,0,0.45)",
+    flex: 1, backgroundColor: AppColors.overlay,
     justifyContent: "center", alignItems: "center", padding: Spacing.xl,
   },
   modalBox: {
     width: "100%", borderRadius: BorderRadius.xl, padding: Spacing.xl,
-    shadowColor: "#000", shadowOffset: { width: 0, height: 4 },
+    shadowColor: AppColors.black, shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.15, shadowRadius: 12, elevation: 8,
   },
   modalHeader: {

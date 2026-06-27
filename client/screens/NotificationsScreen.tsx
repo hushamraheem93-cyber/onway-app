@@ -41,8 +41,8 @@ function NotificationSetting({ icon, title, subtitle, value, onValueChange }: No
       <Switch
         value={value}
         onValueChange={handleChange}
-        trackColor={{ false: "#ccc", true: AppColors.primary }}
-        thumbColor="#fff"
+        trackColor={{ false: AppColors.gray300, true: AppColors.primary }}
+        thumbColor={AppColors.white}
       />
       <View style={styles.settingContent}>
         <ThemedText type="body" style={styles.settingTitle}>{title}</ThemedText>
@@ -152,9 +152,9 @@ export default function NotificationsScreen() {
         </ThemedText>
       </View>
 
-      <View style={[styles.savedBadge, { backgroundColor: "#4CAF50" + "15" }]}>
-        <Feather name="check-circle" size={16} color="#4CAF50" />
-        <ThemedText type="small" style={{ color: "#4CAF50", fontWeight: "600" }}>
+      <View style={[styles.savedBadge, { backgroundColor: AppColors.success + "15" }]}>
+        <Feather name="check-circle" size={16} color={AppColors.success} />
+        <ThemedText type="small" style={{ color: AppColors.success, fontWeight: "600" }}>
           يتم حفظ الإعدادات تلقائياً
         </ThemedText>
       </View>

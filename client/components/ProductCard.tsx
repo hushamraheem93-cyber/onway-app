@@ -137,7 +137,7 @@ function ProductCardComponent({ product, onPress }: ProductCardProps) {
           <FontAwesome
             name={isFav ? "heart" : "heart-o"}
             size={18}
-            color={isFav ? "#E53935" : "#999999"}
+            color={isFav ? AppColors.error : AppColors.gray400}
           />
         </AnimatedPressable>
         <Image
@@ -178,7 +178,7 @@ function ProductCardComponent({ product, onPress }: ProductCardProps) {
                   buttonAnimatedStyle,
                 ]}
               >
-                <Feather name="plus" size={16} color="#FFFFFF" />
+                <Feather name="plus" size={16} color={AppColors.white} />
               </AnimatedPressable>
               <ThemedText type="body" style={styles.quantityText}>
                 {cartQuantity}
@@ -187,11 +187,11 @@ function ProductCardComponent({ product, onPress }: ProductCardProps) {
                 onPress={handleRemoveFromCart}
                 style={[
                   styles.quantityButton,
-                  { backgroundColor: "#E53935" },
+                  { backgroundColor: AppColors.error },
                   minusButtonAnimatedStyle,
                 ]}
               >
-                <Feather name="minus" size={16} color="#FFFFFF" />
+                <Feather name="minus" size={16} color={AppColors.white} />
               </AnimatedPressable>
             </View>
           ) : (
@@ -203,7 +203,7 @@ function ProductCardComponent({ product, onPress }: ProductCardProps) {
                 buttonAnimatedStyle,
               ]}
             >
-              <Feather name="plus" size={22} color="#FFFFFF" />
+              <Feather name="plus" size={22} color={AppColors.white} />
             </AnimatedPressable>
           )}
         </View>
@@ -217,7 +217,7 @@ const styles = StyleSheet.create({
     width: 160,
     borderRadius: 20,
     marginBottom: Spacing.md,
-    shadowColor: "#000",
+    shadowColor: AppColors.black,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 10,
@@ -243,15 +243,15 @@ const styles = StyleSheet.create({
     zIndex: 1,
     alignItems: "center",
     justifyContent: "center",
-    shadowColor: "#000",
+    shadowColor: AppColors.black,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.15,
     shadowRadius: 4,
     elevation: 3,
   },
   favoriteButtonActive: {
-    backgroundColor: "#FFEBEE",
-    shadowColor: "#E53935",
+    backgroundColor: AppColors.errorLight,
+    shadowColor: AppColors.error,
     shadowOpacity: 0.3,
   },
   content: {
@@ -266,7 +266,7 @@ const styles = StyleSheet.create({
   },
   weight: {
     textAlign: "right",
-    color: "#888888",
+    color: AppColors.gray500,
     fontSize: 12,
     marginTop: 2,
   },
@@ -280,14 +280,14 @@ const styles = StyleSheet.create({
     position: "absolute",
     top: 8,
     left: 8,
-    backgroundColor: "#E86520",
+    backgroundColor: AppColors.primary,
     borderRadius: 8,
     paddingHorizontal: 7,
     paddingVertical: 3,
     zIndex: 10,
   },
   discountBadgeText: {
-    color: "#FFFFFF",
+    color: AppColors.white,
     fontSize: 11,
     fontWeight: "800",
   },
@@ -301,7 +301,7 @@ const styles = StyleSheet.create({
   },
   originalPrice: {
     fontSize: 11,
-    color: "#9CA3AF",
+    color: AppColors.gray400,
     textAlign: "right",
     textDecorationLine: "line-through",
     marginTop: 1,

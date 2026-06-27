@@ -166,7 +166,7 @@ function getTrackingMapHTML(driverLat: number, driverLng: number, customerLat?: 
 
     var driverIcon = L.divIcon({
       className: '',
-      html: '<div class="driver-pulse"><div class="driver-inner"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="18.5" cy="17.5" r="3.5"/><circle cx="5.5" cy="17.5" r="3.5"/><circle cx="15" cy="6" r="1"/><polyline points="12,5 5.5,17.5"/><polyline points="12,5 18.5,17.5"/><polyline points="12,5 15,9 18.5,17.5"/></svg></div></div>',
+      html: '<div class="driver-pulse"><div class="driver-inner"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={AppColors.white} stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="18.5" cy="17.5" r="3.5"/><circle cx="5.5" cy="17.5" r="3.5"/><circle cx="15" cy="6" r="1"/><polyline points="12,5 5.5,17.5"/><polyline points="12,5 18.5,17.5"/><polyline points="12,5 15,9 18.5,17.5"/></svg></div></div>',
       iconSize: [48, 48],
       iconAnchor: [24, 24],
     });
@@ -322,10 +322,10 @@ export default function OrderTrackingScreen() {
             <ThemedText type="h4" style={{ marginTop: 2 }}>{order.id?.slice(-8) || order.id}</ThemedText>
           </View>
           <View style={[styles.statusChip, {
-            backgroundColor: isCancelled ? "#FEE2E2" : currentStepIndex >= 4 ? "#D1FAE5" : AppColors.primary + "15",
+            backgroundColor: isCancelled ? AppColors.errorLight : currentStepIndex >= 4 ? AppColors.successLight : AppColors.primary + "15",
           }]}>
             <ThemedText type="small" style={{
-              color: isCancelled ? "#EF4444" : currentStepIndex >= 4 ? "#10B981" : AppColors.primary,
+              color: isCancelled ? AppColors.error : currentStepIndex >= 4 ? AppColors.success : AppColors.primary,
               fontWeight: "700",
             }}>
               {order.status === "issue" ? "مشكلة" : isCancelled ? "ملغي" : STEPS[Math.min(currentStepIndex, 4)]?.label}
@@ -407,7 +407,7 @@ export default function OrderTrackingScreen() {
                 </View>
                 <View style={styles.driverStatus}>
                   <View style={styles.statusDot} />
-                  <ThemedText type="small" style={{ color: "#10B981", fontWeight: "600" }}>في الطريق</ThemedText>
+                  <ThemedText type="small" style={{ color: AppColors.success, fontWeight: "600" }}>في الطريق</ThemedText>
                 </View>
               </View>
             </View>
@@ -418,7 +418,7 @@ export default function OrderTrackingScreen() {
       {isCancelled ? (
         <View style={[styles.cancelledCard, Shadows.sm]}>
           <View style={styles.cancelledIcon}>
-            <Feather name={order.status === "issue" ? "alert-triangle" : "x-circle"} size={40} color="#EF4444" />
+            <Feather name={order.status === "issue" ? "alert-triangle" : "x-circle"} size={40} color={AppColors.error} />
           </View>
           <ThemedText type="h3" style={styles.cancelledTitle}>
             {order.status === "issue" ? "توجد مشكلة في الطلب" : "تم إلغاء الطلب"}
@@ -446,7 +446,7 @@ export default function OrderTrackingScreen() {
                       {isCurrent && currentStepIndex < 4 ? (
                         <PulsingDot />
                       ) : (
-                        <Feather name="check" size={14} color="#FFFFFF" />
+                        <Feather name="check" size={14} color={AppColors.white} />
                       )}
                     </View>
                   ) : (
@@ -645,7 +645,7 @@ const styles = StyleSheet.create({
   mapLiveBadge: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#D1FAE5",
+    backgroundColor: AppColors.successLight,
     borderRadius: 12,
     paddingHorizontal: Spacing.sm + 2,
     paddingVertical: 4,
@@ -655,10 +655,10 @@ const styles = StyleSheet.create({
     width: 7,
     height: 7,
     borderRadius: 4,
-    backgroundColor: "#10B981",
+    backgroundColor: AppColors.success,
   },
   liveText: {
-    color: "#10B981",
+    color: AppColors.success,
     fontWeight: "700",
   },
   mapView: {
@@ -669,7 +669,7 @@ const styles = StyleSheet.create({
     height: 260,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "#F5F5F5",
+    backgroundColor: AppColors.gray50,
   },
   webFallback: {
     height: 180,
@@ -710,7 +710,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
-    backgroundColor: "#D1FAE5",
+    backgroundColor: AppColors.successLight,
     borderRadius: 12,
     paddingHorizontal: Spacing.sm,
     paddingVertical: 3,
@@ -719,7 +719,7 @@ const styles = StyleSheet.create({
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: "#10B981",
+    backgroundColor: AppColors.success,
   },
   timelineCard: {
     borderRadius: BorderRadius.lg,
@@ -731,7 +731,7 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.xl,
     paddingBottom: Spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: "#E0E0E0",
+    borderBottomColor: AppColors.border,
   },
   stepRow: {
     flexDirection: "row-reverse",
@@ -798,24 +798,24 @@ const styles = StyleSheet.create({
     width: 10,
     height: 10,
     borderRadius: 5,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: AppColors.white,
   },
   cancelledCard: {
     borderRadius: BorderRadius.lg,
     padding: Spacing["2xl"],
     marginBottom: Spacing.lg,
-    backgroundColor: "#FEF2F2",
+    backgroundColor: AppColors.errorLight,
     alignItems: "center",
   },
   cancelledIcon: {
     marginBottom: Spacing.md,
   },
   cancelledTitle: {
-    color: "#EF4444",
+    color: AppColors.error,
     marginBottom: Spacing.sm,
   },
   cancelledDesc: {
-    color: "#B91C1C",
+    color: AppColors.error,
     textAlign: "center",
     lineHeight: 22,
   },
@@ -831,7 +831,7 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.md,
     paddingBottom: Spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: "#E0E0E0",
+    borderBottomColor: AppColors.border,
   },
   itemsTitle: {
     textAlign: "right",

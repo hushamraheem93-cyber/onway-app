@@ -41,20 +41,20 @@ const CATEGORY_3D_IMAGES: Record<string, string> = {
 };
 
 const CATEGORY_COLORS: Record<string, string> = {
-  "restaurants": "#FFF4E0",
-  "fruits-vegetables": "#E8F5E9",
-  "meat-poultry": "#FFEBEE",
-  "dairy-eggs": "#F3E5F5",
-  "cleaning-care": "#E3F2FD",
-  "beverages": "#E0F7FA",
-  "snacks-sweets": "#FFF9C4",
-  "tea-coffee": "#EFEBE9",
-  "baby": "#FCE4EC",
-  "flowers": "#FDF2F2",
-  "delivery": "#FFFDE7",
-  "pharmacy": "#E1F5FE",
-  "women-bags": "#FCE4EC",
-  "international-shopping": "#E8EAF6",
+  "restaurants": AppColors.warningLight,
+  "fruits-vegetables": AppColors.successLight,
+  "meat-poultry": AppColors.errorLight,
+  "dairy-eggs": AppColors.vendorPurpleLight,
+  "cleaning-care": AppColors.driverBlueLight,
+  "beverages": AppColors.infoLight,
+  "snacks-sweets": AppColors.warningLight,
+  "tea-coffee": AppColors.gray100,
+  "baby": AppColors.errorLight,
+  "flowers": AppColors.errorLight,
+  "delivery": AppColors.warningLight,
+  "pharmacy": AppColors.infoLight,
+  "women-bags": AppColors.errorLight,
+  "international-shopping": AppColors.infoLight,
 };
 
 export default function CategoriesScreen() {
@@ -95,7 +95,7 @@ export default function CategoriesScreen() {
   };
 
   const getGradientColor = (categoryId: string, fallback?: string) => {
-    return CATEGORY_COLORS[categoryId] || fallback || "#FFF3E0";
+    return CATEGORY_COLORS[categoryId] || fallback || AppColors.secondary;
   };
 
   const renderCategory = ({ item }: { item: Category }) => {
@@ -110,7 +110,7 @@ export default function CategoriesScreen() {
         testID={`card-category-${item.id}`}
       >
         <LinearGradient
-          colors={[gradientColor, "#FFFFFF"]}
+          colors={[gradientColor, AppColors.white]}
           start={{ x: 0.5, y: 0 }}
           end={{ x: 0.5, y: 1 }}
           style={styles.card}
@@ -176,7 +176,7 @@ const styles = StyleSheet.create({
     borderRadius: 25,
     ...Platform.select({
       ios: {
-        shadowColor: "#000",
+        shadowColor: AppColors.black,
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.08,
         shadowRadius: 12,
@@ -213,7 +213,7 @@ const styles = StyleSheet.create({
   name: {
     fontSize: 14,
     fontWeight: "700",
-    color: "#333333",
+    color: AppColors.gray700,
     textAlign: "center",
     marginTop: 8,
   },

@@ -74,7 +74,7 @@ function CartItemCardComponent({ item }: CartItemCardProps) {
         <ThemedText type="body" style={styles.price}>
           {formatPrice(item.product.price)}
         </ThemedText>
-        <View style={[styles.quantityContainer, { backgroundColor: isDark ? theme.backgroundSecondary : "#F5F5F5" }]}>
+        <View style={[styles.quantityContainer, { backgroundColor: isDark ? theme.backgroundSecondary : AppColors.gray50 }]}>
           <AnimatedPressable onPress={handleIncrease} style={styles.qtyBtn}>
             <Feather name="plus" size={20} color={AppColors.primary} />
           </AnimatedPressable>
@@ -82,12 +82,12 @@ function CartItemCardComponent({ item }: CartItemCardProps) {
             {item.quantity}
           </ThemedText>
           <AnimatedPressable onPress={handleDecrease} style={styles.qtyBtn}>
-            <Feather name="minus" size={20} color="#666" />
+            <Feather name="minus" size={20} color={AppColors.gray500} />
           </AnimatedPressable>
         </View>
       </View>
       <Pressable onPress={handleRemove} style={styles.deleteBtn}>
-        <Feather name="trash-2" size={22} color="#FF3B30" />
+        <Feather name="trash-2" size={22} color={AppColors.error} />
       </Pressable>
     </Animated.View>
   );
@@ -101,7 +101,7 @@ const styles = StyleSheet.create({
     marginVertical: 8,
     marginHorizontal: 15,
     alignItems: "center",
-    shadowColor: "#000",
+    shadowColor: AppColors.black,
     shadowOpacity: 0.05,
     shadowRadius: 5,
     elevation: 2,
@@ -110,7 +110,7 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 10,
-    backgroundColor: "#f9f9f9",
+    backgroundColor: AppColors.gray50,
   },
   content: {
     flex: 1,

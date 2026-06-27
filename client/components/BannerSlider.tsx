@@ -184,14 +184,14 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: "rgba(0,0,0,0.5)",
+    backgroundColor: AppColors.overlay,
     paddingVertical: Spacing.sm,
     paddingHorizontal: Spacing.md,
     borderBottomLeftRadius: BANNER_RADIUS,
     borderBottomRightRadius: BANNER_RADIUS,
   },
   bannerTitle: {
-    color: "#FFFFFF",
+    color: AppColors.white,
     textAlign: "center",
   },
   pagination: {

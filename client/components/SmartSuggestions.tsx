@@ -197,6 +197,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   addBtnDisabled: {
-    backgroundColor: "#4CAF50",
+    backgroundColor: AppColors.success,
   },
 });

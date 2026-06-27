@@ -55,7 +55,7 @@ function StarRow({ value, size = 16 }: { value: number; size?: number }) {
           key={i}
           name={i <= Math.round(value) ? "star" : "star-outline"}
           size={size}
-          color="#F59E0B"
+          color={AppColors.warning}
         />
       ))}
     </View>
@@ -67,9 +67,9 @@ function BreakdownBar({ stars, count, total, theme }: { stars: number; count: nu
   return (
     <View style={bStyles.barRow}>
       <ThemedText style={bStyles.barLabel}>{stars}</ThemedText>
-      <MaterialCommunityIcons name="star" size={13} color="#F59E0B" />
-      <View style={[bStyles.barBg, { backgroundColor: theme.border ?? "#E5E7EB" }]}>
-        <View style={[bStyles.barFill, { width: `${pct}%` as any, backgroundColor: "#F59E0B" }]} />
+      <MaterialCommunityIcons name="star" size={13} color={AppColors.warning} />
+      <View style={[bStyles.barBg, { backgroundColor: theme.border ?? AppColors.divider }]}>
+        <View style={[bStyles.barFill, { width: `${pct}%` as any, backgroundColor: AppColors.warning }]} />
       </View>
       <ThemedText style={[bStyles.barPct, { color: theme.textSecondary }]}>{pct}%</ThemedText>
       <ThemedText style={[bStyles.barCount, { color: theme.textSecondary }]}>({count})</ThemedText>
@@ -223,7 +223,7 @@ export default function StoreRatingsScreen() {
       </View>
 
       {/* Search */}
-      <View style={[styles.searchBar, { backgroundColor: theme.backgroundDefault, borderColor: theme.border ?? "#E5E7EB" }]}>
+      <View style={[styles.searchBar, { backgroundColor: theme.backgroundDefault, borderColor: theme.border ?? AppColors.divider }]}>
         <Feather name="search" size={16} color={theme.textSecondary} />
         <TextInput
           style={[styles.searchInput, { color: theme.text }]}
@@ -250,10 +250,10 @@ export default function StoreRatingsScreen() {
               styles.filterTab,
               filter === tab.key
                 ? { backgroundColor: AppColors.primary }
-                : { backgroundColor: theme.backgroundDefault, borderColor: theme.border ?? "#E5E7EB", borderWidth: 1 },
+                : { backgroundColor: theme.backgroundDefault, borderColor: theme.border ?? AppColors.divider, borderWidth: 1 },
             ]}
           >
-            <ThemedText style={[styles.filterLabel, { color: filter === tab.key ? "#fff" : theme.textSecondary }]}>
+            <ThemedText style={[styles.filterLabel, { color: filter === tab.key ? AppColors.white : theme.textSecondary }]}>
               {tab.label}
             </ThemedText>
           </Pressable>
@@ -336,7 +336,7 @@ const styles = StyleSheet.create({
   avgNum: {
     fontFamily: "Cairo_700Bold",
     fontSize: 36,
-    color: "#F59E0B",
+    color: AppColors.warning,
   },
   totalCount: {
     fontFamily: "Cairo_400Regular",

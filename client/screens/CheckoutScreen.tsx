@@ -394,9 +394,9 @@ export default function CheckoutScreen() {
             }}
           >
             {isApplyingPromo ? (
-              <ActivityIndicator size="small" color="#FFFFFF" />
+              <ActivityIndicator size="small" color={AppColors.white} />
             ) : (
-              <ThemedText type="body" style={{ color: "#FFFFFF", fontWeight: "600" }}>
+              <ThemedText type="body" style={{ color: AppColors.white, fontWeight: "600" }}>
                 تطبيق
               </ThemedText>
             )}
@@ -410,12 +410,12 @@ export default function CheckoutScreen() {
           />
         </View>
         {promoError ? (
-          <ThemedText type="small" style={{ color: "#EF4444", textAlign: "right", marginTop: Spacing.sm }}>
+          <ThemedText type="small" style={{ color: AppColors.error, textAlign: "right", marginTop: Spacing.sm }}>
             {promoError}
           </ThemedText>
         ) : null}
         {promoSuccess ? (
-          <ThemedText type="small" style={{ color: "#4CAF50", textAlign: "right", marginTop: Spacing.sm }}>
+          <ThemedText type="small" style={{ color: AppColors.success, textAlign: "right", marginTop: Spacing.sm }}>
             {promoSuccess}
           </ThemedText>
         ) : null}
@@ -429,8 +429,8 @@ export default function CheckoutScreen() {
         <View style={styles.paymentRow}>
           <View style={styles.paymentMethodItem}>
             <Svg width={44} height={28}>
-              <Circle cx={15} cy={14} r={13} fill="#EB001B" opacity={0.9} />
-              <Circle cx={29} cy={14} r={13} fill="#F79E1B" opacity={0.9} />
+              <Circle cx={15} cy={14} r={13} fill={AppColors.error} opacity={0.9} />
+              <Circle cx={29} cy={14} r={13} fill={AppColors.warning} opacity={0.9} />
             </Svg>
             <ThemedText type="small" style={[styles.paymentLabel, { color: theme.text }]}>
               ماستر كارد
@@ -488,7 +488,7 @@ export default function CheckoutScreen() {
           <ThemedText type="body" style={{ color: theme.textSecondary }}>
             أجور التوصيل
           </ThemedText>
-          <ThemedText type="body" style={{ color: deliveryFee > 0 ? AppColors.primary : "#4CAF50" }}>
+          <ThemedText type="body" style={{ color: deliveryFee > 0 ? AppColors.primary : AppColors.success }}>
             {isRestaurantOrder ? formatPrice(1000) : (deliveryFee > 0 ? formatPrice(deliveryFee) : "اختر المنطقة")}
           </ThemedText>
         </View>
@@ -503,7 +503,7 @@ export default function CheckoutScreen() {
         {promoDiscount > 0 ? (
           <View style={styles.summaryRow}>
             <ThemedText type="body" style={{ color: theme.textSecondary }}>الخصم</ThemedText>
-            <ThemedText type="body" style={{ color: "#4CAF50" }}>- {formatPrice(promoDiscount)}</ThemedText>
+            <ThemedText type="body" style={{ color: AppColors.success }}>- {formatPrice(promoDiscount)}</ThemedText>
           </View>
         ) : null}
         <View style={[styles.summaryRow, styles.totalRow]}>
@@ -533,7 +533,7 @@ export default function CheckoutScreen() {
       <Pressable style={styles.errorOverlay} onPress={() => setErrorMessage(null)}>
         <Pressable style={[styles.errorCard, { backgroundColor: theme.backgroundDefault }]}>
           <View style={styles.errorIconRow}>
-            <Feather name="alert-circle" size={28} color="#E53E3E" />
+            <Feather name="alert-circle" size={28} color={AppColors.error} />
           </View>
           <ThemedText type="h4" style={styles.errorTitle}>
             تنبيه
@@ -557,7 +557,7 @@ export default function CheckoutScreen() {
                   submitOrderPayload(lastOrderPayloadRef.current);
                 }}
               >
-                <ThemedText type="body" style={{ color: "#fff" }}>إعادة المحاولة</ThemedText>
+                <ThemedText type="body" style={{ color: AppColors.white }}>إعادة المحاولة</ThemedText>
               </Pressable>
             ) : null}
           </View>
@@ -616,7 +616,7 @@ const styles = StyleSheet.create({
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.5)",
+    backgroundColor: AppColors.overlay,
     justifyContent: "center",
     alignItems: "center",
     padding: Spacing.xl,
@@ -632,7 +632,7 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.lg,
     paddingBottom: Spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: "#E0E0E0",
+    borderBottomColor: AppColors.border,
   },
   areaItem: {
     flexDirection: "row",
@@ -680,12 +680,12 @@ const styles = StyleSheet.create({
     width: 44,
     height: 28,
     borderRadius: 6,
-    backgroundColor: "#006B3F",
+    backgroundColor: AppColors.success,
     alignItems: "center",
     justifyContent: "center",
   },
   dinarCashText: {
-    color: "#FFFFFF",
+    color: AppColors.white,
     fontWeight: "700",
     fontSize: 13,
     letterSpacing: 0.5,
@@ -699,14 +699,14 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   comingSoonBadge: {
-    backgroundColor: "#F3F4F6",
+    backgroundColor: AppColors.gray100,
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 6,
   },
   comingSoonText: {
     fontSize: 9,
-    color: "#9CA3AF",
+    color: AppColors.gray400,
     fontWeight: "700",
   },
   cashNote: {
@@ -730,7 +730,7 @@ const styles = StyleSheet.create({
   },
   totalRow: {
     borderTopWidth: 1,
-    borderTopColor: "#E0E0E0",
+    borderTopColor: AppColors.border,
     marginTop: Spacing.sm,
     paddingTop: Spacing.lg,
   },
@@ -740,7 +740,7 @@ const styles = StyleSheet.create({
   },
   errorOverlay: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.55)",
+    backgroundColor: AppColors.overlay,
     justifyContent: "center",
     alignItems: "center",
     padding: Spacing.xl,

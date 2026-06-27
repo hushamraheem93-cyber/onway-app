@@ -21,8 +21,9 @@ import { ThemedText } from "@/components/ThemedText";
 import { useAuth } from "@/context/AuthContext";
 import { getApiUrl } from "@/lib/query-client";
 import { useTheme } from "@/hooks/useTheme";
+import { AppColors } from "@/constants/theme";
 
-const ORANGE = "#E86520";
+const ORANGE = AppColors.primary;
 const SCREEN_W = Dimensions.get("window").width;
 
 interface OrderItem {
@@ -62,22 +63,22 @@ interface VendorOrder {
 
 // ── Status config ─────────────────────────────────────────────────────────────
 const STATUS_CFG: Record<string, { label: string; color: string; bg: string; icon: string }> = {
-  pending:    { label: "طلب جديد",      color: "#D97706", bg: "#FFFBEB",  icon: "bell-ring" },
-  confirmed:  { label: "مؤكد",          color: "#2563EB", bg: "#EFF6FF",  icon: "check-circle" },
-  preparing:  { label: "قيد التحضير",  color: "#7C3AED", bg: "#F5F3FF",  icon: "chef-hat" },
-  ready:      { label: "جاهز",          color: "#059669", bg: "#ECFDF5",  icon: "package-variant-closed-check" },
-  picked_up:  { label: "استلمه السائق", color: "#0891B2", bg: "#ECFEFF",  icon: "moped" },
-  delivering: { label: "في الطريق",     color: "#0284C7", bg: "#F0F9FF",  icon: "navigation" },
-  delivered:  { label: "تم التوصيل",   color: "#16A34A", bg: "#F0FDF4",  icon: "check-all" },
-  cancelled:  { label: "ملغي",          color: "#DC2626", bg: "#FFF5F5",  icon: "close-circle" },
+  pending:    { label: "طلب جديد",      color: AppColors.warning, bg: AppColors.warningLight,  icon: "bell-ring" },
+  confirmed:  { label: "مؤكد",          color: AppColors.info, bg: AppColors.infoLight,  icon: "check-circle" },
+  preparing:  { label: "قيد التحضير",  color: AppColors.statusPurple, bg: AppColors.vendorPurpleLight,  icon: "chef-hat" },
+  ready:      { label: "جاهز",          color: AppColors.success, bg: AppColors.successLight,  icon: "package-variant-closed-check" },
+  picked_up:  { label: "استلمه السائق", color: AppColors.statusCyan, bg: AppColors.infoLight,  icon: "moped" },
+  delivering: { label: "في الطريق",     color: AppColors.info, bg: AppColors.infoLight,  icon: "navigation" },
+  delivered:  { label: "تم التوصيل",   color: AppColors.success, bg: AppColors.successLight,  icon: "check-all" },
+  cancelled:  { label: "ملغي",          color: AppColors.error, bg: AppColors.errorLight,  icon: "close-circle" },
 };
 
 // ── Tab definitions ────────────────────────────────────────────────────────────
 const TABS = [
-  { key: "new",      label: "جديد",    statuses: ["pending"],           icon: "bell-ring",             color: "#D97706" },
-  { key: "active",   label: "تحضير",   statuses: ["confirmed","preparing"], icon: "chef-hat",           color: "#7C3AED" },
-  { key: "ready",    label: "جاهز",    statuses: ["ready","picked_up"],  icon: "package-variant-closed-check", color: "#059669" },
-  { key: "done",     label: "مكتمل",   statuses: ["delivered","delivering","cancelled"], icon: "check-all", color: "#6B7280" },
+  { key: "new",      label: "جديد",    statuses: ["pending"],           icon: "bell-ring",             color: AppColors.warning },
+  { key: "active",   label: "تحضير",   statuses: ["confirmed","preparing"], icon: "chef-hat",           color: AppColors.statusPurple },
+  { key: "ready",    label: "جاهز",    statuses: ["ready","picked_up"],  icon: "package-variant-closed-check", color: AppColors.success },
+  { key: "done",     label: "مكتمل",   statuses: ["delivered","delivering","cancelled"], icon: "check-all", color: AppColors.gray500 },
 ];
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -111,17 +112,17 @@ function getActions(status: string): Action[] {
   switch (status) {
     case "pending":
       return [
-        { label: "قبول الطلب",   nextStatus: "confirmed", color: "#fff",     bg: "#16A34A", icon: "check",     primary: true },
-        { label: "رفض",          nextStatus: "cancelled", color: "#DC2626",  bg: "#FEE2E2", icon: "close",     primary: false },
+        { label: "قبول الطلب",   nextStatus: "confirmed", color: AppColors.white,     bg: AppColors.success, icon: "check",     primary: true },
+        { label: "رفض",          nextStatus: "cancelled", color: AppColors.error,  bg: AppColors.errorLight, icon: "close",     primary: false },
       ];
     case "confirmed":
       return [
-        { label: "بدء التحضير",  nextStatus: "preparing", color: "#fff",     bg: ORANGE,    icon: "chef-hat",  primary: true },
-        { label: "إلغاء",        nextStatus: "cancelled", color: "#DC2626",  bg: "#FEE2E2", icon: "close",     primary: false },
+        { label: "بدء التحضير",  nextStatus: "preparing", color: AppColors.white,     bg: ORANGE,    icon: "chef-hat",  primary: true },
+        { label: "إلغاء",        nextStatus: "cancelled", color: AppColors.error,  bg: AppColors.errorLight, icon: "close",     primary: false },
       ];
     case "preparing":
       return [
-        { label: "الطلب جاهز",  nextStatus: "ready",     color: "#fff",     bg: "#059669", icon: "package-variant-closed-check", primary: true },
+        { label: "الطلب جاهز",  nextStatus: "ready",     color: AppColors.white,     bg: AppColors.success, icon: "package-variant-closed-check", primary: true },
       ];
     default:
       return [];
@@ -144,9 +145,9 @@ function TimerBadge({ createdAt }: { createdAt: string }) {
   const mins = Math.floor((now - new Date(createdAt).getTime()) / 60000);
   const urgent = mins >= 5;
   return (
-    <View style={[timerStyles.badge, { backgroundColor: urgent ? "#FEE2E2" : "#FEF3C7" }]}>
-      <MaterialCommunityIcons name="timer-outline" size={13} color={urgent ? "#DC2626" : "#D97706"} />
-      <ThemedText style={[timerStyles.text, { color: urgent ? "#DC2626" : "#D97706" }]}>
+    <View style={[timerStyles.badge, { backgroundColor: urgent ? AppColors.errorLight : AppColors.warningLight }]}>
+      <MaterialCommunityIcons name="timer-outline" size={13} color={urgent ? AppColors.error : AppColors.warning} />
+      <ThemedText style={[timerStyles.text, { color: urgent ? AppColors.error : AppColors.warning }]}>
         {mins < 1 ? "أقل من دقيقة" : `${mins} دقيقة`}
       </ThemedText>
     </View>
@@ -158,8 +159,8 @@ const timerStyles = StyleSheet.create({
 });
 
 const etaBadgeStyles = StyleSheet.create({
-  badge: { flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10, backgroundColor: "#ECFDF5" },
-  text: { fontFamily: "Cairo_700Bold", fontSize: 11, color: "#059669" },
+  badge: { flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10, backgroundColor: AppColors.successLight },
+  text: { fontFamily: "Cairo_700Bold", fontSize: 11, color: AppColors.success },
 });
 
 // ── Default per-status urgency thresholds (minutes) — overridden by server config ──
@@ -195,13 +196,13 @@ function StatusTimerBadge({
   const threshold = thresholds[status] ?? DEFAULT_URGENCY_THRESHOLD[status] ?? 15;
   const urgent = mins >= threshold;
 
-  const normalColor = "#7C3AED";
-  const normalBg = "#F5F3FF";
+  const normalColor = AppColors.statusPurple;
+  const normalBg = AppColors.vendorPurpleLight;
 
   return (
-    <View style={[statusTimerStyles.badge, { backgroundColor: urgent ? "#FEE2E2" : normalBg }]}>
-      <MaterialCommunityIcons name="clock-alert-outline" size={13} color={urgent ? "#DC2626" : normalColor} />
-      <ThemedText style={[statusTimerStyles.text, { color: urgent ? "#DC2626" : normalColor }]}>
+    <View style={[statusTimerStyles.badge, { backgroundColor: urgent ? AppColors.errorLight : normalBg }]}>
+      <MaterialCommunityIcons name="clock-alert-outline" size={13} color={urgent ? AppColors.error : normalColor} />
+      <ThemedText style={[statusTimerStyles.text, { color: urgent ? AppColors.error : normalColor }]}>
         {label} {mins < 1 ? "أقل من دقيقة" : `${mins} دقيقة`}
       </ThemedText>
     </View>
@@ -224,7 +225,7 @@ function ProgressBar({ status }: { status: string }) {
         return (
           <React.Fragment key={s}>
             <View style={[progressStyles.dot, done ? progressStyles.dotActive : progressStyles.dotInactive]}>
-              {done ? <MaterialCommunityIcons name="check" size={8} color="#fff" /> : null}
+              {done ? <MaterialCommunityIcons name="check" size={8} color={AppColors.white} /> : null}
             </View>
             {i < 5 ? <View style={[progressStyles.line, done && i < idx ? progressStyles.lineActive : {}]} /> : null}
           </React.Fragment>
@@ -237,8 +238,8 @@ const progressStyles = StyleSheet.create({
   row: { flexDirection: "row-reverse", alignItems: "center", marginBottom: 12 },
   dot: { width: 16, height: 16, borderRadius: 8, justifyContent: "center", alignItems: "center" },
   dotActive: { backgroundColor: ORANGE },
-  dotInactive: { backgroundColor: "#E5E7EB" },
-  line: { flex: 1, height: 2, backgroundColor: "#E5E7EB" },
+  dotInactive: { backgroundColor: AppColors.divider },
+  line: { flex: 1, height: 2, backgroundColor: AppColors.divider },
   lineActive: { backgroundColor: ORANGE },
 });
 
@@ -256,7 +257,7 @@ function OrderCard({
 }) {
   const { theme } = useTheme();
   const [expanded, setExpanded] = useState(true);
-  const cfg = STATUS_CFG[order.status] ?? { label: order.status, color: "#6B7280", bg: "#F3F4F6", icon: "help" };
+  const cfg = STATUS_CFG[order.status] ?? { label: order.status, color: AppColors.gray500, bg: AppColors.gray100, icon: "help" };
   const actions = getActions(order.status);
   const vendorTotal = order.vendorSubtotal ?? order.restaurantSubtotal ?? order.total;
   const displayName = order.customerName || order.customerPhone || order.phoneNumber || "عميل";
@@ -291,7 +292,7 @@ function OrderCard({
             ) : null}
             {order.estimatedMinutes && order.estimatedMinutes > 0 ? (
               <View style={etaBadgeStyles.badge}>
-                <MaterialCommunityIcons name="clock-fast" size={13} color="#059669" />
+                <MaterialCommunityIcons name="clock-fast" size={13} color={AppColors.success} />
                 <ThemedText style={etaBadgeStyles.text}>{order.estimatedMinutes} دقيقة</ThemedText>
               </View>
             ) : null}
@@ -300,7 +301,7 @@ function OrderCard({
                 <MaterialCommunityIcons
                   name={order.paymentMethod === "cash" ? "cash" : "credit-card-outline"}
                   size={13}
-                  color="#6B7280"
+                  color={AppColors.gray500}
                 />
                 <ThemedText style={cardStyles.paymentText}>
                   {order.paymentMethod === "cash" ? "كاش" : order.paymentMethod === "card" ? "بطاقة" : order.paymentMethod}
@@ -354,14 +355,14 @@ function OrderCard({
               <ThemedText style={[cardStyles.infoText, { color: theme.textSecondary }]}>{fullDate(order.createdAt)}</ThemedText>
             </View>
             {order.notes ? (
-              <View style={[cardStyles.notesRow, { backgroundColor: "#FFFBEB", borderColor: "#FDE68A" }]}>
-                <MaterialCommunityIcons name="note-text-outline" size={14} color="#D97706" />
+              <View style={[cardStyles.notesRow, { backgroundColor: AppColors.warningLight, borderColor: AppColors.warning }]}>
+                <MaterialCommunityIcons name="note-text-outline" size={14} color={AppColors.warning} />
                 <ThemedText style={cardStyles.notesText} numberOfLines={3}>{order.notes}</ThemedText>
               </View>
             ) : null}
           </View>
 
-          <View style={[cardStyles.divider, { backgroundColor: theme.border ?? "#F3F4F6" }]} />
+          <View style={[cardStyles.divider, { backgroundColor: theme.border ?? AppColors.gray100 }]} />
 
           {/* Items with images */}
           <View style={cardStyles.itemsSection}>
@@ -369,7 +370,7 @@ function OrderCard({
               المنتجات المطلوبة ({order.items?.length ?? 0})
             </ThemedText>
             {Array.isArray(order.items) && order.items.map((item, i) => (
-              <View key={i} style={[cardStyles.itemRow, { borderBottomColor: theme.border ?? "#F3F4F6" }]}>
+              <View key={i} style={[cardStyles.itemRow, { borderBottomColor: theme.border ?? AppColors.gray100 }]}>
                 {/* Product image / placeholder */}
                 {item.imageUrl ? (
                   <Image
@@ -423,12 +424,12 @@ function OrderCard({
             {/* Service fee */}
             {order.serviceFee !== undefined && order.serviceFee > 0 ? (
               <View style={cardStyles.breakdownRow}>
-                <MaterialCommunityIcons name="shield-check-outline" size={14} color="#6B7280" />
+                <MaterialCommunityIcons name="shield-check-outline" size={14} color={AppColors.gray500} />
                 <View style={{ flex: 1 }}>
-                  <ThemedText style={[cardStyles.breakdownLabel, { color: "#6B7280" }]}>رسوم الخدمة</ThemedText>
+                  <ThemedText style={[cardStyles.breakdownLabel, { color: AppColors.gray500 }]}>رسوم الخدمة</ThemedText>
                   <ThemedText style={cardStyles.breakdownNote}>تذهب للتطبيق</ThemedText>
                 </View>
-                <ThemedText style={[cardStyles.breakdownAmount, { color: "#6B7280" }]}>
+                <ThemedText style={[cardStyles.breakdownAmount, { color: AppColors.gray500 }]}>
                   {(order.serviceFee).toLocaleString("ar-IQ")} د.ع
                 </ThemedText>
               </View>
@@ -450,38 +451,38 @@ function OrderCard({
 
           {/* Driver info section */}
           {order.status === "ready" ? (
-            <View style={[cardStyles.driverBanner, { backgroundColor: "#ECFEFF" }]}>
-              <MaterialCommunityIcons name="moped" size={20} color="#0891B2" />
+            <View style={[cardStyles.driverBanner, { backgroundColor: AppColors.infoLight }]}>
+              <MaterialCommunityIcons name="moped" size={20} color={AppColors.statusCyan} />
               <View style={{ flex: 1 }}>
-                <ThemedText style={[cardStyles.driverBannerText, { color: "#0891B2" }]}>
+                <ThemedText style={[cardStyles.driverBannerText, { color: AppColors.statusCyan }]}>
                   في انتظار السائق لاستلام الطلب
                 </ThemedText>
               </View>
             </View>
           ) : (order.status === "picked_up" || order.status === "delivering") && order.driverName ? (
-            <View style={[cardStyles.driverCard, { backgroundColor: "#F0F9FF", borderColor: "#BAE6FD" }]}>
-              <View style={[cardStyles.driverAvatar, { backgroundColor: "#0891B2" }]}>
-                <MaterialCommunityIcons name="moped" size={18} color="#fff" />
+            <View style={[cardStyles.driverCard, { backgroundColor: AppColors.infoLight, borderColor: AppColors.infoLight }]}>
+              <View style={[cardStyles.driverAvatar, { backgroundColor: AppColors.statusCyan }]}>
+                <MaterialCommunityIcons name="moped" size={18} color={AppColors.white} />
               </View>
               <View style={{ flex: 1 }}>
-                <ThemedText style={[cardStyles.driverName, { color: "#0369A1" }]}>
+                <ThemedText style={[cardStyles.driverName, { color: AppColors.info }]}>
                   {order.driverName}
                 </ThemedText>
-                <ThemedText style={[cardStyles.driverSub, { color: "#0891B2" }]}>
+                <ThemedText style={[cardStyles.driverSub, { color: AppColors.statusCyan }]}>
                   {order.status === "picked_up" ? "استلم الطلب · في الطريق للزبون" : "في الطريق إلى الزبون"}
                 </ThemedText>
                 {order.driverPhone ? (
-                  <ThemedText style={[cardStyles.driverSub, { color: "#64748B", marginTop: 1 }]}>
+                  <ThemedText style={[cardStyles.driverSub, { color: AppColors.gray500, marginTop: 1 }]}>
                     {order.driverPhone}
                   </ThemedText>
                 ) : null}
               </View>
-              <MaterialCommunityIcons name="navigation" size={18} color="#0891B2" />
+              <MaterialCommunityIcons name="navigation" size={18} color={AppColors.statusCyan} />
             </View>
           ) : (order.status === "picked_up" || order.status === "delivering") ? (
-            <View style={[cardStyles.driverBanner, { backgroundColor: "#F0F9FF" }]}>
-              <MaterialCommunityIcons name="navigation" size={18} color="#0284C7" />
-              <ThemedText style={[cardStyles.driverBannerText, { color: "#0284C7" }]}>
+            <View style={[cardStyles.driverBanner, { backgroundColor: AppColors.infoLight }]}>
+              <MaterialCommunityIcons name="navigation" size={18} color={AppColors.info} />
+              <ThemedText style={[cardStyles.driverBannerText, { color: AppColors.info }]}>
                 السائق في الطريق إلى العميل
               </ThemedText>
             </View>
@@ -554,7 +555,7 @@ function ETAModal({
     <Modal transparent visible={visible} animationType="fade">
       <View style={modalStyles.overlay}>
         <View style={modalStyles.box}>
-          <MaterialCommunityIcons name="clock-outline" size={44} color="#16A34A" style={{ alignSelf: "center" }} />
+          <MaterialCommunityIcons name="clock-outline" size={44} color={AppColors.success} style={{ alignSelf: "center" }} />
           <ThemedText style={modalStyles.title}>قبول الطلب</ThemedText>
           <ThemedText style={modalStyles.subtitle}>كم تحتاج من الوقت لتحضير هذا الطلب؟</ThemedText>
           <View style={etaStyles.optionRow}>
@@ -579,7 +580,7 @@ function ETAModal({
           </View>
           <View style={modalStyles.btns}>
             <Pressable
-              style={[modalStyles.btn, { backgroundColor: "#16A34A" }]}
+              style={[modalStyles.btn, { backgroundColor: AppColors.success }]}
               onPress={handleConfirm}
               testID="btn-eta-confirm"
             >
@@ -587,8 +588,8 @@ function ETAModal({
                 {selected ? `قبول (${selected} دقيقة)` : "قبول بدون تحديد وقت"}
               </ThemedText>
             </Pressable>
-            <Pressable style={[modalStyles.btn, { backgroundColor: "#F3F4F6" }]} onPress={handleCancel} testID="btn-eta-cancel">
-              <ThemedText style={[modalStyles.btnText, { color: "#374151" }]}>تراجع</ThemedText>
+            <Pressable style={[modalStyles.btn, { backgroundColor: AppColors.gray100 }]} onPress={handleCancel} testID="btn-eta-cancel">
+              <ThemedText style={[modalStyles.btnText, { color: AppColors.gray700 }]}>تراجع</ThemedText>
             </Pressable>
           </View>
         </View>
@@ -602,12 +603,12 @@ const etaStyles = StyleSheet.create({
   option: {
     flexDirection: "row", alignItems: "baseline", gap: 2,
     paddingHorizontal: 16, paddingVertical: 10, borderRadius: 12,
-    backgroundColor: "#F3F4F6", borderWidth: 2, borderColor: "transparent",
+    backgroundColor: AppColors.gray100, borderWidth: 2, borderColor: "transparent",
   },
-  optionSelected: { backgroundColor: "#DCFCE7", borderColor: "#16A34A" },
-  optionText: { fontFamily: "Cairo_700Bold", fontSize: 18, color: "#374151" },
-  optionTextSelected: { color: "#15803D" },
-  optionUnit: { fontFamily: "Cairo_400Regular", fontSize: 12, color: "#6B7280" },
+  optionSelected: { backgroundColor: AppColors.successLight, borderColor: AppColors.success },
+  optionText: { fontFamily: "Cairo_700Bold", fontSize: 18, color: AppColors.gray700 },
+  optionTextSelected: { color: AppColors.success },
+  optionUnit: { fontFamily: "Cairo_400Regular", fontSize: 12, color: AppColors.gray500 },
 });
 
 // ── Confirm cancel modal ───────────────────────────────────────────────────────
@@ -624,15 +625,15 @@ function CancelModal({
     <Modal transparent visible={visible} animationType="fade">
       <View style={modalStyles.overlay}>
         <View style={modalStyles.box}>
-          <MaterialCommunityIcons name="alert-circle-outline" size={48} color="#DC2626" style={{ alignSelf: "center" }} />
+          <MaterialCommunityIcons name="alert-circle-outline" size={48} color={AppColors.error} style={{ alignSelf: "center" }} />
           <ThemedText style={modalStyles.title}>رفض الطلب؟</ThemedText>
           <ThemedText style={modalStyles.subtitle}>سيتم إلغاء هذا الطلب وإشعار الزبون.</ThemedText>
           <View style={modalStyles.btns}>
-            <Pressable style={[modalStyles.btn, { backgroundColor: "#DC2626" }]} onPress={onConfirm}>
+            <Pressable style={[modalStyles.btn, { backgroundColor: AppColors.error }]} onPress={onConfirm}>
               <ThemedText style={modalStyles.btnText}>نعم، إلغاء الطلب</ThemedText>
             </Pressable>
-            <Pressable style={[modalStyles.btn, { backgroundColor: "#F3F4F6" }]} onPress={onCancel}>
-              <ThemedText style={[modalStyles.btnText, { color: "#374151" }]}>تراجع</ThemedText>
+            <Pressable style={[modalStyles.btn, { backgroundColor: AppColors.gray100 }]} onPress={onCancel}>
+              <ThemedText style={[modalStyles.btnText, { color: AppColors.gray700 }]}>تراجع</ThemedText>
             </Pressable>
           </View>
         </View>
@@ -795,7 +796,7 @@ export default function VendorOrdersScreen() {
       <View style={[tabStyles.bar, {
         paddingTop: headerHeight,
         backgroundColor: theme.backgroundDefault,
-        borderBottomColor: theme.border ?? "#F3F4F6",
+        borderBottomColor: theme.border ?? AppColors.gray100,
       }]}>
         <ScrollView
           horizontal
@@ -821,13 +822,13 @@ export default function VendorOrdersScreen() {
                 <MaterialCommunityIcons
                   name={t.icon as any}
                   size={18}
-                  color={active ? t.color : (theme.textSecondary ?? "#9CA3AF")}
+                  color={active ? t.color : (theme.textSecondary ?? AppColors.gray400)}
                 />
-                <ThemedText style={[tabStyles.tabLabel, { color: active ? t.color : (theme.textSecondary ?? "#9CA3AF") }]}>
+                <ThemedText style={[tabStyles.tabLabel, { color: active ? t.color : (theme.textSecondary ?? AppColors.gray400) }]}>
                   {t.label}
                 </ThemedText>
                 {count > 0 ? (
-                  <View style={[tabStyles.badge, { backgroundColor: t.key === "new" && count > 0 ? "#EF4444" : t.color }]}>
+                  <View style={[tabStyles.badge, { backgroundColor: t.key === "new" && count > 0 ? AppColors.error : t.color }]}>
                     <ThemedText style={tabStyles.badgeText}>{count > 9 ? "9+" : count}</ThemedText>
                   </View>
                 ) : null}
@@ -843,10 +844,10 @@ export default function VendorOrdersScreen() {
           style={bannerStyles.banner}
           onPress={() => { setActiveTab("new"); setNewArrived(false); }}
         >
-          <MaterialCommunityIcons name="bell-ring" size={18} color="#fff" />
+          <MaterialCommunityIcons name="bell-ring" size={18} color={AppColors.white} />
           <ThemedText style={bannerStyles.text}>وصل طلب جديد! اضغط لعرضه</ThemedText>
           <Pressable onPress={() => setNewArrived(false)} style={bannerStyles.closeBtn}>
-            <MaterialCommunityIcons name="close" size={16} color="rgba(255,255,255,0.8)" />
+            <MaterialCommunityIcons name="close" size={16} color={AppColors.textOnBrandMuted} />
           </Pressable>
         </Pressable>
       ) : null}
@@ -854,10 +855,10 @@ export default function VendorOrdersScreen() {
       {/* ── Status update error banner ── */}
       {updateError !== null ? (
         <View style={bannerStyles.errorBanner}>
-          <MaterialCommunityIcons name="alert-circle-outline" size={18} color="#fff" />
+          <MaterialCommunityIcons name="alert-circle-outline" size={18} color={AppColors.white} />
           <ThemedText style={bannerStyles.text}>{updateError}</ThemedText>
           <Pressable onPress={() => setUpdateError(null)} style={bannerStyles.closeBtn}>
-            <MaterialCommunityIcons name="close" size={16} color="rgba(255,255,255,0.8)" />
+            <MaterialCommunityIcons name="close" size={16} color={AppColors.textOnBrandMuted} />
           </Pressable>
         </View>
       ) : null}
@@ -946,7 +947,7 @@ export default function VendorOrdersScreen() {
 
 // ── Styles ─────────────────────────────────────────────────────────────────────
 const tabStyles = StyleSheet.create({
-  bar: { borderBottomWidth: 1, elevation: 2, shadowColor: "#000", shadowOpacity: 0.05, shadowRadius: 4 },
+  bar: { borderBottomWidth: 1, elevation: 2, shadowColor: AppColors.black, shadowOpacity: 0.05, shadowRadius: 4 },
   tabRow: { flexDirection: "row", paddingHorizontal: 12, gap: 4 },
   tab: {
     flexDirection: "row", alignItems: "center", gap: 6,
@@ -955,40 +956,40 @@ const tabStyles = StyleSheet.create({
   },
   tabLabel: { fontFamily: "Cairo_700Bold", fontSize: 13 },
   badge: { borderRadius: 9, minWidth: 18, height: 18, justifyContent: "center", alignItems: "center", paddingHorizontal: 4 },
-  badgeText: { fontFamily: "Cairo_700Bold", fontSize: 10, color: "#fff" },
+  badgeText: { fontFamily: "Cairo_700Bold", fontSize: 10, color: AppColors.white },
 });
 
 const cardStyles = StyleSheet.create({
   card: {
     borderRadius: 16, overflow: "hidden",
-    shadowColor: "#000", shadowOpacity: 0.06, shadowRadius: 10, shadowOffset: { width: 0, height: 3 },
+    shadowColor: AppColors.black, shadowOpacity: 0.06, shadowRadius: 10, shadowOffset: { width: 0, height: 3 },
     elevation: 3,
   },
   cardPending: {
     borderWidth: 2,
-    borderColor: "#FCD34D",
-    shadowColor: "#D97706",
+    borderColor: AppColors.warning,
+    shadowColor: AppColors.warning,
     shadowOpacity: 0.15,
     elevation: 5,
   },
   paymentBadge: {
     flexDirection: "row", alignItems: "center", gap: 4,
     paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10,
-    backgroundColor: "#F3F4F6",
+    backgroundColor: AppColors.gray100,
   },
-  paymentText: { fontFamily: "Cairo_700Bold", fontSize: 11, color: "#6B7280" },
+  paymentText: { fontFamily: "Cairo_700Bold", fontSize: 11, color: AppColors.gray500 },
   notesRow: {
     flexDirection: "row-reverse", alignItems: "flex-start", gap: 6,
     paddingHorizontal: 10, paddingVertical: 8, borderRadius: 10, borderWidth: 1,
   },
-  notesText: { fontFamily: "Cairo_400Regular", fontSize: 12, color: "#92400E", flex: 1, textAlign: "right" },
+  notesText: { fontFamily: "Cairo_400Regular", fontSize: 12, color: AppColors.primaryDark, flex: 1, textAlign: "right" },
   header: { flexDirection: "row-reverse", alignItems: "flex-start", padding: 16, gap: 10 },
   headerTop: { flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between", marginBottom: 6 },
   headerMeta: { flexDirection: "row-reverse", alignItems: "center", gap: 8, flexWrap: "wrap" },
   orderId: { fontFamily: "Cairo_700Bold", fontSize: 16 },
   statusBadge: { flexDirection: "row", alignItems: "center", gap: 5, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20 },
   statusText: { fontFamily: "Cairo_700Bold", fontSize: 12 },
-  timeText: { fontFamily: "Cairo_400Regular", fontSize: 12, color: "#9CA3AF" },
+  timeText: { fontFamily: "Cairo_400Regular", fontSize: 12, color: AppColors.gray400 },
   expandBtn: { padding: 4, alignSelf: "center" },
 
   customerSection: { paddingHorizontal: 14, paddingVertical: 10, gap: 8 },
@@ -1016,7 +1017,7 @@ const cardStyles = StyleSheet.create({
   },
   itemImage: {
     width: 48, height: 48, borderRadius: 10, flexShrink: 0,
-    backgroundColor: "#F3F4F6",
+    backgroundColor: AppColors.gray100,
   },
   itemImagePlaceholder: {
     width: 48, height: 48, borderRadius: 10, flexShrink: 0,
@@ -1039,7 +1040,7 @@ const cardStyles = StyleSheet.create({
     flexDirection: "row-reverse", alignItems: "center", gap: 8,
   },
   breakdownLabel: { fontFamily: "Cairo_600SemiBold", fontSize: 13, flex: 1, textAlign: "right" },
-  breakdownNote: { fontFamily: "Cairo_400Regular", fontSize: 10, color: "#9CA3AF", textAlign: "right" },
+  breakdownNote: { fontFamily: "Cairo_400Regular", fontSize: 10, color: AppColors.gray400, textAlign: "right" },
   breakdownAmount: { fontFamily: "Cairo_700Bold", fontSize: 13 },
   breakdownDivider: { height: 1, marginVertical: 2 },
 
@@ -1066,22 +1067,22 @@ const cardStyles = StyleSheet.create({
     flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center",
     gap: 6, paddingVertical: 12, borderRadius: 12,
   },
-  actionBtnPrimary: { elevation: 2, shadowColor: "#000", shadowOpacity: 0.1, shadowRadius: 4 },
+  actionBtnPrimary: { elevation: 2, shadowColor: AppColors.black, shadowOpacity: 0.1, shadowRadius: 4 },
   actionBtnSecondary: {},
   actionBtnText: { fontFamily: "Cairo_700Bold", fontSize: 13 },
 });
 
 const modalStyles = StyleSheet.create({
-  overlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.45)", justifyContent: "center", alignItems: "center" },
+  overlay: { flex: 1, backgroundColor: AppColors.overlay, justifyContent: "center", alignItems: "center" },
   box: {
-    backgroundColor: "#fff", borderRadius: 20, padding: 24,
+    backgroundColor: AppColors.white, borderRadius: 20, padding: 24,
     width: SCREEN_W * 0.85, gap: 12,
   },
-  title: { fontFamily: "Cairo_700Bold", fontSize: 18, textAlign: "center", color: "#111" },
-  subtitle: { fontFamily: "Cairo_400Regular", fontSize: 14, textAlign: "center", color: "#6B7280" },
+  title: { fontFamily: "Cairo_700Bold", fontSize: 18, textAlign: "center", color: AppColors.black },
+  subtitle: { fontFamily: "Cairo_400Regular", fontSize: 14, textAlign: "center", color: AppColors.gray500 },
   btns: { flexDirection: "column", gap: 8, marginTop: 8 },
   btn: { borderRadius: 12, paddingVertical: 13, alignItems: "center" },
-  btnText: { fontFamily: "Cairo_700Bold", fontSize: 14, color: "#fff" },
+  btnText: { fontFamily: "Cairo_700Bold", fontSize: 14, color: AppColors.white },
 });
 
 const listStyles = StyleSheet.create({
@@ -1094,12 +1095,12 @@ const listStyles = StyleSheet.create({
 const bannerStyles = StyleSheet.create({
   banner: {
     flexDirection: "row-reverse", alignItems: "center", gap: 10,
-    backgroundColor: "#D97706", paddingVertical: 12, paddingHorizontal: 16,
+    backgroundColor: AppColors.warning, paddingVertical: 12, paddingHorizontal: 16,
   },
   errorBanner: {
     flexDirection: "row-reverse", alignItems: "center", gap: 10,
-    backgroundColor: "#DC2626", paddingVertical: 12, paddingHorizontal: 16,
+    backgroundColor: AppColors.error, paddingVertical: 12, paddingHorizontal: 16,
   },
-  text: { flex: 1, fontFamily: "Cairo_700Bold", fontSize: 14, color: "#fff", textAlign: "right" },
+  text: { flex: 1, fontFamily: "Cairo_700Bold", fontSize: 14, color: AppColors.white, textAlign: "right" },
   closeBtn: { padding: 4 },
 });

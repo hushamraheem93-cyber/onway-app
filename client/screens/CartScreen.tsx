@@ -150,7 +150,7 @@ const styles = StyleSheet.create({
     padding: Spacing.lg,
     borderTopLeftRadius: 30,
     borderTopRightRadius: 30,
-    shadowColor: "#000",
+    shadowColor: AppColors.black,
     shadowOffset: { width: 0, height: -4 },
     shadowOpacity: 0.1,
     shadowRadius: 10,
@@ -166,7 +166,7 @@ const styles = StyleSheet.create({
   },
   totalLabel: {
     fontWeight: "bold",
-    color: "#333",
+    color: AppColors.gray700,
   },
   totalValue: {
     fontWeight: "bold",
@@ -182,12 +182,12 @@ const styles = StyleSheet.create({
     marginTop: 20,
   },
   checkoutText: {
-    color: "#FFF",
+    color: AppColors.white,
     fontWeight: "bold",
     marginRight: 10,
   },
   btnIcon: {
-    backgroundColor: "#FFF",
+    backgroundColor: AppColors.white,
     borderRadius: 10,
     padding: 5,
   },

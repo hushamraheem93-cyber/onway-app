@@ -145,7 +145,7 @@ export default function ProductDetailScreen() {
                       styles.dot,
                       index === activeIndex
                         ? [styles.dotActive, { backgroundColor: AppColors.primary }]
-                        : { backgroundColor: "#ccc" },
+                        : { backgroundColor: AppColors.gray300 },
                     ]}
                   />
                 ))}
@@ -153,20 +153,20 @@ export default function ProductDetailScreen() {
             ) : null}
 
             <Pressable
-              style={[styles.favoriteBtn, { backgroundColor: isFav ? "#FFEBEE" : "rgba(255,255,255,0.92)" }]}
+              style={[styles.favoriteBtn, { backgroundColor: isFav ? AppColors.errorLight : "rgba(255,255,255,0.92)" }]}
               onPress={handleToggleFavorite}
               testID="button-favorite"
             >
               <FontAwesome
                 name={isFav ? "heart" : "heart-o"}
                 size={20}
-                color={isFav ? "#E53935" : "#888"}
+                color={isFav ? AppColors.error : AppColors.gray500}
               />
             </Pressable>
 
             {resolvedImages.length > 1 ? (
               <View style={styles.imageCountBadge}>
-                <Feather name="image" size={11} color="#fff" />
+                <Feather name="image" size={11} color={AppColors.white} />
                 <ThemedText style={styles.imageCountText}>
                   {activeIndex + 1}/{resolvedImages.length}
                 </ThemedText>
@@ -235,17 +235,17 @@ export default function ProductDetailScreen() {
                 onPress={handleIncrease}
                 testID="button-increase"
               >
-                <Feather name="plus" size={20} color="#fff" />
+                <Feather name="plus" size={20} color={AppColors.white} />
               </Pressable>
               <ThemedText type="h3" style={[styles.qtyText, { color: theme.text }]}>
                 {quantity}
               </ThemedText>
               <Pressable
-                style={[styles.qtyBtn, { backgroundColor: "#E53935" }]}
+                style={[styles.qtyBtn, { backgroundColor: AppColors.error }]}
                 onPress={handleDecrease}
                 testID="button-decrease"
               >
-                <Feather name="minus" size={20} color="#fff" />
+                <Feather name="minus" size={20} color={AppColors.white} />
               </Pressable>
             </View>
           ) : (
@@ -254,7 +254,7 @@ export default function ProductDetailScreen() {
               onPress={handleAdd}
               testID="button-add-to-cart"
             >
-              <Feather name="shopping-cart" size={18} color="#fff" />
+              <Feather name="shopping-cart" size={18} color={AppColors.white} />
               <ThemedText style={styles.addBtnText}>أضف إلى السلة</ThemedText>
             </Pressable>
           )}
@@ -268,7 +268,7 @@ const styles = StyleSheet.create({
   galleryContainer: {
     position: "relative",
     height: GALLERY_H,
-    backgroundColor: "#F5F3FF",
+    backgroundColor: AppColors.vendorPurpleLight,
   },
   galleryScroll: {
     height: GALLERY_H,
@@ -306,7 +306,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     alignItems: "center",
     justifyContent: "center",
-    shadowColor: "#000",
+    shadowColor: AppColors.black,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.15,
     shadowRadius: 4,
@@ -319,7 +319,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
-    backgroundColor: "rgba(0,0,0,0.55)",
+    backgroundColor: AppColors.overlay,
     borderRadius: 12,
     paddingHorizontal: 8,
     paddingVertical: 3,
@@ -327,7 +327,7 @@ const styles = StyleSheet.create({
   imageCountText: {
     fontFamily: "Cairo_700Bold",
     fontSize: 11,
-    color: "#fff",
+    color: AppColors.white,
   },
   infoCard: {
     margin: Spacing.lg,
@@ -384,7 +384,7 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
   outOfStockBadge: {
-    backgroundColor: "#FFEAEA",
+    backgroundColor: AppColors.errorLight,
     borderRadius: 8,
     paddingHorizontal: 10,
     paddingVertical: 4,
@@ -392,7 +392,7 @@ const styles = StyleSheet.create({
   outOfStockText: {
     fontFamily: "Cairo_700Bold",
     fontSize: 12,
-    color: "#E53E3E",
+    color: AppColors.error,
   },
   cartBar: {
     position: "absolute",
@@ -403,7 +403,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.lg,
     borderTopWidth: 1,
     borderTopColor: "rgba(0,0,0,0.08)",
-    shadowColor: "#000",
+    shadowColor: AppColors.black,
     shadowOffset: { width: 0, height: -3 },
     shadowOpacity: 0.08,
     shadowRadius: 8,
@@ -420,7 +420,7 @@ const styles = StyleSheet.create({
   addBtnText: {
     fontFamily: "Cairo_700Bold",
     fontSize: 16,
-    color: "#fff",
+    color: AppColors.white,
   },
   quantityControl: {
     flexDirection: "row-reverse",

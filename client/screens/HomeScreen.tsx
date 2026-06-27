@@ -83,11 +83,11 @@ interface VendorProduct {
 }
 
 const VENDOR_BIZ_CONFIG: Record<string, { label: string; icon: string; color: string; bg: string }> = {
-  restaurant: { label: "مطعم", icon: "food", color: "#E86520", bg: "#FFF4E0" },
-  supermarket: { label: "سوبرماركت", icon: "cart", color: "#2E7D32", bg: "#E8F5E9" },
-  pharmacy: { label: "صيدلية", icon: "medical-bag", color: "#7B1FA2", bg: "#F3E5F5" },
-  bakery: { label: "مخبز", icon: "bread-slice", color: "#F57F17", bg: "#FFF8E1" },
-  other: { label: "متجر", icon: "store", color: "#1565C0", bg: "#E3F2FD" },
+  restaurant: { label: "مطعم", icon: "food", color: AppColors.primary, bg: AppColors.warningLight },
+  supermarket: { label: "سوبرماركت", icon: "cart", color: AppColors.success, bg: AppColors.successLight },
+  pharmacy: { label: "صيدلية", icon: "medical-bag", color: AppColors.vendorPurple, bg: AppColors.vendorPurpleLight },
+  bakery: { label: "مخبز", icon: "bread-slice", color: AppColors.warning, bg: AppColors.warningLight },
+  other: { label: "متجر", icon: "store", color: AppColors.driverBlue, bg: AppColors.driverBlueLight },
 };
 
 function resolveStoreUrl(path?: string): string | null {
@@ -114,20 +114,20 @@ const CATEGORY_3D_IMAGES: Record<string, string> = {
 };
 
 const CATEGORY_COLORS: Record<string, string> = {
-  restaurants: "#FFF4E0",
-  "fruits-vegetables": "#E8F5E9",
-  "meat-poultry": "#FFEBEE",
-  "dairy-eggs": "#F3E5F5",
-  "cleaning-care": "#E3F2FD",
-  beverages: "#E0F7FA",
-  "snacks-sweets": "#FFF9C4",
-  "tea-coffee": "#EFEBE9",
-  baby: "#FCE4EC",
-  flowers: "#FDF2F2",
-  delivery: "#FFFDE7",
-  pharmacy: "#E1F5FE",
-  "women-bags": "#FCE4EC",
-  "international-shopping": "#E8EAF6",
+  restaurants: AppColors.warningLight,
+  "fruits-vegetables": AppColors.successLight,
+  "meat-poultry": AppColors.errorLight,
+  "dairy-eggs": AppColors.vendorPurpleLight,
+  "cleaning-care": AppColors.driverBlueLight,
+  beverages: AppColors.infoLight,
+  "snacks-sweets": AppColors.warningLight,
+  "tea-coffee": AppColors.gray100,
+  baby: AppColors.errorLight,
+  flowers: AppColors.errorLight,
+  delivery: AppColors.warningLight,
+  pharmacy: AppColors.infoLight,
+  "women-bags": AppColors.errorLight,
+  "international-shopping": AppColors.infoLight,
 };
 
 // ── Tab icon images (transparent PNG, no background) ─────────────────────────
@@ -337,7 +337,7 @@ export default function HomeScreen() {
   // ── Render helpers ──────────────────────────────────────────────────────
 
   const renderCategoryCard = (category: Category) => {
-    const gradientColor = CATEGORY_COLORS[category.id] || category.color || "#FFF3E0";
+    const gradientColor = CATEGORY_COLORS[category.id] || category.color || AppColors.secondary;
     return (
       <Pressable
         key={category.id}
@@ -349,7 +349,7 @@ export default function HomeScreen() {
         testID={`card-home-category-${category.id}`}
       >
         <LinearGradient
-          colors={[gradientColor, "#FFFFFF"]}
+          colors={[gradientColor, AppColors.white]}
           start={{ x: 0.5, y: 0 }}
           end={{ x: 0.5, y: 1 }}
           style={styles.catCard}
@@ -408,7 +408,7 @@ export default function HomeScreen() {
             }}
             style={styles.productFavoriteBtn}
           >
-            <Feather name="heart" size={15} color={isFav ? "#E53935" : "#BBBBBB"} />
+            <Feather name="heart" size={15} color={isFav ? AppColors.error : AppColors.gray300} />
           </Pressable>
         </View>
         <View style={styles.productInfo}>
@@ -427,7 +427,7 @@ export default function HomeScreen() {
                   style={styles.qtyBtn}
                   testID={`btn-minus-${product.id}`}
                 >
-                  <Feather name="minus" size={14} color="#E86520" />
+                  <Feather name="minus" size={14} color={AppColors.primary} />
                 </Pressable>
                 <ThemedText style={styles.qtyText}>{quantity}</ThemedText>
                 <Pressable
@@ -438,7 +438,7 @@ export default function HomeScreen() {
                   style={styles.qtyBtn}
                   testID={`btn-plus-${product.id}`}
                 >
-                  <Feather name="plus" size={14} color="#E86520" />
+                  <Feather name="plus" size={14} color={AppColors.primary} />
                 </Pressable>
               </View>
             ) : (
@@ -450,7 +450,7 @@ export default function HomeScreen() {
                 style={styles.addButton}
                 testID={`btn-add-${product.id}`}
               >
-                <Feather name="plus" size={16} color="#FFFFFF" />
+                <Feather name="plus" size={16} color={AppColors.white} />
               </Pressable>
             )}
           </View>
@@ -482,10 +482,10 @@ export default function HomeScreen() {
           transition={300}
         />
         <LinearGradient
-          colors={["transparent", "rgba(0,0,0,0.65)"]}
+          colors={["transparent", AppColors.overlay]}
           style={styles.restaurantGradient}
         />
-        <View style={[styles.openBadge, { backgroundColor: vendor.isOpen ? "#10B981" : "#EF4444" }]}>
+        <View style={[styles.openBadge, { backgroundColor: vendor.isOpen ? AppColors.success : AppColors.error }]}>
           <View style={styles.openDot} />
           <ThemedText style={styles.openText}>{vendor.isOpen ? "مفتوح" : "مغلق"}</ThemedText>
         </View>
@@ -505,19 +505,19 @@ export default function HomeScreen() {
           {vendor.rating != null ? (
             <>
               <View style={styles.metaItem}>
-                <Feather name="star" size={13} color="#F59E0B" />
+                <Feather name="star" size={13} color={AppColors.warning} />
                 <ThemedText style={styles.metaText}>{vendor.rating.toFixed(1)}</ThemedText>
               </View>
               <View style={styles.metaDivider} />
             </>
           ) : null}
           <View style={styles.metaItem}>
-            <Feather name="clock" size={13} color="#6B7280" />
+            <Feather name="clock" size={13} color={AppColors.gray500} />
             <ThemedText style={styles.metaText}>{vendor.deliveryTime} دقيقة</ThemedText>
           </View>
           <View style={styles.metaDivider} />
           <View style={styles.metaItem}>
-            <Feather name="map-pin" size={13} color="#6B7280" />
+            <Feather name="map-pin" size={13} color={AppColors.gray500} />
             <ThemedText style={styles.metaText} numberOfLines={1}>
               {vendor.location || "الضلوعية"}
             </ThemedText>
@@ -553,7 +553,7 @@ export default function HomeScreen() {
           borderRadius: 18,
           overflow: "hidden",
           marginBottom: 14,
-          shadowColor: "#000",
+          shadowColor: AppColors.black,
           shadowOpacity: 0.08,
           shadowRadius: 12,
           shadowOffset: { width: 0, height: 4 },
@@ -571,7 +571,7 @@ export default function HomeScreen() {
             <Image source={{ uri: coverUrl }} style={StyleSheet.absoluteFillObject as any} contentFit="cover" />
           ) : null}
           <LinearGradient
-            colors={["transparent", "rgba(0,0,0,0.5)"]}
+            colors={["transparent", AppColors.overlay]}
             style={StyleSheet.absoluteFillObject as any}
             start={{ x: 0, y: 0.4 }}
             end={{ x: 0, y: 1 }}
@@ -584,8 +584,8 @@ export default function HomeScreen() {
             borderRadius: 12,
             backgroundColor: open ? "#10B981EE" : "#EF4444EE",
           }}>
-            <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: "#fff" }} />
-            <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 11, color: "#fff" }}>
+            <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: AppColors.white }} />
+            <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 11, color: AppColors.white }}>
               {open ? "مفتوح" : "مغلق"}
             </ThemedText>
           </View>
@@ -596,18 +596,18 @@ export default function HomeScreen() {
             paddingHorizontal: 9, paddingVertical: 4,
             borderRadius: 12, backgroundColor: cfg.color + "EE",
           }}>
-            <MaterialCommunityIcons name={cfg.icon as any} size={12} color="#fff" />
-            <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 11, color: "#fff" }}>{cfg.label}</ThemedText>
+            <MaterialCommunityIcons name={cfg.icon as any} size={12} color={AppColors.white} />
+            <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 11, color: AppColors.white }}>{cfg.label}</ThemedText>
           </View>
           {/* Delivery info */}
           <View style={{ position: "absolute", bottom: 10, right: 10, flexDirection: "row", gap: 6 }}>
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: "rgba(0,0,0,0.45)", paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10 }}>
-              <MaterialCommunityIcons name="clock-outline" size={12} color="#fff" />
-              <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 11, color: "#fff" }}>{deliveryTime} دقيقة</ThemedText>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: AppColors.overlay, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10 }}>
+              <MaterialCommunityIcons name="clock-outline" size={12} color={AppColors.white} />
+              <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 11, color: AppColors.white }}>{deliveryTime} دقيقة</ThemedText>
             </View>
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: "rgba(0,0,0,0.45)", paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10 }}>
-              <MaterialCommunityIcons name="moped" size={12} color="#fff" />
-              <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 11, color: "#fff" }}>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: AppColors.overlay, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10 }}>
+              <MaterialCommunityIcons name="moped" size={12} color={AppColors.white} />
+              <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 11, color: AppColors.white }}>
                 {deliveryPrice === 0 ? "مجاني" : `${deliveryPrice.toLocaleString("ar-IQ")} د.ع`}
               </ThemedText>
             </View>
@@ -618,13 +618,13 @@ export default function HomeScreen() {
           <View style={{
             width: 56, height: 56, borderRadius: 28, borderWidth: 3,
             borderColor: theme.backgroundDefault, overflow: "hidden",
-            marginTop: -28, elevation: 4, backgroundColor: "#fff",
+            marginTop: -28, elevation: 4, backgroundColor: AppColors.white,
           }}>
             {avatarUrl ? (
               <Image source={{ uri: avatarUrl }} style={{ width: "100%", height: "100%" }} contentFit="cover" />
             ) : (
               <View style={{ flex: 1, backgroundColor: cfg.color, justifyContent: "center", alignItems: "center" }}>
-                <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 20, color: "#fff", lineHeight: 26 }}>{store.storeName?.[0] || "م"}</ThemedText>
+                <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 20, color: AppColors.white, lineHeight: 26 }}>{store.storeName?.[0] || "م"}</ThemedText>
               </View>
             )}
           </View>
@@ -633,15 +633,15 @@ export default function HomeScreen() {
             {rating !== null ? (
               <View style={{ flexDirection: "row", alignItems: "center", gap: 2 }}>
                 {[1,2,3,4,5].map((i) => (
-                  <MaterialCommunityIcons key={i} name={i <= Math.floor(rating) ? "star" : rating - Math.floor(rating) >= 0.5 && i === Math.floor(rating)+1 ? "star-half-full" : "star-outline"} size={13} color="#F59E0B" />
+                  <MaterialCommunityIcons key={i} name={i <= Math.floor(rating) ? "star" : rating - Math.floor(rating) >= 0.5 && i === Math.floor(rating)+1 ? "star-half-full" : "star-outline"} size={13} color={AppColors.warning} />
                 ))}
-                <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 12, color: "#F59E0B" }}> {rating.toFixed(1)}</ThemedText>
+                <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 12, color: AppColors.warning }}> {rating.toFixed(1)}</ThemedText>
               </View>
             ) : null}
             {store.address ? (
               <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 3 }}>
-                <Feather name="map-pin" size={11} color={theme.textSecondary ?? "#888"} />
-                <ThemedText style={{ fontFamily: "Cairo_400Regular", fontSize: 12, color: theme.textSecondary ?? "#888" }} numberOfLines={1}>{store.address}</ThemedText>
+                <Feather name="map-pin" size={11} color={theme.textSecondary ?? AppColors.gray500} />
+                <ThemedText style={{ fontFamily: "Cairo_400Regular", fontSize: 12, color: theme.textSecondary ?? AppColors.gray500 }} numberOfLines={1}>{store.address}</ThemedText>
               </View>
             ) : null}
           </View>
@@ -686,8 +686,8 @@ export default function HomeScreen() {
               transition={200}
             />
           ) : (
-            <View style={[vendorProdStyles.image, { backgroundColor: "#F3F4F6", justifyContent: "center", alignItems: "center" }]}>
-              <MaterialCommunityIcons name="package-variant" size={30} color="#CBD5E1" />
+            <View style={[vendorProdStyles.image, { backgroundColor: AppColors.gray100, justifyContent: "center", alignItems: "center" }]}>
+              <MaterialCommunityIcons name="package-variant" size={30} color={AppColors.gray300} />
             </View>
           )}
           {vp.stock === 0 ? (
@@ -737,7 +737,7 @@ export default function HomeScreen() {
                 }}
                 testID={`btn-add-vp-${vp.id}`}
               >
-                <Feather name="plus" size={14} color="#fff" />
+                <Feather name="plus" size={14} color={AppColors.white} />
               </Pressable>
             )}
           </View>
@@ -786,7 +786,7 @@ export default function HomeScreen() {
     if (filteredStoreProducts.length === 0) {
       return (
         <View style={styles.emptySearch}>
-          <Feather name="search" size={40} color="#CCCCCC" />
+          <Feather name="search" size={40} color={AppColors.gray300} />
           <ThemedText style={styles.emptySearchText}>لا توجد نتائج لـ "{searchQuery}"</ThemedText>
         </View>
       );
@@ -835,7 +835,7 @@ export default function HomeScreen() {
           >
             {activeTab === "stores" ? (
               <LinearGradient
-                colors={["#E86520", "#FF8C4B"]}
+                colors={[AppColors.primary, AppColors.primaryLight]}
                 style={styles.tabGradient}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
@@ -863,7 +863,7 @@ export default function HomeScreen() {
           >
             {activeTab === "restaurants" ? (
               <LinearGradient
-                colors={["#E86520", "#FF8C4B"]}
+                colors={[AppColors.primary, AppColors.primaryLight]}
                 style={styles.tabGradient}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
@@ -886,21 +886,21 @@ export default function HomeScreen() {
       {/* ── Search Bar ── */}
       <View style={[styles.searchBox, { backgroundColor: theme.backgroundSecondary }]}>
         <Pressable onPress={() => {}}>
-          <Feather name="search" size={20} color="#9CA3AF" />
+          <Feather name="search" size={20} color={AppColors.gray400} />
         </Pressable>
         <TextInput
           style={[styles.searchInput, { color: theme.text }]}
           placeholder={
             activeTab === "restaurants" ? "ابحث عن مطعم أو نوع طعام..." : "ابحث عن منتج..."
           }
-          placeholderTextColor="#95A5A6"
+          placeholderTextColor={AppColors.gray400}
           value={searchQuery}
           onChangeText={setSearchQuery}
           testID="input-home-search"
         />
         {searchQuery.length > 0 ? (
           <Pressable onPress={() => setSearchQuery("")}>
-            <Feather name="x" size={16} color="#9CA3AF" />
+            <Feather name="x" size={16} color={AppColors.gray400} />
           </Pressable>
         ) : null}
       </View>
@@ -927,7 +927,7 @@ export default function HomeScreen() {
               ) : null}
               {filteredRestaurants.length === 0 && vendorRestaurants.length === 0 ? (
                 <View style={styles.emptySearch}>
-                  <Feather name="coffee" size={40} color="#CCCCCC" />
+                  <Feather name="coffee" size={40} color={AppColors.gray300} />
                   <ThemedText style={styles.emptySearchText}>
                     {searchQuery.trim().length > 0
                       ? `لا يوجد مطعم باسم "${searchQuery}"`
@@ -1096,7 +1096,7 @@ export default function HomeScreen() {
                   toggleFavorite(selectedProduct);
                 }}
               >
-                <Feather name="heart" size={22} color={isFav ? "#E53935" : "#CCCCCC"} />
+                <Feather name="heart" size={22} color={isFav ? AppColors.error : AppColors.gray300} />
               </Pressable>
             </View>
             <View style={styles.modalInfo}>
@@ -1123,7 +1123,7 @@ export default function HomeScreen() {
                         if (qty === 1) setSelectedProduct(null);
                       }}
                     >
-                      <Feather name="minus" size={20} color="#E86520" />
+                      <Feather name="minus" size={20} color={AppColors.primary} />
                     </Pressable>
                     <ThemedText style={styles.modalQtyText}>{qty}</ThemedText>
                     <Pressable
@@ -1133,7 +1133,7 @@ export default function HomeScreen() {
                         updateQuantity(selectedProduct.id, qty + 1);
                       }}
                     >
-                      <Feather name="plus" size={20} color="#E86520" />
+                      <Feather name="plus" size={20} color={AppColors.primary} />
                     </Pressable>
                   </View>
                 ) : (
@@ -1145,7 +1145,7 @@ export default function HomeScreen() {
                     }}
                     testID="btn-modal-add"
                   >
-                    <Feather name="shopping-cart" size={18} color="#FFFFFF" />
+                    <Feather name="shopping-cart" size={18} color={AppColors.white} />
                     <ThemedText style={styles.modalAddText}>أضف إلى السلة</ThemedText>
                   </Pressable>
                 )}
@@ -1158,9 +1158,9 @@ export default function HomeScreen() {
   };
 
   return (
-    <View style={{ flex: 1, backgroundColor: "#FFFFFF" }}>
+    <View style={{ flex: 1, backgroundColor: AppColors.white }}>
       <LinearGradient
-        colors={["#FFE5D9", "#FFF0E6", "#FFF8F3", "#FFFFFF"]}
+        colors={[AppColors.secondary, AppColors.secondary, AppColors.secondary, AppColors.white]}
         locations={[0, 0.2, 0.5, 1]}
         style={{
           position: "absolute",
@@ -1202,7 +1202,7 @@ const styles = StyleSheet.create({
     fontFamily: "Cairo_700Bold",
     fontSize: 16,
     lineHeight: 32,
-    color: "#E86520",
+    color: AppColors.primary,
     marginBottom: 2,
     textAlign: "right",
     writingDirection: "rtl",
@@ -1211,7 +1211,7 @@ const styles = StyleSheet.create({
   subGreeting: {
     fontFamily: "Cairo_600SemiBold",
     fontSize: 14,
-    color: "#3A3A3A",
+    color: AppColors.gray700,
     textAlign: "right",
     writingDirection: "rtl",
     marginTop: 8,
@@ -1226,7 +1226,7 @@ const styles = StyleSheet.create({
   },
   tabsBackground: {
     flexDirection: "row",
-    backgroundColor: "#F8F9FA",
+    backgroundColor: AppColors.gray50,
     borderRadius: 16,
     padding: 4,
     gap: 4,
@@ -1270,12 +1270,12 @@ const styles = StyleSheet.create({
   tabText: {
     fontFamily: "Cairo_600SemiBold",
     fontSize: 14,
-    color: "#7F8C8D",
+    color: AppColors.gray500,
   },
   tabTextActive: {
     fontFamily: "Cairo_700Bold",
     fontSize: 14,
-    color: "#FFFFFF",
+    color: AppColors.white,
   },
   tabIconImg: {
     width: 26,
@@ -1291,7 +1291,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     marginBottom: 16,
     borderWidth: 2,
-    borderColor: "#E8E8E8",
+    borderColor: AppColors.backgroundTertiary,
   },
   searchInput: {
     flex: 1,
@@ -1305,13 +1305,13 @@ const styles = StyleSheet.create({
   },
   // ── Restaurant Card ──
   restaurantCard: {
-    backgroundColor: "#FFFFFF",
+    backgroundColor: AppColors.white,
     borderRadius: 20,
     marginBottom: 14,
     overflow: "hidden",
     ...Platform.select({
       ios: {
-        shadowColor: "#000",
+        shadowColor: AppColors.black,
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.08,
         shadowRadius: 12,
@@ -1350,12 +1350,12 @@ const styles = StyleSheet.create({
     width: 7,
     height: 7,
     borderRadius: 4,
-    backgroundColor: "rgba(255,255,255,0.85)",
+    backgroundColor: AppColors.textOnBrandSubtle,
   },
   openText: {
     fontFamily: "Cairo_700Bold",
     fontSize: 12,
-    color: "#FFFFFF",
+    color: AppColors.white,
   },
   restaurantInfo: {
     padding: 14,
@@ -1369,12 +1369,12 @@ const styles = StyleSheet.create({
   restaurantName: {
     fontFamily: "Cairo_700Bold",
     fontSize: 14,
-    color: "#1A1A1A",
+    color: AppColors.black,
     flex: 1,
     textAlign: "right",
   },
   cuisineTag: {
-    backgroundColor: "#FFF4E0",
+    backgroundColor: AppColors.warningLight,
     borderRadius: 8,
     paddingHorizontal: 8,
     paddingVertical: 3,
@@ -1383,7 +1383,7 @@ const styles = StyleSheet.create({
   cuisineText: {
     fontFamily: "Cairo_600SemiBold",
     fontSize: 11,
-    color: "#E86520",
+    color: AppColors.primary,
   },
   restaurantMeta: {
     flexDirection: "row",
@@ -1399,12 +1399,12 @@ const styles = StyleSheet.create({
   metaText: {
     fontFamily: "Cairo_400Regular",
     fontSize: 12,
-    color: "#6B7280",
+    color: AppColors.gray500,
   },
   metaDivider: {
     width: 1,
     height: 12,
-    backgroundColor: "#E5E7EB",
+    backgroundColor: AppColors.divider,
   },
   // ── Search empty ──
   emptySearch: {
@@ -1415,7 +1415,7 @@ const styles = StyleSheet.create({
   emptySearchText: {
     fontFamily: "Cairo_400Regular",
     fontSize: 12,
-    color: "#9CA3AF",
+    color: AppColors.gray400,
     textAlign: "center",
   },
   searchResultsGrid: {
@@ -1434,13 +1434,13 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontFamily: "Cairo_700Bold",
     fontSize: 14,
-    color: "#2C3E50",
+    color: AppColors.gray800,
     textAlign: "right",
   },
   viewAll: {
     fontFamily: "Cairo_600SemiBold",
     fontSize: 13,
-    color: "#E86520",
+    color: AppColors.primary,
   },
   catSliderContainer: {
     marginBottom: Spacing.xl,
@@ -1459,7 +1459,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     ...Platform.select({
       ios: {
-        shadowColor: "#000",
+        shadowColor: AppColors.black,
         shadowOffset: { width: 0, height: 3 },
         shadowOpacity: 0.07,
         shadowRadius: 8,
@@ -1493,7 +1493,7 @@ const styles = StyleSheet.create({
     fontFamily: "Cairo_700Bold",
     fontSize: 12,
     fontWeight: "700",
-    color: "#333333",
+    color: AppColors.gray700,
     textAlign: "center",
     marginTop: 4,
   },
@@ -1514,10 +1514,10 @@ const styles = StyleSheet.create({
     width: PRODUCT_CARD_WIDTH,
     borderRadius: 20,
     overflow: "hidden",
-    backgroundColor: "#FFFFFF",
+    backgroundColor: AppColors.white,
     ...Platform.select({
       ios: {
-        shadowColor: "#000",
+        shadowColor: AppColors.black,
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.04,
         shadowRadius: 10,
@@ -1529,7 +1529,7 @@ const styles = StyleSheet.create({
   productImageContainer: {
     position: "relative",
     height: 120,
-    backgroundColor: "#F5F5F5",
+    backgroundColor: AppColors.gray50,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     overflow: "hidden",
@@ -1553,7 +1553,7 @@ const styles = StyleSheet.create({
     position: "absolute",
     top: 8,
     right: 8,
-    backgroundColor: "#E86520",
+    backgroundColor: AppColors.primary,
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 10,
@@ -1562,7 +1562,7 @@ const styles = StyleSheet.create({
   discountText: {
     fontFamily: "Cairo_700Bold",
     fontSize: 11,
-    color: "#FFFFFF",
+    color: AppColors.white,
   },
   productInfo: {
     padding: 10,
@@ -1570,7 +1570,7 @@ const styles = StyleSheet.create({
   productName: {
     fontFamily: "Cairo_600SemiBold",
     fontSize: 14,
-    color: "#1A1A1A",
+    color: AppColors.black,
     textAlign: "right",
     marginBottom: 5,
   },
@@ -1582,20 +1582,20 @@ const styles = StyleSheet.create({
   productPrice: {
     fontFamily: "Cairo_700Bold",
     fontSize: 14,
-    color: "#E86520",
+    color: AppColors.primary,
   },
   addButton: {
     width: 30,
     height: 30,
     borderRadius: 15,
-    backgroundColor: "#E86520",
+    backgroundColor: AppColors.primary,
     justifyContent: "center",
     alignItems: "center",
   },
   quantityRow: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#FFF3ED",
+    backgroundColor: AppColors.secondary,
     borderRadius: 14,
     paddingHorizontal: 2,
     paddingVertical: 2,
@@ -1605,12 +1605,12 @@ const styles = StyleSheet.create({
     width: 26,
     height: 26,
     borderRadius: 13,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: AppColors.white,
     justifyContent: "center",
     alignItems: "center",
     ...Platform.select({
       ios: {
-        shadowColor: "#000",
+        shadowColor: AppColors.black,
         shadowOffset: { width: 0, height: 1 },
         shadowOpacity: 0.08,
         shadowRadius: 2,
@@ -1622,7 +1622,7 @@ const styles = StyleSheet.create({
   qtyText: {
     fontFamily: "Cairo_700Bold",
     fontSize: 14,
-    color: "#E86520",
+    color: AppColors.primary,
     minWidth: 18,
     textAlign: "center",
   },
@@ -1633,7 +1633,7 @@ const styles = StyleSheet.create({
     justifyContent: "flex-end",
   },
   modalSheet: {
-    backgroundColor: "#FFFFFF",
+    backgroundColor: AppColors.white,
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
     paddingBottom: 40,
@@ -1643,14 +1643,14 @@ const styles = StyleSheet.create({
     width: 40,
     height: 4,
     borderRadius: 2,
-    backgroundColor: "#DDDDDD",
+    backgroundColor: AppColors.gray300,
     alignSelf: "center",
     marginTop: 12,
     marginBottom: 8,
   },
   modalImageContainer: {
     height: 220,
-    backgroundColor: "#F8F8F8",
+    backgroundColor: AppColors.gray50,
     alignItems: "center",
     justifyContent: "center",
     position: "relative",
@@ -1663,7 +1663,7 @@ const styles = StyleSheet.create({
     position: "absolute",
     top: 12,
     right: 12,
-    backgroundColor: "#E86520",
+    backgroundColor: AppColors.primary,
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 12,
@@ -1685,14 +1685,14 @@ const styles = StyleSheet.create({
   modalName: {
     fontFamily: "Cairo_700Bold",
     fontSize: 17,
-    color: "#1A1A1A",
+    color: AppColors.black,
     textAlign: "right",
     marginBottom: 6,
   },
   modalDesc: {
     fontFamily: "Cairo_400Regular",
     fontSize: 14,
-    color: "#777777",
+    color: AppColors.gray500,
     textAlign: "right",
     marginBottom: 12,
   },
@@ -1706,12 +1706,12 @@ const styles = StyleSheet.create({
   modalPrice: {
     fontFamily: "Cairo_700Bold",
     fontSize: 17,
-    color: "#E86520",
+    color: AppColors.primary,
   },
   modalOrigPrice: {
     fontFamily: "Cairo_400Regular",
     fontSize: 13,
-    color: "#AAAAAA",
+    color: AppColors.gray400,
     textDecorationLine: "line-through",
   },
   modalActions: {
@@ -1719,7 +1719,7 @@ const styles = StyleSheet.create({
   },
   modalAddBtn: {
     flexDirection: "row",
-    backgroundColor: "#E86520",
+    backgroundColor: AppColors.primary,
     borderRadius: 16,
     height: 54,
     alignItems: "center",
@@ -1730,12 +1730,12 @@ const styles = StyleSheet.create({
   modalAddText: {
     fontFamily: "Cairo_700Bold",
     fontSize: 13,
-    color: "#FFFFFF",
+    color: AppColors.white,
   },
   modalQtyRow: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#FFF3ED",
+    backgroundColor: AppColors.secondary,
     borderRadius: 16,
     paddingHorizontal: 6,
     paddingVertical: 6,
@@ -1745,12 +1745,12 @@ const styles = StyleSheet.create({
     width: 42,
     height: 42,
     borderRadius: 14,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: AppColors.white,
     justifyContent: "center",
     alignItems: "center",
     ...Platform.select({
       ios: {
-        shadowColor: "#000",
+        shadowColor: AppColors.black,
         shadowOffset: { width: 0, height: 1 },
         shadowOpacity: 0.1,
         shadowRadius: 3,
@@ -1762,7 +1762,7 @@ const styles = StyleSheet.create({
   modalQtyText: {
     fontFamily: "Cairo_700Bold",
     fontSize: 17,
-    color: "#E86520",
+    color: AppColors.primary,
     minWidth: 30,
     textAlign: "center",
   },
@@ -1772,12 +1772,12 @@ const styles = StyleSheet.create({
 const vendorProdStyles = StyleSheet.create({
   card: {
     width: 140,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: AppColors.white,
     borderRadius: 14,
     overflow: "hidden",
     marginLeft: 10,
     ...Platform.select({
-      ios: { shadowColor: "#000", shadowOpacity: 0.08, shadowRadius: 8, shadowOffset: { width: 0, height: 3 } },
+      ios: { shadowColor: AppColors.black, shadowOpacity: 0.08, shadowRadius: 8, shadowOffset: { width: 0, height: 3 } },
       android: { elevation: 3 },
       default: { boxShadow: "0 3px 8px rgba(0,0,0,0.08)" },
     }),
@@ -1786,13 +1786,13 @@ const vendorProdStyles = StyleSheet.create({
   image: { width: "100%", height: "100%" },
   outOfStock: {
     ...StyleSheet.absoluteFillObject as any,
-    backgroundColor: "rgba(0,0,0,0.45)",
+    backgroundColor: AppColors.overlay,
     justifyContent: "center",
     alignItems: "center",
   },
-  outOfStockText: { fontFamily: "Cairo_700Bold", fontSize: 13, color: "#fff" },
+  outOfStockText: { fontFamily: "Cairo_700Bold", fontSize: 13, color: AppColors.white },
   info: { padding: 8, gap: 4 },
-  name: { fontFamily: "Cairo_600SemiBold", fontSize: 12, textAlign: "right", color: "#1F2937", lineHeight: 18 },
+  name: { fontFamily: "Cairo_600SemiBold", fontSize: 12, textAlign: "right", color: AppColors.gray800, lineHeight: 18 },
   bottomRow: { flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between", marginTop: 4 },
   price: { fontFamily: "Cairo_700Bold", fontSize: 11, color: AppColors.primary, textAlign: "right" },
   addBtn: {
@@ -1812,12 +1812,12 @@ const vendorProdStyles = StyleSheet.create({
 // ── Vendor store section (card + products strip) styles ──────────────────────
 const vendorSectionStyles = StyleSheet.create({
   wrapper: { marginBottom: 16 },
-  productsBlock: { backgroundColor: "#FAFAFA", borderBottomLeftRadius: 18, borderBottomRightRadius: 18, paddingBottom: 14, marginTop: -4 },
+  productsBlock: { backgroundColor: AppColors.gray50, borderBottomLeftRadius: 18, borderBottomRightRadius: 18, paddingBottom: 14, marginTop: -4 },
   productsHeader: {
     flexDirection: "row", alignItems: "center", justifyContent: "space-between",
     paddingHorizontal: 14, paddingTop: 12, paddingBottom: 6,
   },
-  productsTitle: { fontFamily: "Cairo_700Bold", fontSize: 13, color: "#374151", textAlign: "right" },
+  productsTitle: { fontFamily: "Cairo_700Bold", fontSize: 13, color: AppColors.gray700, textAlign: "right" },
   viewAllBtn: { flexDirection: "row", alignItems: "center", gap: 2 },
   viewAllText: { fontFamily: "Cairo_600SemiBold", fontSize: 12, color: AppColors.primary },
   scroll: { paddingHorizontal: 14, paddingRight: 4 },

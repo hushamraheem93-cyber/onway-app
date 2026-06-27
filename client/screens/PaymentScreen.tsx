@@ -18,7 +18,7 @@ function MastercardIcon({ size = 40 }: { size?: number }) {
     <Svg width={size} height={size * 0.6} viewBox="0 0 60 36">
       <Rect width="60" height="36" rx="4" fill="#1A1F71" />
       <Circle cx="22" cy="18" r="11" fill="#EB001B" />
-      <Circle cx="38" cy="18" r="11" fill="#F79E1B" />
+      <Circle cx="38" cy="18" r="11" fill={AppColors.warning} />
       <Path
         d="M30 9.5c2.5 2 4 5.1 4 8.5s-1.5 6.5-4 8.5c-2.5-2-4-5.1-4-8.5s1.5-6.5 4-8.5z"
         fill="#FF5F00"
@@ -45,8 +45,8 @@ export default function PaymentScreen() {
       showsVerticalScrollIndicator={false}
     >
       <View style={[styles.card, { backgroundColor: theme.backgroundDefault }, Shadows.sm]}>
-        <View style={[styles.iconContainer, { backgroundColor: "#25D366" + "20" }]}>
-          <Feather name="dollar-sign" size={32} color="#25D366" />
+        <View style={[styles.iconContainer, { backgroundColor: AppColors.whatsapp + "20" }]}>
+          <Feather name="dollar-sign" size={32} color={AppColors.whatsapp} />
         </View>
         <ThemedText type="h3" style={styles.title}>الدفع عند الاستلام</ThemedText>
         <ThemedText type="body" style={[styles.description, { color: theme.textSecondary }]}>
@@ -100,8 +100,8 @@ export default function PaymentScreen() {
               </ThemedText>
             </View>
           </View>
-          <View style={[styles.statusBadge, { backgroundColor: "#662D91" + "15" }]}>
-            <ThemedText type="small" style={[styles.statusText, { color: "#662D91" }]}>قريباً</ThemedText>
+          <View style={[styles.statusBadge, { backgroundColor: AppColors.vendorPurple + "15" }]}>
+            <ThemedText type="small" style={[styles.statusText, { color: AppColors.vendorPurple }]}>قريباً</ThemedText>
           </View>
         </View>
       </View>
@@ -141,14 +141,14 @@ const styles = StyleSheet.create({
     lineHeight: 24,
   },
   badge: {
-    backgroundColor: "#25D366",
+    backgroundColor: AppColors.whatsapp,
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.xs,
     borderRadius: BorderRadius.full,
     marginTop: Spacing.lg,
   },
   badgeText: {
-    color: "#fff",
+    color: AppColors.white,
     fontWeight: "600",
   },
   infoCard: {
@@ -166,13 +166,13 @@ const styles = StyleSheet.create({
     textAlign: "right",
   },
   comingSoonBadge: {
-    backgroundColor: "#FFB800",
+    backgroundColor: AppColors.warning,
     paddingHorizontal: Spacing.sm,
     paddingVertical: 4,
     borderRadius: BorderRadius.sm,
   },
   comingSoonBadgeText: {
-    color: "#000",
+    color: AppColors.black,
     fontWeight: "700",
     fontSize: 10,
   },
@@ -224,7 +224,7 @@ const styles = StyleSheet.create({
   },
   divider: {
     height: 1,
-    backgroundColor: "#E5E5E5",
+    backgroundColor: AppColors.divider,
     marginVertical: Spacing.xs,
   },
   noteCard: {

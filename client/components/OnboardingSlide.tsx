@@ -13,6 +13,7 @@ import Animated, {
   SharedValue,
 } from "react-native-reanimated";
 import { ThemedText } from "@/components/ThemedText";
+import { AppColors } from "@/constants/theme";
 
 const { width: W } = Dimensions.get("window");
 
@@ -140,7 +141,7 @@ const styles = StyleSheet.create({
   title: {
     fontFamily: "Cairo_700Bold",
     fontSize: 36,
-    color: "#FFFFFF",
+    color: AppColors.white,
     textAlign: "center",
     lineHeight: 54,
     includeFontPadding: false,

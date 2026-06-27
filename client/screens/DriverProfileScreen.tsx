@@ -90,9 +90,9 @@ export default function DriverProfileScreen() {
   };
 
   const statusLabels: Record<string, { label: string; color: string }> = {
-    pending: { label: "قيد المراجعة", color: "#FF9800" },
-    approved: { label: "معتمد", color: "#4CAF50" },
-    rejected: { label: "مرفوض", color: "#F44336" },
+    pending: { label: "قيد المراجعة", color: AppColors.warning },
+    approved: { label: "معتمد", color: AppColors.success },
+    rejected: { label: "مرفوض", color: AppColors.error },
   };
 
   const statusInfo = statusLabels[driverInfo?.status || "pending"] || statusLabels.pending;
@@ -136,15 +136,15 @@ export default function DriverProfileScreen() {
             <Switch
               value={themeMode === "dark"}
               onValueChange={handleThemeToggle}
-              trackColor={{ false: "#E0E0E0", true: AppColors.primary }}
-              thumbColor="#FFFFFF"
+              trackColor={{ false: AppColors.border, true: AppColors.primary }}
+              thumbColor={AppColors.white}
             />
             <View style={styles.settingInfo}>
               <ThemedText type="body" style={{ color: theme.text }}>الوضع الداكن</ThemedText>
               <ThemedText type="small" style={{ color: theme.textSecondary }}>تغيير مظهر التطبيق</ThemedText>
             </View>
             <View style={[styles.settingIcon, { backgroundColor: "#9C27B015" }]}>
-              <Feather name="moon" size={20} color="#9C27B0" />
+              <Feather name="moon" size={20} color={AppColors.vendorPurple} />
             </View>
           </View>
         </View>
@@ -173,8 +173,8 @@ export default function DriverProfileScreen() {
         <View style={[styles.card, { backgroundColor: theme.backgroundDefault }, Shadows.sm]}>
           <ThemedText type="h4" style={[styles.cardTitle, { color: theme.text }]}>معلومات الحساب</ThemedText>
           <View style={styles.menuRow}>
-            <View style={[styles.menuIcon, { backgroundColor: "#E3F2FD" }]}>
-              <Feather name="phone" size={18} color="#1976D2" />
+            <View style={[styles.menuIcon, { backgroundColor: AppColors.driverBlueLight }]}>
+              <Feather name="phone" size={18} color={AppColors.info} />
             </View>
             <View style={{ flex: 1, alignItems: "flex-end" }}>
               <ThemedText type="small" style={{ color: theme.textSecondary }}>رقم الهاتف</ThemedText>
@@ -211,19 +211,19 @@ export default function DriverProfileScreen() {
               <ThemedText type="body" style={{ color: theme.text }}>واتساب</ThemedText>
               <ThemedText type="small" style={{ color: theme.textSecondary }}>تواصل معنا عبر واتساب</ThemedText>
             </View>
-            <View style={[styles.menuIcon, { backgroundColor: "#E8F5E9" }]}>
-              <Feather name="message-square" size={18} color="#25D366" />
+            <View style={[styles.menuIcon, { backgroundColor: AppColors.successLight }]}>
+              <Feather name="message-square" size={18} color={AppColors.whatsapp} />
             </View>
           </Pressable>
         </View>
 
         <Pressable
-          style={[styles.logoutButton, { borderColor: "#F44336" }]}
+          style={[styles.logoutButton, { borderColor: AppColors.error }]}
           onPress={handleLogout}
           testID="button-logout"
         >
-          <Feather name="log-out" size={20} color="#F44336" />
-          <ThemedText type="h4" style={{ color: "#F44336" }}>تسجيل الخروج</ThemedText>
+          <Feather name="log-out" size={20} color={AppColors.error} />
+          <ThemedText type="h4" style={{ color: AppColors.error }}>تسجيل الخروج</ThemedText>
         </Pressable>
       </KeyboardAwareScrollViewCompat>
     </View>
@@ -243,17 +243,17 @@ const styles = StyleSheet.create({
     width: 70,
     height: 70,
     borderRadius: 35,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: AppColors.white,
     justifyContent: "center",
     alignItems: "center",
     marginBottom: Spacing.sm,
   },
   driverName: {
-    color: "#FFFFFF",
+    color: AppColors.white,
     fontWeight: "700",
   },
   driverPhone: {
-    color: "rgba(255,255,255,0.8)",
+    color: AppColors.textOnBrandMuted,
     marginTop: 2,
   },
   statusPill: {
@@ -293,7 +293,7 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     paddingVertical: Spacing.sm,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: "#E0E0E0",
+    borderBottomColor: AppColors.border,
   },
   logoutButton: {
     flexDirection: "row-reverse",
@@ -311,7 +311,7 @@ const styles = StyleSheet.create({
     gap: Spacing.md,
     paddingVertical: Spacing.sm + 2,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: "#E0E0E0",
+    borderBottomColor: AppColors.border,
   },
   menuIcon: {
     width: 38,

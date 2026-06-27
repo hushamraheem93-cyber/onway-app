@@ -59,11 +59,11 @@ const BUSINESS_CONFIG: Record<
   string,
   { label: string; icon: string; color: string; bg: string; gradient: [string, string] }
 > = {
-  restaurant: { label: "مطعم", icon: "food", color: "#E86520", bg: "#FFF4E0", gradient: ["#E86520", "#FF8C4B"] },
-  supermarket: { label: "سوبرماركت", icon: "cart", color: "#2E7D32", bg: "#E8F5E9", gradient: ["#2E7D32", "#4CAF50"] },
-  pharmacy: { label: "صيدلية", icon: "medical-bag", color: "#7B1FA2", bg: "#F3E5F5", gradient: ["#7B1FA2", "#AB47BC"] },
-  bakery: { label: "مخبز", icon: "bread-slice", color: "#F57F17", bg: "#FFF8E1", gradient: ["#F57F17", "#FFA726"] },
-  other: { label: "متجر", icon: "store", color: "#1565C0", bg: "#E3F2FD", gradient: ["#1565C0", "#1E88E5"] },
+  restaurant: { label: "مطعم", icon: "food", color: AppColors.primary, bg: AppColors.warningLight, gradient: [AppColors.primary, AppColors.primaryLight] },
+  supermarket: { label: "سوبرماركت", icon: "cart", color: AppColors.success, bg: AppColors.successLight, gradient: [AppColors.success, AppColors.success] },
+  pharmacy: { label: "صيدلية", icon: "medical-bag", color: AppColors.vendorPurple, bg: AppColors.vendorPurpleLight, gradient: [AppColors.vendorPurple, AppColors.vendorPurple] },
+  bakery: { label: "مخبز", icon: "bread-slice", color: AppColors.warning, bg: AppColors.warningLight, gradient: [AppColors.warning, AppColors.primaryLight] },
+  other: { label: "متجر", icon: "store", color: AppColors.driverBlue, bg: AppColors.driverBlueLight, gradient: [AppColors.driverBlue, AppColors.info] },
 };
 
 const DAY_NAMES = ["الأحد", "الإثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت"];
@@ -95,7 +95,7 @@ function StarRating({ value }: { value: number }) {
           key={i}
           name={i <= full ? "star" : half && i === full + 1 ? "star-half-full" : "star-outline"}
           size={13}
-          color="#F59E0B"
+          color={AppColors.warning}
         />
       ))}
       <ThemedText style={rStyles.val}>{value.toFixed(1)}</ThemedText>
@@ -104,7 +104,7 @@ function StarRating({ value }: { value: number }) {
 }
 const rStyles = StyleSheet.create({
   row: { flexDirection: "row", alignItems: "center", gap: 2 },
-  val: { fontFamily: "Cairo_700Bold", fontSize: 12, color: "#F59E0B", marginRight: 2 },
+  val: { fontFamily: "Cairo_700Bold", fontSize: 12, color: AppColors.warning, marginRight: 2 },
 });
 
 const FILTER_TABS = [
@@ -156,7 +156,7 @@ function StoreCard({ store, onPress }: { store: VendorStore; onPress: () => void
 
         {/* Gradient overlay for readability */}
         <LinearGradient
-          colors={["transparent", "rgba(0,0,0,0.55)"]}
+          colors={["transparent", AppColors.overlay]}
           style={StyleSheet.absoluteFillObject}
           start={{ x: 0, y: 0.3 }}
           end={{ x: 0, y: 1 }}
@@ -164,24 +164,24 @@ function StoreCard({ store, onPress }: { store: VendorStore; onPress: () => void
 
         {/* Business type badge — top right */}
         <View style={[cardStyles.typeBadge, { backgroundColor: cfg.color + "EE" }]}>
-          <MaterialCommunityIcons name={cfg.icon as any} size={12} color="#fff" />
+          <MaterialCommunityIcons name={cfg.icon as any} size={12} color={AppColors.white} />
           <ThemedText style={cardStyles.typeBadgeText}>{cfg.label}</ThemedText>
         </View>
 
         {/* Open / Closed — top left */}
         <View style={[cardStyles.openBadge, { backgroundColor: open ? "#10B981EE" : "#EF4444EE" }]}>
-          <View style={[cardStyles.openDot, { backgroundColor: open ? "#fff" : "#fca5a5" }]} />
+          <View style={[cardStyles.openDot, { backgroundColor: open ? AppColors.white : AppColors.error }]} />
           <ThemedText style={cardStyles.openText}>{open ? "مفتوح" : "مغلق"}</ThemedText>
         </View>
 
         {/* Delivery info row — bottom of cover */}
         <View style={cardStyles.coverBottom}>
           <View style={cardStyles.deliveryPill}>
-            <MaterialCommunityIcons name="clock-outline" size={12} color="#fff" />
+            <MaterialCommunityIcons name="clock-outline" size={12} color={AppColors.white} />
             <ThemedText style={cardStyles.deliveryText}>{deliveryTime} دقيقة</ThemedText>
           </View>
           <View style={cardStyles.deliveryPill}>
-            <MaterialCommunityIcons name="moped" size={12} color="#fff" />
+            <MaterialCommunityIcons name="moped" size={12} color={AppColors.white} />
             <ThemedText style={cardStyles.deliveryText}>
               {deliveryPrice === 0 ? "توصيل مجاني" : `${deliveryPrice.toLocaleString("ar-IQ")} د.ع`}
             </ThemedText>
@@ -245,7 +245,7 @@ const cardStyles = StyleSheet.create({
     paddingHorizontal: 9, paddingVertical: 4,
     borderRadius: 12,
   },
-  typeBadgeText: { fontFamily: "Cairo_700Bold", fontSize: 11, color: "#fff" },
+  typeBadgeText: { fontFamily: "Cairo_700Bold", fontSize: 11, color: AppColors.white },
   openBadge: {
     position: "absolute", top: 10, left: 10,
     flexDirection: "row", alignItems: "center", gap: 5,
@@ -253,18 +253,18 @@ const cardStyles = StyleSheet.create({
     borderRadius: 12,
   },
   openDot: { width: 6, height: 6, borderRadius: 3 },
-  openText: { fontFamily: "Cairo_700Bold", fontSize: 11, color: "#fff" },
+  openText: { fontFamily: "Cairo_700Bold", fontSize: 11, color: AppColors.white },
   coverBottom: {
     position: "absolute", bottom: 10, right: 10,
     flexDirection: "row", gap: 6,
   },
   deliveryPill: {
     flexDirection: "row", alignItems: "center", gap: 4,
-    backgroundColor: "rgba(0,0,0,0.45)",
+    backgroundColor: AppColors.overlay,
     paddingHorizontal: 8, paddingVertical: 3,
     borderRadius: 10,
   },
-  deliveryText: { fontFamily: "Cairo_700Bold", fontSize: 11, color: "#fff" },
+  deliveryText: { fontFamily: "Cairo_700Bold", fontSize: 11, color: AppColors.white },
 
   // Body
   body: {
@@ -279,11 +279,11 @@ const cardStyles = StyleSheet.create({
     borderWidth: 3, overflow: "hidden",
     marginTop: -(AVATAR_SIZE / 2),
     elevation: 4,
-    backgroundColor: "#fff",
+    backgroundColor: AppColors.white,
   },
   avatar: { width: "100%", height: "100%" },
   avatarFallback: { width: "100%", height: "100%", justifyContent: "center", alignItems: "center" },
-  avatarLetter: { fontFamily: "Cairo_700Bold", fontSize: 24, color: "#fff", lineHeight: 30 },
+  avatarLetter: { fontFamily: "Cairo_700Bold", fontSize: 24, color: AppColors.white, lineHeight: 30 },
 
   info: { flex: 1, alignItems: "flex-end", gap: 4, paddingTop: AVATAR_SIZE / 2 - 4 },
   storeName: { fontFamily: "Cairo_700Bold", fontSize: 16, textAlign: "right" },
@@ -390,7 +390,7 @@ export default function StoresScreen() {
                           screenStyles.filterChip,
                           active
                             ? { backgroundColor: activeColor, borderColor: activeColor }
-                            : { backgroundColor: theme.backgroundDefault, borderColor: theme.border ?? "#E5E7EB" },
+                            : { backgroundColor: theme.backgroundDefault, borderColor: theme.border ?? AppColors.divider },
                         ]}
                         onPress={() => {
                           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -400,10 +400,10 @@ export default function StoresScreen() {
                         <MaterialCommunityIcons
                           name={f.icon as any}
                           size={14}
-                          color={active ? "#fff" : theme.textSecondary}
+                          color={active ? AppColors.white : theme.textSecondary}
                         />
                         <ThemedText
-                          style={[screenStyles.filterChipText, { color: active ? "#fff" : theme.textSecondary }]}
+                          style={[screenStyles.filterChipText, { color: active ? AppColors.white : theme.textSecondary }]}
                         >
                           {f.label}
                         </ThemedText>
@@ -411,11 +411,11 @@ export default function StoresScreen() {
                           <View
                             style={[
                               screenStyles.filterCount,
-                              { backgroundColor: active ? "rgba(255,255,255,0.25)" : activeColor + "18" },
+                              { backgroundColor: active ? AppColors.white + "40" : activeColor + "18" },
                             ]}
                           >
                             <ThemedText
-                              style={[screenStyles.filterCountText, { color: active ? "#fff" : activeColor }]}
+                              style={[screenStyles.filterCountText, { color: active ? AppColors.white : activeColor }]}
                             >
                               {counts[f.key]}
                             </ThemedText>

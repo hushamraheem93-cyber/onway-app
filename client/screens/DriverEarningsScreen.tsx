@@ -202,7 +202,7 @@ export default function DriverEarningsScreen() {
   const renderOrderItem = ({ item }: { item: CompletedOrder }) => (
     <View style={[styles.listItem, { backgroundColor: theme.backgroundDefault }, Shadows.sm]}>
       <View style={[styles.listItemIcon, { backgroundColor: "#4CAF5015" }]}>
-        <Feather name="check-circle" size={18} color="#4CAF50" />
+        <Feather name="check-circle" size={18} color={AppColors.success} />
       </View>
       <View style={{ flex: 1, alignItems: "flex-end", gap: 2 }}>
         <ThemedText type="body" style={{ color: theme.text, fontWeight: "600" }}>
@@ -226,7 +226,7 @@ export default function DriverEarningsScreen() {
   // ─── Wallet transaction row ──────────────────────────────────────────────
   const renderTransaction = ({ item }: { item: WalletTransaction }) => {
     const isDeduction = item.type === "deduction";
-    const color = isDeduction ? "#F44336" : "#4CAF50";
+    const color = isDeduction ? AppColors.error : AppColors.success;
     return (
       <View style={[styles.listItem, { backgroundColor: theme.backgroundDefault }, Shadows.sm]}>
         <View style={[styles.listItemIcon, { backgroundColor: color + "15" }]}>
@@ -266,11 +266,11 @@ export default function DriverEarningsScreen() {
 
       {/* Stat cards grid */}
       <View style={styles.statsGrid}>
-        {renderStatCard("أرباح اليوم", formatPrice(earnings?.todayEarnings || 0), "sun", "#FF9800")}
-        {renderStatCard("أرباح الأسبوع", formatPrice(earnings?.weekEarnings || 0), "calendar", "#2196F3")}
+        {renderStatCard("أرباح اليوم", formatPrice(earnings?.todayEarnings || 0), "sun", AppColors.warning)}
+        {renderStatCard("أرباح الأسبوع", formatPrice(earnings?.weekEarnings || 0), "calendar", AppColors.info)}
       </View>
       <View style={styles.statsGrid}>
-        {renderStatCard("طلبات اليوم", String(earnings?.todayOrders || 0), "package", "#4CAF50")}
+        {renderStatCard("طلبات اليوم", String(earnings?.todayOrders || 0), "package", AppColors.success)}
         {renderStatCard("إجمالي الطلبات", String(earnings?.totalOrders || 0), "truck", AppColors.primary)}
       </View>
 
@@ -287,13 +287,13 @@ export default function DriverEarningsScreen() {
     <View style={styles.sectionPadding}>
       {/* Wallet balance */}
       <View style={[styles.totalCard, { backgroundColor: theme.backgroundDefault }, Shadows.md]}>
-        <Feather name="credit-card" size={24} color={walletBalance < 250 ? "#F44336" : AppColors.primary} style={{ marginBottom: Spacing.sm }} />
+        <Feather name="credit-card" size={24} color={walletBalance < 250 ? AppColors.error : AppColors.primary} style={{ marginBottom: Spacing.sm }} />
         <ThemedText type="small" style={{ color: theme.textSecondary }}>رصيد المحفظة</ThemedText>
-        <ThemedText type="h1" style={{ color: walletBalance < 250 ? "#F44336" : AppColors.primary, marginTop: 4 }}>
+        <ThemedText type="h1" style={{ color: walletBalance < 250 ? AppColors.error : AppColors.primary, marginTop: 4 }}>
           {formatPrice(walletBalance)}
         </ThemedText>
         {walletBalance < 250 ? (
-          <ThemedText type="small" style={{ color: "#F44336", marginTop: 4 }}>
+          <ThemedText type="small" style={{ color: AppColors.error, marginTop: 4 }}>
             رصيد غير كافٍ — تواصل مع الإدارة لشحن الرصيد
           </ThemedText>
         ) : (
@@ -313,11 +313,11 @@ export default function DriverEarningsScreen() {
         {/* Legend */}
         <View style={{ flexDirection: "row-reverse", gap: Spacing.lg, marginBottom: Spacing.md }}>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
-            <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: "#4CAF50" }} />
+            <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: AppColors.success }} />
             <ThemedText type="small" style={{ color: theme.textSecondary }}>نصيب السائق</ThemedText>
           </View>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
-            <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: "#E0E0E0" }} />
+            <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: AppColors.border }} />
             <ThemedText type="small" style={{ color: theme.textSecondary }}>عمولة التطبيق</ThemedText>
           </View>
         </View>
@@ -326,19 +326,19 @@ export default function DriverEarningsScreen() {
         <View style={{ marginBottom: Spacing.md }}>
           <View style={{ flexDirection: "row-reverse", justifyContent: "space-between", alignItems: "center", marginBottom: Spacing.xs }}>
             <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: Spacing.xs }}>
-              <Feather name="shopping-bag" size={13} color="#FF9800" />
+              <Feather name="shopping-bag" size={13} color={AppColors.warning} />
               <ThemedText type="body" style={{ color: theme.text, fontWeight: "600" }}>توصيل مطعم</ThemedText>
             </View>
             <View style={{ flexDirection: "row", gap: Spacing.sm, alignItems: "center" }}>
-              <ThemedText type="small" style={{ color: "#F44336", fontWeight: "600" }}>-{formatPrice(250)}</ThemedText>
-              <ThemedText type="small" style={{ color: "#4CAF50", fontWeight: "700" }}>+{formatPrice(750)}</ThemedText>
+              <ThemedText type="small" style={{ color: AppColors.error, fontWeight: "600" }}>-{formatPrice(250)}</ThemedText>
+              <ThemedText type="small" style={{ color: AppColors.success, fontWeight: "700" }}>+{formatPrice(750)}</ThemedText>
             </View>
           </View>
-          <View style={{ height: 10, borderRadius: 5, backgroundColor: "#E0E0E0", overflow: "hidden" }}>
-            <View style={{ width: "75%", height: "100%", backgroundColor: "#4CAF50", borderRadius: 5 }} />
+          <View style={{ height: 10, borderRadius: 5, backgroundColor: AppColors.border, overflow: "hidden" }}>
+            <View style={{ width: "75%", height: "100%", backgroundColor: AppColors.success, borderRadius: 5 }} />
           </View>
           <View style={{ flexDirection: "row-reverse", justifyContent: "space-between", marginTop: 3 }}>
-            <ThemedText style={{ fontSize: 10, color: "#4CAF50", fontWeight: "700" }}>75% للسائق</ThemedText>
+            <ThemedText style={{ fontSize: 10, color: AppColors.success, fontWeight: "700" }}>75% للسائق</ThemedText>
             <ThemedText style={{ fontSize: 10, color: theme.textSecondary }}>25% للتطبيق</ThemedText>
           </View>
         </View>
@@ -347,19 +347,19 @@ export default function DriverEarningsScreen() {
         <View>
           <View style={{ flexDirection: "row-reverse", justifyContent: "space-between", alignItems: "center", marginBottom: Spacing.xs }}>
             <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: Spacing.xs }}>
-              <Feather name="truck" size={13} color="#2196F3" />
+              <Feather name="truck" size={13} color={AppColors.info} />
               <ThemedText type="body" style={{ color: theme.text, fontWeight: "600" }}>توصيل تسويق</ThemedText>
             </View>
             <View style={{ flexDirection: "row", gap: Spacing.sm, alignItems: "center" }}>
-              <ThemedText type="small" style={{ color: "#F44336", fontWeight: "600" }}>-{formatPrice(1000)}</ThemedText>
-              <ThemedText type="small" style={{ color: "#4CAF50", fontWeight: "700" }}>+{formatPrice(2000)}</ThemedText>
+              <ThemedText type="small" style={{ color: AppColors.error, fontWeight: "600" }}>-{formatPrice(1000)}</ThemedText>
+              <ThemedText type="small" style={{ color: AppColors.success, fontWeight: "700" }}>+{formatPrice(2000)}</ThemedText>
             </View>
           </View>
-          <View style={{ height: 10, borderRadius: 5, backgroundColor: "#E0E0E0", overflow: "hidden" }}>
-            <View style={{ width: "67%", height: "100%", backgroundColor: "#4CAF50", borderRadius: 5 }} />
+          <View style={{ height: 10, borderRadius: 5, backgroundColor: AppColors.border, overflow: "hidden" }}>
+            <View style={{ width: "67%", height: "100%", backgroundColor: AppColors.success, borderRadius: 5 }} />
           </View>
           <View style={{ flexDirection: "row-reverse", justifyContent: "space-between", marginTop: 3 }}>
-            <ThemedText style={{ fontSize: 10, color: "#4CAF50", fontWeight: "700" }}>67% للسائق</ThemedText>
+            <ThemedText style={{ fontSize: 10, color: AppColors.success, fontWeight: "700" }}>67% للسائق</ThemedText>
             <ThemedText style={{ fontSize: 10, color: theme.textSecondary }}>33% للتطبيق</ThemedText>
           </View>
         </View>

@@ -69,7 +69,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   title: {
-    color: "#FFFFFF",
+    color: AppColors.white,
     flex: 1,
     marginLeft: Spacing.md,
   },
@@ -80,7 +80,7 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.md,
   },
   ctaText: {
-    color: "#FFFFFF",
+    color: AppColors.white,
     fontWeight: "600",
   },
 });

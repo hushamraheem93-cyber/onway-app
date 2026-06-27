@@ -26,6 +26,7 @@ import OnboardingSlide from "@/components/OnboardingSlide";
 import PageIndicator from "@/components/PageIndicator";
 import PrimaryButton from "@/components/PrimaryButton";
 import { useAuth } from "@/context/AuthContext";
+import { AppColors, Gradients } from "@/constants/theme";
 
 const { width: W, height: H } = Dimensions.get("window");
 
@@ -121,7 +122,7 @@ export default function SplashScreen() {
     <View style={styles.root}>
       {/* Gradient background */}
       <LinearGradient
-        colors={["#F97316", "#EA580C"]}
+        colors={Gradients.splash}
         start={{ x: 0.1, y: 0 }}
         end={{ x: 0.9, y: 1 }}
         style={StyleSheet.absoluteFill}
@@ -181,7 +182,7 @@ export default function SplashScreen() {
             testID="button-get-started"
             icon={
               isLast ? (
-                <Feather name="arrow-left" size={18} color="#F97316" />
+                <Feather name="arrow-left" size={18} color={AppColors.primary} />
               ) : null
             }
           />
@@ -214,7 +215,7 @@ const styles = StyleSheet.create({
   logoText: {
     fontFamily: "Montserrat_800ExtraBold",
     fontSize: 30,
-    color: "#FFFFFF",
+    color: AppColors.white,
     letterSpacing: 1.5,
     writingDirection: "ltr",
     includeFontPadding: false,
@@ -223,7 +224,7 @@ const styles = StyleSheet.create({
   tagline: {
     fontFamily: "Cairo_400Regular",
     fontSize: 13,
-    color: "rgba(255,255,255,0.75)",
+    color: AppColors.textOnBrandSubtle,
     textAlign: "center",
     includeFontPadding: false,
     marginTop: 2,
@@ -238,7 +239,7 @@ const styles = StyleSheet.create({
   skipText: {
     fontFamily: "Cairo_600SemiBold",
     fontSize: 14,
-    color: "rgba(255,255,255,0.8)",
+    color: AppColors.textOnBrandMuted,
   },
   pager: {
     flex: 1,
@@ -252,6 +253,6 @@ const styles = StyleSheet.create({
   },
   bgCircle: {
     position: "absolute",
-    backgroundColor: "rgba(255,255,255,0.07)",
+    backgroundColor: AppColors.decorativeOnBrand,
   },
 });

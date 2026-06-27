@@ -64,7 +64,7 @@ export function Button({
   const getTextColor = () => {
     if (variant === "outline") return AppColors.primary;
     if (variant === "secondary") return theme.text;
-    return "#FFFFFF";
+    return AppColors.white;
   };
 
   return (

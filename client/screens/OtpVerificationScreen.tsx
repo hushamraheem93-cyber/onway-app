@@ -19,8 +19,8 @@ import { AppColors } from "@/constants/theme";
 import { useAuth } from "@/context/AuthContext";
 
 const OTP_LENGTH = 4;
-const BRAND_ORANGE = "#E86520";
-const BRAND_DARK = "#C4520F";
+const BRAND_ORANGE = AppColors.primary;
+const BRAND_DARK = AppColors.primaryDark;
 
 export default function OtpVerificationScreen() {
   const insets = useSafeAreaInsets();
@@ -132,7 +132,7 @@ export default function OtpVerificationScreen() {
             onPress={handleBack}
             testID="button-back"
           >
-            <Feather name="arrow-right" size={22} color="#FFFFFF" />
+            <Feather name="arrow-right" size={22} color={AppColors.white} />
           </Pressable>
 
           <View style={styles.decorCircle1} />
@@ -217,7 +217,7 @@ export default function OtpVerificationScreen() {
               end={{ x: 1, y: 0 }}
             >
               {isLoading ? (
-                <ActivityIndicator size="small" color="#FFFFFF" />
+                <ActivityIndicator size="small" color={AppColors.white} />
               ) : (
                 <>
                   <ThemedText style={styles.verifyText}>تحقق</ThemedText>
@@ -250,7 +250,7 @@ export default function OtpVerificationScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: AppColors.white,
   },
   scrollContent: {
     flexGrow: 1,
@@ -280,7 +280,7 @@ const styles = StyleSheet.create({
     width: 180,
     height: 180,
     borderRadius: 90,
-    backgroundColor: "rgba(255,255,255,0.08)",
+    backgroundColor: AppColors.decorativeOnBrand,
   },
   decorCircle2: {
     position: "absolute",
@@ -289,7 +289,7 @@ const styles = StyleSheet.create({
     width: 140,
     height: 140,
     borderRadius: 70,
-    backgroundColor: "rgba(255,255,255,0.06)",
+    backgroundColor: AppColors.decorativeOnBrand,
   },
   headerContent: {
     alignItems: "center",
@@ -302,7 +302,7 @@ const styles = StyleSheet.create({
   logoText: {
     fontFamily: "Montserrat_800ExtraBold",
     fontSize: 22,
-    color: "#FFFFFF",
+    color: AppColors.white,
     letterSpacing: 1,
     textAlign: "center",
     writingDirection: "ltr",
@@ -313,7 +313,7 @@ const styles = StyleSheet.create({
     width: 72,
     height: 72,
     borderRadius: 22,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: AppColors.white,
     alignItems: "center",
     justifyContent: "center",
     marginBottom: 14,
@@ -321,7 +321,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontFamily: "Cairo_700Bold",
     fontSize: 19,
-    color: "#FFFFFF",
+    color: AppColors.white,
     marginBottom: 4,
     lineHeight: 42,
     includeFontPadding: true,
@@ -330,21 +330,21 @@ const styles = StyleSheet.create({
   headerSub: {
     fontFamily: "Cairo_400Regular",
     fontSize: 14,
-    color: "rgba(255,255,255,0.85)",
+    color: AppColors.textOnBrandSubtle,
     lineHeight: 24,
     includeFontPadding: true,
   },
   phoneText: {
     fontFamily: "Cairo_700Bold",
     fontSize: 14,
-    color: "#FFFFFF",
+    color: AppColors.white,
     letterSpacing: 2,
     marginTop: 4,
     writingDirection: "ltr",
   },
   card: {
     flex: 1,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: AppColors.white,
     borderTopLeftRadius: 32,
     borderTopRightRadius: 32,
     marginTop: -30,
@@ -352,7 +352,7 @@ const styles = StyleSheet.create({
     paddingTop: 16,
     ...Platform.select({
       ios: {
-        shadowColor: "#000",
+        shadowColor: AppColors.black,
         shadowOffset: { width: 0, height: -4 },
         shadowOpacity: 0.06,
         shadowRadius: 12,
@@ -365,14 +365,14 @@ const styles = StyleSheet.create({
     width: 40,
     height: 4,
     borderRadius: 2,
-    backgroundColor: "#E0E0E0",
+    backgroundColor: AppColors.border,
     alignSelf: "center",
     marginBottom: 24,
   },
   inputLabel: {
     fontFamily: "Cairo_600SemiBold",
     fontSize: 12,
-    color: "#444",
+    color: AppColors.gray700,
     textAlign: "center",
     marginBottom: 20,
   },
@@ -388,17 +388,17 @@ const styles = StyleSheet.create({
     height: 60,
     borderRadius: 16,
     borderWidth: 2,
-    borderColor: "#EFEFEF",
-    backgroundColor: "#F7F7F7",
+    borderColor: AppColors.divider,
+    backgroundColor: AppColors.gray50,
     textAlign: "center",
     fontSize: 19,
     fontFamily: "Cairo_700Bold",
-    color: "#333",
+    color: AppColors.gray700,
     writingDirection: "ltr",
   },
   otpInputFilled: {
     borderColor: BRAND_ORANGE,
-    backgroundColor: "#FFF5EE",
+    backgroundColor: AppColors.secondary,
   },
   errorRow: {
     flexDirection: "row",
@@ -444,13 +444,13 @@ const styles = StyleSheet.create({
   verifyText: {
     fontFamily: "Cairo_700Bold",
     fontSize: 17,
-    color: "#FFFFFF",
+    color: AppColors.white,
   },
   verifyArrow: {
     width: 30,
     height: 30,
     borderRadius: 15,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: AppColors.white,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -464,12 +464,12 @@ const styles = StyleSheet.create({
   resendLabel: {
     fontFamily: "Cairo_400Regular",
     fontSize: 14,
-    color: "#999",
+    color: AppColors.gray400,
   },
   timerText: {
     fontFamily: "Cairo_400Regular",
     fontSize: 14,
-    color: "#999",
+    color: AppColors.gray400,
   },
   resendLink: {
     fontFamily: "Cairo_700Bold",

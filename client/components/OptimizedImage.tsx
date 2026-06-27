@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, memo } from "react";
 import { View, StyleSheet, Animated } from "react-native";
 import { Image, ImageContentFit, ImageStyle } from "expo-image";
 import { resolveImageUrl } from "@/utils/imageUtils";
+import { AppColors } from "@/constants/theme";
 
 const BLURHASH = "L6PZfSi_.AyE_3t7t7R**0o#DgR4";
 
@@ -102,9 +103,9 @@ export const OptimizedImage = memo(OptimizedImageComponent);
 const styles = StyleSheet.create({
   skeleton: {
     flex: 1,
-    backgroundColor: "#E8E8E8",
+    backgroundColor: AppColors.backgroundTertiary,
   },
   errorContainer: {
-    backgroundColor: "#F0F0F0",
+    backgroundColor: AppColors.backgroundSecondary,
   },
 });

@@ -53,11 +53,11 @@ interface VendorProduct {
 }
 
 const BUSINESS_CONFIG: Record<string, { label: string; icon: string; color: string }> = {
-  restaurant: { label: "مطعم", icon: "food", color: "#E86520" },
-  supermarket: { label: "سوبرماركت", icon: "cart", color: "#2E7D32" },
-  pharmacy: { label: "صيدلية", icon: "medical-bag", color: "#7B1FA2" },
-  bakery: { label: "مخبز", icon: "bread-slice", color: "#F57F17" },
-  other: { label: "متجر", icon: "store", color: "#1565C0" },
+  restaurant: { label: "مطعم", icon: "food", color: AppColors.primary },
+  supermarket: { label: "سوبرماركت", icon: "cart", color: AppColors.success },
+  pharmacy: { label: "صيدلية", icon: "medical-bag", color: AppColors.vendorPurple },
+  bakery: { label: "مخبز", icon: "bread-slice", color: AppColors.warning },
+  other: { label: "متجر", icon: "store", color: AppColors.driverBlue },
 };
 
 function resolveUrl(path?: string): string | null {
@@ -127,7 +127,7 @@ function ProductCard({
         />
         {hasMultipleImages ? (
           <View style={styles.multiImageBadge}>
-            <Feather name="image" size={10} color="#fff" />
+            <Feather name="image" size={10} color={AppColors.white} />
             <ThemedText style={styles.multiImageCount}>
               {product.imageUrls!.length}
             </ThemedText>
@@ -153,8 +153,8 @@ function ProductCard({
             {formatPrice(product.price)}
           </ThemedText>
           {isOutOfStock ? (
-            <View style={[styles.outOfStockBadge, { backgroundColor: "#FFEAEA" }]}>
-              <ThemedText type="small" style={{ color: "#E53E3E", fontWeight: "600", fontSize: 11 }}>
+            <View style={[styles.outOfStockBadge, { backgroundColor: AppColors.errorLight }]}>
+              <ThemedText type="small" style={{ color: AppColors.error, fontWeight: "600", fontSize: 11 }}>
                 نفذت الكمية
               </ThemedText>
             </View>
@@ -165,7 +165,7 @@ function ProductCard({
                 style={[styles.qtyBtn, { backgroundColor: AppColors.primary }]}
                 testID={`btn-increase-${product.id}`}
               >
-                <Feather name="plus" size={14} color="#fff" />
+                <Feather name="plus" size={14} color={AppColors.white} />
               </Pressable>
               <ThemedText type="body" style={styles.qtyText}>
                 {quantity}
@@ -175,7 +175,7 @@ function ProductCard({
                 style={[styles.qtyBtn, { backgroundColor: AppColors.primary }]}
                 testID={`btn-decrease-${product.id}`}
               >
-                <Feather name="minus" size={14} color="#fff" />
+                <Feather name="minus" size={14} color={AppColors.white} />
               </Pressable>
             </View>
           ) : (
@@ -184,7 +184,7 @@ function ProductCard({
               style={styles.addBtn}
               testID={`btn-add-${product.id}`}
             >
-              <Feather name="plus" size={16} color="#fff" />
+              <Feather name="plus" size={16} color={AppColors.white} />
               <ThemedText type="small" style={styles.addBtnText}>
                 أضف
               </ThemedText>
@@ -253,7 +253,7 @@ function SearchFilterBar({
               type="small"
               style={[
                 sfStyles.chipText,
-                { color: selectedCategory === null ? "#fff" : theme.textSecondary },
+                { color: selectedCategory === null ? AppColors.white : theme.textSecondary },
               ]}
             >
               الكل
@@ -277,7 +277,7 @@ function SearchFilterBar({
               >
                 <ThemedText
                   type="small"
-                  style={[sfStyles.chipText, { color: active ? "#fff" : theme.textSecondary }]}
+                  style={[sfStyles.chipText, { color: active ? AppColors.white : theme.textSecondary }]}
                 >
                   {cat}
                 </ThemedText>
@@ -528,7 +528,7 @@ function StoreProfileHeader({ store, theme, onRatingsPress }: { store: VendorSto
           {/* Rating row */}
           {store.rating != null ? (
             <Pressable onPress={onRatingsPress} style={hStyles.ratingRow}>
-              <MaterialCommunityIcons name="star" size={14} color="#F59E0B" />
+              <MaterialCommunityIcons name="star" size={14} color={AppColors.warning} />
               <ThemedText type="small" style={[hStyles.ratingText, { color: theme.textPrimary }]}>
                 {(store.rating as number).toFixed(1)}
               </ThemedText>
@@ -570,7 +570,7 @@ const hStyles = StyleSheet.create({
     borderWidth: 3,
     overflow: "hidden",
     elevation: 4,
-    backgroundColor: "#fff",
+    backgroundColor: AppColors.white,
   },
   avatar: { width: "100%", height: "100%" },
   avatarFallback: {
@@ -582,7 +582,7 @@ const hStyles = StyleSheet.create({
   avatarLetter: {
     fontFamily: "Cairo_700Bold",
     fontSize: 28,
-    color: "#fff",
+    color: AppColors.white,
     lineHeight: 34,
   },
   textBlock: { flex: 1, alignItems: "flex-end", gap: 3 },
@@ -674,7 +674,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 3,
-    backgroundColor: "rgba(0,0,0,0.55)",
+    backgroundColor: AppColors.overlay,
     borderRadius: 10,
     paddingHorizontal: 6,
     paddingVertical: 2,
@@ -682,7 +682,7 @@ const styles = StyleSheet.create({
   multiImageCount: {
     fontFamily: "Cairo_700Bold",
     fontSize: 10,
-    color: "#fff",
+    color: AppColors.white,
   },
   productInfo: {
     flex: 1,
@@ -723,7 +723,7 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   addBtnText: {
-    color: "#fff",
+    color: AppColors.white,
     fontWeight: "700",
   },
   quantityControl: {

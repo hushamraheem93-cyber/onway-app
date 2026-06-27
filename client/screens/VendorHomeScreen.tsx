@@ -32,10 +32,11 @@ import { BUSINESS_LABELS } from "@/constants/businessCategories";
 import { useVendorNotifications } from "@/context/VendorNotificationsContext";
 import { getApiUrl } from "@/lib/query-client";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
+import { AppColors } from "@/constants/theme";
 
-const ORANGE = "#E86520";
-const ORANGE_LIGHT = "#FFF0E6";
-const ORANGE_BG = "#FFF8F4";
+const ORANGE = AppColors.primary;
+const ORANGE_LIGHT = AppColors.secondary;
+const ORANGE_BG = AppColors.secondary;
 const POLL_INTERVAL_MS = 30_000;
 const SCREEN_W = Dimensions.get("window").width;
 const COVER_H = 190;
@@ -68,16 +69,16 @@ function notifColor(type: string): {
   iconColor: string;
 } {
   if (type === "vendor_active")
-    return { bg: "#F0FDF4", border: "#86EFAC", icon: "check-circle", iconColor: "#16A34A" };
+    return { bg: AppColors.successLight, border: AppColors.success, icon: "check-circle", iconColor: AppColors.success };
   if (type === "vendor_rejected")
-    return { bg: "#FFF5F5", border: "#FECACA", icon: "close-circle", iconColor: "#DC2626" };
+    return { bg: AppColors.errorLight, border: AppColors.error, icon: "close-circle", iconColor: AppColors.error };
   if (type === "vendor_suspended")
-    return { bg: "#FFFBEB", border: "#FDE68A", icon: "alert-circle", iconColor: "#D97706" };
+    return { bg: AppColors.warningLight, border: AppColors.warning, icon: "alert-circle", iconColor: AppColors.warning };
   if (type === "product_approved")
-    return { bg: "#F0FDF4", border: "#86EFAC", icon: "check-circle", iconColor: "#16A34A" };
+    return { bg: AppColors.successLight, border: AppColors.success, icon: "check-circle", iconColor: AppColors.success };
   if (type === "product_rejected")
-    return { bg: "#FFF5F5", border: "#FECACA", icon: "close-circle", iconColor: "#DC2626" };
-  return { bg: "#FFF5EE", border: "#FFCBA4", icon: "bell", iconColor: ORANGE };
+    return { bg: AppColors.errorLight, border: AppColors.error, icon: "close-circle", iconColor: AppColors.error };
+  return { bg: AppColors.secondary, border: AppColors.primaryLight, icon: "bell", iconColor: ORANGE };
 }
 
 export default function VendorHomeScreen({ navigation }: any) {
@@ -311,19 +312,19 @@ export default function VendorHomeScreen({ navigation }: any) {
     ? "موقوف"
     : "نشط";
   const statusColor = isPending
-    ? "#F59E0B"
+    ? AppColors.warning
     : isRejected
-    ? "#EF4444"
+    ? AppColors.error
     : isSuspended
-    ? "#F59E0B"
-    : "#10B981";
+    ? AppColors.warning
+    : AppColors.success;
   const statusBg = isPending
-    ? "#FEF3C7"
+    ? AppColors.warningLight
     : isRejected
-    ? "#FEE2E2"
+    ? AppColors.errorLight
     : isSuspended
-    ? "#FEF3C7"
-    : "#D1FAE5";
+    ? AppColors.warningLight
+    : AppColors.successLight;
 
   const coverUrl = vendorProfile?.coverImageUrl
     ? new URL(vendorProfile.coverImageUrl, getApiUrl()).toString()
@@ -358,7 +359,7 @@ export default function VendorHomeScreen({ navigation }: any) {
               <Image source={{ uri: coverUrl }} style={styles.coverImg} resizeMode="cover" />
             ) : (
               <View style={styles.coverPlaceholder}>
-                <MaterialCommunityIcons name="image-filter-hdr" size={36} color="#C4B5E0" />
+                <MaterialCommunityIcons name="image-filter-hdr" size={36} color={AppColors.vendorPurpleLight} />
               </View>
             )}
             <Pressable
@@ -367,9 +368,9 @@ export default function VendorHomeScreen({ navigation }: any) {
               testID="button-edit-cover"
             >
               {uploadingCover ? (
-                <ActivityIndicator size="small" color="#fff" />
+                <ActivityIndicator size="small" color={AppColors.white} />
               ) : (
-                <Feather name="camera" size={14} color="#fff" />
+                <Feather name="camera" size={14} color={AppColors.white} />
               )}
             </Pressable>
           </View>
@@ -392,9 +393,9 @@ export default function VendorHomeScreen({ navigation }: any) {
                 testID="button-edit-avatar"
               >
                 {uploadingAvatar ? (
-                  <ActivityIndicator size="small" color="#fff" />
+                  <ActivityIndicator size="small" color={AppColors.white} />
                 ) : (
-                  <Feather name="camera" size={12} color="#fff" />
+                  <Feather name="camera" size={12} color={AppColors.white} />
                 )}
               </Pressable>
             </View>
@@ -432,7 +433,7 @@ export default function VendorHomeScreen({ navigation }: any) {
 
           {vendorProfile?.address ? (
             <View style={styles.addressRow}>
-              <Feather name="map-pin" size={13} color="#999" />
+              <Feather name="map-pin" size={13} color={AppColors.gray400} />
               <ThemedText style={styles.addressText}>{vendorProfile.address}</ThemedText>
             </View>
           ) : null}
@@ -474,7 +475,7 @@ export default function VendorHomeScreen({ navigation }: any) {
                       testID={`button-dismiss-notification-${notif.id}`}
                       hitSlop={8}
                     >
-                      <Feather name="x" size={16} color="#999" />
+                      <Feather name="x" size={16} color={AppColors.gray400} />
                     </Pressable>
                   </View>
                 );
@@ -485,7 +486,7 @@ export default function VendorHomeScreen({ navigation }: any) {
           {/* Pending notice */}
           {isPending ? (
             <View style={styles.pendingNotice}>
-              <MaterialCommunityIcons name="clock-outline" size={20} color="#D97706" />
+              <MaterialCommunityIcons name="clock-outline" size={20} color={AppColors.warning} />
               <View style={{ flex: 1 }}>
                 <ThemedText style={styles.pendingText}>حسابك قيد المراجعة من الإدارة</ThemedText>
                 <ThemedText style={[styles.pendingText, { fontSize: 12, marginTop: 2 }]}>
@@ -499,7 +500,7 @@ export default function VendorHomeScreen({ navigation }: any) {
           {loading ? (
             <View style={styles.statsGrid}>
               {[0,1,2,3].map(i => (
-                <View key={i} style={[styles.statCard, { backgroundColor: "#F3F4F6" }]}>
+                <View key={i} style={[styles.statCard, { backgroundColor: AppColors.gray100 }]}>
                   <ActivityIndicator color={ORANGE} size="small" />
                 </View>
               ))}
@@ -508,32 +509,32 @@ export default function VendorHomeScreen({ navigation }: any) {
             <View style={styles.statsGrid} testID="stats-grid">
               {/* New orders */}
               <Pressable
-                style={[styles.statCard, { backgroundColor: "#FFFBEB" }]}
+                style={[styles.statCard, { backgroundColor: AppColors.warningLight }]}
                 onPress={() => navigation.navigate("VendorOrdersTab")}
                 testID="stat-pending"
               >
-                <View style={[styles.statIconBox, { backgroundColor: "#FEF3C7" }]}>
-                  <MaterialCommunityIcons name="bell-ring" size={22} color="#D97706" />
+                <View style={[styles.statIconBox, { backgroundColor: AppColors.warningLight }]}>
+                  <MaterialCommunityIcons name="bell-ring" size={22} color={AppColors.warning} />
                 </View>
-                <ThemedText style={[styles.statValue, { color: "#D97706" }]}>
+                <ThemedText style={[styles.statValue, { color: AppColors.warning }]}>
                   {orderStats.pendingOrders}
                 </ThemedText>
                 <ThemedText style={styles.statLabel}>طلبات جديدة</ThemedText>
                 {orderStats.pendingOrders > 0 ? (
-                  <View style={[styles.statDot, { backgroundColor: "#D97706" }]} />
+                  <View style={[styles.statDot, { backgroundColor: AppColors.warning }]} />
                 ) : null}
               </Pressable>
 
               {/* Preparing */}
               <Pressable
-                style={[styles.statCard, { backgroundColor: "#F5F3FF" }]}
+                style={[styles.statCard, { backgroundColor: AppColors.vendorPurpleLight }]}
                 onPress={() => navigation.navigate("VendorOrdersTab")}
                 testID="stat-preparing"
               >
-                <View style={[styles.statIconBox, { backgroundColor: "#EDE9FE" }]}>
-                  <MaterialCommunityIcons name="chef-hat" size={22} color="#7C3AED" />
+                <View style={[styles.statIconBox, { backgroundColor: AppColors.vendorPurpleLight }]}>
+                  <MaterialCommunityIcons name="chef-hat" size={22} color={AppColors.statusPurple} />
                 </View>
-                <ThemedText style={[styles.statValue, { color: "#7C3AED" }]}>
+                <ThemedText style={[styles.statValue, { color: AppColors.statusPurple }]}>
                   {orderStats.preparingOrders}
                 </ThemedText>
                 <ThemedText style={styles.statLabel}>في التحضير</ThemedText>
@@ -541,25 +542,25 @@ export default function VendorHomeScreen({ navigation }: any) {
 
               {/* Waiting for driver */}
               <Pressable
-                style={[styles.statCard, { backgroundColor: "#ECFEFF" }]}
+                style={[styles.statCard, { backgroundColor: AppColors.infoLight }]}
                 onPress={() => navigation.navigate("VendorOrdersTab")}
                 testID="stat-ready"
               >
-                <View style={[styles.statIconBox, { backgroundColor: "#CFFAFE" }]}>
-                  <MaterialCommunityIcons name="moped" size={22} color="#0891B2" />
+                <View style={[styles.statIconBox, { backgroundColor: AppColors.infoLight }]}>
+                  <MaterialCommunityIcons name="moped" size={22} color={AppColors.statusCyan} />
                 </View>
-                <ThemedText style={[styles.statValue, { color: "#0891B2" }]}>
+                <ThemedText style={[styles.statValue, { color: AppColors.statusCyan }]}>
                   {orderStats.readyOrders}
                 </ThemedText>
                 <ThemedText style={styles.statLabel}>ينتظر السائق</ThemedText>
               </Pressable>
 
               {/* Store rating */}
-              <View style={[styles.statCard, { backgroundColor: "#FEFCE8" }]} testID="stat-rating">
-                <View style={[styles.statIconBox, { backgroundColor: "#FEF9C3" }]}>
-                  <MaterialCommunityIcons name="star" size={22} color="#EAB308" />
+              <View style={[styles.statCard, { backgroundColor: AppColors.warningLight }]} testID="stat-rating">
+                <View style={[styles.statIconBox, { backgroundColor: AppColors.warningLight }]}>
+                  <MaterialCommunityIcons name="star" size={22} color={AppColors.warning} />
                 </View>
-                <ThemedText style={[styles.statValue, { color: "#EAB308" }]}>
+                <ThemedText style={[styles.statValue, { color: AppColors.warning }]}>
                   {orderStats.rating != null ? (orderStats.rating as number).toFixed(1) : "--"}
                 </ThemedText>
                 <ThemedText style={styles.statLabel}>تقييم المتجر</ThemedText>
@@ -586,7 +587,7 @@ export default function VendorHomeScreen({ navigation }: any) {
                   icon="view-list"
                   label="منتجاتي"
                   color={ORANGE}
-                  bg="#FFF3E0"
+                  bg={AppColors.secondary}
                   onPress={() => {
                     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
                     navigation.navigate("VendorProductsTab", { screen: "VendorProducts" });
@@ -595,8 +596,8 @@ export default function VendorHomeScreen({ navigation }: any) {
                 <QuickAction
                   icon="cog"
                   label="إعدادات"
-                  color="#64748B"
-                  bg="#F1F5F9"
+                  color={AppColors.gray500}
+                  bg={AppColors.gray50}
                   onPress={() => {
                     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
                     setSettDeliveryTime(vendorProfile?.deliveryTime || "30-45");
@@ -619,7 +620,7 @@ export default function VendorHomeScreen({ navigation }: any) {
             {[
               { n: "1", icon: "upload", title: "أضف منتجاتك", desc: "ارفع صورة واضحة وحدد السعر والتفاصيل", color: ORANGE },
               { n: "2", icon: "eye", title: "مراجعة الإدارة", desc: "يراجع الفريق منتجك خلال 24 ساعة", color: ORANGE },
-              { n: "3", icon: "storefront", title: "يظهر للزبائن", desc: "بعد الموافقة يُعرض منتجك في التطبيق فوراً", color: "#10B981" },
+              { n: "3", icon: "storefront", title: "يظهر للزبائن", desc: "بعد الموافقة يُعرض منتجك في التطبيق فوراً", color: AppColors.success },
             ].map((step, i) => (
               <View key={i} style={[styles.stepRow, i < 2 && styles.stepBorder]}>
                 <View style={[styles.stepCircle, { backgroundColor: step.color + "20" }]}>
@@ -641,7 +642,7 @@ export default function VendorHomeScreen({ navigation }: any) {
 
           {/* Logout */}
           <Pressable style={styles.logoutBtn} onPress={logout} testID="button-logout">
-            <Feather name="log-out" size={16} color="#EF4444" />
+            <Feather name="log-out" size={16} color={AppColors.error} />
             <ThemedText style={styles.logoutText}>تسجيل الخروج</ThemedText>
           </Pressable>
         </View>
@@ -657,7 +658,7 @@ export default function VendorHomeScreen({ navigation }: any) {
               value={bioText}
               onChangeText={setBioText}
               placeholder="اكتب وصفاً مختصراً عن متجرك..."
-              placeholderTextColor="#BBB"
+              placeholderTextColor={AppColors.gray300}
               multiline
               maxLength={200}
               textAlign="right"
@@ -666,7 +667,7 @@ export default function VendorHomeScreen({ navigation }: any) {
             <View style={styles.bioActions}>
               <Pressable style={styles.bioBtnSave} onPress={saveBio} disabled={savingBio}>
                 {savingBio ? (
-                  <ActivityIndicator color="#fff" size="small" />
+                  <ActivityIndicator color={AppColors.white} size="small" />
                 ) : (
                   <ThemedText style={styles.bioBtnSaveText}>حفظ</ThemedText>
                 )}
@@ -693,7 +694,7 @@ export default function VendorHomeScreen({ navigation }: any) {
                 value={settDeliveryTime}
                 onChangeText={setSettDeliveryTime}
                 placeholder="مثال: 20-30"
-                placeholderTextColor="#BBB"
+                placeholderTextColor={AppColors.gray300}
                 textAlign="right"
                 keyboardType="default"
               />
@@ -705,7 +706,7 @@ export default function VendorHomeScreen({ navigation }: any) {
                 value={settDeliveryPrice}
                 onChangeText={setSettDeliveryPrice}
                 placeholder="0 = توصيل مجاني"
-                placeholderTextColor="#BBB"
+                placeholderTextColor={AppColors.gray300}
                 textAlign="right"
                 keyboardType="numeric"
               />
@@ -714,7 +715,7 @@ export default function VendorHomeScreen({ navigation }: any) {
               <View style={settStyles.row}>
                 <Pressable
                   onPress={() => setSettingsUseHours(!settingsUseHours)}
-                  style={[settStyles.toggle, { backgroundColor: settingsUseHours ? ORANGE : "#E5E7EB" }]}
+                  style={[settStyles.toggle, { backgroundColor: settingsUseHours ? ORANGE : AppColors.divider }]}
                 >
                   <View
                     style={[
@@ -735,7 +736,7 @@ export default function VendorHomeScreen({ navigation }: any) {
                     value={settOpenTime}
                     onChangeText={setSettOpenTime}
                     placeholder="09:00"
-                    placeholderTextColor="#BBB"
+                    placeholderTextColor={AppColors.gray300}
                     textAlign="right"
                     keyboardType="numbers-and-punctuation"
                   />
@@ -747,7 +748,7 @@ export default function VendorHomeScreen({ navigation }: any) {
                     value={settCloseTime}
                     onChangeText={setSettCloseTime}
                     placeholder="22:00"
-                    placeholderTextColor="#BBB"
+                    placeholderTextColor={AppColors.gray300}
                     textAlign="right"
                     keyboardType="numbers-and-punctuation"
                   />
@@ -768,11 +769,11 @@ export default function VendorHomeScreen({ navigation }: any) {
                           }}
                           style={[
                             settStyles.dayBtn,
-                            { backgroundColor: active ? ORANGE : "#F3F4F6", borderColor: active ? ORANGE : "#E5E7EB" },
+                            { backgroundColor: active ? ORANGE : AppColors.gray100, borderColor: active ? ORANGE : AppColors.divider },
                           ]}
                         >
                           <ThemedText
-                            style={[settStyles.dayText, { color: active ? "#fff" : "#6B7280" }]}
+                            style={[settStyles.dayText, { color: active ? AppColors.white : AppColors.gray500 }]}
                           >
                             {d}
                           </ThemedText>
@@ -787,7 +788,7 @@ export default function VendorHomeScreen({ navigation }: any) {
               <View style={[styles.bioActions, { marginTop: 18 }]}>
                 <Pressable style={styles.bioBtnSave} onPress={saveStoreSettings} disabled={savingSettings}>
                   {savingSettings ? (
-                    <ActivityIndicator color="#fff" size="small" />
+                    <ActivityIndicator color={AppColors.white} size="small" />
                   ) : (
                     <ThemedText style={styles.bioBtnSaveText}>حفظ الإعدادات</ThemedText>
                   )}
@@ -820,7 +821,7 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: ORANGE_BG },
 
   // Profile header
-  profileHeader: { backgroundColor: "#fff" },
+  profileHeader: { backgroundColor: AppColors.white },
   coverWrapper: {
     width: SCREEN_W,
     height: COVER_H,
@@ -841,7 +842,7 @@ const styles = StyleSheet.create({
     width: 34,
     height: 34,
     borderRadius: 17,
-    backgroundColor: "rgba(0,0,0,0.45)",
+    backgroundColor: AppColors.overlay,
     justifyContent: "center",
     alignItems: "center",
   },
@@ -861,7 +862,7 @@ const styles = StyleSheet.create({
     height: AVATAR_SIZE,
     borderRadius: AVATAR_SIZE / 2,
     borderWidth: 3,
-    borderColor: "#fff",
+    borderColor: AppColors.white,
   },
   avatarPlaceholder: {
     width: AVATAR_SIZE,
@@ -871,12 +872,12 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     borderWidth: 3,
-    borderColor: "#fff",
+    borderColor: AppColors.white,
   },
   avatarLetter: {
     fontFamily: "Cairo_700Bold",
     fontSize: 34,
-    color: "#fff",
+    color: AppColors.white,
     lineHeight: 40,
   },
   editAvatarBtn: {
@@ -890,7 +891,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     borderWidth: 2,
-    borderColor: "#fff",
+    borderColor: AppColors.white,
   },
   storeInfo: {
     flex: 1,
@@ -901,13 +902,13 @@ const styles = StyleSheet.create({
   storeName: {
     fontFamily: "Cairo_700Bold",
     fontSize: 18,
-    color: "#111",
+    color: AppColors.black,
     textAlign: "right",
   },
   businessType: {
     fontFamily: "Cairo_400Regular",
     fontSize: 13,
-    color: "#888",
+    color: AppColors.gray500,
     textAlign: "right",
     marginBottom: 4,
   },
@@ -932,7 +933,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontFamily: "Cairo_400Regular",
     fontSize: 13,
-    color: "#555",
+    color: AppColors.gray500,
     textAlign: "right",
     lineHeight: 21,
   },
@@ -940,7 +941,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontFamily: "Cairo_400Regular",
     fontSize: 13,
-    color: "#CCC",
+    color: AppColors.gray300,
     textAlign: "right",
     fontStyle: "italic",
   },
@@ -962,10 +963,10 @@ const styles = StyleSheet.create({
   addressText: {
     fontFamily: "Cairo_400Regular",
     fontSize: 12,
-    color: "#999",
+    color: AppColors.gray400,
     textAlign: "right",
   },
-  divider: { height: 8, backgroundColor: "#FFE8D6" },
+  divider: { height: 8, backgroundColor: AppColors.secondary },
 
   // Body
   body: { paddingHorizontal: 16, paddingTop: 16 },
@@ -991,7 +992,7 @@ const styles = StyleSheet.create({
   notifMessage: {
     fontFamily: "Cairo_400Regular",
     fontSize: 12,
-    color: "#444",
+    color: AppColors.gray700,
     textAlign: "right",
     lineHeight: 20,
   },
@@ -999,7 +1000,7 @@ const styles = StyleSheet.create({
 
   // Pending
   pendingNotice: {
-    backgroundColor: "#FFFBEB",
+    backgroundColor: AppColors.warningLight,
     borderRadius: 12,
     padding: 14,
     flexDirection: "row",
@@ -1007,12 +1008,12 @@ const styles = StyleSheet.create({
     gap: 10,
     marginBottom: 16,
     borderWidth: 1,
-    borderColor: "#FDE68A",
+    borderColor: AppColors.warning,
   },
   pendingText: {
     fontFamily: "Cairo_400Regular",
     fontSize: 13,
-    color: "#92400E",
+    color: AppColors.primaryDark,
     flex: 1,
     textAlign: "right",
     lineHeight: 22,
@@ -1022,7 +1023,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontFamily: "Cairo_700Bold",
     fontSize: 15,
-    color: "#333",
+    color: AppColors.gray700,
     textAlign: "right",
     marginBottom: 10,
     marginTop: 4,
@@ -1041,7 +1042,7 @@ const styles = StyleSheet.create({
     padding: 14,
     alignItems: "center",
     gap: 6,
-    shadowColor: "#000",
+    shadowColor: AppColors.black,
     shadowOpacity: 0.04,
     shadowRadius: 6,
     shadowOffset: { width: 0, height: 2 },
@@ -1064,7 +1065,7 @@ const styles = StyleSheet.create({
   statLabel: {
     fontFamily: "Cairo_400Regular",
     fontSize: 12,
-    color: "#6B7280",
+    color: AppColors.gray500,
     textAlign: "center",
   },
   statDot: {
@@ -1083,14 +1084,14 @@ const styles = StyleSheet.create({
 
   // Steps
   stepsCard: {
-    backgroundColor: "#fff",
+    backgroundColor: AppColors.white,
     borderRadius: 16,
     padding: 4,
     marginBottom: 20,
     elevation: 2,
   },
   stepRow: { flexDirection: "row", alignItems: "center", padding: 14 },
-  stepBorder: { borderBottomWidth: 1, borderBottomColor: "#F3F4F6" },
+  stepBorder: { borderBottomWidth: 1, borderBottomColor: AppColors.gray100 },
   stepCircle: {
     width: 32,
     height: 32,
@@ -1102,14 +1103,14 @@ const styles = StyleSheet.create({
   stepTitle: {
     fontFamily: "Cairo_700Bold",
     fontSize: 13,
-    color: "#222",
+    color: AppColors.black,
     textAlign: "right",
     marginBottom: 2,
   },
   stepDesc: {
     fontFamily: "Cairo_400Regular",
     fontSize: 12,
-    color: "#888",
+    color: AppColors.gray500,
     textAlign: "right",
     lineHeight: 18,
   },
@@ -1122,12 +1123,12 @@ const styles = StyleSheet.create({
     gap: 8,
     paddingVertical: 14,
     borderWidth: 1.5,
-    borderColor: "#FECACA",
+    borderColor: AppColors.error,
     borderRadius: 14,
-    backgroundColor: "#FFF5F5",
+    backgroundColor: AppColors.errorLight,
     marginBottom: 8,
   },
-  logoutText: { fontFamily: "Cairo_700Bold", fontSize: 14, color: "#EF4444" },
+  logoutText: { fontFamily: "Cairo_700Bold", fontSize: 14, color: AppColors.error },
 
   // Bio modal
   modalOverlay: {
@@ -1136,7 +1137,7 @@ const styles = StyleSheet.create({
     justifyContent: "flex-end",
   },
   bioModal: {
-    backgroundColor: "#fff",
+    backgroundColor: AppColors.white,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     padding: 24,
@@ -1144,25 +1145,25 @@ const styles = StyleSheet.create({
   bioModalTitle: {
     fontFamily: "Cairo_700Bold",
     fontSize: 16,
-    color: "#222",
+    color: AppColors.black,
     textAlign: "center",
     marginBottom: 16,
   },
   bioInput: {
     borderWidth: 1.5,
-    borderColor: "#E5E7EB",
+    borderColor: AppColors.divider,
     borderRadius: 12,
     padding: 14,
     fontFamily: "Cairo_400Regular",
     fontSize: 14,
-    color: "#222",
+    color: AppColors.black,
     minHeight: 100,
     textAlignVertical: "top",
   },
   bioCount: {
     fontFamily: "Cairo_400Regular",
     fontSize: 11,
-    color: "#BBB",
+    color: AppColors.gray300,
     textAlign: "left",
     marginTop: 4,
     marginBottom: 16,
@@ -1175,29 +1176,29 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     alignItems: "center",
   },
-  bioBtnSaveText: { fontFamily: "Cairo_700Bold", fontSize: 14, color: "#fff" },
+  bioBtnSaveText: { fontFamily: "Cairo_700Bold", fontSize: 14, color: AppColors.white },
   bioBtnCancel: {
     flex: 1,
-    backgroundColor: "#F3F4F6",
+    backgroundColor: AppColors.gray100,
     borderRadius: 12,
     paddingVertical: 12,
     alignItems: "center",
   },
-  bioBtnCancelText: { fontFamily: "Cairo_700Bold", fontSize: 14, color: "#444" },
+  bioBtnCancelText: { fontFamily: "Cairo_700Bold", fontSize: 14, color: AppColors.gray700 },
 });
 
 const settStyles = StyleSheet.create({
-  label: { fontFamily: "Cairo_700Bold", fontSize: 13, color: "#374151", textAlign: "right", marginBottom: 6, marginTop: 14 },
+  label: { fontFamily: "Cairo_700Bold", fontSize: 13, color: AppColors.gray700, textAlign: "right", marginBottom: 6, marginTop: 14 },
   input: {
-    borderWidth: 1.5, borderColor: "#E5E7EB", borderRadius: 10,
+    borderWidth: 1.5, borderColor: AppColors.divider, borderRadius: 10,
     paddingHorizontal: 14, paddingVertical: 10,
-    fontFamily: "Cairo_400Regular", fontSize: 14, color: "#111",
-    textAlign: "right", backgroundColor: "#FAFAFA",
+    fontFamily: "Cairo_400Regular", fontSize: 14, color: AppColors.black,
+    textAlign: "right", backgroundColor: AppColors.gray50,
   },
   row: { flexDirection: "row-reverse", alignItems: "center", marginTop: 14, gap: 12 },
   toggle: { width: 44, height: 26, borderRadius: 13, justifyContent: "center" },
-  toggleThumb: { width: 22, height: 22, borderRadius: 11, backgroundColor: "#fff", shadowColor: "#000", shadowOpacity: 0.15, shadowRadius: 3, elevation: 2 },
-  toggleLabel: { fontFamily: "Cairo_700Bold", fontSize: 13, color: "#374151" },
+  toggleThumb: { width: 22, height: 22, borderRadius: 11, backgroundColor: AppColors.white, shadowColor: AppColors.black, shadowOpacity: 0.15, shadowRadius: 3, elevation: 2 },
+  toggleLabel: { fontFamily: "Cairo_700Bold", fontSize: 13, color: AppColors.gray700 },
   daysRow: { flexDirection: "row-reverse", gap: 6, flexWrap: "wrap", marginTop: 8 },
   dayBtn: { width: 38, height: 38, borderRadius: 19, justifyContent: "center", alignItems: "center", borderWidth: 1.5 },
   dayText: { fontFamily: "Cairo_700Bold", fontSize: 12 },

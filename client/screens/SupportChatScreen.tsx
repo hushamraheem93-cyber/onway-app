@@ -63,7 +63,7 @@ function MessageBubble({ msg }: { msg: SupportMessage }) {
     <View style={[styles.bubbleRow, isUser ? styles.bubbleRowUser : styles.bubbleRowAdmin]}>
       {!isUser ? (
         <View style={styles.adminAvatar}>
-          <Feather name="headphones" size={14} color="#FFFFFF" />
+          <Feather name="headphones" size={14} color={AppColors.white} />
         </View>
       ) : null}
 
@@ -105,10 +105,10 @@ function MessageBubble({ msg }: { msg: SupportMessage }) {
           </View>
         ) : (
           <>
-            <ThemedText type="body" style={[styles.bubbleText, isUser ? { color: "#FFFFFF" } : { color: theme.text }]}>
+            <ThemedText type="body" style={[styles.bubbleText, isUser ? { color: AppColors.white } : { color: theme.text }]}>
               {msg.text}
             </ThemedText>
-            <ThemedText type="small" style={[styles.bubbleTime, { color: isUser ? "rgba(255,255,255,0.7)" : theme.textSecondary }]}>
+            <ThemedText type="small" style={[styles.bubbleTime, { color: isUser ? AppColors.textOnBrandSubtle : theme.textSecondary }]}>
               {formatTime(msg.timestamp)}
             </ThemedText>
           </>
@@ -387,9 +387,9 @@ export default function SupportChatScreen() {
             testID="button-send-support"
           >
             {sending ? (
-              <ActivityIndicator size="small" color="#FFFFFF" />
+              <ActivityIndicator size="small" color={AppColors.white} />
             ) : (
-              <Feather name="send" size={18} color="#FFFFFF" />
+              <Feather name="send" size={18} color={AppColors.white} />
             )}
           </Pressable>
         </View>

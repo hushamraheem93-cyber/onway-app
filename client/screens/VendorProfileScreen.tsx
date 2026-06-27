@@ -23,9 +23,10 @@ import { useAuth } from "@/context/AuthContext";
 import { useTheme } from "@/hooks/useTheme";
 import { getApiUrl } from "@/lib/query-client";
 import { BUSINESS_LABELS } from "@/constants/businessCategories";
+import { AppColors } from "@/constants/theme";
 
-const ORANGE = "#E86520";
-const ORANGE_LIGHT = "#FFF0E6";
+const ORANGE = AppColors.primary;
+const ORANGE_LIGHT = AppColors.secondary;
 
 const DAY_LABELS = ["أحد", "إثنين", "ثلاثاء", "أربعاء", "خميس", "جمعة", "سبت"];
 
@@ -130,10 +131,10 @@ export default function VendorProfileScreen() {
   const avatarUrl = vendorProfile?.profileImageUrl
     ? new URL(vendorProfile.profileImageUrl, getApiUrl()).toString() : null;
 
-  const statusColor = vendorProfile?.status === "active" ? "#10B981"
-    : vendorProfile?.status === "pending" ? "#F59E0B" : "#EF4444";
-  const statusBg = vendorProfile?.status === "active" ? "#D1FAE5"
-    : vendorProfile?.status === "pending" ? "#FEF3C7" : "#FEE2E2";
+  const statusColor = vendorProfile?.status === "active" ? AppColors.success
+    : vendorProfile?.status === "pending" ? AppColors.warning : AppColors.error;
+  const statusBg = vendorProfile?.status === "active" ? AppColors.successLight
+    : vendorProfile?.status === "pending" ? AppColors.warningLight : AppColors.errorLight;
   const statusLabel = vendorProfile?.status === "active" ? "نشط"
     : vendorProfile?.status === "pending" ? "قيد المراجعة" : "موقوف";
 
@@ -150,12 +151,12 @@ export default function VendorProfileScreen() {
           {coverUrl ? (
             <Image source={{ uri: coverUrl }} style={styles.cover} resizeMode="cover" />
           ) : (
-            <View style={[styles.cover, { backgroundColor: "#F1F5F9", alignItems: "center", justifyContent: "center" }]}>
-              <MaterialCommunityIcons name="image-filter-hdr" size={32} color="#C4B5E0" />
+            <View style={[styles.cover, { backgroundColor: AppColors.gray50, alignItems: "center", justifyContent: "center" }]}>
+              <MaterialCommunityIcons name="image-filter-hdr" size={32} color={AppColors.vendorPurpleLight} />
             </View>
           )}
           <View style={styles.editCoverBtn}>
-            {uploadingCover ? <ActivityIndicator size="small" color="#fff" /> : <Feather name="camera" size={13} color="#fff" />}
+            {uploadingCover ? <ActivityIndicator size="small" color={AppColors.white} /> : <Feather name="camera" size={13} color={AppColors.white} />}
           </View>
         </Pressable>
 
@@ -166,13 +167,13 @@ export default function VendorProfileScreen() {
               <Image source={{ uri: avatarUrl }} style={styles.avatar} />
             ) : (
               <View style={[styles.avatar, { backgroundColor: ORANGE, alignItems: "center", justifyContent: "center" }]}>
-                <ThemedText style={{ fontSize: 26, color: "#fff", fontFamily: "Cairo_700Bold" }}>
+                <ThemedText style={{ fontSize: 26, color: AppColors.white, fontFamily: "Cairo_700Bold" }}>
                   {vendorProfile?.storeName?.[0] || "م"}
                 </ThemedText>
               </View>
             )}
             <View style={styles.editAvatarBtn}>
-              {uploadingAvatar ? <ActivityIndicator size="small" color="#fff" /> : <Feather name="camera" size={11} color="#fff" />}
+              {uploadingAvatar ? <ActivityIndicator size="small" color={AppColors.white} /> : <Feather name="camera" size={11} color={AppColors.white} />}
             </View>
           </Pressable>
           <View style={{ flex: 1 }}>
@@ -197,7 +198,7 @@ export default function VendorProfileScreen() {
 
         {vendorProfile?.address ? (
           <View style={styles.addrRow}>
-            <Feather name="map-pin" size={13} color="#999" />
+            <Feather name="map-pin" size={13} color={AppColors.gray400} />
             <ThemedText style={[styles.addrText, { color: theme.textSecondary }]}>{vendorProfile.address}</ThemedText>
           </View>
         ) : null}
@@ -228,8 +229,8 @@ export default function VendorProfileScreen() {
       {/* Rating */}
       {vendorProfile?.rating != null ? (
         <View style={[styles.card, styles.ratingRow, { backgroundColor: theme.backgroundDefault }]}>
-          <View style={[styles.settingsIcon, { backgroundColor: "#FEF9C3" }]}>
-            <MaterialCommunityIcons name="star" size={18} color="#EAB308" />
+          <View style={[styles.settingsIcon, { backgroundColor: AppColors.warningLight }]}>
+            <MaterialCommunityIcons name="star" size={18} color={AppColors.warning} />
           </View>
           <View style={{ flex: 1 }}>
             <ThemedText style={styles.settingsTitle}>تقييم المتجر</ThemedText>
@@ -252,8 +253,8 @@ export default function VendorProfileScreen() {
           }
         }}
       >
-        <View style={[styles.settingsIcon, { backgroundColor: "#EFF6FF" }]}>
-          <Feather name="help-circle" size={18} color="#3B82F6" />
+        <View style={[styles.settingsIcon, { backgroundColor: AppColors.infoLight }]}>
+          <Feather name="help-circle" size={18} color={AppColors.info} />
         </View>
         <ThemedText style={[styles.settingsTitle, { flex: 1 }]}>الدعم والمساعدة</ThemedText>
         <Feather name="chevron-left" size={18} color={theme.textSecondary} />
@@ -267,10 +268,10 @@ export default function VendorProfileScreen() {
         }}
         testID="button-vendor-logout"
       >
-        <View style={[styles.settingsIcon, { backgroundColor: "#FEE2E2" }]}>
-          <Feather name="log-out" size={18} color="#EF4444" />
+        <View style={[styles.settingsIcon, { backgroundColor: AppColors.errorLight }]}>
+          <Feather name="log-out" size={18} color={AppColors.error} />
         </View>
-        <ThemedText style={[styles.settingsTitle, { flex: 1, color: "#EF4444" }]}>تسجيل الخروج</ThemedText>
+        <ThemedText style={[styles.settingsTitle, { flex: 1, color: AppColors.error }]}>تسجيل الخروج</ThemedText>
       </Pressable>
 
       {/* Bio modal */}
@@ -279,21 +280,21 @@ export default function VendorProfileScreen() {
           <View style={[styles.modalBox, { backgroundColor: theme.backgroundDefault }]}>
             <ThemedText style={styles.modalTitle}>وصف المتجر</ThemedText>
             <TextInput
-              style={[styles.bioInput, { color: theme.text, borderColor: theme.border ?? "#E5E7EB" }]}
+              style={[styles.bioInput, { color: theme.text, borderColor: theme.border ?? AppColors.divider }]}
               value={bioText}
               onChangeText={setBioText}
               placeholder="أضف وصفاً لمتجرك..."
-              placeholderTextColor="#aaa"
+              placeholderTextColor={AppColors.gray400}
               multiline
               numberOfLines={4}
               textAlign="right"
             />
             <View style={styles.modalBtns}>
               <Pressable style={[styles.modalBtn, { backgroundColor: ORANGE }]} onPress={saveBio} disabled={savingBio}>
-                {savingBio ? <ActivityIndicator color="#fff" size="small" /> : <ThemedText style={styles.modalBtnText}>حفظ</ThemedText>}
+                {savingBio ? <ActivityIndicator color={AppColors.white} size="small" /> : <ThemedText style={styles.modalBtnText}>حفظ</ThemedText>}
               </Pressable>
-              <Pressable style={[styles.modalBtn, { backgroundColor: "#F3F4F6" }]} onPress={() => setBioModal(false)}>
-                <ThemedText style={[styles.modalBtnText, { color: "#374151" }]}>إلغاء</ThemedText>
+              <Pressable style={[styles.modalBtn, { backgroundColor: AppColors.gray100 }]} onPress={() => setBioModal(false)}>
+                <ThemedText style={[styles.modalBtnText, { color: AppColors.gray700 }]}>إلغاء</ThemedText>
               </Pressable>
             </View>
           </View>
@@ -308,26 +309,26 @@ export default function VendorProfileScreen() {
 
             <ThemedText style={styles.fieldLabel}>وقت التوصيل (دقائق)</ThemedText>
             <TextInput
-              style={[styles.input, { color: theme.text, borderColor: theme.border ?? "#E5E7EB" }]}
+              style={[styles.input, { color: theme.text, borderColor: theme.border ?? AppColors.divider }]}
               value={settDeliveryTime}
               onChangeText={setSettDeliveryTime}
               placeholder="مثال: 30-45"
-              placeholderTextColor="#aaa"
+              placeholderTextColor={AppColors.gray400}
               textAlign="right"
             />
             <ThemedText style={styles.fieldLabel}>أجرة التوصيل (د.ع)</ThemedText>
             <TextInput
-              style={[styles.input, { color: theme.text, borderColor: theme.border ?? "#E5E7EB" }]}
+              style={[styles.input, { color: theme.text, borderColor: theme.border ?? AppColors.divider }]}
               value={settDeliveryPrice}
               onChangeText={setSettDeliveryPrice}
               keyboardType="numeric"
               placeholder="0"
-              placeholderTextColor="#aaa"
+              placeholderTextColor={AppColors.gray400}
               textAlign="right"
             />
 
             <Pressable style={styles.toggleRow} onPress={() => setSettingsUseHours(!settingsUseHours)}>
-              <View style={[styles.toggle, { backgroundColor: settingsUseHours ? ORANGE : "#E5E7EB" }]}>
+              <View style={[styles.toggle, { backgroundColor: settingsUseHours ? ORANGE : AppColors.divider }]}>
                 <View style={[styles.toggleThumb, { left: settingsUseHours ? 18 : 2 }]} />
               </View>
               <ThemedText style={styles.toggleLabel}>تحديد ساعات العمل</ThemedText>
@@ -338,22 +339,22 @@ export default function VendorProfileScreen() {
                 <View style={{ flex: 1 }}>
                   <ThemedText style={styles.fieldLabel}>فتح</ThemedText>
                   <TextInput
-                    style={[styles.input, { color: theme.text, borderColor: theme.border ?? "#E5E7EB" }]}
+                    style={[styles.input, { color: theme.text, borderColor: theme.border ?? AppColors.divider }]}
                     value={settOpenTime}
                     onChangeText={setSettOpenTime}
                     placeholder="09:00"
-                    placeholderTextColor="#aaa"
+                    placeholderTextColor={AppColors.gray400}
                     textAlign="right"
                   />
                 </View>
                 <View style={{ flex: 1 }}>
                   <ThemedText style={styles.fieldLabel}>إغلاق</ThemedText>
                   <TextInput
-                    style={[styles.input, { color: theme.text, borderColor: theme.border ?? "#E5E7EB" }]}
+                    style={[styles.input, { color: theme.text, borderColor: theme.border ?? AppColors.divider }]}
                     value={settCloseTime}
                     onChangeText={setSettCloseTime}
                     placeholder="22:00"
-                    placeholderTextColor="#aaa"
+                    placeholderTextColor={AppColors.gray400}
                     textAlign="right"
                   />
                 </View>
@@ -370,7 +371,7 @@ export default function VendorProfileScreen() {
                       style={[styles.dayBtn, on && { backgroundColor: ORANGE, borderColor: ORANGE }]}
                       onPress={() => setSettOpenDays(prev => on ? prev.filter(x => x !== i) : [...prev, i])}
                     >
-                      <ThemedText style={[styles.dayText, on && { color: "#fff" }]}>{d}</ThemedText>
+                      <ThemedText style={[styles.dayText, on && { color: AppColors.white }]}>{d}</ThemedText>
                     </Pressable>
                   );
                 })}
@@ -379,10 +380,10 @@ export default function VendorProfileScreen() {
 
             <View style={styles.modalBtns}>
               <Pressable style={[styles.modalBtn, { backgroundColor: ORANGE }]} onPress={saveSettings} disabled={savingSettings}>
-                {savingSettings ? <ActivityIndicator color="#fff" size="small" /> : <ThemedText style={styles.modalBtnText}>حفظ</ThemedText>}
+                {savingSettings ? <ActivityIndicator color={AppColors.white} size="small" /> : <ThemedText style={styles.modalBtnText}>حفظ</ThemedText>}
               </Pressable>
-              <Pressable style={[styles.modalBtn, { backgroundColor: "#F3F4F6" }]} onPress={() => setSettingsModal(false)}>
-                <ThemedText style={[styles.modalBtnText, { color: "#374151" }]}>إلغاء</ThemedText>
+              <Pressable style={[styles.modalBtn, { backgroundColor: AppColors.gray100 }]} onPress={() => setSettingsModal(false)}>
+                <ThemedText style={[styles.modalBtnText, { color: AppColors.gray700 }]}>إلغاء</ThemedText>
               </Pressable>
             </View>
           </View>
@@ -393,15 +394,15 @@ export default function VendorProfileScreen() {
 }
 
 const styles = StyleSheet.create({
-  sectionLabel: { fontFamily: "Cairo_700Bold", fontSize: 14, color: "#9CA3AF", textAlign: "right", marginTop: 4 },
-  card: { borderRadius: 16, overflow: "hidden", shadowColor: "#000", shadowOpacity: 0.05, shadowRadius: 8, shadowOffset: { width: 0, height: 2 }, elevation: 2 },
+  sectionLabel: { fontFamily: "Cairo_700Bold", fontSize: 14, color: AppColors.gray400, textAlign: "right", marginTop: 4 },
+  card: { borderRadius: 16, overflow: "hidden", shadowColor: AppColors.black, shadowOpacity: 0.05, shadowRadius: 8, shadowOffset: { width: 0, height: 2 }, elevation: 2 },
   coverWrap: { width: "100%", height: 120, position: "relative" },
   cover: { width: "100%", height: 120 },
-  editCoverBtn: { position: "absolute", bottom: 8, left: 8, backgroundColor: "rgba(0,0,0,0.5)", borderRadius: 14, padding: 6 },
+  editCoverBtn: { position: "absolute", bottom: 8, left: 8, backgroundColor: AppColors.overlay, borderRadius: 14, padding: 6 },
   avatarRow: { flexDirection: "row-reverse", alignItems: "center", gap: 14, padding: 16 },
   avatarWrap: { position: "relative" },
-  avatar: { width: 72, height: 72, borderRadius: 36, borderWidth: 3, borderColor: "#fff" },
-  editAvatarBtn: { position: "absolute", bottom: 0, left: 0, backgroundColor: ORANGE, borderRadius: 10, padding: 5, borderWidth: 2, borderColor: "#fff" },
+  avatar: { width: 72, height: 72, borderRadius: 36, borderWidth: 3, borderColor: AppColors.white },
+  editAvatarBtn: { position: "absolute", bottom: 0, left: 0, backgroundColor: ORANGE, borderRadius: 10, padding: 5, borderWidth: 2, borderColor: AppColors.white },
   storeName: { fontFamily: "Cairo_700Bold", fontSize: 17, textAlign: "right" },
   bizType: { fontFamily: "Cairo_400Regular", fontSize: 13, textAlign: "right" },
   statusBadge: { flexDirection: "row", alignItems: "center", gap: 5, paddingHorizontal: 10, paddingVertical: 3, borderRadius: 12, alignSelf: "flex-end", marginTop: 4 },
@@ -416,23 +417,23 @@ const styles = StyleSheet.create({
   settingsIcon: { width: 38, height: 38, borderRadius: 10, alignItems: "center", justifyContent: "center" },
   settingsTitle: { fontFamily: "Cairo_700Bold", fontSize: 14, textAlign: "right" },
   settingsSub: { fontFamily: "Cairo_400Regular", fontSize: 12, textAlign: "right", marginTop: 2 },
-  ratingBig: { fontFamily: "Cairo_700Bold", fontSize: 22, color: "#EAB308" },
-  logoutRow: { borderWidth: 1, borderColor: "#FEE2E2", backgroundColor: "#FFF5F5" },
-  modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "center", alignItems: "center", padding: 20 },
+  ratingBig: { fontFamily: "Cairo_700Bold", fontSize: 22, color: AppColors.warning },
+  logoutRow: { borderWidth: 1, borderColor: AppColors.errorLight, backgroundColor: AppColors.errorLight },
+  modalOverlay: { flex: 1, backgroundColor: AppColors.overlay, justifyContent: "center", alignItems: "center", padding: 20 },
   modalBox: { width: "100%", borderRadius: 20, padding: 20, gap: 12 },
   modalTitle: { fontFamily: "Cairo_700Bold", fontSize: 17, textAlign: "center", marginBottom: 4 },
-  fieldLabel: { fontFamily: "Cairo_700Bold", fontSize: 12, color: "#6B7280", textAlign: "right", marginBottom: 4 },
+  fieldLabel: { fontFamily: "Cairo_700Bold", fontSize: 12, color: AppColors.gray500, textAlign: "right", marginBottom: 4 },
   input: { borderWidth: 1.5, borderRadius: 10, padding: 10, fontFamily: "Cairo_400Regular", fontSize: 14, textAlign: "right" },
   bioInput: { borderWidth: 1.5, borderRadius: 10, padding: 10, fontFamily: "Cairo_400Regular", fontSize: 14, textAlign: "right", minHeight: 100, textAlignVertical: "top" },
   toggleRow: { flexDirection: "row-reverse", alignItems: "center", gap: 10, paddingVertical: 4 },
   toggle: { width: 44, height: 26, borderRadius: 13, position: "relative" },
-  toggleThumb: { position: "absolute", top: 3, width: 20, height: 20, borderRadius: 10, backgroundColor: "#fff", shadowColor: "#000", shadowOpacity: 0.2, shadowRadius: 2, elevation: 2 },
+  toggleThumb: { position: "absolute", top: 3, width: 20, height: 20, borderRadius: 10, backgroundColor: AppColors.white, shadowColor: AppColors.black, shadowOpacity: 0.2, shadowRadius: 2, elevation: 2 },
   toggleLabel: { fontFamily: "Cairo_700Bold", fontSize: 13 },
   timeRow: { flexDirection: "row-reverse", gap: 10 },
   daysRow: { flexDirection: "row-reverse", flexWrap: "wrap", gap: 6 },
-  dayBtn: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, borderWidth: 1.5, borderColor: "#E5E7EB" },
-  dayText: { fontFamily: "Cairo_700Bold", fontSize: 11, color: "#6B7280" },
+  dayBtn: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, borderWidth: 1.5, borderColor: AppColors.divider },
+  dayText: { fontFamily: "Cairo_700Bold", fontSize: 11, color: AppColors.gray500 },
   modalBtns: { flexDirection: "row-reverse", gap: 10, marginTop: 4 },
   modalBtn: { flex: 1, borderRadius: 12, paddingVertical: 12, alignItems: "center" },
-  modalBtnText: { fontFamily: "Cairo_700Bold", fontSize: 14, color: "#fff" },
+  modalBtnText: { fontFamily: "Cairo_700Bold", fontSize: 14, color: AppColors.white },
 });

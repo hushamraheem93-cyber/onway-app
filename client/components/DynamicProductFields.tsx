@@ -3,9 +3,10 @@ import { View, TextInput, StyleSheet, Switch, Platform } from "react-native";
 import { Picker } from "@react-native-picker/picker";
 import { ThemedText } from "@/components/ThemedText";
 import { DYNAMIC_FIELDS, DynamicFieldConfig } from "@/constants/businessCategories";
+import { AppColors } from "@/constants/theme";
 
-const ORANGE = "#E86520";
-const PURPLE = "#673AB7";
+const ORANGE = AppColors.primary;
+const PURPLE = AppColors.vendorPurple;
 
 interface Props {
   businessType: string;
@@ -33,8 +34,8 @@ export default function DynamicProductFields({ businessType, values, onChange }:
               <Switch
                 value={isOn}
                 onValueChange={(v) => onChange(field.key, v ? "true" : "false")}
-                trackColor={{ false: "#E5E7EB", true: ORANGE }}
-                thumbColor="#fff"
+                trackColor={{ false: AppColors.divider, true: ORANGE }}
+                thumbColor={AppColors.white}
               />
               <ThemedText style={styles.toggleLabel}>{field.label}</ThemedText>
             </View>
@@ -73,7 +74,7 @@ export default function DynamicProductFields({ businessType, values, onChange }:
               value={value}
               onChangeText={(v) => onChange(field.key, v)}
               placeholder={field.placeholder || ""}
-              placeholderTextColor="#bbb"
+              placeholderTextColor={AppColors.gray300}
               keyboardType={field.type === "number" ? "numeric" : "default"}
               textAlign="right"
               testID={`input-extra-${field.key}`}
@@ -88,11 +89,11 @@ export default function DynamicProductFields({ businessType, values, onChange }:
 const styles = StyleSheet.create({
   container: {
     borderWidth: 1.5,
-    borderColor: "#EDE9FE",
+    borderColor: AppColors.vendorPurpleLight,
     borderRadius: 14,
     padding: 14,
     marginBottom: 14,
-    backgroundColor: "#FAFAFF",
+    backgroundColor: AppColors.gray50,
   },
   sectionHeader: {
     flexDirection: "row",
@@ -100,7 +101,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     paddingBottom: 8,
     borderBottomWidth: 1,
-    borderBottomColor: "#EDE9FE",
+    borderBottomColor: AppColors.vendorPurpleLight,
   },
   sectionTitle: {
     fontFamily: "Cairo_700Bold",
@@ -112,7 +113,7 @@ const styles = StyleSheet.create({
   label: {
     fontFamily: "Cairo_700Bold",
     fontSize: 13,
-    color: "#444",
+    color: AppColors.gray700,
     textAlign: "right",
     marginBottom: 6,
     marginTop: 4,
@@ -120,32 +121,32 @@ const styles = StyleSheet.create({
   unit: {
     fontFamily: "Cairo_400Regular",
     fontSize: 11,
-    color: "#888",
+    color: AppColors.gray500,
   },
   input: {
     borderWidth: 1.5,
-    borderColor: "#E5E7EB",
+    borderColor: AppColors.divider,
     borderRadius: 12,
     paddingHorizontal: 14,
     paddingVertical: 11,
     fontFamily: "Cairo_400Regular",
     fontSize: 14,
-    color: "#111",
+    color: AppColors.black,
     textAlign: "right",
     marginBottom: 12,
-    backgroundColor: "#fff",
+    backgroundColor: AppColors.white,
   },
   pickerWrap: {
     borderWidth: 1.5,
-    borderColor: "#E5E7EB",
+    borderColor: AppColors.divider,
     borderRadius: 12,
     marginBottom: 12,
-    backgroundColor: "#fff",
+    backgroundColor: AppColors.white,
     overflow: "hidden",
   },
   picker: {
     height: Platform.OS === "ios" ? 140 : 50,
-    color: "#111",
+    color: AppColors.black,
   },
   toggleRow: {
     flexDirection: "row",
@@ -157,7 +158,7 @@ const styles = StyleSheet.create({
   toggleLabel: {
     fontFamily: "Cairo_700Bold",
     fontSize: 13,
-    color: "#444",
+    color: AppColors.gray700,
     textAlign: "right",
   },
 });

@@ -3,8 +3,8 @@ import { View, StyleSheet } from "react-native";
 import Animated, {
   useAnimatedStyle,
   withTiming,
-  interpolateColor,
 } from "react-native-reanimated";
+import { AppColors } from "@/constants/theme";
 
 interface Props {
   count: number;
@@ -41,6 +41,6 @@ const styles = StyleSheet.create({
   dot: {
     height: 8,
     borderRadius: 4,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: AppColors.white,
   },
 });

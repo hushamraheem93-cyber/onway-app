@@ -122,7 +122,7 @@ export default function ProfileScreen() {
             />
           ) : (
             <View style={[styles.avatar, { backgroundColor: AppColors.primary }]}>
-              <Feather name="user" size={40} color="#FFFFFF" />
+              <Feather name="user" size={40} color={AppColors.white} />
             </View>
           )}
           <ThemedText type="h2" style={styles.name}>
@@ -197,10 +197,10 @@ export default function ProfileScreen() {
         />
         <SettingsItem
           icon="trash-2"
-          iconBg="#FEE2E2"
-          iconColor="#EF4444"
+          iconBg={AppColors.errorLight}
+          iconColor={AppColors.error}
           title="حذف الحساب"
-          titleColor="#EF4444"
+          titleColor={AppColors.error}
           onPress={() => {
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
             setShowDeleteModal(true);
@@ -217,7 +217,7 @@ export default function ProfileScreen() {
           <View style={styles.modalOverlay}>
             <View style={[styles.modalCard, { backgroundColor: theme.backgroundDefault }]}>
               <View style={styles.modalIconWrap}>
-                <Feather name="alert-triangle" size={32} color="#EF4444" />
+                <Feather name="alert-triangle" size={32} color={AppColors.error} />
               </View>
               <ThemedText type="h3" style={styles.modalTitle}>
                 مسح الحساب
@@ -240,7 +240,7 @@ export default function ProfileScreen() {
                 ]}
               >
                 {isDeleting ? (
-                  <ActivityIndicator color="#fff" size="small" />
+                  <ActivityIndicator color={AppColors.white} size="small" />
                 ) : (
                   <ThemedText type="body" style={styles.modalDeleteBtnText}>
                     نعم، امسح حسابي
@@ -298,8 +298,8 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     marginBottom: Spacing.lg,
     borderWidth: 3,
-    borderColor: "#FFFFFF",
-    shadowColor: "#000",
+    borderColor: AppColors.white,
+    shadowColor: AppColors.black,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.15,
     shadowRadius: 8,
@@ -312,8 +312,8 @@ const styles = StyleSheet.create({
     borderRadius: 50,
     marginBottom: Spacing.lg,
     borderWidth: 3,
-    borderColor: "#FFFFFF",
-    shadowColor: "#000",
+    borderColor: AppColors.white,
+    shadowColor: AppColors.black,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.15,
     shadowRadius: 8,
@@ -363,7 +363,7 @@ const styles = StyleSheet.create({
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.5)",
+    backgroundColor: AppColors.overlay,
     justifyContent: "center",
     alignItems: "center",
     padding: Spacing.xl,
@@ -378,7 +378,7 @@ const styles = StyleSheet.create({
     width: 64,
     height: 64,
     borderRadius: 32,
-    backgroundColor: "#FEE2E2",
+    backgroundColor: AppColors.errorLight,
     alignItems: "center",
     justifyContent: "center",
     marginBottom: Spacing.lg,
@@ -393,13 +393,13 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.lg,
   },
   errorText: {
-    color: "#EF4444",
+    color: AppColors.error,
     textAlign: "center",
     marginBottom: Spacing.md,
   },
   modalDeleteBtn: {
     width: "100%",
-    backgroundColor: "#EF4444",
+    backgroundColor: AppColors.error,
     borderRadius: BorderRadius.lg,
     paddingVertical: Spacing.md,
     alignItems: "center",
@@ -408,7 +408,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   modalDeleteBtnText: {
-    color: "#fff",
+    color: AppColors.white,
     fontFamily: "Cairo_700Bold",
     textAlign: "center",
   },

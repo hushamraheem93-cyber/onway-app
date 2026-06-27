@@ -19,8 +19,9 @@ import { Feather } from "@expo/vector-icons";
 import { ThemedText } from "@/components/ThemedText";
 import { useAuth } from "@/context/AuthContext";
 import { useNavigation } from "@react-navigation/native";
+import { AppColors } from "@/constants/theme";
 
-const BRAND_ORANGE = "#E86520";
+const BRAND_ORANGE = AppColors.primary;
 
 export default function PhoneLoginScreen() {
   const { sendOtp } = useAuth();
@@ -92,7 +93,7 @@ export default function PhoneLoginScreen() {
               }}
               testID="button-back"
             >
-              <Feather name="arrow-right" size={22} color="#FFFFFF" />
+              <Feather name="arrow-right" size={22} color={AppColors.white} />
             </Pressable>
           ) : null}
 
@@ -133,7 +134,7 @@ export default function PhoneLoginScreen() {
 
             {error ? (
               <View style={styles.errorRow}>
-                <Feather name="alert-circle" size={14} color="#FFFFFF" />
+                <Feather name="alert-circle" size={14} color={AppColors.white} />
                 <ThemedText style={styles.errorText}>{error}</ThemedText>
               </View>
             ) : null}
@@ -243,7 +244,7 @@ const styles = StyleSheet.create({
   logoText: {
     fontFamily: "Montserrat_800ExtraBold",
     fontSize: 28,
-    color: "#FFFFFF",
+    color: AppColors.white,
     textAlign: "center",
     letterSpacing: 1,
     writingDirection: "ltr",
@@ -253,7 +254,7 @@ const styles = StyleSheet.create({
   tagline: {
     fontFamily: "Cairo_600SemiBold",
     fontSize: 13,
-    color: "rgba(255,255,255,0.8)",
+    color: AppColors.textOnBrandMuted,
     textAlign: "center",
   },
   formBlock: {
@@ -262,7 +263,7 @@ const styles = StyleSheet.create({
   },
   phoneRow: {
     flexDirection: "row",
-    backgroundColor: "#FFFFFF",
+    backgroundColor: AppColors.white,
     borderRadius: 12,
     height: 56,
     alignItems: "center",
@@ -271,7 +272,7 @@ const styles = StyleSheet.create({
   phoneInput: {
     flex: 1,
     fontSize: 13,
-    color: "#333",
+    color: AppColors.gray700,
     textAlign: "left",
     fontFamily: "Cairo_600SemiBold",
   },
@@ -281,12 +282,12 @@ const styles = StyleSheet.create({
     gap: 6,
     paddingLeft: 12,
     borderLeftWidth: 1,
-    borderLeftColor: "#EEE",
+    borderLeftColor: AppColors.divider,
   },
   countryCode: {
     fontFamily: "Cairo_700Bold",
     fontSize: 14,
-    color: "#333",
+    color: AppColors.gray700,
   },
   flag: {
     width: 22,
@@ -302,19 +303,19 @@ const styles = StyleSheet.create({
   },
   errorText: {
     fontFamily: "Cairo_400Regular",
-    color: "#FFFFFF",
+    color: AppColors.white,
     fontSize: 13,
   },
   submitBtn: {
     width: "100%",
-    backgroundColor: "#FFFFFF",
+    backgroundColor: AppColors.white,
     borderRadius: 12,
     paddingVertical: 16,
     alignItems: "center",
     justifyContent: "center",
     ...Platform.select({
       ios: {
-        shadowColor: "#000",
+        shadowColor: AppColors.black,
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.1,
         shadowRadius: 6,
@@ -356,7 +357,7 @@ const styles = StyleSheet.create({
     width: "100%",
   },
   forgotPasswordText: {
-    color: "#FFFFFF",
+    color: AppColors.white,
     fontSize: 14,
     textDecorationLine: "underline",
     marginBottom: 30,
@@ -367,12 +368,12 @@ const styles = StyleSheet.create({
     marginTop: 10,
   },
   whiteText: {
-    color: "#FFFFFF",
+    color: AppColors.white,
     fontSize: 12,
     fontFamily: "Cairo_400Regular",
   },
   signUpText: {
-    color: "#FFFFFF",
+    color: AppColors.white,
     fontSize: 12,
     fontWeight: "bold",
     textDecorationLine: "underline",
@@ -380,13 +381,13 @@ const styles = StyleSheet.create({
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.5)",
+    backgroundColor: AppColors.overlay,
     justifyContent: "center",
     alignItems: "center",
     paddingHorizontal: 32,
   },
   modalContent: {
-    backgroundColor: "#FFFFFF",
+    backgroundColor: AppColors.white,
     borderRadius: 16,
     paddingVertical: 28,
     paddingHorizontal: 24,
@@ -397,14 +398,14 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontFamily: "Cairo_700Bold",
     fontSize: 14,
-    color: "#333",
+    color: AppColors.gray700,
     textAlign: "center",
     marginBottom: 12,
   },
   modalMessage: {
     fontFamily: "Cairo_400Regular",
     fontSize: 12,
-    color: "#555",
+    color: AppColors.gray500,
     textAlign: "center",
     lineHeight: 24,
     marginBottom: 24,
@@ -418,6 +419,6 @@ const styles = StyleSheet.create({
   modalButtonText: {
     fontFamily: "Cairo_700Bold",
     fontSize: 12,
-    color: "#FFFFFF",
+    color: AppColors.white,
   },
 });

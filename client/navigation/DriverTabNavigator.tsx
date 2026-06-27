@@ -35,7 +35,7 @@ function DriverTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
       style={[
         styles.tabContainer,
         {
-          backgroundColor: isDark ? theme.backgroundDefault : "#FFFFFF",
+          backgroundColor: isDark ? theme.backgroundDefault : AppColors.white,
           paddingBottom: insets.bottom > 0 ? insets.bottom : 10,
         },
       ]}
@@ -62,7 +62,7 @@ function DriverTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
           return (
             <Pressable key={route.key} onPress={onPress} style={styles.mainButtonContainer}>
               <View style={styles.mainButton}>
-                <Feather name="home" size={28} color="#000000" />
+                <Feather name="home" size={28} color={AppColors.black} />
               </View>
             </Pressable>
           );
@@ -73,7 +73,7 @@ function DriverTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
             <Feather
               name={config.icon}
               size={24}
-              color={isFocused ? AppColors.onGrey : "#8E8E93"}
+              color={isFocused ? AppColors.onGrey : AppColors.gray400}
             />
             {isFocused ? <View style={styles.activeDot} /> : null}
           </Pressable>
@@ -106,7 +106,7 @@ const styles = StyleSheet.create({
     height: 70,
     borderTopLeftRadius: 25,
     borderTopRightRadius: 25,
-    shadowColor: "#000",
+    shadowColor: AppColors.shadowColor,
     shadowOffset: { width: 0, height: -2 },
     shadowOpacity: 0.1,
     shadowRadius: 10,
@@ -133,22 +133,22 @@ const styles = StyleSheet.create({
     width: 60,
     height: 60,
     borderRadius: 30,
-    backgroundColor: AppColors.wayYellow,
+    backgroundColor: AppColors.primary,
     justifyContent: "center",
     alignItems: "center",
-    shadowColor: AppColors.wayYellow,
+    shadowColor: AppColors.primary,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.4,
     shadowRadius: 5,
     elevation: 10,
     borderWidth: 4,
-    borderColor: "#FFFFFF",
+    borderColor: AppColors.white,
   },
   activeDot: {
     width: 5,
     height: 5,
     borderRadius: 2.5,
-    backgroundColor: AppColors.wayYellow,
+    backgroundColor: AppColors.primary,
     marginTop: 4,
   },
 });
