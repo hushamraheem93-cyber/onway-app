@@ -17,17 +17,10 @@ import * as Haptics from "expo-haptics";
 import { ThemedText } from "@/components/ThemedText";
 import { useAuth } from "@/context/AuthContext";
 import { getApiUrl } from "@/lib/query-client";
+import { BUSINESS_TYPES } from "@/constants/businessCategories";
 
 const ORANGE = "#E86520";
 const PURPLE = "#673AB7";
-
-const BUSINESS_TYPES = [
-  { label: "مطعم / وجبات", value: "restaurant" },
-  { label: "سوبرماركت / بقالة", value: "supermarket" },
-  { label: "صيدلية", value: "pharmacy" },
-  { label: "مخبز / حلويات", value: "bakery" },
-  { label: "أخرى", value: "other" },
-];
 
 export default function VendorRegistrationScreen() {
   const insets = useSafeAreaInsets();

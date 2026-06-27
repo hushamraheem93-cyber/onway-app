@@ -28,6 +28,7 @@ type MCIcon = ComponentProps<typeof MaterialCommunityIcons>["name"];
 
 import { ThemedText } from "@/components/ThemedText";
 import { useAuth } from "@/context/AuthContext";
+import { BUSINESS_LABELS } from "@/constants/businessCategories";
 import { useVendorNotifications } from "@/context/VendorNotificationsContext";
 import { getApiUrl } from "@/lib/query-client";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
@@ -78,14 +79,6 @@ function notifColor(type: string): {
     return { bg: "#FFF5F5", border: "#FECACA", icon: "close-circle", iconColor: "#DC2626" };
   return { bg: "#FFF5EE", border: "#FFCBA4", icon: "bell", iconColor: ORANGE };
 }
-
-const BUSINESS_LABELS: Record<string, string> = {
-  restaurant: "مطعم",
-  supermarket: "سوبرماركت",
-  pharmacy: "صيدلية",
-  bakery: "مخبز",
-  other: "متجر",
-};
 
 export default function VendorHomeScreen({ navigation }: any) {
   const headerHeight = useHeaderHeight();

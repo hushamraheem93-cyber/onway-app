@@ -23,39 +23,14 @@ import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import { ThemedText } from "@/components/ThemedText";
 import { useAuth } from "@/context/AuthContext";
 import { getApiUrl } from "@/lib/query-client";
+import { CATEGORY_MAP, ALL_CATEGORIES, PRODUCT_NAME_PLACEHOLDER } from "@/constants/businessCategories";
+import DynamicProductFields from "@/components/DynamicProductFields";
 
 const ORANGE = "#E86520";
 const ORANGE_LIGHT = "#FFF0E6";
 const AMBER = "#D97706";
 const MAX_IMAGES = 5;
 const THUMB_SIZE = 88;
-
-const CATEGORY_MAP: Record<string, string[]> = {
-  restaurant: [
-    "وجبات رئيسية", "مقبلات وسلطات", "شاورما وسندويشات", "برجر وبيتزا",
-    "مشروبات ساخنة", "مشروبات باردة", "حلويات وآيس كريم", "أطباق خاصة",
-  ],
-  supermarket: [
-    "مواد غذائية", "خضار وفواكه", "منتجات الألبان والبيض", "مشروبات",
-    "أطعمة معلبة", "حبوب وبقوليات", "أطعمة مجمدة", "منظفات ومواد تنظيف",
-    "منتجات العناية الشخصية", "منتجات الأطفال", "وجبات خفيفة وشيبس", "أخرى",
-  ],
-  pharmacy: [
-    "أدوية عامة", "مسكنات وخافضات حرارة", "فيتامينات ومكملات",
-    "مستلزمات طبية", "مستحضرات تجميل", "منتجات الأم والطفل",
-    "أدوية مزمنة", "صحة العيون", "أخرى",
-  ],
-  bakery: [
-    "خبز وأرغفة", "كعك وبسكويت", "معجنات وفطاير", "حلويات شرقية",
-    "تورتات وكيك", "كنافة وعباسية", "حلويات غربية", "عروض مناسبات",
-  ],
-  other: [
-    "منتجات غذائية", "منتجات منزلية", "ملابس وأكسسوارات",
-    "إلكترونيات", "عطور ومستحضرات", "مواد بناء", "أخرى",
-  ],
-};
-
-const ALL_CATEGORIES = Array.from(new Set(Object.values(CATEGORY_MAP).flat()));
 const UNITS = ["قطعة", "كيلو", "غرام", "لتر", "مل", "علبة", "كرتون", "دستة", "باكيج"];
 
 export default function VendorAddProductScreen({ navigation }: any) {
@@ -73,6 +48,7 @@ export default function VendorAddProductScreen({ navigation }: any) {
   const [category, setCategory] = useState(categories[0]);
   const [unit, setUnit] = useState(UNITS[0]);
   const [imageUris, setImageUris] = useState<string[]>([]);
+  const [dynamicData, setDynamicData] = useState<Record<string, string>>({});
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
@@ -167,6 +143,9 @@ export default function VendorAddProductScreen({ navigation }: any) {
       formData.append("category", category);
       formData.append("stock", stock || "0");
       formData.append("unit", unit);
+      if (Object.keys(dynamicData).length > 0) {
+        formData.append("extraData", JSON.stringify(dynamicData));
+      }
 
       const compressedUris = await Promise.all(
         imageUris.map(async (uri) => {
@@ -363,13 +342,7 @@ export default function VendorAddProductScreen({ navigation }: any) {
         style={styles.input}
         value={name}
         onChangeText={setName}
-        placeholder={
-          businessType === "restaurant" ? "مثال: برجر دجاج كريسبي" :
-          businessType === "supermarket" ? "مثال: أرز بسمتي 5 كيلو" :
-          businessType === "pharmacy" ? "مثال: فيتامين C 1000mg" :
-          businessType === "bakery" ? "مثال: كنافة بالجبن" :
-          "اسم المنتج"
-        }
+        placeholder={PRODUCT_NAME_PLACEHOLDER[businessType] || "اسم المنتج"}
         placeholderTextColor="#bbb"
         testID="input-name"
       />
@@ -426,6 +399,12 @@ export default function VendorAddProductScreen({ navigation }: any) {
           ))}
         </Picker>
       </View>
+
+      <DynamicProductFields
+        businessType={businessType}
+        values={dynamicData}
+        onChange={(key, value) => setDynamicData((prev) => ({ ...prev, [key]: value }))}
+      />
 
       <ThemedText style={styles.label}>وحدة القياس</ThemedText>
       <View style={styles.pickerWrap}>

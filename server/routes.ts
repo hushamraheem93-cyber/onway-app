@@ -5196,6 +5196,65 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ── Business Categories (vendor types + product categories per type) ────────
+  app.get("/api/admin/business-categories", async (req: Request, res: Response) => {
+    try {
+      const db = getFirestore();
+      if (!db) return res.json({ config: {} });
+      const snap = await db.collection("businessCategoryConfig").get();
+      const config: Record<string, any> = {};
+      snap.docs.forEach((d) => { config[d.id] = d.data(); });
+      res.json({ config });
+    } catch (err) {
+      console.error("GET business-categories:", err);
+      res.json({ config: {} });
+    }
+  });
+
+  app.put("/api/admin/business-categories/:key", async (req: Request, res: Response) => {
+    try {
+      const db = getFirestore();
+      if (!db) return res.status(500).json({ error: "DB unavailable" });
+      const { key } = req.params as { key: string };
+      const { label, categories } = req.body as { label: string; categories: string[] };
+      if (!key || !label || !Array.isArray(categories)) {
+        return res.status(400).json({ error: "label and categories are required" });
+      }
+      await db.collection("businessCategoryConfig").doc(key).set({ label, categories }, { merge: true });
+      res.json({ success: true });
+    } catch (err) {
+      console.error("PUT business-categories:", err);
+      res.status(500).json({ error: "Server error" });
+    }
+  });
+
+  app.patch("/api/admin/business-categories/:key/toggle", async (req: Request, res: Response) => {
+    try {
+      const db = getFirestore();
+      if (!db) return res.status(500).json({ error: "DB unavailable" });
+      const { key } = req.params as { key: string };
+      const { enabled } = req.body as { enabled: boolean };
+      await db.collection("businessCategoryConfig").doc(key).set({ enabled }, { merge: true });
+      res.json({ success: true });
+    } catch (err) {
+      console.error("PATCH business-categories toggle:", err);
+      res.status(500).json({ error: "Server error" });
+    }
+  });
+
+  app.delete("/api/admin/business-categories/:key", async (req: Request, res: Response) => {
+    try {
+      const db = getFirestore();
+      if (!db) return res.status(500).json({ error: "DB unavailable" });
+      const { key } = req.params as { key: string };
+      await db.collection("businessCategoryConfig").doc(key).delete();
+      res.json({ success: true });
+    } catch (err) {
+      console.error("DELETE business-categories:", err);
+      res.status(500).json({ error: "Server error" });
+    }
+  });
+
   // ── GET /api/admin/ratings-dashboard — top/worst rated + recent comments ───
   app.get("/api/admin/ratings-dashboard", async (req: Request, res: Response) => {
     try {

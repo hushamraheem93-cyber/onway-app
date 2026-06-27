@@ -476,6 +476,12 @@ router.post(
       const now = new Date().toISOString();
       const vData = vDoc.data() as any;
 
+      const extraDataRaw = req.body.extraData;
+      let extraData: Record<string, string> | undefined;
+      if (extraDataRaw) {
+        try { extraData = JSON.parse(extraDataRaw); } catch {}
+      }
+
       await db.collection("vendorProducts").doc(pid).set({
         id: pid,
         vendorId: vid,
@@ -493,6 +499,7 @@ router.post(
         status: "approved",
         createdAt: now,
         updatedAt: now,
+        ...(extraData ? { extraData } : {}),
       });
 
       res.status(201).json({
@@ -585,6 +592,9 @@ router.put(
       if (category) updates.category = category;
       if (stock !== undefined) updates.stock = parseInt(stock);
       if (unit) updates.unit = unit;
+      if (req.body.extraData) {
+        try { updates.extraData = JSON.parse(req.body.extraData); } catch {}
+      }
 
       const currentData = doc.data() as any;
       const storedUrls: string[] = currentData.imageUrls && currentData.imageUrls.length > 0

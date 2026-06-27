@@ -22,17 +22,10 @@ import { ThemedText } from "@/components/ThemedText";
 import { useAuth } from "@/context/AuthContext";
 import { useTheme } from "@/hooks/useTheme";
 import { getApiUrl } from "@/lib/query-client";
+import { BUSINESS_LABELS } from "@/constants/businessCategories";
 
 const ORANGE = "#E86520";
 const ORANGE_LIGHT = "#FFF0E6";
-
-const BUSINESS_LABELS: Record<string, string> = {
-  restaurant: "مطعم",
-  supermarket: "سوبرماركت",
-  pharmacy: "صيدلية",
-  bakery: "مخبز",
-  other: "متجر",
-};
 
 const DAY_LABELS = ["أحد", "إثنين", "ثلاثاء", "أربعاء", "خميس", "جمعة", "سبت"];
 

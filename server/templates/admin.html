@@ -1495,6 +1495,10 @@
           <i data-lucide="trophy"></i>
           <span>ترتيب المتاجر</span>
         </div>
+        <div class="nav-item" onclick="showSection('businessCategories', this)">
+          <i data-lucide="layers"></i>
+          <span>أنواع النشاط والأقسام</span>
+        </div>
       </div>
 
       <div class="nav-section">
@@ -3997,6 +4001,78 @@
     </div>
   </div>
 
+  <!-- ══════════════════════ BUSINESS CATEGORIES ══════════════════════ -->
+  <div id="businessCategories-section" class="section" style="display:none;">
+    <header class="header">
+      <div class="header-title">
+        <i data-lucide="layers" style="color:var(--primary);width:24px;height:24px;"></i>
+        <div><h2>أنواع النشاط والأقسام</h2><p>إدارة أنواع التجار وأقسام المنتجات لكل نشاط</p></div>
+      </div>
+      <div class="header-actions">
+        <button class="btn btn-primary btn-sm" onclick="openAddBizTypeModal()">
+          <i data-lucide="plus"></i> نوع نشاط جديد
+        </button>
+        <button class="btn btn-outline btn-sm" onclick="loadBusinessCategories()">
+          <i data-lucide="refresh-cw"></i> تحديث
+        </button>
+      </div>
+    </header>
+
+    <div style="padding:20px;">
+      <div id="biz-categories-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:18px;"></div>
+    </div>
+  </div>
+
+  <!-- Add/Edit Business Type Modal -->
+  <div id="biz-type-modal" class="modal-overlay" style="display:none;">
+    <div class="modal" style="max-width:480px;">
+      <div class="modal-header">
+        <h3 id="biz-type-modal-title">إضافة نوع نشاط</h3>
+        <button class="modal-close" onclick="closeModal('biz-type-modal')">×</button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="biz-type-edit-key" value="" />
+        <div class="form-group">
+          <label>مفتاح النوع (بالإنجليزية، بدون مسافات)</label>
+          <input type="text" id="biz-type-key" class="form-control" placeholder="مثال: bakery" dir="ltr" />
+        </div>
+        <div class="form-group">
+          <label>اسم النوع (بالعربية)</label>
+          <input type="text" id="biz-type-label" class="form-control" placeholder="مثال: مخبز" />
+        </div>
+        <div class="form-group">
+          <label>الأقسام (قسم في كل سطر)</label>
+          <textarea id="biz-type-cats" class="form-control" rows="7" placeholder="وجبات رئيسية&#10;مقبلات&#10;مشروبات"></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline" onclick="closeModal('biz-type-modal')">إلغاء</button>
+        <button class="btn btn-primary" onclick="saveBizType()">حفظ</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Add Category to Existing Type Modal -->
+  <div id="biz-cat-modal" class="modal-overlay" style="display:none;">
+    <div class="modal" style="max-width:440px;">
+      <div class="modal-header">
+        <h3>إضافة قسم جديد</h3>
+        <button class="modal-close" onclick="closeModal('biz-cat-modal')">×</button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="biz-cat-type-key" value="" />
+        <div class="form-group">
+          <label>اسم القسم الجديد</label>
+          <input type="text" id="biz-cat-name" class="form-control" placeholder="اسم القسم" />
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline" onclick="closeModal('biz-cat-modal')">إلغاء</button>
+        <button class="btn btn-primary" onclick="saveBizCat()">إضافة</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Product Modal -->
   <div id="product-modal" class="modal-overlay">
     <div class="modal">
@@ -4456,6 +4532,7 @@
       if (section === 'zoneManagement') loadZones();
       if (section === 'ratingsManagement') loadAdminRatings();
       if (section === 'storeRanking') loadStoreRanking();
+      if (section === 'businessCategories') loadBusinessCategories();
       if (section === 'appUsers') loadAppUsers();
       if (section === 'supportChat') {
         loadSupportChats();
@@ -11171,6 +11248,175 @@ async function quickRankAction(vendorId, updates) {
     });
     await loadStoreRanking();
   } catch { showToast('error', 'خطأ', 'تعذّر تحديث الترتيب'); }
+}
+
+// ══════════════════════ BUSINESS CATEGORIES ══════════════════════
+const DEFAULT_BIZ_TYPES = {
+  restaurant:  { label: 'مطعم / وجبات',           categories: ['وجبات رئيسية','البركر','البيتزا','المشويات','الدجاج','المقبلات','السلطات','الشوربات','السندويشات','المشروبات','الحلويات','الصوصات','الوجبات العائلية'] },
+  supermarket: { label: 'سوبرماركت',               categories: ['الألبان والبيض','العصائر والمشروبات','المياه','الخبز','الرز والحبوب','السكر والزيوت','المعلبات','المجمدات','المنظفات','منتجات الأطفال','الخضار','الفواكه','الحلويات','الوجبات الخفيفة','أخرى'] },
+  pharmacy:    { label: 'صيدلية',                   categories: ['الأدوية','الفيتامينات والمكملات','العناية الشخصية','منتجات الأطفال','أجهزة طبية','مستلزمات السكري','ضغط الدم','العناية بالبشرة','العناية بالشعر'] },
+  bakery:      { label: 'مخبز',                     categories: ['خبز وأرغفة','معجنات','كرواسون','مناقيش','فطائر'] },
+  sweets:      { label: 'حلويات',                   categories: ['كيك','تورتة','شوكولاتة','كوكيز','بوكسات هدايا','حلويات شرقية','كنافة','آيس كريم'] },
+  cafe:        { label: 'كافيه / مشروبات',          categories: ['قهوة','شاي','عصائر','سموذي','مشروبات باردة','مشروبات ساخنة','حلويات'] },
+  grocery:     { label: 'بقالة',                    categories: ['مواد غذائية','مشروبات','حلويات','منظفات','معلبات'] },
+  butcher:     { label: 'ملحمة',                    categories: ['لحم بقري','لحم غنم','دجاج','مفروم','مشويات جاهزة'] },
+  fruit_veg:   { label: 'خضار وفواكه',              categories: ['خضار','فواكه','أعشاب','موسميات'] },
+  flowers:     { label: 'ورد وهدايا',               categories: ['باقات ورد','هدايا','مناسبات','تنسيق ورد'] },
+  electronics: { label: 'إلكترونيات',               categories: ['هواتف وإكسسوارات','أجهزة منزلية','كمبيوتر ولابتوب','سماعات وصوتيات','كاميرات','بطاريات وشواحن','أخرى'] },
+  cosmetics:   { label: 'مستحضرات تجميل',           categories: ['عطور','العناية بالبشرة','مكياج','العناية بالشعر','أظافر','أدوات تجميل','كريمات','أخرى'] },
+  pet:         { label: 'مستلزمات الحيوانات',       categories: ['طعام قطط','طعام كلاب','طعام طيور','مستلزمات عامة','ألعاب حيوانات','أدوية بيطرية'] },
+  stationery:  { label: 'قرطاسية',                  categories: ['أقلام ودفاتر','أدوات مدرسية','طباعة وتصوير','لوازم مكتبية','كتب','ألعاب تعليمية'] },
+  other:       { label: 'أخرى',                     categories: ['منتجات غذائية','منتجات منزلية','ملابس وإكسسوارات','إلكترونيات','عطور ومستحضرات','أخرى'] },
+};
+
+let bizCategoriesData = {};
+
+async function loadBusinessCategories() {
+  const grid = document.getElementById('biz-categories-grid');
+  grid.innerHTML = '<p style="color:#888;padding:20px;">جاري التحميل...</p>';
+  try {
+    const res = await fetch(`${API_BASE}/admin/business-categories`, { headers: { Authorization: `Bearer ${adminToken}` } });
+    const data = await res.json();
+    bizCategoriesData = data.config || {};
+    renderBizCategoriesGrid();
+  } catch (e) {
+    // Fall back to defaults if API not available
+    bizCategoriesData = {};
+    renderBizCategoriesGrid();
+    console.warn('business-categories API not ready, using defaults');
+  }
+}
+
+function renderBizCategoriesGrid() {
+  const grid = document.getElementById('biz-categories-grid');
+  const merged = { ...DEFAULT_BIZ_TYPES };
+  Object.entries(bizCategoriesData).forEach(([k, v]) => { merged[k] = { ...merged[k], ...v }; });
+
+  grid.innerHTML = Object.entries(merged).map(([key, data]) => {
+    const cats = (data.categories || []);
+    const enabled = bizCategoriesData[key]?.enabled !== false;
+    return `
+    <div class="card" style="padding:16px;border-radius:14px;background:#fff;box-shadow:0 2px 8px rgba(0,0,0,.06);border:2px solid ${enabled ? '#e8f5e9' : '#fce4ec'};">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span style="font-weight:700;font-size:15px;color:#222;">${data.label}</span>
+          <code style="background:#f1f5f9;border-radius:6px;padding:2px 7px;font-size:11px;color:#555;">${key}</code>
+        </div>
+        <div style="display:flex;gap:6px;">
+          <button class="btn btn-outline btn-sm" onclick="openEditBizTypeModal('${key}')" title="تعديل"><i data-lucide="edit-2" style="width:13px;height:13px;"></i></button>
+          <button class="btn btn-outline btn-sm" onclick="toggleBizType('${key}', ${!enabled})" title="${enabled ? 'تعطيل' : 'تفعيل'}" style="color:${enabled ? '#ef4444' : '#10b981'};">
+            <i data-lucide="${enabled ? 'eye-off' : 'eye'}" style="width:13px;height:13px;"></i>
+          </button>
+        </div>
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;">
+        ${cats.map((c, i) => `
+          <span style="background:#f1f5f9;border-radius:20px;padding:3px 10px;font-size:12px;color:#444;display:inline-flex;align-items:center;gap:4px;">
+            ${c}
+            <button onclick="removeBizCat('${key}', ${i})" style="background:none;border:none;cursor:pointer;padding:0;color:#999;font-size:13px;line-height:1;">×</button>
+          </span>
+        `).join('')}
+      </div>
+      <button class="btn btn-outline btn-sm" onclick="openAddCatModal('${key}')" style="width:100%;font-size:12px;">+ إضافة قسم</button>
+    </div>`;
+  }).join('');
+  if (window.lucide) lucide.createIcons();
+}
+
+function openAddBizTypeModal() {
+  document.getElementById('biz-type-modal-title').textContent = 'إضافة نوع نشاط';
+  document.getElementById('biz-type-edit-key').value = '';
+  document.getElementById('biz-type-key').value = '';
+  document.getElementById('biz-type-label').value = '';
+  document.getElementById('biz-type-cats').value = '';
+  document.getElementById('biz-type-key').readOnly = false;
+  document.getElementById('biz-type-modal').style.display = 'flex';
+}
+
+function openEditBizTypeModal(key) {
+  const merged = { ...DEFAULT_BIZ_TYPES, ...bizCategoriesData };
+  const data = merged[key] || { label: '', categories: [] };
+  document.getElementById('biz-type-modal-title').textContent = 'تعديل نوع النشاط';
+  document.getElementById('biz-type-edit-key').value = key;
+  document.getElementById('biz-type-key').value = key;
+  document.getElementById('biz-type-key').readOnly = true;
+  document.getElementById('biz-type-label').value = data.label || '';
+  document.getElementById('biz-type-cats').value = (data.categories || []).join('\n');
+  document.getElementById('biz-type-modal').style.display = 'flex';
+}
+
+async function saveBizType() {
+  const editKey = document.getElementById('biz-type-edit-key').value;
+  const key = editKey || document.getElementById('biz-type-key').value.trim().replace(/\s+/g, '_');
+  const label = document.getElementById('biz-type-label').value.trim();
+  const catsRaw = document.getElementById('biz-type-cats').value;
+  const categories = catsRaw.split('\n').map(c => c.trim()).filter(Boolean);
+  if (!key || !label || categories.length === 0) { showToast('error', 'خطأ', 'يرجى ملء جميع الحقول'); return; }
+  try {
+    const res = await fetch(`${API_BASE}/admin/business-categories/${key}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${adminToken}` },
+      body: JSON.stringify({ label, categories }),
+    });
+    if (!res.ok) throw new Error();
+    closeModal('biz-type-modal');
+    showToast('success', 'تم', 'تم حفظ نوع النشاط');
+    await loadBusinessCategories();
+  } catch { showToast('error', 'خطأ', 'تعذّر حفظ النوع'); }
+}
+
+function openAddCatModal(typeKey) {
+  document.getElementById('biz-cat-type-key').value = typeKey;
+  document.getElementById('biz-cat-name').value = '';
+  document.getElementById('biz-cat-modal').style.display = 'flex';
+}
+
+async function saveBizCat() {
+  const typeKey = document.getElementById('biz-cat-type-key').value;
+  const catName = document.getElementById('biz-cat-name').value.trim();
+  if (!catName) { showToast('error', 'خطأ', 'يرجى كتابة اسم القسم'); return; }
+  const merged = { ...DEFAULT_BIZ_TYPES, ...bizCategoriesData };
+  const existing = merged[typeKey] || { categories: [] };
+  const newCats = [...(existing.categories || []), catName];
+  try {
+    const res = await fetch(`${API_BASE}/admin/business-categories/${typeKey}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${adminToken}` },
+      body: JSON.stringify({ label: existing.label, categories: newCats }),
+    });
+    if (!res.ok) throw new Error();
+    closeModal('biz-cat-modal');
+    showToast('success', 'تم', 'تم إضافة القسم');
+    await loadBusinessCategories();
+  } catch { showToast('error', 'خطأ', 'تعذّر إضافة القسم'); }
+}
+
+async function removeBizCat(typeKey, catIndex) {
+  const merged = { ...DEFAULT_BIZ_TYPES, ...bizCategoriesData };
+  const existing = merged[typeKey] || { categories: [] };
+  const newCats = [...(existing.categories || [])];
+  newCats.splice(catIndex, 1);
+  try {
+    await fetch(`${API_BASE}/admin/business-categories/${typeKey}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${adminToken}` },
+      body: JSON.stringify({ label: existing.label, categories: newCats }),
+    });
+    await loadBusinessCategories();
+    showToast('success', 'تم', 'تم حذف القسم');
+  } catch { showToast('error', 'خطأ', 'تعذّر حذف القسم'); }
+}
+
+async function toggleBizType(key, enable) {
+  try {
+    await fetch(`${API_BASE}/admin/business-categories/${key}/toggle`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${adminToken}` },
+      body: JSON.stringify({ enabled: enable }),
+    });
+    await loadBusinessCategories();
+    showToast('success', 'تم', enable ? 'تم تفعيل النوع' : 'تم تعطيل النوع');
+  } catch { showToast('error', 'خطأ', 'تعذّر تغيير الحالة'); }
 }
 
 </script>

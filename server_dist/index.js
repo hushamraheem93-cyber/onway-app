@@ -5983,6 +5983,62 @@ ${itemsList}
       res.json([]);
     }
   });
+  app2.get("/api/admin/business-categories", async (req, res) => {
+    try {
+      const db2 = getFirestore();
+      if (!db2) return res.json({ config: {} });
+      const snap = await db2.collection("businessCategoryConfig").get();
+      const config = {};
+      snap.docs.forEach((d) => {
+        config[d.id] = d.data();
+      });
+      res.json({ config });
+    } catch (err) {
+      console.error("GET business-categories:", err);
+      res.json({ config: {} });
+    }
+  });
+  app2.put("/api/admin/business-categories/:key", async (req, res) => {
+    try {
+      const db2 = getFirestore();
+      if (!db2) return res.status(500).json({ error: "DB unavailable" });
+      const { key } = req.params;
+      const { label, categories: categories2 } = req.body;
+      if (!key || !label || !Array.isArray(categories2)) {
+        return res.status(400).json({ error: "label and categories are required" });
+      }
+      await db2.collection("businessCategoryConfig").doc(key).set({ label, categories: categories2 }, { merge: true });
+      res.json({ success: true });
+    } catch (err) {
+      console.error("PUT business-categories:", err);
+      res.status(500).json({ error: "Server error" });
+    }
+  });
+  app2.patch("/api/admin/business-categories/:key/toggle", async (req, res) => {
+    try {
+      const db2 = getFirestore();
+      if (!db2) return res.status(500).json({ error: "DB unavailable" });
+      const { key } = req.params;
+      const { enabled } = req.body;
+      await db2.collection("businessCategoryConfig").doc(key).set({ enabled }, { merge: true });
+      res.json({ success: true });
+    } catch (err) {
+      console.error("PATCH business-categories toggle:", err);
+      res.status(500).json({ error: "Server error" });
+    }
+  });
+  app2.delete("/api/admin/business-categories/:key", async (req, res) => {
+    try {
+      const db2 = getFirestore();
+      if (!db2) return res.status(500).json({ error: "DB unavailable" });
+      const { key } = req.params;
+      await db2.collection("businessCategoryConfig").doc(key).delete();
+      res.json({ success: true });
+    } catch (err) {
+      console.error("DELETE business-categories:", err);
+      res.status(500).json({ error: "Server error" });
+    }
+  });
   app2.get("/api/admin/ratings-dashboard", async (req, res) => {
     try {
       const db2 = getFirestore();
@@ -6405,6 +6461,14 @@ router.post(
       const pid = productId();
       const now = (/* @__PURE__ */ new Date()).toISOString();
       const vData = vDoc.data();
+      const extraDataRaw = req.body.extraData;
+      let extraData;
+      if (extraDataRaw) {
+        try {
+          extraData = JSON.parse(extraDataRaw);
+        } catch {
+        }
+      }
       await db2.collection("vendorProducts").doc(pid).set({
         id: pid,
         vendorId: vid,
@@ -6421,7 +6485,8 @@ router.post(
         imageUrls,
         status: "approved",
         createdAt: now,
-        updatedAt: now
+        updatedAt: now,
+        ...extraData ? { extraData } : {}
       });
       res.status(201).json({
         success: true,
@@ -6497,6 +6562,12 @@ router.put(
       if (category) updates.category = category;
       if (stock !== void 0) updates.stock = parseInt(stock);
       if (unit) updates.unit = unit;
+      if (req.body.extraData) {
+        try {
+          updates.extraData = JSON.parse(req.body.extraData);
+        } catch {
+        }
+      }
       const currentData = doc.data();
       const storedUrls = currentData.imageUrls && currentData.imageUrls.length > 0 ? currentData.imageUrls : currentData.imageUrl ? [currentData.imageUrl] : [];
       let keptImages = [];
