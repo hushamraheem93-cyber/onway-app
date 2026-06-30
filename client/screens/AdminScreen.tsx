@@ -390,12 +390,12 @@ export default function AdminScreen() {
 
   const rechargeWalletMutation = useMutation({
     mutationFn: async ({ phoneNumber, amount }: { phoneNumber: string; amount: number }) => {
-      const res = await fetch(`${getApiUrl()}/api/admin/driver-wallet/recharge`, {
+      const res = await fetch(`${getApiUrl()}/api/admin/driver-wallet/payment`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phoneNumber, amount }),
+        body: JSON.stringify({ phoneNumber, amount, notes: "دفعة من الإدارة" }),
       });
-      if (!res.ok) throw new Error("فشل في شحن الرصيد");
+      if (!res.ok) throw new Error("فشل في تسجيل الدفعة");
       return res.json();
     },
     onSuccess: () => {
@@ -1679,10 +1679,10 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
                   <ThemedText type="body" style={{ fontWeight: FontWeight.semiBold, textAlign: "right" }}>المحفظة</ThemedText>
                 </View>
                 <Pressable
-                  style={{ backgroundColor: AppColors.success, paddingHorizontal: Spacing.md, paddingVertical: 6, borderRadius: BorderRadius.md }}
+                  style={{ backgroundColor: AppColors.primary, paddingHorizontal: Spacing.md, paddingVertical: 6, borderRadius: BorderRadius.md }}
                   onPress={() => setRechargeDriver(rechargeDriver === driver.phoneNumber ? null : driver.phoneNumber)}
                 >
-                  <ThemedText type="small" style={{ color: AppColors.white, fontWeight: FontWeight.semiBold }}>شحن رصيد</ThemedText>
+                  <ThemedText type="small" style={{ color: AppColors.white, fontWeight: FontWeight.semiBold }}>تسجيل دفعة</ThemedText>
                 </Pressable>
               </View>
               {rechargeDriver === driver.phoneNumber ? (

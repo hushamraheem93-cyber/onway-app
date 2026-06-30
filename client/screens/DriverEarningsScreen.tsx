@@ -38,13 +38,22 @@ interface EarningsData {
   completedOrders: CompletedOrder[];
 }
 
-interface WalletTransaction {
+interface DriverTransaction {
   id: string;
   amount: number;
-  type: "deduction" | "recharge";
-  service: string;
+  type: "earning" | "commission" | "payment";
+  description: string;
   orderId?: string;
   timestamp: string;
+}
+
+interface DriverFinancialAccount {
+  phoneNumber: string;
+  totalEarnings: number;
+  totalOnwayCommission: number;
+  totalPaid: number;
+  amountOwed: number;
+  lastUpdated: string;
 }
 
 // ─── Day names (Arabic) ─────────────────────────────────────────────────────
@@ -151,8 +160,8 @@ export default function DriverEarningsScreen() {
   const { phoneNumber } = useAuth();
 
   const [earnings, setEarnings] = useState<EarningsData | null>(null);
-  const [walletBalance, setWalletBalance] = useState(0);
-  const [walletHistory, setWalletHistory] = useState<WalletTransaction[]>([]);
+  const [account, setAccount] = useState<DriverFinancialAccount | null>(null);
+  const [transactions, setTransactions] = useState<DriverTransaction[]>([]);
   const [activeTab, setActiveTab] = useState<"earnings" | "wallet">("earnings");
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -167,8 +176,8 @@ export default function DriverEarningsScreen() {
       if (earningsRes.ok) setEarnings(await earningsRes.json());
       if (walletRes.ok) {
         const wd = await walletRes.json();
-        setWalletBalance(wd.balance || 0);
-        setWalletHistory(wd.history || []);
+        setAccount(wd.account || null);
+        setTransactions(wd.transactions || []);
       }
     } catch (e) {
     } finally {
@@ -223,25 +232,27 @@ export default function DriverEarningsScreen() {
     </View>
   );
 
-  // ─── Wallet transaction row ──────────────────────────────────────────────
-  const renderTransaction = ({ item }: { item: WalletTransaction }) => {
-    const isDeduction = item.type === "deduction";
-    const color = isDeduction ? AppColors.error : AppColors.success;
+  // ─── Financial transaction row ───────────────────────────────────────────
+  const renderTransaction = ({ item }: { item: DriverTransaction }) => {
+    const isPayment = item.type === "payment";
+    const isCommission = item.type === "commission";
+    const isEarning = item.type === "earning";
+    const color = isPayment ? AppColors.success : isCommission ? AppColors.error : AppColors.info;
+    const icon: keyof typeof Feather.glyphMap = isPayment ? "plus-circle" : isCommission ? "minus-circle" : "dollar-sign";
+    const label = isPayment ? "دفعة للإدارة" : isCommission ? "عمولة أونوي" : "أرباح توصيل";
     return (
       <View style={[styles.listItem, { backgroundColor: theme.backgroundDefault }, Shadows.sm]}>
         <View style={[styles.listItemIcon, { backgroundColor: color + "15" }]}>
-          <Feather name={isDeduction ? "minus-circle" : "plus-circle"} size={18} color={color} />
+          <Feather name={icon} size={18} color={color} />
         </View>
         <View style={{ flex: 1, alignItems: "flex-end", gap: 2 }}>
-          <ThemedText type="body" style={{ color: theme.text, fontWeight: FontWeight.semiBold }}>
-            {isDeduction ? "خصم عمولة" : "شحن رصيد"}
-          </ThemedText>
+          <ThemedText type="body" style={{ color: theme.text, fontWeight: FontWeight.semiBold }}>{label}</ThemedText>
           <ThemedText type="small" style={{ color: theme.textSecondary }}>
-            {item.service} · {item.timestamp ? new Date(item.timestamp).toLocaleDateString("ar-IQ") : ""}
+            {item.description} · {item.timestamp ? new Date(item.timestamp).toLocaleDateString("ar-IQ") : ""}
           </ThemedText>
         </View>
         <ThemedText type="body" style={{ color, fontWeight: FontWeight.bold }}>
-          {isDeduction ? "-" : "+"}{formatPrice(item.amount)}
+          {isCommission ? "-" : "+"}{formatPrice(item.amount)}
         </ThemedText>
       </View>
     );
@@ -282,26 +293,44 @@ export default function DriverEarningsScreen() {
     </View>
   );
 
-  // ─── Wallet tab header content ───────────────────────────────────────────
+  // ─── Financial account tab header ────────────────────────────────────────
+  const amountOwed = account?.amountOwed || 0;
+  const isBlocked = amountOwed >= 50000;
   const WalletHeader = (
     <View style={styles.sectionPadding}>
-      {/* Wallet balance */}
+      {/* Amount owed card */}
       <View style={[styles.totalCard, { backgroundColor: theme.backgroundDefault }, Shadows.md]}>
-        <Feather name="credit-card" size={24} color={walletBalance < 250 ? AppColors.error : AppColors.primary} style={{ marginBottom: Spacing.sm }} />
-        <ThemedText type="small" style={{ color: theme.textSecondary }}>رصيد المحفظة</ThemedText>
-        <ThemedText type="h1" style={{ color: walletBalance < 250 ? AppColors.error : AppColors.primary, marginTop: 4 }}>
-          {formatPrice(walletBalance)}
+        <Feather name="alert-circle" size={24} color={isBlocked ? AppColors.error : amountOwed > 0 ? AppColors.warning : AppColors.success} style={{ marginBottom: Spacing.sm }} />
+        <ThemedText type="small" style={{ color: theme.textSecondary }}>المبلغ المستحق لأونوي</ThemedText>
+        <ThemedText type="h1" style={{ color: isBlocked ? AppColors.error : amountOwed > 0 ? AppColors.warning : AppColors.success, marginTop: 4 }}>
+          {formatPrice(amountOwed)}
         </ThemedText>
-        {walletBalance < 250 ? (
+        {isBlocked ? (
           <ThemedText type="small" style={{ color: AppColors.error, marginTop: 4 }}>
-            رصيد غير كافٍ — تواصل مع الإدارة لشحن الرصيد
+            تجاوزت الحد — تواصل مع الإدارة لتسوية الحساب
+          </ThemedText>
+        ) : amountOwed > 0 ? (
+          <ThemedText type="small" style={{ color: AppColors.warning, marginTop: 4 }}>
+            يُطلب التسوية قبل تجاوز {formatPrice(50000)}
           </ThemedText>
         ) : (
-          <ThemedText type="small" style={{ color: theme.textSecondary, marginTop: 4 }}>
-            الحد الأدنى للعمل: {formatPrice(250)}
-          </ThemedText>
+          <ThemedText type="small" style={{ color: AppColors.success, marginTop: 4 }}>حسابك مسوّى</ThemedText>
         )}
       </View>
+
+      {/* Financial summary cards */}
+      {account ? (
+        <View style={styles.statsGrid}>
+          {renderStatCard("إجمالي الأرباح", formatPrice(account.totalEarnings), "dollar-sign", AppColors.success)}
+          {renderStatCard("إجمالي العمولات", formatPrice(account.totalOnwayCommission), "percent", AppColors.error)}
+        </View>
+      ) : null}
+      {account ? (
+        <View style={styles.statsGrid}>
+          {renderStatCard("المدفوع للإدارة", formatPrice(account.totalPaid), "check-circle", AppColors.primary)}
+          {renderStatCard("حد الحجب", formatPrice(50000), "alert-triangle", AppColors.warning)}
+        </View>
+      ) : null}
 
       {/* Commission info */}
       <View style={[styles.commissionCard, { backgroundColor: theme.backgroundDefault }, Shadows.sm]}>
@@ -309,73 +338,40 @@ export default function DriverEarningsScreen() {
           <Feather name="percent" size={16} color={AppColors.primary} />
           <ThemedText type="h4" style={{ color: theme.text }}>نظام العمولة</ThemedText>
         </View>
-
-        {/* Legend */}
-        <View style={{ flexDirection: "row-reverse", gap: Spacing.lg, marginBottom: Spacing.md }}>
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
-            <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: AppColors.success }} />
-            <ThemedText type="small" style={{ color: theme.textSecondary }}>نصيب السائق</ThemedText>
-          </View>
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
-            <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: AppColors.border }} />
-            <ThemedText type="small" style={{ color: theme.textSecondary }}>عمولة التطبيق</ThemedText>
-          </View>
-        </View>
-
-        {/* Restaurant row */}
         <View style={{ marginBottom: Spacing.md }}>
           <View style={{ flexDirection: "row-reverse", justifyContent: "space-between", alignItems: "center", marginBottom: Spacing.xs }}>
             <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: Spacing.xs }}>
               <Feather name="shopping-bag" size={13} color={AppColors.warning} />
               <ThemedText type="body" style={{ color: theme.text, fontWeight: FontWeight.semiBold }}>توصيل مطعم</ThemedText>
             </View>
-            <View style={{ flexDirection: "row", gap: Spacing.sm, alignItems: "center" }}>
-              <ThemedText type="small" style={{ color: AppColors.error, fontWeight: FontWeight.semiBold }}>-{formatPrice(250)}</ThemedText>
-              <ThemedText type="small" style={{ color: AppColors.success, fontWeight: FontWeight.bold }}>+{formatPrice(750)}</ThemedText>
+            <View style={{ flexDirection: "row", gap: Spacing.sm }}>
+              <ThemedText type="small" style={{ color: AppColors.error, fontWeight: FontWeight.semiBold }}>-{formatPrice(250)} أونوي</ThemedText>
+              <ThemedText type="small" style={{ color: AppColors.success, fontWeight: FontWeight.bold }}>+{formatPrice(750)} سائق</ThemedText>
             </View>
           </View>
-          <View style={{ height: 10, borderRadius: 5, backgroundColor: AppColors.border, overflow: "hidden" }}>
-            <View style={{ width: "75%", height: "100%", backgroundColor: AppColors.success, borderRadius: 5 }} />
-          </View>
-          <View style={{ flexDirection: "row-reverse", justifyContent: "space-between", marginTop: 3 }}>
-            <ThemedText style={{ fontSize: 10, color: AppColors.success, fontWeight: FontWeight.bold }}>75% للسائق</ThemedText>
-            <ThemedText style={{ fontSize: 10, color: theme.textSecondary }}>25% للتطبيق</ThemedText>
+          <View style={{ height: 8, borderRadius: 4, backgroundColor: AppColors.border, overflow: "hidden" }}>
+            <View style={{ width: "75%", height: "100%", backgroundColor: AppColors.success, borderRadius: 4 }} />
           </View>
         </View>
-
-        {/* Marketing row */}
         <View>
           <View style={{ flexDirection: "row-reverse", justifyContent: "space-between", alignItems: "center", marginBottom: Spacing.xs }}>
             <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: Spacing.xs }}>
               <Feather name="truck" size={13} color={AppColors.info} />
               <ThemedText type="body" style={{ color: theme.text, fontWeight: FontWeight.semiBold }}>توصيل تسويق</ThemedText>
             </View>
-            <View style={{ flexDirection: "row", gap: Spacing.sm, alignItems: "center" }}>
-              <ThemedText type="small" style={{ color: AppColors.error, fontWeight: FontWeight.semiBold }}>-{formatPrice(1000)}</ThemedText>
-              <ThemedText type="small" style={{ color: AppColors.success, fontWeight: FontWeight.bold }}>+{formatPrice(2000)}</ThemedText>
+            <View style={{ flexDirection: "row", gap: Spacing.sm }}>
+              <ThemedText type="small" style={{ color: AppColors.error, fontWeight: FontWeight.semiBold }}>-{formatPrice(1000)} أونوي</ThemedText>
+              <ThemedText type="small" style={{ color: AppColors.success, fontWeight: FontWeight.bold }}>+{formatPrice(2000)} سائق</ThemedText>
             </View>
           </View>
-          <View style={{ height: 10, borderRadius: 5, backgroundColor: AppColors.border, overflow: "hidden" }}>
-            <View style={{ width: "67%", height: "100%", backgroundColor: AppColors.success, borderRadius: 5 }} />
+          <View style={{ height: 8, borderRadius: 4, backgroundColor: AppColors.border, overflow: "hidden" }}>
+            <View style={{ width: "67%", height: "100%", backgroundColor: AppColors.success, borderRadius: 4 }} />
           </View>
-          <View style={{ flexDirection: "row-reverse", justifyContent: "space-between", marginTop: 3 }}>
-            <ThemedText style={{ fontSize: 10, color: AppColors.success, fontWeight: FontWeight.bold }}>67% للسائق</ThemedText>
-            <ThemedText style={{ fontSize: 10, color: theme.textSecondary }}>33% للتطبيق</ThemedText>
-          </View>
-        </View>
-
-        <View style={[styles.minWalletNote, { backgroundColor: theme.backgroundRoot }]}>
-          <Feather name="info" size={13} color={theme.textSecondary} />
-          <ThemedText type="small" style={{ color: theme.textSecondary, flex: 1, textAlign: "right" }}>
-            الحد الأدنى لرصيد المحفظة للعمل: {formatPrice(250)}
-          </ThemedText>
         </View>
       </View>
 
-      {walletHistory.length > 0 ? (
-        <ThemedText type="h4" style={[styles.sectionLabel, { color: theme.text }]}>
-          سجل المحفظة
-        </ThemedText>
+      {transactions.length > 0 ? (
+        <ThemedText type="h4" style={[styles.sectionLabel, { color: theme.text }]}>سجل المعاملات</ThemedText>
       ) : null}
     </View>
   );
@@ -429,7 +425,7 @@ export default function DriverEarningsScreen() {
         />
       ) : (
         <FlatList
-          data={walletHistory}
+          data={transactions}
           keyExtractor={(item) => item.id}
           renderItem={renderTransaction}
           ListHeaderComponent={WalletHeader}

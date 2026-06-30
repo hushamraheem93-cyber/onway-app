@@ -11,6 +11,14 @@ module.exports = {
     ios: {
       supportsTablet: true,
       bundleIdentifier: "com.husham.onway",
+      infoPlist: {
+        NSLocationWhenInUseUsageDescription: "يستخدم التطبيق موقعك لتحديد عنوان التوصيل ومتابعة موقع السائق.",
+        NSLocationAlwaysAndWhenInUseUsageDescription: "يحتاج التطبيق إلى موقعك في الخلفية لتتبع التوصيل بدقة.",
+        NSPhotoLibraryUsageDescription: "اختر صورة من مكتبتك لتحديث ملفك الشخصي أو إضافة منتج.",
+        NSPhotoLibraryAddUsageDescription: "يحتاج التطبيق إلى الإذن لحفظ الصور في مكتبتك.",
+        NSCameraUsageDescription: "التقط صورة لملفك الشخصي أو لإضافة منتج جديد.",
+        NSUserNotificationUsageDescription: "أرسل لك إشعارات فورية بحالة طلبك وتحديثات التوصيل.",
+      },
       config: {
         googleMapsApiKey: process.env.GOOGLE_MAPS_API_KEY,
       },

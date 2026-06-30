@@ -1066,7 +1066,14 @@ export function generateOtp(phoneNumber: string): string {
 }
 
 export function verifyOtp(phoneNumber: string, code: string): boolean {
-  if (code === "0000") return true;
+  // Dev-only bypass: requires ALLOW_DEV_OTP=true AND non-production environment
+  if (
+    code === "0000" &&
+    process.env.ALLOW_DEV_OTP === "true" &&
+    process.env.NODE_ENV !== "production"
+  ) {
+    return true;
+  }
   const stored = otpStore.get(phoneNumber);
   if (!stored) return false;
   if (Date.now() > stored.expiresAt) {
@@ -1706,6 +1713,218 @@ export async function cancelDeliveryBatch(batchId: string): Promise<void> {
     await writeBatch.commit();
   } catch (error) {
     console.error("Error cancelling delivery batch:", error);
+  }
+}
+
+// ========== Driver Financial Account System ==========
+// Replaces old wallet-recharge model.
+// Each order delivery adds to driver earnings and onway commission.
+// amountOwed = cumulative OnWay commission − total payments received.
+// When amountOwed >= threshold the driver is blocked from going online.
+// Admin reduces amountOwed by recording cash payments.
+
+export interface DriverFinancialAccount {
+  phoneNumber: string;
+  totalEarnings: number;
+  totalOnwayCommission: number;
+  amountOwed: number;
+  lastPaymentAmount: number;
+  lastPaymentDate: string | null;
+  updatedAt: string;
+}
+
+export async function getDriverFinancialAccount(
+  phoneNumber: string
+): Promise<DriverFinancialAccount> {
+  const zero: DriverFinancialAccount = {
+    phoneNumber,
+    totalEarnings: 0,
+    totalOnwayCommission: 0,
+    amountOwed: 0,
+    lastPaymentAmount: 0,
+    lastPaymentDate: null,
+    updatedAt: new Date().toISOString(),
+  };
+  if (!db) return zero;
+  try {
+    const snap = await db
+      .collection("driverFinancialAccounts")
+      .where("phoneNumber", "==", phoneNumber)
+      .limit(1)
+      .get();
+    if (snap.empty) return zero;
+    const d = snap.docs[0].data();
+    return {
+      phoneNumber,
+      totalEarnings: d.totalEarnings ?? 0,
+      totalOnwayCommission: d.totalOnwayCommission ?? 0,
+      amountOwed: d.amountOwed ?? 0,
+      lastPaymentAmount: d.lastPaymentAmount ?? 0,
+      lastPaymentDate: d.lastPaymentDate ?? null,
+      updatedAt: d.updatedAt?.toDate?.()
+        ? d.updatedAt.toDate().toISOString()
+        : d.updatedAt ?? new Date().toISOString(),
+    };
+  } catch (err) {
+    console.error("Error reading driver financial account:", err);
+    return zero;
+  }
+}
+
+export async function updateDriverEarningsOnOrder(
+  phoneNumber: string,
+  payload: {
+    driverEarning: number;
+    onwayCommission: number;
+    orderId: string;
+    orderType: "restaurant" | "market";
+  }
+): Promise<DriverFinancialAccount> {
+  if (!db) throw new Error("Firestore not initialized");
+  const snap = await db
+    .collection("driverFinancialAccounts")
+    .where("phoneNumber", "==", phoneNumber)
+    .limit(1)
+    .get();
+
+  const now = admin.firestore.Timestamp.now();
+  let docRef: admin.firestore.DocumentReference;
+  let prev: Record<string, any> = {};
+
+  if (snap.empty) {
+    docRef = db.collection("driverFinancialAccounts").doc();
+    prev = { totalEarnings: 0, totalOnwayCommission: 0, amountOwed: 0 };
+  } else {
+    docRef = snap.docs[0].ref;
+    prev = snap.docs[0].data();
+  }
+
+  const newTotalEarnings = (prev.totalEarnings ?? 0) + payload.driverEarning;
+  const newTotalCommission = (prev.totalOnwayCommission ?? 0) + payload.onwayCommission;
+  const newAmountOwed = (prev.amountOwed ?? 0) + payload.onwayCommission;
+
+  const updated: Record<string, any> = {
+    phoneNumber,
+    totalEarnings: newTotalEarnings,
+    totalOnwayCommission: newTotalCommission,
+    amountOwed: newAmountOwed,
+    updatedAt: now,
+  };
+  if (snap.empty) updated.createdAt = now;
+
+  await docRef.set(updated, { merge: true });
+
+  await db.collection("driverTransactions").add({
+    phoneNumber,
+    type: "earning",
+    driverEarning: payload.driverEarning,
+    onwayCommission: payload.onwayCommission,
+    amountOwedAfter: newAmountOwed,
+    orderId: payload.orderId,
+    orderType: payload.orderType,
+    timestamp: now,
+  });
+
+  return {
+    phoneNumber,
+    totalEarnings: newTotalEarnings,
+    totalOnwayCommission: newTotalCommission,
+    amountOwed: newAmountOwed,
+    lastPaymentAmount: prev.lastPaymentAmount ?? 0,
+    lastPaymentDate: prev.lastPaymentDate ?? null,
+    updatedAt: now.toDate().toISOString(),
+  };
+}
+
+export async function recordDriverPayment(
+  phoneNumber: string,
+  amount: number,
+  notes: string
+): Promise<DriverFinancialAccount> {
+  if (!db) throw new Error("Firestore not initialized");
+  const snap = await db
+    .collection("driverFinancialAccounts")
+    .where("phoneNumber", "==", phoneNumber)
+    .limit(1)
+    .get();
+
+  const now = admin.firestore.Timestamp.now();
+  const nowIso = now.toDate().toISOString();
+  let docRef: admin.firestore.DocumentReference;
+  let prev: Record<string, any> = {};
+
+  if (snap.empty) {
+    docRef = db.collection("driverFinancialAccounts").doc();
+    prev = { totalEarnings: 0, totalOnwayCommission: 0, amountOwed: 0 };
+  } else {
+    docRef = snap.docs[0].ref;
+    prev = snap.docs[0].data();
+  }
+
+  const newAmountOwed = Math.max(0, (prev.amountOwed ?? 0) - amount);
+
+  await docRef.set(
+    {
+      phoneNumber,
+      totalEarnings: prev.totalEarnings ?? 0,
+      totalOnwayCommission: prev.totalOnwayCommission ?? 0,
+      amountOwed: newAmountOwed,
+      lastPaymentAmount: amount,
+      lastPaymentDate: nowIso,
+      updatedAt: now,
+    },
+    { merge: true }
+  );
+
+  await db.collection("driverTransactions").add({
+    phoneNumber,
+    type: "payment",
+    paymentAmount: amount,
+    amountOwedAfter: newAmountOwed,
+    notes,
+    timestamp: now,
+  });
+
+  return {
+    phoneNumber,
+    totalEarnings: prev.totalEarnings ?? 0,
+    totalOnwayCommission: prev.totalOnwayCommission ?? 0,
+    amountOwed: newAmountOwed,
+    lastPaymentAmount: amount,
+    lastPaymentDate: nowIso,
+    updatedAt: nowIso,
+  };
+}
+
+export async function getDriverTransactions(
+  phoneNumber: string,
+  limitCount = 50
+): Promise<any[]> {
+  if (!db) return [];
+  try {
+    const snap = await db
+      .collection("driverTransactions")
+      .where("phoneNumber", "==", phoneNumber)
+      .get();
+    const rows = snap.docs.map(doc => {
+      const d = doc.data();
+      return {
+        id: doc.id,
+        ...d,
+        timestamp: d.timestamp?.toDate?.()
+          ? d.timestamp.toDate().toISOString()
+          : d.timestamp,
+      };
+    });
+    rows.sort((a: any, b: any) => {
+      const ta = a.timestamp ? new Date(a.timestamp).getTime() : 0;
+      const tb = b.timestamp ? new Date(b.timestamp).getTime() : 0;
+      return tb - ta;
+    });
+    return rows.slice(0, limitCount);
+  } catch (err) {
+    console.error("Error getting driver transactions:", err);
+    return [];
   }
 }
 

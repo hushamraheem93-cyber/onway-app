@@ -27,7 +27,7 @@ import {
   updateOrderDriverInfo,
   getPromoCodes, getPromoCodeByCode, createPromoCode, updatePromoCode, deletePromoCode as deletePromoCodeFn,
   checkPromoUsage, recordPromoUsage,
-  getDriverWalletBalance, updateDriverWalletBalance, addWalletTransaction, getWalletHistory,
+  getDriverFinancialAccount, updateDriverEarningsOnOrder, recordDriverPayment, getDriverTransactions,
   saveDriverCompletedOrder, getDriverCompletedOrdersFromDB,
   saveDriverActivity, getDriverActivityLog, updateDriverLastLocation,
   getOrdersByDriverPhone,
@@ -309,6 +309,35 @@ function isAdminSessionValid(req: Request): boolean {
 function requireAdminAuth(req: Request, res: Response, next: express.NextFunction) {
   if (!isAdminSessionValid(req)) return res.status(401).json({ error: "غير مصرح" });
   next();
+}
+
+// ── Customer JWT middleware ────────────────────────────────────────────────────
+function requireCustomerAuth(req: Request, res: Response, next: express.NextFunction) {
+  const authHeader = req.headers.authorization || "";
+  const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7).trim() : "";
+  if (!token) return res.status(401).json({ error: "يرجى تسجيل الدخول أولاً" });
+  try {
+    const decoded = jwt.verify(token, ROUTES_JWT_SECRET) as any;
+    if (decoded.role !== "customer" || !decoded.phoneNumber) throw new Error("invalid role");
+    (req as any).customerPhone = decoded.phoneNumber as string;
+    next();
+  } catch {
+    return res.status(401).json({ error: "انتهت صلاحية الجلسة — يرجى تسجيل الدخول مجدداً" });
+  }
+}
+
+// ── Driver validation middleware (phone-based, validates approved driver) ─────
+async function requireDriverAuth(req: Request, res: Response, next: express.NextFunction) {
+  const phoneNumber = ((req.body?.phoneNumber) || (req.query?.phoneNumber)) as string | undefined;
+  if (!phoneNumber) return res.status(400).json({ error: "Phone number required" });
+  try {
+    const driver = await getDriverByPhone(phoneNumber);
+    if (!driver) return res.status(403).json({ error: "غير مصرح — السائق غير موجود" });
+    if (driver.status !== "approved") return res.status(403).json({ error: "غير مصرح — لم تتم الموافقة على حسابك بعد" });
+    next();
+  } catch {
+    return res.status(500).json({ error: "خطأ في قاعدة البيانات" });
+  }
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -1955,14 +1984,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // ─── Order Routes ────────────────────────────────────────────────────────────
-  app.get("/api/orders", async (req, res) => {
-    const phoneNumber = req.query.phoneNumber as string;
+  // Requires a valid customer JWT — returns only that customer's orders
+  app.get("/api/orders", requireCustomerAuth, async (req, res) => {
+    const phoneNumber = (req as any).customerPhone as string;
     const db = getFirestore();
-    
     if (db) {
-      const orders = phoneNumber 
-        ? await getOrdersByPhone(phoneNumber)
-        : await getOrders();
+      const orders = await getOrdersByPhone(phoneNumber);
       return res.json(orders.map(o => ({
         ...o,
         createdAt: o.createdAt?.toDate?.() ? o.createdAt.toDate().toISOString() : o.createdAt,
@@ -2539,8 +2566,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.status(400).json({ error: "Phone number and code are required" });
     }
 
-    // OTP verification disabled — accept any code
-    // Issue customer JWT
+    if (!verifyOtpCode(phoneNumber, code)) {
+      return res.status(400).json({ error: "رمز التحقق غير صحيح أو انتهت صلاحيته" });
+    }
+
     const customerToken = jwt.sign(
       { phoneNumber, role: "customer" },
       ROUTES_JWT_SECRET,
@@ -2763,7 +2792,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         queuePosition = availableDriversBefore.length;
       }
 
-      const walletBalance = await getDriverWalletBalance(phoneNumber);
+      const financialAccount = await getDriverFinancialAccount(phoneNumber);
 
       const completed = await getCompletedOrders(phoneNumber);
       const now = new Date();
@@ -2775,7 +2804,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         queuePosition,
         currentBatch,
         approvalStatus: driver?.status || "pending",
-        walletBalance,
+        amountOwed: financialAccount.amountOwed,
         todayOrders: todayCompleted.length,
         todayEarnings: todayCompleted.reduce((sum, o) => sum + (o.driverEarning || 0), 0),
       });
@@ -2845,9 +2874,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
     try {
       if (goOnline) {
-        const walletBalance = await getDriverWalletBalance(phoneNumber);
-        if (walletBalance < 250) {
-          return res.status(400).json({ error: "رصيد المحفظة غير كافٍ. الحد الأدنى ٢٥٠ د.ع", walletBalance });
+        const financialAccount = await getDriverFinancialAccount(phoneNumber);
+        const OWED_THRESHOLD = 50000; // 50,000 IQD
+        if (financialAccount.amountOwed >= OWED_THRESHOLD) {
+          return res.status(400).json({
+            error: `المبلغ المستحق (${financialAccount.amountOwed.toLocaleString("ar-IQ")} د.ع) يتجاوز الحد المسموح (${OWED_THRESHOLD.toLocaleString("ar-IQ")} د.ع). يرجى تسوية الحساب مع المسؤول.`,
+            amountOwed: financialAccount.amountOwed,
+          });
         }
         const exists = driverQueue.find(d => d.phoneNumber === phoneNumber);
         if (!exists) {
@@ -3135,10 +3168,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const deductionAmount = isRestaurantOrder ? 250 : 1000;
         const driverEarning = isRestaurantOrder ? 750 : 2000;
         await updateOrderDriverInfo(orderId, { driverEarning, ownerEarning: deductionAmount });
-        const currentBalance = await getDriverWalletBalance(phoneNumber);
-        const newBalance = currentBalance - deductionAmount;
-        await updateDriverWalletBalance(phoneNumber, newBalance);
-        await addWalletTransaction({ phoneNumber, amount: deductionAmount, type: "deduction", service: isRestaurantOrder ? "توصيل مطعم" : "توصيل تسويق/خدمات", orderId });
+        await updateDriverEarningsOnOrder(phoneNumber, {
+          driverEarning,
+          onwayCommission: deductionAmount,
+          orderId,
+          orderType: isRestaurantOrder ? "restaurant" : "market",
+        });
 
         const customerProfile = await getUserByPhone(order.phoneNumber || "");
         const completedEntry = {
@@ -3245,23 +3280,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
             ownerEarning,
           });
 
-          const currentBalance = await getDriverWalletBalance(phoneNumber);
-          const newBalance = currentBalance - deductionAmount;
-          await updateDriverWalletBalance(phoneNumber, newBalance);
-
-          await addWalletTransaction({
-            phoneNumber,
-            amount: deductionAmount,
-            type: "deduction",
-            service: isRestaurantOrder ? "توصيل مطعم" : "توصيل تسويق/خدمات",
+          await updateDriverEarningsOnOrder(phoneNumber, {
+            driverEarning,
+            onwayCommission: deductionAmount,
             orderId,
+            orderType: isRestaurantOrder ? "restaurant" : "market",
           });
 
-          if (newBalance < 250) {
+          // Block driver if outstanding amount exceeds threshold
+          const OWED_THRESHOLD = 50000;
+          const updatedAccount = await getDriverFinancialAccount(phoneNumber);
+          if (updatedAccount.amountOwed >= OWED_THRESHOLD) {
             const queueIdx = driverQueue.findIndex(d => d.phoneNumber === phoneNumber);
-            if (queueIdx !== -1) {
-              driverQueue.splice(queueIdx, 1);
-            }
+            if (queueIdx !== -1) driverQueue.splice(queueIdx, 1);
           }
 
           const completedEntry = {
@@ -3396,33 +3427,50 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/driver/wallet", async (req: Request, res: Response) => {
     const phoneNumber = req.query.phoneNumber as string;
     if (!phoneNumber) return res.status(400).json({ error: "Phone number required" });
-
     try {
-      const balance = await getDriverWalletBalance(phoneNumber);
-      const history = await getWalletHistory(phoneNumber);
-      res.json({ balance, history });
+      const account = await getDriverFinancialAccount(phoneNumber);
+      const transactions = await getDriverTransactions(phoneNumber, 50);
+      res.json({ account, transactions });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }
   });
 
+  // Legacy recharge endpoint kept for backward compat — records as payment
   app.post("/api/admin/driver-wallet/recharge", async (req: Request, res: Response) => {
-    const { phoneNumber, amount } = req.body;
+    const { phoneNumber, amount, notes } = req.body;
     if (!phoneNumber || amount === undefined) return res.status(400).json({ error: "Missing fields" });
-
     try {
-      const currentBalance = await getDriverWalletBalance(phoneNumber);
-      const newBalance = currentBalance + Number(amount);
-      await updateDriverWalletBalance(phoneNumber, newBalance);
+      const account = await recordDriverPayment(phoneNumber, Number(amount), notes || "دفعة من الإدارة");
+      res.json({ success: true, account });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
 
-      await addWalletTransaction({
-        phoneNumber,
-        amount: Number(amount),
-        type: "recharge",
-        service: "شحن رصيد",
-      });
+  // New explicit payment endpoint
+  app.post("/api/admin/driver-wallet/payment", async (req: Request, res: Response) => {
+    const { phoneNumber, amount, notes } = req.body;
+    if (!phoneNumber || amount === undefined) return res.status(400).json({ error: "Missing fields" });
+    try {
+      const account = await recordDriverPayment(phoneNumber, Number(amount), notes || "");
+      res.json({ success: true, account });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
 
-      res.json({ success: true, newBalance });
+  // All driver financial accounts (admin overview)
+  app.get("/api/admin/driver-financial", async (_req: Request, res: Response) => {
+    try {
+      const drivers = await getDrivers();
+      const accounts = await Promise.all(
+        drivers.filter(d => d.status === "approved").map(async d => ({
+          driver: { fullName: d.fullName, phoneNumber: d.phoneNumber, status: d.status },
+          account: await getDriverFinancialAccount(d.phoneNumber),
+        }))
+      );
+      res.json({ accounts });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }
@@ -3735,20 +3783,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const now = new Date();
       const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
 
-      const stats: Record<string, { todayOrders: number; todayEarnings: number; totalOrders: number; totalEarnings: number; walletBalance: number }> = {};
+      const stats: Record<string, { todayOrders: number; todayEarnings: number; totalOrders: number; totalEarnings: number; amountOwed: number }> = {};
 
       for (const driver of drivers) {
         const phone = driver.phoneNumber;
         const completed = await getCompletedOrders(phone);
         const todayCompleted = completed.filter(o => new Date(o.completedAt).getTime() >= todayStart);
-        const walletBalance = await getDriverWalletBalance(phone);
+        const account = await getDriverFinancialAccount(phone);
 
         stats[phone] = {
           todayOrders: todayCompleted.length,
           todayEarnings: todayCompleted.reduce((sum, o) => sum + (o.driverEarning || 0), 0),
           totalOrders: completed.length,
           totalEarnings: completed.reduce((sum, o) => sum + (o.driverEarning || 0), 0),
-          walletBalance,
+          amountOwed: account.amountOwed,
         };
       }
 

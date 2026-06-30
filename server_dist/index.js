@@ -767,6 +767,20 @@ function generateOtp(phoneNumber) {
   });
   return code;
 }
+function verifyOtp(phoneNumber, code) {
+  if (code === "0000" && process.env.ALLOW_DEV_OTP === "true" && process.env.NODE_ENV !== "production") {
+    return true;
+  }
+  const stored = otpStore.get(phoneNumber);
+  if (!stored) return false;
+  if (Date.now() > stored.expiresAt) {
+    otpStore.delete(phoneNumber);
+    return false;
+  }
+  if (stored.code !== code) return false;
+  otpStore.delete(phoneNumber);
+  return true;
+}
 async function getPromoCodes() {
   if (!db) return [];
   try {
@@ -827,34 +841,6 @@ async function recordPromoUsage(userId, promoCode) {
     promoCode,
     timestamp: admin.firestore.Timestamp.now()
   });
-}
-async function getDriverWalletBalance(phoneNumber) {
-  if (!db) return 0;
-  try {
-    const snapshot = await db.collection("driverWallets").where("phoneNumber", "==", phoneNumber).limit(1).get();
-    if (snapshot.empty) return 0;
-    return snapshot.docs[0].data().balance || 0;
-  } catch (error) {
-    console.error("Error getting driver wallet:", error);
-    return 0;
-  }
-}
-async function updateDriverWalletBalance(phoneNumber, newBalance) {
-  if (!db) throw new Error("Firestore not initialized");
-  const snapshot = await db.collection("driverWallets").where("phoneNumber", "==", phoneNumber).limit(1).get();
-  if (snapshot.empty) {
-    await db.collection("driverWallets").add({
-      phoneNumber,
-      balance: newBalance,
-      createdAt: admin.firestore.Timestamp.now(),
-      updatedAt: admin.firestore.Timestamp.now()
-    });
-  } else {
-    await snapshot.docs[0].ref.update({
-      balance: newBalance,
-      updatedAt: admin.firestore.Timestamp.now()
-    });
-  }
 }
 async function saveDriverCompletedOrder(phoneNumber, order) {
   if (!db) return;
@@ -931,36 +917,6 @@ async function updateDriverLastLocation(phoneNumber, lat, lng) {
     }
   } catch (error) {
     console.error("Error updating driver last location:", error);
-  }
-}
-async function addWalletTransaction(data) {
-  if (!db) throw new Error("Firestore not initialized");
-  await db.collection("walletHistory").add({
-    ...data,
-    timestamp: admin.firestore.Timestamp.now()
-  });
-}
-async function getWalletHistory(phoneNumber) {
-  if (!db) return [];
-  try {
-    const snapshot = await db.collection("walletHistory").where("phoneNumber", "==", phoneNumber).limit(100).get();
-    const rows = snapshot.docs.map((doc) => {
-      const data = doc.data();
-      return {
-        id: doc.id,
-        ...data,
-        timestamp: data.timestamp?.toDate?.() ? data.timestamp.toDate().toISOString() : data.timestamp
-      };
-    });
-    rows.sort((a, b) => {
-      const ta = a.timestamp ? new Date(a.timestamp).getTime() : 0;
-      const tb = b.timestamp ? new Date(b.timestamp).getTime() : 0;
-      return tb - ta;
-    });
-    return rows.slice(0, 50);
-  } catch (error) {
-    console.error("Error getting wallet history:", error);
-    return [];
   }
 }
 async function initializeDefaultCategories(defaultCategories) {
@@ -1222,6 +1178,148 @@ async function cancelDeliveryBatch(batchId) {
     await writeBatch.commit();
   } catch (error) {
     console.error("Error cancelling delivery batch:", error);
+  }
+}
+async function getDriverFinancialAccount(phoneNumber) {
+  const zero = {
+    phoneNumber,
+    totalEarnings: 0,
+    totalOnwayCommission: 0,
+    amountOwed: 0,
+    lastPaymentAmount: 0,
+    lastPaymentDate: null,
+    updatedAt: (/* @__PURE__ */ new Date()).toISOString()
+  };
+  if (!db) return zero;
+  try {
+    const snap = await db.collection("driverFinancialAccounts").where("phoneNumber", "==", phoneNumber).limit(1).get();
+    if (snap.empty) return zero;
+    const d = snap.docs[0].data();
+    return {
+      phoneNumber,
+      totalEarnings: d.totalEarnings ?? 0,
+      totalOnwayCommission: d.totalOnwayCommission ?? 0,
+      amountOwed: d.amountOwed ?? 0,
+      lastPaymentAmount: d.lastPaymentAmount ?? 0,
+      lastPaymentDate: d.lastPaymentDate ?? null,
+      updatedAt: d.updatedAt?.toDate?.() ? d.updatedAt.toDate().toISOString() : d.updatedAt ?? (/* @__PURE__ */ new Date()).toISOString()
+    };
+  } catch (err) {
+    console.error("Error reading driver financial account:", err);
+    return zero;
+  }
+}
+async function updateDriverEarningsOnOrder(phoneNumber, payload) {
+  if (!db) throw new Error("Firestore not initialized");
+  const snap = await db.collection("driverFinancialAccounts").where("phoneNumber", "==", phoneNumber).limit(1).get();
+  const now = admin.firestore.Timestamp.now();
+  let docRef;
+  let prev = {};
+  if (snap.empty) {
+    docRef = db.collection("driverFinancialAccounts").doc();
+    prev = { totalEarnings: 0, totalOnwayCommission: 0, amountOwed: 0 };
+  } else {
+    docRef = snap.docs[0].ref;
+    prev = snap.docs[0].data();
+  }
+  const newTotalEarnings = (prev.totalEarnings ?? 0) + payload.driverEarning;
+  const newTotalCommission = (prev.totalOnwayCommission ?? 0) + payload.onwayCommission;
+  const newAmountOwed = (prev.amountOwed ?? 0) + payload.onwayCommission;
+  const updated = {
+    phoneNumber,
+    totalEarnings: newTotalEarnings,
+    totalOnwayCommission: newTotalCommission,
+    amountOwed: newAmountOwed,
+    updatedAt: now
+  };
+  if (snap.empty) updated.createdAt = now;
+  await docRef.set(updated, { merge: true });
+  await db.collection("driverTransactions").add({
+    phoneNumber,
+    type: "earning",
+    driverEarning: payload.driverEarning,
+    onwayCommission: payload.onwayCommission,
+    amountOwedAfter: newAmountOwed,
+    orderId: payload.orderId,
+    orderType: payload.orderType,
+    timestamp: now
+  });
+  return {
+    phoneNumber,
+    totalEarnings: newTotalEarnings,
+    totalOnwayCommission: newTotalCommission,
+    amountOwed: newAmountOwed,
+    lastPaymentAmount: prev.lastPaymentAmount ?? 0,
+    lastPaymentDate: prev.lastPaymentDate ?? null,
+    updatedAt: now.toDate().toISOString()
+  };
+}
+async function recordDriverPayment(phoneNumber, amount, notes) {
+  if (!db) throw new Error("Firestore not initialized");
+  const snap = await db.collection("driverFinancialAccounts").where("phoneNumber", "==", phoneNumber).limit(1).get();
+  const now = admin.firestore.Timestamp.now();
+  const nowIso = now.toDate().toISOString();
+  let docRef;
+  let prev = {};
+  if (snap.empty) {
+    docRef = db.collection("driverFinancialAccounts").doc();
+    prev = { totalEarnings: 0, totalOnwayCommission: 0, amountOwed: 0 };
+  } else {
+    docRef = snap.docs[0].ref;
+    prev = snap.docs[0].data();
+  }
+  const newAmountOwed = Math.max(0, (prev.amountOwed ?? 0) - amount);
+  await docRef.set(
+    {
+      phoneNumber,
+      totalEarnings: prev.totalEarnings ?? 0,
+      totalOnwayCommission: prev.totalOnwayCommission ?? 0,
+      amountOwed: newAmountOwed,
+      lastPaymentAmount: amount,
+      lastPaymentDate: nowIso,
+      updatedAt: now
+    },
+    { merge: true }
+  );
+  await db.collection("driverTransactions").add({
+    phoneNumber,
+    type: "payment",
+    paymentAmount: amount,
+    amountOwedAfter: newAmountOwed,
+    notes,
+    timestamp: now
+  });
+  return {
+    phoneNumber,
+    totalEarnings: prev.totalEarnings ?? 0,
+    totalOnwayCommission: prev.totalOnwayCommission ?? 0,
+    amountOwed: newAmountOwed,
+    lastPaymentAmount: amount,
+    lastPaymentDate: nowIso,
+    updatedAt: nowIso
+  };
+}
+async function getDriverTransactions(phoneNumber, limitCount = 50) {
+  if (!db) return [];
+  try {
+    const snap = await db.collection("driverTransactions").where("phoneNumber", "==", phoneNumber).get();
+    const rows = snap.docs.map((doc) => {
+      const d = doc.data();
+      return {
+        id: doc.id,
+        ...d,
+        timestamp: d.timestamp?.toDate?.() ? d.timestamp.toDate().toISOString() : d.timestamp
+      };
+    });
+    rows.sort((a, b) => {
+      const ta = a.timestamp ? new Date(a.timestamp).getTime() : 0;
+      const tb = b.timestamp ? new Date(b.timestamp).getTime() : 0;
+      return tb - ta;
+    });
+    return rows.slice(0, limitCount);
+  } catch (err) {
+    console.error("Error getting driver transactions:", err);
+    return [];
   }
 }
 async function addDeliveryLog(data) {
@@ -1784,6 +1882,19 @@ function isAdminSessionValid(req) {
 function requireAdminAuth(req, res, next) {
   if (!isAdminSessionValid(req)) return res.status(401).json({ error: "\u063A\u064A\u0631 \u0645\u0635\u0631\u062D" });
   next();
+}
+function requireCustomerAuth(req, res, next) {
+  const authHeader = req.headers.authorization || "";
+  const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7).trim() : "";
+  if (!token) return res.status(401).json({ error: "\u064A\u0631\u062C\u0649 \u062A\u0633\u062C\u064A\u0644 \u0627\u0644\u062F\u062E\u0648\u0644 \u0623\u0648\u0644\u0627\u064B" });
+  try {
+    const decoded = jwt.verify(token, ROUTES_JWT_SECRET);
+    if (decoded.role !== "customer" || !decoded.phoneNumber) throw new Error("invalid role");
+    req.customerPhone = decoded.phoneNumber;
+    next();
+  } catch {
+    return res.status(401).json({ error: "\u0627\u0646\u062A\u0647\u062A \u0635\u0644\u0627\u062D\u064A\u0629 \u0627\u0644\u062C\u0644\u0633\u0629 \u2014 \u064A\u0631\u062C\u0649 \u062A\u0633\u062C\u064A\u0644 \u0627\u0644\u062F\u062E\u0648\u0644 \u0645\u062C\u062F\u062F\u0627\u064B" });
+  }
 }
 async function registerRoutes(app2) {
   app2.use("/api/admin", requireAdminAuth);
@@ -3256,11 +3367,11 @@ async function registerRoutes(app2) {
       res.json({ vendor, orders: 0, totalSales: 0, appCommission: 0, vendorNet: 0, commissionPercent: vendor.commissionPercent });
     }
   });
-  app2.get("/api/orders", async (req, res) => {
-    const phoneNumber = req.query.phoneNumber;
+  app2.get("/api/orders", requireCustomerAuth, async (req, res) => {
+    const phoneNumber = req.customerPhone;
     const db2 = getFirestore();
     if (db2) {
-      const orders = phoneNumber ? await getOrdersByPhone(phoneNumber) : await getOrders();
+      const orders = await getOrdersByPhone(phoneNumber);
       return res.json(orders.map((o) => ({
         ...o,
         createdAt: o.createdAt?.toDate?.() ? o.createdAt.toDate().toISOString() : o.createdAt,
@@ -3760,6 +3871,9 @@ ${itemsList}
     if (!phoneNumber || !code) {
       return res.status(400).json({ error: "Phone number and code are required" });
     }
+    if (!verifyOtp(phoneNumber, code)) {
+      return res.status(400).json({ error: "\u0631\u0645\u0632 \u0627\u0644\u062A\u062D\u0642\u0642 \u063A\u064A\u0631 \u0635\u062D\u064A\u062D \u0623\u0648 \u0627\u0646\u062A\u0647\u062A \u0635\u0644\u0627\u062D\u064A\u062A\u0647" });
+    }
     const customerToken = jwt.sign(
       { phoneNumber, role: "customer" },
       ROUTES_JWT_SECRET,
@@ -3954,7 +4068,7 @@ ${itemsList}
         const availableDriversBefore = driverQueue.filter((d, i) => i <= queueIndex && !d.currentBatchId);
         queuePosition = availableDriversBefore.length;
       }
-      const walletBalance = await getDriverWalletBalance(phoneNumber);
+      const financialAccount = await getDriverFinancialAccount(phoneNumber);
       const completed = await getCompletedOrders(phoneNumber);
       const now = /* @__PURE__ */ new Date();
       const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
@@ -3964,7 +4078,7 @@ ${itemsList}
         queuePosition,
         currentBatch,
         approvalStatus: driver?.status || "pending",
-        walletBalance,
+        amountOwed: financialAccount.amountOwed,
         todayOrders: todayCompleted.length,
         todayEarnings: todayCompleted.reduce((sum, o) => sum + (o.driverEarning || 0), 0)
       });
@@ -4024,9 +4138,13 @@ ${itemsList}
     if (!phoneNumber) return res.status(400).json({ error: "Phone number required" });
     try {
       if (goOnline) {
-        const walletBalance = await getDriverWalletBalance(phoneNumber);
-        if (walletBalance < 250) {
-          return res.status(400).json({ error: "\u0631\u0635\u064A\u062F \u0627\u0644\u0645\u062D\u0641\u0638\u0629 \u063A\u064A\u0631 \u0643\u0627\u0641\u064D. \u0627\u0644\u062D\u062F \u0627\u0644\u0623\u062F\u0646\u0649 \u0662\u0665\u0660 \u062F.\u0639", walletBalance });
+        const financialAccount = await getDriverFinancialAccount(phoneNumber);
+        const OWED_THRESHOLD = 5e4;
+        if (financialAccount.amountOwed >= OWED_THRESHOLD) {
+          return res.status(400).json({
+            error: `\u0627\u0644\u0645\u0628\u0644\u063A \u0627\u0644\u0645\u0633\u062A\u062D\u0642 (${financialAccount.amountOwed.toLocaleString("ar-IQ")} \u062F.\u0639) \u064A\u062A\u062C\u0627\u0648\u0632 \u0627\u0644\u062D\u062F \u0627\u0644\u0645\u0633\u0645\u0648\u062D (${OWED_THRESHOLD.toLocaleString("ar-IQ")} \u062F.\u0639). \u064A\u0631\u062C\u0649 \u062A\u0633\u0648\u064A\u0629 \u0627\u0644\u062D\u0633\u0627\u0628 \u0645\u0639 \u0627\u0644\u0645\u0633\u0624\u0648\u0644.`,
+            amountOwed: financialAccount.amountOwed
+          });
         }
         const exists = driverQueue.find((d) => d.phoneNumber === phoneNumber);
         if (!exists) {
@@ -4283,10 +4401,12 @@ ${itemsList}
         const deductionAmount = isRestaurantOrder ? 250 : 1e3;
         const driverEarning = isRestaurantOrder ? 750 : 2e3;
         await updateOrderDriverInfo(orderId, { driverEarning, ownerEarning: deductionAmount });
-        const currentBalance = await getDriverWalletBalance(phoneNumber);
-        const newBalance = currentBalance - deductionAmount;
-        await updateDriverWalletBalance(phoneNumber, newBalance);
-        await addWalletTransaction({ phoneNumber, amount: deductionAmount, type: "deduction", service: isRestaurantOrder ? "\u062A\u0648\u0635\u064A\u0644 \u0645\u0637\u0639\u0645" : "\u062A\u0648\u0635\u064A\u0644 \u062A\u0633\u0648\u064A\u0642/\u062E\u062F\u0645\u0627\u062A", orderId });
+        await updateDriverEarningsOnOrder(phoneNumber, {
+          driverEarning,
+          onwayCommission: deductionAmount,
+          orderId,
+          orderType: isRestaurantOrder ? "restaurant" : "market"
+        });
         const customerProfile = await getUserByPhone(order.phoneNumber || "");
         const completedEntry = {
           orderId,
@@ -4385,21 +4505,17 @@ ${itemsList}
             driverEarning,
             ownerEarning
           });
-          const currentBalance = await getDriverWalletBalance(phoneNumber);
-          const newBalance = currentBalance - deductionAmount;
-          await updateDriverWalletBalance(phoneNumber, newBalance);
-          await addWalletTransaction({
-            phoneNumber,
-            amount: deductionAmount,
-            type: "deduction",
-            service: isRestaurantOrder ? "\u062A\u0648\u0635\u064A\u0644 \u0645\u0637\u0639\u0645" : "\u062A\u0648\u0635\u064A\u0644 \u062A\u0633\u0648\u064A\u0642/\u062E\u062F\u0645\u0627\u062A",
-            orderId
+          await updateDriverEarningsOnOrder(phoneNumber, {
+            driverEarning,
+            onwayCommission: deductionAmount,
+            orderId,
+            orderType: isRestaurantOrder ? "restaurant" : "market"
           });
-          if (newBalance < 250) {
+          const OWED_THRESHOLD = 5e4;
+          const updatedAccount = await getDriverFinancialAccount(phoneNumber);
+          if (updatedAccount.amountOwed >= OWED_THRESHOLD) {
             const queueIdx = driverQueue.findIndex((d) => d.phoneNumber === phoneNumber);
-            if (queueIdx !== -1) {
-              driverQueue.splice(queueIdx, 1);
-            }
+            if (queueIdx !== -1) driverQueue.splice(queueIdx, 1);
           }
           const completedEntry = {
             orderId,
@@ -4512,27 +4628,43 @@ ${itemsList}
     const phoneNumber = req.query.phoneNumber;
     if (!phoneNumber) return res.status(400).json({ error: "Phone number required" });
     try {
-      const balance = await getDriverWalletBalance(phoneNumber);
-      const history = await getWalletHistory(phoneNumber);
-      res.json({ balance, history });
+      const account = await getDriverFinancialAccount(phoneNumber);
+      const transactions = await getDriverTransactions(phoneNumber, 50);
+      res.json({ account, transactions });
     } catch (error) {
       res.status(500).json({ error: error.message });
     }
   });
   app2.post("/api/admin/driver-wallet/recharge", async (req, res) => {
-    const { phoneNumber, amount } = req.body;
+    const { phoneNumber, amount, notes } = req.body;
     if (!phoneNumber || amount === void 0) return res.status(400).json({ error: "Missing fields" });
     try {
-      const currentBalance = await getDriverWalletBalance(phoneNumber);
-      const newBalance = currentBalance + Number(amount);
-      await updateDriverWalletBalance(phoneNumber, newBalance);
-      await addWalletTransaction({
-        phoneNumber,
-        amount: Number(amount),
-        type: "recharge",
-        service: "\u0634\u062D\u0646 \u0631\u0635\u064A\u062F"
-      });
-      res.json({ success: true, newBalance });
+      const account = await recordDriverPayment(phoneNumber, Number(amount), notes || "\u062F\u0641\u0639\u0629 \u0645\u0646 \u0627\u0644\u0625\u062F\u0627\u0631\u0629");
+      res.json({ success: true, account });
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+  app2.post("/api/admin/driver-wallet/payment", async (req, res) => {
+    const { phoneNumber, amount, notes } = req.body;
+    if (!phoneNumber || amount === void 0) return res.status(400).json({ error: "Missing fields" });
+    try {
+      const account = await recordDriverPayment(phoneNumber, Number(amount), notes || "");
+      res.json({ success: true, account });
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+  app2.get("/api/admin/driver-financial", async (_req, res) => {
+    try {
+      const drivers = await getDrivers();
+      const accounts = await Promise.all(
+        drivers.filter((d) => d.status === "approved").map(async (d) => ({
+          driver: { fullName: d.fullName, phoneNumber: d.phoneNumber, status: d.status },
+          account: await getDriverFinancialAccount(d.phoneNumber)
+        }))
+      );
+      res.json({ accounts });
     } catch (error) {
       res.status(500).json({ error: error.message });
     }
@@ -4784,13 +4916,13 @@ ${itemsList}
         const phone = driver.phoneNumber;
         const completed = await getCompletedOrders(phone);
         const todayCompleted = completed.filter((o) => new Date(o.completedAt).getTime() >= todayStart);
-        const walletBalance = await getDriverWalletBalance(phone);
+        const account = await getDriverFinancialAccount(phone);
         stats[phone] = {
           todayOrders: todayCompleted.length,
           todayEarnings: todayCompleted.reduce((sum, o) => sum + (o.driverEarning || 0), 0),
           totalOrders: completed.length,
           totalEarnings: completed.reduce((sum, o) => sum + (o.driverEarning || 0), 0),
-          walletBalance
+          amountOwed: account.amountOwed
         };
       }
       res.json({ stats });

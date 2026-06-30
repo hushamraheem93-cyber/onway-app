@@ -1010,6 +1010,33 @@
       display: block;
     }
 
+    /* Hub tab bar */
+    #hub-tab-bar {
+      display: none;
+      gap: 4px;
+      padding: 0 0 18px 0;
+      flex-wrap: wrap;
+    }
+    .hub-tab {
+      padding: 7px 16px;
+      border-radius: 20px;
+      border: 1.5px solid var(--gray-200);
+      background: var(--gray-50);
+      color: var(--gray-600);
+      font-family: 'Cairo', sans-serif;
+      font-size: 0.82rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.18s;
+      white-space: nowrap;
+    }
+    .hub-tab:hover { border-color: var(--primary); color: var(--primary); background: #FFF3E0; }
+    .hub-tab.hub-tab-active {
+      background: var(--primary);
+      color: #fff;
+      border-color: var(--primary);
+    }
+
     /* Filter Bar */
     .filter-bar {
       display: flex;
@@ -1381,147 +1408,94 @@
     </div>
 
     <nav class="sidebar-nav">
+      <!-- Core -->
       <div class="nav-section">
-        <div class="nav-section-title">العمليات</div>
+        <div class="nav-section-title">الرئيسية</div>
         <div class="nav-item active" onclick="showSection('dashboard', this)">
-          <i data-lucide="layout-dashboard"></i>
-          <span>الرئيسية</span>
+          <i data-lucide="layout-dashboard"></i><span>لوحة التحكم</span>
         </div>
         <div class="nav-item" onclick="showSection('orders', this)">
-          <i data-lucide="shopping-bag"></i>
-          <span>إدارة الطلبات</span>
+          <i data-lucide="shopping-bag"></i><span>الطلبات</span>
           <span class="badge" id="orders-count">0</span>
         </div>
         <div class="nav-item" onclick="showSection('appUsers', this)">
-          <i data-lucide="users"></i>
-          <span>المستخدمون</span>
+          <i data-lucide="users"></i><span>المستخدمون</span>
           <span class="badge" id="users-nav-count">0</span>
         </div>
+        <div class="nav-item" onclick="showSection('operationsCenter', this)">
+          <i data-lucide="monitor"></i><span>مركز العمليات</span>
+          <span class="badge" id="ops-alerts-badge" style="background:#ef4444;display:none;">0</span>
+        </div>
+      </div>
+
+      <!-- Entities -->
+      <div class="nav-section">
+        <div class="nav-section-title">الكيانات</div>
+        <div class="nav-item" onclick="showSection('drivers', this)">
+          <i data-lucide="truck"></i><span>السائقون</span>
+          <span class="badge" id="drivers-count">0</span>
+        </div>
+        <div class="nav-item" onclick="showSection('vendors', this)">
+          <i data-lucide="store"></i><span>المتاجر والمطاعم</span>
+        </div>
+        <div class="nav-item" onclick="showSection('vendorPartners', this)">
+          <i data-lucide="handshake"></i><span>شركاء التطبيق</span>
+          <span class="badge" id="vendor-partners-count">0</span>
+        </div>
+      </div>
+
+      <!-- Content & Marketing -->
+      <div class="nav-section">
+        <div class="nav-section-title">المحتوى والتسويق</div>
+        <div class="nav-item" onclick="showSection('products', this)">
+          <i data-lucide="package"></i><span>المنتجات</span>
+          <span class="badge" id="products-count">0</span>
+        </div>
+        <div class="nav-item" onclick="showSection('categories', this)">
+          <i data-lucide="folder-tree"></i><span>الفئات والأصناف</span>
+          <span class="badge" id="categories-count">0</span>
+        </div>
+        <div class="nav-item" onclick="showSection('banners', this)">
+          <i data-lucide="image"></i><span>التسويق والعروض</span>
+        </div>
         <div class="nav-item" onclick="showSection('promoCodes', this)">
-          <i data-lucide="ticket"></i>
-          <span>أكواد الخصم</span>
+          <i data-lucide="ticket"></i><span>أكواد الخصم</span>
           <span class="badge" id="promo-count">0</span>
         </div>
       </div>
 
+      <!-- Analytics & Ops -->
       <div class="nav-section">
-        <div class="nav-section-title">المحتوى</div>
-        <div class="nav-item" onclick="showSection('products', this)">
-          <i data-lucide="package"></i>
-          <span>المنتجات</span>
-          <span class="badge" id="products-count">0</span>
-        </div>
-        <div class="nav-item" onclick="showSection('categories', this)">
-          <i data-lucide="folder-tree"></i>
-          <span>الفئات</span>
-          <span class="badge" id="categories-count">0</span>
-        </div>
-        <div class="nav-item" onclick="showSection('banners', this)">
-          <i data-lucide="image"></i>
-          <span>السلايدر الترويجي</span>
-        </div>
-        <div class="nav-item" onclick="showSection('bestSellers', this)">
-          <i data-lucide="trending-up"></i>
-          <span>الأكثر مبيعاً</span>
-        </div>
-        <div class="nav-item" onclick="showSection('featured', this)">
-          <i data-lucide="star"></i>
-          <span>المنتجات المتميزة</span>
-        </div>
-        <div class="nav-item" onclick="showSection('discounts', this)">
-          <i data-lucide="percent"></i>
-          <span>التخفيضات</span>
-        </div>
-      </div>
-
-      <div class="nav-section">
-        <div class="nav-section-title">الشركاء التجاريين</div>
-        <div class="nav-item" onclick="showSection('vendorPartners', this)">
-          <i data-lucide="store"></i>
-          <span>المتاجر</span>
-          <span class="badge" id="vendor-partners-count">0</span>
-        </div>
-        <div class="nav-item" onclick="showSection('vendorProducts', this)">
-          <i data-lucide="package-check"></i>
-          <span>منتجات قيد الموافقة</span>
-          <span class="badge" id="vendor-pending-products-count" style="background:#F59E0B;color:#fff;">0</span>
-        </div>
-      </div>
-
-      <div class="nav-section">
-        <div class="nav-section-title">السائقين</div>
-        <div class="nav-item" onclick="showSection('drivers', this)">
-          <i data-lucide="users"></i>
-          <span>سائقين الدلفري</span>
-          <span class="badge" id="drivers-count">0</span>
-        </div>
-        <div class="nav-item" onclick="showSection('driverQueue', this)">
-          <i data-lucide="list-ordered"></i>
-          <span>طابور السائقين</span>
-          <span class="badge" id="queue-count">0</span>
-        </div>
-      </div>
-
-      <div class="nav-section">
-        <div class="nav-section-title">المراقبة والتحليلات</div>
-        <div class="nav-item" onclick="showSection('operationsCenter', this)">
-          <i data-lucide="monitor"></i>
-          <span>مركز العمليات</span>
-          <span class="badge" id="ops-alerts-badge" style="background:#ef4444;display:none;">0</span>
-        </div>
+        <div class="nav-section-title">التحليلات والعمليات</div>
         <div class="nav-item" onclick="showSection('analytics', this)">
-          <i data-lucide="bar-chart-3"></i>
-          <span>التحليلات</span>
+          <i data-lucide="bar-chart-3"></i><span>التحليلات</span>
         </div>
         <div class="nav-item" onclick="showSection('reports', this)">
-          <i data-lucide="file-text"></i>
-          <span>التقارير والتصدير</span>
+          <i data-lucide="file-text"></i><span>التقارير</span>
         </div>
-      </div>
-
-      <div class="nav-section">
-        <div class="nav-section-title">إدارة المناطق</div>
-        <div class="nav-item" onclick="showSection('zoneManagement', this)">
-          <i data-lucide="map"></i>
-          <span>المناطق والأقضية</span>
-          <span class="badge" id="zones-count">0</span>
+        <div class="nav-item" onclick="showSection('delivery', this)">
+          <i data-lucide="map-pin"></i><span>التوصيل والمناطق</span>
         </div>
         <div class="nav-item" onclick="showSection('ratingsManagement', this)">
-          <i data-lucide="star"></i>
-          <span>إدارة التقييمات</span>
+          <i data-lucide="star"></i><span>التقييمات</span>
           <span class="badge" id="ratings-count">0</span>
-        </div>
-        <div class="nav-item" onclick="showSection('storeRanking', this)">
-          <i data-lucide="trophy"></i>
-          <span>ترتيب المتاجر</span>
-        </div>
-        <div class="nav-item" onclick="showSection('businessCategories', this)">
-          <i data-lucide="layers"></i>
-          <span>أنواع النشاط والأقسام</span>
         </div>
       </div>
 
+      <!-- Config -->
       <div class="nav-section">
-        <div class="nav-section-title">التقارير والإعدادات</div>
+        <div class="nav-section-title">الإعدادات والدعم</div>
         <div class="nav-item" id="nav-supportChat" onclick="showSection('supportChat', this)">
-          <i class="fas fa-headset"></i>
-          <span>دعم المستخدمين</span>
+          <i class="fas fa-headset"></i><span>دعم المستخدمين</span>
           <span class="badge" id="support-badge" style="display:none;">0</span>
         </div>
         <div class="nav-item" onclick="showSection('notifications', this)">
-          <i data-lucide="bell"></i>
-          <span>إرسال الإشعارات</span>
-        </div>
-        <div class="nav-item" onclick="showSection('delivery', this)">
-          <i data-lucide="map-pin"></i>
-          <span>مناطق التوصيل</span>
+          <i data-lucide="bell"></i><span>الإشعارات</span>
         </div>
         <div class="nav-item" onclick="showSection('settings', this)">
-          <i data-lucide="archive"></i>
-          <span>الأرشفة والتقارير</span>
+          <i data-lucide="settings"></i><span>الإعدادات</span>
         </div>
       </div>
-
     </nav>
 
     <div class="sidebar-logout">
@@ -1534,6 +1508,8 @@
 
   <!-- Main Content -->
   <main class="main-content">
+    <!-- Hub Tab Bar (dynamically populated by renderHubTabs) -->
+    <div id="hub-tab-bar"></div>
     <!-- Dashboard Section -->
     <div id="dashboard-section" class="section active">
       <header class="header">
@@ -3020,6 +2996,24 @@
       </div>
     </div>
 
+    <!-- Driver Financial Section -->
+    <div id="driverFinancial-section" class="section">
+      <header class="header">
+        <div class="header-title">
+          <h2>الحسابات المالية</h2>
+          <p>عمولات أونوي المستحقة على السائقين وسجل المدفوعات</p>
+        </div>
+        <div class="header-actions">
+          <button class="btn btn-outline" onclick="doRefresh(this, loadDriverFinancial, 'الحسابات المالية')">
+            <i data-lucide="refresh-cw"></i> تحديث
+          </button>
+        </div>
+      </header>
+      <div id="driver-financial-list">
+        <div class="loading"><div class="spinner"></div></div>
+      </div>
+    </div>
+
     <!-- Orders Section -->
     <div id="orders-section" class="section">
       <header class="header">
@@ -4502,12 +4496,70 @@
     }
 
     // Navigation
+    // ─── Hub tab maps ────────────────────────────────────────────────────────
+    const HUB_MAP = {
+      banners: 'marketing', bestSellers: 'marketing', featured: 'marketing',
+      discounts: 'marketing', promoCodes: 'marketing',
+      drivers: 'drivers', driverQueue: 'drivers', driverFinancial: 'drivers',
+      products: 'catalog', categories: 'catalog', businessCategories: 'catalog',
+      analytics: 'analytics', reports: 'analytics', operationsCenter: 'analytics',
+      delivery: 'delivery', zoneManagement: 'delivery',
+      ratingsManagement: 'ratings', storeRanking: 'ratings',
+      supportChat: 'support', notifications: 'support',
+      vendorPartners: 'merchants', vendorProducts: 'merchants', vendors: 'merchants',
+    };
+    const HUB_TABS = {
+      marketing: [
+        { id: 'banners', label: 'الإعلانات' }, { id: 'bestSellers', label: 'الأكثر مبيعاً' },
+        { id: 'featured', label: 'المميزة' }, { id: 'discounts', label: 'التخفيضات' },
+        { id: 'promoCodes', label: 'أكواد الخصم' },
+      ],
+      drivers: [
+        { id: 'drivers', label: 'السائقون' }, { id: 'driverQueue', label: 'الطابور' },
+        { id: 'driverFinancial', label: 'الحسابات المالية' },
+      ],
+      catalog: [
+        { id: 'products', label: 'المنتجات' }, { id: 'categories', label: 'الفئات' },
+        { id: 'businessCategories', label: 'أنواع النشاط' },
+      ],
+      analytics: [
+        { id: 'analytics', label: 'التحليلات' }, { id: 'reports', label: 'التقارير' },
+        { id: 'operationsCenter', label: 'مركز العمليات' },
+      ],
+      delivery: [
+        { id: 'delivery', label: 'مناطق التوصيل' }, { id: 'zoneManagement', label: 'الأقضية والمناطق' },
+      ],
+      ratings: [
+        { id: 'ratingsManagement', label: 'التقييمات' }, { id: 'storeRanking', label: 'ترتيب المتاجر' },
+      ],
+      support: [
+        { id: 'supportChat', label: 'دعم المستخدمين' }, { id: 'notifications', label: 'الإشعارات' },
+      ],
+      merchants: [
+        { id: 'vendors', label: 'المتاجر والمطاعم' }, { id: 'vendorPartners', label: 'شركاء التطبيق' },
+        { id: 'vendorProducts', label: 'منتجات معلقة' },
+      ],
+    };
+
+    function renderHubTabs(sectionId) {
+      const bar = document.getElementById('hub-tab-bar');
+      const hubId = HUB_MAP[sectionId];
+      if (!hubId || !HUB_TABS[hubId]) { bar.style.display = 'none'; return; }
+      bar.style.display = 'flex';
+      bar.innerHTML = HUB_TABS[hubId].map(tab =>
+        `<button class="hub-tab${tab.id === sectionId ? ' hub-tab-active' : ''}" onclick="showSection('${tab.id}')">${tab.label}</button>`
+      ).join('');
+    }
+
     function showSection(section, element) {
       document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
       document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
       
-      document.getElementById(section + '-section').classList.add('active');
+      const sectionEl = document.getElementById(section + '-section');
+      if (!sectionEl) { console.warn('Section not found:', section); return; }
+      sectionEl.classList.add('active');
       if (element) element.classList.add('active');
+      renderHubTabs(section);
       
       // Stop polling when leaving orders
       if (section !== 'orders') stopOrdersPolling();
@@ -4519,6 +4571,7 @@
       if (section === 'orders') { loadOrders(); startOrdersPolling(); }
       if (section === 'drivers') loadDrivers();
       if (section === 'driverQueue') loadDriverQueue();
+      if (section === 'driverFinancial') loadDriverFinancial();
       if (section === 'dashboard') loadDashboard();
       if (section === 'promoCodes') loadPromoCodes();
       if (section === 'vendors') { loadVendors(); loadVendorFinancials(); }
@@ -4551,6 +4604,104 @@
           loadPromotionalSections();
         }
       }
+    }
+
+    // ══════════════════════════════════════════════════════════════
+    //  DRIVER FINANCIAL SECTION
+    // ══════════════════════════════════════════════════════════════
+    async function loadDriverFinancial() {
+      const container = document.getElementById('driver-financial-list');
+      container.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+      try {
+        const res = await fetch(API_BASE + '/admin/driver-financial');
+        const { accounts } = await res.json();
+
+        if (!accounts || accounts.length === 0) {
+          container.innerHTML = '<div style="text-align:center;padding:40px;color:var(--gray-400);">لا يوجد سائقون معتمدون</div>';
+          return;
+        }
+
+        // Summary row
+        const totalOwed = accounts.reduce((s, a) => s + (a.account?.amountOwed || 0), 0);
+        const totalPaid = accounts.reduce((s, a) => s + (a.account?.totalPaid || 0), 0);
+        const totalCommission = accounts.reduce((s, a) => s + (a.account?.totalOnwayCommission || 0), 0);
+
+        container.innerHTML = `
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:24px;">
+            <div class="stat-card" style="border-top:3px solid #EF4444;">
+              <div class="stat-card-label">إجمالي المستحق</div>
+              <div class="stat-card-value" style="color:#EF4444;">${totalOwed.toLocaleString('ar-IQ')} د.ع</div>
+            </div>
+            <div class="stat-card" style="border-top:3px solid #10B981;">
+              <div class="stat-card-label">إجمالي المدفوع</div>
+              <div class="stat-card-value" style="color:#10B981;">${totalPaid.toLocaleString('ar-IQ')} د.ع</div>
+            </div>
+            <div class="stat-card" style="border-top:3px solid var(--primary);">
+              <div class="stat-card-label">إجمالي العمولات</div>
+              <div class="stat-card-value">${totalCommission.toLocaleString('ar-IQ')} د.ع</div>
+            </div>
+          </div>
+          <div style="overflow-x:auto;">
+            <table class="table">
+              <thead><tr>
+                <th>السائق</th><th>الهاتف</th>
+                <th>إجمالي العمولات</th><th>المدفوع</th>
+                <th>المستحق</th><th>حالة الدين</th><th>تسجيل دفعة</th>
+              </tr></thead>
+              <tbody>
+              ${accounts.map(({ driver, account }) => {
+                const owed = account?.amountOwed || 0;
+                const paid = account?.totalPaid || 0;
+                const commission = account?.totalOnwayCommission || 0;
+                const blocked = owed >= 50000;
+                return `<tr>
+                  <td style="font-weight:700;">${escapeHtml(driver.fullName || '—')}</td>
+                  <td style="direction:ltr;">${escapeHtml(driver.phoneNumber)}</td>
+                  <td>${commission.toLocaleString('ar-IQ')} د.ع</td>
+                  <td style="color:#10B981;font-weight:700;">${paid.toLocaleString('ar-IQ')} د.ع</td>
+                  <td style="color:${blocked ? '#EF4444' : owed > 0 ? '#F59E0B' : '#6B7280'};font-weight:700;">
+                    ${owed.toLocaleString('ar-IQ')} د.ع
+                  </td>
+                  <td>
+                    <span style="padding:3px 10px;border-radius:20px;font-size:0.75rem;font-weight:700;
+                      background:${blocked ? '#FEE2E2' : owed > 0 ? '#FFF8E7' : '#D1FAE5'};
+                      color:${blocked ? '#EF4444' : owed > 0 ? '#B45309' : '#065F46'};">
+                      ${blocked ? 'محجوب' : owed > 0 ? 'مديون' : 'مسوّى'}
+                    </span>
+                  </td>
+                  <td>
+                    <button class="btn btn-sm" style="background:var(--primary);color:#fff;border:none;"
+                      onclick="openDriverPayment('${escapeHtml(driver.phoneNumber)}', '${escapeHtml(driver.fullName||'')}')">
+                      <i data-lucide="wallet" style="width:12px;height:12px;"></i> تسجيل دفعة
+                    </button>
+                  </td>
+                </tr>`;
+              }).join('')}
+              </tbody>
+            </table>
+          </div>`;
+        lucide.createIcons();
+      } catch (e) {
+        container.innerHTML = `<div class="error-msg">${e.message}</div>`;
+      }
+    }
+
+    function openDriverPayment(phoneNumber, driverName) {
+      const amount = prompt(`تسجيل دفعة للسائق: ${driverName}\nأدخل المبلغ (د.ع):`);
+      if (!amount || isNaN(Number(amount)) || Number(amount) <= 0) return;
+      const notes = prompt('ملاحظات (اختياري):') || '';
+      fetch(API_BASE + '/admin/driver-wallet/payment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phoneNumber, amount: Number(amount), notes }),
+      }).then(r => r.json()).then(data => {
+        if (data.success) {
+          showToast(`تم تسجيل الدفعة بنجاح. المستحق الجديد: ${(data.account?.amountOwed || 0).toLocaleString('ar-IQ')} د.ع`, 'success');
+          loadDriverFinancial();
+        } else {
+          showToast(data.error || 'فشل تسجيل الدفعة', 'error');
+        }
+      }).catch(e => showToast(e.message, 'error'));
     }
 
     // ══════════════════════════════════════════════════════════════
@@ -6392,13 +6543,13 @@
               </div>
               <!-- Name + badges -->
               <div style="flex:1;min-width:0;">
-                <div style="font-weight:800;font-size:0.93rem;color:#111827;margin-bottom:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${v.name}</div>
+                <div style="font-weight:800;font-size:0.93rem;color:#111827;margin-bottom:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(v.name)}</div>
                 <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:4px;">
                   <span style="background:${typeBg};color:${typeColor};padding:2px 9px;border-radius:20px;font-size:0.69rem;font-weight:700;border:1px solid ${typeColor}33;">${typeLabel}</span>
                   <span style="background:${v.isOpen ? '#D1FAE5' : '#FEE2E2'};color:${v.isOpen ? '#065F46' : '#991B1B'};padding:2px 9px;border-radius:20px;font-size:0.69rem;font-weight:700;">${v.isOpen ? 'مفتوح' : 'مغلق'}</span>
-                  ${v.cuisine ? `<span style="background:#F9FAFB;color:#6B7280;padding:2px 8px;border-radius:20px;font-size:0.69rem;border:1px solid #E5E7EB;">${v.cuisine}</span>` : ''}
+                  ${v.cuisine ? `<span style="background:#F9FAFB;color:#6B7280;padding:2px 8px;border-radius:20px;font-size:0.69rem;border:1px solid #E5E7EB;">${escapeHtml(v.cuisine)}</span>` : ''}
                 </div>
-                ${v.location ? `<div style="font-size:0.71rem;color:#9CA3AF;display:flex;align-items:center;gap:3px;overflow:hidden;"><i data-lucide="map-pin" style="width:10px;height:10px;flex-shrink:0;"></i><span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${v.location}</span></div>` : ''}
+                ${v.location ? `<div style="font-size:0.71rem;color:#9CA3AF;display:flex;align-items:center;gap:3px;overflow:hidden;"><i data-lucide="map-pin" style="width:10px;height:10px;flex-shrink:0;"></i><span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(v.location)}</span></div>` : ''}
               </div>
               <!-- Toggle -->
               <div style="flex-shrink:0;">
@@ -6521,13 +6672,13 @@
             <div style="display:flex;align-items:center;gap:10px;">
               <img src="${v.image || ''}" onerror="this.style.display='none'" style="width:38px;height:38px;border-radius:8px;object-fit:cover;flex-shrink:0;">
               <div>
-                <div style="font-weight:700;font-size:0.88rem;">${v.name}</div>
-                ${v.cuisine ? `<div style="font-size:0.72rem;color:var(--gray-500);">${v.cuisine}</div>` : ''}
+                <div style="font-weight:700;font-size:0.88rem;">${escapeHtml(v.name)}</div>
+                ${v.cuisine ? `<div style="font-size:0.72rem;color:var(--gray-500);">${escapeHtml(v.cuisine)}</div>` : ''}
               </div>
             </div>
           </td>
           <td><span style="background:${typeBg};color:${typeColor};padding:2px 8px;border-radius:20px;font-size:0.75rem;font-weight:700;">${typeLabel}</span></td>
-          <td style="font-size:0.82rem;color:var(--gray-600);max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${v.location || '—'}</td>
+          <td style="font-size:0.82rem;color:var(--gray-600);max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(v.location || '—')}</td>
           <td><span style="background:#FFF3E0;color:#E86520;padding:3px 8px;border-radius:20px;font-size:0.78rem;font-weight:700;">${v.commissionPercent || 0}%</span></td>
           <td>${v.rating !== null && v.rating !== undefined ? `<span style="color:#F59E0B;font-weight:700;font-size:0.85rem;">★ ${v.rating}</span>` : '<span style="color:var(--gray-400);font-size:0.8rem;">—</span>'}</td>
           <td>
@@ -6544,13 +6695,13 @@
           </td>
           <td>
             <div style="display:flex;gap:4px;">
-              <button class="btn btn-sm" style="background:#E86520;color:#fff;border:none;" onclick="openVendorMeals('${v.id}','${v.name.replace(/'/g,"\\'")}')">
+              <button class="btn btn-sm" style="background:#E86520;color:#fff;border:none;" onclick="openVendorMeals('${v.id}','${escapeHtml(v.name).replace(/'/g,"\\'")}')">
                 <i data-lucide="utensils" style="width:12px;height:12px;"></i>
               </button>
               <button class="btn btn-outline btn-sm" onclick="openVendorModal('${v.id}')" title="تعديل">
                 <i data-lucide="edit-2" style="width:12px;height:12px;"></i>
               </button>
-              <button class="btn btn-sm" style="background:#FEF2F2;color:#EF4444;border:1px solid #FECACA;" onclick="confirmDeleteVendor('${v.id}','${v.name}')">
+              <button class="btn btn-sm" style="background:#FEF2F2;color:#EF4444;border:1px solid #FECACA;" onclick="confirmDeleteVendor('${v.id}','${escapeHtml(v.name)}')">
                 <i data-lucide="trash-2" style="width:12px;height:12px;"></i>
               </button>
             </div>
@@ -7079,8 +7230,8 @@
           <div style="display:flex;align-items:center;gap:14px;margin-bottom:24px;padding-bottom:20px;border-bottom:1px solid var(--gray-100);">
             <img src="${v.image||''}" onerror="this.style.display='none'" style="width:60px;height:60px;border-radius:14px;object-fit:cover;">
             <div>
-              <div style="font-size:1.1rem;font-weight:800;">${v.name}</div>
-              <div style="font-size:0.82rem;color:var(--gray-500);">${v.location||''}</div>
+              <div style="font-size:1.1rem;font-weight:800;">${escapeHtml(v.name)}</div>
+              <div style="font-size:0.82rem;color:var(--gray-500);">${escapeHtml(v.location||'')}</div>
               <div style="display:flex;align-items:center;gap:6px;margin-top:4px;flex-wrap:wrap;">
                 ${v.rating !== null && v.rating !== undefined ? `<i data-lucide="star" style="width:12px;height:12px;color:#F59E0B;fill:#F59E0B;"></i><span style="font-size:0.82rem;font-weight:600;">${v.rating} (${v.ratingCount||0} تقييم)</span>` : '<span style="font-size:0.82rem;color:var(--gray-400);">لا يوجد تقييم بعد</span>'}
                 <span style="font-size:0.75rem;color:var(--gray-400);">عمولة التطبيق: ${v.commissionPercent}%</span>
