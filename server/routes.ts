@@ -37,7 +37,8 @@ import {
   updateDriverOnlineStatus, getOnlineDrivers, saveDriverPushToken, getDriverPushToken,
   getSupportChat, sendSupportMessage, getAllSupportChats, markSupportChatRead,
   createDeliveryBatch, getDeliveryBatch, updateDeliveryBatch, cancelDeliveryBatch, addDeliveryLog, DeliveryBatch,
-  saveAdminPushToken, getAdminPushToken
+  saveAdminPushToken, getAdminPushToken,
+  addDriverToActiveQueue, removeDriverFromActiveQueue, updateDriverQueueEntry, getActiveDriverQueue
 } from "./firebase";
 import { sendPushNotification, sendBroadcastNotification, sendDriverBatchNotification, sendAdminNewOrderNotification, sendVendorNewOrderNotification } from "./pushNotifications";
 
@@ -1080,15 +1081,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
   await initializeDefaultDeliveryAreas(deliveryAreas);
   await initializeDefaultVendors(defaultVendors);
 
-  // Rebuild driver queue from Firestore (restores online drivers + active batches after server restart)
+  // Rebuild driver queue from Firestore activeDriverQueue collection.
+  // This is the source of truth across server restarts — replaces the old
+  // getOnlineDrivers() approach that used driver document flags.
   try {
-    const onlineDrivers = await getOnlineDrivers();
-    for (const d of onlineDrivers) {
-      if (!driverQueue.find(q => q.phoneNumber === d.phoneNumber)) {
-        driverQueue.push({ phoneNumber: d.phoneNumber, joinedAt: d.onlineAt });
+    const queueEntries = await getActiveDriverQueue(); // ordered by joinedAt ASC (FIFO)
+    for (const entry of queueEntries) {
+      if (!driverQueue.find(q => q.phoneNumber === entry.phoneNumber)) {
+        driverQueue.push({
+          phoneNumber: entry.phoneNumber,
+          joinedAt: entry.joinedAt,
+          lastSeenAt: Date.now(),
+          pushToken: entry.pushToken ?? undefined,
+        });
       }
     }
-    if (onlineDrivers.length > 0) {
+    console.log(`[QUEUE_RESTORE] Restored ${driverQueue.length} driver(s) from activeDriverQueue`);
+    if (driverQueue.length > 0) {
       try {
         const db = getFirestore();
         if (db) {
@@ -1110,6 +1119,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
               db.collection("delivery_batches").doc(bDoc.id)
                 .update({ status: "completed", updatedAt: new Date() })
                 .catch(() => {});
+              // Clear hasActiveBatch in Firestore for this driver (if they have no other active batch)
+              if (bData.driverId) {
+                updateDriverQueueEntry(bData.driverId, { hasActiveBatch: false, joinedAt: Date.now() }).catch(() => {});
+              }
               continue;
             }
             const driverPhone = bData.driverId; // driverId = phone number
@@ -1139,6 +1152,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   qd.currentBatchId = batchId;
                   qd.lastSeenAt = Date.now();
                   orderIds.forEach(id => batchedOrderIds.add(id));
+                  updateDriverQueueEntry(qd.phoneNumber, { hasActiveBatch: true }).catch(() => {});
                 }
               }
             }
@@ -2221,6 +2235,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           oldBatch.orderIds.forEach(id => batchedOrderIds.delete(id));
         }
         queuedDriver.currentBatchId = undefined;
+        updateDriverQueueEntry(driverPhone, { hasActiveBatch: false }).catch(() => {});
       }
 
       // 5. If driver is not in queue, add them temporarily
@@ -2231,6 +2246,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           lastSeenAt: Date.now(),
           currentBatchId: undefined,
         });
+        addDriverToActiveQueue(driverPhone, Date.now()).catch(() => {});
       }
 
       // 6. Create a batch with this specific order for the driver
@@ -2243,7 +2259,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // 7. Update in-memory queue
       const targetDriver = driverQueue.find(d => d.phoneNumber === driverPhone);
-      if (targetDriver) targetDriver.currentBatchId = batchId;
+      if (targetDriver) {
+        targetDriver.currentBatchId = batchId;
+        updateDriverQueueEntry(driverPhone, { hasActiveBatch: true }).catch(() => {});
+      }
       batchedOrderIds.add(orderId);
 
       // 8. Update order with driver info in Firestore (also clear rejection flags)
@@ -2765,6 +2784,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
             // Mark batch as completed in Firestore
             const db2 = getFirestore();
             if (db2) db2.collection("delivery_batches").doc(batchDoc.id).update({ status: "completed", updatedAt: new Date() }).catch(() => {});
+            // Move driver to end of queue (joinedAt reset = lowest priority until next pickup)
+            updateDriverQueueEntry(phoneNumber, { hasActiveBatch: false, joinedAt: Date.now() }).catch(() => {});
             // Immediately try to assign new orders to this now-available driver
             assignWaitingBatchToDriver(phoneNumber).catch(() => {});
           } else {
@@ -2880,7 +2901,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
         const exists = driverQueue.find(d => d.phoneNumber === phoneNumber);
         if (!exists) {
-          driverQueue.push({ phoneNumber, joinedAt: Date.now(), lastSeenAt: Date.now() });
+          const joinedAt = Date.now();
+          driverQueue.push({ phoneNumber, joinedAt, lastSeenAt: Date.now() });
+          // Persist new queue entry to Firestore
+          addDriverToActiveQueue(phoneNumber, joinedAt, pushToken?.startsWith("ExponentPushToken") ? pushToken : undefined).catch(() => {});
         } else {
           exists.lastSeenAt = Date.now();
         }
@@ -2889,6 +2913,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const qd = driverQueue.find(d => d.phoneNumber === phoneNumber);
           if (qd) qd.pushToken = pushToken;
           saveDriverPushToken(phoneNumber, pushToken).catch(() => {});
+          updateDriverQueueEntry(phoneNumber, { pushToken }).catch(() => {});
         }
         // Persist online status to Firestore
         updateDriverOnlineStatus(phoneNumber, true).catch(() => {});
@@ -2903,6 +2928,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (idx !== -1) {
           driverQueue.splice(idx, 1);
         }
+        // Remove from Firestore activeDriverQueue
+        removeDriverFromActiveQueue(phoneNumber).catch(() => {});
         // Persist offline status to Firestore
         updateDriverOnlineStatus(phoneNumber, false).catch(() => {});
         // Log offline event
@@ -3045,13 +3072,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
           rejectedOrderIds = [orderId];
         }
         qd.currentBatchId = undefined;
-        // Move driver to end of queue
+        // Move driver to end of queue (reset joinedAt so they get lowest priority)
         const savedPushToken = qd.pushToken;
         const idx = driverQueue.findIndex(d => d.phoneNumber === phoneNumber);
         if (idx !== -1) {
           driverQueue.splice(idx, 1);
           driverQueue.push({ phoneNumber, joinedAt: Date.now(), pushToken: savedPushToken });
         }
+        // Sync to Firestore: reset joinedAt (end of queue) and clear hasActiveBatch
+        updateDriverQueueEntry(phoneNumber, { hasActiveBatch: false, joinedAt: Date.now() }).catch(() => {});
       }
       // Track rejection cooldown so the same order isn't re-offered immediately
       if (rejectedOrderIds.length > 0) {
@@ -3116,7 +3145,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       await updateDeliveryBatch(batchId, { status: "in_progress", startTime: new Date().toISOString() });
       const qd = driverQueue.find(d => d.phoneNumber === phoneNumber);
-      if (qd) qd.currentBatchId = batchId;
+      if (qd) {
+        qd.currentBatchId = batchId;
+        updateDriverQueueEntry(phoneNumber, { hasActiveBatch: true }).catch(() => {});
+      }
       saveDriverActivity({ phoneNumber, type: "accepted", orderId: batchId }).catch(() => {});
       res.json({ success: true });
     } catch (error: any) {
@@ -3215,10 +3247,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
             if (qd) qd.currentBatchId = undefined;
             // Check wallet before assigning next batch
             if (newBalance >= 250) {
+              // Move to end of queue (joinedAt reset) and mark available
+              updateDriverQueueEntry(phoneNumber, { hasActiveBatch: false, joinedAt: Date.now() }).catch(() => {});
               assignWaitingBatchToDriver(phoneNumber).catch(() => {});
             } else {
+              // Wallet threshold exceeded — remove from queue entirely
               const queueIdx = driverQueue.findIndex(d => d.phoneNumber === phoneNumber);
               if (queueIdx !== -1) driverQueue.splice(queueIdx, 1);
+              removeDriverFromActiveQueue(phoneNumber).catch(() => {});
             }
           } else {
             // Accumulate partial earnings
@@ -3289,6 +3325,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           if (updatedAccount.amountOwed >= OWED_THRESHOLD) {
             const queueIdx = driverQueue.findIndex(d => d.phoneNumber === phoneNumber);
             if (queueIdx !== -1) driverQueue.splice(queueIdx, 1);
+            removeDriverFromActiveQueue(phoneNumber).catch(() => {});
           }
 
           const completedEntry = {
@@ -3796,6 +3833,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const availableDriver = driverQueue.find(d => !d.currentBatchId);
         if (availableDriver) {
           availableDriver.currentBatchId = order.id;
+          updateDriverQueueEntry(availableDriver.phoneNumber, { hasActiveBatch: true }).catch(() => {});
           assigned++;
         } else {
           break;

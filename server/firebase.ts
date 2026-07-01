@@ -2051,3 +2051,71 @@ export async function addDeliveryLog(data: {
     console.error("Error adding delivery log:", error);
   }
 }
+
+// ── Active Driver Queue (Firestore persistence across restarts) ────────────
+
+export interface ActiveQueueEntry {
+  phoneNumber: string;
+  joinedAt: number;       // epoch ms — determines FIFO position
+  hasActiveBatch: boolean;
+  pushToken?: string | null;
+  updatedAt: Date;
+}
+
+/** Add or overwrite a driver's queue document (called when going online). */
+export async function addDriverToActiveQueue(
+  phoneNumber: string,
+  joinedAt: number,
+  pushToken?: string
+): Promise<void> {
+  const db = getFirestore();
+  if (!db) return;
+  await db.collection("activeDriverQueue").doc(phoneNumber).set({
+    phoneNumber,
+    joinedAt,
+    hasActiveBatch: false,
+    pushToken: pushToken || null,
+    updatedAt: new Date(),
+  });
+}
+
+/** Delete a driver's queue document (called when going offline or removed). */
+export async function removeDriverFromActiveQueue(phoneNumber: string): Promise<void> {
+  const db = getFirestore();
+  if (!db) return;
+  await db.collection("activeDriverQueue").doc(phoneNumber).delete();
+}
+
+/**
+ * Patch specific fields on a driver's queue document.
+ * Typical use-cases:
+ *   - Assign batch:  { hasActiveBatch: true }
+ *   - Clear batch:   { hasActiveBatch: false, joinedAt: Date.now() }  ← moves to end
+ *   - Reject/end:    { hasActiveBatch: false, joinedAt: Date.now() }
+ *   - Token update:  { pushToken: "ExponentPushToken[...]" }
+ */
+export async function updateDriverQueueEntry(
+  phoneNumber: string,
+  data: { joinedAt?: number; hasActiveBatch?: boolean; pushToken?: string }
+): Promise<void> {
+  const db = getFirestore();
+  if (!db) return;
+  await db.collection("activeDriverQueue").doc(phoneNumber).update({
+    ...data,
+    updatedAt: new Date(),
+  });
+}
+
+/**
+ * Return all queue entries ordered by joinedAt ascending (FIFO order).
+ * Used on server startup to rebuild the in-memory driverQueue.
+ */
+export async function getActiveDriverQueue(): Promise<ActiveQueueEntry[]> {
+  const db = getFirestore();
+  if (!db) return [];
+  const snap = await db
+    .collection("activeDriverQueue")
+    .orderBy("joinedAt", "asc")
+    .get();
+  return snap.docs.map(d => d.data() as ActiveQueueEntry);
+}

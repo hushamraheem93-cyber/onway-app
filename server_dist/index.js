@@ -585,19 +585,6 @@ async function getDriverPushToken(phoneNumber) {
     return null;
   }
 }
-async function getOnlineDrivers() {
-  if (!db) return [];
-  try {
-    const snapshot = await db.collection("drivers").where("isOnline", "==", true).where("status", "==", "approved").get();
-    return snapshot.docs.map((doc) => {
-      const data = doc.data();
-      return { phoneNumber: data.phoneNumber, onlineAt: data.onlineAt || Date.now() };
-    }).sort((a, b) => a.onlineAt - b.onlineAt);
-  } catch (error) {
-    console.error("Error getting online drivers:", error);
-    return [];
-  }
-}
 async function getBanners(activeOnly = false) {
   if (!db) return [];
   try {
@@ -1411,6 +1398,36 @@ async function addDeliveryLog(data) {
   } catch (error) {
     console.error("Error adding delivery log:", error);
   }
+}
+async function addDriverToActiveQueue(phoneNumber, joinedAt, pushToken) {
+  const db2 = getFirestore();
+  if (!db2) return;
+  await db2.collection("activeDriverQueue").doc(phoneNumber).set({
+    phoneNumber,
+    joinedAt,
+    hasActiveBatch: false,
+    pushToken: pushToken || null,
+    updatedAt: /* @__PURE__ */ new Date()
+  });
+}
+async function removeDriverFromActiveQueue(phoneNumber) {
+  const db2 = getFirestore();
+  if (!db2) return;
+  await db2.collection("activeDriverQueue").doc(phoneNumber).delete();
+}
+async function updateDriverQueueEntry(phoneNumber, data) {
+  const db2 = getFirestore();
+  if (!db2) return;
+  await db2.collection("activeDriverQueue").doc(phoneNumber).update({
+    ...data,
+    updatedAt: /* @__PURE__ */ new Date()
+  });
+}
+async function getActiveDriverQueue() {
+  const db2 = getFirestore();
+  if (!db2) return [];
+  const snap = await db2.collection("activeDriverQueue").orderBy("joinedAt", "asc").get();
+  return snap.docs.map((d) => d.data());
 }
 
 // server/pushNotifications.ts
@@ -2639,13 +2656,19 @@ async function registerRoutes(app2) {
   await initializeDefaultDeliveryAreas(deliveryAreas);
   await initializeDefaultVendors(defaultVendors);
   try {
-    const onlineDrivers = await getOnlineDrivers();
-    for (const d of onlineDrivers) {
-      if (!driverQueue.find((q) => q.phoneNumber === d.phoneNumber)) {
-        driverQueue.push({ phoneNumber: d.phoneNumber, joinedAt: d.onlineAt });
+    const queueEntries = await getActiveDriverQueue();
+    for (const entry of queueEntries) {
+      if (!driverQueue.find((q) => q.phoneNumber === entry.phoneNumber)) {
+        driverQueue.push({
+          phoneNumber: entry.phoneNumber,
+          joinedAt: entry.joinedAt,
+          lastSeenAt: Date.now(),
+          pushToken: entry.pushToken ?? void 0
+        });
       }
     }
-    if (onlineDrivers.length > 0) {
+    console.log(`[QUEUE_RESTORE] Restored ${driverQueue.length} driver(s) from activeDriverQueue`);
+    if (driverQueue.length > 0) {
       try {
         const db2 = getFirestore();
         if (db2) {
@@ -2661,6 +2684,10 @@ async function registerRoutes(app2) {
             if (allDone) {
               db2.collection("delivery_batches").doc(bDoc.id).update({ status: "completed", updatedAt: /* @__PURE__ */ new Date() }).catch(() => {
               });
+              if (bData.driverId) {
+                updateDriverQueueEntry(bData.driverId, { hasActiveBatch: false, joinedAt: Date.now() }).catch(() => {
+                });
+              }
               continue;
             }
             const driverPhone = bData.driverId;
@@ -2686,6 +2713,8 @@ async function registerRoutes(app2) {
                   qd.currentBatchId = batchId;
                   qd.lastSeenAt = Date.now();
                   orderIds.forEach((id) => batchedOrderIds.add(id));
+                  updateDriverQueueEntry(qd.phoneNumber, { hasActiveBatch: true }).catch(() => {
+                  });
                 }
               }
             }
@@ -3655,6 +3684,8 @@ ${itemsList}
           oldBatch.orderIds.forEach((id) => batchedOrderIds.delete(id));
         }
         queuedDriver.currentBatchId = void 0;
+        updateDriverQueueEntry(driverPhone, { hasActiveBatch: false }).catch(() => {
+        });
       }
       if (!queuedDriver) {
         driverQueue.push({
@@ -3663,6 +3694,8 @@ ${itemsList}
           lastSeenAt: Date.now(),
           currentBatchId: void 0
         });
+        addDriverToActiveQueue(driverPhone, Date.now()).catch(() => {
+        });
       }
       const batchId = await createDeliveryBatch({
         driverPhone,
@@ -3670,7 +3703,11 @@ ${itemsList}
       });
       if (!batchId) return res.status(500).json({ error: "\u0641\u0634\u0644 \u0641\u064A \u0625\u0646\u0634\u0627\u0621 \u0627\u0644\u062F\u064F\u0641\u0639\u0629" });
       const targetDriver = driverQueue.find((d) => d.phoneNumber === driverPhone);
-      if (targetDriver) targetDriver.currentBatchId = batchId;
+      if (targetDriver) {
+        targetDriver.currentBatchId = batchId;
+        updateDriverQueueEntry(driverPhone, { hasActiveBatch: true }).catch(() => {
+        });
+      }
       batchedOrderIds.add(orderId);
       const driverName = [driver.firstName, driver.secondName].filter(Boolean).join(" ") || driver.fullName || driverPhone;
       const { FieldValue } = await import("firebase-admin/firestore");
@@ -4121,6 +4158,8 @@ ${itemsList}
             const db2 = getFirestore();
             if (db2) db2.collection("delivery_batches").doc(batchDoc.id).update({ status: "completed", updatedAt: /* @__PURE__ */ new Date() }).catch(() => {
             });
+            updateDriverQueueEntry(phoneNumber, { hasActiveBatch: false, joinedAt: Date.now() }).catch(() => {
+            });
             assignWaitingBatchToDriver(phoneNumber).catch(() => {
             });
           } else {
@@ -4220,7 +4259,10 @@ ${itemsList}
         }
         const exists = driverQueue.find((d) => d.phoneNumber === phoneNumber);
         if (!exists) {
-          driverQueue.push({ phoneNumber, joinedAt: Date.now(), lastSeenAt: Date.now() });
+          const joinedAt = Date.now();
+          driverQueue.push({ phoneNumber, joinedAt, lastSeenAt: Date.now() });
+          addDriverToActiveQueue(phoneNumber, joinedAt, pushToken?.startsWith("ExponentPushToken") ? pushToken : void 0).catch(() => {
+          });
         } else {
           exists.lastSeenAt = Date.now();
         }
@@ -4228,6 +4270,8 @@ ${itemsList}
           const qd = driverQueue.find((d) => d.phoneNumber === phoneNumber);
           if (qd) qd.pushToken = pushToken;
           saveDriverPushToken(phoneNumber, pushToken).catch(() => {
+          });
+          updateDriverQueueEntry(phoneNumber, { pushToken }).catch(() => {
           });
         }
         updateDriverOnlineStatus(phoneNumber, true).catch(() => {
@@ -4243,6 +4287,8 @@ ${itemsList}
         if (idx !== -1) {
           driverQueue.splice(idx, 1);
         }
+        removeDriverFromActiveQueue(phoneNumber).catch(() => {
+        });
         updateDriverOnlineStatus(phoneNumber, false).catch(() => {
         });
         saveDriverActivity({ phoneNumber, type: "offline" }).catch(() => {
@@ -4370,6 +4416,8 @@ ${itemsList}
           driverQueue.splice(idx, 1);
           driverQueue.push({ phoneNumber, joinedAt: Date.now(), pushToken: savedPushToken });
         }
+        updateDriverQueueEntry(phoneNumber, { hasActiveBatch: false, joinedAt: Date.now() }).catch(() => {
+        });
       }
       if (rejectedOrderIds.length > 0) {
         if (!driverRejectionCooldowns.has(phoneNumber)) {
@@ -4427,7 +4475,11 @@ ${itemsList}
       }
       await updateDeliveryBatch(batchId, { status: "in_progress", startTime: (/* @__PURE__ */ new Date()).toISOString() });
       const qd = driverQueue.find((d) => d.phoneNumber === phoneNumber);
-      if (qd) qd.currentBatchId = batchId;
+      if (qd) {
+        qd.currentBatchId = batchId;
+        updateDriverQueueEntry(phoneNumber, { hasActiveBatch: true }).catch(() => {
+        });
+      }
       saveDriverActivity({ phoneNumber, type: "accepted", orderId: batchId }).catch(() => {
       });
       res.json({ success: true });
@@ -4525,11 +4577,15 @@ ${itemsList}
             const qd = driverQueue.find((d) => d.phoneNumber === phoneNumber);
             if (qd) qd.currentBatchId = void 0;
             if (newBalance >= 250) {
+              updateDriverQueueEntry(phoneNumber, { hasActiveBatch: false, joinedAt: Date.now() }).catch(() => {
+              });
               assignWaitingBatchToDriver(phoneNumber).catch(() => {
               });
             } else {
               const queueIdx = driverQueue.findIndex((d) => d.phoneNumber === phoneNumber);
               if (queueIdx !== -1) driverQueue.splice(queueIdx, 1);
+              removeDriverFromActiveQueue(phoneNumber).catch(() => {
+              });
             }
           } else {
             const partialEarnings = batchDoc.orderIds.reduce((sum, oid) => {
@@ -4588,6 +4644,8 @@ ${itemsList}
           if (updatedAccount.amountOwed >= OWED_THRESHOLD) {
             const queueIdx = driverQueue.findIndex((d) => d.phoneNumber === phoneNumber);
             if (queueIdx !== -1) driverQueue.splice(queueIdx, 1);
+            removeDriverFromActiveQueue(phoneNumber).catch(() => {
+            });
           }
           const completedEntry = {
             orderId,
@@ -5003,6 +5061,8 @@ ${itemsList}
         const availableDriver = driverQueue.find((d) => !d.currentBatchId);
         if (availableDriver) {
           availableDriver.currentBatchId = order.id;
+          updateDriverQueueEntry(availableDriver.phoneNumber, { hasActiveBatch: true }).catch(() => {
+          });
           assigned++;
         } else {
           break;
