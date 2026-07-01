@@ -27,7 +27,7 @@ import {
   updateOrderDriverInfo,
   getPromoCodes, getPromoCodeByCode, createPromoCode, updatePromoCode, deletePromoCode as deletePromoCodeFn,
   checkPromoUsage, recordPromoUsage,
-  getDriverFinancialAccount, updateDriverEarningsOnOrder, recordDriverPayment, getDriverTransactions,
+  getDriverFinancialAccount, updateDriverEarningsOnOrder, recordDriverPayment, recordDriverAdjustment, getDriverTransactions,
   saveDriverCompletedOrder, getDriverCompletedOrdersFromDB,
   saveDriverActivity, getDriverActivityLog, updateDriverLastLocation,
   getOrdersByDriverPhone,
@@ -3349,16 +3349,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const now = new Date();
       const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
       const weekStart = todayStart - 7 * 24 * 60 * 60 * 1000;
+      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
 
-      const todayOrders = completed.filter(o => new Date(o.completedAt).getTime() >= todayStart);
-      const weekOrders = completed.filter(o => new Date(o.completedAt).getTime() >= weekStart);
+      const todayList = completed.filter(o => new Date(o.completedAt).getTime() >= todayStart);
+      const weekList = completed.filter(o => new Date(o.completedAt).getTime() >= weekStart);
+      const monthList = completed.filter(o => new Date(o.completedAt).getTime() >= monthStart);
 
       res.json({
         totalEarnings: completed.reduce((sum, o) => sum + (o.driverEarning || 0), 0),
-        todayEarnings: todayOrders.reduce((sum, o) => sum + (o.driverEarning || 0), 0),
-        weekEarnings: weekOrders.reduce((sum, o) => sum + (o.driverEarning || 0), 0),
+        todayEarnings: todayList.reduce((sum, o) => sum + (o.driverEarning || 0), 0),
+        weekEarnings: weekList.reduce((sum, o) => sum + (o.driverEarning || 0), 0),
+        monthEarnings: monthList.reduce((sum, o) => sum + (o.driverEarning || 0), 0),
         totalOrders: completed.length,
-        todayOrders: todayOrders.length,
+        todayOrders: todayList.length,
+        weekOrders: weekList.length,
+        monthOrders: monthList.length,
         completedOrders: completed.map(o => ({
           id: o.orderId,
           total: o.total,
@@ -3461,15 +3466,59 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Adjustment endpoint (add/deduct from amountOwed)
+  app.post("/api/admin/driver-wallet/adjustment", async (req: Request, res: Response) => {
+    const { phoneNumber, amount, type, notes } = req.body;
+    if (!phoneNumber || amount === undefined || !type) return res.status(400).json({ error: "Missing fields" });
+    if (type !== "add" && type !== "deduct") return res.status(400).json({ error: "type must be add or deduct" });
+    try {
+      const account = await recordDriverAdjustment(phoneNumber, Number(amount), type as "add" | "deduct", notes || "");
+      res.json({ success: true, account });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Full financial statement for a single driver (admin)
+  app.get("/api/admin/driver-financial/:phone/statement", async (req: Request, res: Response) => {
+    const phoneNumber = decodeURIComponent(req.params.phone);
+    try {
+      const [driver, account, transactions] = await Promise.all([
+        getDriverByPhone(phoneNumber),
+        getDriverFinancialAccount(phoneNumber),
+        getDriverTransactions(phoneNumber, 200),
+      ]);
+      res.json({ driver: { fullName: driver?.fullName || "", phoneNumber }, account, transactions });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // All driver financial accounts (admin overview)
   app.get("/api/admin/driver-financial", async (_req: Request, res: Response) => {
     try {
       const drivers = await getDrivers();
       const accounts = await Promise.all(
-        drivers.filter(d => d.status === "approved").map(async d => ({
-          driver: { fullName: d.fullName, phoneNumber: d.phoneNumber, status: d.status },
-          account: await getDriverFinancialAccount(d.phoneNumber),
-        }))
+        drivers.filter(d => d.status === "approved").map(async d => {
+          const account = await getDriverFinancialAccount(d.phoneNumber);
+          const completed = await getCompletedOrders(d.phoneNumber);
+          const now = new Date();
+          const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+          const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+          const todayList = completed.filter(o => new Date(o.completedAt).getTime() >= todayStart);
+          const monthList = completed.filter(o => new Date(o.completedAt).getTime() >= monthStart);
+          return {
+            driver: { fullName: d.fullName, phoneNumber: d.phoneNumber, status: d.status },
+            account,
+            stats: {
+              totalOrders: completed.length,
+              todayOrders: todayList.length,
+              monthOrders: monthList.length,
+              todayEarnings: todayList.reduce((s, o) => s + (o.driverEarning || 0), 0),
+              monthEarnings: monthList.reduce((s, o) => s + (o.driverEarning || 0), 0),
+            },
+          };
+        })
       );
       res.json({ accounts });
     } catch (error: any) {

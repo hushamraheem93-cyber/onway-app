@@ -3961,59 +3961,80 @@
           return;
         }
 
-        // Summary row
-        const totalOwed = accounts.reduce((s, a) => s + (a.account?.amountOwed || 0), 0);
-        const totalPaid = accounts.reduce((s, a) => s + (a.account?.totalPaid || 0), 0);
+        const totalOwed       = accounts.reduce((s, a) => s + (a.account?.amountOwed || 0), 0);
+        const totalPaid       = accounts.reduce((s, a) => s + (a.account?.totalPaid || 0), 0);
         const totalCommission = accounts.reduce((s, a) => s + (a.account?.totalOnwayCommission || 0), 0);
+        const blockedCount    = accounts.filter(a => (a.account?.amountOwed || 0) >= 50000).length;
 
         container.innerHTML = `
-          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:24px;">
+          <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:24px;">
             <div class="stat-card" style="border-top:3px solid #EF4444;">
               <div class="stat-card-label">إجمالي المستحق</div>
               <div class="stat-card-value" style="color:#EF4444;">${totalOwed.toLocaleString('ar-IQ')} د.ع</div>
             </div>
             <div class="stat-card" style="border-top:3px solid #10B981;">
-              <div class="stat-card-label">إجمالي المدفوع</div>
+              <div class="stat-card-label">إجمالي المسدّد</div>
               <div class="stat-card-value" style="color:#10B981;">${totalPaid.toLocaleString('ar-IQ')} د.ع</div>
             </div>
             <div class="stat-card" style="border-top:3px solid var(--primary);">
               <div class="stat-card-label">إجمالي العمولات</div>
               <div class="stat-card-value">${totalCommission.toLocaleString('ar-IQ')} د.ع</div>
             </div>
+            <div class="stat-card" style="border-top:3px solid #F59E0B;">
+              <div class="stat-card-label">سائقون محجوبون</div>
+              <div class="stat-card-value" style="color:#F59E0B;">${blockedCount}</div>
+            </div>
           </div>
           <div style="overflow-x:auto;">
             <table class="table">
               <thead><tr>
                 <th>السائق</th><th>الهاتف</th>
-                <th>إجمالي العمولات</th><th>المدفوع</th>
-                <th>المستحق</th><th>حالة الدين</th><th>تسجيل دفعة</th>
+                <th>العمولات الكلية</th><th>المسدّد</th><th>المستحق</th>
+                <th>طلبات الشهر</th><th>أرباح الشهر</th>
+                <th>الحالة</th><th>إجراءات</th>
               </tr></thead>
               <tbody>
-              ${accounts.map(({ driver, account }) => {
-                const owed = account?.amountOwed || 0;
-                const paid = account?.totalPaid || 0;
+              ${accounts.map(({ driver, account, stats }) => {
+                const owed       = account?.amountOwed || 0;
+                const paid       = account?.totalPaid || 0;
                 const commission = account?.totalOnwayCommission || 0;
-                const blocked = owed >= 50000;
+                const blocked    = owed >= 50000;
+                const statusLabel = blocked ? 'محجوب' : owed > 0 ? 'مستحقات' : 'مسوّى';
+                const statusBg    = blocked ? '#FEE2E2' : owed > 0 ? '#FFF8E7' : '#D1FAE5';
+                const statusColor = blocked ? '#EF4444' : owed > 0 ? '#B45309' : '#065F46';
+                const phone = escapeHtml(driver.phoneNumber);
+                const name  = escapeHtml(driver.fullName || '—');
                 return `<tr>
-                  <td style="font-weight:700;">${escapeHtml(driver.fullName || '—')}</td>
-                  <td style="direction:ltr;">${escapeHtml(driver.phoneNumber)}</td>
+                  <td style="font-weight:700;">${name}</td>
+                  <td style="direction:ltr;font-size:0.85rem;">${phone}</td>
                   <td>${commission.toLocaleString('ar-IQ')} د.ع</td>
                   <td style="color:#10B981;font-weight:700;">${paid.toLocaleString('ar-IQ')} د.ع</td>
-                  <td style="color:${blocked ? '#EF4444' : owed > 0 ? '#F59E0B' : '#6B7280'};font-weight:700;">
+                  <td style="color:${blocked?'#EF4444':owed>0?'#F59E0B':'#6B7280'};font-weight:700;">
                     ${owed.toLocaleString('ar-IQ')} د.ع
                   </td>
+                  <td>${(stats?.monthOrders||0)} طلب</td>
+                  <td style="color:#10B981;">${(stats?.monthEarnings||0).toLocaleString('ar-IQ')} د.ع</td>
                   <td>
                     <span style="padding:3px 10px;border-radius:20px;font-size:0.75rem;font-weight:700;
-                      background:${blocked ? '#FEE2E2' : owed > 0 ? '#FFF8E7' : '#D1FAE5'};
-                      color:${blocked ? '#EF4444' : owed > 0 ? '#B45309' : '#065F46'};">
-                      ${blocked ? 'محجوب' : owed > 0 ? 'مديون' : 'مسوّى'}
+                      background:${statusBg};color:${statusColor};">
+                      ${statusLabel}
                     </span>
                   </td>
                   <td>
-                    <button class="btn btn-sm" style="background:var(--primary);color:#fff;border:none;"
-                      onclick="openDriverPayment('${escapeHtml(driver.phoneNumber)}', '${escapeHtml(driver.fullName||'')}')">
-                      <i data-lucide="wallet" style="width:12px;height:12px;"></i> تسجيل دفعة
-                    </button>
+                    <div style="display:flex;gap:6px;flex-wrap:wrap;">
+                      <button class="btn btn-sm" style="background:var(--primary);color:#fff;border:none;"
+                        onclick="openDriverPayment('${phone}','${name}',${owed})">
+                        <i data-lucide="check-circle" style="width:11px;height:11px;"></i> دفعة
+                      </button>
+                      <button class="btn btn-sm" style="background:#F59E0B;color:#fff;border:none;"
+                        onclick="openDriverAdjustment('${phone}','${name}')">
+                        <i data-lucide="edit-2" style="width:11px;height:11px;"></i> تعديل
+                      </button>
+                      <button class="btn btn-sm btn-outline"
+                        onclick="openDriverStatement('${phone}','${name}')">
+                        <i data-lucide="file-text" style="width:11px;height:11px;"></i> كشف
+                      </button>
+                    </div>
                   </td>
                 </tr>`;
               }).join('')}
@@ -4026,22 +4047,107 @@
       }
     }
 
-    function openDriverPayment(phoneNumber, driverName) {
-      const amount = prompt(`تسجيل دفعة للسائق: ${driverName}\nأدخل المبلغ (د.ع):`);
-      if (!amount || isNaN(Number(amount)) || Number(amount) <= 0) return;
-      const notes = prompt('ملاحظات (اختياري):') || '';
-      fetch(API_BASE + '/admin/driver-wallet/payment', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phoneNumber, amount: Number(amount), notes }),
-      }).then(r => r.json()).then(data => {
+    function openDriverPayment(phoneNumber, driverName, currentOwed) {
+      document.getElementById('dp-phone').value = phoneNumber;
+      document.getElementById('driver-payment-modal-title').textContent = `تسجيل دفعة — ${driverName}`;
+      document.getElementById('dp-amount').value = '';
+      document.getElementById('dp-notes').value = '';
+      document.getElementById('dp-current-owed').textContent =
+        `المستحق الحالي: ${(currentOwed||0).toLocaleString('ar-IQ')} د.ع`;
+      openModal('driver-payment-modal');
+    }
+
+    async function submitDriverPayment() {
+      const phone  = document.getElementById('dp-phone').value;
+      const amount = Number(document.getElementById('dp-amount').value);
+      const notes  = document.getElementById('dp-notes').value.trim();
+      if (!amount || amount <= 0) { showToast('أدخل مبلغاً صحيحاً', 'error'); return; }
+      const btn = document.getElementById('dp-submit-btn');
+      btn.disabled = true;
+      try {
+        const res = await fetch(API_BASE + '/admin/driver-wallet/payment', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ phoneNumber: phone, amount, notes }),
+        });
+        const data = await res.json();
         if (data.success) {
-          showToast(`تم تسجيل الدفعة بنجاح. المستحق الجديد: ${(data.account?.amountOwed || 0).toLocaleString('ar-IQ')} د.ع`, 'success');
+          showToast(`تم تسجيل الدفعة. المستحق الجديد: ${(data.account?.amountOwed||0).toLocaleString('ar-IQ')} د.ع`, 'success');
+          closeModal('driver-payment-modal');
           loadDriverFinancial();
         } else {
           showToast(data.error || 'فشل تسجيل الدفعة', 'error');
         }
-      }).catch(e => showToast(e.message, 'error'));
+      } catch (e) { showToast(e.message, 'error'); }
+      finally { btn.disabled = false; }
+    }
+
+    function openDriverAdjustment(phoneNumber, driverName) {
+      document.getElementById('da-phone').value = phoneNumber;
+      document.getElementById('driver-adjust-modal-title').textContent = `تعديل حساب — ${driverName}`;
+      document.getElementById('da-amount').value = '';
+      document.getElementById('da-notes').value = '';
+      document.getElementById('da-type').value = 'deduct';
+      openModal('driver-adjust-modal');
+    }
+
+    async function submitDriverAdjustment() {
+      const phone  = document.getElementById('da-phone').value;
+      const type   = document.getElementById('da-type').value;
+      const amount = Number(document.getElementById('da-amount').value);
+      const notes  = document.getElementById('da-notes').value.trim();
+      if (!amount || amount <= 0) { showToast('أدخل مبلغاً صحيحاً', 'error'); return; }
+      try {
+        const res = await fetch(API_BASE + '/admin/driver-wallet/adjustment', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ phoneNumber: phone, amount, type, notes }),
+        });
+        const data = await res.json();
+        if (data.success) {
+          showToast(`تم التعديل. المستحق الجديد: ${(data.account?.amountOwed||0).toLocaleString('ar-IQ')} د.ع`, 'success');
+          closeModal('driver-adjust-modal');
+          loadDriverFinancial();
+        } else {
+          showToast(data.error || 'فشل التعديل', 'error');
+        }
+      } catch (e) { showToast(e.message, 'error'); }
+    }
+
+    async function openDriverStatement(phoneNumber, driverName) {
+      document.getElementById('driver-statement-title').textContent = `كشف حساب — ${driverName}`;
+      document.getElementById('driver-statement-body').innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+      openModal('driver-statement-modal');
+      try {
+        const res = await fetch(`${API_BASE}/admin/driver-financial/${encodeURIComponent(phoneNumber)}/statement`);
+        const { account, transactions } = await res.json();
+        const owed = account?.amountOwed || 0;
+        const statusColor = owed >= 50000 ? '#EF4444' : owed > 0 ? '#F59E0B' : '#10B981';
+        const rows = (transactions || []).map(t => {
+          const typeLabel = t.type === 'payment' ? 'دفعة' : t.type === 'adjustment' ? 'تعديل' : t.type === 'commission' ? 'عمولة' : 'أرباح';
+          const typeColor = t.type === 'payment' ? '#10B981' : t.type === 'adjustment' ? '#F59E0B' : t.type === 'commission' ? '#EF4444' : '#3B82F6';
+          const date = t.timestamp ? new Date(t.timestamp._seconds ? t.timestamp._seconds * 1000 : t.timestamp).toLocaleString('ar-IQ') : '—';
+          return `<tr>
+            <td><span style="padding:2px 8px;border-radius:12px;font-size:0.75rem;background:${typeColor}20;color:${typeColor};font-weight:700;">${typeLabel}</span></td>
+            <td style="font-weight:700;">${(t.amount||0).toLocaleString('ar-IQ')} د.ع</td>
+            <td>${(t.amountOwedAfter||0).toLocaleString('ar-IQ')} د.ع</td>
+            <td style="color:var(--gray-500);font-size:0.8rem;">${escapeHtml(t.description||t.notes||'')}</td>
+            <td style="color:var(--gray-400);font-size:0.8rem;direction:ltr;">${date}</td>
+          </tr>`;
+        }).join('');
+        document.getElementById('driver-statement-body').innerHTML = `
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px;">
+            <div class="stat-card"><div class="stat-card-label">إجمالي الأرباح</div><div class="stat-card-value" style="font-size:1rem;">${(account?.totalEarnings||0).toLocaleString('ar-IQ')} د.ع</div></div>
+            <div class="stat-card"><div class="stat-card-label">إجمالي المسدّد</div><div class="stat-card-value" style="font-size:1rem;color:#10B981;">${(account?.totalPaid||0).toLocaleString('ar-IQ')} د.ع</div></div>
+            <div class="stat-card"><div class="stat-card-label">المستحق الحالي</div><div class="stat-card-value" style="font-size:1rem;color:${statusColor};">${owed.toLocaleString('ar-IQ')} د.ع</div></div>
+          </div>
+          ${rows ? `<div style="overflow-x:auto;"><table class="table"><thead><tr>
+            <th>النوع</th><th>المبلغ</th><th>المستحق بعده</th><th>الوصف</th><th>التاريخ</th>
+          </tr></thead><tbody>${rows}</tbody></table></div>` : '<div style="text-align:center;padding:24px;color:var(--gray-400);">لا توجد معاملات</div>'}`;
+        lucide.createIcons();
+      } catch (e) {
+        document.getElementById('driver-statement-body').innerHTML = `<div class="error-msg">${e.message}</div>`;
+      }
     }
 
     // ══════════════════════════════════════════════════════════════
@@ -8129,6 +8235,81 @@
     </div>
 
   <!-- ─── Assign Driver Modal ─── -->
+  <!-- ── Driver Payment Modal ─────────────────────────────────────────── -->
+  <div id="driver-payment-modal" class="modal-overlay" onclick="if(event.target===this)closeModal('driver-payment-modal')">
+    <div class="modal" style="max-width:420px;">
+      <div class="modal-header">
+        <h3 id="driver-payment-modal-title">تسجيل دفعة</h3>
+        <button class="modal-close" onclick="closeModal('driver-payment-modal')"><i data-lucide="x"></i></button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="dp-phone">
+        <div class="form-group">
+          <label class="form-label">المبلغ (د.ع)</label>
+          <input type="number" id="dp-amount" class="form-input" placeholder="مثال: 10000" min="1">
+        </div>
+        <div class="form-group">
+          <label class="form-label">ملاحظات (اختياري)</label>
+          <input type="text" id="dp-notes" class="form-input" placeholder="ملاحظة الدفعة">
+        </div>
+        <div id="dp-current-owed" style="margin-top:8px;font-size:0.85rem;color:var(--gray-500);"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline" onclick="closeModal('driver-payment-modal')">إلغاء</button>
+        <button class="btn btn-primary" id="dp-submit-btn" onclick="submitDriverPayment()">
+          <i data-lucide="check-circle" style="width:14px;height:14px;"></i> تأكيد الدفعة
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Driver Adjustment Modal ─────────────────────────────────────── -->
+  <div id="driver-adjust-modal" class="modal-overlay" onclick="if(event.target===this)closeModal('driver-adjust-modal')">
+    <div class="modal" style="max-width:420px;">
+      <div class="modal-header">
+        <h3 id="driver-adjust-modal-title">تعديل الحساب</h3>
+        <button class="modal-close" onclick="closeModal('driver-adjust-modal')"><i data-lucide="x"></i></button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="da-phone">
+        <div class="form-group">
+          <label class="form-label">نوع التعديل</label>
+          <select id="da-type" class="form-input">
+            <option value="add">إضافة مستحق (زيادة الدين)</option>
+            <option value="deduct">خصم من المستحق (تسامح/تصحيح)</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">المبلغ (د.ع)</label>
+          <input type="number" id="da-amount" class="form-input" placeholder="مثال: 5000" min="1">
+        </div>
+        <div class="form-group">
+          <label class="form-label">سبب التعديل</label>
+          <input type="text" id="da-notes" class="form-input" placeholder="وصف التعديل">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline" onclick="closeModal('driver-adjust-modal')">إلغاء</button>
+        <button class="btn btn-primary" onclick="submitDriverAdjustment()" style="background:#F59E0B;border-color:#F59E0B;">
+          <i data-lucide="edit-2" style="width:14px;height:14px;"></i> تطبيق التعديل
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Driver Statement Modal ─────────────────────────────────────── -->
+  <div id="driver-statement-modal" class="modal-overlay" onclick="if(event.target===this)closeModal('driver-statement-modal')">
+    <div class="modal" style="max-width:680px;">
+      <div class="modal-header">
+        <h3 id="driver-statement-title">كشف الحساب</h3>
+        <button class="modal-close" onclick="closeModal('driver-statement-modal')"><i data-lucide="x"></i></button>
+      </div>
+      <div class="modal-body" id="driver-statement-body" style="max-height:70vh;overflow-y:auto;">
+        <div class="loading"><div class="spinner"></div></div>
+      </div>
+    </div>
+  </div>
+
   <div id="assign-driver-modal" class="modal-overlay" onclick="if(event.target===this)closeAssignDriverModal()">
     <div style="background:white;border-radius:16px;width:90%;max-width:480px;max-height:80vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,0.25);">
       <div style="background:var(--primary);color:white;padding:18px 20px;display:flex;align-items:center;justify-content:space-between;">

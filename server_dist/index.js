@@ -1192,6 +1192,7 @@ async function getDriverFinancialAccount(phoneNumber) {
     phoneNumber,
     totalEarnings: 0,
     totalOnwayCommission: 0,
+    totalPaid: 0,
     amountOwed: 0,
     lastPaymentAmount: 0,
     lastPaymentDate: null,
@@ -1206,6 +1207,7 @@ async function getDriverFinancialAccount(phoneNumber) {
       phoneNumber,
       totalEarnings: d.totalEarnings ?? 0,
       totalOnwayCommission: d.totalOnwayCommission ?? 0,
+      totalPaid: d.totalPaid ?? 0,
       amountOwed: d.amountOwed ?? 0,
       lastPaymentAmount: d.lastPaymentAmount ?? 0,
       lastPaymentDate: d.lastPaymentDate ?? null,
@@ -1276,11 +1278,13 @@ async function recordDriverPayment(phoneNumber, amount, notes) {
     prev = snap.docs[0].data();
   }
   const newAmountOwed = Math.max(0, (prev.amountOwed ?? 0) - amount);
+  const newTotalPaid = (prev.totalPaid ?? 0) + amount;
   await docRef.set(
     {
       phoneNumber,
       totalEarnings: prev.totalEarnings ?? 0,
       totalOnwayCommission: prev.totalOnwayCommission ?? 0,
+      totalPaid: newTotalPaid,
       amountOwed: newAmountOwed,
       lastPaymentAmount: amount,
       lastPaymentDate: nowIso,
@@ -1291,18 +1295,62 @@ async function recordDriverPayment(phoneNumber, amount, notes) {
   await db.collection("driverTransactions").add({
     phoneNumber,
     type: "payment",
+    amount,
     paymentAmount: amount,
     amountOwedAfter: newAmountOwed,
     notes,
+    description: notes || "\u062F\u0641\u0639\u0629 \u0644\u0644\u0625\u062F\u0627\u0631\u0629",
     timestamp: now
   });
   return {
     phoneNumber,
     totalEarnings: prev.totalEarnings ?? 0,
     totalOnwayCommission: prev.totalOnwayCommission ?? 0,
+    totalPaid: newTotalPaid,
     amountOwed: newAmountOwed,
     lastPaymentAmount: amount,
     lastPaymentDate: nowIso,
+    updatedAt: nowIso
+  };
+}
+async function recordDriverAdjustment(phoneNumber, amount, type, notes) {
+  if (!db) throw new Error("Firestore not initialized");
+  const snap = await db.collection("driverFinancialAccounts").where("phoneNumber", "==", phoneNumber).limit(1).get();
+  const now = admin.firestore.Timestamp.now();
+  const nowIso = now.toDate().toISOString();
+  let docRef;
+  let prev = {};
+  if (snap.empty) {
+    docRef = db.collection("driverFinancialAccounts").doc();
+    prev = { totalEarnings: 0, totalOnwayCommission: 0, totalPaid: 0, amountOwed: 0 };
+  } else {
+    docRef = snap.docs[0].ref;
+    prev = snap.docs[0].data();
+  }
+  const delta = type === "add" ? amount : -amount;
+  const newAmountOwed = Math.max(0, (prev.amountOwed ?? 0) + delta);
+  await docRef.set(
+    { phoneNumber, amountOwed: newAmountOwed, updatedAt: now },
+    { merge: true }
+  );
+  await db.collection("driverTransactions").add({
+    phoneNumber,
+    type: "adjustment",
+    amount,
+    adjustmentType: type,
+    amountOwedAfter: newAmountOwed,
+    notes,
+    description: notes || (type === "add" ? "\u062A\u0639\u062F\u064A\u0644 \u0625\u0636\u0627\u0641\u0629" : "\u062A\u0639\u062F\u064A\u0644 \u062E\u0635\u0645"),
+    timestamp: now
+  });
+  return {
+    phoneNumber,
+    totalEarnings: prev.totalEarnings ?? 0,
+    totalOnwayCommission: prev.totalOnwayCommission ?? 0,
+    totalPaid: prev.totalPaid ?? 0,
+    amountOwed: newAmountOwed,
+    lastPaymentAmount: prev.lastPaymentAmount ?? 0,
+    lastPaymentDate: prev.lastPaymentDate ?? null,
     updatedAt: nowIso
   };
 }
@@ -4579,14 +4627,19 @@ ${itemsList}
       const now = /* @__PURE__ */ new Date();
       const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
       const weekStart = todayStart - 7 * 24 * 60 * 60 * 1e3;
-      const todayOrders = completed.filter((o) => new Date(o.completedAt).getTime() >= todayStart);
-      const weekOrders = completed.filter((o) => new Date(o.completedAt).getTime() >= weekStart);
+      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+      const todayList = completed.filter((o) => new Date(o.completedAt).getTime() >= todayStart);
+      const weekList = completed.filter((o) => new Date(o.completedAt).getTime() >= weekStart);
+      const monthList = completed.filter((o) => new Date(o.completedAt).getTime() >= monthStart);
       res.json({
         totalEarnings: completed.reduce((sum, o) => sum + (o.driverEarning || 0), 0),
-        todayEarnings: todayOrders.reduce((sum, o) => sum + (o.driverEarning || 0), 0),
-        weekEarnings: weekOrders.reduce((sum, o) => sum + (o.driverEarning || 0), 0),
+        todayEarnings: todayList.reduce((sum, o) => sum + (o.driverEarning || 0), 0),
+        weekEarnings: weekList.reduce((sum, o) => sum + (o.driverEarning || 0), 0),
+        monthEarnings: monthList.reduce((sum, o) => sum + (o.driverEarning || 0), 0),
         totalOrders: completed.length,
-        todayOrders: todayOrders.length,
+        todayOrders: todayList.length,
+        weekOrders: weekList.length,
+        monthOrders: monthList.length,
         completedOrders: completed.map((o) => ({
           id: o.orderId,
           total: o.total,
@@ -4671,14 +4724,54 @@ ${itemsList}
       res.status(500).json({ error: error.message });
     }
   });
+  app2.post("/api/admin/driver-wallet/adjustment", async (req, res) => {
+    const { phoneNumber, amount, type, notes } = req.body;
+    if (!phoneNumber || amount === void 0 || !type) return res.status(400).json({ error: "Missing fields" });
+    if (type !== "add" && type !== "deduct") return res.status(400).json({ error: "type must be add or deduct" });
+    try {
+      const account = await recordDriverAdjustment(phoneNumber, Number(amount), type, notes || "");
+      res.json({ success: true, account });
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+  app2.get("/api/admin/driver-financial/:phone/statement", async (req, res) => {
+    const phoneNumber = decodeURIComponent(req.params.phone);
+    try {
+      const [driver, account, transactions] = await Promise.all([
+        getDriverByPhone(phoneNumber),
+        getDriverFinancialAccount(phoneNumber),
+        getDriverTransactions(phoneNumber, 200)
+      ]);
+      res.json({ driver: { fullName: driver?.fullName || "", phoneNumber }, account, transactions });
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
+  });
   app2.get("/api/admin/driver-financial", async (_req, res) => {
     try {
       const drivers = await getDrivers();
       const accounts = await Promise.all(
-        drivers.filter((d) => d.status === "approved").map(async (d) => ({
-          driver: { fullName: d.fullName, phoneNumber: d.phoneNumber, status: d.status },
-          account: await getDriverFinancialAccount(d.phoneNumber)
-        }))
+        drivers.filter((d) => d.status === "approved").map(async (d) => {
+          const account = await getDriverFinancialAccount(d.phoneNumber);
+          const completed = await getCompletedOrders(d.phoneNumber);
+          const now = /* @__PURE__ */ new Date();
+          const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+          const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+          const todayList = completed.filter((o) => new Date(o.completedAt).getTime() >= todayStart);
+          const monthList = completed.filter((o) => new Date(o.completedAt).getTime() >= monthStart);
+          return {
+            driver: { fullName: d.fullName, phoneNumber: d.phoneNumber, status: d.status },
+            account,
+            stats: {
+              totalOrders: completed.length,
+              todayOrders: todayList.length,
+              monthOrders: monthList.length,
+              todayEarnings: todayList.reduce((s, o) => s + (o.driverEarning || 0), 0),
+              monthEarnings: monthList.reduce((s, o) => s + (o.driverEarning || 0), 0)
+            }
+          };
+        })
       );
       res.json({ accounts });
     } catch (error) {

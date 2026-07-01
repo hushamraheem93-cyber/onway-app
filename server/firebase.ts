@@ -1735,6 +1735,7 @@ export interface DriverFinancialAccount {
   phoneNumber: string;
   totalEarnings: number;
   totalOnwayCommission: number;
+  totalPaid: number;
   amountOwed: number;
   lastPaymentAmount: number;
   lastPaymentDate: string | null;
@@ -1748,6 +1749,7 @@ export async function getDriverFinancialAccount(
     phoneNumber,
     totalEarnings: 0,
     totalOnwayCommission: 0,
+    totalPaid: 0,
     amountOwed: 0,
     lastPaymentAmount: 0,
     lastPaymentDate: null,
@@ -1766,6 +1768,7 @@ export async function getDriverFinancialAccount(
       phoneNumber,
       totalEarnings: d.totalEarnings ?? 0,
       totalOnwayCommission: d.totalOnwayCommission ?? 0,
+      totalPaid: d.totalPaid ?? 0,
       amountOwed: d.amountOwed ?? 0,
       lastPaymentAmount: d.lastPaymentAmount ?? 0,
       lastPaymentDate: d.lastPaymentDate ?? null,
@@ -1870,12 +1873,14 @@ export async function recordDriverPayment(
   }
 
   const newAmountOwed = Math.max(0, (prev.amountOwed ?? 0) - amount);
+  const newTotalPaid = (prev.totalPaid ?? 0) + amount;
 
   await docRef.set(
     {
       phoneNumber,
       totalEarnings: prev.totalEarnings ?? 0,
       totalOnwayCommission: prev.totalOnwayCommission ?? 0,
+      totalPaid: newTotalPaid,
       amountOwed: newAmountOwed,
       lastPaymentAmount: amount,
       lastPaymentDate: nowIso,
@@ -1887,9 +1892,11 @@ export async function recordDriverPayment(
   await db.collection("driverTransactions").add({
     phoneNumber,
     type: "payment",
+    amount,
     paymentAmount: amount,
     amountOwedAfter: newAmountOwed,
     notes,
+    description: notes || "دفعة للإدارة",
     timestamp: now,
   });
 
@@ -1897,9 +1904,69 @@ export async function recordDriverPayment(
     phoneNumber,
     totalEarnings: prev.totalEarnings ?? 0,
     totalOnwayCommission: prev.totalOnwayCommission ?? 0,
+    totalPaid: newTotalPaid,
     amountOwed: newAmountOwed,
     lastPaymentAmount: amount,
     lastPaymentDate: nowIso,
+    updatedAt: nowIso,
+  };
+}
+
+export async function recordDriverAdjustment(
+  phoneNumber: string,
+  amount: number,
+  type: "add" | "deduct",
+  notes: string
+): Promise<DriverFinancialAccount> {
+  if (!db) throw new Error("Firestore not initialized");
+  const snap = await db
+    .collection("driverFinancialAccounts")
+    .where("phoneNumber", "==", phoneNumber)
+    .limit(1)
+    .get();
+
+  const now = admin.firestore.Timestamp.now();
+  const nowIso = now.toDate().toISOString();
+  let docRef: admin.firestore.DocumentReference;
+  let prev: Record<string, any> = {};
+
+  if (snap.empty) {
+    docRef = db.collection("driverFinancialAccounts").doc();
+    prev = { totalEarnings: 0, totalOnwayCommission: 0, totalPaid: 0, amountOwed: 0 };
+  } else {
+    docRef = snap.docs[0].ref;
+    prev = snap.docs[0].data();
+  }
+
+  // add: increase amountOwed (debt increases)
+  // deduct: decrease amountOwed (credit/forgiveness)
+  const delta = type === "add" ? amount : -amount;
+  const newAmountOwed = Math.max(0, (prev.amountOwed ?? 0) + delta);
+
+  await docRef.set(
+    { phoneNumber, amountOwed: newAmountOwed, updatedAt: now },
+    { merge: true }
+  );
+
+  await db.collection("driverTransactions").add({
+    phoneNumber,
+    type: "adjustment",
+    amount,
+    adjustmentType: type,
+    amountOwedAfter: newAmountOwed,
+    notes,
+    description: notes || (type === "add" ? "تعديل إضافة" : "تعديل خصم"),
+    timestamp: now,
+  });
+
+  return {
+    phoneNumber,
+    totalEarnings: prev.totalEarnings ?? 0,
+    totalOnwayCommission: prev.totalOnwayCommission ?? 0,
+    totalPaid: prev.totalPaid ?? 0,
+    amountOwed: newAmountOwed,
+    lastPaymentAmount: prev.lastPaymentAmount ?? 0,
+    lastPaymentDate: prev.lastPaymentDate ?? null,
     updatedAt: nowIso,
   };
 }

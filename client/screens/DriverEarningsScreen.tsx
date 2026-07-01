@@ -33,8 +33,11 @@ interface EarningsData {
   totalEarnings: number;
   todayEarnings: number;
   weekEarnings: number;
+  monthEarnings: number;
   totalOrders: number;
   todayOrders: number;
+  weekOrders: number;
+  monthOrders: number;
   completedOrders: CompletedOrder[];
 }
 
@@ -53,7 +56,9 @@ interface DriverFinancialAccount {
   totalOnwayCommission: number;
   totalPaid: number;
   amountOwed: number;
-  lastUpdated: string;
+  lastPaymentAmount: number;
+  lastPaymentDate: string | null;
+  updatedAt: string;
 }
 
 // ─── Day names (Arabic) ─────────────────────────────────────────────────────
@@ -235,11 +240,11 @@ export default function DriverEarningsScreen() {
   // ─── Financial transaction row ───────────────────────────────────────────
   const renderTransaction = ({ item }: { item: DriverTransaction }) => {
     const isPayment = item.type === "payment";
-    const isCommission = item.type === "commission";
+    const isAdjustment = item.type === "adjustment";
     const isEarning = item.type === "earning";
-    const color = isPayment ? AppColors.success : isCommission ? AppColors.error : AppColors.info;
-    const icon: keyof typeof Feather.glyphMap = isPayment ? "plus-circle" : isCommission ? "minus-circle" : "dollar-sign";
-    const label = isPayment ? "دفعة للإدارة" : isCommission ? "عمولة أونوي" : "أرباح توصيل";
+    const color = isPayment ? AppColors.success : isAdjustment ? AppColors.warning : isEarning ? AppColors.info : AppColors.error;
+    const icon: keyof typeof Feather.glyphMap = isPayment ? "check-circle" : isAdjustment ? "edit-2" : "dollar-sign";
+    const label = isPayment ? "دفعة للإدارة" : isAdjustment ? "تعديل مالي" : "أرباح توصيل";
     return (
       <View style={[styles.listItem, { backgroundColor: theme.backgroundDefault }, Shadows.sm]}>
         <View style={[styles.listItemIcon, { backgroundColor: color + "15" }]}>
@@ -252,7 +257,7 @@ export default function DriverEarningsScreen() {
           </ThemedText>
         </View>
         <ThemedText type="body" style={{ color, fontWeight: FontWeight.bold }}>
-          {isCommission ? "-" : "+"}{formatPrice(item.amount)}
+          {isEarning ? "+" : ""}{formatPrice(item.amount)}
         </ThemedText>
       </View>
     );
@@ -281,8 +286,12 @@ export default function DriverEarningsScreen() {
         {renderStatCard("أرباح الأسبوع", formatPrice(earnings?.weekEarnings || 0), "calendar", AppColors.info)}
       </View>
       <View style={styles.statsGrid}>
-        {renderStatCard("طلبات اليوم", String(earnings?.todayOrders || 0), "package", AppColors.success)}
-        {renderStatCard("إجمالي الطلبات", String(earnings?.totalOrders || 0), "truck", AppColors.primary)}
+        {renderStatCard("أرباح الشهر", formatPrice(earnings?.monthEarnings || 0), "trending-up", AppColors.success)}
+        {renderStatCard("طلبات الشهر", String(earnings?.monthOrders || 0), "package", AppColors.primary)}
+      </View>
+      <View style={styles.statsGrid}>
+        {renderStatCard("طلبات اليوم", String(earnings?.todayOrders || 0), "clock", AppColors.warning)}
+        {renderStatCard("إجمالي الطلبات", String(earnings?.totalOrders || 0), "truck", AppColors.info)}
       </View>
 
       {(earnings?.completedOrders?.length || 0) > 0 ? (
@@ -296,38 +305,49 @@ export default function DriverEarningsScreen() {
   // ─── Financial account tab header ────────────────────────────────────────
   const amountOwed = account?.amountOwed || 0;
   const isBlocked = amountOwed >= 50000;
+  const accountStatus = isBlocked ? "موقوف" : amountOwed > 0 ? "مستحقات" : "جيد";
+  const accountStatusColor = isBlocked ? AppColors.error : amountOwed > 0 ? AppColors.warning : AppColors.success;
   const WalletHeader = (
     <View style={styles.sectionPadding}>
-      {/* Amount owed card */}
+      {/* Status badge + owed amount */}
       <View style={[styles.totalCard, { backgroundColor: theme.backgroundDefault }, Shadows.md]}>
-        <Feather name="alert-circle" size={24} color={isBlocked ? AppColors.error : amountOwed > 0 ? AppColors.warning : AppColors.success} style={{ marginBottom: Spacing.sm }} />
+        <View style={{ flexDirection: "row", alignItems: "center", gap: Spacing.sm, marginBottom: Spacing.sm }}>
+          <View style={{ paddingHorizontal: Spacing.md, paddingVertical: 4, borderRadius: 20, backgroundColor: accountStatusColor + "20" }}>
+            <ThemedText type="small" style={{ color: accountStatusColor, fontWeight: FontWeight.bold }}>{accountStatus}</ThemedText>
+          </View>
+        </View>
         <ThemedText type="small" style={{ color: theme.textSecondary }}>المبلغ المستحق لأونوي</ThemedText>
-        <ThemedText type="h1" style={{ color: isBlocked ? AppColors.error : amountOwed > 0 ? AppColors.warning : AppColors.success, marginTop: 4 }}>
+        <ThemedText type="h1" style={{ color: accountStatusColor, marginTop: 4 }}>
           {formatPrice(amountOwed)}
         </ThemedText>
         {isBlocked ? (
-          <ThemedText type="small" style={{ color: AppColors.error, marginTop: 4 }}>
+          <ThemedText type="small" style={{ color: AppColors.error, marginTop: 4, textAlign: "center" }}>
             تجاوزت الحد — تواصل مع الإدارة لتسوية الحساب
           </ThemedText>
         ) : amountOwed > 0 ? (
-          <ThemedText type="small" style={{ color: AppColors.warning, marginTop: 4 }}>
+          <ThemedText type="small" style={{ color: AppColors.warning, marginTop: 4, textAlign: "center" }}>
             يُطلب التسوية قبل تجاوز {formatPrice(50000)}
           </ThemedText>
         ) : (
           <ThemedText type="small" style={{ color: AppColors.success, marginTop: 4 }}>حسابك مسوّى</ThemedText>
         )}
+        {account?.lastPaymentDate ? (
+          <ThemedText type="small" style={{ color: theme.textSecondary, marginTop: Spacing.sm }}>
+            آخر دفعة: {formatPrice(account.lastPaymentAmount)} · {new Date(account.lastPaymentDate).toLocaleDateString("ar-IQ")}
+          </ThemedText>
+        ) : null}
       </View>
 
       {/* Financial summary cards */}
       {account ? (
         <View style={styles.statsGrid}>
-          {renderStatCard("إجمالي الأرباح", formatPrice(account.totalEarnings), "dollar-sign", AppColors.success)}
-          {renderStatCard("إجمالي العمولات", formatPrice(account.totalOnwayCommission), "percent", AppColors.error)}
+          {renderStatCard("أرباح التوصيل", formatPrice(account.totalEarnings), "dollar-sign", AppColors.success)}
+          {renderStatCard("عمولات أونوي", formatPrice(account.totalOnwayCommission), "percent", AppColors.error)}
         </View>
       ) : null}
       {account ? (
         <View style={styles.statsGrid}>
-          {renderStatCard("المدفوع للإدارة", formatPrice(account.totalPaid), "check-circle", AppColors.primary)}
+          {renderStatCard("إجمالي المسدّد", formatPrice(account.totalPaid), "check-circle", AppColors.primary)}
           {renderStatCard("حد الحجب", formatPrice(50000), "alert-triangle", AppColors.warning)}
         </View>
       ) : null}
@@ -399,7 +419,7 @@ export default function DriverEarningsScreen() {
           >
             <Feather name="credit-card" size={16} color={activeTab === "wallet" ? AppColors.primary : theme.textSecondary} />
             <ThemedText type="body" style={{ color: activeTab === "wallet" ? AppColors.primary : theme.textSecondary, fontWeight: FontWeight.semiBold }}>
-              المحفظة
+              الحساب المالي
             </ThemedText>
           </Pressable>
         </View>

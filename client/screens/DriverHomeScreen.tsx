@@ -116,8 +116,7 @@ export default function DriverHomeScreen() {
   const [driverStatus, setDriverStatus] = useState<string>("pending");
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [walletBalance, setWalletBalance] = useState(0);
-  const [walletError, setWalletError] = useState("");
+  const [amountOwed, setAmountOwed] = useState(0);
   const [todayEarnings, setTodayEarnings] = useState(0);
   const [issueModalVisible, setIssueModalVisible] = useState(false);
   const [issueSent, setIssueSent] = useState(false);
@@ -185,7 +184,7 @@ export default function DriverHomeScreen() {
         isInitialLoadRef.current = false;
         setCurrentBatch(newBatch);
         setDriverStatus(data.approvalStatus || "pending");
-        setWalletBalance(data.walletBalance || 0);
+        setAmountOwed(data.amountOwed || 0);
         setTodayEarnings(data.todayEarnings || 0);
       }
     } catch (e) {
@@ -435,7 +434,7 @@ export default function DriverHomeScreen() {
   const handleWhatsAppSupport = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     const supportNumber = "9647702891104";
-    const message = encodeURIComponent("مرحباً، أحتاج شحن رصيد محفظتي في تطبيق OnWay");
+    const message = encodeURIComponent("مرحباً، أريد تسوية الحساب المالي في تطبيق OnWay");
     Linking.openURL(`https://wa.me/${supportNumber}?text=${message}`).catch(() => {
       Linking.openURL(`whatsapp://send?phone=${supportNumber}&text=${message}`).catch(() => {});
     });
@@ -497,9 +496,9 @@ export default function DriverHomeScreen() {
       </View>
       <View style={styles.earningsStripDivider} />
       <View style={styles.earningsStripItem}>
-        <ThemedText type="small" style={styles.earningsStripLabel}>المحفظة</ThemedText>
-        <ThemedText type="h3" style={[styles.earningsStripValue, walletBalance < 250 ? { color: AppColors.errorLight } : null]}>
-          {formatPrice(walletBalance)}
+        <ThemedText type="small" style={styles.earningsStripLabel}>المستحق</ThemedText>
+        <ThemedText type="h3" style={[styles.earningsStripValue, amountOwed >= 50000 ? { color: AppColors.errorLight } : amountOwed > 0 ? { color: AppColors.warningLight ?? AppColors.white } : null]}>
+          {formatPrice(amountOwed)}
         </ThemedText>
       </View>
       <View style={styles.earningsStripDivider} />
@@ -522,19 +521,18 @@ export default function DriverHomeScreen() {
       <ThemedText type="body" style={{ color: theme.textSecondary, textAlign: "center", marginTop: Spacing.sm, marginBottom: Spacing.xl }}>
         شغّل زر الاتصال لبدء استقبال الطلبات
       </ThemedText>
-      {walletBalance < 250 ? (
-        <View style={[styles.walletWarningBanner, { backgroundColor: AppColors.secondary }]}>
-          <Feather name="alert-triangle" size={14} color={AppColors.primary} />
-          <ThemedText type="small" style={{ color: AppColors.primary, flex: 1, textAlign: "right", marginRight: 4 }}>
-            رصيدك غير كافٍ ({formatPrice(walletBalance)}) — يجب على الأقل {formatPrice(250)} للعمل
-          </ThemedText>
-        </View>
-      ) : null}
-      {walletError ? (
+      {amountOwed >= 50000 ? (
         <View style={[styles.walletWarningBanner, { backgroundColor: AppColors.errorLight }]}>
           <Feather name="alert-circle" size={14} color={AppColors.error} />
           <ThemedText type="small" style={{ color: AppColors.error, flex: 1, textAlign: "right", marginRight: 4 }}>
-            {walletError}
+            تجاوزت الحد — المستحق {formatPrice(amountOwed)} — تواصل مع الإدارة
+          </ThemedText>
+        </View>
+      ) : amountOwed > 0 ? (
+        <View style={[styles.walletWarningBanner, { backgroundColor: AppColors.secondary }]}>
+          <Feather name="alert-triangle" size={14} color={AppColors.primary} />
+          <ThemedText type="small" style={{ color: AppColors.primary, flex: 1, textAlign: "right", marginRight: 4 }}>
+            مستحق للإدارة: {formatPrice(amountOwed)}
           </ThemedText>
         </View>
       ) : null}
@@ -757,23 +755,23 @@ export default function DriverHomeScreen() {
     </View>
   );
 
-  // ── Wallet low warning ───────────────────────────────────────────────────────
+  // ── Amount owed warning ──────────────────────────────────────────────────────
   const renderWalletWarning = () => {
-    if (walletBalance >= 250) return null;
+    if (amountOwed < 50000) return null;
     return (
-      <View style={[styles.walletAlertCard, { backgroundColor: AppColors.secondary }, Shadows.sm]}>
+      <View style={[styles.walletAlertCard, { backgroundColor: AppColors.errorLight }, Shadows.sm]}>
         <View style={styles.walletAlertRow}>
-          <Feather name="alert-triangle" size={18} color={AppColors.primary} />
+          <Feather name="alert-circle" size={18} color={AppColors.error} />
           <View style={{ flex: 1, alignItems: "flex-end" }}>
-            <ThemedText type="body" style={{ color: AppColors.primary, fontWeight: FontWeight.bold }}>رصيد المحفظة منخفض</ThemedText>
+            <ThemedText type="body" style={{ color: AppColors.error, fontWeight: FontWeight.bold }}>تجاوزت الحد المسموح</ThemedText>
             <ThemedText type="small" style={{ color: AppColors.error }}>
-              {formatPrice(walletBalance)} — الحد الأدنى {formatPrice(250)}
+              المستحق {formatPrice(amountOwed)} — يجب تسوية الحساب أولاً
             </ThemedText>
           </View>
         </View>
         <Pressable onPress={handleWhatsAppSupport} style={styles.whatsappBtn} testID="button-whatsapp-support">
           <Feather name="message-circle" size={18} color={AppColors.white} />
-          <ThemedText type="body" style={{ color: AppColors.white, fontWeight: FontWeight.bold }}>شحن الرصيد عبر واتساب</ThemedText>
+          <ThemedText type="body" style={{ color: AppColors.white, fontWeight: FontWeight.bold }}>تواصل مع الإدارة عبر واتساب</ThemedText>
         </Pressable>
       </View>
     );
