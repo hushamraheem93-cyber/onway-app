@@ -2837,9 +2837,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     if (!phoneNumber || lat === undefined || lng === undefined) return res.status(400).json({ error: "Missing fields" });
     const driver = await getDriverByPhone(phoneNumber).catch(() => null);
     driverLocations.set(phoneNumber, { lat: Number(lat), lng: Number(lng), updatedAt: Date.now(), fullName: driver?.fullName });
-    // Mark driver as recently seen (active app)
+    // Mark driver as recently seen (active app) — in-memory AND Firestore
     const qd = driverQueue.find(d => d.phoneNumber === phoneNumber);
-    if (qd) qd.lastSeenAt = Date.now();
+    if (qd) {
+      qd.lastSeenAt = Date.now();
+      // Sync lastSeenAt to Firestore so ghost-driver cleanup has accurate data
+      updateDriverQueueEntry(phoneNumber, { lastSeenAt: Date.now() } as any).catch(() => {});
+    }
     // Persist last location to Firestore driver document
     updateDriverLastLocation(phoneNumber, Number(lat), Number(lng)).catch(() => {});
     res.json({ success: true });
@@ -3812,6 +3816,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.error("[WATCHDOG] error:", e);
     }
   }, 30_000);
+
+  // Ghost-driver cleanup: every 10 minutes, evict drivers whose app crashed/closed
+  // without pressing "go offline". Threshold: no GPS ping for 20 minutes.
+  const GHOST_TIMEOUT_MS = 20 * 60 * 1000;
+  setInterval(async () => {
+    try {
+      const now = Date.now();
+      const ghosts = driverQueue.filter(d => {
+        if (d.currentBatchId) return false; // never evict a driver mid-delivery
+        const loc = driverLocations.get(d.phoneNumber);
+        const lastGps   = loc?.updatedAt   ?? 0;
+        const lastSeen  = d.lastSeenAt     ?? 0;
+        const mostRecent = Math.max(lastGps, lastSeen);
+        return mostRecent > 0 && (now - mostRecent) > GHOST_TIMEOUT_MS;
+      });
+      for (const ghost of ghosts) {
+        const idx = driverQueue.findIndex(d => d.phoneNumber === ghost.phoneNumber);
+        if (idx !== -1) driverQueue.splice(idx, 1);
+        removeDriverFromActiveQueue(ghost.phoneNumber).catch(() => {});
+        updateDriverOnlineStatus(ghost.phoneNumber, false).catch(() => {});
+        console.warn(`[GHOST_CLEANUP] Evicted ${ghost.phoneNumber} — no ping for >20min`);
+      }
+    } catch (e) {
+      console.error("[GHOST_CLEANUP] error:", e);
+    }
+  }, 10 * 60 * 1000);
 
   // Watch for confirmed orders → assign to FIFO queue
   app.post("/api/driver/assign-pending-orders", async (_req: Request, res: Response) => {

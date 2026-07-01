@@ -4204,7 +4204,11 @@ ${itemsList}
     const driver = await getDriverByPhone(phoneNumber).catch(() => null);
     driverLocations.set(phoneNumber, { lat: Number(lat), lng: Number(lng), updatedAt: Date.now(), fullName: driver?.fullName });
     const qd = driverQueue.find((d) => d.phoneNumber === phoneNumber);
-    if (qd) qd.lastSeenAt = Date.now();
+    if (qd) {
+      qd.lastSeenAt = Date.now();
+      updateDriverQueueEntry(phoneNumber, { lastSeenAt: Date.now() }).catch(() => {
+      });
+    }
     updateDriverLastLocation(phoneNumber, Number(lat), Number(lng)).catch(() => {
     });
     res.json({ success: true });
@@ -5046,6 +5050,31 @@ ${itemsList}
       console.error("[WATCHDOG] error:", e);
     }
   }, 3e4);
+  const GHOST_TIMEOUT_MS = 20 * 60 * 1e3;
+  setInterval(async () => {
+    try {
+      const now = Date.now();
+      const ghosts = driverQueue.filter((d) => {
+        if (d.currentBatchId) return false;
+        const loc = driverLocations.get(d.phoneNumber);
+        const lastGps = loc?.updatedAt ?? 0;
+        const lastSeen = d.lastSeenAt ?? 0;
+        const mostRecent = Math.max(lastGps, lastSeen);
+        return mostRecent > 0 && now - mostRecent > GHOST_TIMEOUT_MS;
+      });
+      for (const ghost of ghosts) {
+        const idx = driverQueue.findIndex((d) => d.phoneNumber === ghost.phoneNumber);
+        if (idx !== -1) driverQueue.splice(idx, 1);
+        removeDriverFromActiveQueue(ghost.phoneNumber).catch(() => {
+        });
+        updateDriverOnlineStatus(ghost.phoneNumber, false).catch(() => {
+        });
+        console.warn(`[GHOST_CLEANUP] Evicted ${ghost.phoneNumber} \u2014 no ping for >20min`);
+      }
+    } catch (e) {
+      console.error("[GHOST_CLEANUP] error:", e);
+    }
+  }, 10 * 60 * 1e3);
   app2.post("/api/driver/assign-pending-orders", async (_req, res) => {
     try {
       const db2 = getFirestore();

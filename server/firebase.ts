@@ -2096,7 +2096,7 @@ export async function removeDriverFromActiveQueue(phoneNumber: string): Promise<
  */
 export async function updateDriverQueueEntry(
   phoneNumber: string,
-  data: { joinedAt?: number; hasActiveBatch?: boolean; pushToken?: string }
+  data: { joinedAt?: number; hasActiveBatch?: boolean; pushToken?: string; lastSeenAt?: number }
 ): Promise<void> {
   const db = getFirestore();
   if (!db) return;
