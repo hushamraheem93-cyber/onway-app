@@ -504,9 +504,10 @@ function configureExpoAndLanding(app: express.Application) {
     }
   });
 
-  // POST /admin/reset-password — reset using env var master key as recovery code
+  // POST /admin/reset-password — emergency recovery using a SEPARATE secret (MASTER_RECOVERY_PASSWORD).
+  // NEVER uses ADMIN_PASSWORD — that would expose daily credentials as a backdoor.
+  // If MASTER_RECOVERY_PASSWORD is not set, this endpoint is disabled entirely.
   app.post("/admin/reset-password", express.urlencoded({ extended: false }), async (req: Request, res: Response) => {
-    const { recoveryCode, newUsername, newPassword, confirmPassword } = req.body || {};
     const clientId = process.env.GOOGLE_CLIENT_ID || "";
     const send = (status: number, msg: string, isSuccess = false) => {
       const cls = isSuccess ? "success" : "error";
@@ -514,14 +515,26 @@ function configureExpoAndLanding(app: express.Application) {
       res.setHeader("Content-Type", "text/html; charset=utf-8");
       return res.status(status).send(html);
     };
-    // The recovery code must match the master ADMIN_PASSWORD from env vars
-    if (recoveryCode !== process.env.ADMIN_PASSWORD) {
+
+    // Endpoint is disabled if MASTER_RECOVERY_PASSWORD is not configured
+    const masterRecoveryPassword = process.env.MASTER_RECOVERY_PASSWORD;
+    if (!masterRecoveryPassword) {
+      console.warn(`[SECURITY] /admin/reset-password attempted but MASTER_RECOVERY_PASSWORD is not set — endpoint disabled. IP: ${(req.headers["x-forwarded-for"] as string || "").split(",")[0].trim() || req.socket.remoteAddress}`);
+      return send(503, "ميزة الاسترداد غير مفعّلة. راجع مدير النظام.");
+    }
+
+    const { recoveryCode, newUsername, newPassword, confirmPassword } = req.body || {};
+    const ip = (req.headers["x-forwarded-for"] as string || "").split(",")[0].trim() || req.socket.remoteAddress || "unknown";
+
+    if (recoveryCode !== masterRecoveryPassword) {
+      console.warn(`[SECURITY] /admin/reset-password failed — wrong recovery code. IP: ${ip} at ${new Date().toISOString()}`);
       return send(401, "رمز الاسترداد غير صحيح");
     }
     if (!newUsername || newUsername.length < 3) return send(400, "اسم المستخدم يجب أن يكون 3 أحرف على الأقل");
     if (!newPassword || newPassword.length < 6) return send(400, "كلمة المرور يجب أن تكون 6 أحرف على الأقل");
     if (newPassword !== confirmPassword) return send(400, "كلمتا المرور غير متطابقتين");
     try {
+      console.warn(`[SECURITY] /admin/reset-password SUCCESS — credentials changed. IP: ${ip} at ${new Date().toISOString()}`);
       await setCustomCredentials(newUsername, newPassword);
       return send(200, "تم تغيير بيانات الدخول بنجاح. يمكنك الدخول الآن.", true);
     } catch {
