@@ -947,7 +947,12 @@ async function getVendors() {
   if (!db2) return [];
   try {
     const snap = await db2.collection("vendors").get();
-    const docs = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    const docs = snap.docs.map((d) => {
+      const data = d.data();
+      if (!data.name && data.storeName) data.name = data.storeName;
+      if (!data.categoryType && data.businessType) data.categoryType = data.businessType;
+      return { id: d.id, ...data };
+    });
     return docs.sort((a, b) => (a.name || "").localeCompare(b.name || "", "ar"));
   } catch (err) {
     console.error("[getVendors]", err);
@@ -3224,6 +3229,7 @@ async function registerRoutes(app2) {
     res.json(vendors);
   });
   app2.get("/api/admin/vendors", async (_req, res) => {
+    invalidateVendorsCache();
     const vendors = await getVendorList();
     res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
     res.setHeader("Pragma", "no-cache");

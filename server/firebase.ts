@@ -1426,7 +1426,13 @@ export async function getVendors(): Promise<(FirestoreVendor & { id: string })[]
   if (!db) return [];
   try {
     const snap = await db.collection("vendors").get();
-    const docs = snap.docs.map(d => ({ id: d.id, ...(d.data() as FirestoreVendor) }));
+    const docs = snap.docs.map(d => {
+      const data = d.data() as FirestoreVendor & { storeName?: string; businessType?: string };
+      // Vendors registered via mobile app use storeName/businessType — normalize to name/categoryType
+      if (!data.name && data.storeName) data.name = data.storeName;
+      if (!data.categoryType && data.businessType) data.categoryType = data.businessType as any;
+      return { id: d.id, ...data };
+    });
     return docs.sort((a, b) => (a.name || "").localeCompare(b.name || "", "ar"));
   } catch (err) {
     console.error("[getVendors]", err);
