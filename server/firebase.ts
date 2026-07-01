@@ -17,6 +17,7 @@ export function initializeFirebase() {
     if (!apps.length) {
       admin.initializeApp({
         credential: admin.credential.cert(serviceAccount),
+        storageBucket: `${serviceAccount.project_id}.firebasestorage.app`,
       });
     }
     
@@ -2118,4 +2119,39 @@ export async function getActiveDriverQueue(): Promise<ActiveQueueEntry[]> {
     .orderBy("joinedAt", "asc")
     .get();
   return snap.docs.map(d => d.data() as ActiveQueueEntry);
+}
+
+// ── Firebase Storage helpers ──────────────────────────────────────────────────
+
+/**
+ * Upload a buffer to Firebase Storage and return a permanent public download URL.
+ * Uses a per-file download token so the URL works regardless of bucket-level
+ * access settings (uniform or fine-grained).
+ *
+ * @param buffer      File contents as a Buffer
+ * @param storagePath Path inside the bucket, e.g. "products/abc.webp"
+ * @param contentType MIME type, defaults to "image/webp"
+ * @returns           Permanent Firebase Storage download URL
+ */
+export async function uploadToFirebaseStorage(
+  buffer: Buffer,
+  storagePath: string,
+  contentType: string = "image/webp"
+): Promise<string> {
+  const { randomUUID } = await import("crypto");
+  const bucket = admin.storage().bucket();
+  const file = bucket.file(storagePath);
+  const token = randomUUID();
+
+  await file.save(buffer, {
+    metadata: {
+      contentType,
+      metadata: { firebaseStorageDownloadTokens: token },
+    },
+    resumable: false,
+  });
+
+  const bucketName = bucket.name;
+  const encodedPath = encodeURIComponent(storagePath);
+  return `https://firebasestorage.googleapis.com/v0/b/${bucketName}/o/${encodedPath}?alt=media&token=${token}`;
 }

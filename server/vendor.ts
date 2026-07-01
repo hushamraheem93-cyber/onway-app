@@ -5,10 +5,8 @@ import jwt from "jsonwebtoken";
 import multer from "multer";
 import sharp from "sharp";
 import * as crypto from "crypto";
-import * as fs from "fs/promises";
-import * as fsSync from "fs";
 import * as path from "path";
-import { getFirestore, getUserPushToken, getAdminPushToken } from "./firebase";
+import { getFirestore, getUserPushToken, getAdminPushToken, uploadToFirebaseStorage } from "./firebase";
 import { sendVendorStatusNotification, sendVendorProductNotification, sendPushNotification, sendAdminOrderReadyNotification } from "./pushNotifications";
 
 const router = express.Router();
@@ -22,9 +20,9 @@ const JWT_SECRET = (() => {
 })();
 const VENDOR_COOKIE = "onway_vendor_session";
 
-// ── Multer: temp storage ────────────────────────────────────────────────────
+// ── Multer: memory storage (files go straight to Firebase Storage, no disk) ──
 const upload = multer({
-  dest: path.resolve(process.cwd(), "uploads", "temp"),
+  storage: multer.memoryStorage(),
   limits: { fileSize: 15 * 1024 * 1024 },
   fileFilter: (_req, file, cb) => {
     if (["image/jpeg", "image/png", "image/jpg", "image/webp"].includes(file.mimetype)) {
@@ -85,21 +83,18 @@ function requireVendor(req: Request, res: Response, next: express.NextFunction) 
   }
 }
 
-async function generateImageHash(filePath: string): Promise<string> {
-  const buf = await fs.readFile(filePath);
-  return crypto.createHash("md5").update(buf).digest("hex");
+function generateImageHash(buffer: Buffer): string {
+  return crypto.createHash("md5").update(buffer).digest("hex");
 }
 
-async function processAndSaveImage(tempPath: string, hash: string): Promise<string> {
-  const dir = path.resolve(process.cwd(), "uploads", "products");
-  await fs.mkdir(dir, { recursive: true });
+async function processAndSaveImage(buffer: Buffer, hash: string): Promise<string> {
   const fileName = `${Date.now()}_${hash}.webp`;
-  const outPath = path.join(dir, fileName);
-  await sharp(tempPath)
+  const storagePath = `products/${fileName}`;
+  const webpBuffer = await sharp(buffer)
     .resize(800, 800, { fit: "cover", position: "center" })
     .webp({ quality: 80 })
-    .toFile(outPath);
-  return `/uploads/products/${fileName}`;
+    .toBuffer();
+  return uploadToFirebaseStorage(webpBuffer, storagePath, "image/webp");
 }
 
 async function findDuplicateImage(hash: string): Promise<string | null> {
@@ -119,9 +114,9 @@ async function saveImageHash(hash: string, imageUrl: string): Promise<void> {
   });
 }
 
-async function cleanTemp(filePath?: string | null) {
-  if (filePath) await fs.unlink(filePath).catch(() => {});
-}
+// No-op: memoryStorage multer creates no temp files on disk.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+async function cleanTemp(_filePath?: string | null) {}
 
 function vendorId(): string {
   return `vendor_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
@@ -346,30 +341,38 @@ router.patch("/api/vendor/profile", requireVendor, async (req, res) => {
 });
 
 // ── POST /api/vendor/profile/images ── upload avatar or cover ────────────────
-const profileUpload = multer({ dest: path.resolve(process.cwd(), "uploads", "temp") });
+const profileUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 15 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    if (["image/jpeg", "image/png", "image/jpg", "image/webp"].includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error("نوع الملف غير مدعوم."));
+    }
+  },
+});
 
 async function saveProfileImage(
-  tempPath: string,
+  buffer: Buffer,
   type: "avatar" | "cover",
   vendorId: string
 ): Promise<string> {
-  const dir = path.resolve(process.cwd(), "uploads", "profiles");
-  await fs.mkdir(dir, { recursive: true });
   const fileName = `${type}_${vendorId}_${Date.now()}.webp`;
-  const outPath = path.join(dir, fileName);
+  const storagePath = `vendors/${fileName}`;
+  let webpBuffer: Buffer;
   if (type === "avatar") {
-    await sharp(tempPath)
+    webpBuffer = await sharp(buffer)
       .resize(400, 400, { fit: "cover", position: "center" })
       .webp({ quality: 85 })
-      .toFile(outPath);
+      .toBuffer();
   } else {
-    await sharp(tempPath)
+    webpBuffer = await sharp(buffer)
       .resize(1200, 400, { fit: "cover", position: "center" })
       .webp({ quality: 80 })
-      .toFile(outPath);
+      .toBuffer();
   }
-  await fs.unlink(tempPath).catch(() => {});
-  return `/uploads/profiles/${fileName}`;
+  return uploadToFirebaseStorage(webpBuffer, storagePath, "image/webp");
 }
 
 router.post(
@@ -385,10 +388,10 @@ router.post(
       const updates: any = { updatedAt: new Date().toISOString() };
 
       if (files?.profileImage?.[0]) {
-        updates.profileImageUrl = await saveProfileImage(files.profileImage[0].path, "avatar", vid);
+        updates.profileImageUrl = await saveProfileImage(files.profileImage[0].buffer, "avatar", vid);
       }
       if (files?.coverImage?.[0]) {
-        updates.coverImageUrl = await saveProfileImage(files.coverImage[0].path, "cover", vid);
+        updates.coverImageUrl = await saveProfileImage(files.coverImage[0].buffer, "cover", vid);
       }
 
       if (Object.keys(updates).length === 1) {
@@ -408,21 +411,17 @@ router.post(
 
 // ── Helper: process multiple uploaded images ─────────────────────────────────
 async function processUploadedImages(files: Express.Multer.File[]): Promise<{ imageUrls: string[]; tempPaths: string[] }> {
-  const tempPaths: string[] = files.map((f) => f.path);
-
   const imageUrls = await Promise.all(
     files.map(async (file) => {
-      const hash = await generateImageHash(file.path);
+      const hash = generateImageHash(file.buffer);
       let imageUrl = await findDuplicateImage(hash);
       if (!imageUrl) {
-        imageUrl = await processAndSaveImage(file.path, hash);
+        imageUrl = await processAndSaveImage(file.buffer, hash);
         await saveImageHash(hash, imageUrl);
       }
       return imageUrl;
     })
   );
-
-  await Promise.all(tempPaths.map((tp) => cleanTemp(tp)));
   return { imageUrls, tempPaths: [] };
 }
 

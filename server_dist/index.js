@@ -25,7 +25,8 @@ function initializeFirebase() {
     const apps = admin.apps || [];
     if (!apps.length) {
       admin.initializeApp({
-        credential: admin.credential.cert(serviceAccount)
+        credential: admin.credential.cert(serviceAccount),
+        storageBucket: `${serviceAccount.project_id}.firebasestorage.app`
       });
     }
     db = admin.firestore();
@@ -1429,6 +1430,22 @@ async function getActiveDriverQueue() {
   const snap = await db2.collection("activeDriverQueue").orderBy("joinedAt", "asc").get();
   return snap.docs.map((d) => d.data());
 }
+async function uploadToFirebaseStorage(buffer, storagePath, contentType = "image/webp") {
+  const { randomUUID: randomUUID2 } = await import("crypto");
+  const bucket = admin.storage().bucket();
+  const file = bucket.file(storagePath);
+  const token = randomUUID2();
+  await file.save(buffer, {
+    metadata: {
+      contentType,
+      metadata: { firebaseStorageDownloadTokens: token }
+    },
+    resumable: false
+  });
+  const bucketName = bucket.name;
+  const encodedPath = encodeURIComponent(storagePath);
+  return `https://firebasestorage.googleapis.com/v0/b/${bucketName}/o/${encodedPath}?alt=media&token=${token}`;
+}
 
 // server/pushNotifications.ts
 var ORDER_STATUS_MESSAGES = {
@@ -1811,16 +1828,8 @@ var storage = multer.diskStorage({
   }
 });
 var upload = multer({ storage });
-var webpStorage = multer.diskStorage({
-  destination: (_req, _file, cb) => {
-    cb(null, uploadsDir);
-  },
-  filename: (_req, _file, cb) => {
-    cb(null, `${randomUUID()}.webp`);
-  }
-});
 var uploadWebP = multer({
-  storage: webpStorage,
+  storage: multer.memoryStorage(),
   limits: { fileSize: 15 * 1024 * 1024 },
   fileFilter: (_req, file, cb) => {
     const allowed = ["image/webp", "image/jpeg", "image/png", "image/gif", "application/octet-stream"];
@@ -1828,18 +1837,6 @@ var uploadWebP = multer({
   }
 });
 var imageHashMap = /* @__PURE__ */ new Map();
-try {
-  const existingFiles = fs.readdirSync(uploadsDir);
-  for (const fname of existingFiles) {
-    try {
-      const buf = fs.readFileSync(path.join(uploadsDir, fname));
-      const hash2 = createHash("sha256").update(buf).digest("hex");
-      imageHashMap.set(hash2, fname);
-    } catch {
-    }
-  }
-} catch {
-}
 var defaultVendors = [];
 var vendorsCache = null;
 var userProfiles = [];
@@ -2779,20 +2776,19 @@ async function registerRoutes(app2) {
       if (!req.file) {
         return res.status(400).json({ error: "\u0644\u0645 \u064A\u062A\u0645 \u0631\u0641\u0639 \u0623\u064A \u0635\u0648\u0631\u0629" });
       }
-      const filePath = path.join(uploadsDir, req.file.filename);
-      const fileBuffer = fs.readFileSync(filePath);
+      const fileBuffer = req.file.buffer;
       const contentHash = createHash("sha256").update(fileBuffer).digest("hex");
-      const existingFilename = imageHashMap.get(contentHash);
-      if (existingFilename && existingFilename !== req.file.filename) {
-        fs.unlink(filePath, () => {
-        });
-        return res.json({ url: `/uploads/${existingFilename}`, filename: existingFilename, size: req.file.size, deduped: true });
+      const existingUrl = imageHashMap.get(contentHash);
+      if (existingUrl) {
+        return res.json({ url: existingUrl, size: req.file.size, deduped: true });
       }
-      imageHashMap.set(contentHash, req.file.filename);
-      const url = `/uploads/${req.file.filename}`;
-      res.json({ url, filename: req.file.filename, size: req.file.size });
+      const fileName = `${randomUUID()}.webp`;
+      const storagePath = `admin/${fileName}`;
+      const url = await uploadToFirebaseStorage(fileBuffer, storagePath, req.file.mimetype || "image/webp");
+      imageHashMap.set(contentHash, url);
+      res.json({ url, size: req.file.size });
     } catch (error) {
-      console.error("Error uploading image:", error);
+      console.error("Error uploading image to Firebase Storage:", error);
       res.status(500).json({ error: "\u0641\u0634\u0644 \u0641\u064A \u0631\u0641\u0639 \u0627\u0644\u0635\u0648\u0631\u0629" });
     }
   });
@@ -6460,7 +6456,6 @@ import jwt2 from "jsonwebtoken";
 import multer2 from "multer";
 import sharp from "sharp";
 import * as crypto from "crypto";
-import * as fs2 from "fs/promises";
 import * as path2 from "path";
 var router = express2.Router();
 var JWT_SECRET = (() => {
@@ -6472,7 +6467,7 @@ var JWT_SECRET = (() => {
 })();
 var VENDOR_COOKIE = "onway_vendor_session";
 var upload2 = multer2({
-  dest: path2.resolve(process.cwd(), "uploads", "temp"),
+  storage: multer2.memoryStorage(),
   limits: { fileSize: 15 * 1024 * 1024 },
   fileFilter: (_req, file, cb) => {
     if (["image/jpeg", "image/png", "image/jpg", "image/webp"].includes(file.mimetype)) {
@@ -6522,17 +6517,14 @@ function requireVendor(req, res, next) {
     return res.status(401).json({ error: "\u062A\u0648\u0643\u0646 \u063A\u064A\u0631 \u0635\u0627\u0644\u062D" });
   }
 }
-async function generateImageHash(filePath) {
-  const buf = await fs2.readFile(filePath);
-  return crypto.createHash("md5").update(buf).digest("hex");
+function generateImageHash(buffer) {
+  return crypto.createHash("md5").update(buffer).digest("hex");
 }
-async function processAndSaveImage(tempPath, hash2) {
-  const dir = path2.resolve(process.cwd(), "uploads", "products");
-  await fs2.mkdir(dir, { recursive: true });
+async function processAndSaveImage(buffer, hash2) {
   const fileName = `${Date.now()}_${hash2}.webp`;
-  const outPath = path2.join(dir, fileName);
-  await sharp(tempPath).resize(800, 800, { fit: "cover", position: "center" }).webp({ quality: 80 }).toFile(outPath);
-  return `/uploads/products/${fileName}`;
+  const storagePath = `products/${fileName}`;
+  const webpBuffer = await sharp(buffer).resize(800, 800, { fit: "cover", position: "center" }).webp({ quality: 80 }).toBuffer();
+  return uploadToFirebaseStorage(webpBuffer, storagePath, "image/webp");
 }
 async function findDuplicateImage(hash2) {
   const db2 = getFirestore();
@@ -6549,9 +6541,7 @@ async function saveImageHash(hash2, imageUrl) {
     createdAt: (/* @__PURE__ */ new Date()).toISOString()
   });
 }
-async function cleanTemp(filePath) {
-  if (filePath) await fs2.unlink(filePath).catch(() => {
-  });
+async function cleanTemp(_filePath) {
 }
 function vendorId() {
   return `vendor_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
@@ -6733,20 +6723,27 @@ router.patch("/api/vendor/profile", requireVendor, async (req, res) => {
     res.status(500).json({ error: "\u062D\u062F\u062B \u062E\u0637\u0623 \u0641\u064A \u0627\u0644\u062E\u0627\u062F\u0645" });
   }
 });
-var profileUpload = multer2({ dest: path2.resolve(process.cwd(), "uploads", "temp") });
-async function saveProfileImage(tempPath, type, vendorId2) {
-  const dir = path2.resolve(process.cwd(), "uploads", "profiles");
-  await fs2.mkdir(dir, { recursive: true });
-  const fileName = `${type}_${vendorId2}_${Date.now()}.webp`;
-  const outPath = path2.join(dir, fileName);
-  if (type === "avatar") {
-    await sharp(tempPath).resize(400, 400, { fit: "cover", position: "center" }).webp({ quality: 85 }).toFile(outPath);
-  } else {
-    await sharp(tempPath).resize(1200, 400, { fit: "cover", position: "center" }).webp({ quality: 80 }).toFile(outPath);
+var profileUpload = multer2({
+  storage: multer2.memoryStorage(),
+  limits: { fileSize: 15 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    if (["image/jpeg", "image/png", "image/jpg", "image/webp"].includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error("\u0646\u0648\u0639 \u0627\u0644\u0645\u0644\u0641 \u063A\u064A\u0631 \u0645\u062F\u0639\u0648\u0645."));
+    }
   }
-  await fs2.unlink(tempPath).catch(() => {
-  });
-  return `/uploads/profiles/${fileName}`;
+});
+async function saveProfileImage(buffer, type, vendorId2) {
+  const fileName = `${type}_${vendorId2}_${Date.now()}.webp`;
+  const storagePath = `vendors/${fileName}`;
+  let webpBuffer;
+  if (type === "avatar") {
+    webpBuffer = await sharp(buffer).resize(400, 400, { fit: "cover", position: "center" }).webp({ quality: 85 }).toBuffer();
+  } else {
+    webpBuffer = await sharp(buffer).resize(1200, 400, { fit: "cover", position: "center" }).webp({ quality: 80 }).toBuffer();
+  }
+  return uploadToFirebaseStorage(webpBuffer, storagePath, "image/webp");
 }
 router.post(
   "/api/vendor/profile/images",
@@ -6760,10 +6757,10 @@ router.post(
       const files = req.files;
       const updates = { updatedAt: (/* @__PURE__ */ new Date()).toISOString() };
       if (files?.profileImage?.[0]) {
-        updates.profileImageUrl = await saveProfileImage(files.profileImage[0].path, "avatar", vid);
+        updates.profileImageUrl = await saveProfileImage(files.profileImage[0].buffer, "avatar", vid);
       }
       if (files?.coverImage?.[0]) {
-        updates.coverImageUrl = await saveProfileImage(files.coverImage[0].path, "cover", vid);
+        updates.coverImageUrl = await saveProfileImage(files.coverImage[0].buffer, "cover", vid);
       }
       if (Object.keys(updates).length === 1) {
         return res.status(400).json({ error: "\u0644\u0645 \u064A\u062A\u0645 \u0625\u0631\u0633\u0627\u0644 \u0623\u064A \u0635\u0648\u0631\u0629" });
@@ -6779,19 +6776,17 @@ router.post(
   }
 );
 async function processUploadedImages(files) {
-  const tempPaths = files.map((f) => f.path);
   const imageUrls = await Promise.all(
     files.map(async (file) => {
-      const hash2 = await generateImageHash(file.path);
+      const hash2 = generateImageHash(file.buffer);
       let imageUrl = await findDuplicateImage(hash2);
       if (!imageUrl) {
-        imageUrl = await processAndSaveImage(file.path, hash2);
+        imageUrl = await processAndSaveImage(file.buffer, hash2);
         await saveImageHash(hash2, imageUrl);
       }
       return imageUrl;
     })
   );
-  await Promise.all(tempPaths.map((tp) => cleanTemp(tp)));
   return { imageUrls, tempPaths: [] };
 }
 router.post(
@@ -7696,7 +7691,7 @@ router.get("/api/stores/:id/products", async (req, res) => {
 var vendor_default = router;
 
 // server/index.ts
-import * as fs3 from "fs";
+import * as fs2 from "fs";
 import * as path3 from "path";
 import * as crypto2 from "crypto";
 initializeFirebase();
@@ -7903,7 +7898,7 @@ function setupRequestLogging(app2) {
 function getAppName() {
   try {
     const appJsonPath = path3.resolve(process.cwd(), "app.json");
-    const appJsonContent = fs3.readFileSync(appJsonPath, "utf-8");
+    const appJsonContent = fs2.readFileSync(appJsonPath, "utf-8");
     const appJson = JSON.parse(appJsonContent);
     return appJson.expo?.name || "App Landing Page";
   } catch {
@@ -7917,7 +7912,7 @@ function serveExpoManifest(platform, res) {
     platform,
     "manifest.json"
   );
-  if (!fs3.existsSync(manifestPath)) {
+  if (!fs2.existsSync(manifestPath)) {
     return res.status(404).json({ error: `Manifest not found for platform: ${platform}` });
   }
   res.setHeader("expo-protocol-version", "1");
@@ -7926,7 +7921,7 @@ function serveExpoManifest(platform, res) {
   res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
   res.setHeader("Pragma", "no-cache");
   res.setHeader("Expires", "0");
-  const manifest = fs3.readFileSync(manifestPath, "utf-8");
+  const manifest = fs2.readFileSync(manifestPath, "utf-8");
   res.send(manifest);
 }
 function serveLandingPage({
@@ -7971,7 +7966,7 @@ function configureExpoAndLanding(app2) {
     "templates",
     "landing-page.html"
   );
-  const landingPageTemplate = fs3.readFileSync(templatePath, "utf-8");
+  const landingPageTemplate = fs2.readFileSync(templatePath, "utf-8");
   const appName = getAppName();
   const adminTemplatePath = path3.resolve(
     process.cwd(),
@@ -7991,7 +7986,7 @@ function configureExpoAndLanding(app2) {
   });
   function renderLogin(errorPlaceholder, googleBtnPlaceholder) {
     const clientId = process.env.GOOGLE_CLIENT_ID || "";
-    const template = fs3.readFileSync(loginTemplatePath, "utf-8");
+    const template = fs2.readFileSync(loginTemplatePath, "utf-8");
     return template.replace("ERROR_PLACEHOLDER", errorPlaceholder).replace("GOOGLE_BTN_PLACEHOLDER", googleBtnPlaceholder);
   }
   function buildGoogleBtn(clientId) {
@@ -8137,7 +8132,7 @@ function configureExpoAndLanding(app2) {
   });
   app2.get("/admin", (req, res) => {
     if (!isValidSession(req)) return res.redirect("/admin/login");
-    const adminTemplate = fs3.readFileSync(adminTemplatePath, "utf-8");
+    const adminTemplate = fs2.readFileSync(adminTemplatePath, "utf-8");
     res.setHeader("Content-Type", "text/html; charset=utf-8");
     res.status(200).send(adminTemplate);
   });

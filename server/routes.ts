@@ -38,7 +38,8 @@ import {
   getSupportChat, sendSupportMessage, getAllSupportChats, markSupportChatRead,
   createDeliveryBatch, getDeliveryBatch, updateDeliveryBatch, cancelDeliveryBatch, addDeliveryLog, DeliveryBatch,
   saveAdminPushToken, getAdminPushToken,
-  addDriverToActiveQueue, removeDriverFromActiveQueue, updateDriverQueueEntry, getActiveDriverQueue
+  addDriverToActiveQueue, removeDriverFromActiveQueue, updateDriverQueueEntry, getActiveDriverQueue,
+  uploadToFirebaseStorage
 } from "./firebase";
 import { sendPushNotification, sendBroadcastNotification, sendDriverBatchNotification, sendAdminNewOrderNotification, sendVendorNewOrderNotification } from "./pushNotifications";
 
@@ -59,16 +60,9 @@ const storage: StorageEngine = multer.diskStorage({
 
 const upload = multer({ storage });
 
-const webpStorage: StorageEngine = multer.diskStorage({
-  destination: (_req: Express.Request, _file: Express.Multer.File, cb: (error: Error | null, destination: string) => void) => {
-    cb(null, uploadsDir);
-  },
-  filename: (_req: Express.Request, _file: Express.Multer.File, cb: (error: Error | null, filename: string) => void) => {
-    cb(null, `${randomUUID()}.webp`);
-  },
-});
+// uploadWebP uses memory storage — admin images go directly to Firebase Storage
 const uploadWebP = multer({
-  storage: webpStorage,
+  storage: multer.memoryStorage(),
   limits: { fileSize: 15 * 1024 * 1024 },
   fileFilter: (_req, file, cb) => {
     const allowed = ["image/webp", "image/jpeg", "image/png", "image/gif", "application/octet-stream"];
@@ -77,21 +71,10 @@ const uploadWebP = multer({
 });
 
 // ── Image content-hash deduplication map ─────────────────────────────────────
-// sha256(fileBuffer) → saved filename; prevents storing duplicate images.
+// sha256(fileBuffer) → Firebase Storage URL; prevents storing duplicate images.
+// In-memory only (per process lifetime); old /uploads/ files are still served
+// via the static middleware for backward compatibility.
 const imageHashMap = new Map<string, string>();
-
-// Seed map from existing uploads directory on startup
-try {
-  const existingFiles = fs.readdirSync(uploadsDir);
-  for (const fname of existingFiles) {
-    try {
-      const buf = fs.readFileSync(path.join(uploadsDir, fname));
-      const hash = createHash("sha256").update(buf).digest("hex");
-      imageHashMap.set(hash, fname);
-    } catch { /* skip unreadable files */ }
-  }
-
-} catch { /* uploads dir may be empty */ }
 
 interface Category {
   id: string;
@@ -1223,21 +1206,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!req.file) {
         return res.status(400).json({ error: "لم يتم رفع أي صورة" });
       }
-      // Content-hash deduplication: if identical image was uploaded before, reuse it
-      const filePath = path.join(uploadsDir, req.file.filename);
-      const fileBuffer = fs.readFileSync(filePath);
+      const fileBuffer = req.file.buffer;
+      // Content-hash deduplication: reuse Firebase Storage URL for identical images
       const contentHash = createHash("sha256").update(fileBuffer).digest("hex");
-      const existingFilename = imageHashMap.get(contentHash);
-      if (existingFilename && existingFilename !== req.file.filename) {
-        // Delete the newly written duplicate and return the existing one
-        fs.unlink(filePath, () => {});
-        return res.json({ url: `/uploads/${existingFilename}`, filename: existingFilename, size: req.file.size, deduped: true });
+      const existingUrl = imageHashMap.get(contentHash);
+      if (existingUrl) {
+        return res.json({ url: existingUrl, size: req.file.size, deduped: true });
       }
-      imageHashMap.set(contentHash, req.file.filename);
-      const url = `/uploads/${req.file.filename}`;
-      res.json({ url, filename: req.file.filename, size: req.file.size });
+      // Upload to Firebase Storage under admin/
+      const fileName = `${randomUUID()}.webp`;
+      const storagePath = `admin/${fileName}`;
+      const url = await uploadToFirebaseStorage(fileBuffer, storagePath, req.file.mimetype || "image/webp");
+      imageHashMap.set(contentHash, url);
+      res.json({ url, size: req.file.size });
     } catch (error) {
-      console.error("Error uploading image:", error);
+      console.error("Error uploading image to Firebase Storage:", error);
       res.status(500).json({ error: "فشل في رفع الصورة" });
     }
   });
