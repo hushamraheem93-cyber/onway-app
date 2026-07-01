@@ -1425,9 +1425,11 @@ export async function getVendors(): Promise<(FirestoreVendor & { id: string })[]
   const db = getFirestore();
   if (!db) return [];
   try {
-    const snap = await db.collection("vendors").orderBy("name").get();
-    return snap.docs.map(d => ({ id: d.id, ...(d.data() as FirestoreVendor) }));
-  } catch {
+    const snap = await db.collection("vendors").get();
+    const docs = snap.docs.map(d => ({ id: d.id, ...(d.data() as FirestoreVendor) }));
+    return docs.sort((a, b) => (a.name || "").localeCompare(b.name || "", "ar"));
+  } catch (err) {
+    console.error("[getVendors]", err);
     return [];
   }
 }

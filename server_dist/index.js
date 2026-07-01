@@ -946,9 +946,11 @@ async function getVendors() {
   const db2 = getFirestore();
   if (!db2) return [];
   try {
-    const snap = await db2.collection("vendors").orderBy("name").get();
-    return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-  } catch {
+    const snap = await db2.collection("vendors").get();
+    const docs = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    return docs.sort((a, b) => (a.name || "").localeCompare(b.name || "", "ar"));
+  } catch (err) {
+    console.error("[getVendors]", err);
     return [];
   }
 }
