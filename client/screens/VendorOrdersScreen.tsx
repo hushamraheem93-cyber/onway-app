@@ -16,6 +16,7 @@ import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useFocusEffect } from "@react-navigation/native";
 import { MaterialCommunityIcons, Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
+import * as Print from "expo-print";
 
 import { ThemedText } from "@/components/ThemedText";
 import { useAuth } from "@/context/AuthContext";
@@ -127,6 +128,107 @@ function getActions(status: string): Action[] {
     default:
       return [];
   }
+}
+
+// ── Receipt HTML builder ───────────────────────────────────────────────────────
+function buildReceiptHTML(order: VendorOrder): string {
+  const orderNum = order.id.slice(-8).toUpperCase();
+  const storeName = order.vendorName ?? "المتجر";
+  const customerName = order.customerName ?? order.customerPhone ?? order.phoneNumber ?? "—";
+  const customerPhone = order.customerPhone ?? order.phoneNumber ?? "—";
+  const address = order.address ?? "—";
+  const paymentLabel =
+    order.paymentMethod === "cash" ? "دفع نقدي" :
+    order.paymentMethod === "card" ? "بطاقة بنكية" :
+    (order.paymentMethod ?? "—");
+  const createdDate = (() => {
+    try { return new Date(order.createdAt).toLocaleDateString("ar-IQ", { year: "numeric", month: "long", day: "numeric" }); }
+    catch { return order.createdAt; }
+  })();
+  const createdTime = (() => {
+    try { return new Date(order.createdAt).toLocaleTimeString("ar-IQ", { hour: "2-digit", minute: "2-digit" }); }
+    catch { return ""; }
+  })();
+  const vendorTotal = order.vendorSubtotal ?? order.restaurantSubtotal ?? order.total;
+  const itemsHTML = (order.items ?? []).map((item) => `
+    <tr>
+      <td style="text-align:right;padding:7px 4px;border-bottom:1px dashed #ddd;font-size:13px;">${item.name}</td>
+      <td style="text-align:center;padding:7px 4px;border-bottom:1px dashed #ddd;font-size:13px;color:#555;">${item.quantity}</td>
+      <td style="text-align:left;padding:7px 4px;border-bottom:1px dashed #ddd;font-size:13px;white-space:nowrap;">${((item.price || 0) * (item.quantity || 1)).toLocaleString("ar-IQ")} د.ع</td>
+    </tr>`).join("");
+
+  return `<!DOCTYPE html>
+<html dir="rtl" lang="ar">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{font-family:'Segoe UI',Tahoma,Arial,sans-serif;direction:rtl;max-width:340px;margin:0 auto;padding:18px;color:#1a1a1a;background:#fff;}
+  .header{text-align:center;padding-bottom:12px;}
+  .app-name{font-size:32px;font-weight:900;color:#E86520;letter-spacing:3px;}
+  .app-sub{font-size:12px;color:#999;margin-top:3px;}
+  .store-name{text-align:center;font-size:17px;font-weight:700;margin:6px 0 2px;}
+  .divider{border:none;border-top:1px dashed #ccc;margin:10px 0;}
+  .divider-bold{border:none;border-top:2px solid #1a1a1a;margin:12px 0;}
+  .row{display:flex;justify-content:space-between;align-items:flex-start;margin:6px 0;font-size:13px;gap:8px;}
+  .row-label{color:#666;flex-shrink:0;}
+  .row-value{font-weight:600;text-align:left;word-break:break-word;}
+  .section-title{font-size:12px;font-weight:700;background:#f5f5f5;padding:5px 10px;border-radius:4px;margin:10px 0;text-align:center;color:#444;letter-spacing:1px;}
+  table{width:100%;border-collapse:collapse;}
+  th{font-size:11px;color:#777;padding:5px 4px;border-bottom:2px solid #333;font-weight:600;}
+  th:first-child{text-align:right;}th:nth-child(2){text-align:center;}th:last-child{text-align:left;}
+  .total-row{display:flex;justify-content:space-between;padding:5px 0;font-size:13px;}
+  .grand-total{font-size:16px;font-weight:900;color:#E86520;padding-top:3px;}
+  .payment-row{display:flex;justify-content:space-between;padding:5px 0;font-size:13px;}
+  .notes-box{background:#fff9f0;border:1px dashed #E86520;border-radius:6px;padding:8px 10px;margin:6px 0;font-size:12px;color:#555;}
+  .footer{text-align:center;margin-top:16px;padding-top:12px;border-top:2px solid #1a1a1a;}
+  .footer-main{font-size:15px;font-weight:700;color:#E86520;margin-bottom:4px;}
+  .footer-sub{font-size:12px;color:#888;}
+  @media print{body{max-width:100%;padding:10px;}}
+</style>
+</head>
+<body>
+<div class="header">
+  <div class="app-name">OnWay</div>
+  <div class="app-sub">خدمة التوصيل السريع</div>
+</div>
+<div class="store-name">${storeName}</div>
+<hr class="divider-bold">
+<div class="row"><span class="row-label">رقم الطلب</span><span class="row-value">#${orderNum}</span></div>
+<div class="row"><span class="row-label">التاريخ</span><span class="row-value">${createdDate}</span></div>
+<div class="row"><span class="row-label">الوقت</span><span class="row-value">${createdTime}</span></div>
+<hr class="divider">
+<div class="section-title">بيانات العميل</div>
+<div class="row"><span class="row-label">الاسم</span><span class="row-value">${customerName}</span></div>
+<div class="row"><span class="row-label">الهاتف</span><span class="row-value">${customerPhone}</span></div>
+<div class="row"><span class="row-label">عنوان التوصيل</span><span class="row-value" style="max-width:60%;text-align:left;">${address}</span></div>
+<hr class="divider">
+<div class="section-title">تفاصيل الطلب</div>
+<table>
+  <thead>
+    <tr>
+      <th>الصنف</th>
+      <th>الكمية</th>
+      <th>السعر</th>
+    </tr>
+  </thead>
+  <tbody>${itemsHTML}</tbody>
+</table>
+<hr class="divider">
+<div class="total-row"><span>إجمالي المتجر</span><span>${vendorTotal.toLocaleString("ar-IQ")} د.ع</span></div>
+${order.deliveryFee !== undefined && order.deliveryFee > 0 ? `<div class="total-row"><span>رسوم التوصيل</span><span>${order.deliveryFee.toLocaleString("ar-IQ")} د.ع</span></div>` : ""}
+${order.serviceFee !== undefined && order.serviceFee > 0 ? `<div class="total-row"><span>رسوم الخدمة</span><span>${order.serviceFee.toLocaleString("ar-IQ")} د.ع</span></div>` : ""}
+<div class="total-row grand-total"><span>الإجمالي النهائي</span><span>${order.total.toLocaleString("ar-IQ")} د.ع</span></div>
+<hr class="divider">
+<div class="payment-row"><span style="color:#666;">طريقة الدفع</span><span style="font-weight:600;">${paymentLabel}</span></div>
+${order.notes ? `<div class="notes-box"><strong>ملاحظات:</strong> ${order.notes}</div>` : ""}
+<div class="footer">
+  <div class="footer-main">شكراً لاستخدامكم OnWay</div>
+  <div class="footer-sub">نتمنى لكم تجربة توصيل ممتازة</div>
+</div>
+</body>
+</html>`;
 }
 
 // ── Live-ticking clock hook (updates every 60 s) ──────────────────────────────
@@ -247,11 +349,13 @@ const progressStyles = StyleSheet.create({
 function OrderCard({
   order,
   onUpdateStatus,
+  onPrint,
   updatingId,
   urgencyThresholds,
 }: {
   order: VendorOrder;
   onUpdateStatus: (id: string, status: string) => void;
+  onPrint: (order: VendorOrder) => void;
   updatingId: string | null;
   urgencyThresholds: Record<string, number>;
 }) {
@@ -520,6 +624,21 @@ function OrderCard({
               ))}
             </View>
           ) : null}
+
+          {/* Print button — visible for all accepted orders */}
+          {order.status !== "pending" && order.status !== "cancelled" ? (
+            <Pressable
+              style={cardStyles.printBtn}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                onPrint(order);
+              }}
+              testID={`btn-print-${order.id}`}
+            >
+              <MaterialCommunityIcons name="printer-outline" size={16} color={AppColors.gray500} />
+              <ThemedText style={cardStyles.printBtnText}>طباعة الوصل</ThemedText>
+            </Pressable>
+          ) : null}
         </>
       ) : null}
     </View>
@@ -776,6 +895,13 @@ export default function VendorOrdersScreen() {
     }
   }, [updateStatus]);
 
+  const handlePrint = useCallback(async (order: VendorOrder) => {
+    try {
+      const html = buildReceiptHTML(order);
+      await Print.printAsync({ html });
+    } catch (_) {}
+  }, []);
+
   const tabDef = TABS.find((t) => t.key === activeTab)!;
   const filtered = useMemo(
     () => orders.filter((o) => tabDef.statuses.includes(o.status)),
@@ -891,6 +1017,7 @@ export default function VendorOrdersScreen() {
             <OrderCard
               order={item}
               onUpdateStatus={handleAction}
+              onPrint={handlePrint}
               updatingId={updatingId}
               urgencyThresholds={urgencyThresholds}
             />
@@ -1070,6 +1197,13 @@ const cardStyles = StyleSheet.create({
   actionBtnPrimary: { elevation: 2, shadowColor: AppColors.black, shadowOpacity: 0.1, shadowRadius: 4 },
   actionBtnSecondary: {},
   actionBtnText: { fontFamily: "Cairo_700Bold", fontSize: 13 },
+  printBtn: {
+    flexDirection: "row", alignItems: "center", justifyContent: "center",
+    gap: 7, marginHorizontal: 14, marginBottom: 12, paddingVertical: 10,
+    borderRadius: 10, backgroundColor: AppColors.gray100,
+    borderWidth: 1, borderColor: AppColors.divider,
+  },
+  printBtnText: { fontFamily: "Cairo_600SemiBold", fontSize: 13, color: AppColors.gray500 },
 });
 
 const modalStyles = StyleSheet.create({
