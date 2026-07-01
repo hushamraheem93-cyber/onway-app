@@ -1521,78 +1521,6 @@
       </header>
 
       <div class="content">
-        <!-- Quick stats grid — Row 1: Orders & Revenue -->
-        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:14px;margin-bottom:14px;">
-          <div class="stat-card" style="cursor:pointer;border-right:4px solid #D94523;" onclick="showSection('orders', document.querySelector('.nav-item'))">
-            <div class="stat-icon orange"><i data-lucide="shopping-bag"></i></div>
-            <div class="stat-info"><h3 id="stat-products">0</h3><p>إجمالي الطلبات</p></div>
-          </div>
-          <div class="stat-card" style="border-right:4px solid #f59e0b;">
-            <div class="stat-icon" style="background:linear-gradient(135deg,#f59e0b,#d97706);"><i data-lucide="sun" style="width:28px;height:28px;color:#fff;"></i></div>
-            <div class="stat-info"><h3 id="dash-today-orders">0</h3><p>طلبات اليوم</p></div>
-          </div>
-          <div class="stat-card" style="border-right:4px solid #3b82f6;">
-            <div class="stat-icon blue"><i data-lucide="calendar-days"></i></div>
-            <div class="stat-info"><h3 id="dash-week-orders">0</h3><p>طلبات الأسبوع</p></div>
-          </div>
-          <div class="stat-card" style="border-right:4px solid #8b5cf6;">
-            <div class="stat-icon purple"><i data-lucide="calendar"></i></div>
-            <div class="stat-info"><h3 id="dash-month-orders">0</h3><p>طلبات الشهر</p></div>
-          </div>
-          <div class="stat-card" style="border-right:4px solid #10b981;">
-            <div class="stat-icon" style="background:linear-gradient(135deg,#10b981,#059669);"><i data-lucide="check-circle" style="width:28px;height:28px;color:#fff;"></i></div>
-            <div class="stat-info"><h3 id="dash-delivered">0</h3><p>طلبات مُسلَّمة</p></div>
-          </div>
-          <div class="stat-card" style="border-right:4px solid #ef4444;">
-            <div class="stat-icon" style="background:linear-gradient(135deg,#ef4444,#dc2626);"><i data-lucide="x-circle" style="width:28px;height:28px;color:#fff;"></i></div>
-            <div class="stat-info"><h3 id="dash-cancelled">0</h3><p>طلبات ملغاة</p></div>
-          </div>
-        </div>
-
-        <!-- Row 2: Revenue, Users, Drivers, Vendors -->
-        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:14px;margin-bottom:24px;">
-          <div class="stat-card" style="border-right:4px solid #D94523;">
-            <div class="stat-icon orange"><i data-lucide="banknote"></i></div>
-            <div class="stat-info"><h3 id="dash-revenue" style="font-size:1rem;">0</h3><p>إجمالي المبيعات</p></div>
-          </div>
-          <div class="stat-card" style="border-right:4px solid #f59e0b;">
-            <div class="stat-icon" style="background:linear-gradient(135deg,#f59e0b,#d97706);"><i data-lucide="banknote" style="width:28px;height:28px;color:#fff;"></i></div>
-            <div class="stat-info"><h3 id="dash-today-revenue" style="font-size:1rem;">0</h3><p>مبيعات اليوم</p></div>
-          </div>
-          <div class="stat-card" style="border-right:4px solid #8b5cf6;">
-            <div class="stat-icon" style="background:linear-gradient(135deg,#8b5cf6,#6d28d9);"><i data-lucide="percent" style="width:28px;height:28px;color:#fff;"></i></div>
-            <div class="stat-info"><h3 id="dash-commission" style="font-size:1rem;">0</h3><p>عمولة أون وي</p></div>
-          </div>
-          <div class="stat-card" style="cursor:pointer;border-right:4px solid #06b6d4;">
-            <div class="stat-icon" style="background:linear-gradient(135deg,#06b6d4,#0891b2);"><i data-lucide="users" style="width:28px;height:28px;color:#fff;"></i></div>
-            <div class="stat-info"><h3 id="dash-users-count">0</h3><p>المستخدمون</p></div>
-          </div>
-          <div class="stat-card" style="cursor:pointer;border-right:4px solid #10b981;" onclick="showSection('driverQueue', document.querySelectorAll('.nav-item')[8])">
-            <div class="stat-icon green"><i data-lucide="truck"></i></div>
-            <div class="stat-info"><h3 id="dash-online-drivers">0</h3><p>سائقون متصلون</p></div>
-          </div>
-          <div class="stat-card" style="border-right:4px solid #D94523;">
-            <div class="stat-icon orange"><i data-lucide="store"></i></div>
-            <div class="stat-info"><h3 id="dash-vendors-count">0</h3><p>التجار والمتاجر</p></div>
-          </div>
-          <div class="stat-card" style="border-right:4px solid #f97316;">
-            <div class="stat-icon" style="background:linear-gradient(135deg,#f97316,#ea580c);"><i data-lucide="utensils" style="width:28px;height:28px;color:#fff;"></i></div>
-            <div class="stat-info"><h3 id="dash-restaurants-count">0</h3><p>المطاعم</p></div>
-          </div>
-          <div class="stat-card" style="border-right:4px solid #3b82f6;">
-            <div class="stat-icon blue"><i data-lucide="package"></i></div>
-            <div class="stat-info"><h3 id="dash-products-count">0</h3><p>المنتجات</p></div>
-          </div>
-          <div class="stat-card" style="border-right:4px solid #f59e0b;">
-            <div class="stat-icon" style="background:linear-gradient(135deg,#f59e0b,#d97706);"><i data-lucide="clock" style="width:28px;height:28px;color:#fff;"></i></div>
-            <div class="stat-info"><h3 id="dash-pending">0</h3><p>قيد الانتظار</p></div>
-          </div>
-          <div class="stat-card" style="border-right:4px solid #06b6d4;">
-            <div class="stat-icon" style="background:linear-gradient(135deg,#06b6d4,#0891b2);"><i data-lucide="zap" style="width:28px;height:28px;color:#fff;"></i></div>
-            <div class="stat-info"><h3 id="dash-active-orders">0</h3><p>طلبات نشطة</p></div>
-          </div>
-        </div>
-
         <!-- Live System Monitor -->
         <div class="live-monitor-card">
           <div class="live-monitor-header">
@@ -10485,33 +10413,8 @@ async function loadDashboardStats() {
     if (!res.ok) return;
     const d = await res.json();
 
-    // Orders row
-    const sv = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
-    sv('stat-products',         (d.orders?.total  || 0).toLocaleString('ar-IQ'));
-    sv('dash-today-orders',     (d.orders?.today  || 0).toLocaleString('ar-IQ'));
-    sv('dash-week-orders',      (d.orders?.week   || 0).toLocaleString('ar-IQ'));
-    sv('dash-month-orders',     (d.orders?.month  || 0).toLocaleString('ar-IQ'));
-    sv('dash-delivered',        (d.orders?.delivered || 0).toLocaleString('ar-IQ'));
-    sv('dash-cancelled',        (d.orders?.cancelled || 0).toLocaleString('ar-IQ'));
-    sv('dash-active-orders',    (d.orders?.active  || 0).toLocaleString('ar-IQ'));
-    sv('dash-pending',          (d.orders?.active  || 0).toLocaleString('ar-IQ'));
-
-    // Revenue row
-    sv('dash-revenue',       (d.revenue?.total || 0).toLocaleString('ar-IQ') + ' د.ع');
-    sv('dash-today-revenue', (d.revenue?.today || 0).toLocaleString('ar-IQ') + ' د.ع');
-    const commission = Math.round((d.revenue?.total || 0) * 0.08);
-    sv('dash-commission',    commission.toLocaleString('ar-IQ') + ' د.ع');
-
-    // Users & Drivers
-    sv('dash-users-count',      (d.users || 0).toLocaleString('ar-IQ'));
-    sv('dash-online-drivers',   (d.drivers?.online || 0).toLocaleString('ar-IQ'));
-
-    // Vendors
-    sv('dash-vendors-count',     (d.vendors?.total       || 0).toLocaleString('ar-IQ'));
-    sv('dash-restaurants-count', (d.vendors?.restaurants || 0).toLocaleString('ar-IQ'));
-    sv('dash-products-count',    (d.products || 0).toLocaleString('ar-IQ'));
-
     // Nav badges
+    const sv = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
     sv('users-nav-count', d.users || 0);
   } catch (e) { /* silent */ }
 }
