@@ -1371,6 +1371,11 @@
       gap: 12px;
       justify-content: center;
     }
+    .mmenu-item{padding:8px 14px;font-size:0.82rem;color:#374151;cursor:pointer;transition:background .1s;}
+    .mmenu-item:hover{background:#F9FAFB;}
+    .mmenu-item.mmenu-ok{color:#15803D;font-weight:600;}
+    .mmenu-item.mmenu-warn{color:#B45309;font-weight:600;}
+    .mmenu-item.mmenu-danger{color:#DC2626;font-weight:600;}
   </style>
 </head>
 <body>
@@ -1430,6 +1435,10 @@
         <div class="nav-item" onclick="showSection('drivers', this)">
           <i data-lucide="truck"></i><span>السائقون</span>
           <span class="badge" id="drivers-count">0</span>
+        <div class="nav-item" onclick="showSection('merchants', this)">
+          <i data-lucide="store"></i><span>التجار</span>
+          <span class="badge" id="merchants-nav-count">0</span>
+        </div>
         </div>
       </div>
 
@@ -1591,6 +1600,220 @@
       </div>
     </div>
 
+
+
+    <!-- Merchants Section -->
+    <div id="merchants-section" class="section">
+      <header class="header">
+        <div class="header-title">
+          <h2>إدارة التجار</h2>
+          <p>إدارة جميع الأنشطة التجارية حسب النوع</p>
+        </div>
+        <div class="header-actions">
+          <div class="search-box">
+            <i data-lucide="search"></i>
+            <input type="text" id="merchants-search" placeholder="ابحث بالاسم أو المدينة..." oninput="filterMerchants()">
+          </div>
+          <button class="btn btn-outline" onclick="doRefresh(this, loadMerchants, 'التجار')">
+            <i data-lucide="refresh-cw"></i> تحديث
+          </button>
+        </div>
+      </header>
+
+      <!-- Stats Row -->
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px;">
+        <div style="background:#fff;border-radius:14px;padding:16px;border:1px solid #F3F4F6;text-align:center;">
+          <div style="font-size:1.6rem;font-weight:800;color:#111827;" id="mstat-total">0</div>
+          <div style="font-size:0.72rem;color:#9CA3AF;margin-top:3px;">إجمالي التجار</div>
+        </div>
+        <div style="background:#fff;border-radius:14px;padding:16px;border:1px solid #F3F4F6;text-align:center;">
+          <div style="font-size:1.6rem;font-weight:800;color:#16A34A;" id="mstat-active">0</div>
+          <div style="font-size:0.72rem;color:#9CA3AF;margin-top:3px;">مفعّل</div>
+        </div>
+        <div style="background:#fff;border-radius:14px;padding:16px;border:1px solid #F3F4F6;text-align:center;">
+          <div style="font-size:1.6rem;font-weight:800;color:#F59E0B;" id="mstat-pending">0</div>
+          <div style="font-size:0.72rem;color:#9CA3AF;margin-top:3px;">بانتظار الموافقة</div>
+        </div>
+        <div style="background:#fff;border-radius:14px;padding:16px;border:1px solid #F3F4F6;text-align:center;">
+          <div style="font-size:1.6rem;font-weight:800;color:#EF4444;" id="mstat-suspended">0</div>
+          <div style="font-size:0.72rem;color:#9CA3AF;margin-top:3px;">موقوف / مرفوض</div>
+        </div>
+      </div>
+
+      <!-- Business Type Tabs -->
+      <div style="overflow-x:auto;scrollbar-width:none;margin-bottom:16px;">
+        <div id="merchants-type-tabs" style="display:flex;gap:8px;padding-bottom:4px;min-width:max-content;"></div>
+      </div>
+
+      <!-- Filter Bar -->
+      <div style="background:#fff;border-radius:14px;border:1px solid #F3F4F6;padding:14px 16px;margin-bottom:20px;display:flex;flex-wrap:wrap;gap:10px;align-items:center;">
+        <select id="mfilter-status" onchange="filterMerchants()" style="border:1px solid #E5E7EB;border-radius:9px;padding:7px 12px;font-size:0.82rem;font-family:inherit;color:#374151;outline:none;">
+          <option value="">حالة الحساب: الكل</option>
+          <option value="active">مفعّل</option>
+          <option value="pending">بانتظار الموافقة</option>
+          <option value="suspended">موقوف</option>
+          <option value="rejected">مرفوض</option>
+        </select>
+        <select id="mfilter-open" onchange="filterMerchants()" style="border:1px solid #E5E7EB;border-radius:9px;padding:7px 12px;font-size:0.82rem;font-family:inherit;color:#374151;outline:none;">
+          <option value="">حالة المتجر: الكل</option>
+          <option value="open">مفتوح</option>
+          <option value="closed">مغلق</option>
+        </select>
+        <select id="mfilter-sort" onchange="filterMerchants()" style="border:1px solid #E5E7EB;border-radius:9px;padding:7px 12px;font-size:0.82rem;font-family:inherit;color:#374151;outline:none;">
+          <option value="name">ترتيب: الاسم</option>
+          <option value="rating">ترتيب: التقييم</option>
+          <option value="createdAt">ترتيب: تاريخ التسجيل</option>
+          <option value="sortOrder">ترتيب: مخصص</option>
+        </select>
+        <div style="margin-right:auto;font-size:0.82rem;color:#9CA3AF;">
+          يُعرض: <span id="merchants-shown-count" style="font-weight:700;color:#374151;">0</span> تاجر
+        </div>
+      </div>
+
+      <!-- Merchants Grid -->
+      <div id="merchants-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:16px;"></div>
+      <div id="merchants-empty" style="display:none;text-align:center;padding:80px 40px;background:#fff;border-radius:16px;border:1px solid #F3F4F6;">
+        <i data-lucide="store" style="width:48px;height:48px;color:#D1D5DB;margin-bottom:16px;"></i>
+        <h4 style="color:#9CA3AF;font-size:1rem;margin:0 0 8px;">لا يوجد تجار</h4>
+        <p style="color:#D1D5DB;font-size:0.85rem;margin:0;">جرّب تغيير الفلتر أو تحديث القائمة</p>
+      </div>
+    </div>
+
+    <!-- Merchant Edit Modal -->
+    <div id="merchant-edit-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9200;align-items:center;justify-content:center;">
+      <div style="background:#fff;border-radius:20px;width:560px;max-width:96vw;max-height:92vh;overflow-y:auto;position:relative;">
+        <div style="padding:20px 24px 16px;border-bottom:1px solid #F3F4F6;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;background:#fff;z-index:2;">
+          <h3 style="margin:0;font-size:1rem;font-weight:800;" id="medit-title">تعديل بيانات التاجر</h3>
+          <button onclick="closeMerchantEditModal()" style="background:none;border:none;font-size:1.3rem;cursor:pointer;color:#9CA3AF;">&times;</button>
+        </div>
+        <div style="padding:20px 24px;">
+          <input type="hidden" id="medit-id">
+          <div style="display:grid;gap:14px;">
+            <div><label style="font-size:0.8rem;font-weight:600;color:#374151;display:block;margin-bottom:5px;">اسم النشاط *</label>
+            <input type="text" id="medit-name" class="form-control" placeholder="اسم المتجر أو المطعم"></div>
+            <div><label style="font-size:0.8rem;font-weight:600;color:#374151;display:block;margin-bottom:5px;">نوع النشاط</label>
+            <select id="medit-type" class="form-control">
+              <option value="restaurant">مطعم</option>
+              <option value="grocery">بقالة</option>
+              <option value="supermarket">سوبر ماركت</option>
+              <option value="pharmacy">صيدلية</option>
+              <option value="bakery">مخبز</option>
+              <option value="sweets">حلويات</option>
+              <option value="fruits">فواكه وخضار</option>
+              <option value="electronics">إلكترونيات</option>
+              <option value="clothing">ملابس</option>
+              <option value="perfume">عطور</option>
+              <option value="bookstore">مكتبة</option>
+              <option value="flowers">زهور</option>
+              <option value="gifts">هدايا</option>
+              <option value="cafe">مقهى</option>
+              <option value="store">متجر عام</option>
+              <option value="other">أخرى</option>
+            </select></div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+              <div><label style="font-size:0.8rem;font-weight:600;color:#374151;display:block;margin-bottom:5px;">المدينة / الموقع</label>
+              <input type="text" id="medit-location" class="form-control" placeholder="بغداد، البصرة..."></div>
+              <div><label style="font-size:0.8rem;font-weight:600;color:#374151;display:block;margin-bottom:5px;">واتساب</label>
+              <input type="text" id="medit-whatsapp" class="form-control" placeholder="+9647..."></div>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+              <div><label style="font-size:0.8rem;font-weight:600;color:#374151;display:block;margin-bottom:5px;">وقت الفتح</label>
+              <input type="text" id="medit-openTime" class="form-control" placeholder="09:00"></div>
+              <div><label style="font-size:0.8rem;font-weight:600;color:#374151;display:block;margin-bottom:5px;">وقت الإغلاق</label>
+              <input type="text" id="medit-closeTime" class="form-control" placeholder="23:00"></div>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+              <div><label style="font-size:0.8rem;font-weight:600;color:#374151;display:block;margin-bottom:5px;">عمولة التطبيق %</label>
+              <input type="number" id="medit-commission" class="form-control" placeholder="10" min="0" max="100"></div>
+              <div><label style="font-size:0.8rem;font-weight:600;color:#374151;display:block;margin-bottom:5px;">الحد الأدنى للطلب</label>
+              <input type="number" id="medit-minOrder" class="form-control" placeholder="0" min="0"></div>
+            </div>
+            <div><label style="font-size:0.8rem;font-weight:600;color:#374151;display:block;margin-bottom:5px;">وصف النشاط</label>
+            <textarea id="medit-description" class="form-control" rows="3" placeholder="نبذة عن النشاط التجاري..."></textarea></div>
+            <div style="display:flex;gap:16px;flex-wrap:wrap;">
+              <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:0.82rem;font-weight:600;color:#374151;">
+                <input type="checkbox" id="medit-hasDelivery"> يوفّر توصيل</label>
+              <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:0.82rem;font-weight:600;color:#374151;">
+                <input type="checkbox" id="medit-isOpen"> مفتوح الآن</label>
+            </div>
+          </div>
+        </div>
+        <div style="padding:16px 24px;border-top:1px solid #F3F4F6;display:flex;gap:10px;justify-content:flex-end;position:sticky;bottom:0;background:#fff;">
+          <button onclick="closeMerchantEditModal()" class="btn btn-outline">إلغاء</button>
+          <button onclick="saveMerchantEdit()" class="btn btn-primary" id="medit-save-btn">
+            <i data-lucide="save" style="width:14px;height:14px;"></i> حفظ التعديلات
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Merchant Products Modal -->
+    <div id="merchant-products-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:9300;align-items:flex-start;justify-content:center;overflow-y:auto;padding:24px 16px;">
+      <div style="background:#fff;border-radius:20px;width:900px;max-width:98vw;position:relative;">
+        <div style="padding:18px 24px;border-bottom:1px solid #F3F4F6;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;background:#fff;border-radius:20px 20px 0 0;z-index:10;">
+          <div style="display:flex;align-items:center;gap:10px;">
+            <div style="background:#FFF3E0;border-radius:10px;padding:8px;"><i data-lucide="package" style="width:18px;height:18px;color:#E86520;"></i></div>
+            <div>
+              <h3 id="mprods-title" style="margin:0;font-size:1rem;font-weight:800;">منتجات التاجر</h3>
+              <div id="mprods-subtitle" style="font-size:0.75rem;color:#9CA3AF;"></div>
+            </div>
+          </div>
+          <button onclick="closeMerchantProducts()" style="background:none;border:none;font-size:1.5rem;cursor:pointer;color:#9CA3AF;">&times;</button>
+        </div>
+        <div style="padding:20px 24px;">
+          <div style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;">
+            <div class="search-box" style="flex:1;min-width:200px;"><i data-lucide="search"></i>
+              <input type="text" id="mprods-search" placeholder="ابحث في المنتجات..." oninput="filterMerchantProducts()"></div>
+            <select id="mprods-status" onchange="filterMerchantProducts()" style="border:1px solid #E5E7EB;border-radius:9px;padding:7px 12px;font-size:0.82rem;font-family:inherit;outline:none;">
+              <option value="">كل المنتجات</option>
+              <option value="approved">مقبول</option>
+              <option value="pending">بانتظار المراجعة</option>
+              <option value="rejected">مرفوض</option>
+            </select>
+            <button onclick="openAddMerchantProduct()" class="btn btn-primary" style="font-size:0.82rem;padding:8px 16px;">
+              <i data-lucide="plus" style="width:14px;height:14px;"></i> إضافة منتج
+            </button>
+          </div>
+          <div id="mprods-loading" style="text-align:center;padding:40px;display:none;"><div class="loading-spinner"></div><p>جاري التحميل...</p></div>
+          <div id="mprods-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;"></div>
+          <div id="mprods-empty" style="display:none;text-align:center;padding:40px;color:#9CA3AF;">لا توجد منتجات</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Merchant Statement Modal -->
+    <div id="merchant-statement-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9200;align-items:center;justify-content:center;">
+      <div style="background:#fff;border-radius:20px;padding:0;width:540px;max-width:95vw;max-height:90vh;overflow-y:auto;position:relative;">
+        <div style="padding:20px 24px 16px;border-bottom:1px solid #F3F4F6;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;background:#fff;z-index:2;">
+          <h3 style="margin:0;font-size:1rem;font-weight:800;">الحساب المالي</h3>
+          <button onclick="document.getElementById('merchant-statement-modal').style.display='none'" style="background:none;border:none;font-size:1.3rem;cursor:pointer;color:#9CA3AF;">&times;</button>
+        </div>
+        <div id="merchant-statement-content" style="padding:20px 24px;"></div>
+      </div>
+    </div>
+
+    <!-- Merchant Notification Modal -->
+    <div id="merchant-notif-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9200;align-items:center;justify-content:center;">
+      <div style="background:#fff;border-radius:20px;width:460px;max-width:96vw;position:relative;">
+        <div style="padding:20px 24px 16px;border-bottom:1px solid #F3F4F6;display:flex;align-items:center;justify-content:space-between;">
+          <h3 style="margin:0;font-size:1rem;font-weight:800;">إرسال إشعار للتاجر</h3>
+          <button onclick="document.getElementById('merchant-notif-modal').style.display='none'" style="background:none;border:none;font-size:1.3rem;cursor:pointer;color:#9CA3AF;">&times;</button>
+        </div>
+        <div style="padding:20px 24px;display:grid;gap:14px;">
+          <input type="hidden" id="mnotif-vendor-id">
+          <div><label style="font-size:0.8rem;font-weight:600;display:block;margin-bottom:5px;">عنوان الإشعار</label>
+          <input type="text" id="mnotif-title" class="form-control" placeholder="عنوان الإشعار"></div>
+          <div><label style="font-size:0.8rem;font-weight:600;display:block;margin-bottom:5px;">نص الإشعار</label>
+          <textarea id="mnotif-body" class="form-control" rows="3" placeholder="اكتب رسالتك هنا..."></textarea></div>
+        </div>
+        <div style="padding:16px 24px;border-top:1px solid #F3F4F6;display:flex;gap:10px;justify-content:flex-end;">
+          <button onclick="document.getElementById('merchant-notif-modal').style.display='none'" class="btn btn-outline">إلغاء</button>
+          <button onclick="sendMerchantNotif()" class="btn btn-primary" id="mnotif-send-btn">
+            <i data-lucide="send" style="width:14px;height:14px;"></i> إرسال
+          </button>
+        </div>
+      </div>
+    </div>
 
     <!-- Categories Section -->
     <div id="categories-section" class="section">
@@ -3677,6 +3900,7 @@
       if (section === 'delivery') loadDeliveryAreas();
       if (section === 'orders') { loadOrders(); startOrdersPolling(); }
       if (section === 'drivers') loadDrivers();
+      if (section === 'merchants') loadMerchants();
       if (section === 'driverQueue') loadDriverQueue();
       if (section === 'driverFinancial') loadDriverFinancial();
       if (section === 'dashboard') loadDashboard();
@@ -5107,6 +5331,583 @@
       } catch (error) {
         showToast('error', 'خطأ', 'حدث خطأ أثناء حفظ السلايد');
       }
+    }
+
+
+    // ========================= Merchants =========================
+    let merchantsList = [];
+    let _merchantsRaw = [];
+    let _merchantTypeFilter = '';
+    let _merchantCurrentProdsVendorId = null;
+    let _merchantAllProds = [];
+
+    const MERCHANT_TYPES = [
+      { id: '', label: 'الكل', icon: 'layout-grid' },
+      { id: 'restaurant', label: 'مطاعم', icon: 'utensils' },
+      { id: 'grocery', label: 'بقالة', icon: 'shopping-basket' },
+      { id: 'supermarket', label: 'سوبر ماركت', icon: 'store' },
+      { id: 'pharmacy', label: 'صيدليات', icon: 'pill' },
+      { id: 'bakery', label: 'مخابز', icon: 'cookie' },
+      { id: 'sweets', label: 'حلويات', icon: 'cake' },
+      { id: 'fruits', label: 'فواكه وخضار', icon: 'leaf' },
+      { id: 'electronics', label: 'إلكترونيات', icon: 'smartphone' },
+      { id: 'clothing', label: 'ملابس', icon: 'shirt' },
+      { id: 'perfume', label: 'عطور', icon: 'sparkles' },
+      { id: 'bookstore', label: 'مكتبات', icon: 'book-open' },
+      { id: 'flowers', label: 'زهور', icon: 'flower-2' },
+      { id: 'gifts', label: 'هدايا', icon: 'gift' },
+      { id: 'cafe', label: 'مقاهي', icon: 'coffee' },
+      { id: 'store', label: 'متاجر عامة', icon: 'shopping-bag' },
+      { id: 'other', label: 'أخرى', icon: 'more-horizontal' },
+    ];
+
+    const MTYPE_LABEL = {};
+    MERCHANT_TYPES.forEach(t => { if (t.id) MTYPE_LABEL[t.id] = t.label.replace(/\s*\(.*\)/, ''); });
+
+    const MSTATUS_CFG = {
+      active:    { label: 'مفعّل',             bg: '#F0FDF4', color: '#166534', border: '#86EFAC' },
+      pending:   { label: 'بانتظار الموافقة', bg: '#FFFBEB', color: '#92400E', border: '#FCD34D' },
+      suspended: { label: 'موقوف',             bg: '#FFF7ED', color: '#9A3412', border: '#FDBA74' },
+      rejected:  { label: 'مرفوض',             bg: '#FEF2F2', color: '#991B1B', border: '#FCA5A5' },
+    };
+
+    async function loadMerchants() {
+      try {
+        const res = await fetch(API_BASE + '/admin/vendors');
+        _merchantsRaw = await res.json();
+        document.getElementById('merchants-nav-count').textContent = _merchantsRaw.length;
+        _buildMerchantTypeTabs();
+        filterMerchants();
+      } catch (e) {
+        showToast('error', 'خطأ', 'فشل تحميل التجار');
+      }
+    }
+
+    function _buildMerchantTypeTabs() {
+      const bar = document.getElementById('merchants-type-tabs');
+      const counts = {};
+      _merchantsRaw.forEach(v => {
+        const t = v.categoryType || v.businessType || 'other';
+        counts[t] = (counts[t] || 0) + 1;
+      });
+      counts[''] = _merchantsRaw.length;
+      bar.innerHTML = MERCHANT_TYPES.map(t => {
+        const cnt = counts[t.id] || 0;
+        const active = _merchantTypeFilter === t.id;
+        return `<button onclick="_setMerchantType('${t.id}')"
+          style="display:flex;align-items:center;gap:6px;padding:8px 16px;border-radius:24px;border:1px solid ${active ? '#E86520' : '#E5E7EB'};
+          background:${active ? '#E86520' : '#fff'};color:${active ? '#fff' : '#6B7280'};font-size:0.8rem;font-weight:${active ? '700' : '500'};
+          cursor:pointer;white-space:nowrap;font-family:inherit;transition:all .15s;">
+          <i data-lucide="${t.icon}" style="width:13px;height:13px;"></i>
+          ${t.label}
+          <span style="background:${active ? 'rgba(255,255,255,0.25)' : '#F3F4F6'};color:${active ? '#fff' : '#9CA3AF'};
+            padding:1px 7px;border-radius:12px;font-size:0.72rem;font-weight:700;">${cnt}</span>
+        </button>`;
+      }).join('');
+      lucide.createIcons();
+    }
+
+    function _setMerchantType(type) {
+      _merchantTypeFilter = type;
+      _buildMerchantTypeTabs();
+      filterMerchants();
+    }
+
+    function filterMerchants() {
+      const q      = (document.getElementById('merchants-search')?.value || '').toLowerCase().trim();
+      const status = document.getElementById('mfilter-status')?.value || '';
+      const open   = document.getElementById('mfilter-open')?.value || '';
+      const sort   = document.getElementById('mfilter-sort')?.value || 'name';
+
+      let list = [..._merchantsRaw];
+
+      if (_merchantTypeFilter) {
+        list = list.filter(v => (v.categoryType || v.businessType || 'other') === _merchantTypeFilter);
+      }
+      if (status) list = list.filter(v => (v.status || 'active') === status);
+      if (open === 'open')   list = list.filter(v => v.isOpen);
+      if (open === 'closed') list = list.filter(v => !v.isOpen);
+      if (q) list = list.filter(v =>
+        (v.name || '').toLowerCase().includes(q) ||
+        (v.storeName || '').toLowerCase().includes(q) ||
+        (v.location || '').toLowerCase().includes(q) ||
+        (v.address || '').toLowerCase().includes(q)
+      );
+
+      // Sort
+      list.sort((a, b) => {
+        if (sort === 'rating')    return (b.rating || 0) - (a.rating || 0);
+        if (sort === 'createdAt') return (b.createdAt || '').localeCompare(a.createdAt || '');
+        if (sort === 'sortOrder') return (a.sortOrder ?? 999) - (b.sortOrder ?? 999);
+        return (a.name || a.storeName || '').localeCompare(b.name || b.storeName || '', 'ar');
+      });
+
+      merchantsList = list;
+      _updateMerchantStats();
+      _renderMerchantsGrid(list);
+    }
+
+    function _updateMerchantStats() {
+      const all = _merchantsRaw;
+      document.getElementById('mstat-total').textContent     = all.length;
+      document.getElementById('mstat-active').textContent    = all.filter(v => (v.status || 'active') === 'active').length;
+      document.getElementById('mstat-pending').textContent   = all.filter(v => v.status === 'pending').length;
+      document.getElementById('mstat-suspended').textContent = all.filter(v => ['suspended','rejected'].includes(v.status)).length;
+    }
+
+    function _renderMerchantsGrid(list) {
+      const grid  = document.getElementById('merchants-grid');
+      const empty = document.getElementById('merchants-empty');
+      const count = document.getElementById('merchants-shown-count');
+      if (count) count.textContent = list.length;
+      if (!list.length) { grid.innerHTML = ''; empty.style.display = ''; return; }
+      empty.style.display = 'none';
+      grid.innerHTML = list.map(v => _merchantCard(v)).join('');
+      lucide.createIcons();
+    }
+
+    function _merchantCard(v) {
+      const name     = v.name || v.storeName || '—';
+      const type     = v.categoryType || v.businessType || 'other';
+      const typeLabel= MTYPE_LABEL[type] || type;
+      const status   = v.status || 'active';
+      const sCfg     = MSTATUS_CFG[status] || MSTATUS_CFG.active;
+      const rating   = (v.rating != null) ? Number(v.rating).toFixed(1) : null;
+      const nameEsc  = name.replace(/'/g, "\\'");
+      const isPending= status === 'pending';
+      const isActive = status === 'active';
+      const isSusp   = status === 'suspended';
+
+      return `<div style="background:#fff;border-radius:16px;border:${isPending ? '2px solid #FCD34D' : '1px solid #E5E7EB'};
+        overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,0.05);display:flex;flex-direction:column;transition:all .2s;"
+        onmouseenter="this.style.boxShadow='0 6px 24px rgba(0,0,0,0.09)';this.style.transform='translateY(-2px)'"
+        onmouseleave="this.style.boxShadow='0 1px 4px rgba(0,0,0,0.05)';this.style.transform=''">
+        ${isPending ? `<div style="background:#FFFBEB;border-bottom:1px solid #FCD34D;padding:7px 14px;display:flex;align-items:center;justify-content:space-between;gap:8px;">
+          <span style="font-size:0.75rem;font-weight:700;color:#92400E;display:flex;align-items:center;gap:5px;">
+            <i data-lucide="clock" style="width:12px;height:12px;color:#F59E0B;"></i> بانتظار الموافقة</span>
+          <div style="display:flex;gap:5px;">
+            <button onclick="mActivate('${v.id}','${nameEsc}')" style="background:#16A34A;color:#fff;border:none;padding:4px 10px;border-radius:6px;font-size:0.72rem;font-weight:700;cursor:pointer;font-family:inherit;">
+              <i data-lucide="check" style="width:10px;height:10px;"></i> موافقة</button>
+            <button onclick="mReject('${v.id}','${nameEsc}')" style="background:#DC2626;color:#fff;border:none;padding:4px 10px;border-radius:6px;font-size:0.72rem;font-weight:700;cursor:pointer;font-family:inherit;">
+              <i data-lucide="x" style="width:10px;height:10px;"></i> رفض</button>
+          </div>
+        </div>` : ''}
+        <div style="height:3px;background:#E86520;flex-shrink:0;"></div>
+        <div style="padding:14px;flex:1;display:flex;flex-direction:column;gap:10px;">
+          <!-- Header row -->
+          <div style="display:flex;align-items:flex-start;gap:10px;">
+            <div style="width:48px;height:48px;border-radius:12px;background:#FFF3E0;border:1px solid #FFD9BB;overflow:hidden;flex-shrink:0;display:flex;align-items:center;justify-content:center;position:relative;">
+              <img src="${v.image || ''}" onerror="this.style.display='none'" style="width:100%;height:100%;object-fit:cover;">
+              <div style="position:absolute;bottom:-2px;right:-2px;width:12px;height:12px;border-radius:50%;background:${v.isOpen ? '#10B981' : '#EF4444'};border:2px solid #fff;"></div>
+            </div>
+            <div style="flex:1;min-width:0;">
+              <div style="font-weight:800;font-size:0.9rem;color:#111827;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(name)}</div>
+              <div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:4px;">
+                <span style="background:#FFF3E0;color:#E86520;padding:2px 8px;border-radius:16px;font-size:0.68rem;font-weight:700;border:1px solid #FFD9BB;">${typeLabel}</span>
+                <span style="background:${sCfg.bg};color:${sCfg.color};border:1px solid ${sCfg.border};padding:2px 8px;border-radius:16px;font-size:0.68rem;font-weight:700;">${sCfg.label}</span>
+                ${v.isVerified ? '<span style="background:#EFF6FF;color:#1D4ED8;border:1px solid #BFDBFE;padding:2px 8px;border-radius:16px;font-size:0.68rem;font-weight:700;">موثّق ✓</span>' : ''}
+                ${v.isPinned   ? '<span style="background:#F5F3FF;color:#7C3AED;border:1px solid #DDD6FE;padding:2px 8px;border-radius:16px;font-size:0.68rem;font-weight:700;">مثبّت 📌</span>' : ''}
+                ${v.isFeatured ? '<span style="background:#FFFBEB;color:#B45309;border:1px solid #FCD34D;padding:2px 8px;border-radius:16px;font-size:0.68rem;font-weight:700;">مميّز ⭐</span>' : ''}
+              </div>
+              ${v.location || v.address ? `<div style="font-size:0.7rem;color:#9CA3AF;margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(v.location || v.address || '')}</div>` : ''}
+            </div>
+            <!-- Actions dropdown -->
+            <div style="position:relative;flex-shrink:0;">
+              <button onclick="_toggleMMenu(this,'${v.id}')" style="background:#F9FAFB;border:1px solid #E5E7EB;border-radius:8px;padding:6px 8px;cursor:pointer;color:#6B7280;display:flex;align-items:center;font-family:inherit;">
+                <i data-lucide="more-vertical" style="width:14px;height:14px;"></i>
+              </button>
+              <div id="mmenu-${v.id}" style="display:none;position:absolute;top:36px;left:0;background:#fff;border:1px solid #E5E7EB;border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,0.12);z-index:500;width:210px;padding:6px 0;overflow:hidden;">
+                ${_mMenuGroup('إدارة الحساب', [
+                  isActive  ? `<div onclick="mSuspend('${v.id}','${nameEsc}');_closeAllMMenus()" class="mmenu-item mmenu-warn">إيقاف مؤقت / تعليق</div>` : '',
+                  !isActive && !isPending ? `<div onclick="mActivate('${v.id}','${nameEsc}');_closeAllMMenus()" class="mmenu-item mmenu-ok">تفعيل الحساب</div>` : '',
+                  isPending ? `<div onclick="mReject('${v.id}','${nameEsc}');_closeAllMMenus()" class="mmenu-item mmenu-danger">رفض الطلب</div>` : '',
+                  `<div onclick="mToggleOpen('${v.id}',${v.isOpen});_closeAllMMenus()" class="mmenu-item">${v.isOpen ? 'إغلاق المتجر' : 'فتح المتجر'}</div>`,
+                  `<div onclick="mToggleVerified('${v.id}',${!!v.isVerified});_closeAllMMenus()" class="mmenu-item">${v.isVerified ? 'إلغاء التوثيق' : 'توثيق الحساب'}</div>`,
+                ])}
+                ${_mMenuGroup('العرض والترتيب', [
+                  `<div onclick="mTogglePinned('${v.id}',${!!v.isPinned});_closeAllMMenus()" class="mmenu-item">${v.isPinned ? 'إزالة التثبيت' : 'تثبيت في الأعلى'}</div>`,
+                  `<div onclick="mToggleFeatured('${v.id}',${!!v.isFeatured});_closeAllMMenus()" class="mmenu-item">${v.isFeatured ? 'إزالة التمييز' : 'جعله مميزاً ⭐'}</div>`,
+                  `<div onclick="mSetSortOrder('${v.id}','${nameEsc}',${v.sortOrder ?? 999});_closeAllMMenus()" class="mmenu-item">تغيير ترتيب الظهور</div>`,
+                ])}
+                ${_mMenuGroup('تعديل البيانات', [
+                  `<div onclick="openMerchantEdit('${v.id}');_closeAllMMenus()" class="mmenu-item">تعديل بيانات المتجر</div>`,
+                ])}
+                ${_mMenuGroup('المنتجات', [
+                  `<div onclick="openMerchantProducts('${v.id}','${nameEsc}');_closeAllMMenus()" class="mmenu-item">عرض المنتجات</div>`,
+                ])}
+                ${_mMenuGroup('المالية', [
+                  `<div onclick="openMerchantStatement('${v.id}');_closeAllMMenus()" class="mmenu-item">الحساب المالي وكشف العمليات</div>`,
+                ])}
+                ${_mMenuGroup('التواصل', [
+                  `<div onclick="openMerchantNotif('${v.id}','${nameEsc}');_closeAllMMenus()" class="mmenu-item">إرسال إشعار</div>`,
+                  v.whatsappNumber ? `<a href="https://wa.me/${v.whatsappNumber}" target="_blank" class="mmenu-item" style="display:block;text-decoration:none;color:inherit;">إرسال رسالة واتساب</a>` : '',
+                ])}
+                ${_mMenuGroup('إجراءات متقدمة', [
+                  `<div onclick="mDelete('${v.id}','${nameEsc}');_closeAllMMenus()" class="mmenu-item mmenu-danger">حذف نهائي</div>`,
+                ])}
+              </div>
+            </div>
+          </div>
+
+          <!-- Quick stats -->
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);background:#F9FAFB;border-radius:10px;overflow:hidden;border:1px solid #F0F0F0;">
+            <div style="padding:8px 6px;text-align:center;border-left:1px solid #F0F0F0;">
+              <div style="font-size:0.85rem;font-weight:800;color:${rating ? '#F59E0B' : '#D1D5DB'};">${rating ? rating + ' ★' : '—'}</div>
+              <div style="font-size:0.6rem;color:#9CA3AF;margin-top:1px;">التقييم</div>
+            </div>
+            <div style="padding:8px 6px;text-align:center;border-left:1px solid #F0F0F0;">
+              <div style="font-size:0.85rem;font-weight:800;color:#3B82F6;">${(v.commissionPercent || 0)}%</div>
+              <div style="font-size:0.6rem;color:#9CA3AF;margin-top:1px;">العمولة</div>
+            </div>
+            <div style="padding:8px 6px;text-align:center;">
+              <div style="font-size:0.85rem;font-weight:800;color:#10B981;">${v.hasDelivery !== false ? 'نعم' : 'لا'}</div>
+              <div style="font-size:0.6rem;color:#9CA3AF;margin-top:1px;">توصيل</div>
+            </div>
+          </div>
+
+          <!-- Quick action buttons -->
+          <div style="display:flex;gap:6px;">
+            <button onclick="openMerchantProducts('${v.id}','${nameEsc}')"
+              style="flex:1;background:linear-gradient(135deg,#E86520,#FF9A4D);color:#fff;border:none;padding:8px;border-radius:9px;font-size:0.76rem;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:4px;font-family:inherit;">
+              <i data-lucide="package" style="width:12px;height:12px;"></i> المنتجات
+            </button>
+            <button onclick="openMerchantEdit('${v.id}')"
+              style="background:#F3F4F6;color:#374151;border:none;padding:8px 11px;border-radius:9px;cursor:pointer;display:flex;align-items:center;font-family:inherit;"
+              onmouseenter="this.style.background='#E5E7EB'" onmouseleave="this.style.background='#F3F4F6'" title="تعديل">
+              <i data-lucide="edit-2" style="width:13px;height:13px;"></i>
+            </button>
+            <button onclick="openMerchantStatement('${v.id}')"
+              style="background:#F3F4F6;color:#374151;border:none;padding:8px 11px;border-radius:9px;cursor:pointer;display:flex;align-items:center;font-family:inherit;"
+              onmouseenter="this.style.background='#E5E7EB'" onmouseleave="this.style.background='#F3F4F6'" title="الحساب المالي">
+              <i data-lucide="bar-chart-2" style="width:13px;height:13px;"></i>
+            </button>
+            <button onclick="mToggleOpen('${v.id}',${v.isOpen})" title="${v.isOpen ? 'إغلاق' : 'فتح'}"
+              style="background:${v.isOpen ? '#D1FAE5' : '#FEE2E2'};color:${v.isOpen ? '#065F46' : '#991B1B'};border:none;padding:8px 11px;border-radius:9px;cursor:pointer;display:flex;align-items:center;font-family:inherit;">
+              <i data-lucide="${v.isOpen ? 'toggle-right' : 'toggle-left'}" style="width:13px;height:13px;"></i>
+            </button>
+          </div>
+        </div>
+      </div>`;
+    }
+
+    function _mMenuGroup(title, items) {
+      const filtered = items.filter(Boolean);
+      if (!filtered.length) return '';
+      return `<div style="padding:4px 0;border-bottom:1px solid #F3F4F6;">
+        <div style="padding:4px 14px;font-size:0.66rem;font-weight:700;color:#9CA3AF;text-transform:uppercase;">${title}</div>
+        ${filtered.join('')}
+      </div>`;
+    }
+
+    function _toggleMMenu(btn, id) {
+      _closeAllMMenus();
+      const menu = document.getElementById('mmenu-' + id);
+      if (menu) {
+        menu.style.display = menu.style.display === 'none' ? '' : 'none';
+        document.addEventListener('click', _closeAllMMenus, { once: true });
+      }
+    }
+    function _closeAllMMenus() {
+      document.querySelectorAll('[id^="mmenu-"]').forEach(m => m.style.display = 'none');
+    }
+
+    // ── Merchant Status Actions ──────────────────────────────────
+    async function _mSetStatus(id, name, status, reason) {
+      try {
+        const body = { status };
+        if (reason) body.reason = reason;
+        const res = await fetch(`${API_BASE}/admin/vendor-partners/${id}/status`, {
+          method: 'PUT', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        });
+        if (res.ok) {
+          const labels = { active: 'تم التفعيل', suspended: 'تم التعليق', rejected: 'تم الرفض' };
+          showToast('success', labels[status] || 'تم', `${name}`);
+          loadMerchants();
+        } else {
+          const err = await res.json().catch(() => ({}));
+          showToast('error', 'خطأ', err.error || 'فشلت العملية');
+        }
+      } catch { showToast('error', 'خطأ', 'تعذّر الاتصال'); }
+    }
+
+    async function mActivate(id, name) {
+      if (!confirm(`تفعيل حساب "${name}"؟`)) return;
+      await _mSetStatus(id, name, 'active');
+    }
+    async function mSuspend(id, name) {
+      const r = prompt(`سبب التعليق (اختياري) — "${name}":`);
+      if (r === null) return;
+      await _mSetStatus(id, name, 'suspended', r);
+    }
+    async function mReject(id, name) {
+      const r = prompt(`سبب الرفض (اختياري) — "${name}":`);
+      if (r === null) return;
+      await _mSetStatus(id, name, 'rejected', r);
+    }
+
+    async function _mPatch(id, patch) {
+      return fetch(`${API_BASE}/admin/vendors/${id}`, {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(patch),
+      });
+    }
+
+    async function mToggleOpen(id, currentIsOpen) {
+      const res = await _mPatch(id, { isOpen: !currentIsOpen });
+      if (res.ok) {
+        const v = _merchantsRaw.find(x => x.id === id);
+        if (v) v.isOpen = !currentIsOpen;
+        filterMerchants();
+        showToast('success', !currentIsOpen ? 'تم الفتح' : 'تم الإغلاق', !currentIsOpen ? 'المتجر مفتوح الآن' : 'المتجر مغلق الآن');
+      } else { showToast('error', 'خطأ', 'تعذّر تغيير حالة المتجر'); }
+    }
+
+    async function mToggleVerified(id, cur) {
+      const res = await _mPatch(id, { isVerified: !cur });
+      if (res.ok) {
+        const v = _merchantsRaw.find(x => x.id === id); if (v) v.isVerified = !cur;
+        filterMerchants();
+        showToast('success', !cur ? 'تم التوثيق' : 'تم إلغاء التوثيق', '');
+      } else { showToast('error', 'خطأ', 'فشلت العملية'); }
+    }
+
+    async function mTogglePinned(id, cur) {
+      const res = await _mPatch(id, { isPinned: !cur });
+      if (res.ok) {
+        const v = _merchantsRaw.find(x => x.id === id); if (v) v.isPinned = !cur;
+        filterMerchants();
+        showToast('success', !cur ? 'تم التثبيت' : 'تم إزالة التثبيت', '');
+      } else { showToast('error', 'خطأ', 'فشلت العملية'); }
+    }
+
+    async function mToggleFeatured(id, cur) {
+      const res = await _mPatch(id, { isFeatured: !cur });
+      if (res.ok) {
+        const v = _merchantsRaw.find(x => x.id === id); if (v) v.isFeatured = !cur;
+        filterMerchants();
+        showToast('success', !cur ? 'تم التمييز ⭐' : 'تم إزالة التمييز', '');
+      } else { showToast('error', 'خطأ', 'فشلت العملية'); }
+    }
+
+    async function mSetSortOrder(id, name, current) {
+      const val = prompt(`ترتيب الظهور لـ "${name}" (الحالي: ${current}):`, current);
+      if (val === null) return;
+      const n = parseInt(val);
+      if (isNaN(n)) return showToast('error', 'خطأ', 'أدخل رقماً صحيحاً');
+      const res = await _mPatch(id, { sortOrder: n });
+      if (res.ok) {
+        const v = _merchantsRaw.find(x => x.id === id); if (v) v.sortOrder = n;
+        filterMerchants();
+        showToast('success', 'تم التحديث', `ترتيب "${name}" = ${n}`);
+      } else { showToast('error', 'خطأ', 'فشلت العملية'); }
+    }
+
+    async function mDelete(id, name) {
+      if (!confirm(`⚠️ حذف نهائي لـ "${name}"؟ هذا الإجراء لا يمكن التراجع عنه.`)) return;
+      if (!confirm(`تأكيد: حذف "${name}" نهائياً؟`)) return;
+      try {
+        const res = await fetch(`${API_BASE}/admin/vendors/${id}`, { method: 'DELETE' });
+        if (res.ok) {
+          showToast('success', 'تم الحذف', `"${name}" تم حذفه`);
+          loadMerchants();
+        } else { showToast('error', 'خطأ', 'فشل الحذف'); }
+      } catch { showToast('error', 'خطأ', 'تعذّر الاتصال'); }
+    }
+
+    // ── Merchant Edit Modal ──────────────────────────────────────
+    function openMerchantEdit(id) {
+      const v = _merchantsRaw.find(x => x.id === id);
+      if (!v) return;
+      document.getElementById('medit-id').value         = id;
+      document.getElementById('medit-name').value       = v.name || v.storeName || '';
+      document.getElementById('medit-type').value       = v.categoryType || v.businessType || 'other';
+      document.getElementById('medit-location').value   = v.location || v.address || '';
+      document.getElementById('medit-whatsapp').value   = v.whatsappNumber || '';
+      document.getElementById('medit-openTime').value   = v.openTime || '';
+      document.getElementById('medit-closeTime').value  = v.closeTime || '';
+      document.getElementById('medit-commission').value = v.commissionPercent || '';
+      document.getElementById('medit-minOrder').value   = v.minOrder || '';
+      document.getElementById('medit-description').value= v.description || '';
+      document.getElementById('medit-hasDelivery').checked = v.hasDelivery !== false;
+      document.getElementById('medit-isOpen').checked   = !!v.isOpen;
+      document.getElementById('medit-title').textContent = `تعديل: ${v.name || v.storeName || ''}`;
+      document.getElementById('merchant-edit-modal').style.display = 'flex';
+      lucide.createIcons();
+    }
+
+    function closeMerchantEditModal() {
+      document.getElementById('merchant-edit-modal').style.display = 'none';
+    }
+
+    async function saveMerchantEdit() {
+      const id  = document.getElementById('medit-id').value;
+      const btn = document.getElementById('medit-save-btn');
+      btn.disabled = true;
+      const payload = {
+        name:              document.getElementById('medit-name').value.trim(),
+        categoryType:      document.getElementById('medit-type').value,
+        location:          document.getElementById('medit-location').value.trim(),
+        whatsappNumber:    document.getElementById('medit-whatsapp').value.trim(),
+        openTime:          document.getElementById('medit-openTime').value,
+        closeTime:         document.getElementById('medit-closeTime').value,
+        commissionPercent: parseFloat(document.getElementById('medit-commission').value) || 0,
+        minOrder:          parseFloat(document.getElementById('medit-minOrder').value) || 0,
+        description:       document.getElementById('medit-description').value.trim(),
+        hasDelivery:       document.getElementById('medit-hasDelivery').checked,
+        isOpen:            document.getElementById('medit-isOpen').checked,
+      };
+      try {
+        const res = await _mPatch(id, payload);
+        if (res.ok) {
+          showToast('success', 'تم الحفظ', `تم تحديث بيانات "${payload.name}"`);
+          closeMerchantEditModal();
+          loadMerchants();
+        } else {
+          const err = await res.json().catch(() => ({}));
+          showToast('error', 'خطأ', err.error || 'فشل الحفظ');
+        }
+      } catch { showToast('error', 'خطأ', 'تعذّر الاتصال'); }
+      btn.disabled = false;
+    }
+
+    // ── Merchant Products Modal ──────────────────────────────────
+    async function openMerchantProducts(id, name) {
+      _merchantCurrentProdsVendorId = id;
+      document.getElementById('mprods-title').textContent    = `منتجات: ${name}`;
+      document.getElementById('mprods-subtitle').textContent = '';
+      document.getElementById('merchant-products-modal').style.display = 'flex';
+      document.getElementById('mprods-loading').style.display = '';
+      document.getElementById('mprods-grid').innerHTML = '';
+      document.getElementById('mprods-empty').style.display = 'none';
+      try {
+        const res  = await fetch(API_BASE + '/admin/vendor-products?status=all');
+        const data = await res.json();
+        _merchantAllProds = (data.products || []).filter(p => p.vendorId === id);
+        document.getElementById('mprods-subtitle').textContent = `${_merchantAllProds.length} منتج`;
+        document.getElementById('mprods-status').value = '';
+        document.getElementById('mprods-search').value = '';
+      } catch { _merchantAllProds = []; }
+      document.getElementById('mprods-loading').style.display = 'none';
+      filterMerchantProducts();
+      lucide.createIcons();
+    }
+
+    function closeMerchantProducts() {
+      document.getElementById('merchant-products-modal').style.display = 'none';
+      _merchantCurrentProdsVendorId = null;
+      _merchantAllProds = [];
+    }
+
+    function filterMerchantProducts() {
+      const q      = (document.getElementById('mprods-search')?.value || '').toLowerCase();
+      const status = document.getElementById('mprods-status')?.value || '';
+      let list = [..._merchantAllProds];
+      if (status) list = list.filter(p => p.status === status);
+      if (q)      list = list.filter(p => (p.name || '').toLowerCase().includes(q));
+      const grid  = document.getElementById('mprods-grid');
+      const empty = document.getElementById('mprods-empty');
+      if (!list.length) { grid.innerHTML = ''; empty.style.display = ''; return; }
+      empty.style.display = 'none';
+      const STATUS_COLORS = { approved: '#16A34A', pending: '#F59E0B', rejected: '#EF4444' };
+      const STATUS_LABELS = { approved: 'مقبول', pending: 'بانتظار المراجعة', rejected: 'مرفوض' };
+      grid.innerHTML = list.map(p => `
+        <div style="background:#F9FAFB;border-radius:12px;padding:12px;border:1px solid #F3F4F6;">
+          <div style="width:100%;aspect-ratio:1;border-radius:10px;overflow:hidden;background:#fff;border:1px solid #E5E7EB;margin-bottom:8px;display:flex;align-items:center;justify-content:center;">
+            <img src="${p.image || ''}" onerror="this.style.display='none'" style="width:100%;height:100%;object-fit:cover;">
+          </div>
+          <div style="font-weight:700;font-size:0.82rem;color:#111827;margin-bottom:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(p.name || '—')}</div>
+          <div style="display:flex;align-items:center;justify-content:space-between;">
+            <span style="font-size:0.78rem;font-weight:700;color:#E86520;">${(p.price || 0).toLocaleString('ar-IQ')} د.ع</span>
+            <span style="font-size:0.65rem;font-weight:700;color:${STATUS_COLORS[p.status] || '#9CA3AF'};">${STATUS_LABELS[p.status] || p.status}</span>
+          </div>
+        </div>`).join('');
+      lucide.createIcons();
+    }
+
+    function openAddMerchantProduct() {
+      if (!_merchantCurrentProdsVendorId) return;
+      showToast('info', 'قريباً', 'إضافة المنتجات عبر تطبيق التاجر أو من قسم المنتجات');
+    }
+
+    // ── Merchant Financial Statement ─────────────────────────────
+    async function openMerchantStatement(id) {
+      const modal   = document.getElementById('merchant-statement-modal');
+      const content = document.getElementById('merchant-statement-content');
+      content.innerHTML = '<div style="text-align:center;padding:40px;"><div class="loading-spinner"></div><p>جاري التحميل...</p></div>';
+      modal.style.display = 'flex';
+      try {
+        const res  = await fetch(API_BASE + '/admin/vendors/' + id + '/statement');
+        const data = await res.json();
+        const v    = data.vendor;
+        const displayName = v.name || v.storeName || '—';
+        content.innerHTML = `
+          <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;padding-bottom:16px;border-bottom:1px solid #F3F4F6;">
+            <img src="${v.image || ''}" onerror="this.style.display='none'" style="width:52px;height:52px;border-radius:12px;object-fit:cover;background:#F3F4F6;">
+            <div>
+              <div style="font-size:1rem;font-weight:800;">${escapeHtml(displayName)}</div>
+              <div style="font-size:0.78rem;color:#9CA3AF;">${escapeHtml(v.location || v.address || '')}</div>
+              ${v.commissionPercent != null ? `<div style="font-size:0.75rem;color:#E86520;font-weight:600;">عمولة التطبيق: ${v.commissionPercent}%</div>` : ''}
+            </div>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px;">
+            <div style="background:#F8FAFC;border-radius:12px;padding:14px;text-align:center;">
+              <div style="font-size:1.4rem;font-weight:800;color:#E86520;">${data.orders}</div>
+              <div style="font-size:0.78rem;color:#9CA3AF;margin-top:2px;">عدد الطلبات</div>
+            </div>
+            <div style="background:#F8FAFC;border-radius:12px;padding:14px;text-align:center;">
+              <div style="font-size:1.4rem;font-weight:800;color:#111827;">${(data.totalRevenue || 0).toLocaleString()}</div>
+              <div style="font-size:0.78rem;color:#9CA3AF;margin-top:2px;">إجمالي المبيعات (د.ع)</div>
+            </div>
+          </div>
+          <div style="background:#F9FAFB;border-radius:12px;padding:16px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+              <span style="color:#374151;font-size:0.9rem;">إجمالي الإيرادات</span>
+              <span style="font-weight:700;">${(data.totalRevenue || 0).toLocaleString()} د.ع</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+              <span style="color:#EF4444;font-size:0.9rem;">عمولة التطبيق (${data.commissionPercent}%)</span>
+              <span style="font-weight:700;color:#EF4444;">- ${(data.appCommission || 0).toLocaleString()} د.ع</span>
+            </div>
+            <div style="border-top:1px dashed #E86520;padding-top:10px;display:flex;justify-content:space-between;">
+              <span style="font-size:1rem;font-weight:700;color:#E86520;">صافي التاجر</span>
+              <span style="font-size:1.1rem;font-weight:800;color:#E86520;">${(data.vendorNet || 0).toLocaleString()} د.ع</span>
+            </div>
+          </div>
+          ${v.whatsappNumber ? `<a href="https://wa.me/${v.whatsappNumber}" target="_blank" class="btn btn-primary" style="width:100%;justify-content:center;gap:8px;text-decoration:none;display:flex;margin-top:16px;">
+            <i data-lucide="message-circle" style="width:14px;height:14px;"></i> تواصل عبر واتساب</a>` : ''}`;
+        lucide.createIcons();
+      } catch { content.innerHTML = '<p style="color:red;text-align:center;">فشل تحميل البيانات</p>'; }
+    }
+
+    // ── Merchant Notification Modal ──────────────────────────────
+    function openMerchantNotif(id, name) {
+      document.getElementById('mnotif-vendor-id').value = id;
+      document.getElementById('mnotif-title').value     = '';
+      document.getElementById('mnotif-body').value      = '';
+      document.getElementById('merchant-notif-modal').style.display = 'flex';
+    }
+
+    async function sendMerchantNotif() {
+      const id    = document.getElementById('mnotif-vendor-id').value;
+      const title = document.getElementById('mnotif-title').value.trim();
+      const body  = document.getElementById('mnotif-body').value.trim();
+      if (!title || !body) return showToast('error', 'خطأ', 'أدخل العنوان والنص');
+      const btn = document.getElementById('mnotif-send-btn');
+      btn.disabled = true;
+      try {
+        const res = await fetch(API_BASE + '/admin/send-notification', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ vendorId: id, title, body }),
+        });
+        if (res.ok) {
+          showToast('success', 'تم الإرسال', 'تم إرسال الإشعار بنجاح');
+          document.getElementById('merchant-notif-modal').style.display = 'none';
+        } else {
+          showToast('error', 'خطأ', 'فشل إرسال الإشعار');
+        }
+      } catch { showToast('error', 'خطأ', 'تعذّر الاتصال'); }
+      btn.disabled = false;
     }
 
     // ========================= Promo Codes =========================
