@@ -1439,10 +1439,6 @@
       <!-- Content & Marketing -->
       <div class="nav-section">
         <div class="nav-section-title">المحتوى والتسويق</div>
-        <div class="nav-item" onclick="showSection('products', this)">
-          <i data-lucide="package"></i><span>المنتجات</span>
-          <span class="badge" id="products-count">0</span>
-        </div>
         <div class="nav-item" onclick="showSection('categories', this)">
           <i data-lucide="folder-tree"></i><span>الفئات والأصناف</span>
           <span class="badge" id="categories-count">0</span>
@@ -1598,56 +1594,6 @@
       </div>
     </div>
 
-    <!-- Products Section -->
-    <div id="products-section" class="section">
-      <header class="header">
-        <div class="header-title">
-          <h2>إدارة المنتجات</h2>
-          <p>إضافة وتعديل وحذف المنتجات</p>
-        </div>
-        <div class="header-actions">
-          <div class="search-box">
-            <i data-lucide="search"></i>
-            <input type="text" id="product-search" placeholder="ابحث عن منتج..." oninput="filterProducts()">
-          </div>
-          <button class="btn btn-outline" onclick="doRefresh(this, loadProducts, 'المنتجات')">
-            <i data-lucide="refresh-cw"></i>
-            تحديث
-          </button>
-          <button class="btn btn-primary" onclick="openProductModal()">
-            <i data-lucide="plus"></i>
-            إضافة منتج
-          </button>
-        </div>
-      </header>
-
-      <div class="content">
-        <div class="card">
-          <div class="card-header">
-            <h3><i data-lucide="package"></i> قائمة المنتجات</h3>
-            <div class="filter-bar">
-              <select id="category-filter" onchange="filterProducts()">
-                <option value="">جميع الفئات</option>
-              </select>
-            </div>
-          </div>
-          <div class="table-container">
-            <table>
-              <thead>
-                <tr>
-                  <th>المنتج</th>
-                  <th>الفئة</th>
-                  <th>السعر</th>
-                  <th>الحالة</th>
-                  <th>الإجراءات</th>
-                </tr>
-              </thead>
-              <tbody id="products-table"></tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-    </div>
 
     <!-- Categories Section -->
     <div id="categories-section" class="section">
@@ -3715,78 +3661,6 @@
     </div>
   </div>
 
-  <!-- Product Modal -->
-  <div id="product-modal" class="modal-overlay">
-    <div class="modal">
-      <div class="modal-header">
-        <h3><i data-lucide="package"></i> <span id="product-modal-title">إضافة منتج جديد</span></h3>
-        <button class="modal-close" onclick="closeModal('product-modal')">
-          <i data-lucide="x"></i>
-        </button>
-      </div>
-      <form id="product-form" onsubmit="saveProduct(event)">
-        <div class="modal-body">
-          <input type="hidden" id="product-id">
-          
-          <div class="form-group">
-            <label>اسم المنتج <span class="required">*</span></label>
-            <input type="text" class="form-control" id="product-name" required placeholder="أدخل اسم المنتج">
-          </div>
-
-          <div class="form-row">
-            <div class="form-group">
-              <label>الفئة <span class="required">*</span></label>
-              <select class="form-control" id="product-category" required>
-                <option value="">اختر الفئة</option>
-              </select>
-            </div>
-            <div class="form-group">
-              <label>السعر <span class="required">*</span></label>
-              <input type="number" class="form-control" id="product-price" required min="0" placeholder="0">
-            </div>
-          </div>
-
-          <div class="form-group">
-            <label>حالة المنتج</label>
-            <select class="form-control" id="product-instock">
-              <option value="true">متوفر</option>
-              <option value="false">غير متوفر</option>
-            </select>
-          </div>
-
-          <div class="form-group">
-            <label>الوصف</label>
-            <textarea class="form-control" id="product-description" placeholder="أدخل وصف المنتج"></textarea>
-          </div>
-
-          <div class="form-group">
-            <label>صورة المنتج</label>
-            <div class="image-upload" onclick="document.getElementById('product-file').click()">
-              <i data-lucide="upload-cloud"></i>
-              <p>اضغط لرفع صورة</p>
-              <span>PNG, JPG حتى 5MB</span>
-              <input type="file" id="product-file" accept="image/*" onchange="handleFileSelect(this, 'product-preview')">
-            </div>
-            <div class="url-input">
-              <div class="divider">أو أدخل رابط الصورة</div>
-              <input type="url" class="form-control" id="product-image" placeholder="https://example.com/image.jpg" onchange="previewImageUrl(this.value, 'product-preview')">
-            </div>
-            <div class="image-preview" id="product-preview" style="display: none;">
-              <img src="" alt="معاينة">
-            </div>
-          </div>
-        </div>
-        <div class="modal-footer">
-          <button type="button" class="btn btn-outline" onclick="closeModal('product-modal')">إلغاء</button>
-          <button type="submit" class="btn btn-primary">
-            <i data-lucide="check"></i>
-            حفظ المنتج
-          </button>
-        </div>
-      </form>
-    </div>
-  </div>
-
   <!-- Category Modal -->
   <div id="category-modal" class="modal-overlay">
     <div class="modal">
@@ -4149,7 +4023,7 @@
       banners: 'marketing', bestSellers: 'marketing', featured: 'marketing',
       discounts: 'marketing', promoCodes: 'marketing',
       drivers: 'drivers', driverQueue: 'drivers', driverFinancial: 'drivers',
-      products: 'catalog', categories: 'catalog', businessCategories: 'catalog',
+      categories: 'catalog', businessCategories: 'catalog',
       analytics: 'analytics', reports: 'analytics',
       delivery: 'delivery', zoneManagement: 'delivery',
       ratingsManagement: 'ratings', storeRanking: 'ratings',
@@ -4167,7 +4041,7 @@
         { id: 'driverFinancial', label: 'الحسابات المالية' },
       ],
       catalog: [
-        { id: 'products', label: 'المنتجات' }, { id: 'categories', label: 'الفئات' },
+        { id: 'categories', label: 'الفئات' },
         { id: 'businessCategories', label: 'أنواع النشاط' },
       ],
       analytics: [
@@ -4210,7 +4084,6 @@
       // Stop polling when leaving orders
       if (section !== 'orders') stopOrdersPolling();
       
-      if (section === 'products') loadProducts();
       if (section === 'categories') loadCategories();
       if (section === 'banners') loadBanners();
       if (section === 'delivery') loadDeliveryAreas();
@@ -4241,11 +4114,7 @@
         }
       }
       if (section === 'bestSellers' || section === 'featured' || section === 'discounts') {
-        if (products.length === 0) {
-          loadProducts().then(() => loadPromotionalSections());
-        } else {
-          loadPromotionalSections();
-        }
+        loadPromotionalSections();
       }
     }
 
@@ -4651,7 +4520,7 @@
                 document.getElementById('categoryProducts-count').textContent = currentCategoryProducts.length;
                 renderCategoryProducts();
               } else {
-                renderProducts();
+                renderCategoryProducts();
               }
               updateStats();
             }
@@ -4709,7 +4578,6 @@
     }
 
     function updateStats() {
-      document.getElementById('products-count').textContent = products.length;
       document.getElementById('categories-count').textContent = categories.length;
     }
 
@@ -5452,408 +5320,6 @@
           </tr>
         `;
       }).join('');
-    }
-
-    // Products
-    async function loadProducts() {
-      try {
-        const [productsRes, categoriesRes] = await Promise.all([
-          fetch(API_BASE + '/admin/products'),
-          fetch(API_BASE + '/admin/categories')
-        ]);
-        products = await productsRes.json();
-        categories = await categoriesRes.json();
-        renderProducts();
-        updateCategoryDropdowns();
-        updateStats();
-      } catch (error) {
-        showToast('error', 'خطأ', 'حدث خطأ في تحميل المنتجات');
-      }
-    }
-
-    function filterProducts() {
-      const search = document.getElementById('product-search').value.toLowerCase();
-      const categoryFilter = document.getElementById('category-filter').value;
-      
-      let filtered = products;
-      
-      if (search) {
-        filtered = filtered.filter(p => 
-          p.name.toLowerCase().includes(search) || 
-          (p.description && p.description.toLowerCase().includes(search))
-        );
-      }
-      
-      if (categoryFilter) {
-        filtered = filtered.filter(p => p.categoryId === categoryFilter);
-      }
-      
-      renderProducts(filtered);
-    }
-
-    function renderProducts(data = products) {
-      const tbody = document.getElementById('products-table');
-      
-      if (data.length === 0) {
-        tbody.innerHTML = `
-          <tr>
-            <td colspan="5">
-              <div class="empty-state">
-                <i data-lucide="package"></i>
-                <h4>لا توجد منتجات</h4>
-                <p>ابدأ بإضافة منتجات جديدة</p>
-              </div>
-            </td>
-          </tr>
-        `;
-        lucide.createIcons();
-        return;
-      }
-      
-      tbody.innerHTML = data.map(p => {
-        const cat = categories.find(c => c.id === p.categoryId);
-        return `
-          <tr>
-            <td>
-              <div class="item-info">
-                <img src="${escapeHtml(p.image)}" class="item-image" onerror="this.src='https://via.placeholder.com/50'">
-                <div class="item-details">
-                  <h4>${escapeHtml(p.name)}</h4>
-                  <span>${escapeHtml(p.description?.substring(0, 50) || '')}</span>
-                </div>
-              </div>
-            </td>
-            <td><span class="badge badge-info">${escapeHtml(cat?.name || '-')}</span></td>
-            <td class="price-tag">${p.price.toLocaleString()} د.ع</td>
-            <td><span class="badge ${p.inStock !== false ? 'badge-success' : 'badge-danger'}">${p.inStock !== false ? 'متوفر' : 'غير متوفر'}</span></td>
-            <td>
-              <div class="actions-cell">
-                <button class="btn btn-icon btn-outline" onclick="editProduct('${p.id}')" title="تعديل">
-                  <i data-lucide="pencil"></i>
-                </button>
-                <button class="btn btn-icon btn-danger" onclick="confirmDelete('product', '${p.id}', '${escapeHtml(p.name)}')" title="حذف">
-                  <i data-lucide="trash-2"></i>
-                </button>
-              </div>
-            </td>
-          </tr>
-        `;
-      }).join('');
-      
-      lucide.createIcons();
-    }
-
-    function updateCategoryDropdowns() {
-      const productSelect = document.getElementById('product-category');
-      const filterSelect = document.getElementById('category-filter');
-      
-      const options = '<option value="">اختر الفئة</option>' +
-        categories.map(c => `<option value="${c.id}">${escapeHtml(c.name)}</option>`).join('');
-      
-      productSelect.innerHTML = options;
-      filterSelect.innerHTML = '<option value="">جميع الفئات</option>' +
-        categories.map(c => `<option value="${c.id}">${escapeHtml(c.name)}</option>`).join('');
-    }
-
-    function openProductModal(product = null) {
-      const form = document.getElementById('product-form');
-      form.reset();
-      document.getElementById('product-preview').style.display = 'none';
-      document.getElementById('product-file').value = '';
-      updateCategoryDropdowns();
-      
-      if (product) {
-        document.getElementById('product-modal-title').textContent = 'تعديل المنتج';
-        document.getElementById('product-id').value = product.id;
-        document.getElementById('product-name').value = product.name || '';
-        document.getElementById('product-category').value = product.categoryId || '';
-        document.getElementById('product-price').value = product.price || '';
-        document.getElementById('product-instock').value = product.inStock !== false ? 'true' : 'false';
-        document.getElementById('product-description').value = product.description || '';
-        document.getElementById('product-image').value = product.image || '';
-        if (product.image) previewImageUrl(product.image, 'product-preview');
-      } else {
-        document.getElementById('product-modal-title').textContent = 'إضافة منتج جديد';
-        document.getElementById('product-id').value = '';
-        document.getElementById('product-instock').value = 'true';
-      }
-      
-      document.getElementById('product-modal').classList.add('active');
-      lucide.createIcons();
-    }
-
-    function editProduct(id) {
-      const product = products.find(p => p.id === id);
-      if (product) openProductModal(product);
-    }
-
-    // Categories
-    async function loadCategories() {
-      try {
-        const [categoriesRes, productsRes] = await Promise.all([
-          fetch(API_BASE + '/admin/categories'),
-          fetch(API_BASE + '/admin/products')
-        ]);
-        categories = await categoriesRes.json();
-        products = await productsRes.json();
-        renderCategories();
-        updateStats();
-      } catch (error) {
-        showToast('error', 'خطأ', 'حدث خطأ في تحميل الفئات');
-      }
-    }
-
-    // Current category being viewed
-    let currentCategoryId = null;
-    let currentCategoryProducts = [];
-
-    function renderCategories() {
-      const tbody = document.getElementById('categories-table');
-      
-      if (categories.length === 0) {
-        tbody.innerHTML = `
-          <tr>
-            <td colspan="4">
-              <div class="empty-state">
-                <i data-lucide="folder-tree"></i>
-                <h4>لا توجد فئات</h4>
-                <p>ابدأ بإضافة فئات جديدة</p>
-              </div>
-            </td>
-          </tr>
-        `;
-        lucide.createIcons();
-        return;
-      }
-      
-      tbody.innerHTML = categories.map(c => {
-        const productCount = products.filter(p => p.categoryId === c.id).length;
-        return `
-          <tr style="cursor: pointer;" onclick="openCategoryProducts('${c.id}')">
-            <td>
-              <div class="item-info">
-                <img src="${escapeHtml(c.image)}" class="item-image" onerror="this.src='https://via.placeholder.com/50'">
-                <div class="item-details">
-                  <h4>${escapeHtml(c.name)}</h4>
-                  <span style="color: var(--primary); font-size: 0.75rem;">انقر لعرض المنتجات</span>
-                </div>
-              </div>
-            </td>
-            <td><span class="badge badge-info">${productCount} منتج</span></td>
-            <td>${c.order || '-'}</td>
-            <td>
-              <div class="actions-cell">
-                <button class="btn btn-icon btn-outline" onclick="event.stopPropagation(); editCategory('${c.id}')" title="تعديل">
-                  <i data-lucide="pencil"></i>
-                </button>
-                <button class="btn btn-icon btn-danger" onclick="event.stopPropagation(); confirmDelete('category', '${c.id}', '${escapeHtml(c.name)}')" title="حذف">
-                  <i data-lucide="trash-2"></i>
-                </button>
-              </div>
-            </td>
-          </tr>
-        `;
-      }).join('');
-      
-      lucide.createIcons();
-    }
-
-    // Category Products Functions
-    function openCategoryProducts(categoryId) {
-      currentCategoryId = categoryId;
-      const category = categories.find(c => c.id === categoryId);
-      if (!category) return;
-      
-      document.getElementById('categoryProducts-title').textContent = `منتجات ${category.name}`;
-      document.getElementById('categoryProducts-subtitle').textContent = `إدارة منتجات قسم ${category.name}`;
-      
-      currentCategoryProducts = products.filter(p => p.categoryId === categoryId);
-      document.getElementById('categoryProducts-count').textContent = currentCategoryProducts.length;
-      document.getElementById('categoryProducts-search').value = '';
-      
-      renderCategoryProducts();
-      
-      // Switch to category products section
-      document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
-      document.getElementById('categoryProducts-section').classList.add('active');
-      
-      // Update nav items
-      document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-    }
-
-    function renderCategoryProducts(data = currentCategoryProducts) {
-      const tbody = document.getElementById('categoryProducts-table');
-      
-      if (data.length === 0) {
-        tbody.innerHTML = `
-          <tr>
-            <td colspan="4">
-              <div class="empty-state">
-                <i data-lucide="package"></i>
-                <h4>لا توجد منتجات</h4>
-                <p>أضف منتجات لهذه الفئة</p>
-              </div>
-            </td>
-          </tr>
-        `;
-        lucide.createIcons();
-        return;
-      }
-      
-      tbody.innerHTML = data.map(p => `
-        <tr>
-          <td>
-            <div class="item-info">
-              <img src="${escapeHtml(p.image)}" class="item-image" onerror="this.src='https://via.placeholder.com/50'">
-              <div class="item-details">
-                <h4>${escapeHtml(p.name)}</h4>
-                <span>${escapeHtml(p.description?.substring(0, 50) || '')}</span>
-              </div>
-            </div>
-          </td>
-          <td class="price-tag">${p.price.toLocaleString()} د.ع</td>
-          <td><span class="badge ${p.inStock !== false ? 'badge-success' : 'badge-danger'}">${p.inStock !== false ? 'متوفر' : 'غير متوفر'}</span></td>
-          <td>
-            <div class="actions-cell">
-              <button class="btn btn-icon btn-outline" onclick="editProductFromCategory('${p.id}')" title="تعديل">
-                <i data-lucide="pencil"></i>
-              </button>
-              <button class="btn btn-icon btn-danger" onclick="confirmDelete('product', '${p.id}', '${escapeHtml(p.name)}')" title="حذف">
-                <i data-lucide="trash-2"></i>
-              </button>
-            </div>
-          </td>
-        </tr>
-      `).join('');
-      
-      lucide.createIcons();
-    }
-
-    function filterCategoryProducts() {
-      const search = document.getElementById('categoryProducts-search').value.toLowerCase();
-      let filtered = currentCategoryProducts;
-      
-      if (search) {
-        filtered = filtered.filter(p => 
-          p.name.toLowerCase().includes(search) || 
-          (p.description && p.description.toLowerCase().includes(search))
-        );
-      }
-      
-      renderCategoryProducts(filtered);
-    }
-
-    function backToCategories() {
-      currentCategoryId = null;
-      currentCategoryProducts = [];
-      
-      // Switch back to categories section
-      document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
-      document.getElementById('categories-section').classList.add('active');
-      
-      // Update nav items
-      document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-      document.querySelector('.nav-item[onclick*="categories"]').classList.add('active');
-      
-      loadCategories();
-    }
-
-    function openProductModalForCategory() {
-      if (!currentCategoryId) return;
-      
-      const form = document.getElementById('product-form');
-      form.reset();
-      document.getElementById('product-preview').style.display = 'none';
-      document.getElementById('product-file').value = '';
-      updateCategoryDropdowns();
-      
-      document.getElementById('product-modal-title').textContent = 'إضافة منتج جديد';
-      document.getElementById('product-id').value = '';
-      document.getElementById('product-category').value = currentCategoryId;
-      document.getElementById('product-instock').value = 'true';
-      
-      document.getElementById('product-modal').classList.add('active');
-      lucide.createIcons();
-    }
-
-    function editProductFromCategory(productId) {
-      const product = products.find(p => p.id === productId);
-      if (product) openProductModal(product);
-    }
-
-    // Helper function to convert file to Base64
-    function fileToBase64(file) {
-      return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(reader.result);
-        reader.onerror = reject;
-        reader.readAsDataURL(file);
-      });
-    }
-
-    // Override saveProduct to refresh category products view
-    const originalSaveProduct = saveProduct;
-    async function saveProduct(event) {
-      event.preventDefault();
-      
-      const id = document.getElementById('product-id').value;
-      const fileInput = document.getElementById('product-file');
-      const imageUrl = document.getElementById('product-image').value;
-      
-      let imageData = imageUrl || '';
-      
-      // Convert file to Base64 if uploaded
-      if (fileInput.files[0]) {
-        try {
-          imageData = await fileToBase64(fileInput.files[0]);
-        } catch (e) {
-          console.error('Error converting file to Base64:', e);
-        }
-      }
-      
-      const productData = {
-        name: document.getElementById('product-name').value,
-        categoryId: document.getElementById('product-category').value,
-        price: document.getElementById('product-price').value,
-        description: document.getElementById('product-description').value,
-        inStock: document.getElementById('product-instock').value,
-        image: imageData
-      };
-      
-      try {
-        const url = id ? `${API_BASE}/admin/products/${id}` : `${API_BASE}/admin/products`;
-        const method = id ? 'PUT' : 'POST';
-        
-        const response = await fetch(url, { 
-          method, 
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(productData) 
-        });
-        
-        if (response.ok) {
-          closeModal('product-modal');
-          
-          // Reload products
-          const productsRes = await fetch(API_BASE + '/admin/products');
-          products = await productsRes.json();
-          
-          // If viewing category products, refresh that view
-          if (currentCategoryId) {
-            currentCategoryProducts = products.filter(p => p.categoryId === currentCategoryId);
-            document.getElementById('categoryProducts-count').textContent = currentCategoryProducts.length;
-            renderCategoryProducts();
-          } else {
-            renderProducts();
-          }
-          
-          updateStats();
-          showToast('success', id ? 'تم التحديث' : 'تمت الإضافة', id ? 'تم تحديث المنتج بنجاح' : 'تمت إضافة المنتج بنجاح');
-        } else {
-          throw new Error('Failed to save');
-        }
-      } catch (error) {
-        showToast('error', 'خطأ', 'حدث خطأ أثناء حفظ المنتج');
-      }
     }
 
     function openCategoryModal(category = null) {
