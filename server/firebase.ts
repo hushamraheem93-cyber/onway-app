@@ -372,9 +372,11 @@ export async function updateProduct(id: string, updates: Partial<FirestoreProduc
 
 export async function deleteProduct(id: string): Promise<boolean> {
   if (!db) return false;
-  
   try {
+    const doc = await db.collection("products").doc(id).get();
+    const imageUrl: string = doc.exists ? (doc.data() as any)?.image ?? "" : "";
     await db.collection("products").doc(id).delete();
+    if (imageUrl) deleteFromFirebaseStorage(imageUrl).catch(() => {});
     return true;
   } catch (error) {
     console.error("Error deleting product:", error);
@@ -681,9 +683,11 @@ export async function updateCategory(id: string, updates: Partial<FirestoreCateg
 
 export async function deleteCategory(id: string): Promise<boolean> {
   if (!db) return false;
-  
   try {
+    const doc = await db.collection("categories").doc(id).get();
+    const imageUrl: string = doc.exists ? (doc.data() as any)?.image ?? "" : "";
     await db.collection("categories").doc(id).delete();
+    if (imageUrl) deleteFromFirebaseStorage(imageUrl).catch(() => {});
     return true;
   } catch (error) {
     console.error("Error deleting category:", error);
@@ -924,7 +928,10 @@ export async function updateBanner(id: string, updates: Partial<FirestoreBanner>
 export async function deleteBanner(id: string): Promise<boolean> {
   if (!db) return false;
   try {
+    const doc = await db.collection("banners").doc(id).get();
+    const imageUrl: string = doc.exists ? (doc.data() as any)?.image ?? "" : "";
     await db.collection("banners").doc(id).delete();
+    if (imageUrl) deleteFromFirebaseStorage(imageUrl).catch(() => {});
     return true;
   } catch (error) {
     console.error("Error deleting banner:", error);
@@ -1468,7 +1475,13 @@ export async function deleteVendor(id: string): Promise<boolean> {
   const db = getFirestore();
   if (!db) return false;
   try {
+    const doc = await db.collection("vendors").doc(id).get();
+    const data = doc.exists ? (doc.data() as any) : null;
+    const logoUrl: string = data?.profileImageUrl ?? "";
+    const coverUrl: string = data?.coverImageUrl ?? "";
     await db.collection("vendors").doc(id).delete();
+    if (logoUrl) deleteFromFirebaseStorage(logoUrl).catch(() => {});
+    if (coverUrl) deleteFromFirebaseStorage(coverUrl).catch(() => {});
     return true;
   } catch { return false; }
 }
@@ -2154,4 +2167,26 @@ export async function uploadToFirebaseStorage(
   const bucketName = bucket.name;
   const encodedPath = encodeURIComponent(storagePath);
   return `https://firebasestorage.googleapis.com/v0/b/${bucketName}/o/${encodedPath}?alt=media&token=${token}`;
+}
+
+/**
+ * Best-effort delete of a Firebase Storage file given its download URL.
+ * Silently ignores 404s (file already gone) and skips non-Storage URLs
+ * (legacy /uploads/ paths, Base64 strings, empty strings, etc.).
+ */
+export async function deleteFromFirebaseStorage(url: string): Promise<void> {
+  if (!url || !url.startsWith("https://firebasestorage.googleapis.com/")) return;
+  try {
+    const urlObj = new URL(url);
+    // pathname: /v0/b/{bucket}/o/{encodedPath}
+    const match = urlObj.pathname.match(/\/v0\/b\/[^/]+\/o\/(.+)/);
+    if (!match) return;
+    const storagePath = decodeURIComponent(match[1]);
+    await admin.storage().bucket().file(storagePath).delete();
+  } catch (err: any) {
+    // 404 means already deleted — any other error just gets logged
+    if (err?.code !== 404 && err?.code !== "storage/object-not-found") {
+      console.warn("[Storage] deleteFromFirebaseStorage failed for:", url, err?.message);
+    }
+  }
 }

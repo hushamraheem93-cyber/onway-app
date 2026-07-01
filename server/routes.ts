@@ -761,10 +761,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const vendorDoc = await db.collection("vendors").doc(id).get();
       if (!vendorDoc.exists) return res.status(404).json({ error: "المتجر غير موجود" });
       const productsSnap = await db.collection("vendorProducts").where("vendorId", "==", id).get();
+
+      // Collect all image URLs before deleting (vendor logo/cover + all product images)
+      const vendorData = vendorDoc.data() as any;
+      const storageUrlsToDelete: string[] = [
+        vendorData?.profileImageUrl ?? "",
+        vendorData?.coverImageUrl ?? "",
+        ...productsSnap.docs.flatMap(d => {
+          const p = d.data() as any;
+          return [...(p?.imageUrls ?? []), p?.imageUrl ?? ""];
+        }),
+      ].filter(Boolean);
+
       const batch = db.batch();
       productsSnap.docs.forEach(d => batch.delete(d.ref));
       batch.delete(db.collection("vendors").doc(id));
       await batch.commit();
+
+      // Fire-and-forget: clean up Storage files (best-effort, non-blocking)
+      Promise.allSettled(storageUrlsToDelete.map(u => deleteFromFirebaseStorage(u))).catch(() => {});
+
       invalidateVendorsCache(); invalidateStoresCache();
       res.json({ success: true, deletedProducts: productsSnap.size });
     } catch (err) {
@@ -868,7 +884,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const productId = req.params.productId as string;
       const doc = await db.collection("vendorProducts").doc(productId).get();
       if (!doc.exists) return res.status(404).json({ error: "المنتج غير موجود" });
+      const data = doc.data() as any;
+      // Collect all image URLs before deleting
+      const imageUrls: string[] = [
+        ...(data?.imageUrls ?? []),
+        data?.imageUrl ?? "",
+      ].filter(Boolean);
       await db.collection("vendorProducts").doc(productId).delete();
+      // Fire-and-forget: clean up Storage files (best-effort, non-blocking)
+      Promise.allSettled(imageUrls.map(u => deleteFromFirebaseStorage(u))).catch(() => {});
       res.json({ success: true });
     } catch (err) {
       console.error("admin delete vendor product:", err);

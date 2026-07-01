@@ -274,7 +274,11 @@ async function updateProduct(id, updates) {
 async function deleteProduct(id) {
   if (!db) return false;
   try {
+    const doc = await db.collection("products").doc(id).get();
+    const imageUrl = doc.exists ? doc.data()?.image ?? "" : "";
     await db.collection("products").doc(id).delete();
+    if (imageUrl) deleteFromFirebaseStorage2(imageUrl).catch(() => {
+    });
     return true;
   } catch (error) {
     console.error("Error deleting product:", error);
@@ -471,7 +475,11 @@ async function updateCategory(id, updates) {
 async function deleteCategory(id) {
   if (!db) return false;
   try {
+    const doc = await db.collection("categories").doc(id).get();
+    const imageUrl = doc.exists ? doc.data()?.image ?? "" : "";
     await db.collection("categories").doc(id).delete();
+    if (imageUrl) deleteFromFirebaseStorage2(imageUrl).catch(() => {
+    });
     return true;
   } catch (error) {
     console.error("Error deleting category:", error);
@@ -637,7 +645,11 @@ async function updateBanner(id, updates) {
 async function deleteBanner(id) {
   if (!db) return false;
   try {
+    const doc = await db.collection("banners").doc(id).get();
+    const imageUrl = doc.exists ? doc.data()?.image ?? "" : "";
     await db.collection("banners").doc(id).delete();
+    if (imageUrl) deleteFromFirebaseStorage2(imageUrl).catch(() => {
+    });
     return true;
   } catch (error) {
     console.error("Error deleting banner:", error);
@@ -973,7 +985,15 @@ async function deleteVendor(id) {
   const db2 = getFirestore();
   if (!db2) return false;
   try {
+    const doc = await db2.collection("vendors").doc(id).get();
+    const data = doc.exists ? doc.data() : null;
+    const logoUrl = data?.profileImageUrl ?? "";
+    const coverUrl = data?.coverImageUrl ?? "";
     await db2.collection("vendors").doc(id).delete();
+    if (logoUrl) deleteFromFirebaseStorage2(logoUrl).catch(() => {
+    });
+    if (coverUrl) deleteFromFirebaseStorage2(coverUrl).catch(() => {
+    });
     return true;
   } catch {
     return false;
@@ -1445,6 +1465,20 @@ async function uploadToFirebaseStorage(buffer, storagePath, contentType = "image
   const bucketName = bucket.name;
   const encodedPath = encodeURIComponent(storagePath);
   return `https://firebasestorage.googleapis.com/v0/b/${bucketName}/o/${encodedPath}?alt=media&token=${token}`;
+}
+async function deleteFromFirebaseStorage2(url) {
+  if (!url || !url.startsWith("https://firebasestorage.googleapis.com/")) return;
+  try {
+    const urlObj = new URL(url);
+    const match = urlObj.pathname.match(/\/v0\/b\/[^/]+\/o\/(.+)/);
+    if (!match) return;
+    const storagePath = decodeURIComponent(match[1]);
+    await admin.storage().bucket().file(storagePath).delete();
+  } catch (err) {
+    if (err?.code !== 404 && err?.code !== "storage/object-not-found") {
+      console.warn("[Storage] deleteFromFirebaseStorage failed for:", url, err?.message);
+    }
+  }
 }
 
 // server/pushNotifications.ts
@@ -2396,10 +2430,21 @@ async function registerRoutes(app2) {
       const vendorDoc = await db2.collection("vendors").doc(id).get();
       if (!vendorDoc.exists) return res.status(404).json({ error: "\u0627\u0644\u0645\u062A\u062C\u0631 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F" });
       const productsSnap = await db2.collection("vendorProducts").where("vendorId", "==", id).get();
+      const vendorData = vendorDoc.data();
+      const storageUrlsToDelete = [
+        vendorData?.profileImageUrl ?? "",
+        vendorData?.coverImageUrl ?? "",
+        ...productsSnap.docs.flatMap((d) => {
+          const p = d.data();
+          return [...p?.imageUrls ?? [], p?.imageUrl ?? ""];
+        })
+      ].filter(Boolean);
       const batch = db2.batch();
       productsSnap.docs.forEach((d) => batch.delete(d.ref));
       batch.delete(db2.collection("vendors").doc(id));
       await batch.commit();
+      Promise.allSettled(storageUrlsToDelete.map((u) => deleteFromFirebaseStorage(u))).catch(() => {
+      });
       invalidateVendorsCache();
       invalidateStoresCache();
       res.json({ success: true, deletedProducts: productsSnap.size });
@@ -2498,7 +2543,14 @@ async function registerRoutes(app2) {
       const productId2 = req.params.productId;
       const doc = await db2.collection("vendorProducts").doc(productId2).get();
       if (!doc.exists) return res.status(404).json({ error: "\u0627\u0644\u0645\u0646\u062A\u062C \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F" });
+      const data = doc.data();
+      const imageUrls = [
+        ...data?.imageUrls ?? [],
+        data?.imageUrl ?? ""
+      ].filter(Boolean);
       await db2.collection("vendorProducts").doc(productId2).delete();
+      Promise.allSettled(imageUrls.map((u) => deleteFromFirebaseStorage(u))).catch(() => {
+      });
       res.json({ success: true });
     } catch (err) {
       console.error("admin delete vendor product:", err);
