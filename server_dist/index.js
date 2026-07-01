@@ -1922,12 +1922,7 @@ var products = [
 var ROUTES_JWT_SECRET = (() => {
   const secret = process.env.JWT_SECRET;
   if (!secret) {
-    if (process.env.NODE_ENV === "production") {
-      console.error("[FATAL] JWT_SECRET is not set. Server cannot start in production without a secure JWT secret. Add JWT_SECRET to Replit Secrets.");
-      process.exit(1);
-    }
-    console.warn("[SECURITY] JWT_SECRET not set \u2014 using insecure dev fallback. Set JWT_SECRET in Replit Secrets before deploying to production.");
-    return "onway-dev-only-do-not-use-in-production";
+    throw new Error("JWT_SECRET environment variable is required but not set. Add it to Replit Secrets before starting the server.");
   }
   return secret;
 })();
@@ -6382,12 +6377,7 @@ var router = express2.Router();
 var JWT_SECRET = (() => {
   const secret = process.env.JWT_SECRET;
   if (!secret) {
-    if (process.env.NODE_ENV === "production") {
-      console.error("[FATAL] JWT_SECRET is not set. Server cannot start in production without a secure JWT secret. Add JWT_SECRET to Replit Secrets.");
-      process.exit(1);
-    }
-    console.warn("[SECURITY] JWT_SECRET not set \u2014 using insecure dev fallback. Set JWT_SECRET in Replit Secrets before deploying to production.");
-    return "onway-dev-only-do-not-use-in-production";
+    throw new Error("JWT_SECRET environment variable is required but not set. Add it to Replit Secrets before starting the server.");
   }
   return secret;
 })();
