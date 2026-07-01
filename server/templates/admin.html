@@ -2544,6 +2544,12 @@
       <div id="driver-financial-list">
         <div class="loading"><div class="spinner"></div></div>
       </div>
+      <!-- Alert panel (auto-populated from allDriverAccounts) -->
+      <div id="driver-alerts-panel" style="margin-top:24px;"></div>
+      <!-- Leaderboard panel -->
+      <div id="driver-leaderboard-panel" style="margin-top:24px;"></div>
+      <!-- Yearly chart panel -->
+      <div id="driver-chart-panel" style="margin-top:24px;"></div>
     </div>
 
     <!-- Orders Section -->
@@ -4163,6 +4169,12 @@
             </table>
           </div>`;
         renderDriverFinancialTable();
+        // Render extra panels after table is shown
+        setTimeout(() => {
+          renderDriverAlerts();
+          renderDriverLeaderboard();
+          renderDriverChartPanel();
+        }, 0);
       } catch (e) {
         container.innerHTML = `<div class="error-msg">${e.message}</div>`;
       }
@@ -4231,22 +4243,27 @@
       document.getElementById('driver-payment-modal-title').textContent = `تسجيل دفعة — ${driverName}`;
       document.getElementById('dp-amount').value = '';
       document.getElementById('dp-notes').value = '';
+      document.getElementById('dp-method').value = 'cash';
+      document.getElementById('dp-admin-name').value = '';
       document.getElementById('dp-current-owed').textContent =
         `المستحق الحالي: ${(currentOwed||0).toLocaleString('ar-IQ')} د.ع`;
       openModal('driver-payment-modal');
     }
 
     async function submitDriverPayment() {
-      const phone  = document.getElementById('dp-phone').value;
-      const amount = Number(document.getElementById('dp-amount').value);
-      const notes  = document.getElementById('dp-notes').value.trim();
+      const phone       = document.getElementById('dp-phone').value;
+      const amount      = Number(document.getElementById('dp-amount').value);
+      const notes       = document.getElementById('dp-notes').value.trim();
+      const paymentMethod = document.getElementById('dp-method').value;
+      const adminName   = document.getElementById('dp-admin-name').value.trim();
       if (!amount || amount <= 0) { showToast('أدخل مبلغاً صحيحاً', 'error'); return; }
+      if (!adminName) { showToast('أدخل اسم المسؤول المستلم', 'error'); return; }
       const btn = document.getElementById('dp-submit-btn');
       btn.disabled = true;
       try {
         const res = await fetch(API_BASE + '/admin/driver-wallet/payment', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ phoneNumber: phone, amount, notes }),
+          body: JSON.stringify({ phoneNumber: phone, amount, notes, paymentMethod, adminName }),
         });
         const data = await res.json();
         if (data.success) {
@@ -4339,6 +4356,234 @@
       } catch (e) {
         document.getElementById('driver-statement-body').innerHTML = `<div class="error-msg">${e.message}</div>`;
       }
+    }
+
+    // ── Driver alerts panel ───────────────────────────────────────────────────
+    function renderDriverAlerts() {
+      const panel = document.getElementById('driver-alerts-panel');
+      if (!panel) return;
+      const alerts = allDriverAccounts
+        .filter(({ account }) => (account?.amountOwed || 0) >= 40000)
+        .sort((a, b) => (b.account?.amountOwed || 0) - (a.account?.amountOwed || 0));
+      if (!alerts.length) { panel.innerHTML = ''; return; }
+      const cards = alerts.map(({ driver, account, stats }) => {
+        const owed     = account?.amountOwed || 0;
+        const isBlocked = owed >= 50000;
+        const bg    = isBlocked ? '#FEE2E2' : '#FFF2EC';
+        const color = isBlocked ? '#DC2626' : '#C2410C';
+        const icon  = isBlocked ? '🔴' : '🟠';
+        const label = isBlocked ? 'موقوف' : 'مستحقات مرتفعة';
+        const name  = escapeHtml(driver.fullName || '—');
+        const phone = escapeHtml(driver.phoneNumber);
+        return `<div style="background:${bg};border-radius:12px;padding:14px 18px;display:flex;align-items:center;gap:12px;border:1.5px solid ${color}30;">
+          <span style="font-size:1.4rem;">${icon}</span>
+          <div style="flex:1;min-width:0;">
+            <div style="font-weight:700;font-size:0.95rem;color:${color};">${name}</div>
+            <div style="font-size:0.8rem;color:${color};opacity:0.8;direction:ltr;">${phone} · ${(stats?.totalOrders||0)} طلب</div>
+          </div>
+          <div style="text-align:left;">
+            <div style="font-size:1.1rem;font-weight:800;color:${color};">${owed.toLocaleString('ar-IQ')} د.ع</div>
+            <div style="font-size:0.72rem;font-weight:600;background:${color};color:#fff;padding:2px 8px;border-radius:12px;margin-top:3px;text-align:center;">${label}</div>
+          </div>
+          <button onclick="openDriverPayment('${phone}','${name}',${owed})"
+            style="background:${color};color:#fff;border:none;border-radius:8px;padding:7px 14px;font-size:0.82rem;font-weight:700;cursor:pointer;font-family:inherit;">
+            تسجيل دفعة
+          </button>
+        </div>`;
+      }).join('');
+      panel.innerHTML = `
+        <div style="border-radius:14px;border:2px solid #EF444430;background:#FFF5F5;padding:20px;">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;">
+            <span style="font-size:1.3rem;">⚠️</span>
+            <h3 style="margin:0;color:#DC2626;font-size:1rem;">تنبيهات الحسابات (${alerts.length} سائق)</h3>
+            <span style="font-size:0.8rem;color:#9CA3AF;margin-right:auto;">يتطلب متابعة فورية</span>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:10px;">${cards}</div>
+        </div>`;
+      lucide.createIcons();
+    }
+
+    // ── Driver leaderboard ────────────────────────────────────────────────────
+    function renderDriverLeaderboard() {
+      const panel = document.getElementById('driver-leaderboard-panel');
+      if (!panel || !allDriverAccounts.length) return;
+      function top10Table(title, icon, color, items) {
+        const rows = items.slice(0, 10).map((it, i) => `<tr>
+          <td style="text-align:center;font-weight:700;color:${i<3?color:'var(--gray-500)'};">${i===0?'🥇':i===1?'🥈':i===2?'🥉':i+1}</td>
+          <td style="font-weight:600;">${escapeHtml(it.name)}</td>
+          <td style="direction:ltr;font-size:0.8rem;color:var(--gray-500);">${escapeHtml(it.phone)}</td>
+          <td style="font-weight:700;color:${color};">${it.valueStr}</td>
+        </tr>`).join('');
+        return `<div style="flex:1;min-width:260px;">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
+            <span style="font-size:1.2rem;">${icon}</span>
+            <h4 style="margin:0;font-size:0.9rem;color:${color};">${title}</h4>
+          </div>
+          <table class="table" style="font-size:0.82rem;">
+            <thead><tr><th style="width:36px;">#</th><th>السائق</th><th>الهاتف</th><th>${title.split(' ').slice(-1)[0]}</th></tr></thead>
+            <tbody>${rows || '<tr><td colspan="4" style="text-align:center;color:var(--gray-400);">لا توجد بيانات</td></tr>'}</tbody>
+          </table>
+        </div>`;
+      }
+      const byEarnings = allDriverAccounts
+        .map(({ driver, account }) => ({ name: driver.fullName||'—', phone: driver.phoneNumber, value: account?.totalEarnings||0, valueStr: (account?.totalEarnings||0).toLocaleString('ar-IQ')+' د.ع' }))
+        .sort((a,b) => b.value - a.value);
+      const byOrders = allDriverAccounts
+        .map(({ driver, stats }) => ({ name: driver.fullName||'—', phone: driver.phoneNumber, value: stats?.totalOrders||0, valueStr: (stats?.totalOrders||0)+' طلب' }))
+        .sort((a,b) => b.value - a.value);
+      const byOwed = allDriverAccounts
+        .filter(({ account }) => (account?.amountOwed||0) > 0)
+        .map(({ driver, account }) => ({ name: driver.fullName||'—', phone: driver.phoneNumber, value: account?.amountOwed||0, valueStr: (account?.amountOwed||0).toLocaleString('ar-IQ')+' د.ع' }))
+        .sort((a,b) => b.value - a.value);
+      panel.innerHTML = `
+        <div style="border-radius:14px;border:1.5px solid #E5E7EB;background:#fff;padding:20px;">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:20px;">
+            <span style="font-size:1.3rem;">🏆</span>
+            <h3 style="margin:0;font-size:1rem;color:var(--gray-800);">ترتيب السائقين</h3>
+            <span style="font-size:0.8rem;color:#9CA3AF;margin-right:auto;">أفضل 10 سائقين في كل فئة</span>
+          </div>
+          <div style="display:flex;gap:20px;flex-wrap:wrap;">
+            ${top10Table('أعلى أرباح التوصيل','💰','#10B981', byEarnings)}
+            ${top10Table('أعلى عدد الطلبات','📦','#3B82F6', byOrders)}
+            ${top10Table('أعلى المستحقات','⚠️','#EF4444', byOwed)}
+          </div>
+        </div>`;
+    }
+
+    // ── Yearly chart ──────────────────────────────────────────────────────────
+    let yearlyChartData = null;
+    let yearlyChartMetric = 'earnings';
+
+    function renderYearlySVG(data, metric) {
+      if (!data || !data.months) return '<p style="color:var(--gray-400);text-align:center;padding:32px;">لا توجد بيانات</p>';
+      const months = data.months;
+      const getValue = m => metric === 'earnings' ? m.earnings : metric === 'commission' ? m.commission : metric === 'payments' ? m.payments : m.orders;
+      const maxVal = Math.max(...months.map(getValue), 1);
+      const W = 780, H = 220, pad = { t:10, r:10, b:50, l:10 };
+      const barW = Math.floor((W - pad.l - pad.r) / months.length * 0.55);
+      const gapW = Math.floor((W - pad.l - pad.r) / months.length);
+      const color = metric==='earnings'?'#10B981':metric==='commission'?'#EF4444':metric==='payments'?'#3B82F6':'#F59E0B';
+      const chartH = H - pad.t - pad.b;
+      const bars = months.map((m, i) => {
+        const v    = getValue(m);
+        const bh   = v > 0 ? Math.max(4, Math.round(v / maxVal * chartH)) : 2;
+        const x    = pad.l + i * gapW + (gapW - barW) / 2;
+        const y    = pad.t + chartH - bh;
+        const isNow= i === months.length - 1;
+        const valStr = metric === 'orders' ? String(v) : (v >= 1000000 ? (v/1000000).toFixed(1)+'م' : v >= 1000 ? (v/1000).toFixed(0)+'ك' : String(v));
+        const label = m.label.replace(/\s\d{4}/,'').trim();
+        return `
+          <rect x="${x}" y="${y}" width="${barW}" height="${bh}" rx="4" fill="${isNow ? color : color+'99'}"/>
+          ${v > 0 ? `<text x="${x+barW/2}" y="${y-4}" text-anchor="middle" font-size="9" fill="${color}" font-weight="600">${valStr}</text>` : ''}
+          <text x="${x+barW/2}" y="${H-pad.b+16}" text-anchor="middle" font-size="9" fill="${isNow?color:'#6B7280'}" font-weight="${isNow?'700':'400'}">${label}</text>
+        `;
+      }).join('');
+      return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;font-family:Cairo,sans-serif;direction:ltr;">
+        <line x1="${pad.l}" y1="${pad.t}" x2="${pad.l}" y2="${pad.t+chartH}" stroke="#E5E7EB" stroke-width="1"/>
+        <line x1="${pad.l}" y1="${pad.t+chartH}" x2="${W-pad.r}" y2="${pad.t+chartH}" stroke="#E5E7EB" stroke-width="1"/>
+        ${bars}
+      </svg>`;
+    }
+
+    function setChartMetric(metric, btn) {
+      yearlyChartMetric = metric;
+      document.querySelectorAll('.chart-metric-btn').forEach(b => {
+        b.style.background = 'transparent';
+        b.style.color = 'var(--gray-500)';
+        b.style.borderColor = 'var(--gray-300)';
+      });
+      const colors = { earnings:'#10B981', commission:'#EF4444', payments:'#3B82F6', orders:'#F59E0B' };
+      btn.style.background = colors[metric] || 'var(--primary)';
+      btn.style.color = '#fff';
+      btn.style.borderColor = colors[metric] || 'var(--primary)';
+      document.getElementById('chart-svg-area').innerHTML = renderYearlySVG(yearlyChartData, metric);
+    }
+
+    async function loadYearlyChart(phone, name) {
+      document.getElementById('chart-driver-label').textContent = name;
+      document.getElementById('chart-svg-area').innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+      try {
+        const res = await fetch(`${API_BASE}/admin/driver-financial/${encodeURIComponent(phone)}/yearly-chart`);
+        yearlyChartData = await res.json();
+        document.getElementById('chart-svg-area').innerHTML = renderYearlySVG(yearlyChartData, yearlyChartMetric);
+        // Update total stats
+        const months = yearlyChartData.months || [];
+        const totalEarn  = months.reduce((s,m) => s + m.earnings, 0);
+        const totalComm  = months.reduce((s,m) => s + m.commission, 0);
+        const totalPaid  = months.reduce((s,m) => s + m.payments, 0);
+        const totalOrds  = months.reduce((s,m) => s + m.orders, 0);
+        document.getElementById('chart-stat-earnings').textContent   = totalEarn.toLocaleString('ar-IQ') + ' د.ع';
+        document.getElementById('chart-stat-commission').textContent  = totalComm.toLocaleString('ar-IQ') + ' د.ع';
+        document.getElementById('chart-stat-payments').textContent    = totalPaid.toLocaleString('ar-IQ') + ' د.ع';
+        document.getElementById('chart-stat-orders').textContent      = totalOrds + ' طلب';
+      } catch (e) {
+        document.getElementById('chart-svg-area').innerHTML = `<div class="error-msg">${e.message}</div>`;
+      }
+    }
+
+    function renderDriverChartPanel() {
+      const panel = document.getElementById('driver-chart-panel');
+      if (!panel || !allDriverAccounts.length) return;
+      const options = allDriverAccounts.map(({ driver }) =>
+        `<option value="${escapeHtml(driver.phoneNumber)}">${escapeHtml(driver.fullName||driver.phoneNumber)}</option>`
+      ).join('');
+      const firstPhone = allDriverAccounts[0].driver.phoneNumber;
+      const firstName  = allDriverAccounts[0].driver.fullName || firstPhone;
+      panel.innerHTML = `
+        <div style="border-radius:14px;border:1.5px solid #E5E7EB;background:#fff;padding:20px;">
+          <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:18px;">
+            <span style="font-size:1.3rem;">📊</span>
+            <h3 style="margin:0;font-size:1rem;color:var(--gray-800);">الرسم البياني السنوي</h3>
+            <select id="chart-driver-select" class="form-input" style="max-width:220px;padding:6px 12px;font-size:0.85rem;"
+              onchange="loadYearlyChart(this.value, this.options[this.selectedIndex].text)">
+              ${options}
+            </select>
+            <span id="chart-driver-label" style="font-size:0.85rem;color:var(--gray-500);">${escapeHtml(firstName)}</span>
+            <span style="margin-right:auto;font-size:0.8rem;color:var(--gray-400);">آخر 12 شهراً</span>
+          </div>
+          <!-- Metric pills -->
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;">
+            <button class="chart-metric-btn" onclick="setChartMetric('earnings',this)"
+              style="padding:5px 14px;border-radius:20px;font-size:0.8rem;font-weight:600;border:1.5px solid #10B981;background:#10B981;color:#fff;cursor:pointer;font-family:inherit;">
+              أرباح التوصيل
+            </button>
+            <button class="chart-metric-btn" onclick="setChartMetric('commission',this)"
+              style="padding:5px 14px;border-radius:20px;font-size:0.8rem;font-weight:600;border:1.5px solid var(--gray-300);background:transparent;color:var(--gray-500);cursor:pointer;font-family:inherit;">
+              عمولات OnWay
+            </button>
+            <button class="chart-metric-btn" onclick="setChartMetric('payments',this)"
+              style="padding:5px 14px;border-radius:20px;font-size:0.8rem;font-weight:600;border:1.5px solid var(--gray-300);background:transparent;color:var(--gray-500);cursor:pointer;font-family:inherit;">
+              الدفعات
+            </button>
+            <button class="chart-metric-btn" onclick="setChartMetric('orders',this)"
+              style="padding:5px 14px;border-radius:20px;font-size:0.8rem;font-weight:600;border:1.5px solid var(--gray-300);background:transparent;color:var(--gray-500);cursor:pointer;font-family:inherit;">
+              عدد الطلبات
+            </button>
+          </div>
+          <!-- SVG chart area -->
+          <div id="chart-svg-area" style="min-height:100px;"></div>
+          <!-- Annual summary stats -->
+          <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:16px;">
+            <div class="stat-card" style="border-top:2px solid #10B981;">
+              <div class="stat-card-label">أرباح 12 شهر</div>
+              <div class="stat-card-value" style="color:#10B981;font-size:0.9rem;" id="chart-stat-earnings">—</div>
+            </div>
+            <div class="stat-card" style="border-top:2px solid #EF4444;">
+              <div class="stat-card-label">عمولات 12 شهر</div>
+              <div class="stat-card-value" style="color:#EF4444;font-size:0.9rem;" id="chart-stat-commission">—</div>
+            </div>
+            <div class="stat-card" style="border-top:2px solid #3B82F6;">
+              <div class="stat-card-label">مدفوع 12 شهر</div>
+              <div class="stat-card-value" style="color:#3B82F6;font-size:0.9rem;" id="chart-stat-payments">—</div>
+            </div>
+            <div class="stat-card" style="border-top:2px solid #F59E0B;">
+              <div class="stat-card-label">طلبات 12 شهر</div>
+              <div class="stat-card-value" style="color:#F59E0B;font-size:0.9rem;" id="chart-stat-orders">—</div>
+            </div>
+          </div>
+        </div>`;
+      // Auto-load first driver
+      loadYearlyChart(firstPhone, firstName);
     }
 
     // ══════════════════════════════════════════════════════════════
@@ -8466,7 +8711,7 @@
   <!-- ─── Assign Driver Modal ─── -->
   <!-- ── Driver Payment Modal ─────────────────────────────────────────── -->
   <div id="driver-payment-modal" class="modal-overlay" onclick="if(event.target===this)closeModal('driver-payment-modal')">
-    <div class="modal" style="max-width:420px;">
+    <div class="modal" style="max-width:460px;">
       <div class="modal-header">
         <h3 id="driver-payment-modal-title">تسجيل دفعة</h3>
         <button class="modal-close" onclick="closeModal('driver-payment-modal')"><i data-lucide="x"></i></button>
@@ -8474,14 +8719,27 @@
       <div class="modal-body">
         <input type="hidden" id="dp-phone">
         <div class="form-group">
-          <label class="form-label">المبلغ (د.ع)</label>
+          <label class="form-label">المبلغ (د.ع) *</label>
           <input type="number" id="dp-amount" class="form-input" placeholder="مثال: 10000" min="1">
         </div>
         <div class="form-group">
-          <label class="form-label">ملاحظات (اختياري)</label>
-          <input type="text" id="dp-notes" class="form-input" placeholder="ملاحظة الدفعة">
+          <label class="form-label">طريقة الدفع *</label>
+          <select id="dp-method" class="form-input">
+            <option value="cash">نقدي</option>
+            <option value="transfer">تحويل بنكي</option>
+            <option value="card">بطاقة</option>
+            <option value="other">أخرى</option>
+          </select>
         </div>
-        <div id="dp-current-owed" style="margin-top:8px;font-size:0.85rem;color:var(--gray-500);"></div>
+        <div class="form-group">
+          <label class="form-label">اسم المسؤول المستلم *</label>
+          <input type="text" id="dp-admin-name" class="form-input" placeholder="اسم الموظف الذي استلم الدفعة">
+        </div>
+        <div class="form-group">
+          <label class="form-label">ملاحظات (اختياري)</label>
+          <input type="text" id="dp-notes" class="form-input" placeholder="مثال: تسوية شهر يوليو، دفعة نقدية...">
+        </div>
+        <div id="dp-current-owed" style="margin-top:8px;font-size:0.85rem;color:var(--gray-500);font-weight:600;"></div>
       </div>
       <div class="modal-footer">
         <button class="btn btn-outline" onclick="closeModal('driver-payment-modal')">إلغاء</button>

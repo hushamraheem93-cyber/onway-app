@@ -53,6 +53,10 @@ interface DriverTransaction {
   orderId?: string;
   amountOwedAfter?: number;
   timestamp: string;
+  // Payment-specific fields (added in T019)
+  paymentMethod?: "cash" | "transfer" | "card" | "other";
+  adminName?: string;
+  receiptNumber?: string;
 }
 
 interface DriverFinancialAccount {
@@ -67,7 +71,7 @@ interface DriverFinancialAccount {
 }
 
 type TxFilter = "all" | "today" | "week" | "month" | "3months" | "custom";
-type ActiveTab = "earnings" | "wallet" | "report";
+type ActiveTab = "earnings" | "wallet" | "report" | "payments";
 
 // ─── Account status helper ────────────────────────────────────────────────────
 function getAccountStatus(owed: number): {
@@ -341,6 +345,129 @@ const tlSt = StyleSheet.create({
   card: {
     borderRadius: BorderRadius.lg,
     padding: Spacing.md,
+  },
+});
+
+// ─── Payment method labels ────────────────────────────────────────────────────
+const PAYMENT_METHOD_LABELS: Record<string, string> = {
+  cash:     "نقدي",
+  transfer: "تحويل بنكي",
+  card:     "بطاقة",
+  other:    "أخرى",
+};
+
+// ─── Payment receipt card ─────────────────────────────────────────────────────
+function PaymentReceiptCard({ item, index }: { item: DriverTransaction; index: number }) {
+  const { theme } = useTheme();
+  const ts = item.timestamp ? new Date(item.timestamp) : null;
+  const dateStr = ts ? ts.toLocaleDateString("ar-IQ") : "—";
+  const timeStr = ts ? ts.toLocaleTimeString("ar-IQ", { hour: "2-digit", minute: "2-digit" }) : "";
+  const methodLabel = PAYMENT_METHOD_LABELS[item.paymentMethod || "cash"] || "نقدي";
+
+  return (
+    <View style={[rcSt.card, { backgroundColor: theme.backgroundDefault }, Shadows.sm]}>
+      {/* Header row: receipt number + amount */}
+      <View style={rcSt.headerRow}>
+        <View style={rcSt.badgeRow}>
+          <View style={rcSt.indexBadge}>
+            <ThemedText type="small" style={{ color: AppColors.white, fontWeight: FontWeight.bold, fontSize: 10 }}>
+              #{index + 1}
+            </ThemedText>
+          </View>
+          {item.receiptNumber ? (
+            <ThemedText type="small" style={{ color: AppColors.primary, fontSize: 10, fontWeight: FontWeight.semiBold }}>
+              {item.receiptNumber}
+            </ThemedText>
+          ) : null}
+        </View>
+        <ThemedText type="h4" style={{ color: AppColors.success, fontWeight: FontWeight.bold }}>
+          {formatPrice(item.amount)}
+        </ThemedText>
+      </View>
+
+      {/* Divider */}
+      <View style={[rcSt.divider, { backgroundColor: AppColors.border }]} />
+
+      {/* Details grid */}
+      <View style={rcSt.detailsGrid}>
+        <View style={rcSt.detailRow}>
+          <ThemedText type="small" style={{ color: theme.textSecondary }}>تاريخ الدفعة</ThemedText>
+          <ThemedText type="small" style={{ color: theme.text, fontWeight: FontWeight.semiBold }}>
+            {dateStr}  {timeStr}
+          </ThemedText>
+        </View>
+        <View style={rcSt.detailRow}>
+          <ThemedText type="small" style={{ color: theme.textSecondary }}>طريقة الدفع</ThemedText>
+          <View style={[rcSt.methodBadge, { backgroundColor: AppColors.info + "18" }]}>
+            <ThemedText type="small" style={{ color: AppColors.info, fontWeight: FontWeight.semiBold, fontSize: 11 }}>
+              {methodLabel}
+            </ThemedText>
+          </View>
+        </View>
+        {item.adminName ? (
+          <View style={rcSt.detailRow}>
+            <ThemedText type="small" style={{ color: theme.textSecondary }}>استلم الدفعة</ThemedText>
+            <ThemedText type="small" style={{ color: theme.text, fontWeight: FontWeight.semiBold }}>
+              {item.adminName}
+            </ThemedText>
+          </View>
+        ) : null}
+        {item.amountOwedAfter !== undefined ? (
+          <View style={rcSt.detailRow}>
+            <ThemedText type="small" style={{ color: theme.textSecondary }}>المستحق بعد الدفعة</ThemedText>
+            <ThemedText type="small" style={{ color: item.amountOwedAfter > 0 ? AppColors.warning : AppColors.success, fontWeight: FontWeight.bold }}>
+              {formatPrice(item.amountOwedAfter)}
+            </ThemedText>
+          </View>
+        ) : null}
+        {item.notes ? (
+          <View style={[rcSt.detailRow, { alignItems: "flex-start" }]}>
+            <ThemedText type="small" style={{ color: theme.textSecondary }}>ملاحظات</ThemedText>
+            <ThemedText type="small" style={{ color: theme.textSecondary, flex: 1, textAlign: "left", paddingLeft: Spacing.sm }}>
+              {item.notes}
+            </ThemedText>
+          </View>
+        ) : null}
+      </View>
+    </View>
+  );
+}
+
+const rcSt = StyleSheet.create({
+  card: {
+    borderRadius: BorderRadius.xl,
+    padding: Spacing.lg,
+    marginHorizontal: Spacing.lg,
+    marginBottom: Spacing.md,
+  },
+  headerRow: {
+    flexDirection: "row-reverse",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: Spacing.md,
+  },
+  badgeRow: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  indexBadge: {
+    backgroundColor: AppColors.success,
+    borderRadius: 12,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  divider: { height: 1, marginBottom: Spacing.md },
+  detailsGrid: { gap: Spacing.sm },
+  detailRow: {
+    flexDirection: "row-reverse",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  methodBadge: {
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 3,
+    borderRadius: BorderRadius.sm,
   },
 });
 
@@ -684,9 +811,10 @@ export default function DriverEarningsScreen() {
         <View style={styles.tabBar}>
           {(
             [
-              { key: "earnings", label: "الأرباح",        icon: "trending-up"  },
-              { key: "wallet",   label: "الحساب المالي",  icon: "credit-card"  },
-              { key: "report",   label: "التقرير الشهري", icon: "bar-chart-2"  },
+              { key: "earnings",  label: "الأرباح",        icon: "trending-up"  },
+              { key: "wallet",    label: "الحساب المالي",  icon: "credit-card"  },
+              { key: "payments",  label: "سجل الدفعات",   icon: "check-circle" },
+              { key: "report",    label: "التقرير الشهري", icon: "bar-chart-2"  },
             ] as { key: ActiveTab; label: string; icon: keyof typeof Feather.glyphMap }[]
           ).map(tab => {
             const isActive = activeTab === tab.key;
@@ -696,8 +824,8 @@ export default function DriverEarningsScreen() {
                 style={[styles.tabItem, isActive ? [styles.tabItemActive, { borderBottomColor: AppColors.primary }] : null]}
                 onPress={() => setActiveTab(tab.key)}
               >
-                <Feather name={tab.icon} size={14} color={isActive ? AppColors.primary : theme.textSecondary} />
-                <ThemedText type="small" style={{ color: isActive ? AppColors.primary : theme.textSecondary, fontWeight: isActive ? FontWeight.bold : FontWeight.regular }}>
+                <Feather name={tab.icon} size={12} color={isActive ? AppColors.primary : theme.textSecondary} />
+                <ThemedText style={{ fontSize: 10, color: isActive ? AppColors.primary : theme.textSecondary, fontWeight: isActive ? FontWeight.bold : FontWeight.regular }}>
                   {tab.label}
                 </ThemedText>
               </Pressable>
@@ -707,7 +835,47 @@ export default function DriverEarningsScreen() {
       </View>
 
       {/* Content */}
-      {activeTab === "earnings" ? (
+      {/* Payments tab ─────────────────────────────────────────────────────────── */}
+      {activeTab === "payments" ? (() => {
+        const paymentTx = [...transactions]
+          .filter(t => t.type === "payment")
+          .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+        const totalPaid = paymentTx.reduce((s, t) => s + (t.amount || 0), 0);
+        return (
+          <FlatList
+            data={paymentTx}
+            keyExtractor={item => item.id}
+            renderItem={({ item, index }) => <PaymentReceiptCard item={item} index={index} />}
+            ListHeaderComponent={
+              <View style={styles.sectionPadding}>
+                {/* Summary card */}
+                <View style={[styles.totalCard, { backgroundColor: theme.backgroundDefault }, Shadows.md]}>
+                  <Feather name="check-circle" size={28} color={AppColors.success} />
+                  <ThemedText type="small" style={{ color: theme.textSecondary, marginTop: Spacing.sm }}>إجمالي الدفعات للإدارة</ThemedText>
+                  <ThemedText type="h1" style={{ color: AppColors.success, marginTop: 4 }}>{formatPrice(totalPaid)}</ThemedText>
+                  <ThemedText type="small" style={{ color: theme.textSecondary, marginTop: 4 }}>
+                    {paymentTx.length} دفعة مسجّلة
+                  </ThemedText>
+                </View>
+                {paymentTx.length > 0 ? (
+                  <ThemedText type="h4" style={[styles.sectionLabel, { color: theme.text }]}>سجل الدفعات (الأحدث أولاً)</ThemedText>
+                ) : null}
+              </View>
+            }
+            ListEmptyComponent={
+              <View style={styles.emptyState}>
+                <Feather name="check-circle" size={40} color={theme.textSecondary} />
+                <ThemedText type="body" style={{ color: theme.textSecondary, marginTop: Spacing.md }}>
+                  لا توجد دفعات مسجّلة بعد
+                </ThemedText>
+              </View>
+            }
+            contentContainerStyle={{ paddingBottom: tabBarHeight + Spacing.xl }}
+            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); fetchData(); }} tintColor={AppColors.primary} />}
+            showsVerticalScrollIndicator={false}
+          />
+        );
+      })() : activeTab === "earnings" ? (
         <FlatList
           data={earnings?.completedOrders || []}
           keyExtractor={item => item.id}

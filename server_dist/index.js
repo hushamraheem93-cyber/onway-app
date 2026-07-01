@@ -1257,13 +1257,14 @@ async function updateDriverEarningsOnOrder(phoneNumber, payload) {
     phoneNumber,
     totalEarnings: newTotalEarnings,
     totalOnwayCommission: newTotalCommission,
+    totalPaid: prev.totalPaid ?? 0,
     amountOwed: newAmountOwed,
     lastPaymentAmount: prev.lastPaymentAmount ?? 0,
     lastPaymentDate: prev.lastPaymentDate ?? null,
     updatedAt: now.toDate().toISOString()
   };
 }
-async function recordDriverPayment(phoneNumber, amount, notes) {
+async function recordDriverPayment(phoneNumber, amount, notes, paymentMethod, adminName) {
   if (!db) throw new Error("Firestore not initialized");
   const snap = await db.collection("driverFinancialAccounts").where("phoneNumber", "==", phoneNumber).limit(1).get();
   const now = admin.firestore.Timestamp.now();
@@ -1279,6 +1280,9 @@ async function recordDriverPayment(phoneNumber, amount, notes) {
   }
   const newAmountOwed = Math.max(0, (prev.amountOwed ?? 0) - amount);
   const newTotalPaid = (prev.totalPaid ?? 0) + amount;
+  const datePart = nowIso.slice(0, 10).replace(/-/g, "");
+  const randPart = Math.random().toString(36).slice(2, 8).toUpperCase();
+  const receiptNumber = `PAY-${datePart}-${randPart}`;
   await docRef.set(
     {
       phoneNumber,
@@ -1298,8 +1302,11 @@ async function recordDriverPayment(phoneNumber, amount, notes) {
     amount,
     paymentAmount: amount,
     amountOwedAfter: newAmountOwed,
-    notes,
+    notes: notes || "",
     description: notes || "\u062F\u0641\u0639\u0629 \u0644\u0644\u0625\u062F\u0627\u0631\u0629",
+    paymentMethod: paymentMethod || "cash",
+    adminName: adminName || "",
+    receiptNumber,
     timestamp: now
   });
   return {
@@ -4715,10 +4722,10 @@ ${itemsList}
     }
   });
   app2.post("/api/admin/driver-wallet/payment", async (req, res) => {
-    const { phoneNumber, amount, notes } = req.body;
+    const { phoneNumber, amount, notes, paymentMethod, adminName } = req.body;
     if (!phoneNumber || amount === void 0) return res.status(400).json({ error: "Missing fields" });
     try {
-      const account = await recordDriverPayment(phoneNumber, Number(amount), notes || "");
+      const account = await recordDriverPayment(phoneNumber, Number(amount), notes || "", paymentMethod, adminName);
       res.json({ success: true, account });
     } catch (error) {
       res.status(500).json({ error: error.message });
@@ -4731,6 +4738,43 @@ ${itemsList}
     try {
       const account = await recordDriverAdjustment(phoneNumber, Number(amount), type, notes || "");
       res.json({ success: true, account });
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+  app2.get("/api/admin/driver-financial/:phone/yearly-chart", async (req, res) => {
+    const phoneNumber = decodeURIComponent(req.params.phone);
+    try {
+      const [transactions, completed] = await Promise.all([
+        getDriverTransactions(phoneNumber, 2e3),
+        getCompletedOrders(phoneNumber)
+      ]);
+      const now = /* @__PURE__ */ new Date();
+      const months = [];
+      for (let i = 11; i >= 0; i--) {
+        const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+        const monthStart = d.getTime();
+        const monthEnd = new Date(d.getFullYear(), d.getMonth() + 1, 1).getTime();
+        const label = d.toLocaleDateString("ar-IQ", { month: "short", year: "numeric" });
+        const monthTx = transactions.filter((t) => {
+          const ts = t.timestamp ? new Date(t.timestamp).getTime() : 0;
+          return ts >= monthStart && ts < monthEnd;
+        });
+        const monthOrders = completed.filter((o) => {
+          const ts = o.completedAt ? new Date(o.completedAt).getTime() : 0;
+          return ts >= monthStart && ts < monthEnd;
+        });
+        months.push({
+          month: d.getMonth() + 1,
+          year: d.getFullYear(),
+          label,
+          earnings: monthOrders.reduce((s, o) => s + (o.driverEarning || 0), 0),
+          commission: monthTx.filter((t) => t.type === "commission").reduce((s, t) => s + (t.amount || 0), 0),
+          payments: monthTx.filter((t) => t.type === "payment").reduce((s, t) => s + (t.amount || 0), 0),
+          orders: monthOrders.length
+        });
+      }
+      res.json({ months });
     } catch (error) {
       res.status(500).json({ error: error.message });
     }

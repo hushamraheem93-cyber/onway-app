@@ -1840,6 +1840,7 @@ export async function updateDriverEarningsOnOrder(
     phoneNumber,
     totalEarnings: newTotalEarnings,
     totalOnwayCommission: newTotalCommission,
+    totalPaid: prev.totalPaid ?? 0,
     amountOwed: newAmountOwed,
     lastPaymentAmount: prev.lastPaymentAmount ?? 0,
     lastPaymentDate: prev.lastPaymentDate ?? null,
@@ -1850,7 +1851,9 @@ export async function updateDriverEarningsOnOrder(
 export async function recordDriverPayment(
   phoneNumber: string,
   amount: number,
-  notes: string
+  notes: string,
+  paymentMethod?: string,
+  adminName?: string
 ): Promise<DriverFinancialAccount> {
   if (!db) throw new Error("Firestore not initialized");
   const snap = await db
@@ -1875,6 +1878,11 @@ export async function recordDriverPayment(
   const newAmountOwed = Math.max(0, (prev.amountOwed ?? 0) - amount);
   const newTotalPaid = (prev.totalPaid ?? 0) + amount;
 
+  // Generate receipt number: PAY-YYYYMMDD-XXXXXX
+  const datePart = nowIso.slice(0, 10).replace(/-/g, "");
+  const randPart = Math.random().toString(36).slice(2, 8).toUpperCase();
+  const receiptNumber = `PAY-${datePart}-${randPart}`;
+
   await docRef.set(
     {
       phoneNumber,
@@ -1895,8 +1903,11 @@ export async function recordDriverPayment(
     amount,
     paymentAmount: amount,
     amountOwedAfter: newAmountOwed,
-    notes,
+    notes: notes || "",
     description: notes || "دفعة للإدارة",
+    paymentMethod: paymentMethod || "cash",
+    adminName: adminName || "",
+    receiptNumber,
     timestamp: now,
   });
 

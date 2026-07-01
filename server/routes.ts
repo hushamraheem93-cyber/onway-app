@@ -3456,10 +3456,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // New explicit payment endpoint
   app.post("/api/admin/driver-wallet/payment", async (req: Request, res: Response) => {
-    const { phoneNumber, amount, notes } = req.body;
+    const { phoneNumber, amount, notes, paymentMethod, adminName } = req.body;
     if (!phoneNumber || amount === undefined) return res.status(400).json({ error: "Missing fields" });
     try {
-      const account = await recordDriverPayment(phoneNumber, Number(amount), notes || "");
+      const account = await recordDriverPayment(phoneNumber, Number(amount), notes || "", paymentMethod, adminName);
       res.json({ success: true, account });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
@@ -3479,9 +3479,51 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Yearly chart — last 12 months breakdown for a single driver
+  app.get("/api/admin/driver-financial/:phone/yearly-chart", async (req: Request, res: Response) => {
+    const phoneNumber = decodeURIComponent(req.params.phone as string);
+    try {
+      const [transactions, completed] = await Promise.all([
+        getDriverTransactions(phoneNumber, 2000),
+        getCompletedOrders(phoneNumber),
+      ]);
+      const now = new Date();
+      const months: {
+        month: number; year: number; label: string;
+        earnings: number; commission: number; orders: number; payments: number;
+      }[] = [];
+      for (let i = 11; i >= 0; i--) {
+        const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+        const monthStart = d.getTime();
+        const monthEnd   = new Date(d.getFullYear(), d.getMonth() + 1, 1).getTime();
+        const label = d.toLocaleDateString("ar-IQ", { month: "short", year: "numeric" });
+        const monthTx = transactions.filter(t => {
+          const ts = t.timestamp ? new Date(t.timestamp).getTime() : 0;
+          return ts >= monthStart && ts < monthEnd;
+        });
+        const monthOrders = completed.filter(o => {
+          const ts = o.completedAt ? new Date(o.completedAt).getTime() : 0;
+          return ts >= monthStart && ts < monthEnd;
+        });
+        months.push({
+          month: d.getMonth() + 1,
+          year:  d.getFullYear(),
+          label,
+          earnings:   monthOrders.reduce((s, o) => s + (o.driverEarning || 0), 0),
+          commission: monthTx.filter(t => t.type === "commission").reduce((s, t) => s + (t.amount || 0), 0),
+          payments:   monthTx.filter(t => t.type === "payment").reduce((s, t) => s + (t.amount || 0), 0),
+          orders:     monthOrders.length,
+        });
+      }
+      res.json({ months });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // Full financial statement for a single driver (admin)
   app.get("/api/admin/driver-financial/:phone/statement", async (req: Request, res: Response) => {
-    const phoneNumber = decodeURIComponent(req.params.phone);
+    const phoneNumber = decodeURIComponent(req.params.phone as string);
     try {
       const [driver, account, transactions] = await Promise.all([
         getDriverByPhone(phoneNumber),
