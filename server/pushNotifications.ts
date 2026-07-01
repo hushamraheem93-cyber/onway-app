@@ -26,7 +26,15 @@ const ORDER_STATUS_MESSAGES: Record<string, { title: string; body: string }> = {
     title: "جاري تحضير الطلب",
     body: "طلبك الآن قيد التحضير في المتجر",
   },
-  delivering: {
+  ready: {
+    title: "📦 طلبك جاهز",
+    body: "تم تجهيز طلبك، وسيتم استلامه من قبل السائق قريباً.",
+  },
+  picked_up: {
+    title: "🚗 السائق استلم طلبك",
+    body: "تم استلام طلبك من المتجر وهو الآن في طريقه إليك.",
+  },
+  in_delivery: {
     title: "الطلب في الطريق",
     body: "تم استلام الطلب من قبل المندوب وهو في طريقه إليك",
   },
