@@ -8070,12 +8070,33 @@ var _httpServer = null;
 function setHttpServer(s) {
   _httpServer = s;
 }
-var STALE_ORDER_THRESHOLDS_MIN = {
+var DEFAULT_THRESHOLDS = {
   pending: 10,
   confirmed: 10,
   preparing: 25,
   ready: 15
 };
+var _thresholdsCache = null;
+var _thresholdsCacheExpiry = 0;
+async function getStaleOrderThresholds() {
+  const now = Date.now();
+  if (_thresholdsCache && now < _thresholdsCacheExpiry) return _thresholdsCache;
+  const db2 = getFirestore();
+  if (!db2) return DEFAULT_THRESHOLDS;
+  try {
+    const snap = await db2.collection("appSettings").doc("urgencyThresholds").get();
+    const data = snap.exists ? snap.data() : {};
+    const confirmed = typeof data?.confirmed === "number" && data.confirmed > 0 ? data.confirmed : DEFAULT_THRESHOLDS.confirmed;
+    const preparing = typeof data?.preparing === "number" && data.preparing > 0 ? data.preparing : DEFAULT_THRESHOLDS.preparing;
+    const ready = typeof data?.ready === "number" && data.ready > 0 ? data.ready : DEFAULT_THRESHOLDS.ready;
+    _thresholdsCache = { pending: confirmed, confirmed, preparing, ready };
+    _thresholdsCacheExpiry = now + 6e4;
+    return _thresholdsCache;
+  } catch (err) {
+    console.error("[StaleOrders] Failed to load thresholds from Firestore, using defaults:", err);
+    return DEFAULT_THRESHOLDS;
+  }
+}
 function toTimestampMs(value) {
   if (!value) return NaN;
   if (typeof value.toDate === "function") {
@@ -8090,7 +8111,8 @@ function toTimestampMs(value) {
 async function checkStaleOrders() {
   const db2 = getFirestore();
   if (!db2) return;
-  const activeStatuses = Object.keys(STALE_ORDER_THRESHOLDS_MIN);
+  const thresholds = await getStaleOrderThresholds();
+  const activeStatuses = Object.keys(thresholds);
   let snapshot;
   try {
     snapshot = await db2.collection("orders").where("status", "in", activeStatuses).get();
@@ -8104,7 +8126,7 @@ async function checkStaleOrders() {
     try {
       const order = doc.data();
       const status = order.status;
-      const thresholdMin = STALE_ORDER_THRESHOLDS_MIN[status];
+      const thresholdMin = thresholds[status];
       if (!thresholdMin) continue;
       const rawTimestamp = status === "pending" ? order.createdAt : order[`vendorStatusAt_${status}`];
       if (!rawTimestamp) continue;

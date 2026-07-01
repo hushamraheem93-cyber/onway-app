@@ -2728,6 +2728,41 @@
           </div>
         </div>
 
+        <!-- Urgency Reminder Thresholds Card -->
+        <div class="card" style="border-right:4px solid #F59E0B;margin-bottom:24px;">
+          <div class="card-header" style="border-bottom:1px solid var(--gray-200);">
+            <h3 style="display:flex;align-items:center;gap:8px;">
+              <i data-lucide="timer" style="width:18px;height:18px;color:#F59E0B;"></i>
+              حدود تنبيه الطلبات المتأخرة (بالدقائق)
+            </h3>
+          </div>
+          <div class="card-body" style="padding:24px;">
+            <p style="font-size:0.82rem;color:var(--gray-500);margin-bottom:20px;">
+              عند تجاوز الطلب هذه المدة دون اتخاذ إجراء يُرسَل تنبيه للمتجر. يحتاج التغيير دورة واحدة (60 ثانية) ليصبح فعّالاً.
+            </p>
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:20px;margin-bottom:20px;">
+              <div>
+                <label style="font-size:0.85rem;font-weight:600;color:var(--gray-700);display:block;margin-bottom:6px;">قيد الانتظار / مؤكّد</label>
+                <input type="number" id="urgency-confirmed" min="1" step="1" class="form-input" placeholder="10" />
+              </div>
+              <div>
+                <label style="font-size:0.85rem;font-weight:600;color:var(--gray-700);display:block;margin-bottom:6px;">قيد التحضير</label>
+                <input type="number" id="urgency-preparing" min="1" step="1" class="form-input" placeholder="25" />
+              </div>
+              <div>
+                <label style="font-size:0.85rem;font-weight:600;color:var(--gray-700);display:block;margin-bottom:6px;">جاهز للاستلام</label>
+                <input type="number" id="urgency-ready" min="1" step="1" class="form-input" placeholder="15" />
+              </div>
+            </div>
+            <div style="display:flex;align-items:center;gap:14px;">
+              <button class="btn" style="background:#F59E0B;color:white;border:none;" onclick="saveUrgencyThresholds()">
+                <i data-lucide="save"></i> حفظ الحدود
+              </button>
+              <div id="urgency-threshold-status" style="font-size:0.82rem;display:none;"></div>
+            </div>
+          </div>
+        </div>
+
         <!-- Export Cards -->
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:20px;margin-bottom:24px;">
           <div class="card" style="border-right:4px solid #10B981;">
@@ -3922,7 +3957,10 @@
       if (section === 'driverFinancial') loadDriverFinancial();
       if (section === 'dashboard') loadDashboard();
       if (section === 'promoCodes') loadPromoCodes();
-      if (section === 'settings') { loadSettingsStats(); loadServiceFee(); }
+      if (section === 'vendors') { loadVendors(); loadVendorFinancials(); }
+      if (section === 'vendorPartners') loadVendorPartners();
+      if (section === 'vendorProducts') loadVendorProductsAdmin();
+      if (section === 'settings') { loadSettingsStats(); loadServiceFee(); loadUrgencyThresholds(); }
       if (section === 'notifications') loadNotificationsStats();
       if (section === 'analytics') loadAnalytics();
       if (section === 'reports') loadReports();
@@ -7519,6 +7557,44 @@
         });
         if (!res.ok) throw new Error('failed');
         if (display) display.textContent = fee.toLocaleString('ar-IQ') + ' د.ع';
+        if (status) { status.textContent = 'تم الحفظ بنجاح'; status.style.color = '#10B981'; status.style.display = 'block'; }
+        setTimeout(() => { if (status) status.style.display = 'none'; }, 3000);
+      } catch (err) {
+        if (status) { status.textContent = 'فشل الحفظ، حاول مجدداً'; status.style.color = '#EF4444'; status.style.display = 'block'; }
+      }
+    }
+
+    async function loadUrgencyThresholds() {
+      try {
+        const res = await fetch(`${API_BASE}/settings/urgency-thresholds`);
+        const data = await res.json();
+        const confirmed = document.getElementById('urgency-confirmed');
+        const preparing = document.getElementById('urgency-preparing');
+        const ready = document.getElementById('urgency-ready');
+        if (confirmed) confirmed.value = data.confirmed ?? 10;
+        if (preparing) preparing.value = data.preparing ?? 25;
+        if (ready) ready.value = data.ready ?? 15;
+      } catch (err) {
+        console.error('loadUrgencyThresholds error', err);
+      }
+    }
+
+    async function saveUrgencyThresholds() {
+      const confirmed = parseInt(document.getElementById('urgency-confirmed')?.value, 10);
+      const preparing = parseInt(document.getElementById('urgency-preparing')?.value, 10);
+      const ready = parseInt(document.getElementById('urgency-ready')?.value, 10);
+      const status = document.getElementById('urgency-threshold-status');
+      if ([confirmed, preparing, ready].some(v => isNaN(v) || v <= 0)) {
+        if (status) { status.textContent = 'يرجى إدخال أرقاماً صحيحة وأكبر من صفر'; status.style.color = '#EF4444'; status.style.display = 'block'; }
+        return;
+      }
+      try {
+        const res = await fetch(`${API_BASE}/admin/settings/urgency-thresholds`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ confirmed, preparing, ready })
+        });
+        if (!res.ok) throw new Error('failed');
         if (status) { status.textContent = 'تم الحفظ بنجاح'; status.style.color = '#10B981'; status.style.display = 'block'; }
         setTimeout(() => { if (status) status.style.display = 'none'; }, 3000);
       } catch (err) {

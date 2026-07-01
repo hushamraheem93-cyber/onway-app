@@ -660,13 +660,39 @@ let _httpServer: import("http").Server | null = null;
 export function setHttpServer(s: import("http").Server) { _httpServer = s; }
 
 // ── Stale-order reminder job ──────────────────────────────────────────────────
-// Thresholds match the urgency timers shown in VendorOrdersScreen.
-const STALE_ORDER_THRESHOLDS_MIN: Record<string, number> = {
+// Default thresholds (minutes) — overridden by Firestore appSettings/urgencyThresholds.
+const DEFAULT_THRESHOLDS: Record<string, number> = {
   pending:   10,
   confirmed: 10,
   preparing: 25,
   ready:     15,
 };
+
+// Cache with a 60-second TTL so changes take effect within one polling cycle.
+let _thresholdsCache: Record<string, number> | null = null;
+let _thresholdsCacheExpiry = 0;
+
+async function getStaleOrderThresholds(): Promise<Record<string, number>> {
+  const now = Date.now();
+  if (_thresholdsCache && now < _thresholdsCacheExpiry) return _thresholdsCache;
+
+  const db = getFirestore();
+  if (!db) return DEFAULT_THRESHOLDS;
+
+  try {
+    const snap = await db.collection("appSettings").doc("urgencyThresholds").get();
+    const data = snap.exists ? snap.data() : {};
+    const confirmed = (typeof data?.confirmed === "number" && data.confirmed > 0) ? data.confirmed : DEFAULT_THRESHOLDS.confirmed;
+    const preparing = (typeof data?.preparing === "number" && data.preparing > 0) ? data.preparing : DEFAULT_THRESHOLDS.preparing;
+    const ready     = (typeof data?.ready     === "number" && data.ready > 0)     ? data.ready     : DEFAULT_THRESHOLDS.ready;
+    _thresholdsCache = { pending: confirmed, confirmed, preparing, ready };
+    _thresholdsCacheExpiry = now + 60_000;
+    return _thresholdsCache;
+  } catch (err) {
+    console.error("[StaleOrders] Failed to load thresholds from Firestore, using defaults:", err);
+    return DEFAULT_THRESHOLDS;
+  }
+}
 
 /**
  * Safely convert a Firestore field value to a JS timestamp (ms).
@@ -691,7 +717,8 @@ async function checkStaleOrders(): Promise<void> {
   const db = getFirestore();
   if (!db) return;
 
-  const activeStatuses = Object.keys(STALE_ORDER_THRESHOLDS_MIN);
+  const thresholds = await getStaleOrderThresholds();
+  const activeStatuses = Object.keys(thresholds);
   let snapshot: FirebaseFirestore.QuerySnapshot;
   try {
     snapshot = await db.collection("orders")
@@ -710,7 +737,7 @@ async function checkStaleOrders(): Promise<void> {
     try {
       const order = doc.data() as Record<string, any>;
       const status: string = order.status;
-      const thresholdMin = STALE_ORDER_THRESHOLDS_MIN[status];
+      const thresholdMin = thresholds[status];
       if (!thresholdMin) continue;
 
       // Determine the reference timestamp for how long we've been in this status.
