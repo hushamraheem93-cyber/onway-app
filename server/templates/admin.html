@@ -1422,10 +1422,6 @@
           <i data-lucide="users"></i><span>المستخدمون</span>
           <span class="badge" id="users-nav-count">0</span>
         </div>
-        <div class="nav-item" onclick="showSection('operationsCenter', this)">
-          <i data-lucide="monitor"></i><span>مركز العمليات</span>
-          <span class="badge" id="ops-alerts-badge" style="background:#ef4444;display:none;">0</span>
-        </div>
       </div>
 
       <!-- Entities -->
@@ -3399,80 +3395,6 @@
     </div>
 
 
-    <!-- ══════════════════════ OPERATIONS CENTER ══════════════════════ -->
-    <div id="operationsCenter-section" class="section">
-      <header class="header">
-        <div class="header-title">
-          <i data-lucide="monitor" style="color:var(--primary);width:24px;height:24px;"></i>
-          <div>
-            <h2>مركز العمليات اللحظي</h2>
-            <p>مراقبة الطلبات والسائقين في الوقت الفعلي</p>
-          </div>
-        </div>
-        <div class="header-actions">
-          <span id="ops-last-refresh" style="font-size:0.78rem;color:var(--gray-400);margin-left:8px;"></span>
-          <button class="btn btn-outline" onclick="doRefresh(this, loadOperationsCenter, 'مركز العمليات')">
-            <i data-lucide="refresh-cw"></i> تحديث
-          </button>
-          <button class="btn" style="background:#10b981;color:#fff;" onclick="toggleOpsAutoRefresh()">
-            <i data-lucide="play"></i> <span id="ops-auto-label">تشغيل تلقائي</span>
-          </button>
-        </div>
-      </header>
-      <div class="content">
-        <!-- KPI Row -->
-        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px;margin-bottom:20px;">
-          <div class="stat-card" style="border-right:4px solid #f59e0b;">
-            <div class="stat-icon" style="background:linear-gradient(135deg,#f59e0b,#d97706);"><i data-lucide="bell" style="width:28px;height:28px;color:#fff;"></i></div>
-            <div class="stat-info"><h3 id="ops-new-orders">—</h3><p>طلبات جديدة</p></div>
-          </div>
-          <div class="stat-card" style="border-right:4px solid #3b82f6;">
-            <div class="stat-icon blue"><i data-lucide="chef-hat"></i></div>
-            <div class="stat-info"><h3 id="ops-preparing">—</h3><p>قيد التحضير</p></div>
-          </div>
-          <div class="stat-card" style="border-right:4px solid #8b5cf6;">
-            <div class="stat-icon purple"><i data-lucide="truck"></i></div>
-            <div class="stat-info"><h3 id="ops-in-delivery">—</h3><p>في التوصيل</p></div>
-          </div>
-          <div class="stat-card" style="border-right:4px solid #10b981;">
-            <div class="stat-icon green"><i data-lucide="user-check"></i></div>
-            <div class="stat-info"><h3 id="ops-online-drivers">—</h3><p>سائقون متصلون</p></div>
-          </div>
-          <div class="stat-card" style="border-right:4px solid #06b6d4;">
-            <div class="stat-icon" style="background:linear-gradient(135deg,#06b6d4,#0891b2);"><i data-lucide="layers" style="width:28px;height:28px;color:#fff;"></i></div>
-            <div class="stat-info"><h3 id="ops-batches">—</h3><p>مجموعات نشطة</p></div>
-          </div>
-          <div class="stat-card" style="border-right:4px solid #ef4444;">
-            <div class="stat-icon" style="background:linear-gradient(135deg,#ef4444,#dc2626);"><i data-lucide="alert-triangle" style="width:28px;height:28px;color:#fff;"></i></div>
-            <div class="stat-info"><h3 id="ops-late">—</h3><p>طلبات متأخرة</p></div>
-          </div>
-        </div>
-
-        <!-- Two columns: recent orders + late alerts -->
-        <div style="display:grid;grid-template-columns:1fr 380px;gap:16px;">
-          <!-- Recent orders table -->
-          <div class="card">
-            <div class="card-header"><h3><i data-lucide="list" style="width:16px;height:16px;margin-left:6px;"></i>آخر الطلبات (24 ساعة)</h3></div>
-            <div class="table-container" style="max-height:440px;overflow-y:auto;">
-              <table>
-                <thead><tr><th>رقم الطلب</th><th>المستخدم</th><th>المنطقة</th><th>الإجمالي</th><th>الحالة</th><th>الوقت</th></tr></thead>
-                <tbody id="ops-orders-table"><tr><td colspan="6" style="text-align:center;color:var(--gray-400);padding:24px;">جارٍ التحميل...</td></tr></tbody>
-              </table>
-            </div>
-          </div>
-          <!-- Late orders alerts -->
-          <div class="card" style="border-right:4px solid #ef4444;">
-            <div class="card-header" style="background:linear-gradient(135deg,#fef2f2,#fff);">
-              <h3 style="color:#ef4444;"><i data-lucide="alert-triangle" style="width:16px;height:16px;margin-left:6px;"></i>طلبات متأخرة (+30 دقيقة)</h3>
-            </div>
-            <div id="ops-late-list" style="padding:12px;max-height:440px;overflow-y:auto;">
-              <p style="text-align:center;color:var(--gray-400);padding:24px;">لا توجد طلبات متأخرة</p>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-
     <!-- ══════════════════════ ANALYTICS ══════════════════════ -->
     <div id="analytics-section" class="section">
       <header class="header">
@@ -4502,7 +4424,7 @@
       discounts: 'marketing', promoCodes: 'marketing',
       drivers: 'drivers', driverQueue: 'drivers', driverFinancial: 'drivers',
       products: 'catalog', categories: 'catalog', businessCategories: 'catalog',
-      analytics: 'analytics', reports: 'analytics', operationsCenter: 'analytics',
+      analytics: 'analytics', reports: 'analytics',
       delivery: 'delivery', zoneManagement: 'delivery',
       ratingsManagement: 'ratings', storeRanking: 'ratings',
       supportChat: 'support', notifications: 'support',
@@ -4524,7 +4446,6 @@
       ],
       analytics: [
         { id: 'analytics', label: 'التحليلات' }, { id: 'reports', label: 'التقارير' },
-        { id: 'operationsCenter', label: 'مركز العمليات' },
       ],
       delivery: [
         { id: 'delivery', label: 'مناطق التوصيل' }, { id: 'zoneManagement', label: 'الأقضية والمناطق' },
@@ -4579,7 +4500,6 @@
       if (section === 'vendorProducts') loadVendorProductsAdmin();
       if (section === 'settings') { loadSettingsStats(); loadServiceFee(); }
       if (section === 'notifications') loadNotificationsStats();
-      if (section === 'operationsCenter') loadOperationsCenter();
       if (section === 'analytics') loadAnalytics();
       if (section === 'reports') loadReports();
       if (section === 'zoneManagement') loadZones();
@@ -10603,97 +10523,6 @@ if (_origLoadDashboard) {
     await _origLoadDashboard();
     await loadDashboardStats();
   };
-}
-
-// ═══════════════════════════════════════════════════════════════════════
-//  OPERATIONS CENTER
-// ═══════════════════════════════════════════════════════════════════════
-let _opsAutoInterval = null;
-
-async function loadOperationsCenter() {
-  try {
-    const res = await fetch(API_BASE + '/admin/operations');
-    if (!res.ok) return;
-    const d = await res.json();
-
-    const sv = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
-    sv('ops-new-orders',    d.newOrders     ?? '—');
-    sv('ops-preparing',     d.preparingOrders ?? '—');
-    sv('ops-in-delivery',   d.inDelivery    ?? '—');
-    sv('ops-online-drivers',d.onlineDrivers ?? '—');
-    sv('ops-batches',       d.activeBatches ?? '—');
-    sv('ops-late',          d.lateOrders    ?? '—');
-
-    // Update badge in sidebar
-    const badge = document.getElementById('ops-alerts-badge');
-    if (badge) {
-      const alerts = (d.lateOrders || 0) + (d.issues || 0);
-      badge.textContent = alerts;
-      badge.style.display = alerts > 0 ? 'inline-flex' : 'none';
-    }
-
-    // Last refresh time
-    const lr = document.getElementById('ops-last-refresh');
-    if (lr) lr.textContent = 'آخر تحديث: ' + new Date().toLocaleTimeString('ar-IQ');
-
-    // Recent orders table
-    const tbody = document.getElementById('ops-orders-table');
-    const statusColors = {
-      pending: '#f59e0b', confirmed: '#3b82f6', preparing: '#8b5cf6',
-      ready: '#06b6d4', picked_up: '#10b981', in_delivery: '#D94523',
-      delivered: '#10b981', cancelled: '#ef4444'
-    };
-    const statusLabels = {
-      pending: 'انتظار', confirmed: 'مؤكد', preparing: 'تحضير',
-      ready: 'جاهز', picked_up: 'مُستلم', in_delivery: 'بالطريق',
-      delivered: 'مُسلَّم', cancelled: 'ملغي'
-    };
-    if (tbody) {
-      const rows = (d.recentOrders || []).map(o => {
-        const clr = statusColors[o.status] || '#9ca3af';
-        const lbl = statusLabels[o.status] || o.status;
-        const ago = getTimeAgo(o.createdAt);
-        return `<tr>
-          <td style="font-family:monospace;font-size:0.8rem;">#${(o.id||'').slice(-6)}</td>
-          <td>${escapeHtml(o.phoneNumber || '—')}</td>
-          <td>${escapeHtml(o.area || '—')}</td>
-          <td style="font-weight:600;">${(o.total||0).toLocaleString('ar-IQ')} د.ع</td>
-          <td><span style="background:${clr}22;color:${clr};padding:2px 8px;border-radius:20px;font-size:0.78rem;font-weight:600;">${lbl}</span></td>
-          <td style="font-size:0.8rem;color:var(--gray-500);">${ago}</td>
-        </tr>`;
-      }).join('');
-      tbody.innerHTML = rows || '<tr><td colspan="6" style="text-align:center;padding:24px;color:var(--gray-400);">لا توجد طلبات</td></tr>';
-    }
-
-    // Late orders list
-    const lateList = document.getElementById('ops-late-list');
-    if (lateList) {
-      if ((d.lateOrdersList || []).length === 0) {
-        lateList.innerHTML = '<p style="text-align:center;color:#10b981;padding:24px;font-weight:600;">لا توجد طلبات متأخرة</p>';
-      } else {
-        lateList.innerHTML = (d.lateOrdersList || []).map(o => {
-          const ago = getTimeAgo(o.createdAt);
-          return `<div style="padding:10px;border-radius:8px;background:#fef2f2;margin-bottom:8px;border-right:3px solid #ef4444;">
-            <div style="font-weight:700;color:#ef4444;font-size:0.85rem;">#${(o.id||'').slice(-6)} — ${escapeHtml(o.area||'')}</div>
-            <div style="font-size:0.78rem;color:var(--gray-500);">${escapeHtml(o.phoneNumber||'')} · ${ago}</div>
-          </div>`;
-        }).join('');
-      }
-    }
-  } catch (e) { showToast('error', 'خطأ', 'تعذّر تحميل مركز العمليات'); }
-}
-
-function toggleOpsAutoRefresh() {
-  const btn = document.getElementById('ops-auto-label');
-  if (_opsAutoInterval) {
-    clearInterval(_opsAutoInterval);
-    _opsAutoInterval = null;
-    if (btn) btn.textContent = 'تشغيل تلقائي';
-  } else {
-    _opsAutoInterval = setInterval(loadOperationsCenter, 15000);
-    if (btn) btn.textContent = 'إيقاف التلقائي';
-    loadOperationsCenter();
-  }
 }
 
 // ═══════════════════════════════════════════════════════════════════════
