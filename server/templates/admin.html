@@ -7700,8 +7700,9 @@
                     <i data-lucide="trash-2" style="width:14px;height:14px;"></i>
                   </button>`;
 
-                const ds = driverStats[driver.phoneNumber] || { todayOrders: 0, todayEarnings: 0, totalOrders: 0, totalEarnings: 0, walletBalance: 0 };
-                const balColor = ds.walletBalance >= 250 ? '#10B981' : '#EF4444';
+                const ds = driverStats[driver.phoneNumber] || { todayOrders: 0, todayEarnings: 0, totalOrders: 0, totalEarnings: 0, amountOwed: 0 };
+                const walletBal = ds.amountOwed ?? ds.walletBalance ?? 0;
+                const balColor = walletBal >= 250 ? '#10B981' : '#EF4444';
 
                 return `
                   <tr style="border-bottom:1px solid var(--gray-100);transition:background 0.15s;" onmouseover="this.style.background='var(--gray-50)'" onmouseout="this.style.background='transparent'">
@@ -7719,11 +7720,11 @@
                       <div style="font-size:0.7rem;color:var(--gray-400);">إجمالي: ${ds.totalOrders}</div>
                     </td>
                     <td style="padding:12px 16px;text-align:center;">
-                      <div style="font-weight:700;font-size:0.95rem;color:#10B981;">${ds.todayEarnings.toLocaleString()} د.ع</div>
-                      <div style="font-size:0.7rem;color:var(--gray-400);">إجمالي: ${ds.totalEarnings.toLocaleString()}</div>
+                      <div style="font-weight:700;font-size:0.95rem;color:#10B981;">${(ds.todayEarnings || 0).toLocaleString()} د.ع</div>
+                      <div style="font-size:0.7rem;color:var(--gray-400);">إجمالي: ${(ds.totalEarnings || 0).toLocaleString()}</div>
                     </td>
                     <td style="padding:12px 16px;text-align:center;">
-                      <span style="font-weight:700;font-size:0.9rem;color:${balColor};">${ds.walletBalance.toLocaleString()} د.ع</span>
+                      <span style="font-weight:700;font-size:0.9rem;color:${balColor};">${walletBal.toLocaleString()} د.ع</span>
                     </td>
                     <td style="padding:12px 16px;text-align:center;">
                       <span style="background:${statusColor}20;color:${statusColor};padding:4px 12px;border-radius:16px;font-size:0.75rem;font-weight:700;white-space:nowrap;">
