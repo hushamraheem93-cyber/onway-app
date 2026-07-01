@@ -4,6 +4,6 @@ export const CURRENCY = {
   name: "دينار عراقي",
 };
 
-export function formatPrice(price: number): string {
-  return `${price.toLocaleString("ar-IQ")} ${CURRENCY.symbol}`;
+export function formatPrice(price: number | null | undefined): string {
+  return `${(price ?? 0).toLocaleString("ar-IQ")} ${CURRENCY.symbol}`;
 }
