@@ -17,9 +17,7 @@ import { useFocusEffect } from "@react-navigation/native";
 import { MaterialCommunityIcons, Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import * as Print from "expo-print";
-import { useAudioPlayer } from "expo-audio";
-
-const alarmSound = require("../assets/sounds/alarm.mp3");
+import { useAudioPlayer, setAudioModeAsync } from "expo-audio";
 
 import { ThemedText } from "@/components/ThemedText";
 import { useAuth } from "@/context/AuthContext";
@@ -770,7 +768,11 @@ export default function VendorOrdersScreen() {
   const tabBarHeight = useBottomTabBarHeight();
   const { vendorToken } = useAuth();
   const { theme } = useTheme();
-  const alarmPlayer = useAudioPlayer(alarmSound);
+  const alarmPlayer = useAudioPlayer(require("../assets/sounds/alarm.mp3"));
+
+  useEffect(() => {
+    setAudioModeAsync({ playsInSilentMode: true, interruptionMode: "mixWithOthers" }).catch(() => {});
+  }, []);
 
   const [orders, setOrders] = useState<VendorOrder[]>([]);
   const [urgencyThresholds, setUrgencyThresholds] = useState<Record<string, number>>(DEFAULT_URGENCY_THRESHOLD);
@@ -800,10 +802,7 @@ export default function VendorOrdersScreen() {
       if (silent && newPending > prevNewCount.current) {
         setNewArrived(true);
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-        try {
-          alarmPlayer.seekTo(0);
-          alarmPlayer.play();
-        } catch (_) {}
+        try { await alarmPlayer.seekTo(0); alarmPlayer.play(); } catch (_) {}
       }
       prevNewCount.current = newPending;
       setOrders(incoming);
