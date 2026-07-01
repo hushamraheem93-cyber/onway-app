@@ -7427,21 +7427,34 @@
     // Drivers
     async function loadDrivers() {
       try {
-        const [driversRes, statsRes] = await Promise.all([
-          fetch(API_BASE + '/admin/drivers'),
-          fetch(API_BASE + '/admin/driver-stats'),
-        ]);
-        drivers = await driversRes.json();
-        const statsData = await statsRes.json();
+        const driversRes = await fetch(API_BASE + '/admin/drivers');
+        if (!driversRes.ok) {
+          const errText = await driversRes.text();
+          console.error('[loadDrivers] drivers endpoint error', driversRes.status, errText);
+          throw new Error('drivers HTTP ' + driversRes.status);
+        }
+        const driversData = await driversRes.json();
+        drivers = Array.isArray(driversData) ? driversData : [];
+
+        let statsData = { stats: {} };
+        try {
+          const statsRes = await fetch(API_BASE + '/admin/driver-stats');
+          if (statsRes.ok) statsData = await statsRes.json();
+        } catch (statsErr) {
+          console.warn('[loadDrivers] driver-stats failed, continuing without stats', statsErr);
+        }
         driverStats = statsData.stats || {};
-        document.getElementById('drivers-count').textContent = drivers.length;
-        document.getElementById('driver-stat-total').textContent = drivers.length;
-        document.getElementById('driver-stat-approved').textContent = drivers.filter(d => d.status === 'approved').length;
-        document.getElementById('driver-stat-pending').textContent = drivers.filter(d => d.status === 'pending').length;
-        document.getElementById('driver-stat-rejected').textContent = drivers.filter(d => d.status === 'rejected').length;
+
+        const el = (id) => document.getElementById(id);
+        if (el('drivers-count')) el('drivers-count').textContent = drivers.length;
+        if (el('driver-stat-total')) el('driver-stat-total').textContent = drivers.length;
+        if (el('driver-stat-approved')) el('driver-stat-approved').textContent = drivers.filter(d => d.status === 'approved').length;
+        if (el('driver-stat-pending')) el('driver-stat-pending').textContent = drivers.filter(d => d.status === 'pending').length;
+        if (el('driver-stat-rejected')) el('driver-stat-rejected').textContent = drivers.filter(d => d.status === 'rejected').length;
         renderDrivers();
       } catch (error) {
-        showToast('error', 'خطأ', 'حدث خطأ في تحميل السائقين');
+        console.error('[loadDrivers] caught error:', error);
+        showToast('error', 'خطأ', 'حدث خطأ في تحميل السائقين: ' + (error.message || error));
       }
     }
 
