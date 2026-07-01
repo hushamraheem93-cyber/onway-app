@@ -293,6 +293,11 @@
       box-shadow: 0 8px 25px rgba(0,0,0,0.1);
     }
 
+    .driver-stat-card.active-stat {
+      box-shadow: 0 0 0 3px rgba(255,118,34,0.35), 0 4px 14px rgba(0,0,0,0.1);
+      transform: translateY(-1px);
+    }
+
     .stat-icon {
       width: 56px;
       height: 56px;
@@ -2468,31 +2473,24 @@
       </header>
 
       <div class="content">
-        <!-- Stats Row -->
+        <!-- Stats Row — clickable filters -->
         <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:20px;">
-          <div class="stat-card" style="border-right:4px solid var(--primary);">
+          <div class="stat-card driver-stat-card active-stat" id="stat-card-all" data-status="all" onclick="filterDriversByCard('all')" style="border-right:4px solid var(--primary);cursor:pointer;transition:box-shadow .15s,transform .15s;" onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform=''">
             <div class="stat-card-title">إجمالي المسجلين</div>
             <div class="stat-card-value" id="driver-stat-total">0</div>
           </div>
-          <div class="stat-card" style="border-right:4px solid var(--success);">
+          <div class="stat-card driver-stat-card" id="stat-card-approved" data-status="approved" onclick="filterDriversByCard('approved')" style="border-right:4px solid var(--success);cursor:pointer;transition:box-shadow .15s,transform .15s;" onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform=''">
             <div class="stat-card-title">مقبولون</div>
             <div class="stat-card-value" id="driver-stat-approved" style="color:var(--success);">0</div>
           </div>
-          <div class="stat-card" style="border-right:4px solid var(--warning);">
+          <div class="stat-card driver-stat-card" id="stat-card-pending" data-status="pending" onclick="filterDriversByCard('pending')" style="border-right:4px solid var(--warning);cursor:pointer;transition:box-shadow .15s,transform .15s;" onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform=''">
             <div class="stat-card-title">قيد المراجعة</div>
             <div class="stat-card-value" id="driver-stat-pending" style="color:var(--warning);">0</div>
           </div>
-          <div class="stat-card" style="border-right:4px solid var(--danger);">
+          <div class="stat-card driver-stat-card" id="stat-card-rejected" data-status="rejected" onclick="filterDriversByCard('rejected')" style="border-right:4px solid var(--danger);cursor:pointer;transition:box-shadow .15s,transform .15s;" onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform=''">
             <div class="stat-card-title">مرفوضون</div>
             <div class="stat-card-value" id="driver-stat-rejected" style="color:var(--danger);">0</div>
           </div>
-        </div>
-
-        <div class="drivers-filters" style="display: flex; gap: 12px; margin-bottom: 20px; flex-wrap: wrap;">
-          <button class="btn btn-outline driver-filter active" data-status="all" onclick="filterDrivers('all', this)">الكل</button>
-          <button class="btn btn-outline driver-filter" data-status="pending" onclick="filterDrivers('pending', this)">قيد المراجعة</button>
-          <button class="btn btn-outline driver-filter" data-status="approved" onclick="filterDrivers('approved', this)">مقبول</button>
-          <button class="btn btn-outline driver-filter" data-status="rejected" onclick="filterDrivers('rejected', this)">مرفوض</button>
         </div>
 
         <div id="drivers-list"></div>
@@ -7447,10 +7445,29 @@
       }
     }
 
+    function filterDriversByCard(status) {
+      currentDriverFilter = status;
+      // highlight active stat card
+      document.querySelectorAll('.driver-stat-card').forEach(c => {
+        c.classList.remove('active-stat');
+        c.style.boxShadow = '';
+      });
+      const card = document.getElementById('stat-card-' + status);
+      if (card) {
+        card.classList.add('active-stat');
+        card.style.boxShadow = '0 0 0 3px rgba(255,118,34,0.35)';
+      }
+      renderDrivers();
+    }
+
     function filterDrivers(status, element) {
       currentDriverFilter = status;
       document.querySelectorAll('.driver-filter').forEach(btn => btn.classList.remove('active'));
       element.classList.add('active');
+      // sync stat card highlight
+      document.querySelectorAll('.driver-stat-card').forEach(c => { c.classList.remove('active-stat'); c.style.boxShadow = ''; });
+      const card = document.getElementById('stat-card-' + status);
+      if (card) { card.classList.add('active-stat'); card.style.boxShadow = '0 0 0 3px rgba(255,118,34,0.35)'; }
       renderDrivers();
     }
 
