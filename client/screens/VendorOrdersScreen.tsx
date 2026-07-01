@@ -19,7 +19,7 @@ import * as Haptics from "expo-haptics";
 import * as Print from "expo-print";
 import { useAudioPlayer } from "expo-audio";
 
-const alarmSound = require("../../assets/sounds/alarm.mp3");
+const alarmSound = require("../assets/sounds/alarm.mp3");
 
 import { ThemedText } from "@/components/ThemedText";
 import { useAuth } from "@/context/AuthContext";
