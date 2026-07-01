@@ -67,11 +67,6 @@ export default function CategoriesScreen() {
     queryKey: ["/api/categories"],
   });
 
-  const CATEGORY_TO_BUSINESS_TYPE: Record<string, string> = {
-    restaurants: "restaurant",
-    pharmacy: "pharmacy",
-  };
-
   const handleCategoryPress = (category: Category) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     if (category.id === "delivery") {
@@ -79,11 +74,9 @@ export default function CategoriesScreen() {
     } else if (category.id === "international-shopping") {
       navigation.navigate("InternationalShopping");
     } else {
-      const businessType = CATEGORY_TO_BUSINESS_TYPE[category.id];
       navigation.navigate("StoresList", {
         categoryId: category.id,
         categoryName: category.name,
-        businessType,
       });
     }
   };

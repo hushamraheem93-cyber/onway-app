@@ -1442,16 +1442,29 @@ router.get("/api/vendor/wallet", requireVendor, async (req, res) => {
 // PUBLIC endpoints for customer-facing store browsing
 // ═══════════════════════════════════════════════════════════════════════════
 
-// GET /api/stores — list all active vendor stores (public), supports ?businessType= filter
+// GET /api/stores — list active vendor stores, supports ?categoryId= and ?businessType= filters
 router.get("/api/stores", async (req, res) => {
   try {
     const db = getFirestore();
     if (!db) return res.status(500).json({ error: "قاعدة البيانات غير متاحة" });
 
-    const { businessType, name } = req.query as { businessType?: string; name?: string };
-    const snap = await db.collection("vendors")
-      .where("status", "==", "active")
-      .get();
+    const { businessType, categoryId, name } = req.query as {
+      businessType?: string;
+      categoryId?: string;
+      name?: string;
+    };
+
+    // Backward-compat: map category IDs to businessType for stores without supportedCategories
+    const BTYPE_FALLBACK: Record<string, string[]> = {
+      restaurants:           ["restaurant"],
+      pharmacy:              ["pharmacy"],
+      "snacks-sweets":       ["bakery", "sweets"],
+      "tea-coffee":          ["cafe"],
+      flowers:               ["flowers"],
+      "women-bags":          ["clothing"],
+    };
+
+    const snap = await db.collection("vendors").where("status", "==", "active").get();
 
     const allDocs = snap.docs.map((d) => {
       const v = d.data() as any;
@@ -1470,14 +1483,40 @@ router.get("/api/stores", async (req, res) => {
         deliveryTime: v.deliveryTime || "30-45",
         deliveryPrice: v.deliveryPrice ?? 0,
         workingHours: v.workingHours || null,
+        supportedCategories: Array.isArray(v.supportedCategories) ? v.supportedCategories : [],
+        minOrder: v.minOrder ?? 0,
+        hasDelivery: v.hasDelivery !== false,
+        isOpen: v.isOpen ?? true,
+        isPinned: v.isPinned ?? false,
+        isFeatured: v.isFeatured ?? false,
+        sortOrder: v.sortOrder ?? 999,
       };
     });
 
     const nameQuery = name ? name.trim().toLowerCase() : "";
+
     const stores = allDocs
-      .filter((s) => (businessType ? s.businessType === businessType : true))
+      .filter((s) => {
+        if (categoryId) {
+          const sc: string[] = s.supportedCategories;
+          if (sc.length > 0) {
+            // Use explicit supportedCategories list
+            return sc.includes(categoryId);
+          }
+          // Backward compat: no supportedCategories → check businessType mapping
+          const fallbackTypes = BTYPE_FALLBACK[categoryId];
+          if (fallbackTypes) return fallbackTypes.includes(s.businessType || "");
+          return false; // Not mapped — don't show
+        }
+        if (businessType) return s.businessType === businessType;
+        return true;
+      })
       .filter((s) => (nameQuery ? (s.storeName || "").toLowerCase().includes(nameQuery) : true))
-      .sort((a, b) => (b.approvedAt as string).localeCompare(a.approvedAt as string));
+      .sort((a, b) => {
+        if (a.sortOrder !== b.sortOrder) return a.sortOrder - b.sortOrder;
+        if (a.isPinned !== b.isPinned) return a.isPinned ? -1 : 1;
+        return (b.approvedAt as string).localeCompare(a.approvedAt as string);
+      });
 
     res.json({ stores, total: stores.length });
   } catch (err) {

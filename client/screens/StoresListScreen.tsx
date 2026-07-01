@@ -260,25 +260,20 @@ export default function StoresListScreen() {
   const { theme } = useTheme();
   const navigation = useNavigation<NavProp>();
   const route = useRoute<RouteType>();
-  const { categoryName, businessType } = route.params;
+  const { categoryId, categoryName } = route.params;
   const [searchQuery, setSearchQuery] = useState("");
 
-  const hasMapping = !!businessType;
-
-  const apiUrl = hasMapping
-    ? `${new URL("/api/stores", getApiUrl()).toString()}?businessType=${encodeURIComponent(businessType!)}`
-    : "";
+  const apiUrl = `${new URL("/api/stores", getApiUrl()).toString()}?categoryId=${encodeURIComponent(categoryId)}`;
 
   const { data, isLoading, isError, refetch, isRefetching } = useQuery<{
     stores: VendorStore[];
     total: number;
   }>({
-    queryKey: ["/api/stores", businessType ?? "__none__"],
+    queryKey: ["/api/stores", "category", categoryId],
     queryFn: () => fetch(apiUrl).then((r) => r.json()),
-    enabled: hasMapping,
   });
 
-  const allStores = hasMapping ? (data?.stores ?? []) : [];
+  const allStores = data?.stores ?? [];
 
   const stores = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
@@ -288,10 +283,14 @@ export default function StoresListScreen() {
 
   const handleStorePress = (store: VendorStore) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    navigation.navigate("StoreProducts", { storeId: store.id, storeName: store.storeName });
+    navigation.navigate("StoreProducts", {
+      storeId: store.id,
+      storeName: store.storeName,
+      initialCategoryFilter: categoryId,
+    });
   };
 
-  if (isLoading && hasMapping) {
+  if (isLoading) {
     return (
       <View style={{ flex: 1 }}>
         <GradientBackground />
@@ -302,7 +301,7 @@ export default function StoresListScreen() {
     );
   }
 
-  if (isError && hasMapping) {
+  if (isError) {
     return (
       <View style={{ flex: 1 }}>
         <GradientBackground />

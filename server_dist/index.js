@@ -7320,7 +7320,15 @@ router.get("/api/stores", async (req, res) => {
   try {
     const db2 = getFirestore();
     if (!db2) return res.status(500).json({ error: "\u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u063A\u064A\u0631 \u0645\u062A\u0627\u062D\u0629" });
-    const { businessType, name } = req.query;
+    const { businessType, categoryId, name } = req.query;
+    const BTYPE_FALLBACK = {
+      restaurants: ["restaurant"],
+      pharmacy: ["pharmacy"],
+      "snacks-sweets": ["bakery", "sweets"],
+      "tea-coffee": ["cafe"],
+      flowers: ["flowers"],
+      "women-bags": ["clothing"]
+    };
     const snap = await db2.collection("vendors").where("status", "==", "active").get();
     const allDocs = snap.docs.map((d) => {
       const v = d.data();
@@ -7338,11 +7346,34 @@ router.get("/api/stores", async (req, res) => {
         ratingCount: v.ratingCount ?? 0,
         deliveryTime: v.deliveryTime || "30-45",
         deliveryPrice: v.deliveryPrice ?? 0,
-        workingHours: v.workingHours || null
+        workingHours: v.workingHours || null,
+        supportedCategories: Array.isArray(v.supportedCategories) ? v.supportedCategories : [],
+        minOrder: v.minOrder ?? 0,
+        hasDelivery: v.hasDelivery !== false,
+        isOpen: v.isOpen ?? true,
+        isPinned: v.isPinned ?? false,
+        isFeatured: v.isFeatured ?? false,
+        sortOrder: v.sortOrder ?? 999
       };
     });
     const nameQuery = name ? name.trim().toLowerCase() : "";
-    const stores = allDocs.filter((s) => businessType ? s.businessType === businessType : true).filter((s) => nameQuery ? (s.storeName || "").toLowerCase().includes(nameQuery) : true).sort((a, b) => b.approvedAt.localeCompare(a.approvedAt));
+    const stores = allDocs.filter((s) => {
+      if (categoryId) {
+        const sc = s.supportedCategories;
+        if (sc.length > 0) {
+          return sc.includes(categoryId);
+        }
+        const fallbackTypes = BTYPE_FALLBACK[categoryId];
+        if (fallbackTypes) return fallbackTypes.includes(s.businessType || "");
+        return false;
+      }
+      if (businessType) return s.businessType === businessType;
+      return true;
+    }).filter((s) => nameQuery ? (s.storeName || "").toLowerCase().includes(nameQuery) : true).sort((a, b) => {
+      if (a.sortOrder !== b.sortOrder) return a.sortOrder - b.sortOrder;
+      if (a.isPinned !== b.isPinned) return a.isPinned ? -1 : 1;
+      return b.approvedAt.localeCompare(a.approvedAt);
+    });
     res.json({ stores, total: stores.length });
   } catch (err) {
     console.error("public stores:", err);

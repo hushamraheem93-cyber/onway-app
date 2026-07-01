@@ -55,7 +55,7 @@ export type RootStackParamList = {
   CourierPickup: undefined;
   InternationalShopping: undefined;
   SupportChat: undefined;
-  StoreProducts: { storeId: string; storeName: string };
+  StoreProducts: { storeId: string; storeName: string; initialCategoryFilter?: string };
   StoreRatings: { storeId: string; storeName: string };
   StoresList: { categoryId: string; categoryName: string; businessType?: string };
   ProductDetail: {

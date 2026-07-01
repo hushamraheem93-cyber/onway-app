@@ -1736,6 +1736,23 @@
               <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:0.82rem;font-weight:600;color:#374151;">
                 <input type="checkbox" id="medit-isOpen"> مفتوح الآن</label>
             </div>
+            <div>
+              <label style="font-size:0.8rem;font-weight:600;color:#374151;display:block;margin-bottom:8px;">الأقسام المدعومة <span style="color:#9CA3AF;font-weight:400;">(يحدد في أي أقسام يظهر المتجر للمستخدمين)</span></label>
+              <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;background:#F9FAFB;border-radius:12px;padding:12px;border:1px solid #E5E7EB;" id="medit-supported-cats">
+                <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:0.78rem;"><input type="checkbox" value="restaurants"> مطاعم</label>
+                <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:0.78rem;"><input type="checkbox" value="fruits-vegetables"> فواكه وخضار</label>
+                <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:0.78rem;"><input type="checkbox" value="meat-poultry"> لحوم ودجاج</label>
+                <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:0.78rem;"><input type="checkbox" value="dairy-eggs"> ألبان وبيض</label>
+                <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:0.78rem;"><input type="checkbox" value="cleaning-care"> منظفات وعناية</label>
+                <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:0.78rem;"><input type="checkbox" value="beverages"> مشروبات</label>
+                <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:0.78rem;"><input type="checkbox" value="snacks-sweets"> حلويات وسناكس</label>
+                <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:0.78rem;"><input type="checkbox" value="tea-coffee"> شاي وقهوة</label>
+                <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:0.78rem;"><input type="checkbox" value="baby"> أطفال</label>
+                <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:0.78rem;"><input type="checkbox" value="flowers"> زهور</label>
+                <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:0.78rem;"><input type="checkbox" value="pharmacy"> صيدلية</label>
+                <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:0.78rem;"><input type="checkbox" value="women-bags"> حقائب وأكسسوار</label>
+              </div>
+            </div>
           </div>
         </div>
         <div style="padding:16px 24px;border-top:1px solid #F3F4F6;display:flex;gap:10px;justify-content:flex-end;position:sticky;bottom:0;background:#fff;">
@@ -5731,6 +5748,10 @@
       document.getElementById('medit-description').value= v.description || '';
       document.getElementById('medit-hasDelivery').checked = v.hasDelivery !== false;
       document.getElementById('medit-isOpen').checked   = !!v.isOpen;
+      const sc = Array.isArray(v.supportedCategories) ? v.supportedCategories : [];
+      document.querySelectorAll('#medit-supported-cats input[type=checkbox]').forEach(cb => {
+        cb.checked = sc.includes(cb.value);
+      });
       document.getElementById('medit-title').textContent = `تعديل: ${v.name || v.storeName || ''}`;
       document.getElementById('merchant-edit-modal').style.display = 'flex';
       lucide.createIcons();
@@ -5756,6 +5777,7 @@
         description:       document.getElementById('medit-description').value.trim(),
         hasDelivery:       document.getElementById('medit-hasDelivery').checked,
         isOpen:            document.getElementById('medit-isOpen').checked,
+        supportedCategories: Array.from(document.querySelectorAll('#medit-supported-cats input[type=checkbox]:checked')).map(cb => cb.value),
       };
       try {
         const res = await _mPatch(id, payload);

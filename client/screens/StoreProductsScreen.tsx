@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import {
   StyleSheet,
   View,
@@ -292,7 +292,7 @@ function SearchFilterBar({
 
 export default function StoreProductsScreen() {
   const route = useRoute<StoreProductsRouteProp>();
-  const { storeId } = route.params;
+  const { storeId, initialCategoryFilter } = route.params;
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const headerHeight = useHeaderHeight();
   const insets = useSafeAreaInsets();
@@ -316,6 +316,13 @@ export default function StoreProductsScreen() {
 
   const products = data?.products ?? [];
   const store = data?.store;
+
+  // Auto-apply initialCategoryFilter once products load
+  useEffect(() => {
+    if (!initialCategoryFilter || products.length === 0) return;
+    const match = products.find((p) => p.category === initialCategoryFilter);
+    if (match) setSelectedCategory(initialCategoryFilter);
+  }, [products, initialCategoryFilter]);
 
   const categories = useMemo(() => {
     const seen = new Set<string>();
