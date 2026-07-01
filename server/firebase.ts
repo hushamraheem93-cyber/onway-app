@@ -711,8 +711,15 @@ export interface FirestoreDriver {
 export async function getDrivers(): Promise<(FirestoreDriver & { id: string })[]> {
   if (!db) return [];
   try {
-    const snapshot = await db.collection("drivers").orderBy("createdAt", "desc").get();
-    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() as FirestoreDriver }));
+    const snapshot = await db.collection("drivers").get();
+    const docs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() as FirestoreDriver }));
+    // sort newest-first in memory so docs without createdAt are still included
+    docs.sort((a, b) => {
+      const aTime = a.createdAt?.toMillis?.() ?? 0;
+      const bTime = b.createdAt?.toMillis?.() ?? 0;
+      return bTime - aTime;
+    });
+    return docs;
   } catch (error) {
     console.error("Error getting drivers:", error);
     return [];
