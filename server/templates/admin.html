@@ -5629,11 +5629,38 @@
         const minOrder = v.minOrder || 0;
         const openTimeTxt = (v.openTime && v.closeTime) ? `${v.openTime} – ${v.closeTime}` : null;
         const nameEsc = (v.name || '').replace(/'/g, "\\'");
+        const regStatus = v.status || 'active';
+        const isPending = regStatus === 'pending';
+        const regStatusCfg = {
+          pending:   { label: 'بانتظار الموافقة', bg: '#FFFBEB', color: '#92400E', border: '#FCD34D' },
+          active:    { label: 'مفعّل',             bg: '#F0FDF4', color: '#166534', border: '#86EFAC' },
+          rejected:  { label: 'مرفوض',             bg: '#FEF2F2', color: '#991B1B', border: '#FCA5A5' },
+          suspended: { label: 'موقوف',             bg: '#F9FAFB', color: '#6B7280', border: '#D1D5DB' },
+        }[regStatus] || { label: regStatus, bg: '#F9FAFB', color: '#6B7280', border: '#D1D5DB' };
+        const cardBorder = isPending ? '2px solid #FCD34D' : '1px solid #E5E7EB';
 
         return `
-        <div style="background:#fff;border-radius:16px;border:1px solid #E5E7EB;overflow:hidden;box-shadow:0 1px 6px rgba(0,0,0,0.05);transition:all .2s;display:flex;flex-direction:column;"
+        <div style="background:#fff;border-radius:16px;border:${cardBorder};overflow:hidden;box-shadow:0 1px 6px rgba(0,0,0,0.05);transition:all .2s;display:flex;flex-direction:column;"
              onmouseenter="this.style.boxShadow='0 8px 28px rgba(0,0,0,0.10)';this.style.transform='translateY(-2px)'"
              onmouseleave="this.style.boxShadow='0 1px 6px rgba(0,0,0,0.05)';this.style.transform='translateY(0)'">
+          <!-- Pending approval banner -->
+          ${isPending ? `
+          <div style="background:#FFFBEB;border-bottom:1px solid #FCD34D;padding:8px 16px;display:flex;align-items:center;justify-content:space-between;gap:8px;">
+            <div style="display:flex;align-items:center;gap:6px;font-size:0.78rem;font-weight:700;color:#92400E;">
+              <i data-lucide="clock" style="width:13px;height:13px;color:#F59E0B;"></i>
+              بانتظار الموافقة
+            </div>
+            <div style="display:flex;gap:6px;">
+              <button onclick="approveVendor('${v.id}','${nameEsc}')"
+                style="background:#16A34A;color:#fff;border:none;padding:5px 12px;border-radius:7px;font-size:0.74rem;font-weight:700;cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:4px;">
+                <i data-lucide="check" style="width:12px;height:12px;"></i> موافقة
+              </button>
+              <button onclick="rejectVendor('${v.id}','${nameEsc}')"
+                style="background:#DC2626;color:#fff;border:none;padding:5px 12px;border-radius:7px;font-size:0.74rem;font-weight:700;cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:4px;">
+                <i data-lucide="x" style="width:12px;height:12px;"></i> رفض
+              </button>
+            </div>
+          </div>` : ''}
           <!-- Accent bar -->
           <div style="height:3px;background:linear-gradient(90deg,${typeColor},${typeColor}55);flex-shrink:0;"></div>
           <div style="padding:16px;flex:1;display:flex;flex-direction:column;gap:12px;">
@@ -5652,6 +5679,7 @@
                 <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:4px;">
                   <span style="background:${typeBg};color:${typeColor};padding:2px 9px;border-radius:20px;font-size:0.69rem;font-weight:700;border:1px solid ${typeColor}33;">${typeLabel}</span>
                   <span style="background:${v.isOpen ? '#D1FAE5' : '#FEE2E2'};color:${v.isOpen ? '#065F46' : '#991B1B'};padding:2px 9px;border-radius:20px;font-size:0.69rem;font-weight:700;">${v.isOpen ? 'مفتوح' : 'مغلق'}</span>
+                  ${regStatus !== 'active' ? `<span style="background:${regStatusCfg.bg};color:${regStatusCfg.color};border:1px solid ${regStatusCfg.border};padding:2px 9px;border-radius:20px;font-size:0.69rem;font-weight:700;">${regStatusCfg.label}</span>` : ''}
                   ${v.cuisine ? `<span style="background:#F9FAFB;color:#6B7280;padding:2px 8px;border-radius:20px;font-size:0.69rem;border:1px solid #E5E7EB;">${escapeHtml(v.cuisine)}</span>` : ''}
                 </div>
                 ${v.location ? `<div style="font-size:0.71rem;color:#9CA3AF;display:flex;align-items:center;gap:3px;overflow:hidden;"><i data-lucide="map-pin" style="width:10px;height:10px;flex-shrink:0;"></i><span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(v.location)}</span></div>` : ''}
@@ -5751,6 +5779,42 @@
           showToast('success', newIsOpen ? 'تم الفتح' : 'تم الإغلاق', `${vendorsList.find(x=>x.id===id)?.name || ''} - ${newIsOpen ? 'مفتوح الآن' : 'مغلق الآن'}`);
         }
       } catch { showToast('error', 'خطأ', 'تعذّر تغيير الحالة'); }
+    }
+
+    // ── Vendor Approval ──────────────────────────────────────────
+    async function approveVendor(id, name) {
+      if (!confirm(`هل تريد الموافقة على تسجيل "${name}"؟`)) return;
+      try {
+        const res = await fetch(`${API_BASE}/admin/vendor-partners/${id}/status`, {
+          method: 'PUT', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status: 'active' }),
+        });
+        if (res.ok) {
+          showToast('success', 'تمت الموافقة', `تم تفعيل "${name}" بنجاح`);
+          loadVendors();
+        } else {
+          const err = await res.json().catch(() => ({}));
+          showToast('error', 'خطأ', err.error || 'فشلت العملية');
+        }
+      } catch { showToast('error', 'خطأ', 'تعذّر الاتصال بالخادم'); }
+    }
+
+    async function rejectVendor(id, name) {
+      const reason = prompt(`سبب رفض تسجيل "${name}" (اختياري):`);
+      if (reason === null) return;
+      try {
+        const res = await fetch(`${API_BASE}/admin/vendor-partners/${id}/status`, {
+          method: 'PUT', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status: 'rejected', reason: reason.trim() }),
+        });
+        if (res.ok) {
+          showToast('success', 'تم الرفض', `تم رفض تسجيل "${name}"`);
+          loadVendors();
+        } else {
+          const err = await res.json().catch(() => ({}));
+          showToast('error', 'خطأ', err.error || 'فشلت العملية');
+        }
+      } catch { showToast('error', 'خطأ', 'تعذّر الاتصال بالخادم'); }
     }
 
     // ── Drag-and-drop state ──────────────────────────────────────
