@@ -6,7 +6,7 @@ import multer from "multer";
 import sharp from "sharp";
 import * as crypto from "crypto";
 import * as path from "path";
-import { getFirestore, getUserPushToken, getAdminPushToken, uploadToFirebaseStorage } from "./firebase";
+import { getFirestore, getUserPushToken, getAdminPushToken, uploadToFirebaseStorage, deleteFromFirebaseStorage } from "./firebase";
 import { sendVendorStatusNotification, sendVendorProductNotification, sendPushNotification, sendAdminOrderReadyNotification } from "./pushNotifications";
 
 const router = express.Router();
@@ -385,6 +385,14 @@ router.post(
       if (!db) return res.status(500).json({ error: "قاعدة البيانات غير متاحة" });
       const vid = (req as any).vendorId;
       const files = req.files as Record<string, Express.Multer.File[]>;
+
+      // Read old URLs BEFORE uploading new images so we can clean up afterwards.
+      // This is the only extra Firestore read — reused for the response too.
+      const existingDoc = await db.collection("vendors").doc(vid).get();
+      const existingData = existingDoc.exists ? (existingDoc.data() as any) : {};
+      const oldLogoUrl: string = existingData?.profileImageUrl ?? "";
+      const oldCoverUrl: string = existingData?.coverImageUrl ?? "";
+
       const updates: any = { updatedAt: new Date().toISOString() };
 
       if (files?.profileImage?.[0]) {
@@ -402,6 +410,15 @@ router.post(
       const doc = await db.collection("vendors").doc(vid).get();
       const { passwordHash: _pw, ...safe } = doc.data() as any;
       res.json(safe);
+
+      // Fire-and-forget: delete old images from Storage only after successful Firestore update.
+      // Each URL is unique (contains vendorId + type + timestamp) so no cross-reference check needed.
+      if (updates.profileImageUrl && oldLogoUrl && oldLogoUrl !== updates.profileImageUrl) {
+        deleteFromFirebaseStorage(oldLogoUrl).catch(() => {});
+      }
+      if (updates.coverImageUrl && oldCoverUrl && oldCoverUrl !== updates.coverImageUrl) {
+        deleteFromFirebaseStorage(oldCoverUrl).catch(() => {});
+      }
     } catch (err) {
       console.error("profile images:", err);
       res.status(500).json({ error: "حدث خطأ في الخادم" });
@@ -608,6 +625,8 @@ router.put(
         return res.status(400).json({ error: "الحد الأقصى للصور هو 5 صور" });
       }
 
+      // Compute URLs that will be removed from the product (Storage cleanup candidates)
+      let removedUrls: string[] = [];
       if (uploadedFiles.length > 0 || existingImages !== undefined) {
         const { imageUrls: newUrls } = await processUploadedImages(uploadedFiles);
         const allUrls = [...keptImages, ...newUrls];
@@ -615,11 +634,34 @@ router.put(
           updates.imageUrls = allUrls;
           updates.imageUrl = allUrls[0];
         }
+        // URLs that existed before but won't be in the new list
+        removedUrls = storedUrls.filter((url) => !allUrls.includes(url));
       }
 
       await db.collection("vendorProducts").doc(pid).update(updates);
 
       res.json({ success: true, message: "تم حفظ التعديلات بنجاح" });
+
+      // Fire-and-forget: clean up Storage files that are no longer used by this product.
+      // Only delete a URL if no other vendorProduct still references it (hash deduplication
+      // means two products may share the same Storage file).
+      if (removedUrls.length > 0) {
+        (async () => {
+          for (const url of removedUrls) {
+            if (!url.startsWith("https://firebasestorage.googleapis.com/")) continue;
+            try {
+              const refSnap = await db!
+                .collection("vendorProducts")
+                .where("imageUrls", "array-contains", url)
+                .limit(1)
+                .get();
+              if (refSnap.empty) {
+                await deleteFromFirebaseStorage(url);
+              }
+            } catch { /* log nothing — best-effort only */ }
+          }
+        })().catch(() => {});
+      }
     } catch (err) {
       for (const f of uploadedFiles) await cleanTemp(f.path);
       console.error("update product:", err);

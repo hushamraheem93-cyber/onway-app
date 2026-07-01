@@ -457,6 +457,7 @@ async function updateCategory(id, updates) {
   if (!db) return null;
   try {
     const docRef = db.collection("categories").doc(id);
+    const oldImageUrl = updates.image ? (await docRef.get()).data()?.image ?? "" : "";
     const filteredUpdates = {};
     Object.entries(updates).forEach(([key, value]) => {
       if (value !== void 0) {
@@ -466,6 +467,10 @@ async function updateCategory(id, updates) {
     await docRef.update(filteredUpdates);
     const doc = await docRef.get();
     if (!doc.exists) return null;
+    if (oldImageUrl && updates.image && oldImageUrl !== updates.image) {
+      deleteFromFirebaseStorage2(oldImageUrl).catch(() => {
+      });
+    }
     return { id: doc.id, ...doc.data() };
   } catch (error) {
     console.error("Error updating category:", error);
@@ -627,6 +632,7 @@ async function updateBanner(id, updates) {
   if (!db) return null;
   try {
     const docRef = db.collection("banners").doc(id);
+    const oldImageUrl = updates.image ? (await docRef.get()).data()?.image ?? "" : "";
     const filteredUpdates = {};
     Object.entries(updates).forEach(([key, value]) => {
       if (value !== void 0) {
@@ -636,6 +642,10 @@ async function updateBanner(id, updates) {
     await docRef.update(filteredUpdates);
     const doc = await docRef.get();
     if (!doc.exists) return null;
+    if (oldImageUrl && updates.image && oldImageUrl !== updates.image) {
+      deleteFromFirebaseStorage2(oldImageUrl).catch(() => {
+      });
+    }
     return { id: doc.id, ...doc.data() };
   } catch (error) {
     console.error("Error updating banner:", error);
@@ -6807,6 +6817,10 @@ router.post(
       if (!db2) return res.status(500).json({ error: "\u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u063A\u064A\u0631 \u0645\u062A\u0627\u062D\u0629" });
       const vid = req.vendorId;
       const files = req.files;
+      const existingDoc = await db2.collection("vendors").doc(vid).get();
+      const existingData = existingDoc.exists ? existingDoc.data() : {};
+      const oldLogoUrl = existingData?.profileImageUrl ?? "";
+      const oldCoverUrl = existingData?.coverImageUrl ?? "";
       const updates = { updatedAt: (/* @__PURE__ */ new Date()).toISOString() };
       if (files?.profileImage?.[0]) {
         updates.profileImageUrl = await saveProfileImage(files.profileImage[0].buffer, "avatar", vid);
@@ -6821,6 +6835,14 @@ router.post(
       const doc = await db2.collection("vendors").doc(vid).get();
       const { passwordHash: _pw, ...safe } = doc.data();
       res.json(safe);
+      if (updates.profileImageUrl && oldLogoUrl && oldLogoUrl !== updates.profileImageUrl) {
+        deleteFromFirebaseStorage2(oldLogoUrl).catch(() => {
+        });
+      }
+      if (updates.coverImageUrl && oldCoverUrl && oldCoverUrl !== updates.coverImageUrl) {
+        deleteFromFirebaseStorage2(oldCoverUrl).catch(() => {
+        });
+      }
     } catch (err) {
       console.error("profile images:", err);
       res.status(500).json({ error: "\u062D\u062F\u062B \u062E\u0637\u0623 \u0641\u064A \u0627\u0644\u062E\u0627\u062F\u0645" });
@@ -6999,6 +7021,7 @@ router.put(
         for (const f of uploadedFiles) await cleanTemp(f.path);
         return res.status(400).json({ error: "\u0627\u0644\u062D\u062F \u0627\u0644\u0623\u0642\u0635\u0649 \u0644\u0644\u0635\u0648\u0631 \u0647\u0648 5 \u0635\u0648\u0631" });
       }
+      let removedUrls = [];
       if (uploadedFiles.length > 0 || existingImages !== void 0) {
         const { imageUrls: newUrls } = await processUploadedImages(uploadedFiles);
         const allUrls = [...keptImages, ...newUrls];
@@ -7006,9 +7029,25 @@ router.put(
           updates.imageUrls = allUrls;
           updates.imageUrl = allUrls[0];
         }
+        removedUrls = storedUrls.filter((url) => !allUrls.includes(url));
       }
       await db2.collection("vendorProducts").doc(pid).update(updates);
       res.json({ success: true, message: "\u062A\u0645 \u062D\u0641\u0638 \u0627\u0644\u062A\u0639\u062F\u064A\u0644\u0627\u062A \u0628\u0646\u062C\u0627\u062D" });
+      if (removedUrls.length > 0) {
+        (async () => {
+          for (const url of removedUrls) {
+            if (!url.startsWith("https://firebasestorage.googleapis.com/")) continue;
+            try {
+              const refSnap = await db2.collection("vendorProducts").where("imageUrls", "array-contains", url).limit(1).get();
+              if (refSnap.empty) {
+                await deleteFromFirebaseStorage2(url);
+              }
+            } catch {
+            }
+          }
+        })().catch(() => {
+        });
+      }
     } catch (err) {
       for (const f of uploadedFiles) await cleanTemp(f.path);
       console.error("update product:", err);

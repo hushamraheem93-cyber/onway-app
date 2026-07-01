@@ -660,20 +660,25 @@ export async function createCategory(data: {
 
 export async function updateCategory(id: string, updates: Partial<FirestoreCategory>): Promise<(FirestoreCategory & { id: string }) | null> {
   if (!db) return null;
-  
   try {
     const docRef = db.collection("categories").doc(id);
+    // Read old image URL only if we're replacing it — one targeted read
+    const oldImageUrl: string = updates.image
+      ? ((await docRef.get()).data() as any)?.image ?? ""
+      : "";
     const filteredUpdates: Record<string, any> = {};
-    
     Object.entries(updates).forEach(([key, value]) => {
       if (value !== undefined) {
         filteredUpdates[key] = value;
       }
     });
-    
     await docRef.update(filteredUpdates);
     const doc = await docRef.get();
     if (!doc.exists) return null;
+    // Fire-and-forget: delete old category image from Storage after successful update
+    if (oldImageUrl && updates.image && oldImageUrl !== updates.image) {
+      deleteFromFirebaseStorage(oldImageUrl).catch(() => {});
+    }
     return { id: doc.id, ...doc.data() as FirestoreCategory };
   } catch (error) {
     console.error("Error updating category:", error);
@@ -909,6 +914,10 @@ export async function updateBanner(id: string, updates: Partial<FirestoreBanner>
   if (!db) return null;
   try {
     const docRef = db.collection("banners").doc(id);
+    // Read old image URL only if we're replacing it — one targeted read
+    const oldImageUrl: string = updates.image
+      ? ((await docRef.get()).data() as any)?.image ?? ""
+      : "";
     const filteredUpdates: Record<string, any> = {};
     Object.entries(updates).forEach(([key, value]) => {
       if (value !== undefined) {
@@ -918,6 +927,10 @@ export async function updateBanner(id: string, updates: Partial<FirestoreBanner>
     await docRef.update(filteredUpdates);
     const doc = await docRef.get();
     if (!doc.exists) return null;
+    // Fire-and-forget: delete old banner image from Storage after successful update
+    if (oldImageUrl && updates.image && oldImageUrl !== updates.image) {
+      deleteFromFirebaseStorage(oldImageUrl).catch(() => {});
+    }
     return { id: doc.id, ...doc.data() as FirestoreBanner };
   } catch (error) {
     console.error("Error updating banner:", error);
