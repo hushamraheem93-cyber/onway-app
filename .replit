@@ -8,7 +8,7 @@ packages = ["vips", "zip"]
 [deployment]
 deploymentTarget = "vm"
 build = ["npm", "run", "server:build"]
-run = ["npm", "run", "server:prod"]
+run = ["node", "server_dist/index.js"]
 
 [env]
 PORT = "5000"
