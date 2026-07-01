@@ -2456,6 +2456,10 @@
           <p>إدارة ومراجعة طلبات سائقي التوصيل</p>
         </div>
         <div class="header-actions">
+          <button class="btn btn-primary" onclick="openAddDriverModal()" style="gap:6px;">
+            <i data-lucide="user-plus" style="width:16px;height:16px;"></i>
+            إضافة سائق
+          </button>
           <button class="btn btn-outline" onclick="doRefresh(this, loadDrivers, 'السائقين')">
             <i data-lucide="refresh-cw"></i>
             تحديث
@@ -2464,6 +2468,26 @@
       </header>
 
       <div class="content">
+        <!-- Stats Row -->
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:20px;">
+          <div class="stat-card" style="border-right:4px solid var(--primary);">
+            <div class="stat-card-title">إجمالي المسجلين</div>
+            <div class="stat-card-value" id="driver-stat-total">0</div>
+          </div>
+          <div class="stat-card" style="border-right:4px solid var(--success);">
+            <div class="stat-card-title">مقبولون</div>
+            <div class="stat-card-value" id="driver-stat-approved" style="color:var(--success);">0</div>
+          </div>
+          <div class="stat-card" style="border-right:4px solid var(--warning);">
+            <div class="stat-card-title">قيد المراجعة</div>
+            <div class="stat-card-value" id="driver-stat-pending" style="color:var(--warning);">0</div>
+          </div>
+          <div class="stat-card" style="border-right:4px solid var(--danger);">
+            <div class="stat-card-title">مرفوضون</div>
+            <div class="stat-card-value" id="driver-stat-rejected" style="color:var(--danger);">0</div>
+          </div>
+        </div>
+
         <div class="drivers-filters" style="display: flex; gap: 12px; margin-bottom: 20px; flex-wrap: wrap;">
           <button class="btn btn-outline driver-filter active" data-status="all" onclick="filterDrivers('all', this)">الكل</button>
           <button class="btn btn-outline driver-filter" data-status="pending" onclick="filterDrivers('pending', this)">قيد المراجعة</button>
@@ -2472,6 +2496,87 @@
         </div>
 
         <div id="drivers-list"></div>
+      </div>
+    </div>
+
+    <!-- Add Driver Modal -->
+    <div id="add-driver-modal" class="modal-overlay" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:9000;overflow-y:auto;align-items:flex-start;justify-content:center;padding:40px 20px;">
+      <div style="background:white;border-radius:16px;padding:28px;max-width:560px;width:100%;margin:auto;position:relative;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:22px;">
+          <h3 style="margin:0;font-size:1.1rem;font-weight:700;color:var(--gray-800);display:flex;align-items:center;gap:8px;">
+            <i data-lucide="user-plus" style="width:18px;height:18px;color:var(--primary);"></i>
+            إضافة سائق جديد
+          </h3>
+          <button onclick="closeAddDriverModal()" style="background:none;border:none;cursor:pointer;padding:4px;">
+            <i data-lucide="x" style="width:20px;height:20px;color:var(--gray-500);"></i>
+          </button>
+        </div>
+        <p style="font-size:0.85rem;color:var(--gray-500);margin-bottom:20px;margin-top:-10px;">يمكنك إضافة السائق يدوياً من هنا. السائق يمكنه أيضاً التسجيل بنفسه عبر التطبيق.</p>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;">
+          <div>
+            <label style="display:block;font-size:0.82rem;font-weight:600;color:var(--gray-700);margin-bottom:6px;">الاسم الأول *</label>
+            <input id="add-driver-first" type="text" class="form-input" placeholder="الاسم الأول" style="width:100%;" />
+          </div>
+          <div>
+            <label style="display:block;font-size:0.82rem;font-weight:600;color:var(--gray-700);margin-bottom:6px;">اسم الأب *</label>
+            <input id="add-driver-second" type="text" class="form-input" placeholder="اسم الأب" style="width:100%;" />
+          </div>
+          <div>
+            <label style="display:block;font-size:0.82rem;font-weight:600;color:var(--gray-700);margin-bottom:6px;">اسم الجد *</label>
+            <input id="add-driver-third" type="text" class="form-input" placeholder="اسم الجد" style="width:100%;" />
+          </div>
+          <div>
+            <label style="display:block;font-size:0.82rem;font-weight:600;color:var(--gray-700);margin-bottom:6px;">اسم العائلة *</label>
+            <input id="add-driver-fourth" type="text" class="form-input" placeholder="اسم العائلة" style="width:100%;" />
+          </div>
+        </div>
+
+        <div style="margin-bottom:14px;">
+          <label style="display:block;font-size:0.82rem;font-weight:600;color:var(--gray-700);margin-bottom:6px;">رقم الهاتف *</label>
+          <input id="add-driver-phone" type="text" class="form-input" placeholder="07XXXXXXXXX" style="width:100%;direction:ltr;text-align:right;" />
+        </div>
+
+        <div style="margin-bottom:20px;">
+          <label style="display:block;font-size:0.82rem;font-weight:600;color:var(--gray-700);margin-bottom:6px;">رقم الدراجة / السيارة</label>
+          <input id="add-driver-motorcycle" type="text" class="form-input" placeholder="رقم اللوحة" style="width:100%;" />
+        </div>
+
+        <!-- Documents -->
+        <div style="border-top:1px solid var(--gray-200);padding-top:18px;margin-bottom:20px;">
+          <p style="font-size:0.88rem;font-weight:700;color:var(--gray-700);margin-bottom:14px;">الوثائق (اختياري — يمكن الإضافة لاحقاً)</p>
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;">
+            <div>
+              <label style="display:block;font-size:0.78rem;font-weight:600;color:var(--gray-600);margin-bottom:6px;">البطاقة الوطنية</label>
+              <div id="add-driver-national-preview" style="width:100%;height:80px;border:2px dashed var(--gray-300);border-radius:8px;display:flex;align-items:center;justify-content:center;cursor:pointer;background:var(--gray-50);overflow:hidden;" onclick="document.getElementById('add-driver-national-input').click()">
+                <span style="font-size:0.72rem;color:var(--gray-400);text-align:center;">اضغط لرفع<br>صورة</span>
+              </div>
+              <input id="add-driver-national-input" type="file" accept="image/*" style="display:none;" onchange="previewAddDriverDoc(this,'add-driver-national-preview','nationalId')" />
+            </div>
+            <div>
+              <label style="display:block;font-size:0.78rem;font-weight:600;color:var(--gray-600);margin-bottom:6px;">بطاقة السكن</label>
+              <div id="add-driver-residence-preview" style="width:100%;height:80px;border:2px dashed var(--gray-300);border-radius:8px;display:flex;align-items:center;justify-content:center;cursor:pointer;background:var(--gray-50);overflow:hidden;" onclick="document.getElementById('add-driver-residence-input').click()">
+                <span style="font-size:0.72rem;color:var(--gray-400);text-align:center;">اضغط لرفع<br>صورة</span>
+              </div>
+              <input id="add-driver-residence-input" type="file" accept="image/*" style="display:none;" onchange="previewAddDriverDoc(this,'add-driver-residence-preview','residenceCard')" />
+            </div>
+            <div>
+              <label style="display:block;font-size:0.78rem;font-weight:600;color:var(--gray-600);margin-bottom:6px;">إجازة السوق</label>
+              <div id="add-driver-license-preview" style="width:100%;height:80px;border:2px dashed var(--gray-300);border-radius:8px;display:flex;align-items:center;justify-content:center;cursor:pointer;background:var(--gray-50);overflow:hidden;" onclick="document.getElementById('add-driver-license-input').click()">
+                <span style="font-size:0.72rem;color:var(--gray-400);text-align:center;">اضغط لرفع<br>صورة</span>
+              </div>
+              <input id="add-driver-license-input" type="file" accept="image/*" style="display:none;" onchange="previewAddDriverDoc(this,'add-driver-license-preview','driverLicense')" />
+            </div>
+          </div>
+        </div>
+
+        <div style="display:flex;gap:10px;justify-content:flex-end;">
+          <button class="btn btn-outline" onclick="closeAddDriverModal()">إلغاء</button>
+          <button class="btn btn-primary" id="add-driver-submit-btn" onclick="submitAddDriver()" style="min-width:120px;">
+            <i data-lucide="user-plus" style="width:15px;height:15px;"></i>
+            إضافة السائق
+          </button>
+        </div>
       </div>
     </div>
 
@@ -7331,7 +7436,11 @@
         drivers = await driversRes.json();
         const statsData = await statsRes.json();
         driverStats = statsData.stats || {};
-        document.getElementById('drivers-count').textContent = drivers.filter(d => d.status === 'pending').length;
+        document.getElementById('drivers-count').textContent = drivers.length;
+        document.getElementById('driver-stat-total').textContent = drivers.length;
+        document.getElementById('driver-stat-approved').textContent = drivers.filter(d => d.status === 'approved').length;
+        document.getElementById('driver-stat-pending').textContent = drivers.filter(d => d.status === 'pending').length;
+        document.getElementById('driver-stat-rejected').textContent = drivers.filter(d => d.status === 'rejected').length;
         renderDrivers();
       } catch (error) {
         showToast('error', 'خطأ', 'حدث خطأ في تحميل السائقين');
@@ -7343,6 +7452,103 @@
       document.querySelectorAll('.driver-filter').forEach(btn => btn.classList.remove('active'));
       element.classList.add('active');
       renderDrivers();
+    }
+
+    // ── Add Driver Modal ─────────────────────────────────────────────────────
+    const addDriverDocs = { nationalId: null, residenceCard: null, driverLicense: null };
+
+    function openAddDriverModal() {
+      ['add-driver-first','add-driver-second','add-driver-third','add-driver-fourth','add-driver-phone','add-driver-motorcycle'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.value = '';
+      });
+      addDriverDocs.nationalId = null;
+      addDriverDocs.residenceCard = null;
+      addDriverDocs.driverLicense = null;
+      ['add-driver-national-preview','add-driver-residence-preview','add-driver-license-preview'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.innerHTML = '<span style="font-size:0.72rem;color:var(--gray-400);text-align:center;">اضغط لرفع<br>صورة</span>';
+      });
+      const modal = document.getElementById('add-driver-modal');
+      modal.style.display = 'flex';
+      lucide.createIcons();
+    }
+
+    function closeAddDriverModal() {
+      document.getElementById('add-driver-modal').style.display = 'none';
+    }
+
+    function previewAddDriverDoc(input, previewId, docKey) {
+      const file = input.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        addDriverDocs[docKey] = e.target.result;
+        const preview = document.getElementById(previewId);
+        preview.innerHTML = `<img src="${e.target.result}" style="width:100%;height:100%;object-fit:cover;" />`;
+      };
+      reader.readAsDataURL(file);
+    }
+
+    async function submitAddDriver() {
+      const first = document.getElementById('add-driver-first').value.trim();
+      const second = document.getElementById('add-driver-second').value.trim();
+      const third = document.getElementById('add-driver-third').value.trim();
+      const fourth = document.getElementById('add-driver-fourth').value.trim();
+      const phone = document.getElementById('add-driver-phone').value.trim();
+      const motorcycle = document.getElementById('add-driver-motorcycle').value.trim();
+
+      if (!first || !second || !third || !fourth) {
+        showToast('error', 'خطأ', 'يرجى إدخال الاسم الرباعي كاملاً');
+        return;
+      }
+      if (!phone || phone.length < 10) {
+        showToast('error', 'خطأ', 'يرجى إدخال رقم هاتف صحيح');
+        return;
+      }
+      if (!addDriverDocs.nationalId) {
+        showToast('error', 'خطأ', 'يرجى رفع صورة البطاقة الوطنية');
+        return;
+      }
+
+      const btn = document.getElementById('add-driver-submit-btn');
+      btn.disabled = true;
+      btn.innerHTML = '<span style="display:flex;align-items:center;gap:6px;"><span class="spinner" style="width:14px;height:14px;border-width:2px;"></span>جاري الإضافة...</span>';
+
+      try {
+        const fullName = [first, second, third, fourth].join(' ');
+        const res = await fetch(API_BASE + '/drivers', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            phoneNumber: phone,
+            fullName,
+            firstName: first,
+            secondName: second,
+            thirdName: third,
+            fourthName: fourth,
+            motorcycleNumber: motorcycle || undefined,
+            nationalIdImage: addDriverDocs.nationalId,
+            residenceCardImage: addDriverDocs.residenceCard || undefined,
+            driverLicenseImage: addDriverDocs.driverLicense || undefined,
+          }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'فشل في إضافة السائق');
+        if (data.alreadyRegistered) {
+          showToast('warning', 'تنبيه', 'هذا الرقم مسجل مسبقاً في النظام');
+        } else {
+          showToast('success', 'تم', `تم إضافة السائق ${fullName} بنجاح`);
+        }
+        closeAddDriverModal();
+        await loadDrivers();
+      } catch (e) {
+        showToast('error', 'خطأ', e.message);
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<i data-lucide="user-plus" style="width:15px;height:15px;"></i> إضافة السائق';
+        lucide.createIcons();
+      }
     }
 
     function getDriverStatusColor(status) {
