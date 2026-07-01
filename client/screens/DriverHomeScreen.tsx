@@ -497,7 +497,10 @@ export default function DriverHomeScreen() {
       <View style={styles.earningsStripDivider} />
       <View style={styles.earningsStripItem}>
         <ThemedText type="small" style={styles.earningsStripLabel}>المستحق</ThemedText>
-        <ThemedText type="h3" style={[styles.earningsStripValue, amountOwed >= 50000 ? { color: AppColors.errorLight } : amountOwed > 0 ? { color: AppColors.warningLight ?? AppColors.white } : null]}>
+        <ThemedText type="h3" style={[styles.earningsStripValue,
+          amountOwed >= 50000 ? { color: AppColors.errorLight } :
+          amountOwed >= 40000 ? { color: AppColors.secondary } :
+          amountOwed >= 30000 ? { color: AppColors.warningLight } : null]}>
           {formatPrice(amountOwed)}
         </ThemedText>
       </View>
@@ -523,16 +526,23 @@ export default function DriverHomeScreen() {
       </ThemedText>
       {amountOwed >= 50000 ? (
         <View style={[styles.walletWarningBanner, { backgroundColor: AppColors.errorLight }]}>
-          <Feather name="alert-circle" size={14} color={AppColors.error} />
+          <Feather name="x-circle" size={14} color={AppColors.error} />
           <ThemedText type="small" style={{ color: AppColors.error, flex: 1, textAlign: "right", marginRight: 4 }}>
-            تجاوزت الحد — المستحق {formatPrice(amountOwed)} — تواصل مع الإدارة
+            الحساب موقوف — المستحق {formatPrice(amountOwed)} — تواصل مع الإدارة فوراً
           </ThemedText>
         </View>
-      ) : amountOwed > 0 ? (
+      ) : amountOwed >= 40000 ? (
         <View style={[styles.walletWarningBanner, { backgroundColor: AppColors.secondary }]}>
           <Feather name="alert-triangle" size={14} color={AppColors.primary} />
           <ThemedText type="small" style={{ color: AppColors.primary, flex: 1, textAlign: "right", marginRight: 4 }}>
-            مستحق للإدارة: {formatPrice(amountOwed)}
+            المستحقات مرتفعة {formatPrice(amountOwed)} — سارع للتسوية
+          </ThemedText>
+        </View>
+      ) : amountOwed >= 30000 ? (
+        <View style={[styles.walletWarningBanner, { backgroundColor: AppColors.warningLight }]}>
+          <Feather name="alert-circle" size={14} color={AppColors.warning} />
+          <ThemedText type="small" style={{ color: AppColors.warning, flex: 1, textAlign: "right", marginRight: 4 }}>
+            توجد مستحقات {formatPrice(amountOwed)} — يُطلب التسوية
           </ThemedText>
         </View>
       ) : null}
@@ -755,21 +765,30 @@ export default function DriverHomeScreen() {
     </View>
   );
 
-  // ── Amount owed warning ──────────────────────────────────────────────────────
+  // ── Amount owed warning (shown while online) ─────────────────────────────────
   const renderWalletWarning = () => {
-    if (amountOwed < 50000) return null;
+    if (amountOwed < 30000) return null;
+    const isBlocked   = amountOwed >= 50000;
+    const isHigh      = amountOwed >= 40000;
+    const cardBg      = isBlocked ? AppColors.errorLight : isHigh ? AppColors.secondary : AppColors.warningLight;
+    const textColor   = isBlocked ? AppColors.error : isHigh ? AppColors.primary : AppColors.warning;
+    const iconName: keyof typeof Feather.glyphMap = isBlocked ? "x-circle" : isHigh ? "alert-triangle" : "alert-circle";
+    const title       = isBlocked ? "الحساب موقوف" : isHigh ? "المستحقات مرتفعة" : "توجد مستحقات";
+    const subtitle    = isBlocked
+      ? `المستحق ${formatPrice(amountOwed)} — تواصل فوراً`
+      : isHigh
+      ? `${formatPrice(amountOwed)} — سارع للتسوية قبل الحجب`
+      : `${formatPrice(amountOwed)} — يُطلب التسوية`;
     return (
-      <View style={[styles.walletAlertCard, { backgroundColor: AppColors.errorLight }, Shadows.sm]}>
+      <View style={[styles.walletAlertCard, { backgroundColor: cardBg }, Shadows.sm]}>
         <View style={styles.walletAlertRow}>
-          <Feather name="alert-circle" size={18} color={AppColors.error} />
+          <Feather name={iconName} size={18} color={textColor} />
           <View style={{ flex: 1, alignItems: "flex-end" }}>
-            <ThemedText type="body" style={{ color: AppColors.error, fontWeight: FontWeight.bold }}>تجاوزت الحد المسموح</ThemedText>
-            <ThemedText type="small" style={{ color: AppColors.error }}>
-              المستحق {formatPrice(amountOwed)} — يجب تسوية الحساب أولاً
-            </ThemedText>
+            <ThemedText type="body" style={{ color: textColor, fontWeight: FontWeight.bold }}>{title}</ThemedText>
+            <ThemedText type="small" style={{ color: textColor }}>{subtitle}</ThemedText>
           </View>
         </View>
-        <Pressable onPress={handleWhatsAppSupport} style={styles.whatsappBtn} testID="button-whatsapp-support">
+        <Pressable onPress={handleWhatsAppSupport} style={[styles.whatsappBtn, { backgroundColor: textColor }]} testID="button-whatsapp-support">
           <Feather name="message-circle" size={18} color={AppColors.white} />
           <ThemedText type="body" style={{ color: AppColors.white, fontWeight: FontWeight.bold }}>تواصل مع الإدارة عبر واتساب</ThemedText>
         </Pressable>

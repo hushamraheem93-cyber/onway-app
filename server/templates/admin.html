@@ -422,6 +422,20 @@
       background: rgba(217,69,35,0.04);
     }
 
+    .df-pill {
+      padding: 5px 14px;
+      border-radius: 20px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      border: 1.5px solid var(--gray-300);
+      background: transparent;
+      color: var(--gray-600);
+      cursor: pointer;
+      transition: all 0.15s;
+      font-family: inherit;
+    }
+    .df-pill:hover  { border-color: var(--primary); color: var(--primary); }
+    .df-pill.active { background: var(--primary); border-color: var(--primary); color: #fff; }
     .btn-sm {
       padding: 8px 14px;
       font-size: 0.8rem;
@@ -2503,12 +2517,30 @@
           <h2>الحسابات المالية</h2>
           <p>عمولات أونوي المستحقة على السائقين وسجل المدفوعات</p>
         </div>
-        <div class="header-actions">
+        <div class="header-actions" style="display:flex;gap:8px;flex-wrap:wrap;">
           <button class="btn btn-outline" onclick="doRefresh(this, loadDriverFinancial, 'الحسابات المالية')">
             <i data-lucide="refresh-cw"></i> تحديث
           </button>
+          <button class="btn btn-outline" onclick="exportDriverFinancialCSV()" style="color:#10B981;border-color:#10B981;">
+            <i data-lucide="download"></i> تصدير Excel
+          </button>
+          <button class="btn btn-outline" onclick="printDriverFinancial()" style="color:#6366F1;border-color:#6366F1;">
+            <i data-lucide="printer"></i> طباعة
+          </button>
         </div>
       </header>
+      <!-- Search + Filter bar -->
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:16px;">
+        <input type="text" id="df-search" class="form-input" placeholder="بحث بالاسم أو الهاتف..." oninput="applyDriverFinancialFilter()"
+          style="flex:1;min-width:180px;max-width:280px;padding:8px 12px;"/>
+        <div id="df-filter-pills" style="display:flex;gap:6px;flex-wrap:wrap;">
+          <button class="df-pill active" data-filter="all"      onclick="setDFFilter('all',this)">الكل</button>
+          <button class="df-pill"        data-filter="healthy"  onclick="setDFFilter('healthy',this)">سليم</button>
+          <button class="df-pill"        data-filter="owed"     onclick="setDFFilter('owed',this)">مستحقات</button>
+          <button class="df-pill"        data-filter="high"     onclick="setDFFilter('high',this)">مرتفعة</button>
+          <button class="df-pill"        data-filter="blocked"  onclick="setDFFilter('blocked',this)">موقوف</button>
+        </div>
+      </div>
       <div id="driver-financial-list">
         <div class="loading"><div class="spinner"></div></div>
       </div>
@@ -3987,12 +4019,102 @@
     // ══════════════════════════════════════════════════════════════
     //  DRIVER FINANCIAL SECTION
     // ══════════════════════════════════════════════════════════════
+    let allDriverAccounts = [];
+    let dfActiveFilter = 'all';
+
+    function dfStatusInfo(owed) {
+      if (owed >= 50000) return { label:'موقوف',    bg:'#FEE2E2', color:'#EF4444' };
+      if (owed >= 40000) return { label:'مرتفعة',   bg:'#FFF2EC', color:'#FF7622' };
+      if (owed >= 30000) return { label:'مستحقات',  bg:'#FEF3C7', color:'#D97706' };
+      return               { label:'سليم',      bg:'#D1FAE5', color:'#065F46' };
+    }
+
+    function renderDriverFinancialTable() {
+      const container = document.getElementById('driver-financial-list');
+      const search    = (document.getElementById('df-search')?.value || '').toLowerCase().trim();
+
+      let filtered = allDriverAccounts.filter(({ driver, account }) => {
+        const owed = account?.amountOwed || 0;
+        // Status filter
+        if (dfActiveFilter === 'healthy')  { if (owed >= 30000) return false; }
+        else if (dfActiveFilter === 'owed') { if (owed < 30000 || owed >= 40000) return false; }
+        else if (dfActiveFilter === 'high') { if (owed < 40000 || owed >= 50000) return false; }
+        else if (dfActiveFilter === 'blocked') { if (owed < 50000) return false; }
+        // Search filter
+        if (search) {
+          const name  = (driver.fullName || '').toLowerCase();
+          const phone = (driver.phoneNumber || '').toLowerCase();
+          if (!name.includes(search) && !phone.includes(search)) return false;
+        }
+        return true;
+      });
+
+      if (filtered.length === 0) {
+        container.querySelector('#df-tbody') && (container.querySelector('#df-tbody').innerHTML =
+          `<tr><td colspan="12" style="text-align:center;padding:32px;color:var(--gray-400);">لا توجد نتائج</td></tr>`);
+        return;
+      }
+
+      const tbody = container.querySelector('#df-tbody');
+      if (!tbody) return;
+      tbody.innerHTML = filtered.map(({ driver, account, stats }) => {
+        const owed       = account?.amountOwed || 0;
+        const paid       = account?.totalPaid || 0;
+        const commission = account?.totalOnwayCommission || 0;
+        const totalEarns = account?.totalEarnings || 0;
+        const lastPay    = account?.lastPaymentDate ? new Date(account.lastPaymentDate).toLocaleDateString('ar-IQ') : '—';
+        const status     = dfStatusInfo(owed);
+        const phone      = escapeHtml(driver.phoneNumber);
+        const name       = escapeHtml(driver.fullName || '—');
+        return `<tr>
+          <td style="font-weight:700;">${name}</td>
+          <td style="direction:ltr;font-size:0.82rem;">${phone}</td>
+          <td style="text-align:center;">${(stats?.totalOrders||0)}</td>
+          <td style="text-align:center;">${(stats?.monthOrders||0)}</td>
+          <td style="color:#10B981;font-weight:600;">${totalEarns.toLocaleString('ar-IQ')} د.ع</td>
+          <td style="color:#10B981;">${(stats?.monthEarnings||0).toLocaleString('ar-IQ')} د.ع</td>
+          <td>${commission.toLocaleString('ar-IQ')} د.ع</td>
+          <td style="color:#10B981;font-weight:600;">${paid.toLocaleString('ar-IQ')} د.ع</td>
+          <td style="color:${status.color};font-weight:700;">${owed.toLocaleString('ar-IQ')} د.ع</td>
+          <td style="font-size:0.82rem;color:var(--gray-500);">${lastPay}</td>
+          <td><span style="padding:3px 10px;border-radius:20px;font-size:0.75rem;font-weight:700;background:${status.bg};color:${status.color};">${status.label}</span></td>
+          <td>
+            <div style="display:flex;gap:5px;flex-wrap:wrap;">
+              <button class="btn btn-sm" style="background:var(--primary);color:#fff;border:none;padding:5px 10px;"
+                onclick="openDriverPayment('${phone}','${name}',${owed})">
+                <i data-lucide="check-circle" style="width:11px;height:11px;"></i> دفعة
+              </button>
+              <button class="btn btn-sm" style="background:#F59E0B;color:#fff;border:none;padding:5px 10px;"
+                onclick="openDriverAdjustment('${phone}','${name}')">
+                <i data-lucide="edit-2" style="width:11px;height:11px;"></i> تعديل
+              </button>
+              <button class="btn btn-sm btn-outline" style="padding:5px 10px;"
+                onclick="openDriverStatement('${phone}','${name}')">
+                <i data-lucide="file-text" style="width:11px;height:11px;"></i> كشف
+              </button>
+            </div>
+          </td>
+        </tr>`;
+      }).join('');
+      lucide.createIcons();
+    }
+
+    function setDFFilter(filter, btn) {
+      dfActiveFilter = filter;
+      document.querySelectorAll('.df-pill').forEach(p => p.classList.remove('active'));
+      btn.classList.add('active');
+      renderDriverFinancialTable();
+    }
+
+    function applyDriverFinancialFilter() { renderDriverFinancialTable(); }
+
     async function loadDriverFinancial() {
       const container = document.getElementById('driver-financial-list');
       container.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
       try {
         const res = await fetch(API_BASE + '/admin/driver-financial');
         const { accounts } = await res.json();
+        allDriverAccounts = accounts || [];
 
         if (!accounts || accounts.length === 0) {
           container.innerHTML = '<div style="text-align:center;padding:40px;color:var(--gray-400);">لا يوجد سائقون معتمدون</div>';
@@ -4003,88 +4125,107 @@
         const totalPaid       = accounts.reduce((s, a) => s + (a.account?.totalPaid || 0), 0);
         const totalCommission = accounts.reduce((s, a) => s + (a.account?.totalOnwayCommission || 0), 0);
         const blockedCount    = accounts.filter(a => (a.account?.amountOwed || 0) >= 50000).length;
+        const highCount       = accounts.filter(a => { const o = a.account?.amountOwed||0; return o >= 40000 && o < 50000; }).length;
 
         container.innerHTML = `
-          <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:24px;">
+          <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:20px;">
             <div class="stat-card" style="border-top:3px solid #EF4444;">
               <div class="stat-card-label">إجمالي المستحق</div>
-              <div class="stat-card-value" style="color:#EF4444;">${totalOwed.toLocaleString('ar-IQ')} د.ع</div>
+              <div class="stat-card-value" style="color:#EF4444;font-size:1.1rem;">${totalOwed.toLocaleString('ar-IQ')} د.ع</div>
             </div>
             <div class="stat-card" style="border-top:3px solid #10B981;">
               <div class="stat-card-label">إجمالي المسدّد</div>
-              <div class="stat-card-value" style="color:#10B981;">${totalPaid.toLocaleString('ar-IQ')} د.ع</div>
+              <div class="stat-card-value" style="color:#10B981;font-size:1.1rem;">${totalPaid.toLocaleString('ar-IQ')} د.ع</div>
             </div>
             <div class="stat-card" style="border-top:3px solid var(--primary);">
               <div class="stat-card-label">إجمالي العمولات</div>
-              <div class="stat-card-value">${totalCommission.toLocaleString('ar-IQ')} د.ع</div>
+              <div class="stat-card-value" style="font-size:1.1rem;">${totalCommission.toLocaleString('ar-IQ')} د.ع</div>
             </div>
             <div class="stat-card" style="border-top:3px solid #F59E0B;">
-              <div class="stat-card-label">سائقون محجوبون</div>
-              <div class="stat-card-value" style="color:#F59E0B;">${blockedCount}</div>
+              <div class="stat-card-label">مستحقات مرتفعة</div>
+              <div class="stat-card-value" style="color:#F59E0B;font-size:1.5rem;">${highCount}</div>
+            </div>
+            <div class="stat-card" style="border-top:3px solid #EF4444;">
+              <div class="stat-card-label">محجوبون</div>
+              <div class="stat-card-value" style="color:#EF4444;font-size:1.5rem;">${blockedCount}</div>
             </div>
           </div>
           <div style="overflow-x:auto;">
-            <table class="table">
+            <table class="table" id="df-main-table">
               <thead><tr>
-                <th>السائق</th><th>الهاتف</th>
-                <th>العمولات الكلية</th><th>المسدّد</th><th>المستحق</th>
-                <th>طلبات الشهر</th><th>أرباح الشهر</th>
-                <th>الحالة</th><th>إجراءات</th>
+                <th>اسم السائق</th><th>رقم الهاتف</th>
+                <th>الطلبات</th><th>طلبات الشهر</th>
+                <th>إجمالي الأرباح</th><th>أرباح الشهر</th>
+                <th>إجمالي العمولات</th><th>إجمالي المسدّد</th><th>المستحق</th>
+                <th>آخر دفعة</th><th>الحالة</th><th>إجراءات</th>
               </tr></thead>
-              <tbody>
-              ${accounts.map(({ driver, account, stats }) => {
-                const owed       = account?.amountOwed || 0;
-                const paid       = account?.totalPaid || 0;
-                const commission = account?.totalOnwayCommission || 0;
-                const blocked    = owed >= 50000;
-                const statusLabel = blocked ? 'محجوب' : owed > 0 ? 'مستحقات' : 'مسوّى';
-                const statusBg    = blocked ? '#FEE2E2' : owed > 0 ? '#FFF8E7' : '#D1FAE5';
-                const statusColor = blocked ? '#EF4444' : owed > 0 ? '#B45309' : '#065F46';
-                const phone = escapeHtml(driver.phoneNumber);
-                const name  = escapeHtml(driver.fullName || '—');
-                return `<tr>
-                  <td style="font-weight:700;">${name}</td>
-                  <td style="direction:ltr;font-size:0.85rem;">${phone}</td>
-                  <td>${commission.toLocaleString('ar-IQ')} د.ع</td>
-                  <td style="color:#10B981;font-weight:700;">${paid.toLocaleString('ar-IQ')} د.ع</td>
-                  <td style="color:${blocked?'#EF4444':owed>0?'#F59E0B':'#6B7280'};font-weight:700;">
-                    ${owed.toLocaleString('ar-IQ')} د.ع
-                  </td>
-                  <td>${(stats?.monthOrders||0)} طلب</td>
-                  <td style="color:#10B981;">${(stats?.monthEarnings||0).toLocaleString('ar-IQ')} د.ع</td>
-                  <td>
-                    <span style="padding:3px 10px;border-radius:20px;font-size:0.75rem;font-weight:700;
-                      background:${statusBg};color:${statusColor};">
-                      ${statusLabel}
-                    </span>
-                  </td>
-                  <td>
-                    <div style="display:flex;gap:6px;flex-wrap:wrap;">
-                      <button class="btn btn-sm" style="background:var(--primary);color:#fff;border:none;"
-                        onclick="openDriverPayment('${phone}','${name}',${owed})">
-                        <i data-lucide="check-circle" style="width:11px;height:11px;"></i> دفعة
-                      </button>
-                      <button class="btn btn-sm" style="background:#F59E0B;color:#fff;border:none;"
-                        onclick="openDriverAdjustment('${phone}','${name}')">
-                        <i data-lucide="edit-2" style="width:11px;height:11px;"></i> تعديل
-                      </button>
-                      <button class="btn btn-sm btn-outline"
-                        onclick="openDriverStatement('${phone}','${name}')">
-                        <i data-lucide="file-text" style="width:11px;height:11px;"></i> كشف
-                      </button>
-                    </div>
-                  </td>
-                </tr>`;
-              }).join('')}
-              </tbody>
+              <tbody id="df-tbody"></tbody>
             </table>
           </div>`;
-        lucide.createIcons();
+        renderDriverFinancialTable();
       } catch (e) {
         container.innerHTML = `<div class="error-msg">${e.message}</div>`;
       }
     }
 
+    // ── Export CSV ────────────────────────────────────────────────────────────
+    function exportDriverFinancialCSV() {
+      if (!allDriverAccounts.length) { showToast('لا توجد بيانات للتصدير', 'error'); return; }
+      const headers = ['اسم السائق','رقم الهاتف','إجمالي الطلبات','طلبات الشهر','إجمالي الأرباح','أرباح الشهر','إجمالي العمولات','إجمالي المسدّد','المستحق','آخر دفعة','الحالة'];
+      const rows = allDriverAccounts.map(({ driver, account, stats }) => {
+        const owed = account?.amountOwed || 0;
+        const status = dfStatusInfo(owed).label;
+        const lastPay = account?.lastPaymentDate ? new Date(account.lastPaymentDate).toLocaleDateString('ar-IQ') : '';
+        return [
+          driver.fullName || '',
+          driver.phoneNumber || '',
+          stats?.totalOrders || 0,
+          stats?.monthOrders || 0,
+          account?.totalEarnings || 0,
+          stats?.monthEarnings || 0,
+          account?.totalOnwayCommission || 0,
+          account?.totalPaid || 0,
+          owed,
+          lastPay,
+          status,
+        ].map(v => `"${String(v).replace(/"/g,'""')}"`).join(',');
+      });
+      const csv = '\uFEFF' + headers.join(',') + '\n' + rows.join('\n');
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const url  = URL.createObjectURL(blob);
+      const a    = document.createElement('a');
+      a.href = url; a.download = `onway-financial-${new Date().toISOString().slice(0,10)}.csv`;
+      a.click(); URL.revokeObjectURL(url);
+    }
+
+    // ── Print table ───────────────────────────────────────────────────────────
+    function printDriverFinancial() {
+      if (!allDriverAccounts.length) { showToast('لا توجد بيانات للطباعة', 'error'); return; }
+      const rows = allDriverAccounts.map(({ driver, account, stats }) => {
+        const owed = account?.amountOwed || 0;
+        const status = dfStatusInfo(owed).label;
+        const lastPay = account?.lastPaymentDate ? new Date(account.lastPaymentDate).toLocaleDateString('ar-IQ') : '—';
+        return `<tr>
+          <td>${escapeHtml(driver.fullName||'')}</td>
+          <td dir="ltr">${escapeHtml(driver.phoneNumber||'')}</td>
+          <td>${stats?.totalOrders||0}</td>
+          <td>${stats?.monthOrders||0}</td>
+          <td>${(account?.totalEarnings||0).toLocaleString('ar-IQ')}</td>
+          <td>${(stats?.monthEarnings||0).toLocaleString('ar-IQ')}</td>
+          <td>${(account?.totalOnwayCommission||0).toLocaleString('ar-IQ')}</td>
+          <td>${(account?.totalPaid||0).toLocaleString('ar-IQ')}</td>
+          <td style="color:${owed>=50000?'#EF4444':owed>=30000?'#D97706':'#065F46'};font-weight:700;">${owed.toLocaleString('ar-IQ')}</td>
+          <td>${lastPay}</td>
+          <td>${status}</td>
+        </tr>`;
+      }).join('');
+      const html = `<html dir="rtl"><head><meta charset="UTF-8"><link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet"><title>الحسابات المالية</title><style>body{font-family:Cairo,sans-serif;padding:20px;}table{width:100%;border-collapse:collapse;}th,td{padding:7px 10px;border:1px solid #ddd;font-size:0.82rem;}th{background:#D94523;color:#fff;}h2{color:#D94523;}tfoot td{font-weight:700;background:#f9fafb;}</style></head><body><h2>OnWay — الحسابات المالية للسائقين</h2><p>تاريخ الطباعة: ${new Date().toLocaleDateString('ar-IQ')} | عدد السائقين: ${allDriverAccounts.length}</p><table><thead><tr><th>اسم السائق</th><th>رقم الهاتف</th><th>الطلبات</th><th>طلبات الشهر</th><th>إجمالي الأرباح</th><th>أرباح الشهر</th><th>إجمالي العمولات</th><th>المسدّد</th><th>المستحق</th><th>آخر دفعة</th><th>الحالة</th></tr></thead><tbody>${rows}</tbody></table><script>window.onload=()=>{window.print();window.close();}<\/script></body></html>`;
+      const w = window.open('','_blank');
+      w.document.write(html);
+      w.document.close();
+    }
+
+    // ── Payment modal ─────────────────────────────────────────────────────────
     function openDriverPayment(phoneNumber, driverName, currentOwed) {
       document.getElementById('dp-phone').value = phoneNumber;
       document.getElementById('driver-payment-modal-title').textContent = `تسجيل دفعة — ${driverName}`;
@@ -4104,8 +4245,7 @@
       btn.disabled = true;
       try {
         const res = await fetch(API_BASE + '/admin/driver-wallet/payment', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ phoneNumber: phone, amount, notes }),
         });
         const data = await res.json();
@@ -4113,13 +4253,12 @@
           showToast(`تم تسجيل الدفعة. المستحق الجديد: ${(data.account?.amountOwed||0).toLocaleString('ar-IQ')} د.ع`, 'success');
           closeModal('driver-payment-modal');
           loadDriverFinancial();
-        } else {
-          showToast(data.error || 'فشل تسجيل الدفعة', 'error');
-        }
+        } else { showToast(data.error || 'فشل تسجيل الدفعة', 'error'); }
       } catch (e) { showToast(e.message, 'error'); }
       finally { btn.disabled = false; }
     }
 
+    // ── Adjustment modal ──────────────────────────────────────────────────────
     function openDriverAdjustment(phoneNumber, driverName) {
       document.getElementById('da-phone').value = phoneNumber;
       document.getElementById('driver-adjust-modal-title').textContent = `تعديل حساب — ${driverName}`;
@@ -4137,8 +4276,7 @@
       if (!amount || amount <= 0) { showToast('أدخل مبلغاً صحيحاً', 'error'); return; }
       try {
         const res = await fetch(API_BASE + '/admin/driver-wallet/adjustment', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ phoneNumber: phone, amount, type, notes }),
         });
         const data = await res.json();
@@ -4146,12 +4284,11 @@
           showToast(`تم التعديل. المستحق الجديد: ${(data.account?.amountOwed||0).toLocaleString('ar-IQ')} د.ع`, 'success');
           closeModal('driver-adjust-modal');
           loadDriverFinancial();
-        } else {
-          showToast(data.error || 'فشل التعديل', 'error');
-        }
+        } else { showToast(data.error || 'فشل التعديل', 'error'); }
       } catch (e) { showToast(e.message, 'error'); }
     }
 
+    // ── Statement modal ───────────────────────────────────────────────────────
     async function openDriverStatement(phoneNumber, driverName) {
       document.getElementById('driver-statement-title').textContent = `كشف حساب — ${driverName}`;
       document.getElementById('driver-statement-body').innerHTML = '<div class="loading"><div class="spinner"></div></div>';
@@ -4160,28 +4297,44 @@
         const res = await fetch(`${API_BASE}/admin/driver-financial/${encodeURIComponent(phoneNumber)}/statement`);
         const { account, transactions } = await res.json();
         const owed = account?.amountOwed || 0;
-        const statusColor = owed >= 50000 ? '#EF4444' : owed > 0 ? '#F59E0B' : '#10B981';
+        const status = dfStatusInfo(owed);
+        const commission = account?.totalOnwayCommission || 0;
+        const paid = account?.totalPaid || 0;
+        const ratio = commission > 0 ? Math.round(Math.min(1, paid/commission)*100) : 100;
         const rows = (transactions || []).map(t => {
           const typeLabel = t.type === 'payment' ? 'دفعة' : t.type === 'adjustment' ? 'تعديل' : t.type === 'commission' ? 'عمولة' : 'أرباح';
           const typeColor = t.type === 'payment' ? '#10B981' : t.type === 'adjustment' ? '#F59E0B' : t.type === 'commission' ? '#EF4444' : '#3B82F6';
-          const date = t.timestamp ? new Date(t.timestamp._seconds ? t.timestamp._seconds * 1000 : t.timestamp).toLocaleString('ar-IQ') : '—';
+          const ts = t.timestamp ? new Date(t.timestamp._seconds ? t.timestamp._seconds * 1000 : t.timestamp) : null;
+          const date = ts ? ts.toLocaleDateString('ar-IQ') : '—';
+          const time = ts ? ts.toLocaleTimeString('ar-IQ', {hour:'2-digit',minute:'2-digit'}) : '';
           return `<tr>
             <td><span style="padding:2px 8px;border-radius:12px;font-size:0.75rem;background:${typeColor}20;color:${typeColor};font-weight:700;">${typeLabel}</span></td>
             <td style="font-weight:700;">${(t.amount||0).toLocaleString('ar-IQ')} د.ع</td>
-            <td>${(t.amountOwedAfter||0).toLocaleString('ar-IQ')} د.ع</td>
+            <td>${t.amountOwedAfter !== undefined ? (t.amountOwedAfter).toLocaleString('ar-IQ') + ' د.ع' : '—'}</td>
             <td style="color:var(--gray-500);font-size:0.8rem;">${escapeHtml(t.description||t.notes||'')}</td>
-            <td style="color:var(--gray-400);font-size:0.8rem;direction:ltr;">${date}</td>
+            <td style="direction:ltr;font-size:0.8rem;color:var(--gray-400);">${date} ${time}</td>
           </tr>`;
         }).join('');
         document.getElementById('driver-statement-body').innerHTML = `
-          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px;">
-            <div class="stat-card"><div class="stat-card-label">إجمالي الأرباح</div><div class="stat-card-value" style="font-size:1rem;">${(account?.totalEarnings||0).toLocaleString('ar-IQ')} د.ع</div></div>
-            <div class="stat-card"><div class="stat-card-label">إجمالي المسدّد</div><div class="stat-card-value" style="font-size:1rem;color:#10B981;">${(account?.totalPaid||0).toLocaleString('ar-IQ')} د.ع</div></div>
-            <div class="stat-card"><div class="stat-card-label">المستحق الحالي</div><div class="stat-card-value" style="font-size:1rem;color:${statusColor};">${owed.toLocaleString('ar-IQ')} د.ع</div></div>
+          <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px;">
+            <div class="stat-card"><div class="stat-card-label">إجمالي الأرباح</div><div class="stat-card-value" style="font-size:0.95rem;">${(account?.totalEarnings||0).toLocaleString('ar-IQ')} د.ع</div></div>
+            <div class="stat-card"><div class="stat-card-label">إجمالي العمولات</div><div class="stat-card-value" style="font-size:0.95rem;color:#EF4444;">${commission.toLocaleString('ar-IQ')} د.ع</div></div>
+            <div class="stat-card"><div class="stat-card-label">إجمالي المسدّد</div><div class="stat-card-value" style="font-size:0.95rem;color:#10B981;">${paid.toLocaleString('ar-IQ')} د.ع</div></div>
+            <div class="stat-card"><div class="stat-card-label">المستحق الحالي</div><div class="stat-card-value" style="font-size:0.95rem;color:${status.color};">${owed.toLocaleString('ar-IQ')} د.ع</div></div>
+          </div>
+          <div style="margin-bottom:16px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+              <span style="font-size:0.8rem;color:var(--gray-500);">نسبة السداد</span>
+              <span style="font-size:0.85rem;font-weight:700;color:${ratio>=80?'#10B981':ratio>=40?'#D97706':'#EF4444'}">${ratio}%</span>
+            </div>
+            <div style="height:8px;border-radius:4px;background:#E5E7EB;overflow:hidden;">
+              <div style="width:${ratio}%;height:100%;background:${ratio>=80?'#10B981':ratio>=40?'#F59E0B':'#EF4444'};border-radius:4px;"></div>
+            </div>
           </div>
           ${rows ? `<div style="overflow-x:auto;"><table class="table"><thead><tr>
-            <th>النوع</th><th>المبلغ</th><th>المستحق بعده</th><th>الوصف</th><th>التاريخ</th>
-          </tr></thead><tbody>${rows}</tbody></table></div>` : '<div style="text-align:center;padding:24px;color:var(--gray-400);">لا توجد معاملات</div>'}`;
+            <th>النوع</th><th>المبلغ</th><th>المستحق بعده</th><th>الوصف</th><th>التاريخ والوقت</th>
+          </tr></thead><tbody>${rows}</tbody></table></div>`
+          : '<div style="text-align:center;padding:24px;color:var(--gray-400);">لا توجد معاملات</div>'}`;
         lucide.createIcons();
       } catch (e) {
         document.getElementById('driver-statement-body').innerHTML = `<div class="error-msg">${e.message}</div>`;

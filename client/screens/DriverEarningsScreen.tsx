@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import {
   StyleSheet,
   View,
@@ -6,6 +6,7 @@ import {
   RefreshControl,
   ActivityIndicator,
   Pressable,
+  TextInput,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
@@ -15,10 +16,11 @@ import { ThemedText } from "@/components/ThemedText";
 import { GradientBackground } from "@/components/GradientBackground";
 import { useTheme } from "@/hooks/useTheme";
 import { useAuth } from "@/context/AuthContext";
-import { AppColors, Spacing, BorderRadius, Shadows, FontWeight} from "@/constants/theme";
+import { AppColors, Spacing, BorderRadius, Shadows, FontWeight } from "@/constants/theme";
 import { getApiUrl } from "@/lib/query-client";
 import { formatPrice } from "@/constants/currency";
 
+// ─── Types ────────────────────────────────────────────────────────────────────
 interface CompletedOrder {
   id: string;
   total: number;
@@ -44,9 +46,12 @@ interface EarningsData {
 interface DriverTransaction {
   id: string;
   amount: number;
-  type: "earning" | "commission" | "payment";
+  type: "earning" | "commission" | "payment" | "adjustment";
+  adjustmentType?: "add" | "deduct";
   description: string;
+  notes?: string;
   orderId?: string;
+  amountOwedAfter?: number;
   timestamp: string;
 }
 
@@ -61,57 +66,90 @@ interface DriverFinancialAccount {
   updatedAt: string;
 }
 
-// ─── Day names (Arabic) ─────────────────────────────────────────────────────
+type TxFilter = "all" | "today" | "week" | "month" | "3months" | "custom";
+type ActiveTab = "earnings" | "wallet" | "report";
+
+// ─── Account status helper ────────────────────────────────────────────────────
+function getAccountStatus(owed: number): {
+  label: string;
+  sublabel: string;
+  color: string;
+  bgColor: string;
+  icon: keyof typeof Feather.glyphMap;
+} {
+  if (owed >= 50000)
+    return {
+      label: "الحساب موقوف",
+      sublabel: "تواصل مع الإدارة فوراً لتسوية الحساب",
+      color: AppColors.error,
+      bgColor: AppColors.errorLight,
+      icon: "x-circle",
+    };
+  if (owed >= 40000)
+    return {
+      label: "المستحقات مرتفعة",
+      sublabel: `تجاوزت ${formatPrice(40000)} — سارع للتسوية قبل الحجب`,
+      color: AppColors.primary,
+      bgColor: AppColors.secondary,
+      icon: "alert-triangle",
+    };
+  if (owed >= 30000)
+    return {
+      label: "توجد مستحقات",
+      sublabel: `${formatPrice(owed)} مستحق — يُطلب التسوية قبل تجاوز ${formatPrice(50000)}`,
+      color: AppColors.warning,
+      bgColor: AppColors.warningLight,
+      icon: "alert-circle",
+    };
+  return {
+    label: "الحساب سليم",
+    sublabel: owed > 0 ? `مستحق ${formatPrice(owed)} — الحساب ضمن الحد` : "لا توجد مستحقات",
+    color: AppColors.success,
+    bgColor: AppColors.successLight,
+    icon: "check-circle",
+  };
+}
+
+// ─── Day names ───────────────────────────────────────────────────────────────
 const DAY_NAMES = ["أحد", "إثن", "ثلا", "أرب", "خمي", "جمع", "سبت"];
 
-// ─── Compute last-7-days earnings from completedOrders ───────────────────────
-function buildWeekData(orders: CompletedOrder[]): { day: string; amount: number; isToday: boolean }[] {
+function buildWeekData(orders: CompletedOrder[]) {
   const result: { day: string; amount: number; isToday: boolean }[] = [];
   for (let i = 6; i >= 0; i--) {
     const d = new Date();
     d.setDate(d.getDate() - i);
     const dayStr = d.toISOString().slice(0, 10);
     const amount = orders
-      .filter(o => o.completedAt && o.completedAt.startsWith(dayStr))
+      .filter(o => o.completedAt?.startsWith(dayStr))
       .reduce((s, o) => s + (o.driverEarning || 0), 0);
     result.push({ day: DAY_NAMES[d.getDay()], amount, isToday: i === 0 });
   }
   return result;
 }
 
-// ─── Simple bar chart ─────────────────────────────────────────────────────────
+// ─── Bar chart ───────────────────────────────────────────────────────────────
 function EarningsBarChart({ orders }: { orders: CompletedOrder[] }) {
   const { theme } = useTheme();
   const data = buildWeekData(orders);
   const maxVal = Math.max(...data.map(d => d.amount), 1);
-
   return (
-    <View style={[chartStyles.card, { backgroundColor: theme.backgroundDefault }, Shadows.sm]}>
-      <View style={chartStyles.titleRow}>
+    <View style={[chartSt.card, { backgroundColor: theme.backgroundDefault }, Shadows.sm]}>
+      <View style={chartSt.titleRow}>
         <ThemedText type="small" style={{ color: theme.textSecondary }}>أرباح الأسبوع</ThemedText>
         <ThemedText type="h4" style={{ color: theme.text, fontWeight: FontWeight.bold }}>آخر 7 أيام</ThemedText>
       </View>
-      <View style={chartStyles.barsRow}>
+      <View style={chartSt.barsRow}>
         {data.map((d, i) => {
           const barH = maxVal > 0 ? Math.max((d.amount / maxVal) * 90, d.amount > 0 ? 8 : 0) : 0;
           return (
-            <View key={i} style={chartStyles.barCol}>
-              <ThemedText type="small" style={[chartStyles.barValue, { color: d.isToday ? AppColors.primary : theme.textSecondary }]}>
+            <View key={i} style={chartSt.barCol}>
+              <ThemedText type="small" style={[chartSt.barValue, { color: d.isToday ? AppColors.primary : theme.textSecondary }]}>
                 {d.amount > 0 ? (d.amount >= 1000 ? `${(d.amount / 1000).toFixed(1)}ك` : String(d.amount)) : ""}
               </ThemedText>
-              <View style={chartStyles.barTrack}>
-                <View
-                  style={[
-                    chartStyles.barFill,
-                    {
-                      height: barH,
-                      backgroundColor: d.isToday ? AppColors.primary : AppColors.primary + "50",
-                      borderRadius: 4,
-                    },
-                  ]}
-                />
+              <View style={chartSt.barTrack}>
+                <View style={[chartSt.barFill, { height: barH, backgroundColor: d.isToday ? AppColors.primary : AppColors.primary + "50", borderRadius: 4 }]} />
               </View>
-              <ThemedText type="small" style={[chartStyles.barLabel, { color: d.isToday ? AppColors.primary : theme.textSecondary, fontWeight: d.isToday ? "700" : "400" }]}>
+              <ThemedText type="small" style={[chartSt.barLabel, { color: d.isToday ? AppColors.primary : theme.textSecondary, fontWeight: d.isToday ? "700" : "400" }]}>
                 {d.day}
               </ThemedText>
             </View>
@@ -122,100 +160,196 @@ function EarningsBarChart({ orders }: { orders: CompletedOrder[] }) {
   );
 }
 
-const chartStyles = StyleSheet.create({
-  card: {
-    borderRadius: BorderRadius.xl,
-    padding: Spacing.lg,
-    marginBottom: Spacing.lg,
-  },
-  titleRow: {
-    flexDirection: "row-reverse",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: Spacing.lg,
-  },
-  barsRow: {
-    flexDirection: "row-reverse",
-    alignItems: "flex-end",
-    justifyContent: "space-between",
-    height: 120,
-  },
-  barCol: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "flex-end",
-    gap: 4,
-  },
+const chartSt = StyleSheet.create({
+  card: { borderRadius: BorderRadius.xl, padding: Spacing.lg, marginBottom: Spacing.lg },
+  titleRow: { flexDirection: "row-reverse", justifyContent: "space-between", alignItems: "center", marginBottom: Spacing.lg },
+  barsRow: { flexDirection: "row-reverse", alignItems: "flex-end", justifyContent: "space-between", height: 120 },
+  barCol: { flex: 1, alignItems: "center", justifyContent: "flex-end", gap: 4 },
   barValue: { fontSize: 9, height: 14 },
-  barTrack: {
-    width: "60%",
-    height: 90,
-    justifyContent: "flex-end",
-    alignItems: "center",
-  },
+  barTrack: { width: "60%", height: 90, justifyContent: "flex-end", alignItems: "center" },
   barFill: { width: "100%" },
   barLabel: { fontSize: 10 },
 });
 
-// ─── Main Screen ──────────────────────────────────────────────────────────────
-export default function DriverEarningsScreen() {
-  const insets = useSafeAreaInsets();
-  const tabBarHeight = useBottomTabBarHeight();
+// ─── Filter pills ─────────────────────────────────────────────────────────────
+const TX_FILTERS: { key: TxFilter; label: string }[] = [
+  { key: "all", label: "الكل" },
+  { key: "today", label: "اليوم" },
+  { key: "week", label: "الأسبوع" },
+  { key: "month", label: "الشهر" },
+  { key: "3months", label: "3 أشهر" },
+  { key: "custom", label: "مخصص" },
+];
+
+function FilterPills({
+  active,
+  onChange,
+}: {
+  active: TxFilter;
+  onChange: (f: TxFilter) => void;
+}) {
   const { theme } = useTheme();
-  const { phoneNumber } = useAuth();
-
-  const [earnings, setEarnings] = useState<EarningsData | null>(null);
-  const [account, setAccount] = useState<DriverFinancialAccount | null>(null);
-  const [transactions, setTransactions] = useState<DriverTransaction[]>([]);
-  const [activeTab, setActiveTab] = useState<"earnings" | "wallet">("earnings");
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-
-  const fetchData = useCallback(async () => {
-    if (!phoneNumber) return;
-    try {
-      const [earningsRes, walletRes] = await Promise.all([
-        fetch(new URL(`/api/driver/earnings?phoneNumber=${encodeURIComponent(phoneNumber)}`, getApiUrl()).toString()),
-        fetch(new URL(`/api/driver/wallet?phoneNumber=${encodeURIComponent(phoneNumber)}`, getApiUrl()).toString()),
-      ]);
-      if (earningsRes.ok) setEarnings(await earningsRes.json());
-      if (walletRes.ok) {
-        const wd = await walletRes.json();
-        setAccount(wd.account || null);
-        setTransactions(wd.transactions || []);
-      }
-    } catch (e) {
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  }, [phoneNumber]);
-
-  useEffect(() => { fetchData(); }, [fetchData]);
-
-  if (loading) {
-    return (
-      <View style={[styles.container, { backgroundColor: theme.backgroundRoot, justifyContent: "center", alignItems: "center" }]}>
-        <ActivityIndicator size="large" color={AppColors.primary} />
-      </View>
-    );
-  }
-
-  // ─── Stat card ──────────────────────────────────────────────────────────
-  const renderStatCard = (title: string, value: string, icon: keyof typeof Feather.glyphMap, color: string) => (
-    <View style={[styles.statCard, { backgroundColor: theme.backgroundDefault }, Shadows.sm]}>
-      <View style={[styles.statIcon, { backgroundColor: color + "18" }]}>
-        <Feather name={icon} size={20} color={color} />
-      </View>
-      <ThemedText type="h3" style={{ color: theme.text, fontWeight: FontWeight.bold, marginTop: Spacing.xs }}>{value}</ThemedText>
-      <ThemedText type="small" style={{ color: theme.textSecondary, marginTop: 2 }}>{title}</ThemedText>
+  return (
+    <View style={{ flexDirection: "row-reverse", flexWrap: "wrap", gap: 6, marginBottom: Spacing.md }}>
+      {TX_FILTERS.map(f => {
+        const isActive = f.key === active;
+        return (
+          <Pressable
+            key={f.key}
+            onPress={() => onChange(f.key)}
+            style={{
+              paddingHorizontal: Spacing.md,
+              paddingVertical: 6,
+              borderRadius: BorderRadius.full,
+              backgroundColor: isActive ? AppColors.primary : theme.backgroundDefault,
+              borderWidth: 1,
+              borderColor: isActive ? AppColors.primary : AppColors.border,
+            }}
+          >
+            <ThemedText type="small" style={{ color: isActive ? AppColors.white : theme.textSecondary, fontWeight: isActive ? FontWeight.bold : FontWeight.regular }}>
+              {f.label}
+            </ThemedText>
+          </Pressable>
+        );
+      })}
     </View>
   );
+}
 
-  // ─── Completed order row ─────────────────────────────────────────────────
-  const renderOrderItem = ({ item }: { item: CompletedOrder }) => (
+// ─── Payment ratio card ───────────────────────────────────────────────────────
+function PaymentRatioCard({ account }: { account: DriverFinancialAccount }) {
+  const { theme } = useTheme();
+  const commission = account.totalOnwayCommission || 0;
+  const paid = account.totalPaid || 0;
+  const remaining = Math.max(0, commission - paid);
+  const ratio = commission > 0 ? Math.min(1, paid / commission) : 1;
+  const pct = Math.round(ratio * 100);
+  return (
+    <View style={[styles.ratioCard, { backgroundColor: theme.backgroundDefault }, Shadows.sm]}>
+      <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: Spacing.sm, marginBottom: Spacing.lg }}>
+        <Feather name="pie-chart" size={16} color={AppColors.primary} />
+        <ThemedText type="h4" style={{ color: theme.text }}>نسبة السداد</ThemedText>
+        <View style={{ flex: 1 }} />
+        <View style={{ paddingHorizontal: Spacing.md, paddingVertical: 3, borderRadius: 20, backgroundColor: pct >= 80 ? AppColors.successLight : pct >= 40 ? AppColors.warningLight : AppColors.errorLight }}>
+          <ThemedText type="small" style={{ color: pct >= 80 ? AppColors.success : pct >= 40 ? AppColors.warning : AppColors.error, fontWeight: FontWeight.bold }}>{pct}%</ThemedText>
+        </View>
+      </View>
+      {/* Progress bar */}
+      <View style={{ height: 10, borderRadius: 5, backgroundColor: AppColors.border, overflow: "hidden", marginBottom: Spacing.lg }}>
+        <View style={{ width: `${pct}%`, height: "100%", backgroundColor: pct >= 80 ? AppColors.success : pct >= 40 ? AppColors.warning : AppColors.error, borderRadius: 5 }} />
+      </View>
+      <View style={{ flexDirection: "row-reverse", justifyContent: "space-between" }}>
+        <View style={{ alignItems: "center" }}>
+          <ThemedText type="small" style={{ color: theme.textSecondary }}>إجمالي العمولات</ThemedText>
+          <ThemedText type="body" style={{ color: AppColors.error, fontWeight: FontWeight.bold }}>{formatPrice(commission)}</ThemedText>
+        </View>
+        <View style={{ alignItems: "center" }}>
+          <ThemedText type="small" style={{ color: theme.textSecondary }}>المسدّد</ThemedText>
+          <ThemedText type="body" style={{ color: AppColors.success, fontWeight: FontWeight.bold }}>{formatPrice(paid)}</ThemedText>
+        </View>
+        <View style={{ alignItems: "center" }}>
+          <ThemedText type="small" style={{ color: theme.textSecondary }}>المتبقي</ThemedText>
+          <ThemedText type="body" style={{ color: remaining > 0 ? AppColors.warning : AppColors.success, fontWeight: FontWeight.bold }}>{formatPrice(remaining)}</ThemedText>
+        </View>
+      </View>
+    </View>
+  );
+}
+
+// ─── Timeline item ────────────────────────────────────────────────────────────
+function TimelineItem({ item, isLast }: { item: DriverTransaction; isLast: boolean }) {
+  const { theme } = useTheme();
+  const isPayment    = item.type === "payment";
+  const isAdjustment = item.type === "adjustment";
+  const isEarning    = item.type === "earning";
+  const isCommission = item.type === "commission";
+
+  const color = isPayment ? AppColors.success : isAdjustment ? AppColors.warning : isEarning ? AppColors.info : AppColors.error;
+  const icon: keyof typeof Feather.glyphMap = isPayment ? "check-circle" : isAdjustment ? "edit-2" : isEarning ? "arrow-up-circle" : "arrow-down-circle";
+  const typeLabel = isPayment ? "دفعة للإدارة" : isAdjustment ? (item.adjustmentType === "deduct" ? "تعديل — خصم" : "تعديل — إضافة") : isEarning ? "أرباح توصيل" : "عمولة OnWay";
+  const amountSign = isEarning ? "+" : isPayment || (isAdjustment && item.adjustmentType === "deduct") ? "-" : "+";
+
+  const ts = item.timestamp ? new Date(item.timestamp) : null;
+  const dateStr = ts ? ts.toLocaleDateString("ar-IQ") : "";
+  const timeStr = ts
+    ? ts.toLocaleTimeString("ar-IQ", { hour: "2-digit", minute: "2-digit" })
+    : "";
+
+  return (
+    <View style={{ flexDirection: "row-reverse", paddingHorizontal: Spacing.lg }}>
+      {/* Timeline rail */}
+      <View style={{ alignItems: "center", marginLeft: Spacing.md }}>
+        <View style={[tlSt.dot, { backgroundColor: color + "20", borderColor: color }]}>
+          <Feather name={icon} size={14} color={color} />
+        </View>
+        {!isLast ? <View style={[tlSt.line, { backgroundColor: AppColors.border }]} /> : null}
+      </View>
+
+      {/* Content */}
+      <View style={[tlSt.card, { backgroundColor: theme.backgroundDefault, flex: 1, marginBottom: isLast ? 0 : Spacing.sm }, Shadows.sm]}>
+        {/* Row 1: label + amount */}
+        <View style={{ flexDirection: "row-reverse", justifyContent: "space-between", alignItems: "center" }}>
+          <ThemedText type="body" style={{ color: theme.text, fontWeight: FontWeight.semiBold }}>{typeLabel}</ThemedText>
+          <ThemedText type="body" style={{ color, fontWeight: FontWeight.bold }}>
+            {amountSign}{formatPrice(item.amount)}
+          </ThemedText>
+        </View>
+
+        {/* Row 2: description + balance after */}
+        <View style={{ flexDirection: "row-reverse", justifyContent: "space-between", alignItems: "center", marginTop: 4 }}>
+          <ThemedText type="small" style={{ color: theme.textSecondary, flex: 1, textAlign: "right" }} numberOfLines={1}>
+            {item.description || item.notes || "—"}
+          </ThemedText>
+          {item.amountOwedAfter !== undefined ? (
+            <ThemedText type="small" style={{ color: theme.textSecondary, marginLeft: Spacing.sm }}>
+              مستحق: {formatPrice(item.amountOwedAfter)}
+            </ThemedText>
+          ) : null}
+        </View>
+
+        {/* Row 3: orderId + date/time */}
+        <View style={{ flexDirection: "row-reverse", justifyContent: "space-between", alignItems: "center", marginTop: 4 }}>
+          {item.orderId ? (
+            <ThemedText type="small" style={{ color: AppColors.primary, fontSize: 10 }}>
+              #{item.orderId.slice(-6)}
+            </ThemedText>
+          ) : <View />}
+          <ThemedText type="small" style={{ color: theme.textSecondary, fontSize: 10 }}>
+            {dateStr} {timeStr}
+          </ThemedText>
+        </View>
+      </View>
+    </View>
+  );
+}
+
+const tlSt = StyleSheet.create({
+  dot: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    borderWidth: 1.5,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  line: {
+    width: 2,
+    flex: 1,
+    minHeight: 16,
+    marginVertical: 2,
+  },
+  card: {
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.md,
+  },
+});
+
+// ─── Completed order row ─────────────────────────────────────────────────────
+function OrderItem({ item }: { item: CompletedOrder }) {
+  const { theme } = useTheme();
+  return (
     <View style={[styles.listItem, { backgroundColor: theme.backgroundDefault }, Shadows.sm]}>
-      <View style={[styles.listItemIcon, { backgroundColor: "#4CAF5015" }]}>
+      <View style={[styles.listItemIcon, { backgroundColor: AppColors.success + "18" }]}>
         <Feather name="check-circle" size={18} color={AppColors.success} />
       </View>
       <View style={{ flex: 1, alignItems: "flex-end", gap: 2 }}>
@@ -236,37 +370,176 @@ export default function DriverEarningsScreen() {
       </View>
     </View>
   );
+}
 
-  // ─── Financial transaction row ───────────────────────────────────────────
-  const renderTransaction = ({ item }: { item: DriverTransaction }) => {
-    const isPayment = item.type === "payment";
-    const isAdjustment = item.type === "adjustment";
-    const isEarning = item.type === "earning";
-    const color = isPayment ? AppColors.success : isAdjustment ? AppColors.warning : isEarning ? AppColors.info : AppColors.error;
-    const icon: keyof typeof Feather.glyphMap = isPayment ? "check-circle" : isAdjustment ? "edit-2" : "dollar-sign";
-    const label = isPayment ? "دفعة للإدارة" : isAdjustment ? "تعديل مالي" : "أرباح توصيل";
-    return (
-      <View style={[styles.listItem, { backgroundColor: theme.backgroundDefault }, Shadows.sm]}>
-        <View style={[styles.listItemIcon, { backgroundColor: color + "15" }]}>
-          <Feather name={icon} size={18} color={color} />
+// ─── Monthly report view ──────────────────────────────────────────────────────
+function MonthlyReport({
+  earnings,
+  transactions,
+}: {
+  earnings: EarningsData | null;
+  transactions: DriverTransaction[];
+}) {
+  const { theme } = useTheme();
+  const now = new Date();
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+
+  const monthTx = transactions.filter(t => t.timestamp && new Date(t.timestamp).getTime() >= monthStart);
+  const monthCommission = monthTx.filter(t => t.type === "commission").reduce((s, t) => s + (t.amount || 0), 0);
+  const monthPaid = monthTx.filter(t => t.type === "payment").reduce((s, t) => s + (t.amount || 0), 0);
+  const monthOrders = earnings?.monthOrders || 0;
+  const monthEarnings = earnings?.monthEarnings || 0;
+  const avgPerOrder = monthOrders > 0 ? Math.round(monthEarnings / monthOrders) : 0;
+  const monthName = now.toLocaleDateString("ar-IQ", { month: "long", year: "numeric" });
+
+  const rows: { label: string; value: string; color: string; icon: keyof typeof Feather.glyphMap }[] = [
+    { label: "عدد الطلبات المكتملة", value: `${monthOrders} طلب`, color: AppColors.info, icon: "package" },
+    { label: "إجمالي أرباح التوصيل", value: formatPrice(monthEarnings), color: AppColors.success, icon: "dollar-sign" },
+    { label: "متوسط الربح لكل طلب", value: formatPrice(avgPerOrder), color: AppColors.primary, icon: "trending-up" },
+    { label: "عمولات OnWay هذا الشهر", value: formatPrice(monthCommission), color: AppColors.error, icon: "percent" },
+    { label: "المدفوع للإدارة هذا الشهر", value: formatPrice(monthPaid), color: AppColors.success, icon: "check-circle" },
+    { label: "الصافي (الأرباح - العمولات)", value: formatPrice(monthEarnings - monthCommission), color: monthEarnings - monthCommission >= 0 ? AppColors.success : AppColors.error, icon: "activity" },
+  ];
+
+  return (
+    <View style={{ padding: Spacing.lg }}>
+      {/* Month header */}
+      <View style={[styles.totalCard, { backgroundColor: theme.backgroundDefault }, Shadows.md]}>
+        <Feather name="calendar" size={28} color={AppColors.primary} />
+        <ThemedText type="small" style={{ color: theme.textSecondary, marginTop: Spacing.sm }}>التقرير الشهري</ThemedText>
+        <ThemedText type="h2" style={{ color: theme.text, marginTop: 4 }}>{monthName}</ThemedText>
+      </View>
+
+      {/* Report rows */}
+      {rows.map((row, i) => (
+        <View key={i} style={[styles.reportRow, { backgroundColor: theme.backgroundDefault }, Shadows.sm]}>
+          <View style={[styles.listItemIcon, { backgroundColor: row.color + "18" }]}>
+            <Feather name={row.icon} size={18} color={row.color} />
+          </View>
+          <View style={{ flex: 1, alignItems: "flex-end" }}>
+            <ThemedText type="small" style={{ color: theme.textSecondary }}>{row.label}</ThemedText>
+          </View>
+          <ThemedText type="body" style={{ color: row.color, fontWeight: FontWeight.bold }}>{row.value}</ThemedText>
         </View>
-        <View style={{ flex: 1, alignItems: "flex-end", gap: 2 }}>
-          <ThemedText type="body" style={{ color: theme.text, fontWeight: FontWeight.semiBold }}>{label}</ThemedText>
-          <ThemedText type="small" style={{ color: theme.textSecondary }}>
-            {item.description} · {item.timestamp ? new Date(item.timestamp).toLocaleDateString("ar-IQ") : ""}
-          </ThemedText>
-        </View>
-        <ThemedText type="body" style={{ color, fontWeight: FontWeight.bold }}>
-          {isEarning ? "+" : ""}{formatPrice(item.amount)}
+      ))}
+
+      {/* Note */}
+      <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 6, marginTop: Spacing.md }}>
+        <Feather name="info" size={12} color={theme.textSecondary} />
+        <ThemedText type="small" style={{ color: theme.textSecondary, flex: 1, textAlign: "right" }}>
+          العمولات والمدفوعات محسوبة من معاملات الشهر الحالي فقط
         </ThemedText>
       </View>
-    );
-  };
+    </View>
+  );
+}
 
-  // ─── Earnings tab header content ─────────────────────────────────────────
+// ─── Stat card helper ─────────────────────────────────────────────────────────
+function StatCard({ title, value, icon, color }: { title: string; value: string; icon: keyof typeof Feather.glyphMap; color: string }) {
+  const { theme } = useTheme();
+  return (
+    <View style={[styles.statCard, { backgroundColor: theme.backgroundDefault }, Shadows.sm]}>
+      <View style={[styles.statIcon, { backgroundColor: color + "18" }]}>
+        <Feather name={icon} size={20} color={color} />
+      </View>
+      <ThemedText type="h3" style={{ color: theme.text, fontWeight: FontWeight.bold, marginTop: Spacing.xs }}>{value}</ThemedText>
+      <ThemedText type="small" style={{ color: theme.textSecondary, marginTop: 2, textAlign: "center" }}>{title}</ThemedText>
+    </View>
+  );
+}
+
+// ─── Filter transactions ──────────────────────────────────────────────────────
+function filterTransactions(
+  transactions: DriverTransaction[],
+  filter: TxFilter,
+  customFrom: string,
+  customTo: string,
+): DriverTransaction[] {
+  const now = new Date();
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  const weekStart  = todayStart - 6 * 24 * 60 * 60 * 1000;
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+  const threeMoStart = new Date(now.getFullYear(), now.getMonth() - 3, 1).getTime();
+
+  return transactions.filter(t => {
+    if (!t.timestamp) return false;
+    const ts = new Date(t.timestamp).getTime();
+    switch (filter) {
+      case "today":    return ts >= todayStart;
+      case "week":     return ts >= weekStart;
+      case "month":    return ts >= monthStart;
+      case "3months":  return ts >= threeMoStart;
+      case "custom": {
+        const from = customFrom ? new Date(customFrom).getTime() : 0;
+        const to   = customTo   ? new Date(customTo).getTime() + 86400000 : Date.now();
+        return ts >= from && ts <= to;
+      }
+      default: return true;
+    }
+  });
+}
+
+// ─── Main Screen ──────────────────────────────────────────────────────────────
+export default function DriverEarningsScreen() {
+  const insets       = useSafeAreaInsets();
+  const tabBarHeight = useBottomTabBarHeight();
+  const { theme }    = useTheme();
+  const { phoneNumber } = useAuth();
+
+  const [earnings,     setEarnings]     = useState<EarningsData | null>(null);
+  const [account,      setAccount]      = useState<DriverFinancialAccount | null>(null);
+  const [transactions, setTransactions] = useState<DriverTransaction[]>([]);
+  const [activeTab,    setActiveTab]    = useState<ActiveTab>("earnings");
+  const [loading,      setLoading]      = useState(true);
+  const [refreshing,   setRefreshing]   = useState(false);
+  const [txFilter,     setTxFilter]     = useState<TxFilter>("all");
+  const [customFrom,   setCustomFrom]   = useState("");
+  const [customTo,     setCustomTo]     = useState("");
+
+  const fetchData = useCallback(async () => {
+    if (!phoneNumber) return;
+    try {
+      const [earningsRes, walletRes] = await Promise.all([
+        fetch(new URL(`/api/driver/earnings?phoneNumber=${encodeURIComponent(phoneNumber)}`, getApiUrl()).toString()),
+        fetch(new URL(`/api/driver/wallet?phoneNumber=${encodeURIComponent(phoneNumber)}`, getApiUrl()).toString()),
+      ]);
+      if (earningsRes.ok) setEarnings(await earningsRes.json());
+      if (walletRes.ok) {
+        const wd = await walletRes.json();
+        setAccount(wd.account || null);
+        setTransactions(wd.transactions || []);
+      }
+    } catch (_) {
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, [phoneNumber]);
+
+  useEffect(() => { fetchData(); }, [fetchData]);
+
+  // ── Filtered transactions ──────────────────────────────────────────────────
+  const filteredTx = useMemo(
+    () => filterTransactions(transactions, txFilter, customFrom, customTo),
+    [transactions, txFilter, customFrom, customTo]
+  );
+
+  // ── Account status ─────────────────────────────────────────────────────────
+  const amountOwed  = account?.amountOwed || 0;
+  const acctStatus  = getAccountStatus(amountOwed);
+
+  if (loading) {
+    return (
+      <View style={[styles.container, { backgroundColor: theme.backgroundRoot, justifyContent: "center", alignItems: "center" }]}>
+        <ActivityIndicator size="large" color={AppColors.primary} />
+      </View>
+    );
+  }
+
+  // ─── Earnings tab header ───────────────────────────────────────────────────
   const EarningsHeader = (
     <View style={styles.sectionPadding}>
-      {/* Big total */}
+      {/* Total card */}
       <View style={[styles.totalCard, { backgroundColor: theme.backgroundDefault }, Shadows.md]}>
         <ThemedText type="small" style={{ color: theme.textSecondary }}>إجمالي الأرباح</ThemedText>
         <ThemedText type="h1" style={{ color: AppColors.primary, marginTop: 4 }}>
@@ -277,79 +550,71 @@ export default function DriverEarningsScreen() {
         </ThemedText>
       </View>
 
-      {/* Weekly bar chart */}
+      {/* Bar chart */}
       <EarningsBarChart orders={earnings?.completedOrders || []} />
 
-      {/* Stat cards grid */}
+      {/* Stats grid */}
       <View style={styles.statsGrid}>
-        {renderStatCard("أرباح اليوم", formatPrice(earnings?.todayEarnings || 0), "sun", AppColors.warning)}
-        {renderStatCard("أرباح الأسبوع", formatPrice(earnings?.weekEarnings || 0), "calendar", AppColors.info)}
+        <StatCard title="أرباح اليوم"   value={formatPrice(earnings?.todayEarnings || 0)} icon="sun"         color={AppColors.warning} />
+        <StatCard title="أرباح الأسبوع" value={formatPrice(earnings?.weekEarnings  || 0)} icon="calendar"    color={AppColors.info}    />
       </View>
       <View style={styles.statsGrid}>
-        {renderStatCard("أرباح الشهر", formatPrice(earnings?.monthEarnings || 0), "trending-up", AppColors.success)}
-        {renderStatCard("طلبات الشهر", String(earnings?.monthOrders || 0), "package", AppColors.primary)}
+        <StatCard title="أرباح الشهر"   value={formatPrice(earnings?.monthEarnings || 0)} icon="trending-up" color={AppColors.success}  />
+        <StatCard title="طلبات الشهر"   value={String(earnings?.monthOrders || 0)}        icon="package"     color={AppColors.primary}  />
       </View>
       <View style={styles.statsGrid}>
-        {renderStatCard("طلبات اليوم", String(earnings?.todayOrders || 0), "clock", AppColors.warning)}
-        {renderStatCard("إجمالي الطلبات", String(earnings?.totalOrders || 0), "truck", AppColors.info)}
+        <StatCard title="طلبات اليوم"   value={String(earnings?.todayOrders || 0)} icon="clock" color={AppColors.warning} />
+        <StatCard title="إجمالي الطلبات" value={String(earnings?.totalOrders || 0)} icon="truck" color={AppColors.info}    />
       </View>
 
       {(earnings?.completedOrders?.length || 0) > 0 ? (
-        <ThemedText type="h4" style={[styles.sectionLabel, { color: theme.text }]}>
-          سجل الطلبات المكتملة
-        </ThemedText>
+        <ThemedText type="h4" style={[styles.sectionLabel, { color: theme.text }]}>سجل الطلبات المكتملة</ThemedText>
       ) : null}
     </View>
   );
 
-  // ─── Financial account tab header ────────────────────────────────────────
-  const amountOwed = account?.amountOwed || 0;
-  const isBlocked = amountOwed >= 50000;
-  const accountStatus = isBlocked ? "موقوف" : amountOwed > 0 ? "مستحقات" : "جيد";
-  const accountStatusColor = isBlocked ? AppColors.error : amountOwed > 0 ? AppColors.warning : AppColors.success;
+  // ─── Wallet tab header ─────────────────────────────────────────────────────
   const WalletHeader = (
     <View style={styles.sectionPadding}>
-      {/* Status badge + owed amount */}
-      <View style={[styles.totalCard, { backgroundColor: theme.backgroundDefault }, Shadows.md]}>
-        <View style={{ flexDirection: "row", alignItems: "center", gap: Spacing.sm, marginBottom: Spacing.sm }}>
-          <View style={{ paddingHorizontal: Spacing.md, paddingVertical: 4, borderRadius: 20, backgroundColor: accountStatusColor + "20" }}>
-            <ThemedText type="small" style={{ color: accountStatusColor, fontWeight: FontWeight.bold }}>{accountStatus}</ThemedText>
+      {/* Account status banner */}
+      <View style={[styles.statusCard, { backgroundColor: acctStatus.bgColor }, Shadows.md]}>
+        <View style={styles.statusIconRow}>
+          <View style={{ paddingHorizontal: Spacing.lg, paddingVertical: 4, borderRadius: BorderRadius.full, backgroundColor: acctStatus.color + "25" }}>
+            <ThemedText type="small" style={{ color: acctStatus.color, fontWeight: FontWeight.bold }}>{acctStatus.label}</ThemedText>
           </View>
+          <Feather name={acctStatus.icon} size={22} color={acctStatus.color} />
         </View>
-        <ThemedText type="small" style={{ color: theme.textSecondary }}>المبلغ المستحق لأونوي</ThemedText>
-        <ThemedText type="h1" style={{ color: accountStatusColor, marginTop: 4 }}>
+        <ThemedText type="h1" style={{ color: acctStatus.color, marginTop: Spacing.sm }}>
           {formatPrice(amountOwed)}
         </ThemedText>
-        {isBlocked ? (
-          <ThemedText type="small" style={{ color: AppColors.error, marginTop: 4, textAlign: "center" }}>
-            تجاوزت الحد — تواصل مع الإدارة لتسوية الحساب
-          </ThemedText>
-        ) : amountOwed > 0 ? (
-          <ThemedText type="small" style={{ color: AppColors.warning, marginTop: 4, textAlign: "center" }}>
-            يُطلب التسوية قبل تجاوز {formatPrice(50000)}
-          </ThemedText>
-        ) : (
-          <ThemedText type="small" style={{ color: AppColors.success, marginTop: 4 }}>حسابك مسوّى</ThemedText>
-        )}
+        <ThemedText type="small" style={{ color: acctStatus.color, marginTop: 4, textAlign: "center", opacity: 0.85 }}>
+          {acctStatus.sublabel}
+        </ThemedText>
         {account?.lastPaymentDate ? (
-          <ThemedText type="small" style={{ color: theme.textSecondary, marginTop: Spacing.sm }}>
-            آخر دفعة: {formatPrice(account.lastPaymentAmount)} · {new Date(account.lastPaymentDate).toLocaleDateString("ar-IQ")}
-          </ThemedText>
+          <View style={[styles.lastPaymentRow, { borderTopColor: acctStatus.color + "30" }]}>
+            <Feather name="clock" size={11} color={acctStatus.color} />
+            <ThemedText type="small" style={{ color: acctStatus.color, opacity: 0.75 }}>
+              آخر دفعة {formatPrice(account.lastPaymentAmount)} · {new Date(account.lastPaymentDate).toLocaleDateString("ar-IQ")}
+            </ThemedText>
+          </View>
         ) : null}
       </View>
 
-      {/* Financial summary cards */}
+      {/* Payment ratio card */}
+      {account ? <PaymentRatioCard account={account} /> : null}
+
+      {/* Financial summary */}
       {account ? (
-        <View style={styles.statsGrid}>
-          {renderStatCard("أرباح التوصيل", formatPrice(account.totalEarnings), "dollar-sign", AppColors.success)}
-          {renderStatCard("عمولات أونوي", formatPrice(account.totalOnwayCommission), "percent", AppColors.error)}
-        </View>
-      ) : null}
-      {account ? (
-        <View style={styles.statsGrid}>
-          {renderStatCard("إجمالي المسدّد", formatPrice(account.totalPaid), "check-circle", AppColors.primary)}
-          {renderStatCard("حد الحجب", formatPrice(50000), "alert-triangle", AppColors.warning)}
-        </View>
+        <>
+          <View style={styles.statsGrid}>
+            <StatCard title="إجمالي أرباح التوصيل" value={formatPrice(account.totalEarnings)}       icon="dollar-sign"  color={AppColors.success} />
+            <StatCard title="إجمالي عمولات OnWay"  value={formatPrice(account.totalOnwayCommission)} icon="percent"      color={AppColors.error}   />
+          </View>
+          <View style={styles.statsGrid}>
+            <StatCard title="إجمالي المسدّد"       value={formatPrice(account.totalPaid)}            icon="check-circle" color={AppColors.primary}  />
+            <StatCard title="حد الحجب"             value={formatPrice(50000)}                        icon="alert-triangle" color={AppColors.warning} />
+          </View>
+        </>
       ) : null}
 
       {/* Commission info */}
@@ -358,102 +623,128 @@ export default function DriverEarningsScreen() {
           <Feather name="percent" size={16} color={AppColors.primary} />
           <ThemedText type="h4" style={{ color: theme.text }}>نظام العمولة</ThemedText>
         </View>
-        <View style={{ marginBottom: Spacing.md }}>
-          <View style={{ flexDirection: "row-reverse", justifyContent: "space-between", alignItems: "center", marginBottom: Spacing.xs }}>
-            <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: Spacing.xs }}>
-              <Feather name="shopping-bag" size={13} color={AppColors.warning} />
-              <ThemedText type="body" style={{ color: theme.text, fontWeight: FontWeight.semiBold }}>توصيل مطعم</ThemedText>
+        {[
+          { label: "توصيل مطعم", driver: 750, onway: 250, pct: 75, icon: "shopping-bag" as const, color: AppColors.warning },
+          { label: "توصيل تسويق", driver: 2000, onway: 1000, pct: 67, icon: "truck" as const, color: AppColors.info },
+        ].map((item, i) => (
+          <View key={i} style={{ marginBottom: i === 0 ? Spacing.md : 0 }}>
+            <View style={{ flexDirection: "row-reverse", justifyContent: "space-between", alignItems: "center", marginBottom: Spacing.xs }}>
+              <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: Spacing.xs }}>
+                <Feather name={item.icon} size={13} color={item.color} />
+                <ThemedText type="body" style={{ color: theme.text, fontWeight: FontWeight.semiBold }}>{item.label}</ThemedText>
+              </View>
+              <View style={{ flexDirection: "row", gap: Spacing.sm }}>
+                <ThemedText type="small" style={{ color: AppColors.error, fontWeight: FontWeight.semiBold }}>-{formatPrice(item.onway)} OnWay</ThemedText>
+                <ThemedText type="small" style={{ color: AppColors.success, fontWeight: FontWeight.bold }}>+{formatPrice(item.driver)} سائق</ThemedText>
+              </View>
             </View>
-            <View style={{ flexDirection: "row", gap: Spacing.sm }}>
-              <ThemedText type="small" style={{ color: AppColors.error, fontWeight: FontWeight.semiBold }}>-{formatPrice(250)} أونوي</ThemedText>
-              <ThemedText type="small" style={{ color: AppColors.success, fontWeight: FontWeight.bold }}>+{formatPrice(750)} سائق</ThemedText>
-            </View>
-          </View>
-          <View style={{ height: 8, borderRadius: 4, backgroundColor: AppColors.border, overflow: "hidden" }}>
-            <View style={{ width: "75%", height: "100%", backgroundColor: AppColors.success, borderRadius: 4 }} />
-          </View>
-        </View>
-        <View>
-          <View style={{ flexDirection: "row-reverse", justifyContent: "space-between", alignItems: "center", marginBottom: Spacing.xs }}>
-            <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: Spacing.xs }}>
-              <Feather name="truck" size={13} color={AppColors.info} />
-              <ThemedText type="body" style={{ color: theme.text, fontWeight: FontWeight.semiBold }}>توصيل تسويق</ThemedText>
-            </View>
-            <View style={{ flexDirection: "row", gap: Spacing.sm }}>
-              <ThemedText type="small" style={{ color: AppColors.error, fontWeight: FontWeight.semiBold }}>-{formatPrice(1000)} أونوي</ThemedText>
-              <ThemedText type="small" style={{ color: AppColors.success, fontWeight: FontWeight.bold }}>+{formatPrice(2000)} سائق</ThemedText>
+            <View style={{ height: 8, borderRadius: 4, backgroundColor: AppColors.border, overflow: "hidden" }}>
+              <View style={{ width: `${item.pct}%`, height: "100%", backgroundColor: AppColors.success, borderRadius: 4 }} />
             </View>
           </View>
-          <View style={{ height: 8, borderRadius: 4, backgroundColor: AppColors.border, overflow: "hidden" }}>
-            <View style={{ width: "67%", height: "100%", backgroundColor: AppColors.success, borderRadius: 4 }} />
-          </View>
-        </View>
+        ))}
       </View>
 
-      {transactions.length > 0 ? (
-        <ThemedText type="h4" style={[styles.sectionLabel, { color: theme.text }]}>سجل المعاملات</ThemedText>
+      {/* Filter pills + label */}
+      <View style={{ flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between", marginTop: Spacing.md, marginBottom: Spacing.sm }}>
+        <ThemedText type="h4" style={{ color: theme.text }}>سجل المعاملات</ThemedText>
+        <ThemedText type="small" style={{ color: theme.textSecondary }}>{filteredTx.length} عملية</ThemedText>
+      </View>
+      <FilterPills active={txFilter} onChange={setTxFilter} />
+
+      {/* Custom date inputs */}
+      {txFilter === "custom" ? (
+        <View style={{ flexDirection: "row-reverse", gap: Spacing.sm, marginBottom: Spacing.md }}>
+          <TextInput
+            value={customFrom}
+            onChangeText={setCustomFrom}
+            placeholder="من (YYYY-MM-DD)"
+            style={[styles.dateInput, { backgroundColor: theme.backgroundDefault, color: theme.text, borderColor: AppColors.border }]}
+            placeholderTextColor={theme.textSecondary}
+          />
+          <TextInput
+            value={customTo}
+            onChangeText={setCustomTo}
+            placeholder="إلى (YYYY-MM-DD)"
+            style={[styles.dateInput, { backgroundColor: theme.backgroundDefault, color: theme.text, borderColor: AppColors.border }]}
+            placeholderTextColor={theme.textSecondary}
+          />
+        </View>
       ) : null}
     </View>
   );
 
-  // ─── Render ──────────────────────────────────────────────────────────────
+  // ─── Render ────────────────────────────────────────────────────────────────
   return (
     <View style={[styles.container, { backgroundColor: theme.backgroundRoot }]}>
       <GradientBackground />
 
-      {/* Flat themed header — no gradient */}
-      <View style={[styles.header, { paddingTop: insets.top + Spacing.md, backgroundColor: theme.backgroundDefault }]}>
+      {/* Tab bar header */}
+      <View style={[styles.header, { paddingTop: insets.top + Spacing.xs, backgroundColor: theme.backgroundDefault }]}>
         <View style={styles.tabBar}>
-          <Pressable
-            style={[styles.tabItem, activeTab === "earnings" ? [styles.tabItemActive, { borderBottomColor: AppColors.primary }] : null]}
-            onPress={() => setActiveTab("earnings")}
-          >
-            <Feather name="trending-up" size={16} color={activeTab === "earnings" ? AppColors.primary : theme.textSecondary} />
-            <ThemedText type="body" style={{ color: activeTab === "earnings" ? AppColors.primary : theme.textSecondary, fontWeight: FontWeight.semiBold }}>
-              الأرباح
-            </ThemedText>
-          </Pressable>
-          <Pressable
-            style={[styles.tabItem, activeTab === "wallet" ? [styles.tabItemActive, { borderBottomColor: AppColors.primary }] : null]}
-            onPress={() => setActiveTab("wallet")}
-          >
-            <Feather name="credit-card" size={16} color={activeTab === "wallet" ? AppColors.primary : theme.textSecondary} />
-            <ThemedText type="body" style={{ color: activeTab === "wallet" ? AppColors.primary : theme.textSecondary, fontWeight: FontWeight.semiBold }}>
-              الحساب المالي
-            </ThemedText>
-          </Pressable>
+          {(
+            [
+              { key: "earnings", label: "الأرباح",        icon: "trending-up"  },
+              { key: "wallet",   label: "الحساب المالي",  icon: "credit-card"  },
+              { key: "report",   label: "التقرير الشهري", icon: "bar-chart-2"  },
+            ] as { key: ActiveTab; label: string; icon: keyof typeof Feather.glyphMap }[]
+          ).map(tab => {
+            const isActive = activeTab === tab.key;
+            return (
+              <Pressable
+                key={tab.key}
+                style={[styles.tabItem, isActive ? [styles.tabItemActive, { borderBottomColor: AppColors.primary }] : null]}
+                onPress={() => setActiveTab(tab.key)}
+              >
+                <Feather name={tab.icon} size={14} color={isActive ? AppColors.primary : theme.textSecondary} />
+                <ThemedText type="small" style={{ color: isActive ? AppColors.primary : theme.textSecondary, fontWeight: isActive ? FontWeight.bold : FontWeight.regular }}>
+                  {tab.label}
+                </ThemedText>
+              </Pressable>
+            );
+          })}
         </View>
       </View>
 
+      {/* Content */}
       {activeTab === "earnings" ? (
         <FlatList
           data={earnings?.completedOrders || []}
-          keyExtractor={(item) => item.id}
-          renderItem={renderOrderItem}
+          keyExtractor={item => item.id}
+          renderItem={({ item }) => <OrderItem item={item} />}
           ListHeaderComponent={EarningsHeader}
           ListEmptyComponent={
             <View style={styles.emptyState}>
               <Feather name="inbox" size={40} color={theme.textSecondary} />
-              <ThemedText type="body" style={{ color: theme.textSecondary, marginTop: Spacing.md }}>
-                لا توجد طلبات مكتملة بعد
-              </ThemedText>
+              <ThemedText type="body" style={{ color: theme.textSecondary, marginTop: Spacing.md }}>لا توجد طلبات مكتملة بعد</ThemedText>
             </View>
           }
           contentContainerStyle={{ paddingBottom: tabBarHeight + Spacing.xl }}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); fetchData(); }} tintColor={AppColors.primary} />}
           showsVerticalScrollIndicator={false}
         />
+      ) : activeTab === "report" ? (
+        <FlatList
+          data={[]}
+          renderItem={() => null}
+          ListHeaderComponent={<MonthlyReport earnings={earnings} transactions={transactions} />}
+          contentContainerStyle={{ paddingBottom: tabBarHeight + Spacing.xl }}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); fetchData(); }} tintColor={AppColors.primary} />}
+          showsVerticalScrollIndicator={false}
+        />
       ) : (
         <FlatList
-          data={transactions}
-          keyExtractor={(item) => item.id}
-          renderItem={renderTransaction}
+          data={filteredTx}
+          keyExtractor={item => item.id}
+          renderItem={({ item, index }) => (
+            <TimelineItem item={item} isLast={index === filteredTx.length - 1} />
+          )}
           ListHeaderComponent={WalletHeader}
           ListEmptyComponent={
             <View style={styles.emptyState}>
               <Feather name="credit-card" size={40} color={theme.textSecondary} />
               <ThemedText type="body" style={{ color: theme.textSecondary, marginTop: Spacing.md }}>
-                لا توجد عمليات بعد
+                {txFilter !== "all" ? "لا توجد عمليات في هذه الفترة" : "لا توجد عمليات بعد"}
               </ThemedText>
             </View>
           }
@@ -466,34 +757,53 @@ export default function DriverEarningsScreen() {
   );
 }
 
+// ─── Styles ───────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
   container: { flex: 1 },
   header: {
     borderBottomWidth: 1,
     borderBottomColor: "#E0E0E020",
   },
-  tabBar: {
-    flexDirection: "row-reverse",
-  },
+  tabBar: { flexDirection: "row-reverse" },
   tabItem: {
     flex: 1,
     flexDirection: "row",
     justifyContent: "center",
     alignItems: "center",
-    gap: Spacing.xs,
-    paddingVertical: Spacing.md,
+    gap: 4,
+    paddingVertical: Spacing.sm,
     borderBottomWidth: 2,
     borderBottomColor: "transparent",
   },
-  tabItemActive: {
-    borderBottomWidth: 2,
-  },
+  tabItemActive: { borderBottomWidth: 2 },
   sectionPadding: { padding: Spacing.lg },
   totalCard: {
     borderRadius: BorderRadius.xl,
     padding: Spacing.xl,
     alignItems: "center",
     marginBottom: Spacing.lg,
+  },
+  statusCard: {
+    borderRadius: BorderRadius.xl,
+    padding: Spacing.xl,
+    alignItems: "center",
+    marginBottom: Spacing.lg,
+  },
+  statusIconRow: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    gap: Spacing.sm,
+    marginBottom: Spacing.sm,
+  },
+  lastPaymentRow: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    gap: 6,
+    marginTop: Spacing.md,
+    paddingTop: Spacing.md,
+    borderTopWidth: 1,
+    width: "100%",
+    justifyContent: "center",
   },
   statsGrid: {
     flexDirection: "row-reverse",
@@ -512,6 +822,11 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     justifyContent: "center",
     alignItems: "center",
+  },
+  ratioCard: {
+    borderRadius: BorderRadius.xl,
+    padding: Spacing.lg,
+    marginBottom: Spacing.md,
   },
   sectionLabel: {
     textAlign: "right",
@@ -534,26 +849,30 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
+  reportRow: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    gap: Spacing.md,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.md,
+    marginBottom: Spacing.sm,
+  },
   commissionCard: {
     borderRadius: BorderRadius.xl,
     padding: Spacing.lg,
     marginBottom: Spacing.md,
   },
-  commissionRow: {
-    flexDirection: "row-reverse",
-    alignItems: "center",
-    gap: Spacing.sm,
-  },
-  minWalletNote: {
-    flexDirection: "row-reverse",
-    alignItems: "center",
-    gap: 6,
-    marginTop: Spacing.md,
-    padding: Spacing.sm,
-    borderRadius: BorderRadius.sm,
-  },
   emptyState: {
     alignItems: "center",
     paddingVertical: 60,
+  },
+  dateInput: {
+    flex: 1,
+    borderWidth: 1,
+    borderRadius: BorderRadius.md,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    textAlign: "right",
+    fontSize: 12,
   },
 });
