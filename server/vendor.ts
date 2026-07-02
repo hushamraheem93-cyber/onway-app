@@ -35,7 +35,7 @@ const upload = multer({
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 function makeVendorToken(vendorId: string): string {
-  return jwt.sign({ vendorId, role: "vendor" }, JWT_SECRET, { expiresIn: "30d" });
+  return jwt.sign({ vendorId, role: "vendor" }, JWT_SECRET, { expiresIn: "7d" });
 }
 
 function parseCookies(req: Request): Record<string, string> {
@@ -78,8 +78,14 @@ function requireVendor(req: Request, res: Response, next: express.NextFunction) 
     if (decoded.role !== "vendor") return res.status(403).json({ error: "غير مصرح" });
     (req as any).vendorId = decoded.vendorId;
     next();
-  } catch {
-    return res.status(401).json({ error: "توكن غير صالح" });
+  } catch (err: any) {
+    const isExpired = err?.name === "TokenExpiredError";
+    return res.status(401).json({
+      error: isExpired
+        ? "جلستك انتهت، الرجاء تسجيل الدخول مجدداً"
+        : "توكن غير صالح",
+      expired: isExpired,
+    });
   }
 }
 

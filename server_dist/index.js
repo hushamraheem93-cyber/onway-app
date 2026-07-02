@@ -6541,7 +6541,7 @@ var upload2 = multer2({
   }
 });
 function makeVendorToken(vendorId2) {
-  return jwt2.sign({ vendorId: vendorId2, role: "vendor" }, JWT_SECRET, { expiresIn: "30d" });
+  return jwt2.sign({ vendorId: vendorId2, role: "vendor" }, JWT_SECRET, { expiresIn: "7d" });
 }
 function parseCookies(req) {
   const header = req.headers.cookie || "";
@@ -6576,8 +6576,12 @@ function requireVendor(req, res, next) {
     if (decoded.role !== "vendor") return res.status(403).json({ error: "\u063A\u064A\u0631 \u0645\u0635\u0631\u062D" });
     req.vendorId = decoded.vendorId;
     next();
-  } catch {
-    return res.status(401).json({ error: "\u062A\u0648\u0643\u0646 \u063A\u064A\u0631 \u0635\u0627\u0644\u062D" });
+  } catch (err) {
+    const isExpired = err?.name === "TokenExpiredError";
+    return res.status(401).json({
+      error: isExpired ? "\u062C\u0644\u0633\u062A\u0643 \u0627\u0646\u062A\u0647\u062A\u060C \u0627\u0644\u0631\u062C\u0627\u0621 \u062A\u0633\u062C\u064A\u0644 \u0627\u0644\u062F\u062E\u0648\u0644 \u0645\u062C\u062F\u062F\u0627\u064B" : "\u062A\u0648\u0643\u0646 \u063A\u064A\u0631 \u0635\u0627\u0644\u062D",
+      expired: isExpired
+    });
   }
 }
 function generateImageHash(buffer) {
