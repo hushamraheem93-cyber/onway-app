@@ -507,7 +507,7 @@ router.post(
         unit: unit || "قطعة",
         imageUrl,
         imageUrls,
-        status: "approved",
+        status: "pending",
         createdAt: now,
         updatedAt: now,
         ...(extraData ? { extraData } : {}),
@@ -515,8 +515,8 @@ router.post(
 
       res.status(201).json({
         success: true,
-        message: "تم إضافة المنتج بنجاح! سيظهر للعملاء الآن.",
-        product: { id: pid, name, price: parseFloat(price), imageUrl, imageUrls, status: "approved" },
+        message: "تم إضافة المنتج بنجاح! سيظهر للعملاء بعد مراجعة الأدمن.",
+        product: { id: pid, name, price: parseFloat(price), imageUrl, imageUrls, status: "pending" },
       });
     } catch (err: any) {
       for (const f of uploadedFiles) await cleanTemp(f.path);
@@ -540,27 +540,8 @@ router.get("/api/vendor/products", requireVendor, async (req, res) => {
 
     const snap = await query.get();
 
-    // Auto-approve any legacy "pending" products — no admin approval needed
-    const now = new Date().toISOString();
-    const pendingDocs = snap.docs.filter(
-      (d) => (d.data() as any).status === "pending"
-    );
-    if (pendingDocs.length > 0) {
-      const batch = db.batch();
-      pendingDocs.forEach((d) =>
-        batch.update(d.ref, { status: "approved", updatedAt: now })
-      );
-      await batch.commit();
-    }
-
     const products = snap.docs
-      .map((d) => {
-        const data = d.data() as any;
-        return {
-          ...data,
-          status: data.status === "pending" ? "approved" : data.status,
-        };
-      })
+      .map((d) => ({ ...(d.data() as any) }))
       .sort((a: any, b: any) => (b.createdAt || "").localeCompare(a.createdAt || ""));
     res.json({ products, total: products.length });
   } catch (err) {

@@ -6923,15 +6923,15 @@ router.post(
         unit: unit || "\u0642\u0637\u0639\u0629",
         imageUrl,
         imageUrls,
-        status: "approved",
+        status: "pending",
         createdAt: now,
         updatedAt: now,
         ...extraData ? { extraData } : {}
       });
       res.status(201).json({
         success: true,
-        message: "\u062A\u0645 \u0625\u0636\u0627\u0641\u0629 \u0627\u0644\u0645\u0646\u062A\u062C \u0628\u0646\u062C\u0627\u062D! \u0633\u064A\u0638\u0647\u0631 \u0644\u0644\u0639\u0645\u0644\u0627\u0621 \u0627\u0644\u0622\u0646.",
-        product: { id: pid, name, price: parseFloat(price), imageUrl, imageUrls, status: "approved" }
+        message: "\u062A\u0645 \u0625\u0636\u0627\u0641\u0629 \u0627\u0644\u0645\u0646\u062A\u062C \u0628\u0646\u062C\u0627\u062D! \u0633\u064A\u0638\u0647\u0631 \u0644\u0644\u0639\u0645\u0644\u0627\u0621 \u0628\u0639\u062F \u0645\u0631\u0627\u062C\u0639\u0629 \u0627\u0644\u0623\u062F\u0645\u0646.",
+        product: { id: pid, name, price: parseFloat(price), imageUrl, imageUrls, status: "pending" }
       });
     } catch (err) {
       for (const f of uploadedFiles) await cleanTemp(f.path);
@@ -6949,24 +6949,7 @@ router.get("/api/vendor/products", requireVendor, async (req, res) => {
     let query = db2.collection("vendorProducts").where("vendorId", "==", vid);
     if (status) query = query.where("status", "==", status);
     const snap = await query.get();
-    const now = (/* @__PURE__ */ new Date()).toISOString();
-    const pendingDocs = snap.docs.filter(
-      (d) => d.data().status === "pending"
-    );
-    if (pendingDocs.length > 0) {
-      const batch = db2.batch();
-      pendingDocs.forEach(
-        (d) => batch.update(d.ref, { status: "approved", updatedAt: now })
-      );
-      await batch.commit();
-    }
-    const products2 = snap.docs.map((d) => {
-      const data = d.data();
-      return {
-        ...data,
-        status: data.status === "pending" ? "approved" : data.status
-      };
-    }).sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || ""));
+    const products2 = snap.docs.map((d) => ({ ...d.data() })).sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || ""));
     res.json({ products: products2, total: products2.length });
   } catch (err) {
     console.error("get products:", err);
