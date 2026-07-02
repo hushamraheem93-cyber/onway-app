@@ -46,6 +46,7 @@ export default function DriverBatchScreen() {
   const [batch, setBatch] = useState<CurrentBatch>(route.params.batch);
   const [loadingOrderId, setLoadingOrderId] = useState<string | null>(null);
   const [isRejecting, setIsRejecting] = useState(false);
+  const [arrivedOrders, setArrivedOrders] = useState<Set<string>>(new Set());
 
   const [issueModalVisible, setIssueModalVisible] = useState(false);
   const [issueSent, setIssueSent] = useState(false);
@@ -100,6 +101,19 @@ export default function DriverBatchScreen() {
     } finally {
       setLoadingOrderId(null);
     }
+  };
+
+  const handleArrivedAtStore = async (order: BatchOrder) => {
+    if (!phoneNumber) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    setArrivedOrders(prev => new Set(prev).add(order.id));
+    try {
+      await fetch(new URL("/api/driver/batch/arrived-at-store", getApiUrl()).toString(), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phoneNumber, orderId: order.id, batchId: batch.id }),
+      });
+    } catch (e) {}
   };
 
   const handleDeliver = async (order: BatchOrder) => {
@@ -204,6 +218,8 @@ export default function DriverBatchScreen() {
     const isInDelivery = order.status === "in_delivery" || order.status === "picked_up";
     const isDelivered = order.status === "delivered";
     const canAct = canPickup || isInDelivery;
+    const isWaitingAtStore = order.status === "confirmed";
+    const hasArrived = arrivedOrders.has(order.id);
 
     return (
       <View
@@ -359,36 +375,56 @@ export default function DriverBatchScreen() {
 
         {/* Main action button */}
         {!isDelivered ? (
-          <Pressable
-            style={[
-              styles.mainActionBtn,
-              {
-                backgroundColor: isInDelivery ? AppColors.success : canPickup ? AppColors.statusPurple : AppColors.gray300,
-                opacity: isLoading ? 0.7 : 1,
-              },
-            ]}
-            onPress={() => {
-              if (canPickup) handlePickup(order);
-              else if (isInDelivery) handleDeliver(order);
-            }}
-            disabled={isLoading || order.status === "confirmed"}
-            testID={`button-action-${order.id}`}
-          >
-            {isLoading ? (
-              <ActivityIndicator size="small" color={AppColors.white} />
-            ) : (
-              <>
-                <Feather
-                  name={isInDelivery ? "check-circle" : canPickup ? "package" : "clock"}
-                  size={20}
-                  color={AppColors.white}
-                />
-                <ThemedText type="h4" style={{ color: AppColors.white, fontWeight: FontWeight.bold }}>
-                  {isInDelivery ? "تم التوصيل" : canPickup ? "تم الاستلام من المحل" : "بانتظار القبول"}
-                </ThemedText>
-              </>
-            )}
-          </Pressable>
+          isWaitingAtStore ? (
+            <Pressable
+              style={[
+                styles.mainActionBtn,
+                {
+                  backgroundColor: hasArrived ? AppColors.gray300 : AppColors.warning,
+                  opacity: hasArrived ? 0.8 : 1,
+                },
+              ]}
+              onPress={() => { if (!hasArrived) handleArrivedAtStore(order); }}
+              disabled={hasArrived}
+              testID={`button-action-${order.id}`}
+            >
+              <Feather name={hasArrived ? "clock" : "map-pin"} size={20} color={AppColors.white} />
+              <ThemedText type="h4" style={{ color: AppColors.white, fontWeight: FontWeight.bold }}>
+                {hasArrived ? "تم الإبلاغ — في انتظار التحضير" : "وصلت للمتجر"}
+              </ThemedText>
+            </Pressable>
+          ) : (
+            <Pressable
+              style={[
+                styles.mainActionBtn,
+                {
+                  backgroundColor: isInDelivery ? AppColors.success : canPickup ? AppColors.statusPurple : AppColors.gray300,
+                  opacity: isLoading ? 0.7 : 1,
+                },
+              ]}
+              onPress={() => {
+                if (canPickup) handlePickup(order);
+                else if (isInDelivery) handleDeliver(order);
+              }}
+              disabled={isLoading}
+              testID={`button-action-${order.id}`}
+            >
+              {isLoading ? (
+                <ActivityIndicator size="small" color={AppColors.white} />
+              ) : (
+                <>
+                  <Feather
+                    name={isInDelivery ? "check-circle" : "package"}
+                    size={20}
+                    color={AppColors.white}
+                  />
+                  <ThemedText type="h4" style={{ color: AppColors.white, fontWeight: FontWeight.bold }}>
+                    {isInDelivery ? "تم التوصيل" : "تم الاستلام من المحل"}
+                  </ThemedText>
+                </>
+              )}
+            </Pressable>
+          )
         ) : (
           <View style={[styles.deliveredBanner, { backgroundColor: "#4CAF5015" }]}>
             <Feather name="check-circle" size={18} color={AppColors.success} />

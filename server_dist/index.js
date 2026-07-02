@@ -4549,6 +4549,41 @@ ${itemsList}
       res.status(500).json({ error: error.message });
     }
   });
+  app2.post("/api/driver/batch/arrived-at-store", async (req, res) => {
+    const { phoneNumber, orderId, batchId } = req.body;
+    if (!phoneNumber || !orderId) return res.status(400).json({ error: "Missing fields" });
+    try {
+      const db2 = getFirestore();
+      if (!db2) return res.status(500).json({ error: "DB not configured" });
+      const now = /* @__PURE__ */ new Date();
+      await db2.collection("orders").doc(orderId).update({
+        arrivedAtStoreAt: now.toISOString(),
+        updatedAt: now
+      });
+      const allOrders = await getOrders();
+      const order = allOrders.find((o) => o.id === orderId);
+      if (order?.vendorId) {
+        const vendorDoc = await db2.collection("vendors").doc(order.vendorId).get();
+        const vendorData = vendorDoc.data();
+        const driver = await getDriverByPhone(phoneNumber).catch(() => null);
+        const driverName = driver?.fullName || "\u0627\u0644\u0645\u0646\u062F\u0648\u0628";
+        if (vendorData?.pushToken) {
+          await sendBroadcastNotification(
+            [vendorData.pushToken],
+            "\u0627\u0644\u0645\u0646\u062F\u0648\u0628 \u0648\u0635\u0644",
+            `${driverName} \u0648\u0635\u0644 \u0644\u0644\u0645\u062A\u062C\u0631 \u0648\u064A\u0646\u062A\u0638\u0631 \u0627\u0644\u0637\u0644\u0628`,
+            { type: "driver_arrived", orderId }
+          );
+        }
+      }
+      addDeliveryLog({ orderId, driverPhone: phoneNumber, action: "arrived_at_store", lat: void 0, lng: void 0 }).catch(() => {
+      });
+      res.json({ success: true });
+    } catch (err) {
+      console.error("arrived-at-store:", err);
+      res.status(500).json({ error: "\u062D\u062F\u062B \u062E\u0637\u0623 \u0641\u064A \u0627\u0644\u062E\u0627\u062F\u0645" });
+    }
+  });
   app2.post("/api/driver/batch/pickup-order", async (req, res) => {
     const { phoneNumber, orderId, batchId, lat, lng } = req.body;
     if (!phoneNumber || !orderId) return res.status(400).json({ error: "Missing fields" });

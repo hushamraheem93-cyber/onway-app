@@ -3169,6 +3169,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Mark one order as picked up (preparing → delivering)
+  // Driver arrived at store — notifies vendor and logs arrival
+  app.post("/api/driver/batch/arrived-at-store", async (req: Request, res: Response) => {
+    const { phoneNumber, orderId, batchId } = req.body;
+    if (!phoneNumber || !orderId) return res.status(400).json({ error: "Missing fields" });
+    try {
+      const db = getFirestore();
+      if (!db) return res.status(500).json({ error: "DB not configured" });
+      const now = new Date();
+      await db.collection("orders").doc(orderId).update({
+        arrivedAtStoreAt: now.toISOString(),
+        updatedAt: now,
+      });
+      // Notify vendor
+      const allOrders = await getOrders();
+      const order = allOrders.find(o => o.id === orderId);
+      if (order?.vendorId) {
+        const vendorDoc = await db.collection("vendors").doc(order.vendorId).get();
+        const vendorData = vendorDoc.data() as any;
+        const driver = await getDriverByPhone(phoneNumber).catch(() => null);
+        const driverName = driver?.fullName || "المندوب";
+        if (vendorData?.pushToken) {
+          await sendBroadcastNotification(
+            [vendorData.pushToken],
+            "المندوب وصل",
+            `${driverName} وصل للمتجر وينتظر الطلب`,
+            { type: "driver_arrived", orderId }
+          );
+        }
+      }
+      addDeliveryLog({ orderId, driverPhone: phoneNumber, action: "arrived_at_store" as any, lat: undefined, lng: undefined }).catch(() => {});
+      res.json({ success: true });
+    } catch (err) {
+      console.error("arrived-at-store:", err);
+      res.status(500).json({ error: "حدث خطأ في الخادم" });
+    }
+  });
+
   app.post("/api/driver/batch/pickup-order", async (req: Request, res: Response) => {
     const { phoneNumber, orderId, batchId, lat, lng } = req.body;
     if (!phoneNumber || !orderId) return res.status(400).json({ error: "Missing fields" });

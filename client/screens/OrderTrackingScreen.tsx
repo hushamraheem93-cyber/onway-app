@@ -69,6 +69,17 @@ function PulsingDot() {
   );
 }
 
+function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const R = 6371;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLng = (lng2 - lng1) * Math.PI / 180;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+    Math.sin(dLng / 2) * Math.sin(dLng / 2);
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
 function getTrackingMapHTML(driverLat: number, driverLng: number, customerLat?: number, customerLng?: number) {
   const centerLat = driverLat;
   const centerLng = driverLng;
@@ -410,6 +421,29 @@ export default function OrderTrackingScreen() {
                   <ThemedText type="small" style={{ color: AppColors.success, fontWeight: FontWeight.semiBold }}>في الطريق</ThemedText>
                 </View>
               </View>
+              {order?.latitude && order?.longitude ? (() => {
+                const distKm = haversineKm(driverLocation.lat, driverLocation.lng, order.latitude!, order.longitude!);
+                const etaMins = Math.max(1, Math.round((distKm / 30) * 60));
+                const distLabel = distKm < 1
+                  ? `${Math.round(distKm * 1000)} م`
+                  : `${distKm.toFixed(1)} كم`;
+                return (
+                  <View style={[styles.etaRow, { borderTopColor: theme.border }]}>
+                    <View style={styles.etaItem}>
+                      <Feather name="map-pin" size={13} color={AppColors.primary} />
+                      <ThemedText type="small" style={{ color: theme.textSecondary, marginRight: 4 }}>
+                        المسافة: <ThemedText type="small" style={{ color: theme.text, fontWeight: FontWeight.semiBold }}>{distLabel}</ThemedText>
+                      </ThemedText>
+                    </View>
+                    <View style={styles.etaItem}>
+                      <Feather name="clock" size={13} color={AppColors.primary} />
+                      <ThemedText type="small" style={{ color: theme.textSecondary, marginRight: 4 }}>
+                        الوصول خلال: <ThemedText type="small" style={{ color: theme.text, fontWeight: FontWeight.semiBold }}>{etaMins} دقيقة</ThemedText>
+                      </ThemedText>
+                    </View>
+                  </View>
+                );
+              })() : null}
             </View>
           ) : null}
         </View>
@@ -720,6 +754,19 @@ const styles = StyleSheet.create({
     height: 6,
     borderRadius: 3,
     backgroundColor: AppColors.success,
+  },
+  etaRow: {
+    flexDirection: "row-reverse",
+    justifyContent: "space-around",
+    borderTopWidth: 1,
+    marginTop: Spacing.sm,
+    paddingTop: Spacing.sm,
+    gap: Spacing.sm,
+  },
+  etaItem: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    gap: 4,
   },
   timelineCard: {
     borderRadius: BorderRadius.lg,

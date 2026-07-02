@@ -225,6 +225,7 @@ export default function DriverHomeScreen() {
           setIsOnline(data.isOnline || false);
           setQueuePosition(data.queuePosition ?? null);
           setCurrentBatch(newBatch);
+          currentBatchRef.current = newBatch;
           setDriverStatus(data.approvalStatus || "pending");
           setAmountOwed(data.amountOwed || 0);
           setTodayEarnings(data.todayEarnings || 0);
@@ -326,6 +327,8 @@ export default function DriverHomeScreen() {
   }, [fetchDriverStatus]);
 
   const gpsIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const currentBatchRef = useRef<CurrentBatch | null>(null);
+
   const sendLocation = useCallback(async () => {
     if (!phoneNumber) return;
     try {
@@ -346,7 +349,8 @@ export default function DriverHomeScreen() {
         const { status } = await Location.requestForegroundPermissionsAsync();
         if (status === "granted") {
           sendLocation();
-          gpsIntervalRef.current = setInterval(sendLocation, 30000);
+          const interval = currentBatchRef.current?.status === "in_progress" ? 5000 : 30000;
+          gpsIntervalRef.current = setInterval(sendLocation, interval);
         }
       })();
     } else {
@@ -362,6 +366,15 @@ export default function DriverHomeScreen() {
       }
     };
   }, [isOnline, sendLocation]);
+
+  // Adjust GPS send rate: 5s during active delivery batch, 30s when idle
+  useEffect(() => {
+    currentBatchRef.current = currentBatch;
+    if (!isOnline || !gpsIntervalRef.current) return;
+    const newRate = currentBatch?.status === "in_progress" ? 5000 : 30000;
+    clearInterval(gpsIntervalRef.current);
+    gpsIntervalRef.current = setInterval(sendLocation, newRate);
+  }, [currentBatch?.id, currentBatch?.status, isOnline, sendLocation]);
 
   const handleToggleOnline = async () => {
     if (!phoneNumber || driverStatus !== "approved") return;
