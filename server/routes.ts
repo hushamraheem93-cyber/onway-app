@@ -4,6 +4,7 @@ import { createServer, type Server } from "node:http";
 import { Server as SocketServer } from "socket.io";
 import jwt from "jsonwebtoken";
 import multer, { StorageEngine, FileFilterCallback } from "multer";
+import sharp from "sharp";
 import path from "path";
 import fs from "fs";
 import { randomUUID, createHmac, createHash } from "crypto";
@@ -40,7 +41,6 @@ import {
   createDeliveryBatch, getDeliveryBatch, updateDeliveryBatch, cancelDeliveryBatch, addDeliveryLog, DeliveryBatch,
   saveAdminPushToken, getAdminPushToken,
   addDriverToActiveQueue, removeDriverFromActiveQueue, updateDriverQueueEntry, getActiveDriverQueue,
-  uploadToFirebaseStorage,
   deleteFromFirebaseStorage
 } from "./firebase";
 import { sendPushNotification, sendBroadcastNotification, sendDriverBatchNotification, sendAdminNewOrderNotification, sendVendorNewOrderNotification } from "./pushNotifications";
@@ -1227,26 +1227,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Firebase Storage bucket is not provisioned for this project, so admin images
+  // (banners/categories/products) are compressed and embedded as Base64 data URIs
+  // directly in Firestore — same strategy used for vendor product/profile images.
+  const ADMIN_IMAGE_SIZE_CONFIG: Record<string, { width: number; height?: number; quality: number }> = {
+    banner: { width: 1000, quality: 70 },
+    category: { width: 500, quality: 65 },
+    product: { width: 700, quality: 68 },
+  };
+
   app.post("/api/admin/upload-image", uploadWebP.single("image"), async (req: Request, res: Response) => {
     try {
       if (!req.file) {
         return res.status(400).json({ error: "لم يتم رفع أي صورة" });
       }
       const fileBuffer = req.file.buffer;
-      // Content-hash deduplication: reuse Firebase Storage URL for identical images
+      // Content-hash deduplication: reuse the Base64 data URI for identical images
       const contentHash = createHash("sha256").update(fileBuffer).digest("hex");
       const existingUrl = imageHashMap.get(contentHash);
       if (existingUrl) {
         return res.json({ url: existingUrl, size: req.file.size, deduped: true });
       }
-      // Upload to Firebase Storage under admin/
-      const fileName = `${randomUUID()}.webp`;
-      const storagePath = `admin/${fileName}`;
-      const url = await uploadToFirebaseStorage(fileBuffer, storagePath, req.file.mimetype || "image/webp");
+      const type = typeof req.body?.type === "string" ? req.body.type : "product";
+      const config = ADMIN_IMAGE_SIZE_CONFIG[type] || ADMIN_IMAGE_SIZE_CONFIG.product;
+      const resizeOptions: { width: number; height?: number; fit: "cover"; position: "center" } = {
+        width: config.width,
+        fit: "cover",
+        position: "center",
+      };
+      if (config.height) resizeOptions.height = config.height;
+      const webpBuffer = await sharp(fileBuffer)
+        .resize(resizeOptions)
+        .webp({ quality: config.quality })
+        .toBuffer();
+      const url = `data:image/webp;base64,${webpBuffer.toString("base64")}`;
       imageHashMap.set(contentHash, url);
-      res.json({ url, size: req.file.size });
+      res.json({ url, size: webpBuffer.length });
     } catch (error) {
-      console.error("Error uploading image to Firebase Storage:", error);
+      console.error("Error processing admin image upload:", error);
       res.status(500).json({ error: "فشل في رفع الصورة" });
     }
   });

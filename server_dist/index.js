@@ -8,6 +8,7 @@ import { createServer } from "node:http";
 import { Server as SocketServer } from "socket.io";
 import jwt from "jsonwebtoken";
 import multer from "multer";
+import sharp from "sharp";
 import path from "path";
 import fs from "fs";
 import { randomUUID, createHmac, createHash } from "crypto";
@@ -1471,22 +1472,6 @@ async function getActiveDriverQueue() {
   const snap = await db2.collection("activeDriverQueue").orderBy("joinedAt", "asc").get();
   return snap.docs.map((d) => d.data());
 }
-async function uploadToFirebaseStorage(buffer, storagePath, contentType = "image/webp") {
-  const { randomUUID: randomUUID2 } = await import("crypto");
-  const bucket = admin.storage().bucket();
-  const file = bucket.file(storagePath);
-  const token = randomUUID2();
-  await file.save(buffer, {
-    metadata: {
-      contentType,
-      metadata: { firebaseStorageDownloadTokens: token }
-    },
-    resumable: false
-  });
-  const bucketName = bucket.name;
-  const encodedPath = encodeURIComponent(storagePath);
-  return `https://firebasestorage.googleapis.com/v0/b/${bucketName}/o/${encodedPath}?alt=media&token=${token}`;
-}
 async function deleteFromFirebaseStorage(url) {
   if (!url || !url.startsWith("https://firebasestorage.googleapis.com/")) return;
   try {
@@ -2844,6 +2829,11 @@ async function registerRoutes(app2) {
       }
     }
   });
+  const ADMIN_IMAGE_SIZE_CONFIG = {
+    banner: { width: 1e3, quality: 70 },
+    category: { width: 500, quality: 65 },
+    product: { width: 700, quality: 68 }
+  };
   app2.post("/api/admin/upload-image", uploadWebP.single("image"), async (req, res) => {
     try {
       if (!req.file) {
@@ -2855,13 +2845,20 @@ async function registerRoutes(app2) {
       if (existingUrl) {
         return res.json({ url: existingUrl, size: req.file.size, deduped: true });
       }
-      const fileName = `${randomUUID()}.webp`;
-      const storagePath = `admin/${fileName}`;
-      const url = await uploadToFirebaseStorage(fileBuffer, storagePath, req.file.mimetype || "image/webp");
+      const type = typeof req.body?.type === "string" ? req.body.type : "product";
+      const config = ADMIN_IMAGE_SIZE_CONFIG[type] || ADMIN_IMAGE_SIZE_CONFIG.product;
+      const resizeOptions = {
+        width: config.width,
+        fit: "cover",
+        position: "center"
+      };
+      if (config.height) resizeOptions.height = config.height;
+      const webpBuffer = await sharp(fileBuffer).resize(resizeOptions).webp({ quality: config.quality }).toBuffer();
+      const url = `data:image/webp;base64,${webpBuffer.toString("base64")}`;
       imageHashMap.set(contentHash, url);
-      res.json({ url, size: req.file.size });
+      res.json({ url, size: webpBuffer.length });
     } catch (error) {
-      console.error("Error uploading image to Firebase Storage:", error);
+      console.error("Error processing admin image upload:", error);
       res.status(500).json({ error: "\u0641\u0634\u0644 \u0641\u064A \u0631\u0641\u0639 \u0627\u0644\u0635\u0648\u0631\u0629" });
     }
   });
@@ -6604,7 +6601,7 @@ import express2 from "express";
 import * as bcrypt from "bcryptjs";
 import jwt2 from "jsonwebtoken";
 import multer2 from "multer";
-import sharp from "sharp";
+import sharp2 from "sharp";
 import * as crypto from "crypto";
 import * as path2 from "path";
 var router = express2.Router();
@@ -6675,7 +6672,7 @@ function generateImageHash(buffer) {
   return crypto.createHash("md5").update(buffer).digest("hex");
 }
 async function processAndSaveImage(buffer, _hash) {
-  const webpBuffer = await sharp(buffer).resize(700, 700, { fit: "cover", position: "center" }).webp({ quality: 70 }).toBuffer();
+  const webpBuffer = await sharp2(buffer).resize(700, 700, { fit: "cover", position: "center" }).webp({ quality: 70 }).toBuffer();
   return `data:image/webp;base64,${webpBuffer.toString("base64")}`;
 }
 async function findDuplicateImage(hash2) {
@@ -6889,9 +6886,9 @@ var profileUpload = multer2({
 async function saveProfileImage(buffer, type, _vendorId) {
   let webpBuffer;
   if (type === "avatar") {
-    webpBuffer = await sharp(buffer).resize(350, 350, { fit: "cover", position: "center" }).webp({ quality: 75 }).toBuffer();
+    webpBuffer = await sharp2(buffer).resize(350, 350, { fit: "cover", position: "center" }).webp({ quality: 75 }).toBuffer();
   } else {
-    webpBuffer = await sharp(buffer).resize(1e3, 350, { fit: "cover", position: "center" }).webp({ quality: 70 }).toBuffer();
+    webpBuffer = await sharp2(buffer).resize(1e3, 350, { fit: "cover", position: "center" }).webp({ quality: 70 }).toBuffer();
   }
   return `data:image/webp;base64,${webpBuffer.toString("base64")}`;
 }

@@ -69,6 +69,7 @@ export async function processAndUploadImage(
   const formData = new FormData();
   const file = new File(manipulated.uri);
   formData.append("image", file as any);
+  formData.append("type", imageType);
 
   const response = await fetch(`${getApiUrl()}/api/admin/upload-image`, {
     method: "POST",
