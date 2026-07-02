@@ -8037,9 +8037,14 @@ function makeToken() {
   return crypto2.createHmac("sha256", secret).update("onway_admin").digest("hex");
 }
 function isValidSession(req) {
+  const expected = makeToken();
   const raw = req.cookies?.[ADMIN_COOKIE];
-  if (!raw) return false;
-  return raw === makeToken();
+  if (raw && raw === expected) return true;
+  const auth = req.headers.authorization;
+  if (auth && auth.startsWith("Bearer ")) {
+    return auth.slice(7).trim() === expected;
+  }
+  return false;
 }
 function parseCookies2(req) {
   const header = req.headers.cookie || "";
@@ -8131,6 +8136,16 @@ function configureExpoAndLanding(app2) {
     const html = renderLogin(`<div class="error">\u0627\u0633\u0645 \u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645 \u0623\u0648 \u0643\u0644\u0645\u0629 \u0627\u0644\u0645\u0631\u0648\u0631 \u063A\u064A\u0631 \u0635\u062D\u064A\u062D\u0629</div>`, buildGoogleBtn(clientId));
     res.setHeader("Content-Type", "text/html; charset=utf-8");
     res.status(401).send(html);
+  });
+  app2.post("/api/admin/login", express3.json(), async (req, res) => {
+    const { username, password } = req.body || {};
+    const valid = await validateAdminCredentials(username, password);
+    if (!valid) return res.status(401).json({ error: "\u0627\u0633\u0645 \u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645 \u0623\u0648 \u0643\u0644\u0645\u0629 \u0627\u0644\u0645\u0631\u0648\u0631 \u063A\u064A\u0631 \u0635\u062D\u064A\u062D\u0629" });
+    const token = makeToken();
+    const maxAge = 60 * 60 * 24 * 7;
+    const secureFlag = process.env.NODE_ENV === "production" ? "; Secure" : "";
+    res.setHeader("Set-Cookie", `${ADMIN_COOKIE}=${token}; HttpOnly; SameSite=None; Max-Age=${maxAge}; Path=/${secureFlag}`);
+    return res.json({ success: true, token });
   });
   app2.post("/admin/google-signin", express3.json(), async (req, res) => {
     const { credential } = req.body || {};

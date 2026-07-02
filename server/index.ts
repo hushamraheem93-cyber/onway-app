@@ -350,9 +350,14 @@ function makeToken(): string {
 }
 
 function isValidSession(req: Request): boolean {
+  const expected = makeToken();
   const raw = req.cookies?.[ADMIN_COOKIE];
-  if (!raw) return false;
-  return raw === makeToken();
+  if (raw && raw === expected) return true;
+  const auth = req.headers.authorization;
+  if (auth && auth.startsWith("Bearer ")) {
+    return auth.slice(7).trim() === expected;
+  }
+  return false;
 }
 
 function parseCookies(req: Request): void {
@@ -461,6 +466,19 @@ function configureExpoAndLanding(app: express.Application) {
     const html = renderLogin(`<div class="error">اسم المستخدم أو كلمة المرور غير صحيحة</div>`, buildGoogleBtn(clientId));
     res.setHeader("Content-Type", "text/html; charset=utf-8");
     res.status(401).send(html);
+  });
+
+  // POST /api/admin/login — JSON endpoint for cross-domain clients (e.g. Hostinger admin panel)
+  // Returns { success: true, token } — client stores token in localStorage and sends as Bearer header.
+  app.post("/api/admin/login", express.json(), async (req: Request, res: Response) => {
+    const { username, password } = req.body || {};
+    const valid = await validateAdminCredentials(username, password);
+    if (!valid) return res.status(401).json({ error: "اسم المستخدم أو كلمة المرور غير صحيحة" });
+    const token = makeToken();
+    const maxAge = 60 * 60 * 24 * 7;
+    const secureFlag = process.env.NODE_ENV === "production" ? "; Secure" : "";
+    res.setHeader("Set-Cookie", `${ADMIN_COOKIE}=${token}; HttpOnly; SameSite=None; Max-Age=${maxAge}; Path=/${secureFlag}`);
+    return res.json({ success: true, token });
   });
 
   // POST /admin/google-signin — verify Google ID token and create session
