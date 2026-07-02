@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useCallback, useRef } from "react";
+import { io, Socket } from "socket.io-client";
 import { StyleSheet, View, ScrollView, ActivityIndicator, Pressable, Platform } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
@@ -236,6 +237,8 @@ export default function OrderTrackingScreen() {
   const [mapHtml, setMapHtml] = useState<string | null>(null);
   const webViewRef = useRef<WebView>(null);
   const mapInitializedRef = useRef(false);
+  const socketRef = useRef<Socket | null>(null);
+  const socketConnectedRef = useRef(false);
 
   const orderId = route.params?.orderId;
   const order = orders.find((o) => o.id === orderId);
@@ -272,11 +275,63 @@ export default function OrderTrackingScreen() {
     return () => clearInterval(interval);
   }, [refreshOrders]);
 
+  // Socket.io: real-time driver location updates
+  useEffect(() => {
+    const tracking = order?.status === "in_delivery" || order?.status === "picked_up" || order?.status === "delivering";
+    if (!tracking || !orderId) {
+      if (socketRef.current) {
+        socketRef.current.disconnect();
+        socketRef.current = null;
+        socketConnectedRef.current = false;
+      }
+      return;
+    }
+
+    const baseUrl = getApiUrl();
+    const sock = io(baseUrl, {
+      transports: ["websocket", "polling"],
+      reconnection: true,
+      reconnectionAttempts: 10,
+      reconnectionDelay: 3000,
+    });
+    socketRef.current = sock;
+
+    sock.on("connect", () => {
+      socketConnectedRef.current = true;
+      sock.emit("order:watch", { orderId });
+    });
+
+    sock.on("disconnect", () => {
+      socketConnectedRef.current = false;
+    });
+
+    sock.on("order:driverLocation", ({ lat, lng, fullName }: { lat: number; lng: number; fullName: string }) => {
+      setDriverLocation({ lat, lng, fullName: fullName || "" });
+      if (!mapInitializedRef.current) {
+        mapInitializedRef.current = true;
+        setMapHtml(getTrackingMapHTML(lat, lng, order?.latitude, order?.longitude));
+      } else if (webViewRef.current) {
+        webViewRef.current.injectJavaScript(`updateDriverLocation(${lat}, ${lng}); true;`);
+      }
+    });
+
+    return () => {
+      sock.disconnect();
+      socketRef.current = null;
+      socketConnectedRef.current = false;
+    };
+  }, [order?.status, orderId, order?.latitude, order?.longitude]);
+
+  // HTTP Polling fallback: activates only when socket is disconnected
   useEffect(() => {
     const tracking = order?.status === "in_delivery" || order?.status === "picked_up" || order?.status === "delivering";
     if (tracking) {
-      fetchDriverLocation();
-      const interval = setInterval(fetchDriverLocation, 8000);
+      fetchDriverLocation(); // always fetch once immediately
+      const interval = setInterval(() => {
+        if (!socketConnectedRef.current) {
+          fetchDriverLocation();
+        }
+      }, 8000);
       return () => clearInterval(interval);
     } else {
       setDriverLocation(null);
@@ -284,6 +339,16 @@ export default function OrderTrackingScreen() {
       mapInitializedRef.current = false;
     }
   }, [order?.status, fetchDriverLocation]);
+
+  // Disconnect socket on unmount
+  useEffect(() => {
+    return () => {
+      if (socketRef.current) {
+        socketRef.current.disconnect();
+        socketRef.current = null;
+      }
+    };
+  }, []);
 
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);

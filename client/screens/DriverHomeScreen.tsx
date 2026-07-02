@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
+import { io, Socket } from "socket.io-client";
 import {
   StyleSheet,
   View,
@@ -328,20 +329,38 @@ export default function DriverHomeScreen() {
 
   const gpsIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const currentBatchRef = useRef<CurrentBatch | null>(null);
+  const socketRef = useRef<Socket | null>(null);
+
+  const getLocationCoords = useCallback(async (): Promise<{ lat: number; lng: number } | null> => {
+    try {
+      const { status } = await Location.getForegroundPermissionsAsync();
+      if (status !== "granted") return null;
+      const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+      return { lat: loc.coords.latitude, lng: loc.coords.longitude };
+    } catch {
+      return null;
+    }
+  }, []);
 
   const sendLocation = useCallback(async () => {
     if (!phoneNumber) return;
+    const coords = await getLocationCoords();
+    if (!coords) return;
+    const { lat, lng } = coords;
+    // Primary: socket.io (real-time, no HTTP overhead)
+    if (socketRef.current?.connected) {
+      socketRef.current.emit("driver:location", { phoneNumber, lat, lng });
+      return;
+    }
+    // Fallback: HTTP POST (same endpoint as before)
     try {
-      const { status } = await Location.getForegroundPermissionsAsync();
-      if (status !== "granted") return;
-      const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
       await fetch(new URL("/api/driver/location", getApiUrl()).toString(), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phoneNumber, lat: loc.coords.latitude, lng: loc.coords.longitude }),
+        body: JSON.stringify({ phoneNumber, lat, lng }),
       });
-    } catch (e) {}
-  }, [phoneNumber]);
+    } catch {}
+  }, [phoneNumber, getLocationCoords]);
 
   useEffect(() => {
     if (isOnline) {
@@ -375,6 +394,43 @@ export default function DriverHomeScreen() {
     clearInterval(gpsIntervalRef.current);
     gpsIntervalRef.current = setInterval(sendLocation, newRate);
   }, [currentBatch?.id, currentBatch?.status, isOnline, sendLocation]);
+
+  // Socket.io: connect when active batch is in_progress, disconnect when done
+  useEffect(() => {
+    const hasActiveBatch = isOnline && currentBatch?.status === "in_progress";
+
+    if (hasActiveBatch && phoneNumber) {
+      if (!socketRef.current || !socketRef.current.connected) {
+        const baseUrl = getApiUrl();
+        const sock = io(baseUrl, {
+          transports: ["websocket", "polling"],
+          reconnection: true,
+          reconnectionAttempts: 5,
+          reconnectionDelay: 2000,
+        });
+        socketRef.current = sock;
+      }
+    } else {
+      if (socketRef.current) {
+        socketRef.current.disconnect();
+        socketRef.current = null;
+      }
+    }
+
+    return () => {
+      // Only disconnect on unmount, not on every render
+    };
+  }, [isOnline, currentBatch?.status, phoneNumber]);
+
+  // Disconnect socket when component unmounts
+  useEffect(() => {
+    return () => {
+      if (socketRef.current) {
+        socketRef.current.disconnect();
+        socketRef.current = null;
+      }
+    };
+  }, []);
 
   const handleToggleOnline = async () => {
     if (!phoneNumber || driverStatus !== "approved") return;

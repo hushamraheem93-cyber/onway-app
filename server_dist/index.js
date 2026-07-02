@@ -5,6 +5,7 @@ import compression from "compression";
 // server/routes.ts
 import express from "express";
 import { createServer } from "node:http";
+import { Server as SocketServer } from "socket.io";
 import jwt from "jsonwebtoken";
 import multer from "multer";
 import path from "path";
@@ -6544,6 +6545,48 @@ ${itemsList}
     }
   });
   const httpServer = createServer(app2);
+  const locationFirestoreThrottle = /* @__PURE__ */ new Map();
+  const FIRESTORE_WRITE_INTERVAL = 1e4;
+  const ioServer = new SocketServer(httpServer, {
+    cors: { origin: "*", methods: ["GET", "POST"] },
+    transports: ["websocket", "polling"]
+  });
+  ioServer.on("connection", (socket) => {
+    socket.on("order:watch", ({ orderId }) => {
+      if (orderId) socket.join(`order:${orderId}`);
+    });
+    socket.on("driver:location", async ({
+      phoneNumber,
+      lat,
+      lng
+    }) => {
+      if (!phoneNumber || lat === void 0 || lng === void 0) return;
+      const driver = await getDriverByPhone(phoneNumber).catch(() => null);
+      const fullName = driver?.fullName || "";
+      driverLocations.set(phoneNumber, {
+        lat: Number(lat),
+        lng: Number(lng),
+        updatedAt: Date.now(),
+        fullName
+      });
+      for (const [oid, drPhone] of driverAssignments.entries()) {
+        if (drPhone === phoneNumber) {
+          ioServer.to(`order:${oid}`).emit("order:driverLocation", {
+            lat: Number(lat),
+            lng: Number(lng),
+            fullName,
+            orderId: oid
+          });
+        }
+      }
+      const lastWrite = locationFirestoreThrottle.get(phoneNumber) || 0;
+      if (Date.now() - lastWrite >= FIRESTORE_WRITE_INTERVAL) {
+        locationFirestoreThrottle.set(phoneNumber, Date.now());
+        updateDriverLastLocation(phoneNumber, Number(lat), Number(lng)).catch(() => {
+        });
+      }
+    });
+  });
   return httpServer;
 }
 

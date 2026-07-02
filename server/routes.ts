@@ -1,6 +1,7 @@
 import express from "express";
 import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "node:http";
+import { Server as SocketServer } from "socket.io";
 import jwt from "jsonwebtoken";
 import multer, { StorageEngine, FileFilterCallback } from "multer";
 import path from "path";
@@ -5554,5 +5555,54 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ═══════════════════════════════════════════════════════════════════════════
 
   const httpServer = createServer(app);
+
+  // ── Socket.io real-time driver location ────────────────────────────────────
+  const locationFirestoreThrottle = new Map<string, number>();
+  const FIRESTORE_WRITE_INTERVAL = 10_000; // write to Firestore at most every 10s
+
+  const ioServer = new SocketServer(httpServer, {
+    cors: { origin: "*", methods: ["GET", "POST"] },
+    transports: ["websocket", "polling"],
+  });
+
+  ioServer.on("connection", (socket) => {
+    // Customer joins a room to watch a specific order
+    socket.on("order:watch", ({ orderId }: { orderId: string }) => {
+      if (orderId) socket.join(`order:${orderId}`);
+    });
+
+    // Driver sends location via socket (replaces HTTP polling)
+    socket.on("driver:location", async ({
+      phoneNumber, lat, lng,
+    }: { phoneNumber: string; lat: number; lng: number }) => {
+      if (!phoneNumber || lat === undefined || lng === undefined) return;
+
+      const driver = await getDriverByPhone(phoneNumber).catch(() => null);
+      const fullName = driver?.fullName || "";
+
+      // 1. Update in-memory store (same as HTTP endpoint)
+      driverLocations.set(phoneNumber, {
+        lat: Number(lat), lng: Number(lng),
+        updatedAt: Date.now(), fullName,
+      });
+
+      // 2. Broadcast to every order room assigned to this driver
+      for (const [oid, drPhone] of driverAssignments.entries()) {
+        if (drPhone === phoneNumber) {
+          ioServer.to(`order:${oid}`).emit("order:driverLocation", {
+            lat: Number(lat), lng: Number(lng), fullName, orderId: oid,
+          });
+        }
+      }
+
+      // 3. Throttled Firestore write (max once per 10s per driver)
+      const lastWrite = locationFirestoreThrottle.get(phoneNumber) || 0;
+      if (Date.now() - lastWrite >= FIRESTORE_WRITE_INTERVAL) {
+        locationFirestoreThrottle.set(phoneNumber, Date.now());
+        updateDriverLastLocation(phoneNumber, Number(lat), Number(lng)).catch(() => {});
+      }
+    });
+  });
+
   return httpServer;
 }
