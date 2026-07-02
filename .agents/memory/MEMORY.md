@@ -3,3 +3,4 @@
 - [Security Audit Baseline](security-audit-baseline.md) — JWT fail-fast, OTP log removal, demo data cleanup, Firestore rules — completed Jun 2026.
 - [Design System Color Tokens](design-system-colors.md) — All colors live in client/constants/theme.ts (AppColors, ORDER_STATUS_COLORS, ORDER_STATUS_LABELS, Gradients). Zero hardcoded hex across screens/components/navigation.
 - [Driver Financial System](driver-financial-system.md) — postpaid model: amountOwed = commission − paid; blocks driver at 50,000 IQD; replaces old prepaid wallet (getDriverWalletBalance removed).
+- [Firebase Storage bucket missing](firebase-storage-bucket-missing.md) — project has 0 Storage buckets; uploadToFirebaseStorage fails everywhere; vendor product/profile images migrated to Base64; other call sites still broken.

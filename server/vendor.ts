@@ -6,7 +6,7 @@ import multer from "multer";
 import sharp from "sharp";
 import * as crypto from "crypto";
 import * as path from "path";
-import { getFirestore, getUserPushToken, getAdminPushToken, uploadToFirebaseStorage, deleteFromFirebaseStorage } from "./firebase";
+import { getFirestore, getUserPushToken, getAdminPushToken, deleteFromFirebaseStorage } from "./firebase";
 import { sendVendorStatusNotification, sendVendorProductNotification, sendPushNotification, sendAdminOrderReadyNotification } from "./pushNotifications";
 
 const router = express.Router();
@@ -93,14 +93,15 @@ function generateImageHash(buffer: Buffer): string {
   return crypto.createHash("md5").update(buffer).digest("hex");
 }
 
-async function processAndSaveImage(buffer: Buffer, hash: string): Promise<string> {
-  const fileName = `${Date.now()}_${hash}.webp`;
-  const storagePath = `products/${fileName}`;
+async function processAndSaveImage(buffer: Buffer, _hash: string): Promise<string> {
+  // Firebase Storage bucket is not provisioned for this project, so product
+  // images are compressed and embedded directly as Base64 data URIs in
+  // Firestore (same strategy used for banners/categories elsewhere in the app).
   const webpBuffer = await sharp(buffer)
-    .resize(800, 800, { fit: "cover", position: "center" })
-    .webp({ quality: 80 })
+    .resize(700, 700, { fit: "cover", position: "center" })
+    .webp({ quality: 70 })
     .toBuffer();
-  return uploadToFirebaseStorage(webpBuffer, storagePath, "image/webp");
+  return `data:image/webp;base64,${webpBuffer.toString("base64")}`;
 }
 
 async function findDuplicateImage(hash: string): Promise<string | null> {
@@ -362,23 +363,23 @@ const profileUpload = multer({
 async function saveProfileImage(
   buffer: Buffer,
   type: "avatar" | "cover",
-  vendorId: string
+  _vendorId: string
 ): Promise<string> {
-  const fileName = `${type}_${vendorId}_${Date.now()}.webp`;
-  const storagePath = `vendors/${fileName}`;
+  // Firebase Storage bucket is not provisioned for this project, so vendor
+  // profile/cover images are compressed and embedded as Base64 data URIs.
   let webpBuffer: Buffer;
   if (type === "avatar") {
     webpBuffer = await sharp(buffer)
-      .resize(400, 400, { fit: "cover", position: "center" })
-      .webp({ quality: 85 })
+      .resize(350, 350, { fit: "cover", position: "center" })
+      .webp({ quality: 75 })
       .toBuffer();
   } else {
     webpBuffer = await sharp(buffer)
-      .resize(1200, 400, { fit: "cover", position: "center" })
-      .webp({ quality: 80 })
+      .resize(1000, 350, { fit: "cover", position: "center" })
+      .webp({ quality: 70 })
       .toBuffer();
   }
-  return uploadToFirebaseStorage(webpBuffer, storagePath, "image/webp");
+  return `data:image/webp;base64,${webpBuffer.toString("base64")}`;
 }
 
 router.post(

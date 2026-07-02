@@ -6674,11 +6674,9 @@ function requireVendor(req, res, next) {
 function generateImageHash(buffer) {
   return crypto.createHash("md5").update(buffer).digest("hex");
 }
-async function processAndSaveImage(buffer, hash2) {
-  const fileName = `${Date.now()}_${hash2}.webp`;
-  const storagePath = `products/${fileName}`;
-  const webpBuffer = await sharp(buffer).resize(800, 800, { fit: "cover", position: "center" }).webp({ quality: 80 }).toBuffer();
-  return uploadToFirebaseStorage(webpBuffer, storagePath, "image/webp");
+async function processAndSaveImage(buffer, _hash) {
+  const webpBuffer = await sharp(buffer).resize(700, 700, { fit: "cover", position: "center" }).webp({ quality: 70 }).toBuffer();
+  return `data:image/webp;base64,${webpBuffer.toString("base64")}`;
 }
 async function findDuplicateImage(hash2) {
   const db2 = getFirestore();
@@ -6888,16 +6886,14 @@ var profileUpload = multer2({
     }
   }
 });
-async function saveProfileImage(buffer, type, vendorId2) {
-  const fileName = `${type}_${vendorId2}_${Date.now()}.webp`;
-  const storagePath = `vendors/${fileName}`;
+async function saveProfileImage(buffer, type, _vendorId) {
   let webpBuffer;
   if (type === "avatar") {
-    webpBuffer = await sharp(buffer).resize(400, 400, { fit: "cover", position: "center" }).webp({ quality: 85 }).toBuffer();
+    webpBuffer = await sharp(buffer).resize(350, 350, { fit: "cover", position: "center" }).webp({ quality: 75 }).toBuffer();
   } else {
-    webpBuffer = await sharp(buffer).resize(1200, 400, { fit: "cover", position: "center" }).webp({ quality: 80 }).toBuffer();
+    webpBuffer = await sharp(buffer).resize(1e3, 350, { fit: "cover", position: "center" }).webp({ quality: 70 }).toBuffer();
   }
-  return uploadToFirebaseStorage(webpBuffer, storagePath, "image/webp");
+  return `data:image/webp;base64,${webpBuffer.toString("base64")}`;
 }
 router.post(
   "/api/vendor/profile/images",

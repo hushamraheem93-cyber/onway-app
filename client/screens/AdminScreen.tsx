@@ -343,6 +343,7 @@ export default function AdminScreen() {
 
   const [selectedVendor, setSelectedVendor] = useState<VendorPartner | null>(null);
   const [vendorStatusFilter, setVendorStatusFilter] = useState<"all" | "active" | "pending" | "rejected" | "suspended">("all");
+  const [isUpdatingVendorStatus, setIsUpdatingVendorStatus] = useState(false);
 
   const [rechargeDriver, setRechargeDriver] = useState<string | null>(null);
   const [rechargeAmount, setRechargeAmount] = useState("");
@@ -2279,6 +2280,31 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
 
     const selectedProducts = selectedVendor ? (vendorProductsMap[selectedVendor.id] ?? []) : [];
 
+    const handleUpdateVendorStatus = async (
+      vendorId: string,
+      status: "active" | "rejected" | "suspended",
+      reason?: string
+    ) => {
+      setIsUpdatingVendorStatus(true);
+      try {
+        const res = await fetch(`${getApiUrl()}/api/admin/vendor-partners/${vendorId}/status`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ status, reason }),
+        });
+        if (!res.ok) throw new Error("failed");
+        await refetchVendors();
+        queryClient.invalidateQueries({ queryKey: ["/api/admin/vendor-partners"] });
+        setSelectedVendor((prev) => (prev && prev.id === vendorId ? { ...prev, status } : prev));
+        setSelectedVendor(null);
+      } catch {
+        Alert.alert("خطأ", "فشل تحديث حالة المتجر");
+      } finally {
+        setIsUpdatingVendorStatus(false);
+      }
+    };
+
     return (
       <View style={{ gap: Spacing.md }}>
         {/* Summary row */}
@@ -2454,6 +2480,76 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
                         {VENDOR_STATUS_LABELS[selectedVendor.status] ?? selectedVendor.status}
                       </ThemedText>
                     </View>
+                  </View>
+
+                  {/* Action buttons */}
+                  <View style={{ flexDirection: "row-reverse", gap: Spacing.sm }}>
+                    {selectedVendor.status === "pending" ? (
+                      <>
+                        <Pressable
+                          onPress={() => handleUpdateVendorStatus(selectedVendor.id, "active")}
+                          disabled={isUpdatingVendorStatus}
+                          testID={`button-approve-vendor-${selectedVendor.id}`}
+                          style={{
+                            flex: 1, backgroundColor: AppColors.success, borderRadius: BorderRadius.md,
+                            paddingVertical: Spacing.md, alignItems: "center", justifyContent: "center",
+                            opacity: isUpdatingVendorStatus ? 0.6 : 1,
+                          }}
+                        >
+                          {isUpdatingVendorStatus ? (
+                            <ActivityIndicator size="small" color={AppColors.white} />
+                          ) : (
+                            <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 14, color: AppColors.white }}>موافقة</ThemedText>
+                          )}
+                        </Pressable>
+                        <Pressable
+                          onPress={() => handleUpdateVendorStatus(selectedVendor.id, "rejected", "لا يستوفي الشروط")}
+                          disabled={isUpdatingVendorStatus}
+                          testID={`button-reject-vendor-${selectedVendor.id}`}
+                          style={{
+                            flex: 1, backgroundColor: AppColors.error, borderRadius: BorderRadius.md,
+                            paddingVertical: Spacing.md, alignItems: "center", justifyContent: "center",
+                            opacity: isUpdatingVendorStatus ? 0.6 : 1,
+                          }}
+                        >
+                          <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 14, color: AppColors.white }}>رفض</ThemedText>
+                        </Pressable>
+                      </>
+                    ) : selectedVendor.status === "active" ? (
+                      <Pressable
+                        onPress={() => handleUpdateVendorStatus(selectedVendor.id, "suspended")}
+                        disabled={isUpdatingVendorStatus}
+                        testID={`button-suspend-vendor-${selectedVendor.id}`}
+                        style={{
+                          flex: 1, backgroundColor: AppColors.warning, borderRadius: BorderRadius.md,
+                          paddingVertical: Spacing.md, alignItems: "center", justifyContent: "center",
+                          opacity: isUpdatingVendorStatus ? 0.6 : 1,
+                        }}
+                      >
+                        {isUpdatingVendorStatus ? (
+                          <ActivityIndicator size="small" color={AppColors.white} />
+                        ) : (
+                          <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 14, color: AppColors.white }}>تعليق المتجر</ThemedText>
+                        )}
+                      </Pressable>
+                    ) : (
+                      <Pressable
+                        onPress={() => handleUpdateVendorStatus(selectedVendor.id, "active")}
+                        disabled={isUpdatingVendorStatus}
+                        testID={`button-reactivate-vendor-${selectedVendor.id}`}
+                        style={{
+                          flex: 1, backgroundColor: AppColors.success, borderRadius: BorderRadius.md,
+                          paddingVertical: Spacing.md, alignItems: "center", justifyContent: "center",
+                          opacity: isUpdatingVendorStatus ? 0.6 : 1,
+                        }}
+                      >
+                        {isUpdatingVendorStatus ? (
+                          <ActivityIndicator size="small" color={AppColors.white} />
+                        ) : (
+                          <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 14, color: AppColors.white }}>إعادة تفعيل المتجر</ThemedText>
+                        )}
+                      </Pressable>
+                    )}
                   </View>
 
                   {/* Products section */}
