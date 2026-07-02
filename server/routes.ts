@@ -11,7 +11,7 @@ import {
   getFirestore, getUserByPhone, createUser, updateUser, FirestoreUserProfile,
   getProducts as getFirestoreProducts, createProduct as createFirestoreProduct, 
   updateProduct as updateFirestoreProduct, deleteProduct as deleteFirestoreProduct,
-  getOrders, getOrdersByPhone, createOrder, updateOrderStatus,
+  getOrders, getOrderById, getOrdersByPhone, createOrder, updateOrderStatus,
   updateUserPushToken, getUserPushToken, getAllUserPushTokens, getAllUsers,
   getPromotionalSections, getPromotionalSection, savePromotionalSection,
   getCategories as getFirestoreCategories, createCategory as createFirestoreCategory,
@@ -2744,47 +2744,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (!batchDoc) {
           queuedDriver.currentBatchId = undefined;
         } else {
-          const allOrders = await getOrders();
-          const batchOrders = batchDoc.orderIds
-            .map(oid => allOrders.find(o => o.id === oid))
-            .filter(Boolean)
-            .map(async (order: any) => {
-              const customerProfile = await getUserByPhone(order.phoneNumber || "");
-              // Fetch store/vendor info so the driver knows where to pick up
-              let storeName = order.vendorName || order.storeName || "";
+          // Fetch each order by ID in parallel (replaces expensive getOrders() which fetched ALL orders)
+          const resolvedOrders = (await Promise.all(
+            batchDoc.orderIds.map(async (oid) => {
+              const order = await getOrderById(oid);
+              if (!order) return null;
+              // Fetch customer profile and vendor info in parallel for each order
+              const dbInner = getFirestore();
+              const [customerProfile, vDocResult] = await Promise.all([
+                getUserByPhone((order as any).phoneNumber || ""),
+                order.vendorId && dbInner
+                  ? dbInner.collection("vendors").doc(order.vendorId).get().catch(() => null)
+                  : Promise.resolve(null),
+              ]);
+              let storeName = (order as any).vendorName || (order as any).storeName || "";
               let storeAddress = "";
               let storePhone = "";
-              if (order.vendorId) {
-                try {
-                  const dbInner = getFirestore();
-                  if (dbInner) {
-                    const vDoc = await dbInner.collection("vendors").doc(order.vendorId).get();
-                    if (vDoc.exists) {
-                      const vd = vDoc.data() as any;
-                      storeName = vd.storeName || vd.name || storeName;
-                      storeAddress = vd.address || vd.location || "";
-                      storePhone = vd.phoneNumber || vd.whatsappNumber || "";
-                    }
-                  }
-                } catch {}
+              if (vDocResult?.exists) {
+                const vd = vDocResult.data() as any;
+                storeName = vd.storeName || vd.name || storeName;
+                storeAddress = vd.address || vd.location || "";
+                storePhone = vd.phoneNumber || vd.whatsappNumber || "";
               }
               return {
-                ...order,
-                customerName: order.customerName || customerProfile?.fullName || "زبون",
-                customerPhone: order.phoneNumber || "",
-                latitude: order.latitude || null,
-                longitude: order.longitude || null,
-                pickedUpAt: order.pickedUpAt || null,
-                deliveredAt: order.deliveredAt || null,
-                deliverySequence: order.deliverySequence || 1,
-                createdAt: order.createdAt?.toDate?.() ? order.createdAt.toDate().toISOString() : order.createdAt,
-                updatedAt: order.updatedAt?.toDate?.() ? order.updatedAt.toDate().toISOString() : order.updatedAt,
+                ...(order as any),
+                customerName: (order as any).customerName || customerProfile?.fullName || "زبون",
+                customerPhone: (order as any).phoneNumber || "",
+                latitude: (order as any).latitude || null,
+                longitude: (order as any).longitude || null,
+                pickedUpAt: (order as any).pickedUpAt || null,
+                deliveredAt: (order as any).deliveredAt || null,
+                deliverySequence: (order as any).deliverySequence || 1,
+                createdAt: (order as any).createdAt?.toDate?.() ? (order as any).createdAt.toDate().toISOString() : (order as any).createdAt,
+                updatedAt: (order as any).updatedAt?.toDate?.() ? (order as any).updatedAt.toDate().toISOString() : (order as any).updatedAt,
                 storeName,
                 storeAddress,
                 storePhone,
               };
-            });
-          const resolvedOrders = await Promise.all(batchOrders);
+            })
+          )).filter(Boolean);
           const completedCount = resolvedOrders.filter(o => o.status === "delivered" || o.status === "issue" || o.status === "cancelled").length;
           // If all orders in the batch are done (delivered/issue/cancelled), auto-clear the batch
           if (resolvedOrders.length > 0 && completedCount === resolvedOrders.length) {
@@ -2818,9 +2816,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         queuePosition = availableDriversBefore.length;
       }
 
-      const financialAccount = await getDriverFinancialAccount(phoneNumber);
-
-      const completed = await getCompletedOrders(phoneNumber);
+      // Run financial account and completed orders in parallel
+      const [financialAccount, completed] = await Promise.all([
+        getDriverFinancialAccount(phoneNumber),
+        getCompletedOrders(phoneNumber),
+      ]);
       const now = new Date();
       const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
       const todayCompleted = completed.filter(o => new Date(o.completedAt).getTime() >= todayStart);

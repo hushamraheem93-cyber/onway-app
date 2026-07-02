@@ -433,6 +433,17 @@ export async function getOrders(): Promise<(FirestoreOrder & { id: string })[]> 
   }
 }
 
+export async function getOrderById(orderId: string): Promise<(FirestoreOrder & { id: string }) | null> {
+  if (!db) return null;
+  try {
+    const doc = await db.collection("orders").doc(orderId).get();
+    if (!doc.exists) return null;
+    return { id: doc.id, ...doc.data() as FirestoreOrder };
+  } catch {
+    return null;
+  }
+}
+
 export async function getOrdersByPhone(phoneNumber: string): Promise<(FirestoreOrder & { id: string })[]> {
   if (!db) return [];
   

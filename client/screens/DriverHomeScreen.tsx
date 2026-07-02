@@ -13,6 +13,7 @@ import {
   Modal,
   Animated,
 } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useNavigation } from "@react-navigation/native";
@@ -36,6 +37,7 @@ import { RootStackParamList } from "@/navigation/RootStackNavigator";
 const COUNTDOWN_SECONDS = 30;
 const RING_RADIUS = 42;
 const RING_CIRC = 2 * Math.PI * RING_RADIUS;
+const DRIVER_CACHE_KEY = "driver_home_cache_v1";
 
 export type OrderStatus =
   | "pending"
@@ -159,6 +161,23 @@ export default function DriverHomeScreen() {
     }
   }, [currentBatch?.status]);
 
+  // ── Load cached driver data on mount (shows UI before first API response) ───
+  useEffect(() => {
+    if (!phoneNumber) return;
+    AsyncStorage.getItem(`${DRIVER_CACHE_KEY}_${phoneNumber}`)
+      .then((raw) => {
+        if (!raw) return;
+        try {
+          const cached = JSON.parse(raw);
+          setDriverStatus(cached.driverStatus || "pending");
+          setAmountOwed(cached.amountOwed || 0);
+          setTodayEarnings(cached.todayEarnings || 0);
+          setLoading(false); // show UI immediately from cache; real data will update silently
+        } catch {}
+      })
+      .catch(() => {});
+  }, [phoneNumber]);
+
   const triggerNewBatchAlert = useCallback((batch: CurrentBatch) => {
     Vibration.vibrate([0, 400, 200, 400, 200, 600]);
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
@@ -230,6 +249,14 @@ export default function DriverHomeScreen() {
           setDriverStatus(data.approvalStatus || "pending");
           setAmountOwed(data.amountOwed || 0);
           setTodayEarnings(data.todayEarnings || 0);
+          // Persist basic driver info so next launch shows UI instantly
+          if (phoneNumber) {
+            AsyncStorage.setItem(`${DRIVER_CACHE_KEY}_${phoneNumber}`, JSON.stringify({
+              driverStatus: data.approvalStatus || "pending",
+              amountOwed: data.amountOwed || 0,
+              todayEarnings: data.todayEarnings || 0,
+            })).catch(() => {});
+          }
         }
       }
     } catch (e) {
@@ -587,9 +614,45 @@ export default function DriverHomeScreen() {
   };
 
   if (loading) {
+    const skeletonBg = isDark ? "#2a2a2a" : "#e8e8e8";
+    const skeletonShine = isDark ? "#333333" : "#f0f0f0";
+    const SkBox = ({ w, h, r = 8, mt = 0, mb = 0 }: { w: string | number; h: number; r?: number; mt?: number; mb?: number }) => (
+      <View style={{ width: w as any, height: h, borderRadius: r, backgroundColor: skeletonBg, marginTop: mt, marginBottom: mb }} />
+    );
     return (
-      <View style={[styles.container, { backgroundColor: theme.backgroundRoot, justifyContent: "center", alignItems: "center" }]}>
-        <ActivityIndicator size="large" color={AppColors.primary} />
+      <View style={[styles.container, { backgroundColor: theme.backgroundRoot }]}>
+        {/* Header skeleton */}
+        <View style={{ paddingTop: insets.top + 12, paddingHorizontal: 16, paddingBottom: 12, backgroundColor: AppColors.primary + "22" }}>
+          <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 12 }}>
+            <View style={{ width: 46, height: 46, borderRadius: 23, backgroundColor: skeletonBg }} />
+            <View style={{ flex: 1 }}>
+              <SkBox w="55%" h={14} r={7} mb={6} />
+              <SkBox w="35%" h={11} r={6} />
+            </View>
+            <SkBox w={80} h={36} r={18} />
+          </View>
+        </View>
+        {/* Earnings strip skeleton */}
+        <View style={{ backgroundColor: AppColors.primary + "15", paddingVertical: 14, paddingHorizontal: 16, flexDirection: "row-reverse", gap: 12, justifyContent: "space-around" }}>
+          {[1, 2, 3].map(i => (
+            <View key={i} style={{ alignItems: "center", gap: 6 }}>
+              <SkBox w={60} h={11} r={6} />
+              <SkBox w={80} h={18} r={8} />
+            </View>
+          ))}
+        </View>
+        {/* Toggle button skeleton */}
+        <View style={{ margin: 16 }}>
+          <SkBox w="100%" h={64} r={16} />
+        </View>
+        {/* Status card skeleton */}
+        <View style={{ marginHorizontal: 16 }}>
+          <SkBox w="100%" h={160} r={16} />
+        </View>
+        {/* Bottom hint */}
+        <View style={{ alignItems: "center", marginTop: 24 }}>
+          <ActivityIndicator size="small" color={AppColors.primary} />
+        </View>
       </View>
     );
   }

@@ -296,6 +296,16 @@ async function getOrders() {
     return [];
   }
 }
+async function getOrderById(orderId) {
+  if (!db) return null;
+  try {
+    const doc = await db.collection("orders").doc(orderId).get();
+    if (!doc.exists) return null;
+    return { id: doc.id, ...doc.data() };
+  } catch {
+    return null;
+  }
+}
 async function getOrdersByPhone(phoneNumber) {
   if (!db) return [];
   try {
@@ -4172,44 +4182,41 @@ ${itemsList}
         if (!batchDoc) {
           queuedDriver.currentBatchId = void 0;
         } else {
-          const allOrders = await getOrders();
-          const batchOrders = batchDoc.orderIds.map((oid) => allOrders.find((o) => o.id === oid)).filter(Boolean).map(async (order) => {
-            const customerProfile = await getUserByPhone(order.phoneNumber || "");
-            let storeName = order.vendorName || order.storeName || "";
-            let storeAddress = "";
-            let storePhone = "";
-            if (order.vendorId) {
-              try {
-                const dbInner = getFirestore();
-                if (dbInner) {
-                  const vDoc = await dbInner.collection("vendors").doc(order.vendorId).get();
-                  if (vDoc.exists) {
-                    const vd = vDoc.data();
-                    storeName = vd.storeName || vd.name || storeName;
-                    storeAddress = vd.address || vd.location || "";
-                    storePhone = vd.phoneNumber || vd.whatsappNumber || "";
-                  }
-                }
-              } catch {
+          const resolvedOrders = (await Promise.all(
+            batchDoc.orderIds.map(async (oid) => {
+              const order = await getOrderById(oid);
+              if (!order) return null;
+              const dbInner = getFirestore();
+              const [customerProfile, vDocResult] = await Promise.all([
+                getUserByPhone(order.phoneNumber || ""),
+                order.vendorId && dbInner ? dbInner.collection("vendors").doc(order.vendorId).get().catch(() => null) : Promise.resolve(null)
+              ]);
+              let storeName = order.vendorName || order.storeName || "";
+              let storeAddress = "";
+              let storePhone = "";
+              if (vDocResult?.exists) {
+                const vd = vDocResult.data();
+                storeName = vd.storeName || vd.name || storeName;
+                storeAddress = vd.address || vd.location || "";
+                storePhone = vd.phoneNumber || vd.whatsappNumber || "";
               }
-            }
-            return {
-              ...order,
-              customerName: order.customerName || customerProfile?.fullName || "\u0632\u0628\u0648\u0646",
-              customerPhone: order.phoneNumber || "",
-              latitude: order.latitude || null,
-              longitude: order.longitude || null,
-              pickedUpAt: order.pickedUpAt || null,
-              deliveredAt: order.deliveredAt || null,
-              deliverySequence: order.deliverySequence || 1,
-              createdAt: order.createdAt?.toDate?.() ? order.createdAt.toDate().toISOString() : order.createdAt,
-              updatedAt: order.updatedAt?.toDate?.() ? order.updatedAt.toDate().toISOString() : order.updatedAt,
-              storeName,
-              storeAddress,
-              storePhone
-            };
-          });
-          const resolvedOrders = await Promise.all(batchOrders);
+              return {
+                ...order,
+                customerName: order.customerName || customerProfile?.fullName || "\u0632\u0628\u0648\u0646",
+                customerPhone: order.phoneNumber || "",
+                latitude: order.latitude || null,
+                longitude: order.longitude || null,
+                pickedUpAt: order.pickedUpAt || null,
+                deliveredAt: order.deliveredAt || null,
+                deliverySequence: order.deliverySequence || 1,
+                createdAt: order.createdAt?.toDate?.() ? order.createdAt.toDate().toISOString() : order.createdAt,
+                updatedAt: order.updatedAt?.toDate?.() ? order.updatedAt.toDate().toISOString() : order.updatedAt,
+                storeName,
+                storeAddress,
+                storePhone
+              };
+            })
+          )).filter(Boolean);
           const completedCount = resolvedOrders.filter((o) => o.status === "delivered" || o.status === "issue" || o.status === "cancelled").length;
           if (resolvedOrders.length > 0 && completedCount === resolvedOrders.length) {
             queuedDriver.currentBatchId = void 0;
@@ -4238,8 +4245,10 @@ ${itemsList}
         const availableDriversBefore = driverQueue.filter((d, i) => i <= queueIndex && !d.currentBatchId);
         queuePosition = availableDriversBefore.length;
       }
-      const financialAccount = await getDriverFinancialAccount(phoneNumber);
-      const completed = await getCompletedOrders(phoneNumber);
+      const [financialAccount, completed] = await Promise.all([
+        getDriverFinancialAccount(phoneNumber),
+        getCompletedOrders(phoneNumber)
+      ]);
       const now = /* @__PURE__ */ new Date();
       const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
       const todayCompleted = completed.filter((o) => new Date(o.completedAt).getTime() >= todayStart);
