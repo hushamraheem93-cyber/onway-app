@@ -79,9 +79,13 @@ export default function DriverProfileScreen() {
 
   const handleWhatsApp = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    Linking.openURL("https://wa.me/9647700000000").catch(() =>
-      Alert.alert("خطأ", "تعذّر فتح واتساب")
-    );
+    const supportNumber = "9647702891104";
+    const message = encodeURIComponent("مرحباً، أحتاج مساعدة في تطبيق OnWay");
+    Linking.openURL(`https://wa.me/${supportNumber}?text=${message}`).catch(() => {
+      Linking.openURL(`whatsapp://send?phone=${supportNumber}&text=${message}`).catch(() =>
+        Alert.alert("خطأ", "تعذّر فتح واتساب")
+      );
+    });
   };
 
   const handleSupportChat = () => {

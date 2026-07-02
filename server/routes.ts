@@ -39,7 +39,8 @@ import {
   createDeliveryBatch, getDeliveryBatch, updateDeliveryBatch, cancelDeliveryBatch, addDeliveryLog, DeliveryBatch,
   saveAdminPushToken, getAdminPushToken,
   addDriverToActiveQueue, removeDriverFromActiveQueue, updateDriverQueueEntry, getActiveDriverQueue,
-  uploadToFirebaseStorage
+  uploadToFirebaseStorage,
+  deleteFromFirebaseStorage
 } from "./firebase";
 import { sendPushNotification, sendBroadcastNotification, sendDriverBatchNotification, sendAdminNewOrderNotification, sendVendorNewOrderNotification } from "./pushNotifications";
 
@@ -3207,12 +3208,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const deductionAmount = isRestaurantOrder ? 250 : 1000;
         const driverEarning = isRestaurantOrder ? 750 : 2000;
         await updateOrderDriverInfo(orderId, { driverEarning, ownerEarning: deductionAmount });
-        await updateDriverEarningsOnOrder(phoneNumber, {
+        const updatedBatchFinancial = await updateDriverEarningsOnOrder(phoneNumber, {
           driverEarning,
           onwayCommission: deductionAmount,
           orderId,
           orderType: isRestaurantOrder ? "restaurant" : "market",
         });
+        const newBalance = updatedBatchFinancial?.amountOwed ?? 0;
 
         const customerProfile = await getUserByPhone(order.phoneNumber || "");
         const completedEntry = {

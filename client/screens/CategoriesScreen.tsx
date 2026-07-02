@@ -139,7 +139,7 @@ export default function CategoriesScreen() {
       <FlatList
         style={{ flex: 1 }}
         contentContainerStyle={{
-          paddingTop: headerHeight + Spacing.lg,
+          paddingTop: Math.max(headerHeight, insets.top + 44) + Spacing.lg,
           paddingBottom: insets.bottom + 100,
           paddingHorizontal: 16,
         }}

@@ -124,6 +124,7 @@ export default function DriverHomeScreen() {
   const [isAccepting, setIsAccepting] = useState(false);
   const [issueOrderId, setIssueOrderId] = useState<string | null>(null);
 
+  const [walletError, setWalletError] = useState("");
   const [countdown, setCountdown] = useState(COUNTDOWN_SECONDS);
   const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const prevBatchIdRef = useRef<string | null>(null);

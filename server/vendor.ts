@@ -1492,12 +1492,18 @@ router.get("/api/stores", async (req, res) => {
 
     // Backward-compat: map category IDs to businessType for stores without supportedCategories
     const BTYPE_FALLBACK: Record<string, string[]> = {
-      restaurants:           ["restaurant"],
-      pharmacy:              ["pharmacy"],
-      "snacks-sweets":       ["bakery", "sweets"],
-      "tea-coffee":          ["cafe"],
-      flowers:               ["flowers"],
-      "women-bags":          ["clothing"],
+      "restaurants":           ["restaurant"],
+      "pharmacy":              ["pharmacy"],
+      "snacks-sweets":         ["bakery", "sweets", "supermarket"],
+      "tea-coffee":            ["cafe", "bakery"],
+      "flowers":               ["flowers"],
+      "women-bags":            ["clothing"],
+      "fruits-vegetables":     ["supermarket", "grocery"],
+      "meat-poultry":          ["supermarket", "butcher"],
+      "dairy-eggs":            ["supermarket", "dairy"],
+      "cleaning-care":         ["supermarket", "cleaning"],
+      "beverages":             ["supermarket", "bakery", "cafe"],
+      "baby":                  ["supermarket", "pharmacy"],
     };
 
     const snap = await db.collection("vendors").where("status", "==", "active").get();

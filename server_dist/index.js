@@ -277,7 +277,7 @@ async function deleteProduct(id) {
     const doc = await db.collection("products").doc(id).get();
     const imageUrl = doc.exists ? doc.data()?.image ?? "" : "";
     await db.collection("products").doc(id).delete();
-    if (imageUrl) deleteFromFirebaseStorage2(imageUrl).catch(() => {
+    if (imageUrl) deleteFromFirebaseStorage(imageUrl).catch(() => {
     });
     return true;
   } catch (error) {
@@ -468,7 +468,7 @@ async function updateCategory(id, updates) {
     const doc = await docRef.get();
     if (!doc.exists) return null;
     if (oldImageUrl && updates.image && oldImageUrl !== updates.image) {
-      deleteFromFirebaseStorage2(oldImageUrl).catch(() => {
+      deleteFromFirebaseStorage(oldImageUrl).catch(() => {
       });
     }
     return { id: doc.id, ...doc.data() };
@@ -483,7 +483,7 @@ async function deleteCategory(id) {
     const doc = await db.collection("categories").doc(id).get();
     const imageUrl = doc.exists ? doc.data()?.image ?? "" : "";
     await db.collection("categories").doc(id).delete();
-    if (imageUrl) deleteFromFirebaseStorage2(imageUrl).catch(() => {
+    if (imageUrl) deleteFromFirebaseStorage(imageUrl).catch(() => {
     });
     return true;
   } catch (error) {
@@ -643,7 +643,7 @@ async function updateBanner(id, updates) {
     const doc = await docRef.get();
     if (!doc.exists) return null;
     if (oldImageUrl && updates.image && oldImageUrl !== updates.image) {
-      deleteFromFirebaseStorage2(oldImageUrl).catch(() => {
+      deleteFromFirebaseStorage(oldImageUrl).catch(() => {
       });
     }
     return { id: doc.id, ...doc.data() };
@@ -658,7 +658,7 @@ async function deleteBanner(id) {
     const doc = await db.collection("banners").doc(id).get();
     const imageUrl = doc.exists ? doc.data()?.image ?? "" : "";
     await db.collection("banners").doc(id).delete();
-    if (imageUrl) deleteFromFirebaseStorage2(imageUrl).catch(() => {
+    if (imageUrl) deleteFromFirebaseStorage(imageUrl).catch(() => {
     });
     return true;
   } catch (error) {
@@ -1000,9 +1000,9 @@ async function deleteVendor(id) {
     const logoUrl = data?.profileImageUrl ?? "";
     const coverUrl = data?.coverImageUrl ?? "";
     await db2.collection("vendors").doc(id).delete();
-    if (logoUrl) deleteFromFirebaseStorage2(logoUrl).catch(() => {
+    if (logoUrl) deleteFromFirebaseStorage(logoUrl).catch(() => {
     });
-    if (coverUrl) deleteFromFirebaseStorage2(coverUrl).catch(() => {
+    if (coverUrl) deleteFromFirebaseStorage(coverUrl).catch(() => {
     });
     return true;
   } catch {
@@ -1476,7 +1476,7 @@ async function uploadToFirebaseStorage(buffer, storagePath, contentType = "image
   const encodedPath = encodeURIComponent(storagePath);
   return `https://firebasestorage.googleapis.com/v0/b/${bucketName}/o/${encodedPath}?alt=media&token=${token}`;
 }
-async function deleteFromFirebaseStorage2(url) {
+async function deleteFromFirebaseStorage(url) {
   if (!url || !url.startsWith("https://firebasestorage.googleapis.com/")) return;
   try {
     const urlObj = new URL(url);
@@ -4587,12 +4587,13 @@ ${itemsList}
         const deductionAmount = isRestaurantOrder ? 250 : 1e3;
         const driverEarning = isRestaurantOrder ? 750 : 2e3;
         await updateOrderDriverInfo(orderId, { driverEarning, ownerEarning: deductionAmount });
-        await updateDriverEarningsOnOrder(phoneNumber, {
+        const updatedBatchFinancial = await updateDriverEarningsOnOrder(phoneNumber, {
           driverEarning,
           onwayCommission: deductionAmount,
           orderId,
           orderType: isRestaurantOrder ? "restaurant" : "market"
         });
+        const newBalance = updatedBatchFinancial?.amountOwed ?? 0;
         const customerProfile = await getUserByPhone(order.phoneNumber || "");
         const completedEntry = {
           orderId,
@@ -6836,11 +6837,11 @@ router.post(
       const { passwordHash: _pw, ...safe } = doc.data();
       res.json(safe);
       if (updates.profileImageUrl && oldLogoUrl && oldLogoUrl !== updates.profileImageUrl) {
-        deleteFromFirebaseStorage2(oldLogoUrl).catch(() => {
+        deleteFromFirebaseStorage(oldLogoUrl).catch(() => {
         });
       }
       if (updates.coverImageUrl && oldCoverUrl && oldCoverUrl !== updates.coverImageUrl) {
-        deleteFromFirebaseStorage2(oldCoverUrl).catch(() => {
+        deleteFromFirebaseStorage(oldCoverUrl).catch(() => {
         });
       }
     } catch (err) {
@@ -7040,7 +7041,7 @@ router.put(
             try {
               const refSnap = await db2.collection("vendorProducts").where("imageUrls", "array-contains", url).limit(1).get();
               if (refSnap.empty) {
-                await deleteFromFirebaseStorage2(url);
+                await deleteFromFirebaseStorage(url);
               }
             } catch {
             }
@@ -7638,12 +7639,18 @@ router.get("/api/stores", async (req, res) => {
     if (!db2) return res.status(500).json({ error: "\u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u063A\u064A\u0631 \u0645\u062A\u0627\u062D\u0629" });
     const { businessType, categoryId, name } = req.query;
     const BTYPE_FALLBACK = {
-      restaurants: ["restaurant"],
-      pharmacy: ["pharmacy"],
-      "snacks-sweets": ["bakery", "sweets"],
-      "tea-coffee": ["cafe"],
-      flowers: ["flowers"],
-      "women-bags": ["clothing"]
+      "restaurants": ["restaurant"],
+      "pharmacy": ["pharmacy"],
+      "snacks-sweets": ["bakery", "sweets", "supermarket"],
+      "tea-coffee": ["cafe", "bakery"],
+      "flowers": ["flowers"],
+      "women-bags": ["clothing"],
+      "fruits-vegetables": ["supermarket", "grocery"],
+      "meat-poultry": ["supermarket", "butcher"],
+      "dairy-eggs": ["supermarket", "dairy"],
+      "cleaning-care": ["supermarket", "cleaning"],
+      "beverages": ["supermarket", "bakery", "cafe"],
+      "baby": ["supermarket", "pharmacy"]
     };
     const snap = await db2.collection("vendors").where("status", "==", "active").get();
     const allDocs = snap.docs.map((d) => {

@@ -7271,6 +7271,19 @@
             <span style="color: ${statusColor}; font-weight: 700; font-size: 1.1rem;">${statusLabel}</span>
           </div>
 
+          <!-- Vendor / Store Info -->
+          ${order.storeName || order.vendorName || order.restaurantName ? `
+          <div style="background: #FFF3E0; border: 1px solid #FFD9BB; border-radius: 12px; padding: 16px;">
+            <h4 style="margin: 0 0 10px 0; display: flex; align-items: center; gap: 8px; color: var(--gray-800);">
+              <i data-lucide="store" style="width: 18px; height: 18px; color: var(--primary);"></i>
+              المتجر / المطعم
+            </h4>
+            <div style="font-weight: 700; font-size: 1rem; color: #E86520;">
+              ${escapeHtml(order.storeName || order.vendorName || order.restaurantName || '—')}
+            </div>
+            ${order.vendorId ? `<div style="font-size: 0.75rem; color: var(--gray-400); margin-top: 4px;">ID: ${escapeHtml(order.vendorId)}</div>` : ''}
+          </div>` : ''}
+
           <!-- Customer Info -->
           <div style="background: var(--gray-50); border-radius: 12px; padding: 16px;">
             <h4 style="margin-bottom: 12px; display: flex; align-items: center; gap: 8px; color: var(--gray-800);">

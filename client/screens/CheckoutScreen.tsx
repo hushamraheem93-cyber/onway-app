@@ -40,7 +40,7 @@ export default function CheckoutScreen() {
   const navigation = useNavigation<NavigationProp>();
   const { items, getTotal, clearCart } = useCart();
   const { addOrder } = useOrders();
-  const { phoneNumber } = useAuth();
+  const { phoneNumber, userProfile } = useAuth();
   const { savedLocation } = useLocation();
 
   const { data: deliveryAreas = [] } = useQuery<DeliveryArea[]>({
@@ -51,7 +51,7 @@ export default function CheckoutScreen() {
     queryKey: ["/api/settings/fees"],
   });
 
-  const [customerName, setCustomerName] = useState("");
+  const [customerName, setCustomerName] = useState(userProfile?.fullName || "");
   const [phone, setPhone] = useState(phoneNumber || "");
   const [selectedArea, setSelectedArea] = useState("");
   const [address, setAddress] = useState("");
@@ -70,6 +70,12 @@ export default function CheckoutScreen() {
   const [isApplyingPromo, setIsApplyingPromo] = useState(false);
   const [appliedPromoCode, setAppliedPromoCode] = useState("");
   const [locationAutoFilled, setLocationAutoFilled] = useState(false);
+
+  React.useEffect(() => {
+    if (userProfile?.fullName && !customerName) {
+      setCustomerName(userProfile.fullName);
+    }
+  }, [userProfile?.fullName]);
 
   React.useEffect(() => {
     if (savedLocation && !locationAutoFilled) {
@@ -427,14 +433,17 @@ export default function CheckoutScreen() {
 
       <View style={[styles.paymentCard, { backgroundColor: theme.backgroundDefault }, Shadows.sm]}>
         <View style={styles.paymentRow}>
-          <View style={styles.paymentMethodItem}>
+          <View style={[styles.paymentMethodItem, styles.paymentMethodDisabled]}>
             <Svg width={44} height={28}>
-              <Circle cx={15} cy={14} r={13} fill={AppColors.error} opacity={0.9} />
-              <Circle cx={29} cy={14} r={13} fill={AppColors.warning} opacity={0.9} />
+              <Circle cx={15} cy={14} r={13} fill={AppColors.error} opacity={0.4} />
+              <Circle cx={29} cy={14} r={13} fill={AppColors.warning} opacity={0.4} />
             </Svg>
-            <ThemedText type="small" style={[styles.paymentLabel, { color: theme.text }]}>
+            <ThemedText type="small" style={[styles.paymentLabel, { color: theme.textSecondary }]}>
               ماستر كارد
             </ThemedText>
+            <View style={styles.comingSoonBadge}>
+              <ThemedText style={styles.comingSoonText}>قريباً</ThemedText>
+            </View>
           </View>
 
           <View style={styles.paymentMethodItem}>
