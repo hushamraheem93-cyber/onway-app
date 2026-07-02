@@ -23,7 +23,11 @@ export default function AboutScreen() {
 
   const handleWhatsApp = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    Linking.openURL("https://wa.me/9647702891104");
+    const number = "9647702891104";
+    const message = encodeURIComponent("مرحباً، أريد التواصل مع فريق OnWay");
+    Linking.openURL(`https://wa.me/${number}?text=${message}`).catch(() => {
+      Linking.openURL(`whatsapp://send?phone=${number}&text=${message}`).catch(() => {});
+    });
   };
 
   const handleCall = () => {
