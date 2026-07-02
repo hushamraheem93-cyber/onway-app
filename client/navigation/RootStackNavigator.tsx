@@ -212,6 +212,11 @@ export default function RootStackNavigator() {
           component={DriverBatchScreen}
           options={{ headerShown: false }}
         />
+        <Stack.Screen
+          name="SupportChat"
+          component={SupportChatScreen}
+          options={{ headerTitle: "الدعم والمساعدة" }}
+        />
       </Stack.Navigator>
     );
   }

@@ -132,6 +132,16 @@ export default function DriverHomeScreen() {
   const isRejectingRef = useRef(false); // prevents double-rejection calls
   const pulseAnim = useRef(new Animated.Value(1)).current;
 
+  // ── Performance & auto-reconnect refs ──────────────────────────────────────
+  // Tracks what the driver INTENDED (manual toggle) — used for auto-reconnect
+  const isOnlineIntendedRef = useRef(false);
+  // Tracks whether a toggle API call is in flight — prevents parallel reconnects
+  const isTogglingRef = useRef(false);
+  // Snapshot of last poll response — skips setState when nothing changed
+  const lastPollKeyRef = useRef("");
+  // Dynamic poll timeout handle
+  const pollTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   // ── Pulse animation for incoming order card ────────────────────────────────
   useEffect(() => {
     if (currentBatch?.status === "pending") {
@@ -173,20 +183,52 @@ export default function DriverHomeScreen() {
       );
       if (res.ok) {
         const data = await res.json();
-        setIsOnline(data.isOnline || false);
-        setQueuePosition(data.queuePosition);
+
+        // ── Auto-reconnect: driver intended to be online but server dropped them ──
+        if (isOnlineIntendedRef.current && !data.isOnline && !isTogglingRef.current) {
+          isTogglingRef.current = true;
+          fetch(new URL("/api/driver/toggle-online", getApiUrl()).toString(), {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ phoneNumber, goOnline: true }),
+          })
+            .then(r => r.ok ? r.json() : null)
+            .then(d => { if (d?.isOnline) setQueuePosition(d.queuePosition ?? null); })
+            .catch(() => {})
+            .finally(() => { isTogglingRef.current = false; });
+          return; // next poll will pick up the updated state
+        }
+
+        // ── Skip re-render when nothing meaningful changed ──────────────────────
         const newBatch: CurrentBatch | null = data.currentBatch || null;
-        if (!isInitialLoadRef.current) {
-          if (newBatch && newBatch.id !== prevBatchIdRef.current) {
-            triggerNewBatchAlert(newBatch);
-          }
+        const pollKey = [
+          data.isOnline ? 1 : 0,
+          data.queuePosition ?? -1,
+          newBatch?.id ?? "",
+          newBatch?.status ?? "",
+          newBatch?.completedOrders ?? 0,
+          data.approvalStatus ?? "",
+          data.amountOwed ?? 0,
+          data.todayEarnings ?? 0,
+        ].join("|");
+
+        const isNew = pollKey !== lastPollKeyRef.current;
+        lastPollKeyRef.current = pollKey;
+
+        if (!isInitialLoadRef.current && newBatch && newBatch.id !== prevBatchIdRef.current) {
+          triggerNewBatchAlert(newBatch);
         }
         prevBatchIdRef.current = newBatch ? newBatch.id : null;
         isInitialLoadRef.current = false;
-        setCurrentBatch(newBatch);
-        setDriverStatus(data.approvalStatus || "pending");
-        setAmountOwed(data.amountOwed || 0);
-        setTodayEarnings(data.todayEarnings || 0);
+
+        if (isNew) {
+          setIsOnline(data.isOnline || false);
+          setQueuePosition(data.queuePosition ?? null);
+          setCurrentBatch(newBatch);
+          setDriverStatus(data.approvalStatus || "pending");
+          setAmountOwed(data.amountOwed || 0);
+          setTodayEarnings(data.todayEarnings || 0);
+        }
       }
     } catch (e) {
     } finally {
@@ -265,10 +307,22 @@ export default function DriverHomeScreen() {
     })();
   }, [phoneNumber]);
 
+  // ── Dynamic polling: 4s when online (fast batch detection), 10s when offline ──
   useEffect(() => {
-    fetchDriverStatus();
-    const interval = setInterval(fetchDriverStatus, 5000);
-    return () => clearInterval(interval);
+    let cancelled = false;
+    const schedule = async () => {
+      if (cancelled) return;
+      await fetchDriverStatus();
+      if (cancelled) return;
+      // Delay adapts: shorter when online so new batches arrive quickly
+      const delay = isOnlineIntendedRef.current ? 4000 : 10000;
+      pollTimeoutRef.current = setTimeout(schedule, delay);
+    };
+    schedule();
+    return () => {
+      cancelled = true;
+      if (pollTimeoutRef.current) clearTimeout(pollTimeoutRef.current);
+    };
   }, [fetchDriverStatus]);
 
   const gpsIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -311,12 +365,20 @@ export default function DriverHomeScreen() {
 
   const handleToggleOnline = async () => {
     if (!phoneNumber || driverStatus !== "approved") return;
+    if (isTogglingRef.current) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setWalletError("");
-    setIsToggling(true);
+
+    const goOnline = !isOnline;
+    // ── Optimistic update: flip UI immediately so button feels instant ──────────
+    isTogglingRef.current = true;
+    isOnlineIntendedRef.current = goOnline;
+    setIsOnline(goOnline);
+    lastPollKeyRef.current = ""; // force next poll to apply fresh data
+
     try {
       let pushToken: string | undefined;
-      if (!isOnline) {
+      if (goOnline) {
         try {
           const tokenData = await Notifications.getExpoPushTokenAsync().catch(() => null);
           if (tokenData?.data) pushToken = tokenData.data;
@@ -325,13 +387,18 @@ export default function DriverHomeScreen() {
       const res = await fetch(new URL("/api/driver/toggle-online", getApiUrl()).toString(), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phoneNumber, goOnline: !isOnline, pushToken }),
+        body: JSON.stringify({ phoneNumber, goOnline, pushToken }),
       });
       if (res.ok) {
         const data = await res.json();
+        // Confirm with server truth
         setIsOnline(data.isOnline);
-        setQueuePosition(data.queuePosition);
+        isOnlineIntendedRef.current = data.isOnline;
+        setQueuePosition(data.queuePosition ?? null);
       } else {
+        // Revert optimistic update on error
+        setIsOnline(!goOnline);
+        isOnlineIntendedRef.current = !goOnline;
         const errorData = await res.json().catch(() => ({}));
         if (errorData.error) {
           setWalletError(errorData.error);
@@ -339,8 +406,11 @@ export default function DriverHomeScreen() {
         }
       }
     } catch (e) {
+      // Revert on network error
+      setIsOnline(!goOnline);
+      isOnlineIntendedRef.current = !goOnline;
     } finally {
-      setIsToggling(false);
+      isTogglingRef.current = false;
     }
   };
 
