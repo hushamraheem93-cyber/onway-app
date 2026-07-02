@@ -71,6 +71,7 @@ externalPort = 80
 [userenv.shared]
 GOOGLE_CLIENT_ID = "116297695107-hq1eclup48in29qd1an5vv165nlbgf0a.apps.googleusercontent.com"
 ADMIN_GOOGLE_EMAIL = "husham.raheem93@gmail.com"
+ALLOWED_ORIGINS = "https://admin.onway.iq,https://www.admin.onway.iq"
 
 [postMerge]
 path = "scripts/post-merge.sh"
