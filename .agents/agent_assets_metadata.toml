@@ -59,3 +59,9 @@ id = "TR18CmVyGR9ybiJ0aBJKX"
 uri = "file://onway-source.zip"
 type = "unspecified"
 title = "Onway — Source Code (86 MB)"
+
+[[outputs]]
+id = "63fP27WCxM58QHPwlEjDI"
+uri = "file://exports/onway-source.zip"
+type = "unspecified"
+title = "onway-source.zip - أحدث نسخة من الكود المصدري"
