@@ -1,0 +1,79 @@
+import React from "react";
+import { StyleSheet, View, TextInput, Pressable } from "react-native";
+import { Feather } from "@expo/vector-icons";
+
+import { useTheme } from "@/hooks/useTheme";
+import { AppColors } from "@/constants/theme";
+
+interface SearchBarProps {
+  value: string;
+  onChangeText: (text: string) => void;
+  placeholder?: string;
+  onSubmitEditing?: () => void;
+}
+
+function SearchBarComponent({
+  value,
+  onChangeText,
+  placeholder = "ابحث عن منتجاتك...",
+  onSubmitEditing,
+}: SearchBarProps) {
+  const { theme, isDark } = useTheme();
+
+  return (
+    <View
+      style={[
+        styles.container,
+        { 
+          backgroundColor: isDark ? theme.backgroundDefault : AppColors.gray50,
+          borderColor: isDark ? theme.border : AppColors.divider,
+        },
+      ]}
+    >
+      <Feather name="mic" size={20} color={AppColors.gray400} style={styles.micIcon} />
+      <TextInput
+        value={value}
+        onChangeText={onChangeText}
+        placeholder={placeholder}
+        placeholderTextColor={AppColors.gray400}
+        style={[styles.input, { color: theme.text }]}
+        textAlign="right"
+        returnKeyType="search"
+        onSubmitEditing={onSubmitEditing}
+      />
+      {value.length > 0 ? (
+        <Pressable onPress={() => onChangeText("")} style={styles.clearButton}>
+          <Feather name="x" size={18} color={AppColors.gray400} />
+        </Pressable>
+      ) : (
+        <Feather name="search" size={20} color={AppColors.onGrey} />
+      )}
+    </View>
+  );
+}
+
+export const SearchBar = React.memo(SearchBarComponent);
+const styles = StyleSheet.create({
+  container: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderRadius: 12,
+    paddingHorizontal: 15,
+    marginHorizontal: 15,
+    marginVertical: 15,
+    height: 50,
+    borderWidth: 1,
+  },
+  micIcon: {
+    marginRight: 10,
+  },
+  input: {
+    flex: 1,
+    marginHorizontal: 10,
+    fontSize: 13,
+    paddingVertical: 0,
+  },
+  clearButton: {
+    padding: 4,
+  },
+});

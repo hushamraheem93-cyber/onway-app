@@ -65,3 +65,39 @@ id = "63fP27WCxM58QHPwlEjDI"
 uri = "file://exports/onway-source.zip"
 type = "unspecified"
 title = "onway-source.zip - أحدث نسخة من الكود المصدري"
+
+[[outputs]]
+id = "R_XKvmTE8V4QqOcbcUE4f"
+uri = "file://review-export/01-server.zip"
+type = "unspecified"
+title = "01-server.zip — الخادم الخلفي (Backend)"
+
+[[outputs]]
+id = "X_-Hpsro_MbM90o7dd3cD"
+uri = "file://review-export/02-client.zip"
+type = "unspecified"
+title = "02-client.zip — تطبيق الموبايل (عميل/سائق/تاجر)"
+
+[[outputs]]
+id = "RMBcX36aG3U1mQd3cGYKC"
+uri = "file://review-export/03-shared.zip"
+type = "unspecified"
+title = "03-shared.zip — المخططات المشتركة"
+
+[[outputs]]
+id = "XuCKwkCY38fM1tYf4shf6"
+uri = "file://review-export/04-admin.zip"
+type = "unspecified"
+title = "04-admin.zip — لوحة التحكم"
+
+[[outputs]]
+id = "9ff1KOdGESWQpgyleZX3X"
+uri = "file://review-export/05-config.zip"
+type = "unspecified"
+title = "05-config.zip — ملفات الإعداد"
+
+[[outputs]]
+id = "2Fu2xQdgF9Y9aqKptz8ob"
+uri = "file://review-export/README-STRUCTURE.txt"
+type = "text"
+title = "README-STRUCTURE.txt — شرح الهيكل الكامل"

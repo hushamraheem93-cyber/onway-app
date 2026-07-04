@@ -1,0 +1,30 @@
+# OnWay Admin — Hostinger .htaccess
+# ─────────────────────────────────────────────────────
+# Force HTTPS
+RewriteEngine On
+RewriteCond %{HTTPS} off
+RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+
+# Serve login.html for /login
+RewriteRule ^login/?$ login.html [L]
+
+# Serve index.html for / or /admin
+RewriteRule ^(admin/?)?$ index.html [L]
+
+# Security headers
+<IfModule mod_headers.c>
+  Header always set X-Content-Type-Options  "nosniff"
+  Header always set X-Frame-Options         "DENY"
+  Header always set X-XSS-Protection        "1; mode=block"
+  Header always set Referrer-Policy         "strict-origin-when-cross-origin"
+</IfModule>
+
+# Cache: HTML files — no cache; JS/CSS/images — 7 days
+<FilesMatch ".(html|htm)$">
+  Header set Cache-Control "no-cache, no-store, must-revalidate"
+  Header set Pragma "no-cache"
+  Header set Expires "0"
+</FilesMatch>
+<FilesMatch ".(js|css|png|jpg|jpeg|gif|svg|ico|woff2?)$">
+  Header set Cache-Control "public, max-age=604800, immutable"
+</FilesMatch>

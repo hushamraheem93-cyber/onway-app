@@ -1,0 +1,935 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OnWay — لوحة تحكم الشريك</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --orange: #E86520;
+  --orange-light: rgba(232,101,32,0.12);
+  --orange-glow: rgba(232,101,32,0.35);
+  --bg: #0f0f0f;
+  --bg2: #161616;
+  --bg3: #1e1e1e;
+  --border: rgba(255,255,255,0.08);
+  --text: #f0f0f0;
+  --text-muted: rgba(255,255,255,0.45);
+  --green: #10B981;
+  --red: #EF4444;
+  --yellow: #F59E0B;
+  --sidebar-w: 240px;
+}
+
+body { font-family: 'Segoe UI', Tahoma, 'Cairo', sans-serif; background: var(--bg); color: var(--text); direction: rtl; overflow-x: hidden; }
+
+/* ── Layout ── */
+.app { display: flex; height: 100vh; overflow: hidden; }
+
+.sidebar {
+  width: var(--sidebar-w);
+  background: var(--bg2);
+  border-left: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  overflow-y: auto;
+}
+
+.main { flex: 1; overflow-y: auto; }
+
+/* ── Sidebar ── */
+.sidebar-logo {
+  padding: 20px 16px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.sidebar-logo .icon {
+  width: 36px; height: 36px;
+  background: linear-gradient(135deg, #E86520, #f5a623);
+  border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 900; font-size: 16px; color: #fff;
+  flex-shrink: 0;
+}
+.sidebar-logo .name { font-size: 0.8rem; font-weight: 700; color: var(--text); }
+.sidebar-logo .sub { font-size: 0.7rem; color: var(--text-muted); }
+
+.nav { padding: 12px 8px; flex: 1; }
+.nav-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  color: var(--text-muted);
+  font-size: 0.875rem;
+  font-weight: 500;
+  transition: all 0.15s;
+  margin-bottom: 2px;
+  border: none; background: transparent; width: 100%; text-align: right; font-family: inherit;
+}
+.nav-item svg { width: 16px; height: 16px; flex-shrink: 0; }
+.nav-item:hover { background: rgba(255,255,255,0.04); color: var(--text); }
+.nav-item.active { background: var(--orange-light); color: var(--orange); }
+.nav-item .badge {
+  margin-right: auto; background: var(--orange);
+  color: #fff; font-size: 0.7rem; font-weight: 700;
+  padding: 1px 6px; border-radius: 999px; min-width: 18px; text-align: center;
+}
+
+.sidebar-footer {
+  padding: 12px 8px;
+  border-top: 1px solid var(--border);
+}
+
+/* ── Header ── */
+.header {
+  background: var(--bg2);
+  border-bottom: 1px solid var(--border);
+  padding: 16px 24px;
+  display: flex; align-items: center; justify-content: space-between;
+  position: sticky; top: 0; z-index: 10;
+}
+.header-title h2 { font-size: 1.1rem; font-weight: 700; }
+.header-title p { font-size: 0.78rem; color: var(--text-muted); margin-top: 2px; }
+
+/* ── Section ── */
+.section { display: none; padding: 24px; }
+.section.active { display: block; }
+
+/* ── Stats ── */
+.stats-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 16px; margin-bottom: 24px; }
+.stat-card {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 18px;
+  display: flex; align-items: center; gap: 14px;
+}
+.stat-icon {
+  width: 44px; height: 44px; border-radius: 12px;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.stat-value { font-size: 1.6rem; font-weight: 800; }
+.stat-label { font-size: 0.78rem; color: var(--text-muted); margin-top: 2px; }
+
+/* ── Cards ── */
+.card {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  overflow: hidden;
+  margin-bottom: 20px;
+}
+.card-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+}
+.card-header h3 { font-size: 0.95rem; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+
+/* ── Table ── */
+.table-wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
+th { padding: 12px 16px; text-align: right; color: var(--text-muted); font-weight: 600; font-size: 0.78rem; border-bottom: 1px solid var(--border); white-space: nowrap; }
+td { padding: 12px 16px; border-bottom: 1px solid rgba(255,255,255,0.04); vertical-align: middle; }
+tr:last-child td { border-bottom: none; }
+tr:hover td { background: rgba(255,255,255,0.02); }
+
+/* ── Badges ── */
+.badge {
+  display: inline-flex; align-items: center;
+  padding: 3px 10px; border-radius: 999px;
+  font-size: 0.75rem; font-weight: 700; white-space: nowrap;
+}
+.badge-pending { background: rgba(245,158,11,0.15); color: #F59E0B; }
+.badge-approved { background: rgba(16,185,129,0.15); color: #10B981; }
+.badge-rejected { background: rgba(239,68,68,0.15); color: #EF4444; }
+.badge-deleted { background: rgba(107,114,128,0.15); color: #9CA3AF; }
+
+/* ── Buttons ── */
+.btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 8px 16px;
+  border-radius: 8px; border: none;
+  font-size: 0.85rem; font-weight: 600;
+  cursor: pointer; transition: all 0.15s;
+  font-family: inherit;
+}
+.btn-primary { background: var(--orange); color: #fff; }
+.btn-primary:hover { background: #d4561a; }
+.btn-danger { background: rgba(239,68,68,0.15); color: #EF4444; border: 1px solid rgba(239,68,68,0.2); }
+.btn-danger:hover { background: rgba(239,68,68,0.25); }
+.btn-ghost { background: rgba(255,255,255,0.06); color: var(--text); border: 1px solid var(--border); }
+.btn-ghost:hover { background: rgba(255,255,255,0.1); }
+.btn-sm { padding: 5px 12px; font-size: 0.8rem; }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* ── Product image ── */
+.product-img { width: 48px; height: 48px; border-radius: 8px; object-fit: cover; background: var(--bg3); }
+.product-img-placeholder { width: 48px; height: 48px; border-radius: 8px; background: var(--bg3); display: flex; align-items: center; justify-content: center; color: var(--text-muted); font-size: 20px; }
+
+/* ── Empty ── */
+.empty { text-align: center; padding: 48px 20px; color: var(--text-muted); }
+.empty .icon { font-size: 48px; margin-bottom: 12px; }
+.empty p { font-size: 0.9rem; }
+
+/* ── Notification item ── */
+.notif-item {
+  display: flex; gap: 12px; align-items: flex-start;
+  padding: 14px 20px;
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+  transition: background 0.15s;
+}
+.notif-item:last-child { border-bottom: none; }
+.notif-item.unread { background: rgba(232,101,32,0.04); }
+.notif-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--orange); margin-top: 6px; flex-shrink: 0; }
+.notif-content .title { font-size: 0.875rem; font-weight: 600; margin-bottom: 3px; }
+.notif-content .msg { font-size: 0.8rem; color: var(--text-muted); line-height: 1.5; }
+.notif-content .time { font-size: 0.72rem; color: var(--text-muted); margin-top: 4px; }
+
+/* ── Modal ── */
+.modal-overlay {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.7);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 100; padding: 20px;
+  opacity: 0; pointer-events: none; transition: opacity 0.2s;
+}
+.modal-overlay.open { opacity: 1; pointer-events: all; }
+.modal {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  width: 100%; max-width: 520px;
+  max-height: 90vh;
+  overflow-y: auto;
+  padding: 28px;
+  transform: translateY(20px); transition: transform 0.2s;
+}
+.modal-overlay.open .modal { transform: translateY(0); }
+.modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
+.modal-header h3 { font-size: 1.1rem; font-weight: 700; }
+.modal-close { background: none; border: none; color: var(--text-muted); font-size: 1.4rem; cursor: pointer; line-height: 1; }
+.modal-close:hover { color: var(--text); }
+
+.form-group { margin-bottom: 14px; }
+.form-group label { display: block; font-size: 0.82rem; font-weight: 600; color: var(--text-muted); margin-bottom: 6px; }
+.form-group input,
+.form-group select,
+.form-group textarea {
+  width: 100%; padding: 10px 12px;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid var(--border);
+  border-radius: 8px; color: var(--text);
+  font-size: 0.875rem; font-family: inherit;
+  direction: rtl; outline: none; transition: border-color 0.15s;
+}
+.form-group input:focus,
+.form-group select:focus,
+.form-group textarea:focus { border-color: var(--orange); }
+.form-group input::placeholder,
+.form-group textarea::placeholder { color: var(--text-muted); }
+.form-group select option { background: #1e1e1e; }
+.form-group textarea { min-height: 70px; resize: vertical; }
+.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+.img-upload-area {
+  border: 2px dashed var(--border);
+  border-radius: 12px;
+  padding: 24px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.2s;
+  position: relative;
+}
+.img-upload-area:hover,
+.img-upload-area.drag { border-color: var(--orange); background: var(--orange-light); }
+.img-upload-area input[type=file] { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+.img-upload-area .preview { max-width: 100%; max-height: 160px; border-radius: 8px; object-fit: cover; }
+.img-upload-hint { color: var(--text-muted); font-size: 0.82rem; }
+.img-upload-hint .big { font-size: 2rem; }
+
+.alert-sm {
+  padding: 10px 14px; border-radius: 8px;
+  font-size: 0.82rem; margin-bottom: 12px; display: none;
+}
+.alert-sm.error { background: rgba(239,68,68,0.12); border: 1px solid rgba(239,68,68,0.25); color: #fca5a5; display: block; }
+.alert-sm.success { background: rgba(16,185,129,0.12); border: 1px solid rgba(16,185,129,0.25); color: #6ee7b7; display: block; }
+
+/* ── Profile ── */
+.profile-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 14px; padding: 24px; }
+.profile-row { display: flex; gap: 8px; padding: 10px 0; border-bottom: 1px solid var(--border); font-size: 0.875rem; }
+.profile-row:last-child { border-bottom: none; }
+.profile-row .key { color: var(--text-muted); min-width: 130px; flex-shrink: 0; }
+.profile-row .val { font-weight: 600; }
+
+/* ── Scrollbar ── */
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 999px; }
+
+/* ── Loading ── */
+.spinner {
+  width: 20px; height: 20px;
+  border: 2px solid rgba(255,255,255,0.2);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+  display: inline-block;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- ── SIDEBAR ── -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <div class="icon">O</div>
+      <div>
+        <div class="name" id="sb-store-name">المتجر</div>
+        <div class="sub">شريك OnWay</div>
+      </div>
+    </div>
+
+    <nav class="nav">
+      <button class="nav-item active" onclick="showSection('overview', this)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+        نظرة عامة
+      </button>
+      <button class="nav-item" onclick="showSection('products', this)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 7H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
+        منتجاتي
+        <span class="badge" id="nav-pending-badge" style="display:none">0</span>
+      </button>
+      <button class="nav-item" onclick="showSection('notifications', this)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+        الإشعارات
+        <span class="badge" id="nav-notif-badge" style="display:none">0</span>
+      </button>
+      <button class="nav-item" onclick="showSection('profile', this)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+        الملف الشخصي
+      </button>
+    </nav>
+
+    <div class="sidebar-footer">
+      <button class="nav-item btn-danger" onclick="logout()" style="color:#EF4444;width:100%">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+        تسجيل الخروج
+      </button>
+    </div>
+  </aside>
+
+  <!-- ── MAIN ── -->
+  <main class="main">
+
+    <!-- OVERVIEW -->
+    <div id="overview-section" class="section active">
+      <div class="header">
+        <div class="header-title">
+          <h2>نظرة عامة</h2>
+          <p id="header-welcome">مرحباً بك في لوحة التحكم</p>
+        </div>
+      </div>
+      <div style="padding:24px">
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-icon" style="background:rgba(232,101,32,0.15)">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#E86520" stroke-width="2"><path d="M20 7H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
+            </div>
+            <div><div class="stat-value" id="ov-total">-</div><div class="stat-label">إجمالي المنتجات</div></div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon" style="background:rgba(16,185,129,0.15)">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#10B981" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+            </div>
+            <div><div class="stat-value" id="ov-approved">-</div><div class="stat-label">منتجات معتمدة</div></div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon" style="background:rgba(245,158,11,0.15)">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+            </div>
+            <div><div class="stat-value" id="ov-pending">-</div><div class="stat-label">قيد المراجعة</div></div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon" style="background:rgba(239,68,68,0.15)">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#EF4444" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </div>
+            <div><div class="stat-value" id="ov-rejected">-</div><div class="stat-label">مرفوضة</div></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <h3>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+              كيف يعمل النظام؟
+            </h3>
+          </div>
+          <div style="padding:20px;display:grid;gap:12px;">
+            <div style="display:flex;gap:12px;align-items:flex-start;padding:12px;background:rgba(232,101,32,0.06);border-radius:10px;border:1px solid rgba(232,101,32,0.15)">
+              <div style="background:#E86520;color:#fff;width:28px;height:28px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:800;flex-shrink:0;font-size:14px">1</div>
+              <div><div style="font-weight:700;margin-bottom:3px">أضف منتجاتك</div><div style="font-size:0.82rem;color:rgba(255,255,255,0.55)">انتقل لقسم "منتجاتي" واضغط "إضافة منتج جديد" مع رفع صورة واضحة</div></div>
+            </div>
+            <div style="display:flex;gap:12px;align-items:flex-start;padding:12px;background:rgba(245,158,11,0.06);border-radius:10px;border:1px solid rgba(245,158,11,0.15)">
+              <div style="background:#F59E0B;color:#fff;width:28px;height:28px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:800;flex-shrink:0;font-size:14px">2</div>
+              <div><div style="font-weight:700;margin-bottom:3px">مراجعة الإدارة</div><div style="font-size:0.82rem;color:rgba(255,255,255,0.55)">يراجع الفريق منتجك خلال 24 ساعة للتأكد من مطابقته للمعايير</div></div>
+            </div>
+            <div style="display:flex;gap:12px;align-items:flex-start;padding:12px;background:rgba(16,185,129,0.06);border-radius:10px;border:1px solid rgba(16,185,129,0.15)">
+              <div style="background:#10B981;color:#fff;width:28px;height:28px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:800;flex-shrink:0;font-size:14px">3</div>
+              <div><div style="font-weight:700;margin-bottom:3px">يظهر للعملاء</div><div style="font-size:0.82rem;color:rgba(255,255,255,0.55)">بعد الموافقة، يُعرض منتجك فوراً في التطبيق ويصله الطلبات</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PRODUCTS -->
+    <div id="products-section" class="section">
+      <div class="header">
+        <div class="header-title">
+          <h2>منتجاتي</h2>
+          <p>إدارة قائمة منتجاتك</p>
+        </div>
+        <button class="btn btn-primary" onclick="openAddModal()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          إضافة منتج جديد
+        </button>
+      </div>
+      <div style="padding:24px">
+        <div class="card">
+          <div class="card-header">
+            <h3>قائمة المنتجات</h3>
+            <div style="display:flex;gap:8px">
+              <select id="filter-status" onchange="loadProducts()" style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);color:#fff;padding:5px 10px;border-radius:6px;font-family:inherit;font-size:0.8rem;direction:rtl">
+                <option value="">الكل</option>
+                <option value="pending">قيد المراجعة</option>
+                <option value="approved">معتمدة</option>
+                <option value="rejected">مرفوضة</option>
+              </select>
+              <button class="btn btn-ghost btn-sm" onclick="loadProducts()">تحديث</button>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>الصورة</th>
+                  <th>الاسم</th>
+                  <th>الفئة</th>
+                  <th>السعر</th>
+                  <th>المخزون</th>
+                  <th>الحالة</th>
+                  <th>إجراءات</th>
+                </tr>
+              </thead>
+              <tbody id="products-tbody">
+                <tr><td colspan="7" class="empty"><div class="icon">📦</div><p>جارٍ التحميل...</p></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- NOTIFICATIONS -->
+    <div id="notifications-section" class="section">
+      <div class="header">
+        <div class="header-title">
+          <h2>الإشعارات</h2>
+          <p>آخر التحديثات والإشعارات</p>
+        </div>
+        <button class="btn btn-ghost btn-sm" onclick="loadNotifications()">تحديث</button>
+      </div>
+      <div style="padding:24px">
+        <div class="card" id="notif-list">
+          <div class="empty"><div class="icon">🔔</div><p>جارٍ التحميل...</p></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PROFILE -->
+    <div id="profile-section" class="section">
+      <div class="header">
+        <div class="header-title">
+          <h2>الملف الشخصي</h2>
+          <p>معلومات متجرك</p>
+        </div>
+      </div>
+      <div style="padding:24px;max-width:600px">
+        <div class="profile-card" id="profile-data">
+          <div class="empty"><div class="spinner"></div></div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<!-- ── ADD PRODUCT MODAL ── -->
+<div id="add-modal" class="modal-overlay" onclick="closeModalOnOverlay(event)">
+  <div class="modal">
+    <div class="modal-header">
+      <h3>إضافة منتج جديد</h3>
+      <button class="modal-close" onclick="closeAddModal()">&times;</button>
+    </div>
+    <div id="add-alert" class="alert-sm"></div>
+
+    <div class="form-group">
+      <label>صورة المنتج <span style="color:#E86520">*</span></label>
+      <div class="img-upload-area" id="upload-area">
+        <input type="file" id="product-image" accept="image/*" onchange="previewImage(event)" />
+        <div id="upload-placeholder">
+          <div class="big">📷</div>
+          <div class="img-upload-hint" style="margin-top:8px">اضغط لرفع صورة<br><small style="color:rgba(255,255,255,0.3)">PNG، JPEG حتى 15MB — سيتم تحويلها تلقائياً لـ WebP بقياس 800×800</small></div>
+        </div>
+        <img id="img-preview" class="preview" style="display:none" src="" alt="معاينة" />
+      </div>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label>اسم المنتج <span style="color:#E86520">*</span></label>
+        <input type="text" id="p-name" placeholder="برجر دجاج" />
+      </div>
+      <div class="form-group">
+        <label>الفئة <span style="color:#E86520">*</span></label>
+        <select id="p-category">
+          <option value="">اختر الفئة</option>
+          <option value="وجبات">وجبات</option>
+          <option value="مشروبات">مشروبات</option>
+          <option value="حلويات">حلويات</option>
+          <option value="مواد غذائية">مواد غذائية</option>
+          <option value="أدوية">أدوية</option>
+          <option value="منظفات">منظفات</option>
+          <option value="خضروات وفواكه">خضروات وفواكه</option>
+          <option value="مخبوزات">مخبوزات</option>
+          <option value="أخرى">أخرى</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label>وصف المنتج</label>
+      <textarea id="p-desc" placeholder="وصف مختصر للمنتج..."></textarea>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label>السعر (دينار عراقي) <span style="color:#E86520">*</span></label>
+        <input type="number" id="p-price" placeholder="5000" min="0" />
+      </div>
+      <div class="form-group">
+        <label>المخزون المتاح</label>
+        <input type="number" id="p-stock" placeholder="100" min="0" />
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label>وحدة القياس</label>
+      <select id="p-unit">
+        <option value="قطعة">قطعة</option>
+        <option value="كيلو">كيلوغرام</option>
+        <option value="لتر">لتر</option>
+        <option value="علبة">علبة</option>
+        <option value="كرتون">كرتون</option>
+      </select>
+    </div>
+
+    <div style="display:flex;gap:10px;margin-top:8px">
+      <button class="btn btn-primary" style="flex:1" id="add-btn" onclick="submitProduct()">إضافة المنتج</button>
+      <button class="btn btn-ghost" onclick="closeAddModal()">إلغاء</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── DELETE CONFIRM MODAL ── -->
+<div id="del-modal" class="modal-overlay" onclick="closeDelModalOnOverlay(event)">
+  <div class="modal" style="max-width:380px;text-align:center">
+    <div style="font-size:3rem;margin-bottom:12px">⚠️</div>
+    <h3 style="margin-bottom:8px">حذف المنتج</h3>
+    <p style="color:rgba(255,255,255,0.5);font-size:0.875rem;margin-bottom:24px">هل أنت متأكد من حذف هذا المنتج؟ لا يمكن التراجع عن هذا الإجراء.</p>
+    <div style="display:flex;gap:10px">
+      <button class="btn btn-danger" style="flex:1" id="del-confirm-btn" onclick="confirmDelete()">نعم، احذف</button>
+      <button class="btn btn-ghost" style="flex:1" onclick="closeDelModal()">إلغاء</button>
+    </div>
+  </div>
+</div>
+
+<script>
+let profile = null;
+let products = [];
+let deleteTargetId = null;
+
+// ── Helpers ──
+function fmt(n) {
+  if (n == null) return '-';
+  return Number(n).toLocaleString('ar-IQ');
+}
+function timeAgo(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  const now = new Date();
+  const diff = Math.floor((now - d) / 1000);
+  if (diff < 60) return 'الآن';
+  if (diff < 3600) return `منذ ${Math.floor(diff/60)} دقيقة`;
+  if (diff < 86400) return `منذ ${Math.floor(diff/3600)} ساعة`;
+  return `منذ ${Math.floor(diff/86400)} يوم`;
+}
+function businessTypeLabel(t) {
+  const map = { restaurant:'مطعم / وجبات', supermarket:'سوبرماركت', pharmacy:'صيدلية', bakery:'مخبز / حلويات', other:'أخرى' };
+  return map[t] || t;
+}
+function statusLabel(s) {
+  const m = { pending:'قيد المراجعة', approved:'معتمد', rejected:'مرفوض', deleted:'محذوف' };
+  return m[s] || s;
+}
+function statusBadge(s) {
+  return `<span class="badge badge-${s}">${statusLabel(s)}</span>`;
+}
+
+// ── Navigation ──
+function showSection(id, el) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById(id + '-section').classList.add('active');
+  if (el) el.classList.add('active');
+
+  if (id === 'products') loadProducts();
+  if (id === 'notifications') loadNotifications();
+  if (id === 'profile') renderProfile();
+}
+
+// ── Init ──
+async function init() {
+  try {
+    const res = await fetch('/api/vendor/profile', { credentials: 'include' });
+    if (!res.ok) { window.location.href = '/vendor/login'; return; }
+    profile = await res.json();
+
+    document.getElementById('sb-store-name').textContent = profile.storeName;
+    document.getElementById('header-welcome').textContent = `مرحباً، ${profile.ownerName}`;
+
+    await Promise.all([loadOverview(), loadNotifBadge()]);
+  } catch {
+    window.location.href = '/vendor/login';
+  }
+}
+
+async function loadOverview() {
+  try {
+    const res = await fetch('/api/vendor/products', { credentials: 'include' });
+    if (!res.ok) return;
+    const data = await res.json();
+    const all = data.products || [];
+    const count = (s) => all.filter(p => p.status === s).length;
+    document.getElementById('ov-total').textContent = all.filter(p => p.status !== 'deleted').length;
+    document.getElementById('ov-approved').textContent = count('approved');
+    document.getElementById('ov-pending').textContent = count('pending');
+    document.getElementById('ov-rejected').textContent = count('rejected');
+    const pb = document.getElementById('nav-pending-badge');
+    const pCount = count('pending');
+    pb.textContent = pCount;
+    pb.style.display = pCount > 0 ? 'inline' : 'none';
+  } catch {}
+}
+
+async function loadNotifBadge() {
+  try {
+    const res = await fetch('/api/vendor/notifications', { credentials: 'include' });
+    if (!res.ok) return;
+    const { notifications = [] } = await res.json();
+    const unread = notifications.filter(n => n.status === 'unread').length;
+    const nb = document.getElementById('nav-notif-badge');
+    nb.textContent = unread;
+    nb.style.display = unread > 0 ? 'inline' : 'none';
+  } catch {}
+}
+
+// ── Products ──
+async function loadProducts() {
+  const status = document.getElementById('filter-status').value;
+  const tbody = document.getElementById('products-tbody');
+  tbody.innerHTML = '<tr><td colspan="7" class="empty"><div class="spinner"></div></td></tr>';
+  try {
+    const url = '/api/vendor/products' + (status ? `?status=${status}` : '');
+    const res = await fetch(url, { credentials: 'include' });
+    const data = await res.json();
+    products = (data.products || []).filter(p => p.status !== 'deleted');
+
+    if (!products.length) {
+      tbody.innerHTML = '<tr><td colspan="7"><div class="empty"><div class="icon">📦</div><p>لا توجد منتجات بعد. ابدأ بإضافة أول منتج!</p></div></td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = products.map(p => `
+      <tr>
+        <td>${p.imageUrl ? `<img class="product-img" src="${p.imageUrl}" alt="${p.name}" onerror="this.style.display='none'">` : '<div class="product-img-placeholder">📦</div>'}</td>
+        <td><div style="font-weight:600">${p.name}</div><div style="font-size:0.75rem;color:rgba(255,255,255,0.4)">${p.description?.substring(0,40) || ''}</div></td>
+        <td style="color:rgba(255,255,255,0.6)">${p.category}</td>
+        <td style="font-weight:700;color:#E86520">${fmt(p.price)} د.ع</td>
+        <td>${p.stock ?? '-'} ${p.unit || ''}</td>
+        <td>
+          ${statusBadge(p.status)}
+          ${p.status === 'rejected' && p.rejectionReason ? `<div style="font-size:0.72rem;color:#fca5a5;margin-top:4px">السبب: ${p.rejectionReason}</div>` : ''}
+        </td>
+        <td>
+          <div style="display:flex;gap:6px">
+            ${p.status !== 'approved' ? `<button class="btn btn-ghost btn-sm" onclick="openEditModal('${p.id}')">تعديل</button>` : ''}
+            <button class="btn btn-danger btn-sm" onclick="openDeleteModal('${p.id}')">حذف</button>
+          </div>
+        </td>
+      </tr>
+    `).join('');
+  } catch {
+    tbody.innerHTML = '<tr><td colspan="7" class="empty"><p>تعذر تحميل المنتجات</p></td></tr>';
+  }
+}
+
+// ── Notifications ──
+async function loadNotifications() {
+  const container = document.getElementById('notif-list');
+  container.innerHTML = '<div class="empty"><div class="spinner"></div></div>';
+  try {
+    const res = await fetch('/api/vendor/notifications', { credentials: 'include' });
+    const { notifications = [] } = await res.json();
+    if (!notifications.length) {
+      container.innerHTML = '<div class="empty"><div class="icon">🔔</div><p>لا توجد إشعارات</p></div>';
+      return;
+    }
+    container.innerHTML = notifications.map(n => `
+      <div class="notif-item ${n.status === 'unread' ? 'unread' : ''}">
+        <div class="notif-dot" style="${n.status !== 'unread' ? 'background:rgba(255,255,255,0.2)' : ''}"></div>
+        <div class="notif-content">
+          <div class="title">${n.title}</div>
+          <div class="msg">${n.message}</div>
+          <div class="time">${timeAgo(n.createdAt)}</div>
+        </div>
+      </div>
+    `).join('');
+  } catch {
+    container.innerHTML = '<div class="empty"><p>تعذر تحميل الإشعارات</p></div>';
+  }
+}
+
+// ── Profile ──
+function renderProfile() {
+  if (!profile) return;
+  const container = document.getElementById('profile-data');
+  container.innerHTML = `
+    <div style="margin-bottom:20px;display:flex;align-items:center;gap:16px">
+      <div style="width:64px;height:64px;background:linear-gradient(135deg,#E86520,#f5a623);border-radius:16px;display:flex;align-items:center;justify-content:center;font-size:28px;font-weight:900;color:#fff">${profile.storeName?.[0] || 'م'}</div>
+      <div>
+        <div style="font-size:1.2rem;font-weight:800">${profile.storeName}</div>
+        <div style="color:rgba(255,255,255,0.5);font-size:0.85rem">${businessTypeLabel(profile.businessType)}</div>
+        ${profile.status === 'active' ? '<span class="badge badge-approved" style="margin-top:6px">نشط</span>' : `<span class="badge badge-pending" style="margin-top:6px">${statusLabel(profile.status)}</span>`}
+      </div>
+    </div>
+    <div class="profile-row"><span class="key">صاحب المتجر</span><span class="val">${profile.ownerName || '-'}</span></div>
+    <div class="profile-row"><span class="key">رقم الهاتف</span><span class="val" style="direction:ltr;text-align:right">${profile.phoneNumber}</span></div>
+    <div class="profile-row"><span class="key">البريد الإلكتروني</span><span class="val">${profile.email || '-'}</span></div>
+    <div class="profile-row"><span class="key">العنوان</span><span class="val">${profile.address || '-'}</span></div>
+    <div class="profile-row"><span class="key">تاريخ التسجيل</span><span class="val">${new Date(profile.createdAt).toLocaleDateString('ar-IQ')}</span></div>
+    <div class="profile-row"><span class="key">إجمالي المنتجات</span><span class="val">${profile.totalProducts || 0}</span></div>
+  `;
+}
+
+// ── Add Product Modal ──
+function openAddModal() {
+  document.getElementById('add-modal').classList.add('open');
+  document.getElementById('add-alert').className = 'alert-sm';
+  document.getElementById('p-name').value = '';
+  document.getElementById('p-desc').value = '';
+  document.getElementById('p-price').value = '';
+  document.getElementById('p-stock').value = '';
+  document.getElementById('p-category').value = '';
+  document.getElementById('p-unit').value = 'قطعة';
+  document.getElementById('product-image').value = '';
+  document.getElementById('img-preview').style.display = 'none';
+  document.getElementById('upload-placeholder').style.display = 'block';
+}
+
+function closeAddModal() { document.getElementById('add-modal').classList.remove('open'); }
+function closeModalOnOverlay(e) { if (e.target === document.getElementById('add-modal')) closeAddModal(); }
+
+function previewImage(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (ev) => {
+    const img = document.getElementById('img-preview');
+    img.src = ev.target.result;
+    img.style.display = 'block';
+    document.getElementById('upload-placeholder').style.display = 'none';
+  };
+  reader.readAsDataURL(file);
+}
+
+async function submitProduct() {
+  const name = document.getElementById('p-name').value.trim();
+  const category = document.getElementById('p-category').value;
+  const price = document.getElementById('p-price').value;
+  const fileInput = document.getElementById('product-image');
+
+  if (!name || !category || !price || !fileInput.files[0]) {
+    document.getElementById('add-alert').textContent = 'يرجى ملء جميع الحقول المطلوبة ورفع صورة';
+    document.getElementById('add-alert').className = 'alert-sm error';
+    return;
+  }
+
+  const btn = document.getElementById('add-btn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner" style="width:14px;height:14px"></span> جارٍ الرفع...';
+  document.getElementById('add-alert').className = 'alert-sm';
+
+  try {
+    const fd = new FormData();
+    fd.append('image', fileInput.files[0]);
+    fd.append('name', name);
+    fd.append('description', document.getElementById('p-desc').value);
+    fd.append('price', price);
+    fd.append('category', category);
+    fd.append('stock', document.getElementById('p-stock').value || '0');
+    fd.append('unit', document.getElementById('p-unit').value);
+
+    const res = await fetch('/api/vendor/products', {
+      method: 'POST',
+      body: fd,
+      credentials: 'include',
+    });
+    const data = await res.json();
+    if (res.ok) {
+      closeAddModal();
+      await loadProducts();
+      await loadOverview();
+    } else {
+      document.getElementById('add-alert').textContent = data.error || 'حدث خطأ';
+      document.getElementById('add-alert').className = 'alert-sm error';
+    }
+  } catch {
+    document.getElementById('add-alert').textContent = 'تعذر الاتصال بالخادم';
+    document.getElementById('add-alert').className = 'alert-sm error';
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'إضافة المنتج';
+  }
+}
+
+// ── Edit (simple) ──
+function openEditModal(id) {
+  const p = products.find(x => x.id === id);
+  if (!p) return;
+  document.getElementById('p-name').value = p.name;
+  document.getElementById('p-desc').value = p.description || '';
+  document.getElementById('p-price').value = p.price;
+  document.getElementById('p-stock').value = p.stock || '';
+  document.getElementById('p-category').value = p.category;
+  document.getElementById('p-unit').value = p.unit || 'قطعة';
+  document.getElementById('add-modal').classList.add('open');
+  document.getElementById('add-alert').className = 'alert-sm';
+
+  // Override submit to update instead of add
+  const btn = document.getElementById('add-btn');
+  btn.textContent = 'حفظ التعديلات';
+  btn.onclick = () => submitEdit(id);
+}
+
+async function submitEdit(id) {
+  const name = document.getElementById('p-name').value.trim();
+  const price = document.getElementById('p-price').value;
+  if (!name || !price) {
+    document.getElementById('add-alert').textContent = 'الاسم والسعر مطلوبان';
+    document.getElementById('add-alert').className = 'alert-sm error';
+    return;
+  }
+  const btn = document.getElementById('add-btn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner" style="width:14px;height:14px"></span>';
+  try {
+    const res = await fetch(`/api/vendor/products/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({
+        name,
+        description: document.getElementById('p-desc').value,
+        price,
+        stock: document.getElementById('p-stock').value || 0,
+        unit: document.getElementById('p-unit').value,
+      }),
+    });
+    const data = await res.json();
+    if (res.ok) {
+      closeAddModal();
+      await loadProducts();
+      btn.onclick = submitProduct;
+    } else {
+      document.getElementById('add-alert').textContent = data.error || 'حدث خطأ';
+      document.getElementById('add-alert').className = 'alert-sm error';
+    }
+  } catch {
+    document.getElementById('add-alert').textContent = 'تعذر الاتصال بالخادم';
+    document.getElementById('add-alert').className = 'alert-sm error';
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'حفظ التعديلات';
+  }
+}
+
+// ── Delete ──
+function openDeleteModal(id) {
+  deleteTargetId = id;
+  document.getElementById('del-modal').classList.add('open');
+}
+function closeDelModal() {
+  deleteTargetId = null;
+  document.getElementById('del-modal').classList.remove('open');
+}
+function closeDelModalOnOverlay(e) { if (e.target === document.getElementById('del-modal')) closeDelModal(); }
+
+async function confirmDelete() {
+  if (!deleteTargetId) return;
+  const btn = document.getElementById('del-confirm-btn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner" style="width:14px;height:14px"></span>';
+  try {
+    const res = await fetch(`/api/vendor/products/${deleteTargetId}`, {
+      method: 'DELETE',
+      credentials: 'include',
+    });
+    if (res.ok) {
+      closeDelModal();
+      await loadProducts();
+      await loadOverview();
+    }
+  } catch {}
+  finally {
+    btn.disabled = false;
+    btn.textContent = 'نعم، احذف';
+  }
+}
+
+function logout() {
+  window.location.href = '/api/vendor/logout';
+}
+
+// Keyboard
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') {
+    closeAddModal();
+    closeDelModal();
+  }
+});
+
+init();
+</script>
+</body>
+</html>
