@@ -68,3 +68,11 @@ ALLOWED_ORIGINS = "https://admin.onway.iq,https://www.admin.onway.iq"
 [postMerge]
 path = "scripts/post-merge.sh"
 timeoutMs = 120000
+
+[[ports]]
+localPort = 5000
+externalPort = 80
+
+[[ports]]
+localPort = 8081
+externalPort = 8081
