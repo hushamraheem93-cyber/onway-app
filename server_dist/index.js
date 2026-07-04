@@ -4757,7 +4757,8 @@ ${itemsList}
             });
             const qd = driverQueue.find((d) => d.phoneNumber === phoneNumber);
             if (qd) qd.currentBatchId = void 0;
-            if (newBalance >= 250) {
+            const OWED_THRESHOLD = 5e4;
+            if (newBalance < OWED_THRESHOLD) {
               updateDriverQueueEntry(phoneNumber, { hasActiveBatch: false, joinedAt: Date.now() }).catch(() => {
               });
               assignWaitingBatchToDriver(phoneNumber).catch(() => {
@@ -4778,88 +4779,6 @@ ${itemsList}
             await updateDeliveryBatch(batchId, { completedOrders: completedCount, totalEarnings: partialEarnings });
           }
         }
-      }
-      res.json({ success: true });
-    } catch (error) {
-      res.status(500).json({ error: error.message });
-    }
-  });
-  app2.post("/api/driver/complete-order", async (req, res) => {
-    const { phoneNumber, orderId } = req.body;
-    if (!phoneNumber || !orderId) return res.status(400).json({ error: "Missing fields" });
-    try {
-      const db2 = getFirestore();
-      if (db2) {
-        await updateOrderStatus(orderId, "delivered");
-        const allOrders = await getOrders();
-        const order = allOrders.find((o) => o.id === orderId);
-        if (order) {
-          const customerProfile = await getUserByPhone(order.phoneNumber || "");
-          const pushToken = await getUserPushToken(order.phoneNumber || "");
-          if (pushToken) {
-            await sendPushNotification(pushToken, "delivered", orderId);
-          }
-          const isRestaurantOrder = await checkIsRestaurantOrder(order);
-          let deductionAmount = 0;
-          let driverEarning = 0;
-          if (isRestaurantOrder) {
-            deductionAmount = 250;
-            driverEarning = 750;
-          } else {
-            deductionAmount = 1e3;
-            driverEarning = 2e3;
-          }
-          const ownerEarning = deductionAmount;
-          await updateOrderDriverInfo(orderId, {
-            driverEarning,
-            ownerEarning
-          });
-          await updateDriverEarningsOnOrder(phoneNumber, {
-            driverEarning,
-            onwayCommission: deductionAmount,
-            orderId,
-            orderType: isRestaurantOrder ? "restaurant" : "market"
-          });
-          const OWED_THRESHOLD = 5e4;
-          const updatedAccount = await getDriverFinancialAccount(phoneNumber);
-          if (updatedAccount.amountOwed >= OWED_THRESHOLD) {
-            const queueIdx = driverQueue.findIndex((d) => d.phoneNumber === phoneNumber);
-            if (queueIdx !== -1) driverQueue.splice(queueIdx, 1);
-            removeDriverFromActiveQueue(phoneNumber).catch(() => {
-            });
-          }
-          const completedEntry = {
-            orderId,
-            deliveryFee: order.deliveryFee || 0,
-            driverEarning,
-            ownerEarning,
-            total: order.total || 0,
-            customerName: customerProfile?.fullName || "\u0632\u0628\u0648\u0646",
-            completedAt: (/* @__PURE__ */ new Date()).toISOString(),
-            isRestaurant: isRestaurantOrder
-          };
-          await saveDriverCompletedOrder(phoneNumber, completedEntry);
-          saveDriverActivity({
-            phoneNumber,
-            type: "completed",
-            orderId,
-            customerName: completedEntry.customerName,
-            driverEarning,
-            total: completedEntry.total
-          }).catch(() => {
-          });
-          const completed = driverCompletedOrders.get(phoneNumber) || [];
-          completed.push(completedEntry);
-          driverCompletedOrders.set(phoneNumber, completed);
-        }
-      }
-      driverAssignments.delete(orderId);
-      batchedOrderIds.delete(orderId);
-      const qd = driverQueue.find((d) => d.phoneNumber === phoneNumber);
-      if (qd) {
-        qd.currentBatchId = void 0;
-        assignWaitingBatchToDriver(phoneNumber).catch(() => {
-        });
       }
       res.json({ success: true });
     } catch (error) {

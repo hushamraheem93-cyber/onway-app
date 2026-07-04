@@ -3406,13 +3406,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
             });
             const qd = driverQueue.find(d => d.phoneNumber === phoneNumber);
             if (qd) qd.currentBatchId = undefined;
-            // Check wallet before assigning next batch
-            if (newBalance >= 250) {
-              // Move to end of queue (joinedAt reset) and mark available
+            // Check outstanding balance before assigning next batch
+            const OWED_THRESHOLD = 50000;
+            if (newBalance < OWED_THRESHOLD) {
+              // Debt within allowed limit — move to end of queue (joinedAt reset) and mark available
               updateDriverQueueEntry(phoneNumber, { hasActiveBatch: false, joinedAt: Date.now() }).catch(() => {});
               assignWaitingBatchToDriver(phoneNumber).catch(() => {});
             } else {
-              // Wallet threshold exceeded — remove from queue entirely
+              // Debt exceeded the allowed limit — remove from queue until settled
               const queueIdx = driverQueue.findIndex(d => d.phoneNumber === phoneNumber);
               if (queueIdx !== -1) driverQueue.splice(queueIdx, 1);
               removeDriverFromActiveQueue(phoneNumber).catch(() => {});
@@ -3429,103 +3430,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
         }
       }
-      res.json({ success: true });
-    } catch (error: any) {
-      res.status(500).json({ error: error.message });
-    }
-  });
-
-  // Complete order
-  app.post("/api/driver/complete-order", async (req: Request, res: Response) => {
-    const { phoneNumber, orderId } = req.body;
-    if (!phoneNumber || !orderId) return res.status(400).json({ error: "Missing fields" });
-
-    try {
-      const db = getFirestore();
-      if (db) {
-        await updateOrderStatus(orderId, "delivered");
-
-        const allOrders = await getOrders();
-        const order = allOrders.find(o => o.id === orderId);
-        if (order) {
-          const customerProfile = await getUserByPhone(order.phoneNumber || "");
-          const pushToken = await getUserPushToken(order.phoneNumber || "");
-          if (pushToken) {
-            await sendPushNotification(pushToken, "delivered", orderId);
-          }
-
-          const isRestaurantOrder = await checkIsRestaurantOrder(order);
-          let deductionAmount = 0;
-          let driverEarning = 0;
-
-          if (isRestaurantOrder) {
-            deductionAmount = 250;
-            driverEarning = 750;
-          } else {
-            deductionAmount = 1000;
-            driverEarning = 2000;
-          }
-
-          const ownerEarning = deductionAmount;
-
-          await updateOrderDriverInfo(orderId, {
-            driverEarning,
-            ownerEarning,
-          });
-
-          await updateDriverEarningsOnOrder(phoneNumber, {
-            driverEarning,
-            onwayCommission: deductionAmount,
-            orderId,
-            orderType: isRestaurantOrder ? "restaurant" : "market",
-          });
-
-          // Block driver if outstanding amount exceeds threshold
-          const OWED_THRESHOLD = 50000;
-          const updatedAccount = await getDriverFinancialAccount(phoneNumber);
-          if (updatedAccount.amountOwed >= OWED_THRESHOLD) {
-            const queueIdx = driverQueue.findIndex(d => d.phoneNumber === phoneNumber);
-            if (queueIdx !== -1) driverQueue.splice(queueIdx, 1);
-            removeDriverFromActiveQueue(phoneNumber).catch(() => {});
-          }
-
-          const completedEntry = {
-            orderId,
-            deliveryFee: order.deliveryFee || 0,
-            driverEarning,
-            ownerEarning,
-            total: order.total || 0,
-            customerName: customerProfile?.fullName || "زبون",
-            completedAt: new Date().toISOString(),
-            isRestaurant: isRestaurantOrder,
-          };
-          // Persist to Firestore (permanent storage)
-          await saveDriverCompletedOrder(phoneNumber, completedEntry);
-          // Log completed activity
-          saveDriverActivity({
-            phoneNumber,
-            type: "completed",
-            orderId,
-            customerName: completedEntry.customerName,
-            driverEarning,
-            total: completedEntry.total,
-          }).catch(() => {});
-          // Also keep in-memory cache
-          const completed = driverCompletedOrders.get(phoneNumber) || [];
-          completed.push(completedEntry);
-          driverCompletedOrders.set(phoneNumber, completed);
-        }
-      }
-
-      driverAssignments.delete(orderId);
-      batchedOrderIds.delete(orderId);
-      const qd = driverQueue.find(d => d.phoneNumber === phoneNumber);
-      if (qd) {
-        qd.currentBatchId = undefined;
-        // Assign next waiting batch if driver is still in queue (wallet OK)
-        assignWaitingBatchToDriver(phoneNumber).catch(() => {});
-      }
-
       res.json({ success: true });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
