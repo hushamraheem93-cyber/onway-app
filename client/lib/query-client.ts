@@ -5,12 +5,21 @@ import { Platform } from "react-native";
  * Gets the base URL for the Express API server
  * @returns {string} The API base URL
  */
+// Replit's public domain is only reachable over standard HTTPS (443) -
+// it does not accept an explicit internal port (e.g. ":5000") from
+// outside the workspace. EXPO_PUBLIC_DOMAIN may still be set with a
+// trailing ":5000" for legacy/internal reasons, so always strip any
+// explicit port before building a public-facing URL.
+function stripPort(host: string): string {
+  return host.replace(/:\d+$/, "");
+}
+
 export function getApiUrl(): string {
   // On web, use the configured domain or current origin
   if (Platform.OS === "web" && typeof window !== "undefined") {
     // Use EXPO_PUBLIC_DOMAIN if set (Replit environment)
     if (process.env.EXPO_PUBLIC_DOMAIN) {
-      return `https://${process.env.EXPO_PUBLIC_DOMAIN}`;
+      return `https://${stripPort(process.env.EXPO_PUBLIC_DOMAIN)}`;
     }
     // If we're on port 8081/8082 (Expo dev), redirect to port 5000 (backend)
     const origin = window.location.origin;
@@ -27,7 +36,7 @@ export function getApiUrl(): string {
     throw new Error("EXPO_PUBLIC_DOMAIN is not set");
   }
 
-  let url = new URL(`https://${host}`);
+  let url = new URL(`https://${stripPort(host)}`);
 
   return url.href.replace(/\/$/, "");
 }
