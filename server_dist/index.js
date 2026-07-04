@@ -3710,7 +3710,8 @@ ${itemsList}
           }
         }
         if (status === "confirmed") {
-          onOrderConfirmed();
+          const confirmedOrder = await getOrderById(orderId).catch(() => null);
+          onOrderConfirmed(confirmedOrder?.latitude, confirmedOrder?.longitude);
         }
         return res.json({ success: true, id: orderId, status });
       }
@@ -4519,7 +4520,14 @@ ${itemsList}
       }
       saveDriverActivity({ phoneNumber, type: "rejected", orderId: targetBatchId || orderId }).catch(() => {
       });
-      onOrderConfirmed();
+      let rejectedOrderLat;
+      let rejectedOrderLng;
+      if (rejectedOrderIds.length > 0) {
+        const repOrder = await getOrderById(rejectedOrderIds[0]).catch(() => null);
+        rejectedOrderLat = repOrder?.latitude;
+        rejectedOrderLng = repOrder?.longitude;
+      }
+      onOrderConfirmed(rejectedOrderLat, rejectedOrderLng);
       res.json({ success: true });
     } catch (error) {
       res.status(500).json({ error: error.message });
@@ -5005,17 +5013,36 @@ ${itemsList}
       res.status(500).json({ error: error.message });
     }
   });
-  function findBestAvailableDriver() {
+  function findBestAvailableDriver(targetLat, targetLng) {
     const fiveMinAgo = Date.now() - 5 * 60 * 1e3;
-    const activeDriver = driverQueue.find((d) => {
+    const eligibleDrivers = driverQueue.filter((d) => {
       if (d.currentBatchId) return false;
       const loc = driverLocations.get(d.phoneNumber);
       const recentGps = loc && loc.updatedAt >= fiveMinAgo;
       const recentSeen = d.lastSeenAt && d.lastSeenAt >= fiveMinAgo;
       return recentGps || recentSeen;
     });
-    if (activeDriver) return activeDriver;
-    return driverQueue.find((d) => !d.currentBatchId);
+    if (eligibleDrivers.length === 0) {
+      return driverQueue.find((d) => !d.currentBatchId);
+    }
+    if (targetLat === void 0 || targetLng === void 0) {
+      console.warn("[BEST_DRIVER] No target location provided \u2014 falling back to FIFO order among active drivers");
+      return eligibleDrivers[0];
+    }
+    let nearest;
+    let nearestDist = Infinity;
+    for (const d of eligibleDrivers) {
+      const loc = driverLocations.get(d.phoneNumber);
+      if (!loc) continue;
+      const dist = calculateDistance(targetLat, targetLng, loc.lat, loc.lng);
+      if (dist < nearestDist) {
+        nearestDist = dist;
+        nearest = d;
+      }
+    }
+    if (nearest) return nearest;
+    console.warn("[BEST_DRIVER] No eligible driver has a GPS fix \u2014 falling back to FIFO order among active drivers");
+    return eligibleDrivers[0];
   }
   function toRad(value) {
     return value * Math.PI / 180;
@@ -5099,7 +5126,15 @@ ${itemsList}
         return aTime - bTime;
       }).slice(0, maxOrders);
       if (waitingOrders.length === 0) return;
-      const routeInfo = optimizeDeliveryRoute(waitingOrders);
+      const driverLoc = driverLocations.get(phoneNumber);
+      if (!driverLoc) {
+        console.warn(`[BATCH] No GPS location for driver ${phoneNumber} \u2014 falling back to (0,0) for route optimization`);
+      }
+      const routeInfo = optimizeDeliveryRoute(
+        waitingOrders,
+        driverLoc?.lat ?? 0,
+        driverLoc?.lng ?? 0
+      );
       const totalDistance = routeInfo.reduce((sum, r) => sum + r.distance, 0);
       const optimizedIds = routeInfo.map((r) => r.id);
       for (const r of routeInfo) {
@@ -5132,9 +5167,12 @@ ${itemsList}
       console.error("assignWaitingBatchToDriver error:", e);
     }
   }
-  function onOrderConfirmed() {
+  function onOrderConfirmed(orderLat, orderLng) {
     console.log(`[ORDER_CONFIRMED] Queue size=${driverQueue.length}, queue=${JSON.stringify(driverQueue.map((d) => ({ p: d.phoneNumber, batch: d.currentBatchId, lastSeen: d.lastSeenAt })))}`);
-    const driver = findBestAvailableDriver();
+    if (orderLat === void 0 || orderLng === void 0) {
+      console.warn("[ORDER_CONFIRMED] No order location available \u2014 cannot compute nearest driver, falling back to FIFO");
+    }
+    const driver = findBestAvailableDriver(orderLat, orderLng);
     console.log(`[ORDER_CONFIRMED] Best driver: ${driver?.phoneNumber ?? "NONE"}`);
     if (driver) {
       assignWaitingBatchToDriver(driver.phoneNumber).catch(console.error);

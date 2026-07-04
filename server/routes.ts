@@ -2210,7 +2210,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         // When order is confirmed, create a batch for the next available driver
         if (status === "confirmed") {
-          onOrderConfirmed();
+          const confirmedOrder = await getOrderById(orderId).catch(() => null);
+          onOrderConfirmed(confirmedOrder?.latitude, confirmedOrder?.longitude);
         }
 
         return res.json({ success: true, id: orderId, status });
@@ -3147,7 +3148,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       saveDriverActivity({ phoneNumber, type: "rejected", orderId: targetBatchId || orderId }).catch(() => {});
       // Offer waiting orders to another available driver (NOT the one who just rejected)
       // Note: do NOT also call assignWaitingBatchToDriver here — onOrderConfirmed handles it
-      onOrderConfirmed();
+      let rejectedOrderLat: number | undefined;
+      let rejectedOrderLng: number | undefined;
+      if (rejectedOrderIds.length > 0) {
+        const repOrder = await getOrderById(rejectedOrderIds[0]).catch(() => null);
+        rejectedOrderLat = repOrder?.latitude;
+        rejectedOrderLng = repOrder?.longitude;
+      }
+      onOrderConfirmed(rejectedOrderLat, rejectedOrderLng);
       res.json({ success: true });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
@@ -3692,18 +3700,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Find the best available driver: prefer one with recent GPS (app is open)
-  function findBestAvailableDriver(): QueuedDriver | undefined {
+  // Find the best available driver: prefer the nearest one (by real GPS distance
+  // to the order) among drivers who are actually online (recent GPS or recent seen).
+  function findBestAvailableDriver(targetLat?: number, targetLng?: number): QueuedDriver | undefined {
     const fiveMinAgo = Date.now() - 5 * 60 * 1000;
-    const activeDriver = driverQueue.find(d => {
+    const eligibleDrivers = driverQueue.filter(d => {
       if (d.currentBatchId) return false;
       const loc = driverLocations.get(d.phoneNumber);
       const recentGps = loc && loc.updatedAt >= fiveMinAgo;
       const recentSeen = d.lastSeenAt && d.lastSeenAt >= fiveMinAgo;
       return recentGps || recentSeen;
     });
-    if (activeDriver) return activeDriver;
-    return driverQueue.find(d => !d.currentBatchId);
+    if (eligibleDrivers.length === 0) {
+      // No one is currently "active" — fall back to any free driver (FIFO)
+      return driverQueue.find(d => !d.currentBatchId);
+    }
+
+    if (targetLat === undefined || targetLng === undefined) {
+      console.warn("[BEST_DRIVER] No target location provided — falling back to FIFO order among active drivers");
+      return eligibleDrivers[0];
+    }
+
+    // Among eligible drivers, prefer those with a known GPS location and pick
+    // the actual nearest one to the order. Drivers with no GPS fix yet are
+    // considered only if no located driver is available.
+    let nearest: QueuedDriver | undefined;
+    let nearestDist = Infinity;
+    for (const d of eligibleDrivers) {
+      const loc = driverLocations.get(d.phoneNumber);
+      if (!loc) continue;
+      const dist = calculateDistance(targetLat, targetLng, loc.lat, loc.lng);
+      if (dist < nearestDist) {
+        nearestDist = dist;
+        nearest = d;
+      }
+    }
+    if (nearest) return nearest;
+
+    console.warn("[BEST_DRIVER] No eligible driver has a GPS fix — falling back to FIFO order among active drivers");
+    return eligibleDrivers[0];
   }
 
   // Create a batch for a specific driver with waiting confirmed orders
@@ -3816,7 +3851,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (waitingOrders.length === 0) return;
 
       // Nearest-Neighbor route optimization
-      const routeInfo = optimizeDeliveryRoute(waitingOrders);
+      const driverLoc = driverLocations.get(phoneNumber);
+      if (!driverLoc) {
+        console.warn(`[BATCH] No GPS location for driver ${phoneNumber} — falling back to (0,0) for route optimization`);
+      }
+      const routeInfo = optimizeDeliveryRoute(
+        waitingOrders,
+        driverLoc?.lat ?? 0,
+        driverLoc?.lng ?? 0
+      );
       const totalDistance = routeInfo.reduce((sum, r) => sum + r.distance, 0);
 
       // Build final sorted list with updated sequence + distance + estimatedTime
@@ -3859,10 +3902,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   }
 
-  // Assign new batch to best available driver when a confirmed order arrives
-  function onOrderConfirmed() {
+  // Assign new batch to best available driver when a confirmed order arrives.
+  // Pass the order's delivery location so the nearest driver is actually chosen.
+  function onOrderConfirmed(orderLat?: number, orderLng?: number) {
     console.log(`[ORDER_CONFIRMED] Queue size=${driverQueue.length}, queue=${JSON.stringify(driverQueue.map(d=>({p:d.phoneNumber,batch:d.currentBatchId,lastSeen:d.lastSeenAt})))}`);
-    const driver = findBestAvailableDriver();
+    if (orderLat === undefined || orderLng === undefined) {
+      console.warn("[ORDER_CONFIRMED] No order location available — cannot compute nearest driver, falling back to FIFO");
+    }
+    const driver = findBestAvailableDriver(orderLat, orderLng);
     console.log(`[ORDER_CONFIRMED] Best driver: ${driver?.phoneNumber ?? "NONE"}`);
     if (driver) {
       assignWaitingBatchToDriver(driver.phoneNumber).catch(console.error);
