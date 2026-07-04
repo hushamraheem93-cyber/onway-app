@@ -2054,6 +2054,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const db = getFirestore();
     
     if (db) {
+      // Order types that are not catalog-priced (custom service requests, price is not tied to a real product)
+      const isCustomServiceOrder = orderType === "courier-pickup" || orderType === "international-shopping";
+
+      if (!Array.isArray(items) || items.length === 0) {
+        return res.status(400).json({ error: "الطلب لا يحتوي على منتجات" });
+      }
+
       if (promoCode) {
         const alreadyUsed = await checkPromoUsage(userId || phoneNumber, promoCode);
         if (alreadyUsed) {
@@ -2061,17 +2068,96 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
+      const allProds = await getCachedProducts(); // uses cache with restaurant fallback
+      const vendorsList = await getVendorList();
+
+      let verifiedItems: any[] = items;
+      let verifiedSubtotal = 0;
+      let realDeliveryFee = Number(deliveryFee) || 0;
+      let realServiceFee = 500;
+      let realPromoDiscount = 0;
+
+      if (!isCustomServiceOrder) {
+        // 1) Verify every item against the real catalog price — never trust client-supplied prices.
+        verifiedItems = [];
+        for (const it of (items as any[])) {
+          const prod = allProds.find((p: any) => p.id === it.productId);
+          if (!prod) {
+            console.warn(`[SUSPICIOUS ORDER] Unknown productId "${it?.productId}" submitted by phone=${phoneNumber || userId}`);
+            return res.status(400).json({ error: "أحد المنتجات في طلبك لم يعد متوفراً، يرجى تحديث السلة" });
+          }
+          const realPrice = Number(prod.price) || 0;
+          const quantity = Math.max(1, Number(it.quantity) || 1);
+          if (Number(it.price) !== realPrice) {
+            console.warn(`[SUSPICIOUS ORDER] Price mismatch for product "${prod.id}" — client sent ${it.price}, real price is ${realPrice}. phone=${phoneNumber || userId}`);
+          }
+          verifiedItems.push({ ...it, price: realPrice, quantity });
+          verifiedSubtotal += realPrice * quantity;
+        }
+
+        // 2) Recompute the real delivery fee (restaurant orders have a fixed fee; others come from delivery areas).
+        const isRestaurantOrder = verifiedItems.length > 0 && verifiedItems.every((it: any) => {
+          const prod = allProds.find((p: any) => p.id === it.productId);
+          return prod?.categoryId === "restaurants";
+        });
+        if (isRestaurantOrder) {
+          realDeliveryFee = 1000;
+        } else {
+          try {
+            const areas = await getFirestoreDeliveryAreas(true);
+            const matchedArea = areas.find(a => a.name === region);
+            realDeliveryFee = matchedArea ? Number(matchedArea.fee) || 0 : 0;
+          } catch (e) {
+            console.error("Error verifying delivery fee:", e);
+            realDeliveryFee = 0;
+          }
+        }
+
+        // 3) Recompute the real service fee from app settings.
+        try {
+          const feesSnap = await db.collection("appSettings").doc("fees").get();
+          realServiceFee = feesSnap.exists ? (feesSnap.data()?.serviceFee ?? 500) : 500;
+        } catch (e) {
+          console.error("Error verifying service fee:", e);
+        }
+
+        // 4) Recompute the real promo discount from the promo code definition (never trust client discount amount).
+        if (promoCode) {
+          try {
+            const promo = await getPromoCodeByCode(String(promoCode).toUpperCase());
+            const notExpired = !promo?.expiryDate || new Date(promo.expiryDate) >= new Date();
+            if (promo && promo.isActive && notExpired) {
+              realPromoDiscount = promo.type === "percentage"
+                ? Math.round(verifiedSubtotal * (promo.value / 100))
+                : promo.value;
+              realPromoDiscount = Math.min(realPromoDiscount, verifiedSubtotal);
+            }
+          } catch (e) {
+            console.error("Error verifying promo discount:", e);
+          }
+        }
+
+        // 5) Compare the authoritative server total against the client-submitted total (allow 1 IQD rounding margin).
+        const computedTotal = verifiedSubtotal + realDeliveryFee + realServiceFee - realPromoDiscount;
+        const clientTotal = Number(total) || 0;
+        if (Math.abs(computedTotal - clientTotal) > 1) {
+          console.warn(`[SUSPICIOUS ORDER] Total mismatch — client sent ${clientTotal}, server computed ${computedTotal}. phone=${phoneNumber || userId}, items=${JSON.stringify(items)}`);
+          return res.status(400).json({ error: "حدث خطأ في حساب سعر الطلب، يرجى تحديث السلة والمحاولة مرة أخرى" });
+        }
+      }
+
       const orderData: any = {
         userId: userId || "",
         phoneNumber,
-        items,
-        total,
-        deliveryFee,
+        items: verifiedItems,
+        total: isCustomServiceOrder ? (Number(total) || 0) : (verifiedSubtotal + realDeliveryFee + realServiceFee - realPromoDiscount),
+        deliveryFee: isCustomServiceOrder ? (Number(deliveryFee) || 0) : realDeliveryFee,
         address,
         region,
         status: "pending",
       };
-      if (serviceFee !== undefined) orderData.serviceFee = serviceFee;
+      orderData.serviceFee = isCustomServiceOrder ? (serviceFee !== undefined ? serviceFee : undefined) : realServiceFee;
+      if (orderData.serviceFee === undefined) delete orderData.serviceFee;
       if (customerName) orderData.customerName = customerName;
       if (customerPhone) orderData.customerPhone = customerPhone;
       if (notes) orderData.notes = notes;
@@ -2083,7 +2169,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (internationalDetails) orderData.internationalDetails = internationalDetails;
       if (courierDetails) orderData.courierDetails = courierDetails;
       if (promoCode) orderData.promoCode = promoCode;
-      if (promoDiscount) orderData.promoDiscount = promoDiscount;
+      if (!isCustomServiceOrder && realPromoDiscount) orderData.promoDiscount = realPromoDiscount;
+      else if (isCustomServiceOrder && promoDiscount) orderData.promoDiscount = promoDiscount;
       // Preserve explicit vendorId/restaurantSubtotal from request body (vendor partner orders)
       if (bodyVendorId) orderData.vendorId = bodyVendorId;
       if (bodyRestaurantSubtotal) orderData.restaurantSubtotal = bodyRestaurantSubtotal;
@@ -2091,15 +2178,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Detect vendor for restaurant orders
       let vendorWhatsappUrl: string | null = null;
       try {
-        const allProds = await getCachedProducts(); // uses cache with restaurant fallback
-        const vendorsList = await getVendorList();
-
         // Scan ALL items to find restaurant ones (handles mixed orders)
         const restaurantItems: any[] = [];
         let restaurantSubtotal = 0;
         let detectedRestaurantName: string | null = null;
 
-        for (const it of (items as any[])) {
+        for (const it of (orderData.items as any[])) {
           const prod = allProds.find((p: any) => p.id === it.productId);
           if (prod && prod.categoryId === "restaurants") {
             restaurantItems.push({ ...it, restaurantName: prod.restaurant });

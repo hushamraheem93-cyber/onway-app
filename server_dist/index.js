@@ -3563,23 +3563,92 @@ async function registerRoutes(app2) {
     const { userId, phoneNumber, customerName, customerPhone, notes, items, total, deliveryFee, serviceFee, address, region, latitude, longitude, orderType, internationalDetails, courierDetails, promoCode, promoDiscount, vendorId: bodyVendorId, restaurantSubtotal: bodyRestaurantSubtotal } = req.body;
     const db2 = getFirestore();
     if (db2) {
+      const isCustomServiceOrder = orderType === "courier-pickup" || orderType === "international-shopping";
+      if (!Array.isArray(items) || items.length === 0) {
+        return res.status(400).json({ error: "\u0627\u0644\u0637\u0644\u0628 \u0644\u0627 \u064A\u062D\u062A\u0648\u064A \u0639\u0644\u0649 \u0645\u0646\u062A\u062C\u0627\u062A" });
+      }
       if (promoCode) {
         const alreadyUsed = await checkPromoUsage(userId || phoneNumber, promoCode);
         if (alreadyUsed) {
           return res.status(400).json({ error: "\u0644\u0642\u062F \u0627\u0633\u062A\u062E\u062F\u0645\u062A \u0647\u0630\u0627 \u0627\u0644\u0643\u0648\u062F \u0645\u0633\u0628\u0642\u0627\u064B!" });
         }
       }
+      const allProds = await getCachedProducts();
+      const vendorsList = await getVendorList();
+      let verifiedItems = items;
+      let verifiedSubtotal = 0;
+      let realDeliveryFee = Number(deliveryFee) || 0;
+      let realServiceFee = 500;
+      let realPromoDiscount = 0;
+      if (!isCustomServiceOrder) {
+        verifiedItems = [];
+        for (const it of items) {
+          const prod = allProds.find((p) => p.id === it.productId);
+          if (!prod) {
+            console.warn(`[SUSPICIOUS ORDER] Unknown productId "${it?.productId}" submitted by phone=${phoneNumber || userId}`);
+            return res.status(400).json({ error: "\u0623\u062D\u062F \u0627\u0644\u0645\u0646\u062A\u062C\u0627\u062A \u0641\u064A \u0637\u0644\u0628\u0643 \u0644\u0645 \u064A\u0639\u062F \u0645\u062A\u0648\u0641\u0631\u0627\u064B\u060C \u064A\u0631\u062C\u0649 \u062A\u062D\u062F\u064A\u062B \u0627\u0644\u0633\u0644\u0629" });
+          }
+          const realPrice = Number(prod.price) || 0;
+          const quantity = Math.max(1, Number(it.quantity) || 1);
+          if (Number(it.price) !== realPrice) {
+            console.warn(`[SUSPICIOUS ORDER] Price mismatch for product "${prod.id}" \u2014 client sent ${it.price}, real price is ${realPrice}. phone=${phoneNumber || userId}`);
+          }
+          verifiedItems.push({ ...it, price: realPrice, quantity });
+          verifiedSubtotal += realPrice * quantity;
+        }
+        const isRestaurantOrder = verifiedItems.length > 0 && verifiedItems.every((it) => {
+          const prod = allProds.find((p) => p.id === it.productId);
+          return prod?.categoryId === "restaurants";
+        });
+        if (isRestaurantOrder) {
+          realDeliveryFee = 1e3;
+        } else {
+          try {
+            const areas = await getDeliveryAreas(true);
+            const matchedArea = areas.find((a) => a.name === region);
+            realDeliveryFee = matchedArea ? Number(matchedArea.fee) || 0 : 0;
+          } catch (e) {
+            console.error("Error verifying delivery fee:", e);
+            realDeliveryFee = 0;
+          }
+        }
+        try {
+          const feesSnap = await db2.collection("appSettings").doc("fees").get();
+          realServiceFee = feesSnap.exists ? feesSnap.data()?.serviceFee ?? 500 : 500;
+        } catch (e) {
+          console.error("Error verifying service fee:", e);
+        }
+        if (promoCode) {
+          try {
+            const promo = await getPromoCodeByCode(String(promoCode).toUpperCase());
+            const notExpired = !promo?.expiryDate || new Date(promo.expiryDate) >= /* @__PURE__ */ new Date();
+            if (promo && promo.isActive && notExpired) {
+              realPromoDiscount = promo.type === "percentage" ? Math.round(verifiedSubtotal * (promo.value / 100)) : promo.value;
+              realPromoDiscount = Math.min(realPromoDiscount, verifiedSubtotal);
+            }
+          } catch (e) {
+            console.error("Error verifying promo discount:", e);
+          }
+        }
+        const computedTotal = verifiedSubtotal + realDeliveryFee + realServiceFee - realPromoDiscount;
+        const clientTotal = Number(total) || 0;
+        if (Math.abs(computedTotal - clientTotal) > 1) {
+          console.warn(`[SUSPICIOUS ORDER] Total mismatch \u2014 client sent ${clientTotal}, server computed ${computedTotal}. phone=${phoneNumber || userId}, items=${JSON.stringify(items)}`);
+          return res.status(400).json({ error: "\u062D\u062F\u062B \u062E\u0637\u0623 \u0641\u064A \u062D\u0633\u0627\u0628 \u0633\u0639\u0631 \u0627\u0644\u0637\u0644\u0628\u060C \u064A\u0631\u062C\u0649 \u062A\u062D\u062F\u064A\u062B \u0627\u0644\u0633\u0644\u0629 \u0648\u0627\u0644\u0645\u062D\u0627\u0648\u0644\u0629 \u0645\u0631\u0629 \u0623\u062E\u0631\u0649" });
+        }
+      }
       const orderData = {
         userId: userId || "",
         phoneNumber,
-        items,
-        total,
-        deliveryFee,
+        items: verifiedItems,
+        total: isCustomServiceOrder ? Number(total) || 0 : verifiedSubtotal + realDeliveryFee + realServiceFee - realPromoDiscount,
+        deliveryFee: isCustomServiceOrder ? Number(deliveryFee) || 0 : realDeliveryFee,
         address,
         region,
         status: "pending"
       };
-      if (serviceFee !== void 0) orderData.serviceFee = serviceFee;
+      orderData.serviceFee = isCustomServiceOrder ? serviceFee !== void 0 ? serviceFee : void 0 : realServiceFee;
+      if (orderData.serviceFee === void 0) delete orderData.serviceFee;
       if (customerName) orderData.customerName = customerName;
       if (customerPhone) orderData.customerPhone = customerPhone;
       if (notes) orderData.notes = notes;
@@ -3591,17 +3660,16 @@ async function registerRoutes(app2) {
       if (internationalDetails) orderData.internationalDetails = internationalDetails;
       if (courierDetails) orderData.courierDetails = courierDetails;
       if (promoCode) orderData.promoCode = promoCode;
-      if (promoDiscount) orderData.promoDiscount = promoDiscount;
+      if (!isCustomServiceOrder && realPromoDiscount) orderData.promoDiscount = realPromoDiscount;
+      else if (isCustomServiceOrder && promoDiscount) orderData.promoDiscount = promoDiscount;
       if (bodyVendorId) orderData.vendorId = bodyVendorId;
       if (bodyRestaurantSubtotal) orderData.restaurantSubtotal = bodyRestaurantSubtotal;
       let vendorWhatsappUrl = null;
       try {
-        const allProds = await getCachedProducts();
-        const vendorsList = await getVendorList();
         const restaurantItems = [];
         let restaurantSubtotal = 0;
         let detectedRestaurantName = null;
-        for (const it of items) {
+        for (const it of orderData.items) {
           const prod = allProds.find((p) => p.id === it.productId);
           if (prod && prod.categoryId === "restaurants") {
             restaurantItems.push({ ...it, restaurantName: prod.restaurant });

@@ -58,18 +58,6 @@ task = "shell.exec"
 args = "npm run server:build && npm run server:prod & npm run expo:dev"
 waitForPort = 5000
 
-[[ports]]
-localPort = 5000
-externalPort = 5000
-
-[[ports]]
-localPort = 8081
-externalPort = 80
-
-[[ports]]
-localPort = 8082
-externalPort = 3001
-
 [userenv]
 
 [userenv.shared]
