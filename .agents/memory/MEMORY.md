@@ -5,3 +5,4 @@
 - [Driver Financial System](driver-financial-system.md) — postpaid model: amountOwed = commission − paid; blocks driver at 50,000 IQD; replaces old prepaid wallet (getDriverWalletBalance removed).
 - [Order Price Integrity](order-price-integrity.md) — POST /api/orders recomputes price/fees/total server-side, never trusts client; courier-pickup & international-shopping orders are intentionally exempt (non-catalog custom pricing).
 - [Firebase Storage bucket missing](firebase-storage-bucket-missing.md) — project has 0 Storage buckets; uploadToFirebaseStorage fails everywhere; vendor product/profile images migrated to Base64; other call sites still broken.
+- [Expo static build workflow](expo-static-build-workflow.md) — multi-job shell workflow commands need `trap 'kill 0' EXIT SIGTERM SIGINT` or restarts leave orphaned background jobs that race and corrupt output.
