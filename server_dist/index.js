@@ -5201,33 +5201,6 @@ ${itemsList}
       console.error("[GHOST_CLEANUP] error:", e);
     }
   }, 10 * 60 * 1e3);
-  app2.post("/api/driver/assign-pending-orders", async (_req, res) => {
-    try {
-      const db2 = getFirestore();
-      if (!db2) return res.json({ assigned: 0 });
-      const allOrders = await getOrders();
-      const pendingOrders = allOrders.filter((o) => o.status === "confirmed" && !driverAssignments.has(o.id)).sort((a, b) => {
-        const aTime = a.createdAt?.toDate?.() ? a.createdAt.toDate().getTime() : 0;
-        const bTime = b.createdAt?.toDate?.() ? b.createdAt.toDate().getTime() : 0;
-        return aTime - bTime;
-      });
-      let assigned = 0;
-      for (const order of pendingOrders) {
-        const availableDriver = driverQueue.find((d) => !d.currentBatchId);
-        if (availableDriver) {
-          availableDriver.currentBatchId = order.id;
-          updateDriverQueueEntry(availableDriver.phoneNumber, { hasActiveBatch: true }).catch(() => {
-          });
-          assigned++;
-        } else {
-          break;
-        }
-      }
-      res.json({ assigned });
-    } catch (error) {
-      res.status(500).json({ error: error.message });
-    }
-  });
   app2.get("/api/admin/driver-queue", async (_req, res) => {
     try {
       const db2 = getFirestore();
