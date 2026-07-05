@@ -844,7 +844,7 @@ function generateOtp(phoneNumber) {
   return code;
 }
 function verifyOtp(phoneNumber, code) {
-  if (code === "0000" && process.env.ALLOW_DEV_OTP === "true" && process.env.NODE_ENV !== "production") {
+  if (code === "0000" && process.env.ALLOW_DEV_OTP === "true" && process.env.REPLIT_DEPLOYMENT !== "1") {
     return true;
   }
   const stored = otpStore.get(phoneNumber);

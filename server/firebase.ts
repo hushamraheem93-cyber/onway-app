@@ -1105,11 +1105,13 @@ export function generateOtp(phoneNumber: string): string {
 }
 
 export function verifyOtp(phoneNumber: string, code: string): boolean {
-  // Dev-only bypass: requires ALLOW_DEV_OTP=true AND non-production environment
+  // Dev-only bypass: requires ALLOW_DEV_OTP=true AND not running as a published Replit deployment.
+  // NODE_ENV is always "production" in this workspace's server build, so we use REPLIT_DEPLOYMENT
+  // (only set to "1" on actual published deployments) to distinguish real production from dev/testing.
   if (
     code === "0000" &&
     process.env.ALLOW_DEV_OTP === "true" &&
-    process.env.NODE_ENV !== "production"
+    process.env.REPLIT_DEPLOYMENT !== "1"
   ) {
     return true;
   }

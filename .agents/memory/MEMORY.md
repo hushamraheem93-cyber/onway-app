@@ -8,3 +8,4 @@
 - [Firebase Storage bucket missing](firebase-storage-bucket-missing.md) — project has 0 Storage buckets; uploadToFirebaseStorage fails everywhere; vendor product/profile images migrated to Base64; other call sites still broken.
 - [Expo static build workflow](expo-static-build-workflow.md) — multi-job shell workflow commands need `trap 'kill 0' EXIT SIGTERM SIGINT` or restarts leave orphaned background jobs that race and corrupt output.
 - [EXPO_PUBLIC_DOMAIN port bug](expo-public-domain-port-bug.md) — public Replit domain unreachable with explicit `:5000` appended; native app hangs forever on every API call (login/OTP) until getApiUrl() strips the port.
+- [Dev-only bypass gating](dev-bypass-gating.md) — this project's server workflow always runs with NODE_ENV=production, so gate dev-only bypasses on REPLIT_DEPLOYMENT !== "1" instead of NODE_ENV.
