@@ -290,29 +290,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const sendOtp = async (phone: string) => {
     try {
-      // OTP disabled — send and immediately verify with bypass code
-      await fetch(new URL("/api/auth/send-otp", getApiUrl()).toString(), {
+      const response = await fetch(new URL("/api/auth/send-otp", getApiUrl()).toString(), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ phoneNumber: phone }),
       });
 
+      if (!response.ok) {
+        const err = await response.json();
+        throw new Error(err.error || "فشل إرسال رمز التحقق");
+      }
+
       setPendingPhone(phone);
       setIsOtpSent(true);
-
-      // Auto-verify immediately — skip OTP screen
-      const verifyRes = await fetch(new URL("/api/auth/verify-otp", getApiUrl()).toString(), {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phoneNumber: phone, code: "0000" }),
-      });
-      const data = await verifyRes.json();
-      if (data.customerToken) {
-        setCustomerToken(data.customerToken);
-        try { await AsyncStorage.setItem(CUSTOMER_TOKEN_KEY, data.customerToken); } catch {}
-      }
-      setPhoneNumber(phone);
-      setIsOtpVerified(true);
     } catch (error: any) {
       throw error;
     }
