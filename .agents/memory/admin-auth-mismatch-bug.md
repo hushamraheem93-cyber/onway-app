@@ -1,7 +1,9 @@
 ---
-name: Admin auth two-system mismatch (critical bug)
-description: The admin login session and most /api/admin/* route guards use two incompatible auth checks under the same cookie name, breaking nearly all admin panel actions.
+name: Admin auth two-system mismatch (fixed)
+description: The admin login session and most /api/admin/* route guards used two incompatible auth checks under the same cookie name, breaking nearly all admin panel actions. Fixed Jul 2026 via shared server/adminAuth.ts.
 ---
+
+**Status: FIXED (2026-07-05).** All three admin-auth implementations (index.ts, routes.ts, vendor.ts) now import session logic from a single `server/adminAuth.ts` module (`createSession`, `invalidateSession`, `invalidateAllSessions`, `getSessionToken`, `isValidSession`). Verified empirically post-fix: real admin login cookie now gets 200 on previously-401 endpoints (`/api/admin/vendors`, `/api/admin/drivers`), and logout still correctly invalidates the session (200 → logout → 401 on same cookie). If a future change reintroduces a second admin-session check anywhere, treat it as a regression of this exact bug.
 
 `server/index.ts` implements admin login/logout via an in-memory `adminSessions` Map keyed by a random token stored in the `onway_admin_session` cookie (or Bearer header). `isValidSession()` there checks token membership in that map.
 

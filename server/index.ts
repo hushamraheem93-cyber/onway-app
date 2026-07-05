@@ -365,49 +365,17 @@ function serveLandingPage({
 }
 
 // ── Admin Auth ────────────────────────────────────────────────────────────
-const ADMIN_COOKIE = "onway_admin_session";
-
-// Sessions are kept in memory. This is intentional: a redeploy/restart forces
-// re-login, which is the safer default for a single-admin panel. Unlike the old
-// makeToken() design, each login now gets its own random, revocable token — and
-// changing credentials (setCustomCredentials) wipes every outstanding session.
-interface AdminSession { username: string; expiresAt: number; }
-const adminSessions = new Map<string, AdminSession>();
-const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
-
-function createSession(username: string): string {
-  const token = crypto.randomBytes(32).toString("hex");
-  adminSessions.set(token, { username, expiresAt: Date.now() + SESSION_TTL_MS });
-  return token;
-}
-
-function invalidateSession(token: string | undefined | null): void {
-  if (token) adminSessions.delete(token);
-}
-
-function invalidateAllSessions(): void {
-  adminSessions.clear();
-}
-
-function getSessionToken(req: Request): string | undefined {
-  const raw = req.cookies?.[ADMIN_COOKIE];
-  if (raw) return raw;
-  const auth = req.headers.authorization;
-  if (auth && auth.startsWith("Bearer ")) return auth.slice(7).trim();
-  return undefined;
-}
-
-function isValidSession(req: Request): boolean {
-  const token = getSessionToken(req);
-  if (!token) return false;
-  const session = adminSessions.get(token);
-  if (!session) return false;
-  if (Date.now() > session.expiresAt) {
-    adminSessions.delete(token);
-    return false;
-  }
-  return true;
-}
+// Session management now lives in ./adminAuth.ts so routes.ts and vendor.ts
+// use the exact same session store (see adminAuth.ts header comment for why
+// this was previously three separate, inconsistent implementations).
+import {
+  ADMIN_COOKIE,
+  createSession,
+  invalidateSession,
+  invalidateAllSessions,
+  getSessionToken,
+  isValidSession,
+} from "./adminAuth";
 
 function parseCookies(req: Request): void {
   const header = req.headers.cookie || "";

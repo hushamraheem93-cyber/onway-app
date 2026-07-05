@@ -9,6 +9,7 @@ import * as path from "path";
 import { getFirestore, getUserPushToken, getAdminPushToken, deleteFromFirebaseStorage } from "./firebase";
 import { sendVendorStatusNotification, sendVendorProductNotification, sendPushNotification, sendAdminOrderReadyNotification } from "./pushNotifications";
 import { orderEvents } from "./orderEvents";
+import { isValidSession } from "./adminAuth";
 
 const router = express.Router();
 
@@ -1129,17 +1130,8 @@ router.patch("/api/vendor/orders/:id/status", requireVendor, async (req, res) =>
 // ADMIN endpoints for vendor partner management
 // ═══════════════════════════════════════════════════════════════════════════
 
-function isAdminSession(req: Request): boolean {
-  const cookies = (req as any).cookies || parseCookies(req);
-  const raw = cookies["onway_admin_session"];
-  if (!raw) return false;
-  const secret = `${process.env.ADMIN_USERNAME}:${process.env.ADMIN_PASSWORD}`;
-  const expected = crypto.createHmac("sha256", secret).update("onway_admin").digest("hex");
-  return raw === expected;
-}
-
 function requireAdmin(req: Request, res: Response, next: express.NextFunction) {
-  if (!isAdminSession(req)) return res.status(401).json({ error: "غير مصرح" });
+  if (!isValidSession(req)) return res.status(401).json({ error: "غير مصرح" });
   next();
 }
 

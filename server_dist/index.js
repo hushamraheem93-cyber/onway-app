@@ -11,11 +11,55 @@ import multer from "multer";
 import sharp from "sharp";
 import path from "path";
 import fs from "fs";
-import { randomUUID, createHmac, createHash } from "crypto";
+import { randomUUID, createHash } from "crypto";
 
 // server/orderEvents.ts
 import { EventEmitter } from "events";
 var orderEvents = new EventEmitter();
+
+// server/adminAuth.ts
+import * as crypto from "crypto";
+var ADMIN_COOKIE = "onway_admin_session";
+var adminSessions = /* @__PURE__ */ new Map();
+var SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1e3;
+function createSession(username) {
+  const token = crypto.randomBytes(32).toString("hex");
+  adminSessions.set(token, { username, expiresAt: Date.now() + SESSION_TTL_MS });
+  return token;
+}
+function invalidateSession(token) {
+  if (token) adminSessions.delete(token);
+}
+function invalidateAllSessions() {
+  adminSessions.clear();
+}
+function parseCookieHeader(header) {
+  const cookies = {};
+  (header || "").split(";").forEach((part) => {
+    const [k, ...v] = part.trim().split("=");
+    if (k) cookies[k.trim()] = decodeURIComponent(v.join("=").trim());
+  });
+  return cookies;
+}
+function getSessionToken(req) {
+  const parsed = req.cookies || parseCookieHeader(req.headers.cookie);
+  const raw = parsed?.[ADMIN_COOKIE];
+  if (raw) return raw;
+  const auth = req.headers.authorization;
+  if (auth && auth.startsWith("Bearer ")) return auth.slice(7).trim();
+  return void 0;
+}
+function isValidSession(req) {
+  const token = getSessionToken(req);
+  if (!token) return false;
+  const session = adminSessions.get(token);
+  if (!session) return false;
+  if (Date.now() > session.expiresAt) {
+    adminSessions.delete(token);
+    return false;
+  }
+  return true;
+}
 
 // server/firebase.ts
 import admin from "firebase-admin";
@@ -2016,20 +2060,8 @@ function extractVendorId(req) {
     return null;
   }
 }
-function isAdminSessionValid(req) {
-  const parsedCookies = {};
-  (req.headers.cookie || "").split(";").forEach((part) => {
-    const [k, ...v] = part.trim().split("=");
-    if (k) parsedCookies[k.trim()] = decodeURIComponent(v.join("=").trim());
-  });
-  const raw = req.cookies?.["onway_admin_session"] ?? parsedCookies["onway_admin_session"];
-  if (!raw) return false;
-  const secret = `${process.env.ADMIN_USERNAME}:${process.env.ADMIN_PASSWORD}`;
-  const expected = createHmac("sha256", secret).update("onway_admin").digest("hex");
-  return raw === expected;
-}
 function requireAdminAuth(req, res, next) {
-  if (!isAdminSessionValid(req)) return res.status(401).json({ error: "\u063A\u064A\u0631 \u0645\u0635\u0631\u062D" });
+  if (!isValidSession(req)) return res.status(401).json({ error: "\u063A\u064A\u0631 \u0645\u0635\u0631\u062D" });
   next();
 }
 function requireCustomerAuth(req, res, next) {
@@ -6582,7 +6614,7 @@ import * as bcrypt from "bcryptjs";
 import jwt2 from "jsonwebtoken";
 import multer2 from "multer";
 import sharp2 from "sharp";
-import * as crypto from "crypto";
+import * as crypto2 from "crypto";
 import * as path2 from "path";
 var router = express2.Router();
 var JWT_SECRET = (() => {
@@ -6649,7 +6681,7 @@ function requireVendor(req, res, next) {
   }
 }
 function generateImageHash(buffer) {
-  return crypto.createHash("md5").update(buffer).digest("hex");
+  return crypto2.createHash("md5").update(buffer).digest("hex");
 }
 async function processAndSaveImage(buffer, _hash) {
   const webpBuffer = await sharp2(buffer).resize(700, 700, { fit: "cover", position: "center" }).webp({ quality: 70 }).toBuffer();
@@ -7427,16 +7459,8 @@ router.patch("/api/vendor/orders/:id/status", requireVendor, async (req, res) =>
     res.status(500).json({ error: "\u062D\u062F\u062B \u062E\u0637\u0623 \u0641\u064A \u0627\u0644\u062E\u0627\u062F\u0645" });
   }
 });
-function isAdminSession(req) {
-  const cookies = req.cookies || parseCookies(req);
-  const raw = cookies["onway_admin_session"];
-  if (!raw) return false;
-  const secret = `${process.env.ADMIN_USERNAME}:${process.env.ADMIN_PASSWORD}`;
-  const expected = crypto.createHmac("sha256", secret).update("onway_admin").digest("hex");
-  return raw === expected;
-}
 function requireAdmin(req, res, next) {
-  if (!isAdminSession(req)) return res.status(401).json({ error: "\u063A\u064A\u0631 \u0645\u0635\u0631\u062D" });
+  if (!isValidSession(req)) return res.status(401).json({ error: "\u063A\u064A\u0631 \u0645\u0635\u0631\u062D" });
   next();
 }
 router.get("/api/admin/vendor-partners", requireAdmin, async (req, res) => {
@@ -7841,14 +7865,14 @@ var vendor_default = router;
 // server/index.ts
 import * as fs2 from "fs";
 import * as path3 from "path";
-import * as crypto2 from "crypto";
+import * as crypto3 from "crypto";
 import * as bcrypt2 from "bcryptjs";
 initializeFirebase();
 function hashPassword(pass) {
   return bcrypt2.hash(pass, 10);
 }
 function legacySha256Hash(pass) {
-  return crypto2.createHash("sha256").update(`onway::${pass}`).digest("hex");
+  return crypto3.createHash("sha256").update(`onway::${pass}`).digest("hex");
 }
 async function verifyPassword(pass, storedHash) {
   if (storedHash.startsWith("$2")) {
@@ -8098,38 +8122,6 @@ function serveLandingPage({
   const html = landingPageTemplate.replace(/BASE_URL_PLACEHOLDER/g, baseUrl).replace(/EXPS_URL_PLACEHOLDER/g, expsUrl).replace(/APP_NAME_PLACEHOLDER/g, appName);
   res.setHeader("Content-Type", "text/html; charset=utf-8");
   res.status(200).send(html);
-}
-var ADMIN_COOKIE = "onway_admin_session";
-var adminSessions = /* @__PURE__ */ new Map();
-var SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1e3;
-function createSession(username) {
-  const token = crypto2.randomBytes(32).toString("hex");
-  adminSessions.set(token, { username, expiresAt: Date.now() + SESSION_TTL_MS });
-  return token;
-}
-function invalidateSession(token) {
-  if (token) adminSessions.delete(token);
-}
-function invalidateAllSessions() {
-  adminSessions.clear();
-}
-function getSessionToken(req) {
-  const raw = req.cookies?.[ADMIN_COOKIE];
-  if (raw) return raw;
-  const auth = req.headers.authorization;
-  if (auth && auth.startsWith("Bearer ")) return auth.slice(7).trim();
-  return void 0;
-}
-function isValidSession(req) {
-  const token = getSessionToken(req);
-  if (!token) return false;
-  const session = adminSessions.get(token);
-  if (!session) return false;
-  if (Date.now() > session.expiresAt) {
-    adminSessions.delete(token);
-    return false;
-  }
-  return true;
 }
 function parseCookies2(req) {
   const header = req.headers.cookie || "";
