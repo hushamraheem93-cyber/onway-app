@@ -2063,11 +2063,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const unknownProductIds: string[] = [];
       const priceMismatchProductIds: string[] = [];
 
+      let allItemsAreRestaurant = items.length > 0;
+
       for (const it of items as any[]) {
         let realPrice: number | undefined;
         const legacyProduct = allProductsForPricing.find((p: any) => p.id === it.productId);
         if (legacyProduct && !Number.isNaN(Number(legacyProduct.price))) {
           realPrice = Number(legacyProduct.price);
+          if (legacyProduct.categoryId !== "restaurants") allItemsAreRestaurant = false;
         } else {
           // Fall back to vendorProducts collection (vendor-added items aren't in the legacy cache)
           const vpDoc = await db.collection("vendorProducts").doc(it.productId).get();
@@ -2075,6 +2078,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
             const vpPrice = Number((vpDoc.data() as any)?.price);
             if (!Number.isNaN(vpPrice)) realPrice = vpPrice;
           }
+          // Vendor-added items are never legacy "restaurants" category products
+          allItemsAreRestaurant = false;
         }
 
         if (realPrice === undefined) {
@@ -2098,9 +2103,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "أسعار بعض المنتجات تغيّرت، الرجاء تحديث السلة والمحاولة مجدداً" });
       }
 
-      // Recompute delivery fee from the authoritative deliveryAreas collection
+      // Recompute delivery fee. Legacy "restaurants" category orders always use a
+      // flat fee (matches client CheckoutScreen logic), regardless of delivery area.
+      // All other orders use the authoritative deliveryAreas collection fee.
       let verifiedDeliveryFee = Number(deliveryFee) || 0;
-      if (region) {
+      if (allItemsAreRestaurant) {
+        verifiedDeliveryFee = 1000;
+      } else if (region) {
         const areas = await getFirestoreDeliveryAreas(true);
         const matchedArea = areas.find(a => a.name === region);
         if (matchedArea) verifiedDeliveryFee = matchedArea.fee;

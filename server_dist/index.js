@@ -3633,17 +3633,20 @@ async function registerRoutes(app2) {
       let verifiedSubtotal = 0;
       const unknownProductIds = [];
       const priceMismatchProductIds = [];
+      let allItemsAreRestaurant = items.length > 0;
       for (const it of items) {
         let realPrice;
         const legacyProduct = allProductsForPricing.find((p) => p.id === it.productId);
         if (legacyProduct && !Number.isNaN(Number(legacyProduct.price))) {
           realPrice = Number(legacyProduct.price);
+          if (legacyProduct.categoryId !== "restaurants") allItemsAreRestaurant = false;
         } else {
           const vpDoc = await db2.collection("vendorProducts").doc(it.productId).get();
           if (vpDoc.exists) {
             const vpPrice = Number(vpDoc.data()?.price);
             if (!Number.isNaN(vpPrice)) realPrice = vpPrice;
           }
+          allItemsAreRestaurant = false;
         }
         if (realPrice === void 0) {
           unknownProductIds.push(it.productId);
@@ -3664,7 +3667,9 @@ async function registerRoutes(app2) {
         return res.status(400).json({ error: "\u0623\u0633\u0639\u0627\u0631 \u0628\u0639\u0636 \u0627\u0644\u0645\u0646\u062A\u062C\u0627\u062A \u062A\u063A\u064A\u0651\u0631\u062A\u060C \u0627\u0644\u0631\u062C\u0627\u0621 \u062A\u062D\u062F\u064A\u062B \u0627\u0644\u0633\u0644\u0629 \u0648\u0627\u0644\u0645\u062D\u0627\u0648\u0644\u0629 \u0645\u062C\u062F\u062F\u0627\u064B" });
       }
       let verifiedDeliveryFee = Number(deliveryFee) || 0;
-      if (region) {
+      if (allItemsAreRestaurant) {
+        verifiedDeliveryFee = 1e3;
+      } else if (region) {
         const areas = await getDeliveryAreas(true);
         const matchedArea = areas.find((a) => a.name === region);
         if (matchedArea) verifiedDeliveryFee = matchedArea.fee;
