@@ -140,6 +140,7 @@ export function OrderProvider({ children }: { children: ReactNode }) {
     items: CartItem[];
     total: number;
     deliveryFee: number;
+    serviceFee?: number;
     address: string;
     region: string;
     customerName?: string;
@@ -170,6 +171,7 @@ export function OrderProvider({ children }: { children: ReactNode }) {
       address: orderData.address,
       region: orderData.region,
     };
+    if (orderData.serviceFee !== undefined) bodyData.serviceFee = orderData.serviceFee;
     if (orderData.customerName) bodyData.customerName = orderData.customerName;
     if (orderData.customerPhone) bodyData.customerPhone = orderData.customerPhone;
     if (orderData.notes) bodyData.notes = orderData.notes;

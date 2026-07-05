@@ -13,3 +13,5 @@ description: How POST /api/orders verifies prices/fees server-side instead of tr
 **Why:** client payloads are fully attacker-controlled; trusting them allowed arbitrary price/commission/earnings tampering.
 
 **How to apply:** Order types `courier-pickup` and `international-shopping` are intentionally exempt — they use synthetic non-catalog productIds (e.g. `courier-pickup`, `international-<site>`) with user/admin-negotiated custom pricing, not real product prices. Any new order flow that references real catalog products must go through this same verification path.
+
+**Debugging tip:** if fraud-check total-mismatch logs show a diff that exactly equals a known fee constant (e.g. the 500 IQD service fee), suspect a dropped field between the screen that computes the total and the context/hook that builds the API request body — not the server's recompute logic. Check that every field the screen passes into a context call (e.g. `addOrder(orderData)`) is both declared in that function's parameter type AND actually copied into the request body; TypeScript won't catch a field that's typed-out of the parameter signature.
