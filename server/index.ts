@@ -228,14 +228,30 @@ function setupCors(app: express.Application) {
     .map((s: string) => s.trim())
     .filter(Boolean);
 
+  // Always trust this Repl's own Replit-assigned domains (dev preview + any
+  // deployed *.replit.dev/*.replit.app domains). These are not secrets - they
+  // are assigned by Replit for this project - so it's safe to always allow
+  // them regardless of what the user has configured in ALLOWED_ORIGINS. This
+  // ensures the admin dashboard and app always work inside Replit even if
+  // ALLOWED_ORIGINS only lists a custom production domain.
+  const replitDomains = [
+    process.env.REPLIT_DEV_DOMAIN,
+    ...(process.env.REPLIT_DOMAINS || "").split(",").map((s: string) => s.trim()),
+  ].filter(Boolean) as string[];
+
   app.use((req, res, next) => {
     const origin = req.header("origin");
 
     if (origin) {
+      const isReplitOwnDomain = replitDomains.some(
+        (d: string) => origin === `https://${d}` || origin === `http://${d}`,
+      );
+
       // In production, if ALLOWED_ORIGINS isn't configured, we now fail CLOSED
       // (block) instead of failing open (allow any origin with credentials).
       const allowed =
         !isProd ||
+        isReplitOwnDomain ||
         (allowedDomains.length > 0 &&
           allowedDomains.some((d: string) => origin === d || origin.endsWith(`.${d}`)));
 

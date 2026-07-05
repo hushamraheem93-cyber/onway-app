@@ -8026,10 +8026,17 @@ function setupSecurityHeaders(app2) {
 function setupCors(app2) {
   const isProd = process.env.NODE_ENV === "production";
   const allowedDomains = (process.env.ALLOWED_ORIGINS || "").split(",").map((s) => s.trim()).filter(Boolean);
+  const replitDomains = [
+    process.env.REPLIT_DEV_DOMAIN,
+    ...(process.env.REPLIT_DOMAINS || "").split(",").map((s) => s.trim())
+  ].filter(Boolean);
   app2.use((req, res, next) => {
     const origin = req.header("origin");
     if (origin) {
-      const allowed = !isProd || allowedDomains.length > 0 && allowedDomains.some((d) => origin === d || origin.endsWith(`.${d}`));
+      const isReplitOwnDomain = replitDomains.some(
+        (d) => origin === `https://${d}` || origin === `http://${d}`
+      );
+      const allowed = !isProd || isReplitOwnDomain || allowedDomains.length > 0 && allowedDomains.some((d) => origin === d || origin.endsWith(`.${d}`));
       if (allowed) {
         res.header("Access-Control-Allow-Origin", origin);
         res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, PATCH, OPTIONS");
