@@ -8,6 +8,7 @@ import * as crypto from "crypto";
 import * as path from "path";
 import { getFirestore, getUserPushToken, getAdminPushToken, deleteFromFirebaseStorage } from "./firebase";
 import { sendVendorStatusNotification, sendVendorProductNotification, sendPushNotification, sendAdminOrderReadyNotification } from "./pushNotifications";
+import { orderEvents } from "./orderEvents";
 
 const router = express.Router();
 
@@ -1085,6 +1086,15 @@ router.patch("/api/vendor/orders/:id/status", requireVendor, async (req, res) =>
       updateData.estimatedMinutes = validatedEta;
     }
     await orderRef.update(updateData);
+
+    // Trigger immediate driver-assignment attempt when a vendor confirms an order.
+    // Without this, vendor-confirmed orders (the primary real-world flow) only got
+    // picked up by the 30-second background watchdog in routes.ts — up to 30s of
+    // needless delay on every single order. Admin-confirmed orders already fired
+    // immediately; this brings the vendor path to parity.
+    if (status === "confirmed") {
+      orderEvents.emit("confirmed");
+    }
 
     // Send push notification to customer
     const customerPhone: string | undefined = order.phoneNumber;

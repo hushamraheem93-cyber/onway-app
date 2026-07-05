@@ -8,12 +8,28 @@ import { sendVendorOrderReminderNotification } from "./pushNotifications";
 import * as fs from "fs";
 import * as path from "path";
 import * as crypto from "crypto";
+import * as bcrypt from "bcryptjs";
 
 initializeFirebase();
 
 // ── Custom admin credentials stored in Firestore ───────────────────────────
-function hashPassword(pass: string): string {
+// Passwords are hashed with bcrypt (matches vendor password hashing elsewhere).
+// verifyPassword() also accepts the OLD unsalted-SHA256 format for any credentials
+// that were set before this change, so existing admins aren't locked out — the
+// very next password change re-hashes with bcrypt automatically.
+function hashPassword(pass: string): Promise<string> {
+  return bcrypt.hash(pass, 10);
+}
+
+function legacySha256Hash(pass: string): string {
   return crypto.createHash("sha256").update(`onway::${pass}`).digest("hex");
+}
+
+async function verifyPassword(pass: string, storedHash: string): Promise<boolean> {
+  if (storedHash.startsWith("$2")) {
+    return bcrypt.compare(pass, storedHash);
+  }
+  return legacySha256Hash(pass) === storedHash;
 }
 
 async function getCustomCredentials(): Promise<{ username: string; passwordHash: string } | null> {
@@ -32,18 +48,23 @@ async function setCustomCredentials(username: string, password: string): Promise
   if (!db) throw new Error("Database not configured");
   await db.collection("adminConfig").doc("credentials").set({
     username,
-    passwordHash: hashPassword(password),
+    passwordHash: await hashPassword(password),
     updatedAt: new Date().toISOString(),
   });
+  // Changing credentials must invalidate every existing session — otherwise a
+  // stolen/leaked session cookie would keep working right through a password reset.
+  invalidateAllSessions();
 }
 
 async function validateAdminCredentials(username: string, password: string): Promise<boolean> {
-  // 1. Check custom credentials in Firestore first
   const custom = await getCustomCredentials();
   if (custom) {
-    if (username === custom.username && hashPassword(password) === custom.passwordHash) return true;
+    // Once custom credentials exist, they are the ONLY valid credentials — the
+    // original env-var admin/password no longer work. Otherwise a password
+    // "reset" would be pointless if the old env credentials had ever leaked.
+    return username === custom.username && await verifyPassword(password, custom.passwordHash);
   }
-  // 2. Fall back to env vars
+  // No custom credentials set yet — bootstrap from env vars
   const validUser = process.env.ADMIN_USERNAME;
   const validPass = process.env.ADMIN_PASSWORD;
   return username === validUser && password === validPass;
@@ -211,10 +232,12 @@ function setupCors(app: express.Application) {
     const origin = req.header("origin");
 
     if (origin) {
+      // In production, if ALLOWED_ORIGINS isn't configured, we now fail CLOSED
+      // (block) instead of failing open (allow any origin with credentials).
       const allowed =
         !isProd ||
-        allowedDomains.length === 0 ||
-        allowedDomains.some((d: string) => origin === d || origin.endsWith(`.${d}`));
+        (allowedDomains.length > 0 &&
+          allowedDomains.some((d: string) => origin === d || origin.endsWith(`.${d}`)));
 
       if (allowed) {
         res.header("Access-Control-Allow-Origin", origin);
@@ -344,20 +367,46 @@ function serveLandingPage({
 // ── Admin Auth ────────────────────────────────────────────────────────────
 const ADMIN_COOKIE = "onway_admin_session";
 
-function makeToken(): string {
-  const secret = `${process.env.ADMIN_USERNAME}:${process.env.ADMIN_PASSWORD}`;
-  return crypto.createHmac("sha256", secret).update("onway_admin").digest("hex");
+// Sessions are kept in memory. This is intentional: a redeploy/restart forces
+// re-login, which is the safer default for a single-admin panel. Unlike the old
+// makeToken() design, each login now gets its own random, revocable token — and
+// changing credentials (setCustomCredentials) wipes every outstanding session.
+interface AdminSession { username: string; expiresAt: number; }
+const adminSessions = new Map<string, AdminSession>();
+const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
+
+function createSession(username: string): string {
+  const token = crypto.randomBytes(32).toString("hex");
+  adminSessions.set(token, { username, expiresAt: Date.now() + SESSION_TTL_MS });
+  return token;
+}
+
+function invalidateSession(token: string | undefined | null): void {
+  if (token) adminSessions.delete(token);
+}
+
+function invalidateAllSessions(): void {
+  adminSessions.clear();
+}
+
+function getSessionToken(req: Request): string | undefined {
+  const raw = req.cookies?.[ADMIN_COOKIE];
+  if (raw) return raw;
+  const auth = req.headers.authorization;
+  if (auth && auth.startsWith("Bearer ")) return auth.slice(7).trim();
+  return undefined;
 }
 
 function isValidSession(req: Request): boolean {
-  const expected = makeToken();
-  const raw = req.cookies?.[ADMIN_COOKIE];
-  if (raw && raw === expected) return true;
-  const auth = req.headers.authorization;
-  if (auth && auth.startsWith("Bearer ")) {
-    return auth.slice(7).trim() === expected;
+  const token = getSessionToken(req);
+  if (!token) return false;
+  const session = adminSessions.get(token);
+  if (!session) return false;
+  if (Date.now() > session.expiresAt) {
+    adminSessions.delete(token);
+    return false;
   }
-  return false;
+  return true;
 }
 
 function parseCookies(req: Request): void {
@@ -453,7 +502,7 @@ function configureExpoAndLanding(app: express.Application) {
     const { username, password } = req.body || {};
     const valid = await validateAdminCredentials(username, password);
     if (valid) {
-      const token = makeToken();
+      const token = createSession(username);
       const maxAge = 60 * 60 * 24 * 7; // 7 days
       const secureFlagAdmin = process.env.NODE_ENV === "production" ? "; Secure" : "";
       res.setHeader(
@@ -474,7 +523,7 @@ function configureExpoAndLanding(app: express.Application) {
     const { username, password } = req.body || {};
     const valid = await validateAdminCredentials(username, password);
     if (!valid) return res.status(401).json({ error: "اسم المستخدم أو كلمة المرور غير صحيحة" });
-    const token = makeToken();
+    const token = createSession(username);
     const maxAge = 60 * 60 * 24 * 7;
     const secureFlag = process.env.NODE_ENV === "production" ? "; Secure" : "";
     res.setHeader("Set-Cookie", `${ADMIN_COOKIE}=${token}; HttpOnly; SameSite=None; Max-Age=${maxAge}; Path=/${secureFlag}`);
@@ -511,7 +560,7 @@ function configureExpoAndLanding(app: express.Application) {
       }
 
       // Valid — create session
-      const token = makeToken();
+      const token = createSession(payload.email || "google-admin");
       const maxAge = 60 * 60 * 24 * 7; // 7 days
       const secureFlagGoogle = process.env.NODE_ENV === "production" ? "; Secure" : "";
       res.setHeader("Set-Cookie", `${ADMIN_COOKIE}=${token}; HttpOnly; SameSite=Strict; Max-Age=${maxAge}; Path=/${secureFlagGoogle}`);
@@ -592,8 +641,9 @@ function configureExpoAndLanding(app: express.Application) {
     });
   });
 
-  // GET /admin/logout — clear session
-  app.get("/admin/logout", (_req: Request, res: Response) => {
+  // GET /admin/logout — invalidate session server-side and clear cookie
+  app.get("/admin/logout", (req: Request, res: Response) => {
+    invalidateSession(getSessionToken(req));
     res.setHeader("Set-Cookie", `${ADMIN_COOKIE}=; HttpOnly; Max-Age=0; Path=/`);
     res.redirect("/admin/login");
   });

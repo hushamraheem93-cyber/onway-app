@@ -13,6 +13,10 @@ import path from "path";
 import fs from "fs";
 import { randomUUID, createHmac, createHash } from "crypto";
 
+// server/orderEvents.ts
+import { EventEmitter } from "events";
+var orderEvents = new EventEmitter();
+
 // server/firebase.ts
 import admin from "firebase-admin";
 var db = null;
@@ -1445,32 +1449,52 @@ async function addDeliveryLog(data) {
 async function addDriverToActiveQueue(phoneNumber, joinedAt, pushToken) {
   const db2 = getFirestore();
   if (!db2) return;
-  await db2.collection("activeDriverQueue").doc(phoneNumber).set({
-    phoneNumber,
-    joinedAt,
-    hasActiveBatch: false,
-    pushToken: pushToken || null,
-    updatedAt: /* @__PURE__ */ new Date()
-  });
+  try {
+    await db2.collection("activeDriverQueue").doc(phoneNumber).set({
+      phoneNumber,
+      joinedAt,
+      hasActiveBatch: false,
+      pushToken: pushToken || null,
+      updatedAt: /* @__PURE__ */ new Date()
+    });
+  } catch (err) {
+    console.error(`[QUEUE_SYNC] Failed to add ${phoneNumber} to activeDriverQueue:`, err);
+    throw err;
+  }
 }
 async function removeDriverFromActiveQueue(phoneNumber) {
   const db2 = getFirestore();
   if (!db2) return;
-  await db2.collection("activeDriverQueue").doc(phoneNumber).delete();
+  try {
+    await db2.collection("activeDriverQueue").doc(phoneNumber).delete();
+  } catch (err) {
+    console.error(`[QUEUE_SYNC] Failed to remove ${phoneNumber} from activeDriverQueue:`, err);
+    throw err;
+  }
 }
 async function updateDriverQueueEntry(phoneNumber, data) {
   const db2 = getFirestore();
   if (!db2) return;
-  await db2.collection("activeDriverQueue").doc(phoneNumber).update({
-    ...data,
-    updatedAt: /* @__PURE__ */ new Date()
-  });
+  try {
+    await db2.collection("activeDriverQueue").doc(phoneNumber).update({
+      ...data,
+      updatedAt: /* @__PURE__ */ new Date()
+    });
+  } catch (err) {
+    console.error(`[QUEUE_SYNC] Failed to update ${phoneNumber} in activeDriverQueue (data: ${JSON.stringify(data)}):`, err);
+    throw err;
+  }
 }
 async function getActiveDriverQueue() {
   const db2 = getFirestore();
   if (!db2) return [];
-  const snap = await db2.collection("activeDriverQueue").orderBy("joinedAt", "asc").get();
-  return snap.docs.map((d) => d.data());
+  try {
+    const snap = await db2.collection("activeDriverQueue").orderBy("joinedAt", "asc").get();
+    return snap.docs.map((d) => d.data());
+  } catch (err) {
+    console.error("[QUEUE_SYNC] Failed to read activeDriverQueue \u2014 driver queue will start EMPTY:", err);
+    throw err;
+  }
 }
 async function deleteFromFirebaseStorage(url) {
   if (!url || !url.startsWith("https://firebasestorage.googleapis.com/")) return;
@@ -3563,92 +3587,83 @@ async function registerRoutes(app2) {
     const { userId, phoneNumber, customerName, customerPhone, notes, items, total, deliveryFee, serviceFee, address, region, latitude, longitude, orderType, internationalDetails, courierDetails, promoCode, promoDiscount, vendorId: bodyVendorId, restaurantSubtotal: bodyRestaurantSubtotal } = req.body;
     const db2 = getFirestore();
     if (db2) {
-      const isCustomServiceOrder = orderType === "courier-pickup" || orderType === "international-shopping";
-      if (!Array.isArray(items) || items.length === 0) {
-        return res.status(400).json({ error: "\u0627\u0644\u0637\u0644\u0628 \u0644\u0627 \u064A\u062D\u062A\u0648\u064A \u0639\u0644\u0649 \u0645\u0646\u062A\u062C\u0627\u062A" });
-      }
       if (promoCode) {
         const alreadyUsed = await checkPromoUsage(userId || phoneNumber, promoCode);
         if (alreadyUsed) {
           return res.status(400).json({ error: "\u0644\u0642\u062F \u0627\u0633\u062A\u062E\u062F\u0645\u062A \u0647\u0630\u0627 \u0627\u0644\u0643\u0648\u062F \u0645\u0633\u0628\u0642\u0627\u064B!" });
         }
       }
-      const allProds = await getCachedProducts();
-      const vendorsList = await getVendorList();
-      let verifiedItems = items;
+      if (!Array.isArray(items) || items.length === 0) {
+        return res.status(400).json({ error: "\u0627\u0644\u0637\u0644\u0628 \u0644\u0627 \u064A\u062D\u062A\u0648\u064A \u0639\u0644\u0649 \u0623\u064A \u0639\u0646\u0627\u0635\u0631" });
+      }
+      const allProductsForPricing = await getCachedProducts();
+      const verifiedPriceByProductId = /* @__PURE__ */ new Map();
       let verifiedSubtotal = 0;
-      let realDeliveryFee = Number(deliveryFee) || 0;
-      let realServiceFee = 500;
-      let realPromoDiscount = 0;
-      if (!isCustomServiceOrder) {
-        verifiedItems = [];
-        for (const it of items) {
-          const prod = allProds.find((p) => p.id === it.productId);
-          if (!prod) {
-            console.warn(`[SUSPICIOUS ORDER] Unknown productId "${it?.productId}" submitted by phone=${phoneNumber || userId}`);
-            return res.status(400).json({ error: "\u0623\u062D\u062F \u0627\u0644\u0645\u0646\u062A\u062C\u0627\u062A \u0641\u064A \u0637\u0644\u0628\u0643 \u0644\u0645 \u064A\u0639\u062F \u0645\u062A\u0648\u0641\u0631\u0627\u064B\u060C \u064A\u0631\u062C\u0649 \u062A\u062D\u062F\u064A\u062B \u0627\u0644\u0633\u0644\u0629" });
-          }
-          const realPrice = Number(prod.price) || 0;
-          const quantity = Math.max(1, Number(it.quantity) || 1);
-          if (Number(it.price) !== realPrice) {
-            console.warn(`[SUSPICIOUS ORDER] Price mismatch for product "${prod.id}" \u2014 client sent ${it.price}, real price is ${realPrice}. phone=${phoneNumber || userId}`);
-          }
-          verifiedItems.push({ ...it, price: realPrice, quantity });
-          verifiedSubtotal += realPrice * quantity;
-        }
-        const isRestaurantOrder = verifiedItems.length > 0 && verifiedItems.every((it) => {
-          const prod = allProds.find((p) => p.id === it.productId);
-          return prod?.categoryId === "restaurants";
-        });
-        if (isRestaurantOrder) {
-          realDeliveryFee = 1e3;
+      const unknownProductIds = [];
+      const priceMismatchProductIds = [];
+      for (const it of items) {
+        let realPrice;
+        const legacyProduct = allProductsForPricing.find((p) => p.id === it.productId);
+        if (legacyProduct && !Number.isNaN(Number(legacyProduct.price))) {
+          realPrice = Number(legacyProduct.price);
         } else {
-          try {
-            const areas = await getDeliveryAreas(true);
-            const matchedArea = areas.find((a) => a.name === region);
-            realDeliveryFee = matchedArea ? Number(matchedArea.fee) || 0 : 0;
-          } catch (e) {
-            console.error("Error verifying delivery fee:", e);
-            realDeliveryFee = 0;
+          const vpDoc = await db2.collection("vendorProducts").doc(it.productId).get();
+          if (vpDoc.exists) {
+            const vpPrice = Number(vpDoc.data()?.price);
+            if (!Number.isNaN(vpPrice)) realPrice = vpPrice;
           }
         }
-        try {
-          const feesSnap = await db2.collection("appSettings").doc("fees").get();
-          realServiceFee = feesSnap.exists ? feesSnap.data()?.serviceFee ?? 500 : 500;
-        } catch (e) {
-          console.error("Error verifying service fee:", e);
+        if (realPrice === void 0) {
+          unknownProductIds.push(it.productId);
+          continue;
         }
-        if (promoCode) {
-          try {
-            const promo = await getPromoCodeByCode(String(promoCode).toUpperCase());
-            const notExpired = !promo?.expiryDate || new Date(promo.expiryDate) >= /* @__PURE__ */ new Date();
-            if (promo && promo.isActive && notExpired) {
-              realPromoDiscount = promo.type === "percentage" ? Math.round(verifiedSubtotal * (promo.value / 100)) : promo.value;
-              realPromoDiscount = Math.min(realPromoDiscount, verifiedSubtotal);
-            }
-          } catch (e) {
-            console.error("Error verifying promo discount:", e);
-          }
+        const quantity = Number(it.quantity) || 1;
+        if (Math.abs((Number(it.price) || 0) - realPrice) > 1) {
+          priceMismatchProductIds.push(it.productId);
         }
-        const computedTotal = verifiedSubtotal + realDeliveryFee + realServiceFee - realPromoDiscount;
-        const clientTotal = Number(total) || 0;
-        if (Math.abs(computedTotal - clientTotal) > 1) {
-          console.warn(`[SUSPICIOUS ORDER] Total mismatch \u2014 client sent ${clientTotal}, server computed ${computedTotal}. phone=${phoneNumber || userId}, items=${JSON.stringify(items)}`);
-          return res.status(400).json({ error: "\u062D\u062F\u062B \u062E\u0637\u0623 \u0641\u064A \u062D\u0633\u0627\u0628 \u0633\u0639\u0631 \u0627\u0644\u0637\u0644\u0628\u060C \u064A\u0631\u062C\u0649 \u062A\u062D\u062F\u064A\u062B \u0627\u0644\u0633\u0644\u0629 \u0648\u0627\u0644\u0645\u062D\u0627\u0648\u0644\u0629 \u0645\u0631\u0629 \u0623\u062E\u0631\u0649" });
+        verifiedPriceByProductId.set(it.productId, realPrice);
+        verifiedSubtotal += realPrice * quantity;
+      }
+      if (unknownProductIds.length > 0) {
+        return res.status(400).json({ error: `\u0645\u0646\u062A\u062C \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F \u0623\u0648 \u063A\u064A\u0631 \u0645\u062A\u0627\u062D: ${unknownProductIds.join(", ")}` });
+      }
+      if (priceMismatchProductIds.length > 0) {
+        console.warn(`[FRAUD_CHECK] Price mismatch on order from ${phoneNumber} \u2014 productIds: ${priceMismatchProductIds.join(", ")}, client total: ${total}`);
+        return res.status(400).json({ error: "\u0623\u0633\u0639\u0627\u0631 \u0628\u0639\u0636 \u0627\u0644\u0645\u0646\u062A\u062C\u0627\u062A \u062A\u063A\u064A\u0651\u0631\u062A\u060C \u0627\u0644\u0631\u062C\u0627\u0621 \u062A\u062D\u062F\u064A\u062B \u0627\u0644\u0633\u0644\u0629 \u0648\u0627\u0644\u0645\u062D\u0627\u0648\u0644\u0629 \u0645\u062C\u062F\u062F\u0627\u064B" });
+      }
+      let verifiedDeliveryFee = Number(deliveryFee) || 0;
+      if (region) {
+        const areas = await getDeliveryAreas(true);
+        const matchedArea = areas.find((a) => a.name === region);
+        if (matchedArea) verifiedDeliveryFee = matchedArea.fee;
+      }
+      let verifiedDiscount = 0;
+      if (promoCode) {
+        const promo = await getPromoCodeByCode(String(promoCode).toUpperCase());
+        const notExpired = promo ? new Date(promo.expiryDate) >= /* @__PURE__ */ new Date() : false;
+        if (promo && promo.isActive && notExpired) {
+          verifiedDiscount = promo.type === "percentage" ? Math.round(verifiedSubtotal * (promo.value / 100)) : promo.value;
+        } else {
+          return res.status(400).json({ error: "\u0643\u0648\u062F \u0627\u0644\u062E\u0635\u0645 \u063A\u064A\u0631 \u0635\u0627\u0644\u062D \u0623\u0648 \u0645\u0646\u062A\u0647\u064A \u0627\u0644\u0635\u0644\u0627\u062D\u064A\u0629" });
         }
+      }
+      const verifiedServiceFee = Number(serviceFee) || 0;
+      const verifiedTotal = verifiedSubtotal + verifiedDeliveryFee + verifiedServiceFee - verifiedDiscount;
+      if (Math.abs((Number(total) || 0) - verifiedTotal) > 1) {
+        console.warn(`[FRAUD_CHECK] Total mismatch on order from ${phoneNumber} \u2014 client sent ${total}, server computed ${verifiedTotal}`);
+        return res.status(400).json({ error: "\u062D\u062F\u062B \u062E\u0637\u0623 \u0628\u062D\u0633\u0627\u0628 \u0627\u0644\u0633\u0639\u0631\u060C \u0627\u0644\u0631\u062C\u0627\u0621 \u062A\u062D\u062F\u064A\u062B \u0627\u0644\u0633\u0644\u0629 \u0648\u0627\u0644\u0645\u062D\u0627\u0648\u0644\u0629 \u0645\u062C\u062F\u062F\u0627\u064B" });
       }
       const orderData = {
         userId: userId || "",
         phoneNumber,
-        items: verifiedItems,
-        total: isCustomServiceOrder ? Number(total) || 0 : verifiedSubtotal + realDeliveryFee + realServiceFee - realPromoDiscount,
-        deliveryFee: isCustomServiceOrder ? Number(deliveryFee) || 0 : realDeliveryFee,
+        items,
+        total: verifiedTotal,
+        deliveryFee: verifiedDeliveryFee,
         address,
         region,
         status: "pending"
       };
-      orderData.serviceFee = isCustomServiceOrder ? serviceFee !== void 0 ? serviceFee : void 0 : realServiceFee;
-      if (orderData.serviceFee === void 0) delete orderData.serviceFee;
+      if (serviceFee !== void 0) orderData.serviceFee = verifiedServiceFee;
       if (customerName) orderData.customerName = customerName;
       if (customerPhone) orderData.customerPhone = customerPhone;
       if (notes) orderData.notes = notes;
@@ -3660,20 +3675,20 @@ async function registerRoutes(app2) {
       if (internationalDetails) orderData.internationalDetails = internationalDetails;
       if (courierDetails) orderData.courierDetails = courierDetails;
       if (promoCode) orderData.promoCode = promoCode;
-      if (!isCustomServiceOrder && realPromoDiscount) orderData.promoDiscount = realPromoDiscount;
-      else if (isCustomServiceOrder && promoDiscount) orderData.promoDiscount = promoDiscount;
+      if (verifiedDiscount) orderData.promoDiscount = verifiedDiscount;
       if (bodyVendorId) orderData.vendorId = bodyVendorId;
-      if (bodyRestaurantSubtotal) orderData.restaurantSubtotal = bodyRestaurantSubtotal;
       let vendorWhatsappUrl = null;
       try {
+        const allProds = allProductsForPricing;
+        const vendorsList = await getVendorList();
         const restaurantItems = [];
         let restaurantSubtotal = 0;
         let detectedRestaurantName = null;
-        for (const it of orderData.items) {
+        for (const it of items) {
           const prod = allProds.find((p) => p.id === it.productId);
           if (prod && prod.categoryId === "restaurants") {
             restaurantItems.push({ ...it, restaurantName: prod.restaurant });
-            restaurantSubtotal += (Number(it.price) || 0) * (Number(it.quantity) || 1);
+            restaurantSubtotal += (verifiedPriceByProductId.get(it.productId) ?? Number(it.price) ?? 0) * (Number(it.quantity) || 1);
             if (!detectedRestaurantName && prod.restaurant) {
               detectedRestaurantName = prod.restaurant;
             }
@@ -3778,8 +3793,7 @@ ${itemsList}
           }
         }
         if (status === "confirmed") {
-          const confirmedOrder = await getOrderById(orderId).catch(() => null);
-          onOrderConfirmed(confirmedOrder?.latitude, confirmedOrder?.longitude);
+          onOrderConfirmed();
         }
         return res.json({ success: true, id: orderId, status });
       }
@@ -4588,14 +4602,7 @@ ${itemsList}
       }
       saveDriverActivity({ phoneNumber, type: "rejected", orderId: targetBatchId || orderId }).catch(() => {
       });
-      let rejectedOrderLat;
-      let rejectedOrderLng;
-      if (rejectedOrderIds.length > 0) {
-        const repOrder = await getOrderById(rejectedOrderIds[0]).catch(() => null);
-        rejectedOrderLat = repOrder?.latitude;
-        rejectedOrderLng = repOrder?.longitude;
-      }
-      onOrderConfirmed(rejectedOrderLat, rejectedOrderLng);
+      onOrderConfirmed();
       res.json({ success: true });
     } catch (error) {
       res.status(500).json({ error: error.message });
@@ -5000,36 +5007,17 @@ ${itemsList}
       res.status(500).json({ error: error.message });
     }
   });
-  function findBestAvailableDriver(targetLat, targetLng) {
+  function findBestAvailableDriver() {
     const fiveMinAgo = Date.now() - 5 * 60 * 1e3;
-    const eligibleDrivers = driverQueue.filter((d) => {
+    const activeDriver = driverQueue.find((d) => {
       if (d.currentBatchId) return false;
       const loc = driverLocations.get(d.phoneNumber);
       const recentGps = loc && loc.updatedAt >= fiveMinAgo;
       const recentSeen = d.lastSeenAt && d.lastSeenAt >= fiveMinAgo;
       return recentGps || recentSeen;
     });
-    if (eligibleDrivers.length === 0) {
-      return driverQueue.find((d) => !d.currentBatchId);
-    }
-    if (targetLat === void 0 || targetLng === void 0) {
-      console.warn("[BEST_DRIVER] No target location provided \u2014 falling back to FIFO order among active drivers");
-      return eligibleDrivers[0];
-    }
-    let nearest;
-    let nearestDist = Infinity;
-    for (const d of eligibleDrivers) {
-      const loc = driverLocations.get(d.phoneNumber);
-      if (!loc) continue;
-      const dist = calculateDistance(targetLat, targetLng, loc.lat, loc.lng);
-      if (dist < nearestDist) {
-        nearestDist = dist;
-        nearest = d;
-      }
-    }
-    if (nearest) return nearest;
-    console.warn("[BEST_DRIVER] No eligible driver has a GPS fix \u2014 falling back to FIFO order among active drivers");
-    return eligibleDrivers[0];
+    if (activeDriver) return activeDriver;
+    return driverQueue.find((d) => !d.currentBatchId);
   }
   function toRad(value) {
     return value * Math.PI / 180;
@@ -5115,13 +5103,9 @@ ${itemsList}
       if (waitingOrders.length === 0) return;
       const driverLoc = driverLocations.get(phoneNumber);
       if (!driverLoc) {
-        console.warn(`[BATCH] No GPS location for driver ${phoneNumber} \u2014 falling back to (0,0) for route optimization`);
+        console.warn(`[ROUTE] No GPS location cached for driver ${phoneNumber} \u2014 falling back to (0,0), route order may be inaccurate`);
       }
-      const routeInfo = optimizeDeliveryRoute(
-        waitingOrders,
-        driverLoc?.lat ?? 0,
-        driverLoc?.lng ?? 0
-      );
+      const routeInfo = optimizeDeliveryRoute(waitingOrders, driverLoc?.lat ?? 0, driverLoc?.lng ?? 0);
       const totalDistance = routeInfo.reduce((sum, r) => sum + r.distance, 0);
       const optimizedIds = routeInfo.map((r) => r.id);
       for (const r of routeInfo) {
@@ -5154,17 +5138,15 @@ ${itemsList}
       console.error("assignWaitingBatchToDriver error:", e);
     }
   }
-  function onOrderConfirmed(orderLat, orderLng) {
+  function onOrderConfirmed() {
     console.log(`[ORDER_CONFIRMED] Queue size=${driverQueue.length}, queue=${JSON.stringify(driverQueue.map((d) => ({ p: d.phoneNumber, batch: d.currentBatchId, lastSeen: d.lastSeenAt })))}`);
-    if (orderLat === void 0 || orderLng === void 0) {
-      console.warn("[ORDER_CONFIRMED] No order location available \u2014 cannot compute nearest driver, falling back to FIFO");
-    }
-    const driver = findBestAvailableDriver(orderLat, orderLng);
+    const driver = findBestAvailableDriver();
     console.log(`[ORDER_CONFIRMED] Best driver: ${driver?.phoneNumber ?? "NONE"}`);
     if (driver) {
       assignWaitingBatchToDriver(driver.phoneNumber).catch(console.error);
     }
   }
+  orderEvents.on("confirmed", onOrderConfirmed);
   setInterval(async () => {
     try {
       const freeDrivers = driverQueue.filter((d) => !d.currentBatchId);
@@ -6673,17 +6655,17 @@ async function processAndSaveImage(buffer, _hash) {
   const webpBuffer = await sharp2(buffer).resize(700, 700, { fit: "cover", position: "center" }).webp({ quality: 70 }).toBuffer();
   return `data:image/webp;base64,${webpBuffer.toString("base64")}`;
 }
-async function findDuplicateImage(hash2) {
+async function findDuplicateImage(hash3) {
   const db2 = getFirestore();
   if (!db2) return null;
-  const snap = await db2.collection("productImageHashes").doc(hash2).get();
+  const snap = await db2.collection("productImageHashes").doc(hash3).get();
   if (snap.exists) return snap.data().imageUrl;
   return null;
 }
-async function saveImageHash(hash2, imageUrl) {
+async function saveImageHash(hash3, imageUrl) {
   const db2 = getFirestore();
   if (!db2) return;
-  await db2.collection("productImageHashes").doc(hash2).set({
+  await db2.collection("productImageHashes").doc(hash3).set({
     imageUrl,
     createdAt: (/* @__PURE__ */ new Date()).toISOString()
   });
@@ -6935,11 +6917,11 @@ router.post(
 async function processUploadedImages(files) {
   const imageUrls = await Promise.all(
     files.map(async (file) => {
-      const hash2 = generateImageHash(file.buffer);
-      let imageUrl = await findDuplicateImage(hash2);
+      const hash3 = generateImageHash(file.buffer);
+      let imageUrl = await findDuplicateImage(hash3);
       if (!imageUrl) {
-        imageUrl = await processAndSaveImage(file.buffer, hash2);
-        await saveImageHash(hash2, imageUrl);
+        imageUrl = await processAndSaveImage(file.buffer, hash3);
+        await saveImageHash(hash3, imageUrl);
       }
       return imageUrl;
     })
@@ -7416,6 +7398,9 @@ router.patch("/api/vendor/orders/:id/status", requireVendor, async (req, res) =>
       updateData.estimatedMinutes = validatedEta;
     }
     await orderRef.update(updateData);
+    if (status === "confirmed") {
+      orderEvents.emit("confirmed");
+    }
     const customerPhone = order.phoneNumber;
     if (customerPhone) {
       getUserPushToken(customerPhone).then((pushToken) => {
@@ -7857,9 +7842,19 @@ var vendor_default = router;
 import * as fs2 from "fs";
 import * as path3 from "path";
 import * as crypto2 from "crypto";
+import * as bcrypt2 from "bcryptjs";
 initializeFirebase();
 function hashPassword(pass) {
+  return bcrypt2.hash(pass, 10);
+}
+function legacySha256Hash(pass) {
   return crypto2.createHash("sha256").update(`onway::${pass}`).digest("hex");
+}
+async function verifyPassword(pass, storedHash) {
+  if (storedHash.startsWith("$2")) {
+    return bcrypt2.compare(pass, storedHash);
+  }
+  return legacySha256Hash(pass) === storedHash;
 }
 async function getCustomCredentials() {
   try {
@@ -7878,14 +7873,15 @@ async function setCustomCredentials(username, password) {
   if (!db2) throw new Error("Database not configured");
   await db2.collection("adminConfig").doc("credentials").set({
     username,
-    passwordHash: hashPassword(password),
+    passwordHash: await hashPassword(password),
     updatedAt: (/* @__PURE__ */ new Date()).toISOString()
   });
+  invalidateAllSessions();
 }
 async function validateAdminCredentials(username, password) {
   const custom = await getCustomCredentials();
   if (custom) {
-    if (username === custom.username && hashPassword(password) === custom.passwordHash) return true;
+    return username === custom.username && await verifyPassword(password, custom.passwordHash);
   }
   const validUser = process.env.ADMIN_USERNAME;
   const validPass = process.env.ADMIN_PASSWORD;
@@ -8009,7 +8005,7 @@ function setupCors(app2) {
   app2.use((req, res, next) => {
     const origin = req.header("origin");
     if (origin) {
-      const allowed = !isProd || allowedDomains.length === 0 || allowedDomains.some((d) => origin === d || origin.endsWith(`.${d}`));
+      const allowed = !isProd || allowedDomains.length > 0 && allowedDomains.some((d) => origin === d || origin.endsWith(`.${d}`));
       if (allowed) {
         res.header("Access-Control-Allow-Origin", origin);
         res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, PATCH, OPTIONS");
@@ -8104,19 +8100,36 @@ function serveLandingPage({
   res.status(200).send(html);
 }
 var ADMIN_COOKIE = "onway_admin_session";
-function makeToken() {
-  const secret = `${process.env.ADMIN_USERNAME}:${process.env.ADMIN_PASSWORD}`;
-  return crypto2.createHmac("sha256", secret).update("onway_admin").digest("hex");
+var adminSessions = /* @__PURE__ */ new Map();
+var SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1e3;
+function createSession(username) {
+  const token = crypto2.randomBytes(32).toString("hex");
+  adminSessions.set(token, { username, expiresAt: Date.now() + SESSION_TTL_MS });
+  return token;
+}
+function invalidateSession(token) {
+  if (token) adminSessions.delete(token);
+}
+function invalidateAllSessions() {
+  adminSessions.clear();
+}
+function getSessionToken(req) {
+  const raw = req.cookies?.[ADMIN_COOKIE];
+  if (raw) return raw;
+  const auth = req.headers.authorization;
+  if (auth && auth.startsWith("Bearer ")) return auth.slice(7).trim();
+  return void 0;
 }
 function isValidSession(req) {
-  const expected = makeToken();
-  const raw = req.cookies?.[ADMIN_COOKIE];
-  if (raw && raw === expected) return true;
-  const auth = req.headers.authorization;
-  if (auth && auth.startsWith("Bearer ")) {
-    return auth.slice(7).trim() === expected;
+  const token = getSessionToken(req);
+  if (!token) return false;
+  const session = adminSessions.get(token);
+  if (!session) return false;
+  if (Date.now() > session.expiresAt) {
+    adminSessions.delete(token);
+    return false;
   }
-  return false;
+  return true;
 }
 function parseCookies2(req) {
   const header = req.headers.cookie || "";
@@ -8195,7 +8208,7 @@ function configureExpoAndLanding(app2) {
     const { username, password } = req.body || {};
     const valid = await validateAdminCredentials(username, password);
     if (valid) {
-      const token = makeToken();
+      const token = createSession(username);
       const maxAge = 60 * 60 * 24 * 7;
       const secureFlagAdmin = process.env.NODE_ENV === "production" ? "; Secure" : "";
       res.setHeader(
@@ -8213,7 +8226,7 @@ function configureExpoAndLanding(app2) {
     const { username, password } = req.body || {};
     const valid = await validateAdminCredentials(username, password);
     if (!valid) return res.status(401).json({ error: "\u0627\u0633\u0645 \u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645 \u0623\u0648 \u0643\u0644\u0645\u0629 \u0627\u0644\u0645\u0631\u0648\u0631 \u063A\u064A\u0631 \u0635\u062D\u064A\u062D\u0629" });
-    const token = makeToken();
+    const token = createSession(username);
     const maxAge = 60 * 60 * 24 * 7;
     const secureFlag = process.env.NODE_ENV === "production" ? "; Secure" : "";
     res.setHeader("Set-Cookie", `${ADMIN_COOKIE}=${token}; HttpOnly; SameSite=None; Max-Age=${maxAge}; Path=/${secureFlag}`);
@@ -8237,7 +8250,7 @@ function configureExpoAndLanding(app2) {
       if (!allowedEmail || payload.email?.toLowerCase() !== allowedEmail.toLowerCase()) {
         return res.status(403).json({ error: `\u0647\u0630\u0627 \u0627\u0644\u062D\u0633\u0627\u0628 (${payload.email}) \u063A\u064A\u0631 \u0645\u0635\u0631\u062D \u0644\u0647 \u0628\u0627\u0644\u062F\u062E\u0648\u0644` });
       }
-      const token = makeToken();
+      const token = createSession(payload.email || "google-admin");
       const maxAge = 60 * 60 * 24 * 7;
       const secureFlagGoogle = process.env.NODE_ENV === "production" ? "; Secure" : "";
       res.setHeader("Set-Cookie", `${ADMIN_COOKIE}=${token}; HttpOnly; SameSite=Strict; Max-Age=${maxAge}; Path=/${secureFlagGoogle}`);
@@ -8304,7 +8317,8 @@ function configureExpoAndLanding(app2) {
       updatedAt: custom?.updatedAt || null
     });
   });
-  app2.get("/admin/logout", (_req, res) => {
+  app2.get("/admin/logout", (req, res) => {
+    invalidateSession(getSessionToken(req));
     res.setHeader("Set-Cookie", `${ADMIN_COOKIE}=; HttpOnly; Max-Age=0; Path=/`);
     res.redirect("/admin/login");
   });

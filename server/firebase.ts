@@ -2108,20 +2108,30 @@ export async function addDriverToActiveQueue(
 ): Promise<void> {
   const db = getFirestore();
   if (!db) return;
-  await db.collection("activeDriverQueue").doc(phoneNumber).set({
-    phoneNumber,
-    joinedAt,
-    hasActiveBatch: false,
-    pushToken: pushToken || null,
-    updatedAt: new Date(),
-  });
+  try {
+    await db.collection("activeDriverQueue").doc(phoneNumber).set({
+      phoneNumber,
+      joinedAt,
+      hasActiveBatch: false,
+      pushToken: pushToken || null,
+      updatedAt: new Date(),
+    });
+  } catch (err) {
+    console.error(`[QUEUE_SYNC] Failed to add ${phoneNumber} to activeDriverQueue:`, err);
+    throw err;
+  }
 }
 
 /** Delete a driver's queue document (called when going offline or removed). */
 export async function removeDriverFromActiveQueue(phoneNumber: string): Promise<void> {
   const db = getFirestore();
   if (!db) return;
-  await db.collection("activeDriverQueue").doc(phoneNumber).delete();
+  try {
+    await db.collection("activeDriverQueue").doc(phoneNumber).delete();
+  } catch (err) {
+    console.error(`[QUEUE_SYNC] Failed to remove ${phoneNumber} from activeDriverQueue:`, err);
+    throw err;
+  }
 }
 
 /**
@@ -2138,10 +2148,18 @@ export async function updateDriverQueueEntry(
 ): Promise<void> {
   const db = getFirestore();
   if (!db) return;
-  await db.collection("activeDriverQueue").doc(phoneNumber).update({
-    ...data,
-    updatedAt: new Date(),
-  });
+  try {
+    await db.collection("activeDriverQueue").doc(phoneNumber).update({
+      ...data,
+      updatedAt: new Date(),
+    });
+  } catch (err) {
+    // Most callers do updateDriverQueueEntry(...).catch(() => {}) and move on —
+    // log here so an out-of-sync driver record is at least visible, instead of
+    // failing completely silently until the next restart reveals stale state.
+    console.error(`[QUEUE_SYNC] Failed to update ${phoneNumber} in activeDriverQueue (data: ${JSON.stringify(data)}):`, err);
+    throw err;
+  }
 }
 
 /**
@@ -2151,11 +2169,16 @@ export async function updateDriverQueueEntry(
 export async function getActiveDriverQueue(): Promise<ActiveQueueEntry[]> {
   const db = getFirestore();
   if (!db) return [];
-  const snap = await db
-    .collection("activeDriverQueue")
-    .orderBy("joinedAt", "asc")
-    .get();
-  return snap.docs.map(d => d.data() as ActiveQueueEntry);
+  try {
+    const snap = await db
+      .collection("activeDriverQueue")
+      .orderBy("joinedAt", "asc")
+      .get();
+    return snap.docs.map(d => d.data() as ActiveQueueEntry);
+  } catch (err) {
+    console.error("[QUEUE_SYNC] Failed to read activeDriverQueue — driver queue will start EMPTY:", err);
+    throw err;
+  }
 }
 
 // ── Firebase Storage helpers ──────────────────────────────────────────────────

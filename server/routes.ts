@@ -8,6 +8,7 @@ import sharp from "sharp";
 import path from "path";
 import fs from "fs";
 import { randomUUID, createHmac, createHash } from "crypto";
+import { orderEvents } from "./orderEvents";
 import { 
   getFirestore, getUserByPhone, createUser, updateUser, FirestoreUserProfile,
   getProducts as getFirestoreProducts, createProduct as createFirestoreProduct, 
@@ -2054,13 +2055,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const db = getFirestore();
     
     if (db) {
-      // Order types that are not catalog-priced (custom service requests, price is not tied to a real product)
-      const isCustomServiceOrder = orderType === "courier-pickup" || orderType === "international-shopping";
-
-      if (!Array.isArray(items) || items.length === 0) {
-        return res.status(400).json({ error: "الطلب لا يحتوي على منتجات" });
-      }
-
       if (promoCode) {
         const alreadyUsed = await checkPromoUsage(userId || phoneNumber, promoCode);
         if (alreadyUsed) {
@@ -2068,96 +2062,95 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
-      const allProds = await getCachedProducts(); // uses cache with restaurant fallback
-      const vendorsList = await getVendorList();
+      // ── Server-side price verification (never trust client-submitted prices) ──
+      // Recompute item prices, delivery fee, promo discount, and total from the
+      // authoritative Firestore data before anything is saved.
+      if (!Array.isArray(items) || items.length === 0) {
+        return res.status(400).json({ error: "الطلب لا يحتوي على أي عناصر" });
+      }
 
-      let verifiedItems: any[] = items;
+      const allProductsForPricing = await getCachedProducts();
+      const verifiedPriceByProductId = new Map<string, number>();
       let verifiedSubtotal = 0;
-      let realDeliveryFee = Number(deliveryFee) || 0;
-      let realServiceFee = 500;
-      let realPromoDiscount = 0;
+      const unknownProductIds: string[] = [];
+      const priceMismatchProductIds: string[] = [];
 
-      if (!isCustomServiceOrder) {
-        // 1) Verify every item against the real catalog price — never trust client-supplied prices.
-        verifiedItems = [];
-        for (const it of (items as any[])) {
-          const prod = allProds.find((p: any) => p.id === it.productId);
-          if (!prod) {
-            console.warn(`[SUSPICIOUS ORDER] Unknown productId "${it?.productId}" submitted by phone=${phoneNumber || userId}`);
-            return res.status(400).json({ error: "أحد المنتجات في طلبك لم يعد متوفراً، يرجى تحديث السلة" });
-          }
-          const realPrice = Number(prod.price) || 0;
-          const quantity = Math.max(1, Number(it.quantity) || 1);
-          if (Number(it.price) !== realPrice) {
-            console.warn(`[SUSPICIOUS ORDER] Price mismatch for product "${prod.id}" — client sent ${it.price}, real price is ${realPrice}. phone=${phoneNumber || userId}`);
-          }
-          verifiedItems.push({ ...it, price: realPrice, quantity });
-          verifiedSubtotal += realPrice * quantity;
-        }
-
-        // 2) Recompute the real delivery fee (restaurant orders have a fixed fee; others come from delivery areas).
-        const isRestaurantOrder = verifiedItems.length > 0 && verifiedItems.every((it: any) => {
-          const prod = allProds.find((p: any) => p.id === it.productId);
-          return prod?.categoryId === "restaurants";
-        });
-        if (isRestaurantOrder) {
-          realDeliveryFee = 1000;
+      for (const it of items as any[]) {
+        let realPrice: number | undefined;
+        const legacyProduct = allProductsForPricing.find((p: any) => p.id === it.productId);
+        if (legacyProduct && !Number.isNaN(Number(legacyProduct.price))) {
+          realPrice = Number(legacyProduct.price);
         } else {
-          try {
-            const areas = await getFirestoreDeliveryAreas(true);
-            const matchedArea = areas.find(a => a.name === region);
-            realDeliveryFee = matchedArea ? Number(matchedArea.fee) || 0 : 0;
-          } catch (e) {
-            console.error("Error verifying delivery fee:", e);
-            realDeliveryFee = 0;
+          // Fall back to vendorProducts collection (vendor-added items aren't in the legacy cache)
+          const vpDoc = await db.collection("vendorProducts").doc(it.productId).get();
+          if (vpDoc.exists) {
+            const vpPrice = Number((vpDoc.data() as any)?.price);
+            if (!Number.isNaN(vpPrice)) realPrice = vpPrice;
           }
         }
 
-        // 3) Recompute the real service fee from app settings.
-        try {
-          const feesSnap = await db.collection("appSettings").doc("fees").get();
-          realServiceFee = feesSnap.exists ? (feesSnap.data()?.serviceFee ?? 500) : 500;
-        } catch (e) {
-          console.error("Error verifying service fee:", e);
+        if (realPrice === undefined) {
+          unknownProductIds.push(it.productId);
+          continue;
         }
 
-        // 4) Recompute the real promo discount from the promo code definition (never trust client discount amount).
-        if (promoCode) {
-          try {
-            const promo = await getPromoCodeByCode(String(promoCode).toUpperCase());
-            const notExpired = !promo?.expiryDate || new Date(promo.expiryDate) >= new Date();
-            if (promo && promo.isActive && notExpired) {
-              realPromoDiscount = promo.type === "percentage"
-                ? Math.round(verifiedSubtotal * (promo.value / 100))
-                : promo.value;
-              realPromoDiscount = Math.min(realPromoDiscount, verifiedSubtotal);
-            }
-          } catch (e) {
-            console.error("Error verifying promo discount:", e);
-          }
+        const quantity = Number(it.quantity) || 1;
+        if (Math.abs((Number(it.price) || 0) - realPrice) > 1) {
+          priceMismatchProductIds.push(it.productId);
         }
+        verifiedPriceByProductId.set(it.productId, realPrice);
+        verifiedSubtotal += realPrice * quantity;
+      }
 
-        // 5) Compare the authoritative server total against the client-submitted total (allow 1 IQD rounding margin).
-        const computedTotal = verifiedSubtotal + realDeliveryFee + realServiceFee - realPromoDiscount;
-        const clientTotal = Number(total) || 0;
-        if (Math.abs(computedTotal - clientTotal) > 1) {
-          console.warn(`[SUSPICIOUS ORDER] Total mismatch — client sent ${clientTotal}, server computed ${computedTotal}. phone=${phoneNumber || userId}, items=${JSON.stringify(items)}`);
-          return res.status(400).json({ error: "حدث خطأ في حساب سعر الطلب، يرجى تحديث السلة والمحاولة مرة أخرى" });
+      if (unknownProductIds.length > 0) {
+        return res.status(400).json({ error: `منتج غير موجود أو غير متاح: ${unknownProductIds.join(", ")}` });
+      }
+      if (priceMismatchProductIds.length > 0) {
+        console.warn(`[FRAUD_CHECK] Price mismatch on order from ${phoneNumber} — productIds: ${priceMismatchProductIds.join(", ")}, client total: ${total}`);
+        return res.status(400).json({ error: "أسعار بعض المنتجات تغيّرت، الرجاء تحديث السلة والمحاولة مجدداً" });
+      }
+
+      // Recompute delivery fee from the authoritative deliveryAreas collection
+      let verifiedDeliveryFee = Number(deliveryFee) || 0;
+      if (region) {
+        const areas = await getFirestoreDeliveryAreas(true);
+        const matchedArea = areas.find(a => a.name === region);
+        if (matchedArea) verifiedDeliveryFee = matchedArea.fee;
+      }
+
+      // Recompute promo discount from the authoritative promoCodes collection
+      let verifiedDiscount = 0;
+      if (promoCode) {
+        const promo = await getPromoCodeByCode(String(promoCode).toUpperCase());
+        const notExpired = promo ? new Date(promo.expiryDate) >= new Date() : false;
+        if (promo && promo.isActive && notExpired) {
+          verifiedDiscount = promo.type === "percentage"
+            ? Math.round(verifiedSubtotal * (promo.value / 100))
+            : promo.value;
+        } else {
+          return res.status(400).json({ error: "كود الخصم غير صالح أو منتهي الصلاحية" });
         }
+      }
+
+      const verifiedServiceFee = Number(serviceFee) || 0;
+      const verifiedTotal = verifiedSubtotal + verifiedDeliveryFee + verifiedServiceFee - verifiedDiscount;
+
+      if (Math.abs((Number(total) || 0) - verifiedTotal) > 1) {
+        console.warn(`[FRAUD_CHECK] Total mismatch on order from ${phoneNumber} — client sent ${total}, server computed ${verifiedTotal}`);
+        return res.status(400).json({ error: "حدث خطأ بحساب السعر، الرجاء تحديث السلة والمحاولة مجدداً" });
       }
 
       const orderData: any = {
         userId: userId || "",
         phoneNumber,
-        items: verifiedItems,
-        total: isCustomServiceOrder ? (Number(total) || 0) : (verifiedSubtotal + realDeliveryFee + realServiceFee - realPromoDiscount),
-        deliveryFee: isCustomServiceOrder ? (Number(deliveryFee) || 0) : realDeliveryFee,
+        items,
+        total: verifiedTotal,
+        deliveryFee: verifiedDeliveryFee,
         address,
         region,
         status: "pending",
       };
-      orderData.serviceFee = isCustomServiceOrder ? (serviceFee !== undefined ? serviceFee : undefined) : realServiceFee;
-      if (orderData.serviceFee === undefined) delete orderData.serviceFee;
+      if (serviceFee !== undefined) orderData.serviceFee = verifiedServiceFee;
       if (customerName) orderData.customerName = customerName;
       if (customerPhone) orderData.customerPhone = customerPhone;
       if (notes) orderData.notes = notes;
@@ -2169,25 +2162,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (internationalDetails) orderData.internationalDetails = internationalDetails;
       if (courierDetails) orderData.courierDetails = courierDetails;
       if (promoCode) orderData.promoCode = promoCode;
-      if (!isCustomServiceOrder && realPromoDiscount) orderData.promoDiscount = realPromoDiscount;
-      else if (isCustomServiceOrder && promoDiscount) orderData.promoDiscount = promoDiscount;
-      // Preserve explicit vendorId/restaurantSubtotal from request body (vendor partner orders)
+      if (verifiedDiscount) orderData.promoDiscount = verifiedDiscount;
+      // Preserve explicit vendorId from request body (vendor partner orders).
+      // restaurantSubtotal is NOT trusted from the client — it's recomputed below from verified prices.
       if (bodyVendorId) orderData.vendorId = bodyVendorId;
-      if (bodyRestaurantSubtotal) orderData.restaurantSubtotal = bodyRestaurantSubtotal;
 
       // Detect vendor for restaurant orders
       let vendorWhatsappUrl: string | null = null;
       try {
+        const allProds = allProductsForPricing; // reuse already-fetched cache
+        const vendorsList = await getVendorList();
+
         // Scan ALL items to find restaurant ones (handles mixed orders)
         const restaurantItems: any[] = [];
         let restaurantSubtotal = 0;
         let detectedRestaurantName: string | null = null;
 
-        for (const it of (orderData.items as any[])) {
+        for (const it of (items as any[])) {
           const prod = allProds.find((p: any) => p.id === it.productId);
           if (prod && prod.categoryId === "restaurants") {
             restaurantItems.push({ ...it, restaurantName: prod.restaurant });
-            restaurantSubtotal += (Number(it.price) || 0) * (Number(it.quantity) || 1);
+            restaurantSubtotal += (verifiedPriceByProductId.get(it.productId) ?? Number(it.price) ?? 0) * (Number(it.quantity) || 1);
             if (!detectedRestaurantName && prod.restaurant) {
               detectedRestaurantName = prod.restaurant;
             }
@@ -2294,8 +2289,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         // When order is confirmed, create a batch for the next available driver
         if (status === "confirmed") {
-          const confirmedOrder = await getOrderById(orderId).catch(() => null);
-          onOrderConfirmed(confirmedOrder?.latitude, confirmedOrder?.longitude);
+          onOrderConfirmed();
         }
 
         return res.json({ success: true, id: orderId, status });
@@ -3232,14 +3226,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       saveDriverActivity({ phoneNumber, type: "rejected", orderId: targetBatchId || orderId }).catch(() => {});
       // Offer waiting orders to another available driver (NOT the one who just rejected)
       // Note: do NOT also call assignWaitingBatchToDriver here — onOrderConfirmed handles it
-      let rejectedOrderLat: number | undefined;
-      let rejectedOrderLng: number | undefined;
-      if (rejectedOrderIds.length > 0) {
-        const repOrder = await getOrderById(rejectedOrderIds[0]).catch(() => null);
-        rejectedOrderLat = repOrder?.latitude;
-        rejectedOrderLng = repOrder?.longitude;
-      }
-      onOrderConfirmed(rejectedOrderLat, rejectedOrderLng);
+      onOrderConfirmed();
       res.json({ success: true });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
@@ -3406,14 +3393,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
             });
             const qd = driverQueue.find(d => d.phoneNumber === phoneNumber);
             if (qd) qd.currentBatchId = undefined;
-            // Check outstanding balance before assigning next batch
+            // Check wallet before assigning next batch.
+            // newBalance = amountOwed (debt owed BY the driver TO onway).
+            // Block the driver only once debt is too HIGH — not too low.
             const OWED_THRESHOLD = 50000;
             if (newBalance < OWED_THRESHOLD) {
-              // Debt within allowed limit — move to end of queue (joinedAt reset) and mark available
+              // Debt within allowed range — move to end of queue (joinedAt reset) and mark available
               updateDriverQueueEntry(phoneNumber, { hasActiveBatch: false, joinedAt: Date.now() }).catch(() => {});
               assignWaitingBatchToDriver(phoneNumber).catch(() => {});
             } else {
-              // Debt exceeded the allowed limit — remove from queue until settled
+              // Debt threshold exceeded — remove from queue entirely until settled
               const queueIdx = driverQueue.findIndex(d => d.phoneNumber === phoneNumber);
               if (queueIdx !== -1) driverQueue.splice(queueIdx, 1);
               removeDriverFromActiveQueue(phoneNumber).catch(() => {});
@@ -3435,6 +3424,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ error: error.message });
     }
   });
+
+  // REMOVED (2026-07-04): /api/driver/complete-order was a legacy duplicate of
+  // /api/driver/batch/complete-order, unused by the client app (client only ever calls
+  // the batch/ variant). Kept as dead code it was a maintenance hazard — a future edit to
+  // wallet-threshold logic here would have had zero effect since nothing calls it.
 
   // Get driver earnings
   app.get("/api/driver/earnings", async (req: Request, res: Response) => {
@@ -3688,45 +3682,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Find the best available driver: prefer the nearest one (by real GPS distance
-  // to the order) among drivers who are actually online (recent GPS or recent seen).
-  function findBestAvailableDriver(targetLat?: number, targetLng?: number): QueuedDriver | undefined {
+  // Find the best available driver: prefer one with recent GPS (app is open)
+  function findBestAvailableDriver(): QueuedDriver | undefined {
     const fiveMinAgo = Date.now() - 5 * 60 * 1000;
-    const eligibleDrivers = driverQueue.filter(d => {
+    const activeDriver = driverQueue.find(d => {
       if (d.currentBatchId) return false;
       const loc = driverLocations.get(d.phoneNumber);
       const recentGps = loc && loc.updatedAt >= fiveMinAgo;
       const recentSeen = d.lastSeenAt && d.lastSeenAt >= fiveMinAgo;
       return recentGps || recentSeen;
     });
-    if (eligibleDrivers.length === 0) {
-      // No one is currently "active" — fall back to any free driver (FIFO)
-      return driverQueue.find(d => !d.currentBatchId);
-    }
-
-    if (targetLat === undefined || targetLng === undefined) {
-      console.warn("[BEST_DRIVER] No target location provided — falling back to FIFO order among active drivers");
-      return eligibleDrivers[0];
-    }
-
-    // Among eligible drivers, prefer those with a known GPS location and pick
-    // the actual nearest one to the order. Drivers with no GPS fix yet are
-    // considered only if no located driver is available.
-    let nearest: QueuedDriver | undefined;
-    let nearestDist = Infinity;
-    for (const d of eligibleDrivers) {
-      const loc = driverLocations.get(d.phoneNumber);
-      if (!loc) continue;
-      const dist = calculateDistance(targetLat, targetLng, loc.lat, loc.lng);
-      if (dist < nearestDist) {
-        nearestDist = dist;
-        nearest = d;
-      }
-    }
-    if (nearest) return nearest;
-
-    console.warn("[BEST_DRIVER] No eligible driver has a GPS fix — falling back to FIFO order among active drivers");
-    return eligibleDrivers[0];
+    if (activeDriver) return activeDriver;
+    return driverQueue.find(d => !d.currentBatchId);
   }
 
   // Create a batch for a specific driver with waiting confirmed orders
@@ -3838,16 +3805,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         .slice(0, maxOrders);
       if (waitingOrders.length === 0) return;
 
-      // Nearest-Neighbor route optimization
+      // Nearest-Neighbor route optimization — starts from the driver's real GPS position
       const driverLoc = driverLocations.get(phoneNumber);
       if (!driverLoc) {
-        console.warn(`[BATCH] No GPS location for driver ${phoneNumber} — falling back to (0,0) for route optimization`);
+        console.warn(`[ROUTE] No GPS location cached for driver ${phoneNumber} — falling back to (0,0), route order may be inaccurate`);
       }
-      const routeInfo = optimizeDeliveryRoute(
-        waitingOrders,
-        driverLoc?.lat ?? 0,
-        driverLoc?.lng ?? 0
-      );
+      const routeInfo = optimizeDeliveryRoute(waitingOrders, driverLoc?.lat ?? 0, driverLoc?.lng ?? 0);
       const totalDistance = routeInfo.reduce((sum, r) => sum + r.distance, 0);
 
       // Build final sorted list with updated sequence + distance + estimatedTime
@@ -3890,19 +3853,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   }
 
-  // Assign new batch to best available driver when a confirmed order arrives.
-  // Pass the order's delivery location so the nearest driver is actually chosen.
-  function onOrderConfirmed(orderLat?: number, orderLng?: number) {
+  // Assign new batch to best available driver when a confirmed order arrives
+  function onOrderConfirmed() {
     console.log(`[ORDER_CONFIRMED] Queue size=${driverQueue.length}, queue=${JSON.stringify(driverQueue.map(d=>({p:d.phoneNumber,batch:d.currentBatchId,lastSeen:d.lastSeenAt})))}`);
-    if (orderLat === undefined || orderLng === undefined) {
-      console.warn("[ORDER_CONFIRMED] No order location available — cannot compute nearest driver, falling back to FIFO");
-    }
-    const driver = findBestAvailableDriver(orderLat, orderLng);
+    const driver = findBestAvailableDriver();
     console.log(`[ORDER_CONFIRMED] Best driver: ${driver?.phoneNumber ?? "NONE"}`);
     if (driver) {
       assignWaitingBatchToDriver(driver.phoneNumber).catch(console.error);
     }
   }
+
+  // Vendor-confirmed orders (server/vendor.ts) emit this same event so they get an
+  // immediate assignment attempt too, instead of waiting for the 30s watchdog below.
+  orderEvents.on("confirmed", onOrderConfirmed);
 
   // Watchdog: every 30s, scan for unassigned confirmed orders and assign to free drivers
   setInterval(async () => {
@@ -3942,6 +3905,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.error("[GHOST_CLEANUP] error:", e);
     }
   }, 10 * 60 * 1000);
+
+  // REMOVED (2026-07-04): /api/driver/assign-pending-orders was dead code that corrupted
+  // driver state — it wrote a raw order.id into currentBatchId without ever creating a real
+  // delivery_batches document via createDeliveryBatch(), and never notified the driver.
+  // Any driver it "assigned" would get stuck permanently "busy" with a batch that didn't exist.
+  // It was not called from the client. Real assignment happens via onOrderConfirmed() /
+  // assignWaitingBatchToDriver() and the 30s watchdog above.
 
   // Get queue info for admin
   app.get("/api/admin/driver-queue", async (_req: Request, res: Response) => {

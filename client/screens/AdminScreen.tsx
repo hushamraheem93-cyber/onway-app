@@ -1483,12 +1483,12 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
                     {order.status === "preparing" ? (
                       <Pressable
                         style={[styles.statusBtn, { backgroundColor: AppColors.statusCyan }]}
-                        onPress={() => updateOrderStatus.mutate({ id: order.id, status: "delivering" })}
+                        onPress={() => updateOrderStatus.mutate({ id: order.id, status: "in_delivery" })}
                       >
                         <ThemedText type="small" style={{ color: AppColors.white }}>توصيل</ThemedText>
                       </Pressable>
                     ) : null}
-                    {order.status === "delivering" ? (
+                    {(order.status === "in_delivery" || order.status === "delivering") ? (
                       <Pressable
                         style={[styles.statusBtn, { backgroundColor: AppColors.success }]}
                         onPress={() => updateOrderStatus.mutate({ id: order.id, status: "delivered" })}

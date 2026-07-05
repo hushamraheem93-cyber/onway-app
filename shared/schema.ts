@@ -3,6 +3,11 @@
  * Database: Firebase Firestore (not PostgreSQL).
  */
 
+// NOTE (2026-07-04): "delivering" was a duplicate of "in_delivery" that only the
+// admin panel's manual status button ever set. Several driver-facing screens and
+// server checks only recognized "in_delivery", so an order manually flipped to
+// "delivering" by an admin could silently disappear from the driver's active-order
+// view. Standardized on "in_delivery" everywhere — see AdminScreen.tsx fix.
 export type OrderStatus =
   | "pending"
   | "confirmed"
@@ -10,7 +15,6 @@ export type OrderStatus =
   | "ready"
   | "picked_up"
   | "in_delivery"
-  | "delivering"
   | "delivered"
   | "cancelled"
   | "issue";
