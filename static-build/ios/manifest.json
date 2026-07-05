@@ -1,11 +1,11 @@
 {
-  "id": "8fcf01d6-71bf-4d72-bea4-f1ba953052a7",
-  "createdAt": "2026-07-05T22:08:24.461Z",
+  "id": "022dc8c3-72c9-4cb4-a1b2-24c475b529e5",
+  "createdAt": "2026-07-05T22:20:23.970Z",
   "runtimeVersion": "exposdk:54.0.0",
   "launchAsset": {
-    "key": "bundle-1783289304461-1767",
+    "key": "bundle-1783290023970-4750",
     "contentType": "application/javascript",
-    "url": "https://2f25a0c2-53d3-4cb9-be59-f93750defa17-00-354yu7z13atec.kirk.replit.dev/1783289304461-1767/_expo/static/js/ios/bundle.js"
+    "url": "https://2f25a0c2-53d3-4cb9-be59-f93750defa17-00-354yu7z13atec.kirk.replit.dev/1783290023970-4750/_expo/static/js/ios/bundle.js"
   },
   "assets": [],
   "metadata": {},
@@ -50,7 +50,11 @@
           "googleMaps": {
             "apiKey": "AIzaSyCmt-0JscXKAGNOmamyMalrtPH7NXxZNBg"
           }
-        }
+        },
+        "permissions": [
+          "android.permission.RECORD_AUDIO",
+          "android.permission.MODIFY_AUDIO_SETTINGS"
+        ]
       },
       "web": {
         "output": "single",
@@ -67,7 +71,9 @@
           }
         ],
         "expo-web-browser",
-        "expo-secure-store"
+        "expo-secure-store",
+        "expo-audio",
+        "expo-font"
       ],
       "experiments": {
         "reactCompiler": true
@@ -87,15 +93,23 @@
         "pluginHistory": {
           "expo-splash-screen": {
             "name": "expo-splash-screen",
-            "version": "31.0.11"
+            "version": "31.0.13"
           },
           "expo-web-browser": {
             "name": "expo-web-browser",
-            "version": "15.0.9"
+            "version": "15.0.11"
           },
           "expo-secure-store": {
             "name": "expo-secure-store",
             "version": "15.0.8"
+          },
+          "expo-audio": {
+            "name": "expo-audio",
+            "version": "1.1.1"
+          },
+          "expo-font": {
+            "name": "expo-font",
+            "version": "14.0.12"
           }
         }
       },
