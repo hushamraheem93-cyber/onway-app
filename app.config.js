@@ -52,6 +52,7 @@ module.exports = {
         },
       ],
       "expo-web-browser",
+      "expo-secure-store",
     ],
     experiments: {
       reactCompiler: true,

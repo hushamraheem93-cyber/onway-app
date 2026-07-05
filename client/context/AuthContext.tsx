@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useRef, ReactNode } from "react";
 import { Platform, AppState, AppStateStatus } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { getToken, setToken, removeToken } from "@/lib/secureTokenStorage";
 import { getApiUrl } from "@/lib/query-client";
 import { compressAndConvertToBase64 } from "@/lib/imageUtils";
 import * as Notifications from "expo-notifications";
@@ -244,7 +245,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         if (data.userType === "vendor") {
           // Load vendor token + profile
-          const vToken = await AsyncStorage.getItem(VENDOR_TOKEN_KEY);
+          const vToken = await getToken(VENDOR_TOKEN_KEY);
           const vProfile = await AsyncStorage.getItem(VENDOR_PROFILE_KEY);
           if (vToken) setVendorToken(vToken);
           if (vProfile) {
@@ -262,7 +263,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             await checkProfileFromServer(data.phoneNumber);
           }
           // Restore customer JWT
-          const cToken = await AsyncStorage.getItem(CUSTOMER_TOKEN_KEY);
+          const cToken = await getToken(CUSTOMER_TOKEN_KEY);
           if (cToken) setCustomerToken(cToken);
         }
       }
@@ -326,7 +327,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const data = await response.json();
       if (data.customerToken) {
         setCustomerToken(data.customerToken);
-        try { await AsyncStorage.setItem(CUSTOMER_TOKEN_KEY, data.customerToken); } catch {}
+        try { await setToken(CUSTOMER_TOKEN_KEY, data.customerToken); } catch {}
       }
       setPhoneNumber(pendingPhone);
       setIsOtpVerified(true);
@@ -386,7 +387,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setVendorProfile(vendor);
         setVendorToken(token);
         setIsVendorRegistered(true);
-        await AsyncStorage.setItem(VENDOR_TOKEN_KEY, token);
+        await setToken(VENDOR_TOKEN_KEY, token);
         await AsyncStorage.setItem(VENDOR_PROFILE_KEY, JSON.stringify(vendor));
       }
     }
@@ -407,7 +408,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setVendorProfile(vendor);
     setVendorToken(token);
     setIsVendorRegistered(true);
-    await AsyncStorage.setItem(VENDOR_TOKEN_KEY, token);
+    await setToken(VENDOR_TOKEN_KEY, token);
     await AsyncStorage.setItem(VENDOR_PROFILE_KEY, JSON.stringify(vendor));
   };
 
@@ -488,9 +489,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       await AsyncStorage.removeItem(AUTH_STORAGE_KEY);
       await AsyncStorage.removeItem(PROFILE_STORAGE_KEY);
-      await AsyncStorage.removeItem(VENDOR_TOKEN_KEY);
+      await removeToken(VENDOR_TOKEN_KEY);
       await AsyncStorage.removeItem(VENDOR_PROFILE_KEY);
-      await AsyncStorage.removeItem(CUSTOMER_TOKEN_KEY);
+      await removeToken(CUSTOMER_TOKEN_KEY);
       setPhoneNumber(null);
       setPendingPhone(null);
       setUserProfile(null);
