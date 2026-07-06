@@ -95,3 +95,33 @@ id = "2Fu2xQdgF9Y9aqKptz8ob"
 uri = "file://review-export/README-STRUCTURE.txt"
 type = "text"
 title = "README-STRUCTURE.txt — شرح الهيكل الكامل"
+
+[[outputs]]
+id = "RQnluvGa2VE-V-45gFDbb"
+uri = "file://exports/01-server.zip"
+type = "unspecified"
+title = "01 - server/ (Backend Express API)"
+
+[[outputs]]
+id = "KzIzEYMXFVHxlwUIATHw9"
+uri = "file://exports/02-client.zip"
+type = "unspecified"
+title = "02 - client/ (Expo React Native App)"
+
+[[outputs]]
+id = "qk9yvILlDs08ZDmedGjCi"
+uri = "file://exports/03-shared.zip"
+type = "unspecified"
+title = "03 - shared/ (Shared Types)"
+
+[[outputs]]
+id = "UoCvnv6Q5GeL7UZuTGSV_"
+uri = "file://exports/04-admin.zip"
+type = "unspecified"
+title = "04 - admin-dist/ (Admin Dashboard Build)"
+
+[[outputs]]
+id = "pPEYdnYG2UKaG4I3Hqn35"
+uri = "file://exports/05-config.zip"
+type = "unspecified"
+title = "05 - Config Files (package.json, .replit, firestore.rules, etc.)"
