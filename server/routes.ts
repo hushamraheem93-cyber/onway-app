@@ -39,7 +39,7 @@ import {
   updateVendor as updateFirestoreVendor, deleteVendor as deleteFirestoreVendor,
   initializeDefaultVendors,
   updateDriverOnlineStatus, getOnlineDrivers, saveDriverPushToken, getDriverPushToken,
-  getSupportChat, sendSupportMessage, getAllSupportChats, markSupportChatRead,
+  getSupportChat, sendSupportMessage, getAllSupportChats, markSupportChatRead, clearSupportChat,
   createDeliveryBatch, getDeliveryBatch, updateDeliveryBatch, cancelDeliveryBatch, addDeliveryLog, DeliveryBatch,
   saveAdminPushToken, getAdminPushToken,
   addDriverToActiveQueue, removeDriverFromActiveQueue, updateDriverQueueEntry, getActiveDriverQueue,
@@ -1978,6 +1978,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await deleteFirestoreVendor(id);
       invalidateVendorsCache();
       invalidateStoresCache();
+      invalidateProductsCache();
       res.json({ success: true });
     } catch {
       res.status(500).json({ error: "فشل حذف المطعم" });
@@ -4693,6 +4694,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.json(chats);
     } catch (e) {
       return res.status(500).json({ error: "Failed to get chats" });
+    }
+  });
+
+  // Admin: permanently clear/delete a support conversation (added 2026-07-06)
+  app.delete("/api/admin/support/messages/:phoneNumber", async (req: Request, res: Response) => {
+    const phoneNumber = req.params.phoneNumber as string;
+    try {
+      const ok = await clearSupportChat(decodeURIComponent(phoneNumber));
+      if (!ok) return res.status(500).json({ error: "فشل مسح المحادثة" });
+      return res.json({ success: true });
+    } catch (e) {
+      return res.status(500).json({ error: "فشل مسح المحادثة" });
     }
   });
 

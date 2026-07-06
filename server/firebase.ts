@@ -1505,6 +1505,31 @@ export async function deleteVendor(id: string): Promise<boolean> {
     const data = doc.exists ? (doc.data() as any) : null;
     const logoUrl: string = data?.profileImageUrl ?? "";
     const coverUrl: string = data?.coverImageUrl ?? "";
+
+    // FIXED (2026-07-06): deleting a vendor previously left ALL of its products
+    // permanently orphaned in Firestore (and their images orphaned in Storage) —
+    // "deleting a store" from the admin panel never actually removed the store's
+    // menu/inventory, just the vendor record itself. Cascade-delete everything
+    // that belongs to this vendor before removing the vendor document.
+    const productsSnap = await db.collection("vendorProducts").where("vendorId", "==", id).get();
+    const imageUrls = new Set<string>();
+    productsSnap.docs.forEach(d => {
+      const p = d.data() as any;
+      if (p.imageUrl) imageUrls.add(p.imageUrl);
+      if (Array.isArray(p.imageUrls)) p.imageUrls.forEach((u: string) => u && imageUrls.add(u));
+    });
+
+    // Delete product documents in batches (Firestore batch limit is 500 writes)
+    const productDocs = productsSnap.docs;
+    for (let i = 0; i < productDocs.length; i += 450) {
+      const batch = db.batch();
+      productDocs.slice(i, i + 450).forEach(d => batch.delete(d.ref));
+      await batch.commit();
+    }
+
+    // Best-effort image cleanup — don't let a single failed storage delete block the rest
+    await Promise.allSettled([...imageUrls].map(url => deleteFromFirebaseStorage(url)));
+
     await db.collection("vendors").doc(id).delete();
     if (logoUrl) deleteFromFirebaseStorage(logoUrl).catch(() => {});
     if (coverUrl) deleteFromFirebaseStorage(coverUrl).catch(() => {});
@@ -1571,6 +1596,22 @@ export async function getSupportChat(phoneNumber: string): Promise<SupportChat |
     if (!snap.exists) return null;
     return snap.data() as SupportChat;
   } catch (e) { console.error("getSupportChat error:", e); return null; }
+}
+
+/**
+ * Permanently delete a support conversation. Added 2026-07-06 — there was
+ * previously no way to clear old/test support chats; they persisted forever
+ * and could show up looking broken (referencing since-deleted product images)
+ * to real users opening the support screen for the first time.
+ */
+export async function clearSupportChat(phoneNumber: string): Promise<boolean> {
+  const db = getFirestore();
+  if (!db) return false;
+  try {
+    const docId = sanitizePhone(phoneNumber);
+    await db.collection("supportChats").doc(docId).delete();
+    return true;
+  } catch (e) { console.error("clearSupportChat error:", e); return false; }
 }
 
 export async function sendSupportMessage(

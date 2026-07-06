@@ -7,12 +7,6 @@ type = "image"
 title = "generated_image"
 
 [[generated]]
-id = "VPw1EJ7YOqcavtV_nzEo6"
-uri = "file://server/public/uploads/banners/banner-2.png"
-type = "image"
-title = "generated_image"
-
-[[generated]]
 id = "xavJmY3pDv2aPbZwAAV5x"
 uri = "file://server/public/uploads/banners/banner-3.png"
 type = "image"
@@ -41,12 +35,6 @@ id = "aaowI2qXopw_0ixkf8Qdq"
 uri = "file://uploads/category-bakery.png"
 type = "image"
 title = "صورة قسم المخبوزات"
-
-[[outputs]]
-id = "KKSlLHtOrZjxjh0i_QT2p"
-uri = "file://client/assets/images/onway-header-logo-transparent.png"
-type = "image"
-title = "شعار OnWay بخلفية شفافة"
 
 [[outputs]]
 id = "TR18CmVyGR9ybiJ0aBJKX"

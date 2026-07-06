@@ -3052,6 +3052,9 @@
                 <div id="support-chat-user-region" style="display:none;font-size:0.82rem;color:#6B7280;font-family:'Cairo',sans-serif;align-items:center;gap:4px;"></div>
               </div>
             </div>
+            <button id="support-clear-chat-btn" onclick="clearActiveSupportChat()" style="display:none;background:#FEE2E2;color:#DC2626;border:none;padding:8px 14px;border-radius:8px;font-family:'Cairo',sans-serif;font-weight:700;font-size:0.82rem;cursor:pointer;white-space:nowrap;flex-shrink:0;">
+              <i class="fas fa-trash-alt"></i> مسح المحادثة
+            </button>
           </div>
 
           <div id="support-messages-area" style="flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:8px;background:#F9FAFB;">
@@ -3938,6 +3941,34 @@
     lucide.createIcons();
 
     const API_BASE = '/api';
+
+    // ── Global fetch wrapper for admin API calls (added 2026-07-06) ────────────
+    // ROOT CAUSE FOUND: ~70 of the fetch() calls in this file never attached an
+    // Authorization header at all and relied purely on the session cookie —
+    // which was itself being silently dropped by the browser due to a separate
+    // server-side cookie bug (SameSite=None without Secure). A handful of other
+    // calls (business-categories, promo settings) referenced a variable called
+    // `adminToken` that was never declared anywhere in this file, throwing a
+    // silent ReferenceError. Together these explain why most admin-panel
+    // buttons failed with generic "error loading" messages.
+    // Fix: every request to API_BASE now consistently carries BOTH the Bearer
+    // token AND the session cookie, from one place, so this can't happen again.
+    const adminToken = localStorage.getItem("onway_admin_token") || "";
+    const _originalFetch = window.fetch.bind(window);
+    window.fetch = function (input, init) {
+      const url = typeof input === "string" ? input : (input && input.url) || "";
+      if (url.indexOf(API_BASE) === 0) {
+        init = init || {};
+        init.credentials = init.credentials || "include";
+        const headers = new Headers(init.headers || {});
+        if (adminToken && !headers.has("Authorization")) {
+          headers.set("Authorization", "Bearer " + adminToken);
+        }
+        init.headers = headers;
+      }
+      return _originalFetch(input, init);
+    };
+
     
     let products = [];
     let categories = [];
@@ -9175,6 +9206,9 @@ async function openSupportChat(phone, name, phoneDisplay) {
     avatar.innerHTML = initials;
   }
 
+  const clearBtn = document.getElementById('support-clear-chat-btn');
+  if (clearBtn) clearBtn.style.display = 'block';
+
   renderSupportChatsList();
   await loadSupportMessages(phone, false);
   fetch(`/api/admin/support/read/${encodeURIComponent(phone)}`, { method: 'PUT' });
@@ -9190,6 +9224,32 @@ async function loadSupportMessages(phone, silent) {
     if (phone !== activeSupportPhone) return;
     renderSupportMessages(data.messages || []);
   } catch(e) { if (!silent) console.error(e); }
+}
+
+async function clearActiveSupportChat() {
+  if (!activeSupportPhone) return;
+  if (!confirm('هل أنت متأكد من مسح هذه المحادثة نهائياً؟ لا يمكن التراجع عن هذا الإجراء.')) return;
+  try {
+    const res = await fetch(`/api/admin/support/messages/${encodeURIComponent(activeSupportPhone)}`, { method: 'DELETE' });
+    const data = await res.json();
+    if (!res.ok || !data.success) {
+      alert(data.error || 'فشل مسح المحادثة');
+      return;
+    }
+    // Reset the chat window
+    activeSupportPhone = null;
+    const area = document.getElementById('support-messages-area');
+    if (area) area.innerHTML = `<div style="text-align:center;color:#9CA3AF;margin:auto;"><i class="fas fa-comments" style="font-size:3rem;display:block;margin-bottom:12px;"></i>اختر محادثة لعرض الرسائل</div>`;
+    const nameEl = document.getElementById('support-chat-user-name');
+    if (nameEl) nameEl.textContent = 'اختر محادثة';
+    const phoneEl = document.getElementById('support-chat-user-phone');
+    if (phoneEl) phoneEl.style.display = 'none';
+    const clearBtn = document.getElementById('support-clear-chat-btn');
+    if (clearBtn) clearBtn.style.display = 'none';
+    await loadSupportChats();
+  } catch (e) {
+    alert('فشل مسح المحادثة');
+  }
 }
 
 function renderSupportMessages(messages) {
@@ -10233,7 +10293,7 @@ async function loadBusinessCategories() {
   const grid = document.getElementById('biz-categories-grid');
   grid.innerHTML = '<p style="color:#888;padding:20px;">جاري التحميل...</p>';
   try {
-    const res = await fetch(`${API_BASE}/admin/business-categories`, { headers: { Authorization: `Bearer ${adminToken}` } });
+    const res = await fetch(`${API_BASE}/admin/business-categories`, {});
     const data = await res.json();
     bizCategoriesData = data.config || {};
     renderBizCategoriesGrid();
@@ -10313,7 +10373,7 @@ async function saveBizType() {
   try {
     const res = await fetch(`${API_BASE}/admin/business-categories/${key}`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${adminToken}` },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ label, categories }),
     });
     if (!res.ok) throw new Error();
@@ -10339,7 +10399,7 @@ async function saveBizCat() {
   try {
     const res = await fetch(`${API_BASE}/admin/business-categories/${typeKey}`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${adminToken}` },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ label: existing.label, categories: newCats }),
     });
     if (!res.ok) throw new Error();
@@ -10357,7 +10417,7 @@ async function removeBizCat(typeKey, catIndex) {
   try {
     await fetch(`${API_BASE}/admin/business-categories/${typeKey}`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${adminToken}` },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ label: existing.label, categories: newCats }),
     });
     await loadBusinessCategories();
@@ -10369,7 +10429,7 @@ async function toggleBizType(key, enable) {
   try {
     await fetch(`${API_BASE}/admin/business-categories/${key}/toggle`, {
       method: 'PATCH',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${adminToken}` },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ enabled: enable }),
     });
     await loadBusinessCategories();

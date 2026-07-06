@@ -1059,6 +1059,20 @@ async function deleteVendor(id) {
     const data = doc.exists ? doc.data() : null;
     const logoUrl = data?.profileImageUrl ?? "";
     const coverUrl = data?.coverImageUrl ?? "";
+    const productsSnap = await db2.collection("vendorProducts").where("vendorId", "==", id).get();
+    const imageUrls = /* @__PURE__ */ new Set();
+    productsSnap.docs.forEach((d) => {
+      const p = d.data();
+      if (p.imageUrl) imageUrls.add(p.imageUrl);
+      if (Array.isArray(p.imageUrls)) p.imageUrls.forEach((u) => u && imageUrls.add(u));
+    });
+    const productDocs = productsSnap.docs;
+    for (let i = 0; i < productDocs.length; i += 450) {
+      const batch = db2.batch();
+      productDocs.slice(i, i + 450).forEach((d) => batch.delete(d.ref));
+      await batch.commit();
+    }
+    await Promise.allSettled([...imageUrls].map((url) => deleteFromFirebaseStorage(url)));
     await db2.collection("vendors").doc(id).delete();
     if (logoUrl) deleteFromFirebaseStorage(logoUrl).catch(() => {
     });
@@ -1100,6 +1114,18 @@ async function getSupportChat(phoneNumber) {
   } catch (e) {
     console.error("getSupportChat error:", e);
     return null;
+  }
+}
+async function clearSupportChat(phoneNumber) {
+  const db2 = getFirestore();
+  if (!db2) return false;
+  try {
+    const docId = sanitizePhone(phoneNumber);
+    await db2.collection("supportChats").doc(docId).delete();
+    return true;
+  } catch (e) {
+    console.error("clearSupportChat error:", e);
+    return false;
   }
 }
 async function sendSupportMessage(phoneNumber, text, sender, userName = "", extra) {
@@ -3563,6 +3589,7 @@ async function registerRoutes(app2) {
       await deleteVendor(id);
       invalidateVendorsCache();
       invalidateStoresCache();
+      invalidateProductsCache();
       res.json({ success: true });
     } catch {
       res.status(500).json({ error: "\u0641\u0634\u0644 \u062D\u0630\u0641 \u0627\u0644\u0645\u0637\u0639\u0645" });
@@ -5857,6 +5884,16 @@ ${itemsList}
       return res.json(chats);
     } catch (e) {
       return res.status(500).json({ error: "Failed to get chats" });
+    }
+  });
+  app2.delete("/api/admin/support/messages/:phoneNumber", async (req, res) => {
+    const phoneNumber = req.params.phoneNumber;
+    try {
+      const ok = await clearSupportChat(decodeURIComponent(phoneNumber));
+      if (!ok) return res.status(500).json({ error: "\u0641\u0634\u0644 \u0645\u0633\u062D \u0627\u0644\u0645\u062D\u0627\u062F\u062B\u0629" });
+      return res.json({ success: true });
+    } catch (e) {
+      return res.status(500).json({ error: "\u0641\u0634\u0644 \u0645\u0633\u062D \u0627\u0644\u0645\u062D\u0627\u062F\u062B\u0629" });
     }
   });
   app2.post("/api/admin/support/reply", async (req, res) => {
@@ -8208,13 +8245,17 @@ function configureExpoAndLanding(app2) {
     res.setHeader("Content-Type", "text/html; charset=utf-8");
     res.status(200).send(html);
   });
+  function isRequestSecure(req) {
+    const proto = req.header("x-forwarded-proto") || req.protocol;
+    return proto === "https";
+  }
   app2.post("/admin/login", express3.urlencoded({ extended: false }), async (req, res) => {
     const { username, password } = req.body || {};
     const valid = await validateAdminCredentials(username, password);
     if (valid) {
       const token = createSession(username);
       const maxAge = 60 * 60 * 24 * 7;
-      const secureFlagAdmin = process.env.NODE_ENV === "production" ? "; Secure" : "";
+      const secureFlagAdmin = isRequestSecure(req) ? "; Secure" : "";
       res.setHeader(
         "Set-Cookie",
         `${ADMIN_COOKIE}=${token}; HttpOnly; SameSite=Strict; Max-Age=${maxAge}; Path=/${secureFlagAdmin}`
@@ -8232,7 +8273,7 @@ function configureExpoAndLanding(app2) {
     if (!valid) return res.status(401).json({ error: "\u0627\u0633\u0645 \u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645 \u0623\u0648 \u0643\u0644\u0645\u0629 \u0627\u0644\u0645\u0631\u0648\u0631 \u063A\u064A\u0631 \u0635\u062D\u064A\u062D\u0629" });
     const token = createSession(username);
     const maxAge = 60 * 60 * 24 * 7;
-    const secureFlag = process.env.NODE_ENV === "production" ? "; Secure" : "";
+    const secureFlag = isRequestSecure(req) ? "; Secure" : "";
     res.setHeader("Set-Cookie", `${ADMIN_COOKIE}=${token}; HttpOnly; SameSite=None; Max-Age=${maxAge}; Path=/${secureFlag}`);
     return res.json({ success: true, token });
   });
@@ -8256,7 +8297,7 @@ function configureExpoAndLanding(app2) {
       }
       const token = createSession(payload.email || "google-admin");
       const maxAge = 60 * 60 * 24 * 7;
-      const secureFlagGoogle = process.env.NODE_ENV === "production" ? "; Secure" : "";
+      const secureFlagGoogle = isRequestSecure(req) ? "; Secure" : "";
       res.setHeader("Set-Cookie", `${ADMIN_COOKIE}=${token}; HttpOnly; SameSite=Strict; Max-Age=${maxAge}; Path=/${secureFlagGoogle}`);
       return res.json({ success: true, redirect: "/admin" });
     } catch (e) {

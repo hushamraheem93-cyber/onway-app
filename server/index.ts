@@ -481,14 +481,23 @@ function configureExpoAndLanding(app: express.Application) {
     res.status(200).send(html);
   });
 
-  // POST /admin/login — validate credentials (checks Firestore first, then env vars)
+// Detect whether the ORIGINAL client connection was HTTPS. Replit (and most
+// PaaS platforms) terminate TLS at a proxy and forward plain HTTP internally,
+// so req.protocol / NODE_ENV are NOT reliable signals for this — we must read
+// the standard x-forwarded-proto header the proxy sets.
+function isRequestSecure(req: Request): boolean {
+  const proto = req.header("x-forwarded-proto") || req.protocol;
+  return proto === "https";
+}
+
+// POST /admin/login — validate credentials (checks Firestore first, then env vars)
   app.post("/admin/login", express.urlencoded({ extended: false }), async (req: Request, res: Response) => {
     const { username, password } = req.body || {};
     const valid = await validateAdminCredentials(username, password);
     if (valid) {
       const token = createSession(username);
       const maxAge = 60 * 60 * 24 * 7; // 7 days
-      const secureFlagAdmin = process.env.NODE_ENV === "production" ? "; Secure" : "";
+      const secureFlagAdmin = isRequestSecure(req) ? "; Secure" : "";
       res.setHeader(
         "Set-Cookie",
         `${ADMIN_COOKIE}=${token}; HttpOnly; SameSite=Strict; Max-Age=${maxAge}; Path=/${secureFlagAdmin}`
@@ -509,7 +518,13 @@ function configureExpoAndLanding(app: express.Application) {
     if (!valid) return res.status(401).json({ error: "اسم المستخدم أو كلمة المرور غير صحيحة" });
     const token = createSession(username);
     const maxAge = 60 * 60 * 24 * 7;
-    const secureFlag = process.env.NODE_ENV === "production" ? "; Secure" : "";
+    // CRITICAL: SameSite=None cookies are REJECTED OUTRIGHT by every modern browser
+    // unless Secure is also present — this was previously gated on NODE_ENV, which is
+    // NOT "production" in Replit's dev workspace, so this cookie was silently dropped
+    // by the browser on every login. That's why most admin-panel buttons that rely on
+    // this cookie (rather than the Bearer token) failed with "error loading" — the
+    // session cookie never actually got stored in the first place.
+    const secureFlag = isRequestSecure(req) ? "; Secure" : "";
     res.setHeader("Set-Cookie", `${ADMIN_COOKIE}=${token}; HttpOnly; SameSite=None; Max-Age=${maxAge}; Path=/${secureFlag}`);
     return res.json({ success: true, token });
   });
@@ -546,7 +561,7 @@ function configureExpoAndLanding(app: express.Application) {
       // Valid — create session
       const token = createSession(payload.email || "google-admin");
       const maxAge = 60 * 60 * 24 * 7; // 7 days
-      const secureFlagGoogle = process.env.NODE_ENV === "production" ? "; Secure" : "";
+      const secureFlagGoogle = isRequestSecure(req) ? "; Secure" : "";
       res.setHeader("Set-Cookie", `${ADMIN_COOKIE}=${token}; HttpOnly; SameSite=Strict; Max-Age=${maxAge}; Path=/${secureFlagGoogle}`);
       return res.json({ success: true, redirect: "/admin" });
     } catch (e) {
