@@ -468,6 +468,21 @@ export default function AdminScreen() {
     },
   });
 
+  const deleteVendor = useMutation({
+    mutationFn: async (id: string) => {
+      await apiRequest("DELETE", `/api/admin/vendor-partners/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/vendor-partners"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/vendors"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/stores"] });
+      setSelectedVendor(null);
+    },
+    onError: () => {
+      Alert.alert("خطأ", "فشل حذف المتجر");
+    },
+  });
+
   const pickImage = async (setter: (uri: string) => void) => {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ["images"],
@@ -2280,6 +2295,20 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
 
     const selectedProducts = selectedVendor ? (vendorProductsMap[selectedVendor.id] ?? []) : [];
 
+    const handleDeleteVendor = (vendor: VendorPartner) => {
+      const message = `هل أنت متأكد من حذف "${vendor.storeName}"؟ سيتم حذف المتجر وجميع منتجاته نهائياً من التطبيق وقاعدة البيانات.`;
+      if (Platform.OS === "web") {
+        if (window.confirm(message)) {
+          deleteVendor.mutate(vendor.id);
+        }
+      } else {
+        Alert.alert("تأكيد حذف المتجر", message, [
+          { text: "إلغاء", style: "cancel" },
+          { text: "حذف نهائياً", style: "destructive", onPress: () => deleteVendor.mutate(vendor.id) },
+        ]);
+      }
+    };
+
     const handleUpdateVendorStatus = async (
       vendorId: string,
       status: "active" | "rejected" | "suspended",
@@ -2551,6 +2580,28 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
                       </Pressable>
                     )}
                   </View>
+
+                  {/* Delete vendor */}
+                  <Pressable
+                    onPress={() => handleDeleteVendor(selectedVendor)}
+                    disabled={deleteVendor.isPending}
+                    testID={`button-delete-vendor-${selectedVendor.id}`}
+                    style={{
+                      flexDirection: "row-reverse", gap: 8, backgroundColor: AppColors.error + "15",
+                      borderRadius: BorderRadius.md, paddingVertical: Spacing.md,
+                      alignItems: "center", justifyContent: "center",
+                      opacity: deleteVendor.isPending ? 0.6 : 1,
+                    }}
+                  >
+                    {deleteVendor.isPending ? (
+                      <ActivityIndicator size="small" color={AppColors.error} />
+                    ) : (
+                      <>
+                        <Feather name="trash-2" size={16} color={AppColors.error} />
+                        <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 14, color: AppColors.error }}>حذف المتجر نهائياً</ThemedText>
+                      </>
+                    )}
+                  </Pressable>
 
                   {/* Products section */}
                   <View style={{ gap: Spacing.sm }}>
