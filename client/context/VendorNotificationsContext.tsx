@@ -17,6 +17,7 @@ import * as Haptics from "expo-haptics";
 import { ThemedText } from "@/components/ThemedText";
 import { useAuth } from "@/context/AuthContext";
 import { getApiUrl } from "@/lib/query-client";
+import { playLoudAlert } from "@/lib/alertSound";
 
 const ORANGE = "#E86520";
 const POLL_INTERVAL_MS = 20_000;
@@ -90,6 +91,7 @@ export function VendorNotificationsProvider({ children }: { children: ReactNode 
         if (Platform.OS !== "web") {
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
         }
+        playLoudAlert();
       }
     } catch {}
   }, [vendorToken]);

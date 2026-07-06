@@ -31,6 +31,7 @@ import { useTheme } from "@/hooks/useTheme";
 import { useAuth } from "@/context/AuthContext";
 import { AppColors, Spacing, BorderRadius, Shadows, FontWeight} from "@/constants/theme";
 import { getApiUrl } from "@/lib/query-client";
+import { playLoudAlert } from "@/lib/alertSound";
 import { formatPrice } from "@/constants/currency";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
 
@@ -181,6 +182,7 @@ export default function DriverHomeScreen() {
   const triggerNewBatchAlert = useCallback((batch: CurrentBatch) => {
     Vibration.vibrate([0, 400, 200, 400, 200, 600]);
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
+    playLoudAlert();
     const firstOrder = batch.orders[0];
     Notifications.scheduleNotificationAsync({
       content: {
