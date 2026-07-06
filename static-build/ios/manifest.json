@@ -1,11 +1,11 @@
 {
-  "id": "50a033b6-a090-41df-81ce-938fc0bb6631",
-  "createdAt": "2026-07-06T07:55:40.450Z",
+  "id": "f734dc0b-1717-4c52-bd8d-0a2a57deba3a",
+  "createdAt": "2026-07-06T08:27:28.534Z",
   "runtimeVersion": "exposdk:54.0.0",
   "launchAsset": {
-    "key": "bundle-1783324540450-3998",
+    "key": "bundle-1783326448534-399",
     "contentType": "application/javascript",
-    "url": "https://2f25a0c2-53d3-4cb9-be59-f93750defa17-00-354yu7z13atec.kirk.replit.dev/1783324540450-3998/_expo/static/js/ios/bundle.js"
+    "url": "https://2f25a0c2-53d3-4cb9-be59-f93750defa17-00-354yu7z13atec.kirk.replit.dev/1783326448534-399/_expo/static/js/ios/bundle.js"
   },
   "assets": [],
   "metadata": {},
@@ -136,6 +136,6 @@
       },
       "mainModuleName": "client/index"
     },
-    "scopeKey": "@anonymous/onway-cfb512ac-d51d-413b-ae5d-371b72d21733"
+    "scopeKey": "@anonymous/onway-e18ba376-05bb-485b-82f0-da13ee8bf147"
   }
 }
