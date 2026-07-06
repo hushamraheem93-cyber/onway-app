@@ -6293,11 +6293,15 @@
     }
 
     function _toggleMMenu(btn, id) {
-      _closeAllMMenus();
       const menu = document.getElementById('mmenu-' + id);
-      if (menu) {
-        menu.style.display = menu.style.display === 'none' ? '' : 'none';
-        document.addEventListener('click', _closeAllMMenus, { once: true });
+      if (!menu) return;
+      const wasOpen = menu.style.display !== 'none' && menu.style.display !== '';
+      _closeAllMMenus();
+      if (!wasOpen) {
+        menu.style.display = 'block';
+        setTimeout(() => {
+          document.addEventListener('click', _closeAllMMenus, { once: true });
+        }, 0);
       }
     }
     function _closeAllMMenus() {
