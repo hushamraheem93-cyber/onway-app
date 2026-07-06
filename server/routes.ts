@@ -2219,6 +2219,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       } catch (e) { console.error("Vendor detection error:", e); }
 
+      // Fallback vendor detection for marketplace (vendorProducts) orders — the
+      // restaurant-detection block above only matches the legacy product cache
+      // (categoryId === "restaurants"). Real vendor-marketplace orders (products
+      // created via the vendor dashboard, stored in the `vendorProducts` collection)
+      // never populate orderData.vendorId there, leaving the top-level field
+      // undefined even though GET /api/vendor/orders can still locate them via
+      // item-level productId lookups. Setting it here keeps admin filtering,
+      // driver batch pickup-address resolution, and analytics consistent.
+      if (!orderData.vendorId) {
+        try {
+          const db = getFirestore();
+          if (db) {
+            for (const it of (items as any[])) {
+              if (!it?.productId) continue;
+              const pDoc = await db.collection("vendorProducts").doc(it.productId).get();
+              if (pDoc.exists) {
+                const pData = pDoc.data() as any;
+                if (pData?.vendorId) {
+                  orderData.vendorId = pData.vendorId;
+                  break;
+                }
+              }
+            }
+          }
+        } catch (e) { console.error("Vendor marketplace detection error:", e); }
+      }
+
       const newOrder = await createOrder(orderData);
       if (newOrder) {
         if (promoCode) {
@@ -4904,7 +4931,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const [ordersSnap, driversSnap, batchesSnap] = await Promise.all([
         db.collection("orders").where("createdAt", ">=", since).orderBy("createdAt", "desc").limit(100).get(),
         db.collection("drivers").where("isOnline", "==", true).get(),
-        db.collection("deliveryBatches").where("status", "==", "in_progress").get(),
+        db.collection("delivery_batches").where("status", "==", "in_progress").get(),
       ]);
 
       const orders = ordersSnap.docs.map(d => ({ id: d.id, ...d.data() } as any));

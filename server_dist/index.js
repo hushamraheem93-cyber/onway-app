@@ -3792,6 +3792,26 @@ ${itemsList}
       } catch (e) {
         console.error("Vendor detection error:", e);
       }
+      if (!orderData.vendorId) {
+        try {
+          const db3 = getFirestore();
+          if (db3) {
+            for (const it of items) {
+              if (!it?.productId) continue;
+              const pDoc = await db3.collection("vendorProducts").doc(it.productId).get();
+              if (pDoc.exists) {
+                const pData = pDoc.data();
+                if (pData?.vendorId) {
+                  orderData.vendorId = pData.vendorId;
+                  break;
+                }
+              }
+            }
+          }
+        } catch (e) {
+          console.error("Vendor marketplace detection error:", e);
+        }
+      }
       const newOrder = await createOrder(orderData);
       if (newOrder) {
         if (promoCode) {
@@ -6062,7 +6082,7 @@ ${itemsList}
       const [ordersSnap, driversSnap, batchesSnap] = await Promise.all([
         db2.collection("orders").where("createdAt", ">=", since).orderBy("createdAt", "desc").limit(100).get(),
         db2.collection("drivers").where("isOnline", "==", true).get(),
-        db2.collection("deliveryBatches").where("status", "==", "in_progress").get()
+        db2.collection("delivery_batches").where("status", "==", "in_progress").get()
       ]);
       const orders = ordersSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
       const newOrders = orders.filter((o) => o.status === "pending").length;
