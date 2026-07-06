@@ -1,2 +1,3 @@
 project.zip filter=lfs diff=lfs merge=lfs -text
 onway-source.zip filter=lfs diff=lfs merge=lfs -text
+exports/onway-source-latest.zip filter=lfs diff=lfs merge=lfs -text

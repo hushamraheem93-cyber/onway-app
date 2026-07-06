@@ -113,3 +113,9 @@ id = "pPEYdnYG2UKaG4I3Hqn35"
 uri = "file://exports/05-config.zip"
 type = "unspecified"
 title = "05 - Config Files (package.json, .replit, firestore.rules, etc.)"
+
+[[outputs]]
+id = "Dpclow__74SOfuSV7vHoO"
+uri = "file://exports/onway-source-latest.zip"
+type = "unspecified"
+title = "Onway - كامل الكود المصدري (أحدث نسخة)"
