@@ -4362,6 +4362,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         updatedAt: Timestamp.now(),
       });
 
+      // Real-time: broadcast cancellation (forwarded to order room + orders:changed).
+      orderEvents.emit("order:status", { orderId, status: "cancelled" });
+
       return res.json({ success: true });
     } catch (error: any) {
       console.error("Error cancelling order:", error);
@@ -5590,6 +5593,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const ioServer = new SocketServer(httpServer, {
     cors: { origin: "*", methods: ["GET", "POST"] },
     transports: ["websocket", "polling"],
+  });
+
+  // ── Real-time order STATUS updates ─────────────────────────────────────────
+  // Any status change (admin/driver via updateOrderStatus, vendor via vendor.ts,
+  // customer cancel) emits "order:status" on the orderEvents bus. We forward it to
+  // the specific order's room (so a customer watching that order updates instantly)
+  // and broadcast a lightweight "orders:changed" ping so list screens (vendor,
+  // driver, admin, customer orders) can refetch immediately instead of waiting for
+  // their next poll. Polling remains active as a fallback and is not removed.
+  orderEvents.on("order:status", (payload: { orderId: string; status: string }) => {
+    if (!payload?.orderId) return;
+    ioServer.to(`order:${payload.orderId}`).emit("order:status", payload);
+    ioServer.emit("orders:changed", payload);
   });
 
   ioServer.on("connection", (socket) => {

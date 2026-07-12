@@ -461,6 +461,33 @@ export default function DriverHomeScreen() {
     };
   }, []);
 
+  // Real-time: while online, listen for order changes (new/assigned/confirmed) and
+  // re-check driver status immediately instead of waiting for the next poll. This is
+  // a separate connection from the GPS/location socket above and does not touch it.
+  // The adaptive 4s/10s poll remains as a fallback. Additive only.
+  const ordersSocketRef = useRef<Socket | null>(null);
+  useEffect(() => {
+    if (!isOnline || !phoneNumber) {
+      if (ordersSocketRef.current) {
+        ordersSocketRef.current.disconnect();
+        ordersSocketRef.current = null;
+      }
+      return;
+    }
+    const sock = io(getApiUrl(), {
+      transports: ["websocket", "polling"],
+      reconnection: true,
+      reconnectionAttempts: 10,
+      reconnectionDelay: 3000,
+    });
+    ordersSocketRef.current = sock;
+    sock.on("orders:changed", () => { fetchDriverStatus(); });
+    return () => {
+      sock.disconnect();
+      ordersSocketRef.current = null;
+    };
+  }, [isOnline, phoneNumber, fetchDriverStatus]);
+
   const handleToggleOnline = async () => {
     if (!phoneNumber || driverStatus !== "approved") return;
     if (isTogglingRef.current) return;

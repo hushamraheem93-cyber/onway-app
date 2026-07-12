@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useCallback, useEffect, useRef, ReactNode } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { io, Socket } from "socket.io-client";
 import { CartItem } from "./CartContext";
 import { useAuth } from "./AuthContext";
 import { useNotifications } from "./NotificationContext";
@@ -134,6 +135,26 @@ export function OrderProvider({ children }: { children: ReactNode }) {
       const interval = setInterval(refreshOrders, 10000);
       return () => clearInterval(interval);
     }
+  }, [phoneNumber, refreshOrders]);
+
+  // Real-time: refetch immediately when the server broadcasts an order change,
+  // instead of waiting up to 10s for the next poll. The 10s poll above stays as a
+  // fallback (covers dropped socket connections). Additive only.
+  const ordersSocketRef = useRef<Socket | null>(null);
+  useEffect(() => {
+    if (!phoneNumber) return;
+    const sock = io(getApiUrl(), {
+      transports: ["websocket", "polling"],
+      reconnection: true,
+      reconnectionAttempts: 10,
+      reconnectionDelay: 3000,
+    });
+    ordersSocketRef.current = sock;
+    sock.on("orders:changed", () => { refreshOrders(); });
+    return () => {
+      sock.disconnect();
+      ordersSocketRef.current = null;
+    };
   }, [phoneNumber, refreshOrders]);
 
   const addOrder = useCallback(async (orderData: {

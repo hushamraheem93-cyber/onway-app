@@ -18,6 +18,7 @@ import { useHeaderHeight } from "@react-navigation/elements";
 import { Image } from "expo-image";
 import * as ImagePicker from "expo-image-picker";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { io, Socket } from "socket.io-client";
 import { Feather } from "@expo/vector-icons";
 
 import * as Haptics from "expo-haptics";
@@ -138,6 +139,22 @@ export default function AdminScreen() {
   const headerHeight = useHeaderHeight();
   const { theme } = useTheme();
   const queryClient = useQueryClient();
+
+  // Real-time: refresh the orders list immediately when the server broadcasts an
+  // order change, instead of waiting for the 6s refetch interval below. The
+  // interval remains as a fallback. Additive only.
+  useEffect(() => {
+    const sock: Socket = io(getApiUrl(), {
+      transports: ["websocket", "polling"],
+      reconnection: true,
+      reconnectionAttempts: 10,
+      reconnectionDelay: 3000,
+    });
+    sock.on("orders:changed", () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/orders"] });
+    });
+    return () => { sock.disconnect(); };
+  }, [queryClient]);
 
   const [activeTab, setActiveTab] = useState<TabType>("dashboard");
   const [isEditing, setIsEditing] = useState(false);
