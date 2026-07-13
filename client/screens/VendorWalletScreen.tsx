@@ -21,6 +21,7 @@ import { getApiUrl } from "@/lib/query-client";
 import { formatPrice } from "@/constants/currency";
 import { AppColors } from "@/constants/theme";
 import { SettlementStatusBar } from "@/components/SettlementStatusBar";
+import { SettlementHistoryList } from "@/components/SettlementHistoryList";
 import { useSettlement } from "@/hooks/useSettlement";
 
 const PURPLE = AppColors.vendorPurple;
@@ -169,6 +170,7 @@ export default function VendorWalletScreen() {
         onRequest={handleRequestSettlement}
         containerStyle={{ marginHorizontal: 0, marginTop: 0 }}
       />
+      <SettlementHistoryList history={settlement.history} />
 
       {/* Period filter */}
       <View style={styles.periodRow}>
