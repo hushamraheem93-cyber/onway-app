@@ -5316,6 +5316,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // ── PATCH /api/ratings/:id/vendor-reply — vendor replies to a rating ───────
   app.patch("/api/ratings/:id/vendor-reply", async (req: Request, res: Response) => {
+    // Auth: a valid vendor JWT is required, and the vendor may only reply to ratings
+    // of THEIR OWN store. Previously this endpoint was unauthenticated, so anyone could
+    // write a "vendor reply" on any store's rating (impersonation / spam).
+    const vendorId = extractVendorId(req);
+    if (!vendorId) return res.status(401).json({ error: "يرجى تسجيل الدخول كتاجر" });
     try {
       const db = getFirestore();
       if (!db) return res.status(503).json({ error: "DB unavailable" });
@@ -5324,7 +5329,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const reply = typeof req.body.reply === "string" ? req.body.reply.trim().slice(0, 1000) : "";
       if (!reply) return res.status(400).json({ error: "الرد فارغ" });
 
-      await db.collection("ratings").doc(ratingId).update({
+      const ratingRef = db.collection("ratings").doc(ratingId);
+      const ratingSnap = await ratingRef.get();
+      if (!ratingSnap.exists) return res.status(404).json({ error: "التقييم غير موجود" });
+      if ((ratingSnap.data() as any).vendorId !== vendorId) {
+        return res.status(403).json({ error: "لا يمكنك الرد على تقييم متجر آخر" });
+      }
+
+      await ratingRef.update({
         vendorReply:     reply,
         vendorRepliedAt: new Date().toISOString(),
       });
