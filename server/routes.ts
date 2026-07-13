@@ -53,6 +53,8 @@ import {
   listSettlementAccounts, getSettlementPayments,
 } from "./settlement";
 import { sendPushNotification, sendBroadcastNotification, sendDriverBatchNotification, sendAdminNewOrderNotification, sendVendorNewOrderNotification, sendAdminSettlementRequestNotification } from "./pushNotifications";
+import { deliverOtp } from "./otpDelivery";
+import { isDevMode } from "./env";
 
 const uploadsDir = path.join(process.cwd(), "uploads");
 if (!fs.existsSync(uploadsDir)) {
@@ -2084,21 +2086,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let verifiedSubtotal = 0;
       const unknownProductIds: string[] = [];
       const priceMismatchProductIds: string[] = [];
+      const outOfStockNames: string[] = [];
 
       let allItemsAreRestaurant = items.length > 0;
 
       for (const it of items as any[]) {
         let realPrice: number | undefined;
+        let available = true; // only an explicit inStock === false blocks the order
         const legacyProduct = allProductsForPricing.find((p: any) => p.id === it.productId);
         if (legacyProduct && !Number.isNaN(Number(legacyProduct.price))) {
           realPrice = Number(legacyProduct.price);
+          if (legacyProduct.inStock === false) available = false;
           if (legacyProduct.categoryId !== "restaurants") allItemsAreRestaurant = false;
         } else {
           // Fall back to vendorProducts collection (vendor-added items aren't in the legacy cache)
           const vpDoc = await db.collection("vendorProducts").doc(it.productId).get();
           if (vpDoc.exists) {
-            const vpPrice = Number((vpDoc.data() as any)?.price);
+            const vp = vpDoc.data() as any;
+            const vpPrice = Number(vp?.price);
             if (!Number.isNaN(vpPrice)) realPrice = vpPrice;
+            if (vp?.inStock === false) available = false;
           }
           // Vendor-added items are never legacy "restaurants" category products
           allItemsAreRestaurant = false;
@@ -2106,6 +2113,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         if (realPrice === undefined) {
           unknownProductIds.push(it.productId);
+          continue;
+        }
+        if (!available) {
+          outOfStockNames.push(it.name || it.productId);
           continue;
         }
 
@@ -2119,6 +2130,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       if (unknownProductIds.length > 0) {
         return res.status(400).json({ error: `منتج غير موجود أو غير متاح: ${unknownProductIds.join(", ")}` });
+      }
+      // Reject orders that contain an item the vendor has marked out of stock.
+      if (outOfStockNames.length > 0) {
+        return res.status(400).json({ error: `بعض المنتجات غير متوفّرة حالياً: ${outOfStockNames.join("، ")} — يرجى تحديث السلة` });
       }
       if (priceMismatchProductIds.length > 0) {
         console.warn(`[FRAUD_CHECK] Price mismatch on order from ${phoneNumber} — productIds: ${priceMismatchProductIds.join(", ")}, client total: ${total}`);
@@ -2718,13 +2733,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // OTP Auth Routes
-  app.post("/api/auth/send-otp", (req: Request, res: Response) => {
-    const { phoneNumber } = req.body;
+  app.post("/api/auth/send-otp", async (req: Request, res: Response) => {
+    const { phoneNumber, channel } = req.body;
     if (!phoneNumber) {
       return res.status(400).json({ error: "Phone number is required" });
     }
     const code = generateOtp(phoneNumber);
-    res.json({ success: true, message: "OTP sent successfully" });
+
+    // Development mode: no SMS is ever sent; the tester signs in with the 0000 code.
+    if (isDevMode()) {
+      return res.json({ success: true, delivered: false, devMode: true, message: "وضع التطوير: استخدم الرمز 0000" });
+    }
+
+    // Production mode: OTPIQ is required. Fail clearly if it is not configured.
+    if (!process.env.OTP_IQ_API_KEY) {
+      console.error("[OTP] OTP_IQ_API_KEY missing in production — cannot send OTP");
+      return res.status(503).json({ error: "خدمة إرسال رمز التحقق غير مهيّأة. يرجى المحاولة لاحقاً." });
+    }
+
+    const result = await deliverOtp(phoneNumber, code, channel === "whatsapp" ? "whatsapp" : "sms");
+    res.json({
+      success: true,
+      delivered: result.delivered,
+      channel: result.channel,
+      message: result.delivered ? "OTP sent successfully" : "تعذّر إرسال رمز التحقق، حاول مرة أخرى",
+    });
   });
 
   app.post("/api/auth/verify-otp", (req: Request, res: Response) => {
@@ -2857,9 +2890,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.delete("/api/admin/drivers/:id", async (req: Request, res: Response) => {
     try {
       const driverId = req.params.id as string;
+      // Capture the phone BEFORE deleting so we can evict the driver from live state.
+      const dbForDriver = getFirestore();
+      let phoneNumber: string | undefined;
+      if (dbForDriver) {
+        const doc = await dbForDriver.collection("drivers").doc(driverId).get();
+        if (doc.exists) phoneNumber = (doc.data() as any).phoneNumber;
+      }
+
       const success = await deleteDriverFn(driverId);
       if (!success) {
         return res.status(500).json({ error: "Failed to delete driver" });
+      }
+
+      // Data consistency: purge the deleted driver from all in-memory and persisted
+      // live state so they can never receive new batches or appear online afterwards.
+      if (phoneNumber) {
+        const idx = driverQueue.findIndex(d => d.phoneNumber === phoneNumber);
+        if (idx !== -1) driverQueue.splice(idx, 1);
+        driverLocations.delete(phoneNumber);
+        for (const [oid, drv] of driverAssignments.entries()) {
+          if (drv === phoneNumber) driverAssignments.delete(oid);
+        }
+        removeDriverFromActiveQueue(phoneNumber).catch(() => {});
       }
       res.json({ success: true });
     } catch (error: any) {
@@ -5523,6 +5576,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // ── PATCH /api/ratings/:id/vendor-reply — vendor replies to a rating ───────
   app.patch("/api/ratings/:id/vendor-reply", async (req: Request, res: Response) => {
+    // Auth: a valid vendor JWT is required, and the vendor may only reply to ratings
+    // of THEIR OWN store. Previously this endpoint was unauthenticated, so anyone could
+    // write a "vendor reply" on any store's rating (impersonation / spam).
+    const vendorId = extractVendorId(req);
+    if (!vendorId) return res.status(401).json({ error: "يرجى تسجيل الدخول كتاجر" });
     try {
       const db = getFirestore();
       if (!db) return res.status(503).json({ error: "DB unavailable" });
@@ -5531,7 +5589,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const reply = typeof req.body.reply === "string" ? req.body.reply.trim().slice(0, 1000) : "";
       if (!reply) return res.status(400).json({ error: "الرد فارغ" });
 
-      await db.collection("ratings").doc(ratingId).update({
+      const ratingRef = db.collection("ratings").doc(ratingId);
+      const ratingSnap = await ratingRef.get();
+      if (!ratingSnap.exists) return res.status(404).json({ error: "التقييم غير موجود" });
+      if ((ratingSnap.data() as any).vendorId !== vendorId) {
+        return res.status(403).json({ error: "لا يمكنك الرد على تقييم متجر آخر" });
+      }
+
+      await ratingRef.update({
         vendorReply:     reply,
         vendorRepliedAt: new Date().toISOString(),
       });
