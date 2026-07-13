@@ -310,6 +310,20 @@ async function requireDriverAuth(req: Request, res: Response, next: express.Next
   }
 }
 
+// Notify the customer of an order status change via push (best-effort, non-blocking).
+// Used by driver-driven transitions that change status through updateOrderStatus but
+// previously sent no customer push (e.g. "in_delivery"). Uses a single getOrderById
+// read (not a full-collection scan). Additive — does not replace existing push sends.
+async function notifyCustomerStatus(orderId: string, status: string, estimatedMinutes?: number): Promise<void> {
+  try {
+    const order = await getOrderById(orderId);
+    const phone = (order as any)?.phoneNumber;
+    if (!phone) return;
+    const pushToken = await getUserPushToken(phone);
+    if (pushToken) await sendPushNotification(pushToken, status, orderId, estimatedMinutes);
+  } catch {}
+}
+
 export async function registerRoutes(app: Express): Promise<Server> {
   // Guard ALL /api/admin/* routes with admin session check
   app.use("/api/admin", requireAdminAuth);
@@ -3129,6 +3143,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const db = getFirestore();
       if (db) {
         await updateOrderStatus(orderId, "in_delivery");
+        // Notify the customer their order is on the way (was previously missing here).
+        notifyCustomerStatus(orderId, "in_delivery").catch(() => {});
         saveDriverActivity({ phoneNumber, type: "in_delivery", orderId }).catch(() => {});
       }
       res.json({ success: true });
@@ -3337,6 +3353,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!db) return res.status(500).json({ error: "DB not configured" });
       const now = new Date();
       await updateOrderStatus(orderId, "in_delivery");
+      // Notify the customer their order is on the way (was previously missing here).
+      notifyCustomerStatus(orderId, "in_delivery").catch(() => {});
       await db.collection("orders").doc(orderId).update({ pickedUpAt: now, updatedAt: now });
       addDeliveryLog({ orderId, driverPhone: phoneNumber, action: "in_delivery", lat, lng }).catch(() => {});
       saveDriverActivity({ phoneNumber, type: "in_delivery", orderId }).catch(() => {});
