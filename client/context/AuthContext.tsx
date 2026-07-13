@@ -351,9 +351,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const checkExistingVendor = async (phone: string): Promise<{ vendor: VendorProfile | null; token: string | null }> => {
     try {
+      // Prove phone ownership to the server with the OTP-issued customer JWT. Fall
+      // back to storage if state hasn't propagated yet (mobile-auth now requires it).
+      let cToken = customerToken;
+      if (!cToken) { try { cToken = await getToken(CUSTOMER_TOKEN_KEY); } catch {} }
       const response = await fetch(new URL("/api/vendor/mobile-auth", getApiUrl()).toString(), {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(cToken ? { Authorization: `Bearer ${cToken}` } : {}),
+        },
         body: JSON.stringify({ phoneNumber: phone }),
       });
       if (response.ok) {

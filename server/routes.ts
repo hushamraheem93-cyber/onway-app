@@ -2521,7 +2521,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.status(500).json({ error: "Database not configured" });
   });
 
-  app.post("/api/upload", upload.single("profileImage"), (req: Request & { file?: Express.Multer.File }, res: Response) => {
+  app.post("/api/upload", requireCustomerAuth, upload.single("profileImage"), (req: Request & { file?: Express.Multer.File }, res: Response) => {
     if (!req.file) {
       return res.status(400).json({ error: "No file uploaded" });
     }

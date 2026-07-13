@@ -142,6 +142,22 @@ router.post("/api/vendor/mobile-auth", async (req, res) => {
     const { phoneNumber } = req.body;
     if (!phoneNumber) return res.status(400).json({ error: "رقم الهاتف مطلوب" });
 
+    // SECURITY: proof of phone ownership is required before issuing a vendor token.
+    // The app calls /api/auth/verify-otp first, which returns a customer JWT bound
+    // to the verified phone; we require that JWT here and confirm it matches the
+    // requested phone. Without this, anyone could mint a 7-day vendor token for any
+    // registered vendor phone (account takeover).
+    const authHeader = req.headers.authorization || "";
+    const bearer = authHeader.startsWith("Bearer ") ? authHeader.slice(7).trim() : "";
+    let verifiedPhone: string | null = null;
+    try {
+      const decoded = jwt.verify(bearer, JWT_SECRET) as any;
+      if (decoded.role === "customer" && decoded.phoneNumber) verifiedPhone = String(decoded.phoneNumber);
+    } catch { /* invalid/expired token → verifiedPhone stays null */ }
+    if (!verifiedPhone || verifiedPhone !== String(phoneNumber)) {
+      return res.status(401).json({ error: "غير مصرح — يرجى التحقق من رقم الهاتف أولاً" });
+    }
+
     const db = getFirestore();
     if (!db) return res.status(500).json({ error: "قاعدة البيانات غير متاحة" });
 
