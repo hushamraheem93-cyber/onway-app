@@ -7,6 +7,7 @@ import {
   ActivityIndicator,
   Pressable,
   TextInput,
+  Alert,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
@@ -19,6 +20,8 @@ import { useAuth } from "@/context/AuthContext";
 import { AppColors, Spacing, BorderRadius, Shadows, FontWeight } from "@/constants/theme";
 import { getApiUrl } from "@/lib/query-client";
 import { formatPrice } from "@/constants/currency";
+import { SettlementStatusBar } from "@/components/SettlementStatusBar";
+import { useSettlement } from "@/hooks/useSettlement";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface CompletedOrder {
@@ -612,6 +615,23 @@ export default function DriverEarningsScreen() {
   const tabBarHeight = useBottomTabBarHeight();
   const { theme }    = useTheme();
   const { phoneNumber } = useAuth();
+  const settlement = useSettlement("driver");
+  const handleRequestSettlement = useCallback(() => {
+    Alert.alert(
+      "طلب تسوية",
+      `سيتم إرسال طلب تسوية بالمبلغ ${formatPrice(settlement.view?.outstanding || 0)} إلى الإدارة.`,
+      [
+        { text: "إلغاء", style: "cancel" },
+        {
+          text: "إرسال",
+          onPress: async () => {
+            const r = await settlement.requestSettlement();
+            if (!r.ok) Alert.alert("تعذّر الطلب", r.error || "حاول مرة أخرى");
+          },
+        },
+      ],
+    );
+  }, [settlement]);
 
   const [earnings,     setEarnings]     = useState<EarningsData | null>(null);
   const [account,      setAccount]      = useState<DriverFinancialAccount | null>(null);
@@ -833,6 +853,13 @@ export default function DriverEarningsScreen() {
           })}
         </View>
       </View>
+
+      {/* Always-visible settlement status indicator (top of screen) */}
+      <SettlementStatusBar
+        view={settlement.view}
+        requesting={settlement.requesting}
+        onRequest={handleRequestSettlement}
+      />
 
       {/* Content */}
       {/* Payments tab ─────────────────────────────────────────────────────────── */}
