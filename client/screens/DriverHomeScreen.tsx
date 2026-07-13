@@ -31,7 +31,7 @@ import { useTheme } from "@/hooks/useTheme";
 import { useAuth } from "@/context/AuthContext";
 import { AppColors, Spacing, BorderRadius, Shadows, FontWeight} from "@/constants/theme";
 import { getApiUrl } from "@/lib/query-client";
-import { playLoudAlert } from "@/lib/alertSound";
+import { playRepeatingAlert, stopAlert } from "@/lib/alertSound";
 import { formatPrice } from "@/constants/currency";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
 
@@ -182,7 +182,7 @@ export default function DriverHomeScreen() {
   const triggerNewBatchAlert = useCallback((batch: CurrentBatch) => {
     Vibration.vibrate([0, 400, 200, 400, 200, 600]);
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
-    playLoudAlert();
+    playRepeatingAlert();
     const firstOrder = batch.orders[0];
     Notifications.scheduleNotificationAsync({
       content: {
@@ -541,6 +541,7 @@ export default function DriverHomeScreen() {
 
   const handleAcceptBatch = async () => {
     if (!phoneNumber || !currentBatch || isAccepting) return;
+    stopAlert(); // driver acknowledged the batch → silence the repeating alarm
     setIsAccepting(true);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
     if (countdownRef.current) {
@@ -571,6 +572,7 @@ export default function DriverHomeScreen() {
     // Guard: prevent double rejection (from countdown + manual button)
     if (isRejectingRef.current) return;
     isRejectingRef.current = true;
+    stopAlert(); // batch rejected/expired → silence the repeating alarm
     // Stop countdown immediately
     if (countdownRef.current) {
       clearInterval(countdownRef.current);

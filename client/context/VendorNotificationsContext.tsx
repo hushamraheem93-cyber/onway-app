@@ -18,7 +18,7 @@ import { io, Socket } from "socket.io-client";
 import { ThemedText } from "@/components/ThemedText";
 import { useAuth } from "@/context/AuthContext";
 import { getApiUrl } from "@/lib/query-client";
-import { playLoudAlert } from "@/lib/alertSound";
+import { playRepeatingAlert, stopAlert } from "@/lib/alertSound";
 
 const ORANGE = "#E86520";
 const POLL_INTERVAL_MS = 20_000;
@@ -55,6 +55,7 @@ export function VendorNotificationsProvider({ children }: { children: ReactNode 
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const dismissNewOrderPopup = useCallback(() => {
+    stopAlert(); // vendor acknowledged the new order → silence the repeating alarm
     setNewOrderPopup(null);
   }, []);
 
@@ -92,7 +93,7 @@ export function VendorNotificationsProvider({ children }: { children: ReactNode 
         if (Platform.OS !== "web") {
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
         }
-        playLoudAlert();
+        playRepeatingAlert();
       }
     } catch {}
   }, [vendorToken]);
