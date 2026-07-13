@@ -2884,9 +2884,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.delete("/api/admin/drivers/:id", async (req: Request, res: Response) => {
     try {
       const driverId = req.params.id as string;
+      // Capture the phone BEFORE deleting so we can evict the driver from live state.
+      const dbForDriver = getFirestore();
+      let phoneNumber: string | undefined;
+      if (dbForDriver) {
+        const doc = await dbForDriver.collection("drivers").doc(driverId).get();
+        if (doc.exists) phoneNumber = (doc.data() as any).phoneNumber;
+      }
+
       const success = await deleteDriverFn(driverId);
       if (!success) {
         return res.status(500).json({ error: "Failed to delete driver" });
+      }
+
+      // Data consistency: purge the deleted driver from all in-memory and persisted
+      // live state so they can never receive new batches or appear online afterwards.
+      if (phoneNumber) {
+        const idx = driverQueue.findIndex(d => d.phoneNumber === phoneNumber);
+        if (idx !== -1) driverQueue.splice(idx, 1);
+        driverLocations.delete(phoneNumber);
+        for (const [oid, drv] of driverAssignments.entries()) {
+          if (drv === phoneNumber) driverAssignments.delete(oid);
+        }
+        removeDriverFromActiveQueue(phoneNumber).catch(() => {});
       }
       res.json({ success: true });
     } catch (error: any) {
