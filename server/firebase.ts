@@ -538,6 +538,34 @@ export async function updateOrderStatus(id: string, status: FirestoreOrder["stat
   }
 }
 
+/**
+ * Atomically transition an order to "delivered" exactly once. Returns true ONLY for
+ * the first caller that performs the transition; a retry or duplicate complete-order
+ * for an already-delivered order returns false. This lets the caller credit driver
+ * earnings a single time, so a double-fire can never inflate totalEarnings/amountOwed.
+ */
+export async function markOrderDeliveredOnce(orderId: string): Promise<boolean> {
+  if (!db) return false;
+  const ref = db.collection("orders").doc(orderId);
+  try {
+    const won = await db.runTransaction(async (tx) => {
+      const snap = await tx.get(ref);
+      if (!snap.exists) return false;
+      const data = snap.data() as any;
+      if (data.status === "delivered") return false; // already completed → do not re-credit
+      const now = admin.firestore.Timestamp.now();
+      tx.update(ref, { status: "delivered", deliveredAt: now, updatedAt: now });
+      return true;
+    });
+    // Emit the same real-time event updateOrderStatus would, so live tracking updates.
+    if (won) orderEvents.emit("order:status", { orderId, status: "delivered" });
+    return won;
+  } catch (error) {
+    console.error("markOrderDeliveredOnce tx error:", error);
+    return false;
+  }
+}
+
 export async function updateOrderDriverInfo(id: string, data: {
   driverName?: string;
   driverPhone?: string;

@@ -41,7 +41,7 @@ import {
   updateDriverOnlineStatus, getOnlineDrivers, saveDriverPushToken, getDriverPushToken,
   getSupportChat, sendSupportMessage, getAllSupportChats, markSupportChatRead, clearSupportChat,
   createDeliveryBatch, getDeliveryBatch, updateDeliveryBatch, cancelDeliveryBatch, addDeliveryLog, DeliveryBatch,
-  claimBatchForDriver, cancelBatchIfPending,
+  claimBatchForDriver, cancelBatchIfPending, markOrderDeliveredOnce,
   saveAdminPushToken, getAdminPushToken,
   addDriverToActiveQueue, removeDriverFromActiveQueue, updateDriverQueueEntry, getActiveDriverQueue,
   deleteFromFirebaseStorage
@@ -3381,8 +3381,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const db = getFirestore();
       if (!db) return res.status(500).json({ error: "DB not configured" });
       const now = new Date();
-      await updateOrderStatus(orderId, "delivered");
-      await db.collection("orders").doc(orderId).update({ deliveredAt: now, updatedAt: now });
+      // Idempotency gate: only the FIRST completion of this order proceeds to credit
+      // earnings. A retry / double-fire on an already-delivered order is a safe no-op,
+      // so driver earnings and amountOwed can never be inflated by duplicate calls.
+      const firstDelivery = await markOrderDeliveredOnce(orderId);
+      if (!firstDelivery) {
+        return res.json({ success: true, alreadyCompleted: true });
+      }
       addDeliveryLog({ orderId, driverPhone: phoneNumber, action: "delivered", lat, lng }).catch(() => {});
 
       const allOrders = await getOrders();
