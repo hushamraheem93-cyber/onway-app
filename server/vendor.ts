@@ -7,7 +7,8 @@ import sharp from "sharp";
 import * as crypto from "crypto";
 import * as path from "path";
 import { getFirestore, getUserPushToken, getAdminPushToken, deleteFromFirebaseStorage } from "./firebase";
-import { sendVendorStatusNotification, sendVendorProductNotification, sendPushNotification, sendAdminOrderReadyNotification } from "./pushNotifications";
+import { sendVendorStatusNotification, sendVendorProductNotification, sendPushNotification, sendAdminOrderReadyNotification, sendAdminSettlementRequestNotification } from "./pushNotifications";
+import { createSettlementRequest, getAccountSettlementView, getSettlementHistory } from "./settlement";
 import { orderEvents } from "./orderEvents";
 import { isValidSession } from "./adminAuth";
 
@@ -321,6 +322,50 @@ router.get("/api/vendor/profile", requireVendor, async (req, res) => {
     res.json(safe);
   } catch (err) {
     console.error("vendor profile:", err);
+    res.status(500).json({ error: "حدث خطأ في الخادم" });
+  }
+});
+
+// ── Settlement (generic engine) — vendor read + request ─────────────────────
+router.get("/api/vendor/settlement", requireVendor, async (req, res) => {
+  try {
+    res.json(await getAccountSettlementView("vendor", (req as any).vendorId));
+  } catch (err: any) {
+    res.status(500).json({ error: "حدث خطأ في الخادم" });
+  }
+});
+
+router.get("/api/vendor/settlement/history", requireVendor, async (req, res) => {
+  try {
+    res.json(await getSettlementHistory("vendor", (req as any).vendorId));
+  } catch (err: any) {
+    res.status(500).json({ error: "حدث خطأ في الخادم" });
+  }
+});
+
+router.post("/api/vendor/settlement/request", requireVendor, async (req, res) => {
+  try {
+    const db = getFirestore();
+    const vid = (req as any).vendorId;
+    let storeName = vid;
+    if (db) {
+      const doc = await db.collection("vendors").doc(vid).get();
+      if (doc.exists) storeName = (doc.data() as any).storeName || (doc.data() as any).name || vid;
+    }
+    const result = await createSettlementRequest("vendor", vid, storeName);
+    if (!result.ok) {
+      if (result.reason === "already_requested")
+        return res.status(409).json({ error: "لديك طلب تسوية قيد المراجعة بالفعل" });
+      return res.status(400).json({ error: "لا توجد مبالغ مستحقة للتسوية" });
+    }
+    orderEvents.emit("settlement:request", {
+      requestId: result.requestId, accountType: "vendor", accountId: vid,
+      accountName: storeName, outstanding: result.outstanding, pendingOrderCount: result.pendingOrderCount,
+    });
+    const adminToken = await getAdminPushToken().catch(() => null);
+    if (adminToken) sendAdminSettlementRequestNotification(adminToken, "vendor", storeName, result.outstanding ?? 0).catch(() => {});
+    res.json({ success: true, requestId: result.requestId });
+  } catch (err: any) {
     res.status(500).json({ error: "حدث خطأ في الخادم" });
   }
 });

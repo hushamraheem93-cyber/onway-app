@@ -7,6 +7,7 @@ import {
   ActivityIndicator,
   RefreshControl,
   Dimensions,
+  Alert,
 } from "react-native";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
@@ -19,6 +20,9 @@ import { useAuth } from "@/context/AuthContext";
 import { getApiUrl } from "@/lib/query-client";
 import { formatPrice } from "@/constants/currency";
 import { AppColors } from "@/constants/theme";
+import { SettlementStatusBar } from "@/components/SettlementStatusBar";
+import { SettlementHistoryList } from "@/components/SettlementHistoryList";
+import { useSettlement } from "@/hooks/useSettlement";
 
 const PURPLE = AppColors.vendorPurple;
 const LIGHT_PURPLE = AppColors.vendorPurpleLight;
@@ -103,6 +107,23 @@ export default function VendorWalletScreen() {
   const headerHeight = useHeaderHeight();
   const tabBarHeight = useBottomTabBarHeight();
   const { vendorToken } = useAuth();
+  const settlement = useSettlement("vendor");
+  const handleRequestSettlement = useCallback(() => {
+    Alert.alert(
+      "طلب تسوية",
+      `سيتم إرسال طلب تسوية بالمبلغ ${formatPrice(settlement.view?.outstanding || 0)} إلى الإدارة.`,
+      [
+        { text: "إلغاء", style: "cancel" },
+        {
+          text: "إرسال",
+          onPress: async () => {
+            const r = await settlement.requestSettlement();
+            if (!r.ok) Alert.alert("تعذّر الطلب", r.error || "حاول مرة أخرى");
+          },
+        },
+      ],
+    );
+  }, [settlement]);
   const { theme } = useTheme();
   const [period, setPeriod] = useState<Period>("month");
 
@@ -142,6 +163,15 @@ export default function VendorWalletScreen() {
       }
       showsVerticalScrollIndicator={false}
     >
+      {/* Always-visible settlement status indicator (top of screen) */}
+      <SettlementStatusBar
+        view={settlement.view}
+        requesting={settlement.requesting}
+        onRequest={handleRequestSettlement}
+        containerStyle={{ marginHorizontal: 0, marginTop: 0 }}
+      />
+      <SettlementHistoryList history={settlement.history} />
+
       {/* Period filter */}
       <View style={styles.periodRow}>
         {(Object.keys(PERIOD_LABELS) as Period[]).map((p) => (

@@ -435,6 +435,43 @@ export async function sendVendorOrderReminderNotification(
   }
 }
 
+// ── Admin: a driver/vendor requested settlement ──────────────────────────────
+export async function sendAdminSettlementRequestNotification(
+  pushToken: string,
+  accountType: "driver" | "vendor",
+  accountName: string,
+  outstanding: number,
+): Promise<boolean> {
+  if (!pushToken || !pushToken.startsWith("ExponentPushToken")) return false;
+  const who = accountType === "driver" ? "سائق" : "متجر";
+  const message: ExpoPushMessage = {
+    to: pushToken,
+    title: "طلب تسوية جديد",
+    body: `${who}: ${accountName} · المستحق ${outstanding.toLocaleString("ar-IQ")} د.ع`,
+    sound: "default",
+    channelId: "default",
+    priority: "high",
+    ttl: 86400,
+    data: { type: "settlement_request", accountType, accountName },
+  };
+  try {
+    const response = await fetch("https://exp.host/--/api/v2/push/send", {
+      method: "POST",
+      headers: { Accept: "application/json", "Accept-Encoding": "gzip, deflate", "Content-Type": "application/json" },
+      body: JSON.stringify(message),
+    });
+    const result = (await response.json()) as { data: ExpoPushTicket };
+    if (result.data.status === "ok") {
+      console.log(`[PUSH] Admin settlement-request (${accountType}) → ${accountName}`);
+      return true;
+    }
+    return false;
+  } catch (error) {
+    console.error("[PUSH] Error sending admin settlement notification:", error);
+    return false;
+  }
+}
+
 // ── Admin: order ready for driver pickup ─────────────────────────────────────
 export async function sendAdminOrderReadyNotification(
   pushToken: string,
