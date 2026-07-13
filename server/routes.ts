@@ -41,6 +41,7 @@ import {
   updateDriverOnlineStatus, getOnlineDrivers, saveDriverPushToken, getDriverPushToken,
   getSupportChat, sendSupportMessage, getAllSupportChats, markSupportChatRead, clearSupportChat,
   createDeliveryBatch, getDeliveryBatch, updateDeliveryBatch, cancelDeliveryBatch, addDeliveryLog, DeliveryBatch,
+  claimBatchForDriver, cancelBatchIfPending,
   saveAdminPushToken, getAdminPushToken,
   addDriverToActiveQueue, removeDriverFromActiveQueue, updateDriverQueueEntry, getActiveDriverQueue,
   deleteFromFirebaseStorage
@@ -3283,27 +3284,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const db = getFirestore();
       if (!db) return res.status(500).json({ error: "DB not configured" });
-      const batchDoc = await getDeliveryBatch(batchId);
-      if (!batchDoc) return res.status(404).json({ error: "Batch not found" });
-      // Acceptance guards: the batch must have been offered to THIS driver and must
-      // still be pending. Prevents a double-tap or two drivers racing from both
-      // "accepting" the same batch and corrupting the assignment.
-      if (batchDoc.driverId !== phoneNumber) {
-        return res.status(403).json({ error: "هذه الدفعة غير معروضة لك" });
-      }
-      if (batchDoc.status !== "pending") {
+      // Atomically claim the batch (pending → in_progress) if it is still pending and
+      // was offered to THIS driver. This compare-and-set is the sole authority for
+      // acceptance: it can never be clobbered by the offer-timeout sweep, and a
+      // double-tap or two-driver race resolves to exactly one winner.
+      const claim = await claimBatchForDriver(batchId, phoneNumber);
+      if (!claim.ok) {
+        if (claim.reason === "not_found") return res.status(404).json({ error: "Batch not found" });
+        if (claim.reason === "not_offered") return res.status(403).json({ error: "هذه الدفعة غير معروضة لك" });
         return res.status(409).json({ error: "لم تعد هذه الدفعة متاحة" });
       }
       const driver = await getDriverByPhone(phoneNumber);
       const driverName = driver?.fullName || phoneNumber;
       // Set all orders in batch to "preparing" and tag with driver info
-      for (const orderId of batchDoc.orderIds) {
+      for (const orderId of claim.orderIds) {
         await updateOrderStatus(orderId, "preparing");
         await updateOrderDriverInfo(orderId, { driverName, driverPhone: phoneNumber });
         driverAssignments.set(orderId, phoneNumber);
         addDeliveryLog({ orderId, driverPhone: phoneNumber, action: "accepted" }).catch(() => {});
       }
-      await updateDeliveryBatch(batchId, { status: "in_progress", startTime: new Date().toISOString() });
+      // Batch was already moved to in_progress (with startTime) inside claimBatchForDriver.
       const qd = driverQueue.find(d => d.phoneNumber === phoneNumber);
       if (qd) {
         qd.currentBatchId = batchId;
@@ -3957,6 +3957,55 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.error("[GHOST_CLEANUP] error:", e);
     }
   }, 10 * 60 * 1000);
+
+  // Offer-timeout sweep: a batch that was OFFERED to a driver but never accepted
+  // (e.g. the driver's app closed before the client-side 30s countdown could
+  // auto-reject) would otherwise stay "pending" forever — the ghost-cleanup above
+  // intentionally skips drivers holding a batch, so the order got stuck with a
+  // driver who will never respond. Every 20s, release any still-pending batch older
+  // than the threshold and reassign its orders, mirroring a manual reject-order.
+  const OFFER_TIMEOUT_MS = 90 * 1000; // well beyond the 30s client accept countdown
+  setInterval(async () => {
+    try {
+      const now = Date.now();
+      // Snapshot holders first so we don't mutate driverQueue while iterating it.
+      const holders = driverQueue.filter(d => d.currentBatchId);
+      for (const qd of holders) {
+        const batchId = qd.currentBatchId!;
+        const batchDoc = await getDeliveryBatch(batchId);
+        if (!batchDoc) { qd.currentBatchId = undefined; continue; }
+        if (batchDoc.status !== "pending") continue; // accepted/in-progress → leave it
+        const createdMs = batchDoc.createdAt?.toDate?.() ? batchDoc.createdAt.toDate().getTime() : 0;
+        if (createdMs === 0 || (now - createdMs) < OFFER_TIMEOUT_MS) continue;
+
+        // Atomically cancel ONLY if still pending. If the driver accepted a moment
+        // ago (→ in_progress), or another overlapping sweep / server instance already
+        // released it, this returns false and we touch nothing — acceptance always
+        // wins and the release runs at most once (idempotent).
+        const released = await cancelBatchIfPending(batchId);
+        if (!released) continue;
+
+        // Release like reject-order: free the orders, requeue the driver at the end,
+        // apply a rejection cooldown, then reassign.
+        batchDoc.orderIds.forEach(id => batchedOrderIds.delete(id));
+        qd.currentBatchId = undefined;
+        const idx = driverQueue.findIndex(d => d.phoneNumber === qd.phoneNumber);
+        if (idx !== -1) {
+          const savedPushToken = qd.pushToken;
+          driverQueue.splice(idx, 1);
+          driverQueue.push({ phoneNumber: qd.phoneNumber, joinedAt: Date.now(), pushToken: savedPushToken });
+        }
+        updateDriverQueueEntry(qd.phoneNumber, { hasActiveBatch: false, joinedAt: Date.now() }).catch(() => {});
+        if (!driverRejectionCooldowns.has(qd.phoneNumber)) driverRejectionCooldowns.set(qd.phoneNumber, new Map());
+        const cd = driverRejectionCooldowns.get(qd.phoneNumber)!;
+        batchDoc.orderIds.forEach(id => cd.set(id, Date.now()));
+        console.warn(`[OFFER_TIMEOUT] Released stale pending batch ${batchId} from ${qd.phoneNumber} (>${OFFER_TIMEOUT_MS / 1000}s), reassigning`);
+        onOrderConfirmed();
+      }
+    } catch (e) {
+      console.error("[OFFER_TIMEOUT] error:", e);
+    }
+  }, 20 * 1000);
 
   // REMOVED (2026-07-04): /api/driver/assign-pending-orders was dead code that corrupted
   // driver state — it wrote a raw order.id into currentBatchId without ever creating a real
