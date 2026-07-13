@@ -108,6 +108,9 @@ function setupRateLimiter(app: express.Application) {
     "/api/admin/login": 10,
     "/api/vendor/mobile-auth": 20,
     "/api/users": 30,
+    // Auth OTP endpoints: strict limits so codes cannot be spammed or brute-forced.
+    "/api/auth/send-otp": 5,
+    "/api/auth/verify-otp": 15,
     default: 600,
   };
 

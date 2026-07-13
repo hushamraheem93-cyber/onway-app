@@ -1100,13 +1100,17 @@ export async function initializeDefaultDeliveryAreas(defaultAreas: any[]): Promi
 }
 
 // OTP Functions
-const otpStore = new Map<string, { code: string; expiresAt: number }>();
+const OTP_TTL_MS = 5 * 60 * 1000;
+const OTP_MAX_ATTEMPTS = 5; // wrong tries before the code is invalidated (brute-force guard)
+const otpStore = new Map<string, { code: string; expiresAt: number; attempts: number }>();
 
 export function generateOtp(phoneNumber: string): string {
-  const code = Math.floor(1000 + Math.random() * 9000).toString();
+  // 6-digit code (was 4) — a much larger keyspace against brute force.
+  const code = Math.floor(100000 + Math.random() * 900000).toString();
   otpStore.set(phoneNumber, {
     code,
-    expiresAt: Date.now() + 5 * 60 * 1000,
+    expiresAt: Date.now() + OTP_TTL_MS,
+    attempts: 0,
   });
   return code;
 }
@@ -1128,7 +1132,13 @@ export function verifyOtp(phoneNumber: string, code: string): boolean {
     otpStore.delete(phoneNumber);
     return false;
   }
-  if (stored.code !== code) return false;
+  if (stored.code !== code) {
+    // Invalidate the code after too many wrong attempts so it can't be brute-forced
+    // within its validity window; the user must request a fresh code.
+    stored.attempts += 1;
+    if (stored.attempts >= OTP_MAX_ATTEMPTS) otpStore.delete(phoneNumber);
+    return false;
+  }
   otpStore.delete(phoneNumber);
   return true;
 }

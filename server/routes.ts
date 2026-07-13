@@ -47,6 +47,7 @@ import {
   deleteFromFirebaseStorage
 } from "./firebase";
 import { sendPushNotification, sendBroadcastNotification, sendDriverBatchNotification, sendAdminNewOrderNotification, sendVendorNewOrderNotification } from "./pushNotifications";
+import { deliverOtp } from "./otpDelivery";
 
 const uploadsDir = path.join(process.cwd(), "uploads");
 if (!fs.existsSync(uploadsDir)) {
@@ -2725,13 +2726,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // OTP Auth Routes
-  app.post("/api/auth/send-otp", (req: Request, res: Response) => {
-    const { phoneNumber } = req.body;
+  app.post("/api/auth/send-otp", async (req: Request, res: Response) => {
+    const { phoneNumber, channel } = req.body;
     if (!phoneNumber) {
       return res.status(400).json({ error: "Phone number is required" });
     }
     const code = generateOtp(phoneNumber);
-    res.json({ success: true, message: "OTP sent successfully" });
+    // Actually deliver the code (was previously generated and discarded). Delivery is
+    // best-effort and never blocks the flow; `delivered` reflects the real outcome.
+    const result = await deliverOtp(phoneNumber, code, channel === "whatsapp" ? "whatsapp" : "sms");
+    res.json({
+      success: true,
+      delivered: result.delivered,
+      channel: result.channel,
+      message: result.delivered ? "OTP sent successfully" : "تعذّر إرسال الرمز حالياً (لم يُهيّأ مزوّد الإرسال)",
+    });
   });
 
   app.post("/api/auth/verify-otp", (req: Request, res: Response) => {
