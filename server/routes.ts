@@ -46,8 +46,11 @@ import {
   addDriverToActiveQueue, removeDriverFromActiveQueue, updateDriverQueueEntry, getActiveDriverQueue,
   deleteFromFirebaseStorage
 } from "./firebase";
-import { recordOrderSettlement } from "./settlement";
-import { sendPushNotification, sendBroadcastNotification, sendDriverBatchNotification, sendAdminNewOrderNotification, sendVendorNewOrderNotification } from "./pushNotifications";
+import {
+  recordOrderSettlement, createSettlementRequest, getAccountSettlementView,
+  getSettlementHistory, listSettlementRequests,
+} from "./settlement";
+import { sendPushNotification, sendBroadcastNotification, sendDriverBatchNotification, sendAdminNewOrderNotification, sendVendorNewOrderNotification, sendAdminSettlementRequestNotification } from "./pushNotifications";
 
 const uploadsDir = path.join(process.cwd(), "uploads");
 if (!fs.existsSync(uploadsDir)) {
@@ -3629,6 +3632,63 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ── Settlement (generic engine) — driver read + request ─────────────────────
+  app.get("/api/driver/settlement", async (req: Request, res: Response) => {
+    const phoneNumber = req.query.phoneNumber as string;
+    if (!phoneNumber) return res.status(400).json({ error: "Phone number required" });
+    try {
+      res.json(await getAccountSettlementView("driver", phoneNumber));
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.get("/api/driver/settlement/history", async (req: Request, res: Response) => {
+    const phoneNumber = req.query.phoneNumber as string;
+    if (!phoneNumber) return res.status(400).json({ error: "Phone number required" });
+    try {
+      res.json(await getSettlementHistory("driver", phoneNumber));
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post("/api/driver/settlement/request", async (req: Request, res: Response) => {
+    const { phoneNumber } = req.body;
+    if (!phoneNumber) return res.status(400).json({ error: "Phone number required" });
+    try {
+      const driver = await getDriverByPhone(phoneNumber).catch(() => null);
+      const name = driver?.fullName || phoneNumber;
+      const result = await createSettlementRequest("driver", phoneNumber, name);
+      if (!result.ok) {
+        if (result.reason === "already_requested")
+          return res.status(409).json({ error: "لديك طلب تسوية قيد المراجعة بالفعل" });
+        return res.status(400).json({ error: "لا توجد مبالغ مستحقة للتسوية" });
+      }
+      // Real-time to admin panel + push (reuses the orderEvents → socket forwarder).
+      orderEvents.emit("settlement:request", {
+        requestId: result.requestId, accountType: "driver", accountId: phoneNumber,
+        accountName: name, outstanding: result.outstanding, pendingOrderCount: result.pendingOrderCount,
+      });
+      const adminToken = await getAdminPushToken().catch(() => null);
+      if (adminToken) sendAdminSettlementRequestNotification(adminToken, "driver", name, result.outstanding ?? 0).catch(() => {});
+      res.json({ success: true, requestId: result.requestId });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // ── Settlement — admin request inbox ────────────────────────────────────────
+  app.get("/api/admin/settlement-requests", async (req: Request, res: Response) => {
+    const status = (req.query.status as string) || "pending";
+    const accountType = req.query.accountType as ("driver" | "vendor" | undefined);
+    try {
+      res.json({ requests: await listSettlementRequests(status, accountType) });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // Legacy recharge endpoint kept for backward compat — records as payment
   app.post("/api/admin/driver-wallet/recharge", async (req: Request, res: Response) => {
     const { phoneNumber, amount, notes } = req.body;
@@ -5726,6 +5786,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
     if (!payload?.orderId) return;
     ioServer.to(`order:${payload.orderId}`).emit("order:status", payload);
     ioServer.emit("orders:changed", payload);
+  });
+
+  // Real-time settlement requests → admin panel refreshes its inbox instantly.
+  orderEvents.on("settlement:request", (payload: Record<string, unknown>) => {
+    ioServer.emit("settlement:request", payload);
+    ioServer.emit("settlements:changed", payload);
   });
 
   ioServer.on("connection", (socket) => {
