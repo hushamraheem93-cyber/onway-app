@@ -1,5 +1,5 @@
 import React from "react";
-import { View, StyleSheet, Pressable, ActivityIndicator } from "react-native";
+import { View, StyleSheet, Pressable, ActivityIndicator, StyleProp, ViewStyle } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { ThemedText } from "@/components/ThemedText";
 import { AppColors, Spacing, BorderRadius, FontWeight } from "@/constants/theme";
@@ -18,10 +18,12 @@ export function SettlementStatusBar({
   view,
   requesting,
   onRequest,
+  containerStyle,
 }: {
   view: SettlementView | null;
   requesting: boolean;
   onRequest: () => void;
+  containerStyle?: StyleProp<ViewStyle>;
 }) {
   if (!view) return null;
 
@@ -35,7 +37,7 @@ export function SettlementStatusBar({
   }[view.status];
 
   return (
-    <View style={[styles.card, { backgroundColor: palette.bg, borderColor: palette.border }]}>
+    <View style={[styles.card, { backgroundColor: palette.bg, borderColor: palette.border }, containerStyle]}>
       <View style={styles.row}>
         <View style={styles.left}>
           {view.status === "settled" ? (
