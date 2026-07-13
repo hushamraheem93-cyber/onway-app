@@ -20,6 +20,8 @@
 // Delivery is best-effort: it never throws, and returns { delivered } so callers can
 // report an accurate status without blocking the auth flow.
 
+import { isDevMode } from "./env";
+
 export type OtpChannel = "sms" | "whatsapp";
 
 export interface OtpDeliveryResult {
@@ -47,7 +49,7 @@ export async function deliverOtp(
 
   if (!apiKey) {
     // No credentials configured. In dev, log so testing is possible; never in real prod.
-    if (process.env.ALLOW_DEV_OTP === "true" && process.env.REPLIT_DEPLOYMENT !== "1") {
+    if (isDevMode()) {
       console.log(`[OTP] (OTPIQ not configured) → ${phoneNumber}: ${code}`);
     } else {
       console.warn(`[OTP] OTP_IQ_API_KEY not set — code not delivered to ${phoneNumber}`);

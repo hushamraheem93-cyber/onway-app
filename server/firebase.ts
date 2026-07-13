@@ -1,5 +1,6 @@
 import admin from "firebase-admin";
 import { orderEvents } from "./orderEvents";
+import { isDevMode } from "./env";
 
 let db: admin.firestore.Firestore | null = null;
 
@@ -1116,14 +1117,10 @@ export function generateOtp(phoneNumber: string): string {
 }
 
 export function verifyOtp(phoneNumber: string, code: string): boolean {
-  // Dev-only bypass: requires ALLOW_DEV_OTP=true AND not running as a published Replit deployment.
-  // NODE_ENV is always "production" in this workspace's server build, so we use REPLIT_DEPLOYMENT
-  // (only set to "1" on actual published deployments) to distinguish real production from dev/testing.
-  if (
-    code === "0000" &&
-    process.env.ALLOW_DEV_OTP === "true" &&
-    process.env.REPLIT_DEPLOYMENT !== "1"
-  ) {
+  // Development-only bypass: the fixed code "0000" is always accepted in dev mode
+  // (NODE_ENV=development or DEV_MODE=true, and never on a published deployment).
+  // In production this branch is inert, so only a real OTPIQ-delivered code works.
+  if (code === "0000" && isDevMode()) {
     return true;
   }
   const stored = otpStore.get(phoneNumber);
