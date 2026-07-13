@@ -2078,21 +2078,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let verifiedSubtotal = 0;
       const unknownProductIds: string[] = [];
       const priceMismatchProductIds: string[] = [];
+      const outOfStockNames: string[] = [];
 
       let allItemsAreRestaurant = items.length > 0;
 
       for (const it of items as any[]) {
         let realPrice: number | undefined;
+        let available = true; // only an explicit inStock === false blocks the order
         const legacyProduct = allProductsForPricing.find((p: any) => p.id === it.productId);
         if (legacyProduct && !Number.isNaN(Number(legacyProduct.price))) {
           realPrice = Number(legacyProduct.price);
+          if (legacyProduct.inStock === false) available = false;
           if (legacyProduct.categoryId !== "restaurants") allItemsAreRestaurant = false;
         } else {
           // Fall back to vendorProducts collection (vendor-added items aren't in the legacy cache)
           const vpDoc = await db.collection("vendorProducts").doc(it.productId).get();
           if (vpDoc.exists) {
-            const vpPrice = Number((vpDoc.data() as any)?.price);
+            const vp = vpDoc.data() as any;
+            const vpPrice = Number(vp?.price);
             if (!Number.isNaN(vpPrice)) realPrice = vpPrice;
+            if (vp?.inStock === false) available = false;
           }
           // Vendor-added items are never legacy "restaurants" category products
           allItemsAreRestaurant = false;
@@ -2100,6 +2105,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         if (realPrice === undefined) {
           unknownProductIds.push(it.productId);
+          continue;
+        }
+        if (!available) {
+          outOfStockNames.push(it.name || it.productId);
           continue;
         }
 
@@ -2113,6 +2122,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       if (unknownProductIds.length > 0) {
         return res.status(400).json({ error: `منتج غير موجود أو غير متاح: ${unknownProductIds.join(", ")}` });
+      }
+      // Reject orders that contain an item the vendor has marked out of stock.
+      if (outOfStockNames.length > 0) {
+        return res.status(400).json({ error: `بعض المنتجات غير متوفّرة حالياً: ${outOfStockNames.join("، ")} — يرجى تحديث السلة` });
       }
       if (priceMismatchProductIds.length > 0) {
         console.warn(`[FRAUD_CHECK] Price mismatch on order from ${phoneNumber} — productIds: ${priceMismatchProductIds.join(", ")}, client total: ${total}`);
