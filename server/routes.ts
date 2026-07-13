@@ -47,6 +47,8 @@ import {
   deleteFromFirebaseStorage
 } from "./firebase";
 import { sendPushNotification, sendBroadcastNotification, sendDriverBatchNotification, sendAdminNewOrderNotification, sendVendorNewOrderNotification } from "./pushNotifications";
+import { deliverOtp } from "./otpDelivery";
+import { isDevMode } from "./env";
 
 const uploadsDir = path.join(process.cwd(), "uploads");
 if (!fs.existsSync(uploadsDir)) {
@@ -2725,13 +2727,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // OTP Auth Routes
-  app.post("/api/auth/send-otp", (req: Request, res: Response) => {
-    const { phoneNumber } = req.body;
+  app.post("/api/auth/send-otp", async (req: Request, res: Response) => {
+    const { phoneNumber, channel } = req.body;
     if (!phoneNumber) {
       return res.status(400).json({ error: "Phone number is required" });
     }
     const code = generateOtp(phoneNumber);
-    res.json({ success: true, message: "OTP sent successfully" });
+
+    // Development mode: no SMS is ever sent; the tester signs in with the 0000 code.
+    if (isDevMode()) {
+      return res.json({ success: true, delivered: false, devMode: true, message: "وضع التطوير: استخدم الرمز 0000" });
+    }
+
+    // Production mode: OTPIQ is required. Fail clearly if it is not configured.
+    if (!process.env.OTP_IQ_API_KEY) {
+      console.error("[OTP] OTP_IQ_API_KEY missing in production — cannot send OTP");
+      return res.status(503).json({ error: "خدمة إرسال رمز التحقق غير مهيّأة. يرجى المحاولة لاحقاً." });
+    }
+
+    const result = await deliverOtp(phoneNumber, code, channel === "whatsapp" ? "whatsapp" : "sms");
+    res.json({
+      success: true,
+      delivered: result.delivered,
+      channel: result.channel,
+      message: result.delivered ? "OTP sent successfully" : "تعذّر إرسال رمز التحقق، حاول مرة أخرى",
+    });
   });
 
   app.post("/api/auth/verify-otp", (req: Request, res: Response) => {
