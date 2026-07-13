@@ -41,6 +41,7 @@ import {
   updateDriverOnlineStatus, getOnlineDrivers, saveDriverPushToken, getDriverPushToken,
   getSupportChat, sendSupportMessage, getAllSupportChats, markSupportChatRead, clearSupportChat,
   createDeliveryBatch, getDeliveryBatch, updateDeliveryBatch, cancelDeliveryBatch, addDeliveryLog, DeliveryBatch,
+  claimBatchForDriver, cancelBatchIfPending,
   saveAdminPushToken, getAdminPushToken,
   addDriverToActiveQueue, removeDriverFromActiveQueue, updateDriverQueueEntry, getActiveDriverQueue,
   deleteFromFirebaseStorage
@@ -3283,27 +3284,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const db = getFirestore();
       if (!db) return res.status(500).json({ error: "DB not configured" });
-      const batchDoc = await getDeliveryBatch(batchId);
-      if (!batchDoc) return res.status(404).json({ error: "Batch not found" });
-      // Acceptance guards: the batch must have been offered to THIS driver and must
-      // still be pending. Prevents a double-tap or two drivers racing from both
-      // "accepting" the same batch and corrupting the assignment.
-      if (batchDoc.driverId !== phoneNumber) {
-        return res.status(403).json({ error: "هذه الدفعة غير معروضة لك" });
-      }
-      if (batchDoc.status !== "pending") {
+      // Atomically claim the batch (pending → in_progress) if it is still pending and
+      // was offered to THIS driver. This compare-and-set is the sole authority for
+      // acceptance: it can never be clobbered by the offer-timeout sweep, and a
+      // double-tap or two-driver race resolves to exactly one winner.
+      const claim = await claimBatchForDriver(batchId, phoneNumber);
+      if (!claim.ok) {
+        if (claim.reason === "not_found") return res.status(404).json({ error: "Batch not found" });
+        if (claim.reason === "not_offered") return res.status(403).json({ error: "هذه الدفعة غير معروضة لك" });
         return res.status(409).json({ error: "لم تعد هذه الدفعة متاحة" });
       }
       const driver = await getDriverByPhone(phoneNumber);
       const driverName = driver?.fullName || phoneNumber;
       // Set all orders in batch to "preparing" and tag with driver info
-      for (const orderId of batchDoc.orderIds) {
+      for (const orderId of claim.orderIds) {
         await updateOrderStatus(orderId, "preparing");
         await updateOrderDriverInfo(orderId, { driverName, driverPhone: phoneNumber });
         driverAssignments.set(orderId, phoneNumber);
         addDeliveryLog({ orderId, driverPhone: phoneNumber, action: "accepted" }).catch(() => {});
       }
-      await updateDeliveryBatch(batchId, { status: "in_progress", startTime: new Date().toISOString() });
+      // Batch was already moved to in_progress (with startTime) inside claimBatchForDriver.
       const qd = driverQueue.find(d => d.phoneNumber === phoneNumber);
       if (qd) {
         qd.currentBatchId = batchId;
@@ -3978,10 +3978,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const createdMs = batchDoc.createdAt?.toDate?.() ? batchDoc.createdAt.toDate().getTime() : 0;
         if (createdMs === 0 || (now - createdMs) < OFFER_TIMEOUT_MS) continue;
 
-        // Release exactly like reject-order: free the orders, cancel the batch,
-        // requeue the driver at the end, apply a rejection cooldown, then reassign.
+        // Atomically cancel ONLY if still pending. If the driver accepted a moment
+        // ago (→ in_progress), or another overlapping sweep / server instance already
+        // released it, this returns false and we touch nothing — acceptance always
+        // wins and the release runs at most once (idempotent).
+        const released = await cancelBatchIfPending(batchId);
+        if (!released) continue;
+
+        // Release like reject-order: free the orders, requeue the driver at the end,
+        // apply a rejection cooldown, then reassign.
         batchDoc.orderIds.forEach(id => batchedOrderIds.delete(id));
-        await cancelDeliveryBatch(batchId).catch(() => {});
         qd.currentBatchId = undefined;
         const idx = driverQueue.findIndex(d => d.phoneNumber === qd.phoneNumber);
         if (idx !== -1) {

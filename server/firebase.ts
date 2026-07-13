@@ -1819,6 +1819,79 @@ export async function cancelDeliveryBatch(batchId: string): Promise<void> {
   }
 }
 
+// ── Atomic batch-status transitions (compare-and-set on `status`) ───────────────
+// These use a Firestore transaction so that a driver ACCEPTING a batch and the
+// server-side offer-timeout CANCELLING it can never both win: whichever transaction
+// commits first flips `status` away from "pending", and the other re-reads the new
+// value and aborts. They are also idempotent across overlapping sweeps / multiple
+// server instances — only the single transaction that flips pending→X succeeds.
+
+/** Atomically claim a still-pending batch for the driver it was offered to,
+ *  moving it to "in_progress". Returns the order ids on success. */
+export async function claimBatchForDriver(
+  batchId: string,
+  driverPhone: string,
+): Promise<
+  | { ok: true; orderIds: string[] }
+  | { ok: false; reason: "not_found" | "not_offered" | "not_pending" }
+> {
+  const db = getFirestore();
+  if (!db) return { ok: false, reason: "not_found" };
+  const ref = db.collection("delivery_batches").doc(batchId);
+  try {
+    return await db.runTransaction(async (tx) => {
+      const snap = await tx.get(ref);
+      if (!snap.exists) return { ok: false, reason: "not_found" as const };
+      const data = snap.data() as DeliveryBatch;
+      if (data.driverId !== driverPhone) return { ok: false, reason: "not_offered" as const };
+      if (data.status !== "pending") return { ok: false, reason: "not_pending" as const };
+      tx.update(ref, {
+        status: "in_progress",
+        startTime: new Date().toISOString(),
+        updatedAt: admin.firestore.Timestamp.now(),
+      });
+      return { ok: true as const, orderIds: data.orderIds };
+    });
+  } catch (error) {
+    console.error("claimBatchForDriver tx error:", error);
+    return { ok: false, reason: "not_found" };
+  }
+}
+
+/** Atomically cancel a batch ONLY if it is still "pending", also clearing the
+ *  batch tag from its not-yet-delivered orders. Returns true iff THIS call performed
+ *  the cancellation, so exactly one caller proceeds to release & reassign. */
+export async function cancelBatchIfPending(batchId: string): Promise<boolean> {
+  const db = getFirestore();
+  if (!db) return false;
+  const batchRef = db.collection("delivery_batches").doc(batchId);
+  try {
+    return await db.runTransaction(async (tx) => {
+      const snap = await tx.get(batchRef);
+      if (!snap.exists) return false;
+      const data = snap.data() as DeliveryBatch;
+      if (data.status !== "pending") return false; // accepted or already cancelled → we lost the race
+      // All reads must precede writes inside a transaction.
+      const orderRefs = data.orderIds.map((id) => db.collection("orders").doc(id));
+      const orderSnaps: FirebaseFirestore.DocumentSnapshot[] = [];
+      for (const r of orderRefs) orderSnaps.push(await tx.get(r));
+      const now = admin.firestore.Timestamp.now();
+      orderSnaps.forEach((os, i) => {
+        if (!os.exists) return;
+        const od = os.data() as any;
+        if (["confirmed", "preparing", "ready", "picked_up"].includes(od.status)) {
+          tx.update(orderRefs[i], { batchId: null, deliverySequence: 0, updatedAt: now });
+        }
+      });
+      tx.update(batchRef, { status: "cancelled", updatedAt: now });
+      return true;
+    });
+  } catch (error) {
+    console.error("cancelBatchIfPending tx error:", error);
+    return false;
+  }
+}
+
 // ========== Driver Financial Account System ==========
 // Replaces old wallet-recharge model.
 // Each order delivery adds to driver earnings and onway commission.
