@@ -1088,6 +1088,10 @@ router.patch("/api/vendor/orders/:id/status", requireVendor, async (req, res) =>
     }
     await orderRef.update(updateData);
 
+    // Real-time: broadcast the status change so customer/driver/admin update instantly
+    // (routes.ts forwards to the order room + broadcasts orders:changed). Additive only.
+    orderEvents.emit("order:status", { orderId, status });
+
     // Trigger immediate driver-assignment attempt when a vendor confirms an order.
     // Without this, vendor-confirmed orders (the primary real-world flow) only got
     // picked up by the 30-second background watchdog in routes.ts — up to 30s of

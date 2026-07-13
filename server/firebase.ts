@@ -1,4 +1,5 @@
 import admin from "firebase-admin";
+import { orderEvents } from "./orderEvents";
 
 let db: admin.firestore.Firestore | null = null;
 
@@ -512,6 +513,9 @@ export async function createOrder(data: Omit<FirestoreOrder, "createdAt" | "upda
     const now = admin.firestore.Timestamp.now();
     const orderDoc: FirestoreOrder = { ...data, createdAt: now, updatedAt: now };
     const docRef = await db.collection("orders").add(orderDoc);
+    // Real-time: broadcast the new order so vendor/admin lists refresh instantly
+    // (reuses the same orders:changed ping path). Additive only.
+    orderEvents.emit("order:status", { orderId: docRef.id, status: orderDoc.status });
     return { id: docRef.id, ...orderDoc };
   } catch (error) {
     console.error("Error creating order:", error);
@@ -524,6 +528,9 @@ export async function updateOrderStatus(id: string, status: FirestoreOrder["stat
   
   try {
     await db.collection("orders").doc(id).update({ status, updatedAt: admin.firestore.Timestamp.now() });
+    // Real-time: notify listeners (routes.ts forwards this to the order's socket room
+    // and broadcasts orders:changed). Additive only — HTTP polling remains the fallback.
+    orderEvents.emit("order:status", { orderId: id, status });
     return true;
   } catch (error) {
     console.error("Error updating order status:", error);

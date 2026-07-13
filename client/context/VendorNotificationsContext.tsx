@@ -13,6 +13,7 @@ import { View, StyleSheet, Pressable, Modal, Platform } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import * as Notifications from "expo-notifications";
 import * as Haptics from "expo-haptics";
+import { io, Socket } from "socket.io-client";
 
 import { ThemedText } from "@/components/ThemedText";
 import { useAuth } from "@/context/AuthContext";
@@ -105,6 +106,26 @@ export function VendorNotificationsProvider({ children }: { children: ReactNode 
     return () => {
       if (pollRef.current) clearInterval(pollRef.current);
       pollRef.current = null;
+    };
+  }, [vendorToken, checkNewOrders]);
+
+  // Real-time: when the server broadcasts an order change (new order or status
+  // change), re-check immediately instead of waiting up to 20s. The poll above
+  // stays as a fallback. Additive only.
+  const socketRef = useRef<Socket | null>(null);
+  useEffect(() => {
+    if (!vendorToken) return;
+    const sock = io(getApiUrl(), {
+      transports: ["websocket", "polling"],
+      reconnection: true,
+      reconnectionAttempts: 10,
+      reconnectionDelay: 3000,
+    });
+    socketRef.current = sock;
+    sock.on("orders:changed", () => { checkNewOrders(); });
+    return () => {
+      sock.disconnect();
+      socketRef.current = null;
     };
   }, [vendorToken, checkNewOrders]);
 
