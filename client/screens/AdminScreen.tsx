@@ -181,6 +181,17 @@ export default function AdminScreen() {
   const [completeTarget, setCompleteTarget] = useState<any | null>(null);
   const [completeAmount, setCompleteAmount] = useState("");
   const [completeBusy, setCompleteBusy] = useState(false);
+  const [detailTarget, setDetailTarget] = useState<any | null>(null);
+  const [detailData, setDetailData] = useState<any | null>(null);
+  const [detailBusy, setDetailBusy] = useState(false);
+
+  const openSettlementDetails = useCallback(async (a: any) => {
+    setDetailTarget(a); setDetailData(null); setDetailBusy(true);
+    try {
+      const res = await fetch(`${getApiUrl()}/api/admin/settlement-account?accountType=${a.accountType}&accountId=${encodeURIComponent(a.accountId)}`, { credentials: "include" });
+      if (res.ok) setDetailData(await res.json());
+    } catch { /* ignore */ } finally { setDetailBusy(false); }
+  }, []);
 
   const { data: settlementAccounts = [] } = useQuery<any[]>({
     queryKey: ["/api/admin/settlement-accounts", settleView],
@@ -2899,18 +2910,24 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
         </ThemedText>
         <View style={{ flexDirection: "row-reverse", gap: 8 }}>
           <Pressable
+            onPress={() => openSettlementDetails(a)}
+            style={{ flex: 1, backgroundColor: theme.backgroundRoot, borderWidth: 1, borderColor: theme.border, borderRadius: 10, paddingVertical: 9, alignItems: "center" }}
+          >
+            <ThemedText style={{ color: theme.text, fontFamily: "Cairo_700Bold", fontSize: 13 }}>تفاصيل</ThemedText>
+          </Pressable>
+          <Pressable
             onPress={doFull}
             disabled={!canSettle}
             style={{ flex: 1, backgroundColor: canSettle ? AppColors.success : theme.border, borderRadius: 10, paddingVertical: 9, alignItems: "center" }}
           >
-            <ThemedText style={{ color: AppColors.white, fontFamily: "Cairo_700Bold", fontSize: 13 }}>تسوية كاملة</ThemedText>
+            <ThemedText style={{ color: AppColors.white, fontFamily: "Cairo_700Bold", fontSize: 13 }}>كاملة</ThemedText>
           </Pressable>
           <Pressable
             onPress={doPartial}
             disabled={!canSettle}
             style={{ flex: 1, backgroundColor: canSettle ? AppColors.primary : theme.border, borderRadius: 10, paddingVertical: 9, alignItems: "center" }}
           >
-            <ThemedText style={{ color: AppColors.white, fontFamily: "Cairo_700Bold", fontSize: 13 }}>تسوية جزئية</ThemedText>
+            <ThemedText style={{ color: AppColors.white, fontFamily: "Cairo_700Bold", fontSize: 13 }}>جزئية</ThemedText>
           </Pressable>
         </View>
       </View>
@@ -3009,6 +3026,53 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
             );
           })
         ) : null}
+
+        {/* Account details: settlement history + payment history */}
+        <Modal visible={!!detailTarget} transparent animationType="slide" onRequestClose={() => setDetailTarget(null)}>
+          <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.45)", justifyContent: "flex-end" }}>
+            <View style={{ backgroundColor: theme.backgroundDefault, borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 20, maxHeight: "80%" }}>
+              <View style={{ flexDirection: "row-reverse", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+                <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 16, color: theme.text }}>{detailTarget?.accountName}</ThemedText>
+                <Pressable onPress={() => setDetailTarget(null)}><Feather name="x" size={22} color={theme.textSecondary} /></Pressable>
+              </View>
+              {detailBusy ? (
+                <ActivityIndicator size="large" color={AppColors.primary} style={{ marginVertical: 24 }} />
+              ) : (
+                <ScrollView>
+                  <ThemedText style={{ color: AppColors.primary, fontFamily: "Cairo_700Bold", fontSize: 18, textAlign: "right" }}>
+                    المستحق: {(detailData?.view?.outstanding ?? detailTarget?.outstanding ?? 0).toLocaleString("ar-IQ")} د.ع
+                  </ThemedText>
+
+                  <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 14, color: theme.text, textAlign: "right", marginTop: 16, marginBottom: 6 }}>سجلّ الدفعات</ThemedText>
+                  {(detailData?.payments ?? []).length === 0 ? (
+                    <ThemedText style={{ color: theme.textSecondary, fontSize: 12, textAlign: "right" }}>لا توجد دفعات بعد</ThemedText>
+                  ) : (
+                    (detailData?.payments ?? []).map((p: any) => (
+                      <View key={p.id} style={{ flexDirection: "row-reverse", justifyContent: "space-between", paddingVertical: 6, borderBottomWidth: 1, borderBottomColor: theme.border }}>
+                        <ThemedText style={{ color: AppColors.success, fontSize: 13 }}>{(p.amount ?? 0).toLocaleString("ar-IQ")} د.ع</ThemedText>
+                        <ThemedText style={{ color: theme.textSecondary, fontSize: 11 }}>{p.receiptNumber ?? ""}</ThemedText>
+                      </View>
+                    ))
+                  )}
+
+                  <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 14, color: theme.text, textAlign: "right", marginTop: 16, marginBottom: 6 }}>سجلّ التسويات (الطلبات)</ThemedText>
+                  {(detailData?.history?.settlements ?? []).length === 0 ? (
+                    <ThemedText style={{ color: theme.textSecondary, fontSize: 12, textAlign: "right" }}>لا توجد سجلّات</ThemedText>
+                  ) : (
+                    (detailData?.history?.settlements ?? []).slice(0, 40).map((s: any) => (
+                      <View key={s.id} style={{ flexDirection: "row-reverse", justifyContent: "space-between", paddingVertical: 6, borderBottomWidth: 1, borderBottomColor: theme.border }}>
+                        <ThemedText style={{ color: theme.text, fontSize: 12 }}>{(s.outstandingAmount ?? 0).toLocaleString("ar-IQ")} د.ع</ThemedText>
+                        <ThemedText style={{ color: s.status === "settled" ? AppColors.success : theme.textSecondary, fontSize: 11 }}>
+                          {s.status === "settled" ? "مسوّى" : "مستحق"}
+                        </ThemedText>
+                      </View>
+                    ))
+                  )}
+                </ScrollView>
+              )}
+            </View>
+          </View>
+        </Modal>
 
         {/* Partial-settlement modal */}
         <Modal visible={!!completeTarget} transparent animationType="fade" onRequestClose={() => setCompleteTarget(null)}>
