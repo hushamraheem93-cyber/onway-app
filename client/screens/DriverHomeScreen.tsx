@@ -559,6 +559,9 @@ export default function DriverHomeScreen() {
       } else {
         const err = await res.json().catch(() => ({}));
         console.error("accept batch failed:", res.status, err);
+        // Batch was taken/expired (409/403) or errored — refresh so a stale offer
+        // clears from the UI instead of leaving a dead "accept" button.
+        await fetchDriverStatus();
       }
     } catch (e) {
       console.error("accept batch error:", e);
