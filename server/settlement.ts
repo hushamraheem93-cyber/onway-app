@@ -27,6 +27,11 @@ export function directionFor(accountType: SettlementAccountType): SettlementDire
 const SETTLEMENTS = "settlements";
 const LEDGER = "settlementLedger";
 const SETTLEMENT_REQUESTS = "settlementRequests";
+const SETTLEMENT_PAYMENTS = "settlementPayments";
+const APP_SETTINGS = "appSettings";
+const CONFIG_DOC = "settlementConfig";
+
+export const DEFAULT_THRESHOLD = 50000;
 
 /** Single-field query key ("driver:0770..." / "vendor:abc") stored on each record so
  *  per-account lists need only a single-field index (no composite index required). */
@@ -283,6 +288,292 @@ export async function listSettlementRequests(
     return items.sort(byCreatedDesc);
   } catch (error) {
     console.error("listSettlementRequests error:", error);
+    return [];
+  }
+}
+
+// ── Admin: complete a settlement (full or partial), atomic + FIFO ──────────────
+
+export interface CompleteSettlementInput {
+  accountType: SettlementAccountType;
+  accountId: string;
+  amount: number;
+  adminName?: string;
+  method?: string;
+  notes?: string;
+  requestId?: string;
+}
+
+export interface CompleteSettlementResult {
+  ok: boolean;
+  reason?: "no_ledger" | "nothing_due" | "invalid_amount";
+  applied?: number;
+  outstandingBefore?: number;
+  outstandingAfter?: number;
+  fullySettled?: boolean;
+  paymentId?: string;
+  receiptNumber?: string;
+}
+
+/**
+ * Record a settlement payment (full or partial, from a request or manual) and reduce
+ * the account's outstanding balance. The money-critical mutation — ledger balance +
+ * permanent payment record + request status — runs in ONE Firestore transaction with
+ * a clamp so a balance can never go negative and an overpayment is never accepted. The
+ * FIFO marking of individual pending settlement records is applied right after as
+ * derived bookkeeping (the ledger is the balance authority), keeping the hot path free
+ * of composite-index requirements.
+ */
+export async function completeSettlement(input: CompleteSettlementInput): Promise<CompleteSettlementResult> {
+  const db = getFirestore();
+  if (!db) return { ok: false, reason: "no_ledger" };
+  const key = accountKey(input.accountType, input.accountId);
+  const ledgerRef = db.collection(LEDGER).doc(ledgerId(input.accountType, input.accountId));
+  const paymentRef = db.collection(SETTLEMENT_PAYMENTS).doc();
+  const reqRef = input.requestId ? db.collection(SETTLEMENT_REQUESTS).doc(input.requestId) : null;
+
+  let appliedOut = 0;
+  try {
+    const result = await db.runTransaction(async (tx) => {
+      // ── reads first ──
+      const ledgerSnap = await tx.get(ledgerRef);
+      if (!ledgerSnap.exists) return { ok: false, reason: "no_ledger" as const };
+      const ledger = ledgerSnap.data() as any;
+      const reqSnap = reqRef ? await tx.get(reqRef) : null;
+
+      const outstanding = ledger.outstandingTotal ?? 0;
+      if (outstanding <= 0) return { ok: false, reason: "nothing_due" as const };
+      let amount = Math.round(input.amount || 0);
+      if (amount <= 0) return { ok: false, reason: "invalid_amount" as const };
+      amount = Math.min(amount, outstanding); // clamp: never overpay, never go negative
+
+      const now = admin.firestore.Timestamp.now();
+      const newOutstanding = Math.max(0, outstanding - amount);
+      const fullySettled = newOutstanding <= 0;
+
+      // ── writes ──
+      tx.set(
+        ledgerRef,
+        {
+          outstandingTotal: newOutstanding,
+          totalSettled: (ledger.totalSettled ?? 0) + amount,
+          lastSettlementAt: now,
+          lastSettlementAmount: amount,
+          updatedAt: now,
+          ...(fullySettled ? { activeRequestId: null, activeRequestStatus: null } : {}),
+        },
+        { merge: true },
+      );
+
+      const datePart = now.toDate().toISOString().slice(0, 10).replace(/-/g, "");
+      const receiptNumber = `STL-${datePart}-${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
+      tx.set(paymentRef, {
+        accountType: input.accountType,
+        accountId: input.accountId,
+        accountKey: key,
+        accountName: ledger.accountName ?? input.accountId,
+        amount,
+        method: input.method || "cash",
+        adminName: input.adminName || "",
+        notes: input.notes || "",
+        requestId: input.requestId ?? null,
+        isManual: !input.requestId,
+        outstandingBefore: outstanding,
+        outstandingAfter: newOutstanding,
+        receiptNumber,
+        createdAt: now,
+      });
+
+      if (reqRef && reqSnap?.exists) {
+        tx.update(reqRef, {
+          status: fullySettled ? "completed" : "partially_completed",
+          completedAt: now,
+          settledAmount: amount,
+          updatedAt: now,
+        });
+      }
+
+      return {
+        ok: true as const,
+        applied: amount,
+        outstandingBefore: outstanding,
+        outstandingAfter: newOutstanding,
+        fullySettled,
+        paymentId: paymentRef.id,
+        receiptNumber,
+      };
+    });
+
+    if (result.ok) {
+      appliedOut = result.applied ?? 0;
+      // Derived bookkeeping: mark the oldest pending settlement records as settled
+      // (FIFO) up to the applied amount. Best-effort — the ledger above is authoritative.
+      await markSettlementRecordsFIFO(input.accountType, input.accountId, appliedOut).catch((e) =>
+        console.error("markSettlementRecordsFIFO error:", e),
+      );
+    }
+    return result;
+  } catch (error) {
+    console.error("completeSettlement tx error:", error);
+    return { ok: false, reason: "no_ledger" };
+  }
+}
+
+/** FIFO-allocate a settled amount across an account's pending settlement records and
+ *  refresh the ledger's pendingCount. Index-free (queries by the single accountKey field). */
+async function markSettlementRecordsFIFO(
+  accountType: SettlementAccountType,
+  accountId: string,
+  amount: number,
+): Promise<void> {
+  const db = getFirestore();
+  if (!db || amount <= 0) return;
+  const key = accountKey(accountType, accountId);
+  const snap = await db.collection(SETTLEMENTS).where("accountKey", "==", key).limit(1000).get();
+  const pending = snap.docs
+    .map((d) => ({ ref: d.ref, ...(d.data() as any) }))
+    .filter((s) => s.status !== "settled")
+    .sort((a, b) => (a.createdAt?.toMillis?.() ?? 0) - (b.createdAt?.toMillis?.() ?? 0));
+
+  const now = admin.firestore.Timestamp.now();
+  let remaining = amount;
+  let batch = db.batch();
+  let ops = 0;
+  let stillPending = 0;
+
+  for (const s of pending) {
+    const due = (s.outstandingAmount ?? 0) - (s.amountSettled ?? 0);
+    if (remaining > 0 && due > 0) {
+      const applied = Math.min(remaining, due);
+      const newSettled = (s.amountSettled ?? 0) + applied;
+      const fully = newSettled >= (s.outstandingAmount ?? 0);
+      batch.update(s.ref, {
+        amountSettled: newSettled,
+        status: fully ? "settled" : "pending",
+        ...(fully ? { settledAt: now } : {}),
+        updatedAt: now,
+      });
+      ops++;
+      remaining -= applied;
+      if (!fully) stillPending++;
+    } else {
+      stillPending++;
+    }
+    if (ops >= 400) { await batch.commit(); batch = db.batch(); ops = 0; }
+  }
+  if (ops > 0) await batch.commit();
+  await db.collection(LEDGER).doc(ledgerId(accountType, accountId))
+    .set({ pendingCount: stillPending, updatedAt: now }, { merge: true })
+    .catch(() => {});
+}
+
+// ── Threshold configuration (per account type, admin-editable) ─────────────────
+
+export interface SettlementConfig {
+  driver: { thresholdEnabled: boolean; thresholdAmount: number };
+  vendor: { thresholdEnabled: boolean; thresholdAmount: number };
+}
+
+export async function getSettlementConfig(): Promise<SettlementConfig> {
+  const fallback: SettlementConfig = {
+    driver: { thresholdEnabled: true, thresholdAmount: DEFAULT_THRESHOLD },
+    vendor: { thresholdEnabled: true, thresholdAmount: DEFAULT_THRESHOLD },
+  };
+  const db = getFirestore();
+  if (!db) return fallback;
+  try {
+    const snap = await db.collection(APP_SETTINGS).doc(CONFIG_DOC).get();
+    if (!snap.exists) return fallback;
+    const d = snap.data() as any;
+    return {
+      driver: { thresholdEnabled: d.driver?.thresholdEnabled ?? true, thresholdAmount: d.driver?.thresholdAmount ?? DEFAULT_THRESHOLD },
+      vendor: { thresholdEnabled: d.vendor?.thresholdEnabled ?? true, thresholdAmount: d.vendor?.thresholdAmount ?? DEFAULT_THRESHOLD },
+    };
+  } catch {
+    return fallback;
+  }
+}
+
+export async function updateSettlementConfig(
+  accountType: SettlementAccountType,
+  thresholdEnabled: boolean,
+  thresholdAmount: number,
+): Promise<SettlementConfig> {
+  const db = getFirestore();
+  const current = await getSettlementConfig();
+  const next = { ...current, [accountType]: { thresholdEnabled, thresholdAmount: Math.max(0, Math.round(thresholdAmount || 0)) } };
+  if (db) {
+    await db.collection(APP_SETTINGS).doc(CONFIG_DOC).set({ ...next, updatedAt: admin.firestore.Timestamp.now() }, { merge: true }).catch(() => {});
+  }
+  return next;
+}
+
+/** True if the account's outstanding meets/exceeds the configured (enabled) threshold. */
+export async function isOverSettlementThreshold(
+  accountType: SettlementAccountType,
+  accountId: string,
+): Promise<{ blocked: boolean; outstanding: number; thresholdAmount: number; thresholdEnabled: boolean }> {
+  const [ledger, config] = await Promise.all([
+    getSettlementLedger(accountType, accountId),
+    getSettlementConfig(),
+  ]);
+  const outstanding = ledger?.outstandingTotal ?? 0;
+  const cfg = config[accountType];
+  const blocked = cfg.thresholdEnabled && outstanding >= cfg.thresholdAmount;
+  return { blocked, outstanding, thresholdAmount: cfg.thresholdAmount, thresholdEnabled: cfg.thresholdEnabled };
+}
+
+// ── Admin overview data ────────────────────────────────────────────────────────
+
+/** Per-account cards for the admin settlement dashboard (name, orders, outstanding,
+ *  last settlement, derived status). */
+export async function listSettlementAccounts(accountType: SettlementAccountType): Promise<any[]> {
+  const db = getFirestore();
+  if (!db) return [];
+  try {
+    const snap = await db.collection(LEDGER).where("accountType", "==", accountType).limit(500).get();
+    return snap.docs
+      .map((d) => {
+        const l = d.data() as any;
+        const outstanding = l.outstandingTotal ?? 0;
+        const status: SettlementStatus =
+          l.activeRequestStatus === "pending" ? "under_review" : outstanding <= 0 ? "settled" : "outstanding";
+        return {
+          accountType,
+          accountId: l.accountId,
+          accountName: l.accountName ?? l.accountId,
+          direction: l.direction,
+          outstanding,
+          pendingOrderCount: l.pendingCount ?? 0,
+          totalOrders: l.totalOrders ?? 0,
+          totalSettled: l.totalSettled ?? 0,
+          lastSettlementAt: l.lastSettlementAt ?? null,
+          status,
+        };
+      })
+      .sort((a, b) => b.outstanding - a.outstanding);
+  } catch (error) {
+    console.error("listSettlementAccounts error:", error);
+    return [];
+  }
+}
+
+/** Per-account settlement payment history (permanent). */
+export async function getSettlementPayments(
+  accountType: SettlementAccountType,
+  accountId: string,
+  max = 100,
+): Promise<any[]> {
+  const db = getFirestore();
+  if (!db) return [];
+  const key = accountKey(accountType, accountId);
+  try {
+    const snap = await db.collection(SETTLEMENT_PAYMENTS).where("accountKey", "==", key).limit(max).get();
+    return snap.docs
+      .map((d) => ({ id: d.id, ...(d.data() as any) }))
+      .sort((a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0));
+  } catch (error) {
+    console.error("getSettlementPayments error:", error);
     return [];
   }
 }

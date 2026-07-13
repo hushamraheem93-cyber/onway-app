@@ -48,7 +48,9 @@ import {
 } from "./firebase";
 import {
   recordOrderSettlement, createSettlementRequest, getAccountSettlementView,
-  getSettlementHistory, listSettlementRequests,
+  getSettlementHistory, listSettlementRequests, completeSettlement,
+  getSettlementConfig, updateSettlementConfig, isOverSettlementThreshold,
+  listSettlementAccounts, getSettlementPayments,
 } from "./settlement";
 import { sendPushNotification, sendBroadcastNotification, sendDriverBatchNotification, sendAdminNewOrderNotification, sendVendorNewOrderNotification, sendAdminSettlementRequestNotification } from "./pushNotifications";
 
@@ -3045,12 +3047,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
     try {
       if (goOnline) {
-        const financialAccount = await getDriverFinancialAccount(phoneNumber);
-        const OWED_THRESHOLD = 50000; // 50,000 IQD
-        if (financialAccount.amountOwed >= OWED_THRESHOLD) {
+        // Block on the configurable settlement threshold. During the transition we take
+        // the max of the new settlement ledger and the legacy amountOwed so enforcement
+        // never regresses before migration; a disabled threshold blocks no one.
+        const [financialAccount, threshold] = await Promise.all([
+          getDriverFinancialAccount(phoneNumber),
+          isOverSettlementThreshold("driver", phoneNumber),
+        ]);
+        const effectiveOutstanding = Math.max(financialAccount.amountOwed || 0, threshold.outstanding || 0);
+        if (threshold.thresholdEnabled && effectiveOutstanding >= threshold.thresholdAmount) {
           return res.status(400).json({
-            error: `المبلغ المستحق (${financialAccount.amountOwed.toLocaleString("ar-IQ")} د.ع) يتجاوز الحد المسموح (${OWED_THRESHOLD.toLocaleString("ar-IQ")} د.ع). يرجى تسوية الحساب مع المسؤول.`,
-            amountOwed: financialAccount.amountOwed,
+            error: `المبلغ المستحق (${effectiveOutstanding.toLocaleString("ar-IQ")} د.ع) يتجاوز الحد المسموح (${threshold.thresholdAmount.toLocaleString("ar-IQ")} د.ع). يرجى تسوية الحساب مع المسؤول.`,
+            amountOwed: effectiveOutstanding,
           });
         }
         const exists = driverQueue.find(d => d.phoneNumber === phoneNumber);
@@ -3684,6 +3692,101 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const accountType = req.query.accountType as ("driver" | "vendor" | undefined);
     try {
       res.json({ requests: await listSettlementRequests(status, accountType) });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Per-account cards for the settlement dashboard (driver or vendor).
+  app.get("/api/admin/settlement-accounts", async (req: Request, res: Response) => {
+    const accountType = (req.query.accountType as "driver" | "vendor") || "driver";
+    try {
+      res.json({ accounts: await listSettlementAccounts(accountType) });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Full account view (ledger + active request + history + payments) for the detail sheet.
+  app.get("/api/admin/settlement-account", async (req: Request, res: Response) => {
+    const accountType = (req.query.accountType as "driver" | "vendor") || "driver";
+    const accountId = req.query.accountId as string;
+    if (!accountId) return res.status(400).json({ error: "accountId required" });
+    try {
+      const [view, history, payments] = await Promise.all([
+        getAccountSettlementView(accountType, accountId),
+        getSettlementHistory(accountType, accountId),
+        getSettlementPayments(accountType, accountId),
+      ]);
+      res.json({ view, history, payments });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Complete a settlement (full or partial; from a request or manual).
+  app.post("/api/admin/settlements/complete", async (req: Request, res: Response) => {
+    const { accountType, accountId, amount, adminName, method, notes, requestId } = req.body;
+    if (!accountType || !accountId || amount === undefined) {
+      return res.status(400).json({ error: "accountType, accountId, amount required" });
+    }
+    if (accountType !== "driver" && accountType !== "vendor") {
+      return res.status(400).json({ error: "accountType must be driver or vendor" });
+    }
+    try {
+      const result = await completeSettlement({
+        accountType, accountId, amount: Number(amount), adminName, method, notes, requestId,
+      });
+      if (!result.ok) {
+        const msg = result.reason === "nothing_due" ? "لا توجد مبالغ مستحقة"
+          : result.reason === "invalid_amount" ? "قيمة غير صحيحة"
+          : "تعذّر إتمام التسوية";
+        return res.status(400).json({ error: msg });
+      }
+      // Real-time: driver/vendor status bars + admin inbox refresh after completion.
+      orderEvents.emit("settlement:changed", { accountType, accountId, applied: result.applied });
+      res.json({ success: true, ...result });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Threshold configuration (per account type).
+  app.get("/api/admin/settlement-config", async (_req: Request, res: Response) => {
+    try {
+      res.json(await getSettlementConfig());
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.put("/api/admin/settlement-config", async (req: Request, res: Response) => {
+    const { accountType, thresholdEnabled, thresholdAmount } = req.body;
+    if (accountType !== "driver" && accountType !== "vendor") {
+      return res.status(400).json({ error: "accountType must be driver or vendor" });
+    }
+    try {
+      res.json(await updateSettlementConfig(accountType, !!thresholdEnabled, Number(thresholdAmount) || 0));
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // CSV export of the settlement accounts overview (opens in Excel).
+  app.get("/api/admin/settlement-export", async (req: Request, res: Response) => {
+    const accountType = (req.query.accountType as "driver" | "vendor") || "driver";
+    try {
+      const accounts = await listSettlementAccounts(accountType);
+      const header = "AccountId,Name,Orders,Outstanding,TotalSettled,Status,LastSettlement";
+      const rows = accounts.map((a) => {
+        const last = a.lastSettlementAt?.toDate?.() ? a.lastSettlementAt.toDate().toISOString().slice(0, 10) : "";
+        const name = String(a.accountName ?? "").replace(/"/g, '""');
+        return `"${a.accountId}","${name}",${a.totalOrders},${a.outstanding},${a.totalSettled},${a.status},${last}`;
+      });
+      const csv = "﻿" + [header, ...rows].join("\n"); // BOM for Excel Arabic
+      res.setHeader("Content-Type", "text/csv; charset=utf-8");
+      res.setHeader("Content-Disposition", `attachment; filename="settlements-${accountType}.csv"`);
+      res.send(csv);
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }
@@ -5791,6 +5894,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Real-time settlement requests → admin panel refreshes its inbox instantly.
   orderEvents.on("settlement:request", (payload: Record<string, unknown>) => {
     ioServer.emit("settlement:request", payload);
+    ioServer.emit("settlements:changed", payload);
+  });
+
+  // Real-time settlement completion → driver/vendor status bars + admin refresh.
+  orderEvents.on("settlement:changed", (payload: Record<string, unknown>) => {
     ioServer.emit("settlements:changed", payload);
   });
 
