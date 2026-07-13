@@ -64,7 +64,7 @@ const OrderContext = createContext<OrderContextType | undefined>(undefined);
 export function OrderProvider({ children }: { children: ReactNode }) {
   const [orders, setOrders] = useState<Order[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const { phoneNumber, userProfile } = useAuth();
+  const { phoneNumber, userProfile, customerToken } = useAuth();
   const { addNotification } = useNotifications();
   const previousStatusesRef = useRef<Record<string, string>>({});
   const isInitializedRef = useRef(false);
@@ -117,7 +117,14 @@ export function OrderProvider({ children }: { children: ReactNode }) {
     if (!phoneNumber) return;
     setIsLoading(true);
     try {
-      const response = await fetch(new URL(`/api/orders?phoneNumber=${encodeURIComponent(phoneNumber)}`, getApiUrl()).toString());
+      // GET /api/orders requires the customer JWT (requireCustomerAuth). Without this
+      // header the request 401s and the order list/tracking/notifications stay empty.
+      const headers: Record<string, string> = {};
+      if (customerToken) headers["Authorization"] = `Bearer ${customerToken}`;
+      const response = await fetch(
+        new URL(`/api/orders?phoneNumber=${encodeURIComponent(phoneNumber)}`, getApiUrl()).toString(),
+        { headers },
+      );
       if (response.ok) {
         const data = await response.json();
         checkForStatusChanges(data);
@@ -127,7 +134,7 @@ export function OrderProvider({ children }: { children: ReactNode }) {
     } finally {
       setIsLoading(false);
     }
-  }, [phoneNumber, checkForStatusChanges]);
+  }, [phoneNumber, customerToken, checkForStatusChanges]);
 
   useEffect(() => {
     if (phoneNumber && isInitializedRef.current) {
