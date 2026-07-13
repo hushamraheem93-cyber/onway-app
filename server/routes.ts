@@ -3285,6 +3285,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!db) return res.status(500).json({ error: "DB not configured" });
       const batchDoc = await getDeliveryBatch(batchId);
       if (!batchDoc) return res.status(404).json({ error: "Batch not found" });
+      // Acceptance guards: the batch must have been offered to THIS driver and must
+      // still be pending. Prevents a double-tap or two drivers racing from both
+      // "accepting" the same batch and corrupting the assignment.
+      if (batchDoc.driverId !== phoneNumber) {
+        return res.status(403).json({ error: "هذه الدفعة غير معروضة لك" });
+      }
+      if (batchDoc.status !== "pending") {
+        return res.status(409).json({ error: "لم تعد هذه الدفعة متاحة" });
+      }
       const driver = await getDriverByPhone(phoneNumber);
       const driverName = driver?.fullName || phoneNumber;
       // Set all orders in batch to "preparing" and tag with driver info
