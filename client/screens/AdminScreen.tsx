@@ -31,7 +31,7 @@ import { resolveImageUrl } from "@/utils/imageUtils";
 import { formatPrice } from "@/constants/currency";
 import { compressAndConvertToBase64, processAndUploadImage, isBase64Image, ImageSize } from "@/lib/imageUtils";
 
-type TabType = "dashboard" | "orders" | "drivers" | "users" | "banners" | "categories" | "products" | "areas" | "promoCodes" | "notifications" | "vendors" | "settings";
+type TabType = "dashboard" | "orders" | "drivers" | "users" | "banners" | "categories" | "products" | "areas" | "promoCodes" | "notifications" | "vendors" | "settlements" | "settings";
 
 interface AdminUser {
   id: string;
@@ -153,8 +153,24 @@ export default function AdminScreen() {
     sock.on("orders:changed", () => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/orders"] });
     });
+    // Settlement requests appear instantly in the admin inbox.
+    sock.on("settlements:changed", () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/settlement-requests"] });
+    });
     return () => { sock.disconnect(); };
   }, [queryClient]);
+
+  // Pending settlement requests (drivers + vendors), live-refreshed via socket above.
+  const { data: settlementRequests = [] } = useQuery<any[]>({
+    queryKey: ["/api/admin/settlement-requests"],
+    queryFn: async () => {
+      const res = await fetch(`${getApiUrl()}/api/admin/settlement-requests?status=pending`, { credentials: "include" });
+      if (!res.ok) throw new Error("failed");
+      const data = await res.json();
+      return data.requests ?? [];
+    },
+    refetchInterval: 15000,
+  });
 
   const [activeTab, setActiveTab] = useState<TabType>("dashboard");
   const [isEditing, setIsEditing] = useState(false);
@@ -2756,9 +2772,60 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
     );
   };
 
+  const renderSettlementsTab = () => {
+    const fmt = (n: number) => `${(n || 0).toLocaleString("ar-IQ")} د.ع`;
+    const cardBase = { borderRadius: 14, padding: Spacing.md } as const;
+    return (
+      <View style={{ gap: Spacing.md }}>
+        <ThemedText style={{ fontSize: 18, fontFamily: "Cairo_700Bold", textAlign: "right", color: theme.text }}>
+          طلبات التسوية ({settlementRequests.length})
+        </ThemedText>
+        {settlementRequests.length === 0 ? (
+          <View style={[cardBase, { backgroundColor: theme.backgroundDefault, alignItems: "center", paddingVertical: Spacing.xl }]}>
+            <Feather name="check-circle" size={28} color={AppColors.success} />
+            <ThemedText style={{ color: theme.textSecondary, marginTop: Spacing.sm }}>لا توجد طلبات تسوية معلّقة</ThemedText>
+          </View>
+        ) : (
+          settlementRequests.map((r) => (
+            <View key={r.id} style={[cardBase, { backgroundColor: theme.backgroundDefault, gap: 6 }]}>
+              <View style={{ flexDirection: "row-reverse", justifyContent: "space-between", alignItems: "center" }}>
+                <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 15, color: theme.text, textAlign: "right" }}>
+                  {r.accountName}
+                </ThemedText>
+                <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 4 }}>
+                  <Feather name={r.accountType === "vendor" ? "briefcase" : "truck"} size={13} color={theme.textSecondary} />
+                  <ThemedText style={{ fontSize: 12, color: theme.textSecondary }}>
+                    {r.accountType === "vendor" ? "متجر" : "سائق"}
+                  </ThemedText>
+                </View>
+              </View>
+              <View style={{ flexDirection: "row-reverse", justifyContent: "space-between" }}>
+                <ThemedText style={{ color: AppColors.primary, fontFamily: "Cairo_700Bold", fontSize: 16, textAlign: "right" }}>
+                  {fmt(r.outstandingSnapshot)}
+                </ThemedText>
+                <ThemedText style={{ color: theme.textSecondary, fontSize: 12 }}>
+                  {r.pendingOrderCount || 0} طلب
+                </ThemedText>
+              </View>
+              <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 6 }}>
+                <View style={{ backgroundColor: "#FFF9E0", paddingHorizontal: 8, paddingVertical: 2, borderRadius: 8 }}>
+                  <ThemedText style={{ fontSize: 11, color: "#8A6D00" }}>🟡 قيد المراجعة</ThemedText>
+                </View>
+              </View>
+            </View>
+          ))
+        )}
+        <ThemedText style={{ fontSize: 12, color: theme.textSecondary, textAlign: "center", marginTop: Spacing.sm }}>
+          إتمام التسوية (كامل/جزئي) سيُضاف في المرحلة التالية.
+        </ThemedText>
+      </View>
+    );
+  };
+
   const renderContent = () => {
     switch (activeTab) {
       case "dashboard": return renderDashboardTab();
+      case "settlements": return renderSettlementsTab();
       case "banners": return renderBannersTab();
       case "categories": return renderCategoriesTab();
       case "products": return renderProductsTab();
@@ -2787,6 +2854,7 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
     { key: "promoCodes", label: "الخصومات", icon: "tag" },
     { key: "notifications", label: "الإشعارات", icon: "bell" },
     { key: "vendors", label: "المتاجر", icon: "briefcase", badge: vendorPartners.filter((v) => v.status === "pending").length },
+    { key: "settlements", label: "التسويات", icon: "dollar-sign", badge: settlementRequests.length },
     { key: "settings", label: "الإعدادات", icon: "settings" },
   ];
 
