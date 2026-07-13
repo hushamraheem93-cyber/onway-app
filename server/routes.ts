@@ -46,6 +46,7 @@ import {
   addDriverToActiveQueue, removeDriverFromActiveQueue, updateDriverQueueEntry, getActiveDriverQueue,
   deleteFromFirebaseStorage
 } from "./firebase";
+import { recordOrderSettlement } from "./settlement";
 import { sendPushNotification, sendBroadcastNotification, sendDriverBatchNotification, sendAdminNewOrderNotification, sendVendorNewOrderNotification } from "./pushNotifications";
 
 const uploadsDir = path.join(process.cwd(), "uploads");
@@ -3402,6 +3403,49 @@ export async function registerRoutes(app: Express): Promise<Server> {
           orderType: isRestaurantOrder ? "restaurant" : "market",
         });
         const newBalance = updatedBatchFinancial?.amountOwed ?? 0;
+
+        // ── Generic settlement accrual (Stage 6A) ──────────────────────────────
+        // Additive and parallel to the legacy driverFinancialAccounts above; the new
+        // settlement engine is idempotent per (orderId, accountType) and is wrapped so
+        // a failure here can never break order completion.
+        try {
+          // Driver — cash-collection settlement: driver owes company total − commission.
+          const cashCollected = order.total || 0;
+          await recordOrderSettlement({
+            accountType: "driver",
+            accountId: phoneNumber,
+            accountName: (order as any).driverName || phoneNumber,
+            orderId,
+            storeId: order.vendorId ?? null,
+            storeName: (order as any).vendorName ?? (order as any).storeName ?? null,
+            grossAmount: cashCollected,
+            commission: driverEarning,
+            outstandingAmount: Math.max(0, cashCollected - driverEarning),
+          });
+
+          // Vendor — revenue settlement: company owes vendor orderValue − platformCommission.
+          if (order.vendorId) {
+            const vendorSnap = await db.collection("vendors").doc(order.vendorId).get();
+            const v = vendorSnap.exists ? (vendorSnap.data() as any) : {};
+            const orderValue = (order as any).restaurantSubtotal ?? order.total ?? 0;
+            const platformCommission =
+              (order as any).vendorCommissionAmount ??
+              Math.round((orderValue * (v.commissionPercent ?? 10)) / 100);
+            await recordOrderSettlement({
+              accountType: "vendor",
+              accountId: order.vendorId,
+              accountName: v.storeName || v.name || order.vendorId,
+              orderId,
+              storeId: order.vendorId,
+              storeName: v.storeName || v.name || null,
+              grossAmount: orderValue,
+              commission: platformCommission,
+              outstandingAmount: Math.max(0, orderValue - platformCommission),
+            });
+          }
+        } catch (settlementErr) {
+          console.error("[SETTLEMENT] accrual error (non-blocking):", settlementErr);
+        }
 
         const customerProfile = await getUserByPhone(order.phoneNumber || "");
         const completedEntry = {
