@@ -3958,6 +3958,49 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   }, 10 * 60 * 1000);
 
+  // Offer-timeout sweep: a batch that was OFFERED to a driver but never accepted
+  // (e.g. the driver's app closed before the client-side 30s countdown could
+  // auto-reject) would otherwise stay "pending" forever — the ghost-cleanup above
+  // intentionally skips drivers holding a batch, so the order got stuck with a
+  // driver who will never respond. Every 20s, release any still-pending batch older
+  // than the threshold and reassign its orders, mirroring a manual reject-order.
+  const OFFER_TIMEOUT_MS = 90 * 1000; // well beyond the 30s client accept countdown
+  setInterval(async () => {
+    try {
+      const now = Date.now();
+      // Snapshot holders first so we don't mutate driverQueue while iterating it.
+      const holders = driverQueue.filter(d => d.currentBatchId);
+      for (const qd of holders) {
+        const batchId = qd.currentBatchId!;
+        const batchDoc = await getDeliveryBatch(batchId);
+        if (!batchDoc) { qd.currentBatchId = undefined; continue; }
+        if (batchDoc.status !== "pending") continue; // accepted/in-progress → leave it
+        const createdMs = batchDoc.createdAt?.toDate?.() ? batchDoc.createdAt.toDate().getTime() : 0;
+        if (createdMs === 0 || (now - createdMs) < OFFER_TIMEOUT_MS) continue;
+
+        // Release exactly like reject-order: free the orders, cancel the batch,
+        // requeue the driver at the end, apply a rejection cooldown, then reassign.
+        batchDoc.orderIds.forEach(id => batchedOrderIds.delete(id));
+        await cancelDeliveryBatch(batchId).catch(() => {});
+        qd.currentBatchId = undefined;
+        const idx = driverQueue.findIndex(d => d.phoneNumber === qd.phoneNumber);
+        if (idx !== -1) {
+          const savedPushToken = qd.pushToken;
+          driverQueue.splice(idx, 1);
+          driverQueue.push({ phoneNumber: qd.phoneNumber, joinedAt: Date.now(), pushToken: savedPushToken });
+        }
+        updateDriverQueueEntry(qd.phoneNumber, { hasActiveBatch: false, joinedAt: Date.now() }).catch(() => {});
+        if (!driverRejectionCooldowns.has(qd.phoneNumber)) driverRejectionCooldowns.set(qd.phoneNumber, new Map());
+        const cd = driverRejectionCooldowns.get(qd.phoneNumber)!;
+        batchDoc.orderIds.forEach(id => cd.set(id, Date.now()));
+        console.warn(`[OFFER_TIMEOUT] Released stale pending batch ${batchId} from ${qd.phoneNumber} (>${OFFER_TIMEOUT_MS / 1000}s), reassigning`);
+        onOrderConfirmed();
+      }
+    } catch (e) {
+      console.error("[OFFER_TIMEOUT] error:", e);
+    }
+  }, 20 * 1000);
+
   // REMOVED (2026-07-04): /api/driver/assign-pending-orders was dead code that corrupted
   // driver state — it wrote a raw order.id into currentBatchId without ever creating a real
   // delivery_batches document via createDeliveryBatch(), and never notified the driver.
