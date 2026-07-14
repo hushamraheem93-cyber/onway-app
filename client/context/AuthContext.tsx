@@ -3,6 +3,10 @@ import { Platform, AppState, AppStateStatus } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { getToken, setToken, removeToken } from "@/lib/secureTokenStorage";
 import { getApiUrl } from "@/lib/query-client";
+import { issueDriverToken, clearDriverToken, installDriverAuthInterceptor } from "@/lib/driverAuth";
+
+// Attach the driver Bearer token to every /api/driver/* request (installed once).
+installDriverAuthInterceptor();
 import { compressAndConvertToBase64 } from "@/lib/imageUtils";
 import * as Notifications from "expo-notifications";
 import * as Device from "expo-device";
@@ -381,6 +385,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } else if (type === "driver" && phoneNumber) {
       const existingDriver = await checkExistingDriver(phoneNumber);
       if (existingDriver) {
+        // Exchange OTP proof for a signed driver token before entering the driver app.
+        let cTok = customerToken;
+        if (!cTok) { try { cTok = await getToken(CUSTOMER_TOKEN_KEY); } catch {} }
+        await issueDriverToken(phoneNumber, cTok);
         setIsDriverRegistered(true);
         await AsyncStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify({ phoneNumber, userType: "driver", isDriverRegistered: true }));
         setIsLoggedIn(true);
@@ -459,6 +467,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const completeDriverRegistration = async () => {
     if (!phoneNumber) return;
     try {
+      // A freshly-registered (pending) driver still needs a token to read its own
+      // status/profile through the now-guarded /api/driver/* routes.
+      let cTok = customerToken;
+      if (!cTok) { try { cTok = await getToken(CUSTOMER_TOKEN_KEY); } catch {} }
+      await issueDriverToken(phoneNumber, cTok);
       setIsDriverRegistered(true);
       await AsyncStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify({ phoneNumber, userType: "driver", isDriverRegistered: true }));
       setIsLoggedIn(true);
@@ -499,6 +512,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       await removeToken(VENDOR_TOKEN_KEY);
       await AsyncStorage.removeItem(VENDOR_PROFILE_KEY);
       await removeToken(CUSTOMER_TOKEN_KEY);
+      await clearDriverToken();
       setPhoneNumber(null);
       setPendingPhone(null);
       setUserProfile(null);
