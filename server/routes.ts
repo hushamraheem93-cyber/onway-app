@@ -272,6 +272,12 @@ const ROUTES_JWT_SECRET = (() => {
   return secret;
 })();
 
+// Signed driver session token. Identity for all /api/driver/* routes comes from
+// this token, never from a client-supplied phone number.
+function makeDriverToken(phoneNumber: string): string {
+  return jwt.sign({ phoneNumber, role: "driver" }, ROUTES_JWT_SECRET, { expiresIn: "30d" });
+}
+
 function extractVendorId(req: Request): string | null {
   try {
     const authHeader = req.headers.authorization || "";
@@ -305,17 +311,48 @@ function requireCustomerAuth(req: Request, res: Response, next: express.NextFunc
   }
 }
 
-// ── Driver validation middleware (phone-based, validates approved driver) ─────
+// ── Driver JWT middleware (token-based) ───────────────────────────────────────
+// Identity is taken ONLY from the signed driver token, never from a client-supplied
+// phone. Any phoneNumber in the body is overwritten with the authenticated one so
+// downstream handlers cannot be tricked into acting for another driver (fixes the
+// IDOR where every /api/driver/* route trusted body/query phoneNumber). Mounted on
+// /api/driver; the public token-issuing endpoint /api/driver/mobile-auth is skipped.
 async function requireDriverAuth(req: Request, res: Response, next: express.NextFunction) {
-  const phoneNumber = ((req.body?.phoneNumber) || (req.query?.phoneNumber)) as string | undefined;
-  if (!phoneNumber) return res.status(400).json({ error: "Phone number required" });
+  // Exempt the public token issuer (works whether req.path is mount-relative or not).
+  if ((req.originalUrl || req.path || "").split("?")[0].endsWith("/api/driver/mobile-auth")) return next();
+  const authHeader = req.headers.authorization || "";
+  const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7).trim() : "";
+  if (!token) return res.status(401).json({ error: "يرجى تسجيل الدخول كسائق أولاً" });
+  let driverPhone: string;
   try {
-    const driver = await getDriverByPhone(phoneNumber);
+    const decoded = jwt.verify(token, ROUTES_JWT_SECRET) as any;
+    if (decoded.role !== "driver" || !decoded.phoneNumber) throw new Error("invalid role");
+    driverPhone = String(decoded.phoneNumber);
+  } catch {
+    return res.status(401).json({ error: "انتهت صلاحية الجلسة — يرجى تسجيل الدخول مجدداً" });
+  }
+  try {
+    const driver = await getDriverByPhone(driverPhone);
     if (!driver) return res.status(403).json({ error: "غير مصرح — السائق غير موجود" });
-    if (driver.status !== "approved") return res.status(403).json({ error: "غير مصرح — لم تتم الموافقة على حسابك بعد" });
+    (req as any).driverPhone = driverPhone;
+    (req as any).driver = driver;
+    // Authoritative identity — override anything the client sent in the body.
+    if (req.body && typeof req.body === "object") (req.body as any).phoneNumber = driverPhone;
     next();
   } catch {
     return res.status(500).json({ error: "خطأ في قاعدة البيانات" });
+  }
+}
+
+// Ownership guard: a batch action may only be performed by the driver the batch is
+// assigned to. Prevents an authenticated driver from mutating/among another driver's
+// batch (e.g. crediting themselves by completing someone else's delivery).
+async function batchBelongsToDriver(batchId: string, driverPhone: string): Promise<boolean> {
+  try {
+    const batch = (await getDeliveryBatch(batchId)) as any;
+    return !!batch && (batch.driverId === driverPhone || batch.driverPhone === driverPhone);
+  } catch {
+    return false;
   }
 }
 
@@ -336,6 +373,12 @@ async function notifyCustomerStatus(orderId: string, status: string, estimatedMi
 export async function registerRoutes(app: Express): Promise<Server> {
   // Guard ALL /api/admin/* routes with admin session check
   app.use("/api/admin", requireAdminAuth);
+
+  // Guard ALL /api/driver/* routes with the signed-driver-token check. The public
+  // token issuer /api/driver/mobile-auth is exempted inside the middleware. Note
+  // this does NOT match /api/drivers/* (registration/existence check), which is
+  // the plural mount and stays public.
+  app.use("/api/driver", requireDriverAuth);
 
   // ── PUBLIC: Stores listing & products ────────────────────────────────────────
   app.get("/api/stores", async (req: Request, res: Response) => {
@@ -2521,7 +2564,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.status(500).json({ error: "Database not configured" });
   });
 
-  app.post("/api/upload", upload.single("profileImage"), (req: Request & { file?: Express.Multer.File }, res: Response) => {
+  app.post("/api/upload", requireCustomerAuth, upload.single("profileImage"), (req: Request & { file?: Express.Multer.File }, res: Response) => {
     if (!req.file) {
       return res.status(400).json({ error: "No file uploaded" });
     }
@@ -2779,6 +2822,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Driver Routes
+
+  // Issue a signed driver session token. Requires OTP proof: a valid customer JWT
+  // (from /api/auth/verify-otp) whose phone matches the requested driver phone.
+  // This is the driver equivalent of /api/vendor/mobile-auth and is exempt from the
+  // /api/driver mount guard (see requireDriverAuth). Without this proof no driver
+  // token can be minted, so /api/driver/* cannot be reached by an attacker.
+  app.post("/api/driver/mobile-auth", async (req: Request, res: Response) => {
+    try {
+      const { phoneNumber } = req.body || {};
+      if (!phoneNumber) return res.status(400).json({ error: "رقم الهاتف مطلوب" });
+
+      const authHeader = req.headers.authorization || "";
+      const bearer = authHeader.startsWith("Bearer ") ? authHeader.slice(7).trim() : "";
+      let verifiedPhone: string | null = null;
+      try {
+        const decoded = jwt.verify(bearer, ROUTES_JWT_SECRET) as any;
+        if (decoded.role === "customer" && decoded.phoneNumber) verifiedPhone = String(decoded.phoneNumber);
+      } catch { /* invalid/expired → verifiedPhone stays null */ }
+      if (!verifiedPhone || verifiedPhone !== String(phoneNumber)) {
+        return res.status(401).json({ error: "غير مصرح — يرجى التحقق من رقم الهاتف أولاً" });
+      }
+
+      const driver = await getDriverByPhone(phoneNumber);
+      if (!driver) return res.json({ driver: null, token: null }); // not registered yet
+      const token = makeDriverToken(String(phoneNumber));
+      return res.json({
+        token,
+        driver: { id: driver.id, phoneNumber: driver.phoneNumber, fullName: driver.fullName, status: driver.status },
+      });
+    } catch (err) {
+      console.error("driver mobile-auth:", err);
+      return res.status(500).json({ error: "حدث خطأ في الخادم" });
+    }
+  });
+
   app.get("/api/drivers/check/:phoneNumber", async (req: Request, res: Response) => {
     try {
       const phoneNumber = req.params.phoneNumber as string;
@@ -2925,7 +3003,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Get driver status (online, queue position, current batch)
   app.get("/api/driver/status", async (req: Request, res: Response) => {
-    const phoneNumber = req.query.phoneNumber as string;
+    const phoneNumber = (req as any).driverPhone as string;
     if (!phoneNumber) return res.status(400).json({ error: "Phone number required" });
 
     try {
@@ -3386,6 +3464,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/driver/batch/arrived-at-store", async (req: Request, res: Response) => {
     const { phoneNumber, orderId, batchId } = req.body;
     if (!phoneNumber || !orderId) return res.status(400).json({ error: "Missing fields" });
+    if (batchId && !(await batchBelongsToDriver(batchId, phoneNumber))) {
+      return res.status(403).json({ error: "غير مصرح — هذه الدفعة ليست لك" });
+    }
     try {
       const db = getFirestore();
       if (!db) return res.status(500).json({ error: "DB not configured" });
@@ -3422,6 +3503,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/driver/batch/pickup-order", async (req: Request, res: Response) => {
     const { phoneNumber, orderId, batchId, lat, lng } = req.body;
     if (!phoneNumber || !orderId) return res.status(400).json({ error: "Missing fields" });
+    if (batchId && !(await batchBelongsToDriver(batchId, phoneNumber))) {
+      return res.status(403).json({ error: "غير مصرح — هذه الدفعة ليست لك" });
+    }
     try {
       const db = getFirestore();
       if (!db) return res.status(500).json({ error: "DB not configured" });
@@ -3442,6 +3526,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/driver/batch/complete-order", async (req: Request, res: Response) => {
     const { phoneNumber, orderId, batchId, lat, lng } = req.body;
     if (!phoneNumber || !orderId || !batchId) return res.status(400).json({ error: "Missing fields" });
+    if (!(await batchBelongsToDriver(batchId, phoneNumber))) {
+      return res.status(403).json({ error: "غير مصرح — هذه الدفعة ليست لك" });
+    }
     try {
       const db = getFirestore();
       if (!db) return res.status(500).json({ error: "DB not configured" });
@@ -3592,7 +3679,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Get driver earnings
   app.get("/api/driver/earnings", async (req: Request, res: Response) => {
-    const phoneNumber = req.query.phoneNumber as string;
+    const phoneNumber = (req as any).driverPhone as string;
     if (!phoneNumber) return res.status(400).json({ error: "Phone number required" });
 
     try {
@@ -3632,7 +3719,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Get driver orders history
   app.get("/api/driver/orders", async (req: Request, res: Response) => {
-    const phoneNumber = req.query.phoneNumber as string;
+    const phoneNumber = (req as any).driverPhone as string;
     if (!phoneNumber) return res.status(400).json({ error: "Phone number required" });
 
     try {
@@ -3682,7 +3769,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Driver Wallet Routes
   app.get("/api/driver/wallet", async (req: Request, res: Response) => {
-    const phoneNumber = req.query.phoneNumber as string;
+    const phoneNumber = (req as any).driverPhone as string;
     if (!phoneNumber) return res.status(400).json({ error: "Phone number required" });
     try {
       const account = await getDriverFinancialAccount(phoneNumber);
@@ -3695,7 +3782,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // ── Settlement (generic engine) — driver read + request ─────────────────────
   app.get("/api/driver/settlement", async (req: Request, res: Response) => {
-    const phoneNumber = req.query.phoneNumber as string;
+    const phoneNumber = (req as any).driverPhone as string;
     if (!phoneNumber) return res.status(400).json({ error: "Phone number required" });
     try {
       res.json(await getAccountSettlementView("driver", phoneNumber));
@@ -3705,7 +3792,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.get("/api/driver/settlement/history", async (req: Request, res: Response) => {
-    const phoneNumber = req.query.phoneNumber as string;
+    const phoneNumber = (req as any).driverPhone as string;
     if (!phoneNumber) return res.status(400).json({ error: "Phone number required" });
     try {
       res.json(await getSettlementHistory("driver", phoneNumber));
@@ -3973,7 +4060,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Get driver profile
   app.get("/api/driver/profile", async (req: Request, res: Response) => {
-    const phoneNumber = req.query.phoneNumber as string;
+    const phoneNumber = (req as any).driverPhone as string;
     if (!phoneNumber) return res.status(400).json({ error: "Phone number required" });
 
     try {

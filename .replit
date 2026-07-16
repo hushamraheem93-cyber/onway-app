@@ -20,43 +20,25 @@ integrations = ["github:1.0.0"]
 [workflows]
 runButton = "Project"
 
+# Single workflow: starts the backend (port 5000) and the Expo bundler ONCE.
+# Previously "Project" launched "Start Backend" twice (directly and again nested
+# inside "Start App"), so two instances fought over ports 5000/8081 → EADDRINUSE →
+# the trap killed the whole group and the Run button flickered on/off. It also
+# waited on `curl .../status`, an endpoint Metro does not serve, so the readiness
+# loop never finished and expo:static:build never ran (Preview had nothing to
+# serve). Both are fixed below: one instance, and a readiness check that succeeds
+# on any Metro HTTP response instead of requiring /status.
 [[workflows.workflow]]
 name = "Project"
-mode = "parallel"
-author = "agent"
-
-[[workflows.workflow.tasks]]
-task = "workflow.run"
-args = "Start App"
-
-[[workflows.workflow.tasks]]
-task = "workflow.run"
-args = "Start Backend"
-
-[[workflows.workflow]]
-name = "Start App"
-author = "agent"
-mode = "parallel"
-
-[[workflows.workflow.tasks]]
-task = "workflow.run"
-args = "Start Backend"
-
-[[workflows.workflow.tasks]]
-task = "workflow.run"
-args = "Start Frontend"
-
-[[workflows.workflow]]
-name = "Start Backend"
-author = "agent"
 mode = "sequential"
+author = "agent"
 
 [workflows.workflow.metadata]
 outputType = "webview"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "trap 'kill 0' EXIT SIGTERM SIGINT; fuser -k 5000/tcp 8081/tcp 8082/tcp 2>/dev/null; sleep 1; rm -rf static-build; npm run server:build && npm run server:prod & (until curl -sf http://localhost:8081/status >/dev/null 2>&1; do sleep 2; done && npm run expo:static:build) & npm run expo:dev"
+args = "trap 'kill 0' EXIT SIGTERM SIGINT; fuser -k 5000/tcp 8081/tcp 8082/tcp 2>/dev/null; sleep 1; rm -rf static-build; npm run server:build && npm run server:prod & (until curl -s -o /dev/null --max-time 5 http://localhost:8081/; do sleep 2; done && npm run expo:static:build) & npm run expo:dev"
 waitForPort = 5000
 
 [userenv]

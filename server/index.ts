@@ -727,13 +727,18 @@ function setupErrorHandler(app: express.Application) {
     };
 
     const status = error.status || error.statusCode || 500;
-    const message = error.message || "Internal Server Error";
 
     console.error("Internal Server Error:", err);
 
     if (res.headersSent) {
       return next(err);
     }
+
+    // SECURITY: never leak internal error details to the client on 5xx. Client
+    // errors (4xx) carry intentional, user-facing messages and are preserved;
+    // server errors (5xx) return a generic message while the real error is logged.
+    const message =
+      status >= 500 ? "Internal Server Error" : error.message || "Request failed";
 
     return res.status(status).json({ message });
   });
