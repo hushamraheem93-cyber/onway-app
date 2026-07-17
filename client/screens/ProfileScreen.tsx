@@ -37,6 +37,8 @@ function SettingsItem({ icon, iconBg, iconColor, title, titleColor, subtitle, on
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
         onPress?.();
       }}
+      accessibilityRole="button"
+      accessibilityLabel={subtitle ? `${title}، ${subtitle}` : title}
       style={({ pressed }) => [
         styles.settingsItem,
         { backgroundColor: theme.backgroundDefault, opacity: pressed ? 0.8 : 1 },
@@ -111,6 +113,8 @@ export default function ProfileScreen() {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
               navigation.navigate("EditProfile");
             }}
+            accessibilityRole="button"
+            accessibilityLabel="تعديل الملف الشخصي"
           >
             <Feather name="edit-2" size={18} color={AppColors.primary} />
           </Pressable>
@@ -234,6 +238,9 @@ export default function ProfileScreen() {
                 testID="button-confirm-delete"
                 onPress={handleDeleteAccount}
                 disabled={isDeleting}
+                accessibilityRole="button"
+                accessibilityLabel="نعم، امسح حسابي"
+                accessibilityState={{ disabled: isDeleting, busy: isDeleting }}
                 style={({ pressed }) => [
                   styles.modalDeleteBtn,
                   { opacity: pressed || isDeleting ? 0.7 : 1 },
@@ -254,6 +261,8 @@ export default function ProfileScreen() {
                   setDeleteError(null);
                 }}
                 disabled={isDeleting}
+                accessibilityRole="button"
+                accessibilityLabel="إلغاء"
                 style={({ pressed }) => [
                   styles.modalCancelBtn,
                   { borderColor: theme.border, opacity: pressed ? 0.7 : 1 },
@@ -283,10 +292,10 @@ const styles = StyleSheet.create({
     position: "absolute",
     top: Spacing.md,
     left: Spacing.md,
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: "rgba(255, 122, 0, 0.1)",
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: AppColors.primary + "15",
     alignItems: "center",
     justifyContent: "center",
   },
