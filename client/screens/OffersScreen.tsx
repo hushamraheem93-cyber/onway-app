@@ -60,6 +60,7 @@ export default function OffersScreen() {
       showsVerticalScrollIndicator={false}
       ListEmptyComponent={
         <EmptyState
+          icon="pricetags-outline"
           title="لا توجد تخفيضات حالياً"
           subtitle="سيتم إضافة عروض وتخفيضات قريباً"
         />

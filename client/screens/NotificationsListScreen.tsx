@@ -32,6 +32,8 @@ function NotificationItem({ notification, onPress }: { notification: AppNotifica
   return (
     <Pressable
       onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={`${notification.read ? "" : "غير مقروء، "}${notification.title}. ${notification.body}`}
       style={[
         styles.notificationItem,
         { backgroundColor: notification.read ? theme.backgroundDefault : AppColors.primary + "10" },
@@ -103,14 +105,24 @@ export default function NotificationsListScreen() {
       <GradientBackground />
       {notifications.length > 0 ? (
         <View style={[styles.headerActions, { paddingTop: headerHeight + Spacing.sm }]}>
-          <Pressable onPress={clearNotifications} style={styles.actionButton}>
+          <Pressable
+            onPress={clearNotifications}
+            style={styles.actionButton}
+            accessibilityRole="button"
+            accessibilityLabel="مسح كل الإشعارات"
+          >
             <Feather name="trash-2" size={16} color={theme.textSecondary} />
             <ThemedText type="small" style={{ color: theme.textSecondary }}>
               مسح الكل
             </ThemedText>
           </Pressable>
           {unreadCount > 0 ? (
-            <Pressable onPress={markAllAsRead} style={styles.actionButton}>
+            <Pressable
+              onPress={markAllAsRead}
+              style={styles.actionButton}
+              accessibilityRole="button"
+              accessibilityLabel="تعليم الكل كمقروء"
+            >
               <Feather name="check-circle" size={16} color={AppColors.primary} />
               <ThemedText type="small" style={{ color: AppColors.primary }}>
                 قراءة الكل
@@ -153,6 +165,9 @@ const styles = StyleSheet.create({
     flexDirection: "row-reverse",
     alignItems: "center",
     gap: Spacing.xs,
+    paddingVertical: 8,
+    paddingHorizontal: 4,
+    minHeight: 44,
   },
   notificationItem: {
     flexDirection: "row-reverse",

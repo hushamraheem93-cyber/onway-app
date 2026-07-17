@@ -147,7 +147,13 @@ export default function EditProfileScreen() {
       bottomOffset={50}
     >
       <View style={styles.header}>
-        <Pressable onPress={showImageOptions} style={styles.avatarContainer}>
+        <Pressable
+          onPress={showImageOptions}
+          style={styles.avatarContainer}
+          accessibilityRole="button"
+          accessibilityLabel="تغيير صورة الملف الشخصي"
+          accessibilityHint="يفتح خيارات الكاميرا ومعرض الصور"
+        >
           {displayImageUrl ? (
             <Image
               source={{ uri: displayImageUrl }}
@@ -201,6 +207,9 @@ export default function EditProfileScreen() {
                 },
               ]}
               onPress={() => handleGenderSelect("female")}
+              accessibilityRole="radio"
+              accessibilityLabel="أنثى"
+              accessibilityState={{ selected: gender === "female" }}
             >
               <Feather 
                 name="user" 
@@ -227,6 +236,9 @@ export default function EditProfileScreen() {
                 },
               ]}
               onPress={() => handleGenderSelect("male")}
+              accessibilityRole="radio"
+              accessibilityLabel="ذكر"
+              accessibilityState={{ selected: gender === "male" }}
             >
               <Feather 
                 name="user" 
@@ -258,6 +270,9 @@ export default function EditProfileScreen() {
               },
             ]}
             onPress={() => setShowRegionPicker(!showRegionPicker)}
+            accessibilityRole="button"
+            accessibilityLabel={region ? `المنطقة: ${region}` : "اختر منطقتك"}
+            accessibilityState={{ expanded: showRegionPicker }}
           >
             <Feather name="chevron-down" size={20} color={theme.textSecondary} />
             <ThemedText 
@@ -325,6 +340,9 @@ export default function EditProfileScreen() {
         ]}
         onPress={handleSave}
         disabled={!isFormValid || isLoading}
+        accessibilityRole="button"
+        accessibilityLabel="حفظ التغييرات"
+        accessibilityState={{ disabled: !isFormValid || isLoading, busy: isLoading }}
       >
         {isLoading ? (
           <ActivityIndicator color={AppColors.white} />
@@ -415,7 +433,8 @@ const styles = StyleSheet.create({
   input: {
     borderRadius: BorderRadius.lg,
     padding: Spacing.md,
-    fontSize: 13,
+    fontSize: 16, // ≥16 for readability + prevents iOS auto-zoom on focus
+    minHeight: 52,
     borderWidth: 1,
   },
   textarea: {
