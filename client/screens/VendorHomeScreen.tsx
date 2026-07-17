@@ -571,7 +571,10 @@ export default function VendorHomeScreen({ navigation }: any) {
           {/* Quick actions */}
           {!isRejected ? (
             <>
-              <ThemedText style={styles.sectionTitle}>إجراءات سريعة</ThemedText>
+              <View style={styles.sectionTitleRow}>
+                <View style={styles.sectionAccent} />
+                <ThemedText style={styles.sectionTitle}>إجراءات سريعة</ThemedText>
+              </View>
               <View style={styles.actionsRow}>
                 <QuickAction
                   icon="plus-circle"
@@ -615,7 +618,10 @@ export default function VendorHomeScreen({ navigation }: any) {
           ) : null}
 
           {/* How it works */}
-          <ThemedText style={styles.sectionTitle}>كيف يعمل النظام</ThemedText>
+          <View style={styles.sectionTitleRow}>
+            <View style={styles.sectionAccent} />
+            <ThemedText style={styles.sectionTitle}>كيف يعمل النظام</ThemedText>
+          </View>
           <View style={styles.stepsCard}>
             {[
               { n: "1", icon: "upload", title: "أضف منتجاتك", desc: "ارفع صورة واضحة وحدد السعر والتفاصيل", color: ORANGE },
@@ -901,7 +907,7 @@ const styles = StyleSheet.create({
   },
   storeName: {
     fontFamily: "Cairo_700Bold",
-    fontSize: 18,
+    fontSize: 22,
     color: AppColors.black,
     textAlign: "right",
   },
@@ -1022,11 +1028,22 @@ const styles = StyleSheet.create({
   // Stats
   sectionTitle: {
     fontFamily: "Cairo_700Bold",
-    fontSize: 15,
-    color: AppColors.gray700,
+    fontSize: 18,
+    color: AppColors.gray800,
     textAlign: "right",
-    marginBottom: 10,
+  },
+  sectionTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 12,
     marginTop: 4,
+  },
+  sectionAccent: {
+    width: 4,
+    height: 19,
+    borderRadius: 2,
+    backgroundColor: ORANGE,
   },
 
   // Live stats grid (2×2)
@@ -1038,8 +1055,8 @@ const styles = StyleSheet.create({
   },
   statCard: {
     width: "47%",
-    borderRadius: 16,
-    padding: 14,
+    borderRadius: 20,
+    padding: 15,
     alignItems: "center",
     gap: 6,
     shadowColor: AppColors.black,
@@ -1079,7 +1096,7 @@ const styles = StyleSheet.create({
 
   // Quick actions
   actionsRow: { flexDirection: "row", gap: 12, marginBottom: 20 },
-  quickAction: { flex: 1, borderRadius: 14, paddingVertical: 16, alignItems: "center", gap: 8 },
+  quickAction: { flex: 1, borderRadius: 18, paddingVertical: 16, alignItems: "center", gap: 8 },
   quickLabel: { fontFamily: "Cairo_700Bold", fontSize: 13 },
 
   // Steps
