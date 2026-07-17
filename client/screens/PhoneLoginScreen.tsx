@@ -92,6 +92,8 @@ export default function PhoneLoginScreen() {
                 navigation.goBack();
               }}
               testID="button-back"
+              accessibilityRole="button"
+              accessibilityLabel="رجوع"
             >
               <Feather name="arrow-right" size={22} color={AppColors.white} />
             </Pressable>
@@ -122,6 +124,8 @@ export default function PhoneLoginScreen() {
                 onSubmitEditing={handleContinue}
                 maxLength={12}
                 testID="input-phone"
+                accessibilityLabel="رقم الهاتف"
+                accessibilityHint="أدخل رقم هاتفك العراقي لتسجيل الدخول"
               />
               <View style={styles.prefixBox}>
                 <ThemedText style={styles.countryCode}>964+</ThemedText>
@@ -148,6 +152,9 @@ export default function PhoneLoginScreen() {
               onPress={handleContinue}
               disabled={isLoading}
               testID="button-continue"
+              accessibilityRole="button"
+              accessibilityLabel="دخول"
+              accessibilityState={{ disabled: isLoading, busy: isLoading }}
             >
               {isLoading ? (
                 <ActivityIndicator size="small" color={BRAND_ORANGE} />
@@ -253,7 +260,7 @@ const styles = StyleSheet.create({
   },
   tagline: {
     fontFamily: "Cairo_600SemiBold",
-    fontSize: 13,
+    fontSize: 14,
     color: AppColors.textOnBrandMuted,
     textAlign: "center",
   },
@@ -264,14 +271,14 @@ const styles = StyleSheet.create({
   phoneRow: {
     flexDirection: "row",
     backgroundColor: AppColors.white,
-    borderRadius: 12,
-    height: 56,
+    borderRadius: 14,
+    height: 58,
     alignItems: "center",
     paddingHorizontal: 16,
   },
   phoneInput: {
     flex: 1,
-    fontSize: 13,
+    fontSize: 16, // ≥16 for readability + prevents iOS auto-zoom (HIG/WCAG)
     color: AppColors.gray700,
     textAlign: "left",
     fontFamily: "Cairo_600SemiBold",
@@ -309,8 +316,9 @@ const styles = StyleSheet.create({
   submitBtn: {
     width: "100%",
     backgroundColor: AppColors.white,
-    borderRadius: 12,
-    paddingVertical: 16,
+    borderRadius: 14,
+    paddingVertical: 17,
+    minHeight: 56,
     alignItems: "center",
     justifyContent: "center",
     ...Platform.select({
@@ -333,16 +341,17 @@ const styles = StyleSheet.create({
   },
   submitText: {
     fontFamily: "Cairo_700Bold",
-    fontSize: 13,
+    fontSize: 16,
+    letterSpacing: 0.3,
     color: BRAND_ORANGE,
   },
   backBtn: {
     position: "absolute",
     top: 16,
     right: 16,
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     backgroundColor: "rgba(255,255,255,0.2)",
     justifyContent: "center",
     alignItems: "center",
@@ -369,12 +378,12 @@ const styles = StyleSheet.create({
   },
   whiteText: {
     color: AppColors.white,
-    fontSize: 12,
+    fontSize: 14,
     fontFamily: "Cairo_400Regular",
   },
   signUpText: {
     color: AppColors.white,
-    fontSize: 12,
+    fontSize: 14,
     fontWeight: FontWeight.bold,
     textDecorationLine: "underline",
     fontFamily: "Cairo_700Bold",
@@ -397,14 +406,14 @@ const styles = StyleSheet.create({
   },
   modalTitle: {
     fontFamily: "Cairo_700Bold",
-    fontSize: 14,
+    fontSize: 17,
     color: AppColors.gray700,
     textAlign: "center",
     marginBottom: 12,
   },
   modalMessage: {
     fontFamily: "Cairo_400Regular",
-    fontSize: 12,
+    fontSize: 14,
     color: AppColors.gray500,
     textAlign: "center",
     lineHeight: 24,
@@ -418,7 +427,7 @@ const styles = StyleSheet.create({
   },
   modalButtonText: {
     fontFamily: "Cairo_700Bold",
-    fontSize: 12,
+    fontSize: 15,
     color: AppColors.white,
   },
 });
