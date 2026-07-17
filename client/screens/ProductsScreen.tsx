@@ -137,7 +137,7 @@ export default function ProductsScreen() {
           maxToRenderPerBatch={6}
           removeClippedSubviews={true}
           ListEmptyComponent={() => (
-            <EmptyState title="لا توجد مطاعم" subtitle="لم يتم إضافة مطاعم بعد" />
+            <EmptyState icon="restaurant-outline" title="لا توجد مطاعم" subtitle="لم يتم إضافة مطاعم بعد" />
           )}
         />
         <FloatingCartBar bottomOffset={tabBarHeight + 8} />
@@ -183,6 +183,8 @@ function VendorCard({ vendor, theme, onPress }: { vendor: Vendor; theme: any; on
       testID={`restaurant-card-${vendor.id}`}
       style={[styles.vendorCard, { backgroundColor: theme.backgroundSecondary }]}
       onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={`مطعم ${vendor.name}`}
     >
       <View style={styles.vendorImageContainer}>
         {vendor.image ? (

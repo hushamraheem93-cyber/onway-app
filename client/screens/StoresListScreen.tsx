@@ -123,6 +123,8 @@ function StoreCard({ store, onPress }: { store: VendorStore; onPress: () => void
   return (
     <Pressable
       onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={`متجر ${store.storeName}`}
       style={({ pressed }) => [
         cardStyles.card,
         { backgroundColor: theme.backgroundDefault, opacity: pressed ? 0.93 : 1 },
@@ -308,7 +310,12 @@ export default function StoresListScreen() {
         <View style={[styles.center, { paddingTop: headerHeight }]}>
           <Feather name="wifi-off" size={48} color={theme.textSecondary} />
           <ThemedText type="body" style={{ color: theme.textSecondary }}>تعذّر تحميل المتاجر</ThemedText>
-          <Pressable onPress={() => refetch()} style={styles.retryBtn}>
+          <Pressable
+            onPress={() => refetch()}
+            style={styles.retryBtn}
+            accessibilityRole="button"
+            accessibilityLabel="إعادة المحاولة"
+          >
             <ThemedText type="body" style={{ color: AppColors.primary, fontFamily: "Cairo_700Bold" }}>
               إعادة المحاولة
             </ThemedText>
@@ -335,6 +342,8 @@ export default function StoresListScreen() {
               onPress={() => navigation.goBack()}
               style={[styles.backBtn, { backgroundColor: AppColors.primary }]}
               testID="button-back-coming-soon"
+              accessibilityRole="button"
+              accessibilityLabel="رجوع للرئيسية"
             >
               <Feather name="arrow-right" size={18} color={AppColors.white} />
               <ThemedText style={styles.backBtnText}>رجوع للرئيسية</ThemedText>
@@ -391,7 +400,13 @@ export default function StoresListScreen() {
                 testID="input-store-search"
               />
               {searchQuery.length > 0 ? (
-                <Pressable onPress={() => setSearchQuery("")} testID="button-clear-search">
+                <Pressable
+                  onPress={() => setSearchQuery("")}
+                  testID="button-clear-search"
+                  accessibilityRole="button"
+                  accessibilityLabel="مسح البحث"
+                  hitSlop={8}
+                >
                   <Feather name="x" size={16} color={theme.textSecondary} />
                 </Pressable>
               ) : null}
@@ -460,7 +475,7 @@ const styles = StyleSheet.create({
     ...Shadows.sm,
   },
   searchInput: {
-    flex: 1, fontFamily: "Cairo_400Regular", fontSize: 15,
+    flex: 1, fontFamily: "Cairo_400Regular", fontSize: 16,
     paddingVertical: 0,
   },
   searchEmptyWrap: {

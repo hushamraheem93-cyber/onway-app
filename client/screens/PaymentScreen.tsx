@@ -174,7 +174,7 @@ const styles = StyleSheet.create({
   comingSoonBadgeText: {
     color: AppColors.black,
     fontWeight: FontWeight.bold,
-    fontSize: 10,
+    fontSize: 11,
   },
   paymentMethod: {
     flexDirection: "row-reverse",
