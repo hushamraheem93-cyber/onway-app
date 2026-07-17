@@ -55,6 +55,7 @@ export default function CartScreen() {
       title="سلتك فارغة حالياً"
       subtitle="ابدأ بإضافة المنتجات والوجبات التي تحبها"
       buttonText="ابدأ التسوق الآن"
+      buttonIcon="storefront-outline"
       onButtonPress={handleStartShopping}
     />
   );
@@ -82,7 +83,12 @@ export default function CartScreen() {
         ListEmptyComponent={renderEmpty}
         ListHeaderComponent={
           items.length > 0 ? (
-            <TouchableOpacity onPress={handleClearCart} style={styles.clearButton}>
+            <TouchableOpacity
+              onPress={handleClearCart}
+              style={styles.clearButton}
+              accessibilityRole="button"
+              accessibilityLabel="مسح كل المنتجات من السلة"
+            >
               <Ionicons name="trash-outline" size={20} color={AppColors.primary} />
               <ThemedText type="small" style={styles.clearText}>مسح الكل</ThemedText>
             </TouchableOpacity>
@@ -114,7 +120,12 @@ export default function CartScreen() {
             </ThemedText>
           </View>
 
-          <TouchableOpacity style={styles.checkoutBtn} onPress={handleCheckout}>
+          <TouchableOpacity
+            style={styles.checkoutBtn}
+            onPress={handleCheckout}
+            accessibilityRole="button"
+            accessibilityLabel="إتمام الطلب والانتقال للدفع"
+          >
             <ThemedText type="h4" style={styles.checkoutText}>
               إتمام الطلب
             </ThemedText>
@@ -136,7 +147,10 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     alignSelf: "flex-start",
-    marginBottom: Spacing.md,
+    marginBottom: Spacing.sm,
+    paddingVertical: 8,
+    paddingHorizontal: 4,
+    minHeight: 44,
     gap: 6,
   },
   clearText: {
