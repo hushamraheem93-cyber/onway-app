@@ -1117,10 +1117,11 @@ export function generateOtp(phoneNumber: string): string {
 }
 
 export function verifyOtp(phoneNumber: string, code: string): boolean {
-  // Development-only bypass: the fixed code "0000" is always accepted in dev mode
+  // Development-only bypass: a fixed all-zeros code is always accepted in dev mode
   // (NODE_ENV=development or DEV_MODE=true, and never on a published deployment).
+  // "000000" matches the 6-digit OTP entry screen; "0000" is kept for older builds.
   // In production this branch is inert, so only a real OTPIQ-delivered code works.
-  if (code === "0000" && isDevMode()) {
+  if ((code === "000000" || code === "0000") && isDevMode()) {
     return true;
   }
   const stored = otpStore.get(phoneNumber);
