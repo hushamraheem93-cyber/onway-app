@@ -118,6 +118,8 @@ function ProductCard({
       onPress={onPress}
       style={[styles.productCard, { backgroundColor: theme.backgroundDefault }, Shadows.sm]}
       testID={`product-card-${product.id}`}
+      accessibilityRole="button"
+      accessibilityLabel={`${product.name}، ${formatPrice(product.price)}${isOutOfStock ? "، نفذت الكمية" : ""}`}
     >
       <View style={styles.productImageWrap}>
         <Image
@@ -165,6 +167,8 @@ function ProductCard({
                 onPress={onIncrease}
                 style={[styles.qtyBtn, { backgroundColor: AppColors.primary }]}
                 testID={`btn-increase-${product.id}`}
+                accessibilityRole="button"
+                accessibilityLabel="زيادة الكمية"
               >
                 <Feather name="plus" size={14} color={AppColors.white} />
               </Pressable>
@@ -175,6 +179,8 @@ function ProductCard({
                 onPress={onDecrease}
                 style={[styles.qtyBtn, { backgroundColor: AppColors.primary }]}
                 testID={`btn-decrease-${product.id}`}
+                accessibilityRole="button"
+                accessibilityLabel="إنقاص الكمية"
               >
                 <Feather name="minus" size={14} color={AppColors.white} />
               </Pressable>
@@ -184,6 +190,8 @@ function ProductCard({
               onPress={onAdd}
               style={styles.addBtn}
               testID={`btn-add-${product.id}`}
+              accessibilityRole="button"
+              accessibilityLabel={`أضف ${product.name} إلى السلة`}
             >
               <Feather name="plus" size={16} color={AppColors.white} />
               <ThemedText type="small" style={styles.addBtnText}>
@@ -227,7 +235,13 @@ function SearchFilterBar({
           testID="input-product-search"
         />
         {searchQuery.length > 0 ? (
-          <Pressable onPress={() => onSearchChange("")} testID="btn-clear-search">
+          <Pressable
+            onPress={() => onSearchChange("")}
+            testID="btn-clear-search"
+            accessibilityRole="button"
+            accessibilityLabel="مسح البحث"
+            hitSlop={8}
+          >
             <Feather name="x" size={16} color={theme.textSecondary} />
           </Pressable>
         ) : null}
@@ -249,6 +263,9 @@ function SearchFilterBar({
               },
             ]}
             testID="chip-category-all"
+            accessibilityRole="button"
+            accessibilityLabel="كل الفئات"
+            accessibilityState={{ selected: selectedCategory === null }}
           >
             <ThemedText
               type="small"
@@ -275,6 +292,9 @@ function SearchFilterBar({
                   },
                 ]}
                 testID={`chip-category-${cat.replace(/\s+/g, "-")}`}
+                accessibilityRole="button"
+                accessibilityLabel={cat}
+                accessibilityState={{ selected: active }}
               >
                 <ThemedText
                   type="small"
@@ -384,7 +404,12 @@ export default function StoreProductsScreen() {
           <ThemedText type="body" style={[styles.emptyText, { color: theme.textSecondary }]}>
             تعذّر تحميل المنتجات
           </ThemedText>
-          <Pressable onPress={() => refetch()} style={styles.retryBtn}>
+          <Pressable
+            onPress={() => refetch()}
+            style={styles.retryBtn}
+            accessibilityRole="button"
+            accessibilityLabel="إعادة المحاولة"
+          >
             <ThemedText type="body" style={{ color: AppColors.primary, fontWeight: FontWeight.semiBold }}>
               إعادة المحاولة
             </ThemedText>
@@ -449,6 +474,8 @@ export default function StoreProductsScreen() {
                   onPress={() => { setSearchQuery(""); setSelectedCategory(null); }}
                   style={styles.retryBtn}
                   testID="btn-clear-filters"
+                  accessibilityRole="button"
+                  accessibilityLabel="مسح الفلاتر"
                 >
                   <ThemedText type="body" style={{ color: AppColors.primary, fontWeight: FontWeight.semiBold }}>
                     مسح الفلاتر
@@ -535,7 +562,12 @@ function StoreProfileHeader({ store, theme, onRatingsPress }: { store: VendorSto
 
           {/* Rating row */}
           {store.rating != null ? (
-            <Pressable onPress={onRatingsPress} style={hStyles.ratingRow}>
+            <Pressable
+              onPress={onRatingsPress}
+              style={hStyles.ratingRow}
+              accessibilityRole="button"
+              accessibilityLabel="عرض تقييمات المتجر"
+            >
               <MaterialCommunityIcons name="star" size={14} color={AppColors.warning} />
               <ThemedText type="small" style={[hStyles.ratingText, { color: theme.textPrimary }]}>
                 {(store.rating as number).toFixed(1)}
@@ -633,7 +665,7 @@ const sfStyles = StyleSheet.create({
   },
   searchInput: {
     flex: 1,
-    fontSize: 15,
+    fontSize: 16, // ≥16 for readability + prevents iOS auto-zoom on focus
     fontFamily: "Cairo_400Regular",
     paddingVertical: 0,
   },
@@ -704,12 +736,12 @@ const styles = StyleSheet.create({
   },
   productDesc: {
     textAlign: "right",
-    fontSize: 11,
-    lineHeight: 16,
+    fontSize: 12,
+    lineHeight: 17,
   },
   productUnit: {
     textAlign: "right",
-    fontSize: 11,
+    fontSize: 12,
   },
   productFooter: {
     flexDirection: "row-reverse",
