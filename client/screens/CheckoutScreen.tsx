@@ -206,6 +206,14 @@ export default function CheckoutScreen() {
     await submitOrderPayload(orderPayload);
   };
 
+  // Section title with the signature brand accent bar (RTL reading-start).
+  const renderSectionTitle = (title: string) => (
+    <View style={styles.sectionTitleRow}>
+      <View style={styles.sectionAccent} />
+      <ThemedText type="h3" style={styles.sectionTitle}>{title}</ThemedText>
+    </View>
+  );
+
   return (
     <View style={{ flex: 1 }}>
       <GradientBackground />
@@ -217,9 +225,7 @@ export default function CheckoutScreen() {
         paddingHorizontal: Spacing.lg,
       }}
     >
-      <ThemedText type="h3" style={styles.sectionTitle}>
-        معلومات التوصيل
-      </ThemedText>
+      {renderSectionTitle("معلومات التوصيل")}
 
       <View style={[styles.inputContainer, { backgroundColor: theme.backgroundDefault }, Shadows.sm]}>
         <ThemedText type="small" style={[styles.label, { color: theme.textSecondary }]}>
@@ -436,9 +442,7 @@ export default function CheckoutScreen() {
         ) : null}
       </View>
 
-      <ThemedText type="h3" style={styles.sectionTitle}>
-        طريقة الدفع
-      </ThemedText>
+      {renderSectionTitle("طريقة الدفع")}
 
       <View style={[styles.paymentCard, { backgroundColor: theme.backgroundDefault }, Shadows.sm]}>
         <View style={styles.paymentRow}>
@@ -485,9 +489,7 @@ export default function CheckoutScreen() {
         </View>
       </View>
 
-      <ThemedText type="h3" style={styles.sectionTitle}>
-        ملخص الطلب
-      </ThemedText>
+      {renderSectionTitle("ملخص الطلب")}
 
       <View style={[styles.summaryCard, { backgroundColor: theme.backgroundDefault }, Shadows.sm]}>
         <View style={styles.summaryRow}>
@@ -593,8 +595,21 @@ export default function CheckoutScreen() {
 const styles = StyleSheet.create({
   sectionTitle: {
     textAlign: "right",
-    marginBottom: Spacing.lg,
+  },
+  // Signature: short rounded brand accent bar at the reading-start (RTL) of every
+  // section title — consistent with the Home screen's section rhythm.
+  sectionTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
     marginTop: Spacing.lg,
+    marginBottom: Spacing.lg,
+  },
+  sectionAccent: {
+    width: 4,
+    height: 20,
+    borderRadius: 2,
+    backgroundColor: AppColors.primary,
   },
   inputContainer: {
     borderRadius: BorderRadius.lg,
