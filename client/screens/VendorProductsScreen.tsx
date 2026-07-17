@@ -867,13 +867,13 @@ const styles = StyleSheet.create({
   // Product card
   productCard: {
     backgroundColor: AppColors.white,
-    borderRadius: 16,
-    marginBottom: 10,
+    borderRadius: 20,
+    marginBottom: 12,
     flexDirection: "row",
     overflow: "hidden",
     elevation: 2,
     shadowColor: "#00000018",
-    shadowOffset: { width: 0, height: 2 },
+    shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.08,
     shadowRadius: 6,
   },
@@ -902,8 +902,8 @@ const styles = StyleSheet.create({
     textAlign: "right",
     marginLeft: 6,
   },
-  statusBadge: { borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3, flexShrink: 0 },
-  statusText: { fontFamily: "Cairo_700Bold", fontSize: 10 },
+  statusBadge: { borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4, flexShrink: 0 },
+  statusText: { fontFamily: "Cairo_700Bold", fontSize: 11 },
   productBottom: {
     flexDirection: "row",
     justifyContent: "space-between",

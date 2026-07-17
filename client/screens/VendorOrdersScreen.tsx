@@ -1088,8 +1088,8 @@ const tabStyles = StyleSheet.create({
 
 const cardStyles = StyleSheet.create({
   card: {
-    borderRadius: 16, overflow: "hidden",
-    shadowColor: AppColors.black, shadowOpacity: 0.06, shadowRadius: 10, shadowOffset: { width: 0, height: 3 },
+    borderRadius: 22, overflow: "hidden",
+    shadowColor: AppColors.black, shadowOpacity: 0.07, shadowRadius: 14, shadowOffset: { width: 0, height: 5 },
     elevation: 3,
   },
   cardPending: {
@@ -1128,7 +1128,7 @@ const cardStyles = StyleSheet.create({
     width: 38, height: 38, borderRadius: 19,
     justifyContent: "center", alignItems: "center", flexShrink: 0,
   },
-  customerName: { fontFamily: "Cairo_700Bold", fontSize: 14, textAlign: "right" },
+  customerName: { fontFamily: "Cairo_700Bold", fontSize: 15, textAlign: "right" },
   customerPhone: { fontFamily: "Cairo_400Regular", fontSize: 11, textAlign: "right", marginTop: 1 },
   infoRow: { flexDirection: "row-reverse", alignItems: "flex-start", gap: 8 },
   infoText: { fontFamily: "Cairo_400Regular", fontSize: 12, flex: 1, textAlign: "right" },

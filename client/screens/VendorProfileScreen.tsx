@@ -395,7 +395,7 @@ export default function VendorProfileScreen() {
 
 const styles = StyleSheet.create({
   sectionLabel: { fontFamily: "Cairo_700Bold", fontSize: 14, color: AppColors.gray400, textAlign: "right", marginTop: 4 },
-  card: { borderRadius: 16, overflow: "hidden", shadowColor: AppColors.black, shadowOpacity: 0.05, shadowRadius: 8, shadowOffset: { width: 0, height: 2 }, elevation: 2 },
+  card: { borderRadius: 20, overflow: "hidden", shadowColor: AppColors.black, shadowOpacity: 0.05, shadowRadius: 10, shadowOffset: { width: 0, height: 3 }, elevation: 2 },
   coverWrap: { width: "100%", height: 120, position: "relative" },
   cover: { width: "100%", height: 120 },
   editCoverBtn: { position: "absolute", bottom: 8, left: 8, backgroundColor: AppColors.overlay, borderRadius: 14, padding: 6 },
@@ -403,7 +403,7 @@ const styles = StyleSheet.create({
   avatarWrap: { position: "relative" },
   avatar: { width: 72, height: 72, borderRadius: 36, borderWidth: 3, borderColor: AppColors.white },
   editAvatarBtn: { position: "absolute", bottom: 0, left: 0, backgroundColor: ORANGE, borderRadius: 10, padding: 5, borderWidth: 2, borderColor: AppColors.white },
-  storeName: { fontFamily: "Cairo_700Bold", fontSize: 17, textAlign: "right" },
+  storeName: { fontFamily: "Cairo_700Bold", fontSize: 21, textAlign: "right" },
   bizType: { fontFamily: "Cairo_400Regular", fontSize: 13, textAlign: "right" },
   statusBadge: { flexDirection: "row", alignItems: "center", gap: 5, paddingHorizontal: 10, paddingVertical: 3, borderRadius: 12, alignSelf: "flex-end", marginTop: 4 },
   statusDot: { width: 6, height: 6, borderRadius: 3 },
@@ -423,7 +423,7 @@ const styles = StyleSheet.create({
   modalBox: { width: "100%", borderRadius: 20, padding: 20, gap: 12 },
   modalTitle: { fontFamily: "Cairo_700Bold", fontSize: 17, textAlign: "center", marginBottom: 4 },
   fieldLabel: { fontFamily: "Cairo_700Bold", fontSize: 12, color: AppColors.gray500, textAlign: "right", marginBottom: 4 },
-  input: { borderWidth: 1.5, borderRadius: 10, padding: 10, fontFamily: "Cairo_400Regular", fontSize: 14, textAlign: "right" },
+  input: { borderWidth: 1.5, borderRadius: 12, padding: 12, fontFamily: "Cairo_400Regular", fontSize: 16, textAlign: "right" },
   bioInput: { borderWidth: 1.5, borderRadius: 10, padding: 10, fontFamily: "Cairo_400Regular", fontSize: 14, textAlign: "right", minHeight: 100, textAlignVertical: "top" },
   toggleRow: { flexDirection: "row-reverse", alignItems: "center", gap: 10, paddingVertical: 4 },
   toggle: { width: 44, height: 26, borderRadius: 13, position: "relative" },

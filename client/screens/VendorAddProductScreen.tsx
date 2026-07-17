@@ -450,9 +450,9 @@ const styles = StyleSheet.create({
   },
   labelHint: { fontFamily: "Cairo_400Regular", fontSize: 11, color: AppColors.gray500 },
   input: {
-    borderWidth: 1.5, borderColor: AppColors.divider, borderRadius: 12,
-    paddingHorizontal: 14, paddingVertical: 11,
-    fontFamily: "Cairo_400Regular", fontSize: 14, color: AppColors.black,
+    borderWidth: 1.5, borderColor: AppColors.divider, borderRadius: 14,
+    paddingHorizontal: 14, paddingVertical: 13,
+    fontFamily: "Cairo_400Regular", fontSize: 16, color: AppColors.black,
     textAlign: "right", marginBottom: 14, backgroundColor: AppColors.white,
   },
   textArea: { minHeight: 80, textAlignVertical: "top", paddingTop: 10 },
