@@ -25,7 +25,7 @@ module.exports = {
     },
     android: {
       adaptiveIcon: {
-        backgroundColor: "#FF8C42",
+        backgroundColor: "#E86520",
         foregroundImage: "./assets/images/icon.png",
       },
       edgeToEdgeEnabled: true,
@@ -48,7 +48,7 @@ module.exports = {
           image: "./assets/images/splash-icon.png",
           imageWidth: 200,
           resizeMode: "contain",
-          backgroundColor: "#FF8C42",
+          backgroundColor: "#E86520",
         },
       ],
       "expo-web-browser",
