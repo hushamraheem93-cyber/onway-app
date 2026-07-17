@@ -14,6 +14,9 @@ interface EmptyStateProps {
   subtitle?: string;
   buttonText?: string;
   onButtonPress?: () => void;
+  /** Icon shown inside the CTA. Defaults to the back-chevron for backward
+   *  compatibility; forward CTAs (e.g. "تسوّق الآن") can pass a fitting icon. */
+  buttonIcon?: keyof typeof Ionicons.glyphMap;
 }
 
 function EmptyStateComponent({
@@ -23,6 +26,7 @@ function EmptyStateComponent({
   subtitle,
   buttonText,
   onButtonPress,
+  buttonIcon = "chevron-back",
 }: EmptyStateProps) {
   const { theme } = useTheme();
 
@@ -52,7 +56,7 @@ function EmptyStateComponent({
       {buttonText && onButtonPress ? (
         <Pressable onPress={handlePress} style={styles.button}>
           <View style={styles.btnIconCircle}>
-            <Ionicons name="chevron-back" size={20} color={AppColors.primary} />
+            <Ionicons name={buttonIcon} size={20} color={AppColors.primary} />
           </View>
           <ThemedText type="h4" style={styles.buttonText}>
             {buttonText}
