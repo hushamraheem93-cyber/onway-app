@@ -94,6 +94,13 @@ export default function ProfileScreen() {
     }
   };
 
+  const renderSectionTitle = (title: string) => (
+    <View style={styles.sectionTitleRow}>
+      <View style={styles.sectionAccent} />
+      <ThemedText type="h4" style={styles.sectionTitle}>{title}</ThemedText>
+    </View>
+  );
+
   return (
     <View style={{ flex: 1 }}>
       <GradientBackground />
@@ -143,7 +150,7 @@ export default function ProfileScreen() {
         </View>
 
         {/* قسم: طلباتي */}
-        <ThemedText type="h4" style={styles.sectionTitle}>طلباتي</ThemedText>
+        {renderSectionTitle("طلباتي")}
         <SettingsItem
           icon="package"
           title="طلباتي"
@@ -152,7 +159,7 @@ export default function ProfileScreen() {
         />
 
         {/* قسم: الإعدادات */}
-        <ThemedText type="h4" style={styles.sectionTitle}>الإعدادات</ThemedText>
+        {renderSectionTitle("الإعدادات")}
         <SettingsItem
           icon="bell"
           title="الإشعارات"
@@ -172,7 +179,7 @@ export default function ProfileScreen() {
         />
 
         {/* قسم: المساعدة */}
-        <ThemedText type="h4" style={styles.sectionTitle}>المساعدة</ThemedText>
+        {renderSectionTitle("المساعدة")}
         <SettingsItem
           icon="message-circle"
           title="تواصل مع الدعم"
@@ -193,7 +200,7 @@ export default function ProfileScreen() {
         />
 
         {/* قسم: الحساب */}
-        <ThemedText type="h4" style={styles.sectionTitle}>الحساب</ThemedText>
+        {renderSectionTitle("الحساب")}
         <SettingsItem
           icon="log-out"
           title="تسجيل الخروج"
@@ -342,8 +349,21 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     textAlign: "right",
-    marginBottom: Spacing.md,
+  },
+  // Signature: short rounded brand accent bar at the reading-start (RTL) of every
+  // section title — consistent with the Home screen's section rhythm.
+  sectionTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
     marginTop: Spacing.lg,
+    marginBottom: Spacing.md,
+  },
+  sectionAccent: {
+    width: 4,
+    height: 18,
+    borderRadius: 2,
+    backgroundColor: AppColors.primary,
   },
   settingsItem: {
     flexDirection: "row-reverse",

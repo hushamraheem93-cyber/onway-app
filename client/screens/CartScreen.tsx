@@ -112,12 +112,15 @@ export default function CartScreen() {
           ]}
         >
           <View style={[styles.summaryRow, styles.totalRow]}>
-            <ThemedText type="h3" style={styles.totalValue}>
+            <ThemedText type="h2" style={styles.totalValue}>
               {formatPrice(subtotal)}
             </ThemedText>
-            <ThemedText type="h4" style={styles.totalLabel}>
-              المجموع الكلي
-            </ThemedText>
+            <View style={styles.totalLabelRow}>
+              <View style={styles.totalAccent} />
+              <ThemedText type="h4" style={styles.totalLabel}>
+                المجموع الكلي
+              </ThemedText>
+            </View>
           </View>
 
           <TouchableOpacity
@@ -177,6 +180,18 @@ const styles = StyleSheet.create({
   },
   totalRow: {
     marginBottom: 0,
+  },
+  totalLabelRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  // Signature brand accent bar, consistent with Home/Checkout section rhythm.
+  totalAccent: {
+    width: 4,
+    height: 18,
+    borderRadius: 2,
+    backgroundColor: AppColors.primary,
   },
   totalLabel: {
     fontWeight: FontWeight.bold,
