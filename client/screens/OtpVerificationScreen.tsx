@@ -385,6 +385,9 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     gap: 8,
     marginBottom: 20,
+    // Force left-to-right so digit 1 is the leftmost box and focus advances rightward,
+    // even though the app is RTL. Without this the code fills from the right (wrong order).
+    direction: "ltr",
     writingDirection: "ltr",
   },
   otpInput: {
