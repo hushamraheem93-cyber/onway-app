@@ -43,6 +43,8 @@ function NotificationSetting({ icon, title, subtitle, value, onValueChange }: No
         onValueChange={handleChange}
         trackColor={{ false: AppColors.gray300, true: AppColors.primary }}
         thumbColor={AppColors.white}
+        accessibilityLabel={title}
+        accessibilityHint={subtitle}
       />
       <View style={styles.settingContent}>
         <ThemedText type="body" style={styles.settingTitle}>{title}</ThemedText>
