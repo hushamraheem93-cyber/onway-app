@@ -2749,8 +2749,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // DELETE /api/users/:phoneNumber — delete user account and all related data
-  app.delete("/api/users/:phoneNumber", async (req: Request, res: Response) => {
+  app.delete("/api/users/:phoneNumber", requireCustomerAuth, async (req: Request, res: Response) => {
     const phoneNumber = decodeURIComponent(req.params.phoneNumber as string);
+    // Ownership: a user may only delete their OWN account. Without this, anyone could
+    // delete any account by phone number (unauthenticated account destruction).
+    if ((req as any).customerPhone !== phoneNumber) {
+      return res.status(403).json({ error: "غير مصرح" });
+    }
     const db = getFirestore();
     if (!db) {
       return res.status(500).json({ error: "Database not available" });

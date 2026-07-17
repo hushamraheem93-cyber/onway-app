@@ -494,9 +494,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const deleteAccount = async () => {
     if (!phoneNumber) throw new Error("No phone number");
+    let cToken = customerToken;
+    if (!cToken) { try { cToken = await getToken(CUSTOMER_TOKEN_KEY); } catch {} }
     const response = await fetch(
       new URL(`/api/users/${encodeURIComponent(phoneNumber)}`, getApiUrl()).toString(),
-      { method: "DELETE" }
+      { method: "DELETE", headers: cToken ? { Authorization: `Bearer ${cToken}` } : {} }
     );
     if (!response.ok) {
       const err = await response.json().catch(() => ({}));
