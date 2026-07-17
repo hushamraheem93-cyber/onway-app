@@ -245,9 +245,9 @@ const styles = StyleSheet.create({
   scroll: { flex: 1 },
   label: { fontFamily: "Cairo_700Bold", fontSize: 13, color: AppColors.gray700, marginBottom: 6, textAlign: "right" },
   input: {
-    borderWidth: 1.5, borderColor: AppColors.divider, borderRadius: 12,
-    paddingHorizontal: 14, paddingVertical: 12,
-    fontFamily: "Cairo_400Regular", fontSize: 14, color: AppColors.black,
+    borderWidth: 1.5, borderColor: AppColors.divider, borderRadius: 14,
+    paddingHorizontal: 14, paddingVertical: 14,
+    fontFamily: "Cairo_400Regular", fontSize: 16, color: AppColors.black,
     textAlign: "right", marginBottom: 16,
     backgroundColor: AppColors.gray50,
   },

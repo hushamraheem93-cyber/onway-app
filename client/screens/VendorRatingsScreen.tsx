@@ -155,7 +155,7 @@ const mStyles = StyleSheet.create({
   sheet: { borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 20, gap: 16 },
   header: { flexDirection: "row-reverse", justifyContent: "space-between", alignItems: "center" },
   title: { fontFamily: "Cairo_700Bold", fontSize: 16 },
-  input: { borderWidth: 1, borderRadius: 12, padding: 12, minHeight: 100, fontFamily: "Cairo_400Regular", fontSize: 14 },
+  input: { borderWidth: 1, borderRadius: 12, padding: 12, minHeight: 100, fontFamily: "Cairo_400Regular", fontSize: 16 },
   actions: { flexDirection: "row-reverse", gap: 10 },
   btn: { flex: 1, padding: 12, borderRadius: 12, alignItems: "center" },
 });

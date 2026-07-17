@@ -404,8 +404,8 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "flex-start",
     borderWidth: 1,
-    borderRadius: 14,
-    padding: 14,
+    borderRadius: 18,
+    padding: 15,
     marginBottom: 10,
   },
   notifIcon: {

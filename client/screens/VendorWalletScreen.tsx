@@ -296,14 +296,14 @@ const styles = StyleSheet.create({
   revenuePeriod: { fontFamily: "Cairo_400Regular", fontSize: 12, color: AppColors.iconOnBrand, textAlign: "center" },
   statsRow: { flexDirection: "row-reverse", gap: 10 },
   statCard: {
-    flex: 1, borderRadius: 16, padding: 16, alignItems: "center", gap: 6,
-    shadowColor: AppColors.black, shadowOpacity: 0.05, shadowRadius: 8, shadowOffset: { width: 0, height: 2 },
+    flex: 1, borderRadius: 20, padding: 16, alignItems: "center", gap: 6,
+    shadowColor: AppColors.black, shadowOpacity: 0.05, shadowRadius: 10, shadowOffset: { width: 0, height: 3 },
     elevation: 2,
   },
-  statValue: { fontFamily: "Cairo_700Bold", fontSize: 18, color: PURPLE, textAlign: "center" },
+  statValue: { fontFamily: "Cairo_700Bold", fontSize: 20, color: PURPLE, textAlign: "center" },
   statLabel: { fontFamily: "Cairo_400Regular", fontSize: 12, color: AppColors.gray500, textAlign: "center" },
   section: {
-    borderRadius: 16, padding: 16,
+    borderRadius: 20, padding: 16,
     shadowColor: AppColors.black, shadowOpacity: 0.04, shadowRadius: 8, shadowOffset: { width: 0, height: 2 },
     elevation: 2,
   },
