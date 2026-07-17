@@ -22,41 +22,15 @@ runButton = "Project"
 
 [[workflows.workflow]]
 name = "Project"
-mode = "parallel"
-author = "agent"
-
-[[workflows.workflow.tasks]]
-task = "workflow.run"
-args = "Start App"
-
-[[workflows.workflow.tasks]]
-task = "workflow.run"
-args = "Start Backend"
-
-[[workflows.workflow]]
-name = "Start App"
-author = "agent"
-mode = "parallel"
-
-[[workflows.workflow.tasks]]
-task = "workflow.run"
-args = "Start Backend"
-
-[[workflows.workflow.tasks]]
-task = "workflow.run"
-args = "Start Frontend"
-
-[[workflows.workflow]]
-name = "Start Backend"
-author = "agent"
 mode = "sequential"
+author = "agent"
 
 [workflows.workflow.metadata]
 outputType = "webview"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "trap 'kill 0' EXIT SIGTERM SIGINT; fuser -k 5000/tcp 8081/tcp 8082/tcp 2>/dev/null; sleep 1; rm -rf static-build; npm run server:build && npm run server:prod & (until curl -sf http://localhost:8081/status >/dev/null 2>&1; do sleep 2; done && npm run expo:static:build) & npm run expo:dev"
+args = "trap 'kill 0' EXIT SIGTERM SIGINT; fuser -k 5000/tcp 8081/tcp 8082/tcp 2>/dev/null; sleep 1; rm -rf static-build; npm run server:build && npm run server:prod & (until curl -s -o /dev/null --max-time 5 http://localhost:8081/; do sleep 2; done && npm run expo:static:build) & npm run expo:dev"
 waitForPort = 5000
 
 [userenv]
