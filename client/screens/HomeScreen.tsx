@@ -347,6 +347,8 @@ export default function HomeScreen() {
           handleCategoryPress(category);
         }}
         testID={`card-home-category-${category.id}`}
+        accessibilityRole="button"
+        accessibilityLabel={`قسم ${category.name}`}
       >
         <LinearGradient
           colors={[gradientColor, AppColors.white]}
@@ -385,6 +387,8 @@ export default function HomeScreen() {
           setSelectedProduct(product);
         }}
         testID={`card-product-${product.id}`}
+        accessibilityRole="button"
+        accessibilityLabel={`${product.name}، ${formatPrice(product.price)}`}
       >
         {product.discount ? (
           <View style={styles.discountBadge}>
@@ -407,6 +411,9 @@ export default function HomeScreen() {
               toggleFavorite(product);
             }}
             style={styles.productFavoriteBtn}
+            accessibilityRole="button"
+            accessibilityLabel={isFav ? "إزالة من المفضلة" : "إضافة إلى المفضلة"}
+            accessibilityState={{ selected: isFav }}
           >
             <Feather name="heart" size={15} color={isFav ? AppColors.error : AppColors.gray300} />
           </Pressable>
@@ -449,6 +456,8 @@ export default function HomeScreen() {
                 }}
                 style={styles.addButton}
                 testID={`btn-add-${product.id}`}
+                accessibilityRole="button"
+                accessibilityLabel={`أضف ${product.name} إلى السلة`}
               >
                 <Feather name="plus" size={16} color={AppColors.white} />
               </Pressable>
@@ -472,6 +481,8 @@ export default function HomeScreen() {
         });
       }}
       testID={`restaurant-card-${vendor.id}`}
+      accessibilityRole="button"
+      accessibilityLabel={`مطعم ${vendor.name}${vendor.isOpen ? "، مفتوح" : "، مغلق"}`}
     >
       <View style={styles.restaurantImageWrapper}>
         <Image
@@ -802,6 +813,14 @@ export default function HomeScreen() {
   const firstRowCategories = storeCategories.slice(0, Math.ceil(storeCategories.length / 2));
   const secondRowCategories = storeCategories.slice(Math.ceil(storeCategories.length / 2));
 
+  // Section title with the signature brand accent bar (RTL reading-start).
+  const renderSectionTitle = (title: string) => (
+    <View style={styles.sectionTitleRow}>
+      <View style={styles.sectionAccent} />
+      <ThemedText style={styles.sectionTitle}>{title}</ThemedText>
+    </View>
+  );
+
   // ── Main content ────────────────────────────────────────────────────────
   const renderContent = () => (
     <View>
@@ -833,6 +852,9 @@ export default function HomeScreen() {
               setSearchQuery("");
             }}
             testID="tab-stores"
+            accessibilityRole="tab"
+            accessibilityLabel="متاجر"
+            accessibilityState={{ selected: activeTab === "stores" }}
           >
             {activeTab === "stores" ? (
               <LinearGradient
@@ -861,6 +883,9 @@ export default function HomeScreen() {
               setSearchQuery("");
             }}
             testID="tab-restaurants"
+            accessibilityRole="tab"
+            accessibilityLabel="مطاعم"
+            accessibilityState={{ selected: activeTab === "restaurants" }}
           >
             {activeTab === "restaurants" ? (
               <LinearGradient
@@ -900,7 +925,12 @@ export default function HomeScreen() {
           testID="input-home-search"
         />
         {searchQuery.length > 0 ? (
-          <Pressable onPress={() => setSearchQuery("")}>
+          <Pressable
+            onPress={() => setSearchQuery("")}
+            accessibilityRole="button"
+            accessibilityLabel="مسح البحث"
+            hitSlop={8}
+          >
             <Feather name="x" size={16} color={AppColors.gray400} />
           </Pressable>
         ) : null}
@@ -920,7 +950,7 @@ export default function HomeScreen() {
                 <>
                   {filteredRestaurants.length > 0 ? (
                     <View style={styles.sectionHeader}>
-                      <ThemedText style={styles.sectionTitle}>مطاعم المتاجر</ThemedText>
+                      {renderSectionTitle("مطاعم المتاجر")}
                     </View>
                   ) : null}
                   {vendorRestaurants.map(renderVendorStoreSectionWithProducts)}
@@ -948,9 +978,11 @@ export default function HomeScreen() {
             <>
               {/* Categories */}
               <View style={styles.sectionHeader}>
-                <ThemedText style={styles.sectionTitle}>الأقسام الرئيسية</ThemedText>
+                {renderSectionTitle("الأقسام الرئيسية")}
                 <Pressable
                   onPress={() => navigation.navigate("AllCategories")}
+                  accessibilityRole="button"
+                  accessibilityLabel="عرض كل الأقسام"
                 >
                   <ThemedText style={styles.viewAll}>عرض الكل</ThemedText>
                 </Pressable>
@@ -984,7 +1016,7 @@ export default function HomeScreen() {
               {vendorOtherStores.length > 0 ? (
                 <>
                   <View style={styles.sectionHeader}>
-                    <ThemedText style={styles.sectionTitle}>المتاجر المتاحة</ThemedText>
+                    {renderSectionTitle("المتاجر المتاحة")}
                   </View>
                   {vendorOtherStores.map(renderVendorStoreSectionWithProducts)}
                 </>
@@ -992,8 +1024,12 @@ export default function HomeScreen() {
 
               {/* Best Sellers */}
               <View style={styles.sectionHeader}>
-                <ThemedText style={styles.sectionTitle}>الأكثر مبيعاً</ThemedText>
-                <Pressable onPress={() => navigation.navigate("AllCategories")}>
+                {renderSectionTitle("الأكثر مبيعاً")}
+                <Pressable
+                  onPress={() => navigation.navigate("AllCategories")}
+                  accessibilityRole="button"
+                  accessibilityLabel="عرض كل المنتجات الأكثر مبيعاً"
+                >
                   <ThemedText style={styles.viewAll}>عرض الكل</ThemedText>
                 </Pressable>
               </View>
@@ -1014,8 +1050,12 @@ export default function HomeScreen() {
 
               {/* Featured */}
               <View style={styles.sectionHeader}>
-                <ThemedText style={styles.sectionTitle}>المنتجات المميزة</ThemedText>
-                <Pressable onPress={() => navigation.navigate("AllCategories")}>
+                {renderSectionTitle("المنتجات المميزة")}
+                <Pressable
+                  onPress={() => navigation.navigate("AllCategories")}
+                  accessibilityRole="button"
+                  accessibilityLabel="عرض كل المنتجات المميزة"
+                >
                   <ThemedText style={styles.viewAll}>عرض الكل</ThemedText>
                 </Pressable>
               </View>
@@ -1038,8 +1078,12 @@ export default function HomeScreen() {
               {discountProducts.length > 0 ? (
                 <>
                   <View style={styles.sectionHeader}>
-                    <ThemedText style={styles.sectionTitle}>التخفيضات المميزة</ThemedText>
-                    <Pressable onPress={() => navigation.navigate("AllCategories")}>
+                    {renderSectionTitle("التخفيضات المميزة")}
+                    <Pressable
+                      onPress={() => navigation.navigate("AllCategories")}
+                      accessibilityRole="button"
+                      accessibilityLabel="عرض كل التخفيضات"
+                    >
                       <ThemedText style={styles.viewAll}>عرض الكل</ThemedText>
                     </Pressable>
                   </View>
@@ -1145,6 +1189,8 @@ export default function HomeScreen() {
                       addToCart(selectedProduct);
                     }}
                     testID="btn-modal-add"
+                    accessibilityRole="button"
+                    accessibilityLabel="أضف إلى السلة"
                   >
                     <Feather name="shopping-cart" size={18} color={AppColors.white} />
                     <ThemedText style={styles.modalAddText}>أضف إلى السلة</ThemedText>
@@ -1201,8 +1247,8 @@ const styles = StyleSheet.create({
   },
   greeting: {
     fontFamily: "Cairo_700Bold",
-    fontSize: 16,
-    lineHeight: 32,
+    fontSize: 22,
+    lineHeight: 34,
     color: AppColors.primary,
     marginBottom: 2,
     textAlign: "right",
@@ -1211,11 +1257,11 @@ const styles = StyleSheet.create({
   },
   subGreeting: {
     fontFamily: "Cairo_600SemiBold",
-    fontSize: 14,
+    fontSize: 15,
     color: AppColors.gray700,
     textAlign: "right",
     writingDirection: "rtl",
-    marginTop: 8,
+    marginTop: 6,
   },
   bannersSection: {
     marginVertical: 12,
@@ -1297,7 +1343,7 @@ const styles = StyleSheet.create({
   searchInput: {
     flex: 1,
     fontFamily: "Cairo_400Regular",
-    fontSize: 14,
+    fontSize: 16,
     textAlign: "right",
     writingDirection: "rtl",
   },
@@ -1369,7 +1415,7 @@ const styles = StyleSheet.create({
   },
   restaurantName: {
     fontFamily: "Cairo_700Bold",
-    fontSize: 14,
+    fontSize: 16,
     color: AppColors.black,
     flex: 1,
     textAlign: "right",
@@ -1434,13 +1480,26 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontFamily: "Cairo_700Bold",
-    fontSize: 14,
+    fontSize: 18,
     color: AppColors.gray800,
     textAlign: "right",
   },
+  // Signature: short rounded brand accent bar at the reading-start (RTL) of every
+  // section title — gives the home a consistent, premium section rhythm.
+  sectionTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  sectionAccent: {
+    width: 4,
+    height: 20,
+    borderRadius: 2,
+    backgroundColor: AppColors.primary,
+  },
   viewAll: {
     fontFamily: "Cairo_600SemiBold",
-    fontSize: 13,
+    fontSize: 14,
     color: AppColors.primary,
   },
   catSliderContainer: {
@@ -1543,9 +1602,9 @@ const styles = StyleSheet.create({
     position: "absolute",
     top: 8,
     left: 8,
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     backgroundColor: "rgba(255,255,255,0.9)",
     alignItems: "center",
     justifyContent: "center",
@@ -1582,13 +1641,13 @@ const styles = StyleSheet.create({
   },
   productPrice: {
     fontFamily: "Cairo_700Bold",
-    fontSize: 14,
+    fontSize: 15,
     color: AppColors.primary,
   },
   addButton: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
+    width: 34,
+    height: 34,
+    borderRadius: 17,
     backgroundColor: AppColors.primary,
     justifyContent: "center",
     alignItems: "center",
@@ -1730,7 +1789,7 @@ const styles = StyleSheet.create({
   },
   modalAddText: {
     fontFamily: "Cairo_700Bold",
-    fontSize: 13,
+    fontSize: 15,
     color: AppColors.white,
   },
   modalQtyRow: {
