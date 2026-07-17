@@ -99,9 +99,10 @@ function OrderCardComponent({ order, onPress, onStorePress, onRate }: OrderCardP
             { backgroundColor: (ORDER_STATUS_COLORS[order.status] ?? AppColors.gray400) + "20" },
           ]}
         >
+          <View style={[styles.statusDot, { backgroundColor: ORDER_STATUS_COLORS[order.status] ?? AppColors.gray400 }]} />
           <ThemedText
             type="small"
-            style={{ color: ORDER_STATUS_COLORS[order.status] ?? AppColors.gray400, fontWeight: FontWeight.semiBold }}
+            style={{ color: ORDER_STATUS_COLORS[order.status] ?? AppColors.gray400, fontWeight: FontWeight.bold }}
           >
             {ORDER_STATUS_LABELS[order.status] ?? order.status}
           </ThemedText>
@@ -266,7 +267,7 @@ function OrderCardComponent({ order, onPress, onStorePress, onRate }: OrderCardP
 
 const styles = StyleSheet.create({
   card: {
-    borderRadius: BorderRadius.lg,
+    borderRadius: 22,
     padding: Spacing.lg,
     marginBottom: Spacing.md,
   },
@@ -280,9 +281,17 @@ const styles = StyleSheet.create({
     textAlign: "right",
   },
   statusBadge: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    gap: 6,
     paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.xs,
+    paddingVertical: 5,
     borderRadius: BorderRadius.full,
+  },
+  statusDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 4,
   },
   info: {
     marginBottom: Spacing.md,
@@ -379,7 +388,7 @@ const styles = StyleSheet.create({
     padding: 12,
     minHeight: 80,
     fontFamily: "Cairo_400Regular",
-    fontSize: 14,
+    fontSize: 16,
   },
   modalActions: {
     flexDirection: "row-reverse",
