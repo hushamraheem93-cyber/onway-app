@@ -43,3 +43,5 @@ app-example
 /android
 scripts/backups/
 scripts/reports/
+
+FIREBASE_SERVICE_ACCOUNT

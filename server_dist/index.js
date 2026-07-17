@@ -63,6 +63,14 @@ function isValidSession(req) {
 
 // server/firebase.ts
 import admin from "firebase-admin";
+
+// server/env.ts
+function isDevMode() {
+  if (process.env.REPLIT_DEPLOYMENT === "1") return false;
+  return process.env.NODE_ENV === "development" || process.env.DEV_MODE === "true";
+}
+
+// server/firebase.ts
 var db = null;
 function initializeFirebase() {
   const serviceAccountJson = process.env.FIREBASE_SERVICE_ACCOUNT;
@@ -409,6 +417,7 @@ async function createOrder(data) {
     const now = admin.firestore.Timestamp.now();
     const orderDoc = { ...data, createdAt: now, updatedAt: now };
     const docRef = await db.collection("orders").add(orderDoc);
+    orderEvents.emit("order:status", { orderId: docRef.id, status: orderDoc.status });
     return { id: docRef.id, ...orderDoc };
   } catch (error) {
     console.error("Error creating order:", error);
@@ -419,6 +428,7 @@ async function updateOrderStatus(id, status) {
   if (!db) return false;
   try {
     await db.collection("orders").doc(id).update({ status, updatedAt: admin.firestore.Timestamp.now() });
+    orderEvents.emit("order:status", { orderId: id, status });
     return true;
   } catch (error) {
     console.error("Error updating order status:", error);
@@ -834,17 +844,20 @@ async function initializeDefaultDeliveryAreas(defaultAreas) {
     console.error("Error initializing default delivery areas:", error);
   }
 }
+var OTP_TTL_MS = 5 * 60 * 1e3;
+var OTP_MAX_ATTEMPTS = 5;
 var otpStore = /* @__PURE__ */ new Map();
 function generateOtp(phoneNumber) {
-  const code = Math.floor(1e3 + Math.random() * 9e3).toString();
+  const code = Math.floor(1e5 + Math.random() * 9e5).toString();
   otpStore.set(phoneNumber, {
     code,
-    expiresAt: Date.now() + 5 * 60 * 1e3
+    expiresAt: Date.now() + OTP_TTL_MS,
+    attempts: 0
   });
   return code;
 }
 function verifyOtp(phoneNumber, code) {
-  if (code === "0000" && process.env.ALLOW_DEV_OTP === "true" && process.env.REPLIT_DEPLOYMENT !== "1") {
+  if (code === "0000" && isDevMode()) {
     return true;
   }
   const stored = otpStore.get(phoneNumber);
@@ -853,7 +866,11 @@ function verifyOtp(phoneNumber, code) {
     otpStore.delete(phoneNumber);
     return false;
   }
-  if (stored.code !== code) return false;
+  if (stored.code !== code) {
+    stored.attempts += 1;
+    if (stored.attempts >= OTP_MAX_ATTEMPTS) otpStore.delete(phoneNumber);
+    return false;
+  }
   otpStore.delete(phoneNumber);
   return true;
 }
@@ -1297,6 +1314,58 @@ async function cancelDeliveryBatch(batchId) {
     console.error("Error cancelling delivery batch:", error);
   }
 }
+async function claimBatchForDriver(batchId, driverPhone) {
+  const db2 = getFirestore();
+  if (!db2) return { ok: false, reason: "not_found" };
+  const ref = db2.collection("delivery_batches").doc(batchId);
+  try {
+    return await db2.runTransaction(async (tx) => {
+      const snap = await tx.get(ref);
+      if (!snap.exists) return { ok: false, reason: "not_found" };
+      const data = snap.data();
+      if (data.driverId !== driverPhone) return { ok: false, reason: "not_offered" };
+      if (data.status !== "pending") return { ok: false, reason: "not_pending" };
+      tx.update(ref, {
+        status: "in_progress",
+        startTime: (/* @__PURE__ */ new Date()).toISOString(),
+        updatedAt: admin.firestore.Timestamp.now()
+      });
+      return { ok: true, orderIds: data.orderIds };
+    });
+  } catch (error) {
+    console.error("claimBatchForDriver tx error:", error);
+    return { ok: false, reason: "not_found" };
+  }
+}
+async function cancelBatchIfPending(batchId) {
+  const db2 = getFirestore();
+  if (!db2) return false;
+  const batchRef = db2.collection("delivery_batches").doc(batchId);
+  try {
+    return await db2.runTransaction(async (tx) => {
+      const snap = await tx.get(batchRef);
+      if (!snap.exists) return false;
+      const data = snap.data();
+      if (data.status !== "pending") return false;
+      const orderRefs = data.orderIds.map((id) => db2.collection("orders").doc(id));
+      const orderSnaps = [];
+      for (const r of orderRefs) orderSnaps.push(await tx.get(r));
+      const now = admin.firestore.Timestamp.now();
+      orderSnaps.forEach((os, i) => {
+        if (!os.exists) return;
+        const od = os.data();
+        if (["confirmed", "preparing", "ready", "picked_up"].includes(od.status)) {
+          tx.update(orderRefs[i], { batchId: null, deliverySequence: 0, updatedAt: now });
+        }
+      });
+      tx.update(batchRef, { status: "cancelled", updatedAt: now });
+      return true;
+    });
+  } catch (error) {
+    console.error("cancelBatchIfPending tx error:", error);
+    return false;
+  }
+}
 async function getDriverFinancialAccount(phoneNumber) {
   const zero = {
     phoneNumber,
@@ -1578,6 +1647,398 @@ async function deleteFromFirebaseStorage(url) {
     if (err?.code !== 404 && err?.code !== "storage/object-not-found") {
       console.warn("[Storage] deleteFromFirebaseStorage failed for:", url, err?.message);
     }
+  }
+}
+
+// server/settlement.ts
+import admin2 from "firebase-admin";
+function directionFor(accountType) {
+  return accountType === "driver" ? "collect" : "payout";
+}
+var SETTLEMENTS = "settlements";
+var LEDGER = "settlementLedger";
+var SETTLEMENT_REQUESTS = "settlementRequests";
+var SETTLEMENT_PAYMENTS = "settlementPayments";
+var APP_SETTINGS = "appSettings";
+var CONFIG_DOC = "settlementConfig";
+var DEFAULT_THRESHOLD = 5e4;
+function accountKey(accountType, accountId) {
+  return `${accountType}:${accountId}`;
+}
+function ledgerId(accountType, accountId) {
+  return `${accountType}:${accountId}`;
+}
+function settlementId(orderId, accountType) {
+  return `${orderId}__${accountType}`;
+}
+async function recordOrderSettlement(input) {
+  const db2 = getFirestore();
+  if (!db2) return false;
+  const direction = directionFor(input.accountType);
+  const gross = Math.round(input.grossAmount || 0);
+  const commission = Math.round(input.commission || 0);
+  const outstanding = Math.max(0, Math.round(input.outstandingAmount || 0));
+  const settlementRef = db2.collection(SETTLEMENTS).doc(settlementId(input.orderId, input.accountType));
+  const ledgerRef = db2.collection(LEDGER).doc(ledgerId(input.accountType, input.accountId));
+  try {
+    return await db2.runTransaction(async (tx) => {
+      const existing = await tx.get(settlementRef);
+      if (existing.exists) return false;
+      const ledgerSnap = await tx.get(ledgerRef);
+      const prev = ledgerSnap.exists ? ledgerSnap.data() : {};
+      const now = admin2.firestore.Timestamp.now();
+      tx.set(settlementRef, {
+        orderId: input.orderId,
+        accountType: input.accountType,
+        accountId: input.accountId,
+        accountKey: accountKey(input.accountType, input.accountId),
+        accountName: input.accountName || input.accountId,
+        direction,
+        storeId: input.storeId ?? null,
+        storeName: input.storeName ?? null,
+        grossAmount: gross,
+        commission,
+        outstandingAmount: outstanding,
+        amountSettled: 0,
+        status: "pending",
+        createdAt: now,
+        updatedAt: now
+      });
+      tx.set(
+        ledgerRef,
+        {
+          accountType: input.accountType,
+          accountId: input.accountId,
+          accountKey: accountKey(input.accountType, input.accountId),
+          accountName: input.accountName || input.accountId,
+          direction,
+          totalOrders: (prev.totalOrders ?? 0) + 1,
+          totalGross: (prev.totalGross ?? 0) + gross,
+          totalCommission: (prev.totalCommission ?? 0) + commission,
+          outstandingTotal: (prev.outstandingTotal ?? 0) + outstanding,
+          pendingCount: (prev.pendingCount ?? 0) + 1,
+          totalSettled: prev.totalSettled ?? 0,
+          updatedAt: now,
+          ...ledgerSnap.exists ? {} : { createdAt: now }
+        },
+        { merge: true }
+      );
+      return true;
+    });
+  } catch (error) {
+    console.error("recordOrderSettlement tx error:", error);
+    return false;
+  }
+}
+async function getSettlementLedger(accountType, accountId) {
+  const db2 = getFirestore();
+  if (!db2) return null;
+  try {
+    const snap = await db2.collection(LEDGER).doc(ledgerId(accountType, accountId)).get();
+    return snap.exists ? { id: snap.id, ...snap.data() } : null;
+  } catch (error) {
+    console.error("getSettlementLedger error:", error);
+    return null;
+  }
+}
+async function createSettlementRequest(accountType, accountId, accountName) {
+  const db2 = getFirestore();
+  if (!db2) return { ok: false, reason: "nothing_due" };
+  const ledgerRef = db2.collection(LEDGER).doc(ledgerId(accountType, accountId));
+  const requestsCol = db2.collection(SETTLEMENT_REQUESTS);
+  const newRef = requestsCol.doc();
+  try {
+    return await db2.runTransaction(async (tx) => {
+      const ledgerSnap = await tx.get(ledgerRef);
+      if (!ledgerSnap.exists) return { ok: false, reason: "nothing_due" };
+      const ledger = ledgerSnap.data();
+      const outstanding = ledger.outstandingTotal ?? 0;
+      if (outstanding <= 0) return { ok: false, reason: "nothing_due" };
+      if (ledger.activeRequestId) {
+        const activeSnap = await tx.get(requestsCol.doc(ledger.activeRequestId));
+        if (activeSnap.exists && activeSnap.data().status === "pending") {
+          return { ok: false, reason: "already_requested", requestId: ledger.activeRequestId };
+        }
+      }
+      const now = admin2.firestore.Timestamp.now();
+      const name = accountName || ledger.accountName || accountId;
+      const pendingOrderCount = ledger.pendingCount ?? 0;
+      tx.set(newRef, {
+        accountType,
+        accountId,
+        accountKey: accountKey(accountType, accountId),
+        accountName: name,
+        direction: directionFor(accountType),
+        outstandingSnapshot: outstanding,
+        pendingOrderCount,
+        status: "pending",
+        createdAt: now,
+        updatedAt: now
+      });
+      tx.set(ledgerRef, { activeRequestId: newRef.id, activeRequestStatus: "pending", updatedAt: now }, { merge: true });
+      return { ok: true, requestId: newRef.id, outstanding, pendingOrderCount, accountName: name };
+    });
+  } catch (error) {
+    console.error("createSettlementRequest tx error:", error);
+    return { ok: false, reason: "nothing_due" };
+  }
+}
+async function getAccountSettlementView(accountType, accountId) {
+  const db2 = getFirestore();
+  const direction = directionFor(accountType);
+  const ledger = await getSettlementLedger(accountType, accountId);
+  const outstanding = ledger?.outstandingTotal ?? 0;
+  let activeRequest = null;
+  if (db2 && ledger?.activeRequestId) {
+    const rs = await db2.collection(SETTLEMENT_REQUESTS).doc(ledger.activeRequestId).get();
+    if (rs.exists) activeRequest = { id: rs.id, ...rs.data() };
+  }
+  const isPendingReq = activeRequest?.status === "pending";
+  const status = isPendingReq ? "under_review" : outstanding <= 0 ? "settled" : "outstanding";
+  return {
+    accountType,
+    accountId,
+    direction,
+    outstanding,
+    totalOrders: ledger?.totalOrders ?? 0,
+    totalGross: ledger?.totalGross ?? 0,
+    totalCommission: ledger?.totalCommission ?? 0,
+    totalSettled: ledger?.totalSettled ?? 0,
+    pendingOrderCount: ledger?.pendingCount ?? 0,
+    status,
+    activeRequest
+  };
+}
+async function getSettlementHistory(accountType, accountId, max = 100) {
+  const db2 = getFirestore();
+  if (!db2) return { settlements: [], requests: [] };
+  const key = accountKey(accountType, accountId);
+  const byCreatedDesc = (a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0);
+  try {
+    const [sSnap, rSnap] = await Promise.all([
+      db2.collection(SETTLEMENTS).where("accountKey", "==", key).limit(max).get(),
+      db2.collection(SETTLEMENT_REQUESTS).where("accountKey", "==", key).limit(max).get()
+    ]);
+    return {
+      settlements: sSnap.docs.map((d) => ({ id: d.id, ...d.data() })).sort(byCreatedDesc),
+      requests: rSnap.docs.map((d) => ({ id: d.id, ...d.data() })).sort(byCreatedDesc)
+    };
+  } catch (error) {
+    console.error("getSettlementHistory error:", error);
+    return { settlements: [], requests: [] };
+  }
+}
+async function listSettlementRequests(status = "pending", accountType) {
+  const db2 = getFirestore();
+  if (!db2) return [];
+  const byCreatedDesc = (a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0);
+  try {
+    const snap = await db2.collection(SETTLEMENT_REQUESTS).where("status", "==", status).limit(300).get();
+    let items = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    if (accountType) items = items.filter((i) => i.accountType === accountType);
+    return items.sort(byCreatedDesc);
+  } catch (error) {
+    console.error("listSettlementRequests error:", error);
+    return [];
+  }
+}
+async function completeSettlement(input) {
+  const db2 = getFirestore();
+  if (!db2) return { ok: false, reason: "no_ledger" };
+  const key = accountKey(input.accountType, input.accountId);
+  const ledgerRef = db2.collection(LEDGER).doc(ledgerId(input.accountType, input.accountId));
+  const paymentRef = db2.collection(SETTLEMENT_PAYMENTS).doc();
+  const reqRef = input.requestId ? db2.collection(SETTLEMENT_REQUESTS).doc(input.requestId) : null;
+  let appliedOut = 0;
+  try {
+    const result = await db2.runTransaction(async (tx) => {
+      const ledgerSnap = await tx.get(ledgerRef);
+      if (!ledgerSnap.exists) return { ok: false, reason: "no_ledger" };
+      const ledger = ledgerSnap.data();
+      const reqSnap = reqRef ? await tx.get(reqRef) : null;
+      const outstanding = ledger.outstandingTotal ?? 0;
+      if (outstanding <= 0) return { ok: false, reason: "nothing_due" };
+      let amount = Math.round(input.amount || 0);
+      if (amount <= 0) return { ok: false, reason: "invalid_amount" };
+      amount = Math.min(amount, outstanding);
+      const now = admin2.firestore.Timestamp.now();
+      const newOutstanding = Math.max(0, outstanding - amount);
+      const fullySettled = newOutstanding <= 0;
+      tx.set(
+        ledgerRef,
+        {
+          outstandingTotal: newOutstanding,
+          totalSettled: (ledger.totalSettled ?? 0) + amount,
+          lastSettlementAt: now,
+          lastSettlementAmount: amount,
+          updatedAt: now,
+          ...fullySettled ? { activeRequestId: null, activeRequestStatus: null } : {}
+        },
+        { merge: true }
+      );
+      const datePart = now.toDate().toISOString().slice(0, 10).replace(/-/g, "");
+      const receiptNumber = `STL-${datePart}-${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
+      tx.set(paymentRef, {
+        accountType: input.accountType,
+        accountId: input.accountId,
+        accountKey: key,
+        accountName: ledger.accountName ?? input.accountId,
+        amount,
+        method: input.method || "cash",
+        adminName: input.adminName || "",
+        notes: input.notes || "",
+        requestId: input.requestId ?? null,
+        isManual: !input.requestId,
+        outstandingBefore: outstanding,
+        outstandingAfter: newOutstanding,
+        receiptNumber,
+        createdAt: now
+      });
+      if (reqRef && reqSnap?.exists) {
+        tx.update(reqRef, {
+          status: fullySettled ? "completed" : "partially_completed",
+          completedAt: now,
+          settledAmount: amount,
+          updatedAt: now
+        });
+      }
+      return {
+        ok: true,
+        applied: amount,
+        outstandingBefore: outstanding,
+        outstandingAfter: newOutstanding,
+        fullySettled,
+        paymentId: paymentRef.id,
+        receiptNumber
+      };
+    });
+    if (result.ok) {
+      appliedOut = result.applied ?? 0;
+      await markSettlementRecordsFIFO(input.accountType, input.accountId, appliedOut).catch(
+        (e) => console.error("markSettlementRecordsFIFO error:", e)
+      );
+    }
+    return result;
+  } catch (error) {
+    console.error("completeSettlement tx error:", error);
+    return { ok: false, reason: "no_ledger" };
+  }
+}
+async function markSettlementRecordsFIFO(accountType, accountId, amount) {
+  const db2 = getFirestore();
+  if (!db2 || amount <= 0) return;
+  const key = accountKey(accountType, accountId);
+  const snap = await db2.collection(SETTLEMENTS).where("accountKey", "==", key).limit(1e3).get();
+  const pending = snap.docs.map((d) => ({ ref: d.ref, ...d.data() })).filter((s) => s.status !== "settled").sort((a, b) => (a.createdAt?.toMillis?.() ?? 0) - (b.createdAt?.toMillis?.() ?? 0));
+  const now = admin2.firestore.Timestamp.now();
+  let remaining = amount;
+  let batch = db2.batch();
+  let ops = 0;
+  let stillPending = 0;
+  for (const s of pending) {
+    const due = (s.outstandingAmount ?? 0) - (s.amountSettled ?? 0);
+    if (remaining > 0 && due > 0) {
+      const applied = Math.min(remaining, due);
+      const newSettled = (s.amountSettled ?? 0) + applied;
+      const fully = newSettled >= (s.outstandingAmount ?? 0);
+      batch.update(s.ref, {
+        amountSettled: newSettled,
+        status: fully ? "settled" : "pending",
+        ...fully ? { settledAt: now } : {},
+        updatedAt: now
+      });
+      ops++;
+      remaining -= applied;
+      if (!fully) stillPending++;
+    } else {
+      stillPending++;
+    }
+    if (ops >= 400) {
+      await batch.commit();
+      batch = db2.batch();
+      ops = 0;
+    }
+  }
+  if (ops > 0) await batch.commit();
+  await db2.collection(LEDGER).doc(ledgerId(accountType, accountId)).set({ pendingCount: stillPending, updatedAt: now }, { merge: true }).catch(() => {
+  });
+}
+async function getSettlementConfig() {
+  const fallback = {
+    driver: { thresholdEnabled: true, thresholdAmount: DEFAULT_THRESHOLD },
+    vendor: { thresholdEnabled: true, thresholdAmount: DEFAULT_THRESHOLD }
+  };
+  const db2 = getFirestore();
+  if (!db2) return fallback;
+  try {
+    const snap = await db2.collection(APP_SETTINGS).doc(CONFIG_DOC).get();
+    if (!snap.exists) return fallback;
+    const d = snap.data();
+    return {
+      driver: { thresholdEnabled: d.driver?.thresholdEnabled ?? true, thresholdAmount: d.driver?.thresholdAmount ?? DEFAULT_THRESHOLD },
+      vendor: { thresholdEnabled: d.vendor?.thresholdEnabled ?? true, thresholdAmount: d.vendor?.thresholdAmount ?? DEFAULT_THRESHOLD }
+    };
+  } catch {
+    return fallback;
+  }
+}
+async function updateSettlementConfig(accountType, thresholdEnabled, thresholdAmount) {
+  const db2 = getFirestore();
+  const current = await getSettlementConfig();
+  const next = { ...current, [accountType]: { thresholdEnabled, thresholdAmount: Math.max(0, Math.round(thresholdAmount || 0)) } };
+  if (db2) {
+    await db2.collection(APP_SETTINGS).doc(CONFIG_DOC).set({ ...next, updatedAt: admin2.firestore.Timestamp.now() }, { merge: true }).catch(() => {
+    });
+  }
+  return next;
+}
+async function isOverSettlementThreshold(accountType, accountId) {
+  const [ledger, config] = await Promise.all([
+    getSettlementLedger(accountType, accountId),
+    getSettlementConfig()
+  ]);
+  const outstanding = ledger?.outstandingTotal ?? 0;
+  const cfg = config[accountType];
+  const blocked = cfg.thresholdEnabled && outstanding >= cfg.thresholdAmount;
+  return { blocked, outstanding, thresholdAmount: cfg.thresholdAmount, thresholdEnabled: cfg.thresholdEnabled };
+}
+async function listSettlementAccounts(accountType) {
+  const db2 = getFirestore();
+  if (!db2) return [];
+  try {
+    const snap = await db2.collection(LEDGER).where("accountType", "==", accountType).limit(500).get();
+    return snap.docs.map((d) => {
+      const l = d.data();
+      const outstanding = l.outstandingTotal ?? 0;
+      const status = l.activeRequestStatus === "pending" ? "under_review" : outstanding <= 0 ? "settled" : "outstanding";
+      return {
+        accountType,
+        accountId: l.accountId,
+        accountName: l.accountName ?? l.accountId,
+        direction: l.direction,
+        outstanding,
+        pendingOrderCount: l.pendingCount ?? 0,
+        totalOrders: l.totalOrders ?? 0,
+        totalSettled: l.totalSettled ?? 0,
+        lastSettlementAt: l.lastSettlementAt ?? null,
+        status
+      };
+    }).sort((a, b) => b.outstanding - a.outstanding);
+  } catch (error) {
+    console.error("listSettlementAccounts error:", error);
+    return [];
+  }
+}
+async function getSettlementPayments(accountType, accountId, max = 100) {
+  const db2 = getFirestore();
+  if (!db2) return [];
+  const key = accountKey(accountType, accountId);
+  try {
+    const snap = await db2.collection(SETTLEMENT_PAYMENTS).where("accountKey", "==", key).limit(max).get();
+    return snap.docs.map((d) => ({ id: d.id, ...d.data() })).sort((a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0));
+  } catch (error) {
+    console.error("getSettlementPayments error:", error);
+    return [];
   }
 }
 
@@ -1916,6 +2377,36 @@ async function sendVendorOrderReminderNotification(pushToken, orderId, shortId, 
     return false;
   }
 }
+async function sendAdminSettlementRequestNotification(pushToken, accountType, accountName, outstanding) {
+  if (!pushToken || !pushToken.startsWith("ExponentPushToken")) return false;
+  const who = accountType === "driver" ? "\u0633\u0627\u0626\u0642" : "\u0645\u062A\u062C\u0631";
+  const message = {
+    to: pushToken,
+    title: "\u0637\u0644\u0628 \u062A\u0633\u0648\u064A\u0629 \u062C\u062F\u064A\u062F",
+    body: `${who}: ${accountName} \xB7 \u0627\u0644\u0645\u0633\u062A\u062D\u0642 ${outstanding.toLocaleString("ar-IQ")} \u062F.\u0639`,
+    sound: "default",
+    channelId: "default",
+    priority: "high",
+    ttl: 86400,
+    data: { type: "settlement_request", accountType, accountName }
+  };
+  try {
+    const response = await fetch("https://exp.host/--/api/v2/push/send", {
+      method: "POST",
+      headers: { Accept: "application/json", "Accept-Encoding": "gzip, deflate", "Content-Type": "application/json" },
+      body: JSON.stringify(message)
+    });
+    const result = await response.json();
+    if (result.data.status === "ok") {
+      console.log(`[PUSH] Admin settlement-request (${accountType}) \u2192 ${accountName}`);
+      return true;
+    }
+    return false;
+  } catch (error) {
+    console.error("[PUSH] Error sending admin settlement notification:", error);
+    return false;
+  }
+}
 async function sendAdminOrderReadyNotification(pushToken, orderId, vendorName) {
   if (!pushToken || !pushToken.startsWith("ExponentPushToken")) return false;
   const shortId = orderId.slice(-6).toUpperCase();
@@ -1944,6 +2435,55 @@ async function sendAdminOrderReadyNotification(pushToken, orderId, vendorName) {
   } catch (error) {
     console.error("[PUSH] Error sending admin order-ready notification:", error);
     return false;
+  }
+}
+
+// server/otpDelivery.ts
+function normalizeIraqiPhone(raw) {
+  let p = (raw || "").replace(/[^\d]/g, "");
+  if (p.startsWith("00964")) p = p.slice(2);
+  if (p.startsWith("964")) return p;
+  if (p.startsWith("0")) return "964" + p.slice(1);
+  if (p.startsWith("7")) return "964" + p;
+  return p;
+}
+async function deliverOtp(phoneNumber, code, channel = "sms") {
+  const apiKey = process.env.OTP_IQ_API_KEY;
+  if (!apiKey) {
+    if (isDevMode()) {
+      console.log(`[OTP] (OTPIQ not configured) \u2192 ${phoneNumber}: ${code}`);
+    } else {
+      console.warn(`[OTP] OTP_IQ_API_KEY not set \u2014 code not delivered to ${phoneNumber}`);
+    }
+    return { delivered: false, channel };
+  }
+  const base = (process.env.OTP_IQ_BASE_URL || "https://api.otpiq.com/api").replace(/\/+$/, "");
+  const provider = channel === "whatsapp" ? "whatsapp" : process.env.OTP_IQ_PROVIDER || "auto";
+  const body = {
+    phoneNumber: normalizeIraqiPhone(phoneNumber),
+    smsType: "verification",
+    verificationCode: code,
+    provider
+  };
+  if (process.env.OTP_IQ_SENDER_ID) body.senderId = process.env.OTP_IQ_SENDER_ID;
+  try {
+    const res = await fetch(`${base}/sms`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`
+      },
+      body: JSON.stringify(body)
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      console.error(`[OTP] OTPIQ ${res.status} for ${phoneNumber}:`, data?.message || data?.error || res.statusText);
+      return { delivered: false, channel };
+    }
+    return { delivered: true, channel, providerMessageId: data?.smsId };
+  } catch (error) {
+    console.error(`[OTP] OTPIQ delivery error for ${phoneNumber}:`, error);
+    return { delivered: false, channel };
   }
 }
 
@@ -2101,6 +2641,16 @@ function requireCustomerAuth(req, res, next) {
     next();
   } catch {
     return res.status(401).json({ error: "\u0627\u0646\u062A\u0647\u062A \u0635\u0644\u0627\u062D\u064A\u0629 \u0627\u0644\u062C\u0644\u0633\u0629 \u2014 \u064A\u0631\u062C\u0649 \u062A\u0633\u062C\u064A\u0644 \u0627\u0644\u062F\u062E\u0648\u0644 \u0645\u062C\u062F\u062F\u0627\u064B" });
+  }
+}
+async function notifyCustomerStatus(orderId, status, estimatedMinutes) {
+  try {
+    const order = await getOrderById(orderId);
+    const phone = order?.phoneNumber;
+    if (!phone) return;
+    const pushToken = await getUserPushToken(phone);
+    if (pushToken) await sendPushNotification(pushToken, status, orderId, estimatedMinutes);
+  } catch {
   }
 }
 async function registerRoutes(app2) {
@@ -3660,23 +4210,32 @@ async function registerRoutes(app2) {
       let verifiedSubtotal = 0;
       const unknownProductIds = [];
       const priceMismatchProductIds = [];
+      const outOfStockNames = [];
       let allItemsAreRestaurant = items.length > 0;
       for (const it of items) {
         let realPrice;
+        let available = true;
         const legacyProduct = allProductsForPricing.find((p) => p.id === it.productId);
         if (legacyProduct && !Number.isNaN(Number(legacyProduct.price))) {
           realPrice = Number(legacyProduct.price);
+          if (legacyProduct.inStock === false) available = false;
           if (legacyProduct.categoryId !== "restaurants") allItemsAreRestaurant = false;
         } else {
           const vpDoc = await db2.collection("vendorProducts").doc(it.productId).get();
           if (vpDoc.exists) {
-            const vpPrice = Number(vpDoc.data()?.price);
+            const vp = vpDoc.data();
+            const vpPrice = Number(vp?.price);
             if (!Number.isNaN(vpPrice)) realPrice = vpPrice;
+            if (vp?.inStock === false) available = false;
           }
           allItemsAreRestaurant = false;
         }
         if (realPrice === void 0) {
           unknownProductIds.push(it.productId);
+          continue;
+        }
+        if (!available) {
+          outOfStockNames.push(it.name || it.productId);
           continue;
         }
         const quantity = Number(it.quantity) || 1;
@@ -3688,6 +4247,9 @@ async function registerRoutes(app2) {
       }
       if (unknownProductIds.length > 0) {
         return res.status(400).json({ error: `\u0645\u0646\u062A\u062C \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F \u0623\u0648 \u063A\u064A\u0631 \u0645\u062A\u0627\u062D: ${unknownProductIds.join(", ")}` });
+      }
+      if (outOfStockNames.length > 0) {
+        return res.status(400).json({ error: `\u0628\u0639\u0636 \u0627\u0644\u0645\u0646\u062A\u062C\u0627\u062A \u063A\u064A\u0631 \u0645\u062A\u0648\u0641\u0651\u0631\u0629 \u062D\u0627\u0644\u064A\u0627\u064B: ${outOfStockNames.join("\u060C ")} \u2014 \u064A\u0631\u062C\u0649 \u062A\u062D\u062F\u064A\u062B \u0627\u0644\u0633\u0644\u0629` });
       }
       if (priceMismatchProductIds.length > 0) {
         console.warn(`[FRAUD_CHECK] Price mismatch on order from ${phoneNumber} \u2014 productIds: ${priceMismatchProductIds.join(", ")}, client total: ${total}`);
@@ -4200,13 +4762,26 @@ ${itemsList}
       return res.status(500).json({ error: "\u0641\u0634\u0644 \u062D\u0630\u0641 \u0627\u0644\u062D\u0633\u0627\u0628" });
     }
   });
-  app2.post("/api/auth/send-otp", (req, res) => {
-    const { phoneNumber } = req.body;
+  app2.post("/api/auth/send-otp", async (req, res) => {
+    const { phoneNumber, channel } = req.body;
     if (!phoneNumber) {
       return res.status(400).json({ error: "Phone number is required" });
     }
     const code = generateOtp(phoneNumber);
-    res.json({ success: true, message: "OTP sent successfully" });
+    if (isDevMode()) {
+      return res.json({ success: true, delivered: false, devMode: true, message: "\u0648\u0636\u0639 \u0627\u0644\u062A\u0637\u0648\u064A\u0631: \u0627\u0633\u062A\u062E\u062F\u0645 \u0627\u0644\u0631\u0645\u0632 0000" });
+    }
+    if (!process.env.OTP_IQ_API_KEY) {
+      console.error("[OTP] OTP_IQ_API_KEY missing in production \u2014 cannot send OTP");
+      return res.status(503).json({ error: "\u062E\u062F\u0645\u0629 \u0625\u0631\u0633\u0627\u0644 \u0631\u0645\u0632 \u0627\u0644\u062A\u062D\u0642\u0642 \u063A\u064A\u0631 \u0645\u0647\u064A\u0651\u0623\u0629. \u064A\u0631\u062C\u0649 \u0627\u0644\u0645\u062D\u0627\u0648\u0644\u0629 \u0644\u0627\u062D\u0642\u0627\u064B." });
+    }
+    const result = await deliverOtp(phoneNumber, code, channel === "whatsapp" ? "whatsapp" : "sms");
+    res.json({
+      success: true,
+      delivered: result.delivered,
+      channel: result.channel,
+      message: result.delivered ? "OTP sent successfully" : "\u062A\u0639\u0630\u0651\u0631 \u0625\u0631\u0633\u0627\u0644 \u0631\u0645\u0632 \u0627\u0644\u062A\u062D\u0642\u0642\u060C \u062D\u0627\u0648\u0644 \u0645\u0631\u0629 \u0623\u062E\u0631\u0649"
+    });
   });
   app2.post("/api/auth/verify-otp", (req, res) => {
     const { phoneNumber, code } = req.body;
@@ -4322,9 +4897,25 @@ ${itemsList}
   app2.delete("/api/admin/drivers/:id", async (req, res) => {
     try {
       const driverId = req.params.id;
+      const dbForDriver = getFirestore();
+      let phoneNumber;
+      if (dbForDriver) {
+        const doc = await dbForDriver.collection("drivers").doc(driverId).get();
+        if (doc.exists) phoneNumber = doc.data().phoneNumber;
+      }
       const success = await deleteDriver(driverId);
       if (!success) {
         return res.status(500).json({ error: "Failed to delete driver" });
+      }
+      if (phoneNumber) {
+        const idx = driverQueue.findIndex((d) => d.phoneNumber === phoneNumber);
+        if (idx !== -1) driverQueue.splice(idx, 1);
+        driverLocations.delete(phoneNumber);
+        for (const [oid, drv] of driverAssignments.entries()) {
+          if (drv === phoneNumber) driverAssignments.delete(oid);
+        }
+        removeDriverFromActiveQueue(phoneNumber).catch(() => {
+        });
       }
       res.json({ success: true });
     } catch (error) {
@@ -4485,12 +5076,15 @@ ${itemsList}
     if (!phoneNumber) return res.status(400).json({ error: "Phone number required" });
     try {
       if (goOnline) {
-        const financialAccount = await getDriverFinancialAccount(phoneNumber);
-        const OWED_THRESHOLD = 5e4;
-        if (financialAccount.amountOwed >= OWED_THRESHOLD) {
+        const [financialAccount, threshold] = await Promise.all([
+          getDriverFinancialAccount(phoneNumber),
+          isOverSettlementThreshold("driver", phoneNumber)
+        ]);
+        const effectiveOutstanding = Math.max(financialAccount.amountOwed || 0, threshold.outstanding || 0);
+        if (threshold.thresholdEnabled && effectiveOutstanding >= threshold.thresholdAmount) {
           return res.status(400).json({
-            error: `\u0627\u0644\u0645\u0628\u0644\u063A \u0627\u0644\u0645\u0633\u062A\u062D\u0642 (${financialAccount.amountOwed.toLocaleString("ar-IQ")} \u062F.\u0639) \u064A\u062A\u062C\u0627\u0648\u0632 \u0627\u0644\u062D\u062F \u0627\u0644\u0645\u0633\u0645\u0648\u062D (${OWED_THRESHOLD.toLocaleString("ar-IQ")} \u062F.\u0639). \u064A\u0631\u062C\u0649 \u062A\u0633\u0648\u064A\u0629 \u0627\u0644\u062D\u0633\u0627\u0628 \u0645\u0639 \u0627\u0644\u0645\u0633\u0624\u0648\u0644.`,
-            amountOwed: financialAccount.amountOwed
+            error: `\u0627\u0644\u0645\u0628\u0644\u063A \u0627\u0644\u0645\u0633\u062A\u062D\u0642 (${effectiveOutstanding.toLocaleString("ar-IQ")} \u062F.\u0639) \u064A\u062A\u062C\u0627\u0648\u0632 \u0627\u0644\u062D\u062F \u0627\u0644\u0645\u0633\u0645\u0648\u062D (${threshold.thresholdAmount.toLocaleString("ar-IQ")} \u062F.\u0639). \u064A\u0631\u062C\u0649 \u062A\u0633\u0648\u064A\u0629 \u0627\u0644\u062D\u0633\u0627\u0628 \u0645\u0639 \u0627\u0644\u0645\u0633\u0624\u0648\u0644.`,
+            amountOwed: effectiveOutstanding
           });
         }
         const exists = driverQueue.find((d) => d.phoneNumber === phoneNumber);
@@ -4579,6 +5173,8 @@ ${itemsList}
       const db2 = getFirestore();
       if (db2) {
         await updateOrderStatus(orderId, "in_delivery");
+        notifyCustomerStatus(orderId, "in_delivery").catch(() => {
+        });
         saveDriverActivity({ phoneNumber, type: "in_delivery", orderId }).catch(() => {
         });
       }
@@ -4698,18 +5294,21 @@ ${itemsList}
     try {
       const db2 = getFirestore();
       if (!db2) return res.status(500).json({ error: "DB not configured" });
-      const batchDoc = await getDeliveryBatch(batchId);
-      if (!batchDoc) return res.status(404).json({ error: "Batch not found" });
+      const claim = await claimBatchForDriver(batchId, phoneNumber);
+      if (!claim.ok) {
+        if (claim.reason === "not_found") return res.status(404).json({ error: "Batch not found" });
+        if (claim.reason === "not_offered") return res.status(403).json({ error: "\u0647\u0630\u0647 \u0627\u0644\u062F\u0641\u0639\u0629 \u063A\u064A\u0631 \u0645\u0639\u0631\u0648\u0636\u0629 \u0644\u0643" });
+        return res.status(409).json({ error: "\u0644\u0645 \u062A\u0639\u062F \u0647\u0630\u0647 \u0627\u0644\u062F\u0641\u0639\u0629 \u0645\u062A\u0627\u062D\u0629" });
+      }
       const driver = await getDriverByPhone(phoneNumber);
       const driverName = driver?.fullName || phoneNumber;
-      for (const orderId of batchDoc.orderIds) {
+      for (const orderId of claim.orderIds) {
         await updateOrderStatus(orderId, "preparing");
         await updateOrderDriverInfo(orderId, { driverName, driverPhone: phoneNumber });
         driverAssignments.set(orderId, phoneNumber);
         addDeliveryLog({ orderId, driverPhone: phoneNumber, action: "accepted" }).catch(() => {
         });
       }
-      await updateDeliveryBatch(batchId, { status: "in_progress", startTime: (/* @__PURE__ */ new Date()).toISOString() });
       const qd = driverQueue.find((d) => d.phoneNumber === phoneNumber);
       if (qd) {
         qd.currentBatchId = batchId;
@@ -4766,6 +5365,8 @@ ${itemsList}
       if (!db2) return res.status(500).json({ error: "DB not configured" });
       const now = /* @__PURE__ */ new Date();
       await updateOrderStatus(orderId, "in_delivery");
+      notifyCustomerStatus(orderId, "in_delivery").catch(() => {
+      });
       await db2.collection("orders").doc(orderId).update({ pickedUpAt: now, updatedAt: now });
       addDeliveryLog({ orderId, driverPhone: phoneNumber, action: "in_delivery", lat, lng }).catch(() => {
       });
@@ -4803,6 +5404,39 @@ ${itemsList}
           orderType: isRestaurantOrder ? "restaurant" : "market"
         });
         const newBalance = updatedBatchFinancial?.amountOwed ?? 0;
+        try {
+          const cashCollected = order.total || 0;
+          await recordOrderSettlement({
+            accountType: "driver",
+            accountId: phoneNumber,
+            accountName: order.driverName || phoneNumber,
+            orderId,
+            storeId: order.vendorId ?? null,
+            storeName: order.vendorName ?? order.storeName ?? null,
+            grossAmount: cashCollected,
+            commission: driverEarning,
+            outstandingAmount: Math.max(0, cashCollected - driverEarning)
+          });
+          if (order.vendorId) {
+            const vendorSnap = await db2.collection("vendors").doc(order.vendorId).get();
+            const v = vendorSnap.exists ? vendorSnap.data() : {};
+            const orderValue = order.restaurantSubtotal ?? order.total ?? 0;
+            const platformCommission = order.vendorCommissionAmount ?? Math.round(orderValue * (v.commissionPercent ?? 10) / 100);
+            await recordOrderSettlement({
+              accountType: "vendor",
+              accountId: order.vendorId,
+              accountName: v.storeName || v.name || order.vendorId,
+              orderId,
+              storeId: order.vendorId,
+              storeName: v.storeName || v.name || null,
+              grossAmount: orderValue,
+              commission: platformCommission,
+              outstandingAmount: Math.max(0, orderValue - platformCommission)
+            });
+          }
+        } catch (settlementErr) {
+          console.error("[SETTLEMENT] accrual error (non-blocking):", settlementErr);
+        }
         const customerProfile = await getUserByPhone(order.phoneNumber || "");
         const completedEntry = {
           orderId,
@@ -4957,6 +5591,148 @@ ${itemsList}
       const account = await getDriverFinancialAccount(phoneNumber);
       const transactions = await getDriverTransactions(phoneNumber, 50);
       res.json({ account, transactions });
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+  app2.get("/api/driver/settlement", async (req, res) => {
+    const phoneNumber = req.query.phoneNumber;
+    if (!phoneNumber) return res.status(400).json({ error: "Phone number required" });
+    try {
+      res.json(await getAccountSettlementView("driver", phoneNumber));
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+  app2.get("/api/driver/settlement/history", async (req, res) => {
+    const phoneNumber = req.query.phoneNumber;
+    if (!phoneNumber) return res.status(400).json({ error: "Phone number required" });
+    try {
+      res.json(await getSettlementHistory("driver", phoneNumber));
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+  app2.post("/api/driver/settlement/request", async (req, res) => {
+    const { phoneNumber } = req.body;
+    if (!phoneNumber) return res.status(400).json({ error: "Phone number required" });
+    try {
+      const driver = await getDriverByPhone(phoneNumber).catch(() => null);
+      const name = driver?.fullName || phoneNumber;
+      const result = await createSettlementRequest("driver", phoneNumber, name);
+      if (!result.ok) {
+        if (result.reason === "already_requested")
+          return res.status(409).json({ error: "\u0644\u062F\u064A\u0643 \u0637\u0644\u0628 \u062A\u0633\u0648\u064A\u0629 \u0642\u064A\u062F \u0627\u0644\u0645\u0631\u0627\u062C\u0639\u0629 \u0628\u0627\u0644\u0641\u0639\u0644" });
+        return res.status(400).json({ error: "\u0644\u0627 \u062A\u0648\u062C\u062F \u0645\u0628\u0627\u0644\u063A \u0645\u0633\u062A\u062D\u0642\u0629 \u0644\u0644\u062A\u0633\u0648\u064A\u0629" });
+      }
+      orderEvents.emit("settlement:request", {
+        requestId: result.requestId,
+        accountType: "driver",
+        accountId: phoneNumber,
+        accountName: name,
+        outstanding: result.outstanding,
+        pendingOrderCount: result.pendingOrderCount
+      });
+      const adminToken = await getAdminPushToken().catch(() => null);
+      if (adminToken) sendAdminSettlementRequestNotification(adminToken, "driver", name, result.outstanding ?? 0).catch(() => {
+      });
+      res.json({ success: true, requestId: result.requestId });
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+  app2.get("/api/admin/settlement-requests", async (req, res) => {
+    const status = req.query.status || "pending";
+    const accountType = req.query.accountType;
+    try {
+      res.json({ requests: await listSettlementRequests(status, accountType) });
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+  app2.get("/api/admin/settlement-accounts", async (req, res) => {
+    const accountType = req.query.accountType || "driver";
+    try {
+      res.json({ accounts: await listSettlementAccounts(accountType) });
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+  app2.get("/api/admin/settlement-account", async (req, res) => {
+    const accountType = req.query.accountType || "driver";
+    const accountId = req.query.accountId;
+    if (!accountId) return res.status(400).json({ error: "accountId required" });
+    try {
+      const [view, history, payments] = await Promise.all([
+        getAccountSettlementView(accountType, accountId),
+        getSettlementHistory(accountType, accountId),
+        getSettlementPayments(accountType, accountId)
+      ]);
+      res.json({ view, history, payments });
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+  app2.post("/api/admin/settlements/complete", async (req, res) => {
+    const { accountType, accountId, amount, adminName, method, notes, requestId } = req.body;
+    if (!accountType || !accountId || amount === void 0) {
+      return res.status(400).json({ error: "accountType, accountId, amount required" });
+    }
+    if (accountType !== "driver" && accountType !== "vendor") {
+      return res.status(400).json({ error: "accountType must be driver or vendor" });
+    }
+    try {
+      const result = await completeSettlement({
+        accountType,
+        accountId,
+        amount: Number(amount),
+        adminName,
+        method,
+        notes,
+        requestId
+      });
+      if (!result.ok) {
+        const msg = result.reason === "nothing_due" ? "\u0644\u0627 \u062A\u0648\u062C\u062F \u0645\u0628\u0627\u0644\u063A \u0645\u0633\u062A\u062D\u0642\u0629" : result.reason === "invalid_amount" ? "\u0642\u064A\u0645\u0629 \u063A\u064A\u0631 \u0635\u062D\u064A\u062D\u0629" : "\u062A\u0639\u0630\u0651\u0631 \u0625\u062A\u0645\u0627\u0645 \u0627\u0644\u062A\u0633\u0648\u064A\u0629";
+        return res.status(400).json({ error: msg });
+      }
+      orderEvents.emit("settlement:changed", { accountType, accountId, applied: result.applied });
+      res.json({ success: true, ...result });
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+  app2.get("/api/admin/settlement-config", async (_req, res) => {
+    try {
+      res.json(await getSettlementConfig());
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+  app2.put("/api/admin/settlement-config", async (req, res) => {
+    const { accountType, thresholdEnabled, thresholdAmount } = req.body;
+    if (accountType !== "driver" && accountType !== "vendor") {
+      return res.status(400).json({ error: "accountType must be driver or vendor" });
+    }
+    try {
+      res.json(await updateSettlementConfig(accountType, !!thresholdEnabled, Number(thresholdAmount) || 0));
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+  app2.get("/api/admin/settlement-export", async (req, res) => {
+    const accountType = req.query.accountType || "driver";
+    try {
+      const accounts = await listSettlementAccounts(accountType);
+      const header = "AccountId,Name,Orders,Outstanding,TotalSettled,Status,LastSettlement";
+      const rows = accounts.map((a) => {
+        const last = a.lastSettlementAt?.toDate?.() ? a.lastSettlementAt.toDate().toISOString().slice(0, 10) : "";
+        const name = String(a.accountName ?? "").replace(/"/g, '""');
+        return `"${a.accountId}","${name}",${a.totalOrders},${a.outstanding},${a.totalSettled},${a.status},${last}`;
+      });
+      const csv = "\uFEFF" + [header, ...rows].join("\n");
+      res.setHeader("Content-Type", "text/csv; charset=utf-8");
+      res.setHeader("Content-Disposition", `attachment; filename="settlements-${accountType}.csv"`);
+      res.send(csv);
     } catch (error) {
       res.status(500).json({ error: error.message });
     }
@@ -5267,6 +6043,43 @@ ${itemsList}
       console.error("[GHOST_CLEANUP] error:", e);
     }
   }, 10 * 60 * 1e3);
+  const OFFER_TIMEOUT_MS = 90 * 1e3;
+  setInterval(async () => {
+    try {
+      const now = Date.now();
+      const holders = driverQueue.filter((d) => d.currentBatchId);
+      for (const qd of holders) {
+        const batchId = qd.currentBatchId;
+        const batchDoc = await getDeliveryBatch(batchId);
+        if (!batchDoc) {
+          qd.currentBatchId = void 0;
+          continue;
+        }
+        if (batchDoc.status !== "pending") continue;
+        const createdMs = batchDoc.createdAt?.toDate?.() ? batchDoc.createdAt.toDate().getTime() : 0;
+        if (createdMs === 0 || now - createdMs < OFFER_TIMEOUT_MS) continue;
+        const released = await cancelBatchIfPending(batchId);
+        if (!released) continue;
+        batchDoc.orderIds.forEach((id) => batchedOrderIds.delete(id));
+        qd.currentBatchId = void 0;
+        const idx = driverQueue.findIndex((d) => d.phoneNumber === qd.phoneNumber);
+        if (idx !== -1) {
+          const savedPushToken = qd.pushToken;
+          driverQueue.splice(idx, 1);
+          driverQueue.push({ phoneNumber: qd.phoneNumber, joinedAt: Date.now(), pushToken: savedPushToken });
+        }
+        updateDriverQueueEntry(qd.phoneNumber, { hasActiveBatch: false, joinedAt: Date.now() }).catch(() => {
+        });
+        if (!driverRejectionCooldowns.has(qd.phoneNumber)) driverRejectionCooldowns.set(qd.phoneNumber, /* @__PURE__ */ new Map());
+        const cd = driverRejectionCooldowns.get(qd.phoneNumber);
+        batchDoc.orderIds.forEach((id) => cd.set(id, Date.now()));
+        console.warn(`[OFFER_TIMEOUT] Released stale pending batch ${batchId} from ${qd.phoneNumber} (>${OFFER_TIMEOUT_MS / 1e3}s), reassigning`);
+        onOrderConfirmed();
+      }
+    } catch (e) {
+      console.error("[OFFER_TIMEOUT] error:", e);
+    }
+  }, 20 * 1e3);
   app2.get("/api/admin/driver-queue", async (_req, res) => {
     try {
       const db2 = getFirestore();
@@ -5615,6 +6428,7 @@ ${itemsList}
         status: "cancelled",
         updatedAt: Timestamp.now()
       });
+      orderEvents.emit("order:status", { orderId, status: "cancelled" });
       return res.json({ success: true });
     } catch (error) {
       console.error("Error cancelling order:", error);
@@ -6339,13 +7153,21 @@ ${itemsList}
     }
   });
   app2.patch("/api/ratings/:id/vendor-reply", async (req, res) => {
+    const vendorId2 = extractVendorId(req);
+    if (!vendorId2) return res.status(401).json({ error: "\u064A\u0631\u062C\u0649 \u062A\u0633\u062C\u064A\u0644 \u0627\u0644\u062F\u062E\u0648\u0644 \u0643\u062A\u0627\u062C\u0631" });
     try {
       const db2 = getFirestore();
       if (!db2) return res.status(503).json({ error: "DB unavailable" });
       const ratingId = req.params["id"];
       const reply = typeof req.body.reply === "string" ? req.body.reply.trim().slice(0, 1e3) : "";
       if (!reply) return res.status(400).json({ error: "\u0627\u0644\u0631\u062F \u0641\u0627\u0631\u063A" });
-      await db2.collection("ratings").doc(ratingId).update({
+      const ratingRef = db2.collection("ratings").doc(ratingId);
+      const ratingSnap = await ratingRef.get();
+      if (!ratingSnap.exists) return res.status(404).json({ error: "\u0627\u0644\u062A\u0642\u064A\u064A\u0645 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F" });
+      if (ratingSnap.data().vendorId !== vendorId2) {
+        return res.status(403).json({ error: "\u0644\u0627 \u064A\u0645\u0643\u0646\u0643 \u0627\u0644\u0631\u062F \u0639\u0644\u0649 \u062A\u0642\u064A\u064A\u0645 \u0645\u062A\u062C\u0631 \u0622\u062E\u0631" });
+      }
+      await ratingRef.update({
         vendorReply: reply,
         vendorRepliedAt: (/* @__PURE__ */ new Date()).toISOString()
       });
@@ -6630,6 +7452,18 @@ ${itemsList}
   const ioServer = new SocketServer(httpServer, {
     cors: { origin: "*", methods: ["GET", "POST"] },
     transports: ["websocket", "polling"]
+  });
+  orderEvents.on("order:status", (payload) => {
+    if (!payload?.orderId) return;
+    ioServer.to(`order:${payload.orderId}`).emit("order:status", payload);
+    ioServer.emit("orders:changed", payload);
+  });
+  orderEvents.on("settlement:request", (payload) => {
+    ioServer.emit("settlement:request", payload);
+    ioServer.emit("settlements:changed", payload);
+  });
+  orderEvents.on("settlement:changed", (payload) => {
+    ioServer.emit("settlements:changed", payload);
   });
   ioServer.on("connection", (socket) => {
     socket.on("order:watch", ({ orderId }) => {
@@ -6921,6 +7755,51 @@ router.get("/api/vendor/profile", requireVendor, async (req, res) => {
     res.json(safe);
   } catch (err) {
     console.error("vendor profile:", err);
+    res.status(500).json({ error: "\u062D\u062F\u062B \u062E\u0637\u0623 \u0641\u064A \u0627\u0644\u062E\u0627\u062F\u0645" });
+  }
+});
+router.get("/api/vendor/settlement", requireVendor, async (req, res) => {
+  try {
+    res.json(await getAccountSettlementView("vendor", req.vendorId));
+  } catch (err) {
+    res.status(500).json({ error: "\u062D\u062F\u062B \u062E\u0637\u0623 \u0641\u064A \u0627\u0644\u062E\u0627\u062F\u0645" });
+  }
+});
+router.get("/api/vendor/settlement/history", requireVendor, async (req, res) => {
+  try {
+    res.json(await getSettlementHistory("vendor", req.vendorId));
+  } catch (err) {
+    res.status(500).json({ error: "\u062D\u062F\u062B \u062E\u0637\u0623 \u0641\u064A \u0627\u0644\u062E\u0627\u062F\u0645" });
+  }
+});
+router.post("/api/vendor/settlement/request", requireVendor, async (req, res) => {
+  try {
+    const db2 = getFirestore();
+    const vid = req.vendorId;
+    let storeName = vid;
+    if (db2) {
+      const doc = await db2.collection("vendors").doc(vid).get();
+      if (doc.exists) storeName = doc.data().storeName || doc.data().name || vid;
+    }
+    const result = await createSettlementRequest("vendor", vid, storeName);
+    if (!result.ok) {
+      if (result.reason === "already_requested")
+        return res.status(409).json({ error: "\u0644\u062F\u064A\u0643 \u0637\u0644\u0628 \u062A\u0633\u0648\u064A\u0629 \u0642\u064A\u062F \u0627\u0644\u0645\u0631\u0627\u062C\u0639\u0629 \u0628\u0627\u0644\u0641\u0639\u0644" });
+      return res.status(400).json({ error: "\u0644\u0627 \u062A\u0648\u062C\u062F \u0645\u0628\u0627\u0644\u063A \u0645\u0633\u062A\u062D\u0642\u0629 \u0644\u0644\u062A\u0633\u0648\u064A\u0629" });
+    }
+    orderEvents.emit("settlement:request", {
+      requestId: result.requestId,
+      accountType: "vendor",
+      accountId: vid,
+      accountName: storeName,
+      outstanding: result.outstanding,
+      pendingOrderCount: result.pendingOrderCount
+    });
+    const adminToken = await getAdminPushToken().catch(() => null);
+    if (adminToken) sendAdminSettlementRequestNotification(adminToken, "vendor", storeName, result.outstanding ?? 0).catch(() => {
+    });
+    res.json({ success: true, requestId: result.requestId });
+  } catch (err) {
     res.status(500).json({ error: "\u062D\u062F\u062B \u062E\u0637\u0623 \u0641\u064A \u0627\u0644\u062E\u0627\u062F\u0645" });
   }
 });
@@ -7492,6 +8371,7 @@ router.patch("/api/vendor/orders/:id/status", requireVendor, async (req, res) =>
       updateData.estimatedMinutes = validatedEta;
     }
     await orderRef.update(updateData);
+    orderEvents.emit("order:status", { orderId, status });
     if (status === "confirmed") {
       orderEvents.emit("confirmed");
     }
@@ -7998,6 +8878,9 @@ function setupRateLimiter(app2) {
     "/api/admin/login": 10,
     "/api/vendor/mobile-auth": 20,
     "/api/users": 30,
+    // Auth OTP endpoints: strict limits so codes cannot be spammed or brute-forced.
+    "/api/auth/send-otp": 5,
+    "/api/auth/verify-otp": 15,
     default: 600
   };
   function rateLimitMiddleware(pathKey, overrideLimit) {
