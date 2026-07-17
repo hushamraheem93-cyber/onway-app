@@ -135,6 +135,8 @@ export default function OtpVerificationScreen() {
             style={styles.backBtn}
             onPress={handleBack}
             testID="button-back"
+            accessibilityRole="button"
+            accessibilityLabel="رجوع"
           >
             <Feather name="arrow-right" size={22} color={AppColors.white} />
           </Pressable>
@@ -190,6 +192,7 @@ export default function OtpVerificationScreen() {
                 selectTextOnFocus
                 textContentType="oneTimeCode"
                 testID={`input-otp-${index}`}
+                accessibilityLabel={`خانة رقم ${index + 1} من رمز التحقق`}
               />
             ))}
           </View>
@@ -213,6 +216,9 @@ export default function OtpVerificationScreen() {
             }}
             disabled={isLoading}
             testID="button-verify-otp"
+            accessibilityRole="button"
+            accessibilityLabel="تحقق من الرمز"
+            accessibilityState={{ disabled: isLoading, busy: isLoading }}
           >
             <LinearGradient
               colors={[BRAND_ORANGE, BRAND_DARK]}
@@ -240,7 +246,12 @@ export default function OtpVerificationScreen() {
                 إعادة الإرسال ({resendTimer}ث)
               </ThemedText>
             ) : (
-              <Pressable onPress={handleResend} testID="button-resend-otp">
+              <Pressable
+                onPress={handleResend}
+                testID="button-resend-otp"
+                accessibilityRole="button"
+                accessibilityLabel="إعادة إرسال الرمز"
+              >
                 <ThemedText style={styles.resendLink}>إعادة الإرسال</ThemedText>
               </Pressable>
             )}
@@ -375,7 +386,7 @@ const styles = StyleSheet.create({
   },
   inputLabel: {
     fontFamily: "Cairo_600SemiBold",
-    fontSize: 12,
+    fontSize: 15,
     color: AppColors.gray700,
     textAlign: "center",
     marginBottom: 20,
@@ -417,7 +428,7 @@ const styles = StyleSheet.create({
   errorText: {
     fontFamily: "Cairo_400Regular",
     color: AppColors.error,
-    fontSize: 13,
+    fontSize: 14,
   },
   verifyBtn: {
     borderRadius: 14,
