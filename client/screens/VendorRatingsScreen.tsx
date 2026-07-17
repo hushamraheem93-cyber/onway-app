@@ -392,7 +392,7 @@ const statsStyles = StyleSheet.create({
   card: { borderRadius: BorderRadius.lg, padding: 16, marginBottom: 12 },
   row: { flexDirection: "row-reverse", alignItems: "center" },
   stat: { flex: 1, alignItems: "center", gap: 4 },
-  num: { fontFamily: "Cairo_700Bold", fontSize: 26 },
+  num: { fontFamily: "Cairo_700Bold", fontSize: 26, lineHeight: 36, includeFontPadding: true },
   label: { fontFamily: "Cairo_400Regular", fontSize: 11, textAlign: "center" },
   divider: { width: 1, height: 50, marginHorizontal: 8 },
 });

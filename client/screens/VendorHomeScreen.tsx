@@ -509,7 +509,7 @@ export default function VendorHomeScreen({ navigation }: any) {
             <View style={styles.statsGrid} testID="stats-grid">
               {/* New orders */}
               <Pressable
-                style={[styles.statCard, { backgroundColor: AppColors.warningLight }]}
+                style={[styles.statCard, { backgroundColor: AppColors.white }]}
                 onPress={() => navigation.navigate("VendorOrdersTab")}
                 testID="stat-pending"
               >
@@ -527,7 +527,7 @@ export default function VendorHomeScreen({ navigation }: any) {
 
               {/* Preparing */}
               <Pressable
-                style={[styles.statCard, { backgroundColor: AppColors.vendorPurpleLight }]}
+                style={[styles.statCard, { backgroundColor: AppColors.white }]}
                 onPress={() => navigation.navigate("VendorOrdersTab")}
                 testID="stat-preparing"
               >
@@ -542,7 +542,7 @@ export default function VendorHomeScreen({ navigation }: any) {
 
               {/* Waiting for driver */}
               <Pressable
-                style={[styles.statCard, { backgroundColor: AppColors.infoLight }]}
+                style={[styles.statCard, { backgroundColor: AppColors.white }]}
                 onPress={() => navigation.navigate("VendorOrdersTab")}
                 testID="stat-ready"
               >
@@ -556,7 +556,7 @@ export default function VendorHomeScreen({ navigation }: any) {
               </Pressable>
 
               {/* Store rating */}
-              <View style={[styles.statCard, { backgroundColor: AppColors.warningLight }]} testID="stat-rating">
+              <View style={[styles.statCard, { backgroundColor: AppColors.white }]} testID="stat-rating">
                 <View style={[styles.statIconBox, { backgroundColor: AppColors.warningLight }]}>
                   <MaterialCommunityIcons name="star" size={22} color={AppColors.warning} />
                 </View>
@@ -1077,6 +1077,8 @@ const styles = StyleSheet.create({
   statValue: {
     fontFamily: "Cairo_700Bold",
     fontSize: 26,
+    lineHeight: 36,
+    includeFontPadding: true,
     textAlign: "center",
   },
   statLabel: {

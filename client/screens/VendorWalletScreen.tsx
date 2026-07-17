@@ -292,7 +292,7 @@ const styles = StyleSheet.create({
     borderRadius: 20, padding: 24, alignItems: "center", gap: 6,
   },
   revenueLabel: { fontFamily: "Cairo_400Regular", fontSize: 14, color: AppColors.textOnBrandMuted, textAlign: "center" },
-  revenueValue: { fontFamily: "Cairo_700Bold", fontSize: 30, color: AppColors.white, textAlign: "center" },
+  revenueValue: { fontFamily: "Cairo_700Bold", fontSize: 30, lineHeight: 42, includeFontPadding: true, color: AppColors.white, textAlign: "center" },
   revenuePeriod: { fontFamily: "Cairo_400Regular", fontSize: 12, color: AppColors.iconOnBrand, textAlign: "center" },
   statsRow: { flexDirection: "row-reverse", gap: 10 },
   statCard: {
@@ -300,7 +300,7 @@ const styles = StyleSheet.create({
     shadowColor: AppColors.black, shadowOpacity: 0.05, shadowRadius: 10, shadowOffset: { width: 0, height: 3 },
     elevation: 2,
   },
-  statValue: { fontFamily: "Cairo_700Bold", fontSize: 20, color: PURPLE, textAlign: "center" },
+  statValue: { fontFamily: "Cairo_700Bold", fontSize: 20, lineHeight: 30, includeFontPadding: true, color: PURPLE, textAlign: "center" },
   statLabel: { fontFamily: "Cairo_400Regular", fontSize: 12, color: AppColors.gray500, textAlign: "center" },
   section: {
     borderRadius: 20, padding: 16,
