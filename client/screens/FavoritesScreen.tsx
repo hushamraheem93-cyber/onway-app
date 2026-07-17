@@ -41,6 +41,7 @@ export default function FavoritesScreen() {
       showsVerticalScrollIndicator={false}
       ListEmptyComponent={
         <EmptyState
+          icon="heart-outline"
           title="لا توجد منتجات مفضلة"
           subtitle="أضف منتجاتك المفضلة للوصول إليها بسهولة"
         />

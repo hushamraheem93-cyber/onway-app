@@ -150,7 +150,12 @@ export default function AddressesScreen() {
         <View key={addr.id} style={[styles.addressCard, { backgroundColor: theme.backgroundDefault }, Shadows.sm]}>
           <View style={styles.addressHeader}>
             {addr.id !== "profile-address" ? (
-              <Pressable onPress={() => handleDelete(addr.id)} hitSlop={8}>
+              <Pressable
+                onPress={() => handleDelete(addr.id)}
+                hitSlop={8}
+                accessibilityRole="button"
+                accessibilityLabel={`حذف العنوان: ${addr.title}`}
+              >
                 <Feather name="trash-2" size={18} color={AppColors.error} />
               </Pressable>
             ) : (
@@ -188,6 +193,8 @@ export default function AddressesScreen() {
             <Pressable
               onPress={() => handleSetDefault(addr.id)}
               style={[styles.setDefaultBtn, { borderColor: AppColors.primary }]}
+              accessibilityRole="button"
+              accessibilityLabel="تعيين كعنوان افتراضي"
             >
               <ThemedText type="small" style={{ color: AppColors.primary }}>
                 تعيين كافتراضي
@@ -225,12 +232,16 @@ export default function AddressesScreen() {
                 setNewAddress("");
               }}
               style={[styles.formBtn, { backgroundColor: AppColors.gray300 }]}
+              accessibilityRole="button"
+              accessibilityLabel="إلغاء"
             >
               <ThemedText type="body" style={{ color: AppColors.gray700 }}>إلغاء</ThemedText>
             </Pressable>
             <Pressable
               onPress={handleAddAddress}
               style={[styles.formBtn, { backgroundColor: AppColors.primary }]}
+              accessibilityRole="button"
+              accessibilityLabel="حفظ العنوان"
             >
               <ThemedText type="body" style={{ color: AppColors.white }}>حفظ</ThemedText>
             </Pressable>
@@ -240,6 +251,8 @@ export default function AddressesScreen() {
         <Pressable
           onPress={() => setShowAddForm(true)}
           style={[styles.addBtn, { borderColor: AppColors.primary }]}
+          accessibilityRole="button"
+          accessibilityLabel="إضافة عنوان جديد"
         >
           <ThemedText type="body" style={{ color: AppColors.primary }}>إضافة عنوان جديد</ThemedText>
           <Feather name="plus" size={20} color={AppColors.primary} />
@@ -353,7 +366,7 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.md,
     padding: Spacing.md,
     marginBottom: Spacing.sm,
-    fontSize: 13,
+    fontSize: 16, // ≥16 for readability + prevents iOS auto-zoom on focus
   },
   textArea: {
     minHeight: 80,
