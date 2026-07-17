@@ -156,6 +156,9 @@ export default function ProductDetailScreen() {
               style={[styles.favoriteBtn, { backgroundColor: isFav ? AppColors.errorLight : "rgba(255,255,255,0.92)" }]}
               onPress={handleToggleFavorite}
               testID="button-favorite"
+              accessibilityRole="button"
+              accessibilityLabel={isFav ? "إزالة من المفضلة" : "إضافة إلى المفضلة"}
+              accessibilityState={{ selected: isFav }}
             >
               <FontAwesome
                 name={isFav ? "heart" : "heart-o"}
@@ -234,6 +237,8 @@ export default function ProductDetailScreen() {
                 style={[styles.qtyBtn, { backgroundColor: AppColors.primary }]}
                 onPress={handleIncrease}
                 testID="button-increase"
+                accessibilityRole="button"
+                accessibilityLabel="زيادة الكمية"
               >
                 <Feather name="plus" size={20} color={AppColors.white} />
               </Pressable>
@@ -244,6 +249,8 @@ export default function ProductDetailScreen() {
                 style={[styles.qtyBtn, { backgroundColor: AppColors.error }]}
                 onPress={handleDecrease}
                 testID="button-decrease"
+                accessibilityRole="button"
+                accessibilityLabel="إنقاص الكمية"
               >
                 <Feather name="minus" size={20} color={AppColors.white} />
               </Pressable>
@@ -253,6 +260,8 @@ export default function ProductDetailScreen() {
               style={[styles.addBtn, { backgroundColor: AppColors.primary }]}
               onPress={handleAdd}
               testID="button-add-to-cart"
+              accessibilityRole="button"
+              accessibilityLabel="أضف إلى السلة"
             >
               <Feather name="shopping-cart" size={18} color={AppColors.white} />
               <ThemedText style={styles.addBtnText}>أضف إلى السلة</ThemedText>
@@ -301,9 +310,9 @@ const styles = StyleSheet.create({
     position: "absolute",
     top: 12,
     right: 12,
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     alignItems: "center",
     justifyContent: "center",
     shadowColor: AppColors.black,

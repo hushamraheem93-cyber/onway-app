@@ -65,6 +65,8 @@ export default function UserTypeScreen() {
             goBackToOtp();
           }}
           testID="button-back"
+          accessibilityRole="button"
+          accessibilityLabel="رجوع"
         >
           <Feather name="arrow-right" size={22} color={AppColors.white} />
         </Pressable>
@@ -106,6 +108,8 @@ export default function UserTypeScreen() {
               style={({ pressed }) => [styles.typeCard, pressed ? styles.typeCardPressed : undefined]}
               onPress={() => handleSelect("customer")}
               testID="button-customer"
+              accessibilityRole="button"
+              accessibilityLabel="حساب زبون — تصفح المنتجات واطلب التوصيل"
             >
               <View style={styles.cardArrow}>
                 <MaterialIcons name="keyboard-arrow-left" size={24} color={AppColors.gray400} />
@@ -130,6 +134,8 @@ export default function UserTypeScreen() {
               style={({ pressed }) => [styles.typeCard, pressed ? styles.typeCardPressed : undefined]}
               onPress={() => handleSelect("vendor")}
               testID="button-vendor"
+              accessibilityRole="button"
+              accessibilityLabel="حساب صاحب متجر — أضف منتجاتك وبِع عبر OnWay"
             >
               <View style={styles.cardArrow}>
                 <MaterialIcons name="keyboard-arrow-left" size={24} color={AppColors.gray400} />
@@ -157,6 +163,8 @@ export default function UserTypeScreen() {
               style={({ pressed }) => [styles.typeCard, pressed ? styles.typeCardPressed : undefined]}
               onPress={() => handleSelect("driver")}
               testID="button-driver"
+              accessibilityRole="button"
+              accessibilityLabel="حساب سائق توصيل — انضم لفريق التوصيل واكسب المال"
             >
               <View style={styles.cardArrow}>
                 <MaterialIcons name="keyboard-arrow-left" size={24} color={AppColors.gray400} />
@@ -189,9 +197,9 @@ const styles = StyleSheet.create({
     position: "absolute",
     top: 16,
     right: 16,
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     backgroundColor: "rgba(0,0,0,0.15)",
     justifyContent: "center",
     alignItems: "center",
@@ -246,8 +254,8 @@ const styles = StyleSheet.create({
   },
   headerSub: {
     fontFamily: "Cairo_400Regular",
-    fontSize: 13,
-    color: "rgba(255,255,255,0.75)",
+    fontSize: 14,
+    color: "rgba(255,255,255,0.85)",
     textAlign: "center",
   },
   card: {
@@ -297,7 +305,7 @@ const styles = StyleSheet.create({
   },
   cardTitle: {
     fontFamily: "Cairo_700Bold",
-    fontSize: 14,
+    fontSize: 16,
     color: AppColors.textPrimary,
     textAlign: "right",
     marginBottom: 2,
@@ -306,7 +314,7 @@ const styles = StyleSheet.create({
   },
   cardDesc: {
     fontFamily: "Cairo_400Regular",
-    fontSize: 13,
+    fontSize: 14,
     color: AppColors.gray500,
     textAlign: "right",
     lineHeight: 22,
@@ -329,7 +337,7 @@ const styles = StyleSheet.create({
   },
   vendorBadgeText: {
     fontFamily: "Cairo_700Bold",
-    fontSize: 10,
+    fontSize: 11,
     color: AppColors.vendorPurple,
   },
 });

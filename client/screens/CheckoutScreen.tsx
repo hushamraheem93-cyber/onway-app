@@ -256,9 +256,12 @@ export default function CheckoutScreen() {
         </ThemedText>
         <Pressable
           onPress={() => setShowAreaPicker(true)}
+          accessibilityRole="button"
+          accessibilityLabel={selectedAreaData?.name ? `منطقة التوصيل: ${selectedAreaData.name}` : "اختر منطقة التوصيل"}
+          accessibilityState={{ expanded: showAreaPicker }}
           style={[
             styles.dropdownButton,
-            { 
+            {
               borderColor: selectedArea ? AppColors.primary : theme.border,
               backgroundColor: selectedArea ? AppColors.secondary : "transparent"
             }
@@ -301,6 +304,9 @@ export default function CheckoutScreen() {
               renderItem={({ item }) => (
                 <Pressable
                   onPress={() => handleSelectArea(item.id)}
+                  accessibilityRole="button"
+                  accessibilityLabel={item.name}
+                  accessibilityState={{ selected: selectedArea === item.id }}
                   style={[
                     styles.areaItem,
                     selectedArea === item.id && { backgroundColor: AppColors.secondary }
@@ -391,6 +397,9 @@ export default function CheckoutScreen() {
           <Pressable
             onPress={applyPromoCode}
             disabled={isApplyingPromo}
+            accessibilityRole="button"
+            accessibilityLabel="تطبيق كود الخصم"
+            accessibilityState={{ disabled: isApplyingPromo, busy: isApplyingPromo }}
             style={{
               backgroundColor: AppColors.primary,
               borderRadius: BorderRadius.md,
@@ -554,6 +563,8 @@ export default function CheckoutScreen() {
             <Pressable
               style={[styles.errorBtn, styles.errorBtnDismiss, { borderColor: theme.border }]}
               onPress={() => { setErrorMessage(null); setIsNetworkError(false); }}
+              accessibilityRole="button"
+              accessibilityLabel="إغلاق"
             >
               <ThemedText type="body">إغلاق</ThemedText>
             </Pressable>
@@ -565,6 +576,8 @@ export default function CheckoutScreen() {
                   setIsNetworkError(false);
                   submitOrderPayload(lastOrderPayloadRef.current);
                 }}
+                accessibilityRole="button"
+                accessibilityLabel="إعادة المحاولة"
               >
                 <ThemedText type="body" style={{ color: AppColors.white }}>إعادة المحاولة</ThemedText>
               </Pressable>
@@ -608,7 +621,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   input: {
-    fontSize: 13,
+    fontSize: 16, // ≥16 for readability + prevents iOS auto-zoom on focus
     paddingVertical: Spacing.sm,
   },
   multilineInput: {
@@ -682,7 +695,7 @@ const styles = StyleSheet.create({
   },
   paymentLabel: {
     textAlign: "center",
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: FontWeight.semiBold,
   },
   dinarCashIcon: {
@@ -714,7 +727,7 @@ const styles = StyleSheet.create({
     borderRadius: 6,
   },
   comingSoonText: {
-    fontSize: 9,
+    fontSize: 10,
     color: AppColors.gray400,
     fontWeight: FontWeight.bold,
   },
