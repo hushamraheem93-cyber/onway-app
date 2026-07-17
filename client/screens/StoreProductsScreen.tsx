@@ -89,6 +89,7 @@ function toCartProduct(p: VendorProduct): Product {
     description: p.description || "",
     inStock: p.stock > 0,
     restaurant: p.storeName,
+    vendorId: p.vendorId,
   };
 }
 

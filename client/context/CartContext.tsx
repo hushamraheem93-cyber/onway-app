@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useCallback, useEffect, useRef, ReactNode } from "react";
+import { Alert } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Product } from "@/constants/categories";
 
@@ -17,6 +18,8 @@ interface CartContextType {
   clearCart: () => void;
   getItemCount: () => number;
   getTotal: () => number;
+  /** Vendor the current cart belongs to (undefined when empty or vendor-less items). */
+  cartVendorId: string | null;
 }
 
 const CartContext = createContext<CartContextType | undefined>(undefined);
@@ -50,6 +53,26 @@ export function CartProvider({ children }: { children: ReactNode }) {
   }, [items]);
 
   const addToCart = useCallback((product: Product) => {
+    // A single order maps to a single vendor. If the cart already holds items from a
+    // different vendor, don't silently mix them (which produced malformed orders with
+    // the wrong vendorId/delivery fee) — prompt to start a fresh cart for the new store.
+    const cartVendorId = items.find((i) => i.product.vendorId)?.product.vendorId;
+    const newVendorId = product.vendorId;
+    if (items.length > 0 && cartVendorId && newVendorId && cartVendorId !== newVendorId) {
+      Alert.alert(
+        "منتجات من متجر آخر",
+        "سلّتك تحتوي منتجات من متجر مختلف. لا يمكن الطلب من متجرين في طلب واحد. هل تريد إفراغ السلّة والبدء بهذا المتجر؟",
+        [
+          { text: "إلغاء", style: "cancel" },
+          {
+            text: "إفراغ والبدء من جديد",
+            style: "destructive",
+            onPress: () => setItems([{ product, quantity: 1 }]),
+          },
+        ],
+      );
+      return;
+    }
     setItems((prev) => {
       const existing = prev.find((item) => item.product.id === product.id);
       if (existing) {
@@ -61,7 +84,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       }
       return [...prev, { product, quantity: 1 }];
     });
-  }, []);
+  }, [items]);
 
   const removeFromCart = useCallback((productId: string) => {
     setItems((prev) => prev.filter((item) => item.product.id !== productId));
@@ -104,6 +127,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
         clearCart,
         getItemCount,
         getTotal,
+        cartVendorId: items.find((i) => i.product.vendorId)?.product.vendorId ?? null,
       }}
     >
       {children}

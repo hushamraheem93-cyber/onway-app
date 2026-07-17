@@ -662,6 +662,7 @@ export default function HomeScreen() {
       description: vp.description,
       inStock: vp.stock > 0,
       restaurant: storeName,
+      vendorId: vp.vendorId || storeId,
     };
     const cartItem = items.find((i) => i.product.id === vp.id);
     const qty = cartItem ? cartItem.quantity : 0;

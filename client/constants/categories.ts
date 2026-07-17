@@ -50,6 +50,7 @@ export interface Product {
   originalPrice?: number;
   weight?: string;
   restaurant?: string;
+  vendorId?: string;
 }
 
 export const PRODUCTS: Product[] = [

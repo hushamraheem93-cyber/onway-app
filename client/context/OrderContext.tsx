@@ -199,6 +199,9 @@ export function OrderProvider({ children }: { children: ReactNode }) {
       address: orderData.address,
       region: orderData.region,
     };
+    // Attach the vendor this order belongs to (the cart is scoped to one vendor).
+    const orderVendorId = orderData.items.find((it) => it.product.vendorId)?.product.vendorId;
+    if (orderVendorId) bodyData.vendorId = orderVendorId;
     if (orderData.serviceFee !== undefined) bodyData.serviceFee = orderData.serviceFee;
     if (orderData.customerName) bodyData.customerName = orderData.customerName;
     if (orderData.customerPhone) bodyData.customerPhone = orderData.customerPhone;
