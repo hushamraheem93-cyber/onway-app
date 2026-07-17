@@ -168,13 +168,21 @@ export default function ProfileCompletionScreen() {
             logout();
           }}
           testID="button-back"
+          accessibilityRole="button"
+          accessibilityLabel="رجوع"
         >
           <Feather name="arrow-right" size={22} color={theme.text} />
           <ThemedText type="body" style={{ fontWeight: FontWeight.semiBold }}>رجوع</ThemedText>
         </Pressable>
 
         <View style={styles.header}>
-          <Pressable onPress={showImageOptions} style={styles.avatarContainer}>
+          <Pressable
+            onPress={showImageOptions}
+            style={styles.avatarContainer}
+            accessibilityRole="button"
+            accessibilityLabel="إضافة صورة الملف الشخصي"
+            accessibilityHint="يفتح خيارات الكاميرا ومعرض الصور"
+          >
             {profileImage ? (
               <Image
                 source={{ uri: profileImage }}
@@ -232,6 +240,9 @@ export default function ProfileCompletionScreen() {
                   },
                 ]}
                 onPress={() => handleGenderSelect("female")}
+                accessibilityRole="radio"
+                accessibilityLabel="أنثى"
+                accessibilityState={{ selected: gender === "female" }}
               >
                 <Feather
                   name="user"
@@ -258,6 +269,9 @@ export default function ProfileCompletionScreen() {
                   },
                 ]}
                 onPress={() => handleGenderSelect("male")}
+                accessibilityRole="radio"
+                accessibilityLabel="ذكر"
+                accessibilityState={{ selected: gender === "male" }}
               >
                 <Feather
                   name="user"
@@ -289,6 +303,9 @@ export default function ProfileCompletionScreen() {
                 },
               ]}
               onPress={() => setShowRegionPicker(!showRegionPicker)}
+              accessibilityRole="button"
+              accessibilityLabel={region ? `المنطقة: ${region}` : "اختر منطقتك"}
+              accessibilityState={{ expanded: showRegionPicker }}
             >
               <Feather name="chevron-down" size={20} color={theme.textSecondary} />
               <ThemedText
@@ -333,6 +350,8 @@ export default function ProfileCompletionScreen() {
                 style={[styles.locationCard, { borderColor: AppColors.primary + "40", backgroundColor: AppColors.primary + "08" }]}
                 onPress={openMapPicker}
                 testID="button-change-location"
+                accessibilityRole="button"
+                accessibilityLabel="تغيير الموقع على الخريطة"
               >
                 <View style={styles.locationCardLeft}>
                   <View style={styles.locationIcon}>
@@ -358,6 +377,8 @@ export default function ProfileCompletionScreen() {
                 style={[styles.mapButton, { borderColor: theme.border, backgroundColor: theme.backgroundSecondary }]}
                 onPress={openMapPicker}
                 testID="button-pick-location"
+                accessibilityRole="button"
+                accessibilityLabel="تحديد موقعي على الخريطة"
               >
                 <View style={[styles.mapButtonIcon, { backgroundColor: AppColors.primary + "18" }]}>
                   <Feather name="map-pin" size={22} color={AppColors.primary} />
@@ -384,6 +405,9 @@ export default function ProfileCompletionScreen() {
           onPress={handleSave}
           disabled={!isFormValid || isLoading}
           testID="button-save-profile"
+          accessibilityRole="button"
+          accessibilityLabel="حفظ والمتابعة"
+          accessibilityState={{ disabled: !isFormValid || isLoading, busy: isLoading }}
         >
           {isLoading ? (
             <ActivityIndicator color={AppColors.white} />
@@ -417,7 +441,8 @@ const styles = StyleSheet.create({
     alignSelf: "flex-end",
     gap: 8,
     paddingHorizontal: 16,
-    paddingVertical: 10,
+    paddingVertical: 12,
+    minHeight: 44,
     borderRadius: BorderRadius.lg,
     marginBottom: Spacing.md,
   },
@@ -502,7 +527,8 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.md,
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.md,
-    fontSize: 13,
+    fontSize: 16, // ≥16 for readability + prevents iOS auto-zoom on focus
+    minHeight: 52,
     borderWidth: 1,
   },
   dropdown: {
@@ -597,12 +623,12 @@ const styles = StyleSheet.create({
   },
   locationLabel: {
     textAlign: "right",
-    fontSize: 11,
+    fontSize: 12,
   },
   locationAddress: {
     textAlign: "right",
     fontWeight: FontWeight.semiBold,
-    fontSize: 13,
+    fontSize: 14,
     lineHeight: 20,
   },
   changeBtn: {
