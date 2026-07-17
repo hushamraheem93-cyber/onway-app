@@ -167,7 +167,7 @@ function ProductPickerModal({
       <View style={{ flex: 1, backgroundColor: theme.backgroundRoot }}>
         <View style={[styles.modalHeader, { borderBottomColor: theme.border }]}>
           <ThemedText type="h3">اختر منتجاً</ThemedText>
-          <Pressable onPress={onClose}><Feather name="x" size={24} color={theme.text} /></Pressable>
+          <Pressable onPress={onClose} accessibilityRole="button" accessibilityLabel="إغلاق" hitSlop={8}><Feather name="x" size={24} color={theme.text} /></Pressable>
         </View>
         <View style={{ paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm }}>
           <TextInput
@@ -354,6 +354,9 @@ export default function SupportChatScreen() {
             onPress={handlePickImage}
             disabled={uploadingImage || sending}
             testID="button-attach-image"
+            accessibilityRole="button"
+            accessibilityLabel="إرفاق صورة"
+            accessibilityState={{ busy: uploadingImage }}
           >
             {uploadingImage ? (
               <ActivityIndicator size="small" color={AppColors.primary} />
@@ -366,6 +369,8 @@ export default function SupportChatScreen() {
             onPress={() => setShowProductPicker(true)}
             disabled={sending}
             testID="button-attach-product"
+            accessibilityRole="button"
+            accessibilityLabel="إرفاق منتج"
           >
             <Feather name="tag" size={20} color={AppColors.primary} />
           </Pressable>
@@ -379,12 +384,16 @@ export default function SupportChatScreen() {
             maxLength={500}
             textAlign="right"
             testID="input-support-message"
+            accessibilityLabel="اكتب رسالتك"
           />
           <Pressable
             style={[styles.sendButton, { backgroundColor: inputText.trim() ? AppColors.primary : theme.border, opacity: sending ? 0.7 : 1 }]}
             onPress={handleSendText}
             disabled={!inputText.trim() || sending}
             testID="button-send-support"
+            accessibilityRole="button"
+            accessibilityLabel="إرسال الرسالة"
+            accessibilityState={{ disabled: !inputText.trim() || sending, busy: sending }}
           >
             {sending ? (
               <ActivityIndicator size="small" color={AppColors.white} />
@@ -454,7 +463,7 @@ const styles = StyleSheet.create({
     flex: 1, borderRadius: BorderRadius.lg, borderWidth: 1,
     paddingHorizontal: Spacing.md,
     paddingVertical: Platform.OS === "ios" ? 10 : 8,
-    fontSize: 15, maxHeight: 100, minHeight: 40,
+    fontSize: 16, maxHeight: 100, minHeight: 40, // ≥16 prevents iOS auto-zoom
   },
   sendButton: {
     width: 40, height: 40, borderRadius: 20,
