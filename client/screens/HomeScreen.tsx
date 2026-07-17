@@ -514,22 +514,18 @@ export default function HomeScreen() {
         </View>
         <View style={styles.restaurantMeta}>
           {vendor.rating != null ? (
-            <>
-              <View style={styles.metaItem}>
-                <Feather name="star" size={13} color={AppColors.warning} />
-                <ThemedText style={styles.metaText}>{vendor.rating.toFixed(1)}</ThemedText>
-              </View>
-              <View style={styles.metaDivider} />
-            </>
+            <View style={[styles.metaChip, { backgroundColor: AppColors.warningLight }]}>
+              <Feather name="star" size={12} color={AppColors.warning} />
+              <ThemedText style={[styles.metaChipText, { color: AppColors.warning }]}>{vendor.rating.toFixed(1)}</ThemedText>
+            </View>
           ) : null}
-          <View style={styles.metaItem}>
-            <Feather name="clock" size={13} color={AppColors.gray500} />
-            <ThemedText style={styles.metaText}>{vendor.deliveryTime} دقيقة</ThemedText>
+          <View style={[styles.metaChip, { backgroundColor: AppColors.secondary }]}>
+            <Feather name="clock" size={12} color={AppColors.primary} />
+            <ThemedText style={[styles.metaChipText, { color: AppColors.primary }]}>{vendor.deliveryTime} دقيقة</ThemedText>
           </View>
-          <View style={styles.metaDivider} />
-          <View style={styles.metaItem}>
-            <Feather name="map-pin" size={13} color={AppColors.gray500} />
-            <ThemedText style={styles.metaText} numberOfLines={1}>
+          <View style={[styles.metaChip, { backgroundColor: AppColors.gray100 }]}>
+            <Feather name="map-pin" size={12} color={AppColors.gray500} />
+            <ThemedText style={[styles.metaChipText, { color: AppColors.gray600 }]} numberOfLines={1}>
               {vendor.location || "الضلوعية"}
             </ThemedText>
           </View>
@@ -1247,8 +1243,8 @@ const styles = StyleSheet.create({
   },
   greeting: {
     fontFamily: "Cairo_700Bold",
-    fontSize: 22,
-    lineHeight: 34,
+    fontSize: 28,
+    lineHeight: 40,
     color: AppColors.primary,
     marginBottom: 2,
     textAlign: "right",
@@ -1257,7 +1253,7 @@ const styles = StyleSheet.create({
   },
   subGreeting: {
     fontFamily: "Cairo_600SemiBold",
-    fontSize: 15,
+    fontSize: 16,
     color: AppColors.gray700,
     textAlign: "right",
     writingDirection: "rtl",
@@ -1334,10 +1330,10 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 10,
     paddingHorizontal: 16,
-    paddingVertical: 14,
-    borderRadius: 16,
+    paddingVertical: 15,
+    borderRadius: 18,
     marginBottom: 16,
-    borderWidth: 2,
+    borderWidth: 1.5,
     borderColor: AppColors.backgroundTertiary,
   },
   searchInput: {
@@ -1353,8 +1349,8 @@ const styles = StyleSheet.create({
   // ── Restaurant Card ──
   restaurantCard: {
     backgroundColor: AppColors.white,
-    borderRadius: 20,
-    marginBottom: 14,
+    borderRadius: 24,
+    marginBottom: 16,
     overflow: "hidden",
     ...Platform.select({
       ios: {
@@ -1368,19 +1364,19 @@ const styles = StyleSheet.create({
     }),
   },
   restaurantImageWrapper: {
-    height: 160,
+    height: 180,
     position: "relative",
   },
   restaurantImage: {
     width: "100%",
-    height: 160,
+    height: 180,
   },
   restaurantGradient: {
     position: "absolute",
     bottom: 0,
     left: 0,
     right: 0,
-    height: 80,
+    height: 90,
   },
   openBadge: {
     position: "absolute",
@@ -1433,25 +1429,22 @@ const styles = StyleSheet.create({
     color: AppColors.primary,
   },
   restaurantMeta: {
-    flexDirection: "row",
+    flexDirection: "row-reverse",
     alignItems: "center",
-    gap: 6,
-    justifyContent: "flex-end",
+    gap: 8,
+    flexWrap: "wrap",
   },
-  metaItem: {
-    flexDirection: "row",
+  metaChip: {
+    flexDirection: "row-reverse",
     alignItems: "center",
-    gap: 4,
+    gap: 5,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 999,
   },
-  metaText: {
-    fontFamily: "Cairo_400Regular",
+  metaChipText: {
+    fontFamily: "Cairo_700Bold",
     fontSize: 12,
-    color: AppColors.gray500,
-  },
-  metaDivider: {
-    width: 1,
-    height: 12,
-    backgroundColor: AppColors.divider,
   },
   // ── Search empty ──
   emptySearch: {
@@ -1551,9 +1544,9 @@ const styles = StyleSheet.create({
   },
   catName: {
     fontFamily: "Cairo_700Bold",
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: FontWeight.bold,
-    color: AppColors.gray700,
+    color: AppColors.gray800,
     textAlign: "center",
     marginTop: 4,
   },
