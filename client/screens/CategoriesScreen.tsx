@@ -101,6 +101,8 @@ export default function CategoriesScreen() {
         style={styles.cardWrapper}
         onPress={() => handleCategoryPress(item)}
         testID={`card-category-${item.id}`}
+        accessibilityRole="button"
+        accessibilityLabel={`قسم ${item.name}`}
       >
         <LinearGradient
           colors={[gradientColor, AppColors.white]}
