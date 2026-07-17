@@ -20,6 +20,14 @@ integrations = ["github:1.0.0"]
 [workflows]
 runButton = "Project"
 
+# Single workflow: starts the backend (port 5000) and the Expo bundler ONCE.
+# Previously "Project" launched "Start Backend" twice (directly and again nested
+# inside "Start App"), so two instances fought over ports 5000/8081 → EADDRINUSE →
+# the trap killed the whole group and the Run button flickered on/off. It also
+# waited on `curl .../status`, an endpoint Metro does not serve, so the readiness
+# loop never finished and expo:static:build never ran (Preview had nothing to
+# serve). Both are fixed below: one instance, and a readiness check that succeeds
+# on any Metro HTTP response instead of requiring /status.
 [[workflows.workflow]]
 name = "Project"
 mode = "sequential"
