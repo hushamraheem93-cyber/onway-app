@@ -114,6 +114,8 @@ export default function CourierPickupScreen() {
             style={styles.backButton}
             onPress={() => navigation.goBack()}
             testID="button-back-home"
+            accessibilityRole="button"
+            accessibilityLabel="العودة للرئيسية"
           >
             <ThemedText style={styles.backButtonText}>العودة للرئيسية</ThemedText>
           </Pressable>
@@ -264,6 +266,9 @@ export default function CourierPickupScreen() {
           onPress={handleSubmit}
           disabled={!isFormValid || isSubmitting}
           testID="button-submit-courier"
+          accessibilityRole="button"
+          accessibilityLabel="إرسال طلب المندوب"
+          accessibilityState={{ disabled: !isFormValid || isSubmitting, busy: isSubmitting }}
         >
           {isSubmitting ? (
             <ActivityIndicator size="small" color={AppColors.white} />
@@ -351,7 +356,7 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     fontFamily: "Cairo_400Regular",
-    fontSize: 14,
+    fontSize: 16, // ≥16 for readability + prevents iOS auto-zoom on focus
     lineHeight: 24,
     includeFontPadding: true,
   },

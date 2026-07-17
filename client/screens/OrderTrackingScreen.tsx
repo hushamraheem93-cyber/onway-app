@@ -609,6 +609,8 @@ export default function OrderTrackingScreen() {
                 ? () => navigation.navigate("StoreProducts", { storeId: order.vendorId!, storeName: order.vendorName! })
                 : undefined}
               testID="button-tracking-store-badge"
+              accessibilityRole={order.vendorId ? "button" : "text"}
+              accessibilityLabel={`من متجر ${order.vendorName}`}
             >
               <Feather name="shopping-bag" size={11} color={AppColors.primary} />
               <ThemedText type="small" style={{ color: AppColors.primary, fontWeight: FontWeight.semiBold, marginRight: 4 }}>
@@ -636,6 +638,8 @@ export default function OrderTrackingScreen() {
                     style={[styles.itemStoreBadge, { backgroundColor: AppColors.primary + "12" }, styles.itemStoreBadgePressable]}
                     onPress={() => navigation.navigate("StoreProducts", { storeId: order.vendorId!, storeName: item.restaurant! })}
                     testID={`button-item-store-badge-${index}`}
+                    accessibilityRole="button"
+                    accessibilityLabel={`من متجر ${item.restaurant}`}
                   >
                     <Feather name="shopping-bag" size={11} color={AppColors.primary} />
                     <ThemedText type="small" style={{ color: AppColors.primary, fontWeight: FontWeight.semiBold, marginRight: 4 }}>
@@ -665,7 +669,13 @@ export default function OrderTrackingScreen() {
         </View>
       </View>
 
-      <Pressable style={styles.refreshBtn} onPress={handleRefresh}>
+      <Pressable
+        style={styles.refreshBtn}
+        onPress={handleRefresh}
+        accessibilityRole="button"
+        accessibilityLabel="تحديث حالة الطلب"
+        accessibilityState={{ busy: refreshing }}
+      >
         {refreshing ? (
           <ActivityIndicator size="small" color={AppColors.primary} />
         ) : (
