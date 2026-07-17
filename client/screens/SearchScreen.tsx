@@ -80,7 +80,12 @@ export default function SearchScreen() {
           {formatPrice(item.price)}
         </ThemedText>
       </View>
-      <Pressable onPress={() => handleAddToCart(item)} style={[styles.addBtn, { backgroundColor: AppColors.primary }]}>
+      <Pressable
+        onPress={() => handleAddToCart(item)}
+        style={[styles.addBtn, { backgroundColor: AppColors.primary }]}
+        accessibilityRole="button"
+        accessibilityLabel={`أضف ${item.name} إلى السلة`}
+      >
         <Feather name="plus" size={18} color={AppColors.white} />
       </Pressable>
     </View>
@@ -90,6 +95,8 @@ export default function SearchScreen() {
     <Pressable
       style={[styles.categoryChip, { backgroundColor: isDark ? theme.backgroundSecondary : AppColors.secondary, borderWidth: 1, borderColor: AppColors.primary + "40" }]}
       onPress={() => handleCategoryPress(item)}
+      accessibilityRole="button"
+      accessibilityLabel={`قسم ${item.name}`}
     >
       <ThemedText type="small" style={[styles.chipText, { color: AppColors.primary }]}>{item.name}</ThemedText>
     </Pressable>
@@ -112,7 +119,12 @@ export default function SearchScreen() {
             returnKeyType="search"
           />
           {searchQuery.length > 0 ? (
-            <Pressable onPress={() => setSearchQuery("")}>
+            <Pressable
+              onPress={() => setSearchQuery("")}
+              accessibilityRole="button"
+              accessibilityLabel="مسح البحث"
+              hitSlop={8}
+            >
               <Feather name="x" size={18} color={AppColors.gray400} />
             </Pressable>
           ) : null}
@@ -171,7 +183,7 @@ const styles = StyleSheet.create({
   },
   searchInput: {
     flex: 1,
-    fontSize: 13,
+    fontSize: 16, // ≥16 for readability + prevents iOS auto-zoom on focus
     paddingVertical: 0,
   },
   suggestionsContainer: {
@@ -225,8 +237,8 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   addBtn: {
-    width: 34,
-    height: 34,
+    width: 40,
+    height: 40,
     borderRadius: BorderRadius.full,
     alignItems: "center",
     justifyContent: "center",

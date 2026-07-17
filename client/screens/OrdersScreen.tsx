@@ -96,6 +96,8 @@ export default function OrdersScreen() {
           <Pressable
             onPress={() => setSearchQuery("")}
             style={[styles.resetBtn, { backgroundColor: AppColors.primary + "15" }]}
+            accessibilityRole="button"
+            accessibilityLabel="عرض جميع الطلبات"
           >
             <ThemedText type="small" style={{ color: AppColors.primary, fontWeight: FontWeight.bold }}>
               عرض جميع الطلبات
@@ -106,9 +108,11 @@ export default function OrdersScreen() {
     }
     return (
       <EmptyState
+        icon="receipt-outline"
         title="لا توجد طلبات"
         subtitle="لم تقم بأي طلبات بعد"
         buttonText="ابدأ التسوق"
+        buttonIcon="storefront-outline"
         onButtonPress={() => navigation.navigate("Main", { screen: "HomeTab" } as any)}
       />
     );
@@ -160,6 +164,9 @@ export default function OrdersScreen() {
               onPress={() => setSearchQuery("")}
               style={styles.clearBtn}
               testID="button-clear-search"
+              accessibilityRole="button"
+              accessibilityLabel="مسح البحث"
+              hitSlop={8}
             >
               <View style={[styles.clearIcon, { backgroundColor: theme.textSecondary + "25" }]}>
                 <Feather name="x" size={12} color={theme.textSecondary} />
@@ -229,7 +236,7 @@ const styles = StyleSheet.create({
   },
   searchInput: {
     flex: 1,
-    fontSize: 12,
+    fontSize: 16, // ≥16 for readability + prevents iOS auto-zoom on focus
     paddingVertical: 0,
   },
   clearBtn: {
