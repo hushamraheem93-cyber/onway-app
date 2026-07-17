@@ -32,6 +32,8 @@ function HelpItem({ icon, iconBg, title, subtitle, onPress }: HelpItemProps) {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
         onPress();
       }}
+      accessibilityRole="button"
+      accessibilityLabel={`${title}، ${subtitle}`}
       style={({ pressed }) => [
         styles.item,
         { backgroundColor: theme.backgroundDefault, opacity: pressed ? 0.8 : 1 },

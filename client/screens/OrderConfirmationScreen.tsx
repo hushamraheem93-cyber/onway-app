@@ -279,6 +279,9 @@ export default function OrderConfirmationScreen() {
             onPress={handleCancel}
             disabled={cancelling}
             testID="button-cancel-order"
+            accessibilityRole="button"
+            accessibilityLabel="إلغاء الطلب"
+            accessibilityState={{ disabled: cancelling, busy: cancelling }}
           >
             {cancelling ? (
               <ActivityIndicator color={AppColors.error} size="small" />
@@ -299,7 +302,12 @@ export default function OrderConfirmationScreen() {
         تتبع الطلب
       </Button>
 
-      <Pressable onPress={goHome} style={styles.homeLink}>
+      <Pressable
+        onPress={goHome}
+        style={styles.homeLink}
+        accessibilityRole="button"
+        accessibilityLabel="العودة للرئيسية"
+      >
         <ThemedText type="body" style={{ color: theme.textSecondary }}>العودة للرئيسية</ThemedText>
       </Pressable>
     </ScrollView>
@@ -444,7 +452,7 @@ const styles = StyleSheet.create({
   },
   cancelHint: {
     fontFamily: "Cairo_400Regular",
-    fontSize: 12,
+    fontSize: 13,
     textAlign: "right",
   },
   cancelBtn: {

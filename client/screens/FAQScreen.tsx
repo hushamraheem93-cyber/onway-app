@@ -27,6 +27,9 @@ function FAQItem({ question, answer }: FAQItemProps) {
   return (
     <Pressable
       onPress={handlePress}
+      accessibilityRole="button"
+      accessibilityLabel={question}
+      accessibilityState={{ expanded: isExpanded }}
       style={[styles.faqItem, { backgroundColor: theme.backgroundDefault }, Shadows.sm]}
     >
       <View style={styles.faqHeader}>

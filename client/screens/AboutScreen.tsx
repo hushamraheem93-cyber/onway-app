@@ -130,6 +130,8 @@ export default function AboutScreen() {
 
           <Pressable
             onPress={handleWhatsApp}
+            accessibilityRole="button"
+            accessibilityLabel="تواصل عبر واتساب"
             style={({ pressed }) => [
               styles.contactButton,
               { backgroundColor: AppColors.whatsapp, opacity: pressed ? 0.8 : 1 },
@@ -141,6 +143,8 @@ export default function AboutScreen() {
 
           <Pressable
             onPress={handleCall}
+            accessibilityRole="button"
+            accessibilityLabel="اتصل بنا هاتفياً"
             style={({ pressed }) => [
               styles.contactButton,
               { backgroundColor: AppColors.primary, opacity: pressed ? 0.8 : 1 },
@@ -152,6 +156,8 @@ export default function AboutScreen() {
 
           <Pressable
             onPress={handleEmail}
+            accessibilityRole="button"
+            accessibilityLabel="راسلنا بالبريد الإلكتروني"
             style={({ pressed }) => [
               styles.contactButton,
               { backgroundColor: AppColors.statusPurple, opacity: pressed ? 0.8 : 1 },
