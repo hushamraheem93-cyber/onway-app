@@ -145,6 +145,8 @@ export default function InternationalShoppingScreen() {
             style={styles.submitButton}
             onPress={resetForm}
             testID="button-new-order"
+            accessibilityRole="button"
+            accessibilityLabel="طلب جديد"
           >
             <Feather name="plus" size={18} color={AppColors.white} style={{ marginLeft: 8 }} />
             <ThemedText style={styles.submitButtonText}>طلب جديد</ThemedText>
@@ -153,6 +155,8 @@ export default function InternationalShoppingScreen() {
             style={[styles.submitButton, { backgroundColor: AppColors.backgroundSecondary, marginTop: 12 }]}
             onPress={() => navigation.goBack()}
             testID="button-back-home"
+            accessibilityRole="button"
+            accessibilityLabel="العودة للرئيسية"
           >
             <ThemedText style={[styles.submitButtonText, { color: AppColors.gray500 }]}>
               العودة للرئيسية
@@ -205,6 +209,9 @@ export default function InternationalShoppingScreen() {
                 setSelectedSite(site.id);
               }}
               testID={`button-site-${site.id}`}
+              accessibilityRole="button"
+              accessibilityLabel={site.nameAr}
+              accessibilityState={{ selected: selectedSite === site.id }}
             >
               <View style={[styles.siteIconWrap, { backgroundColor: AppColors.white }]}>
                 <Feather name={site.icon as any} size={26} color={site.color} />
@@ -317,6 +324,9 @@ export default function InternationalShoppingScreen() {
           onPress={handleSubmit}
           disabled={!isFormValid || isSubmitting}
           testID="button-submit-international"
+          accessibilityRole="button"
+          accessibilityLabel="إرسال طلب الشراء"
+          accessibilityState={{ disabled: !isFormValid || isSubmitting, busy: isSubmitting }}
         >
           {isSubmitting ? (
             <ActivityIndicator size="small" color={AppColors.white} />
@@ -465,7 +475,7 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     fontFamily: "Cairo_400Regular",
-    fontSize: 14,
+    fontSize: 16, // ≥16 for readability + prevents iOS auto-zoom on focus
     lineHeight: 24,
     includeFontPadding: true,
   },

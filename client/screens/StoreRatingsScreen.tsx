@@ -234,7 +234,12 @@ export default function StoreRatingsScreen() {
           textAlign="right"
         />
         {search.length > 0 ? (
-          <Pressable onPress={() => { setSearch(""); setPage(1); }}>
+          <Pressable
+            onPress={() => { setSearch(""); setPage(1); }}
+            accessibilityRole="button"
+            accessibilityLabel="مسح البحث"
+            hitSlop={8}
+          >
             <Feather name="x" size={16} color={theme.textSecondary} />
           </Pressable>
         ) : null}
@@ -246,6 +251,9 @@ export default function StoreRatingsScreen() {
           <Pressable
             key={tab.key}
             onPress={() => { setFilter(tab.key); setPage(1); }}
+            accessibilityRole="button"
+            accessibilityLabel={tab.label}
+            accessibilityState={{ selected: filter === tab.key }}
             style={[
               styles.filterTab,
               filter === tab.key
@@ -305,6 +313,8 @@ export default function StoreRatingsScreen() {
             <Pressable
               onPress={() => setPage((p) => p + 1)}
               style={[styles.loadMoreBtn, { borderColor: AppColors.primary }]}
+              accessibilityRole="button"
+              accessibilityLabel="عرض المزيد من التقييمات"
             >
               <ThemedText style={{ color: AppColors.primary, fontFamily: "Cairo_700Bold" }}>
                 عرض المزيد
@@ -358,7 +368,7 @@ const styles = StyleSheet.create({
   searchInput: {
     flex: 1,
     fontFamily: "Cairo_400Regular",
-    fontSize: 14,
+    fontSize: 16,
   },
   filterRow: {
     flexDirection: "row-reverse",
