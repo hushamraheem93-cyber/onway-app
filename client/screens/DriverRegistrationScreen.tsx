@@ -591,10 +591,11 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   input: {
-    borderRadius: BorderRadius.md,
+    borderRadius: BorderRadius.lg,
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.md,
-    fontSize: 13,
+    fontSize: 16, // ≥16 for readability + prevents iOS auto-zoom on focus
+    minHeight: 52,
     borderWidth: 1,
   },
   phoneDisplay: {

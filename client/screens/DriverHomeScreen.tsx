@@ -1174,7 +1174,7 @@ const styles = StyleSheet.create({
   },
   earningsStripItem: { flex: 1, alignItems: "center" },
   earningsStripLabel: { color: "rgba(255,255,255,0.75)", fontSize: 10, marginBottom: 2 },
-  earningsStripValue: { color: AppColors.white, fontWeight: FontWeight.bold, fontSize: 15 },
+  earningsStripValue: { color: AppColors.white, fontWeight: FontWeight.bold, fontSize: 16, lineHeight: 24 },
   earningsStripDivider: { width: 1, backgroundColor: "rgba(255,255,255,0.25)", marginVertical: 2 },
 
   // Content

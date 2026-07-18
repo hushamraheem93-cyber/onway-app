@@ -1066,8 +1066,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderRadius: BorderRadius.md,
     paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.sm,
+    paddingVertical: Spacing.sm + 2,
     textAlign: "right",
-    fontSize: 12,
+    fontSize: 16,
   },
 });

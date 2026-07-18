@@ -255,6 +255,8 @@ const styles = StyleSheet.create({
   driverName: {
     color: AppColors.white,
     fontWeight: FontWeight.bold,
+    fontSize: 22,
+    lineHeight: 32,
   },
   driverPhone: {
     color: AppColors.textOnBrandMuted,
