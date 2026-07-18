@@ -13,15 +13,17 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Image } from "expo-image";
+import { LinearGradient } from "expo-linear-gradient";
 import * as Haptics from "expo-haptics";
 import { Feather } from "@expo/vector-icons";
 
 import { ThemedText } from "@/components/ThemedText";
 import { useAuth } from "@/context/AuthContext";
 import { useNavigation } from "@react-navigation/native";
-import { AppColors, FontWeight} from "@/constants/theme";
+import { AppColors, FontWeight } from "@/constants/theme";
 
 const BRAND_ORANGE = AppColors.primary;
+const BRAND_DARK = AppColors.primaryDark;
 
 export default function PhoneLoginScreen() {
   const { sendOtp } = useAuth();
@@ -74,96 +76,114 @@ export default function PhoneLoginScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={["top", "bottom", "left", "right"]}>
-      <KeyboardAvoidingView
-        style={styles.keyboardView}
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
-      >
-        <ScrollView
-          contentContainerStyle={styles.scrollContent}
-          keyboardShouldPersistTaps="handled"
-          bounces={false}
+    <View style={styles.root}>
+      <LinearGradient
+        colors={[BRAND_ORANGE, BRAND_DARK]}
+        start={{ x: 0.1, y: 0 }}
+        end={{ x: 0.9, y: 1 }}
+        style={StyleSheet.absoluteFill}
+      />
+      {/* soft depth accents */}
+      <View style={styles.blobTop} pointerEvents="none" />
+      <View style={styles.blobBottom} pointerEvents="none" />
+
+      <SafeAreaView style={styles.safeArea} edges={["top", "bottom", "left", "right"]}>
+        <KeyboardAvoidingView
+          style={styles.keyboardView}
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
         >
-          {navigation.canGoBack() ? (
-            <Pressable
-              style={styles.backBtn}
-              onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                navigation.goBack();
-              }}
-              testID="button-back"
-              accessibilityRole="button"
-              accessibilityLabel="رجوع"
-            >
-              <Feather name="arrow-right" size={22} color={AppColors.white} />
-            </Pressable>
-          ) : null}
-
-          <View style={styles.topSpacer} />
-
-          <View style={styles.logoSection}>
-            <View style={styles.logoWrap}>
-              <ThemedText style={styles.logoText}>OnWay</ThemedText>
-            </View>
-            <ThemedText style={styles.tagline}>توصيل سريع وموثوق</ThemedText>
-          </View>
-
-          <View style={styles.formBlock}>
-            <View style={styles.phoneRow}>
-              <TextInput
-                placeholder="رقم الهاتف"
-                placeholderTextColor="rgba(0,0,0,0.35)"
-                keyboardType="phone-pad"
-                returnKeyType="done"
-                style={styles.phoneInput}
-                value={phoneNumber}
-                onChangeText={(text) => {
-                  setPhoneNumber(text);
-                  if (error) setError("");
+          <ScrollView
+            contentContainerStyle={styles.scrollContent}
+            keyboardShouldPersistTaps="handled"
+            bounces={false}
+            showsVerticalScrollIndicator={false}
+          >
+            {navigation.canGoBack() ? (
+              <Pressable
+                style={styles.backBtn}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  navigation.goBack();
                 }}
-                onSubmitEditing={handleContinue}
-                maxLength={12}
-                testID="input-phone"
-                accessibilityLabel="رقم الهاتف"
-                accessibilityHint="أدخل رقم هاتفك العراقي لتسجيل الدخول"
-              />
-              <View style={styles.prefixBox}>
-                <ThemedText style={styles.countryCode}>964+</ThemedText>
-                <Image
-                  source={{ uri: "https://flagcdn.com/w80/iq.png" }}
-                  style={styles.flag}
-                />
-              </View>
-            </View>
-
-            {error ? (
-              <View style={styles.errorRow}>
-                <Feather name="alert-circle" size={14} color={AppColors.white} />
-                <ThemedText style={styles.errorText}>{error}</ThemedText>
-              </View>
+                testID="button-back"
+                accessibilityRole="button"
+                accessibilityLabel="رجوع"
+              >
+                <Feather name="arrow-right" size={22} color={AppColors.white} />
+              </Pressable>
             ) : null}
 
-            <Pressable
-              style={({ pressed }) => [
-                styles.submitBtn,
-                isLoading ? styles.submitDisabled : undefined,
-                pressed && !isLoading ? styles.submitPressed : undefined,
-              ]}
-              onPress={handleContinue}
-              disabled={isLoading}
-              testID="button-continue"
-              accessibilityRole="button"
-              accessibilityLabel="دخول"
-              accessibilityState={{ disabled: isLoading, busy: isLoading }}
-            >
-              {isLoading ? (
-                <ActivityIndicator size="small" color={BRAND_ORANGE} />
-              ) : (
-                <ThemedText style={styles.submitText}>دخول</ThemedText>
-              )}
-            </Pressable>
+            {/* Hero */}
+            <View style={styles.logoSection}>
+              <View style={styles.logoBadge}>
+                <ThemedText style={styles.logoText}>OnWay</ThemedText>
+              </View>
+              <ThemedText style={styles.tagline}>توصيل سريع وموثوق إلى باب بيتك</ThemedText>
+            </View>
 
-            <View style={styles.extraOptions}>
+            {/* Form sheet */}
+            <View style={styles.card}>
+              <ThemedText style={styles.welcome}>تسجيل الدخول</ThemedText>
+              <ThemedText style={styles.welcomeSub}>أدخل رقم هاتفك للمتابعة</ThemedText>
+
+              <ThemedText style={styles.label}>رقم الهاتف</ThemedText>
+              <View style={styles.phoneRow}>
+                <TextInput
+                  placeholder="7XX XXX XXXX"
+                  placeholderTextColor="rgba(0,0,0,0.30)"
+                  keyboardType="phone-pad"
+                  returnKeyType="done"
+                  style={styles.phoneInput}
+                  value={phoneNumber}
+                  onChangeText={(text) => {
+                    setPhoneNumber(text);
+                    if (error) setError("");
+                  }}
+                  onSubmitEditing={handleContinue}
+                  maxLength={12}
+                  testID="input-phone"
+                  accessibilityLabel="رقم الهاتف"
+                  accessibilityHint="أدخل رقم هاتفك العراقي لتسجيل الدخول"
+                />
+                <View style={styles.prefixBox}>
+                  <ThemedText style={styles.countryCode}>964+</ThemedText>
+                  <Image
+                    source={{ uri: "https://flagcdn.com/w80/iq.png" }}
+                    style={styles.flag}
+                  />
+                </View>
+              </View>
+
+              {error ? (
+                <View style={styles.errorRow}>
+                  <Feather name="alert-circle" size={14} color={AppColors.error} />
+                  <ThemedText style={styles.errorText}>{error}</ThemedText>
+                </View>
+              ) : null}
+
+              <Pressable
+                style={({ pressed }) => [
+                  styles.submitBtn,
+                  isLoading ? styles.submitDisabled : undefined,
+                  pressed && !isLoading ? styles.submitPressed : undefined,
+                ]}
+                onPress={handleContinue}
+                disabled={isLoading}
+                testID="button-continue"
+                accessibilityRole="button"
+                accessibilityLabel="دخول"
+                accessibilityState={{ disabled: isLoading, busy: isLoading }}
+              >
+                {isLoading ? (
+                  <ActivityIndicator size="small" color={AppColors.white} />
+                ) : (
+                  <>
+                    <ThemedText style={styles.submitText}>دخول</ThemedText>
+                    <Feather name="arrow-left" size={19} color={AppColors.white} />
+                  </>
+                )}
+              </Pressable>
+
               <Pressable
                 onPress={() =>
                   showInfoModal(
@@ -172,30 +192,30 @@ export default function PhoneLoginScreen() {
                   )
                 }
                 testID="button-forgot-password"
+                style={styles.forgotWrap}
               >
                 <ThemedText style={styles.forgotPasswordText}>هل نسيت كلمة السر؟</ThemedText>
               </Pressable>
-
-              <View style={styles.registerContainer}>
-                <ThemedText style={styles.whiteText}>ليس لديك حساب؟ </ThemedText>
-                <Pressable
-                  onPress={() =>
-                    showInfoModal(
-                      "إنشاء حساب جديد",
-                      "أدخل رقم هاتفك واضغط على إرسال رمز التحقق. سيتم إنشاء حسابك تلقائياً عند أول تسجيل دخول."
-                    )
-                  }
-                  testID="button-register"
-                >
-                  <ThemedText style={styles.signUpText}>سجل الآن</ThemedText>
-                </Pressable>
-              </View>
             </View>
-          </View>
 
-          <View style={styles.bottomSpacer} />
-        </ScrollView>
-      </KeyboardAvoidingView>
+            {/* Register */}
+            <View style={styles.registerContainer}>
+              <ThemedText style={styles.whiteText}>ليس لديك حساب؟ </ThemedText>
+              <Pressable
+                onPress={() =>
+                  showInfoModal(
+                    "إنشاء حساب جديد",
+                    "أدخل رقم هاتفك واضغط على إرسال رمز التحقق. سيتم إنشاء حسابك تلقائياً عند أول تسجيل دخول."
+                  )
+                }
+                testID="button-register"
+              >
+                <ThemedText style={styles.signUpText}>سجل الآن</ThemedText>
+              </Pressable>
+            </View>
+          </ScrollView>
+        </KeyboardAvoidingView>
+      </SafeAreaView>
 
       <Modal
         visible={modalVisible}
@@ -220,14 +240,35 @@ export default function PhoneLoginScreen() {
           </Pressable>
         </Pressable>
       </Modal>
-    </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: {
+  root: {
     flex: 1,
     backgroundColor: BRAND_ORANGE,
+  },
+  blobTop: {
+    position: "absolute",
+    top: -90,
+    right: -70,
+    width: 240,
+    height: 240,
+    borderRadius: 120,
+    backgroundColor: "rgba(255,255,255,0.10)",
+  },
+  blobBottom: {
+    position: "absolute",
+    bottom: -60,
+    left: -80,
+    width: 220,
+    height: 220,
+    borderRadius: 110,
+    backgroundColor: "rgba(255,255,255,0.07)",
+  },
+  safeArea: {
+    flex: 1,
   },
   keyboardView: {
     flex: 1,
@@ -235,43 +276,81 @@ const styles = StyleSheet.create({
   scrollContent: {
     flexGrow: 1,
     justifyContent: "center",
-    paddingHorizontal: 24,
-  },
-  topSpacer: {
-    height: 40,
+    paddingHorizontal: 22,
+    paddingVertical: 32,
   },
   logoSection: {
     alignItems: "center",
-    marginBottom: 40,
+    marginBottom: 26,
   },
-  logoWrap: {
-    marginBottom: 8,
-    paddingVertical: 6,
+  logoBadge: {
+    paddingHorizontal: 22,
+    paddingVertical: 10,
+    borderRadius: 20,
+    backgroundColor: "rgba(255,255,255,0.16)",
+    marginBottom: 12,
   },
   logoText: {
     fontFamily: "Montserrat_800ExtraBold",
-    fontSize: 28,
+    fontSize: 30,
     color: AppColors.white,
     textAlign: "center",
     letterSpacing: 1,
     writingDirection: "ltr",
-    lineHeight: 48,
+    lineHeight: 42,
     includeFontPadding: true,
   },
   tagline: {
     fontFamily: "Cairo_600SemiBold",
     fontSize: 14,
-    color: AppColors.textOnBrandMuted,
+    color: "rgba(255,255,255,0.9)",
     textAlign: "center",
   },
-  formBlock: {
+  card: {
     width: "100%",
-    gap: 20,
+    backgroundColor: AppColors.white,
+    borderRadius: 28,
+    paddingHorizontal: 22,
+    paddingTop: 26,
+    paddingBottom: 22,
+    ...Platform.select({
+      ios: {
+        shadowColor: AppColors.black,
+        shadowOffset: { width: 0, height: 12 },
+        shadowOpacity: 0.18,
+        shadowRadius: 24,
+      },
+      android: { elevation: 10 },
+      default: { boxShadow: "0 14px 34px rgba(0,0,0,0.18)" },
+    }),
+  },
+  welcome: {
+    fontFamily: "Cairo_700Bold",
+    fontSize: 22,
+    color: AppColors.gray800,
+    textAlign: "right",
+  },
+  welcomeSub: {
+    fontFamily: "Cairo_400Regular",
+    fontSize: 14,
+    color: AppColors.gray500,
+    textAlign: "right",
+    marginTop: 3,
+    marginBottom: 22,
+  },
+  label: {
+    fontFamily: "Cairo_700Bold",
+    fontSize: 13,
+    color: AppColors.gray700,
+    textAlign: "right",
+    marginBottom: 8,
   },
   phoneRow: {
     flexDirection: "row",
-    backgroundColor: AppColors.white,
-    borderRadius: 14,
+    backgroundColor: AppColors.gray50,
+    borderWidth: 1.5,
+    borderColor: AppColors.divider,
+    borderRadius: 16,
     height: 58,
     alignItems: "center",
     paddingHorizontal: 16,
@@ -279,7 +358,7 @@ const styles = StyleSheet.create({
   phoneInput: {
     flex: 1,
     fontSize: 16, // ≥16 for readability + prevents iOS auto-zoom (HIG/WCAG)
-    color: AppColors.gray700,
+    color: AppColors.gray800,
     textAlign: "left",
     fontFamily: "Cairo_600SemiBold",
   },
@@ -302,48 +381,62 @@ const styles = StyleSheet.create({
     borderRadius: 2,
   },
   errorRow: {
-    flexDirection: "row",
+    flexDirection: "row-reverse",
     alignItems: "center",
     gap: 6,
-    justifyContent: "flex-end",
-    marginTop: -10,
+    justifyContent: "flex-start",
+    marginTop: 10,
   },
   errorText: {
-    fontFamily: "Cairo_400Regular",
-    color: AppColors.white,
+    fontFamily: "Cairo_600SemiBold",
+    color: AppColors.error,
     fontSize: 13,
+    textAlign: "right",
   },
   submitBtn: {
     width: "100%",
-    backgroundColor: AppColors.white,
-    borderRadius: 14,
+    flexDirection: "row",
+    gap: 8,
+    backgroundColor: BRAND_ORANGE,
+    borderRadius: 16,
     paddingVertical: 17,
     minHeight: 56,
     alignItems: "center",
     justifyContent: "center",
+    marginTop: 20,
     ...Platform.select({
       ios: {
-        shadowColor: AppColors.black,
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 6,
+        shadowColor: BRAND_ORANGE,
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.32,
+        shadowRadius: 14,
       },
-      android: { elevation: 4 },
-      default: {},
+      android: { elevation: 5 },
+      default: { boxShadow: "0 8px 16px rgba(232,98,42,0.32)" },
     }),
   },
   submitDisabled: {
     opacity: 0.7,
   },
   submitPressed: {
-    transform: [{ scale: 0.97 }],
-    opacity: 0.9,
+    transform: [{ scale: 0.98 }],
+    opacity: 0.92,
   },
   submitText: {
     fontFamily: "Cairo_700Bold",
-    fontSize: 16,
+    fontSize: 17,
     letterSpacing: 0.3,
+    color: AppColors.white,
+  },
+  forgotWrap: {
+    alignSelf: "center",
+    marginTop: 16,
+    paddingVertical: 4,
+  },
+  forgotPasswordText: {
     color: BRAND_ORANGE,
+    fontSize: 14,
+    fontFamily: "Cairo_700Bold",
   },
   backBtn: {
     position: "absolute",
@@ -357,33 +450,20 @@ const styles = StyleSheet.create({
     alignItems: "center",
     zIndex: 10,
   },
-  bottomSpacer: {
-    height: 40,
-  },
-  extraOptions: {
-    marginTop: 20,
-    alignItems: "center",
-    width: "100%",
-  },
-  forgotPasswordText: {
-    color: AppColors.white,
-    fontSize: 14,
-    textDecorationLine: "underline",
-    marginBottom: 30,
-    fontFamily: "Cairo_400Regular",
-  },
   registerContainer: {
     flexDirection: "row-reverse",
-    marginTop: 10,
+    justifyContent: "center",
+    alignItems: "center",
+    marginTop: 26,
   },
   whiteText: {
     color: AppColors.white,
-    fontSize: 14,
+    fontSize: 15,
     fontFamily: "Cairo_400Regular",
   },
   signUpText: {
     color: AppColors.white,
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: FontWeight.bold,
     textDecorationLine: "underline",
     fontFamily: "Cairo_700Bold",
@@ -397,7 +477,7 @@ const styles = StyleSheet.create({
   },
   modalContent: {
     backgroundColor: AppColors.white,
-    borderRadius: 16,
+    borderRadius: 20,
     paddingVertical: 28,
     paddingHorizontal: 24,
     width: "100%",
@@ -421,7 +501,7 @@ const styles = StyleSheet.create({
   },
   modalButton: {
     backgroundColor: BRAND_ORANGE,
-    borderRadius: 10,
+    borderRadius: 12,
     paddingVertical: 12,
     paddingHorizontal: 40,
   },
