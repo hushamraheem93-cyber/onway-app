@@ -4,6 +4,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { getToken, setToken, removeToken } from "@/lib/secureTokenStorage";
 import { getApiUrl } from "@/lib/query-client";
 import { issueDriverToken, clearDriverToken, installDriverAuthInterceptor } from "@/lib/driverAuth";
+import { installAdminAuthInterceptor } from "@/lib/adminAuth";
 import { compressAndConvertToBase64 } from "@/lib/imageUtils";
 import * as Notifications from "expo-notifications";
 import * as Device from "expo-device";
@@ -11,6 +12,8 @@ import Constants from "expo-constants";
 
 // Attach the driver Bearer token to every /api/driver/* request (installed once).
 installDriverAuthInterceptor();
+// Attach the admin Bearer token to every /api/admin/* request (installed once).
+installAdminAuthInterceptor();
 
 export type UserType = "customer" | "driver" | "vendor";
 

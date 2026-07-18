@@ -26,6 +26,8 @@ import StoreProductsScreen from "@/screens/StoreProductsScreen";
 import StoreRatingsScreen from "@/screens/StoreRatingsScreen";
 import StoresListScreen from "@/screens/StoresListScreen";
 import ProductDetailScreen from "@/screens/ProductDetailScreen";
+import AdminScreen from "@/screens/AdminScreen";
+import AdminLoginScreen from "@/screens/AdminLoginScreen";
 import { useScreenOptions } from "@/hooks/useScreenOptions";
 import { useAuth } from "@/context/AuthContext";
 import { AppColors } from "@/constants/theme";
@@ -58,6 +60,8 @@ export type RootStackParamList = {
   StoreProducts: { storeId: string; storeName: string; initialCategoryFilter?: string };
   StoreRatings: { storeId: string; storeName: string };
   StoresList: { categoryId: string; categoryName: string; businessType?: string };
+  AdminLogin: undefined;
+  Admin: undefined;
   ProductDetail: {
     product: {
       id: string;
@@ -325,6 +329,16 @@ export default function RootStackNavigator() {
         options={({ route }) => ({
           headerTitle: route.params.product.name,
         })}
+      />
+      <Stack.Screen
+        name="AdminLogin"
+        component={AdminLoginScreen}
+        options={{ headerTitle: "لوحة التحكم" }}
+      />
+      <Stack.Screen
+        name="Admin"
+        component={AdminScreen}
+        options={{ headerTitle: "لوحة التحكم" }}
       />
     </Stack.Navigator>
   );

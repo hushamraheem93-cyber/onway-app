@@ -125,17 +125,29 @@ export default function ProfileScreen() {
           >
             <Feather name="edit-2" size={18} color={AppColors.primary} />
           </Pressable>
-          {profileImageUrl ? (
-            <Image
-              source={{ uri: profileImageUrl }}
-              style={styles.avatarImage}
-              contentFit="cover"
-            />
-          ) : (
-            <View style={[styles.avatar, { backgroundColor: AppColors.primary }]}>
-              <Feather name="user" size={40} color={AppColors.white} />
-            </View>
-          )}
+          {/* Long-press the avatar to reach the admin panel (still gated by an
+              admin username/password login — this is only a discreet entry point). */}
+          <Pressable
+            onLongPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+              (navigation as any).navigate("AdminLogin");
+            }}
+            delayLongPress={800}
+            accessibilityRole="image"
+            accessibilityLabel="الصورة الشخصية"
+          >
+            {profileImageUrl ? (
+              <Image
+                source={{ uri: profileImageUrl }}
+                style={styles.avatarImage}
+                contentFit="cover"
+              />
+            ) : (
+              <View style={[styles.avatar, { backgroundColor: AppColors.primary }]}>
+                <Feather name="user" size={40} color={AppColors.white} />
+              </View>
+            )}
+          </Pressable>
           <ThemedText type="h2" style={styles.name}>
             {userProfile?.fullName || "مستخدم زائر"}
           </ThemedText>
