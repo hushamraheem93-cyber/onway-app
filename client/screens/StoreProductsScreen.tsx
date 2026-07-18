@@ -28,7 +28,7 @@ import { useCart } from "@/context/CartContext";
 import { resolveImageUrl } from "@/utils/imageUtils";
 import { formatPrice } from "@/constants/currency";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
-import { Product } from "@/constants/categories";
+import { Product, MAIN_CATEGORIES } from "@/constants/categories";
 import { getApiUrl } from "@/lib/query-client";
 
 const SCREEN_W = Dimensions.get("window").width;
@@ -205,6 +205,13 @@ function ProductCard({
   );
 }
 
+// Show a human Arabic label for a category id/slug instead of the raw stored
+// value (e.g. "fruits-vegetables" → "الخضروات والفواكه").
+function categoryLabel(cat: string): string {
+  const match = MAIN_CATEGORIES.find((c) => c.id === cat);
+  return match ? match.name : cat;
+}
+
 function SearchFilterBar({
   searchQuery,
   onSearchChange,
@@ -293,14 +300,14 @@ function SearchFilterBar({
                 ]}
                 testID={`chip-category-${cat.replace(/\s+/g, "-")}`}
                 accessibilityRole="button"
-                accessibilityLabel={cat}
+                accessibilityLabel={categoryLabel(cat)}
                 accessibilityState={{ selected: active }}
               >
                 <ThemedText
                   type="small"
                   style={[sfStyles.chipText, { color: active ? AppColors.white : theme.textSecondary }]}
                 >
-                  {cat}
+                  {categoryLabel(cat)}
                 </ThemedText>
               </Pressable>
             );
