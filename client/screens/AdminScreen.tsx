@@ -2251,7 +2251,7 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
           <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 14, color: theme.textSecondary, textAlign: "right", marginBottom: Spacing.sm }}>الإحصائيات الرئيسية</ThemedText>
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: Spacing.sm }}>
             {kpiCards.map((card, i) => (
-              <View key={i} style={{ width: "47%", backgroundColor: card.bg, borderRadius: BorderRadius.lg, padding: Spacing.md, gap: 4 }}>
+              <View key={i} style={{ width: "47%", backgroundColor: card.bg, borderRadius: 20, padding: Spacing.md + 2, gap: 4 }}>
                 <View style={{ flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between" }}>
                   <View style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: card.color + "20", alignItems: "center", justifyContent: "center" }}>
                     <Feather name={card.icon} size={18} color={card.color} />
@@ -2259,7 +2259,7 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
                   {card.isText ? (
                     <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 14, color: card.color }}>{card.value as string}</ThemedText>
                   ) : (
-                    <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 26, color: card.color }}>{card.value as number}</ThemedText>
+                    <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 26, lineHeight: 36, includeFontPadding: true, color: card.color }}>{card.value as number}</ThemedText>
                   )}
                 </View>
                 <ThemedText style={{ fontFamily: "Cairo_400Regular", fontSize: 12, color: AppColors.gray500, textAlign: "right" }}>{card.label}</ThemedText>
@@ -3266,10 +3266,10 @@ const styles = StyleSheet.create({
   },
   input: {
     borderRadius: BorderRadius.lg,
-    minHeight: 50,
+    minHeight: 52,
     paddingVertical: Spacing.md,
     paddingHorizontal: Spacing.lg,
-    fontSize: 13,
+    fontSize: 16, // ≥16 for readability + prevents iOS auto-zoom on focus
     fontFamily: "Tajawal_400Regular",
     marginBottom: Spacing.md,
     textAlign: "right",
@@ -3554,7 +3554,7 @@ const styles = StyleSheet.create({
   },
   notifInput: {
     fontFamily: "Cairo_400Regular",
-    fontSize: 14,
+    fontSize: 16,
     borderWidth: 1.5,
     borderRadius: BorderRadius.md,
     paddingHorizontal: Spacing.md,
@@ -3644,6 +3644,8 @@ const styles = StyleSheet.create({
   usersStatNum: {
     fontFamily: "Cairo_700Bold",
     fontSize: 28,
+    lineHeight: 38,
+    includeFontPadding: true,
     color: AppColors.primary,
   },
   usersStatLabel: {
@@ -3663,7 +3665,7 @@ const styles = StyleSheet.create({
   usersSearchInput: {
     flex: 1,
     fontFamily: "Cairo_400Regular",
-    fontSize: 14,
+    fontSize: 16,
     paddingVertical: 0,
   },
   usersRefreshBtn: {
