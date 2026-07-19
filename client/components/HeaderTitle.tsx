@@ -24,6 +24,10 @@ export function HeaderTitle({ title }: HeaderTitleProps) {
     navigation.navigate("Main", { screen: "CartTab" });
   };
 
+  const handleSearchPress = () => {
+    navigation.navigate("Main", { screen: "SearchTab" });
+  };
+
   const handleNotificationsPress = () => {
     navigation.navigate("Main", { screen: "ProfileTab", params: { screen: "NotificationsList" } });
   };
@@ -32,6 +36,9 @@ export function HeaderTitle({ title }: HeaderTitleProps) {
     <View style={styles.wrapper}>
       <View style={styles.container}>
         <View style={styles.leftSection}>
+          <Pressable style={styles.iconButton} onPress={handleSearchPress} testID="button-search" accessibilityRole="button" accessibilityLabel="بحث عن منتج">
+            <Feather name="search" size={22} color={AppColors.primary} />
+          </Pressable>
           <Pressable style={styles.iconButton} onPress={handleNotificationsPress} testID="button-notifications">
             <Feather name="bell" size={22} color={AppColors.primary} />
             {unreadCount > 0 ? (

@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useCallback, useRef } from "react";
+import React, { createContext, useContext, useState, useCallback, useMemo, useRef } from "react";
 import { View, StyleSheet, Dimensions } from "react-native";
 import Animated, {
   useSharedValue,
@@ -108,8 +108,10 @@ export function CartAnimationProvider({ children }: { children: React.ReactNode 
     setFlyingItems(prev => prev.filter(item => item.id !== id));
   }, []);
 
+  const value = useMemo(() => ({ triggerAnimation }), [triggerAnimation]);
+
   return (
-    <CartAnimationContext.Provider value={{ triggerAnimation }}>
+    <CartAnimationContext.Provider value={value}>
       {children}
       <View style={styles.overlay} pointerEvents="none">
         {flyingItems.map(item => (

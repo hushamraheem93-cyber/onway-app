@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useEffect } from "react";
 import { StyleSheet, View, FlatList, Pressable, TextInput, Dimensions } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
@@ -19,6 +19,7 @@ import { useCart } from "@/context/CartContext";
 import { formatPrice } from "@/constants/currency";
 import { resolveImageUrl } from "@/utils/imageUtils";
 import { GradientBackground } from "@/components/GradientBackground";
+import { getApiUrl } from "@/lib/query-client";
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
@@ -34,24 +35,33 @@ export default function SearchScreen() {
   const { addToCart } = useCart();
 
   const [searchQuery, setSearchQuery] = useState("");
+  const [debouncedQuery, setDebouncedQuery] = useState("");
 
-  const { data: allProducts = [] } = useQuery<Product[]>({
-    queryKey: ["/api/products"],
-  });
+  // Debounce so we hit the server once the user pauses, not on every keystroke.
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedQuery(searchQuery.trim()), 300);
+    return () => clearTimeout(t);
+  }, [searchQuery]);
 
   const { data: categories = [] } = useQuery<Category[]>({
     queryKey: ["/api/categories"],
   });
 
-  const filteredProducts = useMemo(() => {
-    if (!searchQuery.trim()) return [];
-    const query = searchQuery.trim().toLowerCase();
-    return allProducts.filter(
-      (p) =>
-        p.name.toLowerCase().includes(query) ||
-        p.description?.toLowerCase().includes(query)
-    );
-  }, [searchQuery, allProducts]);
+  // Server-side search: the server filters `/api/products?search=` and returns
+  // only the matches, instead of shipping the whole catalog to the device and
+  // filtering it in-memory here.
+  const { data: filteredProducts = [], isFetching } = useQuery<Product[]>({
+    queryKey: ["/api/products", "search", debouncedQuery],
+    queryFn: async () => {
+      const url = new URL("/api/products", getApiUrl());
+      url.searchParams.set("search", debouncedQuery);
+      const res = await fetch(url.toString());
+      if (!res.ok) return [];
+      return (await res.json()) as Product[];
+    },
+    enabled: debouncedQuery.length > 0,
+    staleTime: 60 * 1000,
+  });
 
   const handleAddToCart = (product: Product) => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -143,6 +153,13 @@ export default function SearchScreen() {
             contentContainerStyle={{ paddingBottom: tabBarHeight }}
             showsVerticalScrollIndicator={false}
           />
+        </View>
+      ) : isFetching || debouncedQuery !== searchQuery.trim() ? (
+        <View style={styles.emptyContainer}>
+          <Feather name="search" size={48} color={AppColors.gray300} />
+          <ThemedText type="body" style={[styles.emptyText, { color: theme.textSecondary }]}>
+            جارٍ البحث…
+          </ThemedText>
         </View>
       ) : filteredProducts.length === 0 ? (
         <View style={styles.emptyContainer}>

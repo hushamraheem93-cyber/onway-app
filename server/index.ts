@@ -102,6 +102,17 @@ function setupCompression(app: express.Application) {
 // ── In-Memory Rate Limiter ────────────────────────────────────────────────────
 const rateLimitStore = new Map<string, { count: number; resetAt: number }>();
 
+// SECURITY: the client controls the FIRST X-Forwarded-For entry (it can send
+// the header itself); the trusted reverse proxy (Replit) APPENDS the real
+// client IP as the LAST entry. Keying rate limits on [0] let an attacker
+// bypass every limit — including admin-login attempts — by rotating a fake
+// header. Always take the last entry.
+function trustedClientIp(req: Request): string {
+  const xff = (req.headers["x-forwarded-for"] as string) || "";
+  const last = xff.split(",").pop()?.trim();
+  return last || req.socket.remoteAddress || "unknown";
+}
+
 function setupRateLimiter(app: express.Application) {
   const WINDOW_MS = 60 * 1000;
   const LIMITS: Record<string, number> = {
@@ -116,10 +127,7 @@ function setupRateLimiter(app: express.Application) {
 
   function rateLimitMiddleware(pathKey: string, overrideLimit?: number) {
     return (req: Request, res: Response, next: NextFunction) => {
-      const ip =
-        (req.headers["x-forwarded-for"] as string || "").split(",")[0].trim() ||
-        req.socket.remoteAddress ||
-        "unknown";
+      const ip = trustedClientIp(req);
       const key = `${ip}:${pathKey}`;
       const now = Date.now();
       const limit = overrideLimit ?? LIMITS[pathKey] ?? LIMITS.default;
@@ -158,9 +166,7 @@ function setupRateLimiter(app: express.Application) {
     const limit = ADMIN_HTML_RATE[routeKey];
     if (!limit) return next();
 
-    const ip =
-      (req.headers["x-forwarded-for"] as string || "").split(",")[0].trim() ||
-      req.socket.remoteAddress || "unknown";
+    const ip = trustedClientIp(req);
     const key = `${ip}:${routeKey}`;
     const now = Date.now();
 
@@ -179,13 +185,16 @@ function setupRateLimiter(app: express.Application) {
   });
 
   app.use("/api", (req: Request, res: Response, next: NextFunction) => {
-    const ip =
-      (req.headers["x-forwarded-for"] as string || "").split(",")[0].trim() ||
-      req.socket.remoteAddress ||
-      "unknown";
-    const key = `${ip}:${req.path}`;
+    const ip = trustedClientIp(req);
+    // Inside a mounted middleware req.path is stripped of the mount prefix
+    // ("/auth/send-otp"), while LIMITS keys are full paths ("/api/auth/send-otp").
+    // That mismatch made every lookup miss, so the strict per-endpoint limits
+    // (admin login, OTP, vendor auth) silently never applied — everything ran
+    // at the 600/min default. Re-prefix before looking up.
+    const fullPath = "/api" + req.path;
+    const key = `${ip}:${fullPath}`;
     const now = Date.now();
-    const limit = LIMITS[req.path] ?? LIMITS.default;
+    const limit = LIMITS[fullPath] ?? LIMITS.default;
 
     let entry = rateLimitStore.get(key);
     if (!entry || now > entry.resetAt) {
@@ -574,12 +583,12 @@ function isRequestSecure(req: Request): boolean {
     // Endpoint is disabled if MASTER_RECOVERY_PASSWORD is not configured
     const masterRecoveryPassword = process.env.MASTER_RECOVERY_PASSWORD;
     if (!masterRecoveryPassword) {
-      console.warn(`[SECURITY] /admin/reset-password attempted but MASTER_RECOVERY_PASSWORD is not set — endpoint disabled. IP: ${(req.headers["x-forwarded-for"] as string || "").split(",")[0].trim() || req.socket.remoteAddress}`);
+      console.warn(`[SECURITY] /admin/reset-password attempted but MASTER_RECOVERY_PASSWORD is not set — endpoint disabled. IP: ${trustedClientIp(req)}`);
       return send(503, "ميزة الاسترداد غير مفعّلة. راجع مدير النظام.");
     }
 
     const { recoveryCode, newUsername, newPassword, confirmPassword } = req.body || {};
-    const ip = (req.headers["x-forwarded-for"] as string || "").split(",")[0].trim() || req.socket.remoteAddress || "unknown";
+    const ip = trustedClientIp(req);
 
     if (recoveryCode !== masterRecoveryPassword) {
       console.warn(`[SECURITY] /admin/reset-password failed — wrong recovery code. IP: ${ip} at ${new Date().toISOString()}`);
@@ -918,11 +927,29 @@ process.on("exit", (code) => {
   setupErrorHandler(app);
 
   const port = parseInt(process.env.PORT || "5000", 10);
+  // SINGLE-WORKER BY DESIGN: admin sessions, the rate-limit store and the
+  // driver queue/assignments all live in per-process memory. `reusePort: true`
+  // let a second accidentally-started process bind the same port SILENTLY and
+  // split traffic between two processes with divergent state (random admin
+  // logouts, lost driver assignments, rate-limit resets). With exclusive
+  // binding a duplicate process now fails loudly with EADDRINUSE instead.
+  // If horizontal scaling is ever needed, move that state to a shared store
+  // (e.g. Redis) BEFORE re-enabling reusePort.
+  server.on("error", (err: NodeJS.ErrnoException) => {
+    if (err.code === "EADDRINUSE") {
+      console.error(
+        `[OnWay] Port ${port} is already in use — another server instance is running. ` +
+        `Stop it first (e.g. fuser -k ${port}/tcp); running two instances would split ` +
+        `sessions and driver state.`,
+      );
+      process.exit(1);
+    }
+    throw err;
+  });
   server.listen(
     {
       port,
       host: "0.0.0.0",
-      reusePort: true,
     },
     () => {
       console.log(`[OnWay] Server listening on port ${port}`);

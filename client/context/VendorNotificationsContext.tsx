@@ -5,11 +5,12 @@ import React, {
   useEffect,
   useRef,
   useCallback,
+  useMemo,
   Dispatch,
   SetStateAction,
   ReactNode,
 } from "react";
-import { View, StyleSheet, Pressable, Modal, Platform } from "react-native";
+import { View, StyleSheet, Pressable, Modal, Platform, AppState } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import * as Notifications from "expo-notifications";
 import * as Haptics from "expo-haptics";
@@ -98,8 +99,17 @@ export function VendorNotificationsProvider({ children }: { children: ReactNode 
     } catch {}
   }, [vendorToken]);
 
+  // Battery/server saver: the fallback poll only runs while the app is in the
+  // foreground; sockets below remain the primary real-time channel. Note the
+  // vendor still gets NEW-order alerts in the background via push notifications.
+  const [appActive, setAppActive] = useState(AppState.currentState !== "background");
   useEffect(() => {
-    if (!vendorToken) return;
+    const sub = AppState.addEventListener("change", (s) => setAppActive(s === "active"));
+    return () => sub.remove();
+  }, []);
+
+  useEffect(() => {
+    if (!vendorToken || !appActive) return;
     isFirstLoad.current = true;
     lastSeenOrderIds.current = new Set();
     checkNewOrders();
@@ -108,7 +118,7 @@ export function VendorNotificationsProvider({ children }: { children: ReactNode 
       if (pollRef.current) clearInterval(pollRef.current);
       pollRef.current = null;
     };
-  }, [vendorToken, checkNewOrders]);
+  }, [vendorToken, checkNewOrders, appActive]);
 
   // Real-time: when the server broadcasts an order change (new order or status
   // change), re-check immediately instead of waiting up to 20s. The poll above
@@ -151,8 +161,13 @@ export function VendorNotificationsProvider({ children }: { children: ReactNode 
     return () => subscription.remove();
   }, []);
 
+  const value = useMemo(
+    () => ({ unreadCount, setUnreadCount, newOrderPopup, dismissNewOrderPopup }),
+    [unreadCount, newOrderPopup, dismissNewOrderPopup],
+  );
+
   return (
-    <VendorNotificationsContext.Provider value={{ unreadCount, setUnreadCount, newOrderPopup, dismissNewOrderPopup }}>
+    <VendorNotificationsContext.Provider value={value}>
       {children}
       {newOrderPopup ? (
         <NewOrderPopupModal popup={newOrderPopup} onDismiss={dismissNewOrderPopup} />

@@ -12,9 +12,10 @@ import { orderEvents } from "./orderEvents";
 import { isValidSession } from "./adminAuth";
 import { 
   getFirestore, getUserByPhone, createUser, updateUser, FirestoreUserProfile,
+  getUserAddresses, setUserAddresses, uploadToFirebaseStorage,
   getProducts as getFirestoreProducts, createProduct as createFirestoreProduct, 
   updateProduct as updateFirestoreProduct, deleteProduct as deleteFirestoreProduct,
-  getOrders, getOrderById, getOrdersByPhone, createOrder, updateOrderStatus,
+  getOrders, getOrderById, getOrdersByIds, getOrdersByStatus, getOrdersByPhone, createOrder, updateOrderStatus,
   updateUserPushToken, getUserPushToken, getAllUserPushTokens, getAllUsers,
   getPromotionalSections, getPromotionalSection, savePromotionalSection,
   getCategories as getFirestoreCategories, createCategory as createFirestoreCategory,
@@ -1169,7 +1170,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const batchSnap = await db.collection("delivery_batches")
             .where("status", "in", ["pending", "in_progress"])
             .get();
-          const allOrdersForRestore = await getOrders();
+          // Only orders referenced by active batches are checked below —
+          // fetch just those instead of the entire orders collection.
+          const restoreIds = batchSnap.docs.flatMap(d => ((d.data() as DeliveryBatch).orderIds || []));
+          const allOrdersForRestore = await getOrdersByIds(restoreIds);
           for (const bDoc of batchSnap.docs) {
             const bData = bDoc.data() as DeliveryBatch;
             // Check if all orders in this batch are already completed
@@ -1198,11 +1202,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
             }
           }
           // For drivers without a batch, assign waiting confirmed orders
-          const allOrders = await getOrders();
+          // (targeted status query — not a full-collection scan)
+          const confirmedAtBoot = await getOrdersByStatus("confirmed");
           for (const qd of driverQueue) {
             if (!qd.currentBatchId) {
-              const waitingOrders = allOrders
-                .filter(o => o.status === "confirmed" && !batchedOrderIds.has(o.id))
+              const waitingOrders = confirmedAtBoot
+                .filter(o => !batchedOrderIds.has(o.id))
                 .sort((a, b) => {
                   const aTime = a.createdAt?.toDate?.() ? a.createdAt.toDate().getTime() : 0;
                   const bTime = b.createdAt?.toDate?.() ? b.createdAt.toDate().getTime() : 0;
@@ -1315,7 +1320,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         .resize(resizeOptions)
         .webp({ quality: config.quality })
         .toBuffer();
-      const url = `data:image/webp;base64,${webpBuffer.toString("base64")}`;
+      // Durable-first: upload to Firebase Storage (survives redeploys, served by
+      // Google's CDN, keeps Firestore docs small). If Storage is unavailable
+      // (bucket not enabled), fall back to the previous Base64-in-doc behaviour
+      // so uploads never break.
+      let url: string;
+      try {
+        url = await uploadToFirebaseStorage(webpBuffer, `admin-images/${type}/${contentHash}.webp`);
+      } catch (storageErr: any) {
+        console.warn("[Storage] admin upload fell back to Base64:", storageErr?.message);
+        url = `data:image/webp;base64,${webpBuffer.toString("base64")}`;
+      }
       imageHashMap.set(contentHash, url);
       res.json({ url, size: webpBuffer.length });
     } catch (error) {
@@ -1551,12 +1566,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let result = await getCachedProducts(categoryId);
       if (search) {
         const searchLower = search.toLowerCase();
-        result = result.filter(p => 
-          p.name.toLowerCase().includes(searchLower) || 
+        result = result.filter(p =>
+          p.name.toLowerCase().includes(searchLower) ||
           p.description.toLowerCase().includes(searchLower)
         );
       }
       res.set("Cache-Control", "public, max-age=60");
+      // Optional pagination: only applied when the caller passes `limit`, so
+      // existing consumers that expect the full array are unaffected.
+      const limit = parseInt(req.query.limit as string, 10);
+      const offset = Math.max(0, parseInt(req.query.offset as string, 10) || 0);
+      if (Number.isFinite(limit) && limit > 0) {
+        return res.json(result.slice(offset, offset + limit));
+      }
       res.json(result);
     } catch (error) {
       console.error("Error fetching products:", error);
@@ -2412,9 +2434,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     if (!driverPhone) return res.status(400).json({ error: "driverPhone required" });
 
     try {
-      // 1. Verify order exists and is assignable
-      const allOrders = await getOrders();
-      const order = allOrders.find(o => o.id === orderId);
+      // 1. Verify order exists and is assignable (single-doc read, not a full scan)
+      const order = await getOrderById(orderId);
       if (!order) return res.status(404).json({ error: "الطلب غير موجود" });
       if (["delivered", "cancelled"].includes(order.status)) {
         return res.status(400).json({ error: "لا يمكن تعيين سائق لطلب مكتمل أو ملغى" });
@@ -2434,8 +2455,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Move old batch to completed in Firestore
         const oldBatch = await getDeliveryBatch(queuedDriver.currentBatchId);
         if (oldBatch) {
+          // Fetch only the old batch's orders (was a leftover of the full scan).
+          const oldBatchOrders = await getOrdersByIds(oldBatch.orderIds);
           const oldNonActive = oldBatch.orderIds.filter(id => {
-            const o = allOrders.find(x => x.id === id);
+            const o = oldBatchOrders.find(x => x.id === id);
             return !o || ["delivered", "cancelled"].includes(o.status);
           });
           if (oldNonActive.length === oldBatch.orderIds.length) {
@@ -2507,6 +2530,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ── Address book (server-synced, owner-only) ────────────────────────────────
+  app.get("/api/users/:phoneNumber/addresses", requireCustomerAuth, async (req: Request, res: Response) => {
+    const phoneNumber = decodeURIComponent(req.params.phoneNumber as string);
+    if ((req as any).customerPhone !== phoneNumber) {
+      return res.status(403).json({ error: "غير مصرح" });
+    }
+    try {
+      const addresses = await getUserAddresses(phoneNumber);
+      res.json({ addresses });
+    } catch {
+      res.status(500).json({ error: "تعذّر تحميل العناوين" });
+    }
+  });
+
+  app.put("/api/users/:phoneNumber/addresses", requireCustomerAuth, async (req: Request, res: Response) => {
+    const phoneNumber = decodeURIComponent(req.params.phoneNumber as string);
+    if ((req as any).customerPhone !== phoneNumber) {
+      return res.status(403).json({ error: "غير مصرح" });
+    }
+    const list = Array.isArray(req.body?.addresses) ? req.body.addresses : null;
+    if (!list) return res.status(400).json({ error: "قائمة العناوين مطلوبة" });
+    try {
+      const saved = await setUserAddresses(phoneNumber, list);
+      if (!saved) return res.status(404).json({ error: "المستخدم غير موجود" });
+      res.json({ addresses: saved });
+    } catch {
+      res.status(500).json({ error: "تعذّر حفظ العناوين" });
+    }
+  });
+
   app.post("/api/users/push-token", requireCustomerAuth, async (req: Request, res: Response) => {
     const { phoneNumber, pushToken } = req.body;
 
@@ -2569,12 +2622,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.status(500).json({ error: "Database not configured" });
   });
 
-  app.post("/api/upload", requireCustomerAuth, upload.single("profileImage"), (req: Request & { file?: Express.Multer.File }, res: Response) => {
+  app.post("/api/upload", requireCustomerAuth, upload.single("profileImage"), async (req: Request & { file?: Express.Multer.File }, res: Response) => {
     if (!req.file) {
       return res.status(400).json({ error: "No file uploaded" });
     }
-    const url = `/uploads/${req.file.filename}`;
-    res.json({ url });
+    // Durable-first: move the freshly-written temp file into Firebase Storage —
+    // the local /uploads disk on the VM is EPHEMERAL and wiped on redeploys.
+    // On Storage failure, keep the legacy local path so uploads never break.
+    try {
+      const buf = await fs.promises.readFile(req.file.path);
+      const url = await uploadToFirebaseStorage(
+        buf,
+        `profile-images/${req.file.filename}`,
+        req.file.mimetype || "image/jpeg",
+      );
+      fs.promises.unlink(req.file.path).catch(() => {});
+      return res.json({ url });
+    } catch (storageErr: any) {
+      console.warn("[Storage] profile upload fell back to local disk:", storageErr?.message);
+      return res.json({ url: `/uploads/${req.file.filename}` });
+    }
   });
 
   app.get("/api/users/:phoneNumber", requireCustomerAuth, async (req: Request, res: Response) => {
@@ -2613,7 +2680,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.post("/api/users", requireCustomerAuth, async (req: Request, res: Response) => {
-    const { phoneNumber, fullName, gender, region, address, profileImage, latitude, longitude } = req.body;
+    const { phoneNumber, fullName, gender, region, address, latitude, longitude } = req.body;
+    let { profileImage } = req.body;
 
     if (!phoneNumber || !fullName || !gender || !region || !address) {
       return res.status(400).json({ error: "All fields are required" });
@@ -2621,6 +2689,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
     // Ownership (C3): the profile being written must be the authenticated user's own.
     if ((req as any).customerPhone !== phoneNumber) {
       return res.status(403).json({ error: "غير مصرح" });
+    }
+
+    // The app sends the profile photo as a Base64 data URI. Storing that blob
+    // inside the user document bloats every read (~33%) and pushes the doc
+    // toward Firestore's 1MB limit — convert it to a durable Storage URL here,
+    // transparently to the client. On Storage failure keep the Base64 (legacy).
+    if (typeof profileImage === "string" && profileImage.startsWith("data:image")) {
+      try {
+        const m = profileImage.match(/^data:(image\/[a-z0-9.+-]+);base64,(.+)$/i);
+        if (m) {
+          const buf = Buffer.from(m[2], "base64");
+          const ext = (m[1].split("/")[1] || "webp").replace("jpeg", "jpg");
+          profileImage = await uploadToFirebaseStorage(
+            buf,
+            `profile-images/${encodeURIComponent(phoneNumber)}-${Date.now()}.${ext}`,
+            m[1],
+          );
+        }
+      } catch (storageErr: any) {
+        console.warn("[Storage] profile photo kept as Base64:", storageErr?.message);
+      }
     }
 
     const db = getFirestore();
@@ -3338,9 +3427,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         updatedAt: now,
       });
 
-      // Notify customer via push
-      const allOrders = await getOrders();
-      const order = allOrders.find(o => o.id === orderId);
+      // Notify customer via push (single-doc read, not a full scan)
+      const order = await getOrderById(orderId);
       if (order?.phoneNumber) {
         const pushToken = await getUserPushToken(order.phoneNumber);
         if (pushToken) {
@@ -3498,9 +3586,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         arrivedAtStoreAt: now.toISOString(),
         updatedAt: now,
       });
-      // Notify vendor
-      const allOrders = await getOrders();
-      const order = allOrders.find(o => o.id === orderId);
+      // Notify vendor (single-doc read, not a full scan)
+      const order = await getOrderById(orderId);
       if (order?.vendorId) {
         const vendorDoc = await db.collection("vendors").doc(order.vendorId).get();
         const vendorData = vendorDoc.data() as any;
@@ -3577,8 +3664,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await db.collection("orders").doc(orderId).update({ deliveredAt: now, updatedAt: now });
       addDeliveryLog({ orderId, driverPhone: phoneNumber, action: "delivered", lat, lng }).catch(() => {});
 
-      const allOrders = await getOrders();
-      const order = allOrders.find(o => o.id === orderId);
+      const order = await getOrderById(orderId);
       if (order) {
         const pushToken = await getUserPushToken(order.phoneNumber || "");
         if (pushToken) await sendPushNotification(pushToken, "delivered", orderId);
@@ -3655,7 +3741,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Check if all orders in batch are delivered
         const batchDoc = await getDeliveryBatch(batchId);
         if (batchDoc) {
-          const freshOrders = await getOrders();
+          // Only the batch's own orders are needed — fetch them by id in
+          // parallel instead of scanning the whole orders collection.
+          const freshOrders = await getOrdersByIds(batchDoc.orderIds);
           const allDelivered = batchDoc.orderIds.every(oid => {
             const o = freshOrders.find(x => x.id === oid);
             return o?.status === "delivered" || o?.status === "issue" || o?.status === "cancelled";
@@ -3768,11 +3856,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const result: any[] = [];
 
       if (db) {
-        const allOrders = await getOrders();
-        // Get currently delivering orders
+        // Get currently delivering orders (few ids from memory — fetch only those)
         const deliveringOrderIds = Array.from(driverAssignments.entries())
           .filter(([_, driverPhone]) => driverPhone === phoneNumber)
           .map(([orderId]) => orderId);
+        const allOrders = await getOrdersByIds(deliveringOrderIds);
 
         for (const orderId of deliveringOrderIds) {
           const order = allOrders.find(o => o.id === orderId);
@@ -4207,8 +4295,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!db) return;
       const qd = driverQueue.find(d => d.phoneNumber === phoneNumber && !d.currentBatchId);
       if (!qd) return;
-      const allOrders = await getOrders();
-      const confirmedOrders = allOrders.filter(o => o.status === "confirmed");
+      // Only confirmed (waiting) orders matter here — targeted query, not a full scan.
+      const confirmedOrders = await getOrdersByStatus("confirmed");
       // Get active batch IDs from all drivers in queue (in-memory)
       const activeBatchIds = new Set(driverQueue.map(d => d.currentBatchId).filter(Boolean) as string[]);
       // FIFO: take earliest confirmed orders not in any ACTIVE batch
@@ -4407,7 +4495,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const db = getFirestore();
       let allOrders: any[] = [];
       if (db) {
-        allOrders = await getOrders();
+        // Only the ids referenced by queued drivers are ever looked up below.
+        const referencedIds = driverQueue.map(d => d.currentBatchId).filter(Boolean) as string[];
+        allOrders = await getOrdersByIds(referencedIds);
       }
 
       const queueData = await Promise.all(driverQueue.map(async (d, i) => {
@@ -4564,8 +4654,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const db = getFirestore();
       if (!db) return res.json({ totalOwnerEarnings: 0, totalDriverEarnings: 0, totalDeliveryFees: 0, ordersWithEarnings: 0 });
 
-      const allOrders = await getOrders();
-      const deliveredOrders = allOrders.filter(o => o.status === "delivered");
+      // Aggregate only over delivered orders (targeted status query).
+      const deliveredOrders = await getOrdersByStatus("delivered");
 
       let totalOwnerEarnings = 0;
       let totalDriverEarnings = 0;
@@ -5135,11 +5225,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Support image upload
-  app.post("/api/support/upload-image", requireCustomerAuth, upload.single("image"), async (req: Request, res: Response) => {
+  app.post("/api/support/upload-image", requireCustomerAuth, upload.single("image"), async (req: Request & { file?: Express.Multer.File }, res: Response) => {
     try {
       if (!req.file) return res.status(400).json({ error: "No image uploaded" });
-      const imageUrl = `/uploads/${req.file.filename}`;
-      return res.json({ imageUrl });
+      // Durable-first (ephemeral VM disk) — falls back to the legacy local path.
+      try {
+        const buf = await fs.promises.readFile(req.file.path);
+        const imageUrl = await uploadToFirebaseStorage(
+          buf,
+          `support-images/${req.file.filename}`,
+          req.file.mimetype || "image/jpeg",
+        );
+        fs.promises.unlink(req.file.path).catch(() => {});
+        return res.json({ imageUrl });
+      } catch (storageErr: any) {
+        console.warn("[Storage] support upload fell back to local disk:", storageErr?.message);
+        return res.json({ imageUrl: `/uploads/${req.file.filename}` });
+      }
     } catch (e) {
       return res.status(500).json({ error: "Failed to upload image" });
     }

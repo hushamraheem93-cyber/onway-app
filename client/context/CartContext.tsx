@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useCallback, useEffect, useRef, ReactNode } from "react";
+import React, { createContext, useContext, useState, useCallback, useEffect, useMemo, useRef, ReactNode } from "react";
 import { Alert } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Product } from "@/constants/categories";
@@ -117,19 +117,24 @@ export function CartProvider({ children }: { children: ReactNode }) {
     );
   }, [items]);
 
+  // Stable context value — consumers (product cards, cart bar, checkout) no
+  // longer re-render on unrelated provider renders.
+  const value = useMemo(
+    () => ({
+      items,
+      addToCart,
+      removeFromCart,
+      updateQuantity,
+      clearCart,
+      getItemCount,
+      getTotal,
+      cartVendorId: items.find((i) => i.product.vendorId)?.product.vendorId ?? null,
+    }),
+    [items, addToCart, removeFromCart, updateQuantity, clearCart, getItemCount, getTotal],
+  );
+
   return (
-    <CartContext.Provider
-      value={{
-        items,
-        addToCart,
-        removeFromCart,
-        updateQuantity,
-        clearCart,
-        getItemCount,
-        getTotal,
-        cartVendorId: items.find((i) => i.product.vendorId)?.product.vendorId ?? null,
-      }}
-    >
+    <CartContext.Provider value={value}>
       {children}
     </CartContext.Provider>
   );

@@ -155,6 +155,63 @@ export async function updateUser(
   }
 }
 
+// ── Address book (server-synced) ──────────────────────────────────────────────
+// Stored as an `addresses` array on the user doc so it follows the account across
+// devices and can be selected at checkout (replaces the old AsyncStorage-only list).
+export interface SavedAddress {
+  id: string;
+  title: string;
+  region: string;
+  address: string;
+  isDefault: boolean;
+  latitude?: number;
+  longitude?: number;
+}
+
+export async function getUserAddresses(phoneNumber: string): Promise<SavedAddress[]> {
+  if (!db) return [];
+  try {
+    const snap = await db.collection("users").where("phoneNumber", "==", phoneNumber).limit(1).get();
+    if (snap.empty) return [];
+    const data = snap.docs[0].data() as any;
+    return Array.isArray(data.addresses) ? (data.addresses as SavedAddress[]) : [];
+  } catch (error) {
+    console.error("Error reading user addresses:", error);
+    return [];
+  }
+}
+
+export async function setUserAddresses(
+  phoneNumber: string,
+  addresses: SavedAddress[],
+): Promise<SavedAddress[] | null> {
+  if (!db) return null;
+  try {
+    const snap = await db.collection("users").where("phoneNumber", "==", phoneNumber).limit(1).get();
+    if (snap.empty) return null;
+    // Only one address may be the default.
+    let seenDefault = false;
+    const clean = addresses.slice(0, 30).map((a) => {
+      const isDefault = !!a.isDefault && !seenDefault;
+      if (isDefault) seenDefault = true;
+      return {
+        id: String(a.id),
+        title: String(a.title || "").slice(0, 60),
+        region: String(a.region || "").slice(0, 120),
+        address: String(a.address || "").slice(0, 400),
+        isDefault,
+        ...(typeof a.latitude === "number" ? { latitude: a.latitude } : {}),
+        ...(typeof a.longitude === "number" ? { longitude: a.longitude } : {}),
+      } as SavedAddress;
+    });
+    await snap.docs[0].ref.update({ addresses: clean, updatedAt: admin.firestore.Timestamp.now() });
+    return clean;
+  } catch (error) {
+    console.error("Error writing user addresses:", error);
+    return null;
+  }
+}
+
 export async function updateUserPushToken(phoneNumber: string, pushToken: string): Promise<boolean> {
   if (!db) return false;
 
@@ -443,6 +500,28 @@ export async function getOrderById(orderId: string): Promise<(FirestoreOrder & {
     return { id: doc.id, ...doc.data() as FirestoreOrder };
   } catch {
     return null;
+  }
+}
+
+// Targeted reads that replace full-collection getOrders() scans on hot paths
+// (each scan read EVERY order ever created — cost and latency grow forever).
+
+/** Fetch a specific set of orders by id in parallel; missing ids are skipped. */
+export async function getOrdersByIds(orderIds: string[]): Promise<(FirestoreOrder & { id: string })[]> {
+  const unique = [...new Set(orderIds.filter(Boolean))];
+  const results = await Promise.all(unique.map((id) => getOrderById(id)));
+  return results.filter((o): o is FirestoreOrder & { id: string } => o !== null);
+}
+
+/** Fetch only the orders in a given status (single-field query — no composite index needed). */
+export async function getOrdersByStatus(status: string): Promise<(FirestoreOrder & { id: string })[]> {
+  if (!db) return [];
+  try {
+    const snap = await db.collection("orders").where("status", "==", status).get();
+    return snap.docs.map((doc) => ({ id: doc.id, ...doc.data() as FirestoreOrder }));
+  } catch (error) {
+    console.error("Error getting orders by status:", error);
+    return [];
   }
 }
 

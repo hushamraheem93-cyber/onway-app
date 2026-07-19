@@ -6,7 +6,7 @@ import multer from "multer";
 import sharp from "sharp";
 import * as crypto from "crypto";
 import * as path from "path";
-import { getFirestore, getUserPushToken, getAdminPushToken, deleteFromFirebaseStorage } from "./firebase";
+import { getFirestore, getUserPushToken, getAdminPushToken, deleteFromFirebaseStorage, uploadToFirebaseStorage } from "./firebase";
 import { sendVendorStatusNotification, sendVendorProductNotification, sendPushNotification, sendAdminOrderReadyNotification, sendAdminSettlementRequestNotification } from "./pushNotifications";
 import { createSettlementRequest, getAccountSettlementView, getSettlementHistory } from "./settlement";
 import { orderEvents } from "./orderEvents";
@@ -96,15 +96,20 @@ function generateImageHash(buffer: Buffer): string {
   return crypto.createHash("md5").update(buffer).digest("hex");
 }
 
-async function processAndSaveImage(buffer: Buffer, _hash: string): Promise<string> {
-  // Firebase Storage bucket is not provisioned for this project, so product
-  // images are compressed and embedded directly as Base64 data URIs in
-  // Firestore (same strategy used for banners/categories elsewhere in the app).
+async function processAndSaveImage(buffer: Buffer, hash: string): Promise<string> {
   const webpBuffer = await sharp(buffer)
     .resize(700, 700, { fit: "cover", position: "center" })
     .webp({ quality: 70 })
     .toBuffer();
-  return `data:image/webp;base64,${webpBuffer.toString("base64")}`;
+  // Durable-first: Firebase Storage URL (survives redeploys, keeps the product
+  // doc far below Firestore's 1MB limit). Falls back to the previous
+  // Base64-in-doc behaviour if the Storage bucket is unavailable.
+  try {
+    return await uploadToFirebaseStorage(webpBuffer, `product-images/${hash}.webp`);
+  } catch (storageErr: any) {
+    console.warn("[Storage] vendor product image fell back to Base64:", storageErr?.message);
+    return `data:image/webp;base64,${webpBuffer.toString("base64")}`;
+  }
 }
 
 async function findDuplicateImage(hash: string): Promise<string | null> {

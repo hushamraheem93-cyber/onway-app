@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useState, useCallback, useEffect, useRef, ReactNode } from "react";
+import React, { createContext, useContext, useState, useCallback, useEffect, useRef, useMemo, ReactNode } from "react";
+import { AppState } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { io, Socket } from "socket.io-client";
 import { CartItem } from "./CartContext";
@@ -136,13 +137,23 @@ export function OrderProvider({ children }: { children: ReactNode }) {
     }
   }, [phoneNumber, customerToken, checkForStatusChanges]);
 
+  // Battery/server saver: the fallback poll only runs while the app is in the
+  // foreground. On return to foreground the effect re-runs, refreshing
+  // immediately and restarting the interval. Sockets below stay connected and
+  // remain the primary real-time channel.
+  const [appActive, setAppActive] = useState(AppState.currentState !== "background");
   useEffect(() => {
-    if (phoneNumber && isInitializedRef.current) {
+    const sub = AppState.addEventListener("change", (s) => setAppActive(s === "active"));
+    return () => sub.remove();
+  }, []);
+
+  useEffect(() => {
+    if (phoneNumber && isInitializedRef.current && appActive) {
       refreshOrders();
       const interval = setInterval(refreshOrders, 10000);
       return () => clearInterval(interval);
     }
-  }, [phoneNumber, refreshOrders]);
+  }, [phoneNumber, refreshOrders, appActive]);
 
   // Real-time: refetch immediately when the server broadcasts an order change,
   // instead of waiting up to 10s for the next poll. The 10s poll above stays as a
@@ -241,8 +252,13 @@ export function OrderProvider({ children }: { children: ReactNode }) {
     return newOrder;
   }, [phoneNumber, userProfile]);
 
+  const value = useMemo(
+    () => ({ orders, isLoading, addOrder, refreshOrders }),
+    [orders, isLoading, addOrder, refreshOrders],
+  );
+
   return (
-    <OrderContext.Provider value={{ orders, isLoading, addOrder, refreshOrders }}>
+    <OrderContext.Provider value={value}>
       {children}
     </OrderContext.Provider>
   );
