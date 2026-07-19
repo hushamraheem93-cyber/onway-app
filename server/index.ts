@@ -918,11 +918,29 @@ process.on("exit", (code) => {
   setupErrorHandler(app);
 
   const port = parseInt(process.env.PORT || "5000", 10);
+  // SINGLE-WORKER BY DESIGN: admin sessions, the rate-limit store and the
+  // driver queue/assignments all live in per-process memory. `reusePort: true`
+  // let a second accidentally-started process bind the same port SILENTLY and
+  // split traffic between two processes with divergent state (random admin
+  // logouts, lost driver assignments, rate-limit resets). With exclusive
+  // binding a duplicate process now fails loudly with EADDRINUSE instead.
+  // If horizontal scaling is ever needed, move that state to a shared store
+  // (e.g. Redis) BEFORE re-enabling reusePort.
+  server.on("error", (err: NodeJS.ErrnoException) => {
+    if (err.code === "EADDRINUSE") {
+      console.error(
+        `[OnWay] Port ${port} is already in use — another server instance is running. ` +
+        `Stop it first (e.g. fuser -k ${port}/tcp); running two instances would split ` +
+        `sessions and driver state.`,
+      );
+      process.exit(1);
+    }
+    throw err;
+  });
   server.listen(
     {
       port,
       host: "0.0.0.0",
-      reusePort: true,
     },
     () => {
       console.log(`[OnWay] Server listening on port ${port}`);
