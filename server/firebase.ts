@@ -1968,45 +1968,58 @@ export async function updateDriverEarningsOnOrder(
   }
 ): Promise<DriverFinancialAccount> {
   if (!db) throw new Error("Firestore not initialized");
-  const snap = await db
+  const database = db;
+  const snap = await database
     .collection("driverFinancialAccounts")
     .where("phoneNumber", "==", phoneNumber)
     .limit(1)
     .get();
 
   const now = admin.firestore.Timestamp.now();
-  let docRef: admin.firestore.DocumentReference;
-  let prev: Record<string, any> = {};
+  const docRef = snap.empty
+    ? database.collection("driverFinancialAccounts").doc()
+    : snap.docs[0].ref;
 
-  if (snap.empty) {
-    docRef = db.collection("driverFinancialAccounts").doc();
-    prev = { totalEarnings: 0, totalOnwayCommission: 0, amountOwed: 0 };
-  } else {
-    docRef = snap.docs[0].ref;
-    prev = snap.docs[0].data();
-  }
+  // SECURITY/CORRECTNESS: accrue earnings inside a transaction so two orders
+  // completing concurrently for the same driver can't lose an update
+  // (read-modify-write race). Amounts are derived from the value read inside
+  // the transaction, not from a stale pre-read.
+  const result = await database.runTransaction(async (tx) => {
+    const cur = await tx.get(docRef);
+    const prev: Record<string, any> = cur.exists
+      ? (cur.data() as Record<string, any>)
+      : { totalEarnings: 0, totalOnwayCommission: 0, amountOwed: 0 };
 
-  const newTotalEarnings = (prev.totalEarnings ?? 0) + payload.driverEarning;
-  const newTotalCommission = (prev.totalOnwayCommission ?? 0) + payload.onwayCommission;
-  const newAmountOwed = (prev.amountOwed ?? 0) + payload.onwayCommission;
+    const newTotalEarnings = (prev.totalEarnings ?? 0) + payload.driverEarning;
+    const newTotalCommission = (prev.totalOnwayCommission ?? 0) + payload.onwayCommission;
+    const newAmountOwed = (prev.amountOwed ?? 0) + payload.onwayCommission;
 
-  const updated: Record<string, any> = {
-    phoneNumber,
-    totalEarnings: newTotalEarnings,
-    totalOnwayCommission: newTotalCommission,
-    amountOwed: newAmountOwed,
-    updatedAt: now,
-  };
-  if (snap.empty) updated.createdAt = now;
+    const updated: Record<string, any> = {
+      phoneNumber,
+      totalEarnings: newTotalEarnings,
+      totalOnwayCommission: newTotalCommission,
+      amountOwed: newAmountOwed,
+      updatedAt: now,
+    };
+    if (!cur.exists) updated.createdAt = now;
+    tx.set(docRef, updated, { merge: true });
 
-  await docRef.set(updated, { merge: true });
+    return {
+      newTotalEarnings,
+      newTotalCommission,
+      newAmountOwed,
+      totalPaid: prev.totalPaid ?? 0,
+      lastPaymentAmount: prev.lastPaymentAmount ?? 0,
+      lastPaymentDate: prev.lastPaymentDate ?? null,
+    };
+  });
 
-  await db.collection("driverTransactions").add({
+  await database.collection("driverTransactions").add({
     phoneNumber,
     type: "earning",
     driverEarning: payload.driverEarning,
     onwayCommission: payload.onwayCommission,
-    amountOwedAfter: newAmountOwed,
+    amountOwedAfter: result.newAmountOwed,
     orderId: payload.orderId,
     orderType: payload.orderType,
     timestamp: now,
@@ -2014,12 +2027,12 @@ export async function updateDriverEarningsOnOrder(
 
   return {
     phoneNumber,
-    totalEarnings: newTotalEarnings,
-    totalOnwayCommission: newTotalCommission,
-    totalPaid: prev.totalPaid ?? 0,
-    amountOwed: newAmountOwed,
-    lastPaymentAmount: prev.lastPaymentAmount ?? 0,
-    lastPaymentDate: prev.lastPaymentDate ?? null,
+    totalEarnings: result.newTotalEarnings,
+    totalOnwayCommission: result.newTotalCommission,
+    totalPaid: result.totalPaid,
+    amountOwed: result.newAmountOwed,
+    lastPaymentAmount: result.lastPaymentAmount,
+    lastPaymentDate: result.lastPaymentDate,
     updatedAt: now.toDate().toISOString(),
   };
 }

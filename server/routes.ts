@@ -2507,11 +2507,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/users/push-token", async (req: Request, res: Response) => {
+  app.post("/api/users/push-token", requireCustomerAuth, async (req: Request, res: Response) => {
     const { phoneNumber, pushToken } = req.body;
-    
+
     if (!phoneNumber || !pushToken) {
       return res.status(400).json({ error: "Phone number and push token are required" });
+    }
+    // Ownership (H2): only the authenticated user may set their own push token,
+    // otherwise anyone could hijack another phone's notifications.
+    if ((req as any).customerPhone !== phoneNumber) {
+      return res.status(403).json({ error: "غير مصرح" });
     }
 
     const db = getFirestore();
@@ -2572,10 +2577,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json({ url });
   });
 
-  app.get("/api/users/:phoneNumber", async (req: Request, res: Response) => {
+  app.get("/api/users/:phoneNumber", requireCustomerAuth, async (req: Request, res: Response) => {
     const phoneNumber = req.params.phoneNumber as string;
+    // Ownership (C3): a customer may only read their OWN profile. Prevents reading
+    // any user's name/phone/address by iterating phone numbers.
+    if ((req as any).customerPhone !== phoneNumber) {
+      return res.status(403).json({ error: "غير مصرح" });
+    }
     const db = getFirestore();
-    
+
     if (db) {
       const user = await getUserByPhone(phoneNumber);
       if (!user) {
@@ -2602,11 +2612,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json({ ...user, profileComplete: true });
   });
 
-  app.post("/api/users", async (req: Request, res: Response) => {
+  app.post("/api/users", requireCustomerAuth, async (req: Request, res: Response) => {
     const { phoneNumber, fullName, gender, region, address, profileImage, latitude, longitude } = req.body;
-    
+
     if (!phoneNumber || !fullName || !gender || !region || !address) {
       return res.status(400).json({ error: "All fields are required" });
+    }
+    // Ownership (C3): the profile being written must be the authenticated user's own.
+    if ((req as any).customerPhone !== phoneNumber) {
+      return res.status(403).json({ error: "غير مصرح" });
     }
 
     const db = getFirestore();
@@ -2698,8 +2712,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/users/:phoneNumber", async (req: Request, res: Response) => {
+  app.put("/api/users/:phoneNumber", requireCustomerAuth, async (req: Request, res: Response) => {
     const phoneNumber = req.params.phoneNumber as string;
+    // Ownership (C3): a customer may only update their OWN profile.
+    if ((req as any).customerPhone !== phoneNumber) {
+      return res.status(403).json({ error: "غير مصرح" });
+    }
     const { fullName, gender, region, address, profileImage } = req.body;
     const db = getFirestore();
     
@@ -3538,6 +3556,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const db = getFirestore();
       if (!db) return res.status(500).json({ error: "DB not configured" });
       const now = new Date();
+
+      // IDEMPOTENCY (C4): atomically claim the one-time "earnings credited" flag on
+      // the order. If it was already set, this is a replay — return success without
+      // crediting again, so the legacy driverFinancialAccounts balance can't be
+      // inflated by re-POSTing complete-order for the same orderId.
+      const orderRef = db.collection("orders").doc(orderId);
+      const firstCompletion = await db.runTransaction(async (tx) => {
+        const snap = await tx.get(orderRef);
+        if (!snap.exists) return false;
+        if ((snap.data() as any)?.earningsCredited === true) return false;
+        tx.update(orderRef, { earningsCredited: true });
+        return true;
+      });
+      if (!firstCompletion) {
+        return res.json({ success: true, alreadyCompleted: true });
+      }
+
       await updateOrderStatus(orderId, "delivered");
       await db.collection("orders").doc(orderId).update({ deliveredAt: now, updatedAt: now });
       addDeliveryLog({ orderId, driverPhone: phoneNumber, action: "delivered", lat, lng }).catch(() => {});
@@ -5100,7 +5135,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Support image upload
-  app.post("/api/support/upload-image", upload.single("image"), async (req: Request, res: Response) => {
+  app.post("/api/support/upload-image", requireCustomerAuth, upload.single("image"), async (req: Request, res: Response) => {
     try {
       if (!req.file) return res.status(400).json({ error: "No image uploaded" });
       const imageUrl = `/uploads/${req.file.filename}`;

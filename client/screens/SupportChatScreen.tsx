@@ -208,7 +208,7 @@ export default function SupportChatScreen() {
   const { theme } = useTheme();
   const insets = useSafeAreaInsets();
   const headerHeight = useHeaderHeight();
-  const { phoneNumber, userProfile } = useAuth();
+  const { phoneNumber, userProfile, customerToken } = useAuth();
 
   const [messages, setMessages] = useState<SupportMessage[]>([]);
   const [inputText, setInputText] = useState("");
@@ -309,7 +309,11 @@ export default function SupportChatScreen() {
       const formData = new FormData();
       const { File } = await import("expo-file-system");
       formData.append("image", new File(asset.uri) as any);
-      const res = await fetch(uploadUrl.toString(), { method: "POST", body: formData });
+      const res = await fetch(uploadUrl.toString(), {
+        method: "POST",
+        headers: customerToken ? { Authorization: `Bearer ${customerToken}` } : {},
+        body: formData,
+      });
       if (res.ok) {
         const data = await res.json();
         await sendMessage({ type: "image", imageUrl: data.imageUrl });

@@ -145,9 +145,15 @@ async function registerForPushNotificationsAsync(): Promise<string | null> {
 
 async function savePushTokenToServer(phone: string, token: string): Promise<void> {
   try {
+    // push-token is auth-gated (customer JWT, owner-only) — attach the stored token.
+    let cToken: string | null = null;
+    try { cToken = await getToken(CUSTOMER_TOKEN_KEY); } catch {}
     await fetch(new URL("/api/users/push-token", getApiUrl()).toString(), {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        ...(cToken ? { Authorization: `Bearer ${cToken}` } : {}),
+      },
       body: JSON.stringify({ phoneNumber: phone, pushToken: token }),
     });
   } catch {}
@@ -282,7 +288,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const checkProfileFromServer = async (phone: string) => {
     try {
-      const response = await fetch(new URL(`/api/users/${encodeURIComponent(phone)}`, getApiUrl()).toString());
+      // GET /api/users/:phone is auth-gated (customer JWT, owner-only). Attach the
+      // stored customer token so the boot-time profile load is authorized.
+      let cToken = customerToken;
+      if (!cToken) { try { cToken = await getToken(CUSTOMER_TOKEN_KEY); } catch {} }
+      const response = await fetch(new URL(`/api/users/${encodeURIComponent(phone)}`, getApiUrl()).toString(), {
+        headers: cToken ? { Authorization: `Bearer ${cToken}` } : {},
+      });
       if (response.ok) {
         const profile = await response.json();
         setUserProfile(profile);
@@ -557,9 +569,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         ...(profileImageBase64 && { profileImage: profileImageBase64 }),
       };
 
+      let cToken = customerToken;
+      if (!cToken) { try { cToken = await getToken(CUSTOMER_TOKEN_KEY); } catch {} }
       const response = await fetch(new URL("/api/users", getApiUrl()).toString(), {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(cToken ? { Authorization: `Bearer ${cToken}` } : {}),
+        },
         body: JSON.stringify(body),
       });
 
