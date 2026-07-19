@@ -26,7 +26,7 @@ function NotificationItem({ notification, onPress }: { notification: AppNotifica
     if (diffMins < 60) return `منذ ${diffMins} دقيقة`;
     if (diffHours < 24) return `منذ ${diffHours} ساعة`;
     if (diffDays < 7) return `منذ ${diffDays} يوم`;
-    return date.toLocaleDateString("ar-SA", { month: "short", day: "numeric" });
+    return date.toLocaleDateString("ar-IQ", { calendar: "gregory", month: "short", day: "numeric" });
   };
 
   return (

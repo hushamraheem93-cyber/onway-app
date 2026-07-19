@@ -395,7 +395,7 @@ export default function OrderTrackingScreen() {
         <View style={styles.headerRow}>
           <View style={styles.headerInfo}>
             <ThemedText type="small" style={{ color: theme.textSecondary }}>رقم الطلب</ThemedText>
-            <ThemedText type="h4" style={{ marginTop: 2 }}>{order.id?.slice(-8) || order.id}</ThemedText>
+            <ThemedText type="h4" style={{ marginTop: 2 }}>#{String((order as any).orderNumber ?? order.id ?? "").slice(-6).toUpperCase()}</ThemedText>
           </View>
           <View style={[styles.statusChip, {
             backgroundColor: isCancelled ? AppColors.errorLight : currentStepIndex >= 4 ? AppColors.successLight : AppColors.primary + "15",

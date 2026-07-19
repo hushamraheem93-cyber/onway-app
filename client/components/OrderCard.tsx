@@ -68,7 +68,10 @@ function OrderCardComponent({ order, onPress, onStorePress, onRate }: OrderCardP
   };
 
   const formatDate = (date: string | Date) => {
-    return new Date(date).toLocaleDateString("ar-SA", {
+    // ar-IQ + Gregorian calendar: Iraqi users read Gregorian dates, not Hijri
+    // (the previous "ar-SA" locale defaulted to the Islamic calendar).
+    return new Date(date).toLocaleDateString("ar-IQ", {
+      calendar: "gregory",
       year: "numeric",
       month: "short",
       day: "numeric",
@@ -76,6 +79,9 @@ function OrderCardComponent({ order, onPress, onStorePress, onRate }: OrderCardP
       minute: "2-digit",
     });
   };
+
+  // A short, friendly order reference instead of the raw Firestore document id.
+  const orderRef = `#${String((order as any).orderNumber ?? order.id).slice(-6).toUpperCase()}`;
 
   return (
     <AnimatedPressable
@@ -91,7 +97,7 @@ function OrderCardComponent({ order, onPress, onStorePress, onRate }: OrderCardP
     >
       <View style={styles.header}>
         <ThemedText type="h4" style={styles.orderId}>
-          {order.id}
+          {orderRef}
         </ThemedText>
         <View
           style={[
