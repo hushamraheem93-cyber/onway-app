@@ -575,10 +575,12 @@ function StoreProfileHeader({ store, theme, onRatingsPress }: { store: VendorSto
               accessibilityRole="button"
               accessibilityLabel="عرض تقييمات المتجر"
             >
-              <MaterialCommunityIcons name="star" size={14} color={AppColors.warning} />
-              <ThemedText type="small" style={[hStyles.ratingText, { color: theme.textPrimary }]}>
-                {(store.rating as number).toFixed(1)}
-              </ThemedText>
+              <View style={hStyles.ratingBadge}>
+                <Feather name="star" size={12} color={AppColors.white} />
+                <ThemedText type="small" style={hStyles.ratingBadgeText}>
+                  {(store.rating as number).toFixed(1)}
+                </ThemedText>
+              </View>
               <ThemedText type="small" style={[hStyles.ratingCount, { color: theme.textSecondary }]}>
                 ({store.ratingCount ?? 0} تقييم)
               </ThemedText>
@@ -647,7 +649,9 @@ const hStyles = StyleSheet.create({
   bio: { textAlign: "right", fontStyle: "italic" },
   addressRow: { flexDirection: "row-reverse", alignItems: "center", gap: 4 },
   addressText: { textAlign: "right" },
-  ratingRow: { flexDirection: "row-reverse", alignItems: "center", gap: 4, marginTop: 6, flexWrap: "wrap" as const },
+  ratingRow: { flexDirection: "row-reverse", alignItems: "center", gap: 6, marginTop: 6, flexWrap: "wrap" as const },
+  ratingBadge: { flexDirection: "row-reverse", alignItems: "center", gap: 4, backgroundColor: AppColors.success, paddingHorizontal: 9, paddingVertical: 4, borderRadius: 999 },
+  ratingBadgeText: { fontFamily: "Cairo_700Bold", color: AppColors.white, includeFontPadding: false },
   ratingText: { fontFamily: "Cairo_700Bold" },
   ratingCount: { fontFamily: "Cairo_400Regular" },
   ratingLink: { fontFamily: "Cairo_700Bold", marginRight: 4, textDecorationLine: "underline" as const },
