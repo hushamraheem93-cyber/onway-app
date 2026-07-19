@@ -2223,7 +2223,7 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
     return (
       <View style={{ gap: Spacing.lg }}>
         {/* Welcome strip */}
-        <View style={{ borderRadius: BorderRadius.xl, overflow: "hidden", backgroundColor: ADMIN_RED }}>
+        <View style={{ borderRadius: BorderRadius.xl, overflow: "hidden", backgroundColor: AppColors.primary }}>
           <View style={{ padding: Spacing.lg, flexDirection: "row-reverse", alignItems: "center", gap: Spacing.md }}>
             <View style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: "rgba(255,255,255,0.2)", alignItems: "center", justifyContent: "center" }}>
               <Feather name="shield" size={24} color={AppColors.white} />
@@ -2251,18 +2251,18 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
           <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 14, color: theme.textSecondary, textAlign: "right", marginBottom: Spacing.sm }}>الإحصائيات الرئيسية</ThemedText>
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: Spacing.sm }}>
             {kpiCards.map((card, i) => (
-              <View key={i} style={{ width: "47%", backgroundColor: card.bg, borderRadius: 20, padding: Spacing.md + 2, gap: 4 }}>
+              <View key={i} style={{ width: "47%", backgroundColor: AppColors.white, borderRadius: 20, padding: Spacing.md + 2, gap: 6, borderWidth: 1, borderColor: "rgba(16,24,40,0.05)", shadowColor: AppColors.black, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 8, elevation: 1 }}>
                 <View style={{ flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between" }}>
-                  <View style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: card.color + "20", alignItems: "center", justifyContent: "center" }}>
+                  <View style={{ width: 38, height: 38, borderRadius: 11, backgroundColor: card.color + "18", alignItems: "center", justifyContent: "center" }}>
                     <Feather name={card.icon} size={18} color={card.color} />
                   </View>
                   {card.isText ? (
-                    <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 14, color: card.color }}>{card.value as string}</ThemedText>
+                    <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 15, color: AppColors.gray800 }}>{card.value as string}</ThemedText>
                   ) : (
-                    <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 26, lineHeight: 36, includeFontPadding: true, color: card.color }}>{card.value as number}</ThemedText>
+                    <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 26, lineHeight: 36, includeFontPadding: true, color: AppColors.gray800 }}>{card.value as number}</ThemedText>
                   )}
                 </View>
-                <ThemedText style={{ fontFamily: "Cairo_400Regular", fontSize: 12, color: AppColors.gray500, textAlign: "right" }}>{card.label}</ThemedText>
+                <ThemedText style={{ fontFamily: "Cairo_600SemiBold", fontSize: 12.5, color: AppColors.gray500, textAlign: "right" }}>{card.label}</ThemedText>
               </View>
             ))}
           </View>
