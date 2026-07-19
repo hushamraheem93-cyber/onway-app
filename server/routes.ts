@@ -1552,12 +1552,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let result = await getCachedProducts(categoryId);
       if (search) {
         const searchLower = search.toLowerCase();
-        result = result.filter(p => 
-          p.name.toLowerCase().includes(searchLower) || 
+        result = result.filter(p =>
+          p.name.toLowerCase().includes(searchLower) ||
           p.description.toLowerCase().includes(searchLower)
         );
       }
       res.set("Cache-Control", "public, max-age=60");
+      // Optional pagination: only applied when the caller passes `limit`, so
+      // existing consumers that expect the full array are unaffected.
+      const limit = parseInt(req.query.limit as string, 10);
+      const offset = Math.max(0, parseInt(req.query.offset as string, 10) || 0);
+      if (Number.isFinite(limit) && limit > 0) {
+        return res.json(result.slice(offset, offset + limit));
+      }
       res.json(result);
     } catch (error) {
       console.error("Error fetching products:", error);
