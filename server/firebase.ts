@@ -503,6 +503,28 @@ export async function getOrderById(orderId: string): Promise<(FirestoreOrder & {
   }
 }
 
+// Targeted reads that replace full-collection getOrders() scans on hot paths
+// (each scan read EVERY order ever created — cost and latency grow forever).
+
+/** Fetch a specific set of orders by id in parallel; missing ids are skipped. */
+export async function getOrdersByIds(orderIds: string[]): Promise<(FirestoreOrder & { id: string })[]> {
+  const unique = [...new Set(orderIds.filter(Boolean))];
+  const results = await Promise.all(unique.map((id) => getOrderById(id)));
+  return results.filter((o): o is FirestoreOrder & { id: string } => o !== null);
+}
+
+/** Fetch only the orders in a given status (single-field query — no composite index needed). */
+export async function getOrdersByStatus(status: string): Promise<(FirestoreOrder & { id: string })[]> {
+  if (!db) return [];
+  try {
+    const snap = await db.collection("orders").where("status", "==", status).get();
+    return snap.docs.map((doc) => ({ id: doc.id, ...doc.data() as FirestoreOrder }));
+  } catch (error) {
+    console.error("Error getting orders by status:", error);
+    return [];
+  }
+}
+
 export async function getOrdersByPhone(phoneNumber: string): Promise<(FirestoreOrder & { id: string })[]> {
   if (!db) return [];
   

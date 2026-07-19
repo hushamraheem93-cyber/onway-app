@@ -15,7 +15,7 @@ import {
   getUserAddresses, setUserAddresses, uploadToFirebaseStorage,
   getProducts as getFirestoreProducts, createProduct as createFirestoreProduct, 
   updateProduct as updateFirestoreProduct, deleteProduct as deleteFirestoreProduct,
-  getOrders, getOrderById, getOrdersByPhone, createOrder, updateOrderStatus,
+  getOrders, getOrderById, getOrdersByIds, getOrdersByStatus, getOrdersByPhone, createOrder, updateOrderStatus,
   updateUserPushToken, getUserPushToken, getAllUserPushTokens, getAllUsers,
   getPromotionalSections, getPromotionalSection, savePromotionalSection,
   getCategories as getFirestoreCategories, createCategory as createFirestoreCategory,
@@ -1170,7 +1170,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const batchSnap = await db.collection("delivery_batches")
             .where("status", "in", ["pending", "in_progress"])
             .get();
-          const allOrdersForRestore = await getOrders();
+          // Only orders referenced by active batches are checked below —
+          // fetch just those instead of the entire orders collection.
+          const restoreIds = batchSnap.docs.flatMap(d => ((d.data() as DeliveryBatch).orderIds || []));
+          const allOrdersForRestore = await getOrdersByIds(restoreIds);
           for (const bDoc of batchSnap.docs) {
             const bData = bDoc.data() as DeliveryBatch;
             // Check if all orders in this batch are already completed
@@ -1199,11 +1202,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
             }
           }
           // For drivers without a batch, assign waiting confirmed orders
-          const allOrders = await getOrders();
+          // (targeted status query — not a full-collection scan)
+          const confirmedAtBoot = await getOrdersByStatus("confirmed");
           for (const qd of driverQueue) {
             if (!qd.currentBatchId) {
-              const waitingOrders = allOrders
-                .filter(o => o.status === "confirmed" && !batchedOrderIds.has(o.id))
+              const waitingOrders = confirmedAtBoot
+                .filter(o => !batchedOrderIds.has(o.id))
                 .sort((a, b) => {
                   const aTime = a.createdAt?.toDate?.() ? a.createdAt.toDate().getTime() : 0;
                   const bTime = b.createdAt?.toDate?.() ? b.createdAt.toDate().getTime() : 0;
@@ -2430,9 +2434,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     if (!driverPhone) return res.status(400).json({ error: "driverPhone required" });
 
     try {
-      // 1. Verify order exists and is assignable
-      const allOrders = await getOrders();
-      const order = allOrders.find(o => o.id === orderId);
+      // 1. Verify order exists and is assignable (single-doc read, not a full scan)
+      const order = await getOrderById(orderId);
       if (!order) return res.status(404).json({ error: "الطلب غير موجود" });
       if (["delivered", "cancelled"].includes(order.status)) {
         return res.status(400).json({ error: "لا يمكن تعيين سائق لطلب مكتمل أو ملغى" });
@@ -2452,8 +2455,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Move old batch to completed in Firestore
         const oldBatch = await getDeliveryBatch(queuedDriver.currentBatchId);
         if (oldBatch) {
+          // Fetch only the old batch's orders (was a leftover of the full scan).
+          const oldBatchOrders = await getOrdersByIds(oldBatch.orderIds);
           const oldNonActive = oldBatch.orderIds.filter(id => {
-            const o = allOrders.find(x => x.id === id);
+            const o = oldBatchOrders.find(x => x.id === id);
             return !o || ["delivered", "cancelled"].includes(o.status);
           });
           if (oldNonActive.length === oldBatch.orderIds.length) {
@@ -3422,9 +3427,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         updatedAt: now,
       });
 
-      // Notify customer via push
-      const allOrders = await getOrders();
-      const order = allOrders.find(o => o.id === orderId);
+      // Notify customer via push (single-doc read, not a full scan)
+      const order = await getOrderById(orderId);
       if (order?.phoneNumber) {
         const pushToken = await getUserPushToken(order.phoneNumber);
         if (pushToken) {
@@ -3582,9 +3586,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         arrivedAtStoreAt: now.toISOString(),
         updatedAt: now,
       });
-      // Notify vendor
-      const allOrders = await getOrders();
-      const order = allOrders.find(o => o.id === orderId);
+      // Notify vendor (single-doc read, not a full scan)
+      const order = await getOrderById(orderId);
       if (order?.vendorId) {
         const vendorDoc = await db.collection("vendors").doc(order.vendorId).get();
         const vendorData = vendorDoc.data() as any;
@@ -3661,8 +3664,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await db.collection("orders").doc(orderId).update({ deliveredAt: now, updatedAt: now });
       addDeliveryLog({ orderId, driverPhone: phoneNumber, action: "delivered", lat, lng }).catch(() => {});
 
-      const allOrders = await getOrders();
-      const order = allOrders.find(o => o.id === orderId);
+      const order = await getOrderById(orderId);
       if (order) {
         const pushToken = await getUserPushToken(order.phoneNumber || "");
         if (pushToken) await sendPushNotification(pushToken, "delivered", orderId);
@@ -3739,7 +3741,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Check if all orders in batch are delivered
         const batchDoc = await getDeliveryBatch(batchId);
         if (batchDoc) {
-          const freshOrders = await getOrders();
+          // Only the batch's own orders are needed — fetch them by id in
+          // parallel instead of scanning the whole orders collection.
+          const freshOrders = await getOrdersByIds(batchDoc.orderIds);
           const allDelivered = batchDoc.orderIds.every(oid => {
             const o = freshOrders.find(x => x.id === oid);
             return o?.status === "delivered" || o?.status === "issue" || o?.status === "cancelled";
@@ -3852,11 +3856,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const result: any[] = [];
 
       if (db) {
-        const allOrders = await getOrders();
-        // Get currently delivering orders
+        // Get currently delivering orders (few ids from memory — fetch only those)
         const deliveringOrderIds = Array.from(driverAssignments.entries())
           .filter(([_, driverPhone]) => driverPhone === phoneNumber)
           .map(([orderId]) => orderId);
+        const allOrders = await getOrdersByIds(deliveringOrderIds);
 
         for (const orderId of deliveringOrderIds) {
           const order = allOrders.find(o => o.id === orderId);
@@ -4291,8 +4295,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!db) return;
       const qd = driverQueue.find(d => d.phoneNumber === phoneNumber && !d.currentBatchId);
       if (!qd) return;
-      const allOrders = await getOrders();
-      const confirmedOrders = allOrders.filter(o => o.status === "confirmed");
+      // Only confirmed (waiting) orders matter here — targeted query, not a full scan.
+      const confirmedOrders = await getOrdersByStatus("confirmed");
       // Get active batch IDs from all drivers in queue (in-memory)
       const activeBatchIds = new Set(driverQueue.map(d => d.currentBatchId).filter(Boolean) as string[]);
       // FIFO: take earliest confirmed orders not in any ACTIVE batch
@@ -4491,7 +4495,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const db = getFirestore();
       let allOrders: any[] = [];
       if (db) {
-        allOrders = await getOrders();
+        // Only the ids referenced by queued drivers are ever looked up below.
+        const referencedIds = driverQueue.map(d => d.currentBatchId).filter(Boolean) as string[];
+        allOrders = await getOrdersByIds(referencedIds);
       }
 
       const queueData = await Promise.all(driverQueue.map(async (d, i) => {
@@ -4648,8 +4654,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const db = getFirestore();
       if (!db) return res.json({ totalOwnerEarnings: 0, totalDriverEarnings: 0, totalDeliveryFees: 0, ordersWithEarnings: 0 });
 
-      const allOrders = await getOrders();
-      const deliveredOrders = allOrders.filter(o => o.status === "delivered");
+      // Aggregate only over delivered orders (targeted status query).
+      const deliveredOrders = await getOrdersByStatus("delivered");
 
       let totalOwnerEarnings = 0;
       let totalDriverEarnings = 0;
