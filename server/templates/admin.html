@@ -12,11 +12,17 @@
   <script src="https://cdn.sheetjs.com/xlsx-0.20.0/package/dist/xlsx.full.min.js"></script>
   <style>
     :root {
-      --primary: #D94523;
-      --primary-dark: #B53418;
-      --primary-light: #F07050;
+      /* Brand unified with the mobile app (AppColors.primary = #E86520) */
+      --primary: #E86520;
+      --primary-dark: #C4520F;
+      --primary-light: #F0913C;
+      --primary-wash: #FDEEE3;
       --on-grey: #4A4A4A;
-      --way-yellow: #D94523;
+      --way-yellow: #E86520;
+      /* Layered, soft shadow scale for a calmer, more modern surface */
+      --shadow-sm: 0 1px 2px rgba(16,24,40,0.05);
+      --shadow-md: 0 4px 16px rgba(16,24,40,0.07);
+      --shadow-lg: 0 12px 32px rgba(16,24,40,0.10);
       --success: #10b981;
       --success-light: #d1fae5;
       --danger: #ef4444;
@@ -47,9 +53,10 @@
 
     body {
       font-family: 'Cairo', sans-serif;
-      background: #F8F9FA;
+      background: #F5F6F8;
       min-height: 100vh;
       color: var(--gray-800);
+      -webkit-font-smoothing: antialiased;
     }
 
     /* Sidebar */
@@ -59,7 +66,7 @@
       top: 0;
       width: var(--sidebar-width);
       height: 100vh;
-      background: linear-gradient(180deg, #1e2029 0%, #252730 100%);
+      background: linear-gradient(180deg, #171A21 0%, #1F232C 100%);
       padding: 0;
       color: white;
       z-index: 1000;
@@ -87,7 +94,7 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      box-shadow: 0 4px 12px rgba(217,69,35,0.4);
+      box-shadow: 0 4px 12px rgba(232,101,32,0.4);
     }
 
     .sidebar-header .logo i {
@@ -171,7 +178,7 @@
     .nav-item.active {
       background: var(--primary);
       color: #fff;
-      box-shadow: 0 4px 14px rgba(217, 69, 35, 0.35);
+      box-shadow: 0 6px 16px rgba(232, 101, 32, 0.38);
     }
 
     .nav-item i {
@@ -181,8 +188,8 @@
 
     .nav-item .badge {
       margin-right: auto;
-      background: rgba(217,69,35,0.18);
-      color: var(--primary);
+      background: rgba(232,101,32,0.18);
+      color: var(--primary-light);
       font-size: 0.7rem;
       padding: 2px 8px;
       border-radius: 20px;
@@ -251,7 +258,7 @@
     .search-box input:focus {
       outline: none;
       border-color: var(--primary);
-      box-shadow: 0 0 0 3px rgba(217, 69, 35, 0.12);
+      box-shadow: 0 0 0 3px rgba(232, 101, 32, 0.12);
     }
 
     .search-box i {
@@ -279,18 +286,19 @@
 
     .stat-card {
       background: white;
-      border-radius: 16px;
-      padding: 24px;
+      border-radius: 18px;
+      padding: 22px 24px;
       display: flex;
       align-items: center;
-      gap: 20px;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+      gap: 18px;
+      box-shadow: var(--shadow-sm);
+      border: 1px solid rgba(16,24,40,0.04);
       transition: all 0.2s;
     }
 
     .stat-card:hover {
       transform: translateY(-2px);
-      box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+      box-shadow: var(--shadow-md);
     }
 
     .driver-stat-card.active-stat {
@@ -299,23 +307,25 @@
     }
 
     .stat-icon {
-      width: 56px;
-      height: 56px;
-      border-radius: 14px;
+      width: 54px;
+      height: 54px;
+      border-radius: 15px;
       display: flex;
       align-items: center;
       justify-content: center;
+      flex-shrink: 0;
     }
 
-    .stat-icon.purple { background: linear-gradient(135deg, #a855f7, #7c3aed); }
-    .stat-icon.green { background: linear-gradient(135deg, #34d399, #10b981); }
-    .stat-icon.blue { background: linear-gradient(135deg, #6B6B6B, var(--on-grey)); }
-    .stat-icon.orange { background: linear-gradient(135deg, #fbbf24, #f59e0b); }
+    /* Soft-tinted icon boxes (matches the mobile app) instead of heavy gradients */
+    .stat-icon.purple { background: #F1EAFE; color: #7c3aed; }
+    .stat-icon.green  { background: #E6F7EF; color: #10b981; }
+    .stat-icon.blue   { background: #EAF0FB; color: #3b82f6; }
+    .stat-icon.orange { background: var(--primary-wash); color: var(--primary); }
 
     .stat-icon i {
-      width: 28px;
-      height: 28px;
-      color: white;
+      width: 26px;
+      height: 26px;
+      color: inherit;
     }
 
     .stat-info h3 {
@@ -329,11 +339,32 @@
       font-size: 0.9rem;
     }
 
+    /* KPI tiles: clean white cards with a soft-tinted icon chip (matches mobile) */
+    .kpi-tile {
+      background: #fff;
+      border: 1px solid rgba(16,24,40,0.05);
+      border-radius: 18px;
+      padding: 20px;
+      cursor: pointer;
+      box-shadow: var(--shadow-sm);
+      transition: transform 0.15s, box-shadow 0.15s;
+    }
+    .kpi-tile:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); }
+    .kpi-head { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+    .kpi-ic { width: 42px; height: 42px; border-radius: 12px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+    .kpi-ic i { width: 22px; height: 22px; }
+    .kpi-label { font-size: 0.9rem; color: var(--gray-500); font-weight: 600; }
+    .kpi-mark { width: 15px; height: 15px; margin-right: auto; color: var(--gray-300); }
+    .kpi-num { font-size: 2rem; font-weight: 800; color: var(--gray-800); line-height: 1.15; }
+    .kpi-num.money { font-size: 1.5rem; }
+    .kpi-sub { font-size: 0.72rem; color: var(--gray-400); margin-top: 5px; }
+
     /* Card */
     .card {
       background: white;
-      border-radius: 16px;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+      border-radius: 18px;
+      box-shadow: var(--shadow-sm);
+      border: 1px solid rgba(16,24,40,0.04);
       overflow: hidden;
     }
 
@@ -394,7 +425,7 @@
     .btn-primary:hover {
       background: var(--primary-dark);
       transform: translateY(-1px);
-      box-shadow: 0 4px 12px rgba(217, 69, 35, 0.4);
+      box-shadow: 0 6px 16px rgba(232, 101, 32, 0.4);
     }
 
     .btn-success {
@@ -424,7 +455,7 @@
     .btn-outline:hover {
       border-color: var(--primary);
       color: var(--primary);
-      background: rgba(217,69,35,0.04);
+      background: rgba(232,101,32,0.04);
     }
 
     .df-pill {
@@ -475,12 +506,11 @@
 
     th {
       background: var(--gray-50);
-      font-weight: 600;
-      color: var(--gray-600);
-      font-size: 0.85rem;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      border-bottom: 2px solid var(--gray-200);
+      font-weight: 700;
+      color: var(--gray-500);
+      font-size: 0.8rem;
+      letter-spacing: 0.2px;
+      border-bottom: 1px solid var(--gray-200);
     }
 
     td {
@@ -603,12 +633,12 @@
     .product-select-card:hover {
       border-color: var(--primary);
       transform: translateY(-2px);
-      box-shadow: 0 4px 12px rgba(217,69,35,0.15);
+      box-shadow: 0 4px 12px rgba(232,101,32,0.15);
     }
 
     .product-select-card.selected {
       border-color: var(--primary);
-      background: rgba(217,69,35,0.06);
+      background: rgba(232,101,32,0.06);
     }
 
     .product-select-card img {
@@ -852,7 +882,7 @@
     .form-control:focus {
       outline: none;
       border-color: var(--primary);
-      box-shadow: 0 0 0 3px rgba(217, 69, 35, 0.12);
+      box-shadow: 0 0 0 3px rgba(232, 101, 32, 0.12);
     }
 
     textarea.form-control {
@@ -883,7 +913,7 @@
 
     .image-upload:hover {
       border-color: var(--primary);
-      background: rgba(217, 69, 35, 0.04);
+      background: rgba(232, 101, 32, 0.04);
     }
 
     .image-upload i {
@@ -1170,7 +1200,7 @@
 
     /* New order pulse */
     @keyframes rowPulse {
-      0% { background: rgba(217,69,35,0.15); }
+      0% { background: rgba(232,101,32,0.15); }
       100% { background: transparent; }
     }
     .new-order-row { animation: rowPulse 2s ease 3; }
@@ -1581,7 +1611,7 @@
               <p>لا يوجد سائقون متصلون الآن</p>
             </div>
             <!-- Locate Me button overlay -->
-            <button id="btn-locate-me" onclick="locateAdminOnMap()" title="تحديد موقعي" style="position:absolute;bottom:16px;left:16px;z-index:1000;background:#fff;border:2px solid #D94523;border-radius:10px;padding:8px 14px;font-family:'Cairo',sans-serif;font-size:0.82rem;font-weight:700;color:#D94523;cursor:pointer;display:flex;align-items:center;gap:6px;box-shadow:0 2px 10px rgba(0,0,0,0.15);transition:all 0.2s;">
+            <button id="btn-locate-me" onclick="locateAdminOnMap()" title="تحديد موقعي" style="position:absolute;bottom:16px;left:16px;z-index:1000;background:#fff;border:2px solid #E86520;border-radius:10px;padding:8px 14px;font-family:'Cairo',sans-serif;font-size:0.82rem;font-weight:700;color:#E86520;cursor:pointer;display:flex;align-items:center;gap:6px;box-shadow:0 2px 10px rgba(0,0,0,0.15);transition:all 0.2s;">
               <i data-lucide="navigation" style="width:15px;height:15px;"></i>
               موقعي
             </button>
@@ -2063,7 +2093,7 @@
     <!-- Discount Modal -->
     <div id="discount-modal" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.55);align-items:center;justify-content:center;">
       <div style="background:#fff;border-radius:18px;width:360px;max-width:94vw;box-shadow:0 8px 40px rgba(0,0,0,0.22);overflow:hidden;">
-        <div style="background:linear-gradient(135deg,#D94523,#E86520);padding:18px 22px;display:flex;align-items:center;gap:12px;">
+        <div style="background:linear-gradient(135deg,#E86520,#E86520);padding:18px 22px;display:flex;align-items:center;gap:12px;">
           <i data-lucide="percent" style="width:20px;height:20px;color:#fff;"></i>
           <span style="color:#fff;font-size:1.05rem;font-weight:700;">تطبيق التخفيض</span>
           <button onclick="closeDiscountModal()" style="margin-right:auto;background:none;border:none;cursor:pointer;color:rgba(255,255,255,0.8);font-size:1.4rem;line-height:1;">&times;</button>
@@ -2073,28 +2103,28 @@
             <img id="discount-product-img" src="" alt="" style="width:56px;height:56px;border-radius:10px;object-fit:cover;">
             <div>
               <div id="discount-product-name" style="font-weight:700;font-size:0.95rem;color:#1a1a2e;"></div>
-              <div style="font-size:0.82rem;color:#6B7280;margin-top:2px;">السعر الحالي: <span id="discount-current-price" style="font-weight:700;color:#D94523;"></span></div>
+              <div style="font-size:0.82rem;color:#6B7280;margin-top:2px;">السعر الحالي: <span id="discount-current-price" style="font-weight:700;color:#E86520;"></span></div>
             </div>
           </div>
           <label style="font-size:0.88rem;font-weight:600;color:#374151;display:block;margin-bottom:8px;">نسبة التخفيض (%)</label>
           <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;">
             <input type="number" id="discount-pct-input" min="1" max="90" placeholder="مثال: 20"
               style="flex:1;border:2px solid #E5E7EB;border-radius:10px;padding:10px 14px;font-size:1rem;direction:ltr;text-align:center;outline:none;transition:border 0.2s;"
-              oninput="updateDiscountPreview()" onfocus="this.style.borderColor='#D94523'" onblur="this.style.borderColor='#E5E7EB'">
+              oninput="updateDiscountPreview()" onfocus="this.style.borderColor='#E86520'" onblur="this.style.borderColor='#E5E7EB'">
             <span style="font-size:1.1rem;font-weight:700;color:#374151;">%</span>
           </div>
           <div id="discount-preview" style="display:none;background:linear-gradient(135deg,#FFF5F3,#FFF0EC);border:1.5px solid #F3B9AC;border-radius:12px;padding:14px;margin-bottom:20px;text-align:center;">
             <div style="font-size:0.8rem;color:#9CA3AF;margin-bottom:4px;">السعر بعد التخفيض</div>
             <div style="display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap;">
               <span id="discount-old-price" style="font-size:0.95rem;color:#9CA3AF;text-decoration:line-through;"></span>
-              <span style="color:#D94523;font-size:0.85rem;">←</span>
-              <span id="discount-new-price" style="font-size:1.3rem;font-weight:800;color:#D94523;"></span>
+              <span style="color:#E86520;font-size:0.85rem;">←</span>
+              <span id="discount-new-price" style="font-size:1.3rem;font-weight:800;color:#E86520;"></span>
             </div>
             <div id="discount-saving" style="font-size:0.8rem;color:#10B981;margin-top:4px;font-weight:600;"></div>
           </div>
           <div style="display:flex;gap:10px;">
             <button onclick="closeDiscountModal()" style="flex:1;padding:11px;border-radius:10px;border:1.5px solid #E5E7EB;background:#fff;cursor:pointer;font-size:0.92rem;font-weight:600;color:#6B7280;">إلغاء</button>
-            <button onclick="applyDiscount()" style="flex:2;padding:11px;border-radius:10px;border:none;background:linear-gradient(135deg,#D94523,#E86520);color:#fff;cursor:pointer;font-size:0.95rem;font-weight:700;display:flex;align-items:center;justify-content:center;gap:8px;">
+            <button onclick="applyDiscount()" style="flex:2;padding:11px;border-radius:10px;border:none;background:linear-gradient(135deg,#E86520,#E86520);color:#fff;cursor:pointer;font-size:0.95rem;font-weight:700;display:flex;align-items:center;justify-content:center;gap:8px;">
               <i data-lucide="check" style="width:16px;height:16px;"></i>
               تطبيق التخفيض
             </button>
@@ -2685,85 +2715,85 @@
       <div class="content">
         <!-- Row 1: Active Operational Stats -->
         <div class="stats-row-active">
-          <div onclick="showOrdersStatusChart()" style="background: linear-gradient(135deg, #F59E0B, #FBBF24); border-radius: 16px; padding: 20px; color: white; cursor: pointer; transition: transform 0.15s, box-shadow 0.15s;" onmouseover="this.style.transform='scale(1.03)';this.style.boxShadow='0 8px 24px rgba(245,158,11,0.35)'" onmouseout="this.style.transform='scale(1)';this.style.boxShadow='none'">
-            <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
-              <i data-lucide="clock" style="width: 24px; height: 24px;"></i>
-              <span style="font-size: 0.9rem; opacity: 0.9;">قيد الانتظار</span>
-              <i data-lucide="pie-chart" style="width: 16px; height: 16px; margin-right: auto; opacity: 0.75;"></i>
+          <div class="kpi-tile" onclick="showOrdersStatusChart()">
+            <div class="kpi-head">
+              <div class="kpi-ic" style="background:#FEF3C7;color:#F59E0B;"><i data-lucide="clock"></i></div>
+              <span class="kpi-label">قيد الانتظار</span>
+              <i data-lucide="pie-chart" class="kpi-mark"></i>
             </div>
-            <div id="stat-pending-orders" style="font-size: 2.2rem; font-weight: 800;">0</div>
-            <div style="font-size: 0.75rem; opacity: 0.8; margin-top: 4px;">طلبات تنتظر التأكيد · اضغط للرسم البياني</div>
+            <div id="stat-pending-orders" class="kpi-num">0</div>
+            <div class="kpi-sub">طلبات تنتظر التأكيد · اضغط للرسم البياني</div>
           </div>
-          <div onclick="showOrdersStatusChart()" style="background: linear-gradient(135deg, #8B5CF6, #A78BFA); border-radius: 16px; padding: 20px; color: white; cursor: pointer; transition: transform 0.15s, box-shadow 0.15s;" onmouseover="this.style.transform='scale(1.03)';this.style.boxShadow='0 8px 24px rgba(139,92,246,0.35)'" onmouseout="this.style.transform='scale(1)';this.style.boxShadow='none'">
-            <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
-              <i data-lucide="chef-hat" style="width: 24px; height: 24px;"></i>
-              <span style="font-size: 0.9rem; opacity: 0.9;">جاري التحضير</span>
-              <i data-lucide="pie-chart" style="width: 16px; height: 16px; margin-right: auto; opacity: 0.75;"></i>
+          <div class="kpi-tile" onclick="showOrdersStatusChart()">
+            <div class="kpi-head">
+              <div class="kpi-ic" style="background:#F1EAFE;color:#8B5CF6;"><i data-lucide="chef-hat"></i></div>
+              <span class="kpi-label">جاري التحضير</span>
+              <i data-lucide="pie-chart" class="kpi-mark"></i>
             </div>
-            <div id="stat-preparing-orders" style="font-size: 2.2rem; font-weight: 800;">0</div>
-            <div style="font-size: 0.75rem; opacity: 0.8; margin-top: 4px;">طلبات قيد التحضير · اضغط للرسم البياني</div>
+            <div id="stat-preparing-orders" class="kpi-num">0</div>
+            <div class="kpi-sub">طلبات قيد التحضير · اضغط للرسم البياني</div>
           </div>
-          <div onclick="showOrdersStatusChart()" style="background: linear-gradient(135deg, #06B6D4, #0891B2); border-radius: 16px; padding: 20px; color: white; cursor: pointer; transition: transform 0.15s, box-shadow 0.15s;" onmouseover="this.style.transform='scale(1.03)';this.style.boxShadow='0 8px 24px rgba(6,182,212,0.35)'" onmouseout="this.style.transform='scale(1)';this.style.boxShadow='none'">
-            <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
-              <i data-lucide="truck" style="width: 24px; height: 24px;"></i>
-              <span style="font-size: 0.9rem; opacity: 0.9;">جاري التوصيل</span>
-              <i data-lucide="pie-chart" style="width: 16px; height: 16px; margin-right: auto; opacity: 0.75;"></i>
+          <div class="kpi-tile" onclick="showOrdersStatusChart()">
+            <div class="kpi-head">
+              <div class="kpi-ic" style="background:#E0F5FA;color:#06B6D4;"><i data-lucide="truck"></i></div>
+              <span class="kpi-label">جاري التوصيل</span>
+              <i data-lucide="pie-chart" class="kpi-mark"></i>
             </div>
-            <div id="stat-delivering-orders" style="font-size: 2.2rem; font-weight: 800;">0</div>
-            <div style="font-size: 0.75rem; opacity: 0.8; margin-top: 4px;">طلبات مع السائقين · اضغط للرسم البياني</div>
+            <div id="stat-delivering-orders" class="kpi-num">0</div>
+            <div class="kpi-sub">طلبات مع السائقين · اضغط للرسم البياني</div>
           </div>
         </div>
 
         <!-- Row 2: Results Stats -->
         <div class="stats-row-result">
-          <div onclick="showDeliveryAreasChart()" style="background: linear-gradient(135deg, #10B981, #34D399); border-radius: 16px; padding: 20px; color: white; cursor: pointer; transition: transform 0.15s, box-shadow 0.15s;" onmouseover="this.style.transform='scale(1.03)';this.style.boxShadow='0 8px 24px rgba(16,185,129,0.35)'" onmouseout="this.style.transform='scale(1)';this.style.boxShadow='none'">
-            <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
-              <i data-lucide="check-circle" style="width: 24px; height: 24px;"></i>
-              <span style="font-size: 0.9rem; opacity: 0.9;">تم التوصيل</span>
-              <i data-lucide="pie-chart" style="width: 16px; height: 16px; margin-right: auto; opacity: 0.75;"></i>
+          <div class="kpi-tile" onclick="showDeliveryAreasChart()">
+            <div class="kpi-head">
+              <div class="kpi-ic" style="background:#E6F7EF;color:#10B981;"><i data-lucide="check-circle"></i></div>
+              <span class="kpi-label">تم التوصيل</span>
+              <i data-lucide="pie-chart" class="kpi-mark"></i>
             </div>
-            <div id="stat-delivered-orders" style="font-size: 2.2rem; font-weight: 800;">0</div>
-            <div style="font-size: 0.75rem; opacity: 0.8; margin-top: 4px;">طلبات مكتملة · اضغط لعرض المناطق</div>
+            <div id="stat-delivered-orders" class="kpi-num">0</div>
+            <div class="kpi-sub">طلبات مكتملة · اضغط لعرض المناطق</div>
           </div>
-          <div onclick="showCompletionRateChart()" style="background: linear-gradient(135deg, #EF4444, #F87171); border-radius: 16px; padding: 20px; color: white; cursor: pointer; transition: transform 0.15s, box-shadow 0.15s;" onmouseover="this.style.transform='scale(1.03)';this.style.boxShadow='0 8px 24px rgba(239,68,68,0.35)'" onmouseout="this.style.transform='scale(1)';this.style.boxShadow='none'">
-            <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
-              <i data-lucide="x-circle" style="width: 24px; height: 24px;"></i>
-              <span style="font-size: 0.9rem; opacity: 0.9;">ملغية</span>
-              <i data-lucide="pie-chart" style="width: 16px; height: 16px; margin-right: auto; opacity: 0.75;"></i>
+          <div class="kpi-tile" onclick="showCompletionRateChart()">
+            <div class="kpi-head">
+              <div class="kpi-ic" style="background:#FEE7E7;color:#EF4444;"><i data-lucide="x-circle"></i></div>
+              <span class="kpi-label">ملغية</span>
+              <i data-lucide="pie-chart" class="kpi-mark"></i>
             </div>
-            <div id="stat-cancelled-orders" style="font-size: 2.2rem; font-weight: 800;">0</div>
-            <div style="font-size: 0.75rem; opacity: 0.8; margin-top: 4px;">طلبات ملغاة · اضغط للرسم البياني</div>
+            <div id="stat-cancelled-orders" class="kpi-num">0</div>
+            <div class="kpi-sub">طلبات ملغاة · اضغط للرسم البياني</div>
           </div>
         </div>
 
         <!-- Row 3: Financial Stats -->
         <div class="stats-row-financial">
-          <div onclick="showRevenueChart()" style="background: linear-gradient(135deg, #D94523, #F07050); border-radius: 16px; padding: 20px; color: white; cursor: pointer; transition: transform 0.15s, box-shadow 0.15s;" onmouseover="this.style.transform='scale(1.03)';this.style.boxShadow='0 8px 24px rgba(217,69,35,0.35)'" onmouseout="this.style.transform='scale(1)';this.style.boxShadow='none'">
-            <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
-              <i data-lucide="shopping-bag" style="width: 24px; height: 24px;"></i>
-              <span style="font-size: 0.85rem; opacity: 0.9;">إجمالي المبيعات</span>
-              <i data-lucide="pie-chart" style="width: 15px; height: 15px; margin-right: auto; opacity: 0.75;"></i>
+          <div class="kpi-tile" onclick="showRevenueChart()">
+            <div class="kpi-head">
+              <div class="kpi-ic" style="background:var(--primary-wash);color:var(--primary);"><i data-lucide="shopping-bag"></i></div>
+              <span class="kpi-label">إجمالي المبيعات</span>
+              <i data-lucide="pie-chart" class="kpi-mark"></i>
             </div>
-            <div id="stat-total-revenue" style="font-size: 1.4rem; font-weight: 800;">0 د.ع</div>
-            <div style="font-size: 0.7rem; opacity: 0.8; margin-top: 4px;">كل الطلبات غير الملغاة · اضغط للرسم البياني</div>
+            <div id="stat-total-revenue" class="kpi-num money">0 د.ع</div>
+            <div class="kpi-sub">كل الطلبات غير الملغاة · اضغط للرسم البياني</div>
           </div>
-          <div onclick="showEarningsChart()" style="background: linear-gradient(135deg, #10B981, #059669); border-radius: 16px; padding: 20px; color: white; cursor: pointer; transition: transform 0.15s, box-shadow 0.15s;" onmouseover="this.style.transform='scale(1.03)';this.style.boxShadow='0 8px 24px rgba(16,185,129,0.35)'" onmouseout="this.style.transform='scale(1)';this.style.boxShadow='none'">
-            <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
-              <i data-lucide="wallet" style="width: 24px; height: 24px;"></i>
-              <span style="font-size: 0.85rem; opacity: 0.9;">أرباح التطبيق</span>
-              <i data-lucide="pie-chart" style="width: 15px; height: 15px; margin-right: auto; opacity: 0.75;"></i>
+          <div class="kpi-tile" onclick="showEarningsChart()">
+            <div class="kpi-head">
+              <div class="kpi-ic" style="background:#E6F7EF;color:#10B981;"><i data-lucide="wallet"></i></div>
+              <span class="kpi-label">أرباح التطبيق</span>
+              <i data-lucide="pie-chart" class="kpi-mark"></i>
             </div>
-            <div id="stat-owner-earnings" style="font-size: 1.4rem; font-weight: 800;">0 د.ع</div>
-            <div style="font-size: 0.7rem; opacity: 0.8; margin-top: 4px;">صافي ربح المنصة · اضغط للرسم البياني</div>
+            <div id="stat-owner-earnings" class="kpi-num money">0 د.ع</div>
+            <div class="kpi-sub">صافي ربح المنصة · اضغط للرسم البياني</div>
           </div>
-          <div onclick="showEarningsChart()" style="background: linear-gradient(135deg, #3B82F6, #60A5FA); border-radius: 16px; padding: 20px; color: white; cursor: pointer; transition: transform 0.15s, box-shadow 0.15s;" onmouseover="this.style.transform='scale(1.03)';this.style.boxShadow='0 8px 24px rgba(59,130,246,0.35)'" onmouseout="this.style.transform='scale(1)';this.style.boxShadow='none'">
-            <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
-              <i data-lucide="truck" style="width: 24px; height: 24px;"></i>
-              <span style="font-size: 0.85rem; opacity: 0.9;">أرباح السائقين</span>
-              <i data-lucide="pie-chart" style="width: 15px; height: 15px; margin-right: auto; opacity: 0.75;"></i>
+          <div class="kpi-tile" onclick="showEarningsChart()">
+            <div class="kpi-head">
+              <div class="kpi-ic" style="background:#EAF0FB;color:#3B82F6;"><i data-lucide="truck"></i></div>
+              <span class="kpi-label">أرباح السائقين</span>
+              <i data-lucide="pie-chart" class="kpi-mark"></i>
             </div>
-            <div id="stat-driver-earnings" style="font-size: 1.4rem; font-weight: 800;">0 د.ع</div>
-            <div style="font-size: 0.7rem; opacity: 0.8; margin-top: 4px;">إجمالي ما أكسبه السائقون · اضغط للرسم البياني</div>
+            <div id="stat-driver-earnings" class="kpi-num money">0 د.ع</div>
+            <div class="kpi-sub">إجمالي ما أكسبه السائقون · اضغط للرسم البياني</div>
           </div>
         </div>
         <!-- hidden stat for total orders - keep ID for JS compat -->
@@ -2991,8 +3021,8 @@
                 <div style="font-size:1.8rem;font-weight:800;color:#10B981;" id="settings-total-revenue">—</div>
                 <div style="font-size:0.85rem;color:var(--gray-600);margin-top:6px;">إجمالي المبيعات</div>
               </div>
-              <div style="text-align:center;padding:20px;background:#D9452310;border-radius:12px;">
-                <div style="font-size:1.8rem;font-weight:800;color:#D94523;" id="settings-owner-earnings">—</div>
+              <div style="text-align:center;padding:20px;background:#E8652010;border-radius:12px;">
+                <div style="font-size:1.8rem;font-weight:800;color:#E86520;" id="settings-owner-earnings">—</div>
                 <div style="font-size:0.85rem;color:var(--gray-600);margin-top:6px;">أرباح التطبيق الصافية</div>
               </div>
               <div style="text-align:center;padding:20px;background:#3B82F610;border-radius:12px;">
@@ -3099,7 +3129,7 @@
       <div class="content">
         <!-- KPI cards -->
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:14px;margin-bottom:20px;">
-          <div class="stat-card" style="border-right:4px solid #D94523;">
+          <div class="stat-card" style="border-right:4px solid #E86520;">
             <div class="stat-icon orange"><i data-lucide="shopping-bag"></i></div>
             <div class="stat-info"><h3 id="an-total-orders">—</h3><p>إجمالي الطلبات</p></div>
           </div>
@@ -3159,8 +3189,8 @@
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px;">
           <!-- Orders Report -->
           <div class="card">
-            <div class="card-header" style="background:linear-gradient(135deg,#D9452308,#fff);">
-              <h3><i data-lucide="shopping-bag" style="width:16px;height:16px;color:#D94523;margin-left:6px;"></i>تقرير الطلبات</h3>
+            <div class="card-header" style="background:linear-gradient(135deg,#E8652008,#fff);">
+              <h3><i data-lucide="shopping-bag" style="width:16px;height:16px;color:#E86520;margin-left:6px;"></i>تقرير الطلبات</h3>
             </div>
             <div class="card-body" style="padding:20px;">
               <div style="margin-bottom:14px;">
@@ -3291,7 +3321,7 @@
       <div class="content">
         <!-- Hierarchy tabs -->
         <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;">
-          <button class="btn btn-sm" id="ztab-all" style="background:#D94523;color:#fff;" onclick="filterZoneTab('', this)">الكل</button>
+          <button class="btn btn-sm" id="ztab-all" style="background:#E86520;color:#fff;" onclick="filterZoneTab('', this)">الكل</button>
           <button class="btn btn-outline btn-sm" id="ztab-gov" onclick="filterZoneTab('governorate', this)">محافظات</button>
           <button class="btn btn-outline btn-sm" id="ztab-city" onclick="filterZoneTab('city', this)">مدن</button>
           <button class="btn btn-outline btn-sm" id="ztab-district" onclick="filterZoneTab('district', this)">أقضية</button>
@@ -4365,7 +4395,7 @@
           <td>${status}</td>
         </tr>`;
       }).join('');
-      const html = `<html dir="rtl"><head><meta charset="UTF-8"><link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet"><title>الحسابات المالية</title><style>body{font-family:Cairo,sans-serif;padding:20px;}table{width:100%;border-collapse:collapse;}th,td{padding:7px 10px;border:1px solid #ddd;font-size:0.82rem;}th{background:#D94523;color:#fff;}h2{color:#D94523;}tfoot td{font-weight:700;background:#f9fafb;}</style></head><body><h2>OnWay — الحسابات المالية للسائقين</h2><p>تاريخ الطباعة: ${new Date().toLocaleDateString('ar-IQ')} | عدد السائقين: ${allDriverAccounts.length}</p><table><thead><tr><th>اسم السائق</th><th>رقم الهاتف</th><th>الطلبات</th><th>طلبات الشهر</th><th>إجمالي الأرباح</th><th>أرباح الشهر</th><th>إجمالي العمولات</th><th>المسدّد</th><th>المستحق</th><th>آخر دفعة</th><th>الحالة</th></tr></thead><tbody>${rows}</tbody></table><script>window.onload=()=>{window.print();window.close();}<\/script></body></html>`;
+      const html = `<html dir="rtl"><head><meta charset="UTF-8"><link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet"><title>الحسابات المالية</title><style>body{font-family:Cairo,sans-serif;padding:20px;}table{width:100%;border-collapse:collapse;}th,td{padding:7px 10px;border:1px solid #ddd;font-size:0.82rem;}th{background:#E86520;color:#fff;}h2{color:#E86520;}tfoot td{font-weight:700;background:#f9fafb;}</style></head><body><h2>OnWay — الحسابات المالية للسائقين</h2><p>تاريخ الطباعة: ${new Date().toLocaleDateString('ar-IQ')} | عدد السائقين: ${allDriverAccounts.length}</p><table><thead><tr><th>اسم السائق</th><th>رقم الهاتف</th><th>الطلبات</th><th>طلبات الشهر</th><th>إجمالي الأرباح</th><th>أرباح الشهر</th><th>إجمالي العمولات</th><th>المسدّد</th><th>المستحق</th><th>آخر دفعة</th><th>الحالة</th></tr></thead><tbody>${rows}</tbody></table><script>window.onload=()=>{window.print();window.close();}<\/script></body></html>`;
       const w = window.open('','_blank');
       w.document.write(html);
       w.document.close();
@@ -5104,7 +5134,7 @@
       const html = `
         <div style="font-family:'Cairo',sans-serif;direction:rtl;padding:32px;max-width:500px;margin:auto;border:1px solid #ddd;border-radius:12px;">
           <div style="text-align:center;margin-bottom:24px;">
-            <h2 style="color:#D94523;font-size:1.8rem;margin:0;">ONWAY</h2>
+            <h2 style="color:#E86520;font-size:1.8rem;margin:0;">ONWAY</h2>
             <p style="color:#888;margin:4px 0;">فاتورة توصيل</p>
           </div>
           <div style="margin-bottom:16px;padding:12px;background:#f9f9f9;border-radius:8px;">
@@ -5114,13 +5144,13 @@
             <p><strong>التاريخ:</strong> ${new Date(order.createdAt).toLocaleDateString('ar-IQ')}</p>
           </div>
           <table style="width:100%;border-collapse:collapse;">
-            <thead><tr style="background:#D94523;color:white;"><th style="padding:8px;">المنتج</th><th>الكمية</th><th>السعر</th></tr></thead>
+            <thead><tr style="background:#E86520;color:white;"><th style="padding:8px;">المنتج</th><th>الكمية</th><th>السعر</th></tr></thead>
             <tbody>${items}</tbody>
           </table>
           <div style="margin-top:16px;padding:12px;background:#f9f9f9;border-radius:8px;text-align:left;">
             <p><strong>سعر الطلبية:</strong> ${(order.total||0).toLocaleString('ar-IQ')} د.ع</p>
             <p><strong>رسوم التوصيل:</strong> ${(order.deliveryFee||0).toLocaleString('ar-IQ')} د.ع</p>
-            <h3 style="color:#D94523;">الإجمالي: ${total.toLocaleString('ar-IQ')} د.ع</h3>
+            <h3 style="color:#E86520;">الإجمالي: ${total.toLocaleString('ar-IQ')} د.ع</h3>
           </div>
         </div>`;
       const printWindow = window.open('', '_blank', 'width=600,height=700');
@@ -5254,7 +5284,7 @@
               <strong style="font-size:0.95rem;">${loc.fullName || loc.phoneNumber}</strong><br/>
               <span style="color:${isBusy?'#F59E0B':'#10B981'};font-weight:600;">${isBusy ? '🟡 مشغول بطلب' : '🟢 متاح'}</span>
               ${loc.currentOrderId ? `<br/><span style="font-size:0.8rem;color:#666;">طلب: #${loc.currentOrderId.slice(-6)}</span>` : ''}
-              <br/><a href="#" style="color:#D94523;font-size:0.8rem;display:block;margin-top:6px;" onclick="openTrackingModal('${loc.phoneNumber}','${loc.fullName||loc.phoneNumber}');return false;">📍 تتبع مباشر</a>
+              <br/><a href="#" style="color:#E86520;font-size:0.8rem;display:block;margin-top:6px;" onclick="openTrackingModal('${loc.phoneNumber}','${loc.fullName||loc.phoneNumber}');return false;">📍 تتبع مباشر</a>
             </div>`;
           if (_driverMarkers[loc.phoneNumber]) {
             _driverMarkers[loc.phoneNumber].setLatLng(latlng);
@@ -5326,7 +5356,7 @@
         if (statusEl) statusEl.innerHTML = `
           <span style="color:${isBusy?'#F59E0B':'#10B981'};font-weight:700;">${isBusy?'🟡 مشغول بطلب':'🟢 متاح'}</span>
           &nbsp;·&nbsp;<span style="color:#888;font-size:0.85rem;">آخر موقع: ${timeAgo}</span>
-          ${loc.currentOrderId ? `&nbsp;·&nbsp;<span style="color:#D94523;font-size:0.85rem;">طلب #${loc.currentOrderId.slice(-6)}</span>` : ''}`;
+          ${loc.currentOrderId ? `&nbsp;·&nbsp;<span style="color:#E86520;font-size:0.85rem;">طلب #${loc.currentOrderId.slice(-6)}</span>` : ''}`;
         if (_trackingMarker) {
           _trackingMarker.setLatLng(latlng);
         } else {
@@ -5573,13 +5603,13 @@
           <div style="position:relative;flex-shrink:0;">
             <img src="${escapeHtml(p.image)}" alt="${escapeHtml(p.name)}" onerror="this.src='https://via.placeholder.com/45'"
               style="width:45px;height:45px;border-radius:8px;object-fit:cover;">
-            ${hasDiscount ? `<span style="position:absolute;top:-4px;left:-4px;background:#D94523;color:#fff;font-size:9px;font-weight:800;border-radius:5px;padding:1px 4px;">-${p.discount}%</span>` : ''}
+            ${hasDiscount ? `<span style="position:absolute;top:-4px;left:-4px;background:#E86520;color:#fff;font-size:9px;font-weight:800;border-radius:5px;padding:1px 4px;">-${p.discount}%</span>` : ''}
           </div>
           <div class="info">
             <span class="name">${escapeHtml(p.name)}</span>
             ${hasDiscount ? `
               <div style="display:flex;align-items:center;gap:5px;flex-wrap:wrap;">
-                <span style="color:#D94523;font-weight:700;font-size:0.82rem;">${p.price.toLocaleString('ar-IQ')} د.ع</span>
+                <span style="color:#E86520;font-weight:700;font-size:0.82rem;">${p.price.toLocaleString('ar-IQ')} د.ع</span>
                 <span style="color:#9CA3AF;font-size:0.75rem;text-decoration:line-through;">${p.originalPrice.toLocaleString('ar-IQ')} د.ع</span>
               </div>
             ` : `<span class="price">${p.price.toLocaleString('ar-IQ')} د.ع</span>`}
@@ -5602,12 +5632,12 @@
         return `
           <div class="product-select-card ${isSelected ? 'selected' : ''}" onclick="togglePromotionalProduct('${type}', '${p.id}')">
             <div class="check-icon"><i data-lucide="check" style="width: 14px; height: 14px;"></i></div>
-            ${hasDiscount ? `<span style="position:absolute;top:6px;right:6px;background:#D94523;color:#fff;font-size:9px;font-weight:800;border-radius:5px;padding:1px 5px;z-index:2;">-${p.discount}%</span>` : ''}
+            ${hasDiscount ? `<span style="position:absolute;top:6px;right:6px;background:#E86520;color:#fff;font-size:9px;font-weight:800;border-radius:5px;padding:1px 5px;z-index:2;">-${p.discount}%</span>` : ''}
             <img src="${escapeHtml(p.image)}" alt="${escapeHtml(p.name)}" onerror="this.src='https://via.placeholder.com/80'">
             <span class="name">${escapeHtml(p.name)}</span>
             ${hasDiscount ? `
               <div style="display:flex;flex-direction:column;align-items:center;gap:1px;">
-                <span style="color:#D94523;font-weight:700;font-size:0.82rem;">${p.price.toLocaleString('ar-IQ')} د.ع</span>
+                <span style="color:#E86520;font-weight:700;font-size:0.82rem;">${p.price.toLocaleString('ar-IQ')} د.ع</span>
                 <span style="color:#9CA3AF;font-size:0.72rem;text-decoration:line-through;">${p.originalPrice.toLocaleString('ar-IQ')} د.ع</span>
               </div>
             ` : `<span class="price">${p.price.toLocaleString('ar-IQ')} د.ع</span>`}
@@ -8585,7 +8615,7 @@
       }
 
       const entries = [
-        { label: 'أرباح المطاعم',        value: restaurantProfit, color: '#D94523' },
+        { label: 'أرباح المطاعم',        value: restaurantProfit, color: '#E86520' },
         { label: 'أرباح الخدمات الأخرى', value: otherProfit,       color: '#F59E0B' },
       ].filter(e => e.value > 0);
 
@@ -8887,7 +8917,7 @@
     <div style="background:#fff;border-radius:20px;width:100%;max-width:580px;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.25);">
       <div style="padding:20px 24px;border-bottom:1px solid #F3F4F6;display:flex;align-items:center;justify-content:space-between;">
         <div style="display:flex;align-items:center;gap:10px;">
-          <div style="width:42px;height:42px;border-radius:12px;background:linear-gradient(135deg,#D94523,#F07050);display:flex;align-items:center;justify-content:center;">
+          <div style="width:42px;height:42px;border-radius:12px;background:linear-gradient(135deg,#E86520,#F0913C);display:flex;align-items:center;justify-content:center;">
             <i data-lucide="trending-up" style="width:20px;height:20px;color:#fff;"></i>
           </div>
           <div>
@@ -8902,7 +8932,7 @@
       <div style="padding:24px;">
         <div style="text-align:center;margin-bottom:6px;">
           <div style="font-size:0.78rem;color:#9CA3AF;">إجمالي أرباح التطبيق</div>
-          <div id="revenue-total-val" style="font-size:1.6rem;font-weight:800;color:#D94523;direction:ltr;">0 د.ع</div>
+          <div id="revenue-total-val" style="font-size:1.6rem;font-weight:800;color:#E86520;direction:ltr;">0 د.ع</div>
         </div>
         <div style="height:240px;margin-bottom:20px;">
           <canvas id="revenue-canvas"></canvas>
@@ -9510,7 +9540,7 @@ function renderFinancialKpis(data) {
     { label: 'إجمالي المبيعات', value: fmt(data.totalRevenue) + ' د.ع', icon: 'shopping-cart', color: '#3B82F6', bg: '#EFF6FF' },
     { label: 'صافي أرباح OnWay', value: fmt(data.onwayProfit) + ' د.ع', icon: 'trending-up', color: '#10B981', bg: '#ECFDF5' },
     { label: 'مستحقات السائقين', value: fmt(data.totalDriverEarnings) + ' د.ع', icon: 'truck', color: '#009688', bg: '#E0F2F1' },
-    { label: 'عدد الطلبات', value: (data.totalOrders||0).toLocaleString('ar-IQ'), icon: 'package', color: '#D94523', bg: '#FEF2F2' },
+    { label: 'عدد الطلبات', value: (data.totalOrders||0).toLocaleString('ar-IQ'), icon: 'package', color: '#E86520', bg: '#FEF2F2' },
   ];
   document.getElementById('fr-kpi-cards').innerHTML = kpis.map(k =>
     `<div style="background:#fff;border-radius:16px;padding:20px;box-shadow:0 2px 8px rgba(0,0,0,0.06);display:flex;align-items:center;gap:14px;">
@@ -9559,7 +9589,7 @@ function renderFrDailyChart(dailySales) {
     data: {
       labels,
       datasets: [
-        { label: 'المبيعات', data: dailySales.map(d => d.revenue), backgroundColor: '#D9452330', borderColor: '#D94523', borderWidth: 2, borderRadius: 6 },
+        { label: 'المبيعات', data: dailySales.map(d => d.revenue), backgroundColor: '#E8652030', borderColor: '#E86520', borderWidth: 2, borderRadius: 6 },
         { label: 'عمولة OnWay', data: dailySales.map(d => d.commission), backgroundColor: '#10B98130', borderColor: '#10B981', borderWidth: 2, borderRadius: 6 },
       ]
     },
@@ -9608,7 +9638,7 @@ async function loadAnalytics() {
     if (ctxO) {
       if (_anOrdersChart) _anOrdersChart.destroy();
       _anOrdersChart = new Chart(ctxO, { type: 'bar', data: {
-        labels, datasets: [{ label: 'طلبات', data: daily.map(r => r.orders), backgroundColor: '#D9452360', borderColor: '#D94523', borderWidth: 2, borderRadius: 6 }]
+        labels, datasets: [{ label: 'طلبات', data: daily.map(r => r.orders), backgroundColor: '#E8652060', borderColor: '#E86520', borderWidth: 2, borderRadius: 6 }]
       }, options: chartDefaults });
     }
 
@@ -9721,7 +9751,7 @@ function printOrdersReport() {
   });
   const total = filtered.reduce((s, o) => s + (o.total||0) + (o.deliveryFee||0), 0);
   const rows = filtered.map(o => `<tr><td>#${(o.id||'').slice(-6)}</td><td>${o.phoneNumber||''}</td><td>${o.area||''}</td><td>${((o.total||0)+(o.deliveryFee||0)).toLocaleString('ar-IQ')} د.ع</td><td>${o.status||''}</td></tr>`).join('');
-  const html = `<html dir="rtl"><head><meta charset="UTF-8"><link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet"><title>تقرير الطلبات</title><style>body{font-family:Cairo,sans-serif;padding:20px;} table{width:100%;border-collapse:collapse;} th,td{padding:8px;border:1px solid #ddd;font-size:0.85rem;} th{background:#D94523;color:#fff;} h2{color:#D94523;}</style></head><body><h2>OnWay — تقرير الطلبات</h2><p>${from} — ${to} | إجمالي: ${total.toLocaleString('ar-IQ')} د.ع | عدد الطلبات: ${filtered.length}</p><table><thead><tr><th>رقم الطلب</th><th>المستخدم</th><th>المنطقة</th><th>الإجمالي</th><th>الحالة</th></tr></thead><tbody>${rows}</tbody></table><script>window.onload=()=>{window.print();window.close();}<\/script></body></html>`;
+  const html = `<html dir="rtl"><head><meta charset="UTF-8"><link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet"><title>تقرير الطلبات</title><style>body{font-family:Cairo,sans-serif;padding:20px;} table{width:100%;border-collapse:collapse;} th,td{padding:8px;border:1px solid #ddd;font-size:0.85rem;} th{background:#E86520;color:#fff;} h2{color:#E86520;}</style></head><body><h2>OnWay — تقرير الطلبات</h2><p>${from} — ${to} | إجمالي: ${total.toLocaleString('ar-IQ')} د.ع | عدد الطلبات: ${filtered.length}</p><table><thead><tr><th>رقم الطلب</th><th>المستخدم</th><th>المنطقة</th><th>الإجمالي</th><th>الحالة</th></tr></thead><tbody>${rows}</tbody></table><script>window.onload=()=>{window.print();window.close();}<\/script></body></html>`;
   const w = window.open('', '_blank', 'width=800,height=700');
   w.document.write(html); w.document.close();
 }
@@ -9851,7 +9881,7 @@ function filterZoneTab(type, btn) {
     b.className = 'btn btn-outline btn-sm';
     b.style.background = ''; b.style.color = '';
   });
-  if (btn) { btn.style.background = '#D94523'; btn.style.color = '#fff'; btn.className = 'btn btn-sm'; }
+  if (btn) { btn.style.background = '#E86520'; btn.style.color = '#fff'; btn.className = 'btn btn-sm'; }
   renderZones();
 }
 
@@ -9860,7 +9890,7 @@ function renderZones() {
   const tbody = document.getElementById('zones-table-body');
   if (!tbody) return;
   const typeLabels = { governorate: 'محافظة', city: 'مدينة', district: 'قضاء', neighborhood: 'حي' };
-  const typeColors = { governorate: '#D94523', city: '#3b82f6', district: '#10b981', neighborhood: '#8b5cf6' };
+  const typeColors = { governorate: '#E86520', city: '#3b82f6', district: '#10b981', neighborhood: '#8b5cf6' };
   const filtered = _zonesData.filter(z => !typeFilter || z.type === typeFilter);
 
   if (filtered.length === 0) {
