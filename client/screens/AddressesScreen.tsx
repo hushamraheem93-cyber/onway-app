@@ -3,16 +3,14 @@ import { StyleSheet, ScrollView, View, Pressable, TextInput, Alert } from "react
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { Feather } from "@expo/vector-icons";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Haptics from "expo-haptics";
 
 import { useTheme } from "@/hooks/useTheme";
 import { useAuth } from "@/context/AuthContext";
+import { getApiUrl } from "@/lib/query-client";
 import { GradientBackground } from "@/components/GradientBackground";
 import { Spacing, BorderRadius, Shadows, AppColors, FontWeight} from "@/constants/theme";
 import { ThemedText } from "@/components/ThemedText";
-
-const ADDRESSES_KEY = "@onway_addresses";
 
 interface Address {
   id: string;
@@ -26,7 +24,7 @@ export default function AddressesScreen() {
   const insets = useSafeAreaInsets();
   const headerHeight = useHeaderHeight();
   const { theme } = useTheme();
-  const { userProfile } = useAuth();
+  const { userProfile, phoneNumber, customerToken } = useAuth();
 
   const savedAddress: Address | null = userProfile ? {
     id: "profile-address",
@@ -47,10 +45,15 @@ export default function AddressesScreen() {
   }, []);
 
   const loadAddresses = async () => {
+    if (!phoneNumber) { setIsLoading(false); return; }
     try {
-      const stored = await AsyncStorage.getItem(ADDRESSES_KEY);
-      if (stored) {
-        setAdditionalAddresses(JSON.parse(stored));
+      const res = await fetch(
+        new URL(`/api/users/${encodeURIComponent(phoneNumber)}/addresses`, getApiUrl()).toString(),
+        { headers: customerToken ? { Authorization: `Bearer ${customerToken}` } : {} },
+      );
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data.addresses)) setAdditionalAddresses(data.addresses);
       }
     } catch (error) {
     } finally {
@@ -58,11 +61,29 @@ export default function AddressesScreen() {
     }
   };
 
+  // Whole-list replace (server keeps the `addresses` array on the user doc).
+  // Optimistically update the UI, then persist; revert on failure.
   const saveAddresses = async (addresses: Address[]) => {
+    const prev = additionalAddresses;
+    setAdditionalAddresses(addresses);
+    if (!phoneNumber) return;
     try {
-      await AsyncStorage.setItem(ADDRESSES_KEY, JSON.stringify(addresses));
-      setAdditionalAddresses(addresses);
+      const res = await fetch(
+        new URL(`/api/users/${encodeURIComponent(phoneNumber)}/addresses`, getApiUrl()).toString(),
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            ...(customerToken ? { Authorization: `Bearer ${customerToken}` } : {}),
+          },
+          body: JSON.stringify({ addresses }),
+        },
+      );
+      if (!res.ok) throw new Error("save failed");
+      const data = await res.json();
+      if (Array.isArray(data.addresses)) setAdditionalAddresses(data.addresses);
     } catch (error) {
+      setAdditionalAddresses(prev);
       Alert.alert("خطأ", "حدث خطأ أثناء حفظ العنوان");
     }
   };

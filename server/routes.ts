@@ -12,6 +12,7 @@ import { orderEvents } from "./orderEvents";
 import { isValidSession } from "./adminAuth";
 import { 
   getFirestore, getUserByPhone, createUser, updateUser, FirestoreUserProfile,
+  getUserAddresses, setUserAddresses,
   getProducts as getFirestoreProducts, createProduct as createFirestoreProduct, 
   updateProduct as updateFirestoreProduct, deleteProduct as deleteFirestoreProduct,
   getOrders, getOrderById, getOrdersByPhone, createOrder, updateOrderStatus,
@@ -2504,6 +2505,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       console.error("assign-driver error:", error);
       res.status(500).json({ error: error.message });
+    }
+  });
+
+  // ── Address book (server-synced, owner-only) ────────────────────────────────
+  app.get("/api/users/:phoneNumber/addresses", requireCustomerAuth, async (req: Request, res: Response) => {
+    const phoneNumber = decodeURIComponent(req.params.phoneNumber as string);
+    if ((req as any).customerPhone !== phoneNumber) {
+      return res.status(403).json({ error: "غير مصرح" });
+    }
+    try {
+      const addresses = await getUserAddresses(phoneNumber);
+      res.json({ addresses });
+    } catch {
+      res.status(500).json({ error: "تعذّر تحميل العناوين" });
+    }
+  });
+
+  app.put("/api/users/:phoneNumber/addresses", requireCustomerAuth, async (req: Request, res: Response) => {
+    const phoneNumber = decodeURIComponent(req.params.phoneNumber as string);
+    if ((req as any).customerPhone !== phoneNumber) {
+      return res.status(403).json({ error: "غير مصرح" });
+    }
+    const list = Array.isArray(req.body?.addresses) ? req.body.addresses : null;
+    if (!list) return res.status(400).json({ error: "قائمة العناوين مطلوبة" });
+    try {
+      const saved = await setUserAddresses(phoneNumber, list);
+      if (!saved) return res.status(404).json({ error: "المستخدم غير موجود" });
+      res.json({ addresses: saved });
+    } catch {
+      res.status(500).json({ error: "تعذّر حفظ العناوين" });
     }
   });
 

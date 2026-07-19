@@ -1,5 +1,5 @@
 import React, { useState, useRef } from "react";
-import { StyleSheet, View, TextInput, Modal, Pressable, FlatList, ActivityIndicator } from "react-native";
+import { StyleSheet, View, TextInput, Modal, Pressable, FlatList, ActivityIndicator, ScrollView } from "react-native";
 import Svg, { Circle } from "react-native-svg";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
@@ -40,7 +40,7 @@ export default function CheckoutScreen() {
   const navigation = useNavigation<NavigationProp>();
   const { items, getTotal, clearCart, cartVendorId } = useCart();
   const { addOrder } = useOrders();
-  const { phoneNumber, userProfile } = useAuth();
+  const { phoneNumber, userProfile, customerToken } = useAuth();
   const { savedLocation } = useLocation();
 
   const { data: deliveryAreas = [] } = useQuery<DeliveryArea[]>({
@@ -70,12 +70,43 @@ export default function CheckoutScreen() {
   const [isApplyingPromo, setIsApplyingPromo] = useState(false);
   const [appliedPromoCode, setAppliedPromoCode] = useState("");
   const [locationAutoFilled, setLocationAutoFilled] = useState(false);
+  const [savedAddresses, setSavedAddresses] = useState<{ id: string; title: string; region: string; address: string; isDefault?: boolean }[]>([]);
 
   React.useEffect(() => {
     if (userProfile?.fullName && !customerName) {
       setCustomerName(userProfile.fullName);
     }
   }, [userProfile?.fullName]);
+
+  // Load the customer's saved address book so they can pick instead of re-typing.
+  React.useEffect(() => {
+    if (!phoneNumber) return;
+    (async () => {
+      try {
+        const res = await fetch(
+          new URL(`/api/users/${encodeURIComponent(phoneNumber)}/addresses`, getApiUrl()).toString(),
+          { headers: customerToken ? { Authorization: `Bearer ${customerToken}` } : {} },
+        );
+        if (res.ok) {
+          const data = await res.json();
+          if (Array.isArray(data.addresses)) setSavedAddresses(data.addresses);
+        }
+      } catch {}
+    })();
+  }, [phoneNumber, customerToken]);
+
+  // Fill the form from a saved address; match its region text to a delivery area
+  // the same way the map auto-fill does.
+  const applySavedAddress = (a: { region: string; address: string }) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setAddress(a.address || "");
+    const hay = `${a.region || ""} ${a.address || ""}`.toLowerCase();
+    const matchedArea = deliveryAreas.find(area => {
+      const areaName = area.name.toLowerCase();
+      return hay.includes(areaName) || areaName.includes((a.region || "").toLowerCase().trim());
+    });
+    if (matchedArea) setSelectedArea(matchedArea.id);
+  };
 
   React.useEffect(() => {
     if (savedLocation && !locationAutoFilled) {
@@ -258,6 +289,41 @@ export default function CheckoutScreen() {
           keyboardType="phone-pad"
         />
       </View>
+
+      {savedAddresses.length > 0 ? (
+        <View style={[styles.inputContainer, { backgroundColor: theme.backgroundDefault }, Shadows.sm]}>
+          <ThemedText type="small" style={[styles.label, { color: theme.textSecondary }]}>
+            العناوين المحفوظة
+          </ThemedText>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: Spacing.sm, flexDirection: "row-reverse" }}>
+            {savedAddresses.map((a) => (
+              <Pressable
+                key={a.id}
+                onPress={() => applySavedAddress(a)}
+                accessibilityRole="button"
+                accessibilityLabel={`استخدام العنوان: ${a.title}`}
+                style={{
+                  borderWidth: 1.5,
+                  borderColor: address === a.address ? AppColors.primary : theme.border,
+                  backgroundColor: address === a.address ? AppColors.secondary : "transparent",
+                  borderRadius: BorderRadius.md,
+                  paddingHorizontal: Spacing.md,
+                  paddingVertical: Spacing.sm,
+                  maxWidth: 220,
+                }}
+              >
+                <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 6 }}>
+                  <Feather name="map-pin" size={13} color={AppColors.primary} />
+                  <ThemedText type="small" style={{ fontWeight: FontWeight.bold, color: AppColors.primary }} numberOfLines={1}>{a.title}</ThemedText>
+                </View>
+                <ThemedText type="small" style={{ color: theme.textSecondary, textAlign: "right", marginTop: 2 }} numberOfLines={1}>
+                  {a.address}
+                </ThemedText>
+              </Pressable>
+            ))}
+          </ScrollView>
+        </View>
+      ) : null}
 
       <View style={[styles.inputContainer, { backgroundColor: theme.backgroundDefault }, Shadows.sm]}>
         <ThemedText type="small" style={[styles.label, { color: theme.textSecondary }]}>
