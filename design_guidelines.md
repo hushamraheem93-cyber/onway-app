@@ -83,9 +83,9 @@
 - **Safe Area**: Top (insets.top + 16px), Bottom (tabBarHeight + 16px)
 
 ## Color Palette
-- **Primary**: #FF8C42 (soft orange)
-- **Primary Light**: #FFB174
-- **Primary Dark**: #E67A30
+- **Primary**: #E86520 (brand orange — single source of truth: client/constants/theme.ts)
+- **Primary Light**: #F28B4E
+- **Primary Dark**: #C4520F
 - **Background**: #F5F5F5 (light gray)
 - **Surface**: #FFFFFF (white)
 - **Text Primary**: #2C2C2C

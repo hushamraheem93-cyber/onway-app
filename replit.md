@@ -25,7 +25,7 @@ Onway is built with a React Native (Expo) frontend using TypeScript, and a Node.
 - **Live Vendor Ratings:** Customers rate delivered vendor orders (1–5 stars) via `POST /api/orders/:orderId/rate`. Firestore transaction updates vendor `rating` (weighted average) and `ratingCount`. Admin can override or reset ratings. UI hides stars when `rating === null` (no rating yet) — no more hardcoded 4.5 fallback.
 
 **UI/UX Design:**
-- **Branding:** Primary color #FF7622 (brand orange), secondary #FFF2EC.
+- **Branding:** Primary color #E86520 (brand orange — the single source of truth in client/constants/theme.ts), secondary #FFF0E8.
 - **Typography:** Cairo and Tajawal fonts.
 - **Layout:** 16px screen padding, 14px grid gap, 16px border-radius for cards, 18px for banners.
 - **Component Dimensions:** Category Card: 160x140px, Category Image: 72px, Banner Height: 160px.
