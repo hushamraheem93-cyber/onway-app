@@ -12,7 +12,7 @@ import { orderEvents } from "./orderEvents";
 import { isValidSession } from "./adminAuth";
 import { 
   getFirestore, getUserByPhone, createUser, updateUser, FirestoreUserProfile,
-  getUserAddresses, setUserAddresses,
+  getUserAddresses, setUserAddresses, uploadToFirebaseStorage,
   getProducts as getFirestoreProducts, createProduct as createFirestoreProduct, 
   updateProduct as updateFirestoreProduct, deleteProduct as deleteFirestoreProduct,
   getOrders, getOrderById, getOrdersByPhone, createOrder, updateOrderStatus,
@@ -1316,7 +1316,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         .resize(resizeOptions)
         .webp({ quality: config.quality })
         .toBuffer();
-      const url = `data:image/webp;base64,${webpBuffer.toString("base64")}`;
+      // Durable-first: upload to Firebase Storage (survives redeploys, served by
+      // Google's CDN, keeps Firestore docs small). If Storage is unavailable
+      // (bucket not enabled), fall back to the previous Base64-in-doc behaviour
+      // so uploads never break.
+      let url: string;
+      try {
+        url = await uploadToFirebaseStorage(webpBuffer, `admin-images/${type}/${contentHash}.webp`);
+      } catch (storageErr: any) {
+        console.warn("[Storage] admin upload fell back to Base64:", storageErr?.message);
+        url = `data:image/webp;base64,${webpBuffer.toString("base64")}`;
+      }
       imageHashMap.set(contentHash, url);
       res.json({ url, size: webpBuffer.length });
     } catch (error) {
@@ -2607,12 +2617,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.status(500).json({ error: "Database not configured" });
   });
 
-  app.post("/api/upload", requireCustomerAuth, upload.single("profileImage"), (req: Request & { file?: Express.Multer.File }, res: Response) => {
+  app.post("/api/upload", requireCustomerAuth, upload.single("profileImage"), async (req: Request & { file?: Express.Multer.File }, res: Response) => {
     if (!req.file) {
       return res.status(400).json({ error: "No file uploaded" });
     }
-    const url = `/uploads/${req.file.filename}`;
-    res.json({ url });
+    // Durable-first: move the freshly-written temp file into Firebase Storage —
+    // the local /uploads disk on the VM is EPHEMERAL and wiped on redeploys.
+    // On Storage failure, keep the legacy local path so uploads never break.
+    try {
+      const buf = await fs.promises.readFile(req.file.path);
+      const url = await uploadToFirebaseStorage(
+        buf,
+        `profile-images/${req.file.filename}`,
+        req.file.mimetype || "image/jpeg",
+      );
+      fs.promises.unlink(req.file.path).catch(() => {});
+      return res.json({ url });
+    } catch (storageErr: any) {
+      console.warn("[Storage] profile upload fell back to local disk:", storageErr?.message);
+      return res.json({ url: `/uploads/${req.file.filename}` });
+    }
   });
 
   app.get("/api/users/:phoneNumber", requireCustomerAuth, async (req: Request, res: Response) => {
@@ -2651,7 +2675,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.post("/api/users", requireCustomerAuth, async (req: Request, res: Response) => {
-    const { phoneNumber, fullName, gender, region, address, profileImage, latitude, longitude } = req.body;
+    const { phoneNumber, fullName, gender, region, address, latitude, longitude } = req.body;
+    let { profileImage } = req.body;
 
     if (!phoneNumber || !fullName || !gender || !region || !address) {
       return res.status(400).json({ error: "All fields are required" });
@@ -2659,6 +2684,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
     // Ownership (C3): the profile being written must be the authenticated user's own.
     if ((req as any).customerPhone !== phoneNumber) {
       return res.status(403).json({ error: "غير مصرح" });
+    }
+
+    // The app sends the profile photo as a Base64 data URI. Storing that blob
+    // inside the user document bloats every read (~33%) and pushes the doc
+    // toward Firestore's 1MB limit — convert it to a durable Storage URL here,
+    // transparently to the client. On Storage failure keep the Base64 (legacy).
+    if (typeof profileImage === "string" && profileImage.startsWith("data:image")) {
+      try {
+        const m = profileImage.match(/^data:(image\/[a-z0-9.+-]+);base64,(.+)$/i);
+        if (m) {
+          const buf = Buffer.from(m[2], "base64");
+          const ext = (m[1].split("/")[1] || "webp").replace("jpeg", "jpg");
+          profileImage = await uploadToFirebaseStorage(
+            buf,
+            `profile-images/${encodeURIComponent(phoneNumber)}-${Date.now()}.${ext}`,
+            m[1],
+          );
+        }
+      } catch (storageErr: any) {
+        console.warn("[Storage] profile photo kept as Base64:", storageErr?.message);
+      }
     }
 
     const db = getFirestore();
@@ -5173,11 +5219,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Support image upload
-  app.post("/api/support/upload-image", requireCustomerAuth, upload.single("image"), async (req: Request, res: Response) => {
+  app.post("/api/support/upload-image", requireCustomerAuth, upload.single("image"), async (req: Request & { file?: Express.Multer.File }, res: Response) => {
     try {
       if (!req.file) return res.status(400).json({ error: "No image uploaded" });
-      const imageUrl = `/uploads/${req.file.filename}`;
-      return res.json({ imageUrl });
+      // Durable-first (ephemeral VM disk) — falls back to the legacy local path.
+      try {
+        const buf = await fs.promises.readFile(req.file.path);
+        const imageUrl = await uploadToFirebaseStorage(
+          buf,
+          `support-images/${req.file.filename}`,
+          req.file.mimetype || "image/jpeg",
+        );
+        fs.promises.unlink(req.file.path).catch(() => {});
+        return res.json({ imageUrl });
+      } catch (storageErr: any) {
+        console.warn("[Storage] support upload fell back to local disk:", storageErr?.message);
+        return res.json({ imageUrl: `/uploads/${req.file.filename}` });
+      }
     } catch (e) {
       return res.status(500).json({ error: "Failed to upload image" });
     }
