@@ -131,7 +131,12 @@ export default function RootStackNavigator() {
       );
     }
 
-    return null;
+    // Defensive fallback: for any unexpected auth-flag combination, land on the
+    // login screen (a recoverable entry point) rather than rendering nothing,
+    // which would leave the user stuck on a blank screen with no way forward.
+    return (
+      <Stack.Screen name="PhoneLogin" component={PhoneLoginScreen} />
+    );
   };
 
   const needsAuth =

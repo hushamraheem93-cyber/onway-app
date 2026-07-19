@@ -38,7 +38,7 @@ export default function CheckoutScreen() {
   const headerHeight = useHeaderHeight();
   const { theme } = useTheme();
   const navigation = useNavigation<NavigationProp>();
-  const { items, getTotal, clearCart } = useCart();
+  const { items, getTotal, clearCart, cartVendorId } = useCart();
   const { addOrder } = useOrders();
   const { phoneNumber, userProfile } = useAuth();
   const { savedLocation } = useLocation();
@@ -197,6 +197,9 @@ export default function CheckoutScreen() {
       longitude: selectedLocation?.longitude,
     };
     if (notes.trim()) orderPayload.notes = notes.trim();
+    // Attach the (single) vendor the cart belongs to, so the order is correctly
+    // associated with its store/restaurant instead of an unattributed order.
+    if (cartVendorId) orderPayload.vendorId = cartVendorId;
     if (appliedPromoCode) {
       orderPayload.promoCode = appliedPromoCode;
       orderPayload.promoDiscount = promoDiscount;
