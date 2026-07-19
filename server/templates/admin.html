@@ -41,6 +41,7 @@
       --gray-700: #374151;
       --gray-800: #1f2937;
       --gray-900: #111827;
+      --border: #E7E9EE;
       --sidebar-width: 280px;
       --header-height: 70px;
     }
@@ -159,26 +160,41 @@
     }
 
     .nav-item {
+      position: relative;
       display: flex;
       align-items: center;
       gap: 12px;
-      padding: 14px 16px;
+      padding: 11px 14px;
       border-radius: 10px;
       cursor: pointer;
-      transition: all 0.2s;
-      color: var(--gray-300);
-      margin-bottom: 4px;
+      transition: background 0.15s, color 0.15s;
+      color: #AEB4BE;
+      font-size: 0.92rem;
+      margin-bottom: 2px;
     }
 
     .nav-item:hover {
-      background: rgba(255,255,255,0.08);
+      background: rgba(255,255,255,0.06);
       color: white;
     }
 
+    /* Premium, restrained active state: subtle tint + brand text + an
+       inline-start accent bar (RTL → right), instead of a heavy solid pill. */
     .nav-item.active {
-      background: var(--primary);
+      background: rgba(232,101,32,0.14);
       color: #fff;
-      box-shadow: 0 6px 16px rgba(232, 101, 32, 0.38);
+      font-weight: 700;
+    }
+
+    .nav-item.active::before {
+      content: "";
+      position: absolute;
+      right: 0;
+      top: 9px;
+      bottom: 9px;
+      width: 3px;
+      border-radius: 0 3px 3px 0;
+      background: var(--primary);
     }
 
     .nav-item i {
@@ -197,7 +213,7 @@
     }
 
     .nav-item.active .badge {
-      background: rgba(255,255,255,0.25);
+      background: var(--primary);
       color: #fff;
     }
 
@@ -248,10 +264,11 @@
     .search-box input {
       width: 100%;
       padding: 10px 16px 10px 44px;
-      border: 2px solid var(--gray-200);
+      border: 1px solid var(--border);
       border-radius: 10px;
       font-size: 0.9rem;
       font-family: 'Cairo', sans-serif;
+      background: var(--gray-50);
       transition: all 0.2s;
     }
 
@@ -447,15 +464,15 @@
     }
 
     .btn-outline {
-      background: transparent;
-      border: 2px solid var(--gray-300);
-      color: var(--gray-600);
+      background: #fff;
+      border: 1px solid var(--border);
+      color: var(--gray-700);
     }
 
     .btn-outline:hover {
       border-color: var(--primary);
       color: var(--primary);
-      background: rgba(232,101,32,0.04);
+      background: rgba(232,101,32,0.05);
     }
 
     .df-pill {
