@@ -500,36 +500,26 @@ export default function HomeScreen() {
           <View style={styles.openDot} />
           <ThemedText style={styles.openText}>{vendor.isOpen ? "مفتوح" : "مغلق"}</ThemedText>
         </View>
+        <View style={styles.deliveryPill}>
+          <Feather name="clock" size={12} color={AppColors.primary} />
+          <ThemedText style={styles.deliveryPillText}>{vendor.deliveryTime} دقيقة</ThemedText>
+        </View>
       </View>
       <View style={styles.restaurantInfo}>
         <View style={styles.restaurantTopRow}>
           <ThemedText style={styles.restaurantName} numberOfLines={1}>
             {vendor.name}
           </ThemedText>
-          {vendor.cuisine ? (
-            <View style={styles.cuisineTag}>
-              <ThemedText style={styles.cuisineText}>{vendor.cuisine}</ThemedText>
-            </View>
-          ) : null}
-        </View>
-        <View style={styles.restaurantMeta}>
           {vendor.rating != null ? (
-            <View style={[styles.metaChip, { backgroundColor: AppColors.warningLight }]}>
-              <Feather name="star" size={12} color={AppColors.warning} />
-              <ThemedText style={[styles.metaChipText, { color: AppColors.warning }]}>{vendor.rating.toFixed(1)}</ThemedText>
+            <View style={styles.ratingPill}>
+              <Feather name="star" size={12} color={AppColors.white} />
+              <ThemedText style={styles.ratingPillText}>{vendor.rating.toFixed(1)}</ThemedText>
             </View>
           ) : null}
-          <View style={[styles.metaChip, { backgroundColor: AppColors.secondary }]}>
-            <Feather name="clock" size={12} color={AppColors.primary} />
-            <ThemedText style={[styles.metaChipText, { color: AppColors.primary }]}>{vendor.deliveryTime} دقيقة</ThemedText>
-          </View>
-          <View style={[styles.metaChip, { backgroundColor: AppColors.gray100 }]}>
-            <Feather name="map-pin" size={12} color={AppColors.gray500} />
-            <ThemedText style={[styles.metaChipText, { color: AppColors.gray600 }]} numberOfLines={1}>
-              {vendor.location || "الضلوعية"}
-            </ThemedText>
-          </View>
         </View>
+        <ThemedText style={styles.restaurantMetaText} numberOfLines={1}>
+          {[vendor.cuisine, vendor.location || "الضلوعية"].filter(Boolean).join("   ·   ")}
+        </ThemedText>
       </View>
     </Pressable>
   );
@@ -638,11 +628,9 @@ export default function HomeScreen() {
           <View style={{ flex: 1, alignItems: "flex-end", gap: 4, paddingTop: 24 }}>
             <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 15, color: theme.text, textAlign: "right" }} numberOfLines={1}>{store.storeName}</ThemedText>
             {rating !== null ? (
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 2 }}>
-                {[1,2,3,4,5].map((i) => (
-                  <MaterialCommunityIcons key={i} name={i <= Math.floor(rating) ? "star" : rating - Math.floor(rating) >= 0.5 && i === Math.floor(rating)+1 ? "star-half-full" : "star-outline"} size={13} color={AppColors.warning} />
-                ))}
-                <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 12, color: AppColors.warning }}> {rating.toFixed(1)}</ThemedText>
+              <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 4, backgroundColor: AppColors.success, paddingHorizontal: 9, paddingVertical: 4, borderRadius: 999 }}>
+                <Feather name="star" size={12} color={AppColors.white} />
+                <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 12, color: AppColors.white, includeFontPadding: false }}>{rating.toFixed(1)}</ThemedText>
               </View>
             ) : null}
             {store.address ? (
@@ -1407,44 +1395,68 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginBottom: 8,
+    gap: 10,
+    marginBottom: 6,
   },
   restaurantName: {
     fontFamily: "Cairo_700Bold",
-    fontSize: 16,
+    fontSize: 17,
     color: AppColors.black,
     flex: 1,
     textAlign: "right",
   },
-  cuisineTag: {
-    backgroundColor: AppColors.warningLight,
-    borderRadius: 8,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    marginRight: 8,
-  },
-  cuisineText: {
-    fontFamily: "Cairo_600SemiBold",
-    fontSize: 11,
-    color: AppColors.primary,
-  },
-  restaurantMeta: {
+  // Talabat-style rating badge: a single compact green pill instead of a
+  // rainbow of chips — keeps the card calm and the rating unmistakable.
+  ratingPill: {
     flexDirection: "row-reverse",
     alignItems: "center",
-    gap: 8,
-    flexWrap: "wrap",
+    gap: 4,
+    backgroundColor: AppColors.success,
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+    borderRadius: 999,
   },
-  metaChip: {
+  ratingPillText: {
+    fontFamily: "Cairo_700Bold",
+    fontSize: 12,
+    color: AppColors.white,
+    includeFontPadding: false,
+  },
+  // Quiet, dot-separated meta line (cuisine · area) in muted gray.
+  restaurantMetaText: {
+    fontFamily: "Cairo_600SemiBold",
+    fontSize: 13,
+    color: AppColors.gray500,
+    textAlign: "right",
+  },
+  // White time pill overlaid on the photo, like Talabat's delivery-time chip.
+  deliveryPill: {
+    position: "absolute",
+    bottom: 12,
+    left: 12,
     flexDirection: "row-reverse",
     alignItems: "center",
     gap: 5,
+    backgroundColor: AppColors.white,
     paddingHorizontal: 10,
     paddingVertical: 5,
     borderRadius: 999,
+    ...Platform.select({
+      ios: {
+        shadowColor: AppColors.black,
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.15,
+        shadowRadius: 6,
+      },
+      android: { elevation: 3 },
+      default: { boxShadow: "0 2px 6px rgba(0,0,0,0.15)" },
+    }),
   },
-  metaChipText: {
+  deliveryPillText: {
     fontFamily: "Cairo_700Bold",
     fontSize: 12,
+    color: AppColors.gray800,
+    includeFontPadding: false,
   },
   // ── Search empty ──
   emptySearch: {
