@@ -20,6 +20,7 @@ import { useAuth } from "@/context/AuthContext";
 import { getApiUrl } from "@/lib/query-client";
 import { resolveImageUrl } from "@/utils/imageUtils";
 import { AppColors } from "@/constants/theme";
+import { MAIN_CATEGORIES } from "@/constants/categories";
 
 const ORANGE = AppColors.primary;
 const ORANGE_LIGHT = AppColors.secondary;
@@ -95,6 +96,13 @@ function getCategoryCfg(name: string) {
     CATEGORY_CFG[name.toLowerCase()] ||
     { icon: "tag-multiple", color: ORANGE, bg: ORANGE_LIGHT }
   );
+}
+
+// Display an Arabic category label instead of the raw stored id/slug
+// (e.g. "fruits-vegetables" → "الخضروات والفواكه").
+function categoryLabel(cat: string): string {
+  const match = MAIN_CATEGORIES.find((c) => c.id === cat);
+  return match ? match.name : cat;
 }
 
 function groupByCategory(products: Product[]): SectionData[] {
@@ -318,7 +326,7 @@ export default function VendorProductsScreen({ navigation }: any) {
           <View style={[styles.sectionIconBox, { backgroundColor: cfg.color + "22" }]}>
             <MaterialCommunityIcons name={cfg.icon as any} size={18} color={cfg.color} />
           </View>
-          <ThemedText style={[styles.sectionTitle, { color: cfg.color }]}>{section.title}</ThemedText>
+          <ThemedText style={[styles.sectionTitle, { color: cfg.color }]}>{categoryLabel(section.title)}</ThemedText>
         </View>
         <View style={[styles.sectionCount, { backgroundColor: cfg.color + "22" }]}>
           <ThemedText style={[styles.sectionCountText, { color: cfg.color }]}>{section.count} منتج</ThemedText>

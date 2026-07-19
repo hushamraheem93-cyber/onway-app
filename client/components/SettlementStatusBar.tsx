@@ -30,11 +30,14 @@ export function SettlementStatusBar({
   const isVendor = view.direction === "payout";
   const amountLabel = isVendor ? "المبلغ المستحق لك" : "المستحق للتسوية";
 
-  const palette = {
+  const palettes = {
     outstanding: { bg: "#FFF3E6", border: AppColors.warning, fg: "#9A5B00", dot: "🟠", label: "بانتظار التسوية" },
     under_review: { bg: "#FFF9E0", border: "#E0A800", fg: "#8A6D00", dot: "🟡", label: "طلب التسوية قيد المراجعة" },
     settled: { bg: "#E8F7EE", border: AppColors.success, fg: "#1B7A3D", dot: "🟢", label: "الحساب مسوّى" },
-  }[view.status];
+  } as const;
+  // Fall back to the neutral "settled" palette for any unexpected/missing status
+  // so a malformed settlement response can never blank the whole screen.
+  const palette = palettes[view.status] ?? palettes.settled;
 
   return (
     <View style={[styles.card, { backgroundColor: palette.bg, borderColor: palette.border }, containerStyle]}>
