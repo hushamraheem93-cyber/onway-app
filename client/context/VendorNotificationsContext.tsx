@@ -5,6 +5,7 @@ import React, {
   useEffect,
   useRef,
   useCallback,
+  useMemo,
   Dispatch,
   SetStateAction,
   ReactNode,
@@ -160,8 +161,13 @@ export function VendorNotificationsProvider({ children }: { children: ReactNode 
     return () => subscription.remove();
   }, []);
 
+  const value = useMemo(
+    () => ({ unreadCount, setUnreadCount, newOrderPopup, dismissNewOrderPopup }),
+    [unreadCount, newOrderPopup, dismissNewOrderPopup],
+  );
+
   return (
-    <VendorNotificationsContext.Provider value={{ unreadCount, setUnreadCount, newOrderPopup, dismissNewOrderPopup }}>
+    <VendorNotificationsContext.Provider value={value}>
       {children}
       {newOrderPopup ? (
         <NewOrderPopupModal popup={newOrderPopup} onDismiss={dismissNewOrderPopup} />

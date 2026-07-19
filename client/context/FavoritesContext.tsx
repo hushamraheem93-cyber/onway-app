@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo, ReactNode } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Product } from "@/constants/categories";
 
@@ -38,40 +38,53 @@ export function FavoritesProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const addToFavorites = (product: Product) => {
-    const newFavorites = [...favorites, product];
-    setFavorites(newFavorites);
-    saveFavorites(newFavorites);
-  };
+  // Functional setState keeps these callbacks stable (no captured `favorites`
+  // snapshot), which lets the context value below be memoized safely.
+  const addToFavorites = useCallback((product: Product) => {
+    setFavorites((prev) => {
+      const newFavorites = [...prev, product];
+      saveFavorites(newFavorites);
+      return newFavorites;
+    });
+  }, []);
 
-  const removeFromFavorites = (productId: string) => {
-    const newFavorites = favorites.filter((p) => p.id !== productId);
-    setFavorites(newFavorites);
-    saveFavorites(newFavorites);
-  };
+  const removeFromFavorites = useCallback((productId: string) => {
+    setFavorites((prev) => {
+      const newFavorites = prev.filter((p) => p.id !== productId);
+      saveFavorites(newFavorites);
+      return newFavorites;
+    });
+  }, []);
 
-  const isFavorite = (productId: string) => {
-    return favorites.some((p) => p.id === productId);
-  };
+  const isFavorite = useCallback(
+    (productId: string) => favorites.some((p) => p.id === productId),
+    [favorites],
+  );
 
-  const toggleFavorite = (product: Product) => {
-    if (isFavorite(product.id)) {
-      removeFromFavorites(product.id);
-    } else {
-      addToFavorites(product);
-    }
-  };
+  const toggleFavorite = useCallback(
+    (product: Product) => {
+      if (isFavorite(product.id)) {
+        removeFromFavorites(product.id);
+      } else {
+        addToFavorites(product);
+      }
+    },
+    [isFavorite, removeFromFavorites, addToFavorites],
+  );
+
+  const value = useMemo(
+    () => ({
+      favorites,
+      addToFavorites,
+      removeFromFavorites,
+      isFavorite,
+      toggleFavorite,
+    }),
+    [favorites, addToFavorites, removeFromFavorites, isFavorite, toggleFavorite],
+  );
 
   return (
-    <FavoritesContext.Provider
-      value={{
-        favorites,
-        addToFavorites,
-        removeFromFavorites,
-        isFavorite,
-        toggleFavorite,
-      }}
-    >
+    <FavoritesContext.Provider value={value}>
       {children}
     </FavoritesContext.Provider>
   );

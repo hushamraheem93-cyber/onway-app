@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useCallback, useEffect, useRef, ReactNode } from "react";
+import React, { createContext, useContext, useState, useCallback, useEffect, useRef, useMemo, ReactNode } from "react";
 import { AppState } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { io, Socket } from "socket.io-client";
@@ -252,8 +252,13 @@ export function OrderProvider({ children }: { children: ReactNode }) {
     return newOrder;
   }, [phoneNumber, userProfile]);
 
+  const value = useMemo(
+    () => ({ orders, isLoading, addOrder, refreshOrders }),
+    [orders, isLoading, addOrder, refreshOrders],
+  );
+
   return (
-    <OrderContext.Provider value={{ orders, isLoading, addOrder, refreshOrders }}>
+    <OrderContext.Provider value={value}>
       {children}
     </OrderContext.Provider>
   );

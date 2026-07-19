@@ -601,6 +601,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
+    // NOTE (perf): deliberately NOT memoized. All 8 other providers memoize
+    // their context value, but this one exposes 16 interdependent async auth
+    // functions; memoizing without useCallback-stabilizing each would be a
+    // no-op, and stabilizing them risks stale-closure bugs in the login flow
+    // (the most fragile path in the app). Auth state changes are rare after
+    // boot, so the win would be negligible anyway. Revisit only with full
+    // end-to-end auth testing available.
     <AuthContext.Provider
       value={{
         isLoggedIn,

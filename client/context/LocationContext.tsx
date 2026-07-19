@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo, ReactNode } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 interface SavedLocation {
@@ -34,18 +34,23 @@ export function LocationProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
-  const setSavedLocation = (location: SavedLocation) => {
+  const setSavedLocation = useCallback((location: SavedLocation) => {
     setSavedLocationState(location);
     AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(location));
-  };
+  }, []);
 
-  const clearLocation = () => {
+  const clearLocation = useCallback(() => {
     setSavedLocationState(null);
     AsyncStorage.removeItem(STORAGE_KEY);
-  };
+  }, []);
+
+  const value = useMemo(
+    () => ({ savedLocation, setSavedLocation, clearLocation }),
+    [savedLocation, setSavedLocation, clearLocation],
+  );
 
   return (
-    <LocationContext.Provider value={{ savedLocation, setSavedLocation, clearLocation }}>
+    <LocationContext.Provider value={value}>
       {children}
     </LocationContext.Provider>
   );
