@@ -4,12 +4,15 @@
  * stored securely. A scoped fetch interceptor attaches it automatically to every
  * /api/driver/* request so no individual call site can forget it.
  */
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { getToken, setToken, removeToken } from "@/lib/secureTokenStorage";
 import { getApiUrl } from "@/lib/query-client";
 
 export const DRIVER_TOKEN_KEY = "@onway_driver_token";
 
 const MOBILE_AUTH_PATH = "/api/driver/mobile-auth";
+const AUTH_STORAGE_KEY = "@onway_auth";
+const CUSTOMER_TOKEN_KEY = "@onway_customer_token";
 
 /**
  * Exchange OTP proof (the customer JWT) for a signed driver token and store it.
@@ -44,6 +47,32 @@ export async function clearDriverToken(): Promise<void> {
   try { await removeToken(DRIVER_TOKEN_KEY); } catch { /* ignore */ }
 }
 
+// Self-healing: re-exchange the stored customer JWT (30-day) for a fresh driver
+// token. Used when a guarded /api/driver/* call returns 401 — which happens for
+// drivers registered before the token system existed (no token ever stored), or
+// after the 7-day driver token expires. Without this, /api/driver/status fails
+// silently forever and the app stays stuck on the cached "قيد المراجعة" state
+// even after the admin approves the driver.
+let reissueInFlight: Promise<string | null> | null = null;
+function reissueDriverToken(): Promise<string | null> {
+  if (!reissueInFlight) {
+    reissueInFlight = (async () => {
+      try {
+        const raw = await AsyncStorage.getItem(AUTH_STORAGE_KEY);
+        const phone = raw ? (JSON.parse(raw)?.phoneNumber as string | undefined) : undefined;
+        if (!phone) return null;
+        const customerToken = await getToken(CUSTOMER_TOKEN_KEY);
+        return await issueDriverToken(String(phone), customerToken);
+      } catch {
+        return null;
+      }
+    })().finally(() => {
+      reissueInFlight = null;
+    });
+  }
+  return reissueInFlight;
+}
+
 let installed = false;
 
 /**
@@ -60,14 +89,15 @@ export function installDriverAuthInterceptor(): void {
   if (typeof orig !== "function") return;
 
   g.fetch = async (input: any, init: any = {}) => {
+    let isDriverCall = false;
     try {
       const url =
         typeof input === "string" ? input : input?.url ?? "";
-      if (
+      isDriverCall =
         typeof url === "string" &&
         url.includes("/api/driver/") &&
-        !url.includes(MOBILE_AUTH_PATH)
-      ) {
+        !url.includes(MOBILE_AUTH_PATH);
+      if (isDriverCall) {
         const token = await getToken(DRIVER_TOKEN_KEY);
         if (token) {
           const headers = new Headers(
@@ -84,6 +114,23 @@ export function installDriverAuthInterceptor(): void {
     } catch {
       /* never let auth wiring break the request */
     }
-    return orig(input, init);
+
+    const res = await orig(input, init);
+
+    // 401 on a driver call → the stored token is missing/expired/invalid.
+    // Re-issue from the customer JWT and retry ONCE with the fresh token.
+    if (isDriverCall && res.status === 401) {
+      try {
+        const fresh = await reissueDriverToken();
+        if (fresh) {
+          const headers = new Headers((init && init.headers) || {});
+          headers.set("Authorization", `Bearer ${fresh}`);
+          return await orig(input, { ...init, headers });
+        }
+      } catch {
+        /* fall through to the original 401 */
+      }
+    }
+    return res;
   };
 }
