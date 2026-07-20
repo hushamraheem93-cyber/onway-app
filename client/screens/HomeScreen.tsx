@@ -316,7 +316,10 @@ export default function HomeScreen() {
 
   const CATEGORY_TO_BUSINESS_TYPE: Record<string, string> = {
     restaurants: "restaurant",
+    restaurant: "restaurant",
     pharmacy: "pharmacy",
+    supermarket: "supermarket",
+    bakery: "bakery",
   };
 
   const handleCategoryPress = (category: Category) => {

@@ -384,13 +384,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ── PUBLIC: Stores listing & products ────────────────────────────────────────
   app.get("/api/stores", async (req: Request, res: Response) => {
     try {
-      const { businessType, name } = req.query as { businessType?: string; name?: string };
+      const { businessType, name, categoryId } = req.query as { businessType?: string; name?: string; categoryId?: string };
       const allDocs = await getCachedStores();
       const nameQuery = name ? name.trim().toLowerCase() : "";
+
+      // Map a UI categoryId to the vendor businessType stored in Firestore.
+      // "restaurants" → "restaurant" (plural vs singular), all others match directly.
+      const CATEGORY_BIZ_MAP: Record<string, string> = {
+        restaurants: "restaurant",
+        restaurant: "restaurant",
+        supermarket: "supermarket",
+        pharmacy: "pharmacy",
+        bakery: "bakery",
+      };
+      const effectiveBusinessType = businessType || (categoryId ? CATEGORY_BIZ_MAP[categoryId] : undefined);
+
       const stores = allDocs
-        .filter((s) => (businessType ? s.businessType === businessType : true))
+        .filter((s) => (effectiveBusinessType ? s.businessType === effectiveBusinessType : true))
         .filter((s) => (nameQuery ? (s.storeName || "").toLowerCase().includes(nameQuery) : true))
-        .sort((a, b) => (b.approvedAt as string).localeCompare(a.approvedAt as string));
+        .sort((a, b) => (b.approvedAt || "").localeCompare(a.approvedAt || ""));
       res.set("Cache-Control", "public, max-age=30");
       res.set("Vary", "Accept-Encoding");
       res.json({ stores, total: stores.length });
@@ -624,44 +636,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
           ownerName: "أحمد السوبرماركت",
           phoneNumber: "07700000001",
           address: "شارع الرشيد، بغداد",
-          profileImageUrl: "https://images.unsplash.com/photo-1578916171728-46686eac8d58?w=400&q=80",
-          coverImageUrl: "https://images.unsplash.com/photo-1542838132-92c53300491e?w=800&q=80",
+          profileImageUrl: "https://picsum.photos/seed/onway-supermarket/400/400",
+          coverImageUrl: "https://picsum.photos/seed/onway-supermarket-cover/800/400",
           bio: "سوبرماركت متكامل يوفر كل احتياجاتك اليومية بجودة عالية وأسعار مناسبة",
           products: [
             // خضروات وفواكه
-            { name: "طماطم طازجة", description: "طماطم طازجة 1 كيلو مباشرة من المزرعة", price: 3000, category: "الخضروات والفواكه", categoryId: "fruits-vegetables", stock: 100, unit: "كيلو", imageUrl: "https://images.unsplash.com/photo-1546470427-e26264be0b11?w=400&q=80" },
-            { name: "خيار", description: "خيار طازج 1 كيلو", price: 2500, category: "الخضروات والفواكه", categoryId: "fruits-vegetables", stock: 80, unit: "كيلو", imageUrl: "https://images.unsplash.com/photo-1449300079323-02e209d9d3a6?w=400&q=80" },
-            { name: "فراولة طازجة", description: "فراولة طازجة 500 جرام موسمية", price: 6000, category: "الخضروات والفواكه", categoryId: "fruits-vegetables", stock: 40, unit: "علبة", imageUrl: "https://images.unsplash.com/photo-1464965911861-746a04b4bca6?w=400&q=80" },
-            { name: "موز", description: "موز طازج 1 كيلو", price: 4000, category: "الخضروات والفواكه", categoryId: "fruits-vegetables", stock: 60, unit: "كيلو", imageUrl: "https://images.unsplash.com/photo-1571771894821-ce9b6c11b08e?w=400&q=80" },
-            { name: "تفاح أحمر", description: "تفاح أحمر 1 كيلو", price: 5000, category: "الخضروات والفواكه", categoryId: "fruits-vegetables", stock: 70, unit: "كيلو", imageUrl: "https://images.unsplash.com/photo-1567306226416-28f0efdc88ce?w=400&q=80" },
-            { name: "بطاطا", description: "بطاطا طازجة 1 كيلو", price: 2500, category: "الخضروات والفواكه", categoryId: "fruits-vegetables", stock: 90, unit: "كيلو", imageUrl: "https://images.unsplash.com/photo-1518977676601-b53f82ber8a3?w=400&q=80" },
+            { name: "طماطم طازجة", description: "طماطم طازجة 1 كيلو مباشرة من المزرعة", price: 3000, category: "الخضروات والفواكه", categoryId: "fruits-vegetables", stock: 100, unit: "كيلو", imageUrl: "https://picsum.photos/seed/1546470427-e/400/400" },
+            { name: "خيار", description: "خيار طازج 1 كيلو", price: 2500, category: "الخضروات والفواكه", categoryId: "fruits-vegetables", stock: 80, unit: "كيلو", imageUrl: "https://picsum.photos/seed/144930007932/400/400" },
+            { name: "فراولة طازجة", description: "فراولة طازجة 500 جرام موسمية", price: 6000, category: "الخضروات والفواكه", categoryId: "fruits-vegetables", stock: 40, unit: "علبة", imageUrl: "https://picsum.photos/seed/146496591186/400/400" },
+            { name: "موز", description: "موز طازج 1 كيلو", price: 4000, category: "الخضروات والفواكه", categoryId: "fruits-vegetables", stock: 60, unit: "كيلو", imageUrl: "https://picsum.photos/seed/157177189482/400/400" },
+            { name: "تفاح أحمر", description: "تفاح أحمر 1 كيلو", price: 5000, category: "الخضروات والفواكه", categoryId: "fruits-vegetables", stock: 70, unit: "كيلو", imageUrl: "https://picsum.photos/seed/156730622641/400/400" },
+            { name: "بطاطا", description: "بطاطا طازجة 1 كيلو", price: 2500, category: "الخضروات والفواكه", categoryId: "fruits-vegetables", stock: 90, unit: "كيلو", imageUrl: "https://picsum.photos/seed/151897767660/400/400" },
             // ألبان وأجبان
-            { name: "حليب طازج", description: "حليب طازج كامل الدسم 1 لتر", price: 3500, category: "الألبان والأجبان", categoryId: "dairy-eggs", stock: 50, unit: "لتر", imageUrl: "https://images.unsplash.com/photo-1550583724-b2692b85b150?w=400&q=80" },
-            { name: "جبن أبيض", description: "جبن أبيض طازج 500 جرام", price: 5000, category: "الألبان والأجبان", categoryId: "dairy-eggs", stock: 35, unit: "علبة", imageUrl: "https://images.unsplash.com/photo-1486297678162-eb2a19b0a32d?w=400&q=80" },
-            { name: "بيض دجاج", description: "بيض دجاج بلدي 12 حبة", price: 6000, category: "الألبان والأجبان", categoryId: "dairy-eggs", stock: 45, unit: "كرتونة", imageUrl: "https://images.unsplash.com/photo-1582722872445-44dc5f7e3c8f?w=400&q=80" },
-            { name: "لبن رائب", description: "لبن رائب كامل الدسم 500 جرام", price: 2500, category: "الألبان والأجبان", categoryId: "dairy-eggs", stock: 60, unit: "علبة", imageUrl: "https://images.unsplash.com/photo-1563636619-e9143da7973b?w=400&q=80" },
+            { name: "حليب طازج", description: "حليب طازج كامل الدسم 1 لتر", price: 3500, category: "الألبان والأجبان", categoryId: "dairy-eggs", stock: 50, unit: "لتر", imageUrl: "https://picsum.photos/seed/1550583724-b/400/400" },
+            { name: "جبن أبيض", description: "جبن أبيض طازج 500 جرام", price: 5000, category: "الألبان والأجبان", categoryId: "dairy-eggs", stock: 35, unit: "علبة", imageUrl: "https://picsum.photos/seed/148629767816/400/400" },
+            { name: "بيض دجاج", description: "بيض دجاج بلدي 12 حبة", price: 6000, category: "الألبان والأجبان", categoryId: "dairy-eggs", stock: 45, unit: "كرتونة", imageUrl: "https://picsum.photos/seed/158272287244/400/400" },
+            { name: "لبن رائب", description: "لبن رائب كامل الدسم 500 جرام", price: 2500, category: "الألبان والأجبان", categoryId: "dairy-eggs", stock: 60, unit: "علبة", imageUrl: "https://picsum.photos/seed/1563636619-e/400/400" },
             // مشروبات
-            { name: "ماء معدني", description: "ماء معدني نقي 1.5 لتر", price: 1000, category: "المشروبات", categoryId: "beverages", stock: 200, unit: "قارورة", imageUrl: "https://images.unsplash.com/photo-1548839140-29a749e1cf4d?w=400&q=80" },
-            { name: "عصير برتقال طبيعي", description: "عصير برتقال طبيعي 1 لتر", price: 4000, category: "المشروبات", categoryId: "beverages", stock: 30, unit: "قارورة", imageUrl: "https://images.unsplash.com/photo-1621506289937-a8e4df240d0b?w=400&q=80" },
-            { name: "مشروب غازي", description: "مشروب غازي كولا 355 مل", price: 1500, category: "المشروبات", categoryId: "beverages", stock: 120, unit: "علبة", imageUrl: "https://images.unsplash.com/photo-1622483767028-3f66f32aef97?w=400&q=80" },
-            { name: "عصير مانجا", description: "عصير مانجا طبيعي 1 لتر", price: 4500, category: "المشروبات", categoryId: "beverages", stock: 25, unit: "قارورة", imageUrl: "https://images.unsplash.com/photo-1546173159-315724a31696?w=400&q=80" },
+            { name: "ماء معدني", description: "ماء معدني نقي 1.5 لتر", price: 1000, category: "المشروبات", categoryId: "beverages", stock: 200, unit: "قارورة", imageUrl: "https://picsum.photos/seed/1548839140-2/400/400" },
+            { name: "عصير برتقال طبيعي", description: "عصير برتقال طبيعي 1 لتر", price: 4000, category: "المشروبات", categoryId: "beverages", stock: 30, unit: "قارورة", imageUrl: "https://picsum.photos/seed/162150628993/400/400" },
+            { name: "مشروب غازي", description: "مشروب غازي كولا 355 مل", price: 1500, category: "المشروبات", categoryId: "beverages", stock: 120, unit: "علبة", imageUrl: "https://picsum.photos/seed/162248376702/400/400" },
+            { name: "عصير مانجا", description: "عصير مانجا طبيعي 1 لتر", price: 4500, category: "المشروبات", categoryId: "beverages", stock: 25, unit: "قارورة", imageUrl: "https://picsum.photos/seed/1546173159-3/400/400" },
             // سناكس
-            { name: "شيبس مملح", description: "شيبس مقرمش بالملح 150 جرام", price: 2000, category: "سناكس ومقرمشات", categoryId: "snacks-sweets", stock: 80, unit: "كيس", imageUrl: "https://images.unsplash.com/photo-1566478989037-eec170784d0b?w=400&q=80" },
-            { name: "شوكولاتة حليب", description: "شوكولاتة بالحليب 100 جرام", price: 3000, category: "سناكس ومقرمشات", categoryId: "snacks-sweets", stock: 60, unit: "قطعة", imageUrl: "https://images.unsplash.com/photo-1548907040-4baa42d10919?w=400&q=80" },
-            { name: "بسكويت شاي", description: "بسكويت للشاي 400 جرام", price: 2500, category: "سناكس ومقرمشات", categoryId: "snacks-sweets", stock: 70, unit: "علبة", imageUrl: "https://images.unsplash.com/photo-1558961363-fa8fdf82db35?w=400&q=80" },
+            { name: "شيبس مملح", description: "شيبس مقرمش بالملح 150 جرام", price: 2000, category: "سناكس ومقرمشات", categoryId: "snacks-sweets", stock: 80, unit: "كيس", imageUrl: "https://picsum.photos/seed/156647898903/400/400" },
+            { name: "شوكولاتة حليب", description: "شوكولاتة بالحليب 100 جرام", price: 3000, category: "سناكس ومقرمشات", categoryId: "snacks-sweets", stock: 60, unit: "قطعة", imageUrl: "https://picsum.photos/seed/1548907040-4/400/400" },
+            { name: "بسكويت شاي", description: "بسكويت للشاي 400 جرام", price: 2500, category: "سناكس ومقرمشات", categoryId: "snacks-sweets", stock: 70, unit: "علبة", imageUrl: "https://picsum.photos/seed/1558961363-f/400/400" },
             // شاي وقهوة
-            { name: "شاي أسود", description: "شاي أسود فاخر 200 جرام", price: 5000, category: "شاي وقهوة", categoryId: "tea-coffee", stock: 40, unit: "علبة", imageUrl: "https://images.unsplash.com/photo-1556679343-c7306c1976bc?w=400&q=80" },
-            { name: "قهوة عربية", description: "قهوة عربية أصيلة بالهيل 250 جرام", price: 8000, category: "شاي وقهوة", categoryId: "tea-coffee", stock: 25, unit: "علبة", imageUrl: "https://images.unsplash.com/photo-1509042239860-f550ce710b93?w=400&q=80" },
-            { name: "نسكافيه", description: "نسكافيه كلاسيك 200 جرام", price: 9000, category: "شاي وقهوة", categoryId: "tea-coffee", stock: 30, unit: "علبة", imageUrl: "https://images.unsplash.com/photo-1498804103079-a6351b050096?w=400&q=80" },
+            { name: "شاي أسود", description: "شاي أسود فاخر 200 جرام", price: 5000, category: "شاي وقهوة", categoryId: "tea-coffee", stock: 40, unit: "علبة", imageUrl: "https://picsum.photos/seed/1556679343-c/400/400" },
+            { name: "قهوة عربية", description: "قهوة عربية أصيلة بالهيل 250 جرام", price: 8000, category: "شاي وقهوة", categoryId: "tea-coffee", stock: 25, unit: "علبة", imageUrl: "https://picsum.photos/seed/150904223986/400/400" },
+            { name: "نسكافيه", description: "نسكافيه كلاسيك 200 جرام", price: 9000, category: "شاي وقهوة", categoryId: "tea-coffee", stock: 30, unit: "علبة", imageUrl: "https://picsum.photos/seed/149880410307/400/400" },
             // منظفات
-            { name: "سائل غسيل ملابس", description: "سائل غسيل قوي 3 لتر", price: 7000, category: "المنظفات", categoryId: "cleaning-care", stock: 35, unit: "قارورة", imageUrl: "https://images.unsplash.com/photo-1585421514738-01798e348b17?w=400&q=80" },
-            { name: "صابون يدين", description: "صابون سائل لليدين 500 مل", price: 3000, category: "المنظفات", categoryId: "cleaning-care", stock: 50, unit: "قارورة", imageUrl: "https://images.unsplash.com/photo-1584515933487-779824d29309?w=400&q=80" },
-            { name: "منظف للأرضيات", description: "منظف أرضيات بعطر الليمون 2 لتر", price: 5000, category: "المنظفات", categoryId: "cleaning-care", stock: 28, unit: "قارورة", imageUrl: "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=400&q=80" },
+            { name: "سائل غسيل ملابس", description: "سائل غسيل قوي 3 لتر", price: 7000, category: "المنظفات", categoryId: "cleaning-care", stock: 35, unit: "قارورة", imageUrl: "https://picsum.photos/seed/158542151473/400/400" },
+            { name: "صابون يدين", description: "صابون سائل لليدين 500 مل", price: 3000, category: "المنظفات", categoryId: "cleaning-care", stock: 50, unit: "قارورة", imageUrl: "https://picsum.photos/seed/158451593348/400/400" },
+            { name: "منظف للأرضيات", description: "منظف أرضيات بعطر الليمون 2 لتر", price: 5000, category: "المنظفات", categoryId: "cleaning-care", stock: 28, unit: "قارورة", imageUrl: "https://picsum.photos/seed/1558618666-f/400/400" },
             // مواد غذائية
-            { name: "أرز بسمتي", description: "أرز بسمتي فاخر 5 كيلو", price: 12000, category: "المواد الغذائية", categoryId: "food-supplies", stock: 40, unit: "كيس", imageUrl: "https://images.unsplash.com/photo-1586201375761-83865001e31c?w=400&q=80" },
-            { name: "زيت نباتي", description: "زيت نباتي صافي 1.5 لتر", price: 8000, category: "المواد الغذائية", categoryId: "food-supplies", stock: 45, unit: "قارورة", imageUrl: "https://images.unsplash.com/photo-1474979266404-7eaacbcd87c5?w=400&q=80" },
-            { name: "دقيق قمح", description: "دقيق قمح أبيض 2 كيلو", price: 6000, category: "المواد الغذائية", categoryId: "food-supplies", stock: 55, unit: "كيس", imageUrl: "https://images.unsplash.com/photo-1574323347407-f5e1ad6d020b?w=400&q=80" },
-            { name: "سكر أبيض", description: "سكر أبيض ناعم 2 كيلو", price: 5000, category: "المواد الغذائية", categoryId: "food-supplies", stock: 60, unit: "كيس", imageUrl: "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=400&q=80" },
+            { name: "أرز بسمتي", description: "أرز بسمتي فاخر 5 كيلو", price: 12000, category: "المواد الغذائية", categoryId: "food-supplies", stock: 40, unit: "كيس", imageUrl: "https://picsum.photos/seed/158620137576/400/400" },
+            { name: "زيت نباتي", description: "زيت نباتي صافي 1.5 لتر", price: 8000, category: "المواد الغذائية", categoryId: "food-supplies", stock: 45, unit: "قارورة", imageUrl: "https://picsum.photos/seed/147497926640/400/400" },
+            { name: "دقيق قمح", description: "دقيق قمح أبيض 2 كيلو", price: 6000, category: "المواد الغذائية", categoryId: "food-supplies", stock: 55, unit: "كيس", imageUrl: "https://picsum.photos/seed/157432334740/400/400" },
+            { name: "سكر أبيض", description: "سكر أبيض ناعم 2 كيلو", price: 5000, category: "المواد الغذائية", categoryId: "food-supplies", stock: 60, unit: "كيس", imageUrl: "https://picsum.photos/seed/1558618666-f/400/400" },
           ],
         },
         // ── مطعم الرائد ────────────────────────────────────────────────────────
@@ -671,20 +683,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
           ownerName: "محمد الرائد",
           phoneNumber: "07700000002",
           address: "شارع المتنبي، بغداد",
-          profileImageUrl: "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=400&q=80",
-          coverImageUrl: "https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=800&q=80",
+          profileImageUrl: "https://picsum.photos/seed/iraqi-restaurant/400/400",
+          coverImageUrl: "https://picsum.photos/seed/iraqi-restaurant-cover/800/400",
           bio: "مطعم عراقي أصيل يقدم أشهى الأكلات التراثية بنكهات عراقية حقيقية",
           products: [
-            { name: "كباب عراقي", description: "كباب لحم مشوي مع الخبز العراقي وصحن السلطة", price: 12000, category: "المشويات", categoryId: "restaurants", stock: 50, unit: "وجبة", imageUrl: "https://images.unsplash.com/photo-1529692236671-f1f6cf9683ba?w=400&q=80" },
-            { name: "تكا مشوية", description: "تكا لحم بقري مشوي على الجمر 4 قطع", price: 15000, category: "المشويات", categoryId: "restaurants", stock: 40, unit: "وجبة", imageUrl: "https://images.unsplash.com/photo-1544025162-d76538775176?w=400&q=80" },
-            { name: "قوزي عراقي", description: "قوزي لحم ضأن مع الأرز والزبيب", price: 25000, category: "الأكلات العراقية", categoryId: "restaurants", stock: 20, unit: "وجبة", imageUrl: "https://images.unsplash.com/photo-1574484284002-952d92456975?w=400&q=80" },
-            { name: "دولمة عراقية", description: "دولمة محشية بالأرز واللحم المفروم", price: 14000, category: "الأكلات العراقية", categoryId: "restaurants", stock: 30, unit: "طبق", imageUrl: "https://images.unsplash.com/photo-1512003867696-6d5ce6835040?w=400&q=80" },
-            { name: "مسقوف", description: "سمك مسقوف طازج مشوي على الجمر", price: 22000, category: "الأسماك", categoryId: "restaurants", stock: 15, unit: "وجبة", imageUrl: "https://images.unsplash.com/photo-1467003909585-2f8a72700288?w=400&q=80" },
-            { name: "شوربة عراقية", description: "شوربة لحم مع الخضروات الطازجة", price: 7000, category: "الشوربات", categoryId: "restaurants", stock: 35, unit: "طبق", imageUrl: "https://images.unsplash.com/photo-1547592180-85f173990554?w=400&q=80" },
-            { name: "برياني دجاج", description: "برياني دجاج بالبهارات الهندية مع الزبيب", price: 13000, category: "الأرز", categoryId: "restaurants", stock: 25, unit: "وجبة", imageUrl: "https://images.unsplash.com/photo-1563379091339-03b21ab4a4f8?w=400&q=80" },
-            { name: "فلافل وحمص", description: "فلافل مقرمش مع حمص وخبز عربي", price: 5000, category: "المقبلات", categoryId: "restaurants", stock: 60, unit: "طبق", imageUrl: "https://images.unsplash.com/photo-1593001874117-c99c800e3eb6?w=400&q=80" },
-            { name: "جوزة مشوية", description: "جوزة دجاج كاملة مع البهارات والليمون", price: 18000, category: "الدجاج", categoryId: "restaurants", stock: 20, unit: "وجبة", imageUrl: "https://images.unsplash.com/photo-1598103442097-8b74394b95c3?w=400&q=80" },
-            { name: "لقيمات بالعسل", description: "لقيمات عراقية أصيلة مع العسل والسمسم", price: 6000, category: "الحلويات", categoryId: "restaurants", stock: 40, unit: "طبق", imageUrl: "https://images.unsplash.com/photo-1551024506-0bccd828d307?w=400&q=80" },
+            { name: "كباب عراقي", description: "كباب لحم مشوي مع الخبز العراقي وصحن السلطة", price: 12000, category: "المشويات", categoryId: "restaurants", stock: 50, unit: "وجبة", imageUrl: "https://picsum.photos/seed/152969223667/400/400" },
+            { name: "تكا مشوية", description: "تكا لحم بقري مشوي على الجمر 4 قطع", price: 15000, category: "المشويات", categoryId: "restaurants", stock: 40, unit: "وجبة", imageUrl: "https://picsum.photos/seed/1544025162-d/400/400" },
+            { name: "قوزي عراقي", description: "قوزي لحم ضأن مع الأرز والزبيب", price: 25000, category: "الأكلات العراقية", categoryId: "restaurants", stock: 20, unit: "وجبة", imageUrl: "https://picsum.photos/seed/157448428400/400/400" },
+            { name: "دولمة عراقية", description: "دولمة محشية بالأرز واللحم المفروم", price: 14000, category: "الأكلات العراقية", categoryId: "restaurants", stock: 30, unit: "طبق", imageUrl: "https://picsum.photos/seed/151200386769/400/400" },
+            { name: "مسقوف", description: "سمك مسقوف طازج مشوي على الجمر", price: 22000, category: "الأسماك", categoryId: "restaurants", stock: 15, unit: "وجبة", imageUrl: "https://picsum.photos/seed/146700390958/400/400" },
+            { name: "شوربة عراقية", description: "شوربة لحم مع الخضروات الطازجة", price: 7000, category: "الشوربات", categoryId: "restaurants", stock: 35, unit: "طبق", imageUrl: "https://picsum.photos/seed/1547592180-8/400/400" },
+            { name: "برياني دجاج", description: "برياني دجاج بالبهارات الهندية مع الزبيب", price: 13000, category: "الأرز", categoryId: "restaurants", stock: 25, unit: "وجبة", imageUrl: "https://picsum.photos/seed/156337909133/400/400" },
+            { name: "فلافل وحمص", description: "فلافل مقرمش مع حمص وخبز عربي", price: 5000, category: "المقبلات", categoryId: "restaurants", stock: 60, unit: "طبق", imageUrl: "https://picsum.photos/seed/159300187411/400/400" },
+            { name: "جوزة مشوية", description: "جوزة دجاج كاملة مع البهارات والليمون", price: 18000, category: "الدجاج", categoryId: "restaurants", stock: 20, unit: "وجبة", imageUrl: "https://picsum.photos/seed/159810344209/400/400" },
+            { name: "لقيمات بالعسل", description: "لقيمات عراقية أصيلة مع العسل والسمسم", price: 6000, category: "الحلويات", categoryId: "restaurants", stock: 40, unit: "طبق", imageUrl: "https://picsum.photos/seed/1551024506-0/400/400" },
           ],
         },
         // ── مطعم الشاورما الذهبي ────────────────────────────────────────────────
@@ -694,30 +706,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
           ownerName: "كريم الشاورماجي",
           phoneNumber: "07700000004",
           address: "شارع الكرادة، بغداد",
-          profileImageUrl: "https://images.unsplash.com/photo-1561050501-a45f7268ce8c?w=400&q=80",
-          coverImageUrl: "https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=800&q=80",
+          profileImageUrl: "https://picsum.photos/seed/shawarma-restaurant/400/400",
+          coverImageUrl: "https://picsum.photos/seed/shawarma-restaurant-cover/800/400",
           bio: "أشهى شاورما وبرغر في بغداد — مكونات طازجة، نكهات لا تُنسى",
           products: [
             // شاورما
-            { name: "شاورما دجاج", description: "شاورما دجاج مشوي بالخبز العربي مع صوص الثوم والخضار الطازجة", price: 7000, category: "شاورما", categoryId: "restaurants", stock: 80, unit: "ساندويتش", imageUrl: "https://images.unsplash.com/photo-1561050501-a45f7268ce8c?w=400&q=80" },
-            { name: "شاورما لحم", description: "شاورما لحم غنم مشوي بالبهارات والليمون وصوص الطحينة", price: 9000, category: "شاورما", categoryId: "restaurants", stock: 60, unit: "ساندويتش", imageUrl: "https://images.unsplash.com/photo-1529692236671-f1f6cf9683ba?w=400&q=80" },
-            { name: "شاورما مشكل", description: "شاورما دجاج ولحم معاً مع صوص الثوم والحار", price: 10000, category: "شاورما", categoryId: "restaurants", stock: 50, unit: "ساندويتش", imageUrl: "https://images.unsplash.com/photo-1517360981392-25bc36f51d78?w=400&q=80" },
-            { name: "صحن شاورما", description: "شاورما دجاج مقطعة مع خبز وبطاطا مقلية وسلطة", price: 14000, category: "شاورما", categoryId: "restaurants", stock: 40, unit: "صحن", imageUrl: "https://images.unsplash.com/photo-1556269923-e4ef51d69638?w=400&q=80" },
+            { name: "شاورما دجاج", description: "شاورما دجاج مشوي بالخبز العربي مع صوص الثوم والخضار الطازجة", price: 7000, category: "شاورما", categoryId: "restaurants", stock: 80, unit: "ساندويتش", imageUrl: "https://picsum.photos/seed/1561050501-a/400/400" },
+            { name: "شاورما لحم", description: "شاورما لحم غنم مشوي بالبهارات والليمون وصوص الطحينة", price: 9000, category: "شاورما", categoryId: "restaurants", stock: 60, unit: "ساندويتش", imageUrl: "https://picsum.photos/seed/152969223667/400/400" },
+            { name: "شاورما مشكل", description: "شاورما دجاج ولحم معاً مع صوص الثوم والحار", price: 10000, category: "شاورما", categoryId: "restaurants", stock: 50, unit: "ساندويتش", imageUrl: "https://picsum.photos/seed/151736098139/400/400" },
+            { name: "صحن شاورما", description: "شاورما دجاج مقطعة مع خبز وبطاطا مقلية وسلطة", price: 14000, category: "شاورما", categoryId: "restaurants", stock: 40, unit: "صحن", imageUrl: "https://picsum.photos/seed/1556269923-e/400/400" },
             // برغر
-            { name: "برغر كلاسيك", description: "برغر لحم بقري 180 جرام مع جبن، خس، طماطم، وصوص خاص", price: 11000, category: "برغر", categoryId: "restaurants", stock: 55, unit: "ساندويتش", imageUrl: "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=400&q=80" },
-            { name: "برغر دبل", description: "دبل برغر لحم مع دبل جبن وبيضة مقلية وصوص BBQ", price: 15000, category: "برغر", categoryId: "restaurants", stock: 40, unit: "ساندويتش", imageUrl: "https://images.unsplash.com/photo-1607013251379-e6eecfffe234?w=400&q=80" },
-            { name: "برغر دجاج كريسبي", description: "فيليه دجاج مقرمش مقلي مع صوص الحار والخس", price: 10000, category: "برغر", categoryId: "restaurants", stock: 50, unit: "ساندويتش", imageUrl: "https://images.unsplash.com/photo-1587329310686-91414b8e3cb7?w=400&q=80" },
+            { name: "برغر كلاسيك", description: "برغر لحم بقري 180 جرام مع جبن، خس، طماطم، وصوص خاص", price: 11000, category: "برغر", categoryId: "restaurants", stock: 55, unit: "ساندويتش", imageUrl: "https://picsum.photos/seed/156890134637/400/400" },
+            { name: "برغر دبل", description: "دبل برغر لحم مع دبل جبن وبيضة مقلية وصوص BBQ", price: 15000, category: "برغر", categoryId: "restaurants", stock: 40, unit: "ساندويتش", imageUrl: "https://picsum.photos/seed/160701325137/400/400" },
+            { name: "برغر دجاج كريسبي", description: "فيليه دجاج مقرمش مقلي مع صوص الحار والخس", price: 10000, category: "برغر", categoryId: "restaurants", stock: 50, unit: "ساندويتش", imageUrl: "https://picsum.photos/seed/158732931068/400/400" },
             // وجبات
-            { name: "وجبة برغر + بطاطا + مشروب", description: "برغر كلاسيك مع بطاطا مقلية كبيرة ومشروب غازي 500 مل", price: 16000, category: "وجبات", categoryId: "restaurants", stock: 45, unit: "وجبة", imageUrl: "https://images.unsplash.com/photo-1594212699903-ec8a3eca50f5?w=400&q=80" },
-            { name: "وجبة شاورما + بطاطا + مشروب", description: "شاورما دجاج مع بطاطا مقلية ومشروب غازي", price: 13000, category: "وجبات", categoryId: "restaurants", stock: 50, unit: "وجبة", imageUrl: "https://images.unsplash.com/photo-1513442542250-854d436a73f2?w=400&q=80" },
-            { name: "عائلي شاورما (4 أشخاص)", description: "4 ساندويتشات شاورما مشكل + 4 بطاطا + 4 مشروبات", price: 45000, category: "وجبات عائلية", categoryId: "restaurants", stock: 20, unit: "طلبية", imageUrl: "https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=400&q=80" },
+            { name: "وجبة برغر + بطاطا + مشروب", description: "برغر كلاسيك مع بطاطا مقلية كبيرة ومشروب غازي 500 مل", price: 16000, category: "وجبات", categoryId: "restaurants", stock: 45, unit: "وجبة", imageUrl: "https://picsum.photos/seed/159421269990/400/400" },
+            { name: "وجبة شاورما + بطاطا + مشروب", description: "شاورما دجاج مع بطاطا مقلية ومشروب غازي", price: 13000, category: "وجبات", categoryId: "restaurants", stock: 50, unit: "وجبة", imageUrl: "https://picsum.photos/seed/151344254225/400/400" },
+            { name: "عائلي شاورما (4 أشخاص)", description: "4 ساندويتشات شاورما مشكل + 4 بطاطا + 4 مشروبات", price: 45000, category: "وجبات عائلية", categoryId: "restaurants", stock: 20, unit: "طلبية", imageUrl: "https://picsum.photos/seed/1555396273-3/400/400" },
             // إضافات وسلطات
-            { name: "بطاطا مقلية كبيرة", description: "بطاطا مقلية مقرمشة مع صوص الكيتشب والمايونيز", price: 4000, category: "إضافات", categoryId: "restaurants", stock: 100, unit: "طبق", imageUrl: "https://images.unsplash.com/photo-1576107232684-1279f390859f?w=400&q=80" },
-            { name: "سلطة عربية", description: "طماطم، خيار، بصل، بقدونس مع زيت زيتون وليمون", price: 3500, category: "سلطات", categoryId: "restaurants", stock: 60, unit: "طبق", imageUrl: "https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=400&q=80" },
-            { name: "صوص ثوم كبير", description: "صوص ثوم كريمي منزلي الصنع 200 مل", price: 2500, category: "إضافات", categoryId: "restaurants", stock: 80, unit: "علبة", imageUrl: "https://images.unsplash.com/photo-1472476443507-c7a5948772fc?w=400&q=80" },
+            { name: "بطاطا مقلية كبيرة", description: "بطاطا مقلية مقرمشة مع صوص الكيتشب والمايونيز", price: 4000, category: "إضافات", categoryId: "restaurants", stock: 100, unit: "طبق", imageUrl: "https://picsum.photos/seed/157610723268/400/400" },
+            { name: "سلطة عربية", description: "طماطم، خيار، بصل، بقدونس مع زيت زيتون وليمون", price: 3500, category: "سلطات", categoryId: "restaurants", stock: 60, unit: "طبق", imageUrl: "https://picsum.photos/seed/151262177695/400/400" },
+            { name: "صوص ثوم كبير", description: "صوص ثوم كريمي منزلي الصنع 200 مل", price: 2500, category: "إضافات", categoryId: "restaurants", stock: 80, unit: "علبة", imageUrl: "https://picsum.photos/seed/147247644350/400/400" },
             // مشروبات
-            { name: "عصير ليمون بالنعناع", description: "عصير ليمون طازج بالنعناع والثلج 500 مل", price: 3500, category: "مشروبات", categoryId: "restaurants", stock: 70, unit: "كوب", imageUrl: "https://images.unsplash.com/photo-1621506289937-a8e4df240d0b?w=400&q=80" },
-            { name: "ميلك شيك شوكولاتة", description: "ميلك شيك شوكولاتة بالآيس كريم والكريمة", price: 5000, category: "مشروبات", categoryId: "restaurants", stock: 35, unit: "كوب", imageUrl: "https://images.unsplash.com/photo-1572490122747-3968b75cc699?w=400&q=80" },
+            { name: "عصير ليمون بالنعناع", description: "عصير ليمون طازج بالنعناع والثلج 500 مل", price: 3500, category: "مشروبات", categoryId: "restaurants", stock: 70, unit: "كوب", imageUrl: "https://picsum.photos/seed/162150628993/400/400" },
+            { name: "ميلك شيك شوكولاتة", description: "ميلك شيك شوكولاتة بالآيس كريم والكريمة", price: 5000, category: "مشروبات", categoryId: "restaurants", stock: 35, unit: "كوب", imageUrl: "https://picsum.photos/seed/157249012274/400/400" },
           ],
         },
         // ── صيدلية الشفاء ──────────────────────────────────────────────────────
@@ -727,18 +739,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
           ownerName: "د. علي الشفاء",
           phoneNumber: "07700000003",
           address: "شارع حيفا، بغداد",
-          profileImageUrl: "https://images.unsplash.com/photo-1586015555751-63bb77f4322a?w=400&q=80",
-          coverImageUrl: "https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=800&q=80",
+          profileImageUrl: "https://picsum.photos/seed/pharmacy-store/400/400",
+          coverImageUrl: "https://picsum.photos/seed/pharmacy-store-cover/800/400",
           bio: "صيدلية متكاملة توفر الأدوية ومستلزمات العناية الصحية بأسعار مناسبة",
           products: [
-            { name: "باراسيتامول 500 مغ", description: "أقراص مسكن للألم وخافض للحرارة 20 قرص", price: 3500, category: "مسكنات الألم", categoryId: "pharmacy", stock: 100, unit: "علبة", imageUrl: "https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=400&q=80" },
-            { name: "فيتامين سي 1000", description: "فيتامين سي أقراص فوارة لتعزيز المناعة", price: 8000, category: "الفيتامينات", categoryId: "pharmacy", stock: 60, unit: "علبة", imageUrl: "https://images.unsplash.com/photo-1550572017-edd951aa8f72?w=400&q=80" },
-            { name: "بانادول اكسترا", description: "مسكن قوي للصداع وآلام الجسم", price: 4500, category: "مسكنات الألم", categoryId: "pharmacy", stock: 80, unit: "علبة", imageUrl: "https://images.unsplash.com/photo-1559757175-0eb30cd8c063?w=400&q=80" },
-            { name: "كريم ترطيب يومي", description: "كريم مرطب للبشرة الجافة 100 مل", price: 12000, category: "العناية بالبشرة", categoryId: "pharmacy", stock: 35, unit: "قارورة", imageUrl: "https://images.unsplash.com/photo-1556228720-195a672e8a03?w=400&q=80" },
-            { name: "شامبو للشعر الجاف", description: "شامبو مرطب للشعر الجاف والتالف 400 مل", price: 9000, category: "العناية بالشعر", categoryId: "pharmacy", stock: 40, unit: "قارورة", imageUrl: "https://images.unsplash.com/photo-1571782442574-82e0b7aea0da?w=400&q=80" },
-            { name: "كمامات طبية", description: "كمامات طبية ثلاثية الطبقات 50 قطعة", price: 7000, category: "مستلزمات طبية", categoryId: "pharmacy", stock: 55, unit: "علبة", imageUrl: "https://images.unsplash.com/photo-1584556812952-905ffd0c611a?w=400&q=80" },
-            { name: "جل مطهر لليدين", description: "جل كحولي مطهر لليدين 300 مل", price: 5000, category: "مستلزمات طبية", categoryId: "pharmacy", stock: 70, unit: "قارورة", imageUrl: "https://images.unsplash.com/photo-1584362917165-526a968579e8?w=400&q=80" },
-            { name: "ضمادات طبية", description: "ضمادات لاصقة معقمة مختلفة الأحجام 20 قطعة", price: 3000, category: "مستلزمات طبية", categoryId: "pharmacy", stock: 90, unit: "علبة", imageUrl: "https://images.unsplash.com/photo-1631549916768-4119b2e5f926?w=400&q=80" },
+            { name: "باراسيتامول 500 مغ", description: "أقراص مسكن للألم وخافض للحرارة 20 قرص", price: 3500, category: "مسكنات الألم", categoryId: "pharmacy", stock: 100, unit: "علبة", imageUrl: "https://picsum.photos/seed/158430866674/400/400" },
+            { name: "فيتامين سي 1000", description: "فيتامين سي أقراص فوارة لتعزيز المناعة", price: 8000, category: "الفيتامينات", categoryId: "pharmacy", stock: 60, unit: "علبة", imageUrl: "https://picsum.photos/seed/1550572017-e/400/400" },
+            { name: "بانادول اكسترا", description: "مسكن قوي للصداع وآلام الجسم", price: 4500, category: "مسكنات الألم", categoryId: "pharmacy", stock: 80, unit: "علبة", imageUrl: "https://picsum.photos/seed/1559757175-0/400/400" },
+            { name: "كريم ترطيب يومي", description: "كريم مرطب للبشرة الجافة 100 مل", price: 12000, category: "العناية بالبشرة", categoryId: "pharmacy", stock: 35, unit: "قارورة", imageUrl: "https://picsum.photos/seed/1556228720-1/400/400" },
+            { name: "شامبو للشعر الجاف", description: "شامبو مرطب للشعر الجاف والتالف 400 مل", price: 9000, category: "العناية بالشعر", categoryId: "pharmacy", stock: 40, unit: "قارورة", imageUrl: "https://picsum.photos/seed/157178244257/400/400" },
+            { name: "كمامات طبية", description: "كمامات طبية ثلاثية الطبقات 50 قطعة", price: 7000, category: "مستلزمات طبية", categoryId: "pharmacy", stock: 55, unit: "علبة", imageUrl: "https://picsum.photos/seed/158455681295/400/400" },
+            { name: "جل مطهر لليدين", description: "جل كحولي مطهر لليدين 300 مل", price: 5000, category: "مستلزمات طبية", categoryId: "pharmacy", stock: 70, unit: "قارورة", imageUrl: "https://picsum.photos/seed/158436291716/400/400" },
+            { name: "ضمادات طبية", description: "ضمادات لاصقة معقمة مختلفة الأحجام 20 قطعة", price: 3000, category: "مستلزمات طبية", categoryId: "pharmacy", stock: 90, unit: "علبة", imageUrl: "https://picsum.photos/seed/163154991676/400/400" },
           ],
         },
       ];
@@ -760,6 +772,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             id: vendorDocId,
             storeName: store.storeName,
             businessType: store.businessType,
+            categoryId: store.businessType,
             phoneNumber: store.phoneNumber,
             email: null,
             passwordHash: "$2b$10$demoHashNotUsedForLogin00000000000000000000000000000",
@@ -771,6 +784,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             status: "active",
             totalProducts: store.products.length,
             totalOrders: 0,
+            approvedAt: now,
             createdAt: now,
             updatedAt: now,
           });

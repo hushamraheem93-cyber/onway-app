@@ -83,7 +83,8 @@ function isStoreOpen(wh: WorkingHours | null | undefined): boolean {
 
 function resolveUrl(path?: string): string | null {
   if (!path) return null;
-  if (path.startsWith("http")) return path;
+  // Absolute URLs (http/https) and base64 data URIs → return as-is
+  if (path.startsWith("http") || path.startsWith("data:")) return path;
   try { return new URL(path, getApiUrl()).toString(); } catch { return null; }
 }
 
@@ -262,10 +263,22 @@ export default function StoresListScreen() {
   const { theme } = useTheme();
   const navigation = useNavigation<NavProp>();
   const route = useRoute<RouteType>();
-  const { categoryId, categoryName } = route.params;
+  const { categoryId, categoryName, businessType } = route.params;
   const [searchQuery, setSearchQuery] = useState("");
 
-  const apiUrl = `${new URL("/api/stores", getApiUrl()).toString()}?categoryId=${encodeURIComponent(categoryId)}`;
+  // Pass businessType if available (preferred filter), otherwise fall back to categoryId.
+  // The server maps categoryId→businessType for common values, but sending businessType
+  // directly is more reliable and works even for categories not yet in the server map.
+  const apiUrl = (() => {
+    const base = new URL("/api/stores", getApiUrl()).toString();
+    const params = new URLSearchParams();
+    if (businessType) {
+      params.set("businessType", businessType);
+    } else {
+      params.set("categoryId", categoryId);
+    }
+    return `${base}?${params.toString()}`;
+  })();
 
   const { data, isLoading, isError, refetch, isRefetching } = useQuery<{
     stores: VendorStore[];

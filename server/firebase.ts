@@ -1054,10 +1054,11 @@ export async function initializeDefaultBanners(defaultBanners: any[]): Promise<v
   if (!db) return;
   try {
     const existing = await db.collection("banners").get();
-    const needsUpdate = existing.empty || existing.size !== defaultBanners.length || existing.docs.some(doc => {
-      const data = doc.data();
-      return data.image && (data.image.startsWith("http") || !data.image.startsWith("/uploads/banners/"));
-    });
+    // Only seed when the collection is completely empty.
+    // Never overwrite on size mismatch (user may have deleted banners) and
+    // never check the image format (base64 data URIs don't start with
+    // "/uploads/banners/" which used to incorrectly force a full reset).
+    const needsUpdate = existing.empty;
     if (needsUpdate) {
       const deleteBatch = db.batch();
       existing.docs.forEach(doc => deleteBatch.delete(doc.ref));
