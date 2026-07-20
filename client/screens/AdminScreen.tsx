@@ -519,6 +519,16 @@ export default function AdminScreen() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/drivers"] });
     },
+    onError: (err: Error) => {
+      const msg = err.message || "تعذّر تحديث حالة السائق";
+      const isAuth = msg.includes("401") || msg.includes("غير مصرح");
+      Alert.alert(
+        "خطأ",
+        isAuth
+          ? "انتهت صلاحية الجلسة — سجّل الخروج ثم أعد الدخول"
+          : msg,
+      );
+    },
   });
 
   const rechargeWalletMutation = useMutation({

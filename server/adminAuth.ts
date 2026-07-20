@@ -1,45 +1,62 @@
 // Single shared admin-session store.
 //
-// FOUND DURING TESTING (2026-07-04): there were THREE separate, independent
-// implementations of admin-session validation in this codebase — one in
-// index.ts (which had already been upgraded to real per-login random tokens),
-// and two older duplicates in routes.ts (isAdminSessionValid) and vendor.ts
-// (isAdminSession) that still computed a fixed deterministic value from
-// ADMIN_USERNAME/ADMIN_PASSWORD. Because all three checked the exact same
-// cookie name ("onway_admin_session") but expected DIFFERENT token formats,
-// a real admin login (which now sets a random session token) was accepted by
-// index.ts's own routes but REJECTED by every /api/admin/* route in routes.ts
-// and every /api/admin/vendor-partners route in vendor.ts — the admin panel's
-// core buttons (assign driver, update order status, vendor/driver lists) were
-// silently broken for any real login.
+// PREVIOUS BUG (2026-07-04): THREE separate session implementations existed —
+// all checking the same cookie but expecting different formats. Fixed by
+// consolidating into this single file.
 //
-// Fix: index.ts, routes.ts, and vendor.ts must all import the SAME functions
-// from this one file. There must never be a second implementation of this logic.
+// PREVIOUS BUG (2026-07-19): Sessions were stored in an in-memory Map. Every
+// server restart wiped all sessions, causing every subsequent admin action
+// (approve driver, update order, etc.) to silently return 401 — the mobile
+// admin app had no onError handlers so the user saw nothing happen.
+//
+// Fix: sessions are now self-verifying JWTs signed with JWT_SECRET. The server
+// verifies the signature on each request — no in-memory state required — so
+// restarts do NOT invalidate existing admin sessions.
+//
+// Explicit logout / password-reset invalidation: a small in-memory revocation
+// set holds jti values of explicitly logged-out tokens, and a revokedBefore
+// timestamp rejects all tokens issued before a password reset. Both are
+// in-memory (cleared on restart), which is acceptable: a logged-out mobile
+// client clears its own token, and a password reset is a rare admin action.
 import type { Request } from "express";
 import * as crypto from "crypto";
+import jwt from "jsonwebtoken";
 
 export const ADMIN_COOKIE = "onway_admin_session";
 
-interface AdminSession { username: string; expiresAt: number; }
-const adminSessions = new Map<string, AdminSession>();
-const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
+const SESSION_TTL_SECS = 7 * 24 * 60 * 60; // 7 days
+
+// Revocation: per-token jti set + a "revoke all issued before" timestamp.
+const revokedJtis = new Set<string>();
+let revokedBefore = 0; // epoch ms — tokens with iat*1000 < revokedBefore are invalid
+
+function getJwtSecret(): string {
+  return process.env.JWT_SECRET || "dev-admin-secret-not-for-production";
+}
 
 export function createSession(username: string): string {
-  const token = crypto.randomBytes(32).toString("hex");
-  adminSessions.set(token, { username, expiresAt: Date.now() + SESSION_TTL_MS });
-  return token;
+  const jti = crypto.randomBytes(16).toString("hex");
+  return jwt.sign(
+    { username, type: "admin", jti },
+    getJwtSecret(),
+    { expiresIn: SESSION_TTL_SECS }
+  );
 }
 
 export function invalidateSession(token: string | undefined | null): void {
-  if (token) adminSessions.delete(token);
+  if (!token) return;
+  try {
+    const decoded = jwt.decode(token) as any;
+    if (decoded?.jti) revokedJtis.add(decoded.jti);
+  } catch { /* ignore malformed tokens */ }
 }
 
 export function invalidateAllSessions(): void {
-  adminSessions.clear();
+  revokedJtis.clear();
+  revokedBefore = Date.now();
 }
 
-/** Lightweight cookie parser — duplicated intentionally to avoid importing express-level
- *  request-parsing middleware here; matches the parser already used across the codebase. */
+/** Lightweight cookie parser — avoids importing express middleware here. */
 function parseCookieHeader(header: string | undefined): Record<string, string> {
   const cookies: Record<string, string> = {};
   (header || "").split(";").forEach((part) => {
@@ -61,11 +78,15 @@ export function getSessionToken(req: Request): string | undefined {
 export function isValidSession(req: Request): boolean {
   const token = getSessionToken(req);
   if (!token) return false;
-  const session = adminSessions.get(token);
-  if (!session) return false;
-  if (Date.now() > session.expiresAt) {
-    adminSessions.delete(token);
+  try {
+    const decoded = jwt.verify(token, getJwtSecret()) as any;
+    if (decoded?.type !== "admin") return false;
+    // Check per-token revocation
+    if (decoded.jti && revokedJtis.has(decoded.jti)) return false;
+    // Check "revoke all before" timestamp (password reset)
+    if (revokedBefore > 0 && (decoded.iat || 0) * 1000 < revokedBefore) return false;
+    return true;
+  } catch {
     return false;
   }
-  return true;
 }
