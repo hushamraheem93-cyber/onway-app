@@ -3852,10 +3852,31 @@
             </div>
             <div class="url-input">
               <div class="divider">أو أدخل رابط الصورة</div>
-              <input type="url" class="form-control" id="category-image" placeholder="https://example.com/image.jpg" onchange="previewImageUrl(this.value, 'category-preview')">
+              <input type="text" class="form-control" id="category-image" placeholder="https://example.com/image.jpg" onchange="previewImageUrl(this.value, 'category-preview')">
             </div>
             <div class="image-preview" id="category-preview" style="display: none;">
               <img src="" alt="معاينة">
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label>لون الخلفية <small>(اختياري)</small></label>
+              <div style="display:flex;align-items:center;gap:8px;">
+                <input type="color" id="category-color" class="form-control" style="width:48px;height:38px;padding:2px;cursor:pointer;" value="#F3F4F6">
+                <input type="text" class="form-control" id="category-color-text" placeholder="#F3F4F6"
+                  oninput="document.getElementById('category-color').value=this.value"
+                  style="flex:1;">
+              </div>
+            </div>
+            <div class="form-group">
+              <label>لون الأيقونة <small>(اختياري)</small></label>
+              <div style="display:flex;align-items:center;gap:8px;">
+                <input type="color" id="category-icon-color" class="form-control" style="width:48px;height:38px;padding:2px;cursor:pointer;" value="#6B7280">
+                <input type="text" class="form-control" id="category-icon-color-text" placeholder="#6B7280"
+                  oninput="document.getElementById('category-icon-color').value=this.value"
+                  style="flex:1;">
+              </div>
             </div>
           </div>
         </div>
@@ -6036,22 +6057,96 @@
       }).join('');
     }
 
+    async function loadCategories() {
+      try {
+        const response = await fetch(API_BASE + '/admin/categories');
+        if (!response.ok) throw new Error('فشل التحميل');
+        categories = await response.json();
+        renderCategories();
+        updateStats();
+      } catch (error) {
+        console.error('Error loading categories:', error);
+        showToast('error', 'خطأ', 'حدث خطأ في تحميل الفئات');
+      }
+    }
+
+    function renderCategories() {
+      const tbody = document.getElementById('categories-table');
+      if (!tbody) return;
+
+      if (!categories || categories.length === 0) {
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="4">
+              <div class="empty-state">
+                <i data-lucide="folder-open"></i>
+                <h4>لا توجد فئات</h4>
+                <p>أضف فئات لتنظيم المنتجات</p>
+              </div>
+            </td>
+          </tr>`;
+        lucide.createIcons();
+        return;
+      }
+
+      tbody.innerHTML = categories
+        .slice()
+        .sort((a, b) => (a.order || 0) - (b.order || 0))
+        .map(c => `
+          <tr>
+            <td>
+              <div style="display:flex;align-items:center;gap:10px;">
+                ${c.image
+                  ? `<img src="${escapeHtml(c.image)}" style="width:40px;height:40px;border-radius:8px;object-fit:cover;" onerror="this.style.display='none'">`
+                  : `<div style="width:40px;height:40px;border-radius:8px;background:var(--gray-100);display:flex;align-items:center;justify-content:center;"><i data-lucide="folder" style="width:18px;height:18px;color:var(--gray-400);"></i></div>`}
+                <span style="font-weight:600;">${escapeHtml(c.name || '')}</span>
+              </div>
+            </td>
+            <td>${c.productCount ?? 0}</td>
+            <td>${c.order ?? '-'}</td>
+            <td>
+              <div class="actions-cell">
+                <button class="btn btn-icon btn-outline" onclick="editCategory('${c.id}')" title="تعديل">
+                  <i data-lucide="pencil"></i>
+                </button>
+                <button class="btn btn-icon btn-danger" onclick="confirmDelete('category', '${c.id}', '${escapeHtml(c.name || 'الفئة')}')" title="حذف">
+                  <i data-lucide="trash-2"></i>
+                </button>
+              </div>
+            </td>
+          </tr>`).join('');
+
+      lucide.createIcons();
+    }
+
     function openCategoryModal(category = null) {
       const form = document.getElementById('category-form');
       form.reset();
       document.getElementById('category-preview').style.display = 'none';
-      document.getElementById('category-file').value = '';
-      
+      const fileInput = document.getElementById('category-file');
+      fileInput.value = '';
+      delete fileInput.dataset.base64;
+
       if (category) {
         document.getElementById('category-modal-title').textContent = 'تعديل الفئة';
         document.getElementById('category-id').value = category.id;
         document.getElementById('category-name').value = category.name || '';
         document.getElementById('category-order').value = category.order || 1;
-        document.getElementById('category-image').value = category.image || '';
+        document.getElementById('category-image').value = '';   // don't put base64 in text field
+        const color = category.color || '#F3F4F6';
+        const iconColor = category.iconColor || '#6B7280';
+        document.getElementById('category-color').value = color;
+        document.getElementById('category-color-text').value = color;
+        document.getElementById('category-icon-color').value = iconColor;
+        document.getElementById('category-icon-color-text').value = iconColor;
         if (category.image) previewImageUrl(category.image, 'category-preview');
       } else {
         document.getElementById('category-modal-title').textContent = 'إضافة فئة جديدة';
         document.getElementById('category-id').value = '';
+        document.getElementById('category-color').value = '#F3F4F6';
+        document.getElementById('category-color-text').value = '#F3F4F6';
+        document.getElementById('category-icon-color').value = '#6B7280';
+        document.getElementById('category-icon-color-text').value = '#6B7280';
       }
       
       document.getElementById('category-modal').classList.add('active');
@@ -6069,21 +6164,25 @@
       const id = document.getElementById('category-id').value;
       const fileInput = document.getElementById('category-file');
       const imageUrl = document.getElementById('category-image').value;
-      
-      let imageData = imageUrl || '';
-      
+
+      // Image priority: new file → cached base64 → typed URL → existing image (edit only)
+      let imageData = '';
       if (fileInput.files[0]) {
-        try {
-          imageData = await fileToBase64(fileInput.files[0]);
-        } catch (e) {
-          console.error('Error converting file to Base64:', e);
-        }
+        try { imageData = await fileToBase64(fileInput.files[0]); } catch (e) { console.error(e); }
       }
-      
+      if (!imageData && fileInput.dataset.base64) imageData = fileInput.dataset.base64;
+      if (!imageData) imageData = imageUrl || '';
+      if (!imageData && id) {
+        const existing = categories.find(c => c.id === id);
+        if (existing) imageData = existing.image || '';
+      }
+
       const categoryData = {
         name: document.getElementById('category-name').value,
-        order: document.getElementById('category-order').value,
-        image: imageData
+        order: parseInt(document.getElementById('category-order').value) || 1,
+        image: imageData,
+        color: document.getElementById('category-color').value || undefined,
+        iconColor: document.getElementById('category-icon-color').value || undefined,
       };
       
       try {
@@ -6101,7 +6200,8 @@
           loadCategories();
           showToast('success', id ? 'تم التحديث' : 'تمت الإضافة', id ? 'تم تحديث الفئة بنجاح' : 'تمت إضافة الفئة بنجاح');
         } else {
-          throw new Error('Failed to save');
+          const err = await response.json().catch(() => ({}));
+          showToast('error', 'خطأ', err.error || 'حدث خطأ أثناء حفظ الفئة');
         }
       } catch (error) {
         showToast('error', 'خطأ', 'حدث خطأ أثناء حفظ الفئة');
