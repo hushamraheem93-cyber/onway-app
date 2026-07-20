@@ -257,7 +257,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setIsDriverRegistered(data.isDriverRegistered || false);
 
         if (data.userType === "vendor") {
-          // Load vendor token + profile from cache
+          // Load vendor token + cached profile for INSTANT paint on launch.
           const vToken = await getToken(VENDOR_TOKEN_KEY);
           const vProfileRaw = await AsyncStorage.getItem(VENDOR_PROFILE_KEY);
           if (vToken) setVendorToken(vToken);
@@ -268,10 +268,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               setIsVendorRegistered(true);
             } catch { /* corrupt cache — fall through to server fetch */ }
           }
-          // FALLBACK: cache missing but token exists (e.g. app reinstall, cache clear,
-          // or AsyncStorage wiped while SecureStorage kept the token). Re-fetch the
-          // profile from the server so the vendor is not shown the registration screen.
-          if (!vProfileRaw && vToken) {
+          // ALWAYS revalidate against the server when a token exists. The cache above
+          // is only for instant paint; the server holds the AUTHORITATIVE status.
+          // Previously we re-fetched only when the cache was MISSING — so once a vendor
+          // registered (cached status "pending"), an admin approval (pending → active)
+          // was NEVER seen: every launch reused the stale cached "pending" and the
+          // store was stuck on "قيد المراجعة" forever. Re-fetching here reflects the
+          // current approval status on the next app open. Covers a missing OR stale cache.
+          if (vToken) {
             try {
               const res = await fetch(
                 new URL("/api/vendor/profile", getApiUrl()).toString(),
@@ -283,10 +287,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 setIsVendorRegistered(true);
                 await AsyncStorage.setItem(VENDOR_PROFILE_KEY, JSON.stringify(fetched));
               }
-              // If fetch fails (token expired / network error) → isVendorRegistered
-              // stays false and the navigator shows VendorRegistration, which is the
-              // correct recovery path (re-enter phone + OTP to get a new token).
-            } catch { /* network error — let registration screen handle it */ }
+              // Non-OK (expired token / 404) or a network error: keep the cached profile
+              // if we had one. If there was NO cache either, isVendorRegistered stays
+              // false and the navigator shows VendorRegistration — the correct recovery
+              // path (re-enter phone + OTP to get a new token).
+            } catch { /* network error — keep cached profile if any */ }
           }
         } else {
           const profileStored = await AsyncStorage.getItem(PROFILE_STORAGE_KEY);
@@ -300,6 +305,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           // Restore customer JWT
           const cToken = await getToken(CUSTOMER_TOKEN_KEY);
           if (cToken) setCustomerToken(cToken);
+          // Driver: proactively refresh the signed driver token on every launch.
+          // The live /api/driver/status poll authenticates with this token; if the
+          // stored one has expired the poll 401s and the screen stays frozen on the
+          // last-cached "قيد المراجعة" — so an admin approval is never seen. Re-issuing
+          // here (idempotent; just stores a fresh token) keeps the poll authorized so
+          // the current approval status is fetched. Best-effort: on failure the 401
+          // self-heal in the fetch interceptor is the fallback.
+          if ((data.userType === "driver" || data.isDriverRegistered) && data.phoneNumber) {
+            try { await issueDriverToken(String(data.phoneNumber), cToken); } catch { /* self-heal covers it */ }
+          }
         }
       }
     } catch (error) {
