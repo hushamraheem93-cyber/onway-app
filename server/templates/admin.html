@@ -6330,6 +6330,11 @@
               style="background:${v.isOpen ? '#D1FAE5' : '#FEE2E2'};color:${v.isOpen ? '#065F46' : '#991B1B'};border:none;padding:8px 11px;border-radius:9px;cursor:pointer;display:flex;align-items:center;font-family:inherit;">
               <i data-lucide="${v.isOpen ? 'toggle-right' : 'toggle-left'}" style="width:13px;height:13px;"></i>
             </button>
+            <button onclick="mDelete('${v.id}','${nameEsc}')" title="حذف نهائي"
+              style="background:#FEE2E2;color:#991B1B;border:none;padding:8px 11px;border-radius:9px;cursor:pointer;display:flex;align-items:center;font-family:inherit;"
+              onmouseenter="this.style.background='#FECACA'" onmouseleave="this.style.background='#FEE2E2'">
+              <i data-lucide="trash-2" style="width:13px;height:13px;"></i>
+            </button>
           </div>
         </div>
       </div>`;
