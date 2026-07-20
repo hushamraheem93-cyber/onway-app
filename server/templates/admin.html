@@ -3894,7 +3894,7 @@
             </div>
             <div class="url-input">
               <div class="divider">أو أدخل رابط الصورة</div>
-              <input type="url" class="form-control" id="banner-image" placeholder="https://example.com/banner.jpg" onchange="previewImageUrl(this.value, 'banner-preview')">
+              <input type="text" class="form-control" id="banner-image" placeholder="https://example.com/banner.jpg" onchange="previewImageUrl(this.value, 'banner-preview')">
             </div>
             <div class="image-preview" id="banner-preview" style="display:none;">
               <img src="" alt="معاينة">
@@ -5143,17 +5143,50 @@
       document.getElementById(modalId).classList.remove('active');
     }
 
-    function handleFileSelect(input, previewId) {
-      const file = input.files[0];
-      if (file) {
+    // Convert a File to a base64 data URI, compressing via canvas if > 800 KB.
+    function fileToBase64(file) {
+      return new Promise(function(resolve, reject) {
         const reader = new FileReader();
         reader.onload = function(e) {
-          const preview = document.getElementById(previewId);
-          preview.style.display = 'block';
-          preview.querySelector('img').src = e.target.result;
+          const dataUrl = e.target.result;
+          // Compress large images through a canvas resize
+          if (file.size > 800 * 1024) {
+            const img = new Image();
+            img.onload = function() {
+              const MAX = 1400;
+              let w = img.width, h = img.height;
+              if (w > MAX) { h = Math.round(h * MAX / w); w = MAX; }
+              if (h > MAX) { w = Math.round(w * MAX / h); h = MAX; }
+              const canvas = document.createElement('canvas');
+              canvas.width = w; canvas.height = h;
+              canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+              resolve(canvas.toDataURL('image/jpeg', 0.82));
+            };
+            img.onerror = function() { resolve(dataUrl); }; // fallback: use original
+            img.src = dataUrl;
+          } else {
+            resolve(dataUrl);
+          }
         };
+        reader.onerror = reject;
         reader.readAsDataURL(file);
-      }
+      });
+    }
+
+    function handleFileSelect(input, previewId) {
+      const file = input.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        const preview = document.getElementById(previewId);
+        preview.style.display = 'block';
+        const img = preview.querySelector('img');
+        img.src = e.target.result;
+        // Store the raw base64 on the input so save functions can read it
+        // even if the browser clears files[] on certain interactions.
+        input.dataset.base64 = e.target.result;
+      };
+      reader.readAsDataURL(file);
     }
 
     function previewImageUrl(url, previewId) {
@@ -6240,14 +6273,28 @@
       const storeName = selectedOption ? selectedOption.dataset.name : '';
       const storeType = selectedOption ? selectedOption.dataset.type : '';
 
-      let imageData = imageUrl || '';
-      
+      // 1st priority: newly uploaded file (or its cached base64 from handleFileSelect)
+      // 2nd priority: URL/base64 typed into the text field
+      let imageData = '';
       if (fileInput.files[0]) {
         try {
           imageData = await fileToBase64(fileInput.files[0]);
         } catch (e) {
           console.error('Error converting file to Base64:', e);
         }
+      }
+      // Fallback: handleFileSelect caches the result in dataset.base64
+      if (!imageData && fileInput.dataset.base64) {
+        imageData = fileInput.dataset.base64;
+      }
+      // Fallback: manually entered URL/base64
+      if (!imageData) {
+        imageData = imageUrl || '';
+      }
+      // For edits with no new image selected, keep the existing image
+      if (!imageData && id) {
+        const existing = banners.find(b => b.id === id);
+        if (existing) imageData = existing.image || '';
       }
 
       if (!imageData) {

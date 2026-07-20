@@ -1649,6 +1649,53 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Combined product picker for promotional sections:
+  // returns approved vendor products (real published products) + admin products,
+  // enriched with storeName so the admin can identify where each product belongs.
+  app.get("/api/admin/picker-products", async (req, res) => {
+    try {
+      const db = getFirestore();
+      const [adminProducts, storesAll] = await Promise.all([
+        getCachedProducts(),
+        getCachedStores(),
+      ]);
+
+      const storeMap: Record<string, string> = {};
+      storesAll.forEach((s: any) => { storeMap[s.id] = s.storeName || s.id; });
+
+      let vendorProducts: any[] = [];
+      if (db) {
+        const snap = await db.collection("vendorProducts")
+          .where("status", "==", "approved")
+          .get();
+        vendorProducts = snap.docs.map(d => {
+          const data = d.data() as any;
+          return {
+            id: d.id,
+            name: data.name || "",
+            price: Number(data.price) || 0,
+            originalPrice: data.originalPrice ? Number(data.originalPrice) : undefined,
+            discount: data.discount ? Number(data.discount) : undefined,
+            image: limitImageSize(data.imageUrl || data.image || "", 80000),
+            categoryId: data.categoryId || "",
+            vendorId: data.vendorId || "",
+            storeName: storeMap[data.vendorId] || data.vendorName || "",
+            inStock: data.inStock !== false,
+            description: data.description || "",
+            source: "vendor",
+          };
+        });
+      }
+
+      // Vendor products first (real/published), then admin-created
+      const combined = [...vendorProducts, ...adminProducts.map((p: any) => ({ ...p, source: "admin", storeName: p.storeName || "" }))];
+      res.json(combined);
+    } catch (error) {
+      console.error("Error fetching picker products:", error);
+      res.json([]);
+    }
+  });
+
   app.post("/api/admin/products", async (req: Request, res: Response) => {
     try {
       if (!req.body) {
