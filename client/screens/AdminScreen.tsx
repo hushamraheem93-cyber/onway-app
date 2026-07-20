@@ -2528,40 +2528,43 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
             const products = vendorProductsMap[vendor.id] ?? [];
             const approvedCount = products.filter((p) => p.status === "approved").length;
             return (
-              <Pressable
+              <View
                 key={vendor.id}
-                onPress={() => setSelectedVendor(vendor)}
-                testID={`vendor-card-${vendor.id}`}
                 style={{
                   backgroundColor: theme.backgroundDefault, borderRadius: 16, overflow: "hidden",
                   shadowColor: AppColors.black, shadowOpacity: 0.05, shadowRadius: 8, shadowOffset: { width: 0, height: 2 },
                   elevation: 2,
                 }}
               >
-                {/* Cover */}
-                {vendor.coverImageUrl ? (
-                  <Image source={{ uri: resolveImageUrl(vendor.coverImageUrl) }} style={{ width: "100%", height: 72, resizeMode: "cover" }} />
-                ) : (
-                  <View style={{ width: "100%", height: 72, backgroundColor: ADMIN_RED + "20", alignItems: "center", justifyContent: "center" }}>
-                    <Feather name="briefcase" size={28} color={ADMIN_RED} style={{ opacity: 0.5 }} />
-                  </View>
-                )}
+                {/* Cover — tappable to open detail */}
+                <Pressable onPress={() => setSelectedVendor(vendor)} testID={`vendor-card-${vendor.id}`}>
+                  {vendor.coverImageUrl ? (
+                    <Image source={{ uri: resolveImageUrl(vendor.coverImageUrl) }} style={{ width: "100%", height: 72, resizeMode: "cover" }} />
+                  ) : (
+                    <View style={{ width: "100%", height: 72, backgroundColor: ADMIN_RED + "20", alignItems: "center", justifyContent: "center" }}>
+                      <Feather name="briefcase" size={28} color={ADMIN_RED} style={{ opacity: 0.5 }} />
+                    </View>
+                  )}
+                </Pressable>
+
                 <View style={{ padding: Spacing.md, gap: Spacing.sm }}>
                   <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: Spacing.sm }}>
                     {/* Logo */}
-                    {vendor.profileImageUrl ? (
-                      <Image source={{ uri: resolveImageUrl(vendor.profileImageUrl) }} style={{ width: 44, height: 44, borderRadius: 12, borderWidth: 2, borderColor: AppColors.white, marginTop: -20 }} />
-                    ) : (
-                      <View style={{ width: 44, height: 44, borderRadius: 12, backgroundColor: ADMIN_RED + "30", alignItems: "center", justifyContent: "center", marginTop: -20, borderWidth: 2, borderColor: AppColors.white }}>
-                        <Feather name="briefcase" size={20} color={ADMIN_RED} />
-                      </View>
-                    )}
-                    <View style={{ flex: 1 }}>
+                    <Pressable onPress={() => setSelectedVendor(vendor)}>
+                      {vendor.profileImageUrl ? (
+                        <Image source={{ uri: resolveImageUrl(vendor.profileImageUrl) }} style={{ width: 44, height: 44, borderRadius: 12, borderWidth: 2, borderColor: AppColors.white, marginTop: -20 }} />
+                      ) : (
+                        <View style={{ width: 44, height: 44, borderRadius: 12, backgroundColor: ADMIN_RED + "30", alignItems: "center", justifyContent: "center", marginTop: -20, borderWidth: 2, borderColor: AppColors.white }}>
+                          <Feather name="briefcase" size={20} color={ADMIN_RED} />
+                        </View>
+                      )}
+                    </Pressable>
+                    <Pressable style={{ flex: 1 }} onPress={() => setSelectedVendor(vendor)}>
                       <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 15, color: theme.text, textAlign: "right" }}>{vendor.storeName}</ThemedText>
                       <ThemedText style={{ fontFamily: "Cairo_400Regular", fontSize: 12, color: theme.textSecondary, textAlign: "right" }}>
                         {BUSINESS_TYPE_LABELS[vendor.businessType] || vendor.businessType} · {vendor.phoneNumber}
                       </ThemedText>
-                    </View>
+                    </Pressable>
                     {/* Status badge */}
                     <View style={{ paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20, backgroundColor: (VENDOR_STATUS_COLORS[vendor.status] ?? AppColors.gray500) + "20" }}>
                       <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 11, color: VENDOR_STATUS_COLORS[vendor.status] ?? AppColors.gray500 }}>
@@ -2569,29 +2572,45 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
                       </ThemedText>
                     </View>
                   </View>
-                  {/* Stats */}
-                  <View style={{ flexDirection: "row-reverse", gap: Spacing.lg }}>
-                    <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 4 }}>
-                      <Feather name="package" size={13} color={theme.textSecondary} />
-                      <ThemedText style={{ fontFamily: "Cairo_400Regular", fontSize: 12, color: theme.textSecondary }}>{approvedCount} منتج</ThemedText>
+
+                  {/* Stats row + delete button */}
+                  <View style={{ flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between" }}>
+                    <View style={{ flexDirection: "row-reverse", gap: Spacing.lg, flex: 1 }}>
+                      <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 4 }}>
+                        <Feather name="package" size={13} color={theme.textSecondary} />
+                        <ThemedText style={{ fontFamily: "Cairo_400Regular", fontSize: 12, color: theme.textSecondary }}>{approvedCount} منتج</ThemedText>
+                      </View>
+                      {vendor.deliveryTime ? (
+                        <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 4 }}>
+                          <Feather name="clock" size={13} color={theme.textSecondary} />
+                          <ThemedText style={{ fontFamily: "Cairo_400Regular", fontSize: 12, color: theme.textSecondary }}>{vendor.deliveryTime}</ThemedText>
+                        </View>
+                      ) : null}
+                      {vendor.createdAt ? (
+                        <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 4 }}>
+                          <Feather name="calendar" size={13} color={theme.textSecondary} />
+                          <ThemedText style={{ fontFamily: "Cairo_400Regular", fontSize: 12, color: theme.textSecondary }}>
+                            {new Date(vendor.createdAt).toLocaleDateString("ar-IQ", { year: "numeric", month: "short", day: "numeric" })}
+                          </ThemedText>
+                        </View>
+                      ) : null}
                     </View>
-                    {vendor.deliveryTime ? (
-                      <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 4 }}>
-                        <Feather name="clock" size={13} color={theme.textSecondary} />
-                        <ThemedText style={{ fontFamily: "Cairo_400Regular", fontSize: 12, color: theme.textSecondary }}>{vendor.deliveryTime}</ThemedText>
-                      </View>
-                    ) : null}
-                    {vendor.createdAt ? (
-                      <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 4 }}>
-                        <Feather name="calendar" size={13} color={theme.textSecondary} />
-                        <ThemedText style={{ fontFamily: "Cairo_400Regular", fontSize: 12, color: theme.textSecondary }}>
-                          {new Date(vendor.createdAt).toLocaleDateString("ar-IQ", { year: "numeric", month: "short", day: "numeric" })}
-                        </ThemedText>
-                      </View>
-                    ) : null}
+                    {/* Quick delete button */}
+                    <Pressable
+                      onPress={() => handleDeleteVendor(vendor)}
+                      disabled={deleteVendor.isPending && deleteVendor.variables === vendor.id}
+                      style={({ pressed }) => ({
+                        width: 34, height: 34, borderRadius: 10,
+                        backgroundColor: pressed ? AppColors.error + "25" : AppColors.error + "15",
+                        alignItems: "center", justifyContent: "center",
+                        marginRight: Spacing.xs,
+                      })}
+                    >
+                      <Feather name="trash-2" size={16} color={AppColors.error} />
+                    </Pressable>
                   </View>
                 </View>
-              </Pressable>
+              </View>
             );
           })
         )}

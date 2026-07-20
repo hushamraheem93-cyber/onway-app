@@ -257,14 +257,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setIsDriverRegistered(data.isDriverRegistered || false);
 
         if (data.userType === "vendor") {
-          // Load vendor token + profile
+          // Load vendor token + profile from cache
           const vToken = await getToken(VENDOR_TOKEN_KEY);
-          const vProfile = await AsyncStorage.getItem(VENDOR_PROFILE_KEY);
+          const vProfileRaw = await AsyncStorage.getItem(VENDOR_PROFILE_KEY);
           if (vToken) setVendorToken(vToken);
-          if (vProfile) {
-            const parsed = JSON.parse(vProfile) as VendorProfile;
-            setVendorProfile(parsed);
-            setIsVendorRegistered(true);
+          if (vProfileRaw) {
+            try {
+              const parsed = JSON.parse(vProfileRaw) as VendorProfile;
+              setVendorProfile(parsed);
+              setIsVendorRegistered(true);
+            } catch { /* corrupt cache — fall through to server fetch */ }
+          }
+          // FALLBACK: cache missing but token exists (e.g. app reinstall, cache clear,
+          // or AsyncStorage wiped while SecureStorage kept the token). Re-fetch the
+          // profile from the server so the vendor is not shown the registration screen.
+          if (!vProfileRaw && vToken) {
+            try {
+              const res = await fetch(
+                new URL("/api/vendor/profile", getApiUrl()).toString(),
+                { headers: { Authorization: `Bearer ${vToken}` } }
+              );
+              if (res.ok) {
+                const fetched = await res.json() as VendorProfile;
+                setVendorProfile(fetched);
+                setIsVendorRegistered(true);
+                await AsyncStorage.setItem(VENDOR_PROFILE_KEY, JSON.stringify(fetched));
+              }
+              // If fetch fails (token expired / network error) → isVendorRegistered
+              // stays false and the navigator shows VendorRegistration, which is the
+              // correct recovery path (re-enter phone + OTP to get a new token).
+            } catch { /* network error — let registration screen handle it */ }
           }
         } else {
           const profileStored = await AsyncStorage.getItem(PROFILE_STORAGE_KEY);
