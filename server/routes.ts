@@ -1488,29 +1488,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  const bannerLinks: Record<string, { linkType: string; linkTarget: string }> = {
-    "slider-1": { linkType: "screen", linkTarget: "CourierPickup" },
-    "slider-2": { linkType: "category", linkTarget: "restaurants" },
-    "slider-3": { linkType: "category", linkTarget: "fruits-vegetables" },
-    "slider-4": { linkType: "screen", linkTarget: "AllCategories" },
-  };
-
   app.get("/api/banners", async (req, res) => {
     try {
       const type = req.query.type as string;
+      // getCachedBanners(true) already filters by isActive + date range
       let result = await getCachedBanners(true);
       if (type) result = result.filter(b => b.type === type);
-      const lightResult = result.map(b => {
-        const link = bannerLinks[(b as any).id] || {};
-        return {
-          ...b,
-          linkType: (b as any).linkType || link.linkType || "",
-          linkTarget: (b as any).linkTarget || link.linkTarget || "",
-        };
-      });
-      res.set("Cache-Control", "public, max-age=120");
+
+      // If a banner is linked to a store, verify the store is still approved & active.
+      // We do a single stores fetch (cached) and filter in-memory.
+      const storeLinkedBanners = result.filter(b => (b as any).storeId);
+      if (storeLinkedBanners.length > 0) {
+        const allStores = await getCachedStores();
+        const activeStoreIds = new Set(allStores.filter(s => s.approved !== false).map(s => s.id));
+        result = result.filter(b => {
+          const storeId = (b as any).storeId;
+          // Non-store banners always pass; store banners only pass if store is active
+          return !storeId || activeStoreIds.has(storeId);
+        });
+      }
+
+      res.set("Cache-Control", "public, max-age=60");
       res.set("Vary", "Accept-Encoding");
-      res.json(lightResult);
+      res.json(result);
     } catch (error) {
       console.error("Error getting banners:", error);
       res.json([]);
@@ -1530,13 +1530,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/admin/banners", async (req: Request, res: Response) => {
     try {
-      const { title, type, order, isActive, image } = req.body;
+      const { title, description, type, order, isActive, image,
+              storeId, storeName, storeType, linkType, linkTarget,
+              startDate, endDate } = req.body;
+      if (!image) {
+        return res.status(400).json({ error: "Banner image is required" });
+      }
+      if (!storeId && !linkType) {
+        return res.status(400).json({ error: "يجب ربط البنر بمتجر أو وجهة" });
+      }
       const banner = await createFirestoreBanner({
-        image: image || "",
+        image,
         title,
+        description,
         type: type || "slider",
         order: order ? parseInt(order) : undefined,
         isActive: isActive !== false,
+        storeId: storeId || "",
+        storeName: storeName || "",
+        storeType: storeType || "",
+        linkType: linkType || "",
+        linkTarget: linkTarget || "",
+        startDate: startDate || "",
+        endDate: endDate || "",
       });
       if (!banner) {
         return res.status(500).json({ error: "Failed to create banner" });
@@ -1551,14 +1567,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.put("/api/admin/banners/:id", async (req: Request, res: Response) => {
     try {
-      const { title, type, order, isActive, image } = req.body;
+      const { title, description, type, order, isActive, image,
+              storeId, storeName, storeType, linkType, linkTarget,
+              startDate, endDate } = req.body;
       const updates: Record<string, any> = {};
       if (image) updates.image = image;
       if (title !== undefined) updates.title = title;
+      if (description !== undefined) updates.description = description;
       if (type) updates.type = type;
       if (order !== undefined) updates.order = parseInt(order);
       if (isActive !== undefined) updates.isActive = isActive;
-      
+      if (storeId !== undefined) updates.storeId = storeId;
+      if (storeName !== undefined) updates.storeName = storeName;
+      if (storeType !== undefined) updates.storeType = storeType;
+      if (linkType !== undefined) updates.linkType = linkType;
+      if (linkTarget !== undefined) updates.linkTarget = linkTarget;
+      if (startDate !== undefined) updates.startDate = startDate;
+      if (endDate !== undefined) updates.endDate = endDate;
+
       const banner = await updateFirestoreBanner(req.params.id as string, updates);
       if (!banner) {
         return res.status(404).json({ error: "Banner not found" });

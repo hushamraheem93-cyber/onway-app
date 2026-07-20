@@ -966,17 +966,40 @@ export async function getOnlineDrivers(): Promise<{ phoneNumber: string; onlineA
 export interface FirestoreBanner {
   image: string;
   title?: string;
+  description?: string;
   isActive: boolean;
   type: "offer" | "slider";
   order: number;
+  // Store link
+  storeId?: string;
+  storeName?: string;
+  storeType?: string;
+  // Deep-link fallback (non-store targets)
+  linkType?: string;
+  linkTarget?: string;
+  // Scheduling
+  startDate?: string; // ISO date string YYYY-MM-DD
+  endDate?: string;   // ISO date string YYYY-MM-DD
+  // Timestamps
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export async function getBanners(activeOnly: boolean = false): Promise<(FirestoreBanner & { id: string })[]> {
   if (!db) return [];
   try {
     const snapshot = await db.collection("banners").orderBy("order").get();
-    const banners = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() as FirestoreBanner }));
-    return activeOnly ? banners.filter(b => b.isActive) : banners;
+    let banners = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() as FirestoreBanner }));
+    if (activeOnly) {
+      const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+      banners = banners.filter(b => {
+        if (!b.isActive) return false;
+        if (b.startDate && b.startDate > today) return false;
+        if (b.endDate && b.endDate < today) return false;
+        return true;
+      });
+    }
+    return banners;
   } catch (error) {
     console.error("Error getting banners:", error);
     return [];
@@ -986,19 +1009,38 @@ export async function getBanners(activeOnly: boolean = false): Promise<(Firestor
 export async function createBanner(data: {
   image: string;
   title?: string;
+  description?: string;
   isActive?: boolean;
   type?: "offer" | "slider";
   order?: number;
+  storeId?: string;
+  storeName?: string;
+  storeType?: string;
+  linkType?: string;
+  linkTarget?: string;
+  startDate?: string;
+  endDate?: string;
 }): Promise<(FirestoreBanner & { id: string }) | null> {
   if (!db) return null;
   try {
     const existing = await db.collection("banners").get();
+    const now = new Date().toISOString();
     const bannerDoc: FirestoreBanner = {
       image: data.image || "",
       title: data.title,
+      description: data.description,
       isActive: data.isActive !== false,
       type: data.type || "slider",
       order: data.order || existing.size + 1,
+      storeId: data.storeId || "",
+      storeName: data.storeName || "",
+      storeType: data.storeType || "",
+      linkType: data.storeId ? "store" : (data.linkType || ""),
+      linkTarget: data.storeId ? data.storeId : (data.linkTarget || ""),
+      startDate: data.startDate || "",
+      endDate: data.endDate || "",
+      createdAt: now,
+      updatedAt: now,
     };
     const docRef = await db.collection("banners").add(bannerDoc);
     return { id: docRef.id, ...bannerDoc };
@@ -1016,6 +1058,12 @@ export async function updateBanner(id: string, updates: Partial<FirestoreBanner>
     const oldImageUrl: string = updates.image
       ? ((await docRef.get()).data() as any)?.image ?? ""
       : "";
+    // Auto-derive linkType/linkTarget from storeId when store is linked
+    if (updates.storeId !== undefined) {
+      updates.linkType = updates.storeId ? "store" : (updates.linkType || "");
+      updates.linkTarget = updates.storeId ? updates.storeId : (updates.linkTarget || "");
+    }
+    updates.updatedAt = new Date().toISOString();
     const filteredUpdates: Record<string, any> = {};
     Object.entries(updates).forEach(([key, value]) => {
       if (value !== undefined) {

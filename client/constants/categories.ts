@@ -12,11 +12,20 @@ export interface Banner {
   id: string;
   image: string;
   title?: string;
+  description?: string;
   isActive: boolean;
   type: "offer" | "slider";
   order: number;
+  // Store link
+  storeId?: string;
+  storeName?: string;
+  storeType?: string;
+  // Deep-link fallback
   linkType?: string;
   linkTarget?: string;
+  // Scheduling
+  startDate?: string;
+  endDate?: string;
 }
 
 export const MAIN_CATEGORIES: Category[] = [

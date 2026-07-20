@@ -1948,17 +1948,17 @@
     <div id="banners-section" class="section">
       <header class="header">
         <div class="header-title">
-          <h2>السلايدر الترويجي</h2>
-          <p>إدارة العروض في الصفحة الرئيسية</p>
+          <h2>البنرات الإعلانية</h2>
+          <p>إدارة الإعلانات في الصفحة الرئيسية</p>
         </div>
         <div class="header-actions">
-          <button class="btn btn-outline" onclick="doRefresh(this, loadBanners, 'السلايدر')">
+          <button class="btn btn-outline" onclick="doRefresh(this, loadBanners, 'البنرات')">
             <i data-lucide="refresh-cw"></i>
             تحديث
           </button>
           <button class="btn btn-primary" onclick="openBannerModal()">
             <i data-lucide="plus"></i>
-            إضافة سلايد
+            إضافة بنر
           </button>
         </div>
       </header>
@@ -1966,7 +1966,7 @@
       <div class="content">
         <div class="card">
           <div class="card-header">
-            <h3><i data-lucide="image"></i> قائمة السلايدر</h3>
+            <h3><i data-lucide="image"></i> قائمة البنرات</h3>
           </div>
           <div class="table-container">
             <table>
@@ -1974,6 +1974,8 @@
                 <tr>
                   <th>الصورة</th>
                   <th>العنوان</th>
+                  <th>المتجر المرتبط</th>
+                  <th>المدة</th>
                   <th>الحالة</th>
                   <th>الترتيب</th>
                   <th>الإجراءات</th>
@@ -3870,9 +3872,9 @@
 
   <!-- Banner Modal -->
   <div id="banner-modal" class="modal-overlay">
-    <div class="modal">
+    <div class="modal" style="max-width:620px">
       <div class="modal-header">
-        <h3><i data-lucide="image"></i> <span id="banner-modal-title">إضافة سلايد جديد</span></h3>
+        <h3><i data-lucide="image"></i> <span id="banner-modal-title">إضافة بنر جديد</span></h3>
         <button class="modal-close" onclick="closeModal('banner-modal')">
           <i data-lucide="x"></i>
         </button>
@@ -3880,12 +3882,45 @@
       <form id="banner-form" onsubmit="saveBanner(event)">
         <div class="modal-body">
           <input type="hidden" id="banner-id">
-          
+
+          <!-- صورة البنر -->
           <div class="form-group">
-            <label>العنوان</label>
-            <input type="text" class="form-control" id="banner-title" placeholder="عنوان العرض (اختياري)">
+            <label>صورة البنر <span class="required">*</span></label>
+            <div class="image-upload" onclick="document.getElementById('banner-file').click()">
+              <i data-lucide="upload-cloud"></i>
+              <p>اضغط لرفع صورة</p>
+              <span>PNG, JPG — يُفضل 1200×400 بكسل (نسبة 3:1)</span>
+              <input type="file" id="banner-file" accept="image/*" onchange="handleFileSelect(this, 'banner-preview')">
+            </div>
+            <div class="url-input">
+              <div class="divider">أو أدخل رابط الصورة</div>
+              <input type="url" class="form-control" id="banner-image" placeholder="https://example.com/banner.jpg" onchange="previewImageUrl(this.value, 'banner-preview')">
+            </div>
+            <div class="image-preview" id="banner-preview" style="display:none;">
+              <img src="" alt="معاينة">
+            </div>
           </div>
 
+          <!-- العنوان والوصف -->
+          <div class="form-group">
+            <label>العنوان</label>
+            <input type="text" class="form-control" id="banner-title" placeholder="عنوان البنر (اختياري)">
+          </div>
+          <div class="form-group">
+            <label>الوصف</label>
+            <input type="text" class="form-control" id="banner-description" placeholder="نص توضيحي (اختياري)">
+          </div>
+
+          <!-- ربط المتجر -->
+          <div class="form-group">
+            <label>ربط بمتجر <span class="required">*</span></label>
+            <select class="form-control" id="banner-store-id" onchange="onBannerStoreChange(this.value)" required>
+              <option value="">اختر متجراً...</option>
+            </select>
+            <small style="color:var(--text-muted);margin-top:4px;display:block">عند الضغط على البنر سيُفتح هذا المتجر مباشرة</small>
+          </div>
+
+          <!-- الترتيب والحالة -->
           <div class="form-row">
             <div class="form-group">
               <label>الترتيب</label>
@@ -3900,28 +3935,24 @@
             </div>
           </div>
 
-          <div class="form-group">
-            <label>صورة السلايد <span class="required">*</span></label>
-            <div class="image-upload" onclick="document.getElementById('banner-file').click()">
-              <i data-lucide="upload-cloud"></i>
-              <p>اضغط لرفع صورة</p>
-              <span>PNG, JPG - يفضل 1200x400</span>
-              <input type="file" id="banner-file" accept="image/*" onchange="handleFileSelect(this, 'banner-preview')">
+          <!-- تاريخ البداية والنهاية -->
+          <div class="form-row">
+            <div class="form-group">
+              <label>تاريخ البداية <small>(اختياري)</small></label>
+              <input type="date" class="form-control" id="banner-start-date">
             </div>
-            <div class="url-input">
-              <div class="divider">أو أدخل رابط الصورة</div>
-              <input type="url" class="form-control" id="banner-image" placeholder="https://example.com/banner.jpg" onchange="previewImageUrl(this.value, 'banner-preview')">
-            </div>
-            <div class="image-preview" id="banner-preview" style="display: none;">
-              <img src="" alt="معاينة">
+            <div class="form-group">
+              <label>تاريخ الانتهاء <small>(اختياري)</small></label>
+              <input type="date" class="form-control" id="banner-end-date">
             </div>
           </div>
+
         </div>
         <div class="modal-footer">
           <button type="button" class="btn btn-outline" onclick="closeModal('banner-modal')">إلغاء</button>
           <button type="submit" class="btn btn-primary">
             <i data-lucide="check"></i>
-            حفظ السلايد
+            حفظ البنر
           </button>
         </div>
       </form>
@@ -6045,14 +6076,41 @@
     }
 
     // Banners
+    let _bannerStores = []; // cache for store picker
+
+    async function loadBannerStores() {
+      if (_bannerStores.length > 0) return _bannerStores;
+      try {
+        const res = await fetch(API_BASE + '/stores?limit=500');
+        const data = await res.json();
+        _bannerStores = (data.stores || []).sort((a, b) => (a.storeName || '').localeCompare(b.storeName || '', 'ar'));
+      } catch (e) {
+        _bannerStores = [];
+      }
+      return _bannerStores;
+    }
+
+    function populateBannerStoreDropdown(selectedStoreId = '') {
+      const sel = document.getElementById('banner-store-id');
+      sel.innerHTML = '<option value="">اختر متجراً...</option>' +
+        _bannerStores.map(s => `<option value="${escapeHtml(s.id)}" data-name="${escapeHtml(s.storeName || '')}" data-type="${escapeHtml(s.businessType || '')}" ${s.id === selectedStoreId ? 'selected' : ''}>${escapeHtml(s.storeName || s.id)}</option>`).join('');
+    }
+
+    function onBannerStoreChange(storeId) {
+      // Nothing extra needed — storeId drives the save logic
+    }
+
     async function loadBanners() {
       try {
-        const response = await fetch(API_BASE + '/admin/banners');
-        banners = await response.json();
+        const [bannerRes] = await Promise.all([
+          fetch(API_BASE + '/admin/banners'),
+          loadBannerStores(),
+        ]);
+        banners = await bannerRes.json();
         renderBanners();
         updateStats();
       } catch (error) {
-        showToast('error', 'خطأ', 'حدث خطأ في تحميل السلايدر');
+        showToast('error', 'خطأ', 'حدث خطأ في تحميل البنرات');
       }
     }
 
@@ -6062,11 +6120,11 @@
       if (banners.length === 0) {
         tbody.innerHTML = `
           <tr>
-            <td colspan="5">
+            <td colspan="7">
               <div class="empty-state">
                 <i data-lucide="image"></i>
-                <h4>لا يوجد سلايدر</h4>
-                <p>أضف صور ترويجية للصفحة الرئيسية</p>
+                <h4>لا توجد بنرات</h4>
+                <p>أضف بنرات إعلانية للصفحة الرئيسية</p>
               </div>
             </td>
           </tr>
@@ -6074,46 +6132,84 @@
         lucide.createIcons();
         return;
       }
-      
-      tbody.innerHTML = banners.map(b => `
-        <tr>
-          <td><img src="${escapeHtml(b.image)}" class="item-image" style="width: 120px; height: 60px;" onerror="this.src='https://via.placeholder.com/120x60'"></td>
-          <td>${escapeHtml(b.title) || '-'}</td>
-          <td><span class="badge ${b.isActive ? 'badge-success' : 'badge-danger'}">${b.isActive ? 'مفعل' : 'معطل'}</span></td>
-          <td>${b.order || '-'}</td>
-          <td>
-            <div class="actions-cell">
-              <button class="btn btn-icon btn-outline" onclick="editBanner('${b.id}')" title="تعديل">
-                <i data-lucide="pencil"></i>
-              </button>
-              <button class="btn btn-icon btn-danger" onclick="confirmDelete('banner', '${b.id}', '${escapeHtml(b.title || 'السلايد')}')" title="حذف">
-                <i data-lucide="trash-2"></i>
-              </button>
-            </div>
-          </td>
-        </tr>
-      `).join('');
+
+      tbody.innerHTML = banners.map(b => {
+        const storeLabel = b.storeName
+          ? `<span class="badge badge-info" style="font-size:11px">${escapeHtml(b.storeName)}</span>`
+          : `<span style="color:var(--text-muted);font-size:12px">—</span>`;
+        let dateLabel = '—';
+        if (b.startDate || b.endDate) {
+          dateLabel = `<span style="font-size:11px;color:var(--text-muted)">${b.startDate || '∞'} → ${b.endDate || '∞'}</span>`;
+        }
+        return `
+          <tr>
+            <td><img src="${escapeHtml(b.image)}" class="item-image" style="width:120px;height:50px;object-fit:cover;border-radius:6px" onerror="this.src='https://placehold.co/120x50'"></td>
+            <td>${escapeHtml(b.title) || '<span style="color:var(--text-muted)">—</span>'}</td>
+            <td>${storeLabel}</td>
+            <td>${dateLabel}</td>
+            <td>
+              <span class="badge ${b.isActive ? 'badge-success' : 'badge-danger'}">${b.isActive ? 'مفعل' : 'معطل'}</span>
+            </td>
+            <td>${b.order ?? '—'}</td>
+            <td>
+              <div class="actions-cell">
+                <button class="btn btn-icon btn-outline" onclick="toggleBannerActive('${b.id}', ${!b.isActive})" title="${b.isActive ? 'إيقاف' : 'تفعيل'}">
+                  <i data-lucide="${b.isActive ? 'pause-circle' : 'play-circle'}"></i>
+                </button>
+                <button class="btn btn-icon btn-outline" onclick="editBanner('${b.id}')" title="تعديل">
+                  <i data-lucide="pencil"></i>
+                </button>
+                <button class="btn btn-icon btn-danger" onclick="confirmDelete('banner', '${b.id}', '${escapeHtml(b.title || 'البنر')}')" title="حذف">
+                  <i data-lucide="trash-2"></i>
+                </button>
+              </div>
+            </td>
+          </tr>
+        `;
+      }).join('');
       
       lucide.createIcons();
     }
 
-    function openBannerModal(banner = null) {
+    async function toggleBannerActive(id, newState) {
+      try {
+        const res = await fetch(`${API_BASE}/admin/banners/${id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ isActive: newState }),
+        });
+        if (!res.ok) throw new Error();
+        banners = banners.map(b => b.id === id ? { ...b, isActive: newState } : b);
+        renderBanners();
+        showToast('success', 'تم', newState ? 'تم تفعيل البنر' : 'تم إيقاف البنر');
+      } catch {
+        showToast('error', 'خطأ', 'فشل تغيير حالة البنر');
+      }
+    }
+
+    async function openBannerModal(banner = null) {
+      await loadBannerStores();
       const form = document.getElementById('banner-form');
       form.reset();
       document.getElementById('banner-preview').style.display = 'none';
       document.getElementById('banner-file').value = '';
+      populateBannerStoreDropdown(banner ? (banner.storeId || '') : '');
       
       if (banner) {
-        document.getElementById('banner-modal-title').textContent = 'تعديل السلايد';
+        document.getElementById('banner-modal-title').textContent = 'تعديل البنر';
         document.getElementById('banner-id').value = banner.id;
         document.getElementById('banner-title').value = banner.title || '';
+        document.getElementById('banner-description').value = banner.description || '';
         document.getElementById('banner-order').value = banner.order || 1;
         document.getElementById('banner-active').value = banner.isActive ? 'true' : 'false';
         document.getElementById('banner-image').value = banner.image || '';
+        document.getElementById('banner-start-date').value = banner.startDate || '';
+        document.getElementById('banner-end-date').value = banner.endDate || '';
         if (banner.image) previewImageUrl(banner.image, 'banner-preview');
       } else {
-        document.getElementById('banner-modal-title').textContent = 'إضافة سلايد جديد';
+        document.getElementById('banner-modal-title').textContent = 'إضافة بنر جديد';
         document.getElementById('banner-id').value = '';
+        document.getElementById('banner-order').value = (banners.length + 1);
       }
       
       document.getElementById('banner-modal').classList.add('active');
@@ -6131,7 +6227,19 @@
       const id = document.getElementById('banner-id').value;
       const fileInput = document.getElementById('banner-file');
       const imageUrl = document.getElementById('banner-image').value;
+      const storeSelect = document.getElementById('banner-store-id');
+      const storeId = storeSelect.value;
       
+      // Validate store selection
+      if (!storeId) {
+        showToast('error', 'خطأ', 'يجب اختيار متجر لربطه بالبنر');
+        return;
+      }
+
+      const selectedOption = storeSelect.options[storeSelect.selectedIndex];
+      const storeName = selectedOption ? selectedOption.dataset.name : '';
+      const storeType = selectedOption ? selectedOption.dataset.type : '';
+
       let imageData = imageUrl || '';
       
       if (fileInput.files[0]) {
@@ -6141,13 +6249,26 @@
           console.error('Error converting file to Base64:', e);
         }
       }
+
+      if (!imageData) {
+        showToast('error', 'خطأ', 'يجب رفع صورة أو إدخال رابط الصورة');
+        return;
+      }
       
       const bannerData = {
         title: document.getElementById('banner-title').value,
-        order: parseInt(document.getElementById('banner-order').value),
+        description: document.getElementById('banner-description').value,
+        order: parseInt(document.getElementById('banner-order').value) || 1,
         isActive: document.getElementById('banner-active').value === 'true',
         type: 'slider',
-        image: imageData
+        image: imageData,
+        storeId,
+        storeName,
+        storeType,
+        linkType: 'store',
+        linkTarget: storeId,
+        startDate: document.getElementById('banner-start-date').value || '',
+        endDate: document.getElementById('banner-end-date').value || '',
       };
       
       try {
@@ -6163,12 +6284,13 @@
         if (response.ok) {
           closeModal('banner-modal');
           loadBanners();
-          showToast('success', id ? 'تم التحديث' : 'تمت الإضافة', id ? 'تم تحديث السلايد بنجاح' : 'تمت إضافة السلايد بنجاح');
+          showToast('success', id ? 'تم التحديث' : 'تمت الإضافة', id ? 'تم تحديث البنر بنجاح' : 'تمت إضافة البنر بنجاح');
         } else {
-          throw new Error('Failed to save');
+          const err = await response.json().catch(() => ({}));
+          showToast('error', 'خطأ', err.error || 'حدث خطأ أثناء حفظ البنر');
         }
       } catch (error) {
-        showToast('error', 'خطأ', 'حدث خطأ أثناء حفظ السلايد');
+        showToast('error', 'خطأ', 'حدث خطأ أثناء حفظ البنر');
       }
     }
 

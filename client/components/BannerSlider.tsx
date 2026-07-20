@@ -81,10 +81,25 @@ function BannerSliderComponent({ banners, autoPlayInterval = 4000 }: BannerSlide
   const handleBannerPress = (banner: Banner) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 
+    // Priority 1: linked store → open StoreProducts directly
+    if (banner.storeId) {
+      navigation.navigate("StoreProducts", {
+        storeId: banner.storeId,
+        storeName: banner.storeName || banner.title || "",
+      });
+      return;
+    }
+
     if (!banner.linkType || !banner.linkTarget) return;
 
-    if (banner.linkType === "category") {
-      navigation.navigate("Products", {
+    if (banner.linkType === "store") {
+      // linkTarget holds the storeId (fallback for older banners without storeId field)
+      navigation.navigate("StoreProducts", {
+        storeId: banner.linkTarget,
+        storeName: banner.title || "",
+      });
+    } else if (banner.linkType === "category") {
+      navigation.navigate("StoresList", {
         categoryId: banner.linkTarget,
         categoryName: banner.title || "",
       });
