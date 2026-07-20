@@ -520,6 +520,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
+      // Fetch vendor commission rate to compute netEarning per sale
+      const vendorDoc = await db.collection("vendors").doc(vid).get();
+      const commissionRate = vendorDoc.exists ? (vendorDoc.data() as any)?.commissionPercent ?? 0 : 0;
+
       const totalRevenue = vendorOrders.reduce((s, o) => s + o.subtotal, 0);
       const totalOrders = vendorOrders.length;
       const avgOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0;
@@ -534,7 +538,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         .sort((a, b) => a.date.localeCompare(b.date))
         .slice(-14);
 
-      res.json({ totalRevenue, totalOrders, avgOrderValue, dailySales, recentSales: vendorOrders.slice(0, 20), period });
+      const recentWithNet = vendorOrders.slice(0, 20).map((o) => ({
+        ...o,
+        commissionRate,
+        netEarning: Math.round(o.subtotal * (1 - commissionRate / 100)),
+      }));
+
+      res.json({ totalRevenue, totalOrders, avgOrderValue, dailySales, recentSales: recentWithNet, period, commissionRate });
     } catch (err) {
       console.error("vendor wallet:", err);
       res.status(500).json({ error: "حدث خطأ في الخادم" });
@@ -1899,6 +1909,142 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error updating urgency thresholds:", error);
       res.status(500).json({ error: "Failed to update urgency thresholds" });
+    }
+  });
+
+  // ── System Settings (online payment, driver payout rule, auto-suspend) ────────
+
+  /**
+   * In-process cache for system_settings/global to avoid hitting Firestore on
+   * every order completion.  Invalidated every 60 seconds.
+   */
+  let _sysSettingsCache: Record<string, any> | null = null;
+  let _sysSettingsCacheAt = 0;
+  const SYS_CACHE_TTL = 60 * 1000; // 1 minute
+
+  async function getSystemSettings(): Promise<{
+    onlinePaymentEnabled: boolean;
+    driverPayoutRule: { type: string; flatRestaurant: number; flatDefault: number; percent: number };
+    autoSuspendThreshold: number;
+  }> {
+    const defaults = {
+      onlinePaymentEnabled: false,
+      driverPayoutRule: { type: "flat", flatRestaurant: 750, flatDefault: 2000, percent: 15 },
+      autoSuspendThreshold: 100000,
+    };
+    if (_sysSettingsCache && Date.now() - _sysSettingsCacheAt < SYS_CACHE_TTL) {
+      return _sysSettingsCache as any;
+    }
+    const db = getFirestore();
+    if (!db) return defaults;
+    try {
+      const snap = await db.collection("system_settings").doc("global").get();
+      const d = snap.exists ? (snap.data() as any) : {};
+      const result = {
+        onlinePaymentEnabled: d.onlinePaymentEnabled ?? defaults.onlinePaymentEnabled,
+        driverPayoutRule: d.driverPayoutRule ?? defaults.driverPayoutRule,
+        autoSuspendThreshold: d.autoSuspendThreshold ?? defaults.autoSuspendThreshold,
+      };
+      _sysSettingsCache = result;
+      _sysSettingsCacheAt = Date.now();
+      return result;
+    } catch {
+      return defaults;
+    }
+  }
+
+  function invalidateSysSettingsCache() {
+    _sysSettingsCache = null;
+    _sysSettingsCacheAt = 0;
+  }
+
+  // Compute driver payout from configurable rule
+  async function computeDriverPayout(
+    isRestaurant: boolean,
+    deliveryFee: number,
+  ): Promise<{ driverEarning: number; deductionAmount: number }> {
+    const settings = await getSystemSettings();
+    const rule = settings.driverPayoutRule;
+    let driverEarning: number;
+    if (rule.type === "percent") {
+      driverEarning = Math.max(0, Math.round((deliveryFee || 0) * (rule.percent || 15) / 100));
+    } else {
+      driverEarning = isRestaurant ? (rule.flatRestaurant ?? 750) : (rule.flatDefault ?? 2000);
+    }
+    const deductionAmount = Math.max(0, (deliveryFee || 0) - driverEarning);
+    return { driverEarning, deductionAmount };
+  }
+
+  // GET /api/settings/public — unauthenticated; returns safe subset for the mobile app
+  app.get("/api/settings/public", async (_req: Request, res: Response) => {
+    try {
+      const settings = await getSystemSettings();
+      res.json({
+        onlinePaymentEnabled: settings.onlinePaymentEnabled,
+        driverPayoutRule: settings.driverPayoutRule,
+        autoSuspendThreshold: settings.autoSuspendThreshold,
+      });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // PUT /api/admin/settings — admin-only; updates system_settings/global
+  app.put("/api/admin/settings", async (req: Request, res: Response) => {
+    try {
+      const db = getFirestore();
+      if (!db) return res.status(503).json({ error: "Database unavailable" });
+      const { onlinePaymentEnabled, driverPayoutRule, autoSuspendThreshold } = req.body;
+      const update: Record<string, any> = {};
+      if (typeof onlinePaymentEnabled === "boolean") update.onlinePaymentEnabled = onlinePaymentEnabled;
+      if (driverPayoutRule && typeof driverPayoutRule === "object") {
+        const r = driverPayoutRule as any;
+        if (r.type === "flat" || r.type === "percent") {
+          update.driverPayoutRule = {
+            type: r.type,
+            flatRestaurant: Math.max(0, Number(r.flatRestaurant) || 750),
+            flatDefault: Math.max(0, Number(r.flatDefault) || 2000),
+            percent: Math.min(100, Math.max(0, Number(r.percent) || 15)),
+          };
+        }
+      }
+      if (typeof autoSuspendThreshold === "number" && autoSuspendThreshold >= 0) {
+        update.autoSuspendThreshold = Math.round(autoSuspendThreshold);
+      }
+      if (Object.keys(update).length === 0) {
+        return res.status(400).json({ error: "No valid fields to update" });
+      }
+      await db.collection("system_settings").doc("global").set(update, { merge: true });
+      invalidateSysSettingsCache();
+      res.json({ success: true, ...update });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // GET /api/admin/wallet-transactions — alias for settlements collection (read-only)
+  app.get("/api/admin/wallet-transactions", async (req: Request, res: Response) => {
+    const accountType = (req.query.accountType as "driver" | "vendor") || "driver";
+    const limit = Math.min(parseInt(req.query.limit as string) || 100, 500);
+    try {
+      const db = getFirestore();
+      if (!db) return res.json({ transactions: [] });
+      const snap = await db.collection("settlements")
+        .where("accountType", "==", accountType)
+        .limit(limit)
+        .get();
+      const transactions = snap.docs.map(d => {
+        const data = d.data() as any;
+        return {
+          id: d.id,
+          ...data,
+          createdAt: data.createdAt?.toDate?.()?.toISOString() ?? null,
+          updatedAt: data.updatedAt?.toDate?.()?.toISOString() ?? null,
+        };
+      }).sort((a, b) => (b.createdAt ?? "").localeCompare(a.createdAt ?? ""));
+      res.json({ transactions });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
     }
   });
 
@@ -3670,8 +3816,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (pushToken) await sendPushNotification(pushToken, "delivered", orderId);
 
         const isRestaurantOrder = await checkIsRestaurantOrder(order);
-        const deductionAmount = isRestaurantOrder ? 250 : 1000;
-        const driverEarning = isRestaurantOrder ? 750 : 2000;
+        const { driverEarning, deductionAmount } = await computeDriverPayout(isRestaurantOrder, order.deliveryFee || 0);
         await updateOrderDriverInfo(orderId, { driverEarning, ownerEarning: deductionAmount });
         const updatedBatchFinancial = await updateDriverEarningsOnOrder(phoneNumber, {
           driverEarning,
@@ -3753,10 +3898,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
             return o?.status === "delivered" || o?.status === "issue" || o?.status === "cancelled";
           }).length;
           if (allDelivered) {
-            // Sum total earnings from all delivered orders in batch
+            // Sum total earnings from all delivered orders in batch.
+            // Prefer the per-order stored driverEarning (set at completion time via the
+            // configurable payout rule) so the batch summary stays consistent with what
+            // was actually paid. Fall back to the legacy hardcoded values only for orders
+            // that predate the configurable rule (no driverEarning field).
             const batchEarnings = batchDoc.orderIds.reduce((sum, oid) => {
               const o = freshOrders.find(x => x.id === oid);
               if (!o) return sum;
+              if ((o as any).driverEarning !== undefined) return sum + ((o as any).driverEarning || 0);
               const isRest = (o as any).orderType === "restaurant" || !!(o as any).vendorId;
               return sum + (isRest ? 750 : 2000);
             }, 0);
@@ -3771,7 +3921,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             // Check wallet before assigning next batch.
             // newBalance = amountOwed (debt owed BY the driver TO onway).
             // Block the driver only once debt is too HIGH — not too low.
-            const OWED_THRESHOLD = 50000;
+            const OWED_THRESHOLD = (await getSystemSettings()).autoSuspendThreshold;
             if (newBalance < OWED_THRESHOLD) {
               // Debt within allowed range — move to end of queue (joinedAt reset) and mark available
               updateDriverQueueEntry(phoneNumber, { hasActiveBatch: false, joinedAt: Date.now() }).catch(() => {});
@@ -3783,10 +3933,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
               removeDriverFromActiveQueue(phoneNumber).catch(() => {});
             }
           } else {
-            // Accumulate partial earnings
+            // Accumulate partial earnings (prefer stored driverEarning, fallback to legacy)
             const partialEarnings = batchDoc.orderIds.reduce((sum, oid) => {
               const o = freshOrders.find(x => x.id === oid);
               if (!o || o.status !== "delivered") return sum;
+              if ((o as any).driverEarning !== undefined) return sum + ((o as any).driverEarning || 0);
               const isRest = (o as any).orderType === "restaurant" || !!(o as any).vendorId;
               return sum + (isRest ? 750 : 2000);
             }, 0);

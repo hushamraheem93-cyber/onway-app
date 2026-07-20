@@ -52,6 +52,7 @@ import { queryClient } from "@/lib/query-client";
 import RootStackNavigator from "@/navigation/RootStackNavigator";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { AuthProvider } from "@/context/AuthContext";
+import { SystemSettingsProvider } from "@/context/SystemSettingsContext";
 import { CartProvider } from "@/context/CartContext";
 import { OrderProvider } from "@/context/OrderContext";
 import { FavoritesProvider } from "@/context/FavoritesContext";
@@ -101,6 +102,7 @@ export default function App() {
       <QueryClientProvider client={queryClient}>
         <ThemeProvider>
           <AuthProvider>
+            <SystemSettingsProvider>
             <NotificationProvider>
               <LocationProvider>
               <CartProvider>
@@ -123,6 +125,7 @@ export default function App() {
               </CartProvider>
               </LocationProvider>
             </NotificationProvider>
+            </SystemSettingsProvider>
           </AuthProvider>
         </ThemeProvider>
       </QueryClientProvider>

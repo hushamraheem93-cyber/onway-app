@@ -33,7 +33,6 @@ runButton = "Project"
 # Dev mode (server:dev) keeps the 000000 test OTP working for quick sign-in.
 [[workflows.workflow]]
 name = "Project"
-mode = "sequential"
 author = "agent"
 
 [workflows.workflow.metadata]

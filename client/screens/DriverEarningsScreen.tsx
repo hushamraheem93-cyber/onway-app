@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import {
   StyleSheet,
   View,
@@ -9,6 +9,8 @@ import {
   TextInput,
   Alert,
 } from "react-native";
+import { onSnapshot, doc } from "firebase/firestore";
+import { db } from "@/lib/firebase";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { Feather } from "@expo/vector-icons";
@@ -22,6 +24,7 @@ import { getApiUrl } from "@/lib/query-client";
 import { formatPrice } from "@/constants/currency";
 import { SettlementStatusBar } from "@/components/SettlementStatusBar";
 import { useSettlement } from "@/hooks/useSettlement";
+import { useSystemSettings } from "@/context/SystemSettingsContext";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface CompletedOrder {
@@ -77,14 +80,14 @@ type TxFilter = "all" | "today" | "week" | "month" | "3months" | "custom";
 type ActiveTab = "earnings" | "wallet" | "report" | "payments";
 
 // ─── Account status helper ────────────────────────────────────────────────────
-function getAccountStatus(owed: number): {
+function getAccountStatus(owed: number, threshold = 100000): {
   label: string;
   sublabel: string;
   color: string;
   bgColor: string;
   icon: keyof typeof Feather.glyphMap;
 } {
-  if (owed >= 50000)
+  if (owed >= threshold)
     return {
       label: "الحساب موقوف",
       sublabel: "تواصل مع الإدارة فوراً لتسوية الحساب",
@@ -92,18 +95,20 @@ function getAccountStatus(owed: number): {
       bgColor: AppColors.errorLight,
       icon: "x-circle",
     };
-  if (owed >= 40000)
+  const highMark = threshold * 0.8;
+  const warnMark = threshold * 0.5;
+  if (owed >= highMark)
     return {
       label: "المستحقات مرتفعة",
-      sublabel: `تجاوزت ${formatPrice(40000)} — سارع للتسوية قبل الحجب`,
+      sublabel: `تجاوزت ${formatPrice(Math.round(highMark))} — سارع للتسوية قبل الحجب`,
       color: AppColors.primary,
       bgColor: AppColors.secondary,
       icon: "alert-triangle",
     };
-  if (owed >= 30000)
+  if (owed >= warnMark)
     return {
       label: "توجد مستحقات",
-      sublabel: `${formatPrice(owed)} مستحق — يُطلب التسوية قبل تجاوز ${formatPrice(50000)}`,
+      sublabel: `${formatPrice(owed)} مستحق — يُطلب التسوية قبل تجاوز ${formatPrice(threshold)}`,
       color: AppColors.warning,
       bgColor: AppColors.warningLight,
       icon: "alert-circle",
@@ -115,6 +120,55 @@ function getAccountStatus(owed: number): {
     bgColor: AppColors.successLight,
     icon: "check-circle",
   };
+}
+
+// ─── Debt limit progress bar ─────────────────────────────────────────────────
+function DebtLimitBar({
+  owed,
+  threshold,
+}: {
+  owed: number;
+  threshold: number;
+}) {
+  const { theme } = useTheme();
+  const pct = Math.min(100, threshold > 0 ? (owed / threshold) * 100 : 0);
+  const barColor =
+    pct >= 100 ? AppColors.error
+    : pct >= 80  ? AppColors.primary
+    : pct >= 50  ? AppColors.warning
+    : AppColors.success;
+
+  return (
+    <View style={[styles.ratioCard, { backgroundColor: theme.backgroundDefault }, Shadows.sm]}>
+      <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: Spacing.sm, marginBottom: 8 }}>
+        <Feather name="activity" size={16} color={barColor} />
+        <ThemedText type="h4" style={{ color: theme.text }}>حد الحجب التلقائي</ThemedText>
+        <View style={{ flex: 1 }} />
+        <View style={{ paddingHorizontal: Spacing.md, paddingVertical: 3, borderRadius: 20, backgroundColor: barColor + "20" }}>
+          <ThemedText type="small" style={{ color: barColor, fontWeight: FontWeight.bold }}>
+            {Math.round(pct)}%
+          </ThemedText>
+        </View>
+      </View>
+      <View style={{ height: 10, borderRadius: 5, backgroundColor: AppColors.border, overflow: "hidden", marginBottom: Spacing.lg }}>
+        <View style={{ width: `${pct}%`, height: "100%", backgroundColor: barColor, borderRadius: 5 }} />
+      </View>
+      <View style={{ flexDirection: "row-reverse", justifyContent: "space-between" }}>
+        <View style={{ alignItems: "center" }}>
+          <ThemedText type="small" style={{ color: theme.textSecondary }}>المستحق الحالي</ThemedText>
+          <ThemedText type="body" style={{ color: AppColors.error, fontWeight: FontWeight.bold }}>{formatPrice(owed)}</ThemedText>
+        </View>
+        <View style={{ alignItems: "center" }}>
+          <ThemedText type="small" style={{ color: theme.textSecondary }}>حد الحجب</ThemedText>
+          <ThemedText type="body" style={{ color: AppColors.warning, fontWeight: FontWeight.bold }}>{formatPrice(threshold)}</ThemedText>
+        </View>
+        <View style={{ alignItems: "center" }}>
+          <ThemedText type="small" style={{ color: theme.textSecondary }}>المتبقي</ThemedText>
+          <ThemedText type="body" style={{ color: AppColors.success, fontWeight: FontWeight.bold }}>{formatPrice(Math.max(0, threshold - owed))}</ThemedText>
+        </View>
+      </View>
+    </View>
+  );
 }
 
 // ─── Day names ───────────────────────────────────────────────────────────────
@@ -633,15 +687,26 @@ export default function DriverEarningsScreen() {
     );
   }, [settlement]);
 
-  const [earnings,     setEarnings]     = useState<EarningsData | null>(null);
-  const [account,      setAccount]      = useState<DriverFinancialAccount | null>(null);
-  const [transactions, setTransactions] = useState<DriverTransaction[]>([]);
-  const [activeTab,    setActiveTab]    = useState<ActiveTab>("earnings");
-  const [loading,      setLoading]      = useState(true);
-  const [refreshing,   setRefreshing]   = useState(false);
-  const [txFilter,     setTxFilter]     = useState<TxFilter>("all");
-  const [customFrom,   setCustomFrom]   = useState("");
-  const [customTo,     setCustomTo]     = useState("");
+  const { settings: systemSettings } = useSystemSettings();
+  const suspendThreshold = systemSettings.autoSuspendThreshold || 100000;
+
+  const [earnings,        setEarnings]        = useState<EarningsData | null>(null);
+  const [account,         setAccount]         = useState<DriverFinancialAccount | null>(null);
+  const [transactions,    setTransactions]    = useState<DriverTransaction[]>([]);
+  const [activeTab,       setActiveTab]       = useState<ActiveTab>("earnings");
+  const [loading,         setLoading]         = useState(true);
+  const [refreshing,      setRefreshing]      = useState(false);
+  const [txFilter,        setTxFilter]        = useState<TxFilter>("all");
+  const [customFrom,      setCustomFrom]      = useState("");
+  const [customTo,        setCustomTo]        = useState("");
+  const [liveSettlement,  setLiveSettlement]  = useState<{
+    outstandingTotal: number;
+    totalGross: number;
+    totalCommission: number;
+    lastSettlementAmount: number;
+    totalOrders: number;
+  } | null>(null);
+  const unsubscribeRef = useRef<(() => void) | null>(null);
 
   const fetchData = useCallback(async () => {
     if (!phoneNumber) return;
@@ -665,6 +730,33 @@ export default function DriverEarningsScreen() {
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
+  // ── Real-time Firestore listener on settlementLedger/driver:${phoneNumber} ─
+  useEffect(() => {
+    if (!phoneNumber) return;
+    const ledgerDocId = `driver:${phoneNumber}`;
+    try {
+      const docRef = doc(db, "settlementLedger", ledgerDocId);
+      const unsub = onSnapshot(docRef, (snap) => {
+        if (snap.exists()) {
+          const d = snap.data() as any;
+          setLiveSettlement({
+            outstandingTotal:     d.outstandingTotal     ?? 0,
+            totalGross:           d.totalGross           ?? 0,
+            totalCommission:      d.totalCommission      ?? 0,
+            lastSettlementAmount: d.lastSettlementAmount ?? 0,
+            totalOrders:          d.totalOrders          ?? 0,
+          });
+        }
+      }, (_err) => {
+        // Silently ignore — the REST-based account state remains the fallback
+      });
+      unsubscribeRef.current = unsub;
+      return () => { unsub(); unsubscribeRef.current = null; };
+    } catch {
+      // firebase SDK not ready — gracefully ignore
+    }
+  }, [phoneNumber]);
+
   // ── Filtered transactions ──────────────────────────────────────────────────
   const filteredTx = useMemo(
     () => filterTransactions(transactions, txFilter, customFrom, customTo),
@@ -672,8 +764,9 @@ export default function DriverEarningsScreen() {
   );
 
   // ── Account status ─────────────────────────────────────────────────────────
-  const amountOwed  = account?.amountOwed || 0;
-  const acctStatus  = getAccountStatus(amountOwed);
+  // Prefer live Firestore data when available; fall back to REST-based account
+  const amountOwed  = liveSettlement?.outstandingTotal ?? account?.amountOwed ?? 0;
+  const acctStatus  = getAccountStatus(amountOwed, suspendThreshold);
 
   if (loading) {
     return (
@@ -747,20 +840,29 @@ export default function DriverEarningsScreen() {
         ) : null}
       </View>
 
+      {/* Debt limit progress bar — live from Firestore onSnapshot */}
+      <DebtLimitBar owed={amountOwed} threshold={suspendThreshold} />
+
       {/* Payment ratio card */}
       {account ? <PaymentRatioCard account={account} /> : null}
 
       {/* Financial summary */}
-      {account ? (
+      {(account || liveSettlement) ? (
         <>
           <View style={styles.statsGrid}>
-            <StatCard title="إجمالي أرباح التوصيل" value={formatPrice(account.totalEarnings)}       icon="dollar-sign"  color={AppColors.success} />
-            <StatCard title="إجمالي عمولات OnWay"  value={formatPrice(account.totalOnwayCommission)} icon="percent"      color={AppColors.error}   />
+            <StatCard title="إجمالي أرباح التوصيل" value={formatPrice(liveSettlement?.totalCommission ?? account?.totalEarnings ?? 0)}        icon="dollar-sign"    color={AppColors.success} />
+            <StatCard title="إجمالي عمولات OnWay"  value={formatPrice(account?.totalOnwayCommission ?? 0)}                                      icon="percent"        color={AppColors.error}   />
           </View>
           <View style={styles.statsGrid}>
-            <StatCard title="إجمالي المسدّد"       value={formatPrice(account.totalPaid)}            icon="check-circle" color={AppColors.primary}  />
-            <StatCard title="حد الحجب"             value={formatPrice(50000)}                        icon="alert-triangle" color={AppColors.warning} />
+            <StatCard title="إجمالي المسدّد"        value={formatPrice(account?.totalPaid ?? 0)}                                                 icon="check-circle"   color={AppColors.primary}  />
+            <StatCard title="حد الحجب"              value={formatPrice(suspendThreshold)}                                                         icon="alert-triangle" color={AppColors.warning}  />
           </View>
+          {liveSettlement ? (
+            <View style={styles.statsGrid}>
+              <StatCard title="آخر رحلة"       value={formatPrice(liveSettlement.lastSettlementAmount)} icon="zap"          color={AppColors.primary} />
+              <StatCard title="نقد محصّل (كلي)" value={formatPrice(liveSettlement.totalGross)}           icon="dollar-sign"  color={AppColors.info}    />
+            </View>
+          ) : null}
         </>
       ) : null}
 

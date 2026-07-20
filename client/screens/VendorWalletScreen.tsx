@@ -1,4 +1,6 @@
-import React, { useState, useCallback } from "react";
+import React, { useState, useEffect, useCallback } from "react";
+import { onSnapshot, doc } from "firebase/firestore";
+import { db } from "@/lib/firebase";
 import {
   View,
   StyleSheet,
@@ -34,6 +36,7 @@ interface DaySale { date: string; revenue: number }
 interface RecentSale {
   id: string; date: string; subtotal: number;
   status: string; customerPhone: string; itemCount: number;
+  netEarning?: number; commissionRate?: number;
 }
 interface WalletData {
   totalRevenue: number;
@@ -103,15 +106,47 @@ const chartStyles = StyleSheet.create({
   barLabel: { fontFamily: "Cairo_400Regular", fontSize: 9, color: AppColors.gray500, textAlign: "center" },
 });
 
+/** Decode the vendor ID from the JWT payload without external libraries */
+function decodeVendorId(token: string | null): string | null {
+  if (!token) return null;
+  try {
+    const payload = JSON.parse(atob(token.split(".")[1]));
+    return payload.vendorId || payload.sub || payload.id || null;
+  } catch {
+    return null;
+  }
+}
+
 export default function VendorWalletScreen() {
   const headerHeight = useHeaderHeight();
   const tabBarHeight = useBottomTabBarHeight();
   const { vendorToken } = useAuth();
+  const vendorId = decodeVendorId(vendorToken);
   const settlement = useSettlement("vendor");
+  const [liveBalance, setLiveBalance] = useState<number | null>(null);
+
+  // ── Real-time Firestore listener on settlementLedger/vendor:${vendorId} ───
+  useEffect(() => {
+    if (!vendorId) return;
+    const ledgerDocId = `vendor:${vendorId}`;
+    try {
+      const docRef = doc(db, "settlementLedger", ledgerDocId);
+      const unsub = onSnapshot(docRef, (snap) => {
+        if (snap.exists()) {
+          const d = snap.data() as any;
+          setLiveBalance(d.outstandingTotal ?? null);
+        }
+      }, () => { /* silently ignore */ });
+      return () => unsub();
+    } catch {
+      // firebase not ready — gracefully ignore
+    }
+  }, [vendorId]);
+
   const handleRequestSettlement = useCallback(() => {
     Alert.alert(
       "طلب تسوية",
-      `سيتم إرسال طلب تسوية بالمبلغ ${formatPrice(settlement.view?.outstanding || 0)} إلى الإدارة.`,
+      `سيتم إرسال طلب تسوية بالمبلغ ${formatPrice(liveBalance ?? settlement.view?.outstanding ?? 0)} إلى الإدارة.`,
       [
         { text: "إلغاء", style: "cancel" },
         {
@@ -149,6 +184,13 @@ export default function VendorWalletScreen() {
   const dailySales = data?.dailySales ?? [];
   const recentSales = data?.recentSales ?? [];
 
+  // Merge the live Firestore balance into the settlement view so SettlementStatusBar
+  // and the alert dialog reflect real-time outstanding amount without waiting for
+  // the next WebSocket "settlements:changed" event or manual pull-to-refresh.
+  const liveSettlementView = settlement.view
+    ? { ...settlement.view, outstanding: liveBalance ?? settlement.view.outstanding }
+    : settlement.view;
+
   return (
     <ScrollView
       style={{ flex: 1, backgroundColor: theme.backgroundRoot }}
@@ -163,9 +205,10 @@ export default function VendorWalletScreen() {
       }
       showsVerticalScrollIndicator={false}
     >
-      {/* Always-visible settlement status indicator (top of screen) */}
+      {/* Always-visible settlement status indicator (top of screen) — uses live
+          Firestore balance so outstanding amount updates in real time without refresh */}
       <SettlementStatusBar
-        view={settlement.view}
+        view={liveSettlementView}
         requesting={settlement.requesting}
         onRequest={handleRequestSettlement}
         containerStyle={{ marginHorizontal: 0, marginTop: 0 }}
@@ -245,6 +288,11 @@ export default function VendorWalletScreen() {
                 >
                   <View style={styles.saleLeft}>
                     <ThemedText style={styles.saleAmount}>{formatPrice(sale.subtotal)}</ThemedText>
+                    {sale.netEarning !== undefined ? (
+                      <ThemedText style={[styles.saleMeta, { color: AppColors.success, fontFamily: "Cairo_700Bold" }]}>
+                        صافي: {formatPrice(sale.netEarning)}
+                      </ThemedText>
+                    ) : null}
                     <View style={[styles.saleBadge, { backgroundColor: LIGHT_PURPLE }]}>
                       <ThemedText style={[styles.saleBadgeText, { color: PURPLE }]}>
                         {STATUS_LABELS[sale.status] || sale.status}
@@ -256,6 +304,11 @@ export default function VendorWalletScreen() {
                     <ThemedText style={styles.saleMeta}>
                       {sale.itemCount} منتج · {sale.customerPhone.slice(-4).padStart(sale.customerPhone.length, "*")}
                     </ThemedText>
+                    {sale.commissionRate !== undefined && sale.commissionRate > 0 ? (
+                      <ThemedText style={[styles.saleMeta, { color: AppColors.error }]}>
+                        عمولة {sale.commissionRate}%
+                      </ThemedText>
+                    ) : null}
                   </View>
                 </View>
               ))}

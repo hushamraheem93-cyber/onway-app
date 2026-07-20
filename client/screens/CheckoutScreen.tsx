@@ -15,6 +15,7 @@ import { useCart } from "@/context/CartContext";
 import { formatPrice } from "@/constants/currency";
 import { useOrders } from "@/context/OrderContext";
 import { useAuth } from "@/context/AuthContext";
+import { useSystemSettings } from "@/context/SystemSettingsContext";
 import { useLocation } from "@/context/LocationContext";
 import { ThemedText } from "@/components/ThemedText";
 import { Button } from "@/components/Button";
@@ -42,6 +43,7 @@ export default function CheckoutScreen() {
   const { addOrder } = useOrders();
   const { phoneNumber, userProfile, customerToken } = useAuth();
   const { savedLocation } = useLocation();
+  const { settings: systemSettings } = useSystemSettings();
 
   const { data: deliveryAreas = [] } = useQuery<DeliveryArea[]>({
     queryKey: ["/api/delivery-areas"],
@@ -515,18 +517,31 @@ export default function CheckoutScreen() {
 
       <View style={[styles.paymentCard, { backgroundColor: theme.backgroundDefault }, Shadows.sm]}>
         <View style={styles.paymentRow}>
-          <View style={[styles.paymentMethodItem, styles.paymentMethodDisabled]}>
-            <Svg width={44} height={28}>
-              <Circle cx={15} cy={14} r={13} fill={AppColors.error} opacity={0.4} />
-              <Circle cx={29} cy={14} r={13} fill={AppColors.warning} opacity={0.4} />
-            </Svg>
-            <ThemedText type="small" style={[styles.paymentLabel, { color: theme.textSecondary }]}>
-              ماستر كارد
-            </ThemedText>
-            <View style={styles.comingSoonBadge}>
-              <ThemedText style={styles.comingSoonText}>قريباً</ThemedText>
+          {/* MasterCard: shown only when online payment is enabled */}
+          {systemSettings.onlinePaymentEnabled ? (
+            <View style={styles.paymentMethodItem}>
+              <Svg width={44} height={28}>
+                <Circle cx={15} cy={14} r={13} fill={AppColors.error} opacity={0.8} />
+                <Circle cx={29} cy={14} r={13} fill={AppColors.warning} opacity={0.8} />
+              </Svg>
+              <ThemedText type="small" style={[styles.paymentLabel, { color: theme.text }]}>
+                ماستر كارد
+              </ThemedText>
             </View>
-          </View>
+          ) : (
+            <View style={[styles.paymentMethodItem, styles.paymentMethodDisabled]}>
+              <Svg width={44} height={28}>
+                <Circle cx={15} cy={14} r={13} fill={AppColors.error} opacity={0.4} />
+                <Circle cx={29} cy={14} r={13} fill={AppColors.warning} opacity={0.4} />
+              </Svg>
+              <ThemedText type="small" style={[styles.paymentLabel, { color: theme.textSecondary }]}>
+                ماستر كارد
+              </ThemedText>
+              <View style={styles.comingSoonBadge}>
+                <ThemedText style={styles.comingSoonText}>قريباً</ThemedText>
+              </View>
+            </View>
+          )}
 
           <View style={styles.paymentMethodItem}>
             <View style={styles.dinarCashIcon}>
@@ -537,17 +552,29 @@ export default function CheckoutScreen() {
             </ThemedText>
           </View>
 
-          <View style={[styles.paymentMethodItem, styles.paymentMethodDisabled]}>
-            <View style={[styles.cardIcon, { borderColor: theme.border }]}>
-              <Feather name="credit-card" size={20} color={theme.textSecondary} />
+          {/* Card: shown only when online payment is enabled */}
+          {systemSettings.onlinePaymentEnabled ? (
+            <View style={styles.paymentMethodItem}>
+              <View style={[styles.cardIcon, { borderColor: theme.border }]}>
+                <Feather name="credit-card" size={20} color={AppColors.primary} />
+              </View>
+              <ThemedText type="small" style={[styles.paymentLabel, { color: theme.text }]}>
+                بواسطة البطاقة
+              </ThemedText>
             </View>
-            <ThemedText type="small" style={[styles.paymentLabel, { color: theme.textSecondary }]}>
-              بواسطة البطاقة
-            </ThemedText>
-            <View style={styles.comingSoonBadge}>
-              <ThemedText style={styles.comingSoonText}>قريباً</ThemedText>
+          ) : (
+            <View style={[styles.paymentMethodItem, styles.paymentMethodDisabled]}>
+              <View style={[styles.cardIcon, { borderColor: theme.border }]}>
+                <Feather name="credit-card" size={20} color={theme.textSecondary} />
+              </View>
+              <ThemedText type="small" style={[styles.paymentLabel, { color: theme.textSecondary }]}>
+                بواسطة البطاقة
+              </ThemedText>
+              <View style={styles.comingSoonBadge}>
+                <ThemedText style={styles.comingSoonText}>قريباً</ThemedText>
+              </View>
             </View>
-          </View>
+          )}
         </View>
 
         <View style={[styles.cashNote, { backgroundColor: AppColors.primary + "10", borderColor: AppColors.primary + "30" }]}>

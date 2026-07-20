@@ -32,6 +32,7 @@ import { apiRequest, getApiUrl } from "@/lib/query-client";
 import { resolveImageUrl } from "@/utils/imageUtils";
 import { formatPrice } from "@/constants/currency";
 import { compressAndConvertToBase64, processAndUploadImage, isBase64Image, ImageSize } from "@/lib/imageUtils";
+import { useSystemSettings } from "@/context/SystemSettingsContext";
 
 type TabType = "dashboard" | "orders" | "drivers" | "users" | "banners" | "categories" | "products" | "areas" | "promoCodes" | "notifications" | "vendors" | "settlements" | "settings";
 
@@ -331,6 +332,107 @@ export default function AdminScreen() {
 
   const [serviceFeeInput, setServiceFeeInput] = useState("");
   const [isSavingFee, setIsSavingFee] = useState(false);
+
+  // ── System settings: online payment, driver payout rule, auto-suspend ───────
+  const { settings: systemSettings, refresh: refreshSystemSettings } = useSystemSettings();
+  const [payoutRuleType, setPayoutRuleType]               = useState<"flat" | "percent">("flat");
+  const [payoutFlatRestaurant, setPayoutFlatRestaurant]   = useState("750");
+  const [payoutFlatDefault, setPayoutFlatDefault]         = useState("2000");
+  const [payoutPercent, setPayoutPercent]                 = useState("15");
+  const [autoSuspendInput, setAutoSuspendInput]           = useState("100000");
+  const [isSavingPayout, setIsSavingPayout]               = useState(false);
+  const [isSavingSuspend, setIsSavingSuspend]             = useState(false);
+  const [onlinePaymentEnabled, setOnlinePaymentEnabled]   = useState(false);
+  const [isSavingOnlinePayment, setIsSavingOnlinePayment] = useState(false);
+
+  // Sync system settings from context whenever they load
+  useEffect(() => {
+    if (!systemSettings) return;
+    setOnlinePaymentEnabled(systemSettings.onlinePaymentEnabled);
+    setAutoSuspendInput(String(systemSettings.autoSuspendThreshold ?? 100000));
+    const r = systemSettings.driverPayoutRule;
+    if (r) {
+      setPayoutRuleType(r.type || "flat");
+      setPayoutFlatRestaurant(String(r.flatRestaurant ?? 750));
+      setPayoutFlatDefault(String(r.flatDefault ?? 2000));
+      setPayoutPercent(String(r.percent ?? 15));
+    }
+  }, [systemSettings]);
+
+  const saveOnlinePaymentToggle = useCallback(async (enabled: boolean) => {
+    setOnlinePaymentEnabled(enabled);
+    setIsSavingOnlinePayment(true);
+    try {
+      const res = await fetch(`${getApiUrl()}/api/admin/settings`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ onlinePaymentEnabled: enabled }),
+      });
+      if (!res.ok) throw new Error("failed");
+      await refreshSystemSettings();
+    } catch {
+      setOnlinePaymentEnabled(!enabled); // revert on error
+      Alert.alert("خطأ", "فشل حفظ الإعداد، حاول مجدداً");
+    } finally {
+      setIsSavingOnlinePayment(false);
+    }
+  }, [refreshSystemSettings]);
+
+  const saveDriverPayoutRule = useCallback(async () => {
+    setIsSavingPayout(true);
+    const fr = parseInt(payoutFlatRestaurant, 10);
+    const fd = parseInt(payoutFlatDefault, 10);
+    const pct = parseFloat(payoutPercent);
+    if (payoutRuleType === "flat" && (isNaN(fr) || isNaN(fd))) {
+      Alert.alert("خطأ", "يرجى إدخال مبالغ صحيحة");
+      setIsSavingPayout(false);
+      return;
+    }
+    if (payoutRuleType === "percent" && (isNaN(pct) || pct <= 0 || pct > 100)) {
+      Alert.alert("خطأ", "يرجى إدخال نسبة بين 1 و100");
+      setIsSavingPayout(false);
+      return;
+    }
+    try {
+      const res = await fetch(`${getApiUrl()}/api/admin/settings`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          driverPayoutRule: { type: payoutRuleType, flatRestaurant: fr || 750, flatDefault: fd || 2000, percent: pct || 15 },
+        }),
+      });
+      if (!res.ok) throw new Error("failed");
+      await refreshSystemSettings();
+      Alert.alert("تم", "تم تحديث قاعدة مكافأة السائق بنجاح");
+    } catch {
+      Alert.alert("خطأ", "فشل حفظ الإعداد، حاول مجدداً");
+    } finally {
+      setIsSavingPayout(false);
+    }
+  }, [payoutRuleType, payoutFlatRestaurant, payoutFlatDefault, payoutPercent, refreshSystemSettings]);
+
+  const saveAutoSuspendThreshold = useCallback(async () => {
+    const val = parseInt(autoSuspendInput, 10);
+    if (isNaN(val) || val < 0) { Alert.alert("خطأ", "يرجى إدخال رقم أكبر من أو يساوي صفر"); return; }
+    setIsSavingSuspend(true);
+    try {
+      const res = await fetch(`${getApiUrl()}/api/admin/settings`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ autoSuspendThreshold: val }),
+      });
+      if (!res.ok) throw new Error("failed");
+      await refreshSystemSettings();
+      Alert.alert("تم", "تم تحديث حد الحجب التلقائي بنجاح");
+    } catch {
+      Alert.alert("خطأ", "فشل حفظ الإعداد، حاول مجدداً");
+    } finally {
+      setIsSavingSuspend(false);
+    }
+  }, [autoSuspendInput, refreshSystemSettings]);
 
   // Register admin push token so server can send new-order notifications
   useEffect(() => {
@@ -2893,6 +2995,131 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
               ) : (
                 <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 14, color: AppColors.white }}>حفظ</ThemedText>
               )}
+            </Pressable>
+          </View>
+        </View>
+
+        {/* Online Payment Toggle */}
+        <View style={{ backgroundColor: theme.backgroundSecondary, borderRadius: BorderRadius.lg, padding: Spacing.lg, gap: Spacing.md }}>
+          <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: Spacing.sm }}>
+            <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: "#10B98120", alignItems: "center", justifyContent: "center" }}>
+              <Feather name="credit-card" size={20} color="#10B981" />
+            </View>
+            <View style={{ flex: 1, alignItems: "flex-end" }}>
+              <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 15 }}>الدفع الإلكتروني</ThemedText>
+              <ThemedText style={{ fontFamily: "Cairo_400Regular", fontSize: 13, color: theme.textSecondary }}>
+                {onlinePaymentEnabled ? "مفعّل — تظهر خيارات البطاقة للعملاء" : "معطّل — خيارات البطاقة مخفية"}
+              </ThemedText>
+            </View>
+            <Switch
+              value={onlinePaymentEnabled}
+              onValueChange={saveOnlinePaymentToggle}
+              disabled={isSavingOnlinePayment}
+              trackColor={{ false: AppColors.gray200, true: "#10B981" }}
+              thumbColor={AppColors.white}
+            />
+          </View>
+        </View>
+
+        {/* Driver Payout Rule */}
+        <View style={{ backgroundColor: theme.backgroundSecondary, borderRadius: BorderRadius.lg, padding: Spacing.lg, gap: Spacing.md }}>
+          <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: Spacing.sm }}>
+            <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: "#3B82F620", alignItems: "center", justifyContent: "center" }}>
+              <Feather name="truck" size={20} color="#3B82F6" />
+            </View>
+            <View style={{ flex: 1, alignItems: "flex-end" }}>
+              <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 15 }}>مكافأة السائق لكل رحلة</ThemedText>
+              <ThemedText style={{ fontFamily: "Cairo_400Regular", fontSize: 13, color: theme.textSecondary }}>
+                {payoutRuleType === "flat"
+                  ? `ثابت: مطعم ${formatPrice(parseInt(payoutFlatRestaurant, 10) || 750)} / عام ${formatPrice(parseInt(payoutFlatDefault, 10) || 2000)}`
+                  : `نسبة ${payoutPercent}% من التوصيل`}
+              </ThemedText>
+            </View>
+          </View>
+          {/* Payout type selector */}
+          <View style={{ flexDirection: "row-reverse", gap: Spacing.sm }}>
+            {(["flat", "percent"] as const).map((t) => (
+              <Pressable
+                key={t}
+                onPress={() => setPayoutRuleType(t)}
+                style={{
+                  flex: 1, paddingVertical: Spacing.sm, borderRadius: BorderRadius.md, alignItems: "center",
+                  backgroundColor: payoutRuleType === t ? "#3B82F6" : theme.backgroundDefault,
+                  borderWidth: 1, borderColor: payoutRuleType === t ? "#3B82F6" : theme.border,
+                }}
+              >
+                <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 13, color: payoutRuleType === t ? AppColors.white : theme.text }}>
+                  {t === "flat" ? "مبلغ ثابت" : "نسبة %"}
+                </ThemedText>
+              </Pressable>
+            ))}
+          </View>
+          {payoutRuleType === "flat" ? (
+            <View style={{ gap: Spacing.sm }}>
+              <TextInput
+                style={{ borderWidth: 1, borderColor: theme.border, borderRadius: BorderRadius.md, padding: Spacing.md, fontFamily: "Cairo_400Regular", fontSize: 14, color: theme.text, backgroundColor: theme.backgroundDefault, textAlign: "right" }}
+                placeholder="مكافأة طلبات المطاعم (دينار)"
+                placeholderTextColor={theme.textSecondary}
+                keyboardType="numeric"
+                value={payoutFlatRestaurant}
+                onChangeText={setPayoutFlatRestaurant}
+              />
+              <TextInput
+                style={{ borderWidth: 1, borderColor: theme.border, borderRadius: BorderRadius.md, padding: Spacing.md, fontFamily: "Cairo_400Regular", fontSize: 14, color: theme.text, backgroundColor: theme.backgroundDefault, textAlign: "right" }}
+                placeholder="مكافأة التوصيل العام (دينار)"
+                placeholderTextColor={theme.textSecondary}
+                keyboardType="numeric"
+                value={payoutFlatDefault}
+                onChangeText={setPayoutFlatDefault}
+              />
+            </View>
+          ) : (
+            <TextInput
+              style={{ borderWidth: 1, borderColor: theme.border, borderRadius: BorderRadius.md, padding: Spacing.md, fontFamily: "Cairo_400Regular", fontSize: 14, color: theme.text, backgroundColor: theme.backgroundDefault, textAlign: "right" }}
+              placeholder="النسبة % من رسوم التوصيل"
+              placeholderTextColor={theme.textSecondary}
+              keyboardType="numeric"
+              value={payoutPercent}
+              onChangeText={setPayoutPercent}
+            />
+          )}
+          <Pressable
+            onPress={saveDriverPayoutRule}
+            disabled={isSavingPayout}
+            style={{ backgroundColor: isSavingPayout ? theme.border : "#3B82F6", borderRadius: BorderRadius.md, paddingVertical: Spacing.md, alignItems: "center" }}
+          >
+            {isSavingPayout ? <ActivityIndicator size="small" color={AppColors.white} /> : <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 14, color: AppColors.white }}>حفظ</ThemedText>}
+          </Pressable>
+        </View>
+
+        {/* Auto-suspend Threshold */}
+        <View style={{ backgroundColor: theme.backgroundSecondary, borderRadius: BorderRadius.lg, padding: Spacing.lg, gap: Spacing.md }}>
+          <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: Spacing.sm }}>
+            <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: "#EF444420", alignItems: "center", justifyContent: "center" }}>
+              <Feather name="shield-off" size={20} color="#EF4444" />
+            </View>
+            <View style={{ flex: 1, alignItems: "flex-end" }}>
+              <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 15 }}>حد الحجب التلقائي للسائق</ThemedText>
+              <ThemedText style={{ fontFamily: "Cairo_400Regular", fontSize: 13, color: theme.textSecondary }}>
+                الحد الحالي: {formatPrice(parseInt(autoSuspendInput, 10) || 100000)}
+              </ThemedText>
+            </View>
+          </View>
+          <View style={{ flexDirection: "row-reverse", gap: Spacing.sm, alignItems: "center" }}>
+            <TextInput
+              style={{ flex: 1, borderWidth: 1, borderColor: theme.border, borderRadius: BorderRadius.md, padding: Spacing.md, fontFamily: "Cairo_400Regular", fontSize: 15, color: theme.text, backgroundColor: theme.backgroundDefault, textAlign: "right" }}
+              placeholder="الحد بالدينار العراقي"
+              placeholderTextColor={theme.textSecondary}
+              keyboardType="numeric"
+              value={autoSuspendInput}
+              onChangeText={setAutoSuspendInput}
+            />
+            <Pressable
+              onPress={saveAutoSuspendThreshold}
+              disabled={isSavingSuspend}
+              style={{ backgroundColor: isSavingSuspend ? theme.border : "#EF4444", borderRadius: BorderRadius.md, paddingHorizontal: Spacing.lg, paddingVertical: Spacing.md, alignItems: "center", justifyContent: "center" }}
+            >
+              {isSavingSuspend ? <ActivityIndicator size="small" color={AppColors.white} /> : <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 14, color: AppColors.white }}>حفظ</ThemedText>}
             </Pressable>
           </View>
         </View>
