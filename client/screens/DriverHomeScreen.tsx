@@ -118,6 +118,9 @@ export default function DriverHomeScreen() {
   const [currentBatch, setCurrentBatch] = useState<CurrentBatch | null>(null);
   const [queuePosition, setQueuePosition] = useState<number | null>(null);
   const [driverStatus, setDriverStatus] = useState<string>("pending");
+  // Surfaced when /api/driver/status fails — a silent failure here previously
+  // left the screen stuck on the cached status with no clue why.
+  const [statusFetchError, setStatusFetchError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
   const [amountOwed, setAmountOwed] = useState(0);
@@ -260,8 +263,18 @@ export default function DriverHomeScreen() {
             })).catch(() => {});
           }
         }
+        setStatusFetchError(null);
+      } else {
+        // Make the failure visible instead of silently keeping the stale status.
+        let serverMsg = "";
+        try { serverMsg = (await res.json())?.error || ""; } catch {}
+        setStatusFetchError(
+          `تعذّر تحديث الحالة (${res.status})${serverMsg ? ` — ${serverMsg}` : ""}` +
+          (res.status === 401 || res.status === 403 ? "\nجرّب تسجيل الخروج ثم الدخول من جديد." : "")
+        );
       }
     } catch (e) {
+      setStatusFetchError("تعذّر الاتصال بالخادم — تحقق من الشبكة.");
     } finally {
       setLoading(false);
     }
@@ -1114,6 +1127,13 @@ export default function DriverHomeScreen() {
         data={[1]}
         renderItem={() => (
           <View style={styles.content}>
+            {statusFetchError ? (
+              <View style={{ backgroundColor: AppColors.errorLight, borderRadius: 14, padding: Spacing.md, marginBottom: Spacing.md, borderWidth: 1, borderColor: AppColors.error + "44" }}>
+                <ThemedText type="small" style={{ color: AppColors.error, textAlign: "right", fontWeight: FontWeight.bold }}>
+                  {statusFetchError}
+                </ThemedText>
+              </View>
+            ) : null}
             {driverStatus === "pending" ? renderStatusPending() : null}
             {driverStatus === "rejected" ? renderStatusRejected() : null}
             {driverStatus === "approved" ? (
