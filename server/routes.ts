@@ -402,7 +402,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const stores = allDocs
         .filter((s) => (effectiveBusinessType ? s.businessType === effectiveBusinessType : true))
         .filter((s) => (nameQuery ? (s.storeName || "").toLowerCase().includes(nameQuery) : true))
-        .sort((a, b) => (b.approvedAt || "").localeCompare(a.approvedAt || ""));
+        .sort((a, b) => (a.sortOrder ?? 999) - (b.sortOrder ?? 999) || (b.approvedAt || "").localeCompare(a.approvedAt || ""));
       res.set("Cache-Control", "public, max-age=30");
       res.set("Vary", "Accept-Encoding");
       res.json({ stores, total: stores.length });
@@ -814,13 +814,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const snap = await db.collection("vendors").where("status", "==", "active").get();
       storesCache = snap.docs.map((d) => {
         const v = d.data() as any;
+        // Seeded vendors store the display name in `name`; registered vendors use `storeName`.
+        const storeName = v.storeName || v.name || "";
+        // Seeded vendors have no `id` field inside the doc — fall back to Firestore doc.id.
+        const id = v.id || d.id;
         return {
-          id: v.id, storeName: v.storeName, businessType: v.businessType,
+          id, storeName, businessType: v.businessType,
           address: v.address || "", bio: v.bio || "",
           totalProducts: v.totalProducts || 0,
           approvedAt: v.approvedAt || v.createdAt || "",
           profileImageUrl: limitImageSize(v.profileImageUrl || "", 80000),
-          coverImageUrl: limitImageSize(v.coverImageUrl || "", 80000),
+          coverImageUrl: limitImageSize(v.coverImageUrl || v.image || "", 80000),
           rating: v.rating ?? null,
           ratingCount: v.ratingCount ?? 0,
           deliveryTime: v.deliveryTime || "30-45",
@@ -831,9 +835,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           openTime: v.openTime || "",
           closeTime: v.closeTime || "",
           description: v.description || "",
-          categoryType: v.categoryType || "",
+          categoryType: v.categoryType || v.cuisine || "",
+          sortOrder: v.sortOrder ?? 999,
+          isOpen: v.isOpen ?? true,
         };
-      });
+      }).sort((a: any, b: any) => (a.sortOrder ?? 999) - (b.sortOrder ?? 999));
       storesCacheTime = now;
     }
     return storesCache!;

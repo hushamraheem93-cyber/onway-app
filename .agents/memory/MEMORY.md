@@ -7,6 +7,8 @@
 - [Vendor Analytics](vendor-analytics.md) — GET /api/vendor/analytics (requireVendor JWT), today/week orders+sales+bestSellers; shown in VendorHomeScreen analytics card.
 - [Minimum Order Check](min-order-check.md) — CheckoutScreen queries /api/stores list (cached), finds vendor by cartVendorId, blocks submit if subtotal < minOrder.
 - [Firestore Architecture](firestore-architecture.md) — client SDK (client/lib/firebase.ts) now used for onSnapshot on settlementLedger docs; all other reads still through Express Admin SDK.
+- [Firebase Storage bucket](firebase-storage-bucket.md) — bucket: onway-media-onway74c20 (GCS, not Firebase-branded); init pattern in firebase.ts; download-token URLs only (no public IAM).
+- [Seeded vendors Firestore structure](seeded-vendors-structure.md) — seeded vendors use `name`/`isOpen`; registered use `storeName`/`status`; getCachedStores fixed to handle both; id field must exist in doc data.
 - [Security Audit Baseline](security-audit-baseline.md) — JWT fail-fast, OTP log removal, demo data cleanup, Firestore rules — completed Jun 2026.
 - [Design System Color Tokens](design-system-colors.md) — All colors live in client/constants/theme.ts (AppColors, ORDER_STATUS_COLORS, ORDER_STATUS_LABELS, Gradients). Zero hardcoded hex across screens/components/navigation.
 - [Driver Financial System](driver-financial-system.md) — postpaid model: amountOwed = commission − paid; blocks driver at 50,000 IQD; replaces old prepaid wallet (getDriverWalletBalance removed).
@@ -15,6 +17,6 @@
 - [Firebase Storage bucket missing](firebase-storage-bucket-missing.md) — project has 0 Storage buckets; uploadToFirebaseStorage fails everywhere; vendor product/profile images migrated to Base64; other call sites still broken.
 - [Expo static build workflow](expo-static-build-workflow.md) — multi-job shell workflow commands need `trap 'kill 0' EXIT SIGTERM SIGINT` or restarts leave orphaned background jobs that race and corrupt output.
 - [EXPO_PUBLIC_DOMAIN port bug](expo-public-domain-port-bug.md) — public Replit domain unreachable with explicit `:5000` appended; native app hangs forever on every API call (login/OTP) until getApiUrl() strips the port.
-- [Dev-only bypass gating](dev-bypass-gating.md) — this project's server workflow always runs with NODE_ENV=production, so gate dev-only bypasses on REPLIT_DEPLOYMENT !== "1" instead of NODE_ENV.
+- [Dev-only bypass gating](dev-bypass-gating.md) — isDevMode() now uses only DEV_MODE secret (not NODE_ENV) because server:dev sets NODE_ENV=development; only REPLIT_DEPLOYMENT="1" or DEV_MODE="false" disables bypass.
 - [Order lifecycle verification](order-lifecycle-verification.md) — driver must be in in-memory queue (not just Firestore isOnline) at confirm time for instant batch; vendorId now has vendorProducts fallback; delivery_batches vs deliveryBatches naming split.
 - [Notification sound architecture](notification-sound-architecture.md) — 4 separate alert paths (customer push-only, admin Web Audio beep, vendor/driver local alarm.mp3 via shared playLoudAlert() helper); reuse the helper for new urgent alerts.
