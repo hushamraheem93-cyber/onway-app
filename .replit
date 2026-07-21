@@ -49,7 +49,7 @@ waitForPort = 5000
 GOOGLE_CLIENT_ID = "116297695107-hq1eclup48in29qd1an5vv165nlbgf0a.apps.googleusercontent.com"
 ADMIN_GOOGLE_EMAIL = "husham.raheem93@gmail.com"
 ALLOWED_ORIGINS = "https://admin.onway.iq,https://www.admin.onway.iq"
-ALLOW_DEV_OTP = "true"
+ALLOW_DEV_OTP = "false"
 
 [postMerge]
 path = "scripts/post-merge.sh"
