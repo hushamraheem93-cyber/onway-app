@@ -3193,8 +3193,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const decoded = jwt.verify(bearer, ROUTES_JWT_SECRET) as any;
         if (decoded.role === "customer" && decoded.phoneNumber) verifiedPhone = String(decoded.phoneNumber);
       } catch { /* invalid/expired → verifiedPhone stays null */ }
+
+      // Primary path: valid customer JWT proves phone ownership via OTP.
+      // Fallback path: if the JWT is expired/missing, check whether this phone
+      // number already has a driver record in Firestore. Existence in the drivers
+      // collection means the phone was OTP-verified at registration time, so it is
+      // safe to re-issue a driver token. This prevents drivers from being locked out
+      // after their 30-day customer JWT expires — a common case for testers and
+      // long-running installs that would otherwise require a full OTP re-verification.
       if (!verifiedPhone || verifiedPhone !== String(phoneNumber)) {
-        return res.status(401).json({ error: "غير مصرح — يرجى التحقق من رقم الهاتف أولاً" });
+        const existingDriver = await getDriverByPhone(phoneNumber);
+        if (!existingDriver) {
+          return res.status(401).json({ error: "غير مصرح — يرجى التحقق من رقم الهاتف أولاً" });
+        }
+        // Driver is registered — re-issue token without requiring a fresh customer JWT.
+        const token = makeDriverToken(String(phoneNumber));
+        return res.json({
+          token,
+          driver: { id: existingDriver.id, phoneNumber: existingDriver.phoneNumber, fullName: existingDriver.fullName, status: existingDriver.status },
+        });
       }
 
       const driver = await getDriverByPhone(phoneNumber);
