@@ -588,255 +588,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // ── ADMIN: Vendor Partner Commission ─────────────────────────────────────────
-  app.put("/api/admin/vendor-partners/:id/commission", async (req: Request, res: Response) => {
-    try {
-      const db = getFirestore();
-      if (!db) return res.status(500).json({ error: "قاعدة البيانات غير متاحة" });
-      const id = req.params.id as string;
-      const rate = Number(req.body.commissionPercent);
-      if (isNaN(rate) || rate < 0 || rate > 100) {
-        return res.status(400).json({ error: "نسبة العمولة يجب أن تكون بين 0 و 100" });
-      }
-      const doc = await db.collection("vendors").doc(id).get();
-      if (!doc.exists) return res.status(404).json({ error: "المتجر غير موجود" });
-      await db.collection("vendors").doc(id).update({
-        commissionPercent: rate,
-        updatedAt: new Date().toISOString(),
-      });
-      res.json({ success: true, commissionPercent: rate });
-    } catch (err) {
-      console.error("vendor commission update:", err);
-      res.status(500).json({ error: "حدث خطأ في الخادم" });
-    }
-  });
-
-  // ── Admin: Seed demo stores and products (dev/staging only) ────────────────
-  app.post("/api/admin/seed-demo-stores", async (_req: Request, res: Response) => {
-    // Block only when genuinely deployed to production (REPLIT_DEPLOYMENT=1).
-    // NODE_ENV is always "production" in this project's dev workflow, so we
-    // cannot use it as the gate here.
-    if (process.env.REPLIT_DEPLOYMENT === "1") {
-      return res.status(403).json({ error: "هذا الإجراء غير متاح في بيئة الإنتاج" });
-    }
-    try {
-      const db = getFirestore();
-      if (!db) return res.status(500).json({ error: "قاعدة البيانات غير متاحة" });
-      const now = new Date().toISOString();
-      const uid = () => `demo_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-
-      interface DemoProduct { name: string; description: string; price: number; category: string; categoryId: string; stock: number; unit: string; imageUrl: string; }
-      interface DemoStore { storeName: string; businessType: string; ownerName: string; phoneNumber: string; address: string; profileImageUrl: string; coverImageUrl: string; bio: string; products: DemoProduct[]; }
-
-      const demoStores: DemoStore[] = [
-        // ── سوبرماركت اون واي ──────────────────────────────────────────────────
-        {
-          storeName: "سوبرماركت اون واي",
-          businessType: "supermarket",
-          ownerName: "أحمد السوبرماركت",
-          phoneNumber: "07700000001",
-          address: "شارع الرشيد، بغداد",
-          profileImageUrl: "https://picsum.photos/seed/onway-supermarket/400/400",
-          coverImageUrl: "https://picsum.photos/seed/onway-supermarket-cover/800/400",
-          bio: "سوبرماركت متكامل يوفر كل احتياجاتك اليومية بجودة عالية وأسعار مناسبة",
-          products: [
-            // خضروات وفواكه
-            { name: "طماطم طازجة", description: "طماطم طازجة 1 كيلو مباشرة من المزرعة", price: 3000, category: "الخضروات والفواكه", categoryId: "fruits-vegetables", stock: 100, unit: "كيلو", imageUrl: "https://picsum.photos/seed/1546470427-e/400/400" },
-            { name: "خيار", description: "خيار طازج 1 كيلو", price: 2500, category: "الخضروات والفواكه", categoryId: "fruits-vegetables", stock: 80, unit: "كيلو", imageUrl: "https://picsum.photos/seed/144930007932/400/400" },
-            { name: "فراولة طازجة", description: "فراولة طازجة 500 جرام موسمية", price: 6000, category: "الخضروات والفواكه", categoryId: "fruits-vegetables", stock: 40, unit: "علبة", imageUrl: "https://picsum.photos/seed/146496591186/400/400" },
-            { name: "موز", description: "موز طازج 1 كيلو", price: 4000, category: "الخضروات والفواكه", categoryId: "fruits-vegetables", stock: 60, unit: "كيلو", imageUrl: "https://picsum.photos/seed/157177189482/400/400" },
-            { name: "تفاح أحمر", description: "تفاح أحمر 1 كيلو", price: 5000, category: "الخضروات والفواكه", categoryId: "fruits-vegetables", stock: 70, unit: "كيلو", imageUrl: "https://picsum.photos/seed/156730622641/400/400" },
-            { name: "بطاطا", description: "بطاطا طازجة 1 كيلو", price: 2500, category: "الخضروات والفواكه", categoryId: "fruits-vegetables", stock: 90, unit: "كيلو", imageUrl: "https://picsum.photos/seed/151897767660/400/400" },
-            // ألبان وأجبان
-            { name: "حليب طازج", description: "حليب طازج كامل الدسم 1 لتر", price: 3500, category: "الألبان والأجبان", categoryId: "dairy-eggs", stock: 50, unit: "لتر", imageUrl: "https://picsum.photos/seed/1550583724-b/400/400" },
-            { name: "جبن أبيض", description: "جبن أبيض طازج 500 جرام", price: 5000, category: "الألبان والأجبان", categoryId: "dairy-eggs", stock: 35, unit: "علبة", imageUrl: "https://picsum.photos/seed/148629767816/400/400" },
-            { name: "بيض دجاج", description: "بيض دجاج بلدي 12 حبة", price: 6000, category: "الألبان والأجبان", categoryId: "dairy-eggs", stock: 45, unit: "كرتونة", imageUrl: "https://picsum.photos/seed/158272287244/400/400" },
-            { name: "لبن رائب", description: "لبن رائب كامل الدسم 500 جرام", price: 2500, category: "الألبان والأجبان", categoryId: "dairy-eggs", stock: 60, unit: "علبة", imageUrl: "https://picsum.photos/seed/1563636619-e/400/400" },
-            // مشروبات
-            { name: "ماء معدني", description: "ماء معدني نقي 1.5 لتر", price: 1000, category: "المشروبات", categoryId: "beverages", stock: 200, unit: "قارورة", imageUrl: "https://picsum.photos/seed/1548839140-2/400/400" },
-            { name: "عصير برتقال طبيعي", description: "عصير برتقال طبيعي 1 لتر", price: 4000, category: "المشروبات", categoryId: "beverages", stock: 30, unit: "قارورة", imageUrl: "https://picsum.photos/seed/162150628993/400/400" },
-            { name: "مشروب غازي", description: "مشروب غازي كولا 355 مل", price: 1500, category: "المشروبات", categoryId: "beverages", stock: 120, unit: "علبة", imageUrl: "https://picsum.photos/seed/162248376702/400/400" },
-            { name: "عصير مانجا", description: "عصير مانجا طبيعي 1 لتر", price: 4500, category: "المشروبات", categoryId: "beverages", stock: 25, unit: "قارورة", imageUrl: "https://picsum.photos/seed/1546173159-3/400/400" },
-            // سناكس
-            { name: "شيبس مملح", description: "شيبس مقرمش بالملح 150 جرام", price: 2000, category: "سناكس ومقرمشات", categoryId: "snacks-sweets", stock: 80, unit: "كيس", imageUrl: "https://picsum.photos/seed/156647898903/400/400" },
-            { name: "شوكولاتة حليب", description: "شوكولاتة بالحليب 100 جرام", price: 3000, category: "سناكس ومقرمشات", categoryId: "snacks-sweets", stock: 60, unit: "قطعة", imageUrl: "https://picsum.photos/seed/1548907040-4/400/400" },
-            { name: "بسكويت شاي", description: "بسكويت للشاي 400 جرام", price: 2500, category: "سناكس ومقرمشات", categoryId: "snacks-sweets", stock: 70, unit: "علبة", imageUrl: "https://picsum.photos/seed/1558961363-f/400/400" },
-            // شاي وقهوة
-            { name: "شاي أسود", description: "شاي أسود فاخر 200 جرام", price: 5000, category: "شاي وقهوة", categoryId: "tea-coffee", stock: 40, unit: "علبة", imageUrl: "https://picsum.photos/seed/1556679343-c/400/400" },
-            { name: "قهوة عربية", description: "قهوة عربية أصيلة بالهيل 250 جرام", price: 8000, category: "شاي وقهوة", categoryId: "tea-coffee", stock: 25, unit: "علبة", imageUrl: "https://picsum.photos/seed/150904223986/400/400" },
-            { name: "نسكافيه", description: "نسكافيه كلاسيك 200 جرام", price: 9000, category: "شاي وقهوة", categoryId: "tea-coffee", stock: 30, unit: "علبة", imageUrl: "https://picsum.photos/seed/149880410307/400/400" },
-            // منظفات
-            { name: "سائل غسيل ملابس", description: "سائل غسيل قوي 3 لتر", price: 7000, category: "المنظفات", categoryId: "cleaning-care", stock: 35, unit: "قارورة", imageUrl: "https://picsum.photos/seed/158542151473/400/400" },
-            { name: "صابون يدين", description: "صابون سائل لليدين 500 مل", price: 3000, category: "المنظفات", categoryId: "cleaning-care", stock: 50, unit: "قارورة", imageUrl: "https://picsum.photos/seed/158451593348/400/400" },
-            { name: "منظف للأرضيات", description: "منظف أرضيات بعطر الليمون 2 لتر", price: 5000, category: "المنظفات", categoryId: "cleaning-care", stock: 28, unit: "قارورة", imageUrl: "https://picsum.photos/seed/1558618666-f/400/400" },
-            // مواد غذائية
-            { name: "أرز بسمتي", description: "أرز بسمتي فاخر 5 كيلو", price: 12000, category: "المواد الغذائية", categoryId: "food-supplies", stock: 40, unit: "كيس", imageUrl: "https://picsum.photos/seed/158620137576/400/400" },
-            { name: "زيت نباتي", description: "زيت نباتي صافي 1.5 لتر", price: 8000, category: "المواد الغذائية", categoryId: "food-supplies", stock: 45, unit: "قارورة", imageUrl: "https://picsum.photos/seed/147497926640/400/400" },
-            { name: "دقيق قمح", description: "دقيق قمح أبيض 2 كيلو", price: 6000, category: "المواد الغذائية", categoryId: "food-supplies", stock: 55, unit: "كيس", imageUrl: "https://picsum.photos/seed/157432334740/400/400" },
-            { name: "سكر أبيض", description: "سكر أبيض ناعم 2 كيلو", price: 5000, category: "المواد الغذائية", categoryId: "food-supplies", stock: 60, unit: "كيس", imageUrl: "https://picsum.photos/seed/1558618666-f/400/400" },
-          ],
-        },
-        // ── مطعم الرائد ────────────────────────────────────────────────────────
-        {
-          storeName: "مطعم الرائد العراقي",
-          businessType: "restaurant",
-          ownerName: "محمد الرائد",
-          phoneNumber: "07700000002",
-          address: "شارع المتنبي، بغداد",
-          profileImageUrl: "https://picsum.photos/seed/iraqi-restaurant/400/400",
-          coverImageUrl: "https://picsum.photos/seed/iraqi-restaurant-cover/800/400",
-          bio: "مطعم عراقي أصيل يقدم أشهى الأكلات التراثية بنكهات عراقية حقيقية",
-          products: [
-            { name: "كباب عراقي", description: "كباب لحم مشوي مع الخبز العراقي وصحن السلطة", price: 12000, category: "المشويات", categoryId: "restaurants", stock: 50, unit: "وجبة", imageUrl: "https://picsum.photos/seed/152969223667/400/400" },
-            { name: "تكا مشوية", description: "تكا لحم بقري مشوي على الجمر 4 قطع", price: 15000, category: "المشويات", categoryId: "restaurants", stock: 40, unit: "وجبة", imageUrl: "https://picsum.photos/seed/1544025162-d/400/400" },
-            { name: "قوزي عراقي", description: "قوزي لحم ضأن مع الأرز والزبيب", price: 25000, category: "الأكلات العراقية", categoryId: "restaurants", stock: 20, unit: "وجبة", imageUrl: "https://picsum.photos/seed/157448428400/400/400" },
-            { name: "دولمة عراقية", description: "دولمة محشية بالأرز واللحم المفروم", price: 14000, category: "الأكلات العراقية", categoryId: "restaurants", stock: 30, unit: "طبق", imageUrl: "https://picsum.photos/seed/151200386769/400/400" },
-            { name: "مسقوف", description: "سمك مسقوف طازج مشوي على الجمر", price: 22000, category: "الأسماك", categoryId: "restaurants", stock: 15, unit: "وجبة", imageUrl: "https://picsum.photos/seed/146700390958/400/400" },
-            { name: "شوربة عراقية", description: "شوربة لحم مع الخضروات الطازجة", price: 7000, category: "الشوربات", categoryId: "restaurants", stock: 35, unit: "طبق", imageUrl: "https://picsum.photos/seed/1547592180-8/400/400" },
-            { name: "برياني دجاج", description: "برياني دجاج بالبهارات الهندية مع الزبيب", price: 13000, category: "الأرز", categoryId: "restaurants", stock: 25, unit: "وجبة", imageUrl: "https://picsum.photos/seed/156337909133/400/400" },
-            { name: "فلافل وحمص", description: "فلافل مقرمش مع حمص وخبز عربي", price: 5000, category: "المقبلات", categoryId: "restaurants", stock: 60, unit: "طبق", imageUrl: "https://picsum.photos/seed/159300187411/400/400" },
-            { name: "جوزة مشوية", description: "جوزة دجاج كاملة مع البهارات والليمون", price: 18000, category: "الدجاج", categoryId: "restaurants", stock: 20, unit: "وجبة", imageUrl: "https://picsum.photos/seed/159810344209/400/400" },
-            { name: "لقيمات بالعسل", description: "لقيمات عراقية أصيلة مع العسل والسمسم", price: 6000, category: "الحلويات", categoryId: "restaurants", stock: 40, unit: "طبق", imageUrl: "https://picsum.photos/seed/1551024506-0/400/400" },
-          ],
-        },
-        // ── مطعم الشاورما الذهبي ────────────────────────────────────────────────
-        {
-          storeName: "مطعم الشاورما الذهبي",
-          businessType: "restaurant",
-          ownerName: "كريم الشاورماجي",
-          phoneNumber: "07700000004",
-          address: "شارع الكرادة، بغداد",
-          profileImageUrl: "https://picsum.photos/seed/shawarma-restaurant/400/400",
-          coverImageUrl: "https://picsum.photos/seed/shawarma-restaurant-cover/800/400",
-          bio: "أشهى شاورما وبرغر في بغداد — مكونات طازجة، نكهات لا تُنسى",
-          products: [
-            // شاورما
-            { name: "شاورما دجاج", description: "شاورما دجاج مشوي بالخبز العربي مع صوص الثوم والخضار الطازجة", price: 7000, category: "شاورما", categoryId: "restaurants", stock: 80, unit: "ساندويتش", imageUrl: "https://picsum.photos/seed/1561050501-a/400/400" },
-            { name: "شاورما لحم", description: "شاورما لحم غنم مشوي بالبهارات والليمون وصوص الطحينة", price: 9000, category: "شاورما", categoryId: "restaurants", stock: 60, unit: "ساندويتش", imageUrl: "https://picsum.photos/seed/152969223667/400/400" },
-            { name: "شاورما مشكل", description: "شاورما دجاج ولحم معاً مع صوص الثوم والحار", price: 10000, category: "شاورما", categoryId: "restaurants", stock: 50, unit: "ساندويتش", imageUrl: "https://picsum.photos/seed/151736098139/400/400" },
-            { name: "صحن شاورما", description: "شاورما دجاج مقطعة مع خبز وبطاطا مقلية وسلطة", price: 14000, category: "شاورما", categoryId: "restaurants", stock: 40, unit: "صحن", imageUrl: "https://picsum.photos/seed/1556269923-e/400/400" },
-            // برغر
-            { name: "برغر كلاسيك", description: "برغر لحم بقري 180 جرام مع جبن، خس، طماطم، وصوص خاص", price: 11000, category: "برغر", categoryId: "restaurants", stock: 55, unit: "ساندويتش", imageUrl: "https://picsum.photos/seed/156890134637/400/400" },
-            { name: "برغر دبل", description: "دبل برغر لحم مع دبل جبن وبيضة مقلية وصوص BBQ", price: 15000, category: "برغر", categoryId: "restaurants", stock: 40, unit: "ساندويتش", imageUrl: "https://picsum.photos/seed/160701325137/400/400" },
-            { name: "برغر دجاج كريسبي", description: "فيليه دجاج مقرمش مقلي مع صوص الحار والخس", price: 10000, category: "برغر", categoryId: "restaurants", stock: 50, unit: "ساندويتش", imageUrl: "https://picsum.photos/seed/158732931068/400/400" },
-            // وجبات
-            { name: "وجبة برغر + بطاطا + مشروب", description: "برغر كلاسيك مع بطاطا مقلية كبيرة ومشروب غازي 500 مل", price: 16000, category: "وجبات", categoryId: "restaurants", stock: 45, unit: "وجبة", imageUrl: "https://picsum.photos/seed/159421269990/400/400" },
-            { name: "وجبة شاورما + بطاطا + مشروب", description: "شاورما دجاج مع بطاطا مقلية ومشروب غازي", price: 13000, category: "وجبات", categoryId: "restaurants", stock: 50, unit: "وجبة", imageUrl: "https://picsum.photos/seed/151344254225/400/400" },
-            { name: "عائلي شاورما (4 أشخاص)", description: "4 ساندويتشات شاورما مشكل + 4 بطاطا + 4 مشروبات", price: 45000, category: "وجبات عائلية", categoryId: "restaurants", stock: 20, unit: "طلبية", imageUrl: "https://picsum.photos/seed/1555396273-3/400/400" },
-            // إضافات وسلطات
-            { name: "بطاطا مقلية كبيرة", description: "بطاطا مقلية مقرمشة مع صوص الكيتشب والمايونيز", price: 4000, category: "إضافات", categoryId: "restaurants", stock: 100, unit: "طبق", imageUrl: "https://picsum.photos/seed/157610723268/400/400" },
-            { name: "سلطة عربية", description: "طماطم، خيار، بصل، بقدونس مع زيت زيتون وليمون", price: 3500, category: "سلطات", categoryId: "restaurants", stock: 60, unit: "طبق", imageUrl: "https://picsum.photos/seed/151262177695/400/400" },
-            { name: "صوص ثوم كبير", description: "صوص ثوم كريمي منزلي الصنع 200 مل", price: 2500, category: "إضافات", categoryId: "restaurants", stock: 80, unit: "علبة", imageUrl: "https://picsum.photos/seed/147247644350/400/400" },
-            // مشروبات
-            { name: "عصير ليمون بالنعناع", description: "عصير ليمون طازج بالنعناع والثلج 500 مل", price: 3500, category: "مشروبات", categoryId: "restaurants", stock: 70, unit: "كوب", imageUrl: "https://picsum.photos/seed/162150628993/400/400" },
-            { name: "ميلك شيك شوكولاتة", description: "ميلك شيك شوكولاتة بالآيس كريم والكريمة", price: 5000, category: "مشروبات", categoryId: "restaurants", stock: 35, unit: "كوب", imageUrl: "https://picsum.photos/seed/157249012274/400/400" },
-          ],
-        },
-        // ── صيدلية الشفاء ──────────────────────────────────────────────────────
-        {
-          storeName: "صيدلية الشفاء",
-          businessType: "pharmacy",
-          ownerName: "د. علي الشفاء",
-          phoneNumber: "07700000003",
-          address: "شارع حيفا، بغداد",
-          profileImageUrl: "https://picsum.photos/seed/pharmacy-store/400/400",
-          coverImageUrl: "https://picsum.photos/seed/pharmacy-store-cover/800/400",
-          bio: "صيدلية متكاملة توفر الأدوية ومستلزمات العناية الصحية بأسعار مناسبة",
-          products: [
-            { name: "باراسيتامول 500 مغ", description: "أقراص مسكن للألم وخافض للحرارة 20 قرص", price: 3500, category: "مسكنات الألم", categoryId: "pharmacy", stock: 100, unit: "علبة", imageUrl: "https://picsum.photos/seed/158430866674/400/400" },
-            { name: "فيتامين سي 1000", description: "فيتامين سي أقراص فوارة لتعزيز المناعة", price: 8000, category: "الفيتامينات", categoryId: "pharmacy", stock: 60, unit: "علبة", imageUrl: "https://picsum.photos/seed/1550572017-e/400/400" },
-            { name: "بانادول اكسترا", description: "مسكن قوي للصداع وآلام الجسم", price: 4500, category: "مسكنات الألم", categoryId: "pharmacy", stock: 80, unit: "علبة", imageUrl: "https://picsum.photos/seed/1559757175-0/400/400" },
-            { name: "كريم ترطيب يومي", description: "كريم مرطب للبشرة الجافة 100 مل", price: 12000, category: "العناية بالبشرة", categoryId: "pharmacy", stock: 35, unit: "قارورة", imageUrl: "https://picsum.photos/seed/1556228720-1/400/400" },
-            { name: "شامبو للشعر الجاف", description: "شامبو مرطب للشعر الجاف والتالف 400 مل", price: 9000, category: "العناية بالشعر", categoryId: "pharmacy", stock: 40, unit: "قارورة", imageUrl: "https://picsum.photos/seed/157178244257/400/400" },
-            { name: "كمامات طبية", description: "كمامات طبية ثلاثية الطبقات 50 قطعة", price: 7000, category: "مستلزمات طبية", categoryId: "pharmacy", stock: 55, unit: "علبة", imageUrl: "https://picsum.photos/seed/158455681295/400/400" },
-            { name: "جل مطهر لليدين", description: "جل كحولي مطهر لليدين 300 مل", price: 5000, category: "مستلزمات طبية", categoryId: "pharmacy", stock: 70, unit: "قارورة", imageUrl: "https://picsum.photos/seed/158436291716/400/400" },
-            { name: "ضمادات طبية", description: "ضمادات لاصقة معقمة مختلفة الأحجام 20 قطعة", price: 3000, category: "مستلزمات طبية", categoryId: "pharmacy", stock: 90, unit: "علبة", imageUrl: "https://picsum.photos/seed/163154991676/400/400" },
-          ],
-        },
-      ];
-
-      let totalVendors = 0;
-      let totalProducts = 0;
-      const createdStores: string[] = [];
-
-      for (const store of demoStores) {
-        // Check if demo store already exists
-        const existing = await db.collection("vendors").where("phoneNumber", "==", store.phoneNumber).limit(1).get();
-        let vendorDocId: string;
-
-        if (!existing.empty) {
-          vendorDocId = existing.docs[0].id;
-        } else {
-          vendorDocId = uid();
-          await db.collection("vendors").doc(vendorDocId).set({
-            id: vendorDocId,
-            storeName: store.storeName,
-            businessType: store.businessType,
-            categoryId: store.businessType,
-            phoneNumber: store.phoneNumber,
-            email: null,
-            passwordHash: "$2b$10$demoHashNotUsedForLogin00000000000000000000000000000",
-            ownerName: store.ownerName,
-            address: store.address,
-            profileImageUrl: store.profileImageUrl,
-            coverImageUrl: store.coverImageUrl,
-            bio: store.bio,
-            status: "active",
-            totalProducts: store.products.length,
-            totalOrders: 0,
-            approvedAt: now,
-            createdAt: now,
-            updatedAt: now,
-          });
-          totalVendors++;
-        }
-        createdStores.push(store.storeName);
-
-        // Delete existing products for this vendor and re-seed
-        const existingProducts = await db.collection("vendorProducts").where("vendorId", "==", vendorDocId).get();
-        if (!existingProducts.empty) {
-          const delBatch = db.batch();
-          existingProducts.docs.forEach(d => delBatch.delete(d.ref));
-          await delBatch.commit();
-        }
-
-        // Add all products in batches of 500
-        const productBatch = db.batch();
-        for (const p of store.products) {
-          const pid = uid();
-          productBatch.set(db.collection("vendorProducts").doc(pid), {
-            id: pid,
-            vendorId: vendorDocId,
-            vendorName: store.storeName,
-            storeName: store.storeName,
-            vendorPhone: store.phoneNumber,
-            name: p.name,
-            description: p.description,
-            price: p.price,
-            category: p.category,
-            categoryId: p.categoryId,
-            stock: p.stock,
-            unit: p.unit,
-            imageUrl: p.imageUrl,
-            imageUrls: [p.imageUrl],
-            status: "approved",
-            approvedAt: now,
-            createdAt: now,
-            updatedAt: now,
-          });
-          totalProducts++;
-        }
-        await productBatch.commit();
-      }
-
-      invalidateVendorsCache(); invalidateStoresCache();
-      res.json({ success: true, totalVendors, totalProducts, stores: createdStores });
-    } catch (err: any) {
-      console.error("seed demo stores:", err);
-      res.status(500).json({ error: err.message || "فشل إنشاء البيانات التجريبية" });
-    }
-  });
-
   // ── Admin: Delete a vendor (store) and all its products ────────────────────
   app.delete("/api/admin/vendor-partners/:id", async (req: Request, res: Response) => {
     try {
@@ -1821,47 +1572,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json({ success: true });
   });
 
-  app.post("/api/admin/cleanup-orphan-products", async (req: Request, res: Response) => {
-    const db = getFirestore();
-    if (!db) return res.status(500).json({ error: "قاعدة البيانات غير متاحة" });
-    try {
-      const col = (req.query.collection as string) || "vendorProducts";
-      let docsToDelete: FirebaseFirestore.QueryDocumentSnapshot[] = [];
-
-      if (col === "products") {
-        const snap = await db.collection("products").get();
-        docsToDelete = snap.docs;
-      } else {
-        const vendorSnap = await db.collection("vendors").get();
-        const validVendorIds = new Set(vendorSnap.docs.map((d) => d.id));
-        const vpSnap = await db.collection("vendorProducts").get();
-        docsToDelete = vpSnap.docs.filter((d) => {
-          const vid = (d.data() as Record<string, unknown>).vendorId;
-          return !vid || !validVendorIds.has(vid as string);
-        });
-      }
-
-      if (docsToDelete.length === 0) {
-        return res.json({ deleted: 0, message: "لا توجد منتجات للحذف" });
-      }
-
-      // Firestore batch max 500 ops
-      const chunks: FirebaseFirestore.QueryDocumentSnapshot[][] = [];
-      for (let i = 0; i < docsToDelete.length; i += 400) chunks.push(docsToDelete.slice(i, i + 400));
-      for (const chunk of chunks) {
-        const batch = db.batch();
-        chunk.forEach((d) => batch.delete(d.ref));
-        await batch.commit();
-      }
-
-      invalidateProductsCache();
-      return res.json({ deleted: docsToDelete.length, message: `تم حذف ${docsToDelete.length} منتج بنجاح` });
-    } catch (err) {
-      console.error("cleanup-orphan-products:", err);
-      res.status(500).json({ error: "حدث خطأ أثناء التنظيف" });
-    }
-  });
-
   app.get("/api/delivery-areas", async (req, res) => {
     try {
       const areas = await getFirestoreDeliveryAreas(true);
@@ -2204,68 +1914,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ id, ...data });
     } catch (e) {
       res.status(500).json({ error: "فشل إنشاء المطعم" });
-    }
-  });
-
-  // Reorder vendors: save full new order from drag-and-drop
-  app.post("/api/admin/vendors/reorder", async (req: Request, res: Response) => {
-    const { order } = req.body as { order: string[] };
-    if (!Array.isArray(order) || order.length === 0) {
-      return res.status(400).json({ error: "قائمة الترتيب مطلوبة" });
-    }
-    try {
-      for (let i = 0; i < order.length; i++) {
-        await updateFirestoreVendor(order[i], { sortOrder: i + 1 });
-      }
-      invalidateVendorsCache();
-      res.json({ success: true });
-    } catch (e: any) {
-      res.status(500).json({ error: e.message });
-    }
-  });
-
-  // Reorder vendors: swap sortOrder with adjacent vendor (kept for backward compat)
-  app.patch("/api/admin/vendors/:id/sort-order", async (req: Request, res: Response) => {
-    const { id } = req.params;
-    const { direction } = req.body as { direction: "up" | "down" };
-    try {
-      const vendors = await getVendorList();
-
-      // Sort by current sortOrder (undefined treated as 999)
-      const sorted = [...vendors].sort((a, b) => (a.sortOrder ?? 999) - (b.sortOrder ?? 999));
-
-      // Step 1: Assign sequential sortOrder to ALL vendors that are missing it, save to Firestore
-      const missingOrder = sorted.filter(v => v.sortOrder === undefined);
-      if (missingOrder.length > 0) {
-        for (let i = 0; i < sorted.length; i++) {
-          if (sorted[i].sortOrder === undefined) {
-            sorted[i].sortOrder = i + 1;
-            await updateFirestoreVendor(sorted[i].id, { sortOrder: i + 1 });
-          }
-        }
-      }
-
-      // Step 2: Find vendor and neighbor to swap
-      const idx = sorted.findIndex(v => v.id === id);
-      if (idx === -1) return res.status(404).json({ error: "المطعم غير موجود" });
-      const swapIdx = direction === "up" ? idx - 1 : idx + 1;
-      if (swapIdx < 0 || swapIdx >= sorted.length) return res.status(400).json({ error: "لا يمكن الترتيب أكثر" });
-
-      const current = sorted[idx];
-      const neighbor = sorted[swapIdx];
-      const currentOrder = current.sortOrder!;
-      const neighborOrder = neighbor.sortOrder!;
-
-      // Step 3: Swap and persist both
-      await updateFirestoreVendor(current.id, { sortOrder: neighborOrder });
-      await updateFirestoreVendor(neighbor.id, { sortOrder: currentOrder });
-
-      // Step 4: Invalidate cache so next GET reflects new order
-      invalidateVendorsCache();
-
-      res.json({ success: true });
-    } catch (e: any) {
-      res.status(500).json({ error: e.message });
     }
   });
 
@@ -4063,11 +3711,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // REMOVED (2026-07-04): /api/driver/complete-order was a legacy duplicate of
-  // /api/driver/batch/complete-order, unused by the client app (client only ever calls
-  // the batch/ variant). Kept as dead code it was a maintenance hazard — a future edit to
-  // wallet-threshold logic here would have had zero effect since nothing calls it.
-
   // Get driver earnings
   app.get("/api/driver/earnings", async (req: Request, res: Response) => {
     const phoneNumber = (req as any).driverPhone as string;
@@ -4645,7 +4288,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Assign new batch to best available driver when a confirmed order arrives
   function onOrderConfirmed() {
-    console.log(`[ORDER_CONFIRMED] Queue size=${driverQueue.length}, queue=${JSON.stringify(driverQueue.map(d=>({p:d.phoneNumber,batch:d.currentBatchId,lastSeen:d.lastSeenAt})))}`);
     const driver = findBestAvailableDriver();
     console.log(`[ORDER_CONFIRMED] Best driver: ${driver?.phoneNumber ?? "NONE"}`);
     if (driver) {
@@ -4744,13 +4386,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.error("[OFFER_TIMEOUT] error:", e);
     }
   }, 20 * 1000);
-
-  // REMOVED (2026-07-04): /api/driver/assign-pending-orders was dead code that corrupted
-  // driver state — it wrote a raw order.id into currentBatchId without ever creating a real
-  // delivery_batches document via createDeliveryBatch(), and never notified the driver.
-  // Any driver it "assigned" would get stuck permanently "busy" with a batch that didn't exist.
-  // It was not called from the client. Real assignment happens via onOrderConfirmed() /
-  // assignWaitingBatchToDriver() and the 30s watchdog above.
 
   // Get queue info for admin
   app.get("/api/admin/driver-queue", async (_req: Request, res: Response) => {
@@ -4950,94 +4585,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         totalDeliveryFees,
         ordersWithEarnings,
         totalDeliveredOrders: deliveredOrders.length,
-      });
-    } catch (error: any) {
-      res.status(500).json({ error: error.message });
-    }
-  });
-
-  // Archive old completed/cancelled orders (older than 1 month)
-  app.delete("/api/admin/archive-old-orders", async (_req: Request, res: Response) => {
-    try {
-      const db = getFirestore();
-      if (!db) return res.status(500).json({ error: "Firestore not initialized" });
-
-      // Helper: batch-delete all docs in a snapshot
-      const batchSize = 500;
-      const batchDeleteAll = async (docs: FirebaseFirestore.QueryDocumentSnapshot[]) => {
-        let count = 0;
-        for (let i = 0; i < docs.length; i += batchSize) {
-          const batch = db!.batch();
-          const chunk = docs.slice(i, i + batchSize);
-          for (const doc of chunk) batch.delete(doc.ref);
-          await batch.commit();
-          count += chunk.length;
-        }
-        return count;
-      };
-
-      // 1. Delete ALL orders regardless of status
-      const allOrders = await getOrders();
-      let deleted = 0;
-      for (let i = 0; i < allOrders.length; i += batchSize) {
-        const batch = db.batch();
-        const chunk = allOrders.slice(i, i + batchSize);
-        for (const order of chunk) batch.delete(db.collection("orders").doc(order.id));
-        await batch.commit();
-        deleted += chunk.length;
-      }
-
-      // 2. Delete ALL walletHistory entries
-      let walletDeleted = 0;
-      try {
-        const snap = await db.collection("walletHistory").get();
-        walletDeleted = await batchDeleteAll(snap.docs);
-      } catch (_e) {}
-
-      // 3. Delete ALL driverActivityLog entries
-      let activityDeleted = 0;
-      try {
-        const snap = await db.collection("driverActivityLog").get();
-        activityDeleted = await batchDeleteAll(snap.docs);
-      } catch (_e) {}
-
-      // 4. Delete ALL driverCompletedOrders entries
-      let completedDeleted = 0;
-      try {
-        const snap = await db.collection("driverCompletedOrders").get();
-        completedDeleted = await batchDeleteAll(snap.docs);
-      } catch (_e) {}
-
-      // 5. Delete ALL adminAlerts entries
-      let alertsDeleted = 0;
-      try {
-        const snap = await db.collection("adminAlerts").get();
-        alertsDeleted = await batchDeleteAll(snap.docs);
-      } catch (_e) {}
-
-      // 6. Reset all driverWallet balances to zero
-      let walletsReset = 0;
-      try {
-        const snap = await db.collection("driverWallets").get();
-        for (let i = 0; i < snap.docs.length; i += batchSize) {
-          const batch = db.batch();
-          const chunk = snap.docs.slice(i, i + batchSize);
-          for (const doc of chunk) batch.update(doc.ref, { balance: 0 });
-          await batch.commit();
-          walletsReset += chunk.length;
-        }
-      } catch (_e) {}
-
-      const total = deleted + walletDeleted + activityDeleted + completedDeleted + alertsDeleted;
-      res.json({
-        deleted,
-        walletDeleted,
-        activityDeleted,
-        completedDeleted,
-        alertsDeleted,
-        walletsReset,
-        total,
-        message: `تم مسح ${deleted} طلب (كل الطلبات)، ${walletDeleted} سجل محفظة، ${activityDeleted} سجل نشاط، ${alertsDeleted} تنبيه، وإعادة تصفير ${walletsReset} محفظة سائق`,
       });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
@@ -6498,5 +6045,324 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
   });
 
+
+
+  // ── Admin: Seed demo stores and products (dev/staging only) ────────────────
+  app.post("/api/admin/seed-demo-stores", async (_req: Request, res: Response) => {
+    // Block only when genuinely deployed to production (REPLIT_DEPLOYMENT=1).
+    // NODE_ENV is always "production" in this project's dev workflow, so we
+    // cannot use it as the gate here.
+    if (process.env.REPLIT_DEPLOYMENT === "1") {
+      return res.status(403).json({ error: "هذا الإجراء غير متاح في بيئة الإنتاج" });
+    }
+    try {
+      const db = getFirestore();
+      if (!db) return res.status(500).json({ error: "قاعدة البيانات غير متاحة" });
+      const now = new Date().toISOString();
+      const uid = () => `demo_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+
+      interface DemoProduct { name: string; description: string; price: number; category: string; categoryId: string; stock: number; unit: string; imageUrl: string; }
+      interface DemoStore { storeName: string; businessType: string; ownerName: string; phoneNumber: string; address: string; profileImageUrl: string; coverImageUrl: string; bio: string; products: DemoProduct[]; }
+
+      const demoStores: DemoStore[] = [
+        // ── سوبرماركت اون واي ──────────────────────────────────────────────────
+        {
+          storeName: "سوبرماركت اون واي",
+          businessType: "supermarket",
+          ownerName: "أحمد السوبرماركت",
+          phoneNumber: "07700000001",
+          address: "شارع الرشيد، بغداد",
+          profileImageUrl: "https://picsum.photos/seed/onway-supermarket/400/400",
+          coverImageUrl: "https://picsum.photos/seed/onway-supermarket-cover/800/400",
+          bio: "سوبرماركت متكامل يوفر كل احتياجاتك اليومية بجودة عالية وأسعار مناسبة",
+          products: [
+            // خضروات وفواكه
+            { name: "طماطم طازجة", description: "طماطم طازجة 1 كيلو مباشرة من المزرعة", price: 3000, category: "الخضروات والفواكه", categoryId: "fruits-vegetables", stock: 100, unit: "كيلو", imageUrl: "https://picsum.photos/seed/1546470427-e/400/400" },
+            { name: "خيار", description: "خيار طازج 1 كيلو", price: 2500, category: "الخضروات والفواكه", categoryId: "fruits-vegetables", stock: 80, unit: "كيلو", imageUrl: "https://picsum.photos/seed/144930007932/400/400" },
+            { name: "فراولة طازجة", description: "فراولة طازجة 500 جرام موسمية", price: 6000, category: "الخضروات والفواكه", categoryId: "fruits-vegetables", stock: 40, unit: "علبة", imageUrl: "https://picsum.photos/seed/146496591186/400/400" },
+            { name: "موز", description: "موز طازج 1 كيلو", price: 4000, category: "الخضروات والفواكه", categoryId: "fruits-vegetables", stock: 60, unit: "كيلو", imageUrl: "https://picsum.photos/seed/157177189482/400/400" },
+            { name: "تفاح أحمر", description: "تفاح أحمر 1 كيلو", price: 5000, category: "الخضروات والفواكه", categoryId: "fruits-vegetables", stock: 70, unit: "كيلو", imageUrl: "https://picsum.photos/seed/156730622641/400/400" },
+            { name: "بطاطا", description: "بطاطا طازجة 1 كيلو", price: 2500, category: "الخضروات والفواكه", categoryId: "fruits-vegetables", stock: 90, unit: "كيلو", imageUrl: "https://picsum.photos/seed/151897767660/400/400" },
+            // ألبان وأجبان
+            { name: "حليب طازج", description: "حليب طازج كامل الدسم 1 لتر", price: 3500, category: "الألبان والأجبان", categoryId: "dairy-eggs", stock: 50, unit: "لتر", imageUrl: "https://picsum.photos/seed/1550583724-b/400/400" },
+            { name: "جبن أبيض", description: "جبن أبيض طازج 500 جرام", price: 5000, category: "الألبان والأجبان", categoryId: "dairy-eggs", stock: 35, unit: "علبة", imageUrl: "https://picsum.photos/seed/148629767816/400/400" },
+            { name: "بيض دجاج", description: "بيض دجاج بلدي 12 حبة", price: 6000, category: "الألبان والأجبان", categoryId: "dairy-eggs", stock: 45, unit: "كرتونة", imageUrl: "https://picsum.photos/seed/158272287244/400/400" },
+            { name: "لبن رائب", description: "لبن رائب كامل الدسم 500 جرام", price: 2500, category: "الألبان والأجبان", categoryId: "dairy-eggs", stock: 60, unit: "علبة", imageUrl: "https://picsum.photos/seed/1563636619-e/400/400" },
+            // مشروبات
+            { name: "ماء معدني", description: "ماء معدني نقي 1.5 لتر", price: 1000, category: "المشروبات", categoryId: "beverages", stock: 200, unit: "قارورة", imageUrl: "https://picsum.photos/seed/1548839140-2/400/400" },
+            { name: "عصير برتقال طبيعي", description: "عصير برتقال طبيعي 1 لتر", price: 4000, category: "المشروبات", categoryId: "beverages", stock: 30, unit: "قارورة", imageUrl: "https://picsum.photos/seed/162150628993/400/400" },
+            { name: "مشروب غازي", description: "مشروب غازي كولا 355 مل", price: 1500, category: "المشروبات", categoryId: "beverages", stock: 120, unit: "علبة", imageUrl: "https://picsum.photos/seed/162248376702/400/400" },
+            { name: "عصير مانجا", description: "عصير مانجا طبيعي 1 لتر", price: 4500, category: "المشروبات", categoryId: "beverages", stock: 25, unit: "قارورة", imageUrl: "https://picsum.photos/seed/1546173159-3/400/400" },
+            // سناكس
+            { name: "شيبس مملح", description: "شيبس مقرمش بالملح 150 جرام", price: 2000, category: "سناكس ومقرمشات", categoryId: "snacks-sweets", stock: 80, unit: "كيس", imageUrl: "https://picsum.photos/seed/156647898903/400/400" },
+            { name: "شوكولاتة حليب", description: "شوكولاتة بالحليب 100 جرام", price: 3000, category: "سناكس ومقرمشات", categoryId: "snacks-sweets", stock: 60, unit: "قطعة", imageUrl: "https://picsum.photos/seed/1548907040-4/400/400" },
+            { name: "بسكويت شاي", description: "بسكويت للشاي 400 جرام", price: 2500, category: "سناكس ومقرمشات", categoryId: "snacks-sweets", stock: 70, unit: "علبة", imageUrl: "https://picsum.photos/seed/1558961363-f/400/400" },
+            // شاي وقهوة
+            { name: "شاي أسود", description: "شاي أسود فاخر 200 جرام", price: 5000, category: "شاي وقهوة", categoryId: "tea-coffee", stock: 40, unit: "علبة", imageUrl: "https://picsum.photos/seed/1556679343-c/400/400" },
+            { name: "قهوة عربية", description: "قهوة عربية أصيلة بالهيل 250 جرام", price: 8000, category: "شاي وقهوة", categoryId: "tea-coffee", stock: 25, unit: "علبة", imageUrl: "https://picsum.photos/seed/150904223986/400/400" },
+            { name: "نسكافيه", description: "نسكافيه كلاسيك 200 جرام", price: 9000, category: "شاي وقهوة", categoryId: "tea-coffee", stock: 30, unit: "علبة", imageUrl: "https://picsum.photos/seed/149880410307/400/400" },
+            // منظفات
+            { name: "سائل غسيل ملابس", description: "سائل غسيل قوي 3 لتر", price: 7000, category: "المنظفات", categoryId: "cleaning-care", stock: 35, unit: "قارورة", imageUrl: "https://picsum.photos/seed/158542151473/400/400" },
+            { name: "صابون يدين", description: "صابون سائل لليدين 500 مل", price: 3000, category: "المنظفات", categoryId: "cleaning-care", stock: 50, unit: "قارورة", imageUrl: "https://picsum.photos/seed/158451593348/400/400" },
+            { name: "منظف للأرضيات", description: "منظف أرضيات بعطر الليمون 2 لتر", price: 5000, category: "المنظفات", categoryId: "cleaning-care", stock: 28, unit: "قارورة", imageUrl: "https://picsum.photos/seed/1558618666-f/400/400" },
+            // مواد غذائية
+            { name: "أرز بسمتي", description: "أرز بسمتي فاخر 5 كيلو", price: 12000, category: "المواد الغذائية", categoryId: "food-supplies", stock: 40, unit: "كيس", imageUrl: "https://picsum.photos/seed/158620137576/400/400" },
+            { name: "زيت نباتي", description: "زيت نباتي صافي 1.5 لتر", price: 8000, category: "المواد الغذائية", categoryId: "food-supplies", stock: 45, unit: "قارورة", imageUrl: "https://picsum.photos/seed/147497926640/400/400" },
+            { name: "دقيق قمح", description: "دقيق قمح أبيض 2 كيلو", price: 6000, category: "المواد الغذائية", categoryId: "food-supplies", stock: 55, unit: "كيس", imageUrl: "https://picsum.photos/seed/157432334740/400/400" },
+            { name: "سكر أبيض", description: "سكر أبيض ناعم 2 كيلو", price: 5000, category: "المواد الغذائية", categoryId: "food-supplies", stock: 60, unit: "كيس", imageUrl: "https://picsum.photos/seed/1558618666-f/400/400" },
+          ],
+        },
+        // ── مطعم الرائد ────────────────────────────────────────────────────────
+        {
+          storeName: "مطعم الرائد العراقي",
+          businessType: "restaurant",
+          ownerName: "محمد الرائد",
+          phoneNumber: "07700000002",
+          address: "شارع المتنبي، بغداد",
+          profileImageUrl: "https://picsum.photos/seed/iraqi-restaurant/400/400",
+          coverImageUrl: "https://picsum.photos/seed/iraqi-restaurant-cover/800/400",
+          bio: "مطعم عراقي أصيل يقدم أشهى الأكلات التراثية بنكهات عراقية حقيقية",
+          products: [
+            { name: "كباب عراقي", description: "كباب لحم مشوي مع الخبز العراقي وصحن السلطة", price: 12000, category: "المشويات", categoryId: "restaurants", stock: 50, unit: "وجبة", imageUrl: "https://picsum.photos/seed/152969223667/400/400" },
+            { name: "تكا مشوية", description: "تكا لحم بقري مشوي على الجمر 4 قطع", price: 15000, category: "المشويات", categoryId: "restaurants", stock: 40, unit: "وجبة", imageUrl: "https://picsum.photos/seed/1544025162-d/400/400" },
+            { name: "قوزي عراقي", description: "قوزي لحم ضأن مع الأرز والزبيب", price: 25000, category: "الأكلات العراقية", categoryId: "restaurants", stock: 20, unit: "وجبة", imageUrl: "https://picsum.photos/seed/157448428400/400/400" },
+            { name: "دولمة عراقية", description: "دولمة محشية بالأرز واللحم المفروم", price: 14000, category: "الأكلات العراقية", categoryId: "restaurants", stock: 30, unit: "طبق", imageUrl: "https://picsum.photos/seed/151200386769/400/400" },
+            { name: "مسقوف", description: "سمك مسقوف طازج مشوي على الجمر", price: 22000, category: "الأسماك", categoryId: "restaurants", stock: 15, unit: "وجبة", imageUrl: "https://picsum.photos/seed/146700390958/400/400" },
+            { name: "شوربة عراقية", description: "شوربة لحم مع الخضروات الطازجة", price: 7000, category: "الشوربات", categoryId: "restaurants", stock: 35, unit: "طبق", imageUrl: "https://picsum.photos/seed/1547592180-8/400/400" },
+            { name: "برياني دجاج", description: "برياني دجاج بالبهارات الهندية مع الزبيب", price: 13000, category: "الأرز", categoryId: "restaurants", stock: 25, unit: "وجبة", imageUrl: "https://picsum.photos/seed/156337909133/400/400" },
+            { name: "فلافل وحمص", description: "فلافل مقرمش مع حمص وخبز عربي", price: 5000, category: "المقبلات", categoryId: "restaurants", stock: 60, unit: "طبق", imageUrl: "https://picsum.photos/seed/159300187411/400/400" },
+            { name: "جوزة مشوية", description: "جوزة دجاج كاملة مع البهارات والليمون", price: 18000, category: "الدجاج", categoryId: "restaurants", stock: 20, unit: "وجبة", imageUrl: "https://picsum.photos/seed/159810344209/400/400" },
+            { name: "لقيمات بالعسل", description: "لقيمات عراقية أصيلة مع العسل والسمسم", price: 6000, category: "الحلويات", categoryId: "restaurants", stock: 40, unit: "طبق", imageUrl: "https://picsum.photos/seed/1551024506-0/400/400" },
+          ],
+        },
+        // ── مطعم الشاورما الذهبي ────────────────────────────────────────────────
+        {
+          storeName: "مطعم الشاورما الذهبي",
+          businessType: "restaurant",
+          ownerName: "كريم الشاورماجي",
+          phoneNumber: "07700000004",
+          address: "شارع الكرادة، بغداد",
+          profileImageUrl: "https://picsum.photos/seed/shawarma-restaurant/400/400",
+          coverImageUrl: "https://picsum.photos/seed/shawarma-restaurant-cover/800/400",
+          bio: "أشهى شاورما وبرغر في بغداد — مكونات طازجة، نكهات لا تُنسى",
+          products: [
+            // شاورما
+            { name: "شاورما دجاج", description: "شاورما دجاج مشوي بالخبز العربي مع صوص الثوم والخضار الطازجة", price: 7000, category: "شاورما", categoryId: "restaurants", stock: 80, unit: "ساندويتش", imageUrl: "https://picsum.photos/seed/1561050501-a/400/400" },
+            { name: "شاورما لحم", description: "شاورما لحم غنم مشوي بالبهارات والليمون وصوص الطحينة", price: 9000, category: "شاورما", categoryId: "restaurants", stock: 60, unit: "ساندويتش", imageUrl: "https://picsum.photos/seed/152969223667/400/400" },
+            { name: "شاورما مشكل", description: "شاورما دجاج ولحم معاً مع صوص الثوم والحار", price: 10000, category: "شاورما", categoryId: "restaurants", stock: 50, unit: "ساندويتش", imageUrl: "https://picsum.photos/seed/151736098139/400/400" },
+            { name: "صحن شاورما", description: "شاورما دجاج مقطعة مع خبز وبطاطا مقلية وسلطة", price: 14000, category: "شاورما", categoryId: "restaurants", stock: 40, unit: "صحن", imageUrl: "https://picsum.photos/seed/1556269923-e/400/400" },
+            // برغر
+            { name: "برغر كلاسيك", description: "برغر لحم بقري 180 جرام مع جبن، خس، طماطم، وصوص خاص", price: 11000, category: "برغر", categoryId: "restaurants", stock: 55, unit: "ساندويتش", imageUrl: "https://picsum.photos/seed/156890134637/400/400" },
+            { name: "برغر دبل", description: "دبل برغر لحم مع دبل جبن وبيضة مقلية وصوص BBQ", price: 15000, category: "برغر", categoryId: "restaurants", stock: 40, unit: "ساندويتش", imageUrl: "https://picsum.photos/seed/160701325137/400/400" },
+            { name: "برغر دجاج كريسبي", description: "فيليه دجاج مقرمش مقلي مع صوص الحار والخس", price: 10000, category: "برغر", categoryId: "restaurants", stock: 50, unit: "ساندويتش", imageUrl: "https://picsum.photos/seed/158732931068/400/400" },
+            // وجبات
+            { name: "وجبة برغر + بطاطا + مشروب", description: "برغر كلاسيك مع بطاطا مقلية كبيرة ومشروب غازي 500 مل", price: 16000, category: "وجبات", categoryId: "restaurants", stock: 45, unit: "وجبة", imageUrl: "https://picsum.photos/seed/159421269990/400/400" },
+            { name: "وجبة شاورما + بطاطا + مشروب", description: "شاورما دجاج مع بطاطا مقلية ومشروب غازي", price: 13000, category: "وجبات", categoryId: "restaurants", stock: 50, unit: "وجبة", imageUrl: "https://picsum.photos/seed/151344254225/400/400" },
+            { name: "عائلي شاورما (4 أشخاص)", description: "4 ساندويتشات شاورما مشكل + 4 بطاطا + 4 مشروبات", price: 45000, category: "وجبات عائلية", categoryId: "restaurants", stock: 20, unit: "طلبية", imageUrl: "https://picsum.photos/seed/1555396273-3/400/400" },
+            // إضافات وسلطات
+            { name: "بطاطا مقلية كبيرة", description: "بطاطا مقلية مقرمشة مع صوص الكيتشب والمايونيز", price: 4000, category: "إضافات", categoryId: "restaurants", stock: 100, unit: "طبق", imageUrl: "https://picsum.photos/seed/157610723268/400/400" },
+            { name: "سلطة عربية", description: "طماطم، خيار، بصل، بقدونس مع زيت زيتون وليمون", price: 3500, category: "سلطات", categoryId: "restaurants", stock: 60, unit: "طبق", imageUrl: "https://picsum.photos/seed/151262177695/400/400" },
+            { name: "صوص ثوم كبير", description: "صوص ثوم كريمي منزلي الصنع 200 مل", price: 2500, category: "إضافات", categoryId: "restaurants", stock: 80, unit: "علبة", imageUrl: "https://picsum.photos/seed/147247644350/400/400" },
+            // مشروبات
+            { name: "عصير ليمون بالنعناع", description: "عصير ليمون طازج بالنعناع والثلج 500 مل", price: 3500, category: "مشروبات", categoryId: "restaurants", stock: 70, unit: "كوب", imageUrl: "https://picsum.photos/seed/162150628993/400/400" },
+            { name: "ميلك شيك شوكولاتة", description: "ميلك شيك شوكولاتة بالآيس كريم والكريمة", price: 5000, category: "مشروبات", categoryId: "restaurants", stock: 35, unit: "كوب", imageUrl: "https://picsum.photos/seed/157249012274/400/400" },
+          ],
+        },
+        // ── صيدلية الشفاء ──────────────────────────────────────────────────────
+        {
+          storeName: "صيدلية الشفاء",
+          businessType: "pharmacy",
+          ownerName: "د. علي الشفاء",
+          phoneNumber: "07700000003",
+          address: "شارع حيفا، بغداد",
+          profileImageUrl: "https://picsum.photos/seed/pharmacy-store/400/400",
+          coverImageUrl: "https://picsum.photos/seed/pharmacy-store-cover/800/400",
+          bio: "صيدلية متكاملة توفر الأدوية ومستلزمات العناية الصحية بأسعار مناسبة",
+          products: [
+            { name: "باراسيتامول 500 مغ", description: "أقراص مسكن للألم وخافض للحرارة 20 قرص", price: 3500, category: "مسكنات الألم", categoryId: "pharmacy", stock: 100, unit: "علبة", imageUrl: "https://picsum.photos/seed/158430866674/400/400" },
+            { name: "فيتامين سي 1000", description: "فيتامين سي أقراص فوارة لتعزيز المناعة", price: 8000, category: "الفيتامينات", categoryId: "pharmacy", stock: 60, unit: "علبة", imageUrl: "https://picsum.photos/seed/1550572017-e/400/400" },
+            { name: "بانادول اكسترا", description: "مسكن قوي للصداع وآلام الجسم", price: 4500, category: "مسكنات الألم", categoryId: "pharmacy", stock: 80, unit: "علبة", imageUrl: "https://picsum.photos/seed/1559757175-0/400/400" },
+            { name: "كريم ترطيب يومي", description: "كريم مرطب للبشرة الجافة 100 مل", price: 12000, category: "العناية بالبشرة", categoryId: "pharmacy", stock: 35, unit: "قارورة", imageUrl: "https://picsum.photos/seed/1556228720-1/400/400" },
+            { name: "شامبو للشعر الجاف", description: "شامبو مرطب للشعر الجاف والتالف 400 مل", price: 9000, category: "العناية بالشعر", categoryId: "pharmacy", stock: 40, unit: "قارورة", imageUrl: "https://picsum.photos/seed/157178244257/400/400" },
+            { name: "كمامات طبية", description: "كمامات طبية ثلاثية الطبقات 50 قطعة", price: 7000, category: "مستلزمات طبية", categoryId: "pharmacy", stock: 55, unit: "علبة", imageUrl: "https://picsum.photos/seed/158455681295/400/400" },
+            { name: "جل مطهر لليدين", description: "جل كحولي مطهر لليدين 300 مل", price: 5000, category: "مستلزمات طبية", categoryId: "pharmacy", stock: 70, unit: "قارورة", imageUrl: "https://picsum.photos/seed/158436291716/400/400" },
+            { name: "ضمادات طبية", description: "ضمادات لاصقة معقمة مختلفة الأحجام 20 قطعة", price: 3000, category: "مستلزمات طبية", categoryId: "pharmacy", stock: 90, unit: "علبة", imageUrl: "https://picsum.photos/seed/163154991676/400/400" },
+          ],
+        },
+      ];
+
+      let totalVendors = 0;
+      let totalProducts = 0;
+      const createdStores: string[] = [];
+
+      for (const store of demoStores) {
+        // Check if demo store already exists
+        const existing = await db.collection("vendors").where("phoneNumber", "==", store.phoneNumber).limit(1).get();
+        let vendorDocId: string;
+
+        if (!existing.empty) {
+          vendorDocId = existing.docs[0].id;
+        } else {
+          vendorDocId = uid();
+          await db.collection("vendors").doc(vendorDocId).set({
+            id: vendorDocId,
+            storeName: store.storeName,
+            businessType: store.businessType,
+            categoryId: store.businessType,
+            phoneNumber: store.phoneNumber,
+            email: null,
+            passwordHash: "$2b$10$demoHashNotUsedForLogin00000000000000000000000000000",
+            ownerName: store.ownerName,
+            address: store.address,
+            profileImageUrl: store.profileImageUrl,
+            coverImageUrl: store.coverImageUrl,
+            bio: store.bio,
+            status: "active",
+            totalProducts: store.products.length,
+            totalOrders: 0,
+            approvedAt: now,
+            createdAt: now,
+            updatedAt: now,
+          });
+          totalVendors++;
+        }
+        createdStores.push(store.storeName);
+
+        // Delete existing products for this vendor and re-seed
+        const existingProducts = await db.collection("vendorProducts").where("vendorId", "==", vendorDocId).get();
+        if (!existingProducts.empty) {
+          const delBatch = db.batch();
+          existingProducts.docs.forEach(d => delBatch.delete(d.ref));
+          await delBatch.commit();
+        }
+
+        // Add all products in batches of 500
+        const productBatch = db.batch();
+        for (const p of store.products) {
+          const pid = uid();
+          productBatch.set(db.collection("vendorProducts").doc(pid), {
+            id: pid,
+            vendorId: vendorDocId,
+            vendorName: store.storeName,
+            storeName: store.storeName,
+            vendorPhone: store.phoneNumber,
+            name: p.name,
+            description: p.description,
+            price: p.price,
+            category: p.category,
+            categoryId: p.categoryId,
+            stock: p.stock,
+            unit: p.unit,
+            imageUrl: p.imageUrl,
+            imageUrls: [p.imageUrl],
+            status: "approved",
+            approvedAt: now,
+            createdAt: now,
+            updatedAt: now,
+          });
+          totalProducts++;
+        }
+        await productBatch.commit();
+      }
+
+      invalidateVendorsCache(); invalidateStoresCache();
+      res.json({ success: true, totalVendors, totalProducts, stores: createdStores });
+    } catch (err: any) {
+      console.error("seed demo stores:", err);
+      res.status(500).json({ error: err.message || "فشل إنشاء البيانات التجريبية" });
+    }
+  });
+
+
+  // Archive old completed/cancelled orders (older than 1 month)
+  app.delete("/api/admin/archive-old-orders", async (_req: Request, res: Response) => {
+    try {
+      const db = getFirestore();
+      if (!db) return res.status(500).json({ error: "Firestore not initialized" });
+
+      // Helper: batch-delete all docs in a snapshot
+      const batchSize = 500;
+      const batchDeleteAll = async (docs: FirebaseFirestore.QueryDocumentSnapshot[]) => {
+        let count = 0;
+        for (let i = 0; i < docs.length; i += batchSize) {
+          const batch = db!.batch();
+          const chunk = docs.slice(i, i + batchSize);
+          for (const doc of chunk) batch.delete(doc.ref);
+          await batch.commit();
+          count += chunk.length;
+        }
+        return count;
+      };
+
+      // 1. Delete ALL orders regardless of status
+      const allOrders = await getOrders();
+      let deleted = 0;
+      for (let i = 0; i < allOrders.length; i += batchSize) {
+        const batch = db.batch();
+        const chunk = allOrders.slice(i, i + batchSize);
+        for (const order of chunk) batch.delete(db.collection("orders").doc(order.id));
+        await batch.commit();
+        deleted += chunk.length;
+      }
+
+      // 2. Delete ALL walletHistory entries
+      let walletDeleted = 0;
+      try {
+        const snap = await db.collection("walletHistory").get();
+        walletDeleted = await batchDeleteAll(snap.docs);
+      } catch (_e) {}
+
+      // 3. Delete ALL driverActivityLog entries
+      let activityDeleted = 0;
+      try {
+        const snap = await db.collection("driverActivityLog").get();
+        activityDeleted = await batchDeleteAll(snap.docs);
+      } catch (_e) {}
+
+      // 4. Delete ALL driverCompletedOrders entries
+      let completedDeleted = 0;
+      try {
+        const snap = await db.collection("driverCompletedOrders").get();
+        completedDeleted = await batchDeleteAll(snap.docs);
+      } catch (_e) {}
+
+      // 5. Delete ALL adminAlerts entries
+      let alertsDeleted = 0;
+      try {
+        const snap = await db.collection("adminAlerts").get();
+        alertsDeleted = await batchDeleteAll(snap.docs);
+      } catch (_e) {}
+
+      // 6. Reset all driverWallet balances to zero
+      let walletsReset = 0;
+      try {
+        const snap = await db.collection("driverWallets").get();
+        for (let i = 0; i < snap.docs.length; i += batchSize) {
+          const batch = db.batch();
+          const chunk = snap.docs.slice(i, i + batchSize);
+          for (const doc of chunk) batch.update(doc.ref, { balance: 0 });
+          await batch.commit();
+          walletsReset += chunk.length;
+        }
+      } catch (_e) {}
+
+      const total = deleted + walletDeleted + activityDeleted + completedDeleted + alertsDeleted;
+      res.json({
+        deleted,
+        walletDeleted,
+        activityDeleted,
+        completedDeleted,
+        alertsDeleted,
+        walletsReset,
+        total,
+        message: `تم مسح ${deleted} طلب (كل الطلبات)، ${walletDeleted} سجل محفظة، ${activityDeleted} سجل نشاط، ${alertsDeleted} تنبيه، وإعادة تصفير ${walletsReset} محفظة سائق`,
+      });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   return httpServer;
+
 }
+

@@ -25,7 +25,7 @@ import tabCartImg from "../assets/images/tab-cart-groceries.png";
 import tabBurgerImg from "../assets/images/tab-burger-meal.png";
 
 import { useTheme } from "@/hooks/useTheme";
-import { Spacing, AppColors, DesignSystem, BorderRadius, FontWeight} from "@/constants/theme";
+import { Spacing, AppColors, BorderRadius, FontWeight} from "@/constants/theme";
 import { Category, Banner, Product } from "@/constants/categories";
 import { ThemedText } from "@/components/ThemedText";
 import { LocationBar } from "@/components/LocationBar";
@@ -42,7 +42,7 @@ import { getApiUrl } from "@/lib/query-client";
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
-const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
+const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const HORIZONTAL_PADDING = 18;
 const PRODUCT_CARD_WIDTH = 160;
 

@@ -5,7 +5,8 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { getApiUrl } from "@/lib/query-client";
-import { TIMING } from "@/config";
+
+const DRIVER_POLL_INTERVAL = 5_000; // ms
 import type { BatchStatus } from "@/types";
 
 export interface DriverStatusData {
@@ -82,7 +83,7 @@ export function useDriver(phoneNumber: string | null) {
 
   useEffect(() => {
     fetchStatus();
-    pollRef.current = setInterval(fetchStatus, TIMING.driverPoll);
+    pollRef.current = setInterval(fetchStatus, DRIVER_POLL_INTERVAL);
     return () => {
       if (pollRef.current) clearInterval(pollRef.current);
     };
