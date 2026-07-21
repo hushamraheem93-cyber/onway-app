@@ -73,6 +73,7 @@ interface AuthContextType {
   isVendorRegistered: boolean;
   // Customer JWT
   customerToken: string | null;
+  isProfileLoading: boolean;
   sendOtp: (phone: string) => Promise<void>;
   verifyOtp: (code: string) => Promise<void>;
   setUserType: (type: UserType) => void;
@@ -198,6 +199,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isDriverRegistered, setIsDriverRegistered] = useState(false);
   const [hasSeenSplash, setHasSeenSplash] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  // Tracks an in-progress profile fetch after type selection (prevents the
+  // navigator from briefly showing ProfileCompletion before the fetch completes).
+  const [isProfileLoading, setIsProfileLoading] = useState(false);
   // Vendor
   const [vendorProfile, setVendorProfile] = useState<VendorProfile | null>(null);
   const [vendorToken, setVendorToken] = useState<string | null>(null);
@@ -470,10 +474,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!phoneNumber) return;
     try {
       await AsyncStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify({ phoneNumber, userType: type, isDriverRegistered: false }));
+      // Mark profile as loading BEFORE setting isLoggedIn so the navigator
+      // shows a spinner instead of ProfileCompletion during the fetch.
+      setIsProfileLoading(true);
       setIsLoggedIn(true);
       await checkProfileFromServer(phoneNumber);
     } catch (error) {
       throw error;
+    } finally {
+      setIsProfileLoading(false);
     }
   };
 
@@ -687,6 +696,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         goBackToOtp,
         markSplashSeen,
         isLoading,
+        isProfileLoading,
       }}
     >
       {children}

@@ -11,7 +11,7 @@ import {
   Keyboard,
   Modal,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import * as Haptics from "expo-haptics";
@@ -28,6 +28,7 @@ const BRAND_DARK = AppColors.primaryDark;
 export default function PhoneLoginScreen() {
   const { sendOtp } = useAuth();
   const navigation = useNavigation();
+  const insets = useSafeAreaInsets();
   const [phoneNumber, setPhoneNumber] = useState("");
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -87,13 +88,13 @@ export default function PhoneLoginScreen() {
       <View style={styles.blobTop} pointerEvents="none" />
       <View style={styles.blobBottom} pointerEvents="none" />
 
-      <SafeAreaView style={styles.safeArea} edges={["top", "bottom", "left", "right"]}>
+      <SafeAreaView style={styles.safeArea} edges={["bottom", "left", "right"]}>
         <KeyboardAvoidingView
           style={styles.keyboardView}
           behavior={Platform.OS === "ios" ? "padding" : "height"}
         >
           <ScrollView
-            contentContainerStyle={styles.scrollContent}
+            contentContainerStyle={[styles.scrollContent, { paddingTop: Math.max(insets.top + 20, 56) }]}
             keyboardShouldPersistTaps="handled"
             bounces={false}
             showsVerticalScrollIndicator={false}
@@ -345,6 +346,9 @@ const styles = StyleSheet.create({
     color: AppColors.gray700,
     textAlign: "right",
     marginBottom: 8,
+    lineHeight: 22,
+    includeFontPadding: true,
+    paddingTop: 2,
   },
   phoneRow: {
     flexDirection: "row",

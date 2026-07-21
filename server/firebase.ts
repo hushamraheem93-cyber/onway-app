@@ -48,19 +48,47 @@ export interface FirestoreUserProfile {
   updatedAt: admin.firestore.Timestamp;
 }
 
+/**
+ * All Iraqi phone variants for a raw number — lets us find users stored with
+ * any historical format (009647…, 9647…, 07…, 7…) regardless of which one the
+ * caller passes in.  Deduplicated and always starts with the raw value so the
+ * first hit is the cheapest match.
+ */
+function phoneVariants(raw: string): string[] {
+  const digits = (raw || "").replace(/\D/g, "");
+  const set = new Set<string>();
+  set.add(raw); // exact match first
+
+  let local = ""; // 07XXXXXXXXX
+  if (digits.startsWith("00964")) local = "0" + digits.slice(5);
+  else if (digits.startsWith("964")) local = "0" + digits.slice(3);
+  else if (digits.startsWith("07")) local = digits;
+  else if (digits.startsWith("7")) local = "0" + digits;
+
+  if (local) {
+    set.add(local);                    // 07XXXXXXXXX
+    set.add("00964" + local.slice(1)); // 009647XXXXXXXXX
+    set.add("964" + local.slice(1));   // 9647XXXXXXXXX
+    set.add(local.slice(1));           // 7XXXXXXXXX (no leading zero)
+  }
+  return [...set];
+}
+
 export async function getUserByPhone(phoneNumber: string): Promise<(FirestoreUserProfile & { id: string }) | null> {
   if (!db) return null;
   
   try {
     const usersRef = db.collection("users");
-    const snapshot = await usersRef.where("phoneNumber", "==", phoneNumber).limit(1).get();
-    
-    if (snapshot.empty) {
-      return null;
+    // Try every format variant so legacy documents (stored with 009647…) are found
+    // even when the caller passes the modern 07… form and vice-versa.
+    for (const phone of phoneVariants(phoneNumber)) {
+      const snapshot = await usersRef.where("phoneNumber", "==", phone).limit(1).get();
+      if (!snapshot.empty) {
+        const doc = snapshot.docs[0];
+        return { id: doc.id, ...doc.data() as FirestoreUserProfile };
+      }
     }
-    
-    const doc = snapshot.docs[0];
-    return { id: doc.id, ...doc.data() as FirestoreUserProfile };
+    return null;
   } catch (error) {
     console.error("Error getting user from Firestore:", error);
     return null;
@@ -125,13 +153,13 @@ export async function updateUser(
   
   try {
     const usersRef = db.collection("users");
-    const snapshot = await usersRef.where("phoneNumber", "==", phoneNumber).limit(1).get();
-    
-    if (snapshot.empty) {
-      return null;
+    let doc: admin.firestore.QueryDocumentSnapshot | null = null;
+    for (const phone of phoneVariants(phoneNumber)) {
+      const snapshot = await usersRef.where("phoneNumber", "==", phone).limit(1).get();
+      if (!snapshot.empty) { doc = snapshot.docs[0]; break; }
     }
-    
-    const doc = snapshot.docs[0];
+    if (!doc) return null;
+
     const updateData: any = {
       updatedAt: admin.firestore.Timestamp.now(),
     };
@@ -171,10 +199,14 @@ export interface SavedAddress {
 export async function getUserAddresses(phoneNumber: string): Promise<SavedAddress[]> {
   if (!db) return [];
   try {
-    const snap = await db.collection("users").where("phoneNumber", "==", phoneNumber).limit(1).get();
-    if (snap.empty) return [];
-    const data = snap.docs[0].data() as any;
-    return Array.isArray(data.addresses) ? (data.addresses as SavedAddress[]) : [];
+    for (const phone of phoneVariants(phoneNumber)) {
+      const snap = await db.collection("users").where("phoneNumber", "==", phone).limit(1).get();
+      if (!snap.empty) {
+        const data = snap.docs[0].data() as any;
+        return Array.isArray(data.addresses) ? (data.addresses as SavedAddress[]) : [];
+      }
+    }
+    return [];
   } catch (error) {
     console.error("Error reading user addresses:", error);
     return [];
@@ -187,8 +219,12 @@ export async function setUserAddresses(
 ): Promise<SavedAddress[] | null> {
   if (!db) return null;
   try {
-    const snap = await db.collection("users").where("phoneNumber", "==", phoneNumber).limit(1).get();
-    if (snap.empty) return null;
+    let snap: admin.firestore.QuerySnapshot | null = null;
+    for (const phone of phoneVariants(phoneNumber)) {
+      const s = await db.collection("users").where("phoneNumber", "==", phone).limit(1).get();
+      if (!s.empty) { snap = s; break; }
+    }
+    if (!snap) return null;
     // Only one address may be the default.
     let seenDefault = false;
     const clean = addresses.slice(0, 30).map((a) => {
@@ -204,7 +240,7 @@ export async function setUserAddresses(
         ...(typeof a.longitude === "number" ? { longitude: a.longitude } : {}),
       } as SavedAddress;
     });
-    await snap.docs[0].ref.update({ addresses: clean, updatedAt: admin.firestore.Timestamp.now() });
+    await (snap as admin.firestore.QuerySnapshot).docs[0].ref.update({ addresses: clean, updatedAt: admin.firestore.Timestamp.now() });
     return clean;
   } catch (error) {
     console.error("Error writing user addresses:", error);
@@ -223,14 +259,14 @@ export async function updateUserPushToken(phoneNumber: string, pushToken: string
       { merge: true }
     );
 
-    // Also update the user document if it exists
+    // Also update the user document if it exists (try all phone variants)
     const usersRef = db.collection("users");
-    const snapshot = await usersRef.where("phoneNumber", "==", phoneNumber).limit(1).get();
-    if (!snapshot.empty) {
-      await snapshot.docs[0].ref.update({
-        pushToken,
-        updatedAt: admin.firestore.Timestamp.now(),
-      });
+    for (const phone of phoneVariants(phoneNumber)) {
+      const snapshot = await usersRef.where("phoneNumber", "==", phone).limit(1).get();
+      if (!snapshot.empty) {
+        await snapshot.docs[0].ref.update({ pushToken, updatedAt: admin.firestore.Timestamp.now() });
+        break;
+      }
     }
 
     return true;
@@ -245,14 +281,14 @@ export async function getUserPushToken(phoneNumber: string): Promise<string | nu
   
   try {
     const usersRef = db.collection("users");
-    const snapshot = await usersRef.where("phoneNumber", "==", phoneNumber).limit(1).get();
-    
-    if (snapshot.empty) {
-      return null;
+    for (const phone of phoneVariants(phoneNumber)) {
+      const snapshot = await usersRef.where("phoneNumber", "==", phone).limit(1).get();
+      if (!snapshot.empty) {
+        const userData = snapshot.docs[0].data() as FirestoreUserProfile;
+        return userData.pushToken || null;
+      }
     }
-    
-    const userData = snapshot.docs[0].data() as FirestoreUserProfile;
-    return userData.pushToken || null;
+    return null;
   } catch (error) {
     console.error("Error getting push token:", error);
     return null;
