@@ -47,6 +47,8 @@ export default function CheckoutScreen() {
 
   const { data: deliveryAreas = [] } = useQuery<DeliveryArea[]>({
     queryKey: ["/api/delivery-areas"],
+    staleTime: 0,          // always consider stale → re-fetch on every mount
+    refetchOnMount: true,  // fetch fresh data every time the screen opens
   });
 
   const { data: feesData } = useQuery<{ serviceFee: number }>({

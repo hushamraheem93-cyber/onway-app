@@ -1865,9 +1865,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/delivery-areas", async (req, res) => {
     try {
       const areas = await getFirestoreDeliveryAreas(true);
+      res.set("Cache-Control", "no-store");
       res.json(areas);
     } catch (error) {
       console.error("Error getting delivery areas:", error);
+      res.set("Cache-Control", "no-store");
       res.json([]);
     }
   });
