@@ -2838,7 +2838,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.status(400).json({ error: "Phone number is required" });
     }
     // Iraqi mobile numbers: 07X-XXXXXXXX (11 digits, operators 073-079)
-    const IRAQ_PHONE_RE = /^07[3-9]\d{8}$/;
+    const IRAQ_PHONE_RE = /^07\d{9}$/;
     if (!IRAQ_PHONE_RE.test(String(phoneNumber))) {
       return res.status(400).json({ error: "رقم الهاتف غير صحيح — يجب أن يبدأ بـ 07 ويتكون من 11 رقماً" });
     }
