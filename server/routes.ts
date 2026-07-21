@@ -2590,9 +2590,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/users/:phoneNumber", requireCustomerAuth, async (req: Request, res: Response) => {
     const phoneNumber = req.params.phoneNumber as string;
-    // Ownership (C3): a customer may only read their OWN profile. Prevents reading
-    // any user's name/phone/address by iterating phone numbers.
-    if ((req as any).customerPhone !== phoneNumber) {
+    // Ownership (C3): compare normalised phones — both the JWT claim and the URL
+    // param are normalised to 07XXXXXXXXX so old cached tokens still work.
+    const normParam = toLocalPhone(phoneNumber);
+    const normCaller = toLocalPhone((req as any).customerPhone || "");
+    if (normCaller !== normParam) {
       return res.status(403).json({ error: "غير مصرح" });
     }
     const db = getFirestore();
@@ -2895,7 +2897,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       ROUTES_JWT_SECRET,
       { expiresIn: "30d" }
     );
-    res.json({ success: true, message: "OTP verified", customerToken });
+    // Return the normalized phone so the client stores the canonical form
+    // that matches what the JWT contains — preventing ownership-check mismatches.
+    res.json({ success: true, message: "OTP verified", customerToken, phoneNumber });
   });
 
   // Driver Routes

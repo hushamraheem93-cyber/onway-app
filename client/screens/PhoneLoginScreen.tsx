@@ -275,14 +275,14 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     flexGrow: 1,
-    justifyContent: "center",
     paddingHorizontal: 22,
-    paddingTop: 48,
-    paddingBottom: 32,
+    paddingTop: 24,
+    paddingBottom: 40,
   },
   logoSection: {
     alignItems: "center",
     marginBottom: 26,
+    marginTop: 16,
   },
   logoBadge: {
     paddingHorizontal: 22,

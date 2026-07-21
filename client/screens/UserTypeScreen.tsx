@@ -54,12 +54,12 @@ export default function UserTypeScreen() {
     <View style={styles.container}>
       <LinearGradient
         colors={[BRAND_ORANGE, BRAND_DARK]}
-        style={[styles.topSection, { paddingTop: insets.top + 20 }]}
+        style={[styles.topSection, { paddingTop: Math.max(insets.top + 20, 80) }]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
       >
         <Pressable
-          style={styles.backBtn}
+          style={[styles.backBtn, { top: Math.max(insets.top + 8, 24) }]}
           onPress={() => {
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
             goBackToOtp();

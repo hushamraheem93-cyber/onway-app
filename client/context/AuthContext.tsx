@@ -387,7 +387,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setCustomerToken(data.customerToken);
         try { await setToken(CUSTOMER_TOKEN_KEY, data.customerToken); } catch {}
       }
-      setPhoneNumber(pendingPhone);
+      // Prefer the server-normalised phone (07XXXXXXXXX) so state, AsyncStorage,
+      // and the JWT all use the same canonical format → ownership checks pass.
+      const canonicalPhone = data.phoneNumber || pendingPhone;
+      setPhoneNumber(canonicalPhone);
+      setPendingPhone(canonicalPhone);
       setIsOtpVerified(true);
     } catch (error: any) {
       throw error;

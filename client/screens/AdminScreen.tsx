@@ -1086,7 +1086,13 @@ export default function AdminScreen() {
       ) : (
         banners.map((banner) => (
           <View key={banner.id} style={[styles.listItem, { backgroundColor: theme.backgroundSecondary }]}>
-            <Image source={{ uri: resolveImageUrl(banner.image) }} style={styles.listItemImage} contentFit="cover" />
+            {resolveImageUrl(banner.image) ? (
+              <Image source={{ uri: resolveImageUrl(banner.image) }} style={styles.listItemImage} contentFit="cover" />
+            ) : (
+              <View style={[styles.listItemImage, { backgroundColor: AppColors.gray100, alignItems: "center", justifyContent: "center" }]}>
+                <Feather name="image" size={18} color={AppColors.gray400} />
+              </View>
+            )}
             <View style={styles.listItemContent}>
               <ThemedText type="body" numberOfLines={1}>{banner.title || "بدون عنوان"}</ThemedText>
               <ThemedText type="small" style={{ color: theme.textSecondary }}>{banner.type === "offer" ? "عرض رئيسي" : "سلايدر"}</ThemedText>
