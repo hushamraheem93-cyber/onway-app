@@ -2472,9 +2472,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const verifiedServiceFee = Number(serviceFee) || 0;
       const verifiedTotal = verifiedSubtotal + verifiedDeliveryFee + verifiedServiceFee - verifiedDiscount;
 
+      // Log mismatches (e.g. stale delivery fee on client) but never reject —
+      // the server's computed values are always used for the stored order.
+      // Item-price fraud is already caught above; rejecting here only hurts
+      // customers whose app had a cached fee when the admin updated it.
       if (Math.abs((Number(total) || 0) - verifiedTotal) > 1) {
-        console.warn(`[FRAUD_CHECK] Total mismatch on order from ${phoneNumber} — client sent ${total}, server computed ${verifiedTotal}`);
-        return res.status(400).json({ error: "حدث خطأ بحساب السعر، الرجاء تحديث السلة والمحاولة مجدداً" });
+        console.warn(`[PRICE_DRIFT] Total drift on order from ${phoneNumber} — client sent ${total}, server computed ${verifiedTotal} (delivery: ${verifiedDeliveryFee})`);
       }
 
       const orderData: any = {
