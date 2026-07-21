@@ -639,15 +639,61 @@ export async function createOrder(data: Omit<FirestoreOrder, "createdAt" | "upda
   }
 }
 
-export async function updateOrderStatus(id: string, status: FirestoreOrder["status"]): Promise<boolean> {
+// ── Order State Machine ────────────────────────────────────────────────────────
+// Each key is the CURRENT status; the value lists every status it may transition TO.
+// Terminal states (delivered, cancelled) have empty arrays — no further transitions.
+// Callers pass { force: true } to bypass (admin-only overrides such as force-cancel
+// a delivered order for a refund, or bulk status corrections).
+const ORDER_TRANSITIONS: Readonly<Record<string, readonly string[]>> = {
+  pending:     ["confirmed", "cancelled"],
+  confirmed:   ["preparing", "cancelled"],
+  preparing:   ["in_delivery", "delivered", "cancelled", "issue"],
+  in_delivery: ["delivered", "issue", "cancelled"],
+  delivered:   [],   // terminal
+  cancelled:   [],   // terminal
+  issue:       ["preparing", "cancelled"],
+};
+
+export async function updateOrderStatus(
+  id: string,
+  status: FirestoreOrder["status"],
+  opts?: { force?: boolean },
+): Promise<boolean> {
   if (!db) return false;
-  
+  const force = opts?.force ?? false;
+
   try {
-    await db.collection("orders").doc(id).update({ status, updatedAt: admin.firestore.Timestamp.now() });
-    // Real-time: notify listeners (routes.ts forwards this to the order's socket room
-    // and broadcasts orders:changed). Additive only — HTTP polling remains the fallback.
-    orderEvents.emit("order:status", { orderId: id, status });
-    return true;
+    let changed = false;
+
+    if (!force) {
+      // Validate the transition atomically: read current status, check the state
+      // machine, then write — all in one transaction so no concurrent writer can
+      // slip an illegal transition through.
+      const orderRef = db.collection("orders").doc(id);
+      changed = await db.runTransaction(async (tx) => {
+        const snap = await tx.get(orderRef);
+        if (!snap.exists) return false;
+        const current = (snap.data() as any)?.status as string | undefined;
+        const allowed = ORDER_TRANSITIONS[current ?? ""] ?? [];
+        if (!allowed.includes(status)) {
+          console.warn(`[StateMachine] Blocked: ${current ?? "?"} → ${status} (order ${id})`);
+          return false;
+        }
+        tx.update(orderRef, { status, updatedAt: admin.firestore.Timestamp.now() });
+        return true;
+      });
+    } else {
+      // Force mode: direct update without transition check (admin-only override).
+      await db.collection("orders").doc(id).update({ status, updatedAt: admin.firestore.Timestamp.now() });
+      changed = true;
+    }
+
+    if (changed) {
+      // Real-time: notify listeners (routes.ts forwards this to the order's socket
+      // room and broadcasts orders:changed). Additive only — HTTP polling is the fallback.
+      orderEvents.emit("order:status", { orderId: id, status });
+    }
+    return changed;
   } catch (error) {
     console.error("Error updating order status:", error);
     return false;

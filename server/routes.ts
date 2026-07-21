@@ -2376,7 +2376,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const db = getFirestore();
     
     if (db) {
-      const success = await updateOrderStatus(orderId, status);
+      // Admin may override any transition (force: true) — the status string
+      // was already validated against the allowed enum above.
+      const success = await updateOrderStatus(orderId, status, { force: true });
       if (success) {
         if (phoneNumber) {
           const pushToken = await getUserPushToken(phoneNumber);
@@ -3576,9 +3578,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       const driver = await getDriverByPhone(phoneNumber);
       const driverName = driver?.fullName || phoneNumber;
-      // Set all orders in batch to "preparing" and tag with driver info
+      // Set all orders in batch to "preparing" and tag with driver info.
+      // claimBatchForDriver already validated the batch state atomically,
+      // so pass force:true to avoid a redundant per-order transition check.
       for (const orderId of claim.orderIds) {
-        await updateOrderStatus(orderId, "preparing");
+        await updateOrderStatus(orderId, "preparing", { force: true });
         notifyCustomerStatus(orderId, "preparing").catch(() => {}); // ← Fix: notify customer
         await updateOrderDriverInfo(orderId, { driverName, driverPhone: phoneNumber });
         driverAssignments.set(orderId, phoneNumber);
@@ -3687,7 +3691,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.json({ success: true, alreadyCompleted: true });
       }
 
-      await updateOrderStatus(orderId, "delivered");
+      // earningsCredited transaction already guards double-completion; force:true
+      // avoids a redundant state-machine read inside the same atomic flow.
+      await updateOrderStatus(orderId, "delivered", { force: true });
       await db.collection("orders").doc(orderId).update({ deliveredAt: now, updatedAt: now });
       addDeliveryLog({ orderId, driverPhone: phoneNumber, action: "delivered", lat, lng }).catch(() => {});
 
