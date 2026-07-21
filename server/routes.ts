@@ -2832,14 +2832,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // OTP Auth Routes
+  /**
+   * Normalise any Iraqi phone variant → "07XXXXXXXXX" (11 digits, local format).
+   * Accepts: 07XXXXXXXXX, 7XXXXXXXXX, 009647XXXXXXXXX, 9647XXXXXXXXX, +9647XXXXXXXXX
+   */
+  function toLocalPhone(raw: string): string {
+    const d = String(raw || "").replace(/\D/g, ""); // digits only
+    if (d.startsWith("00964")) return "0" + d.slice(5); // 009647... → 07...
+    if (d.startsWith("964"))   return "0" + d.slice(3); // 9647...   → 07...
+    if (d.startsWith("07"))    return d;                 // already local
+    if (d.startsWith("7"))     return "0" + d;           // 7...      → 07...
+    return d;
+  }
+
   app.post("/api/auth/send-otp", async (req: Request, res: Response) => {
-    const { phoneNumber, channel } = req.body;
-    if (!phoneNumber) {
+    const { channel } = req.body;
+    if (!req.body.phoneNumber) {
       return res.status(400).json({ error: "Phone number is required" });
     }
-    // Iraqi mobile numbers: 07X-XXXXXXXX (11 digits, operators 073-079)
+    // Normalise any Iraqi format → 07XXXXXXXXX before validation
+    const phoneNumber = toLocalPhone(String(req.body.phoneNumber));
     const IRAQ_PHONE_RE = /^07\d{9}$/;
-    if (!IRAQ_PHONE_RE.test(String(phoneNumber))) {
+    if (!IRAQ_PHONE_RE.test(phoneNumber)) {
       return res.status(400).json({ error: "رقم الهاتف غير صحيح — يجب أن يبدأ بـ 07 ويتكون من 11 رقماً" });
     }
     const code = generateOtp(phoneNumber);
@@ -2865,10 +2879,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.post("/api/auth/verify-otp", (req: Request, res: Response) => {
-    const { phoneNumber, code } = req.body;
-    if (!phoneNumber || !code) {
+    const { code } = req.body;
+    if (!req.body.phoneNumber || !code) {
       return res.status(400).json({ error: "Phone number and code are required" });
     }
+    // Normalise to match the key used by generateOtp in send-otp
+    const phoneNumber = toLocalPhone(String(req.body.phoneNumber));
 
     if (!verifyOtpCode(phoneNumber, code)) {
       return res.status(400).json({ error: "رمز التحقق غير صحيح أو انتهت صلاحيته" });

@@ -277,7 +277,8 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     justifyContent: "center",
     paddingHorizontal: 22,
-    paddingVertical: 32,
+    paddingTop: 48,
+    paddingBottom: 32,
   },
   logoSection: {
     alignItems: "center",

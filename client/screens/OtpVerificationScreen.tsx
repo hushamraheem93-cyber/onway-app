@@ -18,7 +18,7 @@ import { ThemedText } from "@/components/ThemedText";
 import { AppColors } from "@/constants/theme";
 import { useAuth } from "@/context/AuthContext";
 
-const OTP_LENGTH = 6;
+const OTP_LENGTH = 4;
 const BRAND_ORANGE = AppColors.primary;
 const BRAND_DARK = AppColors.primaryDark;
 
@@ -167,7 +167,7 @@ export default function OtpVerificationScreen() {
         >
           <View style={styles.handleBar} />
 
-          <ThemedText style={styles.inputLabel}>أدخل الرمز المكون من 6 أرقام</ThemedText>
+          <ThemedText style={styles.inputLabel}>أدخل الرمز المكون من 4 أرقام</ThemedText>
 
           <View style={styles.otpRow}>
             {Array.from({ length: OTP_LENGTH }).map((_, index) => (
@@ -402,14 +402,14 @@ const styles = StyleSheet.create({
     writingDirection: "ltr",
   },
   otpInput: {
-    width: 46,
-    height: 56,
-    borderRadius: 14,
+    width: 64,
+    height: 68,
+    borderRadius: 16,
     borderWidth: 2,
     borderColor: AppColors.divider,
     backgroundColor: AppColors.gray50,
     textAlign: "center",
-    fontSize: 19,
+    fontSize: 24,
     fontFamily: "Cairo_700Bold",
     color: AppColors.gray700,
     writingDirection: "ltr",

@@ -1234,8 +1234,8 @@ const OTP_MAX_ATTEMPTS = 5; // wrong tries before the code is invalidated (brute
 const otpStore = new Map<string, { code: string; expiresAt: number; attempts: number }>();
 
 export function generateOtp(phoneNumber: string): string {
-  // 6-digit code (was 4) — a much larger keyspace against brute force.
-  const code = Math.floor(100000 + Math.random() * 900000).toString();
+  // 4-digit code (1000–9999)
+  const code = Math.floor(1000 + Math.random() * 9000).toString();
   otpStore.set(phoneNumber, {
     code,
     expiresAt: Date.now() + OTP_TTL_MS,
@@ -1245,11 +1245,9 @@ export function generateOtp(phoneNumber: string): string {
 }
 
 export function verifyOtp(phoneNumber: string, code: string): boolean {
-  // Development-only bypass: a fixed all-zeros code is always accepted in dev mode
-  // (NODE_ENV=development or DEV_MODE=true, and never on a published deployment).
-  // "000000" matches the 6-digit OTP entry screen; "0000" is kept for older builds.
+  // Development-only bypass: the fixed code "0000" is always accepted in dev mode.
   // In production this branch is inert, so only a real OTPIQ-delivered code works.
-  if ((code === "000000" || code === "0000") && isDevMode()) {
+  if (code === "0000" && isDevMode()) {
     return true;
   }
   const stored = otpStore.get(phoneNumber);
