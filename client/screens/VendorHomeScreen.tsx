@@ -197,6 +197,12 @@ export default function VendorHomeScreen({ navigation }: any) {
   useFocusEffect(
     useCallback(() => {
       if (!vendorToken) return;
+      // Always refresh the vendor profile when this screen gains focus.
+      // This covers the case where admin approved the vendor while the app
+      // was closed, or the vendor was on a different tab — ensuring the
+      // "قيد المراجعة" banner disappears as soon as they return to Home,
+      // without requiring a notification or an app restart.
+      refreshVendorProfile();
       Promise.all([loadOrderStats(), loadNotifications()]).finally(() => setLoading(false));
       pollRef.current = setInterval(() => {
         loadNotifications();
@@ -207,7 +213,7 @@ export default function VendorHomeScreen({ navigation }: any) {
           pollRef.current = null;
         }
       };
-    }, [vendorToken, loadOrderStats, loadNotifications])
+    }, [vendorToken, loadOrderStats, loadNotifications, refreshVendorProfile])
   );
 
   const onRefresh = useCallback(async () => {

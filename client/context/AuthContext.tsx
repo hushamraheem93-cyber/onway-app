@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useRef, ReactNode } from "react";
+import React, { createContext, useContext, useState, useEffect, useRef, useCallback, ReactNode } from "react";
 import { Platform, AppState, AppStateStatus } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { getToken, setToken, removeToken } from "@/lib/secureTokenStorage";
@@ -479,7 +479,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await AsyncStorage.setItem(VENDOR_PROFILE_KEY, JSON.stringify(vendor));
   };
 
-  const refreshVendorProfile = async () => {
+  // Stable reference via useCallback so that loadNotifications (which depends on
+  // this function) doesn't get recreated on every render, which was previously
+  // causing the VendorHomeScreen useFocusEffect to clear and restart its poll
+  // interval on every render — making the approval status update unreliable.
+  const refreshVendorProfile = useCallback(async () => {
     if (!vendorToken) return;
     try {
       const response = await fetch(new URL("/api/vendor/profile", getApiUrl()).toString(), {
@@ -491,7 +495,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         await AsyncStorage.setItem(VENDOR_PROFILE_KEY, JSON.stringify(updated));
       }
     } catch {}
-  };
+  }, [vendorToken]);
 
   const goBackToUserType = () => {
     setSelectedUserType(null);

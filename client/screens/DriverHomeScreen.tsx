@@ -12,6 +12,7 @@ import {
   Vibration,
   Modal,
   Animated,
+  AppState,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -367,6 +368,18 @@ export default function DriverHomeScreen() {
       cancelled = true;
       if (pollTimeoutRef.current) clearTimeout(pollTimeoutRef.current);
     };
+  }, [fetchDriverStatus]);
+
+  // ── Foreground repoll: when app comes back from background, fire an
+  // immediate status fetch so the driver sees admin approval right away
+  // without waiting for the next scheduled poll interval.
+  useEffect(() => {
+    const sub = AppState.addEventListener("change", (nextState) => {
+      if (nextState === "active") {
+        fetchDriverStatus();
+      }
+    });
+    return () => sub.remove();
   }, [fetchDriverStatus]);
 
   const gpsIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
