@@ -115,6 +115,7 @@ export default function VendorHomeScreen({ navigation }: any) {
   const [settOpenDays, setSettOpenDays] = useState<number[]>(defaultWh.openDays);
   const [settingsUseHours, setSettingsUseHours] = useState(!!vendorProfile?.workingHours);
   const [savingSettings, setSavingSettings] = useState(false);
+  const [togglingAvailability, setTogglingAvailability] = useState(false);
 
   useEffect(() => {
     setDismissedIds(new Set());
@@ -304,6 +305,25 @@ export default function VendorHomeScreen({ navigation }: any) {
       setSavingSettings(false);
     }
   };
+
+  const toggleAvailability = useCallback(
+    async (field: "isVacation" | "isBusy", value: boolean) => {
+      if (!vendorToken || togglingAvailability) return;
+      setTogglingAvailability(true);
+      try {
+        await fetch(new URL("/api/vendor/availability", getApiUrl()).toString(), {
+          method: "PATCH",
+          headers: { Authorization: `Bearer ${vendorToken}`, "Content-Type": "application/json" },
+          body: JSON.stringify({ [field]: value }),
+        });
+        await refreshVendorProfile();
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      } catch {} finally {
+        setTogglingAvailability(false);
+      }
+    },
+    [vendorToken, togglingAvailability, refreshVendorProfile]
+  );
 
   const isPending = vendorProfile?.status === "pending";
   const isRejected = vendorProfile?.status === "rejected";
@@ -620,6 +640,30 @@ export default function VendorHomeScreen({ navigation }: any) {
                   }}
                 />
               </View>
+
+              {/* Vacation / Busy mode toggles */}
+              <View style={styles.availabilityRow}>
+                <AvailabilityToggle
+                  active={!!vendorProfile?.isVacation}
+                  loading={togglingAvailability}
+                  label="وضع الإجازة"
+                  activeLabel="في إجازة"
+                  icon="island"
+                  activeColor={AppColors.info}
+                  onPress={() => toggleAvailability("isVacation", !vendorProfile?.isVacation)}
+                  testID="button-toggle-vacation"
+                />
+                <AvailabilityToggle
+                  active={!!vendorProfile?.isBusy}
+                  loading={togglingAvailability}
+                  label="وضع المشغول"
+                  activeLabel="مشغول"
+                  icon="timer-sand"
+                  activeColor={AppColors.warning}
+                  onPress={() => toggleAvailability("isBusy", !vendorProfile?.isBusy)}
+                  testID="button-toggle-busy"
+                />
+              </View>
             </>
           ) : null}
 
@@ -825,6 +869,43 @@ function QuickAction({ icon, label, color, bg, onPress }: any) {
     >
       <MaterialCommunityIcons name={icon} size={28} color={color} />
       <ThemedText style={[styles.quickLabel, { color }]}>{label}</ThemedText>
+    </Pressable>
+  );
+}
+
+function AvailabilityToggle({ active, loading, label, activeLabel, icon, activeColor, onPress, testID }: {
+  active: boolean;
+  loading: boolean;
+  label: string;
+  activeLabel: string;
+  icon: string;
+  activeColor: string;
+  onPress: () => void;
+  testID?: string;
+}) {
+  return (
+    <Pressable
+      onPress={onPress}
+      disabled={loading}
+      testID={testID}
+      style={({ pressed }) => [
+        styles.availabilityToggle,
+        {
+          backgroundColor: active ? activeColor + "18" : AppColors.gray50,
+          borderColor: active ? activeColor : AppColors.gray200,
+          opacity: (pressed || loading) ? 0.7 : 1,
+        },
+      ]}
+    >
+      {loading ? (
+        <ActivityIndicator size="small" color={active ? activeColor : AppColors.gray400} />
+      ) : (
+        <MaterialCommunityIcons name={icon as any} size={20} color={active ? activeColor : AppColors.gray400} />
+      )}
+      <ThemedText style={[styles.availabilityLabel, { color: active ? activeColor : AppColors.gray500 }]}>
+        {active ? activeLabel : label}
+      </ThemedText>
+      <View style={[styles.availabilityDot, { backgroundColor: active ? activeColor : AppColors.gray300 }]} />
     </Pressable>
   );
 }
@@ -1103,7 +1184,30 @@ const styles = StyleSheet.create({
   },
 
   // Quick actions
-  actionsRow: { flexDirection: "row", gap: 12, marginBottom: 20 },
+  actionsRow: { flexDirection: "row", gap: 12, marginBottom: 12 },
+  availabilityRow: { flexDirection: "row", gap: 12, marginBottom: 20 },
+  availabilityToggle: {
+    flex: 1,
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 14,
+    borderWidth: 1.5,
+  },
+  availabilityLabel: {
+    fontFamily: "Cairo_600SemiBold",
+    fontSize: 12,
+    flex: 1,
+    textAlign: "center",
+  },
+  availabilityDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+  },
   quickAction: { flex: 1, borderRadius: 18, paddingVertical: 16, alignItems: "center", gap: 8 },
   quickLabel: { fontFamily: "Cairo_700Bold", fontSize: 13 },
 

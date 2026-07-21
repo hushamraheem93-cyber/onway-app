@@ -2025,6 +2025,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
+      // ── Vendor availability check ─────────────────────────────────────────────
+      if (bodyVendorId) {
+        const vAvailDoc = await db.collection("vendors").doc(String(bodyVendorId)).get();
+        if (vAvailDoc.exists) {
+          const vAvail = vAvailDoc.data() as any;
+          if (vAvail.isVacation) {
+            return res.status(400).json({ error: "المتجر في وضع الإجازة حالياً، يرجى المحاولة لاحقاً" });
+          }
+          if (vAvail.isBusy) {
+            return res.status(400).json({ error: "المتجر مشغول حالياً — يرجى المحاولة بعد قليل" });
+          }
+        }
+      }
+
       // ── Server-side price verification (never trust client-submitted prices) ──
       // Recompute item prices, delivery fee, promo discount, and total from the
       // authoritative Firestore data before anything is saved.
@@ -2055,7 +2069,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
           if (vpDoc.exists) {
             const vp = vpDoc.data() as any;
             const vpPrice = Number(vp?.price);
-            if (!Number.isNaN(vpPrice)) realPrice = vpPrice;
+            if (!Number.isNaN(vpPrice)) {
+              realPrice = vpPrice;
+              // Add verified variant price adjustment
+              if (it.selectedVariantId && Array.isArray(vp.variants)) {
+                const variant = vp.variants.find((v: any) => v.id === it.selectedVariantId);
+                if (variant) realPrice += Number(variant.priceAdjustment) || 0;
+              }
+              // Add verified addon prices
+              if (Array.isArray(it.selectedAddons) && Array.isArray(vp.addons)) {
+                for (const orderAddon of it.selectedAddons as any[]) {
+                  const dbAddon = vp.addons.find((a: any) => a.id === orderAddon.id);
+                  if (dbAddon) realPrice += Number(dbAddon.price) || 0;
+                }
+              }
+            }
             if (vp?.inStock === false) available = false;
           }
           // Vendor-added items are never legacy "restaurants" category products
@@ -4713,10 +4741,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const createdAt: FirebaseFirestore.Timestamp = data.createdAt;
       const createdMs = createdAt.toMillis();
       const nowMs     = Date.now();
-      const LIMIT_MS  = 30 * 1000; // 30 seconds
+      const LIMIT_MS  = 3 * 60 * 1000; // 3 minutes
 
       if (nowMs - createdMs > LIMIT_MS) {
-        return res.status(400).json({ error: "انتهت مهلة الإلغاء (30 ثانية فقط)" });
+        return res.status(400).json({ error: "انتهت مهلة الإلغاء (3 دقائق)" });
       }
 
       const { Timestamp } = await import("firebase-admin/firestore");
@@ -4754,10 +4782,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.status(401).json({ error: "انتهت صلاحية الجلسة — يرجى تسجيل الدخول مجدداً" });
     }
 
-    // 2. Validate rating value before touching the database
+    // 2. Validate rating values before touching the database
     const numRating = Number(req.body.rating);
     if (isNaN(numRating) || numRating < 1 || numRating > 5) {
       return res.status(400).json({ error: "التقييم يجب أن يكون بين 1 و 5" });
+    }
+    const numDriverRating: number | null = req.body.driverRating !== undefined && req.body.driverRating !== null
+      ? Number(req.body.driverRating) : null;
+    if (numDriverRating !== null && (isNaN(numDriverRating) || numDriverRating < 1 || numDriverRating > 5)) {
+      return res.status(400).json({ error: "تقييم السائق يجب أن يكون بين 1 و 5" });
     }
     const ratingComment = typeof req.body.comment === "string" ? req.body.comment.trim().slice(0, 500) : "";
     const ratingImage = typeof req.body.image === "string" ? req.body.image.slice(0, 400000) : "";
@@ -4773,15 +4806,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let capturedVendorId: string | undefined;
 
       // 3. Single Firestore transaction — ALL reads first, then ALL writes.
-      //    Every business-rule check happens inside, so concurrent submissions
-      //    cannot sneak past each other.
       await db.runTransaction(async (tx) => {
         // ── reads ──────────────────────────────────────────────────────────
         const orderSnap = await tx.get(orderRef);
         if (!orderSnap.exists) throw Object.assign(new Error("الطلب غير موجود"), { status: 404 });
         const order = orderSnap.data() as any;
 
-        // Ownership: JWT phone must match order phone
         if (order.phoneNumber !== callerPhone) {
           throw Object.assign(new Error("غير مصرح"), { status: 403 });
         }
@@ -4797,8 +4827,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const vendorRef = vendorId ? db.collection("vendors").doc(vendorId) : null;
         const vSnap = vendorRef ? await tx.get(vendorRef) : null;
 
+        // Read driver doc if driver rating provided
+        const driverRef = (numDriverRating !== null && order.driverId)
+          ? db.collection("drivers").doc(String(order.driverId)) : null;
+        const dSnap = driverRef ? await tx.get(driverRef) : null;
+
         // ── writes ─────────────────────────────────────────────────────────
-        tx.update(orderRef, { customerRating: numRating, ratedAt });
+        const orderUpdate: any = { customerRating: numRating, ratedAt };
+        if (numDriverRating !== null) {
+          orderUpdate.driverRating = numDriverRating;
+          orderUpdate.driverRatedAt = ratedAt;
+        }
+        tx.update(orderRef, orderUpdate);
 
         if (vendorRef && vSnap && vSnap.exists) {
           const v = vSnap.data() as any;
@@ -4810,6 +4850,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
             : Math.round(((oldRating * oldCount + numRating) / newCount) * 10) / 10;
           tx.update(vendorRef, { rating: newRating, ratingCount: newCount });
           didUpdateVendor = true;
+        }
+
+        if (driverRef && dSnap && dSnap.exists && numDriverRating !== null) {
+          const d = dSnap.data() as any;
+          const oldCount: number = d.ratingCount ?? 0;
+          const oldRating: number | null = d.rating ?? null;
+          const newCount = oldCount + 1;
+          const newDriverRating = (oldRating === null || oldCount === 0)
+            ? numDriverRating
+            : Math.round(((oldRating * oldCount + numDriverRating) / newCount) * 10) / 10;
+          tx.update(driverRef, { rating: newDriverRating, ratingCount: newCount });
         }
       });
 

@@ -415,6 +415,26 @@ router.patch("/api/vendor/profile", requireVendor, async (req, res) => {
   }
 });
 
+// ── PATCH /api/vendor/availability ── vacation / busy mode toggle ────────────
+router.patch("/api/vendor/availability", requireVendor, async (req, res) => {
+  try {
+    const db = getFirestore();
+    if (!db) return res.status(500).json({ error: "قاعدة البيانات غير متاحة" });
+    const vid = (req as any).vendorId;
+    const { isVacation, isBusy } = req.body;
+    const updates: any = { updatedAt: new Date().toISOString() };
+    if (typeof isVacation === "boolean") updates.isVacation = isVacation;
+    if (typeof isBusy === "boolean") updates.isBusy = isBusy;
+    await db.collection("vendors").doc(vid).update(updates);
+    const doc = await db.collection("vendors").doc(vid).get();
+    const { passwordHash: _pw, ...safe } = doc.data() as any;
+    return res.json(safe);
+  } catch (err) {
+    console.error("patch vendor availability:", err);
+    return res.status(500).json({ error: "حدث خطأ في الخادم" });
+  }
+});
+
 // ── POST /api/vendor/profile/images ── upload avatar or cover ────────────────
 const profileUpload = multer({
   storage: multer.memoryStorage(),
@@ -563,10 +583,14 @@ router.post(
       const vData = vDoc.data() as any;
 
       const extraDataRaw = req.body.extraData;
+      const variantsRaw = req.body.variants;
+      const addonsRaw = req.body.addons;
       let extraData: Record<string, string> | undefined;
-      if (extraDataRaw) {
-        try { extraData = JSON.parse(extraDataRaw); } catch {}
-      }
+      let variants: any[] | undefined;
+      let addons: any[] | undefined;
+      if (extraDataRaw) { try { extraData = JSON.parse(extraDataRaw); } catch {} }
+      if (variantsRaw) { try { variants = JSON.parse(variantsRaw); } catch {} }
+      if (addonsRaw) { try { addons = JSON.parse(addonsRaw); } catch {} }
 
       await db.collection("vendorProducts").doc(pid).set({
         id: pid,
@@ -586,6 +610,8 @@ router.post(
         createdAt: now,
         updatedAt: now,
         ...(extraData ? { extraData } : {}),
+        ...(variants ? { variants } : {}),
+        ...(addons ? { addons } : {}),
       });
 
       res.status(201).json({

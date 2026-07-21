@@ -52,6 +52,8 @@ export interface VendorProfile {
     closeTime: string;
     openDays: number[];
   };
+  isVacation?: boolean;
+  isBusy?: boolean;
 }
 
 interface AuthContextType {

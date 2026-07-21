@@ -54,6 +54,20 @@ export default function VendorAddProductScreen({ navigation }: any) {
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
 
+  // Variants & addons
+  const [variants, setVariants] = useState<{ id: string; name: string; priceAdjustment: string }[]>([]);
+  const [addons, setAddons] = useState<{ id: string; name: string; price: string }[]>([]);
+
+  const addVariant = () => setVariants((p) => [...p, { id: Date.now().toString(), name: "", priceAdjustment: "0" }]);
+  const removeVariant = (id: string) => setVariants((p) => p.filter((v) => v.id !== id));
+  const updateVariant = (id: string, field: "name" | "priceAdjustment", value: string) =>
+    setVariants((p) => p.map((v) => (v.id === id ? { ...v, [field]: value } : v)));
+
+  const addAddon = () => setAddons((p) => [...p, { id: Date.now().toString(), name: "", price: "0" }]);
+  const removeAddon = (id: string) => setAddons((p) => p.filter((a) => a.id !== id));
+  const updateAddon = (id: string, field: "name" | "price", value: string) =>
+    setAddons((p) => p.map((a) => (a.id === id ? { ...a, [field]: value } : a)));
+
   const showImageSourcePicker = (onGallery: () => void, onCamera: () => void) => {
     if (Platform.OS === "web") {
       onGallery();
@@ -147,6 +161,15 @@ export default function VendorAddProductScreen({ navigation }: any) {
       if (Object.keys(dynamicData).length > 0) {
         formData.append("extraData", JSON.stringify(dynamicData));
       }
+      // Variants & addons (filter out entries with empty names)
+      const validVariants = variants
+        .filter((v) => v.name.trim())
+        .map((v) => ({ id: v.id, name: v.name.trim(), priceAdjustment: parseFloat(v.priceAdjustment) || 0 }));
+      const validAddons = addons
+        .filter((a) => a.name.trim())
+        .map((a) => ({ id: a.id, name: a.name.trim(), price: parseFloat(a.price) || 0 }));
+      if (validVariants.length > 0) formData.append("variants", JSON.stringify(validVariants));
+      if (validAddons.length > 0) formData.append("addons", JSON.stringify(validAddons));
 
       const compressedUris = await Promise.all(
         imageUris.map(async (uri) => {
@@ -210,6 +233,7 @@ export default function VendorAddProductScreen({ navigation }: any) {
               setSuccess(false);
               setName(""); setDescription(""); setPrice(""); setStock("");
               setCategory(categories[0]); setUnit(UNITS[0]); setImageUris([]);
+              setVariants([]); setAddons([]);
             }}
             testID="button-add-another"
           >
@@ -416,6 +440,82 @@ export default function VendorAddProductScreen({ navigation }: any) {
         </Picker>
       </View>
 
+      {/* ── Variants Section ── */}
+      <View style={styles.extraSection}>
+        <View style={styles.extraHeader}>
+          <ThemedText style={styles.label}>الأحجام / الخيارات (اختياري)</ThemedText>
+          <Pressable onPress={addVariant} style={styles.addExtraBtn} testID="button-add-variant">
+            <Feather name="plus" size={15} color={ORANGE} />
+            <ThemedText style={[styles.addExtraText, { color: ORANGE }]}>إضافة</ThemedText>
+          </Pressable>
+        </View>
+        {variants.length === 0 ? (
+          <ThemedText style={styles.extraHint}>مثال: صغير (+0)، وسط (+2000)، كبير (+5000)</ThemedText>
+        ) : null}
+        {variants.map((v) => (
+          <View key={v.id} style={styles.extraRow}>
+            <TextInput
+              style={[styles.input, styles.extraInput, { flex: 2 }]}
+              value={v.name}
+              onChangeText={(val) => updateVariant(v.id, "name", val)}
+              placeholder="الاسم (صغير، وسط...)"
+              placeholderTextColor={AppColors.gray300}
+              testID={`input-variant-name-${v.id}`}
+            />
+            <TextInput
+              style={[styles.input, styles.extraInput, { flex: 1 }]}
+              value={v.priceAdjustment}
+              onChangeText={(val) => updateVariant(v.id, "priceAdjustment", val)}
+              placeholder="فرق السعر"
+              placeholderTextColor={AppColors.gray300}
+              keyboardType="numeric"
+              testID={`input-variant-price-${v.id}`}
+            />
+            <Pressable onPress={() => removeVariant(v.id)} style={styles.extraRemoveBtn} testID={`button-remove-variant-${v.id}`}>
+              <Feather name="x" size={14} color={AppColors.error} />
+            </Pressable>
+          </View>
+        ))}
+      </View>
+
+      {/* ── Addons Section ── */}
+      <View style={styles.extraSection}>
+        <View style={styles.extraHeader}>
+          <ThemedText style={styles.label}>الإضافات (اختياري)</ThemedText>
+          <Pressable onPress={addAddon} style={styles.addExtraBtn} testID="button-add-addon">
+            <Feather name="plus" size={15} color={ORANGE} />
+            <ThemedText style={[styles.addExtraText, { color: ORANGE }]}>إضافة</ThemedText>
+          </Pressable>
+        </View>
+        {addons.length === 0 ? (
+          <ThemedText style={styles.extraHint}>مثال: جبن إضافي (+2000)، صلصة حارة (+500)</ThemedText>
+        ) : null}
+        {addons.map((a) => (
+          <View key={a.id} style={styles.extraRow}>
+            <TextInput
+              style={[styles.input, styles.extraInput, { flex: 2 }]}
+              value={a.name}
+              onChangeText={(val) => updateAddon(a.id, "name", val)}
+              placeholder="اسم الإضافة"
+              placeholderTextColor={AppColors.gray300}
+              testID={`input-addon-name-${a.id}`}
+            />
+            <TextInput
+              style={[styles.input, styles.extraInput, { flex: 1 }]}
+              value={a.price}
+              onChangeText={(val) => updateAddon(a.id, "price", val)}
+              placeholder="السعر"
+              placeholderTextColor={AppColors.gray300}
+              keyboardType="numeric"
+              testID={`input-addon-price-${a.id}`}
+            />
+            <Pressable onPress={() => removeAddon(a.id)} style={styles.extraRemoveBtn} testID={`button-remove-addon-${a.id}`}>
+              <Feather name="x" size={14} color={AppColors.error} />
+            </Pressable>
+          </View>
+        ))}
+      </View>
+
       <View style={styles.noteBox}>
         <MaterialCommunityIcons name="image-filter-none" size={16} color={AppColors.statusPurple} />
         <ThemedText style={styles.noteText}>
@@ -569,6 +669,50 @@ const styles = StyleSheet.create({
   },
   addThumbText: {
     fontFamily: "Cairo_700Bold", fontSize: 11, color: ORANGE,
+  },
+  /* ── Variants / Addons editor ── */
+  extraSection: { marginTop: 8, marginBottom: 4 },
+  extraHeader: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 4,
+  },
+  addExtraBtn: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 20,
+    backgroundColor: ORANGE_LIGHT,
+  },
+  addExtraText: { fontFamily: "Cairo_700Bold", fontSize: 12 },
+  extraHint: {
+    fontFamily: "Cairo_400Regular",
+    fontSize: 12,
+    color: AppColors.gray400,
+    textAlign: "right",
+    marginBottom: 8,
+  },
+  extraRow: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 8,
+  },
+  extraInput: {
+    marginBottom: 0,
+    paddingVertical: 10,
+    fontSize: 14,
+  },
+  extraRemoveBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: AppColors.errorLight,
+    alignItems: "center",
+    justifyContent: "center",
   },
   imgActions: {
     flexDirection: "row", borderWidth: 1.5, borderColor: AppColors.primaryLight,

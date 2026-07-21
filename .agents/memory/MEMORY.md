@@ -1,4 +1,6 @@
 - [Vendor UI architecture](vendor-ui-arch.md) — VendorTabNavigator now has 5 tabs: Home, Orders, Products, Profits(wallet), Account(profile). Notifications tab removed; new-order popup is global in VendorNotificationsContext.
+- [Product Variants & Addons](product-variants-addons.md) — variants/addons on Product type, CartItem cartKey convention, server-side price verification for variant+addon items.
+- [Vendor Availability Modes](vendor-availability-mode.md) — isVacation/isBusy flags; PATCH /api/vendor/availability; enforced at order-creation time.
 - [Firestore Architecture](firestore-architecture.md) — client SDK (client/lib/firebase.ts) now used for onSnapshot on settlementLedger docs; all other reads still through Express Admin SDK.
 - [Security Audit Baseline](security-audit-baseline.md) — JWT fail-fast, OTP log removal, demo data cleanup, Firestore rules — completed Jun 2026.
 - [Design System Color Tokens](design-system-colors.md) — All colors live in client/constants/theme.ts (AppColors, ORDER_STATUS_COLORS, ORDER_STATUS_LABELS, Gradients). Zero hardcoded hex across screens/components/navigation.

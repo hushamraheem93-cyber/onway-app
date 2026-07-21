@@ -22,7 +22,18 @@ const STATUS_MESSAGES: Record<string, { title: string; body: string }> = {
 
 export interface Order {
   id: string;
-  items: { productId: string; name: string; price: number; quantity: number; image: string; restaurant?: string }[];
+  items: {
+    productId: string;
+    name: string;
+    price: number;
+    quantity: number;
+    image: string;
+    restaurant?: string;
+    variantName?: string;
+    variantPriceAdjustment?: number;
+    selectedVariantId?: string;
+    selectedAddons?: { id: string; name: string; price: number }[];
+  }[];
   total: number;
   deliveryFee: number;
   serviceFee?: number;
@@ -38,6 +49,10 @@ export interface Order {
   vendorId?: string;
   customerRating?: number;
   ratedAt?: string;
+  driverRating?: number;
+  driverRatedAt?: string;
+  driverId?: string;
+  driverName?: string;
 }
 
 interface OrderContextType {
@@ -200,10 +215,21 @@ export function OrderProvider({ children }: { children: ReactNode }) {
       items: orderData.items.map(item => ({
         productId: item.product.id,
         name: item.product.name,
-        price: item.product.price,
+        // Final price = base + variant adjustment + addons
+        price: item.product.price
+          + (item.selectedVariant?.priceAdjustment ?? 0)
+          + (item.selectedAddons ?? []).reduce((s: number, a: any) => s + a.price, 0),
         quantity: item.quantity,
         image: item.product.image,
         ...(item.product.restaurant ? { restaurant: item.product.restaurant } : {}),
+        ...(item.selectedVariant ? {
+          selectedVariantId: item.selectedVariant.id,
+          variantName: item.selectedVariant.name,
+          variantPriceAdjustment: item.selectedVariant.priceAdjustment,
+        } : {}),
+        ...(item.selectedAddons?.length ? {
+          selectedAddons: item.selectedAddons.map(a => ({ id: a.id, name: a.name, price: a.price })),
+        } : {}),
       })),
       total: orderData.total,
       deliveryFee: orderData.deliveryFee,

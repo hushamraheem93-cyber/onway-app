@@ -17,6 +17,7 @@ import { useTheme } from "@/hooks/useTheme";
 import { Spacing, AppColors, BorderRadius, Shadows, FontWeight} from "@/constants/theme";
 import { useOrders, Order } from "@/context/OrderContext";
 import { useAuth } from "@/context/AuthContext";
+import { useCart } from "@/context/CartContext";
 import { OrderCard } from "@/components/OrderCard";
 import { EmptyState } from "@/components/EmptyState";
 import { ThemedText } from "@/components/ThemedText";
@@ -33,22 +34,45 @@ export default function OrdersScreen() {
   const navigation = useNavigation<NavigationProp>();
   const { orders, isLoading, refreshOrders } = useOrders();
   const { customerToken } = useAuth();
+  const { replaceCart } = useCart();
 
   const [searchQuery, setSearchQuery] = useState("");
 
-  const handleRate = async (orderId: string, rating: number, comment?: string, image?: string) => {
+  const handleRate = async (orderId: string, rating: number, comment?: string, image?: string, driverRating?: number) => {
     const headers: Record<string, string> = { "Content-Type": "application/json" };
     if (customerToken) headers["Authorization"] = `Bearer ${customerToken}`;
+    const body: any = { rating, comment: comment ?? "", image: image ?? "" };
+    if (driverRating !== undefined) body.driverRating = driverRating;
     const res = await fetch(new URL(`/api/orders/${orderId}/rate`, getApiUrl()).toString(), {
       method: "POST",
       headers,
-      body: JSON.stringify({ rating, comment: comment ?? "", image: image ?? "" }),
+      body: JSON.stringify(body),
     });
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
       throw new Error(err.error || "فشل تقديم التقييم");
     }
     refreshOrders();
+  };
+
+  const handleReorder = (order: Order) => {
+    // Reconstruct CartItems from order items
+    const cartItems = order.items.map((item) => ({
+      product: {
+        id: item.productId,
+        name: item.name,
+        price: item.price,
+        image: item.image || "",
+        description: "",
+        inStock: true,
+        categoryId: "vendor-market" as const,
+        vendorId: order.vendorId,
+        restaurant: item.restaurant,
+      },
+      quantity: item.quantity,
+    }));
+    replaceCart(cartItems);
+    navigation.navigate("Cart" as any);
   };
 
   useEffect(() => {
@@ -77,6 +101,7 @@ export default function OrdersScreen() {
           }
         : undefined}
       onRate={handleRate}
+      onReorder={item.status === "delivered" ? handleReorder : undefined}
     />
   );
 
