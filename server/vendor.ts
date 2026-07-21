@@ -547,9 +547,10 @@ router.post(
     const uploadedFiles = [...(fields["images"] || []), ...(fields["image"] || [])];
     try {
       const { name, description, price, category, stock, unit } = req.body;
+      const libraryImageUrl = req.body.libraryImageUrl as string | undefined;
       const vid = (req as any).vendorId;
 
-      if (!name || !price || !category || uploadedFiles.length === 0) {
+      if (!name || !price || !category || (uploadedFiles.length === 0 && !libraryImageUrl)) {
         for (const f of uploadedFiles) await cleanTemp(f.path);
         return res.status(400).json({ error: "الاسم، السعر، الفئة، والصورة مطلوبة" });
       }
@@ -575,8 +576,17 @@ router.post(
         return res.status(403).json({ error: "حسابك غير مفعل" });
       }
 
-      const { imageUrls } = await processUploadedImages(uploadedFiles);
-      const imageUrl = imageUrls[0];
+      let imageUrls: string[];
+      let imageUrl: string;
+      if (libraryImageUrl && uploadedFiles.length === 0) {
+        // Merchant chose a library image — use URL directly, no upload needed
+        imageUrl = libraryImageUrl;
+        imageUrls = [libraryImageUrl];
+      } else {
+        const processed = await processUploadedImages(uploadedFiles);
+        imageUrls = processed.imageUrls;
+        imageUrl = imageUrls[0];
+      }
 
       const pid = productId();
       const now = new Date().toISOString();
