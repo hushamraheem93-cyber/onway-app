@@ -416,7 +416,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const db = getFirestore();
       if (!db) return res.status(500).json({ error: "قاعدة البيانات غير متاحة" });
-      const snap = await db.collection("vendorProducts").where("status", "==", "approved").get();
+      // Limit to prevent full-collection scans as catalog grows; 8 products × ~200 vendors = 1600 max
+      const snap = await db.collection("vendorProducts").where("status", "==", "approved").limit(1600).get();
       const grouped: Record<string, any[]> = {};
       snap.docs.forEach((d) => {
         const p = d.data() as any;
@@ -2365,6 +2366,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.put("/api/admin/orders/:id/status", async (req: Request, res: Response) => {
     const orderId = req.params.id as string;
     const { status, phoneNumber } = req.body;
+
+    // Validate against the allowed status enum — reject arbitrary strings
+    const ALLOWED_STATUSES = ["pending", "confirmed", "preparing", "in_delivery", "delivered", "cancelled", "issue"];
+    if (!status || !ALLOWED_STATUSES.includes(status)) {
+      return res.status(400).json({ error: `حالة غير مسموحة. الحالات المقبولة: ${ALLOWED_STATUSES.join(", ")}` });
+    }
+
     const db = getFirestore();
     
     if (db) {
@@ -3362,7 +3370,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Accept order
+  // Accept order — uses a Firestore transaction to prevent accepting cancelled/delivered orders
   app.post("/api/driver/accept-order", async (req: Request, res: Response) => {
     const { phoneNumber, orderId } = req.body;
     if (!phoneNumber || !orderId) return res.status(400).json({ error: "Missing fields" });
@@ -3370,9 +3378,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const db = getFirestore();
       if (db) {
-        // Step 1: driver accepted → preparing
-        await updateOrderStatus(orderId, "preparing");
-        notifyCustomerStatus(orderId, "preparing").catch(() => {}); // ← Fix: notify customer
+        // Atomically verify the order is in an acceptable state before marking it preparing.
+        // Prevents a driver from accepting an order that was just cancelled by admin or customer.
+        const orderRef = db.collection("orders").doc(orderId);
+        const accepted = await db.runTransaction(async (tx) => {
+          const snap = await tx.get(orderRef);
+          if (!snap.exists) return false;
+          const currentStatus = (snap.data() as any)?.status;
+          // Only allow transitions from pending or confirmed to preparing
+          if (!["pending", "confirmed"].includes(currentStatus)) return false;
+          tx.update(orderRef, { status: "preparing", updatedAt: new Date() });
+          return true;
+        });
+
+        if (!accepted) {
+          return res.status(409).json({ error: "الطلب لم يعد متاحاً للقبول" });
+        }
+
+        // Emit the status change event so real-time listeners are updated
+        orderEvents.emit("order:status", { orderId, status: "preparing" });
+        notifyCustomerStatus(orderId, "preparing").catch(() => {});
         driverAssignments.set(orderId, phoneNumber);
         const qd = driverQueue.find(d => d.phoneNumber === phoneNumber);
         if (qd && !qd.currentBatchId) qd.currentBatchId = orderId; // legacy single-order support
@@ -5263,10 +5288,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // ─── Support Chat ─────────────────────────────────────────────────────────
 
-  // User: get own messages
-  app.get("/api/support/messages", async (req: Request, res: Response) => {
-    const phoneNumber = req.query.phoneNumber as string;
-    if (!phoneNumber) return res.status(400).json({ error: "phoneNumber required" });
+  // User: get own messages — requires customer JWT; phone comes from token, never from query
+  app.get("/api/support/messages", requireCustomerAuth, async (req: Request, res: Response) => {
+    const phoneNumber = (req as any).customerPhone as string;
     try {
       const chat = await getSupportChat(phoneNumber);
       if (!chat) return res.json({ messages: [], unreadByUser: 0 });
@@ -5300,10 +5324,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // User: send message
-  app.post("/api/support/messages", async (req: Request, res: Response) => {
-    const { phoneNumber, text, userName, userRegion, userGender, type, imageUrl, productData } = req.body;
-    if (!phoneNumber) return res.status(400).json({ error: "phoneNumber required" });
+  // User: send message — requires customer JWT; phone comes from token to prevent impersonation
+  app.post("/api/support/messages", requireCustomerAuth, async (req: Request, res: Response) => {
+    const phoneNumber = (req as any).customerPhone as string;
+    const { text, userName, userRegion, userGender, type, imageUrl, productData } = req.body;
     if (!text && !imageUrl && !productData) return res.status(400).json({ error: "message content required" });
     try {
       const msgText = text?.trim() || (imageUrl ? "صورة" : productData?.name || "");
