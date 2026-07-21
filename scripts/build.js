@@ -39,7 +39,17 @@ function stripProtocol(domain) {
 }
 
 function getDeploymentDomain() {
-  // Check Replit deployment environment variables first
+  // Primary: explicit API base URL — used on VPS and any non-Replit server.
+  if (process.env.EXPO_PUBLIC_API_BASE_URL) {
+    return stripProtocol(process.env.EXPO_PUBLIC_API_BASE_URL);
+  }
+
+  // Legacy alias kept for backward compatibility.
+  if (process.env.EXPO_PUBLIC_DOMAIN) {
+    return stripProtocol(process.env.EXPO_PUBLIC_DOMAIN);
+  }
+
+  // Replit-specific fallbacks — only present inside the Replit workspace.
   if (process.env.REPLIT_INTERNAL_APP_DOMAIN) {
     return stripProtocol(process.env.REPLIT_INTERNAL_APP_DOMAIN);
   }
@@ -48,12 +58,9 @@ function getDeploymentDomain() {
     return stripProtocol(process.env.REPLIT_DEV_DOMAIN);
   }
 
-  if (process.env.EXPO_PUBLIC_DOMAIN) {
-    return stripProtocol(process.env.EXPO_PUBLIC_DOMAIN);
-  }
-
   console.error(
-    "ERROR: No deployment domain found. Set REPLIT_INTERNAL_APP_DOMAIN, REPLIT_DEV_DOMAIN, or EXPO_PUBLIC_DOMAIN",
+    "ERROR: No deployment domain found.\n" +
+    "Set EXPO_PUBLIC_API_BASE_URL=https://yourdomain.com before running the build.",
   );
   process.exit(1);
 }

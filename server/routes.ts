@@ -6325,10 +6325,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // ── Admin: Seed demo stores and products (dev/staging only) ────────────────
   app.post("/api/admin/seed-demo-stores", async (_req: Request, res: Response) => {
-    // Block only when genuinely deployed to production (REPLIT_DEPLOYMENT=1).
-    // NODE_ENV is always "production" in this project's dev workflow, so we
-    // cannot use it as the gate here.
-    if (process.env.REPLIT_DEPLOYMENT === "1") {
+    // Block in any production environment (VPS, cloud, or published Replit deployment).
+    if (process.env.NODE_ENV === "production" || process.env.REPLIT_DEPLOYMENT === "1") {
       return res.status(403).json({ error: "هذا الإجراء غير متاح في بيئة الإنتاج" });
     }
     try {

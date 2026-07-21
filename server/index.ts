@@ -240,12 +240,9 @@ function setupCors(app: express.Application) {
     .map((s: string) => s.trim())
     .filter(Boolean);
 
-  // Always trust this Repl's own Replit-assigned domains (dev preview + any
-  // deployed *.replit.dev/*.replit.app domains). These are not secrets - they
-  // are assigned by Replit for this project - so it's safe to always allow
-  // them regardless of what the user has configured in ALLOWED_ORIGINS. This
-  // ensures the admin dashboard and app always work inside Replit even if
-  // ALLOWED_ORIGINS only lists a custom production domain.
+  // Additional trusted origins from Replit-assigned domains (only present when
+  // running inside Replit; empty on a standalone VPS). On VPS, configure
+  // ALLOWED_ORIGINS with your production domain(s) instead.
   const replitDomains = [
     process.env.REPLIT_DEV_DOMAIN,
     ...(process.env.REPLIT_DOMAINS || "").split(",").map((s: string) => s.trim()),

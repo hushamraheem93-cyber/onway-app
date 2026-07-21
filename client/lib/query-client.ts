@@ -2,43 +2,50 @@ import { QueryClient, QueryFunction } from "@tanstack/react-query";
 import { Platform } from "react-native";
 
 /**
- * Gets the base URL for the Express API server
- * @returns {string} The API base URL
+ * Gets the base URL for the Express API server.
+ *
+ * Variable priority (baked in at Expo build time for native; env at runtime for web):
+ *   1. EXPO_PUBLIC_API_BASE_URL  — canonical name for VPS / production builds
+ *   2. EXPO_PUBLIC_DOMAIN        — legacy alias, kept for backward compatibility
+ *
+ * On web, falls back to the current window origin when neither variable is set
+ * (useful for development when the app and API are on the same host).
  */
-// Replit's public domain is only reachable over standard HTTPS (443) -
-// it does not accept an explicit internal port (e.g. ":5000") from
-// outside the workspace. EXPO_PUBLIC_DOMAIN may still be set with a
-// trailing ":5000" for legacy/internal reasons, so always strip any
-// explicit port before building a public-facing URL.
-function stripPort(host: string): string {
-  return host.replace(/:\d+$/, "");
+function normaliseBase(raw: string): string {
+  // Strip an explicit port number — production servers run behind a reverse
+  // proxy (Nginx/Caddy) on 443 and must not receive a bare :5000 URL.
+  const noPort = raw.replace(/:\d+$/, "");
+  // Ensure a protocol prefix is present.
+  const withProto = noPort.startsWith("http") ? noPort : `https://${noPort}`;
+  // Remove trailing slash for consistent URL construction.
+  return withProto.replace(/\/$/, "");
 }
 
 export function getApiUrl(): string {
-  // On web, use the configured domain or current origin
+  // EXPO_PUBLIC_* vars are baked in at Expo build time (native) or read from
+  // the process env at runtime (web/SSR). Both paths use the same priority.
+  const configured =
+    process.env.EXPO_PUBLIC_API_BASE_URL || process.env.EXPO_PUBLIC_DOMAIN;
+
+  // ── Web ──────────────────────────────────────────────────────────────────
   if (Platform.OS === "web" && typeof window !== "undefined") {
-    // Use EXPO_PUBLIC_DOMAIN if set (Replit environment)
-    if (process.env.EXPO_PUBLIC_DOMAIN) {
-      return `https://${stripPort(process.env.EXPO_PUBLIC_DOMAIN)}`;
-    }
-    // If we're on port 8081/8082 (Expo dev), redirect to port 5000 (backend)
+    if (configured) return normaliseBase(configured);
+    // Dev fallback: Expo dev server (port 8081) → Express backend (port 5000).
     const origin = window.location.origin;
-    if (origin.includes(":808")) {
-      return origin.replace(/:808\d/, ":5000");
-    }
+    if (origin.includes(":808")) return origin.replace(/:808\d/, ":5000");
     return origin;
   }
-  
-  // On native, use the configured domain
-  let host = process.env.EXPO_PUBLIC_DOMAIN;
 
-  if (!host) {
-    throw new Error("EXPO_PUBLIC_DOMAIN is not set");
+  // ── Native (iOS / Android) ───────────────────────────────────────────────
+  if (!configured) {
+    throw new Error(
+      "EXPO_PUBLIC_API_BASE_URL is not set. " +
+      "Set it to your server domain before building " +
+      "(e.g. EXPO_PUBLIC_API_BASE_URL=https://api.yourdomain.com).",
+    );
   }
 
-  let url = new URL(`https://${stripPort(host)}`);
-
-  return url.href.replace(/\/$/, "");
+  return normaliseBase(configured);
 }
 
 async function throwIfResNotOk(res: Response) {
