@@ -1761,4 +1761,56 @@ router.get("/api/stores/:id/products", async (req, res) => {
 });
 
 
+// ── Vendor Analytics ─────────────────────────────────────────────────────────
+router.get("/api/vendor/analytics", requireVendor, async (req, res) => {
+  const db = getFirestore();
+  if (!db) return res.status(503).json({ error: "قاعدة البيانات غير متاحة" });
+  const vid = (req as any).vendorId as string;
+
+  try {
+    const now = new Date();
+    const todayStart = new Date(now);
+    todayStart.setHours(0, 0, 0, 0);
+    const weekStart = new Date(todayStart.getTime() - 6 * 24 * 60 * 60 * 1000);
+
+    const { Timestamp } = await import("firebase-admin/firestore");
+
+    const snap = await db.collection("orders")
+      .where("vendorId", "==", vid)
+      .where("status", "==", "delivered")
+      .orderBy("createdAt", "desc")
+      .limit(500)
+      .get();
+
+    let todayOrders = 0, todaySales = 0, weekOrders = 0, weekSales = 0;
+    const productCount: Record<string, { name: string; count: number }> = {};
+
+    for (const doc of snap.docs) {
+      const order = doc.data();
+      const createdAt: Date = order.createdAt?.toDate?.() ?? new Date(0);
+      const total = (order.totalPrice ?? order.total ?? 0) as number;
+
+      if (createdAt >= todayStart) { todayOrders++; todaySales += total; }
+      if (createdAt >= weekStart) {
+        weekOrders++; weekSales += total;
+        for (const item of (order.items ?? []) as any[]) {
+          const pid = item.productId || item.id;
+          if (!pid) continue;
+          if (!productCount[pid]) productCount[pid] = { name: item.name || "منتج", count: 0 };
+          productCount[pid].count += (item.quantity ?? 1) as number;
+        }
+      }
+    }
+
+    const bestSellers = Object.values(productCount)
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 5);
+
+    return res.json({ todayOrders, todaySales, weekOrders, weekSales, bestSellers });
+  } catch (err: any) {
+    console.error("vendor analytics error:", err);
+    return res.status(500).json({ error: err.message });
+  }
+});
+
 export default router;

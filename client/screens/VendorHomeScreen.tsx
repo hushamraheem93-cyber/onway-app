@@ -32,7 +32,7 @@ import { BUSINESS_LABELS } from "@/constants/businessCategories";
 import { useVendorNotifications } from "@/context/VendorNotificationsContext";
 import { getApiUrl } from "@/lib/query-client";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
-import { AppColors } from "@/constants/theme";
+import { AppColors, BorderRadius, Spacing, Shadows } from "@/constants/theme";
 
 const ORANGE = AppColors.primary;
 const ORANGE_LIGHT = AppColors.secondary;
@@ -94,6 +94,7 @@ export default function VendorHomeScreen({ navigation }: any) {
   usePushNotifications(handleNotificationTap);
 
   const [orderStats, setOrderStats] = useState<OrderStats>({ totalOrders: 0, pendingOrders: 0, preparingOrders: 0, readyOrders: 0, totalRevenue: 0, rating: null, ratingCount: 0 });
+  const [analyticsData, setAnalyticsData] = useState<{ todayOrders: number; todaySales: number; weekOrders: number; weekSales: number; bestSellers: { name: string; count: number }[] } | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
   const [notifications, setNotifications] = useState<VendorNotification[]>([]);
@@ -143,6 +144,18 @@ export default function VendorHomeScreen({ navigation }: any) {
         rating: data.rating ?? null,
         ratingCount: data.ratingCount ?? 0,
       });
+    } catch {}
+  }, [vendorToken]);
+
+  const loadAnalytics = useCallback(async () => {
+    if (!vendorToken) return;
+    try {
+      const res = await fetch(new URL("/api/vendor/analytics", getApiUrl()).toString(), {
+        headers: { Authorization: `Bearer ${vendorToken}` },
+      });
+      if (!res.ok) return;
+      const data = await res.json();
+      setAnalyticsData(data);
     } catch {}
   }, [vendorToken]);
 
@@ -204,7 +217,7 @@ export default function VendorHomeScreen({ navigation }: any) {
       // "قيد المراجعة" banner disappears as soon as they return to Home,
       // without requiring a notification or an app restart.
       refreshVendorProfile();
-      Promise.all([loadOrderStats(), loadNotifications()]).finally(() => setLoading(false));
+      Promise.all([loadOrderStats(), loadNotifications(), loadAnalytics()]).finally(() => setLoading(false));
       pollRef.current = setInterval(() => {
         loadNotifications();
       }, POLL_INTERVAL_MS);
@@ -219,9 +232,9 @@ export default function VendorHomeScreen({ navigation }: any) {
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    await Promise.all([loadOrderStats(), loadNotifications(), refreshVendorProfile()]);
+    await Promise.all([loadOrderStats(), loadNotifications(), loadAnalytics(), refreshVendorProfile()]);
     setRefreshing(false);
-  }, [loadOrderStats, loadNotifications, refreshVendorProfile]);
+  }, [loadOrderStats, loadNotifications, loadAnalytics, refreshVendorProfile]);
 
   const uploadImage = useCallback(
     async (type: "profileImage" | "coverImage") => {
@@ -663,6 +676,46 @@ export default function VendorHomeScreen({ navigation }: any) {
                   onPress={() => toggleAvailability("isBusy", !vendorProfile?.isBusy)}
                   testID="button-toggle-busy"
                 />
+              </View>
+            </>
+          ) : null}
+
+          {/* Today Analytics */}
+          {analyticsData ? (
+            <>
+              <View style={styles.sectionTitleRow}>
+                <View style={styles.sectionAccent} />
+                <ThemedText style={styles.sectionTitle}>إحصائيات اليوم</ThemedText>
+              </View>
+              <View style={styles.analyticsCard}>
+                <View style={styles.analyticsRow}>
+                  <View style={[styles.analyticBox, { backgroundColor: AppColors.primary + "12" }]}>
+                    <ThemedText style={[styles.analyticValue, { color: AppColors.primary }]}>{analyticsData.todayOrders}</ThemedText>
+                    <ThemedText style={styles.analyticLabel}>طلبات اليوم</ThemedText>
+                  </View>
+                  <View style={[styles.analyticBox, { backgroundColor: AppColors.success + "12" }]}>
+                    <ThemedText style={[styles.analyticValue, { color: AppColors.success }]}>{(analyticsData.todaySales / 1000).toFixed(0)}k</ThemedText>
+                    <ThemedText style={styles.analyticLabel}>مبيعات اليوم (د.ع)</ThemedText>
+                  </View>
+                  <View style={[styles.analyticBox, { backgroundColor: AppColors.warning + "12" }]}>
+                    <ThemedText style={[styles.analyticValue, { color: AppColors.warning }]}>{analyticsData.weekOrders}</ThemedText>
+                    <ThemedText style={styles.analyticLabel}>طلبات الأسبوع</ThemedText>
+                  </View>
+                </View>
+                {analyticsData.bestSellers.length > 0 ? (
+                  <View style={styles.bestSellersSection}>
+                    <ThemedText style={styles.bestSellersTitle}>الأكثر مبيعاً هذا الأسبوع</ThemedText>
+                    {analyticsData.bestSellers.map((p, i) => (
+                      <View key={i} style={styles.bestSellerRow}>
+                        <ThemedText style={[styles.bestSellerCount, { color: AppColors.primary }]}>×{p.count}</ThemedText>
+                        <ThemedText style={styles.bestSellerName} numberOfLines={1}>{p.name}</ThemedText>
+                        <View style={[styles.rankBadge, { backgroundColor: i === 0 ? AppColors.warning : AppColors.gray200 }]}>
+                          <ThemedText style={[styles.rankText, { color: i === 0 ? AppColors.white : AppColors.gray500 }]}>#{i + 1}</ThemedText>
+                        </View>
+                      </View>
+                    ))}
+                  </View>
+                ) : null}
               </View>
             </>
           ) : null}
@@ -1258,6 +1311,29 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   logoutText: { fontFamily: "Cairo_700Bold", fontSize: 14, color: AppColors.error },
+
+  // Analytics
+  analyticsCard: {
+    backgroundColor: AppColors.white,
+    borderRadius: BorderRadius.xl,
+    padding: Spacing.md,
+    marginBottom: 20,
+    ...Shadows.sm,
+  },
+  analyticsRow: { flexDirection: "row-reverse", gap: 8, marginBottom: Spacing.md },
+  analyticBox: {
+    flex: 1, borderRadius: 12, padding: Spacing.md,
+    alignItems: "center", gap: 4,
+  },
+  analyticValue: { fontFamily: "Cairo_700Bold", fontSize: 20, lineHeight: 26 },
+  analyticLabel: { fontFamily: "Cairo_400Regular", fontSize: 10, color: AppColors.gray500, textAlign: "center" },
+  bestSellersSection: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: AppColors.divider, paddingTop: 10, gap: 6 },
+  bestSellersTitle: { fontFamily: "Cairo_700Bold", fontSize: 13, color: AppColors.gray700, textAlign: "right", marginBottom: 4 },
+  bestSellerRow: { flexDirection: "row-reverse", alignItems: "center", gap: 8 },
+  rankBadge: { width: 26, height: 26, borderRadius: 13, alignItems: "center", justifyContent: "center" },
+  rankText: { fontFamily: "Cairo_700Bold", fontSize: 11 },
+  bestSellerName: { flex: 1, fontFamily: "Cairo_400Regular", fontSize: 13, textAlign: "right", color: AppColors.gray700 },
+  bestSellerCount: { fontFamily: "Cairo_700Bold", fontSize: 13 },
 
   // Bio modal
   modalOverlay: {

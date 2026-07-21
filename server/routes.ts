@@ -4734,18 +4734,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (data.status === "cancelled") {
         return res.status(400).json({ error: "الطلب ملغي مسبقاً" });
       }
-      if (data.status !== "pending") {
-        return res.status(400).json({ error: "لا يمكن إلغاء الطلب بعد قبوله" });
+
+      // Smart state-based cancellation
+      const LATE_STATUSES = ["preparing", "ready", "picked_up", "in_delivery", "delivered"];
+      if (LATE_STATUSES.includes(data.status)) {
+        return res.status(400).json({ error: "لا يمكن إلغاء الطلب بعد أن بدأ التاجر التجهيز — تواصل مع الدعم" });
       }
 
       const createdAt: FirebaseFirestore.Timestamp = data.createdAt;
       const createdMs = createdAt.toMillis();
       const nowMs     = Date.now();
-      const LIMIT_MS  = 3 * 60 * 1000; // 3 minutes
 
-      if (nowMs - createdMs > LIMIT_MS) {
-        return res.status(400).json({ error: "انتهت مهلة الإلغاء (3 دقائق)" });
+      if (data.status === "confirmed") {
+        // 5 minutes grace after merchant accepted
+        const CONFIRM_GRACE_MS = 5 * 60 * 1000;
+        if (nowMs - createdMs > CONFIRM_GRACE_MS) {
+          return res.status(400).json({ error: "انتهت مهلة الإلغاء (5 دقائق بعد قبول التاجر)" });
+        }
       }
+      // status === "pending": always allow
 
       const { Timestamp } = await import("firebase-admin/firestore");
       await db.collection("orders").doc(orderId).update({

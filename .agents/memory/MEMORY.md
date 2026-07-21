@@ -1,6 +1,11 @@
 - [Vendor UI architecture](vendor-ui-arch.md) — VendorTabNavigator now has 5 tabs: Home, Orders, Products, Profits(wallet), Account(profile). Notifications tab removed; new-order popup is global in VendorNotificationsContext.
 - [Product Variants & Addons](product-variants-addons.md) — variants/addons on Product type, CartItem cartKey convention, server-side price verification for variant+addon items.
 - [Vendor Availability Modes](vendor-availability-mode.md) — isVacation/isBusy flags; PATCH /api/vendor/availability; enforced at order-creation time.
+- [Vendor Favorites & Store Sorting](vendor-favorites-sorting.md) — VendorFavoritesContext (AsyncStorage), heart on StoreCard, sort bar in StoresScreen, FavoritesScreen has products+stores tabs.
+- [Search History](search-history.md) — AsyncStorage key @onway_search_history, max 8 entries, shown when query is empty above categories.
+- [Smart Cancellation](smart-cancellation.md) — state-based: pending=always allow, confirmed=5min grace, preparing/later=blocked with support message.
+- [Vendor Analytics](vendor-analytics.md) — GET /api/vendor/analytics (requireVendor JWT), today/week orders+sales+bestSellers; shown in VendorHomeScreen analytics card.
+- [Minimum Order Check](min-order-check.md) — CheckoutScreen queries /api/stores list (cached), finds vendor by cartVendorId, blocks submit if subtotal < minOrder.
 - [Firestore Architecture](firestore-architecture.md) — client SDK (client/lib/firebase.ts) now used for onSnapshot on settlementLedger docs; all other reads still through Express Admin SDK.
 - [Security Audit Baseline](security-audit-baseline.md) — JWT fail-fast, OTP log removal, demo data cleanup, Firestore rules — completed Jun 2026.
 - [Design System Color Tokens](design-system-colors.md) — All colors live in client/constants/theme.ts (AppColors, ORDER_STATUS_COLORS, ORDER_STATUS_LABELS, Gradients). Zero hardcoded hex across screens/components/navigation.

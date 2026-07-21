@@ -56,6 +56,7 @@ import { SystemSettingsProvider } from "@/context/SystemSettingsContext";
 import { CartProvider } from "@/context/CartContext";
 import { OrderProvider } from "@/context/OrderContext";
 import { FavoritesProvider } from "@/context/FavoritesContext";
+import { VendorFavoritesProvider } from "@/context/VendorFavoritesContext";
 import { CartAnimationProvider } from "@/context/CartAnimationContext";
 import { ThemeProvider } from "@/context/ThemeContext";
 import { NotificationProvider } from "@/context/NotificationContext";
@@ -108,6 +109,7 @@ export default function App() {
               <CartProvider>
                 <OrderProvider>
                   <FavoritesProvider>
+                    <VendorFavoritesProvider>
                     <CartAnimationProvider>
                     <SafeAreaProvider>
                       <GestureHandlerRootView style={styles.root}>
@@ -120,6 +122,7 @@ export default function App() {
                       </GestureHandlerRootView>
                     </SafeAreaProvider>
                     </CartAnimationProvider>
+                    </VendorFavoritesProvider>
                   </FavoritesProvider>
                 </OrderProvider>
               </CartProvider>

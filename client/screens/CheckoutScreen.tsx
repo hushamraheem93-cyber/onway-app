@@ -136,12 +136,23 @@ export default function CheckoutScreen() {
     }
   }, [savedLocation, deliveryAreas]);
 
+  // Fetch vendor info for minOrder check
+  const { data: allStores = [] } = useQuery<any[]>({
+    queryKey: ["/api/stores"],
+    staleTime: 5 * 60 * 1000,
+    select: (data: any) => data?.stores ?? data ?? [],
+  });
+  const vendorMinOrder: number = cartVendorId
+    ? (allStores.find((s: any) => s.id === cartVendorId)?.minOrder ?? 0)
+    : 0;
+
   // Derived values
   const subtotal = getTotal();
   const selectedAreaData = deliveryAreas.find(a => a.id === selectedArea);
   const isRestaurantOrder = items.length > 0 && items.every(i => i.product.categoryId === "restaurants");
   const deliveryFee = isRestaurantOrder ? 1000 : (selectedAreaData?.fee || 0);
   const SERVICE_FEE = feesData?.serviceFee ?? 500;
+  const isBelowMinOrder = vendorMinOrder > 0 && subtotal < vendorMinOrder;
 
   // Handlers
   const applySavedAddress = (a: { region: string; address: string }) => {
@@ -201,6 +212,7 @@ export default function CheckoutScreen() {
     lastOrderPayloadRef.current = null;
     if (!customerName.trim()) return setError({ message: "يرجى إدخال الاسم الكامل", canRetry: false });
     if (!phone.trim()) return setError({ message: "يرجى إدخال رقم الهاتف", canRetry: false });
+    if (isBelowMinOrder) return setError({ message: `الحد الأدنى للطلب هو ${formatPrice(vendorMinOrder)} — أضف المزيد من المنتجات`, canRetry: false });
     if (!selectedArea) return setError({ message: "يرجى اختيار منطقة التوصيل", canRetry: false });
     if (!address.trim()) return setError({ message: "يرجى إدخال تفاصيل العنوان", canRetry: false });
 
