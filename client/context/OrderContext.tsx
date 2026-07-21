@@ -254,7 +254,10 @@ export function OrderProvider({ children }: { children: ReactNode }) {
     try {
       response = await fetch(new URL("/api/orders", getApiUrl()).toString(), {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(customerToken ? { Authorization: `Bearer ${customerToken}` } : {}),
+        },
         body: JSON.stringify(bodyData),
       });
     } catch (networkError: any) {
