@@ -192,6 +192,39 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    // ── Financial / Settlement ─────────────────────────────────────────────
+    // settlementLedger: read by vendor/driver client SDK via onSnapshot (VendorWalletScreen).
+    // Document IDs are in the format "vendor:{uuid}" or "driver:{phone}" — obscure enough
+    // to prevent guessing. Writes are Admin SDK only (backend-enforced, rules redundant).
+    match /settlementLedger/{docId} {
+      allow read: if true;   // client onSnapshot (VendorWalletScreen / DriverEarningsScreen)
+      allow write: if false; // Admin SDK bypasses; explicit deny for client writes
+    }
+
+    match /settlements/{docId} {
+      allow read, write: if false;
+    }
+
+    match /settlementRequests/{docId} {
+      allow read, write: if false;
+    }
+
+    match /settlementPayments/{docId} {
+      allow read, write: if false;
+    }
+
+    match /driverFinancialAccounts/{docId} {
+      allow read, write: if false;
+    }
+
+    match /driverTransactions/{docId} {
+      allow read, write: if false;
+    }
+
+    match /promoUsageHistory/{docId} {
+      allow read, write: if false;
+    }
+
     // ── Internal / cache ──────────────────────────────────────────────────
     match /productImageHashes/{docId} {
       allow read, write: if false;

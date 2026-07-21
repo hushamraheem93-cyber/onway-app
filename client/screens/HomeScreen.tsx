@@ -1024,6 +1024,10 @@ export default function HomeScreen() {
                 <View style={styles.loadingContainer}>
                   <ActivityIndicator size="small" color={AppColors.primary} />
                 </View>
+              ) : bestSellerProducts.length === 0 ? (
+                <View style={styles.emptySection}>
+                  <ThemedText type="small" style={styles.emptySectionText}>لا توجد منتجات حالياً</ThemedText>
+                </View>
               ) : (
                 <ScrollView
                   horizontal
@@ -1049,6 +1053,10 @@ export default function HomeScreen() {
               {productsLoading ? (
                 <View style={styles.loadingContainer}>
                   <ActivityIndicator size="small" color={AppColors.primary} />
+                </View>
+              ) : featuredProducts.length === 0 ? (
+                <View style={styles.emptySection}>
+                  <ThemedText type="small" style={styles.emptySectionText}>لا توجد منتجات مميزة حالياً</ThemedText>
                 </View>
               ) : (
                 <ScrollView
@@ -1462,6 +1470,17 @@ const styles = StyleSheet.create({
     includeFontPadding: false,
   },
   // ── Search empty ──
+  emptySection: {
+    paddingVertical: 20,
+    paddingHorizontal: 16,
+    alignItems: "center",
+  },
+  emptySectionText: {
+    fontFamily: "Cairo_400Regular",
+    fontSize: 13,
+    color: AppColors.gray400,
+    textAlign: "center",
+  },
   emptySearch: {
     paddingVertical: 48,
     alignItems: "center",

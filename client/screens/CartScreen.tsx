@@ -7,6 +7,7 @@ import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
+import { useQuery } from "@tanstack/react-query";
 
 import { useTheme } from "@/hooks/useTheme";
 import { Spacing, AppColors, FontWeight} from "@/constants/theme";
@@ -27,9 +28,20 @@ export default function CartScreen() {
   const tabBarHeight = useBottomTabBarHeight();
   const { theme } = useTheme();
   const navigation = useNavigation<NavigationProp>();
-  const { items, getTotal, clearCart } = useCart();
+  const { items, getTotal, clearCart, cartVendorId } = useCart();
 
   const subtotal = getTotal();
+
+  // Fetch store list to look up minOrder for the current cart vendor (cached, no extra network call usually)
+  const { data: storesData } = useQuery<{ stores: any[] }>({
+    queryKey: ["/api/stores"],
+    staleTime: 5 * 60 * 1000,
+  });
+  const allStores: any[] = storesData?.stores ?? [];
+  const vendorMinOrder: number = cartVendorId
+    ? (allStores.find((s: any) => s.id === cartVendorId)?.minOrder ?? 0)
+    : 0;
+  const isBelowMinOrder = vendorMinOrder > 0 && subtotal < vendorMinOrder;
 
   const handleCheckout = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -111,6 +123,15 @@ export default function CartScreen() {
             },
           ]}
         >
+          {/* Min-order warning banner */}
+          {isBelowMinOrder ? (
+            <View style={styles.minOrderBanner}>
+              <Ionicons name="warning-outline" size={16} color={AppColors.warning} />
+              <ThemedText style={styles.minOrderText}>
+                الحد الأدنى للطلب {formatPrice(vendorMinOrder)} — أضف منتجات بقيمة {formatPrice(vendorMinOrder - subtotal)} إضافية
+              </ThemedText>
+            </View>
+          ) : null}
           <View style={[styles.summaryRow, styles.totalRow]}>
             <ThemedText type="h2" style={styles.totalValue}>
               {formatPrice(subtotal)}
@@ -124,8 +145,8 @@ export default function CartScreen() {
           </View>
 
           <TouchableOpacity
-            style={styles.checkoutBtn}
-            onPress={handleCheckout}
+            style={[styles.checkoutBtn, isBelowMinOrder && styles.checkoutBtnDisabled]}
+            onPress={isBelowMinOrder ? undefined : handleCheckout}
             accessibilityRole="button"
             accessibilityLabel="إتمام الطلب والانتقال للدفع"
           >
@@ -201,6 +222,24 @@ const styles = StyleSheet.create({
     fontWeight: FontWeight.bold,
     color: AppColors.primary,
   },
+  minOrderBanner: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    gap: 8,
+    backgroundColor: AppColors.warning + "18",
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: AppColors.warning + "55",
+    padding: 10,
+    marginBottom: 10,
+  },
+  minOrderText: {
+    flex: 1,
+    fontFamily: "Cairo_600SemiBold",
+    fontSize: 12,
+    color: AppColors.warning,
+    textAlign: "right",
+  },
   checkoutBtn: {
     backgroundColor: AppColors.primary,
     flexDirection: "row",
@@ -209,6 +248,9 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     marginTop: 20,
+  },
+  checkoutBtnDisabled: {
+    opacity: 0.45,
   },
   checkoutText: {
     color: AppColors.white,

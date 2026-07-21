@@ -1276,6 +1276,8 @@ export interface FirestorePromoCode {
   value: number;
   expiryDate: string;
   isActive: boolean;
+  maxUsage?: number;          // optional global cap; 0 or undefined = unlimited
+  minOrderAmount?: number;    // optional minimum cart subtotal for the promo to apply
   createdAt: admin.firestore.Timestamp;
   updatedAt: admin.firestore.Timestamp;
 }

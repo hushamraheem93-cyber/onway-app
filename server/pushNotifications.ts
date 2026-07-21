@@ -83,29 +83,37 @@ export async function sendPushNotification(
     data: { orderId, status },
   };
 
-  try {
-    const response = await fetch("https://exp.host/--/api/v2/push/send", {
-      method: "POST",
-      headers: {
-        Accept: "application/json",
-        "Accept-Encoding": "gzip, deflate",
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(message),
-    });
+  // Send with one automatic retry on transient network failures
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    try {
+      const response = await fetch("https://exp.host/--/api/v2/push/send", {
+        method: "POST",
+        headers: {
+          Accept: "application/json",
+          "Accept-Encoding": "gzip, deflate",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(message),
+      });
 
-    const result = (await response.json()) as { data: ExpoPushTicket };
-    
-    if (result.data.status === "ok") {
-      return true;
-    } else {
-      console.error("Push notification error:", result.data.message);
+      const result = (await response.json()) as { data: ExpoPushTicket };
+
+      if (result.data.status === "ok") {
+        return true;
+      }
+      // Permanent failure (bad token etc.) — no point retrying
+      console.error(`[Push] delivery error (attempt ${attempt}):`, result.data.message);
       return false;
+    } catch (error) {
+      if (attempt === 2) {
+        console.error("[Push] network error after retry:", error);
+        return false;
+      }
+      // Brief back-off before retry
+      await new Promise((r) => setTimeout(r, 1000));
     }
-  } catch (error) {
-    console.error("Error sending push notification:", error);
-    return false;
   }
+  return false;
 }
 
 export function getStatusMessage(status: string): { title: string; body: string } | null {

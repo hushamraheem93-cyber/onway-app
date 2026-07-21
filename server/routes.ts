@@ -1969,13 +1969,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const ordersSnap = await db.collection("orders").where("vendorId", "==", id).get();
       const orders = ordersSnap.docs.map(d => ({ id: d.id, ...d.data() })) as any[];
-      // For mixed orders, use restaurantSubtotal (restaurant portion only); fallback to full total
-      const totalSales = orders.reduce((s, o) => s + (o.restaurantSubtotal || o.total || 0), 0);
+      // Commission base: restaurant orders use restaurantSubtotal; marketplace
+      // orders (vendorProducts) use total minus fees so delivery/service fees
+      // are excluded from the vendor commission base.
+      const orderBase = (o: any): number =>
+        o.restaurantSubtotal != null
+          ? o.restaurantSubtotal
+          : Math.max(0, (o.total || 0) - (o.deliveryFee || 0) - (o.serviceFee || 0));
+      const totalSales = orders.reduce((s, o) => s + orderBase(o), 0);
       // Use stored commission amount if available, otherwise calculate from vendor %
       const appCommission = orders.reduce((s, o) => {
         if (o.vendorCommissionAmount != null) return s + o.vendorCommissionAmount;
-        const base = o.restaurantSubtotal || o.total || 0;
-        return s + Math.round(base * vendor.commissionPercent / 100);
+        return s + Math.round(orderBase(o) * vendor.commissionPercent / 100);
       }, 0);
       const vendorNet = totalSales - appCommission;
       res.json({ vendor, orders: orders.length, totalSales, appCommission, vendorNet, commissionPercent: vendor.commissionPercent });
@@ -2013,7 +2018,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json([]);
   });
 
-  app.post("/api/orders", async (req: Request, res: Response) => {
+  app.post("/api/orders", requireCustomerAuth, async (req: Request, res: Response) => {
     const { userId, phoneNumber, customerName, customerPhone, notes, items, total, deliveryFee, serviceFee, address, region, latitude, longitude, orderType, internationalDetails, courierDetails, promoCode, promoDiscount, vendorId: bodyVendorId, restaurantSubtotal: bodyRestaurantSubtotal } = req.body;
     const db = getFirestore();
     
@@ -2022,6 +2027,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const alreadyUsed = await checkPromoUsage(userId || phoneNumber, promoCode);
         if (alreadyUsed) {
           return res.status(400).json({ error: "لقد استخدمت هذا الكود مسبقاً!" });
+        }
+        // Global usage limit: check promo active, expiry, and maxUsage cap
+        const promoDoc = await getPromoCodeByCode(promoCode);
+        if (promoDoc) {
+          if (!promoDoc.isActive) {
+            return res.status(400).json({ error: "هذا الكوبون غير مفعّل" });
+          }
+          if (promoDoc.expiryDate) {
+            const expiry = (promoDoc.expiryDate as any)?.toDate
+              ? (promoDoc.expiryDate as any).toDate()
+              : new Date(promoDoc.expiryDate as any);
+            if (expiry < new Date()) {
+              return res.status(400).json({ error: "انتهت صلاحية هذا الكوبون" });
+            }
+          }
+          if (promoDoc.maxUsage && (promoDoc.maxUsage as number) > 0) {
+            const usageSnap = await db.collection("promoUsageHistory")
+              .where("promoCode", "==", promoCode).get();
+            if (usageSnap.size >= (promoDoc.maxUsage as number)) {
+              return res.status(400).json({ error: "لقد وصل هذا الكوبون لحد الاستخدام الأقصى" });
+            }
+          }
         }
       }
 
@@ -2810,6 +2837,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     if (!phoneNumber) {
       return res.status(400).json({ error: "Phone number is required" });
     }
+    // Iraqi mobile numbers: 07X-XXXXXXXX (11 digits, operators 073-079)
+    const IRAQ_PHONE_RE = /^07[3-9]\d{8}$/;
+    if (!IRAQ_PHONE_RE.test(String(phoneNumber))) {
+      return res.status(400).json({ error: "رقم الهاتف غير صحيح — يجب أن يبدأ بـ 07 ويتكون من 11 رقماً" });
+    }
     const code = generateOtp(phoneNumber);
 
     // Development mode: no SMS is ever sent; the tester signs in with the 0000 code.
@@ -3306,6 +3338,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (db) {
         // Step 1: driver accepted → preparing
         await updateOrderStatus(orderId, "preparing");
+        notifyCustomerStatus(orderId, "preparing").catch(() => {}); // ← Fix: notify customer
         driverAssignments.set(orderId, phoneNumber);
         const qd = driverQueue.find(d => d.phoneNumber === phoneNumber);
         if (qd && !qd.currentBatchId) qd.currentBatchId = orderId; // legacy single-order support
@@ -3487,6 +3520,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Set all orders in batch to "preparing" and tag with driver info
       for (const orderId of claim.orderIds) {
         await updateOrderStatus(orderId, "preparing");
+        notifyCustomerStatus(orderId, "preparing").catch(() => {}); // ← Fix: notify customer
         await updateOrderDriverInfo(orderId, { driverName, driverPhone: phoneNumber });
         driverAssignments.set(orderId, phoneNumber);
         addDeliveryLog({ orderId, driverPhone: phoneNumber, action: "accepted" }).catch(() => {});
@@ -4720,8 +4754,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // ── Cancel Order (within 1 minute) ───────────────────────────────────────
+  // ── Cancel Order (authenticated, state-based timing) ─────────────────────
   app.post("/api/orders/:orderId/cancel", async (req: Request, res: Response) => {
+    // Auth: customer JWT required — prevents unauthenticated cancellation attempts
+    const authHeader = req.headers.authorization || "";
+    const rawToken = authHeader.startsWith("Bearer ") ? authHeader.slice(7).trim() : "";
+    if (!rawToken) return res.status(401).json({ error: "يرجى تسجيل الدخول أولاً" });
+    let callerPhone: string;
+    try {
+      const decoded = jwt.verify(rawToken, ROUTES_JWT_SECRET) as any;
+      if (decoded.role !== "customer" || !decoded.phoneNumber) throw new Error("invalid");
+      callerPhone = decoded.phoneNumber;
+    } catch {
+      return res.status(401).json({ error: "انتهت صلاحية الجلسة — يرجى تسجيل الدخول مجدداً" });
+    }
+
     try {
       const orderId = req.params.orderId as string;
       const db = getFirestore();
@@ -4731,6 +4778,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!doc.exists) return res.status(404).json({ error: "الطلب غير موجود" });
 
       const data = doc.data() as any;
+
+      // Ownership: only the order's customer can cancel it
+      const orderPhone = data.customerPhone || data.phoneNumber;
+      if (orderPhone && orderPhone !== callerPhone) {
+        return res.status(403).json({ error: "غير مصرح — هذا الطلب ليس لك" });
+      }
+
       if (data.status === "cancelled") {
         return res.status(400).json({ error: "الطلب ملغي مسبقاً" });
       }
@@ -4762,6 +4816,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Real-time: broadcast cancellation (forwarded to order room + orders:changed).
       orderEvents.emit("order:status", { orderId, status: "cancelled" });
+
+      // Push: notify vendor about the cancellation (best-effort)
+      if (data.vendorId) {
+        db.collection("vendors").doc(String(data.vendorId)).get()
+          .then(vDoc => {
+            const vToken = vDoc.exists ? (vDoc.data() as any)?.pushToken as string | undefined : undefined;
+            if (vToken) sendPushNotification(vToken, "cancelled", orderId).catch(() => {});
+          }).catch(() => {});
+      }
+
+      // Push: notify admin about the cancellation (best-effort)
+      getAdminPushToken()
+        .then(adminToken => {
+          if (adminToken) sendPushNotification(adminToken, "cancelled", orderId).catch(() => {});
+        }).catch(() => {});
 
       return res.json({ success: true });
     } catch (error: any) {
