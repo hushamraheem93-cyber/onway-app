@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from "react";
+import React, { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { io, Socket } from "socket.io-client";
 import {
   StyleSheet,
@@ -32,6 +32,7 @@ import { useTheme } from "@/hooks/useTheme";
 import { useAuth } from "@/context/AuthContext";
 import { AppColors, Spacing, BorderRadius, Shadows, FontWeight} from "@/constants/theme";
 import { getApiUrl } from "@/lib/query-client";
+import { clearDriverToken } from "@/lib/driverAuth";
 import { playRepeatingAlert, stopAlert } from "@/lib/alertSound";
 import { formatPrice } from "@/constants/currency";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
@@ -111,7 +112,7 @@ export default function DriverHomeScreen() {
   const insets = useSafeAreaInsets();
   const tabBarHeight = useBottomTabBarHeight();
   const { theme, isDark } = useTheme();
-  const { phoneNumber, userProfile } = useAuth();
+  const { phoneNumber, userProfile, logout } = useAuth();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
 
   const [isOnline, setIsOnline] = useState(false);
@@ -266,12 +267,21 @@ export default function DriverHomeScreen() {
         }
         setStatusFetchError(null);
       } else {
-        // Make the failure visible instead of silently keeping the stale status.
+        // 401 means the driver token is expired AND the self-heal inside the
+        // fetch interceptor already tried (and failed) to re-issue it using the
+        // customer JWT. Both tokens are dead — the only recovery is a fresh login.
+        // Auto-logout immediately so the user lands on the login screen and gets
+        // new tokens, rather than being stuck on "قيد المراجعة" forever.
+        if (res.status === 401) {
+          await clearDriverToken();
+          logout();
+          return;
+        }
         let serverMsg = "";
         try { serverMsg = (await res.json())?.error || ""; } catch {}
         setStatusFetchError(
           `تعذّر تحديث الحالة (${res.status})${serverMsg ? ` — ${serverMsg}` : ""}` +
-          (res.status === 401 || res.status === 403 ? "\nجرّب تسجيل الخروج ثم الدخول من جديد." : "")
+          (res.status === 403 ? "\nجرّب تسجيل الخروج ثم الدخول من جديد." : "")
         );
       }
     } catch (e) {
