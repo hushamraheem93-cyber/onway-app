@@ -10,24 +10,10 @@ import { Spacing, BorderRadius, Shadows, AppColors, FontWeight} from "@/constant
 import { ThemedText } from "@/components/ThemedText";
 import { useNotifications, AppNotification } from "@/context/NotificationContext";
 import { GradientBackground } from "@/components/GradientBackground";
+import { formatRelativeDate } from "@/lib/dateUtils";
 
 function NotificationItem({ notification, onPress }: { notification: AppNotification; onPress: () => void }) {
   const { theme } = useTheme();
-
-  const formatDate = (dateStr: string) => {
-    const date = new Date(dateStr);
-    const now = new Date();
-    const diffMs = now.getTime() - date.getTime();
-    const diffMins = Math.floor(diffMs / 60000);
-    const diffHours = Math.floor(diffMs / 3600000);
-    const diffDays = Math.floor(diffMs / 86400000);
-
-    if (diffMins < 1) return "الآن";
-    if (diffMins < 60) return `منذ ${diffMins} دقيقة`;
-    if (diffHours < 24) return `منذ ${diffHours} ساعة`;
-    if (diffDays < 7) return `منذ ${diffDays} يوم`;
-    return date.toLocaleDateString("ar-IQ", { calendar: "gregory", month: "short", day: "numeric" });
-  };
 
   return (
     <Pressable
@@ -53,7 +39,7 @@ function NotificationItem({ notification, onPress }: { notification: AppNotifica
           {notification.body}
         </ThemedText>
         <ThemedText type="small" style={[styles.notificationTime, { color: theme.textSecondary }]}>
-          {formatDate(notification.createdAt)}
+          {formatRelativeDate(notification.createdAt)}
         </ThemedText>
       </View>
       <View style={[styles.iconContainer, { backgroundColor: AppColors.primary + "15" }]}>

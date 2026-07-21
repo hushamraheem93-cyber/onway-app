@@ -12,6 +12,7 @@ import { useTheme } from "@/hooks/useTheme";
 import { Spacing, BorderRadius, Shadows, AppColors, ORDER_STATUS_COLORS, ORDER_STATUS_LABELS, FontWeight} from "@/constants/theme";
 import { Order } from "@/context/OrderContext";
 import { formatPrice } from "@/constants/currency";
+import { formatDateTime } from "@/lib/dateUtils";
 
 interface OrderCardProps {
   order: Order;
@@ -65,19 +66,6 @@ function OrderCardComponent({ order, onPress, onStorePress, onRate }: OrderCardP
 
   const handlePressOut = () => {
     scale.value = withSpring(1, { damping: 15, stiffness: 150 });
-  };
-
-  const formatDate = (date: string | Date) => {
-    // ar-IQ + Gregorian calendar: Iraqi users read Gregorian dates, not Hijri
-    // (the previous "ar-SA" locale defaulted to the Islamic calendar).
-    return new Date(date).toLocaleDateString("ar-IQ", {
-      calendar: "gregory",
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
   };
 
   // A short, friendly order reference instead of the raw Firestore document id.
@@ -149,7 +137,7 @@ function OrderCardComponent({ order, onPress, onStorePress, onRate }: OrderCardP
         <View style={styles.infoRow}>
           <Feather name="clock" size={16} color={theme.textSecondary} />
           <ThemedText type="small" style={[styles.infoText, { color: theme.textSecondary }]}>
-            {formatDate(order.createdAt)}
+            {formatDateTime(order.createdAt)}
           </ThemedText>
         </View>
       </View>

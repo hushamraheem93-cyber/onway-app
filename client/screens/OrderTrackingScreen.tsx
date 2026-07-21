@@ -25,6 +25,7 @@ import { RootStackParamList } from "@/navigation/RootStackNavigator";
 import { useOrders, Order } from "@/context/OrderContext";
 import { getApiUrl } from "@/lib/query-client";
 import { GradientBackground } from "@/components/GradientBackground";
+import { formatShortDate, formatShortTime } from "@/lib/dateUtils";
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 type RouteProps = RouteProp<RootStackParamList, "OrderTracking">;
@@ -370,16 +371,6 @@ export default function OrderTrackingScreen() {
   const isCancelled = order.status === "cancelled" || order.status === "issue";
   const isDelivering = order.status === "in_delivery" || order.status === "picked_up" || order.status === "delivering";
 
-  const formatTime = (date: string) => {
-    const d = new Date(date);
-    return `${d.getHours().toString().padStart(2, "0")}:${d.getMinutes().toString().padStart(2, "0")}`;
-  };
-
-  const formatDate = (date: string) => {
-    const d = new Date(date);
-    return `${d.getDate().toString().padStart(2, "0")}/${(d.getMonth() + 1).toString().padStart(2, "0")}`;
-  };
-
   return (
     <View style={{ flex: 1 }}>
       <GradientBackground />
@@ -419,7 +410,7 @@ export default function OrderTrackingScreen() {
           <View style={styles.detailItem}>
             <Feather name="calendar" size={14} color={theme.textSecondary} />
             <ThemedText type="small" style={{ color: theme.textSecondary, marginRight: 4 }}>
-              {formatDate(order.createdAt)} - {formatTime(order.createdAt)}
+              {formatShortDate(order.createdAt)} - {formatShortTime(order.createdAt)}
             </ThemedText>
           </View>
           <View style={styles.detailItem}>

@@ -31,6 +31,7 @@ import { Banner, Category } from "@/constants/categories";
 import { apiRequest, getApiUrl } from "@/lib/query-client";
 import { resolveImageUrl } from "@/utils/imageUtils";
 import { formatPrice } from "@/constants/currency";
+import { formatDateOnly } from "@/lib/dateUtils";
 import { compressAndConvertToBase64, processAndUploadImage, isBase64Image, ImageSize } from "@/lib/imageUtils";
 import { useSystemSettings } from "@/context/SystemSettingsContext";
 
@@ -2083,13 +2084,7 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
       u.fullName?.toLowerCase().includes(usersSearch.toLowerCase())
     );
 
-    const formatDate = (ts: any) => {
-      if (!ts) return "";
-      try {
-        const date = ts._seconds ? new Date(ts._seconds * 1000) : new Date(ts);
-        return date.toLocaleDateString("ar-IQ", { year: "numeric", month: "short", day: "numeric" });
-      } catch { return ""; }
-    };
+    const formatDate = formatDateOnly;
 
     return (
       <View style={styles.usersContainer}>
