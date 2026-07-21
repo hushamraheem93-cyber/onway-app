@@ -32,7 +32,6 @@ import {
   updateOrderDriverInfo,
   getPromoCodes, getPromoCodeByCode, createPromoCode, updatePromoCode, deletePromoCode as deletePromoCodeFn,
   checkPromoUsage, recordPromoUsage,
-  getDriverFinancialAccount, updateDriverEarningsOnOrder, recordDriverPayment, recordDriverAdjustment, getDriverTransactions,
   saveDriverCompletedOrder, getDriverCompletedOrdersFromDB,
   saveDriverActivity, getDriverActivityLog, updateDriverLastLocation,
   getOrdersByDriverPhone,
@@ -51,7 +50,8 @@ import {
   recordOrderSettlement, createSettlementRequest, getAccountSettlementView,
   getSettlementHistory, listSettlementRequests, completeSettlement,
   getSettlementConfig, updateSettlementConfig, isOverSettlementThreshold,
-  listSettlementAccounts, getSettlementPayments,
+  listSettlementAccounts, getSettlementPayments, getSettlementLedger,
+  adminAdjustLedger,
 } from "./settlement";
 import { sendPushNotification, sendBroadcastNotification, sendDriverBatchNotification, sendAdminNewOrderNotification, sendVendorNewOrderNotification, sendAdminSettlementRequestNotification } from "./pushNotifications";
 import { deliverOtp } from "./otpDelivery";
@@ -1734,11 +1734,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     onlinePaymentEnabled: boolean;
     driverPayoutRule: { type: string; flatRestaurant: number; flatDefault: number; percent: number };
     autoSuspendThreshold: number;
+    restaurantDeliveryFee: number;
   }> {
     const defaults = {
       onlinePaymentEnabled: false,
       driverPayoutRule: { type: "flat", flatRestaurant: 750, flatDefault: 2000, percent: 15 },
       autoSuspendThreshold: 100000,
+      restaurantDeliveryFee: 1000,
     };
     if (_sysSettingsCache && Date.now() - _sysSettingsCacheAt < SYS_CACHE_TTL) {
       return _sysSettingsCache as any;
@@ -1752,6 +1754,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         onlinePaymentEnabled: d.onlinePaymentEnabled ?? defaults.onlinePaymentEnabled,
         driverPayoutRule: d.driverPayoutRule ?? defaults.driverPayoutRule,
         autoSuspendThreshold: d.autoSuspendThreshold ?? defaults.autoSuspendThreshold,
+        restaurantDeliveryFee: d.restaurantDeliveryFee ?? defaults.restaurantDeliveryFee,
       };
       _sysSettingsCache = result;
       _sysSettingsCacheAt = Date.now();
@@ -1791,6 +1794,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         onlinePaymentEnabled: settings.onlinePaymentEnabled,
         driverPayoutRule: settings.driverPayoutRule,
         autoSuspendThreshold: settings.autoSuspendThreshold,
+        restaurantDeliveryFee: settings.restaurantDeliveryFee,
       });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
@@ -1802,7 +1806,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const db = getFirestore();
       if (!db) return res.status(503).json({ error: "Database unavailable" });
-      const { onlinePaymentEnabled, driverPayoutRule, autoSuspendThreshold } = req.body;
+      const { onlinePaymentEnabled, driverPayoutRule, autoSuspendThreshold, restaurantDeliveryFee } = req.body;
       const update: Record<string, any> = {};
       if (typeof onlinePaymentEnabled === "boolean") update.onlinePaymentEnabled = onlinePaymentEnabled;
       if (driverPayoutRule && typeof driverPayoutRule === "object") {
@@ -1818,6 +1822,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       if (typeof autoSuspendThreshold === "number" && autoSuspendThreshold >= 0) {
         update.autoSuspendThreshold = Math.round(autoSuspendThreshold);
+      }
+      if (typeof restaurantDeliveryFee === "number" && restaurantDeliveryFee >= 0) {
+        update.restaurantDeliveryFee = Math.round(restaurantDeliveryFee);
       }
       if (Object.keys(update).length === 0) {
         return res.status(400).json({ error: "No valid fields to update" });
@@ -2152,12 +2159,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "أسعار بعض المنتجات تغيّرت، الرجاء تحديث السلة والمحاولة مجدداً" });
       }
 
-      // Recompute delivery fee. Legacy "restaurants" category orders always use a
-      // flat fee (matches client CheckoutScreen logic), regardless of delivery area.
+      // Recompute delivery fee. Restaurant orders use a flat fee stored in
+      // system_settings (configurable by admin, default 1000 IQD).
       // All other orders use the authoritative deliveryAreas collection fee.
+      const sysSettings = await getSystemSettings();
       let verifiedDeliveryFee = Number(deliveryFee) || 0;
       if (allItemsAreRestaurant) {
-        verifiedDeliveryFee = 1000;
+        verifiedDeliveryFee = sysSettings.restaurantDeliveryFee;
       } else if (region) {
         const areas = await getFirestoreDeliveryAreas(true);
         const matchedArea = areas.find(a => a.name === region);
@@ -2170,9 +2178,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const promo = await getPromoCodeByCode(String(promoCode).toUpperCase());
         const notExpired = promo ? new Date(promo.expiryDate) >= new Date() : false;
         if (promo && promo.isActive && notExpired) {
-          verifiedDiscount = promo.type === "percentage"
-            ? Math.round(verifiedSubtotal * (promo.value / 100))
-            : promo.value;
+          if (promo.type === "percentage") {
+            verifiedDiscount = Math.round(verifiedSubtotal * (promo.value / 100));
+            // Apply maximum discount cap if configured (percentage coupons only)
+            if (promo.maximumDiscountAmount && promo.maximumDiscountAmount > 0) {
+              verifiedDiscount = Math.min(verifiedDiscount, promo.maximumDiscountAmount);
+            }
+          } else {
+            verifiedDiscount = promo.value;
+          }
         } else {
           return res.status(400).json({ error: "كود الخصم غير صالح أو منتهي الصلاحية" });
         }
@@ -3194,9 +3208,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         queuePosition = availableDriversBefore.length;
       }
 
-      // Run financial account and completed orders in parallel
-      const [financialAccount, completed] = await Promise.all([
-        getDriverFinancialAccount(phoneNumber),
+      // Run ledger and completed orders in parallel
+      const [ledger, completed] = await Promise.all([
+        getSettlementLedger("driver", phoneNumber),
         getCompletedOrders(phoneNumber),
       ]);
       const now = new Date();
@@ -3208,7 +3222,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         queuePosition,
         currentBatch,
         approvalStatus: driver?.status || "pending",
-        amountOwed: financialAccount.amountOwed,
+        amountOwed: ledger?.outstandingTotal ?? 0,
         todayOrders: todayCompleted.length,
         todayEarnings: todayCompleted.reduce((sum, o) => sum + (o.driverEarning || 0), 0),
       });
@@ -3282,18 +3296,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
     try {
       if (goOnline) {
-        // Block on the configurable settlement threshold. During the transition we take
-        // the max of the new settlement ledger and the legacy amountOwed so enforcement
-        // never regresses before migration; a disabled threshold blocks no one.
-        const [financialAccount, threshold] = await Promise.all([
-          getDriverFinancialAccount(phoneNumber),
-          isOverSettlementThreshold("driver", phoneNumber),
-        ]);
-        const effectiveOutstanding = Math.max(financialAccount.amountOwed || 0, threshold.outstanding || 0);
-        if (threshold.thresholdEnabled && effectiveOutstanding >= threshold.thresholdAmount) {
+        // Block on the settlement threshold — settlementLedger is the single source of truth.
+        const threshold = await isOverSettlementThreshold("driver", phoneNumber);
+        if (threshold.thresholdEnabled && threshold.outstanding >= threshold.thresholdAmount) {
           return res.status(400).json({
-            error: `المبلغ المستحق (${effectiveOutstanding.toLocaleString("ar-IQ")} د.ع) يتجاوز الحد المسموح (${threshold.thresholdAmount.toLocaleString("ar-IQ")} د.ع). يرجى تسوية الحساب مع المسؤول.`,
-            amountOwed: effectiveOutstanding,
+            error: `المبلغ المستحق (${threshold.outstanding.toLocaleString("ar-IQ")} د.ع) يتجاوز الحد المسموح (${threshold.thresholdAmount.toLocaleString("ar-IQ")} د.ع). يرجى تسوية الحساب مع المسؤول.`,
+            amountOwed: threshold.outstanding,
           });
         }
         const exists = driverQueue.find(d => d.phoneNumber === phoneNumber);
@@ -3666,18 +3674,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const isRestaurantOrder = await checkIsRestaurantOrder(order);
         const { driverEarning, deductionAmount } = await computeDriverPayout(isRestaurantOrder, order.deliveryFee || 0);
         await updateOrderDriverInfo(orderId, { driverEarning, ownerEarning: deductionAmount });
-        const updatedBatchFinancial = await updateDriverEarningsOnOrder(phoneNumber, {
-          driverEarning,
-          onwayCommission: deductionAmount,
-          orderId,
-          orderType: isRestaurantOrder ? "restaurant" : "market",
-        });
-        const newBalance = updatedBatchFinancial?.amountOwed ?? 0;
 
-        // ── Generic settlement accrual (Stage 6A) ──────────────────────────────
-        // Additive and parallel to the legacy driverFinancialAccounts above; the new
-        // settlement engine is idempotent per (orderId, accountType) and is wrapped so
-        // a failure here can never break order completion.
+        // ── Settlement accrual (single source of truth) ────────────────────────
+        // settlementLedger is the only financial system. Idempotent per (orderId, accountType).
+        // Wrapped so a failure here can never break order completion.
+        let newSettlementBalance = 0;
         try {
           // Driver — cash-collection settlement: driver owes company total − commission.
           const cashCollected = order.total || 0;
@@ -3713,6 +3714,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
               outstandingAmount: Math.max(0, orderValue - platformCommission),
             });
           }
+          // Read the updated ledger to get the current outstanding balance for suspension check
+          const ledger = await getSettlementLedger("driver", phoneNumber).catch(() => null);
+          newSettlementBalance = ledger?.outstandingTotal ?? 0;
         } catch (settlementErr) {
           console.error("[SETTLEMENT] accrual error (non-blocking):", settlementErr);
         }
@@ -3766,11 +3770,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
             });
             const qd = driverQueue.find(d => d.phoneNumber === phoneNumber);
             if (qd) qd.currentBatchId = undefined;
-            // Check wallet before assigning next batch.
-            // newBalance = amountOwed (debt owed BY the driver TO onway).
-            // Block the driver only once debt is too HIGH — not too low.
-            const OWED_THRESHOLD = (await getSystemSettings()).autoSuspendThreshold;
-            if (newBalance < OWED_THRESHOLD) {
+            // Check settlementLedger outstanding balance before assigning next batch.
+            // Block the driver only once debt exceeds the configured threshold.
+            const settlementThreshold = await isOverSettlementThreshold("driver", phoneNumber);
+            const exceedsThreshold = settlementThreshold.thresholdEnabled &&
+              newSettlementBalance >= settlementThreshold.thresholdAmount;
+            if (!exceedsThreshold) {
               // Debt within allowed range — move to end of queue (joinedAt reset) and mark available
               updateDriverQueueEntry(phoneNumber, { hasActiveBatch: false, joinedAt: Date.now() }).catch(() => {});
               assignWaitingBatchToDriver(phoneNumber).catch(() => {});
@@ -3894,8 +3899,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const phoneNumber = (req as any).driverPhone as string;
     if (!phoneNumber) return res.status(400).json({ error: "Phone number required" });
     try {
-      const account = await getDriverFinancialAccount(phoneNumber);
-      const transactions = await getDriverTransactions(phoneNumber, 50);
+      const [ledger, payments, history] = await Promise.all([
+        getSettlementLedger("driver", phoneNumber),
+        getSettlementPayments("driver", phoneNumber, 50),
+        getSettlementHistory("driver", phoneNumber, 50),
+      ]);
+      // Return in a shape compatible with the legacy wallet response
+      const account = {
+        phoneNumber,
+        totalEarnings: ledger?.totalCommission ?? 0,
+        totalOnwayCommission: (ledger?.totalGross ?? 0) - (ledger?.totalCommission ?? 0),
+        totalPaid: ledger?.totalSettled ?? 0,
+        amountOwed: ledger?.outstandingTotal ?? 0,
+        lastPaymentAmount: ledger?.lastSettlementAmount ?? 0,
+        lastPaymentDate: ledger?.lastSettlementAt?.toDate?.()?.toISOString?.() ?? null,
+        updatedAt: ledger?.updatedAt?.toDate?.()?.toISOString?.() ?? new Date().toISOString(),
+      };
+      // Combine settlement records (per-order) and payments as transactions
+      const transactions = [
+        ...history.settlements.map((s: any) => ({
+          id: s.id, type: "earning", orderId: s.orderId,
+          driverEarning: s.commission ?? 0,
+          onwayCommission: s.outstandingAmount ?? 0,
+          timestamp: s.createdAt?.toDate?.()?.toISOString?.() ?? s.createdAt,
+        })),
+        ...payments.map((p: any) => ({
+          id: p.id, type: "payment", amount: p.amount,
+          notes: p.notes, method: p.method, adminName: p.adminName,
+          timestamp: p.createdAt?.toDate?.()?.toISOString?.() ?? p.createdAt,
+        })),
+      ].sort((a: any, b: any) => new Date(b.timestamp || 0).getTime() - new Date(a.timestamp || 0).getTime())
+       .slice(0, 50);
       res.json({ account, transactions });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
@@ -4054,49 +4088,60 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Legacy recharge endpoint kept for backward compat — records as payment
+  // Legacy recharge endpoint kept for backward compat — records as settlement payment
   app.post("/api/admin/driver-wallet/recharge", async (req: Request, res: Response) => {
-    const { phoneNumber, amount, notes } = req.body;
+    const { phoneNumber, amount, notes, adminName } = req.body;
     if (!phoneNumber || amount === undefined) return res.status(400).json({ error: "Missing fields" });
     try {
-      const account = await recordDriverPayment(phoneNumber, Number(amount), notes || "دفعة من الإدارة");
-      res.json({ success: true, account });
+      const result = await completeSettlement({
+        accountType: "driver", accountId: phoneNumber, amount: Number(amount),
+        notes: notes || "دفعة من الإدارة", method: "cash", adminName: adminName || "",
+      });
+      if (!result.ok) return res.status(400).json({ error: result.reason || "لا توجد مبالغ مستحقة" });
+      res.json({ success: true, outstandingAfter: result.outstandingAfter, paymentId: result.paymentId });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }
   });
 
-  // New explicit payment endpoint
+  // Explicit payment endpoint — records a cash collection from driver against outstanding balance
   app.post("/api/admin/driver-wallet/payment", async (req: Request, res: Response) => {
     const { phoneNumber, amount, notes, paymentMethod, adminName } = req.body;
     if (!phoneNumber || amount === undefined) return res.status(400).json({ error: "Missing fields" });
     try {
-      const account = await recordDriverPayment(phoneNumber, Number(amount), notes || "", paymentMethod, adminName);
-      res.json({ success: true, account });
+      const result = await completeSettlement({
+        accountType: "driver", accountId: phoneNumber, amount: Number(amount),
+        notes: notes || "", method: paymentMethod || "cash", adminName: adminName || "",
+      });
+      if (!result.ok) return res.status(400).json({ error: result.reason || "لا توجد مبالغ مستحقة" });
+      res.json({ success: true, outstandingAfter: result.outstandingAfter, receiptNumber: result.receiptNumber, paymentId: result.paymentId });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }
   });
 
-  // Adjustment endpoint (add/deduct from amountOwed)
+  // Adjustment endpoint (add/deduct from outstandingTotal in settlementLedger)
   app.post("/api/admin/driver-wallet/adjustment", async (req: Request, res: Response) => {
-    const { phoneNumber, amount, type, notes } = req.body;
+    const { phoneNumber, amount, type, notes, adminName } = req.body;
     if (!phoneNumber || amount === undefined || !type) return res.status(400).json({ error: "Missing fields" });
     if (type !== "add" && type !== "deduct") return res.status(400).json({ error: "type must be add or deduct" });
     try {
-      const account = await recordDriverAdjustment(phoneNumber, Number(amount), type as "add" | "deduct", notes || "");
-      res.json({ success: true, account });
+      const result = await adminAdjustLedger("driver", phoneNumber, Number(amount), type as "add" | "deduct", notes || "", adminName || "");
+      if (!result.ok) return res.status(400).json({ error: result.reason || "فشل التعديل" });
+      res.json({ success: true, outstandingBefore: result.outstandingBefore, outstandingAfter: result.outstandingAfter });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }
   });
 
-  // Yearly chart — last 12 months breakdown for a single driver
+  // Yearly chart — last 12 months breakdown for a single driver (from settlementLedger)
   app.get("/api/admin/driver-financial/:phone/yearly-chart", async (req: Request, res: Response) => {
     const phoneNumber = decodeURIComponent(req.params.phone as string);
     try {
-      const [transactions, completed] = await Promise.all([
-        getDriverTransactions(phoneNumber, 2000),
+      // completedOrders has driverEarning and ownerEarning (OnWay's commission per order)
+      // settlementPayments has the admin-recorded payments
+      const [payments, completed] = await Promise.all([
+        getSettlementPayments("driver", phoneNumber, 2000),
         getCompletedOrders(phoneNumber),
       ]);
       const now = new Date();
@@ -4109,8 +4154,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const monthStart = d.getTime();
         const monthEnd   = new Date(d.getFullYear(), d.getMonth() + 1, 1).getTime();
         const label = d.toLocaleDateString("ar-IQ", { month: "short", year: "numeric" });
-        const monthTx = transactions.filter(t => {
-          const ts = t.timestamp ? new Date(t.timestamp).getTime() : 0;
+        const monthPayments = payments.filter((p: any) => {
+          const ts = p.createdAt?.toMillis?.() ?? (p.createdAt ? new Date(p.createdAt).getTime() : 0);
           return ts >= monthStart && ts < monthEnd;
         });
         const monthOrders = completed.filter(o => {
@@ -4122,8 +4167,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           year:  d.getFullYear(),
           label,
           earnings:   monthOrders.reduce((s, o) => s + (o.driverEarning || 0), 0),
-          commission: monthTx.filter(t => t.type === "commission").reduce((s, t) => s + (t.amount || 0), 0),
-          payments:   monthTx.filter(t => t.type === "payment").reduce((s, t) => s + (t.amount || 0), 0),
+          // ownerEarning = OnWay's commission per order (what driver owes per order)
+          commission: monthOrders.reduce((s: number, o: any) => s + (o.ownerEarning || 0), 0),
+          payments:   monthPayments.reduce((s: number, p: any) => s + (p.amount || 0), 0),
           orders:     monthOrders.length,
         });
       }
@@ -4133,34 +4179,71 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Full financial statement for a single driver (admin)
+  // Full financial statement for a single driver (admin) — reads from settlementLedger
   app.get("/api/admin/driver-financial/:phone/statement", async (req: Request, res: Response) => {
     const phoneNumber = decodeURIComponent(req.params.phone as string);
     try {
-      const [driver, account, transactions] = await Promise.all([
+      const [driver, ledger, history, payments] = await Promise.all([
         getDriverByPhone(phoneNumber),
-        getDriverFinancialAccount(phoneNumber),
-        getDriverTransactions(phoneNumber, 200),
+        getSettlementLedger("driver", phoneNumber),
+        getSettlementHistory("driver", phoneNumber, 200),
+        getSettlementPayments("driver", phoneNumber, 200),
       ]);
+      // Map ledger to a shape compatible with legacy account format
+      const account = {
+        phoneNumber,
+        totalEarnings: ledger?.totalCommission ?? 0,
+        totalOnwayCommission: (ledger?.totalGross ?? 0) - (ledger?.totalCommission ?? 0),
+        totalPaid: ledger?.totalSettled ?? 0,
+        amountOwed: ledger?.outstandingTotal ?? 0,
+        lastPaymentAmount: ledger?.lastSettlementAmount ?? 0,
+        lastPaymentDate: ledger?.lastSettlementAt?.toDate?.()?.toISOString?.() ?? null,
+        updatedAt: ledger?.updatedAt?.toDate?.()?.toISOString?.() ?? new Date().toISOString(),
+      };
+      const transactions = [
+        ...history.settlements.map((s: any) => ({
+          id: s.id, type: "earning", orderId: s.orderId,
+          driverEarning: s.commission ?? 0,
+          onwayCommission: s.outstandingAmount ?? 0,
+          timestamp: s.createdAt?.toDate?.()?.toISOString?.() ?? s.createdAt,
+        })),
+        ...payments.map((p: any) => ({
+          id: p.id, type: "payment", amount: p.amount,
+          notes: p.notes, method: p.method, adminName: p.adminName,
+          timestamp: p.createdAt?.toDate?.()?.toISOString?.() ?? p.createdAt,
+        })),
+      ].sort((a: any, b: any) => new Date(b.timestamp || 0).getTime() - new Date(a.timestamp || 0).getTime());
       res.json({ driver: { fullName: driver?.fullName || "", phoneNumber }, account, transactions });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }
   });
 
-  // All driver financial accounts (admin overview)
+  // All driver financial accounts (admin overview) — reads from settlementLedger
   app.get("/api/admin/driver-financial", async (_req: Request, res: Response) => {
     try {
       const drivers = await getDrivers();
       const accounts = await Promise.all(
         drivers.filter(d => d.status === "approved").map(async d => {
-          const account = await getDriverFinancialAccount(d.phoneNumber);
-          const completed = await getCompletedOrders(d.phoneNumber);
+          const [ledger, completed] = await Promise.all([
+            getSettlementLedger("driver", d.phoneNumber),
+            getCompletedOrders(d.phoneNumber),
+          ]);
           const now = new Date();
           const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
           const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
           const todayList = completed.filter(o => new Date(o.completedAt).getTime() >= todayStart);
           const monthList = completed.filter(o => new Date(o.completedAt).getTime() >= monthStart);
+          const account = {
+            phoneNumber: d.phoneNumber,
+            totalEarnings: ledger?.totalCommission ?? 0,
+            totalOnwayCommission: (ledger?.totalGross ?? 0) - (ledger?.totalCommission ?? 0),
+            totalPaid: ledger?.totalSettled ?? 0,
+            amountOwed: ledger?.outstandingTotal ?? 0,
+            lastPaymentAmount: ledger?.lastSettlementAmount ?? 0,
+            lastPaymentDate: ledger?.lastSettlementAt?.toDate?.()?.toISOString?.() ?? null,
+            updatedAt: ledger?.updatedAt?.toDate?.()?.toISOString?.() ?? new Date().toISOString(),
+          };
           return {
             driver: { fullName: d.fullName, phoneNumber: d.phoneNumber, status: d.status },
             account,
@@ -4543,16 +4626,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       for (const driver of drivers) {
         const phone = driver.phoneNumber;
-        const completed = await getCompletedOrders(phone);
+        const [completed, ledger] = await Promise.all([
+          getCompletedOrders(phone),
+          getSettlementLedger("driver", phone),
+        ]);
         const todayCompleted = completed.filter(o => new Date(o.completedAt).getTime() >= todayStart);
-        const account = await getDriverFinancialAccount(phone);
 
         stats[phone] = {
           todayOrders: todayCompleted.length,
           todayEarnings: todayCompleted.reduce((sum, o) => sum + (o.driverEarning || 0), 0),
           totalOrders: completed.length,
           totalEarnings: completed.reduce((sum, o) => sum + (o.driverEarning || 0), 0),
-          amountOwed: account.amountOwed,
+          amountOwed: ledger?.outstandingTotal ?? 0,
         };
       }
 
@@ -5037,6 +5122,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let discount = 0;
       if (promo.type === "percentage") {
         discount = Math.round(cartTotal * (promo.value / 100));
+        // Apply maximum discount cap if configured (percentage coupons only)
+        if (promo.maximumDiscountAmount && promo.maximumDiscountAmount > 0) {
+          discount = Math.min(discount, promo.maximumDiscountAmount);
+        }
       } else {
         discount = promo.value;
       }
@@ -5049,6 +5138,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         newTotal: cartTotal - discount,
         promoType: promo.type,
         promoValue: promo.value,
+        maximumDiscountAmount: promo.maximumDiscountAmount ?? null,
       });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
@@ -5415,9 +5505,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const active = allOrders.filter((o: any) => !["delivered","cancelled"].includes(o.status));
       const cancelled = allOrders.filter((o: any) => o.status === "cancelled");
 
-      const totalRevenue = delivered.reduce((s: number, o: any) => s + (o.total || 0) + (o.deliveryFee || 0), 0);
-      const todayRevenue = todayOrders.filter((o:any) => o.status === "delivered")
-        .reduce((s: number, o: any) => s + (o.total || 0) + (o.deliveryFee || 0), 0);
+      // o.total is the authoritative order total (subtotal + deliveryFee + serviceFee - discount).
+      // Do NOT add deliveryFee again — it is already included in o.total.
+      const totalRevenue = delivered.reduce((s: number, o: any) => s + (o.total || 0), 0);
+      const todayRevenue = todayOrders.filter((o: any) => o.status === "delivered")
+        .reduce((s: number, o: any) => s + (o.total || 0), 0);
 
       const vendors = vendorsSnap.docs.map(d => ({ id: d.id, ...d.data() } as any));
       const restaurants = vendors.filter((v: any) => v.categoryType === "restaurant" || v.businessType === "restaurant");
@@ -5524,7 +5616,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const day = (o.createdAt || "").substring(0, 10);
         if (!dailyMap[day]) dailyMap[day] = { date: day, orders: 0, revenue: 0, newUsers: 0 };
         dailyMap[day].orders++;
-        if (o.status === "delivered") dailyMap[day].revenue += (o.total || 0) + (o.deliveryFee || 0);
+        if (o.status === "delivered") dailyMap[day].revenue += (o.total || 0);
       });
       usersSnap.docs.forEach(d => {
         const day = ((d.data() as any).createdAt || "").substring(0, 10);
@@ -5545,7 +5637,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         .map(([name, count]) => ({ name, count }));
 
       // Conversion: orders / total users (rough)
-      const totalRevenue = delivered.reduce((s: number, o: any) => s + (o.total || 0) + (o.deliveryFee || 0), 0);
+      // o.total already includes deliveryFee + serviceFee − discount; do not add deliveryFee again.
+      const totalRevenue = delivered.reduce((s: number, o: any) => s + (o.total || 0), 0);
       const avgOrderValue = delivered.length ? Math.round(totalRevenue / delivered.length) : 0;
 
       res.json({

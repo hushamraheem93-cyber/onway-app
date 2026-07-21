@@ -558,6 +558,65 @@ export async function listSettlementAccounts(accountType: SettlementAccountType)
   }
 }
 
+/**
+ * Admin-direct ledger adjustment (without a payment receipt).
+ * Used for corrections: "add" increases outstandingTotal (driver owes more),
+ * "deduct" decreases it (forgive/credit). Does NOT create a settlementPayments record.
+ */
+export async function adminAdjustLedger(
+  accountType: SettlementAccountType,
+  accountId: string,
+  amount: number,
+  adjustType: "add" | "deduct",
+  notes: string,
+  adminName?: string,
+): Promise<{ ok: boolean; outstandingBefore?: number; outstandingAfter?: number; reason?: string }> {
+  const db = getFirestore();
+  if (!db) return { ok: false, reason: "no_ledger" };
+  const ledgerRef = db.collection(LEDGER).doc(ledgerId(accountType, accountId));
+  try {
+    return await db.runTransaction(async (tx) => {
+      const snap = await tx.get(ledgerRef);
+      const now = admin.firestore.Timestamp.now();
+      const delta = Math.abs(Math.round(amount));
+      if (delta <= 0) return { ok: false, reason: "invalid_amount" };
+
+      if (!snap.exists) {
+        // Create a ledger entry with zeroed amounts if none exists yet
+        if (adjustType === "deduct") return { ok: false, reason: "no_ledger" };
+        tx.set(ledgerRef, {
+          accountType, accountId,
+          accountKey: accountKey(accountType, accountId),
+          totalOrders: 0, totalGross: 0, totalCommission: 0,
+          outstandingTotal: delta, pendingCount: 0, totalSettled: 0,
+          direction: directionFor(accountType),
+          adjustmentNotes: notes, adjustedBy: adminName || "",
+          updatedAt: now, createdAt: now,
+        });
+        return { ok: true, outstandingBefore: 0, outstandingAfter: delta };
+      }
+
+      const prev = snap.data() as any;
+      const before = prev.outstandingTotal ?? 0;
+      const after = adjustType === "add"
+        ? before + delta
+        : Math.max(0, before - delta);
+
+      tx.set(ledgerRef, {
+        outstandingTotal: after,
+        adjustmentNotes: notes,
+        adjustedBy: adminName || "",
+        updatedAt: now,
+      }, { merge: true });
+
+      return { ok: true, outstandingBefore: before, outstandingAfter: after };
+    });
+  } catch (error) {
+    console.error("adminAdjustLedger tx error:", error);
+    return { ok: false, reason: "transaction_failed" };
+  }
+}
+
 /** Per-account settlement payment history (permanent). */
 export async function getSettlementPayments(
   accountType: SettlementAccountType,
