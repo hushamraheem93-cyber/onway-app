@@ -72,7 +72,10 @@ const storage: StorageEngine = multer.diskStorage({
   },
 });
 
-const upload = multer({ storage });
+const upload = multer({
+  storage,
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10 MB — prevents DoS via oversized uploads
+});
 
 // uploadWebP uses memory storage — admin images go directly to Firebase Storage
 const uploadWebP = multer({
@@ -6336,8 +6339,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const locationFirestoreThrottle = new Map<string, number>();
   const FIRESTORE_WRITE_INTERVAL = 10_000; // write to Firestore at most every 10s
 
+  // In production, restrict Socket.io to the same allowed origins as the REST
+  // API. Falls back to "*" in development only.
+  const ioAllowedOrigins: string | string[] = (() => {
+    const isProd = process.env.NODE_ENV === "production";
+    const configured = (process.env.ALLOWED_ORIGINS || "")
+      .split(",")
+      .map((s: string) => s.trim())
+      .filter(Boolean);
+    if (isProd && configured.length > 0) return configured;
+    return "*";
+  })();
+
   const ioServer = new SocketServer(httpServer, {
-    cors: { origin: "*", methods: ["GET", "POST"] },
+    cors: { origin: ioAllowedOrigins, methods: ["GET", "POST"] },
     transports: ["websocket", "polling"],
   });
 
