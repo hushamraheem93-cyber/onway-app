@@ -279,7 +279,7 @@ export function OrderProvider({ children }: { children: ReactNode }) {
     const newOrder = await response.json();
     setOrders(prev => [newOrder, ...prev]);
     return newOrder;
-  }, [phoneNumber, userProfile]);
+  }, [phoneNumber, userProfile, customerToken]);
 
   const value = useMemo(
     () => ({ orders, isLoading, addOrder, refreshOrders }),
