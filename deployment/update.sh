@@ -22,14 +22,6 @@ echo -e "${GREEN}  OnWay — Updating to latest code                            
 echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 echo ""
 
-# ── If repo is private, prompt for PAT ───────────────────────────────────────
-CURRENT_REMOTE=$(git remote get-url origin 2>/dev/null || echo "")
-if ! git fetch origin --dry-run &>/dev/null 2>&1; then
-  read -rp "$(echo -e "${YELLOW}GitHub PAT token${NC} (needed for private repo pull): ")" GITHUB_PAT
-  git remote set-url origin "https://x-access-token:${GITHUB_PAT}@github.com/hushamraheem93-cyber/onway-app.git"
-  trap 'git remote set-url origin "https://github.com/hushamraheem93-cyber/onway-app.git"' EXIT
-fi
-
 info "Pulling latest code from GitHub..."
 git pull origin main
 success "Code updated"

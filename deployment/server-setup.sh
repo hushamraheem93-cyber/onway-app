@@ -23,8 +23,7 @@ echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━
 echo ""
 
 # ── Configuration prompts ─────────────────────────────────────────────────────
-read -rp "$(echo -e "${YELLOW}Domain name${NC} (e.g. api.example.com — or press Enter to use IP only): ")" DOMAIN
-read -rp "$(echo -e "${YELLOW}GitHub PAT token${NC} (from github.com/settings/tokens — needs repo read): ")" GITHUB_PAT
+read -rp "$(echo -e "${YELLOW}Domain name${NC} (e.g. api.example.com — or press Enter to use server IP): ")" DOMAIN
 echo ""
 
 GITHUB_REPO="hushamraheem93-cyber/onway-app"
@@ -69,21 +68,17 @@ fi
 info "Setting up project directory at ${APP_DIR}..."
 mkdir -p "$APP_DIR"
 
-CLONE_URL="https://x-access-token:${GITHUB_PAT}@github.com/${GITHUB_REPO}.git"
+CLONE_URL="https://github.com/${GITHUB_REPO}.git"
 
 if [[ -d "${APP_DIR}/.git" ]]; then
   info "Repository already exists — pulling latest..."
   cd "$APP_DIR"
-  git remote set-url origin "$CLONE_URL"
   git pull origin main
 else
   info "Cloning repository..."
   git clone "$CLONE_URL" "$APP_DIR"
   cd "$APP_DIR"
 fi
-
-# Remove PAT from stored remote URL (security)
-git remote set-url origin "https://github.com/${GITHUB_REPO}.git"
 success "Repository ready at ${APP_DIR}"
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
