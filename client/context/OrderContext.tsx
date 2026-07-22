@@ -6,6 +6,7 @@ import { CartItem } from "./CartContext";
 import { useAuth } from "./AuthContext";
 import { useNotifications } from "./NotificationContext";
 import { getApiUrl } from "@/lib/query-client";
+import { playLoudAlert } from "@/lib/alertSound";
 
 const ORDER_STATUSES_KEY = "@onway_order_statuses";
 
@@ -121,6 +122,9 @@ export function OrderProvider({ children }: { children: ReactNode }) {
         const message = STATUS_MESSAGES[order.status];
         if (message) {
           addNotification(message.title, message.body, { orderId: order.id, status: order.status });
+          // Play an in-app alert tone so the customer doesn't miss the update
+          // even when their phone is in their hand (silent push may be missed).
+          playLoudAlert().catch(() => {});
         }
       }
     });

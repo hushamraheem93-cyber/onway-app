@@ -34,6 +34,7 @@ import { formatPrice } from "@/constants/currency";
 import { formatDateOnly } from "@/lib/dateUtils";
 import { compressAndConvertToBase64, processAndUploadImage, isBase64Image, ImageSize } from "@/lib/imageUtils";
 import { useSystemSettings } from "@/context/SystemSettingsContext";
+import { playRepeatingAlert } from "@/lib/alertSound";
 
 type TabType = "dashboard" | "orders" | "drivers" | "users" | "banners" | "categories" | "products" | "areas" | "promoCodes" | "notifications" | "vendors" | "settlements" | "settings";
 
@@ -534,6 +535,26 @@ export default function AdminScreen() {
     queryKey: ["/api/admin/orders"],
     refetchInterval: 6000,
   });
+
+  // ── New-order sound alert ─────────────────────────────────────────────────
+  // Play a repeating alert whenever a genuinely new pending order appears in
+  // the list. Skip the first load so we don't beep for orders that were already
+  // there when the admin opened the screen.
+  const prevPendingIdsRef = useRef<Set<string>>(new Set());
+  const isFirstAdminOrderLoad = useRef(true);
+  useEffect(() => {
+    const pendingOrders = adminOrders.filter((o) => o.status === "pending");
+    if (isFirstAdminOrderLoad.current) {
+      isFirstAdminOrderLoad.current = false;
+      prevPendingIdsRef.current = new Set(pendingOrders.map((o) => o.id));
+      return;
+    }
+    const newOrders = pendingOrders.filter((o) => !prevPendingIdsRef.current.has(o.id));
+    prevPendingIdsRef.current = new Set(pendingOrders.map((o) => o.id));
+    if (newOrders.length > 0) {
+      playRepeatingAlert(3, 4000);
+    }
+  }, [adminOrders]);
 
   const { data: drivers = [], isLoading: driversLoading } = useQuery<Driver[]>({
     queryKey: ["/api/admin/drivers"],
