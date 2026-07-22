@@ -480,6 +480,79 @@ export async function sendAdminSettlementRequestNotification(
   }
 }
 
+// ── Vendor: customer cancelled the order ─────────────────────────────────────
+export async function sendVendorOrderCancelledNotification(
+  pushToken: string,
+  orderId: string,
+  customerName?: string
+): Promise<boolean> {
+  if (!pushToken || !pushToken.startsWith("ExponentPushToken")) return false;
+  const shortId = orderId.slice(-6).toUpperCase();
+  const message: ExpoPushMessage = {
+    to: pushToken,
+    title: "⚠️ تم إلغاء الطلب",
+    body: `العميل${customerName ? ` ${customerName}` : ""} ألغى الطلب رقم #${shortId}`,
+    sound: "default",
+    channelId: "default",
+    priority: "high",
+    ttl: 86400,
+    data: { type: "order_cancelled", orderId, shortId },
+  };
+  try {
+    const response = await fetch("https://exp.host/--/api/v2/push/send", {
+      method: "POST",
+      headers: { Accept: "application/json", "Accept-Encoding": "gzip, deflate", "Content-Type": "application/json" },
+      body: JSON.stringify(message),
+    });
+    const result = (await response.json()) as { data: ExpoPushTicket };
+    if (result.data.status === "ok") {
+      console.log(`[PUSH] Vendor order-cancelled #${shortId} → ...${pushToken.slice(-8)}`);
+      return true;
+    }
+    console.error("[PUSH] Vendor order-cancelled error:", result.data.message);
+    return false;
+  } catch (error) {
+    console.error("[PUSH] Error sending vendor order-cancelled notification:", error);
+    return false;
+  }
+}
+
+// ── Driver: the order you're delivering was cancelled ────────────────────────
+export async function sendDriverOrderCancelledNotification(
+  pushToken: string,
+  orderId: string
+): Promise<boolean> {
+  if (!pushToken || !pushToken.startsWith("ExponentPushToken")) return false;
+  const shortId = orderId.slice(-6).toUpperCase();
+  const message: ExpoPushMessage = {
+    to: pushToken,
+    title: "⚠️ تم إلغاء الطلب",
+    body: `تم إلغاء الطلب رقم #${shortId} — لا داعي لاستلامه`,
+    sound: "default",
+    channelId: "default",
+    priority: "high",
+    ttl: 86400,
+    data: { type: "order_cancelled", orderId, shortId },
+  };
+  try {
+    const response = await fetch("https://exp.host/--/api/v2/push/send", {
+      method: "POST",
+      headers: { Accept: "application/json", "Accept-Encoding": "gzip, deflate", "Content-Type": "application/json" },
+      body: JSON.stringify(message),
+    });
+    const result = (await response.json()) as { data: ExpoPushTicket };
+    if (result.data.status === "ok") {
+      console.log(`[PUSH] Driver order-cancelled #${shortId} → ...${pushToken.slice(-8)}`);
+      return true;
+    }
+    console.error("[PUSH] Driver order-cancelled error:", result.data.message);
+    return false;
+  } catch (error) {
+    console.error("[PUSH] Error sending driver order-cancelled notification:", error);
+    return false;
+  }
+}
+
 // ── Admin: order ready for driver pickup ─────────────────────────────────────
 export async function sendAdminOrderReadyNotification(
   pushToken: string,

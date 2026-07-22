@@ -53,7 +53,7 @@ import {
   listSettlementAccounts, getSettlementPayments, getSettlementLedger,
   adminAdjustLedger,
 } from "./settlement";
-import { sendPushNotification, sendBroadcastNotification, sendDriverBatchNotification, sendAdminNewOrderNotification, sendVendorNewOrderNotification, sendAdminSettlementRequestNotification } from "./pushNotifications";
+import { sendPushNotification, sendBroadcastNotification, sendDriverBatchNotification, sendAdminNewOrderNotification, sendVendorNewOrderNotification, sendAdminSettlementRequestNotification, sendVendorOrderCancelledNotification, sendDriverOrderCancelledNotification } from "./pushNotifications";
 import { deliverOtp } from "./otpDelivery";
 import { isDevMode } from "./env";
 
@@ -2380,6 +2380,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // was already validated against the allowed enum above.
       const success = await updateOrderStatus(orderId, status, { force: true });
       if (success) {
+        // Real-time: push status change to all connected clients so vendor,
+        // driver, and customer screens refresh without polling delay.
+        orderEvents.emit("order:status", { orderId, status });
+
+        // Customer push notification (if phone provided in request body)
         if (phoneNumber) {
           const pushToken = await getUserPushToken(phoneNumber);
           if (pushToken) {
@@ -2390,6 +2395,52 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // When order is confirmed, create a batch for the next available driver
         if (status === "confirmed") {
           onOrderConfirmed();
+        }
+
+        // Cancellation: notify all affected parties and clean up driver state
+        if (status === "cancelled") {
+          // Read the order to get vendorId / driverPhone (best-effort, async)
+          getOrderById(orderId).then(async cancelledOrder => {
+            if (!cancelledOrder) return;
+
+            // Customer push: if not already sent above, notify via order doc phone
+            if (!phoneNumber) {
+              const cPhone = cancelledOrder.customerPhone || cancelledOrder.phoneNumber;
+              if (cPhone) {
+                getUserPushToken(cPhone)
+                  .then(cToken => {
+                    if (cToken) sendPushNotification(cToken, "cancelled", orderId).catch(() => {});
+                  }).catch(() => {});
+              }
+            }
+
+            // Vendor push: vendor-specific cancellation message
+            if (cancelledOrder.vendorId) {
+              db.collection("vendors").doc(String(cancelledOrder.vendorId)).get()
+                .then(vDoc => {
+                  const vToken = vDoc.exists ? (vDoc.data() as any)?.pushToken as string | undefined : undefined;
+                  if (vToken) sendVendorOrderCancelledNotification(vToken, orderId, cancelledOrder.customerName).catch(() => {});
+                }).catch(() => {});
+            }
+
+            // Driver push + in-memory cleanup (check map first, fall back to order doc)
+            const assignedDriver = driverAssignments.get(orderId) || cancelledOrder.driverPhone || null;
+            if (assignedDriver) {
+              driverAssignments.delete(orderId);
+              getDriverPushToken(String(assignedDriver))
+                .then(dToken => {
+                  if (dToken) sendDriverOrderCancelledNotification(dToken, orderId).catch(() => {});
+                }).catch(() => {});
+            }
+
+            // Admin push (inform other admin sessions / devices)
+            getAdminPushToken()
+              .then(adminToken => {
+                if (adminToken) sendPushNotification(adminToken, "cancelled", orderId).catch(() => {});
+              }).catch(() => {});
+
+            console.log(`[CANCEL] Admin cancelled ${orderId.slice(-6).toUpperCase()} — driver: ${assignedDriver || "none"}, vendor: ${cancelledOrder.vendorId || "none"}`);
+          }).catch(() => {});
         }
 
         return res.json({ success: true, id: orderId, status });
@@ -4972,24 +5023,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
         updatedAt: Timestamp.now(),
       });
 
-      // Real-time: broadcast cancellation (forwarded to order room + orders:changed).
+      // Real-time: broadcast cancellation to all connected clients.
+      // Forwarded to: order:${orderId} room (customer tracking screen) +
+      // global orders:changed ping (vendor, driver, admin list screens).
       orderEvents.emit("order:status", { orderId, status: "cancelled" });
 
-      // Push: notify vendor about the cancellation (best-effort)
+      // Clean up in-memory driver assignment so the driver's active queue stays
+      // accurate. Fall back to the order document's driverPhone in case the
+      // server restarted and the in-memory map was cleared.
+      const assignedDriverPhone = driverAssignments.get(orderId) || data.driverPhone || null;
+      if (assignedDriverPhone) {
+        driverAssignments.delete(orderId);
+        // Push: notify the assigned driver immediately (best-effort)
+        getDriverPushToken(String(assignedDriverPhone))
+          .then(dToken => {
+            if (dToken) sendDriverOrderCancelledNotification(dToken, orderId).catch(() => {});
+          }).catch(() => {});
+      }
+
+      // Push: notify vendor with a vendor-specific cancellation message (best-effort)
       if (data.vendorId) {
         db.collection("vendors").doc(String(data.vendorId)).get()
           .then(vDoc => {
             const vToken = vDoc.exists ? (vDoc.data() as any)?.pushToken as string | undefined : undefined;
-            if (vToken) sendPushNotification(vToken, "cancelled", orderId).catch(() => {});
+            if (vToken) sendVendorOrderCancelledNotification(vToken, orderId, data.customerName).catch(() => {});
           }).catch(() => {});
       }
 
-      // Push: notify admin about the cancellation (best-effort)
+      // Push: notify admin (best-effort)
       getAdminPushToken()
         .then(adminToken => {
           if (adminToken) sendPushNotification(adminToken, "cancelled", orderId).catch(() => {});
         }).catch(() => {});
 
+      console.log(`[CANCEL] Customer cancelled ${orderId.slice(-6).toUpperCase()} — driver: ${assignedDriverPhone || "none"}, vendor: ${data.vendorId || "none"}`);
       return res.json({ success: true });
     } catch (error: any) {
       console.error("Error cancelling order:", error);
