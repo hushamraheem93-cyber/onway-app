@@ -929,6 +929,23 @@ export async function getDriverByPhone(phoneNumber: string): Promise<(FirestoreD
   }
 }
 
+/**
+ * Look up a vendor by phone number across all phone format variants.
+ * Returns the vendor doc id if found, null otherwise.
+ */
+export async function getVendorByPhone(phoneNumber: string): Promise<string | null> {
+  if (!db) return null;
+  try {
+    for (const phone of phoneVariants(phoneNumber)) {
+      const snapshot = await db.collection("vendors").where("phoneNumber", "==", phone).limit(1).get();
+      if (!snapshot.empty) return snapshot.docs[0].id;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 export async function createDriver(data: {
   phoneNumber: string;
   fullName: string;

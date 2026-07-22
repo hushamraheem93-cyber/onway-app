@@ -387,9 +387,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       const data = await response.json();
-      if (data.customerToken) {
-        setCustomerToken(data.customerToken);
-        try { await setToken(CUSTOMER_TOKEN_KEY, data.customerToken); } catch {}
+      const newCToken: string | null = data.customerToken || null;
+      if (newCToken) {
+        setCustomerToken(newCToken);
+        try { await setToken(CUSTOMER_TOKEN_KEY, newCToken); } catch {}
       }
       // Prefer the server-normalised phone (07XXXXXXXXX) so state, AsyncStorage,
       // and the JWT all use the same canonical format → ownership checks pass.
@@ -397,8 +398,92 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setPhoneNumber(canonicalPhone);
       setPendingPhone(canonicalPhone);
       setIsOtpVerified(true);
+
+      // Returning user: server detected an existing role → skip the role-selection
+      // screen and sign in directly. We pass phone and token explicitly because
+      // the React state updates above are batched and may not be visible yet.
+      if (data.existingRole && canonicalPhone) {
+        await selectRoleForPhone(data.existingRole as UserType, canonicalPhone, newCToken);
+      }
     } catch (error: any) {
       throw error;
+    }
+  };
+
+  /**
+   * Internal helper — applies role selection with explicit arguments so it can
+   * be called immediately after verifyOtp without relying on async state updates.
+   * Mirrors the three branches of the public setUserType() but accepts phone+token
+   * directly rather than reading them from state.
+   */
+  const selectRoleForPhone = async (type: UserType, phone: string, cToken: string | null) => {
+    setSelectedUserType(type);
+
+    if (type === "customer") {
+      await AsyncStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify({ phoneNumber: phone, userType: "customer", isDriverRegistered: false }));
+      setIsProfileLoading(true);
+      setIsLoggedIn(true);
+      try {
+        // Inline profile fetch so we can pass cToken directly.
+        const res = await fetch(
+          new URL(`/api/users/${encodeURIComponent(phone)}`, getApiUrl()).toString(),
+          { headers: cToken ? { Authorization: `Bearer ${cToken}` } : {} }
+        );
+        if (res.ok) {
+          const profile = await res.json();
+          setUserProfile(profile);
+          setIsProfileComplete(profile.profileComplete || false);
+          await AsyncStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify(profile));
+        } else {
+          setIsProfileComplete(false);
+        }
+      } catch {
+        setIsProfileComplete(false);
+      } finally {
+        setIsProfileLoading(false);
+      }
+
+    } else if (type === "driver") {
+      try { await issueDriverToken(phone, cToken); } catch { /* best-effort */ }
+      setIsDriverRegistered(true);
+      await AsyncStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify({ phoneNumber: phone, userType: "driver", isDriverRegistered: true }));
+      setIsLoggedIn(true);
+      try {
+        const res = await fetch(
+          new URL(`/api/users/${encodeURIComponent(phone)}`, getApiUrl()).toString(),
+          { headers: cToken ? { Authorization: `Bearer ${cToken}` } : {} }
+        );
+        if (res.ok) {
+          const profile = await res.json();
+          setUserProfile(profile);
+          setIsProfileComplete(profile.profileComplete || false);
+          await AsyncStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify(profile));
+        }
+      } catch { /* best-effort */ }
+
+    } else if (type === "vendor") {
+      await AsyncStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify({ phoneNumber: phone, userType: "vendor" }));
+      setIsLoggedIn(true);
+      try {
+        const res = await fetch(new URL("/api/vendor/mobile-auth", getApiUrl()).toString(), {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...(cToken ? { Authorization: `Bearer ${cToken}` } : {}),
+          },
+          body: JSON.stringify({ phoneNumber: phone }),
+        });
+        if (res.ok) {
+          const vData = await res.json();
+          if (vData.vendor && vData.token) {
+            setVendorProfile(vData.vendor);
+            setVendorToken(vData.token);
+            setIsVendorRegistered(true);
+            await setToken(VENDOR_TOKEN_KEY, vData.token);
+            await AsyncStorage.setItem(VENDOR_PROFILE_KEY, JSON.stringify(vData.vendor));
+          }
+        }
+      } catch { /* best-effort */ }
     }
   };
 

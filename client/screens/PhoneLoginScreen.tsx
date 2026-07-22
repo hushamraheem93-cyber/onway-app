@@ -299,14 +299,14 @@ const styles = StyleSheet.create({
     textAlign: "center",
     letterSpacing: 1,
     writingDirection: "ltr",
-    lineHeight: 42,
-    includeFontPadding: true,
+    lineHeight: 44,
   },
   tagline: {
     fontFamily: "Cairo_600SemiBold",
     fontSize: 14,
     color: "rgba(255,255,255,0.9)",
     textAlign: "center",
+    lineHeight: 22,
   },
   card: {
     width: "100%",
@@ -331,12 +331,15 @@ const styles = StyleSheet.create({
     fontSize: 22,
     color: AppColors.gray800,
     textAlign: "right",
+    lineHeight: 36,
+    paddingTop: 2,
   },
   welcomeSub: {
     fontFamily: "Cairo_400Regular",
     fontSize: 14,
     color: AppColors.gray500,
     textAlign: "right",
+    lineHeight: 24,
     marginTop: 3,
     marginBottom: 22,
   },
@@ -346,9 +349,7 @@ const styles = StyleSheet.create({
     color: AppColors.gray700,
     textAlign: "right",
     marginBottom: 8,
-    lineHeight: 22,
-    includeFontPadding: true,
-    paddingTop: 2,
+    lineHeight: 24,
   },
   phoneRow: {
     flexDirection: "row",
@@ -378,6 +379,7 @@ const styles = StyleSheet.create({
   countryCode: {
     fontFamily: "Cairo_700Bold",
     fontSize: 14,
+    lineHeight: 20,
     color: AppColors.gray700,
   },
   flag: {
@@ -396,6 +398,7 @@ const styles = StyleSheet.create({
     fontFamily: "Cairo_600SemiBold",
     color: AppColors.error,
     fontSize: 13,
+    lineHeight: 20,
     textAlign: "right",
   },
   submitBtn: {
@@ -430,6 +433,7 @@ const styles = StyleSheet.create({
   submitText: {
     fontFamily: "Cairo_700Bold",
     fontSize: 17,
+    lineHeight: 26,
     letterSpacing: 0.3,
     color: AppColors.white,
   },
@@ -441,6 +445,7 @@ const styles = StyleSheet.create({
   forgotPasswordText: {
     color: BRAND_ORANGE,
     fontSize: 14,
+    lineHeight: 22,
     fontFamily: "Cairo_700Bold",
   },
   backBtn: {
@@ -464,11 +469,13 @@ const styles = StyleSheet.create({
   whiteText: {
     color: AppColors.white,
     fontSize: 15,
+    lineHeight: 24,
     fontFamily: "Cairo_400Regular",
   },
   signUpText: {
     color: AppColors.white,
     fontSize: 15,
+    lineHeight: 24,
     fontWeight: FontWeight.bold,
     textDecorationLine: "underline",
     fontFamily: "Cairo_700Bold",
@@ -492,6 +499,7 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontFamily: "Cairo_700Bold",
     fontSize: 17,
+    lineHeight: 28,
     color: AppColors.gray700,
     textAlign: "center",
     marginBottom: 12,
@@ -513,6 +521,7 @@ const styles = StyleSheet.create({
   modalButtonText: {
     fontFamily: "Cairo_700Bold",
     fontSize: 15,
+    lineHeight: 24,
     color: AppColors.white,
   },
 });

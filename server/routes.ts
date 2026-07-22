@@ -28,7 +28,7 @@ import {
   updateDeliveryArea as updateFirestoreDeliveryArea, deleteDeliveryArea as deleteFirestoreDeliveryArea,
   initializeDefaultDeliveryAreas,
   generateOtp, verifyOtp as verifyOtpCode,
-  getDrivers, getDriverByPhone, createDriver, updateDriverStatus as updateDriverStatusFn, deleteDriver as deleteDriverFn,
+  getDrivers, getDriverByPhone, getVendorByPhone, createDriver, updateDriverStatus as updateDriverStatusFn, deleteDriver as deleteDriverFn,
   updateOrderDriverInfo,
   getPromoCodes, getPromoCodeByCode, createPromoCode, updatePromoCode, deletePromoCode as deletePromoCodeFn,
   checkPromoUsage, recordPromoUsage,
@@ -2910,7 +2910,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
   });
 
-  app.post("/api/auth/verify-otp", (req: Request, res: Response) => {
+  app.post("/api/auth/verify-otp", async (req: Request, res: Response) => {
     const { code } = req.body;
     if (!req.body.phoneNumber || !code) {
       return res.status(400).json({ error: "Phone number and code are required" });
@@ -2927,9 +2927,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
       ROUTES_JWT_SECRET,
       { expiresIn: "30d" }
     );
+
+    // Detect whether this is a returning user and what role they had.
+    // Priority: driver > vendor > customer (most specific first).
+    // New users get null and are shown the role-selection screen.
+    let existingRole: "driver" | "vendor" | "customer" | null = null;
+    try {
+      const [driver, vendorId, userProfile] = await Promise.all([
+        getDriverByPhone(phoneNumber),
+        getVendorByPhone(phoneNumber),
+        getUserByPhone(phoneNumber),
+      ]);
+      if (driver) existingRole = "driver";
+      else if (vendorId) existingRole = "vendor";
+      else if (userProfile) existingRole = "customer";
+    } catch { /* best-effort: if detection fails, show role selection screen */ }
+
     // Return the normalized phone so the client stores the canonical form
     // that matches what the JWT contains — preventing ownership-check mismatches.
-    res.json({ success: true, message: "OTP verified", customerToken, phoneNumber });
+    res.json({ success: true, message: "OTP verified", customerToken, phoneNumber, existingRole });
   });
 
   // Driver Routes
