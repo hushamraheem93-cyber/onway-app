@@ -1,5 +1,5 @@
 import React from "react";
-import { StyleSheet, FlatList, View, TouchableOpacity } from "react-native";
+import { StyleSheet, FlatList, View, TouchableOpacity, Alert } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
@@ -12,6 +12,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useTheme } from "@/hooks/useTheme";
 import { Spacing, AppColors, FontWeight} from "@/constants/theme";
 import { useCart, CartItem } from "@/context/CartContext";
+import { useAuth } from "@/context/AuthContext";
 import { formatPrice } from "@/constants/currency";
 import { CartItemCard } from "@/components/CartItemCard";
 import { EmptyState } from "@/components/EmptyState";
@@ -29,6 +30,7 @@ export default function CartScreen() {
   const { theme } = useTheme();
   const navigation = useNavigation<NavigationProp>();
   const { items, getTotal, clearCart, cartVendorId } = useCart();
+  const { isGuest, exitGuestMode } = useAuth();
 
   const subtotal = getTotal();
 
@@ -44,6 +46,23 @@ export default function CartScreen() {
   const isBelowMinOrder = vendorMinOrder > 0 && subtotal < vendorMinOrder;
 
   const handleCheckout = () => {
+    if (isGuest) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+      Alert.alert(
+        "إنشاء حساب مطلوب",
+        "لإتمام الطلب، الرجاء إنشاء حساب داخل التطبيق",
+        [
+          { text: "إلغاء", style: "cancel" },
+          {
+            text: "إنشاء حساب",
+            style: "default",
+            onPress: () => exitGuestMode(),
+          },
+        ],
+        { cancelable: true }
+      );
+      return;
+    }
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     navigation.navigate("Checkout");
   };

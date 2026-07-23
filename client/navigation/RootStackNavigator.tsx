@@ -82,7 +82,7 @@ const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export default function RootStackNavigator() {
   const screenOptions = useScreenOptions();
-  const { isLoggedIn, isLoading, isProfileComplete, isProfileLoading, isOtpSent, isOtpVerified, selectedUserType, isDriverRegistered, hasSeenSplash, isVendorRegistered } = useAuth();
+  const { isLoggedIn, isLoading, isProfileComplete, isProfileLoading, isOtpSent, isOtpVerified, selectedUserType, isDriverRegistered, hasSeenSplash, isVendorRegistered, isGuest } = useAuth();
 
   if (isLoading) {
     return (
@@ -146,7 +146,7 @@ export default function RootStackNavigator() {
     (selectedUserType === "driver" && !isDriverRegistered) ||
     (selectedUserType === "vendor" && !isVendorRegistered && !isLoggedIn);
 
-  if (needsAuth && !isLoggedIn) {
+  if (needsAuth && !isLoggedIn && !isGuest) {
     return (
       <Stack.Navigator
         screenOptions={{

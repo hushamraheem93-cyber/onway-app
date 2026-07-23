@@ -26,7 +26,7 @@ const BRAND_ORANGE = AppColors.primary;
 const BRAND_DARK = AppColors.primaryDark;
 
 export default function PhoneLoginScreen() {
-  const { sendOtp } = useAuth();
+  const { sendOtp, loginAsGuest } = useAuth();
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
   const [phoneNumber, setPhoneNumber] = useState("");
@@ -214,6 +214,24 @@ export default function PhoneLoginScreen() {
                 <ThemedText style={styles.signUpText}>سجل الآن</ThemedText>
               </Pressable>
             </View>
+
+            {/* Guest mode */}
+            <Pressable
+              style={({ pressed }) => [
+                styles.guestBtn,
+                pressed && styles.guestBtnPressed,
+              ]}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                loginAsGuest();
+              }}
+              testID="button-guest"
+              accessibilityRole="button"
+              accessibilityLabel="تصفح كضيف"
+            >
+              <Feather name="eye" size={16} color="rgba(255,255,255,0.9)" />
+              <ThemedText style={styles.guestBtnText}>تصفح كضيف</ThemedText>
+            </Pressable>
           </ScrollView>
         </KeyboardAvoidingView>
       </SafeAreaView>
@@ -479,6 +497,29 @@ const styles = StyleSheet.create({
     fontWeight: FontWeight.bold,
     textDecorationLine: "underline",
     fontFamily: "Cairo_700Bold",
+  },
+  guestBtn: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    marginTop: 16,
+    paddingVertical: 13,
+    paddingHorizontal: 32,
+    borderRadius: 16,
+    borderWidth: 1.5,
+    borderColor: "rgba(255,255,255,0.45)",
+    backgroundColor: "rgba(255,255,255,0.10)",
+  },
+  guestBtnPressed: {
+    opacity: 0.75,
+    transform: [{ scale: 0.98 }],
+  },
+  guestBtnText: {
+    fontFamily: "Cairo_600SemiBold",
+    fontSize: 15,
+    lineHeight: 24,
+    color: "rgba(255,255,255,0.95)",
   },
   modalOverlay: {
     flex: 1,

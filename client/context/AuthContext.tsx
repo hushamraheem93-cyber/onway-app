@@ -90,6 +90,10 @@ interface AuthContextType {
   goBackToOtp: () => void;
   markSplashSeen: () => void;
   isLoading: boolean;
+  // Guest mode
+  isGuest: boolean;
+  loginAsGuest: () => Promise<void>;
+  exitGuestMode: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -99,6 +103,7 @@ const PROFILE_STORAGE_KEY = "@onway_profile";
 const VENDOR_TOKEN_KEY = "@onway_vendor_token";
 const VENDOR_PROFILE_KEY = "@onway_vendor_profile";
 const CUSTOMER_TOKEN_KEY = "@onway_customer_token";
+const GUEST_MODE_KEY = "@onway_guest_mode";
 
 async function registerForPushNotificationsAsync(): Promise<string | null> {
   if (Platform.OS === "web") {
@@ -208,6 +213,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isVendorRegistered, setIsVendorRegistered] = useState(false);
   // Customer JWT (issued by /api/auth/verify-otp)
   const [customerToken, setCustomerToken] = useState<string | null>(null);
+  // Guest mode — browse-only, no ordering allowed
+  const [isGuest, setIsGuest] = useState(false);
 
   useEffect(() => {
     loadAuthState();
@@ -253,6 +260,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const loadAuthState = async () => {
     try {
       const stored = await AsyncStorage.getItem(AUTH_STORAGE_KEY);
+      // If no real auth data exists, check if the user previously chose guest mode.
+      if (!stored) {
+        const guestMode = await AsyncStorage.getItem(GUEST_MODE_KEY);
+        if (guestMode === "true") setIsGuest(true);
+      }
       if (stored) {
         const data = JSON.parse(stored);
         setPhoneNumber(data.phoneNumber);
@@ -663,6 +675,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await logout();
   };
 
+  const loginAsGuest = async () => {
+    await AsyncStorage.setItem(GUEST_MODE_KEY, "true");
+    setIsGuest(true);
+  };
+
+  const exitGuestMode = async () => {
+    await AsyncStorage.removeItem(GUEST_MODE_KEY);
+    setIsGuest(false);
+  };
+
   const logout = async () => {
     try {
       await AsyncStorage.removeItem(AUTH_STORAGE_KEY);
@@ -670,6 +692,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       await removeToken(VENDOR_TOKEN_KEY);
       await AsyncStorage.removeItem(VENDOR_PROFILE_KEY);
       await removeToken(CUSTOMER_TOKEN_KEY);
+      await AsyncStorage.removeItem(GUEST_MODE_KEY);
       await clearDriverToken();
       setPhoneNumber(null);
       setPendingPhone(null);
@@ -685,6 +708,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setVendorToken(null);
       setIsVendorRegistered(false);
       setCustomerToken(null);
+      setIsGuest(false);
     } catch (error) {
       throw error;
     }
@@ -782,6 +806,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         markSplashSeen,
         isLoading,
         isProfileLoading,
+        isGuest,
+        loginAsGuest,
+        exitGuestMode,
       }}
     >
       {children}
