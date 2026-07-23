@@ -36,11 +36,9 @@ function EmptyStateComponent({
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.backgroundRoot }]}>
-      <View style={[styles.imageContainer, { backgroundColor: theme.backgroundDefault }]}>
-        <View style={styles.orangeBox}>
-          <Ionicons name={icon} size={80} color={AppColors.white} />
-        </View>
+    <View style={[styles.container, { backgroundColor: "transparent" }]}>
+      <View style={styles.orangeBox}>
+        <Ionicons name={icon} size={80} color={AppColors.white} />
       </View>
 
       <ThemedText type="h2" style={styles.title}>
@@ -74,19 +72,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     paddingHorizontal: 30,
-  },
-  imageContainer: {
-    width: 180,
-    height: 180,
-    borderRadius: 30,
-    justifyContent: "center",
-    alignItems: "center",
-    marginBottom: 30,
-    shadowColor: AppColors.black,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 10,
-    elevation: 5,
   },
   orangeBox: {
     width: 120,
