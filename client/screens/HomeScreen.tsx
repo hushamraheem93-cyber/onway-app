@@ -25,7 +25,7 @@ import tabCartImg from "../assets/images/tab-cart-groceries.png";
 import tabBurgerImg from "../assets/images/tab-burger-meal.png";
 
 import { useTheme } from "@/hooks/useTheme";
-import { Spacing, AppColors, DesignSystem, BorderRadius, FontWeight} from "@/constants/theme";
+import { Spacing, AppColors, BorderRadius, FontWeight} from "@/constants/theme";
 import { Category, Banner, Product } from "@/constants/categories";
 import { ThemedText } from "@/components/ThemedText";
 import { LocationBar } from "@/components/LocationBar";
@@ -42,7 +42,7 @@ import { getApiUrl } from "@/lib/query-client";
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
-const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
+const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const HORIZONTAL_PADDING = 18;
 const PRODUCT_CARD_WIDTH = 160;
 
@@ -1024,6 +1024,10 @@ export default function HomeScreen() {
                 <View style={styles.loadingContainer}>
                   <ActivityIndicator size="small" color={AppColors.primary} />
                 </View>
+              ) : bestSellerProducts.length === 0 ? (
+                <View style={styles.emptySection}>
+                  <ThemedText type="small" style={styles.emptySectionText}>لا توجد منتجات حالياً</ThemedText>
+                </View>
               ) : (
                 <ScrollView
                   horizontal
@@ -1049,6 +1053,10 @@ export default function HomeScreen() {
               {productsLoading ? (
                 <View style={styles.loadingContainer}>
                   <ActivityIndicator size="small" color={AppColors.primary} />
+                </View>
+              ) : featuredProducts.length === 0 ? (
+                <View style={styles.emptySection}>
+                  <ThemedText type="small" style={styles.emptySectionText}>لا توجد منتجات مميزة حالياً</ThemedText>
                 </View>
               ) : (
                 <ScrollView
@@ -1462,6 +1470,17 @@ const styles = StyleSheet.create({
     includeFontPadding: false,
   },
   // ── Search empty ──
+  emptySection: {
+    paddingVertical: 20,
+    paddingHorizontal: 16,
+    alignItems: "center",
+  },
+  emptySectionText: {
+    fontFamily: "Cairo_400Regular",
+    fontSize: 13,
+    color: AppColors.gray400,
+    textAlign: "center",
+  },
   emptySearch: {
     paddingVertical: 48,
     alignItems: "center",

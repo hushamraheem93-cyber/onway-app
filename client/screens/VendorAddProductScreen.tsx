@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
   View,
   StyleSheet,
@@ -26,6 +26,7 @@ import { getApiUrl } from "@/lib/query-client";
 import { CATEGORY_MAP, ALL_CATEGORIES, PRODUCT_NAME_PLACEHOLDER } from "@/constants/businessCategories";
 import DynamicProductFields from "@/components/DynamicProductFields";
 import { AppColors } from "@/constants/theme";
+import { searchProductImages, GROCERY_BUSINESS_TYPES, LibraryEntry } from "@/constants/productImageLibrary";
 
 const ORANGE = AppColors.primary;
 const ORANGE_LIGHT = AppColors.secondary;
@@ -53,6 +54,33 @@ export default function VendorAddProductScreen({ navigation }: any) {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
+
+  // Library state — only for grocery/supermarket stores
+  const isGroceryStore = GROCERY_BUSINESS_TYPES.has(businessType);
+  const [libraryEntry, setLibraryEntry] = useState<LibraryEntry | null>(null);
+  const [selectedLibraryUrl, setSelectedLibraryUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!isGroceryStore) return;
+    const found = searchProductImages(name);
+    setLibraryEntry(found);
+    // Clear selection if name changed and it no longer matches
+    if (!found) setSelectedLibraryUrl(null);
+  }, [name, isGroceryStore]);
+
+  // Variants & addons
+  const [variants, setVariants] = useState<{ id: string; name: string; priceAdjustment: string }[]>([]);
+  const [addons, setAddons] = useState<{ id: string; name: string; price: string }[]>([]);
+
+  const addVariant = () => setVariants((p) => [...p, { id: Date.now().toString(), name: "", priceAdjustment: "0" }]);
+  const removeVariant = (id: string) => setVariants((p) => p.filter((v) => v.id !== id));
+  const updateVariant = (id: string, field: "name" | "priceAdjustment", value: string) =>
+    setVariants((p) => p.map((v) => (v.id === id ? { ...v, [field]: value } : v)));
+
+  const addAddon = () => setAddons((p) => [...p, { id: Date.now().toString(), name: "", price: "0" }]);
+  const removeAddon = (id: string) => setAddons((p) => p.filter((a) => a.id !== id));
+  const updateAddon = (id: string, field: "name" | "price", value: string) =>
+    setAddons((p) => p.map((a) => (a.id === id ? { ...a, [field]: value } : a)));
 
   const showImageSourcePicker = (onGallery: () => void, onCamera: () => void) => {
     if (Platform.OS === "web") {
@@ -125,8 +153,9 @@ export default function VendorAddProductScreen({ navigation }: any) {
   };
 
   const submit = async () => {
-    if (!name.trim() || !price || !category || imageUris.length === 0) {
-      setError("يرجى ملء اسم المنتج، السعر، الفئة، ورفع صورة واحدة على الأقل");
+    const hasImage = imageUris.length > 0 || !!selectedLibraryUrl;
+    if (!name.trim() || !price || !category || !hasImage) {
+      setError("يرجى ملء اسم المنتج، السعر، الفئة، واختيار أو رفع صورة");
       return;
     }
     if (isNaN(parseFloat(price)) || parseFloat(price) <= 0) {
@@ -147,29 +176,43 @@ export default function VendorAddProductScreen({ navigation }: any) {
       if (Object.keys(dynamicData).length > 0) {
         formData.append("extraData", JSON.stringify(dynamicData));
       }
+      // Variants & addons (filter out entries with empty names)
+      const validVariants = variants
+        .filter((v) => v.name.trim())
+        .map((v) => ({ id: v.id, name: v.name.trim(), priceAdjustment: parseFloat(v.priceAdjustment) || 0 }));
+      const validAddons = addons
+        .filter((a) => a.name.trim())
+        .map((a) => ({ id: a.id, name: a.name.trim(), price: parseFloat(a.price) || 0 }));
+      if (validVariants.length > 0) formData.append("variants", JSON.stringify(validVariants));
+      if (validAddons.length > 0) formData.append("addons", JSON.stringify(validAddons));
 
-      const compressedUris = await Promise.all(
-        imageUris.map(async (uri) => {
-          try {
-            const result = await manipulateAsync(
-              uri,
-              [{ resize: { width: 800 } }],
-              { compress: 0.72, format: SaveFormat.WEBP }
-            );
-            return result.uri;
-          } catch {
-            return uri;
-          }
-        })
-      );
+      if (selectedLibraryUrl && imageUris.length === 0) {
+        // Library image selected — send URL directly, no file upload needed
+        formData.append("libraryImageUrl", selectedLibraryUrl);
+      } else {
+        const compressedUris = await Promise.all(
+          imageUris.map(async (uri) => {
+            try {
+              const result = await manipulateAsync(
+                uri,
+                [{ resize: { width: 800 } }],
+                { compress: 0.72, format: SaveFormat.WEBP }
+              );
+              return result.uri;
+            } catch {
+              return uri;
+            }
+          })
+        );
 
-      for (const uri of compressedUris) {
-        const filename = uri.split("/").pop() || "product.webp";
-        formData.append("images", {
-          uri,
-          name: filename,
-          type: "image/webp",
-        } as any);
+        for (const uri of compressedUris) {
+          const filename = uri.split("/").pop() || "product.webp";
+          formData.append("images", {
+            uri,
+            name: filename,
+            type: "image/webp",
+          } as any);
+        }
       }
 
       const res = await fetch(new URL("/api/vendor/products", getApiUrl()).toString(), {
@@ -210,6 +253,7 @@ export default function VendorAddProductScreen({ navigation }: any) {
               setSuccess(false);
               setName(""); setDescription(""); setPrice(""); setStock("");
               setCategory(categories[0]); setUnit(UNITS[0]); setImageUris([]);
+              setVariants([]); setAddons([]); setSelectedLibraryUrl(null); setLibraryEntry(null);
             }}
             testID="button-add-another"
           >
@@ -249,13 +293,103 @@ export default function VendorAddProductScreen({ navigation }: any) {
         </View>
       ) : null}
 
+      {/* ── اسم المنتج (مبكراً حتى تعمل المكتبة) ── */}
       <ThemedText style={styles.label}>
+        اسم المنتج <ThemedText style={{ color: ORANGE }}>*</ThemedText>
+      </ThemedText>
+      <TextInput
+        style={styles.input}
+        value={name}
+        onChangeText={setName}
+        placeholder={PRODUCT_NAME_PLACEHOLDER[businessType] || "اسم المنتج"}
+        placeholderTextColor={AppColors.gray300}
+        testID="input-name"
+      />
+
+      {/* ── مكتبة الصور الذكية (للبقالات والسوبرماركت فقط) ── */}
+      {isGroceryStore && libraryEntry && imageUris.length === 0 ? (
+        <View style={styles.librarySection}>
+          <View style={styles.librarySectionHeader}>
+            <MaterialCommunityIcons name="image-multiple" size={16} color={ORANGE} />
+            <ThemedText style={styles.libraryTitle}>اختر صورة للمنتج</ThemedText>
+          </View>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.libraryRow}
+          >
+            {libraryEntry.urls.map((url, idx) => {
+              const isSelected = selectedLibraryUrl === url;
+              return (
+                <Pressable
+                  key={url}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                    setSelectedLibraryUrl(isSelected ? null : url);
+                  }}
+                  style={[
+                    styles.libraryThumbWrap,
+                    isSelected && { borderColor: ORANGE, borderWidth: 3 },
+                  ]}
+                  testID={`library-image-${idx}`}
+                >
+                  <Image
+                    source={{ uri: url }}
+                    style={styles.libraryThumb}
+                    contentFit="cover"
+                    transition={200}
+                  />
+                  {isSelected ? (
+                    <View style={styles.libraryCheckOverlay}>
+                      <MaterialCommunityIcons name="check-circle" size={28} color={AppColors.white} />
+                    </View>
+                  ) : null}
+                </Pressable>
+              );
+            })}
+          </ScrollView>
+          {selectedLibraryUrl ? (
+            <View style={styles.librarySelectedBanner}>
+              <MaterialCommunityIcons name="check-circle" size={14} color={AppColors.success} />
+              <ThemedText style={styles.librarySelectedText}>تم اختيار الصورة</ThemedText>
+              <Pressable onPress={() => setSelectedLibraryUrl(null)} hitSlop={8}>
+                <ThemedText style={[styles.librarySelectedText, { color: AppColors.error }]}>إلغاء</ThemedText>
+              </Pressable>
+            </View>
+          ) : null}
+          <View style={styles.libraryDivider}>
+            <View style={styles.libraryLine} />
+            <ThemedText style={styles.libraryOrText}>أو رفع صورة خاصة بك</ThemedText>
+            <View style={styles.libraryLine} />
+          </View>
+        </View>
+      ) : null}
+
+      <ThemedText style={[styles.label, { marginTop: isGroceryStore && libraryEntry ? 0 : 0 }]}>
         صور المنتج <ThemedText style={{ color: ORANGE }}>*</ThemedText>
-        <ThemedText style={styles.labelHint}> (1 — {MAX_IMAGES} صور، الأولى هي الصورة الرئيسية)</ThemedText>
+        {!isGroceryStore || !libraryEntry ? (
+          <ThemedText style={styles.labelHint}> (1 — {MAX_IMAGES} صور، الأولى هي الصورة الرئيسية)</ThemedText>
+        ) : null}
       </ThemedText>
 
       {/* ── Large primary image preview ── */}
-      {imageUris.length > 0 ? (
+      {selectedLibraryUrl && imageUris.length === 0 ? (
+        /* Library image selected — show large preview */
+        <View style={styles.heroWrap}>
+          <Image source={{ uri: selectedLibraryUrl }} style={styles.heroImage} contentFit="cover" />
+          <View style={[styles.heroBadge, { backgroundColor: AppColors.success + "CC" }]}>
+            <MaterialCommunityIcons name="image-check" size={11} color={AppColors.white} />
+            <ThemedText style={styles.heroBadgeText}>صورة من المكتبة</ThemedText>
+          </View>
+          <Pressable
+            style={styles.heroRemoveBtn}
+            onPress={() => setSelectedLibraryUrl(null)}
+            testID="button-remove-library-image"
+          >
+            <Feather name="x" size={14} color={AppColors.white} />
+          </Pressable>
+        </View>
+      ) : imageUris.length > 0 ? (
         <View style={styles.heroWrap}>
           <Image source={{ uri: imageUris[0] }} style={styles.heroImage} contentFit="cover" />
           <View style={styles.heroBadge}>
@@ -336,18 +470,6 @@ export default function VendorAddProductScreen({ navigation }: any) {
         </Pressable>
       </View>
 
-      <ThemedText style={styles.label}>
-        اسم المنتج <ThemedText style={{ color: ORANGE }}>*</ThemedText>
-      </ThemedText>
-      <TextInput
-        style={styles.input}
-        value={name}
-        onChangeText={setName}
-        placeholder={PRODUCT_NAME_PLACEHOLDER[businessType] || "اسم المنتج"}
-        placeholderTextColor={AppColors.gray300}
-        testID="input-name"
-      />
-
       <ThemedText style={styles.label}>وصف المنتج</ThemedText>
       <TextInput
         style={[styles.input, styles.textArea]}
@@ -414,6 +536,82 @@ export default function VendorAddProductScreen({ navigation }: any) {
             <Picker.Item key={u} label={u} value={u} />
           ))}
         </Picker>
+      </View>
+
+      {/* ── Variants Section ── */}
+      <View style={styles.extraSection}>
+        <View style={styles.extraHeader}>
+          <ThemedText style={styles.label}>الأحجام / الخيارات (اختياري)</ThemedText>
+          <Pressable onPress={addVariant} style={styles.addExtraBtn} testID="button-add-variant">
+            <Feather name="plus" size={15} color={ORANGE} />
+            <ThemedText style={[styles.addExtraText, { color: ORANGE }]}>إضافة</ThemedText>
+          </Pressable>
+        </View>
+        {variants.length === 0 ? (
+          <ThemedText style={styles.extraHint}>مثال: صغير (+0)، وسط (+2000)، كبير (+5000)</ThemedText>
+        ) : null}
+        {variants.map((v) => (
+          <View key={v.id} style={styles.extraRow}>
+            <TextInput
+              style={[styles.input, styles.extraInput, { flex: 2 }]}
+              value={v.name}
+              onChangeText={(val) => updateVariant(v.id, "name", val)}
+              placeholder="الاسم (صغير، وسط...)"
+              placeholderTextColor={AppColors.gray300}
+              testID={`input-variant-name-${v.id}`}
+            />
+            <TextInput
+              style={[styles.input, styles.extraInput, { flex: 1 }]}
+              value={v.priceAdjustment}
+              onChangeText={(val) => updateVariant(v.id, "priceAdjustment", val)}
+              placeholder="فرق السعر"
+              placeholderTextColor={AppColors.gray300}
+              keyboardType="numeric"
+              testID={`input-variant-price-${v.id}`}
+            />
+            <Pressable onPress={() => removeVariant(v.id)} style={styles.extraRemoveBtn} testID={`button-remove-variant-${v.id}`}>
+              <Feather name="x" size={14} color={AppColors.error} />
+            </Pressable>
+          </View>
+        ))}
+      </View>
+
+      {/* ── Addons Section ── */}
+      <View style={styles.extraSection}>
+        <View style={styles.extraHeader}>
+          <ThemedText style={styles.label}>الإضافات (اختياري)</ThemedText>
+          <Pressable onPress={addAddon} style={styles.addExtraBtn} testID="button-add-addon">
+            <Feather name="plus" size={15} color={ORANGE} />
+            <ThemedText style={[styles.addExtraText, { color: ORANGE }]}>إضافة</ThemedText>
+          </Pressable>
+        </View>
+        {addons.length === 0 ? (
+          <ThemedText style={styles.extraHint}>مثال: جبن إضافي (+2000)، صلصة حارة (+500)</ThemedText>
+        ) : null}
+        {addons.map((a) => (
+          <View key={a.id} style={styles.extraRow}>
+            <TextInput
+              style={[styles.input, styles.extraInput, { flex: 2 }]}
+              value={a.name}
+              onChangeText={(val) => updateAddon(a.id, "name", val)}
+              placeholder="اسم الإضافة"
+              placeholderTextColor={AppColors.gray300}
+              testID={`input-addon-name-${a.id}`}
+            />
+            <TextInput
+              style={[styles.input, styles.extraInput, { flex: 1 }]}
+              value={a.price}
+              onChangeText={(val) => updateAddon(a.id, "price", val)}
+              placeholder="السعر"
+              placeholderTextColor={AppColors.gray300}
+              keyboardType="numeric"
+              testID={`input-addon-price-${a.id}`}
+            />
+            <Pressable onPress={() => removeAddon(a.id)} style={styles.extraRemoveBtn} testID={`button-remove-addon-${a.id}`}>
+              <Feather name="x" size={14} color={AppColors.error} />
+            </Pressable>
+          </View>
+        ))}
       </View>
 
       <View style={styles.noteBox}>
@@ -570,6 +768,50 @@ const styles = StyleSheet.create({
   addThumbText: {
     fontFamily: "Cairo_700Bold", fontSize: 11, color: ORANGE,
   },
+  /* ── Variants / Addons editor ── */
+  extraSection: { marginTop: 8, marginBottom: 4 },
+  extraHeader: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 4,
+  },
+  addExtraBtn: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 20,
+    backgroundColor: ORANGE_LIGHT,
+  },
+  addExtraText: { fontFamily: "Cairo_700Bold", fontSize: 12 },
+  extraHint: {
+    fontFamily: "Cairo_400Regular",
+    fontSize: 12,
+    color: AppColors.gray400,
+    textAlign: "right",
+    marginBottom: 8,
+  },
+  extraRow: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 8,
+  },
+  extraInput: {
+    marginBottom: 0,
+    paddingVertical: 10,
+    fontSize: 14,
+  },
+  extraRemoveBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: AppColors.errorLight,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   imgActions: {
     flexDirection: "row", borderWidth: 1.5, borderColor: AppColors.primaryLight,
     borderRadius: 16,
@@ -620,4 +862,77 @@ const styles = StyleSheet.create({
   successActions: { width: "100%", gap: 12 },
   successBtn: { paddingVertical: 14, borderRadius: 14, alignItems: "center" },
   successBtnText: { fontFamily: "Cairo_700Bold", fontSize: 15, color: AppColors.white },
+
+  // ── Smart Image Library ──────────────────────────────────────────────────
+  librarySection: {
+    backgroundColor: AppColors.primaryLight + "30",
+    borderRadius: 16,
+    padding: 12,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: AppColors.primaryLight,
+  },
+  librarySectionHeader: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    gap: 6,
+    marginBottom: 10,
+  },
+  libraryTitle: {
+    fontFamily: "Cairo_700Bold",
+    fontSize: 14,
+    color: ORANGE,
+    textAlign: "right",
+  },
+  libraryRow: {
+    flexDirection: "row",
+    gap: 10,
+    paddingBottom: 4,
+  },
+  libraryThumbWrap: {
+    width: 96,
+    height: 96,
+    borderRadius: 14,
+    overflow: "hidden",
+    borderWidth: 2,
+    borderColor: "transparent",
+  },
+  libraryThumb: {
+    width: "100%",
+    height: "100%",
+  },
+  libraryCheckOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(0,0,0,0.38)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  librarySelectedBanner: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    gap: 6,
+    marginTop: 8,
+    paddingHorizontal: 4,
+  },
+  librarySelectedText: {
+    fontFamily: "Cairo_600SemiBold",
+    fontSize: 12,
+    color: AppColors.success,
+  },
+  libraryDivider: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    gap: 8,
+    marginTop: 12,
+  },
+  libraryLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: AppColors.primaryLight,
+  },
+  libraryOrText: {
+    fontFamily: "Cairo_400Regular",
+    fontSize: 12,
+    color: AppColors.gray500,
+  },
 });

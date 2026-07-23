@@ -6,6 +6,7 @@ import { CartItem } from "./CartContext";
 import { useAuth } from "./AuthContext";
 import { useNotifications } from "./NotificationContext";
 import { getApiUrl } from "@/lib/query-client";
+import { playLoudAlert } from "@/lib/alertSound";
 
 const ORDER_STATUSES_KEY = "@onway_order_statuses";
 
@@ -22,7 +23,18 @@ const STATUS_MESSAGES: Record<string, { title: string; body: string }> = {
 
 export interface Order {
   id: string;
-  items: { productId: string; name: string; price: number; quantity: number; image: string; restaurant?: string }[];
+  items: {
+    productId: string;
+    name: string;
+    price: number;
+    quantity: number;
+    image: string;
+    restaurant?: string;
+    variantName?: string;
+    variantPriceAdjustment?: number;
+    selectedVariantId?: string;
+    selectedAddons?: { id: string; name: string; price: number }[];
+  }[];
   total: number;
   deliveryFee: number;
   serviceFee?: number;
@@ -38,6 +50,10 @@ export interface Order {
   vendorId?: string;
   customerRating?: number;
   ratedAt?: string;
+  driverRating?: number;
+  driverRatedAt?: string;
+  driverId?: string;
+  driverName?: string;
 }
 
 interface OrderContextType {
@@ -106,6 +122,9 @@ export function OrderProvider({ children }: { children: ReactNode }) {
         const message = STATUS_MESSAGES[order.status];
         if (message) {
           addNotification(message.title, message.body, { orderId: order.id, status: order.status });
+          // Play an in-app alert tone so the customer doesn't miss the update
+          // even when their phone is in their hand (silent push may be missed).
+          playLoudAlert().catch(() => {});
         }
       }
     });
@@ -200,10 +219,21 @@ export function OrderProvider({ children }: { children: ReactNode }) {
       items: orderData.items.map(item => ({
         productId: item.product.id,
         name: item.product.name,
-        price: item.product.price,
+        // Final price = base + variant adjustment + addons
+        price: item.product.price
+          + (item.selectedVariant?.priceAdjustment ?? 0)
+          + (item.selectedAddons ?? []).reduce((s: number, a: any) => s + a.price, 0),
         quantity: item.quantity,
         image: item.product.image,
         ...(item.product.restaurant ? { restaurant: item.product.restaurant } : {}),
+        ...(item.selectedVariant ? {
+          selectedVariantId: item.selectedVariant.id,
+          variantName: item.selectedVariant.name,
+          variantPriceAdjustment: item.selectedVariant.priceAdjustment,
+        } : {}),
+        ...(item.selectedAddons?.length ? {
+          selectedAddons: item.selectedAddons.map(a => ({ id: a.id, name: a.name, price: a.price })),
+        } : {}),
       })),
       total: orderData.total,
       deliveryFee: orderData.deliveryFee,
@@ -228,7 +258,10 @@ export function OrderProvider({ children }: { children: ReactNode }) {
     try {
       response = await fetch(new URL("/api/orders", getApiUrl()).toString(), {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(customerToken ? { Authorization: `Bearer ${customerToken}` } : {}),
+        },
         body: JSON.stringify(bodyData),
       });
     } catch (networkError: any) {
@@ -250,7 +283,7 @@ export function OrderProvider({ children }: { children: ReactNode }) {
     const newOrder = await response.json();
     setOrders(prev => [newOrder, ...prev]);
     return newOrder;
-  }, [phoneNumber, userProfile]);
+  }, [phoneNumber, userProfile, customerToken]);
 
   const value = useMemo(
     () => ({ orders, isLoading, addOrder, refreshOrders }),

@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { StyleSheet, View, FlatList, Pressable, TextInput, Dimensions } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
@@ -36,6 +37,30 @@ export default function SearchScreen() {
 
   const [searchQuery, setSearchQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
+  const [searchHistory, setSearchHistory] = useState<string[]>([]);
+
+  const SEARCH_HISTORY_KEY = "@onway_search_history";
+  const MAX_HISTORY = 8;
+
+  useEffect(() => {
+    AsyncStorage.getItem(SEARCH_HISTORY_KEY)
+      .then((raw) => { if (raw) setSearchHistory(JSON.parse(raw)); })
+      .catch(() => {});
+  }, []);
+
+  const saveToHistory = useCallback((query: string) => {
+    if (query.length < 2) return;
+    setSearchHistory((prev) => {
+      const next = [query, ...prev.filter((h) => h !== query)].slice(0, MAX_HISTORY);
+      AsyncStorage.setItem(SEARCH_HISTORY_KEY, JSON.stringify(next)).catch(() => {});
+      return next;
+    });
+  }, []);
+
+  const clearHistory = () => {
+    AsyncStorage.removeItem(SEARCH_HISTORY_KEY).catch(() => {});
+    setSearchHistory([]);
+  };
 
   // Debounce so we hit the server once the user pauses, not on every keystroke.
   useEffect(() => {
@@ -62,6 +87,13 @@ export default function SearchScreen() {
     enabled: debouncedQuery.length > 0,
     staleTime: 60 * 1000,
   });
+
+  // Save to history when results arrive (declared after filteredProducts)
+  useEffect(() => {
+    if (debouncedQuery.length >= 2 && filteredProducts.length > 0) {
+      saveToHistory(debouncedQuery);
+    }
+  }, [debouncedQuery, filteredProducts.length, saveToHistory]);
 
   const handleAddToCart = (product: Product) => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -143,6 +175,29 @@ export default function SearchScreen() {
 
       {searchQuery.trim().length === 0 ? (
         <View style={styles.suggestionsContainer}>
+          {/* Search History */}
+          {searchHistory.length > 0 ? (
+            <View style={styles.historySection}>
+              <View style={styles.historyHeader}>
+                <Pressable onPress={clearHistory} hitSlop={8}>
+                  <ThemedText type="small" style={[styles.clearHistoryText, { color: AppColors.primary }]}>مسح</ThemedText>
+                </Pressable>
+                <ThemedText type="h4" style={[styles.sectionTitle, { marginBottom: 0 }]}>البحث الأخير</ThemedText>
+              </View>
+              {searchHistory.map((query) => (
+                <Pressable
+                  key={query}
+                  onPress={() => { setSearchQuery(query); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); }}
+                  style={[styles.historyItem, { borderBottomColor: theme.border }]}
+                >
+                  <Feather name="clock" size={15} color={theme.textSecondary} />
+                  <ThemedText type="body" style={[styles.historyText, { color: theme.text }]}>{query}</ThemedText>
+                  <Feather name="arrow-up-left" size={14} color={theme.textSecondary} />
+                </Pressable>
+              ))}
+            </View>
+          ) : null}
+
           <ThemedText type="h3" style={styles.sectionTitle}>تصفح الأقسام</ThemedText>
           <FlatList
             data={categories}
@@ -185,6 +240,22 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+  historySection: { marginBottom: 16 },
+  historyHeader: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 8,
+  },
+  clearHistoryText: { fontFamily: "Cairo_600SemiBold", fontSize: 13 },
+  historyItem: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    gap: 10,
+    paddingVertical: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  historyText: { flex: 1, textAlign: "right", fontFamily: "Cairo_400Regular" },
   searchContainer: {
     paddingHorizontal: 16,
     paddingBottom: Spacing.sm,

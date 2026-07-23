@@ -4,7 +4,7 @@
       "developmentClient": true,
       "distribution": "internal",
       "env": {
-        "EXPO_PUBLIC_DOMAIN": "onway-hushamraheem93.replit.app"
+        "EXPO_PUBLIC_API_BASE_URL": "https://api.onway.iq"
       }
     },
     "preview": {
@@ -13,12 +13,12 @@
         "buildType": "apk"
       },
       "env": {
-        "EXPO_PUBLIC_DOMAIN": "onway-hushamraheem93.replit.app"
+        "EXPO_PUBLIC_API_BASE_URL": "https://api.onway.iq"
       }
     },
     "production": {
       "env": {
-        "EXPO_PUBLIC_DOMAIN": "onway-hushamraheem93.replit.app"
+        "EXPO_PUBLIC_API_BASE_URL": "https://api.onway.iq"
       }
     }
   }

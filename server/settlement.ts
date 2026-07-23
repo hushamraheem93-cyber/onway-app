@@ -317,12 +317,25 @@ export interface CompleteSettlementResult {
 
 /**
  * Record a settlement payment (full or partial, from a request or manual) and reduce
- * the account's outstanding balance. The money-critical mutation — ledger balance +
- * permanent payment record + request status — runs in ONE Firestore transaction with
- * a clamp so a balance can never go negative and an overpayment is never accepted. The
- * FIFO marking of individual pending settlement records is applied right after as
- * derived bookkeeping (the ledger is the balance authority), keeping the hot path free
- * of composite-index requirements.
+ * the account's outstanding balance.
+ *
+ * Consistency model:
+ * ┌─────────────────────────────────────────────────────────────────────┐
+ * │  Firestore transaction  (atomic, always-consistent)                │
+ * │  • ledger.outstandingTotal  ← reduced                             │
+ * │  • settlementPayments doc   ← created (fifoApplied: false)        │
+ * │  • settlementRequests doc   ← status updated (if from request)    │
+ * └─────────────────────────────────────────────────────────────────────┘
+ *        ↓  transaction commits
+ * ┌─────────────────────────────────────────────────────────────────────┐
+ * │  FIFO bookkeeping  (derived, repairable)                           │
+ * │  • individual settlements marked settled/partially settled         │
+ * │  • on success → payment.fifoApplied = true                        │
+ * │  • on crash   → repairPendingFIFO() at next call auto-heals       │
+ * └─────────────────────────────────────────────────────────────────────┘
+ *
+ * The ledger is the single source of truth for balances. FIFO is derived
+ * bookkeeping for display only and is always recoverable.
  */
 export async function completeSettlement(input: CompleteSettlementInput): Promise<CompleteSettlementResult> {
   const db = getFirestore();
@@ -331,6 +344,11 @@ export async function completeSettlement(input: CompleteSettlementInput): Promis
   const ledgerRef = db.collection(LEDGER).doc(ledgerId(input.accountType, input.accountId));
   const paymentRef = db.collection(SETTLEMENT_PAYMENTS).doc();
   const reqRef = input.requestId ? db.collection(SETTLEMENT_REQUESTS).doc(input.requestId) : null;
+
+  // ── Step 0: Repair any payments whose FIFO step was interrupted by a crash ──
+  // This runs before the new transaction so the account's per-record statuses
+  // are always up-to-date. Best-effort and silent — never blocks the new payment.
+  await repairPendingFIFO(input.accountType, input.accountId).catch(() => {});
 
   let appliedOut = 0;
   try {
@@ -382,6 +400,11 @@ export async function completeSettlement(input: CompleteSettlementInput): Promis
         outstandingAfter: newOutstanding,
         receiptNumber,
         createdAt: now,
+        // Consistency marker: FIFO bookkeeping runs outside the transaction.
+        // If the server crashes after commit but before FIFO, this flag stays false
+        // and repairPendingFIFO() will re-apply it on the next call.
+        fifoApplied: false,
+        fifoAmount: amount,
       });
 
       if (reqRef && reqSnap?.exists) {
@@ -406,16 +429,63 @@ export async function completeSettlement(input: CompleteSettlementInput): Promis
 
     if (result.ok) {
       appliedOut = result.applied ?? 0;
-      // Derived bookkeeping: mark the oldest pending settlement records as settled
-      // (FIFO) up to the applied amount. Best-effort — the ledger above is authoritative.
-      await markSettlementRecordsFIFO(input.accountType, input.accountId, appliedOut).catch((e) =>
-        console.error("markSettlementRecordsFIFO error:", e),
-      );
+      // Derived bookkeeping: mark oldest pending settlement records settled (FIFO).
+      // On success, stamp fifoApplied:true on the payment record so it is never
+      // re-processed by repairPendingFIFO(). On crash before this line, the payment
+      // remains fifoApplied:false and will be repaired at the next call above.
+      await markSettlementRecordsFIFO(input.accountType, input.accountId, appliedOut)
+        .then(() =>
+          db.collection(SETTLEMENT_PAYMENTS).doc(paymentRef.id)
+            .set({ fifoApplied: true }, { merge: true })
+            .catch(() => {}),
+        )
+        .catch((e) => console.error("markSettlementRecordsFIFO error:", e));
     }
     return result;
   } catch (error) {
     console.error("completeSettlement tx error:", error);
     return { ok: false, reason: "no_ledger" };
+  }
+}
+
+/**
+ * Self-healing: find any payment records for this account where FIFO bookkeeping
+ * was interrupted (fifoApplied: false) and re-apply it. Called automatically at the
+ * start of every completeSettlement so the account is always in a consistent state.
+ * Safe to call multiple times — markSettlementRecordsFIFO is idempotent.
+ */
+async function repairPendingFIFO(
+  accountType: SettlementAccountType,
+  accountId: string,
+): Promise<void> {
+  const db = getFirestore();
+  if (!db) return;
+  const key = accountKey(accountType, accountId);
+  try {
+    // Only look at recent payments (last 20) to keep this cheap.
+    const snap = await db.collection(SETTLEMENT_PAYMENTS)
+      .where("accountKey", "==", key)
+      .where("fifoApplied", "==", false)
+      .orderBy("createdAt", "desc")
+      .limit(20)
+      .get();
+    if (snap.empty) return;
+
+    for (const doc of snap.docs) {
+      const data = doc.data() as any;
+      const amount: number = data.fifoAmount ?? data.amount ?? 0;
+      if (amount <= 0) {
+        // Nothing to apply — mark as done to avoid re-processing.
+        await doc.ref.set({ fifoApplied: true }, { merge: true }).catch(() => {});
+        continue;
+      }
+      await markSettlementRecordsFIFO(accountType, accountId, amount);
+      await doc.ref.set({ fifoApplied: true }, { merge: true }).catch(() => {});
+      console.info(`[FIFO repair] Applied ${amount} for ${key} (payment ${doc.id})`);
+    }
+  } catch (e) {
+    // Repair is best-effort — never let it block the caller.
+    console.error("[FIFO repair] error:", e);
   }
 }
 
@@ -555,6 +625,65 @@ export async function listSettlementAccounts(accountType: SettlementAccountType)
   } catch (error) {
     console.error("listSettlementAccounts error:", error);
     return [];
+  }
+}
+
+/**
+ * Admin-direct ledger adjustment (without a payment receipt).
+ * Used for corrections: "add" increases outstandingTotal (driver owes more),
+ * "deduct" decreases it (forgive/credit). Does NOT create a settlementPayments record.
+ */
+export async function adminAdjustLedger(
+  accountType: SettlementAccountType,
+  accountId: string,
+  amount: number,
+  adjustType: "add" | "deduct",
+  notes: string,
+  adminName?: string,
+): Promise<{ ok: boolean; outstandingBefore?: number; outstandingAfter?: number; reason?: string }> {
+  const db = getFirestore();
+  if (!db) return { ok: false, reason: "no_ledger" };
+  const ledgerRef = db.collection(LEDGER).doc(ledgerId(accountType, accountId));
+  try {
+    return await db.runTransaction(async (tx) => {
+      const snap = await tx.get(ledgerRef);
+      const now = admin.firestore.Timestamp.now();
+      const delta = Math.abs(Math.round(amount));
+      if (delta <= 0) return { ok: false, reason: "invalid_amount" };
+
+      if (!snap.exists) {
+        // Create a ledger entry with zeroed amounts if none exists yet
+        if (adjustType === "deduct") return { ok: false, reason: "no_ledger" };
+        tx.set(ledgerRef, {
+          accountType, accountId,
+          accountKey: accountKey(accountType, accountId),
+          totalOrders: 0, totalGross: 0, totalCommission: 0,
+          outstandingTotal: delta, pendingCount: 0, totalSettled: 0,
+          direction: directionFor(accountType),
+          adjustmentNotes: notes, adjustedBy: adminName || "",
+          updatedAt: now, createdAt: now,
+        });
+        return { ok: true, outstandingBefore: 0, outstandingAfter: delta };
+      }
+
+      const prev = snap.data() as any;
+      const before = prev.outstandingTotal ?? 0;
+      const after = adjustType === "add"
+        ? before + delta
+        : Math.max(0, before - delta);
+
+      tx.set(ledgerRef, {
+        outstandingTotal: after,
+        adjustmentNotes: notes,
+        adjustedBy: adminName || "",
+        updatedAt: now,
+      }, { merge: true });
+
+      return { ok: true, outstandingBefore: before, outstandingAfter: after };
+    });
+  } catch (error) {
+    console.error("adminAdjustLedger tx error:", error);
+    return { ok: false, reason: "transaction_failed" };
   }
 }
 

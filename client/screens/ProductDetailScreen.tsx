@@ -10,18 +10,18 @@ import { Image } from "expo-image";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRoute, RouteProp } from "@react-navigation/native";
-import { Feather, FontAwesome } from "@expo/vector-icons";
+import { Feather, FontAwesome, MaterialCommunityIcons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 
 import { ThemedText } from "@/components/ThemedText";
 import { GradientBackground } from "@/components/GradientBackground";
-import { useCart } from "@/context/CartContext";
+import { useCart, getCartKey } from "@/context/CartContext";
 import { useFavorites } from "@/context/FavoritesContext";
 import { resolveImageUrl } from "@/utils/imageUtils";
 import { formatPrice } from "@/constants/currency";
 import { AppColors, Spacing, BorderRadius, Shadows, FontWeight} from "@/constants/theme";
 import { useTheme } from "@/hooks/useTheme";
-import { Product } from "@/constants/categories";
+import { Product, ProductVariant, ProductAddon } from "@/constants/categories";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
 
 const { width: SCREEN_W } = Dimensions.get("window");
@@ -69,26 +69,47 @@ export default function ProductDetailScreen() {
 
   const [activeIndex, setActiveIndex] = useState(0);
 
-  const cartItem = items.find((i) => i.product.id === product.id);
+  // Variant & addon selection
+  const productVariants: ProductVariant[] = (product as any).variants ?? [];
+  const productAddons: ProductAddon[] = (product as any).addons ?? [];
+  const [selectedVariant, setSelectedVariant] = useState<ProductVariant | undefined>(
+    productVariants.length > 0 ? productVariants[0] : undefined
+  );
+  const [selectedAddons, setSelectedAddons] = useState<ProductAddon[]>([]);
+
+  const cartProduct = toCartProduct(product);
+  const currentCartKey = cartProduct.id + "__" + (selectedVariant?.id || "base");
+  const cartItem = items.find((i) => getCartKey(i) === currentCartKey);
   const quantity = cartItem?.quantity ?? 0;
   const isFav = isFavorite(product.id);
   const isOutOfStock = product.stock <= 0;
 
-  const cartProduct = toCartProduct(product);
+  // Effective display price: base + variant adjustment + selected addons
+  const displayPrice =
+    product.price +
+    (selectedVariant?.priceAdjustment ?? 0) +
+    selectedAddons.reduce((s, a) => s + a.price, 0);
+
+  const handleToggleAddon = (addon: ProductAddon) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setSelectedAddons((prev) =>
+      prev.some((a) => a.id === addon.id) ? prev.filter((a) => a.id !== addon.id) : [...prev, addon]
+    );
+  };
 
   const handleAdd = () => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    addToCart(cartProduct);
+    addToCart(cartProduct, selectedVariant, selectedAddons.length > 0 ? selectedAddons : undefined);
   };
 
   const handleIncrease = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    updateQuantity(product.id, quantity + 1);
+    updateQuantity(currentCartKey, quantity + 1);
   };
 
   const handleDecrease = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    updateQuantity(product.id, quantity - 1);
+    updateQuantity(currentCartKey, quantity - 1);
   };
 
   const handleToggleFavorite = () => {
@@ -218,7 +239,7 @@ export default function ProductDetailScreen() {
 
           <View style={styles.priceRow}>
             <ThemedText type="h2" style={[styles.price, { color: AppColors.primary }]}>
-              {formatPrice(product.price)}
+              {formatPrice(displayPrice)}
             </ThemedText>
             {isOutOfStock ? (
               <View style={styles.outOfStockBadge}>
@@ -226,6 +247,73 @@ export default function ProductDetailScreen() {
               </View>
             ) : null}
           </View>
+
+          {/* Variant Selector */}
+          {productVariants.length > 0 ? (
+            <View style={styles.variantsSection}>
+              <ThemedText style={[styles.optionLabel, { color: theme.textSecondary }]}>الحجم:</ThemedText>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.variantRow}>
+                {productVariants.map((v) => {
+                  const isSelected = selectedVariant?.id === v.id;
+                  return (
+                    <Pressable
+                      key={v.id}
+                      onPress={() => { setSelectedVariant(v); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); }}
+                      style={[
+                        styles.variantChip,
+                        {
+                          backgroundColor: isSelected ? AppColors.primary : theme.backgroundRoot,
+                          borderColor: isSelected ? AppColors.primary : (theme.border ?? AppColors.divider),
+                        },
+                      ]}
+                    >
+                      <ThemedText style={[styles.variantChipName, { color: isSelected ? AppColors.white : theme.text }]}>
+                        {v.name}
+                      </ThemedText>
+                      {v.priceAdjustment !== 0 ? (
+                        <ThemedText style={[styles.variantChipPrice, { color: isSelected ? AppColors.white + "cc" : theme.textSecondary }]}>
+                          {v.priceAdjustment > 0 ? "+" : ""}{formatPrice(v.priceAdjustment)}
+                        </ThemedText>
+                      ) : null}
+                    </Pressable>
+                  );
+                })}
+              </ScrollView>
+            </View>
+          ) : null}
+
+          {/* Addon Selector */}
+          {productAddons.length > 0 ? (
+            <View style={styles.addonsSection}>
+              <ThemedText style={[styles.optionLabel, { color: theme.textSecondary }]}>الإضافات:</ThemedText>
+              {productAddons.map((addon) => {
+                const isSelected = selectedAddons.some((a) => a.id === addon.id);
+                return (
+                  <Pressable
+                    key={addon.id}
+                    onPress={() => handleToggleAddon(addon)}
+                    style={[
+                      styles.addonRow,
+                      {
+                        backgroundColor: isSelected ? AppColors.primary + "10" : theme.backgroundRoot,
+                        borderColor: isSelected ? AppColors.primary + "50" : (theme.border ?? AppColors.divider),
+                      },
+                    ]}
+                  >
+                    <MaterialCommunityIcons
+                      name={isSelected ? "checkbox-marked-circle" : "checkbox-blank-circle-outline"}
+                      size={20}
+                      color={isSelected ? AppColors.primary : theme.textSecondary}
+                    />
+                    <ThemedText style={[styles.addonName, { color: theme.text }]}>{addon.name}</ThemedText>
+                    <ThemedText style={[styles.addonPrice, { color: AppColors.primary }]}>
+                      +{formatPrice(addon.price)}
+                    </ThemedText>
+                  </Pressable>
+                );
+              })}
+            </View>
+          ) : null}
         </View>
       </ScrollView>
 
@@ -402,6 +490,50 @@ const styles = StyleSheet.create({
     fontFamily: "Cairo_700Bold",
     fontSize: 12,
     color: AppColors.error,
+  },
+  variantsSection: { marginTop: Spacing.md },
+  optionLabel: {
+    fontFamily: "Cairo_600SemiBold",
+    fontSize: 13,
+    textAlign: "right",
+    marginBottom: 8,
+  },
+  variantRow: { flexDirection: "row-reverse", gap: 8, paddingVertical: 2 },
+  variantChip: {
+    borderWidth: 1.5,
+    borderRadius: 20,
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    alignItems: "center",
+    gap: 2,
+  },
+  variantChipName: {
+    fontFamily: "Cairo_600SemiBold",
+    fontSize: 13,
+  },
+  variantChipPrice: {
+    fontFamily: "Cairo_400Regular",
+    fontSize: 11,
+  },
+  addonsSection: { marginTop: Spacing.md },
+  addonRow: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    gap: 8,
+    padding: 10,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    marginBottom: 6,
+  },
+  addonName: {
+    flex: 1,
+    fontFamily: "Cairo_400Regular",
+    fontSize: 14,
+    textAlign: "right",
+  },
+  addonPrice: {
+    fontFamily: "Cairo_700Bold",
+    fontSize: 13,
   },
   cartBar: {
     position: "absolute",

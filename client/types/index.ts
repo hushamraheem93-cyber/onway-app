@@ -47,6 +47,8 @@ export interface Vendor {
   openTime?: string;
   closeTime?: string;
   sortOrder?: number;
+  isVacation?: boolean;
+  isBusy?: boolean;
 }
 
 // ── Driver ───────────────────────────────────────────────────────────────────

@@ -77,6 +77,10 @@ interface VendorStore {
   coverImageUrl?: string;
   rating?: number | null;
   ratingCount?: number;
+  isOpen?: boolean;
+  isVacation?: boolean;
+  isBusy?: boolean;
+  minOrder?: number;
 }
 
 function toCartProduct(p: VendorProduct): Product {
@@ -450,6 +454,24 @@ export default function StoreProductsScreen() {
                   onRatingsPress={() => navigation.navigate("StoreRatings", { storeId, storeName: store.storeName })}
                 />
               ) : null}
+              {/* Closed / Vacation / Busy banner */}
+              {store && (store.isVacation || store.isBusy || store.isOpen === false) ? (
+                <View style={storeClosedBannerStyle(store)}>
+                  <Feather
+                    name={store.isVacation ? "umbrella" : store.isBusy ? "clock" : "moon"}
+                    size={16}
+                    color="#fff"
+                    style={{ marginLeft: 8 }}
+                  />
+                  <ThemedText style={{ color: "#fff", fontFamily: "Cairo_700Bold", fontSize: 14 }}>
+                    {store.isVacation
+                      ? "المتجر في وضع الإجازة — يعود قريباً"
+                      : store.isBusy
+                      ? "المتجر مشغول حالياً — وقت التسليم أطول من المعتاد"
+                      : "المتجر مغلق الآن — لا يمكن قبول طلبات"}
+                  </ThemedText>
+                </View>
+              ) : null}
               <SearchFilterBar
                 searchQuery={searchQuery}
                 onSearchChange={setSearchQuery}
@@ -696,6 +718,26 @@ const sfStyles = StyleSheet.create({
     fontSize: 12,
   },
 });
+
+// Returns inline style for the store-closed banner based on the reason
+function storeClosedBannerStyle(store: VendorStore): object {
+  const bg = store.isVacation
+    ? AppColors.primary
+    : store.isBusy
+    ? AppColors.warning
+    : AppColors.gray500;
+  return {
+    flexDirection: "row-reverse" as const,
+    alignItems: "center" as const,
+    backgroundColor: bg,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    marginHorizontal: 16,
+    marginBottom: 8,
+    gap: 8,
+  };
+}
 
 const styles = StyleSheet.create({
   center: {

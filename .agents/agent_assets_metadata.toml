@@ -119,3 +119,9 @@ id = "Dpclow__74SOfuSV7vHoO"
 uri = "file://exports/onway-source-latest.zip"
 type = "unspecified"
 title = "Onway - كامل الكود المصدري (أحدث نسخة)"
+
+[[outputs]]
+id = "emlAAuDWdgRRlKf5uMA8O"
+uri = "file://financial-audit-report.txt"
+type = "text"
+title = "تقرير التدقيق المالي الشامل — OnWay"

@@ -54,12 +54,12 @@ export default function UserTypeScreen() {
     <View style={styles.container}>
       <LinearGradient
         colors={[BRAND_ORANGE, BRAND_DARK]}
-        style={[styles.topSection, { paddingTop: insets.top + 20 }]}
+        style={[styles.topSection, { paddingTop: Math.max(insets.top + 20, 80) }]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
       >
         <Pressable
-          style={styles.backBtn}
+          style={[styles.backBtn, { top: Math.max(insets.top + 8, 24) }]}
           onPress={() => {
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
             goBackToOtp();
@@ -245,18 +245,25 @@ const styles = StyleSheet.create({
     fontSize: 22,
     color: AppColors.white,
     letterSpacing: 1,
+    lineHeight: 36,
+    includeFontPadding: true,
   },
   headerTitle: {
     fontFamily: "Cairo_700Bold",
     fontSize: 18,
     color: AppColors.white,
     textAlign: "center",
+    lineHeight: 32,
+    includeFontPadding: true,
+    paddingTop: 2,
   },
   headerSub: {
     fontFamily: "Cairo_400Regular",
     fontSize: 14,
     color: "rgba(255,255,255,0.85)",
     textAlign: "center",
+    lineHeight: 24,
+    includeFontPadding: true,
   },
   card: {
     flex: 1,

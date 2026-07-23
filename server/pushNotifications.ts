@@ -83,29 +83,37 @@ export async function sendPushNotification(
     data: { orderId, status },
   };
 
-  try {
-    const response = await fetch("https://exp.host/--/api/v2/push/send", {
-      method: "POST",
-      headers: {
-        Accept: "application/json",
-        "Accept-Encoding": "gzip, deflate",
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(message),
-    });
+  // Send with one automatic retry on transient network failures
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    try {
+      const response = await fetch("https://exp.host/--/api/v2/push/send", {
+        method: "POST",
+        headers: {
+          Accept: "application/json",
+          "Accept-Encoding": "gzip, deflate",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(message),
+      });
 
-    const result = (await response.json()) as { data: ExpoPushTicket };
-    
-    if (result.data.status === "ok") {
-      return true;
-    } else {
-      console.error("Push notification error:", result.data.message);
+      const result = (await response.json()) as { data: ExpoPushTicket };
+
+      if (result.data.status === "ok") {
+        return true;
+      }
+      // Permanent failure (bad token etc.) — no point retrying
+      console.error(`[Push] delivery error (attempt ${attempt}):`, result.data.message);
       return false;
+    } catch (error) {
+      if (attempt === 2) {
+        console.error("[Push] network error after retry:", error);
+        return false;
+      }
+      // Brief back-off before retry
+      await new Promise((r) => setTimeout(r, 1000));
     }
-  } catch (error) {
-    console.error("Error sending push notification:", error);
-    return false;
   }
+  return false;
 }
 
 export function getStatusMessage(status: string): { title: string; body: string } | null {
@@ -468,6 +476,79 @@ export async function sendAdminSettlementRequestNotification(
     return false;
   } catch (error) {
     console.error("[PUSH] Error sending admin settlement notification:", error);
+    return false;
+  }
+}
+
+// ── Vendor: customer cancelled the order ─────────────────────────────────────
+export async function sendVendorOrderCancelledNotification(
+  pushToken: string,
+  orderId: string,
+  customerName?: string
+): Promise<boolean> {
+  if (!pushToken || !pushToken.startsWith("ExponentPushToken")) return false;
+  const shortId = orderId.slice(-6).toUpperCase();
+  const message: ExpoPushMessage = {
+    to: pushToken,
+    title: "⚠️ تم إلغاء الطلب",
+    body: `العميل${customerName ? ` ${customerName}` : ""} ألغى الطلب رقم #${shortId}`,
+    sound: "default",
+    channelId: "default",
+    priority: "high",
+    ttl: 86400,
+    data: { type: "order_cancelled", orderId, shortId },
+  };
+  try {
+    const response = await fetch("https://exp.host/--/api/v2/push/send", {
+      method: "POST",
+      headers: { Accept: "application/json", "Accept-Encoding": "gzip, deflate", "Content-Type": "application/json" },
+      body: JSON.stringify(message),
+    });
+    const result = (await response.json()) as { data: ExpoPushTicket };
+    if (result.data.status === "ok") {
+      console.log(`[PUSH] Vendor order-cancelled #${shortId} → ...${pushToken.slice(-8)}`);
+      return true;
+    }
+    console.error("[PUSH] Vendor order-cancelled error:", result.data.message);
+    return false;
+  } catch (error) {
+    console.error("[PUSH] Error sending vendor order-cancelled notification:", error);
+    return false;
+  }
+}
+
+// ── Driver: the order you're delivering was cancelled ────────────────────────
+export async function sendDriverOrderCancelledNotification(
+  pushToken: string,
+  orderId: string
+): Promise<boolean> {
+  if (!pushToken || !pushToken.startsWith("ExponentPushToken")) return false;
+  const shortId = orderId.slice(-6).toUpperCase();
+  const message: ExpoPushMessage = {
+    to: pushToken,
+    title: "⚠️ تم إلغاء الطلب",
+    body: `تم إلغاء الطلب رقم #${shortId} — لا داعي لاستلامه`,
+    sound: "default",
+    channelId: "default",
+    priority: "high",
+    ttl: 86400,
+    data: { type: "order_cancelled", orderId, shortId },
+  };
+  try {
+    const response = await fetch("https://exp.host/--/api/v2/push/send", {
+      method: "POST",
+      headers: { Accept: "application/json", "Accept-Encoding": "gzip, deflate", "Content-Type": "application/json" },
+      body: JSON.stringify(message),
+    });
+    const result = (await response.json()) as { data: ExpoPushTicket };
+    if (result.data.status === "ok") {
+      console.log(`[PUSH] Driver order-cancelled #${shortId} → ...${pushToken.slice(-8)}`);
+      return true;
+    }
+    console.error("[PUSH] Driver order-cancelled error:", result.data.message);
+    return false;
+  } catch (error) {
+    console.error("[PUSH] Error sending driver order-cancelled notification:", error);
     return false;
   }
 }

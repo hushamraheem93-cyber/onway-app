@@ -415,6 +415,26 @@ router.patch("/api/vendor/profile", requireVendor, async (req, res) => {
   }
 });
 
+// ── PATCH /api/vendor/availability ── vacation / busy mode toggle ────────────
+router.patch("/api/vendor/availability", requireVendor, async (req, res) => {
+  try {
+    const db = getFirestore();
+    if (!db) return res.status(500).json({ error: "قاعدة البيانات غير متاحة" });
+    const vid = (req as any).vendorId;
+    const { isVacation, isBusy } = req.body;
+    const updates: any = { updatedAt: new Date().toISOString() };
+    if (typeof isVacation === "boolean") updates.isVacation = isVacation;
+    if (typeof isBusy === "boolean") updates.isBusy = isBusy;
+    await db.collection("vendors").doc(vid).update(updates);
+    const doc = await db.collection("vendors").doc(vid).get();
+    const { passwordHash: _pw, ...safe } = doc.data() as any;
+    return res.json(safe);
+  } catch (err) {
+    console.error("patch vendor availability:", err);
+    return res.status(500).json({ error: "حدث خطأ في الخادم" });
+  }
+});
+
 // ── POST /api/vendor/profile/images ── upload avatar or cover ────────────────
 const profileUpload = multer({
   storage: multer.memoryStorage(),
@@ -527,9 +547,10 @@ router.post(
     const uploadedFiles = [...(fields["images"] || []), ...(fields["image"] || [])];
     try {
       const { name, description, price, category, stock, unit } = req.body;
+      const libraryImageUrl = req.body.libraryImageUrl as string | undefined;
       const vid = (req as any).vendorId;
 
-      if (!name || !price || !category || uploadedFiles.length === 0) {
+      if (!name || !price || !category || (uploadedFiles.length === 0 && !libraryImageUrl)) {
         for (const f of uploadedFiles) await cleanTemp(f.path);
         return res.status(400).json({ error: "الاسم، السعر، الفئة، والصورة مطلوبة" });
       }
@@ -555,18 +576,31 @@ router.post(
         return res.status(403).json({ error: "حسابك غير مفعل" });
       }
 
-      const { imageUrls } = await processUploadedImages(uploadedFiles);
-      const imageUrl = imageUrls[0];
+      let imageUrls: string[];
+      let imageUrl: string;
+      if (libraryImageUrl && uploadedFiles.length === 0) {
+        // Merchant chose a library image — use URL directly, no upload needed
+        imageUrl = libraryImageUrl;
+        imageUrls = [libraryImageUrl];
+      } else {
+        const processed = await processUploadedImages(uploadedFiles);
+        imageUrls = processed.imageUrls;
+        imageUrl = imageUrls[0];
+      }
 
       const pid = productId();
       const now = new Date().toISOString();
       const vData = vDoc.data() as any;
 
       const extraDataRaw = req.body.extraData;
+      const variantsRaw = req.body.variants;
+      const addonsRaw = req.body.addons;
       let extraData: Record<string, string> | undefined;
-      if (extraDataRaw) {
-        try { extraData = JSON.parse(extraDataRaw); } catch {}
-      }
+      let variants: any[] | undefined;
+      let addons: any[] | undefined;
+      if (extraDataRaw) { try { extraData = JSON.parse(extraDataRaw); } catch {} }
+      if (variantsRaw) { try { variants = JSON.parse(variantsRaw); } catch {} }
+      if (addonsRaw) { try { addons = JSON.parse(addonsRaw); } catch {} }
 
       await db.collection("vendorProducts").doc(pid).set({
         id: pid,
@@ -586,6 +620,8 @@ router.post(
         createdAt: now,
         updatedAt: now,
         ...(extraData ? { extraData } : {}),
+        ...(variants ? { variants } : {}),
+        ...(addons ? { addons } : {}),
       });
 
       res.status(201).json({
@@ -1734,5 +1770,57 @@ router.get("/api/stores/:id/products", async (req, res) => {
   }
 });
 
+
+// ── Vendor Analytics ─────────────────────────────────────────────────────────
+router.get("/api/vendor/analytics", requireVendor, async (req, res) => {
+  const db = getFirestore();
+  if (!db) return res.status(503).json({ error: "قاعدة البيانات غير متاحة" });
+  const vid = (req as any).vendorId as string;
+
+  try {
+    const now = new Date();
+    const todayStart = new Date(now);
+    todayStart.setHours(0, 0, 0, 0);
+    const weekStart = new Date(todayStart.getTime() - 6 * 24 * 60 * 60 * 1000);
+
+    const { Timestamp } = await import("firebase-admin/firestore");
+
+    const snap = await db.collection("orders")
+      .where("vendorId", "==", vid)
+      .where("status", "==", "delivered")
+      .orderBy("createdAt", "desc")
+      .limit(500)
+      .get();
+
+    let todayOrders = 0, todaySales = 0, weekOrders = 0, weekSales = 0;
+    const productCount: Record<string, { name: string; count: number }> = {};
+
+    for (const doc of snap.docs) {
+      const order = doc.data();
+      const createdAt: Date = order.createdAt?.toDate?.() ?? new Date(0);
+      const total = (order.totalPrice ?? order.total ?? 0) as number;
+
+      if (createdAt >= todayStart) { todayOrders++; todaySales += total; }
+      if (createdAt >= weekStart) {
+        weekOrders++; weekSales += total;
+        for (const item of (order.items ?? []) as any[]) {
+          const pid = item.productId || item.id;
+          if (!pid) continue;
+          if (!productCount[pid]) productCount[pid] = { name: item.name || "منتج", count: 0 };
+          productCount[pid].count += (item.quantity ?? 1) as number;
+        }
+      }
+    }
+
+    const bestSellers = Object.values(productCount)
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 5);
+
+    return res.json({ todayOrders, todaySales, weekOrders, weekSales, bestSellers });
+  } catch (err: any) {
+    console.error("vendor analytics error:", err);
+    return res.status(500).json({ error: err.message });
+  }
+});
 
 export default router;

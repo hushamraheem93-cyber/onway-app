@@ -34,6 +34,7 @@ runButton = "Project"
 [[workflows.workflow]]
 name = "Project"
 author = "agent"
+mode = "parallel"
 
 [workflows.workflow.metadata]
 outputType = "webview"
@@ -41,7 +42,22 @@ outputType = "webview"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "fuser -k 5000/tcp 8081/tcp 8082/tcp 2>/dev/null; sleep 1; rm -rf static-build; npm run expo:static:build && npm run server:dev"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Start application"
+
+[[workflows.workflow]]
+name = "Start application"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npm run server:dev"
 waitForPort = 5000
+
+[workflows.workflow.metadata]
+outputType = "webview"
 
 [userenv]
 
@@ -49,7 +65,7 @@ waitForPort = 5000
 GOOGLE_CLIENT_ID = "116297695107-hq1eclup48in29qd1an5vv165nlbgf0a.apps.googleusercontent.com"
 ADMIN_GOOGLE_EMAIL = "husham.raheem93@gmail.com"
 ALLOWED_ORIGINS = "https://admin.onway.iq,https://www.admin.onway.iq"
-ALLOW_DEV_OTP = "true"
+ALLOW_DEV_OTP = "false"
 
 [postMerge]
 path = "scripts/post-merge.sh"

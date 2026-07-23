@@ -20,7 +20,7 @@ import { getApiUrl } from "@/lib/query-client";
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 type RouteProps = RouteProp<RootStackParamList, "OrderConfirmation">;
 
-const CANCEL_WINDOW_SECS = 30;
+const CANCEL_WINDOW_SECS = 180; // 3 minutes
 
 export default function OrderConfirmationScreen() {
   const insets = useSafeAreaInsets();
@@ -263,10 +263,12 @@ export default function OrderConfirmationScreen() {
           <View style={styles.cancelRow}>
             <View style={styles.timerBadge}>
               <Feather name="clock" size={13} color={AppColors.error} />
-              <ThemedText style={styles.timerText}>{secsLeft}ث</ThemedText>
+              <ThemedText style={styles.timerText}>
+                {Math.floor(secsLeft / 60)}:{String(secsLeft % 60).padStart(2, "0")}
+              </ThemedText>
             </View>
             <ThemedText style={[styles.cancelHint, { color: theme.textSecondary }]}>
-              يمكنك إلغاء الطلب خلال 30 ثانية
+              يمكنك إلغاء الطلب خلال 3 دقائق
             </ThemedText>
           </View>
 

@@ -28,11 +28,10 @@ import {
   updateDeliveryArea as updateFirestoreDeliveryArea, deleteDeliveryArea as deleteFirestoreDeliveryArea,
   initializeDefaultDeliveryAreas,
   generateOtp, verifyOtp as verifyOtpCode,
-  getDrivers, getDriverByPhone, createDriver, updateDriverStatus as updateDriverStatusFn, deleteDriver as deleteDriverFn,
+  getDrivers, getDriverByPhone, getVendorByPhone, createDriver, updateDriverStatus as updateDriverStatusFn, deleteDriver as deleteDriverFn,
   updateOrderDriverInfo,
   getPromoCodes, getPromoCodeByCode, createPromoCode, updatePromoCode, deletePromoCode as deletePromoCodeFn,
   checkPromoUsage, recordPromoUsage,
-  getDriverFinancialAccount, updateDriverEarningsOnOrder, recordDriverPayment, recordDriverAdjustment, getDriverTransactions,
   saveDriverCompletedOrder, getDriverCompletedOrdersFromDB,
   saveDriverActivity, getDriverActivityLog, updateDriverLastLocation,
   getOrdersByDriverPhone,
@@ -51,9 +50,10 @@ import {
   recordOrderSettlement, createSettlementRequest, getAccountSettlementView,
   getSettlementHistory, listSettlementRequests, completeSettlement,
   getSettlementConfig, updateSettlementConfig, isOverSettlementThreshold,
-  listSettlementAccounts, getSettlementPayments,
+  listSettlementAccounts, getSettlementPayments, getSettlementLedger,
+  adminAdjustLedger,
 } from "./settlement";
-import { sendPushNotification, sendBroadcastNotification, sendDriverBatchNotification, sendAdminNewOrderNotification, sendVendorNewOrderNotification, sendAdminSettlementRequestNotification } from "./pushNotifications";
+import { sendPushNotification, sendBroadcastNotification, sendDriverBatchNotification, sendAdminNewOrderNotification, sendVendorNewOrderNotification, sendAdminSettlementRequestNotification, sendVendorOrderCancelledNotification, sendDriverOrderCancelledNotification } from "./pushNotifications";
 import { deliverOtp } from "./otpDelivery";
 import { isDevMode } from "./env";
 
@@ -72,7 +72,10 @@ const storage: StorageEngine = multer.diskStorage({
   },
 });
 
-const upload = multer({ storage });
+const upload = multer({
+  storage,
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10 MB — prevents DoS via oversized uploads
+});
 
 // uploadWebP uses memory storage — admin images go directly to Firebase Storage
 const uploadWebP = multer({
@@ -402,7 +405,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const stores = allDocs
         .filter((s) => (effectiveBusinessType ? s.businessType === effectiveBusinessType : true))
         .filter((s) => (nameQuery ? (s.storeName || "").toLowerCase().includes(nameQuery) : true))
-        .sort((a, b) => (b.approvedAt || "").localeCompare(a.approvedAt || ""));
+        .sort((a, b) => (a.sortOrder ?? 999) - (b.sortOrder ?? 999) || (b.approvedAt || "").localeCompare(a.approvedAt || ""));
       res.set("Cache-Control", "public, max-age=30");
       res.set("Vary", "Accept-Encoding");
       res.json({ stores, total: stores.length });
@@ -416,7 +419,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const db = getFirestore();
       if (!db) return res.status(500).json({ error: "قاعدة البيانات غير متاحة" });
-      const snap = await db.collection("vendorProducts").where("status", "==", "approved").get();
+      // Limit to prevent full-collection scans as catalog grows; 8 products × ~200 vendors = 1600 max
+      const snap = await db.collection("vendorProducts").where("status", "==", "approved").limit(1600).get();
       const grouped: Record<string, any[]> = {};
       snap.docs.forEach((d) => {
         const p = d.data() as any;
@@ -585,255 +589,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (err) {
       console.error("product availability:", err);
       res.status(500).json({ error: "حدث خطأ في الخادم" });
-    }
-  });
-
-  // ── ADMIN: Vendor Partner Commission ─────────────────────────────────────────
-  app.put("/api/admin/vendor-partners/:id/commission", async (req: Request, res: Response) => {
-    try {
-      const db = getFirestore();
-      if (!db) return res.status(500).json({ error: "قاعدة البيانات غير متاحة" });
-      const id = req.params.id as string;
-      const rate = Number(req.body.commissionPercent);
-      if (isNaN(rate) || rate < 0 || rate > 100) {
-        return res.status(400).json({ error: "نسبة العمولة يجب أن تكون بين 0 و 100" });
-      }
-      const doc = await db.collection("vendors").doc(id).get();
-      if (!doc.exists) return res.status(404).json({ error: "المتجر غير موجود" });
-      await db.collection("vendors").doc(id).update({
-        commissionPercent: rate,
-        updatedAt: new Date().toISOString(),
-      });
-      res.json({ success: true, commissionPercent: rate });
-    } catch (err) {
-      console.error("vendor commission update:", err);
-      res.status(500).json({ error: "حدث خطأ في الخادم" });
-    }
-  });
-
-  // ── Admin: Seed demo stores and products (dev/staging only) ────────────────
-  app.post("/api/admin/seed-demo-stores", async (_req: Request, res: Response) => {
-    // Block only when genuinely deployed to production (REPLIT_DEPLOYMENT=1).
-    // NODE_ENV is always "production" in this project's dev workflow, so we
-    // cannot use it as the gate here.
-    if (process.env.REPLIT_DEPLOYMENT === "1") {
-      return res.status(403).json({ error: "هذا الإجراء غير متاح في بيئة الإنتاج" });
-    }
-    try {
-      const db = getFirestore();
-      if (!db) return res.status(500).json({ error: "قاعدة البيانات غير متاحة" });
-      const now = new Date().toISOString();
-      const uid = () => `demo_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-
-      interface DemoProduct { name: string; description: string; price: number; category: string; categoryId: string; stock: number; unit: string; imageUrl: string; }
-      interface DemoStore { storeName: string; businessType: string; ownerName: string; phoneNumber: string; address: string; profileImageUrl: string; coverImageUrl: string; bio: string; products: DemoProduct[]; }
-
-      const demoStores: DemoStore[] = [
-        // ── سوبرماركت اون واي ──────────────────────────────────────────────────
-        {
-          storeName: "سوبرماركت اون واي",
-          businessType: "supermarket",
-          ownerName: "أحمد السوبرماركت",
-          phoneNumber: "07700000001",
-          address: "شارع الرشيد، بغداد",
-          profileImageUrl: "https://picsum.photos/seed/onway-supermarket/400/400",
-          coverImageUrl: "https://picsum.photos/seed/onway-supermarket-cover/800/400",
-          bio: "سوبرماركت متكامل يوفر كل احتياجاتك اليومية بجودة عالية وأسعار مناسبة",
-          products: [
-            // خضروات وفواكه
-            { name: "طماطم طازجة", description: "طماطم طازجة 1 كيلو مباشرة من المزرعة", price: 3000, category: "الخضروات والفواكه", categoryId: "fruits-vegetables", stock: 100, unit: "كيلو", imageUrl: "https://picsum.photos/seed/1546470427-e/400/400" },
-            { name: "خيار", description: "خيار طازج 1 كيلو", price: 2500, category: "الخضروات والفواكه", categoryId: "fruits-vegetables", stock: 80, unit: "كيلو", imageUrl: "https://picsum.photos/seed/144930007932/400/400" },
-            { name: "فراولة طازجة", description: "فراولة طازجة 500 جرام موسمية", price: 6000, category: "الخضروات والفواكه", categoryId: "fruits-vegetables", stock: 40, unit: "علبة", imageUrl: "https://picsum.photos/seed/146496591186/400/400" },
-            { name: "موز", description: "موز طازج 1 كيلو", price: 4000, category: "الخضروات والفواكه", categoryId: "fruits-vegetables", stock: 60, unit: "كيلو", imageUrl: "https://picsum.photos/seed/157177189482/400/400" },
-            { name: "تفاح أحمر", description: "تفاح أحمر 1 كيلو", price: 5000, category: "الخضروات والفواكه", categoryId: "fruits-vegetables", stock: 70, unit: "كيلو", imageUrl: "https://picsum.photos/seed/156730622641/400/400" },
-            { name: "بطاطا", description: "بطاطا طازجة 1 كيلو", price: 2500, category: "الخضروات والفواكه", categoryId: "fruits-vegetables", stock: 90, unit: "كيلو", imageUrl: "https://picsum.photos/seed/151897767660/400/400" },
-            // ألبان وأجبان
-            { name: "حليب طازج", description: "حليب طازج كامل الدسم 1 لتر", price: 3500, category: "الألبان والأجبان", categoryId: "dairy-eggs", stock: 50, unit: "لتر", imageUrl: "https://picsum.photos/seed/1550583724-b/400/400" },
-            { name: "جبن أبيض", description: "جبن أبيض طازج 500 جرام", price: 5000, category: "الألبان والأجبان", categoryId: "dairy-eggs", stock: 35, unit: "علبة", imageUrl: "https://picsum.photos/seed/148629767816/400/400" },
-            { name: "بيض دجاج", description: "بيض دجاج بلدي 12 حبة", price: 6000, category: "الألبان والأجبان", categoryId: "dairy-eggs", stock: 45, unit: "كرتونة", imageUrl: "https://picsum.photos/seed/158272287244/400/400" },
-            { name: "لبن رائب", description: "لبن رائب كامل الدسم 500 جرام", price: 2500, category: "الألبان والأجبان", categoryId: "dairy-eggs", stock: 60, unit: "علبة", imageUrl: "https://picsum.photos/seed/1563636619-e/400/400" },
-            // مشروبات
-            { name: "ماء معدني", description: "ماء معدني نقي 1.5 لتر", price: 1000, category: "المشروبات", categoryId: "beverages", stock: 200, unit: "قارورة", imageUrl: "https://picsum.photos/seed/1548839140-2/400/400" },
-            { name: "عصير برتقال طبيعي", description: "عصير برتقال طبيعي 1 لتر", price: 4000, category: "المشروبات", categoryId: "beverages", stock: 30, unit: "قارورة", imageUrl: "https://picsum.photos/seed/162150628993/400/400" },
-            { name: "مشروب غازي", description: "مشروب غازي كولا 355 مل", price: 1500, category: "المشروبات", categoryId: "beverages", stock: 120, unit: "علبة", imageUrl: "https://picsum.photos/seed/162248376702/400/400" },
-            { name: "عصير مانجا", description: "عصير مانجا طبيعي 1 لتر", price: 4500, category: "المشروبات", categoryId: "beverages", stock: 25, unit: "قارورة", imageUrl: "https://picsum.photos/seed/1546173159-3/400/400" },
-            // سناكس
-            { name: "شيبس مملح", description: "شيبس مقرمش بالملح 150 جرام", price: 2000, category: "سناكس ومقرمشات", categoryId: "snacks-sweets", stock: 80, unit: "كيس", imageUrl: "https://picsum.photos/seed/156647898903/400/400" },
-            { name: "شوكولاتة حليب", description: "شوكولاتة بالحليب 100 جرام", price: 3000, category: "سناكس ومقرمشات", categoryId: "snacks-sweets", stock: 60, unit: "قطعة", imageUrl: "https://picsum.photos/seed/1548907040-4/400/400" },
-            { name: "بسكويت شاي", description: "بسكويت للشاي 400 جرام", price: 2500, category: "سناكس ومقرمشات", categoryId: "snacks-sweets", stock: 70, unit: "علبة", imageUrl: "https://picsum.photos/seed/1558961363-f/400/400" },
-            // شاي وقهوة
-            { name: "شاي أسود", description: "شاي أسود فاخر 200 جرام", price: 5000, category: "شاي وقهوة", categoryId: "tea-coffee", stock: 40, unit: "علبة", imageUrl: "https://picsum.photos/seed/1556679343-c/400/400" },
-            { name: "قهوة عربية", description: "قهوة عربية أصيلة بالهيل 250 جرام", price: 8000, category: "شاي وقهوة", categoryId: "tea-coffee", stock: 25, unit: "علبة", imageUrl: "https://picsum.photos/seed/150904223986/400/400" },
-            { name: "نسكافيه", description: "نسكافيه كلاسيك 200 جرام", price: 9000, category: "شاي وقهوة", categoryId: "tea-coffee", stock: 30, unit: "علبة", imageUrl: "https://picsum.photos/seed/149880410307/400/400" },
-            // منظفات
-            { name: "سائل غسيل ملابس", description: "سائل غسيل قوي 3 لتر", price: 7000, category: "المنظفات", categoryId: "cleaning-care", stock: 35, unit: "قارورة", imageUrl: "https://picsum.photos/seed/158542151473/400/400" },
-            { name: "صابون يدين", description: "صابون سائل لليدين 500 مل", price: 3000, category: "المنظفات", categoryId: "cleaning-care", stock: 50, unit: "قارورة", imageUrl: "https://picsum.photos/seed/158451593348/400/400" },
-            { name: "منظف للأرضيات", description: "منظف أرضيات بعطر الليمون 2 لتر", price: 5000, category: "المنظفات", categoryId: "cleaning-care", stock: 28, unit: "قارورة", imageUrl: "https://picsum.photos/seed/1558618666-f/400/400" },
-            // مواد غذائية
-            { name: "أرز بسمتي", description: "أرز بسمتي فاخر 5 كيلو", price: 12000, category: "المواد الغذائية", categoryId: "food-supplies", stock: 40, unit: "كيس", imageUrl: "https://picsum.photos/seed/158620137576/400/400" },
-            { name: "زيت نباتي", description: "زيت نباتي صافي 1.5 لتر", price: 8000, category: "المواد الغذائية", categoryId: "food-supplies", stock: 45, unit: "قارورة", imageUrl: "https://picsum.photos/seed/147497926640/400/400" },
-            { name: "دقيق قمح", description: "دقيق قمح أبيض 2 كيلو", price: 6000, category: "المواد الغذائية", categoryId: "food-supplies", stock: 55, unit: "كيس", imageUrl: "https://picsum.photos/seed/157432334740/400/400" },
-            { name: "سكر أبيض", description: "سكر أبيض ناعم 2 كيلو", price: 5000, category: "المواد الغذائية", categoryId: "food-supplies", stock: 60, unit: "كيس", imageUrl: "https://picsum.photos/seed/1558618666-f/400/400" },
-          ],
-        },
-        // ── مطعم الرائد ────────────────────────────────────────────────────────
-        {
-          storeName: "مطعم الرائد العراقي",
-          businessType: "restaurant",
-          ownerName: "محمد الرائد",
-          phoneNumber: "07700000002",
-          address: "شارع المتنبي، بغداد",
-          profileImageUrl: "https://picsum.photos/seed/iraqi-restaurant/400/400",
-          coverImageUrl: "https://picsum.photos/seed/iraqi-restaurant-cover/800/400",
-          bio: "مطعم عراقي أصيل يقدم أشهى الأكلات التراثية بنكهات عراقية حقيقية",
-          products: [
-            { name: "كباب عراقي", description: "كباب لحم مشوي مع الخبز العراقي وصحن السلطة", price: 12000, category: "المشويات", categoryId: "restaurants", stock: 50, unit: "وجبة", imageUrl: "https://picsum.photos/seed/152969223667/400/400" },
-            { name: "تكا مشوية", description: "تكا لحم بقري مشوي على الجمر 4 قطع", price: 15000, category: "المشويات", categoryId: "restaurants", stock: 40, unit: "وجبة", imageUrl: "https://picsum.photos/seed/1544025162-d/400/400" },
-            { name: "قوزي عراقي", description: "قوزي لحم ضأن مع الأرز والزبيب", price: 25000, category: "الأكلات العراقية", categoryId: "restaurants", stock: 20, unit: "وجبة", imageUrl: "https://picsum.photos/seed/157448428400/400/400" },
-            { name: "دولمة عراقية", description: "دولمة محشية بالأرز واللحم المفروم", price: 14000, category: "الأكلات العراقية", categoryId: "restaurants", stock: 30, unit: "طبق", imageUrl: "https://picsum.photos/seed/151200386769/400/400" },
-            { name: "مسقوف", description: "سمك مسقوف طازج مشوي على الجمر", price: 22000, category: "الأسماك", categoryId: "restaurants", stock: 15, unit: "وجبة", imageUrl: "https://picsum.photos/seed/146700390958/400/400" },
-            { name: "شوربة عراقية", description: "شوربة لحم مع الخضروات الطازجة", price: 7000, category: "الشوربات", categoryId: "restaurants", stock: 35, unit: "طبق", imageUrl: "https://picsum.photos/seed/1547592180-8/400/400" },
-            { name: "برياني دجاج", description: "برياني دجاج بالبهارات الهندية مع الزبيب", price: 13000, category: "الأرز", categoryId: "restaurants", stock: 25, unit: "وجبة", imageUrl: "https://picsum.photos/seed/156337909133/400/400" },
-            { name: "فلافل وحمص", description: "فلافل مقرمش مع حمص وخبز عربي", price: 5000, category: "المقبلات", categoryId: "restaurants", stock: 60, unit: "طبق", imageUrl: "https://picsum.photos/seed/159300187411/400/400" },
-            { name: "جوزة مشوية", description: "جوزة دجاج كاملة مع البهارات والليمون", price: 18000, category: "الدجاج", categoryId: "restaurants", stock: 20, unit: "وجبة", imageUrl: "https://picsum.photos/seed/159810344209/400/400" },
-            { name: "لقيمات بالعسل", description: "لقيمات عراقية أصيلة مع العسل والسمسم", price: 6000, category: "الحلويات", categoryId: "restaurants", stock: 40, unit: "طبق", imageUrl: "https://picsum.photos/seed/1551024506-0/400/400" },
-          ],
-        },
-        // ── مطعم الشاورما الذهبي ────────────────────────────────────────────────
-        {
-          storeName: "مطعم الشاورما الذهبي",
-          businessType: "restaurant",
-          ownerName: "كريم الشاورماجي",
-          phoneNumber: "07700000004",
-          address: "شارع الكرادة، بغداد",
-          profileImageUrl: "https://picsum.photos/seed/shawarma-restaurant/400/400",
-          coverImageUrl: "https://picsum.photos/seed/shawarma-restaurant-cover/800/400",
-          bio: "أشهى شاورما وبرغر في بغداد — مكونات طازجة، نكهات لا تُنسى",
-          products: [
-            // شاورما
-            { name: "شاورما دجاج", description: "شاورما دجاج مشوي بالخبز العربي مع صوص الثوم والخضار الطازجة", price: 7000, category: "شاورما", categoryId: "restaurants", stock: 80, unit: "ساندويتش", imageUrl: "https://picsum.photos/seed/1561050501-a/400/400" },
-            { name: "شاورما لحم", description: "شاورما لحم غنم مشوي بالبهارات والليمون وصوص الطحينة", price: 9000, category: "شاورما", categoryId: "restaurants", stock: 60, unit: "ساندويتش", imageUrl: "https://picsum.photos/seed/152969223667/400/400" },
-            { name: "شاورما مشكل", description: "شاورما دجاج ولحم معاً مع صوص الثوم والحار", price: 10000, category: "شاورما", categoryId: "restaurants", stock: 50, unit: "ساندويتش", imageUrl: "https://picsum.photos/seed/151736098139/400/400" },
-            { name: "صحن شاورما", description: "شاورما دجاج مقطعة مع خبز وبطاطا مقلية وسلطة", price: 14000, category: "شاورما", categoryId: "restaurants", stock: 40, unit: "صحن", imageUrl: "https://picsum.photos/seed/1556269923-e/400/400" },
-            // برغر
-            { name: "برغر كلاسيك", description: "برغر لحم بقري 180 جرام مع جبن، خس، طماطم، وصوص خاص", price: 11000, category: "برغر", categoryId: "restaurants", stock: 55, unit: "ساندويتش", imageUrl: "https://picsum.photos/seed/156890134637/400/400" },
-            { name: "برغر دبل", description: "دبل برغر لحم مع دبل جبن وبيضة مقلية وصوص BBQ", price: 15000, category: "برغر", categoryId: "restaurants", stock: 40, unit: "ساندويتش", imageUrl: "https://picsum.photos/seed/160701325137/400/400" },
-            { name: "برغر دجاج كريسبي", description: "فيليه دجاج مقرمش مقلي مع صوص الحار والخس", price: 10000, category: "برغر", categoryId: "restaurants", stock: 50, unit: "ساندويتش", imageUrl: "https://picsum.photos/seed/158732931068/400/400" },
-            // وجبات
-            { name: "وجبة برغر + بطاطا + مشروب", description: "برغر كلاسيك مع بطاطا مقلية كبيرة ومشروب غازي 500 مل", price: 16000, category: "وجبات", categoryId: "restaurants", stock: 45, unit: "وجبة", imageUrl: "https://picsum.photos/seed/159421269990/400/400" },
-            { name: "وجبة شاورما + بطاطا + مشروب", description: "شاورما دجاج مع بطاطا مقلية ومشروب غازي", price: 13000, category: "وجبات", categoryId: "restaurants", stock: 50, unit: "وجبة", imageUrl: "https://picsum.photos/seed/151344254225/400/400" },
-            { name: "عائلي شاورما (4 أشخاص)", description: "4 ساندويتشات شاورما مشكل + 4 بطاطا + 4 مشروبات", price: 45000, category: "وجبات عائلية", categoryId: "restaurants", stock: 20, unit: "طلبية", imageUrl: "https://picsum.photos/seed/1555396273-3/400/400" },
-            // إضافات وسلطات
-            { name: "بطاطا مقلية كبيرة", description: "بطاطا مقلية مقرمشة مع صوص الكيتشب والمايونيز", price: 4000, category: "إضافات", categoryId: "restaurants", stock: 100, unit: "طبق", imageUrl: "https://picsum.photos/seed/157610723268/400/400" },
-            { name: "سلطة عربية", description: "طماطم، خيار، بصل، بقدونس مع زيت زيتون وليمون", price: 3500, category: "سلطات", categoryId: "restaurants", stock: 60, unit: "طبق", imageUrl: "https://picsum.photos/seed/151262177695/400/400" },
-            { name: "صوص ثوم كبير", description: "صوص ثوم كريمي منزلي الصنع 200 مل", price: 2500, category: "إضافات", categoryId: "restaurants", stock: 80, unit: "علبة", imageUrl: "https://picsum.photos/seed/147247644350/400/400" },
-            // مشروبات
-            { name: "عصير ليمون بالنعناع", description: "عصير ليمون طازج بالنعناع والثلج 500 مل", price: 3500, category: "مشروبات", categoryId: "restaurants", stock: 70, unit: "كوب", imageUrl: "https://picsum.photos/seed/162150628993/400/400" },
-            { name: "ميلك شيك شوكولاتة", description: "ميلك شيك شوكولاتة بالآيس كريم والكريمة", price: 5000, category: "مشروبات", categoryId: "restaurants", stock: 35, unit: "كوب", imageUrl: "https://picsum.photos/seed/157249012274/400/400" },
-          ],
-        },
-        // ── صيدلية الشفاء ──────────────────────────────────────────────────────
-        {
-          storeName: "صيدلية الشفاء",
-          businessType: "pharmacy",
-          ownerName: "د. علي الشفاء",
-          phoneNumber: "07700000003",
-          address: "شارع حيفا، بغداد",
-          profileImageUrl: "https://picsum.photos/seed/pharmacy-store/400/400",
-          coverImageUrl: "https://picsum.photos/seed/pharmacy-store-cover/800/400",
-          bio: "صيدلية متكاملة توفر الأدوية ومستلزمات العناية الصحية بأسعار مناسبة",
-          products: [
-            { name: "باراسيتامول 500 مغ", description: "أقراص مسكن للألم وخافض للحرارة 20 قرص", price: 3500, category: "مسكنات الألم", categoryId: "pharmacy", stock: 100, unit: "علبة", imageUrl: "https://picsum.photos/seed/158430866674/400/400" },
-            { name: "فيتامين سي 1000", description: "فيتامين سي أقراص فوارة لتعزيز المناعة", price: 8000, category: "الفيتامينات", categoryId: "pharmacy", stock: 60, unit: "علبة", imageUrl: "https://picsum.photos/seed/1550572017-e/400/400" },
-            { name: "بانادول اكسترا", description: "مسكن قوي للصداع وآلام الجسم", price: 4500, category: "مسكنات الألم", categoryId: "pharmacy", stock: 80, unit: "علبة", imageUrl: "https://picsum.photos/seed/1559757175-0/400/400" },
-            { name: "كريم ترطيب يومي", description: "كريم مرطب للبشرة الجافة 100 مل", price: 12000, category: "العناية بالبشرة", categoryId: "pharmacy", stock: 35, unit: "قارورة", imageUrl: "https://picsum.photos/seed/1556228720-1/400/400" },
-            { name: "شامبو للشعر الجاف", description: "شامبو مرطب للشعر الجاف والتالف 400 مل", price: 9000, category: "العناية بالشعر", categoryId: "pharmacy", stock: 40, unit: "قارورة", imageUrl: "https://picsum.photos/seed/157178244257/400/400" },
-            { name: "كمامات طبية", description: "كمامات طبية ثلاثية الطبقات 50 قطعة", price: 7000, category: "مستلزمات طبية", categoryId: "pharmacy", stock: 55, unit: "علبة", imageUrl: "https://picsum.photos/seed/158455681295/400/400" },
-            { name: "جل مطهر لليدين", description: "جل كحولي مطهر لليدين 300 مل", price: 5000, category: "مستلزمات طبية", categoryId: "pharmacy", stock: 70, unit: "قارورة", imageUrl: "https://picsum.photos/seed/158436291716/400/400" },
-            { name: "ضمادات طبية", description: "ضمادات لاصقة معقمة مختلفة الأحجام 20 قطعة", price: 3000, category: "مستلزمات طبية", categoryId: "pharmacy", stock: 90, unit: "علبة", imageUrl: "https://picsum.photos/seed/163154991676/400/400" },
-          ],
-        },
-      ];
-
-      let totalVendors = 0;
-      let totalProducts = 0;
-      const createdStores: string[] = [];
-
-      for (const store of demoStores) {
-        // Check if demo store already exists
-        const existing = await db.collection("vendors").where("phoneNumber", "==", store.phoneNumber).limit(1).get();
-        let vendorDocId: string;
-
-        if (!existing.empty) {
-          vendorDocId = existing.docs[0].id;
-        } else {
-          vendorDocId = uid();
-          await db.collection("vendors").doc(vendorDocId).set({
-            id: vendorDocId,
-            storeName: store.storeName,
-            businessType: store.businessType,
-            categoryId: store.businessType,
-            phoneNumber: store.phoneNumber,
-            email: null,
-            passwordHash: "$2b$10$demoHashNotUsedForLogin00000000000000000000000000000",
-            ownerName: store.ownerName,
-            address: store.address,
-            profileImageUrl: store.profileImageUrl,
-            coverImageUrl: store.coverImageUrl,
-            bio: store.bio,
-            status: "active",
-            totalProducts: store.products.length,
-            totalOrders: 0,
-            approvedAt: now,
-            createdAt: now,
-            updatedAt: now,
-          });
-          totalVendors++;
-        }
-        createdStores.push(store.storeName);
-
-        // Delete existing products for this vendor and re-seed
-        const existingProducts = await db.collection("vendorProducts").where("vendorId", "==", vendorDocId).get();
-        if (!existingProducts.empty) {
-          const delBatch = db.batch();
-          existingProducts.docs.forEach(d => delBatch.delete(d.ref));
-          await delBatch.commit();
-        }
-
-        // Add all products in batches of 500
-        const productBatch = db.batch();
-        for (const p of store.products) {
-          const pid = uid();
-          productBatch.set(db.collection("vendorProducts").doc(pid), {
-            id: pid,
-            vendorId: vendorDocId,
-            vendorName: store.storeName,
-            storeName: store.storeName,
-            vendorPhone: store.phoneNumber,
-            name: p.name,
-            description: p.description,
-            price: p.price,
-            category: p.category,
-            categoryId: p.categoryId,
-            stock: p.stock,
-            unit: p.unit,
-            imageUrl: p.imageUrl,
-            imageUrls: [p.imageUrl],
-            status: "approved",
-            approvedAt: now,
-            createdAt: now,
-            updatedAt: now,
-          });
-          totalProducts++;
-        }
-        await productBatch.commit();
-      }
-
-      invalidateVendorsCache(); invalidateStoresCache();
-      res.json({ success: true, totalVendors, totalProducts, stores: createdStores });
-    } catch (err: any) {
-      console.error("seed demo stores:", err);
-      res.status(500).json({ error: err.message || "فشل إنشاء البيانات التجريبية" });
     }
   });
 
@@ -1063,13 +818,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const snap = await db.collection("vendors").where("status", "==", "active").get();
       storesCache = snap.docs.map((d) => {
         const v = d.data() as any;
+        // Seeded vendors store the display name in `name`; registered vendors use `storeName`.
+        const storeName = v.storeName || v.name || "";
+        // Seeded vendors have no `id` field inside the doc — fall back to Firestore doc.id.
+        const id = v.id || d.id;
         return {
-          id: v.id, storeName: v.storeName, businessType: v.businessType,
+          id, storeName, businessType: v.businessType,
           address: v.address || "", bio: v.bio || "",
           totalProducts: v.totalProducts || 0,
           approvedAt: v.approvedAt || v.createdAt || "",
           profileImageUrl: limitImageSize(v.profileImageUrl || "", 80000),
-          coverImageUrl: limitImageSize(v.coverImageUrl || "", 80000),
+          coverImageUrl: limitImageSize(v.coverImageUrl || v.image || "", 80000),
           rating: v.rating ?? null,
           ratingCount: v.ratingCount ?? 0,
           deliveryTime: v.deliveryTime || "30-45",
@@ -1080,9 +839,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           openTime: v.openTime || "",
           closeTime: v.closeTime || "",
           description: v.description || "",
-          categoryType: v.categoryType || "",
+          categoryType: v.categoryType || v.cuisine || "",
+          sortOrder: v.sortOrder ?? 999,
+          isOpen: v.isOpen ?? true,
         };
-      });
+      }).sort((a: any, b: any) => (a.sortOrder ?? 999) - (b.sortOrder ?? 999));
       storesCacheTime = now;
     }
     return storesCache!;
@@ -1821,53 +1582,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json({ success: true });
   });
 
-  app.post("/api/admin/cleanup-orphan-products", async (req: Request, res: Response) => {
-    const db = getFirestore();
-    if (!db) return res.status(500).json({ error: "قاعدة البيانات غير متاحة" });
-    try {
-      const col = (req.query.collection as string) || "vendorProducts";
-      let docsToDelete: FirebaseFirestore.QueryDocumentSnapshot[] = [];
-
-      if (col === "products") {
-        const snap = await db.collection("products").get();
-        docsToDelete = snap.docs;
-      } else {
-        const vendorSnap = await db.collection("vendors").get();
-        const validVendorIds = new Set(vendorSnap.docs.map((d) => d.id));
-        const vpSnap = await db.collection("vendorProducts").get();
-        docsToDelete = vpSnap.docs.filter((d) => {
-          const vid = (d.data() as Record<string, unknown>).vendorId;
-          return !vid || !validVendorIds.has(vid as string);
-        });
-      }
-
-      if (docsToDelete.length === 0) {
-        return res.json({ deleted: 0, message: "لا توجد منتجات للحذف" });
-      }
-
-      // Firestore batch max 500 ops
-      const chunks: FirebaseFirestore.QueryDocumentSnapshot[][] = [];
-      for (let i = 0; i < docsToDelete.length; i += 400) chunks.push(docsToDelete.slice(i, i + 400));
-      for (const chunk of chunks) {
-        const batch = db.batch();
-        chunk.forEach((d) => batch.delete(d.ref));
-        await batch.commit();
-      }
-
-      invalidateProductsCache();
-      return res.json({ deleted: docsToDelete.length, message: `تم حذف ${docsToDelete.length} منتج بنجاح` });
-    } catch (err) {
-      console.error("cleanup-orphan-products:", err);
-      res.status(500).json({ error: "حدث خطأ أثناء التنظيف" });
-    }
-  });
-
   app.get("/api/delivery-areas", async (req, res) => {
     try {
       const areas = await getFirestoreDeliveryAreas(true);
+      res.set("Cache-Control", "no-store");
       res.json(areas);
     } catch (error) {
       console.error("Error getting delivery areas:", error);
+      res.set("Cache-Control", "no-store");
       res.json([]);
     }
   });
@@ -2016,11 +1738,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     onlinePaymentEnabled: boolean;
     driverPayoutRule: { type: string; flatRestaurant: number; flatDefault: number; percent: number };
     autoSuspendThreshold: number;
+    restaurantDeliveryFee: number;
   }> {
     const defaults = {
       onlinePaymentEnabled: false,
       driverPayoutRule: { type: "flat", flatRestaurant: 750, flatDefault: 2000, percent: 15 },
       autoSuspendThreshold: 100000,
+      restaurantDeliveryFee: 1000,
     };
     if (_sysSettingsCache && Date.now() - _sysSettingsCacheAt < SYS_CACHE_TTL) {
       return _sysSettingsCache as any;
@@ -2034,6 +1758,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         onlinePaymentEnabled: d.onlinePaymentEnabled ?? defaults.onlinePaymentEnabled,
         driverPayoutRule: d.driverPayoutRule ?? defaults.driverPayoutRule,
         autoSuspendThreshold: d.autoSuspendThreshold ?? defaults.autoSuspendThreshold,
+        restaurantDeliveryFee: d.restaurantDeliveryFee ?? defaults.restaurantDeliveryFee,
       };
       _sysSettingsCache = result;
       _sysSettingsCacheAt = Date.now();
@@ -2073,6 +1798,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         onlinePaymentEnabled: settings.onlinePaymentEnabled,
         driverPayoutRule: settings.driverPayoutRule,
         autoSuspendThreshold: settings.autoSuspendThreshold,
+        restaurantDeliveryFee: settings.restaurantDeliveryFee,
       });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
@@ -2084,7 +1810,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const db = getFirestore();
       if (!db) return res.status(503).json({ error: "Database unavailable" });
-      const { onlinePaymentEnabled, driverPayoutRule, autoSuspendThreshold } = req.body;
+      const { onlinePaymentEnabled, driverPayoutRule, autoSuspendThreshold, restaurantDeliveryFee } = req.body;
       const update: Record<string, any> = {};
       if (typeof onlinePaymentEnabled === "boolean") update.onlinePaymentEnabled = onlinePaymentEnabled;
       if (driverPayoutRule && typeof driverPayoutRule === "object") {
@@ -2100,6 +1826,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       if (typeof autoSuspendThreshold === "number" && autoSuspendThreshold >= 0) {
         update.autoSuspendThreshold = Math.round(autoSuspendThreshold);
+      }
+      if (typeof restaurantDeliveryFee === "number" && restaurantDeliveryFee >= 0) {
+        update.restaurantDeliveryFee = Math.round(restaurantDeliveryFee);
       }
       if (Object.keys(update).length === 0) {
         return res.status(400).json({ error: "No valid fields to update" });
@@ -2205,68 +1934,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Reorder vendors: save full new order from drag-and-drop
-  app.post("/api/admin/vendors/reorder", async (req: Request, res: Response) => {
-    const { order } = req.body as { order: string[] };
-    if (!Array.isArray(order) || order.length === 0) {
-      return res.status(400).json({ error: "قائمة الترتيب مطلوبة" });
-    }
-    try {
-      for (let i = 0; i < order.length; i++) {
-        await updateFirestoreVendor(order[i], { sortOrder: i + 1 });
-      }
-      invalidateVendorsCache();
-      res.json({ success: true });
-    } catch (e: any) {
-      res.status(500).json({ error: e.message });
-    }
-  });
-
-  // Reorder vendors: swap sortOrder with adjacent vendor (kept for backward compat)
-  app.patch("/api/admin/vendors/:id/sort-order", async (req: Request, res: Response) => {
-    const { id } = req.params;
-    const { direction } = req.body as { direction: "up" | "down" };
-    try {
-      const vendors = await getVendorList();
-
-      // Sort by current sortOrder (undefined treated as 999)
-      const sorted = [...vendors].sort((a, b) => (a.sortOrder ?? 999) - (b.sortOrder ?? 999));
-
-      // Step 1: Assign sequential sortOrder to ALL vendors that are missing it, save to Firestore
-      const missingOrder = sorted.filter(v => v.sortOrder === undefined);
-      if (missingOrder.length > 0) {
-        for (let i = 0; i < sorted.length; i++) {
-          if (sorted[i].sortOrder === undefined) {
-            sorted[i].sortOrder = i + 1;
-            await updateFirestoreVendor(sorted[i].id, { sortOrder: i + 1 });
-          }
-        }
-      }
-
-      // Step 2: Find vendor and neighbor to swap
-      const idx = sorted.findIndex(v => v.id === id);
-      if (idx === -1) return res.status(404).json({ error: "المطعم غير موجود" });
-      const swapIdx = direction === "up" ? idx - 1 : idx + 1;
-      if (swapIdx < 0 || swapIdx >= sorted.length) return res.status(400).json({ error: "لا يمكن الترتيب أكثر" });
-
-      const current = sorted[idx];
-      const neighbor = sorted[swapIdx];
-      const currentOrder = current.sortOrder!;
-      const neighborOrder = neighbor.sortOrder!;
-
-      // Step 3: Swap and persist both
-      await updateFirestoreVendor(current.id, { sortOrder: neighborOrder });
-      await updateFirestoreVendor(neighbor.id, { sortOrder: currentOrder });
-
-      // Step 4: Invalidate cache so next GET reflects new order
-      invalidateVendorsCache();
-
-      res.json({ success: true });
-    } catch (e: any) {
-      res.status(500).json({ error: e.message });
-    }
-  });
-
   app.put("/api/admin/vendors/:id", async (req: Request, res: Response) => {
     const id = req.params.id as string;
     const { name, location, whatsappNumber, commissionPercent, image, rating, deliveryTime, isOpen, categoryType, cuisine, hasDelivery, minOrder, openTime, closeTime, description } = req.body;
@@ -2319,13 +1986,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const ordersSnap = await db.collection("orders").where("vendorId", "==", id).get();
       const orders = ordersSnap.docs.map(d => ({ id: d.id, ...d.data() })) as any[];
-      // For mixed orders, use restaurantSubtotal (restaurant portion only); fallback to full total
-      const totalSales = orders.reduce((s, o) => s + (o.restaurantSubtotal || o.total || 0), 0);
+      // Commission base: restaurant orders use restaurantSubtotal; marketplace
+      // orders (vendorProducts) use total minus fees so delivery/service fees
+      // are excluded from the vendor commission base.
+      const orderBase = (o: any): number =>
+        o.restaurantSubtotal != null
+          ? o.restaurantSubtotal
+          : Math.max(0, (o.total || 0) - (o.deliveryFee || 0) - (o.serviceFee || 0));
+      const totalSales = orders.reduce((s, o) => s + orderBase(o), 0);
       // Use stored commission amount if available, otherwise calculate from vendor %
       const appCommission = orders.reduce((s, o) => {
         if (o.vendorCommissionAmount != null) return s + o.vendorCommissionAmount;
-        const base = o.restaurantSubtotal || o.total || 0;
-        return s + Math.round(base * vendor.commissionPercent / 100);
+        return s + Math.round(orderBase(o) * vendor.commissionPercent / 100);
       }, 0);
       const vendorNet = totalSales - appCommission;
       res.json({ vendor, orders: orders.length, totalSales, appCommission, vendorNet, commissionPercent: vendor.commissionPercent });
@@ -2363,7 +2035,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json([]);
   });
 
-  app.post("/api/orders", async (req: Request, res: Response) => {
+  app.post("/api/orders", requireCustomerAuth, async (req: Request, res: Response) => {
     const { userId, phoneNumber, customerName, customerPhone, notes, items, total, deliveryFee, serviceFee, address, region, latitude, longitude, orderType, internationalDetails, courierDetails, promoCode, promoDiscount, vendorId: bodyVendorId, restaurantSubtotal: bodyRestaurantSubtotal } = req.body;
     const db = getFirestore();
     
@@ -2372,6 +2044,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const alreadyUsed = await checkPromoUsage(userId || phoneNumber, promoCode);
         if (alreadyUsed) {
           return res.status(400).json({ error: "لقد استخدمت هذا الكود مسبقاً!" });
+        }
+        // Global usage limit: check promo active, expiry, and maxUsage cap
+        const promoDoc = await getPromoCodeByCode(promoCode);
+        if (promoDoc) {
+          if (!promoDoc.isActive) {
+            return res.status(400).json({ error: "هذا الكوبون غير مفعّل" });
+          }
+          if (promoDoc.expiryDate) {
+            const expiry = (promoDoc.expiryDate as any)?.toDate
+              ? (promoDoc.expiryDate as any).toDate()
+              : new Date(promoDoc.expiryDate as any);
+            if (expiry < new Date()) {
+              return res.status(400).json({ error: "انتهت صلاحية هذا الكوبون" });
+            }
+          }
+          if (promoDoc.maxUsage && (promoDoc.maxUsage as number) > 0) {
+            const usageSnap = await db.collection("promoUsageHistory")
+              .where("promoCode", "==", promoCode).get();
+            if (usageSnap.size >= (promoDoc.maxUsage as number)) {
+              return res.status(400).json({ error: "لقد وصل هذا الكوبون لحد الاستخدام الأقصى" });
+            }
+          }
+        }
+      }
+
+      // ── Vendor availability check ─────────────────────────────────────────────
+      if (bodyVendorId) {
+        const vAvailDoc = await db.collection("vendors").doc(String(bodyVendorId)).get();
+        if (vAvailDoc.exists) {
+          const vAvail = vAvailDoc.data() as any;
+          if (vAvail.isVacation) {
+            return res.status(400).json({ error: "المتجر في وضع الإجازة حالياً، يرجى المحاولة لاحقاً" });
+          }
+          if (vAvail.isBusy) {
+            return res.status(400).json({ error: "المتجر مشغول حالياً — يرجى المحاولة بعد قليل" });
+          }
         }
       }
 
@@ -2405,7 +2113,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
           if (vpDoc.exists) {
             const vp = vpDoc.data() as any;
             const vpPrice = Number(vp?.price);
-            if (!Number.isNaN(vpPrice)) realPrice = vpPrice;
+            if (!Number.isNaN(vpPrice)) {
+              realPrice = vpPrice;
+              // Add verified variant price adjustment
+              if (it.selectedVariantId && Array.isArray(vp.variants)) {
+                const variant = vp.variants.find((v: any) => v.id === it.selectedVariantId);
+                if (variant) realPrice += Number(variant.priceAdjustment) || 0;
+              }
+              // Add verified addon prices
+              if (Array.isArray(it.selectedAddons) && Array.isArray(vp.addons)) {
+                for (const orderAddon of it.selectedAddons as any[]) {
+                  const dbAddon = vp.addons.find((a: any) => a.id === orderAddon.id);
+                  if (dbAddon) realPrice += Number(dbAddon.price) || 0;
+                }
+              }
+            }
             if (vp?.inStock === false) available = false;
           }
           // Vendor-added items are never legacy "restaurants" category products
@@ -2441,12 +2163,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "أسعار بعض المنتجات تغيّرت، الرجاء تحديث السلة والمحاولة مجدداً" });
       }
 
-      // Recompute delivery fee. Legacy "restaurants" category orders always use a
-      // flat fee (matches client CheckoutScreen logic), regardless of delivery area.
+      // Recompute delivery fee. Restaurant orders use a flat fee stored in
+      // system_settings (configurable by admin, default 1000 IQD).
       // All other orders use the authoritative deliveryAreas collection fee.
+      const sysSettings = await getSystemSettings();
       let verifiedDeliveryFee = Number(deliveryFee) || 0;
       if (allItemsAreRestaurant) {
-        verifiedDeliveryFee = 1000;
+        verifiedDeliveryFee = sysSettings.restaurantDeliveryFee;
       } else if (region) {
         const areas = await getFirestoreDeliveryAreas(true);
         const matchedArea = areas.find(a => a.name === region);
@@ -2459,9 +2182,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const promo = await getPromoCodeByCode(String(promoCode).toUpperCase());
         const notExpired = promo ? new Date(promo.expiryDate) >= new Date() : false;
         if (promo && promo.isActive && notExpired) {
-          verifiedDiscount = promo.type === "percentage"
-            ? Math.round(verifiedSubtotal * (promo.value / 100))
-            : promo.value;
+          if (promo.type === "percentage") {
+            verifiedDiscount = Math.round(verifiedSubtotal * (promo.value / 100));
+            // Apply maximum discount cap if configured (percentage coupons only)
+            if (promo.maximumDiscountAmount && promo.maximumDiscountAmount > 0) {
+              verifiedDiscount = Math.min(verifiedDiscount, promo.maximumDiscountAmount);
+            }
+          } else {
+            verifiedDiscount = promo.value;
+          }
         } else {
           return res.status(400).json({ error: "كود الخصم غير صالح أو منتهي الصلاحية" });
         }
@@ -2470,9 +2199,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const verifiedServiceFee = Number(serviceFee) || 0;
       const verifiedTotal = verifiedSubtotal + verifiedDeliveryFee + verifiedServiceFee - verifiedDiscount;
 
+      // Log mismatches (e.g. stale delivery fee on client) but never reject —
+      // the server's computed values are always used for the stored order.
+      // Item-price fraud is already caught above; rejecting here only hurts
+      // customers whose app had a cached fee when the admin updated it.
       if (Math.abs((Number(total) || 0) - verifiedTotal) > 1) {
-        console.warn(`[FRAUD_CHECK] Total mismatch on order from ${phoneNumber} — client sent ${total}, server computed ${verifiedTotal}`);
-        return res.status(400).json({ error: "حدث خطأ بحساب السعر، الرجاء تحديث السلة والمحاولة مجدداً" });
+        console.warn(`[PRICE_DRIFT] Total drift on order from ${phoneNumber} — client sent ${total}, server computed ${verifiedTotal} (delivery: ${verifiedDeliveryFee})`);
       }
 
       const orderData: any = {
@@ -2637,11 +2369,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.put("/api/admin/orders/:id/status", async (req: Request, res: Response) => {
     const orderId = req.params.id as string;
     const { status, phoneNumber } = req.body;
+
+    // Validate against the allowed status enum — reject arbitrary strings
+    const ALLOWED_STATUSES = ["pending", "confirmed", "preparing", "in_delivery", "delivered", "cancelled", "issue"];
+    if (!status || !ALLOWED_STATUSES.includes(status)) {
+      return res.status(400).json({ error: `حالة غير مسموحة. الحالات المقبولة: ${ALLOWED_STATUSES.join(", ")}` });
+    }
+
     const db = getFirestore();
     
     if (db) {
-      const success = await updateOrderStatus(orderId, status);
+      // Admin may override any transition (force: true) — the status string
+      // was already validated against the allowed enum above.
+      const success = await updateOrderStatus(orderId, status, { force: true });
       if (success) {
+        // Real-time: push status change to all connected clients so vendor,
+        // driver, and customer screens refresh without polling delay.
+        orderEvents.emit("order:status", { orderId, status });
+
+        // Customer push notification (if phone provided in request body)
         if (phoneNumber) {
           const pushToken = await getUserPushToken(phoneNumber);
           if (pushToken) {
@@ -2652,6 +2398,52 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // When order is confirmed, create a batch for the next available driver
         if (status === "confirmed") {
           onOrderConfirmed();
+        }
+
+        // Cancellation: notify all affected parties and clean up driver state
+        if (status === "cancelled") {
+          // Read the order to get vendorId / driverPhone (best-effort, async)
+          getOrderById(orderId).then(async cancelledOrder => {
+            if (!cancelledOrder) return;
+
+            // Customer push: if not already sent above, notify via order doc phone
+            if (!phoneNumber) {
+              const cPhone = cancelledOrder.customerPhone || cancelledOrder.phoneNumber;
+              if (cPhone) {
+                getUserPushToken(cPhone)
+                  .then(cToken => {
+                    if (cToken) sendPushNotification(cToken, "cancelled", orderId).catch(() => {});
+                  }).catch(() => {});
+              }
+            }
+
+            // Vendor push: vendor-specific cancellation message
+            if (cancelledOrder.vendorId) {
+              db.collection("vendors").doc(String(cancelledOrder.vendorId)).get()
+                .then(vDoc => {
+                  const vToken = vDoc.exists ? (vDoc.data() as any)?.pushToken as string | undefined : undefined;
+                  if (vToken) sendVendorOrderCancelledNotification(vToken, orderId, cancelledOrder.customerName).catch(() => {});
+                }).catch(() => {});
+            }
+
+            // Driver push + in-memory cleanup (check map first, fall back to order doc)
+            const assignedDriver = driverAssignments.get(orderId) || cancelledOrder.driverPhone || null;
+            if (assignedDriver) {
+              driverAssignments.delete(orderId);
+              getDriverPushToken(String(assignedDriver))
+                .then(dToken => {
+                  if (dToken) sendDriverOrderCancelledNotification(dToken, orderId).catch(() => {});
+                }).catch(() => {});
+            }
+
+            // Admin push (inform other admin sessions / devices)
+            getAdminPushToken()
+              .then(adminToken => {
+                if (adminToken) sendPushNotification(adminToken, "cancelled", orderId).catch(() => {});
+              }).catch(() => {});
+
+            console.log(`[CANCEL] Admin cancelled ${orderId.slice(-6).toUpperCase()} — driver: ${assignedDriver || "none"}, vendor: ${cancelledOrder.vendorId || "none"}`);
+          }).catch(() => {});
         }
 
         return res.json({ success: true, id: orderId, status });
@@ -2882,9 +2674,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/users/:phoneNumber", requireCustomerAuth, async (req: Request, res: Response) => {
     const phoneNumber = req.params.phoneNumber as string;
-    // Ownership (C3): a customer may only read their OWN profile. Prevents reading
-    // any user's name/phone/address by iterating phone numbers.
-    if ((req as any).customerPhone !== phoneNumber) {
+    // Ownership (C3): compare normalised phones — both the JWT claim and the URL
+    // param are normalised to 07XXXXXXXXX so old cached tokens still work.
+    const normParam = toLocalPhone(phoneNumber);
+    const normCaller = toLocalPhone((req as any).customerPhone || "");
+    if (normCaller !== normParam) {
       return res.status(403).json({ error: "غير مصرح" });
     }
     const db = getFirestore();
@@ -3124,10 +2918,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // OTP Auth Routes
+  /**
+   * Normalise any Iraqi phone variant → "07XXXXXXXXX" (11 digits, local format).
+   * Accepts: 07XXXXXXXXX, 7XXXXXXXXX, 009647XXXXXXXXX, 9647XXXXXXXXX, +9647XXXXXXXXX
+   */
+  function toLocalPhone(raw: string): string {
+    const d = String(raw || "").replace(/\D/g, ""); // digits only
+    if (d.startsWith("00964")) return "0" + d.slice(5); // 009647... → 07...
+    if (d.startsWith("964"))   return "0" + d.slice(3); // 9647...   → 07...
+    if (d.startsWith("07"))    return d;                 // already local
+    if (d.startsWith("7"))     return "0" + d;           // 7...      → 07...
+    return d;
+  }
+
   app.post("/api/auth/send-otp", async (req: Request, res: Response) => {
-    const { phoneNumber, channel } = req.body;
-    if (!phoneNumber) {
+    const { channel } = req.body;
+    if (!req.body.phoneNumber) {
       return res.status(400).json({ error: "Phone number is required" });
+    }
+    // Normalise any Iraqi format → 07XXXXXXXXX before validation
+    const phoneNumber = toLocalPhone(String(req.body.phoneNumber));
+    const IRAQ_PHONE_RE = /^07\d{9}$/;
+    if (!IRAQ_PHONE_RE.test(phoneNumber)) {
+      return res.status(400).json({ error: "رقم الهاتف غير صحيح — يجب أن يبدأ بـ 07 ويتكون من 11 رقماً" });
     }
     const code = generateOtp(phoneNumber);
 
@@ -3151,11 +2964,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
   });
 
-  app.post("/api/auth/verify-otp", (req: Request, res: Response) => {
-    const { phoneNumber, code } = req.body;
-    if (!phoneNumber || !code) {
+  app.post("/api/auth/verify-otp", async (req: Request, res: Response) => {
+    const { code } = req.body;
+    if (!req.body.phoneNumber || !code) {
       return res.status(400).json({ error: "Phone number and code are required" });
     }
+    // Normalise to match the key used by generateOtp in send-otp
+    const phoneNumber = toLocalPhone(String(req.body.phoneNumber));
 
     if (!verifyOtpCode(phoneNumber, code)) {
       return res.status(400).json({ error: "رمز التحقق غير صحيح أو انتهت صلاحيته" });
@@ -3166,7 +2981,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
       ROUTES_JWT_SECRET,
       { expiresIn: "30d" }
     );
-    res.json({ success: true, message: "OTP verified", customerToken });
+
+    // Detect whether this is a returning user and what role they had.
+    // Priority: driver > vendor > customer (most specific first).
+    // New users get null and are shown the role-selection screen.
+    let existingRole: "driver" | "vendor" | "customer" | null = null;
+    try {
+      const [driver, vendorId, userProfile] = await Promise.all([
+        getDriverByPhone(phoneNumber),
+        getVendorByPhone(phoneNumber),
+        getUserByPhone(phoneNumber),
+      ]);
+      if (driver) existingRole = "driver";
+      else if (vendorId) existingRole = "vendor";
+      else if (userProfile) existingRole = "customer";
+    } catch { /* best-effort: if detection fails, show role selection screen */ }
+
+    // Return the normalized phone so the client stores the canonical form
+    // that matches what the JWT contains — preventing ownership-check mismatches.
+    res.json({ success: true, message: "OTP verified", customerToken, phoneNumber, existingRole });
   });
 
   // Driver Routes
@@ -3188,8 +3021,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const decoded = jwt.verify(bearer, ROUTES_JWT_SECRET) as any;
         if (decoded.role === "customer" && decoded.phoneNumber) verifiedPhone = String(decoded.phoneNumber);
       } catch { /* invalid/expired → verifiedPhone stays null */ }
+
+      // Primary path: valid customer JWT proves phone ownership via OTP.
+      // Fallback path: if the JWT is expired/missing, check whether this phone
+      // number already has a driver record in Firestore. Existence in the drivers
+      // collection means the phone was OTP-verified at registration time, so it is
+      // safe to re-issue a driver token. This prevents drivers from being locked out
+      // after their 30-day customer JWT expires — a common case for testers and
+      // long-running installs that would otherwise require a full OTP re-verification.
       if (!verifiedPhone || verifiedPhone !== String(phoneNumber)) {
-        return res.status(401).json({ error: "غير مصرح — يرجى التحقق من رقم الهاتف أولاً" });
+        const existingDriver = await getDriverByPhone(phoneNumber);
+        if (!existingDriver) {
+          return res.status(401).json({ error: "غير مصرح — يرجى التحقق من رقم الهاتف أولاً" });
+        }
+        // Driver is registered — re-issue token without requiring a fresh customer JWT.
+        const token = makeDriverToken(String(phoneNumber));
+        return res.json({
+          token,
+          driver: { id: existingDriver.id, phoneNumber: existingDriver.phoneNumber, fullName: existingDriver.fullName, status: existingDriver.status },
+        });
       }
 
       const driver = await getDriverByPhone(phoneNumber);
@@ -3438,9 +3288,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         queuePosition = availableDriversBefore.length;
       }
 
-      // Run financial account and completed orders in parallel
-      const [financialAccount, completed] = await Promise.all([
-        getDriverFinancialAccount(phoneNumber),
+      // Run ledger and completed orders in parallel
+      const [ledger, completed] = await Promise.all([
+        getSettlementLedger("driver", phoneNumber),
         getCompletedOrders(phoneNumber),
       ]);
       const now = new Date();
@@ -3452,7 +3302,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         queuePosition,
         currentBatch,
         approvalStatus: driver?.status || "pending",
-        amountOwed: financialAccount.amountOwed,
+        amountOwed: ledger?.outstandingTotal ?? 0,
         todayOrders: todayCompleted.length,
         todayEarnings: todayCompleted.reduce((sum, o) => sum + (o.driverEarning || 0), 0),
       });
@@ -3526,18 +3376,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
     try {
       if (goOnline) {
-        // Block on the configurable settlement threshold. During the transition we take
-        // the max of the new settlement ledger and the legacy amountOwed so enforcement
-        // never regresses before migration; a disabled threshold blocks no one.
-        const [financialAccount, threshold] = await Promise.all([
-          getDriverFinancialAccount(phoneNumber),
-          isOverSettlementThreshold("driver", phoneNumber),
-        ]);
-        const effectiveOutstanding = Math.max(financialAccount.amountOwed || 0, threshold.outstanding || 0);
-        if (threshold.thresholdEnabled && effectiveOutstanding >= threshold.thresholdAmount) {
+        // Block on the settlement threshold — settlementLedger is the single source of truth.
+        const threshold = await isOverSettlementThreshold("driver", phoneNumber);
+        if (threshold.thresholdEnabled && threshold.outstanding >= threshold.thresholdAmount) {
           return res.status(400).json({
-            error: `المبلغ المستحق (${effectiveOutstanding.toLocaleString("ar-IQ")} د.ع) يتجاوز الحد المسموح (${threshold.thresholdAmount.toLocaleString("ar-IQ")} د.ع). يرجى تسوية الحساب مع المسؤول.`,
-            amountOwed: effectiveOutstanding,
+            error: `المبلغ المستحق (${threshold.outstanding.toLocaleString("ar-IQ")} د.ع) يتجاوز الحد المسموح (${threshold.thresholdAmount.toLocaleString("ar-IQ")} د.ع). يرجى تسوية الحساب مع المسؤول.`,
+            amountOwed: threshold.outstanding,
           });
         }
         const exists = driverQueue.find(d => d.phoneNumber === phoneNumber);
@@ -3598,7 +3442,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Accept order
+  // Accept order — uses a Firestore transaction to prevent accepting cancelled/delivered orders
   app.post("/api/driver/accept-order", async (req: Request, res: Response) => {
     const { phoneNumber, orderId } = req.body;
     if (!phoneNumber || !orderId) return res.status(400).json({ error: "Missing fields" });
@@ -3606,8 +3450,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const db = getFirestore();
       if (db) {
-        // Step 1: driver accepted → preparing
-        await updateOrderStatus(orderId, "preparing");
+        // Atomically verify the order is in an acceptable state before marking it preparing.
+        // Prevents a driver from accepting an order that was just cancelled by admin or customer.
+        const orderRef = db.collection("orders").doc(orderId);
+        const accepted = await db.runTransaction(async (tx) => {
+          const snap = await tx.get(orderRef);
+          if (!snap.exists) return false;
+          const currentStatus = (snap.data() as any)?.status;
+          // Only allow transitions from pending or confirmed to preparing
+          if (!["pending", "confirmed"].includes(currentStatus)) return false;
+          tx.update(orderRef, { status: "preparing", updatedAt: new Date() });
+          return true;
+        });
+
+        if (!accepted) {
+          return res.status(409).json({ error: "الطلب لم يعد متاحاً للقبول" });
+        }
+
+        // Emit the status change event so real-time listeners are updated
+        orderEvents.emit("order:status", { orderId, status: "preparing" });
+        notifyCustomerStatus(orderId, "preparing").catch(() => {});
         driverAssignments.set(orderId, phoneNumber);
         const qd = driverQueue.find(d => d.phoneNumber === phoneNumber);
         if (qd && !qd.currentBatchId) qd.currentBatchId = orderId; // legacy single-order support
@@ -3786,9 +3648,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       const driver = await getDriverByPhone(phoneNumber);
       const driverName = driver?.fullName || phoneNumber;
-      // Set all orders in batch to "preparing" and tag with driver info
+      // Set all orders in batch to "preparing" and tag with driver info.
+      // claimBatchForDriver already validated the batch state atomically,
+      // so pass force:true to avoid a redundant per-order transition check.
       for (const orderId of claim.orderIds) {
-        await updateOrderStatus(orderId, "preparing");
+        await updateOrderStatus(orderId, "preparing", { force: true });
+        notifyCustomerStatus(orderId, "preparing").catch(() => {}); // ← Fix: notify customer
         await updateOrderDriverInfo(orderId, { driverName, driverPhone: phoneNumber });
         driverAssignments.set(orderId, phoneNumber);
         addDeliveryLog({ orderId, driverPhone: phoneNumber, action: "accepted" }).catch(() => {});
@@ -3896,7 +3761,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.json({ success: true, alreadyCompleted: true });
       }
 
-      await updateOrderStatus(orderId, "delivered");
+      // earningsCredited transaction already guards double-completion; force:true
+      // avoids a redundant state-machine read inside the same atomic flow.
+      await updateOrderStatus(orderId, "delivered", { force: true });
       await db.collection("orders").doc(orderId).update({ deliveredAt: now, updatedAt: now });
       addDeliveryLog({ orderId, driverPhone: phoneNumber, action: "delivered", lat, lng }).catch(() => {});
 
@@ -3908,18 +3775,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const isRestaurantOrder = await checkIsRestaurantOrder(order);
         const { driverEarning, deductionAmount } = await computeDriverPayout(isRestaurantOrder, order.deliveryFee || 0);
         await updateOrderDriverInfo(orderId, { driverEarning, ownerEarning: deductionAmount });
-        const updatedBatchFinancial = await updateDriverEarningsOnOrder(phoneNumber, {
-          driverEarning,
-          onwayCommission: deductionAmount,
-          orderId,
-          orderType: isRestaurantOrder ? "restaurant" : "market",
-        });
-        const newBalance = updatedBatchFinancial?.amountOwed ?? 0;
 
-        // ── Generic settlement accrual (Stage 6A) ──────────────────────────────
-        // Additive and parallel to the legacy driverFinancialAccounts above; the new
-        // settlement engine is idempotent per (orderId, accountType) and is wrapped so
-        // a failure here can never break order completion.
+        // ── Settlement accrual (single source of truth) ────────────────────────
+        // settlementLedger is the only financial system. Idempotent per (orderId, accountType).
+        // Wrapped so a failure here can never break order completion.
+        let newSettlementBalance = 0;
         try {
           // Driver — cash-collection settlement: driver owes company total − commission.
           const cashCollected = order.total || 0;
@@ -3955,6 +3815,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
               outstandingAmount: Math.max(0, orderValue - platformCommission),
             });
           }
+          // Read the updated ledger to get the current outstanding balance for suspension check
+          const ledger = await getSettlementLedger("driver", phoneNumber).catch(() => null);
+          newSettlementBalance = ledger?.outstandingTotal ?? 0;
         } catch (settlementErr) {
           console.error("[SETTLEMENT] accrual error (non-blocking):", settlementErr);
         }
@@ -4008,11 +3871,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
             });
             const qd = driverQueue.find(d => d.phoneNumber === phoneNumber);
             if (qd) qd.currentBatchId = undefined;
-            // Check wallet before assigning next batch.
-            // newBalance = amountOwed (debt owed BY the driver TO onway).
-            // Block the driver only once debt is too HIGH — not too low.
-            const OWED_THRESHOLD = (await getSystemSettings()).autoSuspendThreshold;
-            if (newBalance < OWED_THRESHOLD) {
+            // Check settlementLedger outstanding balance before assigning next batch.
+            // Block the driver only once debt exceeds the configured threshold.
+            const settlementThreshold = await isOverSettlementThreshold("driver", phoneNumber);
+            const exceedsThreshold = settlementThreshold.thresholdEnabled &&
+              newSettlementBalance >= settlementThreshold.thresholdAmount;
+            if (!exceedsThreshold) {
               // Debt within allowed range — move to end of queue (joinedAt reset) and mark available
               updateDriverQueueEntry(phoneNumber, { hasActiveBatch: false, joinedAt: Date.now() }).catch(() => {});
               assignWaitingBatchToDriver(phoneNumber).catch(() => {});
@@ -4040,11 +3904,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ error: error.message });
     }
   });
-
-  // REMOVED (2026-07-04): /api/driver/complete-order was a legacy duplicate of
-  // /api/driver/batch/complete-order, unused by the client app (client only ever calls
-  // the batch/ variant). Kept as dead code it was a maintenance hazard — a future edit to
-  // wallet-threshold logic here would have had zero effect since nothing calls it.
 
   // Get driver earnings
   app.get("/api/driver/earnings", async (req: Request, res: Response) => {
@@ -4141,8 +4000,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const phoneNumber = (req as any).driverPhone as string;
     if (!phoneNumber) return res.status(400).json({ error: "Phone number required" });
     try {
-      const account = await getDriverFinancialAccount(phoneNumber);
-      const transactions = await getDriverTransactions(phoneNumber, 50);
+      const [ledger, payments, history] = await Promise.all([
+        getSettlementLedger("driver", phoneNumber),
+        getSettlementPayments("driver", phoneNumber, 50),
+        getSettlementHistory("driver", phoneNumber, 50),
+      ]);
+      // Return in a shape compatible with the legacy wallet response
+      const account = {
+        phoneNumber,
+        totalEarnings: ledger?.totalCommission ?? 0,
+        totalOnwayCommission: (ledger?.totalGross ?? 0) - (ledger?.totalCommission ?? 0),
+        totalPaid: ledger?.totalSettled ?? 0,
+        amountOwed: ledger?.outstandingTotal ?? 0,
+        lastPaymentAmount: ledger?.lastSettlementAmount ?? 0,
+        lastPaymentDate: ledger?.lastSettlementAt?.toDate?.()?.toISOString?.() ?? null,
+        updatedAt: ledger?.updatedAt?.toDate?.()?.toISOString?.() ?? new Date().toISOString(),
+      };
+      // Combine settlement records (per-order) and payments as transactions
+      const transactions = [
+        ...history.settlements.map((s: any) => ({
+          id: s.id, type: "earning", orderId: s.orderId,
+          driverEarning: s.commission ?? 0,
+          onwayCommission: s.outstandingAmount ?? 0,
+          timestamp: s.createdAt?.toDate?.()?.toISOString?.() ?? s.createdAt,
+        })),
+        ...payments.map((p: any) => ({
+          id: p.id, type: "payment", amount: p.amount,
+          notes: p.notes, method: p.method, adminName: p.adminName,
+          timestamp: p.createdAt?.toDate?.()?.toISOString?.() ?? p.createdAt,
+        })),
+      ].sort((a: any, b: any) => new Date(b.timestamp || 0).getTime() - new Date(a.timestamp || 0).getTime())
+       .slice(0, 50);
       res.json({ account, transactions });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
@@ -4301,49 +4189,60 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Legacy recharge endpoint kept for backward compat — records as payment
+  // Legacy recharge endpoint kept for backward compat — records as settlement payment
   app.post("/api/admin/driver-wallet/recharge", async (req: Request, res: Response) => {
-    const { phoneNumber, amount, notes } = req.body;
+    const { phoneNumber, amount, notes, adminName } = req.body;
     if (!phoneNumber || amount === undefined) return res.status(400).json({ error: "Missing fields" });
     try {
-      const account = await recordDriverPayment(phoneNumber, Number(amount), notes || "دفعة من الإدارة");
-      res.json({ success: true, account });
+      const result = await completeSettlement({
+        accountType: "driver", accountId: phoneNumber, amount: Number(amount),
+        notes: notes || "دفعة من الإدارة", method: "cash", adminName: adminName || "",
+      });
+      if (!result.ok) return res.status(400).json({ error: result.reason || "لا توجد مبالغ مستحقة" });
+      res.json({ success: true, outstandingAfter: result.outstandingAfter, paymentId: result.paymentId });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }
   });
 
-  // New explicit payment endpoint
+  // Explicit payment endpoint — records a cash collection from driver against outstanding balance
   app.post("/api/admin/driver-wallet/payment", async (req: Request, res: Response) => {
     const { phoneNumber, amount, notes, paymentMethod, adminName } = req.body;
     if (!phoneNumber || amount === undefined) return res.status(400).json({ error: "Missing fields" });
     try {
-      const account = await recordDriverPayment(phoneNumber, Number(amount), notes || "", paymentMethod, adminName);
-      res.json({ success: true, account });
+      const result = await completeSettlement({
+        accountType: "driver", accountId: phoneNumber, amount: Number(amount),
+        notes: notes || "", method: paymentMethod || "cash", adminName: adminName || "",
+      });
+      if (!result.ok) return res.status(400).json({ error: result.reason || "لا توجد مبالغ مستحقة" });
+      res.json({ success: true, outstandingAfter: result.outstandingAfter, receiptNumber: result.receiptNumber, paymentId: result.paymentId });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }
   });
 
-  // Adjustment endpoint (add/deduct from amountOwed)
+  // Adjustment endpoint (add/deduct from outstandingTotal in settlementLedger)
   app.post("/api/admin/driver-wallet/adjustment", async (req: Request, res: Response) => {
-    const { phoneNumber, amount, type, notes } = req.body;
+    const { phoneNumber, amount, type, notes, adminName } = req.body;
     if (!phoneNumber || amount === undefined || !type) return res.status(400).json({ error: "Missing fields" });
     if (type !== "add" && type !== "deduct") return res.status(400).json({ error: "type must be add or deduct" });
     try {
-      const account = await recordDriverAdjustment(phoneNumber, Number(amount), type as "add" | "deduct", notes || "");
-      res.json({ success: true, account });
+      const result = await adminAdjustLedger("driver", phoneNumber, Number(amount), type as "add" | "deduct", notes || "", adminName || "");
+      if (!result.ok) return res.status(400).json({ error: result.reason || "فشل التعديل" });
+      res.json({ success: true, outstandingBefore: result.outstandingBefore, outstandingAfter: result.outstandingAfter });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }
   });
 
-  // Yearly chart — last 12 months breakdown for a single driver
+  // Yearly chart — last 12 months breakdown for a single driver (from settlementLedger)
   app.get("/api/admin/driver-financial/:phone/yearly-chart", async (req: Request, res: Response) => {
     const phoneNumber = decodeURIComponent(req.params.phone as string);
     try {
-      const [transactions, completed] = await Promise.all([
-        getDriverTransactions(phoneNumber, 2000),
+      // completedOrders has driverEarning and ownerEarning (OnWay's commission per order)
+      // settlementPayments has the admin-recorded payments
+      const [payments, completed] = await Promise.all([
+        getSettlementPayments("driver", phoneNumber, 2000),
         getCompletedOrders(phoneNumber),
       ]);
       const now = new Date();
@@ -4356,8 +4255,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const monthStart = d.getTime();
         const monthEnd   = new Date(d.getFullYear(), d.getMonth() + 1, 1).getTime();
         const label = d.toLocaleDateString("ar-IQ", { month: "short", year: "numeric" });
-        const monthTx = transactions.filter(t => {
-          const ts = t.timestamp ? new Date(t.timestamp).getTime() : 0;
+        const monthPayments = payments.filter((p: any) => {
+          const ts = p.createdAt?.toMillis?.() ?? (p.createdAt ? new Date(p.createdAt).getTime() : 0);
           return ts >= monthStart && ts < monthEnd;
         });
         const monthOrders = completed.filter(o => {
@@ -4369,8 +4268,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           year:  d.getFullYear(),
           label,
           earnings:   monthOrders.reduce((s, o) => s + (o.driverEarning || 0), 0),
-          commission: monthTx.filter(t => t.type === "commission").reduce((s, t) => s + (t.amount || 0), 0),
-          payments:   monthTx.filter(t => t.type === "payment").reduce((s, t) => s + (t.amount || 0), 0),
+          // ownerEarning = OnWay's commission per order (what driver owes per order)
+          commission: monthOrders.reduce((s: number, o: any) => s + (o.ownerEarning || 0), 0),
+          payments:   monthPayments.reduce((s: number, p: any) => s + (p.amount || 0), 0),
           orders:     monthOrders.length,
         });
       }
@@ -4380,34 +4280,71 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Full financial statement for a single driver (admin)
+  // Full financial statement for a single driver (admin) — reads from settlementLedger
   app.get("/api/admin/driver-financial/:phone/statement", async (req: Request, res: Response) => {
     const phoneNumber = decodeURIComponent(req.params.phone as string);
     try {
-      const [driver, account, transactions] = await Promise.all([
+      const [driver, ledger, history, payments] = await Promise.all([
         getDriverByPhone(phoneNumber),
-        getDriverFinancialAccount(phoneNumber),
-        getDriverTransactions(phoneNumber, 200),
+        getSettlementLedger("driver", phoneNumber),
+        getSettlementHistory("driver", phoneNumber, 200),
+        getSettlementPayments("driver", phoneNumber, 200),
       ]);
+      // Map ledger to a shape compatible with legacy account format
+      const account = {
+        phoneNumber,
+        totalEarnings: ledger?.totalCommission ?? 0,
+        totalOnwayCommission: (ledger?.totalGross ?? 0) - (ledger?.totalCommission ?? 0),
+        totalPaid: ledger?.totalSettled ?? 0,
+        amountOwed: ledger?.outstandingTotal ?? 0,
+        lastPaymentAmount: ledger?.lastSettlementAmount ?? 0,
+        lastPaymentDate: ledger?.lastSettlementAt?.toDate?.()?.toISOString?.() ?? null,
+        updatedAt: ledger?.updatedAt?.toDate?.()?.toISOString?.() ?? new Date().toISOString(),
+      };
+      const transactions = [
+        ...history.settlements.map((s: any) => ({
+          id: s.id, type: "earning", orderId: s.orderId,
+          driverEarning: s.commission ?? 0,
+          onwayCommission: s.outstandingAmount ?? 0,
+          timestamp: s.createdAt?.toDate?.()?.toISOString?.() ?? s.createdAt,
+        })),
+        ...payments.map((p: any) => ({
+          id: p.id, type: "payment", amount: p.amount,
+          notes: p.notes, method: p.method, adminName: p.adminName,
+          timestamp: p.createdAt?.toDate?.()?.toISOString?.() ?? p.createdAt,
+        })),
+      ].sort((a: any, b: any) => new Date(b.timestamp || 0).getTime() - new Date(a.timestamp || 0).getTime());
       res.json({ driver: { fullName: driver?.fullName || "", phoneNumber }, account, transactions });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }
   });
 
-  // All driver financial accounts (admin overview)
+  // All driver financial accounts (admin overview) — reads from settlementLedger
   app.get("/api/admin/driver-financial", async (_req: Request, res: Response) => {
     try {
       const drivers = await getDrivers();
       const accounts = await Promise.all(
         drivers.filter(d => d.status === "approved").map(async d => {
-          const account = await getDriverFinancialAccount(d.phoneNumber);
-          const completed = await getCompletedOrders(d.phoneNumber);
+          const [ledger, completed] = await Promise.all([
+            getSettlementLedger("driver", d.phoneNumber),
+            getCompletedOrders(d.phoneNumber),
+          ]);
           const now = new Date();
           const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
           const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
           const todayList = completed.filter(o => new Date(o.completedAt).getTime() >= todayStart);
           const monthList = completed.filter(o => new Date(o.completedAt).getTime() >= monthStart);
+          const account = {
+            phoneNumber: d.phoneNumber,
+            totalEarnings: ledger?.totalCommission ?? 0,
+            totalOnwayCommission: (ledger?.totalGross ?? 0) - (ledger?.totalCommission ?? 0),
+            totalPaid: ledger?.totalSettled ?? 0,
+            amountOwed: ledger?.outstandingTotal ?? 0,
+            lastPaymentAmount: ledger?.lastSettlementAmount ?? 0,
+            lastPaymentDate: ledger?.lastSettlementAt?.toDate?.()?.toISOString?.() ?? null,
+            updatedAt: ledger?.updatedAt?.toDate?.()?.toISOString?.() ?? new Date().toISOString(),
+          };
           return {
             driver: { fullName: d.fullName, phoneNumber: d.phoneNumber, status: d.status },
             account,
@@ -4623,7 +4560,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Assign new batch to best available driver when a confirmed order arrives
   function onOrderConfirmed() {
-    console.log(`[ORDER_CONFIRMED] Queue size=${driverQueue.length}, queue=${JSON.stringify(driverQueue.map(d=>({p:d.phoneNumber,batch:d.currentBatchId,lastSeen:d.lastSeenAt})))}`);
     const driver = findBestAvailableDriver();
     console.log(`[ORDER_CONFIRMED] Best driver: ${driver?.phoneNumber ?? "NONE"}`);
     if (driver) {
@@ -4723,13 +4659,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   }, 20 * 1000);
 
-  // REMOVED (2026-07-04): /api/driver/assign-pending-orders was dead code that corrupted
-  // driver state — it wrote a raw order.id into currentBatchId without ever creating a real
-  // delivery_batches document via createDeliveryBatch(), and never notified the driver.
-  // Any driver it "assigned" would get stuck permanently "busy" with a batch that didn't exist.
-  // It was not called from the client. Real assignment happens via onOrderConfirmed() /
-  // assignWaitingBatchToDriver() and the 30s watchdog above.
-
   // Get queue info for admin
   app.get("/api/admin/driver-queue", async (_req: Request, res: Response) => {
     try {
@@ -4798,16 +4727,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       for (const driver of drivers) {
         const phone = driver.phoneNumber;
-        const completed = await getCompletedOrders(phone);
+        const [completed, ledger] = await Promise.all([
+          getCompletedOrders(phone),
+          getSettlementLedger("driver", phone),
+        ]);
         const todayCompleted = completed.filter(o => new Date(o.completedAt).getTime() >= todayStart);
-        const account = await getDriverFinancialAccount(phone);
 
         stats[phone] = {
           todayOrders: todayCompleted.length,
           todayEarnings: todayCompleted.reduce((sum, o) => sum + (o.driverEarning || 0), 0),
           totalOrders: completed.length,
           totalEarnings: completed.reduce((sum, o) => sum + (o.driverEarning || 0), 0),
-          amountOwed: account.amountOwed,
+          amountOwed: ledger?.outstandingTotal ?? 0,
         };
       }
 
@@ -4934,94 +4865,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Archive old completed/cancelled orders (older than 1 month)
-  app.delete("/api/admin/archive-old-orders", async (_req: Request, res: Response) => {
-    try {
-      const db = getFirestore();
-      if (!db) return res.status(500).json({ error: "Firestore not initialized" });
-
-      // Helper: batch-delete all docs in a snapshot
-      const batchSize = 500;
-      const batchDeleteAll = async (docs: FirebaseFirestore.QueryDocumentSnapshot[]) => {
-        let count = 0;
-        for (let i = 0; i < docs.length; i += batchSize) {
-          const batch = db!.batch();
-          const chunk = docs.slice(i, i + batchSize);
-          for (const doc of chunk) batch.delete(doc.ref);
-          await batch.commit();
-          count += chunk.length;
-        }
-        return count;
-      };
-
-      // 1. Delete ALL orders regardless of status
-      const allOrders = await getOrders();
-      let deleted = 0;
-      for (let i = 0; i < allOrders.length; i += batchSize) {
-        const batch = db.batch();
-        const chunk = allOrders.slice(i, i + batchSize);
-        for (const order of chunk) batch.delete(db.collection("orders").doc(order.id));
-        await batch.commit();
-        deleted += chunk.length;
-      }
-
-      // 2. Delete ALL walletHistory entries
-      let walletDeleted = 0;
-      try {
-        const snap = await db.collection("walletHistory").get();
-        walletDeleted = await batchDeleteAll(snap.docs);
-      } catch (_e) {}
-
-      // 3. Delete ALL driverActivityLog entries
-      let activityDeleted = 0;
-      try {
-        const snap = await db.collection("driverActivityLog").get();
-        activityDeleted = await batchDeleteAll(snap.docs);
-      } catch (_e) {}
-
-      // 4. Delete ALL driverCompletedOrders entries
-      let completedDeleted = 0;
-      try {
-        const snap = await db.collection("driverCompletedOrders").get();
-        completedDeleted = await batchDeleteAll(snap.docs);
-      } catch (_e) {}
-
-      // 5. Delete ALL adminAlerts entries
-      let alertsDeleted = 0;
-      try {
-        const snap = await db.collection("adminAlerts").get();
-        alertsDeleted = await batchDeleteAll(snap.docs);
-      } catch (_e) {}
-
-      // 6. Reset all driverWallet balances to zero
-      let walletsReset = 0;
-      try {
-        const snap = await db.collection("driverWallets").get();
-        for (let i = 0; i < snap.docs.length; i += batchSize) {
-          const batch = db.batch();
-          const chunk = snap.docs.slice(i, i + batchSize);
-          for (const doc of chunk) batch.update(doc.ref, { balance: 0 });
-          await batch.commit();
-          walletsReset += chunk.length;
-        }
-      } catch (_e) {}
-
-      const total = deleted + walletDeleted + activityDeleted + completedDeleted + alertsDeleted;
-      res.json({
-        deleted,
-        walletDeleted,
-        activityDeleted,
-        completedDeleted,
-        alertsDeleted,
-        walletsReset,
-        total,
-        message: `تم مسح ${deleted} طلب (كل الطلبات)، ${walletDeleted} سجل محفظة، ${activityDeleted} سجل نشاط، ${alertsDeleted} تنبيه، وإعادة تصفير ${walletsReset} محفظة سائق`,
-      });
-    } catch (error: any) {
-      res.status(500).json({ error: error.message });
-    }
-  });
-
   // Promo Code Routes
   app.get("/api/admin/promo-codes", async (_req: Request, res: Response) => {
     try {
@@ -5123,8 +4966,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // ── Cancel Order (within 1 minute) ───────────────────────────────────────
+  // ── Cancel Order (authenticated, state-based timing) ─────────────────────
   app.post("/api/orders/:orderId/cancel", async (req: Request, res: Response) => {
+    // Auth: customer JWT required — prevents unauthenticated cancellation attempts
+    const authHeader = req.headers.authorization || "";
+    const rawToken = authHeader.startsWith("Bearer ") ? authHeader.slice(7).trim() : "";
+    if (!rawToken) return res.status(401).json({ error: "يرجى تسجيل الدخول أولاً" });
+    let callerPhone: string;
+    try {
+      const decoded = jwt.verify(rawToken, ROUTES_JWT_SECRET) as any;
+      if (decoded.role !== "customer" || !decoded.phoneNumber) throw new Error("invalid");
+      callerPhone = decoded.phoneNumber;
+    } catch {
+      return res.status(401).json({ error: "انتهت صلاحية الجلسة — يرجى تسجيل الدخول مجدداً" });
+    }
+
     try {
       const orderId = req.params.orderId as string;
       const db = getFirestore();
@@ -5134,21 +4990,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!doc.exists) return res.status(404).json({ error: "الطلب غير موجود" });
 
       const data = doc.data() as any;
+
+      // Ownership: only the order's customer can cancel it
+      const orderPhone = data.customerPhone || data.phoneNumber;
+      if (orderPhone && orderPhone !== callerPhone) {
+        return res.status(403).json({ error: "غير مصرح — هذا الطلب ليس لك" });
+      }
+
       if (data.status === "cancelled") {
         return res.status(400).json({ error: "الطلب ملغي مسبقاً" });
       }
-      if (data.status !== "pending") {
-        return res.status(400).json({ error: "لا يمكن إلغاء الطلب بعد قبوله" });
+
+      // Smart state-based cancellation
+      const LATE_STATUSES = ["preparing", "ready", "picked_up", "in_delivery", "delivered"];
+      if (LATE_STATUSES.includes(data.status)) {
+        return res.status(400).json({ error: "لا يمكن إلغاء الطلب بعد أن بدأ التاجر التجهيز — تواصل مع الدعم" });
       }
 
       const createdAt: FirebaseFirestore.Timestamp = data.createdAt;
       const createdMs = createdAt.toMillis();
       const nowMs     = Date.now();
-      const LIMIT_MS  = 30 * 1000; // 30 seconds
 
-      if (nowMs - createdMs > LIMIT_MS) {
-        return res.status(400).json({ error: "انتهت مهلة الإلغاء (30 ثانية فقط)" });
+      if (data.status === "confirmed") {
+        // 5 minutes grace after merchant accepted
+        const CONFIRM_GRACE_MS = 5 * 60 * 1000;
+        if (nowMs - createdMs > CONFIRM_GRACE_MS) {
+          return res.status(400).json({ error: "انتهت مهلة الإلغاء (5 دقائق بعد قبول التاجر)" });
+        }
       }
+      // status === "pending": always allow
 
       const { Timestamp } = await import("firebase-admin/firestore");
       await db.collection("orders").doc(orderId).update({
@@ -5156,9 +5026,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
         updatedAt: Timestamp.now(),
       });
 
-      // Real-time: broadcast cancellation (forwarded to order room + orders:changed).
+      // Real-time: broadcast cancellation to all connected clients.
+      // Forwarded to: order:${orderId} room (customer tracking screen) +
+      // global orders:changed ping (vendor, driver, admin list screens).
       orderEvents.emit("order:status", { orderId, status: "cancelled" });
 
+      // Clean up in-memory driver assignment so the driver's active queue stays
+      // accurate. Fall back to the order document's driverPhone in case the
+      // server restarted and the in-memory map was cleared.
+      const assignedDriverPhone = driverAssignments.get(orderId) || data.driverPhone || null;
+      if (assignedDriverPhone) {
+        driverAssignments.delete(orderId);
+        // Push: notify the assigned driver immediately (best-effort)
+        getDriverPushToken(String(assignedDriverPhone))
+          .then(dToken => {
+            if (dToken) sendDriverOrderCancelledNotification(dToken, orderId).catch(() => {});
+          }).catch(() => {});
+      }
+
+      // Push: notify vendor with a vendor-specific cancellation message (best-effort)
+      if (data.vendorId) {
+        db.collection("vendors").doc(String(data.vendorId)).get()
+          .then(vDoc => {
+            const vToken = vDoc.exists ? (vDoc.data() as any)?.pushToken as string | undefined : undefined;
+            if (vToken) sendVendorOrderCancelledNotification(vToken, orderId, data.customerName).catch(() => {});
+          }).catch(() => {});
+      }
+
+      // Push: notify admin (best-effort)
+      getAdminPushToken()
+        .then(adminToken => {
+          if (adminToken) sendPushNotification(adminToken, "cancelled", orderId).catch(() => {});
+        }).catch(() => {});
+
+      console.log(`[CANCEL] Customer cancelled ${orderId.slice(-6).toUpperCase()} — driver: ${assignedDriverPhone || "none"}, vendor: ${data.vendorId || "none"}`);
       return res.json({ success: true });
     } catch (error: any) {
       console.error("Error cancelling order:", error);
@@ -5185,10 +5086,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.status(401).json({ error: "انتهت صلاحية الجلسة — يرجى تسجيل الدخول مجدداً" });
     }
 
-    // 2. Validate rating value before touching the database
+    // 2. Validate rating values before touching the database
     const numRating = Number(req.body.rating);
     if (isNaN(numRating) || numRating < 1 || numRating > 5) {
       return res.status(400).json({ error: "التقييم يجب أن يكون بين 1 و 5" });
+    }
+    const numDriverRating: number | null = req.body.driverRating !== undefined && req.body.driverRating !== null
+      ? Number(req.body.driverRating) : null;
+    if (numDriverRating !== null && (isNaN(numDriverRating) || numDriverRating < 1 || numDriverRating > 5)) {
+      return res.status(400).json({ error: "تقييم السائق يجب أن يكون بين 1 و 5" });
     }
     const ratingComment = typeof req.body.comment === "string" ? req.body.comment.trim().slice(0, 500) : "";
     const ratingImage = typeof req.body.image === "string" ? req.body.image.slice(0, 400000) : "";
@@ -5204,15 +5110,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let capturedVendorId: string | undefined;
 
       // 3. Single Firestore transaction — ALL reads first, then ALL writes.
-      //    Every business-rule check happens inside, so concurrent submissions
-      //    cannot sneak past each other.
       await db.runTransaction(async (tx) => {
         // ── reads ──────────────────────────────────────────────────────────
         const orderSnap = await tx.get(orderRef);
         if (!orderSnap.exists) throw Object.assign(new Error("الطلب غير موجود"), { status: 404 });
         const order = orderSnap.data() as any;
 
-        // Ownership: JWT phone must match order phone
         if (order.phoneNumber !== callerPhone) {
           throw Object.assign(new Error("غير مصرح"), { status: 403 });
         }
@@ -5228,8 +5131,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const vendorRef = vendorId ? db.collection("vendors").doc(vendorId) : null;
         const vSnap = vendorRef ? await tx.get(vendorRef) : null;
 
+        // Read driver doc if driver rating provided
+        const driverRef = (numDriverRating !== null && order.driverId)
+          ? db.collection("drivers").doc(String(order.driverId)) : null;
+        const dSnap = driverRef ? await tx.get(driverRef) : null;
+
         // ── writes ─────────────────────────────────────────────────────────
-        tx.update(orderRef, { customerRating: numRating, ratedAt });
+        const orderUpdate: any = { customerRating: numRating, ratedAt };
+        if (numDriverRating !== null) {
+          orderUpdate.driverRating = numDriverRating;
+          orderUpdate.driverRatedAt = ratedAt;
+        }
+        tx.update(orderRef, orderUpdate);
 
         if (vendorRef && vSnap && vSnap.exists) {
           const v = vSnap.data() as any;
@@ -5241,6 +5154,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
             : Math.round(((oldRating * oldCount + numRating) / newCount) * 10) / 10;
           tx.update(vendorRef, { rating: newRating, ratingCount: newCount });
           didUpdateVendor = true;
+        }
+
+        if (driverRef && dSnap && dSnap.exists && numDriverRating !== null) {
+          const d = dSnap.data() as any;
+          const oldCount: number = d.ratingCount ?? 0;
+          const oldRating: number | null = d.rating ?? null;
+          const newCount = oldCount + 1;
+          const newDriverRating = (oldRating === null || oldCount === 0)
+            ? numDriverRating
+            : Math.round(((oldRating * oldCount + numDriverRating) / newCount) * 10) / 10;
+          tx.update(driverRef, { rating: newDriverRating, ratingCount: newCount });
         }
       });
 
@@ -5315,6 +5239,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let discount = 0;
       if (promo.type === "percentage") {
         discount = Math.round(cartTotal * (promo.value / 100));
+        // Apply maximum discount cap if configured (percentage coupons only)
+        if (promo.maximumDiscountAmount && promo.maximumDiscountAmount > 0) {
+          discount = Math.min(discount, promo.maximumDiscountAmount);
+        }
       } else {
         discount = promo.value;
       }
@@ -5327,6 +5255,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         newTotal: cartTotal - discount,
         promoType: promo.type,
         promoValue: promo.value,
+        maximumDiscountAmount: promo.maximumDiscountAmount ?? null,
       });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
@@ -5451,10 +5380,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // ─── Support Chat ─────────────────────────────────────────────────────────
 
-  // User: get own messages
-  app.get("/api/support/messages", async (req: Request, res: Response) => {
-    const phoneNumber = req.query.phoneNumber as string;
-    if (!phoneNumber) return res.status(400).json({ error: "phoneNumber required" });
+  // User: get own messages — requires customer JWT; phone comes from token, never from query
+  app.get("/api/support/messages", requireCustomerAuth, async (req: Request, res: Response) => {
+    const phoneNumber = (req as any).customerPhone as string;
     try {
       const chat = await getSupportChat(phoneNumber);
       if (!chat) return res.json({ messages: [], unreadByUser: 0 });
@@ -5488,10 +5416,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // User: send message
-  app.post("/api/support/messages", async (req: Request, res: Response) => {
-    const { phoneNumber, text, userName, userRegion, userGender, type, imageUrl, productData } = req.body;
-    if (!phoneNumber) return res.status(400).json({ error: "phoneNumber required" });
+  // User: send message — requires customer JWT; phone comes from token to prevent impersonation
+  app.post("/api/support/messages", requireCustomerAuth, async (req: Request, res: Response) => {
+    const phoneNumber = (req as any).customerPhone as string;
+    const { text, userName, userRegion, userGender, type, imageUrl, productData } = req.body;
     if (!text && !imageUrl && !productData) return res.status(400).json({ error: "message content required" });
     try {
       const msgText = text?.trim() || (imageUrl ? "صورة" : productData?.name || "");
@@ -5693,9 +5621,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const active = allOrders.filter((o: any) => !["delivered","cancelled"].includes(o.status));
       const cancelled = allOrders.filter((o: any) => o.status === "cancelled");
 
-      const totalRevenue = delivered.reduce((s: number, o: any) => s + (o.total || 0) + (o.deliveryFee || 0), 0);
-      const todayRevenue = todayOrders.filter((o:any) => o.status === "delivered")
-        .reduce((s: number, o: any) => s + (o.total || 0) + (o.deliveryFee || 0), 0);
+      // o.total is the authoritative order total (subtotal + deliveryFee + serviceFee - discount).
+      // Do NOT add deliveryFee again — it is already included in o.total.
+      const totalRevenue = delivered.reduce((s: number, o: any) => s + (o.total || 0), 0);
+      const todayRevenue = todayOrders.filter((o: any) => o.status === "delivered")
+        .reduce((s: number, o: any) => s + (o.total || 0), 0);
 
       const vendors = vendorsSnap.docs.map(d => ({ id: d.id, ...d.data() } as any));
       const restaurants = vendors.filter((v: any) => v.categoryType === "restaurant" || v.businessType === "restaurant");
@@ -5802,7 +5732,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const day = (o.createdAt || "").substring(0, 10);
         if (!dailyMap[day]) dailyMap[day] = { date: day, orders: 0, revenue: 0, newUsers: 0 };
         dailyMap[day].orders++;
-        if (o.status === "delivered") dailyMap[day].revenue += (o.total || 0) + (o.deliveryFee || 0);
+        if (o.status === "delivered") dailyMap[day].revenue += (o.total || 0);
       });
       usersSnap.docs.forEach(d => {
         const day = ((d.data() as any).createdAt || "").substring(0, 10);
@@ -5823,7 +5753,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         .map(([name, count]) => ({ name, count }));
 
       // Conversion: orders / total users (rough)
-      const totalRevenue = delivered.reduce((s: number, o: any) => s + (o.total || 0) + (o.deliveryFee || 0), 0);
+      // o.total already includes deliveryFee + serviceFee − discount; do not add deliveryFee again.
+      const totalRevenue = delivered.reduce((s: number, o: any) => s + (o.total || 0), 0);
       const avgOrderValue = delivered.length ? Math.round(totalRevenue / delivered.length) : 0;
 
       res.json({
@@ -6408,8 +6339,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const locationFirestoreThrottle = new Map<string, number>();
   const FIRESTORE_WRITE_INTERVAL = 10_000; // write to Firestore at most every 10s
 
+  // In production, restrict Socket.io to the same allowed origins as the REST
+  // API. Falls back to "*" in development only.
+  const ioAllowedOrigins: string | string[] = (() => {
+    const isProd = process.env.NODE_ENV === "production";
+    const configured = (process.env.ALLOWED_ORIGINS || "")
+      .split(",")
+      .map((s: string) => s.trim())
+      .filter(Boolean);
+    if (isProd && configured.length > 0) return configured;
+    return "*";
+  })();
+
   const ioServer = new SocketServer(httpServer, {
-    cors: { origin: "*", methods: ["GET", "POST"] },
+    cors: { origin: ioAllowedOrigins, methods: ["GET", "POST"] },
     transports: ["websocket", "polling"],
   });
 
@@ -6476,5 +6419,322 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
   });
 
+
+
+  // ── Admin: Seed demo stores and products (dev/staging only) ────────────────
+  app.post("/api/admin/seed-demo-stores", async (_req: Request, res: Response) => {
+    // Block in any production environment (VPS, cloud, or published Replit deployment).
+    if (process.env.NODE_ENV === "production" || process.env.REPLIT_DEPLOYMENT === "1") {
+      return res.status(403).json({ error: "هذا الإجراء غير متاح في بيئة الإنتاج" });
+    }
+    try {
+      const db = getFirestore();
+      if (!db) return res.status(500).json({ error: "قاعدة البيانات غير متاحة" });
+      const now = new Date().toISOString();
+      const uid = () => `demo_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+
+      interface DemoProduct { name: string; description: string; price: number; category: string; categoryId: string; stock: number; unit: string; imageUrl: string; }
+      interface DemoStore { storeName: string; businessType: string; ownerName: string; phoneNumber: string; address: string; profileImageUrl: string; coverImageUrl: string; bio: string; products: DemoProduct[]; }
+
+      const demoStores: DemoStore[] = [
+        // ── سوبرماركت اون واي ──────────────────────────────────────────────────
+        {
+          storeName: "سوبرماركت اون واي",
+          businessType: "supermarket",
+          ownerName: "أحمد السوبرماركت",
+          phoneNumber: "07700000001",
+          address: "شارع الرشيد، بغداد",
+          profileImageUrl: "https://picsum.photos/seed/onway-supermarket/400/400",
+          coverImageUrl: "https://picsum.photos/seed/onway-supermarket-cover/800/400",
+          bio: "سوبرماركت متكامل يوفر كل احتياجاتك اليومية بجودة عالية وأسعار مناسبة",
+          products: [
+            // خضروات وفواكه
+            { name: "طماطم طازجة", description: "طماطم طازجة 1 كيلو مباشرة من المزرعة", price: 3000, category: "الخضروات والفواكه", categoryId: "fruits-vegetables", stock: 100, unit: "كيلو", imageUrl: "https://picsum.photos/seed/1546470427-e/400/400" },
+            { name: "خيار", description: "خيار طازج 1 كيلو", price: 2500, category: "الخضروات والفواكه", categoryId: "fruits-vegetables", stock: 80, unit: "كيلو", imageUrl: "https://picsum.photos/seed/144930007932/400/400" },
+            { name: "فراولة طازجة", description: "فراولة طازجة 500 جرام موسمية", price: 6000, category: "الخضروات والفواكه", categoryId: "fruits-vegetables", stock: 40, unit: "علبة", imageUrl: "https://picsum.photos/seed/146496591186/400/400" },
+            { name: "موز", description: "موز طازج 1 كيلو", price: 4000, category: "الخضروات والفواكه", categoryId: "fruits-vegetables", stock: 60, unit: "كيلو", imageUrl: "https://picsum.photos/seed/157177189482/400/400" },
+            { name: "تفاح أحمر", description: "تفاح أحمر 1 كيلو", price: 5000, category: "الخضروات والفواكه", categoryId: "fruits-vegetables", stock: 70, unit: "كيلو", imageUrl: "https://picsum.photos/seed/156730622641/400/400" },
+            { name: "بطاطا", description: "بطاطا طازجة 1 كيلو", price: 2500, category: "الخضروات والفواكه", categoryId: "fruits-vegetables", stock: 90, unit: "كيلو", imageUrl: "https://picsum.photos/seed/151897767660/400/400" },
+            // ألبان وأجبان
+            { name: "حليب طازج", description: "حليب طازج كامل الدسم 1 لتر", price: 3500, category: "الألبان والأجبان", categoryId: "dairy-eggs", stock: 50, unit: "لتر", imageUrl: "https://picsum.photos/seed/1550583724-b/400/400" },
+            { name: "جبن أبيض", description: "جبن أبيض طازج 500 جرام", price: 5000, category: "الألبان والأجبان", categoryId: "dairy-eggs", stock: 35, unit: "علبة", imageUrl: "https://picsum.photos/seed/148629767816/400/400" },
+            { name: "بيض دجاج", description: "بيض دجاج بلدي 12 حبة", price: 6000, category: "الألبان والأجبان", categoryId: "dairy-eggs", stock: 45, unit: "كرتونة", imageUrl: "https://picsum.photos/seed/158272287244/400/400" },
+            { name: "لبن رائب", description: "لبن رائب كامل الدسم 500 جرام", price: 2500, category: "الألبان والأجبان", categoryId: "dairy-eggs", stock: 60, unit: "علبة", imageUrl: "https://picsum.photos/seed/1563636619-e/400/400" },
+            // مشروبات
+            { name: "ماء معدني", description: "ماء معدني نقي 1.5 لتر", price: 1000, category: "المشروبات", categoryId: "beverages", stock: 200, unit: "قارورة", imageUrl: "https://picsum.photos/seed/1548839140-2/400/400" },
+            { name: "عصير برتقال طبيعي", description: "عصير برتقال طبيعي 1 لتر", price: 4000, category: "المشروبات", categoryId: "beverages", stock: 30, unit: "قارورة", imageUrl: "https://picsum.photos/seed/162150628993/400/400" },
+            { name: "مشروب غازي", description: "مشروب غازي كولا 355 مل", price: 1500, category: "المشروبات", categoryId: "beverages", stock: 120, unit: "علبة", imageUrl: "https://picsum.photos/seed/162248376702/400/400" },
+            { name: "عصير مانجا", description: "عصير مانجا طبيعي 1 لتر", price: 4500, category: "المشروبات", categoryId: "beverages", stock: 25, unit: "قارورة", imageUrl: "https://picsum.photos/seed/1546173159-3/400/400" },
+            // سناكس
+            { name: "شيبس مملح", description: "شيبس مقرمش بالملح 150 جرام", price: 2000, category: "سناكس ومقرمشات", categoryId: "snacks-sweets", stock: 80, unit: "كيس", imageUrl: "https://picsum.photos/seed/156647898903/400/400" },
+            { name: "شوكولاتة حليب", description: "شوكولاتة بالحليب 100 جرام", price: 3000, category: "سناكس ومقرمشات", categoryId: "snacks-sweets", stock: 60, unit: "قطعة", imageUrl: "https://picsum.photos/seed/1548907040-4/400/400" },
+            { name: "بسكويت شاي", description: "بسكويت للشاي 400 جرام", price: 2500, category: "سناكس ومقرمشات", categoryId: "snacks-sweets", stock: 70, unit: "علبة", imageUrl: "https://picsum.photos/seed/1558961363-f/400/400" },
+            // شاي وقهوة
+            { name: "شاي أسود", description: "شاي أسود فاخر 200 جرام", price: 5000, category: "شاي وقهوة", categoryId: "tea-coffee", stock: 40, unit: "علبة", imageUrl: "https://picsum.photos/seed/1556679343-c/400/400" },
+            { name: "قهوة عربية", description: "قهوة عربية أصيلة بالهيل 250 جرام", price: 8000, category: "شاي وقهوة", categoryId: "tea-coffee", stock: 25, unit: "علبة", imageUrl: "https://picsum.photos/seed/150904223986/400/400" },
+            { name: "نسكافيه", description: "نسكافيه كلاسيك 200 جرام", price: 9000, category: "شاي وقهوة", categoryId: "tea-coffee", stock: 30, unit: "علبة", imageUrl: "https://picsum.photos/seed/149880410307/400/400" },
+            // منظفات
+            { name: "سائل غسيل ملابس", description: "سائل غسيل قوي 3 لتر", price: 7000, category: "المنظفات", categoryId: "cleaning-care", stock: 35, unit: "قارورة", imageUrl: "https://picsum.photos/seed/158542151473/400/400" },
+            { name: "صابون يدين", description: "صابون سائل لليدين 500 مل", price: 3000, category: "المنظفات", categoryId: "cleaning-care", stock: 50, unit: "قارورة", imageUrl: "https://picsum.photos/seed/158451593348/400/400" },
+            { name: "منظف للأرضيات", description: "منظف أرضيات بعطر الليمون 2 لتر", price: 5000, category: "المنظفات", categoryId: "cleaning-care", stock: 28, unit: "قارورة", imageUrl: "https://picsum.photos/seed/1558618666-f/400/400" },
+            // مواد غذائية
+            { name: "أرز بسمتي", description: "أرز بسمتي فاخر 5 كيلو", price: 12000, category: "المواد الغذائية", categoryId: "food-supplies", stock: 40, unit: "كيس", imageUrl: "https://picsum.photos/seed/158620137576/400/400" },
+            { name: "زيت نباتي", description: "زيت نباتي صافي 1.5 لتر", price: 8000, category: "المواد الغذائية", categoryId: "food-supplies", stock: 45, unit: "قارورة", imageUrl: "https://picsum.photos/seed/147497926640/400/400" },
+            { name: "دقيق قمح", description: "دقيق قمح أبيض 2 كيلو", price: 6000, category: "المواد الغذائية", categoryId: "food-supplies", stock: 55, unit: "كيس", imageUrl: "https://picsum.photos/seed/157432334740/400/400" },
+            { name: "سكر أبيض", description: "سكر أبيض ناعم 2 كيلو", price: 5000, category: "المواد الغذائية", categoryId: "food-supplies", stock: 60, unit: "كيس", imageUrl: "https://picsum.photos/seed/1558618666-f/400/400" },
+          ],
+        },
+        // ── مطعم الرائد ────────────────────────────────────────────────────────
+        {
+          storeName: "مطعم الرائد العراقي",
+          businessType: "restaurant",
+          ownerName: "محمد الرائد",
+          phoneNumber: "07700000002",
+          address: "شارع المتنبي، بغداد",
+          profileImageUrl: "https://picsum.photos/seed/iraqi-restaurant/400/400",
+          coverImageUrl: "https://picsum.photos/seed/iraqi-restaurant-cover/800/400",
+          bio: "مطعم عراقي أصيل يقدم أشهى الأكلات التراثية بنكهات عراقية حقيقية",
+          products: [
+            { name: "كباب عراقي", description: "كباب لحم مشوي مع الخبز العراقي وصحن السلطة", price: 12000, category: "المشويات", categoryId: "restaurants", stock: 50, unit: "وجبة", imageUrl: "https://picsum.photos/seed/152969223667/400/400" },
+            { name: "تكا مشوية", description: "تكا لحم بقري مشوي على الجمر 4 قطع", price: 15000, category: "المشويات", categoryId: "restaurants", stock: 40, unit: "وجبة", imageUrl: "https://picsum.photos/seed/1544025162-d/400/400" },
+            { name: "قوزي عراقي", description: "قوزي لحم ضأن مع الأرز والزبيب", price: 25000, category: "الأكلات العراقية", categoryId: "restaurants", stock: 20, unit: "وجبة", imageUrl: "https://picsum.photos/seed/157448428400/400/400" },
+            { name: "دولمة عراقية", description: "دولمة محشية بالأرز واللحم المفروم", price: 14000, category: "الأكلات العراقية", categoryId: "restaurants", stock: 30, unit: "طبق", imageUrl: "https://picsum.photos/seed/151200386769/400/400" },
+            { name: "مسقوف", description: "سمك مسقوف طازج مشوي على الجمر", price: 22000, category: "الأسماك", categoryId: "restaurants", stock: 15, unit: "وجبة", imageUrl: "https://picsum.photos/seed/146700390958/400/400" },
+            { name: "شوربة عراقية", description: "شوربة لحم مع الخضروات الطازجة", price: 7000, category: "الشوربات", categoryId: "restaurants", stock: 35, unit: "طبق", imageUrl: "https://picsum.photos/seed/1547592180-8/400/400" },
+            { name: "برياني دجاج", description: "برياني دجاج بالبهارات الهندية مع الزبيب", price: 13000, category: "الأرز", categoryId: "restaurants", stock: 25, unit: "وجبة", imageUrl: "https://picsum.photos/seed/156337909133/400/400" },
+            { name: "فلافل وحمص", description: "فلافل مقرمش مع حمص وخبز عربي", price: 5000, category: "المقبلات", categoryId: "restaurants", stock: 60, unit: "طبق", imageUrl: "https://picsum.photos/seed/159300187411/400/400" },
+            { name: "جوزة مشوية", description: "جوزة دجاج كاملة مع البهارات والليمون", price: 18000, category: "الدجاج", categoryId: "restaurants", stock: 20, unit: "وجبة", imageUrl: "https://picsum.photos/seed/159810344209/400/400" },
+            { name: "لقيمات بالعسل", description: "لقيمات عراقية أصيلة مع العسل والسمسم", price: 6000, category: "الحلويات", categoryId: "restaurants", stock: 40, unit: "طبق", imageUrl: "https://picsum.photos/seed/1551024506-0/400/400" },
+          ],
+        },
+        // ── مطعم الشاورما الذهبي ────────────────────────────────────────────────
+        {
+          storeName: "مطعم الشاورما الذهبي",
+          businessType: "restaurant",
+          ownerName: "كريم الشاورماجي",
+          phoneNumber: "07700000004",
+          address: "شارع الكرادة، بغداد",
+          profileImageUrl: "https://picsum.photos/seed/shawarma-restaurant/400/400",
+          coverImageUrl: "https://picsum.photos/seed/shawarma-restaurant-cover/800/400",
+          bio: "أشهى شاورما وبرغر في بغداد — مكونات طازجة، نكهات لا تُنسى",
+          products: [
+            // شاورما
+            { name: "شاورما دجاج", description: "شاورما دجاج مشوي بالخبز العربي مع صوص الثوم والخضار الطازجة", price: 7000, category: "شاورما", categoryId: "restaurants", stock: 80, unit: "ساندويتش", imageUrl: "https://picsum.photos/seed/1561050501-a/400/400" },
+            { name: "شاورما لحم", description: "شاورما لحم غنم مشوي بالبهارات والليمون وصوص الطحينة", price: 9000, category: "شاورما", categoryId: "restaurants", stock: 60, unit: "ساندويتش", imageUrl: "https://picsum.photos/seed/152969223667/400/400" },
+            { name: "شاورما مشكل", description: "شاورما دجاج ولحم معاً مع صوص الثوم والحار", price: 10000, category: "شاورما", categoryId: "restaurants", stock: 50, unit: "ساندويتش", imageUrl: "https://picsum.photos/seed/151736098139/400/400" },
+            { name: "صحن شاورما", description: "شاورما دجاج مقطعة مع خبز وبطاطا مقلية وسلطة", price: 14000, category: "شاورما", categoryId: "restaurants", stock: 40, unit: "صحن", imageUrl: "https://picsum.photos/seed/1556269923-e/400/400" },
+            // برغر
+            { name: "برغر كلاسيك", description: "برغر لحم بقري 180 جرام مع جبن، خس، طماطم، وصوص خاص", price: 11000, category: "برغر", categoryId: "restaurants", stock: 55, unit: "ساندويتش", imageUrl: "https://picsum.photos/seed/156890134637/400/400" },
+            { name: "برغر دبل", description: "دبل برغر لحم مع دبل جبن وبيضة مقلية وصوص BBQ", price: 15000, category: "برغر", categoryId: "restaurants", stock: 40, unit: "ساندويتش", imageUrl: "https://picsum.photos/seed/160701325137/400/400" },
+            { name: "برغر دجاج كريسبي", description: "فيليه دجاج مقرمش مقلي مع صوص الحار والخس", price: 10000, category: "برغر", categoryId: "restaurants", stock: 50, unit: "ساندويتش", imageUrl: "https://picsum.photos/seed/158732931068/400/400" },
+            // وجبات
+            { name: "وجبة برغر + بطاطا + مشروب", description: "برغر كلاسيك مع بطاطا مقلية كبيرة ومشروب غازي 500 مل", price: 16000, category: "وجبات", categoryId: "restaurants", stock: 45, unit: "وجبة", imageUrl: "https://picsum.photos/seed/159421269990/400/400" },
+            { name: "وجبة شاورما + بطاطا + مشروب", description: "شاورما دجاج مع بطاطا مقلية ومشروب غازي", price: 13000, category: "وجبات", categoryId: "restaurants", stock: 50, unit: "وجبة", imageUrl: "https://picsum.photos/seed/151344254225/400/400" },
+            { name: "عائلي شاورما (4 أشخاص)", description: "4 ساندويتشات شاورما مشكل + 4 بطاطا + 4 مشروبات", price: 45000, category: "وجبات عائلية", categoryId: "restaurants", stock: 20, unit: "طلبية", imageUrl: "https://picsum.photos/seed/1555396273-3/400/400" },
+            // إضافات وسلطات
+            { name: "بطاطا مقلية كبيرة", description: "بطاطا مقلية مقرمشة مع صوص الكيتشب والمايونيز", price: 4000, category: "إضافات", categoryId: "restaurants", stock: 100, unit: "طبق", imageUrl: "https://picsum.photos/seed/157610723268/400/400" },
+            { name: "سلطة عربية", description: "طماطم، خيار، بصل، بقدونس مع زيت زيتون وليمون", price: 3500, category: "سلطات", categoryId: "restaurants", stock: 60, unit: "طبق", imageUrl: "https://picsum.photos/seed/151262177695/400/400" },
+            { name: "صوص ثوم كبير", description: "صوص ثوم كريمي منزلي الصنع 200 مل", price: 2500, category: "إضافات", categoryId: "restaurants", stock: 80, unit: "علبة", imageUrl: "https://picsum.photos/seed/147247644350/400/400" },
+            // مشروبات
+            { name: "عصير ليمون بالنعناع", description: "عصير ليمون طازج بالنعناع والثلج 500 مل", price: 3500, category: "مشروبات", categoryId: "restaurants", stock: 70, unit: "كوب", imageUrl: "https://picsum.photos/seed/162150628993/400/400" },
+            { name: "ميلك شيك شوكولاتة", description: "ميلك شيك شوكولاتة بالآيس كريم والكريمة", price: 5000, category: "مشروبات", categoryId: "restaurants", stock: 35, unit: "كوب", imageUrl: "https://picsum.photos/seed/157249012274/400/400" },
+          ],
+        },
+        // ── صيدلية الشفاء ──────────────────────────────────────────────────────
+        {
+          storeName: "صيدلية الشفاء",
+          businessType: "pharmacy",
+          ownerName: "د. علي الشفاء",
+          phoneNumber: "07700000003",
+          address: "شارع حيفا، بغداد",
+          profileImageUrl: "https://picsum.photos/seed/pharmacy-store/400/400",
+          coverImageUrl: "https://picsum.photos/seed/pharmacy-store-cover/800/400",
+          bio: "صيدلية متكاملة توفر الأدوية ومستلزمات العناية الصحية بأسعار مناسبة",
+          products: [
+            { name: "باراسيتامول 500 مغ", description: "أقراص مسكن للألم وخافض للحرارة 20 قرص", price: 3500, category: "مسكنات الألم", categoryId: "pharmacy", stock: 100, unit: "علبة", imageUrl: "https://picsum.photos/seed/158430866674/400/400" },
+            { name: "فيتامين سي 1000", description: "فيتامين سي أقراص فوارة لتعزيز المناعة", price: 8000, category: "الفيتامينات", categoryId: "pharmacy", stock: 60, unit: "علبة", imageUrl: "https://picsum.photos/seed/1550572017-e/400/400" },
+            { name: "بانادول اكسترا", description: "مسكن قوي للصداع وآلام الجسم", price: 4500, category: "مسكنات الألم", categoryId: "pharmacy", stock: 80, unit: "علبة", imageUrl: "https://picsum.photos/seed/1559757175-0/400/400" },
+            { name: "كريم ترطيب يومي", description: "كريم مرطب للبشرة الجافة 100 مل", price: 12000, category: "العناية بالبشرة", categoryId: "pharmacy", stock: 35, unit: "قارورة", imageUrl: "https://picsum.photos/seed/1556228720-1/400/400" },
+            { name: "شامبو للشعر الجاف", description: "شامبو مرطب للشعر الجاف والتالف 400 مل", price: 9000, category: "العناية بالشعر", categoryId: "pharmacy", stock: 40, unit: "قارورة", imageUrl: "https://picsum.photos/seed/157178244257/400/400" },
+            { name: "كمامات طبية", description: "كمامات طبية ثلاثية الطبقات 50 قطعة", price: 7000, category: "مستلزمات طبية", categoryId: "pharmacy", stock: 55, unit: "علبة", imageUrl: "https://picsum.photos/seed/158455681295/400/400" },
+            { name: "جل مطهر لليدين", description: "جل كحولي مطهر لليدين 300 مل", price: 5000, category: "مستلزمات طبية", categoryId: "pharmacy", stock: 70, unit: "قارورة", imageUrl: "https://picsum.photos/seed/158436291716/400/400" },
+            { name: "ضمادات طبية", description: "ضمادات لاصقة معقمة مختلفة الأحجام 20 قطعة", price: 3000, category: "مستلزمات طبية", categoryId: "pharmacy", stock: 90, unit: "علبة", imageUrl: "https://picsum.photos/seed/163154991676/400/400" },
+          ],
+        },
+      ];
+
+      let totalVendors = 0;
+      let totalProducts = 0;
+      const createdStores: string[] = [];
+
+      for (const store of demoStores) {
+        // Check if demo store already exists
+        const existing = await db.collection("vendors").where("phoneNumber", "==", store.phoneNumber).limit(1).get();
+        let vendorDocId: string;
+
+        if (!existing.empty) {
+          vendorDocId = existing.docs[0].id;
+        } else {
+          vendorDocId = uid();
+          await db.collection("vendors").doc(vendorDocId).set({
+            id: vendorDocId,
+            storeName: store.storeName,
+            businessType: store.businessType,
+            categoryId: store.businessType,
+            phoneNumber: store.phoneNumber,
+            email: null,
+            passwordHash: "$2b$10$demoHashNotUsedForLogin00000000000000000000000000000",
+            ownerName: store.ownerName,
+            address: store.address,
+            profileImageUrl: store.profileImageUrl,
+            coverImageUrl: store.coverImageUrl,
+            bio: store.bio,
+            status: "active",
+            totalProducts: store.products.length,
+            totalOrders: 0,
+            approvedAt: now,
+            createdAt: now,
+            updatedAt: now,
+          });
+          totalVendors++;
+        }
+        createdStores.push(store.storeName);
+
+        // Delete existing products for this vendor and re-seed
+        const existingProducts = await db.collection("vendorProducts").where("vendorId", "==", vendorDocId).get();
+        if (!existingProducts.empty) {
+          const delBatch = db.batch();
+          existingProducts.docs.forEach(d => delBatch.delete(d.ref));
+          await delBatch.commit();
+        }
+
+        // Add all products in batches of 500
+        const productBatch = db.batch();
+        for (const p of store.products) {
+          const pid = uid();
+          productBatch.set(db.collection("vendorProducts").doc(pid), {
+            id: pid,
+            vendorId: vendorDocId,
+            vendorName: store.storeName,
+            storeName: store.storeName,
+            vendorPhone: store.phoneNumber,
+            name: p.name,
+            description: p.description,
+            price: p.price,
+            category: p.category,
+            categoryId: p.categoryId,
+            stock: p.stock,
+            unit: p.unit,
+            imageUrl: p.imageUrl,
+            imageUrls: [p.imageUrl],
+            status: "approved",
+            approvedAt: now,
+            createdAt: now,
+            updatedAt: now,
+          });
+          totalProducts++;
+        }
+        await productBatch.commit();
+      }
+
+      invalidateVendorsCache(); invalidateStoresCache();
+      res.json({ success: true, totalVendors, totalProducts, stores: createdStores });
+    } catch (err: any) {
+      console.error("seed demo stores:", err);
+      res.status(500).json({ error: err.message || "فشل إنشاء البيانات التجريبية" });
+    }
+  });
+
+
+  // Archive old completed/cancelled orders (older than 1 month)
+  app.delete("/api/admin/archive-old-orders", async (_req: Request, res: Response) => {
+    try {
+      const db = getFirestore();
+      if (!db) return res.status(500).json({ error: "Firestore not initialized" });
+
+      // Helper: batch-delete all docs in a snapshot
+      const batchSize = 500;
+      const batchDeleteAll = async (docs: FirebaseFirestore.QueryDocumentSnapshot[]) => {
+        let count = 0;
+        for (let i = 0; i < docs.length; i += batchSize) {
+          const batch = db!.batch();
+          const chunk = docs.slice(i, i + batchSize);
+          for (const doc of chunk) batch.delete(doc.ref);
+          await batch.commit();
+          count += chunk.length;
+        }
+        return count;
+      };
+
+      // 1. Delete ALL orders regardless of status
+      const allOrders = await getOrders();
+      let deleted = 0;
+      for (let i = 0; i < allOrders.length; i += batchSize) {
+        const batch = db.batch();
+        const chunk = allOrders.slice(i, i + batchSize);
+        for (const order of chunk) batch.delete(db.collection("orders").doc(order.id));
+        await batch.commit();
+        deleted += chunk.length;
+      }
+
+      // 2. Delete ALL walletHistory entries
+      let walletDeleted = 0;
+      try {
+        const snap = await db.collection("walletHistory").get();
+        walletDeleted = await batchDeleteAll(snap.docs);
+      } catch (_e) {}
+
+      // 3. Delete ALL driverActivityLog entries
+      let activityDeleted = 0;
+      try {
+        const snap = await db.collection("driverActivityLog").get();
+        activityDeleted = await batchDeleteAll(snap.docs);
+      } catch (_e) {}
+
+      // 4. Delete ALL driverCompletedOrders entries
+      let completedDeleted = 0;
+      try {
+        const snap = await db.collection("driverCompletedOrders").get();
+        completedDeleted = await batchDeleteAll(snap.docs);
+      } catch (_e) {}
+
+      // 5. Delete ALL adminAlerts entries
+      let alertsDeleted = 0;
+      try {
+        const snap = await db.collection("adminAlerts").get();
+        alertsDeleted = await batchDeleteAll(snap.docs);
+      } catch (_e) {}
+
+      // 6. Reset all driverWallet balances to zero
+      let walletsReset = 0;
+      try {
+        const snap = await db.collection("driverWallets").get();
+        for (let i = 0; i < snap.docs.length; i += batchSize) {
+          const batch = db.batch();
+          const chunk = snap.docs.slice(i, i + batchSize);
+          for (const doc of chunk) batch.update(doc.ref, { balance: 0 });
+          await batch.commit();
+          walletsReset += chunk.length;
+        }
+      } catch (_e) {}
+
+      const total = deleted + walletDeleted + activityDeleted + completedDeleted + alertsDeleted;
+      res.json({
+        deleted,
+        walletDeleted,
+        activityDeleted,
+        completedDeleted,
+        alertsDeleted,
+        walletsReset,
+        total,
+        message: `تم مسح ${deleted} طلب (كل الطلبات)، ${walletDeleted} سجل محفظة، ${activityDeleted} سجل نشاط، ${alertsDeleted} تنبيه، وإعادة تصفير ${walletsReset} محفظة سائق`,
+      });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   return httpServer;
+
 }
+

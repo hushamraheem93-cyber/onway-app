@@ -82,7 +82,7 @@ const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export default function RootStackNavigator() {
   const screenOptions = useScreenOptions();
-  const { isLoggedIn, isLoading, isProfileComplete, isOtpSent, isOtpVerified, selectedUserType, isDriverRegistered, hasSeenSplash, isVendorRegistered } = useAuth();
+  const { isLoggedIn, isLoading, isProfileComplete, isProfileLoading, isOtpSent, isOtpVerified, selectedUserType, isDriverRegistered, hasSeenSplash, isVendorRegistered, isGuest } = useAuth();
 
   if (isLoading) {
     return (
@@ -146,7 +146,7 @@ export default function RootStackNavigator() {
     (selectedUserType === "driver" && !isDriverRegistered) ||
     (selectedUserType === "vendor" && !isVendorRegistered && !isLoggedIn);
 
-  if (needsAuth && !isLoggedIn) {
+  if (needsAuth && !isLoggedIn && !isGuest) {
     return (
       <Stack.Navigator
         screenOptions={{
@@ -180,6 +180,16 @@ export default function RootStackNavigator() {
       <Stack.Navigator screenOptions={{ headerShown: false }}>
         <Stack.Screen name="VendorRegistration" component={VendorRegistrationScreen} />
       </Stack.Navigator>
+    );
+  }
+
+  // Still fetching profile after type selection — show spinner to avoid
+  // briefly rendering ProfileCompletion for already-registered customers.
+  if (isLoggedIn && isProfileLoading) {
+    return (
+      <View style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: AppColors.primary }}>
+        <ActivityIndicator size="large" color={AppColors.white} />
+      </View>
     );
   }
 

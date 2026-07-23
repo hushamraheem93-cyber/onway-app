@@ -25,6 +25,7 @@ import { ThemedText } from "@/components/ThemedText";
 import { GradientBackground } from "@/components/GradientBackground";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
 import { getApiUrl } from "@/lib/query-client";
+import { useVendorFavorites, FavoriteVendor } from "@/context/VendorFavoritesContext";
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
@@ -107,6 +108,13 @@ const rStyles = StyleSheet.create({
   val: { fontFamily: "Cairo_700Bold", fontSize: 12, color: AppColors.warning, marginRight: 2 },
 });
 
+const SORT_OPTIONS = [
+  { key: "default", label: "الأحدث", icon: "sort-variant" },
+  { key: "rating", label: "الأعلى تقييماً", icon: "star" },
+  { key: "time", label: "أسرع توصيل", icon: "clock-fast" },
+  { key: "open", label: "المفتوحة أولاً", icon: "store-check" },
+];
+
 const FILTER_TABS = [
   { key: "", label: "الكل", icon: "view-grid" },
   { key: "restaurant", label: "مطاعم", icon: "food" },
@@ -116,7 +124,7 @@ const FILTER_TABS = [
   { key: "other", label: "متاجر", icon: "store" },
 ];
 
-function StoreCard({ store, onPress }: { store: VendorStore; onPress: () => void }) {
+function StoreCard({ store, onPress, isFav, onFavPress }: { store: VendorStore; onPress: () => void; isFav?: boolean; onFavPress?: () => void }) {
   const { theme } = useTheme();
   const cfg = BUSINESS_CONFIG[store.businessType] || BUSINESS_CONFIG.other;
   const avatarUrl = resolveUrl(store.profileImageUrl);
@@ -173,6 +181,21 @@ function StoreCard({ store, onPress }: { store: VendorStore; onPress: () => void
           <View style={[cardStyles.openDot, { backgroundColor: open ? AppColors.white : AppColors.error }]} />
           <ThemedText style={cardStyles.openText}>{open ? "مفتوح" : "مغلق"}</ThemedText>
         </View>
+
+        {/* Favourite heart — top centre */}
+        {onFavPress ? (
+          <Pressable
+            onPress={(e) => { e.stopPropagation?.(); onFavPress(); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); }}
+            style={cardStyles.favBtn}
+            hitSlop={8}
+          >
+            <MaterialCommunityIcons
+              name={isFav ? "heart" : "heart-outline"}
+              size={18}
+              color={isFav ? AppColors.error : AppColors.white}
+            />
+          </Pressable>
+        ) : null}
 
         {/* Delivery info row — bottom of cover */}
         <View style={cardStyles.coverBottom}>
@@ -295,6 +318,17 @@ const cardStyles = StyleSheet.create({
     justifyContent: "center", alignItems: "center",
     alignSelf: "flex-end", marginBottom: 4,
   },
+  favBtn: {
+    position: "absolute",
+    top: 10,
+    left: 48,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: AppColors.overlay,
+    alignItems: "center",
+    justifyContent: "center",
+  },
 });
 
 export default function StoresScreen() {
@@ -303,6 +337,8 @@ export default function StoresScreen() {
   const { theme } = useTheme();
   const navigation = useNavigation<NavigationProp>();
   const [activeFilter, setActiveFilter] = useState("");
+  const [activeSort, setActiveSort] = useState("default");
+  const { isVendorFavorite, toggleVendorFavorite } = useVendorFavorites();
 
   const { data, isLoading, isError, refetch, isRefetching } = useQuery<{
     stores: VendorStore[];
@@ -317,6 +353,18 @@ export default function StoresScreen() {
     if (!activeFilter) return allStores;
     return allStores.filter((s) => s.businessType === activeFilter);
   }, [allStores, activeFilter]);
+
+  const sorted = useMemo(() => {
+    const list = [...filtered];
+    if (activeSort === "rating") {
+      list.sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0));
+    } else if (activeSort === "time") {
+      list.sort((a, b) => (parseInt(a.deliveryTime || "99") || 99) - (parseInt(b.deliveryTime || "99") || 99));
+    } else if (activeSort === "open") {
+      list.sort((a, b) => (isStoreOpen(b.workingHours) ? 1 : 0) - (isStoreOpen(a.workingHours) ? 1 : 0));
+    }
+    return list;
+  }, [filtered, activeSort]);
 
   const counts = useMemo(() => {
     const map: Record<string, number> = { "": allStores.length };
@@ -353,7 +401,6 @@ export default function StoresScreen() {
         </View>
       ) : (
         <FlatList
-          data={filtered}
           keyExtractor={(item) => item.id}
           contentContainerStyle={{
             paddingTop: headerHeight + Spacing.sm,
@@ -427,6 +474,35 @@ export default function StoresScreen() {
                 </ScrollView>
               ) : null}
 
+              {/* Sort bar */}
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={screenStyles.sortRow}
+              >
+                {SORT_OPTIONS.map((opt) => {
+                  const isActive = activeSort === opt.key;
+                  return (
+                    <Pressable
+                      key={opt.key}
+                      onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setActiveSort(opt.key); }}
+                      style={[
+                        screenStyles.sortChip,
+                        {
+                          backgroundColor: isActive ? AppColors.primary : theme.backgroundDefault,
+                          borderColor: isActive ? AppColors.primary : theme.border ?? AppColors.divider,
+                        },
+                      ]}
+                    >
+                      <MaterialCommunityIcons name={opt.icon as any} size={13} color={isActive ? AppColors.white : theme.textSecondary} />
+                      <ThemedText style={[screenStyles.sortChipText, { color: isActive ? AppColors.white : theme.textSecondary }]}>
+                        {opt.label}
+                      </ThemedText>
+                    </Pressable>
+                  );
+                })}
+              </ScrollView>
+
               {/* Section heading */}
               <View style={screenStyles.sectionHeader}>
                 <ThemedText type="h3" style={{ textAlign: "right", color: theme.text }}>
@@ -434,7 +510,7 @@ export default function StoresScreen() {
                 </ThemedText>
                 <View style={[screenStyles.countBadge, { backgroundColor: AppColors.primary + "18" }]}>
                   <ThemedText style={[screenStyles.countText, { color: AppColors.primary }]}>
-                    {filtered.length}
+                    {sorted.length}
                   </ThemedText>
                 </View>
               </View>
@@ -456,8 +532,14 @@ export default function StoresScreen() {
               </ThemedText>
             </View>
           }
+          data={sorted}
           renderItem={({ item }) => (
-            <StoreCard store={item} onPress={() => handleStorePress(item)} />
+            <StoreCard
+              store={item}
+              onPress={() => handleStorePress(item)}
+              isFav={isVendorFavorite(item.id)}
+              onFavPress={() => toggleVendorFavorite(item as unknown as FavoriteVendor)}
+            />
           )}
         />
       )}
@@ -468,7 +550,14 @@ export default function StoresScreen() {
 const screenStyles = StyleSheet.create({
   center: { flex: 1, alignItems: "center", justifyContent: "center", gap: Spacing.md },
   retryBtn: { paddingVertical: Spacing.sm, paddingHorizontal: Spacing.lg },
-  filterRow: { flexDirection: "row", gap: 8, paddingBottom: Spacing.md, paddingTop: Spacing.xs },
+  filterRow: { flexDirection: "row", gap: 8, paddingBottom: Spacing.sm, paddingTop: Spacing.xs },
+  sortRow: { flexDirection: "row", gap: 8, paddingBottom: Spacing.md, paddingTop: Spacing.xs },
+  sortChip: {
+    flexDirection: "row", alignItems: "center", gap: 5,
+    paddingHorizontal: 12, paddingVertical: 6,
+    borderRadius: 18, borderWidth: 1.5,
+  },
+  sortChipText: { fontFamily: "Cairo_600SemiBold", fontSize: 12 },
   filterChip: {
     flexDirection: "row", alignItems: "center", gap: 5,
     paddingHorizontal: 12, paddingVertical: 7,

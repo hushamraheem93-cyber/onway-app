@@ -47,6 +47,18 @@ export const MAIN_CATEGORIES: Category[] = [
 
 export const CATEGORIES = MAIN_CATEGORIES;
 
+export interface ProductVariant {
+  id: string;
+  name: string;           // e.g. "صغير", "وسط", "كبير"
+  priceAdjustment: number; // delta added to base price (can be 0 or negative)
+}
+
+export interface ProductAddon {
+  id: string;
+  name: string;   // e.g. "جبن إضافي"
+  price: number;  // always positive
+}
+
 export interface Product {
   id: string;
   categoryId: string;
@@ -60,6 +72,8 @@ export interface Product {
   weight?: string;
   restaurant?: string;
   vendorId?: string;
+  variants?: ProductVariant[];
+  addons?: ProductAddon[];
 }
 
 export const PRODUCTS: Product[] = [

@@ -31,8 +31,10 @@ import { Banner, Category } from "@/constants/categories";
 import { apiRequest, getApiUrl } from "@/lib/query-client";
 import { resolveImageUrl } from "@/utils/imageUtils";
 import { formatPrice } from "@/constants/currency";
+import { formatDateOnly } from "@/lib/dateUtils";
 import { compressAndConvertToBase64, processAndUploadImage, isBase64Image, ImageSize } from "@/lib/imageUtils";
 import { useSystemSettings } from "@/context/SystemSettingsContext";
+import { playRepeatingAlert } from "@/lib/alertSound";
 
 type TabType = "dashboard" | "orders" | "drivers" | "users" | "banners" | "categories" | "products" | "areas" | "promoCodes" | "notifications" | "vendors" | "settlements" | "settings";
 
@@ -533,6 +535,26 @@ export default function AdminScreen() {
     queryKey: ["/api/admin/orders"],
     refetchInterval: 6000,
   });
+
+  // ── New-order sound alert ─────────────────────────────────────────────────
+  // Play a repeating alert whenever a genuinely new pending order appears in
+  // the list. Skip the first load so we don't beep for orders that were already
+  // there when the admin opened the screen.
+  const prevPendingIdsRef = useRef<Set<string>>(new Set());
+  const isFirstAdminOrderLoad = useRef(true);
+  useEffect(() => {
+    const pendingOrders = adminOrders.filter((o) => o.status === "pending");
+    if (isFirstAdminOrderLoad.current) {
+      isFirstAdminOrderLoad.current = false;
+      prevPendingIdsRef.current = new Set(pendingOrders.map((o) => o.id));
+      return;
+    }
+    const newOrders = pendingOrders.filter((o) => !prevPendingIdsRef.current.has(o.id));
+    prevPendingIdsRef.current = new Set(pendingOrders.map((o) => o.id));
+    if (newOrders.length > 0) {
+      playRepeatingAlert(3, 4000);
+    }
+  }, [adminOrders]);
 
   const { data: drivers = [], isLoading: driversLoading } = useQuery<Driver[]>({
     queryKey: ["/api/admin/drivers"],
@@ -1085,7 +1107,13 @@ export default function AdminScreen() {
       ) : (
         banners.map((banner) => (
           <View key={banner.id} style={[styles.listItem, { backgroundColor: theme.backgroundSecondary }]}>
-            <Image source={{ uri: resolveImageUrl(banner.image) }} style={styles.listItemImage} contentFit="cover" />
+            {resolveImageUrl(banner.image) ? (
+              <Image source={{ uri: resolveImageUrl(banner.image) }} style={styles.listItemImage} contentFit="cover" />
+            ) : (
+              <View style={[styles.listItemImage, { backgroundColor: AppColors.gray100, alignItems: "center", justifyContent: "center" }]}>
+                <Feather name="image" size={18} color={AppColors.gray400} />
+              </View>
+            )}
             <View style={styles.listItemContent}>
               <ThemedText type="body" numberOfLines={1}>{banner.title || "بدون عنوان"}</ThemedText>
               <ThemedText type="small" style={{ color: theme.textSecondary }}>{banner.type === "offer" ? "عرض رئيسي" : "سلايدر"}</ThemedText>
@@ -2083,13 +2111,7 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
       u.fullName?.toLowerCase().includes(usersSearch.toLowerCase())
     );
 
-    const formatDate = (ts: any) => {
-      if (!ts) return "";
-      try {
-        const date = ts._seconds ? new Date(ts._seconds * 1000) : new Date(ts);
-        return date.toLocaleDateString("ar-IQ", { year: "numeric", month: "short", day: "numeric" });
-      } catch { return ""; }
-    };
+    const formatDate = formatDateOnly;
 
     return (
       <View style={styles.usersContainer}>

@@ -11,7 +11,7 @@ import {
   Keyboard,
   Modal,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import * as Haptics from "expo-haptics";
@@ -26,8 +26,9 @@ const BRAND_ORANGE = AppColors.primary;
 const BRAND_DARK = AppColors.primaryDark;
 
 export default function PhoneLoginScreen() {
-  const { sendOtp } = useAuth();
+  const { sendOtp, loginAsGuest } = useAuth();
   const navigation = useNavigation();
+  const insets = useSafeAreaInsets();
   const [phoneNumber, setPhoneNumber] = useState("");
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -87,13 +88,13 @@ export default function PhoneLoginScreen() {
       <View style={styles.blobTop} pointerEvents="none" />
       <View style={styles.blobBottom} pointerEvents="none" />
 
-      <SafeAreaView style={styles.safeArea} edges={["top", "bottom", "left", "right"]}>
+      <SafeAreaView style={styles.safeArea} edges={["bottom", "left", "right"]}>
         <KeyboardAvoidingView
           style={styles.keyboardView}
           behavior={Platform.OS === "ios" ? "padding" : "height"}
         >
           <ScrollView
-            contentContainerStyle={styles.scrollContent}
+            contentContainerStyle={[styles.scrollContent, { paddingTop: Math.max(insets.top + 20, 56) }]}
             keyboardShouldPersistTaps="handled"
             bounces={false}
             showsVerticalScrollIndicator={false}
@@ -213,6 +214,24 @@ export default function PhoneLoginScreen() {
                 <ThemedText style={styles.signUpText}>سجل الآن</ThemedText>
               </Pressable>
             </View>
+
+            {/* Guest mode */}
+            <Pressable
+              style={({ pressed }) => [
+                styles.guestBtn,
+                pressed && styles.guestBtnPressed,
+              ]}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                loginAsGuest();
+              }}
+              testID="button-guest"
+              accessibilityRole="button"
+              accessibilityLabel="تصفح كضيف"
+            >
+              <Feather name="eye" size={16} color="rgba(255,255,255,0.9)" />
+              <ThemedText style={styles.guestBtnText}>تصفح كضيف</ThemedText>
+            </Pressable>
           </ScrollView>
         </KeyboardAvoidingView>
       </SafeAreaView>
@@ -275,13 +294,14 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     flexGrow: 1,
-    justifyContent: "center",
     paddingHorizontal: 22,
-    paddingVertical: 32,
+    paddingTop: 24,
+    paddingBottom: 40,
   },
   logoSection: {
     alignItems: "center",
     marginBottom: 26,
+    marginTop: 16,
   },
   logoBadge: {
     paddingHorizontal: 22,
@@ -297,14 +317,14 @@ const styles = StyleSheet.create({
     textAlign: "center",
     letterSpacing: 1,
     writingDirection: "ltr",
-    lineHeight: 42,
-    includeFontPadding: true,
+    lineHeight: 44,
   },
   tagline: {
     fontFamily: "Cairo_600SemiBold",
     fontSize: 14,
     color: "rgba(255,255,255,0.9)",
     textAlign: "center",
+    lineHeight: 22,
   },
   card: {
     width: "100%",
@@ -329,12 +349,15 @@ const styles = StyleSheet.create({
     fontSize: 22,
     color: AppColors.gray800,
     textAlign: "right",
+    lineHeight: 36,
+    paddingTop: 2,
   },
   welcomeSub: {
     fontFamily: "Cairo_400Regular",
     fontSize: 14,
     color: AppColors.gray500,
     textAlign: "right",
+    lineHeight: 24,
     marginTop: 3,
     marginBottom: 22,
   },
@@ -344,6 +367,7 @@ const styles = StyleSheet.create({
     color: AppColors.gray700,
     textAlign: "right",
     marginBottom: 8,
+    lineHeight: 24,
   },
   phoneRow: {
     flexDirection: "row",
@@ -373,6 +397,7 @@ const styles = StyleSheet.create({
   countryCode: {
     fontFamily: "Cairo_700Bold",
     fontSize: 14,
+    lineHeight: 20,
     color: AppColors.gray700,
   },
   flag: {
@@ -391,6 +416,7 @@ const styles = StyleSheet.create({
     fontFamily: "Cairo_600SemiBold",
     color: AppColors.error,
     fontSize: 13,
+    lineHeight: 20,
     textAlign: "right",
   },
   submitBtn: {
@@ -425,6 +451,7 @@ const styles = StyleSheet.create({
   submitText: {
     fontFamily: "Cairo_700Bold",
     fontSize: 17,
+    lineHeight: 26,
     letterSpacing: 0.3,
     color: AppColors.white,
   },
@@ -436,6 +463,7 @@ const styles = StyleSheet.create({
   forgotPasswordText: {
     color: BRAND_ORANGE,
     fontSize: 14,
+    lineHeight: 22,
     fontFamily: "Cairo_700Bold",
   },
   backBtn: {
@@ -459,14 +487,39 @@ const styles = StyleSheet.create({
   whiteText: {
     color: AppColors.white,
     fontSize: 15,
+    lineHeight: 24,
     fontFamily: "Cairo_400Regular",
   },
   signUpText: {
     color: AppColors.white,
     fontSize: 15,
+    lineHeight: 24,
     fontWeight: FontWeight.bold,
     textDecorationLine: "underline",
     fontFamily: "Cairo_700Bold",
+  },
+  guestBtn: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    marginTop: 16,
+    paddingVertical: 13,
+    paddingHorizontal: 32,
+    borderRadius: 16,
+    borderWidth: 1.5,
+    borderColor: "rgba(255,255,255,0.45)",
+    backgroundColor: "rgba(255,255,255,0.10)",
+  },
+  guestBtnPressed: {
+    opacity: 0.75,
+    transform: [{ scale: 0.98 }],
+  },
+  guestBtnText: {
+    fontFamily: "Cairo_600SemiBold",
+    fontSize: 15,
+    lineHeight: 24,
+    color: "rgba(255,255,255,0.95)",
   },
   modalOverlay: {
     flex: 1,
@@ -487,6 +540,7 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontFamily: "Cairo_700Bold",
     fontSize: 17,
+    lineHeight: 28,
     color: AppColors.gray700,
     textAlign: "center",
     marginBottom: 12,
@@ -508,6 +562,7 @@ const styles = StyleSheet.create({
   modalButtonText: {
     fontFamily: "Cairo_700Bold",
     fontSize: 15,
+    lineHeight: 24,
     color: AppColors.white,
   },
 });

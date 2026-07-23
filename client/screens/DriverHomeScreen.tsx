@@ -12,6 +12,7 @@ import {
   Vibration,
   Modal,
   Animated,
+  AppState,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -31,6 +32,7 @@ import { useTheme } from "@/hooks/useTheme";
 import { useAuth } from "@/context/AuthContext";
 import { AppColors, Spacing, BorderRadius, Shadows, FontWeight} from "@/constants/theme";
 import { getApiUrl } from "@/lib/query-client";
+import { clearDriverToken } from "@/lib/driverAuth";
 import { playRepeatingAlert, stopAlert } from "@/lib/alertSound";
 import { formatPrice } from "@/constants/currency";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
@@ -110,7 +112,7 @@ export default function DriverHomeScreen() {
   const insets = useSafeAreaInsets();
   const tabBarHeight = useBottomTabBarHeight();
   const { theme, isDark } = useTheme();
-  const { phoneNumber, userProfile } = useAuth();
+  const { phoneNumber, userProfile, logout } = useAuth();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
 
   const [isOnline, setIsOnline] = useState(false);
@@ -265,7 +267,6 @@ export default function DriverHomeScreen() {
         }
         setStatusFetchError(null);
       } else {
-        // Make the failure visible instead of silently keeping the stale status.
         let serverMsg = "";
         try { serverMsg = (await res.json())?.error || ""; } catch {}
         setStatusFetchError(
@@ -367,6 +368,18 @@ export default function DriverHomeScreen() {
       cancelled = true;
       if (pollTimeoutRef.current) clearTimeout(pollTimeoutRef.current);
     };
+  }, [fetchDriverStatus]);
+
+  // ── Foreground repoll: when app comes back from background, fire an
+  // immediate status fetch so the driver sees admin approval right away
+  // without waiting for the next scheduled poll interval.
+  useEffect(() => {
+    const sub = AppState.addEventListener("change", (nextState) => {
+      if (nextState === "active") {
+        fetchDriverStatus();
+      }
+    });
+    return () => sub.remove();
   }, [fetchDriverStatus]);
 
   const gpsIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);

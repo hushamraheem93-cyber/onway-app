@@ -19,7 +19,7 @@ export function initializeFirebase() {
     if (!apps.length) {
       admin.initializeApp({
         credential: admin.credential.cert(serviceAccount),
-        storageBucket: `${serviceAccount.project_id}.firebasestorage.app`,
+        storageBucket: `onway-media-${serviceAccount.project_id.replace(/[^a-z0-9]/g, "")}`,
       });
     }
     
@@ -48,19 +48,47 @@ export interface FirestoreUserProfile {
   updatedAt: admin.firestore.Timestamp;
 }
 
+/**
+ * All Iraqi phone variants for a raw number — lets us find users stored with
+ * any historical format (009647…, 9647…, 07…, 7…) regardless of which one the
+ * caller passes in.  Deduplicated and always starts with the raw value so the
+ * first hit is the cheapest match.
+ */
+function phoneVariants(raw: string): string[] {
+  const digits = (raw || "").replace(/\D/g, "");
+  const set = new Set<string>();
+  set.add(raw); // exact match first
+
+  let local = ""; // 07XXXXXXXXX
+  if (digits.startsWith("00964")) local = "0" + digits.slice(5);
+  else if (digits.startsWith("964")) local = "0" + digits.slice(3);
+  else if (digits.startsWith("07")) local = digits;
+  else if (digits.startsWith("7")) local = "0" + digits;
+
+  if (local) {
+    set.add(local);                    // 07XXXXXXXXX
+    set.add("00964" + local.slice(1)); // 009647XXXXXXXXX
+    set.add("964" + local.slice(1));   // 9647XXXXXXXXX
+    set.add(local.slice(1));           // 7XXXXXXXXX (no leading zero)
+  }
+  return [...set];
+}
+
 export async function getUserByPhone(phoneNumber: string): Promise<(FirestoreUserProfile & { id: string }) | null> {
   if (!db) return null;
   
   try {
     const usersRef = db.collection("users");
-    const snapshot = await usersRef.where("phoneNumber", "==", phoneNumber).limit(1).get();
-    
-    if (snapshot.empty) {
-      return null;
+    // Try every format variant so legacy documents (stored with 009647…) are found
+    // even when the caller passes the modern 07… form and vice-versa.
+    for (const phone of phoneVariants(phoneNumber)) {
+      const snapshot = await usersRef.where("phoneNumber", "==", phone).limit(1).get();
+      if (!snapshot.empty) {
+        const doc = snapshot.docs[0];
+        return { id: doc.id, ...doc.data() as FirestoreUserProfile };
+      }
     }
-    
-    const doc = snapshot.docs[0];
-    return { id: doc.id, ...doc.data() as FirestoreUserProfile };
+    return null;
   } catch (error) {
     console.error("Error getting user from Firestore:", error);
     return null;
@@ -125,13 +153,13 @@ export async function updateUser(
   
   try {
     const usersRef = db.collection("users");
-    const snapshot = await usersRef.where("phoneNumber", "==", phoneNumber).limit(1).get();
-    
-    if (snapshot.empty) {
-      return null;
+    let doc: admin.firestore.QueryDocumentSnapshot | null = null;
+    for (const phone of phoneVariants(phoneNumber)) {
+      const snapshot = await usersRef.where("phoneNumber", "==", phone).limit(1).get();
+      if (!snapshot.empty) { doc = snapshot.docs[0]; break; }
     }
-    
-    const doc = snapshot.docs[0];
+    if (!doc) return null;
+
     const updateData: any = {
       updatedAt: admin.firestore.Timestamp.now(),
     };
@@ -171,10 +199,14 @@ export interface SavedAddress {
 export async function getUserAddresses(phoneNumber: string): Promise<SavedAddress[]> {
   if (!db) return [];
   try {
-    const snap = await db.collection("users").where("phoneNumber", "==", phoneNumber).limit(1).get();
-    if (snap.empty) return [];
-    const data = snap.docs[0].data() as any;
-    return Array.isArray(data.addresses) ? (data.addresses as SavedAddress[]) : [];
+    for (const phone of phoneVariants(phoneNumber)) {
+      const snap = await db.collection("users").where("phoneNumber", "==", phone).limit(1).get();
+      if (!snap.empty) {
+        const data = snap.docs[0].data() as any;
+        return Array.isArray(data.addresses) ? (data.addresses as SavedAddress[]) : [];
+      }
+    }
+    return [];
   } catch (error) {
     console.error("Error reading user addresses:", error);
     return [];
@@ -187,8 +219,12 @@ export async function setUserAddresses(
 ): Promise<SavedAddress[] | null> {
   if (!db) return null;
   try {
-    const snap = await db.collection("users").where("phoneNumber", "==", phoneNumber).limit(1).get();
-    if (snap.empty) return null;
+    let snap: admin.firestore.QuerySnapshot | null = null;
+    for (const phone of phoneVariants(phoneNumber)) {
+      const s = await db.collection("users").where("phoneNumber", "==", phone).limit(1).get();
+      if (!s.empty) { snap = s; break; }
+    }
+    if (!snap) return null;
     // Only one address may be the default.
     let seenDefault = false;
     const clean = addresses.slice(0, 30).map((a) => {
@@ -204,7 +240,7 @@ export async function setUserAddresses(
         ...(typeof a.longitude === "number" ? { longitude: a.longitude } : {}),
       } as SavedAddress;
     });
-    await snap.docs[0].ref.update({ addresses: clean, updatedAt: admin.firestore.Timestamp.now() });
+    await (snap as admin.firestore.QuerySnapshot).docs[0].ref.update({ addresses: clean, updatedAt: admin.firestore.Timestamp.now() });
     return clean;
   } catch (error) {
     console.error("Error writing user addresses:", error);
@@ -223,14 +259,14 @@ export async function updateUserPushToken(phoneNumber: string, pushToken: string
       { merge: true }
     );
 
-    // Also update the user document if it exists
+    // Also update the user document if it exists (try all phone variants)
     const usersRef = db.collection("users");
-    const snapshot = await usersRef.where("phoneNumber", "==", phoneNumber).limit(1).get();
-    if (!snapshot.empty) {
-      await snapshot.docs[0].ref.update({
-        pushToken,
-        updatedAt: admin.firestore.Timestamp.now(),
-      });
+    for (const phone of phoneVariants(phoneNumber)) {
+      const snapshot = await usersRef.where("phoneNumber", "==", phone).limit(1).get();
+      if (!snapshot.empty) {
+        await snapshot.docs[0].ref.update({ pushToken, updatedAt: admin.firestore.Timestamp.now() });
+        break;
+      }
     }
 
     return true;
@@ -245,14 +281,14 @@ export async function getUserPushToken(phoneNumber: string): Promise<string | nu
   
   try {
     const usersRef = db.collection("users");
-    const snapshot = await usersRef.where("phoneNumber", "==", phoneNumber).limit(1).get();
-    
-    if (snapshot.empty) {
-      return null;
+    for (const phone of phoneVariants(phoneNumber)) {
+      const snapshot = await usersRef.where("phoneNumber", "==", phone).limit(1).get();
+      if (!snapshot.empty) {
+        const userData = snapshot.docs[0].data() as FirestoreUserProfile;
+        return userData.pushToken || null;
+      }
     }
-    
-    const userData = snapshot.docs[0].data() as FirestoreUserProfile;
-    return userData.pushToken || null;
+    return null;
   } catch (error) {
     console.error("Error getting push token:", error);
     return null;
@@ -603,15 +639,61 @@ export async function createOrder(data: Omit<FirestoreOrder, "createdAt" | "upda
   }
 }
 
-export async function updateOrderStatus(id: string, status: FirestoreOrder["status"]): Promise<boolean> {
+// ── Order State Machine ────────────────────────────────────────────────────────
+// Each key is the CURRENT status; the value lists every status it may transition TO.
+// Terminal states (delivered, cancelled) have empty arrays — no further transitions.
+// Callers pass { force: true } to bypass (admin-only overrides such as force-cancel
+// a delivered order for a refund, or bulk status corrections).
+const ORDER_TRANSITIONS: Readonly<Record<string, readonly string[]>> = {
+  pending:     ["confirmed", "cancelled"],
+  confirmed:   ["preparing", "cancelled"],
+  preparing:   ["in_delivery", "delivered", "cancelled", "issue"],
+  in_delivery: ["delivered", "issue", "cancelled"],
+  delivered:   [],   // terminal
+  cancelled:   [],   // terminal
+  issue:       ["preparing", "cancelled"],
+};
+
+export async function updateOrderStatus(
+  id: string,
+  status: FirestoreOrder["status"],
+  opts?: { force?: boolean },
+): Promise<boolean> {
   if (!db) return false;
-  
+  const force = opts?.force ?? false;
+
   try {
-    await db.collection("orders").doc(id).update({ status, updatedAt: admin.firestore.Timestamp.now() });
-    // Real-time: notify listeners (routes.ts forwards this to the order's socket room
-    // and broadcasts orders:changed). Additive only — HTTP polling remains the fallback.
-    orderEvents.emit("order:status", { orderId: id, status });
-    return true;
+    let changed = false;
+
+    if (!force) {
+      // Validate the transition atomically: read current status, check the state
+      // machine, then write — all in one transaction so no concurrent writer can
+      // slip an illegal transition through.
+      const orderRef = db.collection("orders").doc(id);
+      changed = await db.runTransaction(async (tx) => {
+        const snap = await tx.get(orderRef);
+        if (!snap.exists) return false;
+        const current = (snap.data() as any)?.status as string | undefined;
+        const allowed = ORDER_TRANSITIONS[current ?? ""] ?? [];
+        if (!allowed.includes(status)) {
+          console.warn(`[StateMachine] Blocked: ${current ?? "?"} → ${status} (order ${id})`);
+          return false;
+        }
+        tx.update(orderRef, { status, updatedAt: admin.firestore.Timestamp.now() });
+        return true;
+      });
+    } else {
+      // Force mode: direct update without transition check (admin-only override).
+      await db.collection("orders").doc(id).update({ status, updatedAt: admin.firestore.Timestamp.now() });
+      changed = true;
+    }
+
+    if (changed) {
+      // Real-time: notify listeners (routes.ts forwards this to the order's socket
+      // room and broadcasts orders:changed). Additive only — HTTP polling is the fallback.
+      orderEvents.emit("order:status", { orderId: id, status });
+    }
+    return changed;
   } catch (error) {
     console.error("Error updating order status:", error);
     return false;
@@ -843,6 +925,23 @@ export async function getDriverByPhone(phoneNumber: string): Promise<(FirestoreD
     return { id: doc.id, ...doc.data() as FirestoreDriver };
   } catch (error) {
     console.error("Error getting driver:", error);
+    return null;
+  }
+}
+
+/**
+ * Look up a vendor by phone number across all phone format variants.
+ * Returns the vendor doc id if found, null otherwise.
+ */
+export async function getVendorByPhone(phoneNumber: string): Promise<string | null> {
+  if (!db) return null;
+  try {
+    for (const phone of phoneVariants(phoneNumber)) {
+      const snapshot = await db.collection("vendors").where("phoneNumber", "==", phone).limit(1).get();
+      if (!snapshot.empty) return snapshot.docs[0].id;
+    }
+    return null;
+  } catch {
     return null;
   }
 }
@@ -1234,8 +1333,8 @@ const OTP_MAX_ATTEMPTS = 5; // wrong tries before the code is invalidated (brute
 const otpStore = new Map<string, { code: string; expiresAt: number; attempts: number }>();
 
 export function generateOtp(phoneNumber: string): string {
-  // 6-digit code (was 4) — a much larger keyspace against brute force.
-  const code = Math.floor(100000 + Math.random() * 900000).toString();
+  // 4-digit code (1000–9999)
+  const code = Math.floor(1000 + Math.random() * 9000).toString();
   otpStore.set(phoneNumber, {
     code,
     expiresAt: Date.now() + OTP_TTL_MS,
@@ -1245,11 +1344,9 @@ export function generateOtp(phoneNumber: string): string {
 }
 
 export function verifyOtp(phoneNumber: string, code: string): boolean {
-  // Development-only bypass: a fixed all-zeros code is always accepted in dev mode
-  // (NODE_ENV=development or DEV_MODE=true, and never on a published deployment).
-  // "000000" matches the 6-digit OTP entry screen; "0000" is kept for older builds.
+  // Development-only bypass: the fixed code "0000" is always accepted in dev mode.
   // In production this branch is inert, so only a real OTPIQ-delivered code works.
-  if ((code === "000000" || code === "0000") && isDevMode()) {
+  if (code === "0000" && isDevMode()) {
     return true;
   }
   const stored = otpStore.get(phoneNumber);
@@ -1276,6 +1373,9 @@ export interface FirestorePromoCode {
   value: number;
   expiryDate: string;
   isActive: boolean;
+  maxUsage?: number;                 // optional global cap; 0 or undefined = unlimited
+  minOrderAmount?: number;           // optional minimum cart subtotal for the promo to apply
+  maximumDiscountAmount?: number;    // optional cap on percentage discount (IQD); 0 or undefined = no cap
   createdAt: admin.firestore.Timestamp;
   updatedAt: admin.firestore.Timestamp;
 }

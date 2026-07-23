@@ -10,7 +10,7 @@ import { ThemedText } from "@/components/ThemedText";
 import { useTheme } from "@/hooks/useTheme";
 import { useLocation } from "@/context/LocationContext";
 import { AppColors, FontWeight} from "@/constants/theme";
-import { reverseGeocodeDetailed, DHULUIYAH_CENTER, DEFAULT_DISTRICT } from "@/lib/geocoding";
+import { reverseGeocodeDetailed, DHULUIYAH_CENTER } from "@/lib/geocoding";
 
 function getLeafletHTML(lat: number, lng: number) {
   return `

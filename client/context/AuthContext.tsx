@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useRef, ReactNode } from "react";
+import React, { createContext, useContext, useState, useEffect, useRef, useCallback, ReactNode } from "react";
 import { Platform, AppState, AppStateStatus } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { getToken, setToken, removeToken } from "@/lib/secureTokenStorage";
@@ -52,6 +52,8 @@ export interface VendorProfile {
     closeTime: string;
     openDays: number[];
   };
+  isVacation?: boolean;
+  isBusy?: boolean;
 }
 
 interface AuthContextType {
@@ -71,6 +73,7 @@ interface AuthContextType {
   isVendorRegistered: boolean;
   // Customer JWT
   customerToken: string | null;
+  isProfileLoading: boolean;
   sendOtp: (phone: string) => Promise<void>;
   verifyOtp: (code: string) => Promise<void>;
   setUserType: (type: UserType) => void;
@@ -87,6 +90,10 @@ interface AuthContextType {
   goBackToOtp: () => void;
   markSplashSeen: () => void;
   isLoading: boolean;
+  // Guest mode
+  isGuest: boolean;
+  loginAsGuest: () => Promise<void>;
+  exitGuestMode: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -96,6 +103,7 @@ const PROFILE_STORAGE_KEY = "@onway_profile";
 const VENDOR_TOKEN_KEY = "@onway_vendor_token";
 const VENDOR_PROFILE_KEY = "@onway_vendor_profile";
 const CUSTOMER_TOKEN_KEY = "@onway_customer_token";
+const GUEST_MODE_KEY = "@onway_guest_mode";
 
 async function registerForPushNotificationsAsync(): Promise<string | null> {
   if (Platform.OS === "web") {
@@ -196,12 +204,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isDriverRegistered, setIsDriverRegistered] = useState(false);
   const [hasSeenSplash, setHasSeenSplash] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  // Tracks an in-progress profile fetch after type selection (prevents the
+  // navigator from briefly showing ProfileCompletion before the fetch completes).
+  const [isProfileLoading, setIsProfileLoading] = useState(false);
   // Vendor
   const [vendorProfile, setVendorProfile] = useState<VendorProfile | null>(null);
   const [vendorToken, setVendorToken] = useState<string | null>(null);
   const [isVendorRegistered, setIsVendorRegistered] = useState(false);
   // Customer JWT (issued by /api/auth/verify-otp)
   const [customerToken, setCustomerToken] = useState<string | null>(null);
+  // Guest mode — browse-only, no ordering allowed
+  const [isGuest, setIsGuest] = useState(false);
 
   useEffect(() => {
     loadAuthState();
@@ -247,6 +260,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const loadAuthState = async () => {
     try {
       const stored = await AsyncStorage.getItem(AUTH_STORAGE_KEY);
+      // If no real auth data exists, check if the user previously chose guest mode.
+      if (!stored) {
+        const guestMode = await AsyncStorage.getItem(GUEST_MODE_KEY);
+        if (guestMode === "true") setIsGuest(true);
+      }
       if (stored) {
         const data = JSON.parse(stored);
         setPhoneNumber(data.phoneNumber);
@@ -381,14 +399,103 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       const data = await response.json();
-      if (data.customerToken) {
-        setCustomerToken(data.customerToken);
-        try { await setToken(CUSTOMER_TOKEN_KEY, data.customerToken); } catch {}
+      const newCToken: string | null = data.customerToken || null;
+      if (newCToken) {
+        setCustomerToken(newCToken);
+        try { await setToken(CUSTOMER_TOKEN_KEY, newCToken); } catch {}
       }
-      setPhoneNumber(pendingPhone);
+      // Prefer the server-normalised phone (07XXXXXXXXX) so state, AsyncStorage,
+      // and the JWT all use the same canonical format → ownership checks pass.
+      const canonicalPhone = data.phoneNumber || pendingPhone;
+      setPhoneNumber(canonicalPhone);
+      setPendingPhone(canonicalPhone);
       setIsOtpVerified(true);
+
+      // Returning user: server detected an existing role → skip the role-selection
+      // screen and sign in directly. We pass phone and token explicitly because
+      // the React state updates above are batched and may not be visible yet.
+      if (data.existingRole && canonicalPhone) {
+        await selectRoleForPhone(data.existingRole as UserType, canonicalPhone, newCToken);
+      }
     } catch (error: any) {
       throw error;
+    }
+  };
+
+  /**
+   * Internal helper — applies role selection with explicit arguments so it can
+   * be called immediately after verifyOtp without relying on async state updates.
+   * Mirrors the three branches of the public setUserType() but accepts phone+token
+   * directly rather than reading them from state.
+   */
+  const selectRoleForPhone = async (type: UserType, phone: string, cToken: string | null) => {
+    setSelectedUserType(type);
+
+    if (type === "customer") {
+      await AsyncStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify({ phoneNumber: phone, userType: "customer", isDriverRegistered: false }));
+      setIsProfileLoading(true);
+      setIsLoggedIn(true);
+      try {
+        // Inline profile fetch so we can pass cToken directly.
+        const res = await fetch(
+          new URL(`/api/users/${encodeURIComponent(phone)}`, getApiUrl()).toString(),
+          { headers: cToken ? { Authorization: `Bearer ${cToken}` } : {} }
+        );
+        if (res.ok) {
+          const profile = await res.json();
+          setUserProfile(profile);
+          setIsProfileComplete(profile.profileComplete || false);
+          await AsyncStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify(profile));
+        } else {
+          setIsProfileComplete(false);
+        }
+      } catch {
+        setIsProfileComplete(false);
+      } finally {
+        setIsProfileLoading(false);
+      }
+
+    } else if (type === "driver") {
+      try { await issueDriverToken(phone, cToken); } catch { /* best-effort */ }
+      setIsDriverRegistered(true);
+      await AsyncStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify({ phoneNumber: phone, userType: "driver", isDriverRegistered: true }));
+      setIsLoggedIn(true);
+      try {
+        const res = await fetch(
+          new URL(`/api/users/${encodeURIComponent(phone)}`, getApiUrl()).toString(),
+          { headers: cToken ? { Authorization: `Bearer ${cToken}` } : {} }
+        );
+        if (res.ok) {
+          const profile = await res.json();
+          setUserProfile(profile);
+          setIsProfileComplete(profile.profileComplete || false);
+          await AsyncStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify(profile));
+        }
+      } catch { /* best-effort */ }
+
+    } else if (type === "vendor") {
+      await AsyncStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify({ phoneNumber: phone, userType: "vendor" }));
+      setIsLoggedIn(true);
+      try {
+        const res = await fetch(new URL("/api/vendor/mobile-auth", getApiUrl()).toString(), {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...(cToken ? { Authorization: `Bearer ${cToken}` } : {}),
+          },
+          body: JSON.stringify({ phoneNumber: phone }),
+        });
+        if (res.ok) {
+          const vData = await res.json();
+          if (vData.vendor && vData.token) {
+            setVendorProfile(vData.vendor);
+            setVendorToken(vData.token);
+            setIsVendorRegistered(true);
+            await setToken(VENDOR_TOKEN_KEY, vData.token);
+            await AsyncStorage.setItem(VENDOR_PROFILE_KEY, JSON.stringify(vData.vendor));
+          }
+        }
+      } catch { /* best-effort */ }
     }
   };
 
@@ -464,10 +571,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!phoneNumber) return;
     try {
       await AsyncStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify({ phoneNumber, userType: type, isDriverRegistered: false }));
+      // Mark profile as loading BEFORE setting isLoggedIn so the navigator
+      // shows a spinner instead of ProfileCompletion during the fetch.
+      setIsProfileLoading(true);
       setIsLoggedIn(true);
       await checkProfileFromServer(phoneNumber);
     } catch (error) {
       throw error;
+    } finally {
+      setIsProfileLoading(false);
     }
   };
 
@@ -479,7 +591,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await AsyncStorage.setItem(VENDOR_PROFILE_KEY, JSON.stringify(vendor));
   };
 
-  const refreshVendorProfile = async () => {
+  // Stable reference via useCallback so that loadNotifications (which depends on
+  // this function) doesn't get recreated on every render, which was previously
+  // causing the VendorHomeScreen useFocusEffect to clear and restart its poll
+  // interval on every render — making the approval status update unreliable.
+  const refreshVendorProfile = useCallback(async () => {
     if (!vendorToken) return;
     try {
       const response = await fetch(new URL("/api/vendor/profile", getApiUrl()).toString(), {
@@ -491,7 +607,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         await AsyncStorage.setItem(VENDOR_PROFILE_KEY, JSON.stringify(updated));
       }
     } catch {}
-  };
+  }, [vendorToken]);
 
   const goBackToUserType = () => {
     setSelectedUserType(null);
@@ -559,6 +675,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await logout();
   };
 
+  const loginAsGuest = async () => {
+    await AsyncStorage.setItem(GUEST_MODE_KEY, "true");
+    setIsGuest(true);
+  };
+
+  const exitGuestMode = async () => {
+    await AsyncStorage.removeItem(GUEST_MODE_KEY);
+    setIsGuest(false);
+  };
+
   const logout = async () => {
     try {
       await AsyncStorage.removeItem(AUTH_STORAGE_KEY);
@@ -566,6 +692,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       await removeToken(VENDOR_TOKEN_KEY);
       await AsyncStorage.removeItem(VENDOR_PROFILE_KEY);
       await removeToken(CUSTOMER_TOKEN_KEY);
+      await AsyncStorage.removeItem(GUEST_MODE_KEY);
       await clearDriverToken();
       setPhoneNumber(null);
       setPendingPhone(null);
@@ -581,6 +708,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setVendorToken(null);
       setIsVendorRegistered(false);
       setCustomerToken(null);
+      setIsGuest(false);
     } catch (error) {
       throw error;
     }
@@ -677,6 +805,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         goBackToOtp,
         markSplashSeen,
         isLoading,
+        isProfileLoading,
+        isGuest,
+        loginAsGuest,
+        exitGuestMode,
       }}
     >
       {children}
