@@ -11,16 +11,16 @@ const config: Config = {
       colors: {
         // OnWay brand
         brand: {
-          50: "#FFF1EC",
-          100: "#FFDDD0",
-          200: "#FFB59D",
-          300: "#FF8A66",
-          400: "#FF6238",
-          500: "#F73E10", // primary orange — matches OnWay logo
-          600: "#D8300A",
-          700: "#AE2708",
-          800: "#7F1D06",
-          900: "#591604",
+          50: "#FFF4EE",
+          100: "#FFE3D5",
+          200: "#FFC1A4",
+          300: "#FE9C72",
+          400: "#FD7B47",
+          500: "#FB5B21", // primary orange — OnWay brand
+          600: "#E44710",
+          700: "#B9360C",
+          800: "#88280A",
+          900: "#611D07",
         },
         ink: {
           DEFAULT: "#141419",
@@ -36,8 +36,8 @@ const config: Config = {
       },
       boxShadow: {
         card: "0 1px 2px rgba(20,20,25,0.04), 0 8px 24px rgba(20,20,25,0.06)",
-        "card-hover": "0 2px 4px rgba(20,20,25,0.06), 0 18px 40px rgba(247,62,16,0.14)",
-        glow: "0 20px 60px -12px rgba(247,62,16,0.42)",
+        "card-hover": "0 2px 4px rgba(20,20,25,0.06), 0 18px 40px rgba(251,91,33,0.14)",
+        glow: "0 20px 60px -12px rgba(251,91,33,0.42)",
       },
       borderRadius: {
         "4xl": "2rem",

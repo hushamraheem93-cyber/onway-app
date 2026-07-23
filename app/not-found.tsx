@@ -20,7 +20,7 @@ export default function NotFound() {
           padding: "2rem",
         }}
       >
-        <h1 style={{ fontSize: "3rem", margin: 0, color: "#F73E10" }}>404</h1>
+        <h1 style={{ fontSize: "3rem", margin: 0, color: "#FB5B21" }}>404</h1>
         <p style={{ margin: 0, color: "#6B6B76" }}>
           الصفحة غير موجودة · Page not found
         </p>
@@ -28,7 +28,7 @@ export default function NotFound() {
           href="/ar"
           style={{
             marginTop: "0.5rem",
-            background: "#F73E10",
+            background: "#FB5B21",
             color: "#fff",
             padding: "0.75rem 1.5rem",
             borderRadius: "999px",
