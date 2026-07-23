@@ -791,9 +791,17 @@ router.put(
             }
           }
           for (const thumbUrl of removedThumbs) {
+            if (!thumbUrl.startsWith("https://firebasestorage.googleapis.com/")) continue;
             try {
-              await deleteFromFirebaseStorage(thumbUrl);
-              console.info("[Storage] ✓ delete success (replaced thumbnail):", pid);
+              const thumbRefSnap = await db!
+                .collection("vendorProducts")
+                .where("imageThumbs", "array-contains", thumbUrl)
+                .limit(1)
+                .get();
+              if (thumbRefSnap.empty) {
+                await deleteFromFirebaseStorage(thumbUrl);
+                console.info("[Storage] ✓ delete success (replaced thumbnail):", pid);
+              }
             } catch (err: any) {
               console.warn("[Storage] ✗ delete failure (replaced thumbnail):", err?.message);
             }
@@ -875,8 +883,15 @@ router.post("/api/vendor/products/bulk-delete", requireVendor, async (req, res) 
         for (const thumbUrl of thumbUrls) {
           if (!thumbUrl.startsWith("https://firebasestorage.googleapis.com/")) continue;
           try {
-            await deleteFromFirebaseStorage(thumbUrl);
-            console.info("[Storage] ✓ delete success (bulk delete thumb)");
+            const thumbRefSnap = await db!
+              .collection("vendorProducts")
+              .where("imageThumbs", "array-contains", thumbUrl)
+              .limit(1)
+              .get();
+            if (thumbRefSnap.empty) {
+              await deleteFromFirebaseStorage(thumbUrl);
+              console.info("[Storage] ✓ delete success (bulk delete thumb)");
+            }
           } catch (err: any) {
             console.warn("[Storage] ✗ delete failure (bulk delete thumb):", err?.message);
           }
@@ -942,8 +957,15 @@ router.delete("/api/vendor/products/:pid", requireVendor, async (req, res) => {
         for (const thumbUrl of thumbUrls) {
           if (!thumbUrl.startsWith("https://firebasestorage.googleapis.com/")) continue;
           try {
-            await deleteFromFirebaseStorage(thumbUrl);
-            console.info("[Storage] ✓ delete success (product deleted thumb):", pid);
+            const thumbRefSnap = await db!
+              .collection("vendorProducts")
+              .where("imageThumbs", "array-contains", thumbUrl)
+              .limit(1)
+              .get();
+            if (thumbRefSnap.empty) {
+              await deleteFromFirebaseStorage(thumbUrl);
+              console.info("[Storage] ✓ delete success (product deleted thumb):", pid);
+            }
           } catch (err: any) {
             console.warn("[Storage] ✗ delete failure (product deleted thumb):", err?.message);
           }

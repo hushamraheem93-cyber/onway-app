@@ -79,7 +79,8 @@ async function main() {
   for (const file of files) {
     const [metadata] = await file.getMetadata();
     const sizeBytes = parseInt(String(metadata.size ?? "0"), 10);
-    const downloadToken = (metadata.metadata as any)?.firebaseStorageDownloadTokens;
+    const rawToken = (metadata.metadata as any)?.firebaseStorageDownloadTokens ?? "";
+    const downloadToken = rawToken.split(",")[0];
 
     // Reconstruct the public download URL used by the app
     const encodedPath = encodeURIComponent(file.name);
