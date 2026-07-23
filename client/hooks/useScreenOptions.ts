@@ -31,7 +31,7 @@ export function useScreenOptions({
     gestureDirection: "horizontal",
     fullScreenGestureEnabled: isLiquidGlassAvailable() ? false : true,
     contentStyle: {
-      backgroundColor: theme.backgroundRoot,
+      backgroundColor: "transparent",
     },
   };
 }
