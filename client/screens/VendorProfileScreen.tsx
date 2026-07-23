@@ -13,7 +13,7 @@ import {
 } from "react-native";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
-import { useFocusEffect } from "@react-navigation/native";
+import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import * as ImagePicker from "expo-image-picker";
@@ -34,6 +34,7 @@ export default function VendorProfileScreen() {
   const headerHeight = useHeaderHeight();
   const tabBarHeight = useBottomTabBarHeight();
   const { theme } = useTheme();
+  const navigation = useNavigation<any>();
   const { vendorProfile, vendorToken, logout, refreshVendorProfile } = useAuth();
 
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
@@ -226,21 +227,31 @@ export default function VendorProfileScreen() {
         <Feather name="chevron-left" size={18} color={theme.textSecondary} />
       </Pressable>
 
-      {/* Rating */}
-      {vendorProfile?.rating != null ? (
-        <View style={[styles.card, styles.ratingRow, { backgroundColor: theme.backgroundDefault }]}>
-          <View style={[styles.settingsIcon, { backgroundColor: AppColors.warningLight }]}>
-            <MaterialCommunityIcons name="star" size={18} color={AppColors.warning} />
-          </View>
-          <View style={{ flex: 1 }}>
-            <ThemedText style={styles.settingsTitle}>تقييم المتجر</ThemedText>
-            <ThemedText style={[styles.settingsSub, { color: theme.textSecondary }]}>
-              {(vendorProfile.rating as number).toFixed(1)} / 5 · {(vendorProfile as any).ratingCount ?? 0} تقييم
-            </ThemedText>
-          </View>
-          <ThemedText style={styles.ratingBig}>{(vendorProfile.rating as number).toFixed(1)}</ThemedText>
+      {/* Ratings — moved here from a standalone tab; opens the full ratings screen. */}
+      <Pressable
+        style={[styles.card, styles.settingsRow, { backgroundColor: theme.backgroundDefault }]}
+        onPress={() => {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          navigation.navigate("VendorRatings");
+        }}
+      >
+        <View style={[styles.settingsIcon, { backgroundColor: AppColors.warningLight }]}>
+          <MaterialCommunityIcons name="star" size={18} color={AppColors.warning} />
         </View>
-      ) : null}
+        <View style={{ flex: 1 }}>
+          <ThemedText style={styles.settingsTitle}>التقييمات والردود</ThemedText>
+          <ThemedText style={[styles.settingsSub, { color: theme.textSecondary }]}>
+            {vendorProfile?.rating != null
+              ? `${(vendorProfile.rating as number).toFixed(1)} / 5 · ${(vendorProfile as any).ratingCount ?? 0} تقييم`
+              : "لا توجد تقييمات بعد"}
+          </ThemedText>
+        </View>
+        {vendorProfile?.rating != null ? (
+          <ThemedText style={styles.ratingBig}>{(vendorProfile.rating as number).toFixed(1)}</ThemedText>
+        ) : (
+          <Feather name="chevron-left" size={18} color={theme.textSecondary} />
+        )}
+      </Pressable>
 
       <ThemedText style={styles.sectionLabel}>الحساب</ThemedText>
 

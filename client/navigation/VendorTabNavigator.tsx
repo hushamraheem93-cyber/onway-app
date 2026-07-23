@@ -7,7 +7,6 @@ import { Feather } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as Haptics from "expo-haptics";
 
-import VendorHomeScreen from "@/screens/VendorHomeScreen";
 import VendorRatingsScreen from "@/screens/VendorRatingsScreen";
 import VendorProductsScreen from "@/screens/VendorProductsScreen";
 import VendorAddProductScreen from "@/screens/VendorAddProductScreen";
@@ -20,25 +19,28 @@ import { VendorNotificationsProvider, useVendorNotifications } from "@/context/V
 import { ThemedText } from "@/components/ThemedText";
 import { AppColors } from "@/constants/theme";
 
+// Streamlined vendor navigation: the six-tab layout (Home / Orders / Products /
+// Earnings / Ratings / Account) was slow and scattered — store settings lived in
+// BOTH Home and Account, and the vendor's core daily task (Orders) was just one
+// tab of six. This collapses it to four: Orders is the default landing (the
+// workspace), and Ratings + settings live under a single Account hub. No screen
+// navigates to "VendorHome"/"VendorRatingsTab" by name, so nothing breaks.
 export type VendorTabParamList = {
-  VendorHome: undefined;
   VendorOrdersTab: undefined;
   VendorProductsTab: undefined;
   VendorWalletTab: undefined;
-  VendorRatingsTab: undefined;
-  VendorProfileTab: undefined;
+  VendorAccountTab: undefined;
 };
 
 const Tab = createBottomTabNavigator<VendorTabParamList>();
 const ProductStack = createNativeStackNavigator();
+const AccountStack = createNativeStackNavigator();
 
 const TAB_CONFIG: Record<string, { icon: keyof typeof Feather.glyphMap; label: string }> = {
-  VendorHome:        { icon: "home",         label: "الرئيسية" },
   VendorOrdersTab:   { icon: "shopping-bag", label: "الطلبات"  },
   VendorProductsTab: { icon: "box",          label: "المنتجات" },
   VendorWalletTab:   { icon: "bar-chart-2",  label: "الأرباح"  },
-  VendorRatingsTab:  { icon: "star",         label: "التقييمات"},
-  VendorProfileTab:  { icon: "user",         label: "الحساب"   },
+  VendorAccountTab:  { icon: "user",         label: "الحساب"   },
 };
 
 function ProductsStackNavigator() {
@@ -49,6 +51,18 @@ function ProductsStackNavigator() {
       <ProductStack.Screen name="VendorAddProduct" component={VendorAddProductScreen} options={{ headerTitle: "إضافة منتج" }} />
       <ProductStack.Screen name="VendorEditProduct" component={VendorEditProductScreen} options={{ headerTitle: "تعديل المنتج" }} />
     </ProductStack.Navigator>
+  );
+}
+
+// Account hub: the profile/settings screen is the landing, and Ratings — no longer
+// its own tab — is reached from a row inside it.
+function AccountStackNavigator() {
+  const screenOptions = useScreenOptions();
+  return (
+    <AccountStack.Navigator screenOptions={{ ...screenOptions, headerTintColor: AppColors.vendorPurple }}>
+      <AccountStack.Screen name="VendorProfile" component={VendorProfileScreen} options={{ headerTitle: "الحساب" }} />
+      <AccountStack.Screen name="VendorRatings" component={VendorRatingsScreen} options={{ headerTitle: "التقييمات" }} />
+    </AccountStack.Navigator>
   );
 }
 
@@ -105,12 +119,10 @@ function VendorTabs() {
       tabBar={(props) => <VendorTabBar {...props} />}
       screenOptions={tabScreenOptions}
     >
-      <Tab.Screen name="VendorHome" component={VendorHomeScreen} options={{ headerTitle: () => <Image source={require("../assets/images/onway-header-logo-transparent.png")} style={{ width: 130, height: 50 }} contentFit="contain" /> }} />
-      <Tab.Screen name="VendorOrdersTab"     component={VendorOrdersScreen}      options={{ headerTitle: "الطلبات" }} />
+      <Tab.Screen name="VendorOrdersTab"     component={VendorOrdersScreen}      options={{ headerTitle: () => <Image source={require("../assets/images/onway-header-logo-transparent.png")} style={{ width: 130, height: 50 }} contentFit="contain" /> }} />
       <Tab.Screen name="VendorProductsTab"   component={ProductsStackNavigator}  options={{ headerShown: false }} />
       <Tab.Screen name="VendorWalletTab"     component={VendorWalletScreen}      options={{ headerTitle: "الأرباح" }} />
-      <Tab.Screen name="VendorRatingsTab"    component={VendorRatingsScreen}     options={{ headerTitle: "التقييمات" }} />
-      <Tab.Screen name="VendorProfileTab"    component={VendorProfileScreen}     options={{ headerTitle: "الحساب" }} />
+      <Tab.Screen name="VendorAccountTab"    component={AccountStackNavigator}   options={{ headerShown: false }} />
     </Tab.Navigator>
   );
 }

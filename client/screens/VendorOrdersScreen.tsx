@@ -765,7 +765,7 @@ function CancelModal({
 export default function VendorOrdersScreen() {
   const headerHeight = useHeaderHeight();
   const tabBarHeight = useBottomTabBarHeight();
-  const { vendorToken } = useAuth();
+  const { vendorToken, vendorProfile } = useAuth();
   const { theme } = useTheme();
 
   const [orders, setOrders] = useState<VendorOrder[]>([]);
@@ -963,6 +963,33 @@ export default function VendorOrdersScreen() {
           })}
         </ScrollView>
       </View>
+
+      {/* ── Store status banner ── The vendor now lands here (Orders is the default
+           tab); when the store is not yet active they must still see why no orders
+           arrive. Mirrors the banner the removed Home tab used to show. */}
+      {vendorProfile && vendorProfile.status !== "active" ? (
+        <View style={[statusBannerStyles.wrap, {
+          backgroundColor:
+            vendorProfile.status === "rejected" ? AppColors.errorLight
+            : vendorProfile.status === "suspended" ? AppColors.errorLight
+            : AppColors.warningLight,
+        }]}>
+          <MaterialCommunityIcons
+            name={vendorProfile.status === "pending" ? "clock-outline" : "alert-circle-outline"}
+            size={18}
+            color={vendorProfile.status === "pending" ? AppColors.warning : AppColors.error}
+          />
+          <ThemedText style={[statusBannerStyles.text, {
+            color: vendorProfile.status === "pending" ? AppColors.warning : AppColors.error,
+          }]}>
+            {vendorProfile.status === "pending"
+              ? "متجرك قيد المراجعة من الإدارة — لن تصلك طلبات حتى يتم تفعيله."
+              : vendorProfile.status === "rejected"
+              ? "تم رفض متجرك. تواصل مع الدعم من تبويب الحساب."
+              : "تم تعليق متجرك مؤقتاً. تواصل مع الدعم من تبويب الحساب."}
+          </ThemedText>
+        </View>
+      ) : null}
 
       {/* ── New order banner ── */}
       {newArrived ? (
@@ -1237,4 +1264,12 @@ const bannerStyles = StyleSheet.create({
   },
   text: { flex: 1, fontFamily: "Cairo_700Bold", fontSize: 14, color: AppColors.white, textAlign: "right" },
   closeBtn: { padding: 4 },
+});
+
+const statusBannerStyles = StyleSheet.create({
+  wrap: {
+    flexDirection: "row-reverse", alignItems: "center", gap: 10,
+    paddingVertical: 12, paddingHorizontal: 16,
+  },
+  text: { flex: 1, fontFamily: "Cairo_700Bold", fontSize: 13, textAlign: "right", lineHeight: 20 },
 });
