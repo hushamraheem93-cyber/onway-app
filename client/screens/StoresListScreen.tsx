@@ -309,7 +309,7 @@ export default function StoresListScreen() {
     return (
       <View style={{ flex: 1 }}>
         <GradientBackground />
-        <View style={[styles.center, { paddingTop: headerHeight }]}>
+        <View style={styles.center}>
           <ActivityIndicator size="large" color={AppColors.primary} />
         </View>
       </View>
@@ -320,7 +320,7 @@ export default function StoresListScreen() {
     return (
       <View style={{ flex: 1 }}>
         <GradientBackground />
-        <View style={[styles.center, { paddingTop: headerHeight }]}>
+        <View style={styles.center}>
           <Feather name="wifi-off" size={48} color={theme.textSecondary} />
           <ThemedText type="body" style={{ color: theme.textSecondary }}>تعذّر تحميل المتاجر</ThemedText>
           <Pressable
@@ -342,7 +342,7 @@ export default function StoresListScreen() {
     return (
       <View style={{ flex: 1 }}>
         <GradientBackground />
-        <View style={[styles.emptyRoot, { paddingTop: headerHeight }]}>
+        <View style={styles.emptyRoot}>
           <View style={styles.emptyCard}>
             <View style={styles.emptyIconWrap}>
               <MaterialCommunityIcons name="store-clock" size={72} color={AppColors.primary} style={{ opacity: 0.7 }} />
