@@ -2578,6 +2578,7 @@ export async function uploadToFirebaseStorage(
   await file.save(buffer, {
     metadata: {
       contentType,
+      cacheControl: "public, max-age=31536000, immutable",
       metadata: { firebaseStorageDownloadTokens: token },
     },
     resumable: false,

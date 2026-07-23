@@ -26,7 +26,7 @@ const VENDOR_COOKIE = "onway_vendor_session";
 // ── Multer: memory storage (files go straight to Firebase Storage, no disk) ──
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 15 * 1024 * 1024 },
+  limits: { fileSize: 5 * 1024 * 1024 },
   fileFilter: (_req, file, cb) => {
     if (["image/jpeg", "image/png", "image/jpg", "image/webp"].includes(file.mimetype)) {
       cb(null, true);
@@ -96,35 +96,35 @@ function generateImageHash(buffer: Buffer): string {
   return crypto.createHash("md5").update(buffer).digest("hex");
 }
 
-async function processAndSaveImage(buffer: Buffer, hash: string): Promise<string> {
-  const webpBuffer = await sharp(buffer)
-    .resize(700, 700, { fit: "cover", position: "center" })
-    .webp({ quality: 70 })
-    .toBuffer();
-  // Durable-first: Firebase Storage URL (survives redeploys, keeps the product
-  // doc far below Firestore's 1MB limit). Falls back to the previous
-  // Base64-in-doc behaviour if the Storage bucket is unavailable.
-  try {
-    return await uploadToFirebaseStorage(webpBuffer, `product-images/${hash}.webp`);
-  } catch (storageErr: any) {
-    console.warn("[Storage] vendor product image fell back to Base64:", storageErr?.message);
-    return `data:image/webp;base64,${webpBuffer.toString("base64")}`;
-  }
+async function processAndSaveImage(buffer: Buffer, hash: string): Promise<{ full: string; thumb: string }> {
+  const [webpBuffer, thumbBuffer] = await Promise.all([
+    sharp(buffer).resize(700, 700, { fit: "cover", position: "center" }).webp({ quality: 70 }).toBuffer(),
+    sharp(buffer).resize(200, 200, { fit: "cover", position: "center" }).webp({ quality: 75 }).toBuffer(),
+  ]);
+  const [full, thumb] = await Promise.all([
+    uploadToFirebaseStorage(webpBuffer, `product-images/${hash}.webp`),
+    uploadToFirebaseStorage(thumbBuffer, `product-images/thumb_${hash}.webp`),
+  ]);
+  return { full, thumb };
 }
 
-async function findDuplicateImage(hash: string): Promise<string | null> {
+async function findDuplicateImage(hash: string): Promise<{ full: string; thumb: string | null } | null> {
   const db = getFirestore();
   if (!db) return null;
   const snap = await db.collection("productImageHashes").doc(hash).get();
-  if (snap.exists) return (snap.data() as any).imageUrl;
+  if (snap.exists) {
+    const data = snap.data() as any;
+    return { full: data.imageUrl, thumb: data.thumbUrl ?? null };
+  }
   return null;
 }
 
-async function saveImageHash(hash: string, imageUrl: string): Promise<void> {
+async function saveImageHash(hash: string, full: string, thumb: string): Promise<void> {
   const db = getFirestore();
   if (!db) return;
   await db.collection("productImageHashes").doc(hash).set({
-    imageUrl,
+    imageUrl: full,
+    thumbUrl: thumb,
     createdAt: new Date().toISOString(),
   });
 }
@@ -438,7 +438,7 @@ router.patch("/api/vendor/availability", requireVendor, async (req, res) => {
 // ── POST /api/vendor/profile/images ── upload avatar or cover ────────────────
 const profileUpload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 15 * 1024 * 1024 },
+  limits: { fileSize: 5 * 1024 * 1024 },
   fileFilter: (_req, file, cb) => {
     if (["image/jpeg", "image/png", "image/jpg", "image/webp"].includes(file.mimetype)) {
       cb(null, true);
@@ -451,10 +451,8 @@ const profileUpload = multer({
 async function saveProfileImage(
   buffer: Buffer,
   type: "avatar" | "cover",
-  _vendorId: string
+  vendorId: string
 ): Promise<string> {
-  // Firebase Storage bucket is not provisioned for this project, so vendor
-  // profile/cover images are compressed and embedded as Base64 data URIs.
   let webpBuffer: Buffer;
   if (type === "avatar") {
     webpBuffer = await sharp(buffer)
@@ -467,7 +465,11 @@ async function saveProfileImage(
       .webp({ quality: 70 })
       .toBuffer();
   }
-  return `data:image/webp;base64,${webpBuffer.toString("base64")}`;
+  const hash = crypto.createHash("md5").update(webpBuffer).digest("hex");
+  return await uploadToFirebaseStorage(
+    webpBuffer,
+    `vendor-profiles/${vendorId}/${type}_${hash}.webp`
+  );
 }
 
 router.post(
@@ -522,19 +524,24 @@ router.post(
 );
 
 // ── Helper: process multiple uploaded images ─────────────────────────────────
-async function processUploadedImages(files: Express.Multer.File[]): Promise<{ imageUrls: string[]; tempPaths: string[] }> {
-  const imageUrls = await Promise.all(
+async function processUploadedImages(files: Express.Multer.File[]): Promise<{ imageUrls: string[]; imageThumbs: string[]; tempPaths: string[] }> {
+  const results = await Promise.all(
     files.map(async (file) => {
       const hash = generateImageHash(file.buffer);
-      let imageUrl = await findDuplicateImage(hash);
-      if (!imageUrl) {
-        imageUrl = await processAndSaveImage(file.buffer, hash);
-        await saveImageHash(hash, imageUrl);
+      const duplicate = await findDuplicateImage(hash);
+      if (duplicate) {
+        return { full: duplicate.full, thumb: duplicate.thumb ?? duplicate.full };
       }
-      return imageUrl;
+      const processed = await processAndSaveImage(file.buffer, hash);
+      await saveImageHash(hash, processed.full, processed.thumb);
+      return processed;
     })
   );
-  return { imageUrls, tempPaths: [] };
+  return {
+    imageUrls: results.map(r => r.full),
+    imageThumbs: results.map(r => r.thumb),
+    tempPaths: [],
+  };
 }
 
 // ── POST /api/vendor/products ───────────────────────────────────────────────
@@ -578,6 +585,7 @@ router.post(
 
       let imageUrls: string[];
       let imageUrl: string;
+      let imageThumbs: string[] = [];
       if (libraryImageUrl && uploadedFiles.length === 0) {
         // Merchant chose a library image — use URL directly, no upload needed
         imageUrl = libraryImageUrl;
@@ -585,6 +593,7 @@ router.post(
       } else {
         const processed = await processUploadedImages(uploadedFiles);
         imageUrls = processed.imageUrls;
+        imageThumbs = processed.imageThumbs;
         imageUrl = imageUrls[0];
       }
 
@@ -616,6 +625,7 @@ router.post(
         unit: unit || "قطعة",
         imageUrl,
         imageUrls,
+        ...(imageThumbs.length > 0 ? { imageThumbs } : {}),
         status: "pending",
         createdAt: now,
         updatedAt: now,
@@ -720,11 +730,21 @@ router.put(
       // Compute URLs that will be removed from the product (Storage cleanup candidates)
       let removedUrls: string[] = [];
       if (uploadedFiles.length > 0 || existingImages !== undefined) {
-        const { imageUrls: newUrls } = await processUploadedImages(uploadedFiles);
+        const { imageUrls: newUrls, imageThumbs: newThumbs } = await processUploadedImages(uploadedFiles);
         const allUrls = [...keptImages, ...newUrls];
         if (allUrls.length > 0) {
           updates.imageUrls = allUrls;
           updates.imageUrl = allUrls[0];
+          // Reconstruct imageThumbs: map kept images to their existing thumbs, append new ones
+          const existingThumbs: string[] = currentData.imageThumbs || [];
+          const urlToThumb = new Map<string, string>(
+            (currentData.imageUrls || []).map((u: string, i: number) => [u, existingThumbs[i]])
+          );
+          const allThumbs = [
+            ...keptImages.map((u: string) => urlToThumb.get(u) || u),
+            ...newThumbs,
+          ];
+          updates.imageThumbs = allThumbs;
         }
         // URLs that existed before but won't be in the new list
         removedUrls = storedUrls.filter((url) => !allUrls.includes(url));

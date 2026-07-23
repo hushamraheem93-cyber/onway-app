@@ -80,7 +80,7 @@ const upload = multer({
 // uploadWebP uses memory storage — admin images go directly to Firebase Storage
 const uploadWebP = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 15 * 1024 * 1024 },
+  limits: { fileSize: 5 * 1024 * 1024 },
   fileFilter: (_req, file, cb) => {
     const allowed = ["image/webp", "image/jpeg", "image/png", "image/gif", "application/octet-stream"];
     cb(null, allowed.includes(file.mimetype) || file.originalname.endsWith(".webp"));
@@ -5394,25 +5394,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Support image upload
-  app.post("/api/support/upload-image", requireCustomerAuth, upload.single("image"), async (req: Request & { file?: Express.Multer.File }, res: Response) => {
+  app.post("/api/support/upload-image", requireCustomerAuth, uploadWebP.single("image"), async (req: Request & { file?: Express.Multer.File }, res: Response) => {
     try {
       if (!req.file) return res.status(400).json({ error: "No image uploaded" });
-      // Durable-first (ephemeral VM disk) — falls back to the legacy local path.
-      try {
-        const buf = await fs.promises.readFile(req.file.path);
-        const imageUrl = await uploadToFirebaseStorage(
-          buf,
-          `support-images/${req.file.filename}`,
-          req.file.mimetype || "image/jpeg",
-        );
-        fs.promises.unlink(req.file.path).catch(() => {});
-        return res.json({ imageUrl });
-      } catch (storageErr: any) {
-        console.warn("[Storage] support upload fell back to local disk:", storageErr?.message);
-        return res.json({ imageUrl: `/uploads/${req.file.filename}` });
-      }
-    } catch (e) {
-      return res.status(500).json({ error: "Failed to upload image" });
+      const imageUrl = await uploadToFirebaseStorage(
+        req.file.buffer,
+        `support-images/${randomUUID()}${path.extname(req.file.originalname || ".jpg")}`,
+        req.file.mimetype || "image/jpeg",
+      );
+      return res.json({ imageUrl });
+    } catch (e: any) {
+      console.error("[Storage] support image upload failed:", e?.message);
+      return res.status(500).json({ error: "فشل في رفع الصورة. حاول مجدداً." });
     }
   });
 
