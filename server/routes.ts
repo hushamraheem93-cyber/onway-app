@@ -1939,33 +1939,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.put("/api/admin/vendors/:id", async (req: Request, res: Response) => {
     const id = req.params.id as string;
-    const { name, location, whatsappNumber, commissionPercent, image, rating, deliveryTime, isOpen, categoryType, cuisine, hasDelivery, minOrder, openTime, closeTime, description, supportedCategories, sortOrder, isPinned, isFeatured, isVerified } = req.body;
-    const updates: any = {};
-    if (Array.isArray(supportedCategories)) updates.supportedCategories = supportedCategories;
-    if (sortOrder !== undefined) updates.sortOrder = Number(sortOrder);
-    if (isPinned !== undefined) updates.isPinned = Boolean(isPinned);
-    if (isFeatured !== undefined) updates.isFeatured = Boolean(isFeatured);
-    if (isVerified !== undefined) updates.isVerified = Boolean(isVerified);
-    if (name !== undefined) updates.name = String(name);
-    if (location !== undefined) updates.location = String(location);
-    if (whatsappNumber !== undefined) updates.whatsappNumber = String(whatsappNumber);
-    if (commissionPercent !== undefined) updates.commissionPercent = Number(commissionPercent);
-    if (image !== undefined) updates.image = String(image);
-    if (rating !== undefined) updates.rating = Number(rating);
-    if (deliveryTime !== undefined) updates.deliveryTime = String(deliveryTime);
-    if (isOpen !== undefined) updates.isOpen = Boolean(isOpen);
-    if (categoryType !== undefined) updates.categoryType = categoryType;
-    if (cuisine !== undefined) updates.cuisine = String(cuisine);
-    if (hasDelivery !== undefined) updates.hasDelivery = Boolean(hasDelivery);
-    if (minOrder !== undefined) updates.minOrder = Number(minOrder);
-    if (openTime !== undefined) updates.openTime = String(openTime);
-    if (closeTime !== undefined) updates.closeTime = String(closeTime);
-    if (description !== undefined) updates.description = String(description);
+    const body = req.body as Record<string, any>;
+    const vendorUpdates: Record<string, any> = {};
+    if (body.name !== undefined) vendorUpdates.name = String(body.name);
+    if (body.location !== undefined) vendorUpdates.location = String(body.location);
+    if (body.whatsappNumber !== undefined) vendorUpdates.whatsappNumber = String(body.whatsappNumber);
+    if (body.commissionPercent !== undefined) vendorUpdates.commissionPercent = Number(body.commissionPercent);
+    if (body.image !== undefined) vendorUpdates.image = String(body.image);
+    if (body.rating !== undefined) vendorUpdates.rating = Number(body.rating);
+    if (body.deliveryTime !== undefined) vendorUpdates.deliveryTime = String(body.deliveryTime);
+    if (body.isOpen !== undefined) vendorUpdates.isOpen = Boolean(body.isOpen);
+    if (body.categoryType !== undefined) vendorUpdates.categoryType = body.categoryType;
+    if (body.cuisine !== undefined) vendorUpdates.cuisine = String(body.cuisine);
+    if (body.hasDelivery !== undefined) vendorUpdates.hasDelivery = Boolean(body.hasDelivery);
+    if (body.minOrder !== undefined) vendorUpdates.minOrder = Number(body.minOrder);
+    if (body.openTime !== undefined) vendorUpdates.openTime = String(body.openTime);
+    if (body.closeTime !== undefined) vendorUpdates.closeTime = String(body.closeTime);
+    if (body.description !== undefined) vendorUpdates.description = String(body.description);
+    if (Array.isArray(body.supportedCategories)) vendorUpdates.supportedCategories = body.supportedCategories;
+    if (body.sortOrder !== undefined) vendorUpdates.sortOrder = Number(body.sortOrder);
+    if (body.isPinned !== undefined) vendorUpdates.isPinned = Boolean(body.isPinned);
+    if (body.isFeatured !== undefined) vendorUpdates.isFeatured = Boolean(body.isFeatured);
+    if (body.isVerified !== undefined) vendorUpdates.isVerified = Boolean(body.isVerified);
     try {
-      await updateFirestoreVendor(id, updates);
+      await updateFirestoreVendor(id, vendorUpdates);
       invalidateVendorsCache();
       invalidateStoresCache();
-      res.json({ success: true, id, ...updates });
+      res.json({ success: true, id, ...vendorUpdates });
     } catch {
       res.status(500).json({ error: "فشل تحديث المطعم" });
     }
