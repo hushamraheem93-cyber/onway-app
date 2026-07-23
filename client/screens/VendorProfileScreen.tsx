@@ -201,7 +201,7 @@ export default function VendorProfileScreen() {
               style={{ flexDirection: "row-reverse", alignItems: "center", gap: 6 }}
               onPress={() => setStoreNameModal(true)}
             >
-              <ThemedText style={styles.storeName} numberOfLines={1}>{vendorProfile?.storeName || "متجري"}</ThemedText>
+              <ThemedText style={styles.storeName} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.7}>{vendorProfile?.storeName || "متجري"}</ThemedText>
               <Feather name="edit-2" size={14} color={ORANGE} />
             </Pressable>
             <ThemedText style={[styles.bizType, { color: theme.textSecondary }]}>
@@ -461,7 +461,7 @@ const styles = StyleSheet.create({
   avatarWrap: { position: "relative" },
   avatar: { width: 72, height: 72, borderRadius: 36, borderWidth: 3, borderColor: AppColors.white },
   editAvatarBtn: { position: "absolute", bottom: 0, left: 0, backgroundColor: ORANGE, borderRadius: 10, padding: 5, borderWidth: 2, borderColor: AppColors.white },
-  storeName: { fontFamily: "Cairo_700Bold", fontSize: 21, textAlign: "right" },
+  storeName: { fontFamily: "Cairo_700Bold", fontSize: 21, textAlign: "right", flexShrink: 1 },
   bizType: { fontFamily: "Cairo_400Regular", fontSize: 13, textAlign: "right" },
   statusBadge: { flexDirection: "row", alignItems: "center", gap: 5, paddingHorizontal: 10, paddingVertical: 3, borderRadius: 12, alignSelf: "flex-end", marginTop: 4 },
   statusDot: { width: 6, height: 6, borderRadius: 3 },

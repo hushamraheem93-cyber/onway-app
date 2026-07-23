@@ -117,6 +117,8 @@ export default function VendorHomeScreen({ navigation }: any) {
   const [settingsUseHours, setSettingsUseHours] = useState(!!vendorProfile?.workingHours);
   const [savingSettings, setSavingSettings] = useState(false);
   const [togglingAvailability, setTogglingAvailability] = useState(false);
+  const [optimisticVacation, setOptimisticVacation] = useState<boolean | null>(null);
+  const [optimisticBusy, setOptimisticBusy] = useState<boolean | null>(null);
 
   useEffect(() => {
     setDismissedIds(new Set());
@@ -322,6 +324,9 @@ export default function VendorHomeScreen({ navigation }: any) {
   const toggleAvailability = useCallback(
     async (field: "isVacation" | "isBusy", value: boolean) => {
       if (!vendorToken || togglingAvailability) return;
+      // Optimistic update — visual change is immediate
+      if (field === "isVacation") setOptimisticVacation(value);
+      else setOptimisticBusy(value);
       setTogglingAvailability(true);
       try {
         await fetch(new URL("/api/vendor/availability", getApiUrl()).toString(), {
@@ -331,8 +336,14 @@ export default function VendorHomeScreen({ navigation }: any) {
         });
         await refreshVendorProfile();
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      } catch {} finally {
+      } catch {
+        // Revert optimistic on failure
+        if (field === "isVacation") setOptimisticVacation(null);
+        else setOptimisticBusy(null);
+      } finally {
         setTogglingAvailability(false);
+        if (field === "isVacation") setOptimisticVacation(null);
+        else setOptimisticBusy(null);
       }
     },
     [vendorToken, togglingAvailability, refreshVendorProfile]
@@ -441,7 +452,7 @@ export default function VendorHomeScreen({ navigation }: any) {
 
             {/* Store info beside avatar */}
             <View style={styles.storeInfo}>
-              <ThemedText style={styles.storeName} numberOfLines={1}>
+              <ThemedText style={styles.storeName} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.7}>
                 {vendorProfile?.storeName || "متجري"}
               </ThemedText>
               <ThemedText style={styles.businessType}>
@@ -657,23 +668,23 @@ export default function VendorHomeScreen({ navigation }: any) {
               {/* Vacation / Busy mode toggles */}
               <View style={styles.availabilityRow}>
                 <AvailabilityToggle
-                  active={!!vendorProfile?.isVacation}
+                  active={optimisticVacation !== null ? optimisticVacation : !!vendorProfile?.isVacation}
                   loading={togglingAvailability}
                   label="وضع الإجازة"
                   activeLabel="في إجازة"
                   icon="island"
                   activeColor={AppColors.info}
-                  onPress={() => toggleAvailability("isVacation", !vendorProfile?.isVacation)}
+                  onPress={() => toggleAvailability("isVacation", !(optimisticVacation !== null ? optimisticVacation : !!vendorProfile?.isVacation))}
                   testID="button-toggle-vacation"
                 />
                 <AvailabilityToggle
-                  active={!!vendorProfile?.isBusy}
+                  active={optimisticBusy !== null ? optimisticBusy : !!vendorProfile?.isBusy}
                   loading={togglingAvailability}
                   label="وضع المشغول"
                   activeLabel="مشغول"
                   icon="timer-sand"
                   activeColor={AppColors.warning}
-                  onPress={() => toggleAvailability("isBusy", !vendorProfile?.isBusy)}
+                  onPress={() => toggleAvailability("isBusy", !(optimisticBusy !== null ? optimisticBusy : !!vendorProfile?.isBusy))}
                   testID="button-toggle-busy"
                 />
               </View>
