@@ -638,7 +638,8 @@ router.post(
         imageUrl,
         imageUrls,
         ...(imageThumbs.length > 0 ? { imageThumbs } : {}),
-        status: "pending",
+        status: "approved",
+        approvedAt: now,
         createdAt: now,
         updatedAt: now,
         ...(extraData ? { extraData } : {}),
@@ -646,10 +647,16 @@ router.post(
         ...(addons ? { addons } : {}),
       });
 
+      // Increment vendor's totalProducts counter
+      try {
+        const { FieldValue: FV } = await import("firebase-admin/firestore");
+        await db.collection("vendors").doc(vid).update({ totalProducts: FV.increment(1), updatedAt: now });
+      } catch {}
+
       res.status(201).json({
         success: true,
-        message: "تم إضافة المنتج بنجاح! سيظهر للعملاء بعد مراجعة الأدمن.",
-        product: { id: pid, name, price: parseFloat(price), imageUrl, imageUrls, status: "pending" },
+        message: "تم إضافة المنتج بنجاح! سيظهر للعملاء الآن.",
+        product: { id: pid, name, price: parseFloat(price), imageUrl, imageUrls, status: "approved" },
       });
     } catch (err: any) {
       for (const f of uploadedFiles) await cleanTemp(f.path);
@@ -1602,6 +1609,67 @@ router.post("/api/admin/vendor-products/:pid/reject", requireAdmin, async (req, 
     res.json({ success: true, message: "تم رفض المنتج" });
   } catch (err) {
     console.error("reject product:", err);
+    res.status(500).json({ error: "حدث خطأ في الخادم" });
+  }
+});
+
+// DELETE /api/admin/vendor-products/:pid/image — admin removes one image from a product
+router.delete("/api/admin/vendor-products/:pid/image", requireAdmin, async (req, res) => {
+  try {
+    const db = getFirestore();
+    if (!db) return res.status(500).json({ error: "قاعدة البيانات غير متاحة" });
+    const pid = req.params.pid as string;
+    const { imageUrl } = req.body;
+    if (!imageUrl) return res.status(400).json({ error: "imageUrl مطلوب" });
+
+    const doc = await db.collection("vendorProducts").doc(pid).get();
+    if (!doc.exists) return res.status(404).json({ error: "المنتج غير موجود" });
+    const product = doc.data() as any;
+
+    const currentUrls: string[] = product.imageUrls?.length
+      ? product.imageUrls
+      : (product.imageUrl ? [product.imageUrl] : []);
+    const currentThumbs: string[] = product.imageThumbs || [];
+    const urlToThumb = new Map<string, string>(
+      (product.imageUrls || []).map((u: string, i: number) => [u, currentThumbs[i]])
+    );
+
+    const newUrls = currentUrls.filter((u: string) => u !== imageUrl);
+    const removedThumb = urlToThumb.get(imageUrl);
+    const newThumbs = newUrls.map((u: string) => urlToThumb.get(u) || u).filter(Boolean);
+
+    await db.collection("vendorProducts").doc(pid).update({
+      imageUrls: newUrls,
+      imageUrl: newUrls[0] || null,
+      imageThumbs: newThumbs,
+      updatedAt: new Date().toISOString(),
+    });
+
+    res.json({ success: true });
+
+    // Fire-and-forget: cleanup Storage
+    (async () => {
+      if (imageUrl.startsWith("https://firebasestorage.googleapis.com/")) {
+        try {
+          const refSnap = await db!.collection("vendorProducts")
+            .where("imageUrls", "array-contains", imageUrl).limit(1).get();
+          if (refSnap.empty) await deleteFromFirebaseStorage(imageUrl);
+        } catch (err: any) {
+          console.warn("[Storage] admin delete image:", err?.message);
+        }
+      }
+      if (removedThumb?.startsWith("https://firebasestorage.googleapis.com/")) {
+        try {
+          const thumbRefSnap = await db!.collection("vendorProducts")
+            .where("imageThumbs", "array-contains", removedThumb).limit(1).get();
+          if (thumbRefSnap.empty) await deleteFromFirebaseStorage(removedThumb);
+        } catch (err: any) {
+          console.warn("[Storage] admin delete thumb:", err?.message);
+        }
+      }
+    })().catch(() => {});
+  } catch (err) {
+    console.error("admin delete product image:", err);
     res.status(500).json({ error: "حدث خطأ في الخادم" });
   }
 });

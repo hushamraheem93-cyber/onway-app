@@ -118,6 +118,8 @@ interface VendorProduct {
   name: string;
   price: number;
   imageUrl?: string;
+  imageUrls?: string[];
+  imageThumbs?: string[];
   status: "approved" | "pending" | "rejected" | "deleted";
   stock?: number;
   category?: string;
@@ -607,7 +609,7 @@ export default function AdminScreen() {
   });
   const vendorPartners: VendorPartner[] = vendorPartnersRaw?.vendors ?? [];
 
-  const { data: allVendorProducts } = useQuery<{ products: VendorProduct[]; total: number }>({
+  const { data: allVendorProducts, refetch: refetchVendorProducts } = useQuery<{ products: VendorProduct[]; total: number }>({
     queryKey: ["/api/admin/vendor-products"],
     queryFn: async () => {
       const res = await fetch(`${getApiUrl()}/api/admin/vendor-products?status=all`, { credentials: "include" });
@@ -623,6 +625,29 @@ export default function AdminScreen() {
   const [selectedVendor, setSelectedVendor] = useState<VendorPartner | null>(null);
   const [vendorStatusFilter, setVendorStatusFilter] = useState<"all" | "active" | "pending" | "rejected" | "suspended">("all");
   const [isUpdatingVendorStatus, setIsUpdatingVendorStatus] = useState(false);
+  const [deletingImageKey, setDeletingImageKey] = useState<string | null>(null);
+
+  const deleteProductImage = useMutation({
+    mutationFn: async ({ pid, imageUrl }: { pid: string; imageUrl: string }) => {
+      const res = await fetch(`${getApiUrl()}/api/admin/vendor-products/${pid}/image`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ imageUrl }),
+      });
+      if (!res.ok) { const d = await res.json(); throw new Error(d.error || "فشل الحذف"); }
+      return res.json();
+    },
+    onSuccess: () => {
+      refetchVendorProducts();
+    },
+    onError: (err: Error) => {
+      Alert.alert("خطأ", err.message);
+    },
+    onSettled: () => {
+      setDeletingImageKey(null);
+    },
+  });
 
   const [rechargeDriver, setRechargeDriver] = useState<string | null>(null);
   const [rechargeAmount, setRechargeAmount] = useState("");
@@ -2915,36 +2940,78 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
                   <View style={{ gap: Spacing.sm }}>
                     <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 8 }}>
                       <Feather name="package" size={16} color={ADMIN_RED} />
-                      <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 15, color: theme.text }}>
+                      <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 15, color: theme.text, flex: 1 }}>
                         المنتجات ({selectedProducts.length})
                       </ThemedText>
+                      <Pressable onPress={() => refetchVendorProducts()} style={{ padding: 6 }}>
+                        <Feather name="refresh-cw" size={14} color={theme.textSecondary} />
+                      </Pressable>
                     </View>
                     {selectedProducts.length === 0 ? (
                       <ThemedText style={{ fontFamily: "Cairo_400Regular", fontSize: 13, color: theme.textSecondary, textAlign: "right" }}>لا توجد منتجات بعد</ThemedText>
                     ) : (
-                      selectedProducts.map((prod) => (
-                        <View key={prod.id} style={{ backgroundColor: theme.backgroundRoot, borderRadius: 12, padding: Spacing.md, flexDirection: "row-reverse", alignItems: "center", gap: Spacing.md }}>
-                          {prod.imageUrl ? (
-                            <Image source={{ uri: resolveImageUrl(prod.imageUrl) }} style={{ width: 52, height: 52, borderRadius: 10, resizeMode: "cover" }} />
-                          ) : (
-                            <View style={{ width: 52, height: 52, borderRadius: 10, backgroundColor: ADMIN_RED + "15", alignItems: "center", justifyContent: "center" }}>
-                              <Feather name="image" size={20} color={ADMIN_RED} style={{ opacity: 0.5 }} />
+                      selectedProducts.map((prod) => {
+                        const allImages: string[] = prod.imageUrls?.length
+                          ? prod.imageUrls
+                          : (prod.imageUrl ? [prod.imageUrl] : []);
+                        return (
+                          <View key={prod.id} style={{ backgroundColor: theme.backgroundRoot, borderRadius: 12, padding: Spacing.md, gap: Spacing.sm }}>
+                            {/* Product header row */}
+                            <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: Spacing.md }}>
+                              {allImages[0] ? (
+                                <Image source={{ uri: resolveImageUrl(allImages[0]) }} style={{ width: 52, height: 52, borderRadius: 10, resizeMode: "cover" }} />
+                              ) : (
+                                <View style={{ width: 52, height: 52, borderRadius: 10, backgroundColor: ADMIN_RED + "15", alignItems: "center", justifyContent: "center" }}>
+                                  <Feather name="image" size={20} color={ADMIN_RED} style={{ opacity: 0.5 }} />
+                                </View>
+                              )}
+                              <View style={{ flex: 1, gap: 2 }}>
+                                <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 14, color: theme.text, textAlign: "right" }}>{prod.name}</ThemedText>
+                                <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 13, color: ADMIN_RED, textAlign: "right" }}>{formatPrice(prod.price)}</ThemedText>
+                                {prod.description ? (
+                                  <ThemedText style={{ fontFamily: "Cairo_400Regular", fontSize: 11, color: theme.textSecondary, textAlign: "right" }} numberOfLines={2}>{prod.description}</ThemedText>
+                                ) : null}
+                              </View>
+                              <View style={{ paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8, backgroundColor: prod.status === "approved" ? AppColors.success + "20" : prod.status === "pending" ? AppColors.warning + "20" : AppColors.error + "20" }}>
+                                <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 10, color: prod.status === "approved" ? AppColors.success : prod.status === "pending" ? AppColors.warning : AppColors.error }}>
+                                  {prod.status === "approved" ? "نشط" : prod.status === "pending" ? "قيد المراجعة" : "مرفوض"}
+                                </ThemedText>
+                              </View>
                             </View>
-                          )}
-                          <View style={{ flex: 1, gap: 2 }}>
-                            <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 14, color: theme.text, textAlign: "right" }}>{prod.name}</ThemedText>
-                            <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 13, color: ADMIN_RED, textAlign: "right" }}>{formatPrice(prod.price)}</ThemedText>
-                            {prod.description ? (
-                              <ThemedText style={{ fontFamily: "Cairo_400Regular", fontSize: 11, color: theme.textSecondary, textAlign: "right" }} numberOfLines={2}>{prod.description}</ThemedText>
+                            {/* All images with delete buttons */}
+                            {allImages.length > 0 ? (
+                              <View style={{ flexDirection: "row-reverse", flexWrap: "wrap", gap: 8 }}>
+                                {allImages.map((imgUrl, idx) => {
+                                  const imgKey = `${prod.id}_${idx}`;
+                                  const isDeleting = deletingImageKey === imgKey;
+                                  return (
+                                    <View key={imgUrl} style={{ position: "relative" }}>
+                                      <Image source={{ uri: resolveImageUrl(imgUrl) }} style={{ width: 64, height: 64, borderRadius: 8, resizeMode: "cover" }} />
+                                      <Pressable
+                                        onPress={() => {
+                                          const confirm = Platform.OS === "web"
+                                            ? window.confirm("حذف هذه الصورة؟")
+                                            : true;
+                                          if (confirm) {
+                                            setDeletingImageKey(imgKey);
+                                            deleteProductImage.mutate({ pid: prod.id, imageUrl: imgUrl });
+                                          }
+                                        }}
+                                        disabled={isDeleting}
+                                        style={{ position: "absolute", top: -6, right: -6, backgroundColor: AppColors.error, borderRadius: 10, width: 20, height: 20, alignItems: "center", justifyContent: "center" }}
+                                      >
+                                        {isDeleting
+                                          ? <ActivityIndicator size="small" color={AppColors.white} />
+                                          : <Feather name="x" size={11} color={AppColors.white} />}
+                                      </Pressable>
+                                    </View>
+                                  );
+                                })}
+                              </View>
                             ) : null}
                           </View>
-                          <View style={{ paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8, backgroundColor: prod.status === "approved" ? AppColors.success + "20" : prod.status === "pending" ? AppColors.warning + "20" : AppColors.error + "20" }}>
-                            <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 10, color: prod.status === "approved" ? AppColors.success : prod.status === "pending" ? AppColors.warning : AppColors.error }}>
-                              {prod.status === "approved" ? "نشط" : prod.status === "pending" ? "قيد المراجعة" : "مرفوض"}
-                            </ThemedText>
-                          </View>
-                        </View>
-                      ))
+                        );
+                      })
                     )}
                   </View>
                 </ScrollView>
