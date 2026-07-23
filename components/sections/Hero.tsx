@@ -94,7 +94,7 @@ export function Hero({ t, locale }: { t: Dictionary; locale: Locale }) {
             className="absolute inset-0 -z-10 m-auto h-[22rem] w-[22rem] rounded-full bg-gradient-to-br from-brand-400 to-brand-600 opacity-20 blur-3xl"
           />
           <div className="animate-fade-up motion-safe:animate-float" style={{ animationDelay: "120ms" }}>
-            <DeviceShot src="/app/onboarding-1.png" alt={t.hero.trackTitle} priority />
+            <DeviceShot src="/app/onboarding-2.png" alt={t.hero.trackTitle} priority />
           </div>
 
           {/* floating chip — highlights the live-tracking feature */}

@@ -19,7 +19,7 @@ export function FinalCta({ t }: { t: Dictionary }) {
               </h2>
               <p className="mt-4 text-lg text-white/85">{t.cta.subtitle}</p>
               <div className="mt-8 flex justify-center">
-                <AppStoreButtons t={t} variant="dark" />
+                <AppStoreButtons t={t} />
               </div>
             </div>
           </div>
