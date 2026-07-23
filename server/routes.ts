@@ -6727,6 +6727,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ── GET /api/admin/storage-stats ──────────────────────────────────────────
+  app.get("/api/admin/storage-stats", async (_req: Request, res: Response) => {
+    try {
+      const db = getFirestore();
+      if (!db) return res.status(500).json({ error: "قاعدة البيانات غير متاحة" });
+
+      const snap = await db.collection("vendorProducts").get();
+      let totalImages = 0;
+      let totalThumbs = 0;
+      let activeProducts = 0;
+      const vendorImageCount: Record<string, { storeName: string; imageCount: number }> = {};
+
+      for (const doc of snap.docs) {
+        const data = doc.data() as any;
+        if (data.status === "deleted") continue;
+        activeProducts++;
+        const fullCount: number = data.imageUrls?.length ?? (data.imageUrl ? 1 : 0);
+        const thumbCount: number = data.imageThumbs?.length ?? 0;
+        totalImages += fullCount;
+        totalThumbs += thumbCount;
+        const vid: string | undefined = data.vendorId;
+        if (vid) {
+          if (!vendorImageCount[vid]) {
+            vendorImageCount[vid] = { storeName: data.storeName ?? data.vendorName ?? vid, imageCount: 0 };
+          }
+          vendorImageCount[vid].imageCount += fullCount;
+        }
+      }
+
+      const topStores = Object.entries(vendorImageCount)
+        .map(([id, v]) => ({ vendorId: id, storeName: v.storeName, imageCount: v.imageCount }))
+        .sort((a, b) => b.imageCount - a.imageCount)
+        .slice(0, 10);
+
+      console.info(`[Storage] stats computed: ${activeProducts} products, ${totalImages} images, ${totalThumbs} thumbs`);
+      res.json({ totalProducts: activeProducts, totalImages, totalThumbs, topStores, computedAt: new Date().toISOString() });
+    } catch (err) {
+      console.error("storage-stats:", err);
+      res.status(500).json({ error: "حدث خطأ في الخادم" });
+    }
+  });
+
   return httpServer;
 
 }

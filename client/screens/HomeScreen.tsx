@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useCallback } from "react";
+import React, { useMemo, useState, useCallback, useEffect } from "react";
 import {
   StyleSheet,
   View,
@@ -305,6 +305,14 @@ export default function HomeScreen() {
       .filter((p) => (p.discount || 0) > 0)
       .slice(0, 6);
   }, [allProducts, promotionalSections]);
+
+  // Prefetch visible catalog product images when data first loads
+  useEffect(() => {
+    allProducts.slice(0, 10).forEach((p) => {
+      const url = resolveImageUrl(p.image ?? "");
+      if (url) Image.prefetch(url).catch(() => {});
+    });
+  }, [allProducts]);
 
   const offerBanner = allBanners.find((b) => b.type === "offer");
   const sliderBanners = allBanners.filter((b) => b.type === "slider");

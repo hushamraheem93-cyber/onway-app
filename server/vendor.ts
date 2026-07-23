@@ -101,11 +101,17 @@ async function processAndSaveImage(buffer: Buffer, hash: string): Promise<{ full
     sharp(buffer).resize(700, 700, { fit: "cover", position: "center" }).webp({ quality: 70 }).toBuffer(),
     sharp(buffer).resize(200, 200, { fit: "cover", position: "center" }).webp({ quality: 75 }).toBuffer(),
   ]);
-  const [full, thumb] = await Promise.all([
-    uploadToFirebaseStorage(webpBuffer, `product-images/${hash}.webp`),
-    uploadToFirebaseStorage(thumbBuffer, `product-images/thumb_${hash}.webp`),
-  ]);
-  return { full, thumb };
+  try {
+    const [full, thumb] = await Promise.all([
+      uploadToFirebaseStorage(webpBuffer, `product-images/${hash}.webp`),
+      uploadToFirebaseStorage(thumbBuffer, `product-images/thumb_${hash}.webp`),
+    ]);
+    console.info(`[Storage] ✓ upload success: product-images/${hash.slice(0, 8)}.webp + thumb`);
+    return { full, thumb };
+  } catch (err: any) {
+    console.error("[Storage] ✗ upload failure (product image):", err?.message);
+    throw new Error("فشل رفع الصورة. حاول مجدداً.");
+  }
 }
 
 async function findDuplicateImage(hash: string): Promise<{ full: string; thumb: string | null } | null> {
@@ -466,10 +472,15 @@ async function saveProfileImage(
       .toBuffer();
   }
   const hash = crypto.createHash("md5").update(webpBuffer).digest("hex");
-  return await uploadToFirebaseStorage(
-    webpBuffer,
-    `vendor-profiles/${vendorId}/${type}_${hash}.webp`
-  );
+  const storagePath = `vendor-profiles/${vendorId}/${type}_${hash}.webp`;
+  try {
+    const url = await uploadToFirebaseStorage(webpBuffer, storagePath);
+    console.info(`[Storage] ✓ upload success: ${storagePath}`);
+    return url;
+  } catch (err: any) {
+    console.error("[Storage] ✗ upload failure (profile image):", err?.message);
+    throw new Error("فشل رفع صورة الملف الشخصي. حاول مجدداً.");
+  }
 }
 
 router.post(
@@ -729,25 +740,30 @@ router.put(
 
       // Compute URLs that will be removed from the product (Storage cleanup candidates)
       let removedUrls: string[] = [];
+      let removedThumbs: string[] = [];
       if (uploadedFiles.length > 0 || existingImages !== undefined) {
         const { imageUrls: newUrls, imageThumbs: newThumbs } = await processUploadedImages(uploadedFiles);
         const allUrls = [...keptImages, ...newUrls];
+        // Build URL→thumb map upfront — needed for both kept-thumb mapping and cleanup
+        const existingThumbs: string[] = currentData.imageThumbs || [];
+        const urlToThumb = new Map<string, string>(
+          (currentData.imageUrls || []).map((u: string, i: number) => [u, existingThumbs[i]])
+        );
         if (allUrls.length > 0) {
           updates.imageUrls = allUrls;
           updates.imageUrl = allUrls[0];
           // Reconstruct imageThumbs: map kept images to their existing thumbs, append new ones
-          const existingThumbs: string[] = currentData.imageThumbs || [];
-          const urlToThumb = new Map<string, string>(
-            (currentData.imageUrls || []).map((u: string, i: number) => [u, existingThumbs[i]])
-          );
-          const allThumbs = [
+          updates.imageThumbs = [
             ...keptImages.map((u: string) => urlToThumb.get(u) || u),
             ...newThumbs,
           ];
-          updates.imageThumbs = allThumbs;
         }
         // URLs that existed before but won't be in the new list
         removedUrls = storedUrls.filter((url) => !allUrls.includes(url));
+        // Corresponding thumbnails for removed full images
+        removedThumbs = removedUrls
+          .map((u) => urlToThumb.get(u))
+          .filter((t): t is string => !!t && t.startsWith("https://firebasestorage.googleapis.com/"));
       }
 
       await db.collection("vendorProducts").doc(pid).update(updates);
@@ -755,8 +771,7 @@ router.put(
       res.json({ success: true, message: "تم حفظ التعديلات بنجاح" });
 
       // Fire-and-forget: clean up Storage files that are no longer used by this product.
-      // Only delete a URL if no other vendorProduct still references it (hash deduplication
-      // means two products may share the same Storage file).
+      // Reference-check ensures shared (deduplicated) images are not deleted prematurely.
       if (removedUrls.length > 0) {
         (async () => {
           for (const url of removedUrls) {
@@ -769,8 +784,19 @@ router.put(
                 .get();
               if (refSnap.empty) {
                 await deleteFromFirebaseStorage(url);
+                console.info("[Storage] ✓ delete success (replaced full image):", pid);
               }
-            } catch { /* log nothing — best-effort only */ }
+            } catch (err: any) {
+              console.warn("[Storage] ✗ delete failure (replaced full image):", err?.message);
+            }
+          }
+          for (const thumbUrl of removedThumbs) {
+            try {
+              await deleteFromFirebaseStorage(thumbUrl);
+              console.info("[Storage] ✓ delete success (replaced thumbnail):", pid);
+            } catch (err: any) {
+              console.warn("[Storage] ✗ delete failure (replaced thumbnail):", err?.message);
+            }
           }
         })().catch(() => {});
       }
@@ -801,12 +827,20 @@ router.post("/api/vendor/products/bulk-delete", requireVendor, async (req, res) 
       return res.status(400).json({ error: "لم يتم تحديد أي منتجات صالحة" });
     }
 
+    // Collect image data before deletion so we can clean Storage afterward
+    const imageDataToClean: Array<{ fullUrls: string[]; thumbUrls: string[] }> = [];
+
     const results = await Promise.allSettled(
       uniqueIds.map(async (pid: string) => {
         const doc = await db.collection("vendorProducts").doc(pid).get();
         if (!doc.exists || (doc.data() as any).vendorId !== vid) {
           throw new Error(`المنتج ${pid} غير موجود`);
         }
+        const d = doc.data() as any;
+        imageDataToClean.push({
+          fullUrls: d.imageUrls?.length ? d.imageUrls : (d.imageUrl ? [d.imageUrl] : []),
+          thumbUrls: d.imageThumbs ?? [],
+        });
         await db.collection("vendorProducts").doc(pid).update({
           status: "deleted",
           deletedAt: new Date().toISOString(),
@@ -818,6 +852,37 @@ router.post("/api/vendor/products/bulk-delete", requireVendor, async (req, res) 
     const failed = results.filter((r) => r.status === "rejected").length;
 
     res.json({ success: true, succeeded, failed, total: ids.length });
+
+    // Fire-and-forget: clean up Storage images for deleted products
+    (async () => {
+      for (const { fullUrls, thumbUrls } of imageDataToClean) {
+        for (const url of fullUrls) {
+          if (!url.startsWith("https://firebasestorage.googleapis.com/")) continue;
+          try {
+            const refSnap = await db!
+              .collection("vendorProducts")
+              .where("imageUrls", "array-contains", url)
+              .limit(1)
+              .get();
+            if (refSnap.empty) {
+              await deleteFromFirebaseStorage(url);
+              console.info("[Storage] ✓ delete success (bulk delete full)");
+            }
+          } catch (err: any) {
+            console.warn("[Storage] ✗ delete failure (bulk delete full):", err?.message);
+          }
+        }
+        for (const thumbUrl of thumbUrls) {
+          if (!thumbUrl.startsWith("https://firebasestorage.googleapis.com/")) continue;
+          try {
+            await deleteFromFirebaseStorage(thumbUrl);
+            console.info("[Storage] ✓ delete success (bulk delete thumb)");
+          } catch (err: any) {
+            console.warn("[Storage] ✗ delete failure (bulk delete thumb):", err?.message);
+          }
+        }
+      }
+    })().catch(() => {});
   } catch (err) {
     console.error("bulk delete products:", err);
     res.status(500).json({ error: "حدث خطأ في الخادم" });
@@ -838,12 +903,53 @@ router.delete("/api/vendor/products/:pid", requireVendor, async (req, res) => {
       return res.status(404).json({ error: "المنتج غير موجود" });
     }
 
+    // Collect image URLs before updating Firestore
+    const data = doc.data() as any;
+    const fullUrls: string[] = data.imageUrls?.length
+      ? data.imageUrls
+      : data.imageUrl
+        ? [data.imageUrl]
+        : [];
+    const thumbUrls: string[] = data.imageThumbs ?? [];
+
     await db.collection("vendorProducts").doc(pid).update({
       status: "deleted",
       deletedAt: new Date().toISOString(),
     });
 
     res.json({ success: true, message: "تم حذف المنتج" });
+
+    // Fire-and-forget: clean up Storage images after successful Firestore update.
+    // Reference-check prevents deleting images shared between products (hash dedup).
+    if (fullUrls.length > 0 || thumbUrls.length > 0) {
+      (async () => {
+        for (const url of fullUrls) {
+          if (!url.startsWith("https://firebasestorage.googleapis.com/")) continue;
+          try {
+            const refSnap = await db!
+              .collection("vendorProducts")
+              .where("imageUrls", "array-contains", url)
+              .limit(1)
+              .get();
+            if (refSnap.empty) {
+              await deleteFromFirebaseStorage(url);
+              console.info("[Storage] ✓ delete success (product deleted full):", pid);
+            }
+          } catch (err: any) {
+            console.warn("[Storage] ✗ delete failure (product deleted full):", err?.message);
+          }
+        }
+        for (const thumbUrl of thumbUrls) {
+          if (!thumbUrl.startsWith("https://firebasestorage.googleapis.com/")) continue;
+          try {
+            await deleteFromFirebaseStorage(thumbUrl);
+            console.info("[Storage] ✓ delete success (product deleted thumb):", pid);
+          } catch (err: any) {
+            console.warn("[Storage] ✗ delete failure (product deleted thumb):", err?.message);
+          }
+        }
+      })().catch(() => {});
+    }
   } catch (err) {
     console.error("delete product:", err);
     res.status(500).json({ error: "حدث خطأ في الخادم" });

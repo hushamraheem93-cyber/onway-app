@@ -357,6 +357,14 @@ export default function StoreProductsScreen() {
     if (match) setSelectedCategory(initialCategoryFilter);
   }, [products, initialCategoryFilter]);
 
+  // Prefetch visible product thumbnails for faster list rendering
+  useEffect(() => {
+    products.slice(0, 10).forEach((p) => {
+      const url = resolveImageUrl(getProductThumb(p));
+      if (url) Image.prefetch(url).catch(() => {});
+    });
+  }, [products]);
+
   const categories = useMemo(() => {
     const seen = new Set<string>();
     products.forEach((p) => {

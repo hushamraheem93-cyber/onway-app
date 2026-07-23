@@ -95,6 +95,14 @@ export default function SearchScreen() {
     }
   }, [debouncedQuery, filteredProducts.length, saveToHistory]);
 
+  // Prefetch visible search result images
+  useEffect(() => {
+    filteredProducts.slice(0, 10).forEach((p) => {
+      const url = resolveImageUrl(p.image ?? "");
+      if (url) Image.prefetch(url).catch(() => {});
+    });
+  }, [filteredProducts]);
+
   const handleAddToCart = (product: Product) => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     addToCart(product);
