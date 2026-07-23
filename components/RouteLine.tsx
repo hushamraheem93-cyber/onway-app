@@ -16,14 +16,14 @@ export function RouteLine({ className = "" }: { className?: string }) {
       {/* base route */}
       <path
         d="M20 135 C 70 135, 60 70, 120 70 S 210 40, 250 25"
-        stroke="#FFD0BF"
+        stroke="#FFD4C2"
         strokeWidth="6"
         strokeLinecap="round"
       />
       {/* animated route dash */}
       <path
         d="M20 135 C 70 135, 60 70, 120 70 S 210 40, 250 25"
-        stroke="#F73E10"
+        stroke="#FB5B21"
         strokeWidth="6"
         strokeLinecap="round"
         strokeDasharray="10 14"
@@ -36,7 +36,7 @@ export function RouteLine({ className = "" }: { className?: string }) {
       <g className="motion-safe:animate-float" style={{ transformOrigin: "250px 25px" } as React.CSSProperties}>
         <path
           d="M250 8c6 0 11 4.7 11 10.6 0 7-8.4 13.9-10.4 15.5a1 1 0 0 1-1.2 0C247.4 32.5 239 25.6 239 18.6 239 12.7 244 8 250 8Z"
-          fill="#F73E10"
+          fill="#FB5B21"
         />
         <circle cx="250" cy="18.6" r="4" fill="#fff" />
       </g>

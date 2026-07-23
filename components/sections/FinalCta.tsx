@@ -5,7 +5,7 @@ import type { Dictionary } from "@/lib/dictionaries";
 
 export function FinalCta({ t }: { t: Dictionary }) {
   return (
-    <section className="py-6">
+    <section id="download" className="scroll-mt-24 py-6">
       <div className="container-page">
         <Reveal>
           <div className="relative overflow-hidden rounded-4xl bg-gradient-to-br from-brand-500 to-brand-600 px-6 py-14 text-center text-white shadow-glow sm:px-12 sm:py-20">
@@ -19,7 +19,7 @@ export function FinalCta({ t }: { t: Dictionary }) {
               </h2>
               <p className="mt-4 text-lg text-white/85">{t.cta.subtitle}</p>
               <div className="mt-8 flex justify-center">
-                <AppStoreButtons t={t} variant="dark" />
+                <AppStoreButtons t={t} />
               </div>
             </div>
           </div>

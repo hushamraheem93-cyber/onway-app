@@ -1,6 +1,5 @@
 import { ArrowLeft, ArrowRight, Sparkles } from "lucide-react";
 import { DeviceShot } from "../phone/DeviceShot";
-import { AppStoreButtons } from "../AppStoreButtons";
 import type { Dictionary } from "@/lib/dictionaries";
 import type { Locale } from "@/lib/config";
 
@@ -95,7 +94,7 @@ export function Hero({ t, locale }: { t: Dictionary; locale: Locale }) {
             className="absolute inset-0 -z-10 m-auto h-[22rem] w-[22rem] rounded-full bg-gradient-to-br from-brand-400 to-brand-600 opacity-20 blur-3xl"
           />
           <div className="animate-fade-up motion-safe:animate-float" style={{ animationDelay: "120ms" }}>
-            <DeviceShot src="/app/onboarding-1.png" alt={t.hero.trackTitle} priority />
+            <DeviceShot src="/app/onboarding-2.png" alt={t.hero.trackTitle} priority />
           </div>
 
           {/* floating chip — highlights the live-tracking feature */}
@@ -112,16 +111,6 @@ export function Hero({ t, locale }: { t: Dictionary; locale: Locale }) {
               <span className="block text-[11px] font-medium text-brand-600">{t.hero.trackStatus}</span>
             </span>
           </div>
-        </div>
-      </div>
-
-      {/* store buttons band */}
-      <div className="container-page -mt-4 pb-6" id="download">
-        <div className="flex flex-col items-center gap-4 rounded-3xl border border-ink/5 bg-white/70 p-5 text-center shadow-card backdrop-blur sm:flex-row sm:justify-between sm:text-start">
-          <p className="text-base font-bold text-ink sm:text-lg">
-            {t.cta.subtitle}
-          </p>
-          <AppStoreButtons t={t} />
         </div>
       </div>
     </section>
