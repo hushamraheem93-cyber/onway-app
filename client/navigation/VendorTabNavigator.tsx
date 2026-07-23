@@ -73,15 +73,15 @@ function VendorTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
 
         return (
           <Pressable key={route.key} onPress={onPress} style={styles.tabItem}>
-            <View style={[styles.iconWrap, isFocused && { backgroundColor: AppColors.vendorPurple + "15" }]}>
-              <Feather name={config.icon} size={22} color={isFocused ? AppColors.vendorPurple : AppColors.gray400} />
+            <View style={[styles.iconWrap, isFocused && { backgroundColor: AppColors.primary + "15" }]}>
+              <Feather name={config.icon} size={22} color={isFocused ? AppColors.primary : AppColors.gray400} />
               {isOrders && unreadCount > 0 ? (
                 <View style={styles.badge}>
                   <ThemedText style={styles.badgeText}>{unreadCount > 9 ? "9+" : String(unreadCount)}</ThemedText>
                 </View>
               ) : null}
             </View>
-            <ThemedText style={[styles.tabLabel, { color: isFocused ? AppColors.vendorPurple : AppColors.gray400 }]}>
+            <ThemedText style={[styles.tabLabel, { color: isFocused ? AppColors.primary : AppColors.gray400 }]}>
               {config.label}
             </ThemedText>
           </Pressable>
@@ -96,7 +96,7 @@ function VendorTabs() {
   const tabScreenOptions = {
     headerTitleAlign: screenOptions.headerTitleAlign as "center" | "left",
     headerTransparent: screenOptions.headerTransparent,
-    headerTintColor: AppColors.vendorPurple,
+    headerTintColor: AppColors.primary,
     headerShadowVisible: screenOptions.headerShadowVisible,
     headerStyle: screenOptions.headerStyle as any,
   };
