@@ -25,7 +25,7 @@ import { ThemedText } from "@/components/ThemedText";
 import { GradientBackground } from "@/components/GradientBackground";
 import { FloatingCartBar } from "@/components/FloatingCartBar";
 import { useCart } from "@/context/CartContext";
-import { resolveImageUrl } from "@/utils/imageUtils";
+import { resolveImageUrl, getProductThumb } from "@/utils/imageUtils";
 import { formatPrice } from "@/constants/currency";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
 import { Product, MAIN_CATEGORIES } from "@/constants/categories";
@@ -49,6 +49,7 @@ interface VendorProduct {
   unit?: string;
   imageUrl: string;
   imageUrls?: string[];
+  imageThumbs?: string[];
   status: string;
 }
 
@@ -114,7 +115,7 @@ function ProductCard({
 }) {
   const { theme } = useTheme();
   const isOutOfStock = product.stock <= 0;
-  const imageUri = resolveImageUrl(product.imageUrl);
+  const imageUri = resolveImageUrl(getProductThumb(product));
   const hasMultipleImages = product.imageUrls && product.imageUrls.length > 1;
 
   return (

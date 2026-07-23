@@ -4,6 +4,21 @@ import { getApiUrl } from "@/lib/query-client";
  * Resolves a local server image path or external URL.
  * Always applies WebP transformation for known CDNs.
  */
+/**
+ * Returns the best thumbnail URL for list/grid contexts (200×200).
+ * Uses imageThumbs[0] for new products; falls back gracefully for old ones.
+ */
+export function getProductThumb(product: {
+  imageThumbs?: string[];
+  imageUrls?: string[];
+  imageUrl?: string;
+  image?: string;
+}): string {
+  if (product.imageThumbs && product.imageThumbs.length > 0) return product.imageThumbs[0];
+  if (product.imageUrls && product.imageUrls.length > 0) return product.imageUrls[0];
+  return product.imageUrl ?? product.image ?? "";
+}
+
 export function resolveImageUrl(image: string, quality = 80): string {
   if (!image) return "";
   if (image.startsWith("data:")) return image;

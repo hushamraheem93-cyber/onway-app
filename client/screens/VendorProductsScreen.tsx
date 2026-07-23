@@ -18,7 +18,7 @@ import * as Haptics from "expo-haptics";
 import { ThemedText } from "@/components/ThemedText";
 import { useAuth } from "@/context/AuthContext";
 import { getApiUrl } from "@/lib/query-client";
-import { resolveImageUrl } from "@/utils/imageUtils";
+import { resolveImageUrl, getProductThumb } from "@/utils/imageUtils";
 import { AppColors } from "@/constants/theme";
 import { MAIN_CATEGORIES } from "@/constants/categories";
 
@@ -27,6 +27,7 @@ const ORANGE_LIGHT = AppColors.secondary;
 const ORANGE_BG = AppColors.secondary;
 
 interface Product {
+  imageThumbs?: string[];
   id: string;
   name: string;
   description?: string;
@@ -665,9 +666,9 @@ function ProductCard({
       onPress={selectMode ? onToggleSelect : undefined}
       testID={`card-product-${item.id}`}
     >
-      {item.imageUrl ? (
+      {(item.imageUrl || item.imageThumbs) ? (
         <Image
-          source={{ uri: resolveImageUrl(item.imageUrl) }}
+          source={{ uri: resolveImageUrl(getProductThumb(item)) }}
           style={styles.productImg}
           resizeMode="cover"
         />
