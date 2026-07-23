@@ -2985,7 +2985,7 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
                                   const imgKey = `${prod.id}_${idx}`;
                                   const isDeleting = deletingImageKey === imgKey;
                                   return (
-                                    <View key={imgUrl} style={{ position: "relative" }}>
+                                    <View key={imgUrl} style={{ position: "relative", overflow: "visible" as any }}>
                                       <Image source={{ uri: resolveImageUrl(imgUrl) }} style={{ width: 64, height: 64, borderRadius: 8, resizeMode: "cover" }} />
                                       <Pressable
                                         onPress={() => {
