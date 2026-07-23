@@ -143,7 +143,7 @@ const ar: Dictionary = {
     switchTo: "English",
   },
   hero: {
-    badge: "انطلاقتنا الأولى من قضاء الضلوعية",
+    badge: "من الضلوعية… إلى باب بيتك",
     titleLead: "كل احتياجاتك",
     titleHi: "في تطبيق واحد",
     subtitle:
@@ -231,10 +231,10 @@ const ar: Dictionary = {
     title: "تجربة صُمّمت لتكون سهلة",
     subtitle: "نظرة سريعة على واجهة OnWay وكيف تُنهي طلبك بأقل عدد من اللمسات.",
     screens: [
-      { title: "الرئيسية", caption: "كل الفئات والعروض في مكان واحد." },
-      { title: "المتجر", caption: "تصفّح المنتجات والأسعار بوضوح." },
-      { title: "السلة", caption: "راجع طلبك وعدّل الكميات بسهولة." },
-      { title: "التتبّع", caption: "تابع السائق على الخريطة مباشرة." },
+      { title: "توصيل سريع وموثوق", caption: "اطلب من مطاعم وأسواق الضلوعية ويوصلك خلال دقائق." },
+      { title: "كلشي بمكان واحد", caption: "مطاعم، متاجر، وأكثر — كلها داخل تطبيق واحد." },
+      { title: "لحد باب بيتك", caption: "تابع طلبك لحظة بلحظة حتى يصل إلى بابك." },
+      { title: "دخول سهل وسريع", caption: "برقم هاتفك فقط تبدأ الطلب خلال ثوانٍ." },
     ],
     prev: "السابق",
     next: "التالي",
@@ -345,7 +345,7 @@ const en: Dictionary = {
     switchTo: "العربية",
   },
   hero: {
-    badge: "Launching first in Ḍuluʿiyya, Iraq",
+    badge: "From Ḍuluʿiyya… to your doorstep",
     titleLead: "Everything you need",
     titleHi: "in one app",
     subtitle:
@@ -433,10 +433,10 @@ const en: Dictionary = {
     title: "An experience designed to be easy",
     subtitle: "A quick look at the OnWay interface and how you finish an order in the fewest taps.",
     screens: [
-      { title: "Home", caption: "All categories and offers in one place." },
-      { title: "Store", caption: "Browse products and prices clearly." },
-      { title: "Cart", caption: "Review your order and adjust quantities easily." },
-      { title: "Tracking", caption: "Follow your driver on the map, live." },
+      { title: "Fast, reliable delivery", caption: "Order from Ḍuluʿiyya's restaurants and markets — delivered in minutes." },
+      { title: "Everything in one place", caption: "Restaurants, stores and more — all in a single app." },
+      { title: "To your doorstep", caption: "Track your order live until it reaches your door." },
+      { title: "Quick, easy sign-in", caption: "Just your phone number and you start ordering in seconds." },
     ],
     prev: "Previous",
     next: "Next",

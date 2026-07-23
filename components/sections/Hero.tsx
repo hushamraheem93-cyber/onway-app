@@ -1,6 +1,5 @@
 import { ArrowLeft, ArrowRight, Sparkles } from "lucide-react";
-import { PhoneFrame } from "../phone/PhoneFrame";
-import { TrackingScreen } from "../phone/AppScreens";
+import { DeviceShot } from "../phone/DeviceShot";
 import { AppStoreButtons } from "../AppStoreButtons";
 import type { Dictionary } from "@/lib/dictionaries";
 import type { Locale } from "@/lib/config";
@@ -96,18 +95,22 @@ export function Hero({ t, locale }: { t: Dictionary; locale: Locale }) {
             className="absolute inset-0 -z-10 m-auto h-[22rem] w-[22rem] rounded-full bg-gradient-to-br from-brand-400 to-brand-600 opacity-20 blur-3xl"
           />
           <div className="animate-fade-up motion-safe:animate-float" style={{ animationDelay: "120ms" }}>
-            <PhoneFrame>
-              <TrackingScreen t={t} />
-            </PhoneFrame>
+            <DeviceShot src="/app/onboarding-1.png" alt={t.hero.trackTitle} priority />
           </div>
 
-          {/* floating chips */}
+          {/* floating chip — highlights the live-tracking feature */}
           <div
-            className="absolute top-6 hidden animate-fade-up rounded-2xl bg-white px-3.5 py-2.5 shadow-card sm:block"
+            className="absolute top-6 hidden animate-fade-up items-center gap-2.5 rounded-2xl bg-white px-3.5 py-2.5 shadow-card sm:flex"
             style={{ insetInlineStart: "0", animationDelay: "320ms" }}
           >
-            <p className="text-xs font-bold text-ink">{t.hero.launch}</p>
-            <p className="text-[11px] font-medium text-brand-600">{t.hero.badge.split("،")[0]}</p>
+            <span className="relative flex h-2.5 w-2.5">
+              <span className="absolute inline-flex h-full w-full rounded-full bg-brand-500/60 motion-safe:animate-pulse-ring" />
+              <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-brand-500" />
+            </span>
+            <span>
+              <span className="block text-xs font-bold text-ink">{t.why.items.tracking.title}</span>
+              <span className="block text-[11px] font-medium text-brand-600">{t.hero.trackStatus}</span>
+            </span>
           </div>
         </div>
       </div>

@@ -2,13 +2,18 @@
 
 import { useRef, useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { PhoneFrame } from "../phone/PhoneFrame";
-import { HomeScreen, StoreScreen, CartScreen, TrackingScreen } from "../phone/AppScreens";
+import { DeviceShot } from "../phone/DeviceShot";
 import { Reveal } from "../Reveal";
 import type { Dictionary } from "@/lib/dictionaries";
 import type { Locale } from "@/lib/config";
 
-const screens = [HomeScreen, StoreScreen, CartScreen, TrackingScreen];
+// Real app screenshots (stored in /public/app)
+const screens = [
+  "/app/onboarding-1.png",
+  "/app/onboarding-2.png",
+  "/app/onboarding-3.png",
+  "/app/login.png",
+];
 
 export function AppShowcase({ t, locale }: { t: Dictionary; locale: Locale }) {
   const trackRef = useRef<HTMLDivElement>(null);
@@ -40,15 +45,17 @@ export function AppShowcase({ t, locale }: { t: Dictionary; locale: Locale }) {
             ref={trackRef}
             className="no-scrollbar flex snap-x snap-mandatory gap-6 overflow-x-auto pb-4 sm:justify-center"
           >
-            {screens.map((Screen, i) => (
+            {screens.map((src, i) => (
               <figure
                 key={i}
                 className="flex shrink-0 snap-center flex-col items-center"
               >
                 <div className={i === active ? "" : "opacity-90"}>
-                  <PhoneFrame className="!max-w-[230px]">
-                    <Screen t={t} />
-                  </PhoneFrame>
+                  <DeviceShot
+                    src={src}
+                    alt={t.showcase.screens[i].title}
+                    className="!max-w-[230px]"
+                  />
                 </div>
                 <figcaption className="mt-5 max-w-[230px] text-center">
                   <p className="font-bold text-ink">{t.showcase.screens[i].title}</p>

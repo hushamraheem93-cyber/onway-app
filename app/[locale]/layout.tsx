@@ -49,7 +49,7 @@ export async function generateMetadata({
         { url: "/favicon.svg", type: "image/svg+xml" },
         { url: "/icon.svg", type: "image/svg+xml" },
       ],
-      apple: "/icon.svg",
+      apple: "/logo.png",
     },
   };
 }
