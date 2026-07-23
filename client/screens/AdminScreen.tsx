@@ -28,6 +28,7 @@ import { useTheme } from "@/hooks/useTheme";
 import { ThemedText } from "@/components/ThemedText";
 import { Spacing, BorderRadius, AppColors, FontWeight} from "@/constants/theme";
 import { Banner, Category } from "@/constants/categories";
+import { CATEGORY_MAP } from "@/constants/businessCategories";
 import { apiRequest, getApiUrl } from "@/lib/query-client";
 import { resolveImageUrl } from "@/utils/imageUtils";
 import { formatPrice } from "@/constants/currency";
@@ -626,6 +627,50 @@ export default function AdminScreen() {
   const [vendorStatusFilter, setVendorStatusFilter] = useState<"all" | "active" | "pending" | "rejected" | "suspended">("all");
   const [isUpdatingVendorStatus, setIsUpdatingVendorStatus] = useState(false);
   const [deletingImageKey, setDeletingImageKey] = useState<string | null>(null);
+  const [addVendorProductOpen, setAddVendorProductOpen] = useState(false);
+  const [vendorProductForm, setVendorProductForm] = useState({
+    name: "", category: "", price: "", description: "", stock: "0", unit: "قطعة",
+    imageUri: "", imageUrl: "",
+  });
+  const [savingVendorProduct, setSavingVendorProduct] = useState(false);
+
+  const saveVendorProduct = async (vendorId: string) => {
+    if (savingVendorProduct) return;
+    const { name, price, category } = vendorProductForm;
+    if (!name.trim()) { Alert.alert("خطأ", "يرجى إدخال اسم المنتج"); return; }
+    if (!price || isNaN(parseFloat(price))) { Alert.alert("خطأ", "يرجى إدخال سعر صحيح"); return; }
+    if (!category) { Alert.alert("خطأ", "يرجى اختيار الفئة"); return; }
+    setSavingVendorProduct(true);
+    try {
+      let finalImageUrl = vendorProductForm.imageUrl;
+      if (vendorProductForm.imageUri) {
+        finalImageUrl = await processAndUploadImage(vendorProductForm.imageUri, "product");
+      }
+      const res = await fetch(`${getApiUrl()}/api/admin/vendors/${vendorId}/products`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          name: name.trim(),
+          price,
+          category,
+          description: vendorProductForm.description.trim(),
+          stock: vendorProductForm.stock || "0",
+          unit: vendorProductForm.unit || "قطعة",
+          imageUrl: finalImageUrl || undefined,
+        }),
+      });
+      if (!res.ok) { const d = await res.json(); throw new Error(d.error || "فشل الحفظ"); }
+      Alert.alert("تم", "تم إضافة المنتج بنجاح");
+      setAddVendorProductOpen(false);
+      setVendorProductForm({ name: "", category: "", price: "", description: "", stock: "0", unit: "قطعة", imageUri: "", imageUrl: "" });
+      refetchVendorProducts();
+    } catch (err: any) {
+      Alert.alert("خطأ", err.message || "حدث خطأ");
+    } finally {
+      setSavingVendorProduct(false);
+    }
+  };
 
   const deleteProductImage = useMutation({
     mutationFn: async ({ pid, imageUrl }: { pid: string; imageUrl: string }) => {
@@ -2946,6 +2991,16 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
                       <Pressable onPress={() => refetchVendorProducts()} style={{ padding: 6 }}>
                         <Feather name="refresh-cw" size={14} color={theme.textSecondary} />
                       </Pressable>
+                      <Pressable
+                        onPress={() => {
+                          setVendorProductForm({ name: "", category: "", price: "", description: "", stock: "0", unit: "قطعة", imageUri: "", imageUrl: "" });
+                          setAddVendorProductOpen(true);
+                        }}
+                        style={{ flexDirection: "row-reverse", alignItems: "center", gap: 4, backgroundColor: ADMIN_RED, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8 }}
+                      >
+                        <Feather name="plus" size={13} color={AppColors.white} />
+                        <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 12, color: AppColors.white }}>إضافة منتج</ThemedText>
+                      </Pressable>
                     </View>
                     {selectedProducts.length === 0 ? (
                       <ThemedText style={{ fontFamily: "Cairo_400Regular", fontSize: 13, color: theme.textSecondary, textAlign: "right" }}>لا توجد منتجات بعد</ThemedText>
@@ -3014,6 +3069,110 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
                       })
                     )}
                   </View>
+                </ScrollView>
+              </View>
+            </View>
+          </Modal>
+        ) : null}
+
+        {/* Add Vendor Product Modal */}
+        {addVendorProductOpen && selectedVendor ? (
+          <Modal transparent animationType="slide" visible onRequestClose={() => setAddVendorProductOpen(false)}>
+            <View style={{ flex: 1, backgroundColor: AppColors.overlay }}>
+              <Pressable style={{ flex: 1 }} onPress={() => setAddVendorProductOpen(false)} />
+              <View style={{ backgroundColor: theme.backgroundDefault, borderTopLeftRadius: 24, borderTopRightRadius: 24, maxHeight: "90%" }}>
+                {/* Header */}
+                <View style={{ flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between", padding: Spacing.lg, borderBottomWidth: 1, borderBottomColor: theme.border ?? AppColors.divider }}>
+                  <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 16, color: theme.text }}>إضافة منتج لـ {selectedVendor.storeName}</ThemedText>
+                  <Pressable onPress={() => setAddVendorProductOpen(false)} style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: AppColors.gray100, alignItems: "center", justifyContent: "center" }}>
+                    <Feather name="x" size={18} color={AppColors.gray700} />
+                  </Pressable>
+                </View>
+                <ScrollView contentContainerStyle={{ padding: Spacing.lg, gap: Spacing.md }}>
+                  {/* Name */}
+                  <TextInput
+                    style={[{ backgroundColor: theme.backgroundSecondary, color: theme.text, borderRadius: 10, padding: 12, fontFamily: "Cairo_400Regular", fontSize: 14, textAlign: "right", borderWidth: 1, borderColor: theme.border ?? AppColors.divider }]}
+                    placeholder={(CATEGORY_MAP as any)[selectedVendor.businessType] ? `مثال: ${(CATEGORY_MAP as any)[selectedVendor.businessType][0]}` : "اسم المنتج"}
+                    placeholderTextColor={theme.textSecondary}
+                    value={vendorProductForm.name}
+                    onChangeText={(t) => setVendorProductForm({ ...vendorProductForm, name: t })}
+                  />
+                  {/* Category chips */}
+                  <View style={{ gap: 6 }}>
+                    <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 13, color: theme.textSecondary, textAlign: "right" }}>الفئة *</ThemedText>
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, flexDirection: "row-reverse" }}>
+                      {((CATEGORY_MAP as any)[selectedVendor.businessType] ?? (CATEGORY_MAP as any).other ?? []).map((cat: string) => (
+                        <Pressable
+                          key={cat}
+                          onPress={() => setVendorProductForm({ ...vendorProductForm, category: cat })}
+                          style={{ paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, backgroundColor: vendorProductForm.category === cat ? ADMIN_RED : theme.backgroundSecondary, borderWidth: 1, borderColor: vendorProductForm.category === cat ? ADMIN_RED : (theme.border ?? AppColors.divider) }}
+                        >
+                          <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 12, color: vendorProductForm.category === cat ? AppColors.white : theme.text }}>{cat}</ThemedText>
+                        </Pressable>
+                      ))}
+                    </ScrollView>
+                  </View>
+                  {/* Price & Stock row */}
+                  <View style={{ flexDirection: "row-reverse", gap: 10 }}>
+                    <TextInput
+                      style={[{ flex: 1, backgroundColor: theme.backgroundSecondary, color: theme.text, borderRadius: 10, padding: 12, fontFamily: "Cairo_400Regular", fontSize: 14, textAlign: "right", borderWidth: 1, borderColor: theme.border ?? AppColors.divider }]}
+                      placeholder="السعر (د.ع) *"
+                      placeholderTextColor={theme.textSecondary}
+                      value={vendorProductForm.price}
+                      onChangeText={(t) => setVendorProductForm({ ...vendorProductForm, price: t })}
+                      keyboardType="numeric"
+                    />
+                    <TextInput
+                      style={[{ flex: 1, backgroundColor: theme.backgroundSecondary, color: theme.text, borderRadius: 10, padding: 12, fontFamily: "Cairo_400Regular", fontSize: 14, textAlign: "right", borderWidth: 1, borderColor: theme.border ?? AppColors.divider }]}
+                      placeholder="المخزون"
+                      placeholderTextColor={theme.textSecondary}
+                      value={vendorProductForm.stock}
+                      onChangeText={(t) => setVendorProductForm({ ...vendorProductForm, stock: t })}
+                      keyboardType="numeric"
+                    />
+                  </View>
+                  {/* Unit */}
+                  <TextInput
+                    style={[{ backgroundColor: theme.backgroundSecondary, color: theme.text, borderRadius: 10, padding: 12, fontFamily: "Cairo_400Regular", fontSize: 14, textAlign: "right", borderWidth: 1, borderColor: theme.border ?? AppColors.divider }]}
+                    placeholder="الوحدة (قطعة، كيلو، لتر...)"
+                    placeholderTextColor={theme.textSecondary}
+                    value={vendorProductForm.unit}
+                    onChangeText={(t) => setVendorProductForm({ ...vendorProductForm, unit: t })}
+                  />
+                  {/* Description */}
+                  <TextInput
+                    style={[{ backgroundColor: theme.backgroundSecondary, color: theme.text, borderRadius: 10, padding: 12, fontFamily: "Cairo_400Regular", fontSize: 14, textAlign: "right", borderWidth: 1, borderColor: theme.border ?? AppColors.divider, minHeight: 80, textAlignVertical: "top" }]}
+                    placeholder="وصف المنتج (اختياري)"
+                    placeholderTextColor={theme.textSecondary}
+                    value={vendorProductForm.description}
+                    onChangeText={(t) => setVendorProductForm({ ...vendorProductForm, description: t })}
+                    multiline
+                    numberOfLines={3}
+                  />
+                  {/* Image picker */}
+                  <Pressable
+                    onPress={() => pickImage((uri) => setVendorProductForm({ ...vendorProductForm, imageUri: uri, imageUrl: "" }))}
+                    style={{ borderWidth: 1.5, borderColor: theme.border ?? AppColors.divider, borderStyle: "dashed", borderRadius: 12, height: 110, alignItems: "center", justifyContent: "center", overflow: "hidden" }}
+                  >
+                    {vendorProductForm.imageUri || vendorProductForm.imageUrl ? (
+                      <Image source={{ uri: vendorProductForm.imageUri || resolveImageUrl(vendorProductForm.imageUrl) }} style={{ width: "100%", height: "100%", resizeMode: "cover" } as any} />
+                    ) : (
+                      <View style={{ alignItems: "center", gap: 6 }}>
+                        <Feather name="camera" size={28} color={theme.textSecondary} />
+                        <ThemedText style={{ fontFamily: "Cairo_400Regular", fontSize: 13, color: theme.textSecondary }}>إضافة صورة (اختياري)</ThemedText>
+                      </View>
+                    )}
+                  </Pressable>
+                  {/* Save button */}
+                  <Pressable
+                    onPress={() => saveVendorProduct(selectedVendor.id)}
+                    disabled={savingVendorProduct}
+                    style={{ backgroundColor: ADMIN_RED, borderRadius: 12, paddingVertical: 14, alignItems: "center", justifyContent: "center", opacity: savingVendorProduct ? 0.6 : 1, marginBottom: Spacing.lg }}
+                  >
+                    {savingVendorProduct
+                      ? <ActivityIndicator color={AppColors.white} />
+                      : <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 15, color: AppColors.white }}>إضافة المنتج</ThemedText>}
+                  </Pressable>
                 </ScrollView>
               </View>
             </View>

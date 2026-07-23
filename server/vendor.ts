@@ -1613,6 +1613,59 @@ router.post("/api/admin/vendor-products/:pid/reject", requireAdmin, async (req, 
   }
 });
 
+// POST /api/admin/vendors/:vendorId/products — admin adds a product on behalf of a vendor
+router.post("/api/admin/vendors/:vendorId/products", requireAdmin, async (req, res) => {
+  try {
+    const db = getFirestore();
+    if (!db) return res.status(500).json({ error: "قاعدة البيانات غير متاحة" });
+
+    const vendorId = req.params.vendorId as string;
+    const { name, price, category, description, stock, unit, imageUrl } = req.body as Record<string, string>;
+
+    if (!name || !price || !category) {
+      return res.status(400).json({ error: "الاسم والسعر والفئة مطلوبة" });
+    }
+
+    const vendorDoc = await db.collection("vendors").doc(vendorId).get();
+    if (!vendorDoc.exists) return res.status(404).json({ error: "التاجر غير موجود" });
+    const vendor = vendorDoc.data() as any;
+
+    const pid = productId();
+    const now = new Date().toISOString();
+    const imageUrls = imageUrl ? [imageUrl] : [];
+
+    await db.collection("vendorProducts").doc(pid).set({
+      id: pid,
+      vendorId,
+      vendorName: vendor.storeName,
+      storeName: vendor.storeName,
+      vendorPhone: vendor.phoneNumber,
+      name: name.trim(),
+      description: description?.trim() || "",
+      price: parseFloat(price),
+      category,
+      stock: parseInt(stock) || 0,
+      unit: unit || "قطعة",
+      imageUrl: imageUrl || null,
+      imageUrls,
+      status: "approved",
+      approvedAt: now,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    try {
+      const { FieldValue: FV } = await import("firebase-admin/firestore");
+      await db.collection("vendors").doc(vendorId).update({ totalProducts: FV.increment(1), updatedAt: now });
+    } catch {}
+
+    res.status(201).json({ success: true, id: pid });
+  } catch (err) {
+    console.error("admin add vendor product:", err);
+    res.status(500).json({ error: "حدث خطأ في الخادم" });
+  }
+});
+
 // DELETE /api/admin/vendor-products/:pid/image — admin removes one image from a product
 router.delete("/api/admin/vendor-products/:pid/image", requireAdmin, async (req, res) => {
   try {
