@@ -403,8 +403,9 @@ router.patch("/api/vendor/profile", requireVendor, async (req, res) => {
     const db = getFirestore();
     if (!db) return res.status(500).json({ error: "قاعدة البيانات غير متاحة" });
     const vid = (req as any).vendorId;
-    const { bio, address, deliveryTime, deliveryPrice, workingHours, rating } = req.body;
+    const { storeName, bio, address, deliveryTime, deliveryPrice, workingHours, rating } = req.body;
     const updates: any = { updatedAt: new Date().toISOString() };
+    if (storeName !== undefined && String(storeName).trim()) updates.storeName = String(storeName).trim();
     if (bio !== undefined) updates.bio = bio;
     if (address !== undefined) updates.address = address;
     if (deliveryTime !== undefined) updates.deliveryTime = deliveryTime;

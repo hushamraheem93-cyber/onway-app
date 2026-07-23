@@ -42,6 +42,10 @@ export default function VendorProfileScreen() {
   const [bioText, setBioText] = useState(vendorProfile?.bio || "");
   const [savingBio, setSavingBio] = useState(false);
 
+  const [storeNameModal, setStoreNameModal] = useState(false);
+  const [storeNameText, setStoreNameText] = useState(vendorProfile?.storeName || "");
+  const [savingStoreName, setSavingStoreName] = useState(false);
+
   const [settingsModal, setSettingsModal] = useState(false);
   const [settDeliveryTime, setSettDeliveryTime] = useState(vendorProfile?.deliveryTime || "30-45");
   const [settDeliveryPrice, setSettDeliveryPrice] = useState(String(vendorProfile?.deliveryPrice ?? 0));
@@ -53,6 +57,7 @@ export default function VendorProfileScreen() {
   const [savingSettings, setSavingSettings] = useState(false);
 
   useFocusEffect(useCallback(() => {
+    setStoreNameText(vendorProfile?.storeName || "");
     setBioText(vendorProfile?.bio || "");
     setSettDeliveryTime(vendorProfile?.deliveryTime || "30-45");
     setSettDeliveryPrice(String(vendorProfile?.deliveryPrice ?? 0));
@@ -88,6 +93,21 @@ export default function VendorProfileScreen() {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       }
     } catch {} finally { setter(false); }
+  };
+
+  const saveStoreName = async () => {
+    if (!vendorToken || !storeNameText.trim()) return;
+    setSavingStoreName(true);
+    try {
+      await fetch(new URL("/api/vendor/profile", getApiUrl()).toString(), {
+        method: "PATCH",
+        headers: { Authorization: `Bearer ${vendorToken}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ storeName: storeNameText.trim() }),
+      });
+      await refreshVendorProfile();
+      setStoreNameModal(false);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } catch {} finally { setSavingStoreName(false); }
   };
 
   const saveBio = async () => {
@@ -177,7 +197,13 @@ export default function VendorProfileScreen() {
             </View>
           </Pressable>
           <View style={{ flex: 1 }}>
-            <ThemedText style={styles.storeName} numberOfLines={1}>{vendorProfile?.storeName || "متجري"}</ThemedText>
+            <Pressable
+              style={{ flexDirection: "row-reverse", alignItems: "center", gap: 6 }}
+              onPress={() => setStoreNameModal(true)}
+            >
+              <ThemedText style={styles.storeName} numberOfLines={1}>{vendorProfile?.storeName || "متجري"}</ThemedText>
+              <Feather name="edit-2" size={14} color={ORANGE} />
+            </Pressable>
             <ThemedText style={[styles.bizType, { color: theme.textSecondary }]}>
               {BUSINESS_LABELS[vendorProfile?.businessType || ""] || "متجر"}
             </ThemedText>
@@ -273,6 +299,38 @@ export default function VendorProfileScreen() {
         </View>
         <ThemedText style={[styles.settingsTitle, { flex: 1, color: AppColors.error }]}>تسجيل الخروج</ThemedText>
       </Pressable>
+
+      {/* Store name modal */}
+      <Modal visible={storeNameModal} transparent animationType="fade" onRequestClose={() => setStoreNameModal(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalBox, { backgroundColor: theme.backgroundDefault }]}>
+            <ThemedText style={styles.modalTitle}>اسم المتجر</ThemedText>
+            <TextInput
+              style={[styles.input, { color: theme.text, borderColor: theme.border ?? AppColors.divider }]}
+              value={storeNameText}
+              onChangeText={setStoreNameText}
+              placeholder="اسم المتجر"
+              placeholderTextColor={AppColors.gray400}
+              textAlign="right"
+              autoFocus
+            />
+            <View style={styles.modalBtns}>
+              <Pressable
+                style={[styles.modalBtn, { backgroundColor: !storeNameText.trim() ? AppColors.gray300 : ORANGE }]}
+                onPress={saveStoreName}
+                disabled={savingStoreName || !storeNameText.trim()}
+              >
+                {savingStoreName
+                  ? <ActivityIndicator color={AppColors.white} size="small" />
+                  : <ThemedText style={styles.modalBtnText}>حفظ</ThemedText>}
+              </Pressable>
+              <Pressable style={[styles.modalBtn, { backgroundColor: AppColors.gray100 }]} onPress={() => setStoreNameModal(false)}>
+                <ThemedText style={[styles.modalBtnText, { color: AppColors.gray700 }]}>إلغاء</ThemedText>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
 
       {/* Bio modal */}
       <Modal visible={bioModal} transparent animationType="fade" onRequestClose={() => setBioModal(false)}>
