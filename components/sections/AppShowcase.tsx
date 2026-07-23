@@ -1,36 +1,23 @@
-"use client";
-
-import { useRef, useState } from "react";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { Fragment } from "react";
+import { ArrowLeft, ArrowRight } from "lucide-react";
 import { DeviceShot } from "../phone/DeviceShot";
 import { Reveal } from "../Reveal";
 import type { Dictionary } from "@/lib/dictionaries";
 import type { Locale } from "@/lib/config";
 
-// Real app screenshots (stored in /public/app)
+// Real app screenshots, in the order of the getting-started journey.
 const screens = [
-  "/app/onboarding-1.png",
-  "/app/onboarding-2.png",
-  "/app/onboarding-3.png",
-  "/app/login.png",
+  "/app/onboarding-1.png", // open the app
+  "/app/login.png", // sign in with phone
+  "/app/home.png", // browse and order
+  "/app/onboarding-3.png", // track to the door
 ];
 
 export function AppShowcase({ t, locale }: { t: Dictionary; locale: Locale }) {
-  const trackRef = useRef<HTMLDivElement>(null);
-  const [active, setActive] = useState(0);
-  const rtl = locale === "ar";
-
-  const scrollTo = (index: number) => {
-    const clamped = Math.max(0, Math.min(screens.length - 1, index));
-    const track = trackRef.current;
-    if (!track) return;
-    const child = track.children[clamped] as HTMLElement | undefined;
-    child?.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
-    setActive(clamped);
-  };
+  const Arrow = locale === "ar" ? ArrowLeft : ArrowRight;
 
   return (
-    <section className="scroll-mt-20 py-20 md:py-28">
+    <section id="steps" className="scroll-mt-20 bg-cream py-20 md:py-28">
       <div className="container-page">
         <Reveal className="mx-auto max-w-2xl text-center">
           <span className="eyebrow">{t.showcase.eyebrow}</span>
@@ -40,65 +27,45 @@ export function AppShowcase({ t, locale }: { t: Dictionary; locale: Locale }) {
           <p className="mt-4 text-lg text-ink-muted">{t.showcase.subtitle}</p>
         </Reveal>
 
-        <div className="relative mt-14">
-          <div
-            ref={trackRef}
-            className="no-scrollbar flex snap-x snap-mandatory gap-6 overflow-x-auto pb-4 sm:justify-center"
-          >
-            {screens.map((src, i) => (
-              <figure
-                key={i}
-                className="flex shrink-0 snap-center flex-col items-center"
+        {/* Step flow — real screens numbered and connected */}
+        <div className="no-scrollbar mt-14 flex snap-x snap-mandatory items-start gap-3 overflow-x-auto pb-4 lg:justify-center lg:gap-0 lg:overflow-visible">
+          {screens.map((src, i) => (
+            <Fragment key={i}>
+              <Reveal
+                as="div"
+                delay={i * 80}
+                className="flex w-[248px] shrink-0 snap-center flex-col items-center px-2 lg:w-[244px]"
               >
-                <div className={i === active ? "" : "opacity-90"}>
+                <div className="relative">
                   <DeviceShot
                     src={src}
                     alt={t.showcase.screens[i].title}
-                    className="!max-w-[230px]"
+                    className="!w-[190px]"
                   />
+                  {/* step number */}
+                  <span className="absolute -top-3 left-1/2 flex h-9 w-9 -translate-x-1/2 items-center justify-center rounded-full border-4 border-cream bg-brand-500 font-display text-sm font-bold text-white shadow-glow">
+                    {i + 1}
+                  </span>
                 </div>
-                <figcaption className="mt-5 max-w-[230px] text-center">
-                  <p className="font-bold text-ink">{t.showcase.screens[i].title}</p>
-                  <p className="mt-1 text-sm text-ink-muted">{t.showcase.screens[i].caption}</p>
-                </figcaption>
-              </figure>
-            ))}
-          </div>
+                <h3 className="mt-6 text-lg font-bold text-ink">
+                  {t.showcase.screens[i].title}
+                </h3>
+                <p className="mt-1.5 max-w-[210px] text-center text-sm leading-relaxed text-ink-muted">
+                  {t.showcase.screens[i].caption}
+                </p>
+              </Reveal>
 
-          {/* controls */}
-          <div className="mt-6 flex items-center justify-center gap-4">
-            <button
-              type="button"
-              onClick={() => scrollTo(active + (rtl ? 1 : -1))}
-              aria-label={t.showcase.prev}
-              className="flex h-11 w-11 items-center justify-center rounded-full border border-ink/10 text-ink transition-colors hover:border-brand-500 hover:text-brand-600"
-            >
-              {rtl ? <ChevronRight className="h-5 w-5" /> : <ChevronLeft className="h-5 w-5" />}
-            </button>
-
-            <div className="flex items-center gap-2">
-              {screens.map((_, i) => (
-                <button
-                  key={i}
-                  type="button"
-                  onClick={() => scrollTo(i)}
-                  aria-label={`${i + 1}`}
-                  className={`h-2 rounded-full transition-all ${
-                    i === active ? "w-6 bg-brand-500" : "w-2 bg-ink/15 hover:bg-ink/30"
-                  }`}
-                />
-              ))}
-            </div>
-
-            <button
-              type="button"
-              onClick={() => scrollTo(active + (rtl ? -1 : 1))}
-              aria-label={t.showcase.next}
-              className="flex h-11 w-11 items-center justify-center rounded-full border border-ink/10 text-ink transition-colors hover:border-brand-500 hover:text-brand-600"
-            >
-              {rtl ? <ChevronLeft className="h-5 w-5" /> : <ChevronRight className="h-5 w-5" />}
-            </button>
-          </div>
+              {/* connector arrow (desktop only) */}
+              {i < screens.length - 1 && (
+                <div
+                  className="hidden shrink-0 items-center self-center pt-16 lg:flex"
+                  aria-hidden="true"
+                >
+                  <Arrow className="h-7 w-7 text-brand-300" />
+                </div>
+              )}
+            </Fragment>
+          ))}
         </div>
       </div>
     </section>
