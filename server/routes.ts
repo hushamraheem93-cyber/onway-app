@@ -842,6 +842,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           categoryType: v.categoryType || v.cuisine || "",
           sortOrder: v.sortOrder ?? 999,
           isOpen: v.isOpen ?? true,
+          supportedCategories: Array.isArray(v.supportedCategories) ? v.supportedCategories : [],
+          isPinned: v.isPinned ?? false,
+          isFeatured: v.isFeatured ?? false,
         };
       }).sort((a: any, b: any) => (a.sortOrder ?? 999) - (b.sortOrder ?? 999));
       storesCacheTime = now;
@@ -1901,7 +1904,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.post("/api/admin/vendors", async (req: Request, res: Response) => {
-    const { name, location, whatsappNumber, commissionPercent, image, rating, deliveryTime, isOpen, categoryType, cuisine, hasDelivery, minOrder, openTime, closeTime, description } = req.body;
+    const { name, location, whatsappNumber, commissionPercent, image, rating, deliveryTime, isOpen, categoryType, cuisine, hasDelivery, minOrder, openTime, closeTime, description, supportedCategories, sortOrder, isPinned, isFeatured, isVerified } = req.body;
     if (!name) return res.status(400).json({ error: "اسم المطعم مطلوب" });
     const existingVendors = await getVendorList();
     const maxOrder = existingVendors.reduce((max, v) => Math.max(max, v.sortOrder ?? 0), 0);
@@ -1936,8 +1939,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.put("/api/admin/vendors/:id", async (req: Request, res: Response) => {
     const id = req.params.id as string;
-    const { name, location, whatsappNumber, commissionPercent, image, rating, deliveryTime, isOpen, categoryType, cuisine, hasDelivery, minOrder, openTime, closeTime, description } = req.body;
+    const { name, location, whatsappNumber, commissionPercent, image, rating, deliveryTime, isOpen, categoryType, cuisine, hasDelivery, minOrder, openTime, closeTime, description, supportedCategories, sortOrder, isPinned, isFeatured, isVerified } = req.body;
     const updates: any = {};
+    if (Array.isArray(supportedCategories)) updates.supportedCategories = supportedCategories;
+    if (sortOrder !== undefined) updates.sortOrder = Number(sortOrder);
+    if (isPinned !== undefined) updates.isPinned = Boolean(isPinned);
+    if (isFeatured !== undefined) updates.isFeatured = Boolean(isFeatured);
+    if (isVerified !== undefined) updates.isVerified = Boolean(isVerified);
     if (name !== undefined) updates.name = String(name);
     if (location !== undefined) updates.location = String(location);
     if (whatsappNumber !== undefined) updates.whatsappNumber = String(whatsappNumber);
