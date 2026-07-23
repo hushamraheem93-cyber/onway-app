@@ -265,7 +265,7 @@ export default function AdminScreen() {
       </tr>`).join("");
     const html = `
       <html dir="rtl"><head><meta charset="utf-8"/>
-      <style>body{font-family:sans-serif;padding:24px} h1{color:#E86520} table{width:100%;border-collapse:collapse} th,td{border:1px solid #ddd;padding:8px} th{background:#FFF2EC}</style>
+      <style>body{font-family:sans-serif;padding:24px} h1{color:#FB5B21} table{width:100%;border-collapse:collapse} th,td{border:1px solid #ddd;padding:8px} th{background:#FFF1EC}</style>
       </head><body>
         <h1>تقرير التسويات — ${type === "vendor" ? "المتاجر" : "السائقون"}</h1>
         <p>التاريخ: ${new Date().toLocaleDateString("ar-IQ")}</p>
@@ -1347,7 +1347,7 @@ export default function AdminScreen() {
                   {formatPrice(product.price)}
                 </ThemedText>
                 {(product as any).restaurant ? (
-                  <View style={[styles.discountBadge, { backgroundColor: "#E8652020" }]}>
+                  <View style={[styles.discountBadge, { backgroundColor: "#FB5B2120" }]}>
                     <ThemedText type="small" style={{ color: AppColors.primary, fontWeight: FontWeight.semiBold, fontSize: 10 }}>{(product as any).restaurant}</ThemedText>
                   </View>
                 ) : null}
@@ -1482,11 +1482,11 @@ export default function AdminScreen() {
 #map{width:100%;height:100%}
 .leaflet-control-attribution{display:none!important}
 .driver-pulse{width:48px;height:48px;position:relative;display:flex;align-items:center;justify-content:center}
-.driver-pulse::before{content:'';position:absolute;width:48px;height:48px;border-radius:50%;background:rgba(232,101,32,0.25);animation:pulse 1.8s ease-out infinite}
-.driver-inner{width:32px;height:32px;background:#E86520;border-radius:50%;border:3px solid #fff;box-shadow:0 2px 10px rgba(232,101,32,0.6);display:flex;align-items:center;justify-content:center;position:relative;z-index:1}
+.driver-pulse::before{content:'';position:absolute;width:48px;height:48px;border-radius:50%;background:rgba(251,91,33,0.25);animation:pulse 1.8s ease-out infinite}
+.driver-inner{width:32px;height:32px;background:#FB5B21;border-radius:50%;border:3px solid #fff;box-shadow:0 2px 10px rgba(251,91,33,0.6);display:flex;align-items:center;justify-content:center;position:relative;z-index:1}
 @keyframes pulse{0%{transform:scale(0.5);opacity:1}100%{transform:scale(2.2);opacity:0}}
 .info-pill{position:absolute;bottom:14px;left:50%;transform:translateX(-50%);background:rgba(255,255,255,0.96);border-radius:24px;padding:8px 18px;font-family:sans-serif;font-size:13px;color:#333;box-shadow:0 2px 12px rgba(0,0,0,0.15);white-space:nowrap;z-index:1000;pointer-events:none}
-.dot{width:8px;height:8px;background:#E86520;border-radius:50%;display:inline-block;margin-left:6px;animation:blink 1.2s ease-in-out infinite}
+.dot{width:8px;height:8px;background:#FB5B21;border-radius:50%;display:inline-block;margin-left:6px;animation:blink 1.2s ease-in-out infinite}
 @keyframes blink{0%,100%{opacity:1}50%{opacity:0.2}}
 </style></head><body>
 <div id="map"></div>
@@ -2179,7 +2179,7 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
                 style={[styles.userRow, { backgroundColor: theme.backgroundSecondary }]}
               >
                 <View style={styles.userRowLeft}>
-                  <View style={[styles.userAvatar, { backgroundColor: `rgba(232,101,32,${0.1 + (idx % 4) * 0.05})` }]}>
+                  <View style={[styles.userAvatar, { backgroundColor: `rgba(251,91,33,${0.1 + (idx % 4) * 0.05})` }]}>
                     <ThemedText style={styles.userAvatarText}>
                       {user.fullName?.charAt(0) || "؟"}
                     </ThemedText>
@@ -3805,7 +3805,7 @@ const styles = StyleSheet.create({
     backgroundColor: AppColors.primary + "0F",
     borderRadius: BorderRadius.xl,
     borderWidth: 1,
-    borderColor: "rgba(232,101,32,0.15)",
+    borderColor: "rgba(251,91,33,0.15)",
   },
   notifTitle: {
     fontFamily: "Cairo_700Bold",

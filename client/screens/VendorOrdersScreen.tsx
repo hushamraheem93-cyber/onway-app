@@ -166,7 +166,7 @@ function buildReceiptHTML(order: VendorOrder): string {
   *{margin:0;padding:0;box-sizing:border-box;}
   body{font-family:'Segoe UI',Tahoma,Arial,sans-serif;direction:rtl;max-width:340px;margin:0 auto;padding:18px;color:#1a1a1a;background:#fff;}
   .header{text-align:center;padding-bottom:12px;}
-  .app-name{font-size:32px;font-weight:900;color:#E86520;letter-spacing:3px;}
+  .app-name{font-size:32px;font-weight:900;color:#FB5B21;letter-spacing:3px;}
   .app-sub{font-size:12px;color:#999;margin-top:3px;}
   .store-name{text-align:center;font-size:17px;font-weight:700;margin:6px 0 2px;}
   .divider{border:none;border-top:1px dashed #ccc;margin:10px 0;}
@@ -179,11 +179,11 @@ function buildReceiptHTML(order: VendorOrder): string {
   th{font-size:11px;color:#777;padding:5px 4px;border-bottom:2px solid #333;font-weight:600;}
   th:first-child{text-align:right;}th:nth-child(2){text-align:center;}th:last-child{text-align:left;}
   .total-row{display:flex;justify-content:space-between;padding:5px 0;font-size:13px;}
-  .grand-total{font-size:16px;font-weight:900;color:#E86520;padding-top:3px;}
+  .grand-total{font-size:16px;font-weight:900;color:#FB5B21;padding-top:3px;}
   .payment-row{display:flex;justify-content:space-between;padding:5px 0;font-size:13px;}
-  .notes-box{background:#fff9f0;border:1px dashed #E86520;border-radius:6px;padding:8px 10px;margin:6px 0;font-size:12px;color:#555;}
+  .notes-box{background:#fff2ec;border:1px dashed #FB5B21;border-radius:6px;padding:8px 10px;margin:6px 0;font-size:12px;color:#555;}
   .footer{text-align:center;margin-top:16px;padding-top:12px;border-top:2px solid #1a1a1a;}
-  .footer-main{font-size:15px;font-weight:700;color:#E86520;margin-bottom:4px;}
+  .footer-main{font-size:15px;font-weight:700;color:#FB5B21;margin-bottom:4px;}
   .footer-sub{font-size:12px;color:#888;}
   @media print{body{max-width:100%;padding:10px;}}
 </style>

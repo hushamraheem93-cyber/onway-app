@@ -89,7 +89,7 @@ function getTrackingMapHTML(driverLat: number, driverLng: number, customerLat?: 
     ? `
       var customerIcon = L.divIcon({
         className: '',
-        html: '<div style="width:36px;height:36px;background:#E86520;border-radius:50% 50% 50% 0;transform:rotate(-45deg);border:3px solid #fff;box-shadow:0 3px 10px rgba(232,101,32,0.5);"></div>',
+        html: '<div style="width:36px;height:36px;background:#FB5B21;border-radius:50% 50% 50% 0;transform:rotate(-45deg);border:3px solid #fff;box-shadow:0 3px 10px rgba(251,91,33,0.5);"></div>',
         iconSize: [36, 36],
         iconAnchor: [18, 36],
       });
@@ -136,15 +136,15 @@ function getTrackingMapHTML(driverLat: number, driverLng: number, customerLat?: 
       position: absolute;
       width: 48px; height: 48px;
       border-radius: 50%;
-      background: rgba(232,101,32,0.25);
+      background: rgba(251,91,33,0.25);
       animation: pulse 1.8s ease-out infinite;
     }
     .driver-inner {
       width: 30px; height: 30px;
-      background: #E86520;
+      background: #FB5B21;
       border-radius: 50%;
       border: 3px solid #fff;
-      box-shadow: 0 2px 10px rgba(232,101,32,0.6);
+      box-shadow: 0 2px 10px rgba(251,91,33,0.6);
       display: flex; align-items: center; justify-content: center;
       position: relative; z-index: 1;
     }
@@ -166,7 +166,7 @@ function getTrackingMapHTML(driverLat: number, driverLng: number, customerLat?: 
       z-index: 1000;
       pointer-events: none;
     }
-    .dot { width: 8px; height: 8px; background: #E86520; border-radius: 50%; display: inline-block; margin-left: 6px; animation: blink 1.2s ease-in-out infinite; }
+    .dot { width: 8px; height: 8px; background: #FB5B21; border-radius: 50%; display: inline-block; margin-left: 6px; animation: blink 1.2s ease-in-out infinite; }
     @keyframes blink { 0%,100% { opacity: 1; } 50% { opacity: 0.2; } }
   </style>
 </head>
@@ -193,7 +193,7 @@ function getTrackingMapHTML(driverLat: number, driverLng: number, customerLat?: 
     function drawRoute(dLat, dLng, cLat, cLng) {
       if (routeLine) map.removeLayer(routeLine);
       routeLine = L.polyline([[dLat, dLng], [cLat, cLng]], {
-        color: '#E86520',
+        color: '#FB5B21',
         weight: 3,
         opacity: 0.6,
         dashArray: '8, 8',

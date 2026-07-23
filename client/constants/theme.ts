@@ -4,10 +4,10 @@ I18nManager.allowRTL(true);
 I18nManager.forceRTL(true);
 
 // ─── Core Brand ─────────────────────────────────────────────────────────────
-const primary      = "#E86520";
-const primaryLight = "#F28B4E";
-const primaryDark  = "#C4520F";
-const secondary    = "#FFF0E8";
+const primary      = "#FB5B21";
+const primaryLight = "#FC8B56";
+const primaryDark  = "#D94A17";
+const secondary    = "#FFF1EC";
 
 // ─── Status Colors ───────────────────────────────────────────────────────────
 const success      = "#10B981";
