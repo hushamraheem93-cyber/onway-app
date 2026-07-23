@@ -47,6 +47,10 @@ args = "fuser -k 5000/tcp 8081/tcp 8082/tcp 2>/dev/null; sleep 1; rm -rf static-
 task = "workflow.run"
 args = "Start application"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Expo Dev"
+
 [[workflows.workflow]]
 name = "Start application"
 author = "agent"
@@ -58,6 +62,14 @@ waitForPort = 5000
 
 [workflows.workflow.metadata]
 outputType = "webview"
+
+[[workflows.workflow]]
+name = "Expo Dev"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npm run expo:dev"
 
 [userenv]
 
