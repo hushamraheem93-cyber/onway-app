@@ -702,12 +702,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       };
       const products = productsSnap.docs.map((d) => {
         const p = d.data() as any;
+        const imgVal = limitImageSize(p.imageUrl || (p.imageUrls?.[0] ?? ""), 80000);
         return {
           id: d.id,
           name: p.name || "",
           description: p.description || "",
           price: p.price || 0,
-          imageUrl: p.imageUrl || (p.imageUrls?.[0] ?? ""),
+          image: imgVal,
+          imageUrl: imgVal,
           status: p.status || "",
           category: p.category || "",
           stock: p.stock ?? 0,
@@ -1908,7 +1910,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const vendors = await getVendorList();
     res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
     res.setHeader("Pragma", "no-cache");
-    res.json(vendors);
+    // Normalize image field: admin-created vendors use `image`; registered vendors use `profileImageUrl`
+    const normalized = vendors.map((v: any) => ({
+      ...v,
+      image: limitImageSize(v.image || v.profileImageUrl || v.coverImageUrl || "", 80000),
+    }));
+    res.json(normalized);
   });
 
   app.post("/api/admin/vendors", async (req: Request, res: Response) => {
@@ -2016,9 +2023,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return s + Math.round(orderBase(o) * vendor.commissionPercent / 100);
       }, 0);
       const vendorNet = totalSales - appCommission;
-      res.json({ vendor, orders: orders.length, totalSales, appCommission, vendorNet, commissionPercent: vendor.commissionPercent });
+      const vendorWithImage = { ...vendor, image: limitImageSize((vendor as any).image || (vendor as any).profileImageUrl || (vendor as any).coverImageUrl || "", 80000) };
+      res.json({ vendor: vendorWithImage, orders: orders.length, totalSales, appCommission, vendorNet, commissionPercent: vendor.commissionPercent });
     } catch {
-      res.json({ vendor, orders: 0, totalSales: 0, appCommission: 0, vendorNet: 0, commissionPercent: vendor.commissionPercent });
+      const vendorWithImage = { ...vendor, image: limitImageSize((vendor as any).image || (vendor as any).profileImageUrl || (vendor as any).coverImageUrl || "", 80000) };
+      res.json({ vendor: vendorWithImage, orders: 0, totalSales: 0, appCommission: 0, vendorNet: 0, commissionPercent: vendor.commissionPercent });
     }
   });
 
