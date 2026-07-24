@@ -14,7 +14,7 @@
 - [Driver Financial System](driver-financial-system.md) — postpaid model: amountOwed = commission − paid; blocks driver at 50,000 IQD; replaces old prepaid wallet (getDriverWalletBalance removed).
 - [Admin auth two-system mismatch](admin-auth-mismatch-bug.md) — real admin login session doesn't satisfy the HMAC check most /api/admin/* routes require; vendor/driver/order-management admin actions return 401.
 - [Order Price Integrity](order-price-integrity.md) — POST /api/orders recomputes price/fees/total server-side, never trusts client; courier-pickup & international-shopping orders are intentionally exempt (non-catalog custom pricing).
-- [Firebase Storage bucket missing](firebase-storage-bucket-missing.md) — project has 0 Storage buckets; uploadToFirebaseStorage fails everywhere; vendor product/profile images migrated to Base64; other call sites still broken.
+- [Firebase Storage bucket missing](firebase-storage-bucket-missing.md) — no Storage buckets; product+profile images use Base64-in-Firestore; limitImageSize must NOT drop data URIs (fixed Jul 2026).
 - [Expo static build workflow](expo-static-build-workflow.md) — multi-job shell workflow commands need `trap 'kill 0' EXIT SIGTERM SIGINT` or restarts leave orphaned background jobs that race and corrupt output.
 - [EXPO_PUBLIC_DOMAIN port bug](expo-public-domain-port-bug.md) — public Replit domain unreachable with explicit `:5000` appended; native app hangs forever on every API call (login/OTP) until getApiUrl() strips the port.
 - [Dev-only bypass gating](dev-bypass-gating.md) — isDevMode() now uses only DEV_MODE secret (not NODE_ENV) because server:dev sets NODE_ENV=development; only REPLIT_DEPLOYMENT="1" or DEV_MODE="false" disables bypass.

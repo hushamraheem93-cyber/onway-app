@@ -97,21 +97,17 @@ function generateImageHash(buffer: Buffer): string {
 }
 
 async function processAndSaveImage(buffer: Buffer, hash: string): Promise<{ full: string; thumb: string }> {
+  // Store images as compressed Base64 data URIs directly in Firestore.
+  // Firebase Storage is not provisioned for this project; Base64-in-Firestore
+  // is the established convention for all image types in this app.
   const [webpBuffer, thumbBuffer] = await Promise.all([
     sharp(buffer).resize(700, 700, { fit: "cover", position: "center" }).webp({ quality: 70 }).toBuffer(),
     sharp(buffer).resize(200, 200, { fit: "cover", position: "center" }).webp({ quality: 75 }).toBuffer(),
   ]);
-  try {
-    const [full, thumb] = await Promise.all([
-      uploadToFirebaseStorage(webpBuffer, `product-images/${hash}.webp`),
-      uploadToFirebaseStorage(thumbBuffer, `product-images/thumb_${hash}.webp`),
-    ]);
-    console.info(`[Storage] ✓ upload success: product-images/${hash.slice(0, 8)}.webp + thumb`);
-    return { full, thumb };
-  } catch (err: any) {
-    console.error("[Storage] ✗ upload failure (product image):", err?.message);
-    throw new Error("فشل رفع الصورة. حاول مجدداً.");
-  }
+  const full  = `data:image/webp;base64,${webpBuffer.toString("base64")}`;
+  const thumb = `data:image/webp;base64,${thumbBuffer.toString("base64")}`;
+  console.info(`[Image] ✓ encoded product image as Base64 (${Math.round(webpBuffer.length / 1024)}KB full, ${Math.round(thumbBuffer.length / 1024)}KB thumb)`);
+  return { full, thumb };
 }
 
 async function findDuplicateImage(hash: string): Promise<{ full: string; thumb: string | null } | null> {
@@ -120,7 +116,12 @@ async function findDuplicateImage(hash: string): Promise<{ full: string; thumb: 
   const snap = await db.collection("productImageHashes").doc(hash).get();
   if (snap.exists) {
     const data = snap.data() as any;
-    return { full: data.imageUrl, thumb: data.thumbUrl ?? null };
+    const full: string = data.imageUrl ?? "";
+    // Skip stale Firebase Storage cache entries — the bucket no longer exists.
+    // Re-encode the image as Base64 so it renders correctly.
+    if (full.startsWith("https://firebasestorage.googleapis.com/")) return null;
+    if (!full) return null;
+    return { full, thumb: data.thumbUrl ?? null };
   }
   return null;
 }
@@ -460,6 +461,8 @@ async function saveProfileImage(
   type: "avatar" | "cover",
   vendorId: string
 ): Promise<string> {
+  // Store profile images as compressed Base64 data URIs directly in Firestore.
+  // Firebase Storage is not provisioned; Base64-in-Firestore is the convention.
   let webpBuffer: Buffer;
   if (type === "avatar") {
     webpBuffer = await sharp(buffer)
@@ -472,16 +475,9 @@ async function saveProfileImage(
       .webp({ quality: 70 })
       .toBuffer();
   }
-  const hash = crypto.createHash("md5").update(webpBuffer).digest("hex");
-  const storagePath = `vendor-profiles/${vendorId}/${type}_${hash}.webp`;
-  try {
-    const url = await uploadToFirebaseStorage(webpBuffer, storagePath);
-    console.info(`[Storage] ✓ upload success: ${storagePath}`);
-    return url;
-  } catch (err: any) {
-    console.error("[Storage] ✗ upload failure (profile image):", err?.message);
-    throw new Error("فشل رفع صورة الملف الشخصي. حاول مجدداً.");
-  }
+  const dataUri = `data:image/webp;base64,${webpBuffer.toString("base64")}`;
+  console.info(`[Image] ✓ encoded ${type} profile image as Base64 (${Math.round(webpBuffer.length / 1024)}KB) for vendor ${vendorId}`);
+  return dataUri;
 }
 
 router.post(

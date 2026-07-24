@@ -7,6 +7,7 @@ import {
   Modal,
   TextInput,
   ActivityIndicator,
+  Alert,
   Image,
   Linking,
   Platform,
@@ -161,7 +162,13 @@ export default function VendorProfileScreen() {
       const formData = new FormData();
       formData.append(type, { uri: asset.uri, type: "image/jpeg", name: `${type}.jpg` } as any);
       const res = await fetch(new URL("/api/vendor/profile/images", getApiUrl()).toString(), { method: "POST", headers: { Authorization: `Bearer ${vendorToken}` }, body: formData });
-      if (res.ok) { await refreshVendorProfile(); Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success); }
+      if (res.ok) {
+        await refreshVendorProfile();
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      } else {
+        const err = await res.json().catch(() => ({}));
+        Alert.alert("خطأ في رفع الصورة", err?.error || "حاول مرة أخرى");
+      }
     } catch {} finally { setter(false); }
   };
 
@@ -205,8 +212,15 @@ export default function VendorProfileScreen() {
 
   // ── Derived values ─────────────────────────────────────────────────────────────
 
-  const coverUrl  = vendorProfile?.coverImageUrl  ? new URL(vendorProfile.coverImageUrl, getApiUrl()).toString()  : null;
-  const avatarUrl = vendorProfile?.profileImageUrl ? new URL(vendorProfile.profileImageUrl, getApiUrl()).toString() : null;
+  // Resolve image URL: data URIs and absolute https:// URLs are used as-is;
+  // relative server paths get the API base prepended.
+  const resolveProfileUrl = (url?: string | null): string | null => {
+    if (!url) return null;
+    if (url.startsWith("data:") || url.startsWith("http")) return url;
+    return `${getApiUrl()}${url}`;
+  };
+  const coverUrl  = resolveProfileUrl(vendorProfile?.coverImageUrl);
+  const avatarUrl = resolveProfileUrl(vendorProfile?.profileImageUrl);
 
   const statusCfg = vendorProfile?.status === "active"
     ? { label: "نشط",          color: AppColors.success, bg: AppColors.successLight, icon: "check-circle" }
@@ -435,8 +449,8 @@ export default function VendorProfileScreen() {
 // ─── Styles ─────────────────────────────────────────────────────────────────────
 
 const p = StyleSheet.create({
-  profileCard:   { borderRadius: 24, overflow: "hidden" },
-  coverWrap:     { width: "100%", height: 120, position: "relative" },
+  profileCard:   { borderRadius: 24, overflow: "visible" },
+  coverWrap:     { width: "100%", height: 120, position: "relative", borderTopLeftRadius: 24, borderTopRightRadius: 24, overflow: "hidden" },
   cover:         { width: "100%", height: 120 },
   editCoverBtn:  { position: "absolute", bottom: 10, left: 10, backgroundColor: AppColors.overlay, borderRadius: 14, padding: 7 },
   avatarRow:     { flexDirection: "row-reverse", alignItems: "flex-start", gap: 14, padding: 16 },
@@ -444,7 +458,7 @@ const p = StyleSheet.create({
   avatar:        { width: 72, height: 72, borderRadius: 36, borderWidth: 3, borderColor: AppColors.white },
   editAvatarBtn: { position: "absolute", bottom: 0, left: 0, backgroundColor: ORANGE, borderRadius: 10, padding: 5, borderWidth: 2, borderColor: AppColors.white },
   storeNameRow:  { flexDirection: "row-reverse", alignItems: "center", gap: 8 },
-  storeName:     { fontFamily: FontFamily.cairoBold, fontSize: 20, color: AppColors.gray800, flex: 1, textAlign: "right" },
+  storeName:     { fontFamily: FontFamily.cairoBold, fontSize: 20, lineHeight: 32, includeFontPadding: false, color: AppColors.gray800, flex: 1, textAlign: "right" },
   editIconBox:   { width: 26, height: 26, borderRadius: 8, justifyContent: "center", alignItems: "center", flexShrink: 0 },
   bizType:       { fontFamily: FontFamily.tajawal, fontSize: 13, textAlign: "right" },
   statusBadge:   { flexDirection: "row-reverse", alignItems: "center", gap: 5, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12, alignSelf: "flex-end" },

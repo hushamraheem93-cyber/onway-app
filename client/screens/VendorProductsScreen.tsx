@@ -171,17 +171,21 @@ const ProductCard = React.memo(({
       testID={`card-product-${item.id}`}
     >
       {/* Image */}
-      {item.imageUrl || item.imageThumbs ? (
-        <Image
-          source={{ uri: resolveImageUrl(getProductThumb(item)) }}
-          style={pc.img}
-          resizeMode="cover"
-        />
-      ) : (
-        <View style={[pc.img, { backgroundColor: AppColors.secondary, justifyContent: "center", alignItems: "center" }]}>
-          <MaterialCommunityIcons name="image-off" size={24} color={AppColors.gray300} />
-        </View>
-      )}
+      {(() => {
+        const thumb = getProductThumb(item);
+        const resolved = thumb ? resolveImageUrl(thumb) : "";
+        return resolved ? (
+          <Image
+            source={{ uri: resolved }}
+            style={pc.img}
+            resizeMode="cover"
+          />
+        ) : (
+          <View style={[pc.img, { backgroundColor: AppColors.secondary, justifyContent: "center", alignItems: "center" }]}>
+            <MaterialCommunityIcons name="image-off" size={24} color={AppColors.gray300} />
+          </View>
+        );
+      })()}
 
       {/* Select checkbox overlay */}
       {selectMode && (

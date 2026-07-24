@@ -472,8 +472,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
           id: d.id, vendorId: p.vendorId, storeName: p.storeName,
           name: p.name, description: p.description || "",
           price: p.price, category: p.category, stock: p.stock || 0,
-          unit: p.unit || "", imageUrl: primaryUrl, imageUrls: allUrls,
+          unit: p.unit || "",
+          // `image` is the field ProductCard reads; `imageUrl`/`imageUrls` for vendor screens
+          image: primaryUrl, imageUrl: primaryUrl, imageUrls: allUrls,
+          imageThumbs: Array.isArray(p.imageThumbs) ? p.imageThumbs : [],
           status: p.status, approvedAt: p.approvedAt || p.createdAt || "",
+          inStock: p.inStock !== false,
+          variants: p.variants || [], addons: p.addons || [],
         };
       }).filter((p: any) => p.status === "approved")
         .sort((a: any, b: any) => b.approvedAt.localeCompare(a.approvedAt));
@@ -1033,8 +1038,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   function limitImageSize(img: string | undefined, maxLen = 50000): string {
     if (!img) return "";
+    // Always pass data URIs through unchanged — they are self-contained and
+    // the client renders them without a network request. Truncating them
+    // would corrupt the image and show a blank placeholder.
+    if (img.startsWith("data:")) return img;
     if (img.length <= maxLen) return img;
-    if (img.startsWith("data:image")) return "";
     return img;
   }
 
