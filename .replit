@@ -64,7 +64,7 @@ outputType = "webview"
 [userenv.shared]
 GOOGLE_CLIENT_ID = "116297695107-hq1eclup48in29qd1an5vv165nlbgf0a.apps.googleusercontent.com"
 ADMIN_GOOGLE_EMAIL = "husham.raheem93@gmail.com"
-ALLOWED_ORIGINS = "https://admin.onway.iq,https://www.admin.onway.iq"
+ALLOWED_ORIGINS = "https://admin.onway.iq,https://www.admin.onway.iq,https://onwayiq.com,https://www.onwayiq.com"
 ALLOW_DEV_OTP = "false"
 
 [postMerge]
