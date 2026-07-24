@@ -131,3 +131,9 @@ id = "ZT_nlTrF7D4qPsY2JyA3x"
 uri = "file://vendor_app_files.zip"
 type = "unspecified"
 title = "ملفات تطبيق التاجر (10 ملفات)"
+
+[[outputs]]
+id = "5znjjTlKG2-tXe5wMkQKn"
+uri = "file://cms-integration.patch"
+type = "unspecified"
+title = "CMS Integration Patch — test-root"

@@ -1,0 +1,809 @@
+From 6972ef8b2698a242630c63251ab1af1f10146d97 Mon Sep 17 00:00:00 2001
+From: Replit Agent <agent@replit.com>
+Date: Fri, 24 Jul 2026 16:48:52 +0000
+Subject: [PATCH] =?UTF-8?q?feat:=20=D8=B1=D8=A8=D8=B7=20=D8=A7=D9=84=D9=85?=
+ =?UTF-8?q?=D9=88=D9=82=D8=B9=20=D8=A7=D9=84=D8=AA=D8=B9=D8=B1=D9=8A=D9=81?=
+ =?UTF-8?q?=D9=8A=20=D8=A8=D9=80=20Website=20CMS?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+- إضافة lib/cms.ts: types كاملة + getCmsContent() مع ISR (revalidate: 60s)
+- إضافة lib/mergeCms.ts: دمج بيانات CMS فوق القاموس الثابت مع fallback تلقائي
+- تحديث app/[locale]/page.tsx: async server component يجلب CMS ويمرر البيانات
+- تحديث app/[locale]/layout.tsx: generateMetadata يقرأ SEO من CMS
+- تحديث Hero: title/subtitle/CTA من CMS (section: hero)
+- تحديث WhyOnWay: نصوص المميزات من CMS (section: features)
+- تحديث AppShowcase: لقطات الشاشة من CMS (section: screenshots)
+- تحديث Contact: بيانات التواصل من CMS (section: contact)
+- تحديث Partners: رقم واتساب من CMS (section: contact)
+- تحديث Footer: tagline + بيانات سوشيال من CMS
+- تحديث AppStoreButtons + FinalCta: روابط المتاجر من CMS (section: downloadLinks)
+- تحديث next.config.mjs: remotePatterns لـ Firebase Storage
+- جميع الأقسام تحتفظ بالتصميم الحالي ولا تتغير عند عدم وجود بيانات CMS
+---
+ app/[locale]/layout.tsx             |  38 +++++++--
+ app/[locale]/page.tsx               |  45 +++++++---
+ components/AppStoreButtons.tsx      |  17 +++-
+ components/sections/AppShowcase.tsx |  26 ++++--
+ components/sections/Contact.tsx     |  29 +++++--
+ components/sections/FinalCta.tsx    |  11 ++-
+ components/sections/Footer.tsx      |  25 ++++--
+ components/sections/Partners.tsx    |  14 +++-
+ components/sections/WhyOnWay.tsx    |  29 ++++++-
+ lib/cms.ts                          | 122 ++++++++++++++++++++++++++++
+ lib/mergeCms.ts                     | 121 +++++++++++++++++++++++++++
+ next.config.mjs                     |  14 ++++
+ 12 files changed, 438 insertions(+), 53 deletions(-)
+ create mode 100644 lib/cms.ts
+ create mode 100644 lib/mergeCms.ts
+
+diff --git a/app/[locale]/layout.tsx b/app/[locale]/layout.tsx
+index ea42397..dc94e1b 100644
+--- a/app/[locale]/layout.tsx
++++ b/app/[locale]/layout.tsx
+@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
+ import { fontVariables } from "@/lib/fonts";
+ import { getDictionary } from "@/lib/dictionaries";
+ import { siteConfig, locales, isLocale, dir, type Locale } from "@/lib/config";
++import { getCmsContent } from "@/lib/cms";
+ import { JsonLd } from "@/components/JsonLd";
+ 
+ export function generateStaticParams() {
+@@ -18,11 +19,32 @@ export async function generateMetadata({
+   const t = getDictionary(locale);
+   const path = `/${locale}`;
+ 
++  // Fetch CMS SEO data (falls back to dictionary values if empty/unavailable)
++  let cmsTitle = t.meta.title;
++  let cmsDescription = t.meta.description;
++  let cmsKeywords = t.meta.keywords;
++  let ogImage: string | undefined;
++
++  try {
++    const cms = await getCmsContent();
++    const seo = cms.seo;
++    if (seo) {
++      if (locale === "ar") {
++        if (seo.title_ar?.trim()) cmsTitle = seo.title_ar;
++        if (seo.description_ar?.trim()) cmsDescription = seo.description_ar;
++        if (seo.keywords?.trim()) cmsKeywords = seo.keywords;
++      }
++      if (seo.ogImageUrl?.trim()) ogImage = seo.ogImageUrl;
++    }
++  } catch {
++    // silently fall back to dictionary values
++  }
++
+   return {
+     metadataBase: new URL(siteConfig.url),
+-    title: t.meta.title,
+-    description: t.meta.description,
+-    keywords: t.meta.keywords,
++    title: cmsTitle,
++    description: cmsDescription,
++    keywords: cmsKeywords,
+     alternates: {
+       canonical: path,
+       languages: {
+@@ -34,15 +56,17 @@ export async function generateMetadata({
+     openGraph: {
+       type: "website",
+       siteName: siteConfig.name,
+-      title: t.meta.title,
+-      description: t.meta.description,
++      title: cmsTitle,
++      description: cmsDescription,
+       url: path,
+       locale: locale === "ar" ? "ar_IQ" : "en_US",
++      ...(ogImage ? { images: [{ url: ogImage }] } : {}),
+     },
+     twitter: {
+       card: "summary_large_image",
+-      title: t.meta.title,
+-      description: t.meta.description,
++      title: cmsTitle,
++      description: cmsDescription,
++      ...(ogImage ? { images: [ogImage] } : {}),
+     },
+     icons: {
+       icon: [
+diff --git a/app/[locale]/page.tsx b/app/[locale]/page.tsx
+index 4ec7b05..4525fa8 100644
+--- a/app/[locale]/page.tsx
++++ b/app/[locale]/page.tsx
+@@ -1,6 +1,8 @@
+ import { notFound } from "next/navigation";
+ import { getDictionary } from "@/lib/dictionaries";
+ import { isLocale, type Locale } from "@/lib/config";
++import { getCmsContent } from "@/lib/cms";
++import { mergeCmsIntoDictionary, resolveContact, resolveStoreLinks } from "@/lib/mergeCms";
+ import { Header } from "@/components/Header";
+ import { Hero } from "@/components/sections/Hero";
+ import { Services } from "@/components/sections/Services";
+@@ -13,26 +15,43 @@ import { Contact } from "@/components/sections/Contact";
+ import { FinalCta } from "@/components/sections/FinalCta";
+ import { Footer } from "@/components/sections/Footer";
+ 
+-export default function Home({ params }: { params: { locale: string } }) {
++export default async function Home({ params }: { params: { locale: string } }) {
+   if (!isLocale(params.locale)) notFound();
+   const locale = params.locale as Locale;
+-  const t = getDictionary(locale);
++
++  // Fetch CMS data and static dictionary in parallel
++  const [cms, t] = await Promise.all([
++    getCmsContent(),
++    Promise.resolve(getDictionary(locale)),
++  ]);
++
++  // Merge CMS data on top of the static dictionary (falls back to dict on empty CMS fields)
++  const mergedT = mergeCmsIntoDictionary(t, cms, locale);
++  const contact = resolveContact(cms);
++  const storeLinks = resolveStoreLinks(cms);
++
++  // Screenshots from CMS (only used when at least 4 images are uploaded)
++  const cmsImages = (cms.screenshots?.images ?? []).filter(Boolean);
+ 
+   return (
+     <>
+-      <Header t={t} locale={locale} />
++      <Header t={mergedT} locale={locale} />
+       <main>
+-        <Hero t={t} locale={locale} />
+-        <Services t={t} />
+-        <WhyOnWay t={t} />
+-        <HowItWorks t={t} />
+-        <AppShowcase t={t} locale={locale} />
+-        <Partners t={t} locale={locale} />
+-        <Faq t={t} />
+-        <Contact t={t} />
+-        <FinalCta t={t} />
++        <Hero t={mergedT} locale={locale} />
++        <Services t={mergedT} />
++        <WhyOnWay t={mergedT} cmsFeatures={cms.features?.items} />
++        <HowItWorks t={mergedT} />
++        <AppShowcase
++          t={mergedT}
++          locale={locale}
++          cmsImages={cmsImages.length >= 4 ? cmsImages : undefined}
++        />
++        <Partners t={mergedT} locale={locale} contact={contact} />
++        <Faq t={mergedT} />
++        <Contact t={mergedT} contact={contact} />
++        <FinalCta t={mergedT} storeLinks={storeLinks} />
+       </main>
+-      <Footer t={t} locale={locale} />
++      <Footer t={mergedT} locale={locale} contact={contact} storeLinks={storeLinks} />
+     </>
+   );
+ }
+diff --git a/components/AppStoreButtons.tsx b/components/AppStoreButtons.tsx
+index 224999f..b6292ec 100644
+--- a/components/AppStoreButtons.tsx
++++ b/components/AppStoreButtons.tsx
+@@ -1,5 +1,6 @@
+ import { siteConfig } from "@/lib/config";
+ import type { Dictionary } from "@/lib/dictionaries";
++import type { StoreLinks } from "@/lib/cms";
+ 
+ // Solid Apple logo
+ function AppleGlyph({ className = "" }: { className?: string }) {
+@@ -57,21 +58,29 @@ function Badge({
+   );
+ }
+ 
++interface Props {
++  t: Dictionary;
++  /** CMS-resolved store links. Falls back to siteConfig when not provided. */
++  storeLinks?: StoreLinks;
++}
++
+ // Big, centered, official-style colored store badges.
+-export function AppStoreButtons({ t }: { t: Dictionary }) {
+-  const notLive = !siteConfig.appStore && !siteConfig.googlePlay;
++export function AppStoreButtons({ t, storeLinks }: Props) {
++  const appStore = storeLinks?.appStore ?? siteConfig.appStore;
++  const googlePlay = storeLinks?.googlePlay ?? siteConfig.googlePlay;
++  const notLive = !appStore && !googlePlay;
+ 
+   return (
+     <div className="flex flex-col items-center gap-3">
+       <div className="flex flex-wrap items-center justify-center gap-4">
+         <Badge
+-          href={siteConfig.googlePlay}
++          href={googlePlay}
+           glyph={<PlayGlyph className="h-8 w-8 shrink-0" />}
+           top="GET IT ON"
+           big="Google Play"
+         />
+         <Badge
+-          href={siteConfig.appStore}
++          href={appStore}
+           glyph={<AppleGlyph className="h-8 w-8 shrink-0" />}
+           top="Download on the"
+           big="App Store"
+diff --git a/components/sections/AppShowcase.tsx b/components/sections/AppShowcase.tsx
+index dd709c9..122e748 100644
+--- a/components/sections/AppShowcase.tsx
++++ b/components/sections/AppShowcase.tsx
+@@ -5,16 +5,24 @@ import { Reveal } from "../Reveal";
+ import type { Dictionary } from "@/lib/dictionaries";
+ import type { Locale } from "@/lib/config";
+ 
+-// Real app screenshots, in the order of the getting-started journey.
+-const screens = [
++// Static fallback screenshots (used when no CMS images are uploaded)
++const STATIC_SCREENS = [
+   "/app/onboarding-1.png", // open the app
+-  "/app/login.png", // sign in with phone
+-  "/app/home.png", // browse and order
++  "/app/login.png",        // sign in with phone
++  "/app/home.png",         // browse and order
+   "/app/onboarding-3.png", // track to the door
+ ];
+ 
+-export function AppShowcase({ t, locale }: { t: Dictionary; locale: Locale }) {
++interface Props {
++  t: Dictionary;
++  locale: Locale;
++  /** CMS-managed screenshot URLs. When provided (≥4 images), overrides the static screenshots. */
++  cmsImages?: string[];
++}
++
++export function AppShowcase({ t, locale, cmsImages }: Props) {
+   const Arrow = locale === "ar" ? ArrowLeft : ArrowRight;
++  const screens = cmsImages ?? STATIC_SCREENS;
+ 
+   return (
+     <section id="steps" className="scroll-mt-20 bg-cream py-20 md:py-28">
+@@ -27,7 +35,7 @@ export function AppShowcase({ t, locale }: { t: Dictionary; locale: Locale }) {
+           <p className="mt-4 text-lg text-ink-muted">{t.showcase.subtitle}</p>
+         </Reveal>
+ 
+-        {/* Step flow — real screens numbered and connected */}
++        {/* Step flow — screens numbered and connected */}
+         <div className="no-scrollbar mt-14 flex snap-x snap-mandatory items-start gap-3 overflow-x-auto pb-4 lg:justify-center lg:gap-0 lg:overflow-visible">
+           {screens.map((src, i) => (
+             <Fragment key={i}>
+@@ -39,7 +47,7 @@ export function AppShowcase({ t, locale }: { t: Dictionary; locale: Locale }) {
+                 <div className="relative">
+                   <DeviceShot
+                     src={src}
+-                    alt={t.showcase.screens[i].title}
++                    alt={t.showcase.screens[i]?.title ?? `Step ${i + 1}`}
+                     className="!w-[190px]"
+                   />
+                   {/* step number */}
+@@ -48,10 +56,10 @@ export function AppShowcase({ t, locale }: { t: Dictionary; locale: Locale }) {
+                   </span>
+                 </div>
+                 <h3 className="mt-6 text-lg font-bold text-ink">
+-                  {t.showcase.screens[i].title}
++                  {t.showcase.screens[i]?.title ?? `${i + 1}`}
+                 </h3>
+                 <p className="mt-1.5 max-w-[210px] text-center text-sm leading-relaxed text-ink-muted">
+-                  {t.showcase.screens[i].caption}
++                  {t.showcase.screens[i]?.caption ?? ""}
+                 </p>
+               </Reveal>
+ 
+diff --git a/components/sections/Contact.tsx b/components/sections/Contact.tsx
+index 29938ec..0031f4f 100644
+--- a/components/sections/Contact.tsx
++++ b/components/sections/Contact.tsx
+@@ -2,8 +2,23 @@ import { MessageCircle, Facebook, Instagram, Mail, type LucideIcon } from "lucid
+ import { Reveal } from "../Reveal";
+ import { siteConfig } from "@/lib/config";
+ import type { Dictionary } from "@/lib/dictionaries";
++import type { ResolvedContact } from "@/lib/cms";
++
++interface Props {
++  t: Dictionary;
++  /**
++   * Resolved contact info (CMS values merged with siteConfig defaults).
++   * Falls back to siteConfig when not provided.
++   */
++  contact?: ResolvedContact;
++}
++
++export function Contact({ t, contact }: Props) {
++  const whatsapp = contact?.whatsapp ?? siteConfig.whatsapp;
++  const email = contact?.email ?? siteConfig.email;
++  const facebook = contact?.facebook ?? siteConfig.facebook;
++  const instagram = contact?.instagram ?? siteConfig.instagram;
+ 
+-export function Contact({ t }: { t: Dictionary }) {
+   const channels: {
+     Icon: LucideIcon;
+     label: string;
+@@ -14,29 +29,29 @@ export function Contact({ t }: { t: Dictionary }) {
+     {
+       Icon: MessageCircle,
+       label: t.contact.whatsapp,
+-      value: `+${siteConfig.whatsapp}`,
+-      href: `https://wa.me/${siteConfig.whatsapp}`,
++      value: `+${whatsapp}`,
++      href: `https://wa.me/${whatsapp}`,
+       tint: "bg-[#25D366]/10 text-[#128C4B]",
+     },
+     {
+       Icon: Facebook,
+       label: t.contact.facebook,
+       value: "@onwayiq",
+-      href: siteConfig.facebook,
++      href: facebook,
+       tint: "bg-[#1877F2]/10 text-[#1877F2]",
+     },
+     {
+       Icon: Instagram,
+       label: t.contact.instagram,
+       value: "@onwayiq",
+-      href: siteConfig.instagram,
++      href: instagram,
+       tint: "bg-[#E1306C]/10 text-[#E1306C]",
+     },
+     {
+       Icon: Mail,
+       label: t.contact.email,
+-      value: siteConfig.email,
+-      href: `mailto:${siteConfig.email}`,
++      value: email,
++      href: `mailto:${email}`,
+       tint: "bg-brand-50 text-brand-500",
+     },
+   ];
+diff --git a/components/sections/FinalCta.tsx b/components/sections/FinalCta.tsx
+index 6165186..23379ee 100644
+--- a/components/sections/FinalCta.tsx
++++ b/components/sections/FinalCta.tsx
+@@ -2,8 +2,15 @@ import { AppStoreButtons } from "../AppStoreButtons";
+ import { RouteLine } from "../RouteLine";
+ import { Reveal } from "../Reveal";
+ import type { Dictionary } from "@/lib/dictionaries";
++import type { StoreLinks } from "@/lib/cms";
+ 
+-export function FinalCta({ t }: { t: Dictionary }) {
++interface Props {
++  t: Dictionary;
++  /** CMS-resolved store links, passed through to AppStoreButtons. */
++  storeLinks?: StoreLinks;
++}
++
++export function FinalCta({ t, storeLinks }: Props) {
+   return (
+     <section id="download" className="scroll-mt-24 py-6">
+       <div className="container-page">
+@@ -19,7 +26,7 @@ export function FinalCta({ t }: { t: Dictionary }) {
+               </h2>
+               <p className="mt-4 text-lg text-white/85">{t.cta.subtitle}</p>
+               <div className="mt-8 flex justify-center">
+-                <AppStoreButtons t={t} />
++                <AppStoreButtons t={t} storeLinks={storeLinks} />
+               </div>
+             </div>
+           </div>
+diff --git a/components/sections/Footer.tsx b/components/sections/Footer.tsx
+index 29c7ca5..5f3f2d2 100644
+--- a/components/sections/Footer.tsx
++++ b/components/sections/Footer.tsx
+@@ -4,10 +4,25 @@ import { LogoMark } from "../LogoMark";
+ import { siteConfig } from "@/lib/config";
+ import type { Dictionary } from "@/lib/dictionaries";
+ import type { Locale } from "@/lib/config";
++import type { ResolvedContact, StoreLinks } from "@/lib/cms";
+ 
+-export function Footer({ t, locale }: { t: Dictionary; locale: Locale }) {
++interface Props {
++  t: Dictionary;
++  locale: Locale;
++  /** CMS-resolved contact info. Falls back to siteConfig when not provided. */
++  contact?: ResolvedContact;
++  /** CMS-resolved store links (not rendered here, reserved for future footer badges). */
++  storeLinks?: StoreLinks;
++}
++
++export function Footer({ t, locale, contact }: Props) {
+   const year = new Date().getFullYear();
+ 
++  const whatsapp = contact?.whatsapp ?? siteConfig.whatsapp;
++  const email = contact?.email ?? siteConfig.email;
++  const facebook = contact?.facebook ?? siteConfig.facebook;
++  const instagram = contact?.instagram ?? siteConfig.instagram;
++
+   const productLinks = [
+     { href: "#services", label: t.footer.links.services },
+     { href: "#how", label: t.footer.links.how },
+@@ -20,10 +35,10 @@ export function Footer({ t, locale }: { t: Dictionary; locale: Locale }) {
+     { href: "#contact", label: t.footer.links.contact },
+   ];
+   const socials = [
+-    { Icon: MessageCircle, href: `https://wa.me/${siteConfig.whatsapp}`, label: t.contact.whatsapp },
+-    { Icon: Facebook, href: siteConfig.facebook, label: t.contact.facebook },
+-    { Icon: Instagram, href: siteConfig.instagram, label: t.contact.instagram },
+-    { Icon: Mail, href: `mailto:${siteConfig.email}`, label: t.contact.email },
++    { Icon: MessageCircle, href: `https://wa.me/${whatsapp}`, label: t.contact.whatsapp },
++    { Icon: Facebook, href: facebook, label: t.contact.facebook },
++    { Icon: Instagram, href: instagram, label: t.contact.instagram },
++    { Icon: Mail, href: `mailto:${email}`, label: t.contact.email },
+   ];
+ 
+   return (
+diff --git a/components/sections/Partners.tsx b/components/sections/Partners.tsx
+index 008cfb6..5951070 100644
+--- a/components/sections/Partners.tsx
++++ b/components/sections/Partners.tsx
+@@ -3,11 +3,21 @@ import { Reveal } from "../Reveal";
+ import { siteConfig } from "@/lib/config";
+ import type { Dictionary } from "@/lib/dictionaries";
+ import type { Locale } from "@/lib/config";
++import type { ResolvedContact } from "@/lib/cms";
+ 
+-export function Partners({ t, locale }: { t: Dictionary; locale: Locale }) {
++interface Props {
++  t: Dictionary;
++  locale: Locale;
++  /** CMS-resolved contact info. Used for the WhatsApp registration links. */
++  contact?: ResolvedContact;
++}
++
++export function Partners({ t, locale, contact }: Props) {
+   const Arrow = locale === "ar" ? ArrowLeft : ArrowRight;
++  const whatsapp = contact?.whatsapp ?? siteConfig.whatsapp;
++
+   const wa = (msg: string) =>
+-    `https://wa.me/${siteConfig.whatsapp}?text=${encodeURIComponent(msg)}`;
++    `https://wa.me/${whatsapp}?text=${encodeURIComponent(msg)}`;
+ 
+   const cards = [
+     {
+diff --git a/components/sections/WhyOnWay.tsx b/components/sections/WhyOnWay.tsx
+index fb1a315..6ce9cd4 100644
+--- a/components/sections/WhyOnWay.tsx
++++ b/components/sections/WhyOnWay.tsx
+@@ -9,6 +9,7 @@ import {
+ } from "lucide-react";
+ import { Reveal } from "../Reveal";
+ import type { Dictionary, FeatureKey } from "@/lib/dictionaries";
++import type { CmsFeatureItem } from "@/lib/cms";
+ 
+ const icons: Record<FeatureKey, LucideIcon> = {
+   fast: Zap,
+@@ -19,6 +20,7 @@ const icons: Record<FeatureKey, LucideIcon> = {
+   support: Headset,
+ };
+ 
++// Icon order for the 6-card grid (determines which Lucide icon each slot uses)
+ const order: FeatureKey[] = [
+   "fast",
+   "tracking",
+@@ -28,7 +30,22 @@ const order: FeatureKey[] = [
+   "support",
+ ];
+ 
+-export function WhyOnWay({ t }: { t: Dictionary }) {
++interface Props {
++  t: Dictionary;
++  /**
++   * CMS feature items (from the "features" section).
++   * When provided, the title/body text of each card is taken from CMS;
++   * the Lucide icon for that slot is preserved from the design system.
++   */
++  cmsFeatures?: CmsFeatureItem[];
++}
++
++export function WhyOnWay({ t, cmsFeatures }: Props) {
++  // Sort CMS items by their order field so they appear in the intended sequence
++  const sortedCms = cmsFeatures
++    ? [...cmsFeatures].sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
++    : null;
++
+   return (
+     <section id="why" className="scroll-mt-20 py-20 md:py-28">
+       <div className="container-page">
+@@ -43,15 +60,19 @@ export function WhyOnWay({ t }: { t: Dictionary }) {
+         <div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+           {order.map((key, i) => {
+             const Icon = icons[key];
+-            const item = t.why.items[key];
++            // Use CMS text if available for this slot, otherwise fall back to dictionary
++            const cmsItem = sortedCms?.[i];
++            const title = cmsItem?.title_ar?.trim() || t.why.items[key].title;
++            const body = cmsItem?.desc_ar?.trim() || t.why.items[key].body;
++
+             return (
+               <Reveal key={key} delay={(i % 3) * 70}>
+                 <article className="group h-full rounded-3xl border border-ink/5 bg-white p-6 shadow-card transition-all duration-200 hover:-translate-y-1 hover:border-brand-200 hover:shadow-card-hover">
+                   <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-brand-50 text-brand-500 transition-colors group-hover:bg-brand-500 group-hover:text-white">
+                     <Icon className="h-6 w-6" aria-hidden="true" />
+                   </span>
+-                  <h3 className="mt-5 text-xl font-bold text-ink">{item.title}</h3>
+-                  <p className="mt-2 leading-relaxed text-ink-muted">{item.body}</p>
++                  <h3 className="mt-5 text-xl font-bold text-ink">{title}</h3>
++                  <p className="mt-2 leading-relaxed text-ink-muted">{body}</p>
+                 </article>
+               </Reveal>
+             );
+diff --git a/lib/cms.ts b/lib/cms.ts
+new file mode 100644
+index 0000000..7a0d327
+--- /dev/null
++++ b/lib/cms.ts
+@@ -0,0 +1,122 @@
++/**
++ * lib/cms.ts
++ * Fetches website content from the OnWay CMS API.
++ * All data is cached with ISR (revalidate: 60 seconds).
++ */
++
++const CMS_URL = "https://onwayiq.com/api/website-content";
++
++// ── Field types (match WebsiteCmsTab.tsx field names exactly) ─────────────────
++
++export interface CmsHero {
++  title_ar?: string;
++  subtitle_ar?: string;
++  ctaPrimary_ar?: string;
++  ctaSecondary_ar?: string;
++  heroImageUrl?: string;
++}
++
++export interface CmsFeatureItem {
++  id: string;
++  icon: string;
++  title_ar: string;
++  desc_ar: string;
++  order: number;
++}
++
++export interface CmsFeatures {
++  items?: CmsFeatureItem[];
++}
++
++export interface CmsStats {
++  downloads?: string;
++  vendors?: string;
++  cities?: string;
++  rating?: string;
++}
++
++export interface CmsFaqItem {
++  id: string;
++  question_ar: string;
++  answer_ar: string;
++  order: number;
++}
++
++export interface CmsFaq {
++  items?: CmsFaqItem[];
++}
++
++export interface CmsDownloadLinks {
++  appStoreUrl?: string;
++  playStoreUrl?: string;
++  appStoreEnabled?: boolean;
++  playStoreEnabled?: boolean;
++}
++
++export interface CmsScreenshots {
++  images?: string[];
++}
++
++export interface CmsContact {
++  email?: string;
++  phone?: string;
++  whatsapp?: string;
++  instagram?: string;
++  twitter?: string;
++  facebook?: string;
++  address_ar?: string;
++}
++
++export interface CmsSeo {
++  title_ar?: string;
++  description_ar?: string;
++  keywords?: string;
++  ogImageUrl?: string;
++}
++
++export interface CmsFooter {
++  tagline_ar?: string;
++  tagline_en?: string;
++}
++
++export interface CmsData {
++  hero?: CmsHero;
++  features?: CmsFeatures;
++  stats?: CmsStats;
++  faq?: CmsFaq;
++  downloadLinks?: CmsDownloadLinks;
++  screenshots?: CmsScreenshots;
++  contact?: CmsContact;
++  seo?: CmsSeo;
++  footer?: CmsFooter;
++}
++
++/** Resolved store links after applying CMS overrides */
++export interface StoreLinks {
++  appStore: string | null;
++  googlePlay: string | null;
++}
++
++/** Resolved contact config after applying CMS overrides */
++export interface ResolvedContact {
++  whatsapp: string;
++  email: string;
++  facebook: string;
++  instagram: string;
++}
++
++/**
++ * Fetch all CMS sections. Returns empty object on error so the site
++ * always falls back gracefully to the static dictionary values.
++ */
++export async function getCmsContent(): Promise<CmsData> {
++  try {
++    const res = await fetch(CMS_URL, {
++      next: { revalidate: 60 },
++    });
++    if (!res.ok) return {};
++    return (await res.json()) as CmsData;
++  } catch {
++    return {};
++  }
++}
+diff --git a/lib/mergeCms.ts b/lib/mergeCms.ts
+new file mode 100644
+index 0000000..6f8773f
+--- /dev/null
++++ b/lib/mergeCms.ts
+@@ -0,0 +1,121 @@
++/**
++ * lib/mergeCms.ts
++ * Merges live CMS data on top of the static dictionary and siteConfig.
++ * Components receive the merged result — no component needs to know about CMS directly.
++ */
++
++import type { Dictionary } from "./dictionaries";
++import type { CmsData, ResolvedContact, StoreLinks } from "./cms";
++import { siteConfig } from "./config";
++import type { Locale } from "./config";
++
++/** Deep-clone the dictionary then overlay CMS values where they exist. */
++export function mergeCmsIntoDictionary(
++  t: Dictionary,
++  cms: CmsData,
++  locale: Locale
++): Dictionary {
++  // structuredClone is available in Node 17+ / Next 13+
++  const merged: Dictionary = JSON.parse(JSON.stringify(t));
++
++  // ── Hero ──────────────────────────────────────────────────────────────────
++  const hero = cms.hero;
++  if (hero) {
++    if (locale === "ar") {
++      if (hero.title_ar?.trim()) {
++        merged.hero.titleLead = hero.title_ar;
++        merged.hero.titleHi = "";
++      }
++      if (hero.subtitle_ar?.trim()) merged.hero.subtitle = hero.subtitle_ar;
++      if (hero.ctaPrimary_ar?.trim()) merged.hero.download = hero.ctaPrimary_ar;
++      if (hero.ctaSecondary_ar?.trim()) merged.hero.partner = hero.ctaSecondary_ar;
++    }
++  }
++
++  // ── Stats (map to hero stats array, preserving existing labels) ───────────
++  const stats = cms.stats;
++  if (stats) {
++    const current = merged.hero.stats;
++    const overrides: [string | undefined, number][] = [
++      [stats.downloads, 0],
++      [stats.vendors, 1],
++      [stats.cities, 2],
++    ];
++    overrides.forEach(([val, idx]) => {
++      if (val?.trim() && current[idx]) {
++        current[idx] = { value: val, label: current[idx].label };
++      }
++    });
++  }
++
++  // ── FAQ ───────────────────────────────────────────────────────────────────
++  const faq = cms.faq;
++  if (faq?.items && faq.items.length > 0) {
++    const sorted = [...faq.items].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
++    const mapped =
++      locale === "ar"
++        ? sorted.map((item) => ({ q: item.question_ar, a: item.answer_ar }))
++        : sorted.map((item) => ({ q: item.question_ar, a: item.answer_ar })); // English fallback = Arabic
++    const valid = mapped.filter((i) => i.q?.trim() && i.a?.trim());
++    if (valid.length > 0) merged.faq.items = valid;
++  }
++
++  // ── SEO metadata ──────────────────────────────────────────────────────────
++  const seo = cms.seo;
++  if (seo) {
++    if (locale === "ar") {
++      if (seo.title_ar?.trim()) merged.meta.title = seo.title_ar;
++      if (seo.description_ar?.trim()) merged.meta.description = seo.description_ar;
++      if (seo.keywords?.trim()) merged.meta.keywords = seo.keywords;
++    }
++  }
++
++  // ── Footer tagline ────────────────────────────────────────────────────────
++  const footer = cms.footer;
++  if (footer) {
++    if (locale === "ar" && footer.tagline_ar?.trim())
++      merged.footer.tagline = footer.tagline_ar;
++    if (locale === "en" && footer.tagline_en?.trim())
++      merged.footer.tagline = footer.tagline_en;
++  }
++
++  return merged;
++}
++
++/** Build a resolved contact config, preferring CMS values over siteConfig defaults. */
++export function resolveContact(cms: CmsData): ResolvedContact {
++  const c = cms.contact;
++
++  // WhatsApp: store as digits only (no "+" prefix) to match siteConfig convention
++  const whatsapp = c?.whatsapp?.replace(/^\+/, "").trim() || siteConfig.whatsapp;
++
++  const email = c?.email?.trim() || siteConfig.email;
++
++  const facebook = c?.facebook?.trim() || siteConfig.facebook;
++
++  // Instagram: accept "@handle" or full URL, normalise to full URL
++  let instagram = siteConfig.instagram;
++  if (c?.instagram?.trim()) {
++    const handle = c.instagram.trim().replace(/^@/, "");
++    instagram = handle.startsWith("http")
++      ? handle
++      : `https://instagram.com/${handle}`;
++  }
++
++  return { whatsapp, email, facebook, instagram };
++}
++
++/** Build resolved store links, preferring CMS values over siteConfig. */
++export function resolveStoreLinks(cms: CmsData): StoreLinks {
++  const dl = cms.downloadLinks;
++  return {
++    appStore:
++      dl?.appStoreEnabled !== false && dl?.appStoreUrl?.trim()
++        ? dl.appStoreUrl.trim()
++        : siteConfig.appStore,
++    googlePlay:
++      dl?.playStoreEnabled !== false && dl?.playStoreUrl?.trim()
++        ? dl.playStoreUrl.trim()
++        : siteConfig.googlePlay,
++  };
++}
+diff --git a/next.config.mjs b/next.config.mjs
+index 5ff053c..a84116c 100644
+--- a/next.config.mjs
++++ b/next.config.mjs
+@@ -3,6 +3,20 @@ const nextConfig = {
+   reactStrictMode: true,
+   poweredByHeader: false,
+   compress: true,
++  images: {
++    remotePatterns: [
++      // Firebase Storage — CMS screenshots and hero images
++      {
++        protocol: "https",
++        hostname: "firebasestorage.googleapis.com",
++      },
++      // OnWay server — Base64-in-Firestore images served via API
++      {
++        protocol: "https",
++        hostname: "onwayiq.com",
++      },
++    ],
++  },
+ };
+ 
+ export default nextConfig;
+-- 
+2.50.1
+
