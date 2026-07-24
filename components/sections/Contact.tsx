@@ -2,8 +2,20 @@ import { MessageCircle, Facebook, Instagram, Mail, type LucideIcon } from "lucid
 import { Reveal } from "../Reveal";
 import { siteConfig } from "@/lib/config";
 import type { Dictionary } from "@/lib/dictionaries";
+import type { ResolvedContact } from "@/lib/cms";
 
-export function Contact({ t }: { t: Dictionary }) {
+interface Props {
+  t: Dictionary;
+  /** CMS-resolved contact info. Falls back to siteConfig when not provided. */
+  contact?: ResolvedContact;
+}
+
+export function Contact({ t, contact }: Props) {
+  const whatsapp = contact?.whatsapp ?? siteConfig.whatsapp;
+  const email = contact?.email ?? siteConfig.email;
+  const facebook = contact?.facebook ?? siteConfig.facebook;
+  const instagram = contact?.instagram ?? siteConfig.instagram;
+
   const channels: {
     Icon: LucideIcon;
     label: string;
@@ -14,29 +26,29 @@ export function Contact({ t }: { t: Dictionary }) {
     {
       Icon: MessageCircle,
       label: t.contact.whatsapp,
-      value: `+${siteConfig.whatsapp}`,
-      href: `https://wa.me/${siteConfig.whatsapp}`,
+      value: `+${whatsapp}`,
+      href: `https://wa.me/${whatsapp}`,
       tint: "bg-[#25D366]/10 text-[#128C4B]",
     },
     {
       Icon: Facebook,
       label: t.contact.facebook,
       value: "@onwayiq",
-      href: siteConfig.facebook,
+      href: facebook,
       tint: "bg-[#1877F2]/10 text-[#1877F2]",
     },
     {
       Icon: Instagram,
       label: t.contact.instagram,
       value: "@onwayiq",
-      href: siteConfig.instagram,
+      href: instagram,
       tint: "bg-[#E1306C]/10 text-[#E1306C]",
     },
     {
       Icon: Mail,
       label: t.contact.email,
-      value: siteConfig.email,
-      href: `mailto:${siteConfig.email}`,
+      value: email,
+      href: `mailto:${email}`,
       tint: "bg-brand-50 text-brand-500",
     },
   ];

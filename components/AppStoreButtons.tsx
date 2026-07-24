@@ -1,7 +1,7 @@
 import { siteConfig } from "@/lib/config";
 import type { Dictionary } from "@/lib/dictionaries";
+import type { StoreLinks } from "@/lib/cms";
 
-// Solid Apple logo
 function AppleGlyph({ className = "" }: { className?: string }) {
   return (
     <svg viewBox="0 0 24 24" className={className} fill="currentColor" aria-hidden="true">
@@ -10,7 +10,6 @@ function AppleGlyph({ className = "" }: { className?: string }) {
   );
 }
 
-// Official-style colored Google Play triangle
 function PlayGlyph({ className = "" }: { className?: string }) {
   return (
     <svg viewBox="0 0 24 24" className={className} aria-hidden="true">
@@ -57,30 +56,35 @@ function Badge({
   );
 }
 
-// Big, centered, official-style colored store badges.
-export function AppStoreButtons({ t }: { t: Dictionary }) {
-  const notLive = !siteConfig.appStore && !siteConfig.googlePlay;
+interface Props {
+  t: Dictionary;
+  /** CMS-resolved store links. Falls back to siteConfig when not provided. */
+  storeLinks?: StoreLinks;
+}
+
+export function AppStoreButtons({ t, storeLinks }: Props) {
+  const appStore = storeLinks?.appStore ?? siteConfig.appStore;
+  const googlePlay = storeLinks?.googlePlay ?? siteConfig.googlePlay;
+  const notLive = !appStore && !googlePlay;
 
   return (
     <div className="flex flex-col items-center gap-3">
       <div className="flex flex-wrap items-center justify-center gap-4">
         <Badge
-          href={siteConfig.googlePlay}
+          href={googlePlay}
           glyph={<PlayGlyph className="h-8 w-8 shrink-0" />}
           top="GET IT ON"
           big="Google Play"
         />
         <Badge
-          href={siteConfig.appStore}
+          href={appStore}
           glyph={<AppleGlyph className="h-8 w-8 shrink-0" />}
           top="Download on the"
           big="App Store"
         />
       </div>
       {notLive && (
-        <p className="text-sm font-semibold text-white/80">
-          {t.common.comingSoon}
-        </p>
+        <p className="text-sm font-semibold text-white/80">{t.common.comingSoon}</p>
       )}
     </div>
   );

@@ -2,8 +2,15 @@ import { AppStoreButtons } from "../AppStoreButtons";
 import { RouteLine } from "../RouteLine";
 import { Reveal } from "../Reveal";
 import type { Dictionary } from "@/lib/dictionaries";
+import type { StoreLinks } from "@/lib/cms";
 
-export function FinalCta({ t }: { t: Dictionary }) {
+interface Props {
+  t: Dictionary;
+  /** CMS-resolved store links, passed through to AppStoreButtons. */
+  storeLinks?: StoreLinks;
+}
+
+export function FinalCta({ t, storeLinks }: Props) {
   return (
     <section id="download" className="scroll-mt-24 py-6">
       <div className="container-page">
@@ -19,7 +26,7 @@ export function FinalCta({ t }: { t: Dictionary }) {
               </h2>
               <p className="mt-4 text-lg text-white/85">{t.cta.subtitle}</p>
               <div className="mt-8 flex justify-center">
-                <AppStoreButtons t={t} />
+                <AppStoreButtons t={t} storeLinks={storeLinks} />
               </div>
             </div>
           </div>

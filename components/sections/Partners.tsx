@@ -3,18 +3,30 @@ import { Reveal } from "../Reveal";
 import { siteConfig } from "@/lib/config";
 import type { Dictionary } from "@/lib/dictionaries";
 import type { Locale } from "@/lib/config";
+import type { ResolvedContact } from "@/lib/cms";
 
-export function Partners({ t, locale }: { t: Dictionary; locale: Locale }) {
+interface Props {
+  t: Dictionary;
+  locale: Locale;
+  /** CMS-resolved contact info. Used for the WhatsApp registration links. */
+  contact?: ResolvedContact;
+}
+
+export function Partners({ t, locale, contact }: Props) {
   const Arrow = locale === "ar" ? ArrowLeft : ArrowRight;
+  const whatsapp = contact?.whatsapp ?? siteConfig.whatsapp;
+
   const wa = (msg: string) =>
-    `https://wa.me/${siteConfig.whatsapp}?text=${encodeURIComponent(msg)}`;
+    `https://wa.me/${whatsapp}?text=${encodeURIComponent(msg)}`;
 
   const cards = [
     {
       Icon: Store,
       data: t.partners.store,
       href: wa(
-        locale === "ar" ? "مرحبًا، أريد تسجيل متجري في OnWay" : "Hi, I'd like to register my store on OnWay"
+        locale === "ar"
+          ? "مرحبًا، أريد تسجيل متجري في OnWay"
+          : "Hi, I'd like to register my store on OnWay"
       ),
       dark: false,
     },
@@ -22,7 +34,9 @@ export function Partners({ t, locale }: { t: Dictionary; locale: Locale }) {
       Icon: Bike,
       data: t.partners.driver,
       href: wa(
-        locale === "ar" ? "مرحبًا، أريد الانضمام كسائق في OnWay" : "Hi, I'd like to become an OnWay driver"
+        locale === "ar"
+          ? "مرحبًا، أريد الانضمام كسائق في OnWay"
+          : "Hi, I'd like to become an OnWay driver"
       ),
       dark: true,
     },
@@ -47,7 +61,6 @@ export function Partners({ t, locale }: { t: Dictionary; locale: Locale }) {
                   dark ? "bg-ink text-white" : "border border-ink/5 bg-white text-ink"
                 }`}
               >
-                {/* ambient corner */}
                 <div
                   aria-hidden
                   className={`absolute -right-10 -top-10 h-40 w-40 rounded-full blur-2xl ${

@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { Reveal } from "../Reveal";
 import type { Dictionary, FeatureKey } from "@/lib/dictionaries";
+import type { CmsFeatureItem } from "@/lib/cms";
 
 const icons: Record<FeatureKey, LucideIcon> = {
   fast: Zap,
@@ -28,7 +29,20 @@ const order: FeatureKey[] = [
   "support",
 ];
 
-export function WhyOnWay({ t }: { t: Dictionary }) {
+interface Props {
+  t: Dictionary;
+  /**
+   * CMS feature items. When provided, the title/body text of each card slot
+   * is taken from CMS (by position); the Lucide icons remain unchanged.
+   */
+  cmsFeatures?: CmsFeatureItem[];
+}
+
+export function WhyOnWay({ t, cmsFeatures }: Props) {
+  const sortedCms = cmsFeatures
+    ? [...cmsFeatures].sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+    : null;
+
   return (
     <section id="why" className="scroll-mt-20 py-20 md:py-28">
       <div className="container-page">
@@ -43,15 +57,18 @@ export function WhyOnWay({ t }: { t: Dictionary }) {
         <div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {order.map((key, i) => {
             const Icon = icons[key];
-            const item = t.why.items[key];
+            const cmsItem = sortedCms?.[i];
+            const title = cmsItem?.title_ar?.trim() || t.why.items[key].title;
+            const body = cmsItem?.desc_ar?.trim() || t.why.items[key].body;
+
             return (
               <Reveal key={key} delay={(i % 3) * 70}>
                 <article className="group h-full rounded-3xl border border-ink/5 bg-white p-6 shadow-card transition-all duration-200 hover:-translate-y-1 hover:border-brand-200 hover:shadow-card-hover">
                   <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-brand-50 text-brand-500 transition-colors group-hover:bg-brand-500 group-hover:text-white">
                     <Icon className="h-6 w-6" aria-hidden="true" />
                   </span>
-                  <h3 className="mt-5 text-xl font-bold text-ink">{item.title}</h3>
-                  <p className="mt-2 leading-relaxed text-ink-muted">{item.body}</p>
+                  <h3 className="mt-5 text-xl font-bold text-ink">{title}</h3>
+                  <p className="mt-2 leading-relaxed text-ink-muted">{body}</p>
                 </article>
               </Reveal>
             );

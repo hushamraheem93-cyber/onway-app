@@ -5,16 +5,24 @@ import { Reveal } from "../Reveal";
 import type { Dictionary } from "@/lib/dictionaries";
 import type { Locale } from "@/lib/config";
 
-// Real app screenshots, in the order of the getting-started journey.
-const screens = [
-  "/app/onboarding-1.png", // open the app
-  "/app/login.png", // sign in with phone
-  "/app/home.png", // browse and order
-  "/app/onboarding-3.png", // track to the door
+// Static fallback screenshots (used when no CMS images are uploaded)
+const STATIC_SCREENS = [
+  "/app/onboarding-1.png",
+  "/app/login.png",
+  "/app/home.png",
+  "/app/onboarding-3.png",
 ];
 
-export function AppShowcase({ t, locale }: { t: Dictionary; locale: Locale }) {
+interface Props {
+  t: Dictionary;
+  locale: Locale;
+  /** CMS-managed screenshot URLs. When provided (≥4 images), overrides the static screenshots. */
+  cmsImages?: string[];
+}
+
+export function AppShowcase({ t, locale, cmsImages }: Props) {
   const Arrow = locale === "ar" ? ArrowLeft : ArrowRight;
+  const screens = cmsImages ?? STATIC_SCREENS;
 
   return (
     <section id="steps" className="scroll-mt-20 bg-cream py-20 md:py-28">
@@ -27,7 +35,6 @@ export function AppShowcase({ t, locale }: { t: Dictionary; locale: Locale }) {
           <p className="mt-4 text-lg text-ink-muted">{t.showcase.subtitle}</p>
         </Reveal>
 
-        {/* Step flow — real screens numbered and connected */}
         <div className="no-scrollbar mt-14 flex snap-x snap-mandatory items-start gap-3 overflow-x-auto pb-4 lg:justify-center lg:gap-0 lg:overflow-visible">
           {screens.map((src, i) => (
             <Fragment key={i}>
@@ -39,23 +46,21 @@ export function AppShowcase({ t, locale }: { t: Dictionary; locale: Locale }) {
                 <div className="relative">
                   <DeviceShot
                     src={src}
-                    alt={t.showcase.screens[i].title}
+                    alt={t.showcase.screens[i]?.title ?? `Step ${i + 1}`}
                     className="!w-[190px]"
                   />
-                  {/* step number */}
                   <span className="absolute -top-3 left-1/2 flex h-9 w-9 -translate-x-1/2 items-center justify-center rounded-full border-4 border-cream bg-brand-500 font-display text-sm font-bold text-white shadow-glow">
                     {i + 1}
                   </span>
                 </div>
                 <h3 className="mt-6 text-lg font-bold text-ink">
-                  {t.showcase.screens[i].title}
+                  {t.showcase.screens[i]?.title ?? `${i + 1}`}
                 </h3>
                 <p className="mt-1.5 max-w-[210px] text-center text-sm leading-relaxed text-ink-muted">
-                  {t.showcase.screens[i].caption}
+                  {t.showcase.screens[i]?.caption ?? ""}
                 </p>
               </Reveal>
 
-              {/* connector arrow (desktop only) */}
               {i < screens.length - 1 && (
                 <div
                   className="hidden shrink-0 items-center self-center pt-16 lg:flex"
