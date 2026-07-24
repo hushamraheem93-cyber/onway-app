@@ -36,8 +36,9 @@ import { formatDateOnly } from "@/lib/dateUtils";
 import { compressAndConvertToBase64, processAndUploadImage, isBase64Image, ImageSize } from "@/lib/imageUtils";
 import { useSystemSettings } from "@/context/SystemSettingsContext";
 import { playRepeatingAlert } from "@/lib/alertSound";
+import { WebsiteCmsTab } from "@/screens/WebsiteCmsTab";
 
-type TabType = "dashboard" | "orders" | "drivers" | "users" | "banners" | "categories" | "products" | "areas" | "promoCodes" | "notifications" | "vendors" | "settlements" | "settings" | "storage";
+type TabType = "dashboard" | "orders" | "drivers" | "users" | "banners" | "categories" | "products" | "areas" | "promoCodes" | "notifications" | "vendors" | "settlements" | "settings" | "storage" | "websiteCms";
 
 interface AdminUser {
   id: string;
@@ -3738,6 +3739,7 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
       case "vendors": return renderVendorsTab();
       case "settings": return renderSettingsTab();
       case "storage": return renderStorageTab();
+      case "websiteCms": return <WebsiteCmsTab />;
     }
   };
 
@@ -3758,6 +3760,7 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
     { key: "settlements", label: "التسويات", icon: "dollar-sign", badge: settlementRequests.length },
     { key: "settings", label: "الإعدادات", icon: "settings" },
     { key: "storage", label: "التخزين", icon: "hard-drive" },
+    { key: "websiteCms", label: "الموقع", icon: "globe" },
   ];
 
   return (

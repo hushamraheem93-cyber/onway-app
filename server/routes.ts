@@ -6785,6 +6785,188 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ── Website CMS ─────────────────────────────────────────────────────────────
+  // Public collection: websiteContent/{section}
+  // Admin routes are protected automatically by the global requireAdminAuth middleware
+  // applied to /api/admin/* above.
+
+  const CMS_SECTIONS = [
+    "hero", "features", "stats", "faq",
+    "downloadLinks", "screenshots", "contact", "seo", "footer",
+  ] as const;
+  type CmsSection = typeof CMS_SECTIONS[number];
+
+  // In-memory cache — invalidated on every admin write
+  let cmsPublicCache: { data: Record<string, any>; expiresAt: number } | null = null;
+
+  async function getAllCmsContent(): Promise<Record<string, any>> {
+    const db = getFirestore();
+    if (!db) return {};
+    const result: Record<string, any> = {};
+    await Promise.all(
+      CMS_SECTIONS.map(async (section) => {
+        const doc = await db.collection("websiteContent").doc(section).get();
+        result[section] = doc.exists ? { id: doc.id, ...doc.data() } : null;
+      })
+    );
+    return result;
+  }
+
+  // ── Public endpoints (no auth) ─────────────────────────────────────────────
+
+  // GET /api/website-content — all sections, 60-second cache
+  app.get("/api/website-content", async (_req: Request, res: Response) => {
+    try {
+      const now = Date.now();
+      if (cmsPublicCache && cmsPublicCache.expiresAt > now) {
+        res.set("Cache-Control", "public, max-age=60");
+        return res.json(cmsPublicCache.data);
+      }
+      const data = await getAllCmsContent();
+      cmsPublicCache = { data, expiresAt: now + 60_000 };
+      res.set("Cache-Control", "public, max-age=60");
+      return res.json(data);
+    } catch (err) {
+      console.error("GET /api/website-content:", err);
+      return res.status(500).json({ error: "حدث خطأ في الخادم" });
+    }
+  });
+
+  // GET /api/website-content/:section
+  app.get("/api/website-content/:section", async (req: Request, res: Response) => {
+    try {
+      const section = String(req.params.section);
+      if (!CMS_SECTIONS.includes(section as CmsSection)) {
+        return res.status(404).json({ error: "القسم غير موجود" });
+      }
+      const db = getFirestore();
+      if (!db) return res.status(500).json({ error: "قاعدة البيانات غير متاحة" });
+      const doc = await db.collection("websiteContent").doc(section).get();
+      if (!doc.exists) return res.json(null);
+      res.set("Cache-Control", "public, max-age=60");
+      return res.json({ id: doc.id, ...doc.data() });
+    } catch (err) {
+      console.error("GET /api/website-content/:section:", err);
+      return res.status(500).json({ error: "حدث خطأ في الخادم" });
+    }
+  });
+
+  // ── Admin endpoints (protected by requireAdminAuth applied to /api/admin/*) ─
+
+  // GET /api/admin/website-cms — all sections (no cache for admin)
+  app.get("/api/admin/website-cms", async (_req: Request, res: Response) => {
+    try {
+      const data = await getAllCmsContent();
+      return res.json(data);
+    } catch (err) {
+      console.error("GET /api/admin/website-cms:", err);
+      return res.status(500).json({ error: "حدث خطأ في الخادم" });
+    }
+  });
+
+  // GET /api/admin/website-cms/:section
+  app.get("/api/admin/website-cms/:section", async (req: Request, res: Response) => {
+    try {
+      const section = String(req.params.section);
+      if (!CMS_SECTIONS.includes(section as CmsSection)) {
+        return res.status(404).json({ error: "القسم غير موجود" });
+      }
+      const db = getFirestore();
+      if (!db) return res.status(500).json({ error: "قاعدة البيانات غير متاحة" });
+      const doc = await db.collection("websiteContent").doc(section).get();
+      if (!doc.exists) return res.json(null);
+      return res.json({ id: doc.id, ...doc.data() });
+    } catch (err) {
+      console.error("GET /api/admin/website-cms/:section:", err);
+      return res.status(500).json({ error: "حدث خطأ في الخادم" });
+    }
+  });
+
+  // PUT /api/admin/website-cms/:section — update text content
+  app.put("/api/admin/website-cms/:section", async (req: Request, res: Response) => {
+    try {
+      const section = String(req.params.section);
+      if (!CMS_SECTIONS.includes(section as CmsSection)) {
+        return res.status(404).json({ error: "القسم غير موجود" });
+      }
+      const db = getFirestore();
+      if (!db) return res.status(500).json({ error: "قاعدة البيانات غير متاحة" });
+      const payload = { ...req.body, updatedAt: new Date().toISOString() };
+      await db.collection("websiteContent").doc(section).set(payload, { merge: true });
+      cmsPublicCache = null; // invalidate public cache
+      return res.json({ success: true });
+    } catch (err) {
+      console.error("PUT /api/admin/website-cms/:section:", err);
+      return res.status(500).json({ error: "حدث خطأ في الحفظ" });
+    }
+  });
+
+  // POST /api/admin/website-cms/:section/image — upload to Firebase Storage
+  app.post(
+    "/api/admin/website-cms/:section/image",
+    uploadWebP.single("image"),
+    async (req: Request, res: Response) => {
+      try {
+        const section = String(req.params.section);
+        if (!CMS_SECTIONS.includes(section as CmsSection)) {
+          return res.status(404).json({ error: "القسم غير موجود" });
+        }
+        if (!req.file) return res.status(400).json({ error: "لم يتم رفع أي صورة" });
+
+        const field = typeof req.body?.field === "string" ? req.body.field : "imageUrl";
+        const webpBuffer = await sharp(req.file.buffer).webp({ quality: 85 }).toBuffer();
+        const hash = createHash("sha256").update(webpBuffer).digest("hex");
+
+        let url: string;
+        try {
+          url = await uploadToFirebaseStorage(webpBuffer, `website-cms/${section}/${hash}.webp`);
+        } catch (storageErr: any) {
+          console.warn("[CMS] Storage unavailable, using Base64 fallback:", storageErr?.message);
+          url = `data:image/webp;base64,${webpBuffer.toString("base64")}`;
+        }
+
+        // Persist URL to Firestore only for named fields (not screenshots "temp")
+        const db = getFirestore();
+        if (db && field !== "temp") {
+          await db.collection("websiteContent").doc(section).set(
+            { [field]: url, updatedAt: new Date().toISOString() },
+            { merge: true }
+          );
+        }
+        cmsPublicCache = null;
+        return res.json({ url });
+      } catch (err) {
+        console.error("POST /api/admin/website-cms/:section/image:", err);
+        return res.status(500).json({ error: "فشل في رفع الصورة" });
+      }
+    }
+  );
+
+  // DELETE /api/admin/website-cms/image — remove from Storage + clear Firestore field
+  app.delete("/api/admin/website-cms/image", async (req: Request, res: Response) => {
+    try {
+      const { url, section, field } = req.body as { url?: string; section?: string; field?: string };
+      if (!url) return res.status(400).json({ error: "الرابط مطلوب" });
+      await deleteFromFirebaseStorage(url);
+      if (section && field && CMS_SECTIONS.includes(section as CmsSection)) {
+        const db = getFirestore();
+        if (db) {
+          await db.collection("websiteContent").doc(section).set(
+            { [field]: "", updatedAt: new Date().toISOString() },
+            { merge: true }
+          );
+        }
+      }
+      cmsPublicCache = null;
+      return res.json({ success: true });
+    } catch (err) {
+      console.error("DELETE /api/admin/website-cms/image:", err);
+      return res.status(500).json({ error: "فشل في حذف الصورة" });
+    }
+  });
+
+  // ── End Website CMS ──────────────────────────────────────────────────────────
+
   return httpServer;
 
 }
