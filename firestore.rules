@@ -53,9 +53,21 @@ service cloud.firestore {
     }
 
     // Vendor / store listings (restaurants, pharmacies, etc.)
+    //
+    // BACKEND ONLY despite being browse data: vendor documents carry
+    // `passwordHash` (bcrypt, written in server/vendor.ts when a store registers).
+    // The REST layer strips that field in five separate places before responding,
+    // which shows it is known-sensitive — but `allow read: if true` bypassed the
+    // REST layer entirely and served the raw document, handing out every store's
+    // password hash for offline cracking.
+    //
+    // Firestore rules cannot filter fields, so the collection must be closed.
+    // Public store browsing is unaffected: it goes through /api/stores and
+    // /api/vendors, which use the Admin SDK (rules do not apply) and return the
+    // password-stripped shape. No client code reads this collection via the
+    // Firebase client SDK — verified across the whole client tree.
     match /vendors/{docId} {
-      allow read: if true;
-      allow write: if false;
+      allow read, write: if false;
     }
 
     // Products inside vendor stores
@@ -196,9 +208,24 @@ service cloud.firestore {
     // settlementLedger: read by vendor/driver client SDK via onSnapshot (VendorWalletScreen).
     // Document IDs are in the format "vendor:{uuid}" or "driver:{phone}" — obscure enough
     // to prevent guessing. Writes are Admin SDK only (backend-enforced, rules redundant).
+    // ── FINANCIAL LEDGER — BACKEND ONLY ───────────────────────────────────
+    // Aggregate balances per driver / vendor: outstandingTotal, totalGross,
+    // totalCommission, totalOrders, totalSettled.
+    //
+    // This was `allow read: if true` so the client SDK could run onSnapshot for
+    // live balance updates. That made every account's finances world-readable:
+    // this app uses a custom JWT and NOT Firebase Auth, so request.auth is always
+    // null and there is nothing else gating the read. Document ids are also
+    // deterministic and enumerable — "driver:07XXXXXXXXX" / "vendor:<id>" — so
+    // anyone with the (publicly shipped) Firebase web config could harvest every
+    // driver's debt and every vendor's revenue.
+    //
+    // Balances are served instead by the JWT-authorised REST endpoints
+    // (/api/driver/status, /api/vendor/settlement, /api/vendor/wallet). The three
+    // screens that used onSnapshot already fall back to those values, so closing
+    // this costs live push-updates only — no feature is lost.
     match /settlementLedger/{docId} {
-      allow read: if true;   // client onSnapshot (VendorWalletScreen / DriverEarningsScreen)
-      allow write: if false; // Admin SDK bypasses; explicit deny for client writes
+      allow read, write: if false;
     }
 
     match /settlements/{docId} {
