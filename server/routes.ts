@@ -80,7 +80,7 @@ const upload = multer({
 // uploadWebP uses memory storage — admin images go directly to Firebase Storage
 const uploadWebP = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 15 * 1024 * 1024 },
+  limits: { fileSize: 5 * 1024 * 1024 },
   fileFilter: (_req, file, cb) => {
     const allowed = ["image/webp", "image/jpeg", "image/png", "image/gif", "application/octet-stream"];
     cb(null, allowed.includes(file.mimetype) || file.originalname.endsWith(".webp"));
@@ -521,15 +521,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
       };
       const products = productsSnap.docs.map((d) => {
         const p = d.data() as any;
+        const imgVal = limitImageSize(p.imageUrl || (p.imageUrls?.[0] ?? ""), 80000);
         return {
           id: d.id,
           name: p.name || "",
           description: p.description || "",
           price: p.price || 0,
-          imageUrl: p.imageUrl || (p.imageUrls?.[0] ?? ""),
+          image: imgVal,
+          imageUrl: imgVal,
           status: p.status || "",
           category: p.category || "",
           stock: p.stock ?? 0,
+          isActive: p.isActive !== false,
           createdAt: p.createdAt || "",
         };
       }).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
@@ -666,6 +669,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           categoryType: v.categoryType || v.cuisine || "",
           sortOrder: v.sortOrder ?? 999,
           isOpen: v.isOpen ?? true,
+          supportedCategories: Array.isArray(v.supportedCategories) ? v.supportedCategories : [],
+          isPinned: v.isPinned ?? false,
+          isFeatured: v.isFeatured ?? false,
         };
       }).sort((a: any, b: any) => (a.sortOrder ?? 999) - (b.sortOrder ?? 999));
       storesCacheTime = now;
@@ -854,8 +860,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   function limitImageSize(img: string | undefined, maxLen = 50000): string {
     if (!img) return "";
+    // Always pass data URIs through unchanged — they are self-contained and
+    // the client renders them without a network request. Truncating them
+    // would corrupt the image and show a blank placeholder.
+    if (img.startsWith("data:")) return img;
     if (img.length <= maxLen) return img;
-    if (img.startsWith("data:image")) return "";
     return img;
   }
 
@@ -1253,7 +1262,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const snap = await db.collection("vendorProducts")
           .where("status", "==", "approved")
           .get();
-        vendorProducts = snap.docs.map(d => {
+        vendorProducts = snap.docs
+          .filter(d => (d.data() as any).isActive !== false) // skip admin-disabled products
+          .map(d => {
           const data = d.data() as any;
           return {
             id: d.id,
@@ -1721,11 +1732,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const vendors = await getVendorList();
     res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
     res.setHeader("Pragma", "no-cache");
-    res.json(vendors);
+    // Normalize image field: admin-created vendors use `image`; registered vendors use `profileImageUrl`
+    const normalized = vendors.map((v: any) => ({
+      ...v,
+      image: limitImageSize(v.image || v.profileImageUrl || v.coverImageUrl || "", 80000),
+    }));
+    res.json(normalized);
   });
 
   app.post("/api/admin/vendors", async (req: Request, res: Response) => {
-    const { name, location, whatsappNumber, commissionPercent, image, rating, deliveryTime, isOpen, categoryType, cuisine, hasDelivery, minOrder, openTime, closeTime, description } = req.body;
+    const { name, location, whatsappNumber, commissionPercent, image, rating, deliveryTime, isOpen, categoryType, cuisine, hasDelivery, minOrder, openTime, closeTime, description, supportedCategories, sortOrder, isPinned, isFeatured, isVerified } = req.body;
     if (!name) return res.status(400).json({ error: "اسم المطعم مطلوب" });
     const existingVendors = await getVendorList();
     const maxOrder = existingVendors.reduce((max, v) => Math.max(max, v.sortOrder ?? 0), 0);
@@ -1760,28 +1776,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.put("/api/admin/vendors/:id", async (req: Request, res: Response) => {
     const id = req.params.id as string;
-    const { name, location, whatsappNumber, commissionPercent, image, rating, deliveryTime, isOpen, categoryType, cuisine, hasDelivery, minOrder, openTime, closeTime, description } = req.body;
-    const updates: any = {};
-    if (name !== undefined) updates.name = String(name);
-    if (location !== undefined) updates.location = String(location);
-    if (whatsappNumber !== undefined) updates.whatsappNumber = String(whatsappNumber);
-    if (commissionPercent !== undefined) updates.commissionPercent = Number(commissionPercent);
-    if (image !== undefined) updates.image = String(image);
-    if (rating !== undefined) updates.rating = Number(rating);
-    if (deliveryTime !== undefined) updates.deliveryTime = String(deliveryTime);
-    if (isOpen !== undefined) updates.isOpen = Boolean(isOpen);
-    if (categoryType !== undefined) updates.categoryType = categoryType;
-    if (cuisine !== undefined) updates.cuisine = String(cuisine);
-    if (hasDelivery !== undefined) updates.hasDelivery = Boolean(hasDelivery);
-    if (minOrder !== undefined) updates.minOrder = Number(minOrder);
-    if (openTime !== undefined) updates.openTime = String(openTime);
-    if (closeTime !== undefined) updates.closeTime = String(closeTime);
-    if (description !== undefined) updates.description = String(description);
+    const body = req.body as Record<string, any>;
+    const vendorUpdates: Record<string, any> = {};
+    if (body.name !== undefined) vendorUpdates.name = String(body.name);
+    if (body.location !== undefined) vendorUpdates.location = String(body.location);
+    if (body.whatsappNumber !== undefined) vendorUpdates.whatsappNumber = String(body.whatsappNumber);
+    if (body.commissionPercent !== undefined) vendorUpdates.commissionPercent = Number(body.commissionPercent);
+    if (body.image !== undefined) vendorUpdates.image = String(body.image);
+    if (body.rating !== undefined) vendorUpdates.rating = Number(body.rating);
+    if (body.deliveryTime !== undefined) vendorUpdates.deliveryTime = String(body.deliveryTime);
+    if (body.isOpen !== undefined) vendorUpdates.isOpen = Boolean(body.isOpen);
+    if (body.categoryType !== undefined) vendorUpdates.categoryType = body.categoryType;
+    if (body.cuisine !== undefined) vendorUpdates.cuisine = String(body.cuisine);
+    if (body.hasDelivery !== undefined) vendorUpdates.hasDelivery = Boolean(body.hasDelivery);
+    if (body.minOrder !== undefined) vendorUpdates.minOrder = Number(body.minOrder);
+    if (body.openTime !== undefined) vendorUpdates.openTime = String(body.openTime);
+    if (body.closeTime !== undefined) vendorUpdates.closeTime = String(body.closeTime);
+    if (body.description !== undefined) vendorUpdates.description = String(body.description);
+    if (Array.isArray(body.supportedCategories)) vendorUpdates.supportedCategories = body.supportedCategories;
+    if (body.sortOrder !== undefined) vendorUpdates.sortOrder = Number(body.sortOrder);
+    if (body.isPinned !== undefined) vendorUpdates.isPinned = Boolean(body.isPinned);
+    if (body.isFeatured !== undefined) vendorUpdates.isFeatured = Boolean(body.isFeatured);
+    if (body.isVerified !== undefined) vendorUpdates.isVerified = Boolean(body.isVerified);
     try {
-      await updateFirestoreVendor(id, updates);
+      await updateFirestoreVendor(id, vendorUpdates);
       invalidateVendorsCache();
       invalidateStoresCache();
-      res.json({ success: true, id, ...updates });
+      res.json({ success: true, id, ...vendorUpdates });
     } catch {
       res.status(500).json({ error: "فشل تحديث المطعم" });
     }
@@ -1824,9 +1845,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return s + Math.round(orderBase(o) * vendor.commissionPercent / 100);
       }, 0);
       const vendorNet = totalSales - appCommission;
-      res.json({ vendor, orders: orders.length, totalSales, appCommission, vendorNet, commissionPercent: vendor.commissionPercent });
+      const vendorWithImage = { ...vendor, image: limitImageSize((vendor as any).image || (vendor as any).profileImageUrl || (vendor as any).coverImageUrl || "", 80000) };
+      res.json({ vendor: vendorWithImage, orders: orders.length, totalSales, appCommission, vendorNet, commissionPercent: vendor.commissionPercent });
     } catch {
-      res.json({ vendor, orders: 0, totalSales: 0, appCommission: 0, vendorNet: 0, commissionPercent: vendor.commissionPercent });
+      const vendorWithImage = { ...vendor, image: limitImageSize((vendor as any).image || (vendor as any).profileImageUrl || (vendor as any).coverImageUrl || "", 80000) };
+      res.json({ vendor: vendorWithImage, orders: 0, totalSales: 0, appCommission: 0, vendorNet: 0, commissionPercent: vendor.commissionPercent });
     }
   });
 
@@ -1849,12 +1872,75 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/admin/orders", async (req, res) => {
     const db = getFirestore();
     if (db) {
-      const orders = await getOrders();
-      return res.json(orders.map(o => ({
+      const rawOrders = await getOrders();
+      const ordersWithDates = rawOrders.map(o => ({
         ...o,
         createdAt: o.createdAt?.toDate?.() ? o.createdAt.toDate().toISOString() : o.createdAt,
         updatedAt: o.updatedAt?.toDate?.() ? o.updatedAt.toDate().toISOString() : o.updatedAt,
-      })));
+      })) as any[];
+
+      // Enrich orders that are missing a vendor display name
+      const missingOrders = ordersWithDates.filter(
+        o => !o.vendorName && !o.storeName && !o.restaurantName
+      );
+
+      if (missingOrders.length > 0) {
+        // Collect unique vendorIds and unique first-item productIds in one pass
+        const uniqueVendorIds = [...new Set(missingOrders.map(o => o.vendorId).filter(Boolean))] as string[];
+        const uniqueProductIds = [
+          ...new Set(
+            missingOrders
+              .map(o => (o.items as any[])?.[0]?.productId)
+              .filter(Boolean)
+          ),
+        ] as string[];
+
+        // Fetch vendor docs and product docs in parallel
+        const [vendorDocs, productDocs] = await Promise.all([
+          Promise.all(
+            uniqueVendorIds.map(vid =>
+              db.collection("vendors").doc(vid).get().then(d => ({ vid, d })).catch(() => null)
+            )
+          ),
+          Promise.all(
+            uniqueProductIds.map(pid =>
+              db.collection("vendorProducts").doc(pid).get().then(d => ({ pid, d })).catch(() => null)
+            )
+          ),
+        ]);
+
+        // Build lookup maps
+        const vendorNameMap: Record<string, string> = {};
+        for (const r of vendorDocs) {
+          if (r?.d.exists) {
+            const vd = r.d.data() as any;
+            const name = vd.storeName || vd.name || "";
+            if (name) vendorNameMap[r.vid] = name;
+          }
+        }
+        const productNameMap: Record<string, string> = {};
+        for (const r of productDocs) {
+          if (r?.d.exists) {
+            const pd = r.d.data() as any;
+            const name = pd.storeName || pd.vendorName || "";
+            if (name) productNameMap[r.pid] = name;
+          }
+        }
+
+        // Apply enrichment
+        return res.json(
+          ordersWithDates.map(o => {
+            if (o.vendorName || o.storeName || o.restaurantName) return o;
+            const fromVendor  = o.vendorId ? vendorNameMap[o.vendorId] || "" : "";
+            const firstPid    = (o.items as any[])?.[0]?.productId || "";
+            const fromProduct = firstPid ? productNameMap[firstPid] || "" : "";
+            const resolved    = fromVendor || fromProduct;
+            return resolved ? { ...o, vendorName: resolved } : o;
+          })
+        );
+      }
+
+      return res.json(ordersWithDates);
     }
     res.json([]);
   });
@@ -2130,7 +2216,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
               if (pDoc.exists) {
                 const pData = pDoc.data() as any;
                 if (pData?.vendorId) {
-                  orderData.vendorId = pData.vendorId;
+                  orderData.vendorId   = pData.vendorId;
+                  // vendorProducts already stores storeName/vendorName at product-creation time
+                  orderData.vendorName = pData.storeName || pData.vendorName || "";
                   break;
                 }
               }
@@ -5264,25 +5352,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Support image upload
-  app.post("/api/support/upload-image", requireCustomerAuth, upload.single("image"), async (req: Request & { file?: Express.Multer.File }, res: Response) => {
+  app.post("/api/support/upload-image", requireCustomerAuth, uploadWebP.single("image"), async (req: Request & { file?: Express.Multer.File }, res: Response) => {
     try {
       if (!req.file) return res.status(400).json({ error: "No image uploaded" });
-      // Durable-first (ephemeral VM disk) — falls back to the legacy local path.
-      try {
-        const buf = await fs.promises.readFile(req.file.path);
-        const imageUrl = await uploadToFirebaseStorage(
-          buf,
-          `support-images/${req.file.filename}`,
-          req.file.mimetype || "image/jpeg",
-        );
-        fs.promises.unlink(req.file.path).catch(() => {});
-        return res.json({ imageUrl });
-      } catch (storageErr: any) {
-        console.warn("[Storage] support upload fell back to local disk:", storageErr?.message);
-        return res.json({ imageUrl: `/uploads/${req.file.filename}` });
-      }
-    } catch (e) {
-      return res.status(500).json({ error: "Failed to upload image" });
+      const imageUrl = await uploadToFirebaseStorage(
+        req.file.buffer,
+        `support-images/${randomUUID()}${path.extname(req.file.originalname || ".jpg")}`,
+        req.file.mimetype || "image/jpeg",
+      );
+      return res.json({ imageUrl });
+    } catch (e: any) {
+      console.error("[Storage] support image upload failed:", e?.message);
+      return res.status(500).json({ error: "فشل في رفع الصورة. حاول مجدداً." });
     }
   });
 
@@ -6656,6 +6737,230 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ error: error.message });
     }
   });
+
+  // ── GET /api/admin/storage-stats ──────────────────────────────────────────
+  app.get("/api/admin/storage-stats", async (_req: Request, res: Response) => {
+    try {
+      const db = getFirestore();
+      if (!db) return res.status(500).json({ error: "قاعدة البيانات غير متاحة" });
+
+      const snap = await db.collection("vendorProducts").get();
+      let totalImages = 0;
+      let totalThumbs = 0;
+      let activeProducts = 0;
+      const vendorImageCount: Record<string, { storeName: string; imageCount: number }> = {};
+
+      for (const doc of snap.docs) {
+        const data = doc.data() as any;
+        if (data.status === "deleted") continue;
+        activeProducts++;
+        const fullCount: number = data.imageUrls?.length ?? (data.imageUrl ? 1 : 0);
+        const thumbCount: number = data.imageThumbs?.length ?? 0;
+        totalImages += fullCount;
+        totalThumbs += thumbCount;
+        const vid: string | undefined = data.vendorId;
+        if (vid) {
+          if (!vendorImageCount[vid]) {
+            vendorImageCount[vid] = { storeName: data.storeName ?? data.vendorName ?? vid, imageCount: 0 };
+          }
+          vendorImageCount[vid].imageCount += fullCount;
+        }
+      }
+
+      const topStores = Object.entries(vendorImageCount)
+        .map(([id, v]) => ({ vendorId: id, storeName: v.storeName, imageCount: v.imageCount }))
+        .sort((a, b) => b.imageCount - a.imageCount)
+        .slice(0, 10);
+
+      console.info(`[Storage] stats computed: ${activeProducts} products, ${totalImages} images, ${totalThumbs} thumbs`);
+      res.json({ totalProducts: activeProducts, totalImages, totalThumbs, topStores, computedAt: new Date().toISOString() });
+    } catch (err) {
+      console.error("storage-stats:", err);
+      res.status(500).json({ error: "حدث خطأ في الخادم" });
+    }
+  });
+
+  // ── Website CMS ─────────────────────────────────────────────────────────────
+  // Public collection: websiteContent/{section}
+  // Admin routes are protected automatically by the global requireAdminAuth middleware
+  // applied to /api/admin/* above.
+
+  const CMS_SECTIONS = [
+    "hero", "features", "stats", "faq",
+    "downloadLinks", "screenshots", "contact", "seo", "footer",
+  ] as const;
+  type CmsSection = typeof CMS_SECTIONS[number];
+
+  // In-memory cache — invalidated on every admin write
+  let cmsPublicCache: { data: Record<string, any>; expiresAt: number } | null = null;
+
+  async function getAllCmsContent(): Promise<Record<string, any>> {
+    const db = getFirestore();
+    if (!db) return {};
+    const result: Record<string, any> = {};
+    await Promise.all(
+      CMS_SECTIONS.map(async (section) => {
+        const doc = await db.collection("websiteContent").doc(section).get();
+        result[section] = doc.exists ? { id: doc.id, ...doc.data() } : null;
+      })
+    );
+    return result;
+  }
+
+  // ── Public endpoints (no auth) ─────────────────────────────────────────────
+
+  // GET /api/website-content — all sections, 60-second cache
+  app.get("/api/website-content", async (_req: Request, res: Response) => {
+    try {
+      const now = Date.now();
+      if (cmsPublicCache && cmsPublicCache.expiresAt > now) {
+        res.set("Cache-Control", "public, max-age=60");
+        return res.json(cmsPublicCache.data);
+      }
+      const data = await getAllCmsContent();
+      cmsPublicCache = { data, expiresAt: now + 60_000 };
+      res.set("Cache-Control", "public, max-age=60");
+      return res.json(data);
+    } catch (err) {
+      console.error("GET /api/website-content:", err);
+      return res.status(500).json({ error: "حدث خطأ في الخادم" });
+    }
+  });
+
+  // GET /api/website-content/:section
+  app.get("/api/website-content/:section", async (req: Request, res: Response) => {
+    try {
+      const section = String(req.params.section);
+      if (!CMS_SECTIONS.includes(section as CmsSection)) {
+        return res.status(404).json({ error: "القسم غير موجود" });
+      }
+      const db = getFirestore();
+      if (!db) return res.status(500).json({ error: "قاعدة البيانات غير متاحة" });
+      const doc = await db.collection("websiteContent").doc(section).get();
+      if (!doc.exists) return res.json(null);
+      res.set("Cache-Control", "public, max-age=60");
+      return res.json({ id: doc.id, ...doc.data() });
+    } catch (err) {
+      console.error("GET /api/website-content/:section:", err);
+      return res.status(500).json({ error: "حدث خطأ في الخادم" });
+    }
+  });
+
+  // ── Admin endpoints (protected by requireAdminAuth applied to /api/admin/*) ─
+
+  // GET /api/admin/website-cms — all sections (no cache for admin)
+  app.get("/api/admin/website-cms", async (_req: Request, res: Response) => {
+    try {
+      const data = await getAllCmsContent();
+      return res.json(data);
+    } catch (err) {
+      console.error("GET /api/admin/website-cms:", err);
+      return res.status(500).json({ error: "حدث خطأ في الخادم" });
+    }
+  });
+
+  // GET /api/admin/website-cms/:section
+  app.get("/api/admin/website-cms/:section", async (req: Request, res: Response) => {
+    try {
+      const section = String(req.params.section);
+      if (!CMS_SECTIONS.includes(section as CmsSection)) {
+        return res.status(404).json({ error: "القسم غير موجود" });
+      }
+      const db = getFirestore();
+      if (!db) return res.status(500).json({ error: "قاعدة البيانات غير متاحة" });
+      const doc = await db.collection("websiteContent").doc(section).get();
+      if (!doc.exists) return res.json(null);
+      return res.json({ id: doc.id, ...doc.data() });
+    } catch (err) {
+      console.error("GET /api/admin/website-cms/:section:", err);
+      return res.status(500).json({ error: "حدث خطأ في الخادم" });
+    }
+  });
+
+  // PUT /api/admin/website-cms/:section — update text content
+  app.put("/api/admin/website-cms/:section", async (req: Request, res: Response) => {
+    try {
+      const section = String(req.params.section);
+      if (!CMS_SECTIONS.includes(section as CmsSection)) {
+        return res.status(404).json({ error: "القسم غير موجود" });
+      }
+      const db = getFirestore();
+      if (!db) return res.status(500).json({ error: "قاعدة البيانات غير متاحة" });
+      const payload = { ...req.body, updatedAt: new Date().toISOString() };
+      await db.collection("websiteContent").doc(section).set(payload, { merge: true });
+      cmsPublicCache = null; // invalidate public cache
+      return res.json({ success: true });
+    } catch (err) {
+      console.error("PUT /api/admin/website-cms/:section:", err);
+      return res.status(500).json({ error: "حدث خطأ في الحفظ" });
+    }
+  });
+
+  // POST /api/admin/website-cms/:section/image — upload to Firebase Storage
+  app.post(
+    "/api/admin/website-cms/:section/image",
+    uploadWebP.single("image"),
+    async (req: Request, res: Response) => {
+      try {
+        const section = String(req.params.section);
+        if (!CMS_SECTIONS.includes(section as CmsSection)) {
+          return res.status(404).json({ error: "القسم غير موجود" });
+        }
+        if (!req.file) return res.status(400).json({ error: "لم يتم رفع أي صورة" });
+
+        const field = typeof req.body?.field === "string" ? req.body.field : "imageUrl";
+        const webpBuffer = await sharp(req.file.buffer).webp({ quality: 85 }).toBuffer();
+        const hash = createHash("sha256").update(webpBuffer).digest("hex");
+
+        let url: string;
+        try {
+          url = await uploadToFirebaseStorage(webpBuffer, `website-cms/${section}/${hash}.webp`);
+        } catch (storageErr: any) {
+          console.warn("[CMS] Storage unavailable, using Base64 fallback:", storageErr?.message);
+          url = `data:image/webp;base64,${webpBuffer.toString("base64")}`;
+        }
+
+        // Persist URL to Firestore only for named fields (not screenshots "temp")
+        const db = getFirestore();
+        if (db && field !== "temp") {
+          await db.collection("websiteContent").doc(section).set(
+            { [field]: url, updatedAt: new Date().toISOString() },
+            { merge: true }
+          );
+        }
+        cmsPublicCache = null;
+        return res.json({ url });
+      } catch (err) {
+        console.error("POST /api/admin/website-cms/:section/image:", err);
+        return res.status(500).json({ error: "فشل في رفع الصورة" });
+      }
+    }
+  );
+
+  // DELETE /api/admin/website-cms/image — remove from Storage + clear Firestore field
+  app.delete("/api/admin/website-cms/image", async (req: Request, res: Response) => {
+    try {
+      const { url, section, field } = req.body as { url?: string; section?: string; field?: string };
+      if (!url) return res.status(400).json({ error: "الرابط مطلوب" });
+      await deleteFromFirebaseStorage(url);
+      if (section && field && CMS_SECTIONS.includes(section as CmsSection)) {
+        const db = getFirestore();
+        if (db) {
+          await db.collection("websiteContent").doc(section).set(
+            { [field]: "", updatedAt: new Date().toISOString() },
+            { merge: true }
+          );
+        }
+      }
+      cmsPublicCache = null;
+      return res.json({ success: true });
+    } catch (err) {
+      console.error("DELETE /api/admin/website-cms/image:", err);
+      return res.status(500).json({ error: "فشل في حذف الصورة" });
+    }
+  });
+
+  // ── End Website CMS ──────────────────────────────────────────────────────────
 
   return httpServer;
 

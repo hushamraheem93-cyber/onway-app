@@ -21,7 +21,7 @@ import { useAuth } from "@/context/AuthContext";
 import { getApiUrl } from "@/lib/query-client";
 import { playRepeatingAlert, stopAlert } from "@/lib/alertSound";
 
-const ORANGE = "#E86520";
+const ORANGE = "#FB5B21";
 const POLL_INTERVAL_MS = 20_000;
 
 interface NewOrderPopup {

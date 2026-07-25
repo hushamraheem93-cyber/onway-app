@@ -3,81 +3,73 @@ import { View, Pressable, StyleSheet } from "react-native";
 import { Image } from "expo-image";
 import { createBottomTabNavigator, BottomTabBarProps } from "@react-navigation/bottom-tabs";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
-import { Feather } from "@expo/vector-icons";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as Haptics from "expo-haptics";
 
-import VendorRatingsScreen from "@/screens/VendorRatingsScreen";
-import VendorProductsScreen from "@/screens/VendorProductsScreen";
-import VendorAddProductScreen from "@/screens/VendorAddProductScreen";
+import VendorHomeScreen        from "@/screens/VendorHomeScreen";
+import VendorAnalyticsScreen   from "@/screens/VendorAnalyticsScreen";
+import VendorProductsScreen    from "@/screens/VendorProductsScreen";
+import VendorAddProductScreen  from "@/screens/VendorAddProductScreen";
 import VendorEditProductScreen from "@/screens/VendorEditProductScreen";
-import VendorWalletScreen from "@/screens/VendorWalletScreen";
-import VendorOrdersScreen from "@/screens/VendorOrdersScreen";
-import VendorProfileScreen from "@/screens/VendorProfileScreen";
+import VendorOrdersScreen      from "@/screens/VendorOrdersScreen";
+import VendorProfileScreen     from "@/screens/VendorProfileScreen";
 import { useScreenOptions } from "@/hooks/useScreenOptions";
 import { VendorNotificationsProvider, useVendorNotifications } from "@/context/VendorNotificationsContext";
 import { ThemedText } from "@/components/ThemedText";
-import { AppColors } from "@/constants/theme";
+import { AppColors, FontFamily, Shadows } from "@/constants/theme";
 
-// Streamlined vendor navigation: the six-tab layout (Home / Orders / Products /
-// Earnings / Ratings / Account) was slow and scattered — store settings lived in
-// BOTH Home and Account, and the vendor's core daily task (Orders) was just one
-// tab of six. This collapses it to four: Orders is the default landing (the
-// workspace), and Ratings + settings live under a single Account hub. No screen
-// navigates to "VendorHome"/"VendorRatingsTab" by name, so nothing breaks.
+// ─── Types ─────────────────────────────────────────────────────────────────────
+
 export type VendorTabParamList = {
-  VendorOrdersTab: undefined;
-  VendorProductsTab: undefined;
-  VendorWalletTab: undefined;
-  VendorAccountTab: undefined;
+  VendorHome:         undefined;
+  VendorOrdersTab:    undefined;
+  VendorProductsTab:  undefined;
+  VendorAnalyticsTab: undefined;
+  VendorProfileTab:   undefined;
 };
 
-const Tab = createBottomTabNavigator<VendorTabParamList>();
+const Tab          = createBottomTabNavigator<VendorTabParamList>();
 const ProductStack = createNativeStackNavigator();
-const AccountStack = createNativeStackNavigator();
 
-const TAB_CONFIG: Record<string, { icon: keyof typeof Feather.glyphMap; label: string }> = {
-  VendorOrdersTab:   { icon: "shopping-bag", label: "الطلبات"  },
-  VendorProductsTab: { icon: "box",          label: "المنتجات" },
-  VendorWalletTab:   { icon: "bar-chart-2",  label: "الأرباح"  },
-  VendorAccountTab:  { icon: "user",         label: "الحساب"   },
+// ─── Tab config — 5 tabs as per spec ──────────────────────────────────────────
+
+const TAB_CONFIG: Record<string, { icon: string; label: string; activeColor: string }> = {
+  VendorHome:         { icon: "home-outline",             label: "الرئيسية",   activeColor: AppColors.primary },
+  VendorOrdersTab:    { icon: "shopping-outline",          label: "الطلبات",    activeColor: AppColors.primary },
+  VendorProductsTab:  { icon: "package-variant-closed",   label: "المنتجات",   activeColor: AppColors.primary },
+  VendorAnalyticsTab: { icon: "chart-bar",                label: "الإحصائيات", activeColor: AppColors.primary },
+  VendorProfileTab:   { icon: "account-outline",          label: "الحساب",     activeColor: AppColors.primary },
 };
+
+// ─── Products stack ───────────────────────────────────────────────────────────
 
 function ProductsStackNavigator() {
   const screenOptions = useScreenOptions();
   return (
-    <ProductStack.Navigator screenOptions={{ ...screenOptions, headerTintColor: AppColors.vendorPurple }}>
-      <ProductStack.Screen name="VendorProducts" component={VendorProductsScreen} options={{ headerTitle: "منتجاتي" }} />
-      <ProductStack.Screen name="VendorAddProduct" component={VendorAddProductScreen} options={{ headerTitle: "إضافة منتج" }} />
+    <ProductStack.Navigator screenOptions={{ ...screenOptions, headerTintColor: AppColors.primary }}>
+      <ProductStack.Screen name="VendorProducts"    component={VendorProductsScreen}    options={{ headerTitle: "منتجاتي" }} />
+      <ProductStack.Screen name="VendorAddProduct"  component={VendorAddProductScreen}  options={{ headerTitle: "إضافة منتج" }} />
       <ProductStack.Screen name="VendorEditProduct" component={VendorEditProductScreen} options={{ headerTitle: "تعديل المنتج" }} />
     </ProductStack.Navigator>
   );
 }
 
-// Account hub: the profile/settings screen is the landing, and Ratings — no longer
-// its own tab — is reached from a row inside it.
-function AccountStackNavigator() {
-  const screenOptions = useScreenOptions();
-  return (
-    <AccountStack.Navigator screenOptions={{ ...screenOptions, headerTintColor: AppColors.vendorPurple }}>
-      <AccountStack.Screen name="VendorProfile" component={VendorProfileScreen} options={{ headerTitle: "الحساب" }} />
-      <AccountStack.Screen name="VendorRatings" component={VendorRatingsScreen} options={{ headerTitle: "التقييمات" }} />
-    </AccountStack.Navigator>
-  );
-}
+// ─── Custom tab bar ───────────────────────────────────────────────────────────
 
 function VendorTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
-  const insets = useSafeAreaInsets();
+  const insets         = useSafeAreaInsets();
   const { unreadCount } = useVendorNotifications();
 
   return (
     <View style={[styles.tabBar, { paddingBottom: insets.bottom > 0 ? insets.bottom : 12 }]}>
       {state.routes.map((route, index) => {
         const isFocused = state.index === index;
-        const config = TAB_CONFIG[route.name];
+        const config    = TAB_CONFIG[route.name];
         if (!config) return null;
 
         const isOrders = route.name === "VendorOrdersTab";
+        const color    = isFocused ? config.activeColor : AppColors.gray400;
 
         const onPress = () => {
           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -87,17 +79,15 @@ function VendorTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
 
         return (
           <Pressable key={route.key} onPress={onPress} style={styles.tabItem}>
-            <View style={[styles.iconWrap, isFocused && { backgroundColor: AppColors.vendorPurple + "15" }]}>
-              <Feather name={config.icon} size={22} color={isFocused ? AppColors.vendorPurple : AppColors.gray400} />
-              {isOrders && unreadCount > 0 ? (
+            <View style={[styles.iconWrap, isFocused && { backgroundColor: AppColors.primary + "15" }]}>
+              <MaterialCommunityIcons name={config.icon as any} size={22} color={color} />
+              {isOrders && unreadCount > 0 && (
                 <View style={styles.badge}>
                   <ThemedText style={styles.badgeText}>{unreadCount > 9 ? "9+" : String(unreadCount)}</ThemedText>
                 </View>
-              ) : null}
+              )}
             </View>
-            <ThemedText style={[styles.tabLabel, { color: isFocused ? AppColors.vendorPurple : AppColors.gray400 }]}>
-              {config.label}
-            </ThemedText>
+            <ThemedText style={[styles.tabLabel, { color }]}>{config.label}</ThemedText>
           </Pressable>
         );
       })}
@@ -105,12 +95,14 @@ function VendorTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
   );
 }
 
+// ─── Tab navigator ────────────────────────────────────────────────────────────
+
 function VendorTabs() {
   const screenOptions = useScreenOptions();
   const tabScreenOptions = {
     headerTitleAlign: screenOptions.headerTitleAlign as "center" | "left",
     headerTransparent: screenOptions.headerTransparent,
-    headerTintColor: AppColors.vendorPurple,
+    headerTintColor: AppColors.primary,
     headerShadowVisible: screenOptions.headerShadowVisible,
     headerStyle: screenOptions.headerStyle as any,
   };
@@ -119,13 +111,28 @@ function VendorTabs() {
       tabBar={(props) => <VendorTabBar {...props} />}
       screenOptions={tabScreenOptions}
     >
-      <Tab.Screen name="VendorOrdersTab"     component={VendorOrdersScreen}      options={{ headerTitle: () => <Image source={require("../assets/images/onway-header-logo-transparent.png")} style={{ width: 130, height: 50 }} contentFit="contain" /> }} />
-      <Tab.Screen name="VendorProductsTab"   component={ProductsStackNavigator}  options={{ headerShown: false }} />
-      <Tab.Screen name="VendorWalletTab"     component={VendorWalletScreen}      options={{ headerTitle: "الأرباح" }} />
-      <Tab.Screen name="VendorAccountTab"    component={AccountStackNavigator}   options={{ headerShown: false }} />
+      <Tab.Screen
+        name="VendorHome"
+        component={VendorHomeScreen}
+        options={{
+          headerTitle: () => (
+            <Image
+              source={require("../assets/images/onway-header-logo-transparent.png")}
+              style={{ width: 130, height: 50 }}
+              contentFit="contain"
+            />
+          ),
+        }}
+      />
+      <Tab.Screen name="VendorOrdersTab"    component={VendorOrdersScreen}      options={{ headerTitle: "الطلبات" }} />
+      <Tab.Screen name="VendorProductsTab"  component={ProductsStackNavigator}  options={{ headerShown: false }} />
+      <Tab.Screen name="VendorAnalyticsTab" component={VendorAnalyticsScreen}   options={{ headerTitle: "الإحصائيات والتقييمات" }} />
+      <Tab.Screen name="VendorProfileTab"   component={VendorProfileScreen}     options={{ headerTitle: "الحساب" }} />
     </Tab.Navigator>
   );
 }
+
+// ─── Root export ──────────────────────────────────────────────────────────────
 
 export default function VendorTabNavigator() {
   return (
@@ -134,6 +141,8 @@ export default function VendorTabNavigator() {
     </VendorNotificationsProvider>
   );
 }
+
+// ─── Styles ───────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
   tabBar: {
@@ -162,8 +171,8 @@ const styles = StyleSheet.create({
     position: "relative",
   },
   tabLabel: {
-    fontSize: 11,
-    fontFamily: "Cairo_700Bold",
+    fontSize: 10,
+    fontFamily: FontFamily.cairoBold,
   },
   badge: {
     position: "absolute",
@@ -178,7 +187,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 3,
   },
   badgeText: {
-    fontFamily: "Cairo_700Bold",
+    fontFamily: FontFamily.cairoBold,
     fontSize: 9,
     color: AppColors.white,
   },

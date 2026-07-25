@@ -64,6 +64,7 @@ export const CATEGORY_MAP: Record<string, string[]> = {
   ],
   grocery: [
     "مواد غذائية", "مشروبات", "حلويات", "منظفات", "معلبات",
+    "خضراوات", "فواكه",
   ],
   butcher: [
     "لحم بقري", "لحم غنم", "دجاج", "مفروم", "مشويات جاهزة",
@@ -140,10 +141,7 @@ export const DYNAMIC_FIELDS: Record<string, DynamicFieldConfig[]> = {
     { key: "isHot",        label: "ساخن / بارد",     type: "select", options: ["ساخن", "بارد", "الاثنان"] },
     { key: "extras",       label: "إضافات متاحة",    type: "text", placeholder: "حليب نباتي، سكر إضافي..." },
   ],
-  grocery: [
-    { key: "weight",       label: "الوزن / الحجم",   type: "text", placeholder: "1 كيلو / 1 لتر" },
-    { key: "expiryDate",   label: "تاريخ الانتهاء (اختياري)", type: "text", placeholder: "06/2026" },
-  ],
+  grocery: [],
   butcher: [
     { key: "cutType",      label: "نوع القطع",        type: "text", placeholder: "شرائح / مكعبات / مفروم" },
     { key: "weight",       label: "الوزن",            type: "text", placeholder: "1 كيلو" },

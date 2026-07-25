@@ -461,8 +461,9 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   emptyTitle: {
-    fontFamily: "Cairo_700Bold", fontSize: 22,
+    fontFamily: "Cairo_700Bold", fontSize: 18,
     color: AppColors.black, textAlign: "center",
+    width: "100%", flexWrap: "wrap",
   },
   emptySubtitle: {
     fontFamily: "Cairo_400Regular", fontSize: 15,

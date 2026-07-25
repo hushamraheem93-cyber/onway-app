@@ -1,4 +1,10 @@
-import React, { useCallback, useState, useMemo, useRef, useEffect } from "react";
+import React, {
+  useCallback,
+  useState,
+  useMemo,
+  useRef,
+  useEffect,
+} from "react";
 import {
   View,
   StyleSheet,
@@ -10,6 +16,7 @@ import {
   Modal,
   Dimensions,
   Image,
+  Animated,
 } from "react-native";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
@@ -22,10 +29,19 @@ import { ThemedText } from "@/components/ThemedText";
 import { useAuth } from "@/context/AuthContext";
 import { getApiUrl } from "@/lib/query-client";
 import { useTheme } from "@/hooks/useTheme";
-import { AppColors } from "@/constants/theme";
+import {
+  AppColors,
+  BorderRadius,
+  FontFamily,
+  FontSize,
+  Shadows,
+  Spacing,
+} from "@/constants/theme";
 
 const ORANGE = AppColors.primary;
 const SCREEN_W = Dimensions.get("window").width;
+
+// ─── Interfaces (unchanged) ────────────────────────────────────────────────────
 
 interface OrderItem {
   productId: string;
@@ -62,75 +78,55 @@ interface VendorOrder {
   vendorStatusAt_cancelled?: string;
 }
 
-// ── Status config ─────────────────────────────────────────────────────────────
+// ─── Status config (preparing → orange instead of purple) ─────────────────────
+
 const STATUS_CFG: Record<string, { label: string; color: string; bg: string; icon: string }> = {
-  pending:    { label: "طلب جديد",      color: AppColors.warning, bg: AppColors.warningLight,  icon: "bell-ring" },
-  confirmed:  { label: "مؤكد",          color: AppColors.info, bg: AppColors.infoLight,  icon: "check-circle" },
-  preparing:  { label: "قيد التحضير",  color: AppColors.statusPurple, bg: AppColors.vendorPurpleLight,  icon: "chef-hat" },
-  ready:      { label: "جاهز",          color: AppColors.success, bg: AppColors.successLight,  icon: "package-variant-closed-check" },
-  picked_up:  { label: "استلمه السائق", color: AppColors.statusCyan, bg: AppColors.infoLight,  icon: "moped" },
-  delivering: { label: "في الطريق",     color: AppColors.info, bg: AppColors.infoLight,  icon: "navigation" },
-  delivered:  { label: "تم التوصيل",   color: AppColors.success, bg: AppColors.successLight,  icon: "check-all" },
-  cancelled:  { label: "ملغي",          color: AppColors.error, bg: AppColors.errorLight,  icon: "close-circle" },
+  pending:    { label: "طلب جديد",      color: AppColors.warning,      bg: AppColors.warningLight,  icon: "bell-ring" },
+  confirmed:  { label: "مؤكد",          color: AppColors.info,         bg: AppColors.infoLight,     icon: "check-circle" },
+  preparing:  { label: "قيد التحضير",  color: AppColors.primary,      bg: AppColors.secondary,     icon: "chef-hat" },
+  ready:      { label: "جاهز",          color: AppColors.success,      bg: AppColors.successLight,  icon: "package-variant-closed-check" },
+  picked_up:  { label: "استلمه السائق", color: AppColors.statusCyan,  bg: AppColors.infoLight,     icon: "moped" },
+  delivering: { label: "في الطريق",     color: AppColors.info,         bg: AppColors.infoLight,     icon: "navigation" },
+  delivered:  { label: "تم التوصيل",   color: AppColors.success,      bg: AppColors.successLight,  icon: "check-all" },
+  cancelled:  { label: "ملغي",          color: AppColors.error,        bg: AppColors.errorLight,    icon: "close-circle" },
 };
 
-// ── Tab definitions ────────────────────────────────────────────────────────────
+// ─── Tab definitions (unchanged logic) ────────────────────────────────────────
+
 const TABS = [
-  { key: "new",      label: "جديد",    statuses: ["pending"],           icon: "bell-ring",             color: AppColors.warning },
-  { key: "active",   label: "تحضير",   statuses: ["confirmed","preparing"], icon: "chef-hat",           color: AppColors.statusPurple },
-  { key: "ready",    label: "جاهز",    statuses: ["ready","picked_up"],  icon: "package-variant-closed-check", color: AppColors.success },
-  { key: "done",     label: "مكتمل",   statuses: ["delivered","delivering","cancelled"], icon: "check-all", color: AppColors.gray500 },
+  { key: "new",    label: "جديد",  statuses: ["pending"],                        icon: "bell-ring",                    color: AppColors.warning  },
+  { key: "active", label: "تحضير", statuses: ["confirmed", "preparing"],          icon: "chef-hat",                    color: AppColors.primary  },
+  { key: "ready",  label: "جاهز",  statuses: ["ready", "picked_up"],             icon: "package-variant-closed-check", color: AppColors.success  },
+  { key: "done",   label: "مكتمل", statuses: ["delivered", "delivering", "cancelled"], icon: "check-all",              color: AppColors.gray500  },
 ];
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
-function relativeTime(iso: string): string {
-  if (!iso) return "";
-  try {
-    const diff = Date.now() - new Date(iso).getTime();
-    const mins = Math.floor(diff / 60000);
-    if (mins < 1) return "الآن";
-    if (mins < 60) return `منذ ${mins} دقيقة`;
-    const hrs = Math.floor(mins / 60);
-    if (hrs < 24) return `منذ ${hrs} ساعة`;
-    return `منذ ${Math.floor(hrs / 24)} يوم`;
-  } catch { return iso; }
-}
+// ─── Action buttons per status (unchanged) ────────────────────────────────────
 
-function fullDate(iso: string): string {
-  if (!iso) return "";
-  try {
-    return new Date(iso).toLocaleString("ar-IQ", {
-      year: "numeric", month: "short", day: "numeric",
-      hour: "2-digit", minute: "2-digit",
-    });
-  } catch { return iso; }
-}
-
-// ── Action buttons per status ─────────────────────────────────────────────────
 type Action = { label: string; nextStatus: string; color: string; bg: string; icon: string; primary?: boolean };
 
 function getActions(status: string): Action[] {
   switch (status) {
     case "pending":
       return [
-        { label: "قبول الطلب",   nextStatus: "confirmed", color: AppColors.white,     bg: AppColors.success, icon: "check",     primary: true },
-        { label: "رفض",          nextStatus: "cancelled", color: AppColors.error,  bg: AppColors.errorLight, icon: "close",     primary: false },
+        { label: "قبول الطلب",  nextStatus: "confirmed", color: AppColors.white, bg: AppColors.success,   icon: "check",    primary: true  },
+        { label: "رفض",         nextStatus: "cancelled", color: AppColors.error, bg: AppColors.errorLight, icon: "close",    primary: false },
       ];
     case "confirmed":
       return [
-        { label: "بدء التحضير",  nextStatus: "preparing", color: AppColors.white,     bg: ORANGE,    icon: "chef-hat",  primary: true },
-        { label: "إلغاء",        nextStatus: "cancelled", color: AppColors.error,  bg: AppColors.errorLight, icon: "close",     primary: false },
+        { label: "بدء التحضير", nextStatus: "preparing", color: AppColors.white, bg: ORANGE,              icon: "chef-hat", primary: true  },
+        { label: "إلغاء",       nextStatus: "cancelled", color: AppColors.error, bg: AppColors.errorLight, icon: "close",    primary: false },
       ];
     case "preparing":
       return [
-        { label: "الطلب جاهز",  nextStatus: "ready",     color: AppColors.white,     bg: AppColors.success, icon: "package-variant-closed-check", primary: true },
+        { label: "الطلب جاهز",  nextStatus: "ready",     color: AppColors.white, bg: AppColors.success,   icon: "package-variant-closed-check", primary: true },
       ];
     default:
       return [];
   }
 }
 
-// ── Receipt HTML builder ───────────────────────────────────────────────────────
+// ─── Receipt HTML builder (unchanged) ─────────────────────────────────────────
+
 function buildReceiptHTML(order: VendorOrder): string {
   const orderNum = order.id.slice(-8).toUpperCase();
   const storeName = order.vendorName ?? "المتجر";
@@ -156,7 +152,6 @@ function buildReceiptHTML(order: VendorOrder): string {
       <td style="text-align:center;padding:7px 4px;border-bottom:1px dashed #ddd;font-size:13px;color:#555;">${item.quantity}</td>
       <td style="text-align:left;padding:7px 4px;border-bottom:1px dashed #ddd;font-size:13px;white-space:nowrap;">${((item.price || 0) * (item.quantity || 1)).toLocaleString("ar-IQ")} د.ع</td>
     </tr>`).join("");
-
   return `<!DOCTYPE html>
 <html dir="rtl" lang="ar">
 <head>
@@ -166,7 +161,7 @@ function buildReceiptHTML(order: VendorOrder): string {
   *{margin:0;padding:0;box-sizing:border-box;}
   body{font-family:'Segoe UI',Tahoma,Arial,sans-serif;direction:rtl;max-width:340px;margin:0 auto;padding:18px;color:#1a1a1a;background:#fff;}
   .header{text-align:center;padding-bottom:12px;}
-  .app-name{font-size:32px;font-weight:900;color:#E86520;letter-spacing:3px;}
+  .app-name{font-size:32px;font-weight:900;color:#FB5B21;letter-spacing:3px;}
   .app-sub{font-size:12px;color:#999;margin-top:3px;}
   .store-name{text-align:center;font-size:17px;font-weight:700;margin:6px 0 2px;}
   .divider{border:none;border-top:1px dashed #ccc;margin:10px 0;}
@@ -179,11 +174,11 @@ function buildReceiptHTML(order: VendorOrder): string {
   th{font-size:11px;color:#777;padding:5px 4px;border-bottom:2px solid #333;font-weight:600;}
   th:first-child{text-align:right;}th:nth-child(2){text-align:center;}th:last-child{text-align:left;}
   .total-row{display:flex;justify-content:space-between;padding:5px 0;font-size:13px;}
-  .grand-total{font-size:16px;font-weight:900;color:#E86520;padding-top:3px;}
+  .grand-total{font-size:16px;font-weight:900;color:#FB5B21;padding-top:3px;}
   .payment-row{display:flex;justify-content:space-between;padding:5px 0;font-size:13px;}
-  .notes-box{background:#fff9f0;border:1px dashed #E86520;border-radius:6px;padding:8px 10px;margin:6px 0;font-size:12px;color:#555;}
+  .notes-box{background:#fff2ec;border:1px dashed #FB5B21;border-radius:6px;padding:8px 10px;margin:6px 0;font-size:12px;color:#555;}
   .footer{text-align:center;margin-top:16px;padding-top:12px;border-top:2px solid #1a1a1a;}
-  .footer-main{font-size:15px;font-weight:700;color:#E86520;margin-bottom:4px;}
+  .footer-main{font-size:15px;font-weight:700;color:#FB5B21;margin-bottom:4px;}
   .footer-sub{font-size:12px;color:#888;}
   @media print{body{max-width:100%;padding:10px;}}
 </style>
@@ -206,13 +201,7 @@ function buildReceiptHTML(order: VendorOrder): string {
 <hr class="divider">
 <div class="section-title">تفاصيل الطلب</div>
 <table>
-  <thead>
-    <tr>
-      <th>الصنف</th>
-      <th>الكمية</th>
-      <th>السعر</th>
-    </tr>
-  </thead>
+  <thead><tr><th>الصنف</th><th>الكمية</th><th>السعر</th></tr></thead>
   <tbody>${itemsHTML}</tbody>
 </table>
 <hr class="divider">
@@ -231,7 +220,41 @@ ${order.notes ? `<div class="notes-box"><strong>ملاحظات:</strong> ${order
 </html>`;
 }
 
-// ── Live-ticking clock hook (updates every 60 s) ──────────────────────────────
+// ─── Helpers ───────────────────────────────────────────────────────────────────
+
+function relativeTime(iso: string): string {
+  if (!iso) return "";
+  try {
+    const diff = Date.now() - new Date(iso).getTime();
+    const mins = Math.floor(diff / 60000);
+    if (mins < 1)  return "الآن";
+    if (mins < 60) return `منذ ${mins} د`;
+    const hrs = Math.floor(mins / 60);
+    if (hrs < 24)  return `منذ ${hrs} س`;
+    return `منذ ${Math.floor(hrs / 24)} يوم`;
+  } catch { return iso; }
+}
+
+function fullDate(iso: string): string {
+  if (!iso) return "";
+  try {
+    return new Date(iso).toLocaleString("ar-IQ", {
+      year: "numeric", month: "short", day: "numeric",
+      hour: "2-digit", minute: "2-digit",
+    });
+  } catch { return iso; }
+}
+
+const DEFAULT_URGENCY_THRESHOLD: Record<string, number> = {
+  confirmed: 10, preparing: 25, ready: 15,
+};
+
+const STATUS_TIMER_LABEL: Record<string, string> = {
+  confirmed: "مؤكد منذ", preparing: "في التحضير منذ", ready: "جاهز منذ",
+};
+
+// ─── Live-ticking clock hook ───────────────────────────────────────────────────
+
 function useMinuteClock(): number {
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
@@ -241,368 +264,433 @@ function useMinuteClock(): number {
   return now;
 }
 
-// ── Timer Badge for pending orders ────────────────────────────────────────────
-function TimerBadge({ createdAt }: { createdAt: string }) {
+// ─── Skeleton loading card ─────────────────────────────────────────────────────
+
+const SkeletonCard = React.memo(() => {
+  const anim = useRef(new Animated.Value(0.4)).current;
+  useEffect(() => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(anim, { toValue: 1,   duration: 800, useNativeDriver: true }),
+        Animated.timing(anim, { toValue: 0.4, duration: 800, useNativeDriver: true }),
+      ])
+    ).start();
+  }, []);
+  return (
+    <Animated.View style={[sk.card, { opacity: anim }]}>
+      <View style={sk.header}>
+        <View style={sk.idBox} />
+        <View style={sk.chipBox} />
+      </View>
+      <View style={sk.line} />
+      <View style={[sk.line, { width: "60%" }]} />
+      <View style={sk.actions}>
+        <View style={sk.btn} />
+        <View style={[sk.btn, { backgroundColor: AppColors.gray100 }]} />
+      </View>
+    </Animated.View>
+  );
+});
+
+const sk = StyleSheet.create({
+  card:    { backgroundColor: AppColors.white, borderRadius: 20, padding: 16, gap: 12, ...Shadows.sm },
+  header:  { flexDirection: "row-reverse", justifyContent: "space-between", alignItems: "center" },
+  idBox:   { width: 100, height: 18, borderRadius: 8, backgroundColor: AppColors.gray100 },
+  chipBox: { width: 70,  height: 24, borderRadius: 12, backgroundColor: AppColors.gray100 },
+  line:    { height: 14, borderRadius: 7, backgroundColor: AppColors.gray100, width: "80%" },
+  actions: { flexDirection: "row", gap: 10, marginTop: 4 },
+  btn:     { flex: 1, height: 44, borderRadius: 12, backgroundColor: AppColors.gray200 },
+});
+
+// ─── Status Chip ───────────────────────────────────────────────────────────────
+
+const StatusChip = React.memo(({ status }: { status: string }) => {
+  const cfg = STATUS_CFG[status] ?? { label: status, color: AppColors.gray500, bg: AppColors.gray100, icon: "help-circle" };
+  return (
+    <View style={[chip.wrap, { backgroundColor: cfg.bg }]}>
+      <MaterialCommunityIcons name={cfg.icon as any} size={12} color={cfg.color} />
+      <ThemedText style={[chip.text, { color: cfg.color }]}>{cfg.label}</ThemedText>
+    </View>
+  );
+});
+
+const chip = StyleSheet.create({
+  wrap: { flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 20 },
+  text: { fontFamily: FontFamily.cairoBold, fontSize: 11 },
+});
+
+// ─── Payment Badge ─────────────────────────────────────────────────────────────
+
+const PaymentBadge = React.memo(({ method }: { method?: string }) => {
+  if (!method) return null;
+  const isCash = method === "cash";
+  return (
+    <View style={[pb.wrap, { backgroundColor: isCash ? AppColors.successLight : AppColors.infoLight }]}>
+      <MaterialCommunityIcons
+        name={isCash ? "cash" : "credit-card-outline"}
+        size={12}
+        color={isCash ? AppColors.success : AppColors.info}
+      />
+      <ThemedText style={[pb.text, { color: isCash ? AppColors.success : AppColors.info }]}>
+        {isCash ? "كاش" : method === "card" ? "بطاقة" : method}
+      </ThemedText>
+    </View>
+  );
+});
+
+const pb = StyleSheet.create({
+  wrap: { flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 10 },
+  text: { fontFamily: FontFamily.cairoBold, fontSize: 11 },
+});
+
+// ─── Timer Badge ───────────────────────────────────────────────────────────────
+
+const TimerBadge = React.memo(({ createdAt }: { createdAt: string }) => {
   const now = useMinuteClock();
   const mins = Math.floor((now - new Date(createdAt).getTime()) / 60000);
   const urgent = mins >= 5;
   return (
-    <View style={[timerStyles.badge, { backgroundColor: urgent ? AppColors.errorLight : AppColors.warningLight }]}>
-      <MaterialCommunityIcons name="timer-outline" size={13} color={urgent ? AppColors.error : AppColors.warning} />
-      <ThemedText style={[timerStyles.text, { color: urgent ? AppColors.error : AppColors.warning }]}>
-        {mins < 1 ? "أقل من دقيقة" : `${mins} دقيقة`}
+    <View style={[tb.wrap, { backgroundColor: urgent ? AppColors.errorLight : AppColors.warningLight }]}>
+      <MaterialCommunityIcons name="timer-outline" size={12} color={urgent ? AppColors.error : AppColors.warning} />
+      <ThemedText style={[tb.text, { color: urgent ? AppColors.error : AppColors.warning }]}>
+        {mins < 1 ? "< دقيقة" : `${mins} د`}
       </ThemedText>
     </View>
   );
-}
-const timerStyles = StyleSheet.create({
-  badge: { flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10 },
-  text: { fontFamily: "Cairo_700Bold", fontSize: 11 },
 });
 
-const etaBadgeStyles = StyleSheet.create({
-  badge: { flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10, backgroundColor: AppColors.successLight },
-  text: { fontFamily: "Cairo_700Bold", fontSize: 11, color: AppColors.success },
+const tb = StyleSheet.create({
+  wrap: { flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 10 },
+  text: { fontFamily: FontFamily.cairoBold, fontSize: 11 },
 });
 
-// ── Default per-status urgency thresholds (minutes) — overridden by server config ──
-const DEFAULT_URGENCY_THRESHOLD: Record<string, number> = {
-  confirmed: 10,
-  preparing: 25,
-  ready:     15,
-};
+// ─── Status Timer Badge ────────────────────────────────────────────────────────
 
-// Labels shown in the status timer badge for each status
-const STATUS_TIMER_LABEL: Record<string, string> = {
-  confirmed: "مؤكد منذ",
-  preparing: "في التحضير منذ",
-  ready:     "جاهز منذ",
-};
-
-// ── Status-specific elapsed timer badge ──────────────────────────────────────
-function StatusTimerBadge({
-  status,
-  statusAt,
-  thresholds,
-}: {
-  status: string;
-  statusAt: string;
-  thresholds: Record<string, number>;
-}) {
+const StatusTimerBadge = React.memo(({
+  status, statusAt, thresholds,
+}: { status: string; statusAt: string; thresholds: Record<string, number> }) => {
   const now = useMinuteClock();
   if (!statusAt) return null;
   const label = STATUS_TIMER_LABEL[status];
   if (!label) return null;
-
   const mins = Math.floor((now - new Date(statusAt).getTime()) / 60000);
   const threshold = thresholds[status] ?? DEFAULT_URGENCY_THRESHOLD[status] ?? 15;
   const urgent = mins >= threshold;
-
-  const normalColor = AppColors.statusPurple;
-  const normalBg = AppColors.vendorPurpleLight;
-
+  const color = urgent ? AppColors.error : AppColors.primary;
+  const bg    = urgent ? AppColors.errorLight : AppColors.secondary;
   return (
-    <View style={[statusTimerStyles.badge, { backgroundColor: urgent ? AppColors.errorLight : normalBg }]}>
-      <MaterialCommunityIcons name="clock-alert-outline" size={13} color={urgent ? AppColors.error : normalColor} />
-      <ThemedText style={[statusTimerStyles.text, { color: urgent ? AppColors.error : normalColor }]}>
-        {label} {mins < 1 ? "أقل من دقيقة" : `${mins} دقيقة`}
+    <View style={[stb.wrap, { backgroundColor: bg }]}>
+      <MaterialCommunityIcons name="clock-alert-outline" size={12} color={color} />
+      <ThemedText style={[stb.text, { color }]}>
+        {label} {mins < 1 ? "أقل من دقيقة" : `${mins} د`}
       </ThemedText>
     </View>
   );
-}
-const statusTimerStyles = StyleSheet.create({
-  badge: { flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10 },
-  text: { fontFamily: "Cairo_700Bold", fontSize: 11 },
 });
 
-// ── Progress steps ────────────────────────────────────────────────────────────
-const STEPS = ["pending", "confirmed", "preparing", "ready", "delivering", "delivered"];
-function ProgressBar({ status }: { status: string }) {
-  const idx = STEPS.indexOf(status);
-  if (idx < 0 || status === "cancelled") return null;
+const stb = StyleSheet.create({
+  wrap: { flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 10 },
+  text: { fontFamily: FontFamily.cairoBold, fontSize: 11 },
+});
+
+// ─── Order Timeline (replaces ProgressBar) ────────────────────────────────────
+
+const TIMELINE_STEPS = [
+  { key: "pending",   label: "وصل",    icon: "bell"            },
+  { key: "confirmed", label: "قُبل",   icon: "check"           },
+  { key: "preparing", label: "يتحضر",  icon: "chef-hat"        },
+  { key: "ready",     label: "جاهز",   icon: "package-variant-closed-check" },
+  { key: "delivering",label: "يُوصَّل", icon: "moped"           },
+  { key: "delivered", label: "وصل",    icon: "check-all"       },
+];
+
+const OrderTimeline = React.memo(({ status }: { status: string }) => {
+  if (status === "cancelled") return null;
+  const idx = TIMELINE_STEPS.findIndex(s => s.key === status);
+  const active = idx < 0 ? 0 : idx;
   return (
-    <View style={progressStyles.row}>
-      {STEPS.slice(0, 6).map((s, i) => {
-        const done = i <= idx;
+    <View style={tl.row}>
+      {TIMELINE_STEPS.map((step, i) => {
+        const done    = i <= active;
+        const current = i === active;
         return (
-          <React.Fragment key={s}>
-            <View style={[progressStyles.dot, done ? progressStyles.dotActive : progressStyles.dotInactive]}>
-              {done ? <MaterialCommunityIcons name="check" size={8} color={AppColors.white} /> : null}
+          <React.Fragment key={step.key}>
+            <View style={tl.step}>
+              <View style={[
+                tl.dot,
+                done    ? { backgroundColor: ORANGE }          : { backgroundColor: AppColors.gray200 },
+                current ? { borderWidth: 2, borderColor: ORANGE + "50" } : {},
+              ]}>
+                <MaterialCommunityIcons
+                  name={step.icon as any}
+                  size={9}
+                  color={done ? AppColors.white : AppColors.gray400}
+                />
+              </View>
+              <ThemedText style={[tl.label, { color: done ? ORANGE : AppColors.gray300 }]}>
+                {step.label}
+              </ThemedText>
             </View>
-            {i < 5 ? <View style={[progressStyles.line, done && i < idx ? progressStyles.lineActive : {}]} /> : null}
+            {i < TIMELINE_STEPS.length - 1 && (
+              <View style={[tl.line, { backgroundColor: i < active ? ORANGE : AppColors.gray200 }]} />
+            )}
           </React.Fragment>
         );
       })}
     </View>
   );
-}
-const progressStyles = StyleSheet.create({
-  row: { flexDirection: "row-reverse", alignItems: "center", marginBottom: 12 },
-  dot: { width: 16, height: 16, borderRadius: 8, justifyContent: "center", alignItems: "center" },
-  dotActive: { backgroundColor: ORANGE },
-  dotInactive: { backgroundColor: AppColors.divider },
-  line: { flex: 1, height: 2, backgroundColor: AppColors.divider },
-  lineActive: { backgroundColor: ORANGE },
 });
 
-// ── Order Card ─────────────────────────────────────────────────────────────────
-function OrderCard({
-  order,
-  onUpdateStatus,
-  onPrint,
-  updatingId,
-  urgencyThresholds,
+const tl = StyleSheet.create({
+  row:   { flexDirection: "row-reverse", alignItems: "flex-start", paddingHorizontal: 16, paddingTop: 14, paddingBottom: 6 },
+  step:  { alignItems: "center", gap: 4 },
+  dot:   { width: 22, height: 22, borderRadius: 11, justifyContent: "center", alignItems: "center" },
+  line:  { flex: 1, height: 2, marginTop: 10, marginHorizontal: 2 },
+  label: { fontFamily: FontFamily.tajawal, fontSize: 9, textAlign: "center" },
+});
+
+// ─── Driver Banner ─────────────────────────────────────────────────────────────
+
+const DriverSection = React.memo(({ order }: { order: VendorOrder }) => {
+  if (order.status === "ready") {
+    return (
+      <View style={[ds.banner, { backgroundColor: AppColors.infoLight }]}>
+        <MaterialCommunityIcons name="moped" size={18} color={AppColors.statusCyan} />
+        <ThemedText style={[ds.bannerText, { color: AppColors.statusCyan }]}>
+          في انتظار السائق لاستلام الطلب
+        </ThemedText>
+      </View>
+    );
+  }
+  if ((order.status === "picked_up" || order.status === "delivering") && order.driverName) {
+    return (
+      <View style={[ds.card, { backgroundColor: AppColors.infoLight }]}>
+        <View style={[ds.avatar, { backgroundColor: AppColors.statusCyan }]}>
+          <MaterialCommunityIcons name="moped" size={16} color={AppColors.white} />
+        </View>
+        <View style={{ flex: 1 }}>
+          <ThemedText style={ds.name}>{order.driverName}</ThemedText>
+          <ThemedText style={ds.sub}>
+            {order.status === "picked_up" ? "استلم الطلب · في الطريق للزبون" : "في الطريق إلى الزبون"}
+          </ThemedText>
+          {order.driverPhone ? <ThemedText style={ds.phone}>{order.driverPhone}</ThemedText> : null}
+        </View>
+        <MaterialCommunityIcons name="navigation" size={16} color={AppColors.statusCyan} />
+      </View>
+    );
+  }
+  if (order.status === "picked_up" || order.status === "delivering") {
+    return (
+      <View style={[ds.banner, { backgroundColor: AppColors.infoLight }]}>
+        <MaterialCommunityIcons name="navigation" size={16} color={AppColors.info} />
+        <ThemedText style={[ds.bannerText, { color: AppColors.info }]}>
+          السائق في الطريق إلى العميل
+        </ThemedText>
+      </View>
+    );
+  }
+  return null;
+});
+
+const ds = StyleSheet.create({
+  banner:     { flexDirection: "row-reverse", alignItems: "center", gap: 8, marginHorizontal: 14, marginVertical: 6, paddingVertical: 10, paddingHorizontal: 12, borderRadius: 14 },
+  bannerText: { fontFamily: FontFamily.cairoBold, fontSize: 13, flex: 1, textAlign: "right" },
+  card:       { flexDirection: "row-reverse", alignItems: "center", gap: 10, marginHorizontal: 14, marginVertical: 6, paddingVertical: 10, paddingHorizontal: 12, borderRadius: 14 },
+  avatar:     { width: 34, height: 34, borderRadius: 17, justifyContent: "center", alignItems: "center" },
+  name:       { fontFamily: FontFamily.cairoBold, fontSize: 14, color: AppColors.info, textAlign: "right" },
+  sub:        { fontFamily: FontFamily.tajawal, fontSize: 11, color: AppColors.statusCyan, textAlign: "right", marginTop: 1 },
+  phone:      { fontFamily: FontFamily.tajawal, fontSize: 11, color: AppColors.gray500, textAlign: "right", marginTop: 1 },
+});
+
+// ─── Order Card ────────────────────────────────────────────────────────────────
+
+const OrderCard = React.memo(({
+  order, onUpdateStatus, onPrint, updatingId, urgencyThresholds,
 }: {
   order: VendorOrder;
   onUpdateStatus: (id: string, status: string) => void;
   onPrint: (order: VendorOrder) => void;
   updatingId: string | null;
   urgencyThresholds: Record<string, number>;
-}) {
+}) => {
   const { theme } = useTheme();
   const [expanded, setExpanded] = useState(true);
-  const cfg = STATUS_CFG[order.status] ?? { label: order.status, color: AppColors.gray500, bg: AppColors.gray100, icon: "help" };
-  const actions = getActions(order.status);
-  const vendorTotal = order.vendorSubtotal ?? order.restaurantSubtotal ?? order.total;
-  const displayName = order.customerName || order.customerPhone || order.phoneNumber || "عميل";
-  const isUpdating = updatingId === order.id;
 
-  const statusAtKey = `vendorStatusAt_${order.status}` as keyof VendorOrder;
+  const cfg        = STATUS_CFG[order.status] ?? { label: order.status, color: AppColors.gray500, bg: AppColors.gray100, icon: "help" };
+  const actions    = getActions(order.status);
+  const vendorTotal= order.vendorSubtotal ?? order.restaurantSubtotal ?? order.total;
+  const displayName= order.customerName || order.customerPhone || order.phoneNumber || "عميل";
+  const isUpdating = updatingId === order.id;
+  const isPending  = order.status === "pending";
+
+  const statusAtKey     = `vendorStatusAt_${order.status}` as keyof VendorOrder;
   const currentStatusAt = (order[statusAtKey] as string | undefined) ?? "";
 
   return (
     <View style={[
-      cardStyles.card,
+      oc.card,
       { backgroundColor: theme.backgroundDefault },
-      order.status === "pending" && cardStyles.cardPending,
+      isPending && oc.cardPending,
     ]}>
-      {/* ── Card Header ── */}
-      <View style={[cardStyles.header, { borderLeftColor: cfg.color, borderLeftWidth: 4 }]}>
+      {/* Left accent bar */}
+      <View style={[oc.accentBar, { backgroundColor: cfg.color }]} />
+
+      {/* ── Header ── */}
+      <Pressable
+        style={oc.header}
+        onPress={() => setExpanded(e => !e)}
+        accessibilityRole="button"
+        accessibilityLabel={expanded ? "طي الطلب" : "توسيع الطلب"}
+      >
+        {/* Right: ID + status + meta */}
         <View style={{ flex: 1 }}>
-          <View style={cardStyles.headerTop}>
-            <ThemedText style={[cardStyles.orderId, { color: theme.text }]}>
+          <View style={oc.headerTop}>
+            <ThemedText style={oc.orderId}>
               #{order.id.slice(-8).toUpperCase()}
             </ThemedText>
-            <View style={[cardStyles.statusBadge, { backgroundColor: cfg.bg }]}>
-              <MaterialCommunityIcons name={cfg.icon as any} size={13} color={cfg.color} />
-              <ThemedText style={[cardStyles.statusText, { color: cfg.color }]}>{cfg.label}</ThemedText>
-            </View>
+            <StatusChip status={order.status} />
           </View>
-          <View style={cardStyles.headerMeta}>
-            <ThemedText style={cardStyles.timeText}>{relativeTime(order.createdAt)}</ThemedText>
-            {order.status === "pending" ? <TimerBadge createdAt={order.createdAt} /> : null}
-            {currentStatusAt.length > 0 ? (
+          <View style={oc.metaRow}>
+            <Feather name="clock" size={12} color={AppColors.gray400} />
+            <ThemedText style={oc.timeText}>{relativeTime(order.createdAt)}</ThemedText>
+            <ThemedText style={oc.dot}>·</ThemedText>
+            <ThemedText style={oc.itemCount}>{order.items?.length ?? 0} منتج</ThemedText>
+            {isPending && <TimerBadge createdAt={order.createdAt} />}
+            {currentStatusAt.length > 0 && (
               <StatusTimerBadge status={order.status} statusAt={currentStatusAt} thresholds={urgencyThresholds} />
-            ) : null}
+            )}
+          </View>
+          <View style={oc.badgeRow}>
+            <PaymentBadge method={order.paymentMethod} />
             {order.estimatedMinutes && order.estimatedMinutes > 0 ? (
-              <View style={etaBadgeStyles.badge}>
-                <MaterialCommunityIcons name="clock-fast" size={13} color={AppColors.success} />
-                <ThemedText style={etaBadgeStyles.text}>{order.estimatedMinutes} دقيقة</ThemedText>
-              </View>
-            ) : null}
-            {order.paymentMethod ? (
-              <View style={cardStyles.paymentBadge}>
-                <MaterialCommunityIcons
-                  name={order.paymentMethod === "cash" ? "cash" : "credit-card-outline"}
-                  size={13}
-                  color={AppColors.gray500}
-                />
-                <ThemedText style={cardStyles.paymentText}>
-                  {order.paymentMethod === "cash" ? "كاش" : order.paymentMethod === "card" ? "بطاقة" : order.paymentMethod}
-                </ThemedText>
+              <View style={oc.etaBadge}>
+                <MaterialCommunityIcons name="clock-fast" size={12} color={AppColors.success} />
+                <ThemedText style={oc.etaText}>{order.estimatedMinutes} د</ThemedText>
               </View>
             ) : null}
           </View>
         </View>
-        <Pressable onPress={() => setExpanded(!expanded)} style={cardStyles.expandBtn}>
+
+        {/* Left: total + expand */}
+        <View style={oc.headerRight}>
+          <ThemedText style={oc.totalText}>{order.total.toLocaleString("ar-IQ")}</ThemedText>
+          <ThemedText style={oc.totalUnit}>د.ع</ThemedText>
           <MaterialCommunityIcons
             name={expanded ? "chevron-up" : "chevron-down"}
             size={20}
-            color={theme.textSecondary}
+            color={AppColors.gray400}
+            style={{ marginTop: 4 }}
           />
-        </Pressable>
-      </View>
+        </View>
+      </Pressable>
 
-      {expanded ? (
+      {expanded && (
         <>
-          {/* Progress bar */}
-          <View style={{ paddingHorizontal: 16, paddingTop: 12 }}>
-            <ProgressBar status={order.status} />
-          </View>
+          {/* Timeline */}
+          <OrderTimeline status={order.status} />
 
-          {/* Customer info */}
-          <View style={cardStyles.customerSection}>
-            <View style={[cardStyles.customerCard, { backgroundColor: ORANGE + "08", borderColor: ORANGE + "22" }]}>
-              <View style={[cardStyles.customerAvatar, { backgroundColor: ORANGE + "18" }]}>
-                <MaterialCommunityIcons name="account" size={20} color={ORANGE} />
+          {/* Divider */}
+          <View style={[oc.divider, { backgroundColor: AppColors.gray100 }]} />
+
+          {/* ── Customer ── */}
+          <View style={oc.section}>
+            <View style={[oc.customerRow, { backgroundColor: ORANGE + "08", borderColor: ORANGE + "20" }]}>
+              <View style={[oc.customerAvatar, { backgroundColor: ORANGE + "18" }]}>
+                <MaterialCommunityIcons name="account" size={18} color={ORANGE} />
               </View>
               <View style={{ flex: 1 }}>
-                <ThemedText style={[cardStyles.customerName, { color: theme.text }]}>{displayName}</ThemedText>
+                <ThemedText style={oc.customerName}>{displayName}</ThemedText>
                 {(order.customerPhone || order.phoneNumber) ? (
-                  <ThemedText style={[cardStyles.customerPhone, { color: theme.textSecondary }]}>
+                  <ThemedText style={oc.customerPhone}>
                     {order.customerPhone || order.phoneNumber}
                   </ThemedText>
                 ) : null}
               </View>
-              <MaterialCommunityIcons name="account-circle" size={14} color={ORANGE} style={{ opacity: 0.5 }} />
             </View>
             {order.address ? (
-              <View style={cardStyles.infoRow}>
-                <MaterialCommunityIcons name="map-marker-outline" size={15} color={theme.textSecondary} />
-                <ThemedText style={[cardStyles.infoText, { color: theme.textSecondary }]} numberOfLines={2}>
-                  {order.address}
-                </ThemedText>
+              <View style={oc.infoRow}>
+                <Feather name="map-pin" size={13} color={AppColors.gray400} />
+                <ThemedText style={oc.infoText} numberOfLines={2}>{order.address}</ThemedText>
               </View>
             ) : null}
-            <View style={cardStyles.infoRow}>
-              <MaterialCommunityIcons name="clock-outline" size={15} color={theme.textSecondary} />
-              <ThemedText style={[cardStyles.infoText, { color: theme.textSecondary }]}>{fullDate(order.createdAt)}</ThemedText>
+            <View style={oc.infoRow}>
+              <Feather name="calendar" size={13} color={AppColors.gray400} />
+              <ThemedText style={oc.infoText}>{fullDate(order.createdAt)}</ThemedText>
             </View>
             {order.notes ? (
-              <View style={[cardStyles.notesRow, { backgroundColor: AppColors.warningLight, borderColor: AppColors.warning }]}>
+              <View style={[oc.notesBox, { backgroundColor: AppColors.warningLight, borderColor: AppColors.warning + "50" }]}>
                 <MaterialCommunityIcons name="note-text-outline" size={14} color={AppColors.warning} />
-                <ThemedText style={cardStyles.notesText} numberOfLines={3}>{order.notes}</ThemedText>
+                <ThemedText style={oc.notesText} numberOfLines={3}>{order.notes}</ThemedText>
               </View>
             ) : null}
           </View>
 
-          <View style={[cardStyles.divider, { backgroundColor: theme.border ?? AppColors.gray100 }]} />
+          <View style={[oc.divider, { backgroundColor: AppColors.gray100 }]} />
 
-          {/* Items with images */}
-          <View style={cardStyles.itemsSection}>
-            <ThemedText style={[cardStyles.sectionLabel, { color: theme.text }]}>
-              المنتجات المطلوبة ({order.items?.length ?? 0})
+          {/* ── Items ── */}
+          <View style={oc.section}>
+            <ThemedText style={oc.sectionLabel}>
+              المنتجات ({order.items?.length ?? 0})
             </ThemedText>
             {Array.isArray(order.items) && order.items.map((item, i) => (
-              <View key={i} style={[cardStyles.itemRow, { borderBottomColor: theme.border ?? AppColors.gray100 }]}>
-                {/* Product image / placeholder */}
+              <View key={i} style={[
+                oc.itemRow,
+                i < order.items.length - 1 && { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: AppColors.gray100 },
+              ]}>
                 {item.imageUrl ? (
-                  <Image
-                    source={{ uri: item.imageUrl }}
-                    style={cardStyles.itemImage}
-                    resizeMode="cover"
-                  />
+                  <Image source={{ uri: item.imageUrl }} style={oc.itemImg} resizeMode="cover" />
                 ) : (
-                  <View style={[cardStyles.itemImagePlaceholder, { backgroundColor: ORANGE + "12" }]}>
-                    <MaterialCommunityIcons name="food" size={18} color={ORANGE} style={{ opacity: 0.6 }} />
+                  <View style={[oc.itemImgPlaceholder, { backgroundColor: ORANGE + "10" }]}>
+                    <MaterialCommunityIcons name="food" size={16} color={ORANGE} style={{ opacity: 0.6 }} />
                   </View>
                 )}
-                {/* Qty badge */}
-                <View style={[cardStyles.itemQtyBadge, { backgroundColor: ORANGE + "15" }]}>
-                  <ThemedText style={[cardStyles.itemQtyText, { color: ORANGE }]}>×{item.quantity}</ThemedText>
+                <View style={[oc.qtyBadge, { backgroundColor: ORANGE + "15" }]}>
+                  <ThemedText style={[oc.qtyText, { color: ORANGE }]}>×{item.quantity}</ThemedText>
                 </View>
-                {/* Name */}
-                <ThemedText style={[cardStyles.itemName, { color: theme.text }]} numberOfLines={2}>
-                  {item.name}
-                </ThemedText>
-                {/* Price */}
-                <ThemedText style={[cardStyles.itemPrice, { color: ORANGE }]}>
-                  {((item.price || 0) * (item.quantity || 1)).toLocaleString("ar-IQ")}
-                  {"\n"}
-                  <ThemedText style={{ fontSize: 10, color: theme.textSecondary }}>د.ع</ThemedText>
+                <ThemedText style={oc.itemName} numberOfLines={2}>{item.name}</ThemedText>
+                <ThemedText style={[oc.itemPrice, { color: ORANGE }]}>
+                  {((item.price || 0) * (item.quantity || 1)).toLocaleString("ar-IQ")} د.ع
                 </ThemedText>
               </View>
             ))}
           </View>
 
-          {/* Cost breakdown */}
-          <View style={[cardStyles.breakdownBox, { backgroundColor: ORANGE + "06", borderColor: ORANGE + "20" }]}>
-            {/* Vendor subtotal */}
-            <View style={cardStyles.breakdownRow}>
-              <MaterialCommunityIcons name="store-outline" size={14} color={ORANGE} />
-              <ThemedText style={[cardStyles.breakdownLabel, { color: theme.text }]}>إجمالي المتجر</ThemedText>
-              <ThemedText style={[cardStyles.breakdownAmount, { color: ORANGE }]}>
-                {vendorTotal.toLocaleString("ar-IQ")} د.ع
-              </ThemedText>
-            </View>
-            {/* Delivery fee */}
-            {order.deliveryFee !== undefined && order.deliveryFee > 0 ? (
-              <View style={cardStyles.breakdownRow}>
-                <MaterialCommunityIcons name="moped-outline" size={14} color={theme.textSecondary} />
-                <ThemedText style={[cardStyles.breakdownLabel, { color: theme.textSecondary }]}>رسوم التوصيل</ThemedText>
-                <ThemedText style={[cardStyles.breakdownAmount, { color: theme.textSecondary }]}>
-                  {(order.deliveryFee).toLocaleString("ar-IQ")} د.ع
-                </ThemedText>
-              </View>
-            ) : null}
-            {/* Service fee */}
-            {order.serviceFee !== undefined && order.serviceFee > 0 ? (
-              <View style={cardStyles.breakdownRow}>
-                <MaterialCommunityIcons name="shield-check-outline" size={14} color={AppColors.gray500} />
-                <View style={{ flex: 1 }}>
-                  <ThemedText style={[cardStyles.breakdownLabel, { color: AppColors.gray500 }]}>رسوم الخدمة</ThemedText>
-                  <ThemedText style={cardStyles.breakdownNote}>تذهب للتطبيق</ThemedText>
-                </View>
-                <ThemedText style={[cardStyles.breakdownAmount, { color: AppColors.gray500 }]}>
-                  {(order.serviceFee).toLocaleString("ar-IQ")} د.ع
-                </ThemedText>
-              </View>
-            ) : null}
-            {/* Divider + grand total */}
-            {(order.deliveryFee !== undefined && order.deliveryFee > 0) || (order.serviceFee !== undefined && order.serviceFee > 0) ? (
+          {/* ── Cost breakdown ── */}
+          <View style={[oc.breakdown, { backgroundColor: ORANGE + "06", borderColor: ORANGE + "15" }]}>
+            <CostRow
+              icon="store-outline"
+              label="إجمالي المتجر"
+              amount={vendorTotal}
+              color={ORANGE}
+              bold
+            />
+            {order.deliveryFee !== undefined && order.deliveryFee > 0 && (
+              <CostRow icon="moped-outline" label="رسوم التوصيل" amount={order.deliveryFee} color={AppColors.gray500} />
+            )}
+            {order.serviceFee !== undefined && order.serviceFee > 0 && (
+              <CostRow icon="shield-check-outline" label="رسوم الخدمة" amount={order.serviceFee} color={AppColors.gray400} note="تذهب للتطبيق" />
+            )}
+            {((order.deliveryFee !== undefined && order.deliveryFee > 0) || (order.serviceFee !== undefined && order.serviceFee > 0)) && (
               <>
-                <View style={[cardStyles.breakdownDivider, { backgroundColor: ORANGE + "25" }]} />
-                <View style={cardStyles.breakdownRow}>
-                  <MaterialCommunityIcons name="cash-multiple" size={14} color={ORANGE} />
-                  <ThemedText style={[cardStyles.breakdownLabel, { color: theme.text, fontFamily: "Cairo_700Bold" }]}>إجمالي الزبون</ThemedText>
-                  <ThemedText style={[cardStyles.breakdownAmount, { color: ORANGE, fontFamily: "Cairo_700Bold", fontSize: 15 }]}>
-                    {(order.total).toLocaleString("ar-IQ")} د.ع
-                  </ThemedText>
-                </View>
+                <View style={[oc.breakdownDivider, { backgroundColor: ORANGE + "20" }]} />
+                <CostRow icon="cash-multiple" label="إجمالي الزبون" amount={order.total} color={ORANGE} bold large />
               </>
-            ) : null}
+            )}
           </View>
 
-          {/* Driver info section */}
-          {order.status === "ready" ? (
-            <View style={[cardStyles.driverBanner, { backgroundColor: AppColors.infoLight }]}>
-              <MaterialCommunityIcons name="moped" size={20} color={AppColors.statusCyan} />
-              <View style={{ flex: 1 }}>
-                <ThemedText style={[cardStyles.driverBannerText, { color: AppColors.statusCyan }]}>
-                  في انتظار السائق لاستلام الطلب
-                </ThemedText>
-              </View>
-            </View>
-          ) : (order.status === "picked_up" || order.status === "delivering") && order.driverName ? (
-            <View style={[cardStyles.driverCard, { backgroundColor: AppColors.infoLight, borderColor: AppColors.infoLight }]}>
-              <View style={[cardStyles.driverAvatar, { backgroundColor: AppColors.statusCyan }]}>
-                <MaterialCommunityIcons name="moped" size={18} color={AppColors.white} />
-              </View>
-              <View style={{ flex: 1 }}>
-                <ThemedText style={[cardStyles.driverName, { color: AppColors.info }]}>
-                  {order.driverName}
-                </ThemedText>
-                <ThemedText style={[cardStyles.driverSub, { color: AppColors.statusCyan }]}>
-                  {order.status === "picked_up" ? "استلم الطلب · في الطريق للزبون" : "في الطريق إلى الزبون"}
-                </ThemedText>
-                {order.driverPhone ? (
-                  <ThemedText style={[cardStyles.driverSub, { color: AppColors.gray500, marginTop: 1 }]}>
-                    {order.driverPhone}
-                  </ThemedText>
-                ) : null}
-              </View>
-              <MaterialCommunityIcons name="navigation" size={18} color={AppColors.statusCyan} />
-            </View>
-          ) : (order.status === "picked_up" || order.status === "delivering") ? (
-            <View style={[cardStyles.driverBanner, { backgroundColor: AppColors.infoLight }]}>
-              <MaterialCommunityIcons name="navigation" size={18} color={AppColors.info} />
-              <ThemedText style={[cardStyles.driverBannerText, { color: AppColors.info }]}>
-                السائق في الطريق إلى العميل
-              </ThemedText>
-            </View>
-          ) : null}
+          {/* ── Driver ── */}
+          <DriverSection order={order} />
 
-          {/* Action buttons */}
-          {actions.length > 0 ? (
-            <View style={cardStyles.actionsRow}>
+          {/* ── Action Buttons ── */}
+          {actions.length > 0 && (
+            <View style={oc.actionsRow}>
               {actions.map((a) => (
                 <Pressable
                   key={a.nextStatus}
-                  style={[
-                    cardStyles.actionBtn,
-                    a.primary ? cardStyles.actionBtnPrimary : cardStyles.actionBtnSecondary,
-                    { backgroundColor: a.bg },
-                    isUpdating && { opacity: 0.6 },
+                  style={({ pressed }) => [
+                    oc.actionBtn,
+                    { backgroundColor: a.bg, opacity: pressed || isUpdating ? 0.75 : 1 },
+                    a.primary && Shadows.sm,
                   ]}
                   onPress={() => {
                     if (isUpdating) return;
@@ -615,173 +703,201 @@ function OrderCard({
                   {isUpdating && a.primary ? (
                     <ActivityIndicator size="small" color={a.color} />
                   ) : (
-                    <MaterialCommunityIcons name={a.icon as any} size={16} color={a.color} />
+                    <MaterialCommunityIcons name={a.icon as any} size={18} color={a.color} />
                   )}
-                  <ThemedText style={[cardStyles.actionBtnText, { color: a.color }]}>
-                    {a.label}
-                  </ThemedText>
+                  <ThemedText style={[oc.actionText, { color: a.color }]}>{a.label}</ThemedText>
                 </Pressable>
               ))}
             </View>
-          ) : null}
+          )}
 
-          {/* Print button — visible for all accepted orders */}
-          {order.status !== "pending" && order.status !== "cancelled" ? (
+          {/* ── Print ── */}
+          {order.status !== "pending" && order.status !== "cancelled" && (
             <Pressable
-              style={cardStyles.printBtn}
-              onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                onPrint(order);
-              }}
+              style={oc.printBtn}
+              onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); onPrint(order); }}
               testID={`btn-print-${order.id}`}
             >
-              <MaterialCommunityIcons name="printer-outline" size={16} color={AppColors.gray500} />
-              <ThemedText style={cardStyles.printBtnText}>طباعة الوصل</ThemedText>
+              <MaterialCommunityIcons name="printer-outline" size={15} color={AppColors.gray500} />
+              <ThemedText style={oc.printText}>طباعة الوصل</ThemedText>
             </Pressable>
-          ) : null}
+          )}
         </>
-      ) : null}
+      )}
     </View>
   );
-}
+});
 
-// ── ETA quick-pick options ─────────────────────────────────────────────────────
+// ─── Cost Row helper ───────────────────────────────────────────────────────────
+
+const CostRow = React.memo(({
+  icon, label, amount, color, bold, large, note,
+}: {
+  icon: string; label: string; amount: number;
+  color: string; bold?: boolean; large?: boolean; note?: string;
+}) => (
+  <View style={cr.row}>
+    <MaterialCommunityIcons name={icon as any} size={14} color={color} />
+    <View style={{ flex: 1 }}>
+      <ThemedText style={[cr.label, bold && { fontFamily: FontFamily.cairoBold }, { color: AppColors.gray700 }]}>
+        {label}
+      </ThemedText>
+      {note ? <ThemedText style={cr.note}>{note}</ThemedText> : null}
+    </View>
+    <ThemedText style={[cr.amount, { color }, bold && { fontFamily: FontFamily.cairoBold }, large && { fontSize: 15 }]}>
+      {amount.toLocaleString("ar-IQ")} د.ع
+    </ThemedText>
+  </View>
+));
+
+const cr = StyleSheet.create({
+  row:    { flexDirection: "row-reverse", alignItems: "center", gap: 8 },
+  label:  { fontFamily: FontFamily.tajawal, fontSize: 13, textAlign: "right" },
+  note:   { fontFamily: FontFamily.tajawal, fontSize: 10, color: AppColors.gray400, textAlign: "right" },
+  amount: { fontFamily: FontFamily.cairoMedium, fontSize: 13 },
+});
+
+// ─── ETA Options ───────────────────────────────────────────────────────────────
+
 const ETA_OPTIONS = [15, 30, 45, 60];
 
-// ── Accept with ETA modal ──────────────────────────────────────────────────────
 function ETAModal({
-  visible,
-  onConfirm,
-  onCancel,
-}: {
-  visible: boolean;
-  onConfirm: (estimatedMinutes: number | undefined) => void;
-  onCancel: () => void;
-}) {
+  visible, onConfirm, onCancel,
+}: { visible: boolean; onConfirm: (mins?: number) => void; onCancel: () => void }) {
   const [selected, setSelected] = useState<number | null>(null);
-
-  const handleConfirm = () => {
-    onConfirm(selected ?? undefined);
-    setSelected(null);
-  };
-
-  const handleCancel = () => {
-    setSelected(null);
-    onCancel();
-  };
+  const handleConfirm = () => { onConfirm(selected ?? undefined); setSelected(null); };
+  const handleCancel  = () => { setSelected(null); onCancel(); };
 
   return (
-    <Modal transparent visible={visible} animationType="fade">
-      <View style={modalStyles.overlay}>
-        <View style={modalStyles.box}>
-          <MaterialCommunityIcons name="clock-outline" size={44} color={AppColors.success} style={{ alignSelf: "center" }} />
-          <ThemedText style={modalStyles.title}>قبول الطلب</ThemedText>
-          <ThemedText style={modalStyles.subtitle}>كم تحتاج من الوقت لتحضير هذا الطلب؟</ThemedText>
-          <View style={etaStyles.optionRow}>
+    <Modal transparent visible={visible} animationType="slide">
+      <View style={md.overlay}>
+        <View style={md.sheet}>
+          <View style={md.handle} />
+          <View style={[md.iconCircle, { backgroundColor: AppColors.successLight }]}>
+            <MaterialCommunityIcons name="clock-outline" size={32} color={AppColors.success} />
+          </View>
+          <ThemedText style={md.title}>قبول الطلب</ThemedText>
+          <ThemedText style={md.subtitle}>كم تحتاج من الوقت لتحضير هذا الطلب؟</ThemedText>
+          <View style={md.optionRow}>
             {ETA_OPTIONS.map((mins) => {
-              const isSelected = selected === mins;
+              const sel = selected === mins;
               return (
                 <Pressable
                   key={mins}
-                  style={[etaStyles.option, isSelected && etaStyles.optionSelected]}
-                  onPress={() => setSelected(isSelected ? null : mins)}
+                  style={[md.option, sel && { backgroundColor: AppColors.successLight, borderColor: AppColors.success }]}
+                  onPress={() => setSelected(sel ? null : mins)}
                   testID={`eta-option-${mins}`}
                 >
-                  <ThemedText style={[etaStyles.optionText, isSelected && etaStyles.optionTextSelected]}>
-                    {mins}
-                  </ThemedText>
-                  <ThemedText style={[etaStyles.optionUnit, isSelected && etaStyles.optionTextSelected]}>
-                    د
-                  </ThemedText>
+                  <ThemedText style={[md.optionVal, sel && { color: AppColors.success }]}>{mins}</ThemedText>
+                  <ThemedText style={[md.optionUnit, sel && { color: AppColors.success }]}>د</ThemedText>
                 </Pressable>
               );
             })}
           </View>
-          <View style={modalStyles.btns}>
-            <Pressable
-              style={[modalStyles.btn, { backgroundColor: AppColors.success }]}
-              onPress={handleConfirm}
-              testID="btn-eta-confirm"
-            >
-              <ThemedText style={modalStyles.btnText}>
-                {selected ? `قبول (${selected} دقيقة)` : "قبول بدون تحديد وقت"}
-              </ThemedText>
-            </Pressable>
-            <Pressable style={[modalStyles.btn, { backgroundColor: AppColors.gray100 }]} onPress={handleCancel} testID="btn-eta-cancel">
-              <ThemedText style={[modalStyles.btnText, { color: AppColors.gray700 }]}>تراجع</ThemedText>
-            </Pressable>
-          </View>
+          <Pressable style={[md.btn, { backgroundColor: AppColors.success }]} onPress={handleConfirm} testID="btn-eta-confirm">
+            <ThemedText style={md.btnText}>{selected ? `قبول (${selected} دقيقة)` : "قبول بدون تحديد وقت"}</ThemedText>
+          </Pressable>
+          <Pressable style={[md.btn, { backgroundColor: AppColors.gray100 }]} onPress={handleCancel} testID="btn-eta-cancel">
+            <ThemedText style={[md.btnText, { color: AppColors.gray700 }]}>تراجع</ThemedText>
+          </Pressable>
         </View>
       </View>
     </Modal>
   );
 }
 
-const etaStyles = StyleSheet.create({
-  optionRow: { flexDirection: "row-reverse", gap: 8, justifyContent: "center", flexWrap: "wrap", marginVertical: 4 },
-  option: {
-    flexDirection: "row", alignItems: "baseline", gap: 2,
-    paddingHorizontal: 16, paddingVertical: 10, borderRadius: 12,
-    backgroundColor: AppColors.gray100, borderWidth: 2, borderColor: "transparent",
-  },
-  optionSelected: { backgroundColor: AppColors.successLight, borderColor: AppColors.success },
-  optionText: { fontFamily: "Cairo_700Bold", fontSize: 18, color: AppColors.gray700 },
-  optionTextSelected: { color: AppColors.success },
-  optionUnit: { fontFamily: "Cairo_400Regular", fontSize: 12, color: AppColors.gray500 },
+function CancelModal({
+  visible, onConfirm, onCancel,
+}: { visible: boolean; onConfirm: () => void; onCancel: () => void }) {
+  return (
+    <Modal transparent visible={visible} animationType="slide">
+      <View style={md.overlay}>
+        <View style={md.sheet}>
+          <View style={md.handle} />
+          <View style={[md.iconCircle, { backgroundColor: AppColors.errorLight }]}>
+            <MaterialCommunityIcons name="alert-circle-outline" size={32} color={AppColors.error} />
+          </View>
+          <ThemedText style={md.title}>رفض الطلب؟</ThemedText>
+          <ThemedText style={md.subtitle}>سيتم إلغاء هذا الطلب وإشعار الزبون.</ThemedText>
+          <Pressable style={[md.btn, { backgroundColor: AppColors.error }]} onPress={onConfirm}>
+            <ThemedText style={md.btnText}>نعم، إلغاء الطلب</ThemedText>
+          </Pressable>
+          <Pressable style={[md.btn, { backgroundColor: AppColors.gray100 }]} onPress={onCancel}>
+            <ThemedText style={[md.btnText, { color: AppColors.gray700 }]}>تراجع</ThemedText>
+          </Pressable>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+const md = StyleSheet.create({
+  overlay:    { flex: 1, backgroundColor: "rgba(0,0,0,0.45)", justifyContent: "flex-end" },
+  sheet:      { backgroundColor: AppColors.white, borderTopLeftRadius: 28, borderTopRightRadius: 28, padding: 24, paddingTop: 12, gap: 12 },
+  handle:     { width: 40, height: 4, borderRadius: 2, backgroundColor: AppColors.gray200, alignSelf: "center", marginBottom: 8 },
+  iconCircle: { width: 64, height: 64, borderRadius: 32, justifyContent: "center", alignItems: "center", alignSelf: "center" },
+  title:      { fontFamily: FontFamily.cairoBold, fontSize: 18, textAlign: "center", color: AppColors.gray800 },
+  subtitle:   { fontFamily: FontFamily.tajawal, fontSize: 14, textAlign: "center", color: AppColors.gray500 },
+  optionRow:  { flexDirection: "row-reverse", gap: 10, justifyContent: "center", flexWrap: "wrap" },
+  option:     { flexDirection: "row", alignItems: "baseline", gap: 3, paddingHorizontal: 18, paddingVertical: 12, borderRadius: 14, backgroundColor: AppColors.gray100, borderWidth: 2, borderColor: "transparent" },
+  optionVal:  { fontFamily: FontFamily.cairoBold, fontSize: 20, color: AppColors.gray700 },
+  optionUnit: { fontFamily: FontFamily.tajawal, fontSize: 13, color: AppColors.gray500 },
+  btn:        { borderRadius: 14, paddingVertical: 14, alignItems: "center" },
+  btnText:    { fontFamily: FontFamily.cairoBold, fontSize: 14, color: AppColors.white },
 });
 
-// ── Confirm cancel modal ───────────────────────────────────────────────────────
-function CancelModal({
-  visible,
-  onConfirm,
-  onCancel,
-}: {
-  visible: boolean;
-  onConfirm: () => void;
-  onCancel: () => void;
-}) {
-  return (
-    <Modal transparent visible={visible} animationType="fade">
-      <View style={modalStyles.overlay}>
-        <View style={modalStyles.box}>
-          <MaterialCommunityIcons name="alert-circle-outline" size={48} color={AppColors.error} style={{ alignSelf: "center" }} />
-          <ThemedText style={modalStyles.title}>رفض الطلب؟</ThemedText>
-          <ThemedText style={modalStyles.subtitle}>سيتم إلغاء هذا الطلب وإشعار الزبون.</ThemedText>
-          <View style={modalStyles.btns}>
-            <Pressable style={[modalStyles.btn, { backgroundColor: AppColors.error }]} onPress={onConfirm}>
-              <ThemedText style={modalStyles.btnText}>نعم، إلغاء الطلب</ThemedText>
-            </Pressable>
-            <Pressable style={[modalStyles.btn, { backgroundColor: AppColors.gray100 }]} onPress={onCancel}>
-              <ThemedText style={[modalStyles.btnText, { color: AppColors.gray700 }]}>تراجع</ThemedText>
-            </Pressable>
-          </View>
-        </View>
-      </View>
-    </Modal>
-  );
-}
+// ─── Empty State ───────────────────────────────────────────────────────────────
 
-// ── Main Screen ───────────────────────────────────────────────────────────────
+const EmptyState = React.memo(({ tab }: { tab: typeof TABS[0] }) => {
+  const messages: Record<string, { title: string; sub: string }> = {
+    new:    { title: "لا طلبات جديدة",          sub: "ستظهر هنا الطلبات الجديدة فور وصولها"   },
+    active: { title: "لا طلبات قيد التحضير",    sub: "ستنتقل الطلبات المؤكدة هنا تلقائياً"   },
+    ready:  { title: "لا طلبات جاهزة الآن",     sub: "ستظهر الطلبات الجاهزة للاستلام هنا"    },
+    done:   { title: "لا طلبات مكتملة بعد",     sub: "ستظهر الطلبات المكتملة والملغاة هنا"   },
+  };
+  const msg = messages[tab.key] ?? messages.new;
+  return (
+    <View style={es.wrap}>
+      <View style={[es.circle, { backgroundColor: tab.color + "12" }]}>
+        <MaterialCommunityIcons name={tab.icon as any} size={40} color={tab.color} style={{ opacity: 0.5 }} />
+      </View>
+      <ThemedText style={es.title}>{msg.title}</ThemedText>
+      <ThemedText style={es.sub}>{msg.sub}</ThemedText>
+    </View>
+  );
+});
+
+const es = StyleSheet.create({
+  wrap:   { flex: 1, alignItems: "center", justifyContent: "center", paddingTop: 80, gap: 14 },
+  circle: { width: 88, height: 88, borderRadius: 44, justifyContent: "center", alignItems: "center" },
+  title:  { fontFamily: FontFamily.cairoBold, fontSize: 17, color: AppColors.gray700, textAlign: "center" },
+  sub:    { fontFamily: FontFamily.tajawal, fontSize: 13, color: AppColors.gray400, textAlign: "center", lineHeight: 20 },
+});
+
+// ─── Main Screen ───────────────────────────────────────────────────────────────
+
 export default function VendorOrdersScreen() {
   const headerHeight = useHeaderHeight();
   const tabBarHeight = useBottomTabBarHeight();
   const { vendorToken, vendorProfile } = useAuth();
   const { theme } = useTheme();
 
-  const [orders, setOrders] = useState<VendorOrder[]>([]);
+  const [orders, setOrders]                   = useState<VendorOrder[]>([]);
   const [urgencyThresholds, setUrgencyThresholds] = useState<Record<string, number>>(DEFAULT_URGENCY_THRESHOLD);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [activeTab, setActiveTab] = useState("new");
-  const [updatingId, setUpdatingId] = useState<string | null>(null);
-  const [cancelTarget, setCancelTarget] = useState<string | null>(null);
-  const [etaTarget, setEtaTarget] = useState<string | null>(null);
-  const [newArrived, setNewArrived] = useState(false);
-  const [updateError, setUpdateError] = useState<string | null>(null);
-  const prevNewCount = useRef(0);
-  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const isFocused = useRef(false);
+  const [loading, setLoading]                 = useState(true);
+  const [refreshing, setRefreshing]           = useState(false);
+  const [activeTab, setActiveTab]             = useState("new");
+  const [updatingId, setUpdatingId]           = useState<string | null>(null);
+  const [cancelTarget, setCancelTarget]       = useState<string | null>(null);
+  const [etaTarget, setEtaTarget]             = useState<string | null>(null);
+  const [newArrived, setNewArrived]           = useState(false);
+  const [updateError, setUpdateError]         = useState<string | null>(null);
 
+  const prevNewCount = useRef(0);
+  const pollRef      = useRef<ReturnType<typeof setInterval> | null>(null);
+  const isFocused    = useRef(false);
+
+  // ── Load orders ────────────────────────────────────────────────────────────
   const load = useCallback(async (silent = false) => {
     if (!vendorToken) return;
     if (!silent) setLoading(true);
@@ -792,7 +908,7 @@ export default function VendorOrdersScreen() {
       if (!res.ok) throw new Error("failed");
       const data = await res.json();
       const incoming: VendorOrder[] = data.orders ?? [];
-      const newPending = incoming.filter((o) => o.status === "pending").length;
+      const newPending = incoming.filter(o => o.status === "pending").length;
       if (silent && newPending > prevNewCount.current) {
         setNewArrived(true);
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
@@ -805,6 +921,7 @@ export default function VendorOrdersScreen() {
     }
   }, [vendorToken]);
 
+  // ── Urgency thresholds ─────────────────────────────────────────────────────
   useEffect(() => {
     (async () => {
       try {
@@ -814,10 +931,10 @@ export default function VendorOrdersScreen() {
           setUrgencyThresholds({
             confirmed: data.confirmed ?? DEFAULT_URGENCY_THRESHOLD.confirmed,
             preparing: data.preparing ?? DEFAULT_URGENCY_THRESHOLD.preparing,
-            ready: data.ready ?? DEFAULT_URGENCY_THRESHOLD.ready,
+            ready:     data.ready     ?? DEFAULT_URGENCY_THRESHOLD.ready,
           });
         }
-      } catch (_) {}
+      } catch {}
     })();
   }, []);
 
@@ -837,6 +954,7 @@ export default function VendorOrdersScreen() {
     load(true);
   };
 
+  // ── Update status ──────────────────────────────────────────────────────────
   const updateStatus = useCallback(async (orderId: string, newStatus: string, estimatedMinutes?: number) => {
     if (!vendorToken) return;
     setUpdatingId(orderId);
@@ -856,18 +974,11 @@ export default function VendorOrdersScreen() {
       );
       if (res.ok) {
         const nowIso = new Date().toISOString();
-        setOrders((prev) =>
-          prev.map((o) =>
-            o.id === orderId
-              ? {
-                  ...o,
-                  status: newStatus,
-                  [`vendorStatusAt_${newStatus}`]: nowIso,
-                  ...(estimatedMinutes ? { estimatedMinutes } : {}),
-                }
-              : o
-          )
-        );
+        setOrders(prev => prev.map(o =>
+          o.id === orderId
+            ? { ...o, status: newStatus, [`vendorStatusAt_${newStatus}`]: nowIso, ...(estimatedMinutes ? { estimatedMinutes } : {}) }
+            : o
+        ));
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       } else {
         const errBody = await res.json().catch(() => ({}));
@@ -886,78 +997,63 @@ export default function VendorOrdersScreen() {
   }, [vendorToken]);
 
   const handleAction = useCallback((orderId: string, nextStatus: string) => {
-    if (nextStatus === "cancelled") {
-      setCancelTarget(orderId);
-    } else if (nextStatus === "confirmed") {
-      setEtaTarget(orderId);
-    } else {
-      updateStatus(orderId, nextStatus);
-    }
+    if (nextStatus === "cancelled")  setCancelTarget(orderId);
+    else if (nextStatus === "confirmed") setEtaTarget(orderId);
+    else updateStatus(orderId, nextStatus);
   }, [updateStatus]);
 
   const handlePrint = useCallback(async (order: VendorOrder) => {
-    try {
-      const html = buildReceiptHTML(order);
-      await Print.printAsync({ html });
-    } catch (_) {}
+    try { await Print.printAsync({ html: buildReceiptHTML(order) }); } catch {}
   }, []);
 
-  const tabDef = TABS.find((t) => t.key === activeTab)!;
+  // ── Derived ────────────────────────────────────────────────────────────────
+  const tabDef = TABS.find(t => t.key === activeTab)!;
+
   const filtered = useMemo(
-    () => orders.filter((o) => tabDef.statuses.includes(o.status)),
+    () => orders.filter(o => tabDef.statuses.includes(o.status)),
     [orders, activeTab, tabDef]
   );
 
   const tabCounts = useMemo(() => {
     const m: Record<string, number> = {};
-    for (const t of TABS) {
-      m[t.key] = orders.filter((o) => t.statuses.includes(o.status)).length;
-    }
+    for (const t of TABS) m[t.key] = orders.filter(o => t.statuses.includes(o.status)).length;
     return m;
   }, [orders]);
 
+  // ── Render ─────────────────────────────────────────────────────────────────
   return (
-    <View style={{ flex: 1 }}>
+    <View style={{ flex: 1, backgroundColor: AppColors.background }}>
+
       {/* ── Tab bar ── */}
-      <View style={[tabStyles.bar, {
-        paddingTop: headerHeight,
-        backgroundColor: theme.backgroundDefault,
-        borderBottomColor: theme.border ?? AppColors.gray100,
-      }]}>
+      <View style={[ts.bar, { paddingTop: headerHeight, backgroundColor: theme.backgroundDefault }]}>
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
-          contentContainerStyle={tabStyles.tabRow}
+          contentContainerStyle={ts.row}
         >
           {TABS.map((t) => {
             const active = activeTab === t.key;
-            const count = tabCounts[t.key] ?? 0;
+            const count  = tabCounts[t.key] ?? 0;
             return (
               <Pressable
                 key={t.key}
-                style={[
-                  tabStyles.tab,
-                  active ? { borderBottomColor: t.color, borderBottomWidth: 2.5 } : {},
-                ]}
-                onPress={() => {
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  setActiveTab(t.key);
-                }}
+                style={[ts.tab, active && { backgroundColor: t.color + "12" }]}
+                onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setActiveTab(t.key); }}
                 testID={`tab-vendor-orders-${t.key}`}
               >
                 <MaterialCommunityIcons
                   name={t.icon as any}
-                  size={18}
-                  color={active ? t.color : (theme.textSecondary ?? AppColors.gray400)}
+                  size={16}
+                  color={active ? t.color : AppColors.gray400}
                 />
-                <ThemedText style={[tabStyles.tabLabel, { color: active ? t.color : (theme.textSecondary ?? AppColors.gray400) }]}>
+                <ThemedText style={[ts.label, { color: active ? t.color : AppColors.gray400 }]}>
                   {t.label}
                 </ThemedText>
-                {count > 0 ? (
-                  <View style={[tabStyles.badge, { backgroundColor: t.key === "new" && count > 0 ? AppColors.error : t.color }]}>
-                    <ThemedText style={tabStyles.badgeText}>{count > 9 ? "9+" : count}</ThemedText>
+                {count > 0 && (
+                  <View style={[ts.badge, { backgroundColor: t.key === "new" ? AppColors.error : t.color }]}>
+                    <ThemedText style={ts.badgeText}>{count > 9 ? "9+" : count}</ThemedText>
                   </View>
-                ) : null}
+                )}
               </Pressable>
             );
           })}
@@ -992,39 +1088,41 @@ export default function VendorOrdersScreen() {
       ) : null}
 
       {/* ── New order banner ── */}
-      {newArrived ? (
+      {newArrived && (
         <Pressable
-          style={bannerStyles.banner}
+          style={bn.newBanner}
           onPress={() => { setActiveTab("new"); setNewArrived(false); }}
         >
           <MaterialCommunityIcons name="bell-ring" size={18} color={AppColors.white} />
-          <ThemedText style={bannerStyles.text}>وصل طلب جديد! اضغط لعرضه</ThemedText>
-          <Pressable onPress={() => setNewArrived(false)} style={bannerStyles.closeBtn}>
-            <MaterialCommunityIcons name="close" size={16} color={AppColors.textOnBrandMuted} />
+          <ThemedText style={bn.text}>وصل طلب جديد! اضغط لعرضه</ThemedText>
+          <Pressable onPress={() => setNewArrived(false)} style={bn.close} hitSlop={8}>
+            <MaterialCommunityIcons name="close" size={16} color="rgba(255,255,255,0.7)" />
           </Pressable>
         </Pressable>
-      ) : null}
+      )}
 
-      {/* ── Status update error banner ── */}
-      {updateError !== null ? (
-        <View style={bannerStyles.errorBanner}>
-          <MaterialCommunityIcons name="alert-circle-outline" size={18} color={AppColors.white} />
-          <ThemedText style={bannerStyles.text}>{updateError}</ThemedText>
-          <Pressable onPress={() => setUpdateError(null)} style={bannerStyles.closeBtn}>
-            <MaterialCommunityIcons name="close" size={16} color={AppColors.textOnBrandMuted} />
+      {/* ── Error banner ── */}
+      {updateError !== null && (
+        <View style={bn.errBanner}>
+          <MaterialCommunityIcons name="alert-circle-outline" size={16} color={AppColors.white} />
+          <ThemedText style={bn.text}>{updateError}</ThemedText>
+          <Pressable onPress={() => setUpdateError(null)} style={bn.close} hitSlop={8}>
+            <MaterialCommunityIcons name="close" size={16} color="rgba(255,255,255,0.7)" />
           </Pressable>
         </View>
-      ) : null}
+      )}
 
       {/* ── Content ── */}
       {loading ? (
-        <View style={listStyles.center}>
-          <ActivityIndicator size="large" color={ORANGE} />
-        </View>
+        <ScrollView contentContainerStyle={{ paddingHorizontal: 14, paddingTop: 14, gap: 12 }}>
+          <SkeletonCard />
+          <SkeletonCard />
+          <SkeletonCard />
+        </ScrollView>
       ) : (
         <FlatList
           data={filtered}
-          keyExtractor={(o) => o.id}
+          keyExtractor={o => o.id}
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={ORANGE} />
           }
@@ -1033,12 +1131,12 @@ export default function VendorOrdersScreen() {
             paddingBottom: tabBarHeight + 16,
             paddingHorizontal: 14,
             flexGrow: 1,
+            gap: 12,
           }}
-          ItemSeparatorComponent={() => <View style={{ height: 12 }} />}
           showsVerticalScrollIndicator={false}
-          initialNumToRender={10}
+          initialNumToRender={8}
           windowSize={5}
-          maxToRenderPerBatch={8}
+          maxToRenderPerBatch={6}
           removeClippedSubviews={true}
           renderItem={({ item }) => (
             <OrderCard
@@ -1049,221 +1147,102 @@ export default function VendorOrdersScreen() {
               urgencyThresholds={urgencyThresholds}
             />
           )}
-          ListEmptyComponent={
-            <View style={listStyles.empty}>
-              <MaterialCommunityIcons
-                name={tabDef.icon as any}
-                size={64}
-                color={tabDef.color}
-                style={{ opacity: 0.25 }}
-              />
-              <ThemedText style={[listStyles.emptyTitle, { color: theme.text }]}>
-                {activeTab === "new"
-                  ? "لا طلبات جديدة"
-                  : activeTab === "active"
-                  ? "لا طلبات قيد التحضير"
-                  : activeTab === "ready"
-                  ? "لا طلبات جاهزة الآن"
-                  : "لا طلبات مكتملة بعد"}
-              </ThemedText>
-              <ThemedText style={[listStyles.emptySub, { color: theme.textSecondary }]}>
-                {activeTab === "new"
-                  ? "ستظهر هنا الطلبات الجديدة فور وصولها"
-                  : "ستنتقل الطلبات هنا تلقائياً"}
-              </ThemedText>
-            </View>
-          }
+          ListEmptyComponent={<EmptyState tab={tabDef} />}
         />
       )}
 
-      {/* Cancel confirmation modal */}
+      {/* ── Modals ── */}
       <CancelModal
         visible={!!cancelTarget}
-        onConfirm={() => {
-          if (cancelTarget) updateStatus(cancelTarget, "cancelled");
-          setCancelTarget(null);
-        }}
+        onConfirm={() => { if (cancelTarget) updateStatus(cancelTarget, "cancelled"); setCancelTarget(null); }}
         onCancel={() => setCancelTarget(null)}
       />
-
-      {/* ETA modal for accepting orders */}
       <ETAModal
         visible={!!etaTarget}
-        onConfirm={(estimatedMinutes) => {
-          if (etaTarget) updateStatus(etaTarget, "confirmed", estimatedMinutes);
-          setEtaTarget(null);
-        }}
+        onConfirm={(mins) => { if (etaTarget) updateStatus(etaTarget, "confirmed", mins); setEtaTarget(null); }}
         onCancel={() => setEtaTarget(null)}
       />
     </View>
   );
 }
 
-// ── Styles ─────────────────────────────────────────────────────────────────────
-const tabStyles = StyleSheet.create({
-  bar: { borderBottomWidth: 1, elevation: 2, shadowColor: AppColors.black, shadowOpacity: 0.05, shadowRadius: 4 },
-  tabRow: { flexDirection: "row", paddingHorizontal: 12, gap: 4 },
-  tab: {
-    flexDirection: "row", alignItems: "center", gap: 6,
-    paddingHorizontal: 14, paddingVertical: 12,
-    borderBottomWidth: 2.5, borderBottomColor: "transparent",
-  },
-  tabLabel: { fontFamily: "Cairo_700Bold", fontSize: 13 },
-  badge: { borderRadius: 9, minWidth: 18, height: 18, justifyContent: "center", alignItems: "center", paddingHorizontal: 4 },
-  badgeText: { fontFamily: "Cairo_700Bold", fontSize: 10, color: AppColors.white },
+// ─── Styles ────────────────────────────────────────────────────────────────────
+
+// Tab bar
+const ts = StyleSheet.create({
+  bar:       { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: AppColors.divider, ...Shadows.xs },
+  row:       { flexDirection: "row", paddingHorizontal: 12, paddingBottom: 10, gap: 6 },
+  tab:       { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20 },
+  label:     { fontFamily: FontFamily.cairoBold, fontSize: 13 },
+  badge:     { borderRadius: 9, minWidth: 18, height: 18, justifyContent: "center", alignItems: "center", paddingHorizontal: 4 },
+  badgeText: { fontFamily: FontFamily.cairoBold, fontSize: 10, color: AppColors.white },
 });
 
-const cardStyles = StyleSheet.create({
+// Banners
+const bn = StyleSheet.create({
+  newBanner: { flexDirection: "row-reverse", alignItems: "center", gap: 10, backgroundColor: AppColors.warning, paddingVertical: 12, paddingHorizontal: 16 },
+  errBanner: { flexDirection: "row-reverse", alignItems: "center", gap: 10, backgroundColor: AppColors.error,   paddingVertical: 10, paddingHorizontal: 16 },
+  text:      { flex: 1, fontFamily: FontFamily.cairoBold, fontSize: 14, color: AppColors.white, textAlign: "right" },
+  close:     { padding: 4 },
+});
+
+// Order card
+const oc = StyleSheet.create({
   card: {
-    borderRadius: 22, overflow: "hidden",
-    shadowColor: AppColors.black, shadowOpacity: 0.07, shadowRadius: 14, shadowOffset: { width: 0, height: 5 },
-    elevation: 3,
+    borderRadius: 20, overflow: "hidden",
+    ...Shadows.md,
   },
   cardPending: {
-    borderWidth: 2,
-    borderColor: AppColors.warning,
-    shadowColor: AppColors.warning,
-    shadowOpacity: 0.15,
-    elevation: 5,
+    borderWidth: 2, borderColor: AppColors.warning,
   },
-  paymentBadge: {
-    flexDirection: "row", alignItems: "center", gap: 4,
-    paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10,
-    backgroundColor: AppColors.gray100,
-  },
-  paymentText: { fontFamily: "Cairo_700Bold", fontSize: 11, color: AppColors.gray500 },
-  notesRow: {
-    flexDirection: "row-reverse", alignItems: "flex-start", gap: 6,
-    paddingHorizontal: 10, paddingVertical: 8, borderRadius: 10, borderWidth: 1,
-  },
-  notesText: { fontFamily: "Cairo_400Regular", fontSize: 12, color: AppColors.primaryDark, flex: 1, textAlign: "right" },
-  header: { flexDirection: "row-reverse", alignItems: "flex-start", padding: 16, gap: 10 },
-  headerTop: { flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between", marginBottom: 6 },
-  headerMeta: { flexDirection: "row-reverse", alignItems: "center", gap: 8, flexWrap: "wrap" },
-  orderId: { fontFamily: "Cairo_700Bold", fontSize: 16 },
-  statusBadge: { flexDirection: "row", alignItems: "center", gap: 5, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20 },
-  statusText: { fontFamily: "Cairo_700Bold", fontSize: 12 },
-  timeText: { fontFamily: "Cairo_400Regular", fontSize: 12, color: AppColors.gray400 },
-  expandBtn: { padding: 4, alignSelf: "center" },
+  accentBar: { position: "absolute", top: 0, bottom: 0, right: 0, width: 4 },
+  header:    { flexDirection: "row-reverse", alignItems: "flex-start", paddingHorizontal: 16, paddingTop: 14, paddingBottom: 10, paddingRight: 20, gap: 10 },
+  headerTop: { flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between", marginBottom: 6, gap: 8 },
+  metaRow:   { flexDirection: "row-reverse", alignItems: "center", gap: 6, flexWrap: "wrap", marginBottom: 6 },
+  badgeRow:  { flexDirection: "row-reverse", alignItems: "center", gap: 6 },
+  orderId:   { fontFamily: FontFamily.cairoBold, fontSize: 15, color: AppColors.gray800 },
+  timeText:  { fontFamily: FontFamily.tajawal, fontSize: 12, color: AppColors.gray400 },
+  dot:       { fontSize: 12, color: AppColors.gray300 },
+  itemCount: { fontFamily: FontFamily.tajawal, fontSize: 12, color: AppColors.gray400 },
+  etaBadge:  { flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 10, backgroundColor: AppColors.successLight },
+  etaText:   { fontFamily: FontFamily.cairoBold, fontSize: 11, color: AppColors.success },
+  headerRight:{ alignItems: "flex-end", gap: 2 },
+  totalText: { fontFamily: FontFamily.cairoBold, fontSize: 17, color: AppColors.gray800, textAlign: "left" },
+  totalUnit: { fontFamily: FontFamily.tajawal, fontSize: 11, color: AppColors.gray500, textAlign: "left" },
 
-  customerSection: { paddingHorizontal: 14, paddingVertical: 10, gap: 8 },
-  customerCard: {
-    flexDirection: "row-reverse", alignItems: "center", gap: 10,
-    paddingVertical: 10, paddingHorizontal: 12, borderRadius: 12, borderWidth: 1,
-  },
-  customerAvatar: {
-    width: 38, height: 38, borderRadius: 19,
-    justifyContent: "center", alignItems: "center", flexShrink: 0,
-  },
-  customerName: { fontFamily: "Cairo_700Bold", fontSize: 15, textAlign: "right" },
-  customerPhone: { fontFamily: "Cairo_400Regular", fontSize: 11, textAlign: "right", marginTop: 1 },
-  infoRow: { flexDirection: "row-reverse", alignItems: "flex-start", gap: 8 },
-  infoText: { fontFamily: "Cairo_400Regular", fontSize: 12, flex: 1, textAlign: "right" },
+  divider:   { height: StyleSheet.hairlineWidth, marginHorizontal: 16 },
 
-  divider: { height: 1, marginHorizontal: 14, marginVertical: 2 },
+  section:   { paddingHorizontal: 14, paddingVertical: 12, gap: 8 },
+  sectionLabel: { fontFamily: FontFamily.cairoBold, fontSize: 13, color: AppColors.gray700, textAlign: "right", marginBottom: 4 },
 
-  itemsSection: { paddingHorizontal: 14, paddingVertical: 10 },
-  sectionLabel: { fontFamily: "Cairo_700Bold", fontSize: 13, textAlign: "right", marginBottom: 10 },
-  itemRow: {
-    flexDirection: "row-reverse", alignItems: "center",
-    paddingVertical: 8, gap: 10,
-    borderBottomWidth: 1,
-  },
-  itemImage: {
-    width: 48, height: 48, borderRadius: 10, flexShrink: 0,
-    backgroundColor: AppColors.gray100,
-  },
-  itemImagePlaceholder: {
-    width: 48, height: 48, borderRadius: 10, flexShrink: 0,
-    justifyContent: "center", alignItems: "center",
-  },
-  itemQtyBadge: {
-    minWidth: 30, height: 24, borderRadius: 8,
-    justifyContent: "center", alignItems: "center", paddingHorizontal: 4,
-  },
-  itemQtyText: { fontFamily: "Cairo_700Bold", fontSize: 12 },
-  itemName: { flex: 1, fontFamily: "Cairo_600SemiBold", fontSize: 13, textAlign: "right" },
-  itemPrice: { fontFamily: "Cairo_700Bold", fontSize: 13, textAlign: "center" },
+  customerRow:    { flexDirection: "row-reverse", alignItems: "center", gap: 10, paddingVertical: 10, paddingHorizontal: 12, borderRadius: 14, borderWidth: 1 },
+  customerAvatar: { width: 36, height: 36, borderRadius: 18, justifyContent: "center", alignItems: "center" },
+  customerName:   { fontFamily: FontFamily.cairoBold, fontSize: 14, color: AppColors.gray800, textAlign: "right" },
+  customerPhone:  { fontFamily: FontFamily.tajawal, fontSize: 12, color: AppColors.gray500, textAlign: "right", marginTop: 1 },
 
-  breakdownBox: {
-    marginHorizontal: 14, marginTop: 2, marginBottom: 4,
-    borderRadius: 12, borderWidth: 1,
-    paddingHorizontal: 12, paddingVertical: 10, gap: 8,
-  },
-  breakdownRow: {
-    flexDirection: "row-reverse", alignItems: "center", gap: 8,
-  },
-  breakdownLabel: { fontFamily: "Cairo_600SemiBold", fontSize: 13, flex: 1, textAlign: "right" },
-  breakdownNote: { fontFamily: "Cairo_400Regular", fontSize: 10, color: AppColors.gray400, textAlign: "right" },
-  breakdownAmount: { fontFamily: "Cairo_700Bold", fontSize: 13 },
-  breakdownDivider: { height: 1, marginVertical: 2 },
+  infoRow:  { flexDirection: "row-reverse", alignItems: "flex-start", gap: 8 },
+  infoText: { fontFamily: FontFamily.tajawal, fontSize: 12, color: AppColors.gray500, flex: 1, textAlign: "right", lineHeight: 18 },
 
-  driverBanner: {
-    flexDirection: "row-reverse", alignItems: "center", gap: 10,
-    marginHorizontal: 14, marginTop: 6, marginBottom: 4,
-    paddingVertical: 10, paddingHorizontal: 12, borderRadius: 12,
-  },
-  driverBannerText: { fontFamily: "Cairo_700Bold", fontSize: 13, flex: 1, textAlign: "right" },
-  driverCard: {
-    flexDirection: "row-reverse", alignItems: "center", gap: 10,
-    marginHorizontal: 14, marginTop: 6, marginBottom: 4,
-    paddingVertical: 10, paddingHorizontal: 12, borderRadius: 12, borderWidth: 1,
-  },
-  driverAvatar: {
-    width: 36, height: 36, borderRadius: 18,
-    justifyContent: "center", alignItems: "center", flexShrink: 0,
-  },
-  driverName: { fontFamily: "Cairo_700Bold", fontSize: 14, textAlign: "right" },
-  driverSub: { fontFamily: "Cairo_400Regular", fontSize: 11, textAlign: "right", marginTop: 1 },
+  notesBox:  { flexDirection: "row-reverse", alignItems: "flex-start", gap: 6, paddingHorizontal: 10, paddingVertical: 8, borderRadius: 12, borderWidth: 1 },
+  notesText: { fontFamily: FontFamily.tajawal, fontSize: 12, color: AppColors.primaryDark, flex: 1, textAlign: "right", lineHeight: 18 },
 
-  actionsRow: { flexDirection: "row-reverse", gap: 10, padding: 14, paddingTop: 8 },
-  actionBtn: {
-    flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center",
-    gap: 6, paddingVertical: 12, borderRadius: 12,
-  },
-  actionBtnPrimary: { elevation: 2, shadowColor: AppColors.black, shadowOpacity: 0.1, shadowRadius: 4 },
-  actionBtnSecondary: {},
-  actionBtnText: { fontFamily: "Cairo_700Bold", fontSize: 13 },
-  printBtn: {
-    flexDirection: "row", alignItems: "center", justifyContent: "center",
-    gap: 7, marginHorizontal: 14, marginBottom: 12, paddingVertical: 10,
-    borderRadius: 10, backgroundColor: AppColors.gray100,
-    borderWidth: 1, borderColor: AppColors.divider,
-  },
-  printBtnText: { fontFamily: "Cairo_600SemiBold", fontSize: 13, color: AppColors.gray500 },
-});
+  itemRow:           { flexDirection: "row-reverse", alignItems: "center", paddingVertical: 8, gap: 10 },
+  itemImg:           { width: 44, height: 44, borderRadius: 10, backgroundColor: AppColors.gray100 },
+  itemImgPlaceholder:{ width: 44, height: 44, borderRadius: 10, justifyContent: "center", alignItems: "center" },
+  qtyBadge:          { minWidth: 28, height: 22, borderRadius: 8, justifyContent: "center", alignItems: "center", paddingHorizontal: 4 },
+  qtyText:           { fontFamily: FontFamily.cairoBold, fontSize: 12 },
+  itemName:          { flex: 1, fontFamily: FontFamily.cairoMedium, fontSize: 13, color: AppColors.gray800, textAlign: "right" },
+  itemPrice:         { fontFamily: FontFamily.cairoBold, fontSize: 12, textAlign: "left" },
 
-const modalStyles = StyleSheet.create({
-  overlay: { flex: 1, backgroundColor: AppColors.overlay, justifyContent: "center", alignItems: "center" },
-  box: {
-    backgroundColor: AppColors.white, borderRadius: 20, padding: 24,
-    width: SCREEN_W * 0.85, gap: 12,
-  },
-  title: { fontFamily: "Cairo_700Bold", fontSize: 18, textAlign: "center", color: AppColors.black },
-  subtitle: { fontFamily: "Cairo_400Regular", fontSize: 14, textAlign: "center", color: AppColors.gray500 },
-  btns: { flexDirection: "column", gap: 8, marginTop: 8 },
-  btn: { borderRadius: 12, paddingVertical: 13, alignItems: "center" },
-  btnText: { fontFamily: "Cairo_700Bold", fontSize: 14, color: AppColors.white },
-});
+  breakdown:        { marginHorizontal: 14, marginBottom: 8, borderRadius: 14, borderWidth: 1, paddingHorizontal: 12, paddingVertical: 12, gap: 8 },
+  breakdownDivider: { height: StyleSheet.hairlineWidth },
 
-const listStyles = StyleSheet.create({
-  center: { flex: 1, justifyContent: "center", alignItems: "center" },
-  empty: { flex: 1, alignItems: "center", justifyContent: "center", paddingTop: 80, gap: 12 },
-  emptyTitle: { fontFamily: "Cairo_700Bold", fontSize: 17, textAlign: "center" },
-  emptySub: { fontFamily: "Cairo_400Regular", fontSize: 13, textAlign: "center" },
-});
+  actionsRow: { flexDirection: "row-reverse", gap: 10, padding: 14, paddingTop: 6 },
+  actionBtn:  { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, paddingVertical: 14, borderRadius: 14 },
+  actionText: { fontFamily: FontFamily.cairoBold, fontSize: 13 },
 
-const bannerStyles = StyleSheet.create({
-  banner: {
-    flexDirection: "row-reverse", alignItems: "center", gap: 10,
-    backgroundColor: AppColors.warning, paddingVertical: 12, paddingHorizontal: 16,
-  },
-  errorBanner: {
-    flexDirection: "row-reverse", alignItems: "center", gap: 10,
-    backgroundColor: AppColors.error, paddingVertical: 12, paddingHorizontal: 16,
-  },
-  text: { flex: 1, fontFamily: "Cairo_700Bold", fontSize: 14, color: AppColors.white, textAlign: "right" },
-  closeBtn: { padding: 4 },
+  printBtn:  { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 7, marginHorizontal: 14, marginBottom: 12, paddingVertical: 10, borderRadius: 12, backgroundColor: AppColors.gray50, borderWidth: 1, borderColor: AppColors.gray200 },
+  printText: { fontFamily: FontFamily.cairoMedium, fontSize: 13, color: AppColors.gray500 },
 });
 
 const statusBannerStyles = StyleSheet.create({

@@ -152,7 +152,7 @@ export default function OrdersScreen() {
           styles.searchArea,
           {
             paddingTop: headerHeight + Spacing.sm,
-            backgroundColor: theme.backgroundRoot,
+            backgroundColor: "transparent",
             borderBottomColor: theme.border,
           },
         ]}

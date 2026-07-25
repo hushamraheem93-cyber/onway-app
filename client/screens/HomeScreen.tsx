@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useCallback } from "react";
+import React, { useMemo, useState, useCallback, useEffect } from "react";
 import {
   StyleSheet,
   View,
@@ -36,7 +36,7 @@ import { useCart } from "@/context/CartContext";
 import { useFavorites } from "@/context/FavoritesContext";
 import { useAuth } from "@/context/AuthContext";
 import { formatPrice } from "@/constants/currency";
-import { resolveImageUrl } from "@/utils/imageUtils";
+import { resolveImageUrl, getProductThumb } from "@/utils/imageUtils";
 import { FloatingCartBar } from "@/components/FloatingCartBar";
 import { getApiUrl } from "@/lib/query-client";
 
@@ -74,6 +74,8 @@ interface VendorProduct {
   name: string;
   price: number;
   imageUrl: string;
+  imageThumbs?: string[];
+  imageUrls?: string[];
   unit: string;
   stock: number;
   vendorId: string;
@@ -303,6 +305,14 @@ export default function HomeScreen() {
       .filter((p) => (p.discount || 0) > 0)
       .slice(0, 6);
   }, [allProducts, promotionalSections]);
+
+  // Prefetch visible catalog product images when data first loads
+  useEffect(() => {
+    allProducts.slice(0, 10).forEach((p) => {
+      const url = resolveImageUrl(p.image ?? "");
+      if (url) Image.prefetch(url).catch(() => {});
+    });
+  }, [allProducts]);
 
   const offerBanner = allBanners.find((b) => b.type === "offer");
   const sliderBanners = allBanners.filter((b) => b.type === "slider");
@@ -650,7 +660,7 @@ export default function HomeScreen() {
 
   // ── Vendor product mini-card ─────────────────────────────────────────────
   const renderVendorProductCard = (vp: VendorProduct, storeId: string, storeName: string) => {
-    const imgUrl = resolveStoreUrl(vp.imageUrl);
+    const imgUrl = resolveImageUrl(getProductThumb(vp));
     const cartProduct: Product = {
       id: vp.id,
       categoryId: "vendor-market",

@@ -1447,6 +1447,15 @@
     .mmenu-item.mmenu-ok{color:#15803D;font-weight:600;}
     .mmenu-item.mmenu-warn{color:#B45309;font-weight:600;}
     .mmenu-item.mmenu-danger{color:#DC2626;font-weight:600;}
+    /* ── Website CMS tabs ── */
+    .cms-tab { background:none; border:none; border-bottom:3px solid transparent; padding:10px 16px; font-family:'Cairo',sans-serif; font-size:0.88rem; font-weight:600; cursor:pointer; color:var(--text-muted,#6B7280); transition:all 0.15s; margin-bottom:-2px; }
+    .cms-tab:hover { color:var(--primary,#E86520); }
+    .cms-tab-active { color:var(--primary,#E86520); border-bottom-color:var(--primary,#E86520); }
+    .cms-tab-panel { animation: fadeIn 0.15s ease; }
+    .cms-feature-row, .cms-faq-row { background:var(--gray-50,#F9FAFB); border:1px solid var(--border,#E5E7EB); border-radius:10px; padding:14px; margin-bottom:12px; }
+    .cms-screenshot-thumb { width:80px; height:140px; object-fit:cover; border-radius:8px; border:2px solid var(--border); }
+    .cms-img-wrap { position:relative; display:inline-block; }
+    .cms-img-del { position:absolute; top:-6px; right:-6px; width:20px; height:20px; border-radius:50%; background:#ef4444; color:#fff; border:none; cursor:pointer; font-size:0.75rem; display:flex; align-items:center; justify-content:center; }
   </style>
 </head>
 <body>
@@ -1526,6 +1535,9 @@
         <div class="nav-item" onclick="showSection('promoCodes', this)">
           <i data-lucide="ticket"></i><span>أكواد الخصم</span>
           <span class="badge" id="promo-count">0</span>
+        </div>
+        <div class="nav-item" onclick="showSection('websiteCms', this)">
+          <i data-lucide="globe"></i><span>الموقع الإلكتروني</span>
         </div>
       </div>
 
@@ -1853,10 +1865,15 @@
             <div class="search-box" style="flex:1;min-width:200px;"><i data-lucide="search"></i>
               <input type="text" id="mprods-search" placeholder="ابحث في المنتجات..." oninput="filterMerchantProducts()"></div>
             <select id="mprods-status" onchange="filterMerchantProducts()" style="border:1px solid #E5E7EB;border-radius:9px;padding:7px 12px;font-size:0.82rem;font-family:inherit;outline:none;">
-              <option value="">كل المنتجات</option>
+              <option value="">كل الحالات</option>
               <option value="approved">مقبول</option>
               <option value="pending">بانتظار المراجعة</option>
               <option value="rejected">مرفوض</option>
+            </select>
+            <select id="mprods-active" onchange="filterMerchantProducts()" style="border:1px solid #E5E7EB;border-radius:9px;padding:7px 12px;font-size:0.82rem;font-family:inherit;outline:none;">
+              <option value="">فعّال + معطّل</option>
+              <option value="active">فعّال فقط</option>
+              <option value="disabled">معطّل فقط</option>
             </select>
             <button onclick="openAddMerchantProduct()" class="btn btn-primary" style="font-size:0.82rem;padding:8px 16px;">
               <i data-lucide="plus" style="width:14px;height:14px;"></i> إضافة منتج
@@ -3531,6 +3548,198 @@
       </div>
     </div>
 
+  <!-- ══════════════════ WEBSITE CMS SECTION ══════════════════ -->
+  <div id="websiteCms-section" class="section">
+    <div class="section-header">
+      <div>
+        <h2 class="section-title"><i data-lucide="globe" style="width:22px;height:22px;vertical-align:middle;margin-left:8px;"></i>إدارة الموقع الإلكتروني</h2>
+        <p style="color:var(--text-muted);font-size:0.85rem;margin:4px 0 0;">التغييرات تظهر على الموقع خلال دقيقة واحدة تلقائياً</p>
+      </div>
+    </div>
+
+    <!-- CMS Tabs -->
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:24px;border-bottom:2px solid var(--border);padding-bottom:0;">
+      <button class="cms-tab cms-tab-active" onclick="switchCmsTab('hero',this)">🏠 الرئيسية</button>
+      <button class="cms-tab" onclick="switchCmsTab('stats',this)">📊 الإحصائيات</button>
+      <button class="cms-tab" onclick="switchCmsTab('features',this)">⭐ المميزات</button>
+      <button class="cms-tab" onclick="switchCmsTab('faq',this)">❓ الأسئلة</button>
+      <button class="cms-tab" onclick="switchCmsTab('downloadLinks',this)">📱 روابط التحميل</button>
+      <button class="cms-tab" onclick="switchCmsTab('screenshots',this)">🖼️ لقطات الشاشة</button>
+      <button class="cms-tab" onclick="switchCmsTab('contact',this)">📞 التواصل</button>
+      <button class="cms-tab" onclick="switchCmsTab('footer',this)">🔗 الفوتر</button>
+      <button class="cms-tab" onclick="switchCmsTab('seo',this)">🔍 SEO</button>
+    </div>
+
+    <!-- Hero Tab -->
+    <div id="cms-tab-hero" class="cms-tab-panel">
+      <div class="card" style="padding:24px;max-width:700px;">
+        <h3 style="margin:0 0 20px;font-size:1rem;font-weight:700;">قسم Hero (الشاشة الرئيسية)</h3>
+        <div class="form-group">
+          <label class="form-label">العنوان الرئيسي (عربي)</label>
+          <input type="text" id="cms-hero-title_ar" class="form-control" placeholder="اطلب من أي متجر، نوصّلها لبابك" dir="rtl">
+        </div>
+        <div class="form-group">
+          <label class="form-label">النص الثانوي (عربي)</label>
+          <textarea id="cms-hero-subtitle_ar" class="form-control" rows="3" placeholder="تسوّق من أفضل المتاجر..." dir="rtl"></textarea>
+        </div>
+        <div class="form-group">
+          <label class="form-label">نص زر التحميل الرئيسي</label>
+          <input type="text" id="cms-hero-ctaPrimary_ar" class="form-control" placeholder="حمّل التطبيق" dir="rtl">
+        </div>
+        <div class="form-group">
+          <label class="form-label">نص الزر الثانوي</label>
+          <input type="text" id="cms-hero-ctaSecondary_ar" class="form-control" placeholder="تعرف علينا" dir="rtl">
+        </div>
+        <button class="btn btn-primary" onclick="saveCmsSection('hero')">💾 حفظ Hero</button>
+      </div>
+    </div>
+
+    <!-- Stats Tab -->
+    <div id="cms-tab-stats" class="cms-tab-panel" style="display:none;">
+      <div class="card" style="padding:24px;max-width:500px;">
+        <h3 style="margin:0 0 20px;font-size:1rem;font-weight:700;">الإحصائيات</h3>
+        <div class="form-group">
+          <label class="form-label">عدد التحميلات</label>
+          <input type="text" id="cms-stats-downloads" class="form-control" placeholder="50,000+">
+        </div>
+        <div class="form-group">
+          <label class="form-label">عدد المتاجر</label>
+          <input type="text" id="cms-stats-vendors" class="form-control" placeholder="200+">
+        </div>
+        <div class="form-group">
+          <label class="form-label">عدد المدن</label>
+          <input type="text" id="cms-stats-cities" class="form-control" placeholder="5">
+        </div>
+        <button class="btn btn-primary" onclick="saveCmsSection('stats')">💾 حفظ الإحصائيات</button>
+      </div>
+    </div>
+
+    <!-- Features Tab -->
+    <div id="cms-tab-features" class="cms-tab-panel" style="display:none;">
+      <div class="card" style="padding:24px;max-width:700px;">
+        <h3 style="margin:0 0 4px;font-size:1rem;font-weight:700;">مميزات التطبيق (لماذا OnWay)</h3>
+        <p style="color:var(--text-muted);font-size:0.82rem;margin:0 0 20px;">يمكنك تعريف حتى 6 مميزات. الأيقونات تبقى كما هي.</p>
+        <div id="cms-features-list"></div>
+        <button class="btn btn-outline btn-sm" onclick="addCmsFeature()" style="margin-bottom:16px;">+ إضافة ميزة</button>
+        <br>
+        <button class="btn btn-primary" onclick="saveCmsFeatures()">💾 حفظ المميزات</button>
+      </div>
+    </div>
+
+    <!-- FAQ Tab -->
+    <div id="cms-tab-faq" class="cms-tab-panel" style="display:none;">
+      <div class="card" style="padding:24px;max-width:700px;">
+        <h3 style="margin:0 0 20px;font-size:1rem;font-weight:700;">الأسئلة الشائعة</h3>
+        <div id="cms-faq-list"></div>
+        <button class="btn btn-outline btn-sm" onclick="addCmsFaq()" style="margin-bottom:16px;">+ إضافة سؤال</button>
+        <br>
+        <button class="btn btn-primary" onclick="saveCmsFaq()">💾 حفظ الأسئلة</button>
+      </div>
+    </div>
+
+    <!-- Download Links Tab -->
+    <div id="cms-tab-downloadLinks" class="cms-tab-panel" style="display:none;">
+      <div class="card" style="padding:24px;max-width:600px;">
+        <h3 style="margin:0 0 20px;font-size:1rem;font-weight:700;">روابط متاجر التحميل</h3>
+        <div class="form-group">
+          <label class="form-label">رابط App Store (iOS)</label>
+          <input type="url" id="cms-dl-appStoreUrl" class="form-control" placeholder="https://apps.apple.com/...">
+        </div>
+        <div class="form-group" style="display:flex;align-items:center;gap:12px;">
+          <input type="checkbox" id="cms-dl-appStoreEnabled" style="width:18px;height:18px;">
+          <label for="cms-dl-appStoreEnabled" style="font-weight:600;cursor:pointer;">تفعيل زر App Store</label>
+        </div>
+        <div class="form-group">
+          <label class="form-label">رابط Google Play (Android)</label>
+          <input type="url" id="cms-dl-playStoreUrl" class="form-control" placeholder="https://play.google.com/store/apps/...">
+        </div>
+        <div class="form-group" style="display:flex;align-items:center;gap:12px;">
+          <input type="checkbox" id="cms-dl-playStoreEnabled" style="width:18px;height:18px;">
+          <label for="cms-dl-playStoreEnabled" style="font-weight:600;cursor:pointer;">تفعيل زر Google Play</label>
+        </div>
+        <button class="btn btn-primary" onclick="saveCmsSection('downloadLinks',{appStoreUrl:document.getElementById('cms-dl-appStoreUrl').value,playStoreUrl:document.getElementById('cms-dl-playStoreUrl').value,appStoreEnabled:document.getElementById('cms-dl-appStoreEnabled').checked,playStoreEnabled:document.getElementById('cms-dl-playStoreEnabled').checked})">💾 حفظ الروابط</button>
+      </div>
+    </div>
+
+    <!-- Screenshots Tab -->
+    <div id="cms-tab-screenshots" class="cms-tab-panel" style="display:none;">
+      <div class="card" style="padding:24px;max-width:700px;">
+        <h3 style="margin:0 0 4px;font-size:1rem;font-weight:700;">لقطات شاشة التطبيق</h3>
+        <p style="color:var(--text-muted);font-size:0.82rem;margin:0 0 20px;">ارفع 4 صور أو أكثر ليتم استبدال الصور الافتراضية على الموقع.</p>
+        <div id="cms-screenshots-grid" style="display:flex;flex-wrap:wrap;gap:12px;margin-bottom:16px;"></div>
+        <label class="btn btn-outline" style="cursor:pointer;display:inline-flex;align-items:center;gap:6px;">
+          <i data-lucide="upload" style="width:16px;height:16px;"></i> رفع صورة
+          <input type="file" id="cms-screenshot-upload" accept="image/*" style="display:none;" onchange="uploadCmsScreenshot(this)">
+        </label>
+      </div>
+    </div>
+
+    <!-- Contact Tab -->
+    <div id="cms-tab-contact" class="cms-tab-panel" style="display:none;">
+      <div class="card" style="padding:24px;max-width:500px;">
+        <h3 style="margin:0 0 20px;font-size:1rem;font-weight:700;">معلومات التواصل</h3>
+        <div class="form-group">
+          <label class="form-label">رقم واتساب (مع رمز الدولة)</label>
+          <input type="text" id="cms-contact-whatsapp" class="form-control" placeholder="9647801234567">
+        </div>
+        <div class="form-group">
+          <label class="form-label">البريد الإلكتروني</label>
+          <input type="email" id="cms-contact-email" class="form-control" placeholder="info@onwayiq.com">
+        </div>
+        <div class="form-group">
+          <label class="form-label">رابط فيسبوك</label>
+          <input type="url" id="cms-contact-facebook" class="form-control" placeholder="https://facebook.com/...">
+        </div>
+        <div class="form-group">
+          <label class="form-label">رابط إنستغرام</label>
+          <input type="url" id="cms-contact-instagram" class="form-control" placeholder="https://instagram.com/...">
+        </div>
+        <button class="btn btn-primary" onclick="saveCmsSection('contact')">💾 حفظ التواصل</button>
+      </div>
+    </div>
+
+    <!-- Footer Tab -->
+    <div id="cms-tab-footer" class="cms-tab-panel" style="display:none;">
+      <div class="card" style="padding:24px;max-width:500px;">
+        <h3 style="margin:0 0 20px;font-size:1rem;font-weight:700;">نص الفوتر</h3>
+        <div class="form-group">
+          <label class="form-label">الشعار (عربي)</label>
+          <input type="text" id="cms-footer-tagline_ar" class="form-control" placeholder="نوصّل السعادة لبابك" dir="rtl">
+        </div>
+        <div class="form-group">
+          <label class="form-label">الشعار (إنجليزي)</label>
+          <input type="text" id="cms-footer-tagline_en" class="form-control" placeholder="Delivering happiness to your door">
+        </div>
+        <button class="btn btn-primary" onclick="saveCmsSection('footer')">💾 حفظ الفوتر</button>
+      </div>
+    </div>
+
+    <!-- SEO Tab -->
+    <div id="cms-tab-seo" class="cms-tab-panel" style="display:none;">
+      <div class="card" style="padding:24px;max-width:600px;">
+        <h3 style="margin:0 0 20px;font-size:1rem;font-weight:700;">إعدادات SEO</h3>
+        <div class="form-group">
+          <label class="form-label">عنوان الصفحة (Title)</label>
+          <input type="text" id="cms-seo-title_ar" class="form-control" placeholder="OnWay - خدمة توصيل في العراق" dir="rtl">
+        </div>
+        <div class="form-group">
+          <label class="form-label">وصف الصفحة (Description)</label>
+          <textarea id="cms-seo-description_ar" class="form-control" rows="3" placeholder="اطلب من أفضل المطاعم والمتاجر..." dir="rtl"></textarea>
+        </div>
+        <div class="form-group">
+          <label class="form-label">الكلمات المفتاحية (Keywords) — مفصولة بفاصلة</label>
+          <input type="text" id="cms-seo-keywords" class="form-control" placeholder="توصيل, طلبات, العراق, اونواي">
+        </div>
+        <div class="form-group">
+          <label class="form-label">رابط صورة OG (للمشاركة)</label>
+          <input type="url" id="cms-seo-ogImageUrl" class="form-control" placeholder="https://...">
+        </div>
+        <button class="btn btn-primary" onclick="saveCmsSection('seo')">💾 حفظ SEO</button>
+      </div>
+    </div>
+  </div>
+  <!-- ══════════════════ END WEBSITE CMS SECTION ══════════════════ -->
+
   </main>
 
   <!-- Driver Tracking Modal -->
@@ -4351,6 +4560,7 @@
       if (section === 'bestSellers' || section === 'featured' || section === 'discounts') {
         loadPromotionalSections();
       }
+      if (section === 'websiteCms') loadWebsiteCms();
     }
 
     // ══════════════════════════════════════════════════════════════
@@ -5798,7 +6008,7 @@
         return `
         <div class="selected-product-card">
           <div style="position:relative;flex-shrink:0;">
-            <img src="${escapeHtml(p.image)}" alt="${escapeHtml(p.name)}" onerror="this.src='https://via.placeholder.com/45'"
+            <img src="${escapeHtml(p.image || p.imageUrl || '')}" alt="${escapeHtml(p.name)}" onerror="this.src='https://via.placeholder.com/45'"
               style="width:45px;height:45px;border-radius:8px;object-fit:cover;">
             ${hasDiscount ? `<span style="position:absolute;top:-4px;left:-4px;background:#E86520;color:#fff;font-size:9px;font-weight:800;border-radius:5px;padding:1px 4px;">-${p.discount}%</span>` : ''}
           </div>
@@ -5830,7 +6040,7 @@
           <div class="product-select-card ${isSelected ? 'selected' : ''}" onclick="togglePromotionalProduct('${type}', '${p.id}')">
             <div class="check-icon"><i data-lucide="check" style="width: 14px; height: 14px;"></i></div>
             ${hasDiscount ? `<span style="position:absolute;top:6px;right:6px;background:#E86520;color:#fff;font-size:9px;font-weight:800;border-radius:5px;padding:1px 5px;z-index:2;">-${p.discount}%</span>` : ''}
-            <img src="${escapeHtml(p.image)}" alt="${escapeHtml(p.name)}" onerror="this.src='https://via.placeholder.com/80'">
+            <img src="${escapeHtml(p.image || p.imageUrl || '')}" alt="${escapeHtml(p.name)}" onerror="this.src='https://via.placeholder.com/80'">
             <span class="name">${escapeHtml(p.name)}</span>
             ${hasDiscount ? `
               <div style="display:flex;flex-direction:column;align-items:center;gap:1px;">
@@ -5885,7 +6095,7 @@
       const p = products.find(pr => pr.id === productId);
       if (!p) return;
       _discountTargetProductId = productId;
-      document.getElementById('discount-product-img').src = p.image || '';
+      document.getElementById('discount-product-img').src = p.image || p.imageUrl || '';
       document.getElementById('discount-product-name').textContent = p.name;
       // Use originalPrice if already set, otherwise use current price
       const basePrice = p.originalPrice && p.originalPrice > p.price ? p.originalPrice : p.price;
@@ -6918,10 +7128,13 @@
     }
 
     function filterMerchantProducts() {
-      const q      = (document.getElementById('mprods-search')?.value || '').toLowerCase();
-      const status = document.getElementById('mprods-status')?.value || '';
+      const q       = (document.getElementById('mprods-search')?.value || '').toLowerCase();
+      const status  = document.getElementById('mprods-status')?.value || '';
+      const active  = document.getElementById('mprods-active')?.value || '';
       let list = [..._merchantAllProds];
       if (status) list = list.filter(p => p.status === status);
+      if (active === 'active')   list = list.filter(p => p.isActive !== false);
+      if (active === 'disabled') list = list.filter(p => p.isActive === false);
       if (q)      list = list.filter(p => (p.name || '').toLowerCase().includes(q));
       const grid  = document.getElementById('mprods-grid');
       const empty = document.getElementById('mprods-empty');
@@ -6929,17 +7142,79 @@
       empty.style.display = 'none';
       const STATUS_COLORS = { approved: '#16A34A', pending: '#F59E0B', rejected: '#EF4444' };
       const STATUS_LABELS = { approved: 'مقبول', pending: 'بانتظار المراجعة', rejected: 'مرفوض' };
-      grid.innerHTML = list.map(p => `
-        <div style="background:#F9FAFB;border-radius:12px;padding:12px;border:1px solid #F3F4F6;">
-          <div style="width:100%;aspect-ratio:1;border-radius:10px;overflow:hidden;background:#fff;border:1px solid #E5E7EB;margin-bottom:8px;display:flex;align-items:center;justify-content:center;">
-            <img src="${p.image || ''}" onerror="this.style.display='none'" style="width:100%;height:100%;object-fit:cover;">
+      grid.innerHTML = list.map(p => {
+        const disabled = p.isActive === false;
+        const safeName = escapeHtml(p.name || '—').replace(/'/g, "\\'").replace(/"/g, "&quot;");
+        return `
+        <div style="background:${disabled?'#F8F8F8':'#F9FAFB'};border-radius:14px;padding:12px;border:1.5px solid ${disabled?'#E5E7EB':'#F3F4F6'};position:relative;opacity:${disabled?0.75:1};transition:opacity .2s;">
+          <!-- Image -->
+          <div style="width:100%;aspect-ratio:1;border-radius:10px;overflow:hidden;background:#fff;border:1px solid #E5E7EB;margin-bottom:8px;display:flex;align-items:center;justify-content:center;position:relative;">
+            <img src="${p.image || p.imageUrl || ''}" onerror="this.style.display='none'" style="width:100%;height:100%;object-fit:cover;">
+            ${disabled ? `<div style="position:absolute;inset:0;background:rgba(0,0,0,0.28);display:flex;align-items:center;justify-content:center;pointer-events:none;"><span style="background:#6B7280;color:#fff;font-size:0.62rem;font-weight:800;padding:2px 10px;border-radius:20px;letter-spacing:0.02em;">معطّل</span></div>` : ''}
           </div>
-          <div style="font-weight:700;font-size:0.82rem;color:#111827;margin-bottom:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(p.name || '—')}</div>
-          <div style="display:flex;align-items:center;justify-content:space-between;">
+          <!-- Name -->
+          <div style="font-weight:700;font-size:0.82rem;color:#111827;margin-bottom:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${escapeHtml(p.name||'')}">${escapeHtml(p.name || '—')}</div>
+          <!-- Price + Approval status -->
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
             <span style="font-size:0.78rem;font-weight:700;color:#E86520;">${(p.price || 0).toLocaleString('ar-IQ')} د.ع</span>
-            <span style="font-size:0.65rem;font-weight:700;color:${STATUS_COLORS[p.status] || '#9CA3AF'};">${STATUS_LABELS[p.status] || p.status}</span>
+            <span style="font-size:0.62rem;font-weight:700;color:${STATUS_COLORS[p.status]||'#9CA3AF'};">${STATUS_LABELS[p.status]||p.status}</span>
           </div>
-        </div>`).join('');
+          <!-- Action buttons -->
+          <div style="display:flex;gap:5px;">
+            <button
+              onclick="toggleVendorProductActive('${p.id}', ${disabled})"
+              title="${disabled ? 'تفعيل المنتج' : 'تعطيل المنتج'}"
+              style="flex:1;padding:5px 0;border-radius:8px;border:1px solid ${disabled?'#BBF7D0':'#E5E7EB'};background:${disabled?'#F0FDF4':'#F9FAFB'};color:${disabled?'#16A34A':'#6B7280'};font-size:0.68rem;font-weight:700;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:3px;transition:all .15s;">
+              ${disabled ? '✅ تفعيل' : '⏸ تعطيل'}
+            </button>
+            <button
+              onclick="deleteVendorProduct('${p.id}', '${safeName}')"
+              title="حذف المنتج"
+              style="padding:5px 9px;border-radius:8px;border:1px solid #FECACA;background:#FFF5F5;color:#EF4444;font-size:0.72rem;font-weight:700;cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:3px;transition:all .15s;">
+              🗑
+            </button>
+          </div>
+        </div>`; }).join('');
+      lucide.createIcons();
+    }
+
+    // ── Toggle product isActive (admin disable / enable) ─────────────────────
+    async function toggleVendorProductActive(productId, newIsActive) {
+      try {
+        const r = await fetch(API_BASE + '/admin/vendor-products/' + productId + '/toggle-active', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ isActive: newIsActive }),
+        });
+        if (!r.ok) throw new Error();
+        const idx = _merchantAllProds.findIndex(p => p.id === productId);
+        if (idx !== -1) _merchantAllProds[idx].isActive = newIsActive;
+        filterMerchantProducts();
+        showToast('success', newIsActive ? '✅ تم التفعيل' : '⏸ تم التعطيل',
+          newIsActive ? 'المنتج مرئي للعملاء الآن' : 'المنتج مخفي عن العملاء');
+      } catch {
+        showToast('error', 'خطأ', 'فشلت العملية، حاول مرة أخرى');
+      }
+    }
+
+    // ── Delete vendor product with confirmation ───────────────────────────────
+    function deleteVendorProduct(productId, productName) {
+      document.getElementById('confirm-message').textContent =
+        `هل أنت متأكد من حذف المنتج "${productName}"؟ لا يمكن التراجع عن هذا الإجراء.`;
+      document.getElementById('confirm-delete-btn').onclick = async () => {
+        closeModal('confirm-modal');
+        try {
+          const r = await fetch(API_BASE + '/admin/vendor-products/' + productId, { method: 'DELETE' });
+          if (!r.ok) throw new Error();
+          _merchantAllProds = _merchantAllProds.filter(p => p.id !== productId);
+          document.getElementById('mprods-subtitle').textContent = `${_merchantAllProds.length} منتج`;
+          filterMerchantProducts();
+          showToast('success', 'تم الحذف', 'تم حذف المنتج بنجاح');
+        } catch {
+          showToast('error', 'خطأ', 'فشل حذف المنتج');
+        }
+      };
+      document.getElementById('confirm-modal').classList.add('active');
       lucide.createIcons();
     }
 
@@ -7637,12 +7912,14 @@
               ${order.driverName ? `<span style="font-weight:600;font-size:0.85rem;color:#06B6D4;">${escapeHtml(order.driverName)}</span>` : '<span style="color:var(--gray-400);font-size:0.8rem;">—</span>'}
             </td>
             <td>
-              ${order.vendorName
+              ${(order.vendorName || order.storeName || order.restaurantName)
                 ? `<div style="display:flex;align-items:center;gap:6px;">
-                    <span style="background:#FFF3E0;color:#E86520;padding:3px 8px;border-radius:20px;font-size:0.75rem;font-weight:700;">${escapeHtml(order.vendorName)}</span>
+                    <span style="background:#FFF3E0;color:#E86520;padding:3px 8px;border-radius:20px;font-size:0.75rem;font-weight:700;">${escapeHtml(order.vendorName || order.storeName || order.restaurantName)}</span>
                     ${order.vendorWhatsapp ? `<a href="https://wa.me/${order.vendorWhatsapp}?text=${encodeURIComponent('طلب جديد من OnWay - يرجى التحضير')}" target="_blank" onclick="event.stopPropagation()" title="إشعار المطعم" style="color:#25D366;"><i data-lucide="send" style="width:13px;height:13px;"></i></a>` : ''}
                    </div>`
-                : `<span style="background:#F0FDF4;color:#16A34A;padding:3px 8px;border-radius:20px;font-size:0.75rem;font-weight:700;">متجر OnWay</span>`
+                : order.vendorId
+                  ? `<span style="background:#FFF3E0;color:#E86520;padding:3px 8px;border-radius:20px;font-size:0.75rem;font-weight:700;">متجر شريك</span>`
+                  : `<span style="background:#F0FDF4;color:#16A34A;padding:3px 8px;border-radius:20px;font-size:0.75rem;font-weight:700;">متجر OnWay</span>`
               }
             </td>
             <td>
@@ -7730,16 +8007,17 @@
           </div>
 
           <!-- Vendor / Store Info -->
-          ${order.storeName || order.vendorName || order.restaurantName ? `
+          ${order.storeName || order.vendorName || order.restaurantName || order.vendorId ? `
           <div style="background: #FFF3E0; border: 1px solid #FFD9BB; border-radius: 12px; padding: 16px;">
             <h4 style="margin: 0 0 10px 0; display: flex; align-items: center; gap: 8px; color: var(--gray-800);">
               <i data-lucide="store" style="width: 18px; height: 18px; color: var(--primary);"></i>
               المتجر / المطعم
             </h4>
             <div style="font-weight: 700; font-size: 1rem; color: #E86520;">
-              ${escapeHtml(order.storeName || order.vendorName || order.restaurantName || '—')}
+              ${escapeHtml(order.storeName || order.vendorName || order.restaurantName || 'متجر شريك')}
             </div>
-            ${order.vendorId ? `<div style="font-size: 0.75rem; color: var(--gray-400); margin-top: 4px;">ID: ${escapeHtml(order.vendorId)}</div>` : ''}
+            ${order.vendorId ? `<div style="font-size: 0.75rem; color: var(--gray-400); margin-top: 4px; direction: ltr; text-align: right;">ID: ${escapeHtml(order.vendorId)}</div>` : ''}
+            ${order.vendorWhatsapp ? `<a href="https://wa.me/${escapeHtml(order.vendorWhatsapp)}?text=${encodeURIComponent('طلب جديد من OnWay - يرجى التحضير')}" target="_blank" style="display:inline-flex;align-items:center;gap:5px;margin-top:8px;color:#25D366;font-size:0.8rem;font-weight:600;text-decoration:none;"><i data-lucide="message-circle" style="width:15px;height:15px;"></i> تواصل مع المتجر</a>` : ''}
           </div>` : ''}
 
           <!-- Customer Info -->
@@ -9863,7 +10141,7 @@ function renderSupportMessages(messages) {
       const price = (p.price || 0).toLocaleString('ar-IQ') + ' د.ع';
       contentHtml = `
         <div style="display:flex;border:1px solid #E5E7EB;border-radius:10px;overflow:hidden;max-width:260px;background:#fff;">
-          ${p.image ? `<img src="${p.image}" style="width:70px;height:70px;object-fit:cover;flex-shrink:0;" onerror="this.style.display='none'" />` : ''}
+          ${(p.image || p.imageUrl) ? `<img src="${p.image || p.imageUrl}" style="width:70px;height:70px;object-fit:cover;flex-shrink:0;" onerror="this.style.display='none'" />` : ''}
           <div style="padding:8px 10px;flex:1;">
             <div style="font-family:'Cairo',sans-serif;font-weight:700;font-size:0.88rem;color:#111827;margin-bottom:4px;">${p.name || ''}</div>
             <div style="font-family:'Cairo',sans-serif;font-size:0.82rem;color:var(--primary);font-weight:700;">${price}</div>
@@ -11020,6 +11298,225 @@ async function toggleBizType(key, enable) {
     showToast('success', 'تم', enable ? 'تم تفعيل النوع' : 'تم تعطيل النوع');
   } catch { showToast('error', 'خطأ', 'تعذّر تغيير الحالة'); }
 }
+
+// ══════════════════════════════════════════════════════════════
+//  WEBSITE CMS SECTION
+// ══════════════════════════════════════════════════════════════
+let cmsData = {};
+
+function switchCmsTab(tab, el) {
+  document.querySelectorAll('.cms-tab').forEach(b => b.classList.remove('cms-tab-active'));
+  document.querySelectorAll('.cms-tab-panel').forEach(p => p.style.display = 'none');
+  if (el) el.classList.add('cms-tab-active');
+  const panel = document.getElementById('cms-tab-' + tab);
+  if (panel) panel.style.display = '';
+}
+
+async function loadWebsiteCms() {
+  try {
+    const res = await fetch(`${API_BASE}/admin/website-cms`);
+    if (!res.ok) throw new Error(res.status);
+    cmsData = await res.json();
+    populateCmsHero(cmsData.hero || {});
+    populateCmsStats(cmsData.stats || {});
+    populateCmsFeatures(cmsData.features || {});
+    populateCmsFaq(cmsData.faq || {});
+    populateCmsDownloadLinks(cmsData.downloadLinks || {});
+    populateCmsScreenshots(cmsData.screenshots || {});
+    populateCmsContact(cmsData.contact || {});
+    populateCmsFooter(cmsData.footer || {});
+    populateCmsSeo(cmsData.seo || {});
+  } catch(e) {
+    showToast('error', 'خطأ', 'تعذّر تحميل بيانات الموقع');
+    console.error('loadWebsiteCms:', e);
+  }
+}
+
+function populateCmsHero(d) {
+  document.getElementById('cms-hero-title_ar').value = d.title_ar || '';
+  document.getElementById('cms-hero-subtitle_ar').value = d.subtitle_ar || '';
+  document.getElementById('cms-hero-ctaPrimary_ar').value = d.ctaPrimary_ar || '';
+  document.getElementById('cms-hero-ctaSecondary_ar').value = d.ctaSecondary_ar || '';
+}
+function populateCmsStats(d) {
+  document.getElementById('cms-stats-downloads').value = d.downloads || '';
+  document.getElementById('cms-stats-vendors').value = d.vendors || '';
+  document.getElementById('cms-stats-cities').value = d.cities || '';
+}
+function populateCmsContact(d) {
+  document.getElementById('cms-contact-whatsapp').value = d.whatsapp || '';
+  document.getElementById('cms-contact-email').value = d.email || '';
+  document.getElementById('cms-contact-facebook').value = d.facebook || '';
+  document.getElementById('cms-contact-instagram').value = d.instagram || '';
+}
+function populateCmsFooter(d) {
+  document.getElementById('cms-footer-tagline_ar').value = d.tagline_ar || '';
+  document.getElementById('cms-footer-tagline_en').value = d.tagline_en || '';
+}
+function populateCmsSeo(d) {
+  document.getElementById('cms-seo-title_ar').value = d.title_ar || '';
+  document.getElementById('cms-seo-description_ar').value = d.description_ar || '';
+  document.getElementById('cms-seo-keywords').value = d.keywords || '';
+  document.getElementById('cms-seo-ogImageUrl').value = d.ogImageUrl || '';
+}
+function populateCmsDownloadLinks(d) {
+  document.getElementById('cms-dl-appStoreUrl').value = d.appStoreUrl || '';
+  document.getElementById('cms-dl-playStoreUrl').value = d.playStoreUrl || '';
+  document.getElementById('cms-dl-appStoreEnabled').checked = !!d.appStoreEnabled;
+  document.getElementById('cms-dl-playStoreEnabled').checked = !!d.playStoreEnabled;
+}
+
+// ── Features (array) ─────────────────────────────────────
+let cmsFeatureItems = [];
+function populateCmsFeatures(d) {
+  cmsFeatureItems = Array.isArray(d.items) ? [...d.items] : [];
+  renderCmsFeatures();
+}
+function renderCmsFeatures() {
+  const el = document.getElementById('cms-features-list');
+  if (!el) return;
+  if (!cmsFeatureItems.length) { el.innerHTML = '<p style="color:var(--text-muted);font-size:0.85rem;">لا توجد مميزات بعد. اضغط "إضافة ميزة".</p>'; return; }
+  el.innerHTML = cmsFeatureItems.map((f,i) => `
+    <div class="cms-feature-row">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+        <span style="font-weight:700;font-size:0.85rem;">الميزة ${i+1}</span>
+        <button onclick="removeCmsFeature(${i})" style="background:none;border:none;color:#ef4444;cursor:pointer;font-size:1.1rem;">×</button>
+      </div>
+      <div class="form-group" style="margin-bottom:8px;">
+        <label class="form-label" style="font-size:0.8rem;">العنوان</label>
+        <input type="text" class="form-control" value="${escHtml(f.title_ar||'')}" oninput="cmsFeatureItems[${i}].title_ar=this.value" dir="rtl">
+      </div>
+      <div class="form-group" style="margin-bottom:0;">
+        <label class="form-label" style="font-size:0.8rem;">الوصف</label>
+        <textarea class="form-control" rows="2" oninput="cmsFeatureItems[${i}].desc_ar=this.value" dir="rtl">${escHtml(f.desc_ar||'')}</textarea>
+      </div>
+    </div>`).join('');
+}
+function addCmsFeature() {
+  if (cmsFeatureItems.length >= 6) { showToast('warning','تنبيه','الحد الأقصى 6 مميزات'); return; }
+  cmsFeatureItems.push({ title_ar:'', desc_ar:'', order: cmsFeatureItems.length + 1 });
+  renderCmsFeatures();
+}
+function removeCmsFeature(i) {
+  cmsFeatureItems.splice(i, 1);
+  cmsFeatureItems.forEach((f,idx) => f.order = idx + 1);
+  renderCmsFeatures();
+}
+async function saveCmsFeatures() {
+  await saveCmsSection('features', { items: cmsFeatureItems });
+}
+
+// ── FAQ (array) ──────────────────────────────────────────
+let cmsFaqItems = [];
+function populateCmsFaq(d) {
+  cmsFaqItems = Array.isArray(d.items) ? [...d.items] : [];
+  renderCmsFaq();
+}
+function renderCmsFaq() {
+  const el = document.getElementById('cms-faq-list');
+  if (!el) return;
+  if (!cmsFaqItems.length) { el.innerHTML = '<p style="color:var(--text-muted);font-size:0.85rem;">لا توجد أسئلة بعد.</p>'; return; }
+  el.innerHTML = cmsFaqItems.map((f,i) => `
+    <div class="cms-faq-row">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+        <span style="font-weight:700;font-size:0.85rem;">السؤال ${i+1}</span>
+        <button onclick="removeCmsFaq(${i})" style="background:none;border:none;color:#ef4444;cursor:pointer;font-size:1.1rem;">×</button>
+      </div>
+      <div class="form-group" style="margin-bottom:8px;">
+        <label class="form-label" style="font-size:0.8rem;">السؤال</label>
+        <input type="text" class="form-control" value="${escHtml(f.question_ar||'')}" oninput="cmsFaqItems[${i}].question_ar=this.value" dir="rtl">
+      </div>
+      <div class="form-group" style="margin-bottom:0;">
+        <label class="form-label" style="font-size:0.8rem;">الإجابة</label>
+        <textarea class="form-control" rows="2" oninput="cmsFaqItems[${i}].answer_ar=this.value" dir="rtl">${escHtml(f.answer_ar||'')}</textarea>
+      </div>
+    </div>`).join('');
+}
+function addCmsFaq() {
+  cmsFaqItems.push({ question_ar:'', answer_ar:'', order: cmsFaqItems.length + 1 });
+  renderCmsFaq();
+}
+function removeCmsFaq(i) {
+  cmsFaqItems.splice(i, 1);
+  cmsFaqItems.forEach((f,idx) => f.order = idx + 1);
+  renderCmsFaq();
+}
+async function saveCmsFaq() {
+  await saveCmsSection('faq', { items: cmsFaqItems });
+}
+
+// ── Screenshots ──────────────────────────────────────────
+function populateCmsScreenshots(d) {
+  const images = Array.isArray(d.images) ? d.images : [];
+  renderCmsScreenshots(images);
+}
+function renderCmsScreenshots(images) {
+  const grid = document.getElementById('cms-screenshots-grid');
+  if (!grid) return;
+  if (!images.length) { grid.innerHTML = '<p style="color:var(--text-muted);font-size:0.85rem;width:100%;">لا توجد صور مرفوعة بعد.</p>'; cmsData.screenshots = cmsData.screenshots || {}; cmsData.screenshots.images = []; return; }
+  cmsData.screenshots = cmsData.screenshots || {};
+  cmsData.screenshots.images = images;
+  grid.innerHTML = images.map((url, i) => `
+    <div class="cms-img-wrap">
+      <img src="${escHtml(url)}" class="cms-screenshot-thumb" alt="لقطة ${i+1}">
+      <button class="cms-img-del" onclick="deleteCmsScreenshot(${i})" title="حذف">×</button>
+    </div>`).join('');
+}
+async function uploadCmsScreenshot(input) {
+  if (!input.files || !input.files[0]) return;
+  const fd = new FormData();
+  fd.append('image', input.files[0]);
+  fd.append('field', 'temp');
+  try {
+    const res = await fetch(`${API_BASE}/admin/website-cms/screenshots/image`, { method:'POST', body: fd });
+    if (!res.ok) throw new Error(res.status);
+    const { url } = await res.json();
+    const imgs = [...((cmsData.screenshots || {}).images || []), url];
+    await saveCmsSection('screenshots', { images: imgs });
+    renderCmsScreenshots(imgs);
+    showToast('success','تم','تم رفع الصورة');
+  } catch(e) { showToast('error','خطأ','تعذّر رفع الصورة'); }
+  input.value = '';
+}
+async function deleteCmsScreenshot(i) {
+  const imgs = [...((cmsData.screenshots || {}).images || [])];
+  const url = imgs[i];
+  imgs.splice(i, 1);
+  try {
+    await fetch(`${API_BASE}/admin/website-cms/image`, { method:'DELETE', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ url, section:'screenshots', field:'__array__' }) });
+  } catch {}
+  await saveCmsSection('screenshots', { images: imgs });
+  renderCmsScreenshots(imgs);
+}
+
+// ── Generic save ─────────────────────────────────────────
+async function saveCmsSection(section, payload) {
+  // If no payload given, collect from the form fields
+  if (!payload) {
+    if (section === 'hero') payload = { title_ar: document.getElementById('cms-hero-title_ar').value, subtitle_ar: document.getElementById('cms-hero-subtitle_ar').value, ctaPrimary_ar: document.getElementById('cms-hero-ctaPrimary_ar').value, ctaSecondary_ar: document.getElementById('cms-hero-ctaSecondary_ar').value };
+    else if (section === 'stats') payload = { downloads: document.getElementById('cms-stats-downloads').value, vendors: document.getElementById('cms-stats-vendors').value, cities: document.getElementById('cms-stats-cities').value };
+    else if (section === 'contact') payload = { whatsapp: document.getElementById('cms-contact-whatsapp').value, email: document.getElementById('cms-contact-email').value, facebook: document.getElementById('cms-contact-facebook').value, instagram: document.getElementById('cms-contact-instagram').value };
+    else if (section === 'footer') payload = { tagline_ar: document.getElementById('cms-footer-tagline_ar').value, tagline_en: document.getElementById('cms-footer-tagline_en').value };
+    else if (section === 'seo') payload = { title_ar: document.getElementById('cms-seo-title_ar').value, description_ar: document.getElementById('cms-seo-description_ar').value, keywords: document.getElementById('cms-seo-keywords').value, ogImageUrl: document.getElementById('cms-seo-ogImageUrl').value };
+    else { showToast('error','خطأ','قسم غير معروف'); return; }
+  }
+  try {
+    const res = await fetch(`${API_BASE}/admin/website-cms/${section}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) throw new Error(res.status);
+    showToast('success','تم الحفظ','سيظهر التغيير على الموقع خلال دقيقة');
+  } catch(e) {
+    showToast('error','خطأ','تعذّر الحفظ: ' + e.message);
+  }
+}
+
+function escHtml(str) {
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+// ══════════════════ END WEBSITE CMS SECTION ══════════════════
 
 </script>
 </html>

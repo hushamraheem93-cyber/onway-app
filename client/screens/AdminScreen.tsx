@@ -28,6 +28,7 @@ import { useTheme } from "@/hooks/useTheme";
 import { ThemedText } from "@/components/ThemedText";
 import { Spacing, BorderRadius, AppColors, FontWeight} from "@/constants/theme";
 import { Banner, Category } from "@/constants/categories";
+import { CATEGORY_MAP } from "@/constants/businessCategories";
 import { apiRequest, getApiUrl } from "@/lib/query-client";
 import { resolveImageUrl } from "@/utils/imageUtils";
 import { formatPrice } from "@/constants/currency";
@@ -35,8 +36,9 @@ import { formatDateOnly } from "@/lib/dateUtils";
 import { compressAndConvertToBase64, processAndUploadImage, isBase64Image, ImageSize } from "@/lib/imageUtils";
 import { useSystemSettings } from "@/context/SystemSettingsContext";
 import { playRepeatingAlert } from "@/lib/alertSound";
+import { WebsiteCmsTab } from "@/screens/WebsiteCmsTab";
 
-type TabType = "dashboard" | "orders" | "drivers" | "users" | "banners" | "categories" | "products" | "areas" | "promoCodes" | "notifications" | "vendors" | "settlements" | "settings";
+type TabType = "dashboard" | "orders" | "drivers" | "users" | "banners" | "categories" | "products" | "areas" | "promoCodes" | "notifications" | "vendors" | "settlements" | "settings" | "storage" | "websiteCms";
 
 interface AdminUser {
   id: string;
@@ -118,6 +120,8 @@ interface VendorProduct {
   name: string;
   price: number;
   imageUrl?: string;
+  imageUrls?: string[];
+  imageThumbs?: string[];
   status: "approved" | "pending" | "rejected" | "deleted";
   stock?: number;
   category?: string;
@@ -265,7 +269,7 @@ export default function AdminScreen() {
       </tr>`).join("");
     const html = `
       <html dir="rtl"><head><meta charset="utf-8"/>
-      <style>body{font-family:sans-serif;padding:24px} h1{color:#E86520} table{width:100%;border-collapse:collapse} th,td{border:1px solid #ddd;padding:8px} th{background:#FFF2EC}</style>
+      <style>body{font-family:sans-serif;padding:24px} h1{color:#FB5B21} table{width:100%;border-collapse:collapse} th,td{border:1px solid #ddd;padding:8px} th{background:#FFF1EC}</style>
       </head><body>
         <h1>تقرير التسويات — ${type === "vendor" ? "المتاجر" : "السائقون"}</h1>
         <p>التاريخ: ${new Date().toLocaleDateString("ar-IQ")}</p>
@@ -324,6 +328,29 @@ export default function AdminScreen() {
   const [isSendingNotif, setIsSendingNotif] = useState(false);
   const [notifResult, setNotifResult] = useState<{ sent: number; total: number } | null>(null);
   const [notifError, setNotifError] = useState<string | null>(null);
+
+  // ── Storage Stats ──────────────────────────────────────────────────────────
+  const [storageStats, setStorageStats] = useState<any | null>(null);
+  const [storageStatsLoading, setStorageStatsLoading] = useState(false);
+  const [storageStatsError, setStorageStatsError] = useState<string | null>(null);
+  const loadStorageStats = useCallback(async () => {
+    setStorageStatsLoading(true);
+    setStorageStatsError(null);
+    try {
+      const res = await fetch(`${getApiUrl()}/api/admin/storage-stats`, { credentials: "include" });
+      if (!res.ok) throw new Error(`${res.status}`);
+      setStorageStats(await res.json());
+    } catch {
+      setStorageStatsError("تعذر تحميل إحصائيات التخزين");
+    } finally {
+      setStorageStatsLoading(false);
+    }
+  }, []);
+  useEffect(() => {
+    if (activeTab === "storage" && !storageStats && !storageStatsLoading) {
+      loadStorageStats();
+    }
+  }, [activeTab, storageStats, storageStatsLoading, loadStorageStats]);
 
   const [urgencyForm, setUrgencyForm] = useState({ confirmed: "10", preparing: "25", ready: "15" });
   const [isSavingUrgency, setIsSavingUrgency] = useState(false);
@@ -584,7 +611,7 @@ export default function AdminScreen() {
   });
   const vendorPartners: VendorPartner[] = vendorPartnersRaw?.vendors ?? [];
 
-  const { data: allVendorProducts } = useQuery<{ products: VendorProduct[]; total: number }>({
+  const { data: allVendorProducts, refetch: refetchVendorProducts } = useQuery<{ products: VendorProduct[]; total: number }>({
     queryKey: ["/api/admin/vendor-products"],
     queryFn: async () => {
       const res = await fetch(`${getApiUrl()}/api/admin/vendor-products?status=all`, { credentials: "include" });
@@ -600,6 +627,73 @@ export default function AdminScreen() {
   const [selectedVendor, setSelectedVendor] = useState<VendorPartner | null>(null);
   const [vendorStatusFilter, setVendorStatusFilter] = useState<"all" | "active" | "pending" | "rejected" | "suspended">("all");
   const [isUpdatingVendorStatus, setIsUpdatingVendorStatus] = useState(false);
+  const [deletingImageKey, setDeletingImageKey] = useState<string | null>(null);
+  const [addVendorProductOpen, setAddVendorProductOpen] = useState(false);
+  const [vendorProductForm, setVendorProductForm] = useState({
+    name: "", category: "", price: "", description: "", stock: "0", unit: "قطعة",
+    imageUri: "", imageUrl: "",
+  });
+  const [savingVendorProduct, setSavingVendorProduct] = useState(false);
+
+  const saveVendorProduct = async (vendorId: string) => {
+    if (savingVendorProduct) return;
+    const { name, price, category } = vendorProductForm;
+    if (!name.trim()) { Alert.alert("خطأ", "يرجى إدخال اسم المنتج"); return; }
+    if (!price || isNaN(parseFloat(price))) { Alert.alert("خطأ", "يرجى إدخال سعر صحيح"); return; }
+    if (!category) { Alert.alert("خطأ", "يرجى اختيار الفئة"); return; }
+    setSavingVendorProduct(true);
+    try {
+      let finalImageUrl = vendorProductForm.imageUrl;
+      if (vendorProductForm.imageUri) {
+        finalImageUrl = await processAndUploadImage(vendorProductForm.imageUri, "product");
+      }
+      const res = await fetch(`${getApiUrl()}/api/admin/vendors/${vendorId}/products`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          name: name.trim(),
+          price,
+          category,
+          description: vendorProductForm.description.trim(),
+          stock: vendorProductForm.stock || "0",
+          unit: vendorProductForm.unit || "قطعة",
+          imageUrl: finalImageUrl || undefined,
+        }),
+      });
+      if (!res.ok) { const d = await res.json(); throw new Error(d.error || "فشل الحفظ"); }
+      Alert.alert("تم", "تم إضافة المنتج بنجاح");
+      setAddVendorProductOpen(false);
+      setVendorProductForm({ name: "", category: "", price: "", description: "", stock: "0", unit: "قطعة", imageUri: "", imageUrl: "" });
+      refetchVendorProducts();
+    } catch (err: any) {
+      Alert.alert("خطأ", err.message || "حدث خطأ");
+    } finally {
+      setSavingVendorProduct(false);
+    }
+  };
+
+  const deleteProductImage = useMutation({
+    mutationFn: async ({ pid, imageUrl }: { pid: string; imageUrl: string }) => {
+      const res = await fetch(`${getApiUrl()}/api/admin/vendor-products/${pid}/image`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ imageUrl }),
+      });
+      if (!res.ok) { const d = await res.json(); throw new Error(d.error || "فشل الحذف"); }
+      return res.json();
+    },
+    onSuccess: () => {
+      refetchVendorProducts();
+    },
+    onError: (err: Error) => {
+      Alert.alert("خطأ", err.message);
+    },
+    onSettled: () => {
+      setDeletingImageKey(null);
+    },
+  });
 
   const [rechargeDriver, setRechargeDriver] = useState<string | null>(null);
   const [rechargeAmount, setRechargeAmount] = useState("");
@@ -1347,7 +1441,7 @@ export default function AdminScreen() {
                   {formatPrice(product.price)}
                 </ThemedText>
                 {(product as any).restaurant ? (
-                  <View style={[styles.discountBadge, { backgroundColor: "#E8652020" }]}>
+                  <View style={[styles.discountBadge, { backgroundColor: "#FB5B2120" }]}>
                     <ThemedText type="small" style={{ color: AppColors.primary, fontWeight: FontWeight.semiBold, fontSize: 10 }}>{(product as any).restaurant}</ThemedText>
                   </View>
                 ) : null}
@@ -1482,11 +1576,11 @@ export default function AdminScreen() {
 #map{width:100%;height:100%}
 .leaflet-control-attribution{display:none!important}
 .driver-pulse{width:48px;height:48px;position:relative;display:flex;align-items:center;justify-content:center}
-.driver-pulse::before{content:'';position:absolute;width:48px;height:48px;border-radius:50%;background:rgba(232,101,32,0.25);animation:pulse 1.8s ease-out infinite}
-.driver-inner{width:32px;height:32px;background:#E86520;border-radius:50%;border:3px solid #fff;box-shadow:0 2px 10px rgba(232,101,32,0.6);display:flex;align-items:center;justify-content:center;position:relative;z-index:1}
+.driver-pulse::before{content:'';position:absolute;width:48px;height:48px;border-radius:50%;background:rgba(251,91,33,0.25);animation:pulse 1.8s ease-out infinite}
+.driver-inner{width:32px;height:32px;background:#FB5B21;border-radius:50%;border:3px solid #fff;box-shadow:0 2px 10px rgba(251,91,33,0.6);display:flex;align-items:center;justify-content:center;position:relative;z-index:1}
 @keyframes pulse{0%{transform:scale(0.5);opacity:1}100%{transform:scale(2.2);opacity:0}}
 .info-pill{position:absolute;bottom:14px;left:50%;transform:translateX(-50%);background:rgba(255,255,255,0.96);border-radius:24px;padding:8px 18px;font-family:sans-serif;font-size:13px;color:#333;box-shadow:0 2px 12px rgba(0,0,0,0.15);white-space:nowrap;z-index:1000;pointer-events:none}
-.dot{width:8px;height:8px;background:#E86520;border-radius:50%;display:inline-block;margin-left:6px;animation:blink 1.2s ease-in-out infinite}
+.dot{width:8px;height:8px;background:#FB5B21;border-radius:50%;display:inline-block;margin-left:6px;animation:blink 1.2s ease-in-out infinite}
 @keyframes blink{0%,100%{opacity:1}50%{opacity:0.2}}
 </style></head><body>
 <div id="map"></div>
@@ -2179,7 +2273,7 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
                 style={[styles.userRow, { backgroundColor: theme.backgroundSecondary }]}
               >
                 <View style={styles.userRowLeft}>
-                  <View style={[styles.userAvatar, { backgroundColor: `rgba(232,101,32,${0.1 + (idx % 4) * 0.05})` }]}>
+                  <View style={[styles.userAvatar, { backgroundColor: `rgba(251,91,33,${0.1 + (idx % 4) * 0.05})` }]}>
                     <ThemedText style={styles.userAvatarText}>
                       {user.fullName?.charAt(0) || "؟"}
                     </ThemedText>
@@ -2892,38 +2986,194 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
                   <View style={{ gap: Spacing.sm }}>
                     <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 8 }}>
                       <Feather name="package" size={16} color={ADMIN_RED} />
-                      <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 15, color: theme.text }}>
+                      <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 15, color: theme.text, flex: 1 }}>
                         المنتجات ({selectedProducts.length})
                       </ThemedText>
+                      <Pressable onPress={() => refetchVendorProducts()} style={{ padding: 6 }}>
+                        <Feather name="refresh-cw" size={14} color={theme.textSecondary} />
+                      </Pressable>
+                      <Pressable
+                        onPress={() => {
+                          setVendorProductForm({ name: "", category: "", price: "", description: "", stock: "0", unit: "قطعة", imageUri: "", imageUrl: "" });
+                          setAddVendorProductOpen(true);
+                        }}
+                        style={{ flexDirection: "row-reverse", alignItems: "center", gap: 4, backgroundColor: ADMIN_RED, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8 }}
+                      >
+                        <Feather name="plus" size={13} color={AppColors.white} />
+                        <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 12, color: AppColors.white }}>إضافة منتج</ThemedText>
+                      </Pressable>
                     </View>
                     {selectedProducts.length === 0 ? (
                       <ThemedText style={{ fontFamily: "Cairo_400Regular", fontSize: 13, color: theme.textSecondary, textAlign: "right" }}>لا توجد منتجات بعد</ThemedText>
                     ) : (
-                      selectedProducts.map((prod) => (
-                        <View key={prod.id} style={{ backgroundColor: theme.backgroundRoot, borderRadius: 12, padding: Spacing.md, flexDirection: "row-reverse", alignItems: "center", gap: Spacing.md }}>
-                          {prod.imageUrl ? (
-                            <Image source={{ uri: resolveImageUrl(prod.imageUrl) }} style={{ width: 52, height: 52, borderRadius: 10, resizeMode: "cover" }} />
-                          ) : (
-                            <View style={{ width: 52, height: 52, borderRadius: 10, backgroundColor: ADMIN_RED + "15", alignItems: "center", justifyContent: "center" }}>
-                              <Feather name="image" size={20} color={ADMIN_RED} style={{ opacity: 0.5 }} />
+                      selectedProducts.map((prod) => {
+                        const allImages: string[] = prod.imageUrls?.length
+                          ? prod.imageUrls
+                          : (prod.imageUrl ? [prod.imageUrl] : []);
+                        return (
+                          <View key={prod.id} style={{ backgroundColor: theme.backgroundRoot, borderRadius: 12, padding: Spacing.md, gap: Spacing.sm }}>
+                            {/* Product header row */}
+                            <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: Spacing.md }}>
+                              {allImages[0] ? (
+                                <Image source={{ uri: resolveImageUrl(allImages[0]) }} style={{ width: 52, height: 52, borderRadius: 10, resizeMode: "cover" }} />
+                              ) : (
+                                <View style={{ width: 52, height: 52, borderRadius: 10, backgroundColor: ADMIN_RED + "15", alignItems: "center", justifyContent: "center" }}>
+                                  <Feather name="image" size={20} color={ADMIN_RED} style={{ opacity: 0.5 }} />
+                                </View>
+                              )}
+                              <View style={{ flex: 1, gap: 2 }}>
+                                <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 14, color: theme.text, textAlign: "right" }}>{prod.name}</ThemedText>
+                                <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 13, color: ADMIN_RED, textAlign: "right" }}>{formatPrice(prod.price)}</ThemedText>
+                                {prod.description ? (
+                                  <ThemedText style={{ fontFamily: "Cairo_400Regular", fontSize: 11, color: theme.textSecondary, textAlign: "right" }} numberOfLines={2}>{prod.description}</ThemedText>
+                                ) : null}
+                              </View>
+                              <View style={{ paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8, backgroundColor: prod.status === "approved" ? AppColors.success + "20" : prod.status === "pending" ? AppColors.warning + "20" : AppColors.error + "20" }}>
+                                <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 10, color: prod.status === "approved" ? AppColors.success : prod.status === "pending" ? AppColors.warning : AppColors.error }}>
+                                  {prod.status === "approved" ? "نشط" : prod.status === "pending" ? "قيد المراجعة" : "مرفوض"}
+                                </ThemedText>
+                              </View>
                             </View>
-                          )}
-                          <View style={{ flex: 1, gap: 2 }}>
-                            <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 14, color: theme.text, textAlign: "right" }}>{prod.name}</ThemedText>
-                            <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 13, color: ADMIN_RED, textAlign: "right" }}>{formatPrice(prod.price)}</ThemedText>
-                            {prod.description ? (
-                              <ThemedText style={{ fontFamily: "Cairo_400Regular", fontSize: 11, color: theme.textSecondary, textAlign: "right" }} numberOfLines={2}>{prod.description}</ThemedText>
+                            {/* All images with delete buttons */}
+                            {allImages.length > 0 ? (
+                              <View style={{ flexDirection: "row-reverse", flexWrap: "wrap", gap: 8 }}>
+                                {allImages.map((imgUrl, idx) => {
+                                  const imgKey = `${prod.id}_${idx}`;
+                                  const isDeleting = deletingImageKey === imgKey;
+                                  return (
+                                    <View key={imgUrl} style={{ position: "relative", overflow: "visible" as any }}>
+                                      <Image source={{ uri: resolveImageUrl(imgUrl) }} style={{ width: 64, height: 64, borderRadius: 8, resizeMode: "cover" }} />
+                                      <Pressable
+                                        onPress={() => {
+                                          const confirm = Platform.OS === "web"
+                                            ? window.confirm("حذف هذه الصورة؟")
+                                            : true;
+                                          if (confirm) {
+                                            setDeletingImageKey(imgKey);
+                                            deleteProductImage.mutate({ pid: prod.id, imageUrl: imgUrl });
+                                          }
+                                        }}
+                                        disabled={isDeleting}
+                                        style={{ position: "absolute", top: -6, right: -6, backgroundColor: AppColors.error, borderRadius: 10, width: 20, height: 20, alignItems: "center", justifyContent: "center" }}
+                                      >
+                                        {isDeleting
+                                          ? <ActivityIndicator size="small" color={AppColors.white} />
+                                          : <Feather name="x" size={11} color={AppColors.white} />}
+                                      </Pressable>
+                                    </View>
+                                  );
+                                })}
+                              </View>
                             ) : null}
                           </View>
-                          <View style={{ paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8, backgroundColor: prod.status === "approved" ? AppColors.success + "20" : prod.status === "pending" ? AppColors.warning + "20" : AppColors.error + "20" }}>
-                            <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 10, color: prod.status === "approved" ? AppColors.success : prod.status === "pending" ? AppColors.warning : AppColors.error }}>
-                              {prod.status === "approved" ? "نشط" : prod.status === "pending" ? "قيد المراجعة" : "مرفوض"}
-                            </ThemedText>
-                          </View>
-                        </View>
-                      ))
+                        );
+                      })
                     )}
                   </View>
+                </ScrollView>
+              </View>
+            </View>
+          </Modal>
+        ) : null}
+
+        {/* Add Vendor Product Modal */}
+        {addVendorProductOpen && selectedVendor ? (
+          <Modal transparent animationType="slide" visible onRequestClose={() => setAddVendorProductOpen(false)}>
+            <View style={{ flex: 1, backgroundColor: AppColors.overlay }}>
+              <Pressable style={{ flex: 1 }} onPress={() => setAddVendorProductOpen(false)} />
+              <View style={{ backgroundColor: theme.backgroundDefault, borderTopLeftRadius: 24, borderTopRightRadius: 24, maxHeight: "90%" }}>
+                {/* Header */}
+                <View style={{ flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between", padding: Spacing.lg, borderBottomWidth: 1, borderBottomColor: theme.border ?? AppColors.divider }}>
+                  <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 16, color: theme.text }}>إضافة منتج لـ {selectedVendor.storeName}</ThemedText>
+                  <Pressable onPress={() => setAddVendorProductOpen(false)} style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: AppColors.gray100, alignItems: "center", justifyContent: "center" }}>
+                    <Feather name="x" size={18} color={AppColors.gray700} />
+                  </Pressable>
+                </View>
+                <ScrollView contentContainerStyle={{ padding: Spacing.lg, gap: Spacing.md }}>
+                  {/* Name */}
+                  <TextInput
+                    style={[{ backgroundColor: theme.backgroundSecondary, color: theme.text, borderRadius: 10, padding: 12, fontFamily: "Cairo_400Regular", fontSize: 14, textAlign: "right", borderWidth: 1, borderColor: theme.border ?? AppColors.divider }]}
+                    placeholder={(CATEGORY_MAP as any)[selectedVendor.businessType] ? `مثال: ${(CATEGORY_MAP as any)[selectedVendor.businessType][0]}` : "اسم المنتج"}
+                    placeholderTextColor={theme.textSecondary}
+                    value={vendorProductForm.name}
+                    onChangeText={(t) => setVendorProductForm({ ...vendorProductForm, name: t })}
+                  />
+                  {/* Category chips */}
+                  <View style={{ gap: 6 }}>
+                    <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 13, color: theme.textSecondary, textAlign: "right" }}>الفئة *</ThemedText>
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, flexDirection: "row-reverse" }}>
+                      {((CATEGORY_MAP as any)[selectedVendor.businessType] ?? (CATEGORY_MAP as any).other ?? []).map((cat: string) => (
+                        <Pressable
+                          key={cat}
+                          onPress={() => setVendorProductForm({ ...vendorProductForm, category: cat })}
+                          style={{ paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, backgroundColor: vendorProductForm.category === cat ? ADMIN_RED : theme.backgroundSecondary, borderWidth: 1, borderColor: vendorProductForm.category === cat ? ADMIN_RED : (theme.border ?? AppColors.divider) }}
+                        >
+                          <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 12, color: vendorProductForm.category === cat ? AppColors.white : theme.text }}>{cat}</ThemedText>
+                        </Pressable>
+                      ))}
+                    </ScrollView>
+                  </View>
+                  {/* Price & Stock row */}
+                  <View style={{ flexDirection: "row-reverse", gap: 10 }}>
+                    <TextInput
+                      style={[{ flex: 1, backgroundColor: theme.backgroundSecondary, color: theme.text, borderRadius: 10, padding: 12, fontFamily: "Cairo_400Regular", fontSize: 14, textAlign: "right", borderWidth: 1, borderColor: theme.border ?? AppColors.divider }]}
+                      placeholder="السعر (د.ع) *"
+                      placeholderTextColor={theme.textSecondary}
+                      value={vendorProductForm.price}
+                      onChangeText={(t) => setVendorProductForm({ ...vendorProductForm, price: t })}
+                      keyboardType="numeric"
+                    />
+                    <TextInput
+                      style={[{ flex: 1, backgroundColor: theme.backgroundSecondary, color: theme.text, borderRadius: 10, padding: 12, fontFamily: "Cairo_400Regular", fontSize: 14, textAlign: "right", borderWidth: 1, borderColor: theme.border ?? AppColors.divider }]}
+                      placeholder="المخزون"
+                      placeholderTextColor={theme.textSecondary}
+                      value={vendorProductForm.stock}
+                      onChangeText={(t) => setVendorProductForm({ ...vendorProductForm, stock: t })}
+                      keyboardType="numeric"
+                    />
+                  </View>
+                  {/* Unit */}
+                  <TextInput
+                    style={[{ backgroundColor: theme.backgroundSecondary, color: theme.text, borderRadius: 10, padding: 12, fontFamily: "Cairo_400Regular", fontSize: 14, textAlign: "right", borderWidth: 1, borderColor: theme.border ?? AppColors.divider }]}
+                    placeholder="الوحدة (قطعة، كيلو، لتر...)"
+                    placeholderTextColor={theme.textSecondary}
+                    value={vendorProductForm.unit}
+                    onChangeText={(t) => setVendorProductForm({ ...vendorProductForm, unit: t })}
+                  />
+                  {/* Description */}
+                  <TextInput
+                    style={[{ backgroundColor: theme.backgroundSecondary, color: theme.text, borderRadius: 10, padding: 12, fontFamily: "Cairo_400Regular", fontSize: 14, textAlign: "right", borderWidth: 1, borderColor: theme.border ?? AppColors.divider, minHeight: 80, textAlignVertical: "top" }]}
+                    placeholder="وصف المنتج (اختياري)"
+                    placeholderTextColor={theme.textSecondary}
+                    value={vendorProductForm.description}
+                    onChangeText={(t) => setVendorProductForm({ ...vendorProductForm, description: t })}
+                    multiline
+                    numberOfLines={3}
+                  />
+                  {/* Image picker */}
+                  <Pressable
+                    onPress={() => pickImage((uri) => setVendorProductForm({ ...vendorProductForm, imageUri: uri, imageUrl: "" }))}
+                    style={{ borderWidth: 1.5, borderColor: theme.border ?? AppColors.divider, borderStyle: "dashed", borderRadius: 12, height: 110, alignItems: "center", justifyContent: "center", overflow: "hidden" }}
+                  >
+                    {vendorProductForm.imageUri || vendorProductForm.imageUrl ? (
+                      <Image source={{ uri: vendorProductForm.imageUri || resolveImageUrl(vendorProductForm.imageUrl) }} style={{ width: "100%", height: "100%", resizeMode: "cover" } as any} />
+                    ) : (
+                      <View style={{ alignItems: "center", gap: 6 }}>
+                        <Feather name="camera" size={28} color={theme.textSecondary} />
+                        <ThemedText style={{ fontFamily: "Cairo_400Regular", fontSize: 13, color: theme.textSecondary }}>إضافة صورة (اختياري)</ThemedText>
+                      </View>
+                    )}
+                  </Pressable>
+                  {/* Save button */}
+                  <Pressable
+                    onPress={() => saveVendorProduct(selectedVendor.id)}
+                    disabled={savingVendorProduct}
+                    style={{ backgroundColor: ADMIN_RED, borderRadius: 12, paddingVertical: 14, alignItems: "center", justifyContent: "center", opacity: savingVendorProduct ? 0.6 : 1, marginBottom: Spacing.lg }}
+                  >
+                    {savingVendorProduct
+                      ? <ActivityIndicator color={AppColors.white} />
+                      : <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 15, color: AppColors.white }}>إضافة المنتج</ThemedText>}
+                  </Pressable>
                 </ScrollView>
               </View>
             </View>
@@ -3391,6 +3641,88 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
     );
   };
 
+  const renderStorageTab = () => (
+    <View style={{ gap: Spacing.lg }}>
+      {/* Header */}
+      <View style={{ borderRadius: BorderRadius.xl, overflow: "hidden", backgroundColor: AppColors.primary }}>
+        <View style={{ padding: Spacing.lg, flexDirection: "row-reverse", alignItems: "center", gap: Spacing.md }}>
+          <View style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: "rgba(255,255,255,0.2)", alignItems: "center", justifyContent: "center" }}>
+            <Feather name="hard-drive" size={24} color={AppColors.white} />
+          </View>
+          <View style={{ flex: 1, alignItems: "flex-end" }}>
+            <ThemedText style={{ color: AppColors.white, fontSize: 18, fontFamily: "Cairo_700Bold" }}>إحصائيات التخزين</ThemedText>
+            <ThemedText style={{ color: AppColors.textOnBrandMuted, fontSize: 13, fontFamily: "Cairo_400Regular" }}>صور منتجات المتاجر — للقراءة فقط</ThemedText>
+          </View>
+        </View>
+      </View>
+
+      {storageStatsLoading ? (
+        <ActivityIndicator color={AppColors.primary} style={{ marginTop: 40 }} />
+      ) : storageStatsError ? (
+        <View style={{ backgroundColor: AppColors.errorLight, borderRadius: BorderRadius.lg, padding: Spacing.lg, alignItems: "center", gap: Spacing.sm }}>
+          <Feather name="alert-circle" size={24} color={AppColors.error} />
+          <ThemedText style={{ color: AppColors.error, fontFamily: "Cairo_400Regular" }}>{storageStatsError}</ThemedText>
+          <Pressable onPress={loadStorageStats} style={{ marginTop: 4 }}>
+            <ThemedText style={{ color: AppColors.primary, fontFamily: "Cairo_600SemiBold" }}>إعادة المحاولة</ThemedText>
+          </Pressable>
+        </View>
+      ) : storageStats ? (
+        <View style={{ gap: Spacing.md }}>
+          {/* Summary grid */}
+          <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 14, color: theme.textSecondary, textAlign: "right" }}>ملخص</ThemedText>
+          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: Spacing.sm }}>
+            {([
+              { label: "المنتجات النشطة", value: storageStats.totalProducts, icon: "package" as const, color: AppColors.primary },
+              { label: "إجمالي الصور", value: storageStats.totalImages, icon: "image" as const, color: AppColors.info },
+              { label: "الصور المصغرة", value: storageStats.totalThumbs, icon: "grid" as const, color: AppColors.success },
+              { label: "الصور الكاملة", value: Math.max(0, storageStats.totalImages - storageStats.totalThumbs), icon: "maximize" as const, color: AppColors.statusPurple },
+            ] as const).map((card, i) => (
+              <View key={i} style={{ width: "47%", backgroundColor: theme.backgroundDefault, borderRadius: 20, padding: Spacing.md + 2, gap: 6, borderWidth: 1, borderColor: theme.border }}>
+                <View style={{ flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between" }}>
+                  <View style={{ width: 38, height: 38, borderRadius: 11, backgroundColor: card.color + "18", alignItems: "center", justifyContent: "center" }}>
+                    <Feather name={card.icon} size={18} color={card.color} />
+                  </View>
+                  <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 26, lineHeight: 36, includeFontPadding: true, color: AppColors.gray800 }}>{card.value}</ThemedText>
+                </View>
+                <ThemedText style={{ fontFamily: "Cairo_600SemiBold", fontSize: 12.5, color: AppColors.gray500, textAlign: "right" }}>{card.label}</ThemedText>
+              </View>
+            ))}
+          </View>
+
+          {/* Top stores */}
+          {storageStats.topStores?.length > 0 && (
+            <View style={{ gap: Spacing.sm }}>
+              <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 14, color: theme.textSecondary, textAlign: "right" }}>أكبر المتاجر استخداماً للصور</ThemedText>
+              <View style={{ backgroundColor: theme.backgroundDefault, borderRadius: BorderRadius.lg, overflow: "hidden" }}>
+                {storageStats.topStores.map((store: any, i: number) => (
+                  <View key={store.vendorId} style={{ flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between", padding: Spacing.md, borderBottomWidth: i < storageStats.topStores.length - 1 ? 1 : 0, borderBottomColor: theme.border }}>
+                    <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: Spacing.sm }}>
+                      <View style={{ width: 30, height: 30, borderRadius: 8, backgroundColor: AppColors.primary + "15", alignItems: "center", justifyContent: "center" }}>
+                        <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 13, color: AppColors.primary }}>{i + 1}</ThemedText>
+                      </View>
+                      <ThemedText style={{ fontFamily: "Cairo_600SemiBold", fontSize: 14, color: theme.text }}>{store.storeName}</ThemedText>
+                    </View>
+                    <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 4 }}>
+                      <Feather name="image" size={13} color={theme.textSecondary} />
+                      <ThemedText style={{ fontFamily: "Cairo_400Regular", fontSize: 13, color: theme.textSecondary }}>{store.imageCount}</ThemedText>
+                    </View>
+                  </View>
+                ))}
+              </View>
+            </View>
+          )}
+
+          <ThemedText style={{ fontFamily: "Cairo_400Regular", fontSize: 11, color: theme.textSecondary, textAlign: "center" }}>
+            آخر تحديث: {new Date(storageStats.computedAt).toLocaleString("ar-IQ")}
+          </ThemedText>
+          <Pressable onPress={loadStorageStats} style={{ backgroundColor: theme.backgroundSecondary, borderRadius: BorderRadius.lg, padding: Spacing.md, alignItems: "center" }}>
+            <ThemedText style={{ fontFamily: "Cairo_600SemiBold", fontSize: 14, color: AppColors.primary }}>تحديث الإحصائيات</ThemedText>
+          </Pressable>
+        </View>
+      ) : null}
+    </View>
+  );
+
   const renderContent = () => {
     switch (activeTab) {
       case "dashboard": return renderDashboardTab();
@@ -3406,6 +3738,8 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
       case "users": return renderUsersTab();
       case "vendors": return renderVendorsTab();
       case "settings": return renderSettingsTab();
+      case "storage": return renderStorageTab();
+      case "websiteCms": return <WebsiteCmsTab />;
     }
   };
 
@@ -3425,6 +3759,8 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
     { key: "vendors", label: "المتاجر", icon: "briefcase", badge: vendorPartners.filter((v) => v.status === "pending").length },
     { key: "settlements", label: "التسويات", icon: "dollar-sign", badge: settlementRequests.length },
     { key: "settings", label: "الإعدادات", icon: "settings" },
+    { key: "storage", label: "التخزين", icon: "hard-drive" },
+    { key: "websiteCms", label: "الموقع", icon: "globe" },
   ];
 
   return (
@@ -3805,7 +4141,7 @@ const styles = StyleSheet.create({
     backgroundColor: AppColors.primary + "0F",
     borderRadius: BorderRadius.xl,
     borderWidth: 1,
-    borderColor: "rgba(232,101,32,0.15)",
+    borderColor: "rgba(251,91,33,0.15)",
   },
   notifTitle: {
     fontFamily: "Cairo_700Bold",
