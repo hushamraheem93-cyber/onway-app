@@ -1,5 +1,6 @@
 import React, { useState, useCallback } from "react";
 import {
+  Alert,
   View,
   StyleSheet,
   ScrollView,
@@ -95,22 +96,29 @@ export default function VendorProfileScreen() {
     if (!vendorToken) return;
     setSavingBio(true);
     try {
-      await fetch(new URL("/api/vendor/profile", getApiUrl()).toString(), {
+      // The response status was previously ignored AND the error swallowed, so a
+      // rejected save still closed the modal with a success haptic — the vendor
+      // believed their change was stored when it was not.
+      const res = await fetch(new URL("/api/vendor/profile", getApiUrl()).toString(), {
         method: "PATCH",
         headers: { Authorization: `Bearer ${vendorToken}`, "Content-Type": "application/json" },
         body: JSON.stringify({ bio: bioText }),
       });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
       await refreshVendorProfile();
       setBioModal(false);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    } catch {} finally { setSavingBio(false); }
+    } catch {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      Alert.alert("تعذّر الحفظ", "لم يتم حفظ وصف المتجر. تحقق من الاتصال وحاول مرة أخرى.");
+    } finally { setSavingBio(false); }
   };
 
   const saveSettings = async () => {
     if (!vendorToken) return;
     setSavingSettings(true);
     try {
-      await fetch(new URL("/api/vendor/profile", getApiUrl()).toString(), {
+      const res = await fetch(new URL("/api/vendor/profile", getApiUrl()).toString(), {
         method: "PATCH",
         headers: { Authorization: `Bearer ${vendorToken}`, "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -121,10 +129,14 @@ export default function VendorProfileScreen() {
             : null,
         }),
       });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
       await refreshVendorProfile();
       setSettingsModal(false);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    } catch {} finally { setSavingSettings(false); }
+    } catch {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      Alert.alert("تعذّر الحفظ", "لم يتم حفظ إعدادات المتجر. تحقق من الاتصال وحاول مرة أخرى.");
+    } finally { setSavingSettings(false); }
   };
 
   const coverUrl = vendorProfile?.coverImageUrl

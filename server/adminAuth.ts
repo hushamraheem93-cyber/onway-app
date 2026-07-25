@@ -31,7 +31,14 @@ const revokedJtis = new Set<string>();
 let revokedBefore = 0; // epoch ms — tokens with iat*1000 < revokedBefore are invalid
 
 function getJwtSecret(): string {
-  return process.env.JWT_SECRET || "dev-admin-secret-not-for-production";
+  // No fallback on purpose: a hardcoded default would let anyone who reads the
+  // source forge admin session tokens if JWT_SECRET were ever missing. index.ts and
+  // routes.ts already refuse to boot without it, so this only closes the loophole.
+  const secret = process.env.JWT_SECRET;
+  if (!secret) {
+    throw new Error("JWT_SECRET environment variable is required but not set.");
+  }
+  return secret;
 }
 
 export function createSession(username: string): string {

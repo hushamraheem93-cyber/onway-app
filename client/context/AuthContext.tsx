@@ -600,7 +600,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // Stable reference via useCallback so that loadNotifications (which depends on
   // this function) doesn't get recreated on every render, which was previously
-  // causing the VendorHomeScreen useFocusEffect to clear and restart its poll
+  // causing the vendor home useFocusEffect to clear and restart its poll
   // interval on every render — making the approval status update unreliable.
   const refreshVendorProfile = useCallback(async () => {
     if (!vendorToken) return;

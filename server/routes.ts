@@ -3169,8 +3169,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get driver location for a specific order (customer-facing)
+  // Owner-gated: returns the assigned driver's live GPS and name, so only the
+  // customer who placed the order may read it (was previously public to anyone
+  // holding an order id).
   app.get("/api/orders/:orderId/driver-location", async (req: Request, res: Response) => {
     const orderId = req.params.orderId as string;
+    // Admins legitimately track any order from the dashboard; customers may only
+    // track their own.
+    if (!isValidSession(req)) {
+      const authHeader = req.headers.authorization || "";
+      const raw = authHeader.startsWith("Bearer ") ? authHeader.slice(7).trim() : "";
+      let callerPhone: string | null = null;
+      try {
+        const decoded = jwt.verify(raw, ROUTES_JWT_SECRET) as any;
+        if (decoded.role === "customer" && decoded.phoneNumber) callerPhone = String(decoded.phoneNumber);
+      } catch { /* unauthenticated */ }
+      if (!callerPhone) return res.status(401).json({ error: "يرجى تسجيل الدخول أولاً" });
+      try {
+        const order = (await getOrderById(orderId)) as any;
+        const ownerPhone = order?.phoneNumber || order?.customerPhone;
+        if (!order || ownerPhone !== callerPhone) {
+          return res.status(403).json({ error: "غير مصرح" });
+        }
+      } catch {
+        return res.status(500).json({ error: "حدث خطأ في الخادم" });
+      }
+    }
     const driverPhone = driverAssignments.get(orderId);
     if (!driverPhone) return res.json({ available: false });
     const location = driverLocations.get(driverPhone);

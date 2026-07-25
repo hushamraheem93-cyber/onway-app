@@ -249,8 +249,12 @@ export default function OrderTrackingScreen() {
   const fetchDriverLocation = useCallback(async () => {
     if (!orderId) return;
     try {
+      // Owner-gated on the server (it exposes the driver's live GPS), so the
+      // customer JWT must be attached.
       const url = new URL(`/api/orders/${orderId}/driver-location`, getApiUrl()).toString();
-      const res = await fetch(url);
+      const res = await fetch(url, {
+        headers: customerToken ? { Authorization: `Bearer ${customerToken}` } : {},
+      });
       if (!res.ok) return;
       const data = await res.json();
       if (!data.available) return;
@@ -269,7 +273,7 @@ export default function OrderTrackingScreen() {
         );
       }
     } catch {}
-  }, [orderId, order?.latitude, order?.longitude]);
+  }, [orderId, order?.latitude, order?.longitude, customerToken]);
 
   useEffect(() => {
     const interval = setInterval(() => {

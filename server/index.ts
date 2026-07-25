@@ -56,6 +56,15 @@ async function setCustomCredentials(username: string, password: string): Promise
   invalidateAllSessions();
 }
 
+// Length-independent constant-time string comparison. Hashing both sides first
+// makes the compared buffers equal-length, so timingSafeEqual cannot throw and no
+// length information leaks.
+function timingSafeEqualStr(a: string, b: string): boolean {
+  const ha = crypto.createHash("sha256").update(String(a ?? "")).digest();
+  const hb = crypto.createHash("sha256").update(String(b ?? "")).digest();
+  return crypto.timingSafeEqual(ha, hb);
+}
+
 async function validateAdminCredentials(username: string, password: string): Promise<boolean> {
   const custom = await getCustomCredentials();
   if (custom) {
@@ -64,10 +73,14 @@ async function validateAdminCredentials(username: string, password: string): Pro
     // "reset" would be pointless if the old env credentials had ever leaked.
     return username === custom.username && await verifyPassword(password, custom.passwordHash);
   }
-  // No custom credentials set yet — bootstrap from env vars
+  // No custom credentials set yet — bootstrap from env vars.
+  // Compared in constant time: `password === validPass` short-circuits on the first
+  // differing byte, which leaks the length/prefix of the real password to an attacker
+  // measuring response times.
   const validUser = process.env.ADMIN_USERNAME;
   const validPass = process.env.ADMIN_PASSWORD;
-  return username === validUser && password === validPass;
+  if (!validUser || !validPass) return false;
+  return timingSafeEqualStr(username, validUser) && timingSafeEqualStr(password, validPass);
 }
 
 const app = express();
