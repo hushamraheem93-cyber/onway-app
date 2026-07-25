@@ -7146,7 +7146,7 @@
           <!-- Action buttons -->
           <div style="display:flex;gap:5px;">
             <button
-              onclick="toggleVendorProductActive('${p.id}', ${!disabled})"
+              onclick="toggleVendorProductActive('${p.id}', ${disabled})"
               title="${disabled ? 'تفعيل المنتج' : 'تعطيل المنتج'}"
               style="flex:1;padding:5px 0;border-radius:8px;border:1px solid ${disabled?'#BBF7D0':'#E5E7EB'};background:${disabled?'#F0FDF4':'#F9FAFB'};color:${disabled?'#16A34A':'#6B7280'};font-size:0.68rem;font-weight:700;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:3px;transition:all .15s;">
               ${disabled ? '✅ تفعيل' : '⏸ تعطيل'}
