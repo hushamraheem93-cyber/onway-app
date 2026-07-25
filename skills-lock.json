@@ -7,6 +7,12 @@
       "skillPath": "plugins/kaizen/skills/kaizen/SKILL.md",
       "computedHash": "ae364846e6517ea5a9c56a690c6ca8b4662964f881a93f35225418d25634e098"
     },
+    "review-local-changes": {
+      "source": "NeoLabHQ/context-engineering-kit",
+      "sourceType": "github",
+      "skillPath": "plugins/review/skills/review-local-changes/SKILL.md",
+      "computedHash": "d321d09fd5d16e89cc067860ec0faa723960d4fc5b6119572217abb08319e3d7"
+    },
     "vercel-deploy": {
       "source": "openai/skills",
       "sourceType": "github",
