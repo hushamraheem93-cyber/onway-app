@@ -51,8 +51,9 @@ import {
   getSettlementHistory, listSettlementRequests, completeSettlement,
   getSettlementConfig, updateSettlementConfig, isOverSettlementThreshold,
   listSettlementAccounts, getSettlementPayments, getSettlementLedger,
-  adminAdjustLedger,
+  adminAdjustLedger, retryOrderSettlements,
 } from "./settlement";
+import type { OrderSettlementInput } from "./settlement";
 import { sendPushNotification, sendBroadcastNotification, sendDriverBatchNotification, sendAdminNewOrderNotification, sendVendorNewOrderNotification, sendAdminSettlementRequestNotification, sendVendorOrderCancelledNotification, sendDriverOrderCancelledNotification } from "./pushNotifications";
 import { deliverOtp } from "./otpDelivery";
 import { isDevMode } from "./env";
@@ -3731,19 +3732,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Wrapped so a failure here can never break order completion.
         let newSettlementBalance = 0;
         try {
-          // Driver — cash-collection settlement: driver owes company total − commission.
+          // Build both accruals up front so the exact same inputs can be replayed
+          // by the recovery sweep if a write fails.
           const cashCollected = order.total || 0;
-          await recordOrderSettlement({
-            accountType: "driver",
-            accountId: phoneNumber,
-            accountName: (order as any).driverName || phoneNumber,
-            orderId,
-            storeId: order.vendorId ?? null,
-            storeName: (order as any).vendorName ?? (order as any).storeName ?? null,
-            grossAmount: cashCollected,
-            commission: driverEarning,
-            outstandingAmount: Math.max(0, cashCollected - driverEarning),
-          });
+          const settlementInputs: OrderSettlementInput[] = [
+            {
+              accountType: "driver",
+              accountId: phoneNumber,
+              accountName: (order as any).driverName || phoneNumber,
+              orderId,
+              storeId: order.vendorId ?? null,
+              storeName: (order as any).vendorName ?? (order as any).storeName ?? null,
+              grossAmount: cashCollected,
+              commission: driverEarning,
+              outstandingAmount: Math.max(0, cashCollected - driverEarning),
+            },
+          ];
 
           // Vendor — revenue settlement: company owes vendor orderValue − platformCommission.
           if (order.vendorId) {
@@ -3753,7 +3757,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             const platformCommission =
               (order as any).vendorCommissionAmount ??
               Math.round((orderValue * (v.commissionPercent ?? 10)) / 100);
-            await recordOrderSettlement({
+            settlementInputs.push({
               accountType: "vendor",
               accountId: order.vendorId,
               accountName: v.storeName || v.name || order.vendorId,
@@ -3765,6 +3769,54 @@ export async function registerRoutes(app: Express): Promise<Server> {
               outstandingAmount: Math.max(0, orderValue - platformCommission),
             });
           }
+
+          // Record each accrual and INSPECT the outcome. Previously the return
+          // value was discarded, so a failed write looked identical to a
+          // successful one and the money was silently lost forever: the order's
+          // earningsCredited flag had already been committed, so no retry could
+          // ever reach this code again.
+          const failed: OrderSettlementInput[] = [];
+          for (const input of settlementInputs) {
+            const outcome = await recordOrderSettlement(input);
+            if (outcome === "failed") failed.push(input);
+            else {
+              console.log(
+                `[SETTLEMENT] ${outcome} order=${orderId} type=${input.accountType} account=${input.accountId}`,
+              );
+            }
+          }
+
+          if (failed.length > 0) {
+            // Park the exact inputs on the order so the recovery sweep can replay
+            // them. earningsCredited stays TRUE on purpose — the rest of the
+            // completion (completed-orders list, notifications, batch bookkeeping)
+            // must never run twice. Only the settlement step is retried, and that
+            // is idempotent by the `${orderId}__${accountType}` document id.
+            await db
+              .collection("orders")
+              .doc(orderId)
+              .update({
+                settlementPending: true,
+                settlementFailedTypes: failed.map((f) => f.accountType),
+                settlementRetryInputs: failed,
+                settlementLastError: new Date().toISOString(),
+                updatedAt: new Date(),
+              })
+              .catch((markErr: any) =>
+                // Last-resort log: if even the marker cannot be written, this line
+                // is the only record that money needs manual reconciliation.
+                console.error(
+                  `[SETTLEMENT] CRITICAL order=${orderId} settlement failed AND the ` +
+                    `retry marker could not be saved — manual reconciliation required. ` +
+                    `inputs=${JSON.stringify(failed)} markerError=${markErr?.message}`,
+                ),
+              );
+            console.error(
+              `[SETTLEMENT] order=${orderId} marked for recovery; failed types=` +
+                failed.map((f) => f.accountType).join(","),
+            );
+          }
+
           // Read the updated ledger to get the current outstanding balance for suspension check
           const ledger = await getSettlementLedger("driver", phoneNumber).catch(() => null);
           newSettlementBalance = ledger?.outstandingTotal ?? 0;
@@ -4520,6 +4572,57 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Vendor-confirmed orders (server/vendor.ts) emit this same event so they get an
   // immediate assignment attempt too, instead of waiting for the 30s watchdog below.
   orderEvents.on("confirmed", onOrderConfirmed);
+
+  // ── Settlement recovery sweep ──────────────────────────────────────────────
+  // Guarantees settlement is never permanently skipped. complete-order marks an
+  // order `settlementPending` when an accrual write fails; this replays the exact
+  // stored inputs until they land.
+  //
+  // Safe by construction: each accrual is keyed `${orderId}__${accountType}`, so a
+  // replay of an accrual that already succeeded returns "duplicate" and writes
+  // nothing. Only the settlement step is retried — never the rest of completion,
+  // which stays guarded by the order's earningsCredited flag.
+  const SETTLEMENT_SWEEP_MS = 2 * 60 * 1000;
+  setInterval(async () => {
+    const db = getFirestore();
+    if (!db) return;
+    try {
+      const { FieldValue } = await import("firebase-admin/firestore");
+      const stuck = await db
+        .collection("orders")
+        .where("settlementPending", "==", true)
+        .limit(25)
+        .get();
+      if (stuck.empty) return;
+      console.log(`[SETTLEMENT] recovery sweep: ${stuck.size} order(s) awaiting settlement`);
+
+      for (const doc of stuck.docs) {
+        const data = doc.data() as any;
+        const inputs = Array.isArray(data.settlementRetryInputs) ? data.settlementRetryInputs : [];
+        if (inputs.length === 0) {
+          // Nothing to replay — clear the flag so the sweep does not spin forever.
+          await doc.ref.update({ settlementPending: false }).catch(() => {});
+          console.warn(`[SETTLEMENT] order=${doc.id} flagged pending but had no stored inputs; cleared`);
+          continue;
+        }
+        const allSettled = await retryOrderSettlements(inputs);
+        if (allSettled) {
+          await doc.ref
+            .update({
+              settlementPending: false,
+              settlementRetryInputs: FieldValue.delete(),
+              settlementFailedTypes: FieldValue.delete(),
+              settlementRecoveredAt: new Date().toISOString(),
+            })
+            .catch(() => {});
+          console.log(`[SETTLEMENT] recovered order=${doc.id}`);
+        }
+        // Not settled → leave the flag set; the next sweep retries again.
+      }
+    } catch (err: any) {
+      console.error("[SETTLEMENT] recovery sweep error:", err?.message ?? err);
+    }
+  }, SETTLEMENT_SWEEP_MS);
 
   // Watchdog: every 30s, scan for unassigned confirmed orders and assign to free drivers
   setInterval(async () => {

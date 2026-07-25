@@ -34,6 +34,11 @@ jobs:
         run: npm run lint
         continue-on-error: true
 
+      - name: Unit tests
+        # Settlement-consistency tests run against an in-memory Firestore double,
+        # so they need no credentials and are safe to gate CI on.
+        run: npm run test:unit
+
       - name: Build server bundle
         run: npm run server:build
 

@@ -64,13 +64,40 @@ export interface OrderSettlementInput {
 }
 
 /**
- * Atomically record a per-order settlement exactly once and roll it into the
- * account ledger. Idempotent by (orderId, accountType): a duplicate completion is a
- * safe no-op. Returns true only if a new settlement was created.
+ * Outcome of an attempt to record a settlement.
+ *
+ * This used to be a plain `boolean`, which collapsed three very different results
+ * into one value: "recorded", "already recorded" and "the write FAILED" all
+ * returned false. Callers could not tell a safe no-op from lost money, so a
+ * transient Firestore error silently skipped the accrual. Keep these distinct.
  */
-export async function recordOrderSettlement(input: OrderSettlementInput): Promise<boolean> {
-  const db = getFirestore();
-  if (!db) return false;
+export type SettlementOutcome = "recorded" | "duplicate" | "failed";
+
+/**
+ * Atomically record a per-order settlement exactly once and roll it into the
+ * account ledger. Idempotent by (orderId, accountType) via a deterministic
+ * document id, so re-running this after a failure can never double-count.
+ *
+ * Returns:
+ *   "recorded"  → a new settlement was created
+ *   "duplicate" → one already existed; nothing changed (safe no-op)
+ *   "failed"    → the write did NOT happen; the caller MUST schedule a retry
+ *
+ * @param dbOverride injected Firestore instance; used by tests to simulate
+ *                   transient transaction failures. Production passes nothing.
+ */
+export async function recordOrderSettlement(
+  input: OrderSettlementInput,
+  dbOverride?: any,
+): Promise<SettlementOutcome> {
+  const db = dbOverride ?? getFirestore();
+  if (!db) {
+    console.error(
+      `[SETTLEMENT] FAILED order=${input.orderId} type=${input.accountType} ` +
+        `account=${input.accountId} reason=database-unavailable`,
+    );
+    return "failed";
+  }
 
   const direction = directionFor(input.accountType);
   const gross = Math.round(input.grossAmount || 0);
@@ -81,10 +108,10 @@ export async function recordOrderSettlement(input: OrderSettlementInput): Promis
   const ledgerRef = db.collection(LEDGER).doc(ledgerId(input.accountType, input.accountId));
 
   try {
-    return await db.runTransaction(async (tx) => {
+    return await db.runTransaction(async (tx: any) => {
       // Reads first (transaction requirement).
       const existing = await tx.get(settlementRef);
-      if (existing.exists) return false; // already recorded → idempotent no-op
+      if (existing.exists) return "duplicate" as const; // already recorded → safe no-op
       const ledgerSnap = await tx.get(ledgerRef);
       const prev = ledgerSnap.exists ? (ledgerSnap.data() as any) : {};
       const now = admin.firestore.Timestamp.now();
@@ -128,12 +155,52 @@ export async function recordOrderSettlement(input: OrderSettlementInput): Promis
         { merge: true },
       );
 
-      return true;
+      return "recorded" as const;
     });
-  } catch (error) {
-    console.error("recordOrderSettlement tx error:", error);
-    return false;
+  } catch (error: any) {
+    // The transaction did NOT commit. Log enough to reconstruct the accrual by
+    // hand if every automated retry also fails, then tell the caller so it can
+    // mark the order for recovery instead of treating this as "already done".
+    console.error(
+      `[SETTLEMENT] FAILED order=${input.orderId} type=${input.accountType} ` +
+        `account=${input.accountId} gross=${gross} commission=${commission} ` +
+        `outstanding=${outstanding} reason=${error?.message ?? error}`,
+    );
+    return "failed";
   }
+}
+
+/**
+ * Retry the settlement accruals for one order that previously failed.
+ *
+ * Safe to call any number of times: each accrual is keyed by
+ * `${orderId}__${accountType}`, so an accrual that already landed returns
+ * "duplicate" and changes nothing. This deliberately retries ONLY the settlement
+ * step — never the surrounding completion work (driver completed-orders list,
+ * push notifications, batch bookkeeping), which is guarded separately by the
+ * order's `earningsCredited` flag and must not run twice.
+ *
+ * Returns true when the order is fully settled and can be cleared for recovery.
+ */
+export async function retryOrderSettlements(
+  inputs: OrderSettlementInput[],
+  dbOverride?: any,
+): Promise<boolean> {
+  let allSettled = true;
+  for (const input of inputs) {
+    const outcome = await recordOrderSettlement(input, dbOverride);
+    if (outcome === "failed") {
+      allSettled = false;
+      console.error(
+        `[SETTLEMENT] retry still failing order=${input.orderId} type=${input.accountType}`,
+      );
+    } else {
+      console.log(
+        `[SETTLEMENT] retry ${outcome} order=${input.orderId} type=${input.accountType}`,
+      );
+    }
+  }
+  return allSettled;
 }
 
 /** Read the aggregate ledger for an account (null if none yet). */

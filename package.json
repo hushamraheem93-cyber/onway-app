@@ -18,6 +18,7 @@
     "lint:fix": "npx expo lint --fix",
     "check:types": "tsc --noEmit",
     "test": "node tests/run-tests.mjs",
+    "test:unit": "tsx --test tests/unit/*.test.mjs",
     "check:format": "prettier --check \"**/*.{js,ts,tsx,css,json}\"",
     "format": "prettier --write \"**/*.{js,ts,tsx,css,json}\""
   },
