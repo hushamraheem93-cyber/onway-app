@@ -2075,10 +2075,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
         await Promise.all(
           missingNameVendorIds.map(async (vid) => {
             try {
+              // 1) Try the vendor document first
               const vDoc = await db.collection("vendors").doc(vid).get();
               if (vDoc.exists) {
                 const vd = vDoc.data() as any;
-                vendorNameMap[vid] = vd.storeName || vd.name || "";
+                const name = vd.storeName || vd.name || "";
+                if (name) { vendorNameMap[vid] = name; return; }
+              }
+              // 2) Fallback: grab storeName/vendorName from any product of this vendor
+              const pSnap = await db
+                .collection("vendorProducts")
+                .where("vendorId", "==", vid)
+                .limit(1)
+                .get();
+              if (!pSnap.empty) {
+                const pd = pSnap.docs[0].data() as any;
+                vendorNameMap[vid] = pd.storeName || pd.vendorName || "";
               }
             } catch {}
           })
@@ -2370,15 +2382,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
               if (pDoc.exists) {
                 const pData = pDoc.data() as any;
                 if (pData?.vendorId) {
-                  orderData.vendorId = pData.vendorId;
-                  // Resolve vendor display name for admin panel
-                  try {
-                    const vDoc = await db.collection("vendors").doc(pData.vendorId).get();
-                    if (vDoc.exists) {
-                      const vd = vDoc.data() as any;
-                      orderData.vendorName = vd.storeName || vd.name || "";
-                    }
-                  } catch {}
+                  orderData.vendorId   = pData.vendorId;
+                  // vendorProducts already stores storeName/vendorName at product-creation time
+                  orderData.vendorName = pData.storeName || pData.vendorName || "";
                   break;
                 }
               }
