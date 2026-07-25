@@ -2054,12 +2054,47 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/admin/orders", async (req, res) => {
     const db = getFirestore();
     if (db) {
-      const orders = await getOrders();
-      return res.json(orders.map(o => ({
+      const rawOrders = await getOrders();
+      const ordersWithDates = rawOrders.map(o => ({
         ...o,
         createdAt: o.createdAt?.toDate?.() ? o.createdAt.toDate().toISOString() : o.createdAt,
         updatedAt: o.updatedAt?.toDate?.() ? o.updatedAt.toDate().toISOString() : o.updatedAt,
-      })));
+      })) as any[];
+
+      // Enrich orders that have vendorId but no display name saved at creation time
+      const missingNameVendorIds = [
+        ...new Set(
+          ordersWithDates
+            .filter(o => o.vendorId && !o.vendorName && !o.storeName && !o.restaurantName)
+            .map(o => o.vendorId as string)
+        ),
+      ];
+
+      const vendorNameMap: Record<string, string> = {};
+      if (missingNameVendorIds.length > 0) {
+        await Promise.all(
+          missingNameVendorIds.map(async (vid) => {
+            try {
+              const vDoc = await db.collection("vendors").doc(vid).get();
+              if (vDoc.exists) {
+                const vd = vDoc.data() as any;
+                vendorNameMap[vid] = vd.storeName || vd.name || "";
+              }
+            } catch {}
+          })
+        );
+      }
+
+      return res.json(
+        ordersWithDates.map(o => ({
+          ...o,
+          vendorName:
+            o.vendorName ||
+            o.storeName ||
+            o.restaurantName ||
+            (o.vendorId ? vendorNameMap[o.vendorId] || "" : ""),
+        }))
+      );
     }
     res.json([]);
   });
@@ -2336,6 +2371,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 const pData = pDoc.data() as any;
                 if (pData?.vendorId) {
                   orderData.vendorId = pData.vendorId;
+                  // Resolve vendor display name for admin panel
+                  try {
+                    const vDoc = await db.collection("vendors").doc(pData.vendorId).get();
+                    if (vDoc.exists) {
+                      const vd = vDoc.data() as any;
+                      orderData.vendorName = vd.storeName || vd.name || "";
+                    }
+                  } catch {}
                   break;
                 }
               }
