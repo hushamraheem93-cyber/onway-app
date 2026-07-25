@@ -2061,52 +2061,68 @@ export async function registerRoutes(app: Express): Promise<Server> {
         updatedAt: o.updatedAt?.toDate?.() ? o.updatedAt.toDate().toISOString() : o.updatedAt,
       })) as any[];
 
-      // Enrich orders that have vendorId but no display name saved at creation time
-      const missingNameVendorIds = [
-        ...new Set(
-          ordersWithDates
-            .filter(o => o.vendorId && !o.vendorName && !o.storeName && !o.restaurantName)
-            .map(o => o.vendorId as string)
-        ),
-      ];
+      // Enrich orders that are missing a vendor display name
+      const missingOrders = ordersWithDates.filter(
+        o => !o.vendorName && !o.storeName && !o.restaurantName
+      );
 
-      const vendorNameMap: Record<string, string> = {};
-      if (missingNameVendorIds.length > 0) {
-        await Promise.all(
-          missingNameVendorIds.map(async (vid) => {
-            try {
-              // 1) Try the vendor document first
-              const vDoc = await db.collection("vendors").doc(vid).get();
-              if (vDoc.exists) {
-                const vd = vDoc.data() as any;
-                const name = vd.storeName || vd.name || "";
-                if (name) { vendorNameMap[vid] = name; return; }
-              }
-              // 2) Fallback: grab storeName/vendorName from any product of this vendor
-              const pSnap = await db
-                .collection("vendorProducts")
-                .where("vendorId", "==", vid)
-                .limit(1)
-                .get();
-              if (!pSnap.empty) {
-                const pd = pSnap.docs[0].data() as any;
-                vendorNameMap[vid] = pd.storeName || pd.vendorName || "";
-              }
-            } catch {}
+      if (missingOrders.length > 0) {
+        // Collect unique vendorIds and unique first-item productIds in one pass
+        const uniqueVendorIds = [...new Set(missingOrders.map(o => o.vendorId).filter(Boolean))] as string[];
+        const uniqueProductIds = [
+          ...new Set(
+            missingOrders
+              .map(o => (o.items as any[])?.[0]?.productId)
+              .filter(Boolean)
+          ),
+        ] as string[];
+
+        // Fetch vendor docs and product docs in parallel
+        const [vendorDocs, productDocs] = await Promise.all([
+          Promise.all(
+            uniqueVendorIds.map(vid =>
+              db.collection("vendors").doc(vid).get().then(d => ({ vid, d })).catch(() => null)
+            )
+          ),
+          Promise.all(
+            uniqueProductIds.map(pid =>
+              db.collection("vendorProducts").doc(pid).get().then(d => ({ pid, d })).catch(() => null)
+            )
+          ),
+        ]);
+
+        // Build lookup maps
+        const vendorNameMap: Record<string, string> = {};
+        for (const r of vendorDocs) {
+          if (r?.d.exists) {
+            const vd = r.d.data() as any;
+            const name = vd.storeName || vd.name || "";
+            if (name) vendorNameMap[r.vid] = name;
+          }
+        }
+        const productNameMap: Record<string, string> = {};
+        for (const r of productDocs) {
+          if (r?.d.exists) {
+            const pd = r.d.data() as any;
+            const name = pd.storeName || pd.vendorName || "";
+            if (name) productNameMap[r.pid] = name;
+          }
+        }
+
+        // Apply enrichment
+        return res.json(
+          ordersWithDates.map(o => {
+            if (o.vendorName || o.storeName || o.restaurantName) return o;
+            const fromVendor  = o.vendorId ? vendorNameMap[o.vendorId] || "" : "";
+            const firstPid    = (o.items as any[])?.[0]?.productId || "";
+            const fromProduct = firstPid ? productNameMap[firstPid] || "" : "";
+            const resolved    = fromVendor || fromProduct;
+            return resolved ? { ...o, vendorName: resolved } : o;
           })
         );
       }
 
-      return res.json(
-        ordersWithDates.map(o => ({
-          ...o,
-          vendorName:
-            o.vendorName ||
-            o.storeName ||
-            o.restaurantName ||
-            (o.vendorId ? vendorNameMap[o.vendorId] || "" : ""),
-        }))
-      );
+      return res.json(ordersWithDates);
     }
     res.json([]);
   });
