@@ -1062,12 +1062,16 @@ router.get("/api/vendor/stats", requireVendor, async (req, res) => {
       .where("vendorId", "==", vid)
       .get();
 
-    // Fetch ALL orders to check for item-level product ownership.
-    // This is an unbounded scan so that no orders are missed in aggregate counts.
-    // For vendors who only use the restaurant (top-level vendorId) flow and have no
-    // marketplace products, vendorProductIds will be empty and this scan is skipped.
+    // Item-level ownership pass: some legacy orders carry the vendor only inside
+    // items[].productId, not as a top-level vendorId, so they cannot be found with a
+    // where() query. This used to read the ENTIRE orders collection on every load of
+    // the vendor stats screen — O(all orders) Firestore reads per request, which
+    // degrades and bills badly as the platform grows. Bounded to the most recent
+    // ORDER_SCAN_LIMIT orders (newest first): older orders predate the marketplace
+    // flow and are already covered by the vendorId query above.
+    const ORDER_SCAN_LIMIT = 2000;
     const allOrdersSnap = vendorProductIds.size > 0
-      ? await db.collection("orders").get()
+      ? await db.collection("orders").orderBy("createdAt", "desc").limit(ORDER_SCAN_LIMIT).get()
       : { docs: [] as any[] };
 
     const ordersMap = new Map<string, any>();

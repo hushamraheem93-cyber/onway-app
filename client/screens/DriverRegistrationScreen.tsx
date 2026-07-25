@@ -26,7 +26,7 @@ import { getApiUrl } from "@/lib/query-client";
 export default function DriverRegistrationScreen() {
   const insets = useSafeAreaInsets();
   const { theme } = useTheme();
-  const { phoneNumber, completeDriverRegistration, goBackToUserType } = useAuth();
+  const { phoneNumber, customerToken, completeDriverRegistration, goBackToUserType } = useAuth();
 
   const [firstName, setFirstName] = useState("");
   const [secondName, setSecondName] = useState("");
@@ -170,9 +170,14 @@ export default function DriverRegistrationScreen() {
         bodyData.driverLicenseImage = driverLicenseImage;
       }
 
+      // Registration is owner-gated on the server (the phone must match the OTP-issued
+      // customer JWT), so the token has to be attached.
       const response = await fetch(new URL("/api/drivers", getApiUrl()).toString(), {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(customerToken ? { Authorization: `Bearer ${customerToken}` } : {}),
+        },
         body: JSON.stringify(bodyData),
       });
 

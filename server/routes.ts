@@ -2770,7 +2770,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
     // Development mode: no SMS is ever sent; the tester signs in with the 0000 code.
     if (isDevMode()) {
-      return res.json({ success: true, delivered: false, devMode: true, message: "وضع التطوير: استخدم الرمز 0000" });
+      return res.json({ success: true, delivered: false, devMode: true, message: "وضع التطوير: استخدم الرمز 000000" });
     }
 
     // Production mode: OTPIQ is required. Fail clearly if it is not configured.
@@ -2879,9 +2879,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/drivers/check/:phoneNumber", async (req: Request, res: Response) => {
+  // Owner-only: this used to be fully public, so anyone could enumerate phone
+  // numbers and harvest each driver's full four-part name, status and timestamps
+  // (PII disclosure + phone enumeration). It now requires the customer JWT and
+  // only answers about the caller's OWN number.
+  app.get("/api/drivers/check/:phoneNumber", requireCustomerAuth, async (req: Request, res: Response) => {
     try {
       const phoneNumber = req.params.phoneNumber as string;
+      if ((req as any).customerPhone !== phoneNumber) {
+        return res.status(403).json({ error: "غير مصرح" });
+      }
       const driver = await getDriverByPhone(phoneNumber);
       if (driver) {
         res.json({
@@ -2904,16 +2911,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
     } catch (error: any) {
       console.error("Error checking driver:", error);
-      res.status(500).json({ error: error.message || "Internal server error" });
+      res.status(500).json({ error: "حدث خطأ في الخادم" });
     }
   });
 
-  app.post("/api/drivers", async (req: Request, res: Response) => {
+  // Owner-only: registration was fully open, so anyone could create a driver record
+  // for someone else's phone (identity squatting) and flood Firestore with Base64
+  // ID/licence images. The caller must now prove ownership of the phone via the
+  // OTP-issued customer JWT.
+  app.post("/api/drivers", requireCustomerAuth, async (req: Request, res: Response) => {
     try {
       const { phoneNumber, fullName, firstName, secondName, thirdName, fourthName, motorcycleNumber, nationalIdImage, residenceCardImage, driverLicenseImage } = req.body;
 
       if (!phoneNumber || !fullName || !nationalIdImage) {
         return res.status(400).json({ error: "All fields are required" });
+      }
+      if ((req as any).customerPhone !== phoneNumber) {
+        return res.status(403).json({ error: "غير مصرح — رقم الهاتف لا يطابق حسابك" });
       }
 
       const existing = await getDriverByPhone(phoneNumber);
@@ -5086,20 +5100,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/promo-codes/record-usage", async (req: Request, res: Response) => {
+  // Owner-only: this was unauthenticated and took userId from the body, so anyone
+  // could record a promo as "used" on behalf of any other user and burn their
+  // discount (griefing) or poison campaign analytics. The identity now comes from
+  // the verified token and the client-supplied userId is ignored.
+  app.post("/api/promo-codes/record-usage", requireCustomerAuth, async (req: Request, res: Response) => {
     try {
-      const { userId, promoCode } = req.body;
-      if (!userId || !promoCode) {
+      const userId = (req as any).customerPhone as string;
+      const { promoCode } = req.body;
+      if (!promoCode) {
         return res.status(400).json({ error: "Missing required fields" });
       }
-      await recordPromoUsage(userId, promoCode.toUpperCase());
+      await recordPromoUsage(userId, String(promoCode).toUpperCase());
       res.json({ success: true });
     } catch (error: any) {
-      res.status(500).json({ error: error.message });
+      console.error("record promo usage:", error);
+      res.status(500).json({ error: "حدث خطأ في الخادم" });
     }
   });
 
-  app.get("/api/reverse-geocode", async (req: Request, res: Response) => {
+  // Auth-gated: this proxies Google Geocoding + Places using OUR billable API key.
+  // Left open, anyone could drive unlimited paid Google calls on our account.
+  app.get("/api/reverse-geocode", requireCustomerAuth, async (req: Request, res: Response) => {
     const lat = parseFloat(req.query.lat as string);
     const lng = parseFloat(req.query.lng as string);
     try {

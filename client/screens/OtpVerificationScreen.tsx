@@ -18,7 +18,9 @@ import { ThemedText } from "@/components/ThemedText";
 import { AppColors } from "@/constants/theme";
 import { useAuth } from "@/context/AuthContext";
 
-const OTP_LENGTH = 4;
+// Must match the code length the server generates in generateOtp() (6 digits).
+// It was 4 here, so a 6-digit SMS code could never be fully entered.
+const OTP_LENGTH = 6;
 const BRAND_ORANGE = AppColors.primary;
 const BRAND_DARK = AppColors.primaryDark;
 
@@ -167,7 +169,7 @@ export default function OtpVerificationScreen() {
         >
           <View style={styles.handleBar} />
 
-          <ThemedText style={styles.inputLabel}>أدخل الرمز المكون من 4 أرقام</ThemedText>
+          <ThemedText style={styles.inputLabel}>أدخل الرمز المكون من 6 أرقام</ThemedText>
 
           <View style={styles.otpRow}>
             {Array.from({ length: OTP_LENGTH }).map((_, index) => (

@@ -501,7 +501,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const checkExistingDriver = async (phone: string): Promise<boolean> => {
     try {
-      const response = await fetch(new URL(`/api/drivers/check/${encodeURIComponent(phone)}`, getApiUrl()).toString());
+      // Owner-gated on the server (customer JWT + phone must match the token), so
+      // the OTP-issued token has to be attached here.
+      let cTok = customerToken;
+      if (!cTok) { try { cTok = await getToken(CUSTOMER_TOKEN_KEY); } catch {} }
+      const response = await fetch(
+        new URL(`/api/drivers/check/${encodeURIComponent(phone)}`, getApiUrl()).toString(),
+        { headers: cTok ? { Authorization: `Bearer ${cTok}` } : {} },
+      );
       if (response.ok) {
         const data = await response.json();
         return data.exists && !!data.driver;

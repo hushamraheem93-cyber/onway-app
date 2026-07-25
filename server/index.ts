@@ -118,10 +118,17 @@ function setupRateLimiter(app: express.Application) {
   const LIMITS: Record<string, number> = {
     "/api/admin/login": 10,
     "/api/vendor/mobile-auth": 20,
+    // Password login for vendors — was missing here, so it fell through to the 600/min
+    // default and vendor passwords could be brute-forced at 600 guesses per minute.
+    "/api/vendor/login": 10,
     "/api/users": 30,
     // Auth OTP endpoints: strict limits so codes cannot be spammed or brute-forced.
     "/api/auth/send-otp": 5,
     "/api/auth/verify-otp": 15,
+    // Driver registration uploads Base64 ID images — throttle to prevent storage abuse.
+    "/api/drivers": 10,
+    // Proxies our billable Google Maps key — cap it so a leaked token cannot run up cost.
+    "/api/reverse-geocode": 60,
     default: 600,
   };
 
@@ -520,7 +527,16 @@ function isRequestSecure(req: Request): boolean {
     // this cookie (rather than the Bearer token) failed with "error loading" — the
     // session cookie never actually got stored in the first place.
     const secureFlag = isRequestSecure(req) ? "; Secure" : "";
-    res.setHeader("Set-Cookie", `${ADMIN_COOKIE}=${token}; HttpOnly; SameSite=None; Max-Age=${maxAge}; Path=/${secureFlag}`);
+    // SameSite: a cross-site-capable (None) cookie is sent on requests originating
+    // from ANY site, which exposes every /api/admin/* route to CSRF — the CORS check
+    // is the only thing standing in the way, and that depends on ALLOWED_ORIGINS
+    // being configured exactly right. Cross-domain admin clients authenticate with
+    // the Bearer token returned below (getSessionToken accepts it), so None is only
+    // emitted when a cross-site context is actually possible (Secure/HTTPS). On
+    // plain HTTP we fall back to Lax, which browsers would enforce anyway since
+    // SameSite=None without Secure is rejected outright.
+    const sameSite = secureFlag ? "None" : "Lax";
+    res.setHeader("Set-Cookie", `${ADMIN_COOKIE}=${token}; HttpOnly; SameSite=${sameSite}; Max-Age=${maxAge}; Path=/${secureFlag}`);
     return res.json({ success: true, token });
   });
 
@@ -647,6 +663,26 @@ function isRequestSecure(req: Request): boolean {
     if (!isValidSession(req)) return res.redirect("/admin/login");
     const adminTemplate = fs.readFileSync(adminTemplatePath, "utf-8");
     res.setHeader("Content-Type", "text/html; charset=utf-8");
+    // Defence-in-depth behind the output escaping: even if a new unescaped sink is
+    // introduced, this blocks the highest-impact XSS payloads. The dashboard relies
+    // on inline <script>/<style> so 'unsafe-inline' is unavoidable here, but
+    // restricting script/connect origins, forbidding plugins and pinning base-uri
+    // still removes the usual exfiltration and injection paths.
+    res.setHeader(
+      "Content-Security-Policy",
+      [
+        "default-src 'self'",
+        "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdn.sheetjs.com https://unpkg.com",
+        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://unpkg.com",
+        "font-src 'self' data: https://fonts.gstatic.com https://fonts.googleapis.com",
+        "img-src 'self' data: blob: https:",
+        "connect-src 'self' https:",
+        "frame-ancestors 'none'",
+        "object-src 'none'",
+        "base-uri 'self'",
+        "form-action 'self'",
+      ].join("; "),
+    );
     res.status(200).send(adminTemplate);
   });
 
