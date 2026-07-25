@@ -13,6 +13,12 @@
       "skillPath": "plugins/review/skills/review-local-changes/SKILL.md",
       "computedHash": "d321d09fd5d16e89cc067860ec0faa723960d4fc5b6119572217abb08319e3d7"
     },
+    "test-driven-development": {
+      "source": "NeoLabHQ/context-engineering-kit",
+      "sourceType": "github",
+      "skillPath": "plugins/tdd/skills/test-driven-development/SKILL.md",
+      "computedHash": "ed985d7e012c0caa184828052f4300aeb799f1dcfab87c0c916dfd8ee23bfd7c"
+    },
     "vercel-deploy": {
       "source": "openai/skills",
       "sourceType": "github",
