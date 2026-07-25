@@ -2858,7 +2858,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
     // Development mode: no SMS is ever sent; the tester signs in with the 0000 code.
     if (isDevMode()) {
-      return res.json({ success: true, delivered: false, devMode: true, message: "وضع التطوير: استخدم الرمز 000000" });
+      return res.json({ success: true, delivered: false, devMode: true, message: "وضع التطوير: استخدم الرمز 0000" });
     }
 
     // Production mode: OTPIQ is required. Fail clearly if it is not configured.

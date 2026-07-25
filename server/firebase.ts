@@ -1334,11 +1334,13 @@ const OTP_MAX_ATTEMPTS = 5; // wrong tries before the code is invalidated (brute
 const otpStore = new Map<string, { code: string; expiresAt: number; attempts: number }>();
 
 export function generateOtp(phoneNumber: string): string {
-  // 6-digit code from a CRYPTOGRAPHIC source.
-  // Previously: Math.floor(1000 + Math.random() * 9000) — Math.random() is a
-  // non-cryptographic PRNG (predictable from observed outputs) and 4 digits is
-  // only 9,000 possibilities. crypto.randomInt gives 900,000 unguessable codes.
-  const code = crypto.randomInt(100000, 1000000).toString();
+  // 4-digit code (1000–9999) — length is a deliberate product decision for ease of
+  // entry. Generated with crypto.randomInt rather than Math.random(): Math.random()
+  // is a non-cryptographic PRNG whose output is predictable from observed values,
+  // so codes could be guessed without brute force. Length is unchanged; only the
+  // randomness source is hardened. Brute force is bounded by OTP_MAX_ATTEMPTS (5)
+  // plus the per-IP rate limit on /api/auth/verify-otp.
+  const code = crypto.randomInt(1000, 10000).toString();
   otpStore.set(phoneNumber, {
     code,
     expiresAt: Date.now() + OTP_TTL_MS,
@@ -1348,12 +1350,7 @@ export function generateOtp(phoneNumber: string): string {
 }
 
 export function verifyOtp(phoneNumber: string, code: string): boolean {
-  // Development-only bypass. Codes are now 6 digits, so the OTP screen has 6 boxes
-  // and the old 4-char "0000" could no longer be submitted — "000000" is the dev
-  // code now. "0000" stays accepted so older installed builds keep working.
-  if (code === "000000" && isDevMode()) {
-    return true;
-  }
+  // Development-only bypass: the fixed code "0000" is always accepted in dev mode.
   // In production this branch is inert, so only a real OTPIQ-delivered code works.
   if (code === "0000" && isDevMode()) {
     return true;
