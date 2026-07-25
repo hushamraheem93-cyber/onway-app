@@ -4205,8 +4205,8 @@
           <i data-lucide="${iconMap[type]}"></i>
         </div>
         <div class="toast-content">
-          <h4>${title}</h4>
-          <p>${message}</p>
+          <h4>${escapeHtml(title)}</h4>
+          <p>${escapeHtml(message)}</p>
         </div>
         <button class="toast-close" onclick="this.parentElement.remove()">
           <i data-lucide="x"></i>
@@ -5200,10 +5200,26 @@
       }
     }
 
+    // SECURITY: every value that originates from a user (customer rating comments,
+    // store names, customer/driver names, product names) MUST pass through one of
+    // these before being interpolated into an innerHTML template. Without this a
+    // customer could store `<img src=x onerror=...>` in a rating comment and have it
+    // execute inside the admin's authenticated session (stored XSS -> full takeover).
     function escapeHtml(text) {
       const div = document.createElement('div');
       div.textContent = text || '';
       return div.innerHTML;
+    }
+
+    // escapeHtml() escapes < > & but NOT quotes, so it is unsafe inside an HTML
+    // attribute (title="...", value="..."). Use escapeAttr there instead.
+    function escapeAttr(text) {
+      return String(text == null ? '' : text)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
     }
 
     // Confirm Delete
@@ -5462,10 +5478,10 @@
           const latlng = [loc.lat, loc.lng];
           const popupHtml = `
             <div style="font-family:'Cairo',sans-serif;direction:rtl;min-width:160px;padding:4px;">
-              <strong style="font-size:0.95rem;">${loc.fullName || loc.phoneNumber}</strong><br/>
+              <strong style="font-size:0.95rem;">${escapeHtml(loc.fullName || loc.phoneNumber)}</strong><br/>
               <span style="color:${isBusy?'#F59E0B':'#10B981'};font-weight:600;">${isBusy ? '🟡 مشغول بطلب' : '🟢 متاح'}</span>
-              ${loc.currentOrderId ? `<br/><span style="font-size:0.8rem;color:#666;">طلب: #${loc.currentOrderId.slice(-6)}</span>` : ''}
-              <br/><a href="#" style="color:#E86520;font-size:0.8rem;display:block;margin-top:6px;" onclick="openTrackingModal('${loc.phoneNumber}','${loc.fullName||loc.phoneNumber}');return false;">📍 تتبع مباشر</a>
+              ${loc.currentOrderId ? `<br/><span style="font-size:0.8rem;color:#666;">طلب: #${escapeHtml(String(loc.currentOrderId).slice(-6))}</span>` : ''}
+              <br/><a href="#" style="color:#E86520;font-size:0.8rem;display:block;margin-top:6px;" onclick="openTrackingModal(&quot;${escapeAttr(loc.phoneNumber)}&quot;,&quot;${escapeAttr(loc.fullName||loc.phoneNumber)}&quot;);return false;">📍 تتبع مباشر</a>
             </div>`;
           if (_driverMarkers[loc.phoneNumber]) {
             _driverMarkers[loc.phoneNumber].setLatLng(latlng);
@@ -5636,7 +5652,7 @@
           const icon = a.type === 'warning' ? '⚠' : 'ℹ';
           return `<li class="monitor-alert-item monitor-alert-${a.type}">
             <span class="monitor-alert-icon">${icon}</span>
-            <span style="flex:1;">${a.message}</span>
+            <span style="flex:1;">${escapeHtml(a.message)}</span>
             <span class="monitor-alert-time">${a.time}</span>
           </li>`;
         }).join('');
@@ -7583,7 +7599,7 @@
         const statusColor = getOrderStatusColor(order.status);
         const itemsCount = order.items ? order.items.length : 0;
         const totalQty = order.items ? order.items.reduce((s, i) => s + (i.quantity || 1), 0) : 0;
-        const itemsText = order.items ? order.items.map(i => `${i.name} (${i.quantity})`).join('، ') : '';
+        const itemsText = order.items ? order.items.map(i => `${escapeHtml(i.name)} (${escapeHtml(i.quantity)})`).join('، ') : '';
         const total = (order.total || 0) + (order.deliveryFee || 0);
         const date = new Date(order.createdAt).toLocaleDateString('ar-IQ', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
         
@@ -8318,7 +8334,7 @@
                         ${d.currentOrderId ? '#' + d.currentOrderId.slice(-6) : '-'}
                       </td>
                       <td style="padding: 12px 16px; font-weight: 600; color: var(--gray-800);">
-                        ${d.customerName || '-'}
+                        ${escapeHtml(d.customerName || '-')}
                       </td>
                       <td style="padding: 12px 16px; color: var(--gray-500);">
                         ${d.orderRegion || '-'}
@@ -8441,7 +8457,7 @@
     function ordersToRows(ordersArr) {
       return ordersArr.map((order, idx) => {
         const total = (order.total || 0) + (order.deliveryFee || 0);
-        const itemsText = order.items ? order.items.map(i => `${i.name} (${i.quantity})`).join(', ') : '';
+        const itemsText = order.items ? order.items.map(i => `${escapeHtml(i.name)} (${escapeHtml(i.quantity)})`).join(', ') : '';
         const date = order.createdAt ? new Date(order.createdAt).toLocaleString('ar-IQ') : '';
         return {
           '#': idx + 1,
@@ -10357,7 +10373,7 @@ function exportDriversExcel() {
 function printDriversReport() {
   fetch(API_BASE + '/admin/drivers').then(r => r.json()).then(data => {
     const driversArr = Array.isArray(data) ? data : (data.drivers || []);
-    const rows = driversArr.map(d => `<tr><td>${d.name||''}</td><td>${d.phoneNumber||''}</td><td>${d.isOnline ? '<span style="color:green;">متصل</span>' : '<span style="color:#999;">غير متصل</span>'}</td><td>${(d.walletBalance||0).toLocaleString('ar-IQ')} د.ع</td></tr>`).join('');
+    const rows = driversArr.map(d => `<tr><td>${escapeHtml(d.name||'')}</td><td>${escapeHtml(d.phoneNumber||'')}</td><td>${d.isOnline ? '<span style="color:green;">متصل</span>' : '<span style="color:#999;">غير متصل</span>'}</td><td>${(d.walletBalance||0).toLocaleString('ar-IQ')} د.ع</td></tr>`).join('');
     const html = `<html dir="rtl"><head><meta charset="UTF-8"><link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet"><style>body{font-family:Cairo,sans-serif;padding:20px;}table{width:100%;border-collapse:collapse;}th,td{padding:8px;border:1px solid #ddd;}th{background:#8b5cf6;color:#fff;}h2{color:#8b5cf6;}</style></head><body><h2>OnWay — تقرير السائقين</h2><table><thead><tr><th>الاسم</th><th>الهاتف</th><th>الحالة</th><th>الرصيد</th></tr></thead><tbody>${rows}</tbody></table><script>window.onload=()=>{window.print();window.close();}<\/script></body></html>`;
     const w = window.open('', '_blank', 'width=700,height=600'); w.document.write(html); w.document.close();
   });
@@ -10552,7 +10568,7 @@ async function loadAdminRatings() {
         : dash.topStores.map((s, i) => `
           <div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid #f3f4f6;">
             <span style="font-weight:700;color:#10b981;min-width:20px;">${i+1}</span>
-            <span style="flex:1;font-size:0.88rem;">${s.storeName}</span>
+            <span style="flex:1;font-size:0.88rem;">${escapeHtml(s.storeName)}</span>
             <span style="display:flex;align-items:center;gap:2px;">${starsHtml(Math.round(s.rating), 12)}</span>
             <span style="font-weight:700;font-size:0.85rem;color:#F59E0B;">${(s.rating||0).toFixed(1)}</span>
             <span style="font-size:0.75rem;color:#9ca3af;">(${s.ratingCount})</span>
@@ -10568,7 +10584,7 @@ async function loadAdminRatings() {
         : dash.worstStores.map((s, i) => `
           <div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid #f3f4f6;">
             <span style="font-weight:700;color:#ef4444;min-width:20px;">${i+1}</span>
-            <span style="flex:1;font-size:0.88rem;">${s.storeName}</span>
+            <span style="flex:1;font-size:0.88rem;">${escapeHtml(s.storeName)}</span>
             <span style="display:flex;align-items:center;gap:2px;">${starsHtml(Math.round(s.rating), 12)}</span>
             <span style="font-weight:700;font-size:0.85rem;color:#ef4444;">${(s.rating||0).toFixed(1)}</span>
             <span style="font-size:0.75rem;color:#9ca3af;">(${s.ratingCount})</span>
@@ -10620,10 +10636,10 @@ function renderRatingsTable() {
       : '';
 
     return `<tr>
-      <td style="font-weight:600;">${r.storeName || r.vendorId || '—'}</td>
-      <td><div style="display:flex;align-items:center;gap:2px;">${starsHtml(r.stars, 13)}<span style="margin-right:4px;font-weight:700;">${r.stars}</span></div></td>
-      <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${(r.comment||'').replace(/"/g,'&quot;')}">${r.comment || '<span style="color:#9ca3af;">—</span>'}</td>
-      <td style="font-size:0.8rem;color:#6b7280;">${r.customerPhone ? '*'.repeat(5) + r.customerPhone.slice(-4) : '—'}</td>
+      <td style="font-weight:600;">${escapeHtml(r.storeName || r.vendorId || '—')}</td>
+      <td><div style="display:flex;align-items:center;gap:2px;">${starsHtml(r.stars, 13)}<span style="margin-right:4px;font-weight:700;">${escapeHtml(r.stars)}</span></div></td>
+      <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${escapeAttr(r.comment || '')}">${r.comment ? escapeHtml(r.comment) : '<span style="color:#9ca3af;">—</span>'}</td>
+      <td style="font-size:0.8rem;color:#6b7280;">${r.customerPhone ? '*'.repeat(5) + escapeHtml(String(r.customerPhone).slice(-4)) : '—'}</td>
       <td style="font-size:0.8rem;">${date}</td>
       <td>${deletedBadge}${adminBadge}${hiddenBadge}</td>
       <td>
@@ -10679,7 +10695,7 @@ async function openAdminRatingModal() {
     const sel  = document.getElementById('admin-rating-vendor-id');
     if (sel) {
       sel.innerHTML = '<option value="">اختر المتجر...</option>' +
-        list.map(v => `<option value="${v.id}">${v.storeName}</option>`).join('');
+        list.map(v => `<option value="${escapeAttr(v.id)}">${escapeHtml(v.storeName)}</option>`).join('');
     }
   } catch {}
   const modal = document.getElementById('admin-rating-modal');
@@ -10767,7 +10783,7 @@ function renderRankingTable(data) {
       <td>
         <div style="display:flex;align-items:center;gap:6px;">
           <span style="color:#9ca3af;font-size:0.8rem;min-width:20px;">#${idx+1}</span>
-          <span style="font-weight:600;">${v.storeName}</span>
+          <span style="font-weight:600;">${escapeHtml(v.storeName)}</span>
           ${featuredBadge}
         </div>
       </td>

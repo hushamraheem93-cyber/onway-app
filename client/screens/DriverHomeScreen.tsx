@@ -32,7 +32,8 @@ import { useTheme } from "@/hooks/useTheme";
 import { useAuth } from "@/context/AuthContext";
 import { AppColors, Spacing, BorderRadius, Shadows, FontWeight} from "@/constants/theme";
 import { getApiUrl } from "@/lib/query-client";
-import { clearDriverToken } from "@/lib/driverAuth";
+import { clearDriverToken, DRIVER_TOKEN_KEY } from "@/lib/driverAuth";
+import { getToken } from "@/lib/secureTokenStorage";
 import { playRepeatingAlert, stopAlert } from "@/lib/alertSound";
 import { formatPrice } from "@/constants/currency";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
@@ -404,7 +405,9 @@ export default function DriverHomeScreen() {
     const { lat, lng } = coords;
     // Primary: socket.io (real-time, no HTTP overhead)
     if (socketRef.current?.connected) {
-      socketRef.current.emit("driver:location", { phoneNumber, lat, lng });
+      // phoneNumber is deliberately NOT sent: the server takes the driver identity
+      // from the verified handshake token so it cannot be spoofed.
+      socketRef.current.emit("driver:location", { lat, lng });
       return;
     }
     // Fallback: HTTP POST (same endpoint as before)
@@ -457,13 +460,20 @@ export default function DriverHomeScreen() {
     if (hasActiveBatch && phoneNumber) {
       if (!socketRef.current || !socketRef.current.connected) {
         const baseUrl = getApiUrl();
-        const sock = io(baseUrl, {
-          transports: ["websocket", "polling"],
-          reconnection: true,
-          reconnectionAttempts: 5,
-          reconnectionDelay: 2000,
-        });
-        socketRef.current = sock;
+        // The server derives the driver identity from this handshake token — it no
+        // longer trusts a phoneNumber in the payload — so location publishing only
+        // works with a valid driver token attached here.
+        getToken(DRIVER_TOKEN_KEY).then((driverTok) => {
+          if (socketRef.current?.connected) return;
+          const sock = io(baseUrl, {
+            transports: ["websocket", "polling"],
+            reconnection: true,
+            reconnectionAttempts: 5,
+            reconnectionDelay: 2000,
+            auth: { token: driverTok || "" },
+          });
+          socketRef.current = sock;
+        }).catch(() => {});
       }
     } else {
       if (socketRef.current) {

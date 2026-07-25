@@ -1560,10 +1560,26 @@ router.get("/api/vendor/wallet", requireVendor, async (req, res) => {
       .sort((a, b) => a.date.localeCompare(b.date))
       .slice(-14);
 
-    // Recent 20 sales
-    const recentSales = vendorOrders.slice(0, 20);
+    // Recent 20 sales, each annotated with the vendor's net earning after commission.
+    //
+    // NOTE: this logic previously lived on a DUPLICATE `GET /api/vendor/wallet`
+    // handler in routes.ts. Because index.ts mounts this vendorRouter BEFORE
+    // registerRoutes(), Express matched this handler first and that copy was dead
+    // code — so the client (VendorWalletScreen) rendered `sale.netEarning`, which
+    // the live response never contained. Keep the commission logic HERE, on the
+    // route that actually serves traffic.
+    const vendorDoc = await db.collection("vendors").doc(vid).get();
+    const commissionRate = vendorDoc.exists
+      ? Number((vendorDoc.data() as any)?.commissionPercent ?? 0) || 0
+      : 0;
 
-    res.json({ totalRevenue, totalOrders, avgOrderValue, dailySales, recentSales, period });
+    const recentSales = vendorOrders.slice(0, 20).map((o) => ({
+      ...o,
+      commissionRate,
+      netEarning: Math.round(o.subtotal * (1 - commissionRate / 100)),
+    }));
+
+    res.json({ totalRevenue, totalOrders, avgOrderValue, dailySales, recentSales, period, commissionRate });
   } catch (err) {
     console.error("vendor wallet:", err);
     res.status(500).json({ error: "حدث خطأ في الخادم" });

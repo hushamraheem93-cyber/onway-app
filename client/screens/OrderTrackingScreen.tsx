@@ -23,6 +23,7 @@ import { formatPrice } from "@/constants/currency";
 import { Button } from "@/components/Button";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
 import { useOrders, Order } from "@/context/OrderContext";
+import { useAuth } from "@/context/AuthContext";
 import { getApiUrl } from "@/lib/query-client";
 import { GradientBackground } from "@/components/GradientBackground";
 import { formatShortDate, formatShortTime } from "@/lib/dateUtils";
@@ -233,6 +234,7 @@ export default function OrderTrackingScreen() {
   const navigation = useNavigation<NavigationProp>();
   const route = useRoute<RouteProps>();
   const { orders, refreshOrders } = useOrders();
+  const { customerToken } = useAuth();
   const [refreshing, setRefreshing] = useState(false);
   const [driverLocation, setDriverLocation] = useState<{ lat: number; lng: number; fullName: string } | null>(null);
   const [mapHtml, setMapHtml] = useState<string | null>(null);
@@ -289,11 +291,15 @@ export default function OrderTrackingScreen() {
     }
 
     const baseUrl = getApiUrl();
+    // The server now verifies order ownership before joining the room (the room
+    // carries live driver GPS), so the customer JWT must ride along on the
+    // handshake — otherwise "order:watch" is silently ignored.
     const sock = io(baseUrl, {
       transports: ["websocket", "polling"],
       reconnection: true,
       reconnectionAttempts: 10,
       reconnectionDelay: 3000,
+      auth: { token: customerToken || "" },
     });
     socketRef.current = sock;
 
@@ -321,7 +327,7 @@ export default function OrderTrackingScreen() {
       socketRef.current = null;
       socketConnectedRef.current = false;
     };
-  }, [order?.status, orderId, order?.latitude, order?.longitude]);
+  }, [order?.status, orderId, order?.latitude, order?.longitude, customerToken]);
 
   // HTTP Polling fallback: activates only when socket is disconnected
   useEffect(() => {

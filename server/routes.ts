@@ -384,188 +384,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // the plural mount and stays public.
   app.use("/api/driver", requireDriverAuth);
 
-  // ── PUBLIC: Stores listing & products ────────────────────────────────────────
-  app.get("/api/stores", async (req: Request, res: Response) => {
-    try {
-      const { businessType, name, categoryId } = req.query as { businessType?: string; name?: string; categoryId?: string };
-      const allDocs = await getCachedStores();
-      const nameQuery = name ? name.trim().toLowerCase() : "";
-
-      // Map a UI categoryId to the vendor businessType stored in Firestore.
-      // "restaurants" → "restaurant" (plural vs singular), all others match directly.
-      const CATEGORY_BIZ_MAP: Record<string, string> = {
-        restaurants: "restaurant",
-        restaurant: "restaurant",
-        supermarket: "supermarket",
-        pharmacy: "pharmacy",
-        bakery: "bakery",
-      };
-      const effectiveBusinessType = businessType || (categoryId ? CATEGORY_BIZ_MAP[categoryId] : undefined);
-
-      const stores = allDocs
-        .filter((s) => (effectiveBusinessType ? s.businessType === effectiveBusinessType : true))
-        .filter((s) => (nameQuery ? (s.storeName || "").toLowerCase().includes(nameQuery) : true))
-        .sort((a, b) => (a.sortOrder ?? 999) - (b.sortOrder ?? 999) || (b.approvedAt || "").localeCompare(a.approvedAt || ""));
-      res.set("Cache-Control", "public, max-age=30");
-      res.set("Vary", "Accept-Encoding");
-      res.json({ stores, total: stores.length });
-    } catch (err) {
-      console.error("public stores:", err);
-      res.status(500).json({ error: "حدث خطأ في الخادم" });
-    }
-  });
-
-  app.get("/api/stores/products-preview", async (_req: Request, res: Response) => {
-    try {
-      const db = getFirestore();
-      if (!db) return res.status(500).json({ error: "قاعدة البيانات غير متاحة" });
-      // Limit to prevent full-collection scans as catalog grows; 8 products × ~200 vendors = 1600 max
-      const snap = await db.collection("vendorProducts").where("status", "==", "approved").limit(1600).get();
-      const grouped: Record<string, any[]> = {};
-      snap.docs.forEach((d) => {
-        const p = d.data() as any;
-        const vid: string = p.vendorId;
-        if (!vid) return;
-        if (!grouped[vid]) grouped[vid] = [];
-        if (grouped[vid].length < 8) {
-          const primaryUrl = p.imageUrl || "";
-          const allUrls: string[] = (p.imageUrls && p.imageUrls.length > 0) ? p.imageUrls : (primaryUrl ? [primaryUrl] : []);
-          grouped[vid].push({
-            id: d.id, name: p.name, price: p.price,
-            imageUrl: primaryUrl, imageUrls: allUrls,
-            unit: p.unit || "قطعة", stock: p.stock ?? 0,
-            vendorId: vid, storeName: p.storeName || "",
-            description: p.description || "", category: p.category || "",
-          });
-        }
-      });
-      res.json({ preview: grouped });
-    } catch (err) {
-      console.error("products-preview:", err);
-      res.status(500).json({ error: "حدث خطأ في الخادم" });
-    }
-  });
-
-  app.get("/api/stores/:id/products", async (req: Request, res: Response) => {
-    try {
-      const db = getFirestore();
-      if (!db) return res.status(500).json({ error: "قاعدة البيانات غير متاحة" });
-      const id = req.params.id as string;
-      const [storeDoc, productsSnap] = await Promise.all([
-        db.collection("vendors").doc(id).get(),
-        db.collection("vendorProducts").where("vendorId", "==", id).get(),
-      ]);
-      if (!storeDoc.exists || (storeDoc.data() as any).status !== "active") {
-        return res.status(404).json({ error: "المتجر غير موجود أو غير نشط" });
-      }
-      const sv = storeDoc.data() as any;
-      const store = {
-        id: sv.id, storeName: sv.storeName, businessType: sv.businessType,
-        address: sv.address || "", bio: sv.bio || "",
-        profileImageUrl: sv.profileImageUrl || "", coverImageUrl: sv.coverImageUrl || "",
-      };
-      const products = productsSnap.docs.map((d) => {
-        const p = d.data() as any;
-        const primaryUrl = p.imageUrl || "";
-        const allUrls: string[] = (p.imageUrls && p.imageUrls.length > 0) ? p.imageUrls : (primaryUrl ? [primaryUrl] : []);
-        return {
-          id: d.id, vendorId: p.vendorId, storeName: p.storeName,
-          name: p.name, description: p.description || "",
-          price: p.price, category: p.category, stock: p.stock || 0,
-          unit: p.unit || "", imageUrl: primaryUrl, imageUrls: allUrls,
-          status: p.status, approvedAt: p.approvedAt || p.createdAt || "",
-        };
-      }).filter((p: any) => p.status === "approved")
-        .sort((a: any, b: any) => b.approvedAt.localeCompare(a.approvedAt));
-      res.json({ store, products, total: products.length });
-    } catch (err) {
-      console.error("public store products:", err);
-      res.status(500).json({ error: "حدث خطأ في الخادم" });
-    }
-  });
-
-  // ── VENDOR: Wallet / earnings summary ─────────────────────────────────────────
-  app.get("/api/vendor/wallet", async (req: Request, res: Response) => {
-    try {
-      const db = getFirestore();
-      if (!db) return res.status(500).json({ error: "قاعدة البيانات غير متاحة" });
-      const vid = extractVendorId(req);
-      if (!vid) return res.status(401).json({ error: "غير مصرح" });
-
-      const period = (req.query.period as string) || "month";
-
-      const productsSnap = await db.collection("vendorProducts")
-        .where("vendorId", "==", vid).get();
-      const vendorProductIds = new Set<string>(productsSnap.docs.map((d) => d.id));
-
-      const now = new Date();
-      let startDate: Date | null = null;
-      if (period === "today") {
-        startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-      } else if (period === "week") {
-        startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-      } else if (period === "month") {
-        startDate = new Date(now.getFullYear(), now.getMonth(), 1);
-      }
-
-      const snap = await db.collection("orders")
-        .orderBy("createdAt", "desc").limit(1000).get();
-
-      const completedStatuses = new Set(["delivered", "picked_up", "delivering"]);
-      type SaleRecord = { id: string; date: string; subtotal: number; status: string; customerPhone: string; itemCount: number };
-      const vendorOrders: SaleRecord[] = [];
-
-      for (const doc of snap.docs) {
-        const data = doc.data() as any;
-        if (!completedStatuses.has(data.status)) continue;
-        const createdAt: Date = data.createdAt?.toDate?.() ?? new Date(data.createdAt ?? 0);
-        if (startDate && createdAt < startDate) continue;
-
-        const items: any[] = Array.isArray(data.items) ? data.items : [];
-        let vendorItems = items.filter((i: any) => i.productId && vendorProductIds.has(i.productId));
-        if (vendorItems.length === 0 && data.vendorId === vid) vendorItems = items;
-        if (vendorItems.length === 0) continue;
-
-        const subtotal = vendorItems.reduce(
-          (sum: number, i: any) => sum + (Number(i.price) || 0) * (Number(i.quantity) || 1), 0
-        );
-        vendorOrders.push({
-          id: doc.id, date: createdAt.toISOString(), subtotal,
-          status: data.status, customerPhone: data.phoneNumber || "",
-          itemCount: vendorItems.reduce((s: number, i: any) => s + (Number(i.quantity) || 1), 0),
-        });
-      }
-
-      // Fetch vendor commission rate to compute netEarning per sale
-      const vendorDoc = await db.collection("vendors").doc(vid).get();
-      const commissionRate = vendorDoc.exists ? (vendorDoc.data() as any)?.commissionPercent ?? 0 : 0;
-
-      const totalRevenue = vendorOrders.reduce((s, o) => s + o.subtotal, 0);
-      const totalOrders = vendorOrders.length;
-      const avgOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0;
-
-      const dailyMap: Record<string, number> = {};
-      vendorOrders.forEach((o) => {
-        const day = o.date.substring(0, 10);
-        dailyMap[day] = (dailyMap[day] || 0) + o.subtotal;
-      });
-      const dailySales = Object.entries(dailyMap)
-        .map(([date, revenue]) => ({ date, revenue }))
-        .sort((a, b) => a.date.localeCompare(b.date))
-        .slice(-14);
-
-      const recentWithNet = vendorOrders.slice(0, 20).map((o) => ({
-        ...o,
-        commissionRate,
-        netEarning: Math.round(o.subtotal * (1 - commissionRate / 100)),
-      }));
-
-      res.json({ totalRevenue, totalOrders, avgOrderValue, dailySales, recentSales: recentWithNet, period, commissionRate });
-    } catch (err) {
-      console.error("vendor wallet:", err);
-      res.status(500).json({ error: "حدث خطأ في الخادم" });
-    }
-  });
+  // NOTE: GET /api/stores, /api/stores/products-preview, /api/stores/:id/products
+  // and /api/vendor/wallet used to be defined here as well. index.ts mounts
+  // vendorRouter BEFORE registerRoutes(), so Express always matched the copies in
+  // vendor.ts and these were dead code — edits made here (e.g. vendor commission /
+  // netEarning) silently had no effect. They now live ONLY in server/vendor.ts.
+  // Do not re-add them here.
 
   // ── VENDOR: Product availability toggle ───────────────────────────────────────
   app.patch("/api/vendor/products/:pid/availability", async (req: Request, res: Response) => {
@@ -6356,6 +6180,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
     transports: ["websocket", "polling"],
   });
 
+  // SECURITY: authenticate the socket at handshake time.
+  //
+  // Every /api/driver/* HTTP route takes the driver identity ONLY from a signed
+  // token (requireDriverAuth). The socket channel used to accept a plain
+  // `phoneNumber` in the "driver:location" payload, which meant an anonymous
+  // client could publish GPS coordinates as ANY driver — spoofing the live map
+  // shown to customers AND persisting the forged position to Firestore. That
+  // bypassed the entire driver-auth model over WebSocket.
+  //
+  // The handshake now verifies an optional Bearer/auth token and pins the
+  // resulting identity onto the socket. Anonymous sockets are still allowed
+  // (customers watch orders without a driver token) but they carry no driver
+  // identity, so they cannot publish locations.
+  ioServer.use((socket, next) => {
+    const raw =
+      (socket.handshake.auth as any)?.token ||
+      (socket.handshake.headers?.authorization || "").replace(/^Bearer\s+/i, "").trim();
+    if (raw) {
+      try {
+        const decoded = jwt.verify(String(raw), ROUTES_JWT_SECRET) as any;
+        (socket.data as any).role = decoded.role;
+        if (decoded.role === "driver" && decoded.phoneNumber) {
+          (socket.data as any).driverPhone = String(decoded.phoneNumber);
+        }
+        if (decoded.role === "customer" && decoded.phoneNumber) {
+          (socket.data as any).customerPhone = String(decoded.phoneNumber);
+        }
+      } catch {
+        /* invalid/expired token → stay anonymous rather than dropping the socket */
+      }
+    }
+    next();
+  });
+
   // ── Real-time order STATUS updates ─────────────────────────────────────────
   // Any status change (admin/driver via updateOrderStatus, vendor via vendor.ts,
   // customer cancel) emits "order:status" on the orderEvents bus. We forward it to
@@ -6381,19 +6239,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   ioServer.on("connection", (socket) => {
-    // Customer joins a room to watch a specific order
-    socket.on("order:watch", ({ orderId }: { orderId: string }) => {
-      if (orderId) socket.join(`order:${orderId}`);
+    // Customer joins a room to watch a specific order. Ownership is enforced:
+    // the room streams live order status AND the driver's GPS position, so an
+    // unauthenticated client must not be able to join an arbitrary order id.
+    socket.on("order:watch", async ({ orderId }: { orderId: string }) => {
+      if (!orderId) return;
+      const callerPhone = (socket.data as any).customerPhone as string | undefined;
+      const driverPhone = (socket.data as any).driverPhone as string | undefined;
+      try {
+        const order = (await getOrderById(orderId)) as any;
+        if (!order) return;
+        const ownerPhone = order.phoneNumber || order.customerPhone;
+        // Allowed: the customer who placed it, or the driver assigned to it.
+        const isOwner = !!callerPhone && ownerPhone === callerPhone;
+        const isAssignedDriver = !!driverPhone && driverAssignments.get(orderId) === driverPhone;
+        if (!isOwner && !isAssignedDriver) return;
+        socket.join(`order:${orderId}`);
+      } catch {
+        /* lookup failure → do not join */
+      }
     });
 
-    // Driver sends location via socket (replaces HTTP polling)
+    // Driver publishes location. Identity comes ONLY from the verified handshake
+    // token — never from the payload — so a client cannot publish as another driver.
     socket.on("driver:location", async ({
-      phoneNumber, lat, lng,
-    }: { phoneNumber: string; lat: number; lng: number }) => {
+      lat, lng,
+    }: { lat: number; lng: number }) => {
+      const phoneNumber = (socket.data as any).driverPhone as string | undefined;
       if (!phoneNumber || lat === undefined || lng === undefined) return;
 
       const driver = await getDriverByPhone(phoneNumber).catch(() => null);
-      const fullName = driver?.fullName || "";
+      if (!driver) return;
+      const fullName = driver.fullName || "";
 
       // 1. Update in-memory store (same as HTTP endpoint)
       driverLocations.set(phoneNumber, {
