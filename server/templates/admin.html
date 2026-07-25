@@ -1865,10 +1865,15 @@
             <div class="search-box" style="flex:1;min-width:200px;"><i data-lucide="search"></i>
               <input type="text" id="mprods-search" placeholder="ابحث في المنتجات..." oninput="filterMerchantProducts()"></div>
             <select id="mprods-status" onchange="filterMerchantProducts()" style="border:1px solid #E5E7EB;border-radius:9px;padding:7px 12px;font-size:0.82rem;font-family:inherit;outline:none;">
-              <option value="">كل المنتجات</option>
+              <option value="">كل الحالات</option>
               <option value="approved">مقبول</option>
               <option value="pending">بانتظار المراجعة</option>
               <option value="rejected">مرفوض</option>
+            </select>
+            <select id="mprods-active" onchange="filterMerchantProducts()" style="border:1px solid #E5E7EB;border-radius:9px;padding:7px 12px;font-size:0.82rem;font-family:inherit;outline:none;">
+              <option value="">فعّال + معطّل</option>
+              <option value="active">فعّال فقط</option>
+              <option value="disabled">معطّل فقط</option>
             </select>
             <button onclick="openAddMerchantProduct()" class="btn btn-primary" style="font-size:0.82rem;padding:8px 16px;">
               <i data-lucide="plus" style="width:14px;height:14px;"></i> إضافة منتج
@@ -7107,10 +7112,13 @@
     }
 
     function filterMerchantProducts() {
-      const q      = (document.getElementById('mprods-search')?.value || '').toLowerCase();
-      const status = document.getElementById('mprods-status')?.value || '';
+      const q       = (document.getElementById('mprods-search')?.value || '').toLowerCase();
+      const status  = document.getElementById('mprods-status')?.value || '';
+      const active  = document.getElementById('mprods-active')?.value || '';
       let list = [..._merchantAllProds];
       if (status) list = list.filter(p => p.status === status);
+      if (active === 'active')   list = list.filter(p => p.isActive !== false);
+      if (active === 'disabled') list = list.filter(p => p.isActive === false);
       if (q)      list = list.filter(p => (p.name || '').toLowerCase().includes(q));
       const grid  = document.getElementById('mprods-grid');
       const empty = document.getElementById('mprods-empty');
@@ -7118,17 +7126,79 @@
       empty.style.display = 'none';
       const STATUS_COLORS = { approved: '#16A34A', pending: '#F59E0B', rejected: '#EF4444' };
       const STATUS_LABELS = { approved: 'مقبول', pending: 'بانتظار المراجعة', rejected: 'مرفوض' };
-      grid.innerHTML = list.map(p => `
-        <div style="background:#F9FAFB;border-radius:12px;padding:12px;border:1px solid #F3F4F6;">
-          <div style="width:100%;aspect-ratio:1;border-radius:10px;overflow:hidden;background:#fff;border:1px solid #E5E7EB;margin-bottom:8px;display:flex;align-items:center;justify-content:center;">
+      grid.innerHTML = list.map(p => {
+        const disabled = p.isActive === false;
+        const safeName = escapeHtml(p.name || '—').replace(/'/g, "\\'").replace(/"/g, "&quot;");
+        return `
+        <div style="background:${disabled?'#F8F8F8':'#F9FAFB'};border-radius:14px;padding:12px;border:1.5px solid ${disabled?'#E5E7EB':'#F3F4F6'};position:relative;opacity:${disabled?0.75:1};transition:opacity .2s;">
+          <!-- Image -->
+          <div style="width:100%;aspect-ratio:1;border-radius:10px;overflow:hidden;background:#fff;border:1px solid #E5E7EB;margin-bottom:8px;display:flex;align-items:center;justify-content:center;position:relative;">
             <img src="${p.image || p.imageUrl || ''}" onerror="this.style.display='none'" style="width:100%;height:100%;object-fit:cover;">
+            ${disabled ? `<div style="position:absolute;inset:0;background:rgba(0,0,0,0.28);display:flex;align-items:center;justify-content:center;pointer-events:none;"><span style="background:#6B7280;color:#fff;font-size:0.62rem;font-weight:800;padding:2px 10px;border-radius:20px;letter-spacing:0.02em;">معطّل</span></div>` : ''}
           </div>
-          <div style="font-weight:700;font-size:0.82rem;color:#111827;margin-bottom:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(p.name || '—')}</div>
-          <div style="display:flex;align-items:center;justify-content:space-between;">
+          <!-- Name -->
+          <div style="font-weight:700;font-size:0.82rem;color:#111827;margin-bottom:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${escapeHtml(p.name||'')}">${escapeHtml(p.name || '—')}</div>
+          <!-- Price + Approval status -->
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
             <span style="font-size:0.78rem;font-weight:700;color:#E86520;">${(p.price || 0).toLocaleString('ar-IQ')} د.ع</span>
-            <span style="font-size:0.65rem;font-weight:700;color:${STATUS_COLORS[p.status] || '#9CA3AF'};">${STATUS_LABELS[p.status] || p.status}</span>
+            <span style="font-size:0.62rem;font-weight:700;color:${STATUS_COLORS[p.status]||'#9CA3AF'};">${STATUS_LABELS[p.status]||p.status}</span>
           </div>
-        </div>`).join('');
+          <!-- Action buttons -->
+          <div style="display:flex;gap:5px;">
+            <button
+              onclick="toggleVendorProductActive('${p.id}', ${!disabled})"
+              title="${disabled ? 'تفعيل المنتج' : 'تعطيل المنتج'}"
+              style="flex:1;padding:5px 0;border-radius:8px;border:1px solid ${disabled?'#BBF7D0':'#E5E7EB'};background:${disabled?'#F0FDF4':'#F9FAFB'};color:${disabled?'#16A34A':'#6B7280'};font-size:0.68rem;font-weight:700;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:3px;transition:all .15s;">
+              ${disabled ? '✅ تفعيل' : '⏸ تعطيل'}
+            </button>
+            <button
+              onclick="deleteVendorProduct('${p.id}', '${safeName}')"
+              title="حذف المنتج"
+              style="padding:5px 9px;border-radius:8px;border:1px solid #FECACA;background:#FFF5F5;color:#EF4444;font-size:0.72rem;font-weight:700;cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:3px;transition:all .15s;">
+              🗑
+            </button>
+          </div>
+        </div>`; }).join('');
+      lucide.createIcons();
+    }
+
+    // ── Toggle product isActive (admin disable / enable) ─────────────────────
+    async function toggleVendorProductActive(productId, newIsActive) {
+      try {
+        const r = await fetch(API_BASE + '/admin/vendor-products/' + productId + '/toggle-active', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ isActive: newIsActive }),
+        });
+        if (!r.ok) throw new Error();
+        const idx = _merchantAllProds.findIndex(p => p.id === productId);
+        if (idx !== -1) _merchantAllProds[idx].isActive = newIsActive;
+        filterMerchantProducts();
+        showToast('success', newIsActive ? '✅ تم التفعيل' : '⏸ تم التعطيل',
+          newIsActive ? 'المنتج مرئي للعملاء الآن' : 'المنتج مخفي عن العملاء');
+      } catch {
+        showToast('error', 'خطأ', 'فشلت العملية، حاول مرة أخرى');
+      }
+    }
+
+    // ── Delete vendor product with confirmation ───────────────────────────────
+    function deleteVendorProduct(productId, productName) {
+      document.getElementById('confirm-message').textContent =
+        `هل أنت متأكد من حذف المنتج "${productName}"؟ لا يمكن التراجع عن هذا الإجراء.`;
+      document.getElementById('confirm-delete-btn').onclick = async () => {
+        closeModal('confirm-modal');
+        try {
+          const r = await fetch(API_BASE + '/admin/vendor-products/' + productId, { method: 'DELETE' });
+          if (!r.ok) throw new Error();
+          _merchantAllProds = _merchantAllProds.filter(p => p.id !== productId);
+          document.getElementById('mprods-subtitle').textContent = `${_merchantAllProds.length} منتج`;
+          filterMerchantProducts();
+          showToast('success', 'تم الحذف', 'تم حذف المنتج بنجاح');
+        } catch {
+          showToast('error', 'خطأ', 'فشل حذف المنتج');
+        }
+      };
+      document.getElementById('confirm-modal').classList.add('active');
       lucide.createIcons();
     }
 

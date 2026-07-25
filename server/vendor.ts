@@ -1503,6 +1503,29 @@ router.get("/api/admin/vendor-products", requireAdmin, async (req, res) => {
   }
 });
 
+// PATCH /api/admin/vendor-products/:pid/toggle-active — enable / disable a product
+router.patch("/api/admin/vendor-products/:pid/toggle-active", requireAdmin, async (req, res) => {
+  try {
+    const db = getFirestore();
+    if (!db) return res.status(500).json({ error: "قاعدة البيانات غير متاحة" });
+    const pid = req.params.pid as string;
+    const doc = await db.collection("vendorProducts").doc(pid).get();
+    if (!doc.exists) return res.status(404).json({ error: "المنتج غير موجود" });
+    const { isActive } = req.body;
+    if (typeof isActive !== "boolean") {
+      return res.status(400).json({ error: "isActive يجب أن يكون boolean" });
+    }
+    await db.collection("vendorProducts").doc(pid).update({
+      isActive,
+      updatedAt: new Date().toISOString(),
+    });
+    res.json({ success: true, isActive });
+  } catch (err) {
+    console.error("toggle product active:", err);
+    res.status(500).json({ error: "فشلت العملية" });
+  }
+});
+
 // POST /api/admin/vendor-products/:id/approve
 router.post("/api/admin/vendor-products/:pid/approve", requireAdmin, async (req, res) => {
   try {

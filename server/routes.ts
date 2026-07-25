@@ -426,6 +426,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const p = d.data() as any;
         const vid: string = p.vendorId;
         if (!vid) return;
+        if (p.isActive === false) return; // skip admin-disabled products
         if (!grouped[vid]) grouped[vid] = [];
         if (grouped[vid].length < 8) {
           const primaryUrl = p.imageUrl || "";
@@ -480,7 +481,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           inStock: p.inStock !== false,
           variants: p.variants || [], addons: p.addons || [],
         };
-      }).filter((p: any) => p.status === "approved")
+      }).filter((p: any) => p.status === "approved" && p.isActive !== false)
         .sort((a: any, b: any) => b.approvedAt.localeCompare(a.approvedAt));
       res.json({ store, products, total: products.length });
     } catch (err) {
@@ -713,6 +714,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           status: p.status || "",
           category: p.category || "",
           stock: p.stock ?? 0,
+          isActive: p.isActive !== false,
           createdAt: p.createdAt || "",
         };
       }).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
@@ -1442,7 +1444,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const snap = await db.collection("vendorProducts")
           .where("status", "==", "approved")
           .get();
-        vendorProducts = snap.docs.map(d => {
+        vendorProducts = snap.docs
+          .filter(d => (d.data() as any).isActive !== false) // skip admin-disabled products
+          .map(d => {
           const data = d.data() as any;
           return {
             id: d.id,
