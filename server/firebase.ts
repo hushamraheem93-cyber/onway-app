@@ -18,10 +18,25 @@ export function initializeFirebase() {
     
     const apps = admin.apps || [];
     if (!apps.length) {
+      // Storage bucket.
+      //
+      // This was hardcoded to `onway-media-${project_id without dashes}` — a name
+      // that does not match any bucket Firebase actually provisions. Firebase creates
+      // "<project-id>.firebasestorage.app" (or the legacy "<project-id>.appspot.com"),
+      // so every uploadToFirebaseStorage() call resolved to a non-existent bucket,
+      // threw, and silently fell back to storing Base64 blobs inside Firestore
+      // documents — defeating the object-storage migration with no visible error.
+      //
+      // Now: FIREBASE_STORAGE_BUCKET wins if set (use it when your bucket uses the
+      // legacy .appspot.com name), otherwise default to the modern Firebase default.
+      const storageBucket =
+        process.env.FIREBASE_STORAGE_BUCKET ||
+        `${serviceAccount.project_id}.firebasestorage.app`;
       admin.initializeApp({
         credential: admin.credential.cert(serviceAccount),
-        storageBucket: `onway-media-${serviceAccount.project_id.replace(/[^a-z0-9]/g, "")}`,
+        storageBucket,
       });
+      console.log(`[Firebase] Storage bucket: ${storageBucket}`);
     }
     
     db = admin.firestore();
