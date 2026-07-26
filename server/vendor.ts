@@ -135,13 +135,12 @@ function generateImageHash(buffer: Buffer): string {
 }
 
 async function processAndSaveImage(buffer: Buffer, hash: string): Promise<{ full: string; thumb: string }> {
-  // Durable-first: upload to Firebase Storage and store only the URL, with a
-  // Base64 fallback if Storage is unavailable. This mirrors what
-  // POST /api/admin/upload-image already does.
+  // Upload to Firebase Storage and store only the URL. This mirrors what
+  // POST /api/admin/upload-image does.
   //
   // The old comment here said "Firebase Storage is not provisioned for this
-  // project" — that was true when written and is not any more (the bucket-name
-  // defect is fixed). Base64-only meant a product with 5 images carried roughly
+  // project" — that was true when written and is not any more (the bucket is
+  // provisioned). Base64-only meant a product with 5 images carried roughly
   // 5 × 60KB inline, and Firestore rejects any document over 1MB: the vendor
   // simply could not save the product, and every catalog response shipped the
   // full blobs.
@@ -149,19 +148,15 @@ async function processAndSaveImage(buffer: Buffer, hash: string): Promise<{ full
     sharp(buffer).resize(700, 700, { fit: "cover", position: "center" }).webp({ quality: 70 }).toBuffer(),
     sharp(buffer).resize(200, 200, { fit: "cover", position: "center" }).webp({ quality: 75 }).toBuffer(),
   ]);
-  try {
-    const [full, thumb] = await Promise.all([
-      uploadToFirebaseStorage(webpBuffer, `vendor-products/${hash}.webp`),
-      uploadToFirebaseStorage(thumbBuffer, `vendor-products/${hash}_thumb.webp`),
-    ]);
-    console.info(`[Image] ✓ product image uploaded to Storage (${Math.round(webpBuffer.length / 1024)}KB full, ${Math.round(thumbBuffer.length / 1024)}KB thumb)`);
-    return { full, thumb };
-  } catch (storageErr: any) {
-    console.warn("[Storage] vendor product image fell back to Base64:", storageErr?.message);
-    const full  = `data:image/webp;base64,${webpBuffer.toString("base64")}`;
-    const thumb = `data:image/webp;base64,${thumbBuffer.toString("base64")}`;
-    return { full, thumb };
-  }
+  // Storage is provisioned, so there is no Base64 fallback: falling back would
+  // reintroduce the exact 1MB-document failure described above, silently, and the
+  // vendor would see "saved" for a product that cannot be saved.
+  const [full, thumb] = await Promise.all([
+    uploadToFirebaseStorage(webpBuffer, `vendor-products/${hash}.webp`),
+    uploadToFirebaseStorage(thumbBuffer, `vendor-products/${hash}_thumb.webp`),
+  ]);
+  console.info(`[Image] ✓ product image uploaded to Storage (${Math.round(webpBuffer.length / 1024)}KB full, ${Math.round(thumbBuffer.length / 1024)}KB thumb)`);
+  return { full, thumb };
 }
 
 async function findDuplicateImage(hash: string): Promise<{ full: string; thumb: string | null } | null> {
@@ -515,8 +510,18 @@ async function saveProfileImage(
   type: "avatar" | "cover",
   vendorId: string
 ): Promise<string> {
-  // Store profile images as compressed Base64 data URIs directly in Firestore.
-  // Firebase Storage is not provisioned; Base64-in-Firestore is the convention.
+  // Upload to Firebase Storage and store only the URL — the same treatment
+  // processAndSaveImage gives product images.
+  //
+  // This was the last Base64-only image path. Its comment still claimed "Firebase
+  // Storage is not provisioned", which stopped being true. A logo plus a cover put
+  // roughly 60-120KB of inline data URI into the vendor document, and
+  // limitImageSize() passes data URIs through untouched — so those blobs shipped
+  // with every /api/stores catalog response, for every store, on every load.
+  //
+  // Existing vendors keep working: their stored value is a data URI, the client's
+  // resolveImageUrl() renders both shapes, and deleteFromFirebaseStorage() ignores
+  // anything that is not a Storage URL. No migration required.
   let webpBuffer: Buffer;
   if (type === "avatar") {
     webpBuffer = await sharp(buffer)
@@ -529,9 +534,10 @@ async function saveProfileImage(
       .webp({ quality: 70 })
       .toBuffer();
   }
-  const dataUri = `data:image/webp;base64,${webpBuffer.toString("base64")}`;
-  console.info(`[Image] ✓ encoded ${type} profile image as Base64 (${Math.round(webpBuffer.length / 1024)}KB) for vendor ${vendorId}`);
-  return dataUri;
+  const hash = generateImageHash(webpBuffer);
+  const url = await uploadToFirebaseStorage(webpBuffer, `vendor-profiles/${vendorId}/${type}-${hash}.webp`);
+  console.info(`[Image] ✓ ${type} image uploaded to Storage (${Math.round(webpBuffer.length / 1024)}KB) for vendor ${vendorId}`);
+  return url;
 }
 
 router.post(

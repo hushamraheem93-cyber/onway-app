@@ -1046,17 +1046,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         .resize(resizeOptions)
         .webp({ quality: config.quality })
         .toBuffer();
-      // Durable-first: upload to Firebase Storage (survives redeploys, served by
-      // Google's CDN, keeps Firestore docs small). If Storage is unavailable
-      // (bucket not enabled), fall back to the previous Base64-in-doc behaviour
-      // so uploads never break.
-      let url: string;
-      try {
-        url = await uploadToFirebaseStorage(webpBuffer, `admin-images/${type}/${contentHash}.webp`);
-      } catch (storageErr: any) {
-        console.warn("[Storage] admin upload fell back to Base64:", storageErr?.message);
-        url = `data:image/webp;base64,${webpBuffer.toString("base64")}`;
-      }
+      // Storage is provisioned (gs://onway-74c20.firebasestorage.app), so this is
+      // the only path — no Base64 fallback. The fallback existed because the bucket
+      // name was wrong and every upload threw; it turned a hard configuration fault
+      // into silent Base64 blobs inside Firestore documents, which is what pushed
+      // those documents toward the 1MB limit with no error anywhere. A failure here
+      // is now a real failure and says so.
+      const url = await uploadToFirebaseStorage(webpBuffer, `admin-images/${type}/${contentHash}.webp`);
       imageHashMap.set(contentHash, url);
       res.json({ url, size: webpBuffer.length });
     } catch (error) {
@@ -2704,9 +2700,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     if (!req.file) {
       return res.status(400).json({ error: "No file uploaded" });
     }
-    // Durable-first: move the freshly-written temp file into Firebase Storage —
-    // the local /uploads disk on the VM is EPHEMERAL and wiped on redeploys.
-    // On Storage failure, keep the legacy local path so uploads never break.
+    // Storage is provisioned, so it is the only destination. The old fallback wrote
+    // to the local /uploads disk, which is EPHEMERAL on the VM and wiped on every
+    // redeploy — it produced a URL that worked in testing and 404'd a week later.
     try {
       const buf = await fs.promises.readFile(req.file.path);
       const url = await uploadToFirebaseStorage(
@@ -2718,8 +2714,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       fs.promises.unlink(req.file.path).catch(() => {});
       return res.json({ url });
     } catch (storageErr: any) {
-      console.warn("[Storage] profile upload fell back to local disk:", storageErr?.message);
-      return res.json({ url: `/uploads/${req.file.filename}` });
+      console.error("[Storage] profile upload FAILED:", storageErr?.message);
+      fs.promises.unlink(req.file.path).catch(() => {});
+      return res.status(502).json({ error: "تعذّر رفع الصورة، حاول مجدداً" });
     }
   });
 
@@ -2773,13 +2770,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
 
     // The app sends the profile photo as a Base64 data URI. Storing that blob
-    // inside the user document bloats every read (~33%) and pushes the doc
-    // toward Firestore's 1MB limit — convert it to a durable Storage URL here,
-    // transparently to the client. On Storage failure keep the Base64 (legacy).
+    // inside the user document bloats every read (~33%) and pushes the doc toward
+    // Firestore's 1MB limit — convert it to a durable Storage URL here,
+    // transparently to the client.
+    //
+    // Storage is provisioned, so a failure is no longer silently swallowed into
+    // "keep the Base64": that is exactly the degraded path this migration exists to
+    // remove, and it left no trace that anything had gone wrong.
     if (typeof profileImage === "string" && profileImage.startsWith("data:image")) {
-      try {
-        const m = profileImage.match(/^data:(image\/[a-z0-9.+-]+);base64,(.+)$/i);
-        if (m) {
+      const m = profileImage.match(/^data:(image\/[a-z0-9.+-]+);base64,(.+)$/i);
+      if (m) {
+        try {
           const buf = Buffer.from(m[2], "base64");
           const ext = (m[1].split("/")[1] || "webp").replace("jpeg", "jpg");
           profileImage = await uploadToFirebaseStorage(
@@ -2787,9 +2788,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
             `profile-images/${encodeURIComponent(phoneNumber)}-${Date.now()}.${ext}`,
             m[1],
           );
+        } catch (storageErr: any) {
+          console.error("[Storage] profile photo upload FAILED:", storageErr?.message);
+          return res.status(502).json({ error: "تعذّر رفع الصورة الشخصية، حاول مجدداً" });
         }
-      } catch (storageErr: any) {
-        console.warn("[Storage] profile photo kept as Base64:", storageErr?.message);
       }
     }
 
@@ -7298,13 +7300,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const webpBuffer = await sharp(req.file.buffer).webp({ quality: 85 }).toBuffer();
         const hash = createHash("sha256").update(webpBuffer).digest("hex");
 
-        let url: string;
-        try {
-          url = await uploadToFirebaseStorage(webpBuffer, `website-cms/${section}/${hash}.webp`);
-        } catch (storageErr: any) {
-          console.warn("[CMS] Storage unavailable, using Base64 fallback:", storageErr?.message);
-          url = `data:image/webp;base64,${webpBuffer.toString("base64")}`;
-        }
+        // Storage is provisioned — no Base64 fallback. A CMS image stored as a data
+        // URI is written straight into the websiteContent document and ships with
+        // every read of it.
+        const url = await uploadToFirebaseStorage(webpBuffer, `website-cms/${section}/${hash}.webp`);
 
         // Persist URL to Firestore only for named fields (not screenshots "temp")
         const db = getFirestore();

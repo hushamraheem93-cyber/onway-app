@@ -1,0 +1,48 @@
+rules_version = '2';
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  OnWay — Firebase Storage Security Rules
+//  Bucket: onway-74c20.firebasestorage.app
+//  Last updated: 2026-07-26
+//
+//  Architecture note — read this before loosening anything:
+//  ────────────────────────────────────────────────────────
+//  Every write to this bucket goes through the Express backend using the
+//  Firebase Admin SDK, which BYPASSES these rules entirely. No client ever
+//  uploads directly: the apps POST multipart to /api/upload,
+//  /api/vendor/products, /api/support/upload-image and /api/admin/upload-image,
+//  and the server does the Storage write after authenticating the caller,
+//  sniffing the real content type and re-encoding through sharp.
+//
+//  This app does NOT use Firebase Auth — identity is a custom JWT verified by
+//  Express. `request.auth` is therefore ALWAYS null here, so any rule written
+//  in terms of it would be dead. Default-deny is the only correct model.
+//
+//  How images are read:
+//  ────────────────────
+//  uploadToFirebaseStorage() attaches a per-file `firebaseStorageDownloadTokens`
+//  value and hands back a tokenised download URL:
+//
+//      https://firebasestorage.googleapis.com/v0/b/<bucket>/o/<path>?alt=media&token=<uuid>
+//
+//  That URL is served by the Firebase Storage download endpoint, which honours
+//  the token and does NOT evaluate these rules. So denying read here costs
+//  nothing: every legitimate image keeps loading in the apps and the dashboard.
+//  What it does buy is that nobody can enumerate or fetch an object by guessing
+//  its path — the unguessable token stays the only way in.
+//
+//  Consequence worth knowing: a tokenised URL is effectively permanent and
+//  cannot be revoked short of deleting the object or rotating its token. Keep
+//  that in mind before putting anything more sensitive than a product photo
+//  behind one (driver ID documents are the open question — see the audit).
+// ═══════════════════════════════════════════════════════════════════════════
+
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    // Default deny — clients get nothing. The backend's Admin SDK is unaffected.
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

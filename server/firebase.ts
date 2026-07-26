@@ -29,6 +29,13 @@ export function initializeFirebase() {
       //
       // Now: FIREBASE_STORAGE_BUCKET wins if set (use it when your bucket uses the
       // legacy .appspot.com name), otherwise default to the modern Firebase default.
+      //
+      // The provisioned bucket for this project is
+      //   gs://onway-74c20.firebasestorage.app
+      // which is exactly what the default produces, so FIREBASE_STORAGE_BUCKET must
+      // stay UNSET. Verified externally: `.firebasestorage.app` answers 401
+      // (exists, private) while `.appspot.com` answers 404 (does not exist) — so
+      // setting the legacy name here would break every upload.
       const storageBucket =
         process.env.FIREBASE_STORAGE_BUCKET ||
         `${serviceAccount.project_id}.firebasestorage.app`;
@@ -37,6 +44,27 @@ export function initializeFirebase() {
         storageBucket,
       });
       console.log(`[Firebase] Storage bucket: ${storageBucket}`);
+
+      // Uploads no longer fall back to Base64, so a misconfigured bucket now breaks
+      // image upload outright instead of degrading quietly. Surface it at boot,
+      // where an operator can still act on it, rather than at the first upload.
+      admin
+        .storage()
+        .bucket()
+        .exists()
+        .then(([exists]) => {
+          if (exists) {
+            console.log(`[Firebase] ✓ Storage bucket reachable: ${storageBucket}`);
+          } else {
+            console.error(
+              `[Firebase] ✗ Storage bucket NOT FOUND: ${storageBucket}. Every image upload will fail. ` +
+                `Check Firebase Console → Storage for the real gs:// name and set FIREBASE_STORAGE_BUCKET if it differs.`,
+            );
+          }
+        })
+        .catch((err: any) =>
+          console.error(`[Firebase] ✗ Storage bucket check failed for ${storageBucket}: ${err?.message}`),
+        );
     }
     
     db = admin.firestore();

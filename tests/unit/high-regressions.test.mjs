@@ -497,7 +497,7 @@ describe("H12 — inline item images must not blow the 1MB document limit", () =
 
 // ── H13 — vendor product images ─────────────────────────────────────────────
 describe("H13 — vendor product images must go to Storage, not into the document", () => {
-  test("processAndSaveImage uploads to Storage with a Base64 fallback", () => {
+  test("processAndSaveImage uploads both derivatives to Storage", () => {
     const fn = functionBody(VENDOR, "async function processAndSaveImage");
     // BOTH derivatives must go to Storage — uploading only the full image while the
     // thumbnail stays inline still puts ~5 blobs in the document.
@@ -507,21 +507,19 @@ describe("H13 — vendor product images must go to Storage, not into the documen
       2,
       `REGRESSION: ${uploads} of 2 image derivatives go to Storage. Base64-in-document means 5 images per product exceeds Firestore's 1MB limit and the vendor cannot save at all`,
     );
-    assert.match(
-      fn,
-      /catch \(storageErr/,
-      "Storage failure must not break uploads",
-    );
   });
 
-  test("Base64 appears only on the fallback path", () => {
+  test("no Base64 fallback remains — a Storage failure must surface", () => {
+    // This assertion USED to require `catch (storageErr` here, i.e. it encoded the
+    // Base64 fallback as a requirement. Once the bucket was provisioned
+    // (gs://onway-74c20.firebasestorage.app) that premise inverted: silently
+    // degrading to Base64 recreates the very 1MB-document failure this guard exists
+    // to prevent, and hides it. The function must now let the error propagate.
     const fn = functionBody(VENDOR, "async function processAndSaveImage");
-    const catchAt = fn.indexOf("catch (storageErr");
-    const beforeCatch = fn.slice(0, catchAt);
     assert.doesNotMatch(
-      beforeCatch,
+      fn,
       /data:image\/webp;base64/,
-      "REGRESSION: the happy path builds a Base64 data URI again",
+      "REGRESSION: processAndSaveImage builds a Base64 data URI again — a failed upload would be written into the product document instead of reported",
     );
   });
 
@@ -760,6 +758,60 @@ describe("H18 — `/` must not be the Expo Go developer preview", () => {
 });
 
 // ── H19 — upload content types ──────────────────────────────────────────────
+// ── Storage integration (Phase 2.2B) ────────────────────────────────────────
+describe("Storage — no upload path may degrade to Base64 or local disk", () => {
+  // The bucket is provisioned (gs://onway-74c20.firebasestorage.app). Every
+  // fallback that used to exist turned a hard configuration fault into silent
+  // Base64 blobs inside Firestore documents — which is precisely how the wrong
+  // bucket name went unnoticed for so long, and how order and product documents
+  // drifted toward the 1MB limit. A failed upload must now fail the request.
+  const SERVER = ROUTES + "\n" + VENDOR;
+
+  test("no route catches a Storage error and substitutes a data URI", () => {
+    const offenders = SERVER.split("\n")
+      .map((l, i) => [i + 1, l])
+      .filter(([, l]) => /=\s*`data:image\/[a-z]+;base64,\$\{/.test(l))
+      .map(([n, l]) => `${n}: ${l.trim().slice(0, 80)}`);
+    assert.deepEqual(
+      offenders,
+      [],
+      `REGRESSION: a Storage failure is being written into Firestore as Base64 instead of surfacing:\n  ${offenders.join("\n  ")}`,
+    );
+  });
+
+  test("the profile upload does not fall back to the ephemeral local disk", () => {
+    const body = handlerBody(ROUTES, 'app.post("/api/upload"');
+    assert.doesNotMatch(
+      body,
+      /return res\.json\(\{ url: `\/uploads\/\$\{req\.file\.filename\}` \}\)/,
+      "REGRESSION: /uploads is wiped on every redeploy — that URL works in testing and 404s a week later",
+    );
+    assert.match(body, /res\.status\(502\)/, "a failed upload must be reported, not papered over");
+  });
+
+  test("storage.rules exists and denies all client access", () => {
+    // Every write goes through the Admin SDK, which bypasses rules. This app does
+    // not use Firebase Auth, so request.auth is always null and any rule written in
+    // terms of it would be dead — default-deny is the only correct model.
+    const rules = read("storage.rules");
+    assert.match(rules, /service firebase\.storage/);
+    assert.match(
+      rules,
+      /match \/\{allPaths=\*\*\}\s*\{\s*allow read, write: if false;/,
+      "REGRESSION: the bucket must not be client-readable or client-writable",
+    );
+  });
+
+  test("firebase.json deploys storage.rules", () => {
+    const fb = JSON.parse(read("firebase.json"));
+    assert.equal(
+      fb.storage?.rules,
+      "storage.rules",
+      "without this block `firebase deploy` never publishes the Storage rules and the bucket keeps whatever defaults the console generated",
+    );
+  });
+});
+
 describe("H19 — uploads must be images, decided by the server", () => {
   test("the disk uploader has a fileFilter", () => {
     // Scope to THIS multer() call — `uploadWebP` right below has its own filter, and
