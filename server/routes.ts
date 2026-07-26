@@ -51,7 +51,7 @@ import {
   getSettlementHistory, listSettlementRequests, completeSettlement,
   getSettlementConfig, updateSettlementConfig, isOverSettlementThreshold,
   listSettlementAccounts, getSettlementPayments, getSettlementLedger,
-  adminAdjustLedger, retryOrderSettlements,
+  adminAdjustLedger, retryOrderSettlements, vendorCommissionBase,
 } from "./settlement";
 import type { OrderSettlementInput } from "./settlement";
 import { sendPushNotification, sendBroadcastNotification, sendDriverBatchNotification, sendAdminNewOrderNotification, sendVendorNewOrderNotification, sendAdminSettlementRequestNotification, sendVendorOrderCancelledNotification, sendDriverOrderCancelledNotification } from "./pushNotifications";
@@ -2935,24 +2935,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (decoded.role === "customer" && decoded.phoneNumber) verifiedPhone = String(decoded.phoneNumber);
       } catch { /* invalid/expired → verifiedPhone stays null */ }
 
-      // Primary path: valid customer JWT proves phone ownership via OTP.
-      // Fallback path: if the JWT is expired/missing, check whether this phone
-      // number already has a driver record in Firestore. Existence in the drivers
-      // collection means the phone was OTP-verified at registration time, so it is
-      // safe to re-issue a driver token. This prevents drivers from being locked out
-      // after their 30-day customer JWT expires — a common case for testers and
-      // long-running installs that would otherwise require a full OTP re-verification.
+      // A valid, phone-matching customer JWT is the ONLY way to obtain a driver
+      // token. It is the proof that this caller actually passed OTP for this number.
+      //
+      // DO NOT add a fallback that issues a token merely because a driver record
+      // exists for the phone. That was tried (to avoid lockout when the 30-day
+      // customer JWT expires) and it is an account takeover: driver phone numbers
+      // are visible to customers in-app and appear in order documents, so anyone
+      // knowing a number could mint a driver token and read that driver's wallet,
+      // go online, accept batches, see customer addresses and GPS, and mark orders
+      // delivered against the real driver's ledger.
+      //
+      // Expiry is handled correctly on the client instead: driverAuth.ts re-exchanges
+      // the stored customer JWT automatically on a 401. If that JWT has also expired,
+      // re-running OTP is the intended and correct recovery.
       if (!verifiedPhone || verifiedPhone !== String(phoneNumber)) {
-        const existingDriver = await getDriverByPhone(phoneNumber);
-        if (!existingDriver) {
-          return res.status(401).json({ error: "غير مصرح — يرجى التحقق من رقم الهاتف أولاً" });
-        }
-        // Driver is registered — re-issue token without requiring a fresh customer JWT.
-        const token = makeDriverToken(String(phoneNumber));
-        return res.json({
-          token,
-          driver: { id: existingDriver.id, phoneNumber: existingDriver.phoneNumber, fullName: existingDriver.fullName, status: existingDriver.status },
-        });
+        return res.status(401).json({ error: "غير مصرح — يرجى التحقق من رقم الهاتف أولاً" });
       }
 
       const driver = await getDriverByPhone(phoneNumber);
@@ -3696,6 +3694,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!db) return res.status(500).json({ error: "DB not configured" });
       const now = new Date();
 
+      // Read the order BEFORE claiming the flag.
+      //
+      // getOrderById swallows every error and returns null. When the read was done
+      // AFTER the claim, a transient Firestore failure left earningsCredited
+      // committed while the entire money block (which sat behind `if (order)`) was
+      // skipped — and the settlementPending marker lived inside that block, so the
+      // recovery sweep never saw it. The money was lost permanently and any retry
+      // short-circuited to alreadyCompleted. Claiming only once we can actually act
+      // removes that window.
+      const order = await getOrderById(orderId);
+      if (!order) {
+        console.error(`[COMPLETE] order=${orderId} unreadable — refusing to claim earningsCredited`);
+        return res.status(503).json({ error: "تعذّر قراءة الطلب، حاول مرة أخرى" });
+      }
+
       // IDEMPOTENCY (C4): atomically claim the one-time "earnings credited" flag on
       // the order. If it was already set, this is a replay — return success without
       // crediting again, so the legacy driverFinancialAccounts balance can't be
@@ -3712,14 +3725,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.json({ success: true, alreadyCompleted: true });
       }
 
+      // Tracks the ONE non-idempotent step below (saveDriverCompletedOrder appends
+      // to the driver's completed list). Everything else — the status write, the
+      // settlement accruals (keyed `${orderId}__${accountType}`), the batch
+      // bookkeeping — is safe to repeat. So if we fail BEFORE that step we can
+      // release the claim and let a retry redo the whole thing with no risk of
+      // double-crediting; releasing after it could double-append.
+      let legacyCreditApplied = false;
+      try {
       // earningsCredited transaction already guards double-completion; force:true
       // avoids a redundant state-machine read inside the same atomic flow.
       await updateOrderStatus(orderId, "delivered", { force: true });
       await db.collection("orders").doc(orderId).update({ deliveredAt: now, updatedAt: now });
       addDeliveryLog({ orderId, driverPhone: phoneNumber, action: "delivered", lat, lng }).catch(() => {});
 
-      const order = await getOrderById(orderId);
-      if (order) {
+      {
         const pushToken = await getUserPushToken(order.phoneNumber || "");
         if (pushToken) await sendPushNotification(pushToken, "delivered", orderId);
 
@@ -3753,7 +3773,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           if (order.vendorId) {
             const vendorSnap = await db.collection("vendors").doc(order.vendorId).get();
             const v = vendorSnap.exists ? (vendorSnap.data() as any) : {};
-            const orderValue = (order as any).restaurantSubtotal ?? order.total ?? 0;
+            // Never fall back to order.total — it includes deliveryFee and serviceFee,
+            // which OnWay keeps. vendorCommissionBase strips them for marketplace
+            // orders (which never set restaurantSubtotal) and matches the admin
+            // statement's formula.
+            const orderValue = vendorCommissionBase(order as any);
             const platformCommission =
               (order as any).vendorCommissionAmount ??
               Math.round((orderValue * (v.commissionPercent ?? 10)) / 100);
@@ -3830,7 +3854,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           total: order.total || 0, customerName: customerProfile?.fullName || "زبون",
           completedAt: now.toISOString(), isRestaurant: isRestaurantOrder,
         };
+        // ── The one non-idempotent step. Past this point the claim must NOT be
+        //    released, or a retry would append this entry a second time. ──────────
         await saveDriverCompletedOrder(phoneNumber, completedEntry);
+        legacyCreditApplied = true;
         saveDriverActivity({ phoneNumber, type: "completed", orderId, customerName: completedEntry.customerName, driverEarning, total: completedEntry.total }).catch(() => {});
         const mem = driverCompletedOrders.get(phoneNumber) || [];
         mem.push(completedEntry);
@@ -3900,6 +3927,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
             await updateDeliveryBatch(batchId, { completedOrders: completedCount, totalEarnings: partialEarnings });
           }
         }
+      }
+      } catch (completionErr: any) {
+        // The claim is already committed. Without this, any throw here stranded the
+        // order forever: it stayed un-delivered, the driver was never credited, the
+        // batch never closed (blocking them from new batches), and every retry
+        // short-circuited to alreadyCompleted.
+        if (!legacyCreditApplied) {
+          // Nothing non-idempotent ran yet — release the claim so a retry can redo
+          // the whole completion. Settlement accruals that did land are keyed by
+          // `${orderId}__${accountType}`, so replaying them is a no-op.
+          await orderRef.update({ earningsCredited: false }).catch((relErr: any) =>
+            console.error(
+              `[COMPLETE] CRITICAL order=${orderId} failed AND the claim could not be released — ` +
+                `manual intervention required. error=${completionErr?.message} releaseError=${relErr?.message}`,
+            ),
+          );
+          console.error(
+            `[COMPLETE] order=${orderId} failed before the legacy credit; claim released for retry. ` +
+              `error=${completionErr?.message}`,
+          );
+        } else {
+          // The non-idempotent step already ran, so the claim must stay. Flag the
+          // order instead so the settlement recovery sweep can finish the job.
+          await orderRef
+            .update({ settlementPending: true, settlementLastError: new Date().toISOString() })
+            .catch(() => {});
+          console.error(
+            `[COMPLETE] order=${orderId} failed AFTER the legacy credit; claim kept, ` +
+              `order flagged for recovery. error=${completionErr?.message}`,
+          );
+        }
+        throw completionErr;
       }
       res.json({ success: true });
     } catch (error: any) {

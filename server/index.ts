@@ -565,9 +565,20 @@ function isRequestSecure(req: Request): boolean {
 
       const payload = await verifyRes.json() as { email?: string; email_verified?: string; aud?: string };
 
-      // Verify the token is for our app
+      // Verify the token was minted for THIS app.
+      //
+      // This check used to be `if (expectedClientId && payload.aud !== ...)`, i.e.
+      // skipped entirely whenever GOOGLE_CLIENT_ID was unset — and it is an
+      // independently optional variable. With ADMIN_GOOGLE_EMAIL set but the client
+      // id blank, an ID token minted by ANY Google OAuth client for that email
+      // granted a full admin session (classic token-confusion: verifying `email`
+      // without verifying `aud`). Fail closed instead.
       const expectedClientId = process.env.GOOGLE_CLIENT_ID;
-      if (expectedClientId && payload.aud !== expectedClientId) {
+      if (!expectedClientId) {
+        console.error("[ADMIN] Google sign-in attempted but GOOGLE_CLIENT_ID is not configured — refusing.");
+        return res.status(503).json({ error: "تسجيل الدخول عبر Google غير مهيّأ" });
+      }
+      if (payload.aud !== expectedClientId) {
         return res.status(401).json({ error: "توكن غير صالح" });
       }
 

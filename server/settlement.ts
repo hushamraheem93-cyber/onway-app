@@ -51,6 +51,32 @@ export function settlementId(orderId: string, accountType: SettlementAccountType
   return `${orderId}__${accountType}`;
 }
 
+/**
+ * The vendor's revenue for one order — the base the platform commission is taken
+ * from, and the amount OnWay owes the vendor before commission.
+ *
+ * Restaurant orders store `restaurantSubtotal` explicitly. Marketplace orders
+ * (vendorProducts) never set it — that path only stamps `vendorId`/`vendorName` —
+ * so the base must be derived by removing the fees OnWay keeps.
+ *
+ * The settlement path used to fall back to `order.total`, which INCLUDES
+ * `deliveryFee` and `serviceFee`. That over-credited the vendor ~90% of both fees
+ * on every marketplace order. This mirrors the formula the admin statement
+ * endpoint already uses, so the ledger and the statement now agree.
+ */
+export function vendorCommissionBase(order: {
+  restaurantSubtotal?: number | null;
+  total?: number | null;
+  deliveryFee?: number | null;
+  serviceFee?: number | null;
+}): number {
+  if (order?.restaurantSubtotal != null) return Math.max(0, Math.round(order.restaurantSubtotal));
+  return Math.max(
+    0,
+    Math.round((order?.total || 0) - (order?.deliveryFee || 0) - (order?.serviceFee || 0)),
+  );
+}
+
 export interface OrderSettlementInput {
   accountType: SettlementAccountType;
   accountId: string;        // driver phone number / vendorId
