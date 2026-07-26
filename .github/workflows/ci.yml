@@ -21,6 +21,34 @@ jobs:
         with:
           node-version: "20"
           cache: npm
+          # Pin the registry for anything this job resolves. NOTE: this alone does
+          # NOT fix a lockfile that already points elsewhere — `npm ci` fetches each
+          # package's `resolved` URL verbatim and ignores --registry. The lockfile
+          # itself has to be correct; see the guard step below.
+          registry-url: "https://registry.npmjs.org/"
+
+      # Fail in two seconds with an actionable message instead of dying inside
+      # `npm ci` with a DNS error. An `npm install` run inside Replit rewrites
+      # `resolved` to http://package-firewall.replit.local/..., a host that exists
+      # only on Replit's network — the runner cannot reach it and the job dies at
+      # the install step before a single test runs. It is a one-line change buried
+      # in a 20,000-line lockfile and looks completely normal locally.
+      - name: Check the lockfile resolves to the public registry
+        run: |
+          # Note the assignment rather than `if grep ... | head`: `head` exits 0 even
+          # when nothing matched, so a pipeline ending in it would report a failure
+          # on every run.
+          offenders=$(grep -n '"resolved": "' package-lock.json \
+                        | grep -v '"resolved": "https://registry.npmjs.org/' || true)
+          if [ -n "$offenders" ]; then
+            echo "$offenders" | head -20
+            echo ""
+            echo "::error::package-lock.json resolves packages from a non-public registry (see above)."
+            echo "This is what an 'npm install' inside Replit writes. Regenerate with:"
+            echo "  npm install --package-lock-only --registry https://registry.npmjs.org/"
+            exit 1
+          fi
+          echo "all resolved URLs point at registry.npmjs.org"
 
       - name: Install dependencies
         run: npm ci --no-audit --no-fund
