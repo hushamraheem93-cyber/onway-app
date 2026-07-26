@@ -60,11 +60,20 @@
       ]
     },
     {
-      "collectionGroup": "promoUsage",
+      "collectionGroup": "promoUsageHistory",
       "queryScope": "COLLECTION",
       "fields": [
         { "fieldPath": "userId", "order": "ASCENDING" },
         { "fieldPath": "promoCode", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "settlementPayments",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "accountKey", "order": "ASCENDING" },
+        { "fieldPath": "fifoApplied", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
       ]
     },
     {
