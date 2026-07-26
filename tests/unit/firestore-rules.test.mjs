@@ -59,6 +59,13 @@ const SENSITIVE = [
   "supportChats",
   "pushTokens",
   "promoCodes",
+  // Product documents carry `vendorPhone` — the store owner's personal number —
+  // and rules cannot filter fields. Browsing is unaffected: the catalog is served
+  // by /api/stores/:id/products through the Admin SDK.
+  "vendorProducts",
+  // Holds app_settings/admin_push, the admin's Expo push token. Expo's send API is
+  // unauthenticated, so a readable token means spoofed admin notifications.
+  "app_settings",
 ];
 
 // Catalog data that is intentionally browsable before login.
@@ -67,7 +74,6 @@ const PUBLIC_BY_DESIGN = [
   "banners",
   "deliveryAreas",
   "products",
-  "vendorProducts",
   "promotionalSections",
 ];
 

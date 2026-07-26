@@ -1,4 +1,5 @@
 import { getApiUrl } from "@/lib/query-client";
+import { customerAuthHeaders } from "@/lib/customerAuth";
 
 export interface GeocodeResult {
   address: string;
@@ -14,7 +15,10 @@ export async function reverseGeocodeDetailed(lat: number, lng: number): Promise<
   try {
     const apiUrl = getApiUrl();
     const url = new URL(`/api/reverse-geocode?lat=${lat}&lng=${lng}`, apiUrl).toString();
-    const res = await fetch(url);
+    // requireCustomerAuth guards this route. Without the header the response is a
+    // 401 whose JSON has no `address`, so every caller silently fell back to raw
+    // coordinates — which is how this looked like "geocoding is just inaccurate".
+    const res = await fetch(url, { headers: await customerAuthHeaders() });
     const data = await res.json();
     return {
       address: data.address || `${lat.toFixed(5)}, ${lng.toFixed(5)}`,

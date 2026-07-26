@@ -49,7 +49,17 @@ info "Reloading Nginx..."
 nginx -t && systemctl reload nginx
 
 info "Reloading PM2 to pick up new .env values..."
-pm2 reload onway 2>/dev/null || true
+# Must pass the ecosystem FILE, not the process name: ecosystem.config.js is what
+# parses .env, and `pm2 reload onway` replays the environment captured at the first
+# `pm2 start`. The ALLOWED_ORIGINS this script just wrote would otherwise never
+# reach the process — and with fail-closed CORS, an empty ALLOWED_ORIGINS 403s
+# every browser request.
+if [[ -f "${APP_DIR}/ecosystem.config.js" ]]; then
+  (cd "${APP_DIR}" && pm2 startOrReload ecosystem.config.js --update-env && pm2 save) || \
+    err "PM2 failed to reload with the new .env — the server is still using the old ALLOWED_ORIGINS."
+else
+  err "${APP_DIR}/ecosystem.config.js not found — cannot apply the new .env values."
+fi
 
 # Set up auto-renewal check
 systemctl enable certbot.timer

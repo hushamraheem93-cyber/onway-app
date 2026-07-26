@@ -35,15 +35,19 @@ npm run build
 success "Build complete → server_dist/index.js"
 
 info "Reloading PM2 (zero-downtime)..."
-if pm2 describe onway &>/dev/null; then
-  pm2 reload onway
-  success "PM2 reloaded with new build"
-else
-  warn "PM2 process 'onway' not found — starting it..."
-  pm2 start ecosystem.config.js
-  pm2 save
-  success "PM2 started"
-fi
+# `pm2 reload onway` replays the environment captured at the ORIGINAL `pm2 start`.
+# ecosystem.config.js is what parses .env, so reloading by process name never picks
+# up a changed .env — ssl-setup.sh rewrites ALLOWED_ORIGINS, prints "Reloading PM2 to
+# pick up new .env", and the process keeps the old value forever. Passing the
+# ecosystem FILE re-executes it, so .env is parsed again on every deploy.
+#
+# startOrReload also removes the branch that used to call `warn`, which was never
+# defined in this script: under `set -euo pipefail` that aborted the deploy with
+# exit 127 after the pull and build but BEFORE `pm2 start`, leaving the site down
+# while the operator saw "Build complete".
+pm2 startOrReload ecosystem.config.js --update-env
+pm2 save
+success "PM2 reloaded with the new build and a freshly-parsed .env"
 
 echo ""
 echo -e "${GREEN}Update complete!${NC}"

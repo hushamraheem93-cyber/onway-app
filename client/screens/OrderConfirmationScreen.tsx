@@ -16,6 +16,7 @@ import { RootStackParamList } from "@/navigation/RootStackNavigator";
 import { Order } from "@/context/OrderContext";
 import { GradientBackground } from "@/components/GradientBackground";
 import { getApiUrl } from "@/lib/query-client";
+import { useAuth } from "@/context/AuthContext";
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 type RouteProps = RouteProp<RootStackParamList, "OrderConfirmation">;
@@ -26,6 +27,7 @@ export default function OrderConfirmationScreen() {
   const insets = useSafeAreaInsets();
   const headerHeight = useHeaderHeight();
   const { theme } = useTheme();
+  const { customerToken } = useAuth();
   const navigation = useNavigation<NavigationProp>();
   const route = useRoute<RouteProps>();
   const order = route.params?.order;
@@ -79,7 +81,10 @@ export default function OrderConfirmationScreen() {
     try {
       const res = await fetch(`${getApiUrl()}/api/orders/${order.id}/cancel`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(customerToken ? { Authorization: `Bearer ${customerToken}` } : {}),
+        },
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "فشل الإلغاء");

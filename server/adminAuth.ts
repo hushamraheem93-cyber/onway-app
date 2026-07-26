@@ -13,22 +13,75 @@
 // verifies the signature on each request — no in-memory state required — so
 // restarts do NOT invalidate existing admin sessions.
 //
-// Explicit logout / password-reset invalidation: a small in-memory revocation
-// set holds jti values of explicitly logged-out tokens, and a revokedBefore
-// timestamp rejects all tokens issued before a password reset. Both are
-// in-memory (cleared on restart), which is acceptable: a logged-out mobile
-// client clears its own token, and a password reset is a rare admin action.
+// PREVIOUS BUG (2026-07-25): revocation was in-memory only, so it did not survive
+// a restart — while the tokens it had to outlive live for 7 days. JWT_SECRET does
+// not change on restart, so after any restart a stolen admin cookie verified again.
+// `max_memory_restart: 512M` guarantees restarts happen. invalidateAllSessions()
+// exists precisely so a leaked cookie dies on password reset, and it did not.
+//
+// Fix: revocation state is persisted to Firestore (adminConfig/sessionRevocation,
+// backend-only per firestore.rules) and hydrated into memory during boot, before
+// the server accepts requests. Reads stay synchronous — isValidSession is called
+// from middleware on every admin request — while the durable copy is the source of
+// truth across restarts.
 import type { Request } from "express";
 import * as crypto from "crypto";
 import jwt from "jsonwebtoken";
+import { getFirestore } from "./firebase";
 
 export const ADMIN_COOKIE = "onway_admin_session";
 
 const SESSION_TTL_SECS = 7 * 24 * 60 * 60; // 7 days
 
-// Revocation: per-token jti set + a "revoke all issued before" timestamp.
-const revokedJtis = new Set<string>();
+const REVOCATION_COLLECTION = "adminConfig";
+const REVOCATION_DOC = "sessionRevocation";
+
+// Revocation: per-token jti → token expiry (epoch ms), plus a "revoke all issued
+// before" timestamp. Expiry is tracked so the persisted set can be pruned; a jti
+// whose token has already expired can never be presented again.
+const revokedJtis = new Map<string, number>();
 let revokedBefore = 0; // epoch ms — tokens with iat*1000 < revokedBefore are invalid
+
+/**
+ * Load persisted revocation state into memory. Call once during boot, BEFORE the
+ * server starts listening, so no request is served with an empty revocation set.
+ */
+export async function loadRevocationState(): Promise<void> {
+  try {
+    const db = getFirestore();
+    if (!db) return;
+    const snap = await db.collection(REVOCATION_COLLECTION).doc(REVOCATION_DOC).get();
+    if (!snap.exists) return;
+    const data = snap.data() as any;
+    revokedBefore = Number(data?.revokedBefore) || 0;
+    const now = Date.now();
+    revokedJtis.clear();
+    for (const [jti, expiresAt] of Object.entries(data?.jtis || {})) {
+      if (Number(expiresAt) > now) revokedJtis.set(jti, Number(expiresAt));
+    }
+    console.log(`[ADMIN] Loaded session revocation state (${revokedJtis.size} revoked token(s)).`);
+  } catch (err: any) {
+    // Do not fail the boot: an unreachable Firestore would otherwise take the whole
+    // server down. The condition is logged loudly because it degrades revocation.
+    console.error("[ADMIN] Could not load session revocation state:", err?.message);
+  }
+}
+
+/** Persist the in-memory state, pruning entries whose tokens have already expired. */
+function persistRevocationState(): void {
+  const db = getFirestore();
+  if (!db) return;
+  const now = Date.now();
+  const jtis: Record<string, number> = {};
+  for (const [jti, expiresAt] of revokedJtis) {
+    if (expiresAt > now) jtis[jti] = expiresAt;
+    else revokedJtis.delete(jti);
+  }
+  db.collection(REVOCATION_COLLECTION)
+    .doc(REVOCATION_DOC)
+    .set({ revokedBefore, jtis, updatedAt: now }, { merge: false })
+    .catch((err: any) => console.error("[ADMIN] Could not persist session revocation:", err?.message));
+}
 
 function getJwtSecret(): string {
   // No fallback on purpose: a hardcoded default would let anyone who reads the
@@ -54,13 +107,19 @@ export function invalidateSession(token: string | undefined | null): void {
   if (!token) return;
   try {
     const decoded = jwt.decode(token) as any;
-    if (decoded?.jti) revokedJtis.add(decoded.jti);
+    if (!decoded?.jti) return;
+    // Remember when this token would have expired anyway, so the persisted set can
+    // be pruned instead of growing forever.
+    const expiresAt = decoded.exp ? decoded.exp * 1000 : Date.now() + SESSION_TTL_SECS * 1000;
+    revokedJtis.set(decoded.jti, expiresAt);
+    persistRevocationState();
   } catch { /* ignore malformed tokens */ }
 }
 
 export function invalidateAllSessions(): void {
   revokedJtis.clear();
   revokedBefore = Date.now();
+  persistRevocationState();
 }
 
 /** Lightweight cookie parser — avoids importing express middleware here. */
@@ -90,6 +149,8 @@ export function isValidSession(req: Request): boolean {
     if (decoded?.type !== "admin") return false;
     // Check per-token revocation
     if (decoded.jti && revokedJtis.has(decoded.jti)) return false;
+    // (Reads stay synchronous — the durable copy is hydrated at boot by
+    //  loadRevocationState() and kept in sync on every revocation.)
     // Check "revoke all before" timestamp (password reset)
     if (revokedBefore > 0 && (decoded.iat || 0) * 1000 < revokedBefore) return false;
     return true;

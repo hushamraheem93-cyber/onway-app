@@ -71,9 +71,18 @@ service cloud.firestore {
     }
 
     // Products inside vendor stores
+    //
+    // BACKEND ONLY despite being browse data: each product document carries
+    // `vendorPhone` — the store owner's personal number — and rules cannot filter
+    // fields, so `allow read: if true` was a bulk harvest of every store owner's
+    // phone number by anyone holding the (publicly shipped) Firebase web config.
+    //
+    // Public catalog browsing is unaffected: it goes through /api/stores/:id/products
+    // and /api/products, which use the Admin SDK (rules do not apply). No client
+    // code reads this collection via the Firebase client SDK — the only client SDK
+    // reads in the whole tree are three `settlementLedger` document reads.
     match /vendorProducts/{docId} {
-      allow read: if true;
-      allow write: if false;
+      allow read, write: if false;
     }
 
     // Legacy product collection (used alongside vendorProducts)
@@ -88,10 +97,15 @@ service cloud.firestore {
       allow write: if false;
     }
 
-    // Alternate casing used in some code paths
+    // Alternate casing used in some code paths.
+    //
+    // BACKEND ONLY: this collection holds `app_settings/admin_push`, the admin's
+    // Expo push token. Expo's send API is unauthenticated, so a readable token lets
+    // anyone deliver notifications that appear to come from OnWay straight to the
+    // owner's phone. It is written and read exclusively by the Admin SDK
+    // (server/firebase.ts), which bypasses rules, so closing this costs nothing.
     match /app_settings/{docId} {
-      allow read: if true;
-      allow write: if false;
+      allow read, write: if false;
     }
 
     // Promotional sections: Best Sellers, Featured, Discounts

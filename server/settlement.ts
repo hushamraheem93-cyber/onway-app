@@ -395,6 +395,12 @@ export interface CompleteSettlementInput {
   method?: string;
   notes?: string;
   requestId?: string;
+  /**
+   * Optional caller-supplied key that makes a repeat of the SAME payment a no-op.
+   * When `requestId` is present it is used automatically and this can be omitted.
+   * See settlementPaymentId().
+   */
+  idempotencyKey?: string;
 }
 
 export interface CompleteSettlementResult {
@@ -406,6 +412,8 @@ export interface CompleteSettlementResult {
   fullySettled?: boolean;
   paymentId?: string;
   receiptNumber?: string;
+  /** True when this call replayed an already-recorded payment and changed nothing. */
+  duplicate?: boolean;
 }
 
 /**
@@ -430,12 +438,34 @@ export interface CompleteSettlementResult {
  * The ledger is the single source of truth for balances. FIFO is derived
  * bookkeeping for display only and is always recoverable.
  */
+/**
+ * Deterministic settlement-payment document id, or null when the caller gave us
+ * nothing to deduplicate on (manual ad-hoc payments keep the old random id).
+ *
+ * A settlement raised from a request is identified by that request: completing
+ * request X can only ever produce one payment, so no client change is needed for
+ * the flow the admin dashboard actually uses.
+ */
+export function settlementPaymentId(input: CompleteSettlementInput): string | null {
+  const raw = input.requestId ? `req_${input.requestId}` : input.idempotencyKey;
+  if (!raw) return null;
+  // Firestore document ids may not contain "/" and must stay under 1500 bytes.
+  return `stl_${String(raw).replace(/[/\s]+/g, "_").slice(0, 200)}`;
+}
+
 export async function completeSettlement(input: CompleteSettlementInput): Promise<CompleteSettlementResult> {
   const db = getFirestore();
   if (!db) return { ok: false, reason: "no_ledger" };
   const key = accountKey(input.accountType, input.accountId);
   const ledgerRef = db.collection(LEDGER).doc(ledgerId(input.accountType, input.accountId));
-  const paymentRef = db.collection(SETTLEMENT_PAYMENTS).doc();
+  // Deterministic payment id when the caller identified the payment (H15). The same
+  // logical payment then always targets the same document, so a retry or a double
+  // tap collides with itself instead of paying twice. Without a key we keep the
+  // previous random id, so nothing about existing callers changes.
+  const idemId = settlementPaymentId(input);
+  const paymentRef = idemId
+    ? db.collection(SETTLEMENT_PAYMENTS).doc(idemId)
+    : db.collection(SETTLEMENT_PAYMENTS).doc();
   const reqRef = input.requestId ? db.collection(SETTLEMENT_REQUESTS).doc(input.requestId) : null;
 
   // ── Step 0: Repair any payments whose FIFO step was interrupted by a crash ──
@@ -447,6 +477,27 @@ export async function completeSettlement(input: CompleteSettlementInput): Promis
   try {
     const result = await db.runTransaction(async (tx) => {
       // ── reads first ──
+      // Idempotency check BEFORE anything else: if this exact payment already
+      // landed, replay its recorded outcome and touch nothing. An admin
+      // double-tapping "settle" used to clear the balance twice — a driver handing
+      // over 50,000 IQD had 100,000 wiped off their debt.
+      if (idemId) {
+        const existing = await tx.get(paymentRef);
+        if (existing.exists) {
+          const prev = existing.data() as any;
+          return {
+            ok: true as const,
+            duplicate: true as const,
+            applied: prev.amount ?? 0,
+            outstandingBefore: prev.outstandingBefore ?? 0,
+            outstandingAfter: prev.outstandingAfter ?? 0,
+            fullySettled: (prev.outstandingAfter ?? 0) <= 0,
+            paymentId: paymentRef.id,
+            receiptNumber: prev.receiptNumber ?? "",
+          };
+        }
+      }
+
       const ledgerSnap = await tx.get(ledgerRef);
       if (!ledgerSnap.exists) return { ok: false, reason: "no_ledger" as const };
       const ledger = ledgerSnap.data() as any;
@@ -520,7 +571,10 @@ export async function completeSettlement(input: CompleteSettlementInput): Promis
       };
     });
 
-    if (result.ok) {
+    // A duplicate replay must not re-run FIFO bookkeeping — the original call
+    // already did it, and re-applying would mark further settlements settled
+    // against money that was never paid.
+    if (result.ok && !(result as any).duplicate) {
       appliedOut = result.applied ?? 0;
       // Derived bookkeeping: mark oldest pending settlement records settled (FIFO).
       // On success, stamp fifoApplied:true on the payment record so it is never

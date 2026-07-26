@@ -371,11 +371,13 @@ function serveLandingPage({
   req,
   res,
   landingPageTemplate,
+  publicPageTemplate,
   appName,
 }: {
   req: Request;
   res: Response;
   landingPageTemplate: string;
+  publicPageTemplate: string;
   appName: string;
 }) {
   const forwardedProto = req.header("x-forwarded-proto");
@@ -385,13 +387,20 @@ function serveLandingPage({
   const baseUrl = `${protocol}://${host}`;
   const expsUrl = `${host}`;
 
+  // `/` is the PUBLIC page. It used to serve the Expo Go developer preview —
+  // headings "Download Expo Go" / "Scan QR Code", store links pointing at Expo Go —
+  // to every visitor, while being indexed with Arabic consumer copy. The preview is
+  // still reachable at /?expo=1 for development and is served noindex so it can
+  // never become the page search engines and shared links show.
+  const wantsExpoPreview = req.query.expo !== undefined;
 
-  const html = landingPageTemplate
+  const html = (wantsExpoPreview ? landingPageTemplate : publicPageTemplate)
     .replace(/BASE_URL_PLACEHOLDER/g, baseUrl)
     .replace(/EXPS_URL_PLACEHOLDER/g, expsUrl)
     .replace(/APP_NAME_PLACEHOLDER/g, appName);
 
   res.setHeader("Content-Type", "text/html; charset=utf-8");
+  if (wantsExpoPreview) res.setHeader("X-Robots-Tag", "noindex, nofollow");
   res.status(200).send(html);
 }
 
@@ -406,6 +415,7 @@ import {
   invalidateAllSessions,
   getSessionToken,
   isValidSession,
+  loadRevocationState,
 } from "./adminAuth";
 
 function parseCookies(req: Request): void {
@@ -427,6 +437,10 @@ function configureExpoAndLanding(app: express.Application) {
     "landing-page.html",
   );
   const landingPageTemplate = fs.readFileSync(templatePath, "utf-8");
+  const publicPageTemplate = fs.readFileSync(
+    path.resolve(process.cwd(), "server", "templates", "landing-public.html"),
+    "utf-8",
+  );
   const appName = getAppName();
 
   const adminTemplatePath = path.resolve(
@@ -729,6 +743,7 @@ function isRequestSecure(req: Request): boolean {
         req,
         res,
         landingPageTemplate,
+        publicPageTemplate,
         appName,
       });
     }
@@ -853,6 +868,11 @@ function toTimestampMs(value: unknown): number {
   return ms;
 }
 
+// Bound on how many orders one pass may examine. Without it the query fetched every
+// active order and processed them sequentially — a vendor read plus a push plus a
+// write each — so the pass could easily outlast its own 60-second interval.
+const STALE_ORDER_SCAN_LIMIT = 200;
+
 async function checkStaleOrders(): Promise<void> {
   const db = getFirestore();
   if (!db) return;
@@ -863,10 +883,16 @@ async function checkStaleOrders(): Promise<void> {
   try {
     snapshot = await db.collection("orders")
       .where("status", "in", activeStatuses)
+      .limit(STALE_ORDER_SCAN_LIMIT)
       .get();
   } catch (err) {
     console.error("[StaleOrders] Firestore query failed:", err);
     return;
+  }
+  if (snapshot.size === STALE_ORDER_SCAN_LIMIT) {
+    console.warn(
+      `[StaleOrders] Hit the ${STALE_ORDER_SCAN_LIMIT}-order scan limit; the rest are picked up on the next pass.`,
+    );
   }
 
   const now = Date.now();
@@ -925,12 +951,25 @@ async function checkStaleOrders(): Promise<void> {
   }
 }
 
+// Re-entrancy guard. The tick fires every 60s regardless of whether the previous
+// pass finished; once a pass ran long, runs stacked and each re-read the same orders
+// before the notified-marker was written, producing duplicate vendor pushes and
+// multiplying Firestore load with every overlap.
+let staleOrderRunInFlight = false;
+
 function startStaleOrderJob(): void {
   const INTERVAL_MS = 60 * 1000; // run every minute
   setInterval(() => {
-    checkStaleOrders().catch((err) =>
-      console.error("[StaleOrders] Unhandled error:", err)
-    );
+    if (staleOrderRunInFlight) {
+      console.warn("[StaleOrders] Previous pass still running — skipping this tick.");
+      return;
+    }
+    staleOrderRunInFlight = true;
+    checkStaleOrders()
+      .catch((err) => console.error("[StaleOrders] Unhandled error:", err))
+      .finally(() => {
+        staleOrderRunInFlight = false;
+      });
   }, INTERVAL_MS);
   console.log("[StaleOrders] Reminder job started (runs every 60s)");
 }
@@ -978,6 +1017,11 @@ process.on("exit", (code) => {
 
   // Vendor partner portal routes
   app.use(vendorRouter);
+
+  // Hydrate admin session revocation BEFORE the server accepts requests, so a
+  // restart cannot resurrect a token that was explicitly logged out or invalidated
+  // by a password reset.
+  await loadRevocationState();
 
   const server = await registerRoutes(app);
 

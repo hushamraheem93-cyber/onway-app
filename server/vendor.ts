@@ -7,6 +7,7 @@ import sharp from "sharp";
 import * as crypto from "crypto";
 import * as path from "path";
 import { getFirestore, getUserPushToken, getAdminPushToken, deleteFromFirebaseStorage, uploadToFirebaseStorage } from "./firebase";
+import { GENERIC_SERVER_ERROR } from "./orderValidation";
 import { sendVendorStatusNotification, sendVendorProductNotification, sendPushNotification, sendAdminOrderReadyNotification, sendAdminSettlementRequestNotification } from "./pushNotifications";
 import { createSettlementRequest, getAccountSettlementView, getSettlementHistory } from "./settlement";
 import { orderEvents } from "./orderEvents";
@@ -63,7 +64,29 @@ function getVendorSession(req: Request): string | null {
   }
 }
 
-function requireVendor(req: Request, res: Response, next: express.NextFunction) {
+// Statuses that must not be able to act. Deliberately a BLOCKLIST, mirroring the
+// checks POST /api/vendor/login already performs, so legacy vendor documents with
+// an unexpected status value keep working exactly as they do today.
+const VENDOR_BLOCKED_STATUSES = ["pending", "suspended", "rejected"];
+
+// Routes a blocked vendor may still call, so the app can render its own
+// "قيد المراجعة" / suspension state and notice when an admin approves.
+const VENDOR_PREAPPROVAL_ROUTES = ["/api/vendor/profile", "/api/vendor/push-token"];
+
+const VENDOR_BLOCKED_MESSAGES: Record<string, string> = {
+  pending: "حسابك قيد المراجعة. سيتم إخبارك عند الموافقة.",
+  suspended: "حسابك معلق. تواصل مع الإدارة.",
+  rejected: "تم رفض طلبك. تواصل مع الإدارة.",
+};
+
+function isPreApprovalVendorRoute(req: Request): boolean {
+  const path = (req.originalUrl || req.path || "").split("?")[0];
+  // GET is read-only (render the pending screen); PATCH /profile is a write.
+  if (req.method !== "GET" && !path.endsWith("/api/vendor/push-token")) return false;
+  return VENDOR_PREAPPROVAL_ROUTES.some((r) => path.endsWith(r));
+}
+
+async function requireVendor(req: Request, res: Response, next: express.NextFunction) {
   // 1. Try Authorization: Bearer <jwt> (mobile app)
   const authHeader = req.headers.authorization;
   let token = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;
@@ -79,6 +102,21 @@ function requireVendor(req: Request, res: Response, next: express.NextFunction) 
   try {
     const decoded = jwt.verify(token, JWT_SECRET) as any;
     if (decoded.role !== "vendor") return res.status(403).json({ error: "غير مصرح" });
+
+    // Re-check the vendor's status on every request. The token is valid for 7 days
+    // and mobile-auth mints fresh ones, so suspending a vendor for fraud did not
+    // actually cut them off — only the password-login path looked at status, and
+    // the mobile app never uses it.
+    const db = getFirestore();
+    if (db) {
+      const vDoc = await db.collection("vendors").doc(String(decoded.vendorId)).get();
+      if (!vDoc.exists) return res.status(403).json({ error: "المتجر غير موجود" });
+      const status = String((vDoc.data() as any)?.status || "");
+      if (VENDOR_BLOCKED_STATUSES.includes(status) && !isPreApprovalVendorRoute(req)) {
+        return res.status(403).json({ error: VENDOR_BLOCKED_MESSAGES[status], vendorStatus: status });
+      }
+    }
+
     (req as any).vendorId = decoded.vendorId;
     next();
   } catch (err: any) {
@@ -97,17 +135,33 @@ function generateImageHash(buffer: Buffer): string {
 }
 
 async function processAndSaveImage(buffer: Buffer, hash: string): Promise<{ full: string; thumb: string }> {
-  // Store images as compressed Base64 data URIs directly in Firestore.
-  // Firebase Storage is not provisioned for this project; Base64-in-Firestore
-  // is the established convention for all image types in this app.
+  // Durable-first: upload to Firebase Storage and store only the URL, with a
+  // Base64 fallback if Storage is unavailable. This mirrors what
+  // POST /api/admin/upload-image already does.
+  //
+  // The old comment here said "Firebase Storage is not provisioned for this
+  // project" — that was true when written and is not any more (the bucket-name
+  // defect is fixed). Base64-only meant a product with 5 images carried roughly
+  // 5 × 60KB inline, and Firestore rejects any document over 1MB: the vendor
+  // simply could not save the product, and every catalog response shipped the
+  // full blobs.
   const [webpBuffer, thumbBuffer] = await Promise.all([
     sharp(buffer).resize(700, 700, { fit: "cover", position: "center" }).webp({ quality: 70 }).toBuffer(),
     sharp(buffer).resize(200, 200, { fit: "cover", position: "center" }).webp({ quality: 75 }).toBuffer(),
   ]);
-  const full  = `data:image/webp;base64,${webpBuffer.toString("base64")}`;
-  const thumb = `data:image/webp;base64,${thumbBuffer.toString("base64")}`;
-  console.info(`[Image] ✓ encoded product image as Base64 (${Math.round(webpBuffer.length / 1024)}KB full, ${Math.round(thumbBuffer.length / 1024)}KB thumb)`);
-  return { full, thumb };
+  try {
+    const [full, thumb] = await Promise.all([
+      uploadToFirebaseStorage(webpBuffer, `vendor-products/${hash}.webp`),
+      uploadToFirebaseStorage(thumbBuffer, `vendor-products/${hash}_thumb.webp`),
+    ]);
+    console.info(`[Image] ✓ product image uploaded to Storage (${Math.round(webpBuffer.length / 1024)}KB full, ${Math.round(thumbBuffer.length / 1024)}KB thumb)`);
+    return { full, thumb };
+  } catch (storageErr: any) {
+    console.warn("[Storage] vendor product image fell back to Base64:", storageErr?.message);
+    const full  = `data:image/webp;base64,${webpBuffer.toString("base64")}`;
+    const thumb = `data:image/webp;base64,${thumbBuffer.toString("base64")}`;
+    return { full, thumb };
+  }
 }
 
 async function findDuplicateImage(hash: string): Promise<{ full: string; thumb: string | null } | null> {
@@ -657,7 +711,7 @@ router.post(
     } catch (err: any) {
       for (const f of uploadedFiles) await cleanTemp(f.path);
       console.error("add product:", err);
-      res.status(500).json({ error: err.message || "حدث خطأ في إضافة المنتج" });
+      res.status(500).json({ error: "حدث خطأ في إضافة المنتج" });
     }
   }
 );
@@ -2128,7 +2182,7 @@ router.get("/api/vendor/analytics", requireVendor, async (req, res) => {
     return res.json({ todayOrders, todaySales, weekOrders, weekSales, bestSellers });
   } catch (err: any) {
     console.error("vendor analytics error:", err);
-    return res.status(500).json({ error: err.message });
+    return res.status(500).json({ error: GENERIC_SERVER_ERROR });
   }
 });
 

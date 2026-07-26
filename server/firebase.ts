@@ -660,10 +660,16 @@ export async function createOrder(data: Omit<FirestoreOrder, "createdAt" | "upda
 // Terminal states (delivered, cancelled) have empty arrays — no further transitions.
 // Callers pass { force: true } to bypass (admin-only overrides such as force-cancel
 // a delivered order for a refund, or bulk status corrections).
-const ORDER_TRANSITIONS: Readonly<Record<string, readonly string[]>> = {
+// EVERY status in FirestoreOrder["status"] must appear as a key here. A missing key
+// makes `ORDER_TRANSITIONS[current] ?? []` silently block every transition OUT of
+// that status: `ready` and `picked_up` were both absent, so once a vendor marked an
+// order ready the driver's "picked up" tap could never move it to in_delivery.
+export const ORDER_TRANSITIONS: Readonly<Record<FirestoreOrder["status"], readonly string[]>> = {
   pending:     ["confirmed", "cancelled"],
   confirmed:   ["preparing", "cancelled"],
-  preparing:   ["in_delivery", "delivered", "cancelled", "issue"],
+  preparing:   ["ready", "in_delivery", "delivered", "cancelled", "issue"],
+  ready:       ["picked_up", "in_delivery", "cancelled", "issue"],
+  picked_up:   ["in_delivery", "delivered", "cancelled", "issue"],
   in_delivery: ["delivered", "issue", "cancelled"],
   delivered:   [],   // terminal
   cancelled:   [],   // terminal
@@ -690,7 +696,7 @@ export async function updateOrderStatus(
         const snap = await tx.get(orderRef);
         if (!snap.exists) return false;
         const current = (snap.data() as any)?.status as string | undefined;
-        const allowed = ORDER_TRANSITIONS[current ?? ""] ?? [];
+        const allowed = ORDER_TRANSITIONS[(current ?? "") as FirestoreOrder["status"]] ?? [];
         if (!allowed.includes(status)) {
           console.warn(`[StateMachine] Blocked: ${current ?? "?"} → ${status} (order ${id})`);
           return false;
@@ -2294,35 +2300,65 @@ export async function recordDriverPayment(
   adminName?: string
 ): Promise<DriverFinancialAccount> {
   if (!db) throw new Error("Firestore not initialized");
-  const snap = await db
-    .collection("driverFinancialAccounts")
-    .where("phoneNumber", "==", phoneNumber)
-    .limit(1)
-    .get();
-
+  const database = db;
   const now = admin.firestore.Timestamp.now();
   const nowIso = now.toDate().toISOString();
-  let docRef: admin.firestore.DocumentReference;
-  let prev: Record<string, any> = {};
-
-  if (snap.empty) {
-    docRef = db.collection("driverFinancialAccounts").doc();
-    prev = { totalEarnings: 0, totalOnwayCommission: 0, amountOwed: 0 };
-  } else {
-    docRef = snap.docs[0].ref;
-    prev = snap.docs[0].data();
-  }
-
-  const newAmountOwed = Math.max(0, (prev.amountOwed ?? 0) - amount);
-  const newTotalPaid = (prev.totalPaid ?? 0) + amount;
 
   // Generate receipt number: PAY-YYYYMMDD-XXXXXX
   const datePart = nowIso.slice(0, 10).replace(/-/g, "");
   const randPart = Math.random().toString(36).slice(2, 8).toUpperCase();
   const receiptNumber = `PAY-${datePart}-${randPart}`;
 
-  await docRef.set(
-    {
+  // Read-modify-write inside a transaction, matching updateDriverEarningsOnOrder.
+  // Previously the read and the write were separate awaits, so a payment landing
+  // concurrently with a settlement accrual lost one of the two updates — while the
+  // driverTransactions audit row was written unconditionally, leaving the ledger
+  // and the audit trail permanently disagreeing about the same money.
+  return await database.runTransaction(async (tx) => {
+    const snap = await tx.get(
+      database.collection("driverFinancialAccounts").where("phoneNumber", "==", phoneNumber).limit(1),
+    );
+
+    const docRef = snap.empty ? database.collection("driverFinancialAccounts").doc() : snap.docs[0].ref;
+    const prev: Record<string, any> = snap.empty
+      ? { totalEarnings: 0, totalOnwayCommission: 0, amountOwed: 0 }
+      : snap.docs[0].data();
+
+    const newAmountOwed = Math.max(0, (prev.amountOwed ?? 0) - amount);
+    const newTotalPaid = (prev.totalPaid ?? 0) + amount;
+
+    tx.set(
+      docRef,
+      {
+        phoneNumber,
+        totalEarnings: prev.totalEarnings ?? 0,
+        totalOnwayCommission: prev.totalOnwayCommission ?? 0,
+        totalPaid: newTotalPaid,
+        amountOwed: newAmountOwed,
+        lastPaymentAmount: amount,
+        lastPaymentDate: nowIso,
+        updatedAt: now,
+      },
+      { merge: true },
+    );
+
+    // Same transaction as the balance write: the audit row must never survive a
+    // rolled-back balance change.
+    tx.set(database.collection("driverTransactions").doc(), {
+      phoneNumber,
+      type: "payment",
+      amount,
+      paymentAmount: amount,
+      amountOwedAfter: newAmountOwed,
+      notes: notes || "",
+      description: notes || "دفعة للإدارة",
+      paymentMethod: paymentMethod || "cash",
+      adminName: adminName || "",
+      receiptNumber,
+      timestamp: now,
+    });
+
+    return {
       phoneNumber,
       totalEarnings: prev.totalEarnings ?? 0,
       totalOnwayCommission: prev.totalOnwayCommission ?? 0,
@@ -2330,35 +2366,9 @@ export async function recordDriverPayment(
       amountOwed: newAmountOwed,
       lastPaymentAmount: amount,
       lastPaymentDate: nowIso,
-      updatedAt: now,
-    },
-    { merge: true }
-  );
-
-  await db.collection("driverTransactions").add({
-    phoneNumber,
-    type: "payment",
-    amount,
-    paymentAmount: amount,
-    amountOwedAfter: newAmountOwed,
-    notes: notes || "",
-    description: notes || "دفعة للإدارة",
-    paymentMethod: paymentMethod || "cash",
-    adminName: adminName || "",
-    receiptNumber,
-    timestamp: now,
+      updatedAt: nowIso,
+    };
   });
-
-  return {
-    phoneNumber,
-    totalEarnings: prev.totalEarnings ?? 0,
-    totalOnwayCommission: prev.totalOnwayCommission ?? 0,
-    totalPaid: newTotalPaid,
-    amountOwed: newAmountOwed,
-    lastPaymentAmount: amount,
-    lastPaymentDate: nowIso,
-    updatedAt: nowIso,
-  };
 }
 
 export async function recordDriverAdjustment(
@@ -2368,56 +2378,50 @@ export async function recordDriverAdjustment(
   notes: string
 ): Promise<DriverFinancialAccount> {
   if (!db) throw new Error("Firestore not initialized");
-  const snap = await db
-    .collection("driverFinancialAccounts")
-    .where("phoneNumber", "==", phoneNumber)
-    .limit(1)
-    .get();
-
+  const database = db;
   const now = admin.firestore.Timestamp.now();
   const nowIso = now.toDate().toISOString();
-  let docRef: admin.firestore.DocumentReference;
-  let prev: Record<string, any> = {};
 
-  if (snap.empty) {
-    docRef = db.collection("driverFinancialAccounts").doc();
-    prev = { totalEarnings: 0, totalOnwayCommission: 0, totalPaid: 0, amountOwed: 0 };
-  } else {
-    docRef = snap.docs[0].ref;
-    prev = snap.docs[0].data();
-  }
+  // Transactional for the same reason as recordDriverPayment above.
+  return await database.runTransaction(async (tx) => {
+    const snap = await tx.get(
+      database.collection("driverFinancialAccounts").where("phoneNumber", "==", phoneNumber).limit(1),
+    );
 
-  // add: increase amountOwed (debt increases)
-  // deduct: decrease amountOwed (credit/forgiveness)
-  const delta = type === "add" ? amount : -amount;
-  const newAmountOwed = Math.max(0, (prev.amountOwed ?? 0) + delta);
+    const docRef = snap.empty ? database.collection("driverFinancialAccounts").doc() : snap.docs[0].ref;
+    const prev: Record<string, any> = snap.empty
+      ? { totalEarnings: 0, totalOnwayCommission: 0, totalPaid: 0, amountOwed: 0 }
+      : snap.docs[0].data();
 
-  await docRef.set(
-    { phoneNumber, amountOwed: newAmountOwed, updatedAt: now },
-    { merge: true }
-  );
+    // add: increase amountOwed (debt increases)
+    // deduct: decrease amountOwed (credit/forgiveness)
+    const delta = type === "add" ? amount : -amount;
+    const newAmountOwed = Math.max(0, (prev.amountOwed ?? 0) + delta);
 
-  await db.collection("driverTransactions").add({
-    phoneNumber,
-    type: "adjustment",
-    amount,
-    adjustmentType: type,
-    amountOwedAfter: newAmountOwed,
-    notes,
-    description: notes || (type === "add" ? "تعديل إضافة" : "تعديل خصم"),
-    timestamp: now,
+    tx.set(docRef, { phoneNumber, amountOwed: newAmountOwed, updatedAt: now }, { merge: true });
+
+    tx.set(database.collection("driverTransactions").doc(), {
+      phoneNumber,
+      type: "adjustment",
+      amount,
+      adjustmentType: type,
+      amountOwedAfter: newAmountOwed,
+      notes,
+      description: notes || (type === "add" ? "تعديل إضافة" : "تعديل خصم"),
+      timestamp: now,
+    });
+
+    return {
+      phoneNumber,
+      totalEarnings: prev.totalEarnings ?? 0,
+      totalOnwayCommission: prev.totalOnwayCommission ?? 0,
+      totalPaid: prev.totalPaid ?? 0,
+      amountOwed: newAmountOwed,
+      lastPaymentAmount: prev.lastPaymentAmount ?? 0,
+      lastPaymentDate: prev.lastPaymentDate ?? null,
+      updatedAt: nowIso,
+    };
   });
-
-  return {
-    phoneNumber,
-    totalEarnings: prev.totalEarnings ?? 0,
-    totalOnwayCommission: prev.totalOnwayCommission ?? 0,
-    totalPaid: prev.totalPaid ?? 0,
-    amountOwed: newAmountOwed,
-    lastPaymentAmount: prev.lastPaymentAmount ?? 0,
-    lastPaymentDate: prev.lastPaymentDate ?? null,
-    updatedAt: nowIso,
-  };
 }
 
 export async function getDriverTransactions(

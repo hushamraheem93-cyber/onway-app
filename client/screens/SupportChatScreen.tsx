@@ -223,14 +223,16 @@ export default function SupportChatScreen() {
     try {
       const url = new URL("/api/support/messages", getApiUrl());
       url.searchParams.set("phoneNumber", phoneNumber);
-      const res = await fetch(url.toString());
+      const res = await fetch(url.toString(), {
+        headers: customerToken ? { Authorization: `Bearer ${customerToken}` } : {},
+      });
       if (res.ok) {
         const data = await res.json();
         setMessages(data.messages || []);
       }
     } catch {}
     finally { setLoading(false); }
-  }, [phoneNumber]);
+  }, [phoneNumber, customerToken]);
 
   useEffect(() => {
     fetchMessages();
@@ -273,7 +275,10 @@ export default function SupportChatScreen() {
 
       const res = await fetch(url.toString(), {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(customerToken ? { Authorization: `Bearer ${customerToken}` } : {}),
+        },
         body: JSON.stringify(body),
       });
       if (res.ok) {

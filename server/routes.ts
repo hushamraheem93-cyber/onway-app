@@ -54,6 +54,15 @@ import {
   adminAdjustLedger, retryOrderSettlements, vendorCommissionBase,
 } from "./settlement";
 import type { OrderSettlementInput } from "./settlement";
+import {
+  sanitizeQuantity,
+  capOrderItemImages,
+  isAllowedImageMime,
+  safeImageExtension,
+  safeImageContentType,
+  sniffImageMime,
+  GENERIC_SERVER_ERROR,
+} from "./orderValidation";
 import { sendPushNotification, sendBroadcastNotification, sendDriverBatchNotification, sendAdminNewOrderNotification, sendVendorNewOrderNotification, sendAdminSettlementRequestNotification, sendVendorOrderCancelledNotification, sendDriverOrderCancelledNotification } from "./pushNotifications";
 import { deliverOtp } from "./otpDelivery";
 import { isDevMode } from "./env";
@@ -68,7 +77,10 @@ const storage: StorageEngine = multer.diskStorage({
     cb(null, uploadsDir);
   },
   filename: (_req: Express.Request, file: Express.Multer.File, cb: (error: Error | null, filename: string) => void) => {
-    const uniqueName = `${randomUUID()}${path.extname(file.originalname)}`;
+    // Extension comes from the allowlisted MIME, NOT from the client's filename:
+    // /uploads is served from the app's own origin, so an `.html` landing there is
+    // stored XSS on that origin.
+    const uniqueName = `${randomUUID()}${safeImageExtension(file.mimetype)}`;
     cb(null, uniqueName);
   },
 });
@@ -76,6 +88,10 @@ const storage: StorageEngine = multer.diskStorage({
 const upload = multer({
   storage,
   limits: { fileSize: 10 * 1024 * 1024 }, // 10 MB — prevents DoS via oversized uploads
+  fileFilter: (_req, file, cb) => {
+    if (isAllowedImageMime(file.mimetype)) return cb(null, true);
+    cb(new Error("UNSUPPORTED_FILE_TYPE"));
+  },
 });
 
 // uploadWebP uses memory storage — admin images go directly to Firebase Storage
@@ -269,6 +285,9 @@ const products: Product[] = [
   { id: "fs9", categoryId: "food-supplies", name: "حمص", price: 12000, image: "/uploads/product-3d-chickpeas.png", description: "حمص حب جاف 1 كيلو", inStock: true, weight: "1 كيلو" },
 ];
 
+// Fallback when appSettings/fees has no value — matches GET /api/settings/fees.
+const DEFAULT_SERVICE_FEE = 500;
+
 const ROUTES_JWT_SECRET = (() => {
   const secret = process.env.JWT_SECRET;
   if (!secret) {
@@ -322,6 +341,16 @@ function requireCustomerAuth(req: Request, res: Response, next: express.NextFunc
 // downstream handlers cannot be tricked into acting for another driver (fixes the
 // IDOR where every /api/driver/* route trusted body/query phoneNumber). Mounted on
 // /api/driver; the public token-issuing endpoint /api/driver/mobile-auth is skipped.
+// Routes a not-yet-approved driver may still call: the ones the app needs to show
+// its own approval state and keep its push token fresh. Everything else requires
+// an approved driver.
+const DRIVER_PREAPPROVAL_ROUTES = ["/api/driver/status", "/api/driver/profile", "/api/driver/refresh-push-token"];
+
+function isPreApprovalDriverRoute(req: Request): boolean {
+  const path = (req.originalUrl || req.path || "").split("?")[0];
+  return DRIVER_PREAPPROVAL_ROUTES.some((r) => path.endsWith(r));
+}
+
 async function requireDriverAuth(req: Request, res: Response, next: express.NextFunction) {
   // Exempt the public token issuer (works whether req.path is mount-relative or not).
   if ((req.originalUrl || req.path || "").split("?")[0].endsWith("/api/driver/mobile-auth")) return next();
@@ -339,6 +368,25 @@ async function requireDriverAuth(req: Request, res: Response, next: express.Next
   try {
     const driver = await getDriverByPhone(driverPhone);
     if (!driver) return res.status(403).json({ error: "غير مصرح — السائق غير موجود" });
+
+    // Approval is enforced here, at the single choke point, and NOT per-route:
+    // the driver token is minted at registration time and stays valid for 7 days,
+    // so without this a `pending` — or admin-`rejected` — driver could go online,
+    // receive real batches with customer PII, and collect cash. Rejecting a driver
+    // in the dashboard has to actually lock them out.
+    //
+    // DRIVER_PREAPPROVAL_ROUTES stay open so the app can still render the
+    // "قيد المراجعة" screen and notice the moment an admin approves.
+    if (driver.status !== "approved" && !isPreApprovalDriverRoute(req)) {
+      return res.status(403).json({
+        error:
+          driver.status === "rejected"
+            ? "تم رفض حسابك كسائق — تواصل مع الإدارة"
+            : "حسابك قيد المراجعة — لا يمكنك استلام الطلبات بعد",
+        approvalStatus: driver.status || "pending",
+      });
+    }
+
     (req as any).driverPhone = driverPhone;
     (req as any).driver = driver;
     // Authoritative identity — override anything the client sent in the body.
@@ -359,6 +407,36 @@ async function batchBelongsToDriver(batchId: string, driverPhone: string): Promi
   } catch {
     return false;
   }
+}
+
+// Ownership guard at the ORDER level. `batchBelongsToDriver` was only ever applied
+// as `if (batchId && …)`, so omitting batchId skipped it entirely, and two driver
+// routes (start-delivery, report-issue) had no ownership check at all — any
+// authenticated driver could flip ANY order to in_delivery or issue.
+//
+// An order belongs to a driver when the order document names them (accept-order
+// writes driverPhone) or when it sits in a batch assigned to them (createDeliveryBatch
+// stamps batchId on every order). Both are persisted, so this survives a restart —
+// unlike the in-memory driverAssignments map.
+async function orderBelongsToDriver(orderId: string, driverPhone: string): Promise<boolean> {
+  if (!orderId || !driverPhone) return false;
+  try {
+    const order = (await getOrderById(orderId)) as any;
+    if (!order) return false;
+    if (order.driverPhone && String(order.driverPhone) === driverPhone) return true;
+    if (order.batchId) return await batchBelongsToDriver(String(order.batchId), driverPhone);
+    return false;
+  } catch {
+    return false;
+  }
+}
+
+// Express guard wrapper: rejects with 403 unless the order belongs to the caller.
+// Returns true when the request may proceed (the response is already sent otherwise).
+async function assertOrderOwnership(res: Response, orderId: string, driverPhone: string): Promise<boolean> {
+  if (await orderBelongsToDriver(orderId, driverPhone)) return true;
+  res.status(403).json({ error: "غير مصرح — هذا الطلب ليس لك" });
+  return false;
 }
 
 // Notify the customer of an order status change via push (best-effort, non-blocking).
@@ -711,13 +789,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const driverQueue: QueuedDriver[] = [];
   const driverAssignments: Map<string, string> = new Map(); // orderId → driverPhone
   const batchedOrderIds = new Set<string>(); // orderIds currently in active batches
-  const driverCompletedOrders: Map<string, { orderId: string; deliveryFee: number; driverEarning: number; ownerEarning: number; total: number; customerName: string; completedAt: string; isRestaurant: boolean }[]> = new Map();
+  // (A `driverCompletedOrders` in-memory mirror used to live here. It was appended to
+  //  AFTER `await saveDriverCompletedOrder(...)` had already persisted the same record,
+  //  and getCompletedOrders() de-duplicated it against Firestore on every read — so it
+  //  never held anything Firestore lacked. It only retained roughly 180k objects a year
+  //  at 500 deliveries/day, pushing the process toward max_memory_restart.)
   const driverLocations: Map<string, { lat: number; lng: number; updatedAt: number; fullName?: string }> = new Map();
 
   // Rejection cooldown: track which orders each driver has recently rejected
   // Prevents immediate re-assignment of the same order to the same driver
   const driverRejectionCooldowns: Map<string, Map<string, number>> = new Map();
   const REJECTION_COOLDOWN_MS = 3 * 60 * 1000; // 3 minutes before re-offering same order
+
+  // The cooldown timestamp was only ever READ, never used to prune, so this nested
+  // Map grew by one entry per rejection for the life of the process — crossing
+  // `max_memory_restart: 512M` and triggering a PM2 restart that wipes the driver
+  // queue mid-shift. An entry older than the window can never match again, so it is
+  // dead weight: drop it whenever we touch the driver's map.
+  function pruneDriverCooldowns(phoneNumber: string): Map<string, number> | undefined {
+    const cooldowns = driverRejectionCooldowns.get(phoneNumber);
+    if (!cooldowns) return undefined;
+    const cutoff = Date.now() - REJECTION_COOLDOWN_MS;
+    for (const [orderId, rejectedAt] of cooldowns) {
+      if (rejectedAt < cutoff) cooldowns.delete(orderId);
+    }
+    if (cooldowns.size === 0) {
+      driverRejectionCooldowns.delete(phoneNumber);
+      return undefined;
+    }
+    return cooldowns;
+  }
 
   // In-memory log of recent batch rejections for admin real-time awareness
   interface RejectionEvent {
@@ -730,14 +831,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   }
   const rejectionEvents: RejectionEvent[] = [];
 
-  // Returns completed orders merged from Firestore (persistent) + in-memory cache
+  // Completed orders come from Firestore, which is the source of truth. The record is
+  // written (and awaited) before this can ever be read, so there is nothing to merge.
   async function getCompletedOrders(phoneNumber: string) {
-    const dbOrders = await getDriverCompletedOrdersFromDB(phoneNumber);
-    const memOrders = driverCompletedOrders.get(phoneNumber) || [];
-    // Merge: Firestore is source of truth, add any in-memory not yet persisted
-    const dbIds = new Set(dbOrders.map(o => o.orderId));
-    const extra = memOrders.filter(o => !dbIds.has(o.orderId));
-    return [...dbOrders, ...extra];
+    return await getDriverCompletedOrdersFromDB(phoneNumber);
   }
 
   async function checkIsRestaurantOrder(order: any): Promise<boolean> {
@@ -856,17 +953,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   app.use("/uploads", (req, res, next) => {
     res.setHeader("Access-Control-Allow-Origin", "*");
+    // These files are served from the app's own origin. nosniff stops a browser
+    // from re-interpreting an upload as HTML/JS regardless of its extension.
+    res.setHeader("X-Content-Type-Options", "nosniff");
     next();
   }, express.static(uploadsDir));
 
+  // Caps the size of an image value in a LIST response. Every branch used to
+  // `return img`, so the whole function was a no-op that only looked like a guard.
   function limitImageSize(img: string | undefined, maxLen = 50000): string {
     if (!img) return "";
-    // Always pass data URIs through unchanged — they are self-contained and
-    // the client renders them without a network request. Truncating them
-    // would corrupt the image and show a blank placeholder.
+    // Data URIs are self-contained and render without a network request; truncating
+    // one corrupts the image, so they pass through by design. The real fix for
+    // oversized inline images is not to create them — see processAndSaveImage
+    // (Storage-first) and capOrderItemImages.
     if (img.startsWith("data:")) return img;
-    if (img.length <= maxLen) return img;
-    return img;
+    // A non-data URL longer than the cap is not a usable URL. Truncating it would
+    // produce a broken request; dropping it renders the client's placeholder.
+    return img.length <= maxLen ? img : "";
   }
 
   app.get("/api/categories", async (req, res) => {
@@ -1495,16 +1599,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // ─── App Settings (Service Fee, etc.) ───────────────────────────────────────
+  // Single source of truth for the service fee, shared by GET /api/settings/fees
+  // and order pricing so the two can never disagree.
+  async function getConfiguredServiceFee(): Promise<number> {
+    try {
+      const db = getFirestore();
+      if (!db) return DEFAULT_SERVICE_FEE;
+      const snap = await db.collection("appSettings").doc("fees").get();
+      const value = Number((snap.exists ? snap.data() : {})?.serviceFee);
+      return Number.isFinite(value) && value >= 0 ? Math.round(value) : DEFAULT_SERVICE_FEE;
+    } catch {
+      return DEFAULT_SERVICE_FEE;
+    }
+  }
+
   app.get("/api/settings/fees", async (req, res) => {
     try {
       const db = getFirestore();
-      if (!db) return res.json({ serviceFee: 500 });
+      if (!db) return res.json({ serviceFee: DEFAULT_SERVICE_FEE });
       const snap = await db.collection("appSettings").doc("fees").get();
       const data = snap.exists ? snap.data() : {};
-      res.json({ serviceFee: data?.serviceFee ?? 500 });
+      res.json({ serviceFee: data?.serviceFee ?? DEFAULT_SERVICE_FEE });
     } catch (error) {
       console.error("Error getting app fees:", error);
-      res.json({ serviceFee: 500 });
+      res.json({ serviceFee: DEFAULT_SERVICE_FEE });
     }
   });
 
@@ -1637,7 +1755,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         restaurantDeliveryFee: settings.restaurantDeliveryFee,
       });
     } catch (error: any) {
-      res.status(500).json({ error: error.message });
+      console.error("[API]", error?.message);
+      res.status(500).json({ error: GENERIC_SERVER_ERROR });
     }
   });
 
@@ -1673,7 +1792,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       invalidateSysSettingsCache();
       res.json({ success: true, ...update });
     } catch (error: any) {
-      res.status(500).json({ error: error.message });
+      console.error("[API]", req.method, req.path, error?.message);
+      res.status(500).json({ error: GENERIC_SERVER_ERROR });
     }
   });
 
@@ -1699,7 +1819,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }).sort((a, b) => (b.createdAt ?? "").localeCompare(a.createdAt ?? ""));
       res.json({ transactions });
     } catch (error: any) {
-      res.status(500).json({ error: error.message });
+      console.error("[API]", req.method, req.path, error?.message);
+      res.status(500).json({ error: GENERIC_SERVER_ERROR });
     }
   });
 
@@ -2054,7 +2175,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           continue;
         }
 
-        const quantity = Number(it.quantity) || 1;
+        const quantity = sanitizeQuantity(it.quantity);
         if (Math.abs((Number(it.price) || 0) - realPrice) > 1) {
           priceMismatchProductIds.push(it.productId);
         }
@@ -2107,8 +2228,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
-      const verifiedServiceFee = Number(serviceFee) || 0;
-      const verifiedTotal = verifiedSubtotal + verifiedDeliveryFee + verifiedServiceFee - verifiedDiscount;
+      // Service fee is server-authoritative, exactly like the delivery fee above.
+      // It used to be `Number(serviceFee) || 0` straight from the request body, so
+      // `{"serviceFee": -50000}` produced a near-zero — or negative — cash order.
+      // The client only ever echoes back what GET /api/settings/fees told it, so
+      // reading the same document here changes nothing for an honest client.
+      const verifiedServiceFee = serviceFee === undefined ? 0 : await getConfiguredServiceFee();
+
+      // Floor at zero. A promo larger than the cart must never produce a negative
+      // total that would flow into the ledger as money OnWay owes the customer.
+      const verifiedTotal = Math.max(
+        0,
+        verifiedSubtotal + verifiedDeliveryFee + verifiedServiceFee - verifiedDiscount,
+      );
 
       // Log mismatches (e.g. stale delivery fee on client) but never reject —
       // the server's computed values are always used for the stored order.
@@ -2121,7 +2253,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const orderData: any = {
         userId: userId || "",
         phoneNumber,
-        items,
+        // Inline Base64 item images are what pushed large carts past Firestore's
+        // 1MB document limit and made checkout fail outright. See capOrderItemImages.
+        items: capOrderItemImages(items),
         total: verifiedTotal,
         deliveryFee: verifiedDeliveryFee,
         address,
@@ -2160,7 +2294,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const prod = allProds.find((p: any) => p.id === it.productId);
           if (prod && prod.categoryId === "restaurants") {
             restaurantItems.push({ ...it, restaurantName: prod.restaurant });
-            restaurantSubtotal += (verifiedPriceByProductId.get(it.productId) ?? Number(it.price) ?? 0) * (Number(it.quantity) || 1);
+            // Same sanitiser as the subtotal above. This value becomes
+            // orderData.restaurantSubtotal, which vendorCommissionBase() uses as the
+            // vendor payout base — an unvalidated quantity here is money.
+            restaurantSubtotal += (verifiedPriceByProductId.get(it.productId) ?? Number(it.price) ?? 0) * sanitizeQuantity(it.quantity);
             if (!detectedRestaurantName && prod.restaurant) {
               detectedRestaurantName = prod.restaurant;
             }
@@ -2467,7 +2604,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ success: true, batchId, driverPhone, driverName });
     } catch (error: any) {
       console.error("assign-driver error:", error);
-      res.status(500).json({ error: error.message });
+      res.status(500).json({ error: GENERIC_SERVER_ERROR });
     }
   });
 
@@ -2575,7 +2712,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const url = await uploadToFirebaseStorage(
         buf,
         `profile-images/${req.file.filename}`,
-        req.file.mimetype || "image/jpeg",
+        // Never echo the client's Content-Type back onto a stored object.
+        safeImageContentType(req.file.mimetype),
       );
       fs.promises.unlink(req.file.path).catch(() => {});
       return res.json({ url });
@@ -3047,7 +3185,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(driver);
     } catch (error: any) {
       console.error("Error creating driver:", error);
-      res.status(500).json({ error: error.message || "Internal server error" });
+      res.status(500).json({ error: "Internal server error" });
     }
   });
 
@@ -3084,7 +3222,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ success: true });
     } catch (error: any) {
       console.error("Error updating driver status:", error);
-      res.status(500).json({ error: error.message || "Internal server error" });
+      res.status(500).json({ error: "Internal server error" });
     }
   });
 
@@ -3118,7 +3256,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ success: true });
     } catch (error: any) {
       console.error("Error deleting driver:", error);
-      res.status(500).json({ error: error.message || "Internal server error" });
+      res.status(500).json({ error: "Internal server error" });
     }
   });
 
@@ -3233,7 +3371,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error: any) {
       console.error("Error getting driver status:", error);
-      res.status(500).json({ error: error.message });
+      res.status(500).json({ error: GENERIC_SERVER_ERROR });
     }
   });
 
@@ -3371,7 +3509,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         res.json({ isOnline: false, queuePosition: null });
       }
     } catch (error: any) {
-      res.status(500).json({ error: error.message });
+      console.error("[API]", req.method, req.path, error?.message);
+      res.status(500).json({ error: GENERIC_SERVER_ERROR });
     }
   });
 
@@ -3387,7 +3526,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (qd) qd.pushToken = pushToken;
       res.json({ ok: true });
     } catch (error: any) {
-      res.status(500).json({ error: error.message });
+      console.error("[API]", req.method, req.path, error?.message);
+      res.status(500).json({ error: GENERIC_SERVER_ERROR });
     }
   });
 
@@ -3433,7 +3573,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       res.json({ success: true });
     } catch (error: any) {
-      res.status(500).json({ error: error.message });
+      console.error("[API]", req.method, req.path, error?.message);
+      res.status(500).json({ error: GENERIC_SERVER_ERROR });
     }
   });
 
@@ -3441,6 +3582,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/driver/start-delivery", async (req: Request, res: Response) => {
     const { phoneNumber, orderId } = req.body;
     if (!phoneNumber || !orderId) return res.status(400).json({ error: "Missing fields" });
+    if (!(await assertOrderOwnership(res, orderId, phoneNumber))) return;
 
     try {
       const db = getFirestore();
@@ -3452,7 +3594,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       res.json({ success: true });
     } catch (error: any) {
-      res.status(500).json({ error: error.message });
+      console.error("[API]", req.method, req.path, error?.message);
+      res.status(500).json({ error: GENERIC_SERVER_ERROR });
     }
   });
 
@@ -3460,6 +3603,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/driver/report-issue", async (req: Request, res: Response) => {
     const { phoneNumber, orderId, issueType } = req.body;
     if (!phoneNumber || !orderId || !issueType) return res.status(400).json({ error: "Missing fields" });
+    if (!(await assertOrderOwnership(res, orderId, phoneNumber))) return;
 
     try {
       const db = getFirestore();
@@ -3496,7 +3640,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       saveDriverActivity({ phoneNumber, type: "issue", orderId }).catch(() => {});
       res.json({ success: true });
     } catch (error: any) {
-      res.status(500).json({ error: error.message });
+      console.error("[API]", req.method, req.path, error?.message);
+      res.status(500).json({ error: GENERIC_SERVER_ERROR });
     }
   });
 
@@ -3542,6 +3687,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
         const cooldowns = driverRejectionCooldowns.get(phoneNumber)!;
         rejectedOrderIds.forEach(id => cooldowns.set(id, Date.now()));
+        pruneDriverCooldowns(phoneNumber);
       }
       // Record rejection event for admin notification
       const driver = await getDriverByPhone(phoneNumber).catch(() => null);
@@ -3572,7 +3718,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       onOrderConfirmed();
       res.json({ success: true });
     } catch (error: any) {
-      res.status(500).json({ error: error.message });
+      console.error("[API]", req.method, req.path, error?.message);
+      res.status(500).json({ error: GENERIC_SERVER_ERROR });
     }
   });
 
@@ -3616,7 +3763,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       saveDriverActivity({ phoneNumber, type: "accepted", orderId: batchId }).catch(() => {});
       res.json({ success: true });
     } catch (error: any) {
-      res.status(500).json({ error: error.message });
+      console.error("[API]", req.method, req.path, error?.message);
+      res.status(500).json({ error: GENERIC_SERVER_ERROR });
     }
   });
 
@@ -3625,9 +3773,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/driver/batch/arrived-at-store", async (req: Request, res: Response) => {
     const { phoneNumber, orderId, batchId } = req.body;
     if (!phoneNumber || !orderId) return res.status(400).json({ error: "Missing fields" });
+    // `if (batchId && …)` made the guard skippable by simply omitting batchId, so the
+    // order-level check below is the authoritative one and always runs.
     if (batchId && !(await batchBelongsToDriver(batchId, phoneNumber))) {
       return res.status(403).json({ error: "غير مصرح — هذه الدفعة ليست لك" });
     }
+    if (!(await assertOrderOwnership(res, orderId, phoneNumber))) return;
     try {
       const db = getFirestore();
       if (!db) return res.status(500).json({ error: "DB not configured" });
@@ -3663,14 +3814,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/driver/batch/pickup-order", async (req: Request, res: Response) => {
     const { phoneNumber, orderId, batchId, lat, lng } = req.body;
     if (!phoneNumber || !orderId) return res.status(400).json({ error: "Missing fields" });
+    // `if (batchId && …)` made the guard skippable by simply omitting batchId, so the
+    // order-level check below is the authoritative one and always runs.
     if (batchId && !(await batchBelongsToDriver(batchId, phoneNumber))) {
       return res.status(403).json({ error: "غير مصرح — هذه الدفعة ليست لك" });
     }
+    if (!(await assertOrderOwnership(res, orderId, phoneNumber))) return;
     try {
       const db = getFirestore();
       if (!db) return res.status(500).json({ error: "DB not configured" });
       const now = new Date();
-      await updateOrderStatus(orderId, "in_delivery");
+      // The return value MUST be honoured. updateOrderStatus returns false when the
+      // state machine blocks the transition; ignoring it wrote pickedUpAt, pushed
+      // "on the way" to the customer and returned success while the order stayed
+      // put — the tracking screen then contradicted reality with no error anywhere.
+      const moved = await updateOrderStatus(orderId, "in_delivery");
+      if (!moved) {
+        const current = (await getOrderById(orderId).catch(() => null)) as any;
+        if (current?.status !== "in_delivery") {
+          console.warn(`[PICKUP] order=${orderId} could not move to in_delivery (status=${current?.status ?? "?"})`);
+          return res.status(409).json({ error: "تعذّر تحديث حالة الطلب — حدّث الصفحة وحاول مجدداً" });
+        }
+      }
       // Notify the customer their order is on the way (was previously missing here).
       notifyCustomerStatus(orderId, "in_delivery").catch(() => {});
       await db.collection("orders").doc(orderId).update({ pickedUpAt: now, updatedAt: now });
@@ -3678,7 +3843,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       saveDriverActivity({ phoneNumber, type: "in_delivery", orderId }).catch(() => {});
       res.json({ success: true });
     } catch (error: any) {
-      res.status(500).json({ error: error.message });
+      console.error("[API]", req.method, req.path, error?.message);
+      res.status(500).json({ error: GENERIC_SERVER_ERROR });
     }
   });
 
@@ -3689,6 +3855,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     if (!(await batchBelongsToDriver(batchId, phoneNumber))) {
       return res.status(403).json({ error: "غير مصرح — هذه الدفعة ليست لك" });
     }
+    if (!(await assertOrderOwnership(res, orderId, phoneNumber))) return;
     try {
       const db = getFirestore();
       if (!db) return res.status(500).json({ error: "DB not configured" });
@@ -3859,9 +4026,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         await saveDriverCompletedOrder(phoneNumber, completedEntry);
         legacyCreditApplied = true;
         saveDriverActivity({ phoneNumber, type: "completed", orderId, customerName: completedEntry.customerName, driverEarning, total: completedEntry.total }).catch(() => {});
-        const mem = driverCompletedOrders.get(phoneNumber) || [];
-        mem.push(completedEntry);
-        driverCompletedOrders.set(phoneNumber, mem);
         driverAssignments.delete(orderId);
         batchedOrderIds.delete(orderId);
 
@@ -3962,7 +4126,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       res.json({ success: true });
     } catch (error: any) {
-      res.status(500).json({ error: error.message });
+      console.error("[API]", req.method, req.path, error?.message);
+      res.status(500).json({ error: GENERIC_SERVER_ERROR });
     }
   });
 
@@ -4002,7 +4167,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         })).reverse(),
       });
     } catch (error: any) {
-      res.status(500).json({ error: error.message });
+      console.error("[API]", req.method, req.path, error?.message);
+      res.status(500).json({ error: GENERIC_SERVER_ERROR });
     }
   });
 
@@ -4052,7 +4218,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       res.json(result.reverse());
     } catch (error: any) {
-      res.status(500).json({ error: error.message });
+      console.error("[API]", req.method, req.path, error?.message);
+      res.status(500).json({ error: GENERIC_SERVER_ERROR });
     }
   });
 
@@ -4094,7 +4261,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
        .slice(0, 50);
       res.json({ account, transactions });
     } catch (error: any) {
-      res.status(500).json({ error: error.message });
+      console.error("[API]", req.method, req.path, error?.message);
+      res.status(500).json({ error: GENERIC_SERVER_ERROR });
     }
   });
 
@@ -4105,7 +4273,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       res.json(await getAccountSettlementView("driver", phoneNumber));
     } catch (error: any) {
-      res.status(500).json({ error: error.message });
+      console.error("[API]", req.method, req.path, error?.message);
+      res.status(500).json({ error: GENERIC_SERVER_ERROR });
     }
   });
 
@@ -4115,7 +4284,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       res.json(await getSettlementHistory("driver", phoneNumber));
     } catch (error: any) {
-      res.status(500).json({ error: error.message });
+      console.error("[API]", req.method, req.path, error?.message);
+      res.status(500).json({ error: GENERIC_SERVER_ERROR });
     }
   });
 
@@ -4140,7 +4310,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (adminToken) sendAdminSettlementRequestNotification(adminToken, "driver", name, result.outstanding ?? 0).catch(() => {});
       res.json({ success: true, requestId: result.requestId });
     } catch (error: any) {
-      res.status(500).json({ error: error.message });
+      console.error("[API]", req.method, req.path, error?.message);
+      res.status(500).json({ error: GENERIC_SERVER_ERROR });
     }
   });
 
@@ -4151,7 +4322,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       res.json({ requests: await listSettlementRequests(status, accountType) });
     } catch (error: any) {
-      res.status(500).json({ error: error.message });
+      console.error("[API]", req.method, req.path, error?.message);
+      res.status(500).json({ error: GENERIC_SERVER_ERROR });
     }
   });
 
@@ -4161,7 +4333,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       res.json({ accounts: await listSettlementAccounts(accountType) });
     } catch (error: any) {
-      res.status(500).json({ error: error.message });
+      console.error("[API]", req.method, req.path, error?.message);
+      res.status(500).json({ error: GENERIC_SERVER_ERROR });
     }
   });
 
@@ -4178,13 +4351,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       ]);
       res.json({ view, history, payments });
     } catch (error: any) {
-      res.status(500).json({ error: error.message });
+      console.error("[API]", req.method, req.path, error?.message);
+      res.status(500).json({ error: GENERIC_SERVER_ERROR });
     }
   });
 
   // Complete a settlement (full or partial; from a request or manual).
   app.post("/api/admin/settlements/complete", async (req: Request, res: Response) => {
-    const { accountType, accountId, amount, adminName, method, notes, requestId } = req.body;
+    const { accountType, accountId, amount, adminName, method, notes, requestId, idempotencyKey } = req.body;
     if (!accountType || !accountId || amount === undefined) {
       return res.status(400).json({ error: "accountType, accountId, amount required" });
     }
@@ -4192,8 +4366,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.status(400).json({ error: "accountType must be driver or vendor" });
     }
     try {
+      // requestId already makes request-driven settlements idempotent on its own;
+      // idempotencyKey lets a manual payment opt in the same way.
       const result = await completeSettlement({
         accountType, accountId, amount: Number(amount), adminName, method, notes, requestId,
+        idempotencyKey: typeof idempotencyKey === "string" ? idempotencyKey : undefined,
       });
       if (!result.ok) {
         const msg = result.reason === "nothing_due" ? "لا توجد مبالغ مستحقة"
@@ -4205,7 +4382,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       orderEvents.emit("settlement:changed", { accountType, accountId, applied: result.applied });
       res.json({ success: true, ...result });
     } catch (error: any) {
-      res.status(500).json({ error: error.message });
+      console.error("[API]", req.method, req.path, error?.message);
+      res.status(500).json({ error: GENERIC_SERVER_ERROR });
     }
   });
 
@@ -4214,7 +4392,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       res.json(await getSettlementConfig());
     } catch (error: any) {
-      res.status(500).json({ error: error.message });
+      console.error("[API]", error?.message);
+      res.status(500).json({ error: GENERIC_SERVER_ERROR });
     }
   });
 
@@ -4226,7 +4405,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       res.json(await updateSettlementConfig(accountType, !!thresholdEnabled, Number(thresholdAmount) || 0));
     } catch (error: any) {
-      res.status(500).json({ error: error.message });
+      console.error("[API]", req.method, req.path, error?.message);
+      res.status(500).json({ error: GENERIC_SERVER_ERROR });
     }
   });
 
@@ -4246,7 +4426,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.setHeader("Content-Disposition", `attachment; filename="settlements-${accountType}.csv"`);
       res.send(csv);
     } catch (error: any) {
-      res.status(500).json({ error: error.message });
+      console.error("[API]", req.method, req.path, error?.message);
+      res.status(500).json({ error: GENERIC_SERVER_ERROR });
     }
   });
 
@@ -4262,7 +4443,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!result.ok) return res.status(400).json({ error: result.reason || "لا توجد مبالغ مستحقة" });
       res.json({ success: true, outstandingAfter: result.outstandingAfter, paymentId: result.paymentId });
     } catch (error: any) {
-      res.status(500).json({ error: error.message });
+      console.error("[API]", req.method, req.path, error?.message);
+      res.status(500).json({ error: GENERIC_SERVER_ERROR });
     }
   });
 
@@ -4278,7 +4460,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!result.ok) return res.status(400).json({ error: result.reason || "لا توجد مبالغ مستحقة" });
       res.json({ success: true, outstandingAfter: result.outstandingAfter, receiptNumber: result.receiptNumber, paymentId: result.paymentId });
     } catch (error: any) {
-      res.status(500).json({ error: error.message });
+      console.error("[API]", req.method, req.path, error?.message);
+      res.status(500).json({ error: GENERIC_SERVER_ERROR });
     }
   });
 
@@ -4292,7 +4475,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!result.ok) return res.status(400).json({ error: result.reason || "فشل التعديل" });
       res.json({ success: true, outstandingBefore: result.outstandingBefore, outstandingAfter: result.outstandingAfter });
     } catch (error: any) {
-      res.status(500).json({ error: error.message });
+      console.error("[API]", req.method, req.path, error?.message);
+      res.status(500).json({ error: GENERIC_SERVER_ERROR });
     }
   });
 
@@ -4337,7 +4521,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       res.json({ months });
     } catch (error: any) {
-      res.status(500).json({ error: error.message });
+      console.error("[API]", req.method, req.path, error?.message);
+      res.status(500).json({ error: GENERIC_SERVER_ERROR });
     }
   });
 
@@ -4377,7 +4562,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       ].sort((a: any, b: any) => new Date(b.timestamp || 0).getTime() - new Date(a.timestamp || 0).getTime());
       res.json({ driver: { fullName: driver?.fullName || "", phoneNumber }, account, transactions });
     } catch (error: any) {
-      res.status(500).json({ error: error.message });
+      console.error("[API]", req.method, req.path, error?.message);
+      res.status(500).json({ error: GENERIC_SERVER_ERROR });
     }
   });
 
@@ -4421,7 +4607,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       );
       res.json({ accounts });
     } catch (error: any) {
-      res.status(500).json({ error: error.message });
+      console.error("[API]", error?.message);
+      res.status(500).json({ error: GENERIC_SERVER_ERROR });
     }
   });
 
@@ -4444,7 +4631,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         fourthName: driver.fourthName,
       });
     } catch (error: any) {
-      res.status(500).json({ error: error.message });
+      console.error("[API]", req.method, req.path, error?.message);
+      res.status(500).json({ error: GENERIC_SERVER_ERROR });
     }
   });
 
@@ -4544,7 +4732,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       //   - Its batchId doesn't belong to an active (in-progress) batch
       //   - It hasn't been recently rejected by THIS driver (within cooldown window)
       const now = Date.now();
-      const driverCooldowns = driverRejectionCooldowns.get(phoneNumber);
+      const driverCooldowns = pruneDriverCooldowns(phoneNumber);
       const waitingOrders = confirmedOrders
         .filter(o => {
           const orderBatchId = (o as any).batchId || (o as any).batch_id;
@@ -4763,6 +4951,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (!driverRejectionCooldowns.has(qd.phoneNumber)) driverRejectionCooldowns.set(qd.phoneNumber, new Map());
         const cd = driverRejectionCooldowns.get(qd.phoneNumber)!;
         batchDoc.orderIds.forEach(id => cd.set(id, Date.now()));
+        pruneDriverCooldowns(qd.phoneNumber);
         console.warn(`[OFFER_TIMEOUT] Released stale pending batch ${batchId} from ${qd.phoneNumber} (>${OFFER_TIMEOUT_MS / 1000}s), reassigning`);
         onOrderConfirmed();
       }
@@ -4815,7 +5004,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         queue: queueData,
       });
     } catch (error: any) {
-      res.status(500).json({ error: error.message });
+      console.error("[API]", error?.message);
+      res.status(500).json({ error: GENERIC_SERVER_ERROR });
     }
   });
 
@@ -4856,7 +5046,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       res.json({ stats });
     } catch (error: any) {
-      res.status(500).json({ error: error.message });
+      console.error("[API]", error?.message);
+      res.status(500).json({ error: GENERIC_SERVER_ERROR });
     }
   });
 
@@ -4928,7 +5119,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       res.json({ log: merged });
     } catch (error: any) {
-      res.status(500).json({ error: error.message });
+      console.error("[API]", req.method, req.path, error?.message);
+      res.status(500).json({ error: GENERIC_SERVER_ERROR });
     }
   });
 
@@ -4973,7 +5165,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         totalDeliveredOrders: deliveredOrders.length,
       });
     } catch (error: any) {
-      res.status(500).json({ error: error.message });
+      console.error("[API]", error?.message);
+      res.status(500).json({ error: GENERIC_SERVER_ERROR });
     }
   });
 
@@ -4983,7 +5176,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const codes = await getPromoCodes();
       res.json(codes);
     } catch (error: any) {
-      res.status(500).json({ error: error.message });
+      console.error("[API]", error?.message);
+      res.status(500).json({ error: GENERIC_SERVER_ERROR });
     }
   });
 
@@ -5002,7 +5196,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
       res.json({ id, success: true });
     } catch (error: any) {
-      res.status(500).json({ error: error.message });
+      console.error("[API]", req.method, req.path, error?.message);
+      res.status(500).json({ error: GENERIC_SERVER_ERROR });
     }
   });
 
@@ -5018,7 +5213,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
       res.json({ success: true });
     } catch (error: any) {
-      res.status(500).json({ error: error.message });
+      console.error("[API]", req.method, req.path, error?.message);
+      res.status(500).json({ error: GENERIC_SERVER_ERROR });
     }
   });
 
@@ -5027,7 +5223,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await deletePromoCodeFn(req.params.id as string);
       res.json({ success: true });
     } catch (error: any) {
-      res.status(500).json({ error: error.message });
+      console.error("[API]", req.method, req.path, error?.message);
+      res.status(500).json({ error: GENERIC_SERVER_ERROR });
     }
   });
 
@@ -5063,7 +5260,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error: any) {
       console.error("Error sending broadcast notification:", error);
-      res.status(500).json({ error: error.message });
+      res.status(500).json({ error: GENERIC_SERVER_ERROR });
     }
   });
 
@@ -5074,7 +5271,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const allUsers = await getAllUsers();
       res.json({ totalUsers: allUsers.length, tokensCount: tokens.length });
     } catch (error: any) {
-      res.status(500).json({ error: error.message });
+      console.error("[API]", error?.message);
+      res.status(500).json({ error: GENERIC_SERVER_ERROR });
     }
   });
 
@@ -5175,7 +5373,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.json({ success: true });
     } catch (error: any) {
       console.error("Error cancelling order:", error);
-      return res.status(500).json({ error: error.message });
+      return res.status(500).json({ error: GENERIC_SERVER_ERROR });
     }
   });
 
@@ -5320,7 +5518,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const users = await getAllUsers();
       res.json(users);
     } catch (error: any) {
-      res.status(500).json({ error: error.message });
+      console.error("[API]", error?.message);
+      res.status(500).json({ error: GENERIC_SERVER_ERROR });
     }
   });
 
@@ -5370,7 +5569,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         maximumDiscountAmount: promo.maximumDiscountAmount ?? null,
       });
     } catch (error: any) {
-      res.status(500).json({ error: error.message });
+      console.error("[API]", req.method, req.path, error?.message);
+      res.status(500).json({ error: GENERIC_SERVER_ERROR });
     }
   });
 
@@ -5517,10 +5717,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/support/upload-image", requireCustomerAuth, uploadWebP.single("image"), async (req: Request & { file?: Express.Multer.File }, res: Response) => {
     try {
       if (!req.file) return res.status(400).json({ error: "No image uploaded" });
+      // The multer filter here allows application/octet-stream because React Native
+      // sends it for real photos, which also let text/html through. Decide on the
+      // actual bytes instead, and derive both the extension and the stored
+      // Content-Type from that — never from anything the client sent.
+      const detected = sniffImageMime(req.file.buffer);
+      if (!detected) {
+        return res.status(400).json({ error: "نوع الملف غير مدعوم — الصور فقط" });
+      }
       const imageUrl = await uploadToFirebaseStorage(
         req.file.buffer,
-        `support-images/${randomUUID()}${path.extname(req.file.originalname || ".jpg")}`,
-        req.file.mimetype || "image/jpeg",
+        `support-images/${randomUUID()}${safeImageExtension(detected)}`,
+        safeImageContentType(detected),
       );
       return res.json({ imageUrl });
     } catch (e: any) {
@@ -6022,7 +6230,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         stars:           r.stars,
         comment:         r.comment ?? "",
         image:           r.image ?? "",
-        customerPhone:   r.customerPhone ?? "",
+        // This endpoint is unauthenticated, so the full number was a bulk harvest of
+        // reviewer phone numbers correlated to the stores they buy from. Every
+        // consumer (StoreRatingsScreen, VendorAnalyticsScreen) renders only
+        // `*****${phone.slice(-4)}`, so sending just those 4 digits is pixel-identical
+        // while the number itself never leaves the server.
+        customerPhone:   r.customerPhone ? String(r.customerPhone).slice(-4) : "",
         createdAt:       r.createdAt,
         vendorReply:     r.vendorReply ?? "",
         vendorRepliedAt: r.vendorRepliedAt ?? null,
@@ -6516,15 +6729,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
     ioServer.emit("orders:changed", payload);
   });
 
-  // Real-time settlement requests → admin panel refreshes its inbox instantly.
-  orderEvents.on("settlement:request", (payload: Record<string, unknown>) => {
-    ioServer.emit("settlement:request", payload);
-    ioServer.emit("settlements:changed", payload);
+  // Real-time settlement events are a REFRESH PING ONLY — never a data channel.
+  //
+  // Anonymous sockets are permitted by design (customers watch orders without a
+  // token), and `ioServer.emit` reaches every one of them. Forwarding the raw
+  // payload therefore streamed each driver's phone number, full name and
+  // outstanding balance to anybody who opened a socket. Both consumers
+  // (client/hooks/useSettlement.ts, client/screens/AdminScreen.tsx) ignore the
+  // payload and simply refetch through their authenticated HTTP endpoints, so
+  // dropping it costs nothing and closes the channel.
+  //
+  // DO NOT add fields here. Anything attached becomes world-readable.
+  orderEvents.on("settlement:request", () => {
+    ioServer.emit("settlement:request");
+    ioServer.emit("settlements:changed");
   });
 
   // Real-time settlement completion → driver/vendor status bars + admin refresh.
-  orderEvents.on("settlement:changed", (payload: Record<string, unknown>) => {
-    ioServer.emit("settlements:changed", payload);
+  orderEvents.on("settlement:changed", () => {
+    ioServer.emit("settlements:changed");
   });
 
   ioServer.on("connection", (socket) => {
@@ -6807,7 +7030,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ success: true, totalVendors, totalProducts, stores: createdStores });
     } catch (err: any) {
       console.error("seed demo stores:", err);
-      res.status(500).json({ error: err.message || "فشل إنشاء البيانات التجريبية" });
+      res.status(500).json({ error: "فشل إنشاء البيانات التجريبية" });
     }
   });
 
@@ -6896,7 +7119,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         message: `تم مسح ${deleted} طلب (كل الطلبات)، ${walletDeleted} سجل محفظة، ${activityDeleted} سجل نشاط، ${alertsDeleted} تنبيه، وإعادة تصفير ${walletsReset} محفظة سائق`,
       });
     } catch (error: any) {
-      res.status(500).json({ error: error.message });
+      console.error("[API]", error?.message);
+      res.status(500).json({ error: GENERIC_SERVER_ERROR });
     }
   });
 

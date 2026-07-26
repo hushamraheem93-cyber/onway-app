@@ -4629,15 +4629,15 @@
           <td>
             <div style="display:flex;gap:5px;flex-wrap:wrap;">
               <button class="btn btn-sm" style="background:var(--primary);color:#fff;border:none;padding:5px 10px;"
-                onclick="openDriverPayment('${phone}','${name}',${owed})">
+                onclick="openDriverPayment('${escapeJsInAttr(phone)}','${escapeJsInAttr(name)}',${Number(owed) || 0})">
                 <i data-lucide="check-circle" style="width:11px;height:11px;"></i> دفعة
               </button>
               <button class="btn btn-sm" style="background:#F59E0B;color:#fff;border:none;padding:5px 10px;"
-                onclick="openDriverAdjustment('${phone}','${name}')">
+                onclick="openDriverAdjustment('${escapeJsInAttr(phone)}','${escapeJsInAttr(name)}')">
                 <i data-lucide="edit-2" style="width:11px;height:11px;"></i> تعديل
               </button>
               <button class="btn btn-sm btn-outline" style="padding:5px 10px;"
-                onclick="openDriverStatement('${phone}','${name}')">
+                onclick="openDriverStatement('${escapeJsInAttr(phone)}','${escapeJsInAttr(name)}')">
                 <i data-lucide="file-text" style="width:11px;height:11px;"></i> كشف
               </button>
             </div>
@@ -4927,7 +4927,7 @@
             <div style="font-size:1.1rem;font-weight:800;color:${color};">${owed.toLocaleString('ar-IQ')} د.ع</div>
             <div style="font-size:0.72rem;font-weight:600;background:${color};color:#fff;padding:2px 8px;border-radius:12px;margin-top:3px;text-align:center;">${label}</div>
           </div>
-          <button onclick="openDriverPayment('${phone}','${name}',${owed})"
+          <button onclick="openDriverPayment('${escapeJsInAttr(phone)}','${escapeJsInAttr(name)}',${Number(owed) || 0})"
             style="background:${color};color:#fff;border:none;border-radius:8px;padding:7px 14px;font-size:0.82rem;font-weight:700;cursor:pointer;font-family:inherit;">
             تسجيل دفعة
           </button>
@@ -5430,6 +5430,27 @@
         .replace(/>/g, '&gt;')
         .replace(/"/g, '&quot;')
         .replace(/'/g, '&#39;');
+    }
+
+    // For a value that lands inside a SINGLE-QUOTED JS STRING which is itself inside
+    // an HTML attribute:  onclick="fn('HERE')"
+    //
+    // Neither escapeHtml nor escapeAttr is safe there. The browser HTML-decodes the
+    // attribute BEFORE the JS is parsed, so escapeAttr's `&#39;` decodes straight back
+    // to `'` and a driver named  x',alert(1),'  still breaks out of the string.
+    //
+    // The quote must therefore be BACKSLASH-escaped (backslashes survive HTML
+    // decoding untouched), and only the characters that would end the attribute or
+    // the tag get entity-escaped. `&` goes first so the entities below are not
+    // double-escaped.
+    function escapeJsInAttr(text) {
+      return String(text == null ? '' : text)
+        .replace(/\\/g, '\\\\')
+        .replace(/'/g, "\\'")
+        .replace(/&/g, '&amp;')
+        .replace(/"/g, '&quot;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
     }
 
     // Confirm Delete
@@ -6315,7 +6336,7 @@
                 <button class="btn btn-icon btn-outline" onclick="editCategory('${c.id}')" title="تعديل">
                   <i data-lucide="pencil"></i>
                 </button>
-                <button class="btn btn-icon btn-danger" onclick="confirmDelete('category', '${c.id}', '${escapeHtml(c.name || 'الفئة')}')" title="حذف">
+                <button class="btn btn-icon btn-danger" onclick="confirmDelete('category', '${c.id}', '${escapeJsInAttr(c.name || 'الفئة')}')" title="حذف">
                   <i data-lucide="trash-2"></i>
                 </button>
               </div>
@@ -6498,7 +6519,7 @@
                 <button class="btn btn-icon btn-outline" onclick="editBanner('${b.id}')" title="تعديل">
                   <i data-lucide="pencil"></i>
                 </button>
-                <button class="btn btn-icon btn-danger" onclick="confirmDelete('banner', '${b.id}', '${escapeHtml(b.title || 'البنر')}')" title="حذف">
+                <button class="btn btn-icon btn-danger" onclick="confirmDelete('banner', '${b.id}', '${escapeJsInAttr(b.title || 'البنر')}')" title="حذف">
                   <i data-lucide="trash-2"></i>
                 </button>
               </div>
@@ -6787,7 +6808,9 @@
       const status   = v.status || 'active';
       const sCfg     = MSTATUS_CFG[status] || MSTATUS_CFG.active;
       const rating   = (v.rating != null) ? Number(v.rating).toFixed(1) : null;
-      const nameEsc  = name.replace(/'/g, "\\'");
+      // Was `name.replace(/'/g, "\\'")`, which left <, > and " unescaped — a store
+      // name could break out of the attribute entirely. escapeJsInAttr handles all of them.
+      const nameEsc  = escapeJsInAttr(name);
       const isPending= status === 'pending';
       const isActive = status === 'active';
       const isSusp   = status === 'suspended';
@@ -7144,7 +7167,9 @@
       const STATUS_LABELS = { approved: 'مقبول', pending: 'بانتظار المراجعة', rejected: 'مرفوض' };
       grid.innerHTML = list.map(p => {
         const disabled = p.isActive === false;
-        const safeName = escapeHtml(p.name || '—').replace(/'/g, "\\'").replace(/"/g, "&quot;");
+        // Same class as the merchant card: escapeHtml + an ad-hoc quote replace is not
+        // an attribute-context escape. A vendor-controlled product name reaches this.
+        const safeName = escapeJsInAttr(p.name || '—');
         return `
         <div style="background:${disabled?'#F8F8F8':'#F9FAFB'};border-radius:14px;padding:12px;border:1.5px solid ${disabled?'#E5E7EB':'#F3F4F6'};position:relative;opacity:${disabled?0.75:1};transition:opacity .2s;">
           <!-- Image -->
@@ -7503,7 +7528,7 @@
               <button class="btn btn-icon btn-outline" onclick="editDeliveryArea('${a.id}')" title="تعديل">
                 <i data-lucide="pencil"></i>
               </button>
-              <button class="btn btn-icon btn-danger" onclick="confirmDelete('delivery', '${a.id}', '${escapeHtml(a.name)}')" title="حذف">
+              <button class="btn btn-icon btn-danger" onclick="confirmDelete('delivery', '${a.id}', '${escapeJsInAttr(a.name)}')" title="حذف">
                 <i data-lucide="trash-2"></i>
               </button>
             </div>
@@ -7880,8 +7905,8 @@
         
         let actionButtons = '';
         if (order.status === 'pending') {
-          actionButtons += `<button class="btn btn-sm" style="background:#3B82F6;color:white;margin-left:4px;" onclick="event.stopPropagation();updateOrderStatus('${order.id}','confirmed','${order.phoneNumber}')"><i data-lucide="check"></i> تأكيد</button>`;
-          actionButtons += `<button class="btn btn-sm" style="background:#EF4444;color:white;margin-left:4px;" onclick="event.stopPropagation();updateOrderStatus('${order.id}','cancelled','${order.phoneNumber}')"><i data-lucide="x"></i> إلغاء</button>`;
+          actionButtons += `<button class="btn btn-sm" style="background:#3B82F6;color:white;margin-left:4px;" onclick="event.stopPropagation();updateOrderStatus('${order.id}','confirmed','${escapeJsInAttr(order.phoneNumber)}')"><i data-lucide="check"></i> تأكيد</button>`;
+          actionButtons += `<button class="btn btn-sm" style="background:#EF4444;color:white;margin-left:4px;" onclick="event.stopPropagation();updateOrderStatus('${order.id}','cancelled','${escapeJsInAttr(order.phoneNumber)}')"><i data-lucide="x"></i> إلغاء</button>`;
         }
         // Manual assign button: show for all orders except delivered/cancelled
         if (!['delivered', 'cancelled'].includes(order.status)) {
@@ -7889,7 +7914,7 @@
         }
         // Track driver button (only for "delivering" orders with a driver)
         if (order.status === 'delivering' && order.driverPhone) {
-          actionButtons += `<button class="btn btn-sm" style="background:#1a1a2e;color:white;margin-left:4px;" onclick="event.stopPropagation();openTrackingModal('${order.driverPhone}','${escapeHtml(order.driverName||order.driverPhone)}')"><i data-lucide="map-pin"></i> تتبع</button>`;
+          actionButtons += `<button class="btn btn-sm" style="background:#1a1a2e;color:white;margin-left:4px;" onclick="event.stopPropagation();openTrackingModal('${escapeJsInAttr(order.driverPhone)}','${escapeJsInAttr(order.driverName||order.driverPhone)}')"><i data-lucide="map-pin"></i> تتبع</button>`;
         }
         // WhatsApp button
         const waPhone = ((order.customerPhone && order.customerPhone !== order.phoneNumber ? order.customerPhone : order.phoneNumber) || '').replace(/^0/, '964');
@@ -8412,13 +8437,13 @@
               ${filtered.map((driver, idx) => {
                 const statusColor = getDriverStatusColor(driver.status);
                 const nationalIdImg = driver.nationalIdImage
-                  ? `<img src="${driver.nationalIdImage}" alt="البطاقة الوطنية" style="${imgThumbStyle}" onclick="showDriverImageModal(this.src, 'البطاقة الوطنية - ${escapeHtml(driver.fullName)}')" />`
+                  ? `<img src="${driver.nationalIdImage}" alt="البطاقة الوطنية" style="${imgThumbStyle}" onclick="showDriverImageModal(this.src, 'البطاقة الوطنية - ${escapeJsInAttr(driver.fullName)}')" />`
                   : `<div style="${noImgStyle}">لا يوجد</div>`;
                 const residenceImg = driver.residenceCardImage
-                  ? `<img src="${driver.residenceCardImage}" alt="بطاقة السكن" style="${imgThumbStyle}" onclick="showDriverImageModal(this.src, 'بطاقة السكن - ${escapeHtml(driver.fullName)}')" />`
+                  ? `<img src="${driver.residenceCardImage}" alt="بطاقة السكن" style="${imgThumbStyle}" onclick="showDriverImageModal(this.src, 'بطاقة السكن - ${escapeJsInAttr(driver.fullName)}')" />`
                   : `<div style="${noImgStyle}">لا يوجد</div>`;
                 const licenseImg = driver.driverLicenseImage
-                  ? `<img src="${driver.driverLicenseImage}" alt="إجازة السوق" style="${imgThumbStyle}" onclick="showDriverImageModal(this.src, 'إجازة السوق - ${escapeHtml(driver.fullName)}')" />`
+                  ? `<img src="${driver.driverLicenseImage}" alt="إجازة السوق" style="${imgThumbStyle}" onclick="showDriverImageModal(this.src, 'إجازة السوق - ${escapeJsInAttr(driver.fullName)}')" />`
                   : `<div style="${noImgStyle}">لا يوجد</div>`;
 
                 let actionBtns = '';
@@ -8442,10 +8467,10 @@
                     </button>`;
                 }
                 actionBtns += `
-                  <button class="btn btn-sm" style="background:#8B5CF6;color:white;margin-bottom:4px;" onclick="openActivityLogModal('${escapeHtml(driver.phoneNumber)}', '${escapeHtml(driver.fullName)}')" title="سجل النشاط">
+                  <button class="btn btn-sm" style="background:#8B5CF6;color:white;margin-bottom:4px;" onclick="openActivityLogModal('${escapeJsInAttr(driver.phoneNumber)}', '${escapeJsInAttr(driver.fullName)}')" title="سجل النشاط">
                     <i data-lucide="history" style="width:14px;height:14px;"></i>
                   </button>
-                  <button class="btn btn-sm" style="background:#ef4444;color:white;" onclick="confirmDeleteDriver('${driver.id}', '${escapeHtml(driver.fullName)}')" title="مسح">
+                  <button class="btn btn-sm" style="background:#ef4444;color:white;" onclick="confirmDeleteDriver('${escapeJsInAttr(driver.id)}', '${escapeJsInAttr(driver.fullName)}')" title="مسح">
                     <i data-lucide="trash-2" style="width:14px;height:14px;"></i>
                   </button>`;
 
