@@ -79,3 +79,14 @@ app-example
 scripts/backups/
 scripts/reports/
 tests/reports/
+
+# Runtime upload scratch directory.
+#
+# EPHEMERAL: this lives on the VM's local disk and is wiped on every redeploy, so
+# nothing durable can be kept here — anything written is guaranteed to 404 later.
+# All real uploads now go straight to Firebase Storage. Images that ship WITH the
+# app (category tiles, banners, seed product art) live in assets/seed/ instead,
+# which is tracked and served from /assets.
+#
+# 125 files / 71MB used to be committed here, mixing shipped art with user photos.
+uploads/

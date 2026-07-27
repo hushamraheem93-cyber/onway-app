@@ -12,7 +12,7 @@
 /* global Buffer */
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { readFileSync, existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 
@@ -24,6 +24,7 @@ import {
   safeImageExtension,
   safeImageContentType,
   sniffImageMime,
+  isUsableCachedImage,
 } from "../../server/orderValidation.ts";
 import { ORDER_TRANSITIONS } from "../../server/firebase.ts";
 import { settlementPaymentId } from "../../server/settlement.ts";
@@ -779,14 +780,27 @@ describe("Storage — no upload path may degrade to Base64 or local disk", () =>
     );
   });
 
-  test("the profile upload does not fall back to the ephemeral local disk", () => {
-    const body = handlerBody(ROUTES, 'app.post("/api/upload"');
+  test("nothing can write to the ephemeral local disk any more", () => {
+    // Stronger than the old assertion, which only checked that POST /api/upload did
+    // not RETURN a /uploads URL. The route and the disk-storage multer engine behind
+    // it are both gone, so there is no longer any code path that can put a file on
+    // the VM's local disk — and /uploads is wiped on every redeploy, so any URL
+    // pointing there works in testing and 404s a week later.
     assert.doesNotMatch(
-      body,
-      /return res\.json\(\{ url: `\/uploads\/\$\{req\.file\.filename\}` \}\)/,
-      "REGRESSION: /uploads is wiped on every redeploy — that URL works in testing and 404s a week later",
+      ROUTES,
+      /multer\.diskStorage\(/,
+      "REGRESSION: a disk-storage uploader is back",
     );
-    assert.match(body, /res\.status\(502\)/, "a failed upload must be reported, not papered over");
+    assert.doesNotMatch(
+      ROUTES,
+      /app\.post\("\/api\/upload"/,
+      "REGRESSION: the unused upload route is back",
+    );
+    assert.doesNotMatch(
+      ROUTES,
+      /url: `\/uploads\//,
+      "REGRESSION: a /uploads URL is being returned to a client",
+    );
   });
 
   test("storage.rules exists and denies all client access", () => {
@@ -812,32 +826,168 @@ describe("Storage — no upload path may degrade to Base64 or local disk", () =>
   });
 });
 
-describe("H19 — uploads must be images, decided by the server", () => {
-  test("the disk uploader has a fileFilter", () => {
-    // Scope to THIS multer() call — `uploadWebP` right below has its own filter, and
-    // a loose regex would happily match that one instead.
-    const start = ROUTES.indexOf("const upload = multer({");
-    assert.ok(start !== -1, "could not locate the disk uploader");
-    const decl = ROUTES.slice(start, ROUTES.indexOf("\n});", start));
-    assert.match(
-      decl,
-      /fileFilter/,
-      "REGRESSION: with no filter an evil.html lands in /uploads and is served from the app's own origin under Access-Control-Allow-Origin: *",
+// ── Image pipeline hardening (Phase: full remediation) ──────────────────────
+describe("Image pipeline — the cache must never hand back a legacy value", () => {
+  test("findDuplicateImage accepts ONLY Storage URLs", () => {
+    // The test used to be INVERTED: it discarded Storage URLs and returned
+    // /uploads and Base64. That is why brand-new products came out with old images —
+    // a matching md5 short-circuited the upload entirely and returned the poisoned
+    // cache entry. This is the single highest-impact defect in the image system.
+    const fn = functionBody(VENDOR, "async function findDuplicateImage");
+    assert.doesNotMatch(
+      fn,
+      /if \(full\.startsWith\("https:\/\/firebasestorage\.googleapis\.com\/"\)\) return null;/,
+      "REGRESSION: the cache is rejecting Storage URLs and reusing legacy ones again",
     );
-    assert.match(decl, /isAllowedImageMime\(file\.mimetype\)/);
+    assert.match(
+      fn,
+      /isUsableCachedImage\(full\)/,
+      "the cache must gate on a Storage URL",
+    );
   });
 
-  test("the stored filename extension never comes from the client", () => {
+  test("isUsableCachedImage classifies every legacy shape as unusable", () => {
+    assert.equal(
+      isUsableCachedImage(
+        "https://firebasestorage.googleapis.com/v0/b/x/o/y?alt=media&token=z",
+      ),
+      true,
+    );
+    assert.equal(isUsableCachedImage("/uploads/old.png"), false);
+    assert.equal(isUsableCachedImage("data:image/webp;base64,AAAA"), false);
+    assert.equal(isUsableCachedImage(""), false);
+    assert.equal(isUsableCachedImage(undefined), false);
+    assert.equal(isUsableCachedImage(null), false);
+  });
+});
+
+describe("Driver documents must not be stored raw", () => {
+  test("registration compresses and uploads identity documents", () => {
+    const fn = functionBody(ROUTES, "async function storeDriverDocument");
+    assert.ok(fn.length > 0, "storeDriverDocument must exist");
+    assert.match(fn, /sharp\(/, "documents must be compressed");
+    assert.match(
+      fn,
+      /uploadToFirebaseStorage\(/,
+      "documents must go to Storage",
+    );
+  });
+
+  test("the driver document stores the returned URL, not the request body", () => {
+    const body = handlerBody(ROUTES, 'app.post("/api/drivers"');
+    assert.match(
+      body,
+      /nationalIdImage: storedNationalId/,
+      "the raw Base64 must not be persisted",
+    );
+    assert.doesNotMatch(
+      body,
+      /^\s*nationalIdImage,\s*$/m,
+      "REGRESSION: the raw request value is written straight into Firestore again",
+    );
+  });
+});
+
+describe("Seed data must not depend on the ephemeral uploads disk", () => {
+  test("no seed constant points at /uploads", () => {
+    const CATS = read("client/constants/categories.ts");
+    for (const [name, src] of [
+      ["routes.ts", ROUTES],
+      ["categories.ts", CATS],
+    ]) {
+      const hits = src.split("\n").filter((l) => /image: "\/uploads\//.test(l));
+      assert.deepEqual(
+        hits,
+        [],
+        `REGRESSION in ${name}: seed images point at the ephemeral disk`,
+      );
+    }
+  });
+
+  test("every /assets/seed reference resolves to a tracked file", () => {
+    const CATS = read("client/constants/categories.ts");
+    const refs = [
+      ...new Set(
+        [
+          ...(ROUTES + CATS).matchAll(/\/assets\/seed\/([a-zA-Z0-9/_.-]+)/g),
+        ].map((m) => m[1]),
+      ),
+    ];
+    assert.ok(refs.length > 0, "expected seed image references");
+    const missing = refs.filter(
+      (r) => !existsSync(join(here, "../../assets/seed", r)),
+    );
+    assert.deepEqual(
+      missing,
+      [],
+      `seed images referenced but absent: ${missing.join(", ")}`,
+    );
+  });
+
+  test("uploads/ is git-ignored", () => {
+    // It is a runtime scratch dir on an ephemeral disk; 125 files / 71MB used to be
+    // committed there, mixing shipped artwork with user photos.
+    assert.match(
+      read(".gitignore"),
+      /^uploads\/$/m,
+      "uploads/ must not be tracked",
+    );
+  });
+});
+
+describe("H19 — uploads must be images, decided by the server", () => {
+  test("every multer instance uses memory storage and filters by type", () => {
+    // The disk uploader is gone entirely, which is a stronger guarantee than it
+    // having had a fileFilter: an evil.html can no longer reach the app's own origin
+    // because nothing lands on that origin at all.
+    const instances = [...ROUTES.matchAll(/multer\(\{[\s\S]*?\n\}\)/g)].map(
+      (m) => m[0],
+    );
+    assert.ok(instances.length > 0, "expected at least one multer instance");
+    for (const decl of instances) {
+      assert.match(
+        decl,
+        /memoryStorage\(\)/,
+        `a multer instance does not use memory storage:\n${decl.slice(0, 200)}`,
+      );
+      assert.match(
+        decl,
+        /fileFilter/,
+        `a multer instance has no fileFilter:\n${decl.slice(0, 200)}`,
+      );
+    }
+  });
+
+  test("no stored object name is derived from the client's filename", () => {
     assert.doesNotMatch(
       ROUTES,
-      /const uniqueName = `\$\{randomUUID\(\)\}\$\{path\.extname\(file\.originalname\)\}`/,
-      "REGRESSION: the client picks the extension, and express.static picks the Content-Type from it",
+      /path\.extname\(\s*(file|req\.file)\.originalname/,
+      "REGRESSION: the client picks the extension, and the server serves the Content-Type from it",
     );
-    assert.match(ROUTES, /safeImageExtension\(file\.mimetype\)/);
+    // The Storage paths that remain derive their extension from the sniffed bytes.
+    assert.match(ROUTES, /safeImageExtension\(detected\)/);
   });
 
-  test("/uploads is served with nosniff", () => {
-    assert.match(ROUTES, /X-Content-Type-Options["'\s,:]+nosniff/);
+  test("/uploads is mounted exactly once, with nosniff", () => {
+    // It used to be mounted in BOTH index.ts and routes.ts. index.ts registers first,
+    // so the routes.ts mount was unreachable and the nosniff header it set never
+    // applied to a response. One mount, and it carries the header.
+    const mounts = [...(ROUTES + INDEX).matchAll(/app\.use\("\/uploads"/g)]
+      .length;
+    assert.equal(
+      mounts,
+      1,
+      `REGRESSION: ${mounts} /uploads mounts — a duplicate shadows the other`,
+    );
+    const block = INDEX.slice(
+      INDEX.indexOf('app.use("/uploads"'),
+      INDEX.indexOf('app.use("/uploads"') + 900,
+    );
+    assert.match(
+      block,
+      /X-Content-Type-Options["'\s,:]+nosniff/,
+      "the surviving mount must set nosniff",
+    );
   });
 
   test("the allowlist accepts images and rejects everything else", () => {

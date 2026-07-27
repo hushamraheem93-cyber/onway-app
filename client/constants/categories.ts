@@ -29,20 +29,20 @@ export interface Banner {
 }
 
 export const MAIN_CATEGORIES: Category[] = [
-  { id: "restaurants", name: "المطاعم", image: "/uploads/category-restaurants.png", productCount: 30, color: "#FFF3E0", iconColor: "#FB5B21" },
-  { id: "fruits-vegetables", name: "الخضروات والفواكه", image: "/uploads/category-vegetables.png", productCount: 50, color: "#E8F5E9", iconColor: "#4CAF50" },
-  { id: "meat-poultry", name: "اللحوم والطازج", image: "/uploads/category-meat.png", productCount: 55, color: "#FFEBEE", iconColor: "#EF5350" },
-  { id: "dairy-eggs", name: "الألبان والأجبان", image: "/uploads/category-dairy.png", productCount: 70, color: "#F3E5F5", iconColor: "#AB47BC" },
-  { id: "cleaning-care", name: "المنظفات", image: "/uploads/category-cleaning.png", productCount: 95, color: "#E3F2FD", iconColor: "#42A5F5" },
-  { id: "beverages", name: "المشروبات", image: "/uploads/category-beverages.png", productCount: 90, color: "#E0F7FA", iconColor: "#26C6DA" },
-  { id: "snacks-sweets", name: "سناكس ومقرمشات", image: "/uploads/category-snacks.png", productCount: 110, color: "#FFF3E0", iconColor: "#FFA726" },
-  { id: "tea-coffee", name: "شاي وقهوة", image: "/uploads/category-coffee.png", productCount: 35, color: "#EFEBE9", iconColor: "#8D6E63" },
-  { id: "baby", name: "مستلزمات أطفال", image: "/uploads/category-baby.png", productCount: 60, color: "#FCE4EC", iconColor: "#EC407A" },
-  { id: "flowers", name: "هدايا وورود", image: "/uploads/category-flowers.png", productCount: 25, color: "#FDF2F2", iconColor: "#EF5350" },
-  { id: "delivery", name: "خدمات المندوب", image: "/uploads/category-delivery.png", productCount: 0, color: "#FFF9C4", iconColor: "#FBC02D" },
-  { id: "women-bags", name: "الحقائب النسائية", image: "/uploads/category-bags.png", productCount: 12, color: "#FCE4EC", iconColor: "#E91E63" },
-  { id: "international-shopping", name: "الشراء من المواقع العالمية", image: "/uploads/category-international.png", productCount: 0, color: "#E8EAF6", iconColor: "#5C6BC0" },
-  { id: "food-supplies", name: "المواد الغذائية", image: "/uploads/category-food-supplies.png", productCount: 9, color: "#FFF8E1", iconColor: "#F9A825" },
+  { id: "restaurants", name: "المطاعم", image: "/assets/seed/category-restaurants.png", productCount: 30, color: "#FFF3E0", iconColor: "#FB5B21" },
+  { id: "fruits-vegetables", name: "الخضروات والفواكه", image: "/assets/seed/category-vegetables.png", productCount: 50, color: "#E8F5E9", iconColor: "#4CAF50" },
+  { id: "meat-poultry", name: "اللحوم والطازج", image: "/assets/seed/category-meat.png", productCount: 55, color: "#FFEBEE", iconColor: "#EF5350" },
+  { id: "dairy-eggs", name: "الألبان والأجبان", image: "/assets/seed/category-dairy.png", productCount: 70, color: "#F3E5F5", iconColor: "#AB47BC" },
+  { id: "cleaning-care", name: "المنظفات", image: "/assets/seed/category-cleaning.png", productCount: 95, color: "#E3F2FD", iconColor: "#42A5F5" },
+  { id: "beverages", name: "المشروبات", image: "/assets/seed/category-beverages.png", productCount: 90, color: "#E0F7FA", iconColor: "#26C6DA" },
+  { id: "snacks-sweets", name: "سناكس ومقرمشات", image: "/assets/seed/category-snacks.png", productCount: 110, color: "#FFF3E0", iconColor: "#FFA726" },
+  { id: "tea-coffee", name: "شاي وقهوة", image: "/assets/seed/category-coffee.png", productCount: 35, color: "#EFEBE9", iconColor: "#8D6E63" },
+  { id: "baby", name: "مستلزمات أطفال", image: "/assets/seed/category-baby.png", productCount: 60, color: "#FCE4EC", iconColor: "#EC407A" },
+  { id: "flowers", name: "هدايا وورود", image: "/assets/seed/category-flowers.png", productCount: 25, color: "#FDF2F2", iconColor: "#EF5350" },
+  { id: "delivery", name: "خدمات المندوب", image: "/assets/seed/category-delivery.png", productCount: 0, color: "#FFF9C4", iconColor: "#FBC02D" },
+  { id: "women-bags", name: "الحقائب النسائية", image: "/assets/seed/category-bags.png", productCount: 12, color: "#FCE4EC", iconColor: "#E91E63" },
+  { id: "international-shopping", name: "الشراء من المواقع العالمية", image: "/assets/seed/category-international.png", productCount: 0, color: "#E8EAF6", iconColor: "#5C6BC0" },
+  { id: "food-supplies", name: "المواد الغذائية", image: "/assets/seed/category-food-supplies.png", productCount: 9, color: "#FFF8E1", iconColor: "#F9A825" },
 ];
 
 export const CATEGORIES = MAIN_CATEGORIES;

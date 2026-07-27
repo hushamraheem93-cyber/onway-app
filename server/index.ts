@@ -751,6 +751,16 @@ function isRequestSecure(req: Request): boolean {
     next();
   });
 
+  // Legacy read-only mount. Nothing writes here any more — every upload goes to
+  // Firebase Storage — but documents created before that migration may still hold
+  // /uploads/... values, so the path has to keep resolving until the migration
+  // script has rewritten them.
+  //
+  // This is now the ONLY /uploads mount. routes.ts used to register a second one
+  // that was never reached (this one is installed earlier in the chain), which meant
+  // the nosniff header it set never applied to a single response. It is set here
+  // instead: these files are served from the app's own origin, so a browser must
+  // not be allowed to re-interpret one as HTML or JS whatever its extension says.
   app.use("/uploads", express.static(path.resolve(process.cwd(), "uploads"), {
     maxAge: 0,
     etag: false,
@@ -759,6 +769,7 @@ function isRequestSecure(req: Request): boolean {
       staticRes.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
       staticRes.setHeader("Pragma", "no-cache");
       staticRes.setHeader("Expires", "0");
+      staticRes.setHeader("X-Content-Type-Options", "nosniff");
     },
   }));
 
