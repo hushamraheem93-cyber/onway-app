@@ -166,10 +166,10 @@ async function findDuplicateImage(hash: string): Promise<{ full: string; thumb: 
   if (snap.exists) {
     const data = snap.data() as any;
     const full: string = data.imageUrl ?? "";
-    // Skip stale Firebase Storage cache entries — the bucket no longer exists.
-    // Re-encode the image as Base64 so it renders correctly.
-    if (full.startsWith("https://firebasestorage.googleapis.com/")) return null;
-    if (!full) return null;
+    // Skip stale local-disk entries (/uploads/...) — those files are lost on
+    // every redeploy. Re-upload them to Firebase Storage so the URL is durable.
+    // Firebase Storage URLs are valid and should be returned as-is.
+    if (!full || full.startsWith("/uploads/")) return null;
     return { full, thumb: data.thumbUrl ?? null };
   }
   return null;
