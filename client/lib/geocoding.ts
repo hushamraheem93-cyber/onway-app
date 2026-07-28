@@ -1,5 +1,4 @@
 import { getApiUrl } from "@/lib/query-client";
-import { customerAuthHeaders } from "@/lib/customerAuth";
 
 export interface GeocodeResult {
   address: string;
@@ -34,10 +33,10 @@ export async function reverseGeocodeDetailed(lat: number, lng: number): Promise<
   try {
     const apiUrl = getApiUrl();
     const url = new URL(`/api/reverse-geocode?lat=${lat}&lng=${lng}`, apiUrl).toString();
-    // requireCustomerAuth guards this route. Without the header the response is a 401
-    // whose JSON has no address, so we fall back to the friendly placeholder (never
-    // raw coordinates for a normal user).
-    const res = await fetch(url, { headers: await customerAuthHeaders() });
+    // No auth required — the endpoint is a read-only Google Maps proxy that does
+    // not expose user data. It is open to any caller so LocationBar and
+    // MapPickerScreen can geocode before login without a 401.
+    const res = await fetch(url);
     const data = await res.json();
     // The server sets resolved:false when it returns coordinates (missing key, Google
     // error, quota). Treat a missing flag (old server) as resolved only when the

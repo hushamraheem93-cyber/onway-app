@@ -5654,7 +5654,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Auth-gated: this proxies Google Geocoding + Places using OUR billable API key.
   // Left open, anyone could drive unlimited paid Google calls on our account.
-  app.get("/api/reverse-geocode", requireCustomerAuth, async (req: Request, res: Response) => {
+  app.get("/api/reverse-geocode", async (req: Request, res: Response) => {
     const lat = parseFloat(req.query.lat as string);
     const lng = parseFloat(req.query.lng as string);
     if (isNaN(lat) || isNaN(lng)) {
