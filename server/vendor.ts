@@ -7,7 +7,7 @@ import sharp from "sharp";
 import * as crypto from "crypto";
 import * as path from "path";
 import { getFirestore, getUserPushToken, getAdminPushToken, deleteFromFirebaseStorage, uploadToFirebaseStorage } from "./firebase";
-import { GENERIC_SERVER_ERROR } from "./orderValidation";
+import { GENERIC_SERVER_ERROR, isUsableCachedImage } from "./orderValidation";
 import { sendVendorStatusNotification, sendVendorProductNotification, sendPushNotification, sendAdminOrderReadyNotification, sendAdminSettlementRequestNotification } from "./pushNotifications";
 import { createSettlementRequest, getAccountSettlementView, getSettlementHistory } from "./settlement";
 import { orderEvents } from "./orderEvents";
@@ -163,16 +163,35 @@ async function findDuplicateImage(hash: string): Promise<{ full: string; thumb: 
   const db = getFirestore();
   if (!db) return null;
   const snap = await db.collection("productImageHashes").doc(hash).get();
-  if (snap.exists) {
-    const data = snap.data() as any;
-    const full: string = data.imageUrl ?? "";
-    // Skip stale local-disk entries (/uploads/...) — those files are lost on
-    // every redeploy. Re-upload them to Firebase Storage so the URL is durable.
-    // Firebase Storage URLs are valid and should be returned as-is.
-    if (!full || full.startsWith("/uploads/")) return null;
-    return { full, thumb: data.thumbUrl ?? null };
-  }
-  return null;
+  if (!snap.exists) return null;
+
+  const data = snap.data() as any;
+  const full: string = data?.imageUrl ?? "";
+
+  // This test used to be INVERTED. It read:
+  //
+  //     if (full.startsWith("https://firebasestorage.googleapis.com/")) return null;
+  //
+  // i.e. it discarded Storage URLs and happily returned `/uploads/...` and Base64.
+  // That was written while the bucket did not exist, when re-encoding as Base64 was
+  // the only thing that rendered. Once the bucket was provisioned the logic became
+  // exactly backwards, and it is why NEW products kept coming out with OLD image
+  // values: the upload never ran at all — a matching md5 short-circuited straight to
+  // the poisoned cache entry. It is the single reason the app still behaved as if
+  // the old local-image logic were live.
+  //
+  // A cache entry is now reusable ONLY if it points at Storage. Anything else
+  // (legacy /uploads path, Base64 blob, empty, malformed) is treated as a miss, so
+  // the caller re-uploads and saveImageHash overwrites the poisoned entry — the
+  // cache heals itself on next use with no migration required for this collection.
+  //
+  // An allowlist, not a denylist. Rejecting only `/uploads/` still lets Base64
+  // data URIs through, and those are the bulk of the poisoned entries: they are
+  // what the inverted test wrote back on every hit while the bucket was missing.
+  if (!isUsableCachedImage(full)) return null;
+
+  const thumb: string | null = isUsableCachedImage(data?.thumbUrl) ? data.thumbUrl : null;
+  return { full, thumb };
 }
 
 async function saveImageHash(hash: string, full: string, thumb: string): Promise<void> {
@@ -184,10 +203,6 @@ async function saveImageHash(hash: string, full: string, thumb: string): Promise
     createdAt: new Date().toISOString(),
   });
 }
-
-// No-op: memoryStorage multer creates no temp files on disk.
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-async function cleanTemp(_filePath?: string | null) {}
 
 function vendorId(): string {
   return `vendor_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
@@ -592,7 +607,7 @@ router.post(
 );
 
 // ── Helper: process multiple uploaded images ─────────────────────────────────
-async function processUploadedImages(files: Express.Multer.File[]): Promise<{ imageUrls: string[]; imageThumbs: string[]; tempPaths: string[] }> {
+async function processUploadedImages(files: Express.Multer.File[]): Promise<{ imageUrls: string[]; imageThumbs: string[] }> {
   const results = await Promise.all(
     files.map(async (file) => {
       const hash = generateImageHash(file.buffer);
@@ -608,7 +623,6 @@ async function processUploadedImages(files: Express.Multer.File[]): Promise<{ im
   return {
     imageUrls: results.map(r => r.full),
     imageThumbs: results.map(r => r.thumb),
-    tempPaths: [],
   };
 }
 
@@ -626,28 +640,23 @@ router.post(
       const vid = (req as any).vendorId;
 
       if (!name || !price || !category || (uploadedFiles.length === 0 && !libraryImageUrl)) {
-        for (const f of uploadedFiles) await cleanTemp(f.path);
         return res.status(400).json({ error: "الاسم، السعر، الفئة، والصورة مطلوبة" });
       }
 
       if (uploadedFiles.length > 5) {
-        for (const f of uploadedFiles) await cleanTemp(f.path);
         return res.status(400).json({ error: "الحد الأقصى للصور هو 5 صور" });
       }
 
       const db = getFirestore();
       if (!db) {
-        for (const f of uploadedFiles) await cleanTemp(f.path);
         return res.status(500).json({ error: "قاعدة البيانات غير متاحة" });
       }
 
       const vDoc = await db.collection("vendors").doc(vid).get();
       if (!vDoc.exists) {
-        for (const f of uploadedFiles) await cleanTemp(f.path);
         return res.status(403).json({ error: "حسابك غير موجود" });
       }
       if ((vDoc.data() as any).status === "rejected" || (vDoc.data() as any).status === "suspended") {
-        for (const f of uploadedFiles) await cleanTemp(f.path);
         return res.status(403).json({ error: "حسابك غير مفعل" });
       }
 
@@ -715,7 +724,6 @@ router.post(
         product: { id: pid, name, price: parseFloat(price), imageUrl, imageUrls, status: "approved" },
       });
     } catch (err: any) {
-      for (const f of uploadedFiles) await cleanTemp(f.path);
       console.error("add product:", err);
       res.status(500).json({ error: "حدث خطأ في إضافة المنتج" });
     }
@@ -757,7 +765,6 @@ router.put(
     try {
       const db = getFirestore();
       if (!db) {
-        for (const f of uploadedFiles) await cleanTemp(f.path);
         return res.status(500).json({ error: "قاعدة البيانات غير متاحة" });
       }
 
@@ -766,7 +773,6 @@ router.put(
       const doc = await db.collection("vendorProducts").doc(pid).get();
 
       if (!doc.exists || (doc.data() as any).vendorId !== vid) {
-        for (const f of uploadedFiles) await cleanTemp(f.path);
         return res.status(404).json({ error: "المنتج غير موجود" });
       }
 
@@ -798,7 +804,6 @@ router.put(
       }
 
       if (keptImages.length + uploadedFiles.length > 5) {
-        for (const f of uploadedFiles) await cleanTemp(f.path);
         return res.status(400).json({ error: "الحد الأقصى للصور هو 5 صور" });
       }
 
@@ -873,7 +878,6 @@ router.put(
         })().catch(() => {});
       }
     } catch (err) {
-      for (const f of uploadedFiles) await cleanTemp(f.path);
       console.error("update product:", err);
       res.status(500).json({ error: "حدث خطأ في الخادم" });
     }

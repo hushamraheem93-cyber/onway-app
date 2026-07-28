@@ -67,32 +67,11 @@ import { sendPushNotification, sendBroadcastNotification, sendDriverBatchNotific
 import { deliverOtp } from "./otpDelivery";
 import { isDevMode } from "./env";
 
-const uploadsDir = path.join(process.cwd(), "uploads");
-if (!fs.existsSync(uploadsDir)) {
-  fs.mkdirSync(uploadsDir, { recursive: true });
-}
-
-const storage: StorageEngine = multer.diskStorage({
-  destination: (_req: Express.Request, _file: Express.Multer.File, cb: (error: Error | null, destination: string) => void) => {
-    cb(null, uploadsDir);
-  },
-  filename: (_req: Express.Request, file: Express.Multer.File, cb: (error: Error | null, filename: string) => void) => {
-    // Extension comes from the allowlisted MIME, NOT from the client's filename:
-    // /uploads is served from the app's own origin, so an `.html` landing there is
-    // stored XSS on that origin.
-    const uniqueName = `${randomUUID()}${safeImageExtension(file.mimetype)}`;
-    cb(null, uniqueName);
-  },
-});
-
-const upload = multer({
-  storage,
-  limits: { fileSize: 10 * 1024 * 1024 }, // 10 MB — prevents DoS via oversized uploads
-  fileFilter: (_req, file, cb) => {
-    if (isAllowedImageMime(file.mimetype)) return cb(null, true);
-    cb(new Error("UNSUPPORTED_FILE_TYPE"));
-  },
-});
+// (The disk-storage multer engine and its `uploads/` directory were removed here.
+//  Their only consumer was POST /api/upload, which had no callers. Every upload in
+//  the app now goes through memory storage straight to Firebase Storage, so nothing
+//  is ever written to the VM's local disk — which was ephemeral and wiped on every
+//  redeploy, silently invalidating any URL that pointed at it.)
 
 // uploadWebP uses memory storage — admin images go directly to Firebase Storage
 const uploadWebP = multer({
@@ -196,28 +175,28 @@ let deliveryAreas: DeliveryArea[] = [
 ];
 
 let categories: Category[] = [
-  { id: "restaurants", name: "المطاعم", image: "/uploads/category-restaurants.png", productCount: 30, order: 1, color: "#FFF3E0", iconColor: "#E86520" },
-  { id: "fruits-vegetables", name: "الخضروات والفواكه", image: "/uploads/category-vegetables.png", productCount: 50, order: 2, color: "#E8F5E9", iconColor: "#4CAF50" },
-  { id: "meat-poultry", name: "اللحوم والطازج", image: "/uploads/category-meat.png", productCount: 55, order: 3, color: "#FFEBEE", iconColor: "#EF5350" },
-  { id: "dairy-eggs", name: "الألبان والأجبان", image: "/uploads/category-dairy.png", productCount: 70, order: 4, color: "#F3E5F5", iconColor: "#AB47BC" },
-  { id: "cleaning-care", name: "المنظفات", image: "/uploads/category-cleaning.png", productCount: 95, order: 5, color: "#E3F2FD", iconColor: "#42A5F5" },
-  { id: "beverages", name: "المشروبات", image: "/uploads/category-beverages.png", productCount: 90, order: 6, color: "#E0F7FA", iconColor: "#26C6DA" },
-  { id: "snacks-sweets", name: "سناكس ومقرمشات", image: "/uploads/category-snacks.png", productCount: 110, order: 7, color: "#FFF3E0", iconColor: "#FFA726" },
-  { id: "tea-coffee", name: "شاي وقهوة", image: "/uploads/category-coffee.png", productCount: 35, order: 8, color: "#EFEBE9", iconColor: "#8D6E63" },
-  { id: "baby", name: "مستلزمات أطفال", image: "/uploads/category-baby.png", productCount: 60, order: 9, color: "#FCE4EC", iconColor: "#EC407A" },
-  { id: "flowers", name: "هدايا وورود", image: "/uploads/category-flowers.png", productCount: 25, order: 10, color: "#FDF2F2", iconColor: "#EF5350" },
-  { id: "delivery", name: "خدمات المندوب", image: "/uploads/category-delivery.png", productCount: 0, order: 11, color: "#FFF9C4", iconColor: "#FBC02D" },
-  { id: "women-bags", name: "الحقائب النسائية", image: "/uploads/category-bags.png", productCount: 12, order: 12, color: "#FCE4EC", iconColor: "#E91E63" },
-  { id: "international-shopping", name: "الشراء من المواقع العالمية", image: "/uploads/category-international.png", productCount: 0, order: 13, color: "#E8EAF6", iconColor: "#5C6BC0" },
-  { id: "food-supplies", name: "المواد الغذائية", image: "/uploads/category-food-supplies.png", productCount: 9, order: 14, color: "#FFF8E1", iconColor: "#F9A825" },
+  { id: "restaurants", name: "المطاعم", image: "/assets/seed/category-restaurants.png", productCount: 30, order: 1, color: "#FFF3E0", iconColor: "#FB5B21" },
+  { id: "fruits-vegetables", name: "الخضروات والفواكه", image: "/assets/seed/category-vegetables.png", productCount: 50, order: 2, color: "#E8F5E9", iconColor: "#4CAF50" },
+  { id: "meat-poultry", name: "اللحوم والطازج", image: "/assets/seed/category-meat.png", productCount: 55, order: 3, color: "#FFEBEE", iconColor: "#EF5350" },
+  { id: "dairy-eggs", name: "الألبان والأجبان", image: "/assets/seed/category-dairy.png", productCount: 70, order: 4, color: "#F3E5F5", iconColor: "#AB47BC" },
+  { id: "cleaning-care", name: "المنظفات", image: "/assets/seed/category-cleaning.png", productCount: 95, order: 5, color: "#E3F2FD", iconColor: "#42A5F5" },
+  { id: "beverages", name: "المشروبات", image: "/assets/seed/category-beverages.png", productCount: 90, order: 6, color: "#E0F7FA", iconColor: "#26C6DA" },
+  { id: "snacks-sweets", name: "سناكس ومقرمشات", image: "/assets/seed/category-snacks.png", productCount: 110, order: 7, color: "#FFF3E0", iconColor: "#FFA726" },
+  { id: "tea-coffee", name: "شاي وقهوة", image: "/assets/seed/category-coffee.png", productCount: 35, order: 8, color: "#EFEBE9", iconColor: "#8D6E63" },
+  { id: "baby", name: "مستلزمات أطفال", image: "/assets/seed/category-baby.png", productCount: 60, order: 9, color: "#FCE4EC", iconColor: "#EC407A" },
+  { id: "flowers", name: "هدايا وورود", image: "/assets/seed/category-flowers.png", productCount: 25, order: 10, color: "#FDF2F2", iconColor: "#EF5350" },
+  { id: "delivery", name: "خدمات المندوب", image: "/assets/seed/category-delivery.png", productCount: 0, order: 11, color: "#FFF9C4", iconColor: "#FBC02D" },
+  { id: "women-bags", name: "الحقائب النسائية", image: "/assets/seed/category-bags.png", productCount: 12, order: 12, color: "#FCE4EC", iconColor: "#E91E63" },
+  { id: "international-shopping", name: "الشراء من المواقع العالمية", image: "/assets/seed/category-international.png", productCount: 0, order: 13, color: "#E8EAF6", iconColor: "#5C6BC0" },
+  { id: "food-supplies", name: "المواد الغذائية", image: "/assets/seed/category-food-supplies.png", productCount: 9, order: 14, color: "#FFF8E1", iconColor: "#F9A825" },
 ];
 
 let banners: Banner[] = [
-  { id: "slider-1", image: "/uploads/banners/banner-1.png", title: "توصيل سريع لباب بيتك", isActive: true, type: "slider", order: 1, linkType: "screen", linkTarget: "CourierPickup" },
-  { id: "slider-2", image: "/uploads/banners/banner-2.png", title: "أشهى المأكولات العراقية", isActive: true, type: "slider", order: 2, linkType: "category", linkTarget: "restaurants" },
-  { id: "slider-3", image: "/uploads/banners/banner-3.png", title: "طلباتك اليومية بضغطة زر", isActive: true, type: "slider", order: 3, linkType: "category", linkTarget: "fruits-vegetables" },
-  { id: "slider-4", image: "/uploads/banners/banner-4.png", title: "عروض وخصومات حصرية", isActive: true, type: "slider", order: 4, linkType: "screen", linkTarget: "AllCategories" },
-  { id: "slider-5", image: "/uploads/banners/banner-5.png", title: "مساحة إعلانية لأصحاب المطاعم والماركت", isActive: true, type: "slider", order: 5, linkType: "screen", linkTarget: "AllCategories" },
+  { id: "slider-1", image: "/assets/seed/banners/banner-1.png", title: "توصيل سريع لباب بيتك", isActive: true, type: "slider", order: 1, linkType: "screen", linkTarget: "CourierPickup" },
+  { id: "slider-2", image: "/assets/seed/banners/banner-2.png", title: "أشهى المأكولات العراقية", isActive: true, type: "slider", order: 2, linkType: "category", linkTarget: "restaurants" },
+  { id: "slider-3", image: "/assets/seed/banners/banner-3.png", title: "طلباتك اليومية بضغطة زر", isActive: true, type: "slider", order: 3, linkType: "category", linkTarget: "fruits-vegetables" },
+  { id: "slider-4", image: "/assets/seed/banners/banner-4.png", title: "عروض وخصومات حصرية", isActive: true, type: "slider", order: 4, linkType: "screen", linkTarget: "AllCategories" },
+  { id: "slider-5", image: "/assets/seed/banners/banner-5.png", title: "مساحة إعلانية لأصحاب المطاعم والماركت", isActive: true, type: "slider", order: 5, linkType: "screen", linkTarget: "AllCategories" },
 ];
 
 const products: Product[] = [
@@ -274,15 +253,15 @@ const products: Product[] = [
   { id: "wb11", categoryId: "women-bags", name: "حقيبة قماش مطرزة", price: 30000, image: "https://images.unsplash.com/photo-1598532163257-ae3c6b2524dd?w=300", description: "حقيبة قماش مطرزة بتصاميم شرقية", inStock: true },
   { id: "wb12", categoryId: "women-bags", name: "حقيبة ماركة فاخرة", price: 250000, image: "https://images.unsplash.com/photo-1548036328-c9fa89d128fa?w=300", description: "حقيبة ماركة فاخرة بتصميم حصري", inStock: true, discount: 20 },
   // المواد الغذائية
-  { id: "fs1", categoryId: "food-supplies", name: "رز", price: 45000, image: "/uploads/product-3d-rice.png", description: "رز بسمتي فاخر 5 كيلو", inStock: true, weight: "5 كيلو" },
-  { id: "fs2", categoryId: "food-supplies", name: "سكر", price: 30000, image: "/uploads/product-3d-sugar.png", description: "سكر أبيض ناعم 5 كيلو", inStock: true, weight: "5 كيلو" },
-  { id: "fs3", categoryId: "food-supplies", name: "ملح", price: 5000, image: "/uploads/product-3d-salt.png", description: "ملح طعام نقي 1 كيلو", inStock: true, weight: "1 كيلو" },
-  { id: "fs4", categoryId: "food-supplies", name: "طحين", price: 25000, image: "/uploads/product-3d-flour.png", description: "طحين أبيض متعدد الاستخدامات 5 كيلو", inStock: true, weight: "5 كيلو" },
-  { id: "fs5", categoryId: "food-supplies", name: "معجون طماطم", price: 8000, image: "/uploads/product-3d-tomato-paste.png", description: "معجون طماطم مركّز 400 جرام", inStock: true, weight: "400 جرام" },
-  { id: "fs6", categoryId: "food-supplies", name: "مكرونة", price: 7000, image: "/uploads/product-3d-pasta.png", description: "مكرونة سباغيتي 500 جرام", inStock: true, weight: "500 جرام" },
-  { id: "fs7", categoryId: "food-supplies", name: "اندومي", price: 3000, image: "/uploads/product-3d-indomie.png", description: "اندومي نودلز بنكهة الدجاج", inStock: true },
-  { id: "fs8", categoryId: "food-supplies", name: "عدس", price: 15000, image: "/uploads/product-3d-lentils.png", description: "عدس أحمر مجروش 1 كيلو", inStock: true, weight: "1 كيلو" },
-  { id: "fs9", categoryId: "food-supplies", name: "حمص", price: 12000, image: "/uploads/product-3d-chickpeas.png", description: "حمص حب جاف 1 كيلو", inStock: true, weight: "1 كيلو" },
+  { id: "fs1", categoryId: "food-supplies", name: "رز", price: 45000, image: "/assets/seed/product-3d-rice.png", description: "رز بسمتي فاخر 5 كيلو", inStock: true, weight: "5 كيلو" },
+  { id: "fs2", categoryId: "food-supplies", name: "سكر", price: 30000, image: "/assets/seed/product-3d-sugar.png", description: "سكر أبيض ناعم 5 كيلو", inStock: true, weight: "5 كيلو" },
+  { id: "fs3", categoryId: "food-supplies", name: "ملح", price: 5000, image: "/assets/seed/product-3d-salt.png", description: "ملح طعام نقي 1 كيلو", inStock: true, weight: "1 كيلو" },
+  { id: "fs4", categoryId: "food-supplies", name: "طحين", price: 25000, image: "/assets/seed/product-3d-flour.png", description: "طحين أبيض متعدد الاستخدامات 5 كيلو", inStock: true, weight: "5 كيلو" },
+  { id: "fs5", categoryId: "food-supplies", name: "معجون طماطم", price: 8000, image: "/assets/seed/product-3d-tomato-paste.png", description: "معجون طماطم مركّز 400 جرام", inStock: true, weight: "400 جرام" },
+  { id: "fs6", categoryId: "food-supplies", name: "مكرونة", price: 7000, image: "/assets/seed/product-3d-pasta.png", description: "مكرونة سباغيتي 500 جرام", inStock: true, weight: "500 جرام" },
+  { id: "fs7", categoryId: "food-supplies", name: "اندومي", price: 3000, image: "/assets/seed/product-3d-indomie.png", description: "اندومي نودلز بنكهة الدجاج", inStock: true },
+  { id: "fs8", categoryId: "food-supplies", name: "عدس", price: 15000, image: "/assets/seed/product-3d-lentils.png", description: "عدس أحمر مجروش 1 كيلو", inStock: true, weight: "1 كيلو" },
+  { id: "fs9", categoryId: "food-supplies", name: "حمص", price: 12000, image: "/assets/seed/product-3d-chickpeas.png", description: "حمص حب جاف 1 كيلو", inStock: true, weight: "1 كيلو" },
 ];
 
 // Fallback when appSettings/fees has no value — matches GET /api/settings/fees.
@@ -407,6 +386,46 @@ async function batchBelongsToDriver(batchId: string, driverPhone: string): Promi
   } catch {
     return false;
   }
+}
+
+/**
+ * Compress a driver identity document and put it in Storage, returning the URL.
+ *
+ * Accepts the Base64 data URI the app sends. A value that is already a Storage URL
+ * is passed straight back, so re-submitting an existing driver is a no-op rather
+ * than a re-upload.
+ *
+ * Documents are resized to 1400px on the long edge — enough for an admin to read a
+ * national ID, far below the multi-megabyte original — and stored as webp.
+ *
+ * NOTE ON ACCESS: the returned URL carries a permanent, unguessable download token
+ * and the bucket itself is default-deny (storage.rules), so the object cannot be
+ * enumerated. The token cannot be revoked without deleting the object, which is
+ * worth knowing for identity documents specifically.
+ */
+async function storeDriverDocument(
+  value: string,
+  phoneNumber: string,
+  kind: "national-id" | "residence-card" | "license",
+): Promise<string> {
+  if (typeof value !== "string" || !value) throw new Error(`${kind}: empty document`);
+  // Already migrated / already a URL — nothing to do.
+  if (value.startsWith("https://firebasestorage.googleapis.com/")) return value;
+
+  const m = value.match(/^data:(image\/[a-z0-9.+-]+);base64,(.+)$/i);
+  if (!m) throw new Error(`${kind}: expected a base64 image data URI`);
+
+  const webp = await sharp(Buffer.from(m[2], "base64"))
+    .rotate() // honour EXIF orientation — phone photos are routinely sideways
+    .resize(1400, 1400, { fit: "inside", withoutEnlargement: true })
+    .webp({ quality: 82 })
+    .toBuffer();
+
+  return await uploadToFirebaseStorage(
+    webp,
+    `driver-documents/${encodeURIComponent(phoneNumber)}/${kind}-${Date.now()}.webp`,
+    "image/webp",
+  );
 }
 
 // Ownership guard at the ORDER level. `batchBelongsToDriver` was only ever applied
@@ -951,13 +970,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     console.error("Failed to restore driver queue:", e);
   }
   
-  app.use("/uploads", (req, res, next) => {
-    res.setHeader("Access-Control-Allow-Origin", "*");
-    // These files are served from the app's own origin. nosniff stops a browser
-    // from re-interpreting an upload as HTML/JS regardless of its extension.
-    res.setHeader("X-Content-Type-Options", "nosniff");
-    next();
-  }, express.static(uploadsDir));
+  // (The second /uploads static mount lived here. index.ts registers its own mount
+  //  earlier in the middleware chain, so this one was unreachable and the
+  //  X-Content-Type-Options header it set never actually applied to a response.
+  //  index.ts is now the single mount and carries that header itself.)
+
 
   // Caps the size of an image value in a LIST response. Every branch used to
   // `return img`, so the whole function was a no-op that only looked like a guard.
@@ -2696,29 +2713,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.status(500).json({ error: "Database not configured" });
   });
 
-  app.post("/api/upload", requireCustomerAuth, upload.single("profileImage"), async (req: Request & { file?: Express.Multer.File }, res: Response) => {
-    if (!req.file) {
-      return res.status(400).json({ error: "No file uploaded" });
-    }
-    // Storage is provisioned, so it is the only destination. The old fallback wrote
-    // to the local /uploads disk, which is EPHEMERAL on the VM and wiped on every
-    // redeploy — it produced a URL that worked in testing and 404'd a week later.
-    try {
-      const buf = await fs.promises.readFile(req.file.path);
-      const url = await uploadToFirebaseStorage(
-        buf,
-        `profile-images/${req.file.filename}`,
-        // Never echo the client's Content-Type back onto a stored object.
-        safeImageContentType(req.file.mimetype),
-      );
-      fs.promises.unlink(req.file.path).catch(() => {});
-      return res.json({ url });
-    } catch (storageErr: any) {
-      console.error("[Storage] profile upload FAILED:", storageErr?.message);
-      fs.promises.unlink(req.file.path).catch(() => {});
-      return res.status(502).json({ error: "تعذّر رفع الصورة، حاول مجدداً" });
-    }
-  });
+  // (POST /api/upload was removed here. It uploaded a profile image via the disk
+  //  multer instance and had ZERO callers anywhere in the client tree — verified
+  //  across client/**. The live profile-photo path is POST /api/users, which takes
+  //  the Base64 data URI the app actually sends and puts it in Storage. Keeping an
+  //  unused authenticated upload endpoint is pure attack surface.)
+
 
   app.get("/api/users/:phoneNumber", requireCustomerAuth, async (req: Request, res: Response) => {
     const phoneNumber = req.params.phoneNumber as string;
@@ -3157,6 +3157,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ error: "غير مصرح — رقم الهاتف لا يطابق حسابك" });
       }
 
+      // Identity documents arrive from the app as Base64 data URIs
+      // (DriverRegistrationScreen sends `data:${mime};base64,${asset.base64}`) and used
+      // to be written into the driver document verbatim — no compression, no size
+      // limit, no Storage. Three camera-resolution photos comfortably exceed
+      // Firestore's 1MB document cap, so registration failed outright for exactly the
+      // people with good phone cameras; and the dashboard reads the whole document,
+      // so it shipped the blobs on every driver list.
+      //
+      // Compress and move them to Storage, keeping only the URL. If ANY document
+      // fails to store, the registration is refused rather than half-recorded: a
+      // driver row without a readable national ID cannot be approved anyway.
+      let storedNationalId: string;
+      let storedResidenceCard: string | undefined;
+      let storedLicense: string | undefined;
+      try {
+        storedNationalId = await storeDriverDocument(nationalIdImage, phoneNumber, "national-id");
+        storedResidenceCard = residenceCardImage
+          ? await storeDriverDocument(residenceCardImage, phoneNumber, "residence-card")
+          : undefined;
+        storedLicense = driverLicenseImage
+          ? await storeDriverDocument(driverLicenseImage, phoneNumber, "license")
+          : undefined;
+      } catch (docErr: any) {
+        console.error("[DRIVER] document upload FAILED:", docErr?.message);
+        return res.status(502).json({ error: "تعذّر رفع صور الوثائق، حاول مجدداً" });
+      }
+
       const existing = await getDriverByPhone(phoneNumber);
       if (existing) {
         return res.json({
@@ -3175,9 +3202,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         thirdName: thirdName || "",
         fourthName: fourthName || "",
         ...(motorcycleNumber && { motorcycleNumber }),
-        nationalIdImage,
-        ...(residenceCardImage && { residenceCardImage }),
-        ...(driverLicenseImage && { driverLicenseImage }),
+        nationalIdImage: storedNationalId,
+        ...(storedResidenceCard && { residenceCardImage: storedResidenceCard }),
+        ...(storedLicense && { driverLicenseImage: storedLicense }),
       });
 
       if (!driver) {

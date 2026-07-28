@@ -196,22 +196,11 @@ export function useVendorProfile(vendorToken: string | null) {
     [vendorToken, queryClient]
   );
 
-  const uploadImages = useCallback(
-    async (payload: { profileImageBase64?: string; coverImageBase64?: string }) => {
-      if (!vendorToken) return false;
-      try {
-        const res = await fetch(apiUrl("/api/vendor/profile/images"), {
-          method: "POST",
-          headers: { "Content-Type": "application/json", Authorization: `Bearer ${vendorToken}` },
-          body: JSON.stringify(payload),
-        });
-        return res.ok;
-      } catch {
-        return false;
-      }
-    },
-    [vendorToken]
-  );
+  // (An `uploadImages` mutation lived here. It POSTed JSON with
+  //  profileImageBase64/coverImageBase64 while the server route expects
+  //  multipart/form-data with profileImage/coverImage — so it could only ever get a
+  //  400. Nothing imported useVendorProfile, so it never ran; the working paths are
+  //  VendorProfileScreen and VendorHomeScreen, which both send real FormData.)
 
-  return { updateProfile, uploadImages };
+  return { updateProfile };
 }
