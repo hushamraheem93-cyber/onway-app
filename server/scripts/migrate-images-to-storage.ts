@@ -52,18 +52,22 @@ import * as fs from "fs";
 import * as path from "path";
 import { createHash } from "crypto";
 import sharp from "sharp";
-import { uploadToFirebaseStorage } from "../firebase";
+import { uploadToFirebaseStorage, uploadPrivateToFirebaseStorage } from "../firebase";
 
 dotenv.config();
 
 const APPLY = process.argv.includes("--apply");
 const DRY = !APPLY;
 
-/** Collection → the fields that may hold an image. Arrays are handled element-wise. */
+/** Collection → the fields that may hold an image. Arrays are handled element-wise.
+ *  `private: true` (H3) marks identity-document collections: their images are uploaded
+ *  as PRIVATE objects and the stored value becomes a bare object path resolved to a
+ *  short-lived signed URL at read time — never a permanent public token URL. */
 const TARGETS: {
   collection: string;
   fields: string[];
   arrayFields?: string[];
+  private?: boolean;
 }[] = [
   { collection: "productImageHashes", fields: ["imageUrl", "thumbUrl"] },
   {
@@ -85,6 +89,7 @@ const TARGETS: {
   {
     collection: "drivers",
     fields: ["nationalIdImage", "residenceCardImage", "driverLicenseImage"],
+    private: true, // H3 — government IDs: private object + signed-URL access, no token URL
   },
   { collection: "users", fields: ["profileImage"] },
   { collection: "promotionalSections", fields: ["image", "imageUrl"] },
@@ -179,10 +184,12 @@ const report = {
 
 const uploadCache = new Map<string, string>();
 
-/** Convert one legacy value into a Storage URL. Returns null when it cannot be. */
+/** Convert one legacy value into a Storage URL — or, for `isPrivate` (H3) identity
+ *  documents, into a bare PRIVATE object path. Returns null when it cannot be. */
 async function migrateValue(
   value: string,
   folder: string,
+  isPrivate = false,
 ): Promise<string | null> {
   const kind = kindOf(value);
   let buf: Buffer;
@@ -209,9 +216,27 @@ async function migrateValue(
   }
 
   // Content hash BEFORE re-encoding, so the same source always maps to one object.
+  // The cache key is namespaced by visibility so a public and a private image that
+  // happened to share bytes could never resolve to each other's destination.
   const hash = createHash("sha256").update(buf).digest("hex").slice(0, 32);
-  const cached = uploadCache.get(hash);
+  const cacheKey = (isPrivate ? "p:" : "u:") + hash;
+  const cached = uploadCache.get(cacheKey);
   if (cached) return cached;
+
+  if (isPrivate) {
+    // H3: identity documents → resize to keep IDs legible but bounded, upload as a
+    // PRIVATE object (no download token), and return the bare object path. The admin
+    // API signs this path on read. A bare path is later classified "external" by
+    // kindOf(), so re-runs skip it — the migration stays idempotent.
+    const doc = await sharp(buf)
+      .rotate()
+      .resize(1400, 1400, { fit: "inside", withoutEnlargement: true })
+      .webp({ quality: 82 })
+      .toBuffer();
+    const p = await uploadPrivateToFirebaseStorage(doc, `driver-documents/${hash}.webp`, "image/webp");
+    uploadCache.set(cacheKey, p);
+    return p;
+  }
 
   const webp = await sharp(buf).rotate().webp({ quality: 82 }).toBuffer();
   const url = await uploadToFirebaseStorage(
@@ -219,7 +244,7 @@ async function migrateValue(
     `${folder}/${hash}.webp`,
     "image/webp",
   );
-  uploadCache.set(hash, url);
+  uploadCache.set(cacheKey, url);
   return url;
 }
 
@@ -265,7 +290,7 @@ async function migrateCollection(t: (typeof TARGETS)[number]) {
         continue;
       }
       try {
-        const url = await migrateValue(v, t.collection);
+        const url = await migrateValue(v, t.collection, !!t.private);
         if (!url) {
           stats.orphans++;
           report.orphans.push({
@@ -320,7 +345,7 @@ async function migrateCollection(t: (typeof TARGETS)[number]) {
           continue;
         }
         try {
-          const url = await migrateValue(v, t.collection);
+          const url = await migrateValue(v, t.collection, !!t.private);
           if (!url) {
             stats.orphans++;
             report.orphans.push({
