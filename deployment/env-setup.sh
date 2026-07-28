@@ -84,8 +84,14 @@ set_env "OTP_IQ_SENDER_ID" "OTP_IQ_SENDER_ID (optional)"
 set_env "OTP_IQ_PROVIDER"  "OTP_IQ_PROVIDER (optional: auto/sms/whatsapp/telegram)"
 echo ""
 
+echo -e "${BLUE}── Google Maps (REQUIRED for production) ─────────────────────${NC}"
+echo -e "  One key, two API groups: Maps SDK (Android/iOS) for the apps AND"
+echo -e "  Geocoding API + Places API for the server. Do NOT restrict it to"
+echo -e "  Android/iOS only, or server reverse-geocoding is rejected. See deployment/README.md."
+set_env "GOOGLE_MAPS_API_KEY" "GOOGLE_MAPS_API_KEY (REQUIRED — Geocoding+Places enabled)" true
+echo ""
+
 echo -e "${BLUE}── Optional ──────────────────────────────────────────────────${NC}"
-set_env "GOOGLE_MAPS_API_KEY" "GOOGLE_MAPS_API_KEY (optional)" true
 set_env "GOOGLE_CLIENT_ID"    "GOOGLE_CLIENT_ID (optional — only for Google admin login)"
 set_env "ADMIN_GOOGLE_EMAIL"  "ADMIN_GOOGLE_EMAIL (optional — email allowed for Google login)"
 echo ""

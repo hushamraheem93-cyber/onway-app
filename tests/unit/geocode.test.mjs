@@ -13,43 +13,56 @@ import {
   geocodeDiagnostics,
 } from "../../server/geocode.ts";
 
-const OK = (results) => ({ status: "OK", results });
+// Google response builders.
+const comp = (long_name, types) => ({ long_name, short_name: long_name, types });
+const geo = (components, formatted = "") => ({
+  status: "OK",
+  results: [{ address_components: components, formatted_address: formatted, types: [] }],
+});
+const places = (results) => ({ status: "OK", results });
 
-describe("reverse geocode — Arabic address selection", () => {
-  test("prefers a nearby named place (placeName) combined with the best address", () => {
-    const geocode = OK([
-      { types: ["neighborhood"], formatted_address: "حي العسكري، الضلوعية، العراق" },
-    ]);
-    const places = OK([{ name: "أسواق دزني", types: ["store"] }]);
-    const r = pickBestAddress(geocode, places);
+describe("reverse geocode — shortest useful address (priority order)", () => {
+  test("1. a nearby named place wins over everything (shortest useful)", () => {
+    const g = geo([comp("حي العسكري", ["neighborhood"]), comp("قضاء الضلوعية", ["administrative_area_level_2"])]);
+    const p = places([{ name: "أسواق دزني", types: ["store", "point_of_interest"] }]);
+    const r = pickBestAddress(g, p);
+    assert.equal(r.address, "أسواق دزني", "place name is the shortest useful label");
     assert.equal(r.placeName, "أسواق دزني");
-    assert.equal(r.address, "أسواق دزني، حي العسكري، الضلوعية");
-    assert.ok(!r.address.includes("العراق"), "country suffix must be stripped");
   });
 
-  test("falls back to a useful geocode level when no named place exists", () => {
-    const geocode = OK([
-      { types: ["route"], formatted_address: "شارع الكورنيش، الضلوعية، العراق" },
-    ]);
-    const r = pickBestAddress(geocode, { status: "ZERO_RESULTS", results: [] });
+  test("2. neighbourhood when no named place exists", () => {
+    const g = geo([comp("حي العسكري", ["neighborhood"]), comp("قضاء الضلوعية", ["administrative_area_level_2"])]);
+    const r = pickBestAddress(g, { status: "ZERO_RESULTS", results: [] });
+    assert.equal(r.address, "حي العسكري");
     assert.equal(r.placeName, null);
-    assert.equal(r.address, "شارع الكورنيش، الضلوعية");
   });
 
-  test("skips administrative-only place names (locality/political)", () => {
-    const geocode = OK([{ types: ["locality"], formatted_address: "قضاء الضلوعية، العراق" }]);
-    const places = OK([{ name: "الضلوعية", types: ["locality", "political"] }]);
-    const r = pickBestAddress(geocode, places);
-    assert.equal(r.placeName, null, "a locality/political name is not a user-friendly place");
+  test("3. city/قضاء when no place and no neighbourhood", () => {
+    const g = geo([comp("قضاء الضلوعية", ["administrative_area_level_2"]), comp("صلاح الدين", ["administrative_area_level_1"])]);
+    const r = pickBestAddress(g, null);
     assert.equal(r.address, "قضاء الضلوعية");
   });
 
-  test("ignores 'unnamed road' results", () => {
-    const geocode = OK([
-      { types: ["route"], formatted_address: "طريق بدون اسم، العراق" },
-      { types: ["locality"], formatted_address: "قضاء الضلوعية، العراق" },
-    ]);
-    const r = pickBestAddress(geocode, { status: "ZERO_RESULTS", results: [] });
+  test("4. governorate only as a last resort", () => {
+    const g = geo([comp("صلاح الدين", ["administrative_area_level_1"]), comp("العراق", ["country"])]);
+    const r = pickBestAddress(g, null);
+    assert.equal(r.address, "صلاح الدين");
+  });
+
+  test("5. an 'unnamed road' route is skipped in favour of the city", () => {
+    const g = geo([
+      comp("طريق بدون اسم", ["route"]),
+      comp("قضاء الضلوعية", ["administrative_area_level_2"]),
+    ], "طريق بدون اسم، قضاء الضلوعية، العراق");
+    const r = pickBestAddress(g, null);
+    assert.equal(r.address, "قضاء الضلوعية", "never surface 'Unnamed Road' when a real level exists");
+  });
+
+  test("6. administrative place names are not treated as a landmark", () => {
+    const g = geo([comp("قضاء الضلوعية", ["administrative_area_level_2"])]);
+    const p = places([{ name: "الضلوعية", types: ["locality", "political"] }]);
+    const r = pickBestAddress(g, p);
+    assert.equal(r.placeName, null);
     assert.equal(r.address, "قضاء الضلوعية");
   });
 });
@@ -58,6 +71,12 @@ describe("reverse geocode — failure and fallback", () => {
   test("returns null when Google has no usable result (caller falls back to coords)", () => {
     assert.equal(pickBestAddress({ status: "ZERO_RESULTS", results: [] }, null), null);
     assert.equal(pickBestAddress(null, null), null);
+  });
+
+  test("last resort: a useful formatted_address is used when no components match", () => {
+    const g = { status: "OK", results: [{ formatted_address: "حي الزهور، الضلوعية، العراق", address_components: [] }] };
+    const r = pickBestAddress(g, null);
+    assert.equal(r.address, "حي الزهور، الضلوعية");
   });
 
   test("REQUEST_DENIED (invalid/blocked key) is flagged as a key problem", () => {

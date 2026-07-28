@@ -15,7 +15,18 @@
 | GitHub PAT token | github.com/settings/tokens → "repo" scope |
 | Firebase service account JSON | Firebase Console → Project Settings → Service accounts |
 | OTPIQ API key | otpiq.com dashboard |
+| **Google Maps API key (required)** | Google Cloud Console → APIs & Services → Credentials |
 | Your admin credentials | You choose username + password |
+
+> **Google Maps key is required in production.** The customer, vendor and driver apps
+> all depend on maps and readable addresses. Enable **all four** APIs on the key:
+> *Maps SDK for Android*, *Maps SDK for iOS* (apps) **and** *Geocoding API* + *Places API*
+> (server reverse-geocoding). Keep billing active. Do **not** restrict the key to
+> Android/iOS applications only, or the server's geocoding calls are rejected
+> (`REQUEST_DENIED`) and every location silently falls back to raw coordinates — use a
+> separate IP-restricted server key allowing the VPS if you want a restriction. The
+> server logs a boot-time error (and a per-request `[geocode]` error) if the key is
+> missing or rejected.
 
 ---
 

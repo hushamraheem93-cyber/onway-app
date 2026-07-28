@@ -32,84 +32,74 @@ export function cleanAddr(raw: string): string {
 /** An address is useful when it is non-empty and not a placeholder "unnamed road". */
 export function isUsefulAddress(addr: string): boolean {
   if (!addr) return false;
-  if (addr.includes("طريق بدون اسم") || addr.includes("Unnamed Road")) return false;
+  const a = addr.trim();
+  if (!a) return false;
+  if (a.includes("طريق بدون اسم") || a.includes("Unnamed Road")) return false;
   return true;
 }
 
+const ARABIC = /[؀-ۿ]/;
+
+/** The best nearby named place (a real POI/landmark, never an administrative name). */
+function pickPlaceName(placesRes: any): string | null {
+  if (placesRes?.status !== "OK" || !Array.isArray(placesRes.results)) return null;
+  for (const place of placesRes.results) {
+    const types: string[] = place.types || [];
+    // Administrative names ("الضلوعية", a governorate) are not user-friendly places.
+    if (types.includes("locality") || types.includes("political") || types.includes("administrative_area_level_2")) {
+      continue;
+    }
+    const name: string = place.name || "";
+    if (name.length > 1 && ARABIC.test(name) && isUsefulAddress(name)) return name;
+  }
+  return null;
+}
+
+/** First useful address-component `long_name` whose type is in `types`, across results. */
+function pickComponent(results: any[], types: string[]): string | null {
+  for (const result of results) {
+    for (const comp of result?.address_components || []) {
+      const ctypes: string[] = comp.types || [];
+      if (types.some((t) => ctypes.includes(t))) {
+        const name = comp.long_name || "";
+        if (isUsefulAddress(name)) return name;
+      }
+    }
+  }
+  return null;
+}
+
 /**
- * Choose the most user-friendly Arabic address from Google geocode + nearby-places
- * JSON. Prefers a named nearby place (e.g. "أسواق دزني"), then the narrowest useful
- * geocode level (neighborhood → route → locality), and combines them. Returns null
- * when nothing usable was found, so the caller can fall back deliberately.
- *
- * Behaviour is intentionally identical to the previous inline route logic.
+ * Choose the SHORTEST user-friendly Arabic address. Priority (highest first):
+ *   1. a nearby named place / landmark   (e.g. "أسواق دزني")
+ *   2. neighbourhood / حي                 (e.g. "حي العسكري")
+ *   3. street / route
+ *   4. city / قضاء (locality or admin_2)  (e.g. "قضاء الضلوعية")
+ *   5. governorate / محافظة (admin_1)     — last resort
+ * Long/technical strings ("Unnamed Road, Salah Al-Din Governorate, Iraq") and plus
+ * codes are never returned unless nothing else is available. Returns null when nothing
+ * usable was found, so the caller can fall back deliberately.
  */
 export function pickBestAddress(geocodeRes: any, placesRes: any): GeocodeResult | null {
-  let placeName = "";
-  if (placesRes?.status === "OK" && placesRes.results) {
-    const arabicRegex = /[؀-ۿ]/;
-    for (const place of placesRes.results) {
-      const types: string[] = place.types || [];
-      if (
-        types.includes("locality") ||
-        types.includes("political") ||
-        types.includes("administrative_area_level_2")
-      )
-        continue;
-      if (place.name && place.name.length > 1 && arabicRegex.test(place.name)) {
-        placeName = place.name;
-        break;
-      }
-    }
+  const placeName = pickPlaceName(placesRes);
+  const results =
+    geocodeRes?.status === "OK" && Array.isArray(geocodeRes.results) ? geocodeRes.results : [];
+
+  const neighborhood = pickComponent(results, ["neighborhood", "sublocality", "sublocality_level_1"]);
+  const route = pickComponent(results, ["route", "premise", "street_address"]);
+  const city = pickComponent(results, ["locality", "administrative_area_level_2"]);
+  const governorate = pickComponent(results, ["administrative_area_level_1"]);
+
+  const best = placeName || neighborhood || route || city || governorate || null;
+  if (best && isUsefulAddress(best)) {
+    return { address: best, placeName: placeName || null };
   }
 
-  let bestAddress = "";
-  if (geocodeRes?.status === "OK" && geocodeRes.results && geocodeRes.results.length > 0) {
-    const priorityTypes = [
-      ["neighborhood", "sublocality", "sublocality_level_1"],
-      ["route", "street_address", "premise"],
-      ["locality"],
-    ];
-
-    for (const typeGroup of priorityTypes) {
-      for (const result of geocodeRes.results) {
-        const types: string[] = result.types || [];
-        if (typeGroup.some((t) => types.includes(t))) {
-          const cleaned = cleanAddr(result.formatted_address || "");
-          if (isUsefulAddress(cleaned)) {
-            bestAddress = cleaned;
-            break;
-          }
-        }
-      }
-      if (bestAddress) break;
-    }
-
-    if (!bestAddress) {
-      for (const result of geocodeRes.results) {
-        const types: string[] = result.types || [];
-        if (
-          !types.includes("plus_code") &&
-          !types.includes("country") &&
-          !types.includes("administrative_area_level_1")
-        ) {
-          const cleaned = cleanAddr(result.formatted_address || "");
-          if (isUsefulAddress(cleaned)) {
-            bestAddress = cleaned;
-            break;
-          }
-        }
-      }
-    }
-
-    if (!bestAddress && geocodeRes.results.length > 0) {
-      bestAddress = cleanAddr(geocodeRes.results[0].formatted_address);
-    }
-  }
-
-  if (placeName || bestAddress) {
-    const finalAddress = placeName ? (bestAddress ? `${placeName}، ${bestAddress}` : placeName) : bestAddress;
-    return { address: finalAddress, placeName: placeName || null };
+  // Last resort only: a cleaned formatted_address, if it is itself useful (this is where
+  // an "Unnamed Road…" string would otherwise have come from — it is rejected above).
+  for (const result of results) {
+    const cleaned = cleanAddr(result?.formatted_address || "");
+    if (isUsefulAddress(cleaned)) return { address: cleaned, placeName: placeName || null };
   }
   return null;
 }
