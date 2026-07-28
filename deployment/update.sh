@@ -2,7 +2,8 @@
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # OnWay — Code Update Script
 # Run on the VPS after pushing new code to GitHub:
-#   bash /var/www/onway/deployment/update.sh
+#   bash <app-dir>/deployment/update.sh
+# (e.g. /var/www/onway-app/deployment/update.sh)
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 set -euo pipefail
 
@@ -11,7 +12,11 @@ info()    { echo -e "${BLUE}[INFO]${NC}  $*"; }
 success() { echo -e "${GREEN}[OK]${NC}    $*"; }
 err()     { echo -e "${RED}[ERROR]${NC} $*"; exit 1; }
 
-APP_DIR="/var/www/onway"
+# App directory. Derived from THIS script's own location (…/deployment/update.sh, so the
+# parent directory is the app root), which makes the script work no matter where the repo
+# was cloned. It was previously hardcoded to /var/www/onway and failed on installs that
+# live at /var/www/onway-app. An explicit ONWAY_APP_DIR still overrides when set.
+APP_DIR="${ONWAY_APP_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 [[ ! -d "$APP_DIR" ]] && err "App directory not found: ${APP_DIR}. Run server-setup.sh first."
 
 cd "$APP_DIR"
