@@ -898,6 +898,20 @@ describe("Driver documents must not be stored raw", () => {
   });
 });
 
+describe("Driver approval status must survive phone-format differences", () => {
+  test("getDriverByPhone matches across phone variants, not one exact string", () => {
+    const fn = functionBody(FIREBASE, "export async function getDriverByPhone");
+    assert.ok(fn.length > 0, "getDriverByPhone must exist");
+    // Production driver docs hold mixed formats (009647…, 07…). An exact-string match
+    // leaves an already-approved driver unfindable and frozen on "under review".
+    assert.match(
+      fn,
+      /phoneVariants\(/,
+      "getDriverByPhone must match across phone-format variants like getUserByPhone/getVendorByPhone",
+    );
+  });
+});
+
 describe("Seed data must not depend on the ephemeral uploads disk", () => {
   test("no seed constant points at /uploads", () => {
     const CATS = read("client/constants/categories.ts");
