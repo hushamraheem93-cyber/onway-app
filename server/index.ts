@@ -1065,6 +1065,16 @@ process.on("exit", (code) => {
     },
     () => {
       console.log(`[OnWay] Server listening on port ${port}`);
+      // Reverse geocoding degrades to raw "lat, lng" when this key is absent
+      // (/api/reverse-geocode returns coordinates). Surface it loudly at boot so a
+      // missing key on the VPS is diagnosed here instead of showing up as "location
+      // names turned into numbers" in the apps.
+      if (!process.env.GOOGLE_MAPS_API_KEY) {
+        console.warn(
+          "[OnWay] ⚠️  GOOGLE_MAPS_API_KEY is not set — reverse geocoding is DISABLED; " +
+            "every location will display raw coordinates. Set it in the VPS .env and reload.",
+        );
+      }
       startStaleOrderJob();
     },
   );

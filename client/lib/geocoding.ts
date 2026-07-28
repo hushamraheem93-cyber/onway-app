@@ -6,29 +6,51 @@ export interface GeocodeResult {
   placeName: string | null;
 }
 
+// A readable placeholder shown to normal users when no address can be resolved.
+// We never surface raw "lat, lng" to end users — that is the regression this closes.
+const FRIENDLY_PLACEHOLDER = "موقع محدَّد على الخريطة";
+
+// Debug gate: only a development build ever displays raw coordinates, and only for
+// debugging. In production the placeholder above is shown instead. Read via globalThis
+// so no ambient __DEV__ declaration is needed and it can never be undefined at runtime.
+const SHOW_RAW_COORDS = (globalThis as { __DEV__?: boolean }).__DEV__ === true;
+
+// "34.12345, 43.98765" — a coordinate string, not a real address. Used so the client
+// still behaves correctly against an OLD server build that returns coordinates without
+// the `resolved` flag (e.g. before this fix is deployed to the VPS).
+const COORD_RE = /^-?\d{1,3}\.\d+\s*,\s*-?\d{1,3}\.\d+$/;
+function looksLikeCoords(s?: string): boolean {
+  return !!s && COORD_RE.test(s.trim());
+}
+
 export async function reverseGeocodeArabic(lat: number, lng: number): Promise<string> {
   const result = await reverseGeocodeDetailed(lat, lng);
   return result.address;
 }
 
 export async function reverseGeocodeDetailed(lat: number, lng: number): Promise<GeocodeResult> {
+  const raw = `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+  const fallback = SHOW_RAW_COORDS ? raw : FRIENDLY_PLACEHOLDER;
   try {
     const apiUrl = getApiUrl();
     const url = new URL(`/api/reverse-geocode?lat=${lat}&lng=${lng}`, apiUrl).toString();
-    // requireCustomerAuth guards this route. Without the header the response is a
-    // 401 whose JSON has no `address`, so every caller silently fell back to raw
-    // coordinates — which is how this looked like "geocoding is just inaccurate".
+    // requireCustomerAuth guards this route. Without the header the response is a 401
+    // whose JSON has no address, so we fall back to the friendly placeholder (never
+    // raw coordinates for a normal user).
     const res = await fetch(url, { headers: await customerAuthHeaders() });
     const data = await res.json();
-    return {
-      address: data.address || `${lat.toFixed(5)}, ${lng.toFixed(5)}`,
-      placeName: data.placeName || null,
-    };
+    // The server sets resolved:false when it returns coordinates (missing key, Google
+    // error, quota). Treat a missing flag (old server) as resolved only when the
+    // address is not itself a coordinate string.
+    const resolved =
+      data.resolved === true ||
+      (data.resolved === undefined && !!data.address && !looksLikeCoords(data.address));
+    if (resolved && data.address) {
+      return { address: data.address, placeName: data.placeName || null };
+    }
+    return { address: fallback, placeName: null };
   } catch {
-    return {
-      address: `${lat.toFixed(5)}, ${lng.toFixed(5)}`,
-      placeName: null,
-    };
+    return { address: fallback, placeName: null };
   }
 }
 

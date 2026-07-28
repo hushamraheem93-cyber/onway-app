@@ -47,6 +47,25 @@ import {
   deleteFromFirebaseStorage,
   uploadPrivateToFirebaseStorage, getSignedDriverDocUrl
 } from "./firebase";
+import { pickBestAddress, geocodeDiagnostics } from "./geocode";
+
+// Reverse-geocode result cache. Google charges per request and enforces a quota, and
+// the same coordinates are looked up repeatedly (a saved address, a store pin). Keyed
+// by coordinates rounded to ~11 m; entries expire after 24 h. Bounded so it can never
+// grow without limit. This is a cost/latency optimisation only — a miss just calls Google.
+const GEOCODE_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
+const GEOCODE_CACHE_MAX = 5000;
+const geocodeCache = new Map<string, { value: { address: string; placeName?: string | null; resolved: boolean }; expires: number }>();
+
+/** fetch JSON with a hard timeout so a slow Google call can never hang the request. */
+async function fetchJsonWithTimeout(url: string, timeoutMs: number): Promise<any | null> {
+  try {
+    const res = await fetch(url, { signal: AbortSignal.timeout(timeoutMs) });
+    return await res.json();
+  } catch {
+    return null;
+  }
+}
 import {
   recordOrderSettlement, createSettlementRequest, getAccountSettlementView,
   getSettlementHistory, listSettlementRequests, completeSettlement,
@@ -5638,103 +5657,65 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/reverse-geocode", requireCustomerAuth, async (req: Request, res: Response) => {
     const lat = parseFloat(req.query.lat as string);
     const lng = parseFloat(req.query.lng as string);
+    if (isNaN(lat) || isNaN(lng)) {
+      return res.status(400).json({ error: "Invalid coordinates" });
+    }
+    // The raw-coordinate string is the last-resort fallback the client turns into a
+    // friendly label; it is never the intended answer when Google can be reached.
+    const coordFallback = `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+
+    const googleApiKey = process.env.GOOGLE_MAPS_API_KEY;
+    if (!googleApiKey) {
+      // Loud, key-free log so a missing production key is diagnosed from the request
+      // path too (not only at boot) — the silent failure behind "addresses turned
+      // into coordinates".
+      console.warn(`[geocode] GOOGLE_MAPS_API_KEY not set — returning coordinates for ${coordFallback}`);
+      return res.json({ address: coordFallback });
+    }
+
+    // Cache lookup (coordinates rounded to ~11 m).
+    const cacheKey = `${lat.toFixed(4)},${lng.toFixed(4)}`;
+    const hit = geocodeCache.get(cacheKey);
+    if (hit && hit.expires > Date.now()) {
+      return res.json(hit.value);
+    }
+
     try {
-      if (isNaN(lat) || isNaN(lng)) {
-        return res.status(400).json({ error: "Invalid coordinates" });
-      }
-
-      const googleApiKey = process.env.GOOGLE_MAPS_API_KEY;
-      if (!googleApiKey) {
-        return res.json({ address: `${lat.toFixed(5)}, ${lng.toFixed(5)}` });
-      }
-
-      function cleanAddr(raw: string): string {
-        return raw
-          .replace(/،\s*العراق\s*$/g, "")
-          .replace(/,\s*العراق\s*$/g, "")
-          .replace(/\b\w{2,6}\+\w+[،,]?\s*/g, "")
-          .replace(/^\s*[،,]\s*/, "")
-          .trim();
-      }
-
-      function isUseful(addr: string): boolean {
-        if (!addr) return false;
-        if (addr.includes("طريق بدون اسم") || addr.includes("Unnamed Road")) return false;
-        return true;
-      }
-
       const geocodeUrl = `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&language=ar&key=${googleApiKey}`;
       const placesUrl = `https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=${lat},${lng}&radius=100&language=ar&key=${googleApiKey}`;
 
+      // 5 s hard timeout each; a slow/unreachable Google returns null, not a hang.
       const [geocodeRes, placesRes] = await Promise.all([
-        fetch(geocodeUrl).then(r => r.json()).catch(() => null),
-        fetch(placesUrl).then(r => r.json()).catch(() => null),
+        fetchJsonWithTimeout(geocodeUrl, 5000),
+        fetchJsonWithTimeout(placesUrl, 5000),
       ]);
 
-      let placeName = "";
-      if (placesRes?.status === "OK" && placesRes.results) {
-        const arabicRegex = /[\u0600-\u06FF]/;
-        for (const place of placesRes.results) {
-          const types: string[] = place.types || [];
-          if (types.includes("locality") || types.includes("political") || types.includes("administrative_area_level_2")) continue;
-          if (place.name && place.name.length > 1 && arabicRegex.test(place.name)) {
-            placeName = place.name;
-            break;
-          }
-        }
+      const picked = pickBestAddress(geocodeRes, placesRes);
+      if (picked) {
+        const result = { ...picked, resolved: true };
+        if (geocodeCache.size >= GEOCODE_CACHE_MAX) geocodeCache.clear(); // simple bound
+        geocodeCache.set(cacheKey, { value: result, expires: Date.now() + GEOCODE_CACHE_TTL_MS });
+        return res.json(result);
       }
 
-      let bestAddress = "";
-      if (geocodeRes?.status === "OK" && geocodeRes.results && geocodeRes.results.length > 0) {
-        const priorityTypes = [
-          ["neighborhood", "sublocality", "sublocality_level_1"],
-          ["route", "street_address", "premise"],
-          ["locality"],
-        ];
-
-        for (const typeGroup of priorityTypes) {
-          for (const result of geocodeRes.results) {
-            const types: string[] = result.types || [];
-            if (typeGroup.some(t => types.includes(t))) {
-              const cleaned = cleanAddr(result.formatted_address || "");
-              if (isUseful(cleaned)) {
-                bestAddress = cleaned;
-                break;
-              }
-            }
-          }
-          if (bestAddress) break;
-        }
-
-        if (!bestAddress) {
-          for (const result of geocodeRes.results) {
-            const types: string[] = result.types || [];
-            if (!types.includes("plus_code") && !types.includes("country") && !types.includes("administrative_area_level_1")) {
-              const cleaned = cleanAddr(result.formatted_address || "");
-              if (isUseful(cleaned)) {
-                bestAddress = cleaned;
-                break;
-              }
-            }
-          }
-        }
-
-        if (!bestAddress && geocodeRes.results.length > 0) {
-          bestAddress = cleanAddr(geocodeRes.results[0].formatted_address);
-        }
+      // Nothing usable — log WHY (never the URL/key), classifying key/quota problems so
+      // "key set but wrong/blocked/over quota" is distinguishable from "no result".
+      const diag = geocodeDiagnostics(geocodeRes, placesRes);
+      if (diag.keyProblem) {
+        console.error(
+          `[geocode] Google rejected the request for ${coordFallback} — ` +
+            `geocode=${diag.geocodeStatus} places=${diag.placesStatus} error="${diag.googleError ?? ""}". ` +
+            `Check GOOGLE_MAPS_API_KEY: Geocoding API enabled, billing active, no IP restriction blocking the server.`,
+        );
+      } else {
+        console.warn(
+          `[geocode] no usable address for ${coordFallback} — geocode=${diag.geocodeStatus} places=${diag.placesStatus}`,
+        );
       }
-
-      if (placeName || bestAddress) {
-        const finalAddress = placeName
-          ? (bestAddress ? `${placeName}، ${bestAddress}` : placeName)
-          : bestAddress;
-        return res.json({ address: finalAddress, placeName: placeName || null });
-      }
-
-      res.json({ address: `${lat.toFixed(5)}, ${lng.toFixed(5)}` });
+      res.json({ address: coordFallback, resolved: false });
     } catch (error: any) {
-      console.error("Geocode error:", error.message);
-      res.json({ address: `${lat.toFixed(5)}, ${lng.toFixed(5)}` });
+      console.error(`[geocode] request failed for ${coordFallback}: ${error?.message}`);
+      res.json({ address: coordFallback, resolved: false });
     }
   });
 
