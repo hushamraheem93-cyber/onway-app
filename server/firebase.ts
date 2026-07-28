@@ -969,10 +969,22 @@ export async function getDrivers(): Promise<(FirestoreDriver & { id: string })[]
 export async function getDriverByPhone(phoneNumber: string): Promise<(FirestoreDriver & { id: string }) | null> {
   if (!db) return null;
   try {
-    const snapshot = await db.collection("drivers").where("phoneNumber", "==", phoneNumber).limit(1).get();
-    if (snapshot.empty) return null;
-    const doc = snapshot.docs[0];
-    return { id: doc.id, ...doc.data() as FirestoreDriver };
+    // Match across every Iraqi phone-format variant (009647…, 9647…, 07…, 7…), exactly
+    // like getUserByPhone / getVendorByPhone. This was the ONE driver lookup still doing
+    // a single exact-string match, so a driver whose stored doc used one format (real
+    // production data holds both "009647702891104" and "07837527840") could not be found
+    // when the login/token carried a different format: /api/driver/status then read the
+    // null driver as `driver?.status || "pending"` and an ALREADY-APPROVED driver stayed
+    // frozen on "قيد المراجعة". Variant-matching fixes login, the status poll and every
+    // other caller consistently.
+    for (const phone of phoneVariants(phoneNumber)) {
+      const snapshot = await db.collection("drivers").where("phoneNumber", "==", phone).limit(1).get();
+      if (!snapshot.empty) {
+        const doc = snapshot.docs[0];
+        return { id: doc.id, ...doc.data() as FirestoreDriver };
+      }
+    }
+    return null;
   } catch (error) {
     console.error("Error getting driver:", error);
     return null;
