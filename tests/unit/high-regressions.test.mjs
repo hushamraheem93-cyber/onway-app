@@ -77,8 +77,9 @@ describe("H1 — guarded customer endpoints must be called with the JWT", () => 
   // Every one of these is behind requireCustomerAuth (or an inline JWT check) on the
   // server. A call site that forgets the header gets a 401 that the surrounding
   // `catch {}` swallows, so the feature is silently and completely dead — which is
-  // exactly how support chat, the 3-minute cancel window and address resolution
-  // ended up broken with nothing in the logs.
+  // exactly how support chat and the 3-minute cancel window ended up broken with
+  // nothing in the logs. (/api/reverse-geocode was in this list too, but it is now an
+  // intentionally PUBLIC Google Maps proxy — see its dedicated test below.)
   const callSites = [
     [
       "client/screens/SupportChatScreen.tsx",
@@ -90,7 +91,6 @@ describe("H1 — guarded customer endpoints must be called with the JWT", () => 
       "/cancel",
       "3-minute order cancel",
     ],
-    ["client/lib/geocoding.ts", "/api/reverse-geocode", "address resolution"],
   ];
 
   for (const [file, endpoint, label] of callSites) {
@@ -110,20 +110,34 @@ describe("H1 — guarded customer endpoints must be called with the JWT", () => 
     });
   }
 
-  test("reverse-geocode reads the token from storage (it is not a component)", () => {
-    const src = read("client/lib/geocoding.ts");
+  test("reverse-geocode is a PUBLIC proxy (no auth) but must stay rate-limited", () => {
+    // Contract change: /api/reverse-geocode used to require a customer JWT, but it is
+    // only a read-only Google Maps proxy that exposes no user data, and the guard
+    // produced a 100% 401 rate — LocationBar geocodes before login, the vendor app
+    // carries a vendor (not customer) token, and the map opens before OTP finishes.
+    // It is now open to any caller. So the client must NOT attach an auth header and
+    // the server must NOT guard it...
+    const client = read("client/lib/geocoding.ts");
+    assert.doesNotMatch(
+      client,
+      /customerAuthHeaders|Authorization/,
+      "reverse-geocode is public now — the client must not send an auth header",
+    );
     assert.match(
-      src,
-      /customerAuthHeaders\(\)/,
-      "plain modules must use the shared header helper",
+      ROUTES,
+      /app\.get\("\/api\/reverse-geocode",\s*async/,
+      "reverse-geocode must be an open handler (no requireCustomerAuth)",
+    );
+    // ...but because it proxies a BILLABLE Google key, it MUST stay rate-limited so a
+    // public endpoint cannot be abused to run up cost.
+    assert.match(
+      INDEX,
+      /"\/api\/reverse-geocode":\s*\d+/,
+      "REGRESSION: the public reverse-geocode proxy lost its rate limit (cost abuse)",
     );
   });
 
-  test("the server still guards those endpoints (the other half of the contract)", () => {
-    assert.match(
-      ROUTES,
-      /app\.get\("\/api\/reverse-geocode",\s*requireCustomerAuth/,
-    );
+  test("the server still guards the endpoints that DO expose user data", () => {
     assert.match(
       ROUTES,
       /app\.get\("\/api\/support\/messages",\s*requireCustomerAuth/,
