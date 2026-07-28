@@ -1065,6 +1065,24 @@ process.on("exit", (code) => {
     },
     () => {
       console.log(`[OnWay] Server listening on port ${port}`);
+      // GOOGLE_MAPS_API_KEY is REQUIRED in production: the customer, vendor and driver
+      // apps all depend on maps/addresses, and without it /api/reverse-geocode returns
+      // raw "lat, lng" (the apps then show a placeholder, never a real address). We do
+      // not hard-exit — that would take auth, orders and everything else down for a
+      // geocoding key — but in production this is an ERROR, not a soft warning, so it is
+      // impossible to miss in the logs. See deployment/README.md.
+      if (!process.env.GOOGLE_MAPS_API_KEY) {
+        const msg =
+          "GOOGLE_MAPS_API_KEY is not set — reverse geocoding is DISABLED and every " +
+          "location will show a placeholder instead of an address. Set it in the VPS " +
+          ".env (Geocoding API + Places API enabled, billing active, no IP restriction " +
+          "blocking the server) and reload. See deployment/README.md.";
+        if (process.env.NODE_ENV === "production") {
+          console.error(`[OnWay] ✗ REQUIRED CONFIG MISSING — ${msg}`);
+        } else {
+          console.warn(`[OnWay] ⚠️  ${msg}`);
+        }
+      }
       startStaleOrderJob();
     },
   );
