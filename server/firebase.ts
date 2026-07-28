@@ -2652,10 +2652,22 @@ export async function deleteFromFirebaseStorage(url: string): Promise<void> {
   try {
     const urlObj = new URL(url);
     // pathname: /v0/b/{bucket}/o/{encodedPath}
-    const match = urlObj.pathname.match(/\/v0\/b\/[^/]+\/o\/(.+)/);
+    // H2 FIX: capture the {bucket} segment too. It was previously matched with a
+    // non-capturing `[^/]+` and the delete always ran against the DEFAULT bucket. Any
+    // object living in the legacy `onway-media-onway74c20` bucket (which holds the
+    // existing product images) was therefore never actually deleted — the call hit a
+    // 404 on the default bucket and was silently swallowed, leaking orphaned objects.
+    // We now delete from the bucket named in the URL, falling back to the default
+    // bucket only when the URL somehow carries no bucket segment (defensive; every
+    // real download URL includes one). Behaviour for default-bucket URLs is unchanged.
+    const match = urlObj.pathname.match(/\/v0\/b\/([^/]+)\/o\/(.+)/);
     if (!match) return;
-    const storagePath = decodeURIComponent(match[1]);
-    await admin.storage().bucket().file(storagePath).delete();
+    const bucketName = decodeURIComponent(match[1]);
+    const storagePath = decodeURIComponent(match[2]);
+    const bucket = bucketName
+      ? admin.storage().bucket(bucketName)
+      : admin.storage().bucket();
+    await bucket.file(storagePath).delete();
   } catch (err: any) {
     // 404 means already deleted — any other error just gets logged
     if (err?.code !== 404 && err?.code !== "storage/object-not-found") {

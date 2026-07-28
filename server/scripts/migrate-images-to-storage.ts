@@ -18,11 +18,24 @@
  *
  * WHAT IT DOES, PER FIELD
  * ───────────────────────
- *   already a Storage URL  → skip
+ *   Storage URL in the DEFAULT bucket      → skip (already migrated)
+ *   Storage URL in a NON-default bucket    → download via its token URL, re-host in the
+ *                                            default bucket, rewrite  (H1 FIX — see below)
  *   Base64 data URI        → decode, re-encode webp via sharp, upload, rewrite
  *   /uploads/… + file on disk (or in assets/seed/) → upload, rewrite
  *   /uploads/… + no file   → ORPHAN: reported, left untouched, never blanked
  *   anything else (http…)  → left as-is (Unsplash/CDN library images are legitimate)
+ *
+ * H1 FIX
+ * ──────
+ * Previously ANY `https://firebasestorage.googleapis.com/…` URL was treated as "already
+ * migrated" and skipped, regardless of which bucket it pointed at. The existing product
+ * images live in the legacy, manually-created bucket `onway-media-onway74c20`, so they
+ * were skipped forever and the old bucket stayed a permanent runtime dependency (deleting
+ * it would 404 every one of those images). We now compare the URL's bucket to the current
+ * default bucket: a URL in a different bucket is downloaded and re-hosted in the default
+ * bucket. Idempotency is preserved — once re-hosted the URL points at the default bucket,
+ * so a re-run classifies it as "skip".
  *
  * SAFETY
  * ──────
@@ -84,11 +97,35 @@ const TARGETS: {
 
 const STORAGE_PREFIX = "https://firebasestorage.googleapis.com/";
 
-type Kind = "storage" | "base64" | "uploads" | "external" | "empty";
+// The current default Storage bucket, resolved once in main() after Firebase init.
+// kindOf() compares each Storage URL's bucket against this to decide whether the object
+// still needs re-hosting (H1). Left empty until main() sets it; while empty, kindOf()
+// conservatively treats every Storage URL as already-migrated so it can never mis-classify.
+let defaultBucket = "";
+
+/**
+ * Extract the bucket name from a Firebase Storage download URL of the form
+ *   https://firebasestorage.googleapis.com/v0/b/{bucket}/o/{encodedPath}?alt=media&token=…
+ * Returns null when the URL does not match that shape.
+ */
+function bucketOfStorageUrl(url: string): string | null {
+  const m = url.match(/\/v0\/b\/([^/]+)\/o\//);
+  return m ? decodeURIComponent(m[1]) : null;
+}
+
+// "oldbucket" = a Storage URL that points at a bucket other than the current default one.
+type Kind = "storage" | "oldbucket" | "base64" | "uploads" | "external" | "empty";
 
 function kindOf(v: unknown): Kind {
   if (typeof v !== "string" || v === "") return "empty";
-  if (v.startsWith(STORAGE_PREFIX)) return "storage";
+  if (v.startsWith(STORAGE_PREFIX)) {
+    // H1 FIX: a Storage URL is only "done" when it points at the CURRENT default bucket.
+    // A URL in any other bucket (e.g. the legacy onway-media-onway74c20) must be
+    // re-hosted, so classify it as "oldbucket" rather than skipping it as "storage".
+    const b = bucketOfStorageUrl(v);
+    if (b && defaultBucket && b !== defaultBucket) return "oldbucket";
+    return "storage";
+  }
   if (v.startsWith("data:image")) return "base64";
   if (v.includes("/uploads/")) return "uploads";
   return "external";
@@ -158,6 +195,15 @@ async function migrateValue(
     const local = resolveLocal(value);
     if (!local) return null; // orphan — the file is simply gone
     buf = fs.readFileSync(local);
+  } else if (kind === "oldbucket") {
+    // H1 FIX: fetch the bytes from the legacy-bucket download URL. The `token` embedded
+    // in the URL authorizes the read without needing bucket credentials, so a plain GET
+    // works. The bytes are then content-hashed and re-hosted in the default bucket by the
+    // shared upload path below — exactly like a base64/uploads source. A URL that no
+    // longer resolves (object deleted) is treated as an orphan and left untouched.
+    const res = await fetch(value);
+    if (!res.ok) return null; // old object is gone → orphan; caller keeps the original ref
+    buf = Buffer.from(await res.arrayBuffer());
   } else {
     return null;
   }
@@ -353,6 +399,11 @@ async function main() {
     );
     process.exit(1);
   }
+
+  // H1 FIX: record the resolved default bucket so kindOf() can tell "already in the
+  // default bucket" (skip) apart from "in a legacy bucket" (re-host). Must be set before
+  // any migrateCollection() call runs.
+  defaultBucket = admin.storage().bucket().name;
 
   console.log(
     `\nOnWay image migration — ${DRY ? "DRY RUN (nothing will be written)" : "APPLYING CHANGES"}`,
