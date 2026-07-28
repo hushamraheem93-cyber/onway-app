@@ -2675,3 +2675,65 @@ export async function deleteFromFirebaseStorage(url: string): Promise<void> {
     }
   }
 }
+
+// ── Private documents (driver IDs) — H3 ───────────────────────────────────────
+//
+// Identity documents (national ID, residence card, licence) must NOT be exposed via
+// the permanent, non-revocable download-token URLs that uploadToFirebaseStorage()
+// mints. Instead they are stored as PRIVATE objects (no download token) and Firestore
+// keeps only the bare object PATH. The admin API resolves that path to a short-lived
+// V4 signed URL at read time (getSignedDriverDocUrl), so access always expires and can
+// be cut off by rotating/deleting the object — the right posture for government IDs.
+
+/**
+ * Upload a buffer as a PRIVATE object (no firebaseStorageDownloadTokens metadata) and
+ * return the bare object path (e.g. "driver-documents/<phone>/national-id-<ts>.webp").
+ * The object is unreachable without a signed URL, so the path is safe to store in
+ * Firestore. Contrast with uploadToFirebaseStorage(), which returns a permanent public
+ * token URL and is correct for ordinary product/profile images.
+ */
+export async function uploadPrivateToFirebaseStorage(
+  buffer: Buffer,
+  storagePath: string,
+  contentType: string = "image/webp",
+): Promise<string> {
+  const file = admin.storage().bucket().file(storagePath);
+  await file.save(buffer, {
+    metadata: {
+      contentType,
+      cacheControl: "private, max-age=0, no-store",
+      // Deliberately NO firebaseStorageDownloadTokens — this object must stay private.
+    },
+    resumable: false,
+  });
+  return storagePath;
+}
+
+/**
+ * Resolve a stored driver-document reference to a URL the admin client can render.
+ *   • bare object path  → a fresh short-lived V4 signed URL (default 15 min)
+ *   • data: / http(s)   → returned unchanged (legacy base64 blobs and pre-H3 token
+ *                          URLs still work, so nothing breaks before migration)
+ *   • empty / undefined → returned unchanged
+ * Signing uses the service-account private key locally (no extra IAM permission or
+ * network round-trip). On failure the original value is returned rather than throwing,
+ * so one bad object never breaks the whole admin driver list.
+ */
+export async function getSignedDriverDocUrl(
+  value: string | undefined,
+  expiresMs: number = 15 * 60 * 1000,
+): Promise<string | undefined> {
+  if (!value) return value;
+  if (value.startsWith("data:") || value.startsWith("http")) return value;
+  try {
+    const [url] = await admin
+      .storage()
+      .bucket()
+      .file(value)
+      .getSignedUrl({ version: "v4", action: "read", expires: Date.now() + expiresMs });
+    return url;
+  } catch (err: any) {
+    console.warn("[Storage] getSignedDriverDocUrl failed for:", value, err?.message);
+    return value;
+  }
+}

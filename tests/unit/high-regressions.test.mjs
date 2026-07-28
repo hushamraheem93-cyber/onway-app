@@ -866,10 +866,20 @@ describe("Driver documents must not be stored raw", () => {
     const fn = functionBody(ROUTES, "async function storeDriverDocument");
     assert.ok(fn.length > 0, "storeDriverDocument must exist");
     assert.match(fn, /sharp\(/, "documents must be compressed");
+    // H3: government IDs must go to Storage as a PRIVATE object (no permanent download
+    // token). uploadPrivateToFirebaseStorage returns a bare object path that the admin
+    // API later resolves to a short-lived signed URL.
     assert.match(
       fn,
-      /uploadToFirebaseStorage\(/,
-      "documents must go to Storage",
+      /uploadPrivateToFirebaseStorage\(/,
+      "documents must go to PRIVATE Storage (H3)",
+    );
+    // And must NOT fall back to the public token-URL upload, which would recreate the
+    // unrevocable-link exposure H3 exists to close.
+    assert.doesNotMatch(
+      fn,
+      /[^a-zA-Z]uploadToFirebaseStorage\(/,
+      "REGRESSION: identity documents use the public token-URL upload (H3)",
     );
   });
 

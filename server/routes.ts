@@ -44,7 +44,8 @@ import {
   claimBatchForDriver, cancelBatchIfPending,
   saveAdminPushToken, getAdminPushToken,
   addDriverToActiveQueue, removeDriverFromActiveQueue, updateDriverQueueEntry, getActiveDriverQueue,
-  deleteFromFirebaseStorage
+  deleteFromFirebaseStorage,
+  uploadPrivateToFirebaseStorage, getSignedDriverDocUrl
 } from "./firebase";
 import {
   recordOrderSettlement, createSettlementRequest, getAccountSettlementView,
@@ -398,10 +399,11 @@ async function batchBelongsToDriver(batchId: string, driverPhone: string): Promi
  * Documents are resized to 1400px on the long edge — enough for an admin to read a
  * national ID, far below the multi-megabyte original — and stored as webp.
  *
- * NOTE ON ACCESS: the returned URL carries a permanent, unguessable download token
- * and the bucket itself is default-deny (storage.rules), so the object cannot be
- * enumerated. The token cannot be revoked without deleting the object, which is
- * worth knowing for identity documents specifically.
+ * NOTE ON ACCESS (H3): identity documents are stored as PRIVATE objects (no permanent
+ * download token) and only the bare object PATH is returned/persisted — never a public
+ * URL. The admin API turns that path into a short-lived V4 signed URL at read time
+ * (getSignedDriverDocUrl), so access to a government ID always expires and can be cut
+ * off by rotating/deleting the object, instead of living behind an unrevocable token.
  */
 async function storeDriverDocument(
   value: string,
@@ -409,7 +411,9 @@ async function storeDriverDocument(
   kind: "national-id" | "residence-card" | "license",
 ): Promise<string> {
   if (typeof value !== "string" || !value) throw new Error(`${kind}: empty document`);
-  // Already migrated / already a URL — nothing to do.
+  // Already stored — nothing to do. A bare "driver-documents/…" path is the new private
+  // format; a firebasestorage token URL is a pre-H3 record left as-is for compatibility.
+  if (value.startsWith("driver-documents/")) return value;
   if (value.startsWith("https://firebasestorage.googleapis.com/")) return value;
 
   const m = value.match(/^data:(image\/[a-z0-9.+-]+);base64,(.+)$/i);
@@ -421,7 +425,8 @@ async function storeDriverDocument(
     .webp({ quality: 82 })
     .toBuffer();
 
-  return await uploadToFirebaseStorage(
+  // Private upload → returns the bare object path (NOT a public token URL). H3.
+  return await uploadPrivateToFirebaseStorage(
     webp,
     `driver-documents/${encodeURIComponent(phoneNumber)}/${kind}-${Date.now()}.webp`,
     "image/webp",
@@ -3221,11 +3226,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/admin/drivers", async (_req: Request, res: Response) => {
     try {
       const drivers = await getDrivers();
-      const formatted = drivers.map(d => ({
+      // H3: identity documents are stored as private object paths. Resolve each to a
+      // short-lived signed URL so the admin client can render it; legacy base64/token
+      // values pass through unchanged. Done here (behind requireAdminAuth) only.
+      const formatted = await Promise.all(drivers.map(async d => ({
         ...d,
+        nationalIdImage: await getSignedDriverDocUrl((d as any).nationalIdImage),
+        residenceCardImage: await getSignedDriverDocUrl((d as any).residenceCardImage),
+        driverLicenseImage: await getSignedDriverDocUrl((d as any).driverLicenseImage),
         createdAt: d.createdAt?.toDate?.() ? d.createdAt.toDate().toISOString() : d.createdAt,
         updatedAt: d.updatedAt?.toDate?.() ? d.updatedAt.toDate().toISOString() : d.updatedAt,
-      }));
+      })));
       res.json(formatted);
     } catch (error) {
       console.error("Error fetching drivers:", error);
