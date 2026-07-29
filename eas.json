@@ -4,7 +4,7 @@
       "developmentClient": true,
       "distribution": "internal",
       "env": {
-        "EXPO_PUBLIC_API_BASE_URL": "https://api.onway.iq"
+        "EXPO_PUBLIC_API_BASE_URL": "https://onwayiq.com"
       }
     },
     "preview": {
@@ -13,12 +13,12 @@
         "buildType": "apk"
       },
       "env": {
-        "EXPO_PUBLIC_API_BASE_URL": "https://api.onway.iq"
+        "EXPO_PUBLIC_API_BASE_URL": "https://onwayiq.com"
       }
     },
     "production": {
       "env": {
-        "EXPO_PUBLIC_API_BASE_URL": "https://api.onway.iq"
+        "EXPO_PUBLIC_API_BASE_URL": "https://onwayiq.com"
       }
     }
   }

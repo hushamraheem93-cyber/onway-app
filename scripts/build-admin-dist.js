@@ -22,7 +22,7 @@ const configJs = `/**
  * ─────────────────────────────
  * Set BACKEND_URL to the full URL of your Replit (or any) backend.
  * Example:  https://onway-backend.husham.repl.co
- *           https://api.onway.iq
+ *           https://onwayiq.com
  *
  * DO NOT add a trailing slash.
  * This file must be uploaded alongside index.html and login.html.
