@@ -21,6 +21,21 @@ function normaliseBase(raw: string): string {
   return withProto.replace(/\/$/, "");
 }
 
+let __apiUrlLogged = false;
+function __logApiUrlOnce(resolved: string): string {
+  if (!__apiUrlLogged) {
+    __apiUrlLogged = true;
+    // eslint-disable-next-line no-console
+    console.log(
+      "🌐 [OnWay] getApiUrl →", resolved,
+      "| EXPO_PUBLIC_API_BASE_URL=", process.env.EXPO_PUBLIC_API_BASE_URL,
+      "| EXPO_PUBLIC_DOMAIN=", process.env.EXPO_PUBLIC_DOMAIN,
+      "| Platform=", Platform.OS,
+    );
+  }
+  return resolved;
+}
+
 export function getApiUrl(): string {
   // EXPO_PUBLIC_* vars are baked in at Expo build time (native) or read from
   // the process env at runtime (web/SSR). Both paths use the same priority.
@@ -29,11 +44,11 @@ export function getApiUrl(): string {
 
   // ── Web ──────────────────────────────────────────────────────────────────
   if (Platform.OS === "web" && typeof window !== "undefined") {
-    if (configured) return normaliseBase(configured);
+    if (configured) return __logApiUrlOnce(normaliseBase(configured));
     // Dev fallback: Expo dev server (port 8081) → Express backend (port 5000).
     const origin = window.location.origin;
-    if (origin.includes(":808")) return origin.replace(/:808\d/, ":5000");
-    return origin;
+    if (origin.includes(":808")) return __logApiUrlOnce(origin.replace(/:808\d/, ":5000"));
+    return __logApiUrlOnce(origin);
   }
 
   // ── Native (iOS / Android) ───────────────────────────────────────────────
@@ -45,7 +60,7 @@ export function getApiUrl(): string {
     );
   }
 
-  return normaliseBase(configured);
+  return __logApiUrlOnce(normaliseBase(configured));
 }
 
 async function throwIfResNotOk(res: Response) {
