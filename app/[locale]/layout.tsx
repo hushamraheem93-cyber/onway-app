@@ -5,6 +5,7 @@ import { getDictionary } from "@/lib/dictionaries";
 import { siteConfig, locales, isLocale, dir, type Locale } from "@/lib/config";
 import { getCmsContent } from "@/lib/cms";
 import { JsonLd } from "@/components/JsonLd";
+import { Analytics } from "@/components/Analytics";
 
 export function generateStaticParams() {
   return locales.map((locale) => ({ locale }));
@@ -98,6 +99,7 @@ export default function LocaleLayout({
         />
         <JsonLd locale={locale} />
         {children}
+        <Analytics />
       </body>
     </html>
   );
