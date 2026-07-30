@@ -37,8 +37,9 @@ import { compressAndConvertToBase64, processAndUploadImage, isBase64Image, Image
 import { useSystemSettings } from "@/context/SystemSettingsContext";
 import { playRepeatingAlert } from "@/lib/alertSound";
 import { WebsiteCmsTab } from "@/screens/WebsiteCmsTab";
+import { AdminFinanceTab } from "@/screens/AdminFinanceTab";
 
-type TabType = "dashboard" | "orders" | "drivers" | "users" | "banners" | "categories" | "products" | "areas" | "promoCodes" | "notifications" | "vendors" | "settlements" | "settings" | "storage" | "websiteCms";
+type TabType = "dashboard" | "orders" | "drivers" | "users" | "banners" | "categories" | "products" | "areas" | "promoCodes" | "notifications" | "vendors" | "settlements" | "finance" | "settings" | "storage" | "websiteCms";
 
 interface AdminUser {
   id: string;
@@ -3739,6 +3740,7 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
       case "vendors": return renderVendorsTab();
       case "settings": return renderSettingsTab();
       case "storage": return renderStorageTab();
+      case "finance": return <AdminFinanceTab />;
       case "websiteCms": return <WebsiteCmsTab />;
     }
   };
@@ -3758,6 +3760,7 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
     { key: "notifications", label: "الإشعارات", icon: "bell" },
     { key: "vendors", label: "المتاجر", icon: "briefcase", badge: vendorPartners.filter((v) => v.status === "pending").length },
     { key: "settlements", label: "التسويات", icon: "dollar-sign", badge: settlementRequests.length },
+    { key: "finance", label: "التقارير", icon: "bar-chart-2" },
     { key: "settings", label: "الإعدادات", icon: "settings" },
     { key: "storage", label: "التخزين", icon: "hard-drive" },
     { key: "websiteCms", label: "الموقع", icon: "globe" },

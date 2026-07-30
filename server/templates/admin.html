@@ -1550,6 +1550,9 @@
         <div class="nav-item" onclick="showSection('reports', this)">
           <i data-lucide="file-text"></i><span>التقارير</span>
         </div>
+        <div class="nav-item" onclick="showSection('opsLive', this)">
+          <i data-lucide="activity"></i><span>التشغيل المباشر</span>
+        </div>
         <div class="nav-item" onclick="showSection('delivery', this)">
           <i data-lucide="map-pin"></i><span>التوصيل والمناطق</span>
         </div>
@@ -3432,6 +3435,40 @@
       </div>
     </div>
 
+    <!-- ══════════════════════ LIVE OPERATIONS ══════════════════════ -->
+    <div id="opsLive-section" class="section">
+      <header class="header">
+        <div class="header-title">
+          <i data-lucide="activity" style="color:var(--primary);width:24px;height:24px;"></i>
+          <div><h2>التشغيل المباشر</h2><p>حالة النظام لحظياً + سجلّ حركات التسوية</p></div>
+        </div>
+        <button class="btn btn-outline" onclick="doRefresh(this, loadOpsLive, 'التشغيل')">
+          <i data-lucide="refresh-cw"></i> تحديث
+        </button>
+      </header>
+      <div style="padding:20px;">
+        <h3 style="margin:0 0 10px;font-size:1rem;">الحالة التشغيلية</h3>
+        <div id="ops-live-stats" class="stats-grid" style="margin-bottom:24px;"><div class="loading"><div class="spinner"></div></div></div>
+
+        <h3 style="margin:0 0 10px;font-size:1rem;">إحصائيات موسّعة</h3>
+        <div id="ops-dashboard-stats" class="stats-grid" style="margin-bottom:24px;"></div>
+
+        <h3 style="margin:0 0 10px;font-size:1rem;">سجلّ حركات التسوية</h3>
+        <div style="display:flex;gap:8px;margin-bottom:12px;">
+          <select id="wallet-tx-type" onchange="loadWalletTransactions()" class="form-control" style="width:150px;font-size:0.85rem;">
+            <option value="driver">السائقون</option>
+            <option value="vendor">المتاجر</option>
+          </select>
+        </div>
+        <div class="table-container">
+          <table>
+            <thead><tr><th>الحساب</th><th>الطلب</th><th>المبلغ</th><th>العمولة</th><th>الحالة</th><th>التاريخ</th></tr></thead>
+            <tbody id="wallet-tx-body"><tr><td colspan="6" style="text-align:center;padding:20px;">—</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
     <!-- ══════════════════════ ZONE MANAGEMENT ══════════════════════ -->
     <div id="zoneManagement-section" class="section">
       <header class="header">
@@ -4542,6 +4579,7 @@
       if (section === 'notifications') loadNotificationsStats();
       if (section === 'analytics') loadAnalytics();
       if (section === 'reports') loadReports();
+      if (section === 'opsLive') loadOpsLive();
       if (section === 'zoneManagement') loadZones();
       if (section === 'ratingsManagement') loadAdminRatings();
       if (section === 'storeRanking') loadStoreRanking();
@@ -4631,6 +4669,10 @@
               <button class="btn btn-sm" style="background:var(--primary);color:#fff;border:none;padding:5px 10px;"
                 onclick="openDriverPayment('${escapeJsInAttr(phone)}','${escapeJsInAttr(name)}',${Number(owed) || 0})">
                 <i data-lucide="check-circle" style="width:11px;height:11px;"></i> دفعة
+              </button>
+              <button class="btn btn-sm" style="background:#10B981;color:#fff;border:none;padding:5px 10px;"
+                onclick="driverRecharge('${escapeJsInAttr(phone)}','${escapeJsInAttr(name)}')">
+                <i data-lucide="plus-circle" style="width:11px;height:11px;"></i> شحن
               </button>
               <button class="btn btn-sm" style="background:#F59E0B;color:#fff;border:none;padding:5px 10px;"
                 onclick="openDriverAdjustment('${escapeJsInAttr(phone)}','${escapeJsInAttr(name)}')">
@@ -4845,6 +4887,79 @@
           loadDriverFinancial();
         } else { showToast(data.error || 'فشل التعديل', 'error'); }
       } catch (e) { showToast(e.message, 'error'); }
+    }
+
+    // ── Driver recharge (records a payment against outstanding via /recharge) ──
+    async function driverRecharge(phoneNumber, driverName) {
+      const raw = prompt(`شحن/دفعة للسائق ${driverName}\nأدخل المبلغ (د.ع):`);
+      if (raw === null) return;
+      const amount = Number(raw);
+      if (!amount || amount <= 0) { showToast('أدخل مبلغاً صحيحاً', 'error'); return; }
+      try {
+        const res = await fetch(API_BASE + '/admin/driver-wallet/recharge', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ phoneNumber, amount, notes: 'دفعة من الإدارة', adminName: 'admin' }),
+        });
+        const data = await res.json();
+        if (data.success) {
+          showToast(`تم الشحن. المستحق الجديد: ${(data.outstandingAfter||0).toLocaleString('ar-IQ')} د.ع`, 'success');
+          loadDriverFinancial();
+        } else { showToast(data.error || 'فشل الشحن', 'error'); }
+      } catch (e) { showToast(e.message, 'error'); }
+    }
+
+    // ── Live operations dashboard (operations + dashboard-stats + wallet-transactions) ──
+    function opsCard(label, value, color) {
+      return `<div class="stat-card"><div class="stat-card-value" style="color:${color||'var(--gray-900)'};">${value}</div><div class="stat-card-label">${label}</div></div>`;
+    }
+    async function loadOpsLive() {
+      try {
+        const res = await fetch(API_BASE + '/admin/operations');
+        const d = await res.json();
+        document.getElementById('ops-live-stats').innerHTML =
+          opsCard('طلبات جديدة', d.newOrders||0, 'var(--primary)') +
+          opsCard('قيد التحضير', d.preparingOrders||0, '#F59E0B') +
+          opsCard('قيد التوصيل', d.inDelivery||0, '#3B82F6') +
+          opsCard('سائقون متصلون', d.onlineDrivers||0, '#10B981') +
+          opsCard('دفعات نشطة', d.activeBatches||0) +
+          opsCard('طلبات متأخرة', d.lateOrders||0, '#EF4444') +
+          opsCard('مشاكل', d.issues||0, '#EF4444');
+      } catch (e) { document.getElementById('ops-live-stats').innerHTML = `<p style="color:#EF4444;">تعذّر التحميل</p>`; }
+      try {
+        const res = await fetch(API_BASE + '/admin/dashboard-stats');
+        const d = await res.json();
+        const o = d.orders||{}, r = d.revenue||{};
+        document.getElementById('ops-dashboard-stats').innerHTML =
+          opsCard('طلبات اليوم', o.today||0) +
+          opsCard('طلبات الشهر', o.month||0) +
+          opsCard('إيراد اليوم', `${(r.today||0).toLocaleString('ar-IQ')} د.ع`, '#10B981') +
+          opsCard('إيراد الشهر', `${(r.month||0).toLocaleString('ar-IQ')} د.ع`, '#10B981') +
+          opsCard('المستخدمون', d.users||0) +
+          opsCard('المنتجات', d.products||0);
+      } catch (e) { document.getElementById('ops-dashboard-stats').innerHTML = ''; }
+      loadWalletTransactions();
+    }
+    async function loadWalletTransactions() {
+      const type = document.getElementById('wallet-tx-type').value;
+      const body = document.getElementById('wallet-tx-body');
+      body.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:20px;"><div class="spinner"></div></td></tr>`;
+      try {
+        const res = await fetch(`${API_BASE}/admin/wallet-transactions?accountType=${type}&limit=200`);
+        const d = await res.json();
+        const rows = (d.transactions||[]);
+        if (!rows.length) { body.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:20px;">لا حركات</td></tr>`; return; }
+        body.innerHTML = rows.map(t => {
+          const settled = t.status === 'settled';
+          return `<tr>
+            <td>${(t.accountName||t.accountId||'—')}</td>
+            <td>#${String(t.orderId||'').slice(-6).toUpperCase()}</td>
+            <td>${(t.grossAmount||0).toLocaleString('ar-IQ')} د.ع</td>
+            <td>${(t.commission||0).toLocaleString('ar-IQ')} د.ع</td>
+            <td><span style="color:${settled?'#10B981':'#F59E0B'};font-weight:700;">${settled?'مسوّى':'مستحق'}</span></td>
+            <td style="font-size:0.8rem;color:var(--gray-500);">${(t.createdAt||'').slice(0,10)}</td>
+          </tr>`;
+        }).join('');
+      } catch (e) { body.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:20px;color:#EF4444;">تعذّر التحميل</td></tr>`; }
     }
 
     // ── Statement modal ───────────────────────────────────────────────────────
