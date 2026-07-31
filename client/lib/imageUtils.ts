@@ -74,6 +74,10 @@ export async function processAndUploadImage(
   const response = await fetch(`${getApiUrl()}/api/admin/upload-image`, {
     method: "POST",
     body: formData,
+    // /api/admin/* is guarded by requireAdminAuth (session cookie). Without this
+    // the cookie is not sent and the upload 401s — which surfaced as "فشل في حفظ
+    // القسم" when saving a category/product image from the in-app admin.
+    credentials: "include",
   });
 
   if (!response.ok) {
