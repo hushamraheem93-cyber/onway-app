@@ -5507,6 +5507,30 @@
       });
     }
 
+    // Downscale + recompress an image File in the browser BEFORE upload. Phone photos
+    // are 5-15MB and were rejected by the 5MB upload limit; this shrinks them to a
+    // ~1400px JPEG (~200-400KB) so any source size uploads reliably. The server still
+    // re-encodes to WebP. Returns a Blob; falls back to the original file on any error.
+    async function compressImageForUpload(file, maxDim = 1400, quality = 0.82) {
+      try {
+        if (!file || !file.type || !file.type.startsWith('image/')) return file;
+        const dataUrl = await fileToBase64(file);
+        const img = await new Promise((res, rej) => {
+          const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = dataUrl;
+        });
+        let w = img.naturalWidth || img.width, h = img.naturalHeight || img.height;
+        if (Math.max(w, h) > maxDim) {
+          const s = maxDim / Math.max(w, h);
+          w = Math.round(w * s); h = Math.round(h * s);
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = w; canvas.height = h;
+        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+        const blob = await new Promise((res) => canvas.toBlob(res, 'image/jpeg', quality));
+        return blob || file;
+      } catch (e) { return file; }
+    }
+
     function handleFileSelect(input, previewId) {
       const file = input.files[0];
       if (!file) return;
@@ -6522,8 +6546,9 @@
       // dedupe) and store only the small returned URL — so any image size works.
       let imageData = '';
       if (fileInput.files[0]) {
+        const compressed = await compressImageForUpload(fileInput.files[0]);
         const fd = new FormData();
-        fd.append('image', fileInput.files[0]);
+        fd.append('image', compressed, 'category.jpg');
         fd.append('type', 'category');
         const up = await fetch(API_BASE + '/admin/upload-image', { method: 'POST', body: fd });
         if (!up.ok) {
