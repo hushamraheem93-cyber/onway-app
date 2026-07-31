@@ -6515,12 +6515,24 @@
       const fileInput = document.getElementById('category-file');
       const imageUrl = document.getElementById('category-image').value;
 
-      // Image priority: new file → cached base64 → typed URL → existing image (edit only)
+      // Image priority: new file (uploaded to Storage → URL) → typed URL → existing image.
+      // Previously the file was embedded as a base64 data URI inside the Firestore
+      // document. Firestore rejects any document over 1MB, so any real photo (2-5MB)
+      // failed to save. Upload to Firebase Storage via /admin/upload-image (WebP +
+      // dedupe) and store only the small returned URL — so any image size works.
       let imageData = '';
       if (fileInput.files[0]) {
-        try { imageData = await fileToBase64(fileInput.files[0]); } catch (e) { console.error(e); }
+        const fd = new FormData();
+        fd.append('image', fileInput.files[0]);
+        fd.append('type', 'category');
+        const up = await fetch(API_BASE + '/admin/upload-image', { method: 'POST', body: fd });
+        if (!up.ok) {
+          const e = await up.json().catch(() => ({}));
+          showToast('error', 'خطأ', e.error || 'فشل رفع الصورة');
+          return;
+        }
+        imageData = (await up.json()).url || '';
       }
-      if (!imageData && fileInput.dataset.base64) imageData = fileInput.dataset.base64;
       if (!imageData) imageData = imageUrl || '';
       if (!imageData && id) {
         const existing = categories.find(c => c.id === id);
