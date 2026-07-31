@@ -905,18 +905,26 @@ export default function AdminScreen() {
       const url = editItem ? `/api/admin/categories/${editItem.id}` : "/api/admin/categories";
       const method = editItem ? "PUT" : "POST";
 
-      await fetch(`${getApiUrl()}${url}`, {
+      const res = await fetch(`${getApiUrl()}${url}`, {
         method,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
+        // /api/admin/* requires the admin session cookie (requireAdminAuth).
+        // This raw fetch was missing it, so the save was rejected (401) and the
+        // category never persisted.
+        credentials: "include",
       });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err?.error || `HTTP ${res.status}`);
+      }
 
       queryClient.invalidateQueries({ queryKey: ["/api/categories"] });
       queryClient.invalidateQueries({ queryKey: ["/api/admin/categories"] });
       setHasCategoryChanges(true);
       resetForm();
-    } catch (error) {
-      Alert.alert("خطأ", "فشل في حفظ القسم");
+    } catch (error: any) {
+      Alert.alert("خطأ", error?.message ? `فشل في حفظ القسم: ${error.message}` : "فشل في حفظ القسم");
     }
   };
 
