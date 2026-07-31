@@ -1,5 +1,4 @@
 import { manipulateAsync, SaveFormat } from "expo-image-manipulator";
-import { File } from "expo-file-system";
 import { getApiUrl } from "@/lib/query-client";
 
 export type ImageSize = "profile" | "product" | "banner" | "category";
@@ -67,17 +66,17 @@ export async function processAndUploadImage(
   );
 
   const formData = new FormData();
-  const file = new File(manipulated.uri);
-  formData.append("image", file as any);
+  // React Native FormData requires a { uri, name, type } object — passing a File
+  // instance serialised to nothing, so the server received no file and the upload
+  // failed ("فشل في حفظ القسم"). This mirrors the working vendor-product upload.
+  formData.append("image", { uri: manipulated.uri, name: "image.webp", type: "image/webp" } as any);
   formData.append("type", imageType);
 
+  // Admin auth is a Bearer token attached automatically to every /api/admin/*
+  // request by installAdminAuthInterceptor — no cookie is involved on native.
   const response = await fetch(`${getApiUrl()}/api/admin/upload-image`, {
     method: "POST",
     body: formData,
-    // /api/admin/* is guarded by requireAdminAuth (session cookie). Without this
-    // the cookie is not sent and the upload 401s — which surfaced as "فشل في حفظ
-    // القسم" when saving a category/product image from the in-app admin.
-    credentials: "include",
   });
 
   if (!response.ok) {
