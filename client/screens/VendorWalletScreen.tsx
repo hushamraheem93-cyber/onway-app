@@ -23,6 +23,7 @@ import { getApiUrl } from "@/lib/query-client";
 import { formatPrice } from "@/constants/currency";
 import { AppColors } from "@/constants/theme";
 import { SettlementStatusBar } from "@/components/SettlementStatusBar";
+import { LedgerStatementCard } from "@/components/LedgerStatementCard";
 import { SettlementHistoryList } from "@/components/SettlementHistoryList";
 import { useSettlement } from "@/hooks/useSettlement";
 
@@ -214,6 +215,12 @@ export default function VendorWalletScreen() {
         containerStyle={{ marginHorizontal: 0, marginTop: 0 }}
       />
       <SettlementHistoryList history={settlement.history} />
+
+      {/* Bank-style ledger statement (financial system phase 3) */}
+      <LedgerStatementCard
+        endpoint="/api/vendor/statement"
+        authHeader={vendorToken ? { Authorization: `Bearer ${vendorToken}` } : undefined}
+      />
 
       {/* Period filter */}
       <View style={styles.periodRow}>
