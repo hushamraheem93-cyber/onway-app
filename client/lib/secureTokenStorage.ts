@@ -21,9 +21,21 @@ import * as SecureStore from "expo-secure-store";
 
 const useSecureStore = Platform.OS !== "web";
 
+// SecureStore keys may contain ONLY [A-Za-z0-9._-]. Our token keys start with "@"
+// (e.g. "@onway_driver_token"). On iOS, SecureStore THROWS on an invalid key, so
+// setItemAsync silently failed (the catch only warned) and NO token was ever
+// persisted — every /api/driver|vendor/* call then 401'd ("يرجى تسجيل الدخول
+// أولاً") and the app stayed stuck on "قيد المراجعة" even after admin approval,
+// because the self-heal had no stored customer token to re-exchange. Sanitize the
+// key ONLY for SecureStore (AsyncStorage/web accepts "@" fine, so web tokens keep
+// their key). No native migration is needed: nothing was ever stored there.
+function secureKey(key: string): string {
+  return key.replace(/[^A-Za-z0-9._-]/g, "_");
+}
+
 export async function getToken(key: string): Promise<string | null> {
   try {
-    return useSecureStore ? await SecureStore.getItemAsync(key) : await AsyncStorage.getItem(key);
+    return useSecureStore ? await SecureStore.getItemAsync(secureKey(key)) : await AsyncStorage.getItem(key);
   } catch (err) {
     console.warn(`[secureTokenStorage] getToken(${key}) failed:`, err);
     return null;
@@ -33,7 +45,7 @@ export async function getToken(key: string): Promise<string | null> {
 export async function setToken(key: string, value: string): Promise<void> {
   try {
     if (useSecureStore) {
-      await SecureStore.setItemAsync(key, value);
+      await SecureStore.setItemAsync(secureKey(key), value);
     } else {
       await AsyncStorage.setItem(key, value);
     }
@@ -45,7 +57,7 @@ export async function setToken(key: string, value: string): Promise<void> {
 export async function removeToken(key: string): Promise<void> {
   try {
     if (useSecureStore) {
-      await SecureStore.deleteItemAsync(key);
+      await SecureStore.deleteItemAsync(secureKey(key));
     } else {
       await AsyncStorage.removeItem(key);
     }
