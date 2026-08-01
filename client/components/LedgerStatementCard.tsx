@@ -1,10 +1,30 @@
 import React, { useState } from "react";
-import { View, StyleSheet, Pressable, ActivityIndicator } from "react-native";
+import { View, StyleSheet, Pressable, ActivityIndicator, LayoutAnimation, Platform, UIManager } from "react-native";
 import { Feather } from "@expo/vector-icons";
 
 import { ThemedText } from "@/components/ThemedText";
 import { getApiUrl } from "@/lib/query-client";
-import { AppColors, FontFamily } from "@/constants/theme";
+import { AppColors, FontFamily, Shadows } from "@/constants/theme";
+
+if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
+
+// Per-movement icon + accent colour, so the statement scans at a glance.
+const TYPE_META: Record<string, { icon: keyof typeof Feather.glyphMap; color: string }> = {
+  order_sale: { icon: "shopping-bag", color: AppColors.success },
+  delivery_fee: { icon: "truck", color: AppColors.primary },
+  platform_commission: { icon: "percent", color: "#8B5CF6" },
+  cash_collected: { icon: "dollar-sign", color: "#F59E0B" },
+  settlement: { icon: "check-circle", color: "#3B82F6" },
+  adjustment: { icon: "edit-2", color: "#6B7280" },
+  refund: { icon: "corner-up-left", color: "#EF4444" },
+  bonus: { icon: "gift", color: AppColors.success },
+  penalty: { icon: "alert-triangle", color: AppColors.error },
+  subscription: { icon: "repeat", color: "#8B5CF6" },
+  deposit: { icon: "arrow-down-circle", color: AppColors.success },
+  withdrawal: { icon: "arrow-up-circle", color: AppColors.error },
+};
 
 // Bank-style ledger statement (financial system phase 3), shared by the vendor
 // wallet and driver earnings screens. Collapsible; loads on first open. Reads the
@@ -68,6 +88,7 @@ export function LedgerStatementCard({
   };
 
   const toggle = () => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     const next = !open;
     setOpen(next);
     if (next && !loaded) load();
@@ -103,8 +124,12 @@ export function LedgerStatementCard({
                 const ref = e.orderId ? `#${String(e.orderId).slice(-6).toUpperCase()}` : e.settlementRef || "";
                 const isCredit = (e.credit || 0) > 0;
                 const amount = isCredit ? e.credit : e.debit;
+                const meta = TYPE_META[e.type] || { icon: "circle" as const, color: AppColors.gray400 };
                 return (
                   <View key={e.id} style={s.row}>
+                    <View style={[s.iconCircle, { backgroundColor: meta.color + "1A" }]}>
+                      <Feather name={meta.icon} size={15} color={meta.color} />
+                    </View>
                     <View style={s.rowInfo}>
                       <ThemedText style={s.rowType}>{TYPE_LABELS[e.type] || e.type}</ThemedText>
                       <ThemedText style={s.rowMeta}>
@@ -133,12 +158,11 @@ export function LedgerStatementCard({
 const s = StyleSheet.create({
   card: {
     backgroundColor: AppColors.white,
-    borderRadius: 16,
+    borderRadius: 18,
     marginHorizontal: 16,
     marginBottom: 14,
     overflow: "hidden",
-    borderWidth: 1,
-    borderColor: AppColors.divider,
+    ...Shadows.sm,
   },
   header: {
     flexDirection: "row-reverse",
@@ -171,10 +195,17 @@ const s = StyleSheet.create({
   row: {
     flexDirection: "row-reverse",
     alignItems: "center",
-    justifyContent: "space-between",
+    gap: 10,
     paddingVertical: 9,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: AppColors.divider,
+  },
+  iconCircle: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: "center",
+    justifyContent: "center",
   },
   rowInfo: { flex: 1 },
   rowType: { fontFamily: FontFamily.cairoBold, fontSize: 13, color: AppColors.gray800, textAlign: "right" },
