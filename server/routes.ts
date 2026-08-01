@@ -785,6 +785,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           workingHours: v.workingHours || null,
           hasDelivery: v.hasDelivery ?? true,
           minOrder: v.minOrder ?? 0,
+          // #9: store-specific delivery fee override (null ⇒ use default). Lets the
+          // checkout screen show the same fee the server will charge.
+          deliveryFee: (typeof v.deliveryFee === "number") ? v.deliveryFee : null,
           openTime: v.openTime || "",
           closeTime: v.closeTime || "",
           description: v.description || "",
@@ -2022,7 +2025,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.post("/api/admin/vendors", async (req: Request, res: Response) => {
-    const { name, location, whatsappNumber, commissionPercent, image, rating, deliveryTime, isOpen, categoryType, cuisine, hasDelivery, minOrder, openTime, closeTime, description, supportedCategories, sortOrder, isPinned, isFeatured, isVerified } = req.body;
+    const { name, location, whatsappNumber, commissionPercent, image, rating, deliveryTime, isOpen, categoryType, cuisine, hasDelivery, minOrder, deliveryFee, openTime, closeTime, description, supportedCategories, sortOrder, isPinned, isFeatured, isVerified } = req.body;
     if (!name) return res.status(400).json({ error: "اسم المطعم مطلوب" });
     const existingVendors = await getVendorList();
     const maxOrder = existingVendors.reduce((max, v) => Math.max(max, v.sortOrder ?? 0), 0);
@@ -2041,6 +2044,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       cuisine: cuisine ? String(cuisine) : "",
       hasDelivery: hasDelivery !== undefined ? Boolean(hasDelivery) : true,
       minOrder: minOrder !== undefined ? Number(minOrder) : 0,
+      // #9: store-specific delivery fee. Empty/blank ⇒ null ("use default").
+      deliveryFee: (deliveryFee === undefined || deliveryFee === null || deliveryFee === "")
+        ? null
+        : Math.max(0, Math.round(Number(deliveryFee) || 0)),
       openTime: openTime ? String(openTime) : "",
       closeTime: closeTime ? String(closeTime) : "",
       description: description ? String(description) : "",
@@ -2071,6 +2078,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
     if (body.cuisine !== undefined) vendorUpdates.cuisine = String(body.cuisine);
     if (body.hasDelivery !== undefined) vendorUpdates.hasDelivery = Boolean(body.hasDelivery);
     if (body.minOrder !== undefined) vendorUpdates.minOrder = Number(body.minOrder);
+    // #9: store-specific delivery fee. Blank/null clears the override (back to default).
+    if (body.deliveryFee !== undefined) {
+      vendorUpdates.deliveryFee = (body.deliveryFee === null || body.deliveryFee === "")
+        ? null
+        : Math.max(0, Math.round(Number(body.deliveryFee) || 0));
+    }
     if (body.openTime !== undefined) vendorUpdates.openTime = String(body.openTime);
     if (body.closeTime !== undefined) vendorUpdates.closeTime = String(body.closeTime);
     if (body.description !== undefined) vendorUpdates.description = String(body.description);
@@ -2269,6 +2282,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // ── Vendor availability check ─────────────────────────────────────────────
+      // #9: capture the store's optional flat delivery-fee override here (the vendor
+      // doc is already read for the availability check — no extra Firestore read).
+      let vendorDeliveryFeeOverride: number | null = null;
       if (bodyVendorId) {
         const vAvailDoc = await db.collection("vendors").doc(String(bodyVendorId)).get();
         if (vAvailDoc.exists) {
@@ -2278,6 +2294,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
           if (vAvail.isBusy) {
             return res.status(400).json({ error: "المتجر مشغول حالياً — يرجى المحاولة بعد قليل" });
+          }
+          if (typeof vAvail.deliveryFee === "number" && vAvail.deliveryFee >= 0) {
+            vendorDeliveryFeeOverride = Math.round(vAvail.deliveryFee);
           }
         }
       }
@@ -2362,12 +2381,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "أسعار بعض المنتجات تغيّرت، الرجاء تحديث السلة والمحاولة مجدداً" });
       }
 
-      // Recompute delivery fee. Restaurant orders use a flat fee stored in
-      // system_settings (configurable by admin, default 1000 IQD).
-      // All other orders use the authoritative deliveryAreas collection fee.
+      // Recompute delivery fee. Precedence (#9):
+      //   1. the store's own flat delivery fee, when set — independent per store;
+      //   2. otherwise restaurant orders use the flat fee in system_settings
+      //      (admin-configurable, default 1000 IQD);
+      //   3. otherwise the authoritative deliveryAreas collection fee for the region.
       const sysSettings = await getSystemSettings();
       let verifiedDeliveryFee = Number(deliveryFee) || 0;
-      if (allItemsAreRestaurant) {
+      if (vendorDeliveryFeeOverride != null) {
+        verifiedDeliveryFee = vendorDeliveryFeeOverride;
+      } else if (allItemsAreRestaurant) {
         verifiedDeliveryFee = sysSettings.restaurantDeliveryFee;
       } else if (region) {
         const areas = await getFirestoreDeliveryAreas(true);

@@ -1766,6 +1766,10 @@ export interface FirestoreVendor {
   cuisine?: string;
   hasDelivery?: boolean;
   minOrder?: number;
+  // Optional store-specific flat delivery fee (#9). When set (a non-negative
+  // number) it overrides the global restaurant fee and the per-area fee for
+  // orders from this store. null / undefined means "use the default".
+  deliveryFee?: number | null;
   openTime?: string;
   closeTime?: string;
   description?: string;

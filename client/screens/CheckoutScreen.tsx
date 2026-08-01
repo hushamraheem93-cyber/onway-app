@@ -142,15 +142,20 @@ export default function CheckoutScreen() {
     staleTime: 5 * 60 * 1000,
     select: (data: any) => data?.stores ?? data ?? [],
   });
-  const vendorMinOrder: number = cartVendorId
-    ? (allStores.find((s: any) => s.id === cartVendorId)?.minOrder ?? 0)
-    : 0;
+  const cartVendorData = cartVendorId ? allStores.find((s: any) => s.id === cartVendorId) : null;
+  const vendorMinOrder: number = cartVendorData?.minOrder ?? 0;
+  // #9: store-specific flat delivery fee override (null/undefined ⇒ use default).
+  const vendorDeliveryFee: number | null =
+    typeof cartVendorData?.deliveryFee === "number" ? cartVendorData.deliveryFee : null;
 
   // Derived values
   const subtotal = getTotal();
   const selectedAreaData = deliveryAreas.find(a => a.id === selectedArea);
   const isRestaurantOrder = items.length > 0 && items.every(i => i.product.categoryId === "restaurants");
-  const deliveryFee = isRestaurantOrder ? 1000 : (selectedAreaData?.fee || 0);
+  // Precedence mirrors the server (#9): store override → restaurant flat fee → area fee.
+  const deliveryFee = vendorDeliveryFee != null
+    ? vendorDeliveryFee
+    : isRestaurantOrder ? 1000 : (selectedAreaData?.fee || 0);
   const SERVICE_FEE = feesData?.serviceFee ?? 500;
   const isBelowMinOrder = vendorMinOrder > 0 && subtotal < vendorMinOrder;
 
