@@ -201,7 +201,7 @@ export default function ProductDetailScreen() {
 
         <View style={[styles.infoCard, { backgroundColor: theme.backgroundDefault }, Shadows.md]}>
           <View style={styles.infoHeader}>
-            <ThemedText type="h2" style={[styles.productName, { color: theme.text }]}>
+            <ThemedText type="h2" style={[styles.productName, { color: theme.text }]} numberOfLines={2}>
               {product.name}
             </ThemedText>
             {product.unit ? (
