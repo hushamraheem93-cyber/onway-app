@@ -4638,6 +4638,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (result.reason === "invalid_transition")
           return res.status(409).json({ error: `لا يمكن اعتماد طلب حالته: ${result.status}` });
         if (result.reason === "not_found") return res.status(404).json({ error: "الطلب غير موجود" });
+        console.error(`[API] ${req.method} ${req.path} settlement transition failed reason=${result.reason}`);
         return res.status(500).json({ error: GENERIC_SERVER_ERROR });
       }
       orderEvents.emit("settlement:updated", { requestId, status: "approved" });
@@ -4657,6 +4658,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (result.reason === "invalid_transition")
           return res.status(409).json({ error: `لا يمكن رفض طلب حالته: ${result.status}` });
         if (result.reason === "not_found") return res.status(404).json({ error: "الطلب غير موجود" });
+        console.error(`[API] ${req.method} ${req.path} settlement transition failed reason=${result.reason}`);
         return res.status(500).json({ error: GENERIC_SERVER_ERROR });
       }
       orderEvents.emit("settlement:updated", { requestId, status: "rejected" });
