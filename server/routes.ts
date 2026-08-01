@@ -75,7 +75,7 @@ import {
 } from "./settlement";
 import type { OrderSettlementInput } from "./settlement";
 import {
-  recordLedgerEntries, orderEntryId,
+  recordLedgerEntries, orderEntryId, getAccountStatement, listAuditLog,
 } from "./financialLedger";
 import type { LedgerInput } from "./financialLedger";
 import {
@@ -4494,6 +4494,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Bank-style statement (ledger movements + running balance) for the driver.
+  app.get("/api/driver/statement", async (req: Request, res: Response) => {
+    const phoneNumber = (req as any).driverPhone as string;
+    if (!phoneNumber) return res.status(400).json({ error: "Phone number required" });
+    try {
+      res.json(await getAccountStatement("driver", phoneNumber));
+    } catch (error: any) {
+      console.error("[API]", req.method, req.path, error?.message);
+      res.status(500).json({ error: GENERIC_SERVER_ERROR });
+    }
+  });
+
   app.post("/api/driver/settlement/request", async (req: Request, res: Response) => {
     const { phoneNumber } = req.body;
     if (!phoneNumber) return res.status(400).json({ error: "Phone number required" });
@@ -4526,6 +4538,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const accountType = req.query.accountType as ("driver" | "vendor" | undefined);
     try {
       res.json({ requests: await listSettlementRequests(status, accountType) });
+    } catch (error: any) {
+      console.error("[API]", req.method, req.path, error?.message);
+      res.status(500).json({ error: GENERIC_SERVER_ERROR });
+    }
+  });
+
+  // Bank-style ledger statement for any account (admin view).
+  app.get("/api/admin/ledger-statement", async (req: Request, res: Response) => {
+    const accountType = (req.query.accountType as "driver" | "vendor" | "platform") || "driver";
+    const accountId = req.query.accountId as string;
+    if (!accountId) return res.status(400).json({ error: "accountId required" });
+    try {
+      res.json(await getAccountStatement(accountType, accountId));
+    } catch (error: any) {
+      console.error("[API]", req.method, req.path, error?.message);
+      res.status(500).json({ error: GENERIC_SERVER_ERROR });
+    }
+  });
+
+  // Immutable admin audit log (optionally filtered by target).
+  app.get("/api/admin/audit-log", async (req: Request, res: Response) => {
+    const targetType = req.query.targetType as string | undefined;
+    const targetId = req.query.targetId as string | undefined;
+    try {
+      res.json({ entries: await listAuditLog({ targetType, targetId }) });
     } catch (error: any) {
       console.error("[API]", req.method, req.path, error?.message);
       res.status(500).json({ error: GENERIC_SERVER_ERROR });

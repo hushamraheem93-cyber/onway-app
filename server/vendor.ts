@@ -10,6 +10,7 @@ import { getFirestore, getUserPushToken, getAdminPushToken, deleteFromFirebaseSt
 import { GENERIC_SERVER_ERROR, isUsableCachedImage } from "./orderValidation";
 import { sendVendorStatusNotification, sendVendorProductNotification, sendPushNotification, sendAdminOrderReadyNotification, sendAdminSettlementRequestNotification } from "./pushNotifications";
 import { createSettlementRequest, getAccountSettlementView, getSettlementHistory } from "./settlement";
+import { getAccountStatement } from "./financialLedger";
 import { orderEvents } from "./orderEvents";
 import { isValidSession } from "./adminAuth";
 
@@ -430,6 +431,15 @@ router.get("/api/vendor/settlement", requireVendor, async (req, res) => {
 router.get("/api/vendor/settlement/history", requireVendor, async (req, res) => {
   try {
     res.json(await getSettlementHistory("vendor", (req as any).vendorId));
+  } catch (err: any) {
+    res.status(500).json({ error: "حدث خطأ في الخادم" });
+  }
+});
+
+// Bank-style statement (ledger movements + running balance) for the vendor.
+router.get("/api/vendor/statement", requireVendor, async (req, res) => {
+  try {
+    res.json(await getAccountStatement("vendor", (req as any).vendorId));
   } catch (err: any) {
     res.status(500).json({ error: "حدث خطأ في الخادم" });
   }

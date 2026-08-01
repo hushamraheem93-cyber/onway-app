@@ -46,6 +46,12 @@ export function ledgerHeadId(accountType: LedgerAccountType, accountId: string):
   return `${accountType}:${accountId}`;
 }
 
+/** Single-field key stored on each entry so the statement needs only a single-field
+ *  index (no composite index required) — same discipline as the settlement engine. */
+export function ledgerAccountKey(accountType: LedgerAccountType, accountId: string): string {
+  return `${accountType}:${accountId}`;
+}
+
 /** Deterministic entry id for order-driven movements → idempotency. */
 export function orderEntryId(orderId: string, accountType: LedgerAccountType, type: LedgerEntryType): string {
   return `${orderId}__${accountType}__${type}`;
@@ -105,6 +111,7 @@ export async function recordLedgerEntry(input: LedgerInput, dbOverride?: any): P
       tx.set(entryRef, {
         accountType: input.accountType,
         accountId: input.accountId,
+        accountKey: ledgerAccountKey(input.accountType, input.accountId),
         accountName: input.accountName || input.accountId,
         type: input.type,
         debit,
@@ -183,8 +190,7 @@ export async function getAccountStatement(
   try {
     const snap = await db
       .collection(LEDGER)
-      .where("accountType", "==", accountType)
-      .where("accountId", "==", accountId)
+      .where("accountKey", "==", ledgerAccountKey(accountType, accountId))
       .limit(max)
       .get();
     const entries = snap.docs
