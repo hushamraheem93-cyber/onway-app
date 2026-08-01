@@ -76,7 +76,7 @@ import {
 } from "./settlement";
 import type { OrderSettlementInput } from "./settlement";
 import {
-  recordLedgerEntries, orderEntryId, getAccountStatement, listAuditLog,
+  recordLedgerEntries, orderEntryId, getAccountStatement, listAuditLog, getLedgerBalance,
 } from "./financialLedger";
 import type { LedgerInput } from "./financialLedger";
 import {
@@ -4552,6 +4552,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
     if (!accountId) return res.status(400).json({ error: "accountId required" });
     try {
       res.json(await getAccountStatement(accountType, accountId));
+    } catch (error: any) {
+      console.error("[API]", req.method, req.path, error?.message);
+      res.status(500).json({ error: GENERIC_SERVER_ERROR });
+    }
+  });
+
+  // Consolidated financial dashboard totals: what the platform is owed, what it
+  // owes, its recorded revenue, and settlement-request counts.
+  app.get("/api/admin/financial-summary", async (req: Request, res: Response) => {
+    try {
+      const [vendors, drivers, pending, approved, completed, platformNet] = await Promise.all([
+        listSettlementAccounts("vendor"),
+        listSettlementAccounts("driver"),
+        listSettlementRequests("pending"),
+        listSettlementRequests("approved"),
+        listSettlementRequests("completed"),
+        getLedgerBalance("platform", "onway"),
+      ]);
+      const sumOutstanding = (arr: any[]) => arr.reduce((s, a) => s + (a.outstanding || 0), 0);
+      res.json({
+        vendorReceivables: sumOutstanding(vendors),  // OnWay owes vendors (payout)
+        driverCashOwed: sumOutstanding(drivers),      // drivers owe OnWay (collect)
+        platformNet,                                  // recorded platform revenue (ledger)
+        vendorAccounts: vendors.length,
+        driverAccounts: drivers.length,
+        pendingRequests: pending.length,
+        approvedRequests: approved.length,
+        completedRequests: completed.length,
+      });
     } catch (error: any) {
       console.error("[API]", req.method, req.path, error?.message);
       res.status(500).json({ error: GENERIC_SERVER_ERROR });
