@@ -1594,6 +1594,91 @@ router.patch("/api/admin/vendor-products/:pid/toggle-active", requireAdmin, asyn
   }
 });
 
+// POST /api/admin/vendor-products — admin creates a product for a store (#8).
+// JSON body (image is an already-uploaded URL from /admin/upload-image). Admin-
+// created products are immediately live (status "approved", isActive true).
+router.post("/api/admin/vendor-products", requireAdmin, async (req, res) => {
+  try {
+    const db = getFirestore();
+    if (!db) return res.status(500).json({ error: "قاعدة البيانات غير متاحة" });
+    const { vendorId, name, price, category, description, stock, unit, imageUrl } = req.body;
+    if (!vendorId || !name || String(name).trim() === "") {
+      return res.status(400).json({ error: "الحقول المطلوبة: المتجر والاسم" });
+    }
+    const priceNum = parseFloat(price);
+    if (isNaN(priceNum) || priceNum <= 0) {
+      return res.status(400).json({ error: "السعر غير صالح" });
+    }
+    const vDoc = await db.collection("vendors").doc(String(vendorId)).get();
+    if (!vDoc.exists) return res.status(404).json({ error: "المتجر غير موجود" });
+    const v = vDoc.data() as any;
+    const pid = productId();
+    const now = new Date().toISOString();
+    const img = String(imageUrl || "");
+    await db.collection("vendorProducts").doc(pid).set({
+      id: pid,
+      vendorId: String(vendorId),
+      vendorName: v.storeName || v.name || "",
+      storeName: v.storeName || v.name || "",
+      vendorPhone: v.phoneNumber || "",
+      name: String(name).trim(),
+      description: description ? String(description) : "",
+      price: priceNum,
+      category: category ? String(category) : "",
+      stock: parseInt(stock) || 0,
+      unit: unit ? String(unit) : "قطعة",
+      imageUrl: img,
+      imageUrls: img ? [img] : [],
+      status: "approved",
+      isActive: true,
+      approvedAt: now,
+      createdAt: now,
+      updatedAt: now,
+      createdByAdmin: true,
+    });
+    res.json({ success: true, id: pid });
+  } catch (err) {
+    console.error("admin create vendor product:", err);
+    res.status(500).json({ error: "فشل إنشاء المنتج" });
+  }
+});
+
+// PUT /api/admin/vendor-products/:pid — admin edits a product's details (#8).
+router.put("/api/admin/vendor-products/:pid", requireAdmin, async (req, res) => {
+  try {
+    const db = getFirestore();
+    if (!db) return res.status(500).json({ error: "قاعدة البيانات غير متاحة" });
+    const pid = req.params.pid as string;
+    const doc = await db.collection("vendorProducts").doc(pid).get();
+    if (!doc.exists) return res.status(404).json({ error: "المنتج غير موجود" });
+    const b = req.body as Record<string, any>;
+    const updates: Record<string, any> = { updatedAt: new Date().toISOString() };
+    if (b.name !== undefined) {
+      if (!String(b.name).trim()) return res.status(400).json({ error: "الاسم مطلوب" });
+      updates.name = String(b.name).trim();
+    }
+    if (b.price !== undefined) {
+      const p = parseFloat(b.price);
+      if (isNaN(p) || p <= 0) return res.status(400).json({ error: "السعر غير صالح" });
+      updates.price = p;
+    }
+    if (b.category !== undefined) updates.category = String(b.category);
+    if (b.description !== undefined) updates.description = String(b.description);
+    if (b.stock !== undefined) updates.stock = parseInt(b.stock) || 0;
+    if (b.unit !== undefined) updates.unit = String(b.unit || "قطعة");
+    if (b.imageUrl !== undefined) {
+      const img = String(b.imageUrl || "");
+      updates.imageUrl = img;
+      updates.imageUrls = img ? [img] : [];
+    }
+    await db.collection("vendorProducts").doc(pid).update(updates);
+    res.json({ success: true, id: pid });
+  } catch (err) {
+    console.error("admin edit vendor product:", err);
+    res.status(500).json({ error: "فشل تعديل المنتج" });
+  }
+});
+
 // POST /api/admin/vendor-products/:id/approve
 router.post("/api/admin/vendor-products/:pid/approve", requireAdmin, async (req, res) => {
   try {
