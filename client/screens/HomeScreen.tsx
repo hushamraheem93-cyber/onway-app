@@ -319,6 +319,12 @@ export default function HomeScreen() {
 
 
   const get3DImage = (categoryId: string, fallbackImage: string) => {
+    // Prefer an admin-uploaded image (http/data URL) so a picture set from the
+    // admin panel actually shows. Only fall back to the bundled 3D asset when the
+    // category has no real uploaded image.
+    if (fallbackImage && (fallbackImage.startsWith("http") || fallbackImage.startsWith("data:"))) {
+      return resolveImageUrl(fallbackImage);
+    }
     const path = CATEGORY_3D_IMAGES[categoryId];
     if (path) return resolveImageUrl(path);
     return resolveImageUrl(fallbackImage);
