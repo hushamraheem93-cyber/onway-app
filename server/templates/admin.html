@@ -509,6 +509,33 @@
       overflow-x: auto;
       -webkit-overflow-scrolling: touch;
     }
+    /* Row overflow (⋯) menu — collapses per-row action buttons into a dropdown.
+       The menu is position:fixed and positioned by JS so it escapes the
+       table-container's overflow clipping. */
+    .row-menu-wrap { position: relative; display: inline-block; }
+    .row-menu-btn {
+      width: 32px; height: 32px; border-radius: 8px; border: 1px solid var(--gray-200);
+      background: #fff; color: var(--gray-600); cursor: pointer; font-size: 1.15rem;
+      line-height: 1; display: inline-flex; align-items: center; justify-content: center;
+      transition: all 0.15s;
+    }
+    .row-menu-btn:hover { background: var(--gray-50); border-color: var(--primary); color: var(--primary); }
+    .row-menu {
+      position: fixed; display: none; min-width: 168px; background: #fff;
+      border: 1px solid var(--gray-200); border-radius: 12px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.14); padding: 6px; z-index: 9999;
+    }
+    .row-menu.open { display: block; }
+    .row-menu-item {
+      display: flex; align-items: center; gap: 8px; width: 100%; text-align: right;
+      padding: 8px 10px; border: none; background: none; border-radius: 8px;
+      font-family: inherit; font-size: 0.85rem; font-weight: 600; color: var(--gray-700);
+      cursor: pointer;
+    }
+    .row-menu-item:hover { background: var(--gray-50); }
+    .row-menu-item.danger { color: #ef4444; }
+    .row-menu-item.danger:hover { background: #FEF2F2; }
+    .row-menu-item i { width: 15px; height: 15px; flex-shrink: 0; }
 
     table {
       width: 100%;
@@ -8720,6 +8747,38 @@
       document.body.appendChild(overlay);
     }
 
+    // ── Row overflow (⋯) menu helpers ────────────────────────────────────────
+    // Show/hide a row's action dropdown. The menu is position:fixed and placed at
+    // the trigger's coordinates so the table-container overflow cannot clip it.
+    function toggleRowMenu(btn) {
+      const menu = btn.nextElementSibling;
+      if (!menu) return;
+      const wasOpen = menu.classList.contains('open');
+      closeAllRowMenus();
+      if (wasOpen) return;
+      menu.classList.add('open');
+      if (window.lucide) lucide.createIcons();
+      const r = btn.getBoundingClientRect();
+      const mw = menu.offsetWidth, mh = menu.offsetHeight;
+      let left = r.right - mw;                    // right-align to the trigger
+      if (left < 8) left = 8;
+      let top = r.bottom + 4;
+      if (top + mh > window.innerHeight - 8) top = r.top - 4 - mh; // flip up if needed
+      menu.style.left = left + 'px';
+      menu.style.top = Math.max(8, top) + 'px';
+    }
+    function closeAllRowMenus() {
+      document.querySelectorAll('.row-menu.open').forEach(m => m.classList.remove('open'));
+    }
+    document.addEventListener('click', function (e) {
+      // Clicking a menu item runs its own onclick, then we close the menu.
+      if (e.target.closest('.row-menu-item')) { setTimeout(closeAllRowMenus, 0); return; }
+      // Clicking anywhere outside a wrap (but not the trigger itself) closes menus.
+      if (!e.target.closest('.row-menu-wrap')) closeAllRowMenus();
+    });
+    // A scroll would leave the fixed menu detached from its row — close it.
+    window.addEventListener('scroll', closeAllRowMenus, true);
+
     function renderDrivers() {
       const container = document.getElementById('drivers-list');
       let filtered = drivers;
@@ -8777,33 +8836,24 @@
                   ? `<img src="${driver.driverLicenseImage}" alt="إجازة السوق" style="${imgThumbStyle}" onclick="showDriverImageModal(this.src, 'إجازة السوق - ${escapeJsInAttr(driver.fullName)}')" />`
                   : `<div style="${noImgStyle}">لا يوجد</div>`;
 
+                // Row actions collapsed into an overflow (⋯) menu. Handlers below
+                // are byte-for-byte the same as the old inline buttons — only the
+                // presentation changed (audit item 3, pilot on the drivers table).
                 let actionBtns = '';
                 if (driver.status === 'pending') {
                   actionBtns = `
-                    <button class="btn btn-success btn-sm" onclick="updateDriverStatus('${driver.id}', 'approved')" style="margin-bottom:4px;" title="قبول">
-                      <i data-lucide="check" style="width:14px;height:14px;"></i>
-                    </button>
-                    <button class="btn btn-danger btn-sm" onclick="updateDriverStatus('${driver.id}', 'rejected')" style="margin-bottom:4px;" title="رفض">
-                      <i data-lucide="x" style="width:14px;height:14px;"></i>
-                    </button>`;
+                    <button class="row-menu-item" onclick="updateDriverStatus('${driver.id}', 'approved')"><i data-lucide="check"></i> قبول</button>
+                    <button class="row-menu-item danger" onclick="updateDriverStatus('${driver.id}', 'rejected')"><i data-lucide="x"></i> رفض</button>`;
                 } else if (driver.status === 'approved') {
                   actionBtns = `
-                    <button class="btn btn-sm" style="background:var(--warning);color:white;margin-bottom:4px;" onclick="updateDriverStatus('${driver.id}', 'pending')" title="تعليق">
-                      <i data-lucide="pause" style="width:14px;height:14px;"></i>
-                    </button>`;
+                    <button class="row-menu-item" onclick="updateDriverStatus('${driver.id}', 'pending')"><i data-lucide="pause"></i> تعليق</button>`;
                 } else {
                   actionBtns = `
-                    <button class="btn btn-success btn-sm" onclick="updateDriverStatus('${driver.id}', 'approved')" style="margin-bottom:4px;" title="قبول">
-                      <i data-lucide="check" style="width:14px;height:14px;"></i>
-                    </button>`;
+                    <button class="row-menu-item" onclick="updateDriverStatus('${driver.id}', 'approved')"><i data-lucide="check"></i> قبول</button>`;
                 }
                 actionBtns += `
-                  <button class="btn btn-sm" style="background:#8B5CF6;color:white;margin-bottom:4px;" onclick="openActivityLogModal('${escapeJsInAttr(driver.phoneNumber)}', '${escapeJsInAttr(driver.fullName)}')" title="سجل النشاط">
-                    <i data-lucide="history" style="width:14px;height:14px;"></i>
-                  </button>
-                  <button class="btn btn-sm" style="background:#ef4444;color:white;" onclick="confirmDeleteDriver('${escapeJsInAttr(driver.id)}', '${escapeJsInAttr(driver.fullName)}')" title="مسح">
-                    <i data-lucide="trash-2" style="width:14px;height:14px;"></i>
-                  </button>`;
+                  <button class="row-menu-item" onclick="openActivityLogModal('${escapeJsInAttr(driver.phoneNumber)}', '${escapeJsInAttr(driver.fullName)}')"><i data-lucide="history"></i> سجل النشاط</button>
+                  <button class="row-menu-item danger" onclick="confirmDeleteDriver('${escapeJsInAttr(driver.id)}', '${escapeJsInAttr(driver.fullName)}')"><i data-lucide="trash-2"></i> مسح</button>`;
 
                 const ds = driverStats[driver.phoneNumber] || { todayOrders: 0, todayEarnings: 0, totalOrders: 0, totalEarnings: 0, amountOwed: 0 };
                 const walletBal = ds.amountOwed ?? ds.walletBalance ?? 0;
@@ -8837,8 +8887,9 @@
                       </span>
                     </td>
                     <td style="padding:12px 16px;text-align:center;">
-                      <div style="display:flex;gap:4px;justify-content:center;">
-                        ${actionBtns}
+                      <div class="row-menu-wrap">
+                        <button class="row-menu-btn" onclick="toggleRowMenu(this)" title="إجراءات">⋯</button>
+                        <div class="row-menu">${actionBtns}</div>
                       </div>
                     </td>
                   </tr>`;
