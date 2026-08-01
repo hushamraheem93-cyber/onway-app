@@ -221,19 +221,42 @@ describe("C2 — vendor payout base must exclude delivery and service fees", () 
   });
 
   test("the settlement call site does not fall back to order.total", () => {
-    const body = handlerBody(
-      ROUTES,
-      'app.post("/api/driver/batch/complete-order"',
+    // The driver + vendor accrual now lives in ONE shared helper
+    // (accrueDeliveredOrderSettlements) used by BOTH the driver batch-complete
+    // flow and the admin "mark delivered" transition (#14). The fee-stripping
+    // base assertion therefore targets that helper, and each call site is
+    // verified to delegate to it rather than re-deriving the base.
+    const helperStart = ROUTES.indexOf("async function accrueDeliveredOrderSettlements");
+    assert.ok(helperStart !== -1, "could not locate accrueDeliveredOrderSettlements helper");
+    const afterHelper = ROUTES.slice(helperStart);
+    const nextApp = afterHelper.search(/\n\s*app\.(get|post|put|patch|delete)\(/);
+    const helperBody = stripComments(
+      nextApp === -1 ? afterHelper : afterHelper.slice(0, nextApp),
     );
+
     assert.doesNotMatch(
-      body,
+      helperBody,
       /restaurantSubtotal\s*\?\?\s*order\.total/,
       "REGRESSION: settlement fell back to order.total, which includes deliveryFee and serviceFee",
     );
     assert.match(
-      body,
+      helperBody,
       /vendorCommissionBase\(/,
       "settlement must use the shared fee-stripping base",
+    );
+
+    // Both delivery paths must delegate to the shared accrual so they can never diverge.
+    const driverFlow = handlerBody(ROUTES, 'app.post("/api/driver/batch/complete-order"');
+    assert.match(
+      driverFlow,
+      /accrueDeliveredOrderSettlements\(/,
+      "the driver completion flow must use the shared accrual helper",
+    );
+    const adminFlow = handlerBody(ROUTES, 'app.put("/api/admin/orders/:id/status"');
+    assert.match(
+      adminFlow,
+      /accrueDeliveredOrderSettlements\(/,
+      "the admin delivered transition must use the shared accrual helper (#14)",
     );
   });
 });
