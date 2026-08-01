@@ -1814,6 +1814,11 @@
               <div><label style="font-size:0.8rem;font-weight:600;color:#374151;display:block;margin-bottom:5px;">الحد الأدنى للطلب</label>
               <input type="number" id="medit-minOrder" class="form-control" placeholder="0" min="0"></div>
             </div>
+            <div>
+              <label style="font-size:0.8rem;font-weight:600;color:#374151;display:block;margin-bottom:5px;">رسوم التوصيل الخاصة بالمتجر (د.ع)</label>
+              <input type="number" id="medit-deliveryFee" class="form-control" placeholder="اتركه فارغاً لاستخدام الرسم الافتراضي" min="0">
+              <div style="font-size:0.72rem;color:#6B7280;margin-top:4px;">عند تحديد قيمة، تُستخدم لكل طلبات هذا المتجر بدل رسم المنطقة/الافتراضي. اتركه فارغاً للعودة للافتراضي.</div>
+            </div>
             <div><label style="font-size:0.8rem;font-weight:600;color:#374151;display:block;margin-bottom:5px;">وصف النشاط</label>
             <textarea id="medit-description" class="form-control" rows="3" placeholder="نبذة عن النشاط التجاري..."></textarea></div>
             <div style="display:flex;gap:16px;flex-wrap:wrap;">
@@ -7234,6 +7239,8 @@
       document.getElementById('medit-closeTime').value  = v.closeTime || '';
       document.getElementById('medit-commission').value = v.commissionPercent || '';
       document.getElementById('medit-minOrder').value   = v.minOrder || '';
+      // #9: blank when no store-specific override is set (null/undefined).
+      document.getElementById('medit-deliveryFee').value = (typeof v.deliveryFee === 'number') ? v.deliveryFee : '';
       document.getElementById('medit-description').value= v.description || '';
       document.getElementById('medit-hasDelivery').checked = v.hasDelivery !== false;
       document.getElementById('medit-isOpen').checked   = !!v.isOpen;
@@ -7263,6 +7270,8 @@
         closeTime:         document.getElementById('medit-closeTime').value,
         commissionPercent: parseFloat(document.getElementById('medit-commission').value) || 0,
         minOrder:          parseFloat(document.getElementById('medit-minOrder').value) || 0,
+        // #9: blank ⇒ null (clears the override, back to default fee).
+        deliveryFee:       (function(){ const s = document.getElementById('medit-deliveryFee').value.trim(); return s === '' ? null : (parseFloat(s) || 0); })(),
         description:       document.getElementById('medit-description').value.trim(),
         hasDelivery:       document.getElementById('medit-hasDelivery').checked,
         isOpen:            document.getElementById('medit-isOpen').checked,
