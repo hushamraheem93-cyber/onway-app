@@ -1968,6 +1968,22 @@
       </div>
     </div>
 
+    <!-- Bank-style Ledger Statement Modal (financial system phase 3) -->
+    <div id="ledger-statement-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:9500;align-items:center;justify-content:center;padding:16px;">
+      <div style="background:#fff;border-radius:20px;width:760px;max-width:96vw;max-height:92vh;overflow-y:auto;position:relative;">
+        <div style="padding:18px 24px 14px;border-bottom:1px solid #F3F4F6;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;background:#fff;z-index:2;">
+          <div>
+            <h3 id="ledger-statement-title" style="margin:0;font-size:1rem;font-weight:800;">كشف حساب بنكي</h3>
+            <div id="ledger-statement-balance" style="font-size:0.8rem;color:#6B7280;margin-top:2px;"></div>
+          </div>
+          <button onclick="document.getElementById('ledger-statement-modal').style.display='none'" style="background:none;border:none;font-size:1.3rem;cursor:pointer;color:#9CA3AF;">&times;</button>
+        </div>
+        <div id="ledger-statement-content" style="padding:16px 24px;">
+          <div class="loading"><div class="spinner"></div></div>
+        </div>
+      </div>
+    </div>
+
     <!-- Merchant Notification Modal -->
     <div id="merchant-notif-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9200;align-items:center;justify-content:center;">
       <div style="background:#fff;border-radius:20px;width:460px;max-width:96vw;position:relative;">
@@ -4750,6 +4766,10 @@
                 onclick="openDriverStatement('${escapeJsInAttr(phone)}','${escapeJsInAttr(name)}')">
                 <i data-lucide="file-text" style="width:11px;height:11px;"></i> كشف
               </button>
+              <button class="btn btn-sm btn-outline" style="padding:5px 10px;"
+                onclick="openLedgerStatement('driver','${escapeJsInAttr(phone)}','${escapeJsInAttr(name)}')">
+                <i data-lucide="book-open" style="width:11px;height:11px;"></i> كشف بنكي
+              </button>
             </div>
           </td>
         </tr>`;
@@ -5031,6 +5051,59 @@
     }
 
     // ── Statement modal ───────────────────────────────────────────────────────
+    // ── Bank-style ledger statement (financial system phase 3) ──────────────
+    const LEDGER_TYPE_LABELS = {
+      order_sale: 'بيع طلب', delivery_fee: 'أجرة توصيل', platform_commission: 'عمولة التطبيق',
+      cash_collected: 'استلام نقد', settlement: 'تسوية', adjustment: 'تعديل', refund: 'استرجاع',
+      bonus: 'مكافأة', penalty: 'غرامة', subscription: 'اشتراك', deposit: 'إيداع', withdrawal: 'سحب',
+    };
+    async function openLedgerStatement(accountType, accountId, name) {
+      const modal = document.getElementById('ledger-statement-modal');
+      document.getElementById('ledger-statement-title').textContent = `كشف حساب بنكي — ${name || accountId}`;
+      document.getElementById('ledger-statement-balance').textContent = '';
+      document.getElementById('ledger-statement-content').innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+      modal.style.display = 'flex';
+      try {
+        const res = await fetch(`${API_BASE}/admin/ledger-statement?accountType=${encodeURIComponent(accountType)}&accountId=${encodeURIComponent(accountId)}`);
+        const data = await res.json();
+        const entries = data.entries || [];
+        document.getElementById('ledger-statement-balance').textContent = `الرصيد الحالي: ${(data.balance||0).toLocaleString('ar-IQ')} د.ع`;
+        if (!entries.length) {
+          document.getElementById('ledger-statement-content').innerHTML = '<div style="text-align:center;padding:40px;color:#9CA3AF;">لا توجد حركات مالية بعد</div>';
+          return;
+        }
+        const rows = entries.map(e => {
+          const secs = e.createdAt && e.createdAt._seconds;
+          const dateStr = secs ? new Date(secs*1000).toLocaleString('ar-IQ') : '—';
+          const ref = e.orderId ? ('#'+String(e.orderId).slice(-6).toUpperCase()) : (e.settlementRef || '—');
+          return `<tr style="border-bottom:1px solid #F3F4F6;">
+            <td style="padding:8px 10px;font-size:0.78rem;color:#6B7280;white-space:nowrap;">${dateStr}</td>
+            <td style="padding:8px 10px;font-weight:600;font-size:0.85rem;">${LEDGER_TYPE_LABELS[e.type]||escapeHtml(e.type)}</td>
+            <td style="padding:8px 10px;font-size:0.8rem;color:#6B7280;">${escapeHtml(ref)}</td>
+            <td style="padding:8px 10px;text-align:left;color:#EF4444;">${e.debit ? e.debit.toLocaleString('ar-IQ') : ''}</td>
+            <td style="padding:8px 10px;text-align:left;color:#10B981;">${e.credit ? e.credit.toLocaleString('ar-IQ') : ''}</td>
+            <td style="padding:8px 10px;text-align:left;font-weight:700;">${(e.balanceAfter||0).toLocaleString('ar-IQ')}</td>
+          </tr>`;
+        }).join('');
+        document.getElementById('ledger-statement-content').innerHTML = `
+          <div class="table-container">
+            <table style="width:100%;border-collapse:collapse;">
+              <thead><tr style="background:var(--gray-50);border-bottom:2px solid var(--gray-200);font-size:0.8rem;">
+                <th style="padding:8px 10px;text-align:right;">التاريخ</th>
+                <th style="padding:8px 10px;text-align:right;">النوع</th>
+                <th style="padding:8px 10px;text-align:right;">المرجع</th>
+                <th style="padding:8px 10px;text-align:left;">مدين</th>
+                <th style="padding:8px 10px;text-align:left;">دائن</th>
+                <th style="padding:8px 10px;text-align:left;">الرصيد</th>
+              </tr></thead>
+              <tbody>${rows}</tbody>
+            </table>
+          </div>`;
+      } catch (e) {
+        document.getElementById('ledger-statement-content').innerHTML = `<div class="error-msg">${escapeHtml(e.message)}</div>`;
+      }
+    }
+
     async function openDriverStatement(phoneNumber, driverName) {
       document.getElementById('driver-statement-title').textContent = `كشف حساب — ${driverName}`;
       document.getElementById('driver-statement-body').innerHTML = '<div class="loading"><div class="spinner"></div></div>';
@@ -7625,6 +7698,10 @@
               <div style="font-size:0.78rem;color:#9CA3AF;">${escapeHtml(v.location || v.address || '')}</div>
               ${v.commissionPercent != null ? `<div style="font-size:0.75rem;color:#E86520;font-weight:600;">عمولة التطبيق: ${v.commissionPercent}%</div>` : ''}
             </div>
+            <button class="btn btn-sm btn-outline" style="margin-inline-start:auto;padding:6px 12px;"
+              onclick="openLedgerStatement('vendor','${escapeJsInAttr(id)}','${escapeJsInAttr(displayName)}')">
+              <i data-lucide="book-open" style="width:13px;height:13px;"></i> كشف بنكي
+            </button>
           </div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px;">
             <div style="background:#F8FAFC;border-radius:12px;padding:14px;text-align:center;">
