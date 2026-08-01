@@ -1577,6 +1577,9 @@
         <div class="nav-item" onclick="showSection('opsLive', this)">
           <i data-lucide="activity"></i><span>التشغيل المباشر</span>
         </div>
+        <div class="nav-item" onclick="showSection('financialDashboard', this)">
+          <i data-lucide="wallet"></i><span>اللوحة المالية</span>
+        </div>
         <div class="nav-item" onclick="showSection('settlementRequests', this)">
           <i data-lucide="receipt"></i><span>طلبات التسوية</span>
           <span class="badge" id="settlement-req-count" style="display:none;">0</span>
@@ -3557,6 +3560,54 @@
       </div>
     </div>
 
+    <!-- ══════════════════════ FINANCIAL DASHBOARD ══════════════════════ -->
+    <div id="financialDashboard-section" class="section">
+      <header class="header">
+        <div class="header-title">
+          <h2>اللوحة المالية</h2>
+          <p>ملخّص المستحقات والأرباح + سجلّ التدقيق</p>
+        </div>
+        <div class="header-actions">
+          <button class="btn btn-outline" onclick="doRefresh(this, loadFinancialDashboard, 'اللوحة المالية')">
+            <i data-lucide="refresh-cw"></i> تحديث
+          </button>
+        </div>
+      </header>
+      <div class="content">
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;margin-bottom:24px;">
+          <div class="stat-card" style="border-right:4px solid #E86520;">
+            <div class="stat-card-title">مستحقات التجار (على التطبيق)</div>
+            <div class="stat-card-value" id="fin-vendor-receivables" style="color:#E86520;">—</div>
+          </div>
+          <div class="stat-card" style="border-right:4px solid #EF4444;">
+            <div class="stat-card-title">مبالغ على المندوبين (للتطبيق)</div>
+            <div class="stat-card-value" id="fin-driver-owed" style="color:#EF4444;">—</div>
+          </div>
+          <div class="stat-card" style="border-right:4px solid #16A34A;">
+            <div class="stat-card-title">إيرادات التطبيق (من الدفتر)</div>
+            <div class="stat-card-value" id="fin-platform-net" style="color:#16A34A;">—</div>
+          </div>
+          <div class="stat-card" style="border-right:4px solid #F59E0B;">
+            <div class="stat-card-title">طلبات تسوية معلّقة</div>
+            <div class="stat-card-value" id="fin-pending-reqs" style="color:#F59E0B;">—</div>
+          </div>
+          <div class="stat-card" style="border-right:4px solid #3B82F6;">
+            <div class="stat-card-title">طلبات مكتملة</div>
+            <div class="stat-card-value" id="fin-completed-reqs" style="color:#3B82F6;">—</div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header"><h3><i data-lucide="shield-check"></i> سجلّ التدقيق (Audit Log)</h3></div>
+          <div class="table-container">
+            <table>
+              <thead><tr><th>التاريخ</th><th>العملية</th><th>المنفّذ</th><th>الهدف</th><th>المبلغ</th><th>المرجع</th><th>ملاحظات</th></tr></thead>
+              <tbody id="fin-audit-tbody"><tr><td colspan="7" style="text-align:center;padding:24px;color:#9CA3AF;">—</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- ══════════════════════ SETTLEMENT REQUESTS ══════════════════════ -->
     <div id="settlementRequests-section" class="section">
       <header class="header">
@@ -4703,6 +4754,7 @@
       if (section === 'reports') loadReports();
       if (section === 'opsLive') loadOpsLive();
       if (section === 'settlementRequests') loadSettlementRequests();
+      if (section === 'financialDashboard') loadFinancialDashboard();
       if (section === 'zoneManagement') loadZones();
       if (section === 'ratingsManagement') loadAdminRatings();
       if (section === 'storeRanking') loadStoreRanking();
@@ -5039,6 +5091,52 @@
     function opsCard(label, value, color) {
       return `<div class="stat-card"><div class="stat-card-value" style="color:${color||'var(--gray-900)'};">${value}</div><div class="stat-card-label">${label}</div></div>`;
     }
+    // ── Financial Dashboard + Audit Log (financial system phase 5) ──────────
+    const AUDIT_ACTION_LABELS = {
+      'settlement.complete': 'إكمال تسوية', 'settlement.approve': 'اعتماد طلب',
+      'settlement.reject': 'رفض طلب', 'ledger.adjust': 'تعديل رصيد',
+    };
+    async function loadFinancialDashboard() {
+      try {
+        const [sumRes, auditRes] = await Promise.all([
+          fetch(`${API_BASE}/admin/financial-summary`),
+          fetch(`${API_BASE}/admin/audit-log`),
+        ]);
+        const sum = await sumRes.json();
+        const fmt = (n) => (Number(n) || 0).toLocaleString('ar-IQ') + ' د.ع';
+        document.getElementById('fin-vendor-receivables').textContent = fmt(sum.vendorReceivables);
+        document.getElementById('fin-driver-owed').textContent = fmt(sum.driverCashOwed);
+        document.getElementById('fin-platform-net').textContent = fmt(sum.platformNet);
+        document.getElementById('fin-pending-reqs').textContent = sum.pendingRequests ?? 0;
+        document.getElementById('fin-completed-reqs').textContent = sum.completedRequests ?? 0;
+        const badge = document.getElementById('settlement-req-count');
+        if (badge) { badge.textContent = sum.pendingRequests || 0; badge.style.display = sum.pendingRequests ? '' : 'none'; }
+
+        const audit = (await auditRes.json()).entries || [];
+        const tbody = document.getElementById('fin-audit-tbody');
+        if (!audit.length) {
+          tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:24px;color:#9CA3AF;">لا توجد عمليات بعد</td></tr>`;
+        } else {
+          tbody.innerHTML = audit.map(a => {
+            const secs = a.createdAt && a.createdAt._seconds;
+            const date = secs ? new Date(secs*1000).toLocaleString('ar-IQ') : '—';
+            const target = [a.targetType, a.targetId].filter(Boolean).join(': ');
+            return `<tr style="border-bottom:1px solid #F3F4F6;">
+              <td style="font-size:0.8rem;color:#6B7280;white-space:nowrap;">${date}</td>
+              <td style="font-weight:600;">${AUDIT_ACTION_LABELS[a.action] || escapeHtml(a.action)}</td>
+              <td>${escapeHtml(a.actorName || '—')}</td>
+              <td style="font-size:0.82rem;">${escapeHtml(target || '—')}</td>
+              <td>${a.amount != null ? (Number(a.amount).toLocaleString('ar-IQ')+' د.ع') : '—'}</td>
+              <td style="font-size:0.8rem;color:#6B7280;direction:ltr;text-align:right;">${escapeHtml(a.referenceId || '—')}</td>
+              <td style="font-size:0.82rem;color:#6B7280;">${escapeHtml(a.notes || '')}</td>
+            </tr>`;
+          }).join('');
+        }
+      } catch (e) {
+        showToast('error', 'خطأ', 'تعذّر تحميل اللوحة المالية');
+      }
+    }
+
     // ── Settlement Requests inbox (financial system phase 4) ────────────────
     const SR_STATUS = {
       pending: { label: 'قيد الانتظار', color: '#F59E0B', bg: '#FEF3C7' },
