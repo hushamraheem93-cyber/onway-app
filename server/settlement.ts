@@ -250,10 +250,15 @@ export interface CreateRequestResult {
   ok: boolean;
   reason?: "nothing_due" | "already_requested";
   requestId?: string;
+  reference?: string;
   outstanding?: number;
   pendingOrderCount?: number;
   accountName?: string;
 }
+
+/** Settlement-request lifecycle: pending → approved → (paid) → completed, or rejected. */
+export type SettlementRequestStatus =
+  | "pending" | "approved" | "partially_completed" | "completed" | "rejected";
 
 /**
  * Create a settlement request for an account, atomically. Allowed at ANY time as long
@@ -270,8 +275,10 @@ export async function createSettlementRequest(
   const ledgerRef = db.collection(LEDGER).doc(ledgerId(accountType, accountId));
   const requestsCol = db.collection(SETTLEMENT_REQUESTS);
   const newRef = requestsCol.doc(); // pre-allocate id
+  const counterRef = db.collection(APP_SETTINGS).doc("settlementCounter");
   try {
     return await db.runTransaction(async (tx) => {
+      // Reads first (transaction requirement) — ledger, active request, counter.
       const ledgerSnap = await tx.get(ledgerRef);
       if (!ledgerSnap.exists) return { ok: false, reason: "nothing_due" as const };
       const ledger = ledgerSnap.data() as any;
@@ -283,10 +290,23 @@ export async function createSettlementRequest(
           return { ok: false, reason: "already_requested" as const, requestId: ledger.activeRequestId };
         }
       }
+      const counterSnap = await tx.get(counterRef);
+
       const now = admin.firestore.Timestamp.now();
       const name = accountName || ledger.accountName || accountId;
       const pendingOrderCount = ledger.pendingCount ?? 0;
+
+      // Sequential, human-readable reference SET-YYYY-NNNNNN, allocated atomically
+      // (the counter resets each calendar year). Two concurrent requests can never
+      // get the same number because they contend on this one counter doc.
+      const year = now.toDate().getFullYear();
+      const c = counterSnap.exists ? (counterSnap.data() as any) : {};
+      const seq = (c.year === year ? Number(c.seq) || 0 : 0) + 1;
+      const reference = `SET-${year}-${String(seq).padStart(6, "0")}`;
+
+      tx.set(counterRef, { year, seq, updatedAt: now }, { merge: true });
       tx.set(newRef, {
+        reference,
         accountType,
         accountId,
         accountKey: accountKey(accountType, accountId),
@@ -299,11 +319,74 @@ export async function createSettlementRequest(
         updatedAt: now,
       });
       tx.set(ledgerRef, { activeRequestId: newRef.id, activeRequestStatus: "pending", updatedAt: now }, { merge: true });
-      return { ok: true as const, requestId: newRef.id, outstanding, pendingOrderCount, accountName: name };
+      return { ok: true as const, requestId: newRef.id, reference, outstanding, pendingOrderCount, accountName: name };
     });
   } catch (error) {
     console.error("createSettlementRequest tx error:", error);
     return { ok: false, reason: "nothing_due" };
+  }
+}
+
+/**
+ * Advance a settlement request through its lifecycle (approve / reject).
+ *
+ *   approve: pending → approved (a payment can then be completed against it).
+ *   reject : pending|approved → rejected, and the ledger lock is RELEASED so the
+ *            account can raise a fresh request. (Completed/paid requests can't be
+ *            rejected — the money already moved.)
+ *
+ * completeSettlement handles the paid → completed step. Every transition is
+ * written to the immutable audit log.
+ */
+export async function transitionSettlementRequest(
+  requestId: string,
+  action: "approve" | "reject",
+  adminName?: string,
+  reason?: string,
+): Promise<{ ok: boolean; reason?: string; status?: string }> {
+  const db = getFirestore();
+  if (!db) return { ok: false, reason: "no_db" };
+  const reqRef = db.collection(SETTLEMENT_REQUESTS).doc(requestId);
+  try {
+    const result = await db.runTransaction(async (tx) => {
+      const snap = await tx.get(reqRef);
+      if (!snap.exists) return { ok: false, reason: "not_found" as const };
+      const r = snap.data() as any;
+      const cur = String(r.status);
+      const now = admin.firestore.Timestamp.now();
+      const ledgerRef = db.collection(LEDGER).doc(ledgerId(r.accountType, r.accountId));
+
+      if (action === "approve") {
+        if (cur !== "pending") return { ok: false, reason: "invalid_transition" as const, status: cur };
+        tx.update(reqRef, { status: "approved", approvedBy: adminName || "", approvedAt: now, updatedAt: now });
+        tx.set(ledgerRef, { activeRequestStatus: "approved", updatedAt: now }, { merge: true });
+      } else {
+        if (cur !== "pending" && cur !== "approved") return { ok: false, reason: "invalid_transition" as const, status: cur };
+        tx.update(reqRef, { status: "rejected", rejectedBy: adminName || "", rejectionReason: reason || "", rejectedAt: now, updatedAt: now });
+        // Release the lock so the account can request again.
+        tx.set(ledgerRef, { activeRequestId: null, activeRequestStatus: null, updatedAt: now }, { merge: true });
+      }
+      return {
+        ok: true as const,
+        status: action === "approve" ? "approved" : "rejected",
+        accountType: r.accountType, accountId: r.accountId, reference: r.reference || requestId,
+      };
+    });
+
+    if (result.ok) {
+      recordAudit({
+        action: action === "approve" ? "settlement.approve" : "settlement.reject",
+        actorName: adminName || "",
+        targetType: (result as any).accountType,
+        targetId: (result as any).accountId,
+        referenceId: (result as any).reference,
+        notes: reason || "",
+      }).catch(() => {});
+    }
+    return { ok: result.ok, reason: (result as any).reason, status: (result as any).status };
+  } catch (error) {
+    console.error("transitionSettlementRequest error:", error);
+    return { ok: false, reason: "tx_failed" };
   }
 }
 

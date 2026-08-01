@@ -72,6 +72,7 @@ import {
   getSettlementConfig, updateSettlementConfig, isOverSettlementThreshold,
   listSettlementAccounts, getSettlementPayments, getSettlementLedger,
   adminAdjustLedger, retryOrderSettlements, vendorCommissionBase,
+  transitionSettlementRequest,
 } from "./settlement";
 import type { OrderSettlementInput } from "./settlement";
 import {
@@ -4592,6 +4593,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
         getSettlementPayments(accountType, accountId),
       ]);
       res.json({ view, history, payments });
+    } catch (error: any) {
+      console.error("[API]", req.method, req.path, error?.message);
+      res.status(500).json({ error: GENERIC_SERVER_ERROR });
+    }
+  });
+
+  // Approve / reject a settlement request (lifecycle: pending → approved → paid → completed / rejected).
+  app.post("/api/admin/settlements/approve", async (req: Request, res: Response) => {
+    const { requestId, adminName } = req.body;
+    if (!requestId) return res.status(400).json({ error: "requestId required" });
+    try {
+      const result = await transitionSettlementRequest(String(requestId), "approve", adminName);
+      if (!result.ok) {
+        if (result.reason === "invalid_transition")
+          return res.status(409).json({ error: `لا يمكن اعتماد طلب حالته: ${result.status}` });
+        if (result.reason === "not_found") return res.status(404).json({ error: "الطلب غير موجود" });
+        return res.status(500).json({ error: GENERIC_SERVER_ERROR });
+      }
+      orderEvents.emit("settlement:updated", { requestId, status: "approved" });
+      res.json({ success: true, status: result.status });
+    } catch (error: any) {
+      console.error("[API]", req.method, req.path, error?.message);
+      res.status(500).json({ error: GENERIC_SERVER_ERROR });
+    }
+  });
+
+  app.post("/api/admin/settlements/reject", async (req: Request, res: Response) => {
+    const { requestId, adminName, reason } = req.body;
+    if (!requestId) return res.status(400).json({ error: "requestId required" });
+    try {
+      const result = await transitionSettlementRequest(String(requestId), "reject", adminName, reason);
+      if (!result.ok) {
+        if (result.reason === "invalid_transition")
+          return res.status(409).json({ error: `لا يمكن رفض طلب حالته: ${result.status}` });
+        if (result.reason === "not_found") return res.status(404).json({ error: "الطلب غير موجود" });
+        return res.status(500).json({ error: GENERIC_SERVER_ERROR });
+      }
+      orderEvents.emit("settlement:updated", { requestId, status: "rejected" });
+      res.json({ success: true, status: result.status });
     } catch (error: any) {
       console.error("[API]", req.method, req.path, error?.message);
       res.status(500).json({ error: GENERIC_SERVER_ERROR });
