@@ -641,7 +641,9 @@ function isRequestSecure(req: Request): boolean {
     const { recoveryCode, newUsername, newPassword, confirmPassword } = req.body || {};
     const ip = trustedClientIp(req);
 
-    if (recoveryCode !== masterRecoveryPassword) {
+    // Constant-time compare so response timing can't leak the recovery code
+    // byte-by-byte (defense-in-depth alongside the 5-attempt rate limit).
+    if (!timingSafeEqualStr(String(recoveryCode || ""), masterRecoveryPassword)) {
       console.warn(`[SECURITY] /admin/reset-password failed — wrong recovery code. IP: ${ip} at ${new Date().toISOString()}`);
       return send(401, "رمز الاسترداد غير صحيح");
     }
