@@ -15,6 +15,7 @@
 
 import admin from "firebase-admin";
 import { getFirestore } from "./firebase";
+import { recordLedgerEntry, recordAudit } from "./financialLedger";
 
 export type SettlementAccountType = "driver" | "vendor";
 export type SettlementDirection = "collect" | "payout";
@@ -587,6 +588,31 @@ export async function completeSettlement(input: CompleteSettlementInput): Promis
             .catch(() => {}),
         )
         .catch((e) => console.error("markSettlementRecordsFIFO error:", e));
+
+      // ── Financial ledger + audit (append-only) — best-effort, never blocks ──
+      // A settlement payment reduces what the account is owed / owes, so it DEBITS
+      // the account. Idempotent by the payment id, matching completeSettlement's own
+      // idempotency, so a replayed payment records nothing new.
+      const ref = (result as any).receiptNumber || paymentRef.id;
+      recordLedgerEntry({
+        accountType: input.accountType,
+        accountId: input.accountId,
+        type: "settlement",
+        debit: appliedOut,
+        settlementRef: ref,
+        createdBy: input.adminName || "admin",
+        entryId: `${paymentRef.id}__${input.accountType}__settlement`,
+        description: "تسوية دفعة",
+      }).catch(() => {});
+      recordAudit({
+        action: "settlement.complete",
+        actorName: input.adminName || "",
+        targetType: input.accountType,
+        targetId: input.accountId,
+        amount: appliedOut,
+        referenceId: ref,
+        notes: input.notes || "",
+      }).catch(() => {});
     }
     return result;
   } catch (error) {
@@ -791,8 +817,9 @@ export async function adminAdjustLedger(
   const db = getFirestore();
   if (!db) return { ok: false, reason: "no_ledger" };
   const ledgerRef = db.collection(LEDGER).doc(ledgerId(accountType, accountId));
+  const delta = Math.abs(Math.round(amount));
   try {
-    return await db.runTransaction(async (tx) => {
+    const result = await db.runTransaction(async (tx) => {
       const snap = await tx.get(ledgerRef);
       const now = admin.firestore.Timestamp.now();
       const delta = Math.abs(Math.round(amount));
@@ -828,6 +855,28 @@ export async function adminAdjustLedger(
 
       return { ok: true, outstandingBefore: before, outstandingAfter: after };
     });
+
+    // ── Financial ledger + audit (append-only) — best-effort, never blocks ──
+    // A manual correction becomes a NEW typed movement (never an in-place edit of
+    // history): "add" credits the account (owes/owed more), "deduct" debits it.
+    if (result.ok) {
+      recordLedgerEntry({
+        accountType, accountId,
+        type: "adjustment",
+        ...(adjustType === "add" ? { credit: delta } : { debit: delta }),
+        createdBy: adminName || "admin",
+        description: notes || "تعديل يدوي",
+      }).catch(() => {});
+      recordAudit({
+        action: "ledger.adjust",
+        actorName: adminName || "",
+        targetType: accountType,
+        targetId: accountId,
+        amount: delta,
+        notes: `${adjustType}: ${notes || ""}`.trim(),
+      }).catch(() => {});
+    }
+    return result;
   } catch (error) {
     console.error("adminAdjustLedger tx error:", error);
     return { ok: false, reason: "transaction_failed" };

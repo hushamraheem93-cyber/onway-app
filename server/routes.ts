@@ -75,6 +75,10 @@ import {
 } from "./settlement";
 import type { OrderSettlementInput } from "./settlement";
 import {
+  recordLedgerEntries, orderEntryId,
+} from "./financialLedger";
+import type { LedgerInput } from "./financialLedger";
+import {
   sanitizeQuantity,
   capOrderItemImages,
   isAllowedImageMime,
@@ -1898,6 +1902,52 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (driverPhone) {
         const ledger = await getSettlementLedger("driver", driverPhone).catch(() => null);
         driverOutstanding = ledger?.outstandingTotal ?? 0;
+      }
+
+      // ── Financial ledger (append-only, auditable) — best-effort, never blocks ──
+      // Mirror each settlement accrual as typed movements so the bank-style
+      // statement reconciles with settlementLedger.outstandingTotal. Idempotent by
+      // deterministic entryId, so replays produce the same entries (no double count).
+      try {
+        const ledgerEntries: LedgerInput[] = [];
+        let platformCommissionTotal = 0;
+        for (const inp of settlementInputs) {
+          if (inp.accountType === "driver") {
+            // Driver took the customer's cash (owes it) then keeps their trip fee.
+            ledgerEntries.push(
+              { accountType: "driver", accountId: inp.accountId, accountName: inp.accountName,
+                type: "cash_collected", credit: inp.grossAmount, orderId,
+                entryId: orderEntryId(orderId, "driver", "cash_collected"), description: "استلام نقد الطلب" },
+              { accountType: "driver", accountId: inp.accountId, accountName: inp.accountName,
+                type: "delivery_fee", debit: inp.commission, orderId,
+                entryId: orderEntryId(orderId, "driver", "delivery_fee"), description: "أجرة التوصيل" },
+            );
+          } else if (inp.accountType === "vendor") {
+            platformCommissionTotal += inp.commission;
+            // Company owes vendor the sale value minus the platform commission.
+            ledgerEntries.push(
+              { accountType: "vendor", accountId: inp.accountId, accountName: inp.accountName,
+                type: "order_sale", credit: inp.grossAmount, orderId,
+                entryId: orderEntryId(orderId, "vendor", "order_sale"), description: "بيع طلب" },
+              { accountType: "vendor", accountId: inp.accountId, accountName: inp.accountName,
+                type: "platform_commission", debit: inp.commission, orderId,
+                entryId: orderEntryId(orderId, "vendor", "platform_commission"), description: "عمولة التطبيق" },
+            );
+          }
+        }
+        // Platform revenue for this order: vendor commission + owner's delivery cut.
+        const platformRevenue = platformCommissionTotal + (driverPhone ? deductionAmount : 0);
+        if (platformRevenue > 0) {
+          ledgerEntries.push({
+            accountType: "platform", accountId: "onway", accountName: "OnWay",
+            type: "platform_commission", credit: platformRevenue, orderId,
+            entryId: orderEntryId(orderId, "platform", "platform_commission"),
+            description: "إيراد التطبيق (عمولة + حصة توصيل)",
+          });
+        }
+        if (ledgerEntries.length > 0) await recordLedgerEntries(ledgerEntries);
+      } catch (ledgerErr) {
+        console.error("[LEDGER] order accrual recording error (non-blocking):", ledgerErr);
       }
     } catch (settlementErr) {
       console.error("[SETTLEMENT] accrual error (non-blocking):", settlementErr);
