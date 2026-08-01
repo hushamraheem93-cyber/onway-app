@@ -1781,6 +1781,128 @@ export async function registerRoutes(app: Express): Promise<Server> {
     return { driverEarning, deductionAmount };
   }
 
+  /**
+   * Credit the driver + vendor settlement accruals for ONE delivered order.
+   *
+   * This is the single source of truth for "what happens to the money when an
+   * order becomes delivered" (#14), shared by BOTH the driver batch-complete flow
+   * and the admin "mark delivered" transition so the two can never diverge.
+   *
+   * Idempotent: every accrual is keyed by `${orderId}__${accountType}`, so calling
+   * this twice for the same order is a safe no-op. It deliberately does NOT own the
+   * order's one-time `earningsCredited` flag — the caller claims that (the driver
+   * flow also gates its non-idempotent bookkeeping on the same flag).
+   *
+   * On any failed accrual it parks the exact retry inputs on the order document
+   * (settlementPending) so the recovery sweep can replay them. Never throws for a
+   * settlement problem — the money block must never break order completion.
+   */
+  async function accrueDeliveredOrderSettlements(
+    db: FirebaseFirestore.Firestore,
+    orderId: string,
+    order: any,
+    driverPhone: string | null,
+  ): Promise<{ driverEarning: number; deductionAmount: number; isRestaurantOrder: boolean; driverOutstanding: number }> {
+    const isRestaurantOrder = await checkIsRestaurantOrder(order);
+    const { driverEarning, deductionAmount } = await computeDriverPayout(isRestaurantOrder, order.deliveryFee || 0);
+    if (driverPhone) {
+      await updateOrderDriverInfo(orderId, { driverEarning, ownerEarning: deductionAmount });
+    }
+
+    let driverOutstanding = 0;
+    try {
+      // Build every accrual up front so the exact same inputs can be replayed by
+      // the recovery sweep if a write fails.
+      const settlementInputs: OrderSettlementInput[] = [];
+
+      // Driver — cash-collection settlement (only when a driver delivered it).
+      if (driverPhone) {
+        const cashCollected = order.total || 0;
+        settlementInputs.push({
+          accountType: "driver",
+          accountId: driverPhone,
+          accountName: (order as any).driverName || driverPhone,
+          orderId,
+          storeId: order.vendorId ?? null,
+          storeName: (order as any).vendorName ?? (order as any).storeName ?? null,
+          grossAmount: cashCollected,
+          commission: driverEarning,
+          outstandingAmount: Math.max(0, cashCollected - driverEarning),
+        });
+      }
+
+      // Vendor — revenue settlement: company owes vendor orderValue − platformCommission.
+      // Never fall back to order.total — it includes deliveryFee and serviceFee, which
+      // OnWay keeps. vendorCommissionBase strips them for marketplace orders (which
+      // never set restaurantSubtotal) and matches the admin statement's formula.
+      if (order.vendorId) {
+        const vendorSnap = await db.collection("vendors").doc(order.vendorId).get();
+        const v = vendorSnap.exists ? (vendorSnap.data() as any) : {};
+        const orderValue = vendorCommissionBase(order as any);
+        const platformCommission =
+          (order as any).vendorCommissionAmount ??
+          Math.round((orderValue * (v.commissionPercent ?? 10)) / 100);
+        settlementInputs.push({
+          accountType: "vendor",
+          accountId: order.vendorId,
+          accountName: v.storeName || v.name || order.vendorId,
+          orderId,
+          storeId: order.vendorId,
+          storeName: v.storeName || v.name || null,
+          grossAmount: orderValue,
+          commission: platformCommission,
+          outstandingAmount: Math.max(0, orderValue - platformCommission),
+        });
+      }
+
+      // Record each accrual and INSPECT the outcome — a failed write must not look
+      // identical to a successful one (that silently loses money).
+      const failed: OrderSettlementInput[] = [];
+      for (const input of settlementInputs) {
+        const outcome = await recordOrderSettlement(input);
+        if (outcome === "failed") failed.push(input);
+        else {
+          console.log(
+            `[SETTLEMENT] ${outcome} order=${orderId} type=${input.accountType} account=${input.accountId}`,
+          );
+        }
+      }
+
+      if (failed.length > 0) {
+        await db
+          .collection("orders")
+          .doc(orderId)
+          .update({
+            settlementPending: true,
+            settlementFailedTypes: failed.map((f) => f.accountType),
+            settlementRetryInputs: failed,
+            settlementLastError: new Date().toISOString(),
+            updatedAt: new Date(),
+          })
+          .catch((markErr: any) =>
+            console.error(
+              `[SETTLEMENT] CRITICAL order=${orderId} settlement failed AND the retry marker ` +
+                `could not be saved — manual reconciliation required. ` +
+                `inputs=${JSON.stringify(failed)} markerError=${markErr?.message}`,
+            ),
+          );
+        console.error(
+          `[SETTLEMENT] order=${orderId} marked for recovery; failed types=` +
+            failed.map((f) => f.accountType).join(","),
+        );
+      }
+
+      if (driverPhone) {
+        const ledger = await getSettlementLedger("driver", driverPhone).catch(() => null);
+        driverOutstanding = ledger?.outstandingTotal ?? 0;
+      }
+    } catch (settlementErr) {
+      console.error("[SETTLEMENT] accrual error (non-blocking):", settlementErr);
+    }
+
+    return { driverEarning, deductionAmount, isRestaurantOrder, driverOutstanding };
+  }
+
   // GET /api/settings/public — unauthenticated; returns safe subset for the mobile app
   app.get("/api/settings/public", async (_req: Request, res: Response) => {
     try {
@@ -2493,6 +2615,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // When order is confirmed, create a batch for the next available driver
         if (status === "confirmed") {
           onOrderConfirmed();
+        }
+
+        // #14: delivering from the admin panel must credit driver + vendor
+        // earnings with the SAME logic as the driver flow. Claim the one-time
+        // earningsCredited flag, then run the shared accrual. Idempotent: if the
+        // driver flow already credited this order, the flag is set and we skip —
+        // no double credit. Best-effort: a settlement hiccup never fails the
+        // status update the admin just performed.
+        if (status === "delivered") {
+          const orderRef = db.collection("orders").doc(orderId);
+          try {
+            const firstCredit = await db.runTransaction(async (tx) => {
+              const snap = await tx.get(orderRef);
+              if (!snap.exists) return false;
+              if ((snap.data() as any)?.earningsCredited === true) return false;
+              tx.update(orderRef, { earningsCredited: true });
+              return true;
+            });
+            if (firstCredit) {
+              const order = await getOrderById(orderId);
+              if (order) {
+                await accrueDeliveredOrderSettlements(
+                  db,
+                  orderId,
+                  order,
+                  (order as any).driverPhone || null,
+                );
+                await orderRef.update({ deliveredAt: new Date(), updatedAt: new Date() }).catch(() => {});
+              } else {
+                // Couldn't read the order — release the claim so a retry can credit.
+                await orderRef.update({ earningsCredited: false }).catch(() => {});
+              }
+            }
+          } catch (creditErr: any) {
+            console.error(`[ADMIN-DELIVERED] earnings accrual failed order=${orderId}:`, creditErr?.message);
+          }
         }
 
         // Cancellation: notify all affected parties and clean up driver state
@@ -3977,110 +4135,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const pushToken = await getUserPushToken(order.phoneNumber || "");
         if (pushToken) await sendPushNotification(pushToken, "delivered", orderId);
 
-        const isRestaurantOrder = await checkIsRestaurantOrder(order);
-        const { driverEarning, deductionAmount } = await computeDriverPayout(isRestaurantOrder, order.deliveryFee || 0);
-        await updateOrderDriverInfo(orderId, { driverEarning, ownerEarning: deductionAmount });
-
         // ── Settlement accrual (single source of truth) ────────────────────────
-        // settlementLedger is the only financial system. Idempotent per (orderId, accountType).
-        // Wrapped so a failure here can never break order completion.
-        let newSettlementBalance = 0;
-        try {
-          // Build both accruals up front so the exact same inputs can be replayed
-          // by the recovery sweep if a write fails.
-          const cashCollected = order.total || 0;
-          const settlementInputs: OrderSettlementInput[] = [
-            {
-              accountType: "driver",
-              accountId: phoneNumber,
-              accountName: (order as any).driverName || phoneNumber,
-              orderId,
-              storeId: order.vendorId ?? null,
-              storeName: (order as any).vendorName ?? (order as any).storeName ?? null,
-              grossAmount: cashCollected,
-              commission: driverEarning,
-              outstandingAmount: Math.max(0, cashCollected - driverEarning),
-            },
-          ];
-
-          // Vendor — revenue settlement: company owes vendor orderValue − platformCommission.
-          if (order.vendorId) {
-            const vendorSnap = await db.collection("vendors").doc(order.vendorId).get();
-            const v = vendorSnap.exists ? (vendorSnap.data() as any) : {};
-            // Never fall back to order.total — it includes deliveryFee and serviceFee,
-            // which OnWay keeps. vendorCommissionBase strips them for marketplace
-            // orders (which never set restaurantSubtotal) and matches the admin
-            // statement's formula.
-            const orderValue = vendorCommissionBase(order as any);
-            const platformCommission =
-              (order as any).vendorCommissionAmount ??
-              Math.round((orderValue * (v.commissionPercent ?? 10)) / 100);
-            settlementInputs.push({
-              accountType: "vendor",
-              accountId: order.vendorId,
-              accountName: v.storeName || v.name || order.vendorId,
-              orderId,
-              storeId: order.vendorId,
-              storeName: v.storeName || v.name || null,
-              grossAmount: orderValue,
-              commission: platformCommission,
-              outstandingAmount: Math.max(0, orderValue - platformCommission),
-            });
-          }
-
-          // Record each accrual and INSPECT the outcome. Previously the return
-          // value was discarded, so a failed write looked identical to a
-          // successful one and the money was silently lost forever: the order's
-          // earningsCredited flag had already been committed, so no retry could
-          // ever reach this code again.
-          const failed: OrderSettlementInput[] = [];
-          for (const input of settlementInputs) {
-            const outcome = await recordOrderSettlement(input);
-            if (outcome === "failed") failed.push(input);
-            else {
-              console.log(
-                `[SETTLEMENT] ${outcome} order=${orderId} type=${input.accountType} account=${input.accountId}`,
-              );
-            }
-          }
-
-          if (failed.length > 0) {
-            // Park the exact inputs on the order so the recovery sweep can replay
-            // them. earningsCredited stays TRUE on purpose — the rest of the
-            // completion (completed-orders list, notifications, batch bookkeeping)
-            // must never run twice. Only the settlement step is retried, and that
-            // is idempotent by the `${orderId}__${accountType}` document id.
-            await db
-              .collection("orders")
-              .doc(orderId)
-              .update({
-                settlementPending: true,
-                settlementFailedTypes: failed.map((f) => f.accountType),
-                settlementRetryInputs: failed,
-                settlementLastError: new Date().toISOString(),
-                updatedAt: new Date(),
-              })
-              .catch((markErr: any) =>
-                // Last-resort log: if even the marker cannot be written, this line
-                // is the only record that money needs manual reconciliation.
-                console.error(
-                  `[SETTLEMENT] CRITICAL order=${orderId} settlement failed AND the ` +
-                    `retry marker could not be saved — manual reconciliation required. ` +
-                    `inputs=${JSON.stringify(failed)} markerError=${markErr?.message}`,
-                ),
-              );
-            console.error(
-              `[SETTLEMENT] order=${orderId} marked for recovery; failed types=` +
-                failed.map((f) => f.accountType).join(","),
-            );
-          }
-
-          // Read the updated ledger to get the current outstanding balance for suspension check
-          const ledger = await getSettlementLedger("driver", phoneNumber).catch(() => null);
-          newSettlementBalance = ledger?.outstandingTotal ?? 0;
-        } catch (settlementErr) {
-          console.error("[SETTLEMENT] accrual error (non-blocking):", settlementErr);
-        }
+        // settlementLedger is the only financial system. Idempotent per (orderId,
+        // accountType). This is the SAME shared accrual the admin "mark delivered"
+        // transition uses (#14), so the two flows can never diverge.
+        const { driverEarning, deductionAmount, isRestaurantOrder, driverOutstanding } =
+          await accrueDeliveredOrderSettlements(db, orderId, order, phoneNumber);
+        const newSettlementBalance = driverOutstanding;
 
         const customerProfile = await getUserByPhone(order.phoneNumber || "");
         const completedEntry = {
