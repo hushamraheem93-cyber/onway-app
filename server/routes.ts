@@ -1989,7 +1989,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
     if (!db) return res.json({ vendor, orders: [], totalSales: 0, appCommission: 0, vendorNet: 0 });
     try {
       const ordersSnap = await db.collection("orders").where("vendorId", "==", id).get();
-      const orders = ordersSnap.docs.map(d => ({ id: d.id, ...d.data() })) as any[];
+      // Financial totals must count ONLY delivered orders — the same rule the
+      // settlement ledger uses. Previously this summed EVERY order (pending,
+      // cancelled, …), so the admin showed a vendor "net" (e.g. 19,400) before any
+      // order was delivered, while the vendor's own earnings page (ledger-based)
+      // showed nothing — an inconsistency. Undelivered/cancelled orders never enter
+      // earnings, commission, or settlements.
+      const orders = ordersSnap.docs
+        .map(d => ({ id: d.id, ...d.data() }))
+        .filter((o: any) => o.status === "delivered") as any[];
       // Commission base: restaurant orders use restaurantSubtotal; marketplace
       // orders (vendorProducts) use total minus fees so delivery/service fees
       // are excluded from the vendor commission base.
