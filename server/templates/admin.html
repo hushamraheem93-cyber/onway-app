@@ -6012,8 +6012,9 @@
               8000
             );
           }
-          // Refresh driver queue if visible
-          const dqSection = document.getElementById('driver-queue-section');
+          // Refresh driver queue if visible (section id is driverQueue-section,
+          // not driver-queue-section — the old typo meant this never fired).
+          const dqSection = document.getElementById('driverQueue-section');
           if (dqSection && dqSection.classList.contains('active')) loadDriverQueue();
         }
       } catch (_e) {}
@@ -8916,7 +8917,11 @@
         document.getElementById('queue-online').textContent = data.onlineDrivers || 0;
         document.getElementById('queue-available').textContent = data.availableDrivers || 0;
         document.getElementById('queue-busy').textContent = data.busyDrivers || 0;
-        document.getElementById('queue-count').textContent = data.onlineDrivers || 0;
+        // NOTE: the 'queue-count' element was removed from the section, but this
+        // setter was left behind — getElementById returned null and the null
+        // .textContent assignment threw, aborting the whole function BEFORE the
+        // queue list rendered, so the screen looked empty ("the button doesn't
+        // work"). The three stat cards above already cover the counts.
 
         const container = document.getElementById('driver-queue-list');
 
