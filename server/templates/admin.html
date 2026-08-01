@@ -1897,6 +1897,43 @@
       </div>
     </div>
 
+    <!-- Merchant Product Add/Edit Modal (#8) -->
+    <div id="mprod-edit-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:9400;align-items:center;justify-content:center;padding:16px;">
+      <div style="background:#fff;border-radius:20px;width:520px;max-width:96vw;max-height:92vh;overflow-y:auto;position:relative;">
+        <div style="padding:18px 24px 14px;border-bottom:1px solid #F3F4F6;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;background:#fff;z-index:2;">
+          <h3 id="mprod-edit-title" style="margin:0;font-size:1rem;font-weight:800;">إضافة منتج</h3>
+          <button onclick="closeMerchantProductEdit()" style="background:none;border:none;font-size:1.3rem;cursor:pointer;color:#9CA3AF;">&times;</button>
+        </div>
+        <div style="padding:20px 24px;display:grid;gap:14px;">
+          <input type="hidden" id="mprod-id">
+          <div><label style="font-size:0.8rem;font-weight:600;color:#374151;display:block;margin-bottom:5px;">اسم المنتج *</label>
+          <input type="text" id="mprod-name" class="form-control" placeholder="اسم المنتج"></div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+            <div><label style="font-size:0.8rem;font-weight:600;color:#374151;display:block;margin-bottom:5px;">السعر (د.ع) *</label>
+            <input type="number" id="mprod-price" class="form-control" placeholder="5000" min="0"></div>
+            <div><label style="font-size:0.8rem;font-weight:600;color:#374151;display:block;margin-bottom:5px;">المخزون</label>
+            <input type="number" id="mprod-stock" class="form-control" placeholder="0" min="0"></div>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+            <div><label style="font-size:0.8rem;font-weight:600;color:#374151;display:block;margin-bottom:5px;">الفئة</label>
+            <input type="text" id="mprod-category" class="form-control" placeholder="مثال: وجبات رئيسية"></div>
+            <div><label style="font-size:0.8rem;font-weight:600;color:#374151;display:block;margin-bottom:5px;">وحدة القياس</label>
+            <input type="text" id="mprod-unit" class="form-control" placeholder="قطعة"></div>
+          </div>
+          <div><label style="font-size:0.8rem;font-weight:600;color:#374151;display:block;margin-bottom:5px;">الوصف</label>
+          <textarea id="mprod-description" class="form-control" rows="2" placeholder="وصف مختصر..."></textarea></div>
+          <div><label style="font-size:0.8rem;font-weight:600;color:#374151;display:block;margin-bottom:5px;">صورة المنتج</label>
+          <input type="file" id="mprod-image-file" accept="image/*" class="form-control">
+          <div style="font-size:0.72rem;color:#6B7280;margin-top:4px;">اختياري — تُرفع وتُضغط تلقائياً. اتركه فارغاً للإبقاء على الصورة الحالية عند التعديل.</div>
+          <img id="mprod-image-preview" src="" style="display:none;width:80px;height:80px;object-fit:cover;border-radius:10px;margin-top:8px;border:1px solid #E5E7EB;"></div>
+        </div>
+        <div style="padding:14px 24px;border-top:1px solid #F3F4F6;display:flex;gap:10px;justify-content:flex-end;position:sticky;bottom:0;background:#fff;">
+          <button onclick="closeMerchantProductEdit()" class="btn btn-outline">إلغاء</button>
+          <button onclick="saveMerchantProduct()" class="btn btn-primary" id="mprod-save-btn">حفظ</button>
+        </div>
+      </div>
+    </div>
+
     <!-- Merchant Statement Modal -->
     <div id="merchant-statement-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9200;align-items:center;justify-content:center;">
       <div style="background:#fff;border-radius:20px;padding:0;width:540px;max-width:95vw;max-height:90vh;overflow-y:auto;position:relative;">
@@ -7391,6 +7428,12 @@
           <!-- Action buttons -->
           <div style="display:flex;gap:5px;">
             <button
+              onclick="openEditMerchantProduct('${p.id}')"
+              title="تعديل المنتج"
+              style="padding:5px 9px;border-radius:8px;border:1px solid #DBEAFE;background:#EFF6FF;color:#2563EB;font-size:0.72rem;font-weight:700;cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:3px;transition:all .15s;">
+              ✏️
+            </button>
+            <button
               onclick="toggleVendorProductActive('${p.id}', ${disabled})"
               title="${disabled ? 'تفعيل المنتج' : 'تعطيل المنتج'}"
               style="flex:1;padding:5px 0;border-radius:8px;border:1px solid ${disabled?'#BBF7D0':'#E5E7EB'};background:${disabled?'#F0FDF4':'#F9FAFB'};color:${disabled?'#16A34A':'#6B7280'};font-size:0.68rem;font-weight:700;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:3px;transition:all .15s;">
@@ -7447,9 +7490,96 @@
       lucide.createIcons();
     }
 
+    // ── Add / edit a store's product from the admin panel (#8) ───────────────
     function openAddMerchantProduct() {
       if (!_merchantCurrentProdsVendorId) return;
-      showToast('info', 'قريباً', 'إضافة المنتجات عبر تطبيق التاجر أو من قسم المنتجات');
+      _openMerchantProductForm(null);
+    }
+
+    function openEditMerchantProduct(id) {
+      const p = _merchantAllProds.find(x => x.id === id);
+      if (p) _openMerchantProductForm(p);
+    }
+
+    function _openMerchantProductForm(p) {
+      document.getElementById('mprod-id').value          = p ? p.id : '';
+      document.getElementById('mprod-name').value        = p ? (p.name || '') : '';
+      document.getElementById('mprod-price').value       = p ? (p.price || '') : '';
+      document.getElementById('mprod-stock').value       = p ? (p.stock || '') : '';
+      document.getElementById('mprod-category').value    = p ? (p.category || '') : '';
+      document.getElementById('mprod-unit').value        = p ? (p.unit || '') : '';
+      document.getElementById('mprod-description').value = p ? (p.description || '') : '';
+      document.getElementById('mprod-image-file').value  = '';
+      const prev = document.getElementById('mprod-image-preview');
+      const img = p ? (p.imageUrl || p.image || (Array.isArray(p.imageUrls) ? p.imageUrls[0] : '') || '') : '';
+      if (img) { prev.src = img; prev.style.display = ''; } else { prev.style.display = 'none'; }
+      document.getElementById('mprod-edit-title').textContent = p ? 'تعديل المنتج' : 'إضافة منتج';
+      document.getElementById('mprod-edit-modal').style.display = 'flex';
+    }
+
+    function closeMerchantProductEdit() {
+      document.getElementById('mprod-edit-modal').style.display = 'none';
+    }
+
+    async function _reloadMerchantProducts() {
+      const id = _merchantCurrentProdsVendorId;
+      if (!id) return;
+      try {
+        const res  = await fetch(API_BASE + '/admin/vendor-products?status=all');
+        const data = await res.json();
+        _merchantAllProds = (data.products || []).filter(p => p.vendorId === id);
+        document.getElementById('mprods-subtitle').textContent = `${_merchantAllProds.length} منتج`;
+      } catch {}
+      filterMerchantProducts();
+    }
+
+    async function saveMerchantProduct() {
+      const id    = document.getElementById('mprod-id').value;   // empty ⇒ create
+      const btn   = document.getElementById('mprod-save-btn');
+      const name  = document.getElementById('mprod-name').value.trim();
+      const price = parseFloat(document.getElementById('mprod-price').value);
+      if (!name) return showToast('error', 'خطأ', 'اسم المنتج مطلوب');
+      if (isNaN(price) || price <= 0) return showToast('error', 'خطأ', 'أدخل سعراً صحيحاً');
+      btn.disabled = true;
+      try {
+        // Upload a newly chosen image to Storage (same flow as categories); on edit
+        // with no new file, imageUrl is omitted so the existing image is kept.
+        let imageUrl;
+        const fileInput = document.getElementById('mprod-image-file');
+        if (fileInput.files[0]) {
+          const compressed = await compressImageForUpload(fileInput.files[0]);
+          const fd = new FormData();
+          fd.append('image', compressed, 'product.jpg');
+          fd.append('type', 'product');
+          const up = await fetch(API_BASE + '/admin/upload-image', { method: 'POST', body: fd });
+          if (!up.ok) { const e = await up.json().catch(() => ({})); showToast('error', 'خطأ', e.error || 'فشل رفع الصورة'); btn.disabled = false; return; }
+          imageUrl = (await up.json()).url || '';
+        }
+        const payload = {
+          name, price,
+          stock:       parseInt(document.getElementById('mprod-stock').value) || 0,
+          category:    document.getElementById('mprod-category').value.trim(),
+          unit:        document.getElementById('mprod-unit').value.trim() || 'قطعة',
+          description: document.getElementById('mprod-description').value.trim(),
+        };
+        if (imageUrl !== undefined) payload.imageUrl = imageUrl;
+        let res;
+        if (id) {
+          res = await fetch(API_BASE + '/admin/vendor-products/' + id, {
+            method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
+          });
+        } else {
+          payload.vendorId = _merchantCurrentProdsVendorId;
+          res = await fetch(API_BASE + '/admin/vendor-products', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
+          });
+        }
+        if (!res.ok) { const e = await res.json().catch(() => ({})); showToast('error', 'خطأ', e.error || 'فشل الحفظ'); btn.disabled = false; return; }
+        showToast('success', id ? 'تم الحفظ' : 'تمت الإضافة', id ? 'تم تحديث المنتج' : 'تمت إضافة المنتج للمتجر');
+        closeMerchantProductEdit();
+        await _reloadMerchantProducts();
+      } catch { showToast('error', 'خطأ', 'تعذّر الاتصال'); }
+      btn.disabled = false;
     }
 
     // ── Merchant Financial Statement ─────────────────────────────
