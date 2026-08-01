@@ -11,7 +11,7 @@ import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 
 import { useTheme } from "@/hooks/useTheme";
-import { Spacing, BorderRadius, AppColors, FontWeight} from "@/constants/theme";
+import { Spacing, BorderRadius, AppColors, FontWeight, Shadows} from "@/constants/theme";
 import { Product } from "@/constants/categories";
 import { ProductCard } from "@/components/ProductCard";
 import { EmptyState } from "@/components/EmptyState";
@@ -226,7 +226,7 @@ function VendorCard({ vendor, theme, onPress }: { vendor: Vendor; theme: any; on
             <ThemedText type="small" style={{ color: theme.textSecondary, flex: 1, textAlign: "right" }} numberOfLines={1}>
               {vendor.location}
             </ThemedText>
-            <Feather name="map-pin" size={12} color={theme.textSecondary} style={{ marginLeft: 4 }} />
+            <Feather name="map-pin" size={12} color={theme.textSecondary} />
           </View>
         ) : null}
 
@@ -265,6 +265,8 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.xl,
     marginBottom: Spacing.md,
     overflow: "hidden",
+    // Match the product-card elevation so restaurant cards aren't flat (A, #17).
+    ...Shadows.md,
   },
   vendorImageContainer: {
     position: "relative",
@@ -306,6 +308,8 @@ const styles = StyleSheet.create({
   vendorRow: {
     flexDirection: "row",
     alignItems: "center",
+    // Direction-agnostic gap instead of a physical marginLeft (correct under RTL) (C).
+    gap: 4,
   },
   vendorMeta: {
     flexDirection: "row",
