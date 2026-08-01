@@ -1,6 +1,5 @@
 import React from "react";
 import { View, StyleSheet, Pressable, Dimensions, Text } from "react-native";
-import { Image } from "expo-image";
 import { useNavigation } from "@react-navigation/native";
 import { Feather } from "@expo/vector-icons";
 
@@ -34,20 +33,6 @@ export function HeaderTitle({ title }: HeaderTitleProps) {
 
   return (
     <View style={styles.wrapper}>
-      {/* Logo is an absolutely-centered, NON-interactive overlay. It is 130px wide
-          and previously lived in a flex:1 third that it overflowed, painting on top
-          of the adjacent action icon and swallowing its taps — which is why tapping
-          the search icon "did nothing" while the cart icon (further from centre)
-          still worked. pointerEvents="none" guarantees the logo can never intercept
-          a tap on any icon, and absolute centring keeps it screen-centred. */}
-      <View style={styles.logoOverlay} pointerEvents="none">
-        <Image
-          source={require("../assets/images/onway-header-logo-transparent.png")}
-          style={styles.logo}
-          contentFit="contain"
-        />
-      </View>
-
       {/* row-reverse so the action icons sit on the LEFT and the menu on the RIGHT
           under the app's forced-RTL layout (plain "row" put the icons on the right). */}
       <View style={styles.container}>
@@ -115,16 +100,6 @@ const styles = StyleSheet.create({
     flexDirection: "row-reverse",
     alignItems: "center",
     gap: 8,
-  },
-  logoOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    alignItems: "center",
-    justifyContent: "center",
-    paddingBottom: 6,
-  },
-  logo: {
-    width: 130,
-    height: 50,
   },
   menuButton: {
     width: 36,
