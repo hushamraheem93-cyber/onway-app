@@ -25,6 +25,11 @@ import { useCart } from "@/context/CartContext";
 type ProductsRouteProp = RouteProp<RootStackParamList, "Products">;
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
+// Responsive grid card width: half the row (screen minus horizontal padding and
+// the column gap), so two cards never overflow on small (~320pt) devices (B, #17).
+const SCREEN_WIDTH = Dimensions.get("window").width;
+const GRID_CARD_WIDTH = (SCREEN_WIDTH - Spacing.md * 2 - Spacing.sm) / 2;
+
 interface Vendor {
   id: string;
   name: string;
@@ -160,7 +165,7 @@ export default function ProductsScreen() {
         columnWrapperStyle={styles.columnWrapper}
         scrollIndicatorInsets={{ bottom: insets.bottom }}
         data={products}
-        renderItem={({ item }) => <ProductCard product={item} />}
+        renderItem={({ item }) => <ProductCard product={item} width={GRID_CARD_WIDTH} />}
         keyExtractor={(item) => item.id}
         numColumns={2}
         showsVerticalScrollIndicator={false}

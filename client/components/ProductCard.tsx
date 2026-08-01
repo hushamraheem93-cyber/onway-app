@@ -26,11 +26,15 @@ const SCREEN_WIDTH = Dimensions.get("window").width;
 interface ProductCardProps {
   product: Product;
   onPress?: () => void;
+  // Optional explicit card width. Horizontal lists keep the default fixed 160px;
+  // the 2-column grid passes a responsive half-width so cards never overflow on
+  // small (~320pt) devices (B, #17).
+  width?: number;
 }
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
-function ProductCardComponent({ product, onPress }: ProductCardProps) {
+function ProductCardComponent({ product, onPress, width }: ProductCardProps) {
   const { theme } = useTheme();
   const { addToCart, updateQuantity, items } = useCart();
   const { isFavorite, toggleFavorite } = useFavorites();
@@ -117,6 +121,7 @@ function ProductCardComponent({ product, onPress }: ProductCardProps) {
       style={[
         styles.card,
         { backgroundColor: theme.backgroundDefault },
+        width != null ? { width } : null,
         animatedStyle,
       ]}
     >
