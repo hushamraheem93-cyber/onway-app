@@ -34,8 +34,24 @@ export function HeaderTitle({ title }: HeaderTitleProps) {
 
   return (
     <View style={styles.wrapper}>
+      {/* Logo is an absolutely-centered, NON-interactive overlay. It is 130px wide
+          and previously lived in a flex:1 third that it overflowed, painting on top
+          of the adjacent action icon and swallowing its taps — which is why tapping
+          the search icon "did nothing" while the cart icon (further from centre)
+          still worked. pointerEvents="none" guarantees the logo can never intercept
+          a tap on any icon, and absolute centring keeps it screen-centred. */}
+      <View style={styles.logoOverlay} pointerEvents="none">
+        <Image
+          source={require("../assets/images/onway-header-logo-transparent.png")}
+          style={styles.logo}
+          contentFit="contain"
+        />
+      </View>
+
+      {/* row-reverse so the action icons sit on the LEFT and the menu on the RIGHT
+          under the app's forced-RTL layout (plain "row" put the icons on the right). */}
       <View style={styles.container}>
-        <View style={styles.leftSection}>
+        <View style={styles.iconGroup}>
           <Pressable style={styles.iconButton} onPress={handleSearchPress} testID="button-search" accessibilityRole="button" accessibilityLabel="بحث عن منتج">
             <Feather name="search" size={22} color={AppColors.primary} />
           </Pressable>
@@ -61,32 +77,22 @@ export function HeaderTitle({ title }: HeaderTitleProps) {
           </Pressable>
         </View>
 
-        <View style={styles.centerSection}>
-          <Image
-            source={require("../assets/images/onway-header-logo-transparent.png")}
-            style={styles.logo}
-            contentFit="contain"
-          />
-        </View>
-
-        <View style={styles.rightSection}>
-          <Pressable
-            style={styles.menuButton}
-            onPress={() =>
-              navigation.navigate("Main", {
-                screen: "ProfileTab",
-                params: { screen: "Profile" },
-              })
-            }
-            testID="button-menu"
-          >
-            <View style={styles.menuLines}>
-              <View style={styles.menuLine} />
-              <View style={[styles.menuLine, styles.menuLineShort]} />
-              <View style={styles.menuLine} />
-            </View>
-          </Pressable>
-        </View>
+        <Pressable
+          style={styles.menuButton}
+          onPress={() =>
+            navigation.navigate("Main", {
+              screen: "ProfileTab",
+              params: { screen: "Profile" },
+            })
+          }
+          testID="button-menu"
+        >
+          <View style={styles.menuLines}>
+            <View style={styles.menuLine} />
+            <View style={[styles.menuLine, styles.menuLineShort]} />
+            <View style={styles.menuLine} />
+          </View>
+        </Pressable>
       </View>
     </View>
   );
@@ -96,32 +102,29 @@ const styles = StyleSheet.create({
   wrapper: {
     width: SCREEN_WIDTH - 32,
     borderBottomWidth: 0,
+    justifyContent: "center",
   },
   container: {
-    flexDirection: "row",
+    flexDirection: "row-reverse",
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: 4,
     paddingBottom: 6,
   },
-  leftSection: {
-    flexDirection: "row",
+  iconGroup: {
+    flexDirection: "row-reverse",
     alignItems: "center",
     gap: 8,
-    flex: 1,
   },
-  centerSection: {
-    flex: 1,
+  logoOverlay: {
+    ...StyleSheet.absoluteFillObject,
     alignItems: "center",
     justifyContent: "center",
+    paddingBottom: 6,
   },
   logo: {
     width: 130,
     height: 50,
-  },
-  rightSection: {
-    flex: 1,
-    alignItems: "flex-end",
   },
   menuButton: {
     width: 36,
