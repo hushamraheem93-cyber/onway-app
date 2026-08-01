@@ -2039,6 +2039,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       ratingCount: 0,
       deliveryTime: String(deliveryTime || "30-45"),
       isOpen: Boolean(isOpen !== false),
+      // Admin-created stores are live immediately. GET /api/stores (the customer
+      // list) filters status == "active", so without this an admin-created store
+      // would never appear to customers (#7).
+      status: "active",
       createdAt: new Date().toISOString(),
       categoryType: (categoryType as any) || "restaurant",
       cuisine: cuisine ? String(cuisine) : "",

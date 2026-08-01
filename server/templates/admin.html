@@ -1703,6 +1703,9 @@
           <button class="btn btn-outline" onclick="doRefresh(this, loadMerchants, 'التجار')">
             <i data-lucide="refresh-cw"></i> تحديث
           </button>
+          <button class="btn btn-primary" onclick="openMerchantCreate()">
+            <i data-lucide="plus"></i> إضافة متجر
+          </button>
         </div>
       </header>
 
@@ -7249,6 +7252,30 @@
         cb.checked = sc.includes(cb.value);
       });
       document.getElementById('medit-title').textContent = `تعديل: ${v.name || v.storeName || ''}`;
+      document.getElementById('medit-save-btn').innerHTML = '<i data-lucide="save" style="width:14px;height:14px;"></i> حفظ التعديلات';
+      document.getElementById('merchant-edit-modal').style.display = 'flex';
+      lucide.createIcons();
+    }
+
+    // #7: create a brand-new store from the admin panel. Reuses the edit modal with
+    // an empty id — saveMerchantEdit() then POSTs instead of PUTs.
+    function openMerchantCreate() {
+      document.getElementById('medit-id').value          = '';
+      document.getElementById('medit-name').value        = '';
+      document.getElementById('medit-type').value        = 'restaurant';
+      document.getElementById('medit-location').value    = '';
+      document.getElementById('medit-whatsapp').value    = '';
+      document.getElementById('medit-openTime').value    = '';
+      document.getElementById('medit-closeTime').value   = '';
+      document.getElementById('medit-commission').value  = '';
+      document.getElementById('medit-minOrder').value    = '';
+      document.getElementById('medit-deliveryFee').value = '';
+      document.getElementById('medit-description').value = '';
+      document.getElementById('medit-hasDelivery').checked = true;
+      document.getElementById('medit-isOpen').checked      = true;
+      document.querySelectorAll('#medit-supported-cats input[type=checkbox]').forEach(cb => { cb.checked = false; });
+      document.getElementById('medit-title').textContent = 'إضافة متجر جديد';
+      document.getElementById('medit-save-btn').innerHTML = '<i data-lucide="plus" style="width:14px;height:14px;"></i> إنشاء المتجر';
       document.getElementById('merchant-edit-modal').style.display = 'flex';
       lucide.createIcons();
     }
@@ -7258,9 +7285,8 @@
     }
 
     async function saveMerchantEdit() {
-      const id  = document.getElementById('medit-id').value;
+      const id  = document.getElementById('medit-id').value;   // empty ⇒ create (#7)
       const btn = document.getElementById('medit-save-btn');
-      btn.disabled = true;
       const payload = {
         name:              document.getElementById('medit-name').value.trim(),
         categoryType:      document.getElementById('medit-type').value,
@@ -7277,15 +7303,24 @@
         isOpen:            document.getElementById('medit-isOpen').checked,
         supportedCategories: Array.from(document.querySelectorAll('#medit-supported-cats input[type=checkbox]:checked')).map(cb => cb.value),
       };
+      if (!payload.name) { showToast('error', 'خطأ', 'اسم النشاط مطلوب'); return; }
+      btn.disabled = true;
       try {
-        const res = await _mPatch(id, payload);
+        // #7: no id ⇒ POST (create a new store); otherwise PUT (update existing).
+        const res = id
+          ? await _mPatch(id, payload)
+          : await fetch(`${API_BASE}/admin/vendors`, {
+              method: 'POST', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(payload),
+            });
         if (res.ok) {
-          showToast('success', 'تم الحفظ', `تم تحديث بيانات "${payload.name}"`);
+          showToast('success', id ? 'تم الحفظ' : 'تم الإنشاء',
+            id ? `تم تحديث بيانات "${payload.name}"` : `تم إنشاء المتجر "${payload.name}"`);
           closeMerchantEditModal();
           loadMerchants();
         } else {
           const err = await res.json().catch(() => ({}));
-          showToast('error', 'خطأ', err.error || 'فشل الحفظ');
+          showToast('error', 'خطأ', err.error || (id ? 'فشل الحفظ' : 'فشل إنشاء المتجر'));
         }
       } catch { showToast('error', 'خطأ', 'تعذّر الاتصال'); }
       btn.disabled = false;
