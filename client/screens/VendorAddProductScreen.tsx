@@ -124,6 +124,7 @@ export default function VendorAddProductScreen({ navigation }: any) {
       return;
     }
     if (isNaN(parseFloat(price)) || parseFloat(price) <= 0) { setError("يرجى إدخال سعر صحيح"); return; }
+    if (!vendorToken) { setError("انتهت جلستك — سجّل دخولك مجدداً لإضافة المنتج"); return; }
     setError(""); setLoading(true);
     try {
       const formData = new FormData();
