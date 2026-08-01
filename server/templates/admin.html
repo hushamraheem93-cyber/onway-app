@@ -1577,6 +1577,10 @@
         <div class="nav-item" onclick="showSection('opsLive', this)">
           <i data-lucide="activity"></i><span>التشغيل المباشر</span>
         </div>
+        <div class="nav-item" onclick="showSection('settlementRequests', this)">
+          <i data-lucide="receipt"></i><span>طلبات التسوية</span>
+          <span class="badge" id="settlement-req-count" style="display:none;">0</span>
+        </div>
         <div class="nav-item" onclick="showSection('delivery', this)">
           <i data-lucide="map-pin"></i><span>التوصيل والمناطق</span>
         </div>
@@ -3553,6 +3557,40 @@
       </div>
     </div>
 
+    <!-- ══════════════════════ SETTLEMENT REQUESTS ══════════════════════ -->
+    <div id="settlementRequests-section" class="section">
+      <header class="header">
+        <div class="header-title">
+          <h2>طلبات التسوية</h2>
+          <p>اعتماد ورفض وإكمال دفعات التسوية — Pending → Approved → Paid → Completed</p>
+        </div>
+        <div class="header-actions">
+          <select id="sr-status-filter" onchange="loadSettlementRequests()" class="form-input" style="max-width:170px;font-size:0.85rem;">
+            <option value="pending">قيد الانتظار</option>
+            <option value="approved">معتمدة</option>
+            <option value="completed">مكتملة</option>
+            <option value="rejected">مرفوضة</option>
+          </select>
+          <button class="btn btn-outline" onclick="doRefresh(this, loadSettlementRequests, 'طلبات التسوية')">
+            <i data-lucide="refresh-cw"></i> تحديث
+          </button>
+        </div>
+      </header>
+      <div class="content">
+        <div class="card">
+          <div class="table-container">
+            <table>
+              <thead><tr>
+                <th>الرقم المرجعي</th><th>الحساب</th><th>النوع</th><th>المبلغ</th>
+                <th>الطلبات</th><th>التاريخ</th><th>الحالة</th><th>الإجراءات</th>
+              </tr></thead>
+              <tbody id="sr-tbody"><tr><td colspan="8" style="text-align:center;padding:30px;color:#9CA3AF;">جارٍ التحميل…</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- ══════════════════════ ZONE MANAGEMENT ══════════════════════ -->
     <div id="zoneManagement-section" class="section">
       <header class="header">
@@ -4664,6 +4702,7 @@
       if (section === 'analytics') loadAnalytics();
       if (section === 'reports') loadReports();
       if (section === 'opsLive') loadOpsLive();
+      if (section === 'settlementRequests') loadSettlementRequests();
       if (section === 'zoneManagement') loadZones();
       if (section === 'ratingsManagement') loadAdminRatings();
       if (section === 'storeRanking') loadStoreRanking();
@@ -5000,6 +5039,96 @@
     function opsCard(label, value, color) {
       return `<div class="stat-card"><div class="stat-card-value" style="color:${color||'var(--gray-900)'};">${value}</div><div class="stat-card-label">${label}</div></div>`;
     }
+    // ── Settlement Requests inbox (financial system phase 4) ────────────────
+    const SR_STATUS = {
+      pending: { label: 'قيد الانتظار', color: '#F59E0B', bg: '#FEF3C7' },
+      approved: { label: 'معتمد', color: '#3B82F6', bg: '#DBEAFE' },
+      partially_completed: { label: 'مكتمل جزئياً', color: '#8B5CF6', bg: '#EDE9FE' },
+      completed: { label: 'مكتمل', color: '#16A34A', bg: '#DCFCE7' },
+      rejected: { label: 'مرفوض', color: '#EF4444', bg: '#FEE2E2' },
+    };
+    async function loadSettlementRequests() {
+      const status = document.getElementById('sr-status-filter')?.value || 'pending';
+      const tbody = document.getElementById('sr-tbody');
+      tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:30px;color:#9CA3AF;">جارٍ التحميل…</td></tr>`;
+      try {
+        const res = await fetch(`${API_BASE}/admin/settlement-requests?status=${encodeURIComponent(status)}`);
+        const data = await res.json();
+        const reqs = data.requests || [];
+        if (status === 'pending') {
+          const badge = document.getElementById('settlement-req-count');
+          if (badge) { badge.textContent = reqs.length; badge.style.display = reqs.length ? '' : 'none'; }
+        }
+        if (!reqs.length) {
+          tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:40px;color:#9CA3AF;">لا توجد طلبات</td></tr>`;
+          return;
+        }
+        tbody.innerHTML = reqs.map(r => {
+          const st = SR_STATUS[r.status] || { label: r.status, color:'#6B7280', bg:'#F3F4F6' };
+          const secs = r.createdAt && r.createdAt._seconds;
+          const date = secs ? new Date(secs*1000).toLocaleDateString('ar-IQ') : '—';
+          const amt = (r.outstandingSnapshot || 0).toLocaleString('ar-IQ');
+          const typeLabel = r.accountType === 'driver' ? 'سائق' : 'تاجر';
+          const rid = escapeJsInAttr(r.id);
+          const rname = escapeJsInAttr(r.accountName || r.accountId);
+          let actions = '';
+          if (r.status === 'pending') {
+            actions = `
+              <button class="btn btn-sm" style="background:#3B82F6;color:#fff;border:none;padding:5px 10px;" onclick="srApprove('${rid}')">اعتماد</button>
+              <button class="btn btn-sm" style="background:#EF4444;color:#fff;border:none;padding:5px 10px;" onclick="srReject('${rid}')">رفض</button>`;
+          } else if (r.status === 'approved') {
+            actions = `
+              <button class="btn btn-sm" style="background:#16A34A;color:#fff;border:none;padding:5px 10px;" onclick="srComplete('${escapeJsInAttr(r.accountType)}','${escapeJsInAttr(r.accountId)}',${Number(r.outstandingSnapshot)||0},'${rid}','${rname}')">إكمال الدفع</button>
+              <button class="btn btn-sm" style="background:#EF4444;color:#fff;border:none;padding:5px 10px;" onclick="srReject('${rid}')">رفض</button>`;
+          }
+          return `<tr style="border-bottom:1px solid #F3F4F6;">
+            <td style="font-weight:700;direction:ltr;text-align:right;">${escapeHtml(r.reference || String(r.id).slice(-6))}</td>
+            <td>${escapeHtml(r.accountName || r.accountId)}</td>
+            <td>${typeLabel}</td>
+            <td style="font-weight:700;color:#E86520;">${amt} د.ع</td>
+            <td style="text-align:center;">${r.pendingOrderCount || 0}</td>
+            <td style="font-size:0.82rem;color:#6B7280;">${date}</td>
+            <td><span style="padding:3px 10px;border-radius:20px;font-size:0.75rem;font-weight:700;background:${st.bg};color:${st.color};">${st.label}</span></td>
+            <td><div style="display:flex;gap:5px;flex-wrap:wrap;">${actions || '—'}</div></td>
+          </tr>`;
+        }).join('');
+      } catch (e) {
+        tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:30px;color:#EF4444;">${escapeHtml(e.message)}</td></tr>`;
+      }
+    }
+    async function srApprove(requestId) {
+      try {
+        const res = await fetch(`${API_BASE}/admin/settlements/approve`, {
+          method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ requestId }),
+        });
+        if (!res.ok) { const e = await res.json().catch(()=>({})); showToast('error','خطأ', e.error||'فشل الاعتماد'); return; }
+        showToast('success','تم الاعتماد','الطلب معتمد — يمكن الآن إكمال الدفع');
+        loadSettlementRequests();
+      } catch { showToast('error','خطأ','تعذّر الاتصال'); }
+    }
+    function srReject(requestId) {
+      const reason = prompt('سبب الرفض (اختياري):');
+      if (reason === null) return; // cancelled
+      fetch(`${API_BASE}/admin/settlements/reject`, {
+        method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ requestId, reason }),
+      }).then(async res => {
+        if (!res.ok) { const e = await res.json().catch(()=>({})); showToast('error','خطأ', e.error||'فشل الرفض'); return; }
+        showToast('success','تم الرفض','تم رفض الطلب وإلغاء القفل');
+        loadSettlementRequests();
+      }).catch(() => showToast('error','خطأ','تعذّر الاتصال'));
+    }
+    function srComplete(accountType, accountId, amount, requestId, name) {
+      if (!confirm(`إكمال دفع ${Number(amount).toLocaleString('ar-IQ')} د.ع لـ${name}؟`)) return;
+      fetch(`${API_BASE}/admin/settlements/complete`, {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ accountType, accountId, amount: Number(amount), requestId, method:'cash' }),
+      }).then(async res => {
+        if (!res.ok) { const e = await res.json().catch(()=>({})); showToast('error','خطأ', e.error||'فشل الإكمال'); return; }
+        showToast('success','تمت التسوية',`تم دفع ${Number(amount).toLocaleString('ar-IQ')} د.ع`);
+        loadSettlementRequests();
+      }).catch(() => showToast('error','خطأ','تعذّر الاتصال'));
+    }
+
     async function loadOpsLive() {
       try {
         const res = await fetch(API_BASE + '/admin/operations');
