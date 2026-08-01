@@ -23,6 +23,7 @@ import { AppColors, Spacing, BorderRadius, Shadows, FontWeight } from "@/constan
 import { getApiUrl } from "@/lib/query-client";
 import { formatPrice } from "@/constants/currency";
 import { SettlementStatusBar } from "@/components/SettlementStatusBar";
+import { LedgerStatementCard } from "@/components/LedgerStatementCard";
 import { useSettlement } from "@/hooks/useSettlement";
 import { useSystemSettings } from "@/context/SystemSettingsContext";
 
@@ -962,6 +963,10 @@ export default function DriverEarningsScreen() {
         requesting={settlement.requesting}
         onRequest={handleRequestSettlement}
       />
+
+      {/* Bank-style ledger statement (financial system phase 3) — the driver
+          Bearer token is attached automatically by installDriverAuthInterceptor. */}
+      <LedgerStatementCard endpoint="/api/driver/statement" />
 
       {/* Content */}
       {/* Payments tab ─────────────────────────────────────────────────────────── */}
