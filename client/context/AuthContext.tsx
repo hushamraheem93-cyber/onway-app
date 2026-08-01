@@ -279,7 +279,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           const vToken = await getToken(VENDOR_TOKEN_KEY);
           const vProfileRaw = await AsyncStorage.getItem(VENDOR_PROFILE_KEY);
           if (vToken) setVendorToken(vToken);
-          if (vProfileRaw) {
+          // Only paint the vendor as logged-in when a token ALSO exists. The token
+          // (SecureStore) and the profile cache (AsyncStorage) are separate stores:
+          // if the token is missing but the profile cache survives, the vendor used
+          // to be shown as registered with vendorToken === null, so every authed
+          // request sent "Bearer null" and failed ("التوكن غير معرف" when adding a
+          // product). Without a token there is nothing to do but re-auth, so fall
+          // through to VendorRegistration (re-enter phone + OTP → fresh token).
+          if (vToken && vProfileRaw) {
             try {
               const parsed = JSON.parse(vProfileRaw) as VendorProfile;
               setVendorProfile(parsed);
