@@ -13,20 +13,25 @@ import { LinearGradient } from "expo-linear-gradient";
 import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
 import { Picker } from "@react-native-picker/picker";
 import * as Haptics from "expo-haptics";
+import { useNavigation } from "@react-navigation/native";
+import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 
 import { ThemedText } from "@/components/ThemedText";
 import { useAuth } from "@/context/AuthContext";
 import { getApiUrl } from "@/lib/query-client";
 import { BUSINESS_TYPES } from "@/constants/businessCategories";
 import { AppColors } from "@/constants/theme";
+import { RootStackParamList } from "@/navigation/RootStackNavigator";
 
 const ORANGE = AppColors.primary;
 const PURPLE = AppColors.vendorPurple;
 
 export default function VendorRegistrationScreen() {
   const insets = useSafeAreaInsets();
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { phoneNumber, completeVendorRegistration, goBackToUserType, setUserType } = useAuth();
 
+  const [storeLocation, setStoreLocation] = useState<{ latitude: number; longitude: number; address?: string } | null>(null);
   const [storeName, setStoreName] = useState("");
   const [ownerName, setOwnerName] = useState("");
   const [businessType, setBusinessType] = useState("restaurant");
@@ -53,6 +58,7 @@ export default function VendorRegistrationScreen() {
           businessType,
           phoneNumber,
           address: address.trim(),
+          ...(storeLocation ? { latitude: storeLocation.latitude, longitude: storeLocation.longitude } : {}),
         }),
       });
       const data = await res.json();
@@ -192,6 +198,33 @@ export default function VendorRegistrationScreen() {
           testID="input-address"
         />
 
+        <Label text="موقع المتجر على الخريطة" />
+        <Pressable
+          style={styles.mapBtn}
+          onPress={() =>
+            navigation.navigate("MapPicker", {
+              initialLocation: storeLocation ?? undefined,
+              onPicked: (loc) => setStoreLocation(loc),
+            })
+          }
+          testID="button-pick-location"
+        >
+          <Feather name="map-pin" size={18} color={PURPLE} />
+          <ThemedText style={styles.mapBtnText}>
+            {storeLocation ? "تعديل موقع المتجر" : "تحديد موقع المتجر على الخريطة"}
+          </ThemedText>
+        </Pressable>
+        {storeLocation ? (
+          <View style={styles.locChip}>
+            <Feather name="check-circle" size={14} color={AppColors.success} />
+            <ThemedText style={styles.locChipText} numberOfLines={1}>
+              {storeLocation.address?.trim()
+                ? storeLocation.address
+                : `تم تحديد الموقع (${storeLocation.latitude.toFixed(5)}, ${storeLocation.longitude.toFixed(5)})`}
+            </ThemedText>
+          </View>
+        ) : null}
+
         <View style={styles.infoBox}>
           <Feather name="info" size={14} color={AppColors.gray500} />
           <ThemedText style={styles.infoText}>
@@ -260,6 +293,17 @@ const styles = StyleSheet.create({
     marginBottom: 16, backgroundColor: AppColors.gray50, overflow: "hidden",
   },
   picker: { height: Platform.OS === "ios" ? 150 : 50, color: AppColors.black },
+  mapBtn: {
+    flexDirection: "row-reverse", alignItems: "center", justifyContent: "center", gap: 8,
+    borderWidth: 1.5, borderColor: AppColors.vendorPurple, borderRadius: 14,
+    paddingVertical: 14, marginBottom: 10, backgroundColor: AppColors.vendorPurpleLight,
+  },
+  mapBtnText: { fontFamily: "Cairo_700Bold", fontSize: 14, color: AppColors.vendorPurple },
+  locChip: {
+    flexDirection: "row-reverse", alignItems: "center", gap: 6,
+    backgroundColor: AppColors.gray50, borderRadius: 10, padding: 10, marginBottom: 16,
+  },
+  locChipText: { fontFamily: "Cairo_400Regular", fontSize: 12, color: AppColors.gray700, flex: 1, textAlign: "right" },
   errorBox: {
     flexDirection: "row", alignItems: "center", gap: 8,
     backgroundColor: AppColors.errorLight, borderRadius: 10,

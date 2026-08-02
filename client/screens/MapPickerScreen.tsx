@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { StyleSheet, View, Pressable, ActivityIndicator, Platform, TextInput } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useNavigation } from "@react-navigation/native";
+import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import { Feather } from "@expo/vector-icons";
 import * as Location from "expo-location";
 import { WebView } from "react-native-webview";
@@ -159,15 +159,24 @@ function getLeafletHTML(lat: number, lng: number) {
 </html>`;
 }
 
+export type MapPickerParams = {
+  initialLocation?: { latitude: number; longitude: number };
+  onPicked?: (loc: { latitude: number; longitude: number; address: string }) => void;
+} | undefined;
+
 export default function MapPickerScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
+  const route = useRoute<RouteProp<Record<string, MapPickerParams>, string>>();
+  // When opened with a callback (e.g. vendor store location), we return the picked
+  // point to the caller instead of writing to the customer's LocationContext.
+  const params = route.params as MapPickerParams | undefined;
   const { theme } = useTheme();
   const { savedLocation, setSavedLocation } = useLocation();
   const webViewRef = useRef<WebView>(null);
 
-  const initialLat = savedLocation?.latitude || DHULUIYAH_CENTER.lat;
-  const initialLng = savedLocation?.longitude || DHULUIYAH_CENTER.lng;
+  const initialLat = params?.initialLocation?.latitude ?? savedLocation?.latitude ?? DHULUIYAH_CENTER.lat;
+  const initialLng = params?.initialLocation?.longitude ?? savedLocation?.longitude ?? DHULUIYAH_CENTER.lng;
 
   const [selectedCoord, setSelectedCoord] = useState({ latitude: initialLat, longitude: initialLng });
   const [addressText, setAddressText] = useState(savedLocation?.address || "");
@@ -175,7 +184,11 @@ export default function MapPickerScreen() {
   const [loadingAddress, setLoadingAddress] = useState(false);
 
   useEffect(() => {
-    if (!savedLocation) {
+    if (params?.initialLocation) {
+      // Caller supplied a starting point (e.g. an existing store location) — just
+      // resolve its address; don't override with the device's current location.
+      if (!addressText) fetchAddress(initialLat, initialLng);
+    } else if (!savedLocation) {
       getMyLocation();
     } else if (!addressText) {
       fetchAddress(initialLat, initialLng);
@@ -231,6 +244,15 @@ export default function MapPickerScreen() {
   };
 
   const handleConfirm = () => {
+    if (params?.onPicked) {
+      params.onPicked({
+        latitude: selectedCoord.latitude,
+        longitude: selectedCoord.longitude,
+        address: addressText,
+      });
+      navigation.goBack();
+      return;
+    }
     setSavedLocation({
       latitude: selectedCoord.latitude,
       longitude: selectedCoord.longitude,

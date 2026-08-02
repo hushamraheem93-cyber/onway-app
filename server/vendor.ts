@@ -275,10 +275,15 @@ router.get("/vendor/dashboard", (req, res) => {
 // ── POST /api/vendor/register ───────────────────────────────────────────────
 router.post("/api/vendor/register", async (req, res) => {
   try {
-    const { storeName, businessType, phoneNumber, password, ownerName, address, email } = req.body;
+    const { storeName, businessType, phoneNumber, password, ownerName, address, email, latitude, longitude } = req.body;
     if (!storeName || !businessType || !phoneNumber || !ownerName) {
       return res.status(400).json({ error: "جميع الحقول المطلوبة غير مكتملة" });
     }
+    // Optional store location pinned by the owner on the map (used for dispatch:
+    // ranking the nearest driver and shown on the admin panel map).
+    const lat = Number(latitude), lng = Number(longitude);
+    const hasCoords = Number.isFinite(lat) && Number.isFinite(lng) &&
+      lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180;
     if (password && password.length < 6) {
       return res.status(400).json({ error: "كلمة المرور يجب أن تكون 6 أحرف على الأقل" });
     }
@@ -305,6 +310,7 @@ router.post("/api/vendor/register", async (req, res) => {
       passwordHash,
       ownerName,
       address: address || "",
+      ...(hasCoords ? { latitude: lat, longitude: lng } : {}),
       status: "pending",
       totalProducts: 0,
       totalOrders: 0,
@@ -332,6 +338,7 @@ router.post("/api/vendor/register", async (req, res) => {
         phoneNumber,
         ownerName,
         address: address || "",
+        ...(hasCoords ? { latitude: lat, longitude: lng } : {}),
         status: "pending",
         totalProducts: 0,
         createdAt: now,
@@ -478,7 +485,7 @@ router.patch("/api/vendor/profile", requireVendor, async (req, res) => {
     const db = getFirestore();
     if (!db) return res.status(500).json({ error: "قاعدة البيانات غير متاحة" });
     const vid = (req as any).vendorId;
-    const { storeName, bio, address, deliveryTime, deliveryPrice, workingHours, rating } = req.body;
+    const { storeName, bio, address, deliveryTime, deliveryPrice, workingHours, rating, latitude, longitude } = req.body;
     const updates: any = { updatedAt: new Date().toISOString() };
     if (storeName !== undefined && String(storeName).trim()) updates.storeName = String(storeName).trim();
     if (bio !== undefined) updates.bio = bio;
@@ -487,6 +494,14 @@ router.patch("/api/vendor/profile", requireVendor, async (req, res) => {
     if (deliveryPrice !== undefined) updates.deliveryPrice = Number(deliveryPrice);
     if (workingHours !== undefined) updates.workingHours = workingHours;
     if (rating !== undefined) updates.rating = Number(rating);
+    // Store location pinned by the owner on the map (dispatch + admin map).
+    if (latitude !== undefined && longitude !== undefined) {
+      const lat = Number(latitude), lng = Number(longitude);
+      if (Number.isFinite(lat) && Number.isFinite(lng) && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
+        updates.latitude = lat;
+        updates.longitude = lng;
+      }
+    }
     await db.collection("vendors").doc(vid).update(updates);
     const doc = await db.collection("vendors").doc(vid).get();
     const { passwordHash: _pw, ...safe } = doc.data() as any;
