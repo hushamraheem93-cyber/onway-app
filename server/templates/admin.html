@@ -2775,6 +2775,18 @@
         </div>
 
         <div id="driver-queue-list"></div>
+
+        <!-- Active batches (dispatch A4) -->
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin:28px 0 14px;">
+          <h3 style="display:flex;align-items:center;gap:8px;font-size:1.05rem;">
+            <i data-lucide="layers" style="width:18px;height:18px;color:#7C3AED;"></i>
+            الدفعات النشطة
+          </h3>
+          <button class="btn btn-outline" style="border-color:#EF4444;color:#EF4444;" onclick="emergencyRedistribute()">
+            <i data-lucide="shuffle"></i> إعادة توزيع طارئة
+          </button>
+        </div>
+        <div id="active-batches-list"><div style="color:var(--gray-500);font-size:0.85rem;">—</div></div>
       </div>
     </div>
 
@@ -9342,9 +9354,75 @@
             </div>
           </div>`;
         lucide.createIcons();
+        loadActiveBatches();
       } catch (error) {
         showToast('error', 'خطأ', 'حدث خطأ في تحميل طابور السائقين');
       }
+    }
+
+    // ========== Active batches (dispatch A4) ==========
+    async function loadActiveBatches() {
+      const box = document.getElementById('active-batches-list');
+      if (!box) return;
+      try {
+        const res = await fetch(`${API_BASE}/admin/active-batches`);
+        const data = await res.json();
+        const batches = Array.isArray(data.batches) ? data.batches : [];
+        if (batches.length === 0) {
+          box.innerHTML = '<div style="color:var(--gray-500);font-size:0.85rem;padding:8px 0;">لا توجد دفعات نشطة حالياً</div>';
+          return;
+        }
+        box.innerHTML = batches.map(b => `
+          <div class="card" style="margin-bottom:14px;">
+            <div class="card-body" style="padding:14px 16px;">
+              <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:10px;">
+                <div style="font-weight:700;">${escapeHtml(b.driverName || b.driverPhone)}
+                  <span style="font-size:0.78rem;color:var(--gray-500);font-weight:400;">• ${b.driverPhone}</span>
+                </div>
+                <span style="padding:3px 10px;border-radius:12px;font-size:0.72rem;font-weight:700;background:${b.status === 'in_progress' ? '#DCFCE7' : '#FEF3C7'};color:${b.status === 'in_progress' ? '#16A34A' : '#B45309'};">
+                  ${b.status === 'in_progress' ? 'قيد التوصيل' : 'بانتظار القبول'} • ${b.orderCount} طلب
+                </span>
+              </div>
+              ${b.orders.map(o => `
+                <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:7px 0;border-top:1px solid var(--gray-100);">
+                  <div style="display:flex;align-items:center;gap:8px;min-width:0;">
+                    <span style="width:22px;height:22px;border-radius:50%;background:#7C3AED;color:#fff;font-size:0.72rem;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;">${o.deliverySequence || '•'}</span>
+                    <span style="font-size:0.85rem;min-width:0;">#${o.id.slice(-6)} — ${escapeHtml(o.customerName || 'زبون')} <span style="color:var(--gray-500);">${escapeHtml(o.region || '')}</span></span>
+                  </div>
+                  <button class="btn btn-sm" style="background:#FEE2E2;color:#EF4444;flex-shrink:0;" onclick="removeOrderFromBatch(${JSON.stringify(b.batchId)},${JSON.stringify(o.id)})">
+                    <i data-lucide="x"></i> إزالة
+                  </button>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+        `).join('');
+        lucide.createIcons();
+      } catch {
+        box.innerHTML = '<div style="color:#EF4444;font-size:0.85rem;">تعذّر تحميل الدفعات</div>';
+      }
+    }
+
+    async function removeOrderFromBatch(batchId, orderId) {
+      if (!confirm('إزالة هذا الطلب من الدفعة وإعادة توزيعه؟')) return;
+      try {
+        const res = await fetch(`${API_BASE}/admin/batches/${batchId}/remove-order`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ orderId })
+        });
+        const data = await res.json();
+        if (res.ok) { showToast('success', 'تم', 'أُزيل الطلب وأُعيد توزيعه'); loadDriverQueue(); }
+        else showToast('error', 'فشل', data.error || 'تعذّرت الإزالة');
+      } catch { showToast('error', 'فشل', 'تعذر الاتصال بالخادم'); }
+    }
+
+    async function emergencyRedistribute() {
+      if (!confirm('إعادة توزيع طارئة: ستُلغى الدفعات غير المقبولة وتُعاد للتوزيع الذكي. (الدفعات قيد التوصيل لا تتأثر.) متابعة؟')) return;
+      try {
+        const res = await fetch(`${API_BASE}/admin/redistribute`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+        const data = await res.json();
+        if (res.ok) { showToast('success', 'تم', `أُعيد توزيع ${data.freedOrders || 0} طلب من ${data.batchesReleased || 0} دفعة`); loadDriverQueue(); }
+        else showToast('error', 'فشل', data.error || 'تعذّرت إعادة التوزيع');
+      } catch { showToast('error', 'فشل', 'تعذر الاتصال بالخادم'); }
     }
 
     // ========== Driver Activity Log Modal ==========

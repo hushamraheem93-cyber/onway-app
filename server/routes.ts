@@ -2987,6 +2987,162 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ── Dispatch admin tools (A4) ───────────────────────────────────────────────
+
+  // Release an order from whatever batch/driver holds it and send it back to the
+  // dispatch pool as a plain "confirmed" order. Shared by remove-from-batch and the
+  // emergency redistribute below. Best-effort; never throws.
+  async function releaseOrderToPool(db: FirebaseFirestore.Firestore, orderId: string, notifyOldDriver = true) {
+    const holder = driverAssignments.get(orderId) || null;
+    driverAssignments.delete(orderId);
+    batchedOrderIds.delete(orderId);
+    const { FieldValue } = await import("firebase-admin/firestore");
+    await db.collection("orders").doc(orderId).update({
+      status: "confirmed",
+      driverPhone: FieldValue.delete(),
+      driverName: FieldValue.delete(),
+      batchId: FieldValue.delete(),
+      updatedAt: new Date(),
+    }).catch(() => {});
+    if (notifyOldDriver && holder) {
+      getDriverPushToken(String(holder))
+        .then(t => { if (t) sendDriverOrderCancelledNotification(t, orderId).catch(() => {}); })
+        .catch(() => {});
+    }
+    return holder;
+  }
+
+  // GET all active batches with their resolved orders (view + delivery order + per-driver count).
+  app.get("/api/admin/active-batches", async (_req: Request, res: Response) => {
+    const db = getFirestore();
+    if (!db) return res.json({ batches: [] });
+    try {
+      const snap = await db.collection("delivery_batches").where("status", "in", ["pending", "in_progress"]).get();
+      const batchDocs = snap.docs.map(d => ({ id: d.id, ...(d.data() as any) }));
+      const orders = await getOrdersByIds(batchDocs.flatMap(b => (b.orderIds as string[]) || []));
+      const batches = await Promise.all(batchDocs.map(async b => {
+        const driver = await getDriverByPhone(b.driverId).catch(() => null);
+        const driverName = driver
+          ? ([driver.firstName, driver.secondName].filter(Boolean).join(" ") || driver.fullName || b.driverId)
+          : b.driverId;
+        const bos = ((b.orderIds as string[]) || [])
+          .map(oid => {
+            const o = orders.find(x => x.id === oid) as any;
+            return o
+              ? { id: o.id, customerName: o.customerName || "", region: o.region || "", status: o.status, deliverySequence: o.deliverySequence || 0 }
+              : { id: oid, customerName: "", region: "", status: "missing", deliverySequence: 0 };
+          })
+          .sort((x, y) => (x.deliverySequence || 0) - (y.deliverySequence || 0));
+        return { batchId: b.id, driverPhone: b.driverId, driverName, status: b.status, orderCount: bos.length, orders: bos };
+      }));
+      res.json({ batches });
+    } catch (error: any) {
+      console.error("[API] active-batches", error?.message);
+      res.status(500).json({ error: GENERIC_SERVER_ERROR });
+    }
+  });
+
+  // Remove ONE order from a batch → it returns to the pool and is re-dispatched.
+  app.post("/api/admin/batches/:batchId/remove-order", async (req: Request, res: Response) => {
+    const batchId = req.params.batchId as string;
+    const { orderId } = req.body || {};
+    const db = getFirestore();
+    if (!db) return res.status(500).json({ error: "Database not configured" });
+    if (!orderId) return res.status(400).json({ error: "orderId required" });
+    try {
+      const batch = await getDeliveryBatch(batchId);
+      if (!batch) return res.status(404).json({ error: "الدُفعة غير موجودة" });
+      if (!batch.orderIds.includes(orderId)) return res.status(400).json({ error: "الطلب ليس ضمن هذه الدُفعة" });
+
+      const remaining = batch.orderIds.filter(id => id !== orderId);
+      if (remaining.length === 0) {
+        await updateDeliveryBatch(batchId, { status: "cancelled" }).catch(() => {});
+        const qd = driverQueue.find(d => d.currentBatchId === batchId);
+        if (qd) { qd.currentBatchId = undefined; updateDriverQueueEntry(qd.phoneNumber, { hasActiveBatch: false }).catch(() => {}); }
+      } else {
+        await updateDeliveryBatch(batchId, { orderIds: remaining, totalOrders: remaining.length }).catch(() => {});
+      }
+      await releaseOrderToPool(db, orderId);
+      orderEvents.emit("order:status", { orderId, status: "confirmed" });
+      onOrderConfirmed(); // re-dispatch the freed order via the smart engine
+      res.json({ success: true, remaining: remaining.length });
+    } catch (error: any) {
+      console.error("[API] remove-order", error?.message);
+      res.status(500).json({ error: GENERIC_SERVER_ERROR });
+    }
+  });
+
+  // Add an existing order to an existing batch (assign it to that batch's driver).
+  app.post("/api/admin/batches/:batchId/add-order", async (req: Request, res: Response) => {
+    const batchId = req.params.batchId as string;
+    const { orderId } = req.body || {};
+    const db = getFirestore();
+    if (!db) return res.status(500).json({ error: "Database not configured" });
+    if (!orderId) return res.status(400).json({ error: "orderId required" });
+    try {
+      const batch = await getDeliveryBatch(batchId);
+      if (!batch) return res.status(404).json({ error: "الدُفعة غير موجودة" });
+      if (["completed", "cancelled"].includes(batch.status)) return res.status(400).json({ error: "الدُفعة مغلقة" });
+      if (batch.orderIds.includes(orderId)) return res.status(400).json({ error: "الطلب موجود بالفعل في الدُفعة" });
+      const order = await getOrderById(orderId);
+      if (!order) return res.status(404).json({ error: "الطلب غير موجود" });
+      if (["delivered", "cancelled"].includes(order.status)) return res.status(400).json({ error: "لا يمكن إضافة طلب مكتمل أو ملغى" });
+
+      const driverPhone = batch.driverId;
+      const driver = await getDriverByPhone(driverPhone).catch(() => null);
+      const driverName = driver ? ([driver.firstName, driver.secondName].filter(Boolean).join(" ") || driver.fullName || driverPhone) : driverPhone;
+      const newOrderIds = [...batch.orderIds, orderId];
+      await updateDeliveryBatch(batchId, { orderIds: newOrderIds, totalOrders: newOrderIds.length }).catch(() => {});
+      const { FieldValue } = await import("firebase-admin/firestore");
+      const newStatus = ["pending", "confirmed"].includes(order.status) ? "preparing" : order.status;
+      await db.collection("orders").doc(orderId).update({
+        driverPhone, driverName, batchId,
+        status: newStatus,
+        rejectedAt: FieldValue.delete(), rejectedByDriver: FieldValue.delete(), rejectedByPhone: FieldValue.delete(),
+        updatedAt: new Date(),
+      }).catch(() => {});
+      batchedOrderIds.add(orderId);
+      driverAssignments.set(orderId, driverPhone);
+      orderEvents.emit("order:status", { orderId, status: newStatus });
+      notifyCustomerStatus(orderId, newStatus).catch(() => {});
+      res.json({ success: true, orderCount: newOrderIds.length });
+    } catch (error: any) {
+      console.error("[API] add-order", error?.message);
+      res.status(500).json({ error: GENERIC_SERVER_ERROR });
+    }
+  });
+
+  // Emergency redistribute: cancel still-pending (unaccepted) batches — optionally for
+  // one driver — free their orders and let the smart engine reassign them. In-progress
+  // (accepted) batches are left alone so a driver mid-delivery is never disrupted.
+  app.post("/api/admin/redistribute", async (req: Request, res: Response) => {
+    const db = getFirestore();
+    if (!db) return res.status(500).json({ error: "Database not configured" });
+    const targetDriver: string | undefined = req.body?.driverPhone;
+    try {
+      let q = db.collection("delivery_batches").where("status", "==", "pending");
+      if (targetDriver) q = q.where("driverId", "==", targetDriver) as any;
+      const snap = await q.get();
+      let freedOrders = 0;
+      for (const doc of snap.docs) {
+        const b = doc.data() as any;
+        await updateDeliveryBatch(doc.id, { status: "cancelled" }).catch(() => {});
+        const qd = driverQueue.find(d => d.currentBatchId === doc.id);
+        if (qd) { qd.currentBatchId = undefined; updateDriverQueueEntry(qd.phoneNumber, { hasActiveBatch: false }).catch(() => {}); }
+        for (const oid of (b.orderIds as string[]) || []) {
+          await releaseOrderToPool(db, oid, false);
+          orderEvents.emit("order:status", { orderId: oid, status: "confirmed" });
+          freedOrders++;
+        }
+      }
+      onOrderConfirmed(); // kick the smart engine to reassign the freed orders
+      res.json({ success: true, batchesReleased: snap.size, freedOrders });
+    } catch (error: any) {
+      console.error("[API] redistribute", error?.message);
+      res.status(500).json({ error: GENERIC_SERVER_ERROR });
+    }
+  });
+
   // ── Address book (server-synced, owner-only) ────────────────────────────────
   app.get("/api/users/:phoneNumber/addresses", requireCustomerAuth, async (req: Request, res: Response) => {
     const phoneNumber = decodeURIComponent(req.params.phoneNumber as string);
