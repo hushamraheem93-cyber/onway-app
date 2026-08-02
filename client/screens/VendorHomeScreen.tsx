@@ -34,12 +34,8 @@ import { getApiUrl } from "@/lib/query-client";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
 import {
   AppColors,
-  BorderRadius,
-  Spacing,
   Shadows,
   FontFamily,
-  FontSize,
-  FontWeight,
 } from "@/constants/theme";
 
 const ORANGE = AppColors.primary;

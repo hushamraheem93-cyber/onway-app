@@ -12,9 +12,6 @@ import { AppColors } from "@/constants/theme";
 // its scroll content by insets.top + HEADER_BAR_HEIGHT so nothing hides behind it.
 export const HEADER_BAR_HEIGHT = 52;
 
-interface HeaderTitleProps {
-  title?: string;
-}
 
 // In-screen top bar for the Home tab. It is rendered INSIDE the screen (not as a
 // React Navigation native-stack title) and owns its own safe-area top padding.
@@ -22,7 +19,7 @@ interface HeaderTitleProps {
 // title — was clipped by Android's native Toolbar, pushing the notification/cart
 // icons off-screen and inflating the header height. Rendering it as a normal View
 // makes the layout identical and correct on iOS and every Android size.
-export function HeaderTitle({ title }: HeaderTitleProps) {
+export function HeaderTitle() {
   const navigation = useNavigation<any>();
   const insets = useSafeAreaInsets();
   const { getItemCount } = useCart();

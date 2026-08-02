@@ -32,7 +32,7 @@ import { useTheme } from "@/hooks/useTheme";
 import { useAuth } from "@/context/AuthContext";
 import { AppColors, Spacing, BorderRadius, Shadows, FontWeight} from "@/constants/theme";
 import { getApiUrl } from "@/lib/query-client";
-import { clearDriverToken, DRIVER_TOKEN_KEY } from "@/lib/driverAuth";
+import { DRIVER_TOKEN_KEY } from "@/lib/driverAuth";
 import { getToken } from "@/lib/secureTokenStorage";
 import { playRepeatingAlert, stopAlert } from "@/lib/alertSound";
 import { formatPrice } from "@/constants/currency";

@@ -33,7 +33,7 @@ import { apiRequest, getApiUrl } from "@/lib/query-client";
 import { resolveImageUrl } from "@/utils/imageUtils";
 import { formatPrice } from "@/constants/currency";
 import { formatDateOnly } from "@/lib/dateUtils";
-import { compressAndConvertToBase64, processAndUploadImage, isBase64Image, ImageSize } from "@/lib/imageUtils";
+import { processAndUploadImage } from "@/lib/imageUtils";
 import { useSystemSettings } from "@/context/SystemSettingsContext";
 import { playRepeatingAlert } from "@/lib/alertSound";
 import { WebsiteCmsTab } from "@/screens/WebsiteCmsTab";

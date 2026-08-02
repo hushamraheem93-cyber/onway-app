@@ -3,15 +3,13 @@ import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "node:http";
 import { Server as SocketServer } from "socket.io";
 import jwt from "jsonwebtoken";
-import multer, { StorageEngine, FileFilterCallback } from "multer";
+import multer from "multer";
 import sharp from "sharp";
-import path from "path";
-import fs from "fs";
-import { randomUUID, createHmac, createHash } from "crypto";
+import { randomUUID, createHash } from "crypto";
 import { orderEvents } from "./orderEvents";
 import { isValidSession } from "./adminAuth";
 import { 
-  getFirestore, getUserByPhone, createUser, updateUser, FirestoreUserProfile,
+  getFirestore, getUserByPhone, createUser, updateUser,
   getUserAddresses, setUserAddresses, uploadToFirebaseStorage,
   getProducts as getFirestoreProducts, createProduct as createFirestoreProduct, 
   updateProduct as updateFirestoreProduct, deleteProduct as deleteFirestoreProduct,
@@ -38,7 +36,7 @@ import {
   getVendors as getFirestoreVendors, createVendor as createFirestoreVendor,
   updateVendor as updateFirestoreVendor, deleteVendor as deleteFirestoreVendor,
   initializeDefaultVendors,
-  updateDriverOnlineStatus, getOnlineDrivers, saveDriverPushToken, getDriverPushToken,
+  updateDriverOnlineStatus, saveDriverPushToken, getDriverPushToken,
   getSupportChat, sendSupportMessage, getAllSupportChats, markSupportChatRead, clearSupportChat,
   createDeliveryBatch, getDeliveryBatch, updateDeliveryBatch, cancelDeliveryBatch, addDeliveryLog, DeliveryBatch,
   claimBatchForDriver, cancelBatchIfPending,
@@ -82,7 +80,6 @@ import type { LedgerInput } from "./financialLedger";
 import {
   sanitizeQuantity,
   capOrderItemImages,
-  isAllowedImageMime,
   safeImageExtension,
   safeImageContentType,
   sniffImageMime,
