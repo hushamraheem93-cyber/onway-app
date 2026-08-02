@@ -12,9 +12,11 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import { Feather } from "@expo/vector-icons";
+import { Image } from "expo-image";
 import * as Haptics from "expo-haptics";
 import * as Location from "expo-location";
 
+import { resolveImageUrl } from "@/utils/imageUtils";
 import { ThemedText } from "@/components/ThemedText";
 import { GradientBackground } from "@/components/GradientBackground";
 import { useTheme } from "@/hooks/useTheme";
@@ -319,23 +321,43 @@ export default function DriverBatchScreen() {
                 <Feather name="shopping-cart" size={13} color={theme.textSecondary} />
                 <ThemedText type="small" style={{ color: theme.textSecondary, fontWeight: FontWeight.bold }}>المنتجات</ThemedText>
               </View>
-              {order.items.map((item: any, idx: number) => (
-                <View key={idx} style={styles.itemRow}>
-                  <ThemedText type="small" style={{ color: AppColors.primary, fontWeight: FontWeight.bold }}>
-                    {formatPrice(item.price * item.quantity)}
-                  </ThemedText>
-                  <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: Spacing.xs, flex: 1 }}>
-                    <ThemedText type="small" style={{ color: theme.textSecondary, fontWeight: FontWeight.bold }}>×{item.quantity}</ThemedText>
-                    <ThemedText type="small" style={{ color: theme.text, flex: 1, textAlign: "right" }} numberOfLines={1}>
-                      {item.name}
+              {order.items.map((item: any, idx: number) => {
+                const thumb = resolveImageUrl(item.image || "");
+                return (
+                  <View key={idx} style={styles.itemRow}>
+                    <ThemedText type="small" style={{ color: AppColors.primary, fontWeight: FontWeight.bold }}>
+                      {formatPrice(item.price * item.quantity)}
                     </ThemedText>
+                    <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: Spacing.xs, flex: 1 }}>
+                      {thumb ? (
+                        <Image
+                          source={{ uri: thumb }}
+                          style={styles.itemThumb}
+                          contentFit="cover"
+                          cachePolicy="disk"
+                          transition={150}
+                        />
+                      ) : (
+                        <View style={[styles.itemThumb, styles.itemThumbPlaceholder, { backgroundColor: theme.border }]}>
+                          <Feather name="image" size={14} color={theme.textSecondary} />
+                        </View>
+                      )}
+                      <ThemedText type="small" style={{ color: theme.textSecondary, fontWeight: FontWeight.bold }}>×{item.quantity}</ThemedText>
+                      <ThemedText type="small" style={{ color: theme.text, flex: 1, textAlign: "right" }} numberOfLines={1}>
+                        {item.name}
+                      </ThemedText>
+                    </View>
                   </View>
-                </View>
-              ))}
+                );
+              })}
             </View>
           ) : null}
           {order.notes ? (
             <View style={[styles.notesBox, { backgroundColor: AppColors.secondary }]}>
+              <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: Spacing.xs, marginBottom: 2 }}>
+                <Feather name="message-square" size={12} color={AppColors.primary} />
+                <ThemedText type="small" style={{ color: AppColors.primary, fontWeight: FontWeight.bold }}>ملاحظة الزبون</ThemedText>
+              </View>
               <ThemedText type="small" style={{ color: AppColors.primary, textAlign: "right" }}>{order.notes}</ThemedText>
             </View>
           ) : null}
@@ -674,6 +696,8 @@ const styles = StyleSheet.create({
   notesBox: { padding: Spacing.sm, borderRadius: BorderRadius.sm, marginTop: 2 },
   itemsBox: { padding: Spacing.sm, borderRadius: BorderRadius.sm, borderWidth: 1, marginTop: 2, gap: 4 },
   itemRow: { flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between" },
+  itemThumb: { width: 34, height: 34, borderRadius: 6, backgroundColor: AppColors.white },
+  itemThumbPlaceholder: { alignItems: "center", justifyContent: "center" },
   quickActions: { flexDirection: "row-reverse", gap: Spacing.sm, marginBottom: Spacing.md },
   quickBtn: {
     flex: 1, flexDirection: "row", justifyContent: "center",
