@@ -4855,8 +4855,11 @@
         const status     = dfStatusInfo(owed);
         const phone      = escapeHtml(driver.phoneNumber);
         const name       = escapeHtml(driver.fullName || '—');
+        const ratingBadge = (typeof driver.rating === 'number' && driver.ratingCount)
+          ? ` <span title="${driver.ratingCount} تقييم" style="color:#F59E0B;font-size:0.74rem;font-weight:700;white-space:nowrap;">★ ${driver.rating.toFixed(1)}</span>`
+          : '';
         return `<tr>
-          <td style="font-weight:700;">${name}</td>
+          <td style="font-weight:700;">${name}${ratingBadge}</td>
           <td style="direction:ltr;font-size:0.82rem;">${phone}</td>
           <td style="text-align:center;">${(stats?.totalOrders||0)}</td>
           <td style="text-align:center;">${(stats?.monthOrders||0)}</td>

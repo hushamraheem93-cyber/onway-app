@@ -26,6 +26,7 @@ import { useOrders, Order } from "@/context/OrderContext";
 import { useAuth } from "@/context/AuthContext";
 import { getApiUrl } from "@/lib/query-client";
 import { GradientBackground } from "@/components/GradientBackground";
+import { DriverRatingModal } from "@/components/DriverRatingModal";
 import { formatShortDate, formatShortTime } from "@/lib/dateUtils";
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
@@ -242,9 +243,16 @@ export default function OrderTrackingScreen() {
   const mapInitializedRef = useRef(false);
   const socketRef = useRef<Socket | null>(null);
   const socketConnectedRef = useRef(false);
+  const [ratingDismissed, setRatingDismissed] = useState(false);
 
   const orderId = route.params?.orderId;
   const order = orders.find((o) => o.id === orderId);
+  // Auto-prompt to rate the driver once the order is delivered (skippable, once).
+  const showRating =
+    order?.status === "delivered" &&
+    !!(order as any)?.driverPhone &&
+    !(order as any)?.driverRated &&
+    !ratingDismissed;
 
   const fetchDriverLocation = useCallback(async () => {
     if (!orderId) return;
@@ -384,6 +392,13 @@ export default function OrderTrackingScreen() {
   return (
     <View style={{ flex: 1 }}>
       <GradientBackground />
+      <DriverRatingModal
+        visible={showRating}
+        orderId={order.id}
+        driverName={(order as any)?.driverName}
+        authHeader={customerToken ? { Authorization: `Bearer ${customerToken}` } : undefined}
+        onDone={() => { setRatingDismissed(true); refreshOrders(); }}
+      />
     <ScrollView
       style={{ flex: 1 }}
       contentContainerStyle={{
