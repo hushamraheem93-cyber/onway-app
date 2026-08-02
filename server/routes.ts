@@ -1211,20 +1211,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // One-time cleanup for the junk categories reported in the app. The official
-  // categories all carry deterministic seed IDs (see the `categories` array);
-  // anything else is a random-id document created by an accidental/duplicate POST.
-  // This removes every category whose id is NOT in the official set — owner-triggered,
-  // so it never runs on its own — and returns how many were deleted. Products keep
-  // their categoryId, so nothing that points at an official category is affected.
+  // One-time cleanup for the junk categories reported in the app — the blank cards
+  // with no name/image. A real category (official seed OR an owner-created one like
+  // "افران صمون و مخابز" / "قرطاسية") always has a name; the junk ones were spawned by
+  // accidental empty POSTs (now blocked above). So the safe, precise criterion is
+  // "name is empty/whitespace" — this never deletes a named category. Owner-triggered,
+  // so it never runs on its own. Products keep their categoryId regardless.
   app.post("/api/admin/categories/cleanup", async (_req: Request, res: Response) => {
     const db = getFirestore();
     if (!db) return res.status(500).json({ error: "Database not configured" });
     try {
-      const officialIds = new Set(categories.map((c) => c.id));
       const snapshot = await db.collection("categories").get();
-      const toDelete = snapshot.docs.filter((d) => !officialIds.has(d.id));
-      const removed = toDelete.map((d) => ({ id: d.id, name: (d.data() as any)?.name || "" }));
+      const toDelete = snapshot.docs.filter((d) => {
+        const name = (d.data() as any)?.name;
+        return typeof name !== "string" || name.trim() === "";
+      });
+      const removed = toDelete.map((d) => ({ id: d.id }));
       // Firestore batches cap at 500 ops; chunk to stay safe.
       for (let i = 0; i < toDelete.length; i += 400) {
         const batch = db.batch();
@@ -1232,8 +1234,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         await batch.commit();
       }
       invalidateCategoriesCache();
-      console.log(`[CATEGORIES_CLEANUP] removed ${removed.length} non-official categories`);
-      return res.json({ removed: removed.length, keptCount: officialIds.size, deleted: removed });
+      const keptCount = snapshot.size - toDelete.length;
+      console.log(`[CATEGORIES_CLEANUP] removed ${removed.length} unnamed (junk) categories, kept ${keptCount}`);
+      return res.json({ removed: removed.length, keptCount, deleted: removed });
     } catch (error) {
       console.error("Error cleaning categories:", error);
       return res.status(500).json({ error: "Failed to clean categories" });
