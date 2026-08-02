@@ -12,12 +12,14 @@ interface SystemSettings {
   onlinePaymentEnabled: boolean;
   driverPayoutRule: DriverPayoutRule;
   autoSuspendThreshold: number;
+  maxBatchSize: number;
 }
 
 const DEFAULT_SETTINGS: SystemSettings = {
   onlinePaymentEnabled: false,
   driverPayoutRule: { type: "flat", flatRestaurant: 750, flatDefault: 2000, percent: 15 },
   autoSuspendThreshold: 100000,
+  maxBatchSize: 3,
 };
 
 interface SystemSettingsContextType {
@@ -45,6 +47,7 @@ export function SystemSettingsProvider({ children }: { children: ReactNode }) {
           onlinePaymentEnabled: data.onlinePaymentEnabled ?? DEFAULT_SETTINGS.onlinePaymentEnabled,
           driverPayoutRule: data.driverPayoutRule ?? DEFAULT_SETTINGS.driverPayoutRule,
           autoSuspendThreshold: data.autoSuspendThreshold ?? DEFAULT_SETTINGS.autoSuspendThreshold,
+          maxBatchSize: data.maxBatchSize ?? DEFAULT_SETTINGS.maxBatchSize,
         });
       }
     } catch {
