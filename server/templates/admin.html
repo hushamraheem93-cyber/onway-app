@@ -11420,7 +11420,12 @@ function filterRanking() {
   renderRankingTable(data);
 }
 
-const BUSINESS_LABELS_AR = {
+// Renamed from BUSINESS_LABELS_AR to avoid a top-level const clash with the
+// identically-named declaration in the first <script> block — the duplicate made
+// this entire (second) script fail to load in the browser, which silently broke
+// support chat, the assign-driver modal, zones, ratings, store ranking, business
+// categories and the website CMS.
+const STORE_TYPE_LABELS_AR = {
   restaurant: 'مطعم', supermarket: 'سوبرماركت', pharmacy: 'صيدلية',
   bakery: 'مخبز', other: 'متجر'
 };
@@ -11456,7 +11461,7 @@ function renderRankingTable(data) {
           ${featuredBadge}
         </div>
       </td>
-      <td>${BUSINESS_LABELS_AR[v.categoryType] || v.categoryType || '—'}</td>
+      <td>${STORE_TYPE_LABELS_AR[v.categoryType] || v.categoryType || '—'}</td>
       <td>${ratingStr}</td>
       <td>${pinnedBadge}</td>
       <td style="font-weight:600;">${v.manualRank ?? '<span style="color:#9ca3af;">—</span>'}</td>
