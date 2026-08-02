@@ -946,6 +946,11 @@ export interface FirestoreDriver {
   updatedAt: admin.firestore.Timestamp;
   isOnline?: boolean;
   onlineAt?: number;
+  // Rating aggregate (customers rate the driver after delivery). rating = the average
+  // shown everywhere; ratingSum/ratingCount are the raw totals used to update it.
+  rating?: number | null;
+  ratingSum?: number;
+  ratingCount?: number;
 }
 
 export async function getDrivers(): Promise<(FirestoreDriver & { id: string })[]> {

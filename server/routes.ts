@@ -833,6 +833,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     currentBatchId?: string;
     lastSeenAt?: number;
     pushToken?: string; // cached in memory so no Firestore lookup needed on batch assign
+    rating?: number; // cached driver rating (avg), used as a dispatch tie-breaker
   }
   const driverQueue: QueuedDriver[] = [];
   const driverAssignments: Map<string, string> = new Map(); // orderId → driverPhone
@@ -3153,6 +3154,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Customer rates the driver after delivery (1–5). Owner-gated, one rating per order,
+  // updates the driver's rating aggregate atomically. Feeds the dispatch ranking.
+  app.post("/api/orders/:orderId/rate-driver", requireCustomerAuth, async (req: Request, res: Response) => {
+    const orderId = req.params.orderId as string;
+    const callerPhone = (req as any).customerPhone as string;
+    const rating = Math.round(Number(req.body?.rating));
+    if (!(rating >= 1 && rating <= 5)) return res.status(400).json({ error: "التقييم يجب أن يكون بين 1 و5" });
+    const db = getFirestore();
+    if (!db) return res.status(500).json({ error: "Database not configured" });
+    try {
+      const order = (await getOrderById(orderId)) as any;
+      if (!order) return res.status(404).json({ error: "الطلب غير موجود" });
+      if ((order.phoneNumber || order.customerPhone) !== callerPhone) return res.status(403).json({ error: "غير مصرح" });
+      if (order.status !== "delivered") return res.status(400).json({ error: "يمكن التقييم بعد التسليم فقط" });
+      if (order.driverRated) return res.status(409).json({ error: "تم التقييم مسبقاً" });
+      const driverPhone = order.driverPhone;
+      if (!driverPhone) return res.status(400).json({ error: "لا يوجد سائق لهذا الطلب" });
+      const snap = await db.collection("drivers").where("phoneNumber", "==", String(driverPhone)).limit(1).get();
+      if (snap.empty) return res.status(404).json({ error: "السائق غير موجود" });
+      const driverRef = snap.docs[0].ref;
+      const orderRef = db.collection("orders").doc(orderId);
+      await db.runTransaction(async (tx) => {
+        const [dSnap, oSnap] = await Promise.all([tx.get(driverRef), tx.get(orderRef)]);
+        if ((oSnap.data() as any)?.driverRated) throw new Error("already_rated");
+        const d = dSnap.data() as any;
+        const sum = (Number(d?.ratingSum) || 0) + rating;
+        const count = (Number(d?.ratingCount) || 0) + 1;
+        tx.update(driverRef, { ratingSum: sum, ratingCount: count, rating: Math.round((sum / count) * 100) / 100, updatedAt: new Date() });
+        tx.update(orderRef, { driverRated: true, driverRating: rating, updatedAt: new Date() });
+      });
+      return res.json({ success: true });
+    } catch (error: any) {
+      if (error?.message === "already_rated") return res.status(409).json({ error: "تم التقييم مسبقاً" });
+      console.error("[API] rate-driver", error?.message);
+      return res.status(500).json({ error: GENERIC_SERVER_ERROR });
+    }
+  });
+
   // ── Address book (server-synced, owner-only) ────────────────────────────────
   app.get("/api/users/:phoneNumber/addresses", requireCustomerAuth, async (req: Request, res: Response) => {
     const phoneNumber = decodeURIComponent(req.params.phoneNumber as string);
@@ -4044,6 +4083,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
           driverQueue.push({ phoneNumber, joinedAt, lastSeenAt: Date.now() });
           // Persist new queue entry to Firestore
           addDriverToActiveQueue(phoneNumber, joinedAt, pushToken?.startsWith("ExponentPushToken") ? pushToken : undefined).catch(() => {});
+          // Cache the driver's rating on the queue entry (non-blocking) for the
+          // dispatch tie-breaker. One read on go-online, never per dispatch decision.
+          getDriverByPhone(phoneNumber).then(d => {
+            const qd = driverQueue.find(x => x.phoneNumber === phoneNumber);
+            if (qd && d && typeof (d as any).rating === "number") qd.rating = (d as any).rating;
+          }).catch(() => {});
         } else {
           exists.lastSeenAt = Date.now();
         }
@@ -5252,6 +5297,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (Number.isFinite(x.dist) || Number.isFinite(y.dist)) {
           if (Math.abs(x.dist - y.dist) > 0.3) return x.dist - y.dist;
         }
+        // Fairness dominates; but when two drivers are about equally idle (within 30s —
+        // the common case in a small area where everyone is close), the higher-rated
+        // driver wins the tie. Rating never overrides a clearly longer wait.
+        if (Math.abs(x.idleMs - y.idleMs) > 30000) return y.idleMs - x.idleMs;
+        const xr = x.d.rating ?? 0, yr = y.d.rating ?? 0;
+        if (xr !== yr) return yr - xr;
         return y.idleMs - x.idleMs;
       })[0]?.d;
   }
