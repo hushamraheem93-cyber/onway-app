@@ -7,47 +7,55 @@ import { useTheme } from "@/hooks/useTheme";
 import { AppColors, BorderRadius, FontWeight, Shadows, Spacing } from "@/constants/theme";
 
 interface Props {
-  onlinePaymentEnabled: boolean;
+  // Kept so electronic payment can be switched back on later without touching this
+  // component: when the backend flag onlinePaymentEnabled becomes true again, the
+  // card/Mastercard options below re-appear. It defaults to false, so today the app
+  // is cash-on-delivery only — no e-payment icons are shown. (Optional to keep
+  // CheckoutScreen callers flexible.)
+  onlinePaymentEnabled?: boolean;
 }
 
-export function PaymentMethodsCard({ onlinePaymentEnabled }: Props) {
+export function PaymentMethodsCard({ onlinePaymentEnabled = false }: Props) {
   const { theme } = useTheme();
   return (
     <View style={[styles.card, { backgroundColor: theme.backgroundDefault }, Shadows.sm]}>
-      <View style={styles.methodsRow}>
-        {/* Mastercard */}
-        <View style={[styles.methodItem, !onlinePaymentEnabled && styles.disabled]}>
-          <Svg width={44} height={28}>
-            <Circle cx={15} cy={14} r={13} fill={AppColors.error} opacity={onlinePaymentEnabled ? 0.8 : 0.4} />
-            <Circle cx={29} cy={14} r={13} fill={AppColors.warning} opacity={onlinePaymentEnabled ? 0.8 : 0.4} />
-          </Svg>
-          <ThemedText type="small" style={[styles.methodLabel, { color: onlinePaymentEnabled ? theme.text : theme.textSecondary }]}>
-            ماستر كارد
-          </ThemedText>
-          {!onlinePaymentEnabled && <ComingSoonBadge />}
-        </View>
-
-        {/* Dinar Cash (always available) */}
-        <View style={styles.methodItem}>
-          <View style={styles.dinarIcon}>
-            <ThemedText type="small" style={styles.dinarText}>IQD</ThemedText>
+      {/* Electronic payment (card / Mastercard) is intentionally removed from the UI.
+          It only renders if the backend re-enables onlinePaymentEnabled in the future,
+          keeping COD as the sole option today. */}
+      {onlinePaymentEnabled ? (
+        <View style={styles.methodsRow}>
+          {/* Mastercard */}
+          <View style={styles.methodItem}>
+            <Svg width={44} height={28}>
+              <Circle cx={15} cy={14} r={13} fill={AppColors.error} opacity={0.8} />
+              <Circle cx={29} cy={14} r={13} fill={AppColors.warning} opacity={0.8} />
+            </Svg>
+            <ThemedText type="small" style={[styles.methodLabel, { color: theme.text }]}>
+              ماستر كارد
+            </ThemedText>
           </View>
-          <ThemedText type="small" style={[styles.methodLabel, { color: theme.text }]}>
-            الدينار كاش
-          </ThemedText>
-        </View>
 
-        {/* Card */}
-        <View style={[styles.methodItem, !onlinePaymentEnabled && styles.disabled]}>
-          <View style={[styles.cardIcon, { borderColor: theme.border }]}>
-            <Feather name="credit-card" size={20} color={onlinePaymentEnabled ? AppColors.primary : theme.textSecondary} />
+          {/* Dinar Cash */}
+          <View style={styles.methodItem}>
+            <View style={styles.dinarIcon}>
+              <ThemedText type="small" style={styles.dinarText}>IQD</ThemedText>
+            </View>
+            <ThemedText type="small" style={[styles.methodLabel, { color: theme.text }]}>
+              الدينار كاش
+            </ThemedText>
           </View>
-          <ThemedText type="small" style={[styles.methodLabel, { color: onlinePaymentEnabled ? theme.text : theme.textSecondary }]}>
-            بواسطة البطاقة
-          </ThemedText>
-          {!onlinePaymentEnabled && <ComingSoonBadge />}
+
+          {/* Card */}
+          <View style={styles.methodItem}>
+            <View style={[styles.cardIcon, { borderColor: theme.border }]}>
+              <Feather name="credit-card" size={20} color={AppColors.primary} />
+            </View>
+            <ThemedText type="small" style={[styles.methodLabel, { color: theme.text }]}>
+              بواسطة البطاقة
+            </ThemedText>
+          </View>
         </View>
-      </View>
+      ) : null}
 
       <View style={[styles.cashNote, { backgroundColor: AppColors.primary + "10", borderColor: AppColors.primary + "30" }]}>
         <Feather name="check-circle" size={16} color={AppColors.primary} />
@@ -55,14 +63,6 @@ export function PaymentMethodsCard({ onlinePaymentEnabled }: Props) {
           الدفع نقداً عند الاستلام
         </ThemedText>
       </View>
-    </View>
-  );
-}
-
-function ComingSoonBadge() {
-  return (
-    <View style={styles.badge}>
-      <ThemedText style={styles.badgeText}>قريباً</ThemedText>
     </View>
   );
 }

@@ -3069,32 +3069,8 @@
           </div>
         </div>
 
-        <!-- Online Payment Toggle Card -->
-        <div class="card" style="border-right:4px solid #10B981;margin-bottom:24px;">
-          <div class="card-header" style="border-bottom:1px solid var(--gray-200);">
-            <h3 style="display:flex;align-items:center;gap:8px;">
-              <i data-lucide="credit-card" style="width:18px;height:18px;color:#10B981;"></i>
-              الدفع الإلكتروني
-            </h3>
-          </div>
-          <div class="card-body" style="padding:24px;">
-            <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:16px;">
-              <div>
-                <p style="font-size:0.88rem;color:var(--gray-700);font-weight:600;margin-bottom:4px;">تفعيل خيار الدفع الإلكتروني للعملاء</p>
-                <p style="font-size:0.8rem;color:var(--gray-500);">عند التفعيل، تظهر خيارات الدفع بالبطاقة وماستركارد في شاشة الدفع للعملاء.</p>
-              </div>
-              <div style="display:flex;align-items:center;gap:12px;">
-                <span id="online-payment-label" style="font-size:0.85rem;font-weight:700;color:#9CA3AF;">معطّل</span>
-                <div style="position:relative;width:52px;height:28px;cursor:pointer;" onclick="document.getElementById('online-payment-toggle').click()">
-                  <input type="checkbox" id="online-payment-toggle" style="opacity:0;position:absolute;width:0;height:0;" onchange="saveOnlinePaymentToggle(this.checked)">
-                  <div id="online-payment-track" style="position:absolute;inset:0;background:#E5E7EB;border-radius:28px;transition:background 0.2s;"></div>
-                  <div id="online-payment-knob" style="position:absolute;height:22px;width:22px;left:3px;top:3px;background:#fff;border-radius:50%;transition:transform 0.2s;box-shadow:0 1px 4px rgba(0,0,0,0.2);"></div>
-                </div>
-              </div>
-            </div>
-            <div id="online-payment-status" style="margin-top:8px;font-size:0.82rem;display:none;"></div>
-          </div>
-        </div>
+        <!-- Electronic payment removed — cash-on-delivery only. The backend
+             onlinePaymentEnabled flag is retained so this card can be restored later. -->
 
         <!-- Driver Payout Rule Card -->
         <div class="card" style="border-right:4px solid #3B82F6;margin-bottom:24px;">
@@ -9732,13 +9708,6 @@
         const res = await fetch(`${API_BASE}/settings/public`);
         const data = await res.json();
 
-        // Online payment toggle
-        const toggle = document.getElementById('online-payment-toggle');
-        if (toggle && data.onlinePaymentEnabled !== undefined) {
-          toggle.checked = !!data.onlinePaymentEnabled;
-          _updateOnlinePaymentUI(!!data.onlinePaymentEnabled);
-        }
-
         // Driver payout rule
         const rule = data.driverPayoutRule;
         if (rule) {
@@ -9762,32 +9731,6 @@
         }
       } catch (err) {
         console.error('loadSystemSettings error', err);
-      }
-    }
-
-    function _updateOnlinePaymentUI(enabled) {
-      const label = document.getElementById('online-payment-label');
-      const track = document.getElementById('online-payment-track');
-      const knob  = document.getElementById('online-payment-knob');
-      if (label) { label.textContent = enabled ? 'مفعّل' : 'معطّل'; label.style.color = enabled ? '#10B981' : '#9CA3AF'; }
-      if (track) track.style.background = enabled ? '#10B981' : '#E5E7EB';
-      if (knob)  knob.style.transform   = enabled ? 'translateX(24px)' : 'translateX(0)';
-    }
-
-    async function saveOnlinePaymentToggle(enabled) {
-      _updateOnlinePaymentUI(enabled);
-      const status = document.getElementById('online-payment-status');
-      try {
-        const res = await fetch(`${API_BASE}/admin/settings`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ onlinePaymentEnabled: enabled })
-        });
-        if (!res.ok) throw new Error('failed');
-        if (status) { status.textContent = 'تم الحفظ بنجاح'; status.style.color = '#10B981'; status.style.display = 'block'; }
-        setTimeout(() => { if (status) status.style.display = 'none'; }, 3000);
-      } catch {
-        if (status) { status.textContent = 'فشل الحفظ، حاول مجدداً'; status.style.color = '#EF4444'; status.style.display = 'block'; }
       }
     }
 

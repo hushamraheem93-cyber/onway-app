@@ -372,13 +372,10 @@ export default function AdminScreen() {
   const [autoSuspendInput, setAutoSuspendInput]           = useState("100000");
   const [isSavingPayout, setIsSavingPayout]               = useState(false);
   const [isSavingSuspend, setIsSavingSuspend]             = useState(false);
-  const [onlinePaymentEnabled, setOnlinePaymentEnabled]   = useState(false);
-  const [isSavingOnlinePayment, setIsSavingOnlinePayment] = useState(false);
 
   // Sync system settings from context whenever they load
   useEffect(() => {
     if (!systemSettings) return;
-    setOnlinePaymentEnabled(systemSettings.onlinePaymentEnabled);
     setAutoSuspendInput(String(systemSettings.autoSuspendThreshold ?? 100000));
     const r = systemSettings.driverPayoutRule;
     if (r) {
@@ -388,26 +385,6 @@ export default function AdminScreen() {
       setPayoutPercent(String(r.percent ?? 15));
     }
   }, [systemSettings]);
-
-  const saveOnlinePaymentToggle = useCallback(async (enabled: boolean) => {
-    setOnlinePaymentEnabled(enabled);
-    setIsSavingOnlinePayment(true);
-    try {
-      const res = await fetch(`${getApiUrl()}/api/admin/settings`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ onlinePaymentEnabled: enabled }),
-      });
-      if (!res.ok) throw new Error("failed");
-      await refreshSystemSettings();
-    } catch {
-      setOnlinePaymentEnabled(!enabled); // revert on error
-      Alert.alert("خطأ", "فشل حفظ الإعداد، حاول مجدداً");
-    } finally {
-      setIsSavingOnlinePayment(false);
-    }
-  }, [refreshSystemSettings]);
 
   const saveDriverPayoutRule = useCallback(async () => {
     setIsSavingPayout(true);
@@ -3280,27 +3257,8 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
           </View>
         </View>
 
-        {/* Online Payment Toggle */}
-        <View style={{ backgroundColor: theme.backgroundSecondary, borderRadius: BorderRadius.lg, padding: Spacing.lg, gap: Spacing.md }}>
-          <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: Spacing.sm }}>
-            <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: "#10B98120", alignItems: "center", justifyContent: "center" }}>
-              <Feather name="credit-card" size={20} color="#10B981" />
-            </View>
-            <View style={{ flex: 1, alignItems: "flex-end" }}>
-              <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 15 }}>الدفع الإلكتروني</ThemedText>
-              <ThemedText style={{ fontFamily: "Cairo_400Regular", fontSize: 13, color: theme.textSecondary }}>
-                {onlinePaymentEnabled ? "مفعّل — تظهر خيارات البطاقة للعملاء" : "معطّل — خيارات البطاقة مخفية"}
-              </ThemedText>
-            </View>
-            <Switch
-              value={onlinePaymentEnabled}
-              onValueChange={saveOnlinePaymentToggle}
-              disabled={isSavingOnlinePayment}
-              trackColor={{ false: AppColors.gray200, true: "#10B981" }}
-              thumbColor={AppColors.white}
-            />
-          </View>
-        </View>
+        {/* Electronic payment removed — the app is cash-on-delivery only. The backend
+            onlinePaymentEnabled flag is kept so the toggle can be restored later. */}
 
         {/* Driver Payout Rule */}
         <View style={{ backgroundColor: theme.backgroundSecondary, borderRadius: BorderRadius.lg, padding: Spacing.lg, gap: Spacing.md }}>
