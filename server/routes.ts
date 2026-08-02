@@ -4854,6 +4854,85 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Auto-registry of every store owner (vendor) with order activity per period.
+  // Vendors appear automatically — it reads the live vendor list, so anyone who
+  // registers is listed with no manual step. Feeds "سجل أصحاب المتاجر" in the
+  // settlements section (today / week / month orders + this-month delivered sales +
+  // outstanding). Orders are read only from the last 30 days (bounded query).
+  app.get("/api/admin/vendor-registry", async (_req: Request, res: Response) => {
+    const db = getFirestore();
+    if (!db) return res.json({ vendors: [] });
+    try {
+      const [vendors, accounts] = await Promise.all([
+        getVendorList(),
+        listSettlementAccounts("vendor").catch(() => [] as any[]),
+      ]);
+      const outMap = new Map<string, number>((accounts as any[]).map((a) => [String(a.accountId), Number(a.outstanding) || 0]));
+      const nowMs = Date.now();
+      const dayMs = 24 * 60 * 60 * 1000;
+      const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
+      const weekStart = new Date(nowMs - 7 * dayMs);
+      const monthStart = new Date(nowMs - 30 * dayMs);
+      const snap = await db.collection("orders").where("createdAt", ">=", monthStart).get();
+      const stats = new Map<string, { oToday: number; oWeek: number; oMonth: number; sMonth: number }>();
+      snap.docs.forEach((doc) => {
+        const o = doc.data() as any;
+        const vId = o.vendorId;
+        if (!vId) return;
+        const created = o.createdAt?.toDate?.() ? o.createdAt.toDate() : null;
+        if (!created) return;
+        let s = stats.get(vId);
+        if (!s) { s = { oToday: 0, oWeek: 0, oMonth: 0, sMonth: 0 }; stats.set(vId, s); }
+        s.oMonth++;
+        if (created >= weekStart) s.oWeek++;
+        if (created >= todayStart) s.oToday++;
+        if (o.status === "delivered") s.sMonth += Number(o.restaurantSubtotal ?? o.total ?? 0) || 0;
+      });
+      const list = (vendors as any[]).map((v) => {
+        const s = stats.get(v.id) || { oToday: 0, oWeek: 0, oMonth: 0, sMonth: 0 };
+        return {
+          id: v.id,
+          name: v.name || v.storeName || "—",
+          businessType: v.businessType || v.categoryType || "",
+          phone: v.whatsappNumber || v.phoneNumber || "",
+          ordersToday: s.oToday, ordersWeek: s.oWeek, ordersMonth: s.oMonth,
+          salesMonth: s.sMonth,
+          outstanding: outMap.get(String(v.id)) || 0,
+        };
+      });
+      res.json({ vendors: list });
+    } catch (error: any) {
+      console.error("[API] vendor-registry", error?.message);
+      res.status(500).json({ error: GENERIC_SERVER_ERROR });
+    }
+  });
+
+  // Per-vendor settlement history for the Excel export: reference, amount, request date,
+  // approval date, status — one row per settlement request the vendor ever raised.
+  app.get("/api/admin/vendors/:id/settlement-history", async (req: Request, res: Response) => {
+    const db = getFirestore();
+    if (!db) return res.json({ history: [] });
+    const id = req.params.id as string;
+    try {
+      // Single-field query on the denormalized accountKey — no composite index needed.
+      const snap = await db.collection("settlementRequests").where("accountKey", "==", `vendor:${id}`).get();
+      const history = snap.docs.map((d) => {
+        const r = d.data() as any;
+        return {
+          reference: r.reference || d.id,
+          amount: Number(r.outstandingSnapshot) || 0,
+          requestedAt: r.createdAt?.toDate?.() ? r.createdAt.toDate().toISOString() : null,
+          approvedAt: r.approvedAt?.toDate?.() ? r.approvedAt.toDate().toISOString() : null,
+          status: r.status || "",
+        };
+      }).sort((a, b) => String(b.requestedAt || "").localeCompare(String(a.requestedAt || "")));
+      res.json({ history });
+    } catch (error: any) {
+      console.error("[API] settlement-history", error?.message);
+      res.status(500).json({ error: GENERIC_SERVER_ERROR });
+    }
+  });
+
   // Bank-style ledger statement for any account (admin view).
   app.get("/api/admin/ledger-statement", async (req: Request, res: Response) => {
     const accountType = (req.query.accountType as "driver" | "vendor" | "platform") || "driver";

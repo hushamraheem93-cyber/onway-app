@@ -3667,6 +3667,31 @@
             </table>
           </div>
         </div>
+
+        <!-- Store owners registry (auto-populated from registered vendors) -->
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin:28px 0 12px;">
+          <div>
+            <h3 style="display:flex;align-items:center;gap:8px;font-size:1.05rem;">
+              <i data-lucide="store" style="width:18px;height:18px;color:#E86520;"></i>
+              سجل أصحاب المتاجر
+            </h3>
+            <p style="font-size:0.8rem;color:var(--gray-500);margin-top:2px;">يُضاف كل تاجر تلقائياً عند تسجيله — طلبات اليوم/الأسبوع/الشهر، مع تصدير Excel لسجل التسويات لكل تاجر.</p>
+          </div>
+          <button class="btn btn-outline" onclick="doRefresh(this, loadVendorRegistry, 'السجل')">
+            <i data-lucide="refresh-cw"></i> تحديث
+          </button>
+        </div>
+        <div class="card">
+          <div class="table-container">
+            <table>
+              <thead><tr>
+                <th>المتجر</th><th>النشاط</th><th>طلبات اليوم</th><th>الأسبوع</th><th>الشهر</th>
+                <th>مبيعات الشهر (مُسلّمة)</th><th>المستحق</th><th>تصدير</th>
+              </tr></thead>
+              <tbody id="vendor-registry-tbody"><tr><td colspan="8" style="text-align:center;padding:30px;color:#9CA3AF;">—</td></tr></tbody>
+            </table>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -5176,7 +5201,56 @@
       completed: { label: 'مكتمل', color: '#16A34A', bg: '#DCFCE7' },
       rejected: { label: 'مرفوض', color: '#EF4444', bg: '#FEE2E2' },
     };
+    // Store owners registry (auto-populated) + per-vendor Excel export.
+    const BUSINESS_LABELS_AR = { restaurant:'مطعم', supermarket:'سوبر ماركت', pharmacy:'صيدلية', bakery:'مخبز', sweets:'حلويات', cafe:'كافيه', grocery:'بقالة', butcher:'ملحمة', fruit_veg:'خضار وفواكه', flowers:'زهور', electronics:'إلكترونيات', cosmetics:'مستحضرات', pet:'حيوانات أليفة', stationery:'قرطاسية', other:'أخرى', store:'متجر' };
+    async function loadVendorRegistry() {
+      const tbody = document.getElementById('vendor-registry-tbody');
+      if (!tbody) return;
+      tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:24px;color:#9CA3AF;">جارٍ التحميل…</td></tr>`;
+      try {
+        const res = await fetch(`${API_BASE}/admin/vendor-registry`);
+        const data = await res.json();
+        const vendors = data.vendors || [];
+        if (!vendors.length) { tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:30px;color:#9CA3AF;">لا يوجد تجار مسجّلون</td></tr>`; return; }
+        tbody.innerHTML = vendors.map(v => `
+          <tr>
+            <td style="font-weight:700;">${escapeHtml(v.name || '—')}<div style="font-size:0.74rem;color:var(--gray-500);font-weight:400;direction:ltr;text-align:right;">${escapeHtml(v.phone || '')}</div></td>
+            <td>${escapeHtml(BUSINESS_LABELS_AR[v.businessType] || v.businessType || '—')}</td>
+            <td style="text-align:center;font-weight:700;">${v.ordersToday || 0}</td>
+            <td style="text-align:center;">${v.ordersWeek || 0}</td>
+            <td style="text-align:center;">${v.ordersMonth || 0}</td>
+            <td style="color:#10B981;font-weight:600;">${(v.salesMonth || 0).toLocaleString('ar-IQ')} د.ع</td>
+            <td style="color:${v.outstanding > 0 ? '#EF4444' : 'var(--gray-500)'};font-weight:700;">${(v.outstanding || 0).toLocaleString('ar-IQ')} د.ع</td>
+            <td><button class="btn btn-sm" style="background:#10B981;color:#fff;border:none;padding:5px 10px;" onclick="exportVendorSettlements('${escapeJsInAttr(v.id)}','${escapeJsInAttr(v.name || '')}')"><i data-lucide="download" style="width:11px;height:11px;"></i> Excel</button></td>
+          </tr>`).join('');
+        lucide.createIcons();
+      } catch { tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:24px;color:#EF4444;">تعذّر تحميل السجل</td></tr>`; }
+    }
+
+    async function exportVendorSettlements(vendorId, vendorName) {
+      try {
+        const res = await fetch(`${API_BASE}/admin/vendors/${vendorId}/settlement-history`);
+        const data = await res.json();
+        const history = data.history || [];
+        const fmt = (iso) => iso ? new Date(iso).toLocaleDateString('ar-IQ') : '—';
+        const esc = (s) => '"' + String(s == null ? '' : s).replace(/"/g, '""') + '"';
+        const header = ['الرقم المرجعي', 'تاريخ طلب التسوية', 'تاريخ الموافقة', 'المبلغ (د.ع)', 'الحالة'];
+        const rows = history.map(h => [h.reference, fmt(h.requestedAt), fmt(h.approvedAt), (h.amount || 0), h.status].map(esc).join(','));
+        // UTF-8 BOM so Excel renders Arabic correctly.
+        const csv = String.fromCharCode(0xFEFF) + [header.map(esc).join(','), ...rows].join('\r\n');
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `تسويات-${(vendorName || vendorId).replace(/[\\/:*?"<>|]/g, '_')}.csv`;
+        document.body.appendChild(a); a.click(); a.remove();
+        URL.revokeObjectURL(url);
+        showToast('success', 'تم', history.length ? `تم تصدير ${history.length} طلب تسوية` : 'لا توجد تسويات — صُدّر ملف فارغ');
+      } catch { showToast('error', 'فشل', 'تعذّر تصدير الملف'); }
+    }
+
     async function loadSettlementRequests() {
+      loadVendorRegistry();
       const status = document.getElementById('sr-status-filter')?.value || 'pending';
       const tbody = document.getElementById('sr-tbody');
       tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:30px;color:#9CA3AF;">جارٍ التحميل…</td></tr>`;
