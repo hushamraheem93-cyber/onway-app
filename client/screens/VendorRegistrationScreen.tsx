@@ -247,11 +247,11 @@ const styles = StyleSheet.create({
   input: {
     borderWidth: 1.5, borderColor: AppColors.divider, borderRadius: 14,
     paddingHorizontal: 14, paddingVertical: 14,
-    fontFamily: "Cairo_400Regular", fontSize: 16, color: AppColors.black,
+    fontFamily: "Cairo_400Regular", fontSize: 16, lineHeight: 22, color: AppColors.black,
     textAlign: "right", marginBottom: 16,
     backgroundColor: AppColors.gray50,
-    // Android clips tall Arabic glyphs from the top and lifts the text off the
-    // baseline unless font padding is disabled and the text is vertically centered.
+    // Give the tall Arabic glyphs vertical room so they are not clipped from the top.
+    // iOS needs the explicit lineHeight; Android additionally needs font padding off.
     includeFontPadding: false,
     textAlignVertical: "center",
   },

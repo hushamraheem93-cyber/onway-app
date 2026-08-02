@@ -335,7 +335,7 @@ const s = StyleSheet.create({
   sectionTitle: { fontFamily: FontFamily.cairoBold, fontSize: 15, color: AppColors.gray800, flex: 1, textAlign: "right" },
   sectionHint:  { fontFamily: FontFamily.tajawal, fontSize: 11, color: AppColors.gray400 },
   label:        { fontFamily: FontFamily.cairoBold, fontSize: 13, color: AppColors.gray700, textAlign: "right", marginBottom: 6, marginTop: 4 },
-  input:        { borderWidth: 1.5, borderColor: AppColors.divider, borderRadius: 14, paddingHorizontal: 14, paddingVertical: 13, fontFamily: FontFamily.tajawal, fontSize: 16, color: AppColors.black, textAlign: "right", marginBottom: 14, backgroundColor: AppColors.white, includeFontPadding: false, textAlignVertical: "center" },
+  input:        { borderWidth: 1.5, borderColor: AppColors.divider, borderRadius: 14, paddingHorizontal: 14, paddingVertical: 13, fontFamily: FontFamily.tajawal, fontSize: 16, lineHeight: 22, color: AppColors.black, textAlign: "right", marginBottom: 14, backgroundColor: AppColors.white, includeFontPadding: false, textAlignVertical: "center" },
   textArea:     { minHeight: 80, textAlignVertical: "top", paddingTop: 12, includeFontPadding: false },
   pickerWrap:   { borderWidth: 1.5, borderColor: AppColors.divider, borderRadius: 12, marginBottom: 14, backgroundColor: AppColors.white, overflow: "hidden" },
   picker:       { height: Platform.OS === "ios" ? 140 : 50, color: AppColors.black },
