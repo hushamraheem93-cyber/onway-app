@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import {
   View,
   StyleSheet,
@@ -25,7 +25,6 @@ import { getApiUrl } from "@/lib/query-client";
 import { CATEGORY_MAP, ALL_CATEGORIES, PRODUCT_NAME_PLACEHOLDER } from "@/constants/businessCategories";
 import DynamicProductFields from "@/components/DynamicProductFields";
 import { AppColors, FontFamily } from "@/constants/theme";
-import { searchProductImages, GROCERY_BUSINESS_TYPES, LibraryEntry } from "@/constants/productImageLibrary";
 
 const ORANGE = AppColors.primary;
 const MAX_IMAGES = 5;
@@ -52,17 +51,6 @@ export default function VendorAddProductScreen({ navigation }: any) {
   const [error, setError]           = useState("");
   const [loading, setLoading]       = useState(false);
   const [success, setSuccess]       = useState(false);
-
-  const isGroceryStore              = GROCERY_BUSINESS_TYPES.has(businessType);
-  const [libraryEntry, setLibEntry] = useState<LibraryEntry | null>(null);
-  const [selectedLibUrl, setLibUrl] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!isGroceryStore) return;
-    const found = searchProductImages(name);
-    setLibEntry(found);
-    if (!found) setLibUrl(null);
-  }, [name, isGroceryStore]);
 
   const [variants, setVariants] = useState<{ id: string; name: string; priceAdjustment: string }[]>([]);
   const [addons,   setAddons]   = useState<{ id: string; name: string; price: string }[]>([]);
@@ -118,7 +106,7 @@ export default function VendorAddProductScreen({ navigation }: any) {
   // ── Submit (unchanged logic) ──────────────────────────────────────────────────
 
   const submit = async () => {
-    const hasImage = imageUris.length > 0 || !!selectedLibUrl;
+    const hasImage = imageUris.length > 0;
     if (!name.trim() || !price || !category || !hasImage) {
       setError("يرجى ملء اسم المنتج، السعر، الفئة، واختيار أو رفع صورة");
       return;
@@ -140,17 +128,13 @@ export default function VendorAddProductScreen({ navigation }: any) {
       if (validVariants.length > 0) formData.append("variants", JSON.stringify(validVariants));
       if (validAddons.length > 0)   formData.append("addons",   JSON.stringify(validAddons));
 
-      if (selectedLibUrl && imageUris.length === 0) {
-        formData.append("libraryImageUrl", selectedLibUrl);
-      } else {
-        const compressedUris = await Promise.all(imageUris.map(async (uri) => {
-          try { const r = await manipulateAsync(uri, [{ resize: { width: 800 } }], { compress: 0.72, format: SaveFormat.WEBP }); return r.uri; }
-          catch { return uri; }
-        }));
-        for (const uri of compressedUris) {
-          const filename = uri.split("/").pop() || "product.webp";
-          formData.append("images", { uri, name: filename, type: "image/webp" } as any);
-        }
+      const compressedUris = await Promise.all(imageUris.map(async (uri) => {
+        try { const r = await manipulateAsync(uri, [{ resize: { width: 800 } }], { compress: 0.72, format: SaveFormat.WEBP }); return r.uri; }
+        catch { return uri; }
+      }));
+      for (const uri of compressedUris) {
+        const filename = uri.split("/").pop() || "product.webp";
+        formData.append("images", { uri, name: filename, type: "image/webp" } as any);
       }
 
       const res  = await fetch(new URL("/api/vendor/products", getApiUrl()).toString(), {
@@ -186,7 +170,7 @@ export default function VendorAddProductScreen({ navigation }: any) {
             setSuccess(false);
             setName(""); setDesc(""); setPrice(""); setStock("");
             setCategory(categories[0]); setUnit(UNITS[0]); setImageUris([]);
-            setVariants([]); setAddons([]); setLibUrl(null); setLibEntry(null);
+            setVariants([]); setAddons([]);
           }}
           testID="button-add-another"
         >
@@ -241,72 +225,15 @@ export default function VendorAddProductScreen({ navigation }: any) {
         />
       </View>
 
-      {/* ── Section 2: Smart Image Library (grocery only) ── */}
-      {isGroceryStore && libraryEntry && imageUris.length === 0 && (
-        <View style={s.card}>
-          <View style={s.cardHeader}>
-            <MaterialCommunityIcons name="image-multiple" size={16} color={ORANGE} />
-            <ThemedText style={s.cardTitle}>اختر صورة من المكتبة</ThemedText>
-          </View>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.libraryRow}>
-            {libraryEntry.urls.map((url, idx) => {
-              const isSel = selectedLibUrl === url;
-              return (
-                <Pressable
-                  key={url}
-                  onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); setLibUrl(isSel ? null : url); }}
-                  style={[s.libThumbWrap, isSel && { borderColor: ORANGE, borderWidth: 3 }]}
-                  testID={`library-image-${idx}`}
-                >
-                  <Image source={{ uri: url }} style={s.libThumb} contentFit="cover" transition={200} />
-                  {isSel && (
-                    <View style={s.libCheckOverlay}>
-                      <MaterialCommunityIcons name="check-circle" size={28} color={AppColors.white} />
-                    </View>
-                  )}
-                </Pressable>
-              );
-            })}
-          </ScrollView>
-          {selectedLibUrl ? (
-            <View style={s.libSelectedRow}>
-              <MaterialCommunityIcons name="check-circle" size={14} color={AppColors.success} />
-              <ThemedText style={[s.libSelectedText, { color: AppColors.success }]}>تم اختيار الصورة</ThemedText>
-              <Pressable onPress={() => setLibUrl(null)} hitSlop={8}>
-                <ThemedText style={[s.libSelectedText, { color: AppColors.error }]}>إلغاء</ThemedText>
-              </Pressable>
-            </View>
-          ) : null}
-          <View style={s.libDivider}>
-            <View style={s.libLine} />
-            <ThemedText style={s.libOrText}>أو رفع صورة خاصة بك</ThemedText>
-            <View style={s.libLine} />
-          </View>
-        </View>
-      )}
-
-      {/* ── Section 3: Images ── */}
+      {/* ── Section: Images (device camera / gallery only) ── */}
       <View style={s.card}>
         <View style={s.cardHeader}>
           <MaterialCommunityIcons name="image-multiple-outline" size={16} color={ORANGE} />
           <ThemedText style={s.cardTitle}>صور المنتج <ThemedText style={{ color: ORANGE }}>*</ThemedText></ThemedText>
-          {!isGroceryStore || !libraryEntry ? (
-            <ThemedText style={s.cardHint}>(1—{MAX_IMAGES} صور)</ThemedText>
-          ) : null}
+          <ThemedText style={s.cardHint}>(1—{MAX_IMAGES} صور)</ThemedText>
         </View>
 
-        {selectedLibUrl && imageUris.length === 0 ? (
-          <View style={s.heroWrap}>
-            <Image source={{ uri: selectedLibUrl }} style={s.heroImage} contentFit="cover" />
-            <View style={[s.heroBadge, { backgroundColor: AppColors.success + "CC" }]}>
-              <MaterialCommunityIcons name="image-check" size={11} color={AppColors.white} />
-              <ThemedText style={s.heroBadgeText}>صورة من المكتبة</ThemedText>
-            </View>
-            <Pressable style={s.heroRemoveBtn} onPress={() => setLibUrl(null)} testID="button-remove-library-image">
-              <Feather name="x" size={14} color={AppColors.white} />
-            </Pressable>
-          </View>
-        ) : imageUris.length > 0 ? (
+        {imageUris.length > 0 ? (
           <View style={s.heroWrap}>
             <Image source={{ uri: imageUris[0] }} style={s.heroImage} contentFit="cover" />
             <View style={[s.heroBadge, { backgroundColor: ORANGE }]}>
