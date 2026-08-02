@@ -135,6 +135,9 @@ const styles = StyleSheet.create({
     textAlign: "right",
     marginBottom: 12,
     backgroundColor: AppColors.white,
+    // Prevent Android from clipping tall Arabic glyphs from the top.
+    includeFontPadding: false,
+    textAlignVertical: "center",
   },
   pickerWrap: {
     borderWidth: 1.5,
