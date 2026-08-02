@@ -2882,16 +2882,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!driver) return res.status(404).json({ error: "السائق غير موجود" });
       if (driver.status !== "approved") return res.status(400).json({ error: "السائق غير مفعّل" });
 
-      // 3. Remove order from batchedOrderIds so it can be re-assigned
-      batchedOrderIds.delete(orderId);
+      // 3. Clean up a PREVIOUS driver still holding this order (a real reassignment).
+      //    Without this the old driver's app kept showing the order and the live map
+      //    followed them. Remove it from their batch and tell them it was moved.
+      const previousDriver = driverAssignments.get(orderId) || (order as any).driverPhone || null;
+      if (previousDriver && previousDriver !== driverPhone) {
+        driverAssignments.delete(orderId);
+        const prevQd = driverQueue.find(d => d.phoneNumber === previousDriver);
+        if (prevQd?.currentBatchId) {
+          const prevBatch = await getDeliveryBatch(prevQd.currentBatchId);
+          if (prevBatch && prevBatch.orderIds.includes(orderId)) {
+            const remaining = prevBatch.orderIds.filter(id => id !== orderId);
+            if (remaining.length === 0) {
+              await updateDeliveryBatch(prevQd.currentBatchId, { status: "cancelled" }).catch(() => {});
+              prevQd.currentBatchId = undefined;
+              updateDriverQueueEntry(previousDriver, { hasActiveBatch: false }).catch(() => {});
+            } else {
+              await updateDeliveryBatch(prevQd.currentBatchId, { orderIds: remaining, totalOrders: remaining.length }).catch(() => {});
+            }
+          }
+        }
+        getDriverPushToken(String(previousDriver))
+          .then(t => { if (t) sendDriverOrderCancelledNotification(t, orderId).catch(() => {}); })
+          .catch(() => {});
+      }
 
-      // 4. Clear driver's existing batch in memory if they have one
+      // 4. Free the order + clear the NEW driver's stale finished batch if any.
+      batchedOrderIds.delete(orderId);
       const queuedDriver = driverQueue.find(d => d.phoneNumber === driverPhone);
       if (queuedDriver?.currentBatchId) {
-        // Move old batch to completed in Firestore
         const oldBatch = await getDeliveryBatch(queuedDriver.currentBatchId);
         if (oldBatch) {
-          // Fetch only the old batch's orders (was a leftover of the full scan).
           const oldBatchOrders = await getOrdersByIds(oldBatch.orderIds);
           const oldNonActive = oldBatch.orderIds.filter(id => {
             const o = oldBatchOrders.find(x => x.id === id);
@@ -2899,67 +2920,56 @@ export async function registerRoutes(app: Express): Promise<Server> {
           });
           if (oldNonActive.length === oldBatch.orderIds.length) {
             await updateDeliveryBatch(queuedDriver.currentBatchId, { status: "completed" }).catch(() => {});
+            queuedDriver.currentBatchId = undefined;
           }
-          // Remove old batch orders from batchedOrderIds
           oldBatch.orderIds.forEach(id => batchedOrderIds.delete(id));
         }
-        queuedDriver.currentBatchId = undefined;
-        updateDriverQueueEntry(driverPhone, { hasActiveBatch: false }).catch(() => {});
       }
 
-      // 5. If driver is not in queue, add them temporarily
+      // 5. Ensure the driver is in the queue.
       if (!queuedDriver) {
-        driverQueue.push({
-          phoneNumber: driverPhone,
-          joinedAt: Date.now(),
-          lastSeenAt: Date.now(),
-          currentBatchId: undefined,
-        });
+        driverQueue.push({ phoneNumber: driverPhone, joinedAt: Date.now(), lastSeenAt: Date.now(), currentBatchId: undefined });
         addDriverToActiveQueue(driverPhone, Date.now()).catch(() => {});
       }
 
-      // 6. Create a batch with this specific order for the driver
-      const batchId = await createDeliveryBatch({
-        driverPhone,
-        orderIds: [orderId],
-      });
-
+      // 6. Create the batch and FORCE it active. A manual admin transfer is immediate —
+      //    not a 'pending' offer the driver can ignore — which is what "تحديث الحالة فوراً"
+      //    requires. The driver finds it directly in their active batch.
+      const batchId = await createDeliveryBatch({ driverPhone, orderIds: [orderId] });
       if (!batchId) return res.status(500).json({ error: "فشل في إنشاء الدُفعة" });
+      await updateDeliveryBatch(batchId, { status: "in_progress", startTime: new Date().toISOString() }).catch(() => {});
 
-      // 7. Update in-memory queue
+      // 7. Update in-memory queue + the assignment map that drives the live tracking map.
       const targetDriver = driverQueue.find(d => d.phoneNumber === driverPhone);
       if (targetDriver) {
         targetDriver.currentBatchId = batchId;
         updateDriverQueueEntry(driverPhone, { hasActiveBatch: true }).catch(() => {});
       }
       batchedOrderIds.add(orderId);
+      driverAssignments.set(orderId, driverPhone);
 
-      // 8. Update order with driver info in Firestore (also clear rejection flags)
+      // 8. Persist driver info on the order + move it forward, clearing reject flags.
       const driverName = [driver.firstName, driver.secondName].filter(Boolean).join(" ") || driver.fullName || driverPhone;
       const { FieldValue } = await import("firebase-admin/firestore");
+      const newStatus = ["pending", "confirmed"].includes(order.status) ? "preparing" : order.status;
       await db.collection("orders").doc(orderId).update({
         driverPhone,
         driverName,
         batchId,
-        status: order.status === "pending" ? "confirmed" : order.status,
+        status: newStatus,
         rejectedAt: FieldValue.delete(),
         rejectedByDriver: FieldValue.delete(),
         rejectedByPhone: FieldValue.delete(),
       }).catch(() => {});
 
-      // 9. Notify driver via push
+      // 9. Real-time + push updates for everyone affected: the order stream (customer
+      //    tracking + admin), the customer, and the new driver.
+      orderEvents.emit("order:status", { orderId, status: newStatus });
+      notifyCustomerStatus(orderId, newStatus).catch(() => {});
       const driverPushToken = await getDriverPushToken(driverPhone);
-      if (driverPushToken) {
-        const pendingBatchSnap = await db.collection("delivery_batches")
-          .where("driverId", "==", driverPhone)
-          .where("status", "==", "pending")
-          .count()
-          .get();
-        const driverBadge = pendingBatchSnap.data().count;
-        sendDriverBatchNotification(driverPushToken, 1, batchId, driverBadge).catch(() => {});
-      }
+      if (driverPushToken) sendDriverBatchNotification(driverPushToken, 1, batchId, 0).catch(() => {});
 
-      res.json({ success: true, batchId, driverPhone, driverName });
+      res.json({ success: true, batchId, driverPhone, driverName, status: newStatus });
     } catch (error: any) {
       console.error("assign-driver error:", error);
       res.status(500).json({ error: GENERIC_SERVER_ERROR });
