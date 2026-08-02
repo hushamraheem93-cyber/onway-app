@@ -25,6 +25,26 @@ const NotificationContext = createContext<NotificationContextType | undefined>(u
 
 const NOTIFICATIONS_STORAGE_KEY = "@onway_notifications";
 
+// This in-app history is the CUSTOMER notification list (the vendor has its own
+// VendorNotificationsContext, the driver/admin have their own screens). A single
+// device can receive admin/vendor/driver pushes too — e.g. a tester logged into
+// several roles on one phone, or a device whose Expo token is the global admin
+// token — and without this filter those leaked into the customer bell as
+// "طلب جديد" / "طلب جديد وصلك". Drop any push whose data.type belongs to another
+// audience; customer pushes are order-status updates (data { orderId, status } —
+// no type) and admin broadcasts, so anything not in this set is kept.
+const NON_CUSTOMER_NOTIFICATION_TYPES = new Set([
+  "new_order", // admin: new order placed
+  "new_batch", // driver: batch assignment
+  "vendor_status", // vendor: store approval/suspension
+  "vendor_product", // vendor: product event
+  "vendor_new_order", // vendor: new order arrived
+  "vendor_order_reminder", // vendor: stale order reminder
+  "settlement_request", // admin: settlement request
+  "order_ready_for_driver", // driver: order ready for pickup
+  "order_cancelled", // vendor/driver cancellation notice (customer cancel uses status, not type)
+]);
+
 export function NotificationProvider({ children }: { children: ReactNode }) {
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const notificationListener = useRef<Notifications.Subscription | null>(null);
@@ -33,6 +53,10 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
   // Add a notification delivered by Expo to the in-app history, de-duplicated by id
   // so the same push is not recorded twice (e.g. received in foreground, then tapped).
   const recordExpoNotification = useCallback((req: Notifications.NotificationRequest) => {
+    const type = (req.content.data as Record<string, unknown> | undefined)?.type;
+    if (typeof type === "string" && NON_CUSTOMER_NOTIFICATION_TYPES.has(type)) {
+      return; // belongs to the vendor/driver/admin audience, not the customer bell
+    }
     const item: AppNotification = {
       id: req.identifier,
       title: req.content.title || "",
@@ -88,7 +112,15 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
       if (stored) {
         const parsed = JSON.parse(stored);
         if (Array.isArray(parsed)) {
-          setNotifications(parsed);
+          // Purge any non-customer notifications persisted before the audience
+          // filter existed, so old leaked "طلب جديد"/"طلب جديد وصلك" entries clear
+          // themselves on next launch instead of needing a manual "مسح الكل".
+          const cleaned = parsed.filter((n) => {
+            const type = (n?.data as Record<string, unknown> | undefined)?.type;
+            return !(typeof type === "string" && NON_CUSTOMER_NOTIFICATION_TYPES.has(type));
+          });
+          setNotifications(cleaned);
+          if (cleaned.length !== parsed.length) saveNotifications(cleaned);
         } else {
           setNotifications([]);
         }
