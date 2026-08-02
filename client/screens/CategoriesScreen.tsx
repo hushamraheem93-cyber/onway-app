@@ -95,6 +95,9 @@ export default function CategoriesScreen() {
     const gradientColor = getGradientColor(item.id, item.color);
     const image3D = get3DImage(item.id);
     const imageSource = image3D || resolveImageUrl(item.image);
+    // Uploaded photos fill the tile (cover) so mixed backgrounds look uniform; bundled
+    // 3D icons stay "contain".
+    const isUploaded = !image3D && !!item.image && /^(https?:|data:)/.test(item.image);
 
     return (
       <Pressable
@@ -114,7 +117,7 @@ export default function CategoriesScreen() {
             <Image
               source={{ uri: imageSource }}
               style={styles.image}
-              contentFit="contain"
+              contentFit={isUploaded ? "cover" : "contain"}
               cachePolicy="disk"
               transition={200}
             />
@@ -197,13 +200,16 @@ const styles = StyleSheet.create({
   imageContainer: {
     flex: 1,
     width: "100%",
+    borderRadius: 14,
+    overflow: "hidden",
+    backgroundColor: AppColors.white,
     justifyContent: "center",
     alignItems: "center",
   },
   image: {
-    width: 100,
-    height: 100,
-    backgroundColor: "transparent",
+    width: "100%",
+    height: "100%",
+    backgroundColor: AppColors.white,
   },
   name: {
     fontSize: 14,
