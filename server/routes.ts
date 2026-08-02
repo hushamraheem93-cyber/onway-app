@@ -1001,7 +1001,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
   } catch (e) {
     console.error("Failed to restore driver queue:", e);
   }
-  
+
+  // Restore driver→order assignments after a restart. driverAssignments is in-memory
+  // and is what /api/orders/:id/driver-location uses to find the driver whose live GPS
+  // to return. Without this, a PM2 restart (the process is memory-capped) left every
+  // in-flight order with no assignment, so the customer's live tracking map never
+  // appeared even though "المندوب في الطريق إليك". Orders persist driverPhone
+  // (updateOrderDriverInfo), so rebuild the map from orders still out for delivery.
+  try {
+    const inFlight = [
+      ...(await getOrdersByStatus("preparing")),
+      ...(await getOrdersByStatus("in_delivery")),
+    ];
+    let restored = 0;
+    for (const o of inFlight) {
+      const driverPhone = (o as any).driverPhone;
+      if (driverPhone && !driverAssignments.has(o.id)) {
+        driverAssignments.set(o.id, String(driverPhone));
+        restored++;
+      }
+    }
+    if (restored > 0) console.log(`[ASSIGN_RESTORE] Restored ${restored} driver→order assignment(s)`);
+  } catch (e) {
+    console.error("Failed to restore driver assignments:", e);
+  }
+
   // (The second /uploads static mount lived here. index.ts registers its own mount
   //  earlier in the middleware chain, so this one was unreachable and the
   //  X-Content-Type-Options header it set never actually applied to a response.
@@ -1129,12 +1153,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/admin/categories", async (req: Request, res: Response) => {
     try {
       const { id, name, productCount, order, image, color, iconColor } = req.body;
-      
+
+      // Guard against the junk categories reported in the app: a blank name, or a
+      // duplicate of one that already exists, must never create a new document.
+      // Without this an accidental double-submit (or a retry) spawned a fresh random
+      // -id category every time. Names are compared trimmed + case-insensitive.
+      const cleanName = typeof name === "string" ? name.trim() : "";
+      if (!cleanName) {
+        return res.status(400).json({ error: "اسم الفئة مطلوب" });
+      }
+
       const db = getFirestore();
       if (db) {
+        if (!id) {
+          const existingCats = await getFirestoreCategories();
+          const dup = existingCats.find(
+            (c) => (c.name || "").trim().toLowerCase() === cleanName.toLowerCase(),
+          );
+          if (dup) {
+            return res.status(409).json({ error: "توجد فئة بنفس الاسم", category: dup });
+          }
+        }
         const newCategory = await createFirestoreCategory({
           id: id || undefined,
-          name,
+          name: cleanName,
           image: image || "",
           productCount: parseInt(productCount) || 0,
           order: parseInt(order) || 99,
@@ -1147,10 +1189,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
       
-      // Fallback to in-memory
+      // Fallback to in-memory (also dedup by name)
+      if (!id && categories.some((c) => (c.name || "").trim().toLowerCase() === cleanName.toLowerCase())) {
+        return res.status(409).json({ error: "توجد فئة بنفس الاسم" });
+      }
       const newCategory: Category = {
         id: id || randomUUID(),
-        name,
+        name: cleanName,
         image: image || "",
         productCount: parseInt(productCount) || 0,
         order: parseInt(order) || categories.length + 1,
@@ -1163,6 +1208,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error creating category:", error);
       res.status(500).json({ error: "Failed to create category" });
+    }
+  });
+
+  // One-time cleanup for the junk categories reported in the app. The official
+  // categories all carry deterministic seed IDs (see the `categories` array);
+  // anything else is a random-id document created by an accidental/duplicate POST.
+  // This removes every category whose id is NOT in the official set — owner-triggered,
+  // so it never runs on its own — and returns how many were deleted. Products keep
+  // their categoryId, so nothing that points at an official category is affected.
+  app.post("/api/admin/categories/cleanup", async (_req: Request, res: Response) => {
+    const db = getFirestore();
+    if (!db) return res.status(500).json({ error: "Database not configured" });
+    try {
+      const officialIds = new Set(categories.map((c) => c.id));
+      const snapshot = await db.collection("categories").get();
+      const toDelete = snapshot.docs.filter((d) => !officialIds.has(d.id));
+      const removed = toDelete.map((d) => ({ id: d.id, name: (d.data() as any)?.name || "" }));
+      // Firestore batches cap at 500 ops; chunk to stay safe.
+      for (let i = 0; i < toDelete.length; i += 400) {
+        const batch = db.batch();
+        toDelete.slice(i, i + 400).forEach((d) => batch.delete(d.ref));
+        await batch.commit();
+      }
+      invalidateCategoriesCache();
+      console.log(`[CATEGORIES_CLEANUP] removed ${removed.length} non-official categories`);
+      return res.json({ removed: removed.length, keptCount: officialIds.size, deleted: removed });
+    } catch (error) {
+      console.error("Error cleaning categories:", error);
+      return res.status(500).json({ error: "Failed to clean categories" });
     }
   });
 

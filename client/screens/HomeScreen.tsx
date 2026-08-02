@@ -12,7 +12,6 @@ import {
   TextInput,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useHeaderHeight } from "@react-navigation/elements";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -38,6 +37,7 @@ import { useAuth } from "@/context/AuthContext";
 import { formatPrice } from "@/constants/currency";
 import { resolveImageUrl, getProductThumb } from "@/utils/imageUtils";
 import { FloatingCartBar } from "@/components/FloatingCartBar";
+import { HeaderTitle, HEADER_BAR_HEIGHT } from "@/components/HeaderTitle";
 import { getApiUrl } from "@/lib/query-client";
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
@@ -156,7 +156,6 @@ function RestaurantTabIcon({ size = 48 }: { size?: number }) {
 
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
-  const headerHeight = useHeaderHeight();
   const tabBarHeight = useBottomTabBarHeight();
   const { theme } = useTheme();
   const navigation = useNavigation<NavigationProp>();
@@ -1232,7 +1231,7 @@ export default function HomeScreen() {
       <FlatList
         style={{ flex: 1 }}
         contentContainerStyle={{
-          paddingTop: headerHeight,
+          paddingTop: insets.top + HEADER_BAR_HEIGHT,
           paddingBottom: tabBarHeight + Spacing.xl + (items.length > 0 ? 70 : 0),
           paddingHorizontal: HORIZONTAL_PADDING,
         }}
@@ -1241,6 +1240,11 @@ export default function HomeScreen() {
         renderItem={renderContent}
         showsVerticalScrollIndicator={false}
       />
+      {/* Fixed top bar rendered in-screen (native-stack header is disabled for Home
+          because its Android Toolbar clipped the full-width custom title). */}
+      <View style={{ position: "absolute", top: 0, left: 0, right: 0, zIndex: 10 }} pointerEvents="box-none">
+        <HeaderTitle />
+      </View>
       <FloatingCartBar bottomOffset={tabBarHeight + 8} />
       {renderProductModal()}
     </View>

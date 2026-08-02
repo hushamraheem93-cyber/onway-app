@@ -1,20 +1,30 @@
 import React from "react";
-import { View, StyleSheet, Pressable, Dimensions, Text } from "react-native";
+import { View, StyleSheet, Pressable, Text } from "react-native";
 import { useNavigation } from "@react-navigation/native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
 
 import { useCart } from "@/context/CartContext";
 import { useNotifications } from "@/context/NotificationContext";
 import { AppColors } from "@/constants/theme";
 
-const SCREEN_WIDTH = Dimensions.get("window").width;
+// Visual height of the bar content (below the status bar). The home screen pads
+// its scroll content by insets.top + HEADER_BAR_HEIGHT so nothing hides behind it.
+export const HEADER_BAR_HEIGHT = 52;
 
 interface HeaderTitleProps {
-  title: string;
+  title?: string;
 }
 
+// In-screen top bar for the Home tab. It is rendered INSIDE the screen (not as a
+// React Navigation native-stack title) and owns its own safe-area top padding.
+// The old approach — a full-width custom component used as a *centered* native-stack
+// title — was clipped by Android's native Toolbar, pushing the notification/cart
+// icons off-screen and inflating the header height. Rendering it as a normal View
+// makes the layout identical and correct on iOS and every Android size.
 export function HeaderTitle({ title }: HeaderTitleProps) {
   const navigation = useNavigation<any>();
+  const insets = useSafeAreaInsets();
   const { getItemCount } = useCart();
   const { unreadCount } = useNotifications();
   const cartCount = getItemCount();
@@ -28,7 +38,7 @@ export function HeaderTitle({ title }: HeaderTitleProps) {
   };
 
   return (
-    <View style={styles.wrapper}>
+    <View style={[styles.bar, { paddingTop: insets.top }]}>
       {/* row-reverse so the action icons sit on the LEFT and the menu on the RIGHT
           under the app's forced-RTL layout (plain "row" put the icons on the right). */}
       <View style={styles.container}>
@@ -77,17 +87,16 @@ export function HeaderTitle({ title }: HeaderTitleProps) {
 }
 
 const styles = StyleSheet.create({
-  wrapper: {
-    width: SCREEN_WIDTH - 32,
-    borderBottomWidth: 0,
-    justifyContent: "center",
+  bar: {
+    width: "100%",
+    backgroundColor: "transparent",
   },
   container: {
+    height: HEADER_BAR_HEIGHT,
     flexDirection: "row-reverse",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: 4,
-    paddingBottom: 6,
+    paddingHorizontal: 16,
   },
   iconGroup: {
     flexDirection: "row-reverse",
