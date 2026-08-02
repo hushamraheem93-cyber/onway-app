@@ -499,8 +499,10 @@ const s = StyleSheet.create({
   cardHint:     { fontFamily: FontFamily.tajawal, fontSize: 11, color: AppColors.gray400 },
   optional:     { fontFamily: FontFamily.tajawal, fontSize: 12, color: AppColors.gray400 },
   label:        { fontFamily: FontFamily.cairoBold, fontSize: 13, color: AppColors.gray700, textAlign: "right", marginBottom: 6, marginTop: 4 },
-  input:        { borderWidth: 1.5, borderColor: AppColors.divider, borderRadius: 14, paddingHorizontal: 14, paddingVertical: 13, fontFamily: FontFamily.tajawal, fontSize: 16, color: AppColors.black, textAlign: "right", marginBottom: 14, backgroundColor: AppColors.white },
-  textArea:     { minHeight: 80, textAlignVertical: "top", paddingTop: 10 },
+  input:        { borderWidth: 1.5, borderColor: AppColors.divider, borderRadius: 14, paddingHorizontal: 14, paddingVertical: 13, fontFamily: FontFamily.tajawal, fontSize: 16, color: AppColors.black, textAlign: "right", marginBottom: 14, backgroundColor: AppColors.white, includeFontPadding: false, textAlignVertical: "center" },
+  // Multiline: keep the text top-aligned but still drop Android's extra font padding
+  // so the first line is not clipped from the top.
+  textArea:     { minHeight: 80, textAlignVertical: "top", paddingTop: 12, includeFontPadding: false },
   pickerWrap:   { borderWidth: 1.5, borderColor: AppColors.divider, borderRadius: 12, marginBottom: 14, backgroundColor: AppColors.white, overflow: "hidden" },
   picker:       { height: Platform.OS === "ios" ? 140 : 50, color: AppColors.black },
   banner:       { flexDirection: "row-reverse", alignItems: "flex-start", gap: 10, borderWidth: 1, borderRadius: 14, padding: 12, marginBottom: 14 },

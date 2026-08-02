@@ -250,6 +250,10 @@ const styles = StyleSheet.create({
     fontFamily: "Cairo_400Regular", fontSize: 16, color: AppColors.black,
     textAlign: "right", marginBottom: 16,
     backgroundColor: AppColors.gray50,
+    // Android clips tall Arabic glyphs from the top and lifts the text off the
+    // baseline unless font padding is disabled and the text is vertically centered.
+    includeFontPadding: false,
+    textAlignVertical: "center",
   },
   pickerWrap: {
     borderWidth: 1.5, borderColor: AppColors.divider, borderRadius: 12,
