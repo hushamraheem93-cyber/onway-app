@@ -3137,6 +3137,33 @@
           </div>
         </div>
 
+        <!-- Max Batch Size Card (dispatch A3) -->
+        <div class="card" style="border-right:4px solid #7C3AED;margin-bottom:24px;">
+          <div class="card-header" style="border-bottom:1px solid var(--gray-200);">
+            <h3 style="display:flex;align-items:center;gap:8px;">
+              <i data-lucide="layers" style="width:18px;height:18px;color:#7C3AED;"></i>
+              الحد الأقصى لطلبات السائق (الدفعة)
+            </h3>
+          </div>
+          <div class="card-body" style="padding:24px;">
+            <p style="font-size:0.8rem;color:var(--gray-500);margin-bottom:20px;">
+              أقصى عدد طلبات يستطيع السائق حملها في رحلة واحدة. لا تُدمج الطلبات إلا إذا كانت متوافقة (نفس المنطقة أو عناوين متقاربة وضمن نافذة زمنية). القيمة 1 تعني طلباً واحداً لكل سائق بدون دمج.
+            </p>
+            <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+              <select id="max-batch-size" class="form-input" style="max-width:200px;">
+                <option value="1">1 طلب</option>
+                <option value="2">2 طلبات</option>
+                <option value="3">3 طلبات</option>
+                <option value="4">4 طلبات</option>
+              </select>
+              <button class="btn" style="background:#7C3AED;color:white;border:none;" onclick="saveMaxBatchSize()">
+                <i data-lucide="save"></i> حفظ
+              </button>
+            </div>
+            <div id="max-batch-status" style="margin-top:8px;font-size:0.82rem;display:none;"></div>
+          </div>
+        </div>
+
         <!-- Export Cards -->
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:20px;margin-bottom:24px;">
           <div class="card" style="border-right:4px solid #10B981;">
@@ -9729,8 +9756,35 @@
           // Sync global used by dfStatusInfo
           window._dfSuspendThreshold = data.autoSuspendThreshold;
         }
+
+        // Max batch size (dispatch A3)
+        if (data.maxBatchSize !== undefined) {
+          const mb = document.getElementById('max-batch-size');
+          if (mb) mb.value = String(data.maxBatchSize);
+        }
       } catch (err) {
         console.error('loadSystemSettings error', err);
+      }
+    }
+
+    async function saveMaxBatchSize() {
+      const status = document.getElementById('max-batch-status');
+      const val = parseInt(document.getElementById('max-batch-size')?.value, 10);
+      if (isNaN(val) || val < 1 || val > 4) {
+        if (status) { status.textContent = 'اختر قيمة بين 1 و4'; status.style.color = '#EF4444'; status.style.display = 'block'; }
+        return;
+      }
+      try {
+        const res = await fetch(`${API_BASE}/admin/settings`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ maxBatchSize: val })
+        });
+        if (!res.ok) throw new Error('failed');
+        if (status) { status.textContent = 'تم الحفظ بنجاح'; status.style.color = '#10B981'; status.style.display = 'block'; }
+        setTimeout(() => { if (status) status.style.display = 'none'; }, 3000);
+      } catch {
+        if (status) { status.textContent = 'فشل الحفظ، حاول مجدداً'; status.style.color = '#EF4444'; status.style.display = 'block'; }
       }
     }
 

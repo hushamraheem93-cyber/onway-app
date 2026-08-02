@@ -1815,12 +1815,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     driverPayoutRule: { type: string; flatRestaurant: number; flatDefault: number; percent: number };
     autoSuspendThreshold: number;
     restaurantDeliveryFee: number;
+    maxBatchSize: number;
   }> {
     const defaults = {
       onlinePaymentEnabled: false,
       driverPayoutRule: { type: "flat", flatRestaurant: 750, flatDefault: 2000, percent: 15 },
       autoSuspendThreshold: 100000,
       restaurantDeliveryFee: 1000,
+      // Max orders a driver can carry in one batch (dispatch A3). Admin-configurable
+      // 1–4; clamped on read so a bad stored value can never break dispatch.
+      maxBatchSize: 3,
     };
     if (_sysSettingsCache && Date.now() - _sysSettingsCacheAt < SYS_CACHE_TTL) {
       return _sysSettingsCache as any;
@@ -1835,6 +1839,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         driverPayoutRule: d.driverPayoutRule ?? defaults.driverPayoutRule,
         autoSuspendThreshold: d.autoSuspendThreshold ?? defaults.autoSuspendThreshold,
         restaurantDeliveryFee: d.restaurantDeliveryFee ?? defaults.restaurantDeliveryFee,
+        // Clamp to 1–4 so a corrupt value can never make dispatch build huge/empty batches.
+        maxBatchSize: Math.min(4, Math.max(1, Number(d.maxBatchSize) || defaults.maxBatchSize)),
       };
       _sysSettingsCache = result;
       _sysSettingsCacheAt = Date.now();
@@ -2043,6 +2049,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         driverPayoutRule: settings.driverPayoutRule,
         autoSuspendThreshold: settings.autoSuspendThreshold,
         restaurantDeliveryFee: settings.restaurantDeliveryFee,
+        maxBatchSize: settings.maxBatchSize,
       });
     } catch (error: any) {
       console.error("[API]", error?.message);
@@ -2055,9 +2062,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const db = getFirestore();
       if (!db) return res.status(503).json({ error: "Database unavailable" });
-      const { onlinePaymentEnabled, driverPayoutRule, autoSuspendThreshold, restaurantDeliveryFee } = req.body;
+      const { onlinePaymentEnabled, driverPayoutRule, autoSuspendThreshold, restaurantDeliveryFee, maxBatchSize } = req.body;
       const update: Record<string, any> = {};
       if (typeof onlinePaymentEnabled === "boolean") update.onlinePaymentEnabled = onlinePaymentEnabled;
+      if (maxBatchSize !== undefined) {
+        const n = Math.min(4, Math.max(1, Math.round(Number(maxBatchSize) || 0)));
+        if (n >= 1) update.maxBatchSize = n;
+      }
       if (driverPayoutRule && typeof driverPayoutRule === "object") {
         const r = driverPayoutRule as any;
         if (r.type === "flat" || r.type === "percent") {
@@ -5037,17 +5048,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Find the best available driver: prefer one with recent GPS (app is open)
-  function findBestAvailableDriver(): QueuedDriver | undefined {
+  // Smart driver ranking (dispatch A2). Busy drivers are excluded (batch merging is
+  // handled separately in assignWaitingBatchToDriver). Among free, recently-active
+  // drivers the winner is scored by:
+  //   1. proximity — distance from the driver's live GPS to the anchor order's delivery
+  //      area (store coordinates don't exist yet; the delivery point is the best signal
+  //      we have and a driver already in that area picks up + delivers faster), then
+  //   2. fairness — when no meaningful distance gap (or no GPS/anchor), the driver idle
+  //      the longest wins, so work rotates evenly instead of always hitting driver #1.
+  function findBestAvailableDriver(anchor?: { latitude?: number; longitude?: number } | null): QueuedDriver | undefined {
     const fiveMinAgo = Date.now() - 5 * 60 * 1000;
-    const activeDriver = driverQueue.find(d => {
+    const active = driverQueue.filter(d => {
       if (d.currentBatchId) return false;
       const loc = driverLocations.get(d.phoneNumber);
       const recentGps = loc && loc.updatedAt >= fiveMinAgo;
       const recentSeen = d.lastSeenAt && d.lastSeenAt >= fiveMinAgo;
       return recentGps || recentSeen;
     });
-    if (activeDriver) return activeDriver;
-    return driverQueue.find(d => !d.currentBatchId);
+    const pool = active.length > 0 ? active : driverQueue.filter(d => !d.currentBatchId);
+    if (pool.length <= 1) return pool[0];
+
+    const aLat = anchor?.latitude;
+    const aLng = anchor?.longitude;
+    const hasAnchor = typeof aLat === "number" && typeof aLng === "number";
+    const nowMs = Date.now();
+
+    return pool
+      .map(d => {
+        const loc = driverLocations.get(d.phoneNumber);
+        const dist = hasAnchor && loc ? calculateDistance(loc.lat, loc.lng, aLat as number, aLng as number) : Number.POSITIVE_INFINITY;
+        const idleMs = nowMs - (d.joinedAt || 0);
+        return { d, dist, idleMs };
+      })
+      .sort((x, y) => {
+        // Closer wins only when the gap is meaningful (>300 m); otherwise reward the
+        // driver who has waited longest (fair rotation / "last order received").
+        if (Number.isFinite(x.dist) || Number.isFinite(y.dist)) {
+          if (Math.abs(x.dist - y.dist) > 0.3) return x.dist - y.dist;
+        }
+        return y.idleMs - x.idleMs;
+      })[0]?.d;
   }
 
   // Create a batch for a specific driver with waiting confirmed orders
@@ -5116,12 +5156,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   }
   // ─── End Utilities ────────────────────────────────────────────────────────
 
-  async function assignWaitingBatchToDriver(phoneNumber: string, maxOrders: number = 3) {
+  async function assignWaitingBatchToDriver(phoneNumber: string) {
     try {
       const db = getFirestore();
       if (!db) return;
       const qd = driverQueue.find(d => d.phoneNumber === phoneNumber && !d.currentBatchId);
       if (!qd) return;
+      // Admin-configurable cap on how many orders one driver carries (dispatch A3).
+      const maxOrders = (await getSystemSettings()).maxBatchSize;
       // Only confirmed (waiting) orders matter here — targeted query, not a full scan.
       const confirmedOrders = await getOrdersByStatus("confirmed");
       // Get active batch IDs from all drivers in queue (in-memory)
@@ -5133,7 +5175,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       //   - It hasn't been recently rejected by THIS driver (within cooldown window)
       const now = Date.now();
       const driverCooldowns = pruneDriverCooldowns(phoneNumber);
-      const waitingOrders = confirmedOrders
+      const eligible = confirmedOrders
         .filter(o => {
           const orderBatchId = (o as any).batchId || (o as any).batch_id;
           // Skip orders this driver recently rejected (cooldown protection)
@@ -5155,8 +5197,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const aTime = a.createdAt?.toDate?.() ? a.createdAt.toDate().getTime() : 0;
           const bTime = b.createdAt?.toDate?.() ? b.createdAt.toDate().getTime() : 0;
           return aTime - bTime;
-        })
-        .slice(0, maxOrders);
+        });
+      if (eligible.length === 0) return;
+
+      // Batch merge conditions (dispatch A3): start from the oldest waiting order (the
+      // anchor) and only add more orders that are genuinely combinable into one trip —
+      // same region OR customers within MERGE_RADIUS_KM, and created within
+      // MERGE_WINDOW_MS of the anchor — up to the configured maxOrders. With maxOrders=1
+      // this is always a single-order batch (no merging).
+      const MERGE_RADIUS_KM = 2.5;
+      const MERGE_WINDOW_MS = 20 * 60 * 1000;
+      const orderTimeMs = (o: any) => (o.createdAt?.toDate?.() ? o.createdAt.toDate().getTime() : 0);
+      const anchor = eligible[0];
+      const anchorTime = orderTimeMs(anchor);
+      const waitingOrders = [anchor];
+      for (const o of eligible.slice(1)) {
+        if (waitingOrders.length >= maxOrders) break;
+        const sameRegion = !!o.region && !!anchor.region && o.region === anchor.region;
+        let near = false;
+        if (
+          typeof (o as any).latitude === "number" && typeof (o as any).longitude === "number" &&
+          typeof (anchor as any).latitude === "number" && typeof (anchor as any).longitude === "number"
+        ) {
+          near = calculateDistance((anchor as any).latitude, (anchor as any).longitude, (o as any).latitude, (o as any).longitude) <= MERGE_RADIUS_KM;
+        }
+        const withinWindow = Math.abs(orderTimeMs(o) - anchorTime) <= MERGE_WINDOW_MS;
+        if ((sameRegion || near) && withinWindow) waitingOrders.push(o);
+      }
       if (waitingOrders.length === 0) return;
 
       // Nearest-Neighbor route optimization — starts from the driver's real GPS position
@@ -5207,12 +5274,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   }
 
-  // Assign new batch to best available driver when a confirmed order arrives
-  function onOrderConfirmed() {
-    const driver = findBestAvailableDriver();
-    console.log(`[ORDER_CONFIRMED] Best driver: ${driver?.phoneNumber ?? "NONE"}`);
-    if (driver) {
-      assignWaitingBatchToDriver(driver.phoneNumber).catch(console.error);
+  // Assign a new batch to the best available driver when a confirmed order arrives.
+  // The oldest still-unbatched confirmed order is the "anchor": drivers are ranked by
+  // proximity to ITS delivery area, and it also seeds the merge in assignWaitingBatchToDriver.
+  async function onOrderConfirmed() {
+    try {
+      const confirmed = await getOrdersByStatus("confirmed");
+      const anchor = confirmed
+        .filter(o => !batchedOrderIds.has(o.id))
+        .sort((a, b) => {
+          const at = a.createdAt?.toDate?.() ? a.createdAt.toDate().getTime() : 0;
+          const bt = b.createdAt?.toDate?.() ? b.createdAt.toDate().getTime() : 0;
+          return at - bt;
+        })[0] as any;
+      const driver = findBestAvailableDriver(anchor || null);
+      console.log(`[ORDER_CONFIRMED] Best driver: ${driver?.phoneNumber ?? "NONE"}`);
+      if (driver) {
+        await assignWaitingBatchToDriver(driver.phoneNumber);
+      }
+    } catch (e) {
+      console.error("onOrderConfirmed error:", e);
     }
   }
 
