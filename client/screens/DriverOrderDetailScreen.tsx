@@ -9,10 +9,12 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
+import { Image } from "expo-image";
 import * as Haptics from "expo-haptics";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import { WebView } from "react-native-webview";
 
+import { resolveImageUrl } from "@/utils/imageUtils";
 import { ThemedText } from "@/components/ThemedText";
 import { GradientBackground } from "@/components/GradientBackground";
 import { useTheme } from "@/hooks/useTheme";
@@ -329,9 +331,24 @@ export default function DriverOrderDetailScreen() {
               <ThemedText type="body" style={[styles.tableCell, { flex: 1, textAlign: "center", color: theme.textSecondary }]}>
                 {formatPrice(item.price)}
               </ThemedText>
-              <ThemedText type="body" style={[styles.tableCell, { flex: 2, textAlign: "right", color: theme.text, fontWeight: FontWeight.medium }]}>
-                {item.name}
-              </ThemedText>
+              <View style={{ flex: 2, flexDirection: "row-reverse", alignItems: "center", gap: Spacing.xs }}>
+                {resolveImageUrl((item as any).image || "") ? (
+                  <Image
+                    source={{ uri: resolveImageUrl((item as any).image || "") }}
+                    style={styles.itemThumb}
+                    contentFit="cover"
+                    cachePolicy="disk"
+                    transition={150}
+                  />
+                ) : (
+                  <View style={[styles.itemThumb, { backgroundColor: theme.border, alignItems: "center", justifyContent: "center" }]}>
+                    <Feather name="image" size={14} color={theme.textSecondary} />
+                  </View>
+                )}
+                <ThemedText type="body" style={[styles.tableCell, { flex: 1, textAlign: "right", color: theme.text, fontWeight: FontWeight.medium }]} numberOfLines={2}>
+                  {item.name}
+                </ThemedText>
+              </View>
             </View>
           ))}
 
@@ -514,6 +531,12 @@ const styles = StyleSheet.create({
   },
   tableCell: {
     fontSize: 13,
+  },
+  itemThumb: {
+    width: 36,
+    height: 36,
+    borderRadius: 6,
+    backgroundColor: AppColors.white,
   },
   totalSection: {
     borderTopWidth: 2,
