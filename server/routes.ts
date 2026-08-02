@@ -2017,14 +2017,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
             );
           }
         }
-        // Platform revenue for this order: vendor commission + owner's delivery cut.
-        const platformRevenue = platformCommissionTotal + (driverPhone ? deductionAmount : 0);
+        // Platform revenue for this order: vendor commission + owner's delivery cut +
+        // the service fee (نسبة الخدمة), which OnWay always keeps. Without the service
+        // fee the app showed zero profit whenever the store commission was set to 0,
+        // even though a service fee had been collected from the customer.
+        const serviceFeeAmount = Math.max(0, Number((order as any).serviceFee) || 0);
+        const platformRevenue = platformCommissionTotal + (driverPhone ? deductionAmount : 0) + serviceFeeAmount;
         if (platformRevenue > 0) {
           ledgerEntries.push({
             accountType: "platform", accountId: "onway", accountName: "OnWay",
             type: "platform_commission", credit: platformRevenue, orderId,
             entryId: orderEntryId(orderId, "platform", "platform_commission"),
-            description: "إيراد التطبيق (عمولة + حصة توصيل)",
+            description: "إيراد التطبيق (عمولة + حصة توصيل + نسبة الخدمة)",
           });
         }
         if (ledgerEntries.length > 0) await recordLedgerEntries(ledgerEntries);
@@ -5388,6 +5392,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Create a batch for a specific driver with waiting confirmed orders
   // ─── Distance / Route Utilities ──────────────────────────────────────────
+  // Radius under which two orders are treated as one combinable trip. The app serves
+  // one small district, so a generous 3 km keeps a driver's run compact without
+  // splitting nearby drops across separate trips.
+  const MERGE_RADIUS_KM = 3;
+
+  // Whether order `o` can join the same trip as `anchor`: same region, OR customers
+  // within MERGE_RADIUS_KM, OR we simply cannot tell it is far away (no coordinates to
+  // compare and no differing region). Shared by the initial batch merge and the
+  // busy-driver top-up so both group orders identically.
+  function ordersCombinable(anchor: any, o: any): boolean {
+    const sameRegion = !!o.region && !!anchor.region && o.region === anchor.region;
+    const bothCoords =
+      typeof o.latitude === "number" && typeof o.longitude === "number" &&
+      typeof anchor.latitude === "number" && typeof anchor.longitude === "number";
+    const near = bothCoords && calculateDistance(anchor.latitude, anchor.longitude, o.latitude, o.longitude) <= MERGE_RADIUS_KM;
+    const cantTellFar = !bothCoords && (!o.region || !anchor.region || sameRegion);
+    return sameRegion || near || cantTellFar;
+  }
+
   function toRad(value: number): number {
     return (value * Math.PI) / 180;
   }
@@ -5497,28 +5520,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (eligible.length === 0) return;
 
       // Batch merge conditions (dispatch A3): start from the oldest waiting order (the
-      // anchor) and only add more orders that are genuinely combinable into one trip —
-      // same region OR customers within MERGE_RADIUS_KM, and created within
-      // MERGE_WINDOW_MS of the anchor — up to the configured maxOrders. With maxOrders=1
-      // this is always a single-order batch (no merging).
-      const MERGE_RADIUS_KM = 2.5;
-      const MERGE_WINDOW_MS = 20 * 60 * 1000;
-      const orderTimeMs = (o: any) => (o.createdAt?.toDate?.() ? o.createdAt.toDate().getTime() : 0);
+      // anchor) and add more orders that are combinable into one trip (see
+      // ordersCombinable), up to the configured maxOrders. No time window: every waiting
+      // order is "now", regardless of when it was placed.
       const anchor = eligible[0];
-      const anchorTime = orderTimeMs(anchor);
       const waitingOrders = [anchor];
       for (const o of eligible.slice(1)) {
         if (waitingOrders.length >= maxOrders) break;
-        const sameRegion = !!o.region && !!anchor.region && o.region === anchor.region;
-        let near = false;
-        if (
-          typeof (o as any).latitude === "number" && typeof (o as any).longitude === "number" &&
-          typeof (anchor as any).latitude === "number" && typeof (anchor as any).longitude === "number"
-        ) {
-          near = calculateDistance((anchor as any).latitude, (anchor as any).longitude, (o as any).latitude, (o as any).longitude) <= MERGE_RADIUS_KM;
-        }
-        const withinWindow = Math.abs(orderTimeMs(o) - anchorTime) <= MERGE_WINDOW_MS;
-        if ((sameRegion || near) && withinWindow) waitingOrders.push(o);
+        if (ordersCombinable(anchor, o)) waitingOrders.push(o);
       }
       if (waitingOrders.length === 0) return;
 
@@ -5570,6 +5579,72 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   }
 
+  // When there is no FREE driver, a confirmed order would otherwise sit waiting until a
+  // driver finishes — the exact "orders pile up and a driver can't take more than one"
+  // complaint. This tops up a BUSY driver's still-open batch (pending or in_progress)
+  // with the anchor order when that batch still has room (< maxBatchSize) and the anchor
+  // is combinable with what the driver is already carrying. The nearest such driver wins.
+  // Returns true if the anchor was added to a batch.
+  async function topUpBusyDriverBatch(anchor: any): Promise<boolean> {
+    try {
+      const db = getFirestore();
+      if (!db || !anchor || batchedOrderIds.has(anchor.id)) return false;
+      const maxOrders = (await getSystemSettings()).maxBatchSize;
+      const busy = driverQueue.filter(d => d.currentBatchId);
+      if (busy.length === 0) return false;
+
+      const cands: { qd: QueuedDriver; batchId: string; orderIds: string[]; dist: number }[] = [];
+      for (const qd of busy) {
+        const batch = await getDeliveryBatch(qd.currentBatchId!);
+        if (!batch) continue;
+        if (!["pending", "in_progress"].includes(batch.status)) continue;
+        if ((batch.orderIds?.length || 0) >= maxOrders) continue;
+        if (batch.orderIds.includes(anchor.id)) continue;
+        // Only merge into a run whose orders are near/compatible with the anchor.
+        const batchOrders = await Promise.all(batch.orderIds.map(id => getOrderById(id).catch(() => null)));
+        const combinable = batchOrders.some(bo => bo && ordersCombinable(anchor, bo));
+        if (!combinable) continue;
+        const loc = driverLocations.get(qd.phoneNumber);
+        const dist = loc && typeof anchor.latitude === "number" && typeof anchor.longitude === "number"
+          ? calculateDistance(loc.lat, loc.lng, anchor.latitude, anchor.longitude)
+          : Number.POSITIVE_INFINITY;
+        cands.push({ qd, batchId: batch.id, orderIds: batch.orderIds, dist });
+      }
+      if (cands.length === 0) return false;
+      cands.sort((a, b) => a.dist - b.dist);
+      const best = cands[0];
+      const driverPhone = best.qd.phoneNumber;
+      const orderId = anchor.id;
+      const newOrderIds = [...best.orderIds, orderId];
+      const seq = newOrderIds.length;
+
+      const driver = await getDriverByPhone(driverPhone).catch(() => null);
+      const driverName = driver
+        ? ([driver.firstName, driver.secondName].filter(Boolean).join(" ") || driver.fullName || driverPhone)
+        : driverPhone;
+      await updateDeliveryBatch(best.batchId, { orderIds: newOrderIds, totalOrders: newOrderIds.length }).catch(() => {});
+      const { FieldValue } = await import("firebase-admin/firestore");
+      await db.collection("orders").doc(orderId).update({
+        driverPhone, driverName, batchId: best.batchId, batch_id: best.batchId,
+        status: "preparing",
+        deliverySequence: seq, delivery_sequence: seq,
+        rejectedAt: FieldValue.delete(), rejectedByDriver: FieldValue.delete(), rejectedByPhone: FieldValue.delete(),
+        updatedAt: new Date(),
+      }).catch(() => {});
+      batchedOrderIds.add(orderId);
+      driverAssignments.set(orderId, driverPhone);
+      orderEvents.emit("order:status", { orderId, status: "preparing" });
+      notifyCustomerStatus(orderId, "preparing").catch(() => {});
+      const pushToken = best.qd.pushToken || await getDriverPushToken(driverPhone);
+      if (pushToken) sendDriverBatchNotification(pushToken, newOrderIds.length, best.batchId, 0).catch(() => {});
+      console.log(`[ORDER_CONFIRMED] Topped up busy driver ${driverPhone} batch ${best.batchId} with order ${orderId} (${newOrderIds.length}/${maxOrders})`);
+      return true;
+    } catch (e) {
+      console.error("topUpBusyDriverBatch error:", e);
+      return false;
+    }
+  }
+
   // Assign a new batch to the best available driver when a confirmed order arrives.
   // The oldest still-unbatched confirmed order is the "anchor": drivers are ranked by
   // proximity to ITS delivery area, and it also seeds the merge in assignWaitingBatchToDriver.
@@ -5597,6 +5672,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log(`[ORDER_CONFIRMED] Best driver: ${driver?.phoneNumber ?? "NONE"}`);
       if (driver) {
         await assignWaitingBatchToDriver(driver.phoneNumber);
+      } else if (anchor) {
+        // No free driver — hand the waiting order to a busy driver whose current run
+        // still has room, so a single active driver keeps taking orders instead of them
+        // piling up until the run finishes.
+        await topUpBusyDriverBatch(anchor);
       }
     } catch (e) {
       console.error("onOrderConfirmed error:", e);

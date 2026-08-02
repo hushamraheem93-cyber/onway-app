@@ -747,6 +747,7 @@ export default function AdminScreen() {
       const res = await fetch(`${getApiUrl()}/api/admin/orders/${orderId}/assign-driver`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include", // send the admin session cookie (endpoint is behind requireAdminAuth)
         body: JSON.stringify({ driverPhone }),
       });
       const data = await res.json();
