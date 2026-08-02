@@ -38,7 +38,6 @@ import { playRepeatingAlert, stopAlert } from "@/lib/alertSound";
 import { formatPrice } from "@/constants/currency";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
 
-const COUNTDOWN_SECONDS = 30;
 const RING_RADIUS = 42;
 const RING_CIRC = 2 * Math.PI * RING_RADIUS;
 const DRIVER_CACHE_KEY = "driver_home_cache_v1";
@@ -135,8 +134,6 @@ export default function DriverHomeScreen() {
   const [issueOrderId, setIssueOrderId] = useState<string | null>(null);
 
   const [walletError, setWalletError] = useState("");
-  const [countdown, setCountdown] = useState(COUNTDOWN_SECONDS);
-  const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const prevBatchIdRef = useRef<string | null>(null);
   const isInitialLoadRef = useRef(true);
   const isRejectingRef = useRef(false); // prevents double-rejection calls
@@ -282,33 +279,10 @@ export default function DriverHomeScreen() {
     }
   }, [phoneNumber, triggerNewBatchAlert]);
 
-  // ── 30-second countdown for pending batch ─────────────────────────────────
-  useEffect(() => {
-    if (currentBatch?.status === "pending") {
-      setCountdown(COUNTDOWN_SECONDS);
-      countdownRef.current = setInterval(() => {
-        setCountdown((prev) => {
-          if (prev <= 1) {
-            clearInterval(countdownRef.current!);
-            handleRejectBatch();
-            return 0;
-          }
-          return prev - 1;
-        });
-      }, 1000);
-    } else {
-      if (countdownRef.current) {
-        clearInterval(countdownRef.current);
-        countdownRef.current = null;
-      }
-    }
-    return () => {
-      if (countdownRef.current) {
-        clearInterval(countdownRef.current);
-        countdownRef.current = null;
-      }
-    };
-  }, [currentBatch?.status, currentBatch?.id]);
+  // A new-order offer stays on screen until the driver accepts or rejects it (or
+  // the server reassigns a genuinely-abandoned offer / the order is cancelled — both
+  // arrive via socket and clear currentBatch). It no longer auto-rejects after a few
+  // seconds, which previously made the order vanish before the driver could react.
 
   // Single sequential flow: handler → permissions → token → save to server
   useEffect(() => {
@@ -580,10 +554,6 @@ export default function DriverHomeScreen() {
     stopAlert(); // driver acknowledged the batch → silence the repeating alarm
     setIsAccepting(true);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-    if (countdownRef.current) {
-      clearInterval(countdownRef.current);
-      countdownRef.current = null;
-    }
     try {
       const res = await fetch(new URL("/api/driver/batch/accept", getApiUrl()).toString(), {
         method: "POST",
@@ -611,12 +581,7 @@ export default function DriverHomeScreen() {
     // Guard: prevent double rejection (from countdown + manual button)
     if (isRejectingRef.current) return;
     isRejectingRef.current = true;
-    stopAlert(); // batch rejected/expired → silence the repeating alarm
-    // Stop countdown immediately
-    if (countdownRef.current) {
-      clearInterval(countdownRef.current);
-      countdownRef.current = null;
-    }
+    stopAlert(); // batch rejected → silence the repeating alarm
     const batchIdToReject = currentBatch.id;
     setCurrentBatch(null); // Clear UI immediately
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -726,11 +691,6 @@ export default function DriverHomeScreen() {
       </View>
     );
   }
-
-  // ─── Earning ring color based on countdown ──────────────────────────────────
-  const countdownProgress = countdown / COUNTDOWN_SECONDS;
-  const ringColor = countdown > 15 ? AppColors.primary : countdown > 8 ? AppColors.warning : AppColors.error;
-  const ringDashoffset = RING_CIRC * (1 - countdownProgress);
 
   // ────────────────────────────────────────────────────────────────────────────
   // RENDER SECTIONS
@@ -869,25 +829,25 @@ export default function DriverHomeScreen() {
         </View>
 
         <View style={styles.incomingBody}>
-          {/* Countdown ring */}
+          {/* Static "new order" badge — the offer stays until the driver acts, so
+              there is no countdown pressure. */}
           <View style={styles.countdownWrap}>
             <Svg width={100} height={100}>
-              <Circle cx={50} cy={50} r={RING_RADIUS} stroke={theme.border} strokeWidth={7} fill="none" />
+              <Circle cx={50} cy={50} r={RING_RADIUS} stroke={AppColors.primary + "22"} strokeWidth={7} fill="none" />
               <Circle
                 cx={50} cy={50} r={RING_RADIUS}
-                stroke={ringColor}
+                stroke={AppColors.primary}
                 strokeWidth={7}
                 fill="none"
                 strokeDasharray={RING_CIRC}
-                strokeDashoffset={ringDashoffset}
+                strokeDashoffset={0}
                 strokeLinecap="round"
                 rotation="-90"
                 origin="50,50"
               />
             </Svg>
             <View style={styles.countdownCenter}>
-              <ThemedText type="h2" style={{ color: ringColor, fontWeight: FontWeight.xBold }}>{countdown}</ThemedText>
-              <ThemedText style={{ fontSize: 9, color: theme.textSecondary }}>ثانية</ThemedText>
+              <Feather name="package" size={30} color={AppColors.primary} />
             </View>
           </View>
 
@@ -920,6 +880,28 @@ export default function DriverHomeScreen() {
                   <ThemedText type="small" style={{ color: theme.textSecondary }} numberOfLines={1}>
                     {order.region || order.address}
                   </ThemedText>
+                  {/* Products so the driver sees exactly what the order contains,
+                      matching what the vendor sees, before accepting. */}
+                  {Array.isArray(order.items) && order.items.length > 0 ? (
+                    <View style={{ width: "100%", marginTop: 6, gap: 3 }}>
+                      {order.items.map((item: any, i: number) => (
+                        <View key={item.id || `it-${i}`} style={{ flexDirection: "row-reverse", alignItems: "center", gap: 6 }}>
+                          <ThemedText type="small" style={{ color: theme.text, flex: 1, textAlign: "right" }} numberOfLines={1}>
+                            {item.name}
+                          </ThemedText>
+                          <ThemedText type="small" style={{ color: theme.textSecondary, fontWeight: FontWeight.bold }}>×{item.quantity}</ThemedText>
+                          <ThemedText type="small" style={{ color: AppColors.primary, fontWeight: FontWeight.bold }}>
+                            {formatPrice((item.price || 0) * (item.quantity || 1))}
+                          </ThemedText>
+                        </View>
+                      ))}
+                      {order.notes ? (
+                        <ThemedText type="small" style={{ color: AppColors.primary, textAlign: "right", marginTop: 2 }} numberOfLines={2}>
+                          📝 {order.notes}
+                        </ThemedText>
+                      ) : null}
+                    </View>
+                  ) : null}
                 </View>
               </View>
             ))}

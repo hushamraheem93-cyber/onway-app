@@ -1,7 +1,6 @@
 import React from "react";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import HomeScreen from "@/screens/HomeScreen";
-import { HeaderTitle } from "@/components/HeaderTitle";
 import { useScreenOptions } from "@/hooks/useScreenOptions";
 
 export type HomeStackParamList = {
@@ -18,11 +17,9 @@ export default function HomeStackNavigator() {
       <Stack.Screen
         name="Home"
         component={HomeScreen}
-        options={{
-          headerTitle: () => <HeaderTitle title="Onway" />,
-          headerShadowVisible: false,
-          headerBlurEffect: undefined,
-        }}
+        // Header is rendered inside HomeScreen (see <HeaderTitle/>). The native-stack
+        // Toolbar clipped the full-width custom title on Android, hiding the icons.
+        options={{ headerShown: false }}
       />
     </Stack.Navigator>
   );

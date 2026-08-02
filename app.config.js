@@ -6,7 +6,10 @@ module.exports = {
     orientation: "portrait",
     icon: "./assets/images/icon.png",
     scheme: "tawseeli",
-    userInterfaceStyle: "automatic",
+    // Force the light design on every device. "automatic" let an Android phone in
+    // system dark mode drag native surfaces (status bar, keyboard, inputs) dark and
+    // clashed with the app's light-only UI. Matches the intended iOS light look.
+    userInterfaceStyle: "light",
     newArchEnabled: true,
     ios: {
       supportsTablet: true,

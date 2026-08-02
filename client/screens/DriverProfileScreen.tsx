@@ -3,7 +3,6 @@ import {
   StyleSheet,
   View,
   Pressable,
-  Switch,
   ActivityIndicator,
   Linking,
   Alert,
@@ -19,7 +18,6 @@ import { ThemedText } from "@/components/ThemedText";
 import { GradientBackground } from "@/components/GradientBackground";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import { useTheme } from "@/hooks/useTheme";
-import { useThemeMode } from "@/context/ThemeContext";
 import { useAuth } from "@/context/AuthContext";
 import { AppColors, Spacing, BorderRadius, Shadows, FontWeight} from "@/constants/theme";
 import { getApiUrl } from "@/lib/query-client";
@@ -41,7 +39,6 @@ export default function DriverProfileScreen() {
   const insets = useSafeAreaInsets();
   const tabBarHeight = useBottomTabBarHeight();
   const { theme, isDark } = useTheme();
-  const { themeMode, setThemeMode } = useThemeMode();
   const { phoneNumber, logout } = useAuth();
   const navigation = useNavigation<NavProp>();
 
@@ -70,11 +67,6 @@ export default function DriverProfileScreen() {
   const handleLogout = async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     await logout();
-  };
-
-  const handleThemeToggle = (value: boolean) => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setThemeMode(value ? "dark" : "light");
   };
 
   const handleWhatsApp = () => {
@@ -135,23 +127,7 @@ export default function DriverProfileScreen() {
         }}
         showsVerticalScrollIndicator={false}
       >
-        <View style={[styles.card, { backgroundColor: theme.backgroundDefault }, Shadows.sm]}>
-          <View style={styles.settingRow}>
-            <Switch
-              value={themeMode === "dark"}
-              onValueChange={handleThemeToggle}
-              trackColor={{ false: AppColors.border, true: AppColors.primary }}
-              thumbColor={AppColors.white}
-            />
-            <View style={styles.settingInfo}>
-              <ThemedText type="body" style={{ color: theme.text }}>الوضع الداكن</ThemedText>
-              <ThemedText type="small" style={{ color: theme.textSecondary }}>تغيير مظهر التطبيق</ThemedText>
-            </View>
-            <View style={[styles.settingIcon, { backgroundColor: "#9C27B015" }]}>
-              <Feather name="moon" size={20} color={AppColors.vendorPurple} />
-            </View>
-          </View>
-        </View>
+        {/* Dark-mode toggle removed: the app is light-only (see ThemeContext). */}
 
         <View style={[styles.card, { backgroundColor: theme.backgroundDefault }, Shadows.sm]}>
           <ThemedText type="h4" style={[styles.cardTitle, { color: theme.text }]}>معلومات السائق</ThemedText>
