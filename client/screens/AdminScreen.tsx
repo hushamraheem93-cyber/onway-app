@@ -370,13 +370,17 @@ export default function AdminScreen() {
   const [payoutFlatDefault, setPayoutFlatDefault]         = useState("2000");
   const [payoutPercent, setPayoutPercent]                 = useState("15");
   const [autoSuspendInput, setAutoSuspendInput]           = useState("100000");
+  const [maxBatchInput, setMaxBatchInput]                 = useState(3);
   const [isSavingPayout, setIsSavingPayout]               = useState(false);
   const [isSavingSuspend, setIsSavingSuspend]             = useState(false);
+  const [isSavingMaxBatch, setIsSavingMaxBatch]           = useState(false);
+  const [isRedistributing, setIsRedistributing]           = useState(false);
 
   // Sync system settings from context whenever they load
   useEffect(() => {
     if (!systemSettings) return;
     setAutoSuspendInput(String(systemSettings.autoSuspendThreshold ?? 100000));
+    setMaxBatchInput(systemSettings.maxBatchSize ?? 3);
     const r = systemSettings.driverPayoutRule;
     if (r) {
       setPayoutRuleType(r.type || "flat");
@@ -440,6 +444,57 @@ export default function AdminScreen() {
       setIsSavingSuspend(false);
     }
   }, [autoSuspendInput, refreshSystemSettings]);
+
+  const saveMaxBatchSize = useCallback(async (val: number) => {
+    setMaxBatchInput(val);
+    setIsSavingMaxBatch(true);
+    try {
+      const res = await fetch(`${getApiUrl()}/api/admin/settings`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ maxBatchSize: val }),
+      });
+      if (!res.ok) throw new Error("failed");
+      await refreshSystemSettings();
+    } catch {
+      Alert.alert("خطأ", "فشل حفظ الإعداد، حاول مجدداً");
+    } finally {
+      setIsSavingMaxBatch(false);
+    }
+  }, [refreshSystemSettings]);
+
+  const emergencyRedistribute = useCallback(() => {
+    Alert.alert(
+      "إعادة توزيع طارئة",
+      "ستُلغى الدفعات غير المقبولة وتُعاد للتوزيع الذكي. الدفعات قيد التوصيل لا تتأثر. متابعة؟",
+      [
+        { text: "إلغاء", style: "cancel" },
+        {
+          text: "متابعة",
+          style: "destructive",
+          onPress: async () => {
+            setIsRedistributing(true);
+            try {
+              const res = await fetch(`${getApiUrl()}/api/admin/redistribute`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                credentials: "include",
+                body: "{}",
+              });
+              const data = await res.json();
+              if (res.ok) Alert.alert("تم", `أُعيد توزيع ${data.freedOrders || 0} طلب من ${data.batchesReleased || 0} دفعة`);
+              else Alert.alert("فشل", data.error || "تعذّرت إعادة التوزيع");
+            } catch {
+              Alert.alert("فشل", "تعذّر الاتصال بالخادم");
+            } finally {
+              setIsRedistributing(false);
+            }
+          },
+        },
+      ],
+    );
+  }, []);
 
   // Register admin push token so server can send new-order notifications
   useEffect(() => {
@@ -1940,6 +1995,15 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
                 <ThemedText type="body" style={{ color: AppColors.gray500 }}>{driver.phoneNumber}</ThemedText>
                 <Feather name="phone" size={16} color={AppColors.gray500} />
               </View>
+              {typeof (driver as any).rating === "number" && (driver as any).ratingCount ? (
+                <View style={{ flexDirection: "row", justifyContent: "flex-end", alignItems: "center", gap: Spacing.xs }}>
+                  <ThemedText type="body" style={{ color: AppColors.gray500 }}>({(driver as any).ratingCount})</ThemedText>
+                  <ThemedText type="body" style={{ color: "#F59E0B", fontWeight: FontWeight.bold }}>
+                    {(driver as any).rating.toFixed(1)}
+                  </ThemedText>
+                  <Feather name="star" size={16} color="#F59E0B" />
+                </View>
+              ) : null}
               <View style={{ flexDirection: "row", justifyContent: "flex-end", gap: Spacing.sm }}>
                 <ThemedText type="body" style={{ color: AppColors.gray500 }}>
                   {driver.firstName} {driver.secondName} {driver.thirdName} {driver.fourthName}
@@ -3361,6 +3425,55 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
               {isSavingSuspend ? <ActivityIndicator size="small" color={AppColors.white} /> : <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 14, color: AppColors.white }}>حفظ</ThemedText>}
             </Pressable>
           </View>
+        </View>
+
+        {/* Max batch size (dispatch A3) */}
+        <View style={{ backgroundColor: theme.backgroundSecondary, borderRadius: BorderRadius.lg, padding: Spacing.lg, gap: Spacing.md }}>
+          <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: Spacing.sm }}>
+            <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: "#7C3AED20", alignItems: "center", justifyContent: "center" }}>
+              <Feather name="layers" size={20} color="#7C3AED" />
+            </View>
+            <View style={{ flex: 1, alignItems: "flex-end" }}>
+              <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 15 }}>الحد الأقصى لطلبات السائق</ThemedText>
+              <ThemedText style={{ fontFamily: "Cairo_400Regular", fontSize: 13, color: theme.textSecondary, textAlign: "right" }}>
+                أقصى عدد طلبات في رحلة واحدة (لا تُدمج إلا الطلبات المتوافقة)
+              </ThemedText>
+            </View>
+          </View>
+          <View style={{ flexDirection: "row-reverse", gap: Spacing.sm }}>
+            {[1, 2, 3, 4].map((n) => (
+              <Pressable
+                key={n}
+                onPress={() => saveMaxBatchSize(n)}
+                disabled={isSavingMaxBatch}
+                style={{ flex: 1, backgroundColor: maxBatchInput === n ? "#7C3AED" : theme.backgroundDefault, borderWidth: 1, borderColor: maxBatchInput === n ? "#7C3AED" : theme.border, borderRadius: BorderRadius.md, paddingVertical: Spacing.md, alignItems: "center" }}
+              >
+                <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 16, color: maxBatchInput === n ? AppColors.white : theme.text }}>{n}</ThemedText>
+              </Pressable>
+            ))}
+          </View>
+        </View>
+
+        {/* Emergency redistribute (dispatch A4) */}
+        <View style={{ backgroundColor: theme.backgroundSecondary, borderRadius: BorderRadius.lg, padding: Spacing.lg, gap: Spacing.md }}>
+          <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: Spacing.sm }}>
+            <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: "#EF444420", alignItems: "center", justifyContent: "center" }}>
+              <Feather name="shuffle" size={20} color="#EF4444" />
+            </View>
+            <View style={{ flex: 1, alignItems: "flex-end" }}>
+              <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 15 }}>إعادة توزيع طارئة</ThemedText>
+              <ThemedText style={{ fontFamily: "Cairo_400Regular", fontSize: 13, color: theme.textSecondary, textAlign: "right" }}>
+                تُلغى الدفعات غير المقبولة وتُعاد للتوزيع الذكي (لا تتأثر الدفعات قيد التوصيل)
+              </ThemedText>
+            </View>
+          </View>
+          <Pressable
+            onPress={emergencyRedistribute}
+            disabled={isRedistributing}
+            style={{ backgroundColor: isRedistributing ? theme.border : "#EF4444", borderRadius: BorderRadius.md, paddingVertical: Spacing.md, alignItems: "center", justifyContent: "center" }}
+          >
+            {isRedistributing ? <ActivityIndicator size="small" color={AppColors.white} /> : <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 14, color: AppColors.white }}>إعادة التوزيع الآن</ThemedText>}
+          </Pressable>
         </View>
       </View>
     );
