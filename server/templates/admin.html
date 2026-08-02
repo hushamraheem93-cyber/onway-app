@@ -2317,50 +2317,6 @@
       </div>
     </div>
 
-    <!-- Category Products Section -->
-    <div id="categoryProducts-section" class="section">
-      <header class="header">
-        <div class="header-title">
-          <h2 id="categoryProducts-title">منتجات الفئة</h2>
-          <p id="categoryProducts-subtitle">إدارة منتجات هذه الفئة</p>
-        </div>
-        <div class="header-actions">
-          <button class="btn btn-outline" onclick="backToCategories()">
-            <i data-lucide="arrow-right"></i>
-            رجوع للفئات
-          </button>
-          <button class="btn btn-primary" onclick="openProductModalForCategory()">
-            <i data-lucide="plus"></i>
-            إضافة منتج
-          </button>
-        </div>
-      </header>
-
-      <div class="content">
-        <div class="card">
-          <div class="card-header">
-            <h3><i data-lucide="package"></i> قائمة المنتجات (<span id="categoryProducts-count">0</span>)</h3>
-            <div class="search-box">
-              <i data-lucide="search"></i>
-              <input type="text" id="categoryProducts-search" placeholder="ابحث عن منتج..." oninput="filterCategoryProducts()">
-            </div>
-          </div>
-          <div class="table-container">
-            <table>
-              <thead>
-                <tr>
-                  <th>المنتج</th>
-                  <th>السعر</th>
-                  <th>الحالة</th>
-                  <th>الإجراءات</th>
-                </tr>
-              </thead>
-              <tbody id="categoryProducts-table"></tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-    </div>
 
     <!-- Delivery Areas Section -->
     <!-- ═══════════════════════════════ NOTIFICATIONS SECTION ═══════════════════════════════ -->
@@ -4766,7 +4722,7 @@
 
     // ── Export CSV ────────────────────────────────────────────────────────────
     function exportDriverFinancialCSV() {
-      if (!allDriverAccounts.length) { showToast('لا توجد بيانات للتصدير', 'error'); return; }
+      if (!allDriverAccounts.length) { showToast('error', 'خطأ', 'لا توجد بيانات للتصدير'); return; }
       const headers = ['اسم السائق','رقم الهاتف','إجمالي الطلبات','طلبات الشهر','إجمالي الأرباح','أرباح الشهر','إجمالي العمولات','إجمالي المسدّد','المستحق','آخر دفعة','الحالة'];
       const rows = allDriverAccounts.map(({ driver, account, stats }) => {
         const owed = account?.amountOwed || 0;
@@ -4796,7 +4752,7 @@
 
     // ── Print table ───────────────────────────────────────────────────────────
     function printDriverFinancial() {
-      if (!allDriverAccounts.length) { showToast('لا توجد بيانات للطباعة', 'error'); return; }
+      if (!allDriverAccounts.length) { showToast('error', 'خطأ', 'لا توجد بيانات للطباعة'); return; }
       const rows = allDriverAccounts.map(({ driver, account, stats }) => {
         const owed = account?.amountOwed || 0;
         const status = dfStatusInfo(owed).label;
@@ -4840,8 +4796,8 @@
       const notes       = document.getElementById('dp-notes').value.trim();
       const paymentMethod = document.getElementById('dp-method').value;
       const adminName   = document.getElementById('dp-admin-name').value.trim();
-      if (!amount || amount <= 0) { showToast('أدخل مبلغاً صحيحاً', 'error'); return; }
-      if (!adminName) { showToast('أدخل اسم المسؤول المستلم', 'error'); return; }
+      if (!amount || amount <= 0) { showToast('error', 'خطأ', 'أدخل مبلغاً صحيحاً'); return; }
+      if (!adminName) { showToast('error', 'خطأ', 'أدخل اسم المسؤول المستلم'); return; }
       const btn = document.getElementById('dp-submit-btn');
       btn.disabled = true;
       try {
@@ -4851,11 +4807,11 @@
         });
         const data = await res.json();
         if (data.success) {
-          showToast(`تم تسجيل الدفعة. المستحق الجديد: ${(data.account?.amountOwed||0).toLocaleString('ar-IQ')} د.ع`, 'success');
+          showToast('success', 'تم', `تم تسجيل الدفعة. المستحق الجديد: ${(data.outstandingAfter||0).toLocaleString('ar-IQ')} د.ع`);
           closeModal('driver-payment-modal');
           loadDriverFinancial();
-        } else { showToast(data.error || 'فشل تسجيل الدفعة', 'error'); }
-      } catch (e) { showToast(e.message, 'error'); }
+        } else { showToast('error', 'خطأ', data.error || 'فشل تسجيل الدفعة'); }
+      } catch (e) { showToast('error', 'خطأ', e.message); }
       finally { btn.disabled = false; }
     }
 
@@ -4874,7 +4830,7 @@
       const type   = document.getElementById('da-type').value;
       const amount = Number(document.getElementById('da-amount').value);
       const notes  = document.getElementById('da-notes').value.trim();
-      if (!amount || amount <= 0) { showToast('أدخل مبلغاً صحيحاً', 'error'); return; }
+      if (!amount || amount <= 0) { showToast('error', 'خطأ', 'أدخل مبلغاً صحيحاً'); return; }
       try {
         const res = await fetch(API_BASE + '/admin/driver-wallet/adjustment', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -4882,11 +4838,11 @@
         });
         const data = await res.json();
         if (data.success) {
-          showToast(`تم التعديل. المستحق الجديد: ${(data.account?.amountOwed||0).toLocaleString('ar-IQ')} د.ع`, 'success');
+          showToast('success', 'تم', `تم التعديل. المستحق الجديد: ${(data.outstandingAfter||0).toLocaleString('ar-IQ')} د.ع`);
           closeModal('driver-adjust-modal');
           loadDriverFinancial();
-        } else { showToast(data.error || 'فشل التعديل', 'error'); }
-      } catch (e) { showToast(e.message, 'error'); }
+        } else { showToast('error', 'خطأ', data.error || 'فشل التعديل'); }
+      } catch (e) { showToast('error', 'خطأ', e.message); }
     }
 
     // ── Driver recharge (records a payment against outstanding via /recharge) ──
@@ -4894,7 +4850,7 @@
       const raw = prompt(`شحن/دفعة للسائق ${driverName}\nأدخل المبلغ (د.ع):`);
       if (raw === null) return;
       const amount = Number(raw);
-      if (!amount || amount <= 0) { showToast('أدخل مبلغاً صحيحاً', 'error'); return; }
+      if (!amount || amount <= 0) { showToast('error', 'خطأ', 'أدخل مبلغاً صحيحاً'); return; }
       try {
         const res = await fetch(API_BASE + '/admin/driver-wallet/recharge', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -4902,10 +4858,10 @@
         });
         const data = await res.json();
         if (data.success) {
-          showToast(`تم الشحن. المستحق الجديد: ${(data.outstandingAfter||0).toLocaleString('ar-IQ')} د.ع`, 'success');
+          showToast('success', 'تم', `تم الشحن. المستحق الجديد: ${(data.outstandingAfter||0).toLocaleString('ar-IQ')} د.ع`);
           loadDriverFinancial();
-        } else { showToast(data.error || 'فشل الشحن', 'error'); }
-      } catch (e) { showToast(e.message, 'error'); }
+        } else { showToast('error', 'خطأ', data.error || 'فشل الشحن'); }
+      } catch (e) { showToast('error', 'خطأ', e.message); }
     }
 
     // ── Financial Dashboard + Audit Log (financial system phase 5) ──────────
@@ -5802,22 +5758,7 @@
           const response = await fetch(`${API_BASE}/admin/${endpoints[type]}/${id}`, { method: 'DELETE' });
           if (response.ok) {
             showToast('success', 'تم الحذف', 'تم حذف العنصر بنجاح');
-            
-            if (type === 'product') {
-              // Reload products
-              const productsRes = await fetch(API_BASE + '/admin/products');
-              products = await productsRes.json();
-              
-              // If viewing category products, refresh that view
-              if (currentCategoryId) {
-                currentCategoryProducts = products.filter(p => p.categoryId === currentCategoryId);
-                document.getElementById('categoryProducts-count').textContent = currentCategoryProducts.length;
-                renderCategoryProducts();
-              } else {
-                renderCategoryProducts();
-              }
-              updateStats();
-            }
+
             if (type === 'category') loadCategories();
             if (type === 'banner') loadBanners();
             if (type === 'delivery') loadDeliveryAreas();
