@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { StyleSheet, View, Pressable, ActivityIndicator } from "react-native";
-import { useNavigation } from "@react-navigation/native";
+import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import { Feather } from "@expo/vector-icons";
 
 import { ThemedText } from "@/components/ThemedText";
@@ -128,14 +128,21 @@ function getLeafletHTML(lat: number, lng: number) {
 </html>`;
 }
 
+type MapPickerParams = {
+  initialLocation?: { latitude: number; longitude: number };
+  onPicked?: (loc: { latitude: number; longitude: number; address: string }) => void;
+} | undefined;
+
 export default function MapPickerScreen() {
   const navigation = useNavigation();
+  const route = useRoute<RouteProp<Record<string, MapPickerParams>, string>>();
+  const params = route.params as MapPickerParams | undefined;
   const { theme } = useTheme();
   const { savedLocation, setSavedLocation } = useLocation();
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
-  const initialLat = savedLocation?.latitude || DHULUIYAH_CENTER.lat;
-  const initialLng = savedLocation?.longitude || DHULUIYAH_CENTER.lng;
+  const initialLat = params?.initialLocation?.latitude ?? savedLocation?.latitude ?? DHULUIYAH_CENTER.lat;
+  const initialLng = params?.initialLocation?.longitude ?? savedLocation?.longitude ?? DHULUIYAH_CENTER.lng;
 
   const [selectedCoord, setSelectedCoord] = useState({ latitude: initialLat, longitude: initialLng });
   const [addressText, setAddressText] = useState(savedLocation?.address || "");
@@ -168,6 +175,15 @@ export default function MapPickerScreen() {
   }, []);
 
   const handleConfirm = () => {
+    if (params?.onPicked) {
+      params.onPicked({
+        latitude: selectedCoord.latitude,
+        longitude: selectedCoord.longitude,
+        address: addressText,
+      });
+      navigation.goBack();
+      return;
+    }
     setSavedLocation({
       latitude: selectedCoord.latitude,
       longitude: selectedCoord.longitude,

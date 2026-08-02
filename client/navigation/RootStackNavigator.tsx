@@ -53,7 +53,10 @@ export type RootStackParamList = {
   Checkout: undefined;
   OrderConfirmation: { order: Order };
   OrderTracking: { orderId: string };
-  MapPicker: undefined;
+  MapPicker: {
+    initialLocation?: { latitude: number; longitude: number };
+    onPicked?: (loc: { latitude: number; longitude: number; address: string }) => void;
+  } | undefined;
   CourierPickup: undefined;
   InternationalShopping: undefined;
   SupportChat: undefined;
@@ -179,6 +182,11 @@ export default function RootStackNavigator() {
     return (
       <Stack.Navigator screenOptions={{ headerShown: false }}>
         <Stack.Screen name="VendorRegistration" component={VendorRegistrationScreen} />
+        <Stack.Screen
+          name="MapPicker"
+          component={MapPickerScreen}
+          options={{ headerShown: true, headerTitle: "تحديد موقع المتجر", presentation: "modal" }}
+        />
       </Stack.Navigator>
     );
   }

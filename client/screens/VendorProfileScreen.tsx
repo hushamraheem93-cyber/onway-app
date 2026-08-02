@@ -14,7 +14,8 @@ import {
 } from "react-native";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
-import { useFocusEffect } from "@react-navigation/native";
+import { useFocusEffect, useNavigation } from "@react-navigation/native";
+import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import * as ImagePicker from "expo-image-picker";
@@ -26,6 +27,7 @@ import { useTheme } from "@/hooks/useTheme";
 import { getApiUrl } from "@/lib/query-client";
 import { BUSINESS_LABELS } from "@/constants/businessCategories";
 import { AppColors, FontFamily, Shadows } from "@/constants/theme";
+import { RootStackParamList } from "@/navigation/RootStackNavigator";
 
 const ORANGE = AppColors.primary;
 const DAY_LABELS = ["أحد", "إثنين", "ثلاثاء", "أربعاء", "خميس", "جمعة", "سبت"];
@@ -118,8 +120,10 @@ export default function VendorProfileScreen() {
   const headerHeight = useHeaderHeight();
   const tabBarHeight = useBottomTabBarHeight();
   const { theme }    = useTheme();
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { vendorProfile, vendorToken, logout, refreshVendorProfile } = useAuth();
 
+  const [savingLocation, setSavingLocation] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [uploadingCover,  setUploadingCover]  = useState(false);
   const [bioModal,        setBioModal]        = useState(false);
@@ -193,6 +197,35 @@ export default function VendorProfileScreen() {
       await refreshVendorProfile(); setStoreNameModal(false);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch {} finally { setSavingStoreName(false); }
+  };
+
+  const openLocationPicker = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    const lat = (vendorProfile as any)?.latitude;
+    const lng = (vendorProfile as any)?.longitude;
+    const hasLoc = typeof lat === "number" && typeof lng === "number";
+    navigation.navigate("MapPicker", {
+      initialLocation: hasLoc ? { latitude: lat, longitude: lng } : undefined,
+      onPicked: (loc) => { saveStoreLocation(loc.latitude, loc.longitude); },
+    });
+  };
+
+  const saveStoreLocation = async (latitude: number, longitude: number) => {
+    if (!vendorToken) return;
+    setSavingLocation(true);
+    try {
+      const res = await fetch(new URL("/api/vendor/profile", getApiUrl()).toString(), {
+        method: "PATCH",
+        headers: { Authorization: `Bearer ${vendorToken}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ latitude, longitude }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      await refreshVendorProfile();
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } catch {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      Alert.alert("تعذّر الحفظ", "لم يتم حفظ موقع المتجر. تحقق من الاتصال وحاول مرة أخرى.");
+    } finally { setSavingLocation(false); }
   };
 
   const saveBio = async () => {
@@ -342,6 +375,19 @@ export default function VendorProfileScreen() {
           vendorProfile?.deliveryPrice != null ? `أجرة التوصيل: ${vendorProfile.deliveryPrice} د.ع` : null,
         ].filter(Boolean).join(" · ") || "غير محدد"}
         onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setSettingsModal(true); }}
+      />
+
+      <SettingsRow
+        icon="map-marker-outline"
+        iconBg={AppColors.vendorPurpleLight} iconColor={AppColors.vendorPurple}
+        title="موقع المتجر على الخريطة"
+        subtitle={
+          typeof (vendorProfile as any)?.latitude === "number" && typeof (vendorProfile as any)?.longitude === "number"
+            ? `تم التحديد (${(vendorProfile as any).latitude.toFixed(5)}, ${(vendorProfile as any).longitude.toFixed(5)}) — لتعديله اضغط هنا`
+            : "لم يُحدَّد بعد — حدِّده ليصلك السائق الأقرب بسرعة"
+        }
+        onPress={openLocationPicker}
+        rightNode={savingLocation ? <ActivityIndicator size="small" color={AppColors.vendorPurple} /> : undefined}
       />
 
       {vendorProfile?.rating != null && (
