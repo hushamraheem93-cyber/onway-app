@@ -18,6 +18,7 @@ import { useFocusEffect } from "@react-navigation/native";
 import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import * as ImagePicker from "expo-image-picker";
+import { manipulateAsync, SaveFormat } from "expo-image-manipulator";
 
 import { ThemedText } from "@/components/ThemedText";
 import { useAuth } from "@/context/AuthContext";
@@ -159,8 +160,18 @@ export default function VendorProfileScreen() {
       const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: "images", allowsEditing: true, aspect: type === "profileImage" ? [1, 1] : [3, 1], quality: 0.85 });
       if (result.canceled || !result.assets?.[0]) return;
       const asset = result.assets[0];
+      // Resize + compress BEFORE upload. A raw phone photo is several MB and often
+      // exceeded the 5MB server limit (and was slow/timeout-prone on weak networks),
+      // which surfaced as "خطأ في رفع الصورة". The server downsizes anyway, so send a
+      // small WebP. Fall back to the original only if manipulation fails.
+      let uploadUri = asset.uri;
+      try {
+        const targetWidth = type === "profileImage" ? 600 : 1200;
+        const out = await manipulateAsync(asset.uri, [{ resize: { width: targetWidth } }], { compress: 0.8, format: SaveFormat.WEBP });
+        uploadUri = out.uri;
+      } catch { /* keep original uri */ }
       const formData = new FormData();
-      formData.append(type, { uri: asset.uri, type: "image/jpeg", name: `${type}.jpg` } as any);
+      formData.append(type, { uri: uploadUri, type: "image/webp", name: `${type}.webp` } as any);
       const res = await fetch(new URL("/api/vendor/profile/images", getApiUrl()).toString(), { method: "POST", headers: { Authorization: `Bearer ${vendorToken}` }, body: formData });
       if (res.ok) {
         await refreshVendorProfile();
@@ -169,7 +180,9 @@ export default function VendorProfileScreen() {
         const err = await res.json().catch(() => ({}));
         Alert.alert("خطأ في رفع الصورة", err?.error || "حاول مرة أخرى");
       }
-    } catch {} finally { setter(false); }
+    } catch {
+      Alert.alert("خطأ في رفع الصورة", "تعذّر الاتصال بالخادم — تحقّق من الإنترنت وحاول مجدداً");
+    } finally { setter(false); }
   };
 
   const saveStoreName = async () => {
