@@ -1854,6 +1854,19 @@
             </div>
             <div><label style="font-size:0.8rem;font-weight:600;color:#374151;display:block;margin-bottom:5px;">وصف النشاط</label>
             <textarea id="medit-description" class="form-control" rows="3" placeholder="نبذة عن النشاط التجاري..."></textarea></div>
+            <!-- Store location on the map (dispatch: rank drivers by proximity to the store) -->
+            <div>
+              <label style="font-size:0.8rem;font-weight:600;color:#374151;display:block;margin-bottom:5px;">
+                موقع المتجر على الخريطة
+                <span style="color:#9CA3AF;font-weight:400;">(اضغط على الخريطة لتحديد نقطة الاستلام — يُستخدم لاختيار أقرب سائق)</span>
+              </label>
+              <div id="medit-map" style="width:100%;height:220px;border-radius:12px;border:1px solid #E5E7EB;overflow:hidden;"></div>
+              <div style="display:flex;align-items:center;gap:10px;margin-top:6px;flex-wrap:wrap;">
+                <span id="medit-coords-label" style="font-size:0.75rem;color:#6B7280;">لم يُحدَّد موقع بعد</span>
+                <button type="button" class="btn btn-sm" style="background:#FEE2E2;color:#EF4444;" onclick="clearStoreLocation()">مسح الموقع</button>
+              </div>
+              <input type="hidden" id="medit-latitude"><input type="hidden" id="medit-longitude">
+            </div>
             <div style="display:flex;gap:16px;flex-wrap:wrap;">
               <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:0.82rem;font-weight:600;color:#374151;">
                 <input type="checkbox" id="medit-hasDelivery"> يوفّر توصيل</label>
@@ -7629,7 +7642,11 @@
       });
       document.getElementById('medit-title').textContent = `تعديل: ${v.name || v.storeName || ''}`;
       document.getElementById('medit-save-btn').innerHTML = '<i data-lucide="save" style="width:14px;height:14px;"></i> حفظ التعديلات';
+      const hasLat = typeof v.latitude === 'number', hasLng = typeof v.longitude === 'number';
+      document.getElementById('medit-latitude').value  = hasLat ? v.latitude : '';
+      document.getElementById('medit-longitude').value = hasLng ? v.longitude : '';
       document.getElementById('merchant-edit-modal').style.display = 'flex';
+      initStoreMap(hasLat ? v.latitude : null, hasLng ? v.longitude : null);
       lucide.createIcons();
     }
 
@@ -7652,12 +7669,57 @@
       document.querySelectorAll('#medit-supported-cats input[type=checkbox]').forEach(cb => { cb.checked = false; });
       document.getElementById('medit-title').textContent = 'إضافة متجر جديد';
       document.getElementById('medit-save-btn').innerHTML = '<i data-lucide="plus" style="width:14px;height:14px;"></i> إنشاء المتجر';
+      document.getElementById('medit-latitude').value = '';
+      document.getElementById('medit-longitude').value = '';
       document.getElementById('merchant-edit-modal').style.display = 'flex';
+      initStoreMap(null, null);
       lucide.createIcons();
     }
 
     function closeMerchantEditModal() {
       document.getElementById('merchant-edit-modal').style.display = 'none';
+    }
+
+    // ── Store location map picker (dispatch: proximity-to-store ranking) ──────
+    let _storeMap = null, _storeMarker = null;
+    function initStoreMap(lat, lng) {
+      const has = typeof lat === 'number' && typeof lng === 'number' && isFinite(lat) && isFinite(lng);
+      const center = has ? [lat, lng] : [33.3152, 44.3661]; // Baghdad default
+      // Leaflet needs the container visible + sized; the modal just opened.
+      setTimeout(() => {
+        if (!_storeMap) {
+          _storeMap = L.map('medit-map', { zoomControl: true, attributionControl: false }).setView(center, has ? 15 : 12);
+          L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(_storeMap);
+          _storeMap.on('click', e => setStoreMarker(e.latlng.lat, e.latlng.lng));
+        } else {
+          _storeMap.setView(center, has ? 15 : 12);
+        }
+        _storeMap.invalidateSize();
+        if (_storeMarker) { _storeMap.removeLayer(_storeMarker); _storeMarker = null; }
+        if (has) setStoreMarker(lat, lng); else updateStoreCoordsLabel(null, null);
+      }, 200);
+    }
+    function setStoreMarker(lat, lng) {
+      if (!_storeMap) return;
+      if (_storeMarker) _storeMarker.setLatLng([lat, lng]);
+      else _storeMarker = L.marker([lat, lng], { draggable: true }).addTo(_storeMap)
+        .on('dragend', ev => { const p = ev.target.getLatLng(); commitStoreCoords(p.lat, p.lng); });
+      commitStoreCoords(lat, lng);
+    }
+    function commitStoreCoords(lat, lng) {
+      document.getElementById('medit-latitude').value = lat.toFixed(6);
+      document.getElementById('medit-longitude').value = lng.toFixed(6);
+      updateStoreCoordsLabel(lat, lng);
+    }
+    function updateStoreCoordsLabel(lat, lng) {
+      const el = document.getElementById('medit-coords-label');
+      if (el) el.textContent = (lat == null) ? 'لم يُحدَّد موقع بعد' : `الموقع: ${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+    }
+    function clearStoreLocation() {
+      document.getElementById('medit-latitude').value = '';
+      document.getElementById('medit-longitude').value = '';
+      if (_storeMap && _storeMarker) { _storeMap.removeLayer(_storeMarker); _storeMarker = null; }
+      updateStoreCoordsLabel(null, null);
     }
 
     async function saveMerchantEdit() {
@@ -7678,6 +7740,9 @@
         hasDelivery:       document.getElementById('medit-hasDelivery').checked,
         isOpen:            document.getElementById('medit-isOpen').checked,
         supportedCategories: Array.from(document.querySelectorAll('#medit-supported-cats input[type=checkbox]:checked')).map(cb => cb.value),
+        // Store coordinates from the map picker (blank ⇒ null clears them server-side).
+        latitude:          (function(){ const s = document.getElementById('medit-latitude').value; return s === '' ? null : parseFloat(s); })(),
+        longitude:         (function(){ const s = document.getElementById('medit-longitude').value; return s === '' ? null : parseFloat(s); })(),
       };
       if (!payload.name) { showToast('error', 'خطأ', 'اسم النشاط مطلوب'); return; }
       btn.disabled = true;

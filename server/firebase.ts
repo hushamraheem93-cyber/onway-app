@@ -1774,6 +1774,10 @@ export interface FirestoreVendor {
   closeTime?: string;
   description?: string;
   sortOrder?: number;
+  // Store geo-location (set by the admin on a map). Used by the dispatch engine to
+  // rank drivers by proximity to the STORE (the pickup point). null = not set yet.
+  latitude?: number | null;
+  longitude?: number | null;
 }
 
 export async function getVendors(): Promise<(FirestoreVendor & { id: string })[]> {

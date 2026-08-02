@@ -2161,8 +2161,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.post("/api/admin/vendors", async (req: Request, res: Response) => {
-    const { name, location, whatsappNumber, commissionPercent, image, rating, deliveryTime, isOpen, categoryType, cuisine, hasDelivery, minOrder, deliveryFee, openTime, closeTime, description, supportedCategories, sortOrder, isPinned, isFeatured, isVerified } = req.body;
+    const { name, location, whatsappNumber, commissionPercent, image, rating, deliveryTime, isOpen, categoryType, cuisine, hasDelivery, minOrder, deliveryFee, openTime, closeTime, description, supportedCategories, sortOrder, isPinned, isFeatured, isVerified, latitude, longitude } = req.body;
     if (!name) return res.status(400).json({ error: "اسم المطعم مطلوب" });
+    const parseCoord = (v: any, min: number, max: number): number | null => {
+      const n = Number(v);
+      return (v === undefined || v === null || v === "" || !isFinite(n) || n < min || n > max) ? null : n;
+    };
     const existingVendors = await getVendorList();
     const maxOrder = existingVendors.reduce((max, v) => Math.max(max, v.sortOrder ?? 0), 0);
     const data = {
@@ -2192,6 +2196,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       closeTime: closeTime ? String(closeTime) : "",
       description: description ? String(description) : "",
       sortOrder: maxOrder + 1,
+      latitude: parseCoord(latitude, -90, 90),
+      longitude: parseCoord(longitude, -180, 180),
     };
     try {
       const id = await createFirestoreVendor(data);
@@ -2232,6 +2238,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     if (body.isPinned !== undefined) vendorUpdates.isPinned = Boolean(body.isPinned);
     if (body.isFeatured !== undefined) vendorUpdates.isFeatured = Boolean(body.isFeatured);
     if (body.isVerified !== undefined) vendorUpdates.isVerified = Boolean(body.isVerified);
+    // Store geo-location set on the map. A blank value clears it (null).
+    const clampCoord = (v: any, min: number, max: number): number | null => {
+      const n = Number(v);
+      return (v === null || v === "" || !isFinite(n) || n < min || n > max) ? null : n;
+    };
+    if (body.latitude !== undefined) vendorUpdates.latitude = clampCoord(body.latitude, -90, 90);
+    if (body.longitude !== undefined) vendorUpdates.longitude = clampCoord(body.longitude, -180, 180);
     try {
       await updateFirestoreVendor(id, vendorUpdates);
       invalidateVendorsCache();
@@ -5440,7 +5453,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const bt = b.createdAt?.toDate?.() ? b.createdAt.toDate().getTime() : 0;
           return at - bt;
         })[0] as any;
-      const driver = findBestAvailableDriver(anchor || null);
+      // Rank drivers against the STORE location (the pickup point) when the admin has
+      // set it on the map; fall back to the customer's delivery coordinates otherwise.
+      let anchorPoint: { latitude?: number; longitude?: number } | null =
+        anchor ? { latitude: anchor.latitude, longitude: anchor.longitude } : null;
+      if (anchor?.vendorId) {
+        const v = (await getVendorList()).find(x => x.id === anchor.vendorId) as any;
+        if (v && typeof v.latitude === "number" && typeof v.longitude === "number") {
+          anchorPoint = { latitude: v.latitude, longitude: v.longitude };
+        }
+      }
+      const driver = findBestAvailableDriver(anchorPoint);
       console.log(`[ORDER_CONFIRMED] Best driver: ${driver?.phoneNumber ?? "NONE"}`);
       if (driver) {
         await assignWaitingBatchToDriver(driver.phoneNumber);
