@@ -17,10 +17,24 @@ export default function MapPicker(_props: MapPickerProps) {
   return (
     <View style={styles.container}>
       <Feather name="map" size={60} color={theme.textSecondary} />
-      <ThemedText type="body" style={{ color: theme.textSecondary, textAlign: "center", marginTop: Spacing.lg }}>
+      <ThemedText
+        type="body"
+        style={{
+          color: theme.textSecondary,
+          textAlign: "center",
+          marginTop: Spacing.lg,
+        }}
+      >
         الخريطة متاحة فقط على تطبيق الهاتف
       </ThemedText>
-      <ThemedText type="small" style={{ color: theme.textSecondary, textAlign: "center", marginTop: Spacing.sm }}>
+      <ThemedText
+        type="small"
+        style={{
+          color: theme.textSecondary,
+          textAlign: "center",
+          marginTop: Spacing.sm,
+        }}
+      >
         استخدم تطبيق Expo Go لتحديد الموقع
       </ThemedText>
     </View>

@@ -14,8 +14,10 @@ export function getProductThumb(product: {
   imageUrl?: string;
   image?: string;
 }): string {
-  if (product.imageThumbs && product.imageThumbs.length > 0) return product.imageThumbs[0];
-  if (product.imageUrls && product.imageUrls.length > 0) return product.imageUrls[0];
+  if (product.imageThumbs && product.imageThumbs.length > 0)
+    return product.imageThumbs[0];
+  if (product.imageUrls && product.imageUrls.length > 0)
+    return product.imageUrls[0];
   return product.imageUrl ?? product.image ?? "";
 }
 

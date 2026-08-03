@@ -104,30 +104,30 @@ export default function App() {
         <ThemeProvider>
           <AuthProvider>
             <SystemSettingsProvider>
-            <NotificationProvider>
-              <LocationProvider>
-              <CartProvider>
-                <OrderProvider>
-                  <FavoritesProvider>
-                    <VendorFavoritesProvider>
-                    <CartAnimationProvider>
-                    <SafeAreaProvider>
-                      <GestureHandlerRootView style={styles.root}>
-                        <KeyboardProvider>
-                          <NavigationContainer>
-                            <RootStackNavigator />
-                          </NavigationContainer>
-                          <StatusBar style="auto" />
-                        </KeyboardProvider>
-                      </GestureHandlerRootView>
-                    </SafeAreaProvider>
-                    </CartAnimationProvider>
-                    </VendorFavoritesProvider>
-                  </FavoritesProvider>
-                </OrderProvider>
-              </CartProvider>
-              </LocationProvider>
-            </NotificationProvider>
+              <NotificationProvider>
+                <LocationProvider>
+                  <CartProvider>
+                    <OrderProvider>
+                      <FavoritesProvider>
+                        <VendorFavoritesProvider>
+                          <CartAnimationProvider>
+                            <SafeAreaProvider>
+                              <GestureHandlerRootView style={styles.root}>
+                                <KeyboardProvider>
+                                  <NavigationContainer>
+                                    <RootStackNavigator />
+                                  </NavigationContainer>
+                                  <StatusBar style="auto" />
+                                </KeyboardProvider>
+                              </GestureHandlerRootView>
+                            </SafeAreaProvider>
+                          </CartAnimationProvider>
+                        </VendorFavoritesProvider>
+                      </FavoritesProvider>
+                    </OrderProvider>
+                  </CartProvider>
+                </LocationProvider>
+              </NotificationProvider>
             </SystemSettingsProvider>
           </AuthProvider>
         </ThemeProvider>

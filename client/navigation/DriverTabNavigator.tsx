@@ -1,6 +1,9 @@
 import React from "react";
 import { View, Pressable, StyleSheet } from "react-native";
-import { createBottomTabNavigator, BottomTabBarProps } from "@react-navigation/bottom-tabs";
+import {
+  createBottomTabNavigator,
+  BottomTabBarProps,
+} from "@react-navigation/bottom-tabs";
 import { Feather } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as Haptics from "expo-haptics";
@@ -19,7 +22,10 @@ export type DriverTabParamList = {
   DriverProfileTab: undefined;
 };
 
-const TAB_CONFIG: Record<string, { icon: keyof typeof Feather.glyphMap; label: string }> = {
+const TAB_CONFIG: Record<
+  string,
+  { icon: keyof typeof Feather.glyphMap; label: string }
+> = {
   DriverProfileTab: { icon: "user", label: "حسابي" },
   DriverEarningsTab: { icon: "dollar-sign", label: "الأرباح" },
   DriverHomeTab: { icon: "home", label: "الرئيسية" },
@@ -59,7 +65,11 @@ function DriverTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
 
         if (isHome) {
           return (
-            <Pressable key={route.key} onPress={onPress} style={styles.mainButtonContainer}>
+            <Pressable
+              key={route.key}
+              onPress={onPress}
+              style={styles.mainButtonContainer}
+            >
               <View style={styles.mainButton}>
                 <Feather name="home" size={28} color={AppColors.black} />
               </View>

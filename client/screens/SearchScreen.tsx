@@ -11,7 +11,12 @@ import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 
 import { useTheme } from "@/hooks/useTheme";
-import { Spacing, AppColors, BorderRadius, FontWeight} from "@/constants/theme";
+import {
+  Spacing,
+  AppColors,
+  BorderRadius,
+  FontWeight,
+} from "@/constants/theme";
 import { Product, Category } from "@/constants/categories";
 import { ThemedText } from "@/components/ThemedText";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
@@ -22,8 +27,6 @@ import { GradientBackground } from "@/components/GradientBackground";
 import { getApiUrl } from "@/lib/query-client";
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
-
-
 
 export default function SearchScreen() {
   const headerHeight = useHeaderHeight();
@@ -41,15 +44,22 @@ export default function SearchScreen() {
 
   useEffect(() => {
     AsyncStorage.getItem(SEARCH_HISTORY_KEY)
-      .then((raw) => { if (raw) setSearchHistory(JSON.parse(raw)); })
+      .then((raw) => {
+        if (raw) setSearchHistory(JSON.parse(raw));
+      })
       .catch(() => {});
   }, []);
 
   const saveToHistory = useCallback((query: string) => {
     if (query.length < 2) return;
     setSearchHistory((prev) => {
-      const next = [query, ...prev.filter((h) => h !== query)].slice(0, MAX_HISTORY);
-      AsyncStorage.setItem(SEARCH_HISTORY_KEY, JSON.stringify(next)).catch(() => {});
+      const next = [query, ...prev.filter((h) => h !== query)].slice(
+        0,
+        MAX_HISTORY,
+      );
+      AsyncStorage.setItem(SEARCH_HISTORY_KEY, JSON.stringify(next)).catch(
+        () => {},
+      );
       return next;
     });
   }, []);
@@ -106,11 +116,22 @@ export default function SearchScreen() {
   };
 
   const handleCategoryPress = (category: Category) => {
-    navigation.navigate("Products", { categoryId: category.id, categoryName: category.name });
+    navigation.navigate("Products", {
+      categoryId: category.id,
+      categoryName: category.name,
+    });
   };
 
   const renderProduct = ({ item }: { item: Product }) => (
-    <View style={[styles.productRow, { backgroundColor: theme.backgroundDefault, borderBottomColor: theme.border }]}>
+    <View
+      style={[
+        styles.productRow,
+        {
+          backgroundColor: theme.backgroundDefault,
+          borderBottomColor: theme.border,
+        },
+      ]}
+    >
       <Image
         source={{ uri: resolveImageUrl(item.image) }}
         style={styles.productImage}
@@ -119,11 +140,20 @@ export default function SearchScreen() {
         transition={200}
       />
       <View style={styles.productInfo}>
-        <ThemedText type="body" numberOfLines={1} style={styles.productName}>{item.name}</ThemedText>
-        <ThemedText type="small" numberOfLines={1} style={[styles.productDesc, { color: theme.textSecondary }]}>
+        <ThemedText type="body" numberOfLines={1} style={styles.productName}>
+          {item.name}
+        </ThemedText>
+        <ThemedText
+          type="small"
+          numberOfLines={1}
+          style={[styles.productDesc, { color: theme.textSecondary }]}
+        >
           {item.description}
         </ThemedText>
-        <ThemedText type="h4" style={[styles.productPrice, { color: AppColors.primary }]}>
+        <ThemedText
+          type="h4"
+          style={[styles.productPrice, { color: AppColors.primary }]}
+        >
           {formatPrice(item.price)}
         </ThemedText>
       </View>
@@ -140,20 +170,49 @@ export default function SearchScreen() {
 
   const renderCategoryChip = ({ item }: { item: Category }) => (
     <Pressable
-      style={[styles.categoryChip, { backgroundColor: isDark ? theme.backgroundSecondary : AppColors.secondary, borderWidth: 1, borderColor: AppColors.primary + "40" }]}
+      style={[
+        styles.categoryChip,
+        {
+          backgroundColor: isDark
+            ? theme.backgroundSecondary
+            : AppColors.secondary,
+          borderWidth: 1,
+          borderColor: AppColors.primary + "40",
+        },
+      ]}
       onPress={() => handleCategoryPress(item)}
       accessibilityRole="button"
       accessibilityLabel={`قسم ${item.name}`}
     >
-      <ThemedText type="small" style={[styles.chipText, { color: AppColors.primary }]}>{item.name}</ThemedText>
+      <ThemedText
+        type="small"
+        style={[styles.chipText, { color: AppColors.primary }]}
+      >
+        {item.name}
+      </ThemedText>
     </Pressable>
   );
 
   return (
     <View style={[styles.container]}>
       <GradientBackground />
-      <View style={[styles.searchContainer, { paddingTop: headerHeight + Spacing.sm }]}>
-        <View style={[styles.searchBar, { backgroundColor: isDark ? theme.backgroundDefault : AppColors.gray50, borderColor: isDark ? theme.border : AppColors.divider }]}>
+      <View
+        style={[
+          styles.searchContainer,
+          { paddingTop: headerHeight + Spacing.sm },
+        ]}
+      >
+        <View
+          style={[
+            styles.searchBar,
+            {
+              backgroundColor: isDark
+                ? theme.backgroundDefault
+                : AppColors.gray50,
+              borderColor: isDark ? theme.border : AppColors.divider,
+            },
+          ]}
+        >
           <Feather name="search" size={20} color={AppColors.primary} />
           <TextInput
             value={searchQuery}
@@ -185,25 +244,55 @@ export default function SearchScreen() {
             <View style={styles.historySection}>
               <View style={styles.historyHeader}>
                 <Pressable onPress={clearHistory} hitSlop={8}>
-                  <ThemedText type="small" style={[styles.clearHistoryText, { color: AppColors.primary }]}>مسح</ThemedText>
+                  <ThemedText
+                    type="small"
+                    style={[
+                      styles.clearHistoryText,
+                      { color: AppColors.primary },
+                    ]}
+                  >
+                    مسح
+                  </ThemedText>
                 </Pressable>
-                <ThemedText type="h4" style={[styles.sectionTitle, { marginBottom: 0 }]}>البحث الأخير</ThemedText>
+                <ThemedText
+                  type="h4"
+                  style={[styles.sectionTitle, { marginBottom: 0 }]}
+                >
+                  البحث الأخير
+                </ThemedText>
               </View>
               {searchHistory.map((query) => (
                 <Pressable
                   key={query}
-                  onPress={() => { setSearchQuery(query); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); }}
-                  style={[styles.historyItem, { borderBottomColor: theme.border }]}
+                  onPress={() => {
+                    setSearchQuery(query);
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  }}
+                  style={[
+                    styles.historyItem,
+                    { borderBottomColor: theme.border },
+                  ]}
                 >
                   <Feather name="clock" size={15} color={theme.textSecondary} />
-                  <ThemedText type="body" style={[styles.historyText, { color: theme.text }]}>{query}</ThemedText>
-                  <Feather name="arrow-up-left" size={14} color={theme.textSecondary} />
+                  <ThemedText
+                    type="body"
+                    style={[styles.historyText, { color: theme.text }]}
+                  >
+                    {query}
+                  </ThemedText>
+                  <Feather
+                    name="arrow-up-left"
+                    size={14}
+                    color={theme.textSecondary}
+                  />
                 </Pressable>
               ))}
             </View>
           ) : null}
 
-          <ThemedText type="h3" style={styles.sectionTitle}>تصفح الأقسام</ThemedText>
+          <ThemedText type="h3" style={styles.sectionTitle}>
+            تصفح الأقسام
+          </ThemedText>
           <FlatList
             data={categories}
             renderItem={renderCategoryChip}
@@ -217,14 +306,20 @@ export default function SearchScreen() {
       ) : isFetching || debouncedQuery !== searchQuery.trim() ? (
         <View style={styles.emptyContainer}>
           <Feather name="search" size={48} color={AppColors.gray300} />
-          <ThemedText type="body" style={[styles.emptyText, { color: theme.textSecondary }]}>
+          <ThemedText
+            type="body"
+            style={[styles.emptyText, { color: theme.textSecondary }]}
+          >
             جارٍ البحث…
           </ThemedText>
         </View>
       ) : filteredProducts.length === 0 ? (
         <View style={styles.emptyContainer}>
           <Feather name="search" size={48} color={AppColors.gray300} />
-          <ThemedText type="body" style={[styles.emptyText, { color: theme.textSecondary }]}>
+          <ThemedText
+            type="body"
+            style={[styles.emptyText, { color: theme.textSecondary }]}
+          >
             لا توجد نتائج لـ "{searchQuery}"
           </ThemedText>
         </View>

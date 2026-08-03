@@ -7,7 +7,13 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Haptics from "expo-haptics";
 
 import { useTheme } from "@/hooks/useTheme";
-import { Spacing, BorderRadius, Shadows, AppColors, FontWeight} from "@/constants/theme";
+import {
+  Spacing,
+  BorderRadius,
+  Shadows,
+  AppColors,
+  FontWeight,
+} from "@/constants/theme";
 import { ThemedText } from "@/components/ThemedText";
 import { GradientBackground } from "@/components/GradientBackground";
 
@@ -28,7 +34,13 @@ interface NotificationSettingProps {
   onValueChange: (value: boolean) => void;
 }
 
-function NotificationSetting({ icon, title, subtitle, value, onValueChange }: NotificationSettingProps) {
+function NotificationSetting({
+  icon,
+  title,
+  subtitle,
+  value,
+  onValueChange,
+}: NotificationSettingProps) {
   const { theme } = useTheme();
 
   const handleChange = (newValue: boolean) => {
@@ -37,7 +49,13 @@ function NotificationSetting({ icon, title, subtitle, value, onValueChange }: No
   };
 
   return (
-    <View style={[styles.settingItem, { backgroundColor: theme.backgroundDefault }, Shadows.sm]}>
+    <View
+      style={[
+        styles.settingItem,
+        { backgroundColor: theme.backgroundDefault },
+        Shadows.sm,
+      ]}
+    >
       <Switch
         value={value}
         onValueChange={handleChange}
@@ -47,12 +65,22 @@ function NotificationSetting({ icon, title, subtitle, value, onValueChange }: No
         accessibilityHint={subtitle}
       />
       <View style={styles.settingContent}>
-        <ThemedText type="body" style={styles.settingTitle}>{title}</ThemedText>
-        <ThemedText type="small" style={[styles.settingSubtitle, { color: theme.textSecondary }]}>
+        <ThemedText type="body" style={styles.settingTitle}>
+          {title}
+        </ThemedText>
+        <ThemedText
+          type="small"
+          style={[styles.settingSubtitle, { color: theme.textSecondary }]}
+        >
           {subtitle}
         </ThemedText>
       </View>
-      <View style={[styles.iconContainer, { backgroundColor: AppColors.primary + "15" }]}>
+      <View
+        style={[
+          styles.iconContainer,
+          { backgroundColor: AppColors.primary + "15" },
+        ]}
+      >
         <Feather name={icon} size={20} color={AppColors.primary} />
       </View>
     </View>
@@ -81,13 +109,15 @@ export default function NotificationsScreen() {
       if (stored) {
         setSettings(JSON.parse(stored));
       }
-    } catch (error) {
-    }
+    } catch (error) {}
   };
 
   const saveSettings = async (newSettings: NotificationSettings) => {
     try {
-      await AsyncStorage.setItem(NOTIFICATIONS_KEY, JSON.stringify(newSettings));
+      await AsyncStorage.setItem(
+        NOTIFICATIONS_KEY,
+        JSON.stringify(newSettings),
+      );
       setSettings(newSettings);
     } catch (error) {
       Alert.alert("خطأ", "حدث خطأ أثناء حفظ الإعدادات");
@@ -102,65 +132,88 @@ export default function NotificationsScreen() {
   return (
     <View style={{ flex: 1 }}>
       <GradientBackground />
-    <ScrollView
-      style={{ flex: 1 }}
-      contentContainerStyle={{
-        paddingTop: headerHeight + Spacing.lg,
-        paddingBottom: insets.bottom + Spacing.xl,
-        paddingHorizontal: Spacing.lg,
-      }}
-      showsVerticalScrollIndicator={false}
-    >
-      <ThemedText type="body" style={[styles.intro, { color: theme.textSecondary }]}>
-        قم بتخصيص الإشعارات التي ترغب في استلامها
-      </ThemedText>
-
-      <NotificationSetting
-        icon="package"
-        title="تحديثات الطلبات"
-        subtitle="احصل على إشعارات حول حالة طلباتك"
-        value={settings.orderUpdates}
-        onValueChange={(value) => updateSetting("orderUpdates", value)}
-      />
-
-      <NotificationSetting
-        icon="percent"
-        title="العروض والخصومات"
-        subtitle="تنبيهات عن العروض الحصرية"
-        value={settings.offers}
-        onValueChange={(value) => updateSetting("offers", value)}
-      />
-
-      <NotificationSetting
-        icon="shopping-bag"
-        title="المنتجات الجديدة"
-        subtitle="إشعارات عند إضافة منتجات جديدة"
-        value={settings.newProducts}
-        onValueChange={(value) => updateSetting("newProducts", value)}
-      />
-
-      <NotificationSetting
-        icon="truck"
-        title="تنبيهات التوصيل"
-        subtitle="إشعارات عند اقتراب موعد التوصيل"
-        value={settings.deliveryAlerts}
-        onValueChange={(value) => updateSetting("deliveryAlerts", value)}
-      />
-
-      <View style={[styles.infoCard, { backgroundColor: theme.backgroundDefault }, Shadows.sm]}>
-        <Feather name="info" size={20} color={AppColors.primary} />
-        <ThemedText type="small" style={[styles.infoText, { color: theme.textSecondary }]}>
-          سيتم إرسال الإشعارات المهمة عبر واتساب على رقم هاتفك المسجل
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={{
+          paddingTop: headerHeight + Spacing.lg,
+          paddingBottom: insets.bottom + Spacing.xl,
+          paddingHorizontal: Spacing.lg,
+        }}
+        showsVerticalScrollIndicator={false}
+      >
+        <ThemedText
+          type="body"
+          style={[styles.intro, { color: theme.textSecondary }]}
+        >
+          قم بتخصيص الإشعارات التي ترغب في استلامها
         </ThemedText>
-      </View>
 
-      <View style={[styles.savedBadge, { backgroundColor: AppColors.success + "15" }]}>
-        <Feather name="check-circle" size={16} color={AppColors.success} />
-        <ThemedText type="small" style={{ color: AppColors.success, fontWeight: FontWeight.semiBold }}>
-          يتم حفظ الإعدادات تلقائياً
-        </ThemedText>
-      </View>
-    </ScrollView>
+        <NotificationSetting
+          icon="package"
+          title="تحديثات الطلبات"
+          subtitle="احصل على إشعارات حول حالة طلباتك"
+          value={settings.orderUpdates}
+          onValueChange={(value) => updateSetting("orderUpdates", value)}
+        />
+
+        <NotificationSetting
+          icon="percent"
+          title="العروض والخصومات"
+          subtitle="تنبيهات عن العروض الحصرية"
+          value={settings.offers}
+          onValueChange={(value) => updateSetting("offers", value)}
+        />
+
+        <NotificationSetting
+          icon="shopping-bag"
+          title="المنتجات الجديدة"
+          subtitle="إشعارات عند إضافة منتجات جديدة"
+          value={settings.newProducts}
+          onValueChange={(value) => updateSetting("newProducts", value)}
+        />
+
+        <NotificationSetting
+          icon="truck"
+          title="تنبيهات التوصيل"
+          subtitle="إشعارات عند اقتراب موعد التوصيل"
+          value={settings.deliveryAlerts}
+          onValueChange={(value) => updateSetting("deliveryAlerts", value)}
+        />
+
+        <View
+          style={[
+            styles.infoCard,
+            { backgroundColor: theme.backgroundDefault },
+            Shadows.sm,
+          ]}
+        >
+          <Feather name="info" size={20} color={AppColors.primary} />
+          <ThemedText
+            type="small"
+            style={[styles.infoText, { color: theme.textSecondary }]}
+          >
+            سيتم إرسال الإشعارات المهمة عبر واتساب على رقم هاتفك المسجل
+          </ThemedText>
+        </View>
+
+        <View
+          style={[
+            styles.savedBadge,
+            { backgroundColor: AppColors.success + "15" },
+          ]}
+        >
+          <Feather name="check-circle" size={16} color={AppColors.success} />
+          <ThemedText
+            type="small"
+            style={{
+              color: AppColors.success,
+              fontWeight: FontWeight.semiBold,
+            }}
+          >
+            يتم حفظ الإعدادات تلقائياً
+          </ThemedText>
+        </View>
+      </ScrollView>
     </View>
   );
 }

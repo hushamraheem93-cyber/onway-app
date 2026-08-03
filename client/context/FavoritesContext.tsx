@@ -1,4 +1,12 @@
-import React, { createContext, useContext, useState, useEffect, useCallback, useMemo, ReactNode } from "react";
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  useCallback,
+  useMemo,
+  ReactNode,
+} from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Product } from "@/constants/categories";
 
@@ -10,7 +18,9 @@ interface FavoritesContextType {
   toggleFavorite: (product: Product) => void;
 }
 
-const FavoritesContext = createContext<FavoritesContextType | undefined>(undefined);
+const FavoritesContext = createContext<FavoritesContextType | undefined>(
+  undefined,
+);
 
 const FAVORITES_STORAGE_KEY = "@onway_favorites";
 
@@ -27,15 +37,16 @@ export function FavoritesProvider({ children }: { children: ReactNode }) {
       if (stored) {
         setFavorites(JSON.parse(stored));
       }
-    } catch (error) {
-    }
+    } catch (error) {}
   };
 
   const saveFavorites = async (newFavorites: Product[]) => {
     try {
-      await AsyncStorage.setItem(FAVORITES_STORAGE_KEY, JSON.stringify(newFavorites));
-    } catch (error) {
-    }
+      await AsyncStorage.setItem(
+        FAVORITES_STORAGE_KEY,
+        JSON.stringify(newFavorites),
+      );
+    } catch (error) {}
   };
 
   // Functional setState keeps these callbacks stable (no captured `favorites`
@@ -80,7 +91,13 @@ export function FavoritesProvider({ children }: { children: ReactNode }) {
       isFavorite,
       toggleFavorite,
     }),
-    [favorites, addToFavorites, removeFromFavorites, isFavorite, toggleFavorite],
+    [
+      favorites,
+      addToFavorites,
+      removeFromFavorites,
+      isFavorite,
+      toggleFavorite,
+    ],
   );
 
   return (

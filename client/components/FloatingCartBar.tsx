@@ -13,7 +13,7 @@ import * as Haptics from "expo-haptics";
 
 import { ThemedText } from "@/components/ThemedText";
 import { useCart } from "@/context/CartContext";
-import { AppColors, BorderRadius, Anim} from "@/constants/theme";
+import { AppColors, BorderRadius, Anim } from "@/constants/theme";
 import { formatPrice } from "@/constants/currency";
 import { resolveImageUrl } from "@/utils/imageUtils";
 
@@ -56,8 +56,17 @@ function FloatingCartBarComponent({ bottomOffset }: FloatingCartBarProps) {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setExpanded(false);
     Animated.parallel([
-      Animated.spring(animHeight, { toValue: 0, useNativeDriver: false, damping: 20, stiffness: 180 }),
-      Animated.timing(animOpacity, { toValue: 0, duration: Anim.duration.fastest, useNativeDriver: false }),
+      Animated.spring(animHeight, {
+        toValue: 0,
+        useNativeDriver: false,
+        damping: 20,
+        stiffness: 180,
+      }),
+      Animated.timing(animOpacity, {
+        toValue: 0,
+        duration: Anim.duration.fastest,
+        useNativeDriver: false,
+      }),
     ]).start();
     navigation.navigate("Main", { screen: "CartTab" });
   };
@@ -76,7 +85,9 @@ function FloatingCartBarComponent({ bottomOffset }: FloatingCartBarProps) {
 
   return (
     <View style={[styles.wrapper, { bottom: bottomOffset }]}>
-      <Animated.View style={[styles.panel, { height: animHeight, opacity: animOpacity }]}>
+      <Animated.View
+        style={[styles.panel, { height: animHeight, opacity: animOpacity }]}
+      >
         <ScrollView
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
@@ -88,18 +99,32 @@ function FloatingCartBarComponent({ bottomOffset }: FloatingCartBarProps) {
                 <View style={styles.qtyRow}>
                   <Pressable
                     style={styles.qtyBtn}
-                    onPress={() => increase(cartItem.product.id, cartItem.quantity)}
+                    onPress={() =>
+                      increase(cartItem.product.id, cartItem.quantity)
+                    }
                     testID={`float-increase-${cartItem.product.id}`}
                   >
                     <Feather name="plus" size={14} color={AppColors.white} />
                   </Pressable>
-                  <ThemedText style={styles.qtyNum}>{cartItem.quantity}</ThemedText>
+                  <ThemedText style={styles.qtyNum}>
+                    {cartItem.quantity}
+                  </ThemedText>
                   <Pressable
                     style={[styles.qtyBtn, styles.qtyBtnMinus]}
-                    onPress={() => decrease(cartItem.product.id, cartItem.quantity)}
+                    onPress={() =>
+                      decrease(cartItem.product.id, cartItem.quantity)
+                    }
                     testID={`float-decrease-${cartItem.product.id}`}
                   >
-                    <Feather name={cartItem.quantity === 1 ? "trash-2" : "minus"} size={14} color={cartItem.quantity === 1 ? AppColors.error : AppColors.primary} />
+                    <Feather
+                      name={cartItem.quantity === 1 ? "trash-2" : "minus"}
+                      size={14}
+                      color={
+                        cartItem.quantity === 1
+                          ? AppColors.error
+                          : AppColors.primary
+                      }
+                    />
                   </Pressable>
                 </View>
                 <View style={styles.itemInfo}>
@@ -136,12 +161,18 @@ function FloatingCartBarComponent({ bottomOffset }: FloatingCartBarProps) {
         </View>
         <View style={styles.barLeft}>
           <ThemedText style={styles.totalLabel}>المجموع</ThemedText>
-          <ThemedText style={styles.totalAmount}>{formatPrice(total)}</ThemedText>
+          <ThemedText style={styles.totalAmount}>
+            {formatPrice(total)}
+          </ThemedText>
         </View>
       </Pressable>
 
       {expanded ? (
-        <Pressable style={styles.checkoutBtn} onPress={handleCheckout} testID="float-checkout-btn">
+        <Pressable
+          style={styles.checkoutBtn}
+          onPress={handleCheckout}
+          testID="float-checkout-btn"
+        >
           <Feather name="shopping-cart" size={16} color={AppColors.white} />
           <ThemedText style={styles.checkoutText}>إتمام الطلب</ThemedText>
         </Pressable>

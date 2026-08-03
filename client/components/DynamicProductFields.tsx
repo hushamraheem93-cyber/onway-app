@@ -2,7 +2,10 @@ import React from "react";
 import { View, TextInput, StyleSheet, Switch, Platform } from "react-native";
 import { Picker } from "@react-native-picker/picker";
 import { ThemedText } from "@/components/ThemedText";
-import { DYNAMIC_FIELDS, DynamicFieldConfig } from "@/constants/businessCategories";
+import {
+  DYNAMIC_FIELDS,
+  DynamicFieldConfig,
+} from "@/constants/businessCategories";
 import { AppColors } from "@/constants/theme";
 
 const ORANGE = AppColors.primary;
@@ -14,14 +17,20 @@ interface Props {
   onChange: (key: string, value: string) => void;
 }
 
-export default function DynamicProductFields({ businessType, values, onChange }: Props) {
+export default function DynamicProductFields({
+  businessType,
+  values,
+  onChange,
+}: Props) {
   const fields: DynamicFieldConfig[] = DYNAMIC_FIELDS[businessType] || [];
   if (fields.length === 0) return null;
 
   return (
     <View style={styles.container}>
       <View style={styles.sectionHeader}>
-        <ThemedText style={styles.sectionTitle}>تفاصيل إضافية حسب نوع النشاط</ThemedText>
+        <ThemedText style={styles.sectionTitle}>
+          تفاصيل إضافية حسب نوع النشاط
+        </ThemedText>
       </View>
 
       {fields.map((field) => {

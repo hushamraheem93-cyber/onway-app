@@ -33,11 +33,19 @@ const { width: SCREEN_W } = Dimensions.get("window");
 
 type Period = "today" | "week" | "month" | "all";
 
-interface DaySale { date: string; revenue: number }
+interface DaySale {
+  date: string;
+  revenue: number;
+}
 interface RecentSale {
-  id: string; date: string; subtotal: number;
-  status: string; customerPhone: string; itemCount: number;
-  netEarning?: number; commissionRate?: number;
+  id: string;
+  date: string;
+  subtotal: number;
+  status: string;
+  customerPhone: string;
+  itemCount: number;
+  netEarning?: number;
+  commissionRate?: number;
 }
 interface WalletData {
   totalRevenue: number;
@@ -65,14 +73,22 @@ function formatShortDate(iso: string) {
   try {
     const d = new Date(iso);
     return `${d.getDate()}/${d.getMonth() + 1}`;
-  } catch { return iso; }
+  } catch {
+    return iso;
+  }
 }
 
 function formatFullDate(iso: string) {
   try {
     const d = new Date(iso);
-    return d.toLocaleDateString("ar-IQ", { year: "numeric", month: "short", day: "numeric" });
-  } catch { return iso; }
+    return d.toLocaleDateString("ar-IQ", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+    });
+  } catch {
+    return iso;
+  }
 }
 
 // Simple bar chart using View bars
@@ -101,10 +117,20 @@ function BarChart({ data }: { data: DaySale[] }) {
 
 const chartStyles = StyleSheet.create({
   container: { marginTop: 8, paddingBottom: 4 },
-  barsRow: { flexDirection: "row-reverse", alignItems: "flex-end", gap: 4, paddingHorizontal: 4 },
+  barsRow: {
+    flexDirection: "row-reverse",
+    alignItems: "flex-end",
+    gap: 4,
+    paddingHorizontal: 4,
+  },
   barCol: { alignItems: "center", gap: 4 },
   bar: { borderRadius: 6, backgroundColor: PURPLE, opacity: 0.8, minWidth: 10 },
-  barLabel: { fontFamily: "Cairo_400Regular", fontSize: 9, color: AppColors.gray500, textAlign: "center" },
+  barLabel: {
+    fontFamily: "Cairo_400Regular",
+    fontSize: 9,
+    color: AppColors.gray500,
+    textAlign: "center",
+  },
 });
 
 /** Decode the vendor ID from the JWT payload without external libraries */
@@ -132,12 +158,18 @@ export default function VendorWalletScreen() {
     const ledgerDocId = `vendor:${vendorId}`;
     try {
       const docRef = doc(db, "settlementLedger", ledgerDocId);
-      const unsub = onSnapshot(docRef, (snap) => {
-        if (snap.exists()) {
-          const d = snap.data() as any;
-          setLiveBalance(d.outstandingTotal ?? null);
-        }
-      }, () => { /* silently ignore */ });
+      const unsub = onSnapshot(
+        docRef,
+        (snap) => {
+          if (snap.exists()) {
+            const d = snap.data() as any;
+            setLiveBalance(d.outstandingTotal ?? null);
+          }
+        },
+        () => {
+          /* silently ignore */
+        },
+      );
       return () => unsub();
     } catch {
       // firebase not ready — gracefully ignore
@@ -177,7 +209,9 @@ export default function VendorWalletScreen() {
     enabled: !!vendorToken,
   });
 
-  const handleRefresh = useCallback(() => { refetch(); }, [refetch]);
+  const handleRefresh = useCallback(() => {
+    refetch();
+  }, [refetch]);
 
   const totalRevenue = data?.totalRevenue ?? 0;
   const totalOrders = data?.totalOrders ?? 0;
@@ -189,7 +223,10 @@ export default function VendorWalletScreen() {
   // and the alert dialog reflect real-time outstanding amount without waiting for
   // the next WebSocket "settlements:changed" event or manual pull-to-refresh.
   const liveSettlementView = settlement.view
-    ? { ...settlement.view, outstanding: liveBalance ?? settlement.view.outstanding }
+    ? {
+        ...settlement.view,
+        outstanding: liveBalance ?? settlement.view.outstanding,
+      }
     : settlement.view;
 
   return (
@@ -202,7 +239,11 @@ export default function VendorWalletScreen() {
         gap: 16,
       }}
       refreshControl={
-        <RefreshControl refreshing={isRefetching} onRefresh={handleRefresh} tintColor={PURPLE} />
+        <RefreshControl
+          refreshing={isRefetching}
+          onRefresh={handleRefresh}
+          tintColor={PURPLE}
+        />
       }
       showsVerticalScrollIndicator={false}
     >
@@ -219,7 +260,9 @@ export default function VendorWalletScreen() {
       {/* Bank-style ledger statement (financial system phase 3) */}
       <LedgerStatementCard
         endpoint="/api/vendor/statement"
-        authHeader={vendorToken ? { Authorization: `Bearer ${vendorToken}` } : undefined}
+        authHeader={
+          vendorToken ? { Authorization: `Bearer ${vendorToken}` } : undefined
+        }
       />
 
       {/* Period filter */}
@@ -231,7 +274,12 @@ export default function VendorWalletScreen() {
             onPress={() => setPeriod(p)}
             testID={`btn-period-${p}`}
           >
-            <ThemedText style={[styles.periodText, period === p && styles.periodTextActive]}>
+            <ThemedText
+              style={[
+                styles.periodText,
+                period === p && styles.periodTextActive,
+              ]}
+            >
               {PERIOD_LABELS[p]}
             </ThemedText>
           </Pressable>
@@ -246,32 +294,69 @@ export default function VendorWalletScreen() {
         <>
           {/* Main revenue card */}
           <View style={[styles.revenueCard, { backgroundColor: PURPLE }]}>
-            <MaterialCommunityIcons name="wallet-outline" size={32} color={AppColors.textOnBrandSubtle} />
+            <MaterialCommunityIcons
+              name="wallet-outline"
+              size={32}
+              color={AppColors.textOnBrandSubtle}
+            />
             <ThemedText style={styles.revenueLabel}>إجمالي المبيعات</ThemedText>
-            <ThemedText style={styles.revenueValue}>{formatPrice(totalRevenue)}</ThemedText>
-            <ThemedText style={styles.revenuePeriod}>{PERIOD_LABELS[period]}</ThemedText>
+            <ThemedText style={styles.revenueValue}>
+              {formatPrice(totalRevenue)}
+            </ThemedText>
+            <ThemedText style={styles.revenuePeriod}>
+              {PERIOD_LABELS[period]}
+            </ThemedText>
           </View>
 
           {/* Stats row */}
           <View style={styles.statsRow}>
-            <View style={[styles.statCard, { backgroundColor: theme.backgroundDefault }]}>
-              <MaterialCommunityIcons name="clipboard-check-outline" size={22} color={PURPLE} />
+            <View
+              style={[
+                styles.statCard,
+                { backgroundColor: theme.backgroundDefault },
+              ]}
+            >
+              <MaterialCommunityIcons
+                name="clipboard-check-outline"
+                size={22}
+                color={PURPLE}
+              />
               <ThemedText style={styles.statValue}>{totalOrders}</ThemedText>
               <ThemedText style={styles.statLabel}>طلب مكتمل</ThemedText>
             </View>
-            <View style={[styles.statCard, { backgroundColor: theme.backgroundDefault }]}>
-              <MaterialCommunityIcons name="chart-line" size={22} color={AppColors.success} />
-              <ThemedText style={[styles.statValue, { color: AppColors.success }]}>{formatPrice(avgOrder)}</ThemedText>
+            <View
+              style={[
+                styles.statCard,
+                { backgroundColor: theme.backgroundDefault },
+              ]}
+            >
+              <MaterialCommunityIcons
+                name="chart-line"
+                size={22}
+                color={AppColors.success}
+              />
+              <ThemedText
+                style={[styles.statValue, { color: AppColors.success }]}
+              >
+                {formatPrice(avgOrder)}
+              </ThemedText>
               <ThemedText style={styles.statLabel}>متوسط الطلب</ThemedText>
             </View>
           </View>
 
           {/* Bar chart */}
           {dailySales.length > 0 ? (
-            <View style={[styles.section, { backgroundColor: theme.backgroundDefault }]}>
+            <View
+              style={[
+                styles.section,
+                { backgroundColor: theme.backgroundDefault },
+              ]}
+            >
               <View style={styles.sectionHeader}>
                 <Feather name="bar-chart-2" size={16} color={PURPLE} />
-                <ThemedText style={styles.sectionTitle}>المبيعات اليومية</ThemedText>
+                <ThemedText style={styles.sectionTitle}>
+                  المبيعات اليومية
+                </ThemedText>
               </View>
               <BarChart data={dailySales} />
             </View>
@@ -279,10 +364,17 @@ export default function VendorWalletScreen() {
 
           {/* Recent sales */}
           {recentSales.length > 0 ? (
-            <View style={[styles.section, { backgroundColor: theme.backgroundDefault }]}>
+            <View
+              style={[
+                styles.section,
+                { backgroundColor: theme.backgroundDefault },
+              ]}
+            >
               <View style={styles.sectionHeader}>
                 <Feather name="list" size={16} color={PURPLE} />
-                <ThemedText style={styles.sectionTitle}>آخر المبيعات</ThemedText>
+                <ThemedText style={styles.sectionTitle}>
+                  آخر المبيعات
+                </ThemedText>
               </View>
               {recentSales.map((sale, i) => (
                 <View
@@ -294,25 +386,50 @@ export default function VendorWalletScreen() {
                   ]}
                 >
                   <View style={styles.saleLeft}>
-                    <ThemedText style={styles.saleAmount}>{formatPrice(sale.subtotal)}</ThemedText>
+                    <ThemedText style={styles.saleAmount}>
+                      {formatPrice(sale.subtotal)}
+                    </ThemedText>
                     {sale.netEarning !== undefined ? (
-                      <ThemedText style={[styles.saleMeta, { color: AppColors.success, fontFamily: "Cairo_700Bold" }]}>
+                      <ThemedText
+                        style={[
+                          styles.saleMeta,
+                          {
+                            color: AppColors.success,
+                            fontFamily: "Cairo_700Bold",
+                          },
+                        ]}
+                      >
                         صافي: {formatPrice(sale.netEarning)}
                       </ThemedText>
                     ) : null}
-                    <View style={[styles.saleBadge, { backgroundColor: LIGHT_PURPLE }]}>
-                      <ThemedText style={[styles.saleBadgeText, { color: PURPLE }]}>
+                    <View
+                      style={[
+                        styles.saleBadge,
+                        { backgroundColor: LIGHT_PURPLE },
+                      ]}
+                    >
+                      <ThemedText
+                        style={[styles.saleBadgeText, { color: PURPLE }]}
+                      >
                         {STATUS_LABELS[sale.status] || sale.status}
                       </ThemedText>
                     </View>
                   </View>
                   <View style={styles.saleRight}>
-                    <ThemedText style={styles.saleDate}>{formatFullDate(sale.date)}</ThemedText>
-                    <ThemedText style={styles.saleMeta}>
-                      {sale.itemCount} منتج · {sale.customerPhone.slice(-4).padStart(sale.customerPhone.length, "*")}
+                    <ThemedText style={styles.saleDate}>
+                      {formatFullDate(sale.date)}
                     </ThemedText>
-                    {sale.commissionRate !== undefined && sale.commissionRate > 0 ? (
-                      <ThemedText style={[styles.saleMeta, { color: AppColors.error }]}>
+                    <ThemedText style={styles.saleMeta}>
+                      {sale.itemCount} منتج ·{" "}
+                      {sale.customerPhone
+                        .slice(-4)
+                        .padStart(sale.customerPhone.length, "*")}
+                    </ThemedText>
+                    {sale.commissionRate !== undefined &&
+                    sale.commissionRate > 0 ? (
+                      <ThemedText
+                        style={[styles.saleMeta, { color: AppColors.error }]}
+                      >
                         عمولة {sale.commissionRate}%
                       </ThemedText>
                     ) : null}
@@ -322,9 +439,18 @@ export default function VendorWalletScreen() {
             </View>
           ) : (
             <View style={styles.emptyState}>
-              <MaterialCommunityIcons name="wallet-outline" size={52} color={PURPLE} style={{ opacity: 0.25 }} />
-              <ThemedText style={[styles.emptyTitle, { color: theme.text }]}>لا توجد مبيعات بعد</ThemedText>
-              <ThemedText style={[styles.emptySub, { color: theme.textSecondary }]}>
+              <MaterialCommunityIcons
+                name="wallet-outline"
+                size={52}
+                color={PURPLE}
+                style={{ opacity: 0.25 }}
+              />
+              <ThemedText style={[styles.emptyTitle, { color: theme.text }]}>
+                لا توجد مبيعات بعد
+              </ThemedText>
+              <ThemedText
+                style={[styles.emptySub, { color: theme.textSecondary }]}
+              >
                 ستظهر هنا مبيعاتك بعد اكتمال أول طلب
               </ThemedText>
             </View>
@@ -336,49 +462,146 @@ export default function VendorWalletScreen() {
 }
 
 const styles = StyleSheet.create({
-  loader: { flex: 1, alignItems: "center", justifyContent: "center", paddingTop: 60 },
+  loader: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingTop: 60,
+  },
   periodRow: {
-    flexDirection: "row-reverse", gap: 8, backgroundColor: AppColors.gray100,
-    borderRadius: 14, padding: 4,
+    flexDirection: "row-reverse",
+    gap: 8,
+    backgroundColor: AppColors.gray100,
+    borderRadius: 14,
+    padding: 4,
   },
   periodBtn: {
-    flex: 1, paddingVertical: 9, borderRadius: 10,
+    flex: 1,
+    paddingVertical: 9,
+    borderRadius: 10,
     alignItems: "center",
   },
   periodBtnActive: { backgroundColor: PURPLE },
-  periodText: { fontFamily: "Cairo_700Bold", fontSize: 13, color: AppColors.gray500 },
+  periodText: {
+    fontFamily: "Cairo_700Bold",
+    fontSize: 13,
+    color: AppColors.gray500,
+  },
   periodTextActive: { color: AppColors.white },
   revenueCard: {
-    borderRadius: 20, padding: 24, alignItems: "center", gap: 6,
+    borderRadius: 20,
+    padding: 24,
+    alignItems: "center",
+    gap: 6,
   },
-  revenueLabel: { fontFamily: "Cairo_400Regular", fontSize: 14, color: AppColors.textOnBrandMuted, textAlign: "center" },
-  revenueValue: { fontFamily: "Cairo_700Bold", fontSize: 30, lineHeight: 42, includeFontPadding: true, color: AppColors.white, textAlign: "center" },
-  revenuePeriod: { fontFamily: "Cairo_400Regular", fontSize: 12, color: AppColors.iconOnBrand, textAlign: "center" },
+  revenueLabel: {
+    fontFamily: "Cairo_400Regular",
+    fontSize: 14,
+    color: AppColors.textOnBrandMuted,
+    textAlign: "center",
+  },
+  revenueValue: {
+    fontFamily: "Cairo_700Bold",
+    fontSize: 30,
+    lineHeight: 42,
+    includeFontPadding: true,
+    color: AppColors.white,
+    textAlign: "center",
+  },
+  revenuePeriod: {
+    fontFamily: "Cairo_400Regular",
+    fontSize: 12,
+    color: AppColors.iconOnBrand,
+    textAlign: "center",
+  },
   statsRow: { flexDirection: "row-reverse", gap: 10 },
   statCard: {
-    flex: 1, borderRadius: 20, padding: 16, alignItems: "center", gap: 6,
-    shadowColor: AppColors.black, shadowOpacity: 0.05, shadowRadius: 10, shadowOffset: { width: 0, height: 3 },
+    flex: 1,
+    borderRadius: 20,
+    padding: 16,
+    alignItems: "center",
+    gap: 6,
+    shadowColor: AppColors.black,
+    shadowOpacity: 0.05,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 3 },
     elevation: 2,
   },
-  statValue: { fontFamily: "Cairo_700Bold", fontSize: 20, lineHeight: 30, includeFontPadding: true, color: PURPLE, textAlign: "center" },
-  statLabel: { fontFamily: "Cairo_400Regular", fontSize: 12, color: AppColors.gray500, textAlign: "center" },
+  statValue: {
+    fontFamily: "Cairo_700Bold",
+    fontSize: 20,
+    lineHeight: 30,
+    includeFontPadding: true,
+    color: PURPLE,
+    textAlign: "center",
+  },
+  statLabel: {
+    fontFamily: "Cairo_400Regular",
+    fontSize: 12,
+    color: AppColors.gray500,
+    textAlign: "center",
+  },
   section: {
-    borderRadius: 20, padding: 16,
-    shadowColor: AppColors.black, shadowOpacity: 0.04, shadowRadius: 8, shadowOffset: { width: 0, height: 2 },
+    borderRadius: 20,
+    padding: 16,
+    shadowColor: AppColors.black,
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 2 },
     elevation: 2,
   },
-  sectionHeader: { flexDirection: "row-reverse", alignItems: "center", gap: 8, marginBottom: 12 },
-  sectionTitle: { fontFamily: "Cairo_700Bold", fontSize: 14, color: AppColors.gray800 },
-  saleRow: { flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between", paddingVertical: 10 },
+  sectionHeader: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 12,
+  },
+  sectionTitle: {
+    fontFamily: "Cairo_700Bold",
+    fontSize: 14,
+    color: AppColors.gray800,
+  },
+  saleRow: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: 10,
+  },
   saleRowBorder: { borderBottomWidth: 1 },
   saleLeft: { alignItems: "flex-end", gap: 4 },
   saleRight: { alignItems: "flex-start", gap: 2 },
-  saleAmount: { fontFamily: "Cairo_700Bold", fontSize: 15, color: PURPLE, textAlign: "right" },
+  saleAmount: {
+    fontFamily: "Cairo_700Bold",
+    fontSize: 15,
+    color: PURPLE,
+    textAlign: "right",
+  },
   saleBadge: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 8 },
   saleBadgeText: { fontFamily: "Cairo_700Bold", fontSize: 10 },
-  saleDate: { fontFamily: "Cairo_700Bold", fontSize: 12, color: AppColors.gray700 },
-  saleMeta: { fontFamily: "Cairo_400Regular", fontSize: 11, color: AppColors.gray400 },
-  emptyState: { alignItems: "center", justifyContent: "center", paddingVertical: 48, gap: 10 },
-  emptyTitle: { fontFamily: "Cairo_700Bold", fontSize: 17, textAlign: "center" },
-  emptySub: { fontFamily: "Cairo_400Regular", fontSize: 13, textAlign: "center" },
+  saleDate: {
+    fontFamily: "Cairo_700Bold",
+    fontSize: 12,
+    color: AppColors.gray700,
+  },
+  saleMeta: {
+    fontFamily: "Cairo_400Regular",
+    fontSize: 11,
+    color: AppColors.gray400,
+  },
+  emptyState: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 48,
+    gap: 10,
+  },
+  emptyTitle: {
+    fontFamily: "Cairo_700Bold",
+    fontSize: 17,
+    textAlign: "center",
+  },
+  emptySub: {
+    fontFamily: "Cairo_400Regular",
+    fontSize: 13,
+    textAlign: "center",
+  },
 });

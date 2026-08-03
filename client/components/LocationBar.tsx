@@ -41,9 +41,17 @@ function LocationBarComponent() {
       const loc = await Location.getCurrentPositionAsync({
         accuracy: Location.Accuracy.Balanced,
       });
-      const address = await reverseGeocodeArabic(loc.coords.latitude, loc.coords.longitude);
-      setSavedLocation({ latitude: loc.coords.latitude, longitude: loc.coords.longitude, address });
-    } catch {} finally {
+      const address = await reverseGeocodeArabic(
+        loc.coords.latitude,
+        loc.coords.longitude,
+      );
+      setSavedLocation({
+        latitude: loc.coords.latitude,
+        longitude: loc.coords.longitude,
+        address,
+      });
+    } catch {
+    } finally {
       setAutoDetecting(false);
     }
   };
@@ -55,7 +63,11 @@ function LocationBarComponent() {
       : "حدد موقعك";
 
   return (
-    <Pressable style={styles.row} onPress={() => navigation.navigate("MapPicker")} testID="button-location-bar">
+    <Pressable
+      style={styles.row}
+      onPress={() => navigation.navigate("MapPicker")}
+      testID="button-location-bar"
+    >
       <View style={styles.rightGroup}>
         <View style={styles.pinIcon}>
           <Feather name="map-pin" size={15} color={AppColors.primary} />
@@ -63,7 +75,9 @@ function LocationBarComponent() {
         <ThemedText style={styles.label}>التوصيل إلى</ThemedText>
       </View>
 
-      <ThemedText style={styles.address} numberOfLines={1}>{displayAddress}</ThemedText>
+      <ThemedText style={styles.address} numberOfLines={1}>
+        {displayAddress}
+      </ThemedText>
 
       <Feather name="chevron-down" size={13} color={AppColors.primary} />
     </Pressable>

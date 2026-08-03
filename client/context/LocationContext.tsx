@@ -1,4 +1,12 @@
-import React, { createContext, useContext, useState, useEffect, useCallback, useMemo, ReactNode } from "react";
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  useCallback,
+  useMemo,
+  ReactNode,
+} from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 interface SavedLocation {
@@ -22,7 +30,9 @@ const LocationContext = createContext<LocationContextType>({
 const STORAGE_KEY = "onway_saved_location";
 
 export function LocationProvider({ children }: { children: ReactNode }) {
-  const [savedLocation, setSavedLocationState] = useState<SavedLocation | null>(null);
+  const [savedLocation, setSavedLocationState] = useState<SavedLocation | null>(
+    null,
+  );
 
   useEffect(() => {
     AsyncStorage.getItem(STORAGE_KEY).then((data) => {

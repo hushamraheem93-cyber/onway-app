@@ -59,7 +59,12 @@ async function main() {
   console.log("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
   console.log("⚠️  لم يُنشأ الـ bucket تلقائياً.");
   console.log("   يجب إنشاؤه يدوياً من Firebase Console:");
-  console.log("   https://console.firebase.google.com/project/" + (JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT || "{}").project_id || "YOUR_PROJECT") + "/storage");
+  console.log(
+    "   https://console.firebase.google.com/project/" +
+      (JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT || "{}").project_id ||
+        "YOUR_PROJECT") +
+      "/storage",
+  );
   console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
   process.exit(1);
 }

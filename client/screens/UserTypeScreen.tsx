@@ -9,12 +9,17 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
-import { Feather, MaterialIcons, FontAwesome5, MaterialCommunityIcons } from "@expo/vector-icons";
+import {
+  Feather,
+  MaterialIcons,
+  FontAwesome5,
+  MaterialCommunityIcons,
+} from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 
 import { ThemedText } from "@/components/ThemedText";
 import { useAuth, UserType } from "@/context/AuthContext";
-import { AppColors, Anim} from "@/constants/theme";
+import { AppColors, Anim } from "@/constants/theme";
 
 const BRAND_ORANGE = AppColors.primary;
 const BRAND_DARK = AppColors.primaryDark;
@@ -33,14 +38,40 @@ export default function UserTypeScreen() {
   useEffect(() => {
     Animated.sequence([
       Animated.parallel([
-        Animated.timing(fadeAnim, { toValue: 1, duration: Anim.duration.slow, useNativeDriver: true }),
-        Animated.spring(headerScale, { toValue: 1, friction: 7, tension: 60, useNativeDriver: true }),
-        Animated.timing(cardSlide, { toValue: 0, duration: 600, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
+        Animated.timing(fadeAnim, {
+          toValue: 1,
+          duration: Anim.duration.slow,
+          useNativeDriver: true,
+        }),
+        Animated.spring(headerScale, {
+          toValue: 1,
+          friction: 7,
+          tension: 60,
+          useNativeDriver: true,
+        }),
+        Animated.timing(cardSlide, {
+          toValue: 0,
+          duration: 600,
+          easing: Easing.out(Easing.cubic),
+          useNativeDriver: true,
+        }),
       ]),
       Animated.stagger(100, [
-        Animated.spring(card1Anim, { toValue: 1, friction: 6, useNativeDriver: true }),
-        Animated.spring(card2Anim, { toValue: 1, friction: 6, useNativeDriver: true }),
-        Animated.spring(card3Anim, { toValue: 1, friction: 6, useNativeDriver: true }),
+        Animated.spring(card1Anim, {
+          toValue: 1,
+          friction: 6,
+          useNativeDriver: true,
+        }),
+        Animated.spring(card2Anim, {
+          toValue: 1,
+          friction: 6,
+          useNativeDriver: true,
+        }),
+        Animated.spring(card3Anim, {
+          toValue: 1,
+          friction: 6,
+          useNativeDriver: true,
+        }),
       ]),
     ]).start();
   }, []);
@@ -54,7 +85,10 @@ export default function UserTypeScreen() {
     <View style={styles.container}>
       <LinearGradient
         colors={[BRAND_ORANGE, BRAND_DARK]}
-        style={[styles.topSection, { paddingTop: Math.max(insets.top + 20, 80) }]}
+        style={[
+          styles.topSection,
+          { paddingTop: Math.max(insets.top + 20, 80) },
+        ]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
       >
@@ -82,8 +116,12 @@ export default function UserTypeScreen() {
           <View style={styles.logoWrap}>
             <ThemedText style={styles.logoText}>OnWay</ThemedText>
           </View>
-          <ThemedText style={styles.headerTitle}>كيف تود استخدام التطبيق؟</ThemedText>
-          <ThemedText style={styles.headerSub}>اختر نوع حسابك للمتابعة</ThemedText>
+          <ThemedText style={styles.headerTitle}>
+            كيف تود استخدام التطبيق؟
+          </ThemedText>
+          <ThemedText style={styles.headerSub}>
+            اختر نوع حسابك للمتابعة
+          </ThemedText>
         </Animated.View>
       </LinearGradient>
 
@@ -103,16 +141,25 @@ export default function UserTypeScreen() {
           contentContainerStyle={{ paddingBottom: insets.bottom + 24 }}
         >
           {/* Customer */}
-          <Animated.View style={{ opacity: card1Anim, transform: [{ scale: card1Anim }] }}>
+          <Animated.View
+            style={{ opacity: card1Anim, transform: [{ scale: card1Anim }] }}
+          >
             <Pressable
-              style={({ pressed }) => [styles.typeCard, pressed ? styles.typeCardPressed : undefined]}
+              style={({ pressed }) => [
+                styles.typeCard,
+                pressed ? styles.typeCardPressed : undefined,
+              ]}
               onPress={() => handleSelect("customer")}
               testID="button-customer"
               accessibilityRole="button"
               accessibilityLabel="حساب زبون — تصفح المنتجات واطلب التوصيل"
             >
               <View style={styles.cardArrow}>
-                <MaterialIcons name="keyboard-arrow-left" size={24} color={AppColors.gray400} />
+                <MaterialIcons
+                  name="keyboard-arrow-left"
+                  size={24}
+                  color={AppColors.gray400}
+                />
               </View>
               <View style={styles.cardCenter}>
                 <ThemedText style={styles.cardTitle}>زبون</ThemedText>
@@ -121,24 +168,42 @@ export default function UserTypeScreen() {
                 </ThemedText>
               </View>
               <View style={styles.cardLeft}>
-                <View style={[styles.iconCircle, { backgroundColor: AppColors.secondary }]}>
-                  <MaterialIcons name="person" size={30} color={AppColors.primary} />
+                <View
+                  style={[
+                    styles.iconCircle,
+                    { backgroundColor: AppColors.secondary },
+                  ]}
+                >
+                  <MaterialIcons
+                    name="person"
+                    size={30}
+                    color={AppColors.primary}
+                  />
                 </View>
               </View>
             </Pressable>
           </Animated.View>
 
           {/* Vendor */}
-          <Animated.View style={{ opacity: card2Anim, transform: [{ scale: card2Anim }] }}>
+          <Animated.View
+            style={{ opacity: card2Anim, transform: [{ scale: card2Anim }] }}
+          >
             <Pressable
-              style={({ pressed }) => [styles.typeCard, pressed ? styles.typeCardPressed : undefined]}
+              style={({ pressed }) => [
+                styles.typeCard,
+                pressed ? styles.typeCardPressed : undefined,
+              ]}
               onPress={() => handleSelect("vendor")}
               testID="button-vendor"
               accessibilityRole="button"
               accessibilityLabel="حساب صاحب متجر — أضف منتجاتك وبِع عبر OnWay"
             >
               <View style={styles.cardArrow}>
-                <MaterialIcons name="keyboard-arrow-left" size={24} color={AppColors.gray400} />
+                <MaterialIcons
+                  name="keyboard-arrow-left"
+                  size={24}
+                  color={AppColors.gray400}
+                />
               </View>
               <View style={styles.cardCenter}>
                 <ThemedText style={styles.cardTitle}>صاحب متجر</ThemedText>
@@ -146,28 +211,48 @@ export default function UserTypeScreen() {
                   أضف منتجاتك وبع عبر OnWay لآلاف الزبائن
                 </ThemedText>
                 <View style={styles.vendorBadge}>
-                  <ThemedText style={styles.vendorBadgeText}>شريك تجاري</ThemedText>
+                  <ThemedText style={styles.vendorBadgeText}>
+                    شريك تجاري
+                  </ThemedText>
                 </View>
               </View>
               <View style={styles.cardLeft}>
-                <View style={[styles.iconCircle, { backgroundColor: AppColors.vendorPurpleLight }]}>
-                  <MaterialCommunityIcons name="store" size={30} color={AppColors.vendorPurple} />
+                <View
+                  style={[
+                    styles.iconCircle,
+                    { backgroundColor: AppColors.vendorPurpleLight },
+                  ]}
+                >
+                  <MaterialCommunityIcons
+                    name="store"
+                    size={30}
+                    color={AppColors.vendorPurple}
+                  />
                 </View>
               </View>
             </Pressable>
           </Animated.View>
 
           {/* Driver */}
-          <Animated.View style={{ opacity: card3Anim, transform: [{ scale: card3Anim }] }}>
+          <Animated.View
+            style={{ opacity: card3Anim, transform: [{ scale: card3Anim }] }}
+          >
             <Pressable
-              style={({ pressed }) => [styles.typeCard, pressed ? styles.typeCardPressed : undefined]}
+              style={({ pressed }) => [
+                styles.typeCard,
+                pressed ? styles.typeCardPressed : undefined,
+              ]}
               onPress={() => handleSelect("driver")}
               testID="button-driver"
               accessibilityRole="button"
               accessibilityLabel="حساب سائق توصيل — انضم لفريق التوصيل واكسب المال"
             >
               <View style={styles.cardArrow}>
-                <MaterialIcons name="keyboard-arrow-left" size={24} color={AppColors.gray400} />
+                <MaterialIcons
+                  name="keyboard-arrow-left"
+                  size={24}
+                  color={AppColors.gray400}
+                />
               </View>
               <View style={styles.cardCenter}>
                 <ThemedText style={styles.cardTitle}>سائق توصيل</ThemedText>
@@ -176,8 +261,17 @@ export default function UserTypeScreen() {
                 </ThemedText>
               </View>
               <View style={styles.cardLeft}>
-                <View style={[styles.iconCircle, { backgroundColor: AppColors.successLight }]}>
-                  <FontAwesome5 name="motorcycle" size={28} color={AppColors.statusCyan} />
+                <View
+                  style={[
+                    styles.iconCircle,
+                    { backgroundColor: AppColors.successLight },
+                  ]}
+                >
+                  <FontAwesome5
+                    name="motorcycle"
+                    size={28}
+                    color={AppColors.statusCyan}
+                  />
                 </View>
               </View>
             </Pressable>

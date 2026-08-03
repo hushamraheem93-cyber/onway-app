@@ -1,5 +1,12 @@
 import React, { useMemo, useContext } from "react";
-import { StyleSheet, FlatList, View, ActivityIndicator, Pressable, Dimensions } from "react-native";
+import {
+  StyleSheet,
+  FlatList,
+  View,
+  ActivityIndicator,
+  Pressable,
+  Dimensions,
+} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { BottomTabBarHeightContext } from "@react-navigation/bottom-tabs";
@@ -11,7 +18,13 @@ import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 
 import { useTheme } from "@/hooks/useTheme";
-import { Spacing, BorderRadius, AppColors, FontWeight, Shadows} from "@/constants/theme";
+import {
+  Spacing,
+  BorderRadius,
+  AppColors,
+  FontWeight,
+  Shadows,
+} from "@/constants/theme";
 import { Product } from "@/constants/categories";
 import { ProductCard } from "@/components/ProductCard";
 import { EmptyState } from "@/components/EmptyState";
@@ -42,7 +55,6 @@ interface Vendor {
   isOpen: boolean;
 }
 
-
 export default function ProductsScreen() {
   const insets = useSafeAreaInsets();
   const headerHeight = useHeaderHeight();
@@ -53,7 +65,9 @@ export default function ProductsScreen() {
   const { categoryId, searchQuery, restaurant } = route.params;
   const { items } = useCart();
 
-  const { data: allProducts = [], isLoading: productsLoading } = useQuery<Product[]>({
+  const { data: allProducts = [], isLoading: productsLoading } = useQuery<
+    Product[]
+  >({
     queryKey: ["/api/products"],
   });
 
@@ -63,20 +77,33 @@ export default function ProductsScreen() {
     refetchOnMount: true,
   });
 
-  const isRestaurantsCategory = categoryId === "restaurants" && !restaurant && !searchQuery;
+  const isRestaurantsCategory =
+    categoryId === "restaurants" && !restaurant && !searchQuery;
 
   const restaurantList = useMemo(() => {
     if (!isRestaurantsCategory) return [];
     if (vendors.length > 0) return vendors;
-    const restProducts = allProducts.filter(p => p.categoryId === "restaurants" && p.restaurant);
+    const restProducts = allProducts.filter(
+      (p) => p.categoryId === "restaurants" && p.restaurant,
+    );
     const restMap = new Map<string, number>();
-    restProducts.forEach(p => {
+    restProducts.forEach((p) => {
       restMap.set(p.restaurant!, (restMap.get(p.restaurant!) || 0) + 1);
     });
-    return Array.from(restMap.entries()).map(([name, count]) => ({
-      id: name, name, location: "", whatsappNumber: "", commissionPercent: 10,
-      image: "", rating: null, deliveryTime: "30-45", isOpen: true,
-    } as Vendor));
+    return Array.from(restMap.entries()).map(
+      ([name, count]) =>
+        ({
+          id: name,
+          name,
+          location: "",
+          whatsappNumber: "",
+          commissionPercent: 10,
+          image: "",
+          rating: null,
+          deliveryTime: "30-45",
+          isOpen: true,
+        }) as Vendor,
+    );
   }, [isRestaurantsCategory, allProducts, vendors]);
 
   const products = useMemo(() => {
@@ -85,12 +112,14 @@ export default function ProductsScreen() {
       return allProducts.filter(
         (product) =>
           product.name.includes(searchQuery) ||
-          product.description.includes(searchQuery)
+          product.description.includes(searchQuery),
       );
     }
     if (categoryId === "restaurants" && restaurant) {
       return allProducts.filter(
-        (product) => product.categoryId === "restaurants" && product.restaurant === restaurant
+        (product) =>
+          product.categoryId === "restaurants" &&
+          product.restaurant === restaurant,
       );
     }
     if (categoryId) {
@@ -99,11 +128,19 @@ export default function ProductsScreen() {
     return allProducts;
   }, [categoryId, searchQuery, restaurant, allProducts, isRestaurantsCategory]);
 
-  const isLoading = productsLoading || (isRestaurantsCategory && vendorsLoading);
+  const isLoading =
+    productsLoading || (isRestaurantsCategory && vendorsLoading);
 
   if (isLoading) {
     return (
-      <View style={{ flex: 1, backgroundColor: theme.backgroundRoot, justifyContent: "center", alignItems: "center" }}>
+      <View
+        style={{
+          flex: 1,
+          backgroundColor: theme.backgroundRoot,
+          justifyContent: "center",
+          alignItems: "center",
+        }}
+      >
         <ActivityIndicator size="large" color={theme.primary} />
       </View>
     );
@@ -118,7 +155,8 @@ export default function ProductsScreen() {
           style={{ flex: 1 }}
           contentContainerStyle={{
             paddingTop: headerHeight + Spacing.lg,
-            paddingBottom: tabBarHeight + Spacing.xl + (items.length > 0 ? 70 : 0),
+            paddingBottom:
+              tabBarHeight + Spacing.xl + (items.length > 0 ? 70 : 0),
             paddingHorizontal: Spacing.md,
             flexGrow: 1,
           }}
@@ -128,11 +166,13 @@ export default function ProductsScreen() {
             <VendorCard
               vendor={item}
               theme={theme}
-              onPress={() => navigation.navigate("Products", {
-                categoryId: "restaurants",
-                categoryName: item.name,
-                restaurant: item.name,
-              })}
+              onPress={() =>
+                navigation.navigate("Products", {
+                  categoryId: "restaurants",
+                  categoryName: item.name,
+                  restaurant: item.name,
+                })
+              }
             />
           )}
           keyExtractor={(item) => item.id}
@@ -142,7 +182,11 @@ export default function ProductsScreen() {
           maxToRenderPerBatch={6}
           removeClippedSubviews={true}
           ListEmptyComponent={() => (
-            <EmptyState icon="restaurant-outline" title="لا توجد مطاعم" subtitle="لم يتم إضافة مطاعم بعد" />
+            <EmptyState
+              icon="restaurant-outline"
+              title="لا توجد مطاعم"
+              subtitle="لم يتم إضافة مطاعم بعد"
+            />
           )}
         />
         <FloatingCartBar bottomOffset={tabBarHeight + 8} />
@@ -158,14 +202,17 @@ export default function ProductsScreen() {
         style={{ flex: 1 }}
         contentContainerStyle={{
           paddingTop: headerHeight + Spacing.lg,
-          paddingBottom: tabBarHeight + Spacing.xl + (items.length > 0 ? 70 : 0),
+          paddingBottom:
+            tabBarHeight + Spacing.xl + (items.length > 0 ? 70 : 0),
           paddingHorizontal: Spacing.md,
           flexGrow: 1,
         }}
         columnWrapperStyle={styles.columnWrapper}
         scrollIndicatorInsets={{ bottom: insets.bottom }}
         data={products}
-        renderItem={({ item }) => <ProductCard product={item} width={GRID_CARD_WIDTH} />}
+        renderItem={({ item }) => (
+          <ProductCard product={item} width={GRID_CARD_WIDTH} />
+        )}
         keyExtractor={(item) => item.id}
         numColumns={2}
         showsVerticalScrollIndicator={false}
@@ -174,7 +221,10 @@ export default function ProductsScreen() {
         maxToRenderPerBatch={8}
         removeClippedSubviews={true}
         ListEmptyComponent={() => (
-          <EmptyState title="لا توجد منتجات" subtitle="لم نجد منتجات في هذا القسم" />
+          <EmptyState
+            title="لا توجد منتجات"
+            subtitle="لم نجد منتجات في هذا القسم"
+          />
         )}
       />
       <FloatingCartBar bottomOffset={tabBarHeight + 8} />
@@ -182,11 +232,22 @@ export default function ProductsScreen() {
   );
 }
 
-function VendorCard({ vendor, theme, onPress }: { vendor: Vendor; theme: any; onPress: () => void }) {
+function VendorCard({
+  vendor,
+  theme,
+  onPress,
+}: {
+  vendor: Vendor;
+  theme: any;
+  onPress: () => void;
+}) {
   return (
     <Pressable
       testID={`restaurant-card-${vendor.id}`}
-      style={[styles.vendorCard, { backgroundColor: theme.backgroundSecondary }]}
+      style={[
+        styles.vendorCard,
+        { backgroundColor: theme.backgroundSecondary },
+      ]}
       onPress={onPress}
       accessibilityRole="button"
       accessibilityLabel={`مطعم ${vendor.name}`}
@@ -208,10 +269,16 @@ function VendorCard({ vendor, theme, onPress }: { vendor: Vendor; theme: any; on
             <Feather name="coffee" size={36} color={AppColors.white} />
           </LinearGradient>
         )}
-        <View style={[
-          styles.openBadge,
-          { backgroundColor: vendor.isOpen ? AppColors.success : AppColors.error },
-        ]}>
+        <View
+          style={[
+            styles.openBadge,
+            {
+              backgroundColor: vendor.isOpen
+                ? AppColors.success
+                : AppColors.error,
+            },
+          ]}
+        >
           <ThemedText style={styles.openBadgeText}>
             {vendor.isOpen ? "مفتوح" : "مغلق"}
           </ThemedText>
@@ -220,7 +287,11 @@ function VendorCard({ vendor, theme, onPress }: { vendor: Vendor; theme: any; on
 
       <View style={styles.vendorBody}>
         <View style={styles.vendorHeader}>
-          <ThemedText type="h4" style={{ color: theme.text, flex: 1, textAlign: "right" }} numberOfLines={1}>
+          <ThemedText
+            type="h4"
+            style={{ color: theme.text, flex: 1, textAlign: "right" }}
+            numberOfLines={1}
+          >
             {vendor.name}
           </ThemedText>
           <Feather name="chevron-left" size={18} color={theme.textSecondary} />
@@ -228,7 +299,15 @@ function VendorCard({ vendor, theme, onPress }: { vendor: Vendor; theme: any; on
 
         {vendor.location ? (
           <View style={styles.vendorRow}>
-            <ThemedText type="small" style={{ color: theme.textSecondary, flex: 1, textAlign: "right" }} numberOfLines={1}>
+            <ThemedText
+              type="small"
+              style={{
+                color: theme.textSecondary,
+                flex: 1,
+                textAlign: "right",
+              }}
+              numberOfLines={1}
+            >
               {vendor.location}
             </ThemedText>
             <Feather name="map-pin" size={12} color={theme.textSecondary} />

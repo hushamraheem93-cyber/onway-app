@@ -21,10 +21,19 @@ import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollV
 import { useTheme } from "@/hooks/useTheme";
 import { useAuth } from "@/context/AuthContext";
 import { useLocation } from "@/context/LocationContext";
-import { AppColors, Spacing, BorderRadius, Shadows, FontWeight} from "@/constants/theme";
+import {
+  AppColors,
+  Spacing,
+  BorderRadius,
+  Shadows,
+  FontWeight,
+} from "@/constants/theme";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
 
-type NavProp = NativeStackNavigationProp<RootStackParamList, "ProfileCompletion">;
+type NavProp = NativeStackNavigationProp<
+  RootStackParamList,
+  "ProfileCompletion"
+>;
 
 const REGIONS = [
   { id: "daloaiya", name: "الضلوعية المركز" },
@@ -63,7 +72,7 @@ export default function ProfileCompletionScreen() {
           longitude: savedLocation.longitude,
         });
       }
-    }, [savedLocation])
+    }, [savedLocation]),
   );
 
   const isFormValid = fullName.trim() && gender && region && pickedAddress;
@@ -84,7 +93,7 @@ export default function ProfileCompletionScreen() {
           latitude: pickedAddress.latitude,
           longitude: pickedAddress.longitude,
         },
-        profileImage || undefined
+        profileImage || undefined,
       );
     } catch (error: any) {
       Alert.alert("خطأ", error.message || "حدث خطأ أثناء حفظ البيانات");
@@ -162,7 +171,10 @@ export default function ProfileCompletionScreen() {
         bottomOffset={50}
       >
         <Pressable
-          style={[styles.backButton, { backgroundColor: theme.backgroundDefault }]}
+          style={[
+            styles.backButton,
+            { backgroundColor: theme.backgroundDefault },
+          ]}
           onPress={() => {
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
             logout();
@@ -172,7 +184,9 @@ export default function ProfileCompletionScreen() {
           accessibilityLabel="رجوع"
         >
           <Feather name="arrow-right" size={22} color={theme.text} />
-          <ThemedText type="body" style={{ fontWeight: FontWeight.semiBold }}>رجوع</ThemedText>
+          <ThemedText type="body" style={{ fontWeight: FontWeight.semiBold }}>
+            رجوع
+          </ThemedText>
         </Pressable>
 
         <View style={styles.header}>
@@ -190,26 +204,52 @@ export default function ProfileCompletionScreen() {
                 contentFit="cover"
               />
             ) : (
-              <View style={[styles.avatarPlaceholder, { backgroundColor: AppColors.primary }]}>
+              <View
+                style={[
+                  styles.avatarPlaceholder,
+                  { backgroundColor: AppColors.primary },
+                ]}
+              >
                 <Feather name="user" size={40} color={AppColors.white} />
               </View>
             )}
-            <View style={[styles.cameraButton, { backgroundColor: theme.backgroundDefault }]}>
+            <View
+              style={[
+                styles.cameraButton,
+                { backgroundColor: theme.backgroundDefault },
+              ]}
+            >
               <Feather name="camera" size={16} color={AppColors.primary} />
             </View>
           </Pressable>
-          <ThemedText type="small" style={[styles.avatarHint, { color: theme.textSecondary }]}>
+          <ThemedText
+            type="small"
+            style={[styles.avatarHint, { color: theme.textSecondary }]}
+          >
             اضغط لإضافة صورة
           </ThemedText>
-          <ThemedText type="h2" style={styles.title}>أكمل ملفك الشخصي</ThemedText>
-          <ThemedText type="body" style={[styles.subtitle, { color: theme.textSecondary }]}>
+          <ThemedText type="h2" style={styles.title}>
+            أكمل ملفك الشخصي
+          </ThemedText>
+          <ThemedText
+            type="body"
+            style={[styles.subtitle, { color: theme.textSecondary }]}
+          >
             يرجى إدخال بياناتك للمتابعة
           </ThemedText>
         </View>
 
-        <View style={[styles.card, { backgroundColor: theme.backgroundDefault }, Shadows.sm]}>
+        <View
+          style={[
+            styles.card,
+            { backgroundColor: theme.backgroundDefault },
+            Shadows.sm,
+          ]}
+        >
           <View style={styles.field}>
-            <ThemedText type="body" style={styles.label}>الاسم الكامل</ThemedText>
+            <ThemedText type="body" style={styles.label}>
+              الاسم الكامل
+            </ThemedText>
             <TextInput
               style={[
                 styles.input,
@@ -229,14 +269,20 @@ export default function ProfileCompletionScreen() {
           </View>
 
           <View style={styles.field}>
-            <ThemedText type="body" style={styles.label}>الجنس</ThemedText>
+            <ThemedText type="body" style={styles.label}>
+              الجنس
+            </ThemedText>
             <View style={styles.genderRow}>
               <Pressable
                 style={[
                   styles.genderOption,
                   {
-                    backgroundColor: gender === "female" ? AppColors.primary : theme.backgroundSecondary,
-                    borderColor: gender === "female" ? AppColors.primary : theme.border,
+                    backgroundColor:
+                      gender === "female"
+                        ? AppColors.primary
+                        : theme.backgroundSecondary,
+                    borderColor:
+                      gender === "female" ? AppColors.primary : theme.border,
                   },
                 ]}
                 onPress={() => handleGenderSelect("female")}
@@ -247,13 +293,17 @@ export default function ProfileCompletionScreen() {
                 <Feather
                   name="user"
                   size={20}
-                  color={gender === "female" ? AppColors.white : theme.textSecondary}
+                  color={
+                    gender === "female" ? AppColors.white : theme.textSecondary
+                  }
                 />
                 <ThemedText
                   type="body"
                   style={[
                     styles.genderText,
-                    { color: gender === "female" ? AppColors.white : theme.text },
+                    {
+                      color: gender === "female" ? AppColors.white : theme.text,
+                    },
                   ]}
                 >
                   أنثى
@@ -264,8 +314,12 @@ export default function ProfileCompletionScreen() {
                 style={[
                   styles.genderOption,
                   {
-                    backgroundColor: gender === "male" ? AppColors.primary : theme.backgroundSecondary,
-                    borderColor: gender === "male" ? AppColors.primary : theme.border,
+                    backgroundColor:
+                      gender === "male"
+                        ? AppColors.primary
+                        : theme.backgroundSecondary,
+                    borderColor:
+                      gender === "male" ? AppColors.primary : theme.border,
                   },
                 ]}
                 onPress={() => handleGenderSelect("male")}
@@ -276,7 +330,9 @@ export default function ProfileCompletionScreen() {
                 <Feather
                   name="user"
                   size={20}
-                  color={gender === "male" ? AppColors.white : theme.textSecondary}
+                  color={
+                    gender === "male" ? AppColors.white : theme.textSecondary
+                  }
                 />
                 <ThemedText
                   type="body"
@@ -292,7 +348,9 @@ export default function ProfileCompletionScreen() {
           </View>
 
           <View style={styles.field}>
-            <ThemedText type="body" style={styles.label}>المنطقة</ThemedText>
+            <ThemedText type="body" style={styles.label}>
+              المنطقة
+            </ThemedText>
             <Pressable
               style={[
                 styles.input,
@@ -307,7 +365,11 @@ export default function ProfileCompletionScreen() {
               accessibilityLabel={region ? `المنطقة: ${region}` : "اختر منطقتك"}
               accessibilityState={{ expanded: showRegionPicker }}
             >
-              <Feather name="chevron-down" size={20} color={theme.textSecondary} />
+              <Feather
+                name="chevron-down"
+                size={20}
+                color={theme.textSecondary}
+              />
               <ThemedText
                 type="body"
                 style={[
@@ -320,13 +382,23 @@ export default function ProfileCompletionScreen() {
             </Pressable>
 
             {showRegionPicker ? (
-              <View style={[styles.pickerContainer, { backgroundColor: theme.backgroundDefault, borderColor: theme.border }]}>
+              <View
+                style={[
+                  styles.pickerContainer,
+                  {
+                    backgroundColor: theme.backgroundDefault,
+                    borderColor: theme.border,
+                  },
+                ]}
+              >
                 {REGIONS.map((r) => (
                   <Pressable
                     key={r.id}
                     style={[
                       styles.pickerItem,
-                      region === r.name && { backgroundColor: `${AppColors.primary}20` },
+                      region === r.name && {
+                        backgroundColor: `${AppColors.primary}20`,
+                      },
                     ]}
                     onPress={() => handleRegionSelect(r.name)}
                   >
@@ -334,7 +406,11 @@ export default function ProfileCompletionScreen() {
                       {r.name}
                     </ThemedText>
                     {region === r.name ? (
-                      <Feather name="check" size={18} color={AppColors.primary} />
+                      <Feather
+                        name="check"
+                        size={18}
+                        color={AppColors.primary}
+                      />
                     ) : null}
                   </Pressable>
                 ))}
@@ -343,11 +419,19 @@ export default function ProfileCompletionScreen() {
           </View>
 
           <View style={styles.field}>
-            <ThemedText type="body" style={styles.label}>الموقع على الخريطة</ThemedText>
+            <ThemedText type="body" style={styles.label}>
+              الموقع على الخريطة
+            </ThemedText>
 
             {pickedAddress ? (
               <Pressable
-                style={[styles.locationCard, { borderColor: AppColors.primary + "40", backgroundColor: AppColors.primary + "08" }]}
+                style={[
+                  styles.locationCard,
+                  {
+                    borderColor: AppColors.primary + "40",
+                    backgroundColor: AppColors.primary + "08",
+                  },
+                ]}
                 onPress={openMapPicker}
                 testID="button-change-location"
                 accessibilityRole="button"
@@ -355,59 +439,104 @@ export default function ProfileCompletionScreen() {
               >
                 <View style={styles.locationCardLeft}>
                   <View style={styles.locationIcon}>
-                    <Feather name="map-pin" size={18} color={AppColors.primary} />
+                    <Feather
+                      name="map-pin"
+                      size={18}
+                      color={AppColors.primary}
+                    />
                   </View>
                   <View style={styles.locationTextContainer}>
-                    <ThemedText type="small" style={[styles.locationLabel, { color: theme.textSecondary }]}>
+                    <ThemedText
+                      type="small"
+                      style={[
+                        styles.locationLabel,
+                        { color: theme.textSecondary },
+                      ]}
+                    >
                       الموقع المحدد
                     </ThemedText>
-                    <ThemedText type="body" style={[styles.locationAddress, { color: theme.text }]} numberOfLines={2}>
+                    <ThemedText
+                      type="body"
+                      style={[styles.locationAddress, { color: theme.text }]}
+                      numberOfLines={2}
+                    >
                       {pickedAddress.address}
                     </ThemedText>
                   </View>
                 </View>
                 <View style={styles.changeBtn}>
-                  <ThemedText type="small" style={{ color: AppColors.primary, fontWeight: FontWeight.bold }}>
+                  <ThemedText
+                    type="small"
+                    style={{
+                      color: AppColors.primary,
+                      fontWeight: FontWeight.bold,
+                    }}
+                  >
                     تغيير
                   </ThemedText>
                 </View>
               </Pressable>
             ) : (
               <Pressable
-                style={[styles.mapButton, { borderColor: theme.border, backgroundColor: theme.backgroundSecondary }]}
+                style={[
+                  styles.mapButton,
+                  {
+                    borderColor: theme.border,
+                    backgroundColor: theme.backgroundSecondary,
+                  },
+                ]}
                 onPress={openMapPicker}
                 testID="button-pick-location"
                 accessibilityRole="button"
                 accessibilityLabel="تحديد موقعي على الخريطة"
               >
-                <View style={[styles.mapButtonIcon, { backgroundColor: AppColors.primary + "18" }]}>
+                <View
+                  style={[
+                    styles.mapButtonIcon,
+                    { backgroundColor: AppColors.primary + "18" },
+                  ]}
+                >
                   <Feather name="map-pin" size={22} color={AppColors.primary} />
                 </View>
                 <View style={styles.mapButtonText}>
-                  <ThemedText type="body" style={{ fontWeight: FontWeight.bold, color: theme.text, textAlign: "right" }}>
+                  <ThemedText
+                    type="body"
+                    style={{
+                      fontWeight: FontWeight.bold,
+                      color: theme.text,
+                      textAlign: "right",
+                    }}
+                  >
                     تحديد موقعي على الخريطة
                   </ThemedText>
-                  <ThemedText type="small" style={{ color: theme.textSecondary, textAlign: "right" }}>
+                  <ThemedText
+                    type="small"
+                    style={{ color: theme.textSecondary, textAlign: "right" }}
+                  >
                     اضغط لتحديد عنوانك بدقة
                   </ThemedText>
                 </View>
-                <Feather name="chevron-left" size={20} color={theme.textSecondary} />
+                <Feather
+                  name="chevron-left"
+                  size={20}
+                  color={theme.textSecondary}
+                />
               </Pressable>
             )}
           </View>
         </View>
 
         <Pressable
-          style={[
-            styles.saveButton,
-            !isFormValid && styles.saveButtonDisabled,
-          ]}
+          style={[styles.saveButton, !isFormValid && styles.saveButtonDisabled]}
           onPress={handleSave}
           disabled={!isFormValid || isLoading}
           testID="button-save-profile"
           accessibilityRole="button"
           accessibilityLabel="حفظ والمتابعة"
-          accessibilityState={{ disabled: !isFormValid || isLoading, busy: isLoading }}
+          accessibilityState={{
+            disabled: !isFormValid || isLoading,
+            busy: isLoading,
+          }}
         >
           {isLoading ? (
             <ActivityIndicator color={AppColors.white} />
@@ -417,13 +546,20 @@ export default function ProfileCompletionScreen() {
                 حفظ والمتابعة
               </ThemedText>
               <View style={styles.buttonIcon}>
-                <Feather name="arrow-left" size={20} color={AppColors.primary} />
+                <Feather
+                  name="arrow-left"
+                  size={20}
+                  color={AppColors.primary}
+                />
               </View>
             </>
           )}
         </Pressable>
 
-        <ThemedText type="small" style={[styles.note, { color: theme.textSecondary }]}>
+        <ThemedText
+          type="small"
+          style={[styles.note, { color: theme.textSecondary }]}
+        >
           رقم الهاتف: {phoneNumber}
         </ThemedText>
       </KeyboardAwareScrollViewCompat>

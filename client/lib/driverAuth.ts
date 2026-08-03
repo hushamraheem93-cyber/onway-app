@@ -20,7 +20,7 @@ const CUSTOMER_TOKEN_KEY = "@onway_customer_token";
  */
 export async function issueDriverToken(
   phone: string,
-  customerToken: string | null
+  customerToken: string | null,
 ): Promise<string | null> {
   try {
     const res = await fetch(new URL(MOBILE_AUTH_PATH, getApiUrl()).toString(), {
@@ -44,7 +44,11 @@ export async function issueDriverToken(
 }
 
 export async function clearDriverToken(): Promise<void> {
-  try { await removeToken(DRIVER_TOKEN_KEY); } catch { /* ignore */ }
+  try {
+    await removeToken(DRIVER_TOKEN_KEY);
+  } catch {
+    /* ignore */
+  }
 }
 
 // Self-healing: re-exchange the stored customer JWT (30-day) for a fresh driver
@@ -59,7 +63,9 @@ function reissueDriverToken(): Promise<string | null> {
     reissueInFlight = (async () => {
       try {
         const raw = await AsyncStorage.getItem(AUTH_STORAGE_KEY);
-        const phone = raw ? (JSON.parse(raw)?.phoneNumber as string | undefined) : undefined;
+        const phone = raw
+          ? (JSON.parse(raw)?.phoneNumber as string | undefined)
+          : undefined;
         if (!phone) return null;
         const customerToken = await getToken(CUSTOMER_TOKEN_KEY);
         return await issueDriverToken(String(phone), customerToken);
@@ -91,8 +97,7 @@ export function installDriverAuthInterceptor(): void {
   g.fetch = async (input: any, init: any = {}) => {
     let isDriverCall = false;
     try {
-      const url =
-        typeof input === "string" ? input : input?.url ?? "";
+      const url = typeof input === "string" ? input : (input?.url ?? "");
       isDriverCall =
         typeof url === "string" &&
         url.includes("/api/driver/") &&
@@ -103,7 +108,7 @@ export function installDriverAuthInterceptor(): void {
           const headers = new Headers(
             (init && init.headers) ||
               (typeof input !== "string" ? input?.headers : undefined) ||
-              {}
+              {},
           );
           if (!headers.has("Authorization")) {
             headers.set("Authorization", `Bearer ${token}`);

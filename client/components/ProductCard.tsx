@@ -1,5 +1,11 @@
 import React, { useRef } from "react";
-import { StyleSheet, Pressable, View, Dimensions, I18nManager } from "react-native";
+import {
+  StyleSheet,
+  Pressable,
+  View,
+  Dimensions,
+  I18nManager,
+} from "react-native";
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -13,7 +19,7 @@ import * as Haptics from "expo-haptics";
 
 import { ThemedText } from "@/components/ThemedText";
 import { useTheme } from "@/hooks/useTheme";
-import { Spacing, AppColors, Anim, FontWeight} from "@/constants/theme";
+import { Spacing, AppColors, Anim, FontWeight } from "@/constants/theme";
 import { Product } from "@/constants/categories";
 import { useCart } from "@/context/CartContext";
 import { useFavorites } from "@/context/FavoritesContext";
@@ -46,9 +52,9 @@ function ProductCardComponent({ product, onPress, width }: ProductCardProps) {
   const cardRef = useRef<View>(null);
 
   const isInCart = items.some((item) => item.product.id === product.id);
-  const cartQuantity = items.find((item) => item.product.id === product.id)?.quantity || 0;
+  const cartQuantity =
+    items.find((item) => item.product.id === product.id)?.quantity || 0;
   const isFav = isFavorite(product.id);
-
 
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }],
@@ -72,16 +78,20 @@ function ProductCardComponent({ product, onPress, width }: ProductCardProps) {
       buttonScale.value = withSpring(1, { damping: 15, stiffness: 200 });
     }, 100);
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    
+
     if (cardRef.current) {
       cardRef.current.measureInWindow((x, y, width, height) => {
         const centerX = I18nManager.isRTL
           ? SCREEN_WIDTH - x - width / 2
           : x + width / 2;
-        triggerAnimation(resolveImageUrl(product.image), centerX, y + height / 2);
+        triggerAnimation(
+          resolveImageUrl(product.image),
+          centerX,
+          y + height / 2,
+        );
       });
     }
-    
+
     addToCart(product);
   };
 
@@ -107,7 +117,7 @@ function ProductCardComponent({ product, onPress, width }: ProductCardProps) {
     favoriteScale.value = withSequence(
       withTiming(0.6, { duration: Anim.duration.instant }),
       withSpring(1.4, { damping: 4, stiffness: 300 }),
-      withSpring(1, { damping: 8, stiffness: 200 })
+      withSpring(1, { damping: 8, stiffness: 200 }),
     );
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     toggleFavorite(product);
@@ -127,7 +137,9 @@ function ProductCardComponent({ product, onPress, width }: ProductCardProps) {
     >
       {product.discount && product.discount > 0 ? (
         <View style={styles.discountBadge}>
-          <ThemedText style={styles.discountBadgeText}>-{product.discount}%</ThemedText>
+          <ThemedText style={styles.discountBadgeText}>
+            -{product.discount}%
+          </ThemedText>
         </View>
       ) : null}
       <View ref={cardRef} style={styles.imageContainer}>
@@ -164,7 +176,10 @@ function ProductCardComponent({ product, onPress, width }: ProductCardProps) {
         ) : null}
         <View style={styles.footer}>
           <View style={styles.priceBlock}>
-            <ThemedText type="h4" style={[styles.price, { color: AppColors.primary }]}>
+            <ThemedText
+              type="h4"
+              style={[styles.price, { color: AppColors.primary }]}
+            >
               {formatPrice(product.price)}
             </ThemedText>
             {product.originalPrice && product.originalPrice > product.price ? (

@@ -11,7 +11,10 @@ import {
   Keyboard,
   Modal,
 } from "react-native";
-import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+import {
+  SafeAreaView,
+  useSafeAreaInsets,
+} from "react-native-safe-area-context";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import * as Haptics from "expo-haptics";
@@ -94,7 +97,10 @@ export default function PhoneLoginScreen() {
           behavior={Platform.OS === "ios" ? "padding" : "height"}
         >
           <ScrollView
-            contentContainerStyle={[styles.scrollContent, { paddingTop: Math.max(insets.top + 20, 56) }]}
+            contentContainerStyle={[
+              styles.scrollContent,
+              { paddingTop: Math.max(insets.top + 20, 56) },
+            ]}
             keyboardShouldPersistTaps="handled"
             bounces={false}
             showsVerticalScrollIndicator={false}
@@ -119,13 +125,17 @@ export default function PhoneLoginScreen() {
               <View style={styles.logoBadge}>
                 <ThemedText style={styles.logoText}>OnWay</ThemedText>
               </View>
-              <ThemedText style={styles.tagline}>توصيل سريع وموثوق إلى باب بيتك</ThemedText>
+              <ThemedText style={styles.tagline}>
+                توصيل سريع وموثوق إلى باب بيتك
+              </ThemedText>
             </View>
 
             {/* Form sheet */}
             <View style={styles.card}>
               <ThemedText style={styles.welcome}>تسجيل الدخول</ThemedText>
-              <ThemedText style={styles.welcomeSub}>أدخل رقم هاتفك للمتابعة</ThemedText>
+              <ThemedText style={styles.welcomeSub}>
+                أدخل رقم هاتفك للمتابعة
+              </ThemedText>
 
               <ThemedText style={styles.label}>رقم الهاتف</ThemedText>
               <View style={styles.phoneRow}>
@@ -157,7 +167,11 @@ export default function PhoneLoginScreen() {
 
               {error ? (
                 <View style={styles.errorRow}>
-                  <Feather name="alert-circle" size={14} color={AppColors.error} />
+                  <Feather
+                    name="alert-circle"
+                    size={14}
+                    color={AppColors.error}
+                  />
                   <ThemedText style={styles.errorText}>{error}</ThemedText>
                 </View>
               ) : null}
@@ -180,7 +194,11 @@ export default function PhoneLoginScreen() {
                 ) : (
                   <>
                     <ThemedText style={styles.submitText}>دخول</ThemedText>
-                    <Feather name="arrow-left" size={19} color={AppColors.white} />
+                    <Feather
+                      name="arrow-left"
+                      size={19}
+                      color={AppColors.white}
+                    />
                   </>
                 )}
               </Pressable>
@@ -189,13 +207,15 @@ export default function PhoneLoginScreen() {
                 onPress={() =>
                   showInfoModal(
                     "استعادة الحساب",
-                    "أدخل رقم هاتفك واضغط دخول. سيتم توجيهك مباشرةً إلى حسابك."
+                    "أدخل رقم هاتفك واضغط دخول. سيتم توجيهك مباشرةً إلى حسابك.",
                   )
                 }
                 testID="button-forgot-password"
                 style={styles.forgotWrap}
               >
-                <ThemedText style={styles.forgotPasswordText}>هل نسيت كلمة السر؟</ThemedText>
+                <ThemedText style={styles.forgotPasswordText}>
+                  هل نسيت كلمة السر؟
+                </ThemedText>
               </Pressable>
             </View>
 
@@ -206,7 +226,7 @@ export default function PhoneLoginScreen() {
                 onPress={() =>
                   showInfoModal(
                     "إنشاء حساب جديد",
-                    "أدخل رقم هاتفك واضغط على إرسال رمز التحقق. سيتم إنشاء حسابك تلقائياً عند أول تسجيل دخول."
+                    "أدخل رقم هاتفك واضغط على إرسال رمز التحقق. سيتم إنشاء حسابك تلقائياً عند أول تسجيل دخول.",
                   )
                 }
                 testID="button-register"

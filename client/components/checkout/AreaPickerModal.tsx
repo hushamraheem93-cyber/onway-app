@@ -4,7 +4,12 @@ import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { ThemedText } from "@/components/ThemedText";
 import { useTheme } from "@/hooks/useTheme";
-import { AppColors, BorderRadius, FontWeight, Spacing } from "@/constants/theme";
+import {
+  AppColors,
+  BorderRadius,
+  FontWeight,
+  Spacing,
+} from "@/constants/theme";
 
 interface DeliveryArea {
   id: string;
@@ -21,7 +26,13 @@ interface Props {
   onClose: () => void;
 }
 
-export function AreaPickerModal({ visible, areas, selectedAreaId, onSelect, onClose }: Props) {
+export function AreaPickerModal({
+  visible,
+  areas,
+  selectedAreaId,
+  onSelect,
+  onClose,
+}: Props) {
   const { theme } = useTheme();
 
   const handleSelect = (id: string) => {
@@ -31,10 +42,19 @@ export function AreaPickerModal({ visible, areas, selectedAreaId, onSelect, onCl
   };
 
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+    <Modal
+      visible={visible}
+      transparent
+      animationType="fade"
+      onRequestClose={onClose}
+    >
       <Pressable style={styles.overlay} onPress={onClose}>
-        <View style={[styles.content, { backgroundColor: theme.backgroundDefault }]}>
-          <ThemedText type="h4" style={styles.title}>اختر منطقة التوصيل</ThemedText>
+        <View
+          style={[styles.content, { backgroundColor: theme.backgroundDefault }]}
+        >
+          <ThemedText type="h4" style={styles.title}>
+            اختر منطقة التوصيل
+          </ThemedText>
           <FlatList
             data={areas}
             keyExtractor={(item) => item.id}
@@ -44,21 +64,33 @@ export function AreaPickerModal({ visible, areas, selectedAreaId, onSelect, onCl
                 accessibilityRole="button"
                 accessibilityLabel={item.name}
                 accessibilityState={{ selected: selectedAreaId === item.id }}
-                style={[styles.item, selectedAreaId === item.id && { backgroundColor: AppColors.secondary }]}
+                style={[
+                  styles.item,
+                  selectedAreaId === item.id && {
+                    backgroundColor: AppColors.secondary,
+                  },
+                ]}
               >
                 <View style={styles.itemContent}>
                   <ThemedText
                     type="body"
                     style={[
                       styles.itemName,
-                      selectedAreaId === item.id && { color: AppColors.primary, fontWeight: FontWeight.bold },
+                      selectedAreaId === item.id && {
+                        color: AppColors.primary,
+                        fontWeight: FontWeight.bold,
+                      },
                     ]}
                   >
                     {item.name}
                   </ThemedText>
                 </View>
                 {selectedAreaId === item.id ? (
-                  <Feather name="check-circle" size={22} color={AppColors.primary} />
+                  <Feather
+                    name="check-circle"
+                    size={22}
+                    color={AppColors.primary}
+                  />
                 ) : null}
               </Pressable>
             )}

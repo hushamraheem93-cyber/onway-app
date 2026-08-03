@@ -103,24 +103,24 @@ module.exports = {
       ),
 
       // ── Process management ───────────────────────────────────────────────
-      watch: false,                // never watch in production
-      max_memory_restart: "512M",  // restart if RSS exceeds 512 MB
-      restart_delay: 3000,         // wait 3 s between crash restarts
-      max_restarts: 10,            // give up after 10 consecutive crashes
-      min_uptime: "10s",           // a restart counts only if up for 10 s
+      watch: false, // never watch in production
+      max_memory_restart: "512M", // restart if RSS exceeds 512 MB
+      restart_delay: 3000, // wait 3 s between crash restarts
+      max_restarts: 10, // give up after 10 consecutive crashes
+      min_uptime: "10s", // a restart counts only if up for 10 s
 
       // ── Logs ─────────────────────────────────────────────────────────────
       // Create the logs/ directory before starting: mkdir -p logs
       error_file: "logs/onway-error.log",
       out_file: "logs/onway-out.log",
       log_file: "logs/onway-combined.log",
-      time: true,                  // prepend ISO timestamp to every log line
+      time: true, // prepend ISO timestamp to every log line
       log_date_format: "YYYY-MM-DD HH:mm:ss Z",
 
       // ── Graceful shutdown ────────────────────────────────────────────────
       // The server handles SIGTERM internally (drains active connections).
-      kill_timeout: 15000,         // force-kill after 15 s if SIGTERM isn't enough
-      listen_timeout: 8000,        // consider start failed if port not open in 8 s
+      kill_timeout: 15000, // force-kill after 15 s if SIGTERM isn't enough
+      listen_timeout: 8000, // consider start failed if port not open in 8 s
     },
   ],
 };

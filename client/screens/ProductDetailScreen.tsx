@@ -10,7 +10,11 @@ import { Image } from "expo-image";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRoute, RouteProp } from "@react-navigation/native";
-import { Feather, FontAwesome, MaterialCommunityIcons } from "@expo/vector-icons";
+import {
+  Feather,
+  FontAwesome,
+  MaterialCommunityIcons,
+} from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 
 import { ThemedText } from "@/components/ThemedText";
@@ -19,7 +23,13 @@ import { useCart, getCartKey } from "@/context/CartContext";
 import { useFavorites } from "@/context/FavoritesContext";
 import { resolveImageUrl } from "@/utils/imageUtils";
 import { formatPrice } from "@/constants/currency";
-import { AppColors, Spacing, BorderRadius, Shadows, FontWeight} from "@/constants/theme";
+import {
+  AppColors,
+  Spacing,
+  BorderRadius,
+  Shadows,
+  FontWeight,
+} from "@/constants/theme";
 import { useTheme } from "@/hooks/useTheme";
 import { Product, ProductVariant, ProductAddon } from "@/constants/categories";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
@@ -59,11 +69,12 @@ export default function ProductDetailScreen() {
   const { items, addToCart, updateQuantity } = useCart();
   const { isFavorite, toggleFavorite } = useFavorites();
 
-  const imageUrls: string[] = (product.imageUrls && product.imageUrls.length > 0)
-    ? product.imageUrls
-    : product.imageUrl
-      ? [product.imageUrl]
-      : [];
+  const imageUrls: string[] =
+    product.imageUrls && product.imageUrls.length > 0
+      ? product.imageUrls
+      : product.imageUrl
+        ? [product.imageUrl]
+        : [];
 
   const resolvedImages = imageUrls.map((u) => resolveImageUrl(u));
 
@@ -72,13 +83,14 @@ export default function ProductDetailScreen() {
   // Variant & addon selection
   const productVariants: ProductVariant[] = (product as any).variants ?? [];
   const productAddons: ProductAddon[] = (product as any).addons ?? [];
-  const [selectedVariant, setSelectedVariant] = useState<ProductVariant | undefined>(
-    productVariants.length > 0 ? productVariants[0] : undefined
-  );
+  const [selectedVariant, setSelectedVariant] = useState<
+    ProductVariant | undefined
+  >(productVariants.length > 0 ? productVariants[0] : undefined);
   const [selectedAddons, setSelectedAddons] = useState<ProductAddon[]>([]);
 
   const cartProduct = toCartProduct(product);
-  const currentCartKey = cartProduct.id + "__" + (selectedVariant?.id || "base");
+  const currentCartKey =
+    cartProduct.id + "__" + (selectedVariant?.id || "base");
   const cartItem = items.find((i) => getCartKey(i) === currentCartKey);
   const quantity = cartItem?.quantity ?? 0;
   const isFav = isFavorite(product.id);
@@ -93,13 +105,19 @@ export default function ProductDetailScreen() {
   const handleToggleAddon = (addon: ProductAddon) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setSelectedAddons((prev) =>
-      prev.some((a) => a.id === addon.id) ? prev.filter((a) => a.id !== addon.id) : [...prev, addon]
+      prev.some((a) => a.id === addon.id)
+        ? prev.filter((a) => a.id !== addon.id)
+        : [...prev, addon],
     );
   };
 
   const handleAdd = () => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    addToCart(cartProduct, selectedVariant, selectedAddons.length > 0 ? selectedAddons : undefined);
+    addToCart(
+      cartProduct,
+      selectedVariant,
+      selectedAddons.length > 0 ? selectedAddons : undefined,
+    );
   };
 
   const handleIncrease = () => {
@@ -165,7 +183,10 @@ export default function ProductDetailScreen() {
                     style={[
                       styles.dot,
                       index === activeIndex
-                        ? [styles.dotActive, { backgroundColor: AppColors.primary }]
+                        ? [
+                            styles.dotActive,
+                            { backgroundColor: AppColors.primary },
+                          ]
                         : { backgroundColor: AppColors.gray300 },
                     ]}
                   />
@@ -174,11 +195,20 @@ export default function ProductDetailScreen() {
             ) : null}
 
             <Pressable
-              style={[styles.favoriteBtn, { backgroundColor: isFav ? AppColors.errorLight : "rgba(255,255,255,0.92)" }]}
+              style={[
+                styles.favoriteBtn,
+                {
+                  backgroundColor: isFav
+                    ? AppColors.errorLight
+                    : "rgba(255,255,255,0.92)",
+                },
+              ]}
               onPress={handleToggleFavorite}
               testID="button-favorite"
               accessibilityRole="button"
-              accessibilityLabel={isFav ? "إزالة من المفضلة" : "إضافة إلى المفضلة"}
+              accessibilityLabel={
+                isFav ? "إزالة من المفضلة" : "إضافة إلى المفضلة"
+              }
               accessibilityState={{ selected: isFav }}
             >
               <FontAwesome
@@ -199,14 +229,26 @@ export default function ProductDetailScreen() {
           </View>
         ) : null}
 
-        <View style={[styles.infoCard, { backgroundColor: theme.backgroundDefault }, Shadows.md]}>
+        <View
+          style={[
+            styles.infoCard,
+            { backgroundColor: theme.backgroundDefault },
+            Shadows.md,
+          ]}
+        >
           <View style={styles.infoHeader}>
-            <ThemedText type="h2" style={[styles.productName, { color: theme.text }]} numberOfLines={2}>
+            <ThemedText
+              type="h2"
+              style={[styles.productName, { color: theme.text }]}
+              numberOfLines={2}
+            >
               {product.name}
             </ThemedText>
             {product.unit ? (
               <View style={styles.unitBadge}>
-                <ThemedText style={[styles.unitText, { color: AppColors.primary }]}>
+                <ThemedText
+                  style={[styles.unitText, { color: AppColors.primary }]}
+                >
                   {product.unit}
                 </ThemedText>
               </View>
@@ -216,7 +258,10 @@ export default function ProductDetailScreen() {
           {product.category ? (
             <View style={styles.categoryRow}>
               <Feather name="tag" size={12} color={theme.textSecondary} />
-              <ThemedText type="small" style={[styles.categoryText, { color: theme.textSecondary }]}>
+              <ThemedText
+                type="small"
+                style={[styles.categoryText, { color: theme.textSecondary }]}
+              >
                 {product.category}
               </ThemedText>
             </View>
@@ -224,26 +269,41 @@ export default function ProductDetailScreen() {
 
           {product.storeName ? (
             <View style={styles.storeRow}>
-              <Feather name="shopping-bag" size={12} color={theme.textSecondary} />
-              <ThemedText type="small" style={[styles.storeText, { color: theme.textSecondary }]}>
+              <Feather
+                name="shopping-bag"
+                size={12}
+                color={theme.textSecondary}
+              />
+              <ThemedText
+                type="small"
+                style={[styles.storeText, { color: theme.textSecondary }]}
+              >
                 {product.storeName}
               </ThemedText>
             </View>
           ) : null}
 
           {product.description ? (
-            <ThemedText type="body" style={[styles.description, { color: theme.textSecondary }]}>
+            <ThemedText
+              type="body"
+              style={[styles.description, { color: theme.textSecondary }]}
+            >
               {product.description}
             </ThemedText>
           ) : null}
 
           <View style={styles.priceRow}>
-            <ThemedText type="h2" style={[styles.price, { color: AppColors.primary }]}>
+            <ThemedText
+              type="h2"
+              style={[styles.price, { color: AppColors.primary }]}
+            >
               {formatPrice(displayPrice)}
             </ThemedText>
             {isOutOfStock ? (
               <View style={styles.outOfStockBadge}>
-                <ThemedText style={styles.outOfStockText}>نفذت الكمية</ThemedText>
+                <ThemedText style={styles.outOfStockText}>
+                  نفذت الكمية
+                </ThemedText>
               </View>
             ) : null}
           </View>
@@ -251,28 +311,58 @@ export default function ProductDetailScreen() {
           {/* Variant Selector */}
           {productVariants.length > 0 ? (
             <View style={styles.variantsSection}>
-              <ThemedText style={[styles.optionLabel, { color: theme.textSecondary }]}>الحجم:</ThemedText>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.variantRow}>
+              <ThemedText
+                style={[styles.optionLabel, { color: theme.textSecondary }]}
+              >
+                الحجم:
+              </ThemedText>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.variantRow}
+              >
                 {productVariants.map((v) => {
                   const isSelected = selectedVariant?.id === v.id;
                   return (
                     <Pressable
                       key={v.id}
-                      onPress={() => { setSelectedVariant(v); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); }}
+                      onPress={() => {
+                        setSelectedVariant(v);
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      }}
                       style={[
                         styles.variantChip,
                         {
-                          backgroundColor: isSelected ? AppColors.primary : theme.backgroundRoot,
-                          borderColor: isSelected ? AppColors.primary : (theme.border ?? AppColors.divider),
+                          backgroundColor: isSelected
+                            ? AppColors.primary
+                            : theme.backgroundRoot,
+                          borderColor: isSelected
+                            ? AppColors.primary
+                            : (theme.border ?? AppColors.divider),
                         },
                       ]}
                     >
-                      <ThemedText style={[styles.variantChipName, { color: isSelected ? AppColors.white : theme.text }]}>
+                      <ThemedText
+                        style={[
+                          styles.variantChipName,
+                          { color: isSelected ? AppColors.white : theme.text },
+                        ]}
+                      >
                         {v.name}
                       </ThemedText>
                       {v.priceAdjustment !== 0 ? (
-                        <ThemedText style={[styles.variantChipPrice, { color: isSelected ? AppColors.white + "cc" : theme.textSecondary }]}>
-                          {v.priceAdjustment > 0 ? "+" : ""}{formatPrice(v.priceAdjustment)}
+                        <ThemedText
+                          style={[
+                            styles.variantChipPrice,
+                            {
+                              color: isSelected
+                                ? AppColors.white + "cc"
+                                : theme.textSecondary,
+                            },
+                          ]}
+                        >
+                          {v.priceAdjustment > 0 ? "+" : ""}
+                          {formatPrice(v.priceAdjustment)}
                         </ThemedText>
                       ) : null}
                     </Pressable>
@@ -285,9 +375,15 @@ export default function ProductDetailScreen() {
           {/* Addon Selector */}
           {productAddons.length > 0 ? (
             <View style={styles.addonsSection}>
-              <ThemedText style={[styles.optionLabel, { color: theme.textSecondary }]}>الإضافات:</ThemedText>
+              <ThemedText
+                style={[styles.optionLabel, { color: theme.textSecondary }]}
+              >
+                الإضافات:
+              </ThemedText>
               {productAddons.map((addon) => {
-                const isSelected = selectedAddons.some((a) => a.id === addon.id);
+                const isSelected = selectedAddons.some(
+                  (a) => a.id === addon.id,
+                );
                 return (
                   <Pressable
                     key={addon.id}
@@ -295,18 +391,34 @@ export default function ProductDetailScreen() {
                     style={[
                       styles.addonRow,
                       {
-                        backgroundColor: isSelected ? AppColors.primary + "10" : theme.backgroundRoot,
-                        borderColor: isSelected ? AppColors.primary + "50" : (theme.border ?? AppColors.divider),
+                        backgroundColor: isSelected
+                          ? AppColors.primary + "10"
+                          : theme.backgroundRoot,
+                        borderColor: isSelected
+                          ? AppColors.primary + "50"
+                          : (theme.border ?? AppColors.divider),
                       },
                     ]}
                   >
                     <MaterialCommunityIcons
-                      name={isSelected ? "checkbox-marked-circle" : "checkbox-blank-circle-outline"}
+                      name={
+                        isSelected
+                          ? "checkbox-marked-circle"
+                          : "checkbox-blank-circle-outline"
+                      }
                       size={20}
-                      color={isSelected ? AppColors.primary : theme.textSecondary}
+                      color={
+                        isSelected ? AppColors.primary : theme.textSecondary
+                      }
                     />
-                    <ThemedText style={[styles.addonName, { color: theme.text }]}>{addon.name}</ThemedText>
-                    <ThemedText style={[styles.addonPrice, { color: AppColors.primary }]}>
+                    <ThemedText
+                      style={[styles.addonName, { color: theme.text }]}
+                    >
+                      {addon.name}
+                    </ThemedText>
+                    <ThemedText
+                      style={[styles.addonPrice, { color: AppColors.primary }]}
+                    >
                       +{formatPrice(addon.price)}
                     </ThemedText>
                   </Pressable>
@@ -318,7 +430,15 @@ export default function ProductDetailScreen() {
       </ScrollView>
 
       {!isOutOfStock ? (
-        <View style={[styles.cartBar, { backgroundColor: theme.backgroundDefault, paddingBottom: insets.bottom + Spacing.md }]}>
+        <View
+          style={[
+            styles.cartBar,
+            {
+              backgroundColor: theme.backgroundDefault,
+              paddingBottom: insets.bottom + Spacing.md,
+            },
+          ]}
+        >
           {quantity > 0 ? (
             <View style={styles.quantityControl}>
               <Pressable
@@ -330,7 +450,10 @@ export default function ProductDetailScreen() {
               >
                 <Feather name="plus" size={20} color={AppColors.white} />
               </Pressable>
-              <ThemedText type="h3" style={[styles.qtyText, { color: theme.text }]}>
+              <ThemedText
+                type="h3"
+                style={[styles.qtyText, { color: theme.text }]}
+              >
                 {quantity}
               </ThemedText>
               <Pressable

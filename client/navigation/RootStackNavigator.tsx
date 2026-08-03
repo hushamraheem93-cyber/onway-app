@@ -49,20 +49,39 @@ export type RootStackParamList = {
   VendorTabs: undefined;
   Main: undefined;
   AllCategories: undefined;
-  Products: { categoryId?: string; categoryName: string; searchQuery?: string; restaurant?: string };
+  Products: {
+    categoryId?: string;
+    categoryName: string;
+    searchQuery?: string;
+    restaurant?: string;
+  };
   Checkout: undefined;
   OrderConfirmation: { order: Order };
   OrderTracking: { orderId: string };
-  MapPicker: {
-    initialLocation?: { latitude: number; longitude: number };
-    onPicked?: (loc: { latitude: number; longitude: number; address: string }) => void;
-  } | undefined;
+  MapPicker:
+    | {
+        initialLocation?: { latitude: number; longitude: number };
+        onPicked?: (loc: {
+          latitude: number;
+          longitude: number;
+          address: string;
+        }) => void;
+      }
+    | undefined;
   CourierPickup: undefined;
   InternationalShopping: undefined;
   SupportChat: undefined;
-  StoreProducts: { storeId: string; storeName: string; initialCategoryFilter?: string };
+  StoreProducts: {
+    storeId: string;
+    storeName: string;
+    initialCategoryFilter?: string;
+  };
   StoreRatings: { storeId: string; storeName: string };
-  StoresList: { categoryId: string; categoryName: string; businessType?: string };
+  StoresList: {
+    categoryId: string;
+    categoryName: string;
+    businessType?: string;
+  };
   AdminLogin: undefined;
   Admin: undefined;
   ProductDetail: {
@@ -85,11 +104,30 @@ const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export default function RootStackNavigator() {
   const screenOptions = useScreenOptions();
-  const { isLoggedIn, isLoading, isProfileComplete, isProfileLoading, isOtpSent, isOtpVerified, selectedUserType, isDriverRegistered, hasSeenSplash, isVendorRegistered, isGuest } = useAuth();
+  const {
+    isLoggedIn,
+    isLoading,
+    isProfileComplete,
+    isProfileLoading,
+    isOtpSent,
+    isOtpVerified,
+    selectedUserType,
+    isDriverRegistered,
+    hasSeenSplash,
+    isVendorRegistered,
+    isGuest,
+  } = useAuth();
 
   if (isLoading) {
     return (
-      <View style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: AppColors.primary }}>
+      <View
+        style={{
+          flex: 1,
+          justifyContent: "center",
+          alignItems: "center",
+          backgroundColor: AppColors.primary,
+        }}
+      >
         <ActivityIndicator size="large" color={AppColors.white} />
       </View>
     );
@@ -98,9 +136,7 @@ export default function RootStackNavigator() {
   const renderAuthScreens = () => {
     if (!isOtpSent) {
       if (hasSeenSplash) {
-        return (
-          <Stack.Screen name="PhoneLogin" component={PhoneLoginScreen} />
-        );
+        return <Stack.Screen name="PhoneLogin" component={PhoneLoginScreen} />;
       }
       return (
         <>
@@ -112,34 +148,39 @@ export default function RootStackNavigator() {
 
     if (!isOtpVerified) {
       return (
-        <Stack.Screen name="OtpVerification" component={OtpVerificationScreen} />
+        <Stack.Screen
+          name="OtpVerification"
+          component={OtpVerificationScreen}
+        />
       );
     }
 
     if (!selectedUserType) {
-      return (
-        <Stack.Screen name="UserType" component={UserTypeScreen} />
-      );
+      return <Stack.Screen name="UserType" component={UserTypeScreen} />;
     }
 
     if (selectedUserType === "driver" && !isDriverRegistered) {
       return (
-        <Stack.Screen name="DriverRegistration" component={DriverRegistrationScreen} />
+        <Stack.Screen
+          name="DriverRegistration"
+          component={DriverRegistrationScreen}
+        />
       );
     }
 
     if (selectedUserType === "vendor" && !isVendorRegistered) {
       return (
-        <Stack.Screen name="VendorRegistration" component={VendorRegistrationScreen} />
+        <Stack.Screen
+          name="VendorRegistration"
+          component={VendorRegistrationScreen}
+        />
       );
     }
 
     // Defensive fallback: for any unexpected auth-flag combination, land on the
     // login screen (a recoverable entry point) rather than rendering nothing,
     // which would leave the user stuck on a blank screen with no way forward.
-    return (
-      <Stack.Screen name="PhoneLogin" component={PhoneLoginScreen} />
-    );
+    return <Stack.Screen name="PhoneLogin" component={PhoneLoginScreen} />;
   };
 
   const needsAuth =
@@ -181,11 +222,18 @@ export default function RootStackNavigator() {
   if (isLoggedIn && selectedUserType === "vendor" && !isVendorRegistered) {
     return (
       <Stack.Navigator screenOptions={{ headerShown: false }}>
-        <Stack.Screen name="VendorRegistration" component={VendorRegistrationScreen} />
+        <Stack.Screen
+          name="VendorRegistration"
+          component={VendorRegistrationScreen}
+        />
         <Stack.Screen
           name="MapPicker"
           component={MapPickerScreen}
-          options={{ headerShown: true, headerTitle: "تحديد موقع المتجر", presentation: "modal" }}
+          options={{
+            headerShown: true,
+            headerTitle: "تحديد موقع المتجر",
+            presentation: "modal",
+          }}
         />
       </Stack.Navigator>
     );
@@ -195,7 +243,14 @@ export default function RootStackNavigator() {
   // briefly rendering ProfileCompletion for already-registered customers.
   if (isLoggedIn && isProfileLoading) {
     return (
-      <View style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: AppColors.primary }}>
+      <View
+        style={{
+          flex: 1,
+          justifyContent: "center",
+          alignItems: "center",
+          backgroundColor: AppColors.primary,
+        }}
+      >
         <ActivityIndicator size="large" color={AppColors.white} />
       </View>
     );

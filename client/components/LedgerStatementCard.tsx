@@ -1,17 +1,31 @@
 import React, { useState } from "react";
-import { View, StyleSheet, Pressable, ActivityIndicator, LayoutAnimation, Platform, UIManager } from "react-native";
+import {
+  View,
+  StyleSheet,
+  Pressable,
+  ActivityIndicator,
+  LayoutAnimation,
+  Platform,
+  UIManager,
+} from "react-native";
 import { Feather } from "@expo/vector-icons";
 
 import { ThemedText } from "@/components/ThemedText";
 import { getApiUrl } from "@/lib/query-client";
 import { AppColors, FontFamily, Shadows } from "@/constants/theme";
 
-if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
+if (
+  Platform.OS === "android" &&
+  UIManager.setLayoutAnimationEnabledExperimental
+) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
 
 // Per-movement icon + accent colour, so the statement scans at a glance.
-const TYPE_META: Record<string, { icon: keyof typeof Feather.glyphMap; color: string }> = {
+const TYPE_META: Record<
+  string,
+  { icon: keyof typeof Feather.glyphMap; color: string }
+> = {
   order_sale: { icon: "shopping-bag", color: AppColors.success },
   delivery_fee: { icon: "truck", color: AppColors.primary },
   platform_commission: { icon: "percent", color: "#8B5CF6" },
@@ -101,48 +115,84 @@ export function LedgerStatementCard({
           <Feather name="book-open" size={16} color={AppColors.primary} />
           <ThemedText style={s.title}>كشف الحساب البنكي</ThemedText>
         </View>
-        <Feather name={open ? "chevron-up" : "chevron-down"} size={18} color={AppColors.gray400} />
+        <Feather
+          name={open ? "chevron-up" : "chevron-down"}
+          size={18}
+          color={AppColors.gray400}
+        />
       </Pressable>
 
       {open ? (
         <View style={s.body}>
           {loading ? (
-            <ActivityIndicator color={AppColors.primary} style={{ paddingVertical: 20 }} />
+            <ActivityIndicator
+              color={AppColors.primary}
+              style={{ paddingVertical: 20 }}
+            />
           ) : error ? (
-            <ThemedText style={s.empty}>تعذّر تحميل الكشف — حاول مجدداً</ThemedText>
+            <ThemedText style={s.empty}>
+              تعذّر تحميل الكشف — حاول مجدداً
+            </ThemedText>
           ) : entries.length === 0 ? (
             <ThemedText style={s.empty}>لا توجد حركات مالية بعد</ThemedText>
           ) : (
             <>
               <View style={s.balanceRow}>
                 <ThemedText style={s.balanceLabel}>الرصيد الحالي</ThemedText>
-                <ThemedText style={s.balanceValue}>{balance.toLocaleString("ar-IQ")} د.ع</ThemedText>
+                <ThemedText style={s.balanceValue}>
+                  {balance.toLocaleString("ar-IQ")} د.ع
+                </ThemedText>
               </View>
               {entries.map((e) => {
                 const secs = e.createdAt?._seconds;
-                const date = secs ? new Date(secs * 1000).toLocaleDateString("ar-IQ") : "—";
-                const ref = e.orderId ? `#${String(e.orderId).slice(-6).toUpperCase()}` : e.settlementRef || "";
+                const date = secs
+                  ? new Date(secs * 1000).toLocaleDateString("ar-IQ")
+                  : "—";
+                const ref = e.orderId
+                  ? `#${String(e.orderId).slice(-6).toUpperCase()}`
+                  : e.settlementRef || "";
                 const isCredit = (e.credit || 0) > 0;
                 const amount = isCredit ? e.credit : e.debit;
-                const meta = TYPE_META[e.type] || { icon: "circle" as const, color: AppColors.gray400 };
+                const meta = TYPE_META[e.type] || {
+                  icon: "circle" as const,
+                  color: AppColors.gray400,
+                };
                 return (
                   <View key={e.id} style={s.row}>
-                    <View style={[s.iconCircle, { backgroundColor: meta.color + "1A" }]}>
+                    <View
+                      style={[
+                        s.iconCircle,
+                        { backgroundColor: meta.color + "1A" },
+                      ]}
+                    >
                       <Feather name={meta.icon} size={15} color={meta.color} />
                     </View>
                     <View style={s.rowInfo}>
-                      <ThemedText style={s.rowType}>{TYPE_LABELS[e.type] || e.type}</ThemedText>
+                      <ThemedText style={s.rowType}>
+                        {TYPE_LABELS[e.type] || e.type}
+                      </ThemedText>
                       <ThemedText style={s.rowMeta}>
                         {date}
                         {ref ? ` · ${ref}` : ""}
                       </ThemedText>
                     </View>
                     <View style={s.rowAmounts}>
-                      <ThemedText style={[s.rowAmount, { color: isCredit ? AppColors.success : AppColors.error }]}>
+                      <ThemedText
+                        style={[
+                          s.rowAmount,
+                          {
+                            color: isCredit
+                              ? AppColors.success
+                              : AppColors.error,
+                          },
+                        ]}
+                      >
                         {isCredit ? "+" : "−"}
                         {(amount || 0).toLocaleString("ar-IQ")}
                       </ThemedText>
-                      <ThemedText style={s.rowBalance}>{(e.balanceAfter || 0).toLocaleString("ar-IQ")}</ThemedText>
+                      <ThemedText style={s.rowBalance}>
+                        {(e.balanceAfter || 0).toLocaleString("ar-IQ")}
+                      </ThemedText>
                     </View>
                   </View>
                 );
@@ -171,7 +221,11 @@ const s = StyleSheet.create({
     padding: 14,
   },
   headerLeft: { flexDirection: "row-reverse", alignItems: "center", gap: 8 },
-  title: { fontFamily: FontFamily.cairoBold, fontSize: 14, color: AppColors.gray800 },
+  title: {
+    fontFamily: FontFamily.cairoBold,
+    fontSize: 14,
+    color: AppColors.gray800,
+  },
   body: { paddingHorizontal: 14, paddingBottom: 12 },
   empty: {
     fontFamily: FontFamily.tajawal,
@@ -190,8 +244,16 @@ const s = StyleSheet.create({
     paddingVertical: 10,
     marginBottom: 10,
   },
-  balanceLabel: { fontFamily: FontFamily.cairoMedium, fontSize: 12, color: AppColors.gray600 },
-  balanceValue: { fontFamily: FontFamily.cairoBold, fontSize: 15, color: AppColors.primary },
+  balanceLabel: {
+    fontFamily: FontFamily.cairoMedium,
+    fontSize: 12,
+    color: AppColors.gray600,
+  },
+  balanceValue: {
+    fontFamily: FontFamily.cairoBold,
+    fontSize: 15,
+    color: AppColors.primary,
+  },
   row: {
     flexDirection: "row-reverse",
     alignItems: "center",
@@ -208,9 +270,25 @@ const s = StyleSheet.create({
     justifyContent: "center",
   },
   rowInfo: { flex: 1 },
-  rowType: { fontFamily: FontFamily.cairoBold, fontSize: 13, color: AppColors.gray800, textAlign: "right" },
-  rowMeta: { fontFamily: FontFamily.tajawal, fontSize: 11, color: AppColors.gray400, textAlign: "right", marginTop: 2 },
+  rowType: {
+    fontFamily: FontFamily.cairoBold,
+    fontSize: 13,
+    color: AppColors.gray800,
+    textAlign: "right",
+  },
+  rowMeta: {
+    fontFamily: FontFamily.tajawal,
+    fontSize: 11,
+    color: AppColors.gray400,
+    textAlign: "right",
+    marginTop: 2,
+  },
   rowAmounts: { alignItems: "flex-start", minWidth: 90 },
   rowAmount: { fontFamily: FontFamily.cairoBold, fontSize: 13 },
-  rowBalance: { fontFamily: FontFamily.tajawal, fontSize: 11, color: AppColors.gray500, marginTop: 2 },
+  rowBalance: {
+    fontFamily: FontFamily.tajawal,
+    fontSize: 11,
+    color: AppColors.gray500,
+    marginTop: 2,
+  },
 });

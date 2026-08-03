@@ -4,7 +4,7 @@ import Animated, {
   useAnimatedStyle,
   withTiming,
 } from "react-native-reanimated";
-import { AppColors, Anim} from "@/constants/theme";
+import { AppColors, Anim } from "@/constants/theme";
 
 interface Props {
   count: number;

@@ -20,7 +20,13 @@ import { ThemedText } from "@/components/ThemedText";
 import { GradientBackground } from "@/components/GradientBackground";
 import { useTheme } from "@/hooks/useTheme";
 import { useAuth } from "@/context/AuthContext";
-import { AppColors, Spacing, BorderRadius, Shadows, FontWeight} from "@/constants/theme";
+import {
+  AppColors,
+  Spacing,
+  BorderRadius,
+  Shadows,
+  FontWeight,
+} from "@/constants/theme";
 import { getApiUrl } from "@/lib/query-client";
 import { formatPrice } from "@/constants/currency";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
@@ -29,38 +35,78 @@ import { CurrentBatch, BatchOrder } from "@/screens/DriverHomeScreen";
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
 // ─── Status chip config ───────────────────────────────────────────────────────
-const STATUS_CFG: Record<string, { label: string; color: string; icon: keyof typeof Feather.glyphMap }> = {
-  confirmed:   { label: "منتظر",             color: AppColors.gray400, icon: "clock" },
-  preparing:   { label: "يُحضَّر",            color: AppColors.statusPurple, icon: "shopping-bag" },
-  ready:       { label: "جاهز",              color: AppColors.primary, icon: "check-square" },
-  picked_up:   { label: "استُلم",             color: AppColors.warning, icon: "package" },
-  in_delivery: { label: "في الطريق",          color: AppColors.info, icon: "navigation" },
-  delivered:   { label: "مُوصَّل",            color: AppColors.success, icon: "check-circle" },
+const STATUS_CFG: Record<
+  string,
+  { label: string; color: string; icon: keyof typeof Feather.glyphMap }
+> = {
+  confirmed: { label: "منتظر", color: AppColors.gray400, icon: "clock" },
+  preparing: {
+    label: "يُحضَّر",
+    color: AppColors.statusPurple,
+    icon: "shopping-bag",
+  },
+  ready: { label: "جاهز", color: AppColors.primary, icon: "check-square" },
+  picked_up: { label: "استُلم", color: AppColors.warning, icon: "package" },
+  in_delivery: {
+    label: "في الطريق",
+    color: AppColors.info,
+    icon: "navigation",
+  },
+  delivered: {
+    label: "مُوصَّل",
+    color: AppColors.success,
+    icon: "check-circle",
+  },
 };
 
 // ─── Haversine distance ───────────────────────────────────────────────────────
-function calcDist(lat1: number, lng1: number, lat2: number, lng2: number): number {
+function calcDist(
+  lat1: number,
+  lng1: number,
+  lat2: number,
+  lng2: number,
+): number {
   const R = 6371;
   const dLat = ((lat2 - lat1) * Math.PI) / 180;
   const dLng = ((lng2 - lng1) * Math.PI) / 180;
   const a =
     Math.sin(dLat / 2) ** 2 +
-    Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(dLng / 2) ** 2;
+    Math.cos((lat1 * Math.PI) / 180) *
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLng / 2) ** 2;
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
 // ─── Nearest-Neighbor optimizer ───────────────────────────────────────────────
-function optimizeRoute(orders: BatchOrder[], startLat: number, startLng: number): BatchOrder[] {
+function optimizeRoute(
+  orders: BatchOrder[],
+  startLat: number,
+  startLng: number,
+): BatchOrder[] {
   if (orders.length <= 1) return orders;
   const remaining = [...orders];
   const result: BatchOrder[] = [];
-  let curLat = startLat, curLng = startLng;
+  let curLat = startLat,
+    curLng = startLng;
   while (remaining.length > 0) {
     let nearestIdx = 0;
-    let shortest = calcDist(curLat, curLng, remaining[0].latitude ?? 0, remaining[0].longitude ?? 0);
+    let shortest = calcDist(
+      curLat,
+      curLng,
+      remaining[0].latitude ?? 0,
+      remaining[0].longitude ?? 0,
+    );
     for (let i = 1; i < remaining.length; i++) {
-      const d = calcDist(curLat, curLng, remaining[i].latitude ?? 0, remaining[i].longitude ?? 0);
-      if (d < shortest) { shortest = d; nearestIdx = i; }
+      const d = calcDist(
+        curLat,
+        curLng,
+        remaining[i].latitude ?? 0,
+        remaining[i].longitude ?? 0,
+      );
+      if (d < shortest) {
+        shortest = d;
+        nearestIdx = i;
+      }
     }
     const nearest = remaining.splice(nearestIdx, 1)[0];
     result.push({ ...nearest, deliverySequence: result.length + 1 });
@@ -81,35 +127,97 @@ interface ConfirmModalProps {
   onConfirm: () => void;
   onCancel: () => void;
 }
-function ConfirmModal({ visible, title, message, confirmLabel, confirmColor, loading, onConfirm, onCancel }: ConfirmModalProps) {
+function ConfirmModal({
+  visible,
+  title,
+  message,
+  confirmLabel,
+  confirmColor,
+  loading,
+  onConfirm,
+  onCancel,
+}: ConfirmModalProps) {
   const { theme } = useTheme();
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onCancel}>
-      <Pressable style={styles.modalOverlay} onPress={loading ? undefined : onCancel}>
-        <Pressable style={[styles.modalBox, { backgroundColor: theme.backgroundDefault }]} onPress={() => {}}>
-          <ThemedText type="h4" style={{ color: theme.text, fontWeight: FontWeight.bold, textAlign: "center", marginBottom: Spacing.sm }}>
+    <Modal
+      visible={visible}
+      transparent
+      animationType="fade"
+      onRequestClose={onCancel}
+    >
+      <Pressable
+        style={styles.modalOverlay}
+        onPress={loading ? undefined : onCancel}
+      >
+        <Pressable
+          style={[
+            styles.modalBox,
+            { backgroundColor: theme.backgroundDefault },
+          ]}
+          onPress={() => {}}
+        >
+          <ThemedText
+            type="h4"
+            style={{
+              color: theme.text,
+              fontWeight: FontWeight.bold,
+              textAlign: "center",
+              marginBottom: Spacing.sm,
+            }}
+          >
             {title}
           </ThemedText>
-          <ThemedText type="body" style={{ color: theme.textSecondary, textAlign: "center", lineHeight: 24, marginBottom: Spacing.xl }}>
+          <ThemedText
+            type="body"
+            style={{
+              color: theme.textSecondary,
+              textAlign: "center",
+              lineHeight: 24,
+              marginBottom: Spacing.xl,
+            }}
+          >
             {message}
           </ThemedText>
           <View style={styles.modalBtns}>
             <Pressable
-              style={[styles.modalBtn, { borderColor: theme.border, borderWidth: 1 }]}
+              style={[
+                styles.modalBtn,
+                { borderColor: theme.border, borderWidth: 1 },
+              ]}
               onPress={onCancel}
               disabled={loading}
             >
-              <ThemedText type="body" style={{ color: theme.textSecondary, fontWeight: FontWeight.semiBold }}>إلغاء</ThemedText>
+              <ThemedText
+                type="body"
+                style={{
+                  color: theme.textSecondary,
+                  fontWeight: FontWeight.semiBold,
+                }}
+              >
+                إلغاء
+              </ThemedText>
             </Pressable>
             <Pressable
-              style={[styles.modalBtn, { backgroundColor: confirmColor ?? AppColors.primary }]}
+              style={[
+                styles.modalBtn,
+                { backgroundColor: confirmColor ?? AppColors.primary },
+              ]}
               onPress={onConfirm}
               disabled={loading}
             >
-              {loading
-                ? <ActivityIndicator size="small" color={AppColors.white} />
-                : <ThemedText type="body" style={{ color: AppColors.white, fontWeight: FontWeight.bold }}>{confirmLabel}</ThemedText>
-              }
+              {loading ? (
+                <ActivityIndicator size="small" color={AppColors.white} />
+              ) : (
+                <ThemedText
+                  type="body"
+                  style={{
+                    color: AppColors.white,
+                    fontWeight: FontWeight.bold,
+                  }}
+                >
+                  {confirmLabel}
+                </ThemedText>
+              )}
             </Pressable>
           </View>
         </Pressable>
@@ -143,37 +251,49 @@ export default function DriverOrdersScreen() {
     confirmLabel: string;
     confirmColor?: string;
     onConfirm: () => void;
-  }>({ visible: false, title: "", message: "", confirmLabel: "", onConfirm: () => {} });
+  }>({
+    visible: false,
+    title: "",
+    message: "",
+    confirmLabel: "",
+    onConfirm: () => {},
+  });
 
   // ─── Fetch ──────────────────────────────────────────────────────────────
-  const fetchStatus = useCallback(async (isRefresh = false) => {
-    if (!phoneNumber) return;
-    if (isRefresh) setRefreshing(true);
-    try {
-      const res = await fetch(
-        new URL(`/api/driver/status?phoneNumber=${encodeURIComponent(phoneNumber)}`, getApiUrl()).toString()
-      );
-      if (res.ok) {
-        const data = await res.json();
-        setStatus({
-          currentBatch: data.currentBatch || null,
-          walletBalance: data.walletBalance || 0,
-        });
-        setOptimized(false);
+  const fetchStatus = useCallback(
+    async (isRefresh = false) => {
+      if (!phoneNumber) return;
+      if (isRefresh) setRefreshing(true);
+      try {
+        const res = await fetch(
+          new URL(
+            `/api/driver/status?phoneNumber=${encodeURIComponent(phoneNumber)}`,
+            getApiUrl(),
+          ).toString(),
+        );
+        if (res.ok) {
+          const data = await res.json();
+          setStatus({
+            currentBatch: data.currentBatch || null,
+            walletBalance: data.walletBalance || 0,
+          });
+          setOptimized(false);
+        }
+      } catch (e) {
+      } finally {
+        setLoading(false);
+        setRefreshing(false);
       }
-    } catch (e) {
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  }, [phoneNumber]);
+    },
+    [phoneNumber],
+  );
 
   useFocusEffect(
     useCallback(() => {
       fetchStatus();
       const interval = setInterval(() => fetchStatus(), 30000);
       return () => clearInterval(interval);
-    }, [fetchStatus])
+    }, [fetchStatus]),
   );
 
   // ─── Optimize route client-side ─────────────────────────────────────────
@@ -182,27 +302,41 @@ export default function DriverOrdersScreen() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     // Use Baghdad center as fallback start point
     const sorted = optimizeRoute(status.currentBatch.orders, 33.3152, 44.3661);
-    setStatus(prev => prev ? {
-      ...prev,
-      currentBatch: prev.currentBatch ? { ...prev.currentBatch, orders: sorted } : null,
-    } : null);
+    setStatus((prev) =>
+      prev
+        ? {
+            ...prev,
+            currentBatch: prev.currentBatch
+              ? { ...prev.currentBatch, orders: sorted }
+              : null,
+          }
+        : null,
+    );
     setOptimized(true);
   };
 
   // ─── Actions ────────────────────────────────────────────────────────────
   const showConfirm = (cfg: Omit<typeof confirmModal, "visible">) =>
     setConfirmModal({ ...cfg, visible: true });
-  const hideConfirm = () => setConfirmModal(prev => ({ ...prev, visible: false }));
+  const hideConfirm = () =>
+    setConfirmModal((prev) => ({ ...prev, visible: false }));
 
   const doPickup = async (order: BatchOrder) => {
     if (!phoneNumber || !status?.currentBatch) return;
     setActionLoading(true);
     try {
-      const res = await fetch(new URL("/api/driver/batch/pickup-order", getApiUrl()).toString(), {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phoneNumber, orderId: order.id, batchId: status.currentBatch.id }),
-      });
+      const res = await fetch(
+        new URL("/api/driver/batch/pickup-order", getApiUrl()).toString(),
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            phoneNumber,
+            orderId: order.id,
+            batchId: status.currentBatch.id,
+          }),
+        },
+      );
       if (res.ok) await fetchStatus();
     } catch (e) {
     } finally {
@@ -215,11 +349,18 @@ export default function DriverOrdersScreen() {
     if (!phoneNumber || !status?.currentBatch) return;
     setActionLoading(true);
     try {
-      const res = await fetch(new URL("/api/driver/batch/complete-order", getApiUrl()).toString(), {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phoneNumber, orderId: order.id, batchId: status.currentBatch.id }),
-      });
+      const res = await fetch(
+        new URL("/api/driver/batch/complete-order", getApiUrl()).toString(),
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            phoneNumber,
+            orderId: order.id,
+            batchId: status.currentBatch.id,
+          }),
+        },
+      );
       if (res.ok) await fetchStatus();
     } catch (e) {
     } finally {
@@ -230,32 +371,61 @@ export default function DriverOrdersScreen() {
 
   const callCustomer = (phone: string) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    const url = Platform.OS === "android" ? `tel:${phone}` : `telprompt:${phone}`;
-    Linking.openURL(url).catch(() => Linking.openURL(`tel:${phone}`).catch(() => {}));
+    const url =
+      Platform.OS === "android" ? `tel:${phone}` : `telprompt:${phone}`;
+    Linking.openURL(url).catch(() =>
+      Linking.openURL(`tel:${phone}`).catch(() => {}),
+    );
   };
 
   const openMap = (order: BatchOrder) => {
     const lat = order.latitude ?? order.customerLat;
     const lng = order.longitude ?? order.customerLng;
     if (!lat || !lng) return;
-    const label = encodeURIComponent(order.address || order.region || "موقع الزبون");
-    const url = Platform.OS === "ios"
-      ? `maps:0,0?q=${label}@${lat},${lng}`
-      : `geo:0,0?q=${lat},${lng}(${label})`;
+    const label = encodeURIComponent(
+      order.address || order.region || "موقع الزبون",
+    );
+    const url =
+      Platform.OS === "ios"
+        ? `maps:0,0?q=${label}@${lat},${lng}`
+        : `geo:0,0?q=${lat},${lng}(${label})`;
     Linking.openURL(url).catch(() =>
-      Linking.openURL(`https://maps.google.com/?q=${lat},${lng}`).catch(() => {})
+      Linking.openURL(`https://maps.google.com/?q=${lat},${lng}`).catch(
+        () => {},
+      ),
     );
   };
 
   const renderEmptyState = () => (
     <View style={styles.emptyContainer}>
-      <View style={[styles.emptyIconBox, { backgroundColor: AppColors.primary + "15" }]}>
+      <View
+        style={[
+          styles.emptyIconBox,
+          { backgroundColor: AppColors.primary + "15" },
+        ]}
+      >
         <Feather name="package" size={48} color={AppColors.primary} />
       </View>
-      <ThemedText type="h3" style={{ color: theme.text, fontWeight: FontWeight.bold, marginTop: Spacing.lg, textAlign: "center" }}>
+      <ThemedText
+        type="h3"
+        style={{
+          color: theme.text,
+          fontWeight: FontWeight.bold,
+          marginTop: Spacing.lg,
+          textAlign: "center",
+        }}
+      >
         لا توجد طلبات نشطة
       </ThemedText>
-      <ThemedText type="body" style={{ color: theme.textSecondary, marginTop: Spacing.xs, textAlign: "center", lineHeight: 24 }}>
+      <ThemedText
+        type="body"
+        style={{
+          color: theme.textSecondary,
+          marginTop: Spacing.xs,
+          textAlign: "center",
+          lineHeight: 24,
+        }}
+      >
         ستظهر طلباتك هنا بعد قبول الدفعة من الشاشة الرئيسية
       </ThemedText>
     </View>
@@ -264,7 +434,8 @@ export default function DriverOrdersScreen() {
   const renderOrderCard = (order: BatchOrder) => {
     const cfg = STATUS_CFG[order.status] || STATUS_CFG.confirmed;
     const canPickup = order.status === "preparing" || order.status === "ready";
-    const canDeliver = order.status === "in_delivery" || order.status === "picked_up";
+    const canDeliver =
+      order.status === "in_delivery" || order.status === "picked_up";
     const isDelivered = order.status === "delivered";
     const lat = order.latitude ?? order.customerLat;
     const lng = order.longitude ?? order.customerLng;
@@ -285,25 +456,60 @@ export default function DriverOrdersScreen() {
         ]}
       >
         {/* Sequence badge */}
-        <View style={[styles.seqBadge, { backgroundColor: isDelivered ? AppColors.success : cfg.color }]}>
-          {isDelivered
-            ? <Feather name="check" size={14} color={AppColors.white} />
-            : <ThemedText type="small" style={{ color: AppColors.white, fontWeight: FontWeight.xBold, fontSize: 13 }}>{order.deliverySequence}</ThemedText>
-          }
+        <View
+          style={[
+            styles.seqBadge,
+            { backgroundColor: isDelivered ? AppColors.success : cfg.color },
+          ]}
+        >
+          {isDelivered ? (
+            <Feather name="check" size={14} color={AppColors.white} />
+          ) : (
+            <ThemedText
+              type="small"
+              style={{
+                color: AppColors.white,
+                fontWeight: FontWeight.xBold,
+                fontSize: 13,
+              }}
+            >
+              {order.deliverySequence}
+            </ThemedText>
+          )}
         </View>
 
         {/* Card header */}
         <View style={[styles.cardHeader, { borderBottomColor: theme.border }]}>
-          <View style={[styles.statusChip, { backgroundColor: cfg.color + "20" }]}>
+          <View
+            style={[styles.statusChip, { backgroundColor: cfg.color + "20" }]}
+          >
             <Feather name={cfg.icon} size={12} color={cfg.color} />
-            <ThemedText type="small" style={{ color: cfg.color, fontWeight: FontWeight.bold, fontSize: 11 }}>{cfg.label}</ThemedText>
+            <ThemedText
+              type="small"
+              style={{
+                color: cfg.color,
+                fontWeight: FontWeight.bold,
+                fontSize: 11,
+              }}
+            >
+              {cfg.label}
+            </ThemedText>
           </View>
           <View style={styles.cardHeaderRight}>
-            <ThemedText type="h4" style={{ color: theme.text, fontWeight: FontWeight.bold }}>
+            <ThemedText
+              type="h4"
+              style={{ color: theme.text, fontWeight: FontWeight.bold }}
+            >
               {order.customerName || "زبون"}
             </ThemedText>
-            <ThemedText type="h4" style={{ color: AppColors.primary, fontWeight: FontWeight.xBold }}>
-              {formatPrice((order.totalPrice ?? order.total ?? 0) + (order.deliveryFee ?? 0))}
+            <ThemedText
+              type="h4"
+              style={{ color: AppColors.primary, fontWeight: FontWeight.xBold }}
+            >
+              {formatPrice(
+                (order.totalPrice ?? order.total ?? 0) +
+                  (order.deliveryFee ?? 0),
+              )}
             </ThemedText>
           </View>
         </View>
@@ -312,21 +518,39 @@ export default function DriverOrdersScreen() {
         <View style={styles.infoBlock}>
           {order.vendorName ? (
             <View style={styles.infoRow}>
-              <ThemedText type="small" numberOfLines={1} style={{ color: theme.textSecondary, flex: 1, textAlign: "right" }}>
+              <ThemedText
+                type="small"
+                numberOfLines={1}
+                style={{
+                  color: theme.textSecondary,
+                  flex: 1,
+                  textAlign: "right",
+                }}
+              >
                 {order.vendorName}
               </ThemedText>
-              <Feather name="shopping-bag" size={14} color={theme.textSecondary} />
+              <Feather
+                name="shopping-bag"
+                size={14}
+                color={theme.textSecondary}
+              />
             </View>
           ) : null}
           <View style={styles.infoRow}>
-            <ThemedText type="body" numberOfLines={2} style={{ color: theme.text, flex: 1, textAlign: "right" }}>
+            <ThemedText
+              type="body"
+              numberOfLines={2}
+              style={{ color: theme.text, flex: 1, textAlign: "right" }}
+            >
               {order.region || order.address || "العنوان غير محدد"}
             </ThemedText>
             <Feather name="map-pin" size={14} color={AppColors.primary} />
           </View>
           {order.customerPhone ? (
             <View style={styles.infoRow}>
-              <ThemedText type="small" style={{ color: theme.textSecondary }}>{order.customerPhone}</ThemedText>
+              <ThemedText type="small" style={{ color: theme.textSecondary }}>
+                {order.customerPhone}
+              </ThemedText>
               <Feather name="phone" size={13} color={theme.textSecondary} />
             </View>
           ) : null}
@@ -337,41 +561,81 @@ export default function DriverOrdersScreen() {
           {(order.distance ?? 0) > 0 ? (
             <View style={[styles.metaChip, { backgroundColor: "#2196F315" }]}>
               <Feather name="map" size={13} color={AppColors.info} />
-              <ThemedText type="small" style={{ color: AppColors.info, fontWeight: FontWeight.semiBold }}>{order.distance} كم</ThemedText>
+              <ThemedText
+                type="small"
+                style={{
+                  color: AppColors.info,
+                  fontWeight: FontWeight.semiBold,
+                }}
+              >
+                {order.distance} كم
+              </ThemedText>
             </View>
           ) : null}
           {order.estimatedTime ? (
             <View style={[styles.metaChip, { backgroundColor: "#FF980015" }]}>
               <Feather name="clock" size={13} color={AppColors.warning} />
-              <ThemedText type="small" style={{ color: AppColors.warning, fontWeight: FontWeight.semiBold }}>{order.estimatedTime}</ThemedText>
+              <ThemedText
+                type="small"
+                style={{
+                  color: AppColors.warning,
+                  fontWeight: FontWeight.semiBold,
+                }}
+              >
+                {order.estimatedTime}
+              </ThemedText>
             </View>
           ) : null}
           <View style={[styles.metaChip, { backgroundColor: "#4CAF5015" }]}>
             <Feather name="dollar-sign" size={13} color={AppColors.success} />
-            <ThemedText type="small" style={{ color: AppColors.success, fontWeight: FontWeight.semiBold }}>{formatPrice(order.deliveryFee ?? 0)}</ThemedText>
+            <ThemedText
+              type="small"
+              style={{
+                color: AppColors.success,
+                fontWeight: FontWeight.semiBold,
+              }}
+            >
+              {formatPrice(order.deliveryFee ?? 0)}
+            </ThemedText>
           </View>
         </View>
 
         {/* Items */}
         {order.items?.length > 0 ? (
-          <View style={[styles.itemsBox, { backgroundColor: theme.backgroundRoot }]}>
-            <ThemedText type="small" style={{ color: theme.textSecondary, marginBottom: 4 }}>المنتجات</ThemedText>
+          <View
+            style={[styles.itemsBox, { backgroundColor: theme.backgroundRoot }]}
+          >
+            <ThemedText
+              type="small"
+              style={{ color: theme.textSecondary, marginBottom: 4 }}
+            >
+              المنتجات
+            </ThemedText>
             {order.items.slice(0, 3).map((item: any, i: number) => (
               <ThemedText key={i} type="small" style={{ color: theme.text }}>
                 {item.name} x{item.quantity}
               </ThemedText>
             ))}
             {order.items.length > 3 ? (
-              <ThemedText type="small" style={{ color: theme.textSecondary }}>+{order.items.length - 3} أخرى</ThemedText>
+              <ThemedText type="small" style={{ color: theme.textSecondary }}>
+                +{order.items.length - 3} أخرى
+              </ThemedText>
             ) : null}
           </View>
         ) : null}
 
         {/* Notes */}
         {order.notes ? (
-          <View style={[styles.notesBox, { backgroundColor: AppColors.secondary }]}>
+          <View
+            style={[styles.notesBox, { backgroundColor: AppColors.secondary }]}
+          >
             <Feather name="alert-circle" size={14} color={AppColors.primary} />
-            <ThemedText type="small" style={{ color: AppColors.primary, flex: 1, textAlign: "right" }}>{order.notes}</ThemedText>
+            <ThemedText
+              type="small"
+              style={{ color: AppColors.primary, flex: 1, textAlign: "right" }}
+            >
+              {order.notes}
+            </ThemedText>
           </View>
         ) : null}
 
@@ -384,7 +648,15 @@ export default function DriverOrdersScreen() {
               onPress={() => callCustomer(order.customerPhone)}
             >
               <Feather name="phone" size={16} color={AppColors.success} />
-              <ThemedText type="small" style={{ color: AppColors.success, fontWeight: FontWeight.semiBold }}>اتصال</ThemedText>
+              <ThemedText
+                type="small"
+                style={{
+                  color: AppColors.success,
+                  fontWeight: FontWeight.semiBold,
+                }}
+              >
+                اتصال
+              </ThemedText>
             </Pressable>
           ) : null}
           {hasMap ? (
@@ -394,51 +666,93 @@ export default function DriverOrdersScreen() {
               onPress={() => openMap(order)}
             >
               <Feather name="map" size={16} color={AppColors.info} />
-              <ThemedText type="small" style={{ color: AppColors.info, fontWeight: FontWeight.semiBold }}>خريطة</ThemedText>
+              <ThemedText
+                type="small"
+                style={{
+                  color: AppColors.info,
+                  fontWeight: FontWeight.semiBold,
+                }}
+              >
+                خريطة
+              </ThemedText>
             </Pressable>
           ) : null}
         </View>
 
         {/* Primary action */}
         {isDelivered ? (
-          <View style={[styles.deliveredBanner, { backgroundColor: "#4CAF5015" }]}>
+          <View
+            style={[styles.deliveredBanner, { backgroundColor: "#4CAF5015" }]}
+          >
             <Feather name="check-circle" size={18} color={AppColors.success} />
-            <ThemedText type="body" style={{ color: AppColors.success, fontWeight: FontWeight.bold }}>تم التوصيل بنجاح</ThemedText>
+            <ThemedText
+              type="body"
+              style={{ color: AppColors.success, fontWeight: FontWeight.bold }}
+            >
+              تم التوصيل بنجاح
+            </ThemedText>
           </View>
         ) : canDeliver ? (
           <Pressable
             testID={`button-deliver-${order.id}`}
             style={[styles.primaryBtn, { backgroundColor: AppColors.success }]}
-            onPress={() => showConfirm({
-              title: "تأكيد التوصيل",
-              message: `هل تم توصيل الطلب لـ ${order.customerName || "الزبون"} بنجاح؟`,
-              confirmLabel: "نعم، تم التوصيل",
-              confirmColor: AppColors.success,
-              onConfirm: () => doDeliver(order),
-            })}
+            onPress={() =>
+              showConfirm({
+                title: "تأكيد التوصيل",
+                message: `هل تم توصيل الطلب لـ ${order.customerName || "الزبون"} بنجاح؟`,
+                confirmLabel: "نعم، تم التوصيل",
+                confirmColor: AppColors.success,
+                onConfirm: () => doDeliver(order),
+              })
+            }
           >
             <Feather name="check-circle" size={20} color={AppColors.white} />
-            <ThemedText type="h4" style={{ color: AppColors.white, fontWeight: FontWeight.bold }}>تم التوصيل</ThemedText>
+            <ThemedText
+              type="h4"
+              style={{ color: AppColors.white, fontWeight: FontWeight.bold }}
+            >
+              تم التوصيل
+            </ThemedText>
           </Pressable>
         ) : canPickup ? (
           <Pressable
             testID={`button-pickup-${order.id}`}
-            style={[styles.primaryBtn, { backgroundColor: AppColors.statusPurple }]}
-            onPress={() => showConfirm({
-              title: "تم الاستلام؟",
-              message: `هل استلمت الطلب من ${order.vendorName || "المحل"}؟`,
-              confirmLabel: "نعم، تم الاستلام",
-              confirmColor: AppColors.statusPurple,
-              onConfirm: () => doPickup(order),
-            })}
+            style={[
+              styles.primaryBtn,
+              { backgroundColor: AppColors.statusPurple },
+            ]}
+            onPress={() =>
+              showConfirm({
+                title: "تم الاستلام؟",
+                message: `هل استلمت الطلب من ${order.vendorName || "المحل"}؟`,
+                confirmLabel: "نعم، تم الاستلام",
+                confirmColor: AppColors.statusPurple,
+                onConfirm: () => doPickup(order),
+              })
+            }
           >
             <Feather name="package" size={20} color={AppColors.white} />
-            <ThemedText type="h4" style={{ color: AppColors.white, fontWeight: FontWeight.bold }}>تم الاستلام من المحل</ThemedText>
+            <ThemedText
+              type="h4"
+              style={{ color: AppColors.white, fontWeight: FontWeight.bold }}
+            >
+              تم الاستلام من المحل
+            </ThemedText>
           </Pressable>
         ) : (
-          <View style={[styles.primaryBtn, { backgroundColor: AppColors.gray400 }]}>
+          <View
+            style={[styles.primaryBtn, { backgroundColor: AppColors.gray400 }]}
+          >
             <Feather name="clock" size={18} color={AppColors.white} />
-            <ThemedText type="body" style={{ color: AppColors.white, fontWeight: FontWeight.semiBold }}>بانتظار تجهيز الطلب</ThemedText>
+            <ThemedText
+              type="body"
+              style={{
+                color: AppColors.white,
+                fontWeight: FontWeight.semiBold,
+              }}
+            >
+              بانتظار تجهيز الطلب
+            </ThemedText>
           </View>
         )}
       </View>
@@ -448,7 +762,16 @@ export default function DriverOrdersScreen() {
   // ─── Root render ─────────────────────────────────────────────────────────
   if (loading) {
     return (
-      <View style={[styles.container, { justifyContent: "center", alignItems: "center", backgroundColor: theme.backgroundRoot }]}>
+      <View
+        style={[
+          styles.container,
+          {
+            justifyContent: "center",
+            alignItems: "center",
+            backgroundColor: theme.backgroundRoot,
+          },
+        ]}
+      >
         <ActivityIndicator size="large" color={AppColors.primary} />
       </View>
     );
@@ -456,9 +779,10 @@ export default function DriverOrdersScreen() {
 
   const batch = status?.currentBatch ?? null;
   const orders = batch?.orders ?? [];
-  const completedCount = orders.filter(o => o.status === "delivered").length;
+  const completedCount = orders.filter((o) => o.status === "delivered").length;
   const totalOrders = batch?.totalOrders ?? orders.length;
-  const progressPct = totalOrders > 0 ? Math.round((completedCount / totalOrders) * 100) : 0;
+  const progressPct =
+    totalOrders > 0 ? Math.round((completedCount / totalOrders) * 100) : 0;
 
   return (
     <View style={[styles.container, { backgroundColor: theme.backgroundRoot }]}>
@@ -477,33 +801,79 @@ export default function DriverOrdersScreen() {
       />
 
       {/* Header — flat themed, no gradient */}
-      <View style={[styles.header, { paddingTop: insets.top + Spacing.md, backgroundColor: theme.backgroundDefault }]}>
+      <View
+        style={[
+          styles.header,
+          {
+            paddingTop: insets.top + Spacing.md,
+            backgroundColor: theme.backgroundDefault,
+          },
+        ]}
+      >
         <View style={styles.headerContent}>
           <View style={styles.headerLeft}>
-            <ThemedText type="h3" style={[styles.headerTitle, { color: theme.text }]}>الطلبات النشطة</ThemedText>
+            <ThemedText
+              type="h3"
+              style={[styles.headerTitle, { color: theme.text }]}
+            >
+              الطلبات النشطة
+            </ThemedText>
             <ThemedText type="small" style={{ color: theme.textSecondary }}>
               {completedCount} مُوصَّل من {totalOrders}
             </ThemedText>
           </View>
           {orders.length > 0 ? (
-            <View style={[styles.headerBadge, { backgroundColor: AppColors.primary + "15", borderWidth: 0 }]}>
-              <ThemedText type="h3" style={[styles.headerBadgeText, { color: AppColors.primary }]}>{orders.length}</ThemedText>
-              <ThemedText type="small" style={{ color: AppColors.primary + "CC", fontSize: 11 }}>نشط</ThemedText>
+            <View
+              style={[
+                styles.headerBadge,
+                { backgroundColor: AppColors.primary + "15", borderWidth: 0 },
+              ]}
+            >
+              <ThemedText
+                type="h3"
+                style={[styles.headerBadgeText, { color: AppColors.primary }]}
+              >
+                {orders.length}
+              </ThemedText>
+              <ThemedText
+                type="small"
+                style={{ color: AppColors.primary + "CC", fontSize: 11 }}
+              >
+                نشط
+              </ThemedText>
             </View>
           ) : null}
         </View>
         {totalOrders > 0 ? (
           <View style={[styles.headerProgressRow, { marginBottom: 2 }]}>
-            <View style={[styles.progressBg, { backgroundColor: theme.border }]}>
-              <View style={[styles.progressFill, { width: `${progressPct}%` as any, backgroundColor: AppColors.primary }]} />
+            <View
+              style={[styles.progressBg, { backgroundColor: theme.border }]}
+            >
+              <View
+                style={[
+                  styles.progressFill,
+                  {
+                    width: `${progressPct}%` as any,
+                    backgroundColor: AppColors.primary,
+                  },
+                ]}
+              />
             </View>
-            <ThemedText type="small" style={[styles.headerProgressText, { color: AppColors.primary }]}>{progressPct}%</ThemedText>
+            <ThemedText
+              type="small"
+              style={[styles.headerProgressText, { color: AppColors.primary }]}
+            >
+              {progressPct}%
+            </ThemedText>
           </View>
         ) : null}
       </View>
 
       <ScrollView
-        contentContainerStyle={[styles.scrollContent, { paddingBottom: tabBarHeight + Spacing.xl }]}
+        contentContainerStyle={[
+          styles.scrollContent,
+          { paddingBottom: tabBarHeight + Spacing.xl },
+        ]}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -518,36 +888,65 @@ export default function DriverOrdersScreen() {
           <View style={styles.section}>
             {/* Section header */}
             <View style={styles.sectionHeader}>
-              <ThemedText type="h4" style={{ color: theme.text, fontWeight: FontWeight.bold }}>
+              <ThemedText
+                type="h4"
+                style={{ color: theme.text, fontWeight: FontWeight.bold }}
+              >
                 الطلبات ({orders.length})
               </ThemedText>
               {orders.length > 1 ? (
                 <Pressable
                   testID="button-optimize-route"
                   onPress={handleOptimizeRoute}
-                  style={[styles.optimizeBtn, { backgroundColor: optimized ? "#4CAF5015" : "#8B5CF615" }]}
+                  style={[
+                    styles.optimizeBtn,
+                    { backgroundColor: optimized ? "#4CAF5015" : "#8B5CF615" },
+                  ]}
                 >
-                  <Feather name="navigation" size={14} color={optimized ? AppColors.success : AppColors.statusPurple} />
-                  <ThemedText type="small" style={{ color: optimized ? AppColors.success : AppColors.statusPurple, fontWeight: FontWeight.bold }}>
+                  <Feather
+                    name="navigation"
+                    size={14}
+                    color={
+                      optimized ? AppColors.success : AppColors.statusPurple
+                    }
+                  />
+                  <ThemedText
+                    type="small"
+                    style={{
+                      color: optimized
+                        ? AppColors.success
+                        : AppColors.statusPurple,
+                      fontWeight: FontWeight.bold,
+                    }}
+                  >
                     {optimized ? "تم التحسين" : "تحسين المسار"}
                   </ThemedText>
                 </Pressable>
               ) : null}
             </View>
 
-            {orders.map(order => renderOrderCard(order))}
+            {orders.map((order) => renderOrderCard(order))}
           </View>
-        ) : renderEmptyState()}
+        ) : (
+          renderEmptyState()
+        )}
 
         {/* Navigate to full batch screen */}
         {batch?.status === "in_progress" ? (
           <Pressable
             testID="button-manage-batch"
-            style={[styles.manageBatchBtn, { backgroundColor: AppColors.statusPurple }, Shadows.sm]}
+            style={[
+              styles.manageBatchBtn,
+              { backgroundColor: AppColors.statusPurple },
+              Shadows.sm,
+            ]}
             onPress={() => navigation.navigate("DriverBatch", { batch })}
           >
             <Feather name="list" size={20} color={AppColors.white} />
-            <ThemedText type="h4" style={{ color: AppColors.white, fontWeight: FontWeight.bold }}>
+            <ThemedText
+              type="h4"
+              style={{ color: AppColors.white, fontWeight: FontWeight.bold }}
+            >
               إدارة الدفعة بالتفصيل
             </ThemedText>
             <Feather name="chevron-left" size={20} color={AppColors.white} />
@@ -595,7 +994,11 @@ const styles = StyleSheet.create({
     overflow: "hidden",
   },
   progressFill: { height: "100%", borderRadius: 3 },
-  headerProgressText: { fontWeight: FontWeight.bold, width: 36, textAlign: "right" },
+  headerProgressText: {
+    fontWeight: FontWeight.bold,
+    width: 36,
+    textAlign: "right",
+  },
   // Scroll
   scrollContent: { padding: Spacing.lg },
   // Section
@@ -652,8 +1055,17 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   infoBlock: { gap: Spacing.xs, marginBottom: Spacing.sm },
-  infoRow: { flexDirection: "row-reverse", alignItems: "flex-start", gap: Spacing.sm },
-  metaRow: { flexDirection: "row-reverse", flexWrap: "wrap", gap: Spacing.sm, marginBottom: Spacing.sm },
+  infoRow: {
+    flexDirection: "row-reverse",
+    alignItems: "flex-start",
+    gap: Spacing.sm,
+  },
+  metaRow: {
+    flexDirection: "row-reverse",
+    flexWrap: "wrap",
+    gap: Spacing.sm,
+    marginBottom: Spacing.sm,
+  },
   metaChip: {
     flexDirection: "row",
     alignItems: "center",
@@ -662,7 +1074,12 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     borderRadius: 10,
   },
-  itemsBox: { padding: Spacing.sm, borderRadius: BorderRadius.sm, marginBottom: Spacing.sm, gap: 2 },
+  itemsBox: {
+    padding: Spacing.sm,
+    borderRadius: BorderRadius.sm,
+    marginBottom: Spacing.sm,
+    gap: 2,
+  },
   notesBox: {
     flexDirection: "row-reverse",
     alignItems: "center",
@@ -671,7 +1088,11 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.sm,
     marginBottom: Spacing.sm,
   },
-  quickRow: { flexDirection: "row-reverse", gap: Spacing.sm, marginBottom: Spacing.sm },
+  quickRow: {
+    flexDirection: "row-reverse",
+    gap: Spacing.sm,
+    marginBottom: Spacing.sm,
+  },
   quickBtn: {
     flex: 1,
     flexDirection: "row",
@@ -703,7 +1124,13 @@ const styles = StyleSheet.create({
     paddingVertical: 60,
     paddingHorizontal: Spacing.xl,
   },
-  emptyIconBox: { width: 100, height: 100, borderRadius: 50, justifyContent: "center", alignItems: "center" },
+  emptyIconBox: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    justifyContent: "center",
+    alignItems: "center",
+  },
   // Manage batch button
   manageBatchBtn: {
     flexDirection: "row-reverse",

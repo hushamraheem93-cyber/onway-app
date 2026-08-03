@@ -3,7 +3,13 @@ import { StyleSheet, View, Pressable, Dimensions } from "react-native";
 import { Image } from "expo-image";
 
 import { ThemedText } from "@/components/ThemedText";
-import { Spacing, BorderRadius, AppColors, DesignSystem, FontWeight} from "@/constants/theme";
+import {
+  Spacing,
+  BorderRadius,
+  AppColors,
+  DesignSystem,
+  FontWeight,
+} from "@/constants/theme";
 import { Banner } from "@/constants/categories";
 import { resolveImageUrl } from "@/utils/imageUtils";
 
@@ -18,7 +24,6 @@ const BANNER_HEIGHT = DesignSystem.bannerHeight;
 const BANNER_RADIUS = DesignSystem.bannerRadius;
 
 export function OfferBanner({ banner, onPress }: OfferBannerProps) {
-
   return (
     <Pressable onPress={onPress} style={styles.container}>
       <Image

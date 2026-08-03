@@ -19,7 +19,13 @@ import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 
 import { useTheme } from "@/hooks/useTheme";
-import { Spacing, AppColors, BorderRadius, Shadows, FontWeight} from "@/constants/theme";
+import {
+  Spacing,
+  AppColors,
+  BorderRadius,
+  Shadows,
+  FontWeight,
+} from "@/constants/theme";
 import { ThemedText } from "@/components/ThemedText";
 import { GradientBackground } from "@/components/GradientBackground";
 import { FloatingCartBar } from "@/components/FloatingCartBar";
@@ -51,10 +57,17 @@ interface VendorProduct {
   status: string;
 }
 
-const BUSINESS_CONFIG: Record<string, { label: string; icon: string; color: string }> = {
+const BUSINESS_CONFIG: Record<
+  string,
+  { label: string; icon: string; color: string }
+> = {
   restaurant: { label: "مطعم", icon: "food", color: AppColors.primary },
   supermarket: { label: "سوبرماركت", icon: "cart", color: AppColors.success },
-  pharmacy: { label: "صيدلية", icon: "medical-bag", color: AppColors.vendorPurple },
+  pharmacy: {
+    label: "صيدلية",
+    icon: "medical-bag",
+    color: AppColors.vendorPurple,
+  },
   bakery: { label: "مخبز", icon: "bread-slice", color: AppColors.warning },
   other: { label: "متجر", icon: "store", color: AppColors.driverBlue },
 };
@@ -62,7 +75,11 @@ const BUSINESS_CONFIG: Record<string, { label: string; icon: string; color: stri
 function resolveUrl(path?: string): string | null {
   if (!path) return null;
   if (path.startsWith("http")) return path;
-  try { return new URL(path, getApiUrl()).toString(); } catch { return null; }
+  try {
+    return new URL(path, getApiUrl()).toString();
+  } catch {
+    return null;
+  }
 }
 
 interface VendorStore {
@@ -119,7 +136,11 @@ function ProductCard({
   return (
     <Pressable
       onPress={onPress}
-      style={[styles.productCard, { backgroundColor: theme.backgroundDefault }, Shadows.sm]}
+      style={[
+        styles.productCard,
+        { backgroundColor: theme.backgroundDefault },
+        Shadows.sm,
+      ]}
       testID={`product-card-${product.id}`}
       accessibilityRole="button"
       accessibilityLabel={`${product.name}، ${formatPrice(product.price)}${isOutOfStock ? "، نفذت الكمية" : ""}`}
@@ -145,22 +166,44 @@ function ProductCard({
           {product.name}
         </ThemedText>
         {product.description ? (
-          <ThemedText type="small" style={[styles.productDesc, { color: theme.textSecondary }]} numberOfLines={2}>
+          <ThemedText
+            type="small"
+            style={[styles.productDesc, { color: theme.textSecondary }]}
+            numberOfLines={2}
+          >
             {product.description}
           </ThemedText>
         ) : null}
         {product.unit ? (
-          <ThemedText type="small" style={[styles.productUnit, { color: theme.textSecondary }]}>
+          <ThemedText
+            type="small"
+            style={[styles.productUnit, { color: theme.textSecondary }]}
+          >
             {product.unit}
           </ThemedText>
         ) : null}
         <View style={styles.productFooter}>
-          <ThemedText type="h4" style={[styles.productPrice, { color: AppColors.primary }]}>
+          <ThemedText
+            type="h4"
+            style={[styles.productPrice, { color: AppColors.primary }]}
+          >
             {formatPrice(product.price)}
           </ThemedText>
           {isOutOfStock ? (
-            <View style={[styles.outOfStockBadge, { backgroundColor: AppColors.errorLight }]}>
-              <ThemedText type="small" style={{ color: AppColors.error, fontWeight: FontWeight.semiBold, fontSize: 11 }}>
+            <View
+              style={[
+                styles.outOfStockBadge,
+                { backgroundColor: AppColors.errorLight },
+              ]}
+            >
+              <ThemedText
+                type="small"
+                style={{
+                  color: AppColors.error,
+                  fontWeight: FontWeight.semiBold,
+                  fontSize: 11,
+                }}
+              >
                 نفذت الكمية
               </ThemedText>
             </View>
@@ -232,8 +275,21 @@ function SearchFilterBar({
 }) {
   return (
     <View style={sfStyles.container}>
-      <View style={[sfStyles.searchRow, { backgroundColor: theme.backgroundDefault, borderColor: theme.border }]}>
-        <Feather name="search" size={16} color={theme.textSecondary} style={sfStyles.searchIcon} />
+      <View
+        style={[
+          sfStyles.searchRow,
+          {
+            backgroundColor: theme.backgroundDefault,
+            borderColor: theme.border,
+          },
+        ]}
+      >
+        <Feather
+          name="search"
+          size={16}
+          color={theme.textSecondary}
+          style={sfStyles.searchIcon}
+        />
         <TextInput
           value={searchQuery}
           onChangeText={onSearchChange}
@@ -268,8 +324,12 @@ function SearchFilterBar({
             style={[
               sfStyles.chip,
               {
-                backgroundColor: selectedCategory === null ? AppColors.primary : theme.backgroundDefault,
-                borderColor: selectedCategory === null ? AppColors.primary : theme.border,
+                backgroundColor:
+                  selectedCategory === null
+                    ? AppColors.primary
+                    : theme.backgroundDefault,
+                borderColor:
+                  selectedCategory === null ? AppColors.primary : theme.border,
               },
             ]}
             testID="chip-category-all"
@@ -281,7 +341,12 @@ function SearchFilterBar({
               type="small"
               style={[
                 sfStyles.chipText,
-                { color: selectedCategory === null ? AppColors.white : theme.textSecondary },
+                {
+                  color:
+                    selectedCategory === null
+                      ? AppColors.white
+                      : theme.textSecondary,
+                },
               ]}
             >
               الكل
@@ -297,7 +362,9 @@ function SearchFilterBar({
                 style={[
                   sfStyles.chip,
                   {
-                    backgroundColor: active ? AppColors.primary : theme.backgroundDefault,
+                    backgroundColor: active
+                      ? AppColors.primary
+                      : theme.backgroundDefault,
                     borderColor: active ? AppColors.primary : theme.border,
                   },
                 ]}
@@ -308,7 +375,10 @@ function SearchFilterBar({
               >
                 <ThemedText
                   type="small"
-                  style={[sfStyles.chipText, { color: active ? AppColors.white : theme.textSecondary }]}
+                  style={[
+                    sfStyles.chipText,
+                    { color: active ? AppColors.white : theme.textSecondary },
+                  ]}
                 >
                   {categoryLabel(cat)}
                 </ThemedText>
@@ -324,7 +394,8 @@ function SearchFilterBar({
 export default function StoreProductsScreen() {
   const route = useRoute<StoreProductsRouteProp>();
   const { storeId, initialCategoryFilter } = route.params;
-  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const navigation =
+    useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const headerHeight = useHeaderHeight();
   const insets = useSafeAreaInsets();
   const { theme } = useTheme();
@@ -407,7 +478,8 @@ export default function StoreProductsScreen() {
 
   const totalCartItems = items.reduce((sum, i) => sum + i.quantity, 0);
 
-  const isFiltering = searchQuery.trim().length > 0 || selectedCategory !== null;
+  const isFiltering =
+    searchQuery.trim().length > 0 || selectedCategory !== null;
 
   return (
     <View style={{ flex: 1 }}>
@@ -419,7 +491,10 @@ export default function StoreProductsScreen() {
       ) : isError ? (
         <View style={[styles.center, { paddingTop: headerHeight }]}>
           <Feather name="wifi-off" size={48} color={theme.textSecondary} />
-          <ThemedText type="body" style={[styles.emptyText, { color: theme.textSecondary }]}>
+          <ThemedText
+            type="body"
+            style={[styles.emptyText, { color: theme.textSecondary }]}
+          >
             تعذّر تحميل المنتجات
           </ThemedText>
           <Pressable
@@ -428,7 +503,13 @@ export default function StoreProductsScreen() {
             accessibilityRole="button"
             accessibilityLabel="إعادة المحاولة"
           >
-            <ThemedText type="body" style={{ color: AppColors.primary, fontWeight: FontWeight.semiBold }}>
+            <ThemedText
+              type="body"
+              style={{
+                color: AppColors.primary,
+                fontWeight: FontWeight.semiBold,
+              }}
+            >
               إعادة المحاولة
             </ThemedText>
           </Pressable>
@@ -439,7 +520,8 @@ export default function StoreProductsScreen() {
           keyExtractor={(item) => item.id}
           contentContainerStyle={{
             paddingTop: headerHeight,
-            paddingBottom: insets.bottom + Spacing.xl + (totalCartItems > 0 ? 80 : 0),
+            paddingBottom:
+              insets.bottom + Spacing.xl + (totalCartItems > 0 ? 80 : 0),
             paddingHorizontal: Spacing.lg,
           }}
           scrollIndicatorInsets={{ bottom: insets.bottom }}
@@ -458,24 +540,42 @@ export default function StoreProductsScreen() {
                 <StoreProfileHeader
                   store={store}
                   theme={theme}
-                  onRatingsPress={() => navigation.navigate("StoreRatings", { storeId, storeName: store.storeName })}
+                  onRatingsPress={() =>
+                    navigation.navigate("StoreRatings", {
+                      storeId,
+                      storeName: store.storeName,
+                    })
+                  }
                 />
               ) : null}
               {/* Closed / Vacation / Busy banner */}
-              {store && (store.isVacation || store.isBusy || store.isOpen === false) ? (
+              {store &&
+              (store.isVacation || store.isBusy || store.isOpen === false) ? (
                 <View style={storeClosedBannerStyle(store)}>
                   <Feather
-                    name={store.isVacation ? "umbrella" : store.isBusy ? "clock" : "moon"}
+                    name={
+                      store.isVacation
+                        ? "umbrella"
+                        : store.isBusy
+                          ? "clock"
+                          : "moon"
+                    }
                     size={16}
                     color="#fff"
                     style={{ marginLeft: 8 }}
                   />
-                  <ThemedText style={{ color: "#fff", fontFamily: "Cairo_700Bold", fontSize: 14 }}>
+                  <ThemedText
+                    style={{
+                      color: "#fff",
+                      fontFamily: "Cairo_700Bold",
+                      fontSize: 14,
+                    }}
+                  >
                     {store.isVacation
                       ? "المتجر في وضع الإجازة — يعود قريباً"
                       : store.isBusy
-                      ? "المتجر مشغول حالياً — وقت التسليم أطول من المعتاد"
-                      : "المتجر مغلق الآن — لا يمكن قبول طلبات"}
+                        ? "المتجر مشغول حالياً — وقت التسليم أطول من المعتاد"
+                        : "المتجر مغلق الآن — لا يمكن قبول طلبات"}
                   </ThemedText>
                 </View>
               ) : null}
@@ -497,23 +597,38 @@ export default function StoreProductsScreen() {
                 color={theme.textSecondary}
                 style={{ opacity: 0.4 }}
               />
-              <ThemedText type="h4" style={[styles.emptyTitle, { color: theme.textSecondary }]}>
+              <ThemedText
+                type="h4"
+                style={[styles.emptyTitle, { color: theme.textSecondary }]}
+              >
                 {isFiltering ? "لا توجد نتائج" : "لا توجد منتجات متاحة"}
               </ThemedText>
-              <ThemedText type="small" style={[styles.emptyText, { color: theme.textSecondary }]}>
+              <ThemedText
+                type="small"
+                style={[styles.emptyText, { color: theme.textSecondary }]}
+              >
                 {isFiltering
                   ? "جرّب تغيير كلمة البحث أو الفئة"
                   : "لم تتم الموافقة على أي منتج من هذا المتجر بعد"}
               </ThemedText>
               {isFiltering ? (
                 <Pressable
-                  onPress={() => { setSearchQuery(""); setSelectedCategory(null); }}
+                  onPress={() => {
+                    setSearchQuery("");
+                    setSelectedCategory(null);
+                  }}
                   style={styles.retryBtn}
                   testID="btn-clear-filters"
                   accessibilityRole="button"
                   accessibilityLabel="مسح الفلاتر"
                 >
-                  <ThemedText type="body" style={{ color: AppColors.primary, fontWeight: FontWeight.semiBold }}>
+                  <ThemedText
+                    type="body"
+                    style={{
+                      color: AppColors.primary,
+                      fontWeight: FontWeight.semiBold,
+                    }}
+                  >
                     مسح الفلاتر
                   </ThemedText>
                 </Pressable>
@@ -539,7 +654,15 @@ export default function StoreProductsScreen() {
   );
 }
 
-function StoreProfileHeader({ store, theme, onRatingsPress }: { store: VendorStore; theme: any; onRatingsPress?: () => void }) {
+function StoreProfileHeader({
+  store,
+  theme,
+  onRatingsPress,
+}: {
+  store: VendorStore;
+  theme: any;
+  onRatingsPress?: () => void;
+}) {
   const cfg = BUSINESS_CONFIG[store.businessType] || BUSINESS_CONFIG.other;
   const avatarUrl = resolveUrl(store.profileImageUrl);
   const coverUrl = resolveUrl(store.coverImageUrl);
@@ -560,11 +683,19 @@ function StoreProfileHeader({ store, theme, onRatingsPress }: { store: VendorSto
 
       {/* Avatar + info */}
       <View style={hStyles.infoRow}>
-        <View style={[hStyles.avatarWrap, { borderColor: theme.backgroundDefault }]}>
+        <View
+          style={[hStyles.avatarWrap, { borderColor: theme.backgroundDefault }]}
+        >
           {avatarUrl ? (
-            <Image source={{ uri: avatarUrl }} style={hStyles.avatar} contentFit="cover" />
+            <Image
+              source={{ uri: avatarUrl }}
+              style={hStyles.avatar}
+              contentFit="cover"
+            />
           ) : (
-            <View style={[hStyles.avatarFallback, { backgroundColor: cfg.color }]}>
+            <View
+              style={[hStyles.avatarFallback, { backgroundColor: cfg.color }]}
+            >
               <ThemedText style={hStyles.avatarLetter}>
                 {store.storeName?.[0] || "م"}
               </ThemedText>
@@ -573,24 +704,40 @@ function StoreProfileHeader({ store, theme, onRatingsPress }: { store: VendorSto
         </View>
 
         <View style={hStyles.textBlock}>
-          <View style={[hStyles.typeBadge, { backgroundColor: cfg.color + "18" }]}>
-            <MaterialCommunityIcons name={cfg.icon as any} size={12} color={cfg.color} />
+          <View
+            style={[hStyles.typeBadge, { backgroundColor: cfg.color + "18" }]}
+          >
+            <MaterialCommunityIcons
+              name={cfg.icon as any}
+              size={12}
+              color={cfg.color}
+            />
             <ThemedText style={[hStyles.typeLabel, { color: cfg.color }]}>
               {cfg.label}
             </ThemedText>
           </View>
-          <ThemedText type="h3" style={[hStyles.storeName, { color: theme.textPrimary }]}>
+          <ThemedText
+            type="h3"
+            style={[hStyles.storeName, { color: theme.textPrimary }]}
+          >
             {store.storeName}
           </ThemedText>
           {store.bio ? (
-            <ThemedText type="small" style={[hStyles.bio, { color: theme.textSecondary }]} numberOfLines={2}>
+            <ThemedText
+              type="small"
+              style={[hStyles.bio, { color: theme.textSecondary }]}
+              numberOfLines={2}
+            >
               {store.bio}
             </ThemedText>
           ) : null}
           {store.address ? (
             <View style={hStyles.addressRow}>
               <Feather name="map-pin" size={11} color={theme.textSecondary} />
-              <ThemedText type="small" style={[hStyles.addressText, { color: theme.textSecondary }]}>
+              <ThemedText
+                type="small"
+                style={[hStyles.addressText, { color: theme.textSecondary }]}
+              >
                 {store.address}
               </ThemedText>
             </View>
@@ -610,11 +757,17 @@ function StoreProfileHeader({ store, theme, onRatingsPress }: { store: VendorSto
                   {(store.rating as number).toFixed(1)}
                 </ThemedText>
               </View>
-              <ThemedText type="small" style={[hStyles.ratingCount, { color: theme.textSecondary }]}>
+              <ThemedText
+                type="small"
+                style={[hStyles.ratingCount, { color: theme.textSecondary }]}
+              >
                 ({store.ratingCount ?? 0} تقييم)
               </ThemedText>
               {onRatingsPress ? (
-                <ThemedText type="small" style={[hStyles.ratingLink, { color: AppColors.primary }]}>
+                <ThemedText
+                  type="small"
+                  style={[hStyles.ratingLink, { color: AppColors.primary }]}
+                >
                   عرض التقييمات
                 </ThemedText>
               ) : null}
@@ -678,12 +831,34 @@ const hStyles = StyleSheet.create({
   bio: { textAlign: "right", fontStyle: "italic" },
   addressRow: { flexDirection: "row-reverse", alignItems: "center", gap: 4 },
   addressText: { textAlign: "right" },
-  ratingRow: { flexDirection: "row-reverse", alignItems: "center", gap: 6, marginTop: 6, flexWrap: "wrap" as const },
-  ratingBadge: { flexDirection: "row-reverse", alignItems: "center", gap: 4, backgroundColor: AppColors.success, paddingHorizontal: 9, paddingVertical: 4, borderRadius: 999 },
-  ratingBadgeText: { fontFamily: "Cairo_700Bold", color: AppColors.white, includeFontPadding: false },
+  ratingRow: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    gap: 6,
+    marginTop: 6,
+    flexWrap: "wrap" as const,
+  },
+  ratingBadge: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: AppColors.success,
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+    borderRadius: 999,
+  },
+  ratingBadgeText: {
+    fontFamily: "Cairo_700Bold",
+    color: AppColors.white,
+    includeFontPadding: false,
+  },
   ratingText: { fontFamily: "Cairo_700Bold" },
   ratingCount: { fontFamily: "Cairo_400Regular" },
-  ratingLink: { fontFamily: "Cairo_700Bold", marginRight: 4, textDecorationLine: "underline" as const },
+  ratingLink: {
+    fontFamily: "Cairo_700Bold",
+    marginRight: 4,
+    textDecorationLine: "underline" as const,
+  },
 });
 
 const sfStyles = StyleSheet.create({
@@ -731,8 +906,8 @@ function storeClosedBannerStyle(store: VendorStore): object {
   const bg = store.isVacation
     ? AppColors.primary
     : store.isBusy
-    ? AppColors.warning
-    : AppColors.gray500;
+      ? AppColors.warning
+      : AppColors.gray500;
   return {
     flexDirection: "row-reverse" as const,
     alignItems: "center" as const,

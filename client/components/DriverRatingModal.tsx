@@ -1,5 +1,11 @@
 import React, { useState } from "react";
-import { View, StyleSheet, Modal, Pressable, ActivityIndicator } from "react-native";
+import {
+  View,
+  StyleSheet,
+  Modal,
+  Pressable,
+  ActivityIndicator,
+} from "react-native";
 import { Feather } from "@expo/vector-icons";
 
 import { ThemedText } from "@/components/ThemedText";
@@ -29,11 +35,17 @@ export function DriverRatingModal({
     if (stars < 1 || submitting) return;
     setSubmitting(true);
     try {
-      await fetch(new URL(`/api/orders/${orderId}/rate-driver`, getApiUrl()).toString(), {
-        method: "POST",
-        headers: { "Content-Type": "application/json", ...(authHeader || {}) },
-        body: JSON.stringify({ rating: stars }),
-      });
+      await fetch(
+        new URL(`/api/orders/${orderId}/rate-driver`, getApiUrl()).toString(),
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...(authHeader || {}),
+          },
+          body: JSON.stringify({ rating: stars }),
+        },
+      );
     } catch {
       // Silent: rating is best-effort; never block the customer.
     } finally {
@@ -49,7 +61,12 @@ export function DriverRatingModal({
   };
 
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={skip}>
+    <Modal
+      visible={visible}
+      transparent
+      animationType="fade"
+      onRequestClose={skip}
+    >
       <View style={s.overlay}>
         <View style={s.card}>
           <View style={s.iconCircle}>
@@ -62,7 +79,12 @@ export function DriverRatingModal({
 
           <View style={s.starsRow}>
             {[1, 2, 3, 4, 5].map((n) => (
-              <Pressable key={n} onPress={() => setStars(n)} hitSlop={6} accessibilityRole="button">
+              <Pressable
+                key={n}
+                onPress={() => setStars(n)}
+                hitSlop={6}
+                accessibilityRole="button"
+              >
                 <Feather
                   name="star"
                   size={38}
@@ -74,7 +96,10 @@ export function DriverRatingModal({
           </View>
 
           <Pressable
-            style={[s.submitBtn, { opacity: stars < 1 || submitting ? 0.5 : 1 }]}
+            style={[
+              s.submitBtn,
+              { opacity: stars < 1 || submitting ? 0.5 : 1 },
+            ]}
             onPress={submit}
             disabled={stars < 1 || submitting}
             accessibilityRole="button"
@@ -121,7 +146,11 @@ const s = StyleSheet.create({
     justifyContent: "center",
     marginBottom: 14,
   },
-  title: { fontFamily: FontFamily.cairoBold, fontSize: 18, color: AppColors.gray800 },
+  title: {
+    fontFamily: FontFamily.cairoBold,
+    fontSize: 18,
+    color: AppColors.gray800,
+  },
   subtitle: {
     fontFamily: FontFamily.tajawal,
     fontSize: 14,
@@ -137,6 +166,15 @@ const s = StyleSheet.create({
     width: "100%",
     alignItems: "center",
   },
-  submitText: { fontFamily: FontFamily.cairoBold, fontSize: 15, color: AppColors.white },
-  skipText: { fontFamily: FontFamily.tajawal, fontSize: 14, color: AppColors.gray500, marginTop: 14 },
+  submitText: {
+    fontFamily: FontFamily.cairoBold,
+    fontSize: 15,
+    color: AppColors.white,
+  },
+  skipText: {
+    fontFamily: FontFamily.tajawal,
+    fontSize: 14,
+    color: AppColors.gray500,
+    marginTop: 14,
+  },
 });

@@ -12,7 +12,6 @@ import { AppColors } from "@/constants/theme";
 // its scroll content by insets.top + HEADER_BAR_HEIGHT so nothing hides behind it.
 export const HEADER_BAR_HEIGHT = 52;
 
-
 // In-screen top bar for the Home tab. It is rendered INSIDE the screen (not as a
 // React Navigation native-stack title) and owns its own safe-area top padding.
 // The old approach — a full-width custom component used as a *centered* native-stack
@@ -31,7 +30,10 @@ export function HeaderTitle() {
   };
 
   const handleNotificationsPress = () => {
-    navigation.navigate("Main", { screen: "ProfileTab", params: { screen: "NotificationsList" } });
+    navigation.navigate("Main", {
+      screen: "ProfileTab",
+      params: { screen: "NotificationsList" },
+    });
   };
 
   return (
@@ -40,7 +42,11 @@ export function HeaderTitle() {
           under the app's forced-RTL layout (plain "row" put the icons on the right). */}
       <View style={styles.container}>
         <View style={styles.iconGroup}>
-          <Pressable style={styles.iconButton} onPress={handleNotificationsPress} testID="button-notifications">
+          <Pressable
+            style={styles.iconButton}
+            onPress={handleNotificationsPress}
+            testID="button-notifications"
+          >
             <Feather name="bell" size={22} color={AppColors.primary} />
             {unreadCount > 0 ? (
               <View style={styles.badge}>
@@ -50,7 +56,11 @@ export function HeaderTitle() {
               </View>
             ) : null}
           </Pressable>
-          <Pressable style={styles.iconButton} onPress={handleCartPress} testID="button-cart">
+          <Pressable
+            style={styles.iconButton}
+            onPress={handleCartPress}
+            testID="button-cart"
+          >
             <Feather name="shopping-cart" size={22} color={AppColors.primary} />
             {cartCount > 0 ? (
               <View style={styles.badge}>

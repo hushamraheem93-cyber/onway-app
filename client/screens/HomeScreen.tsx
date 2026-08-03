@@ -24,7 +24,7 @@ import tabCartImg from "../assets/images/tab-cart-groceries.png";
 import tabBurgerImg from "../assets/images/tab-burger-meal.png";
 
 import { useTheme } from "@/hooks/useTheme";
-import { Spacing, AppColors, FontWeight} from "@/constants/theme";
+import { Spacing, AppColors, FontWeight } from "@/constants/theme";
 import { Category, Banner, Product } from "@/constants/categories";
 import { ThemedText } from "@/components/ThemedText";
 import { LocationBar } from "@/components/LocationBar";
@@ -84,18 +84,50 @@ interface VendorProduct {
   category: string;
 }
 
-const VENDOR_BIZ_CONFIG: Record<string, { label: string; icon: string; color: string; bg: string }> = {
-  restaurant: { label: "مطعم", icon: "food", color: AppColors.primary, bg: AppColors.warningLight },
-  supermarket: { label: "سوبرماركت", icon: "cart", color: AppColors.success, bg: AppColors.successLight },
-  pharmacy: { label: "صيدلية", icon: "medical-bag", color: AppColors.vendorPurple, bg: AppColors.vendorPurpleLight },
-  bakery: { label: "مخبز", icon: "bread-slice", color: AppColors.warning, bg: AppColors.warningLight },
-  other: { label: "متجر", icon: "store", color: AppColors.driverBlue, bg: AppColors.driverBlueLight },
+const VENDOR_BIZ_CONFIG: Record<
+  string,
+  { label: string; icon: string; color: string; bg: string }
+> = {
+  restaurant: {
+    label: "مطعم",
+    icon: "food",
+    color: AppColors.primary,
+    bg: AppColors.warningLight,
+  },
+  supermarket: {
+    label: "سوبرماركت",
+    icon: "cart",
+    color: AppColors.success,
+    bg: AppColors.successLight,
+  },
+  pharmacy: {
+    label: "صيدلية",
+    icon: "medical-bag",
+    color: AppColors.vendorPurple,
+    bg: AppColors.vendorPurpleLight,
+  },
+  bakery: {
+    label: "مخبز",
+    icon: "bread-slice",
+    color: AppColors.warning,
+    bg: AppColors.warningLight,
+  },
+  other: {
+    label: "متجر",
+    icon: "store",
+    color: AppColors.driverBlue,
+    bg: AppColors.driverBlueLight,
+  },
 };
 
 function resolveStoreUrl(path?: string): string | null {
   if (!path) return null;
   if (path.startsWith("http")) return path;
-  try { return new URL(path, getApiUrl()).toString(); } catch { return null; }
+  try {
+    return new URL(path, getApiUrl()).toString();
+  } catch {
+    return null;
+  }
 }
 
 const CATEGORY_3D_IMAGES: Record<string, string> = {
@@ -164,7 +196,9 @@ export default function HomeScreen() {
   const { isFavorite, toggleFavorite } = useFavorites();
   const { userProfile } = useAuth();
 
-  const [activeTab, setActiveTab] = useState<"restaurants" | "stores">("restaurants");
+  const [activeTab, setActiveTab] = useState<"restaurants" | "stores">(
+    "restaurants",
+  );
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
 
@@ -172,7 +206,9 @@ export default function HomeScreen() {
     ? `أهلاً ${userProfile.fullName.split(" ")[0]} 👋`
     : "أهلاً بك 👋";
 
-  const { data: categories = [], isLoading: categoriesLoading } = useQuery<Category[]>({
+  const { data: categories = [], isLoading: categoriesLoading } = useQuery<
+    Category[]
+  >({
     queryKey: ["/api/categories"],
   });
 
@@ -180,11 +216,15 @@ export default function HomeScreen() {
     queryKey: ["/api/banners"],
   });
 
-  const { data: allProducts = [], isLoading: productsLoading } = useQuery<Product[]>({
+  const { data: allProducts = [], isLoading: productsLoading } = useQuery<
+    Product[]
+  >({
     queryKey: ["/api/products"],
   });
 
-  const { data: allVendors = [], isLoading: vendorsLoading } = useQuery<Vendor[]>({
+  const { data: allVendors = [], isLoading: vendorsLoading } = useQuery<
+    Vendor[]
+  >({
     queryKey: ["/api/vendors"],
     staleTime: 30 * 1000,
     refetchOnMount: true,
@@ -220,10 +260,9 @@ export default function HomeScreen() {
   // ── Vendors filtered by tab + search ──────────────────────────────────
   const restaurantVendors = useMemo(() => {
     return allVendors.filter(
-      (v) => !v.categoryType || v.categoryType === "restaurant"
+      (v) => !v.categoryType || v.categoryType === "restaurant",
     );
   }, [allVendors]);
-
 
   const filteredRestaurants = useMemo(() => {
     if (!searchQuery.trim()) return restaurantVendors;
@@ -231,7 +270,7 @@ export default function HomeScreen() {
     return restaurantVendors.filter(
       (v) =>
         v.name.toLowerCase().includes(q) ||
-        (v.cuisine || "").toLowerCase().includes(q)
+        (v.cuisine || "").toLowerCase().includes(q),
     );
   }, [restaurantVendors, searchQuery]);
 
@@ -244,21 +283,19 @@ export default function HomeScreen() {
     if (!searchQuery.trim()) return [];
     const q = searchQuery.trim().toLowerCase();
     return allProducts.filter(
-      (p) =>
-        p.categoryId !== "restaurants" &&
-        p.name.toLowerCase().includes(q)
+      (p) => p.categoryId !== "restaurants" && p.name.toLowerCase().includes(q),
     );
   }, [allProducts, searchQuery]);
 
   // ── Vendor stores from registration system ──────────────────────────────
-  const vendorRestaurants = useMemo(() =>
-    allVendorStores.filter((s) => s.businessType === "restaurant"),
-    [allVendorStores]
+  const vendorRestaurants = useMemo(
+    () => allVendorStores.filter((s) => s.businessType === "restaurant"),
+    [allVendorStores],
   );
 
-  const vendorOtherStores = useMemo(() =>
-    allVendorStores.filter((s) => s.businessType !== "restaurant"),
-    [allVendorStores]
+  const vendorOtherStores = useMemo(
+    () => allVendorStores.filter((s) => s.businessType !== "restaurant"),
+    [allVendorStores],
   );
 
   // ── Promotional sections ────────────────────────────────────────────────
@@ -297,9 +334,7 @@ export default function HomeScreen() {
         .map((id) => allProducts.find((p) => p.id === id))
         .filter(Boolean) as Product[];
     }
-    return allProducts
-      .filter((p) => (p.discount || 0) > 0)
-      .slice(0, 6);
+    return allProducts.filter((p) => (p.discount || 0) > 0).slice(0, 6);
   }, [allProducts, promotionalSections]);
 
   // Prefetch visible catalog product images when data first loads
@@ -313,12 +348,14 @@ export default function HomeScreen() {
   const offerBanner = allBanners.find((b) => b.type === "offer");
   const sliderBanners = allBanners.filter((b) => b.type === "slider");
 
-
   const get3DImage = (categoryId: string, fallbackImage: string) => {
     // Prefer an admin-uploaded image (http/data URL) so a picture set from the
     // admin panel actually shows. Only fall back to the bundled 3D asset when the
     // category has no real uploaded image.
-    if (fallbackImage && (fallbackImage.startsWith("http") || fallbackImage.startsWith("data:"))) {
+    if (
+      fallbackImage &&
+      (fallbackImage.startsWith("http") || fallbackImage.startsWith("data:"))
+    ) {
       return resolveImageUrl(fallbackImage);
     }
     const path = CATEGORY_3D_IMAGES[categoryId];
@@ -352,12 +389,14 @@ export default function HomeScreen() {
   // ── Render helpers ──────────────────────────────────────────────────────
 
   const renderCategoryCard = (category: Category) => {
-    const gradientColor = CATEGORY_COLORS[category.id] || category.color || AppColors.secondary;
+    const gradientColor =
+      CATEGORY_COLORS[category.id] || category.color || AppColors.secondary;
     // Admin/vendor-uploaded photos vary wildly (some full-bleed, some a product on a
     // white background), which made the grid look untidy. Fill uploaded photos edge to
     // edge on a white frame so every tile matches; keep the bundled 3D icons "contain"
     // (they are transparent PNGs meant to be shown whole).
-    const isUploaded = !!category.image && /^(https?:|data:)/.test(category.image);
+    const isUploaded =
+      !!category.image && /^(https?:|data:)/.test(category.image);
     return (
       <Pressable
         key={category.id}
@@ -432,10 +471,16 @@ export default function HomeScreen() {
             }}
             style={styles.productFavoriteBtn}
             accessibilityRole="button"
-            accessibilityLabel={isFav ? "إزالة من المفضلة" : "إضافة إلى المفضلة"}
+            accessibilityLabel={
+              isFav ? "إزالة من المفضلة" : "إضافة إلى المفضلة"
+            }
             accessibilityState={{ selected: isFav }}
           >
-            <Feather name="heart" size={15} color={isFav ? AppColors.error : AppColors.gray300} />
+            <Feather
+              name="heart"
+              size={15}
+              color={isFav ? AppColors.error : AppColors.gray300}
+            />
           </Pressable>
         </View>
         <View style={styles.productInfo}>
@@ -443,7 +488,9 @@ export default function HomeScreen() {
             {product.name}
           </ThemedText>
           <View style={styles.productFooter}>
-            <ThemedText style={styles.productPrice}>{formatPrice(product.price)}</ThemedText>
+            <ThemedText style={styles.productPrice}>
+              {formatPrice(product.price)}
+            </ThemedText>
             {quantity > 0 ? (
               <View style={styles.quantityRow}>
                 <Pressable
@@ -471,7 +518,9 @@ export default function HomeScreen() {
             ) : (
               <Pressable
                 onPress={() => {
-                  Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                  Haptics.notificationAsync(
+                    Haptics.NotificationFeedbackType.Success,
+                  );
                   addToCart(product);
                 }}
                 style={styles.addButton}
@@ -516,13 +565,26 @@ export default function HomeScreen() {
           colors={["transparent", AppColors.overlay]}
           style={styles.restaurantGradient}
         />
-        <View style={[styles.openBadge, { backgroundColor: vendor.isOpen ? AppColors.success : AppColors.error }]}>
+        <View
+          style={[
+            styles.openBadge,
+            {
+              backgroundColor: vendor.isOpen
+                ? AppColors.success
+                : AppColors.error,
+            },
+          ]}
+        >
           <View style={styles.openDot} />
-          <ThemedText style={styles.openText}>{vendor.isOpen ? "مفتوح" : "مغلق"}</ThemedText>
+          <ThemedText style={styles.openText}>
+            {vendor.isOpen ? "مفتوح" : "مغلق"}
+          </ThemedText>
         </View>
         <View style={styles.deliveryPill}>
           <Feather name="clock" size={12} color={AppColors.primary} />
-          <ThemedText style={styles.deliveryPillText}>{vendor.deliveryTime} دقيقة</ThemedText>
+          <ThemedText style={styles.deliveryPillText}>
+            {vendor.deliveryTime} دقيقة
+          </ThemedText>
         </View>
       </View>
       <View style={styles.restaurantInfo}>
@@ -533,19 +595,24 @@ export default function HomeScreen() {
           {vendor.rating != null ? (
             <View style={styles.ratingPill}>
               <Feather name="star" size={12} color={AppColors.white} />
-              <ThemedText style={styles.ratingPillText}>{vendor.rating.toFixed(1)}</ThemedText>
+              <ThemedText style={styles.ratingPillText}>
+                {vendor.rating.toFixed(1)}
+              </ThemedText>
             </View>
           ) : null}
         </View>
         <ThemedText style={styles.restaurantMetaText} numberOfLines={1}>
-          {[vendor.cuisine, vendor.location || "الضلوعية"].filter(Boolean).join("   ·   ")}
+          {[vendor.cuisine, vendor.location || "الضلوعية"]
+            .filter(Boolean)
+            .join("   ·   ")}
         </ThemedText>
       </View>
     </Pressable>
   );
 
   const renderVendorStoreCard = (store: VendorStore) => {
-    const cfg = VENDOR_BIZ_CONFIG[store.businessType] || VENDOR_BIZ_CONFIG.other;
+    const cfg =
+      VENDOR_BIZ_CONFIG[store.businessType] || VENDOR_BIZ_CONFIG.other;
     const avatarUrl = resolveStoreUrl(store.profileImageUrl);
     const coverUrl = resolveStoreUrl(store.coverImageUrl);
     const open = (() => {
@@ -578,14 +645,21 @@ export default function HomeScreen() {
         }}
         onPress={() => {
           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-          navigation.navigate("StoreProducts", { storeId: store.id, storeName: store.storeName });
+          navigation.navigate("StoreProducts", {
+            storeId: store.id,
+            storeName: store.storeName,
+          });
         }}
         testID={`vendor-store-card-${store.id}`}
       >
         {/* Cover */}
         <View style={{ width: "100%", height: 120, backgroundColor: cfg.bg }}>
           {coverUrl ? (
-            <Image source={{ uri: coverUrl }} style={StyleSheet.absoluteFillObject as any} contentFit="cover" />
+            <Image
+              source={{ uri: coverUrl }}
+              style={StyleSheet.absoluteFillObject as any}
+              contentFit="cover"
+            />
           ) : null}
           <LinearGradient
             colors={["transparent", AppColors.overlay]}
@@ -594,69 +668,248 @@ export default function HomeScreen() {
             end={{ x: 0, y: 1 }}
           />
           {/* Open badge */}
-          <View style={{
-            position: "absolute", top: 10, left: 10,
-            flexDirection: "row", alignItems: "center", gap: 5,
-            paddingHorizontal: 9, paddingVertical: 4,
-            borderRadius: 12,
-            backgroundColor: open ? "#10B981EE" : "#EF4444EE",
-          }}>
-            <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: AppColors.white }} />
-            <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 11, color: AppColors.white }}>
+          <View
+            style={{
+              position: "absolute",
+              top: 10,
+              left: 10,
+              flexDirection: "row",
+              alignItems: "center",
+              gap: 5,
+              paddingHorizontal: 9,
+              paddingVertical: 4,
+              borderRadius: 12,
+              backgroundColor: open ? "#10B981EE" : "#EF4444EE",
+            }}
+          >
+            <View
+              style={{
+                width: 6,
+                height: 6,
+                borderRadius: 3,
+                backgroundColor: AppColors.white,
+              }}
+            />
+            <ThemedText
+              style={{
+                fontFamily: "Cairo_700Bold",
+                fontSize: 11,
+                color: AppColors.white,
+              }}
+            >
               {open ? "مفتوح" : "مغلق"}
             </ThemedText>
           </View>
           {/* Type badge */}
-          <View style={{
-            position: "absolute", top: 10, right: 10,
-            flexDirection: "row", alignItems: "center", gap: 4,
-            paddingHorizontal: 9, paddingVertical: 4,
-            borderRadius: 12, backgroundColor: cfg.color + "EE",
-          }}>
-            <MaterialCommunityIcons name={cfg.icon as any} size={12} color={AppColors.white} />
-            <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 11, color: AppColors.white }}>{cfg.label}</ThemedText>
+          <View
+            style={{
+              position: "absolute",
+              top: 10,
+              right: 10,
+              flexDirection: "row",
+              alignItems: "center",
+              gap: 4,
+              paddingHorizontal: 9,
+              paddingVertical: 4,
+              borderRadius: 12,
+              backgroundColor: cfg.color + "EE",
+            }}
+          >
+            <MaterialCommunityIcons
+              name={cfg.icon as any}
+              size={12}
+              color={AppColors.white}
+            />
+            <ThemedText
+              style={{
+                fontFamily: "Cairo_700Bold",
+                fontSize: 11,
+                color: AppColors.white,
+              }}
+            >
+              {cfg.label}
+            </ThemedText>
           </View>
           {/* Delivery info */}
-          <View style={{ position: "absolute", bottom: 10, right: 10, flexDirection: "row", gap: 6 }}>
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: AppColors.overlay, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10 }}>
-              <MaterialCommunityIcons name="clock-outline" size={12} color={AppColors.white} />
-              <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 11, color: AppColors.white }}>{deliveryTime} دقيقة</ThemedText>
+          <View
+            style={{
+              position: "absolute",
+              bottom: 10,
+              right: 10,
+              flexDirection: "row",
+              gap: 6,
+            }}
+          >
+            <View
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                gap: 4,
+                backgroundColor: AppColors.overlay,
+                paddingHorizontal: 8,
+                paddingVertical: 3,
+                borderRadius: 10,
+              }}
+            >
+              <MaterialCommunityIcons
+                name="clock-outline"
+                size={12}
+                color={AppColors.white}
+              />
+              <ThemedText
+                style={{
+                  fontFamily: "Cairo_700Bold",
+                  fontSize: 11,
+                  color: AppColors.white,
+                }}
+              >
+                {deliveryTime} دقيقة
+              </ThemedText>
             </View>
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: AppColors.overlay, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10 }}>
-              <MaterialCommunityIcons name="moped" size={12} color={AppColors.white} />
-              <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 11, color: AppColors.white }}>
-                {deliveryPrice === 0 ? "مجاني" : `${deliveryPrice.toLocaleString("ar-IQ")} د.ع`}
+            <View
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                gap: 4,
+                backgroundColor: AppColors.overlay,
+                paddingHorizontal: 8,
+                paddingVertical: 3,
+                borderRadius: 10,
+              }}
+            >
+              <MaterialCommunityIcons
+                name="moped"
+                size={12}
+                color={AppColors.white}
+              />
+              <ThemedText
+                style={{
+                  fontFamily: "Cairo_700Bold",
+                  fontSize: 11,
+                  color: AppColors.white,
+                }}
+              >
+                {deliveryPrice === 0
+                  ? "مجاني"
+                  : `${deliveryPrice.toLocaleString("ar-IQ")} د.ع`}
               </ThemedText>
             </View>
           </View>
         </View>
         {/* Body */}
-        <View style={{ flexDirection: "row-reverse", alignItems: "center", paddingHorizontal: 14, paddingBottom: 14, paddingTop: 4, gap: 10 }}>
-          <View style={{
-            width: 56, height: 56, borderRadius: 28, borderWidth: 3,
-            borderColor: theme.backgroundDefault, overflow: "hidden",
-            marginTop: -28, elevation: 4, backgroundColor: AppColors.white,
-          }}>
+        <View
+          style={{
+            flexDirection: "row-reverse",
+            alignItems: "center",
+            paddingHorizontal: 14,
+            paddingBottom: 14,
+            paddingTop: 4,
+            gap: 10,
+          }}
+        >
+          <View
+            style={{
+              width: 56,
+              height: 56,
+              borderRadius: 28,
+              borderWidth: 3,
+              borderColor: theme.backgroundDefault,
+              overflow: "hidden",
+              marginTop: -28,
+              elevation: 4,
+              backgroundColor: AppColors.white,
+            }}
+          >
             {avatarUrl ? (
-              <Image source={{ uri: avatarUrl }} style={{ width: "100%", height: "100%" }} contentFit="cover" />
+              <Image
+                source={{ uri: avatarUrl }}
+                style={{ width: "100%", height: "100%" }}
+                contentFit="cover"
+              />
             ) : (
-              <View style={{ flex: 1, backgroundColor: cfg.color, justifyContent: "center", alignItems: "center" }}>
-                <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 20, color: AppColors.white, lineHeight: 26 }}>{store.storeName?.[0] || "م"}</ThemedText>
+              <View
+                style={{
+                  flex: 1,
+                  backgroundColor: cfg.color,
+                  justifyContent: "center",
+                  alignItems: "center",
+                }}
+              >
+                <ThemedText
+                  style={{
+                    fontFamily: "Cairo_700Bold",
+                    fontSize: 20,
+                    color: AppColors.white,
+                    lineHeight: 26,
+                  }}
+                >
+                  {store.storeName?.[0] || "م"}
+                </ThemedText>
               </View>
             )}
           </View>
-          <View style={{ flex: 1, alignItems: "flex-end", gap: 4, paddingTop: 24 }}>
-            <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 15, color: theme.text, textAlign: "right" }} numberOfLines={1}>{store.storeName}</ThemedText>
+          <View
+            style={{ flex: 1, alignItems: "flex-end", gap: 4, paddingTop: 24 }}
+          >
+            <ThemedText
+              style={{
+                fontFamily: "Cairo_700Bold",
+                fontSize: 15,
+                color: theme.text,
+                textAlign: "right",
+              }}
+              numberOfLines={1}
+            >
+              {store.storeName}
+            </ThemedText>
             {rating !== null ? (
-              <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 4, backgroundColor: AppColors.success, paddingHorizontal: 9, paddingVertical: 4, borderRadius: 999 }}>
+              <View
+                style={{
+                  flexDirection: "row-reverse",
+                  alignItems: "center",
+                  gap: 4,
+                  backgroundColor: AppColors.success,
+                  paddingHorizontal: 9,
+                  paddingVertical: 4,
+                  borderRadius: 999,
+                }}
+              >
                 <Feather name="star" size={12} color={AppColors.white} />
-                <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 12, color: AppColors.white, includeFontPadding: false }}>{rating.toFixed(1)}</ThemedText>
+                <ThemedText
+                  style={{
+                    fontFamily: "Cairo_700Bold",
+                    fontSize: 12,
+                    color: AppColors.white,
+                    includeFontPadding: false,
+                  }}
+                >
+                  {rating.toFixed(1)}
+                </ThemedText>
               </View>
             ) : null}
             {store.address ? (
-              <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 3 }}>
-                <Feather name="map-pin" size={11} color={theme.textSecondary ?? AppColors.gray500} />
-                <ThemedText style={{ fontFamily: "Cairo_400Regular", fontSize: 12, color: theme.textSecondary ?? AppColors.gray500 }} numberOfLines={1}>{store.address}</ThemedText>
+              <View
+                style={{
+                  flexDirection: "row-reverse",
+                  alignItems: "center",
+                  gap: 3,
+                }}
+              >
+                <Feather
+                  name="map-pin"
+                  size={11}
+                  color={theme.textSecondary ?? AppColors.gray500}
+                />
+                <ThemedText
+                  style={{
+                    fontFamily: "Cairo_400Regular",
+                    fontSize: 12,
+                    color: theme.textSecondary ?? AppColors.gray500,
+                  }}
+                  numberOfLines={1}
+                >
+                  {store.address}
+                </ThemedText>
               </View>
             ) : null}
           </View>
@@ -666,7 +919,11 @@ export default function HomeScreen() {
   };
 
   // ── Vendor product mini-card ─────────────────────────────────────────────
-  const renderVendorProductCard = (vp: VendorProduct, storeId: string, storeName: string) => {
+  const renderVendorProductCard = (
+    vp: VendorProduct,
+    storeId: string,
+    storeName: string,
+  ) => {
     const imgUrl = resolveImageUrl(getProductThumb(vp));
     const cartProduct: Product = {
       id: vp.id,
@@ -702,18 +959,35 @@ export default function HomeScreen() {
               transition={200}
             />
           ) : (
-            <View style={[vendorProdStyles.image, { backgroundColor: AppColors.gray100, justifyContent: "center", alignItems: "center" }]}>
-              <MaterialCommunityIcons name="package-variant" size={30} color={AppColors.gray300} />
+            <View
+              style={[
+                vendorProdStyles.image,
+                {
+                  backgroundColor: AppColors.gray100,
+                  justifyContent: "center",
+                  alignItems: "center",
+                },
+              ]}
+            >
+              <MaterialCommunityIcons
+                name="package-variant"
+                size={30}
+                color={AppColors.gray300}
+              />
             </View>
           )}
           {vp.stock === 0 ? (
             <View style={vendorProdStyles.outOfStock}>
-              <ThemedText style={vendorProdStyles.outOfStockText}>نفد</ThemedText>
+              <ThemedText style={vendorProdStyles.outOfStockText}>
+                نفد
+              </ThemedText>
             </View>
           ) : null}
         </View>
         <View style={vendorProdStyles.info}>
-          <ThemedText style={vendorProdStyles.name} numberOfLines={2}>{vp.name}</ThemedText>
+          <ThemedText style={vendorProdStyles.name} numberOfLines={2}>
+            {vp.name}
+          </ThemedText>
           <View style={vendorProdStyles.bottomRow}>
             <ThemedText style={vendorProdStyles.price}>
               {formatPrice(vp.price)}
@@ -744,11 +1018,16 @@ export default function HomeScreen() {
               </View>
             ) : (
               <Pressable
-                style={[vendorProdStyles.addBtn, vp.stock === 0 && { opacity: 0.4 }]}
+                style={[
+                  vendorProdStyles.addBtn,
+                  vp.stock === 0 && { opacity: 0.4 },
+                ]}
                 disabled={vp.stock === 0}
                 onPress={(e) => {
                   e.stopPropagation();
-                  Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                  Haptics.notificationAsync(
+                    Haptics.NotificationFeedbackType.Success,
+                  );
                   addToCart(cartProduct);
                 }}
                 testID={`btn-add-vp-${vp.id}`}
@@ -775,13 +1054,24 @@ export default function HomeScreen() {
                 style={vendorSectionStyles.viewAllBtn}
                 onPress={() => {
                   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  navigation.navigate("StoreProducts", { storeId: store.id, storeName: store.storeName });
+                  navigation.navigate("StoreProducts", {
+                    storeId: store.id,
+                    storeName: store.storeName,
+                  });
                 }}
               >
-                <ThemedText style={vendorSectionStyles.viewAllText}>عرض الكل</ThemedText>
-                <Feather name="chevron-left" size={14} color={AppColors.primary} />
+                <ThemedText style={vendorSectionStyles.viewAllText}>
+                  عرض الكل
+                </ThemedText>
+                <Feather
+                  name="chevron-left"
+                  size={14}
+                  color={AppColors.primary}
+                />
               </Pressable>
-              <ThemedText style={vendorSectionStyles.productsTitle}>منتجات المتجر</ThemedText>
+              <ThemedText style={vendorSectionStyles.productsTitle}>
+                منتجات المتجر
+              </ThemedText>
             </View>
             <ScrollView
               horizontal
@@ -789,7 +1079,7 @@ export default function HomeScreen() {
               contentContainerStyle={vendorSectionStyles.scroll}
             >
               {products.map((vp) =>
-                renderVendorProductCard(vp, store.id, store.storeName)
+                renderVendorProductCard(vp, store.id, store.storeName),
               )}
             </ScrollView>
           </View>
@@ -803,7 +1093,9 @@ export default function HomeScreen() {
       return (
         <View style={styles.emptySearch}>
           <Feather name="search" size={40} color={AppColors.gray300} />
-          <ThemedText style={styles.emptySearchText}>لا توجد نتائج لـ "{searchQuery}"</ThemedText>
+          <ThemedText style={styles.emptySearchText}>
+            لا توجد نتائج لـ "{searchQuery}"
+          </ThemedText>
         </View>
       );
     }
@@ -814,8 +1106,13 @@ export default function HomeScreen() {
     );
   };
 
-  const firstRowCategories = storeCategories.slice(0, Math.ceil(storeCategories.length / 2));
-  const secondRowCategories = storeCategories.slice(Math.ceil(storeCategories.length / 2));
+  const firstRowCategories = storeCategories.slice(
+    0,
+    Math.ceil(storeCategories.length / 2),
+  );
+  const secondRowCategories = storeCategories.slice(
+    Math.ceil(storeCategories.length / 2),
+  );
 
   // Section title with the signature brand accent bar (RTL reading-start).
   const renderSectionTitle = (title: string) => (
@@ -833,14 +1130,18 @@ export default function HomeScreen() {
       {/* Greeting */}
       <View style={styles.greetingContainer}>
         <ThemedText style={styles.greeting}>{welcomeMessage}</ThemedText>
-        <ThemedText style={styles.subGreeting}>طلباتك صارت أسهل ويانا</ThemedText>
+        <ThemedText style={styles.subGreeting}>
+          طلباتك صارت أسهل ويانا
+        </ThemedText>
       </View>
 
       {/* Banners */}
       {sliderBanners.length > 0 || offerBanner ? (
         <View style={styles.bannersSection}>
           {offerBanner ? <OfferBanner banner={offerBanner} /> : null}
-          {sliderBanners.length > 0 ? <BannerSlider banners={sliderBanners} /> : null}
+          {sliderBanners.length > 0 ? (
+            <BannerSlider banners={sliderBanners} />
+          ) : null}
         </View>
       ) : null}
 
@@ -849,7 +1150,10 @@ export default function HomeScreen() {
         <View style={styles.tabsBackground}>
           {/* زر المتاجر — يمين */}
           <Pressable
-            style={[styles.tabBtn, activeTab === "stores" && styles.tabBtnActive]}
+            style={[
+              styles.tabBtn,
+              activeTab === "stores" && styles.tabBtnActive,
+            ]}
             onPress={() => {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
               setActiveTab("stores");
@@ -880,7 +1184,10 @@ export default function HomeScreen() {
 
           {/* زر المطاعم — يسار */}
           <Pressable
-            style={[styles.tabBtn, activeTab === "restaurants" && styles.tabBtnActive]}
+            style={[
+              styles.tabBtn,
+              activeTab === "restaurants" && styles.tabBtnActive,
+            ]}
             onPress={() => {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
               setActiveTab("restaurants");
@@ -900,7 +1207,9 @@ export default function HomeScreen() {
               >
                 <RestaurantTabIcon size={52} />
                 <ThemedText style={styles.tabTextActive}>
-                  {restaurantVendors.length > 0 ? `${restaurantVendors.length} مطاعم` : "مطاعم"}
+                  {restaurantVendors.length > 0
+                    ? `${restaurantVendors.length} مطاعم`
+                    : "مطاعم"}
                 </ThemedText>
               </LinearGradient>
             ) : (
@@ -914,14 +1223,21 @@ export default function HomeScreen() {
       </View>
 
       {/* ── Search Bar ── */}
-      <View style={[styles.searchBox, { backgroundColor: theme.backgroundSecondary }]}>
+      <View
+        style={[
+          styles.searchBox,
+          { backgroundColor: theme.backgroundSecondary },
+        ]}
+      >
         <Pressable onPress={() => {}}>
           <Feather name="search" size={20} color={AppColors.gray400} />
         </Pressable>
         <TextInput
           style={[styles.searchInput, { color: theme.text }]}
           placeholder={
-            activeTab === "restaurants" ? "ابحث عن مطعم أو نوع طعام..." : "ابحث عن منتج..."
+            activeTab === "restaurants"
+              ? "ابحث عن مطعم أو نوع طعام..."
+              : "ابحث عن منتج..."
           }
           placeholderTextColor={AppColors.gray400}
           value={searchQuery}
@@ -949,7 +1265,9 @@ export default function HomeScreen() {
             </View>
           ) : (
             <>
-              {filteredRestaurants.length > 0 ? filteredRestaurants.map(renderRestaurantCard) : null}
+              {filteredRestaurants.length > 0
+                ? filteredRestaurants.map(renderRestaurantCard)
+                : null}
               {vendorRestaurants.length > 0 ? (
                 <>
                   {filteredRestaurants.length > 0 ? (
@@ -960,7 +1278,8 @@ export default function HomeScreen() {
                   {vendorRestaurants.map(renderVendorStoreSectionWithProducts)}
                 </>
               ) : null}
-              {filteredRestaurants.length === 0 && vendorRestaurants.length === 0 ? (
+              {filteredRestaurants.length === 0 &&
+              vendorRestaurants.length === 0 ? (
                 <View style={styles.emptySearch}>
                   <Feather name="coffee" size={40} color={AppColors.gray300} />
                   <ThemedText style={styles.emptySearchText}>
@@ -1043,7 +1362,9 @@ export default function HomeScreen() {
                 </View>
               ) : bestSellerProducts.length === 0 ? (
                 <View style={styles.emptySection}>
-                  <ThemedText type="small" style={styles.emptySectionText}>لا توجد منتجات حالياً</ThemedText>
+                  <ThemedText type="small" style={styles.emptySectionText}>
+                    لا توجد منتجات حالياً
+                  </ThemedText>
                 </View>
               ) : (
                 <ScrollView
@@ -1073,7 +1394,9 @@ export default function HomeScreen() {
                 </View>
               ) : featuredProducts.length === 0 ? (
                 <View style={styles.emptySection}>
-                  <ThemedText type="small" style={styles.emptySectionText}>لا توجد منتجات مميزة حالياً</ThemedText>
+                  <ThemedText type="small" style={styles.emptySectionText}>
+                    لا توجد منتجات مميزة حالياً
+                  </ThemedText>
                 </View>
               ) : (
                 <ScrollView
@@ -1120,7 +1443,9 @@ export default function HomeScreen() {
   const renderProductModal = () => {
     if (!selectedProduct) return null;
     const isFav = isFavorite(selectedProduct.id);
-    const cartItem = items.find((item) => item.product.id === selectedProduct.id);
+    const cartItem = items.find(
+      (item) => item.product.id === selectedProduct.id,
+    );
     const qty = cartItem ? cartItem.quantity : 0;
 
     return (
@@ -1130,8 +1455,14 @@ export default function HomeScreen() {
         animationType="slide"
         onRequestClose={() => setSelectedProduct(null)}
       >
-        <Pressable style={styles.modalOverlay} onPress={() => setSelectedProduct(null)}>
-          <Pressable style={styles.modalSheet} onPress={(e) => e.stopPropagation()}>
+        <Pressable
+          style={styles.modalOverlay}
+          onPress={() => setSelectedProduct(null)}
+        >
+          <Pressable
+            style={styles.modalSheet}
+            onPress={(e) => e.stopPropagation()}
+          >
             <View style={styles.modalHandle} />
             <View style={styles.modalImageContainer}>
               <Image
@@ -1143,7 +1474,9 @@ export default function HomeScreen() {
               />
               {selectedProduct.discount ? (
                 <View style={styles.modalDiscountBadge}>
-                  <ThemedText style={styles.discountText}>{selectedProduct.discount}%</ThemedText>
+                  <ThemedText style={styles.discountText}>
+                    {selectedProduct.discount}%
+                  </ThemedText>
                 </View>
               ) : null}
               <Pressable
@@ -1153,16 +1486,26 @@ export default function HomeScreen() {
                   toggleFavorite(selectedProduct);
                 }}
               >
-                <Feather name="heart" size={22} color={isFav ? AppColors.error : AppColors.gray300} />
+                <Feather
+                  name="heart"
+                  size={22}
+                  color={isFav ? AppColors.error : AppColors.gray300}
+                />
               </Pressable>
             </View>
             <View style={styles.modalInfo}>
-              <ThemedText style={styles.modalName}>{selectedProduct.name}</ThemedText>
+              <ThemedText style={styles.modalName}>
+                {selectedProduct.name}
+              </ThemedText>
               {selectedProduct.description ? (
-                <ThemedText style={styles.modalDesc}>{selectedProduct.description}</ThemedText>
+                <ThemedText style={styles.modalDesc}>
+                  {selectedProduct.description}
+                </ThemedText>
               ) : null}
               <View style={styles.modalPriceRow}>
-                <ThemedText style={styles.modalPrice}>{formatPrice(selectedProduct.price)}</ThemedText>
+                <ThemedText style={styles.modalPrice}>
+                  {formatPrice(selectedProduct.price)}
+                </ThemedText>
                 {selectedProduct.originalPrice ? (
                   <ThemedText style={styles.modalOrigPrice}>
                     {formatPrice(selectedProduct.originalPrice)}
@@ -1180,7 +1523,11 @@ export default function HomeScreen() {
                         if (qty === 1) setSelectedProduct(null);
                       }}
                     >
-                      <Feather name="minus" size={20} color={AppColors.primary} />
+                      <Feather
+                        name="minus"
+                        size={20}
+                        color={AppColors.primary}
+                      />
                     </Pressable>
                     <ThemedText style={styles.modalQtyText}>{qty}</ThemedText>
                     <Pressable
@@ -1190,22 +1537,34 @@ export default function HomeScreen() {
                         updateQuantity(selectedProduct.id, qty + 1);
                       }}
                     >
-                      <Feather name="plus" size={20} color={AppColors.primary} />
+                      <Feather
+                        name="plus"
+                        size={20}
+                        color={AppColors.primary}
+                      />
                     </Pressable>
                   </View>
                 ) : (
                   <Pressable
                     style={styles.modalAddBtn}
                     onPress={() => {
-                      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                      Haptics.notificationAsync(
+                        Haptics.NotificationFeedbackType.Success,
+                      );
                       addToCart(selectedProduct);
                     }}
                     testID="btn-modal-add"
                     accessibilityRole="button"
                     accessibilityLabel="أضف إلى السلة"
                   >
-                    <Feather name="shopping-cart" size={18} color={AppColors.white} />
-                    <ThemedText style={styles.modalAddText}>أضف إلى السلة</ThemedText>
+                    <Feather
+                      name="shopping-cart"
+                      size={18}
+                      color={AppColors.white}
+                    />
+                    <ThemedText style={styles.modalAddText}>
+                      أضف إلى السلة
+                    </ThemedText>
                   </Pressable>
                 )}
               </View>
@@ -1219,7 +1578,12 @@ export default function HomeScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: AppColors.white }}>
       <LinearGradient
-        colors={[AppColors.secondary, AppColors.secondary, AppColors.secondary, AppColors.white]}
+        colors={[
+          AppColors.secondary,
+          AppColors.secondary,
+          AppColors.secondary,
+          AppColors.white,
+        ]}
         locations={[0, 0.2, 0.5, 1]}
         style={{
           position: "absolute",
@@ -1234,7 +1598,8 @@ export default function HomeScreen() {
         style={{ flex: 1 }}
         contentContainerStyle={{
           paddingTop: insets.top + HEADER_BAR_HEIGHT,
-          paddingBottom: tabBarHeight + Spacing.xl + (items.length > 0 ? 70 : 0),
+          paddingBottom:
+            tabBarHeight + Spacing.xl + (items.length > 0 ? 70 : 0),
           paddingHorizontal: HORIZONTAL_PADDING,
         }}
         scrollIndicatorInsets={{ bottom: insets.bottom }}
@@ -1244,7 +1609,10 @@ export default function HomeScreen() {
       />
       {/* Fixed top bar rendered in-screen (native-stack header is disabled for Home
           because its Android Toolbar clipped the full-width custom title). */}
-      <View style={{ position: "absolute", top: 0, left: 0, right: 0, zIndex: 10 }} pointerEvents="box-none">
+      <View
+        style={{ position: "absolute", top: 0, left: 0, right: 0, zIndex: 10 }}
+        pointerEvents="box-none"
+      >
         <HeaderTitle />
       </View>
       <FloatingCartBar bottomOffset={tabBarHeight + 8} />
@@ -1889,7 +2257,12 @@ const vendorProdStyles = StyleSheet.create({
     overflow: "hidden",
     marginLeft: 10,
     ...Platform.select({
-      ios: { shadowColor: AppColors.black, shadowOpacity: 0.08, shadowRadius: 8, shadowOffset: { width: 0, height: 3 } },
+      ios: {
+        shadowColor: AppColors.black,
+        shadowOpacity: 0.08,
+        shadowRadius: 8,
+        shadowOffset: { width: 0, height: 3 },
+      },
       android: { elevation: 3 },
       default: { boxShadow: "0 3px 8px rgba(0,0,0,0.08)" },
     }),
@@ -1897,40 +2270,92 @@ const vendorProdStyles = StyleSheet.create({
   imageBox: { width: "100%", height: 110, position: "relative" },
   image: { width: "100%", height: "100%" },
   outOfStock: {
-    ...StyleSheet.absoluteFillObject as any,
+    ...(StyleSheet.absoluteFillObject as any),
     backgroundColor: AppColors.overlay,
     justifyContent: "center",
     alignItems: "center",
   },
-  outOfStockText: { fontFamily: "Cairo_700Bold", fontSize: 13, color: AppColors.white },
+  outOfStockText: {
+    fontFamily: "Cairo_700Bold",
+    fontSize: 13,
+    color: AppColors.white,
+  },
   info: { padding: 8, gap: 4 },
-  name: { fontFamily: "Cairo_600SemiBold", fontSize: 12, textAlign: "right", color: AppColors.gray800, lineHeight: 18 },
-  bottomRow: { flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between", marginTop: 4 },
-  price: { fontFamily: "Cairo_700Bold", fontSize: 11, color: AppColors.primary, textAlign: "right" },
+  name: {
+    fontFamily: "Cairo_600SemiBold",
+    fontSize: 12,
+    textAlign: "right",
+    color: AppColors.gray800,
+    lineHeight: 18,
+  },
+  bottomRow: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginTop: 4,
+  },
+  price: {
+    fontFamily: "Cairo_700Bold",
+    fontSize: 11,
+    color: AppColors.primary,
+    textAlign: "right",
+  },
   addBtn: {
-    width: 28, height: 28, borderRadius: 14,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
     backgroundColor: AppColors.primary,
-    justifyContent: "center", alignItems: "center",
+    justifyContent: "center",
+    alignItems: "center",
   },
   qtyRow: { flexDirection: "row-reverse", alignItems: "center", gap: 4 },
   qtyBtn: {
-    width: 24, height: 24, borderRadius: 12,
-    borderWidth: 1.5, borderColor: AppColors.primary,
-    justifyContent: "center", alignItems: "center",
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: AppColors.primary,
+    justifyContent: "center",
+    alignItems: "center",
   },
-  qtyNum: { fontFamily: "Cairo_700Bold", fontSize: 13, color: AppColors.primary, minWidth: 18, textAlign: "center" },
+  qtyNum: {
+    fontFamily: "Cairo_700Bold",
+    fontSize: 13,
+    color: AppColors.primary,
+    minWidth: 18,
+    textAlign: "center",
+  },
 });
 
 // ── Vendor store section (card + products strip) styles ──────────────────────
 const vendorSectionStyles = StyleSheet.create({
   wrapper: { marginBottom: 16 },
-  productsBlock: { backgroundColor: AppColors.gray50, borderBottomLeftRadius: 18, borderBottomRightRadius: 18, paddingBottom: 14, marginTop: -4 },
-  productsHeader: {
-    flexDirection: "row", alignItems: "center", justifyContent: "space-between",
-    paddingHorizontal: 14, paddingTop: 12, paddingBottom: 6,
+  productsBlock: {
+    backgroundColor: AppColors.gray50,
+    borderBottomLeftRadius: 18,
+    borderBottomRightRadius: 18,
+    paddingBottom: 14,
+    marginTop: -4,
   },
-  productsTitle: { fontFamily: "Cairo_700Bold", fontSize: 13, color: AppColors.gray700, textAlign: "right" },
+  productsHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 14,
+    paddingTop: 12,
+    paddingBottom: 6,
+  },
+  productsTitle: {
+    fontFamily: "Cairo_700Bold",
+    fontSize: 13,
+    color: AppColors.gray700,
+    textAlign: "right",
+  },
   viewAllBtn: { flexDirection: "row", alignItems: "center", gap: 2 },
-  viewAllText: { fontFamily: "Cairo_600SemiBold", fontSize: 12, color: AppColors.primary },
+  viewAllText: {
+    fontFamily: "Cairo_600SemiBold",
+    fontSize: 12,
+    color: AppColors.primary,
+  },
   scroll: { paddingHorizontal: 14, paddingRight: 4 },
 });

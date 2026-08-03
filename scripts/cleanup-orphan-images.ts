@@ -34,7 +34,9 @@ async function main() {
 
   admin.initializeApp({
     credential: admin.credential.cert(serviceAccount),
-    storageBucket: process.env.FIREBASE_STORAGE_BUCKET ?? `${serviceAccount.project_id}.appspot.com`,
+    storageBucket:
+      process.env.FIREBASE_STORAGE_BUCKET ??
+      `${serviceAccount.project_id}.appspot.com`,
   });
 
   const db = admin.firestore();
@@ -57,7 +59,9 @@ async function main() {
     }
   }
 
-  console.log(`   → ${productsSnap.size} products scanned, ${referencedUrls.size} unique URLs collected.`);
+  console.log(
+    `   → ${productsSnap.size} products scanned, ${referencedUrls.size} unique URLs collected.`,
+  );
 
   // ── Also collect URLs from productImageHashes collection ─────────────────
   const hashesSnap = await db.collection("productImageHashes").get();
@@ -79,7 +83,8 @@ async function main() {
   for (const file of files) {
     const [metadata] = await file.getMetadata();
     const sizeBytes = parseInt(String(metadata.size ?? "0"), 10);
-    const rawToken = (metadata.metadata as any)?.firebaseStorageDownloadTokens ?? "";
+    const rawToken =
+      (metadata.metadata as any)?.firebaseStorageDownloadTokens ?? "";
     const downloadToken = rawToken.split(",")[0];
 
     // Reconstruct the public download URL used by the app

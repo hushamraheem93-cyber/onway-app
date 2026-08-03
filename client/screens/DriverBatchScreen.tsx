@@ -21,7 +21,13 @@ import { ThemedText } from "@/components/ThemedText";
 import { GradientBackground } from "@/components/GradientBackground";
 import { useTheme } from "@/hooks/useTheme";
 import { useAuth } from "@/context/AuthContext";
-import { AppColors, Spacing, BorderRadius, Shadows, FontWeight} from "@/constants/theme";
+import {
+  AppColors,
+  Spacing,
+  BorderRadius,
+  Shadows,
+  FontWeight,
+} from "@/constants/theme";
 import { getApiUrl } from "@/lib/query-client";
 import { formatPrice } from "@/constants/currency";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
@@ -29,13 +35,32 @@ import { CurrentBatch, BatchOrder } from "@/screens/DriverHomeScreen";
 
 type BatchScreenRoute = RouteProp<RootStackParamList, "DriverBatch">;
 
-const STATUS_CONFIG: Record<string, { label: string; color: string; icon: keyof typeof Feather.glyphMap }> = {
-  confirmed:   { label: "منتظر", color: AppColors.gray400, icon: "clock" },
-  preparing:   { label: "يُحضَّر", color: AppColors.statusPurple, icon: "shopping-bag" },
-  ready:       { label: "جاهز للاستلام", color: AppColors.primary, icon: "check-square" },
-  picked_up:   { label: "استُلم", color: AppColors.warning, icon: "package" },
-  in_delivery: { label: "في الطريق", color: AppColors.info, icon: "navigation" },
-  delivered:   { label: "تم التوصيل", color: AppColors.success, icon: "check-circle" },
+const STATUS_CONFIG: Record<
+  string,
+  { label: string; color: string; icon: keyof typeof Feather.glyphMap }
+> = {
+  confirmed: { label: "منتظر", color: AppColors.gray400, icon: "clock" },
+  preparing: {
+    label: "يُحضَّر",
+    color: AppColors.statusPurple,
+    icon: "shopping-bag",
+  },
+  ready: {
+    label: "جاهز للاستلام",
+    color: AppColors.primary,
+    icon: "check-square",
+  },
+  picked_up: { label: "استُلم", color: AppColors.warning, icon: "package" },
+  in_delivery: {
+    label: "في الطريق",
+    color: AppColors.info,
+    icon: "navigation",
+  },
+  delivered: {
+    label: "تم التوصيل",
+    color: AppColors.success,
+    icon: "check-circle",
+  },
 };
 
 export default function DriverBatchScreen() {
@@ -65,7 +90,10 @@ export default function DriverBatchScreen() {
     if (!phoneNumber) return;
     try {
       const res = await fetch(
-        new URL(`/api/driver/status?phoneNumber=${encodeURIComponent(phoneNumber)}`, getApiUrl()).toString()
+        new URL(
+          `/api/driver/status?phoneNumber=${encodeURIComponent(phoneNumber)}`,
+          getApiUrl(),
+        ).toString(),
       );
       if (res.ok) {
         const data = await res.json();
@@ -76,11 +104,16 @@ export default function DriverBatchScreen() {
     } catch (e) {}
   }, [phoneNumber]);
 
-  const getCurrentLocation = async (): Promise<{ lat?: number; lng?: number }> => {
+  const getCurrentLocation = async (): Promise<{
+    lat?: number;
+    lng?: number;
+  }> => {
     try {
       const { status } = await Location.getForegroundPermissionsAsync();
       if (status !== "granted") return {};
-      const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+      const loc = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.Balanced,
+      });
       return { lat: loc.coords.latitude, lng: loc.coords.longitude };
     } catch {
       return {};
@@ -93,11 +126,19 @@ export default function DriverBatchScreen() {
     setLoadingOrderId(order.id);
     try {
       const gps = await getCurrentLocation();
-      const res = await fetch(new URL("/api/driver/batch/pickup-order", getApiUrl()).toString(), {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phoneNumber, orderId: order.id, batchId: batch.id, ...gps }),
-      });
+      const res = await fetch(
+        new URL("/api/driver/batch/pickup-order", getApiUrl()).toString(),
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            phoneNumber,
+            orderId: order.id,
+            batchId: batch.id,
+            ...gps,
+          }),
+        },
+      );
       if (res.ok) await refreshBatch();
     } catch (e) {
     } finally {
@@ -108,13 +149,20 @@ export default function DriverBatchScreen() {
   const handleArrivedAtStore = async (order: BatchOrder) => {
     if (!phoneNumber) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    setArrivedOrders(prev => new Set(prev).add(order.id));
+    setArrivedOrders((prev) => new Set(prev).add(order.id));
     try {
-      await fetch(new URL("/api/driver/batch/arrived-at-store", getApiUrl()).toString(), {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phoneNumber, orderId: order.id, batchId: batch.id }),
-      });
+      await fetch(
+        new URL("/api/driver/batch/arrived-at-store", getApiUrl()).toString(),
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            phoneNumber,
+            orderId: order.id,
+            batchId: batch.id,
+          }),
+        },
+      );
     } catch (e) {}
   };
 
@@ -124,16 +172,27 @@ export default function DriverBatchScreen() {
     setLoadingOrderId(order.id);
     try {
       const gps = await getCurrentLocation();
-      const res = await fetch(new URL("/api/driver/batch/complete-order", getApiUrl()).toString(), {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phoneNumber, orderId: order.id, batchId: batch.id, ...gps }),
-      });
+      const res = await fetch(
+        new URL("/api/driver/batch/complete-order", getApiUrl()).toString(),
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            phoneNumber,
+            orderId: order.id,
+            batchId: batch.id,
+            ...gps,
+          }),
+        },
+      );
       if (res.ok) {
         await refreshBatch();
         // If all delivered, go back
         const freshRes = await fetch(
-          new URL(`/api/driver/status?phoneNumber=${encodeURIComponent(phoneNumber)}`, getApiUrl()).toString()
+          new URL(
+            `/api/driver/status?phoneNumber=${encodeURIComponent(phoneNumber)}`,
+            getApiUrl(),
+          ).toString(),
         );
         if (freshRes.ok) {
           const data = await freshRes.json();
@@ -150,17 +209,23 @@ export default function DriverBatchScreen() {
 
   const handleCallCustomer = (phone: string) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    const url = Platform.OS === "android" ? `tel:${phone}` : `telprompt:${phone}`;
-    Linking.openURL(url).catch(() => Linking.openURL(`tel:${phone}`).catch(() => {}));
+    const url =
+      Platform.OS === "android" ? `tel:${phone}` : `telprompt:${phone}`;
+    Linking.openURL(url).catch(() =>
+      Linking.openURL(`tel:${phone}`).catch(() => {}),
+    );
   };
 
   const handleOpenMap = (order: BatchOrder) => {
     if (!order.latitude || !order.longitude) return;
-    const url = Platform.OS === "ios"
-      ? `maps://?daddr=${order.latitude},${order.longitude}`
-      : `geo:${order.latitude},${order.longitude}?q=${order.latitude},${order.longitude}`;
+    const url =
+      Platform.OS === "ios"
+        ? `maps://?daddr=${order.latitude},${order.longitude}`
+        : `geo:${order.latitude},${order.longitude}?q=${order.latitude},${order.longitude}`;
     Linking.openURL(url).catch(() =>
-      Linking.openURL(`https://maps.google.com/?q=${order.latitude},${order.longitude}`)
+      Linking.openURL(
+        `https://maps.google.com/?q=${order.latitude},${order.longitude}`,
+      ),
     );
   };
 
@@ -168,11 +233,18 @@ export default function DriverBatchScreen() {
     if (!phoneNumber || !issueOrderId) return;
     setIssueSending(true);
     try {
-      const res = await fetch(new URL("/api/driver/report-issue", getApiUrl()).toString(), {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phoneNumber, orderId: issueOrderId, issueType }),
-      });
+      const res = await fetch(
+        new URL("/api/driver/report-issue", getApiUrl()).toString(),
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            phoneNumber,
+            orderId: issueOrderId,
+            issueType,
+          }),
+        },
+      );
       if (res.ok) {
         setIssueSent(true);
         setTimeout(() => {
@@ -182,7 +254,8 @@ export default function DriverBatchScreen() {
           refreshBatch();
         }, 1800);
       }
-    } catch (e) {} finally {
+    } catch (e) {
+    } finally {
       setIssueSending(false);
     }
   };
@@ -204,20 +277,34 @@ export default function DriverBatchScreen() {
     }
   };
 
-  const completedCount = batch.orders.filter(o => o.status === "delivered").length;
+  const completedCount = batch.orders.filter(
+    (o) => o.status === "delivered",
+  ).length;
   const progress = completedCount / Math.max(batch.totalOrders, 1);
 
   // Determine step indicator phase
-  const hasPickupPending = batch.orders.some(o => o.status === "preparing" || o.status === "ready" || o.status === "confirmed");
-  const hasDeliveryActive = batch.orders.some(o => o.status === "picked_up" || o.status === "in_delivery");
+  const hasPickupPending = batch.orders.some(
+    (o) =>
+      o.status === "preparing" ||
+      o.status === "ready" ||
+      o.status === "confirmed",
+  );
+  const hasDeliveryActive = batch.orders.some(
+    (o) => o.status === "picked_up" || o.status === "in_delivery",
+  );
   const allDone = completedCount === batch.totalOrders && batch.totalOrders > 0;
-  const currentStep = allDone ? 2 : hasDeliveryActive && !hasPickupPending ? 1 : 0;
+  const currentStep = allDone
+    ? 2
+    : hasDeliveryActive && !hasPickupPending
+      ? 1
+      : 0;
 
   const renderOrderCard = (order: BatchOrder, index: number) => {
     const cfg = STATUS_CONFIG[order.status] || STATUS_CONFIG.confirmed;
     const isLoading = loadingOrderId === order.id;
     const canPickup = order.status === "preparing" || order.status === "ready";
-    const isInDelivery = order.status === "in_delivery" || order.status === "picked_up";
+    const isInDelivery =
+      order.status === "in_delivery" || order.status === "picked_up";
     const isDelivered = order.status === "delivered";
     const canAct = canPickup || isInDelivery;
     const isWaitingAtStore = order.status === "confirmed";
@@ -226,43 +313,113 @@ export default function DriverBatchScreen() {
     return (
       <View
         key={order.id}
-        style={[styles.orderCard, { backgroundColor: theme.backgroundDefault }, Shadows.sm, isDelivered && styles.orderCardDelivered]}
+        style={[
+          styles.orderCard,
+          { backgroundColor: theme.backgroundDefault },
+          Shadows.sm,
+          isDelivered && styles.orderCardDelivered,
+        ]}
         testID={`card-order-${order.id}`}
       >
         {/* Order card header */}
-        <View style={[styles.orderCardHeader, { borderBottomColor: theme.border }]}>
-          <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: Spacing.sm }}>
-            <View style={[styles.seqCircle, { backgroundColor: isDelivered ? "#4CAF5020" : AppColors.primary + "15" }]}>
-              {isDelivered
-                ? <Feather name="check" size={14} color={AppColors.success} />
-                : <ThemedText type="small" style={{ color: AppColors.primary, fontWeight: FontWeight.xBold }}>{order.deliverySequence}</ThemedText>
-              }
+        <View
+          style={[styles.orderCardHeader, { borderBottomColor: theme.border }]}
+        >
+          <View
+            style={{
+              flexDirection: "row-reverse",
+              alignItems: "center",
+              gap: Spacing.sm,
+            }}
+          >
+            <View
+              style={[
+                styles.seqCircle,
+                {
+                  backgroundColor: isDelivered
+                    ? "#4CAF5020"
+                    : AppColors.primary + "15",
+                },
+              ]}
+            >
+              {isDelivered ? (
+                <Feather name="check" size={14} color={AppColors.success} />
+              ) : (
+                <ThemedText
+                  type="small"
+                  style={{
+                    color: AppColors.primary,
+                    fontWeight: FontWeight.xBold,
+                  }}
+                >
+                  {order.deliverySequence}
+                </ThemedText>
+              )}
             </View>
-            <ThemedText type="h4" style={{ color: theme.text, fontWeight: FontWeight.bold }}>
+            <ThemedText
+              type="h4"
+              style={{ color: theme.text, fontWeight: FontWeight.bold }}
+            >
               {order.customerName || "زبون"}
             </ThemedText>
           </View>
-          <View style={[styles.statusBadge, { backgroundColor: cfg.color + "20" }]}>
+          <View
+            style={[styles.statusBadge, { backgroundColor: cfg.color + "20" }]}
+          >
             <Feather name={cfg.icon} size={12} color={cfg.color} />
-            <ThemedText type="small" style={{ color: cfg.color, fontWeight: FontWeight.bold, fontSize: 11 }}>{cfg.label}</ThemedText>
+            <ThemedText
+              type="small"
+              style={{
+                color: cfg.color,
+                fontWeight: FontWeight.bold,
+                fontSize: 11,
+              }}
+            >
+              {cfg.label}
+            </ThemedText>
           </View>
         </View>
 
         {/* Store / Pickup info — shown during pickup phase */}
         {(order.storeName || order.storeAddress) && !isDelivered ? (
-          <View style={[styles.storeBox, { backgroundColor: "#8B5CF608", borderColor: "#8B5CF630" }]}>
+          <View
+            style={[
+              styles.storeBox,
+              { backgroundColor: "#8B5CF608", borderColor: "#8B5CF630" },
+            ]}
+          >
             <View style={styles.storeBoxHeader}>
-              <Feather name="shopping-bag" size={14} color={AppColors.statusPurple} />
-              <ThemedText type="small" style={{ color: AppColors.statusPurple, fontWeight: FontWeight.xBold, flex: 1, textAlign: "right" }}>
+              <Feather
+                name="shopping-bag"
+                size={14}
+                color={AppColors.statusPurple}
+              />
+              <ThemedText
+                type="small"
+                style={{
+                  color: AppColors.statusPurple,
+                  fontWeight: FontWeight.xBold,
+                  flex: 1,
+                  textAlign: "right",
+                }}
+              >
                 نقطة الاستلام — {order.storeName || "المتجر"}
               </ThemedText>
             </View>
             {order.storeAddress ? (
               <View style={[styles.storeRow]}>
-                <ThemedText type="small" style={{ color: theme.text, flex: 1, textAlign: "right" }} numberOfLines={2}>
+                <ThemedText
+                  type="small"
+                  style={{ color: theme.text, flex: 1, textAlign: "right" }}
+                  numberOfLines={2}
+                >
                   {order.storeAddress}
                 </ThemedText>
-                <Feather name="map-pin" size={13} color={AppColors.statusPurple} />
+                <Feather
+                  name="map-pin"
+                  size={13}
+                  color={AppColors.statusPurple}
+                />
               </View>
             ) : null}
             <View style={styles.storeActions}>
@@ -270,14 +427,27 @@ export default function DriverBatchScreen() {
                 <Pressable
                   style={[styles.storeBtn, { backgroundColor: "#4CAF5015" }]}
                   onPress={() => {
-                    const url = Platform.OS === "android"
-                      ? `tel:${order.storePhone}`
-                      : `telprompt:${order.storePhone}`;
-                    Linking.openURL(url).catch(() => Linking.openURL(`tel:${order.storePhone}`).catch(() => {}));
+                    const url =
+                      Platform.OS === "android"
+                        ? `tel:${order.storePhone}`
+                        : `telprompt:${order.storePhone}`;
+                    Linking.openURL(url).catch(() =>
+                      Linking.openURL(`tel:${order.storePhone}`).catch(
+                        () => {},
+                      ),
+                    );
                   }}
                 >
                   <Feather name="phone" size={14} color={AppColors.success} />
-                  <ThemedText type="small" style={{ color: AppColors.success, fontWeight: FontWeight.semiBold }}>اتصال بالمتجر</ThemedText>
+                  <ThemedText
+                    type="small"
+                    style={{
+                      color: AppColors.success,
+                      fontWeight: FontWeight.semiBold,
+                    }}
+                  >
+                    اتصال بالمتجر
+                  </ThemedText>
                 </Pressable>
               ) : null}
             </View>
@@ -287,22 +457,49 @@ export default function DriverBatchScreen() {
         {/* Delivery destination */}
         {/* Order details */}
         <View style={styles.orderDetails}>
-          <View style={[styles.detailRow, { backgroundColor: "#2196F308", borderRadius: 8, padding: 8, marginBottom: 4 }]}>
-            <ThemedText type="body" style={{ color: theme.text, flex: 1, textAlign: "right" }} numberOfLines={2}>
+          <View
+            style={[
+              styles.detailRow,
+              {
+                backgroundColor: "#2196F308",
+                borderRadius: 8,
+                padding: 8,
+                marginBottom: 4,
+              },
+            ]}
+          >
+            <ThemedText
+              type="body"
+              style={{ color: theme.text, flex: 1, textAlign: "right" }}
+              numberOfLines={2}
+            >
               {order.region || order.address}
             </ThemedText>
             <Feather name="navigation" size={16} color={AppColors.info} />
           </View>
           <View style={styles.detailRow}>
-            <ThemedText type="body" style={{ color: AppColors.primary, fontWeight: FontWeight.bold }}>
+            <ThemedText
+              type="body"
+              style={{ color: AppColors.primary, fontWeight: FontWeight.bold }}
+            >
               {formatPrice(order.total + (order.deliveryFee || 0))}
             </ThemedText>
             <Feather name="dollar-sign" size={16} color={AppColors.primary} />
           </View>
           {order.serviceFee !== undefined && order.serviceFee > 0 ? (
             <View style={[styles.serviceFeeRow]}>
-              <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 4, flex: 1 }}>
-                <ThemedText type="small" style={{ color: AppColors.gray500, textAlign: "right" }}>
+              <View
+                style={{
+                  flexDirection: "row-reverse",
+                  alignItems: "center",
+                  gap: 4,
+                  flex: 1,
+                }}
+              >
+                <ThemedText
+                  type="small"
+                  style={{ color: AppColors.gray500, textAlign: "right" }}
+                >
                   رسوم الخدمة (للتطبيق): {formatPrice(order.serviceFee)}
                 </ThemedText>
               </View>
@@ -311,24 +508,70 @@ export default function DriverBatchScreen() {
           ) : null}
           {order.vendorName ? (
             <View style={styles.detailRow}>
-              <ThemedText type="small" style={{ color: theme.textSecondary }}>{order.vendorName}</ThemedText>
-              <Feather name="shopping-bag" size={14} color={theme.textSecondary} />
+              <ThemedText type="small" style={{ color: theme.textSecondary }}>
+                {order.vendorName}
+              </ThemedText>
+              <Feather
+                name="shopping-bag"
+                size={14}
+                color={theme.textSecondary}
+              />
             </View>
           ) : null}
           {order.items && order.items.length > 0 ? (
-            <View style={[styles.itemsBox, { backgroundColor: theme.backgroundSecondary, borderColor: theme.border }]}>
-              <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: Spacing.xs, marginBottom: Spacing.xs }}>
-                <Feather name="shopping-cart" size={13} color={theme.textSecondary} />
-                <ThemedText type="small" style={{ color: theme.textSecondary, fontWeight: FontWeight.bold }}>المنتجات</ThemedText>
+            <View
+              style={[
+                styles.itemsBox,
+                {
+                  backgroundColor: theme.backgroundSecondary,
+                  borderColor: theme.border,
+                },
+              ]}
+            >
+              <View
+                style={{
+                  flexDirection: "row-reverse",
+                  alignItems: "center",
+                  gap: Spacing.xs,
+                  marginBottom: Spacing.xs,
+                }}
+              >
+                <Feather
+                  name="shopping-cart"
+                  size={13}
+                  color={theme.textSecondary}
+                />
+                <ThemedText
+                  type="small"
+                  style={{
+                    color: theme.textSecondary,
+                    fontWeight: FontWeight.bold,
+                  }}
+                >
+                  المنتجات
+                </ThemedText>
               </View>
               {order.items.map((item: any, idx: number) => {
                 const thumb = resolveImageUrl(item.image || "");
                 return (
                   <View key={idx} style={styles.itemRow}>
-                    <ThemedText type="small" style={{ color: AppColors.primary, fontWeight: FontWeight.bold }}>
+                    <ThemedText
+                      type="small"
+                      style={{
+                        color: AppColors.primary,
+                        fontWeight: FontWeight.bold,
+                      }}
+                    >
                       {formatPrice(item.price * item.quantity)}
                     </ThemedText>
-                    <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: Spacing.xs, flex: 1 }}>
+                    <View
+                      style={{
+                        flexDirection: "row-reverse",
+                        alignItems: "center",
+                        gap: Spacing.xs,
+                        flex: 1,
+                      }}
+                    >
                       {thumb ? (
                         <Image
                           source={{ uri: thumb }}
@@ -338,12 +581,38 @@ export default function DriverBatchScreen() {
                           transition={150}
                         />
                       ) : (
-                        <View style={[styles.itemThumb, styles.itemThumbPlaceholder, { backgroundColor: theme.border }]}>
-                          <Feather name="image" size={14} color={theme.textSecondary} />
+                        <View
+                          style={[
+                            styles.itemThumb,
+                            styles.itemThumbPlaceholder,
+                            { backgroundColor: theme.border },
+                          ]}
+                        >
+                          <Feather
+                            name="image"
+                            size={14}
+                            color={theme.textSecondary}
+                          />
                         </View>
                       )}
-                      <ThemedText type="small" style={{ color: theme.textSecondary, fontWeight: FontWeight.bold }}>×{item.quantity}</ThemedText>
-                      <ThemedText type="small" style={{ color: theme.text, flex: 1, textAlign: "right" }} numberOfLines={1}>
+                      <ThemedText
+                        type="small"
+                        style={{
+                          color: theme.textSecondary,
+                          fontWeight: FontWeight.bold,
+                        }}
+                      >
+                        ×{item.quantity}
+                      </ThemedText>
+                      <ThemedText
+                        type="small"
+                        style={{
+                          color: theme.text,
+                          flex: 1,
+                          textAlign: "right",
+                        }}
+                        numberOfLines={1}
+                      >
                         {item.name}
                       </ThemedText>
                     </View>
@@ -353,12 +622,41 @@ export default function DriverBatchScreen() {
             </View>
           ) : null}
           {order.notes ? (
-            <View style={[styles.notesBox, { backgroundColor: AppColors.secondary }]}>
-              <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: Spacing.xs, marginBottom: 2 }}>
-                <Feather name="message-square" size={12} color={AppColors.primary} />
-                <ThemedText type="small" style={{ color: AppColors.primary, fontWeight: FontWeight.bold }}>ملاحظة الزبون</ThemedText>
+            <View
+              style={[
+                styles.notesBox,
+                { backgroundColor: AppColors.secondary },
+              ]}
+            >
+              <View
+                style={{
+                  flexDirection: "row-reverse",
+                  alignItems: "center",
+                  gap: Spacing.xs,
+                  marginBottom: 2,
+                }}
+              >
+                <Feather
+                  name="message-square"
+                  size={12}
+                  color={AppColors.primary}
+                />
+                <ThemedText
+                  type="small"
+                  style={{
+                    color: AppColors.primary,
+                    fontWeight: FontWeight.bold,
+                  }}
+                >
+                  ملاحظة الزبون
+                </ThemedText>
               </View>
-              <ThemedText type="small" style={{ color: AppColors.primary, textAlign: "right" }}>{order.notes}</ThemedText>
+              <ThemedText
+                type="small"
+                style={{ color: AppColors.primary, textAlign: "right" }}
+              >
+                {order.notes}
+              </ThemedText>
             </View>
           ) : null}
         </View>
@@ -371,7 +669,15 @@ export default function DriverBatchScreen() {
             testID={`button-call-${order.id}`}
           >
             <Feather name="phone" size={18} color={AppColors.success} />
-            <ThemedText type="small" style={{ color: AppColors.success, fontWeight: FontWeight.semiBold }}>اتصال</ThemedText>
+            <ThemedText
+              type="small"
+              style={{
+                color: AppColors.success,
+                fontWeight: FontWeight.semiBold,
+              }}
+            >
+              اتصال
+            </ThemedText>
           </Pressable>
           {order.latitude && order.longitude ? (
             <Pressable
@@ -380,17 +686,43 @@ export default function DriverBatchScreen() {
               testID={`button-map-${order.id}`}
             >
               <Feather name="map" size={18} color={AppColors.info} />
-              <ThemedText type="small" style={{ color: AppColors.info, fontWeight: FontWeight.semiBold }}>الخريطة</ThemedText>
+              <ThemedText
+                type="small"
+                style={{
+                  color: AppColors.info,
+                  fontWeight: FontWeight.semiBold,
+                }}
+              >
+                الخريطة
+              </ThemedText>
             </Pressable>
           ) : null}
           {canAct ? (
             <Pressable
-              style={[styles.quickBtn, { backgroundColor: AppColors.primary + "15" }]}
-              onPress={() => { setIssueOrderId(order.id); setIssueModalVisible(true); }}
+              style={[
+                styles.quickBtn,
+                { backgroundColor: AppColors.primary + "15" },
+              ]}
+              onPress={() => {
+                setIssueOrderId(order.id);
+                setIssueModalVisible(true);
+              }}
               testID={`button-issue-${order.id}`}
             >
-              <Feather name="alert-triangle" size={18} color={AppColors.primary} />
-              <ThemedText type="small" style={{ color: AppColors.primary, fontWeight: FontWeight.semiBold }}>مشكلة</ThemedText>
+              <Feather
+                name="alert-triangle"
+                size={18}
+                color={AppColors.primary}
+              />
+              <ThemedText
+                type="small"
+                style={{
+                  color: AppColors.primary,
+                  fontWeight: FontWeight.semiBold,
+                }}
+              >
+                مشكلة
+              </ThemedText>
             </Pressable>
           ) : null}
         </View>
@@ -402,16 +734,27 @@ export default function DriverBatchScreen() {
               style={[
                 styles.mainActionBtn,
                 {
-                  backgroundColor: hasArrived ? AppColors.gray300 : AppColors.warning,
+                  backgroundColor: hasArrived
+                    ? AppColors.gray300
+                    : AppColors.warning,
                   opacity: hasArrived ? 0.8 : 1,
                 },
               ]}
-              onPress={() => { if (!hasArrived) handleArrivedAtStore(order); }}
+              onPress={() => {
+                if (!hasArrived) handleArrivedAtStore(order);
+              }}
               disabled={hasArrived}
               testID={`button-action-${order.id}`}
             >
-              <Feather name={hasArrived ? "clock" : "map-pin"} size={20} color={AppColors.white} />
-              <ThemedText type="h4" style={{ color: AppColors.white, fontWeight: FontWeight.bold }}>
+              <Feather
+                name={hasArrived ? "clock" : "map-pin"}
+                size={20}
+                color={AppColors.white}
+              />
+              <ThemedText
+                type="h4"
+                style={{ color: AppColors.white, fontWeight: FontWeight.bold }}
+              >
                 {hasArrived ? "تم الإبلاغ — في انتظار التحضير" : "وصلت للمتجر"}
               </ThemedText>
             </Pressable>
@@ -420,7 +763,11 @@ export default function DriverBatchScreen() {
               style={[
                 styles.mainActionBtn,
                 {
-                  backgroundColor: isInDelivery ? AppColors.success : canPickup ? AppColors.statusPurple : AppColors.gray300,
+                  backgroundColor: isInDelivery
+                    ? AppColors.success
+                    : canPickup
+                      ? AppColors.statusPurple
+                      : AppColors.gray300,
                   opacity: isLoading ? 0.7 : 1,
                 },
               ]}
@@ -440,7 +787,13 @@ export default function DriverBatchScreen() {
                     size={20}
                     color={AppColors.white}
                   />
-                  <ThemedText type="h4" style={{ color: AppColors.white, fontWeight: FontWeight.bold }}>
+                  <ThemedText
+                    type="h4"
+                    style={{
+                      color: AppColors.white,
+                      fontWeight: FontWeight.bold,
+                    }}
+                  >
                     {isInDelivery ? "تم التوصيل" : "تم الاستلام من المحل"}
                   </ThemedText>
                 </>
@@ -448,9 +801,16 @@ export default function DriverBatchScreen() {
             </Pressable>
           )
         ) : (
-          <View style={[styles.deliveredBanner, { backgroundColor: "#4CAF5015" }]}>
+          <View
+            style={[styles.deliveredBanner, { backgroundColor: "#4CAF5015" }]}
+          >
             <Feather name="check-circle" size={18} color={AppColors.success} />
-            <ThemedText type="body" style={{ color: AppColors.success, fontWeight: FontWeight.bold }}>تم التوصيل بنجاح</ThemedText>
+            <ThemedText
+              type="body"
+              style={{ color: AppColors.success, fontWeight: FontWeight.bold }}
+            >
+              تم التوصيل بنجاح
+            </ThemedText>
           </View>
         )}
       </View>
@@ -462,12 +822,26 @@ export default function DriverBatchScreen() {
       <GradientBackground />
 
       {/* Header */}
-      <View style={[styles.header, { paddingTop: insets.top + Spacing.md, backgroundColor: AppColors.statusPurple }]}>
-        <Pressable onPress={() => navigation.goBack()} style={styles.backBtn} testID="button-back">
+      <View
+        style={[
+          styles.header,
+          {
+            paddingTop: insets.top + Spacing.md,
+            backgroundColor: AppColors.statusPurple,
+          },
+        ]}
+      >
+        <Pressable
+          onPress={() => navigation.goBack()}
+          style={styles.backBtn}
+          testID="button-back"
+        >
           <Feather name="chevron-right" size={26} color={AppColors.white} />
         </Pressable>
         <View style={styles.headerCenter}>
-          <ThemedText type="h3" style={styles.headerTitle}>إدارة الدفعة</ThemedText>
+          <ThemedText type="h3" style={styles.headerTitle}>
+            إدارة الدفعة
+          </ThemedText>
           <ThemedText type="small" style={styles.headerSub}>
             {completedCount} / {batch.totalOrders} طلبات
           </ThemedText>
@@ -494,7 +868,9 @@ export default function DriverBatchScreen() {
       {batch.status === "pending" ? (
         <View style={styles.rejectBanner}>
           <Feather name="clock" size={15} color={AppColors.error} />
-          <ThemedText type="small" style={styles.rejectBannerText}>طلب معلق — قبول أو رفض مطلوب</ThemedText>
+          <ThemedText type="small" style={styles.rejectBannerText}>
+            طلب معلق — قبول أو رفض مطلوب
+          </ThemedText>
           <Pressable
             style={styles.rejectBannerBtn}
             onPress={handleRejectBatch}
@@ -504,16 +880,32 @@ export default function DriverBatchScreen() {
             {isRejecting ? (
               <ActivityIndicator size="small" color={AppColors.error} />
             ) : (
-              <ThemedText type="small" style={{ color: AppColors.error, fontWeight: FontWeight.bold }}>رفض</ThemedText>
+              <ThemedText
+                type="small"
+                style={{ color: AppColors.error, fontWeight: FontWeight.bold }}
+              >
+                رفض
+              </ThemedText>
             )}
           </Pressable>
         </View>
       ) : null}
 
       {/* Progress */}
-      <View style={[styles.progressBox, { backgroundColor: theme.backgroundDefault }]}>
+      <View
+        style={[
+          styles.progressBox,
+          { backgroundColor: theme.backgroundDefault },
+        ]}
+      >
         <View style={styles.progressLabelRow}>
-          <ThemedText type="small" style={{ color: AppColors.statusPurple, fontWeight: FontWeight.bold }}>
+          <ThemedText
+            type="small"
+            style={{
+              color: AppColors.statusPurple,
+              fontWeight: FontWeight.bold,
+            }}
+          >
             {Math.round(progress * 100)}%
           </ThemedText>
           <ThemedText type="small" style={{ color: theme.textSecondary }}>
@@ -521,12 +913,19 @@ export default function DriverBatchScreen() {
           </ThemedText>
         </View>
         <View style={[styles.progressBar, { backgroundColor: theme.border }]}>
-          <View style={[styles.progressFill, { width: `${Math.round(progress * 100)}%` as any }]} />
+          <View
+            style={[
+              styles.progressFill,
+              { width: `${Math.round(progress * 100)}%` as any },
+            ]}
+          />
         </View>
       </View>
 
       {/* Step Indicator */}
-      <View style={[styles.stepRow, { backgroundColor: theme.backgroundDefault }]}>
+      <View
+        style={[styles.stepRow, { backgroundColor: theme.backgroundDefault }]}
+      >
         {[
           { label: "الاستلام", icon: "package" as const },
           { label: "التوصيل", icon: "navigation" as const },
@@ -534,22 +933,61 @@ export default function DriverBatchScreen() {
         ].map((step, idx) => {
           const done = idx < currentStep;
           const active = idx === currentStep;
-          const stepColor = done ? AppColors.success : active ? AppColors.statusPurple : theme.border;
+          const stepColor = done
+            ? AppColors.success
+            : active
+              ? AppColors.statusPurple
+              : theme.border;
           return (
             <React.Fragment key={idx}>
               <View style={styles.stepItem}>
-                <View style={[styles.stepCircle, {
-                  backgroundColor: done ? AppColors.success : active ? AppColors.statusPurple : theme.backgroundRoot,
-                  borderColor: stepColor,
-                }]}>
-                  <Feather name={step.icon} size={14} color={done || active ? AppColors.white : theme.textSecondary} />
+                <View
+                  style={[
+                    styles.stepCircle,
+                    {
+                      backgroundColor: done
+                        ? AppColors.success
+                        : active
+                          ? AppColors.statusPurple
+                          : theme.backgroundRoot,
+                      borderColor: stepColor,
+                    },
+                  ]}
+                >
+                  <Feather
+                    name={step.icon}
+                    size={14}
+                    color={
+                      done || active ? AppColors.white : theme.textSecondary
+                    }
+                  />
                 </View>
-                <ThemedText type="small" style={{ color: active ? AppColors.statusPurple : done ? AppColors.success : theme.textSecondary, fontWeight: active ? "700" : "400", fontSize: 11, marginTop: 4 }}>
+                <ThemedText
+                  type="small"
+                  style={{
+                    color: active
+                      ? AppColors.statusPurple
+                      : done
+                        ? AppColors.success
+                        : theme.textSecondary,
+                    fontWeight: active ? "700" : "400",
+                    fontSize: 11,
+                    marginTop: 4,
+                  }}
+                >
                   {step.label}
                 </ThemedText>
               </View>
               {idx < 2 ? (
-                <View style={[styles.stepLine, { backgroundColor: idx < currentStep ? AppColors.success : theme.border }]} />
+                <View
+                  style={[
+                    styles.stepLine,
+                    {
+                      backgroundColor:
+                        idx < currentStep ? AppColors.success : theme.border,
+                    },
+                  ]}
+                />
               ) : null}
             </React.Fragment>
           );
@@ -558,7 +996,10 @@ export default function DriverBatchScreen() {
 
       {/* Orders List */}
       <ScrollView
-        contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + Spacing.xl }]}
+        contentContainerStyle={[
+          styles.scrollContent,
+          { paddingBottom: insets.bottom + Spacing.xl },
+        ]}
         showsVerticalScrollIndicator={false}
       >
         {batch.orders.map((order, idx) => renderOrderCard(order, idx))}
@@ -571,24 +1012,65 @@ export default function DriverBatchScreen() {
         animationType="fade"
         onRequestClose={() => !issueSending && setIssueModalVisible(false)}
       >
-        <Pressable style={styles.modalOverlay} onPress={() => !issueSending && setIssueModalVisible(false)}>
-          <Pressable style={[styles.modalBox, { backgroundColor: theme.backgroundDefault }]} onPress={() => {}}>
+        <Pressable
+          style={styles.modalOverlay}
+          onPress={() => !issueSending && setIssueModalVisible(false)}
+        >
+          <Pressable
+            style={[
+              styles.modalBox,
+              { backgroundColor: theme.backgroundDefault },
+            ]}
+            onPress={() => {}}
+          >
             {issueSent ? (
               <View style={styles.modalSent}>
-                <View style={[styles.modalSentIcon, { backgroundColor: AppColors.successLight }]}>
-                  <Feather name="check-circle" size={36} color={AppColors.success} />
+                <View
+                  style={[
+                    styles.modalSentIcon,
+                    { backgroundColor: AppColors.successLight },
+                  ]}
+                >
+                  <Feather
+                    name="check-circle"
+                    size={36}
+                    color={AppColors.success}
+                  />
                 </View>
-                <ThemedText type="h4" style={{ color: AppColors.success, fontWeight: FontWeight.bold, marginTop: Spacing.md }}>
+                <ThemedText
+                  type="h4"
+                  style={{
+                    color: AppColors.success,
+                    fontWeight: FontWeight.bold,
+                    marginTop: Spacing.md,
+                  }}
+                >
                   تم إرسال المشكلة
                 </ThemedText>
               </View>
             ) : (
               <>
                 <View style={styles.modalHeader}>
-                  <Feather name="alert-triangle" size={22} color={AppColors.primary} />
-                  <ThemedText type="h4" style={{ color: theme.text, fontWeight: FontWeight.bold }}>إبلاغ عن مشكلة</ThemedText>
+                  <Feather
+                    name="alert-triangle"
+                    size={22}
+                    color={AppColors.primary}
+                  />
+                  <ThemedText
+                    type="h4"
+                    style={{ color: theme.text, fontWeight: FontWeight.bold }}
+                  >
+                    إبلاغ عن مشكلة
+                  </ThemedText>
                 </View>
-                <ThemedText type="small" style={{ color: theme.textSecondary, textAlign: "center", marginBottom: Spacing.lg }}>
+                <ThemedText
+                  type="small"
+                  style={{
+                    color: theme.textSecondary,
+                    textAlign: "center",
+                    marginBottom: Spacing.lg,
+                  }}
+                >
                   اختر نوع المشكلة
                 </ThemedText>
                 {ISSUE_OPTIONS.map((opt) => (
@@ -599,17 +1081,42 @@ export default function DriverBatchScreen() {
                     disabled={issueSending}
                     testID={`button-issue-type-${opt.key}`}
                   >
-                    {issueSending
-                      ? <ActivityIndicator size="small" color={AppColors.primary} />
-                      : <Feather name="chevron-left" size={18} color={AppColors.primary} />
-                    }
-                    <ThemedText type="body" style={{ color: theme.text, fontWeight: FontWeight.semiBold, flex: 1, textAlign: "right" }}>
+                    {issueSending ? (
+                      <ActivityIndicator
+                        size="small"
+                        color={AppColors.primary}
+                      />
+                    ) : (
+                      <Feather
+                        name="chevron-left"
+                        size={18}
+                        color={AppColors.primary}
+                      />
+                    )}
+                    <ThemedText
+                      type="body"
+                      style={{
+                        color: theme.text,
+                        fontWeight: FontWeight.semiBold,
+                        flex: 1,
+                        textAlign: "right",
+                      }}
+                    >
                       {opt.label}
                     </ThemedText>
                   </Pressable>
                 ))}
-                <Pressable style={styles.modalCancelBtn} onPress={() => setIssueModalVisible(false)} disabled={issueSending}>
-                  <ThemedText type="small" style={{ color: theme.textSecondary }}>إلغاء</ThemedText>
+                <Pressable
+                  style={styles.modalCancelBtn}
+                  onPress={() => setIssueModalVisible(false)}
+                  disabled={issueSending}
+                >
+                  <ThemedText
+                    type="small"
+                    style={{ color: theme.textSecondary }}
+                  >
+                    إلغاء
+                  </ThemedText>
                 </Pressable>
               </>
             )}
@@ -630,7 +1137,11 @@ const styles = StyleSheet.create({
   },
   backBtn: { width: 40, alignItems: "flex-start" },
   headerCenter: { flex: 1, alignItems: "center" },
-  rejectHeaderBtn: { width: 40, alignItems: "flex-end", justifyContent: "center" },
+  rejectHeaderBtn: {
+    width: 40,
+    alignItems: "flex-end",
+    justifyContent: "center",
+  },
   rejectBanner: {
     flexDirection: "row",
     alignItems: "center",
@@ -641,7 +1152,12 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.sm,
     gap: Spacing.sm,
   },
-  rejectBannerText: { flex: 1, color: AppColors.error, fontWeight: FontWeight.semiBold, textAlign: "right" },
+  rejectBannerText: {
+    flex: 1,
+    color: AppColors.error,
+    fontWeight: FontWeight.semiBold,
+    textAlign: "right",
+  },
   rejectBannerBtn: {
     backgroundColor: AppColors.white,
     borderWidth: 1.5,
@@ -665,7 +1181,11 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   progressBar: { height: 8, borderRadius: 4, overflow: "hidden" },
-  progressFill: { height: "100%", borderRadius: 4, backgroundColor: AppColors.statusPurple },
+  progressFill: {
+    height: "100%",
+    borderRadius: 4,
+    backgroundColor: AppColors.statusPurple,
+  },
   scrollContent: { padding: Spacing.lg, gap: Spacing.md },
   orderCard: { borderRadius: BorderRadius.xl, padding: Spacing.lg },
   orderCardDelivered: { opacity: 0.75 },
@@ -678,60 +1198,160 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.md,
   },
   seqCircle: {
-    width: 32, height: 32, borderRadius: 16,
-    justifyContent: "center", alignItems: "center",
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    justifyContent: "center",
+    alignItems: "center",
   },
   statusBadge: {
-    flexDirection: "row", alignItems: "center", gap: 4,
-    paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
   },
-  storeBox: { borderWidth: 1, borderRadius: BorderRadius.md, padding: Spacing.sm, marginBottom: Spacing.sm, gap: Spacing.xs },
-  storeBoxHeader: { flexDirection: "row-reverse", alignItems: "center", gap: Spacing.xs },
-  storeRow: { flexDirection: "row-reverse", alignItems: "flex-start", gap: Spacing.xs, paddingRight: 2 },
+  storeBox: {
+    borderWidth: 1,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.sm,
+    marginBottom: Spacing.sm,
+    gap: Spacing.xs,
+  },
+  storeBoxHeader: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    gap: Spacing.xs,
+  },
+  storeRow: {
+    flexDirection: "row-reverse",
+    alignItems: "flex-start",
+    gap: Spacing.xs,
+    paddingRight: 2,
+  },
   storeActions: { flexDirection: "row-reverse", gap: Spacing.xs, marginTop: 2 },
-  storeBtn: { flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 10, paddingVertical: 6, borderRadius: BorderRadius.sm },
+  storeBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: BorderRadius.sm,
+  },
   orderDetails: { gap: Spacing.sm, marginBottom: Spacing.md },
-  detailRow: { flexDirection: "row-reverse", alignItems: "center", gap: Spacing.sm },
-  serviceFeeRow: { flexDirection: "row-reverse", alignItems: "center", gap: Spacing.sm, opacity: 0.75 },
-  notesBox: { padding: Spacing.sm, borderRadius: BorderRadius.sm, marginTop: 2 },
-  itemsBox: { padding: Spacing.sm, borderRadius: BorderRadius.sm, borderWidth: 1, marginTop: 2, gap: 4 },
-  itemRow: { flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between" },
-  itemThumb: { width: 34, height: 34, borderRadius: 6, backgroundColor: AppColors.white },
+  detailRow: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  serviceFeeRow: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    gap: Spacing.sm,
+    opacity: 0.75,
+  },
+  notesBox: {
+    padding: Spacing.sm,
+    borderRadius: BorderRadius.sm,
+    marginTop: 2,
+  },
+  itemsBox: {
+    padding: Spacing.sm,
+    borderRadius: BorderRadius.sm,
+    borderWidth: 1,
+    marginTop: 2,
+    gap: 4,
+  },
+  itemRow: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  itemThumb: {
+    width: 34,
+    height: 34,
+    borderRadius: 6,
+    backgroundColor: AppColors.white,
+  },
   itemThumbPlaceholder: { alignItems: "center", justifyContent: "center" },
-  quickActions: { flexDirection: "row-reverse", gap: Spacing.sm, marginBottom: Spacing.md },
+  quickActions: {
+    flexDirection: "row-reverse",
+    gap: Spacing.sm,
+    marginBottom: Spacing.md,
+  },
   quickBtn: {
-    flex: 1, flexDirection: "row", justifyContent: "center",
-    alignItems: "center", gap: 4, paddingVertical: Spacing.sm, borderRadius: BorderRadius.md,
+    flex: 1,
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    gap: 4,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.md,
   },
   mainActionBtn: {
-    flexDirection: "row-reverse", justifyContent: "center", alignItems: "center",
-    gap: Spacing.sm, paddingVertical: Spacing.md + 2, borderRadius: BorderRadius.md,
+    flexDirection: "row-reverse",
+    justifyContent: "center",
+    alignItems: "center",
+    gap: Spacing.sm,
+    paddingVertical: Spacing.md + 2,
+    borderRadius: BorderRadius.md,
   },
   deliveredBanner: {
-    flexDirection: "row-reverse", justifyContent: "center", alignItems: "center",
-    gap: Spacing.sm, paddingVertical: Spacing.md, borderRadius: BorderRadius.md,
+    flexDirection: "row-reverse",
+    justifyContent: "center",
+    alignItems: "center",
+    gap: Spacing.sm,
+    paddingVertical: Spacing.md,
+    borderRadius: BorderRadius.md,
   },
   modalOverlay: {
-    flex: 1, backgroundColor: AppColors.overlay,
-    justifyContent: "center", alignItems: "center", padding: Spacing.xl,
+    flex: 1,
+    backgroundColor: AppColors.overlay,
+    justifyContent: "center",
+    alignItems: "center",
+    padding: Spacing.xl,
   },
   modalBox: {
-    width: "100%", borderRadius: BorderRadius.xl, padding: Spacing.xl,
-    shadowColor: AppColors.black, shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15, shadowRadius: 12, elevation: 8,
+    width: "100%",
+    borderRadius: BorderRadius.xl,
+    padding: Spacing.xl,
+    shadowColor: AppColors.black,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 8,
   },
   modalHeader: {
-    flexDirection: "row-reverse", alignItems: "center",
-    gap: Spacing.sm, justifyContent: "center", marginBottom: Spacing.sm,
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    gap: Spacing.sm,
+    justifyContent: "center",
+    marginBottom: Spacing.sm,
   },
   issueOption: {
-    flexDirection: "row-reverse", alignItems: "center", gap: Spacing.sm,
-    paddingVertical: Spacing.md, paddingHorizontal: Spacing.md,
-    borderRadius: BorderRadius.lg, borderWidth: 1, marginBottom: Spacing.sm,
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    gap: Spacing.sm,
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.md,
+    borderRadius: BorderRadius.lg,
+    borderWidth: 1,
+    marginBottom: Spacing.sm,
   },
-  modalCancelBtn: { alignItems: "center", paddingVertical: Spacing.sm, marginTop: Spacing.xs },
+  modalCancelBtn: {
+    alignItems: "center",
+    paddingVertical: Spacing.sm,
+    marginTop: Spacing.xs,
+  },
   modalSent: { alignItems: "center", paddingVertical: Spacing.xl },
-  modalSentIcon: { width: 70, height: 70, borderRadius: 35, justifyContent: "center", alignItems: "center" },
+  modalSentIcon: {
+    width: 70,
+    height: 70,
+    borderRadius: 35,
+    justifyContent: "center",
+    alignItems: "center",
+  },
   // Step indicator
   stepRow: {
     flexDirection: "row-reverse",

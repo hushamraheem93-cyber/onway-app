@@ -1,5 +1,11 @@
 import React, { useEffect, useState, useRef } from "react";
-import { StyleSheet, View, ScrollView, Pressable, ActivityIndicator } from "react-native";
+import {
+  StyleSheet,
+  View,
+  ScrollView,
+  Pressable,
+  ActivityIndicator,
+} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
@@ -9,7 +15,13 @@ import * as Haptics from "expo-haptics";
 
 import { useTheme } from "@/hooks/useTheme";
 import { ThemedText } from "@/components/ThemedText";
-import { Spacing, BorderRadius, AppColors, Shadows, FontWeight} from "@/constants/theme";
+import {
+  Spacing,
+  BorderRadius,
+  AppColors,
+  Shadows,
+  FontWeight,
+} from "@/constants/theme";
 import { formatPrice } from "@/constants/currency";
 import { Button } from "@/components/Button";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
@@ -31,10 +43,10 @@ export default function OrderConfirmationScreen() {
   const route = useRoute<RouteProps>();
   const order = route.params?.order;
 
-  const [secsLeft, setSecsLeft]         = useState(CANCEL_WINDOW_SECS);
-  const [cancelling, setCancelling]     = useState(false);
-  const [cancelled, setCancelled]       = useState(false);
-  const [cancelError, setCancelError]   = useState<string | null>(null);
+  const [secsLeft, setSecsLeft] = useState(CANCEL_WINDOW_SECS);
+  const [cancelling, setCancelling] = useState(false);
+  const [cancelled, setCancelled] = useState(false);
+  const [cancelError, setCancelError] = useState<string | null>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
@@ -52,12 +64,21 @@ export default function OrderConfirmationScreen() {
         return prev - 1;
       });
     }, 1000);
-    return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
+    return () => {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+    };
   }, [order?.id]);
 
   if (!order || !order.items) {
     return (
-      <View style={{ flex: 1, backgroundColor: theme.backgroundRoot, justifyContent: "center", alignItems: "center" }}>
+      <View
+        style={{
+          flex: 1,
+          backgroundColor: theme.backgroundRoot,
+          justifyContent: "center",
+          alignItems: "center",
+        }}
+      >
         <ThemedText type="body">جاري التحميل...</ThemedText>
       </View>
     );
@@ -82,7 +103,9 @@ export default function OrderConfirmationScreen() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          ...(customerToken ? { Authorization: `Bearer ${customerToken}` } : {}),
+          ...(customerToken
+            ? { Authorization: `Bearer ${customerToken}` }
+            : {}),
         },
       });
       const data = await res.json();
@@ -130,193 +153,278 @@ export default function OrderConfirmationScreen() {
   return (
     <View style={{ flex: 1 }}>
       <GradientBackground />
-    <ScrollView
-      style={{ flex: 1 }}
-      contentContainerStyle={{
-        paddingTop: headerHeight + Spacing.lg,
-        paddingBottom: insets.bottom + Spacing.xl,
-        paddingHorizontal: Spacing.lg,
-      }}
-    >
-      <View style={styles.successIcon}>
-        <View style={[styles.iconCircle, { backgroundColor: AppColors.success }]}>
-          <Feather name="check" size={48} color={AppColors.white} />
-        </View>
-      </View>
-
-      <ThemedText type="h2" style={styles.title}>
-        تم تأكيد طلبك بنجاح!
-      </ThemedText>
-
-      <ThemedText type="body" style={[styles.subtitle, { color: theme.textSecondary }]}>
-        رقم الطلب: {order.id}
-      </ThemedText>
-
-      {(() => {
-        const storeName = order.vendorName || order.items.find(i => i.restaurant)?.restaurant;
-        return storeName ? (
-          <View style={styles.storeBadgeContainer}>
-            <View style={[styles.storeBadge, { backgroundColor: AppColors.primary + "15" }]}>
-              <Feather name="shopping-bag" size={15} color={AppColors.primary} />
-              <ThemedText type="body" style={[styles.storeText, { color: AppColors.primary }]}>
-                {"من متجر " + storeName}
-              </ThemedText>
-            </View>
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={{
+          paddingTop: headerHeight + Spacing.lg,
+          paddingBottom: insets.bottom + Spacing.xl,
+          paddingHorizontal: Spacing.lg,
+        }}
+      >
+        <View style={styles.successIcon}>
+          <View
+            style={[styles.iconCircle, { backgroundColor: AppColors.success }]}
+          >
+            <Feather name="check" size={48} color={AppColors.white} />
           </View>
-        ) : null;
-      })()}
+        </View>
 
-      <View style={[styles.card, { backgroundColor: theme.backgroundDefault }, Shadows.sm]}>
-        <ThemedText type="h4" style={styles.cardTitle}>
-          تفاصيل الطلب
+        <ThemedText type="h2" style={styles.title}>
+          تم تأكيد طلبك بنجاح!
         </ThemedText>
 
-        <View style={styles.detailRow}>
-          <ThemedText type="body">{order.phoneNumber}</ThemedText>
-          <ThemedText type="body" style={{ color: theme.textSecondary }}>الهاتف</ThemedText>
-        </View>
+        <ThemedText
+          type="body"
+          style={[styles.subtitle, { color: theme.textSecondary }]}
+        >
+          رقم الطلب: {order.id}
+        </ThemedText>
 
-        <View style={styles.detailRow}>
-          <ThemedText type="body">{order.region}</ThemedText>
-          <ThemedText type="body" style={{ color: theme.textSecondary }}>المنطقة</ThemedText>
-        </View>
+        {(() => {
+          const storeName =
+            order.vendorName ||
+            order.items.find((i) => i.restaurant)?.restaurant;
+          return storeName ? (
+            <View style={styles.storeBadgeContainer}>
+              <View
+                style={[
+                  styles.storeBadge,
+                  { backgroundColor: AppColors.primary + "15" },
+                ]}
+              >
+                <Feather
+                  name="shopping-bag"
+                  size={15}
+                  color={AppColors.primary}
+                />
+                <ThemedText
+                  type="body"
+                  style={[styles.storeText, { color: AppColors.primary }]}
+                >
+                  {"من متجر " + storeName}
+                </ThemedText>
+              </View>
+            </View>
+          ) : null;
+        })()}
 
-        <View style={styles.detailRow}>
-          <ThemedText type="body" style={{ flex: 1, textAlign: "left" }}>{order.address}</ThemedText>
-          <ThemedText type="body" style={{ color: theme.textSecondary }}>العنوان</ThemedText>
-        </View>
+        <View
+          style={[
+            styles.card,
+            { backgroundColor: theme.backgroundDefault },
+            Shadows.sm,
+          ]}
+        >
+          <ThemedText type="h4" style={styles.cardTitle}>
+            تفاصيل الطلب
+          </ThemedText>
 
-        <View style={[styles.detailRow, styles.divider]}>
-          <ThemedText type="body">{order.items.length} منتج</ThemedText>
-          <ThemedText type="body" style={{ color: theme.textSecondary }}>المنتجات</ThemedText>
-        </View>
-
-        {order.items.map((item, index) => (
-          <View key={index} style={styles.itemRow}>
-            <ThemedText type="small" style={{ color: AppColors.primary }}>
-              {formatPrice(item.price * item.quantity)}
-            </ThemedText>
-            <ThemedText type="small" style={{ flex: 1, textAlign: "right" }}>
-              {item.name} × {item.quantity}
+          <View style={styles.detailRow}>
+            <ThemedText type="body">{order.phoneNumber}</ThemedText>
+            <ThemedText type="body" style={{ color: theme.textSecondary }}>
+              الهاتف
             </ThemedText>
           </View>
-        ))}
 
-        <View style={styles.detailRow}>
-          <ThemedText type="body" style={{ color: theme.textSecondary }}>
-            {formatPrice(order.deliveryFee)}
-          </ThemedText>
-          <ThemedText type="body" style={{ color: theme.textSecondary }}>أجور التوصيل</ThemedText>
-        </View>
+          <View style={styles.detailRow}>
+            <ThemedText type="body">{order.region}</ThemedText>
+            <ThemedText type="body" style={{ color: theme.textSecondary }}>
+              المنطقة
+            </ThemedText>
+          </View>
 
-        {order.serviceFee !== undefined && order.serviceFee > 0 ? (
+          <View style={styles.detailRow}>
+            <ThemedText type="body" style={{ flex: 1, textAlign: "left" }}>
+              {order.address}
+            </ThemedText>
+            <ThemedText type="body" style={{ color: theme.textSecondary }}>
+              العنوان
+            </ThemedText>
+          </View>
+
+          <View style={[styles.detailRow, styles.divider]}>
+            <ThemedText type="body">{order.items.length} منتج</ThemedText>
+            <ThemedText type="body" style={{ color: theme.textSecondary }}>
+              المنتجات
+            </ThemedText>
+          </View>
+
+          {order.items.map((item, index) => (
+            <View key={index} style={styles.itemRow}>
+              <ThemedText type="small" style={{ color: AppColors.primary }}>
+                {formatPrice(item.price * item.quantity)}
+              </ThemedText>
+              <ThemedText type="small" style={{ flex: 1, textAlign: "right" }}>
+                {item.name} × {item.quantity}
+              </ThemedText>
+            </View>
+          ))}
+
           <View style={styles.detailRow}>
             <ThemedText type="body" style={{ color: theme.textSecondary }}>
-              {formatPrice(order.serviceFee)}
+              {formatPrice(order.deliveryFee)}
             </ThemedText>
-            <ThemedText type="body" style={{ color: theme.textSecondary }}>نسبة الخدمة</ThemedText>
+            <ThemedText type="body" style={{ color: theme.textSecondary }}>
+              أجور التوصيل
+            </ThemedText>
+          </View>
+
+          {order.serviceFee !== undefined && order.serviceFee > 0 ? (
+            <View style={styles.detailRow}>
+              <ThemedText type="body" style={{ color: theme.textSecondary }}>
+                {formatPrice(order.serviceFee)}
+              </ThemedText>
+              <ThemedText type="body" style={{ color: theme.textSecondary }}>
+                نسبة الخدمة
+              </ThemedText>
+            </View>
+          ) : null}
+
+          <View style={[styles.detailRow, styles.totalRow]}>
+            <ThemedText type="h3" style={{ color: AppColors.primary }}>
+              {formatPrice(order.total + order.deliveryFee)}
+            </ThemedText>
+            <ThemedText type="h4">المجموع الكلي</ThemedText>
+          </View>
+
+          <ThemedText
+            type="small"
+            style={[styles.timeText, { color: theme.textSecondary }]}
+          >
+            وقت الطلب: {formatOrderTime(new Date(order.createdAt))}
+          </ThemedText>
+        </View>
+
+        <View
+          style={[
+            styles.statusCard,
+            { backgroundColor: getStatusColor(order.status) + "15" },
+          ]}
+        >
+          <View
+            style={[
+              styles.statusIcon,
+              { backgroundColor: getStatusColor(order.status) },
+            ]}
+          >
+            <Feather name="clock" size={24} color={AppColors.white} />
+          </View>
+          <View style={styles.statusContent}>
+            <ThemedText type="body" style={{ fontWeight: FontWeight.semiBold }}>
+              حالة الطلب
+            </ThemedText>
+            <ThemedText
+              type="h4"
+              style={{ color: getStatusColor(order.status) }}
+            >
+              {getStatusLabel(order.status)}
+            </ThemedText>
+          </View>
+        </View>
+
+        <View
+          style={[
+            styles.infoCard,
+            { backgroundColor: theme.backgroundSecondary },
+          ]}
+        >
+          <Feather name="info" size={20} color={AppColors.primary} />
+          <ThemedText
+            type="small"
+            style={{ flex: 1, textAlign: "right", color: theme.textSecondary }}
+          >
+            تم إرسال طلبك بنجاح وسيتم مراجعته من قبل الإدارة. يمكنك تتبع حالة
+            طلبك مباشرة.
+          </ThemedText>
+        </View>
+
+        {/* ── Cancel within 1 minute ─────────────────────────── */}
+        {cancelled ? (
+          <View style={styles.cancelledBox}>
+            <Feather name="x-circle" size={22} color={AppColors.error} />
+            <ThemedText style={styles.cancelledText}>
+              تم إلغاء الطلب بنجاح
+            </ThemedText>
+          </View>
+        ) : secsLeft > 0 ? (
+          <View
+            style={[
+              styles.cancelCard,
+              { backgroundColor: theme.backgroundSecondary },
+            ]}
+          >
+            {/* Progress bar */}
+            <View style={styles.progressTrack}>
+              <View
+                style={[
+                  styles.progressFill,
+                  { width: `${progressPct * 100}%` as any },
+                ]}
+              />
+            </View>
+
+            <View style={styles.cancelRow}>
+              <View style={styles.timerBadge}>
+                <Feather name="clock" size={13} color={AppColors.error} />
+                <ThemedText style={styles.timerText}>
+                  {Math.floor(secsLeft / 60)}:
+                  {String(secsLeft % 60).padStart(2, "0")}
+                </ThemedText>
+              </View>
+              <ThemedText
+                style={[styles.cancelHint, { color: theme.textSecondary }]}
+              >
+                يمكنك إلغاء الطلب خلال 3 دقائق
+              </ThemedText>
+            </View>
+
+            {cancelError !== null ? (
+              <ThemedText style={styles.cancelErrorText}>
+                {cancelError}
+              </ThemedText>
+            ) : null}
+
+            <Pressable
+              style={[styles.cancelBtn, cancelling && { opacity: 0.65 }]}
+              onPress={handleCancel}
+              disabled={cancelling}
+              testID="button-cancel-order"
+              accessibilityRole="button"
+              accessibilityLabel="إلغاء الطلب"
+              accessibilityState={{ disabled: cancelling, busy: cancelling }}
+            >
+              {cancelling ? (
+                <ActivityIndicator color={AppColors.error} size="small" />
+              ) : (
+                <Feather name="x" size={16} color={AppColors.error} />
+              )}
+              <ThemedText style={styles.cancelBtnText}>
+                {cancelling ? "جاري الإلغاء..." : "إلغاء الطلب"}
+              </ThemedText>
+            </Pressable>
           </View>
         ) : null}
 
-        <View style={[styles.detailRow, styles.totalRow]}>
-          <ThemedText type="h3" style={{ color: AppColors.primary }}>
-            {formatPrice(order.total + order.deliveryFee)}
+        <Button
+          onPress={() =>
+            navigation.navigate("OrderTracking", { orderId: order.id })
+          }
+          style={styles.trackButton}
+        >
+          تتبع الطلب
+        </Button>
+
+        <Pressable
+          onPress={goHome}
+          style={styles.homeLink}
+          accessibilityRole="button"
+          accessibilityLabel="العودة للرئيسية"
+        >
+          <ThemedText type="body" style={{ color: theme.textSecondary }}>
+            العودة للرئيسية
           </ThemedText>
-          <ThemedText type="h4">المجموع الكلي</ThemedText>
-        </View>
-
-        <ThemedText type="small" style={[styles.timeText, { color: theme.textSecondary }]}>
-          وقت الطلب: {formatOrderTime(new Date(order.createdAt))}
-        </ThemedText>
-      </View>
-
-      <View style={[styles.statusCard, { backgroundColor: getStatusColor(order.status) + "15" }]}>
-        <View style={[styles.statusIcon, { backgroundColor: getStatusColor(order.status) }]}>
-          <Feather name="clock" size={24} color={AppColors.white} />
-        </View>
-        <View style={styles.statusContent}>
-          <ThemedText type="body" style={{ fontWeight: FontWeight.semiBold }}>
-            حالة الطلب
-          </ThemedText>
-          <ThemedText type="h4" style={{ color: getStatusColor(order.status) }}>
-            {getStatusLabel(order.status)}
-          </ThemedText>
-        </View>
-      </View>
-
-      <View style={[styles.infoCard, { backgroundColor: theme.backgroundSecondary }]}>
-        <Feather name="info" size={20} color={AppColors.primary} />
-        <ThemedText type="small" style={{ flex: 1, textAlign: "right", color: theme.textSecondary }}>
-          تم إرسال طلبك بنجاح وسيتم مراجعته من قبل الإدارة. يمكنك تتبع حالة طلبك مباشرة.
-        </ThemedText>
-      </View>
-
-      {/* ── Cancel within 1 minute ─────────────────────────── */}
-      {cancelled ? (
-        <View style={styles.cancelledBox}>
-          <Feather name="x-circle" size={22} color={AppColors.error} />
-          <ThemedText style={styles.cancelledText}>تم إلغاء الطلب بنجاح</ThemedText>
-        </View>
-      ) : secsLeft > 0 ? (
-        <View style={[styles.cancelCard, { backgroundColor: theme.backgroundSecondary }]}>
-          {/* Progress bar */}
-          <View style={styles.progressTrack}>
-            <View style={[styles.progressFill, { width: `${progressPct * 100}%` as any }]} />
-          </View>
-
-          <View style={styles.cancelRow}>
-            <View style={styles.timerBadge}>
-              <Feather name="clock" size={13} color={AppColors.error} />
-              <ThemedText style={styles.timerText}>
-                {Math.floor(secsLeft / 60)}:{String(secsLeft % 60).padStart(2, "0")}
-              </ThemedText>
-            </View>
-            <ThemedText style={[styles.cancelHint, { color: theme.textSecondary }]}>
-              يمكنك إلغاء الطلب خلال 3 دقائق
-            </ThemedText>
-          </View>
-
-          {cancelError !== null ? (
-            <ThemedText style={styles.cancelErrorText}>{cancelError}</ThemedText>
-          ) : null}
-
-          <Pressable
-            style={[styles.cancelBtn, cancelling && { opacity: 0.65 }]}
-            onPress={handleCancel}
-            disabled={cancelling}
-            testID="button-cancel-order"
-            accessibilityRole="button"
-            accessibilityLabel="إلغاء الطلب"
-            accessibilityState={{ disabled: cancelling, busy: cancelling }}
-          >
-            {cancelling ? (
-              <ActivityIndicator color={AppColors.error} size="small" />
-            ) : (
-              <Feather name="x" size={16} color={AppColors.error} />
-            )}
-            <ThemedText style={styles.cancelBtnText}>
-              {cancelling ? "جاري الإلغاء..." : "إلغاء الطلب"}
-            </ThemedText>
-          </Pressable>
-        </View>
-      ) : null}
-
-      <Button
-        onPress={() => navigation.navigate("OrderTracking", { orderId: order.id })}
-        style={styles.trackButton}
-      >
-        تتبع الطلب
-      </Button>
-
-      <Pressable
-        onPress={goHome}
-        style={styles.homeLink}
-        accessibilityRole="button"
-        accessibilityLabel="العودة للرئيسية"
-      >
-        <ThemedText type="body" style={{ color: theme.textSecondary }}>العودة للرئيسية</ThemedText>
-      </Pressable>
-    </ScrollView>
+        </Pressable>
+      </ScrollView>
     </View>
   );
 }

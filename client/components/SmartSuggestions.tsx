@@ -7,7 +7,13 @@ import * as Haptics from "expo-haptics";
 
 import { ThemedText } from "@/components/ThemedText";
 import { useTheme } from "@/hooks/useTheme";
-import { AppColors, BorderRadius, Spacing, Shadows, FontWeight} from "@/constants/theme";
+import {
+  AppColors,
+  BorderRadius,
+  Spacing,
+  Shadows,
+  FontWeight,
+} from "@/constants/theme";
 import { formatPrice } from "@/constants/currency";
 import { Product, PRODUCTS } from "@/constants/categories";
 import { useCart, CartItem } from "@/context/CartContext";
@@ -17,12 +23,12 @@ const CATEGORY_SUGGESTIONS: Record<string, string[]> = {
   "meat-poultry": ["fruits-vegetables", "beverages", "snacks-sweets"],
   "dairy-eggs": ["fruits-vegetables", "snacks-sweets", "beverages"],
   "cleaning-care": ["baby"],
-  "beverages": ["snacks-sweets", "fruits-vegetables"],
+  beverages: ["snacks-sweets", "fruits-vegetables"],
   "snacks-sweets": ["beverages", "juices"],
-  "juices": ["snacks-sweets", "fruits-vegetables"],
+  juices: ["snacks-sweets", "fruits-vegetables"],
   "tea-coffee": ["snacks-sweets", "dairy-eggs"],
-  "baby": ["cleaning-care", "dairy-eggs"],
-  "flowers": ["snacks-sweets"],
+  baby: ["cleaning-care", "dairy-eggs"],
+  flowers: ["snacks-sweets"],
 };
 
 interface SmartSuggestionsProps {
@@ -37,7 +43,9 @@ export function SmartSuggestions({ cartItems }: SmartSuggestionsProps) {
     if (cartItems.length === 0) return [];
 
     const cartProductIds = new Set(cartItems.map((item) => item.product.id));
-    const cartCategoryIds = [...new Set(cartItems.map((item) => item.product.categoryId))];
+    const cartCategoryIds = [
+      ...new Set(cartItems.map((item) => item.product.categoryId)),
+    ];
 
     const suggestedCategoryIds = new Set<string>();
     cartCategoryIds.forEach((catId) => {
@@ -49,7 +57,7 @@ export function SmartSuggestions({ cartItems }: SmartSuggestionsProps) {
       (p) =>
         suggestedCategoryIds.has(p.categoryId) &&
         !cartProductIds.has(p.id) &&
-        p.inStock
+        p.inStock,
     );
 
     const shuffled = suggestions.sort(() => Math.random() - 0.5);
@@ -63,13 +71,20 @@ export function SmartSuggestions({ cartItems }: SmartSuggestionsProps) {
     addToCart(product);
   };
 
-  const isInCart = (productId: string) => items.some((item) => item.product.id === productId);
+  const isInCart = (productId: string) =>
+    items.some((item) => item.product.id === productId);
 
   const renderItem = ({ item }: { item: Product }) => {
     const alreadyInCart = isInCart(item.id);
-    
+
     return (
-      <View style={[styles.itemCard, { backgroundColor: theme.backgroundDefault }, Shadows.sm]}>
+      <View
+        style={[
+          styles.itemCard,
+          { backgroundColor: theme.backgroundDefault },
+          Shadows.sm,
+        ]}
+      >
         <Image
           source={{ uri: resolveImageUrl(item.image) }}
           style={styles.itemImage}
@@ -87,17 +102,14 @@ export function SmartSuggestions({ cartItems }: SmartSuggestionsProps) {
         </View>
 
         <Pressable
-          style={[
-            styles.addBtn,
-            alreadyInCart && styles.addBtnDisabled,
-          ]}
+          style={[styles.addBtn, alreadyInCart && styles.addBtnDisabled]}
           onPress={() => !alreadyInCart && handleAddToCart(item)}
           disabled={alreadyInCart}
         >
-          <Feather 
-            name={alreadyInCart ? "check" : "plus"} 
-            size={18} 
-            color="white" 
+          <Feather
+            name={alreadyInCart ? "check" : "plus"}
+            size={18}
+            color="white"
           />
         </Pressable>
       </View>
@@ -111,9 +123,14 @@ export function SmartSuggestions({ cartItems }: SmartSuggestionsProps) {
       <View style={styles.headerRow}>
         <View style={styles.titleContainer}>
           <Feather name="zap" size={18} color={AppColors.primary} />
-          <ThemedText type="h4" style={styles.title}>أكمل وجبتك</ThemedText>
+          <ThemedText type="h4" style={styles.title}>
+            أكمل وجبتك
+          </ThemedText>
         </View>
-        <ThemedText type="small" style={[styles.subtitle, { color: theme.textSecondary }]}>
+        <ThemedText
+          type="small"
+          style={[styles.subtitle, { color: theme.textSecondary }]}
+        >
           اقتراحات ذكية بناءً على سلتك
         </ThemedText>
       </View>

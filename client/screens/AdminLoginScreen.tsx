@@ -1,5 +1,11 @@
 import React, { useState } from "react";
-import { StyleSheet, View, TextInput, Pressable, ActivityIndicator } from "react-native";
+import {
+  StyleSheet,
+  View,
+  TextInput,
+  Pressable,
+  ActivityIndicator,
+} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useNavigation } from "@react-navigation/native";
@@ -10,7 +16,13 @@ import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollV
 import { ThemedText } from "@/components/ThemedText";
 import { GradientBackground } from "@/components/GradientBackground";
 import { useTheme } from "@/hooks/useTheme";
-import { AppColors, Spacing, BorderRadius, Shadows, FontWeight } from "@/constants/theme";
+import {
+  AppColors,
+  Spacing,
+  BorderRadius,
+  Shadows,
+  FontWeight,
+} from "@/constants/theme";
 import { loginAdmin } from "@/lib/adminAuth";
 
 export default function AdminLoginScreen() {
@@ -25,7 +37,8 @@ export default function AdminLoginScreen() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const canSubmit = username.trim().length > 0 && password.length > 0 && !loading;
+  const canSubmit =
+    username.trim().length > 0 && password.length > 0 && !loading;
 
   const handleLogin = async () => {
     if (!canSubmit) return;
@@ -58,18 +71,41 @@ export default function AdminLoginScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.header}>
-          <View style={[styles.iconBadge, { backgroundColor: AppColors.primary }]}>
+          <View
+            style={[styles.iconBadge, { backgroundColor: AppColors.primary }]}
+          >
             <Feather name="shield" size={34} color={AppColors.white} />
           </View>
-          <ThemedText type="h2" style={styles.title}>لوحة التحكم</ThemedText>
-          <ThemedText type="body" style={[styles.subtitle, { color: theme.textSecondary }]}>
+          <ThemedText type="h2" style={styles.title}>
+            لوحة التحكم
+          </ThemedText>
+          <ThemedText
+            type="body"
+            style={[styles.subtitle, { color: theme.textSecondary }]}
+          >
             تسجيل دخول المشرف
           </ThemedText>
         </View>
 
-        <View style={[styles.card, { backgroundColor: theme.backgroundDefault }, Shadows.sm]}>
-          <ThemedText type="body" style={styles.label}>اسم المستخدم</ThemedText>
-          <View style={[styles.inputRow, { backgroundColor: theme.backgroundSecondary, borderColor: theme.border }]}>
+        <View
+          style={[
+            styles.card,
+            { backgroundColor: theme.backgroundDefault },
+            Shadows.sm,
+          ]}
+        >
+          <ThemedText type="body" style={styles.label}>
+            اسم المستخدم
+          </ThemedText>
+          <View
+            style={[
+              styles.inputRow,
+              {
+                backgroundColor: theme.backgroundSecondary,
+                borderColor: theme.border,
+              },
+            ]}
+          >
             <Feather name="user" size={18} color={theme.textSecondary} />
             <TextInput
               style={[styles.input, { color: theme.text }]}
@@ -84,15 +120,34 @@ export default function AdminLoginScreen() {
             />
           </View>
 
-          <ThemedText type="body" style={[styles.label, { marginTop: Spacing.md }]}>كلمة المرور</ThemedText>
-          <View style={[styles.inputRow, { backgroundColor: theme.backgroundSecondary, borderColor: theme.border }]}>
+          <ThemedText
+            type="body"
+            style={[styles.label, { marginTop: Spacing.md }]}
+          >
+            كلمة المرور
+          </ThemedText>
+          <View
+            style={[
+              styles.inputRow,
+              {
+                backgroundColor: theme.backgroundSecondary,
+                borderColor: theme.border,
+              },
+            ]}
+          >
             <Pressable
               onPress={() => setShowPassword((s) => !s)}
               accessibilityRole="button"
-              accessibilityLabel={showPassword ? "إخفاء كلمة المرور" : "إظهار كلمة المرور"}
+              accessibilityLabel={
+                showPassword ? "إخفاء كلمة المرور" : "إظهار كلمة المرور"
+              }
               hitSlop={8}
             >
-              <Feather name={showPassword ? "eye-off" : "eye"} size={18} color={theme.textSecondary} />
+              <Feather
+                name={showPassword ? "eye-off" : "eye"}
+                size={18}
+                color={theme.textSecondary}
+              />
             </Pressable>
             <TextInput
               style={[styles.input, { color: theme.text }]}
@@ -113,7 +168,9 @@ export default function AdminLoginScreen() {
           {error ? (
             <View style={styles.errorRow}>
               <Feather name="alert-circle" size={15} color={AppColors.error} />
-              <ThemedText type="small" style={styles.errorText}>{error}</ThemedText>
+              <ThemedText type="small" style={styles.errorText}>
+                {error}
+              </ThemedText>
             </View>
           ) : null}
 
@@ -128,12 +185,17 @@ export default function AdminLoginScreen() {
             {loading ? (
               <ActivityIndicator color={AppColors.white} />
             ) : (
-              <ThemedText type="h4" style={styles.submitText}>تسجيل الدخول</ThemedText>
+              <ThemedText type="h4" style={styles.submitText}>
+                تسجيل الدخول
+              </ThemedText>
             )}
           </Pressable>
         </View>
 
-        <ThemedText type="small" style={[styles.note, { color: theme.textSecondary }]}>
+        <ThemedText
+          type="small"
+          style={[styles.note, { color: theme.textSecondary }]}
+        >
           الدخول متاح للمشرفين المصرّح لهم فقط.
         </ThemedText>
       </KeyboardAwareScrollViewCompat>

@@ -36,7 +36,10 @@ function HelpItem({ icon, iconBg, title, subtitle, onPress }: HelpItemProps) {
       accessibilityLabel={`${title}، ${subtitle}`}
       style={({ pressed }) => [
         styles.item,
-        { backgroundColor: theme.backgroundDefault, opacity: pressed ? 0.8 : 1 },
+        {
+          backgroundColor: theme.backgroundDefault,
+          opacity: pressed ? 0.8 : 1,
+        },
         Shadows.sm,
       ]}
     >
@@ -44,8 +47,13 @@ function HelpItem({ icon, iconBg, title, subtitle, onPress }: HelpItemProps) {
         <Feather name={icon} size={20} color={AppColors.primary} />
       </View>
       <View style={styles.content}>
-        <ThemedText type="body" style={styles.title}>{title}</ThemedText>
-        <ThemedText type="small" style={[styles.subtitle, { color: theme.textSecondary }]}>
+        <ThemedText type="body" style={styles.title}>
+          {title}
+        </ThemedText>
+        <ThemedText
+          type="small"
+          style={[styles.subtitle, { color: theme.textSecondary }]}
+        >
           {subtitle}
         </ThemedText>
       </View>

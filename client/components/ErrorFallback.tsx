@@ -12,7 +12,12 @@ import { Feather } from "@expo/vector-icons";
 import { ThemedView } from "@/components/ThemedView";
 import { ThemedText } from "@/components/ThemedText";
 import { useTheme } from "@/hooks/useTheme";
-import { Spacing, BorderRadius, AppColors, FontWeight} from "@/constants/theme";
+import {
+  Spacing,
+  BorderRadius,
+  AppColors,
+  FontWeight,
+} from "@/constants/theme";
 
 export type ErrorFallbackProps = {
   error: Error;

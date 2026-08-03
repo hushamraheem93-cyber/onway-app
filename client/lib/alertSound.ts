@@ -1,5 +1,9 @@
 import { Platform } from "react-native";
-import { createAudioPlayer, setAudioModeAsync, type AudioPlayer } from "expo-audio";
+import {
+  createAudioPlayer,
+  setAudioModeAsync,
+  type AudioPlayer,
+} from "expo-audio";
 
 const alarmSource = require("../assets/sounds/alarm.mp3");
 
@@ -64,7 +68,11 @@ export function playRepeatingAlert(times = 4, gapMs = 5000) {
   stopAlert(); // reset any in-flight sequence first
   const safeTimes = Math.max(1, Math.min(times, 6));
   for (let i = 0; i < safeTimes; i++) {
-    repeatTimers.push(setTimeout(() => { void playLoudAlert(); }, i * gapMs));
+    repeatTimers.push(
+      setTimeout(() => {
+        void playLoudAlert();
+      }, i * gapMs),
+    );
   }
 }
 

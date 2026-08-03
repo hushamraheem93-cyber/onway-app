@@ -21,9 +21,18 @@ export type OrderStatus =
 
 export type UserRole = "customer" | "vendor" | "driver" | "admin";
 export type BatchStatus = "pending" | "in_progress" | "completed";
-export type VendorCategoryType = "restaurant" | "store" | "grocery" | "cafe" | "pharmacy";
+export type VendorCategoryType =
+  | "restaurant"
+  | "store"
+  | "grocery"
+  | "cafe"
+  | "pharmacy";
 export type PromoCodeType = "fixed" | "percentage";
-export type DriverActivityType = "earning" | "withdrawal" | "bonus" | "deduction";
+export type DriverActivityType =
+  | "earning"
+  | "withdrawal"
+  | "bonus"
+  | "deduction";
 
 export interface ApiResponse<T = unknown> {
   success: boolean;

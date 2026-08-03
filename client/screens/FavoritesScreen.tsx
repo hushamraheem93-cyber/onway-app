@@ -15,7 +15,10 @@ import { Product } from "@/constants/categories";
 import { ProductCard } from "@/components/ProductCard";
 import { EmptyState } from "@/components/EmptyState";
 import { useFavorites } from "@/context/FavoritesContext";
-import { useVendorFavorites, FavoriteVendor } from "@/context/VendorFavoritesContext";
+import {
+  useVendorFavorites,
+  FavoriteVendor,
+} from "@/context/VendorFavoritesContext";
 import { GradientBackground } from "@/components/GradientBackground";
 import { ThemedText } from "@/components/ThemedText";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
@@ -26,7 +29,11 @@ type Nav = NativeStackNavigationProp<RootStackParamList>;
 function resolveUrl(path?: string): string | null {
   if (!path) return null;
   if (path.startsWith("http")) return path;
-  try { return new URL(path, getApiUrl()).toString(); } catch { return null; }
+  try {
+    return new URL(path, getApiUrl()).toString();
+  } catch {
+    return null;
+  }
 }
 
 function VendorFavCard({ vendor }: { vendor: FavoriteVendor }) {
@@ -39,38 +46,68 @@ function VendorFavCard({ vendor }: { vendor: FavoriteVendor }) {
     <Pressable
       onPress={() => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        navigation.navigate("StoreProducts", { storeId: vendor.id, storeName: vendor.storeName });
+        navigation.navigate("StoreProducts", {
+          storeId: vendor.id,
+          storeName: vendor.storeName,
+        });
       }}
       style={({ pressed }) => [
         styles.vendorCard,
-        { backgroundColor: theme.backgroundDefault, opacity: pressed ? 0.92 : 1 },
+        {
+          backgroundColor: theme.backgroundDefault,
+          opacity: pressed ? 0.92 : 1,
+        },
         Shadows.sm,
       ]}
     >
       {avatarUrl ? (
-        <Image source={{ uri: avatarUrl }} style={styles.vendorAvatar} contentFit="cover" />
+        <Image
+          source={{ uri: avatarUrl }}
+          style={styles.vendorAvatar}
+          contentFit="cover"
+        />
       ) : (
-        <View style={[styles.vendorAvatarFallback, { backgroundColor: AppColors.primary + "20" }]}>
-          <MaterialCommunityIcons name="store" size={28} color={AppColors.primary} />
+        <View
+          style={[
+            styles.vendorAvatarFallback,
+            { backgroundColor: AppColors.primary + "20" },
+          ]}
+        >
+          <MaterialCommunityIcons
+            name="store"
+            size={28}
+            color={AppColors.primary}
+          />
         </View>
       )}
 
       <View style={styles.vendorInfo}>
-        <ThemedText style={[styles.vendorName, { color: theme.text }]} numberOfLines={1}>
+        <ThemedText
+          style={[styles.vendorName, { color: theme.text }]}
+          numberOfLines={1}
+        >
           {vendor.storeName}
         </ThemedText>
         {vendor.deliveryTime ? (
           <View style={styles.vendorMeta}>
             <Feather name="clock" size={12} color={theme.textSecondary} />
-            <ThemedText style={[styles.vendorMetaText, { color: theme.textSecondary }]}>
+            <ThemedText
+              style={[styles.vendorMetaText, { color: theme.textSecondary }]}
+            >
               {vendor.deliveryTime} دقيقة
             </ThemedText>
           </View>
         ) : null}
         {vendor.rating != null ? (
           <View style={styles.vendorMeta}>
-            <MaterialCommunityIcons name="star" size={13} color={AppColors.warning} />
-            <ThemedText style={[styles.vendorMetaText, { color: AppColors.warning }]}>
+            <MaterialCommunityIcons
+              name="star"
+              size={13}
+              color={AppColors.warning}
+            />
+            <ThemedText
+              style={[styles.vendorMetaText, { color: AppColors.warning }]}
+            >
               {(vendor.rating as number).toFixed(1)}
             </ThemedText>
           </View>
@@ -78,11 +115,18 @@ function VendorFavCard({ vendor }: { vendor: FavoriteVendor }) {
       </View>
 
       <Pressable
-        onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); toggleVendorFavorite(vendor); }}
+        onPress={() => {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+          toggleVendorFavorite(vendor);
+        }}
         hitSlop={10}
         style={styles.heartBtn}
       >
-        <MaterialCommunityIcons name="heart" size={22} color={AppColors.error} />
+        <MaterialCommunityIcons
+          name="heart"
+          size={22}
+          color={AppColors.error}
+        />
       </Pressable>
     </Pressable>
   );
@@ -98,37 +142,69 @@ export default function FavoritesScreen() {
 
   const [activeTab, setActiveTab] = useState<"products" | "stores">("products");
 
-  const renderProduct = ({ item }: { item: Product }) => <ProductCard product={item} />;
-  const renderVendor = ({ item }: { item: FavoriteVendor }) => <VendorFavCard vendor={item} />;
+  const renderProduct = ({ item }: { item: Product }) => (
+    <ProductCard product={item} />
+  );
+  const renderVendor = ({ item }: { item: FavoriteVendor }) => (
+    <VendorFavCard vendor={item} />
+  );
 
   return (
     <View style={{ flex: 1 }}>
       <GradientBackground />
 
       {/* Tab bar */}
-      <View style={[styles.tabBar, { paddingTop: headerHeight + Spacing.sm, backgroundColor: "transparent" }]}>
+      <View
+        style={[
+          styles.tabBar,
+          {
+            paddingTop: headerHeight + Spacing.sm,
+            backgroundColor: "transparent",
+          },
+        ]}
+      >
         {(["products", "stores"] as const).map((tab) => {
           const isActive = activeTab === tab;
           const label = tab === "products" ? "المنتجات" : "المتاجر";
-          const count = tab === "products" ? favorites.length : vendorFavorites.length;
+          const count =
+            tab === "products" ? favorites.length : vendorFavorites.length;
           return (
             <Pressable
               key={tab}
-              onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setActiveTab(tab); }}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                setActiveTab(tab);
+              }}
               style={[
                 styles.tab,
                 {
                   borderBottomWidth: isActive ? 2 : 0,
                   borderBottomColor: AppColors.primary,
-                  backgroundColor: isActive ? AppColors.primary + "10" : "transparent",
+                  backgroundColor: isActive
+                    ? AppColors.primary + "10"
+                    : "transparent",
                 },
               ]}
             >
-              <ThemedText style={[styles.tabLabel, { color: isActive ? AppColors.primary : theme.textSecondary }]}>
+              <ThemedText
+                style={[
+                  styles.tabLabel,
+                  { color: isActive ? AppColors.primary : theme.textSecondary },
+                ]}
+              >
                 {label}
               </ThemedText>
               {count > 0 ? (
-                <View style={[styles.tabBadge, { backgroundColor: isActive ? AppColors.primary : theme.textSecondary + "60" }]}>
+                <View
+                  style={[
+                    styles.tabBadge,
+                    {
+                      backgroundColor: isActive
+                        ? AppColors.primary
+                        : theme.textSecondary + "60",
+                    },
+                  ]}
+                >
                   <ThemedText style={styles.tabBadgeText}>{count}</ThemedText>
                 </View>
               ) : null}
@@ -211,7 +287,11 @@ const styles = StyleSheet.create({
     minWidth: 20,
     alignItems: "center",
   },
-  tabBadgeText: { fontFamily: "Cairo_700Bold", fontSize: 11, color: AppColors.white },
+  tabBadgeText: {
+    fontFamily: "Cairo_700Bold",
+    fontSize: 11,
+    color: AppColors.white,
+  },
 
   vendorCard: {
     flexDirection: "row-reverse",
@@ -222,8 +302,11 @@ const styles = StyleSheet.create({
   },
   vendorAvatar: { width: 56, height: 56, borderRadius: 28 },
   vendorAvatarFallback: {
-    width: 56, height: 56, borderRadius: 28,
-    alignItems: "center", justifyContent: "center",
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    alignItems: "center",
+    justifyContent: "center",
   },
   vendorInfo: { flex: 1, gap: 4 },
   vendorName: { fontFamily: "Cairo_700Bold", fontSize: 15, textAlign: "right" },

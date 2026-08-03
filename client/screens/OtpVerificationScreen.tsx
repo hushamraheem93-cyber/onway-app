@@ -9,7 +9,10 @@ import {
   ScrollView,
   Keyboard,
 } from "react-native";
-import { useSafeAreaInsets, SafeAreaView } from "react-native-safe-area-context";
+import {
+  useSafeAreaInsets,
+  SafeAreaView,
+} from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
@@ -168,7 +171,9 @@ export default function OtpVerificationScreen() {
         >
           <View style={styles.handleBar} />
 
-          <ThemedText style={styles.inputLabel}>أدخل الرمز المكون من 4 أرقام</ThemedText>
+          <ThemedText style={styles.inputLabel}>
+            أدخل الرمز المكون من 4 أرقام
+          </ThemedText>
 
           <View style={styles.otpRow}>
             {Array.from({ length: OTP_LENGTH }).map((_, index) => (

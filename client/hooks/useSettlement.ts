@@ -33,7 +33,10 @@ export interface SettlementHistory {
 export function useSettlement(accountType: SettlementAccountType) {
   const { phoneNumber, vendorToken } = useAuth();
   const [view, setView] = useState<SettlementView | null>(null);
-  const [history, setHistory] = useState<SettlementHistory>({ settlements: [], requests: [] });
+  const [history, setHistory] = useState<SettlementHistory>({
+    settlements: [],
+    requests: [],
+  });
   const [loading, setLoading] = useState(true);
   const [requesting, setRequesting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -42,20 +45,28 @@ export function useSettlement(accountType: SettlementAccountType) {
   const ready = accountType === "driver" ? !!phoneNumber : !!vendorToken;
 
   const buildRequest = useCallback(
-    (suffix: string): { url: string; headers: Record<string, string> } | null => {
+    (
+      suffix: string,
+    ): { url: string; headers: Record<string, string> } | null => {
       if (accountType === "driver") {
         if (!phoneNumber) return null;
         const q = `phoneNumber=${encodeURIComponent(phoneNumber)}`;
         const sep = suffix.includes("?") ? "&" : "?";
         return {
-          url: new URL(`/api/driver/settlement${suffix}${sep}${q}`, getApiUrl()).toString(),
+          url: new URL(
+            `/api/driver/settlement${suffix}${sep}${q}`,
+            getApiUrl(),
+          ).toString(),
           headers: { "Content-Type": "application/json" },
         };
       }
       if (!vendorToken) return null;
       return {
         url: new URL(`/api/vendor/settlement${suffix}`, getApiUrl()).toString(),
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${vendorToken}` },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${vendorToken}`,
+        },
       };
     },
     [accountType, phoneNumber, vendorToken],
@@ -79,14 +90,24 @@ export function useSettlement(accountType: SettlementAccountType) {
     }
   }, [buildRequest]);
 
-  const requestSettlement = useCallback(async (): Promise<{ ok: boolean; error?: string }> => {
+  const requestSettlement = useCallback(async (): Promise<{
+    ok: boolean;
+    error?: string;
+  }> => {
     const r = buildRequest("/request");
     if (!r) return { ok: false, error: "غير مسجّل الدخول" };
     setRequesting(true);
     setError(null);
     try {
-      const body = accountType === "driver" ? JSON.stringify({ phoneNumber }) : JSON.stringify({});
-      const res = await fetch(r.url, { method: "POST", headers: r.headers, body });
+      const body =
+        accountType === "driver"
+          ? JSON.stringify({ phoneNumber })
+          : JSON.stringify({});
+      const res = await fetch(r.url, {
+        method: "POST",
+        headers: r.headers,
+        body,
+      });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
         const msg = data?.error || "تعذّر إرسال الطلب";
@@ -119,12 +140,22 @@ export function useSettlement(accountType: SettlementAccountType) {
       reconnectionDelay: 3000,
     });
     socketRef.current = sock;
-    sock.on("settlements:changed", () => { refresh(); });
+    sock.on("settlements:changed", () => {
+      refresh();
+    });
     return () => {
       sock.disconnect();
       socketRef.current = null;
     };
   }, [ready, refresh]);
 
-  return { view, history, loading, requesting, error, refresh, requestSettlement };
+  return {
+    view,
+    history,
+    loading,
+    requesting,
+    error,
+    refresh,
+    requestSettlement,
+  };
 }

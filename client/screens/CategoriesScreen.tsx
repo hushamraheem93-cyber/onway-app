@@ -1,5 +1,13 @@
 import React from "react";
-import { StyleSheet, FlatList, View, Dimensions, ActivityIndicator, Pressable, Platform } from "react-native";
+import {
+  StyleSheet,
+  FlatList,
+  View,
+  Dimensions,
+  ActivityIndicator,
+  Pressable,
+  Platform,
+} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useNavigation } from "@react-navigation/native";
@@ -10,7 +18,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import * as Haptics from "expo-haptics";
 
 import { useTheme } from "@/hooks/useTheme";
-import { Spacing, AppColors, FontWeight} from "@/constants/theme";
+import { Spacing, AppColors, FontWeight } from "@/constants/theme";
 import { Category } from "@/constants/categories";
 import { ThemedText } from "@/components/ThemedText";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
@@ -24,35 +32,35 @@ const CARD_GAP = 12;
 const CARD_WIDTH = (SCREEN_WIDTH - 16 * 2 - CARD_GAP) / 2;
 
 const CATEGORY_3D_IMAGES: Record<string, string> = {
-  "restaurants": "/uploads/category-3d-restaurants.png",
+  restaurants: "/uploads/category-3d-restaurants.png",
   "fruits-vegetables": "/uploads/category-3d-vegetables.png",
   "meat-poultry": "/uploads/category-3d-meat.png",
   "dairy-eggs": "/uploads/category-3d-dairy.png",
   "cleaning-care": "/uploads/category-3d-cleaning.png",
-  "beverages": "/uploads/category-3d-beverages.png",
+  beverages: "/uploads/category-3d-beverages.png",
   "snacks-sweets": "/uploads/category-3d-snacks.png",
   "tea-coffee": "/uploads/category-3d-coffee.png",
-  "baby": "/uploads/category-3d-baby.png",
-  "flowers": "/uploads/category-3d-flowers.png",
-  "delivery": "/uploads/category-3d-delivery.png",
-  "pharmacy": "/uploads/category-3d-pharmacy.png",
+  baby: "/uploads/category-3d-baby.png",
+  flowers: "/uploads/category-3d-flowers.png",
+  delivery: "/uploads/category-3d-delivery.png",
+  pharmacy: "/uploads/category-3d-pharmacy.png",
   "women-bags": "/uploads/category-3d-bags.png",
   "international-shopping": "/uploads/category-3d-international.png",
 };
 
 const CATEGORY_COLORS: Record<string, string> = {
-  "restaurants": AppColors.warningLight,
+  restaurants: AppColors.warningLight,
   "fruits-vegetables": AppColors.successLight,
   "meat-poultry": AppColors.errorLight,
   "dairy-eggs": AppColors.vendorPurpleLight,
   "cleaning-care": AppColors.driverBlueLight,
-  "beverages": AppColors.infoLight,
+  beverages: AppColors.infoLight,
   "snacks-sweets": AppColors.warningLight,
   "tea-coffee": AppColors.gray100,
-  "baby": AppColors.errorLight,
-  "flowers": AppColors.errorLight,
-  "delivery": AppColors.warningLight,
-  "pharmacy": AppColors.infoLight,
+  baby: AppColors.errorLight,
+  flowers: AppColors.errorLight,
+  delivery: AppColors.warningLight,
+  pharmacy: AppColors.infoLight,
   "women-bags": AppColors.errorLight,
   "international-shopping": AppColors.infoLight,
 };
@@ -97,7 +105,8 @@ export default function CategoriesScreen() {
     const imageSource = image3D || resolveImageUrl(item.image);
     // Uploaded photos fill the tile (cover) so mixed backgrounds look uniform; bundled
     // 3D icons stay "contain".
-    const isUploaded = !image3D && !!item.image && /^(https?:|data:)/.test(item.image);
+    const isUploaded =
+      !image3D && !!item.image && /^(https?:|data:)/.test(item.image);
 
     return (
       <Pressable
@@ -132,7 +141,12 @@ export default function CategoriesScreen() {
 
   if (isLoading) {
     return (
-      <View style={[styles.loadingContainer, { backgroundColor: theme.backgroundRoot }]}>
+      <View
+        style={[
+          styles.loadingContainer,
+          { backgroundColor: theme.backgroundRoot },
+        ]}
+      >
         <ActivityIndicator size="large" color={AppColors.primary} />
       </View>
     );

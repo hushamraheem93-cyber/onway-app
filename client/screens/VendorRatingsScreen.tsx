@@ -65,10 +65,10 @@ function StarRow({ value, size = 14 }: { value: number; size?: number }) {
 }
 
 const FILTER_TABS: { key: FilterType; label: string }[] = [
-  { key: "all",         label: "الكل"      },
-  { key: "unanswered",  label: "بدون رد"   },
-  { key: "high",        label: "الأعلى"    },
-  { key: "low",         label: "الأقل"     },
+  { key: "all", label: "الكل" },
+  { key: "unanswered", label: "بدون رد" },
+  { key: "high", label: "الأعلى" },
+  { key: "low", label: "الأقل" },
 ];
 
 function ReplyModal({
@@ -105,7 +105,9 @@ function ReplyModal({
         style={mStyles.overlay}
         behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
-        <View style={[mStyles.sheet, { backgroundColor: theme.backgroundDefault }]}>
+        <View
+          style={[mStyles.sheet, { backgroundColor: theme.backgroundDefault }]}
+        >
           <View style={mStyles.header}>
             <ThemedText style={mStyles.title}>الرد على التقييم</ThemedText>
             <Pressable onPress={onClose}>
@@ -113,7 +115,14 @@ function ReplyModal({
             </Pressable>
           </View>
           <TextInput
-            style={[mStyles.input, { backgroundColor: theme.backgroundRoot, color: theme.text, borderColor: theme.border ?? AppColors.divider }]}
+            style={[
+              mStyles.input,
+              {
+                backgroundColor: theme.backgroundRoot,
+                color: theme.text,
+                borderColor: theme.border ?? AppColors.divider,
+              },
+            ]}
             multiline
             numberOfLines={4}
             textAlignVertical="top"
@@ -128,17 +137,35 @@ function ReplyModal({
               onPress={onClose}
               style={[mStyles.btn, { backgroundColor: theme.backgroundRoot }]}
             >
-              <ThemedText style={{ color: theme.textSecondary, fontFamily: "Cairo_700Bold" }}>إلغاء</ThemedText>
+              <ThemedText
+                style={{
+                  color: theme.textSecondary,
+                  fontFamily: "Cairo_700Bold",
+                }}
+              >
+                إلغاء
+              </ThemedText>
             </Pressable>
             <Pressable
               onPress={handleSave}
               disabled={saving || !text.trim()}
-              style={[mStyles.btn, { backgroundColor: PURPLE, opacity: saving || !text.trim() ? 0.6 : 1 }]}
+              style={[
+                mStyles.btn,
+                {
+                  backgroundColor: PURPLE,
+                  opacity: saving || !text.trim() ? 0.6 : 1,
+                },
+              ]}
             >
               {saving ? (
                 <ActivityIndicator size="small" color={AppColors.white} />
               ) : (
-                <ThemedText style={{ color: AppColors.white, fontFamily: "Cairo_700Bold" }}>
+                <ThemedText
+                  style={{
+                    color: AppColors.white,
+                    fontFamily: "Cairo_700Bold",
+                  }}
+                >
                   {existingReply ? "تعديل الرد" : "إرسال الرد"}
                 </ThemedText>
               )}
@@ -151,11 +178,31 @@ function ReplyModal({
 }
 
 const mStyles = StyleSheet.create({
-  overlay: { flex: 1, backgroundColor: AppColors.overlay, justifyContent: "flex-end" },
-  sheet: { borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 20, gap: 16 },
-  header: { flexDirection: "row-reverse", justifyContent: "space-between", alignItems: "center" },
+  overlay: {
+    flex: 1,
+    backgroundColor: AppColors.overlay,
+    justifyContent: "flex-end",
+  },
+  sheet: {
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    padding: 20,
+    gap: 16,
+  },
+  header: {
+    flexDirection: "row-reverse",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
   title: { fontFamily: "Cairo_700Bold", fontSize: 16 },
-  input: { borderWidth: 1, borderRadius: 12, padding: 12, minHeight: 100, fontFamily: "Cairo_400Regular", fontSize: 16 },
+  input: {
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 12,
+    minHeight: 100,
+    fontFamily: "Cairo_400Regular",
+    fontSize: 16,
+  },
   actions: { flexDirection: "row-reverse", gap: 10 },
   btn: { flex: 1, padding: 12, borderRadius: 12, alignItems: "center" },
 });
@@ -168,7 +215,11 @@ export default function VendorRatingsScreen() {
   const queryClient = useQueryClient();
 
   const [filter, setFilter] = useState<FilterType>("all");
-  const [replyModal, setReplyModal] = useState<{ visible: boolean; ratingId: string; existing: string }>({
+  const [replyModal, setReplyModal] = useState<{
+    visible: boolean;
+    ratingId: string;
+    existing: string;
+  }>({
     visible: false,
     ratingId: "",
     existing: "",
@@ -193,17 +244,26 @@ export default function VendorRatingsScreen() {
     },
   });
 
-  const summary = data ?? { average: 0, total: 0, breakdown: [], items: [], hasMore: false };
+  const summary = data ?? {
+    average: 0,
+    total: 0,
+    breakdown: [],
+    items: [],
+    hasMore: false,
+  };
 
   const handleReply = async (ratingId: string, text: string) => {
-    const res = await fetch(new URL(`/api/ratings/${ratingId}/vendor-reply`, getApiUrl()).toString(), {
-      method: "PATCH",
-      headers: {
-        "Content-Type": "application/json",
-        ...(vendorToken ? { Authorization: `Bearer ${vendorToken}` } : {}),
+    const res = await fetch(
+      new URL(`/api/ratings/${ratingId}/vendor-reply`, getApiUrl()).toString(),
+      {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          ...(vendorToken ? { Authorization: `Bearer ${vendorToken}` } : {}),
+        },
+        body: JSON.stringify({ reply: text }),
       },
-      body: JSON.stringify({ reply: text }),
-    });
+    );
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
       throw new Error(err.error || "فشل");
@@ -223,39 +283,71 @@ export default function VendorRatingsScreen() {
     });
 
     return (
-      <View style={[itemStyles.card, { backgroundColor: theme.backgroundDefault }, Shadows.sm]}>
+      <View
+        style={[
+          itemStyles.card,
+          { backgroundColor: theme.backgroundDefault },
+          Shadows.sm,
+        ]}
+      >
         <View style={itemStyles.header}>
           <View style={[itemStyles.avatar, { backgroundColor: PURPLE + "20" }]}>
             <Feather name="user" size={15} color={PURPLE} />
           </View>
           <View style={{ flex: 1 }}>
             <ThemedText style={itemStyles.phone}>
-              {item.customerPhone ? `*****${item.customerPhone.slice(-4)}` : "زبون"}
+              {item.customerPhone
+                ? `*****${item.customerPhone.slice(-4)}`
+                : "زبون"}
             </ThemedText>
-            <ThemedText style={[itemStyles.date, { color: theme.textSecondary }]}>{dateStr}</ThemedText>
+            <ThemedText
+              style={[itemStyles.date, { color: theme.textSecondary }]}
+            >
+              {dateStr}
+            </ThemedText>
           </View>
           <StarRow value={item.stars} size={13} />
         </View>
 
         {item.comment ? (
-          <ThemedText style={[itemStyles.comment, { color: theme.text }]}>{item.comment}</ThemedText>
+          <ThemedText style={[itemStyles.comment, { color: theme.text }]}>
+            {item.comment}
+          </ThemedText>
         ) : (
-          <ThemedText style={[itemStyles.comment, { color: theme.textSecondary, fontStyle: "italic" }]}>
+          <ThemedText
+            style={[
+              itemStyles.comment,
+              { color: theme.textSecondary, fontStyle: "italic" },
+            ]}
+          >
             بدون تعليق
           </ThemedText>
         )}
 
         {item.image ? (
-          <Image source={{ uri: item.image }} style={itemStyles.img} contentFit="cover" />
+          <Image
+            source={{ uri: item.image }}
+            style={itemStyles.img}
+            contentFit="cover"
+          />
         ) : null}
 
         {item.vendorReply ? (
-          <View style={[itemStyles.replyBox, { backgroundColor: PURPLE + "10", borderColor: PURPLE + "30" }]}>
+          <View
+            style={[
+              itemStyles.replyBox,
+              { backgroundColor: PURPLE + "10", borderColor: PURPLE + "30" },
+            ]}
+          >
             <View style={itemStyles.replyHeader}>
               <Feather name="message-circle" size={13} color={PURPLE} />
-              <ThemedText style={[itemStyles.replyLabel, { color: PURPLE }]}>ردك</ThemedText>
+              <ThemedText style={[itemStyles.replyLabel, { color: PURPLE }]}>
+                ردك
+              </ThemedText>
             </View>
-            <ThemedText style={[itemStyles.replyText, { color: theme.text }]}>{item.vendorReply}</ThemedText>
+            <ThemedText style={[itemStyles.replyText, { color: theme.text }]}>
+              {item.vendorReply}
+            </ThemedText>
           </View>
         ) : null}
 
@@ -263,11 +355,23 @@ export default function VendorRatingsScreen() {
           onPress={() => openReplyModal(item.id, item.vendorReply ?? "")}
           style={[
             itemStyles.replyBtn,
-            { borderColor: PURPLE, backgroundColor: item.vendorReply ? PURPLE + "10" : PURPLE },
+            {
+              borderColor: PURPLE,
+              backgroundColor: item.vendorReply ? PURPLE + "10" : PURPLE,
+            },
           ]}
         >
-          <Feather name="message-circle" size={13} color={item.vendorReply ? PURPLE : AppColors.white} />
-          <ThemedText style={[itemStyles.replyBtnText, { color: item.vendorReply ? PURPLE : AppColors.white }]}>
+          <Feather
+            name="message-circle"
+            size={13}
+            color={item.vendorReply ? PURPLE : AppColors.white}
+          />
+          <ThemedText
+            style={[
+              itemStyles.replyBtnText,
+              { color: item.vendorReply ? PURPLE : AppColors.white },
+            ]}
+          >
             {item.vendorReply ? "تعديل الرد" : "الرد على التقييم"}
           </ThemedText>
         </Pressable>
@@ -278,26 +382,56 @@ export default function VendorRatingsScreen() {
   const ListHeader = () => (
     <View>
       {/* Stats */}
-      <View style={[statsStyles.card, { backgroundColor: theme.backgroundDefault }, Shadows.sm]}>
+      <View
+        style={[
+          statsStyles.card,
+          { backgroundColor: theme.backgroundDefault },
+          Shadows.sm,
+        ]}
+      >
         <View style={statsStyles.row}>
           <View style={statsStyles.stat}>
             <ThemedText style={[statsStyles.num, { color: AppColors.warning }]}>
               {summary.average > 0 ? summary.average.toFixed(1) : "—"}
             </ThemedText>
             <StarRow value={summary.average} size={16} />
-            <ThemedText style={[statsStyles.label, { color: theme.textSecondary }]}>متوسط التقييم</ThemedText>
+            <ThemedText
+              style={[statsStyles.label, { color: theme.textSecondary }]}
+            >
+              متوسط التقييم
+            </ThemedText>
           </View>
-          <View style={[statsStyles.divider, { backgroundColor: theme.border ?? AppColors.divider }]} />
+          <View
+            style={[
+              statsStyles.divider,
+              { backgroundColor: theme.border ?? AppColors.divider },
+            ]}
+          />
           <View style={statsStyles.stat}>
-            <ThemedText style={[statsStyles.num, { color: PURPLE }]}>{summary.total}</ThemedText>
-            <ThemedText style={[statsStyles.label, { color: theme.textSecondary }]}>إجمالي التقييمات</ThemedText>
+            <ThemedText style={[statsStyles.num, { color: PURPLE }]}>
+              {summary.total}
+            </ThemedText>
+            <ThemedText
+              style={[statsStyles.label, { color: theme.textSecondary }]}
+            >
+              إجمالي التقييمات
+            </ThemedText>
           </View>
-          <View style={[statsStyles.divider, { backgroundColor: theme.border ?? AppColors.divider }]} />
+          <View
+            style={[
+              statsStyles.divider,
+              { backgroundColor: theme.border ?? AppColors.divider },
+            ]}
+          />
           <View style={statsStyles.stat}>
             <ThemedText style={[statsStyles.num, { color: AppColors.success }]}>
               {summary.items.filter((i) => i.vendorReply).length}
             </ThemedText>
-            <ThemedText style={[statsStyles.label, { color: theme.textSecondary }]}>تم الرد</ThemedText>
+            <ThemedText
+              style={[statsStyles.label, { color: theme.textSecondary }]}
+            >
+              تم الرد
+            </ThemedText>
           </View>
         </View>
       </View>
@@ -312,10 +446,22 @@ export default function VendorRatingsScreen() {
               fStyles.tab,
               filter === tab.key
                 ? { backgroundColor: PURPLE }
-                : { backgroundColor: theme.backgroundDefault, borderColor: theme.border ?? AppColors.divider, borderWidth: 1 },
+                : {
+                    backgroundColor: theme.backgroundDefault,
+                    borderColor: theme.border ?? AppColors.divider,
+                    borderWidth: 1,
+                  },
             ]}
           >
-            <ThemedText style={[fStyles.label, { color: filter === tab.key ? AppColors.white : theme.textSecondary }]}>
+            <ThemedText
+              style={[
+                fStyles.label,
+                {
+                  color:
+                    filter === tab.key ? AppColors.white : theme.textSecondary,
+                },
+              ]}
+            >
               {tab.label}
             </ThemedText>
           </Pressable>
@@ -323,7 +469,11 @@ export default function VendorRatingsScreen() {
       </View>
 
       {summary.items.length > 0 ? (
-        <ThemedText style={[fStyles.sectionTitle, { color: theme.textSecondary }]}>التقييمات</ThemedText>
+        <ThemedText
+          style={[fStyles.sectionTitle, { color: theme.textSecondary }]}
+        >
+          التقييمات
+        </ThemedText>
       ) : null}
     </View>
   );
@@ -342,7 +492,11 @@ export default function VendorRatingsScreen() {
         scrollIndicatorInsets={{ bottom: tabBarHeight }}
         showsVerticalScrollIndicator={false}
         refreshControl={
-          <RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={PURPLE} />
+          <RefreshControl
+            refreshing={isRefetching}
+            onRefresh={refetch}
+            tintColor={PURPLE}
+          />
         }
         ListHeaderComponent={<ListHeader />}
         ListEmptyComponent={
@@ -352,8 +506,16 @@ export default function VendorRatingsScreen() {
             </View>
           ) : (
             <View style={{ alignItems: "center", paddingVertical: 40, gap: 8 }}>
-              <Feather name="star" size={48} color={theme.textSecondary} style={{ opacity: 0.3 }} />
-              <ThemedText type="body" style={{ color: theme.textSecondary, textAlign: "center" }}>
+              <Feather
+                name="star"
+                size={48}
+                color={theme.textSecondary}
+                style={{ opacity: 0.3 }}
+              />
+              <ThemedText
+                type="body"
+                style={{ color: theme.textSecondary, textAlign: "center" }}
+              >
                 لا توجد تقييمات بعد
               </ThemedText>
             </View>
@@ -374,17 +536,51 @@ export default function VendorRatingsScreen() {
 
 const itemStyles = StyleSheet.create({
   card: { borderRadius: BorderRadius.lg, padding: 14, marginBottom: 10 },
-  header: { flexDirection: "row-reverse", alignItems: "center", gap: 10, marginBottom: 8 },
-  avatar: { width: 34, height: 34, borderRadius: 17, justifyContent: "center", alignItems: "center" },
+  header: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    gap: 10,
+    marginBottom: 8,
+  },
+  avatar: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    justifyContent: "center",
+    alignItems: "center",
+  },
   phone: { fontFamily: "Cairo_700Bold", fontSize: 13 },
   date: { fontFamily: "Cairo_400Regular", fontSize: 11 },
-  comment: { fontFamily: "Cairo_400Regular", fontSize: 14, lineHeight: 22, marginBottom: 8, textAlign: "right" },
+  comment: {
+    fontFamily: "Cairo_400Regular",
+    fontSize: 14,
+    lineHeight: 22,
+    marginBottom: 8,
+    textAlign: "right",
+  },
   img: { width: "100%", height: 140, borderRadius: 10, marginBottom: 8 },
   replyBox: { borderWidth: 1, borderRadius: 10, padding: 10, marginBottom: 8 },
-  replyHeader: { flexDirection: "row-reverse", alignItems: "center", gap: 6, marginBottom: 4 },
+  replyHeader: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    gap: 6,
+    marginBottom: 4,
+  },
   replyLabel: { fontFamily: "Cairo_700Bold", fontSize: 12 },
-  replyText: { fontFamily: "Cairo_400Regular", fontSize: 13, textAlign: "right" },
-  replyBtn: { flexDirection: "row-reverse", alignItems: "center", justifyContent: "center", gap: 6, borderWidth: 1, borderRadius: 10, padding: 8 },
+  replyText: {
+    fontFamily: "Cairo_400Regular",
+    fontSize: 13,
+    textAlign: "right",
+  },
+  replyBtn: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    borderWidth: 1,
+    borderRadius: 10,
+    padding: 8,
+  },
   replyBtnText: { fontFamily: "Cairo_700Bold", fontSize: 12 },
 });
 
@@ -392,14 +588,29 @@ const statsStyles = StyleSheet.create({
   card: { borderRadius: BorderRadius.lg, padding: 16, marginBottom: 12 },
   row: { flexDirection: "row-reverse", alignItems: "center" },
   stat: { flex: 1, alignItems: "center", gap: 4 },
-  num: { fontFamily: "Cairo_700Bold", fontSize: 26, lineHeight: 36, includeFontPadding: true },
+  num: {
+    fontFamily: "Cairo_700Bold",
+    fontSize: 26,
+    lineHeight: 36,
+    includeFontPadding: true,
+  },
   label: { fontFamily: "Cairo_400Regular", fontSize: 11, textAlign: "center" },
   divider: { width: 1, height: 50, marginHorizontal: 8 },
 });
 
 const fStyles = StyleSheet.create({
-  row: { flexDirection: "row-reverse", gap: 8, marginBottom: 14, flexWrap: "wrap" },
+  row: {
+    flexDirection: "row-reverse",
+    gap: 8,
+    marginBottom: 14,
+    flexWrap: "wrap",
+  },
   tab: { paddingHorizontal: 14, paddingVertical: 7, borderRadius: 20 },
   label: { fontFamily: "Cairo_700Bold", fontSize: 12 },
-  sectionTitle: { fontFamily: "Cairo_700Bold", fontSize: 13, marginBottom: 8, textAlign: "right" },
+  sectionTitle: {
+    fontFamily: "Cairo_700Bold",
+    fontSize: 13,
+    marginBottom: 8,
+    textAlign: "right",
+  },
 });

@@ -5,12 +5,12 @@
  * Run: node scripts/build-admin-dist.js
  */
 
-const fs   = require("fs");
+const fs = require("fs");
 const path = require("path");
 
-const ROOT       = path.resolve(__dirname, "..");
-const TEMPLATES  = path.join(ROOT, "server", "templates");
-const OUT_DIR    = path.join(ROOT, "admin-dist");
+const ROOT = path.resolve(__dirname, "..");
+const TEMPLATES = path.join(ROOT, "server", "templates");
+const OUT_DIR = path.join(ROOT, "admin-dist");
 
 if (!fs.existsSync(OUT_DIR)) fs.mkdirSync(OUT_DIR, { recursive: true });
 
@@ -146,7 +146,7 @@ let adminHtml = fs.readFileSync(path.join(TEMPLATES, "admin.html"), "utf-8");
 // 4a. Inject config.js into <head>
 adminHtml = adminHtml.replace(
   /<\/head>/i,
-  `  <script src="config.js"></script>\n</head>`
+  `  <script src="config.js"></script>\n</head>`,
 );
 
 // 4b. Inject fetch interceptor right after  const API_BASE = '/api';
@@ -154,13 +154,13 @@ adminHtml = adminHtml.replace(
 adminHtml = adminHtml.replace(
   `const API_BASE = '/api';`,
   `const API_BASE = (window.ONWAY_CONFIG?.BACKEND_URL || '') + '/api';
-${FETCH_INTERCEPTOR}`
+${FETCH_INTERCEPTOR}`,
 );
 
 // 4c. Fix /admin/logout path so it works cross-domain (navigate to backend URL)
 adminHtml = adminHtml.replace(
   `window.location.href = '/api/vendor/logout';`,
-  `window.location.href = (window.ONWAY_CONFIG?.BACKEND_URL || '') + '/api/vendor/logout';`
+  `window.location.href = (window.ONWAY_CONFIG?.BACKEND_URL || '') + '/api/vendor/logout';`,
 );
 
 fs.writeFileSync(path.join(OUT_DIR, "index.html"), adminHtml, "utf-8");

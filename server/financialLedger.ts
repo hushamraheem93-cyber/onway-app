@@ -25,12 +25,12 @@ export type LedgerAccountType = "vendor" | "driver" | "platform";
 
 /** Movement taxonomy from the financial spec. */
 export type LedgerEntryType =
-  | "order_sale"          // vendor: revenue for goods on a delivered order
-  | "delivery_fee"        // driver: the trip reward they keep
+  | "order_sale" // vendor: revenue for goods on a delivered order
+  | "delivery_fee" // driver: the trip reward they keep
   | "platform_commission" // platform revenue / vendor's deducted commission
-  | "cash_collected"      // driver: cash taken from the customer (they now owe it)
-  | "settlement"          // a settlement payment moved money between the account and the platform
-  | "adjustment"          // manual correction (admin), always a NEW entry
+  | "cash_collected" // driver: cash taken from the customer (they now owe it)
+  | "settlement" // a settlement payment moved money between the account and the platform
+  | "adjustment" // manual correction (admin), always a NEW entry
   | "refund"
   | "bonus"
   | "penalty"
@@ -42,18 +42,28 @@ const LEDGER = "financialLedger";
 const LEDGER_HEADS = "financialLedgerHeads";
 const AUDIT = "auditLog";
 
-export function ledgerHeadId(accountType: LedgerAccountType, accountId: string): string {
+export function ledgerHeadId(
+  accountType: LedgerAccountType,
+  accountId: string,
+): string {
   return `${accountType}:${accountId}`;
 }
 
 /** Single-field key stored on each entry so the statement needs only a single-field
  *  index (no composite index required) — same discipline as the settlement engine. */
-export function ledgerAccountKey(accountType: LedgerAccountType, accountId: string): string {
+export function ledgerAccountKey(
+  accountType: LedgerAccountType,
+  accountId: string,
+): string {
   return `${accountType}:${accountId}`;
 }
 
 /** Deterministic entry id for order-driven movements → idempotency. */
-export function orderEntryId(orderId: string, accountType: LedgerAccountType, type: LedgerEntryType): string {
+export function orderEntryId(
+  orderId: string,
+  accountType: LedgerAccountType,
+  type: LedgerEntryType,
+): string {
   return `${orderId}__${accountType}__${type}`;
 }
 
@@ -84,13 +94,18 @@ export type LedgerOutcome = "recorded" | "duplicate" | "failed";
  * its meaning — "platform owes vendor" vs "driver owes platform" — is per
  * accountType, but the arithmetic is uniform and always reconciles).
  */
-export async function recordLedgerEntry(input: LedgerInput, dbOverride?: any): Promise<LedgerOutcome> {
+export async function recordLedgerEntry(
+  input: LedgerInput,
+  dbOverride?: any,
+): Promise<LedgerOutcome> {
   const db = dbOverride ?? getFirestore();
   if (!db) return "failed";
 
   const debit = Math.max(0, Math.round(input.debit || 0));
   const credit = Math.max(0, Math.round(input.credit || 0));
-  const headRef = db.collection(LEDGER_HEADS).doc(ledgerHeadId(input.accountType, input.accountId));
+  const headRef = db
+    .collection(LEDGER_HEADS)
+    .doc(ledgerHeadId(input.accountType, input.accountId));
   const entryRef = input.entryId
     ? db.collection(LEDGER).doc(input.entryId)
     : db.collection(LEDGER).doc();
@@ -103,7 +118,9 @@ export async function recordLedgerEntry(input: LedgerInput, dbOverride?: any): P
         if (existing.exists) return "duplicate" as const; // already recorded → safe no-op
       }
       const headSnap = await tx.get(headRef);
-      const prevBalance = headSnap.exists ? Number((headSnap.data() as any).balance) || 0 : 0;
+      const prevBalance = headSnap.exists
+        ? Number((headSnap.data() as any).balance) || 0
+        : 0;
       const balanceAfter = prevBalance + credit - debit;
       const now = admin.firestore.Timestamp.now();
 
@@ -133,7 +150,10 @@ export async function recordLedgerEntry(input: LedgerInput, dbOverride?: any): P
           accountId: input.accountId,
           accountName: input.accountName || input.accountId,
           balance: balanceAfter,
-          entryCount: (headSnap.exists ? Number((headSnap.data() as any).entryCount) || 0 : 0) + 1,
+          entryCount:
+            (headSnap.exists
+              ? Number((headSnap.data() as any).entryCount) || 0
+              : 0) + 1,
           updatedAt: now,
           ...(headSnap.exists ? {} : { createdAt: now }),
         },
@@ -157,18 +177,28 @@ export async function recordLedgerEntry(input: LedgerInput, dbOverride?: any): P
  * missing ones). So this just loops recordLedgerEntry and reports per-entry
  * outcomes; callers treat "failed" as "retry later".
  */
-export async function recordLedgerEntries(inputs: LedgerInput[], dbOverride?: any): Promise<LedgerOutcome[]> {
+export async function recordLedgerEntries(
+  inputs: LedgerInput[],
+  dbOverride?: any,
+): Promise<LedgerOutcome[]> {
   const out: LedgerOutcome[] = [];
-  for (const input of inputs) out.push(await recordLedgerEntry(input, dbOverride));
+  for (const input of inputs)
+    out.push(await recordLedgerEntry(input, dbOverride));
   return out;
 }
 
 /** Current running balance for an account (0 if none yet). */
-export async function getLedgerBalance(accountType: LedgerAccountType, accountId: string): Promise<number> {
+export async function getLedgerBalance(
+  accountType: LedgerAccountType,
+  accountId: string,
+): Promise<number> {
   const db = getFirestore();
   if (!db) return 0;
   try {
-    const snap = await db.collection(LEDGER_HEADS).doc(ledgerHeadId(accountType, accountId)).get();
+    const snap = await db
+      .collection(LEDGER_HEADS)
+      .doc(ledgerHeadId(accountType, accountId))
+      .get();
     return snap.exists ? Number((snap.data() as any).balance) || 0 : 0;
   } catch {
     return 0;
@@ -195,7 +225,10 @@ export async function getAccountStatement(
       .get();
     const entries = snap.docs
       .map((d: any) => ({ id: d.id, ...(d.data() as any) }))
-      .sort((a: any, b: any) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0));
+      .sort(
+        (a: any, b: any) =>
+          (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0),
+      );
     const balance = await getLedgerBalance(accountType, accountId);
     return { balance, entries };
   } catch (err) {
@@ -207,13 +240,13 @@ export async function getAccountStatement(
 // ── Immutable Audit Log ─────────────────────────────────────────────────────
 
 export interface AuditInput {
-  action: string;                 // e.g. "settlement.complete", "ledger.adjust"
+  action: string; // e.g. "settlement.complete", "ledger.adjust"
   actorType?: "admin" | "system";
   actorName?: string;
-  targetType?: string;            // "vendor" | "driver" | "settlementRequest" | …
+  targetType?: string; // "vendor" | "driver" | "settlementRequest" | …
   targetId?: string;
   amount?: number;
-  referenceId?: string;           // settlement ref / payment id
+  referenceId?: string; // settlement ref / payment id
   notes?: string;
   metadata?: Record<string, any>;
 }
@@ -222,7 +255,10 @@ export interface AuditInput {
  * Append an immutable audit entry. Best-effort and never throws: an audit write
  * must not break the operation it is recording. Never updated or deleted.
  */
-export async function recordAudit(input: AuditInput, dbOverride?: any): Promise<void> {
+export async function recordAudit(
+  input: AuditInput,
+  dbOverride?: any,
+): Promise<void> {
   const db = dbOverride ?? getFirestore();
   if (!db) return;
   try {
@@ -239,7 +275,9 @@ export async function recordAudit(input: AuditInput, dbOverride?: any): Promise<
       createdAt: admin.firestore.Timestamp.now(),
     });
   } catch (err: any) {
-    console.error(`[AUDIT] could not record action=${input.action}: ${err?.message}`);
+    console.error(
+      `[AUDIT] could not record action=${input.action}: ${err?.message}`,
+    );
   }
 }
 
@@ -257,7 +295,10 @@ export async function listAuditLog(
     const snap = await q.limit(max).get();
     return snap.docs
       .map((d: any) => ({ id: d.id, ...(d.data() as any) }))
-      .sort((a: any, b: any) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0));
+      .sort(
+        (a: any, b: any) =>
+          (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0),
+      );
   } catch (err) {
     console.error("listAuditLog error:", err);
     return [];

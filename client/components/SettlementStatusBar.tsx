@@ -1,8 +1,20 @@
 import React from "react";
-import { View, StyleSheet, Pressable, ActivityIndicator, StyleProp, ViewStyle } from "react-native";
+import {
+  View,
+  StyleSheet,
+  Pressable,
+  ActivityIndicator,
+  StyleProp,
+  ViewStyle,
+} from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { ThemedText } from "@/components/ThemedText";
-import { AppColors, Spacing, BorderRadius, FontWeight } from "@/constants/theme";
+import {
+  AppColors,
+  Spacing,
+  BorderRadius,
+  FontWeight,
+} from "@/constants/theme";
 import { formatPrice } from "@/constants/currency";
 import type { SettlementView } from "@/hooks/useSettlement";
 
@@ -31,29 +43,61 @@ export function SettlementStatusBar({
   const amountLabel = isVendor ? "المبلغ المستحق لك" : "المستحق للتسوية";
 
   const palettes = {
-    outstanding: { bg: "#FFF3E6", border: AppColors.warning, fg: "#9A5B00", dot: "🟠", label: "بانتظار التسوية" },
-    under_review: { bg: "#FFF9E0", border: "#E0A800", fg: "#8A6D00", dot: "🟡", label: "طلب التسوية قيد المراجعة" },
-    settled: { bg: "#E8F7EE", border: AppColors.success, fg: "#1B7A3D", dot: "🟢", label: "الحساب مسوّى" },
+    outstanding: {
+      bg: "#FFF3E6",
+      border: AppColors.warning,
+      fg: "#9A5B00",
+      dot: "🟠",
+      label: "بانتظار التسوية",
+    },
+    under_review: {
+      bg: "#FFF9E0",
+      border: "#E0A800",
+      fg: "#8A6D00",
+      dot: "🟡",
+      label: "طلب التسوية قيد المراجعة",
+    },
+    settled: {
+      bg: "#E8F7EE",
+      border: AppColors.success,
+      fg: "#1B7A3D",
+      dot: "🟢",
+      label: "الحساب مسوّى",
+    },
   } as const;
   // Fall back to the neutral "settled" palette for any unexpected/missing status
   // so a malformed settlement response can never blank the whole screen.
   const palette = palettes[view.status] ?? palettes.settled;
 
   return (
-    <View style={[styles.card, { backgroundColor: palette.bg, borderColor: palette.border }, containerStyle]}>
+    <View
+      style={[
+        styles.card,
+        { backgroundColor: palette.bg, borderColor: palette.border },
+        containerStyle,
+      ]}
+    >
       <View style={styles.row}>
         <View style={styles.left}>
           {view.status === "settled" ? (
-            <ThemedText style={[styles.title, { color: palette.fg }]}>لا توجد مبالغ مستحقة</ThemedText>
+            <ThemedText style={[styles.title, { color: palette.fg }]}>
+              لا توجد مبالغ مستحقة
+            </ThemedText>
           ) : (
             <>
-              <ThemedText style={[styles.amountLabel, { color: palette.fg }]}>{amountLabel}</ThemedText>
-              <ThemedText style={[styles.amount, { color: palette.fg }]}>{formatPrice(view.outstanding)}</ThemedText>
+              <ThemedText style={[styles.amountLabel, { color: palette.fg }]}>
+                {amountLabel}
+              </ThemedText>
+              <ThemedText style={[styles.amount, { color: palette.fg }]}>
+                {formatPrice(view.outstanding)}
+              </ThemedText>
             </>
           )}
           <View style={styles.statusRow}>
             <ThemedText style={styles.dot}>{palette.dot}</ThemedText>
-            <ThemedText style={[styles.statusText, { color: palette.fg }]}>{palette.label}</ThemedText>
+            <ThemedText style={[styles.statusText, { color: palette.fg }]}>
+              {palette.label}
+            </ThemedText>
           </View>
         </View>
 
@@ -61,22 +105,40 @@ export function SettlementStatusBar({
           <Pressable
             onPress={onRequest}
             disabled={requesting}
-            style={[styles.btn, { backgroundColor: palette.border, opacity: requesting ? 0.6 : 1 }]}
+            style={[
+              styles.btn,
+              {
+                backgroundColor: palette.border,
+                opacity: requesting ? 0.6 : 1,
+              },
+            ]}
             testID="button-request-settlement"
           >
             {requesting ? (
               <ActivityIndicator size="small" color="#fff" />
             ) : (
               <>
-                <MaterialCommunityIcons name="cash-check" size={18} color="#fff" />
+                <MaterialCommunityIcons
+                  name="cash-check"
+                  size={18}
+                  color="#fff"
+                />
                 <ThemedText style={styles.btnText}>طلب تسوية</ThemedText>
               </>
             )}
           </Pressable>
         ) : view.status === "under_review" ? (
-          <MaterialCommunityIcons name="clock-outline" size={28} color={palette.border} />
+          <MaterialCommunityIcons
+            name="clock-outline"
+            size={28}
+            color={palette.border}
+          />
         ) : (
-          <MaterialCommunityIcons name="check-decagram" size={28} color={palette.border} />
+          <MaterialCommunityIcons
+            name="check-decagram"
+            size={28}
+            color={palette.border}
+          />
         )}
       </View>
 
@@ -98,12 +160,29 @@ const styles = StyleSheet.create({
     marginTop: Spacing.md ?? 12,
     gap: 6,
   },
-  row: { flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between" },
+  row: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
   left: { flex: 1, gap: 2, alignItems: "flex-end" },
-  title: { fontSize: 16, fontWeight: FontWeight.bold as any, textAlign: "right" },
+  title: {
+    fontSize: 16,
+    fontWeight: FontWeight.bold as any,
+    textAlign: "right",
+  },
   amountLabel: { fontSize: 12, textAlign: "right" },
-  amount: { fontSize: 22, fontWeight: FontWeight.bold as any, textAlign: "right" },
-  statusRow: { flexDirection: "row-reverse", alignItems: "center", gap: 6, marginTop: 2 },
+  amount: {
+    fontSize: 22,
+    fontWeight: FontWeight.bold as any,
+    textAlign: "right",
+  },
+  statusRow: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    gap: 6,
+    marginTop: 2,
+  },
   dot: { fontSize: 12 },
   statusText: { fontSize: 13, fontWeight: FontWeight.semiBold as any },
   btn: {

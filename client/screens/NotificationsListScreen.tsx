@@ -6,13 +6,28 @@ import { Feather } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 
 import { useTheme } from "@/hooks/useTheme";
-import { Spacing, BorderRadius, Shadows, AppColors, FontWeight} from "@/constants/theme";
+import {
+  Spacing,
+  BorderRadius,
+  Shadows,
+  AppColors,
+  FontWeight,
+} from "@/constants/theme";
 import { ThemedText } from "@/components/ThemedText";
-import { useNotifications, AppNotification } from "@/context/NotificationContext";
+import {
+  useNotifications,
+  AppNotification,
+} from "@/context/NotificationContext";
 import { GradientBackground } from "@/components/GradientBackground";
 import { formatRelativeDate } from "@/lib/dateUtils";
 
-function NotificationItem({ notification, onPress }: { notification: AppNotification; onPress: () => void }) {
+function NotificationItem({
+  notification,
+  onPress,
+}: {
+  notification: AppNotification;
+  onPress: () => void;
+}) {
   const { theme } = useTheme();
 
   return (
@@ -22,27 +37,46 @@ function NotificationItem({ notification, onPress }: { notification: AppNotifica
       accessibilityLabel={`${notification.read ? "" : "غير مقروء، "}${notification.title}. ${notification.body}`}
       style={[
         styles.notificationItem,
-        { backgroundColor: notification.read ? theme.backgroundDefault : AppColors.primary + "10" },
+        {
+          backgroundColor: notification.read
+            ? theme.backgroundDefault
+            : AppColors.primary + "10",
+        },
         Shadows.sm,
       ]}
     >
       <View style={styles.notificationContent}>
         <View style={styles.notificationHeader}>
-          <ThemedText type="body" style={[styles.notificationTitle, !notification.read && { fontWeight: FontWeight.bold }]}>
+          <ThemedText
+            type="body"
+            style={[
+              styles.notificationTitle,
+              !notification.read && { fontWeight: FontWeight.bold },
+            ]}
+          >
             {notification.title}
           </ThemedText>
-          {!notification.read ? (
-            <View style={styles.unreadDot} />
-          ) : null}
+          {!notification.read ? <View style={styles.unreadDot} /> : null}
         </View>
-        <ThemedText type="small" style={[styles.notificationBody, { color: theme.textSecondary }]}>
+        <ThemedText
+          type="small"
+          style={[styles.notificationBody, { color: theme.textSecondary }]}
+        >
           {notification.body}
         </ThemedText>
-        <ThemedText type="small" style={[styles.notificationTime, { color: theme.textSecondary }]}>
+        <ThemedText
+          type="small"
+          style={[styles.notificationTime, { color: theme.textSecondary }]}
+        >
           {formatRelativeDate(notification.createdAt)}
         </ThemedText>
       </View>
-      <View style={[styles.iconContainer, { backgroundColor: AppColors.primary + "15" }]}>
+      <View
+        style={[
+          styles.iconContainer,
+          { backgroundColor: AppColors.primary + "15" },
+        ]}
+      >
         <Feather name="bell" size={20} color={AppColors.primary} />
       </View>
     </Pressable>
@@ -54,7 +88,13 @@ export default function NotificationsListScreen() {
   const headerHeight = useHeaderHeight();
   const { theme } = useTheme();
   const navigation = useNavigation<any>();
-  const { notifications, unreadCount, markAsRead, markAllAsRead, clearNotifications } = useNotifications();
+  const {
+    notifications,
+    unreadCount,
+    markAsRead,
+    markAllAsRead,
+    clearNotifications,
+  } = useNotifications();
 
   useEffect(() => {
     if (unreadCount > 0) {
@@ -74,13 +114,18 @@ export default function NotificationsListScreen() {
 
   const renderEmptyState = () => (
     <View style={styles.emptyState}>
-      <View style={[styles.emptyIcon, { backgroundColor: theme.backgroundDefault }]}>
+      <View
+        style={[styles.emptyIcon, { backgroundColor: theme.backgroundDefault }]}
+      >
         <Feather name="bell-off" size={48} color={theme.textSecondary} />
       </View>
       <ThemedText type="h3" style={styles.emptyTitle}>
         لا توجد إشعارات
       </ThemedText>
-      <ThemedText type="body" style={[styles.emptySubtitle, { color: theme.textSecondary }]}>
+      <ThemedText
+        type="body"
+        style={[styles.emptySubtitle, { color: theme.textSecondary }]}
+      >
         ستظهر هنا الإشعارات عند تحديث حالة طلباتك
       </ThemedText>
     </View>
@@ -90,7 +135,12 @@ export default function NotificationsListScreen() {
     <View style={[styles.container]}>
       <GradientBackground />
       {notifications.length > 0 ? (
-        <View style={[styles.headerActions, { paddingTop: headerHeight + Spacing.sm }]}>
+        <View
+          style={[
+            styles.headerActions,
+            { paddingTop: headerHeight + Spacing.sm },
+          ]}
+        >
           <Pressable
             onPress={clearNotifications}
             style={styles.actionButton}
@@ -109,7 +159,11 @@ export default function NotificationsListScreen() {
               accessibilityRole="button"
               accessibilityLabel="تعليم الكل كمقروء"
             >
-              <Feather name="check-circle" size={16} color={AppColors.primary} />
+              <Feather
+                name="check-circle"
+                size={16}
+                color={AppColors.primary}
+              />
               <ThemedText type="small" style={{ color: AppColors.primary }}>
                 قراءة الكل
               </ThemedText>
@@ -121,10 +175,14 @@ export default function NotificationsListScreen() {
         data={notifications}
         keyExtractor={(item) => item.id}
         renderItem={({ item }) => (
-          <NotificationItem notification={item} onPress={() => handleNotificationPress(item)} />
+          <NotificationItem
+            notification={item}
+            onPress={() => handleNotificationPress(item)}
+          />
         )}
         contentContainerStyle={{
-          paddingTop: notifications.length > 0 ? Spacing.sm : headerHeight + Spacing.xl,
+          paddingTop:
+            notifications.length > 0 ? Spacing.sm : headerHeight + Spacing.xl,
           paddingBottom: insets.bottom + Spacing.xl,
           paddingHorizontal: Spacing.lg,
           flexGrow: 1,
