@@ -7458,35 +7458,69 @@
       if (_storeMap && _storeMarker) { _storeMap.removeLayer(_storeMarker); _storeMarker = null; }
       updateStoreCoordsLabel(null, null);
     }
-    // Search a place by name (OpenStreetMap/Nominatim, limited to Iraq) and drop the
-    // store marker on it, so the admin isn't forced to hunt across the whole country.
+    // Search a place by name (OpenStreetMap/Nominatim). Nominatim's coverage of small
+    // Iraqi districts is thin, so we try an Iraq-restricted query first, then fall back
+    // to an Iraq-BIASED (viewbox) query that still allows a match when the strict filter
+    // finds nothing — and we distinguish "no match" from a network failure so the user
+    // gets the right guidance.
     async function searchStoreLocation() {
       const q = (document.getElementById('medit-map-search').value || '').trim();
       if (!q) return;
-      try {
-        const url = `https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=iq&accept-language=ar&q=${encodeURIComponent(q)}`;
-        const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
-        const arr = await res.json();
-        if (!Array.isArray(arr) || !arr.length) {
-          showToast('warning', 'بحث', 'لم يُعثر على الموقع — جرّب اسماً أوضح أو حدّده يدوياً على الخريطة');
-          return;
+      // left,top,right,bottom = minLon,maxLat,maxLon,minLat — rough bounding box of Iraq.
+      const IQ_VIEWBOX = '38.79,37.38,48.57,29.06';
+      const BASE = 'https://nominatim.openstreetmap.org/search?format=json&limit=5&accept-language=ar';
+      let networkError = false;
+      const hit = async (url) => {
+        try {
+          const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
+          if (!res.ok) { networkError = true; return []; }
+          const arr = await res.json();
+          return Array.isArray(arr) ? arr : [];
+        } catch (e) { networkError = true; return []; }
+      };
+      showToast('info', 'بحث', 'جارٍ البحث عن الموقع...');
+      // 1) strict Iraq  2) Iraq-biased fallback
+      let arr = await hit(`${BASE}&countrycodes=iq&q=${encodeURIComponent(q)}`);
+      if (arr.length === 0) arr = await hit(`${BASE}&viewbox=${IQ_VIEWBOX}&q=${encodeURIComponent(q)}`);
+      if (arr.length === 0) {
+        if (networkError) {
+          showToast('error', 'خطأ', 'تعذّر الاتصال بخدمة البحث — تحقّق من الإنترنت وحاول مجدداً');
+        } else {
+          showToast('warning', 'لا نتائج', 'لم يُعثر على هذا الاسم على الخريطة (تغطية المناطق الصغيرة محدودة). جرّب اسم مدينة/منطقة أكبر، أو حدّد الموقع يدوياً بالضغط على الخريطة أو بسحب العلامة.');
         }
-        const lat = parseFloat(arr[0].lat), lng = parseFloat(arr[0].lon);
-        if (_storeMap) _storeMap.setView([lat, lng], 16);
-        setStoreMarker(lat, lng);
-      } catch (e) { showToast('error', 'خطأ', 'تعذّر البحث عن الموقع — تحقّق من الاتصال'); }
+        return;
+      }
+      const lat = parseFloat(arr[0].lat), lng = parseFloat(arr[0].lon);
+      if (_storeMap) _storeMap.setView([lat, lng], 15);
+      setStoreMarker(lat, lng);
+      showToast('success', 'تم', 'تم تحديد الموقع من نتيجة البحث — اسحب العلامة للضبط الدقيق');
     }
     // Center on the admin's own GPS (useful when adding the store while standing at it).
     function useMyLocationForStore() {
       if (!navigator.geolocation) { showToast('error', 'خطأ', 'المتصفح لا يدعم تحديد الموقع'); return; }
+      showToast('info', 'جارٍ تحديد الموقع', 'قد يستغرق بضع ثوانٍ...');
       navigator.geolocation.getCurrentPosition(
         pos => {
           const lat = pos.coords.latitude, lng = pos.coords.longitude;
-          if (_storeMap) _storeMap.setView([lat, lng], 16);
+          const acc = pos.coords.accuracy || 0; // نصف قطر الدقة بالمتر
+          // اختر تقريباً يعكس دقّة القراءة — لا تُقرّب الخريطة كثيراً على قراءة تقريبية.
+          const zoom = acc > 3000 ? 12 : acc > 800 ? 14 : 16;
+          if (_storeMap) _storeMap.setView([lat, lng], zoom);
           setStoreMarker(lat, lng);
+          if (acc > 800) {
+            // على الحاسوب لا يوجد GPS، فالمتصفح يقدّر الموقع عبر IP/شبكة الإنترنت وقد يبعد كيلومترات.
+            showToast('warning', 'الموقع تقريبي', 'دقّة المتصفح ~' + Math.round(acc) + ' متر (غالباً غير دقيق على الحاسوب). استخدم مربّع البحث بالاسم أو اسحب العلامة لضبط الموقع بدقّة.');
+          } else {
+            showToast('success', 'تم', 'تم تحديد موقعك على الخريطة');
+          }
         },
-        () => showToast('error', 'خطأ', 'تعذّر الوصول إلى موقعك — تأكد من السماح للمتصفح بالوصول للموقع'),
-        { enableHighAccuracy: true, timeout: 10000 }
+        err => {
+          const msg = err.code === 1 ? 'رفض المتصفح إذن الموقع — فعّله من إعدادات الموقع ثم أعد المحاولة'
+                    : err.code === 3 ? 'انتهت مهلة تحديد الموقع — تأكّد من الاتصال وحاول مجدداً'
+                    : 'تعذّر الوصول إلى موقعك';
+          showToast('error', 'خطأ', msg);
+        },
+        { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
       );
     }
 

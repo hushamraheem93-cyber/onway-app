@@ -5,6 +5,7 @@ import {
   Pressable,
   ActivityIndicator,
   TextInput,
+  Alert,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
@@ -233,16 +234,34 @@ export default function MapPickerScreen() {
   const getMyLocation = async () => {
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== "granted") return;
+      if (status !== "granted") {
+        Alert.alert(
+          "إذن الموقع مطلوب",
+          "لتحديد موقعك على الخريطة، فعّل إذن الموقع للتطبيق من إعدادات الهاتف — أو حدّد الموقع يدوياً بالضغط على الخريطة.",
+        );
+        return;
+      }
 
+      // Highest accuracy + a fresh fix. Without maximumAge, some devices return a
+      // stale cached position (from a previous, distant location), which showed the
+      // pin far from where the user actually is.
       const loc = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.High,
+        accuracy: Location.Accuracy.Highest,
+        mayShowUserSettingsDialog: true,
       });
 
       const coords = {
         latitude: loc.coords.latitude,
         longitude: loc.coords.longitude,
       };
+      // A very large accuracy radius means the OS only had a coarse network fix
+      // (GPS off / indoors). Tell the user instead of silently pinning far away.
+      if (typeof loc.coords.accuracy === "number" && loc.coords.accuracy > 1000) {
+        Alert.alert(
+          "الموقع تقريبي",
+          `دقّة الموقع الحالية ~${Math.round(loc.coords.accuracy)} متر. لنتيجة أدقّ فعّل GPS واخرج للعراء، أو اسحب العلامة على الخريطة لضبط الموقع بدقّة.`,
+        );
+      }
       setSelectedCoord(coords);
       fetchAddress(coords.latitude, coords.longitude);
 
