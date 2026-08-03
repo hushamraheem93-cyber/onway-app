@@ -5918,11 +5918,23 @@
       if (e.key === 'Escape' && _mapIsFullscreen) toggleMapFullscreen();
     });
 
+    // ── Base map layers: "الخريطة" (streets/explore) + "قمر صناعي" (Esri World
+    // Imagery — free, no API key) — with a switcher in the top-right of each map. ──
+    function _addBaseLayers(map) {
+      const layers = {
+        'الخريطة': L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }),
+        '🛰️ قمر صناعي': L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19 }),
+      };
+      layers['الخريطة'].addTo(map); // default view = streets
+      L.control.layers(layers, {}, { position: 'topright', collapsed: true }).addTo(map);
+      return layers;
+    }
+
     function initDashboardMap() {
       const mapEl = document.getElementById('gps-map');
       if (!mapEl || _gpsMap) return;
       _gpsMap = L.map('gps-map', { zoomControl: true, attributionControl: false }).setView([33.8833, 44.2167], 13);
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(_gpsMap);
+      _addBaseLayers(_gpsMap);
       lucide.createIcons();
       refreshDriverLocations();
     }
@@ -6031,7 +6043,7 @@
       setTimeout(() => {
         if (!_trackingMap) {
           _trackingMap = L.map('tracking-map', { zoomControl: true, attributionControl: false }).setView([33.8833, 44.2167], 13);
-          L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(_trackingMap);
+          _addBaseLayers(_trackingMap);
         } else {
           _trackingMap.invalidateSize();
         }
@@ -7426,7 +7438,7 @@
       setTimeout(() => {
         if (!_storeMap) {
           _storeMap = L.map('medit-map', { zoomControl: true, attributionControl: false }).setView(center, has ? 15 : 12);
-          L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(_storeMap);
+          _addBaseLayers(_storeMap);
           _storeMap.on('click', e => setStoreMarker(e.latlng.lat, e.latlng.lng));
         } else {
           _storeMap.setView(center, has ? 15 : 12);
@@ -8097,7 +8109,7 @@
       if (!_deliveryPickerMap) {
         _deliveryPickerMap = L.map('delivery-location-map', { zoomControl: true, attributionControl: false })
           .setView([startLat, startLng], 13);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(_deliveryPickerMap);
+        _addBaseLayers(_deliveryPickerMap);
 
         _deliveryPickerMarker = L.marker([startLat, startLng], { draggable: true })
           .addTo(_deliveryPickerMap)

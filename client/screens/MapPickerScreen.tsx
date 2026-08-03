@@ -89,9 +89,18 @@ function getLeafletHTML(lat: number, lng: number) {
     var googleStreets = L.tileLayer('https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}&hl=ar', {
       maxZoom: 20
     });
+    // Satellite view (lyrs=y = imagery + labels) so the user can pick the exact building.
+    var googleSat = L.tileLayer('https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}&hl=ar', {
+      maxZoom: 20
+    });
 
     googleStreets.addTo(map);
 
+    L.control.layers(
+      { 'الخريطة': googleStreets, '🛰️ قمر صناعي': googleSat },
+      {},
+      { position: 'topright', collapsed: true }
+    ).addTo(map);
     L.control.zoom({ position: 'topleft' }).addTo(map);
 
     var markerIcon = L.divIcon({
