@@ -38,7 +38,7 @@ interface DriverInfo {
 export default function DriverProfileScreen() {
   const insets = useSafeAreaInsets();
   const tabBarHeight = useBottomTabBarHeight();
-  const { theme, isDark } = useTheme();
+  const { theme } = useTheme();
   const { phoneNumber, logout } = useAuth();
   const navigation = useNavigation<NavProp>();
 

@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { StyleSheet, View, FlatList, Pressable, TextInput, Dimensions } from "react-native";
+import { StyleSheet, View, FlatList, Pressable, TextInput } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useNavigation } from "@react-navigation/native";
@@ -12,7 +11,7 @@ import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 
 import { useTheme } from "@/hooks/useTheme";
-import { Spacing, AppColors, BorderRadius, Shadows, FontWeight} from "@/constants/theme";
+import { Spacing, AppColors, BorderRadius, FontWeight} from "@/constants/theme";
 import { Product, Category } from "@/constants/categories";
 import { ThemedText } from "@/components/ThemedText";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
@@ -24,11 +23,9 @@ import { getApiUrl } from "@/lib/query-client";
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
-const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
 
 export default function SearchScreen() {
-  const insets = useSafeAreaInsets();
   const headerHeight = useHeaderHeight();
   const tabBarHeight = useBottomTabBarHeight();
   const { theme, isDark } = useTheme();

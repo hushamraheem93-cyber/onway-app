@@ -22,7 +22,7 @@ import { GradientBackground } from "@/components/GradientBackground";
 import { useTheme } from "@/hooks/useTheme";
 import { AppColors, Spacing } from "@/constants/theme";
 import { useAuth } from "@/context/AuthContext";
-import { getApiUrl, apiRequest } from "@/lib/query-client";
+import { getApiUrl } from "@/lib/query-client";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
 
 const BRAND_ORANGE = AppColors.primary;

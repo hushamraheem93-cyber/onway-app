@@ -324,7 +324,6 @@ function TimelineItem({ item, isLast }: { item: DriverTransaction; isLast: boole
   const isPayment    = item.type === "payment";
   const isAdjustment = item.type === "adjustment";
   const isEarning    = item.type === "earning";
-  const isCommission = item.type === "commission";
 
   const color = isPayment ? AppColors.success : isAdjustment ? AppColors.warning : isEarning ? AppColors.info : AppColors.error;
   const icon: keyof typeof Feather.glyphMap = isPayment ? "check-circle" : isAdjustment ? "edit-2" : isEarning ? "arrow-up-circle" : "arrow-down-circle";

@@ -11,7 +11,7 @@ interface UseScreenOptionsParams {
 export function useScreenOptions({
   transparent = true,
 }: UseScreenOptionsParams = {}): NativeStackNavigationOptions {
-  const { theme, isDark } = useTheme();
+  const { theme } = useTheme();
 
   return {
     headerTitleAlign: "center",

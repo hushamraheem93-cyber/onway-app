@@ -12,7 +12,7 @@ import Animated, {
 import { Image } from "expo-image";
 import { BorderRadius } from "@/constants/theme";
 
-const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
+const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
 interface AnimationItem {
   id: string;

@@ -112,11 +112,11 @@ export default function DriverHomeScreen() {
   const insets = useSafeAreaInsets();
   const tabBarHeight = useBottomTabBarHeight();
   const { theme, isDark } = useTheme();
-  const { phoneNumber, userProfile, logout } = useAuth();
+  const { phoneNumber, userProfile } = useAuth();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
 
   const [isOnline, setIsOnline] = useState(false);
-  const [isToggling, setIsToggling] = useState(false);
+  const [isToggling] = useState(false);
   const [currentBatch, setCurrentBatch] = useState<CurrentBatch | null>(null);
   const [queuePosition, setQueuePosition] = useState<number | null>(null);
   const [driverStatus, setDriverStatus] = useState<string>("pending");
@@ -133,7 +133,7 @@ export default function DriverHomeScreen() {
   const [isAccepting, setIsAccepting] = useState(false);
   const [issueOrderId, setIssueOrderId] = useState<string | null>(null);
 
-  const [walletError, setWalletError] = useState("");
+  const [, setWalletError] = useState("");
   const prevBatchIdRef = useRef<string | null>(null);
   const isInitialLoadRef = useRef(true);
   const isRejectingRef = useRef(false); // prevents double-rejection calls
@@ -650,7 +650,6 @@ export default function DriverHomeScreen() {
 
   if (loading) {
     const skeletonBg = isDark ? "#2a2a2a" : "#e8e8e8";
-    const skeletonShine = isDark ? "#333333" : "#f0f0f0";
     const SkBox = ({ w, h, r = 8, mt = 0, mb = 0 }: { w: string | number; h: number; r?: number; mt?: number; mb?: number }) => (
       <View style={{ width: w as any, height: h, borderRadius: r, backgroundColor: skeletonBg, marginTop: mt, marginBottom: mb }} />
     );

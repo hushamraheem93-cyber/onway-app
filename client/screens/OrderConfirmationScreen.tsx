@@ -13,7 +13,6 @@ import { Spacing, BorderRadius, AppColors, Shadows, FontWeight} from "@/constant
 import { formatPrice } from "@/constants/currency";
 import { Button } from "@/components/Button";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
-import { Order } from "@/context/OrderContext";
 import { GradientBackground } from "@/components/GradientBackground";
 import { getApiUrl } from "@/lib/query-client";
 import { useAuth } from "@/context/AuthContext";

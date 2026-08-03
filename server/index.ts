@@ -466,7 +466,6 @@ function configureExpoAndLanding(app: express.Application) {
 
   // Helper: render login page with injected values
   function renderLogin(errorPlaceholder: string, googleBtnPlaceholder: string): string {
-    const clientId = process.env.GOOGLE_CLIENT_ID || "";
     const template = fs.readFileSync(loginTemplatePath, "utf-8");
     return template
       .replace("ERROR_PLACEHOLDER", errorPlaceholder)

@@ -3,7 +3,6 @@ import { StyleSheet, View, Pressable } from "react-native";
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
-  withSpring,
 } from "react-native-reanimated";
 import { Image } from "expo-image";
 import { Feather } from "@expo/vector-icons";
@@ -11,7 +10,7 @@ import * as Haptics from "expo-haptics";
 
 import { ThemedText } from "@/components/ThemedText";
 import { useTheme } from "@/hooks/useTheme";
-import { Spacing, BorderRadius, Shadows, AppColors, FontWeight} from "@/constants/theme";
+import { AppColors, FontWeight} from "@/constants/theme";
 import { CartItem } from "@/context/CartContext";
 import { useCart } from "@/context/CartContext";
 import { formatPrice } from "@/constants/currency";

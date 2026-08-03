@@ -6,7 +6,6 @@ import {
   Pressable,
   ActivityIndicator,
   RefreshControl,
-  Dimensions,
   TextInput,
   ScrollView,
 } from "react-native";
@@ -31,7 +30,6 @@ import { RootStackParamList } from "@/navigation/RootStackNavigator";
 import { Product, MAIN_CATEGORIES } from "@/constants/categories";
 import { getApiUrl } from "@/lib/query-client";
 
-const SCREEN_W = Dimensions.get("window").width;
 const COVER_H = 160;
 const AVATAR_SIZE = 72;
 

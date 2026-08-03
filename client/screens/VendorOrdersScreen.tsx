@@ -14,7 +14,6 @@ import {
   Pressable,
   ScrollView,
   Modal,
-  Dimensions,
   Image,
   Animated,
 } from "react-native";
@@ -31,15 +30,11 @@ import { getApiUrl } from "@/lib/query-client";
 import { useTheme } from "@/hooks/useTheme";
 import {
   AppColors,
-  BorderRadius,
   FontFamily,
-  FontSize,
   Shadows,
-  Spacing,
 } from "@/constants/theme";
 
 const ORANGE = AppColors.primary;
-const SCREEN_W = Dimensions.get("window").width;
 
 // ─── Interfaces (unchanged) ────────────────────────────────────────────────────
 

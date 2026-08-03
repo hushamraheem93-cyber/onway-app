@@ -10,7 +10,7 @@ import { MaterialCommunityIcons, Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 
 import { useTheme } from "@/hooks/useTheme";
-import { Spacing, AppColors, BorderRadius, Shadows, FontWeight } from "@/constants/theme";
+import { Spacing, AppColors, BorderRadius, Shadows } from "@/constants/theme";
 import { Product } from "@/constants/categories";
 import { ProductCard } from "@/components/ProductCard";
 import { EmptyState } from "@/components/EmptyState";

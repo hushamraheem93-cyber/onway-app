@@ -9,12 +9,12 @@ import {
   RefreshControl,
   Modal,
 } from "react-native";
-import { useRoute, RouteProp, useNavigation } from "@react-navigation/native";
+import { useRoute, RouteProp } from "@react-navigation/native";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
 import { Image } from "expo-image";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 
 import { useTheme } from "@/hooks/useTheme";
 import { ThemedText } from "@/components/ThemedText";
@@ -167,8 +167,7 @@ const FILTER_TABS: { key: FilterType; label: string }[] = [
 
 export default function StoreRatingsScreen() {
   const route = useRoute<StoreRatingsRouteProp>();
-  const { storeId, storeName } = route.params;
-  const navigation = useNavigation();
+  const { storeId } = route.params;
   const headerHeight = useHeaderHeight();
   const insets = useSafeAreaInsets();
   const { theme } = useTheme();

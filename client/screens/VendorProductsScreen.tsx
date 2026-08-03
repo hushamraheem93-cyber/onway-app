@@ -20,7 +20,7 @@ import { ThemedText } from "@/components/ThemedText";
 import { useAuth } from "@/context/AuthContext";
 import { getApiUrl } from "@/lib/query-client";
 import { resolveImageUrl, getProductThumb } from "@/utils/imageUtils";
-import { AppColors, FontFamily, Shadows, BorderRadius } from "@/constants/theme";
+import { AppColors, FontFamily, Shadows } from "@/constants/theme";
 import { MAIN_CATEGORIES } from "@/constants/categories";
 
 const ORANGE = AppColors.primary;

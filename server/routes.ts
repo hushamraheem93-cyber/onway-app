@@ -2166,7 +2166,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.post("/api/admin/vendors", async (req: Request, res: Response) => {
-    const { name, location, whatsappNumber, commissionPercent, image, rating, deliveryTime, isOpen, categoryType, cuisine, hasDelivery, minOrder, deliveryFee, openTime, closeTime, description, supportedCategories, sortOrder, isPinned, isFeatured, isVerified, latitude, longitude } = req.body;
+    const { name, location, whatsappNumber, commissionPercent, image, rating, deliveryTime, isOpen, categoryType, cuisine, hasDelivery, minOrder, deliveryFee, openTime, closeTime, description, latitude, longitude } = req.body;
     if (!name) return res.status(400).json({ error: "اسم المطعم مطلوب" });
     const parseCoord = (v: any, min: number, max: number): number | null => {
       const n = Number(v);
@@ -2406,7 +2406,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.post("/api/orders", requireCustomerAuth, async (req: Request, res: Response) => {
-    const { userId, phoneNumber, customerName, customerPhone, notes, items, total, deliveryFee, serviceFee, address, region, latitude, longitude, orderType, internationalDetails, courierDetails, promoCode, promoDiscount, vendorId: bodyVendorId, restaurantSubtotal: bodyRestaurantSubtotal } = req.body;
+    const { userId, phoneNumber, customerName, customerPhone, notes, items, total, deliveryFee, serviceFee, address, region, latitude, longitude, orderType, internationalDetails, courierDetails, promoCode, vendorId: bodyVendorId } = req.body;
     const db = getFirestore();
     
     if (db) {
