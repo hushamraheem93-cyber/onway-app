@@ -15,7 +15,11 @@ export type {
   DeliveryAddress,
 } from "@shared/schema";
 
-import type { VendorCategoryType, PromoCodeType, UserRole } from "@shared/schema";
+import type {
+  VendorCategoryType,
+  PromoCodeType,
+  UserRole,
+} from "@shared/schema";
 
 // ── Navigation param lists ────────────────────────────────────────────────────
 export type RootStackRoutes =

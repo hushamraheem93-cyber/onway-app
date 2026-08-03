@@ -1,5 +1,11 @@
 import React from "react";
-import { StyleSheet, FlatList, View, TouchableOpacity, Alert } from "react-native";
+import {
+  StyleSheet,
+  FlatList,
+  View,
+  TouchableOpacity,
+  Alert,
+} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
@@ -10,7 +16,7 @@ import * as Haptics from "expo-haptics";
 import { useQuery } from "@tanstack/react-query";
 
 import { useTheme } from "@/hooks/useTheme";
-import { Spacing, AppColors, FontWeight} from "@/constants/theme";
+import { Spacing, AppColors, FontWeight } from "@/constants/theme";
 import { useCart, CartItem } from "@/context/CartContext";
 import { useAuth } from "@/context/AuthContext";
 import { formatPrice } from "@/constants/currency";
@@ -59,7 +65,7 @@ export default function CartScreen() {
             onPress: () => exitGuestMode(),
           },
         ],
-        { cancelable: true }
+        { cancelable: true },
       );
       return;
     }
@@ -98,7 +104,8 @@ export default function CartScreen() {
         style={{ flex: 1 }}
         contentContainerStyle={{
           paddingTop: headerHeight + Spacing.md,
-          paddingBottom: items.length > 0 ? 280 + tabBarHeight : tabBarHeight + Spacing.xl,
+          paddingBottom:
+            items.length > 0 ? 280 + tabBarHeight : tabBarHeight + Spacing.xl,
           paddingHorizontal: Spacing.md,
           flexGrow: 1,
         }}
@@ -120,15 +127,19 @@ export default function CartScreen() {
               accessibilityRole="button"
               accessibilityLabel="مسح كل المنتجات من السلة"
             >
-              <Ionicons name="trash-outline" size={20} color={AppColors.primary} />
-              <ThemedText type="small" style={styles.clearText}>مسح الكل</ThemedText>
+              <Ionicons
+                name="trash-outline"
+                size={20}
+                color={AppColors.primary}
+              />
+              <ThemedText type="small" style={styles.clearText}>
+                مسح الكل
+              </ThemedText>
             </TouchableOpacity>
           ) : null
         }
         ListFooterComponent={
-          items.length > 0 ? (
-            <SmartSuggestions cartItems={items} />
-          ) : null
+          items.length > 0 ? <SmartSuggestions cartItems={items} /> : null
         }
       />
 
@@ -145,9 +156,14 @@ export default function CartScreen() {
           {/* Min-order warning banner */}
           {isBelowMinOrder ? (
             <View style={styles.minOrderBanner}>
-              <Ionicons name="warning-outline" size={16} color={AppColors.warning} />
+              <Ionicons
+                name="warning-outline"
+                size={16}
+                color={AppColors.warning}
+              />
               <ThemedText style={styles.minOrderText}>
-                الحد الأدنى للطلب {formatPrice(vendorMinOrder)} — أضف منتجات بقيمة {formatPrice(vendorMinOrder - subtotal)} إضافية
+                الحد الأدنى للطلب {formatPrice(vendorMinOrder)} — أضف منتجات
+                بقيمة {formatPrice(vendorMinOrder - subtotal)} إضافية
               </ThemedText>
             </View>
           ) : null}
@@ -164,7 +180,10 @@ export default function CartScreen() {
           </View>
 
           <TouchableOpacity
-            style={[styles.checkoutBtn, isBelowMinOrder && styles.checkoutBtnDisabled]}
+            style={[
+              styles.checkoutBtn,
+              isBelowMinOrder && styles.checkoutBtnDisabled,
+            ]}
             onPress={isBelowMinOrder ? undefined : handleCheckout}
             accessibilityRole="button"
             accessibilityLabel="إتمام الطلب والانتقال للدفع"

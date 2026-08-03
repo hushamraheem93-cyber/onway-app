@@ -10,7 +10,14 @@ import React, {
   SetStateAction,
   ReactNode,
 } from "react";
-import { View, StyleSheet, Pressable, Modal, Platform, AppState } from "react-native";
+import {
+  View,
+  StyleSheet,
+  Pressable,
+  Modal,
+  Platform,
+  AppState,
+} from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import * as Notifications from "expo-notifications";
 import * as Haptics from "expo-haptics";
@@ -39,16 +46,23 @@ interface VendorNotificationsContextType {
   dismissNewOrderPopup: () => void;
 }
 
-const VendorNotificationsContext = createContext<VendorNotificationsContextType>({
-  unreadCount: 0,
-  setUnreadCount: () => {},
-  newOrderPopup: null,
-  dismissNewOrderPopup: () => {},
-});
+const VendorNotificationsContext =
+  createContext<VendorNotificationsContextType>({
+    unreadCount: 0,
+    setUnreadCount: () => {},
+    newOrderPopup: null,
+    dismissNewOrderPopup: () => {},
+  });
 
-export function VendorNotificationsProvider({ children }: { children: ReactNode }) {
+export function VendorNotificationsProvider({
+  children,
+}: {
+  children: ReactNode;
+}) {
   const [unreadCount, setUnreadCount] = useState(0);
-  const [newOrderPopup, setNewOrderPopup] = useState<NewOrderPopup | null>(null);
+  const [newOrderPopup, setNewOrderPopup] = useState<NewOrderPopup | null>(
+    null,
+  );
   const { vendorToken } = useAuth();
 
   const lastSeenOrderIds = useRef<Set<string>>(new Set());
@@ -63,9 +77,12 @@ export function VendorNotificationsProvider({ children }: { children: ReactNode 
   const checkNewOrders = useCallback(async () => {
     if (!vendorToken) return;
     try {
-      const res = await fetch(new URL("/api/vendor/orders", getApiUrl()).toString(), {
-        headers: { Authorization: `Bearer ${vendorToken}` },
-      });
+      const res = await fetch(
+        new URL("/api/vendor/orders", getApiUrl()).toString(),
+        {
+          headers: { Authorization: `Bearer ${vendorToken}` },
+        },
+      );
       if (!res.ok) return;
       const data = await res.json();
       const orders: any[] = data.orders ?? [];
@@ -77,13 +94,19 @@ export function VendorNotificationsProvider({ children }: { children: ReactNode 
         return;
       }
 
-      const newOrders = pendingOrders.filter((o: any) => !lastSeenOrderIds.current.has(o.id));
+      const newOrders = pendingOrders.filter(
+        (o: any) => !lastSeenOrderIds.current.has(o.id),
+      );
       for (const o of pendingOrders) lastSeenOrderIds.current.add(o.id);
 
       if (newOrders.length > 0) {
         const latest = newOrders[0];
         const items: any[] = Array.isArray(latest.items) ? latest.items : [];
-        const total = latest.vendorSubtotal ?? latest.restaurantSubtotal ?? latest.total ?? 0;
+        const total =
+          latest.vendorSubtotal ??
+          latest.restaurantSubtotal ??
+          latest.total ??
+          0;
         setNewOrderPopup({
           orderId: latest.id,
           orderNumber: latest.id.slice(-6).toUpperCase(),
@@ -102,9 +125,13 @@ export function VendorNotificationsProvider({ children }: { children: ReactNode 
   // Battery/server saver: the fallback poll only runs while the app is in the
   // foreground; sockets below remain the primary real-time channel. Note the
   // vendor still gets NEW-order alerts in the background via push notifications.
-  const [appActive, setAppActive] = useState(AppState.currentState !== "background");
+  const [appActive, setAppActive] = useState(
+    AppState.currentState !== "background",
+  );
   useEffect(() => {
-    const sub = AppState.addEventListener("change", (s) => setAppActive(s === "active"));
+    const sub = AppState.addEventListener("change", (s) =>
+      setAppActive(s === "active"),
+    );
     return () => sub.remove();
   }, []);
 
@@ -133,7 +160,9 @@ export function VendorNotificationsProvider({ children }: { children: ReactNode 
       reconnectionDelay: 3000,
     });
     socketRef.current = sock;
-    sock.on("orders:changed", () => { checkNewOrders(); });
+    sock.on("orders:changed", () => {
+      checkNewOrders();
+    });
     return () => {
       sock.disconnect();
       socketRef.current = null;
@@ -147,22 +176,31 @@ export function VendorNotificationsProvider({ children }: { children: ReactNode 
 
   useEffect(() => {
     if (Platform.OS === "web") return;
-    const subscription = Notifications.addNotificationReceivedListener((notification) => {
-      const data = notification.request.content.data as Record<string, unknown> | undefined;
-      if (!data) return;
-      const type = data.type as string | undefined;
-      if (type === "vendor_product" || type === "vendor_status") {
-        const serverCount = data.unreadCount;
-        if (typeof serverCount === "number") {
-          setUnreadCount(serverCount);
+    const subscription = Notifications.addNotificationReceivedListener(
+      (notification) => {
+        const data = notification.request.content.data as
+          | Record<string, unknown>
+          | undefined;
+        if (!data) return;
+        const type = data.type as string | undefined;
+        if (type === "vendor_product" || type === "vendor_status") {
+          const serverCount = data.unreadCount;
+          if (typeof serverCount === "number") {
+            setUnreadCount(serverCount);
+          }
         }
-      }
-    });
+      },
+    );
     return () => subscription.remove();
   }, []);
 
   const value = useMemo(
-    () => ({ unreadCount, setUnreadCount, newOrderPopup, dismissNewOrderPopup }),
+    () => ({
+      unreadCount,
+      setUnreadCount,
+      newOrderPopup,
+      dismissNewOrderPopup,
+    }),
     [unreadCount, newOrderPopup, dismissNewOrderPopup],
   );
 
@@ -170,7 +208,10 @@ export function VendorNotificationsProvider({ children }: { children: ReactNode 
     <VendorNotificationsContext.Provider value={value}>
       {children}
       {newOrderPopup ? (
-        <NewOrderPopupModal popup={newOrderPopup} onDismiss={dismissNewOrderPopup} />
+        <NewOrderPopupModal
+          popup={newOrderPopup}
+          onDismiss={dismissNewOrderPopup}
+        />
       ) : null}
     </VendorNotificationsContext.Provider>
   );
@@ -193,33 +234,64 @@ function NewOrderPopupModal({
         <View style={popupStyles.sheet}>
           <View style={popupStyles.header}>
             <View style={popupStyles.bellCircle}>
-              <MaterialCommunityIcons name="bell-ring" size={28} color={ORANGE} />
+              <MaterialCommunityIcons
+                name="bell-ring"
+                size={28}
+                color={ORANGE}
+              />
             </View>
             <ThemedText style={popupStyles.title}>طلب جديد وصل</ThemedText>
-            <ThemedText style={popupStyles.orderNum}>#{popup.orderNumber}</ThemedText>
+            <ThemedText style={popupStyles.orderNum}>
+              #{popup.orderNumber}
+            </ThemedText>
           </View>
 
           <View style={popupStyles.infoBox}>
             <View style={popupStyles.infoRow}>
-              <MaterialCommunityIcons name="account" size={18} color="#6B7280" />
-              <ThemedText style={popupStyles.infoText}>{popup.customerName}</ThemedText>
+              <MaterialCommunityIcons
+                name="account"
+                size={18}
+                color="#6B7280"
+              />
+              <ThemedText style={popupStyles.infoText}>
+                {popup.customerName}
+              </ThemedText>
             </View>
             <View style={popupStyles.infoRow}>
               <MaterialCommunityIcons name="food" size={18} color="#6B7280" />
-              <ThemedText style={popupStyles.infoText}>{popup.itemCount} منتج</ThemedText>
+              <ThemedText style={popupStyles.infoText}>
+                {popup.itemCount} منتج
+              </ThemedText>
             </View>
             <View style={popupStyles.infoRow}>
-              <MaterialCommunityIcons name="cash-multiple" size={18} color={ORANGE} />
-              <ThemedText style={[popupStyles.infoText, { color: ORANGE, fontFamily: "Cairo_700Bold" }]}>
+              <MaterialCommunityIcons
+                name="cash-multiple"
+                size={18}
+                color={ORANGE}
+              />
+              <ThemedText
+                style={[
+                  popupStyles.infoText,
+                  { color: ORANGE, fontFamily: "Cairo_700Bold" },
+                ]}
+              >
                 {popup.total.toLocaleString("ar-IQ")} د.ع
               </ThemedText>
             </View>
           </View>
 
-          <Pressable style={popupStyles.viewBtn} onPress={onDismiss} testID="btn-new-order-popup-view">
+          <Pressable
+            style={popupStyles.viewBtn}
+            onPress={onDismiss}
+            testID="btn-new-order-popup-view"
+          >
             <ThemedText style={popupStyles.viewBtnText}>عرض الطلبات</ThemedText>
           </Pressable>
-          <Pressable style={popupStyles.dismissBtn} onPress={onDismiss} testID="btn-new-order-popup-dismiss">
+          <Pressable
+            style={popupStyles.dismissBtn}
+            onPress={onDismiss}
+            testID="btn-new-order-popup-dismiss"
+          >
             <ThemedText style={popupStyles.dismissBtnText}>إغلاق</ThemedText>
           </Pressable>
         </View>

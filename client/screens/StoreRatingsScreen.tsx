@@ -62,28 +62,72 @@ function StarRow({ value, size = 16 }: { value: number; size?: number }) {
   );
 }
 
-function BreakdownBar({ stars, count, total, theme }: { stars: number; count: number; total: number; theme: any }) {
+function BreakdownBar({
+  stars,
+  count,
+  total,
+  theme,
+}: {
+  stars: number;
+  count: number;
+  total: number;
+  theme: any;
+}) {
   const pct = total > 0 ? Math.round((count / total) * 100) : 0;
   return (
     <View style={bStyles.barRow}>
       <ThemedText style={bStyles.barLabel}>{stars}</ThemedText>
       <MaterialCommunityIcons name="star" size={13} color={AppColors.warning} />
-      <View style={[bStyles.barBg, { backgroundColor: theme.border ?? AppColors.divider }]}>
-        <View style={[bStyles.barFill, { width: `${pct}%` as any, backgroundColor: AppColors.warning }]} />
+      <View
+        style={[
+          bStyles.barBg,
+          { backgroundColor: theme.border ?? AppColors.divider },
+        ]}
+      >
+        <View
+          style={[
+            bStyles.barFill,
+            { width: `${pct}%` as any, backgroundColor: AppColors.warning },
+          ]}
+        />
       </View>
-      <ThemedText style={[bStyles.barPct, { color: theme.textSecondary }]}>{pct}%</ThemedText>
-      <ThemedText style={[bStyles.barCount, { color: theme.textSecondary }]}>({count})</ThemedText>
+      <ThemedText style={[bStyles.barPct, { color: theme.textSecondary }]}>
+        {pct}%
+      </ThemedText>
+      <ThemedText style={[bStyles.barCount, { color: theme.textSecondary }]}>
+        ({count})
+      </ThemedText>
     </View>
   );
 }
 
 const bStyles = StyleSheet.create({
-  barRow: { flexDirection: "row-reverse", alignItems: "center", gap: 6, marginBottom: 4 },
-  barLabel: { fontFamily: "Cairo_700Bold", fontSize: 13, width: 14, textAlign: "center" },
+  barRow: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    gap: 6,
+    marginBottom: 4,
+  },
+  barLabel: {
+    fontFamily: "Cairo_700Bold",
+    fontSize: 13,
+    width: 14,
+    textAlign: "center",
+  },
   barBg: { flex: 1, height: 8, borderRadius: 4, overflow: "hidden" },
   barFill: { height: 8, borderRadius: 4 },
-  barPct: { fontFamily: "Cairo_400Regular", fontSize: 12, width: 32, textAlign: "left" },
-  barCount: { fontFamily: "Cairo_400Regular", fontSize: 11, width: 36, textAlign: "left" },
+  barPct: {
+    fontFamily: "Cairo_400Regular",
+    fontSize: 12,
+    width: 32,
+    textAlign: "left",
+  },
+  barCount: {
+    fontFamily: "Cairo_400Regular",
+    fontSize: 11,
+    width: 36,
+    textAlign: "left",
+  },
 });
 
 function RatingCard({ item, theme }: { item: RatingItem; theme: any }) {
@@ -95,22 +139,39 @@ function RatingCard({ item, theme }: { item: RatingItem; theme: any }) {
   });
 
   return (
-    <View style={[rStyles.card, { backgroundColor: theme.backgroundDefault }, Shadows.sm]}>
+    <View
+      style={[
+        rStyles.card,
+        { backgroundColor: theme.backgroundDefault },
+        Shadows.sm,
+      ]}
+    >
       <View style={rStyles.header}>
-        <View style={[rStyles.avatar, { backgroundColor: AppColors.primary + "20" }]}>
+        <View
+          style={[
+            rStyles.avatar,
+            { backgroundColor: AppColors.primary + "20" },
+          ]}
+        >
           <Feather name="user" size={16} color={AppColors.primary} />
         </View>
         <View style={{ flex: 1 }}>
           <ThemedText style={rStyles.phone}>
-            {item.customerPhone ? `*****${item.customerPhone.slice(-4)}` : "زبون"}
+            {item.customerPhone
+              ? `*****${item.customerPhone.slice(-4)}`
+              : "زبون"}
           </ThemedText>
-          <ThemedText style={[rStyles.date, { color: theme.textSecondary }]}>{dateStr}</ThemedText>
+          <ThemedText style={[rStyles.date, { color: theme.textSecondary }]}>
+            {dateStr}
+          </ThemedText>
         </View>
         <StarRow value={item.stars} size={14} />
       </View>
 
       {item.comment ? (
-        <ThemedText style={[rStyles.comment, { color: theme.text }]}>{item.comment}</ThemedText>
+        <ThemedText style={[rStyles.comment, { color: theme.text }]}>
+          {item.comment}
+        </ThemedText>
       ) : null}
 
       {item.image ? (
@@ -124,18 +185,43 @@ function RatingCard({ item, theme }: { item: RatingItem; theme: any }) {
       ) : null}
 
       {item.vendorReply ? (
-        <View style={[rStyles.replyBox, { backgroundColor: AppColors.primary + "10", borderColor: AppColors.primary + "30" }]}>
+        <View
+          style={[
+            rStyles.replyBox,
+            {
+              backgroundColor: AppColors.primary + "10",
+              borderColor: AppColors.primary + "30",
+            },
+          ]}
+        >
           <View style={rStyles.replyHeader}>
-            <Feather name="message-circle" size={13} color={AppColors.primary} />
-            <ThemedText style={[rStyles.replyLabel, { color: AppColors.primary }]}>رد المتجر</ThemedText>
+            <Feather
+              name="message-circle"
+              size={13}
+              color={AppColors.primary}
+            />
+            <ThemedText
+              style={[rStyles.replyLabel, { color: AppColors.primary }]}
+            >
+              رد المتجر
+            </ThemedText>
           </View>
-          <ThemedText style={[rStyles.replyText, { color: theme.text }]}>{item.vendorReply}</ThemedText>
+          <ThemedText style={[rStyles.replyText, { color: theme.text }]}>
+            {item.vendorReply}
+          </ThemedText>
         </View>
       ) : null}
 
       <Modal visible={imageModal} transparent animationType="fade">
-        <Pressable style={rStyles.modalOverlay} onPress={() => setImageModal(false)}>
-          <Image source={{ uri: item.image! }} style={rStyles.modalImage} contentFit="contain" />
+        <Pressable
+          style={rStyles.modalOverlay}
+          onPress={() => setImageModal(false)}
+        >
+          <Image
+            source={{ uri: item.image! }}
+            style={rStyles.modalImage}
+            contentFit="contain"
+          />
         </Pressable>
       </Modal>
     </View>
@@ -144,25 +230,61 @@ function RatingCard({ item, theme }: { item: RatingItem; theme: any }) {
 
 const rStyles = StyleSheet.create({
   card: { borderRadius: BorderRadius.lg, padding: 14, marginBottom: 10 },
-  header: { flexDirection: "row-reverse", alignItems: "center", gap: 10, marginBottom: 8 },
-  avatar: { width: 34, height: 34, borderRadius: 17, justifyContent: "center", alignItems: "center" },
+  header: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    gap: 10,
+    marginBottom: 8,
+  },
+  avatar: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    justifyContent: "center",
+    alignItems: "center",
+  },
   phone: { fontFamily: "Cairo_700Bold", fontSize: 13 },
   date: { fontFamily: "Cairo_400Regular", fontSize: 11 },
-  comment: { fontFamily: "Cairo_400Regular", fontSize: 14, lineHeight: 22, marginBottom: 8, textAlign: "right" },
-  ratingImage: { width: "100%", height: 160, borderRadius: 10, marginBottom: 8 },
+  comment: {
+    fontFamily: "Cairo_400Regular",
+    fontSize: 14,
+    lineHeight: 22,
+    marginBottom: 8,
+    textAlign: "right",
+  },
+  ratingImage: {
+    width: "100%",
+    height: 160,
+    borderRadius: 10,
+    marginBottom: 8,
+  },
   replyBox: { borderWidth: 1, borderRadius: 10, padding: 10, marginTop: 4 },
-  replyHeader: { flexDirection: "row-reverse", alignItems: "center", gap: 6, marginBottom: 4 },
+  replyHeader: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    gap: 6,
+    marginBottom: 4,
+  },
   replyLabel: { fontFamily: "Cairo_700Bold", fontSize: 12 },
-  replyText: { fontFamily: "Cairo_400Regular", fontSize: 13, textAlign: "right" },
-  modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.9)", justifyContent: "center", alignItems: "center" },
+  replyText: {
+    fontFamily: "Cairo_400Regular",
+    fontSize: 13,
+    textAlign: "right",
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.9)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
   modalImage: { width: "90%", height: "70%" },
 });
 
 const FILTER_TABS: { key: FilterType; label: string }[] = [
-  { key: "newest",      label: "الأحدث"   },
-  { key: "highest",     label: "الأعلى"   },
-  { key: "lowest",      label: "الأقل"    },
-  { key: "with_images", label: "مع صور"   },
+  { key: "newest", label: "الأحدث" },
+  { key: "highest", label: "الأعلى" },
+  { key: "lowest", label: "الأقل" },
+  { key: "with_images", label: "مع صور" },
 ];
 
 export default function StoreRatingsScreen() {
@@ -190,90 +312,142 @@ export default function StoreRatingsScreen() {
     },
   });
 
-  const summary = data ?? { average: 0, total: 0, breakdown: [], items: [], hasMore: false };
+  const summary = data ?? {
+    average: 0,
+    total: 0,
+    breakdown: [],
+    items: [],
+    hasMore: false,
+  };
 
-  const ListHeader = useCallback(() => (
-    <View>
-      {/* Overall rating */}
-      <View style={[styles.summaryCard, { backgroundColor: theme.backgroundDefault }, Shadows.sm]}>
-        <View style={styles.summaryTop}>
-          <View style={styles.avgBox}>
-            <ThemedText style={styles.avgNum}>{summary.average > 0 ? summary.average.toFixed(1) : "—"}</ThemedText>
-            <StarRow value={summary.average} size={20} />
-            <ThemedText style={[styles.totalCount, { color: theme.textSecondary }]}>
-              ({summary.total} تقييم)
-            </ThemedText>
-          </View>
-          <View style={styles.breakdownBox}>
-            {[5, 4, 3, 2, 1].map((s) => {
-              const entry = summary.breakdown.find((b) => b.stars === s);
-              return (
-                <BreakdownBar
-                  key={s}
-                  stars={s}
-                  count={entry?.count ?? 0}
-                  total={summary.total}
-                  theme={theme}
-                />
-              );
-            })}
+  const ListHeader = useCallback(
+    () => (
+      <View>
+        {/* Overall rating */}
+        <View
+          style={[
+            styles.summaryCard,
+            { backgroundColor: theme.backgroundDefault },
+            Shadows.sm,
+          ]}
+        >
+          <View style={styles.summaryTop}>
+            <View style={styles.avgBox}>
+              <ThemedText style={styles.avgNum}>
+                {summary.average > 0 ? summary.average.toFixed(1) : "—"}
+              </ThemedText>
+              <StarRow value={summary.average} size={20} />
+              <ThemedText
+                style={[styles.totalCount, { color: theme.textSecondary }]}
+              >
+                ({summary.total} تقييم)
+              </ThemedText>
+            </View>
+            <View style={styles.breakdownBox}>
+              {[5, 4, 3, 2, 1].map((s) => {
+                const entry = summary.breakdown.find((b) => b.stars === s);
+                return (
+                  <BreakdownBar
+                    key={s}
+                    stars={s}
+                    count={entry?.count ?? 0}
+                    total={summary.total}
+                    theme={theme}
+                  />
+                );
+              })}
+            </View>
           </View>
         </View>
-      </View>
 
-      {/* Search */}
-      <View style={[styles.searchBar, { backgroundColor: theme.backgroundDefault, borderColor: theme.border ?? AppColors.divider }]}>
-        <Feather name="search" size={16} color={theme.textSecondary} />
-        <TextInput
-          style={[styles.searchInput, { color: theme.text }]}
-          placeholder="ابحث في التعليقات..."
-          placeholderTextColor={theme.textSecondary}
-          value={search}
-          onChangeText={(t) => { setSearch(t); setPage(1); }}
-          textAlign="right"
-        />
-        {search.length > 0 ? (
-          <Pressable
-            onPress={() => { setSearch(""); setPage(1); }}
-            accessibilityRole="button"
-            accessibilityLabel="مسح البحث"
-            hitSlop={8}
+        {/* Search */}
+        <View
+          style={[
+            styles.searchBar,
+            {
+              backgroundColor: theme.backgroundDefault,
+              borderColor: theme.border ?? AppColors.divider,
+            },
+          ]}
+        >
+          <Feather name="search" size={16} color={theme.textSecondary} />
+          <TextInput
+            style={[styles.searchInput, { color: theme.text }]}
+            placeholder="ابحث في التعليقات..."
+            placeholderTextColor={theme.textSecondary}
+            value={search}
+            onChangeText={(t) => {
+              setSearch(t);
+              setPage(1);
+            }}
+            textAlign="right"
+          />
+          {search.length > 0 ? (
+            <Pressable
+              onPress={() => {
+                setSearch("");
+                setPage(1);
+              }}
+              accessibilityRole="button"
+              accessibilityLabel="مسح البحث"
+              hitSlop={8}
+            >
+              <Feather name="x" size={16} color={theme.textSecondary} />
+            </Pressable>
+          ) : null}
+        </View>
+
+        {/* Filter tabs */}
+        <View style={styles.filterRow}>
+          {FILTER_TABS.map((tab) => (
+            <Pressable
+              key={tab.key}
+              onPress={() => {
+                setFilter(tab.key);
+                setPage(1);
+              }}
+              accessibilityRole="button"
+              accessibilityLabel={tab.label}
+              accessibilityState={{ selected: filter === tab.key }}
+              style={[
+                styles.filterTab,
+                filter === tab.key
+                  ? { backgroundColor: AppColors.primary }
+                  : {
+                      backgroundColor: theme.backgroundDefault,
+                      borderColor: theme.border ?? AppColors.divider,
+                      borderWidth: 1,
+                    },
+              ]}
+            >
+              <ThemedText
+                style={[
+                  styles.filterLabel,
+                  {
+                    color:
+                      filter === tab.key
+                        ? AppColors.white
+                        : theme.textSecondary,
+                  },
+                ]}
+              >
+                {tab.label}
+              </ThemedText>
+            </Pressable>
+          ))}
+        </View>
+
+        {summary.items.length > 0 ? (
+          <ThemedText
+            style={[styles.sectionTitle, { color: theme.textSecondary }]}
           >
-            <Feather name="x" size={16} color={theme.textSecondary} />
-          </Pressable>
+            آراء الزبائن
+          </ThemedText>
         ) : null}
       </View>
-
-      {/* Filter tabs */}
-      <View style={styles.filterRow}>
-        {FILTER_TABS.map((tab) => (
-          <Pressable
-            key={tab.key}
-            onPress={() => { setFilter(tab.key); setPage(1); }}
-            accessibilityRole="button"
-            accessibilityLabel={tab.label}
-            accessibilityState={{ selected: filter === tab.key }}
-            style={[
-              styles.filterTab,
-              filter === tab.key
-                ? { backgroundColor: AppColors.primary }
-                : { backgroundColor: theme.backgroundDefault, borderColor: theme.border ?? AppColors.divider, borderWidth: 1 },
-            ]}
-          >
-            <ThemedText style={[styles.filterLabel, { color: filter === tab.key ? AppColors.white : theme.textSecondary }]}>
-              {tab.label}
-            </ThemedText>
-          </Pressable>
-        ))}
-      </View>
-
-      {summary.items.length > 0 ? (
-        <ThemedText style={[styles.sectionTitle, { color: theme.textSecondary }]}>
-          آراء الزبائن
-        </ThemedText>
-      ) : null}
-    </View>
-  ), [summary, filter, search, theme]);
+    ),
+    [summary, filter, search, theme],
+  );
 
   return (
     <View style={{ flex: 1 }}>
@@ -289,7 +463,11 @@ export default function StoreRatingsScreen() {
         scrollIndicatorInsets={{ bottom: insets.bottom }}
         showsVerticalScrollIndicator={false}
         refreshControl={
-          <RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={AppColors.primary} />
+          <RefreshControl
+            refreshing={isRefetching}
+            onRefresh={refetch}
+            tintColor={AppColors.primary}
+          />
         }
         ListHeaderComponent={<ListHeader />}
         ListEmptyComponent={
@@ -299,8 +477,20 @@ export default function StoreRatingsScreen() {
             </View>
           ) : (
             <View style={styles.center}>
-              <Feather name="star" size={48} color={theme.textSecondary} style={{ opacity: 0.3 }} />
-              <ThemedText type="body" style={{ color: theme.textSecondary, marginTop: 12, textAlign: "center" }}>
+              <Feather
+                name="star"
+                size={48}
+                color={theme.textSecondary}
+                style={{ opacity: 0.3 }}
+              />
+              <ThemedText
+                type="body"
+                style={{
+                  color: theme.textSecondary,
+                  marginTop: 12,
+                  textAlign: "center",
+                }}
+              >
                 لا توجد تقييمات بعد
               </ThemedText>
             </View>
@@ -315,7 +505,12 @@ export default function StoreRatingsScreen() {
               accessibilityRole="button"
               accessibilityLabel="عرض المزيد من التقييمات"
             >
-              <ThemedText style={{ color: AppColors.primary, fontFamily: "Cairo_700Bold" }}>
+              <ThemedText
+                style={{
+                  color: AppColors.primary,
+                  fontFamily: "Cairo_700Bold",
+                }}
+              >
                 عرض المزيد
               </ThemedText>
             </Pressable>

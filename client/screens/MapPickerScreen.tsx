@@ -1,5 +1,11 @@
 import React, { useState, useEffect, useRef } from "react";
-import { StyleSheet, View, Pressable, ActivityIndicator, TextInput } from "react-native";
+import {
+  StyleSheet,
+  View,
+  Pressable,
+  ActivityIndicator,
+  TextInput,
+} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import { Feather } from "@expo/vector-icons";
@@ -8,7 +14,7 @@ import { WebView } from "react-native-webview";
 
 import { ThemedText } from "@/components/ThemedText";
 import { useLocation } from "@/context/LocationContext";
-import { AppColors, FontWeight} from "@/constants/theme";
+import { AppColors, FontWeight } from "@/constants/theme";
 import { reverseGeocodeDetailed, DHULUIYAH_CENTER } from "@/lib/geocoding";
 
 function getLeafletHTML(lat: number, lng: number) {
@@ -158,10 +164,16 @@ function getLeafletHTML(lat: number, lng: number) {
 </html>`;
 }
 
-export type MapPickerParams = {
-  initialLocation?: { latitude: number; longitude: number };
-  onPicked?: (loc: { latitude: number; longitude: number; address: string }) => void;
-} | undefined;
+export type MapPickerParams =
+  | {
+      initialLocation?: { latitude: number; longitude: number };
+      onPicked?: (loc: {
+        latitude: number;
+        longitude: number;
+        address: string;
+      }) => void;
+    }
+  | undefined;
 
 export default function MapPickerScreen() {
   const insets = useSafeAreaInsets();
@@ -173,10 +185,19 @@ export default function MapPickerScreen() {
   const { savedLocation, setSavedLocation } = useLocation();
   const webViewRef = useRef<WebView>(null);
 
-  const initialLat = params?.initialLocation?.latitude ?? savedLocation?.latitude ?? DHULUIYAH_CENTER.lat;
-  const initialLng = params?.initialLocation?.longitude ?? savedLocation?.longitude ?? DHULUIYAH_CENTER.lng;
+  const initialLat =
+    params?.initialLocation?.latitude ??
+    savedLocation?.latitude ??
+    DHULUIYAH_CENTER.lat;
+  const initialLng =
+    params?.initialLocation?.longitude ??
+    savedLocation?.longitude ??
+    DHULUIYAH_CENTER.lng;
 
-  const [selectedCoord, setSelectedCoord] = useState({ latitude: initialLat, longitude: initialLng });
+  const [selectedCoord, setSelectedCoord] = useState({
+    latitude: initialLat,
+    longitude: initialLng,
+  });
   const [addressText, setAddressText] = useState(savedLocation?.address || "");
   const [placeNameText, setPlaceNameText] = useState("");
   const [loadingAddress, setLoadingAddress] = useState(false);
@@ -199,10 +220,12 @@ export default function MapPickerScreen() {
     setAddressText(result.address);
     setPlaceNameText(result.placeName || "");
     if (result.placeName && webViewRef.current) {
-      webViewRef.current.postMessage(JSON.stringify({
-        type: "showLabel",
-        text: result.placeName,
-      }));
+      webViewRef.current.postMessage(
+        JSON.stringify({
+          type: "showLabel",
+          text: result.placeName,
+        }),
+      );
     }
     setLoadingAddress(false);
   };
@@ -216,16 +239,21 @@ export default function MapPickerScreen() {
         accuracy: Location.Accuracy.High,
       });
 
-      const coords = { latitude: loc.coords.latitude, longitude: loc.coords.longitude };
+      const coords = {
+        latitude: loc.coords.latitude,
+        longitude: loc.coords.longitude,
+      };
       setSelectedCoord(coords);
       fetchAddress(coords.latitude, coords.longitude);
 
       if (webViewRef.current) {
-        webViewRef.current.postMessage(JSON.stringify({
-          type: "moveTo",
-          lat: coords.latitude,
-          lng: coords.longitude,
-        }));
+        webViewRef.current.postMessage(
+          JSON.stringify({
+            type: "moveTo",
+            lat: coords.latitude,
+            lng: coords.longitude,
+          }),
+        );
       }
     } catch {}
   };
@@ -272,7 +300,12 @@ export default function MapPickerScreen() {
         renderLoading={() => (
           <View style={styles.loadingOverlay}>
             <ActivityIndicator size="large" color={AppColors.primary} />
-            <ThemedText type="body" style={{ marginTop: 10, color: AppColors.gray400 }}>جاري تحميل الخريطة...</ThemedText>
+            <ThemedText
+              type="body"
+              style={{ marginTop: 10, color: AppColors.gray400 }}
+            >
+              جاري تحميل الخريطة...
+            </ThemedText>
           </View>
         )}
       />
@@ -290,7 +323,9 @@ export default function MapPickerScreen() {
             <View style={styles.placeNameBadge}>
               <Feather name="navigation" size={14} color={AppColors.white} />
             </View>
-            <ThemedText type="body" style={styles.placeNameValue}>{placeNameText}</ThemedText>
+            <ThemedText type="body" style={styles.placeNameValue}>
+              {placeNameText}
+            </ThemedText>
           </View>
         ) : null}
 
@@ -299,7 +334,9 @@ export default function MapPickerScreen() {
             <Feather name="map-pin" size={20} color={AppColors.primary} />
           </View>
           <View style={styles.addressContent}>
-            <ThemedText type="small" style={styles.addressLabel}>العنوان المحدد</ThemedText>
+            <ThemedText type="small" style={styles.addressLabel}>
+              العنوان المحدد
+            </ThemedText>
             {loadingAddress ? (
               <ActivityIndicator size="small" color={AppColors.primary} />
             ) : (
@@ -319,7 +356,9 @@ export default function MapPickerScreen() {
 
         <Pressable style={styles.confirmButton} onPress={handleConfirm}>
           <Feather name="check" size={20} color={AppColors.black} />
-          <ThemedText type="body" style={styles.confirmText}>تثبيت الموقع</ThemedText>
+          <ThemedText type="body" style={styles.confirmText}>
+            تثبيت الموقع
+          </ThemedText>
         </Pressable>
       </View>
     </View>

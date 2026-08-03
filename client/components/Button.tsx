@@ -1,5 +1,11 @@
 import React, { ReactNode } from "react";
-import { StyleSheet, Pressable, ViewStyle, StyleProp, Platform } from "react-native";
+import {
+  StyleSheet,
+  Pressable,
+  ViewStyle,
+  StyleProp,
+  Platform,
+} from "react-native";
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -9,7 +15,12 @@ import Animated, {
 
 import { ThemedText } from "@/components/ThemedText";
 import { useTheme } from "@/hooks/useTheme";
-import { BorderRadius, Spacing, AppColors, FontWeight} from "@/constants/theme";
+import {
+  BorderRadius,
+  Spacing,
+  AppColors,
+  FontWeight,
+} from "@/constants/theme";
 
 interface ButtonProps {
   onPress?: () => void;

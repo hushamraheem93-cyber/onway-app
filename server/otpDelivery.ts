@@ -52,13 +52,18 @@ export async function deliverOtp(
     if (isDevMode()) {
       console.log(`[OTP] (OTPIQ not configured) → ${phoneNumber}: ${code}`);
     } else {
-      console.warn(`[OTP] OTP_IQ_API_KEY not set — code not delivered to ${phoneNumber}`);
+      console.warn(
+        `[OTP] OTP_IQ_API_KEY not set — code not delivered to ${phoneNumber}`,
+      );
     }
     return { delivered: false, channel };
   }
 
-  const base = (process.env.OTP_IQ_BASE_URL || "https://api.otpiq.com/api").replace(/\/+$/, "");
-  const provider = channel === "whatsapp" ? "whatsapp" : (process.env.OTP_IQ_PROVIDER || "auto");
+  const base = (
+    process.env.OTP_IQ_BASE_URL || "https://api.otpiq.com/api"
+  ).replace(/\/+$/, "");
+  const provider =
+    channel === "whatsapp" ? "whatsapp" : process.env.OTP_IQ_PROVIDER || "auto";
 
   const body: Record<string, unknown> = {
     phoneNumber: normalizeIraqiPhone(phoneNumber),
@@ -66,7 +71,8 @@ export async function deliverOtp(
     verificationCode: code,
     provider,
   };
-  if (process.env.OTP_IQ_SENDER_ID) body.senderId = process.env.OTP_IQ_SENDER_ID;
+  if (process.env.OTP_IQ_SENDER_ID)
+    body.senderId = process.env.OTP_IQ_SENDER_ID;
 
   try {
     const res = await fetch(`${base}/sms`, {
@@ -80,7 +86,10 @@ export async function deliverOtp(
 
     const data = (await res.json().catch(() => ({}))) as any;
     if (!res.ok) {
-      console.error(`[OTP] OTPIQ ${res.status} for ${phoneNumber}:`, data?.message || data?.error || res.statusText);
+      console.error(
+        `[OTP] OTPIQ ${res.status} for ${phoneNumber}:`,
+        data?.message || data?.error || res.statusText,
+      );
       return { delivered: false, channel };
     }
     return { delivered: true, channel, providerMessageId: data?.smsId };

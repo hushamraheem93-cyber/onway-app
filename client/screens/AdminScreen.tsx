@@ -26,7 +26,12 @@ import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { useTheme } from "@/hooks/useTheme";
 import { ThemedText } from "@/components/ThemedText";
-import { Spacing, BorderRadius, AppColors, FontWeight} from "@/constants/theme";
+import {
+  Spacing,
+  BorderRadius,
+  AppColors,
+  FontWeight,
+} from "@/constants/theme";
 import { Banner, Category } from "@/constants/categories";
 import { CATEGORY_MAP } from "@/constants/businessCategories";
 import { apiRequest, getApiUrl } from "@/lib/query-client";
@@ -38,7 +43,22 @@ import { useSystemSettings } from "@/context/SystemSettingsContext";
 import { playRepeatingAlert } from "@/lib/alertSound";
 import { WebsiteCmsTab } from "@/screens/WebsiteCmsTab";
 
-type TabType = "dashboard" | "orders" | "drivers" | "users" | "banners" | "categories" | "products" | "areas" | "promoCodes" | "notifications" | "vendors" | "settlements" | "settings" | "storage" | "websiteCms";
+type TabType =
+  | "dashboard"
+  | "orders"
+  | "drivers"
+  | "users"
+  | "banners"
+  | "categories"
+  | "products"
+  | "areas"
+  | "promoCodes"
+  | "notifications"
+  | "vendors"
+  | "settlements"
+  | "settings"
+  | "storage"
+  | "websiteCms";
 
 interface AdminUser {
   id: string;
@@ -51,12 +71,28 @@ interface AdminUser {
   pushToken?: string;
 }
 type BannerType = "offer" | "slider";
-type OrderStatus = "pending" | "confirmed" | "preparing" | "ready" | "picked_up" | "in_delivery" | "delivering" | "delivered" | "cancelled" | "issue";
+type OrderStatus =
+  | "pending"
+  | "confirmed"
+  | "preparing"
+  | "ready"
+  | "picked_up"
+  | "in_delivery"
+  | "delivering"
+  | "delivered"
+  | "cancelled"
+  | "issue";
 
 interface AdminOrder {
   id: string;
   phoneNumber: string;
-  items: { productId: string; name: string; price: number; quantity: number; image: string }[];
+  items: {
+    productId: string;
+    name: string;
+    price: number;
+    quantity: number;
+    image: string;
+  }[];
   total: number;
   deliveryFee: number;
   address: string;
@@ -164,16 +200,23 @@ export default function AdminScreen() {
     });
     // Settlement requests appear instantly in the admin inbox.
     sock.on("settlements:changed", () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/admin/settlement-requests"] });
+      queryClient.invalidateQueries({
+        queryKey: ["/api/admin/settlement-requests"],
+      });
     });
-    return () => { sock.disconnect(); };
+    return () => {
+      sock.disconnect();
+    };
   }, [queryClient]);
 
   // Pending settlement requests (drivers + vendors), live-refreshed via socket above.
   const { data: settlementRequests = [] } = useQuery<any[]>({
     queryKey: ["/api/admin/settlement-requests"],
     queryFn: async () => {
-      const res = await fetch(`${getApiUrl()}/api/admin/settlement-requests?status=pending`, { credentials: "include" });
+      const res = await fetch(
+        `${getApiUrl()}/api/admin/settlement-requests?status=pending`,
+        { credentials: "include" },
+      );
       if (!res.ok) throw new Error("failed");
       const data = await res.json();
       return data.requests ?? [];
@@ -184,7 +227,9 @@ export default function AdminScreen() {
   const [activeTab, setActiveTab] = useState<TabType>("dashboard");
 
   // ── Settlement dashboard (6C) ───────────────────────────────────────────────
-  const [settleView, setSettleView] = useState<"requests" | "driver" | "vendor" | "config">("requests");
+  const [settleView, setSettleView] = useState<
+    "requests" | "driver" | "vendor" | "config"
+  >("requests");
   const [completeTarget, setCompleteTarget] = useState<any | null>(null);
   const [completeAmount, setCompleteAmount] = useState("");
   const [completeBusy, setCompleteBusy] = useState(false);
@@ -193,80 +238,139 @@ export default function AdminScreen() {
   const [detailBusy, setDetailBusy] = useState(false);
 
   const openSettlementDetails = useCallback(async (a: any) => {
-    setDetailTarget(a); setDetailData(null); setDetailBusy(true);
+    setDetailTarget(a);
+    setDetailData(null);
+    setDetailBusy(true);
     try {
-      const res = await fetch(`${getApiUrl()}/api/admin/settlement-account?accountType=${a.accountType}&accountId=${encodeURIComponent(a.accountId)}`, { credentials: "include" });
+      const res = await fetch(
+        `${getApiUrl()}/api/admin/settlement-account?accountType=${a.accountType}&accountId=${encodeURIComponent(a.accountId)}`,
+        { credentials: "include" },
+      );
       if (res.ok) setDetailData(await res.json());
-    } catch { /* ignore */ } finally { setDetailBusy(false); }
+    } catch {
+      /* ignore */
+    } finally {
+      setDetailBusy(false);
+    }
   }, []);
 
   const { data: settlementAccounts = [] } = useQuery<any[]>({
     queryKey: ["/api/admin/settlement-accounts", settleView],
     queryFn: async () => {
       const type = settleView === "vendor" ? "vendor" : "driver";
-      const res = await fetch(`${getApiUrl()}/api/admin/settlement-accounts?accountType=${type}`, { credentials: "include" });
+      const res = await fetch(
+        `${getApiUrl()}/api/admin/settlement-accounts?accountType=${type}`,
+        { credentials: "include" },
+      );
       if (!res.ok) throw new Error("failed");
       return (await res.json()).accounts ?? [];
     },
-    enabled: activeTab === "settlements" && (settleView === "driver" || settleView === "vendor"),
+    enabled:
+      activeTab === "settlements" &&
+      (settleView === "driver" || settleView === "vendor"),
     refetchInterval: 20000,
   });
 
-  const { data: settlementConfig, refetch: refetchSettlementConfig } = useQuery<any>({
-    queryKey: ["/api/admin/settlement-config"],
-    queryFn: async () => {
-      const res = await fetch(`${getApiUrl()}/api/admin/settlement-config`, { credentials: "include" });
-      if (!res.ok) throw new Error("failed");
-      return res.json();
+  const { data: settlementConfig, refetch: refetchSettlementConfig } =
+    useQuery<any>({
+      queryKey: ["/api/admin/settlement-config"],
+      queryFn: async () => {
+        const res = await fetch(`${getApiUrl()}/api/admin/settlement-config`, {
+          credentials: "include",
+        });
+        if (!res.ok) throw new Error("failed");
+        return res.json();
+      },
+      enabled: activeTab === "settlements",
+    });
+
+  const submitSettlement = useCallback(
+    async (account: any, amount: number, requestId?: string) => {
+      setCompleteBusy(true);
+      try {
+        const res = await fetch(
+          `${getApiUrl()}/api/admin/settlements/complete`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            credentials: "include",
+            body: JSON.stringify({
+              accountType: account.accountType,
+              accountId: account.accountId,
+              amount,
+              requestId,
+              method: "cash",
+              adminName: "admin",
+            }),
+          },
+        );
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          Alert.alert("تعذّر إتمام التسوية", data?.error || "حاول مرة أخرى");
+          return;
+        }
+        Alert.alert(
+          "تمت التسوية",
+          `تم تسجيل ${amount.toLocaleString("ar-IQ")} د.ع بنجاح`,
+        );
+        setCompleteTarget(null);
+        setCompleteAmount("");
+        queryClient.invalidateQueries({
+          queryKey: ["/api/admin/settlement-accounts", settleView],
+        });
+        queryClient.invalidateQueries({
+          queryKey: ["/api/admin/settlement-requests"],
+        });
+      } catch {
+        Alert.alert("خطأ", "تعذّر الاتصال بالخادم");
+      } finally {
+        setCompleteBusy(false);
+      }
     },
-    enabled: activeTab === "settlements",
-  });
+    [queryClient, settleView],
+  );
 
-  const submitSettlement = useCallback(async (account: any, amount: number, requestId?: string) => {
-    setCompleteBusy(true);
-    try {
-      const res = await fetch(`${getApiUrl()}/api/admin/settlements/complete`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ accountType: account.accountType, accountId: account.accountId, amount, requestId, method: "cash", adminName: "admin" }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) { Alert.alert("تعذّر إتمام التسوية", data?.error || "حاول مرة أخرى"); return; }
-      Alert.alert("تمت التسوية", `تم تسجيل ${amount.toLocaleString("ar-IQ")} د.ع بنجاح`);
-      setCompleteTarget(null);
-      setCompleteAmount("");
-      queryClient.invalidateQueries({ queryKey: ["/api/admin/settlement-accounts", settleView] });
-      queryClient.invalidateQueries({ queryKey: ["/api/admin/settlement-requests"] });
-    } catch {
-      Alert.alert("خطأ", "تعذّر الاتصال بالخادم");
-    } finally {
-      setCompleteBusy(false);
-    }
-  }, [queryClient, settleView]);
-
-  const saveSettlementConfig = useCallback(async (accountType: "driver" | "vendor", thresholdEnabled: boolean, thresholdAmount: number) => {
-    try {
-      const res = await fetch(`${getApiUrl()}/api/admin/settlement-config`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ accountType, thresholdEnabled, thresholdAmount }),
-      });
-      if (res.ok) { refetchSettlementConfig(); Alert.alert("تم الحفظ", "تم تحديث حدّ التسوية"); }
-      else Alert.alert("خطأ", "تعذّر حفظ الإعداد");
-    } catch { Alert.alert("خطأ", "تعذّر الاتصال بالخادم"); }
-  }, [refetchSettlementConfig]);
+  const saveSettlementConfig = useCallback(
+    async (
+      accountType: "driver" | "vendor",
+      thresholdEnabled: boolean,
+      thresholdAmount: number,
+    ) => {
+      try {
+        const res = await fetch(`${getApiUrl()}/api/admin/settlement-config`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({
+            accountType,
+            thresholdEnabled,
+            thresholdAmount,
+          }),
+        });
+        if (res.ok) {
+          refetchSettlementConfig();
+          Alert.alert("تم الحفظ", "تم تحديث حدّ التسوية");
+        } else Alert.alert("خطأ", "تعذّر حفظ الإعداد");
+      } catch {
+        Alert.alert("خطأ", "تعذّر الاتصال بالخادم");
+      }
+    },
+    [refetchSettlementConfig],
+  );
 
   const printSettlementReport = useCallback(async () => {
     const type = settleView === "vendor" ? "vendor" : "driver";
-    const rows = settlementAccounts.map((a) => `
+    const rows = settlementAccounts
+      .map(
+        (a) => `
       <tr>
         <td>${a.accountName ?? ""}</td>
         <td style="text-align:center">${a.totalOrders ?? 0}</td>
         <td style="text-align:center">${(a.outstanding ?? 0).toLocaleString("ar-IQ")} د.ع</td>
         <td style="text-align:center">${a.status === "settled" ? "مسوّى" : a.status === "under_review" ? "قيد المراجعة" : "مستحق"}</td>
-      </tr>`).join("");
+      </tr>`,
+      )
+      .join("");
     const html = `
       <html dir="rtl"><head><meta charset="utf-8"/>
       <style>body{font-family:sans-serif;padding:24px} h1{color:#FB5B21} table{width:100%;border-collapse:collapse} th,td{border:1px solid #ddd;padding:8px} th{background:#FFF1EC}</style>
@@ -276,14 +380,18 @@ export default function AdminScreen() {
         <table><thead><tr><th>الاسم</th><th>الطلبات</th><th>المستحق</th><th>الحالة</th></tr></thead>
         <tbody>${rows || "<tr><td colspan=4 style='text-align:center'>لا توجد بيانات</td></tr>"}</tbody></table>
       </body></html>`;
-    try { await Print.printAsync({ html }); } catch { /* user cancelled */ }
+    try {
+      await Print.printAsync({ html });
+    } catch {
+      /* user cancelled */
+    }
   }, [settleView, settlementAccounts]);
 
   const [isEditing, setIsEditing] = useState(false);
   const [editItem, setEditItem] = useState<any>(null);
   const [hasCategoryChanges, setHasCategoryChanges] = useState(false);
   const [isSavingCategories, setIsSavingCategories] = useState(false);
-  
+
   const [bannerForm, setBannerForm] = useState({
     title: "",
     type: "slider" as BannerType,
@@ -326,18 +434,25 @@ export default function AdminScreen() {
 
   const [notifForm, setNotifForm] = useState({ title: "", body: "" });
   const [isSendingNotif, setIsSendingNotif] = useState(false);
-  const [notifResult, setNotifResult] = useState<{ sent: number; total: number } | null>(null);
+  const [notifResult, setNotifResult] = useState<{
+    sent: number;
+    total: number;
+  } | null>(null);
   const [notifError, setNotifError] = useState<string | null>(null);
 
   // ── Storage Stats ──────────────────────────────────────────────────────────
   const [storageStats, setStorageStats] = useState<any | null>(null);
   const [storageStatsLoading, setStorageStatsLoading] = useState(false);
-  const [storageStatsError, setStorageStatsError] = useState<string | null>(null);
+  const [storageStatsError, setStorageStatsError] = useState<string | null>(
+    null,
+  );
   const loadStorageStats = useCallback(async () => {
     setStorageStatsLoading(true);
     setStorageStatsError(null);
     try {
-      const res = await fetch(`${getApiUrl()}/api/admin/storage-stats`, { credentials: "include" });
+      const res = await fetch(`${getApiUrl()}/api/admin/storage-stats`, {
+        credentials: "include",
+      });
       if (!res.ok) throw new Error(`${res.status}`);
       setStorageStats(await res.json());
     } catch {
@@ -352,7 +467,11 @@ export default function AdminScreen() {
     }
   }, [activeTab, storageStats, storageStatsLoading, loadStorageStats]);
 
-  const [urgencyForm, setUrgencyForm] = useState({ confirmed: "10", preparing: "25", ready: "15" });
+  const [urgencyForm, setUrgencyForm] = useState({
+    confirmed: "10",
+    preparing: "25",
+    ready: "15",
+  });
   const [isSavingUrgency, setIsSavingUrgency] = useState(false);
   const [urgencySaveError, setUrgencySaveError] = useState<string | null>(null);
   const [urgencySaveOk, setUrgencySaveOk] = useState(false);
@@ -363,17 +482,20 @@ export default function AdminScreen() {
   const [isSavingFee, setIsSavingFee] = useState(false);
 
   // ── System settings: online payment, driver payout rule, auto-suspend ───────
-  const { settings: systemSettings, refresh: refreshSystemSettings } = useSystemSettings();
-  const [payoutRuleType, setPayoutRuleType]               = useState<"flat" | "percent">("flat");
-  const [payoutFlatRestaurant, setPayoutFlatRestaurant]   = useState("750");
-  const [payoutFlatDefault, setPayoutFlatDefault]         = useState("2000");
-  const [payoutPercent, setPayoutPercent]                 = useState("15");
-  const [autoSuspendInput, setAutoSuspendInput]           = useState("100000");
-  const [maxBatchInput, setMaxBatchInput]                 = useState(3);
-  const [isSavingPayout, setIsSavingPayout]               = useState(false);
-  const [isSavingSuspend, setIsSavingSuspend]             = useState(false);
-  const [isSavingMaxBatch, setIsSavingMaxBatch]           = useState(false);
-  const [isRedistributing, setIsRedistributing]           = useState(false);
+  const { settings: systemSettings, refresh: refreshSystemSettings } =
+    useSystemSettings();
+  const [payoutRuleType, setPayoutRuleType] = useState<"flat" | "percent">(
+    "flat",
+  );
+  const [payoutFlatRestaurant, setPayoutFlatRestaurant] = useState("750");
+  const [payoutFlatDefault, setPayoutFlatDefault] = useState("2000");
+  const [payoutPercent, setPayoutPercent] = useState("15");
+  const [autoSuspendInput, setAutoSuspendInput] = useState("100000");
+  const [maxBatchInput, setMaxBatchInput] = useState(3);
+  const [isSavingPayout, setIsSavingPayout] = useState(false);
+  const [isSavingSuspend, setIsSavingSuspend] = useState(false);
+  const [isSavingMaxBatch, setIsSavingMaxBatch] = useState(false);
+  const [isRedistributing, setIsRedistributing] = useState(false);
 
   // Sync system settings from context whenever they load
   useEffect(() => {
@@ -410,7 +532,12 @@ export default function AdminScreen() {
         headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify({
-          driverPayoutRule: { type: payoutRuleType, flatRestaurant: fr || 750, flatDefault: fd || 2000, percent: pct || 15 },
+          driverPayoutRule: {
+            type: payoutRuleType,
+            flatRestaurant: fr || 750,
+            flatDefault: fd || 2000,
+            percent: pct || 15,
+          },
         }),
       });
       if (!res.ok) throw new Error("failed");
@@ -421,11 +548,20 @@ export default function AdminScreen() {
     } finally {
       setIsSavingPayout(false);
     }
-  }, [payoutRuleType, payoutFlatRestaurant, payoutFlatDefault, payoutPercent, refreshSystemSettings]);
+  }, [
+    payoutRuleType,
+    payoutFlatRestaurant,
+    payoutFlatDefault,
+    payoutPercent,
+    refreshSystemSettings,
+  ]);
 
   const saveAutoSuspendThreshold = useCallback(async () => {
     const val = parseInt(autoSuspendInput, 10);
-    if (isNaN(val) || val < 0) { Alert.alert("خطأ", "يرجى إدخال رقم أكبر من أو يساوي صفر"); return; }
+    if (isNaN(val) || val < 0) {
+      Alert.alert("خطأ", "يرجى إدخال رقم أكبر من أو يساوي صفر");
+      return;
+    }
     setIsSavingSuspend(true);
     try {
       const res = await fetch(`${getApiUrl()}/api/admin/settings`, {
@@ -444,24 +580,27 @@ export default function AdminScreen() {
     }
   }, [autoSuspendInput, refreshSystemSettings]);
 
-  const saveMaxBatchSize = useCallback(async (val: number) => {
-    setMaxBatchInput(val);
-    setIsSavingMaxBatch(true);
-    try {
-      const res = await fetch(`${getApiUrl()}/api/admin/settings`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ maxBatchSize: val }),
-      });
-      if (!res.ok) throw new Error("failed");
-      await refreshSystemSettings();
-    } catch {
-      Alert.alert("خطأ", "فشل حفظ الإعداد، حاول مجدداً");
-    } finally {
-      setIsSavingMaxBatch(false);
-    }
-  }, [refreshSystemSettings]);
+  const saveMaxBatchSize = useCallback(
+    async (val: number) => {
+      setMaxBatchInput(val);
+      setIsSavingMaxBatch(true);
+      try {
+        const res = await fetch(`${getApiUrl()}/api/admin/settings`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ maxBatchSize: val }),
+        });
+        if (!res.ok) throw new Error("failed");
+        await refreshSystemSettings();
+      } catch {
+        Alert.alert("خطأ", "فشل حفظ الإعداد، حاول مجدداً");
+      } finally {
+        setIsSavingMaxBatch(false);
+      }
+    },
+    [refreshSystemSettings],
+  );
 
   const emergencyRedistribute = useCallback(() => {
     Alert.alert(
@@ -482,7 +621,11 @@ export default function AdminScreen() {
                 body: "{}",
               });
               const data = await res.json();
-              if (res.ok) Alert.alert("تم", `أُعيد توزيع ${data.freedOrders || 0} طلب من ${data.batchesReleased || 0} دفعة`);
+              if (res.ok)
+                Alert.alert(
+                  "تم",
+                  `أُعيد توزيع ${data.freedOrders || 0} طلب من ${data.batchesReleased || 0} دفعة`,
+                );
               else Alert.alert("فشل", data.error || "تعذّرت إعادة التوزيع");
             } catch {
               Alert.alert("فشل", "تعذّر الاتصال بالخادم");
@@ -524,7 +667,9 @@ export default function AdminScreen() {
   useEffect(() => {
     (async () => {
       try {
-        const res = await fetch(`${getApiUrl()}/api/settings/urgency-thresholds`);
+        const res = await fetch(
+          `${getApiUrl()}/api/settings/urgency-thresholds`,
+        );
         if (res.ok) {
           const data = await res.json();
           setUrgencyForm({
@@ -541,7 +686,14 @@ export default function AdminScreen() {
     const confirmed = parseInt(urgencyForm.confirmed, 10);
     const preparing = parseInt(urgencyForm.preparing, 10);
     const ready = parseInt(urgencyForm.ready, 10);
-    if (isNaN(confirmed) || isNaN(preparing) || isNaN(ready) || confirmed <= 0 || preparing <= 0 || ready <= 0) {
+    if (
+      isNaN(confirmed) ||
+      isNaN(preparing) ||
+      isNaN(ready) ||
+      confirmed <= 0 ||
+      preparing <= 0 ||
+      ready <= 0
+    ) {
       setUrgencySaveError("أدخل أرقاماً صحيحة وأكبر من صفر");
       setTimeout(() => setUrgencySaveError(null), 3000);
       return;
@@ -550,12 +702,15 @@ export default function AdminScreen() {
     setUrgencySaveError(null);
     setUrgencySaveOk(false);
     try {
-      const res = await fetch(`${getApiUrl()}/api/admin/settings/urgency-thresholds`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include", // send the admin session cookie (endpoint is behind requireAdminAuth)
-        body: JSON.stringify({ confirmed, preparing, ready }),
-      });
+      const res = await fetch(
+        `${getApiUrl()}/api/admin/settings/urgency-thresholds`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include", // send the admin session cookie (endpoint is behind requireAdminAuth)
+          body: JSON.stringify({ confirmed, preparing, ready }),
+        },
+      );
       if (res.ok) {
         setUrgencySaveOk(true);
         setTimeout(() => setUrgencySaveOk(false), 3000);
@@ -572,7 +727,11 @@ export default function AdminScreen() {
     }
   };
 
-  const { data: adminUsers = [], isLoading: usersLoading, refetch: refetchUsers } = useQuery<AdminUser[]>({
+  const {
+    data: adminUsers = [],
+    isLoading: usersLoading,
+    refetch: refetchUsers,
+  } = useQuery<AdminUser[]>({
     queryKey: ["/api/admin/users"],
   });
 
@@ -580,19 +739,27 @@ export default function AdminScreen() {
     queryKey: ["/api/admin/banners"],
   });
 
-  const { data: categories = [], isLoading: categoriesLoading } = useQuery<Category[]>({
+  const { data: categories = [], isLoading: categoriesLoading } = useQuery<
+    Category[]
+  >({
     queryKey: ["/api/categories"],
   });
 
-  const { data: products = [], isLoading: productsLoading } = useQuery<Product[]>({
+  const { data: products = [], isLoading: productsLoading } = useQuery<
+    Product[]
+  >({
     queryKey: ["/api/admin/products"],
   });
 
-  const { data: deliveryAreas = [], isLoading: areasLoading } = useQuery<DeliveryArea[]>({
+  const { data: deliveryAreas = [], isLoading: areasLoading } = useQuery<
+    DeliveryArea[]
+  >({
     queryKey: ["/api/admin/delivery-areas"],
   });
 
-  const { data: adminOrders = [], isLoading: ordersLoading } = useQuery<AdminOrder[]>({
+  const { data: adminOrders = [], isLoading: ordersLoading } = useQuery<
+    AdminOrder[]
+  >({
     queryKey: ["/api/admin/orders"],
     refetchInterval: 6000,
   });
@@ -610,7 +777,9 @@ export default function AdminScreen() {
       prevPendingIdsRef.current = new Set(pendingOrders.map((o) => o.id));
       return;
     }
-    const newOrders = pendingOrders.filter((o) => !prevPendingIdsRef.current.has(o.id));
+    const newOrders = pendingOrders.filter(
+      (o) => !prevPendingIdsRef.current.has(o.id),
+    );
     prevPendingIdsRef.current = new Set(pendingOrders.map((o) => o.id));
     if (newOrders.length > 0) {
       playRepeatingAlert(3, 4000);
@@ -621,7 +790,9 @@ export default function AdminScreen() {
     queryKey: ["/api/admin/drivers"],
   });
 
-  const { data: promoCodes = [], isLoading: promoCodesLoading } = useQuery<PromoCode[]>({
+  const { data: promoCodes = [], isLoading: promoCodesLoading } = useQuery<
+    PromoCode[]
+  >({
     queryKey: ["/api/admin/promo-codes"],
   });
 
@@ -635,70 +806,121 @@ export default function AdminScreen() {
     queryKey: ["/api/admin/owner-earnings"],
   });
 
-  const { data: vendorPartnersRaw, isLoading: vendorsLoading, refetch: refetchVendors } = useQuery<{ vendors: VendorPartner[]; total: number }>({
+  const {
+    data: vendorPartnersRaw,
+    isLoading: vendorsLoading,
+    refetch: refetchVendors,
+  } = useQuery<{ vendors: VendorPartner[]; total: number }>({
     queryKey: ["/api/admin/vendor-partners"],
     queryFn: async () => {
-      const res = await fetch(`${getApiUrl()}/api/admin/vendor-partners`, { credentials: "include" });
+      const res = await fetch(`${getApiUrl()}/api/admin/vendor-partners`, {
+        credentials: "include",
+      });
       if (!res.ok) throw new Error("failed");
       return res.json();
     },
   });
   const vendorPartners: VendorPartner[] = vendorPartnersRaw?.vendors ?? [];
 
-  const { data: allVendorProducts, refetch: refetchVendorProducts } = useQuery<{ products: VendorProduct[]; total: number }>({
+  const { data: allVendorProducts, refetch: refetchVendorProducts } = useQuery<{
+    products: VendorProduct[];
+    total: number;
+  }>({
     queryKey: ["/api/admin/vendor-products"],
     queryFn: async () => {
-      const res = await fetch(`${getApiUrl()}/api/admin/vendor-products?status=all`, { credentials: "include" });
+      const res = await fetch(
+        `${getApiUrl()}/api/admin/vendor-products?status=all`,
+        { credentials: "include" },
+      );
       if (!res.ok) throw new Error("failed");
       return res.json();
     },
   });
 
-  const { data: feesSettings, refetch: refetchFees } = useQuery<{ serviceFee: number }>({
+  const { data: feesSettings, refetch: refetchFees } = useQuery<{
+    serviceFee: number;
+  }>({
     queryKey: ["/api/settings/fees"],
   });
 
-  const [selectedVendor, setSelectedVendor] = useState<VendorPartner | null>(null);
-  const [vendorStatusFilter, setVendorStatusFilter] = useState<"all" | "active" | "pending" | "rejected" | "suspended">("all");
+  const [selectedVendor, setSelectedVendor] = useState<VendorPartner | null>(
+    null,
+  );
+  const [vendorStatusFilter, setVendorStatusFilter] = useState<
+    "all" | "active" | "pending" | "rejected" | "suspended"
+  >("all");
   const [isUpdatingVendorStatus, setIsUpdatingVendorStatus] = useState(false);
   const [deletingImageKey, setDeletingImageKey] = useState<string | null>(null);
   const [addVendorProductOpen, setAddVendorProductOpen] = useState(false);
   const [vendorProductForm, setVendorProductForm] = useState({
-    name: "", category: "", price: "", description: "", stock: "0", unit: "قطعة",
-    imageUri: "", imageUrl: "",
+    name: "",
+    category: "",
+    price: "",
+    description: "",
+    stock: "0",
+    unit: "قطعة",
+    imageUri: "",
+    imageUrl: "",
   });
   const [savingVendorProduct, setSavingVendorProduct] = useState(false);
 
   const saveVendorProduct = async (vendorId: string) => {
     if (savingVendorProduct) return;
     const { name, price, category } = vendorProductForm;
-    if (!name.trim()) { Alert.alert("خطأ", "يرجى إدخال اسم المنتج"); return; }
-    if (!price || isNaN(parseFloat(price))) { Alert.alert("خطأ", "يرجى إدخال سعر صحيح"); return; }
-    if (!category) { Alert.alert("خطأ", "يرجى اختيار الفئة"); return; }
+    if (!name.trim()) {
+      Alert.alert("خطأ", "يرجى إدخال اسم المنتج");
+      return;
+    }
+    if (!price || isNaN(parseFloat(price))) {
+      Alert.alert("خطأ", "يرجى إدخال سعر صحيح");
+      return;
+    }
+    if (!category) {
+      Alert.alert("خطأ", "يرجى اختيار الفئة");
+      return;
+    }
     setSavingVendorProduct(true);
     try {
       let finalImageUrl = vendorProductForm.imageUrl;
       if (vendorProductForm.imageUri) {
-        finalImageUrl = await processAndUploadImage(vendorProductForm.imageUri, "product");
+        finalImageUrl = await processAndUploadImage(
+          vendorProductForm.imageUri,
+          "product",
+        );
       }
-      const res = await fetch(`${getApiUrl()}/api/admin/vendors/${vendorId}/products`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({
-          name: name.trim(),
-          price,
-          category,
-          description: vendorProductForm.description.trim(),
-          stock: vendorProductForm.stock || "0",
-          unit: vendorProductForm.unit || "قطعة",
-          imageUrl: finalImageUrl || undefined,
-        }),
-      });
-      if (!res.ok) { const d = await res.json(); throw new Error(d.error || "فشل الحفظ"); }
+      const res = await fetch(
+        `${getApiUrl()}/api/admin/vendors/${vendorId}/products`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({
+            name: name.trim(),
+            price,
+            category,
+            description: vendorProductForm.description.trim(),
+            stock: vendorProductForm.stock || "0",
+            unit: vendorProductForm.unit || "قطعة",
+            imageUrl: finalImageUrl || undefined,
+          }),
+        },
+      );
+      if (!res.ok) {
+        const d = await res.json();
+        throw new Error(d.error || "فشل الحفظ");
+      }
       Alert.alert("تم", "تم إضافة المنتج بنجاح");
       setAddVendorProductOpen(false);
-      setVendorProductForm({ name: "", category: "", price: "", description: "", stock: "0", unit: "قطعة", imageUri: "", imageUrl: "" });
+      setVendorProductForm({
+        name: "",
+        category: "",
+        price: "",
+        description: "",
+        stock: "0",
+        unit: "قطعة",
+        imageUri: "",
+        imageUrl: "",
+      });
       refetchVendorProducts();
     } catch (err: any) {
       Alert.alert("خطأ", err.message || "حدث خطأ");
@@ -708,14 +930,26 @@ export default function AdminScreen() {
   };
 
   const deleteProductImage = useMutation({
-    mutationFn: async ({ pid, imageUrl }: { pid: string; imageUrl: string }) => {
-      const res = await fetch(`${getApiUrl()}/api/admin/vendor-products/${pid}/image`, {
-        method: "DELETE",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ imageUrl }),
-      });
-      if (!res.ok) { const d = await res.json(); throw new Error(d.error || "فشل الحذف"); }
+    mutationFn: async ({
+      pid,
+      imageUrl,
+    }: {
+      pid: string;
+      imageUrl: string;
+    }) => {
+      const res = await fetch(
+        `${getApiUrl()}/api/admin/vendor-products/${pid}/image`,
+        {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ imageUrl }),
+        },
+      );
+      if (!res.ok) {
+        const d = await res.json();
+        throw new Error(d.error || "فشل الحذف");
+      }
       return res.json();
     },
     onSuccess: () => {
@@ -741,16 +975,27 @@ export default function AdminScreen() {
   const [trackingMapHtml, setTrackingMapHtml] = useState<string | null>(null);
   const [trackingDriverName, setTrackingDriverName] = useState<string>("");
   const trackingWebViewRef = useRef<any>(null);
-  const trackingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const trackingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(
+    null,
+  );
 
   const assignDriverMutation = useMutation({
-    mutationFn: async ({ orderId, driverPhone }: { orderId: string; driverPhone: string }) => {
-      const res = await fetch(`${getApiUrl()}/api/admin/orders/${orderId}/assign-driver`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include", // send the admin session cookie (endpoint is behind requireAdminAuth)
-        body: JSON.stringify({ driverPhone }),
-      });
+    mutationFn: async ({
+      orderId,
+      driverPhone,
+    }: {
+      orderId: string;
+      driverPhone: string;
+    }) => {
+      const res = await fetch(
+        `${getApiUrl()}/api/admin/orders/${orderId}/assign-driver`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include", // send the admin session cookie (endpoint is behind requireAdminAuth)
+          body: JSON.stringify({ driverPhone }),
+        },
+      );
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "فشل التعيين");
       return data;
@@ -766,7 +1011,13 @@ export default function AdminScreen() {
   });
 
   const updateDriverStatusMutation = useMutation({
-    mutationFn: async ({ id, status }: { id: string; status: "pending" | "approved" | "rejected" }) => {
+    mutationFn: async ({
+      id,
+      status,
+    }: {
+      id: string;
+      status: "pending" | "approved" | "rejected";
+    }) => {
       await apiRequest("PUT", `/api/admin/drivers/${id}/status`, { status });
     },
     onSuccess: () => {
@@ -777,21 +1028,32 @@ export default function AdminScreen() {
       const isAuth = msg.includes("401") || msg.includes("غير مصرح");
       Alert.alert(
         "خطأ",
-        isAuth
-          ? "انتهت صلاحية الجلسة — سجّل الخروج ثم أعد الدخول"
-          : msg,
+        isAuth ? "انتهت صلاحية الجلسة — سجّل الخروج ثم أعد الدخول" : msg,
       );
     },
   });
 
   const rechargeWalletMutation = useMutation({
-    mutationFn: async ({ phoneNumber, amount }: { phoneNumber: string; amount: number }) => {
-      const res = await fetch(`${getApiUrl()}/api/admin/driver-wallet/payment`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include", // send the admin session cookie (endpoint is behind requireAdminAuth)
-        body: JSON.stringify({ phoneNumber, amount, notes: "دفعة من الإدارة" }),
-      });
+    mutationFn: async ({
+      phoneNumber,
+      amount,
+    }: {
+      phoneNumber: string;
+      amount: number;
+    }) => {
+      const res = await fetch(
+        `${getApiUrl()}/api/admin/driver-wallet/payment`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include", // send the admin session cookie (endpoint is behind requireAdminAuth)
+          body: JSON.stringify({
+            phoneNumber,
+            amount,
+            notes: "دفعة من الإدارة",
+          }),
+        },
+      );
       if (!res.ok) throw new Error("فشل في تسجيل الدفعة");
       return res.json();
     },
@@ -851,7 +1113,9 @@ export default function AdminScreen() {
       await apiRequest("DELETE", `/api/admin/delivery-areas/${id}`);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/admin/delivery-areas"] });
+      queryClient.invalidateQueries({
+        queryKey: ["/api/admin/delivery-areas"],
+      });
       queryClient.invalidateQueries({ queryKey: ["/api/delivery-areas"] });
     },
   });
@@ -870,7 +1134,9 @@ export default function AdminScreen() {
       await apiRequest("DELETE", `/api/admin/vendor-partners/${id}`);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/admin/vendor-partners"] });
+      queryClient.invalidateQueries({
+        queryKey: ["/api/admin/vendor-partners"],
+      });
       queryClient.invalidateQueries({ queryKey: ["/api/vendors"] });
       queryClient.invalidateQueries({ queryKey: ["/api/stores"] });
       setSelectedVendor(null);
@@ -896,7 +1162,7 @@ export default function AdminScreen() {
   const saveBanner = async () => {
     try {
       let imageUrl = bannerForm.imageUrl;
-      
+
       if (bannerForm.imageUri) {
         imageUrl = await processAndUploadImage(bannerForm.imageUri, "banner");
       }
@@ -908,7 +1174,9 @@ export default function AdminScreen() {
         image: imageUrl,
       };
 
-      const url = editItem ? `/api/admin/banners/${editItem.id}` : "/api/admin/banners";
+      const url = editItem
+        ? `/api/admin/banners/${editItem.id}`
+        : "/api/admin/banners";
       const method = editItem ? "PUT" : "POST";
 
       await fetch(`${getApiUrl()}${url}`, {
@@ -928,9 +1196,12 @@ export default function AdminScreen() {
   const saveCategory = async () => {
     try {
       let imageUrl = categoryForm.imageUrl;
-      
+
       if (categoryForm.imageUri) {
-        imageUrl = await processAndUploadImage(categoryForm.imageUri, "category");
+        imageUrl = await processAndUploadImage(
+          categoryForm.imageUri,
+          "category",
+        );
       }
 
       const body = {
@@ -938,7 +1209,9 @@ export default function AdminScreen() {
         image: imageUrl,
       };
 
-      const url = editItem ? `/api/admin/categories/${editItem.id}` : "/api/admin/categories";
+      const url = editItem
+        ? `/api/admin/categories/${editItem.id}`
+        : "/api/admin/categories";
       const method = editItem ? "PUT" : "POST";
 
       const res = await fetch(`${getApiUrl()}${url}`, {
@@ -960,20 +1233,27 @@ export default function AdminScreen() {
       setHasCategoryChanges(true);
       resetForm();
     } catch (error: any) {
-      Alert.alert("خطأ", error?.message ? `فشل في حفظ القسم: ${error.message}` : "فشل في حفظ القسم");
+      Alert.alert(
+        "خطأ",
+        error?.message
+          ? `فشل في حفظ القسم: ${error.message}`
+          : "فشل في حفظ القسم",
+      );
     }
   };
 
   const saveProduct = async () => {
     if (isSavingProduct) return;
-    
-    const url = editItem ? `/api/admin/products/${editItem.id}` : "/api/admin/products";
+
+    const url = editItem
+      ? `/api/admin/products/${editItem.id}`
+      : "/api/admin/products";
     const fullUrl = `${getApiUrl()}${url}`;
-    
+
     setIsSavingProduct(true);
     try {
       let imageUrl: string | null = productForm.imageUrl || null;
-      
+
       if (productForm.imageUri) {
         imageUrl = await processAndUploadImage(productForm.imageUri, "product");
       }
@@ -985,8 +1265,9 @@ export default function AdminScreen() {
         description: productForm.description || "",
         inStock: productForm.inStock,
       };
-      
-      if (productForm.originalPrice) body.originalPrice = productForm.originalPrice;
+
+      if (productForm.originalPrice)
+        body.originalPrice = productForm.originalPrice;
       if (productForm.discount) body.discount = productForm.discount;
       if (imageUrl) body.image = imageUrl;
       if (productForm.categoryId === "restaurants" && productForm.restaurant) {
@@ -1002,18 +1283,21 @@ export default function AdminScreen() {
       });
 
       const responseText = await response.text();
-      
+
       if (!response.ok) {
         throw new Error(`${response.status}: ${responseText}`);
       }
 
       Alert.alert("تم", "تم حفظ المنتج بنجاح");
-      
+
       queryClient.invalidateQueries({ queryKey: ["/api/admin/products"] });
       queryClient.invalidateQueries({ queryKey: ["/api/products"] });
       resetForm();
     } catch (error: any) {
-      Alert.alert("خطأ", `فشل في حفظ المنتج: ${error?.message || "خطأ غير معروف"}`);
+      Alert.alert(
+        "خطأ",
+        `فشل في حفظ المنتج: ${error?.message || "خطأ غير معروف"}`,
+      );
     } finally {
       setIsSavingProduct(false);
     }
@@ -1021,7 +1305,9 @@ export default function AdminScreen() {
 
   const saveArea = async () => {
     try {
-      const url = editItem ? `/api/admin/delivery-areas/${editItem.id}` : "/api/admin/delivery-areas";
+      const url = editItem
+        ? `/api/admin/delivery-areas/${editItem.id}`
+        : "/api/admin/delivery-areas";
       const method = editItem ? "PUT" : "POST";
 
       await fetch(`${getApiUrl()}${url}`, {
@@ -1033,16 +1319,19 @@ export default function AdminScreen() {
         }),
       });
 
-      queryClient.invalidateQueries({ queryKey: ["/api/admin/delivery-areas"] });
+      queryClient.invalidateQueries({
+        queryKey: ["/api/admin/delivery-areas"],
+      });
       queryClient.invalidateQueries({ queryKey: ["/api/delivery-areas"] });
       resetForm();
-    } catch (error) {
-    }
+    } catch (error) {}
   };
 
   const savePromoCode = async () => {
     try {
-      const url = editItem ? `/api/admin/promo-codes/${editItem.id}` : "/api/admin/promo-codes";
+      const url = editItem
+        ? `/api/admin/promo-codes/${editItem.id}`
+        : "/api/admin/promo-codes";
       const method = editItem ? "PUT" : "POST";
 
       const response = await fetch(`${getApiUrl()}${url}`, {
@@ -1063,8 +1352,7 @@ export default function AdminScreen() {
 
       queryClient.invalidateQueries({ queryKey: ["/api/admin/promo-codes"] });
       resetForm();
-    } catch (error: any) {
-    }
+    } catch (error: any) {}
   };
 
   const resetForm = () => {
@@ -1072,7 +1360,18 @@ export default function AdminScreen() {
     setEditItem(null);
     setBannerForm({ title: "", type: "slider", imageUri: "", imageUrl: "" });
     setCategoryForm({ name: "", imageUri: "", imageUrl: "" });
-    setProductForm({ name: "", categoryId: "", price: "", originalPrice: "", discount: "", description: "", inStock: true, imageUri: "", imageUrl: "", restaurant: "" });
+    setProductForm({
+      name: "",
+      categoryId: "",
+      price: "",
+      originalPrice: "",
+      discount: "",
+      description: "",
+      inStock: true,
+      imageUri: "",
+      imageUrl: "",
+      restaurant: "",
+    });
     setAreaForm({ name: "", fee: "" });
     setPromoForm({ code: "", type: "fixed", value: "", expiryDate: "" });
   };
@@ -1082,7 +1381,9 @@ export default function AdminScreen() {
     setIsSavingCategories(true);
     try {
       await queryClient.invalidateQueries({ queryKey: ["/api/categories"] });
-      await queryClient.invalidateQueries({ queryKey: ["/api/admin/categories"] });
+      await queryClient.invalidateQueries({
+        queryKey: ["/api/admin/categories"],
+      });
       await queryClient.refetchQueries({ queryKey: ["/api/categories"] });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       setHasCategoryChanges(false);
@@ -1151,7 +1452,10 @@ export default function AdminScreen() {
     setIsEditing(true);
   };
 
-  const confirmDelete = (id: string, type: "banner" | "category" | "product" | "area" | "promoCode") => {
+  const confirmDelete = (
+    id: string,
+    type: "banner" | "category" | "product" | "area" | "promoCode",
+  ) => {
     if (Platform.OS === "web") {
       if (window.confirm("هل أنت متأكد من الحذف؟")) {
         if (type === "banner") deleteBanner.mutate(id);
@@ -1178,7 +1482,6 @@ export default function AdminScreen() {
     }
   };
 
-
   const renderBannersTab = () => (
     <View>
       <View style={styles.formCard}>
@@ -1187,7 +1490,10 @@ export default function AdminScreen() {
         </ThemedText>
 
         <TextInput
-          style={[styles.input, { backgroundColor: theme.backgroundSecondary, color: theme.text }]}
+          style={[
+            styles.input,
+            { backgroundColor: theme.backgroundSecondary, color: theme.text },
+          ]}
           placeholder="عنوان البانر (اختياري)"
           placeholderTextColor={theme.textSecondary}
           value={bannerForm.title}
@@ -1196,18 +1502,36 @@ export default function AdminScreen() {
 
         <View style={styles.typeSelector}>
           <Pressable
-            style={[styles.typeButton, bannerForm.type === "slider" && styles.typeButtonActive]}
+            style={[
+              styles.typeButton,
+              bannerForm.type === "slider" && styles.typeButtonActive,
+            ]}
             onPress={() => setBannerForm({ ...bannerForm, type: "slider" })}
           >
-            <ThemedText type="body" style={[styles.typeButtonText, bannerForm.type === "slider" && styles.typeButtonTextActive]}>
+            <ThemedText
+              type="body"
+              style={[
+                styles.typeButtonText,
+                bannerForm.type === "slider" && styles.typeButtonTextActive,
+              ]}
+            >
               سلايدر
             </ThemedText>
           </Pressable>
           <Pressable
-            style={[styles.typeButton, bannerForm.type === "offer" && styles.typeButtonActive]}
+            style={[
+              styles.typeButton,
+              bannerForm.type === "offer" && styles.typeButtonActive,
+            ]}
             onPress={() => setBannerForm({ ...bannerForm, type: "offer" })}
           >
-            <ThemedText type="body" style={[styles.typeButtonText, bannerForm.type === "offer" && styles.typeButtonTextActive]}>
+            <ThemedText
+              type="body"
+              style={[
+                styles.typeButtonText,
+                bannerForm.type === "offer" && styles.typeButtonTextActive,
+              ]}
+            >
               عرض رئيسي
             </ThemedText>
           </Pressable>
@@ -1215,14 +1539,27 @@ export default function AdminScreen() {
 
         <Pressable
           style={[styles.imagePicker, { borderColor: theme.border }]}
-          onPress={() => pickImage((uri) => setBannerForm({ ...bannerForm, imageUri: uri, imageUrl: "" }))}
+          onPress={() =>
+            pickImage((uri) =>
+              setBannerForm({ ...bannerForm, imageUri: uri, imageUrl: "" }),
+            )
+          }
         >
           {bannerForm.imageUri || bannerForm.imageUrl ? (
-            <Image source={{ uri: bannerForm.imageUri || resolveImageUrl(bannerForm.imageUrl) }} style={styles.previewImage} contentFit="cover" />
+            <Image
+              source={{
+                uri:
+                  bannerForm.imageUri || resolveImageUrl(bannerForm.imageUrl),
+              }}
+              style={styles.previewImage}
+              contentFit="cover"
+            />
           ) : (
             <View style={styles.imagePickerPlaceholder}>
               <Feather name="image" size={32} color={theme.textSecondary} />
-              <ThemedText type="small" style={{ color: theme.textSecondary }}>اختر صورة</ThemedText>
+              <ThemedText type="small" style={{ color: theme.textSecondary }}>
+                اختر صورة
+              </ThemedText>
             </View>
           )}
         </Pressable>
@@ -1230,38 +1567,73 @@ export default function AdminScreen() {
         <View style={styles.formButtons}>
           {isEditing ? (
             <Pressable style={styles.cancelButton} onPress={resetForm}>
-              <ThemedText type="body" style={styles.cancelButtonText}>إلغاء</ThemedText>
+              <ThemedText type="body" style={styles.cancelButtonText}>
+                إلغاء
+              </ThemedText>
             </Pressable>
           ) : null}
           <Pressable style={styles.saveButton} onPress={saveBanner}>
-            <ThemedText type="body" style={styles.saveButtonText}>{editItem ? "حفظ التعديلات" : "إضافة"}</ThemedText>
+            <ThemedText type="body" style={styles.saveButtonText}>
+              {editItem ? "حفظ التعديلات" : "إضافة"}
+            </ThemedText>
           </Pressable>
         </View>
       </View>
 
-      <ThemedText type="h4" style={styles.listTitle}>البانرات الحالية</ThemedText>
+      <ThemedText type="h4" style={styles.listTitle}>
+        البانرات الحالية
+      </ThemedText>
 
       {bannersLoading ? (
         <ActivityIndicator color={AppColors.primary} />
       ) : (
         banners.map((banner) => (
-          <View key={banner.id} style={[styles.listItem, { backgroundColor: theme.backgroundSecondary }]}>
+          <View
+            key={banner.id}
+            style={[
+              styles.listItem,
+              { backgroundColor: theme.backgroundSecondary },
+            ]}
+          >
             {resolveImageUrl(banner.image) ? (
-              <Image source={{ uri: resolveImageUrl(banner.image) }} style={styles.listItemImage} contentFit="cover" />
+              <Image
+                source={{ uri: resolveImageUrl(banner.image) }}
+                style={styles.listItemImage}
+                contentFit="cover"
+              />
             ) : (
-              <View style={[styles.listItemImage, { backgroundColor: AppColors.gray100, alignItems: "center", justifyContent: "center" }]}>
+              <View
+                style={[
+                  styles.listItemImage,
+                  {
+                    backgroundColor: AppColors.gray100,
+                    alignItems: "center",
+                    justifyContent: "center",
+                  },
+                ]}
+              >
                 <Feather name="image" size={18} color={AppColors.gray400} />
               </View>
             )}
             <View style={styles.listItemContent}>
-              <ThemedText type="body" numberOfLines={1}>{banner.title || "بدون عنوان"}</ThemedText>
-              <ThemedText type="small" style={{ color: theme.textSecondary }}>{banner.type === "offer" ? "عرض رئيسي" : "سلايدر"}</ThemedText>
+              <ThemedText type="body" numberOfLines={1}>
+                {banner.title || "بدون عنوان"}
+              </ThemedText>
+              <ThemedText type="small" style={{ color: theme.textSecondary }}>
+                {banner.type === "offer" ? "عرض رئيسي" : "سلايدر"}
+              </ThemedText>
             </View>
             <View style={styles.listItemActions}>
-              <Pressable onPress={() => handleEditBanner(banner)} style={styles.actionButton}>
+              <Pressable
+                onPress={() => handleEditBanner(banner)}
+                style={styles.actionButton}
+              >
                 <Feather name="edit-2" size={18} color={AppColors.primary} />
               </Pressable>
-              <Pressable onPress={() => confirmDelete(banner.id, "banner")} style={styles.actionButton}>
+              <Pressable
+                onPress={() => confirmDelete(banner.id, "banner")}
+                style={styles.actionButton}
+              >
                 <Feather name="trash-2" size={18} color={AppColors.error} />
               </Pressable>
             </View>
@@ -1274,26 +1646,47 @@ export default function AdminScreen() {
   const renderCategoriesTab = () => (
     <View>
       <View style={styles.formCard}>
-        <ThemedText type="h4" style={styles.formTitle}>{editItem ? "تعديل القسم" : "إضافة قسم جديد"}</ThemedText>
+        <ThemedText type="h4" style={styles.formTitle}>
+          {editItem ? "تعديل القسم" : "إضافة قسم جديد"}
+        </ThemedText>
 
         <TextInput
-          style={[styles.input, { backgroundColor: theme.backgroundSecondary, color: theme.text }]}
+          style={[
+            styles.input,
+            { backgroundColor: theme.backgroundSecondary, color: theme.text },
+          ]}
           placeholder="اسم القسم"
           placeholderTextColor={theme.textSecondary}
           value={categoryForm.name}
-          onChangeText={(text) => setCategoryForm({ ...categoryForm, name: text })}
+          onChangeText={(text) =>
+            setCategoryForm({ ...categoryForm, name: text })
+          }
         />
 
         <Pressable
           style={[styles.imagePicker, { borderColor: theme.border }]}
-          onPress={() => pickImage((uri) => setCategoryForm({ ...categoryForm, imageUri: uri, imageUrl: "" }))}
+          onPress={() =>
+            pickImage((uri) =>
+              setCategoryForm({ ...categoryForm, imageUri: uri, imageUrl: "" }),
+            )
+          }
         >
           {categoryForm.imageUri || categoryForm.imageUrl ? (
-            <Image source={{ uri: categoryForm.imageUri || resolveImageUrl(categoryForm.imageUrl) }} style={styles.previewImage} contentFit="cover" />
+            <Image
+              source={{
+                uri:
+                  categoryForm.imageUri ||
+                  resolveImageUrl(categoryForm.imageUrl),
+              }}
+              style={styles.previewImage}
+              contentFit="cover"
+            />
           ) : (
             <View style={styles.imagePickerPlaceholder}>
               <Feather name="image" size={32} color={theme.textSecondary} />
-              <ThemedText type="small" style={{ color: theme.textSecondary }}>اختر صورة</ThemedText>
+              <ThemedText type="small" style={{ color: theme.textSecondary }}>
+                اختر صورة
+              </ThemedText>
             </View>
           )}
         </Pressable>
@@ -1301,31 +1694,55 @@ export default function AdminScreen() {
         <View style={styles.formButtons}>
           {isEditing ? (
             <Pressable style={styles.cancelButton} onPress={resetForm}>
-              <ThemedText type="body" style={styles.cancelButtonText}>إلغاء</ThemedText>
+              <ThemedText type="body" style={styles.cancelButtonText}>
+                إلغاء
+              </ThemedText>
             </Pressable>
           ) : null}
           <Pressable style={styles.saveButton} onPress={saveCategory}>
-            <ThemedText type="body" style={styles.saveButtonText}>{editItem ? "حفظ التعديلات" : "إضافة"}</ThemedText>
+            <ThemedText type="body" style={styles.saveButtonText}>
+              {editItem ? "حفظ التعديلات" : "إضافة"}
+            </ThemedText>
           </Pressable>
         </View>
       </View>
 
-      <ThemedText type="h4" style={styles.listTitle}>الأقسام الحالية</ThemedText>
+      <ThemedText type="h4" style={styles.listTitle}>
+        الأقسام الحالية
+      </ThemedText>
 
       {categoriesLoading ? (
         <ActivityIndicator color={AppColors.primary} />
       ) : (
         categories.map((category) => (
-          <View key={category.id} style={[styles.listItem, { backgroundColor: theme.backgroundSecondary }]}>
-            <Image source={{ uri: resolveImageUrl(category.image) }} style={styles.listItemImage} contentFit="cover" />
+          <View
+            key={category.id}
+            style={[
+              styles.listItem,
+              { backgroundColor: theme.backgroundSecondary },
+            ]}
+          >
+            <Image
+              source={{ uri: resolveImageUrl(category.image) }}
+              style={styles.listItemImage}
+              contentFit="cover"
+            />
             <View style={styles.listItemContent}>
-              <ThemedText type="body" numberOfLines={1}>{category.name}</ThemedText>
+              <ThemedText type="body" numberOfLines={1}>
+                {category.name}
+              </ThemedText>
             </View>
             <View style={styles.listItemActions}>
-              <Pressable onPress={() => handleEditCategory(category)} style={styles.actionButton}>
+              <Pressable
+                onPress={() => handleEditCategory(category)}
+                style={styles.actionButton}
+              >
                 <Feather name="edit-2" size={18} color={AppColors.primary} />
               </Pressable>
-              <Pressable onPress={() => confirmDelete(category.id, "category")} style={styles.actionButton}>
+              <Pressable
+                onPress={() => confirmDelete(category.id, "category")}
+                style={styles.actionButton}
+              >
                 <Feather name="trash-2" size={18} color={AppColors.error} />
               </Pressable>
             </View>
@@ -1337,7 +1754,10 @@ export default function AdminScreen() {
         <Pressable
           testID="button-save-category-changes"
           onPress={saveCategoryChanges}
-          style={[styles.saveCategoryChangesBtn, isSavingCategories && { opacity: 0.7 }]}
+          style={[
+            styles.saveCategoryChangesBtn,
+            isSavingCategories && { opacity: 0.7 },
+          ]}
         >
           {isSavingCategories ? (
             <ActivityIndicator size="small" color={AppColors.white} />
@@ -1355,26 +1775,55 @@ export default function AdminScreen() {
   const renderProductsTab = () => (
     <View>
       <View style={styles.formCard}>
-        <ThemedText type="h4" style={styles.formTitle}>{editItem ? "تعديل المنتج" : "إضافة منتج جديد"}</ThemedText>
+        <ThemedText type="h4" style={styles.formTitle}>
+          {editItem ? "تعديل المنتج" : "إضافة منتج جديد"}
+        </ThemedText>
 
         <TextInput
-          style={[styles.input, { backgroundColor: theme.backgroundSecondary, color: theme.text }]}
+          style={[
+            styles.input,
+            { backgroundColor: theme.backgroundSecondary, color: theme.text },
+          ]}
           placeholder="اسم المنتج"
           placeholderTextColor={theme.textSecondary}
           value={productForm.name}
-          onChangeText={(text) => setProductForm({ ...productForm, name: text })}
+          onChangeText={(text) =>
+            setProductForm({ ...productForm, name: text })
+          }
         />
 
         <View style={styles.categorySelector}>
-          <ThemedText type="small" style={[styles.fieldLabel, { color: theme.textSecondary }]}>القسم:</ThemedText>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.categoryScroll}>
+          <ThemedText
+            type="small"
+            style={[styles.fieldLabel, { color: theme.textSecondary }]}
+          >
+            القسم:
+          </ThemedText>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={styles.categoryScroll}
+          >
             {categories.map((cat) => (
               <Pressable
                 key={cat.id}
-                style={[styles.categoryChip, productForm.categoryId === cat.id && styles.categoryChipActive]}
-                onPress={() => setProductForm({ ...productForm, categoryId: cat.id })}
+                style={[
+                  styles.categoryChip,
+                  productForm.categoryId === cat.id &&
+                    styles.categoryChipActive,
+                ]}
+                onPress={() =>
+                  setProductForm({ ...productForm, categoryId: cat.id })
+                }
               >
-                <ThemedText type="small" style={[styles.categoryChipText, productForm.categoryId === cat.id && styles.categoryChipTextActive]}>
+                <ThemedText
+                  type="small"
+                  style={[
+                    styles.categoryChipText,
+                    productForm.categoryId === cat.id &&
+                      styles.categoryChipTextActive,
+                  ]}
+                >
                   {cat.name}
                 </ThemedText>
               </Pressable>
@@ -1384,47 +1833,79 @@ export default function AdminScreen() {
 
         {productForm.categoryId === "restaurants" ? (
           <TextInput
-            style={[styles.input, { backgroundColor: theme.backgroundSecondary, color: theme.text }]}
+            style={[
+              styles.input,
+              { backgroundColor: theme.backgroundSecondary, color: theme.text },
+            ]}
             placeholder="اسم المطعم (مثال: يلا ايت)"
             placeholderTextColor={theme.textSecondary}
             value={productForm.restaurant}
-            onChangeText={(text) => setProductForm({ ...productForm, restaurant: text })}
+            onChangeText={(text) =>
+              setProductForm({ ...productForm, restaurant: text })
+            }
           />
         ) : null}
 
         <View style={styles.priceRow}>
           <TextInput
-            style={[styles.input, styles.priceInput, { backgroundColor: theme.backgroundSecondary, color: theme.text }]}
+            style={[
+              styles.input,
+              styles.priceInput,
+              { backgroundColor: theme.backgroundSecondary, color: theme.text },
+            ]}
             placeholder="السعر (د.ع)"
             placeholderTextColor={theme.textSecondary}
             value={productForm.price}
-            onChangeText={(text) => setProductForm({ ...productForm, price: text })}
+            onChangeText={(text) =>
+              setProductForm({ ...productForm, price: text })
+            }
             keyboardType="numeric"
           />
           <TextInput
-            style={[styles.input, styles.priceInput, { backgroundColor: theme.backgroundSecondary, color: theme.text }]}
+            style={[
+              styles.input,
+              styles.priceInput,
+              { backgroundColor: theme.backgroundSecondary, color: theme.text },
+            ]}
             placeholder="السعر الأصلي (اختياري)"
             placeholderTextColor={theme.textSecondary}
             value={productForm.originalPrice}
-            onChangeText={(text) => setProductForm({ ...productForm, originalPrice: text })}
+            onChangeText={(text) =>
+              setProductForm({ ...productForm, originalPrice: text })
+            }
             keyboardType="numeric"
           />
         </View>
 
         <View style={styles.priceRow}>
           <TextInput
-            style={[styles.input, styles.priceInput, { backgroundColor: theme.backgroundSecondary, color: theme.text }]}
+            style={[
+              styles.input,
+              styles.priceInput,
+              { backgroundColor: theme.backgroundSecondary, color: theme.text },
+            ]}
             placeholder="نسبة الخصم % (اختياري)"
             placeholderTextColor={theme.textSecondary}
             value={productForm.discount}
-            onChangeText={(text) => setProductForm({ ...productForm, discount: text })}
+            onChangeText={(text) =>
+              setProductForm({ ...productForm, discount: text })
+            }
             keyboardType="numeric"
           />
-          <View style={[styles.switchContainer, { backgroundColor: theme.backgroundSecondary }]}>
-            <ThemedText type="small" style={{ color: theme.textSecondary }}>متوفر</ThemedText>
+          <View
+            style={[
+              styles.switchContainer,
+              { backgroundColor: theme.backgroundSecondary },
+            ]}
+          >
+            <ThemedText type="small" style={{ color: theme.textSecondary }}>
+              متوفر
+            </ThemedText>
             <Switch
               value={productForm.inStock}
-              onValueChange={(value) => setProductForm({ ...productForm, inStock: value })}
+              onValueChange={(value) =>
+                setProductForm({ ...productForm, inStock: value })
+              }
               trackColor={{ false: AppColors.gray300, true: AppColors.primary }}
               thumbColor={AppColors.white}
             />
@@ -1432,25 +1913,44 @@ export default function AdminScreen() {
         </View>
 
         <TextInput
-          style={[styles.input, styles.descInput, { backgroundColor: theme.backgroundSecondary, color: theme.text }]}
+          style={[
+            styles.input,
+            styles.descInput,
+            { backgroundColor: theme.backgroundSecondary, color: theme.text },
+          ]}
           placeholder="وصف المنتج"
           placeholderTextColor={theme.textSecondary}
           value={productForm.description}
-          onChangeText={(text) => setProductForm({ ...productForm, description: text })}
+          onChangeText={(text) =>
+            setProductForm({ ...productForm, description: text })
+          }
           multiline
           numberOfLines={3}
         />
 
         <Pressable
           style={[styles.imagePicker, { borderColor: theme.border }]}
-          onPress={() => pickImage((uri) => setProductForm({ ...productForm, imageUri: uri, imageUrl: "" }))}
+          onPress={() =>
+            pickImage((uri) =>
+              setProductForm({ ...productForm, imageUri: uri, imageUrl: "" }),
+            )
+          }
         >
           {productForm.imageUri || productForm.imageUrl ? (
-            <Image source={{ uri: productForm.imageUri || resolveImageUrl(productForm.imageUrl) }} style={styles.previewImage} contentFit="cover" />
+            <Image
+              source={{
+                uri:
+                  productForm.imageUri || resolveImageUrl(productForm.imageUrl),
+              }}
+              style={styles.previewImage}
+              contentFit="cover"
+            />
           ) : (
             <View style={styles.imagePickerPlaceholder}>
               <Feather name="image" size={32} color={theme.textSecondary} />
-              <ThemedText type="small" style={{ color: theme.textSecondary }}>اختر صورة المنتج</ThemedText>
+              <ThemedText type="small" style={{ color: theme.textSecondary }}>
+                اختر صورة المنتج
+              </ThemedText>
             </View>
           )}
         </Pressable>
@@ -1458,50 +1958,100 @@ export default function AdminScreen() {
         <View style={styles.formButtons}>
           {isEditing ? (
             <Pressable style={styles.cancelButton} onPress={resetForm}>
-              <ThemedText type="body" style={styles.cancelButtonText}>إلغاء</ThemedText>
+              <ThemedText type="body" style={styles.cancelButtonText}>
+                إلغاء
+              </ThemedText>
             </Pressable>
           ) : null}
-          <Pressable style={[styles.saveButton, isSavingProduct && { opacity: 0.7 }]} onPress={saveProduct} disabled={isSavingProduct}>
+          <Pressable
+            style={[styles.saveButton, isSavingProduct && { opacity: 0.7 }]}
+            onPress={saveProduct}
+            disabled={isSavingProduct}
+          >
             {isSavingProduct ? (
               <ActivityIndicator color={AppColors.white} size="small" />
             ) : (
-              <ThemedText type="body" style={styles.saveButtonText}>{editItem ? "حفظ التعديلات" : "إضافة"}</ThemedText>
+              <ThemedText type="body" style={styles.saveButtonText}>
+                {editItem ? "حفظ التعديلات" : "إضافة"}
+              </ThemedText>
             )}
           </Pressable>
         </View>
       </View>
 
-      <ThemedText type="h4" style={styles.listTitle}>المنتجات الحالية ({products.length})</ThemedText>
+      <ThemedText type="h4" style={styles.listTitle}>
+        المنتجات الحالية ({products.length})
+      </ThemedText>
 
       {productsLoading ? (
         <ActivityIndicator color={AppColors.primary} />
       ) : (
         products.map((product) => (
-          <View key={product.id} style={[styles.listItem, { backgroundColor: theme.backgroundSecondary }]}>
-            <Image source={{ uri: resolveImageUrl(product.image) }} style={styles.listItemImage} contentFit="cover" />
+          <View
+            key={product.id}
+            style={[
+              styles.listItem,
+              { backgroundColor: theme.backgroundSecondary },
+            ]}
+          >
+            <Image
+              source={{ uri: resolveImageUrl(product.image) }}
+              style={styles.listItemImage}
+              contentFit="cover"
+            />
             <View style={styles.listItemContent}>
-              <ThemedText type="body" numberOfLines={1}>{product.name}</ThemedText>
+              <ThemedText type="body" numberOfLines={1}>
+                {product.name}
+              </ThemedText>
               <View style={styles.productPriceRow}>
-                <ThemedText type="small" style={{ color: AppColors.primary, fontWeight: FontWeight.semiBold }}>
+                <ThemedText
+                  type="small"
+                  style={{
+                    color: AppColors.primary,
+                    fontWeight: FontWeight.semiBold,
+                  }}
+                >
                   {formatPrice(product.price)}
                 </ThemedText>
                 {(product as any).restaurant ? (
-                  <View style={[styles.discountBadge, { backgroundColor: "#FB5B2120" }]}>
-                    <ThemedText type="small" style={{ color: AppColors.primary, fontWeight: FontWeight.semiBold, fontSize: 10 }}>{(product as any).restaurant}</ThemedText>
+                  <View
+                    style={[
+                      styles.discountBadge,
+                      { backgroundColor: "#FB5B2120" },
+                    ]}
+                  >
+                    <ThemedText
+                      type="small"
+                      style={{
+                        color: AppColors.primary,
+                        fontWeight: FontWeight.semiBold,
+                        fontSize: 10,
+                      }}
+                    >
+                      {(product as any).restaurant}
+                    </ThemedText>
                   </View>
                 ) : null}
                 {product.discount ? (
                   <View style={styles.discountBadge}>
-                    <ThemedText type="small" style={styles.discountText}>-{product.discount}%</ThemedText>
+                    <ThemedText type="small" style={styles.discountText}>
+                      -{product.discount}%
+                    </ThemedText>
                   </View>
                 ) : null}
               </View>
             </View>
             <View style={styles.listItemActions}>
-              <Pressable onPress={() => handleEditProduct(product)} style={styles.actionButton}>
+              <Pressable
+                onPress={() => handleEditProduct(product)}
+                style={styles.actionButton}
+              >
                 <Feather name="edit-2" size={18} color={AppColors.primary} />
               </Pressable>
-              <Pressable onPress={() => confirmDelete(product.id, "product")} style={styles.actionButton}>
+              <Pressable
+                onPress={() => confirmDelete(product.id, "product")}
+                style={styles.actionButton}
+              >
                 <Feather name="trash-2" size={18} color={AppColors.error} />
               </Pressable>
             </View>
@@ -1514,10 +2064,15 @@ export default function AdminScreen() {
   const renderAreasTab = () => (
     <View>
       <View style={styles.formCard}>
-        <ThemedText type="h4" style={styles.formTitle}>{editItem ? "تعديل المنطقة" : "إضافة منطقة جديدة"}</ThemedText>
+        <ThemedText type="h4" style={styles.formTitle}>
+          {editItem ? "تعديل المنطقة" : "إضافة منطقة جديدة"}
+        </ThemedText>
 
         <TextInput
-          style={[styles.input, { backgroundColor: theme.backgroundSecondary, color: theme.text }]}
+          style={[
+            styles.input,
+            { backgroundColor: theme.backgroundSecondary, color: theme.text },
+          ]}
           placeholder="اسم المنطقة"
           placeholderTextColor={theme.textSecondary}
           value={areaForm.name}
@@ -1525,7 +2080,10 @@ export default function AdminScreen() {
         />
 
         <TextInput
-          style={[styles.input, { backgroundColor: theme.backgroundSecondary, color: theme.text }]}
+          style={[
+            styles.input,
+            { backgroundColor: theme.backgroundSecondary, color: theme.text },
+          ]}
           placeholder="أجور التوصيل (د.ع)"
           placeholderTextColor={theme.textSecondary}
           value={areaForm.fee}
@@ -1536,36 +2094,62 @@ export default function AdminScreen() {
         <View style={styles.formButtons}>
           {isEditing ? (
             <Pressable style={styles.cancelButton} onPress={resetForm}>
-              <ThemedText type="body" style={styles.cancelButtonText}>إلغاء</ThemedText>
+              <ThemedText type="body" style={styles.cancelButtonText}>
+                إلغاء
+              </ThemedText>
             </Pressable>
           ) : null}
           <Pressable style={styles.saveButton} onPress={saveArea}>
-            <ThemedText type="body" style={styles.saveButtonText}>{editItem ? "حفظ التعديلات" : "إضافة"}</ThemedText>
+            <ThemedText type="body" style={styles.saveButtonText}>
+              {editItem ? "حفظ التعديلات" : "إضافة"}
+            </ThemedText>
           </Pressable>
         </View>
       </View>
 
-      <ThemedText type="h4" style={styles.listTitle}>مناطق التوصيل الحالية</ThemedText>
+      <ThemedText type="h4" style={styles.listTitle}>
+        مناطق التوصيل الحالية
+      </ThemedText>
 
       {areasLoading ? (
         <ActivityIndicator color={AppColors.primary} />
       ) : (
         deliveryAreas.map((area) => (
-          <View key={area.id} style={[styles.listItem, { backgroundColor: theme.backgroundSecondary }]}>
+          <View
+            key={area.id}
+            style={[
+              styles.listItem,
+              { backgroundColor: theme.backgroundSecondary },
+            ]}
+          >
             <View style={styles.areaIcon}>
               <Feather name="map-pin" size={24} color={AppColors.primary} />
             </View>
             <View style={styles.listItemContent}>
-              <ThemedText type="body" numberOfLines={1}>{area.name}</ThemedText>
-              <ThemedText type="small" style={{ color: AppColors.primary, fontWeight: FontWeight.semiBold }}>
+              <ThemedText type="body" numberOfLines={1}>
+                {area.name}
+              </ThemedText>
+              <ThemedText
+                type="small"
+                style={{
+                  color: AppColors.primary,
+                  fontWeight: FontWeight.semiBold,
+                }}
+              >
                 {formatPrice(area.fee)}
               </ThemedText>
             </View>
             <View style={styles.listItemActions}>
-              <Pressable onPress={() => handleEditArea(area)} style={styles.actionButton}>
+              <Pressable
+                onPress={() => handleEditArea(area)}
+                style={styles.actionButton}
+              >
                 <Feather name="edit-2" size={18} color={AppColors.primary} />
               </Pressable>
-              <Pressable onPress={() => confirmDelete(area.id, "area")} style={styles.actionButton}>
+              <Pressable
+                onPress={() => confirmDelete(area.id, "area")}
+                style={styles.actionButton}
+              >
                 <Feather name="trash-2" size={18} color={AppColors.error} />
               </Pressable>
             </View>
@@ -1608,9 +2192,13 @@ export default function AdminScreen() {
   };
 
   // Approved drivers for assignment picker
-  const approvedDrivers = drivers.filter(d => d.status === "approved");
+  const approvedDrivers = drivers.filter((d) => d.status === "approved");
 
-  const getAdminTrackingMapHTML = (driverLat: number, driverLng: number, driverName: string) => `
+  const getAdminTrackingMapHTML = (
+    driverLat: number,
+    driverLng: number,
+    driverName: string,
+  ) => `
 <!DOCTYPE html><html dir="rtl" lang="ar"><head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no"/>
@@ -1645,18 +2233,37 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
     setTrackingMapHtml(null);
     setTrackingDriverName("");
     try {
-      const res = await fetch(new URL(`/api/orders/${orderId}/driver-location`, getApiUrl()).toString());
+      const res = await fetch(
+        new URL(
+          `/api/orders/${orderId}/driver-location`,
+          getApiUrl(),
+        ).toString(),
+      );
       const data = await res.json();
       if (data.available) {
         setTrackingDriverName(data.fullName || "المندوب");
-        setTrackingMapHtml(getAdminTrackingMapHTML(data.lat, data.lng, data.fullName || "المندوب"));
-        if (trackingIntervalRef.current) clearInterval(trackingIntervalRef.current);
+        setTrackingMapHtml(
+          getAdminTrackingMapHTML(
+            data.lat,
+            data.lng,
+            data.fullName || "المندوب",
+          ),
+        );
+        if (trackingIntervalRef.current)
+          clearInterval(trackingIntervalRef.current);
         trackingIntervalRef.current = setInterval(async () => {
           try {
-            const r2 = await fetch(new URL(`/api/orders/${orderId}/driver-location`, getApiUrl()).toString());
+            const r2 = await fetch(
+              new URL(
+                `/api/orders/${orderId}/driver-location`,
+                getApiUrl(),
+              ).toString(),
+            );
             const d2 = await r2.json();
             if (d2.available && trackingWebViewRef.current) {
-              trackingWebViewRef.current.injectJavaScript(`updateDriverLocation(${d2.lat},${d2.lng});true;`);
+              trackingWebViewRef.current.injectJavaScript(
+                `updateDriverLocation(${d2.lat},${d2.lng});true;`,
+              );
             }
           } catch {}
         }, 8000);
@@ -1667,7 +2274,10 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
   const closeTrackingModal = useCallback(() => {
     setTrackingOrderId(null);
     setTrackingMapHtml(null);
-    if (trackingIntervalRef.current) { clearInterval(trackingIntervalRef.current); trackingIntervalRef.current = null; }
+    if (trackingIntervalRef.current) {
+      clearInterval(trackingIntervalRef.current);
+      trackingIntervalRef.current = null;
+    }
   }, []);
 
   const renderTrackingModal = () => {
@@ -1675,19 +2285,59 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
     return (
       <Modal visible animationType="slide" onRequestClose={closeTrackingModal}>
         <View style={{ flex: 1, backgroundColor: AppColors.black }}>
-          <View style={{ flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between", backgroundColor: AppColors.black, paddingHorizontal: Spacing.lg, paddingTop: 50, paddingBottom: Spacing.md }}>
+          <View
+            style={{
+              flexDirection: "row-reverse",
+              alignItems: "center",
+              justifyContent: "space-between",
+              backgroundColor: AppColors.black,
+              paddingHorizontal: Spacing.lg,
+              paddingTop: 50,
+              paddingBottom: Spacing.md,
+            }}
+          >
             <Pressable onPress={closeTrackingModal} style={{ padding: 8 }}>
               <Feather name="x" size={24} color={AppColors.white} />
             </Pressable>
-            <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: Spacing.sm }}>
-              <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: AppColors.success }} />
-              <ThemedText type="h4" style={{ color: AppColors.white }}>تتبع المندوب {trackingDriverName ? `— ${trackingDriverName}` : ""}</ThemedText>
+            <View
+              style={{
+                flexDirection: "row-reverse",
+                alignItems: "center",
+                gap: Spacing.sm,
+              }}
+            >
+              <View
+                style={{
+                  width: 8,
+                  height: 8,
+                  borderRadius: 4,
+                  backgroundColor: AppColors.success,
+                }}
+              />
+              <ThemedText type="h4" style={{ color: AppColors.white }}>
+                تتبع المندوب{" "}
+                {trackingDriverName ? `— ${trackingDriverName}` : ""}
+              </ThemedText>
             </View>
           </View>
           {Platform.OS === "web" ? (
-            <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
+            <View
+              style={{
+                flex: 1,
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
               <Feather name="smartphone" size={48} color={AppColors.primary} />
-              <ThemedText type="body" style={{ color: AppColors.white, marginTop: Spacing.md, textAlign: "center", paddingHorizontal: Spacing.xl }}>
+              <ThemedText
+                type="body"
+                style={{
+                  color: AppColors.white,
+                  marginTop: Spacing.md,
+                  textAlign: "center",
+                  paddingHorizontal: Spacing.xl,
+                }}
+              >
                 التتبع المباشر متاح في تطبيق الجوال فقط
               </ThemedText>
             </View>
@@ -1701,9 +2351,18 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
               scrollEnabled={false}
             />
           ) : (
-            <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
+            <View
+              style={{
+                flex: 1,
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
               <ActivityIndicator size="large" color={AppColors.primary} />
-              <ThemedText type="body" style={{ color: AppColors.white, marginTop: Spacing.md }}>
+              <ThemedText
+                type="body"
+                style={{ color: AppColors.white, marginTop: Spacing.md }}
+              >
                 جاري تحديد موقع المندوب...
               </ThemedText>
             </View>
@@ -1717,49 +2376,109 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
     if (!assigningOrderId) return null;
     return (
       <View style={styles.modalOverlay}>
-        <View style={[styles.modalBox, { backgroundColor: theme.backgroundDefault }]}>
-          <ThemedText type="h4" style={{ textAlign: "center", marginBottom: Spacing.md }}>اختر السائق</ThemedText>
+        <View
+          style={[
+            styles.modalBox,
+            { backgroundColor: theme.backgroundDefault },
+          ]}
+        >
+          <ThemedText
+            type="h4"
+            style={{ textAlign: "center", marginBottom: Spacing.md }}
+          >
+            اختر السائق
+          </ThemedText>
           {assignError ? (
-            <ThemedText type="small" style={{ color: AppColors.error, textAlign: "center", marginBottom: Spacing.sm }}>
+            <ThemedText
+              type="small"
+              style={{
+                color: AppColors.error,
+                textAlign: "center",
+                marginBottom: Spacing.sm,
+              }}
+            >
               {assignError}
             </ThemedText>
           ) : null}
           {approvedDrivers.length === 0 ? (
-            <ThemedText type="body" style={{ color: theme.textSecondary, textAlign: "center", marginBottom: Spacing.lg }}>
+            <ThemedText
+              type="body"
+              style={{
+                color: theme.textSecondary,
+                textAlign: "center",
+                marginBottom: Spacing.lg,
+              }}
+            >
               لا يوجد سائقون مفعّلون
             </ThemedText>
           ) : (
-            approvedDrivers.map(drv => {
-              const name = [drv.firstName, drv.secondName].filter(Boolean).join(" ") || drv.fullName || drv.phoneNumber;
+            approvedDrivers.map((drv) => {
+              const name =
+                [drv.firstName, drv.secondName].filter(Boolean).join(" ") ||
+                drv.fullName ||
+                drv.phoneNumber;
               return (
                 <Pressable
                   key={drv.id}
-                  style={[styles.driverPickerRow, { backgroundColor: theme.backgroundSecondary }]}
+                  style={[
+                    styles.driverPickerRow,
+                    { backgroundColor: theme.backgroundSecondary },
+                  ]}
                   onPress={() => {
                     setAssignError(null);
-                    assignDriverMutation.mutate({ orderId: assigningOrderId, driverPhone: drv.phoneNumber });
+                    assignDriverMutation.mutate({
+                      orderId: assigningOrderId,
+                      driverPhone: drv.phoneNumber,
+                    });
                   }}
                   disabled={assignDriverMutation.isPending}
                 >
                   <Feather name="user" size={18} color={AppColors.primary} />
                   <View style={{ flex: 1, marginRight: Spacing.sm }}>
-                    <ThemedText type="body" style={{ fontWeight: FontWeight.bold }}>{name}</ThemedText>
-                    <ThemedText type="small" style={{ color: theme.textSecondary }}>{drv.phoneNumber}</ThemedText>
+                    <ThemedText
+                      type="body"
+                      style={{ fontWeight: FontWeight.bold }}
+                    >
+                      {name}
+                    </ThemedText>
+                    <ThemedText
+                      type="small"
+                      style={{ color: theme.textSecondary }}
+                    >
+                      {drv.phoneNumber}
+                    </ThemedText>
                   </View>
                   {assignDriverMutation.isPending ? (
                     <ActivityIndicator size="small" color={AppColors.primary} />
                   ) : (
-                    <Feather name="chevron-left" size={18} color={theme.textSecondary} />
+                    <Feather
+                      name="chevron-left"
+                      size={18}
+                      color={theme.textSecondary}
+                    />
                   )}
                 </Pressable>
               );
             })
           )}
           <Pressable
-            style={[styles.statusBtn, { backgroundColor: AppColors.gray500, marginTop: Spacing.md, alignSelf: "center", paddingHorizontal: Spacing.xl }]}
-            onPress={() => { setAssigningOrderId(null); setAssignError(null); }}
+            style={[
+              styles.statusBtn,
+              {
+                backgroundColor: AppColors.gray500,
+                marginTop: Spacing.md,
+                alignSelf: "center",
+                paddingHorizontal: Spacing.xl,
+              },
+            ]}
+            onPress={() => {
+              setAssigningOrderId(null);
+              setAssignError(null);
+            }}
           >
-            <ThemedText type="small" style={{ color: AppColors.white }}>إلغاء</ThemedText>
+            <ThemedText type="small" style={{ color: AppColors.white }}>
+              إلغاء
+            </ThemedText>
           </Pressable>
         </View>
       </View>
@@ -1769,97 +2488,322 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
   const renderOrdersTab = () => (
     <View>
       {ownerEarnings ? (
-        <View style={[styles.formCard, { backgroundColor: theme.backgroundSecondary, marginBottom: Spacing.lg }]}>
-          <ThemedText type="h4" style={{ textAlign: "right", color: theme.text, marginBottom: Spacing.md }}>
+        <View
+          style={[
+            styles.formCard,
+            {
+              backgroundColor: theme.backgroundSecondary,
+              marginBottom: Spacing.lg,
+            },
+          ]}
+        >
+          <ThemedText
+            type="h4"
+            style={{
+              textAlign: "right",
+              color: theme.text,
+              marginBottom: Spacing.md,
+            }}
+          >
             ملخص الأرباح والعمولات
           </ThemedText>
 
           {/* Stats row */}
-          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: Spacing.sm, marginBottom: Spacing.lg }}>
-            <View style={{ flex: 1, minWidth: 120, backgroundColor: "#4CAF5015", padding: Spacing.md, borderRadius: BorderRadius.lg, alignItems: "center" }}>
+          <View
+            style={{
+              flexDirection: "row",
+              flexWrap: "wrap",
+              gap: Spacing.sm,
+              marginBottom: Spacing.lg,
+            }}
+          >
+            <View
+              style={{
+                flex: 1,
+                minWidth: 120,
+                backgroundColor: "#4CAF5015",
+                padding: Spacing.md,
+                borderRadius: BorderRadius.lg,
+                alignItems: "center",
+              }}
+            >
               <Feather name="trending-up" size={20} color={AppColors.success} />
-              <ThemedText type="h3" style={{ color: AppColors.success, marginTop: Spacing.xs }}>{formatPrice(ownerEarnings.totalOwnerEarnings)}</ThemedText>
-              <ThemedText type="small" style={{ color: theme.textSecondary, textAlign: "center" }}>عمولة التطبيق</ThemedText>
+              <ThemedText
+                type="h3"
+                style={{ color: AppColors.success, marginTop: Spacing.xs }}
+              >
+                {formatPrice(ownerEarnings.totalOwnerEarnings)}
+              </ThemedText>
+              <ThemedText
+                type="small"
+                style={{ color: theme.textSecondary, textAlign: "center" }}
+              >
+                عمولة التطبيق
+              </ThemedText>
             </View>
-            <View style={{ flex: 1, minWidth: 120, backgroundColor: "#2196F315", padding: Spacing.md, borderRadius: BorderRadius.lg, alignItems: "center" }}>
+            <View
+              style={{
+                flex: 1,
+                minWidth: 120,
+                backgroundColor: "#2196F315",
+                padding: Spacing.md,
+                borderRadius: BorderRadius.lg,
+                alignItems: "center",
+              }}
+            >
               <Feather name="truck" size={20} color={AppColors.info} />
-              <ThemedText type="h3" style={{ color: AppColors.info, marginTop: Spacing.xs }}>{formatPrice(ownerEarnings.totalDriverEarnings)}</ThemedText>
-              <ThemedText type="small" style={{ color: theme.textSecondary, textAlign: "center" }}>أرباح السائقين</ThemedText>
+              <ThemedText
+                type="h3"
+                style={{ color: AppColors.info, marginTop: Spacing.xs }}
+              >
+                {formatPrice(ownerEarnings.totalDriverEarnings)}
+              </ThemedText>
+              <ThemedText
+                type="small"
+                style={{ color: theme.textSecondary, textAlign: "center" }}
+              >
+                أرباح السائقين
+              </ThemedText>
             </View>
-            <View style={{ flex: 1, minWidth: 120, backgroundColor: "#FF962215", padding: Spacing.md, borderRadius: BorderRadius.lg, alignItems: "center" }}>
-              <Feather name="check-circle" size={20} color={AppColors.primary} />
-              <ThemedText type="h3" style={{ color: AppColors.primary, marginTop: Spacing.xs }}>{ownerEarnings.totalDeliveredOrders}</ThemedText>
-              <ThemedText type="small" style={{ color: theme.textSecondary, textAlign: "center" }}>طلبات مكتملة</ThemedText>
+            <View
+              style={{
+                flex: 1,
+                minWidth: 120,
+                backgroundColor: "#FF962215",
+                padding: Spacing.md,
+                borderRadius: BorderRadius.lg,
+                alignItems: "center",
+              }}
+            >
+              <Feather
+                name="check-circle"
+                size={20}
+                color={AppColors.primary}
+              />
+              <ThemedText
+                type="h3"
+                style={{ color: AppColors.primary, marginTop: Spacing.xs }}
+              >
+                {ownerEarnings.totalDeliveredOrders}
+              </ThemedText>
+              <ThemedText
+                type="small"
+                style={{ color: theme.textSecondary, textAlign: "center" }}
+              >
+                طلبات مكتملة
+              </ThemedText>
             </View>
           </View>
 
           {/* Commission split visualization */}
-          <View style={{ borderTopWidth: 1, borderTopColor: AppColors.divider, paddingTop: Spacing.md }}>
-            <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: Spacing.sm, marginBottom: Spacing.sm }}>
+          <View
+            style={{
+              borderTopWidth: 1,
+              borderTopColor: AppColors.divider,
+              paddingTop: Spacing.md,
+            }}
+          >
+            <View
+              style={{
+                flexDirection: "row-reverse",
+                alignItems: "center",
+                gap: Spacing.sm,
+                marginBottom: Spacing.sm,
+              }}
+            >
               <Feather name="percent" size={13} color={theme.textSecondary} />
-              <ThemedText type="small" style={{ color: theme.text, fontWeight: FontWeight.bold }}>توزيع العمولة لكل طلب</ThemedText>
+              <ThemedText
+                type="small"
+                style={{ color: theme.text, fontWeight: FontWeight.bold }}
+              >
+                توزيع العمولة لكل طلب
+              </ThemedText>
             </View>
 
             {/* Restaurant */}
             <View style={{ marginBottom: Spacing.sm }}>
-              <View style={{ flexDirection: "row-reverse", justifyContent: "space-between", marginBottom: 4 }}>
-                <ThemedText type="small" style={{ color: theme.text }}>مطعم (1,000 د.ع)</ThemedText>
+              <View
+                style={{
+                  flexDirection: "row-reverse",
+                  justifyContent: "space-between",
+                  marginBottom: 4,
+                }}
+              >
+                <ThemedText type="small" style={{ color: theme.text }}>
+                  مطعم (1,000 د.ع)
+                </ThemedText>
                 <View style={{ flexDirection: "row", gap: 8 }}>
-                  <ThemedText style={{ fontSize: 10, color: AppColors.primary }}>25% للتطبيق</ThemedText>
-                  <ThemedText style={{ fontSize: 10, color: AppColors.success }}>75% للسائق</ThemedText>
+                  <ThemedText
+                    style={{ fontSize: 10, color: AppColors.primary }}
+                  >
+                    25% للتطبيق
+                  </ThemedText>
+                  <ThemedText
+                    style={{ fontSize: 10, color: AppColors.success }}
+                  >
+                    75% للسائق
+                  </ThemedText>
                 </View>
               </View>
-              <View style={{ height: 8, borderRadius: 4, backgroundColor: AppColors.divider, overflow: "hidden", flexDirection: "row-reverse" }}>
-                <View style={{ width: "75%", height: "100%", backgroundColor: AppColors.success }} />
-                <View style={{ width: "25%", height: "100%", backgroundColor: AppColors.primary }} />
+              <View
+                style={{
+                  height: 8,
+                  borderRadius: 4,
+                  backgroundColor: AppColors.divider,
+                  overflow: "hidden",
+                  flexDirection: "row-reverse",
+                }}
+              >
+                <View
+                  style={{
+                    width: "75%",
+                    height: "100%",
+                    backgroundColor: AppColors.success,
+                  }}
+                />
+                <View
+                  style={{
+                    width: "25%",
+                    height: "100%",
+                    backgroundColor: AppColors.primary,
+                  }}
+                />
               </View>
             </View>
 
             {/* Marketing */}
             <View>
-              <View style={{ flexDirection: "row-reverse", justifyContent: "space-between", marginBottom: 4 }}>
-                <ThemedText type="small" style={{ color: theme.text }}>تسويق (3,000 د.ع)</ThemedText>
+              <View
+                style={{
+                  flexDirection: "row-reverse",
+                  justifyContent: "space-between",
+                  marginBottom: 4,
+                }}
+              >
+                <ThemedText type="small" style={{ color: theme.text }}>
+                  تسويق (3,000 د.ع)
+                </ThemedText>
                 <View style={{ flexDirection: "row", gap: 8 }}>
-                  <ThemedText style={{ fontSize: 10, color: AppColors.primary }}>33% للتطبيق</ThemedText>
-                  <ThemedText style={{ fontSize: 10, color: AppColors.success }}>67% للسائق</ThemedText>
+                  <ThemedText
+                    style={{ fontSize: 10, color: AppColors.primary }}
+                  >
+                    33% للتطبيق
+                  </ThemedText>
+                  <ThemedText
+                    style={{ fontSize: 10, color: AppColors.success }}
+                  >
+                    67% للسائق
+                  </ThemedText>
                 </View>
               </View>
-              <View style={{ height: 8, borderRadius: 4, backgroundColor: AppColors.divider, overflow: "hidden", flexDirection: "row-reverse" }}>
-                <View style={{ width: "67%", height: "100%", backgroundColor: AppColors.success }} />
-                <View style={{ width: "33%", height: "100%", backgroundColor: AppColors.primary }} />
+              <View
+                style={{
+                  height: 8,
+                  borderRadius: 4,
+                  backgroundColor: AppColors.divider,
+                  overflow: "hidden",
+                  flexDirection: "row-reverse",
+                }}
+              >
+                <View
+                  style={{
+                    width: "67%",
+                    height: "100%",
+                    backgroundColor: AppColors.success,
+                  }}
+                />
+                <View
+                  style={{
+                    width: "33%",
+                    height: "100%",
+                    backgroundColor: AppColors.primary,
+                  }}
+                />
               </View>
             </View>
 
             {/* Legend */}
-            <View style={{ flexDirection: "row-reverse", gap: Spacing.lg, marginTop: Spacing.sm }}>
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
-                <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: AppColors.primary }} />
-                <ThemedText type="small" style={{ color: theme.textSecondary }}>التطبيق</ThemedText>
+            <View
+              style={{
+                flexDirection: "row-reverse",
+                gap: Spacing.lg,
+                marginTop: Spacing.sm,
+              }}
+            >
+              <View
+                style={{ flexDirection: "row", alignItems: "center", gap: 4 }}
+              >
+                <View
+                  style={{
+                    width: 10,
+                    height: 10,
+                    borderRadius: 5,
+                    backgroundColor: AppColors.primary,
+                  }}
+                />
+                <ThemedText type="small" style={{ color: theme.textSecondary }}>
+                  التطبيق
+                </ThemedText>
               </View>
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
-                <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: AppColors.success }} />
-                <ThemedText type="small" style={{ color: theme.textSecondary }}>السائق</ThemedText>
+              <View
+                style={{ flexDirection: "row", alignItems: "center", gap: 4 }}
+              >
+                <View
+                  style={{
+                    width: 10,
+                    height: 10,
+                    borderRadius: 5,
+                    backgroundColor: AppColors.success,
+                  }}
+                />
+                <ThemedText type="small" style={{ color: theme.textSecondary }}>
+                  السائق
+                </ThemedText>
               </View>
             </View>
           </View>
         </View>
       ) : null}
 
-      <ThemedText type="h4" style={styles.listTitle}>الطلبات</ThemedText>
+      <ThemedText type="h4" style={styles.listTitle}>
+        الطلبات
+      </ThemedText>
 
       {ordersLoading ? (
         <ActivityIndicator color={AppColors.primary} />
       ) : adminOrders.length === 0 ? (
-        <ThemedText type="body" style={{ textAlign: "center", color: theme.textSecondary }}>
+        <ThemedText
+          type="body"
+          style={{ textAlign: "center", color: theme.textSecondary }}
+        >
           لا توجد طلبات حالياً
         </ThemedText>
       ) : (
         adminOrders.map((order) => (
-          <View key={order.id} style={[styles.orderCard, { backgroundColor: theme.backgroundSecondary }]}>
+          <View
+            key={order.id}
+            style={[
+              styles.orderCard,
+              { backgroundColor: theme.backgroundSecondary },
+            ]}
+          >
             <View style={styles.orderHeader}>
-              <ThemedText type="body" style={{ fontWeight: FontWeight.bold }}>#{order.id.slice(-6)}</ThemedText>
-              <View style={[styles.statusBadge, { backgroundColor: getStatusColor(order.status) + "20" }]}>
-                <ThemedText type="small" style={{ color: getStatusColor(order.status), fontWeight: FontWeight.semiBold }}>
+              <ThemedText type="body" style={{ fontWeight: FontWeight.bold }}>
+                #{order.id.slice(-6)}
+              </ThemedText>
+              <View
+                style={[
+                  styles.statusBadge,
+                  { backgroundColor: getStatusColor(order.status) + "20" },
+                ]}
+              >
+                <ThemedText
+                  type="small"
+                  style={{
+                    color: getStatusColor(order.status),
+                    fontWeight: FontWeight.semiBold,
+                  }}
+                >
                   {getStatusLabel(order.status)}
                 </ThemedText>
               </View>
@@ -1873,67 +2817,175 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
             <ThemedText type="small" style={{ color: theme.textSecondary }}>
               🛒 {order.items.length} منتجات
             </ThemedText>
-            {(order.status === "in_delivery" || order.status === "picked_up") ? (
+            {order.status === "in_delivery" || order.status === "picked_up" ? (
               <Pressable
                 style={[styles.trackBtn]}
                 onPress={() => openTrackingModal(order.id)}
               >
                 <Feather name="map-pin" size={14} color={AppColors.white} />
-                <ThemedText type="small" style={{ color: AppColors.white, fontWeight: FontWeight.bold }}>تتبع المندوب مباشر</ThemedText>
-                <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: AppColors.success }} />
+                <ThemedText
+                  type="small"
+                  style={{
+                    color: AppColors.white,
+                    fontWeight: FontWeight.bold,
+                  }}
+                >
+                  تتبع المندوب مباشر
+                </ThemedText>
+                <View
+                  style={{
+                    width: 8,
+                    height: 8,
+                    borderRadius: 4,
+                    backgroundColor: AppColors.success,
+                  }}
+                />
               </Pressable>
             ) : null}
             <View style={styles.orderFooter}>
-              <ThemedText type="body" style={{ color: AppColors.primary, fontWeight: FontWeight.bold }}>
+              <ThemedText
+                type="body"
+                style={{
+                  color: AppColors.primary,
+                  fontWeight: FontWeight.bold,
+                }}
+              >
                 {formatPrice(order.total + order.deliveryFee)}
               </ThemedText>
               <View style={styles.statusButtons}>
-                {order.status !== "delivered" && order.status !== "cancelled" ? (
+                {order.status !== "delivered" &&
+                order.status !== "cancelled" ? (
                   <>
                     {order.status === "pending" ? (
                       <Pressable
-                        style={[styles.statusBtn, { backgroundColor: AppColors.info }]}
-                        onPress={() => updateOrderStatus.mutate({ id: order.id, status: "confirmed" })}
+                        style={[
+                          styles.statusBtn,
+                          { backgroundColor: AppColors.info },
+                        ]}
+                        onPress={() =>
+                          updateOrderStatus.mutate({
+                            id: order.id,
+                            status: "confirmed",
+                          })
+                        }
                       >
-                        <ThemedText type="small" style={{ color: AppColors.white }}>تأكيد</ThemedText>
+                        <ThemedText
+                          type="small"
+                          style={{ color: AppColors.white }}
+                        >
+                          تأكيد
+                        </ThemedText>
                       </Pressable>
                     ) : null}
                     {order.status === "confirmed" ? (
                       <Pressable
-                        style={[styles.statusBtn, { backgroundColor: AppColors.statusPurple }]}
-                        onPress={() => updateOrderStatus.mutate({ id: order.id, status: "preparing" })}
+                        style={[
+                          styles.statusBtn,
+                          { backgroundColor: AppColors.statusPurple },
+                        ]}
+                        onPress={() =>
+                          updateOrderStatus.mutate({
+                            id: order.id,
+                            status: "preparing",
+                          })
+                        }
                       >
-                        <ThemedText type="small" style={{ color: AppColors.white }}>تحضير</ThemedText>
+                        <ThemedText
+                          type="small"
+                          style={{ color: AppColors.white }}
+                        >
+                          تحضير
+                        </ThemedText>
                       </Pressable>
                     ) : null}
                     {order.status === "preparing" ? (
                       <Pressable
-                        style={[styles.statusBtn, { backgroundColor: AppColors.statusCyan }]}
-                        onPress={() => updateOrderStatus.mutate({ id: order.id, status: "in_delivery" })}
+                        style={[
+                          styles.statusBtn,
+                          { backgroundColor: AppColors.statusCyan },
+                        ]}
+                        onPress={() =>
+                          updateOrderStatus.mutate({
+                            id: order.id,
+                            status: "in_delivery",
+                          })
+                        }
                       >
-                        <ThemedText type="small" style={{ color: AppColors.white }}>توصيل</ThemedText>
+                        <ThemedText
+                          type="small"
+                          style={{ color: AppColors.white }}
+                        >
+                          توصيل
+                        </ThemedText>
                       </Pressable>
                     ) : null}
-                    {(order.status === "in_delivery" || order.status === "delivering") ? (
+                    {order.status === "in_delivery" ||
+                    order.status === "delivering" ? (
                       <Pressable
-                        style={[styles.statusBtn, { backgroundColor: AppColors.success }]}
-                        onPress={() => updateOrderStatus.mutate({ id: order.id, status: "delivered" })}
+                        style={[
+                          styles.statusBtn,
+                          { backgroundColor: AppColors.success },
+                        ]}
+                        onPress={() =>
+                          updateOrderStatus.mutate({
+                            id: order.id,
+                            status: "delivered",
+                          })
+                        }
                       >
-                        <ThemedText type="small" style={{ color: AppColors.white }}>تم</ThemedText>
+                        <ThemedText
+                          type="small"
+                          style={{ color: AppColors.white }}
+                        >
+                          تم
+                        </ThemedText>
                       </Pressable>
                     ) : null}
                     <Pressable
-                      style={[styles.statusBtn, { backgroundColor: AppColors.error }]}
-                      onPress={() => updateOrderStatus.mutate({ id: order.id, status: "cancelled" })}
+                      style={[
+                        styles.statusBtn,
+                        { backgroundColor: AppColors.error },
+                      ]}
+                      onPress={() =>
+                        updateOrderStatus.mutate({
+                          id: order.id,
+                          status: "cancelled",
+                        })
+                      }
                     >
-                      <ThemedText type="small" style={{ color: AppColors.white }}>إلغاء</ThemedText>
+                      <ThemedText
+                        type="small"
+                        style={{ color: AppColors.white }}
+                      >
+                        إلغاء
+                      </ThemedText>
                     </Pressable>
                     <Pressable
-                      style={[styles.statusBtn, { backgroundColor: AppColors.primary, flexDirection: "row", alignItems: "center", gap: 4 }]}
-                      onPress={() => { setAssigningOrderId(order.id); setAssignError(null); }}
+                      style={[
+                        styles.statusBtn,
+                        {
+                          backgroundColor: AppColors.primary,
+                          flexDirection: "row",
+                          alignItems: "center",
+                          gap: 4,
+                        },
+                      ]}
+                      onPress={() => {
+                        setAssigningOrderId(order.id);
+                        setAssignError(null);
+                      }}
                     >
-                      <Feather name="user-plus" size={12} color={AppColors.white} />
-                      <ThemedText type="small" style={{ color: AppColors.white }}>تعيين سائق</ThemedText>
+                      <Feather
+                        name="user-plus"
+                        size={12}
+                        color={AppColors.white}
+                      />
+                      <ThemedText
+                        type="small"
+                        style={{ color: AppColors.white }}
+                      >
+                        تعيين سائق
+                      </ThemedText>
                     </Pressable>
                   </>
                 ) : null}
@@ -1947,17 +2999,23 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
 
   const getDriverStatusColor = (status: string) => {
     switch (status) {
-      case "approved": return AppColors.success;
-      case "rejected": return AppColors.error;
-      default: return AppColors.warning;
+      case "approved":
+        return AppColors.success;
+      case "rejected":
+        return AppColors.error;
+      default:
+        return AppColors.warning;
     }
   };
 
   const getDriverStatusText = (status: string) => {
     switch (status) {
-      case "approved": return "مقبول";
-      case "rejected": return "مرفوض";
-      default: return "قيد المراجعة";
+      case "approved":
+        return "مقبول";
+      case "rejected":
+        return "مرفوض";
+      default:
+        return "قيد المراجعة";
     }
   };
 
@@ -1971,67 +3029,137 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
         <ActivityIndicator size="large" color={AppColors.primary} />
       ) : drivers.length === 0 ? (
         <View style={styles.formCard}>
-          <ThemedText type="body" style={{ textAlign: "center", color: AppColors.gray400 }}>
+          <ThemedText
+            type="body"
+            style={{ textAlign: "center", color: AppColors.gray400 }}
+          >
             لا يوجد سائقين مسجلين
           </ThemedText>
         </View>
       ) : (
         drivers.map((driver) => (
           <View key={driver.id} style={styles.formCard}>
-            <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: Spacing.md }}>
-              <View style={{
-                backgroundColor: getDriverStatusColor(driver.status) + "20",
-                paddingHorizontal: Spacing.md,
-                paddingVertical: 4,
-                borderRadius: BorderRadius.full,
-              }}>
-                <ThemedText type="small" style={{ color: getDriverStatusColor(driver.status), fontWeight: FontWeight.bold }}>
+            <View
+              style={{
+                flexDirection: "row",
+                justifyContent: "space-between",
+                alignItems: "center",
+                marginBottom: Spacing.md,
+              }}
+            >
+              <View
+                style={{
+                  backgroundColor: getDriverStatusColor(driver.status) + "20",
+                  paddingHorizontal: Spacing.md,
+                  paddingVertical: 4,
+                  borderRadius: BorderRadius.full,
+                }}
+              >
+                <ThemedText
+                  type="small"
+                  style={{
+                    color: getDriverStatusColor(driver.status),
+                    fontWeight: FontWeight.bold,
+                  }}
+                >
                   {getDriverStatusText(driver.status)}
                 </ThemedText>
               </View>
-              <ThemedText type="h4" style={{ textAlign: "right", flex: 1, marginRight: Spacing.sm }}>
+              <ThemedText
+                type="h4"
+                style={{ textAlign: "right", flex: 1, marginRight: Spacing.sm }}
+              >
                 {driver.fullName}
               </ThemedText>
             </View>
 
             <View style={{ gap: Spacing.xs, marginBottom: Spacing.md }}>
-              <View style={{ flexDirection: "row", justifyContent: "flex-end", gap: Spacing.sm }}>
-                <ThemedText type="body" style={{ color: AppColors.gray500 }}>{driver.phoneNumber}</ThemedText>
+              <View
+                style={{
+                  flexDirection: "row",
+                  justifyContent: "flex-end",
+                  gap: Spacing.sm,
+                }}
+              >
+                <ThemedText type="body" style={{ color: AppColors.gray500 }}>
+                  {driver.phoneNumber}
+                </ThemedText>
                 <Feather name="phone" size={16} color={AppColors.gray500} />
               </View>
-              {typeof (driver as any).rating === "number" && (driver as any).ratingCount ? (
-                <View style={{ flexDirection: "row", justifyContent: "flex-end", alignItems: "center", gap: Spacing.xs }}>
-                  <ThemedText type="body" style={{ color: AppColors.gray500 }}>({(driver as any).ratingCount})</ThemedText>
-                  <ThemedText type="body" style={{ color: "#F59E0B", fontWeight: FontWeight.bold }}>
+              {typeof (driver as any).rating === "number" &&
+              (driver as any).ratingCount ? (
+                <View
+                  style={{
+                    flexDirection: "row",
+                    justifyContent: "flex-end",
+                    alignItems: "center",
+                    gap: Spacing.xs,
+                  }}
+                >
+                  <ThemedText type="body" style={{ color: AppColors.gray500 }}>
+                    ({(driver as any).ratingCount})
+                  </ThemedText>
+                  <ThemedText
+                    type="body"
+                    style={{ color: "#F59E0B", fontWeight: FontWeight.bold }}
+                  >
                     {(driver as any).rating.toFixed(1)}
                   </ThemedText>
                   <Feather name="star" size={16} color="#F59E0B" />
                 </View>
               ) : null}
-              <View style={{ flexDirection: "row", justifyContent: "flex-end", gap: Spacing.sm }}>
+              <View
+                style={{
+                  flexDirection: "row",
+                  justifyContent: "flex-end",
+                  gap: Spacing.sm,
+                }}
+              >
                 <ThemedText type="body" style={{ color: AppColors.gray500 }}>
-                  {driver.firstName} {driver.secondName} {driver.thirdName} {driver.fourthName}
+                  {driver.firstName} {driver.secondName} {driver.thirdName}{" "}
+                  {driver.fourthName}
                 </ThemedText>
                 <Feather name="user" size={16} color={AppColors.gray500} />
               </View>
               {driver.createdAt ? (
-                <View style={{ flexDirection: "row", justifyContent: "flex-end", gap: Spacing.sm }}>
+                <View
+                  style={{
+                    flexDirection: "row",
+                    justifyContent: "flex-end",
+                    gap: Spacing.sm,
+                  }}
+                >
                   <ThemedText type="small" style={{ color: AppColors.gray400 }}>
                     {new Date(driver.createdAt).toLocaleDateString("ar-IQ")}
                   </ThemedText>
-                  <Feather name="calendar" size={14} color={AppColors.gray400} />
+                  <Feather
+                    name="calendar"
+                    size={14}
+                    color={AppColors.gray400}
+                  />
                 </View>
               ) : null}
             </View>
 
             {driver.nationalIdImage ? (
               <View style={{ marginBottom: Spacing.md }}>
-                <ThemedText type="body" style={{ textAlign: "right", marginBottom: Spacing.xs, fontWeight: FontWeight.semiBold }}>
+                <ThemedText
+                  type="body"
+                  style={{
+                    textAlign: "right",
+                    marginBottom: Spacing.xs,
+                    fontWeight: FontWeight.semiBold,
+                  }}
+                >
                   البطاقة الوطنية:
                 </ThemedText>
                 <Image
                   source={{ uri: driver.nationalIdImage }}
-                  style={{ width: "100%", height: 200, borderRadius: BorderRadius.md }}
+                  style={{
+                    width: "100%",
+                    height: 200,
+                    borderRadius: BorderRadius.md,
+                  }}
                   contentFit="contain"
                 />
               </View>
@@ -2039,18 +3167,32 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
 
             {driver.driverLicenseImage ? (
               <View style={{ marginBottom: Spacing.md }}>
-                <ThemedText type="body" style={{ textAlign: "right", marginBottom: Spacing.xs, fontWeight: FontWeight.semiBold }}>
+                <ThemedText
+                  type="body"
+                  style={{
+                    textAlign: "right",
+                    marginBottom: Spacing.xs,
+                    fontWeight: FontWeight.semiBold,
+                  }}
+                >
                   إجازة السوق:
                 </ThemedText>
                 <Image
                   source={{ uri: driver.driverLicenseImage }}
-                  style={{ width: "100%", height: 200, borderRadius: BorderRadius.md }}
+                  style={{
+                    width: "100%",
+                    height: 200,
+                    borderRadius: BorderRadius.md,
+                  }}
                   contentFit="contain"
                 />
               </View>
             ) : (
               <View style={{ marginBottom: Spacing.md }}>
-                <ThemedText type="body" style={{ textAlign: "right", color: AppColors.gray400 }}>
+                <ThemedText
+                  type="body"
+                  style={{ textAlign: "right", color: AppColors.gray400 }}
+                >
                   لم يتم رفع إجازة السوق
                 </ThemedText>
               </View>
@@ -2068,9 +3210,22 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
                     justifyContent: "center",
                     paddingVertical: Spacing.md,
                   }}
-                  onPress={() => updateDriverStatusMutation.mutate({ id: driver.id, status: "rejected" })}
+                  onPress={() =>
+                    updateDriverStatusMutation.mutate({
+                      id: driver.id,
+                      status: "rejected",
+                    })
+                  }
                 >
-                  <ThemedText type="body" style={{ color: AppColors.white, fontWeight: FontWeight.semiBold }}>رفض</ThemedText>
+                  <ThemedText
+                    type="body"
+                    style={{
+                      color: AppColors.white,
+                      fontWeight: FontWeight.semiBold,
+                    }}
+                  >
+                    رفض
+                  </ThemedText>
                 </Pressable>
                 <Pressable
                   style={{
@@ -2082,59 +3237,160 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
                     justifyContent: "center",
                     paddingVertical: Spacing.md,
                   }}
-                  onPress={() => updateDriverStatusMutation.mutate({ id: driver.id, status: "approved" })}
+                  onPress={() =>
+                    updateDriverStatusMutation.mutate({
+                      id: driver.id,
+                      status: "approved",
+                    })
+                  }
                 >
-                  <ThemedText type="body" style={{ color: AppColors.white, fontWeight: FontWeight.semiBold }}>قبول</ThemedText>
+                  <ThemedText
+                    type="body"
+                    style={{
+                      color: AppColors.white,
+                      fontWeight: FontWeight.semiBold,
+                    }}
+                  >
+                    قبول
+                  </ThemedText>
                 </Pressable>
               </View>
             ) : (
               <Pressable
                 style={{
                   minHeight: 48,
-                  backgroundColor: driver.status === "approved" ? AppColors.warning : AppColors.success,
+                  backgroundColor:
+                    driver.status === "approved"
+                      ? AppColors.warning
+                      : AppColors.success,
                   borderRadius: BorderRadius.lg,
                   alignItems: "center",
                   justifyContent: "center",
                   paddingVertical: Spacing.md,
                 }}
-                onPress={() => updateDriverStatusMutation.mutate({
-                  id: driver.id,
-                  status: driver.status === "approved" ? "pending" : "approved",
-                })}
+                onPress={() =>
+                  updateDriverStatusMutation.mutate({
+                    id: driver.id,
+                    status:
+                      driver.status === "approved" ? "pending" : "approved",
+                  })
+                }
               >
-                <ThemedText type="body" style={{ color: AppColors.white, fontWeight: FontWeight.semiBold }}>
+                <ThemedText
+                  type="body"
+                  style={{
+                    color: AppColors.white,
+                    fontWeight: FontWeight.semiBold,
+                  }}
+                >
                   {driver.status === "approved" ? "تعليق" : "قبول"}
                 </ThemedText>
               </Pressable>
             )}
 
-            <View style={{ marginTop: Spacing.md, borderTopWidth: 1, borderTopColor: AppColors.divider, paddingTop: Spacing.md }}>
-              <View style={{ flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between", marginBottom: Spacing.sm }}>
-                <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: Spacing.xs }}>
-                  <Feather name="credit-card" size={16} color={AppColors.primary} />
-                  <ThemedText type="body" style={{ fontWeight: FontWeight.semiBold, textAlign: "right" }}>المحفظة</ThemedText>
+            <View
+              style={{
+                marginTop: Spacing.md,
+                borderTopWidth: 1,
+                borderTopColor: AppColors.divider,
+                paddingTop: Spacing.md,
+              }}
+            >
+              <View
+                style={{
+                  flexDirection: "row-reverse",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  marginBottom: Spacing.sm,
+                }}
+              >
+                <View
+                  style={{
+                    flexDirection: "row-reverse",
+                    alignItems: "center",
+                    gap: Spacing.xs,
+                  }}
+                >
+                  <Feather
+                    name="credit-card"
+                    size={16}
+                    color={AppColors.primary}
+                  />
+                  <ThemedText
+                    type="body"
+                    style={{
+                      fontWeight: FontWeight.semiBold,
+                      textAlign: "right",
+                    }}
+                  >
+                    المحفظة
+                  </ThemedText>
                 </View>
                 <Pressable
-                  style={{ backgroundColor: AppColors.primary, paddingHorizontal: Spacing.md, paddingVertical: 6, borderRadius: BorderRadius.md }}
-                  onPress={() => setRechargeDriver(rechargeDriver === driver.phoneNumber ? null : driver.phoneNumber)}
+                  style={{
+                    backgroundColor: AppColors.primary,
+                    paddingHorizontal: Spacing.md,
+                    paddingVertical: 6,
+                    borderRadius: BorderRadius.md,
+                  }}
+                  onPress={() =>
+                    setRechargeDriver(
+                      rechargeDriver === driver.phoneNumber
+                        ? null
+                        : driver.phoneNumber,
+                    )
+                  }
                 >
-                  <ThemedText type="small" style={{ color: AppColors.white, fontWeight: FontWeight.semiBold }}>تسجيل دفعة</ThemedText>
+                  <ThemedText
+                    type="small"
+                    style={{
+                      color: AppColors.white,
+                      fontWeight: FontWeight.semiBold,
+                    }}
+                  >
+                    تسجيل دفعة
+                  </ThemedText>
                 </Pressable>
               </View>
               {rechargeDriver === driver.phoneNumber ? (
                 <View style={{ flexDirection: "row", gap: Spacing.sm }}>
                   <Pressable
-                    style={{ backgroundColor: AppColors.primary, paddingHorizontal: Spacing.lg, paddingVertical: Spacing.sm, borderRadius: BorderRadius.md, justifyContent: "center" }}
+                    style={{
+                      backgroundColor: AppColors.primary,
+                      paddingHorizontal: Spacing.lg,
+                      paddingVertical: Spacing.sm,
+                      borderRadius: BorderRadius.md,
+                      justifyContent: "center",
+                    }}
                     onPress={() => {
                       if (rechargeAmount && Number(rechargeAmount) > 0) {
-                        rechargeWalletMutation.mutate({ phoneNumber: driver.phoneNumber, amount: Number(rechargeAmount) });
+                        rechargeWalletMutation.mutate({
+                          phoneNumber: driver.phoneNumber,
+                          amount: Number(rechargeAmount),
+                        });
                       }
                     }}
                   >
-                    <ThemedText type="small" style={{ color: AppColors.white, fontWeight: FontWeight.semiBold }}>تأكيد</ThemedText>
+                    <ThemedText
+                      type="small"
+                      style={{
+                        color: AppColors.white,
+                        fontWeight: FontWeight.semiBold,
+                      }}
+                    >
+                      تأكيد
+                    </ThemedText>
                   </Pressable>
                   <TextInput
-                    style={[styles.input, { flex: 1, backgroundColor: theme.backgroundSecondary, color: theme.text, marginBottom: 0 }]}
+                    style={[
+                      styles.input,
+                      {
+                        flex: 1,
+                        backgroundColor: theme.backgroundSecondary,
+                        color: theme.text,
+                        marginBottom: 0,
+                      },
+                    ]}
                     placeholder="المبلغ (د.ع)"
                     placeholderTextColor={theme.textSecondary}
                     keyboardType="numeric"
@@ -2158,7 +3414,10 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
         </ThemedText>
 
         <TextInput
-          style={[styles.input, { backgroundColor: theme.backgroundSecondary, color: theme.text }]}
+          style={[
+            styles.input,
+            { backgroundColor: theme.backgroundSecondary, color: theme.text },
+          ]}
           placeholder="كود الخصم"
           placeholderTextColor={theme.textSecondary}
           value={promoForm.code}
@@ -2167,26 +3426,49 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
 
         <View style={styles.typeSelector}>
           <Pressable
-            style={[styles.typeButton, promoForm.type === "fixed" && styles.typeButtonActive]}
+            style={[
+              styles.typeButton,
+              promoForm.type === "fixed" && styles.typeButtonActive,
+            ]}
             onPress={() => setPromoForm({ ...promoForm, type: "fixed" })}
           >
-            <ThemedText type="body" style={[styles.typeButtonText, promoForm.type === "fixed" && styles.typeButtonTextActive]}>
+            <ThemedText
+              type="body"
+              style={[
+                styles.typeButtonText,
+                promoForm.type === "fixed" && styles.typeButtonTextActive,
+              ]}
+            >
               مبلغ ثابت
             </ThemedText>
           </Pressable>
           <Pressable
-            style={[styles.typeButton, promoForm.type === "percentage" && styles.typeButtonActive]}
+            style={[
+              styles.typeButton,
+              promoForm.type === "percentage" && styles.typeButtonActive,
+            ]}
             onPress={() => setPromoForm({ ...promoForm, type: "percentage" })}
           >
-            <ThemedText type="body" style={[styles.typeButtonText, promoForm.type === "percentage" && styles.typeButtonTextActive]}>
+            <ThemedText
+              type="body"
+              style={[
+                styles.typeButtonText,
+                promoForm.type === "percentage" && styles.typeButtonTextActive,
+              ]}
+            >
               نسبة مئوية
             </ThemedText>
           </Pressable>
         </View>
 
         <TextInput
-          style={[styles.input, { backgroundColor: theme.backgroundSecondary, color: theme.text }]}
-          placeholder={promoForm.type === "percentage" ? "القيمة (%)" : "القيمة (د.ع)"}
+          style={[
+            styles.input,
+            { backgroundColor: theme.backgroundSecondary, color: theme.text },
+          ]}
+          placeholder={
+            promoForm.type === "percentage" ? "القيمة (%)" : "القيمة (د.ع)"
+          }
           placeholderTextColor={theme.textSecondary}
           value={promoForm.value}
           onChangeText={(text) => setPromoForm({ ...promoForm, value: text })}
@@ -2194,56 +3476,104 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
         />
 
         <TextInput
-          style={[styles.input, { backgroundColor: theme.backgroundSecondary, color: theme.text }]}
+          style={[
+            styles.input,
+            { backgroundColor: theme.backgroundSecondary, color: theme.text },
+          ]}
           placeholder="YYYY-MM-DD"
           placeholderTextColor={theme.textSecondary}
           value={promoForm.expiryDate}
-          onChangeText={(text) => setPromoForm({ ...promoForm, expiryDate: text })}
+          onChangeText={(text) =>
+            setPromoForm({ ...promoForm, expiryDate: text })
+          }
         />
 
         <View style={styles.formButtons}>
           {isEditing ? (
             <Pressable style={styles.cancelButton} onPress={resetForm}>
-              <ThemedText type="body" style={styles.cancelButtonText}>إلغاء</ThemedText>
+              <ThemedText type="body" style={styles.cancelButtonText}>
+                إلغاء
+              </ThemedText>
             </Pressable>
           ) : null}
           <Pressable style={styles.saveButton} onPress={savePromoCode}>
-            <ThemedText type="body" style={styles.saveButtonText}>{editItem ? "حفظ التعديلات" : "إضافة"}</ThemedText>
+            <ThemedText type="body" style={styles.saveButtonText}>
+              {editItem ? "حفظ التعديلات" : "إضافة"}
+            </ThemedText>
           </Pressable>
         </View>
       </View>
 
-      <ThemedText type="h4" style={styles.listTitle}>أكواد الخصم الحالية</ThemedText>
+      <ThemedText type="h4" style={styles.listTitle}>
+        أكواد الخصم الحالية
+      </ThemedText>
 
       {promoCodesLoading ? (
         <ActivityIndicator color={AppColors.primary} />
       ) : (
         promoCodes.map((promo) => (
-          <View key={promo.id} style={[styles.listItem, { backgroundColor: theme.backgroundSecondary }]}>
+          <View
+            key={promo.id}
+            style={[
+              styles.listItem,
+              { backgroundColor: theme.backgroundSecondary },
+            ]}
+          >
             <View style={styles.areaIcon}>
               <Feather name="tag" size={22} color={AppColors.primary} />
             </View>
             <View style={styles.listItemContent}>
-              <ThemedText type="body" numberOfLines={1}>{promo.code}</ThemedText>
-              <View style={{ flexDirection: "row", alignItems: "center", gap: Spacing.xs }}>
-                <View style={[styles.discountBadge, { backgroundColor: promo.type === "percentage" ? AppColors.success : AppColors.warning }]}>
+              <ThemedText type="body" numberOfLines={1}>
+                {promo.code}
+              </ThemedText>
+              <View
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  gap: Spacing.xs,
+                }}
+              >
+                <View
+                  style={[
+                    styles.discountBadge,
+                    {
+                      backgroundColor:
+                        promo.type === "percentage"
+                          ? AppColors.success
+                          : AppColors.warning,
+                    },
+                  ]}
+                >
                   <ThemedText type="small" style={styles.discountText}>
                     {promo.type === "percentage" ? "نسبة" : "ثابت"}
                   </ThemedText>
                 </View>
                 <ThemedText type="small" style={{ color: theme.textSecondary }}>
-                  {promo.type === "percentage" ? `${promo.value}%` : formatPrice(promo.value)}
+                  {promo.type === "percentage"
+                    ? `${promo.value}%`
+                    : formatPrice(promo.value)}
                 </ThemedText>
-                <ThemedText type="small" style={{ color: promo.isActive ? AppColors.success : AppColors.error }}>
+                <ThemedText
+                  type="small"
+                  style={{
+                    color: promo.isActive ? AppColors.success : AppColors.error,
+                  }}
+                >
                   {promo.isActive ? "فعال" : "غير فعال"}
                 </ThemedText>
               </View>
             </View>
             <View style={styles.listItemActions}>
-              <Pressable onPress={() => handleEditPromo(promo)} style={styles.actionButton}>
+              <Pressable
+                onPress={() => handleEditPromo(promo)}
+                style={styles.actionButton}
+              >
                 <Feather name="edit-2" size={18} color={AppColors.primary} />
               </Pressable>
-              <Pressable onPress={() => confirmDelete(promo.id, "promoCode")} style={styles.actionButton}>
+              <Pressable
+                onPress={() => confirmDelete(promo.id, "promoCode")}
+                style={styles.actionButton}
+              >
                 <Feather name="trash-2" size={18} color={AppColors.error} />
               </Pressable>
             </View>
@@ -2254,9 +3584,10 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
   );
 
   const renderUsersTab = () => {
-    const filtered = adminUsers.filter((u) =>
-      u.phoneNumber?.includes(usersSearch) ||
-      u.fullName?.toLowerCase().includes(usersSearch.toLowerCase())
+    const filtered = adminUsers.filter(
+      (u) =>
+        u.phoneNumber?.includes(usersSearch) ||
+        u.fullName?.toLowerCase().includes(usersSearch.toLowerCase()),
     );
 
     const formatDate = formatDateOnly;
@@ -2264,26 +3595,44 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
     return (
       <View style={styles.usersContainer}>
         {/* Stats card */}
-        <View style={[styles.usersStatsCard, { backgroundColor: theme.backgroundSecondary }]}>
+        <View
+          style={[
+            styles.usersStatsCard,
+            { backgroundColor: theme.backgroundSecondary },
+          ]}
+        >
           <View style={styles.usersStatBox}>
             <Feather name="users" size={26} color={AppColors.primary} />
             <ThemedText style={styles.usersStatNum}>
               {usersLoading ? "..." : adminUsers.length}
             </ThemedText>
-            <ThemedText style={styles.usersStatLabel}>إجمالي المستخدمين</ThemedText>
+            <ThemedText style={styles.usersStatLabel}>
+              إجمالي المستخدمين
+            </ThemedText>
           </View>
           <View style={styles.usersStatDivider} />
           <View style={styles.usersStatBox}>
             <Feather name="bell" size={26} color={AppColors.success} />
-            <ThemedText style={[styles.usersStatNum, { color: AppColors.success }]}>
-              {usersLoading ? "..." : adminUsers.filter((u) => !!u.pushToken).length}
+            <ThemedText
+              style={[styles.usersStatNum, { color: AppColors.success }]}
+            >
+              {usersLoading
+                ? "..."
+                : adminUsers.filter((u) => !!u.pushToken).length}
             </ThemedText>
-            <ThemedText style={styles.usersStatLabel}>مفعّل الإشعارات</ThemedText>
+            <ThemedText style={styles.usersStatLabel}>
+              مفعّل الإشعارات
+            </ThemedText>
           </View>
         </View>
 
         {/* Search */}
-        <View style={[styles.usersSearchBox, { backgroundColor: theme.backgroundSecondary }]}>
+        <View
+          style={[
+            styles.usersSearchBox,
+            { backgroundColor: theme.backgroundSecondary },
+          ]}
+        >
           <Feather name="search" size={16} color={AppColors.gray400} />
           <TextInput
             style={[styles.usersSearchInput, { color: theme.text }]}
@@ -2311,7 +3660,10 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
 
         {/* List */}
         {usersLoading ? (
-          <ActivityIndicator color={AppColors.primary} style={{ marginTop: Spacing.xl }} />
+          <ActivityIndicator
+            color={AppColors.primary}
+            style={{ marginTop: Spacing.xl }}
+          />
         ) : filtered.length === 0 ? (
           <View style={styles.usersEmpty}>
             <Feather name="user-x" size={40} color={AppColors.gray300} />
@@ -2324,10 +3676,20 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
             {filtered.map((user, idx) => (
               <View
                 key={user.id}
-                style={[styles.userRow, { backgroundColor: theme.backgroundSecondary }]}
+                style={[
+                  styles.userRow,
+                  { backgroundColor: theme.backgroundSecondary },
+                ]}
               >
                 <View style={styles.userRowLeft}>
-                  <View style={[styles.userAvatar, { backgroundColor: `rgba(251,91,33,${0.1 + (idx % 4) * 0.05})` }]}>
+                  <View
+                    style={[
+                      styles.userAvatar,
+                      {
+                        backgroundColor: `rgba(251,91,33,${0.1 + (idx % 4) * 0.05})`,
+                      },
+                    ]}
+                  >
                     <ThemedText style={styles.userAvatarText}>
                       {user.fullName?.charAt(0) || "؟"}
                     </ThemedText>
@@ -2339,12 +3701,20 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
                   </ThemedText>
                   <View style={styles.userRowMeta}>
                     <Feather name="phone" size={11} color={AppColors.gray400} />
-                    <ThemedText style={styles.userRowPhone}>{user.phoneNumber}</ThemedText>
+                    <ThemedText style={styles.userRowPhone}>
+                      {user.phoneNumber}
+                    </ThemedText>
                   </View>
                   {user.region ? (
                     <View style={styles.userRowMeta}>
-                      <Feather name="map-pin" size={11} color={AppColors.gray400} />
-                      <ThemedText style={styles.userRowPhone}>{user.region}</ThemedText>
+                      <Feather
+                        name="map-pin"
+                        size={11}
+                        color={AppColors.gray400}
+                      />
+                      <ThemedText style={styles.userRowPhone}>
+                        {user.region}
+                      </ThemedText>
                     </View>
                   ) : null}
                   {formatDate(user.createdAt) ? (
@@ -2356,10 +3726,16 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
                 <View style={styles.userRowRight}>
                   {user.pushToken ? (
                     <View style={styles.userNotifBadge}>
-                      <Feather name="bell" size={10} color={AppColors.success} />
+                      <Feather
+                        name="bell"
+                        size={10}
+                        color={AppColors.success}
+                      />
                     </View>
                   ) : null}
-                  <ThemedText style={styles.userRowIndex}>#{idx + 1}</ThemedText>
+                  <ThemedText style={styles.userRowIndex}>
+                    #{idx + 1}
+                  </ThemedText>
                 </View>
               </View>
             ))}
@@ -2399,16 +3775,26 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
     <View style={styles.notifContainer}>
       <View style={styles.notifHeader}>
         <Feather name="bell" size={28} color={AppColors.primary} />
-        <ThemedText style={styles.notifTitle}>إرسال إشعار للمستخدمين</ThemedText>
+        <ThemedText style={styles.notifTitle}>
+          إرسال إشعار للمستخدمين
+        </ThemedText>
         <ThemedText style={styles.notifSubtitle}>
           سيصل الإشعار لجميع المستخدمين المسجلين حتى خارج التطبيق
         </ThemedText>
       </View>
 
-      <View style={[styles.notifCard, { backgroundColor: theme.backgroundSecondary }]}>
+      <View
+        style={[
+          styles.notifCard,
+          { backgroundColor: theme.backgroundSecondary },
+        ]}
+      >
         <ThemedText style={styles.notifLabel}>عنوان الإشعار</ThemedText>
         <TextInput
-          style={[styles.notifInput, { color: theme.text, borderColor: theme.backgroundSecondary }]}
+          style={[
+            styles.notifInput,
+            { color: theme.text, borderColor: theme.backgroundSecondary },
+          ]}
           placeholder="مثال: تخفيضات حصرية اليوم!"
           placeholderTextColor={AppColors.gray400}
           value={notifForm.title}
@@ -2416,9 +3802,15 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
           textAlign="right"
         />
 
-        <ThemedText style={[styles.notifLabel, { marginTop: Spacing.md }]}>نص الرسالة</ThemedText>
+        <ThemedText style={[styles.notifLabel, { marginTop: Spacing.md }]}>
+          نص الرسالة
+        </ThemedText>
         <TextInput
-          style={[styles.notifInput, styles.notifTextArea, { color: theme.text, borderColor: theme.backgroundSecondary }]}
+          style={[
+            styles.notifInput,
+            styles.notifTextArea,
+            { color: theme.text, borderColor: theme.backgroundSecondary },
+          ]}
           placeholder="اكتب تفاصيل الإشعار هنا..."
           placeholderTextColor={AppColors.gray400}
           value={notifForm.body}
@@ -2434,7 +3826,8 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
         <View style={styles.notifSuccess}>
           <Feather name="check-circle" size={22} color={AppColors.success} />
           <ThemedText style={styles.notifSuccessText}>
-            تم الإرسال بنجاح — وصل إلى {notifResult.sent} من {notifResult.total} مستخدم
+            تم الإرسال بنجاح — وصل إلى {notifResult.sent} من {notifResult.total}{" "}
+            مستخدم
           </ThemedText>
         </View>
       ) : null}
@@ -2466,86 +3859,366 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
   const renderDashboardTab = () => {
     const ADMIN_RED = AppColors.error;
     const totalOrders = adminOrders.length;
-    const pendingOrders = adminOrders.filter(o => o.status === "pending").length;
-    const activeOrders = adminOrders.filter(o => ["confirmed","preparing","ready","picked_up","in_delivery"].includes(o.status)).length;
-    const deliveredOrders = adminOrders.filter(o => o.status === "delivered").length;
-    const approvedDrivers = drivers.filter(d => d.status === "approved").length;
-    const pendingDrivers = drivers.filter(d => d.status === "pending").length;
+    const pendingOrders = adminOrders.filter(
+      (o) => o.status === "pending",
+    ).length;
+    const activeOrders = adminOrders.filter((o) =>
+      ["confirmed", "preparing", "ready", "picked_up", "in_delivery"].includes(
+        o.status,
+      ),
+    ).length;
+    const deliveredOrders = adminOrders.filter(
+      (o) => o.status === "delivered",
+    ).length;
+    const approvedDrivers = drivers.filter(
+      (d) => d.status === "approved",
+    ).length;
+    const pendingDrivers = drivers.filter((d) => d.status === "pending").length;
     const todayRevenue = ownerEarnings?.totalOwnerEarnings ?? 0;
-    const recentOrders = [...adminOrders].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).slice(0, 5);
+    const recentOrders = [...adminOrders]
+      .sort(
+        (a, b) =>
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+      )
+      .slice(0, 5);
 
     const kpiCards = [
-      { label: "طلبات اليوم", value: totalOrders, icon: "shopping-cart" as const, color: AppColors.info, bg: AppColors.infoLight },
-      { label: "بانتظار القبول", value: pendingOrders, icon: "clock" as const, color: AppColors.warning, bg: AppColors.warningLight },
-      { label: "قيد التوصيل", value: activeOrders, icon: "navigation" as const, color: AppColors.statusPurple, bg: AppColors.vendorPurpleLight },
-      { label: "تمت التوصيل", value: deliveredOrders, icon: "check-circle" as const, color: AppColors.success, bg: AppColors.successLight },
-      { label: "إجمالي السائقين", value: approvedDrivers, icon: "truck" as const, color: ADMIN_RED, bg: AppColors.secondary },
-      { label: "طلبات السائقين", value: pendingDrivers, icon: "user-check" as const, color: AppColors.statusPurple, bg: AppColors.vendorPurpleLight },
-      { label: "المستخدمون", value: adminUsers.length, icon: "users" as const, color: AppColors.info, bg: AppColors.infoLight },
-      { label: "عمولة التطبيق", value: formatPrice(todayRevenue), icon: "trending-up" as const, color: AppColors.success, bg: AppColors.successLight, isText: true },
+      {
+        label: "طلبات اليوم",
+        value: totalOrders,
+        icon: "shopping-cart" as const,
+        color: AppColors.info,
+        bg: AppColors.infoLight,
+      },
+      {
+        label: "بانتظار القبول",
+        value: pendingOrders,
+        icon: "clock" as const,
+        color: AppColors.warning,
+        bg: AppColors.warningLight,
+      },
+      {
+        label: "قيد التوصيل",
+        value: activeOrders,
+        icon: "navigation" as const,
+        color: AppColors.statusPurple,
+        bg: AppColors.vendorPurpleLight,
+      },
+      {
+        label: "تمت التوصيل",
+        value: deliveredOrders,
+        icon: "check-circle" as const,
+        color: AppColors.success,
+        bg: AppColors.successLight,
+      },
+      {
+        label: "إجمالي السائقين",
+        value: approvedDrivers,
+        icon: "truck" as const,
+        color: ADMIN_RED,
+        bg: AppColors.secondary,
+      },
+      {
+        label: "طلبات السائقين",
+        value: pendingDrivers,
+        icon: "user-check" as const,
+        color: AppColors.statusPurple,
+        bg: AppColors.vendorPurpleLight,
+      },
+      {
+        label: "المستخدمون",
+        value: adminUsers.length,
+        icon: "users" as const,
+        color: AppColors.info,
+        bg: AppColors.infoLight,
+      },
+      {
+        label: "عمولة التطبيق",
+        value: formatPrice(todayRevenue),
+        icon: "trending-up" as const,
+        color: AppColors.success,
+        bg: AppColors.successLight,
+        isText: true,
+      },
     ];
 
     const getStatusColor = (s: string) => {
-      const m: Record<string, string> = { pending:AppColors.warning, confirmed:AppColors.info, preparing:AppColors.statusPurple, ready:AppColors.primary, picked_up:AppColors.primary, in_delivery:AppColors.statusCyan, delivered:AppColors.success, cancelled:AppColors.error, issue:AppColors.error };
+      const m: Record<string, string> = {
+        pending: AppColors.warning,
+        confirmed: AppColors.info,
+        preparing: AppColors.statusPurple,
+        ready: AppColors.primary,
+        picked_up: AppColors.primary,
+        in_delivery: AppColors.statusCyan,
+        delivered: AppColors.success,
+        cancelled: AppColors.error,
+        issue: AppColors.error,
+      };
       return m[s] || AppColors.gray500;
     };
     const getStatusLabel = (s: string) => {
-      const m: Record<string, string> = { pending:"انتظار", confirmed:"مؤكد", preparing:"يتحضر", ready:"جاهز", picked_up:"استُلم", in_delivery:"بالطريق", delivered:"وصل", cancelled:"ملغي", issue:"مشكلة" };
+      const m: Record<string, string> = {
+        pending: "انتظار",
+        confirmed: "مؤكد",
+        preparing: "يتحضر",
+        ready: "جاهز",
+        picked_up: "استُلم",
+        in_delivery: "بالطريق",
+        delivered: "وصل",
+        cancelled: "ملغي",
+        issue: "مشكلة",
+      };
       return m[s] || s;
     };
 
-    const quickLinks: { label: string; tab: TabType; icon: keyof typeof Feather.glyphMap; color: string }[] = [
-      { label: "البانرات", tab: "banners", icon: "image", color: AppColors.info },
-      { label: "الأقسام", tab: "categories", icon: "grid", color: AppColors.statusPurple },
-      { label: "المنتجات", tab: "products", icon: "package", color: AppColors.warning },
-      { label: "المناطق", tab: "areas", icon: "map-pin", color: AppColors.success },
-      { label: "أكواد الخصم", tab: "promoCodes", icon: "tag", color: AppColors.error },
-      { label: "الإشعارات", tab: "notifications", icon: "bell", color: AppColors.statusPurple },
+    const quickLinks: {
+      label: string;
+      tab: TabType;
+      icon: keyof typeof Feather.glyphMap;
+      color: string;
+    }[] = [
+      {
+        label: "البانرات",
+        tab: "banners",
+        icon: "image",
+        color: AppColors.info,
+      },
+      {
+        label: "الأقسام",
+        tab: "categories",
+        icon: "grid",
+        color: AppColors.statusPurple,
+      },
+      {
+        label: "المنتجات",
+        tab: "products",
+        icon: "package",
+        color: AppColors.warning,
+      },
+      {
+        label: "المناطق",
+        tab: "areas",
+        icon: "map-pin",
+        color: AppColors.success,
+      },
+      {
+        label: "أكواد الخصم",
+        tab: "promoCodes",
+        icon: "tag",
+        color: AppColors.error,
+      },
+      {
+        label: "الإشعارات",
+        tab: "notifications",
+        icon: "bell",
+        color: AppColors.statusPurple,
+      },
     ];
 
     return (
       <View style={{ gap: Spacing.lg }}>
         {/* Welcome strip */}
-        <View style={{ borderRadius: BorderRadius.xl, overflow: "hidden", backgroundColor: AppColors.primary }}>
-          <View style={{ padding: Spacing.lg, flexDirection: "row-reverse", alignItems: "center", gap: Spacing.md }}>
-            <View style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: "rgba(255,255,255,0.2)", alignItems: "center", justifyContent: "center" }}>
+        <View
+          style={{
+            borderRadius: BorderRadius.xl,
+            overflow: "hidden",
+            backgroundColor: AppColors.primary,
+          }}
+        >
+          <View
+            style={{
+              padding: Spacing.lg,
+              flexDirection: "row-reverse",
+              alignItems: "center",
+              gap: Spacing.md,
+            }}
+          >
+            <View
+              style={{
+                width: 48,
+                height: 48,
+                borderRadius: 24,
+                backgroundColor: "rgba(255,255,255,0.2)",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
               <Feather name="shield" size={24} color={AppColors.white} />
             </View>
             <View style={{ flex: 1, alignItems: "flex-end" }}>
-              <ThemedText style={{ color: AppColors.white, fontSize: 18, fontFamily: "Cairo_700Bold" }}>لوحة التحكم</ThemedText>
-              <ThemedText style={{ color: AppColors.textOnBrandMuted, fontSize: 13, fontFamily: "Cairo_400Regular" }}>مرحباً بك في نظام إدارة أونواي</ThemedText>
+              <ThemedText
+                style={{
+                  color: AppColors.white,
+                  fontSize: 18,
+                  fontFamily: "Cairo_700Bold",
+                }}
+              >
+                لوحة التحكم
+              </ThemedText>
+              <ThemedText
+                style={{
+                  color: AppColors.textOnBrandMuted,
+                  fontSize: 13,
+                  fontFamily: "Cairo_400Regular",
+                }}
+              >
+                مرحباً بك في نظام إدارة أونواي
+              </ThemedText>
             </View>
           </View>
           {/* Mini status bar */}
-          <View style={{ flexDirection: "row-reverse", backgroundColor: "rgba(0,0,0,0.15)", paddingHorizontal: Spacing.lg, paddingVertical: Spacing.sm, gap: Spacing.lg }}>
-            <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 4 }}>
-              <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: pendingOrders > 0 ? AppColors.warning : AppColors.success }} />
-              <ThemedText style={{ color: AppColors.white, fontSize: 12, fontFamily: "Cairo_400Regular" }}>{pendingOrders > 0 ? `${pendingOrders} طلب ينتظر` : "لا طلبات معلقة"}</ThemedText>
+          <View
+            style={{
+              flexDirection: "row-reverse",
+              backgroundColor: "rgba(0,0,0,0.15)",
+              paddingHorizontal: Spacing.lg,
+              paddingVertical: Spacing.sm,
+              gap: Spacing.lg,
+            }}
+          >
+            <View
+              style={{
+                flexDirection: "row-reverse",
+                alignItems: "center",
+                gap: 4,
+              }}
+            >
+              <View
+                style={{
+                  width: 8,
+                  height: 8,
+                  borderRadius: 4,
+                  backgroundColor:
+                    pendingOrders > 0 ? AppColors.warning : AppColors.success,
+                }}
+              />
+              <ThemedText
+                style={{
+                  color: AppColors.white,
+                  fontSize: 12,
+                  fontFamily: "Cairo_400Regular",
+                }}
+              >
+                {pendingOrders > 0
+                  ? `${pendingOrders} طلب ينتظر`
+                  : "لا طلبات معلقة"}
+              </ThemedText>
             </View>
-            <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 4 }}>
-              <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: AppColors.success }} />
-              <ThemedText style={{ color: AppColors.white, fontSize: 12, fontFamily: "Cairo_400Regular" }}>{approvedDrivers} سائق نشط</ThemedText>
+            <View
+              style={{
+                flexDirection: "row-reverse",
+                alignItems: "center",
+                gap: 4,
+              }}
+            >
+              <View
+                style={{
+                  width: 8,
+                  height: 8,
+                  borderRadius: 4,
+                  backgroundColor: AppColors.success,
+                }}
+              />
+              <ThemedText
+                style={{
+                  color: AppColors.white,
+                  fontSize: 12,
+                  fontFamily: "Cairo_400Regular",
+                }}
+              >
+                {approvedDrivers} سائق نشط
+              </ThemedText>
             </View>
           </View>
         </View>
 
         {/* KPI grid */}
         <View>
-          <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 14, color: theme.textSecondary, textAlign: "right", marginBottom: Spacing.sm }}>الإحصائيات الرئيسية</ThemedText>
-          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: Spacing.sm }}>
+          <ThemedText
+            style={{
+              fontFamily: "Cairo_700Bold",
+              fontSize: 14,
+              color: theme.textSecondary,
+              textAlign: "right",
+              marginBottom: Spacing.sm,
+            }}
+          >
+            الإحصائيات الرئيسية
+          </ThemedText>
+          <View
+            style={{ flexDirection: "row", flexWrap: "wrap", gap: Spacing.sm }}
+          >
             {kpiCards.map((card, i) => (
-              <View key={i} style={{ width: "47%", backgroundColor: AppColors.white, borderRadius: 20, padding: Spacing.md + 2, gap: 6, borderWidth: 1, borderColor: "rgba(16,24,40,0.05)", shadowColor: AppColors.black, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 8, elevation: 1 }}>
-                <View style={{ flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between" }}>
-                  <View style={{ width: 38, height: 38, borderRadius: 11, backgroundColor: card.color + "18", alignItems: "center", justifyContent: "center" }}>
+              <View
+                key={i}
+                style={{
+                  width: "47%",
+                  backgroundColor: AppColors.white,
+                  borderRadius: 20,
+                  padding: Spacing.md + 2,
+                  gap: 6,
+                  borderWidth: 1,
+                  borderColor: "rgba(16,24,40,0.05)",
+                  shadowColor: AppColors.black,
+                  shadowOffset: { width: 0, height: 2 },
+                  shadowOpacity: 0.05,
+                  shadowRadius: 8,
+                  elevation: 1,
+                }}
+              >
+                <View
+                  style={{
+                    flexDirection: "row-reverse",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                  }}
+                >
+                  <View
+                    style={{
+                      width: 38,
+                      height: 38,
+                      borderRadius: 11,
+                      backgroundColor: card.color + "18",
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                  >
                     <Feather name={card.icon} size={18} color={card.color} />
                   </View>
                   {card.isText ? (
-                    <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 15, color: AppColors.gray800 }}>{card.value as string}</ThemedText>
+                    <ThemedText
+                      style={{
+                        fontFamily: "Cairo_700Bold",
+                        fontSize: 15,
+                        color: AppColors.gray800,
+                      }}
+                    >
+                      {card.value as string}
+                    </ThemedText>
                   ) : (
-                    <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 26, lineHeight: 36, includeFontPadding: true, color: AppColors.gray800 }}>{card.value as number}</ThemedText>
+                    <ThemedText
+                      style={{
+                        fontFamily: "Cairo_700Bold",
+                        fontSize: 26,
+                        lineHeight: 36,
+                        includeFontPadding: true,
+                        color: AppColors.gray800,
+                      }}
+                    >
+                      {card.value as number}
+                    </ThemedText>
                   )}
                 </View>
-                <ThemedText style={{ fontFamily: "Cairo_600SemiBold", fontSize: 12.5, color: AppColors.gray500, textAlign: "right" }}>{card.label}</ThemedText>
+                <ThemedText
+                  style={{
+                    fontFamily: "Cairo_600SemiBold",
+                    fontSize: 12.5,
+                    color: AppColors.gray500,
+                    textAlign: "right",
+                  }}
+                >
+                  {card.label}
+                </ThemedText>
               </View>
             ))}
           </View>
@@ -2553,18 +4226,58 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
 
         {/* Quick links */}
         <View>
-          <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 14, color: theme.textSecondary, textAlign: "right", marginBottom: Spacing.sm }}>وصول سريع</ThemedText>
-          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: Spacing.sm }}>
+          <ThemedText
+            style={{
+              fontFamily: "Cairo_700Bold",
+              fontSize: 14,
+              color: theme.textSecondary,
+              textAlign: "right",
+              marginBottom: Spacing.sm,
+            }}
+          >
+            وصول سريع
+          </ThemedText>
+          <View
+            style={{ flexDirection: "row", flexWrap: "wrap", gap: Spacing.sm }}
+          >
             {quickLinks.map((ql, i) => (
               <Pressable
                 key={i}
-                onPress={() => { setActiveTab(ql.tab); resetForm(); }}
-                style={{ width: "30%", backgroundColor: theme.backgroundSecondary, borderRadius: BorderRadius.lg, padding: Spacing.md, alignItems: "center", gap: 6 }}
+                onPress={() => {
+                  setActiveTab(ql.tab);
+                  resetForm();
+                }}
+                style={{
+                  width: "30%",
+                  backgroundColor: theme.backgroundSecondary,
+                  borderRadius: BorderRadius.lg,
+                  padding: Spacing.md,
+                  alignItems: "center",
+                  gap: 6,
+                }}
               >
-                <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: ql.color + "15", alignItems: "center", justifyContent: "center" }}>
+                <View
+                  style={{
+                    width: 40,
+                    height: 40,
+                    borderRadius: 12,
+                    backgroundColor: ql.color + "15",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
                   <Feather name={ql.icon} size={20} color={ql.color} />
                 </View>
-                <ThemedText style={{ fontFamily: "Cairo_400Regular", fontSize: 12, color: theme.text, textAlign: "center" }}>{ql.label}</ThemedText>
+                <ThemedText
+                  style={{
+                    fontFamily: "Cairo_400Regular",
+                    fontSize: 12,
+                    color: theme.text,
+                    textAlign: "center",
+                  }}
+                >
+                  {ql.label}
+                </ThemedText>
               </Pressable>
             ))}
           </View>
@@ -2572,36 +4285,134 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
 
         {/* Recent orders */}
         <View>
-          <View style={{ flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between", marginBottom: Spacing.sm }}>
-            <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 14, color: theme.textSecondary }}>آخر الطلبات</ThemedText>
-            <Pressable onPress={() => { setActiveTab("orders"); resetForm(); }}>
-              <ThemedText style={{ fontFamily: "Cairo_400Regular", fontSize: 13, color: ADMIN_RED }}>عرض الكل</ThemedText>
+          <View
+            style={{
+              flexDirection: "row-reverse",
+              alignItems: "center",
+              justifyContent: "space-between",
+              marginBottom: Spacing.sm,
+            }}
+          >
+            <ThemedText
+              style={{
+                fontFamily: "Cairo_700Bold",
+                fontSize: 14,
+                color: theme.textSecondary,
+              }}
+            >
+              آخر الطلبات
+            </ThemedText>
+            <Pressable
+              onPress={() => {
+                setActiveTab("orders");
+                resetForm();
+              }}
+            >
+              <ThemedText
+                style={{
+                  fontFamily: "Cairo_400Regular",
+                  fontSize: 13,
+                  color: ADMIN_RED,
+                }}
+              >
+                عرض الكل
+              </ThemedText>
             </Pressable>
           </View>
           {recentOrders.length === 0 ? (
             <View style={{ padding: Spacing.xl, alignItems: "center" }}>
-              <ThemedText style={{ color: theme.textSecondary, fontFamily: "Cairo_400Regular", fontSize: 13 }}>لا توجد طلبات بعد</ThemedText>
+              <ThemedText
+                style={{
+                  color: theme.textSecondary,
+                  fontFamily: "Cairo_400Regular",
+                  fontSize: 13,
+                }}
+              >
+                لا توجد طلبات بعد
+              </ThemedText>
             </View>
           ) : (
             <View style={{ gap: Spacing.sm }}>
-              {recentOrders.map(order => (
+              {recentOrders.map((order) => (
                 <Pressable
                   key={order.id}
-                  onPress={() => { setActiveTab("orders"); resetForm(); }}
-                  style={{ backgroundColor: theme.backgroundSecondary, borderRadius: BorderRadius.lg, padding: Spacing.md, flexDirection: "row-reverse", alignItems: "center", gap: Spacing.md }}
+                  onPress={() => {
+                    setActiveTab("orders");
+                    resetForm();
+                  }}
+                  style={{
+                    backgroundColor: theme.backgroundSecondary,
+                    borderRadius: BorderRadius.lg,
+                    padding: Spacing.md,
+                    flexDirection: "row-reverse",
+                    alignItems: "center",
+                    gap: Spacing.md,
+                  }}
                 >
-                  <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: getStatusColor(order.status) + "15", alignItems: "center", justifyContent: "center" }}>
-                    <Feather name="shopping-bag" size={18} color={getStatusColor(order.status)} />
+                  <View
+                    style={{
+                      width: 40,
+                      height: 40,
+                      borderRadius: 12,
+                      backgroundColor: getStatusColor(order.status) + "15",
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                  >
+                    <Feather
+                      name="shopping-bag"
+                      size={18}
+                      color={getStatusColor(order.status)}
+                    />
                   </View>
                   <View style={{ flex: 1, alignItems: "flex-end", gap: 2 }}>
-                    <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 13, color: theme.text }}>#{order.id.slice(-6)}</ThemedText>
-                    <ThemedText style={{ fontFamily: "Cairo_400Regular", fontSize: 12, color: theme.textSecondary }}>{order.phoneNumber}</ThemedText>
+                    <ThemedText
+                      style={{
+                        fontFamily: "Cairo_700Bold",
+                        fontSize: 13,
+                        color: theme.text,
+                      }}
+                    >
+                      #{order.id.slice(-6)}
+                    </ThemedText>
+                    <ThemedText
+                      style={{
+                        fontFamily: "Cairo_400Regular",
+                        fontSize: 12,
+                        color: theme.textSecondary,
+                      }}
+                    >
+                      {order.phoneNumber}
+                    </ThemedText>
                   </View>
                   <View style={{ alignItems: "flex-end", gap: 2 }}>
-                    <View style={{ paddingHorizontal: Spacing.sm, paddingVertical: 2, borderRadius: 100, backgroundColor: getStatusColor(order.status) + "20" }}>
-                      <ThemedText style={{ fontSize: 11, fontFamily: "Cairo_700Bold", color: getStatusColor(order.status) }}>{getStatusLabel(order.status)}</ThemedText>
+                    <View
+                      style={{
+                        paddingHorizontal: Spacing.sm,
+                        paddingVertical: 2,
+                        borderRadius: 100,
+                        backgroundColor: getStatusColor(order.status) + "20",
+                      }}
+                    >
+                      <ThemedText
+                        style={{
+                          fontSize: 11,
+                          fontFamily: "Cairo_700Bold",
+                          color: getStatusColor(order.status),
+                        }}
+                      >
+                        {getStatusLabel(order.status)}
+                      </ThemedText>
                     </View>
-                    <ThemedText style={{ fontSize: 13, fontFamily: "Cairo_700Bold", color: theme.text }}>{formatPrice(order.total)}</ThemedText>
+                    <ThemedText
+                      style={{
+                        fontSize: 13,
+                        fontFamily: "Cairo_700Bold",
+                        color: theme.text,
+                      }}
+                    >
+                      {formatPrice(order.total)}
+                    </ThemedText>
                   </View>
                 </Pressable>
               ))}
@@ -2610,58 +4421,171 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
         </View>
 
         {/* Urgency Thresholds Settings */}
-        <View style={{ backgroundColor: theme.backgroundSecondary, borderRadius: BorderRadius.xl, padding: Spacing.lg, gap: Spacing.md }}>
-          <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: Spacing.sm, marginBottom: 2 }}>
-            <View style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: "#FEE2E220", alignItems: "center", justifyContent: "center" }}>
+        <View
+          style={{
+            backgroundColor: theme.backgroundSecondary,
+            borderRadius: BorderRadius.xl,
+            padding: Spacing.lg,
+            gap: Spacing.md,
+          }}
+        >
+          <View
+            style={{
+              flexDirection: "row-reverse",
+              alignItems: "center",
+              gap: Spacing.sm,
+              marginBottom: 2,
+            }}
+          >
+            <View
+              style={{
+                width: 36,
+                height: 36,
+                borderRadius: 10,
+                backgroundColor: "#FEE2E220",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
               <Feather name="clock" size={18} color={AppColors.error} />
             </View>
             <View style={{ flex: 1, alignItems: "flex-end" }}>
-              <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 14, color: theme.text }}>حدود تنبيه الوقت للبائعين</ThemedText>
-              <ThemedText style={{ fontFamily: "Cairo_400Regular", fontSize: 12, color: theme.textSecondary }}>عدد الدقائق قبل تحوّل المؤقت إلى اللون الأحمر</ThemedText>
+              <ThemedText
+                style={{
+                  fontFamily: "Cairo_700Bold",
+                  fontSize: 14,
+                  color: theme.text,
+                }}
+              >
+                حدود تنبيه الوقت للبائعين
+              </ThemedText>
+              <ThemedText
+                style={{
+                  fontFamily: "Cairo_400Regular",
+                  fontSize: 12,
+                  color: theme.textSecondary,
+                }}
+              >
+                عدد الدقائق قبل تحوّل المؤقت إلى اللون الأحمر
+              </ThemedText>
             </View>
           </View>
           <View style={{ gap: Spacing.sm }}>
-            {([
+            {[
               { key: "confirmed" as const, label: "بعد التأكيد (مؤكد)" },
               { key: "preparing" as const, label: "أثناء التحضير" },
               { key: "ready" as const, label: "جاهز وينتظر السائق" },
-            ]).map(({ key, label }) => (
-              <View key={key} style={{ flexDirection: "row-reverse", alignItems: "center", gap: Spacing.sm }}>
-                <ThemedText style={{ flex: 1, fontFamily: "Cairo_400Regular", fontSize: 13, color: theme.text, textAlign: "right" }}>{label}</ThemedText>
-                <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 6 }}>
+            ].map(({ key, label }) => (
+              <View
+                key={key}
+                style={{
+                  flexDirection: "row-reverse",
+                  alignItems: "center",
+                  gap: Spacing.sm,
+                }}
+              >
+                <ThemedText
+                  style={{
+                    flex: 1,
+                    fontFamily: "Cairo_400Regular",
+                    fontSize: 13,
+                    color: theme.text,
+                    textAlign: "right",
+                  }}
+                >
+                  {label}
+                </ThemedText>
+                <View
+                  style={{
+                    flexDirection: "row-reverse",
+                    alignItems: "center",
+                    gap: 6,
+                  }}
+                >
                   <TextInput
                     value={urgencyForm[key]}
-                    onChangeText={(t) => setUrgencyForm((prev) => ({ ...prev, [key]: t.replace(/[^0-9]/g, "") }))}
+                    onChangeText={(t) =>
+                      setUrgencyForm((prev) => ({
+                        ...prev,
+                        [key]: t.replace(/[^0-9]/g, ""),
+                      }))
+                    }
                     keyboardType="number-pad"
                     style={{
-                      width: 60, textAlign: "center", fontFamily: "Cairo_700Bold", fontSize: 15,
-                      color: theme.text, backgroundColor: theme.backgroundDefault,
-                      borderRadius: BorderRadius.md, borderWidth: 1, borderColor: theme.border ?? AppColors.divider,
-                      paddingVertical: 6, paddingHorizontal: 8,
+                      width: 60,
+                      textAlign: "center",
+                      fontFamily: "Cairo_700Bold",
+                      fontSize: 15,
+                      color: theme.text,
+                      backgroundColor: theme.backgroundDefault,
+                      borderRadius: BorderRadius.md,
+                      borderWidth: 1,
+                      borderColor: theme.border ?? AppColors.divider,
+                      paddingVertical: 6,
+                      paddingHorizontal: 8,
                     }}
                     testID={`urgency-input-${key}`}
                   />
-                  <ThemedText style={{ fontFamily: "Cairo_400Regular", fontSize: 12, color: theme.textSecondary }}>دقيقة</ThemedText>
+                  <ThemedText
+                    style={{
+                      fontFamily: "Cairo_400Regular",
+                      fontSize: 12,
+                      color: theme.textSecondary,
+                    }}
+                  >
+                    دقيقة
+                  </ThemedText>
                 </View>
               </View>
             ))}
           </View>
           {urgencySaveError ? (
-            <ThemedText style={{ fontFamily: "Cairo_400Regular", fontSize: 13, color: AppColors.error, textAlign: "right" }}>{urgencySaveError}</ThemedText>
+            <ThemedText
+              style={{
+                fontFamily: "Cairo_400Regular",
+                fontSize: 13,
+                color: AppColors.error,
+                textAlign: "right",
+              }}
+            >
+              {urgencySaveError}
+            </ThemedText>
           ) : null}
           {urgencySaveOk ? (
-            <ThemedText style={{ fontFamily: "Cairo_400Regular", fontSize: 13, color: AppColors.success, textAlign: "right" }}>تم الحفظ بنجاح</ThemedText>
+            <ThemedText
+              style={{
+                fontFamily: "Cairo_400Regular",
+                fontSize: 13,
+                color: AppColors.success,
+                textAlign: "right",
+              }}
+            >
+              تم الحفظ بنجاح
+            </ThemedText>
           ) : null}
           <Pressable
             onPress={saveUrgencyThresholds}
             disabled={isSavingUrgency}
             testID="button-save-urgency"
-            style={{ backgroundColor: ADMIN_RED, borderRadius: BorderRadius.lg, paddingVertical: 10, alignItems: "center" }}
+            style={{
+              backgroundColor: ADMIN_RED,
+              borderRadius: BorderRadius.lg,
+              paddingVertical: 10,
+              alignItems: "center",
+            }}
           >
             {isSavingUrgency ? (
               <ActivityIndicator color={AppColors.white} size="small" />
             ) : (
-              <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 14, color: AppColors.white }}>حفظ الحدود الزمنية</ThemedText>
+              <ThemedText
+                style={{
+                  fontFamily: "Cairo_700Bold",
+                  fontSize: 14,
+                  color: AppColors.white,
+                }}
+              >
+                حفظ الحدود الزمنية
+              </ThemedText>
             )}
           </Pressable>
         </View>
@@ -2669,15 +4593,53 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
         {/* Commission summary shortcut */}
         {ownerEarnings ? (
           <Pressable
-            onPress={() => { setActiveTab("orders"); resetForm(); }}
-            style={{ backgroundColor: AppColors.secondary, borderRadius: BorderRadius.xl, padding: Spacing.lg, flexDirection: "row-reverse", alignItems: "center", gap: Spacing.md, borderWidth: 1, borderColor: AppColors.errorLight }}
+            onPress={() => {
+              setActiveTab("orders");
+              resetForm();
+            }}
+            style={{
+              backgroundColor: AppColors.secondary,
+              borderRadius: BorderRadius.xl,
+              padding: Spacing.lg,
+              flexDirection: "row-reverse",
+              alignItems: "center",
+              gap: Spacing.md,
+              borderWidth: 1,
+              borderColor: AppColors.errorLight,
+            }}
           >
-            <View style={{ width: 44, height: 44, borderRadius: 14, backgroundColor: AppColors.errorLight, alignItems: "center", justifyContent: "center" }}>
+            <View
+              style={{
+                width: 44,
+                height: 44,
+                borderRadius: 14,
+                backgroundColor: AppColors.errorLight,
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
               <Feather name="dollar-sign" size={22} color={ADMIN_RED} />
             </View>
             <View style={{ flex: 1, alignItems: "flex-end" }}>
-              <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 15, color: ADMIN_RED }}>{formatPrice(ownerEarnings.totalOwnerEarnings)}</ThemedText>
-              <ThemedText style={{ fontFamily: "Cairo_400Regular", fontSize: 12, color: AppColors.gray500 }}>إجمالي عمولة التطبيق — {ownerEarnings.totalDeliveredOrders} طلب مكتمل</ThemedText>
+              <ThemedText
+                style={{
+                  fontFamily: "Cairo_700Bold",
+                  fontSize: 15,
+                  color: ADMIN_RED,
+                }}
+              >
+                {formatPrice(ownerEarnings.totalOwnerEarnings)}
+              </ThemedText>
+              <ThemedText
+                style={{
+                  fontFamily: "Cairo_400Regular",
+                  fontSize: 12,
+                  color: AppColors.gray500,
+                }}
+              >
+                إجمالي عمولة التطبيق — {ownerEarnings.totalDeliveredOrders} طلب
+                مكتمل
+              </ThemedText>
             </View>
             <Feather name="chevron-left" size={16} color={ADMIN_RED} />
           </Pressable>
@@ -2687,20 +4649,31 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
   };
 
   const VENDOR_STATUS_LABELS: Record<string, string> = {
-    all: "الكل", active: "نشط", pending: "قيد المراجعة", rejected: "مرفوض", suspended: "موقوف",
+    all: "الكل",
+    active: "نشط",
+    pending: "قيد المراجعة",
+    rejected: "مرفوض",
+    suspended: "موقوف",
   };
   const VENDOR_STATUS_COLORS: Record<string, string> = {
-    active: AppColors.success, pending: AppColors.warning, rejected: AppColors.error, suspended: AppColors.gray500,
+    active: AppColors.success,
+    pending: AppColors.warning,
+    rejected: AppColors.error,
+    suspended: AppColors.gray500,
   };
   const BUSINESS_TYPE_LABELS: Record<string, string> = {
-    restaurant: "مطعم", supermarket: "سوبرماركت", pharmacy: "صيدلية",
-    bakery: "مخبز", other: "أخرى",
+    restaurant: "مطعم",
+    supermarket: "سوبرماركت",
+    pharmacy: "صيدلية",
+    bakery: "مخبز",
+    other: "أخرى",
   };
 
   const renderVendorsTab = () => {
-    const filtered = vendorStatusFilter === "all"
-      ? vendorPartners
-      : vendorPartners.filter((v) => v.status === vendorStatusFilter);
+    const filtered =
+      vendorStatusFilter === "all"
+        ? vendorPartners
+        : vendorPartners.filter((v) => v.status === vendorStatusFilter);
 
     const vendorProductsMap: Record<string, VendorProduct[]> = {};
     (allVendorProducts?.products ?? []).forEach((p) => {
@@ -2708,7 +4681,9 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
       vendorProductsMap[p.vendorId].push(p);
     });
 
-    const selectedProducts = selectedVendor ? (vendorProductsMap[selectedVendor.id] ?? []) : [];
+    const selectedProducts = selectedVendor
+      ? (vendorProductsMap[selectedVendor.id] ?? [])
+      : [];
 
     const handleDeleteVendor = (vendor: VendorPartner) => {
       const message = `هل أنت متأكد من حذف "${vendor.storeName}"؟ سيتم حذف المتجر وجميع منتجاته نهائياً من التطبيق وقاعدة البيانات.`;
@@ -2719,7 +4694,11 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
       } else {
         Alert.alert("تأكيد حذف المتجر", message, [
           { text: "إلغاء", style: "cancel" },
-          { text: "حذف نهائياً", style: "destructive", onPress: () => deleteVendor.mutate(vendor.id) },
+          {
+            text: "حذف نهائياً",
+            style: "destructive",
+            onPress: () => deleteVendor.mutate(vendor.id),
+          },
         ]);
       }
     };
@@ -2727,20 +4706,27 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
     const handleUpdateVendorStatus = async (
       vendorId: string,
       status: "active" | "rejected" | "suspended",
-      reason?: string
+      reason?: string,
     ) => {
       setIsUpdatingVendorStatus(true);
       try {
-        const res = await fetch(`${getApiUrl()}/api/admin/vendor-partners/${vendorId}/status`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          credentials: "include",
-          body: JSON.stringify({ status, reason }),
-        });
+        const res = await fetch(
+          `${getApiUrl()}/api/admin/vendor-partners/${vendorId}/status`,
+          {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            credentials: "include",
+            body: JSON.stringify({ status, reason }),
+          },
+        );
         if (!res.ok) throw new Error("failed");
         await refetchVendors();
-        queryClient.invalidateQueries({ queryKey: ["/api/admin/vendor-partners"] });
-        setSelectedVendor((prev) => (prev && prev.id === vendorId ? { ...prev, status } : prev));
+        queryClient.invalidateQueries({
+          queryKey: ["/api/admin/vendor-partners"],
+        });
+        setSelectedVendor((prev) =>
+          prev && prev.id === vendorId ? { ...prev, status } : prev,
+        );
         setSelectedVendor(null);
       } catch {
         Alert.alert("خطأ", "فشل تحديث حالة المتجر");
@@ -2755,115 +4741,355 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
         <View style={{ flexDirection: "row-reverse", gap: Spacing.sm }}>
           {[
             { label: "الكل", count: vendorPartners.length, color: ADMIN_RED },
-            { label: "نشط", count: vendorPartners.filter((v) => v.status === "active").length, color: AppColors.success },
-            { label: "قيد المراجعة", count: vendorPartners.filter((v) => v.status === "pending").length, color: AppColors.warning },
+            {
+              label: "نشط",
+              count: vendorPartners.filter((v) => v.status === "active").length,
+              color: AppColors.success,
+            },
+            {
+              label: "قيد المراجعة",
+              count: vendorPartners.filter((v) => v.status === "pending")
+                .length,
+              color: AppColors.warning,
+            },
           ].map((s) => (
-            <View key={s.label} style={{ flex: 1, backgroundColor: s.color + "15", borderRadius: 14, padding: Spacing.md, alignItems: "center", gap: 4 }}>
-              <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 18, color: s.color }}>{s.count}</ThemedText>
-              <ThemedText style={{ fontFamily: "Cairo_400Regular", fontSize: 11, color: s.color, textAlign: "center" }}>{s.label}</ThemedText>
+            <View
+              key={s.label}
+              style={{
+                flex: 1,
+                backgroundColor: s.color + "15",
+                borderRadius: 14,
+                padding: Spacing.md,
+                alignItems: "center",
+                gap: 4,
+              }}
+            >
+              <ThemedText
+                style={{
+                  fontFamily: "Cairo_700Bold",
+                  fontSize: 18,
+                  color: s.color,
+                }}
+              >
+                {s.count}
+              </ThemedText>
+              <ThemedText
+                style={{
+                  fontFamily: "Cairo_400Regular",
+                  fontSize: 11,
+                  color: s.color,
+                  textAlign: "center",
+                }}
+              >
+                {s.label}
+              </ThemedText>
             </View>
           ))}
         </View>
 
         {/* Filter tabs */}
-        <View style={{ flexDirection: "row-reverse", gap: 6, flexWrap: "wrap" }}>
-          {(["all", "active", "pending", "rejected", "suspended"] as const).map((f) => (
-            <Pressable
-              key={f}
-              onPress={() => setVendorStatusFilter(f)}
-              style={{
-                paddingHorizontal: 14, paddingVertical: 7, borderRadius: 20,
-                backgroundColor: vendorStatusFilter === f ? ADMIN_RED : theme.backgroundDefault,
-                borderWidth: 1, borderColor: vendorStatusFilter === f ? ADMIN_RED : theme.border ?? AppColors.divider,
-              }}
-              testID={`vendor-filter-${f}`}
-            >
-              <ThemedText style={{
-                fontFamily: "Cairo_700Bold", fontSize: 12,
-                color: vendorStatusFilter === f ? AppColors.white : theme.textSecondary,
-              }}>
-                {VENDOR_STATUS_LABELS[f]}
-              </ThemedText>
-            </Pressable>
-          ))}
+        <View
+          style={{ flexDirection: "row-reverse", gap: 6, flexWrap: "wrap" }}
+        >
+          {(["all", "active", "pending", "rejected", "suspended"] as const).map(
+            (f) => (
+              <Pressable
+                key={f}
+                onPress={() => setVendorStatusFilter(f)}
+                style={{
+                  paddingHorizontal: 14,
+                  paddingVertical: 7,
+                  borderRadius: 20,
+                  backgroundColor:
+                    vendorStatusFilter === f
+                      ? ADMIN_RED
+                      : theme.backgroundDefault,
+                  borderWidth: 1,
+                  borderColor:
+                    vendorStatusFilter === f
+                      ? ADMIN_RED
+                      : (theme.border ?? AppColors.divider),
+                }}
+                testID={`vendor-filter-${f}`}
+              >
+                <ThemedText
+                  style={{
+                    fontFamily: "Cairo_700Bold",
+                    fontSize: 12,
+                    color:
+                      vendorStatusFilter === f
+                        ? AppColors.white
+                        : theme.textSecondary,
+                  }}
+                >
+                  {VENDOR_STATUS_LABELS[f]}
+                </ThemedText>
+              </Pressable>
+            ),
+          )}
         </View>
 
         {/* Store cards */}
         {vendorsLoading ? (
-          <ActivityIndicator size="large" color={ADMIN_RED} style={{ paddingVertical: 40 }} />
+          <ActivityIndicator
+            size="large"
+            color={ADMIN_RED}
+            style={{ paddingVertical: 40 }}
+          />
         ) : filtered.length === 0 ? (
           <View style={{ alignItems: "center", paddingVertical: 40, gap: 8 }}>
-            <Feather name="briefcase" size={40} color={ADMIN_RED} style={{ opacity: 0.3 }} />
-            <ThemedText style={{ fontFamily: "Cairo_700Bold", color: theme.textSecondary }}>لا متاجر في هذه الفئة</ThemedText>
+            <Feather
+              name="briefcase"
+              size={40}
+              color={ADMIN_RED}
+              style={{ opacity: 0.3 }}
+            />
+            <ThemedText
+              style={{
+                fontFamily: "Cairo_700Bold",
+                color: theme.textSecondary,
+              }}
+            >
+              لا متاجر في هذه الفئة
+            </ThemedText>
           </View>
         ) : (
           filtered.map((vendor) => {
             const products = vendorProductsMap[vendor.id] ?? [];
-            const approvedCount = products.filter((p) => p.status === "approved").length;
+            const approvedCount = products.filter(
+              (p) => p.status === "approved",
+            ).length;
             return (
               <View
                 key={vendor.id}
                 style={{
-                  backgroundColor: theme.backgroundDefault, borderRadius: 16, overflow: "hidden",
-                  shadowColor: AppColors.black, shadowOpacity: 0.05, shadowRadius: 8, shadowOffset: { width: 0, height: 2 },
+                  backgroundColor: theme.backgroundDefault,
+                  borderRadius: 16,
+                  overflow: "hidden",
+                  shadowColor: AppColors.black,
+                  shadowOpacity: 0.05,
+                  shadowRadius: 8,
+                  shadowOffset: { width: 0, height: 2 },
                   elevation: 2,
                 }}
               >
                 {/* Cover — tappable to open detail */}
-                <Pressable onPress={() => setSelectedVendor(vendor)} testID={`vendor-card-${vendor.id}`}>
+                <Pressable
+                  onPress={() => setSelectedVendor(vendor)}
+                  testID={`vendor-card-${vendor.id}`}
+                >
                   {vendor.coverImageUrl ? (
-                    <Image source={{ uri: resolveImageUrl(vendor.coverImageUrl) }} style={{ width: "100%", height: 72, resizeMode: "cover" }} />
+                    <Image
+                      source={{ uri: resolveImageUrl(vendor.coverImageUrl) }}
+                      style={{ width: "100%", height: 72, resizeMode: "cover" }}
+                    />
                   ) : (
-                    <View style={{ width: "100%", height: 72, backgroundColor: ADMIN_RED + "20", alignItems: "center", justifyContent: "center" }}>
-                      <Feather name="briefcase" size={28} color={ADMIN_RED} style={{ opacity: 0.5 }} />
+                    <View
+                      style={{
+                        width: "100%",
+                        height: 72,
+                        backgroundColor: ADMIN_RED + "20",
+                        alignItems: "center",
+                        justifyContent: "center",
+                      }}
+                    >
+                      <Feather
+                        name="briefcase"
+                        size={28}
+                        color={ADMIN_RED}
+                        style={{ opacity: 0.5 }}
+                      />
                     </View>
                   )}
                 </Pressable>
 
                 <View style={{ padding: Spacing.md, gap: Spacing.sm }}>
-                  <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: Spacing.sm }}>
+                  <View
+                    style={{
+                      flexDirection: "row-reverse",
+                      alignItems: "center",
+                      gap: Spacing.sm,
+                    }}
+                  >
                     {/* Logo */}
                     <Pressable onPress={() => setSelectedVendor(vendor)}>
                       {vendor.profileImageUrl ? (
-                        <Image source={{ uri: resolveImageUrl(vendor.profileImageUrl) }} style={{ width: 44, height: 44, borderRadius: 12, borderWidth: 2, borderColor: AppColors.white, marginTop: -20 }} />
+                        <Image
+                          source={{
+                            uri: resolveImageUrl(vendor.profileImageUrl),
+                          }}
+                          style={{
+                            width: 44,
+                            height: 44,
+                            borderRadius: 12,
+                            borderWidth: 2,
+                            borderColor: AppColors.white,
+                            marginTop: -20,
+                          }}
+                        />
                       ) : (
-                        <View style={{ width: 44, height: 44, borderRadius: 12, backgroundColor: ADMIN_RED + "30", alignItems: "center", justifyContent: "center", marginTop: -20, borderWidth: 2, borderColor: AppColors.white }}>
-                          <Feather name="briefcase" size={20} color={ADMIN_RED} />
+                        <View
+                          style={{
+                            width: 44,
+                            height: 44,
+                            borderRadius: 12,
+                            backgroundColor: ADMIN_RED + "30",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            marginTop: -20,
+                            borderWidth: 2,
+                            borderColor: AppColors.white,
+                          }}
+                        >
+                          <Feather
+                            name="briefcase"
+                            size={20}
+                            color={ADMIN_RED}
+                          />
                         </View>
                       )}
                     </Pressable>
-                    <Pressable style={{ flex: 1 }} onPress={() => setSelectedVendor(vendor)}>
-                      <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 15, color: theme.text, textAlign: "right" }}>{vendor.storeName}</ThemedText>
-                      <ThemedText style={{ fontFamily: "Cairo_400Regular", fontSize: 12, color: theme.textSecondary, textAlign: "right" }}>
-                        {BUSINESS_TYPE_LABELS[vendor.businessType] || vendor.businessType} · {vendor.phoneNumber}
+                    <Pressable
+                      style={{ flex: 1 }}
+                      onPress={() => setSelectedVendor(vendor)}
+                    >
+                      <ThemedText
+                        style={{
+                          fontFamily: "Cairo_700Bold",
+                          fontSize: 15,
+                          color: theme.text,
+                          textAlign: "right",
+                        }}
+                      >
+                        {vendor.storeName}
+                      </ThemedText>
+                      <ThemedText
+                        style={{
+                          fontFamily: "Cairo_400Regular",
+                          fontSize: 12,
+                          color: theme.textSecondary,
+                          textAlign: "right",
+                        }}
+                      >
+                        {BUSINESS_TYPE_LABELS[vendor.businessType] ||
+                          vendor.businessType}{" "}
+                        · {vendor.phoneNumber}
                       </ThemedText>
                     </Pressable>
                     {/* Status badge */}
-                    <View style={{ paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20, backgroundColor: (VENDOR_STATUS_COLORS[vendor.status] ?? AppColors.gray500) + "20" }}>
-                      <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 11, color: VENDOR_STATUS_COLORS[vendor.status] ?? AppColors.gray500 }}>
+                    <View
+                      style={{
+                        paddingHorizontal: 10,
+                        paddingVertical: 4,
+                        borderRadius: 20,
+                        backgroundColor:
+                          (VENDOR_STATUS_COLORS[vendor.status] ??
+                            AppColors.gray500) + "20",
+                      }}
+                    >
+                      <ThemedText
+                        style={{
+                          fontFamily: "Cairo_700Bold",
+                          fontSize: 11,
+                          color:
+                            VENDOR_STATUS_COLORS[vendor.status] ??
+                            AppColors.gray500,
+                        }}
+                      >
                         {VENDOR_STATUS_LABELS[vendor.status] ?? vendor.status}
                       </ThemedText>
                     </View>
                   </View>
 
                   {/* Stats row + delete button */}
-                  <View style={{ flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between" }}>
-                    <View style={{ flexDirection: "row-reverse", gap: Spacing.lg, flex: 1 }}>
-                      <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 4 }}>
-                        <Feather name="package" size={13} color={theme.textSecondary} />
-                        <ThemedText style={{ fontFamily: "Cairo_400Regular", fontSize: 12, color: theme.textSecondary }}>{approvedCount} منتج</ThemedText>
+                  <View
+                    style={{
+                      flexDirection: "row-reverse",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                    }}
+                  >
+                    <View
+                      style={{
+                        flexDirection: "row-reverse",
+                        gap: Spacing.lg,
+                        flex: 1,
+                      }}
+                    >
+                      <View
+                        style={{
+                          flexDirection: "row-reverse",
+                          alignItems: "center",
+                          gap: 4,
+                        }}
+                      >
+                        <Feather
+                          name="package"
+                          size={13}
+                          color={theme.textSecondary}
+                        />
+                        <ThemedText
+                          style={{
+                            fontFamily: "Cairo_400Regular",
+                            fontSize: 12,
+                            color: theme.textSecondary,
+                          }}
+                        >
+                          {approvedCount} منتج
+                        </ThemedText>
                       </View>
                       {vendor.deliveryTime ? (
-                        <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 4 }}>
-                          <Feather name="clock" size={13} color={theme.textSecondary} />
-                          <ThemedText style={{ fontFamily: "Cairo_400Regular", fontSize: 12, color: theme.textSecondary }}>{vendor.deliveryTime}</ThemedText>
+                        <View
+                          style={{
+                            flexDirection: "row-reverse",
+                            alignItems: "center",
+                            gap: 4,
+                          }}
+                        >
+                          <Feather
+                            name="clock"
+                            size={13}
+                            color={theme.textSecondary}
+                          />
+                          <ThemedText
+                            style={{
+                              fontFamily: "Cairo_400Regular",
+                              fontSize: 12,
+                              color: theme.textSecondary,
+                            }}
+                          >
+                            {vendor.deliveryTime}
+                          </ThemedText>
                         </View>
                       ) : null}
                       {vendor.createdAt ? (
-                        <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 4 }}>
-                          <Feather name="calendar" size={13} color={theme.textSecondary} />
-                          <ThemedText style={{ fontFamily: "Cairo_400Regular", fontSize: 12, color: theme.textSecondary }}>
-                            {new Date(vendor.createdAt).toLocaleDateString("ar-IQ", { year: "numeric", month: "short", day: "numeric" })}
+                        <View
+                          style={{
+                            flexDirection: "row-reverse",
+                            alignItems: "center",
+                            gap: 4,
+                          }}
+                        >
+                          <Feather
+                            name="calendar"
+                            size={13}
+                            color={theme.textSecondary}
+                          />
+                          <ThemedText
+                            style={{
+                              fontFamily: "Cairo_400Regular",
+                              fontSize: 12,
+                              color: theme.textSecondary,
+                            }}
+                          >
+                            {new Date(vendor.createdAt).toLocaleDateString(
+                              "ar-IQ",
+                              {
+                                year: "numeric",
+                                month: "short",
+                                day: "numeric",
+                              },
+                            )}
                           </ThemedText>
                         </View>
                       ) : null}
@@ -2871,15 +5097,27 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
                     {/* Quick delete button */}
                     <Pressable
                       onPress={() => handleDeleteVendor(vendor)}
-                      disabled={deleteVendor.isPending && deleteVendor.variables === vendor.id}
+                      disabled={
+                        deleteVendor.isPending &&
+                        deleteVendor.variables === vendor.id
+                      }
                       style={({ pressed }) => ({
-                        width: 34, height: 34, borderRadius: 10,
-                        backgroundColor: pressed ? AppColors.error + "25" : AppColors.error + "15",
-                        alignItems: "center", justifyContent: "center",
+                        width: 34,
+                        height: 34,
+                        borderRadius: 10,
+                        backgroundColor: pressed
+                          ? AppColors.error + "25"
+                          : AppColors.error + "15",
+                        alignItems: "center",
+                        justifyContent: "center",
                         marginRight: Spacing.xs,
                       })}
                     >
-                      <Feather name="trash-2" size={16} color={AppColors.error} />
+                      <Feather
+                        name="trash-2"
+                        size={16}
+                        color={AppColors.error}
+                      />
                     </Pressable>
                   </View>
                 </View>
@@ -2890,126 +5128,382 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
 
         {/* Vendor Detail Modal */}
         {selectedVendor ? (
-          <Modal transparent animationType="slide" visible onRequestClose={() => setSelectedVendor(null)}>
+          <Modal
+            transparent
+            animationType="slide"
+            visible
+            onRequestClose={() => setSelectedVendor(null)}
+          >
             <View style={{ flex: 1, backgroundColor: AppColors.overlay }}>
-              <Pressable style={{ flex: 1 }} onPress={() => setSelectedVendor(null)} />
-              <View style={{
-                backgroundColor: theme.backgroundDefault,
-                borderTopLeftRadius: 24, borderTopRightRadius: 24,
-                maxHeight: "85%",
-              }}>
+              <Pressable
+                style={{ flex: 1 }}
+                onPress={() => setSelectedVendor(null)}
+              />
+              <View
+                style={{
+                  backgroundColor: theme.backgroundDefault,
+                  borderTopLeftRadius: 24,
+                  borderTopRightRadius: 24,
+                  maxHeight: "85%",
+                }}
+              >
                 {/* Header */}
-                <View style={{ flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between", padding: Spacing.lg, borderBottomWidth: 1, borderBottomColor: theme.border ?? AppColors.divider }}>
-                  <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 17, color: theme.text }}>{selectedVendor.storeName}</ThemedText>
-                  <Pressable onPress={() => setSelectedVendor(null)} style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: AppColors.gray100, alignItems: "center", justifyContent: "center" }}>
+                <View
+                  style={{
+                    flexDirection: "row-reverse",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    padding: Spacing.lg,
+                    borderBottomWidth: 1,
+                    borderBottomColor: theme.border ?? AppColors.divider,
+                  }}
+                >
+                  <ThemedText
+                    style={{
+                      fontFamily: "Cairo_700Bold",
+                      fontSize: 17,
+                      color: theme.text,
+                    }}
+                  >
+                    {selectedVendor.storeName}
+                  </ThemedText>
+                  <Pressable
+                    onPress={() => setSelectedVendor(null)}
+                    style={{
+                      width: 32,
+                      height: 32,
+                      borderRadius: 16,
+                      backgroundColor: AppColors.gray100,
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                  >
                     <Feather name="x" size={18} color={AppColors.gray700} />
                   </Pressable>
                 </View>
-                <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: Spacing.lg, gap: Spacing.md }}>
+                <ScrollView
+                  style={{ flex: 1 }}
+                  contentContainerStyle={{
+                    padding: Spacing.lg,
+                    gap: Spacing.md,
+                  }}
+                >
                   {/* Cover + logo */}
                   {selectedVendor.coverImageUrl ? (
-                    <Image source={{ uri: resolveImageUrl(selectedVendor.coverImageUrl) }} style={{ width: "100%", height: 130, borderRadius: 14, resizeMode: "cover" }} />
+                    <Image
+                      source={{
+                        uri: resolveImageUrl(selectedVendor.coverImageUrl),
+                      }}
+                      style={{
+                        width: "100%",
+                        height: 130,
+                        borderRadius: 14,
+                        resizeMode: "cover",
+                      }}
+                    />
                   ) : null}
 
                   {/* Info card */}
-                  <View style={{ backgroundColor: theme.backgroundRoot, borderRadius: 14, padding: Spacing.md, gap: 10 }}>
+                  <View
+                    style={{
+                      backgroundColor: theme.backgroundRoot,
+                      borderRadius: 14,
+                      padding: Spacing.md,
+                      gap: 10,
+                    }}
+                  >
                     {[
-                      { label: "نوع المتجر", value: BUSINESS_TYPE_LABELS[selectedVendor.businessType] || selectedVendor.businessType },
-                      { label: "رقم الهاتف", value: selectedVendor.phoneNumber },
-                      { label: "العنوان", value: selectedVendor.address || "—" },
-                      { label: "وقت التوصيل", value: selectedVendor.deliveryTime || "—" },
-                      { label: "رسوم التوصيل", value: selectedVendor.deliveryPrice != null ? formatPrice(selectedVendor.deliveryPrice) : "—" },
-                      { label: "تاريخ التسجيل", value: selectedVendor.createdAt ? new Date(selectedVendor.createdAt).toLocaleDateString("ar-IQ", { year: "numeric", month: "long", day: "numeric" }) : "—" },
-                      { label: "تاريخ الموافقة", value: selectedVendor.approvedAt ? new Date(selectedVendor.approvedAt).toLocaleDateString("ar-IQ", { year: "numeric", month: "long", day: "numeric" }) : "—" },
+                      {
+                        label: "نوع المتجر",
+                        value:
+                          BUSINESS_TYPE_LABELS[selectedVendor.businessType] ||
+                          selectedVendor.businessType,
+                      },
+                      {
+                        label: "رقم الهاتف",
+                        value: selectedVendor.phoneNumber,
+                      },
+                      {
+                        label: "العنوان",
+                        value: selectedVendor.address || "—",
+                      },
+                      {
+                        label: "وقت التوصيل",
+                        value: selectedVendor.deliveryTime || "—",
+                      },
+                      {
+                        label: "رسوم التوصيل",
+                        value:
+                          selectedVendor.deliveryPrice != null
+                            ? formatPrice(selectedVendor.deliveryPrice)
+                            : "—",
+                      },
+                      {
+                        label: "تاريخ التسجيل",
+                        value: selectedVendor.createdAt
+                          ? new Date(
+                              selectedVendor.createdAt,
+                            ).toLocaleDateString("ar-IQ", {
+                              year: "numeric",
+                              month: "long",
+                              day: "numeric",
+                            })
+                          : "—",
+                      },
+                      {
+                        label: "تاريخ الموافقة",
+                        value: selectedVendor.approvedAt
+                          ? new Date(
+                              selectedVendor.approvedAt,
+                            ).toLocaleDateString("ar-IQ", {
+                              year: "numeric",
+                              month: "long",
+                              day: "numeric",
+                            })
+                          : "—",
+                      },
                     ].map((item) => (
-                      <View key={item.label} style={{ flexDirection: "row-reverse", justifyContent: "space-between", alignItems: "flex-start" }}>
-                        <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 13, color: theme.textSecondary }}>{item.label}</ThemedText>
-                        <ThemedText style={{ fontFamily: "Cairo_400Regular", fontSize: 13, color: theme.text, textAlign: "left", flex: 1, marginLeft: 8 }}>{item.value}</ThemedText>
+                      <View
+                        key={item.label}
+                        style={{
+                          flexDirection: "row-reverse",
+                          justifyContent: "space-between",
+                          alignItems: "flex-start",
+                        }}
+                      >
+                        <ThemedText
+                          style={{
+                            fontFamily: "Cairo_700Bold",
+                            fontSize: 13,
+                            color: theme.textSecondary,
+                          }}
+                        >
+                          {item.label}
+                        </ThemedText>
+                        <ThemedText
+                          style={{
+                            fontFamily: "Cairo_400Regular",
+                            fontSize: 13,
+                            color: theme.text,
+                            textAlign: "left",
+                            flex: 1,
+                            marginLeft: 8,
+                          }}
+                        >
+                          {item.value}
+                        </ThemedText>
                       </View>
                     ))}
                     {selectedVendor.bio ? (
                       <View style={{ gap: 4 }}>
-                        <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 13, color: theme.textSecondary, textAlign: "right" }}>نبذة عن المتجر</ThemedText>
-                        <ThemedText style={{ fontFamily: "Cairo_400Regular", fontSize: 13, color: theme.text, textAlign: "right" }}>{selectedVendor.bio}</ThemedText>
+                        <ThemedText
+                          style={{
+                            fontFamily: "Cairo_700Bold",
+                            fontSize: 13,
+                            color: theme.textSecondary,
+                            textAlign: "right",
+                          }}
+                        >
+                          نبذة عن المتجر
+                        </ThemedText>
+                        <ThemedText
+                          style={{
+                            fontFamily: "Cairo_400Regular",
+                            fontSize: 13,
+                            color: theme.text,
+                            textAlign: "right",
+                          }}
+                        >
+                          {selectedVendor.bio}
+                        </ThemedText>
                       </View>
                     ) : null}
                   </View>
 
                   {/* Status badge */}
-                  <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 8 }}>
-                    <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 13, color: theme.textSecondary }}>الحالة:</ThemedText>
-                    <View style={{ paddingHorizontal: 14, paddingVertical: 5, borderRadius: 20, backgroundColor: (VENDOR_STATUS_COLORS[selectedVendor.status] ?? AppColors.gray500) + "20" }}>
-                      <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 13, color: VENDOR_STATUS_COLORS[selectedVendor.status] ?? AppColors.gray500 }}>
-                        {VENDOR_STATUS_LABELS[selectedVendor.status] ?? selectedVendor.status}
+                  <View
+                    style={{
+                      flexDirection: "row-reverse",
+                      alignItems: "center",
+                      gap: 8,
+                    }}
+                  >
+                    <ThemedText
+                      style={{
+                        fontFamily: "Cairo_700Bold",
+                        fontSize: 13,
+                        color: theme.textSecondary,
+                      }}
+                    >
+                      الحالة:
+                    </ThemedText>
+                    <View
+                      style={{
+                        paddingHorizontal: 14,
+                        paddingVertical: 5,
+                        borderRadius: 20,
+                        backgroundColor:
+                          (VENDOR_STATUS_COLORS[selectedVendor.status] ??
+                            AppColors.gray500) + "20",
+                      }}
+                    >
+                      <ThemedText
+                        style={{
+                          fontFamily: "Cairo_700Bold",
+                          fontSize: 13,
+                          color:
+                            VENDOR_STATUS_COLORS[selectedVendor.status] ??
+                            AppColors.gray500,
+                        }}
+                      >
+                        {VENDOR_STATUS_LABELS[selectedVendor.status] ??
+                          selectedVendor.status}
                       </ThemedText>
                     </View>
                   </View>
 
                   {/* Action buttons */}
-                  <View style={{ flexDirection: "row-reverse", gap: Spacing.sm }}>
+                  <View
+                    style={{ flexDirection: "row-reverse", gap: Spacing.sm }}
+                  >
                     {selectedVendor.status === "pending" ? (
                       <>
                         <Pressable
-                          onPress={() => handleUpdateVendorStatus(selectedVendor.id, "active")}
+                          onPress={() =>
+                            handleUpdateVendorStatus(
+                              selectedVendor.id,
+                              "active",
+                            )
+                          }
                           disabled={isUpdatingVendorStatus}
                           testID={`button-approve-vendor-${selectedVendor.id}`}
                           style={{
-                            flex: 1, backgroundColor: AppColors.success, borderRadius: BorderRadius.md,
-                            paddingVertical: Spacing.md, alignItems: "center", justifyContent: "center",
+                            flex: 1,
+                            backgroundColor: AppColors.success,
+                            borderRadius: BorderRadius.md,
+                            paddingVertical: Spacing.md,
+                            alignItems: "center",
+                            justifyContent: "center",
                             opacity: isUpdatingVendorStatus ? 0.6 : 1,
                           }}
                         >
                           {isUpdatingVendorStatus ? (
-                            <ActivityIndicator size="small" color={AppColors.white} />
+                            <ActivityIndicator
+                              size="small"
+                              color={AppColors.white}
+                            />
                           ) : (
-                            <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 14, color: AppColors.white }}>موافقة</ThemedText>
+                            <ThemedText
+                              style={{
+                                fontFamily: "Cairo_700Bold",
+                                fontSize: 14,
+                                color: AppColors.white,
+                              }}
+                            >
+                              موافقة
+                            </ThemedText>
                           )}
                         </Pressable>
                         <Pressable
-                          onPress={() => handleUpdateVendorStatus(selectedVendor.id, "rejected", "لا يستوفي الشروط")}
+                          onPress={() =>
+                            handleUpdateVendorStatus(
+                              selectedVendor.id,
+                              "rejected",
+                              "لا يستوفي الشروط",
+                            )
+                          }
                           disabled={isUpdatingVendorStatus}
                           testID={`button-reject-vendor-${selectedVendor.id}`}
                           style={{
-                            flex: 1, backgroundColor: AppColors.error, borderRadius: BorderRadius.md,
-                            paddingVertical: Spacing.md, alignItems: "center", justifyContent: "center",
+                            flex: 1,
+                            backgroundColor: AppColors.error,
+                            borderRadius: BorderRadius.md,
+                            paddingVertical: Spacing.md,
+                            alignItems: "center",
+                            justifyContent: "center",
                             opacity: isUpdatingVendorStatus ? 0.6 : 1,
                           }}
                         >
-                          <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 14, color: AppColors.white }}>رفض</ThemedText>
+                          <ThemedText
+                            style={{
+                              fontFamily: "Cairo_700Bold",
+                              fontSize: 14,
+                              color: AppColors.white,
+                            }}
+                          >
+                            رفض
+                          </ThemedText>
                         </Pressable>
                       </>
                     ) : selectedVendor.status === "active" ? (
                       <Pressable
-                        onPress={() => handleUpdateVendorStatus(selectedVendor.id, "suspended")}
+                        onPress={() =>
+                          handleUpdateVendorStatus(
+                            selectedVendor.id,
+                            "suspended",
+                          )
+                        }
                         disabled={isUpdatingVendorStatus}
                         testID={`button-suspend-vendor-${selectedVendor.id}`}
                         style={{
-                          flex: 1, backgroundColor: AppColors.warning, borderRadius: BorderRadius.md,
-                          paddingVertical: Spacing.md, alignItems: "center", justifyContent: "center",
+                          flex: 1,
+                          backgroundColor: AppColors.warning,
+                          borderRadius: BorderRadius.md,
+                          paddingVertical: Spacing.md,
+                          alignItems: "center",
+                          justifyContent: "center",
                           opacity: isUpdatingVendorStatus ? 0.6 : 1,
                         }}
                       >
                         {isUpdatingVendorStatus ? (
-                          <ActivityIndicator size="small" color={AppColors.white} />
+                          <ActivityIndicator
+                            size="small"
+                            color={AppColors.white}
+                          />
                         ) : (
-                          <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 14, color: AppColors.white }}>تعليق المتجر</ThemedText>
+                          <ThemedText
+                            style={{
+                              fontFamily: "Cairo_700Bold",
+                              fontSize: 14,
+                              color: AppColors.white,
+                            }}
+                          >
+                            تعليق المتجر
+                          </ThemedText>
                         )}
                       </Pressable>
                     ) : (
                       <Pressable
-                        onPress={() => handleUpdateVendorStatus(selectedVendor.id, "active")}
+                        onPress={() =>
+                          handleUpdateVendorStatus(selectedVendor.id, "active")
+                        }
                         disabled={isUpdatingVendorStatus}
                         testID={`button-reactivate-vendor-${selectedVendor.id}`}
                         style={{
-                          flex: 1, backgroundColor: AppColors.success, borderRadius: BorderRadius.md,
-                          paddingVertical: Spacing.md, alignItems: "center", justifyContent: "center",
+                          flex: 1,
+                          backgroundColor: AppColors.success,
+                          borderRadius: BorderRadius.md,
+                          paddingVertical: Spacing.md,
+                          alignItems: "center",
+                          justifyContent: "center",
                           opacity: isUpdatingVendorStatus ? 0.6 : 1,
                         }}
                       >
                         {isUpdatingVendorStatus ? (
-                          <ActivityIndicator size="small" color={AppColors.white} />
+                          <ActivityIndicator
+                            size="small"
+                            color={AppColors.white}
+                          />
                         ) : (
-                          <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 14, color: AppColors.white }}>إعادة تفعيل المتجر</ThemedText>
+                          <ThemedText
+                            style={{
+                              fontFamily: "Cairo_700Bold",
+                              fontSize: 14,
+                              color: AppColors.white,
+                            }}
+                          >
+                            إعادة تفعيل المتجر
+                          </ThemedText>
                         )}
                       </Pressable>
                     )}
@@ -3021,9 +5515,13 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
                     disabled={deleteVendor.isPending}
                     testID={`button-delete-vendor-${selectedVendor.id}`}
                     style={{
-                      flexDirection: "row-reverse", gap: 8, backgroundColor: AppColors.error + "15",
-                      borderRadius: BorderRadius.md, paddingVertical: Spacing.md,
-                      alignItems: "center", justifyContent: "center",
+                      flexDirection: "row-reverse",
+                      gap: 8,
+                      backgroundColor: AppColors.error + "15",
+                      borderRadius: BorderRadius.md,
+                      paddingVertical: Spacing.md,
+                      alignItems: "center",
+                      justifyContent: "center",
                       opacity: deleteVendor.isPending ? 0.6 : 1,
                     }}
                   >
@@ -3031,89 +5529,302 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
                       <ActivityIndicator size="small" color={AppColors.error} />
                     ) : (
                       <>
-                        <Feather name="trash-2" size={16} color={AppColors.error} />
-                        <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 14, color: AppColors.error }}>حذف المتجر نهائياً</ThemedText>
+                        <Feather
+                          name="trash-2"
+                          size={16}
+                          color={AppColors.error}
+                        />
+                        <ThemedText
+                          style={{
+                            fontFamily: "Cairo_700Bold",
+                            fontSize: 14,
+                            color: AppColors.error,
+                          }}
+                        >
+                          حذف المتجر نهائياً
+                        </ThemedText>
                       </>
                     )}
                   </Pressable>
 
                   {/* Products section */}
                   <View style={{ gap: Spacing.sm }}>
-                    <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 8 }}>
+                    <View
+                      style={{
+                        flexDirection: "row-reverse",
+                        alignItems: "center",
+                        gap: 8,
+                      }}
+                    >
                       <Feather name="package" size={16} color={ADMIN_RED} />
-                      <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 15, color: theme.text, flex: 1 }}>
+                      <ThemedText
+                        style={{
+                          fontFamily: "Cairo_700Bold",
+                          fontSize: 15,
+                          color: theme.text,
+                          flex: 1,
+                        }}
+                      >
                         المنتجات ({selectedProducts.length})
                       </ThemedText>
-                      <Pressable onPress={() => refetchVendorProducts()} style={{ padding: 6 }}>
-                        <Feather name="refresh-cw" size={14} color={theme.textSecondary} />
+                      <Pressable
+                        onPress={() => refetchVendorProducts()}
+                        style={{ padding: 6 }}
+                      >
+                        <Feather
+                          name="refresh-cw"
+                          size={14}
+                          color={theme.textSecondary}
+                        />
                       </Pressable>
                       <Pressable
                         onPress={() => {
-                          setVendorProductForm({ name: "", category: "", price: "", description: "", stock: "0", unit: "قطعة", imageUri: "", imageUrl: "" });
+                          setVendorProductForm({
+                            name: "",
+                            category: "",
+                            price: "",
+                            description: "",
+                            stock: "0",
+                            unit: "قطعة",
+                            imageUri: "",
+                            imageUrl: "",
+                          });
                           setAddVendorProductOpen(true);
                         }}
-                        style={{ flexDirection: "row-reverse", alignItems: "center", gap: 4, backgroundColor: ADMIN_RED, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8 }}
+                        style={{
+                          flexDirection: "row-reverse",
+                          alignItems: "center",
+                          gap: 4,
+                          backgroundColor: ADMIN_RED,
+                          paddingHorizontal: 10,
+                          paddingVertical: 6,
+                          borderRadius: 8,
+                        }}
                       >
-                        <Feather name="plus" size={13} color={AppColors.white} />
-                        <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 12, color: AppColors.white }}>إضافة منتج</ThemedText>
+                        <Feather
+                          name="plus"
+                          size={13}
+                          color={AppColors.white}
+                        />
+                        <ThemedText
+                          style={{
+                            fontFamily: "Cairo_700Bold",
+                            fontSize: 12,
+                            color: AppColors.white,
+                          }}
+                        >
+                          إضافة منتج
+                        </ThemedText>
                       </Pressable>
                     </View>
                     {selectedProducts.length === 0 ? (
-                      <ThemedText style={{ fontFamily: "Cairo_400Regular", fontSize: 13, color: theme.textSecondary, textAlign: "right" }}>لا توجد منتجات بعد</ThemedText>
+                      <ThemedText
+                        style={{
+                          fontFamily: "Cairo_400Regular",
+                          fontSize: 13,
+                          color: theme.textSecondary,
+                          textAlign: "right",
+                        }}
+                      >
+                        لا توجد منتجات بعد
+                      </ThemedText>
                     ) : (
                       selectedProducts.map((prod) => {
                         const allImages: string[] = prod.imageUrls?.length
                           ? prod.imageUrls
-                          : (prod.imageUrl ? [prod.imageUrl] : []);
+                          : prod.imageUrl
+                            ? [prod.imageUrl]
+                            : [];
                         return (
-                          <View key={prod.id} style={{ backgroundColor: theme.backgroundRoot, borderRadius: 12, padding: Spacing.md, gap: Spacing.sm }}>
+                          <View
+                            key={prod.id}
+                            style={{
+                              backgroundColor: theme.backgroundRoot,
+                              borderRadius: 12,
+                              padding: Spacing.md,
+                              gap: Spacing.sm,
+                            }}
+                          >
                             {/* Product header row */}
-                            <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: Spacing.md }}>
+                            <View
+                              style={{
+                                flexDirection: "row-reverse",
+                                alignItems: "center",
+                                gap: Spacing.md,
+                              }}
+                            >
                               {allImages[0] ? (
-                                <Image source={{ uri: resolveImageUrl(allImages[0]) }} style={{ width: 52, height: 52, borderRadius: 10, resizeMode: "cover" }} />
+                                <Image
+                                  source={{
+                                    uri: resolveImageUrl(allImages[0]),
+                                  }}
+                                  style={{
+                                    width: 52,
+                                    height: 52,
+                                    borderRadius: 10,
+                                    resizeMode: "cover",
+                                  }}
+                                />
                               ) : (
-                                <View style={{ width: 52, height: 52, borderRadius: 10, backgroundColor: ADMIN_RED + "15", alignItems: "center", justifyContent: "center" }}>
-                                  <Feather name="image" size={20} color={ADMIN_RED} style={{ opacity: 0.5 }} />
+                                <View
+                                  style={{
+                                    width: 52,
+                                    height: 52,
+                                    borderRadius: 10,
+                                    backgroundColor: ADMIN_RED + "15",
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                  }}
+                                >
+                                  <Feather
+                                    name="image"
+                                    size={20}
+                                    color={ADMIN_RED}
+                                    style={{ opacity: 0.5 }}
+                                  />
                                 </View>
                               )}
                               <View style={{ flex: 1, gap: 2 }}>
-                                <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 14, color: theme.text, textAlign: "right" }}>{prod.name}</ThemedText>
-                                <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 13, color: ADMIN_RED, textAlign: "right" }}>{formatPrice(prod.price)}</ThemedText>
+                                <ThemedText
+                                  style={{
+                                    fontFamily: "Cairo_700Bold",
+                                    fontSize: 14,
+                                    color: theme.text,
+                                    textAlign: "right",
+                                  }}
+                                >
+                                  {prod.name}
+                                </ThemedText>
+                                <ThemedText
+                                  style={{
+                                    fontFamily: "Cairo_700Bold",
+                                    fontSize: 13,
+                                    color: ADMIN_RED,
+                                    textAlign: "right",
+                                  }}
+                                >
+                                  {formatPrice(prod.price)}
+                                </ThemedText>
                                 {prod.description ? (
-                                  <ThemedText style={{ fontFamily: "Cairo_400Regular", fontSize: 11, color: theme.textSecondary, textAlign: "right" }} numberOfLines={2}>{prod.description}</ThemedText>
+                                  <ThemedText
+                                    style={{
+                                      fontFamily: "Cairo_400Regular",
+                                      fontSize: 11,
+                                      color: theme.textSecondary,
+                                      textAlign: "right",
+                                    }}
+                                    numberOfLines={2}
+                                  >
+                                    {prod.description}
+                                  </ThemedText>
                                 ) : null}
                               </View>
-                              <View style={{ paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8, backgroundColor: prod.status === "approved" ? AppColors.success + "20" : prod.status === "pending" ? AppColors.warning + "20" : AppColors.error + "20" }}>
-                                <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 10, color: prod.status === "approved" ? AppColors.success : prod.status === "pending" ? AppColors.warning : AppColors.error }}>
-                                  {prod.status === "approved" ? "نشط" : prod.status === "pending" ? "قيد المراجعة" : "مرفوض"}
+                              <View
+                                style={{
+                                  paddingHorizontal: 8,
+                                  paddingVertical: 3,
+                                  borderRadius: 8,
+                                  backgroundColor:
+                                    prod.status === "approved"
+                                      ? AppColors.success + "20"
+                                      : prod.status === "pending"
+                                        ? AppColors.warning + "20"
+                                        : AppColors.error + "20",
+                                }}
+                              >
+                                <ThemedText
+                                  style={{
+                                    fontFamily: "Cairo_700Bold",
+                                    fontSize: 10,
+                                    color:
+                                      prod.status === "approved"
+                                        ? AppColors.success
+                                        : prod.status === "pending"
+                                          ? AppColors.warning
+                                          : AppColors.error,
+                                  }}
+                                >
+                                  {prod.status === "approved"
+                                    ? "نشط"
+                                    : prod.status === "pending"
+                                      ? "قيد المراجعة"
+                                      : "مرفوض"}
                                 </ThemedText>
                               </View>
                             </View>
                             {/* All images with delete buttons */}
                             {allImages.length > 0 ? (
-                              <View style={{ flexDirection: "row-reverse", flexWrap: "wrap", gap: 8 }}>
+                              <View
+                                style={{
+                                  flexDirection: "row-reverse",
+                                  flexWrap: "wrap",
+                                  gap: 8,
+                                }}
+                              >
                                 {allImages.map((imgUrl, idx) => {
                                   const imgKey = `${prod.id}_${idx}`;
-                                  const isDeleting = deletingImageKey === imgKey;
+                                  const isDeleting =
+                                    deletingImageKey === imgKey;
                                   return (
-                                    <View key={imgUrl} style={{ position: "relative", overflow: "visible" as any }}>
-                                      <Image source={{ uri: resolveImageUrl(imgUrl) }} style={{ width: 64, height: 64, borderRadius: 8, resizeMode: "cover" }} />
+                                    <View
+                                      key={imgUrl}
+                                      style={{
+                                        position: "relative",
+                                        overflow: "visible" as any,
+                                      }}
+                                    >
+                                      <Image
+                                        source={{
+                                          uri: resolveImageUrl(imgUrl),
+                                        }}
+                                        style={{
+                                          width: 64,
+                                          height: 64,
+                                          borderRadius: 8,
+                                          resizeMode: "cover",
+                                        }}
+                                      />
                                       <Pressable
                                         onPress={() => {
-                                          const confirm = Platform.OS === "web"
-                                            ? window.confirm("حذف هذه الصورة؟")
-                                            : true;
+                                          const confirm =
+                                            Platform.OS === "web"
+                                              ? window.confirm(
+                                                  "حذف هذه الصورة؟",
+                                                )
+                                              : true;
                                           if (confirm) {
                                             setDeletingImageKey(imgKey);
-                                            deleteProductImage.mutate({ pid: prod.id, imageUrl: imgUrl });
+                                            deleteProductImage.mutate({
+                                              pid: prod.id,
+                                              imageUrl: imgUrl,
+                                            });
                                           }
                                         }}
                                         disabled={isDeleting}
-                                        style={{ position: "absolute", top: -6, right: -6, backgroundColor: AppColors.error, borderRadius: 10, width: 20, height: 20, alignItems: "center", justifyContent: "center" }}
+                                        style={{
+                                          position: "absolute",
+                                          top: -6,
+                                          right: -6,
+                                          backgroundColor: AppColors.error,
+                                          borderRadius: 10,
+                                          width: 20,
+                                          height: 20,
+                                          alignItems: "center",
+                                          justifyContent: "center",
+                                        }}
                                       >
-                                        {isDeleting
-                                          ? <ActivityIndicator size="small" color={AppColors.white} />
-                                          : <Feather name="x" size={11} color={AppColors.white} />}
+                                        {isDeleting ? (
+                                          <ActivityIndicator
+                                            size="small"
+                                            color={AppColors.white}
+                                          />
+                                        ) : (
+                                          <Feather
+                                            name="x"
+                                            size={11}
+                                            color={AppColors.white}
+                                          />
+                                        )}
                                       </Pressable>
                                     </View>
                                   );
@@ -3133,37 +5844,151 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
 
         {/* Add Vendor Product Modal */}
         {addVendorProductOpen && selectedVendor ? (
-          <Modal transparent animationType="slide" visible onRequestClose={() => setAddVendorProductOpen(false)}>
+          <Modal
+            transparent
+            animationType="slide"
+            visible
+            onRequestClose={() => setAddVendorProductOpen(false)}
+          >
             <View style={{ flex: 1, backgroundColor: AppColors.overlay }}>
-              <Pressable style={{ flex: 1 }} onPress={() => setAddVendorProductOpen(false)} />
-              <View style={{ backgroundColor: theme.backgroundDefault, borderTopLeftRadius: 24, borderTopRightRadius: 24, maxHeight: "90%" }}>
+              <Pressable
+                style={{ flex: 1 }}
+                onPress={() => setAddVendorProductOpen(false)}
+              />
+              <View
+                style={{
+                  backgroundColor: theme.backgroundDefault,
+                  borderTopLeftRadius: 24,
+                  borderTopRightRadius: 24,
+                  maxHeight: "90%",
+                }}
+              >
                 {/* Header */}
-                <View style={{ flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between", padding: Spacing.lg, borderBottomWidth: 1, borderBottomColor: theme.border ?? AppColors.divider }}>
-                  <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 16, color: theme.text }}>إضافة منتج لـ {selectedVendor.storeName}</ThemedText>
-                  <Pressable onPress={() => setAddVendorProductOpen(false)} style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: AppColors.gray100, alignItems: "center", justifyContent: "center" }}>
+                <View
+                  style={{
+                    flexDirection: "row-reverse",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    padding: Spacing.lg,
+                    borderBottomWidth: 1,
+                    borderBottomColor: theme.border ?? AppColors.divider,
+                  }}
+                >
+                  <ThemedText
+                    style={{
+                      fontFamily: "Cairo_700Bold",
+                      fontSize: 16,
+                      color: theme.text,
+                    }}
+                  >
+                    إضافة منتج لـ {selectedVendor.storeName}
+                  </ThemedText>
+                  <Pressable
+                    onPress={() => setAddVendorProductOpen(false)}
+                    style={{
+                      width: 32,
+                      height: 32,
+                      borderRadius: 16,
+                      backgroundColor: AppColors.gray100,
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                  >
                     <Feather name="x" size={18} color={AppColors.gray700} />
                   </Pressable>
                 </View>
-                <ScrollView contentContainerStyle={{ padding: Spacing.lg, gap: Spacing.md }}>
+                <ScrollView
+                  contentContainerStyle={{
+                    padding: Spacing.lg,
+                    gap: Spacing.md,
+                  }}
+                >
                   {/* Name */}
                   <TextInput
-                    style={[{ backgroundColor: theme.backgroundSecondary, color: theme.text, borderRadius: 10, padding: 12, fontFamily: "Cairo_400Regular", fontSize: 14, textAlign: "right", borderWidth: 1, borderColor: theme.border ?? AppColors.divider }]}
-                    placeholder={(CATEGORY_MAP as any)[selectedVendor.businessType] ? `مثال: ${(CATEGORY_MAP as any)[selectedVendor.businessType][0]}` : "اسم المنتج"}
+                    style={[
+                      {
+                        backgroundColor: theme.backgroundSecondary,
+                        color: theme.text,
+                        borderRadius: 10,
+                        padding: 12,
+                        fontFamily: "Cairo_400Regular",
+                        fontSize: 14,
+                        textAlign: "right",
+                        borderWidth: 1,
+                        borderColor: theme.border ?? AppColors.divider,
+                      },
+                    ]}
+                    placeholder={
+                      (CATEGORY_MAP as any)[selectedVendor.businessType]
+                        ? `مثال: ${(CATEGORY_MAP as any)[selectedVendor.businessType][0]}`
+                        : "اسم المنتج"
+                    }
                     placeholderTextColor={theme.textSecondary}
                     value={vendorProductForm.name}
-                    onChangeText={(t) => setVendorProductForm({ ...vendorProductForm, name: t })}
+                    onChangeText={(t) =>
+                      setVendorProductForm({ ...vendorProductForm, name: t })
+                    }
                   />
                   {/* Category chips */}
                   <View style={{ gap: 6 }}>
-                    <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 13, color: theme.textSecondary, textAlign: "right" }}>الفئة *</ThemedText>
-                    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, flexDirection: "row-reverse" }}>
-                      {((CATEGORY_MAP as any)[selectedVendor.businessType] ?? (CATEGORY_MAP as any).other ?? []).map((cat: string) => (
+                    <ThemedText
+                      style={{
+                        fontFamily: "Cairo_700Bold",
+                        fontSize: 13,
+                        color: theme.textSecondary,
+                        textAlign: "right",
+                      }}
+                    >
+                      الفئة *
+                    </ThemedText>
+                    <ScrollView
+                      horizontal
+                      showsHorizontalScrollIndicator={false}
+                      contentContainerStyle={{
+                        gap: 8,
+                        flexDirection: "row-reverse",
+                      }}
+                    >
+                      {(
+                        (CATEGORY_MAP as any)[selectedVendor.businessType] ??
+                        (CATEGORY_MAP as any).other ??
+                        []
+                      ).map((cat: string) => (
                         <Pressable
                           key={cat}
-                          onPress={() => setVendorProductForm({ ...vendorProductForm, category: cat })}
-                          style={{ paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, backgroundColor: vendorProductForm.category === cat ? ADMIN_RED : theme.backgroundSecondary, borderWidth: 1, borderColor: vendorProductForm.category === cat ? ADMIN_RED : (theme.border ?? AppColors.divider) }}
+                          onPress={() =>
+                            setVendorProductForm({
+                              ...vendorProductForm,
+                              category: cat,
+                            })
+                          }
+                          style={{
+                            paddingHorizontal: 12,
+                            paddingVertical: 6,
+                            borderRadius: 20,
+                            backgroundColor:
+                              vendorProductForm.category === cat
+                                ? ADMIN_RED
+                                : theme.backgroundSecondary,
+                            borderWidth: 1,
+                            borderColor:
+                              vendorProductForm.category === cat
+                                ? ADMIN_RED
+                                : (theme.border ?? AppColors.divider),
+                          }}
                         >
-                          <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 12, color: vendorProductForm.category === cat ? AppColors.white : theme.text }}>{cat}</ThemedText>
+                          <ThemedText
+                            style={{
+                              fontFamily: "Cairo_700Bold",
+                              fontSize: 12,
+                              color:
+                                vendorProductForm.category === cat
+                                  ? AppColors.white
+                                  : theme.text,
+                            }}
+                          >
+                            {cat}
+                          </ThemedText>
                         </Pressable>
                       ))}
                     </ScrollView>
@@ -3171,51 +5996,157 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
                   {/* Price & Stock row */}
                   <View style={{ flexDirection: "row-reverse", gap: 10 }}>
                     <TextInput
-                      style={[{ flex: 1, backgroundColor: theme.backgroundSecondary, color: theme.text, borderRadius: 10, padding: 12, fontFamily: "Cairo_400Regular", fontSize: 14, textAlign: "right", borderWidth: 1, borderColor: theme.border ?? AppColors.divider }]}
+                      style={[
+                        {
+                          flex: 1,
+                          backgroundColor: theme.backgroundSecondary,
+                          color: theme.text,
+                          borderRadius: 10,
+                          padding: 12,
+                          fontFamily: "Cairo_400Regular",
+                          fontSize: 14,
+                          textAlign: "right",
+                          borderWidth: 1,
+                          borderColor: theme.border ?? AppColors.divider,
+                        },
+                      ]}
                       placeholder="السعر (د.ع) *"
                       placeholderTextColor={theme.textSecondary}
                       value={vendorProductForm.price}
-                      onChangeText={(t) => setVendorProductForm({ ...vendorProductForm, price: t })}
+                      onChangeText={(t) =>
+                        setVendorProductForm({ ...vendorProductForm, price: t })
+                      }
                       keyboardType="numeric"
                     />
                     <TextInput
-                      style={[{ flex: 1, backgroundColor: theme.backgroundSecondary, color: theme.text, borderRadius: 10, padding: 12, fontFamily: "Cairo_400Regular", fontSize: 14, textAlign: "right", borderWidth: 1, borderColor: theme.border ?? AppColors.divider }]}
+                      style={[
+                        {
+                          flex: 1,
+                          backgroundColor: theme.backgroundSecondary,
+                          color: theme.text,
+                          borderRadius: 10,
+                          padding: 12,
+                          fontFamily: "Cairo_400Regular",
+                          fontSize: 14,
+                          textAlign: "right",
+                          borderWidth: 1,
+                          borderColor: theme.border ?? AppColors.divider,
+                        },
+                      ]}
                       placeholder="المخزون"
                       placeholderTextColor={theme.textSecondary}
                       value={vendorProductForm.stock}
-                      onChangeText={(t) => setVendorProductForm({ ...vendorProductForm, stock: t })}
+                      onChangeText={(t) =>
+                        setVendorProductForm({ ...vendorProductForm, stock: t })
+                      }
                       keyboardType="numeric"
                     />
                   </View>
                   {/* Unit */}
                   <TextInput
-                    style={[{ backgroundColor: theme.backgroundSecondary, color: theme.text, borderRadius: 10, padding: 12, fontFamily: "Cairo_400Regular", fontSize: 14, textAlign: "right", borderWidth: 1, borderColor: theme.border ?? AppColors.divider }]}
+                    style={[
+                      {
+                        backgroundColor: theme.backgroundSecondary,
+                        color: theme.text,
+                        borderRadius: 10,
+                        padding: 12,
+                        fontFamily: "Cairo_400Regular",
+                        fontSize: 14,
+                        textAlign: "right",
+                        borderWidth: 1,
+                        borderColor: theme.border ?? AppColors.divider,
+                      },
+                    ]}
                     placeholder="الوحدة (قطعة، كيلو، لتر...)"
                     placeholderTextColor={theme.textSecondary}
                     value={vendorProductForm.unit}
-                    onChangeText={(t) => setVendorProductForm({ ...vendorProductForm, unit: t })}
+                    onChangeText={(t) =>
+                      setVendorProductForm({ ...vendorProductForm, unit: t })
+                    }
                   />
                   {/* Description */}
                   <TextInput
-                    style={[{ backgroundColor: theme.backgroundSecondary, color: theme.text, borderRadius: 10, padding: 12, fontFamily: "Cairo_400Regular", fontSize: 14, textAlign: "right", borderWidth: 1, borderColor: theme.border ?? AppColors.divider, minHeight: 80, textAlignVertical: "top" }]}
+                    style={[
+                      {
+                        backgroundColor: theme.backgroundSecondary,
+                        color: theme.text,
+                        borderRadius: 10,
+                        padding: 12,
+                        fontFamily: "Cairo_400Regular",
+                        fontSize: 14,
+                        textAlign: "right",
+                        borderWidth: 1,
+                        borderColor: theme.border ?? AppColors.divider,
+                        minHeight: 80,
+                        textAlignVertical: "top",
+                      },
+                    ]}
                     placeholder="وصف المنتج (اختياري)"
                     placeholderTextColor={theme.textSecondary}
                     value={vendorProductForm.description}
-                    onChangeText={(t) => setVendorProductForm({ ...vendorProductForm, description: t })}
+                    onChangeText={(t) =>
+                      setVendorProductForm({
+                        ...vendorProductForm,
+                        description: t,
+                      })
+                    }
                     multiline
                     numberOfLines={3}
                   />
                   {/* Image picker */}
                   <Pressable
-                    onPress={() => pickImage((uri) => setVendorProductForm({ ...vendorProductForm, imageUri: uri, imageUrl: "" }))}
-                    style={{ borderWidth: 1.5, borderColor: theme.border ?? AppColors.divider, borderStyle: "dashed", borderRadius: 12, height: 110, alignItems: "center", justifyContent: "center", overflow: "hidden" }}
+                    onPress={() =>
+                      pickImage((uri) =>
+                        setVendorProductForm({
+                          ...vendorProductForm,
+                          imageUri: uri,
+                          imageUrl: "",
+                        }),
+                      )
+                    }
+                    style={{
+                      borderWidth: 1.5,
+                      borderColor: theme.border ?? AppColors.divider,
+                      borderStyle: "dashed",
+                      borderRadius: 12,
+                      height: 110,
+                      alignItems: "center",
+                      justifyContent: "center",
+                      overflow: "hidden",
+                    }}
                   >
-                    {vendorProductForm.imageUri || vendorProductForm.imageUrl ? (
-                      <Image source={{ uri: vendorProductForm.imageUri || resolveImageUrl(vendorProductForm.imageUrl) }} style={{ width: "100%", height: "100%", resizeMode: "cover" } as any} />
+                    {vendorProductForm.imageUri ||
+                    vendorProductForm.imageUrl ? (
+                      <Image
+                        source={{
+                          uri:
+                            vendorProductForm.imageUri ||
+                            resolveImageUrl(vendorProductForm.imageUrl),
+                        }}
+                        style={
+                          {
+                            width: "100%",
+                            height: "100%",
+                            resizeMode: "cover",
+                          } as any
+                        }
+                      />
                     ) : (
                       <View style={{ alignItems: "center", gap: 6 }}>
-                        <Feather name="camera" size={28} color={theme.textSecondary} />
-                        <ThemedText style={{ fontFamily: "Cairo_400Regular", fontSize: 13, color: theme.textSecondary }}>إضافة صورة (اختياري)</ThemedText>
+                        <Feather
+                          name="camera"
+                          size={28}
+                          color={theme.textSecondary}
+                        />
+                        <ThemedText
+                          style={{
+                            fontFamily: "Cairo_400Regular",
+                            fontSize: 13,
+                            color: theme.textSecondary,
+                          }}
+                        >
+                          إضافة صورة (اختياري)
+                        </ThemedText>
                       </View>
                     )}
                   </Pressable>
@@ -3223,11 +6154,29 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
                   <Pressable
                     onPress={() => saveVendorProduct(selectedVendor.id)}
                     disabled={savingVendorProduct}
-                    style={{ backgroundColor: ADMIN_RED, borderRadius: 12, paddingVertical: 14, alignItems: "center", justifyContent: "center", opacity: savingVendorProduct ? 0.6 : 1, marginBottom: Spacing.lg }}
+                    style={{
+                      backgroundColor: ADMIN_RED,
+                      borderRadius: 12,
+                      paddingVertical: 14,
+                      alignItems: "center",
+                      justifyContent: "center",
+                      opacity: savingVendorProduct ? 0.6 : 1,
+                      marginBottom: Spacing.lg,
+                    }}
                   >
-                    {savingVendorProduct
-                      ? <ActivityIndicator color={AppColors.white} />
-                      : <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 15, color: AppColors.white }}>إضافة المنتج</ThemedText>}
+                    {savingVendorProduct ? (
+                      <ActivityIndicator color={AppColors.white} />
+                    ) : (
+                      <ThemedText
+                        style={{
+                          fontFamily: "Cairo_700Bold",
+                          fontSize: 15,
+                          color: AppColors.white,
+                        }}
+                      >
+                        إضافة المنتج
+                      </ThemedText>
+                    )}
                   </Pressable>
                 </ScrollView>
               </View>
@@ -3268,22 +6217,66 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
 
     return (
       <View style={{ gap: Spacing.lg }}>
-        <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 18, textAlign: "right" }}>إعدادات التطبيق</ThemedText>
+        <ThemedText
+          style={{
+            fontFamily: "Cairo_700Bold",
+            fontSize: 18,
+            textAlign: "right",
+          }}
+        >
+          إعدادات التطبيق
+        </ThemedText>
 
-        <View style={{ backgroundColor: theme.backgroundSecondary, borderRadius: BorderRadius.lg, padding: Spacing.lg, gap: Spacing.md }}>
-          <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: Spacing.sm }}>
-            <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: "#F59E0B20", alignItems: "center", justifyContent: "center" }}>
+        <View
+          style={{
+            backgroundColor: theme.backgroundSecondary,
+            borderRadius: BorderRadius.lg,
+            padding: Spacing.lg,
+            gap: Spacing.md,
+          }}
+        >
+          <View
+            style={{
+              flexDirection: "row-reverse",
+              alignItems: "center",
+              gap: Spacing.sm,
+            }}
+          >
+            <View
+              style={{
+                width: 40,
+                height: 40,
+                borderRadius: 12,
+                backgroundColor: "#F59E0B20",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
               <Feather name="dollar-sign" size={20} color={AppColors.warning} />
             </View>
             <View style={{ flex: 1, alignItems: "flex-end" }}>
-              <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 15 }}>رسوم الخدمة</ThemedText>
-              <ThemedText style={{ fontFamily: "Cairo_400Regular", fontSize: 13, color: theme.textSecondary }}>
+              <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 15 }}>
+                رسوم الخدمة
+              </ThemedText>
+              <ThemedText
+                style={{
+                  fontFamily: "Cairo_400Regular",
+                  fontSize: 13,
+                  color: theme.textSecondary,
+                }}
+              >
                 القيمة الحالية: {formatPrice(currentFee)}
               </ThemedText>
             </View>
           </View>
 
-          <View style={{ flexDirection: "row-reverse", gap: Spacing.sm, alignItems: "center" }}>
+          <View
+            style={{
+              flexDirection: "row-reverse",
+              gap: Spacing.sm,
+              alignItems: "center",
+            }}
+          >
             <TextInput
               style={{
                 flex: 1,
@@ -3308,7 +6301,10 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
               onPress={handleSaveFee}
               disabled={isSavingFee || serviceFeeInput.trim() === ""}
               style={{
-                backgroundColor: isSavingFee || serviceFeeInput.trim() === "" ? theme.border : AppColors.warning,
+                backgroundColor:
+                  isSavingFee || serviceFeeInput.trim() === ""
+                    ? theme.border
+                    : AppColors.warning,
                 borderRadius: BorderRadius.md,
                 paddingHorizontal: Spacing.lg,
                 paddingVertical: Spacing.md,
@@ -3320,7 +6316,15 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
               {isSavingFee ? (
                 <ActivityIndicator size="small" color={AppColors.white} />
               ) : (
-                <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 14, color: AppColors.white }}>حفظ</ThemedText>
+                <ThemedText
+                  style={{
+                    fontFamily: "Cairo_700Bold",
+                    fontSize: 14,
+                    color: AppColors.white,
+                  }}
+                >
+                  حفظ
+                </ThemedText>
               )}
             </Pressable>
           </View>
@@ -3330,14 +6334,44 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
             onlinePaymentEnabled flag is kept so the toggle can be restored later. */}
 
         {/* Driver Payout Rule */}
-        <View style={{ backgroundColor: theme.backgroundSecondary, borderRadius: BorderRadius.lg, padding: Spacing.lg, gap: Spacing.md }}>
-          <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: Spacing.sm }}>
-            <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: "#3B82F620", alignItems: "center", justifyContent: "center" }}>
+        <View
+          style={{
+            backgroundColor: theme.backgroundSecondary,
+            borderRadius: BorderRadius.lg,
+            padding: Spacing.lg,
+            gap: Spacing.md,
+          }}
+        >
+          <View
+            style={{
+              flexDirection: "row-reverse",
+              alignItems: "center",
+              gap: Spacing.sm,
+            }}
+          >
+            <View
+              style={{
+                width: 40,
+                height: 40,
+                borderRadius: 12,
+                backgroundColor: "#3B82F620",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
               <Feather name="truck" size={20} color="#3B82F6" />
             </View>
             <View style={{ flex: 1, alignItems: "flex-end" }}>
-              <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 15 }}>مكافأة السائق لكل رحلة</ThemedText>
-              <ThemedText style={{ fontFamily: "Cairo_400Regular", fontSize: 13, color: theme.textSecondary }}>
+              <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 15 }}>
+                مكافأة السائق لكل رحلة
+              </ThemedText>
+              <ThemedText
+                style={{
+                  fontFamily: "Cairo_400Regular",
+                  fontSize: 13,
+                  color: theme.textSecondary,
+                }}
+              >
                 {payoutRuleType === "flat"
                   ? `ثابت: مطعم ${formatPrice(parseInt(payoutFlatRestaurant, 10) || 750)} / عام ${formatPrice(parseInt(payoutFlatDefault, 10) || 2000)}`
                   : `نسبة ${payoutPercent}% من التوصيل`}
@@ -3351,12 +6385,23 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
                 key={t}
                 onPress={() => setPayoutRuleType(t)}
                 style={{
-                  flex: 1, paddingVertical: Spacing.sm, borderRadius: BorderRadius.md, alignItems: "center",
-                  backgroundColor: payoutRuleType === t ? "#3B82F6" : theme.backgroundDefault,
-                  borderWidth: 1, borderColor: payoutRuleType === t ? "#3B82F6" : theme.border,
+                  flex: 1,
+                  paddingVertical: Spacing.sm,
+                  borderRadius: BorderRadius.md,
+                  alignItems: "center",
+                  backgroundColor:
+                    payoutRuleType === t ? "#3B82F6" : theme.backgroundDefault,
+                  borderWidth: 1,
+                  borderColor: payoutRuleType === t ? "#3B82F6" : theme.border,
                 }}
               >
-                <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 13, color: payoutRuleType === t ? AppColors.white : theme.text }}>
+                <ThemedText
+                  style={{
+                    fontFamily: "Cairo_700Bold",
+                    fontSize: 13,
+                    color: payoutRuleType === t ? AppColors.white : theme.text,
+                  }}
+                >
                   {t === "flat" ? "مبلغ ثابت" : "نسبة %"}
                 </ThemedText>
               </Pressable>
@@ -3365,7 +6410,17 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
           {payoutRuleType === "flat" ? (
             <View style={{ gap: Spacing.sm }}>
               <TextInput
-                style={{ borderWidth: 1, borderColor: theme.border, borderRadius: BorderRadius.md, padding: Spacing.md, fontFamily: "Cairo_400Regular", fontSize: 14, color: theme.text, backgroundColor: theme.backgroundDefault, textAlign: "right" }}
+                style={{
+                  borderWidth: 1,
+                  borderColor: theme.border,
+                  borderRadius: BorderRadius.md,
+                  padding: Spacing.md,
+                  fontFamily: "Cairo_400Regular",
+                  fontSize: 14,
+                  color: theme.text,
+                  backgroundColor: theme.backgroundDefault,
+                  textAlign: "right",
+                }}
                 placeholder="مكافأة طلبات المطاعم (دينار)"
                 placeholderTextColor={theme.textSecondary}
                 keyboardType="numeric"
@@ -3373,7 +6428,17 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
                 onChangeText={setPayoutFlatRestaurant}
               />
               <TextInput
-                style={{ borderWidth: 1, borderColor: theme.border, borderRadius: BorderRadius.md, padding: Spacing.md, fontFamily: "Cairo_400Regular", fontSize: 14, color: theme.text, backgroundColor: theme.backgroundDefault, textAlign: "right" }}
+                style={{
+                  borderWidth: 1,
+                  borderColor: theme.border,
+                  borderRadius: BorderRadius.md,
+                  padding: Spacing.md,
+                  fontFamily: "Cairo_400Regular",
+                  fontSize: 14,
+                  color: theme.text,
+                  backgroundColor: theme.backgroundDefault,
+                  textAlign: "right",
+                }}
                 placeholder="مكافأة التوصيل العام (دينار)"
                 placeholderTextColor={theme.textSecondary}
                 keyboardType="numeric"
@@ -3383,7 +6448,17 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
             </View>
           ) : (
             <TextInput
-              style={{ borderWidth: 1, borderColor: theme.border, borderRadius: BorderRadius.md, padding: Spacing.md, fontFamily: "Cairo_400Regular", fontSize: 14, color: theme.text, backgroundColor: theme.backgroundDefault, textAlign: "right" }}
+              style={{
+                borderWidth: 1,
+                borderColor: theme.border,
+                borderRadius: BorderRadius.md,
+                padding: Spacing.md,
+                fontFamily: "Cairo_400Regular",
+                fontSize: 14,
+                color: theme.text,
+                backgroundColor: theme.backgroundDefault,
+                textAlign: "right",
+              }}
               placeholder="النسبة % من رسوم التوصيل"
               placeholderTextColor={theme.textSecondary}
               keyboardType="numeric"
@@ -3394,28 +6469,93 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
           <Pressable
             onPress={saveDriverPayoutRule}
             disabled={isSavingPayout}
-            style={{ backgroundColor: isSavingPayout ? theme.border : "#3B82F6", borderRadius: BorderRadius.md, paddingVertical: Spacing.md, alignItems: "center" }}
+            style={{
+              backgroundColor: isSavingPayout ? theme.border : "#3B82F6",
+              borderRadius: BorderRadius.md,
+              paddingVertical: Spacing.md,
+              alignItems: "center",
+            }}
           >
-            {isSavingPayout ? <ActivityIndicator size="small" color={AppColors.white} /> : <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 14, color: AppColors.white }}>حفظ</ThemedText>}
+            {isSavingPayout ? (
+              <ActivityIndicator size="small" color={AppColors.white} />
+            ) : (
+              <ThemedText
+                style={{
+                  fontFamily: "Cairo_700Bold",
+                  fontSize: 14,
+                  color: AppColors.white,
+                }}
+              >
+                حفظ
+              </ThemedText>
+            )}
           </Pressable>
         </View>
 
         {/* Auto-suspend Threshold */}
-        <View style={{ backgroundColor: theme.backgroundSecondary, borderRadius: BorderRadius.lg, padding: Spacing.lg, gap: Spacing.md }}>
-          <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: Spacing.sm }}>
-            <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: "#EF444420", alignItems: "center", justifyContent: "center" }}>
+        <View
+          style={{
+            backgroundColor: theme.backgroundSecondary,
+            borderRadius: BorderRadius.lg,
+            padding: Spacing.lg,
+            gap: Spacing.md,
+          }}
+        >
+          <View
+            style={{
+              flexDirection: "row-reverse",
+              alignItems: "center",
+              gap: Spacing.sm,
+            }}
+          >
+            <View
+              style={{
+                width: 40,
+                height: 40,
+                borderRadius: 12,
+                backgroundColor: "#EF444420",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
               <Feather name="shield-off" size={20} color="#EF4444" />
             </View>
             <View style={{ flex: 1, alignItems: "flex-end" }}>
-              <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 15 }}>حد الحجب التلقائي للسائق</ThemedText>
-              <ThemedText style={{ fontFamily: "Cairo_400Regular", fontSize: 13, color: theme.textSecondary }}>
-                الحد الحالي: {formatPrice(parseInt(autoSuspendInput, 10) || 100000)}
+              <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 15 }}>
+                حد الحجب التلقائي للسائق
+              </ThemedText>
+              <ThemedText
+                style={{
+                  fontFamily: "Cairo_400Regular",
+                  fontSize: 13,
+                  color: theme.textSecondary,
+                }}
+              >
+                الحد الحالي:{" "}
+                {formatPrice(parseInt(autoSuspendInput, 10) || 100000)}
               </ThemedText>
             </View>
           </View>
-          <View style={{ flexDirection: "row-reverse", gap: Spacing.sm, alignItems: "center" }}>
+          <View
+            style={{
+              flexDirection: "row-reverse",
+              gap: Spacing.sm,
+              alignItems: "center",
+            }}
+          >
             <TextInput
-              style={{ flex: 1, borderWidth: 1, borderColor: theme.border, borderRadius: BorderRadius.md, padding: Spacing.md, fontFamily: "Cairo_400Regular", fontSize: 15, color: theme.text, backgroundColor: theme.backgroundDefault, textAlign: "right" }}
+              style={{
+                flex: 1,
+                borderWidth: 1,
+                borderColor: theme.border,
+                borderRadius: BorderRadius.md,
+                padding: Spacing.md,
+                fontFamily: "Cairo_400Regular",
+                fontSize: 15,
+                color: theme.text,
+                backgroundColor: theme.backgroundDefault,
+                textAlign: "right",
+              }}
               placeholder="الحد بالدينار العراقي"
               placeholderTextColor={theme.textSecondary}
               keyboardType="numeric"
@@ -3425,22 +6565,72 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
             <Pressable
               onPress={saveAutoSuspendThreshold}
               disabled={isSavingSuspend}
-              style={{ backgroundColor: isSavingSuspend ? theme.border : "#EF4444", borderRadius: BorderRadius.md, paddingHorizontal: Spacing.lg, paddingVertical: Spacing.md, alignItems: "center", justifyContent: "center" }}
+              style={{
+                backgroundColor: isSavingSuspend ? theme.border : "#EF4444",
+                borderRadius: BorderRadius.md,
+                paddingHorizontal: Spacing.lg,
+                paddingVertical: Spacing.md,
+                alignItems: "center",
+                justifyContent: "center",
+              }}
             >
-              {isSavingSuspend ? <ActivityIndicator size="small" color={AppColors.white} /> : <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 14, color: AppColors.white }}>حفظ</ThemedText>}
+              {isSavingSuspend ? (
+                <ActivityIndicator size="small" color={AppColors.white} />
+              ) : (
+                <ThemedText
+                  style={{
+                    fontFamily: "Cairo_700Bold",
+                    fontSize: 14,
+                    color: AppColors.white,
+                  }}
+                >
+                  حفظ
+                </ThemedText>
+              )}
             </Pressable>
           </View>
         </View>
 
         {/* Max batch size (dispatch A3) */}
-        <View style={{ backgroundColor: theme.backgroundSecondary, borderRadius: BorderRadius.lg, padding: Spacing.lg, gap: Spacing.md }}>
-          <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: Spacing.sm }}>
-            <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: "#7C3AED20", alignItems: "center", justifyContent: "center" }}>
+        <View
+          style={{
+            backgroundColor: theme.backgroundSecondary,
+            borderRadius: BorderRadius.lg,
+            padding: Spacing.lg,
+            gap: Spacing.md,
+          }}
+        >
+          <View
+            style={{
+              flexDirection: "row-reverse",
+              alignItems: "center",
+              gap: Spacing.sm,
+            }}
+          >
+            <View
+              style={{
+                width: 40,
+                height: 40,
+                borderRadius: 12,
+                backgroundColor: "#7C3AED20",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
               <Feather name="layers" size={20} color="#7C3AED" />
             </View>
             <View style={{ flex: 1, alignItems: "flex-end" }}>
-              <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 15 }}>الحد الأقصى لطلبات السائق</ThemedText>
-              <ThemedText style={{ fontFamily: "Cairo_400Regular", fontSize: 13, color: theme.textSecondary, textAlign: "right" }}>
+              <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 15 }}>
+                الحد الأقصى لطلبات السائق
+              </ThemedText>
+              <ThemedText
+                style={{
+                  fontFamily: "Cairo_400Regular",
+                  fontSize: 13,
+                  color: theme.textSecondary,
+                  textAlign: "right",
+                }}
+              >
                 أقصى عدد طلبات في رحلة واحدة (لا تُدمج إلا الطلبات المتوافقة)
               </ThemedText>
             </View>
@@ -3451,33 +6641,100 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
                 key={n}
                 onPress={() => saveMaxBatchSize(n)}
                 disabled={isSavingMaxBatch}
-                style={{ flex: 1, backgroundColor: maxBatchInput === n ? "#7C3AED" : theme.backgroundDefault, borderWidth: 1, borderColor: maxBatchInput === n ? "#7C3AED" : theme.border, borderRadius: BorderRadius.md, paddingVertical: Spacing.md, alignItems: "center" }}
+                style={{
+                  flex: 1,
+                  backgroundColor:
+                    maxBatchInput === n ? "#7C3AED" : theme.backgroundDefault,
+                  borderWidth: 1,
+                  borderColor: maxBatchInput === n ? "#7C3AED" : theme.border,
+                  borderRadius: BorderRadius.md,
+                  paddingVertical: Spacing.md,
+                  alignItems: "center",
+                }}
               >
-                <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 16, color: maxBatchInput === n ? AppColors.white : theme.text }}>{n}</ThemedText>
+                <ThemedText
+                  style={{
+                    fontFamily: "Cairo_700Bold",
+                    fontSize: 16,
+                    color: maxBatchInput === n ? AppColors.white : theme.text,
+                  }}
+                >
+                  {n}
+                </ThemedText>
               </Pressable>
             ))}
           </View>
         </View>
 
         {/* Emergency redistribute (dispatch A4) */}
-        <View style={{ backgroundColor: theme.backgroundSecondary, borderRadius: BorderRadius.lg, padding: Spacing.lg, gap: Spacing.md }}>
-          <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: Spacing.sm }}>
-            <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: "#EF444420", alignItems: "center", justifyContent: "center" }}>
+        <View
+          style={{
+            backgroundColor: theme.backgroundSecondary,
+            borderRadius: BorderRadius.lg,
+            padding: Spacing.lg,
+            gap: Spacing.md,
+          }}
+        >
+          <View
+            style={{
+              flexDirection: "row-reverse",
+              alignItems: "center",
+              gap: Spacing.sm,
+            }}
+          >
+            <View
+              style={{
+                width: 40,
+                height: 40,
+                borderRadius: 12,
+                backgroundColor: "#EF444420",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
               <Feather name="shuffle" size={20} color="#EF4444" />
             </View>
             <View style={{ flex: 1, alignItems: "flex-end" }}>
-              <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 15 }}>إعادة توزيع طارئة</ThemedText>
-              <ThemedText style={{ fontFamily: "Cairo_400Regular", fontSize: 13, color: theme.textSecondary, textAlign: "right" }}>
-                تُلغى الدفعات غير المقبولة وتُعاد للتوزيع الذكي (لا تتأثر الدفعات قيد التوصيل)
+              <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 15 }}>
+                إعادة توزيع طارئة
+              </ThemedText>
+              <ThemedText
+                style={{
+                  fontFamily: "Cairo_400Regular",
+                  fontSize: 13,
+                  color: theme.textSecondary,
+                  textAlign: "right",
+                }}
+              >
+                تُلغى الدفعات غير المقبولة وتُعاد للتوزيع الذكي (لا تتأثر
+                الدفعات قيد التوصيل)
               </ThemedText>
             </View>
           </View>
           <Pressable
             onPress={emergencyRedistribute}
             disabled={isRedistributing}
-            style={{ backgroundColor: isRedistributing ? theme.border : "#EF4444", borderRadius: BorderRadius.md, paddingVertical: Spacing.md, alignItems: "center", justifyContent: "center" }}
+            style={{
+              backgroundColor: isRedistributing ? theme.border : "#EF4444",
+              borderRadius: BorderRadius.md,
+              paddingVertical: Spacing.md,
+              alignItems: "center",
+              justifyContent: "center",
+            }}
           >
-            {isRedistributing ? <ActivityIndicator size="small" color={AppColors.white} /> : <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 14, color: AppColors.white }}>إعادة التوزيع الآن</ThemedText>}
+            {isRedistributing ? (
+              <ActivityIndicator size="small" color={AppColors.white} />
+            ) : (
+              <ThemedText
+                style={{
+                  fontFamily: "Cairo_700Bold",
+                  fontSize: 14,
+                  color: AppColors.white,
+                }}
+              >
+                إعادة التوزيع الآن
+              </ThemedText>
+            )}
           </Pressable>
         </View>
       </View>
@@ -3485,62 +6742,189 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
   };
 
   const renderSettlementCard = (a: {
-    accountType: "driver" | "vendor"; accountId: string; accountName: string;
-    outstanding: number; orders: number; lastSettlementAt?: any; status: string; requestId?: string;
+    accountType: "driver" | "vendor";
+    accountId: string;
+    accountName: string;
+    outstanding: number;
+    orders: number;
+    lastSettlementAt?: any;
+    status: string;
+    requestId?: string;
   }) => {
     const fmt = (n: number) => `${(n || 0).toLocaleString("ar-IQ")} د.ع`;
-    const chip = a.status === "settled"
-      ? { bg: "#E8F7EE", fg: "#1B7A3D", txt: "🟢 الحساب مسوّى" }
-      : a.status === "under_review"
-      ? { bg: "#FFF9E0", fg: "#8A6D00", txt: "🟡 بانتظار التسوية" }
-      : { bg: "#FFF3E6", fg: "#9A5B00", txt: "🟠 بانتظار التسوية" };
-    const last = a.lastSettlementAt?.toDate?.() ? a.lastSettlementAt.toDate() : (a.lastSettlementAt?._seconds ? new Date(a.lastSettlementAt._seconds * 1000) : null);
+    const chip =
+      a.status === "settled"
+        ? { bg: "#E8F7EE", fg: "#1B7A3D", txt: "🟢 الحساب مسوّى" }
+        : a.status === "under_review"
+          ? { bg: "#FFF9E0", fg: "#8A6D00", txt: "🟡 بانتظار التسوية" }
+          : { bg: "#FFF3E6", fg: "#9A5B00", txt: "🟠 بانتظار التسوية" };
+    const last = a.lastSettlementAt?.toDate?.()
+      ? a.lastSettlementAt.toDate()
+      : a.lastSettlementAt?._seconds
+        ? new Date(a.lastSettlementAt._seconds * 1000)
+        : null;
     const canSettle = a.outstanding > 0;
     const doFull = () => {
-      Alert.alert("تسوية كاملة", `تأكيد استلام ${fmt(a.outstanding)} من ${a.accountName}؟`, [
-        { text: "إلغاء", style: "cancel" },
-        { text: "تأكيد", onPress: () => submitSettlement(a, a.outstanding, a.requestId) },
-      ]);
+      Alert.alert(
+        "تسوية كاملة",
+        `تأكيد استلام ${fmt(a.outstanding)} من ${a.accountName}؟`,
+        [
+          { text: "إلغاء", style: "cancel" },
+          {
+            text: "تأكيد",
+            onPress: () => submitSettlement(a, a.outstanding, a.requestId),
+          },
+        ],
+      );
     };
-    const doPartial = () => { setCompleteTarget(a); setCompleteAmount(""); };
+    const doPartial = () => {
+      setCompleteTarget(a);
+      setCompleteAmount("");
+    };
     return (
-      <View key={`${a.accountType}:${a.accountId}:${a.requestId ?? ""}`} style={{ borderRadius: 14, padding: Spacing.md, backgroundColor: theme.backgroundDefault, gap: 8 }}>
-        <View style={{ flexDirection: "row-reverse", justifyContent: "space-between", alignItems: "center" }}>
-          <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 6 }}>
-            <Feather name={a.accountType === "vendor" ? "briefcase" : "user"} size={16} color={theme.text} />
-            <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 15, color: theme.text }}>{a.accountName}</ThemedText>
+      <View
+        key={`${a.accountType}:${a.accountId}:${a.requestId ?? ""}`}
+        style={{
+          borderRadius: 14,
+          padding: Spacing.md,
+          backgroundColor: theme.backgroundDefault,
+          gap: 8,
+        }}
+      >
+        <View
+          style={{
+            flexDirection: "row-reverse",
+            justifyContent: "space-between",
+            alignItems: "center",
+          }}
+        >
+          <View
+            style={{
+              flexDirection: "row-reverse",
+              alignItems: "center",
+              gap: 6,
+            }}
+          >
+            <Feather
+              name={a.accountType === "vendor" ? "briefcase" : "user"}
+              size={16}
+              color={theme.text}
+            />
+            <ThemedText
+              style={{
+                fontFamily: "Cairo_700Bold",
+                fontSize: 15,
+                color: theme.text,
+              }}
+            >
+              {a.accountName}
+            </ThemedText>
           </View>
-          <View style={{ backgroundColor: chip.bg, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8 }}>
-            <ThemedText style={{ fontSize: 11, color: chip.fg }}>{chip.txt}</ThemedText>
+          <View
+            style={{
+              backgroundColor: chip.bg,
+              paddingHorizontal: 8,
+              paddingVertical: 3,
+              borderRadius: 8,
+            }}
+          >
+            <ThemedText style={{ fontSize: 11, color: chip.fg }}>
+              {chip.txt}
+            </ThemedText>
           </View>
         </View>
-        <View style={{ flexDirection: "row-reverse", justifyContent: "space-between" }}>
-          <ThemedText style={{ color: theme.textSecondary, fontSize: 13 }}>عدد الطلبات: {a.orders}</ThemedText>
-          <ThemedText style={{ color: AppColors.primary, fontFamily: "Cairo_700Bold", fontSize: 16 }}>{fmt(a.outstanding)}</ThemedText>
+        <View
+          style={{
+            flexDirection: "row-reverse",
+            justifyContent: "space-between",
+          }}
+        >
+          <ThemedText style={{ color: theme.textSecondary, fontSize: 13 }}>
+            عدد الطلبات: {a.orders}
+          </ThemedText>
+          <ThemedText
+            style={{
+              color: AppColors.primary,
+              fontFamily: "Cairo_700Bold",
+              fontSize: 16,
+            }}
+          >
+            {fmt(a.outstanding)}
+          </ThemedText>
         </View>
-        <ThemedText style={{ color: theme.textSecondary, fontSize: 12, textAlign: "right" }}>
+        <ThemedText
+          style={{
+            color: theme.textSecondary,
+            fontSize: 12,
+            textAlign: "right",
+          }}
+        >
           آخر تسوية: {last ? last.toLocaleDateString("ar-IQ") : "—"}
         </ThemedText>
         <View style={{ flexDirection: "row-reverse", gap: 8 }}>
           <Pressable
             onPress={() => openSettlementDetails(a)}
-            style={{ flex: 1, backgroundColor: theme.backgroundRoot, borderWidth: 1, borderColor: theme.border, borderRadius: 10, paddingVertical: 9, alignItems: "center" }}
+            style={{
+              flex: 1,
+              backgroundColor: theme.backgroundRoot,
+              borderWidth: 1,
+              borderColor: theme.border,
+              borderRadius: 10,
+              paddingVertical: 9,
+              alignItems: "center",
+            }}
           >
-            <ThemedText style={{ color: theme.text, fontFamily: "Cairo_700Bold", fontSize: 13 }}>تفاصيل</ThemedText>
+            <ThemedText
+              style={{
+                color: theme.text,
+                fontFamily: "Cairo_700Bold",
+                fontSize: 13,
+              }}
+            >
+              تفاصيل
+            </ThemedText>
           </Pressable>
           <Pressable
             onPress={doFull}
             disabled={!canSettle}
-            style={{ flex: 1, backgroundColor: canSettle ? AppColors.success : theme.border, borderRadius: 10, paddingVertical: 9, alignItems: "center" }}
+            style={{
+              flex: 1,
+              backgroundColor: canSettle ? AppColors.success : theme.border,
+              borderRadius: 10,
+              paddingVertical: 9,
+              alignItems: "center",
+            }}
           >
-            <ThemedText style={{ color: AppColors.white, fontFamily: "Cairo_700Bold", fontSize: 13 }}>كاملة</ThemedText>
+            <ThemedText
+              style={{
+                color: AppColors.white,
+                fontFamily: "Cairo_700Bold",
+                fontSize: 13,
+              }}
+            >
+              كاملة
+            </ThemedText>
           </Pressable>
           <Pressable
             onPress={doPartial}
             disabled={!canSettle}
-            style={{ flex: 1, backgroundColor: canSettle ? AppColors.primary : theme.border, borderRadius: 10, paddingVertical: 9, alignItems: "center" }}
+            style={{
+              flex: 1,
+              backgroundColor: canSettle ? AppColors.primary : theme.border,
+              borderRadius: 10,
+              paddingVertical: 9,
+              alignItems: "center",
+            }}
           >
-            <ThemedText style={{ color: AppColors.white, fontFamily: "Cairo_700Bold", fontSize: 13 }}>جزئية</ThemedText>
+            <ThemedText
+              style={{
+                color: AppColors.white,
+                fontFamily: "Cairo_700Bold",
+                fontSize: 13,
+              }}
+            >
+              جزئية
+            </ThemedText>
           </Pressable>
         </View>
       </View>
@@ -3554,7 +6938,10 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
       { key: "vendor", label: "المتاجر" },
       { key: "config", label: "الإعدادات" },
     ];
-    const cfg = settlementConfig ?? { driver: { thresholdEnabled: true, thresholdAmount: 50000 }, vendor: { thresholdEnabled: true, thresholdAmount: 50000 } };
+    const cfg = settlementConfig ?? {
+      driver: { thresholdEnabled: true, thresholdAmount: 50000 },
+      vendor: { thresholdEnabled: true, thresholdAmount: 50000 },
+    };
     return (
       <View style={{ gap: Spacing.md }}>
         {/* Sub-tab selector */}
@@ -3563,9 +6950,29 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
             <Pressable
               key={t.key}
               onPress={() => setSettleView(t.key)}
-              style={{ flex: 1, paddingVertical: 8, borderRadius: 10, alignItems: "center", backgroundColor: settleView === t.key ? AppColors.primary : theme.backgroundDefault }}
+              style={{
+                flex: 1,
+                paddingVertical: 8,
+                borderRadius: 10,
+                alignItems: "center",
+                backgroundColor:
+                  settleView === t.key
+                    ? AppColors.primary
+                    : theme.backgroundDefault,
+              }}
             >
-              <ThemedText style={{ fontSize: 12, fontFamily: "Cairo_700Bold", color: settleView === t.key ? AppColors.white : theme.textSecondary }}>{t.label}</ThemedText>
+              <ThemedText
+                style={{
+                  fontSize: 12,
+                  fontFamily: "Cairo_700Bold",
+                  color:
+                    settleView === t.key
+                      ? AppColors.white
+                      : theme.textSecondary,
+                }}
+              >
+                {t.label}
+              </ThemedText>
             </Pressable>
           ))}
         </View>
@@ -3573,15 +6980,37 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
         {/* Requests inbox */}
         {settleView === "requests" ? (
           settlementRequests.length === 0 ? (
-            <View style={{ borderRadius: 14, padding: Spacing.xl, backgroundColor: theme.backgroundDefault, alignItems: "center" }}>
-              <Feather name="check-circle" size={28} color={AppColors.success} />
-              <ThemedText style={{ color: theme.textSecondary, marginTop: Spacing.sm }}>لا توجد طلبات تسوية معلّقة</ThemedText>
+            <View
+              style={{
+                borderRadius: 14,
+                padding: Spacing.xl,
+                backgroundColor: theme.backgroundDefault,
+                alignItems: "center",
+              }}
+            >
+              <Feather
+                name="check-circle"
+                size={28}
+                color={AppColors.success}
+              />
+              <ThemedText
+                style={{ color: theme.textSecondary, marginTop: Spacing.sm }}
+              >
+                لا توجد طلبات تسوية معلّقة
+              </ThemedText>
             </View>
           ) : (
-            settlementRequests.map((r) => renderSettlementCard({
-              accountType: r.accountType, accountId: r.accountId, accountName: r.accountName,
-              outstanding: r.outstandingSnapshot, orders: r.pendingOrderCount || 0, status: "under_review", requestId: r.id,
-            }))
+            settlementRequests.map((r) =>
+              renderSettlementCard({
+                accountType: r.accountType,
+                accountId: r.accountId,
+                accountName: r.accountName,
+                outstanding: r.outstandingSnapshot,
+                orders: r.pendingOrderCount || 0,
+                status: "under_review",
+                requestId: r.id,
+              }),
+            )
           )
         ) : null}
 
@@ -3589,97 +7018,345 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
         {settleView === "driver" || settleView === "vendor" ? (
           <>
             <View style={{ flexDirection: "row-reverse", gap: 8 }}>
-              <Pressable onPress={printSettlementReport} style={{ flexDirection: "row-reverse", alignItems: "center", gap: 6, backgroundColor: theme.backgroundDefault, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8 }}>
+              <Pressable
+                onPress={printSettlementReport}
+                style={{
+                  flexDirection: "row-reverse",
+                  alignItems: "center",
+                  gap: 6,
+                  backgroundColor: theme.backgroundDefault,
+                  borderRadius: 10,
+                  paddingHorizontal: 12,
+                  paddingVertical: 8,
+                }}
+              >
                 <Feather name="printer" size={15} color={theme.text} />
-                <ThemedText style={{ fontSize: 12, color: theme.text }}>طباعة / PDF</ThemedText>
+                <ThemedText style={{ fontSize: 12, color: theme.text }}>
+                  طباعة / PDF
+                </ThemedText>
               </Pressable>
-              <Pressable onPress={() => Linking.openURL(`${getApiUrl()}/api/admin/settlement-export?accountType=${settleView}`)} style={{ flexDirection: "row-reverse", alignItems: "center", gap: 6, backgroundColor: theme.backgroundDefault, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8 }}>
+              <Pressable
+                onPress={() =>
+                  Linking.openURL(
+                    `${getApiUrl()}/api/admin/settlement-export?accountType=${settleView}`,
+                  )
+                }
+                style={{
+                  flexDirection: "row-reverse",
+                  alignItems: "center",
+                  gap: 6,
+                  backgroundColor: theme.backgroundDefault,
+                  borderRadius: 10,
+                  paddingHorizontal: 12,
+                  paddingVertical: 8,
+                }}
+              >
                 <Feather name="download" size={15} color={theme.text} />
-                <ThemedText style={{ fontSize: 12, color: theme.text }}>تصدير Excel</ThemedText>
+                <ThemedText style={{ fontSize: 12, color: theme.text }}>
+                  تصدير Excel
+                </ThemedText>
               </Pressable>
             </View>
             {settlementAccounts.length === 0 ? (
-              <View style={{ borderRadius: 14, padding: Spacing.xl, backgroundColor: theme.backgroundDefault, alignItems: "center" }}>
-                <ThemedText style={{ color: theme.textSecondary }}>لا توجد حسابات</ThemedText>
+              <View
+                style={{
+                  borderRadius: 14,
+                  padding: Spacing.xl,
+                  backgroundColor: theme.backgroundDefault,
+                  alignItems: "center",
+                }}
+              >
+                <ThemedText style={{ color: theme.textSecondary }}>
+                  لا توجد حسابات
+                </ThemedText>
               </View>
             ) : (
-              settlementAccounts.map((a) => renderSettlementCard({
-                accountType: a.accountType, accountId: a.accountId, accountName: a.accountName,
-                outstanding: a.outstanding, orders: a.totalOrders || 0, lastSettlementAt: a.lastSettlementAt, status: a.status,
-              }))
+              settlementAccounts.map((a) =>
+                renderSettlementCard({
+                  accountType: a.accountType,
+                  accountId: a.accountId,
+                  accountName: a.accountName,
+                  outstanding: a.outstanding,
+                  orders: a.totalOrders || 0,
+                  lastSettlementAt: a.lastSettlementAt,
+                  status: a.status,
+                }),
+              )
             )}
           </>
         ) : null}
 
         {/* Threshold configuration */}
-        {settleView === "config" ? (
-          (["driver", "vendor"] as const).map((t) => {
-            const c = cfg[t];
-            return (
-              <View key={t} style={{ borderRadius: 14, padding: Spacing.md, backgroundColor: theme.backgroundDefault, gap: 10 }}>
-                <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 15, color: theme.text, textAlign: "right" }}>
-                  حدّ التسوية — {t === "driver" ? "السائقون" : "المتاجر"}
-                </ThemedText>
-                <View style={{ flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between" }}>
-                  <ThemedText style={{ color: theme.textSecondary, fontSize: 13 }}>تفعيل الحظر عند تجاوز الحدّ</ThemedText>
-                  <Switch value={c.thresholdEnabled} onValueChange={(v) => saveSettlementConfig(t, v, c.thresholdAmount)} />
+        {settleView === "config"
+          ? (["driver", "vendor"] as const).map((t) => {
+              const c = cfg[t];
+              return (
+                <View
+                  key={t}
+                  style={{
+                    borderRadius: 14,
+                    padding: Spacing.md,
+                    backgroundColor: theme.backgroundDefault,
+                    gap: 10,
+                  }}
+                >
+                  <ThemedText
+                    style={{
+                      fontFamily: "Cairo_700Bold",
+                      fontSize: 15,
+                      color: theme.text,
+                      textAlign: "right",
+                    }}
+                  >
+                    حدّ التسوية — {t === "driver" ? "السائقون" : "المتاجر"}
+                  </ThemedText>
+                  <View
+                    style={{
+                      flexDirection: "row-reverse",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                    }}
+                  >
+                    <ThemedText
+                      style={{ color: theme.textSecondary, fontSize: 13 }}
+                    >
+                      تفعيل الحظر عند تجاوز الحدّ
+                    </ThemedText>
+                    <Switch
+                      value={c.thresholdEnabled}
+                      onValueChange={(v) =>
+                        saveSettlementConfig(t, v, c.thresholdAmount)
+                      }
+                    />
+                  </View>
+                  <View
+                    style={{
+                      flexDirection: "row-reverse",
+                      gap: 6,
+                      flexWrap: "wrap",
+                    }}
+                  >
+                    {[50000, 100000, 200000].map((amt) => (
+                      <Pressable
+                        key={amt}
+                        onPress={() =>
+                          saveSettlementConfig(t, c.thresholdEnabled, amt)
+                        }
+                        style={{
+                          paddingHorizontal: 12,
+                          paddingVertical: 8,
+                          borderRadius: 10,
+                          backgroundColor:
+                            c.thresholdAmount === amt
+                              ? AppColors.primary
+                              : theme.backgroundRoot,
+                          borderWidth: 1,
+                          borderColor: theme.border,
+                        }}
+                      >
+                        <ThemedText
+                          style={{
+                            fontSize: 12,
+                            color:
+                              c.thresholdAmount === amt
+                                ? AppColors.white
+                                : theme.text,
+                          }}
+                        >
+                          {amt.toLocaleString("ar-IQ")}
+                        </ThemedText>
+                      </Pressable>
+                    ))}
+                  </View>
+                  <ThemedText
+                    style={{
+                      fontSize: 11,
+                      color: theme.textSecondary,
+                      textAlign: "right",
+                    }}
+                  >
+                    الحدّ الحالي:{" "}
+                    {c.thresholdEnabled
+                      ? `${c.thresholdAmount.toLocaleString("ar-IQ")} د.ع`
+                      : "مُعطّل"}
+                  </ThemedText>
                 </View>
-                <View style={{ flexDirection: "row-reverse", gap: 6, flexWrap: "wrap" }}>
-                  {[50000, 100000, 200000].map((amt) => (
-                    <Pressable key={amt} onPress={() => saveSettlementConfig(t, c.thresholdEnabled, amt)}
-                      style={{ paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10, backgroundColor: c.thresholdAmount === amt ? AppColors.primary : theme.backgroundRoot, borderWidth: 1, borderColor: theme.border }}>
-                      <ThemedText style={{ fontSize: 12, color: c.thresholdAmount === amt ? AppColors.white : theme.text }}>{amt.toLocaleString("ar-IQ")}</ThemedText>
-                    </Pressable>
-                  ))}
-                </View>
-                <ThemedText style={{ fontSize: 11, color: theme.textSecondary, textAlign: "right" }}>
-                  الحدّ الحالي: {c.thresholdEnabled ? `${c.thresholdAmount.toLocaleString("ar-IQ")} د.ع` : "مُعطّل"}
-                </ThemedText>
-              </View>
-            );
-          })
-        ) : null}
+              );
+            })
+          : null}
 
         {/* Account details: settlement history + payment history */}
-        <Modal visible={!!detailTarget} transparent animationType="slide" onRequestClose={() => setDetailTarget(null)}>
-          <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.45)", justifyContent: "flex-end" }}>
-            <View style={{ backgroundColor: theme.backgroundDefault, borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 20, maxHeight: "80%" }}>
-              <View style={{ flexDirection: "row-reverse", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-                <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 16, color: theme.text }}>{detailTarget?.accountName}</ThemedText>
-                <Pressable onPress={() => setDetailTarget(null)}><Feather name="x" size={22} color={theme.textSecondary} /></Pressable>
+        <Modal
+          visible={!!detailTarget}
+          transparent
+          animationType="slide"
+          onRequestClose={() => setDetailTarget(null)}
+        >
+          <View
+            style={{
+              flex: 1,
+              backgroundColor: "rgba(0,0,0,0.45)",
+              justifyContent: "flex-end",
+            }}
+          >
+            <View
+              style={{
+                backgroundColor: theme.backgroundDefault,
+                borderTopLeftRadius: 20,
+                borderTopRightRadius: 20,
+                padding: 20,
+                maxHeight: "80%",
+              }}
+            >
+              <View
+                style={{
+                  flexDirection: "row-reverse",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  marginBottom: 12,
+                }}
+              >
+                <ThemedText
+                  style={{
+                    fontFamily: "Cairo_700Bold",
+                    fontSize: 16,
+                    color: theme.text,
+                  }}
+                >
+                  {detailTarget?.accountName}
+                </ThemedText>
+                <Pressable onPress={() => setDetailTarget(null)}>
+                  <Feather name="x" size={22} color={theme.textSecondary} />
+                </Pressable>
               </View>
               {detailBusy ? (
-                <ActivityIndicator size="large" color={AppColors.primary} style={{ marginVertical: 24 }} />
+                <ActivityIndicator
+                  size="large"
+                  color={AppColors.primary}
+                  style={{ marginVertical: 24 }}
+                />
               ) : (
                 <ScrollView>
-                  <ThemedText style={{ color: AppColors.primary, fontFamily: "Cairo_700Bold", fontSize: 18, textAlign: "right" }}>
-                    المستحق: {(detailData?.view?.outstanding ?? detailTarget?.outstanding ?? 0).toLocaleString("ar-IQ")} د.ع
+                  <ThemedText
+                    style={{
+                      color: AppColors.primary,
+                      fontFamily: "Cairo_700Bold",
+                      fontSize: 18,
+                      textAlign: "right",
+                    }}
+                  >
+                    المستحق:{" "}
+                    {(
+                      detailData?.view?.outstanding ??
+                      detailTarget?.outstanding ??
+                      0
+                    ).toLocaleString("ar-IQ")}{" "}
+                    د.ع
                   </ThemedText>
 
-                  <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 14, color: theme.text, textAlign: "right", marginTop: 16, marginBottom: 6 }}>سجلّ الدفعات</ThemedText>
+                  <ThemedText
+                    style={{
+                      fontFamily: "Cairo_700Bold",
+                      fontSize: 14,
+                      color: theme.text,
+                      textAlign: "right",
+                      marginTop: 16,
+                      marginBottom: 6,
+                    }}
+                  >
+                    سجلّ الدفعات
+                  </ThemedText>
                   {(detailData?.payments ?? []).length === 0 ? (
-                    <ThemedText style={{ color: theme.textSecondary, fontSize: 12, textAlign: "right" }}>لا توجد دفعات بعد</ThemedText>
+                    <ThemedText
+                      style={{
+                        color: theme.textSecondary,
+                        fontSize: 12,
+                        textAlign: "right",
+                      }}
+                    >
+                      لا توجد دفعات بعد
+                    </ThemedText>
                   ) : (
                     (detailData?.payments ?? []).map((p: any) => (
-                      <View key={p.id} style={{ flexDirection: "row-reverse", justifyContent: "space-between", paddingVertical: 6, borderBottomWidth: 1, borderBottomColor: theme.border }}>
-                        <ThemedText style={{ color: AppColors.success, fontSize: 13 }}>{(p.amount ?? 0).toLocaleString("ar-IQ")} د.ع</ThemedText>
-                        <ThemedText style={{ color: theme.textSecondary, fontSize: 11 }}>{p.receiptNumber ?? ""}</ThemedText>
+                      <View
+                        key={p.id}
+                        style={{
+                          flexDirection: "row-reverse",
+                          justifyContent: "space-between",
+                          paddingVertical: 6,
+                          borderBottomWidth: 1,
+                          borderBottomColor: theme.border,
+                        }}
+                      >
+                        <ThemedText
+                          style={{ color: AppColors.success, fontSize: 13 }}
+                        >
+                          {(p.amount ?? 0).toLocaleString("ar-IQ")} د.ع
+                        </ThemedText>
+                        <ThemedText
+                          style={{ color: theme.textSecondary, fontSize: 11 }}
+                        >
+                          {p.receiptNumber ?? ""}
+                        </ThemedText>
                       </View>
                     ))
                   )}
 
-                  <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 14, color: theme.text, textAlign: "right", marginTop: 16, marginBottom: 6 }}>سجلّ التسويات (الطلبات)</ThemedText>
+                  <ThemedText
+                    style={{
+                      fontFamily: "Cairo_700Bold",
+                      fontSize: 14,
+                      color: theme.text,
+                      textAlign: "right",
+                      marginTop: 16,
+                      marginBottom: 6,
+                    }}
+                  >
+                    سجلّ التسويات (الطلبات)
+                  </ThemedText>
                   {(detailData?.history?.settlements ?? []).length === 0 ? (
-                    <ThemedText style={{ color: theme.textSecondary, fontSize: 12, textAlign: "right" }}>لا توجد سجلّات</ThemedText>
+                    <ThemedText
+                      style={{
+                        color: theme.textSecondary,
+                        fontSize: 12,
+                        textAlign: "right",
+                      }}
+                    >
+                      لا توجد سجلّات
+                    </ThemedText>
                   ) : (
-                    (detailData?.history?.settlements ?? []).slice(0, 40).map((s: any) => (
-                      <View key={s.id} style={{ flexDirection: "row-reverse", justifyContent: "space-between", paddingVertical: 6, borderBottomWidth: 1, borderBottomColor: theme.border }}>
-                        <ThemedText style={{ color: theme.text, fontSize: 12 }}>{(s.outstandingAmount ?? 0).toLocaleString("ar-IQ")} د.ع</ThemedText>
-                        <ThemedText style={{ color: s.status === "settled" ? AppColors.success : theme.textSecondary, fontSize: 11 }}>
-                          {s.status === "settled" ? "مسوّى" : "مستحق"}
-                        </ThemedText>
-                      </View>
-                    ))
+                    (detailData?.history?.settlements ?? [])
+                      .slice(0, 40)
+                      .map((s: any) => (
+                        <View
+                          key={s.id}
+                          style={{
+                            flexDirection: "row-reverse",
+                            justifyContent: "space-between",
+                            paddingVertical: 6,
+                            borderBottomWidth: 1,
+                            borderBottomColor: theme.border,
+                          }}
+                        >
+                          <ThemedText
+                            style={{ color: theme.text, fontSize: 12 }}
+                          >
+                            {(s.outstandingAmount ?? 0).toLocaleString("ar-IQ")}{" "}
+                            د.ع
+                          </ThemedText>
+                          <ThemedText
+                            style={{
+                              color:
+                                s.status === "settled"
+                                  ? AppColors.success
+                                  : theme.textSecondary,
+                              fontSize: 11,
+                            }}
+                          >
+                            {s.status === "settled" ? "مسوّى" : "مستحق"}
+                          </ThemedText>
+                        </View>
+                      ))
                   )}
                 </ScrollView>
               )}
@@ -3688,12 +7365,47 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
         </Modal>
 
         {/* Partial-settlement modal */}
-        <Modal visible={!!completeTarget} transparent animationType="fade" onRequestClose={() => setCompleteTarget(null)}>
-          <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.45)", justifyContent: "center", padding: 24 }}>
-            <View style={{ backgroundColor: theme.backgroundDefault, borderRadius: 16, padding: 20, gap: 12 }}>
-              <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 16, color: theme.text, textAlign: "right" }}>تسوية جزئية</ThemedText>
-              <ThemedText style={{ color: theme.textSecondary, fontSize: 13, textAlign: "right" }}>
-                {completeTarget?.accountName} · المستحق {(completeTarget?.outstanding ?? 0).toLocaleString("ar-IQ")} د.ع
+        <Modal
+          visible={!!completeTarget}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setCompleteTarget(null)}
+        >
+          <View
+            style={{
+              flex: 1,
+              backgroundColor: "rgba(0,0,0,0.45)",
+              justifyContent: "center",
+              padding: 24,
+            }}
+          >
+            <View
+              style={{
+                backgroundColor: theme.backgroundDefault,
+                borderRadius: 16,
+                padding: 20,
+                gap: 12,
+              }}
+            >
+              <ThemedText
+                style={{
+                  fontFamily: "Cairo_700Bold",
+                  fontSize: 16,
+                  color: theme.text,
+                  textAlign: "right",
+                }}
+              >
+                تسوية جزئية
+              </ThemedText>
+              <ThemedText
+                style={{
+                  color: theme.textSecondary,
+                  fontSize: 13,
+                  textAlign: "right",
+                }}
+              >
+                {completeTarget?.accountName} · المستحق{" "}
+                {(completeTarget?.outstanding ?? 0).toLocaleString("ar-IQ")} د.ع
               </ThemedText>
               <TextInput
                 value={completeAmount}
@@ -3701,21 +7413,62 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
                 keyboardType="number-pad"
                 placeholder="المبلغ المستلم"
                 placeholderTextColor={theme.textSecondary}
-                style={{ borderWidth: 1, borderColor: theme.border, borderRadius: 10, padding: 12, color: theme.text, textAlign: "right" }}
+                style={{
+                  borderWidth: 1,
+                  borderColor: theme.border,
+                  borderRadius: 10,
+                  padding: 12,
+                  color: theme.text,
+                  textAlign: "right",
+                }}
               />
               <View style={{ flexDirection: "row-reverse", gap: 8 }}>
                 <Pressable
                   disabled={completeBusy}
                   onPress={() => {
                     const amt = Math.round(Number(completeAmount));
-                    if (!amt || amt <= 0) { Alert.alert("قيمة غير صحيحة", "أدخل مبلغاً صحيحاً"); return; }
-                    if (completeTarget) submitSettlement(completeTarget, amt, completeTarget.requestId);
+                    if (!amt || amt <= 0) {
+                      Alert.alert("قيمة غير صحيحة", "أدخل مبلغاً صحيحاً");
+                      return;
+                    }
+                    if (completeTarget)
+                      submitSettlement(
+                        completeTarget,
+                        amt,
+                        completeTarget.requestId,
+                      );
                   }}
-                  style={{ flex: 1, backgroundColor: AppColors.primary, borderRadius: 10, paddingVertical: 11, alignItems: "center" }}
+                  style={{
+                    flex: 1,
+                    backgroundColor: AppColors.primary,
+                    borderRadius: 10,
+                    paddingVertical: 11,
+                    alignItems: "center",
+                  }}
                 >
-                  {completeBusy ? <ActivityIndicator size="small" color={AppColors.white} /> : <ThemedText style={{ color: AppColors.white, fontFamily: "Cairo_700Bold" }}>تأكيد</ThemedText>}
+                  {completeBusy ? (
+                    <ActivityIndicator size="small" color={AppColors.white} />
+                  ) : (
+                    <ThemedText
+                      style={{
+                        color: AppColors.white,
+                        fontFamily: "Cairo_700Bold",
+                      }}
+                    >
+                      تأكيد
+                    </ThemedText>
+                  )}
                 </Pressable>
-                <Pressable onPress={() => setCompleteTarget(null)} style={{ flex: 1, backgroundColor: theme.backgroundRoot, borderRadius: 10, paddingVertical: 11, alignItems: "center" }}>
+                <Pressable
+                  onPress={() => setCompleteTarget(null)}
+                  style={{
+                    flex: 1,
+                    backgroundColor: theme.backgroundRoot,
+                    borderRadius: 10,
+                    paddingVertical: 11,
+                    alignItems: "center",
+                  }}
+                >
                   <ThemedText style={{ color: theme.text }}>إلغاء</ThemedText>
                 </Pressable>
               </View>
@@ -3729,47 +7482,188 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
   const renderStorageTab = () => (
     <View style={{ gap: Spacing.lg }}>
       {/* Header */}
-      <View style={{ borderRadius: BorderRadius.xl, overflow: "hidden", backgroundColor: AppColors.primary }}>
-        <View style={{ padding: Spacing.lg, flexDirection: "row-reverse", alignItems: "center", gap: Spacing.md }}>
-          <View style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: "rgba(255,255,255,0.2)", alignItems: "center", justifyContent: "center" }}>
+      <View
+        style={{
+          borderRadius: BorderRadius.xl,
+          overflow: "hidden",
+          backgroundColor: AppColors.primary,
+        }}
+      >
+        <View
+          style={{
+            padding: Spacing.lg,
+            flexDirection: "row-reverse",
+            alignItems: "center",
+            gap: Spacing.md,
+          }}
+        >
+          <View
+            style={{
+              width: 48,
+              height: 48,
+              borderRadius: 24,
+              backgroundColor: "rgba(255,255,255,0.2)",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
             <Feather name="hard-drive" size={24} color={AppColors.white} />
           </View>
           <View style={{ flex: 1, alignItems: "flex-end" }}>
-            <ThemedText style={{ color: AppColors.white, fontSize: 18, fontFamily: "Cairo_700Bold" }}>إحصائيات التخزين</ThemedText>
-            <ThemedText style={{ color: AppColors.textOnBrandMuted, fontSize: 13, fontFamily: "Cairo_400Regular" }}>صور منتجات المتاجر — للقراءة فقط</ThemedText>
+            <ThemedText
+              style={{
+                color: AppColors.white,
+                fontSize: 18,
+                fontFamily: "Cairo_700Bold",
+              }}
+            >
+              إحصائيات التخزين
+            </ThemedText>
+            <ThemedText
+              style={{
+                color: AppColors.textOnBrandMuted,
+                fontSize: 13,
+                fontFamily: "Cairo_400Regular",
+              }}
+            >
+              صور منتجات المتاجر — للقراءة فقط
+            </ThemedText>
           </View>
         </View>
       </View>
 
       {storageStatsLoading ? (
-        <ActivityIndicator color={AppColors.primary} style={{ marginTop: 40 }} />
+        <ActivityIndicator
+          color={AppColors.primary}
+          style={{ marginTop: 40 }}
+        />
       ) : storageStatsError ? (
-        <View style={{ backgroundColor: AppColors.errorLight, borderRadius: BorderRadius.lg, padding: Spacing.lg, alignItems: "center", gap: Spacing.sm }}>
+        <View
+          style={{
+            backgroundColor: AppColors.errorLight,
+            borderRadius: BorderRadius.lg,
+            padding: Spacing.lg,
+            alignItems: "center",
+            gap: Spacing.sm,
+          }}
+        >
           <Feather name="alert-circle" size={24} color={AppColors.error} />
-          <ThemedText style={{ color: AppColors.error, fontFamily: "Cairo_400Regular" }}>{storageStatsError}</ThemedText>
+          <ThemedText
+            style={{ color: AppColors.error, fontFamily: "Cairo_400Regular" }}
+          >
+            {storageStatsError}
+          </ThemedText>
           <Pressable onPress={loadStorageStats} style={{ marginTop: 4 }}>
-            <ThemedText style={{ color: AppColors.primary, fontFamily: "Cairo_600SemiBold" }}>إعادة المحاولة</ThemedText>
+            <ThemedText
+              style={{
+                color: AppColors.primary,
+                fontFamily: "Cairo_600SemiBold",
+              }}
+            >
+              إعادة المحاولة
+            </ThemedText>
           </Pressable>
         </View>
       ) : storageStats ? (
         <View style={{ gap: Spacing.md }}>
           {/* Summary grid */}
-          <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 14, color: theme.textSecondary, textAlign: "right" }}>ملخص</ThemedText>
-          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: Spacing.sm }}>
-            {([
-              { label: "المنتجات النشطة", value: storageStats.totalProducts, icon: "package" as const, color: AppColors.primary },
-              { label: "إجمالي الصور", value: storageStats.totalImages, icon: "image" as const, color: AppColors.info },
-              { label: "الصور المصغرة", value: storageStats.totalThumbs, icon: "grid" as const, color: AppColors.success },
-              { label: "الصور الكاملة", value: Math.max(0, storageStats.totalImages - storageStats.totalThumbs), icon: "maximize" as const, color: AppColors.statusPurple },
-            ] as const).map((card, i) => (
-              <View key={i} style={{ width: "47%", backgroundColor: theme.backgroundDefault, borderRadius: 20, padding: Spacing.md + 2, gap: 6, borderWidth: 1, borderColor: theme.border }}>
-                <View style={{ flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between" }}>
-                  <View style={{ width: 38, height: 38, borderRadius: 11, backgroundColor: card.color + "18", alignItems: "center", justifyContent: "center" }}>
+          <ThemedText
+            style={{
+              fontFamily: "Cairo_700Bold",
+              fontSize: 14,
+              color: theme.textSecondary,
+              textAlign: "right",
+            }}
+          >
+            ملخص
+          </ThemedText>
+          <View
+            style={{ flexDirection: "row", flexWrap: "wrap", gap: Spacing.sm }}
+          >
+            {(
+              [
+                {
+                  label: "المنتجات النشطة",
+                  value: storageStats.totalProducts,
+                  icon: "package" as const,
+                  color: AppColors.primary,
+                },
+                {
+                  label: "إجمالي الصور",
+                  value: storageStats.totalImages,
+                  icon: "image" as const,
+                  color: AppColors.info,
+                },
+                {
+                  label: "الصور المصغرة",
+                  value: storageStats.totalThumbs,
+                  icon: "grid" as const,
+                  color: AppColors.success,
+                },
+                {
+                  label: "الصور الكاملة",
+                  value: Math.max(
+                    0,
+                    storageStats.totalImages - storageStats.totalThumbs,
+                  ),
+                  icon: "maximize" as const,
+                  color: AppColors.statusPurple,
+                },
+              ] as const
+            ).map((card, i) => (
+              <View
+                key={i}
+                style={{
+                  width: "47%",
+                  backgroundColor: theme.backgroundDefault,
+                  borderRadius: 20,
+                  padding: Spacing.md + 2,
+                  gap: 6,
+                  borderWidth: 1,
+                  borderColor: theme.border,
+                }}
+              >
+                <View
+                  style={{
+                    flexDirection: "row-reverse",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                  }}
+                >
+                  <View
+                    style={{
+                      width: 38,
+                      height: 38,
+                      borderRadius: 11,
+                      backgroundColor: card.color + "18",
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                  >
                     <Feather name={card.icon} size={18} color={card.color} />
                   </View>
-                  <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 26, lineHeight: 36, includeFontPadding: true, color: AppColors.gray800 }}>{card.value}</ThemedText>
+                  <ThemedText
+                    style={{
+                      fontFamily: "Cairo_700Bold",
+                      fontSize: 26,
+                      lineHeight: 36,
+                      includeFontPadding: true,
+                      color: AppColors.gray800,
+                    }}
+                  >
+                    {card.value}
+                  </ThemedText>
                 </View>
-                <ThemedText style={{ fontFamily: "Cairo_600SemiBold", fontSize: 12.5, color: AppColors.gray500, textAlign: "right" }}>{card.label}</ThemedText>
+                <ThemedText
+                  style={{
+                    fontFamily: "Cairo_600SemiBold",
+                    fontSize: 12.5,
+                    color: AppColors.gray500,
+                    textAlign: "right",
+                  }}
+                >
+                  {card.label}
+                </ThemedText>
               </View>
             ))}
           </View>
@@ -3777,19 +7671,94 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
           {/* Top stores */}
           {storageStats.topStores?.length > 0 && (
             <View style={{ gap: Spacing.sm }}>
-              <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 14, color: theme.textSecondary, textAlign: "right" }}>أكبر المتاجر استخداماً للصور</ThemedText>
-              <View style={{ backgroundColor: theme.backgroundDefault, borderRadius: BorderRadius.lg, overflow: "hidden" }}>
+              <ThemedText
+                style={{
+                  fontFamily: "Cairo_700Bold",
+                  fontSize: 14,
+                  color: theme.textSecondary,
+                  textAlign: "right",
+                }}
+              >
+                أكبر المتاجر استخداماً للصور
+              </ThemedText>
+              <View
+                style={{
+                  backgroundColor: theme.backgroundDefault,
+                  borderRadius: BorderRadius.lg,
+                  overflow: "hidden",
+                }}
+              >
                 {storageStats.topStores.map((store: any, i: number) => (
-                  <View key={store.vendorId} style={{ flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between", padding: Spacing.md, borderBottomWidth: i < storageStats.topStores.length - 1 ? 1 : 0, borderBottomColor: theme.border }}>
-                    <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: Spacing.sm }}>
-                      <View style={{ width: 30, height: 30, borderRadius: 8, backgroundColor: AppColors.primary + "15", alignItems: "center", justifyContent: "center" }}>
-                        <ThemedText style={{ fontFamily: "Cairo_700Bold", fontSize: 13, color: AppColors.primary }}>{i + 1}</ThemedText>
+                  <View
+                    key={store.vendorId}
+                    style={{
+                      flexDirection: "row-reverse",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      padding: Spacing.md,
+                      borderBottomWidth:
+                        i < storageStats.topStores.length - 1 ? 1 : 0,
+                      borderBottomColor: theme.border,
+                    }}
+                  >
+                    <View
+                      style={{
+                        flexDirection: "row-reverse",
+                        alignItems: "center",
+                        gap: Spacing.sm,
+                      }}
+                    >
+                      <View
+                        style={{
+                          width: 30,
+                          height: 30,
+                          borderRadius: 8,
+                          backgroundColor: AppColors.primary + "15",
+                          alignItems: "center",
+                          justifyContent: "center",
+                        }}
+                      >
+                        <ThemedText
+                          style={{
+                            fontFamily: "Cairo_700Bold",
+                            fontSize: 13,
+                            color: AppColors.primary,
+                          }}
+                        >
+                          {i + 1}
+                        </ThemedText>
                       </View>
-                      <ThemedText style={{ fontFamily: "Cairo_600SemiBold", fontSize: 14, color: theme.text }}>{store.storeName}</ThemedText>
+                      <ThemedText
+                        style={{
+                          fontFamily: "Cairo_600SemiBold",
+                          fontSize: 14,
+                          color: theme.text,
+                        }}
+                      >
+                        {store.storeName}
+                      </ThemedText>
                     </View>
-                    <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 4 }}>
-                      <Feather name="image" size={13} color={theme.textSecondary} />
-                      <ThemedText style={{ fontFamily: "Cairo_400Regular", fontSize: 13, color: theme.textSecondary }}>{store.imageCount}</ThemedText>
+                    <View
+                      style={{
+                        flexDirection: "row-reverse",
+                        alignItems: "center",
+                        gap: 4,
+                      }}
+                    >
+                      <Feather
+                        name="image"
+                        size={13}
+                        color={theme.textSecondary}
+                      />
+                      <ThemedText
+                        style={{
+                          fontFamily: "Cairo_400Regular",
+                          fontSize: 13,
+                          color: theme.textSecondary,
+                        }}
+                      >
+                        {store.imageCount}
+                      </ThemedText>
                     </View>
                   </View>
                 ))}
@@ -3797,11 +7766,35 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
             </View>
           )}
 
-          <ThemedText style={{ fontFamily: "Cairo_400Regular", fontSize: 11, color: theme.textSecondary, textAlign: "center" }}>
-            آخر تحديث: {new Date(storageStats.computedAt).toLocaleString("ar-IQ")}
+          <ThemedText
+            style={{
+              fontFamily: "Cairo_400Regular",
+              fontSize: 11,
+              color: theme.textSecondary,
+              textAlign: "center",
+            }}
+          >
+            آخر تحديث:{" "}
+            {new Date(storageStats.computedAt).toLocaleString("ar-IQ")}
           </ThemedText>
-          <Pressable onPress={loadStorageStats} style={{ backgroundColor: theme.backgroundSecondary, borderRadius: BorderRadius.lg, padding: Spacing.md, alignItems: "center" }}>
-            <ThemedText style={{ fontFamily: "Cairo_600SemiBold", fontSize: 14, color: AppColors.primary }}>تحديث الإحصائيات</ThemedText>
+          <Pressable
+            onPress={loadStorageStats}
+            style={{
+              backgroundColor: theme.backgroundSecondary,
+              borderRadius: BorderRadius.lg,
+              padding: Spacing.md,
+              alignItems: "center",
+            }}
+          >
+            <ThemedText
+              style={{
+                fontFamily: "Cairo_600SemiBold",
+                fontSize: 14,
+                color: AppColors.primary,
+              }}
+            >
+              تحديث الإحصائيات
+            </ThemedText>
           </Pressable>
         </View>
       ) : null}
@@ -3810,30 +7803,60 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
 
   const renderContent = () => {
     switch (activeTab) {
-      case "dashboard": return renderDashboardTab();
-      case "settlements": return renderSettlementsTab();
-      case "banners": return renderBannersTab();
-      case "categories": return renderCategoriesTab();
-      case "products": return renderProductsTab();
-      case "areas": return renderAreasTab();
-      case "orders": return renderOrdersTab();
-      case "drivers": return renderDriversTab();
-      case "promoCodes": return renderPromoCodesTab();
-      case "notifications": return renderNotificationsTab();
-      case "users": return renderUsersTab();
-      case "vendors": return renderVendorsTab();
-      case "settings": return renderSettingsTab();
-      case "storage": return renderStorageTab();
-      case "websiteCms": return <WebsiteCmsTab />;
+      case "dashboard":
+        return renderDashboardTab();
+      case "settlements":
+        return renderSettlementsTab();
+      case "banners":
+        return renderBannersTab();
+      case "categories":
+        return renderCategoriesTab();
+      case "products":
+        return renderProductsTab();
+      case "areas":
+        return renderAreasTab();
+      case "orders":
+        return renderOrdersTab();
+      case "drivers":
+        return renderDriversTab();
+      case "promoCodes":
+        return renderPromoCodesTab();
+      case "notifications":
+        return renderNotificationsTab();
+      case "users":
+        return renderUsersTab();
+      case "vendors":
+        return renderVendorsTab();
+      case "settings":
+        return renderSettingsTab();
+      case "storage":
+        return renderStorageTab();
+      case "websiteCms":
+        return <WebsiteCmsTab />;
     }
   };
 
   const ADMIN_RED = AppColors.error;
 
-  const TABS: { key: TabType; label: string; icon: keyof typeof Feather.glyphMap; badge?: number }[] = [
+  const TABS: {
+    key: TabType;
+    label: string;
+    icon: keyof typeof Feather.glyphMap;
+    badge?: number;
+  }[] = [
     { key: "dashboard", label: "الرئيسية", icon: "home" },
-    { key: "orders", label: "الطلبات", icon: "shopping-bag", badge: adminOrders.filter(o => o.status === "pending").length },
-    { key: "drivers", label: "السائقون", icon: "truck", badge: drivers.filter(d => d.status === "pending").length },
+    {
+      key: "orders",
+      label: "الطلبات",
+      icon: "shopping-bag",
+      badge: adminOrders.filter((o) => o.status === "pending").length,
+    },
+    {
+      key: "drivers",
+      label: "السائقون",
+      icon: "truck",
+      badge: drivers.filter((d) => d.status === "pending").length,
+    },
     { key: "users", label: "المستخدمون", icon: "users" },
     { key: "banners", label: "البانرات", icon: "image" },
     { key: "categories", label: "الأقسام", icon: "grid" },
@@ -3841,8 +7864,18 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
     { key: "areas", label: "المناطق", icon: "map-pin" },
     { key: "promoCodes", label: "الخصومات", icon: "tag" },
     { key: "notifications", label: "الإشعارات", icon: "bell" },
-    { key: "vendors", label: "المتاجر", icon: "briefcase", badge: vendorPartners.filter((v) => v.status === "pending").length },
-    { key: "settlements", label: "التسويات", icon: "dollar-sign", badge: settlementRequests.length },
+    {
+      key: "vendors",
+      label: "المتاجر",
+      icon: "briefcase",
+      badge: vendorPartners.filter((v) => v.status === "pending").length,
+    },
+    {
+      key: "settlements",
+      label: "التسويات",
+      icon: "dollar-sign",
+      badge: settlementRequests.length,
+    },
     { key: "settings", label: "الإعدادات", icon: "settings" },
     { key: "storage", label: "التخزين", icon: "hard-drive" },
     { key: "websiteCms", label: "الموقع", icon: "globe" },
@@ -3851,26 +7884,65 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
   return (
     <View style={{ flex: 1, backgroundColor: theme.backgroundRoot }}>
       {/* Sticky tab bar */}
-      <View style={[styles.adminTabBar, { paddingTop: headerHeight, backgroundColor: theme.backgroundDefault }]}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.adminTabsRow}>
+      <View
+        style={[
+          styles.adminTabBar,
+          {
+            paddingTop: headerHeight,
+            backgroundColor: theme.backgroundDefault,
+          },
+        ]}
+      >
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.adminTabsRow}
+        >
           {TABS.map((tab) => {
             const isActive = activeTab === tab.key;
             return (
               <Pressable
                 key={tab.key}
-                style={[styles.adminTab, isActive && { borderBottomColor: ADMIN_RED, borderBottomWidth: 2 }]}
-                onPress={() => { setActiveTab(tab.key); resetForm(); }}
+                style={[
+                  styles.adminTab,
+                  isActive && {
+                    borderBottomColor: ADMIN_RED,
+                    borderBottomWidth: 2,
+                  },
+                ]}
+                onPress={() => {
+                  setActiveTab(tab.key);
+                  resetForm();
+                }}
                 testID={`tab-${tab.key}`}
               >
                 <View style={{ position: "relative" }}>
-                  <Feather name={tab.icon} size={20} color={isActive ? ADMIN_RED : theme.textSecondary} />
+                  <Feather
+                    name={tab.icon}
+                    size={20}
+                    color={isActive ? ADMIN_RED : theme.textSecondary}
+                  />
                   {tab.badge && tab.badge > 0 ? (
                     <View style={styles.adminTabBadge}>
-                      <ThemedText style={{ fontSize: 9, color: AppColors.white, fontFamily: "Cairo_700Bold", lineHeight: 14 }}>{tab.badge > 9 ? "9+" : tab.badge}</ThemedText>
+                      <ThemedText
+                        style={{
+                          fontSize: 9,
+                          color: AppColors.white,
+                          fontFamily: "Cairo_700Bold",
+                          lineHeight: 14,
+                        }}
+                      >
+                        {tab.badge > 9 ? "9+" : tab.badge}
+                      </ThemedText>
                     </View>
                   ) : null}
                 </View>
-                <ThemedText style={[styles.adminTabLabel, { color: isActive ? ADMIN_RED : theme.textSecondary }]}>
+                <ThemedText
+                  style={[
+                    styles.adminTabLabel,
+                    { color: isActive ? ADMIN_RED : theme.textSecondary },
+                  ]}
+                >
                   {tab.label}
                 </ThemedText>
               </Pressable>
@@ -3882,7 +7954,11 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
 
       <ScrollView
         style={{ flex: 1 }}
-        contentContainerStyle={{ paddingTop: Spacing.lg, paddingBottom: insets.bottom + Spacing.xl, paddingHorizontal: Spacing.lg }}
+        contentContainerStyle={{
+          paddingTop: Spacing.lg,
+          paddingBottom: insets.bottom + Spacing.xl,
+          paddingHorizontal: Spacing.lg,
+        }}
       >
         {renderContent()}
       </ScrollView>
@@ -3937,9 +8013,14 @@ const styles = StyleSheet.create({
   tabsScroll: { marginBottom: Spacing.lg, flexGrow: 0 },
   tabs: { flexDirection: "row", gap: Spacing.sm, paddingVertical: Spacing.xs },
   tab: {
-    minHeight: 48, paddingVertical: Spacing.md, paddingHorizontal: Spacing.xl,
-    borderRadius: BorderRadius.lg, backgroundColor: AppColors.gray100,
-    alignItems: "center", justifyContent: "center", overflow: "visible",
+    minHeight: 48,
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.xl,
+    borderRadius: BorderRadius.lg,
+    backgroundColor: AppColors.gray100,
+    alignItems: "center",
+    justifyContent: "center",
+    overflow: "visible",
   },
   tabActive: { backgroundColor: AppColors.primary },
   tabText: { color: AppColors.gray500, fontSize: 12 },
@@ -4461,7 +8542,10 @@ const styles = StyleSheet.create({
   },
   modalOverlay: {
     position: "absolute",
-    top: 0, left: 0, right: 0, bottom: 0,
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
     backgroundColor: AppColors.overlay,
     justifyContent: "center",
     alignItems: "center",

@@ -11,7 +11,9 @@ export function SectionTitle({ title }: Props) {
   return (
     <View style={styles.row}>
       <View style={styles.accent} />
-      <ThemedText type="h3" style={styles.title}>{title}</ThemedText>
+      <ThemedText type="h3" style={styles.title}>
+        {title}
+      </ThemedText>
     </View>
   );
 }

@@ -1,4 +1,13 @@
-import React, { createContext, useContext, useState, useCallback, useEffect, useMemo, useRef, ReactNode } from "react";
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  ReactNode,
+} from "react";
 import { Alert } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Product, ProductVariant, ProductAddon } from "@/constants/categories";
@@ -13,8 +22,9 @@ export interface CartItem {
 }
 
 /** Unique key per cart entry — same product with different variants = different entries. */
-export const getCartKey = (item: Pick<CartItem, "product" | "selectedVariant">): string =>
-  item.product.id + "__" + (item.selectedVariant?.id || "base");
+export const getCartKey = (
+  item: Pick<CartItem, "product" | "selectedVariant">,
+): string => item.product.id + "__" + (item.selectedVariant?.id || "base");
 
 /** Effective price of a single unit (base + variant adjustment + addons). */
 export const getItemUnitPrice = (item: CartItem): number =>
@@ -24,7 +34,11 @@ export const getItemUnitPrice = (item: CartItem): number =>
 
 interface CartContextType {
   items: CartItem[];
-  addToCart: (product: Product, selectedVariant?: ProductVariant, selectedAddons?: ProductAddon[]) => void;
+  addToCart: (
+    product: Product,
+    selectedVariant?: ProductVariant,
+    selectedAddons?: ProductAddon[],
+  ) => void;
   removeFromCart: (productIdOrCartKey: string) => void;
   updateQuantity: (productIdOrCartKey: string, quantity: number) => void;
   clearCart: () => void;
@@ -62,44 +76,63 @@ export function CartProvider({ children }: { children: ReactNode }) {
   // stored cart with the empty initial state.
   useEffect(() => {
     if (!hydrated.current) return;
-    AsyncStorage.setItem(CART_STORAGE_KEY, JSON.stringify(items)).catch(() => {});
+    AsyncStorage.setItem(CART_STORAGE_KEY, JSON.stringify(items)).catch(
+      () => {},
+    );
   }, [items]);
 
-  const addToCart = useCallback((
-    product: Product,
-    selectedVariant?: ProductVariant,
-    selectedAddons?: ProductAddon[]
-  ) => {
-    // A single order maps to a single vendor. If the cart already holds items from a
-    // different vendor, don't silently mix them — prompt to start a fresh cart.
-    const cartVendorId = items.find((i) => i.product.vendorId)?.product.vendorId;
-    const newVendorId = product.vendorId;
-    if (items.length > 0 && cartVendorId && newVendorId && cartVendorId !== newVendorId) {
-      Alert.alert(
-        "منتجات من متجر آخر",
-        "سلّتك تحتوي منتجات من متجر مختلف. لا يمكن الطلب من متجرين في طلب واحد. هل تريد إفراغ السلّة والبدء بهذا المتجر؟",
-        [
-          { text: "إلغاء", style: "cancel" },
-          {
-            text: "إفراغ والبدء من جديد",
-            style: "destructive",
-            onPress: () => setItems([{ product, quantity: 1, selectedVariant, selectedAddons }]),
-          },
-        ],
-      );
-      return;
-    }
-    const key = product.id + "__" + (selectedVariant?.id || "base");
-    setItems((prev) => {
-      const existing = prev.find((item) => getCartKey(item) === key);
-      if (existing) {
-        return prev.map((item) =>
-          getCartKey(item) === key ? { ...item, quantity: item.quantity + 1 } : item
+  const addToCart = useCallback(
+    (
+      product: Product,
+      selectedVariant?: ProductVariant,
+      selectedAddons?: ProductAddon[],
+    ) => {
+      // A single order maps to a single vendor. If the cart already holds items from a
+      // different vendor, don't silently mix them — prompt to start a fresh cart.
+      const cartVendorId = items.find((i) => i.product.vendorId)?.product
+        .vendorId;
+      const newVendorId = product.vendorId;
+      if (
+        items.length > 0 &&
+        cartVendorId &&
+        newVendorId &&
+        cartVendorId !== newVendorId
+      ) {
+        Alert.alert(
+          "منتجات من متجر آخر",
+          "سلّتك تحتوي منتجات من متجر مختلف. لا يمكن الطلب من متجرين في طلب واحد. هل تريد إفراغ السلّة والبدء بهذا المتجر؟",
+          [
+            { text: "إلغاء", style: "cancel" },
+            {
+              text: "إفراغ والبدء من جديد",
+              style: "destructive",
+              onPress: () =>
+                setItems([
+                  { product, quantity: 1, selectedVariant, selectedAddons },
+                ]),
+            },
+          ],
         );
+        return;
       }
-      return [...prev, { product, quantity: 1, selectedVariant, selectedAddons }];
-    });
-  }, [items]);
+      const key = product.id + "__" + (selectedVariant?.id || "base");
+      setItems((prev) => {
+        const existing = prev.find((item) => getCartKey(item) === key);
+        if (existing) {
+          return prev.map((item) =>
+            getCartKey(item) === key
+              ? { ...item, quantity: item.quantity + 1 }
+              : item,
+          );
+        }
+        return [
+          ...prev,
+          { product, quantity: 1, selectedVariant, selectedAddons },
+        ];
+      });
+    },
+    [items],
+  );
 
   /**
    * Remove an item. Accepts either:
@@ -107,34 +140,43 @@ export function CartProvider({ children }: { children: ReactNode }) {
    * - a plain productId: removes the first matching entry (backward compatible)
    */
   const removeFromCart = useCallback((productIdOrCartKey: string) => {
-    setItems((prev) => prev.filter((item) => {
-      if (productIdOrCartKey.includes("__")) {
-        return getCartKey(item) !== productIdOrCartKey;
-      }
-      return item.product.id !== productIdOrCartKey;
-    }));
+    setItems((prev) =>
+      prev.filter((item) => {
+        if (productIdOrCartKey.includes("__")) {
+          return getCartKey(item) !== productIdOrCartKey;
+        }
+        return item.product.id !== productIdOrCartKey;
+      }),
+    );
   }, []);
 
   /**
    * Update quantity. Same dual-key convention as removeFromCart.
    */
-  const updateQuantity = useCallback((productIdOrCartKey: string, quantity: number) => {
-    const isKey = productIdOrCartKey.includes("__");
-    if (quantity <= 0) {
-      setItems((prev) => prev.filter((item) =>
-        isKey ? getCartKey(item) !== productIdOrCartKey : item.product.id !== productIdOrCartKey
-      ));
-      return;
-    }
-    setItems((prev) =>
-      prev.map((item) => {
-        const matches = isKey
-          ? getCartKey(item) === productIdOrCartKey
-          : item.product.id === productIdOrCartKey;
-        return matches ? { ...item, quantity } : item;
-      })
-    );
-  }, []);
+  const updateQuantity = useCallback(
+    (productIdOrCartKey: string, quantity: number) => {
+      const isKey = productIdOrCartKey.includes("__");
+      if (quantity <= 0) {
+        setItems((prev) =>
+          prev.filter((item) =>
+            isKey
+              ? getCartKey(item) !== productIdOrCartKey
+              : item.product.id !== productIdOrCartKey,
+          ),
+        );
+        return;
+      }
+      setItems((prev) =>
+        prev.map((item) => {
+          const matches = isKey
+            ? getCartKey(item) === productIdOrCartKey
+            : item.product.id === productIdOrCartKey;
+          return matches ? { ...item, quantity } : item;
+        }),
+      );
+    },
+    [],
+  );
 
   const clearCart = useCallback(() => {
     setItems([]);
@@ -150,7 +192,10 @@ export function CartProvider({ children }: { children: ReactNode }) {
   }, [items]);
 
   const getTotal = useCallback(() => {
-    return items.reduce((total, item) => total + getItemUnitPrice(item) * item.quantity, 0);
+    return items.reduce(
+      (total, item) => total + getItemUnitPrice(item) * item.quantity,
+      0,
+    );
   }, [items]);
 
   const value = useMemo(
@@ -163,16 +208,22 @@ export function CartProvider({ children }: { children: ReactNode }) {
       replaceCart,
       getItemCount,
       getTotal,
-      cartVendorId: items.find((i) => i.product.vendorId)?.product.vendorId ?? null,
+      cartVendorId:
+        items.find((i) => i.product.vendorId)?.product.vendorId ?? null,
     }),
-    [items, addToCart, removeFromCart, updateQuantity, clearCart, replaceCart, getItemCount, getTotal],
+    [
+      items,
+      addToCart,
+      removeFromCart,
+      updateQuantity,
+      clearCart,
+      replaceCart,
+      getItemCount,
+      getTotal,
+    ],
   );
 
-  return (
-    <CartContext.Provider value={value}>
-      {children}
-    </CartContext.Provider>
-  );
+  return <CartContext.Provider value={value}>{children}</CartContext.Provider>;
 }
 
 export function useCart() {

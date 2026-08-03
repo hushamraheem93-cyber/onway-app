@@ -1,9 +1,21 @@
-import React, { createContext, useContext, useState, useEffect, useRef, useCallback, ReactNode } from "react";
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  useRef,
+  useCallback,
+  ReactNode,
+} from "react";
 import { Platform, AppState, AppStateStatus } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { getToken, setToken, removeToken } from "@/lib/secureTokenStorage";
 import { getApiUrl } from "@/lib/query-client";
-import { issueDriverToken, clearDriverToken, installDriverAuthInterceptor } from "@/lib/driverAuth";
+import {
+  issueDriverToken,
+  clearDriverToken,
+  installDriverAuthInterceptor,
+} from "@/lib/driverAuth";
 import { installAdminAuthInterceptor } from "@/lib/adminAuth";
 import { compressAndConvertToBase64 } from "@/lib/imageUtils";
 import * as Notifications from "expo-notifications";
@@ -80,10 +92,16 @@ interface AuthContextType {
   login: (phone: string) => Promise<void>;
   logout: () => Promise<void>;
   deleteAccount: () => Promise<void>;
-  saveProfile: (profile: Omit<UserProfile, "phoneNumber" | "profileComplete">, imageUri?: string) => Promise<void>;
+  saveProfile: (
+    profile: Omit<UserProfile, "phoneNumber" | "profileComplete">,
+    imageUri?: string,
+  ) => Promise<void>;
   refreshProfile: () => Promise<void>;
   completeDriverRegistration: () => Promise<void>;
-  completeVendorRegistration: (vendor: VendorProfile, token: string) => Promise<void>;
+  completeVendorRegistration: (
+    vendor: VendorProfile,
+    token: string,
+  ) => Promise<void>;
   refreshVendorProfile: () => Promise<void>;
   goBackToUserType: () => void;
   goBackToPhoneLogin: () => void;
@@ -127,7 +145,9 @@ async function registerForPushNotificationsAsync(): Promise<string | null> {
   }
 
   try {
-    const projectId = Constants.expoConfig?.extra?.eas?.projectId ?? Constants.easConfig?.projectId;
+    const projectId =
+      Constants.expoConfig?.extra?.eas?.projectId ??
+      Constants.easConfig?.projectId;
     let token: string;
     if (projectId) {
       token = (await Notifications.getExpoPushTokenAsync({ projectId })).data;
@@ -151,11 +171,16 @@ async function registerForPushNotificationsAsync(): Promise<string | null> {
   }
 }
 
-async function savePushTokenToServer(phone: string, token: string): Promise<void> {
+async function savePushTokenToServer(
+  phone: string,
+  token: string,
+): Promise<void> {
   try {
     // push-token is auth-gated (customer JWT, owner-only) — attach the stored token.
     let cToken: string | null = null;
-    try { cToken = await getToken(CUSTOMER_TOKEN_KEY); } catch {}
+    try {
+      cToken = await getToken(CUSTOMER_TOKEN_KEY);
+    } catch {}
     await fetch(new URL("/api/users/push-token", getApiUrl()).toString(), {
       method: "POST",
       headers: {
@@ -172,7 +197,9 @@ async function getExpoPushTokenIfGranted(): Promise<string | null> {
   try {
     const { status } = await Notifications.getPermissionsAsync();
     if (status !== "granted") return null;
-    const projectId = Constants.expoConfig?.extra?.eas?.projectId ?? Constants.easConfig?.projectId;
+    const projectId =
+      Constants.expoConfig?.extra?.eas?.projectId ??
+      Constants.easConfig?.projectId;
     if (projectId) {
       return (await Notifications.getExpoPushTokenAsync({ projectId })).data;
     }
@@ -182,11 +209,17 @@ async function getExpoPushTokenIfGranted(): Promise<string | null> {
   }
 }
 
-async function saveVendorPushTokenToServer(vendorJwt: string, token: string): Promise<void> {
+async function saveVendorPushTokenToServer(
+  vendorJwt: string,
+  token: string,
+): Promise<void> {
   try {
     await fetch(new URL("/api/vendor/push-token", getApiUrl()).toString(), {
       method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${vendorJwt}` },
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${vendorJwt}`,
+      },
       body: JSON.stringify({ pushToken: token }),
     });
   } catch {}
@@ -200,7 +233,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isProfileComplete, setIsProfileComplete] = useState(false);
   const [isOtpSent, setIsOtpSent] = useState(false);
   const [isOtpVerified, setIsOtpVerified] = useState(false);
-  const [selectedUserType, setSelectedUserType] = useState<UserType | null>(null);
+  const [selectedUserType, setSelectedUserType] = useState<UserType | null>(
+    null,
+  );
   const [isDriverRegistered, setIsDriverRegistered] = useState(false);
   const [hasSeenSplash, setHasSeenSplash] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -208,7 +243,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // navigator from briefly showing ProfileCompletion before the fetch completes).
   const [isProfileLoading, setIsProfileLoading] = useState(false);
   // Vendor
-  const [vendorProfile, setVendorProfile] = useState<VendorProfile | null>(null);
+  const [vendorProfile, setVendorProfile] = useState<VendorProfile | null>(
+    null,
+  );
   const [vendorToken, setVendorToken] = useState<string | null>(null);
   const [isVendorRegistered, setIsVendorRegistered] = useState(false);
   // Customer JWT (issued by /api/auth/verify-otp)
@@ -253,7 +290,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     };
 
-    const subscription = AppState.addEventListener("change", handleAppStateChange);
+    const subscription = AppState.addEventListener(
+      "change",
+      handleAppStateChange,
+    );
     return () => subscription.remove();
   }, []);
 
@@ -291,7 +331,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               const parsed = JSON.parse(vProfileRaw) as VendorProfile;
               setVendorProfile(parsed);
               setIsVendorRegistered(true);
-            } catch { /* corrupt cache — fall through to server fetch */ }
+            } catch {
+              /* corrupt cache — fall through to server fetch */
+            }
           }
           // ALWAYS revalidate against the server when a token exists. The cache above
           // is only for instant paint; the server holds the AUTHORITATIVE status.
@@ -304,19 +346,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             try {
               const res = await fetch(
                 new URL("/api/vendor/profile", getApiUrl()).toString(),
-                { headers: { Authorization: `Bearer ${vToken}` } }
+                { headers: { Authorization: `Bearer ${vToken}` } },
               );
               if (res.ok) {
-                const fetched = await res.json() as VendorProfile;
+                const fetched = (await res.json()) as VendorProfile;
                 setVendorProfile(fetched);
                 setIsVendorRegistered(true);
-                await AsyncStorage.setItem(VENDOR_PROFILE_KEY, JSON.stringify(fetched));
+                await AsyncStorage.setItem(
+                  VENDOR_PROFILE_KEY,
+                  JSON.stringify(fetched),
+                );
               }
               // Non-OK (expired token / 404) or a network error: keep the cached profile
               // if we had one. If there was NO cache either, isVendorRegistered stays
               // false and the navigator shows VendorRegistration — the correct recovery
               // path (re-enter phone + OTP to get a new token).
-            } catch { /* network error — keep cached profile if any */ }
+            } catch {
+              /* network error — keep cached profile if any */
+            }
           }
         } else {
           const profileStored = await AsyncStorage.getItem(PROFILE_STORAGE_KEY);
@@ -337,8 +384,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           // here (idempotent; just stores a fresh token) keeps the poll authorized so
           // the current approval status is fetched. Best-effort: on failure the 401
           // self-heal in the fetch interceptor is the fallback.
-          if ((data.userType === "driver" || data.isDriverRegistered) && data.phoneNumber) {
-            try { await issueDriverToken(String(data.phoneNumber), cToken); } catch { /* self-heal covers it */ }
+          if (
+            (data.userType === "driver" || data.isDriverRegistered) &&
+            data.phoneNumber
+          ) {
+            try {
+              await issueDriverToken(String(data.phoneNumber), cToken);
+            } catch {
+              /* self-heal covers it */
+            }
           }
         }
       }
@@ -353,15 +407,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // GET /api/users/:phone is auth-gated (customer JWT, owner-only). Attach the
       // stored customer token so the boot-time profile load is authorized.
       let cToken = customerToken;
-      if (!cToken) { try { cToken = await getToken(CUSTOMER_TOKEN_KEY); } catch {} }
-      const response = await fetch(new URL(`/api/users/${encodeURIComponent(phone)}`, getApiUrl()).toString(), {
-        headers: cToken ? { Authorization: `Bearer ${cToken}` } : {},
-      });
+      if (!cToken) {
+        try {
+          cToken = await getToken(CUSTOMER_TOKEN_KEY);
+        } catch {}
+      }
+      const response = await fetch(
+        new URL(
+          `/api/users/${encodeURIComponent(phone)}`,
+          getApiUrl(),
+        ).toString(),
+        {
+          headers: cToken ? { Authorization: `Bearer ${cToken}` } : {},
+        },
+      );
       if (response.ok) {
         const profile = await response.json();
         setUserProfile(profile);
         setIsProfileComplete(profile.profileComplete || false);
-        await AsyncStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify(profile));
+        await AsyncStorage.setItem(
+          PROFILE_STORAGE_KEY,
+          JSON.stringify(profile),
+        );
       } else {
         setIsProfileComplete(false);
       }
@@ -372,11 +439,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const sendOtp = async (phone: string) => {
     try {
-      const response = await fetch(new URL("/api/auth/send-otp", getApiUrl()).toString(), {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phoneNumber: phone }),
-      });
+      const response = await fetch(
+        new URL("/api/auth/send-otp", getApiUrl()).toString(),
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ phoneNumber: phone }),
+        },
+      );
 
       if (!response.ok) {
         const err = await response.json();
@@ -394,11 +464,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!pendingPhone) throw new Error("No pending phone");
 
     try {
-      const response = await fetch(new URL("/api/auth/verify-otp", getApiUrl()).toString(), {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phoneNumber: pendingPhone, code }),
-      });
+      const response = await fetch(
+        new URL("/api/auth/verify-otp", getApiUrl()).toString(),
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ phoneNumber: pendingPhone, code }),
+        },
+      );
 
       if (!response.ok) {
         const err = await response.json();
@@ -409,7 +482,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const newCToken: string | null = data.customerToken || null;
       if (newCToken) {
         setCustomerToken(newCToken);
-        try { await setToken(CUSTOMER_TOKEN_KEY, newCToken); } catch {}
+        try {
+          await setToken(CUSTOMER_TOKEN_KEY, newCToken);
+        } catch {}
       }
       // Prefer the server-normalised phone (07XXXXXXXXX) so state, AsyncStorage,
       // and the JWT all use the same canonical format → ownership checks pass.
@@ -422,7 +497,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // screen and sign in directly. We pass phone and token explicitly because
       // the React state updates above are batched and may not be visible yet.
       if (data.existingRole && canonicalPhone) {
-        await selectRoleForPhone(data.existingRole as UserType, canonicalPhone, newCToken);
+        await selectRoleForPhone(
+          data.existingRole as UserType,
+          canonicalPhone,
+          newCToken,
+        );
       }
     } catch (error: any) {
       throw error;
@@ -435,24 +514,41 @@ export function AuthProvider({ children }: { children: ReactNode }) {
    * Mirrors the three branches of the public setUserType() but accepts phone+token
    * directly rather than reading them from state.
    */
-  const selectRoleForPhone = async (type: UserType, phone: string, cToken: string | null) => {
+  const selectRoleForPhone = async (
+    type: UserType,
+    phone: string,
+    cToken: string | null,
+  ) => {
     setSelectedUserType(type);
 
     if (type === "customer") {
-      await AsyncStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify({ phoneNumber: phone, userType: "customer", isDriverRegistered: false }));
+      await AsyncStorage.setItem(
+        AUTH_STORAGE_KEY,
+        JSON.stringify({
+          phoneNumber: phone,
+          userType: "customer",
+          isDriverRegistered: false,
+        }),
+      );
       setIsProfileLoading(true);
       setIsLoggedIn(true);
       try {
         // Inline profile fetch so we can pass cToken directly.
         const res = await fetch(
-          new URL(`/api/users/${encodeURIComponent(phone)}`, getApiUrl()).toString(),
-          { headers: cToken ? { Authorization: `Bearer ${cToken}` } : {} }
+          new URL(
+            `/api/users/${encodeURIComponent(phone)}`,
+            getApiUrl(),
+          ).toString(),
+          { headers: cToken ? { Authorization: `Bearer ${cToken}` } : {} },
         );
         if (res.ok) {
           const profile = await res.json();
           setUserProfile(profile);
           setIsProfileComplete(profile.profileComplete || false);
-          await AsyncStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify(profile));
+          await AsyncStorage.setItem(
+            PROFILE_STORAGE_KEY,
+            JSON.stringify(profile),
+          );
         } else {
           setIsProfileComplete(false);
         }
@@ -461,37 +557,60 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } finally {
         setIsProfileLoading(false);
       }
-
     } else if (type === "driver") {
-      try { await issueDriverToken(phone, cToken); } catch { /* best-effort */ }
+      try {
+        await issueDriverToken(phone, cToken);
+      } catch {
+        /* best-effort */
+      }
       setIsDriverRegistered(true);
-      await AsyncStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify({ phoneNumber: phone, userType: "driver", isDriverRegistered: true }));
+      await AsyncStorage.setItem(
+        AUTH_STORAGE_KEY,
+        JSON.stringify({
+          phoneNumber: phone,
+          userType: "driver",
+          isDriverRegistered: true,
+        }),
+      );
       setIsLoggedIn(true);
       try {
         const res = await fetch(
-          new URL(`/api/users/${encodeURIComponent(phone)}`, getApiUrl()).toString(),
-          { headers: cToken ? { Authorization: `Bearer ${cToken}` } : {} }
+          new URL(
+            `/api/users/${encodeURIComponent(phone)}`,
+            getApiUrl(),
+          ).toString(),
+          { headers: cToken ? { Authorization: `Bearer ${cToken}` } : {} },
         );
         if (res.ok) {
           const profile = await res.json();
           setUserProfile(profile);
           setIsProfileComplete(profile.profileComplete || false);
-          await AsyncStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify(profile));
+          await AsyncStorage.setItem(
+            PROFILE_STORAGE_KEY,
+            JSON.stringify(profile),
+          );
         }
-      } catch { /* best-effort */ }
-
+      } catch {
+        /* best-effort */
+      }
     } else if (type === "vendor") {
-      await AsyncStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify({ phoneNumber: phone, userType: "vendor" }));
+      await AsyncStorage.setItem(
+        AUTH_STORAGE_KEY,
+        JSON.stringify({ phoneNumber: phone, userType: "vendor" }),
+      );
       setIsLoggedIn(true);
       try {
-        const res = await fetch(new URL("/api/vendor/mobile-auth", getApiUrl()).toString(), {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            ...(cToken ? { Authorization: `Bearer ${cToken}` } : {}),
+        const res = await fetch(
+          new URL("/api/vendor/mobile-auth", getApiUrl()).toString(),
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              ...(cToken ? { Authorization: `Bearer ${cToken}` } : {}),
+            },
+            body: JSON.stringify({ phoneNumber: phone }),
           },
-          body: JSON.stringify({ phoneNumber: phone }),
-        });
+        );
         if (res.ok) {
           const vData = await res.json();
           if (vData.vendor && vData.token) {
@@ -499,10 +618,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             setVendorToken(vData.token);
             setIsVendorRegistered(true);
             await setToken(VENDOR_TOKEN_KEY, vData.token);
-            await AsyncStorage.setItem(VENDOR_PROFILE_KEY, JSON.stringify(vData.vendor));
+            await AsyncStorage.setItem(
+              VENDOR_PROFILE_KEY,
+              JSON.stringify(vData.vendor),
+            );
           }
         }
-      } catch { /* best-effort */ }
+      } catch {
+        /* best-effort */
+      }
     }
   };
 
@@ -511,9 +635,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Owner-gated on the server (customer JWT + phone must match the token), so
       // the OTP-issued token has to be attached here.
       let cTok = customerToken;
-      if (!cTok) { try { cTok = await getToken(CUSTOMER_TOKEN_KEY); } catch {} }
+      if (!cTok) {
+        try {
+          cTok = await getToken(CUSTOMER_TOKEN_KEY);
+        } catch {}
+      }
       const response = await fetch(
-        new URL(`/api/drivers/check/${encodeURIComponent(phone)}`, getApiUrl()).toString(),
+        new URL(
+          `/api/drivers/check/${encodeURIComponent(phone)}`,
+          getApiUrl(),
+        ).toString(),
         { headers: cTok ? { Authorization: `Bearer ${cTok}` } : {} },
       );
       if (response.ok) {
@@ -526,20 +657,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const checkExistingVendor = async (phone: string): Promise<{ vendor: VendorProfile | null; token: string | null }> => {
+  const checkExistingVendor = async (
+    phone: string,
+  ): Promise<{ vendor: VendorProfile | null; token: string | null }> => {
     try {
       // Prove phone ownership to the server with the OTP-issued customer JWT. Fall
       // back to storage if state hasn't propagated yet (mobile-auth now requires it).
       let cToken = customerToken;
-      if (!cToken) { try { cToken = await getToken(CUSTOMER_TOKEN_KEY); } catch {} }
-      const response = await fetch(new URL("/api/vendor/mobile-auth", getApiUrl()).toString(), {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(cToken ? { Authorization: `Bearer ${cToken}` } : {}),
+      if (!cToken) {
+        try {
+          cToken = await getToken(CUSTOMER_TOKEN_KEY);
+        } catch {}
+      }
+      const response = await fetch(
+        new URL("/api/vendor/mobile-auth", getApiUrl()).toString(),
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...(cToken ? { Authorization: `Bearer ${cToken}` } : {}),
+          },
+          body: JSON.stringify({ phoneNumber: phone }),
         },
-        body: JSON.stringify({ phoneNumber: phone }),
-      });
+      );
       if (response.ok) {
         const data = await response.json();
         return { vendor: data.vendor || null, token: data.token || null };
@@ -560,16 +700,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (existingDriver) {
         // Exchange OTP proof for a signed driver token before entering the driver app.
         let cTok = customerToken;
-        if (!cTok) { try { cTok = await getToken(CUSTOMER_TOKEN_KEY); } catch {} }
+        if (!cTok) {
+          try {
+            cTok = await getToken(CUSTOMER_TOKEN_KEY);
+          } catch {}
+        }
         await issueDriverToken(phoneNumber, cTok);
         setIsDriverRegistered(true);
-        await AsyncStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify({ phoneNumber, userType: "driver", isDriverRegistered: true }));
+        await AsyncStorage.setItem(
+          AUTH_STORAGE_KEY,
+          JSON.stringify({
+            phoneNumber,
+            userType: "driver",
+            isDriverRegistered: true,
+          }),
+        );
         setIsLoggedIn(true);
         await checkProfileFromServer(phoneNumber);
       }
     } else if (type === "vendor" && phoneNumber) {
       const { vendor, token } = await checkExistingVendor(phoneNumber);
-      await AsyncStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify({ phoneNumber, userType: "vendor" }));
+      await AsyncStorage.setItem(
+        AUTH_STORAGE_KEY,
+        JSON.stringify({ phoneNumber, userType: "vendor" }),
+      );
       setIsLoggedIn(true);
       if (vendor && token) {
         setVendorProfile(vendor);
@@ -584,7 +738,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const loginAfterTypeSelect = async (type: UserType) => {
     if (!phoneNumber) return;
     try {
-      await AsyncStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify({ phoneNumber, userType: type, isDriverRegistered: false }));
+      await AsyncStorage.setItem(
+        AUTH_STORAGE_KEY,
+        JSON.stringify({
+          phoneNumber,
+          userType: type,
+          isDriverRegistered: false,
+        }),
+      );
       // Mark profile as loading BEFORE setting isLoggedIn so the navigator
       // shows a spinner instead of ProfileCompletion during the fetch.
       setIsProfileLoading(true);
@@ -597,7 +758,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const completeVendorRegistration = async (vendor: VendorProfile, token: string) => {
+  const completeVendorRegistration = async (
+    vendor: VendorProfile,
+    token: string,
+  ) => {
     setVendorProfile(vendor);
     setVendorToken(token);
     setIsVendorRegistered(true);
@@ -612,9 +776,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const refreshVendorProfile = useCallback(async () => {
     if (!vendorToken) return;
     try {
-      const response = await fetch(new URL("/api/vendor/profile", getApiUrl()).toString(), {
-        headers: { Authorization: `Bearer ${vendorToken}` },
-      });
+      const response = await fetch(
+        new URL("/api/vendor/profile", getApiUrl()).toString(),
+        {
+          headers: { Authorization: `Bearer ${vendorToken}` },
+        },
+      );
       if (response.ok) {
         const updated = await response.json();
         setVendorProfile(updated);
@@ -652,10 +819,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // A freshly-registered (pending) driver still needs a token to read its own
       // status/profile through the now-guarded /api/driver/* routes.
       let cTok = customerToken;
-      if (!cTok) { try { cTok = await getToken(CUSTOMER_TOKEN_KEY); } catch {} }
+      if (!cTok) {
+        try {
+          cTok = await getToken(CUSTOMER_TOKEN_KEY);
+        } catch {}
+      }
       await issueDriverToken(phoneNumber, cTok);
       setIsDriverRegistered(true);
-      await AsyncStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify({ phoneNumber, userType: "driver", isDriverRegistered: true }));
+      await AsyncStorage.setItem(
+        AUTH_STORAGE_KEY,
+        JSON.stringify({
+          phoneNumber,
+          userType: "driver",
+          isDriverRegistered: true,
+        }),
+      );
       setIsLoggedIn(true);
       await checkProfileFromServer(phoneNumber);
     } catch (error) {
@@ -665,7 +843,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = async (phone: string) => {
     try {
-      await AsyncStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify({ phoneNumber: phone }));
+      await AsyncStorage.setItem(
+        AUTH_STORAGE_KEY,
+        JSON.stringify({ phoneNumber: phone }),
+      );
       setPhoneNumber(phone);
       setIsLoggedIn(true);
       await checkProfileFromServer(phone);
@@ -677,10 +858,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const deleteAccount = async () => {
     if (!phoneNumber) throw new Error("No phone number");
     let cToken = customerToken;
-    if (!cToken) { try { cToken = await getToken(CUSTOMER_TOKEN_KEY); } catch {} }
+    if (!cToken) {
+      try {
+        cToken = await getToken(CUSTOMER_TOKEN_KEY);
+      } catch {}
+    }
     const response = await fetch(
-      new URL(`/api/users/${encodeURIComponent(phoneNumber)}`, getApiUrl()).toString(),
-      { method: "DELETE", headers: cToken ? { Authorization: `Bearer ${cToken}` } : {} }
+      new URL(
+        `/api/users/${encodeURIComponent(phoneNumber)}`,
+        getApiUrl(),
+      ).toString(),
+      {
+        method: "DELETE",
+        headers: cToken ? { Authorization: `Bearer ${cToken}` } : {},
+      },
     );
     if (!response.ok) {
       const err = await response.json().catch(() => ({}));
@@ -728,7 +919,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const saveProfile = async (profile: Omit<UserProfile, "phoneNumber" | "profileComplete">, imageUri?: string) => {
+  const saveProfile = async (
+    profile: Omit<UserProfile, "phoneNumber" | "profileComplete">,
+    imageUri?: string,
+  ) => {
     if (!phoneNumber) throw new Error("No phone number");
 
     try {
@@ -744,20 +938,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         region: profile.region,
         address: profile.address,
         ...(profile.latitude !== undefined && { latitude: profile.latitude }),
-        ...(profile.longitude !== undefined && { longitude: profile.longitude }),
+        ...(profile.longitude !== undefined && {
+          longitude: profile.longitude,
+        }),
         ...(profileImageBase64 && { profileImage: profileImageBase64 }),
       };
 
       let cToken = customerToken;
-      if (!cToken) { try { cToken = await getToken(CUSTOMER_TOKEN_KEY); } catch {} }
-      const response = await fetch(new URL("/api/users", getApiUrl()).toString(), {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(cToken ? { Authorization: `Bearer ${cToken}` } : {}),
+      if (!cToken) {
+        try {
+          cToken = await getToken(CUSTOMER_TOKEN_KEY);
+        } catch {}
+      }
+      const response = await fetch(
+        new URL("/api/users", getApiUrl()).toString(),
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...(cToken ? { Authorization: `Bearer ${cToken}` } : {}),
+          },
+          body: JSON.stringify(body),
         },
-        body: JSON.stringify(body),
-      });
+      );
 
       if (!response.ok) {
         const err = await response.json();
@@ -767,7 +970,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const savedProfile = await response.json();
       setUserProfile(savedProfile);
       setIsProfileComplete(true);
-      await AsyncStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify(savedProfile));
+      await AsyncStorage.setItem(
+        PROFILE_STORAGE_KEY,
+        JSON.stringify(savedProfile),
+      );
     } catch (error) {
       throw error;
     }

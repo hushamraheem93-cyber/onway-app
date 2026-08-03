@@ -63,11 +63,36 @@ interface BizConfig {
 }
 
 const BUSINESS_CONFIG: Record<string, BizConfig> = {
-  restaurant: { label: "مطعم", icon: "food", color: AppColors.primary, gradient: [AppColors.primary, AppColors.primaryLight] },
-  supermarket: { label: "سوبرماركت", icon: "cart", color: AppColors.success, gradient: [AppColors.success, AppColors.success] },
-  pharmacy: { label: "صيدلية", icon: "medical-bag", color: AppColors.vendorPurple, gradient: [AppColors.vendorPurple, AppColors.vendorPurple] },
-  bakery: { label: "مخبز", icon: "bread-slice", color: AppColors.warning, gradient: [AppColors.warning, AppColors.primaryLight] },
-  other: { label: "متجر", icon: "store", color: AppColors.driverBlue, gradient: [AppColors.driverBlue, AppColors.info] },
+  restaurant: {
+    label: "مطعم",
+    icon: "food",
+    color: AppColors.primary,
+    gradient: [AppColors.primary, AppColors.primaryLight],
+  },
+  supermarket: {
+    label: "سوبرماركت",
+    icon: "cart",
+    color: AppColors.success,
+    gradient: [AppColors.success, AppColors.success],
+  },
+  pharmacy: {
+    label: "صيدلية",
+    icon: "medical-bag",
+    color: AppColors.vendorPurple,
+    gradient: [AppColors.vendorPurple, AppColors.vendorPurple],
+  },
+  bakery: {
+    label: "مخبز",
+    icon: "bread-slice",
+    color: AppColors.warning,
+    gradient: [AppColors.warning, AppColors.primaryLight],
+  },
+  other: {
+    label: "متجر",
+    icon: "store",
+    color: AppColors.driverBlue,
+    gradient: [AppColors.driverBlue, AppColors.info],
+  },
 };
 
 function isStoreOpen(wh: WorkingHours | null | undefined): boolean {
@@ -85,7 +110,11 @@ function resolveUrl(path?: string): string | null {
   if (!path) return null;
   // Absolute URLs (http/https) and base64 data URIs → return as-is
   if (path.startsWith("http") || path.startsWith("data:")) return path;
-  try { return new URL(path, getApiUrl()).toString(); } catch { return null; }
+  try {
+    return new URL(path, getApiUrl()).toString();
+  } catch {
+    return null;
+  }
 }
 
 function StarRating({ value }: { value: number }) {
@@ -96,7 +125,13 @@ function StarRating({ value }: { value: number }) {
       {[1, 2, 3, 4, 5].map((i) => (
         <MaterialCommunityIcons
           key={i}
-          name={i <= full ? "star" : half && i === full + 1 ? "star-half-full" : "star-outline"}
+          name={
+            i <= full
+              ? "star"
+              : half && i === full + 1
+                ? "star-half-full"
+                : "star-outline"
+          }
           size={13}
           color={AppColors.warning}
         />
@@ -108,10 +143,21 @@ function StarRating({ value }: { value: number }) {
 
 const sStyles = StyleSheet.create({
   starRow: { flexDirection: "row", alignItems: "center", gap: 2 },
-  starVal: { fontFamily: "Cairo_700Bold", fontSize: 12, color: AppColors.warning, marginRight: 2 },
+  starVal: {
+    fontFamily: "Cairo_700Bold",
+    fontSize: 12,
+    color: AppColors.warning,
+    marginRight: 2,
+  },
 });
 
-function StoreCard({ store, onPress }: { store: VendorStore; onPress: () => void }) {
+function StoreCard({
+  store,
+  onPress,
+}: {
+  store: VendorStore;
+  onPress: () => void;
+}) {
   const { theme } = useTheme();
   const cfg = BUSINESS_CONFIG[store.businessType] || BUSINESS_CONFIG.other;
   const avatarUrl = resolveUrl(store.profileImageUrl);
@@ -128,7 +174,10 @@ function StoreCard({ store, onPress }: { store: VendorStore; onPress: () => void
       accessibilityLabel={`متجر ${store.storeName}`}
       style={({ pressed }) => [
         cardStyles.card,
-        { backgroundColor: theme.backgroundDefault, opacity: pressed ? 0.93 : 1 },
+        {
+          backgroundColor: theme.backgroundDefault,
+          opacity: pressed ? 0.93 : 1,
+        },
         Shadows.md,
       ]}
       testID={`store-list-card-${store.id}`}
@@ -155,34 +204,76 @@ function StoreCard({ store, onPress }: { store: VendorStore; onPress: () => void
           start={{ x: 0, y: 0.3 }}
           end={{ x: 0, y: 1 }}
         />
-        <View style={[cardStyles.typeBadge, { backgroundColor: cfg.color + "EE" }]}>
-          <MaterialCommunityIcons name={cfg.icon} size={12} color={AppColors.white} />
+        <View
+          style={[cardStyles.typeBadge, { backgroundColor: cfg.color + "EE" }]}
+        >
+          <MaterialCommunityIcons
+            name={cfg.icon}
+            size={12}
+            color={AppColors.white}
+          />
           <ThemedText style={cardStyles.typeBadgeText}>{cfg.label}</ThemedText>
         </View>
-        <View style={[cardStyles.openBadge, { backgroundColor: open ? "#10B981EE" : "#EF4444EE" }]}>
-          <View style={[cardStyles.openDot, { backgroundColor: open ? AppColors.white : AppColors.error }]} />
-          <ThemedText style={cardStyles.openText}>{open ? "مفتوح" : "مغلق"}</ThemedText>
+        <View
+          style={[
+            cardStyles.openBadge,
+            { backgroundColor: open ? "#10B981EE" : "#EF4444EE" },
+          ]}
+        >
+          <View
+            style={[
+              cardStyles.openDot,
+              { backgroundColor: open ? AppColors.white : AppColors.error },
+            ]}
+          />
+          <ThemedText style={cardStyles.openText}>
+            {open ? "مفتوح" : "مغلق"}
+          </ThemedText>
         </View>
         <View style={cardStyles.coverBottom}>
           <View style={cardStyles.deliveryPill}>
-            <MaterialCommunityIcons name="clock-outline" size={12} color={AppColors.white} />
-            <ThemedText style={cardStyles.deliveryText}>{deliveryTime} دقيقة</ThemedText>
+            <MaterialCommunityIcons
+              name="clock-outline"
+              size={12}
+              color={AppColors.white}
+            />
+            <ThemedText style={cardStyles.deliveryText}>
+              {deliveryTime} دقيقة
+            </ThemedText>
           </View>
           <View style={cardStyles.deliveryPill}>
-            <MaterialCommunityIcons name="moped" size={12} color={AppColors.white} />
+            <MaterialCommunityIcons
+              name="moped"
+              size={12}
+              color={AppColors.white}
+            />
             <ThemedText style={cardStyles.deliveryText}>
-              {deliveryPrice === 0 ? "توصيل مجاني" : `${deliveryPrice.toLocaleString("ar-IQ")} د.ع`}
+              {deliveryPrice === 0
+                ? "توصيل مجاني"
+                : `${deliveryPrice.toLocaleString("ar-IQ")} د.ع`}
             </ThemedText>
           </View>
         </View>
       </View>
 
       <View style={cardStyles.body}>
-        <View style={[cardStyles.avatarWrap, { borderColor: theme.backgroundDefault }]}>
+        <View
+          style={[
+            cardStyles.avatarWrap,
+            { borderColor: theme.backgroundDefault },
+          ]}
+        >
           {avatarUrl ? (
-            <Image source={{ uri: avatarUrl }} style={cardStyles.avatar} contentFit="cover" />
+            <Image
+              source={{ uri: avatarUrl }}
+              style={cardStyles.avatar}
+              contentFit="cover"
+            />
           ) : (
-            <LinearGradient colors={cfg.gradient} style={cardStyles.avatarFallback}>
+            <LinearGradient
+              colors={cfg.gradient}
+              style={cardStyles.avatarFallback}
+            >
               <ThemedText style={cardStyles.avatarLetter}>
                 {store.storeName?.[0] || "م"}
               </ThemedText>
@@ -190,20 +281,28 @@ function StoreCard({ store, onPress }: { store: VendorStore; onPress: () => void
           )}
         </View>
         <View style={cardStyles.info}>
-          <ThemedText style={[cardStyles.storeName, { color: theme.text }]} numberOfLines={1}>
+          <ThemedText
+            style={[cardStyles.storeName, { color: theme.text }]}
+            numberOfLines={1}
+          >
             {store.storeName}
           </ThemedText>
           {rating !== null ? <StarRating value={rating} /> : null}
           {store.address ? (
             <View style={cardStyles.addressRow}>
               <Feather name="map-pin" size={11} color={theme.textSecondary} />
-              <ThemedText style={[cardStyles.addressText, { color: theme.textSecondary }]} numberOfLines={1}>
+              <ThemedText
+                style={[cardStyles.addressText, { color: theme.textSecondary }]}
+                numberOfLines={1}
+              >
                 {store.address}
               </ThemedText>
             </View>
           ) : null}
         </View>
-        <View style={[cardStyles.arrowWrap, { backgroundColor: cfg.color + "18" }]}>
+        <View
+          style={[cardStyles.arrowWrap, { backgroundColor: cfg.color + "18" }]}
+        >
           <Feather name="chevron-left" size={18} color={cfg.color} />
         </View>
       </View>
@@ -215,45 +314,113 @@ const cardStyles = StyleSheet.create({
   card: { borderRadius: BorderRadius.xl, overflow: "hidden", marginBottom: 0 },
   coverWrapper: { width: "100%", height: COVER_H, position: "relative" },
   typeBadge: {
-    position: "absolute", top: 10, right: 10,
-    flexDirection: "row", alignItems: "center", gap: 4,
-    paddingHorizontal: 9, paddingVertical: 4, borderRadius: 12,
+    position: "absolute",
+    top: 10,
+    right: 10,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+    borderRadius: 12,
   },
-  typeBadgeText: { fontFamily: "Cairo_700Bold", fontSize: 11, color: AppColors.white },
+  typeBadgeText: {
+    fontFamily: "Cairo_700Bold",
+    fontSize: 11,
+    color: AppColors.white,
+  },
   openBadge: {
-    position: "absolute", top: 10, left: 10,
-    flexDirection: "row", alignItems: "center", gap: 5,
-    paddingHorizontal: 9, paddingVertical: 4, borderRadius: 12,
+    position: "absolute",
+    top: 10,
+    left: 10,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+    borderRadius: 12,
   },
   openDot: { width: 6, height: 6, borderRadius: 3 },
-  openText: { fontFamily: "Cairo_700Bold", fontSize: 11, color: AppColors.white },
-  coverBottom: { position: "absolute", bottom: 10, right: 10, flexDirection: "row", gap: 6 },
-  deliveryPill: {
-    flexDirection: "row", alignItems: "center", gap: 4,
-    backgroundColor: AppColors.overlay,
-    paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10,
+  openText: {
+    fontFamily: "Cairo_700Bold",
+    fontSize: 11,
+    color: AppColors.white,
   },
-  deliveryText: { fontFamily: "Cairo_700Bold", fontSize: 11, color: AppColors.white },
+  coverBottom: {
+    position: "absolute",
+    bottom: 10,
+    right: 10,
+    flexDirection: "row",
+    gap: 6,
+  },
+  deliveryPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: AppColors.overlay,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 10,
+  },
+  deliveryText: {
+    fontFamily: "Cairo_700Bold",
+    fontSize: 11,
+    color: AppColors.white,
+  },
   body: {
-    flexDirection: "row-reverse", alignItems: "center",
-    paddingLeft: 14, paddingRight: 10, paddingBottom: 14, paddingTop: 4, gap: 10,
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    paddingLeft: 14,
+    paddingRight: 10,
+    paddingBottom: 14,
+    paddingTop: 4,
+    gap: 10,
   },
   avatarWrap: {
-    width: AVATAR_SIZE, height: AVATAR_SIZE, borderRadius: AVATAR_SIZE / 2,
-    borderWidth: 3, overflow: "hidden", marginTop: -(AVATAR_SIZE / 2),
-    elevation: 4, backgroundColor: AppColors.white,
+    width: AVATAR_SIZE,
+    height: AVATAR_SIZE,
+    borderRadius: AVATAR_SIZE / 2,
+    borderWidth: 3,
+    overflow: "hidden",
+    marginTop: -(AVATAR_SIZE / 2),
+    elevation: 4,
+    backgroundColor: AppColors.white,
   },
   avatar: { width: "100%", height: "100%" },
-  avatarFallback: { width: "100%", height: "100%", justifyContent: "center", alignItems: "center" },
-  avatarLetter: { fontFamily: "Cairo_700Bold", fontSize: 24, color: AppColors.white, lineHeight: 30 },
-  info: { flex: 1, alignItems: "flex-end", gap: 4, paddingTop: AVATAR_SIZE / 2 - 4 },
+  avatarFallback: {
+    width: "100%",
+    height: "100%",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  avatarLetter: {
+    fontFamily: "Cairo_700Bold",
+    fontSize: 24,
+    color: AppColors.white,
+    lineHeight: 30,
+  },
+  info: {
+    flex: 1,
+    alignItems: "flex-end",
+    gap: 4,
+    paddingTop: AVATAR_SIZE / 2 - 4,
+  },
   storeName: { fontFamily: "Cairo_700Bold", fontSize: 16, textAlign: "right" },
   addressRow: { flexDirection: "row-reverse", alignItems: "center", gap: 4 },
-  addressText: { fontSize: 12, textAlign: "right", fontFamily: "Cairo_400Regular", maxWidth: 200 },
+  addressText: {
+    fontSize: 12,
+    textAlign: "right",
+    fontFamily: "Cairo_400Regular",
+    maxWidth: 200,
+  },
   arrowWrap: {
-    width: 34, height: 34, borderRadius: 17,
-    justifyContent: "center", alignItems: "center",
-    alignSelf: "flex-end", marginBottom: 4,
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    justifyContent: "center",
+    alignItems: "center",
+    alignSelf: "flex-end",
+    marginBottom: 4,
   },
 });
 
@@ -293,7 +460,9 @@ export default function StoresListScreen() {
   const stores = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
     if (!q) return allStores;
-    return allStores.filter((s) => (s.storeName || "").toLowerCase().includes(q));
+    return allStores.filter((s) =>
+      (s.storeName || "").toLowerCase().includes(q),
+    );
   }, [allStores, searchQuery]);
 
   const handleStorePress = (store: VendorStore) => {
@@ -322,14 +491,19 @@ export default function StoresListScreen() {
         <GradientBackground />
         <View style={styles.center}>
           <Feather name="wifi-off" size={48} color={theme.textSecondary} />
-          <ThemedText type="body" style={{ color: theme.textSecondary }}>تعذّر تحميل المتاجر</ThemedText>
+          <ThemedText type="body" style={{ color: theme.textSecondary }}>
+            تعذّر تحميل المتاجر
+          </ThemedText>
           <Pressable
             onPress={() => refetch()}
             style={styles.retryBtn}
             accessibilityRole="button"
             accessibilityLabel="إعادة المحاولة"
           >
-            <ThemedText type="body" style={{ color: AppColors.primary, fontFamily: "Cairo_700Bold" }}>
+            <ThemedText
+              type="body"
+              style={{ color: AppColors.primary, fontFamily: "Cairo_700Bold" }}
+            >
               إعادة المحاولة
             </ThemedText>
           </Pressable>
@@ -345,10 +519,19 @@ export default function StoresListScreen() {
         <View style={styles.emptyRoot}>
           <View style={styles.emptyCard}>
             <View style={styles.emptyIconWrap}>
-              <MaterialCommunityIcons name="store-clock" size={72} color={AppColors.primary} style={{ opacity: 0.7 }} />
+              <MaterialCommunityIcons
+                name="store-clock"
+                size={72}
+                color={AppColors.primary}
+                style={{ opacity: 0.7 }}
+              />
             </View>
-            <ThemedText style={styles.emptyTitle}>قريباً في OnWay الضلوعية!</ThemedText>
-            <ThemedText style={[styles.emptySubtitle, { color: theme.textSecondary }]}>
+            <ThemedText style={styles.emptyTitle}>
+              قريباً في OnWay الضلوعية!
+            </ThemedText>
+            <ThemedText
+              style={[styles.emptySubtitle, { color: theme.textSecondary }]}
+            >
               نعمل حالياً على ضم أفضل المتاجر في قسم {categoryName}
             </ThemedText>
             <Pressable
@@ -391,16 +574,31 @@ export default function StoresListScreen() {
         ListHeaderComponent={
           <View style={{ gap: Spacing.sm }}>
             <View style={styles.sectionHeader}>
-              <ThemedText type="h3" style={{ textAlign: "right", color: theme.text }}>
+              <ThemedText
+                type="h3"
+                style={{ textAlign: "right", color: theme.text }}
+              >
                 {categoryName}
               </ThemedText>
-              <View style={[styles.countBadge, { backgroundColor: AppColors.primary + "18" }]}>
-                <ThemedText style={[styles.countText, { color: AppColors.primary }]}>
+              <View
+                style={[
+                  styles.countBadge,
+                  { backgroundColor: AppColors.primary + "18" },
+                ]}
+              >
+                <ThemedText
+                  style={[styles.countText, { color: AppColors.primary }]}
+                >
                   {stores.length}
                 </ThemedText>
               </View>
             </View>
-            <View style={[styles.searchBar, { backgroundColor: theme.backgroundDefault }]}>
+            <View
+              style={[
+                styles.searchBar,
+                { backgroundColor: theme.backgroundDefault },
+              ]}
+            >
               <Feather name="search" size={17} color={theme.textSecondary} />
               <TextInput
                 style={[styles.searchInput, { color: theme.text }]}
@@ -428,8 +626,15 @@ export default function StoresListScreen() {
         }
         ListEmptyComponent={
           <View style={[styles.searchEmptyWrap]}>
-            <Feather name="search" size={48} color={theme.textSecondary} style={{ opacity: 0.4 }} />
-            <ThemedText style={[styles.searchEmptyText, { color: theme.textSecondary }]}>
+            <Feather
+              name="search"
+              size={48}
+              color={theme.textSecondary}
+              style={{ opacity: 0.4 }}
+            />
+            <ThemedText
+              style={[styles.searchEmptyText, { color: theme.textSecondary }]}
+            >
               لا توجد متاجر تطابق بحثك
             </ThemedText>
           </View>
@@ -443,60 +648,96 @@ export default function StoresListScreen() {
 }
 
 const styles = StyleSheet.create({
-  center: { flex: 1, alignItems: "center", justifyContent: "center", gap: Spacing.md },
+  center: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.md,
+  },
   retryBtn: { paddingVertical: Spacing.sm, paddingHorizontal: Spacing.lg },
   emptyRoot: {
-    flex: 1, alignItems: "center", justifyContent: "center",
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
     paddingHorizontal: 24,
   },
   emptyCard: {
-    width: "100%", alignItems: "center", gap: Spacing.md,
+    width: "100%",
+    alignItems: "center",
+    gap: Spacing.md,
     backgroundColor: "rgba(255,255,255,0.92)",
-    borderRadius: 24, paddingVertical: 40, paddingHorizontal: 28,
+    borderRadius: 24,
+    paddingVertical: 40,
+    paddingHorizontal: 28,
   },
   emptyIconWrap: {
-    width: 120, height: 120, borderRadius: 60,
+    width: 120,
+    height: 120,
+    borderRadius: 60,
     backgroundColor: AppColors.primary + "12",
-    justifyContent: "center", alignItems: "center",
+    justifyContent: "center",
+    alignItems: "center",
     marginBottom: 8,
   },
   emptyTitle: {
-    fontFamily: "Cairo_700Bold", fontSize: 18,
-    color: AppColors.black, textAlign: "center",
-    width: "100%", flexWrap: "wrap",
+    fontFamily: "Cairo_700Bold",
+    fontSize: 18,
+    color: AppColors.black,
+    textAlign: "center",
+    width: "100%",
+    flexWrap: "wrap",
   },
   emptySubtitle: {
-    fontFamily: "Cairo_400Regular", fontSize: 15,
-    textAlign: "center", lineHeight: 24,
+    fontFamily: "Cairo_400Regular",
+    fontSize: 15,
+    textAlign: "center",
+    lineHeight: 24,
   },
   backBtn: {
-    flexDirection: "row-reverse", alignItems: "center", gap: 8,
-    paddingHorizontal: 28, paddingVertical: 14,
-    borderRadius: 16, marginTop: 8,
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    gap: 8,
+    paddingHorizontal: 28,
+    paddingVertical: 14,
+    borderRadius: 16,
+    marginTop: 8,
   },
   backBtnText: {
-    fontFamily: "Cairo_700Bold", fontSize: 15, color: AppColors.white,
+    fontFamily: "Cairo_700Bold",
+    fontSize: 15,
+    color: AppColors.white,
   },
   sectionHeader: {
-    flexDirection: "row-reverse", justifyContent: "space-between",
+    flexDirection: "row-reverse",
+    justifyContent: "space-between",
     alignItems: "center",
   },
   countBadge: { borderRadius: 10, paddingHorizontal: 9, paddingVertical: 2 },
   countText: { fontFamily: "Cairo_700Bold", fontSize: 12 },
   searchBar: {
-    flexDirection: "row-reverse", alignItems: "center", gap: 10,
-    borderRadius: BorderRadius.lg, paddingHorizontal: 14, paddingVertical: 10,
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    gap: 10,
+    borderRadius: BorderRadius.lg,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
     ...Shadows.sm,
   },
   searchInput: {
-    flex: 1, fontFamily: "Cairo_400Regular", fontSize: 16,
+    flex: 1,
+    fontFamily: "Cairo_400Regular",
+    fontSize: 16,
     paddingVertical: 0,
   },
   searchEmptyWrap: {
-    alignItems: "center", justifyContent: "center",
-    paddingTop: 60, gap: Spacing.md,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingTop: 60,
+    gap: Spacing.md,
   },
   searchEmptyText: {
-    fontFamily: "Cairo_400Regular", fontSize: 15, textAlign: "center",
+    fontFamily: "Cairo_400Regular",
+    fontSize: 15,
+    textAlign: "center",
   },
 });

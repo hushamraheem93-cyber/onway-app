@@ -62,7 +62,12 @@ function StarRow({
   return (
     <View style={styles.modalStarsRow}>
       {[1, 2, 3, 4, 5].map((s) => (
-        <Pressable key={s} onPress={() => onChange(s)} hitSlop={8} testID={`${testPrefix}-${s}`}>
+        <Pressable
+          key={s}
+          onPress={() => onChange(s)}
+          hitSlop={8}
+          testID={`${testPrefix}-${s}`}
+        >
           <MaterialCommunityIcons
             name={s <= value ? "star" : "star-outline"}
             size={size}
@@ -74,18 +79,27 @@ function StarRow({
   );
 }
 
-function OrderCardComponent({ order, onPress, onStorePress, onRate, onReorder }: OrderCardProps) {
+function OrderCardComponent({
+  order,
+  onPress,
+  onStorePress,
+  onRate,
+  onReorder,
+}: OrderCardProps) {
   const { theme } = useTheme();
   const scale = useSharedValue(1);
   const [submittingRating, setSubmittingRating] = useState(false);
-  const [ratedValue, setRatedValue] = useState<number | null>(order.customerRating ?? null);
+  const [ratedValue, setRatedValue] = useState<number | null>(
+    order.customerRating ?? null,
+  );
   const [ratingModal, setRatingModal] = useState(false);
   const [vendorStar, setVendorStar] = useState(5);
   const [driverStar, setDriverStar] = useState(5);
   const [rateDriver, setRateDriver] = useState(false);
   const [commentText, setCommentText] = useState("");
 
-  const canRate = order.status === "delivered" && order.vendorId && !ratedValue && !!onRate;
+  const canRate =
+    order.status === "delivered" && order.vendorId && !ratedValue && !!onRate;
   const canReorder = order.status === "delivered" && !!onReorder;
 
   const handleOpenRatingModal = () => {
@@ -132,29 +146,59 @@ function OrderCardComponent({ order, onPress, onStorePress, onRate, onReorder }:
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }],
   }));
-  const handlePressIn = () => { scale.value = withSpring(0.98, { damping: 15, stiffness: 150 }); };
-  const handlePressOut = () => { scale.value = withSpring(1, { damping: 15, stiffness: 150 }); };
+  const handlePressIn = () => {
+    scale.value = withSpring(0.98, { damping: 15, stiffness: 150 });
+  };
+  const handlePressOut = () => {
+    scale.value = withSpring(1, { damping: 15, stiffness: 150 });
+  };
 
-  const orderRef = `#${String((order as any).orderNumber ?? order.id).slice(-6).toUpperCase()}`;
+  const orderRef = `#${String((order as any).orderNumber ?? order.id)
+    .slice(-6)
+    .toUpperCase()}`;
 
   return (
     <AnimatedPressable
       onPress={onPress}
       onPressIn={handlePressIn}
       onPressOut={handlePressOut}
-      style={[styles.card, { backgroundColor: theme.backgroundDefault }, Shadows.sm, animatedStyle]}
+      style={[
+        styles.card,
+        { backgroundColor: theme.backgroundDefault },
+        Shadows.sm,
+        animatedStyle,
+      ]}
     >
       {/* Header */}
       <View style={styles.header}>
-        <ThemedText type="h4" style={styles.orderId}>{orderRef}</ThemedText>
+        <ThemedText type="h4" style={styles.orderId}>
+          {orderRef}
+        </ThemedText>
         <View
           style={[
             styles.statusBadge,
-            { backgroundColor: (ORDER_STATUS_COLORS[order.status] ?? AppColors.gray400) + "20" },
+            {
+              backgroundColor:
+                (ORDER_STATUS_COLORS[order.status] ?? AppColors.gray400) + "20",
+            },
           ]}
         >
-          <View style={[styles.statusDot, { backgroundColor: ORDER_STATUS_COLORS[order.status] ?? AppColors.gray400 }]} />
-          <ThemedText type="small" style={{ color: ORDER_STATUS_COLORS[order.status] ?? AppColors.gray400, fontWeight: FontWeight.bold }}>
+          <View
+            style={[
+              styles.statusDot,
+              {
+                backgroundColor:
+                  ORDER_STATUS_COLORS[order.status] ?? AppColors.gray400,
+              },
+            ]}
+          />
+          <ThemedText
+            type="small"
+            style={{
+              color: ORDER_STATUS_COLORS[order.status] ?? AppColors.gray400,
+              fontWeight: FontWeight.bold,
+            }}
+          >
             {ORDER_STATUS_LABELS[order.status] ?? order.status}
           </ThemedText>
         </View>
@@ -163,7 +207,9 @@ function OrderCardComponent({ order, onPress, onStorePress, onRate, onReorder }:
       {/* Info */}
       <View style={styles.info}>
         {(() => {
-          const storeName = order.vendorName || order.items.find(i => i.restaurant)?.restaurant;
+          const storeName =
+            order.vendorName ||
+            order.items.find((i) => i.restaurant)?.restaurant;
           const canNavigate = !!(order.vendorId && onStorePress);
           return storeName ? (
             <View style={[styles.infoRow, styles.storeRow]}>
@@ -176,24 +222,43 @@ function OrderCardComponent({ order, onPress, onStorePress, onRate, onReorder }:
                 ]}
                 testID="button-store-badge"
               >
-                <Feather name="shopping-bag" size={13} color={AppColors.primary} />
-                <ThemedText type="small" style={[styles.storeText, { color: AppColors.primary }]}>
+                <Feather
+                  name="shopping-bag"
+                  size={13}
+                  color={AppColors.primary}
+                />
+                <ThemedText
+                  type="small"
+                  style={[styles.storeText, { color: AppColors.primary }]}
+                >
                   {"من متجر " + storeName}
                 </ThemedText>
-                {canNavigate ? <Feather name="chevron-left" size={12} color={AppColors.primary} /> : null}
+                {canNavigate ? (
+                  <Feather
+                    name="chevron-left"
+                    size={12}
+                    color={AppColors.primary}
+                  />
+                ) : null}
               </Pressable>
             </View>
           ) : null;
         })()}
         <View style={styles.infoRow}>
           <Feather name="package" size={16} color={theme.textSecondary} />
-          <ThemedText type="body" style={[styles.infoText, { color: theme.textSecondary }]}>
+          <ThemedText
+            type="body"
+            style={[styles.infoText, { color: theme.textSecondary }]}
+          >
             {order.items.length} منتج
           </ThemedText>
         </View>
         <View style={styles.infoRow}>
           <Feather name="clock" size={16} color={theme.textSecondary} />
-          <ThemedText type="small" style={[styles.infoText, { color: theme.textSecondary }]}>
+          <ThemedText
+            type="small"
+            style={[styles.infoText, { color: theme.textSecondary }]}
+          >
             {formatDateTime(order.createdAt)}
           </ThemedText>
         </View>
@@ -211,7 +276,10 @@ function OrderCardComponent({ order, onPress, onStorePress, onRate, onReorder }:
             testID={`button-reorder-${order.id}`}
           >
             <Feather name="refresh-cw" size={13} color={AppColors.primary} />
-            <ThemedText type="small" style={{ color: AppColors.primary, fontFamily: "Cairo_700Bold" }}>
+            <ThemedText
+              type="small"
+              style={{ color: AppColors.primary, fontFamily: "Cairo_700Bold" }}
+            >
               اطلب مجدداً
             </ThemedText>
           </Pressable>
@@ -221,15 +289,26 @@ function OrderCardComponent({ order, onPress, onStorePress, onRate, onReorder }:
       </View>
 
       {/* Rating section */}
-      {(canRate || ratedValue) ? (
-        <View style={[styles.ratingSection, { borderTopColor: theme.border ?? AppColors.divider }]}>
+      {canRate || ratedValue ? (
+        <View
+          style={[
+            styles.ratingSection,
+            { borderTopColor: theme.border ?? AppColors.divider },
+          ]}
+        >
           {ratedValue ? (
             <View style={styles.ratingRow}>
-              <ThemedText type="small" style={{ color: AppColors.success, fontWeight: FontWeight.semiBold }}>
+              <ThemedText
+                type="small"
+                style={{
+                  color: AppColors.success,
+                  fontWeight: FontWeight.semiBold,
+                }}
+              >
                 شكراً على تقييمك!
               </ThemedText>
               <View style={styles.ratingStarsRow}>
-                {[1,2,3,4,5].map((i) => (
+                {[1, 2, 3, 4, 5].map((i) => (
                   <MaterialCommunityIcons
                     key={i}
                     name={i <= ratedValue ? "star" : "star-outline"}
@@ -242,7 +321,9 @@ function OrderCardComponent({ order, onPress, onStorePress, onRate, onReorder }:
           ) : submittingRating ? (
             <View style={styles.ratingRow}>
               <ActivityIndicator size="small" color={AppColors.primary} />
-              <ThemedText type="small" style={{ color: theme.textSecondary }}>جاري الحفظ...</ThemedText>
+              <ThemedText type="small" style={{ color: theme.textSecondary }}>
+                جاري الحفظ...
+              </ThemedText>
             </View>
           ) : (
             <Pressable
@@ -250,8 +331,15 @@ function OrderCardComponent({ order, onPress, onStorePress, onRate, onReorder }:
               style={styles.rateBtn}
               testID={`button-rate-open-${order.id}`}
             >
-              <MaterialCommunityIcons name="star" size={16} color={AppColors.white} />
-              <ThemedText type="small" style={{ color: AppColors.white, fontFamily: "Cairo_700Bold" }}>
+              <MaterialCommunityIcons
+                name="star"
+                size={16}
+                color={AppColors.white}
+              />
+              <ThemedText
+                type="small"
+                style={{ color: AppColors.white, fontFamily: "Cairo_700Bold" }}
+              >
                 قيّم طلبك
               </ThemedText>
             </Pressable>
@@ -260,42 +348,96 @@ function OrderCardComponent({ order, onPress, onStorePress, onRate, onReorder }:
       ) : null}
 
       {/* Rating Modal */}
-      <Modal visible={ratingModal} transparent animationType="slide" onRequestClose={() => setRatingModal(false)}>
-        <KeyboardAvoidingView style={styles.modalOverlay} behavior={Platform.OS === "ios" ? "padding" : undefined}>
-          <Pressable style={styles.modalBg} onPress={() => setRatingModal(false)} />
-          <View style={[styles.modalSheet, { backgroundColor: theme.backgroundDefault }]}>
-            <ThemedText type="h4" style={[styles.modalTitle, { color: theme.text }]}>
+      <Modal
+        visible={ratingModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setRatingModal(false)}
+      >
+        <KeyboardAvoidingView
+          style={styles.modalOverlay}
+          behavior={Platform.OS === "ios" ? "padding" : undefined}
+        >
+          <Pressable
+            style={styles.modalBg}
+            onPress={() => setRatingModal(false)}
+          />
+          <View
+            style={[
+              styles.modalSheet,
+              { backgroundColor: theme.backgroundDefault },
+            ]}
+          >
+            <ThemedText
+              type="h4"
+              style={[styles.modalTitle, { color: theme.text }]}
+            >
               كيف كانت تجربتك؟
             </ThemedText>
 
             {/* Vendor rating */}
-            <ThemedText type="small" style={[styles.ratingLabel, { color: theme.textSecondary }]}>
+            <ThemedText
+              type="small"
+              style={[styles.ratingLabel, { color: theme.textSecondary }]}
+            >
               تقييم المتجر
             </ThemedText>
-            <StarRow value={vendorStar} onChange={setVendorStar} testPrefix="modal-vendor-star" />
+            <StarRow
+              value={vendorStar}
+              onChange={setVendorStar}
+              testPrefix="modal-vendor-star"
+            />
 
             {/* Driver rating toggle */}
             <Pressable
               onPress={() => setRateDriver((v) => !v)}
-              style={[styles.driverToggle, { borderColor: rateDriver ? AppColors.primary : (theme.border ?? AppColors.divider) }]}
+              style={[
+                styles.driverToggle,
+                {
+                  borderColor: rateDriver
+                    ? AppColors.primary
+                    : (theme.border ?? AppColors.divider),
+                },
+              ]}
               testID="button-toggle-driver-rating"
             >
               <MaterialCommunityIcons
-                name={rateDriver ? "checkbox-marked-circle" : "checkbox-blank-circle-outline"}
+                name={
+                  rateDriver
+                    ? "checkbox-marked-circle"
+                    : "checkbox-blank-circle-outline"
+                }
                 size={18}
                 color={rateDriver ? AppColors.primary : theme.textSecondary}
               />
-              <ThemedText type="small" style={{ color: rateDriver ? AppColors.primary : theme.textSecondary, fontFamily: "Cairo_600SemiBold" }}>
+              <ThemedText
+                type="small"
+                style={{
+                  color: rateDriver ? AppColors.primary : theme.textSecondary,
+                  fontFamily: "Cairo_600SemiBold",
+                }}
+              >
                 تقييم السائق أيضاً (اختياري)
               </ThemedText>
             </Pressable>
             {rateDriver ? (
-              <StarRow value={driverStar} onChange={setDriverStar} testPrefix="modal-driver-star" />
+              <StarRow
+                value={driverStar}
+                onChange={setDriverStar}
+                testPrefix="modal-driver-star"
+              />
             ) : null}
 
             {/* Comment */}
             <TextInput
-              style={[styles.modalComment, { backgroundColor: theme.backgroundRoot, color: theme.text, borderColor: theme.border ?? AppColors.divider }]}
+              style={[
+                styles.modalComment,
+                {
+                  backgroundColor: theme.backgroundRoot,
+                  color: theme.text,
+                  borderColor: theme.border ?? AppColors.divider,
+                },
+              ]}
               placeholder="أضف تعليقاً (اختياري)..."
               placeholderTextColor={theme.textSecondary}
               value={commentText}
@@ -306,25 +448,60 @@ function OrderCardComponent({ order, onPress, onStorePress, onRate, onReorder }:
               textAlign="right"
               maxLength={500}
             />
-            <ThemedText type="small" style={{ color: theme.textSecondary, textAlign: "left", marginTop: 2 }}>
+            <ThemedText
+              type="small"
+              style={{
+                color: theme.textSecondary,
+                textAlign: "left",
+                marginTop: 2,
+              }}
+            >
               {commentText.length}/500
             </ThemedText>
 
             {/* Actions */}
             <View style={styles.modalActions}>
-              <Pressable onPress={() => setRatingModal(false)} style={[styles.modalBtn, { backgroundColor: theme.backgroundRoot }]}>
-                <ThemedText type="body" style={{ color: theme.textSecondary, fontFamily: "Cairo_700Bold" }}>إلغاء</ThemedText>
+              <Pressable
+                onPress={() => setRatingModal(false)}
+                style={[
+                  styles.modalBtn,
+                  { backgroundColor: theme.backgroundRoot },
+                ]}
+              >
+                <ThemedText
+                  type="body"
+                  style={{
+                    color: theme.textSecondary,
+                    fontFamily: "Cairo_700Bold",
+                  }}
+                >
+                  إلغاء
+                </ThemedText>
               </Pressable>
               <Pressable
                 onPress={handleSubmitRating}
                 disabled={submittingRating}
-                style={[styles.modalBtn, { backgroundColor: AppColors.primary, opacity: submittingRating ? 0.6 : 1 }]}
+                style={[
+                  styles.modalBtn,
+                  {
+                    backgroundColor: AppColors.primary,
+                    opacity: submittingRating ? 0.6 : 1,
+                  },
+                ]}
                 testID="button-submit-rating"
               >
                 {submittingRating ? (
                   <ActivityIndicator size="small" color={AppColors.white} />
                 ) : (
-                  <ThemedText type="body" style={{ color: AppColors.white, fontFamily: "Cairo_700Bold" }}>إرسال</ThemedText>
+                  <ThemedText
+                    type="body"
+                    style={{
+                      color: AppColors.white,
+                      fontFamily: "Cairo_700Bold",
+                    }}
+                  >
+                    إرسال
+                  </ThemedText>
                 )}
               </Pressable>
             </View>
@@ -358,7 +535,11 @@ const styles = StyleSheet.create({
   },
   statusDot: { width: 7, height: 7, borderRadius: 4 },
   info: { marginBottom: Spacing.md },
-  infoRow: { flexDirection: "row-reverse", alignItems: "center", marginBottom: Spacing.xs },
+  infoRow: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    marginBottom: Spacing.xs,
+  },
   storeRow: { marginBottom: Spacing.sm },
   storeBadge: {
     flexDirection: "row-reverse",
@@ -368,7 +549,10 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.full,
     gap: 4,
   },
-  storeBadgePressable: { borderWidth: 1, borderColor: AppColors.primary + "30" },
+  storeBadgePressable: {
+    borderWidth: 1,
+    borderColor: AppColors.primary + "30",
+  },
   storeText: { fontWeight: FontWeight.semiBold },
   infoText: { marginRight: Spacing.sm, textAlign: "right" },
   footer: {
@@ -396,7 +580,11 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     alignItems: "center",
   },
-  ratingRow: { flexDirection: "row-reverse", alignItems: "center", gap: Spacing.sm },
+  ratingRow: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
   ratingStarsRow: { flexDirection: "row-reverse", gap: 4 },
   rateBtn: {
     flexDirection: "row-reverse",
@@ -417,7 +605,11 @@ const styles = StyleSheet.create({
   },
   modalTitle: { textAlign: "center", fontFamily: "Cairo_700Bold" },
   ratingLabel: { textAlign: "center", fontWeight: FontWeight.semiBold },
-  modalStarsRow: { flexDirection: "row-reverse", justifyContent: "center", gap: 8 },
+  modalStarsRow: {
+    flexDirection: "row-reverse",
+    justifyContent: "center",
+    gap: 8,
+  },
   driverToggle: {
     flexDirection: "row-reverse",
     alignItems: "center",

@@ -35,7 +35,9 @@ function secureKey(key: string): string {
 
 export async function getToken(key: string): Promise<string | null> {
   try {
-    return useSecureStore ? await SecureStore.getItemAsync(secureKey(key)) : await AsyncStorage.getItem(key);
+    return useSecureStore
+      ? await SecureStore.getItemAsync(secureKey(key))
+      : await AsyncStorage.getItem(key);
   } catch (err) {
     console.warn(`[secureTokenStorage] getToken(${key}) failed:`, err);
     return null;

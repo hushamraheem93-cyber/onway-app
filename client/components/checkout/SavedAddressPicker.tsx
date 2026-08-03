@@ -3,7 +3,13 @@ import { View, ScrollView, Pressable, StyleSheet } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { ThemedText } from "@/components/ThemedText";
 import { useTheme } from "@/hooks/useTheme";
-import { AppColors, BorderRadius, FontWeight, Shadows, Spacing } from "@/constants/theme";
+import {
+  AppColors,
+  BorderRadius,
+  FontWeight,
+  Shadows,
+  Spacing,
+} from "@/constants/theme";
 
 interface SavedAddress {
   id: string;
@@ -19,13 +25,26 @@ interface Props {
   onSelect: (address: SavedAddress) => void;
 }
 
-export function SavedAddressPicker({ addresses, activeAddress, onSelect }: Props) {
+export function SavedAddressPicker({
+  addresses,
+  activeAddress,
+  onSelect,
+}: Props) {
   const { theme } = useTheme();
   if (addresses.length === 0) return null;
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.backgroundDefault }, Shadows.sm]}>
-      <ThemedText type="small" style={[styles.label, { color: theme.textSecondary }]}>
+    <View
+      style={[
+        styles.container,
+        { backgroundColor: theme.backgroundDefault },
+        Shadows.sm,
+      ]}
+    >
+      <ThemedText
+        type="small"
+        style={[styles.label, { color: theme.textSecondary }]}
+      >
         العناوين المحفوظة
       </ThemedText>
       <ScrollView
@@ -51,7 +70,10 @@ export function SavedAddressPicker({ addresses, activeAddress, onSelect }: Props
                 <Feather name="map-pin" size={13} color={AppColors.primary} />
                 <ThemedText
                   type="small"
-                  style={{ fontWeight: FontWeight.bold, color: AppColors.primary }}
+                  style={{
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.primary,
+                  }}
                   numberOfLines={1}
                 >
                   {a.title}
@@ -59,7 +81,11 @@ export function SavedAddressPicker({ addresses, activeAddress, onSelect }: Props
               </View>
               <ThemedText
                 type="small"
-                style={{ color: theme.textSecondary, textAlign: "right", marginTop: 2 }}
+                style={{
+                  color: theme.textSecondary,
+                  textAlign: "right",
+                  marginTop: 2,
+                }}
                 numberOfLines={1}
               >
                 {a.address}

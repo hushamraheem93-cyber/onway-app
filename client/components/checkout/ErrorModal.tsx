@@ -22,17 +22,28 @@ export function ErrorModal({ message, canRetry, onDismiss, onRetry }: Props) {
       onRequestClose={onDismiss}
     >
       <Pressable style={styles.overlay} onPress={onDismiss}>
-        <Pressable style={[styles.card, { backgroundColor: theme.backgroundDefault }]}>
+        <Pressable
+          style={[styles.card, { backgroundColor: theme.backgroundDefault }]}
+        >
           <View style={styles.iconRow}>
             <Feather name="alert-circle" size={28} color={AppColors.error} />
           </View>
-          <ThemedText type="h4" style={styles.title}>تنبيه</ThemedText>
-          <ThemedText type="body" style={[styles.body, { color: theme.textSecondary }]}>
+          <ThemedText type="h4" style={styles.title}>
+            تنبيه
+          </ThemedText>
+          <ThemedText
+            type="body"
+            style={[styles.body, { color: theme.textSecondary }]}
+          >
             {message}
           </ThemedText>
           <View style={styles.actions}>
             <Pressable
-              style={[styles.btn, styles.btnDismiss, { borderColor: theme.border }]}
+              style={[
+                styles.btn,
+                styles.btnDismiss,
+                { borderColor: theme.border },
+              ]}
               onPress={onDismiss}
               accessibilityRole="button"
               accessibilityLabel="إغلاق"
@@ -46,7 +57,9 @@ export function ErrorModal({ message, canRetry, onDismiss, onRetry }: Props) {
                 accessibilityRole="button"
                 accessibilityLabel="إعادة المحاولة"
               >
-                <ThemedText type="body" style={{ color: AppColors.white }}>إعادة المحاولة</ThemedText>
+                <ThemedText type="body" style={{ color: AppColors.white }}>
+                  إعادة المحاولة
+                </ThemedText>
               </Pressable>
             )}
           </View>

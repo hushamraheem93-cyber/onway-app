@@ -22,7 +22,8 @@ export interface PushNotificationState {
 
 export function usePushNotifications(onNotificationTap?: () => void) {
   const [expoPushToken, setExpoPushToken] = useState<string | null>(null);
-  const [notification, setNotification] = useState<Notifications.Notification | null>(null);
+  const [notification, setNotification] =
+    useState<Notifications.Notification | null>(null);
   const notificationListener = useRef<Notifications.Subscription | null>(null);
   const responseListener = useRef<Notifications.Subscription | null>(null);
   const tokenRefreshListener = useRef<Notifications.Subscription | null>(null);
@@ -46,19 +47,25 @@ export function usePushNotifications(onNotificationTap?: () => void) {
       }
     });
 
-    notificationListener.current = Notifications.addNotificationReceivedListener((notif: Notifications.Notification) => {
-      setNotification(notif);
-    });
+    notificationListener.current =
+      Notifications.addNotificationReceivedListener(
+        (notif: Notifications.Notification) => {
+          setNotification(notif);
+        },
+      );
 
-    responseListener.current = Notifications.addNotificationResponseReceivedListener(() => {
-      onNotificationTapRef.current?.();
-    });
+    responseListener.current =
+      Notifications.addNotificationResponseReceivedListener(() => {
+        onNotificationTapRef.current?.();
+      });
 
-    tokenRefreshListener.current = Notifications.addPushTokenListener((tokenData) => {
-      if (tokenData.data) {
-        setExpoPushToken(tokenData.data);
-      }
-    });
+    tokenRefreshListener.current = Notifications.addPushTokenListener(
+      (tokenData) => {
+        if (tokenData.data) {
+          setExpoPushToken(tokenData.data);
+        }
+      },
+    );
 
     return () => {
       notificationListener.current?.remove();
@@ -70,7 +77,9 @@ export function usePushNotifications(onNotificationTap?: () => void) {
   return { expoPushToken, notification };
 }
 
-export async function registerForPushNotificationsAsync(): Promise<string | null> {
+export async function registerForPushNotificationsAsync(): Promise<
+  string | null
+> {
   let token: string | null = null;
 
   if (Platform.OS === "web") {
@@ -106,7 +115,9 @@ export async function registerForPushNotificationsAsync(): Promise<string | null
   }
 
   try {
-    const projectId = Constants.expoConfig?.extra?.eas?.projectId ?? Constants.easConfig?.projectId;
+    const projectId =
+      Constants.expoConfig?.extra?.eas?.projectId ??
+      Constants.easConfig?.projectId;
     if (projectId) {
       token = (await Notifications.getExpoPushTokenAsync({ projectId })).data;
     } else {
@@ -119,15 +130,20 @@ export async function registerForPushNotificationsAsync(): Promise<string | null
   return token;
 }
 
-export async function refreshDriverPushToken(phoneNumber: string): Promise<void> {
+export async function refreshDriverPushToken(
+  phoneNumber: string,
+): Promise<void> {
   try {
     const token = await registerForPushNotificationsAsync();
     if (!token || !phoneNumber) return;
-    await fetch(new URL("/api/driver/refresh-push-token", getApiUrl()).toString(), {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ phoneNumber, pushToken: token }),
-    });
+    await fetch(
+      new URL("/api/driver/refresh-push-token", getApiUrl()).toString(),
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phoneNumber, pushToken: token }),
+      },
+    );
   } catch {
     // silent
   }

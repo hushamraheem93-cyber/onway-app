@@ -1,4 +1,10 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  ReactNode,
+} from "react";
 import { getApiUrl } from "@/lib/query-client";
 
 export interface DriverPayoutRule {
@@ -17,7 +23,12 @@ interface SystemSettings {
 
 const DEFAULT_SETTINGS: SystemSettings = {
   onlinePaymentEnabled: false,
-  driverPayoutRule: { type: "flat", flatRestaurant: 750, flatDefault: 2000, percent: 15 },
+  driverPayoutRule: {
+    type: "flat",
+    flatRestaurant: 750,
+    flatDefault: 2000,
+    percent: 15,
+  },
   autoSuspendThreshold: 100000,
   maxBatchSize: 3,
 };
@@ -40,13 +51,18 @@ export function SystemSettingsProvider({ children }: { children: ReactNode }) {
 
   const refresh = async () => {
     try {
-      const res = await fetch(new URL("/api/settings/public", getApiUrl()).toString());
+      const res = await fetch(
+        new URL("/api/settings/public", getApiUrl()).toString(),
+      );
       if (res.ok) {
         const data = await res.json();
         setSettings({
-          onlinePaymentEnabled: data.onlinePaymentEnabled ?? DEFAULT_SETTINGS.onlinePaymentEnabled,
-          driverPayoutRule: data.driverPayoutRule ?? DEFAULT_SETTINGS.driverPayoutRule,
-          autoSuspendThreshold: data.autoSuspendThreshold ?? DEFAULT_SETTINGS.autoSuspendThreshold,
+          onlinePaymentEnabled:
+            data.onlinePaymentEnabled ?? DEFAULT_SETTINGS.onlinePaymentEnabled,
+          driverPayoutRule:
+            data.driverPayoutRule ?? DEFAULT_SETTINGS.driverPayoutRule,
+          autoSuspendThreshold:
+            data.autoSuspendThreshold ?? DEFAULT_SETTINGS.autoSuspendThreshold,
           maxBatchSize: data.maxBatchSize ?? DEFAULT_SETTINGS.maxBatchSize,
         });
       }

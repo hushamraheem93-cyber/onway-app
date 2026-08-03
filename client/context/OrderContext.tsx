@@ -1,4 +1,13 @@
-import React, { createContext, useContext, useState, useCallback, useEffect, useRef, useMemo, ReactNode } from "react";
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useCallback,
+  useEffect,
+  useRef,
+  useMemo,
+  ReactNode,
+} from "react";
 import { AppState } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { io, Socket } from "socket.io-client";
@@ -11,14 +20,35 @@ import { playLoudAlert } from "@/lib/alertSound";
 const ORDER_STATUSES_KEY = "@onway_order_statuses";
 
 const STATUS_MESSAGES: Record<string, { title: string; body: string }> = {
-  confirmed: { title: "تم تأكيد الطلب", body: "تم استلام طلبك وسيتم تحضيره قريباً" },
-  preparing: { title: "جاري تحضير الطلب", body: "طلبك الآن قيد التحضير في المتجر" },
+  confirmed: {
+    title: "تم تأكيد الطلب",
+    body: "تم استلام طلبك وسيتم تحضيره قريباً",
+  },
+  preparing: {
+    title: "جاري تحضير الطلب",
+    body: "طلبك الآن قيد التحضير في المتجر",
+  },
   ready: { title: "طلبك جاهز", body: "طلبك جاهز وبانتظار المندوب لاستلامه" },
-  picked_up: { title: "المندوب استلم طلبك", body: "المندوب في طريقه إليك الآن" },
-  in_delivery: { title: "الطلب في الطريق", body: "المندوب في طريقه إليك. تابع موقعه على الخريطة" },
-  delivering: { title: "الطلب في الطريق", body: "تم استلام الطلب من قبل المندوب وهو في طريقه إليك" },
-  delivered: { title: "تم التوصيل بنجاح", body: "تم توصيل طلبك بنجاح. شكراً لتسوقك معنا!" },
-  cancelled: { title: "تم إلغاء الطلب", body: "نأسف لإعلامك أنه تم إلغاء طلبك" },
+  picked_up: {
+    title: "المندوب استلم طلبك",
+    body: "المندوب في طريقه إليك الآن",
+  },
+  in_delivery: {
+    title: "الطلب في الطريق",
+    body: "المندوب في طريقه إليك. تابع موقعه على الخريطة",
+  },
+  delivering: {
+    title: "الطلب في الطريق",
+    body: "تم استلام الطلب من قبل المندوب وهو في طريقه إليك",
+  },
+  delivered: {
+    title: "تم التوصيل بنجاح",
+    body: "تم توصيل طلبك بنجاح. شكراً لتسوقك معنا!",
+  },
+  cancelled: {
+    title: "تم إلغاء الطلب",
+    body: "نأسف لإعلامك أنه تم إلغاء طلبك",
+  },
 };
 
 export interface Order {
@@ -41,7 +71,17 @@ export interface Order {
   phoneNumber: string;
   address: string;
   region: string;
-  status: "pending" | "confirmed" | "preparing" | "ready" | "picked_up" | "in_delivery" | "delivering" | "delivered" | "cancelled" | "issue";
+  status:
+    | "pending"
+    | "confirmed"
+    | "preparing"
+    | "ready"
+    | "picked_up"
+    | "in_delivery"
+    | "delivering"
+    | "delivered"
+    | "cancelled"
+    | "issue";
   createdAt: string;
   updatedAt: string;
   latitude?: number;
@@ -104,34 +144,43 @@ export function OrderProvider({ children }: { children: ReactNode }) {
   const saveStatuses = useCallback(async (statuses: Record<string, string>) => {
     try {
       await AsyncStorage.setItem(ORDER_STATUSES_KEY, JSON.stringify(statuses));
-    } catch (error) {
-    }
+    } catch (error) {}
   }, []);
 
-  const checkForStatusChanges = useCallback((newOrders: Order[]) => {
-    if (!isInitializedRef.current) return;
-    
-    const previousStatuses = previousStatusesRef.current;
-    const newStatuses: Record<string, string> = {};
-    
-    newOrders.forEach((order) => {
-      newStatuses[order.id] = order.status;
-      const previousStatus = previousStatuses[order.id];
-      
-      if (previousStatus && previousStatus !== order.status && order.status !== "pending") {
-        const message = STATUS_MESSAGES[order.status];
-        if (message) {
-          addNotification(message.title, message.body, { orderId: order.id, status: order.status });
-          // Play an in-app alert tone so the customer doesn't miss the update
-          // even when their phone is in their hand (silent push may be missed).
-          playLoudAlert().catch(() => {});
-        }
-      }
-    });
+  const checkForStatusChanges = useCallback(
+    (newOrders: Order[]) => {
+      if (!isInitializedRef.current) return;
 
-    previousStatusesRef.current = newStatuses;
-    saveStatuses(newStatuses);
-  }, [addNotification, saveStatuses]);
+      const previousStatuses = previousStatusesRef.current;
+      const newStatuses: Record<string, string> = {};
+
+      newOrders.forEach((order) => {
+        newStatuses[order.id] = order.status;
+        const previousStatus = previousStatuses[order.id];
+
+        if (
+          previousStatus &&
+          previousStatus !== order.status &&
+          order.status !== "pending"
+        ) {
+          const message = STATUS_MESSAGES[order.status];
+          if (message) {
+            addNotification(message.title, message.body, {
+              orderId: order.id,
+              status: order.status,
+            });
+            // Play an in-app alert tone so the customer doesn't miss the update
+            // even when their phone is in their hand (silent push may be missed).
+            playLoudAlert().catch(() => {});
+          }
+        }
+      });
+
+      previousStatusesRef.current = newStatuses;
+      saveStatuses(newStatuses);
+    },
+    [addNotification, saveStatuses],
+  );
 
   const refreshOrders = useCallback(async () => {
     if (!phoneNumber) return;
@@ -142,7 +191,10 @@ export function OrderProvider({ children }: { children: ReactNode }) {
       const headers: Record<string, string> = {};
       if (customerToken) headers["Authorization"] = `Bearer ${customerToken}`;
       const response = await fetch(
-        new URL(`/api/orders?phoneNumber=${encodeURIComponent(phoneNumber)}`, getApiUrl()).toString(),
+        new URL(
+          `/api/orders?phoneNumber=${encodeURIComponent(phoneNumber)}`,
+          getApiUrl(),
+        ).toString(),
         { headers },
       );
       if (response.ok) {
@@ -160,9 +212,13 @@ export function OrderProvider({ children }: { children: ReactNode }) {
   // foreground. On return to foreground the effect re-runs, refreshing
   // immediately and restarting the interval. Sockets below stay connected and
   // remain the primary real-time channel.
-  const [appActive, setAppActive] = useState(AppState.currentState !== "background");
+  const [appActive, setAppActive] = useState(
+    AppState.currentState !== "background",
+  );
   useEffect(() => {
-    const sub = AppState.addEventListener("change", (s) => setAppActive(s === "active"));
+    const sub = AppState.addEventListener("change", (s) =>
+      setAppActive(s === "active"),
+    );
     return () => sub.remove();
   }, []);
 
@@ -187,103 +243,134 @@ export function OrderProvider({ children }: { children: ReactNode }) {
       reconnectionDelay: 3000,
     });
     ordersSocketRef.current = sock;
-    sock.on("orders:changed", () => { refreshOrders(); });
+    sock.on("orders:changed", () => {
+      refreshOrders();
+    });
     return () => {
       sock.disconnect();
       ordersSocketRef.current = null;
     };
   }, [phoneNumber, refreshOrders]);
 
-  const addOrder = useCallback(async (orderData: {
-    items: CartItem[];
-    total: number;
-    deliveryFee: number;
-    serviceFee?: number;
-    address: string;
-    region: string;
-    customerName?: string;
-    customerPhone?: string;
-    notes?: string;
-    latitude?: number;
-    longitude?: number;
-    promoCode?: string;
-    promoDiscount?: number;
-  }): Promise<Order> => {
-    if (!phoneNumber) {
-      throw new Error("يرجى تسجيل الدخول أولاً");
-    }
-    
-    const bodyData: any = {
-      phoneNumber,
-      userId: userProfile?.id || "",
-      items: orderData.items.map(item => ({
-        productId: item.product.id,
-        name: item.product.name,
-        // Final price = base + variant adjustment + addons
-        price: item.product.price
-          + (item.selectedVariant?.priceAdjustment ?? 0)
-          + (item.selectedAddons ?? []).reduce((s: number, a: any) => s + a.price, 0),
-        quantity: item.quantity,
-        image: item.product.image,
-        ...(item.product.restaurant ? { restaurant: item.product.restaurant } : {}),
-        ...(item.selectedVariant ? {
-          selectedVariantId: item.selectedVariant.id,
-          variantName: item.selectedVariant.name,
-          variantPriceAdjustment: item.selectedVariant.priceAdjustment,
-        } : {}),
-        ...(item.selectedAddons?.length ? {
-          selectedAddons: item.selectedAddons.map(a => ({ id: a.id, name: a.name, price: a.price })),
-        } : {}),
-      })),
-      total: orderData.total,
-      deliveryFee: orderData.deliveryFee,
-      address: orderData.address,
-      region: orderData.region,
-    };
-    // Attach the vendor this order belongs to (the cart is scoped to one vendor).
-    const orderVendorId = orderData.items.find((it) => it.product.vendorId)?.product.vendorId;
-    if (orderVendorId) bodyData.vendorId = orderVendorId;
-    if (orderData.serviceFee !== undefined) bodyData.serviceFee = orderData.serviceFee;
-    if (orderData.customerName) bodyData.customerName = orderData.customerName;
-    if (orderData.customerPhone) bodyData.customerPhone = orderData.customerPhone;
-    if (orderData.notes) bodyData.notes = orderData.notes;
-    if (orderData.promoCode) bodyData.promoCode = orderData.promoCode;
-    if (orderData.promoDiscount) bodyData.promoDiscount = orderData.promoDiscount;
-    if (orderData.latitude !== undefined && orderData.longitude !== undefined) {
-      bodyData.latitude = orderData.latitude;
-      bodyData.longitude = orderData.longitude;
-    }
+  const addOrder = useCallback(
+    async (orderData: {
+      items: CartItem[];
+      total: number;
+      deliveryFee: number;
+      serviceFee?: number;
+      address: string;
+      region: string;
+      customerName?: string;
+      customerPhone?: string;
+      notes?: string;
+      latitude?: number;
+      longitude?: number;
+      promoCode?: string;
+      promoDiscount?: number;
+    }): Promise<Order> => {
+      if (!phoneNumber) {
+        throw new Error("يرجى تسجيل الدخول أولاً");
+      }
 
-    let response: Response;
-    try {
-      response = await fetch(new URL("/api/orders", getApiUrl()).toString(), {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(customerToken ? { Authorization: `Bearer ${customerToken}` } : {}),
-        },
-        body: JSON.stringify(bodyData),
-      });
-    } catch (networkError: any) {
-      const netErr = new Error("تعذّر الاتصال بالخادم، تحقق من اتصالك بالإنترنت");
-      (netErr as any).isNetworkError = true;
-      throw netErr;
-    }
+      const bodyData: any = {
+        phoneNumber,
+        userId: userProfile?.id || "",
+        items: orderData.items.map((item) => ({
+          productId: item.product.id,
+          name: item.product.name,
+          // Final price = base + variant adjustment + addons
+          price:
+            item.product.price +
+            (item.selectedVariant?.priceAdjustment ?? 0) +
+            (item.selectedAddons ?? []).reduce(
+              (s: number, a: any) => s + a.price,
+              0,
+            ),
+          quantity: item.quantity,
+          image: item.product.image,
+          ...(item.product.restaurant
+            ? { restaurant: item.product.restaurant }
+            : {}),
+          ...(item.selectedVariant
+            ? {
+                selectedVariantId: item.selectedVariant.id,
+                variantName: item.selectedVariant.name,
+                variantPriceAdjustment: item.selectedVariant.priceAdjustment,
+              }
+            : {}),
+          ...(item.selectedAddons?.length
+            ? {
+                selectedAddons: item.selectedAddons.map((a) => ({
+                  id: a.id,
+                  name: a.name,
+                  price: a.price,
+                })),
+              }
+            : {}),
+        })),
+        total: orderData.total,
+        deliveryFee: orderData.deliveryFee,
+        address: orderData.address,
+        region: orderData.region,
+      };
+      // Attach the vendor this order belongs to (the cart is scoped to one vendor).
+      const orderVendorId = orderData.items.find((it) => it.product.vendorId)
+        ?.product.vendorId;
+      if (orderVendorId) bodyData.vendorId = orderVendorId;
+      if (orderData.serviceFee !== undefined)
+        bodyData.serviceFee = orderData.serviceFee;
+      if (orderData.customerName)
+        bodyData.customerName = orderData.customerName;
+      if (orderData.customerPhone)
+        bodyData.customerPhone = orderData.customerPhone;
+      if (orderData.notes) bodyData.notes = orderData.notes;
+      if (orderData.promoCode) bodyData.promoCode = orderData.promoCode;
+      if (orderData.promoDiscount)
+        bodyData.promoDiscount = orderData.promoDiscount;
+      if (
+        orderData.latitude !== undefined &&
+        orderData.longitude !== undefined
+      ) {
+        bodyData.latitude = orderData.latitude;
+        bodyData.longitude = orderData.longitude;
+      }
 
-    if (!response.ok) {
-      let serverMessage = "فشل في إنشاء الطلب";
+      let response: Response;
       try {
-        const errBody = await response.json();
-        if (errBody?.error) serverMessage = errBody.error;
-        else if (errBody?.message) serverMessage = errBody.message;
-      } catch {}
-      throw new Error(serverMessage);
-    }
+        response = await fetch(new URL("/api/orders", getApiUrl()).toString(), {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...(customerToken
+              ? { Authorization: `Bearer ${customerToken}` }
+              : {}),
+          },
+          body: JSON.stringify(bodyData),
+        });
+      } catch (networkError: any) {
+        const netErr = new Error(
+          "تعذّر الاتصال بالخادم، تحقق من اتصالك بالإنترنت",
+        );
+        (netErr as any).isNetworkError = true;
+        throw netErr;
+      }
 
-    const newOrder = await response.json();
-    setOrders(prev => [newOrder, ...prev]);
-    return newOrder;
-  }, [phoneNumber, userProfile, customerToken]);
+      if (!response.ok) {
+        let serverMessage = "فشل في إنشاء الطلب";
+        try {
+          const errBody = await response.json();
+          if (errBody?.error) serverMessage = errBody.error;
+          else if (errBody?.message) serverMessage = errBody.message;
+        } catch {}
+        throw new Error(serverMessage);
+      }
+
+      const newOrder = await response.json();
+      setOrders((prev) => [newOrder, ...prev]);
+      return newOrder;
+    },
+    [phoneNumber, userProfile, customerToken],
+  );
 
   const value = useMemo(
     () => ({ orders, isLoading, addOrder, refreshOrders }),
@@ -291,9 +378,7 @@ export function OrderProvider({ children }: { children: ReactNode }) {
   );
 
   return (
-    <OrderContext.Provider value={value}>
-      {children}
-    </OrderContext.Provider>
+    <OrderContext.Provider value={value}>{children}</OrderContext.Provider>
   );
 }
 

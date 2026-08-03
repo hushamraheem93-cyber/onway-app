@@ -6,7 +6,7 @@ import { Feather } from "@expo/vector-icons";
 import { ThemedText } from "@/components/ThemedText";
 import { useTheme } from "@/hooks/useTheme";
 import { useLocation } from "@/context/LocationContext";
-import { AppColors, FontWeight} from "@/constants/theme";
+import { AppColors, FontWeight } from "@/constants/theme";
 import { reverseGeocodeArabic, DHULUIYAH_CENTER } from "@/lib/geocoding";
 
 function getLeafletHTML(lat: number, lng: number) {
@@ -128,10 +128,16 @@ function getLeafletHTML(lat: number, lng: number) {
 </html>`;
 }
 
-type MapPickerParams = {
-  initialLocation?: { latitude: number; longitude: number };
-  onPicked?: (loc: { latitude: number; longitude: number; address: string }) => void;
-} | undefined;
+type MapPickerParams =
+  | {
+      initialLocation?: { latitude: number; longitude: number };
+      onPicked?: (loc: {
+        latitude: number;
+        longitude: number;
+        address: string;
+      }) => void;
+    }
+  | undefined;
 
 export default function MapPickerScreen() {
   const navigation = useNavigation();
@@ -141,10 +147,19 @@ export default function MapPickerScreen() {
   const { savedLocation, setSavedLocation } = useLocation();
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
-  const initialLat = params?.initialLocation?.latitude ?? savedLocation?.latitude ?? DHULUIYAH_CENTER.lat;
-  const initialLng = params?.initialLocation?.longitude ?? savedLocation?.longitude ?? DHULUIYAH_CENTER.lng;
+  const initialLat =
+    params?.initialLocation?.latitude ??
+    savedLocation?.latitude ??
+    DHULUIYAH_CENTER.lat;
+  const initialLng =
+    params?.initialLocation?.longitude ??
+    savedLocation?.longitude ??
+    DHULUIYAH_CENTER.lng;
 
-  const [selectedCoord, setSelectedCoord] = useState({ latitude: initialLat, longitude: initialLng });
+  const [selectedCoord, setSelectedCoord] = useState({
+    latitude: initialLat,
+    longitude: initialLng,
+  });
   const [addressText, setAddressText] = useState(savedLocation?.address || "");
   const [loadingAddress, setLoadingAddress] = useState(false);
 
@@ -196,18 +211,25 @@ export default function MapPickerScreen() {
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         (pos) => {
-          const coords = { latitude: pos.coords.latitude, longitude: pos.coords.longitude };
+          const coords = {
+            latitude: pos.coords.latitude,
+            longitude: pos.coords.longitude,
+          };
           setSelectedCoord(coords);
           fetchAddress(coords.latitude, coords.longitude);
           if (iframeRef.current?.contentWindow) {
             iframeRef.current.contentWindow.postMessage(
-              JSON.stringify({ type: "moveTo", lat: coords.latitude, lng: coords.longitude }),
-              "*"
+              JSON.stringify({
+                type: "moveTo",
+                lat: coords.latitude,
+                lng: coords.longitude,
+              }),
+              "*",
             );
           }
         },
         () => {},
-        { enableHighAccuracy: true }
+        { enableHighAccuracy: true },
       );
     }
   };
@@ -232,11 +254,17 @@ export default function MapPickerScreen() {
             <Feather name="map-pin" size={20} color={AppColors.primary} />
           </View>
           <View style={styles.addressContent}>
-            <ThemedText type="small" style={styles.addressLabel}>العنوان المحدد</ThemedText>
+            <ThemedText type="small" style={styles.addressLabel}>
+              العنوان المحدد
+            </ThemedText>
             {loadingAddress ? (
               <ActivityIndicator size="small" color={AppColors.primary} />
             ) : (
-              <ThemedText type="body" numberOfLines={2} style={styles.addressValue}>
+              <ThemedText
+                type="body"
+                numberOfLines={2}
+                style={styles.addressValue}
+              >
                 {addressText || "انقر على الخريطة لتحديد موقعك"}
               </ThemedText>
             )}
@@ -245,7 +273,9 @@ export default function MapPickerScreen() {
 
         <Pressable style={styles.confirmButton} onPress={handleConfirm}>
           <Feather name="check" size={20} color={AppColors.black} />
-          <ThemedText type="body" style={styles.confirmText}>تثبيت الموقع</ThemedText>
+          <ThemedText type="body" style={styles.confirmText}>
+            تثبيت الموقع
+          </ThemedText>
         </Pressable>
       </View>
     </View>

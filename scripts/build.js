@@ -60,7 +60,7 @@ function getDeploymentDomain() {
 
   console.error(
     "ERROR: No deployment domain found.\n" +
-    "Set EXPO_PUBLIC_API_BASE_URL=https://yourdomain.com before running the build.",
+      "Set EXPO_PUBLIC_API_BASE_URL=https://yourdomain.com before running the build.",
   );
   process.exit(1);
 }

@@ -1,45 +1,74 @@
 import React from "react";
 import { View, Pressable, StyleSheet } from "react-native";
 import { Image } from "expo-image";
-import { createBottomTabNavigator, BottomTabBarProps } from "@react-navigation/bottom-tabs";
+import {
+  createBottomTabNavigator,
+  BottomTabBarProps,
+} from "@react-navigation/bottom-tabs";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as Haptics from "expo-haptics";
 
-import VendorHomeScreen        from "@/screens/VendorHomeScreen";
-import VendorAnalyticsScreen   from "@/screens/VendorAnalyticsScreen";
-import VendorProductsScreen    from "@/screens/VendorProductsScreen";
-import VendorAddProductScreen  from "@/screens/VendorAddProductScreen";
+import VendorHomeScreen from "@/screens/VendorHomeScreen";
+import VendorAnalyticsScreen from "@/screens/VendorAnalyticsScreen";
+import VendorProductsScreen from "@/screens/VendorProductsScreen";
+import VendorAddProductScreen from "@/screens/VendorAddProductScreen";
 import VendorEditProductScreen from "@/screens/VendorEditProductScreen";
-import VendorOrdersScreen      from "@/screens/VendorOrdersScreen";
-import VendorProfileScreen     from "@/screens/VendorProfileScreen";
+import VendorOrdersScreen from "@/screens/VendorOrdersScreen";
+import VendorProfileScreen from "@/screens/VendorProfileScreen";
 import { useScreenOptions } from "@/hooks/useScreenOptions";
-import { VendorNotificationsProvider, useVendorNotifications } from "@/context/VendorNotificationsContext";
+import {
+  VendorNotificationsProvider,
+  useVendorNotifications,
+} from "@/context/VendorNotificationsContext";
 import { ThemedText } from "@/components/ThemedText";
 import { AppColors, FontFamily } from "@/constants/theme";
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
 export type VendorTabParamList = {
-  VendorHome:         undefined;
-  VendorOrdersTab:    undefined;
-  VendorProductsTab:  undefined;
+  VendorHome: undefined;
+  VendorOrdersTab: undefined;
+  VendorProductsTab: undefined;
   VendorAnalyticsTab: undefined;
-  VendorProfileTab:   undefined;
+  VendorProfileTab: undefined;
 };
 
-const Tab          = createBottomTabNavigator<VendorTabParamList>();
+const Tab = createBottomTabNavigator<VendorTabParamList>();
 const ProductStack = createNativeStackNavigator();
 
 // ─── Tab config — 5 tabs as per spec ──────────────────────────────────────────
 
-const TAB_CONFIG: Record<string, { icon: string; label: string; activeColor: string }> = {
-  VendorHome:         { icon: "home-outline",             label: "الرئيسية",   activeColor: AppColors.primary },
-  VendorOrdersTab:    { icon: "shopping-outline",          label: "الطلبات",    activeColor: AppColors.primary },
-  VendorProductsTab:  { icon: "package-variant-closed",   label: "المنتجات",   activeColor: AppColors.primary },
-  VendorAnalyticsTab: { icon: "chart-bar",                label: "الإحصائيات", activeColor: AppColors.primary },
-  VendorProfileTab:   { icon: "account-outline",          label: "الحساب",     activeColor: AppColors.primary },
+const TAB_CONFIG: Record<
+  string,
+  { icon: string; label: string; activeColor: string }
+> = {
+  VendorHome: {
+    icon: "home-outline",
+    label: "الرئيسية",
+    activeColor: AppColors.primary,
+  },
+  VendorOrdersTab: {
+    icon: "shopping-outline",
+    label: "الطلبات",
+    activeColor: AppColors.primary,
+  },
+  VendorProductsTab: {
+    icon: "package-variant-closed",
+    label: "المنتجات",
+    activeColor: AppColors.primary,
+  },
+  VendorAnalyticsTab: {
+    icon: "chart-bar",
+    label: "الإحصائيات",
+    activeColor: AppColors.primary,
+  },
+  VendorProfileTab: {
+    icon: "account-outline",
+    label: "الحساب",
+    activeColor: AppColors.primary,
+  },
 };
 
 // ─── Products stack ───────────────────────────────────────────────────────────
@@ -47,10 +76,24 @@ const TAB_CONFIG: Record<string, { icon: string; label: string; activeColor: str
 function ProductsStackNavigator() {
   const screenOptions = useScreenOptions();
   return (
-    <ProductStack.Navigator screenOptions={{ ...screenOptions, headerTintColor: AppColors.primary }}>
-      <ProductStack.Screen name="VendorProducts"    component={VendorProductsScreen}    options={{ headerTitle: "منتجاتي" }} />
-      <ProductStack.Screen name="VendorAddProduct"  component={VendorAddProductScreen}  options={{ headerTitle: "إضافة منتج" }} />
-      <ProductStack.Screen name="VendorEditProduct" component={VendorEditProductScreen} options={{ headerTitle: "تعديل المنتج" }} />
+    <ProductStack.Navigator
+      screenOptions={{ ...screenOptions, headerTintColor: AppColors.primary }}
+    >
+      <ProductStack.Screen
+        name="VendorProducts"
+        component={VendorProductsScreen}
+        options={{ headerTitle: "منتجاتي" }}
+      />
+      <ProductStack.Screen
+        name="VendorAddProduct"
+        component={VendorAddProductScreen}
+        options={{ headerTitle: "إضافة منتج" }}
+      />
+      <ProductStack.Screen
+        name="VendorEditProduct"
+        component={VendorEditProductScreen}
+        options={{ headerTitle: "تعديل المنتج" }}
+      />
     </ProductStack.Navigator>
   );
 }
@@ -58,36 +101,59 @@ function ProductsStackNavigator() {
 // ─── Custom tab bar ───────────────────────────────────────────────────────────
 
 function VendorTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
-  const insets         = useSafeAreaInsets();
+  const insets = useSafeAreaInsets();
   const { unreadCount } = useVendorNotifications();
 
   return (
-    <View style={[styles.tabBar, { paddingBottom: insets.bottom > 0 ? insets.bottom : 12 }]}>
+    <View
+      style={[
+        styles.tabBar,
+        { paddingBottom: insets.bottom > 0 ? insets.bottom : 12 },
+      ]}
+    >
       {state.routes.map((route, index) => {
         const isFocused = state.index === index;
-        const config    = TAB_CONFIG[route.name];
+        const config = TAB_CONFIG[route.name];
         if (!config) return null;
 
         const isOrders = route.name === "VendorOrdersTab";
-        const color    = isFocused ? config.activeColor : AppColors.gray400;
+        const color = isFocused ? config.activeColor : AppColors.gray400;
 
         const onPress = () => {
           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-          const event = navigation.emit({ type: "tabPress", target: route.key, canPreventDefault: true });
-          if (!isFocused && !event.defaultPrevented) navigation.navigate(route.name);
+          const event = navigation.emit({
+            type: "tabPress",
+            target: route.key,
+            canPreventDefault: true,
+          });
+          if (!isFocused && !event.defaultPrevented)
+            navigation.navigate(route.name);
         };
 
         return (
           <Pressable key={route.key} onPress={onPress} style={styles.tabItem}>
-            <View style={[styles.iconWrap, isFocused && { backgroundColor: AppColors.primary + "15" }]}>
-              <MaterialCommunityIcons name={config.icon as any} size={22} color={color} />
+            <View
+              style={[
+                styles.iconWrap,
+                isFocused && { backgroundColor: AppColors.primary + "15" },
+              ]}
+            >
+              <MaterialCommunityIcons
+                name={config.icon as any}
+                size={22}
+                color={color}
+              />
               {isOrders && unreadCount > 0 && (
                 <View style={styles.badge}>
-                  <ThemedText style={styles.badgeText}>{unreadCount > 9 ? "9+" : String(unreadCount)}</ThemedText>
+                  <ThemedText style={styles.badgeText}>
+                    {unreadCount > 9 ? "9+" : String(unreadCount)}
+                  </ThemedText>
                 </View>
               )}
             </View>
-            <ThemedText style={[styles.tabLabel, { color }]}>{config.label}</ThemedText>
+            <ThemedText style={[styles.tabLabel, { color }]}>
+              {config.label}
+            </ThemedText>
           </Pressable>
         );
       })}
@@ -124,10 +190,26 @@ function VendorTabs() {
           ),
         }}
       />
-      <Tab.Screen name="VendorOrdersTab"    component={VendorOrdersScreen}      options={{ headerTitle: "الطلبات" }} />
-      <Tab.Screen name="VendorProductsTab"  component={ProductsStackNavigator}  options={{ headerShown: false }} />
-      <Tab.Screen name="VendorAnalyticsTab" component={VendorAnalyticsScreen}   options={{ headerTitle: "الإحصائيات والتقييمات" }} />
-      <Tab.Screen name="VendorProfileTab"   component={VendorProfileScreen}     options={{ headerTitle: "الحساب" }} />
+      <Tab.Screen
+        name="VendorOrdersTab"
+        component={VendorOrdersScreen}
+        options={{ headerTitle: "الطلبات" }}
+      />
+      <Tab.Screen
+        name="VendorProductsTab"
+        component={ProductsStackNavigator}
+        options={{ headerShown: false }}
+      />
+      <Tab.Screen
+        name="VendorAnalyticsTab"
+        component={VendorAnalyticsScreen}
+        options={{ headerTitle: "الإحصائيات والتقييمات" }}
+      />
+      <Tab.Screen
+        name="VendorProfileTab"
+        component={VendorProfileScreen}
+        options={{ headerTitle: "الحساب" }}
+      />
     </Tab.Navigator>
   );
 }

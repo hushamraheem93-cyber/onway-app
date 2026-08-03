@@ -5,7 +5,7 @@ const config = getDefaultConfig(__dirname);
 
 const localPath = path.resolve(__dirname, ".local");
 const localBlockPattern = new RegExp(
-  "^" + localPath.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + ".*"
+  "^" + localPath.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + ".*",
 );
 
 const existingBlockList = config.resolver.blockList;

@@ -20,13 +20,24 @@ import { GradientBackground } from "@/components/GradientBackground";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import { useTheme } from "@/hooks/useTheme";
 import { useAuth } from "@/context/AuthContext";
-import { AppColors, Spacing, BorderRadius, Shadows, FontWeight} from "@/constants/theme";
+import {
+  AppColors,
+  Spacing,
+  BorderRadius,
+  Shadows,
+  FontWeight,
+} from "@/constants/theme";
 import { getApiUrl } from "@/lib/query-client";
 
 export default function DriverRegistrationScreen() {
   const insets = useSafeAreaInsets();
   const { theme } = useTheme();
-  const { phoneNumber, customerToken, completeDriverRegistration, goBackToUserType } = useAuth();
+  const {
+    phoneNumber,
+    customerToken,
+    completeDriverRegistration,
+    goBackToUserType,
+  } = useAuth();
 
   const [firstName, setFirstName] = useState("");
   const [secondName, setSecondName] = useState("");
@@ -34,8 +45,12 @@ export default function DriverRegistrationScreen() {
   const [fourthName, setFourthName] = useState("");
   const [motorcycleNumber, setMotorcycleNumber] = useState("");
   const [nationalIdImage, setNationalIdImage] = useState<string | null>(null);
-  const [residenceCardImage, setResidenceCardImage] = useState<string | null>(null);
-  const [driverLicenseImage, setDriverLicenseImage] = useState<string | null>(null);
+  const [residenceCardImage, setResidenceCardImage] = useState<string | null>(
+    null,
+  );
+  const [driverLicenseImage, setDriverLicenseImage] = useState<string | null>(
+    null,
+  );
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [agreementAccepted, setAgreementAccepted] = useState(false);
@@ -50,15 +65,23 @@ export default function DriverRegistrationScreen() {
     residenceCardImage !== null &&
     agreementAccepted;
 
-  const getSetterForType = (imageType: "nationalId" | "residenceCard" | "driverLicense") => {
+  const getSetterForType = (
+    imageType: "nationalId" | "residenceCard" | "driverLicense",
+  ) => {
     switch (imageType) {
-      case "nationalId": return setNationalIdImage;
-      case "residenceCard": return setResidenceCardImage;
-      case "driverLicense": return setDriverLicenseImage;
+      case "nationalId":
+        return setNationalIdImage;
+      case "residenceCard":
+        return setResidenceCardImage;
+      case "driverLicense":
+        return setDriverLicenseImage;
     }
   };
 
-  const handleImageResult = (result: ImagePicker.ImagePickerResult, imageType: "nationalId" | "residenceCard" | "driverLicense") => {
+  const handleImageResult = (
+    result: ImagePicker.ImagePickerResult,
+    imageType: "nationalId" | "residenceCard" | "driverLicense",
+  ) => {
     if (result.canceled || !result.assets || !result.assets[0]) return;
 
     const asset = result.assets[0];
@@ -74,79 +97,90 @@ export default function DriverRegistrationScreen() {
     }
   };
 
-  const pickFromGallery = useCallback(async (imageType: "nationalId" | "residenceCard" | "driverLicense") => {
-    setErrorMessage("");
-    try {
-      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (status !== "granted") {
-        setErrorMessage("يرجى السماح بالوصول لمعرض الصور لاختيار صورة");
-        return;
-      }
-
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ["images"],
-        allowsEditing: true,
-        quality: 0.4,
-        base64: true,
-      });
-
-      handleImageResult(result, imageType);
-    } catch (error) {
-      setErrorMessage("حدث خطأ أثناء اختيار الصورة");
-    }
-  }, []);
-
-  const takePhoto = useCallback(async (imageType: "nationalId" | "residenceCard" | "driverLicense") => {
-    setErrorMessage("");
-    try {
-      const { status } = await ImagePicker.requestCameraPermissionsAsync();
-      if (status !== "granted") {
-        setErrorMessage("يرجى السماح بالوصول للكاميرا لالتقاط صورة");
-        return;
-      }
-
-      const result = await ImagePicker.launchCameraAsync({
-        allowsEditing: true,
-        quality: 0.4,
-        base64: true,
-      });
-
-      handleImageResult(result, imageType);
-    } catch (error) {
-      setErrorMessage("حدث خطأ أثناء التقاط الصورة");
-    }
-  }, []);
-
-  const showImageOptions = useCallback((imageType: "nationalId" | "residenceCard" | "driverLicense") => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-
-    if (Platform.OS === "web") {
-      pickFromGallery(imageType);
-      return;
-    }
-
-    if (Platform.OS === "ios") {
-      ActionSheetIOS.showActionSheetWithOptions(
-        {
-          options: ["إلغاء", "الكاميرا", "معرض الصور"],
-          cancelButtonIndex: 0,
-          title: "اختر طريقة إضافة الصورة",
-        },
-        (buttonIndex) => {
-          if (buttonIndex === 1) {
-            takePhoto(imageType);
-          } else if (buttonIndex === 2) {
-            pickFromGallery(imageType);
-          }
+  const pickFromGallery = useCallback(
+    async (imageType: "nationalId" | "residenceCard" | "driverLicense") => {
+      setErrorMessage("");
+      try {
+        const { status } =
+          await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (status !== "granted") {
+          setErrorMessage("يرجى السماح بالوصول لمعرض الصور لاختيار صورة");
+          return;
         }
-      );
-    } else {
-      pickFromGallery(imageType);
-    }
-  }, [pickFromGallery, takePhoto]);
+
+        const result = await ImagePicker.launchImageLibraryAsync({
+          mediaTypes: ["images"],
+          allowsEditing: true,
+          quality: 0.4,
+          base64: true,
+        });
+
+        handleImageResult(result, imageType);
+      } catch (error) {
+        setErrorMessage("حدث خطأ أثناء اختيار الصورة");
+      }
+    },
+    [],
+  );
+
+  const takePhoto = useCallback(
+    async (imageType: "nationalId" | "residenceCard" | "driverLicense") => {
+      setErrorMessage("");
+      try {
+        const { status } = await ImagePicker.requestCameraPermissionsAsync();
+        if (status !== "granted") {
+          setErrorMessage("يرجى السماح بالوصول للكاميرا لالتقاط صورة");
+          return;
+        }
+
+        const result = await ImagePicker.launchCameraAsync({
+          allowsEditing: true,
+          quality: 0.4,
+          base64: true,
+        });
+
+        handleImageResult(result, imageType);
+      } catch (error) {
+        setErrorMessage("حدث خطأ أثناء التقاط الصورة");
+      }
+    },
+    [],
+  );
+
+  const showImageOptions = useCallback(
+    (imageType: "nationalId" | "residenceCard" | "driverLicense") => {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+
+      if (Platform.OS === "web") {
+        pickFromGallery(imageType);
+        return;
+      }
+
+      if (Platform.OS === "ios") {
+        ActionSheetIOS.showActionSheetWithOptions(
+          {
+            options: ["إلغاء", "الكاميرا", "معرض الصور"],
+            cancelButtonIndex: 0,
+            title: "اختر طريقة إضافة الصورة",
+          },
+          (buttonIndex) => {
+            if (buttonIndex === 1) {
+              takePhoto(imageType);
+            } else if (buttonIndex === 2) {
+              pickFromGallery(imageType);
+            }
+          },
+        );
+      } else {
+        pickFromGallery(imageType);
+      }
+    },
+    [pickFromGallery, takePhoto],
+  );
 
   const handleSubmit = async () => {
-    if (!isFormValid || !phoneNumber || !nationalIdImage || !residenceCardImage) return;
+    if (!isFormValid || !phoneNumber || !nationalIdImage || !residenceCardImage)
+      return;
 
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setIsLoading(true);
@@ -172,14 +206,19 @@ export default function DriverRegistrationScreen() {
 
       // Registration is owner-gated on the server (the phone must match the OTP-issued
       // customer JWT), so the token has to be attached.
-      const response = await fetch(new URL("/api/drivers", getApiUrl()).toString(), {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(customerToken ? { Authorization: `Bearer ${customerToken}` } : {}),
+      const response = await fetch(
+        new URL("/api/drivers", getApiUrl()).toString(),
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...(customerToken
+              ? { Authorization: `Bearer ${customerToken}` }
+              : {}),
+          },
+          body: JSON.stringify(bodyData),
         },
-        body: JSON.stringify(bodyData),
-      });
+      );
 
       if (!response.ok) {
         let errMsg = "فشل في تسجيل السائق";
@@ -201,308 +240,568 @@ export default function DriverRegistrationScreen() {
   return (
     <View style={{ flex: 1 }}>
       <GradientBackground />
-    <KeyboardAwareScrollViewCompat
-      style={[styles.container]}
-      contentContainerStyle={{
-        paddingTop: insets.top + Spacing.xl,
-        paddingBottom: insets.bottom + Spacing.xl + 100,
-        paddingHorizontal: Spacing.lg,
-      }}
-      keyboardShouldPersistTaps="handled"
-      showsVerticalScrollIndicator={false}
-      bottomOffset={50}
-    >
-      <Pressable
-        style={[styles.backButton, { backgroundColor: theme.backgroundDefault }]}
-        onPress={() => {
-          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-          goBackToUserType();
+      <KeyboardAwareScrollViewCompat
+        style={[styles.container]}
+        contentContainerStyle={{
+          paddingTop: insets.top + Spacing.xl,
+          paddingBottom: insets.bottom + Spacing.xl + 100,
+          paddingHorizontal: Spacing.lg,
         }}
-        testID="button-back"
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+        bottomOffset={50}
       >
-        <Feather name="arrow-right" size={22} color={theme.text} />
-        <ThemedText type="body" style={{ fontWeight: FontWeight.semiBold }}>رجوع</ThemedText>
-      </Pressable>
-
-      <View style={styles.header}>
-        <View style={[styles.iconCircle, { backgroundColor: "#E8F5E915" }]}>
-          <Feather name="truck" size={36} color={AppColors.success} />
-        </View>
-        <ThemedText type="h2" style={styles.title}>تسجيل سائق توصيل</ThemedText>
-        <ThemedText type="body" style={[styles.subtitle, { color: theme.textSecondary }]}>
-          أدخل بياناتك للانضمام لفريق التوصيل
-        </ThemedText>
-      </View>
-
-      {errorMessage ? (
-        <View style={styles.errorBanner}>
-          <Feather name="alert-circle" size={18} color={AppColors.white} />
-          <ThemedText type="body" style={styles.errorBannerText}>{errorMessage}</ThemedText>
-          <Pressable onPress={() => setErrorMessage("")}>
-            <Feather name="x" size={18} color={AppColors.white} />
-          </Pressable>
-        </View>
-      ) : null}
-
-      <View style={[styles.card, { backgroundColor: theme.backgroundDefault }, Shadows.sm]}>
-        <ThemedText type="h4" style={styles.sectionTitle}>الاسم الرباعي</ThemedText>
-
-        <View style={styles.field}>
-          <ThemedText type="body" style={styles.label}>الاسم الأول</ThemedText>
-          <TextInput
-            style={[styles.input, { backgroundColor: theme.backgroundSecondary, color: theme.text, borderColor: theme.border }]}
-            placeholder="مثال: أحمد"
-            placeholderTextColor={theme.textSecondary}
-            value={firstName}
-            onChangeText={setFirstName}
-            textAlign="right"
-            testID="input-first-name"
-          />
-        </View>
-
-        <View style={styles.field}>
-          <ThemedText type="body" style={styles.label}>اسم الأب</ThemedText>
-          <TextInput
-            style={[styles.input, { backgroundColor: theme.backgroundSecondary, color: theme.text, borderColor: theme.border }]}
-            placeholder="مثال: محمد"
-            placeholderTextColor={theme.textSecondary}
-            value={secondName}
-            onChangeText={setSecondName}
-            textAlign="right"
-            testID="input-second-name"
-          />
-        </View>
-
-        <View style={styles.field}>
-          <ThemedText type="body" style={styles.label}>اسم الجد</ThemedText>
-          <TextInput
-            style={[styles.input, { backgroundColor: theme.backgroundSecondary, color: theme.text, borderColor: theme.border }]}
-            placeholder="مثال: علي"
-            placeholderTextColor={theme.textSecondary}
-            value={thirdName}
-            onChangeText={setThirdName}
-            textAlign="right"
-            testID="input-third-name"
-          />
-        </View>
-
-        <View style={styles.field}>
-          <ThemedText type="body" style={styles.label}>اللقب</ThemedText>
-          <TextInput
-            style={[styles.input, { backgroundColor: theme.backgroundSecondary, color: theme.text, borderColor: theme.border }]}
-            placeholder="مثال: العبيدي"
-            placeholderTextColor={theme.textSecondary}
-            value={fourthName}
-            onChangeText={setFourthName}
-            textAlign="right"
-            testID="input-fourth-name"
-          />
-        </View>
-      </View>
-
-      <View style={[styles.card, { backgroundColor: theme.backgroundDefault }, Shadows.sm]}>
-        <ThemedText type="h4" style={styles.sectionTitle}>رقم الهاتف</ThemedText>
-        <View style={[styles.phoneDisplay, { backgroundColor: AppColors.primary + "08", borderColor: AppColors.primary + "30" }]}>
-          <Feather name="check-circle" size={18} color={AppColors.success} />
-          <ThemedText type="body" style={[styles.phoneText, { color: theme.text }]}>
-            {phoneNumber}
-          </ThemedText>
-          <Feather name="phone" size={18} color={AppColors.primary} />
-        </View>
-        <ThemedText type="small" style={{ textAlign: "right", color: AppColors.success, marginTop: Spacing.xs, fontWeight: FontWeight.semiBold }}>
-          تم تعبئة الرقم تلقائياً من تسجيل الدخول
-        </ThemedText>
-      </View>
-
-      <View style={[styles.card, { backgroundColor: theme.backgroundDefault }, Shadows.sm]}>
-        <ThemedText type="h4" style={styles.sectionTitle}>رقم الدراجة النارية</ThemedText>
-        <TextInput
-          style={[styles.input, { backgroundColor: theme.backgroundSecondary, color: theme.text, borderColor: theme.border }]}
-          placeholder="أدخل رقم الدراجة النارية"
-          placeholderTextColor={theme.textSecondary}
-          value={motorcycleNumber}
-          onChangeText={setMotorcycleNumber}
-          textAlign="right"
-          testID="input-motorcycle-number"
-        />
-      </View>
-
-      <View style={[styles.card, { backgroundColor: theme.backgroundDefault }, Shadows.sm]}>
-        <ThemedText type="h4" style={styles.sectionTitle}>صورة البطاقة الوطنية</ThemedText>
-        <ThemedText type="small" style={[styles.idHint, { color: theme.textSecondary }]}>
-          التقط صورة واضحة للوجه الأمامي للبطاقة الوطنية
-        </ThemedText>
-
         <Pressable
-          style={[styles.idUpload, { borderColor: nationalIdImage ? AppColors.primary : theme.border, backgroundColor: theme.backgroundSecondary }]}
-          onPress={() => showImageOptions("nationalId")}
-          testID="button-upload-id"
-        >
-          {nationalIdImage ? (
-            <View>
-              <Image
-                source={{ uri: nationalIdImage }}
-                style={styles.idPreview}
-                contentFit="cover"
-              />
-              <View style={styles.uploadedBadge}>
-                <Feather name="check-circle" size={16} color={AppColors.white} />
-                <ThemedText type="small" style={styles.uploadedText}>تم الرفع</ThemedText>
-              </View>
-            </View>
-          ) : (
-            <View style={styles.idPlaceholder}>
-              <Feather name="camera" size={36} color={theme.textSecondary} />
-              <ThemedText type="body" style={[styles.idPlaceholderText, { color: theme.textSecondary }]}>
-                اضغط لإضافة صورة البطاقة الوطنية
-              </ThemedText>
-            </View>
-          )}
-        </Pressable>
-      </View>
-
-      <View style={[styles.card, { backgroundColor: theme.backgroundDefault }, Shadows.sm]}>
-        <ThemedText type="h4" style={styles.sectionTitle}>صورة بطاقة السكن</ThemedText>
-        <ThemedText type="small" style={[styles.idHint, { color: theme.textSecondary }]}>
-          التقط صورة واضحة لبطاقة السكن
-        </ThemedText>
-
-        <Pressable
-          style={[styles.idUpload, { borderColor: residenceCardImage ? AppColors.success : theme.border, backgroundColor: theme.backgroundSecondary }]}
-          onPress={() => showImageOptions("residenceCard")}
-          testID="button-upload-residence-card"
-        >
-          {residenceCardImage ? (
-            <View>
-              <Image
-                source={{ uri: residenceCardImage }}
-                style={styles.idPreview}
-                contentFit="cover"
-              />
-              <View style={[styles.uploadedBadge, { backgroundColor: AppColors.success }]}>
-                <Feather name="check-circle" size={16} color={AppColors.white} />
-                <ThemedText type="small" style={styles.uploadedText}>تم الرفع</ThemedText>
-              </View>
-            </View>
-          ) : (
-            <View style={styles.idPlaceholder}>
-              <Feather name="home" size={36} color={theme.textSecondary} />
-              <ThemedText type="body" style={[styles.idPlaceholderText, { color: theme.textSecondary }]}>
-                اضغط لإضافة صورة بطاقة السكن
-              </ThemedText>
-            </View>
-          )}
-        </Pressable>
-      </View>
-
-      <View style={[styles.card, { backgroundColor: theme.backgroundDefault }, Shadows.sm]}>
-        <View style={styles.sectionTitleRow}>
-          <ThemedText type="h4" style={styles.sectionTitle}>صورة إجازة السوق</ThemedText>
-          <View style={styles.optionalBadge}>
-            <ThemedText type="small" style={styles.optionalText}>اختياري</ThemedText>
-          </View>
-        </View>
-        <ThemedText type="small" style={[styles.idHint, { color: theme.textSecondary }]}>
-          التقط صورة واضحة لإجازة السوق (إن وجدت)
-        </ThemedText>
-
-        <Pressable
-          style={[styles.idUpload, { borderColor: driverLicenseImage ? AppColors.success : theme.border, backgroundColor: theme.backgroundSecondary }]}
-          onPress={() => showImageOptions("driverLicense")}
-          testID="button-upload-license"
-        >
-          {driverLicenseImage ? (
-            <View>
-              <Image
-                source={{ uri: driverLicenseImage }}
-                style={styles.idPreview}
-                contentFit="cover"
-              />
-              <View style={[styles.uploadedBadge, { backgroundColor: AppColors.success }]}>
-                <Feather name="check-circle" size={16} color={AppColors.white} />
-                <ThemedText type="small" style={styles.uploadedText}>تم الرفع</ThemedText>
-              </View>
-            </View>
-          ) : (
-            <View style={styles.idPlaceholder}>
-              <Feather name="file-text" size={36} color={theme.textSecondary} />
-              <ThemedText type="body" style={[styles.idPlaceholderText, { color: theme.textSecondary }]}>
-                اضغط لإضافة صورة إجازة السوق
-              </ThemedText>
-            </View>
-          )}
-        </Pressable>
-      </View>
-
-      <View style={[styles.card, { backgroundColor: theme.backgroundDefault }, Shadows.sm]}>
-        <ThemedText type="h4" style={[styles.sectionTitle, { color: AppColors.primary }]}>
-          اتفاقية انضمام كابتن OnWay
-        </ThemedText>
-
-        <ScrollView 
-          style={[styles.agreementBox, { backgroundColor: theme.backgroundSecondary, borderColor: theme.border }]}
-          nestedScrollEnabled={true}
-          showsVerticalScrollIndicator={true}
-        >
-          <ThemedText type="body" style={styles.agreementText}>
-            بصفتك كابتن في تطبيق OnWay داخل قضاء الضلوعية، يجب عليك الالتزام بالشروط التالية:{"\n\n"}
-            <ThemedText style={styles.agreementBold}>1. الأمانة والمسؤولية:</ThemedText>{"\n"}
-            أتعهد بالحفاظ على الطلبات وتسليمها بحالتها الأصلية دون فتح الغلاف أو التلاعب بالمحتويات، وأتحمل المسؤولية الكاملة عن أي نقص أو تلف يحدث للطلب أثناء النقل.{"\n\n"}
-            <ThemedText style={styles.agreementBold}>2. التعامل الأخلاقي:</ThemedText>{"\n"}
-            الالتزام بالأدب وحسن السيرة والسلوك مع الزبائن وأصحاب المحلات، وتمثيل تطبيق OnWay بأفضل صورة أمام أهالي المنطقة.{"\n\n"}
-            <ThemedText style={styles.agreementBold}>3. السلامة المرورية:</ThemedText>{"\n"}
-            أتعهد بالالتزام بقواعد السلامة المرورية أثناء القيادة، وأقر بأنني المسؤول الأول والقانوني عن أي حادث أو مخالفة مرورية تحدث أثناء العمل.{"\n\n"}
-            <ThemedText style={styles.agreementBold}>4. خصوصية البيانات:</ThemedText>{"\n"}
-            أتعهد بعدم استخدام أرقام هواتف الزبائن أو مواقع سكنهم لأي غرض خارج إطار عملية التوصيل، ويمنع التواصل مع الزبون بعد انتهاء الطلب نهائياً.{"\n\n"}
-            <ThemedText style={styles.agreementBold}>5. إخلاء المسؤولية:</ThemedText>{"\n"}
-            يخلي تطبيق OnWay مسؤوليته عن أي نزاعات قانونية أو حوادث قد يتعرض لها السائق، حيث يعتبر السائق متعاقداً مستقلاً ويتحمل كافة التبعات القانونية لعمله.
-          </ThemedText>
-        </ScrollView>
-
-        <Pressable
-          style={styles.checkboxRow}
+          style={[
+            styles.backButton,
+            { backgroundColor: theme.backgroundDefault },
+          ]}
           onPress={() => {
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            setAgreementAccepted(!agreementAccepted);
+            goBackToUserType();
           }}
-          testID="button-accept-agreement"
+          testID="button-back"
         >
-          <View style={[styles.checkbox, agreementAccepted ? styles.checkboxChecked : { borderColor: theme.border }]}>
-            {agreementAccepted ? (
-              <Feather name="check" size={14} color={AppColors.white} />
-            ) : null}
-          </View>
-          <ThemedText type="body" style={[styles.checkboxLabel, { color: theme.textSecondary }]}>
-            أقر بأنني قرأت كافة الشروط وأوافق على تحمل المسؤولية الكاملة.
+          <Feather name="arrow-right" size={22} color={theme.text} />
+          <ThemedText type="body" style={{ fontWeight: FontWeight.semiBold }}>
+            رجوع
           </ThemedText>
         </Pressable>
-      </View>
 
-      <Pressable
-        style={[styles.submitButton, !isFormValid && styles.submitButtonDisabled]}
-        onPress={handleSubmit}
-        disabled={!isFormValid || isLoading}
-        testID="button-submit-driver"
-      >
-        {isLoading ? (
-          <ActivityIndicator color={AppColors.white} />
-        ) : (
-          <>
-            <ThemedText type="h4" style={styles.submitButtonText}>
-              إتمام الانضمام للفريق
+        <View style={styles.header}>
+          <View style={[styles.iconCircle, { backgroundColor: "#E8F5E915" }]}>
+            <Feather name="truck" size={36} color={AppColors.success} />
+          </View>
+          <ThemedText type="h2" style={styles.title}>
+            تسجيل سائق توصيل
+          </ThemedText>
+          <ThemedText
+            type="body"
+            style={[styles.subtitle, { color: theme.textSecondary }]}
+          >
+            أدخل بياناتك للانضمام لفريق التوصيل
+          </ThemedText>
+        </View>
+
+        {errorMessage ? (
+          <View style={styles.errorBanner}>
+            <Feather name="alert-circle" size={18} color={AppColors.white} />
+            <ThemedText type="body" style={styles.errorBannerText}>
+              {errorMessage}
             </ThemedText>
-            <View style={styles.buttonIcon}>
-              <Feather name="send" size={18} color={AppColors.primary} />
+            <Pressable onPress={() => setErrorMessage("")}>
+              <Feather name="x" size={18} color={AppColors.white} />
+            </Pressable>
+          </View>
+        ) : null}
+
+        <View
+          style={[
+            styles.card,
+            { backgroundColor: theme.backgroundDefault },
+            Shadows.sm,
+          ]}
+        >
+          <ThemedText type="h4" style={styles.sectionTitle}>
+            الاسم الرباعي
+          </ThemedText>
+
+          <View style={styles.field}>
+            <ThemedText type="body" style={styles.label}>
+              الاسم الأول
+            </ThemedText>
+            <TextInput
+              style={[
+                styles.input,
+                {
+                  backgroundColor: theme.backgroundSecondary,
+                  color: theme.text,
+                  borderColor: theme.border,
+                },
+              ]}
+              placeholder="مثال: أحمد"
+              placeholderTextColor={theme.textSecondary}
+              value={firstName}
+              onChangeText={setFirstName}
+              textAlign="right"
+              testID="input-first-name"
+            />
+          </View>
+
+          <View style={styles.field}>
+            <ThemedText type="body" style={styles.label}>
+              اسم الأب
+            </ThemedText>
+            <TextInput
+              style={[
+                styles.input,
+                {
+                  backgroundColor: theme.backgroundSecondary,
+                  color: theme.text,
+                  borderColor: theme.border,
+                },
+              ]}
+              placeholder="مثال: محمد"
+              placeholderTextColor={theme.textSecondary}
+              value={secondName}
+              onChangeText={setSecondName}
+              textAlign="right"
+              testID="input-second-name"
+            />
+          </View>
+
+          <View style={styles.field}>
+            <ThemedText type="body" style={styles.label}>
+              اسم الجد
+            </ThemedText>
+            <TextInput
+              style={[
+                styles.input,
+                {
+                  backgroundColor: theme.backgroundSecondary,
+                  color: theme.text,
+                  borderColor: theme.border,
+                },
+              ]}
+              placeholder="مثال: علي"
+              placeholderTextColor={theme.textSecondary}
+              value={thirdName}
+              onChangeText={setThirdName}
+              textAlign="right"
+              testID="input-third-name"
+            />
+          </View>
+
+          <View style={styles.field}>
+            <ThemedText type="body" style={styles.label}>
+              اللقب
+            </ThemedText>
+            <TextInput
+              style={[
+                styles.input,
+                {
+                  backgroundColor: theme.backgroundSecondary,
+                  color: theme.text,
+                  borderColor: theme.border,
+                },
+              ]}
+              placeholder="مثال: العبيدي"
+              placeholderTextColor={theme.textSecondary}
+              value={fourthName}
+              onChangeText={setFourthName}
+              textAlign="right"
+              testID="input-fourth-name"
+            />
+          </View>
+        </View>
+
+        <View
+          style={[
+            styles.card,
+            { backgroundColor: theme.backgroundDefault },
+            Shadows.sm,
+          ]}
+        >
+          <ThemedText type="h4" style={styles.sectionTitle}>
+            رقم الهاتف
+          </ThemedText>
+          <View
+            style={[
+              styles.phoneDisplay,
+              {
+                backgroundColor: AppColors.primary + "08",
+                borderColor: AppColors.primary + "30",
+              },
+            ]}
+          >
+            <Feather name="check-circle" size={18} color={AppColors.success} />
+            <ThemedText
+              type="body"
+              style={[styles.phoneText, { color: theme.text }]}
+            >
+              {phoneNumber}
+            </ThemedText>
+            <Feather name="phone" size={18} color={AppColors.primary} />
+          </View>
+          <ThemedText
+            type="small"
+            style={{
+              textAlign: "right",
+              color: AppColors.success,
+              marginTop: Spacing.xs,
+              fontWeight: FontWeight.semiBold,
+            }}
+          >
+            تم تعبئة الرقم تلقائياً من تسجيل الدخول
+          </ThemedText>
+        </View>
+
+        <View
+          style={[
+            styles.card,
+            { backgroundColor: theme.backgroundDefault },
+            Shadows.sm,
+          ]}
+        >
+          <ThemedText type="h4" style={styles.sectionTitle}>
+            رقم الدراجة النارية
+          </ThemedText>
+          <TextInput
+            style={[
+              styles.input,
+              {
+                backgroundColor: theme.backgroundSecondary,
+                color: theme.text,
+                borderColor: theme.border,
+              },
+            ]}
+            placeholder="أدخل رقم الدراجة النارية"
+            placeholderTextColor={theme.textSecondary}
+            value={motorcycleNumber}
+            onChangeText={setMotorcycleNumber}
+            textAlign="right"
+            testID="input-motorcycle-number"
+          />
+        </View>
+
+        <View
+          style={[
+            styles.card,
+            { backgroundColor: theme.backgroundDefault },
+            Shadows.sm,
+          ]}
+        >
+          <ThemedText type="h4" style={styles.sectionTitle}>
+            صورة البطاقة الوطنية
+          </ThemedText>
+          <ThemedText
+            type="small"
+            style={[styles.idHint, { color: theme.textSecondary }]}
+          >
+            التقط صورة واضحة للوجه الأمامي للبطاقة الوطنية
+          </ThemedText>
+
+          <Pressable
+            style={[
+              styles.idUpload,
+              {
+                borderColor: nationalIdImage ? AppColors.primary : theme.border,
+                backgroundColor: theme.backgroundSecondary,
+              },
+            ]}
+            onPress={() => showImageOptions("nationalId")}
+            testID="button-upload-id"
+          >
+            {nationalIdImage ? (
+              <View>
+                <Image
+                  source={{ uri: nationalIdImage }}
+                  style={styles.idPreview}
+                  contentFit="cover"
+                />
+                <View style={styles.uploadedBadge}>
+                  <Feather
+                    name="check-circle"
+                    size={16}
+                    color={AppColors.white}
+                  />
+                  <ThemedText type="small" style={styles.uploadedText}>
+                    تم الرفع
+                  </ThemedText>
+                </View>
+              </View>
+            ) : (
+              <View style={styles.idPlaceholder}>
+                <Feather name="camera" size={36} color={theme.textSecondary} />
+                <ThemedText
+                  type="body"
+                  style={[
+                    styles.idPlaceholderText,
+                    { color: theme.textSecondary },
+                  ]}
+                >
+                  اضغط لإضافة صورة البطاقة الوطنية
+                </ThemedText>
+              </View>
+            )}
+          </Pressable>
+        </View>
+
+        <View
+          style={[
+            styles.card,
+            { backgroundColor: theme.backgroundDefault },
+            Shadows.sm,
+          ]}
+        >
+          <ThemedText type="h4" style={styles.sectionTitle}>
+            صورة بطاقة السكن
+          </ThemedText>
+          <ThemedText
+            type="small"
+            style={[styles.idHint, { color: theme.textSecondary }]}
+          >
+            التقط صورة واضحة لبطاقة السكن
+          </ThemedText>
+
+          <Pressable
+            style={[
+              styles.idUpload,
+              {
+                borderColor: residenceCardImage
+                  ? AppColors.success
+                  : theme.border,
+                backgroundColor: theme.backgroundSecondary,
+              },
+            ]}
+            onPress={() => showImageOptions("residenceCard")}
+            testID="button-upload-residence-card"
+          >
+            {residenceCardImage ? (
+              <View>
+                <Image
+                  source={{ uri: residenceCardImage }}
+                  style={styles.idPreview}
+                  contentFit="cover"
+                />
+                <View
+                  style={[
+                    styles.uploadedBadge,
+                    { backgroundColor: AppColors.success },
+                  ]}
+                >
+                  <Feather
+                    name="check-circle"
+                    size={16}
+                    color={AppColors.white}
+                  />
+                  <ThemedText type="small" style={styles.uploadedText}>
+                    تم الرفع
+                  </ThemedText>
+                </View>
+              </View>
+            ) : (
+              <View style={styles.idPlaceholder}>
+                <Feather name="home" size={36} color={theme.textSecondary} />
+                <ThemedText
+                  type="body"
+                  style={[
+                    styles.idPlaceholderText,
+                    { color: theme.textSecondary },
+                  ]}
+                >
+                  اضغط لإضافة صورة بطاقة السكن
+                </ThemedText>
+              </View>
+            )}
+          </Pressable>
+        </View>
+
+        <View
+          style={[
+            styles.card,
+            { backgroundColor: theme.backgroundDefault },
+            Shadows.sm,
+          ]}
+        >
+          <View style={styles.sectionTitleRow}>
+            <ThemedText type="h4" style={styles.sectionTitle}>
+              صورة إجازة السوق
+            </ThemedText>
+            <View style={styles.optionalBadge}>
+              <ThemedText type="small" style={styles.optionalText}>
+                اختياري
+              </ThemedText>
             </View>
-          </>
-        )}
-      </Pressable>
+          </View>
+          <ThemedText
+            type="small"
+            style={[styles.idHint, { color: theme.textSecondary }]}
+          >
+            التقط صورة واضحة لإجازة السوق (إن وجدت)
+          </ThemedText>
 
-      <ThemedText type="small" style={[styles.note, { color: theme.textSecondary }]}>
-        سيتم مراجعة بياناتك من قبل الإدارة وسيتم إبلاغك بالنتيجة
-      </ThemedText>
+          <Pressable
+            style={[
+              styles.idUpload,
+              {
+                borderColor: driverLicenseImage
+                  ? AppColors.success
+                  : theme.border,
+                backgroundColor: theme.backgroundSecondary,
+              },
+            ]}
+            onPress={() => showImageOptions("driverLicense")}
+            testID="button-upload-license"
+          >
+            {driverLicenseImage ? (
+              <View>
+                <Image
+                  source={{ uri: driverLicenseImage }}
+                  style={styles.idPreview}
+                  contentFit="cover"
+                />
+                <View
+                  style={[
+                    styles.uploadedBadge,
+                    { backgroundColor: AppColors.success },
+                  ]}
+                >
+                  <Feather
+                    name="check-circle"
+                    size={16}
+                    color={AppColors.white}
+                  />
+                  <ThemedText type="small" style={styles.uploadedText}>
+                    تم الرفع
+                  </ThemedText>
+                </View>
+              </View>
+            ) : (
+              <View style={styles.idPlaceholder}>
+                <Feather
+                  name="file-text"
+                  size={36}
+                  color={theme.textSecondary}
+                />
+                <ThemedText
+                  type="body"
+                  style={[
+                    styles.idPlaceholderText,
+                    { color: theme.textSecondary },
+                  ]}
+                >
+                  اضغط لإضافة صورة إجازة السوق
+                </ThemedText>
+              </View>
+            )}
+          </Pressable>
+        </View>
 
-    </KeyboardAwareScrollViewCompat>
+        <View
+          style={[
+            styles.card,
+            { backgroundColor: theme.backgroundDefault },
+            Shadows.sm,
+          ]}
+        >
+          <ThemedText
+            type="h4"
+            style={[styles.sectionTitle, { color: AppColors.primary }]}
+          >
+            اتفاقية انضمام كابتن OnWay
+          </ThemedText>
+
+          <ScrollView
+            style={[
+              styles.agreementBox,
+              {
+                backgroundColor: theme.backgroundSecondary,
+                borderColor: theme.border,
+              },
+            ]}
+            nestedScrollEnabled={true}
+            showsVerticalScrollIndicator={true}
+          >
+            <ThemedText type="body" style={styles.agreementText}>
+              بصفتك كابتن في تطبيق OnWay داخل قضاء الضلوعية، يجب عليك الالتزام
+              بالشروط التالية:{"\n\n"}
+              <ThemedText style={styles.agreementBold}>
+                1. الأمانة والمسؤولية:
+              </ThemedText>
+              {"\n"}
+              أتعهد بالحفاظ على الطلبات وتسليمها بحالتها الأصلية دون فتح الغلاف
+              أو التلاعب بالمحتويات، وأتحمل المسؤولية الكاملة عن أي نقص أو تلف
+              يحدث للطلب أثناء النقل.{"\n\n"}
+              <ThemedText style={styles.agreementBold}>
+                2. التعامل الأخلاقي:
+              </ThemedText>
+              {"\n"}
+              الالتزام بالأدب وحسن السيرة والسلوك مع الزبائن وأصحاب المحلات،
+              وتمثيل تطبيق OnWay بأفضل صورة أمام أهالي المنطقة.{"\n\n"}
+              <ThemedText style={styles.agreementBold}>
+                3. السلامة المرورية:
+              </ThemedText>
+              {"\n"}
+              أتعهد بالالتزام بقواعد السلامة المرورية أثناء القيادة، وأقر بأنني
+              المسؤول الأول والقانوني عن أي حادث أو مخالفة مرورية تحدث أثناء
+              العمل.{"\n\n"}
+              <ThemedText style={styles.agreementBold}>
+                4. خصوصية البيانات:
+              </ThemedText>
+              {"\n"}
+              أتعهد بعدم استخدام أرقام هواتف الزبائن أو مواقع سكنهم لأي غرض خارج
+              إطار عملية التوصيل، ويمنع التواصل مع الزبون بعد انتهاء الطلب
+              نهائياً.{"\n\n"}
+              <ThemedText style={styles.agreementBold}>
+                5. إخلاء المسؤولية:
+              </ThemedText>
+              {"\n"}
+              يخلي تطبيق OnWay مسؤوليته عن أي نزاعات قانونية أو حوادث قد يتعرض
+              لها السائق، حيث يعتبر السائق متعاقداً مستقلاً ويتحمل كافة التبعات
+              القانونية لعمله.
+            </ThemedText>
+          </ScrollView>
+
+          <Pressable
+            style={styles.checkboxRow}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              setAgreementAccepted(!agreementAccepted);
+            }}
+            testID="button-accept-agreement"
+          >
+            <View
+              style={[
+                styles.checkbox,
+                agreementAccepted
+                  ? styles.checkboxChecked
+                  : { borderColor: theme.border },
+              ]}
+            >
+              {agreementAccepted ? (
+                <Feather name="check" size={14} color={AppColors.white} />
+              ) : null}
+            </View>
+            <ThemedText
+              type="body"
+              style={[styles.checkboxLabel, { color: theme.textSecondary }]}
+            >
+              أقر بأنني قرأت كافة الشروط وأوافق على تحمل المسؤولية الكاملة.
+            </ThemedText>
+          </Pressable>
+        </View>
+
+        <Pressable
+          style={[
+            styles.submitButton,
+            !isFormValid && styles.submitButtonDisabled,
+          ]}
+          onPress={handleSubmit}
+          disabled={!isFormValid || isLoading}
+          testID="button-submit-driver"
+        >
+          {isLoading ? (
+            <ActivityIndicator color={AppColors.white} />
+          ) : (
+            <>
+              <ThemedText type="h4" style={styles.submitButtonText}>
+                إتمام الانضمام للفريق
+              </ThemedText>
+              <View style={styles.buttonIcon}>
+                <Feather name="send" size={18} color={AppColors.primary} />
+              </View>
+            </>
+          )}
+        </Pressable>
+
+        <ThemedText
+          type="small"
+          style={[styles.note, { color: theme.textSecondary }]}
+        >
+          سيتم مراجعة بياناتك من قبل الإدارة وسيتم إبلاغك بالنتيجة
+        </ThemedText>
+      </KeyboardAwareScrollViewCompat>
     </View>
   );
 }

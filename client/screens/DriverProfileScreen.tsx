@@ -19,7 +19,13 @@ import { GradientBackground } from "@/components/GradientBackground";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import { useTheme } from "@/hooks/useTheme";
 import { useAuth } from "@/context/AuthContext";
-import { AppColors, Spacing, BorderRadius, Shadows, FontWeight} from "@/constants/theme";
+import {
+  AppColors,
+  Spacing,
+  BorderRadius,
+  Shadows,
+  FontWeight,
+} from "@/constants/theme";
 import { getApiUrl } from "@/lib/query-client";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
 
@@ -50,7 +56,10 @@ export default function DriverProfileScreen() {
       if (!phoneNumber) return;
       try {
         const res = await fetch(
-          new URL(`/api/driver/profile?phoneNumber=${encodeURIComponent(phoneNumber)}`, getApiUrl()).toString()
+          new URL(
+            `/api/driver/profile?phoneNumber=${encodeURIComponent(phoneNumber)}`,
+            getApiUrl(),
+          ).toString(),
         );
         if (res.ok) {
           const data = await res.json();
@@ -73,11 +82,13 @@ export default function DriverProfileScreen() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     const supportNumber = "9647702891104";
     const message = encodeURIComponent("مرحباً، أحتاج مساعدة في تطبيق OnWay");
-    Linking.openURL(`https://wa.me/${supportNumber}?text=${message}`).catch(() => {
-      Linking.openURL(`whatsapp://send?phone=${supportNumber}&text=${message}`).catch(() =>
-        Alert.alert("خطأ", "تعذّر فتح واتساب")
-      );
-    });
+    Linking.openURL(`https://wa.me/${supportNumber}?text=${message}`).catch(
+      () => {
+        Linking.openURL(
+          `whatsapp://send?phone=${supportNumber}&text=${message}`,
+        ).catch(() => Alert.alert("خطأ", "تعذّر فتح واتساب"));
+      },
+    );
   };
 
   const handleSupportChat = () => {
@@ -91,11 +102,21 @@ export default function DriverProfileScreen() {
     rejected: { label: "مرفوض", color: AppColors.error },
   };
 
-  const statusInfo = statusLabels[driverInfo?.status || "pending"] || statusLabels.pending;
+  const statusInfo =
+    statusLabels[driverInfo?.status || "pending"] || statusLabels.pending;
 
   if (loading) {
     return (
-      <View style={[styles.container, { backgroundColor: theme.backgroundRoot, justifyContent: "center", alignItems: "center" }]}>
+      <View
+        style={[
+          styles.container,
+          {
+            backgroundColor: theme.backgroundRoot,
+            justifyContent: "center",
+            alignItems: "center",
+          },
+        ]}
+      >
         <ActivityIndicator size="large" color={AppColors.primary} />
       </View>
     );
@@ -104,16 +125,34 @@ export default function DriverProfileScreen() {
   return (
     <View style={[styles.container]}>
       <GradientBackground />
-      <View style={[styles.header, { paddingTop: insets.top + Spacing.md, backgroundColor: AppColors.primary }]}>
+      <View
+        style={[
+          styles.header,
+          {
+            paddingTop: insets.top + Spacing.md,
+            backgroundColor: AppColors.primary,
+          },
+        ]}
+      >
         <View style={styles.avatarCircle}>
           <Feather name="user" size={36} color={AppColors.primary} />
         </View>
         <ThemedText type="h3" style={styles.driverName}>
           {driverInfo?.fullName || "سائق"}
         </ThemedText>
-        <ThemedText type="small" style={styles.driverPhone}>{phoneNumber}</ThemedText>
-        <View style={[styles.statusPill, { backgroundColor: statusInfo.color + "30" }]}>
-          <ThemedText type="small" style={{ color: statusInfo.color, fontWeight: FontWeight.bold }}>
+        <ThemedText type="small" style={styles.driverPhone}>
+          {phoneNumber}
+        </ThemedText>
+        <View
+          style={[
+            styles.statusPill,
+            { backgroundColor: statusInfo.color + "30" },
+          ]}
+        >
+          <ThemedText
+            type="small"
+            style={{ color: statusInfo.color, fontWeight: FontWeight.bold }}
+          >
             {statusInfo.label}
           </ThemedText>
         </View>
@@ -129,70 +168,182 @@ export default function DriverProfileScreen() {
       >
         {/* Dark-mode toggle removed: the app is light-only (see ThemeContext). */}
 
-        <View style={[styles.card, { backgroundColor: theme.backgroundDefault }, Shadows.sm]}>
-          <ThemedText type="h4" style={[styles.cardTitle, { color: theme.text }]}>معلومات السائق</ThemedText>
+        <View
+          style={[
+            styles.card,
+            { backgroundColor: theme.backgroundDefault },
+            Shadows.sm,
+          ]}
+        >
+          <ThemedText
+            type="h4"
+            style={[styles.cardTitle, { color: theme.text }]}
+          >
+            معلومات السائق
+          </ThemedText>
           <View style={styles.infoRow}>
-            <ThemedText type="body" style={{ color: theme.text }}>{driverInfo?.firstName || "-"}</ThemedText>
-            <ThemedText type="small" style={{ color: theme.textSecondary }}>الاسم الأول</ThemedText>
+            <ThemedText type="body" style={{ color: theme.text }}>
+              {driverInfo?.firstName || "-"}
+            </ThemedText>
+            <ThemedText type="small" style={{ color: theme.textSecondary }}>
+              الاسم الأول
+            </ThemedText>
           </View>
           <View style={styles.infoRow}>
-            <ThemedText type="body" style={{ color: theme.text }}>{driverInfo?.secondName || "-"}</ThemedText>
-            <ThemedText type="small" style={{ color: theme.textSecondary }}>اسم الأب</ThemedText>
+            <ThemedText type="body" style={{ color: theme.text }}>
+              {driverInfo?.secondName || "-"}
+            </ThemedText>
+            <ThemedText type="small" style={{ color: theme.textSecondary }}>
+              اسم الأب
+            </ThemedText>
           </View>
           <View style={styles.infoRow}>
-            <ThemedText type="body" style={{ color: theme.text }}>{driverInfo?.thirdName || "-"}</ThemedText>
-            <ThemedText type="small" style={{ color: theme.textSecondary }}>اسم الجد</ThemedText>
+            <ThemedText type="body" style={{ color: theme.text }}>
+              {driverInfo?.thirdName || "-"}
+            </ThemedText>
+            <ThemedText type="small" style={{ color: theme.textSecondary }}>
+              اسم الجد
+            </ThemedText>
           </View>
           <View style={styles.infoRow}>
-            <ThemedText type="body" style={{ color: theme.text }}>{driverInfo?.fourthName || "-"}</ThemedText>
-            <ThemedText type="small" style={{ color: theme.textSecondary }}>اللقب</ThemedText>
+            <ThemedText type="body" style={{ color: theme.text }}>
+              {driverInfo?.fourthName || "-"}
+            </ThemedText>
+            <ThemedText type="small" style={{ color: theme.textSecondary }}>
+              اللقب
+            </ThemedText>
           </View>
         </View>
 
         {/* معلومات الحساب */}
-        <View style={[styles.card, { backgroundColor: theme.backgroundDefault }, Shadows.sm]}>
-          <ThemedText type="h4" style={[styles.cardTitle, { color: theme.text }]}>معلومات الحساب</ThemedText>
+        <View
+          style={[
+            styles.card,
+            { backgroundColor: theme.backgroundDefault },
+            Shadows.sm,
+          ]}
+        >
+          <ThemedText
+            type="h4"
+            style={[styles.cardTitle, { color: theme.text }]}
+          >
+            معلومات الحساب
+          </ThemedText>
           <View style={styles.menuRow}>
-            <View style={[styles.menuIcon, { backgroundColor: AppColors.driverBlueLight }]}>
+            <View
+              style={[
+                styles.menuIcon,
+                { backgroundColor: AppColors.driverBlueLight },
+              ]}
+            >
               <Feather name="phone" size={18} color={AppColors.info} />
             </View>
             <View style={{ flex: 1, alignItems: "flex-end" }}>
-              <ThemedText type="small" style={{ color: theme.textSecondary }}>رقم الهاتف</ThemedText>
-              <ThemedText type="body" style={{ color: theme.text }}>{phoneNumber || "—"}</ThemedText>
+              <ThemedText type="small" style={{ color: theme.textSecondary }}>
+                رقم الهاتف
+              </ThemedText>
+              <ThemedText type="body" style={{ color: theme.text }}>
+                {phoneNumber || "—"}
+              </ThemedText>
             </View>
           </View>
           <View style={[styles.menuRow, { borderBottomWidth: 0 }]}>
-            <View style={[styles.menuIcon, { backgroundColor: statusInfo.color + "18" }]}>
+            <View
+              style={[
+                styles.menuIcon,
+                { backgroundColor: statusInfo.color + "18" },
+              ]}
+            >
               <Feather name="shield" size={18} color={statusInfo.color} />
             </View>
             <View style={{ flex: 1, alignItems: "flex-end" }}>
-              <ThemedText type="small" style={{ color: theme.textSecondary }}>حالة الحساب</ThemedText>
-              <ThemedText type="body" style={{ color: statusInfo.color, fontWeight: FontWeight.bold }}>{statusInfo.label}</ThemedText>
+              <ThemedText type="small" style={{ color: theme.textSecondary }}>
+                حالة الحساب
+              </ThemedText>
+              <ThemedText
+                type="body"
+                style={{ color: statusInfo.color, fontWeight: FontWeight.bold }}
+              >
+                {statusInfo.label}
+              </ThemedText>
             </View>
           </View>
         </View>
 
         {/* الدعم الفني */}
-        <View style={[styles.card, { backgroundColor: theme.backgroundDefault }, Shadows.sm]}>
-          <ThemedText type="h4" style={[styles.cardTitle, { color: theme.text }]}>الدعم الفني</ThemedText>
-          <Pressable style={styles.menuRow} onPress={handleSupportChat} testID="button-support-chat">
-            <Feather name="chevron-left" size={18} color={theme.textSecondary} />
+        <View
+          style={[
+            styles.card,
+            { backgroundColor: theme.backgroundDefault },
+            Shadows.sm,
+          ]}
+        >
+          <ThemedText
+            type="h4"
+            style={[styles.cardTitle, { color: theme.text }]}
+          >
+            الدعم الفني
+          </ThemedText>
+          <Pressable
+            style={styles.menuRow}
+            onPress={handleSupportChat}
+            testID="button-support-chat"
+          >
+            <Feather
+              name="chevron-left"
+              size={18}
+              color={theme.textSecondary}
+            />
             <View style={{ flex: 1, alignItems: "flex-end" }}>
-              <ThemedText type="body" style={{ color: theme.text }}>الدردشة مع الدعم</ThemedText>
-              <ThemedText type="small" style={{ color: theme.textSecondary }}>تحدث مع فريق أون وي</ThemedText>
+              <ThemedText type="body" style={{ color: theme.text }}>
+                الدردشة مع الدعم
+              </ThemedText>
+              <ThemedText type="small" style={{ color: theme.textSecondary }}>
+                تحدث مع فريق أون وي
+              </ThemedText>
             </View>
-            <View style={[styles.menuIcon, { backgroundColor: AppColors.primary + "15" }]}>
-              <Feather name="message-circle" size={18} color={AppColors.primary} />
+            <View
+              style={[
+                styles.menuIcon,
+                { backgroundColor: AppColors.primary + "15" },
+              ]}
+            >
+              <Feather
+                name="message-circle"
+                size={18}
+                color={AppColors.primary}
+              />
             </View>
           </Pressable>
-          <Pressable style={[styles.menuRow, { borderBottomWidth: 0 }]} onPress={handleWhatsApp} testID="button-support-whatsapp">
-            <Feather name="chevron-left" size={18} color={theme.textSecondary} />
+          <Pressable
+            style={[styles.menuRow, { borderBottomWidth: 0 }]}
+            onPress={handleWhatsApp}
+            testID="button-support-whatsapp"
+          >
+            <Feather
+              name="chevron-left"
+              size={18}
+              color={theme.textSecondary}
+            />
             <View style={{ flex: 1, alignItems: "flex-end" }}>
-              <ThemedText type="body" style={{ color: theme.text }}>واتساب</ThemedText>
-              <ThemedText type="small" style={{ color: theme.textSecondary }}>تواصل معنا عبر واتساب</ThemedText>
+              <ThemedText type="body" style={{ color: theme.text }}>
+                واتساب
+              </ThemedText>
+              <ThemedText type="small" style={{ color: theme.textSecondary }}>
+                تواصل معنا عبر واتساب
+              </ThemedText>
             </View>
-            <View style={[styles.menuIcon, { backgroundColor: AppColors.successLight }]}>
-              <Feather name="message-square" size={18} color={AppColors.whatsapp} />
+            <View
+              style={[
+                styles.menuIcon,
+                { backgroundColor: AppColors.successLight },
+              ]}
+            >
+              <Feather
+                name="message-square"
+                size={18}
+                color={AppColors.whatsapp}
+              />
             </View>
           </Pressable>
         </View>
@@ -203,7 +354,9 @@ export default function DriverProfileScreen() {
           testID="button-logout"
         >
           <Feather name="log-out" size={20} color={AppColors.error} />
-          <ThemedText type="h4" style={{ color: AppColors.error }}>تسجيل الخروج</ThemedText>
+          <ThemedText type="h4" style={{ color: AppColors.error }}>
+            تسجيل الخروج
+          </ThemedText>
         </Pressable>
       </KeyboardAwareScrollViewCompat>
     </View>

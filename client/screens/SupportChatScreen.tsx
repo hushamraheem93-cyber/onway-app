@@ -21,7 +21,12 @@ import { ThemedText } from "@/components/ThemedText";
 import { GradientBackground } from "@/components/GradientBackground";
 import { useTheme } from "@/hooks/useTheme";
 import { useAuth } from "@/context/AuthContext";
-import { AppColors, Spacing, BorderRadius, FontWeight} from "@/constants/theme";
+import {
+  AppColors,
+  Spacing,
+  BorderRadius,
+  FontWeight,
+} from "@/constants/theme";
 import { resolveImageUrl } from "@/utils/imageUtils";
 import { getApiUrl } from "@/lib/query-client";
 
@@ -46,7 +51,10 @@ interface SupportMessage {
 const POLL_INTERVAL = 5000;
 
 function formatTime(ts: number): string {
-  return new Date(ts).toLocaleTimeString("ar-IQ", { hour: "2-digit", minute: "2-digit" });
+  return new Date(ts).toLocaleTimeString("ar-IQ", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 }
 
 function formatPrice(p: number) {
@@ -60,19 +68,33 @@ function MessageBubble({ msg }: { msg: SupportMessage }) {
   const isProduct = msg.type === "product";
 
   return (
-    <View style={[styles.bubbleRow, isUser ? styles.bubbleRowUser : styles.bubbleRowAdmin]}>
+    <View
+      style={[
+        styles.bubbleRow,
+        isUser ? styles.bubbleRowUser : styles.bubbleRowAdmin,
+      ]}
+    >
       {!isUser ? (
         <View style={styles.adminAvatar}>
           <Feather name="headphones" size={14} color={AppColors.white} />
         </View>
       ) : null}
 
-      <View style={[
-        isImage || isProduct ? styles.bubbleMedia : styles.bubble,
-        isUser
-          ? { backgroundColor: isImage || isProduct ? "transparent" : AppColors.primary }
-          : { backgroundColor: theme.backgroundDefault, borderWidth: isImage || isProduct ? 0 : 1, borderColor: theme.border },
-      ]}>
+      <View
+        style={[
+          isImage || isProduct ? styles.bubbleMedia : styles.bubble,
+          isUser
+            ? {
+                backgroundColor:
+                  isImage || isProduct ? "transparent" : AppColors.primary,
+              }
+            : {
+                backgroundColor: theme.backgroundDefault,
+                borderWidth: isImage || isProduct ? 0 : 1,
+                borderColor: theme.border,
+              },
+        ]}
+      >
         {isImage && msg.imageUrl ? (
           <View>
             <Image
@@ -80,35 +102,89 @@ function MessageBubble({ msg }: { msg: SupportMessage }) {
               style={styles.messageImage}
               contentFit="cover"
             />
-            <ThemedText type="small" style={[styles.bubbleTime, { color: isUser ? AppColors.primary : theme.textSecondary, marginTop: 4 }]}>
+            <ThemedText
+              type="small"
+              style={[
+                styles.bubbleTime,
+                {
+                  color: isUser ? AppColors.primary : theme.textSecondary,
+                  marginTop: 4,
+                },
+              ]}
+            >
               {formatTime(msg.timestamp)}
             </ThemedText>
           </View>
         ) : isProduct && msg.productData ? (
-          <View style={[styles.productCard, { backgroundColor: isUser ? AppColors.primary + "15" : theme.backgroundDefault, borderColor: isUser ? AppColors.primary + "40" : theme.border }]}>
+          <View
+            style={[
+              styles.productCard,
+              {
+                backgroundColor: isUser
+                  ? AppColors.primary + "15"
+                  : theme.backgroundDefault,
+                borderColor: isUser ? AppColors.primary + "40" : theme.border,
+              },
+            ]}
+          >
             <Image
               source={{ uri: resolveImageUrl(msg.productData.image) }}
               style={styles.productImage}
               contentFit="cover"
             />
             <View style={styles.productInfo}>
-              <ThemedText type="body" style={{ fontWeight: FontWeight.bold, color: theme.text, fontSize: 13 }}>
+              <ThemedText
+                type="body"
+                style={{
+                  fontWeight: FontWeight.bold,
+                  color: theme.text,
+                  fontSize: 13,
+                }}
+              >
                 {msg.productData.name}
               </ThemedText>
-              <ThemedText type="small" style={{ color: AppColors.primary, fontWeight: FontWeight.bold }}>
+              <ThemedText
+                type="small"
+                style={{
+                  color: AppColors.primary,
+                  fontWeight: FontWeight.bold,
+                }}
+              >
                 {formatPrice(msg.productData.price)}
               </ThemedText>
-              <ThemedText type="small" style={[styles.bubbleTime, { color: theme.textSecondary, marginTop: 2 }]}>
+              <ThemedText
+                type="small"
+                style={[
+                  styles.bubbleTime,
+                  { color: theme.textSecondary, marginTop: 2 },
+                ]}
+              >
                 {formatTime(msg.timestamp)}
               </ThemedText>
             </View>
           </View>
         ) : (
           <>
-            <ThemedText type="body" style={[styles.bubbleText, isUser ? { color: AppColors.white } : { color: theme.text }]}>
+            <ThemedText
+              type="body"
+              style={[
+                styles.bubbleText,
+                isUser ? { color: AppColors.white } : { color: theme.text },
+              ]}
+            >
               {msg.text}
             </ThemedText>
-            <ThemedText type="small" style={[styles.bubbleTime, { color: isUser ? AppColors.textOnBrandSubtle : theme.textSecondary }]}>
+            <ThemedText
+              type="small"
+              style={[
+                styles.bubbleTime,
+                {
+                  color: isUser
+                    ? AppColors.textOnBrandSubtle
+                    : theme.textSecondary,
+                },
+              ]}
+            >
               {formatTime(msg.timestamp)}
             </ThemedText>
           </>
@@ -122,11 +198,21 @@ function EmptyState() {
   const { theme } = useTheme();
   return (
     <View style={styles.emptyContainer}>
-      <View style={[styles.emptyIcon, { backgroundColor: AppColors.primary + "15" }]}>
+      <View
+        style={[
+          styles.emptyIcon,
+          { backgroundColor: AppColors.primary + "15" },
+        ]}
+      >
         <Feather name="message-circle" size={40} color={AppColors.primary} />
       </View>
-      <ThemedText type="h3" style={[styles.emptyTitle, { color: theme.text }]}>مرحباً بك في الدعم</ThemedText>
-      <ThemedText type="body" style={[styles.emptySubtitle, { color: theme.textSecondary }]}>
+      <ThemedText type="h3" style={[styles.emptyTitle, { color: theme.text }]}>
+        مرحباً بك في الدعم
+      </ThemedText>
+      <ThemedText
+        type="body"
+        style={[styles.emptySubtitle, { color: theme.textSecondary }]}
+      >
         فريق الدعم متواجد لمساعدتك. اكتب رسالتك أو أرسل صورة أو شارك منتجاً
       </ThemedText>
     </View>
@@ -152,26 +238,47 @@ function ProductPickerModal({
     setLoading(true);
     const url = new URL("/api/products", getApiUrl());
     fetch(url.toString())
-      .then(r => r.json())
-      .then(data => setProducts(Array.isArray(data) ? data : []))
+      .then((r) => r.json())
+      .then((data) => setProducts(Array.isArray(data) ? data : []))
       .catch(() => {})
       .finally(() => setLoading(false));
   }, [visible]);
 
-  const filtered = products.filter(p =>
-    p.name?.toLowerCase().includes(search.toLowerCase())
-  ).slice(0, 30);
+  const filtered = products
+    .filter((p) => p.name?.toLowerCase().includes(search.toLowerCase()))
+    .slice(0, 30);
 
   return (
-    <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
+    <Modal
+      visible={visible}
+      animationType="slide"
+      presentationStyle="pageSheet"
+      onRequestClose={onClose}
+    >
       <View style={{ flex: 1, backgroundColor: theme.backgroundRoot }}>
         <View style={[styles.modalHeader, { borderBottomColor: theme.border }]}>
           <ThemedText type="h3">اختر منتجاً</ThemedText>
-          <Pressable onPress={onClose} accessibilityRole="button" accessibilityLabel="إغلاق" hitSlop={8}><Feather name="x" size={24} color={theme.text} /></Pressable>
+          <Pressable
+            onPress={onClose}
+            accessibilityRole="button"
+            accessibilityLabel="إغلاق"
+            hitSlop={8}
+          >
+            <Feather name="x" size={24} color={theme.text} />
+          </Pressable>
         </View>
-        <View style={{ paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm }}>
+        <View
+          style={{ paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm }}
+        >
           <TextInput
-            style={[styles.searchInput, { backgroundColor: theme.backgroundDefault, color: theme.text, borderColor: theme.border }]}
+            style={[
+              styles.searchInput,
+              {
+                backgroundColor: theme.backgroundDefault,
+                color: theme.text,
+                borderColor: theme.border,
+              },
+            ]}
             placeholder="ابحث عن منتج..."
             placeholderTextColor={theme.textSecondary}
             value={search}
@@ -180,19 +287,43 @@ function ProductPickerModal({
           />
         </View>
         {loading ? (
-          <ActivityIndicator size="large" color={AppColors.primary} style={{ marginTop: 40 }} />
+          <ActivityIndicator
+            size="large"
+            color={AppColors.primary}
+            style={{ marginTop: 40 }}
+          />
         ) : (
           <ScrollView contentContainerStyle={{ padding: Spacing.md, gap: 10 }}>
-            {filtered.map(p => (
+            {filtered.map((p) => (
               <Pressable
                 key={p.id}
-                style={[styles.productRow, { backgroundColor: theme.backgroundDefault, borderColor: theme.border }]}
-                onPress={() => { onSelect(p); onClose(); }}
+                style={[
+                  styles.productRow,
+                  {
+                    backgroundColor: theme.backgroundDefault,
+                    borderColor: theme.border,
+                  },
+                ]}
+                onPress={() => {
+                  onSelect(p);
+                  onClose();
+                }}
               >
-                <Image source={{ uri: resolveImageUrl(p.image) }} style={styles.productRowImage} contentFit="cover" />
+                <Image
+                  source={{ uri: resolveImageUrl(p.image) }}
+                  style={styles.productRowImage}
+                  contentFit="cover"
+                />
                 <View style={{ flex: 1 }}>
-                  <ThemedText type="body" style={{ fontWeight: FontWeight.bold }}>{p.name}</ThemedText>
-                  <ThemedText type="small" style={{ color: AppColors.primary }}>{formatPrice(p.price)}</ThemedText>
+                  <ThemedText
+                    type="body"
+                    style={{ fontWeight: FontWeight.bold }}
+                  >
+                    {p.name}
+                  </ThemedText>
+                  <ThemedText type="small" style={{ color: AppColors.primary }}>
+                    {formatPrice(p.price)}
+                  </ThemedText>
                 </View>
                 <Feather name="send" size={18} color={AppColors.primary} />
               </Pressable>
@@ -224,20 +355,26 @@ export default function SupportChatScreen() {
       const url = new URL("/api/support/messages", getApiUrl());
       url.searchParams.set("phoneNumber", phoneNumber);
       const res = await fetch(url.toString(), {
-        headers: customerToken ? { Authorization: `Bearer ${customerToken}` } : {},
+        headers: customerToken
+          ? { Authorization: `Bearer ${customerToken}` }
+          : {},
       });
       if (res.ok) {
         const data = await res.json();
         setMessages(data.messages || []);
       }
-    } catch {}
-    finally { setLoading(false); }
+    } catch {
+    } finally {
+      setLoading(false);
+    }
   }, [phoneNumber, customerToken]);
 
   useEffect(() => {
     fetchMessages();
     pollRef.current = setInterval(fetchMessages, POLL_INTERVAL);
-    return () => { if (pollRef.current) clearInterval(pollRef.current); };
+    return () => {
+      if (pollRef.current) clearInterval(pollRef.current);
+    };
   }, [fetchMessages]);
 
   const sendMessage = async (opts: {
@@ -251,14 +388,16 @@ export default function SupportChatScreen() {
 
     const optimisticMsg: SupportMessage = {
       id: `opt_${Date.now()}`,
-      text: opts.text || (opts.type === "image" ? "صورة" : opts.productData?.name || ""),
+      text:
+        opts.text ||
+        (opts.type === "image" ? "صورة" : opts.productData?.name || ""),
       sender: "user",
       timestamp: Date.now(),
       type: opts.type || "text",
       imageUrl: opts.imageUrl,
       productData: opts.productData,
     };
-    setMessages(prev => [...prev, optimisticMsg]);
+    setMessages((prev) => [...prev, optimisticMsg]);
 
     try {
       const url = new URL("/api/support/messages", getApiUrl());
@@ -277,7 +416,9 @@ export default function SupportChatScreen() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          ...(customerToken ? { Authorization: `Bearer ${customerToken}` } : {}),
+          ...(customerToken
+            ? { Authorization: `Bearer ${customerToken}` }
+            : {}),
         },
         body: JSON.stringify(body),
       });
@@ -285,8 +426,10 @@ export default function SupportChatScreen() {
         const data = await res.json();
         setMessages(data.messages || []);
       }
-    } catch {}
-    finally { setSending(false); }
+    } catch {
+    } finally {
+      setSending(false);
+    }
   };
 
   const handleSendText = () => {
@@ -316,7 +459,9 @@ export default function SupportChatScreen() {
       formData.append("image", new File(asset.uri) as any);
       const res = await fetch(uploadUrl.toString(), {
         method: "POST",
-        headers: customerToken ? { Authorization: `Bearer ${customerToken}` } : {},
+        headers: customerToken
+          ? { Authorization: `Bearer ${customerToken}` }
+          : {},
         body: formData,
       });
       if (res.ok) {
@@ -343,23 +488,45 @@ export default function SupportChatScreen() {
   }
 
   return (
-    <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding" keyboardVerticalOffset={0}>
+    <KeyboardAvoidingView
+      style={{ flex: 1 }}
+      behavior="padding"
+      keyboardVerticalOffset={0}
+    >
       <GradientBackground />
 
       <FlatList
         data={messages.length > 0 ? messages.toReversed() : []}
-        keyExtractor={item => item.id}
+        keyExtractor={(item) => item.id}
         renderItem={({ item }) => <MessageBubble msg={item} />}
         inverted={messages.length > 0}
-        contentContainerStyle={[styles.listContent, { paddingTop: headerHeight + Spacing.md, paddingBottom: Spacing.md }]}
+        contentContainerStyle={[
+          styles.listContent,
+          { paddingTop: headerHeight + Spacing.md, paddingBottom: Spacing.md },
+        ]}
         ListEmptyComponent={<EmptyState />}
         showsVerticalScrollIndicator={false}
       />
 
-      <View style={[styles.inputBar, { backgroundColor: theme.backgroundDefault, borderTopColor: theme.border, paddingBottom: insets.bottom + Spacing.sm }]}>
+      <View
+        style={[
+          styles.inputBar,
+          {
+            backgroundColor: theme.backgroundDefault,
+            borderTopColor: theme.border,
+            paddingBottom: insets.bottom + Spacing.sm,
+          },
+        ]}
+      >
         <View style={styles.attachRow}>
           <Pressable
-            style={[styles.attachBtn, { backgroundColor: theme.backgroundRoot, borderColor: theme.border }]}
+            style={[
+              styles.attachBtn,
+              {
+                backgroundColor: theme.backgroundRoot,
+                borderColor: theme.border,
+              },
+            ]}
             onPress={handlePickImage}
             disabled={uploadingImage || sending}
             testID="button-attach-image"
@@ -374,7 +541,13 @@ export default function SupportChatScreen() {
             )}
           </Pressable>
           <Pressable
-            style={[styles.attachBtn, { backgroundColor: theme.backgroundRoot, borderColor: theme.border }]}
+            style={[
+              styles.attachBtn,
+              {
+                backgroundColor: theme.backgroundRoot,
+                borderColor: theme.border,
+              },
+            ]}
             onPress={() => setShowProductPicker(true)}
             disabled={sending}
             testID="button-attach-product"
@@ -384,7 +557,14 @@ export default function SupportChatScreen() {
             <Feather name="tag" size={20} color={AppColors.primary} />
           </Pressable>
           <TextInput
-            style={[styles.input, { backgroundColor: theme.backgroundRoot, color: theme.text, borderColor: theme.border }]}
+            style={[
+              styles.input,
+              {
+                backgroundColor: theme.backgroundRoot,
+                color: theme.text,
+                borderColor: theme.border,
+              },
+            ]}
             placeholder="اكتب رسالتك..."
             placeholderTextColor={theme.textSecondary}
             value={inputText}
@@ -396,13 +576,24 @@ export default function SupportChatScreen() {
             accessibilityLabel="اكتب رسالتك"
           />
           <Pressable
-            style={[styles.sendButton, { backgroundColor: inputText.trim() ? AppColors.primary : theme.border, opacity: sending ? 0.7 : 1 }]}
+            style={[
+              styles.sendButton,
+              {
+                backgroundColor: inputText.trim()
+                  ? AppColors.primary
+                  : theme.border,
+                opacity: sending ? 0.7 : 1,
+              },
+            ]}
             onPress={handleSendText}
             disabled={!inputText.trim() || sending}
             testID="button-send-support"
             accessibilityRole="button"
             accessibilityLabel="إرسال الرسالة"
-            accessibilityState={{ disabled: !inputText.trim() || sending, busy: sending }}
+            accessibilityState={{
+              disabled: !inputText.trim() || sending,
+              busy: sending,
+            }}
           >
             {sending ? (
               <ActivityIndicator size="small" color={AppColors.white} />
@@ -424,72 +615,117 @@ export default function SupportChatScreen() {
 
 const styles = StyleSheet.create({
   listContent: { paddingHorizontal: Spacing.md },
-  bubbleRow: { flexDirection: "row", marginVertical: 4, alignItems: "flex-end", gap: 8 },
+  bubbleRow: {
+    flexDirection: "row",
+    marginVertical: 4,
+    alignItems: "flex-end",
+    gap: 8,
+  },
   bubbleRowUser: { justifyContent: "flex-start" },
   bubbleRowAdmin: { justifyContent: "flex-end" },
   adminAvatar: {
-    width: 28, height: 28, borderRadius: 14,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
     backgroundColor: AppColors.primary,
-    justifyContent: "center", alignItems: "center", marginBottom: 2,
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 2,
   },
   bubble: {
-    maxWidth: "75%", borderRadius: BorderRadius.lg,
-    paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm,
+    maxWidth: "75%",
+    borderRadius: BorderRadius.lg,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
   },
   bubbleMedia: { maxWidth: "75%" },
   bubbleText: { fontSize: 15, lineHeight: 22 },
   bubbleTime: { fontSize: 10, marginTop: 2, textAlign: "left" },
   messageImage: { width: 220, height: 160, borderRadius: BorderRadius.md },
   productCard: {
-    flexDirection: "row", borderRadius: BorderRadius.md,
-    borderWidth: 1, overflow: "hidden", width: 240,
+    flexDirection: "row",
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    overflow: "hidden",
+    width: 240,
   },
   productImage: { width: 70, height: 70 },
   productInfo: { flex: 1, padding: 8, justifyContent: "space-between" },
   emptyContainer: {
-    flex: 1, alignItems: "center", justifyContent: "center",
-    paddingHorizontal: Spacing.xl, paddingTop: 60,
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: Spacing.xl,
+    paddingTop: 60,
   },
   emptyIcon: {
-    width: 80, height: 80, borderRadius: 40,
-    justifyContent: "center", alignItems: "center", marginBottom: Spacing.lg,
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: Spacing.lg,
   },
   emptyTitle: { textAlign: "center", marginBottom: Spacing.sm },
   emptySubtitle: { textAlign: "center", lineHeight: 22 },
   inputBar: {
-    paddingHorizontal: Spacing.md, paddingTop: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    paddingTop: Spacing.sm,
     borderTopWidth: 1,
   },
   attachRow: {
-    flexDirection: "row", alignItems: "flex-end", gap: 8,
+    flexDirection: "row",
+    alignItems: "flex-end",
+    gap: 8,
   },
   attachBtn: {
-    width: 40, height: 40, borderRadius: BorderRadius.md,
-    borderWidth: 1, justifyContent: "center", alignItems: "center",
+    width: 40,
+    height: 40,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    justifyContent: "center",
+    alignItems: "center",
     flexShrink: 0,
   },
   input: {
-    flex: 1, borderRadius: BorderRadius.lg, borderWidth: 1,
+    flex: 1,
+    borderRadius: BorderRadius.lg,
+    borderWidth: 1,
     paddingHorizontal: Spacing.md,
     paddingVertical: Platform.OS === "ios" ? 10 : 8,
-    fontSize: 16, maxHeight: 100, minHeight: 40, // ≥16 prevents iOS auto-zoom
+    fontSize: 16,
+    maxHeight: 100,
+    minHeight: 40, // ≥16 prevents iOS auto-zoom
   },
   sendButton: {
-    width: 40, height: 40, borderRadius: 20,
-    justifyContent: "center", alignItems: "center", flexShrink: 0,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: "center",
+    alignItems: "center",
+    flexShrink: 0,
   },
   modalHeader: {
-    flexDirection: "row", justifyContent: "space-between", alignItems: "center",
-    padding: Spacing.lg, borderBottomWidth: 1,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    padding: Spacing.lg,
+    borderBottomWidth: 1,
   },
   searchInput: {
-    borderRadius: BorderRadius.md, borderWidth: 1,
-    paddingHorizontal: Spacing.md, paddingVertical: 10,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: 10,
     fontSize: 14,
   },
   productRow: {
-    flexDirection: "row", alignItems: "center", gap: 12,
-    borderRadius: BorderRadius.md, borderWidth: 1, padding: 10,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    padding: 10,
   },
   productRowImage: { width: 50, height: 50, borderRadius: 8 },
 });

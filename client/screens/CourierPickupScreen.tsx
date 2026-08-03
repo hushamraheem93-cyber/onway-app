@@ -80,11 +80,14 @@ export default function CourierPickupScreen() {
         orderType: "courier-pickup",
       };
 
-      const response = await fetch(new URL("/api/orders", getApiUrl()).toString(), {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(orderData),
-      });
+      const response = await fetch(
+        new URL("/api/orders", getApiUrl()).toString(),
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(orderData),
+        },
+      );
 
       if (response.ok) {
         setIsSubmitted(true);
@@ -101,12 +104,18 @@ export default function CourierPickupScreen() {
 
   if (isSubmitted) {
     return (
-      <View style={[styles.container, { backgroundColor: theme.backgroundDefault }]}>
-        <View style={[styles.successContainer, { paddingTop: headerHeight + 40 }]}>
+      <View
+        style={[styles.container, { backgroundColor: theme.backgroundDefault }]}
+      >
+        <View
+          style={[styles.successContainer, { paddingTop: headerHeight + 40 }]}
+        >
           <View style={styles.successIcon}>
             <Feather name="check-circle" size={64} color={BRAND_ORANGE} />
           </View>
-          <ThemedText style={styles.successTitle}>تم تقديم الطلب بنجاح</ThemedText>
+          <ThemedText style={styles.successTitle}>
+            تم تقديم الطلب بنجاح
+          </ThemedText>
           <ThemedText style={styles.successSubtitle}>
             سيتم التواصل معك قريباً لتأكيد استلام الطلب
           </ThemedText>
@@ -117,7 +126,9 @@ export default function CourierPickupScreen() {
             accessibilityRole="button"
             accessibilityLabel="العودة للرئيسية"
           >
-            <ThemedText style={styles.backButtonText}>العودة للرئيسية</ThemedText>
+            <ThemedText style={styles.backButtonText}>
+              العودة للرئيسية
+            </ThemedText>
           </Pressable>
         </View>
       </View>
@@ -145,8 +156,12 @@ export default function CourierPickupScreen() {
           <View style={styles.headerIconWrap}>
             <Feather name="package" size={32} color={BRAND_ORANGE} />
           </View>
-          <ThemedText style={styles.headerTitle}>استلام طلب من المندوب</ThemedText>
-          <ThemedText style={[styles.headerSubtitle, { color: theme.textSecondary }]}>
+          <ThemedText style={styles.headerTitle}>
+            استلام طلب من المندوب
+          </ThemedText>
+          <ThemedText
+            style={[styles.headerSubtitle, { color: theme.textSecondary }]}
+          >
             أدخل تفاصيل الطلب المراد استلامه
           </ThemedText>
         </View>
@@ -154,8 +169,18 @@ export default function CourierPickupScreen() {
         <View style={styles.formSection}>
           <View style={styles.inputGroup}>
             <ThemedText style={styles.label}>اسم صاحب الطلب</ThemedText>
-            <View style={[styles.inputContainer, { backgroundColor: theme.backgroundSecondary }]}>
-              <Feather name="user" size={18} color={AppColors.gray400} style={styles.inputIcon} />
+            <View
+              style={[
+                styles.inputContainer,
+                { backgroundColor: theme.backgroundSecondary },
+              ]}
+            >
+              <Feather
+                name="user"
+                size={18}
+                color={AppColors.gray400}
+                style={styles.inputIcon}
+              />
               <TextInput
                 style={[styles.input, { color: theme.text }]}
                 placeholder="أدخل اسم صاحب الطلب"
@@ -170,8 +195,18 @@ export default function CourierPickupScreen() {
 
           <View style={styles.inputGroup}>
             <ThemedText style={styles.label}>رقم هاتف صاحب الطلب</ThemedText>
-            <View style={[styles.inputContainer, { backgroundColor: theme.backgroundSecondary }]}>
-              <Feather name="phone" size={18} color={AppColors.gray400} style={styles.inputIcon} />
+            <View
+              style={[
+                styles.inputContainer,
+                { backgroundColor: theme.backgroundSecondary },
+              ]}
+            >
+              <Feather
+                name="phone"
+                size={18}
+                color={AppColors.gray400}
+                style={styles.inputIcon}
+              />
               <TextInput
                 style={[styles.input, { color: theme.text }]}
                 placeholder="07xxxxxxxxx"
@@ -187,8 +222,18 @@ export default function CourierPickupScreen() {
 
           <View style={styles.inputGroup}>
             <ThemedText style={styles.label}>سعر الطلب (د.ع)</ThemedText>
-            <View style={[styles.inputContainer, { backgroundColor: theme.backgroundSecondary }]}>
-              <Feather name="dollar-sign" size={18} color={AppColors.gray400} style={styles.inputIcon} />
+            <View
+              style={[
+                styles.inputContainer,
+                { backgroundColor: theme.backgroundSecondary },
+              ]}
+            >
+              <Feather
+                name="dollar-sign"
+                size={18}
+                color={AppColors.gray400}
+                style={styles.inputIcon}
+              />
               <TextInput
                 style={[styles.input, { color: theme.text }]}
                 placeholder="أدخل سعر الطلب بالدينار"
@@ -208,8 +253,18 @@ export default function CourierPickupScreen() {
 
           <View style={styles.inputGroup}>
             <ThemedText style={styles.label}>موقع المندوب</ThemedText>
-            <View style={[styles.inputContainer, { backgroundColor: theme.backgroundSecondary }]}>
-              <Feather name="map-pin" size={18} color={AppColors.gray400} style={styles.inputIcon} />
+            <View
+              style={[
+                styles.inputContainer,
+                { backgroundColor: theme.backgroundSecondary },
+              ]}
+            >
+              <Feather
+                name="map-pin"
+                size={18}
+                color={AppColors.gray400}
+                style={styles.inputIcon}
+              />
               <TextInput
                 style={[styles.input, { color: theme.text }]}
                 placeholder="أدخل موقع أو عنوان المندوب"
@@ -224,8 +279,18 @@ export default function CourierPickupScreen() {
 
           <View style={styles.inputGroup}>
             <ThemedText style={styles.label}>رقم هاتف المندوب</ThemedText>
-            <View style={[styles.inputContainer, { backgroundColor: theme.backgroundSecondary }]}>
-              <Feather name="phone-call" size={18} color={AppColors.gray400} style={styles.inputIcon} />
+            <View
+              style={[
+                styles.inputContainer,
+                { backgroundColor: theme.backgroundSecondary },
+              ]}
+            >
+              <Feather
+                name="phone-call"
+                size={18}
+                color={AppColors.gray400}
+                style={styles.inputIcon}
+              />
               <TextInput
                 style={[styles.input, { color: theme.text }]}
                 placeholder="07xxxxxxxxx"
@@ -240,10 +305,22 @@ export default function CourierPickupScreen() {
           </View>
 
           <View style={styles.inputGroup}>
-            <ThemedText style={styles.label}>ملاحظات إضافية (اختياري)</ThemedText>
-            <View style={[styles.inputContainer, styles.textArea, { backgroundColor: theme.backgroundSecondary }]}>
+            <ThemedText style={styles.label}>
+              ملاحظات إضافية (اختياري)
+            </ThemedText>
+            <View
+              style={[
+                styles.inputContainer,
+                styles.textArea,
+                { backgroundColor: theme.backgroundSecondary },
+              ]}
+            >
               <TextInput
-                style={[styles.input, styles.textAreaInput, { color: theme.text }]}
+                style={[
+                  styles.input,
+                  styles.textAreaInput,
+                  { color: theme.text },
+                ]}
                 placeholder="أي تفاصيل إضافية عن الطلب..."
                 placeholderTextColor={AppColors.gray300}
                 value={notes}
@@ -268,14 +345,24 @@ export default function CourierPickupScreen() {
           testID="button-submit-courier"
           accessibilityRole="button"
           accessibilityLabel="إرسال طلب المندوب"
-          accessibilityState={{ disabled: !isFormValid || isSubmitting, busy: isSubmitting }}
+          accessibilityState={{
+            disabled: !isFormValid || isSubmitting,
+            busy: isSubmitting,
+          }}
         >
           {isSubmitting ? (
             <ActivityIndicator size="small" color={AppColors.white} />
           ) : (
             <>
-              <Feather name="send" size={18} color={AppColors.white} style={{ marginLeft: 8 }} />
-              <ThemedText style={styles.submitButtonText}>تقديم الطلب</ThemedText>
+              <Feather
+                name="send"
+                size={18}
+                color={AppColors.white}
+                style={{ marginLeft: 8 }}
+              />
+              <ThemedText style={styles.submitButtonText}>
+                تقديم الطلب
+              </ThemedText>
             </>
           )}
         </Pressable>

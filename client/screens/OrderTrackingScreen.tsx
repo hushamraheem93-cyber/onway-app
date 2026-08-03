@@ -1,6 +1,13 @@
 import React, { useEffect, useState, useCallback, useRef } from "react";
 import { io, Socket } from "socket.io-client";
-import { StyleSheet, View, ScrollView, ActivityIndicator, Pressable, Platform } from "react-native";
+import {
+  StyleSheet,
+  View,
+  ScrollView,
+  ActivityIndicator,
+  Pressable,
+  Platform,
+} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
@@ -17,7 +24,13 @@ import Animated, {
 
 import { useTheme } from "@/hooks/useTheme";
 import { ThemedText } from "@/components/ThemedText";
-import { Spacing, BorderRadius, AppColors, Shadows, FontWeight} from "@/constants/theme";
+import {
+  Spacing,
+  BorderRadius,
+  AppColors,
+  Shadows,
+  FontWeight,
+} from "@/constants/theme";
 import { formatPrice } from "@/constants/currency";
 import { Button } from "@/components/Button";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
@@ -31,27 +44,54 @@ import { formatShortDate, formatShortTime } from "@/lib/dateUtils";
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 type RouteProps = RouteProp<RootStackParamList, "OrderTracking">;
 
-const STEPS: { label: string; icon: keyof typeof Feather.glyphMap; description: string }[] = [
-  { label: "قيد الانتظار", icon: "clock", description: "تم استلام طلبك وبانتظار التأكيد" },
-  { label: "تم التأكيد", icon: "check-circle", description: "تم تأكيد طلبك وسيتم تحضيره قريباً" },
-  { label: "جاري التحضير", icon: "package", description: "يتم الآن تحضير طلبك" },
+const STEPS: {
+  label: string;
+  icon: keyof typeof Feather.glyphMap;
+  description: string;
+}[] = [
+  {
+    label: "قيد الانتظار",
+    icon: "clock",
+    description: "تم استلام طلبك وبانتظار التأكيد",
+  },
+  {
+    label: "تم التأكيد",
+    icon: "check-circle",
+    description: "تم تأكيد طلبك وسيتم تحضيره قريباً",
+  },
+  {
+    label: "جاري التحضير",
+    icon: "package",
+    description: "يتم الآن تحضير طلبك",
+  },
   { label: "في الطريق", icon: "truck", description: "المندوب في طريقه إليك" },
   { label: "تم التوصيل", icon: "home", description: "تم توصيل طلبك بنجاح!" },
 ];
 
 function getStepIndex(status: Order["status"]): number {
   switch (status) {
-    case "pending":     return 0;
-    case "confirmed":   return 1;
-    case "preparing":   return 2;
-    case "ready":       return 2;
-    case "picked_up":   return 3;
-    case "in_delivery": return 3;
-    case "delivering":  return 3;
-    case "delivered":   return 4;
-    case "cancelled":   return -1;
-    case "issue":       return -1;
-    default:            return 0;
+    case "pending":
+      return 0;
+    case "confirmed":
+      return 1;
+    case "preparing":
+      return 2;
+    case "ready":
+      return 2;
+    case "picked_up":
+      return 3;
+    case "in_delivery":
+      return 3;
+    case "delivering":
+      return 3;
+    case "delivered":
+      return 4;
+    case "cancelled":
+      return -1;
+    case "issue":
+      return -1;
+    default:
+      return 0;
   }
 }
 
@@ -61,7 +101,7 @@ function PulsingDot() {
     opacity.value = withRepeat(
       withTiming(0.3, { duration: 800, easing: Easing.inOut(Easing.ease) }),
       -1,
-      true
+      true,
     );
   }, []);
   const animatedStyle = useAnimatedStyle(() => ({ opacity: opacity.value }));
@@ -72,22 +112,35 @@ function PulsingDot() {
   );
 }
 
-function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
+function haversineKm(
+  lat1: number,
+  lng1: number,
+  lat2: number,
+  lng2: number,
+): number {
   const R = 6371;
-  const dLat = (lat2 - lat1) * Math.PI / 180;
-  const dLng = (lng2 - lng1) * Math.PI / 180;
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLng = ((lng2 - lng1) * Math.PI) / 180;
   const a =
     Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-    Math.sin(dLng / 2) * Math.sin(dLng / 2);
+    Math.cos((lat1 * Math.PI) / 180) *
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLng / 2) *
+      Math.sin(dLng / 2);
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
-function getTrackingMapHTML(driverLat: number, driverLng: number, customerLat?: number, customerLng?: number) {
+function getTrackingMapHTML(
+  driverLat: number,
+  driverLng: number,
+  customerLat?: number,
+  customerLng?: number,
+) {
   const centerLat = driverLat;
   const centerLng = driverLng;
-  const customerMarkerJS = customerLat && customerLng
-    ? `
+  const customerMarkerJS =
+    customerLat && customerLng
+      ? `
       var customerIcon = L.divIcon({
         className: '',
         html: '<div style="width:36px;height:36px;background:#FB5B21;border-radius:50% 50% 50% 0;transform:rotate(-45deg);border:3px solid #fff;box-shadow:0 3px 10px rgba(251,91,33,0.5);"></div>',
@@ -98,7 +151,7 @@ function getTrackingMapHTML(driverLat: number, driverLng: number, customerLat?: 
         .addTo(map)
         .bindPopup('<b style="font-family:sans-serif">موقع التوصيل</b>');
     `
-    : "";
+      : "";
 
   return `
 <!DOCTYPE html>
@@ -189,7 +242,9 @@ function getTrackingMapHTML(driverLat: number, driverLng: number, customerLat?: 
 
     ${customerMarkerJS}
 
-    ${customerLat && customerLng ? `
+    ${
+      customerLat && customerLng
+        ? `
     var routeLine = null;
     function drawRoute(dLat, dLng, cLat, cLng) {
       if (routeLine) map.removeLayer(routeLine);
@@ -201,7 +256,9 @@ function getTrackingMapHTML(driverLat: number, driverLng: number, customerLat?: 
       }).addTo(map);
     }
     drawRoute(${driverLat}, ${driverLng}, ${customerLat}, ${customerLng});
-    ` : ""}
+    `
+        : ""
+    }
 
     function updateDriverLocation(lat, lng) {
       var newLatLng = L.latLng(lat, lng);
@@ -236,7 +293,11 @@ export default function OrderTrackingScreen() {
   const { orders, refreshOrders } = useOrders();
   const { customerToken } = useAuth();
   const [refreshing, setRefreshing] = useState(false);
-  const [driverLocation, setDriverLocation] = useState<{ lat: number; lng: number; fullName: string } | null>(null);
+  const [driverLocation, setDriverLocation] = useState<{
+    lat: number;
+    lng: number;
+    fullName: string;
+  } | null>(null);
   const [mapHtml, setMapHtml] = useState<string | null>(null);
   const webViewRef = useRef<WebView>(null);
   const mapInitializedRef = useRef(false);
@@ -258,25 +319,38 @@ export default function OrderTrackingScreen() {
     try {
       // Owner-gated on the server (it exposes the driver's live GPS), so the
       // customer JWT must be attached.
-      const url = new URL(`/api/orders/${orderId}/driver-location`, getApiUrl()).toString();
+      const url = new URL(
+        `/api/orders/${orderId}/driver-location`,
+        getApiUrl(),
+      ).toString();
       const res = await fetch(url, {
-        headers: customerToken ? { Authorization: `Bearer ${customerToken}` } : {},
+        headers: customerToken
+          ? { Authorization: `Bearer ${customerToken}` }
+          : {},
       });
       if (!res.ok) return;
       const data = await res.json();
       if (!data.available) return;
 
-      setDriverLocation({ lat: data.lat, lng: data.lng, fullName: data.fullName });
+      setDriverLocation({
+        lat: data.lat,
+        lng: data.lng,
+        fullName: data.fullName,
+      });
 
       if (!mapInitializedRef.current) {
         mapInitializedRef.current = true;
-        setMapHtml(getTrackingMapHTML(
-          data.lat, data.lng,
-          order?.latitude, order?.longitude
-        ));
+        setMapHtml(
+          getTrackingMapHTML(
+            data.lat,
+            data.lng,
+            order?.latitude,
+            order?.longitude,
+          ),
+        );
       } else if (webViewRef.current) {
         webViewRef.current.injectJavaScript(
-          `updateDriverLocation(${data.lat}, ${data.lng}); true;`
+          `updateDriverLocation(${data.lat}, ${data.lng}); true;`,
         );
       }
     } catch {}
@@ -291,7 +365,10 @@ export default function OrderTrackingScreen() {
 
   // Socket.io: real-time driver location updates
   useEffect(() => {
-    const tracking = order?.status === "in_delivery" || order?.status === "picked_up" || order?.status === "delivering";
+    const tracking =
+      order?.status === "in_delivery" ||
+      order?.status === "picked_up" ||
+      order?.status === "delivering";
     if (!tracking || !orderId) {
       if (socketRef.current) {
         socketRef.current.disconnect();
@@ -323,26 +400,50 @@ export default function OrderTrackingScreen() {
       socketConnectedRef.current = false;
     });
 
-    sock.on("order:driverLocation", ({ lat, lng, fullName }: { lat: number; lng: number; fullName: string }) => {
-      setDriverLocation({ lat, lng, fullName: fullName || "" });
-      if (!mapInitializedRef.current) {
-        mapInitializedRef.current = true;
-        setMapHtml(getTrackingMapHTML(lat, lng, order?.latitude, order?.longitude));
-      } else if (webViewRef.current) {
-        webViewRef.current.injectJavaScript(`updateDriverLocation(${lat}, ${lng}); true;`);
-      }
-    });
+    sock.on(
+      "order:driverLocation",
+      ({
+        lat,
+        lng,
+        fullName,
+      }: {
+        lat: number;
+        lng: number;
+        fullName: string;
+      }) => {
+        setDriverLocation({ lat, lng, fullName: fullName || "" });
+        if (!mapInitializedRef.current) {
+          mapInitializedRef.current = true;
+          setMapHtml(
+            getTrackingMapHTML(lat, lng, order?.latitude, order?.longitude),
+          );
+        } else if (webViewRef.current) {
+          webViewRef.current.injectJavaScript(
+            `updateDriverLocation(${lat}, ${lng}); true;`,
+          );
+        }
+      },
+    );
 
     return () => {
       sock.disconnect();
       socketRef.current = null;
       socketConnectedRef.current = false;
     };
-  }, [order?.status, orderId, order?.latitude, order?.longitude, customerToken]);
+  }, [
+    order?.status,
+    orderId,
+    order?.latitude,
+    order?.longitude,
+    customerToken,
+  ]);
 
   // HTTP Polling fallback: activates only when socket is disconnected
   useEffect(() => {
-    const tracking = order?.status === "in_delivery" || order?.status === "picked_up" || order?.status === "delivering";
+    const tracking =
+      order?.status === "in_delivery" ||
+      order?.status === "picked_up" ||
+      order?.status === "delivering";
     if (tracking) {
       fetchDriverLocation(); // always fetch once immediately
       const interval = setInterval(() => {
@@ -371,22 +472,37 @@ export default function OrderTrackingScreen() {
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
     await refreshOrders();
-    if (order?.status === "in_delivery" || order?.status === "picked_up" || order?.status === "delivering") await fetchDriverLocation();
+    if (
+      order?.status === "in_delivery" ||
+      order?.status === "picked_up" ||
+      order?.status === "delivering"
+    )
+      await fetchDriverLocation();
     setRefreshing(false);
   }, [refreshOrders, fetchDriverLocation, order?.status]);
 
   if (!order) {
     return (
-      <View style={[styles.loadingContainer, { backgroundColor: theme.backgroundRoot }]}>
+      <View
+        style={[
+          styles.loadingContainer,
+          { backgroundColor: theme.backgroundRoot },
+        ]}
+      >
         <ActivityIndicator size="large" color={AppColors.primary} />
-        <ThemedText type="body" style={{ marginTop: Spacing.md }}>جاري تحميل بيانات الطلب...</ThemedText>
+        <ThemedText type="body" style={{ marginTop: Spacing.md }}>
+          جاري تحميل بيانات الطلب...
+        </ThemedText>
       </View>
     );
   }
 
   const currentStepIndex = getStepIndex(order.status);
   const isCancelled = order.status === "cancelled" || order.status === "issue";
-  const isDelivering = order.status === "in_delivery" || order.status === "picked_up" || order.status === "delivering";
+  const isDelivering =
+    order.status === "in_delivery" ||
+    order.status === "picked_up" ||
+    order.status === "delivering";
 
   return (
     <View style={{ flex: 1 }}>
@@ -395,316 +511,619 @@ export default function OrderTrackingScreen() {
         visible={showRating}
         orderId={order.id}
         driverName={(order as any)?.driverName}
-        authHeader={customerToken ? { Authorization: `Bearer ${customerToken}` } : undefined}
-        onDone={() => { setRatingDismissed(true); refreshOrders(); }}
+        authHeader={
+          customerToken
+            ? { Authorization: `Bearer ${customerToken}` }
+            : undefined
+        }
+        onDone={() => {
+          setRatingDismissed(true);
+          refreshOrders();
+        }}
       />
-    <ScrollView
-      style={{ flex: 1 }}
-      contentContainerStyle={{
-        paddingTop: headerHeight + Spacing.lg,
-        paddingBottom: insets.bottom + Spacing["3xl"],
-        paddingHorizontal: Spacing.lg,
-      }}
-    >
-      <View style={[styles.orderHeader, { backgroundColor: theme.backgroundDefault }, Shadows.sm]}>
-        <View style={styles.headerRow}>
-          <View style={styles.headerInfo}>
-            <ThemedText type="small" style={{ color: theme.textSecondary }}>رقم الطلب</ThemedText>
-            <ThemedText type="h4" style={{ marginTop: 2 }}>#{String((order as any).orderNumber ?? order.id ?? "").slice(-6).toUpperCase()}</ThemedText>
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={{
+          paddingTop: headerHeight + Spacing.lg,
+          paddingBottom: insets.bottom + Spacing["3xl"],
+          paddingHorizontal: Spacing.lg,
+        }}
+      >
+        <View
+          style={[
+            styles.orderHeader,
+            { backgroundColor: theme.backgroundDefault },
+            Shadows.sm,
+          ]}
+        >
+          <View style={styles.headerRow}>
+            <View style={styles.headerInfo}>
+              <ThemedText type="small" style={{ color: theme.textSecondary }}>
+                رقم الطلب
+              </ThemedText>
+              <ThemedText type="h4" style={{ marginTop: 2 }}>
+                #
+                {String((order as any).orderNumber ?? order.id ?? "")
+                  .slice(-6)
+                  .toUpperCase()}
+              </ThemedText>
+            </View>
+            <View
+              style={[
+                styles.statusChip,
+                {
+                  backgroundColor: isCancelled
+                    ? AppColors.errorLight
+                    : currentStepIndex >= 4
+                      ? AppColors.successLight
+                      : AppColors.primary + "15",
+                },
+              ]}
+            >
+              <ThemedText
+                type="small"
+                style={{
+                  color: isCancelled
+                    ? AppColors.error
+                    : currentStepIndex >= 4
+                      ? AppColors.success
+                      : AppColors.primary,
+                  fontWeight: FontWeight.bold,
+                }}
+              >
+                {order.status === "issue"
+                  ? "مشكلة"
+                  : isCancelled
+                    ? "ملغي"
+                    : STEPS[Math.min(currentStepIndex, 4)]?.label}
+              </ThemedText>
+            </View>
           </View>
-          <View style={[styles.statusChip, {
-            backgroundColor: isCancelled ? AppColors.errorLight : currentStepIndex >= 4 ? AppColors.successLight : AppColors.primary + "15",
-          }]}>
-            <ThemedText type="small" style={{
-              color: isCancelled ? AppColors.error : currentStepIndex >= 4 ? AppColors.success : AppColors.primary,
-              fontWeight: FontWeight.bold,
-            }}>
-              {order.status === "issue" ? "مشكلة" : isCancelled ? "ملغي" : STEPS[Math.min(currentStepIndex, 4)]?.label}
-            </ThemedText>
+
+          <View
+            style={[styles.headerDetails, { borderTopColor: theme.border }]}
+          >
+            <View style={styles.detailItem}>
+              <Feather name="map-pin" size={14} color={theme.textSecondary} />
+              <ThemedText
+                type="small"
+                style={{ color: theme.textSecondary, marginRight: 4 }}
+              >
+                {order.region}
+              </ThemedText>
+            </View>
+            <View style={styles.detailItem}>
+              <Feather name="calendar" size={14} color={theme.textSecondary} />
+              <ThemedText
+                type="small"
+                style={{ color: theme.textSecondary, marginRight: 4 }}
+              >
+                {formatShortDate(order.createdAt)} -{" "}
+                {formatShortTime(order.createdAt)}
+              </ThemedText>
+            </View>
+            <View style={styles.detailItem}>
+              <Feather
+                name="shopping-bag"
+                size={14}
+                color={theme.textSecondary}
+              />
+              <ThemedText
+                type="small"
+                style={{ color: theme.textSecondary, marginRight: 4 }}
+              >
+                {formatPrice(order.total + order.deliveryFee)}
+              </ThemedText>
+            </View>
           </View>
         </View>
 
-        <View style={[styles.headerDetails, { borderTopColor: theme.border }]}>
-          <View style={styles.detailItem}>
-            <Feather name="map-pin" size={14} color={theme.textSecondary} />
-            <ThemedText type="small" style={{ color: theme.textSecondary, marginRight: 4 }}>
-              {order.region}
+        {isDelivering ? (
+          <View
+            style={[
+              styles.mapCard,
+              { backgroundColor: theme.backgroundDefault },
+              Shadows.sm,
+            ]}
+          >
+            <View style={styles.mapHeader}>
+              <View style={styles.mapLiveBadge}>
+                <View style={styles.liveDot} />
+                <ThemedText type="small" style={styles.liveText}>
+                  مباشر
+                </ThemedText>
+              </View>
+              <View style={styles.mapTitleRow}>
+                <Feather name="truck" size={18} color={AppColors.primary} />
+                <ThemedText type="h4" style={styles.mapTitle}>
+                  تتبع المندوب
+                </ThemedText>
+              </View>
+            </View>
+
+            {Platform.OS === "web" ? (
+              <View style={styles.webFallback}>
+                <Feather
+                  name="smartphone"
+                  size={36}
+                  color={AppColors.primary}
+                />
+                <ThemedText type="body" style={styles.webFallbackText}>
+                  افتح التطبيق عبر Expo Go لمتابعة موقع المندوب على الخارطة
+                </ThemedText>
+              </View>
+            ) : mapHtml ? (
+              <WebView
+                ref={webViewRef}
+                source={{ html: mapHtml }}
+                style={styles.mapView}
+                scrollEnabled={false}
+                javaScriptEnabled
+                originWhitelist={["*"]}
+              />
+            ) : (
+              <View style={styles.mapLoading}>
+                <ActivityIndicator size="large" color={AppColors.primary} />
+                <ThemedText
+                  type="small"
+                  style={{ color: theme.textSecondary, marginTop: Spacing.md }}
+                >
+                  جاري تحديد موقع المندوب...
+                </ThemedText>
+              </View>
+            )}
+
+            {driverLocation ? (
+              <View
+                style={[styles.driverInfoBar, { borderTopColor: theme.border }]}
+              >
+                <View style={styles.driverInfoRow}>
+                  <View
+                    style={[
+                      styles.driverAvatar,
+                      { backgroundColor: AppColors.primary + "20" },
+                    ]}
+                  >
+                    <Feather name="user" size={16} color={AppColors.primary} />
+                  </View>
+                  <View style={styles.driverInfoText}>
+                    <ThemedText
+                      type="small"
+                      style={{ color: theme.textSecondary }}
+                    >
+                      المندوب
+                    </ThemedText>
+                    <ThemedText
+                      type="body"
+                      style={{ fontWeight: FontWeight.semiBold }}
+                    >
+                      {driverLocation.fullName || "المندوب"}
+                    </ThemedText>
+                  </View>
+                  <View style={styles.driverStatus}>
+                    <View style={styles.statusDot} />
+                    <ThemedText
+                      type="small"
+                      style={{
+                        color: AppColors.success,
+                        fontWeight: FontWeight.semiBold,
+                      }}
+                    >
+                      في الطريق
+                    </ThemedText>
+                  </View>
+                </View>
+                {order?.latitude && order?.longitude
+                  ? (() => {
+                      const distKm = haversineKm(
+                        driverLocation.lat,
+                        driverLocation.lng,
+                        order.latitude!,
+                        order.longitude!,
+                      );
+                      const etaMins = Math.max(
+                        1,
+                        Math.round((distKm / 30) * 60),
+                      );
+                      const distLabel =
+                        distKm < 1
+                          ? `${Math.round(distKm * 1000)} م`
+                          : `${distKm.toFixed(1)} كم`;
+                      return (
+                        <View
+                          style={[
+                            styles.etaRow,
+                            { borderTopColor: theme.border },
+                          ]}
+                        >
+                          <View style={styles.etaItem}>
+                            <Feather
+                              name="map-pin"
+                              size={13}
+                              color={AppColors.primary}
+                            />
+                            <ThemedText
+                              type="small"
+                              style={{
+                                color: theme.textSecondary,
+                                marginRight: 4,
+                              }}
+                            >
+                              المسافة:{" "}
+                              <ThemedText
+                                type="small"
+                                style={{
+                                  color: theme.text,
+                                  fontWeight: FontWeight.semiBold,
+                                }}
+                              >
+                                {distLabel}
+                              </ThemedText>
+                            </ThemedText>
+                          </View>
+                          <View style={styles.etaItem}>
+                            <Feather
+                              name="clock"
+                              size={13}
+                              color={AppColors.primary}
+                            />
+                            <ThemedText
+                              type="small"
+                              style={{
+                                color: theme.textSecondary,
+                                marginRight: 4,
+                              }}
+                            >
+                              الوصول خلال:{" "}
+                              <ThemedText
+                                type="small"
+                                style={{
+                                  color: theme.text,
+                                  fontWeight: FontWeight.semiBold,
+                                }}
+                              >
+                                {etaMins} دقيقة
+                              </ThemedText>
+                            </ThemedText>
+                          </View>
+                        </View>
+                      );
+                    })()
+                  : null}
+              </View>
+            ) : null}
+          </View>
+        ) : null}
+
+        {isCancelled ? (
+          <View style={[styles.cancelledCard, Shadows.sm]}>
+            <View style={styles.cancelledIcon}>
+              <Feather
+                name={order.status === "issue" ? "alert-triangle" : "x-circle"}
+                size={40}
+                color={AppColors.error}
+              />
+            </View>
+            <ThemedText type="h3" style={styles.cancelledTitle}>
+              {order.status === "issue"
+                ? "توجد مشكلة في الطلب"
+                : "تم إلغاء الطلب"}
+            </ThemedText>
+            <ThemedText type="body" style={styles.cancelledDesc}>
+              {order.status === "issue"
+                ? "واجه المندوب مشكلة في توصيل طلبك. سيتواصل معك قريباً لحل المشكلة."
+                : "نأسف لإعلامك أنه تم إلغاء هذا الطلب. يمكنك تقديم طلب جديد في أي وقت."}
             </ThemedText>
           </View>
-          <View style={styles.detailItem}>
-            <Feather name="calendar" size={14} color={theme.textSecondary} />
-            <ThemedText type="small" style={{ color: theme.textSecondary, marginRight: 4 }}>
-              {formatShortDate(order.createdAt)} - {formatShortTime(order.createdAt)}
+        ) : (
+          <View
+            style={[
+              styles.timelineCard,
+              { backgroundColor: theme.backgroundDefault },
+              Shadows.sm,
+            ]}
+          >
+            <ThemedText type="h4" style={styles.timelineTitle}>
+              مراحل الطلب
             </ThemedText>
+
+            {STEPS.map((step, index) => {
+              const isCompleted = index <= currentStepIndex;
+              const isCurrent = index === currentStepIndex;
+              const isLast = index === STEPS.length - 1;
+
+              return (
+                <View key={index} style={styles.stepRow}>
+                  <View style={styles.stepIndicator}>
+                    {isCompleted ? (
+                      <View style={[styles.stepCircle, styles.stepCompleted]}>
+                        {isCurrent && currentStepIndex < 4 ? (
+                          <PulsingDot />
+                        ) : (
+                          <Feather
+                            name="check"
+                            size={14}
+                            color={AppColors.white}
+                          />
+                        )}
+                      </View>
+                    ) : (
+                      <View
+                        style={[
+                          styles.stepCircle,
+                          styles.stepPending,
+                          { borderColor: theme.border },
+                        ]}
+                      >
+                        <View
+                          style={[
+                            styles.stepDotInner,
+                            { backgroundColor: theme.border },
+                          ]}
+                        />
+                      </View>
+                    )}
+                    {!isLast ? (
+                      <View
+                        style={[
+                          styles.stepLine,
+                          {
+                            backgroundColor:
+                              index < currentStepIndex
+                                ? AppColors.primary
+                                : theme.border,
+                          },
+                        ]}
+                      />
+                    ) : null}
+                  </View>
+
+                  <View
+                    style={[
+                      styles.stepContent,
+                      !isLast && { paddingBottom: Spacing.xl },
+                    ]}
+                  >
+                    <View style={styles.stepHeader}>
+                      <Feather
+                        name={step.icon as any}
+                        size={18}
+                        color={
+                          isCompleted ? AppColors.primary : theme.textSecondary
+                        }
+                      />
+                      <ThemedText
+                        type="body"
+                        style={[
+                          styles.stepLabel,
+                          {
+                            color: isCompleted
+                              ? theme.text
+                              : theme.textSecondary,
+                          },
+                          isCurrent && { fontWeight: FontWeight.bold },
+                        ]}
+                      >
+                        {step.label}
+                      </ThemedText>
+                    </View>
+                    <ThemedText
+                      type="small"
+                      style={[
+                        styles.stepDesc,
+                        {
+                          color: isCompleted
+                            ? theme.textSecondary
+                            : theme.border,
+                        },
+                      ]}
+                    >
+                      {step.description}
+                    </ThemedText>
+                  </View>
+                </View>
+              );
+            })}
           </View>
-          <View style={styles.detailItem}>
-            <Feather name="shopping-bag" size={14} color={theme.textSecondary} />
-            <ThemedText type="small" style={{ color: theme.textSecondary, marginRight: 4 }}>
+        )}
+
+        <View
+          style={[
+            styles.itemsCard,
+            { backgroundColor: theme.backgroundDefault },
+            Shadows.sm,
+          ]}
+        >
+          <View style={styles.itemsHeader}>
+            <ThemedText type="h4" style={styles.itemsTitle}>
+              المنتجات ({order.items.length})
+            </ThemedText>
+            {order.vendorName && !order.items.some((i) => i.restaurant) ? (
+              <Pressable
+                style={[
+                  styles.itemStoreBadge,
+                  { backgroundColor: AppColors.primary + "12" },
+                  order.vendorId ? styles.itemStoreBadgePressable : null,
+                ]}
+                onPress={
+                  order.vendorId
+                    ? () =>
+                        navigation.navigate("StoreProducts", {
+                          storeId: order.vendorId!,
+                          storeName: order.vendorName!,
+                        })
+                    : undefined
+                }
+                testID="button-tracking-store-badge"
+                accessibilityRole={order.vendorId ? "button" : "text"}
+                accessibilityLabel={`من متجر ${order.vendorName}`}
+              >
+                <Feather
+                  name="shopping-bag"
+                  size={11}
+                  color={AppColors.primary}
+                />
+                <ThemedText
+                  type="small"
+                  style={{
+                    color: AppColors.primary,
+                    fontWeight: FontWeight.semiBold,
+                    marginRight: 4,
+                  }}
+                >
+                  {"من متجر " + order.vendorName}
+                </ThemedText>
+                {order.vendorId ? (
+                  <Feather
+                    name="chevron-left"
+                    size={11}
+                    color={AppColors.primary}
+                  />
+                ) : null}
+              </Pressable>
+            ) : null}
+          </View>
+          {order.items.map((item, index) => (
+            <View
+              key={index}
+              style={[
+                styles.itemRow,
+                index < order.items.length - 1 && {
+                  borderBottomWidth: 1,
+                  borderBottomColor: theme.border,
+                },
+              ]}
+            >
+              <ThemedText
+                type="body"
+                style={{
+                  color: AppColors.primary,
+                  fontWeight: FontWeight.semiBold,
+                }}
+              >
+                {formatPrice(item.price * item.quantity)}
+              </ThemedText>
+              <View style={styles.itemInfo}>
+                <ThemedText
+                  type="body"
+                  style={{ fontWeight: FontWeight.medium }}
+                >
+                  {item.name}
+                </ThemedText>
+                <ThemedText type="small" style={{ color: theme.textSecondary }}>
+                  {item.quantity} × {formatPrice(item.price)}
+                </ThemedText>
+                {item.restaurant ? (
+                  order.vendorId ? (
+                    <Pressable
+                      style={[
+                        styles.itemStoreBadge,
+                        { backgroundColor: AppColors.primary + "12" },
+                        styles.itemStoreBadgePressable,
+                      ]}
+                      onPress={() =>
+                        navigation.navigate("StoreProducts", {
+                          storeId: order.vendorId!,
+                          storeName: item.restaurant!,
+                        })
+                      }
+                      testID={`button-item-store-badge-${index}`}
+                      accessibilityRole="button"
+                      accessibilityLabel={`من متجر ${item.restaurant}`}
+                    >
+                      <Feather
+                        name="shopping-bag"
+                        size={11}
+                        color={AppColors.primary}
+                      />
+                      <ThemedText
+                        type="small"
+                        style={{
+                          color: AppColors.primary,
+                          fontWeight: FontWeight.semiBold,
+                          marginRight: 4,
+                        }}
+                      >
+                        {"من متجر " + item.restaurant}
+                      </ThemedText>
+                      <Feather
+                        name="chevron-left"
+                        size={11}
+                        color={AppColors.primary}
+                      />
+                    </Pressable>
+                  ) : (
+                    <View
+                      style={[
+                        styles.itemStoreBadge,
+                        { backgroundColor: AppColors.primary + "12" },
+                      ]}
+                    >
+                      <Feather
+                        name="shopping-bag"
+                        size={11}
+                        color={AppColors.primary}
+                      />
+                      <ThemedText
+                        type="small"
+                        style={{
+                          color: AppColors.primary,
+                          fontWeight: FontWeight.semiBold,
+                          marginRight: 4,
+                        }}
+                      >
+                        {"من متجر " + item.restaurant}
+                      </ThemedText>
+                    </View>
+                  )
+                ) : null}
+              </View>
+            </View>
+          ))}
+          <View style={[styles.totalSection, { borderTopColor: theme.border }]}>
+            <ThemedText type="body" style={{ color: theme.textSecondary }}>
+              التوصيل: {formatPrice(order.deliveryFee)}
+              {order.serviceFee !== undefined && order.serviceFee > 0
+                ? `  |  الخدمة: ${formatPrice(order.serviceFee)}`
+                : ""}
+            </ThemedText>
+            <ThemedText type="h3" style={{ color: AppColors.primary }}>
               {formatPrice(order.total + order.deliveryFee)}
             </ThemedText>
           </View>
         </View>
-      </View>
 
-      {isDelivering ? (
-        <View style={[styles.mapCard, { backgroundColor: theme.backgroundDefault }, Shadows.sm]}>
-          <View style={styles.mapHeader}>
-            <View style={styles.mapLiveBadge}>
-              <View style={styles.liveDot} />
-              <ThemedText type="small" style={styles.liveText}>مباشر</ThemedText>
-            </View>
-            <View style={styles.mapTitleRow}>
-              <Feather name="truck" size={18} color={AppColors.primary} />
-              <ThemedText type="h4" style={styles.mapTitle}>تتبع المندوب</ThemedText>
-            </View>
-          </View>
-
-          {Platform.OS === "web" ? (
-            <View style={styles.webFallback}>
-              <Feather name="smartphone" size={36} color={AppColors.primary} />
-              <ThemedText type="body" style={styles.webFallbackText}>
-                افتح التطبيق عبر Expo Go لمتابعة موقع المندوب على الخارطة
-              </ThemedText>
-            </View>
-          ) : mapHtml ? (
-            <WebView
-              ref={webViewRef}
-              source={{ html: mapHtml }}
-              style={styles.mapView}
-              scrollEnabled={false}
-              javaScriptEnabled
-              originWhitelist={["*"]}
-            />
+        <Pressable
+          style={styles.refreshBtn}
+          onPress={handleRefresh}
+          accessibilityRole="button"
+          accessibilityLabel="تحديث حالة الطلب"
+          accessibilityState={{ busy: refreshing }}
+        >
+          {refreshing ? (
+            <ActivityIndicator size="small" color={AppColors.primary} />
           ) : (
-            <View style={styles.mapLoading}>
-              <ActivityIndicator size="large" color={AppColors.primary} />
-              <ThemedText type="small" style={{ color: theme.textSecondary, marginTop: Spacing.md }}>
-                جاري تحديد موقع المندوب...
-              </ThemedText>
-            </View>
+            <Feather name="refresh-cw" size={16} color={AppColors.primary} />
           )}
-
-          {driverLocation ? (
-            <View style={[styles.driverInfoBar, { borderTopColor: theme.border }]}>
-              <View style={styles.driverInfoRow}>
-                <View style={[styles.driverAvatar, { backgroundColor: AppColors.primary + "20" }]}>
-                  <Feather name="user" size={16} color={AppColors.primary} />
-                </View>
-                <View style={styles.driverInfoText}>
-                  <ThemedText type="small" style={{ color: theme.textSecondary }}>المندوب</ThemedText>
-                  <ThemedText type="body" style={{ fontWeight: FontWeight.semiBold }}>
-                    {driverLocation.fullName || "المندوب"}
-                  </ThemedText>
-                </View>
-                <View style={styles.driverStatus}>
-                  <View style={styles.statusDot} />
-                  <ThemedText type="small" style={{ color: AppColors.success, fontWeight: FontWeight.semiBold }}>في الطريق</ThemedText>
-                </View>
-              </View>
-              {order?.latitude && order?.longitude ? (() => {
-                const distKm = haversineKm(driverLocation.lat, driverLocation.lng, order.latitude!, order.longitude!);
-                const etaMins = Math.max(1, Math.round((distKm / 30) * 60));
-                const distLabel = distKm < 1
-                  ? `${Math.round(distKm * 1000)} م`
-                  : `${distKm.toFixed(1)} كم`;
-                return (
-                  <View style={[styles.etaRow, { borderTopColor: theme.border }]}>
-                    <View style={styles.etaItem}>
-                      <Feather name="map-pin" size={13} color={AppColors.primary} />
-                      <ThemedText type="small" style={{ color: theme.textSecondary, marginRight: 4 }}>
-                        المسافة: <ThemedText type="small" style={{ color: theme.text, fontWeight: FontWeight.semiBold }}>{distLabel}</ThemedText>
-                      </ThemedText>
-                    </View>
-                    <View style={styles.etaItem}>
-                      <Feather name="clock" size={13} color={AppColors.primary} />
-                      <ThemedText type="small" style={{ color: theme.textSecondary, marginRight: 4 }}>
-                        الوصول خلال: <ThemedText type="small" style={{ color: theme.text, fontWeight: FontWeight.semiBold }}>{etaMins} دقيقة</ThemedText>
-                      </ThemedText>
-                    </View>
-                  </View>
-                );
-              })() : null}
-            </View>
-          ) : null}
-        </View>
-      ) : null}
-
-      {isCancelled ? (
-        <View style={[styles.cancelledCard, Shadows.sm]}>
-          <View style={styles.cancelledIcon}>
-            <Feather name={order.status === "issue" ? "alert-triangle" : "x-circle"} size={40} color={AppColors.error} />
-          </View>
-          <ThemedText type="h3" style={styles.cancelledTitle}>
-            {order.status === "issue" ? "توجد مشكلة في الطلب" : "تم إلغاء الطلب"}
+          <ThemedText
+            type="small"
+            style={{
+              color: AppColors.primary,
+              fontWeight: FontWeight.semiBold,
+              marginRight: 6,
+            }}
+          >
+            تحديث حالة الطلب
           </ThemedText>
-          <ThemedText type="body" style={styles.cancelledDesc}>
-            {order.status === "issue"
-              ? "واجه المندوب مشكلة في توصيل طلبك. سيتواصل معك قريباً لحل المشكلة."
-              : "نأسف لإعلامك أنه تم إلغاء هذا الطلب. يمكنك تقديم طلب جديد في أي وقت."}
-          </ThemedText>
-        </View>
-      ) : (
-        <View style={[styles.timelineCard, { backgroundColor: theme.backgroundDefault }, Shadows.sm]}>
-          <ThemedText type="h4" style={styles.timelineTitle}>مراحل الطلب</ThemedText>
+        </Pressable>
 
-          {STEPS.map((step, index) => {
-            const isCompleted = index <= currentStepIndex;
-            const isCurrent = index === currentStepIndex;
-            const isLast = index === STEPS.length - 1;
-
-            return (
-              <View key={index} style={styles.stepRow}>
-                <View style={styles.stepIndicator}>
-                  {isCompleted ? (
-                    <View style={[styles.stepCircle, styles.stepCompleted]}>
-                      {isCurrent && currentStepIndex < 4 ? (
-                        <PulsingDot />
-                      ) : (
-                        <Feather name="check" size={14} color={AppColors.white} />
-                      )}
-                    </View>
-                  ) : (
-                    <View style={[styles.stepCircle, styles.stepPending, { borderColor: theme.border }]}>
-                      <View style={[styles.stepDotInner, { backgroundColor: theme.border }]} />
-                    </View>
-                  )}
-                  {!isLast ? (
-                    <View style={[
-                      styles.stepLine,
-                      { backgroundColor: index < currentStepIndex ? AppColors.primary : theme.border },
-                    ]} />
-                  ) : null}
-                </View>
-
-                <View style={[styles.stepContent, !isLast && { paddingBottom: Spacing.xl }]}>
-                  <View style={styles.stepHeader}>
-                    <Feather
-                      name={step.icon as any}
-                      size={18}
-                      color={isCompleted ? AppColors.primary : theme.textSecondary}
-                    />
-                    <ThemedText
-                      type="body"
-                      style={[
-                        styles.stepLabel,
-                        { color: isCompleted ? theme.text : theme.textSecondary },
-                        isCurrent && { fontWeight: FontWeight.bold },
-                      ]}
-                    >
-                      {step.label}
-                    </ThemedText>
-                  </View>
-                  <ThemedText
-                    type="small"
-                    style={[
-                      styles.stepDesc,
-                      { color: isCompleted ? theme.textSecondary : theme.border },
-                    ]}
-                  >
-                    {step.description}
-                  </ThemedText>
-                </View>
-              </View>
-            );
-          })}
-        </View>
-      )}
-
-      <View style={[styles.itemsCard, { backgroundColor: theme.backgroundDefault }, Shadows.sm]}>
-        <View style={styles.itemsHeader}>
-          <ThemedText type="h4" style={styles.itemsTitle}>المنتجات ({order.items.length})</ThemedText>
-          {order.vendorName && !order.items.some(i => i.restaurant) ? (
-            <Pressable
-              style={[
-                styles.itemStoreBadge,
-                { backgroundColor: AppColors.primary + "12" },
-                order.vendorId ? styles.itemStoreBadgePressable : null,
-              ]}
-              onPress={order.vendorId
-                ? () => navigation.navigate("StoreProducts", { storeId: order.vendorId!, storeName: order.vendorName! })
-                : undefined}
-              testID="button-tracking-store-badge"
-              accessibilityRole={order.vendorId ? "button" : "text"}
-              accessibilityLabel={`من متجر ${order.vendorName}`}
-            >
-              <Feather name="shopping-bag" size={11} color={AppColors.primary} />
-              <ThemedText type="small" style={{ color: AppColors.primary, fontWeight: FontWeight.semiBold, marginRight: 4 }}>
-                {"من متجر " + order.vendorName}
-              </ThemedText>
-              {order.vendorId ? (
-                <Feather name="chevron-left" size={11} color={AppColors.primary} />
-              ) : null}
-            </Pressable>
-          ) : null}
-        </View>
-        {order.items.map((item, index) => (
-          <View key={index} style={[styles.itemRow, index < order.items.length - 1 && { borderBottomWidth: 1, borderBottomColor: theme.border }]}>
-            <ThemedText type="body" style={{ color: AppColors.primary, fontWeight: FontWeight.semiBold }}>
-              {formatPrice(item.price * item.quantity)}
-            </ThemedText>
-            <View style={styles.itemInfo}>
-              <ThemedText type="body" style={{ fontWeight: FontWeight.medium }}>{item.name}</ThemedText>
-              <ThemedText type="small" style={{ color: theme.textSecondary }}>
-                {item.quantity} × {formatPrice(item.price)}
-              </ThemedText>
-              {item.restaurant ? (
-                order.vendorId ? (
-                  <Pressable
-                    style={[styles.itemStoreBadge, { backgroundColor: AppColors.primary + "12" }, styles.itemStoreBadgePressable]}
-                    onPress={() => navigation.navigate("StoreProducts", { storeId: order.vendorId!, storeName: item.restaurant! })}
-                    testID={`button-item-store-badge-${index}`}
-                    accessibilityRole="button"
-                    accessibilityLabel={`من متجر ${item.restaurant}`}
-                  >
-                    <Feather name="shopping-bag" size={11} color={AppColors.primary} />
-                    <ThemedText type="small" style={{ color: AppColors.primary, fontWeight: FontWeight.semiBold, marginRight: 4 }}>
-                      {"من متجر " + item.restaurant}
-                    </ThemedText>
-                    <Feather name="chevron-left" size={11} color={AppColors.primary} />
-                  </Pressable>
-                ) : (
-                  <View style={[styles.itemStoreBadge, { backgroundColor: AppColors.primary + "12" }]}>
-                    <Feather name="shopping-bag" size={11} color={AppColors.primary} />
-                    <ThemedText type="small" style={{ color: AppColors.primary, fontWeight: FontWeight.semiBold, marginRight: 4 }}>
-                      {"من متجر " + item.restaurant}
-                    </ThemedText>
-                  </View>
-                )
-              ) : null}
-            </View>
-          </View>
-        ))}
-        <View style={[styles.totalSection, { borderTopColor: theme.border }]}>
-          <ThemedText type="body" style={{ color: theme.textSecondary }}>
-            التوصيل: {formatPrice(order.deliveryFee)}{order.serviceFee !== undefined && order.serviceFee > 0 ? `  |  الخدمة: ${formatPrice(order.serviceFee)}` : ""}
-          </ThemedText>
-          <ThemedText type="h3" style={{ color: AppColors.primary }}>
-            {formatPrice(order.total + order.deliveryFee)}
-          </ThemedText>
-        </View>
-      </View>
-
-      <Pressable
-        style={styles.refreshBtn}
-        onPress={handleRefresh}
-        accessibilityRole="button"
-        accessibilityLabel="تحديث حالة الطلب"
-        accessibilityState={{ busy: refreshing }}
-      >
-        {refreshing ? (
-          <ActivityIndicator size="small" color={AppColors.primary} />
-        ) : (
-          <Feather name="refresh-cw" size={16} color={AppColors.primary} />
-        )}
-        <ThemedText type="small" style={{ color: AppColors.primary, fontWeight: FontWeight.semiBold, marginRight: 6 }}>
-          تحديث حالة الطلب
-        </ThemedText>
-      </Pressable>
-
-      <Button onPress={() => navigation.navigate("MainTabs")} style={styles.homeButton}>
-        العودة للرئيسية
-      </Button>
-    </ScrollView>
+        <Button
+          onPress={() => navigation.navigate("MainTabs")}
+          style={styles.homeButton}
+        >
+          العودة للرئيسية
+        </Button>
+      </ScrollView>
     </View>
   );
 }

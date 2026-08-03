@@ -44,13 +44,17 @@ interface OrderItem {
 export function useOrders(phoneNumber: string | null, token: string | null) {
   const queryClient = useQueryClient();
 
-  const { data = [], isLoading, refetch } = useQuery<CustomerOrder[]>({
+  const {
+    data = [],
+    isLoading,
+    refetch,
+  } = useQuery<CustomerOrder[]>({
     queryKey: ["/api/orders", phoneNumber],
     queryFn: async () => {
       if (!phoneNumber || !token) throw new Error("unauthenticated");
       const res = await fetch(
         apiUrl(`/api/orders?phone=${encodeURIComponent(phoneNumber)}`),
-        { headers: { Authorization: `Bearer ${token}` } }
+        { headers: { Authorization: `Bearer ${token}` } },
       );
       if (!res.ok) throw new Error(`${res.status}`);
       return res.json();
@@ -65,17 +69,22 @@ export function useOrders(phoneNumber: string | null, token: string | null) {
       try {
         const res = await fetch(apiUrl(`/api/orders/${orderId}/rate`), {
           method: "POST",
-          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
           body: JSON.stringify({ rating }),
         });
         if (!res.ok) return false;
-        queryClient.invalidateQueries({ queryKey: ["/api/orders", phoneNumber] });
+        queryClient.invalidateQueries({
+          queryKey: ["/api/orders", phoneNumber],
+        });
         return true;
       } catch {
         return false;
       }
     },
-    [token, phoneNumber, queryClient]
+    [token, phoneNumber, queryClient],
   );
 
   const cancelOrder = useCallback(
@@ -84,20 +93,31 @@ export function useOrders(phoneNumber: string | null, token: string | null) {
       try {
         const res = await fetch(apiUrl(`/api/orders/${orderId}/cancel`), {
           method: "PATCH",
-          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
           body: JSON.stringify({ status: "cancelled" }),
         });
         if (!res.ok) return false;
-        queryClient.invalidateQueries({ queryKey: ["/api/orders", phoneNumber] });
+        queryClient.invalidateQueries({
+          queryKey: ["/api/orders", phoneNumber],
+        });
         return true;
       } catch {
         return false;
       }
     },
-    [token, phoneNumber, queryClient]
+    [token, phoneNumber, queryClient],
   );
 
-  return { orders: data, ordersLoading: isLoading, refreshOrders: refetch, rateOrder, cancelOrder };
+  return {
+    orders: data,
+    ordersLoading: isLoading,
+    refreshOrders: refetch,
+    rateOrder,
+    cancelOrder,
+  };
 }
 
 // ── Single order tracking ─────────────────────────────────────────────────────
@@ -117,11 +137,18 @@ export function useOrderTracking(orderId: string | null, token: string | null) {
     staleTime: 10_000,
   });
 
-  return { order: data ?? null, trackingLoading: isLoading, trackingError: error };
+  return {
+    order: data ?? null,
+    trackingLoading: isLoading,
+    trackingError: error,
+  };
 }
 
 // ── Create order ──────────────────────────────────────────────────────────────
-export function useCreateOrder(token: string | null, phoneNumber: string | null) {
+export function useCreateOrder(
+  token: string | null,
+  phoneNumber: string | null,
+) {
   const queryClient = useQueryClient();
 
   const { mutateAsync: placeOrder, isPending } = useMutation({
@@ -129,7 +156,10 @@ export function useCreateOrder(token: string | null, phoneNumber: string | null)
       if (!token) throw new Error("unauthenticated");
       const res = await fetch(apiUrl("/api/orders"), {
         method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
         body: JSON.stringify(orderData),
       });
       if (!res.ok) {

@@ -4,7 +4,13 @@ import Svg, { Circle } from "react-native-svg";
 import { Feather } from "@expo/vector-icons";
 import { ThemedText } from "@/components/ThemedText";
 import { useTheme } from "@/hooks/useTheme";
-import { AppColors, BorderRadius, FontWeight, Shadows, Spacing } from "@/constants/theme";
+import {
+  AppColors,
+  BorderRadius,
+  FontWeight,
+  Shadows,
+  Spacing,
+} from "@/constants/theme";
 
 interface Props {
   // Kept so electronic payment can be switched back on later without touching this
@@ -18,7 +24,13 @@ interface Props {
 export function PaymentMethodsCard({ onlinePaymentEnabled = false }: Props) {
   const { theme } = useTheme();
   return (
-    <View style={[styles.card, { backgroundColor: theme.backgroundDefault }, Shadows.sm]}>
+    <View
+      style={[
+        styles.card,
+        { backgroundColor: theme.backgroundDefault },
+        Shadows.sm,
+      ]}
+    >
       {/* Electronic payment (card / Mastercard) is intentionally removed from the UI.
           It only renders if the backend re-enables onlinePaymentEnabled in the future,
           keeping COD as the sole option today. */}
@@ -27,10 +39,25 @@ export function PaymentMethodsCard({ onlinePaymentEnabled = false }: Props) {
           {/* Mastercard */}
           <View style={styles.methodItem}>
             <Svg width={44} height={28}>
-              <Circle cx={15} cy={14} r={13} fill={AppColors.error} opacity={0.8} />
-              <Circle cx={29} cy={14} r={13} fill={AppColors.warning} opacity={0.8} />
+              <Circle
+                cx={15}
+                cy={14}
+                r={13}
+                fill={AppColors.error}
+                opacity={0.8}
+              />
+              <Circle
+                cx={29}
+                cy={14}
+                r={13}
+                fill={AppColors.warning}
+                opacity={0.8}
+              />
             </Svg>
-            <ThemedText type="small" style={[styles.methodLabel, { color: theme.text }]}>
+            <ThemedText
+              type="small"
+              style={[styles.methodLabel, { color: theme.text }]}
+            >
               ماستر كارد
             </ThemedText>
           </View>
@@ -38,9 +65,14 @@ export function PaymentMethodsCard({ onlinePaymentEnabled = false }: Props) {
           {/* Dinar Cash */}
           <View style={styles.methodItem}>
             <View style={styles.dinarIcon}>
-              <ThemedText type="small" style={styles.dinarText}>IQD</ThemedText>
+              <ThemedText type="small" style={styles.dinarText}>
+                IQD
+              </ThemedText>
             </View>
-            <ThemedText type="small" style={[styles.methodLabel, { color: theme.text }]}>
+            <ThemedText
+              type="small"
+              style={[styles.methodLabel, { color: theme.text }]}
+            >
               الدينار كاش
             </ThemedText>
           </View>
@@ -50,16 +82,34 @@ export function PaymentMethodsCard({ onlinePaymentEnabled = false }: Props) {
             <View style={[styles.cardIcon, { borderColor: theme.border }]}>
               <Feather name="credit-card" size={20} color={AppColors.primary} />
             </View>
-            <ThemedText type="small" style={[styles.methodLabel, { color: theme.text }]}>
+            <ThemedText
+              type="small"
+              style={[styles.methodLabel, { color: theme.text }]}
+            >
               بواسطة البطاقة
             </ThemedText>
           </View>
         </View>
       ) : null}
 
-      <View style={[styles.cashNote, { backgroundColor: AppColors.primary + "10", borderColor: AppColors.primary + "30" }]}>
+      <View
+        style={[
+          styles.cashNote,
+          {
+            backgroundColor: AppColors.primary + "10",
+            borderColor: AppColors.primary + "30",
+          },
+        ]}
+      >
         <Feather name="check-circle" size={16} color={AppColors.primary} />
-        <ThemedText type="small" style={{ color: AppColors.primary, fontWeight: FontWeight.semiBold, textAlign: "right" }}>
+        <ThemedText
+          type="small"
+          style={{
+            color: AppColors.primary,
+            fontWeight: FontWeight.semiBold,
+            textAlign: "right",
+          }}
+        >
           الدفع نقداً عند الاستلام
         </ThemedText>
       </View>

@@ -4,7 +4,7 @@ import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 
 import { ThemedText } from "@/components/ThemedText";
-import { AppColors, FontWeight} from "@/constants/theme";
+import { AppColors, FontWeight } from "@/constants/theme";
 
 interface EmptyStateProps {
   icon?: keyof typeof Ionicons.glyphMap;
@@ -27,7 +27,6 @@ function EmptyStateComponent({
   onButtonPress,
   buttonIcon = "chevron-back",
 }: EmptyStateProps) {
-
   const handlePress = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     onButtonPress?.();

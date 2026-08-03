@@ -56,7 +56,7 @@ export async function sendPushNotification(
   pushToken: string,
   status: string,
   orderId: string,
-  estimatedMinutes?: number
+  estimatedMinutes?: number,
 ): Promise<boolean> {
   if (!pushToken || !pushToken.startsWith("ExponentPushToken")) {
     return false;
@@ -102,7 +102,10 @@ export async function sendPushNotification(
         return true;
       }
       // Permanent failure (bad token etc.) — no point retrying
-      console.error(`[Push] delivery error (attempt ${attempt}):`, result.data.message);
+      console.error(
+        `[Push] delivery error (attempt ${attempt}):`,
+        result.data.message,
+      );
       return false;
     } catch (error) {
       if (attempt === 2) {
@@ -116,7 +119,9 @@ export async function sendPushNotification(
   return false;
 }
 
-export function getStatusMessage(status: string): { title: string; body: string } | null {
+export function getStatusMessage(
+  status: string,
+): { title: string; body: string } | null {
   return ORDER_STATUS_MESSAGES[status] || null;
 }
 
@@ -124,7 +129,7 @@ export async function sendDriverBatchNotification(
   pushToken: string,
   totalOrders: number,
   batchId: string,
-  badge?: number
+  badge?: number,
 ): Promise<boolean> {
   if (!pushToken || !pushToken.startsWith("ExponentPushToken")) return false;
   const message: ExpoPushMessage = {
@@ -141,15 +146,24 @@ export async function sendDriverBatchNotification(
   try {
     const response = await fetch("https://exp.host/--/api/v2/push/send", {
       method: "POST",
-      headers: { Accept: "application/json", "Accept-Encoding": "gzip, deflate", "Content-Type": "application/json" },
+      headers: {
+        Accept: "application/json",
+        "Accept-Encoding": "gzip, deflate",
+        "Content-Type": "application/json",
+      },
       body: JSON.stringify(message),
     });
     const result = (await response.json()) as { data: ExpoPushTicket };
     if (result.data.status === "ok") {
-      console.log(`[PUSH] Driver batch notification sent → ${pushToken.slice(-10)}`);
+      console.log(
+        `[PUSH] Driver batch notification sent → ${pushToken.slice(-10)}`,
+      );
       return true;
     }
-    console.error("[PUSH] Driver batch notification error:", result.data.message);
+    console.error(
+      "[PUSH] Driver batch notification error:",
+      result.data.message,
+    );
     return false;
   } catch (error) {
     console.error("[PUSH] Error sending driver batch notification:", error);
@@ -161,7 +175,7 @@ export async function sendAdminNewOrderNotification(
   pushToken: string,
   orderId: string,
   region: string,
-  total: number
+  total: number,
 ): Promise<boolean> {
   if (!pushToken || !pushToken.startsWith("ExponentPushToken")) return false;
   const message: ExpoPushMessage = {
@@ -177,7 +191,11 @@ export async function sendAdminNewOrderNotification(
   try {
     const response = await fetch("https://exp.host/--/api/v2/push/send", {
       method: "POST",
-      headers: { Accept: "application/json", "Accept-Encoding": "gzip, deflate", "Content-Type": "application/json" },
+      headers: {
+        Accept: "application/json",
+        "Accept-Encoding": "gzip, deflate",
+        "Content-Type": "application/json",
+      },
       body: JSON.stringify(message),
     });
     const result = (await response.json()) as { data: ExpoPushTicket };
@@ -197,7 +215,7 @@ export async function sendVendorStatusNotification(
   status: "active" | "rejected" | "suspended",
   storeName: string,
   reason?: string,
-  unreadCount?: number
+  unreadCount?: number,
 ): Promise<boolean> {
   if (!pushToken || !pushToken.startsWith("ExponentPushToken")) return false;
 
@@ -234,15 +252,24 @@ export async function sendVendorStatusNotification(
   try {
     const response = await fetch("https://exp.host/--/api/v2/push/send", {
       method: "POST",
-      headers: { Accept: "application/json", "Accept-Encoding": "gzip, deflate", "Content-Type": "application/json" },
+      headers: {
+        Accept: "application/json",
+        "Accept-Encoding": "gzip, deflate",
+        "Content-Type": "application/json",
+      },
       body: JSON.stringify(message),
     });
     const result = (await response.json()) as { data: ExpoPushTicket };
     if (result.data.status === "ok") {
-      console.log(`[PUSH] Vendor status notification sent (${status}) → ${pushToken.slice(-10)}`);
+      console.log(
+        `[PUSH] Vendor status notification sent (${status}) → ${pushToken.slice(-10)}`,
+      );
       return true;
     }
-    console.error("[PUSH] Vendor status notification error:", result.data.message);
+    console.error(
+      "[PUSH] Vendor status notification error:",
+      result.data.message,
+    );
     return false;
   } catch (error) {
     console.error("[PUSH] Error sending vendor status notification:", error);
@@ -255,7 +282,7 @@ export async function sendVendorProductNotification(
   event: "approved" | "rejected",
   productName: string,
   reason?: string,
-  unreadCount?: number
+  unreadCount?: number,
 ): Promise<boolean> {
   if (!pushToken || !pushToken.startsWith("ExponentPushToken")) return false;
 
@@ -294,13 +321,21 @@ export async function sendVendorProductNotification(
     });
     const result = (await response.json()) as { data: ExpoPushTicket };
     if (result.data.status === "ok") {
-      console.log(`[PUSH] Vendor product ${event} notification sent → ${pushToken.slice(-10)}`);
+      console.log(
+        `[PUSH] Vendor product ${event} notification sent → ${pushToken.slice(-10)}`,
+      );
       return true;
     }
-    console.error(`[PUSH] Vendor product ${event} notification error:`, result.data.message);
+    console.error(
+      `[PUSH] Vendor product ${event} notification error:`,
+      result.data.message,
+    );
     return false;
   } catch (error) {
-    console.error(`[PUSH] Error sending vendor product ${event} notification:`, error);
+    console.error(
+      `[PUSH] Error sending vendor product ${event} notification:`,
+      error,
+    );
     return false;
   }
 }
@@ -309,7 +344,7 @@ export async function sendBroadcastNotification(
   tokens: string[],
   title: string,
   body: string,
-  data?: Record<string, unknown>
+  data?: Record<string, unknown>,
 ): Promise<{ sent: number; failed: number }> {
   if (!tokens.length) return { sent: 0, failed: 0 };
 
@@ -339,9 +374,9 @@ export async function sendBroadcastNotification(
         body: JSON.stringify(messages),
       });
 
-      const result = await response.json() as { data: ExpoPushTicket[] };
+      const result = (await response.json()) as { data: ExpoPushTicket[] };
       const tickets = Array.isArray(result.data) ? result.data : [result.data];
-      
+
       tickets.forEach((ticket) => {
         if (ticket.status === "ok") sent++;
         else failed++;
@@ -361,7 +396,7 @@ export async function sendVendorNewOrderNotification(
   orderId: string,
   itemsCount: number,
   total: number,
-  customerName?: string
+  customerName?: string,
 ): Promise<boolean> {
   if (!pushToken || !pushToken.startsWith("ExponentPushToken")) return false;
   const shortId = orderId.slice(-6).toUpperCase();
@@ -378,12 +413,18 @@ export async function sendVendorNewOrderNotification(
   try {
     const response = await fetch("https://exp.host/--/api/v2/push/send", {
       method: "POST",
-      headers: { Accept: "application/json", "Accept-Encoding": "gzip, deflate", "Content-Type": "application/json" },
+      headers: {
+        Accept: "application/json",
+        "Accept-Encoding": "gzip, deflate",
+        "Content-Type": "application/json",
+      },
       body: JSON.stringify(message),
     });
     const result = (await response.json()) as { data: ExpoPushTicket };
     if (result.data.status === "ok") {
-      console.log(`[PUSH] Vendor new-order #${shortId} → token ...${pushToken.slice(-8)}`);
+      console.log(
+        `[PUSH] Vendor new-order #${shortId} → token ...${pushToken.slice(-8)}`,
+      );
       return true;
     }
     console.error("[PUSH] Vendor new-order error:", result.data.message);
@@ -395,11 +436,14 @@ export async function sendVendorNewOrderNotification(
 }
 
 // ── Vendor: stale order reminder ─────────────────────────────────────────────
-const VENDOR_REMINDER_BODIES: Record<string, (shortId: string, mins: number) => string> = {
-  pending:    (id, m) => `طلب #${id} لم يُؤكد منذ ${m} دقيقة`,
-  confirmed:  (id, m) => `طلب #${id} لم يبدأ التحضير منذ ${m} دقيقة`,
-  preparing:  (id, m) => `طلب #${id} لم يُجهز بعد منذ ${m} دقيقة`,
-  ready:      (id, m) => `طلب #${id} جاهز ولم يُستلم منذ ${m} دقيقة`,
+const VENDOR_REMINDER_BODIES: Record<
+  string,
+  (shortId: string, mins: number) => string
+> = {
+  pending: (id, m) => `طلب #${id} لم يُؤكد منذ ${m} دقيقة`,
+  confirmed: (id, m) => `طلب #${id} لم يبدأ التحضير منذ ${m} دقيقة`,
+  preparing: (id, m) => `طلب #${id} لم يُجهز بعد منذ ${m} دقيقة`,
+  ready: (id, m) => `طلب #${id} جاهز ولم يُستلم منذ ${m} دقيقة`,
 };
 
 export async function sendVendorOrderReminderNotification(
@@ -407,7 +451,7 @@ export async function sendVendorOrderReminderNotification(
   orderId: string,
   shortId: string,
   status: string,
-  elapsedMinutes: number
+  elapsedMinutes: number,
 ): Promise<boolean> {
   if (!pushToken || !pushToken.startsWith("ExponentPushToken")) return false;
   const bodyFn = VENDOR_REMINDER_BODIES[status];
@@ -427,12 +471,18 @@ export async function sendVendorOrderReminderNotification(
   try {
     const response = await fetch("https://exp.host/--/api/v2/push/send", {
       method: "POST",
-      headers: { Accept: "application/json", "Accept-Encoding": "gzip, deflate", "Content-Type": "application/json" },
+      headers: {
+        Accept: "application/json",
+        "Accept-Encoding": "gzip, deflate",
+        "Content-Type": "application/json",
+      },
       body: JSON.stringify(message),
     });
     const result = (await response.json()) as { data: ExpoPushTicket };
     if (result.data.status === "ok") {
-      console.log(`[PUSH] Vendor reminder #${shortId} (${status} ${elapsedMinutes}min) → ...${pushToken.slice(-8)}`);
+      console.log(
+        `[PUSH] Vendor reminder #${shortId} (${status} ${elapsedMinutes}min) → ...${pushToken.slice(-8)}`,
+      );
       return true;
     }
     console.error("[PUSH] Vendor reminder error:", result.data.message);
@@ -465,12 +515,18 @@ export async function sendAdminSettlementRequestNotification(
   try {
     const response = await fetch("https://exp.host/--/api/v2/push/send", {
       method: "POST",
-      headers: { Accept: "application/json", "Accept-Encoding": "gzip, deflate", "Content-Type": "application/json" },
+      headers: {
+        Accept: "application/json",
+        "Accept-Encoding": "gzip, deflate",
+        "Content-Type": "application/json",
+      },
       body: JSON.stringify(message),
     });
     const result = (await response.json()) as { data: ExpoPushTicket };
     if (result.data.status === "ok") {
-      console.log(`[PUSH] Admin settlement-request (${accountType}) → ${accountName}`);
+      console.log(
+        `[PUSH] Admin settlement-request (${accountType}) → ${accountName}`,
+      );
       return true;
     }
     return false;
@@ -484,7 +540,7 @@ export async function sendAdminSettlementRequestNotification(
 export async function sendVendorOrderCancelledNotification(
   pushToken: string,
   orderId: string,
-  customerName?: string
+  customerName?: string,
 ): Promise<boolean> {
   if (!pushToken || !pushToken.startsWith("ExponentPushToken")) return false;
   const shortId = orderId.slice(-6).toUpperCase();
@@ -501,18 +557,27 @@ export async function sendVendorOrderCancelledNotification(
   try {
     const response = await fetch("https://exp.host/--/api/v2/push/send", {
       method: "POST",
-      headers: { Accept: "application/json", "Accept-Encoding": "gzip, deflate", "Content-Type": "application/json" },
+      headers: {
+        Accept: "application/json",
+        "Accept-Encoding": "gzip, deflate",
+        "Content-Type": "application/json",
+      },
       body: JSON.stringify(message),
     });
     const result = (await response.json()) as { data: ExpoPushTicket };
     if (result.data.status === "ok") {
-      console.log(`[PUSH] Vendor order-cancelled #${shortId} → ...${pushToken.slice(-8)}`);
+      console.log(
+        `[PUSH] Vendor order-cancelled #${shortId} → ...${pushToken.slice(-8)}`,
+      );
       return true;
     }
     console.error("[PUSH] Vendor order-cancelled error:", result.data.message);
     return false;
   } catch (error) {
-    console.error("[PUSH] Error sending vendor order-cancelled notification:", error);
+    console.error(
+      "[PUSH] Error sending vendor order-cancelled notification:",
+      error,
+    );
     return false;
   }
 }
@@ -520,7 +585,7 @@ export async function sendVendorOrderCancelledNotification(
 // ── Driver: the order you're delivering was cancelled ────────────────────────
 export async function sendDriverOrderCancelledNotification(
   pushToken: string,
-  orderId: string
+  orderId: string,
 ): Promise<boolean> {
   if (!pushToken || !pushToken.startsWith("ExponentPushToken")) return false;
   const shortId = orderId.slice(-6).toUpperCase();
@@ -537,18 +602,27 @@ export async function sendDriverOrderCancelledNotification(
   try {
     const response = await fetch("https://exp.host/--/api/v2/push/send", {
       method: "POST",
-      headers: { Accept: "application/json", "Accept-Encoding": "gzip, deflate", "Content-Type": "application/json" },
+      headers: {
+        Accept: "application/json",
+        "Accept-Encoding": "gzip, deflate",
+        "Content-Type": "application/json",
+      },
       body: JSON.stringify(message),
     });
     const result = (await response.json()) as { data: ExpoPushTicket };
     if (result.data.status === "ok") {
-      console.log(`[PUSH] Driver order-cancelled #${shortId} → ...${pushToken.slice(-8)}`);
+      console.log(
+        `[PUSH] Driver order-cancelled #${shortId} → ...${pushToken.slice(-8)}`,
+      );
       return true;
     }
     console.error("[PUSH] Driver order-cancelled error:", result.data.message);
     return false;
   } catch (error) {
-    console.error("[PUSH] Error sending driver order-cancelled notification:", error);
+    console.error(
+      "[PUSH] Error sending driver order-cancelled notification:",
+      error,
+    );
     return false;
   }
 }
@@ -557,7 +631,7 @@ export async function sendDriverOrderCancelledNotification(
 export async function sendAdminOrderReadyNotification(
   pushToken: string,
   orderId: string,
-  vendorName: string
+  vendorName: string,
 ): Promise<boolean> {
   if (!pushToken || !pushToken.startsWith("ExponentPushToken")) return false;
   const shortId = orderId.slice(-6).toUpperCase();
@@ -574,7 +648,11 @@ export async function sendAdminOrderReadyNotification(
   try {
     const response = await fetch("https://exp.host/--/api/v2/push/send", {
       method: "POST",
-      headers: { Accept: "application/json", "Accept-Encoding": "gzip, deflate", "Content-Type": "application/json" },
+      headers: {
+        Accept: "application/json",
+        "Accept-Encoding": "gzip, deflate",
+        "Content-Type": "application/json",
+      },
       body: JSON.stringify(message),
     });
     const result = (await response.json()) as { data: ExpoPushTicket };
@@ -584,7 +662,10 @@ export async function sendAdminOrderReadyNotification(
     }
     return false;
   } catch (error) {
-    console.error("[PUSH] Error sending admin order-ready notification:", error);
+    console.error(
+      "[PUSH] Error sending admin order-ready notification:",
+      error,
+    );
     return false;
   }
 }

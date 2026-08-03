@@ -13,7 +13,7 @@ import Animated, {
   SharedValue,
 } from "react-native-reanimated";
 import { ThemedText } from "@/components/ThemedText";
-import { AppColors, Anim} from "@/constants/theme";
+import { AppColors, Anim } from "@/constants/theme";
 
 const { width: W } = Dimensions.get("window");
 
@@ -34,21 +34,27 @@ export default function OnboardingSlide({
   scrollX,
   slideIndex,
 }: Props) {
-  const floatY   = useSharedValue(0);
-  const pulse    = useSharedValue(1);
-  const opacity  = useSharedValue(0);
-  const scale    = useSharedValue(0.85);
-  const transY   = useSharedValue(30);
+  const floatY = useSharedValue(0);
+  const pulse = useSharedValue(1);
+  const opacity = useSharedValue(0);
+  const scale = useSharedValue(0.85);
+  const transY = useSharedValue(30);
 
   useEffect(() => {
     // Floating image
     floatY.value = withRepeat(
       withSequence(
-        withTiming(-10, { duration: Anim.duration.splash, easing: Easing.inOut(Easing.sin) }),
-        withTiming(10,  { duration: Anim.duration.splash, easing: Easing.inOut(Easing.sin) })
+        withTiming(-10, {
+          duration: Anim.duration.splash,
+          easing: Easing.inOut(Easing.sin),
+        }),
+        withTiming(10, {
+          duration: Anim.duration.splash,
+          easing: Easing.inOut(Easing.sin),
+        }),
       ),
       -1,
-      true
+      true,
     );
 
     // Pulse circle
@@ -56,18 +62,27 @@ export default function OnboardingSlide({
       200,
       withRepeat(
         withSequence(
-          withTiming(1.08, { duration: 1400, easing: Easing.inOut(Easing.ease) }),
-          withTiming(1,    { duration: 1400, easing: Easing.inOut(Easing.ease) })
+          withTiming(1.08, {
+            duration: 1400,
+            easing: Easing.inOut(Easing.ease),
+          }),
+          withTiming(1, { duration: 1400, easing: Easing.inOut(Easing.ease) }),
         ),
         -1,
-        true
-      )
+        true,
+      ),
     );
 
     // Enter animation
     opacity.value = withTiming(1, { duration: Anim.duration.slower });
-    scale.value   = withTiming(1, { duration: Anim.duration.slower, easing: Easing.out(Easing.exp) });
-    transY.value  = withTiming(0, { duration: Anim.duration.slower, easing: Easing.out(Easing.exp) });
+    scale.value = withTiming(1, {
+      duration: Anim.duration.slower,
+      easing: Easing.out(Easing.exp),
+    });
+    transY.value = withTiming(0, {
+      duration: Anim.duration.slower,
+      easing: Easing.out(Easing.exp),
+    });
   }, []);
 
   const circleStyle = useAnimatedStyle(() => ({
@@ -78,22 +93,16 @@ export default function OnboardingSlide({
     const parallaxX = interpolate(
       scrollX.value,
       [(slideIndex - 1) * W, slideIndex * W, (slideIndex + 1) * W],
-      [W * 0.25, 0, -W * 0.25]
+      [W * 0.25, 0, -W * 0.25],
     );
     return {
-      transform: [
-        { translateX: parallaxX },
-        { translateY: floatY.value },
-      ],
+      transform: [{ translateX: parallaxX }, { translateY: floatY.value }],
     };
   });
 
   const contentStyle = useAnimatedStyle(() => ({
     opacity: opacity.value,
-    transform: [
-      { scale: scale.value },
-      { translateY: transY.value },
-    ],
+    transform: [{ scale: scale.value }, { translateY: transY.value }],
   }));
 
   const circleDiameter = imageSize + 64;
@@ -101,9 +110,23 @@ export default function OnboardingSlide({
   return (
     <View style={styles.container}>
       {/* Image + circle */}
-      <Animated.View style={[styles.circleWrap, circleStyle, { width: circleDiameter, height: circleDiameter, borderRadius: circleDiameter / 2 }]}>
+      <Animated.View
+        style={[
+          styles.circleWrap,
+          circleStyle,
+          {
+            width: circleDiameter,
+            height: circleDiameter,
+            borderRadius: circleDiameter / 2,
+          },
+        ]}
+      >
         <Animated.View style={imageStyle}>
-          <Image source={image} style={{ width: imageSize, height: imageSize }} contentFit="contain" />
+          <Image
+            source={image}
+            style={{ width: imageSize, height: imageSize }}
+            contentFit="contain"
+          />
         </Animated.View>
       </Animated.View>
 

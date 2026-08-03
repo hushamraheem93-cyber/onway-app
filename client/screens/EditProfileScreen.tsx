@@ -19,7 +19,13 @@ import { ThemedText } from "@/components/ThemedText";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import { useTheme } from "@/hooks/useTheme";
 import { useAuth } from "@/context/AuthContext";
-import { AppColors, Spacing, BorderRadius, Shadows, FontWeight} from "@/constants/theme";
+import {
+  AppColors,
+  Spacing,
+  BorderRadius,
+  Shadows,
+  FontWeight,
+} from "@/constants/theme";
 import { GradientBackground } from "@/components/GradientBackground";
 
 const REGIONS = [
@@ -38,7 +44,9 @@ export default function EditProfileScreen() {
   const { userProfile, saveProfile, phoneNumber } = useAuth();
 
   const [fullName, setFullName] = useState(userProfile?.fullName || "");
-  const [gender, setGender] = useState<"male" | "female" | null>(userProfile?.gender || null);
+  const [gender, setGender] = useState<"male" | "female" | null>(
+    userProfile?.gender || null,
+  );
   const [region, setRegion] = useState(userProfile?.region || "");
   const [address, setAddress] = useState(userProfile?.address || "");
   const [profileImage, setProfileImage] = useState<string | null>(null);
@@ -57,15 +65,18 @@ export default function EditProfileScreen() {
     setIsLoading(true);
 
     try {
-      await saveProfile({
-        fullName: fullName.trim(),
-        gender,
-        region,
-        address: address.trim(),
-      }, profileImage || undefined);
-      
+      await saveProfile(
+        {
+          fullName: fullName.trim(),
+          gender,
+          region,
+          address: address.trim(),
+        },
+        profileImage || undefined,
+      );
+
       Alert.alert("تم", "تم تحديث الملف الشخصي بنجاح", [
-        { text: "حسناً", onPress: () => navigation.goBack() }
+        { text: "حسناً", onPress: () => navigation.goBack() },
       ]);
     } catch (error: any) {
       Alert.alert("خطأ", error.message || "حدث خطأ أثناء حفظ البيانات");
@@ -76,9 +87,9 @@ export default function EditProfileScreen() {
 
   const pickImage = async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    
+
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
+      mediaTypes: ["images"],
       allowsEditing: true,
       aspect: [1, 1],
       quality: 0.8,
@@ -91,7 +102,7 @@ export default function EditProfileScreen() {
 
   const takePhoto = async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    
+
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
     if (status !== "granted") {
       Alert.alert("تنبيه", "يرجى السماح بالوصول للكاميرا لالتقاط صورة");
@@ -110,15 +121,11 @@ export default function EditProfileScreen() {
   };
 
   const showImageOptions = () => {
-    Alert.alert(
-      "صورة الملف الشخصي",
-      "اختر طريقة إضافة الصورة",
-      [
-        { text: "الكاميرا", onPress: takePhoto },
-        { text: "معرض الصور", onPress: pickImage },
-        { text: "إلغاء", style: "cancel" },
-      ]
-    );
+    Alert.alert("صورة الملف الشخصي", "اختر طريقة إضافة الصورة", [
+      { text: "الكاميرا", onPress: takePhoto },
+      { text: "معرض الصور", onPress: pickImage },
+      { text: "إلغاء", style: "cancel" },
+    ]);
   };
 
   const handleGenderSelect = (selectedGender: "male" | "female") => {
@@ -135,228 +142,290 @@ export default function EditProfileScreen() {
   return (
     <View style={{ flex: 1 }}>
       <GradientBackground />
-    <KeyboardAwareScrollViewCompat
-      style={[styles.container]}
-      contentContainerStyle={{
-        paddingTop: headerHeight + Spacing.lg,
-        paddingBottom: insets.bottom + Spacing.xl + 100,
-        paddingHorizontal: Spacing.lg,
-      }}
-      keyboardShouldPersistTaps="handled"
-      showsVerticalScrollIndicator={false}
-      bottomOffset={50}
-    >
-      <View style={styles.header}>
-        <Pressable
-          onPress={showImageOptions}
-          style={styles.avatarContainer}
-          accessibilityRole="button"
-          accessibilityLabel="تغيير صورة الملف الشخصي"
-          accessibilityHint="يفتح خيارات الكاميرا ومعرض الصور"
-        >
-          {displayImageUrl ? (
-            <Image
-              source={{ uri: displayImageUrl }}
-              style={styles.avatarImage}
-              contentFit="cover"
-            />
-          ) : (
-            <View style={[styles.avatarPlaceholder, { backgroundColor: AppColors.primary }]}>
-              <Feather name="user" size={40} color={AppColors.white} />
-            </View>
-          )}
-          <View style={[styles.cameraButton, { backgroundColor: theme.backgroundDefault }]}>
-            <Feather name="camera" size={16} color={AppColors.primary} />
-          </View>
-        </Pressable>
-        <ThemedText type="small" style={[styles.avatarHint, { color: theme.textSecondary }]}>
-          اضغط لتغيير الصورة
-        </ThemedText>
-      </View>
-
-      <View style={[styles.card, { backgroundColor: theme.backgroundDefault }, Shadows.sm]}>
-        <View style={styles.field}>
-          <ThemedText type="body" style={styles.label}>الاسم الكامل</ThemedText>
-          <TextInput
-            style={[
-              styles.input,
-              { 
-                backgroundColor: theme.backgroundSecondary, 
-                color: theme.text,
-                borderColor: theme.border,
-              },
-            ]}
-            placeholder="أدخل اسمك الكامل"
-            placeholderTextColor={theme.textSecondary}
-            value={fullName}
-            onChangeText={setFullName}
-            textAlign="right"
-            autoCapitalize="words"
-          />
-        </View>
-
-        <View style={styles.field}>
-          <ThemedText type="body" style={styles.label}>الجنس</ThemedText>
-          <View style={styles.genderRow}>
-            <Pressable
-              style={[
-                styles.genderOption,
-                { 
-                  backgroundColor: gender === "female" ? AppColors.primary : theme.backgroundSecondary,
-                  borderColor: gender === "female" ? AppColors.primary : theme.border,
-                },
-              ]}
-              onPress={() => handleGenderSelect("female")}
-              accessibilityRole="radio"
-              accessibilityLabel="أنثى"
-              accessibilityState={{ selected: gender === "female" }}
-            >
-              <Feather 
-                name="user" 
-                size={20} 
-                color={gender === "female" ? AppColors.white : theme.textSecondary} 
-              />
-              <ThemedText 
-                type="body" 
-                style={[
-                  styles.genderText,
-                  { color: gender === "female" ? AppColors.white : theme.text },
-                ]}
-              >
-                أنثى
-              </ThemedText>
-            </Pressable>
-
-            <Pressable
-              style={[
-                styles.genderOption,
-                { 
-                  backgroundColor: gender === "male" ? AppColors.primary : theme.backgroundSecondary,
-                  borderColor: gender === "male" ? AppColors.primary : theme.border,
-                },
-              ]}
-              onPress={() => handleGenderSelect("male")}
-              accessibilityRole="radio"
-              accessibilityLabel="ذكر"
-              accessibilityState={{ selected: gender === "male" }}
-            >
-              <Feather 
-                name="user" 
-                size={20} 
-                color={gender === "male" ? AppColors.white : theme.textSecondary} 
-              />
-              <ThemedText 
-                type="body" 
-                style={[
-                  styles.genderText,
-                  { color: gender === "male" ? AppColors.white : theme.text },
-                ]}
-              >
-                ذكر
-              </ThemedText>
-            </Pressable>
-          </View>
-        </View>
-
-        <View style={styles.field}>
-          <ThemedText type="body" style={styles.label}>المنطقة</ThemedText>
-          <Pressable
-            style={[
-              styles.input,
-              styles.dropdown,
-              { 
-                backgroundColor: theme.backgroundSecondary,
-                borderColor: theme.border,
-              },
-            ]}
-            onPress={() => setShowRegionPicker(!showRegionPicker)}
-            accessibilityRole="button"
-            accessibilityLabel={region ? `المنطقة: ${region}` : "اختر منطقتك"}
-            accessibilityState={{ expanded: showRegionPicker }}
-          >
-            <Feather name="chevron-down" size={20} color={theme.textSecondary} />
-            <ThemedText 
-              type="body" 
-              style={[
-                styles.dropdownText,
-                { color: region ? theme.text : theme.textSecondary },
-              ]}
-            >
-              {region || "اختر منطقتك"}
-            </ThemedText>
-          </Pressable>
-
-          {showRegionPicker ? (
-            <View style={[styles.pickerContainer, { backgroundColor: theme.backgroundDefault, borderColor: theme.border }]}>
-              {REGIONS.map((r) => (
-                <Pressable
-                  key={r.id}
-                  style={[
-                    styles.pickerItem,
-                    region === r.name && { backgroundColor: `${AppColors.primary}20` },
-                  ]}
-                  onPress={() => handleRegionSelect(r.name)}
-                >
-                  <ThemedText type="body" style={styles.pickerItemText}>
-                    {r.name}
-                  </ThemedText>
-                  {region === r.name ? (
-                    <Feather name="check" size={18} color={AppColors.primary} />
-                  ) : null}
-                </Pressable>
-              ))}
-            </View>
-          ) : null}
-        </View>
-
-        <View style={styles.field}>
-          <ThemedText type="body" style={styles.label}>العنوان التفصيلي</ThemedText>
-          <TextInput
-            style={[
-              styles.input,
-              styles.textarea,
-              { 
-                backgroundColor: theme.backgroundSecondary, 
-                color: theme.text,
-                borderColor: theme.border,
-              },
-            ]}
-            placeholder="مثال: حي النور، شارع المدرسة، قرب المسجد الكبير"
-            placeholderTextColor={theme.textSecondary}
-            value={address}
-            onChangeText={setAddress}
-            textAlign="right"
-            multiline
-            numberOfLines={3}
-            textAlignVertical="top"
-          />
-        </View>
-      </View>
-
-      <Pressable
-        style={[
-          styles.saveButton,
-          !isFormValid && styles.saveButtonDisabled,
-        ]}
-        onPress={handleSave}
-        disabled={!isFormValid || isLoading}
-        accessibilityRole="button"
-        accessibilityLabel="حفظ التغييرات"
-        accessibilityState={{ disabled: !isFormValid || isLoading, busy: isLoading }}
+      <KeyboardAwareScrollViewCompat
+        style={[styles.container]}
+        contentContainerStyle={{
+          paddingTop: headerHeight + Spacing.lg,
+          paddingBottom: insets.bottom + Spacing.xl + 100,
+          paddingHorizontal: Spacing.lg,
+        }}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+        bottomOffset={50}
       >
-        {isLoading ? (
-          <ActivityIndicator color={AppColors.white} />
-        ) : (
-          <ThemedText type="h4" style={styles.saveButtonText}>
-            حفظ التغييرات
+        <View style={styles.header}>
+          <Pressable
+            onPress={showImageOptions}
+            style={styles.avatarContainer}
+            accessibilityRole="button"
+            accessibilityLabel="تغيير صورة الملف الشخصي"
+            accessibilityHint="يفتح خيارات الكاميرا ومعرض الصور"
+          >
+            {displayImageUrl ? (
+              <Image
+                source={{ uri: displayImageUrl }}
+                style={styles.avatarImage}
+                contentFit="cover"
+              />
+            ) : (
+              <View
+                style={[
+                  styles.avatarPlaceholder,
+                  { backgroundColor: AppColors.primary },
+                ]}
+              >
+                <Feather name="user" size={40} color={AppColors.white} />
+              </View>
+            )}
+            <View
+              style={[
+                styles.cameraButton,
+                { backgroundColor: theme.backgroundDefault },
+              ]}
+            >
+              <Feather name="camera" size={16} color={AppColors.primary} />
+            </View>
+          </Pressable>
+          <ThemedText
+            type="small"
+            style={[styles.avatarHint, { color: theme.textSecondary }]}
+          >
+            اضغط لتغيير الصورة
           </ThemedText>
-        )}
-      </Pressable>
+        </View>
 
-      <ThemedText type="small" style={[styles.note, { color: theme.textSecondary }]}>
-        رقم الهاتف: {phoneNumber}
-      </ThemedText>
-    </KeyboardAwareScrollViewCompat>
+        <View
+          style={[
+            styles.card,
+            { backgroundColor: theme.backgroundDefault },
+            Shadows.sm,
+          ]}
+        >
+          <View style={styles.field}>
+            <ThemedText type="body" style={styles.label}>
+              الاسم الكامل
+            </ThemedText>
+            <TextInput
+              style={[
+                styles.input,
+                {
+                  backgroundColor: theme.backgroundSecondary,
+                  color: theme.text,
+                  borderColor: theme.border,
+                },
+              ]}
+              placeholder="أدخل اسمك الكامل"
+              placeholderTextColor={theme.textSecondary}
+              value={fullName}
+              onChangeText={setFullName}
+              textAlign="right"
+              autoCapitalize="words"
+            />
+          </View>
+
+          <View style={styles.field}>
+            <ThemedText type="body" style={styles.label}>
+              الجنس
+            </ThemedText>
+            <View style={styles.genderRow}>
+              <Pressable
+                style={[
+                  styles.genderOption,
+                  {
+                    backgroundColor:
+                      gender === "female"
+                        ? AppColors.primary
+                        : theme.backgroundSecondary,
+                    borderColor:
+                      gender === "female" ? AppColors.primary : theme.border,
+                  },
+                ]}
+                onPress={() => handleGenderSelect("female")}
+                accessibilityRole="radio"
+                accessibilityLabel="أنثى"
+                accessibilityState={{ selected: gender === "female" }}
+              >
+                <Feather
+                  name="user"
+                  size={20}
+                  color={
+                    gender === "female" ? AppColors.white : theme.textSecondary
+                  }
+                />
+                <ThemedText
+                  type="body"
+                  style={[
+                    styles.genderText,
+                    {
+                      color: gender === "female" ? AppColors.white : theme.text,
+                    },
+                  ]}
+                >
+                  أنثى
+                </ThemedText>
+              </Pressable>
+
+              <Pressable
+                style={[
+                  styles.genderOption,
+                  {
+                    backgroundColor:
+                      gender === "male"
+                        ? AppColors.primary
+                        : theme.backgroundSecondary,
+                    borderColor:
+                      gender === "male" ? AppColors.primary : theme.border,
+                  },
+                ]}
+                onPress={() => handleGenderSelect("male")}
+                accessibilityRole="radio"
+                accessibilityLabel="ذكر"
+                accessibilityState={{ selected: gender === "male" }}
+              >
+                <Feather
+                  name="user"
+                  size={20}
+                  color={
+                    gender === "male" ? AppColors.white : theme.textSecondary
+                  }
+                />
+                <ThemedText
+                  type="body"
+                  style={[
+                    styles.genderText,
+                    { color: gender === "male" ? AppColors.white : theme.text },
+                  ]}
+                >
+                  ذكر
+                </ThemedText>
+              </Pressable>
+            </View>
+          </View>
+
+          <View style={styles.field}>
+            <ThemedText type="body" style={styles.label}>
+              المنطقة
+            </ThemedText>
+            <Pressable
+              style={[
+                styles.input,
+                styles.dropdown,
+                {
+                  backgroundColor: theme.backgroundSecondary,
+                  borderColor: theme.border,
+                },
+              ]}
+              onPress={() => setShowRegionPicker(!showRegionPicker)}
+              accessibilityRole="button"
+              accessibilityLabel={region ? `المنطقة: ${region}` : "اختر منطقتك"}
+              accessibilityState={{ expanded: showRegionPicker }}
+            >
+              <Feather
+                name="chevron-down"
+                size={20}
+                color={theme.textSecondary}
+              />
+              <ThemedText
+                type="body"
+                style={[
+                  styles.dropdownText,
+                  { color: region ? theme.text : theme.textSecondary },
+                ]}
+              >
+                {region || "اختر منطقتك"}
+              </ThemedText>
+            </Pressable>
+
+            {showRegionPicker ? (
+              <View
+                style={[
+                  styles.pickerContainer,
+                  {
+                    backgroundColor: theme.backgroundDefault,
+                    borderColor: theme.border,
+                  },
+                ]}
+              >
+                {REGIONS.map((r) => (
+                  <Pressable
+                    key={r.id}
+                    style={[
+                      styles.pickerItem,
+                      region === r.name && {
+                        backgroundColor: `${AppColors.primary}20`,
+                      },
+                    ]}
+                    onPress={() => handleRegionSelect(r.name)}
+                  >
+                    <ThemedText type="body" style={styles.pickerItemText}>
+                      {r.name}
+                    </ThemedText>
+                    {region === r.name ? (
+                      <Feather
+                        name="check"
+                        size={18}
+                        color={AppColors.primary}
+                      />
+                    ) : null}
+                  </Pressable>
+                ))}
+              </View>
+            ) : null}
+          </View>
+
+          <View style={styles.field}>
+            <ThemedText type="body" style={styles.label}>
+              العنوان التفصيلي
+            </ThemedText>
+            <TextInput
+              style={[
+                styles.input,
+                styles.textarea,
+                {
+                  backgroundColor: theme.backgroundSecondary,
+                  color: theme.text,
+                  borderColor: theme.border,
+                },
+              ]}
+              placeholder="مثال: حي النور، شارع المدرسة، قرب المسجد الكبير"
+              placeholderTextColor={theme.textSecondary}
+              value={address}
+              onChangeText={setAddress}
+              textAlign="right"
+              multiline
+              numberOfLines={3}
+              textAlignVertical="top"
+            />
+          </View>
+        </View>
+
+        <Pressable
+          style={[styles.saveButton, !isFormValid && styles.saveButtonDisabled]}
+          onPress={handleSave}
+          disabled={!isFormValid || isLoading}
+          accessibilityRole="button"
+          accessibilityLabel="حفظ التغييرات"
+          accessibilityState={{
+            disabled: !isFormValid || isLoading,
+            busy: isLoading,
+          }}
+        >
+          {isLoading ? (
+            <ActivityIndicator color={AppColors.white} />
+          ) : (
+            <ThemedText type="h4" style={styles.saveButtonText}>
+              حفظ التغييرات
+            </ThemedText>
+          )}
+        </Pressable>
+
+        <ThemedText
+          type="small"
+          style={[styles.note, { color: theme.textSecondary }]}
+        >
+          رقم الهاتف: {phoneNumber}
+        </ThemedText>
+      </KeyboardAwareScrollViewCompat>
     </View>
   );
 }

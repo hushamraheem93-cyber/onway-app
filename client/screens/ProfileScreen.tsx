@@ -1,5 +1,11 @@
 import React, { useState } from "react";
-import { StyleSheet, View, Pressable, Modal, ActivityIndicator } from "react-native";
+import {
+  StyleSheet,
+  View,
+  Pressable,
+  Modal,
+  ActivityIndicator,
+} from "react-native";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useNavigation } from "@react-navigation/native";
@@ -26,7 +32,15 @@ interface SettingsItemProps {
   onPress?: () => void;
 }
 
-function SettingsItem({ icon, iconBg, iconColor, title, titleColor, subtitle, onPress }: SettingsItemProps) {
+function SettingsItem({
+  icon,
+  iconBg,
+  iconColor,
+  title,
+  titleColor,
+  subtitle,
+  onPress,
+}: SettingsItemProps) {
   const { theme } = useTheme();
   const resolvedIconBg = iconBg ?? AppColors.primary + "15";
   const resolvedIconColor = iconColor ?? AppColors.primary;
@@ -41,7 +55,10 @@ function SettingsItem({ icon, iconBg, iconColor, title, titleColor, subtitle, on
       accessibilityLabel={subtitle ? `${title}، ${subtitle}` : title}
       style={({ pressed }) => [
         styles.settingsItem,
-        { backgroundColor: theme.backgroundDefault, opacity: pressed ? 0.8 : 1 },
+        {
+          backgroundColor: theme.backgroundDefault,
+          opacity: pressed ? 0.8 : 1,
+        },
         Shadows.sm,
       ]}
     >
@@ -49,16 +66,29 @@ function SettingsItem({ icon, iconBg, iconColor, title, titleColor, subtitle, on
         <Feather name={icon} size={20} color={resolvedIconColor} />
       </View>
       <View style={styles.settingsContent}>
-        <ThemedText type="body" style={[styles.settingsTitle, titleColor ? { color: titleColor } : null]}>
+        <ThemedText
+          type="body"
+          style={[
+            styles.settingsTitle,
+            titleColor ? { color: titleColor } : null,
+          ]}
+        >
           {title}
         </ThemedText>
         {subtitle ? (
-          <ThemedText type="small" style={[styles.settingsSubtitle, { color: theme.textSecondary }]}>
+          <ThemedText
+            type="small"
+            style={[styles.settingsSubtitle, { color: theme.textSecondary }]}
+          >
             {subtitle}
           </ThemedText>
         ) : null}
       </View>
-      <Feather name="chevron-left" size={20} color={titleColor ?? theme.textSecondary} />
+      <Feather
+        name="chevron-left"
+        size={20}
+        color={titleColor ?? theme.textSecondary}
+      />
     </Pressable>
   );
 }
@@ -97,7 +127,9 @@ export default function ProfileScreen() {
   const renderSectionTitle = (title: string) => (
     <View style={styles.sectionTitleRow}>
       <View style={styles.sectionAccent} />
-      <ThemedText type="h4" style={styles.sectionTitle}>{title}</ThemedText>
+      <ThemedText type="h4" style={styles.sectionTitle}>
+        {title}
+      </ThemedText>
     </View>
   );
 
@@ -113,7 +145,13 @@ export default function ProfileScreen() {
         }}
       >
         {/* بطاقة الملف الشخصي */}
-        <View style={[styles.profileCard, { backgroundColor: theme.backgroundDefault }, Shadows.md]}>
+        <View
+          style={[
+            styles.profileCard,
+            { backgroundColor: theme.backgroundDefault },
+            Shadows.md,
+          ]}
+        >
           <Pressable
             style={styles.editButton}
             onPress={() => {
@@ -143,7 +181,9 @@ export default function ProfileScreen() {
                 contentFit="cover"
               />
             ) : (
-              <View style={[styles.avatar, { backgroundColor: AppColors.primary }]}>
+              <View
+                style={[styles.avatar, { backgroundColor: AppColors.primary }]}
+              >
                 <Feather name="user" size={40} color={AppColors.white} />
               </View>
             )}
@@ -151,11 +191,17 @@ export default function ProfileScreen() {
           <ThemedText type="h2" style={styles.name}>
             {userProfile?.fullName || "مستخدم زائر"}
           </ThemedText>
-          <ThemedText type="body" style={[styles.email, { color: theme.textSecondary }]}>
+          <ThemedText
+            type="body"
+            style={[styles.email, { color: theme.textSecondary }]}
+          >
             {phoneNumber || "مرحباً بك في Onway"}
           </ThemedText>
           {userProfile?.region ? (
-            <ThemedText type="small" style={[styles.region, { color: theme.textSecondary }]}>
+            <ThemedText
+              type="small"
+              style={[styles.region, { color: theme.textSecondary }]}
+            >
               {userProfile.region}
             </ThemedText>
           ) : null}
@@ -184,11 +230,7 @@ export default function ProfileScreen() {
           subtitle="إدارة عناوين التوصيل"
           onPress={() => navigation.navigate("Addresses")}
         />
-        <SettingsItem
-          icon="globe"
-          title="اللغة"
-          subtitle="العربية"
-        />
+        <SettingsItem icon="globe" title="اللغة" subtitle="العربية" />
 
         {/* قسم: المساعدة */}
         {renderSectionTitle("المساعدة")}
@@ -238,15 +280,28 @@ export default function ProfileScreen() {
           onRequestClose={() => setShowDeleteModal(false)}
         >
           <View style={styles.modalOverlay}>
-            <View style={[styles.modalCard, { backgroundColor: theme.backgroundDefault }]}>
+            <View
+              style={[
+                styles.modalCard,
+                { backgroundColor: theme.backgroundDefault },
+              ]}
+            >
               <View style={styles.modalIconWrap}>
-                <Feather name="alert-triangle" size={32} color={AppColors.error} />
+                <Feather
+                  name="alert-triangle"
+                  size={32}
+                  color={AppColors.error}
+                />
               </View>
               <ThemedText type="h3" style={styles.modalTitle}>
                 مسح الحساب
               </ThemedText>
-              <ThemedText type="body" style={[styles.modalBody, { color: theme.textSecondary }]}>
-                سيتم حذف حسابك وجميع بياناتك الشخصية بشكل نهائي ولا يمكن التراجع عن هذا الإجراء.
+              <ThemedText
+                type="body"
+                style={[styles.modalBody, { color: theme.textSecondary }]}
+              >
+                سيتم حذف حسابك وجميع بياناتك الشخصية بشكل نهائي ولا يمكن التراجع
+                عن هذا الإجراء.
               </ThemedText>
               {deleteError ? (
                 <ThemedText type="small" style={styles.errorText}>

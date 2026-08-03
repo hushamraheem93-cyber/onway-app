@@ -6,7 +6,13 @@ import MapView, { Marker } from "react-native-maps";
 
 import { ThemedText } from "@/components/ThemedText";
 import { useTheme } from "@/hooks/useTheme";
-import { AppColors, Spacing, BorderRadius, Shadows, FontWeight} from "@/constants/theme";
+import {
+  AppColors,
+  Spacing,
+  BorderRadius,
+  Shadows,
+  FontWeight,
+} from "@/constants/theme";
 
 interface MapPickerProps {
   selectedLocation: { latitude: number; longitude: number } | null;
@@ -22,7 +28,12 @@ const DHULUIYAH_REGION = {
   longitudeDelta: 0.05,
 };
 
-export default function MapPicker({ selectedLocation, onLocationSelect, onGetCurrentLocation, isLoadingLocation }: MapPickerProps) {
+export default function MapPicker({
+  selectedLocation,
+  onLocationSelect,
+  onGetCurrentLocation,
+  isLoadingLocation,
+}: MapPickerProps) {
   const insets = useSafeAreaInsets();
   const { theme } = useTheme();
   const mapRef = useRef<MapView>(null);
@@ -56,7 +67,11 @@ export default function MapPicker({ selectedLocation, onLocationSelect, onGetCur
 
       <View style={[styles.controls, { bottom: insets.bottom + Spacing.xl }]}>
         <Pressable
-          style={[styles.myLocationBtn, { backgroundColor: theme.backgroundDefault }, Shadows.md]}
+          style={[
+            styles.myLocationBtn,
+            { backgroundColor: theme.backgroundDefault },
+            Shadows.md,
+          ]}
           onPress={onGetCurrentLocation}
           testID="button-my-location"
         >
@@ -65,7 +80,10 @@ export default function MapPicker({ selectedLocation, onLocationSelect, onGetCur
       </View>
 
       <View style={styles.hint}>
-        <ThemedText type="small" style={{ color: AppColors.white, fontWeight: FontWeight.semiBold }}>
+        <ThemedText
+          type="small"
+          style={{ color: AppColors.white, fontWeight: FontWeight.semiBold }}
+        >
           انقر على الخريطة أو اسحب المؤشر لتحديد موقعك
         </ThemedText>
       </View>

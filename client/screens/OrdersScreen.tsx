@@ -14,7 +14,13 @@ import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Feather } from "@expo/vector-icons";
 
 import { useTheme } from "@/hooks/useTheme";
-import { Spacing, AppColors, BorderRadius, Shadows, FontWeight} from "@/constants/theme";
+import {
+  Spacing,
+  AppColors,
+  BorderRadius,
+  Shadows,
+  FontWeight,
+} from "@/constants/theme";
 import { useOrders, Order } from "@/context/OrderContext";
 import { useAuth } from "@/context/AuthContext";
 import { useCart } from "@/context/CartContext";
@@ -38,16 +44,27 @@ export default function OrdersScreen() {
 
   const [searchQuery, setSearchQuery] = useState("");
 
-  const handleRate = async (orderId: string, rating: number, comment?: string, image?: string, driverRating?: number) => {
-    const headers: Record<string, string> = { "Content-Type": "application/json" };
+  const handleRate = async (
+    orderId: string,
+    rating: number,
+    comment?: string,
+    image?: string,
+    driverRating?: number,
+  ) => {
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+    };
     if (customerToken) headers["Authorization"] = `Bearer ${customerToken}`;
     const body: any = { rating, comment: comment ?? "", image: image ?? "" };
     if (driverRating !== undefined) body.driverRating = driverRating;
-    const res = await fetch(new URL(`/api/orders/${orderId}/rate`, getApiUrl()).toString(), {
-      method: "POST",
-      headers,
-      body: JSON.stringify(body),
-    });
+    const res = await fetch(
+      new URL(`/api/orders/${orderId}/rate`, getApiUrl()).toString(),
+      {
+        method: "POST",
+        headers,
+        body: JSON.stringify(body),
+      },
+    );
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
       throw new Error(err.error || "فشل تقديم التقييم");
@@ -79,14 +96,15 @@ export default function OrdersScreen() {
     refreshOrders();
   }, []);
 
-  const filteredOrders: Order[] = searchQuery.trim().length > 0
-    ? orders.filter((o) => {
-        const q = searchQuery.trim().toLowerCase();
-        const shortId = (o.id?.slice(-8) || "").toLowerCase();
-        const fullId = (o.id || "").toLowerCase();
-        return shortId.includes(q) || fullId.includes(q);
-      })
-    : orders;
+  const filteredOrders: Order[] =
+    searchQuery.trim().length > 0
+      ? orders.filter((o) => {
+          const q = searchQuery.trim().toLowerCase();
+          const shortId = (o.id?.slice(-8) || "").toLowerCase();
+          const fullId = (o.id || "").toLowerCase();
+          return shortId.includes(q) || fullId.includes(q);
+        })
+      : orders;
 
   const isSearching = searchQuery.trim().length > 0;
 
@@ -94,12 +112,20 @@ export default function OrdersScreen() {
     <OrderCard
       order={item}
       onPress={() => navigation.navigate("OrderTracking", { orderId: item.id })}
-      onStorePress={item.vendorId
-        ? () => {
-            const storeName = item.vendorName || item.items.find(i => i.restaurant)?.restaurant || "المتجر";
-            navigation.navigate("StoreProducts", { storeId: item.vendorId!, storeName });
-          }
-        : undefined}
+      onStorePress={
+        item.vendorId
+          ? () => {
+              const storeName =
+                item.vendorName ||
+                item.items.find((i) => i.restaurant)?.restaurant ||
+                "المتجر";
+              navigation.navigate("StoreProducts", {
+                storeId: item.vendorId!,
+                storeName,
+              });
+            }
+          : undefined
+      }
       onRate={handleRate}
       onReorder={item.status === "delivered" ? handleReorder : undefined}
     />
@@ -109,22 +135,43 @@ export default function OrdersScreen() {
     if (isSearching) {
       return (
         <View style={styles.noResults}>
-          <View style={[styles.noResultsIcon, { backgroundColor: AppColors.primary + "15" }]}>
+          <View
+            style={[
+              styles.noResultsIcon,
+              { backgroundColor: AppColors.primary + "15" },
+            ]}
+          >
             <Feather name="search" size={32} color={AppColors.primary} />
           </View>
-          <ThemedText type="h4" style={{ textAlign: "center", marginBottom: Spacing.sm }}>
+          <ThemedText
+            type="h4"
+            style={{ textAlign: "center", marginBottom: Spacing.sm }}
+          >
             لم يُعثر على الطلب
           </ThemedText>
-          <ThemedText type="body" style={{ textAlign: "center", color: theme.textSecondary, marginBottom: Spacing.xl }}>
+          <ThemedText
+            type="body"
+            style={{
+              textAlign: "center",
+              color: theme.textSecondary,
+              marginBottom: Spacing.xl,
+            }}
+          >
             لا يوجد طلب يطابق "{searchQuery.trim()}" في سجلاتك
           </ThemedText>
           <Pressable
             onPress={() => setSearchQuery("")}
-            style={[styles.resetBtn, { backgroundColor: AppColors.primary + "15" }]}
+            style={[
+              styles.resetBtn,
+              { backgroundColor: AppColors.primary + "15" },
+            ]}
             accessibilityRole="button"
             accessibilityLabel="عرض جميع الطلبات"
           >
-            <ThemedText type="small" style={{ color: AppColors.primary, fontWeight: FontWeight.bold }}>
+            <ThemedText
+              type="small"
+              style={{ color: AppColors.primary, fontWeight: FontWeight.bold }}
+            >
               عرض جميع الطلبات
             </ThemedText>
           </Pressable>
@@ -138,7 +185,9 @@ export default function OrdersScreen() {
         subtitle="لم تقم بأي طلبات بعد"
         buttonText="ابدأ التسوق"
         buttonIcon="storefront-outline"
-        onButtonPress={() => navigation.navigate("Main", { screen: "HomeTab" } as any)}
+        onButtonPress={() =>
+          navigation.navigate("Main", { screen: "HomeTab" } as any)
+        }
       />
     );
   };
@@ -193,7 +242,12 @@ export default function OrdersScreen() {
               accessibilityLabel="مسح البحث"
               hitSlop={8}
             >
-              <View style={[styles.clearIcon, { backgroundColor: theme.textSecondary + "25" }]}>
+              <View
+                style={[
+                  styles.clearIcon,
+                  { backgroundColor: theme.textSecondary + "25" },
+                ]}
+              >
                 <Feather name="x" size={12} color={theme.textSecondary} />
               </View>
             </Pressable>

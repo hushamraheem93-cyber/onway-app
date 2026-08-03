@@ -1,10 +1,5 @@
 import React, { useRef, useState } from "react";
-import {
-  View,
-  StyleSheet,
-  Dimensions,
-  Pressable,
-} from "react-native";
+import { View, StyleSheet, Dimensions, Pressable } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import PagerView from "react-native-pager-view";
 import { LinearGradient } from "expo-linear-gradient";
@@ -60,18 +55,36 @@ const SLIDES = [
 ];
 
 // Decorative pulsing circle in background
-function BgCircle({ size, top, left, right, bottom, delay }: {
-  size: number; top?: number; left?: number; right?: number; bottom?: number; delay: number;
+function BgCircle({
+  size,
+  top,
+  left,
+  right,
+  bottom,
+  delay,
+}: {
+  size: number;
+  top?: number;
+  left?: number;
+  right?: number;
+  bottom?: number;
+  delay: number;
 }) {
   const s = useSharedValue(1);
   React.useEffect(() => {
     s.value = withRepeat(
       withSequence(
-        withTiming(1.12, { duration: 2200 + delay, easing: Easing.inOut(Easing.ease) }),
-        withTiming(1,    { duration: 2200 + delay, easing: Easing.inOut(Easing.ease) })
+        withTiming(1.12, {
+          duration: 2200 + delay,
+          easing: Easing.inOut(Easing.ease),
+        }),
+        withTiming(1, {
+          duration: 2200 + delay,
+          easing: Easing.inOut(Easing.ease),
+        }),
       ),
       -1,
-      true
+      true,
     );
   }, []);
   const aStyle = useAnimatedStyle(() => ({ transform: [{ scale: s.value }] }));
@@ -81,14 +94,23 @@ function BgCircle({ size, top, left, right, bottom, delay }: {
       style={[
         styles.bgCircle,
         aStyle,
-        { width: size, height: size, borderRadius: size / 2, top, left, right, bottom },
+        {
+          width: size,
+          height: size,
+          borderRadius: size / 2,
+          top,
+          left,
+          right,
+          bottom,
+        },
       ]}
     />
   );
 }
 
 export default function SplashScreen() {
-  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const navigation =
+    useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { markSplashSeen } = useAuth();
   const pagerRef = useRef<PagerView>(null);
   const [activeIndex, setActiveIndex] = useState(0);
@@ -129,21 +151,39 @@ export default function SplashScreen() {
 
       {/* Decorative circles */}
       <BgCircle size={W * 0.85} top={-W * 0.28} right={-W * 0.28} delay={0} />
-      <BgCircle size={W * 0.55} bottom={H * 0.12} left={-W * 0.18} delay={400} />
-      <BgCircle size={W * 0.35} bottom={H * 0.35} right={-W * 0.08} delay={800} />
+      <BgCircle
+        size={W * 0.55}
+        bottom={H * 0.12}
+        left={-W * 0.18}
+        delay={400}
+      />
+      <BgCircle
+        size={W * 0.35}
+        bottom={H * 0.35}
+        right={-W * 0.08}
+        delay={800}
+      />
 
-      <SafeAreaView style={styles.safe} edges={["top", "bottom", "left", "right"]}>
-
+      <SafeAreaView
+        style={styles.safe}
+        edges={["top", "bottom", "left", "right"]}
+      >
         {/* Header */}
         <View style={styles.header}>
           {/* Logo + tagline */}
           <View style={styles.logoBlock}>
             <ThemedText style={styles.logoText}>OnWay</ThemedText>
-            <ThemedText style={styles.tagline}>من الضلوعية… إلى باب بيتك</ThemedText>
+            <ThemedText style={styles.tagline}>
+              من الضلوعية… إلى باب بيتك
+            </ThemedText>
           </View>
 
           {/* Skip — top right */}
-          <Pressable onPress={handleSkip} style={styles.skipBtn} testID="button-skip">
+          <Pressable
+            onPress={handleSkip}
+            style={styles.skipBtn}
+            testID="button-skip"
+          >
             <ThemedText style={styles.skipText}>تخطي</ThemedText>
           </Pressable>
         </View>
@@ -181,7 +221,11 @@ export default function SplashScreen() {
             testID="button-get-started"
             icon={
               isLast ? (
-                <Feather name="arrow-left" size={18} color={AppColors.primary} />
+                <Feather
+                  name="arrow-left"
+                  size={18}
+                  color={AppColors.primary}
+                />
               ) : null
             }
           />

@@ -42,15 +42,21 @@ const ARABIC = /[؀-ۿ]/;
 
 /** The best nearby named place (a real POI/landmark, never an administrative name). */
 function pickPlaceName(placesRes: any): string | null {
-  if (placesRes?.status !== "OK" || !Array.isArray(placesRes.results)) return null;
+  if (placesRes?.status !== "OK" || !Array.isArray(placesRes.results))
+    return null;
   for (const place of placesRes.results) {
     const types: string[] = place.types || [];
     // Administrative names ("الضلوعية", a governorate) are not user-friendly places.
-    if (types.includes("locality") || types.includes("political") || types.includes("administrative_area_level_2")) {
+    if (
+      types.includes("locality") ||
+      types.includes("political") ||
+      types.includes("administrative_area_level_2")
+    ) {
       continue;
     }
     const name: string = place.name || "";
-    if (name.length > 1 && ARABIC.test(name) && isUsefulAddress(name)) return name;
+    if (name.length > 1 && ARABIC.test(name) && isUsefulAddress(name))
+      return name;
   }
   return null;
 }
@@ -80,17 +86,30 @@ function pickComponent(results: any[], types: string[]): string | null {
  * codes are never returned unless nothing else is available. Returns null when nothing
  * usable was found, so the caller can fall back deliberately.
  */
-export function pickBestAddress(geocodeRes: any, placesRes: any): GeocodeResult | null {
+export function pickBestAddress(
+  geocodeRes: any,
+  placesRes: any,
+): GeocodeResult | null {
   const placeName = pickPlaceName(placesRes);
   const results =
-    geocodeRes?.status === "OK" && Array.isArray(geocodeRes.results) ? geocodeRes.results : [];
+    geocodeRes?.status === "OK" && Array.isArray(geocodeRes.results)
+      ? geocodeRes.results
+      : [];
 
-  const neighborhood = pickComponent(results, ["neighborhood", "sublocality", "sublocality_level_1"]);
+  const neighborhood = pickComponent(results, [
+    "neighborhood",
+    "sublocality",
+    "sublocality_level_1",
+  ]);
   const route = pickComponent(results, ["route", "premise", "street_address"]);
-  const city = pickComponent(results, ["locality", "administrative_area_level_2"]);
+  const city = pickComponent(results, [
+    "locality",
+    "administrative_area_level_2",
+  ]);
   const governorate = pickComponent(results, ["administrative_area_level_1"]);
 
-  const best = placeName || neighborhood || route || city || governorate || null;
+  const best =
+    placeName || neighborhood || route || city || governorate || null;
   if (best && isUsefulAddress(best)) {
     return { address: best, placeName: placeName || null };
   }
@@ -99,16 +118,21 @@ export function pickBestAddress(geocodeRes: any, placesRes: any): GeocodeResult 
   // an "Unnamed Road…" string would otherwise have come from — it is rejected above).
   for (const result of results) {
     const cleaned = cleanAddr(result?.formatted_address || "");
-    if (isUsefulAddress(cleaned)) return { address: cleaned, placeName: placeName || null };
+    if (isUsefulAddress(cleaned))
+      return { address: cleaned, placeName: placeName || null };
   }
   return null;
 }
 
 /** Summarise Google's status for diagnostic logging without ever touching the key. */
-export function geocodeDiagnostics(geocodeRes: any, placesRes: any): GeocodeDiagnostics {
+export function geocodeDiagnostics(
+  geocodeRes: any,
+  placesRes: any,
+): GeocodeDiagnostics {
   const geocodeStatus = geocodeRes?.status || "NO_RESPONSE";
   const placesStatus = placesRes?.status || "NO_RESPONSE";
-  const googleError = geocodeRes?.error_message || placesRes?.error_message || null;
+  const googleError =
+    geocodeRes?.error_message || placesRes?.error_message || null;
   // REQUEST_DENIED = bad/blocked key or API not enabled; OVER_QUERY_LIMIT = quota.
   const keyProblem = [geocodeStatus, placesStatus].some(
     (s) => s === "REQUEST_DENIED" || s === "OVER_QUERY_LIMIT",

@@ -10,7 +10,7 @@ import * as Haptics from "expo-haptics";
 
 import { ThemedText } from "@/components/ThemedText";
 import { useTheme } from "@/hooks/useTheme";
-import { AppColors, FontWeight} from "@/constants/theme";
+import { AppColors, FontWeight } from "@/constants/theme";
 import { CartItem } from "@/context/CartContext";
 import { useCart } from "@/context/CartContext";
 import { formatPrice } from "@/constants/currency";
@@ -21,7 +21,6 @@ interface CartItemCardProps {
 }
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
-
 
 function CartItemCardComponent({ item }: CartItemCardProps) {
   const { theme, isDark } = useTheme();
@@ -73,7 +72,16 @@ function CartItemCardComponent({ item }: CartItemCardProps) {
         <ThemedText type="body" style={styles.price}>
           {formatPrice(item.product.price)}
         </ThemedText>
-        <View style={[styles.quantityContainer, { backgroundColor: isDark ? theme.backgroundSecondary : AppColors.gray50 }]}>
+        <View
+          style={[
+            styles.quantityContainer,
+            {
+              backgroundColor: isDark
+                ? theme.backgroundSecondary
+                : AppColors.gray50,
+            },
+          ]}
+        >
           <AnimatedPressable onPress={handleIncrease} style={styles.qtyBtn}>
             <Feather name="plus" size={20} color={AppColors.primary} />
           </AnimatedPressable>

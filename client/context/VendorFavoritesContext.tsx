@@ -1,4 +1,11 @@
-import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from "react";
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  useCallback,
+  ReactNode,
+} from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const VENDOR_FAV_KEY = "@onway_vendor_favorites";
@@ -13,7 +20,11 @@ export interface FavoriteVendor {
   deliveryTime?: string;
   deliveryPrice?: number;
   address?: string;
-  workingHours?: { openTime: string; closeTime: string; openDays: number[] } | null;
+  workingHours?: {
+    openTime: string;
+    closeTime: string;
+    openDays: number[];
+  } | null;
 }
 
 interface VendorFavoritesContextType {
@@ -22,14 +33,18 @@ interface VendorFavoritesContextType {
   isVendorFavorite: (id: string) => boolean;
 }
 
-const VendorFavoritesContext = createContext<VendorFavoritesContextType | undefined>(undefined);
+const VendorFavoritesContext = createContext<
+  VendorFavoritesContextType | undefined
+>(undefined);
 
 export function VendorFavoritesProvider({ children }: { children: ReactNode }) {
   const [vendorFavorites, setVendorFavorites] = useState<FavoriteVendor[]>([]);
 
   useEffect(() => {
     AsyncStorage.getItem(VENDOR_FAV_KEY)
-      .then((raw) => { if (raw) setVendorFavorites(JSON.parse(raw)); })
+      .then((raw) => {
+        if (raw) setVendorFavorites(JSON.parse(raw));
+      })
       .catch(() => {});
   }, []);
 
@@ -40,7 +55,9 @@ export function VendorFavoritesProvider({ children }: { children: ReactNode }) {
   const toggleVendorFavorite = useCallback((vendor: FavoriteVendor) => {
     setVendorFavorites((prev) => {
       const exists = prev.some((v) => v.id === vendor.id);
-      const next = exists ? prev.filter((v) => v.id !== vendor.id) : [...prev, vendor];
+      const next = exists
+        ? prev.filter((v) => v.id !== vendor.id)
+        : [...prev, vendor];
       save(next);
       return next;
     });
@@ -48,11 +65,13 @@ export function VendorFavoritesProvider({ children }: { children: ReactNode }) {
 
   const isVendorFavorite = useCallback(
     (id: string) => vendorFavorites.some((v) => v.id === id),
-    [vendorFavorites]
+    [vendorFavorites],
   );
 
   return (
-    <VendorFavoritesContext.Provider value={{ vendorFavorites, toggleVendorFavorite, isVendorFavorite }}>
+    <VendorFavoritesContext.Provider
+      value={{ vendorFavorites, toggleVendorFavorite, isVendorFavorite }}
+    >
       {children}
     </VendorFavoritesContext.Provider>
   );
@@ -60,6 +79,9 @@ export function VendorFavoritesProvider({ children }: { children: ReactNode }) {
 
 export function useVendorFavorites() {
   const ctx = useContext(VendorFavoritesContext);
-  if (!ctx) throw new Error("useVendorFavorites must be used within VendorFavoritesProvider");
+  if (!ctx)
+    throw new Error(
+      "useVendorFavorites must be used within VendorFavoritesProvider",
+    );
   return ctx;
 }

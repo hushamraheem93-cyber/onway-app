@@ -52,7 +52,10 @@ import * as fs from "fs";
 import * as path from "path";
 import { createHash } from "crypto";
 import sharp from "sharp";
-import { uploadToFirebaseStorage, uploadPrivateToFirebaseStorage } from "../firebase";
+import {
+  uploadToFirebaseStorage,
+  uploadPrivateToFirebaseStorage,
+} from "../firebase";
 
 dotenv.config();
 
@@ -119,7 +122,13 @@ function bucketOfStorageUrl(url: string): string | null {
 }
 
 // "oldbucket" = a Storage URL that points at a bucket other than the current default one.
-type Kind = "storage" | "oldbucket" | "base64" | "uploads" | "external" | "empty";
+type Kind =
+  | "storage"
+  | "oldbucket"
+  | "base64"
+  | "uploads"
+  | "external"
+  | "empty";
 
 function kindOf(v: unknown): Kind {
   if (typeof v !== "string" || v === "") return "empty";
@@ -233,7 +242,11 @@ async function migrateValue(
       .resize(1400, 1400, { fit: "inside", withoutEnlargement: true })
       .webp({ quality: 82 })
       .toBuffer();
-    const p = await uploadPrivateToFirebaseStorage(doc, `driver-documents/${hash}.webp`, "image/webp");
+    const p = await uploadPrivateToFirebaseStorage(
+      doc,
+      `driver-documents/${hash}.webp`,
+      "image/webp",
+    );
     uploadCache.set(cacheKey, p);
     return p;
   }

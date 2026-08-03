@@ -7,7 +7,7 @@ import Animated, {
   withSequence,
 } from "react-native-reanimated";
 import { ThemedText } from "@/components/ThemedText";
-import { AppColors, Anim} from "@/constants/theme";
+import { AppColors, Anim } from "@/constants/theme";
 
 interface Props {
   label: string;
@@ -29,7 +29,7 @@ export default function PrimaryButton({ label, onPress, testID, icon }: Props) {
   const handlePressOut = () => {
     scale.value = withSequence(
       withTiming(1.02, { duration: Anim.duration.instant }),
-      withTiming(1, { duration: 120 })
+      withTiming(1, { duration: 120 }),
     );
   };
 

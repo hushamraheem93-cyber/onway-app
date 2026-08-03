@@ -1,5 +1,11 @@
 import React, { useRef, useEffect, useState } from "react";
-import { StyleSheet, View, Dimensions, Pressable, ScrollView } from "react-native";
+import {
+  StyleSheet,
+  View,
+  Dimensions,
+  Pressable,
+  ScrollView,
+} from "react-native";
 import { Image } from "expo-image";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -24,7 +30,10 @@ const BANNER_WIDTH = SCREEN_WIDTH - DesignSystem.screenPadding * 2;
 const BANNER_HEIGHT = DesignSystem.bannerHeight;
 const BANNER_RADIUS = DesignSystem.bannerRadius;
 
-function BannerSliderComponent({ banners, autoPlayInterval = 4000 }: BannerSliderProps) {
+function BannerSliderComponent({
+  banners,
+  autoPlayInterval = 4000,
+}: BannerSliderProps) {
   const { theme } = useTheme();
   const navigation = useNavigation<NavigationProp>();
   const scrollRef = useRef<ScrollView>(null);
@@ -56,7 +65,9 @@ function BannerSliderComponent({ banners, autoPlayInterval = 4000 }: BannerSlide
     };
   }, [banners.length, autoPlayInterval]);
 
-  const handleScroll = (event: { nativeEvent: { contentOffset: { x: number } } }) => {
+  const handleScroll = (event: {
+    nativeEvent: { contentOffset: { x: number } };
+  }) => {
     const offsetX = event.nativeEvent.contentOffset.x;
     const page = Math.round(offsetX / BANNER_WIDTH);
     if (page !== currentPage && page >= 0 && page < banners.length) {
@@ -76,7 +87,6 @@ function BannerSliderComponent({ banners, autoPlayInterval = 4000 }: BannerSlide
       }
     }
   };
-
 
   const handleBannerPress = (banner: Banner) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -151,7 +161,10 @@ function BannerSliderComponent({ banners, autoPlayInterval = 4000 }: BannerSlide
             <Pressable
               key={index}
               onPress={() => {
-                scrollRef.current?.scrollTo({ x: index * BANNER_WIDTH, animated: true });
+                scrollRef.current?.scrollTo({
+                  x: index * BANNER_WIDTH,
+                  animated: true,
+                });
                 setCurrentPage(index);
               }}
             >
@@ -159,7 +172,8 @@ function BannerSliderComponent({ banners, autoPlayInterval = 4000 }: BannerSlide
                 style={[
                   styles.dot,
                   {
-                    backgroundColor: index === currentPage ? AppColors.primary : theme.border,
+                    backgroundColor:
+                      index === currentPage ? AppColors.primary : theme.border,
                     width: index === currentPage ? 20 : 8,
                   },
                 ]}

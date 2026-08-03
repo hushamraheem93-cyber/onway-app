@@ -39,9 +39,30 @@ interface ShoppingSite {
 }
 
 const SHOPPING_SITES: ShoppingSite[] = [
-  { id: "shein", name: "SHEIN", nameAr: "شي إن", icon: "shopping-bag", color: AppColors.black, bgColor: AppColors.gray50 },
-  { id: "aliexpress", name: "AliExpress", nameAr: "علي إكسبرس", icon: "package", color: AppColors.error, bgColor: AppColors.errorLight },
-  { id: "alibaba", name: "Alibaba", nameAr: "علي بابا", icon: "globe", color: AppColors.primary, bgColor: AppColors.secondary },
+  {
+    id: "shein",
+    name: "SHEIN",
+    nameAr: "شي إن",
+    icon: "shopping-bag",
+    color: AppColors.black,
+    bgColor: AppColors.gray50,
+  },
+  {
+    id: "aliexpress",
+    name: "AliExpress",
+    nameAr: "علي إكسبرس",
+    icon: "package",
+    color: AppColors.error,
+    bgColor: AppColors.errorLight,
+  },
+  {
+    id: "alibaba",
+    name: "Alibaba",
+    nameAr: "علي بابا",
+    icon: "globe",
+    color: AppColors.primary,
+    bgColor: AppColors.secondary,
+  },
 ];
 
 export default function InternationalShoppingScreen() {
@@ -71,7 +92,8 @@ export default function InternationalShoppingScreen() {
     setIsSubmitting(true);
 
     try {
-      const siteName = SHOPPING_SITES.find((s) => s.id === selectedSite)?.name || selectedSite;
+      const siteName =
+        SHOPPING_SITES.find((s) => s.id === selectedSite)?.name || selectedSite;
 
       const orderData = {
         phoneNumber: phoneNumber || "",
@@ -105,7 +127,7 @@ export default function InternationalShoppingScreen() {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(orderData),
-        }
+        },
       );
 
       if (response.ok) {
@@ -132,12 +154,18 @@ export default function InternationalShoppingScreen() {
 
   if (isSubmitted) {
     return (
-      <View style={[styles.container, { backgroundColor: theme.backgroundDefault }]}>
-        <View style={[styles.successContainer, { paddingTop: headerHeight + 40 }]}>
+      <View
+        style={[styles.container, { backgroundColor: theme.backgroundDefault }]}
+      >
+        <View
+          style={[styles.successContainer, { paddingTop: headerHeight + 40 }]}
+        >
           <View style={styles.successIcon}>
             <Feather name="check-circle" size={64} color={BRAND_ORANGE} />
           </View>
-          <ThemedText style={styles.successTitle}>تم تقديم طلبك بنجاح</ThemedText>
+          <ThemedText style={styles.successTitle}>
+            تم تقديم طلبك بنجاح
+          </ThemedText>
           <ThemedText style={styles.successSubtitle}>
             سيتم مراجعة طلبك وتحديد السعر والتواصل معك قريباً
           </ThemedText>
@@ -148,17 +176,27 @@ export default function InternationalShoppingScreen() {
             accessibilityRole="button"
             accessibilityLabel="طلب جديد"
           >
-            <Feather name="plus" size={18} color={AppColors.white} style={{ marginLeft: 8 }} />
+            <Feather
+              name="plus"
+              size={18}
+              color={AppColors.white}
+              style={{ marginLeft: 8 }}
+            />
             <ThemedText style={styles.submitButtonText}>طلب جديد</ThemedText>
           </Pressable>
           <Pressable
-            style={[styles.submitButton, { backgroundColor: AppColors.backgroundSecondary, marginTop: 12 }]}
+            style={[
+              styles.submitButton,
+              { backgroundColor: AppColors.backgroundSecondary, marginTop: 12 },
+            ]}
             onPress={() => navigation.goBack()}
             testID="button-back-home"
             accessibilityRole="button"
             accessibilityLabel="العودة للرئيسية"
           >
-            <ThemedText style={[styles.submitButtonText, { color: AppColors.gray500 }]}>
+            <ThemedText
+              style={[styles.submitButtonText, { color: AppColors.gray500 }]}
+            >
               العودة للرئيسية
             </ThemedText>
           </Pressable>
@@ -188,8 +226,12 @@ export default function InternationalShoppingScreen() {
           <View style={styles.headerIconWrap}>
             <Feather name="globe" size={32} color={BRAND_ORANGE} />
           </View>
-          <ThemedText style={styles.headerTitle}>التسوق من المواقع العالمية</ThemedText>
-          <ThemedText style={[styles.headerSubtitle, { color: theme.textSecondary }]}>
+          <ThemedText style={styles.headerTitle}>
+            التسوق من المواقع العالمية
+          </ThemedText>
+          <ThemedText
+            style={[styles.headerSubtitle, { color: theme.textSecondary }]}
+          >
             اختر الموقع وأرسل رابط المنتج وسنتكفل بالباقي
           </ThemedText>
         </View>
@@ -213,7 +255,12 @@ export default function InternationalShoppingScreen() {
               accessibilityLabel={site.nameAr}
               accessibilityState={{ selected: selectedSite === site.id }}
             >
-              <View style={[styles.siteIconWrap, { backgroundColor: AppColors.white }]}>
+              <View
+                style={[
+                  styles.siteIconWrap,
+                  { backgroundColor: AppColors.white },
+                ]}
+              >
                 <Feather name={site.icon as any} size={26} color={site.color} />
               </View>
               <ThemedText style={[styles.siteName, { color: site.color }]}>
@@ -236,8 +283,18 @@ export default function InternationalShoppingScreen() {
         <View style={styles.formSection}>
           <View style={styles.inputGroup}>
             <ThemedText style={styles.label}>رابط المنتج</ThemedText>
-            <View style={[styles.inputContainer, { backgroundColor: theme.backgroundSecondary }]}>
-              <Feather name="link" size={18} color={AppColors.gray400} style={styles.inputIcon} />
+            <View
+              style={[
+                styles.inputContainer,
+                { backgroundColor: theme.backgroundSecondary },
+              ]}
+            >
+              <Feather
+                name="link"
+                size={18}
+                color={AppColors.gray400}
+                style={styles.inputIcon}
+              />
               <TextInput
                 style={[styles.input, { color: theme.text }]}
                 placeholder="الصق رابط المنتج هنا"
@@ -262,7 +319,11 @@ export default function InternationalShoppingScreen() {
               ]}
             >
               <TextInput
-                style={[styles.input, styles.textAreaInput, { color: theme.text }]}
+                style={[
+                  styles.input,
+                  styles.textAreaInput,
+                  { color: theme.text },
+                ]}
                 placeholder="اكتب تفاصيل المنتج المطلوب (الاسم، النوع، اللون المفضل...)"
                 placeholderTextColor={AppColors.gray300}
                 value={productDetails}
@@ -278,9 +339,17 @@ export default function InternationalShoppingScreen() {
 
           <View style={styles.inputGroup}>
             <ThemedText style={styles.label}>الكمية</ThemedText>
-            <View style={[styles.inputContainer, { backgroundColor: theme.backgroundSecondary }]}>
+            <View
+              style={[
+                styles.inputContainer,
+                { backgroundColor: theme.backgroundSecondary },
+              ]}
+            >
               <TextInput
-                style={[styles.input, { color: theme.text, textAlign: "center" }]}
+                style={[
+                  styles.input,
+                  { color: theme.text, textAlign: "center" },
+                ]}
                 placeholder="1"
                 placeholderTextColor={AppColors.gray300}
                 value={quantity}
@@ -292,7 +361,9 @@ export default function InternationalShoppingScreen() {
           </View>
 
           <View style={styles.inputGroup}>
-            <ThemedText style={styles.label}>ملاحظات إضافية (اختياري)</ThemedText>
+            <ThemedText style={styles.label}>
+              ملاحظات إضافية (اختياري)
+            </ThemedText>
             <View
               style={[
                 styles.inputContainer,
@@ -301,7 +372,11 @@ export default function InternationalShoppingScreen() {
               ]}
             >
               <TextInput
-                style={[styles.input, styles.textAreaInput, { color: theme.text }]}
+                style={[
+                  styles.input,
+                  styles.textAreaInput,
+                  { color: theme.text },
+                ]}
                 placeholder="أي ملاحظات أخرى..."
                 placeholderTextColor={AppColors.gray300}
                 value={customerNotes}
@@ -326,20 +401,33 @@ export default function InternationalShoppingScreen() {
           testID="button-submit-international"
           accessibilityRole="button"
           accessibilityLabel="إرسال طلب الشراء"
-          accessibilityState={{ disabled: !isFormValid || isSubmitting, busy: isSubmitting }}
+          accessibilityState={{
+            disabled: !isFormValid || isSubmitting,
+            busy: isSubmitting,
+          }}
         >
           {isSubmitting ? (
             <ActivityIndicator size="small" color={AppColors.white} />
           ) : (
             <>
-              <Feather name="send" size={18} color={AppColors.white} style={{ marginLeft: 8 }} />
-              <ThemedText style={styles.submitButtonText}>تقديم الطلب</ThemedText>
+              <Feather
+                name="send"
+                size={18}
+                color={AppColors.white}
+                style={{ marginLeft: 8 }}
+              />
+              <ThemedText style={styles.submitButtonText}>
+                تقديم الطلب
+              </ThemedText>
             </>
           )}
         </Pressable>
 
-        <ThemedText style={[styles.disclaimerText, { color: theme.textSecondary }]}>
-          سيتم مراجعة طلبك وتحديد التكلفة النهائية شاملة الشحن والتوصيل، وسيتم التواصل معك لتأكيد الطلب
+        <ThemedText
+          style={[styles.disclaimerText, { color: theme.textSecondary }]}
+        >
+          سيتم مراجعة طلبك وتحديد التكلفة النهائية شاملة الشحن والتوصيل، وسيتم
+          التواصل معك لتأكيد الطلب
         </ThemedText>
       </ScrollView>
     </KeyboardAvoidingView>

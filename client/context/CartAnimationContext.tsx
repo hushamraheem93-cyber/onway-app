@@ -1,4 +1,11 @@
-import React, { createContext, useContext, useState, useCallback, useMemo, useRef } from "react";
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useCallback,
+  useMemo,
+  useRef,
+} from "react";
 import { View, StyleSheet, Dimensions } from "react-native";
 import Animated, {
   useSharedValue,
@@ -25,12 +32,16 @@ interface CartAnimationContextType {
   triggerAnimation: (imageUrl: string, startX: number, startY: number) => void;
 }
 
-const CartAnimationContext = createContext<CartAnimationContextType | undefined>(undefined);
+const CartAnimationContext = createContext<
+  CartAnimationContextType | undefined
+>(undefined);
 
 export function useCartAnimation() {
   const context = useContext(CartAnimationContext);
   if (!context) {
-    throw new Error("useCartAnimation must be used within a CartAnimationProvider");
+    throw new Error(
+      "useCartAnimation must be used within a CartAnimationProvider",
+    );
   }
   return context;
 }
@@ -54,22 +65,25 @@ function FlyingItem({ item, onComplete }: FlyingItemProps) {
       duration: 600,
       easing: Easing.bezier(0.25, 0.1, 0.25, 1),
     });
-    
+
     translateY.value = withSequence(
-      withTiming(item.startY - 80, { duration: 200, easing: Easing.out(Easing.quad) }),
-      withTiming(targetY, { duration: 400, easing: Easing.in(Easing.quad) })
+      withTiming(item.startY - 80, {
+        duration: 200,
+        easing: Easing.out(Easing.quad),
+      }),
+      withTiming(targetY, { duration: 400, easing: Easing.in(Easing.quad) }),
     );
 
     scale.value = withSequence(
       withSpring(1.3, { damping: 10, stiffness: 200 }),
-      withTiming(0.3, { duration: 400 })
+      withTiming(0.3, { duration: 400 }),
     );
 
     opacity.value = withSequence(
       withTiming(1, { duration: 400 }),
       withTiming(0, { duration: 200 }, () => {
         runOnJS(onComplete)(item.id);
-      })
+      }),
     );
   }, []);
 
@@ -95,17 +109,24 @@ function FlyingItem({ item, onComplete }: FlyingItemProps) {
   );
 }
 
-export function CartAnimationProvider({ children }: { children: React.ReactNode }) {
+export function CartAnimationProvider({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   const [flyingItems, setFlyingItems] = useState<AnimationItem[]>([]);
   const idCounter = useRef(0);
 
-  const triggerAnimation = useCallback((imageUrl: string, startX: number, startY: number) => {
-    const id = `flying-${idCounter.current++}`;
-    setFlyingItems(prev => [...prev, { id, imageUrl, startX, startY }]);
-  }, []);
+  const triggerAnimation = useCallback(
+    (imageUrl: string, startX: number, startY: number) => {
+      const id = `flying-${idCounter.current++}`;
+      setFlyingItems((prev) => [...prev, { id, imageUrl, startX, startY }]);
+    },
+    [],
+  );
 
   const handleComplete = useCallback((id: string) => {
-    setFlyingItems(prev => prev.filter(item => item.id !== id));
+    setFlyingItems((prev) => prev.filter((item) => item.id !== id));
   }, []);
 
   const value = useMemo(() => ({ triggerAnimation }), [triggerAnimation]);
@@ -114,7 +135,7 @@ export function CartAnimationProvider({ children }: { children: React.ReactNode 
     <CartAnimationContext.Provider value={value}>
       {children}
       <View style={styles.overlay} pointerEvents="none">
-        {flyingItems.map(item => (
+        {flyingItems.map((item) => (
           <FlyingItem key={item.id} item={item} onComplete={handleComplete} />
         ))}
       </View>

@@ -1,8 +1,20 @@
 import React from "react";
-import { View, TextInput, Pressable, ActivityIndicator, StyleSheet } from "react-native";
+import {
+  View,
+  TextInput,
+  Pressable,
+  ActivityIndicator,
+  StyleSheet,
+} from "react-native";
 import { ThemedText } from "@/components/ThemedText";
 import { useTheme } from "@/hooks/useTheme";
-import { AppColors, BorderRadius, FontWeight, Shadows, Spacing } from "@/constants/theme";
+import {
+  AppColors,
+  BorderRadius,
+  FontWeight,
+  Shadows,
+  Spacing,
+} from "@/constants/theme";
 
 interface Props {
   code: string;
@@ -13,11 +25,27 @@ interface Props {
   success: string;
 }
 
-export function PromoCodeInput({ code, onChangeCode, onApply, isApplying, error, success }: Props) {
+export function PromoCodeInput({
+  code,
+  onChangeCode,
+  onApply,
+  isApplying,
+  error,
+  success,
+}: Props) {
   const { theme } = useTheme();
   return (
-    <View style={[styles.container, { backgroundColor: theme.backgroundDefault }, Shadows.sm]}>
-      <ThemedText type="small" style={[styles.label, { color: theme.textSecondary }]}>
+    <View
+      style={[
+        styles.container,
+        { backgroundColor: theme.backgroundDefault },
+        Shadows.sm,
+      ]}
+    >
+      <ThemedText
+        type="small"
+        style={[styles.label, { color: theme.textSecondary }]}
+      >
         كود الخصم (اختياري)
       </ThemedText>
       <View style={styles.row}>
@@ -32,7 +60,9 @@ export function PromoCodeInput({ code, onChangeCode, onApply, isApplying, error,
           {isApplying ? (
             <ActivityIndicator size="small" color={AppColors.white} />
           ) : (
-            <ThemedText type="body" style={styles.applyBtnText}>تطبيق</ThemedText>
+            <ThemedText type="body" style={styles.applyBtnText}>
+              تطبيق
+            </ThemedText>
           )}
         </Pressable>
         <TextInput
@@ -44,12 +74,18 @@ export function PromoCodeInput({ code, onChangeCode, onApply, isApplying, error,
         />
       </View>
       {error ? (
-        <ThemedText type="small" style={[styles.feedback, { color: AppColors.error }]}>
+        <ThemedText
+          type="small"
+          style={[styles.feedback, { color: AppColors.error }]}
+        >
           {error}
         </ThemedText>
       ) : null}
       {success ? (
-        <ThemedText type="small" style={[styles.feedback, { color: AppColors.success }]}>
+        <ThemedText
+          type="small"
+          style={[styles.feedback, { color: AppColors.success }]}
+        >
           {success}
         </ThemedText>
       ) : null}

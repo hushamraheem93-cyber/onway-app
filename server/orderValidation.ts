@@ -116,7 +116,10 @@ export function capOrderItemImages<T extends Record<string, any>>(
  * either propagates a legacy value onto a brand-new record.
  */
 export function isUsableCachedImage(url: unknown): boolean {
-  return typeof url === "string" && url.startsWith("https://firebasestorage.googleapis.com/");
+  return (
+    typeof url === "string" &&
+    url.startsWith("https://firebasestorage.googleapis.com/")
+  );
 }
 
 /** Highest quantity a single cart line may carry. Above this it is a mistake or an attack. */

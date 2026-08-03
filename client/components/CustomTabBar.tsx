@@ -23,15 +23,15 @@ import { AppColors } from "@/constants/theme";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
-const CIRCLE_SIZE     = 64;
-const CIRCLE_OVERFLOW = 26;           // px the circle pops above the bar top
-const BAR_HEIGHT      = 60;           // visible white bar height
-const NOTCH_R         = 38;           // horizontal radius of the notch curve
-const NOTCH_SPREAD    = 18;           // extra smooth spread before the curve
-const NOTCH_DEPTH     = CIRCLE_SIZE - CIRCLE_OVERFLOW + 8; // depth into the bar
+const CIRCLE_SIZE = 64;
+const CIRCLE_OVERFLOW = 26; // px the circle pops above the bar top
+const BAR_HEIGHT = 60; // visible white bar height
+const NOTCH_R = 38; // horizontal radius of the notch curve
+const NOTCH_SPREAD = 18; // extra smooth spread before the curve
+const NOTCH_DEPTH = CIRCLE_SIZE - CIRCLE_OVERFLOW + 8; // depth into the bar
 
 const CX = SCREEN_WIDTH / 2;
-const BY = CIRCLE_OVERFLOW;           // Y where the bar top starts in SVG
+const BY = CIRCLE_OVERFLOW; // Y where the bar top starts in SVG
 
 interface TabConfig {
   name: string;
@@ -41,12 +41,25 @@ interface TabConfig {
 }
 
 const SIDE_TABS: TabConfig[] = [
-  { name: "FavoritesTab", icon: "heart",        label: "المفضلة", initialScreen: "Favorites" },
-  { name: "OrdersTab",    icon: "shopping-bag", label: "طلباتي",  initialScreen: "Orders"    },
+  {
+    name: "FavoritesTab",
+    icon: "heart",
+    label: "المفضلة",
+    initialScreen: "Favorites",
+  },
+  {
+    name: "OrdersTab",
+    icon: "shopping-bag",
+    label: "طلباتي",
+    initialScreen: "Orders",
+  },
 ];
 
 const CENTER_TAB: TabConfig = {
-  name: "HomeTab", icon: "home", label: "الرئيسية", initialScreen: "Home",
+  name: "HomeTab",
+  icon: "home",
+  label: "الرئيسية",
+  initialScreen: "Home",
 };
 
 function buildPath(w: number, totalH: number): string {
@@ -82,22 +95,30 @@ function SideTab({
     if (isFocused) {
       bounce.value = withSequence(
         withTiming(1.2, { duration: 130 }),
-        withSpring(1, { damping: 10, stiffness: 220 })
+        withSpring(1, { damping: 10, stiffness: 220 }),
       );
     } else {
       bounce.value = withSpring(1, { damping: 12 });
     }
   }, [isFocused]);
 
-  const iconStyle = useAnimatedStyle(() => ({ transform: [{ scale: bounce.value }] }));
+  const iconStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: bounce.value }],
+  }));
 
   const color = isFocused ? AppColors.white : AppColors.iconOnBrand;
 
   return (
-    <Pressable onPress={onPress} style={styles.sideTab} testID={`tab-${config.name}`}>
+    <Pressable
+      onPress={onPress}
+      style={styles.sideTab}
+      testID={`tab-${config.name}`}
+    >
       <Animated.View style={[styles.sideTabInner, iconStyle]}>
         <Feather name={config.icon} size={22} color={color} />
-        <ThemedText style={[styles.sideLabel, { color }]}>{config.label}</ThemedText>
+        <ThemedText style={[styles.sideLabel, { color }]}>
+          {config.label}
+        </ThemedText>
       </Animated.View>
     </Pressable>
   );
@@ -116,7 +137,7 @@ function CenterButton({
     if (isFocused) {
       scale.value = withSequence(
         withTiming(1.15, { duration: 140 }),
-        withSpring(1, { damping: 10, stiffness: 200 })
+        withSpring(1, { damping: 10, stiffness: 200 }),
       );
     }
   }, [isFocused]);
@@ -135,7 +156,10 @@ function CenterButton({
         <View
           style={[
             styles.centerCircle,
-            { backgroundColor: AppColors.white, shadowColor: AppColors.shadowColor },
+            {
+              backgroundColor: AppColors.white,
+              shadowColor: AppColors.shadowColor,
+            },
           ]}
         >
           <Feather name={CENTER_TAB.icon} size={28} color={AppColors.primary} />
@@ -147,9 +171,9 @@ function CenterButton({
 }
 
 export function CustomTabBar({ state, navigation }: BottomTabBarProps) {
-  const insets      = useSafeAreaInsets();
-  const safeBottom  = Math.max(insets.bottom - 10, 0);
-  const totalSvgH   = BY + BAR_HEIGHT + safeBottom;
+  const insets = useSafeAreaInsets();
+  const safeBottom = Math.max(insets.bottom - 10, 0);
+  const totalSvgH = BY + BAR_HEIGHT + safeBottom;
 
   const navigate = (tabName: string, screen: string) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -166,21 +190,18 @@ export function CustomTabBar({ state, navigation }: BottomTabBarProps) {
     }
   };
 
-  const homeIdx   = state.routes.findIndex((r) => r.name === CENTER_TAB.name);
+  const homeIdx = state.routes.findIndex((r) => r.name === CENTER_TAB.name);
   const homeActive = state.index === homeIdx;
 
-  const favIdx    = state.routes.findIndex((r) => r.name === SIDE_TABS[0].name);
-  const favActive  = state.index === favIdx;
+  const favIdx = state.routes.findIndex((r) => r.name === SIDE_TABS[0].name);
+  const favActive = state.index === favIdx;
 
-  const ordIdx    = state.routes.findIndex((r) => r.name === SIDE_TABS[1].name);
-  const ordActive  = state.index === ordIdx;
+  const ordIdx = state.routes.findIndex((r) => r.name === SIDE_TABS[1].name);
+  const ordActive = state.index === ordIdx;
 
   return (
     <View
-      style={[
-        styles.container,
-        { height: totalSvgH, bottom: 0 },
-      ]}
+      style={[styles.container, { height: totalSvgH, bottom: 0 }]}
       pointerEvents="box-none"
     >
       {/* ── Shadow layer (iOS) ─────────────────────────────── */}
@@ -226,7 +247,9 @@ export function CustomTabBar({ state, navigation }: BottomTabBarProps) {
         <SideTab
           config={SIDE_TABS[0]}
           isFocused={favActive}
-          onPress={() => navigate(SIDE_TABS[0].name, SIDE_TABS[0].initialScreen)}
+          onPress={() =>
+            navigate(SIDE_TABS[0].name, SIDE_TABS[0].initialScreen)
+          }
         />
 
         {/* Center placeholder so the side tabs stay on the edges */}
@@ -236,7 +259,9 @@ export function CustomTabBar({ state, navigation }: BottomTabBarProps) {
         <SideTab
           config={SIDE_TABS[1]}
           isFocused={ordActive}
-          onPress={() => navigate(SIDE_TABS[1].name, SIDE_TABS[1].initialScreen)}
+          onPress={() =>
+            navigate(SIDE_TABS[1].name, SIDE_TABS[1].initialScreen)
+          }
         />
       </View>
     </View>

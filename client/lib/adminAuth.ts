@@ -16,7 +16,10 @@ const LOGIN_PATH = "/api/admin/login";
 
 /** Exchange username/password for an admin session token and store it. Throws with
  *  the server's Arabic error message on failure so the login screen can show it. */
-export async function loginAdmin(username: string, password: string): Promise<void> {
+export async function loginAdmin(
+  username: string,
+  password: string,
+): Promise<void> {
   const res = await fetch(new URL(LOGIN_PATH, getApiUrl()).toString(), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -32,11 +35,19 @@ export async function loginAdmin(username: string, password: string): Promise<vo
 }
 
 export async function getAdminToken(): Promise<string | null> {
-  try { return await getToken(ADMIN_TOKEN_KEY); } catch { return null; }
+  try {
+    return await getToken(ADMIN_TOKEN_KEY);
+  } catch {
+    return null;
+  }
 }
 
 export async function clearAdminToken(): Promise<void> {
-  try { await removeToken(ADMIN_TOKEN_KEY); } catch { /* ignore */ }
+  try {
+    await removeToken(ADMIN_TOKEN_KEY);
+  } catch {
+    /* ignore */
+  }
 }
 
 let installed = false;
@@ -56,7 +67,7 @@ export function installAdminAuthInterceptor(): void {
 
   g.fetch = async (input: any, init: any = {}) => {
     try {
-      const url = typeof input === "string" ? input : input?.url ?? "";
+      const url = typeof input === "string" ? input : (input?.url ?? "");
       if (
         typeof url === "string" &&
         (url.includes("/api/admin/") || url.includes("/admin/")) &&
@@ -67,7 +78,7 @@ export function installAdminAuthInterceptor(): void {
           const headers = new Headers(
             (init && init.headers) ||
               (typeof input !== "string" ? input?.headers : undefined) ||
-              {}
+              {},
           );
           if (!headers.has("Authorization")) {
             headers.set("Authorization", `Bearer ${token}`);

@@ -30,11 +30,17 @@ export function OrderSummaryCard({
   const deliveryLabel = isRestaurantOrder
     ? formatPrice(1000)
     : hasAreaSelected
-    ? formatPrice(deliveryFee)
-    : "اختر المنطقة";
+      ? formatPrice(deliveryFee)
+      : "اختر المنطقة";
 
   return (
-    <View style={[styles.card, { backgroundColor: theme.backgroundDefault }, Shadows.sm]}>
+    <View
+      style={[
+        styles.card,
+        { backgroundColor: theme.backgroundDefault },
+        Shadows.sm,
+      ]}
+    >
       <Row label="عدد المنتجات" value={`${itemCount} منتج`} />
       <Row label="المجموع الفرعي" value={formatPrice(subtotal)} />
       <Row
@@ -42,24 +48,49 @@ export function OrderSummaryCard({
         value={deliveryLabel}
         valueColor={deliveryFee > 0 ? AppColors.primary : AppColors.success}
       />
-      <Row label="نسبة الخدمة" value={formatPrice(serviceFee)} valueColor={AppColors.primary} />
+      <Row
+        label="نسبة الخدمة"
+        value={formatPrice(serviceFee)}
+        valueColor={AppColors.primary}
+      />
       {promoDiscount > 0 && (
-        <Row label="الخصم" value={`- ${formatPrice(promoDiscount)}`} valueColor={AppColors.success} />
+        <Row
+          label="الخصم"
+          value={`- ${formatPrice(promoDiscount)}`}
+          valueColor={AppColors.success}
+        />
       )}
       <View style={[styles.row, styles.totalRow]}>
         <ThemedText type="h4">المجموع الكلي</ThemedText>
-        <ThemedText type="h2" style={{ color: AppColors.primary }}>{formatPrice(total)}</ThemedText>
+        <ThemedText type="h2" style={{ color: AppColors.primary }}>
+          {formatPrice(total)}
+        </ThemedText>
       </View>
     </View>
   );
 }
 
-function Row({ label, value, valueColor }: { label: string; value: string; valueColor?: string }) {
+function Row({
+  label,
+  value,
+  valueColor,
+}: {
+  label: string;
+  value: string;
+  valueColor?: string;
+}) {
   const { theme } = useTheme();
   return (
     <View style={styles.row}>
-      <ThemedText type="body" style={{ color: theme.textSecondary }}>{label}</ThemedText>
-      <ThemedText type="body" style={valueColor ? { color: valueColor } : undefined}>{value}</ThemedText>
+      <ThemedText type="body" style={{ color: theme.textSecondary }}>
+        {label}
+      </ThemedText>
+      <ThemedText
+        type="body"
+        style={valueColor ? { color: valueColor } : undefined}
+      >
+        {value}
+      </ThemedText>
     </View>
   );
 }

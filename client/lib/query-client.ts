@@ -40,8 +40,8 @@ export function getApiUrl(): string {
   if (!configured) {
     throw new Error(
       "EXPO_PUBLIC_API_BASE_URL is not set. " +
-      "Set it to your server domain before building " +
-      "(e.g. EXPO_PUBLIC_API_BASE_URL=https://api.yourdomain.com).",
+        "Set it to your server domain before building " +
+        "(e.g. EXPO_PUBLIC_API_BASE_URL=https://api.yourdomain.com).",
     );
   }
 
