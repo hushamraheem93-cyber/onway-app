@@ -14,7 +14,7 @@ export async function requestCurrentPosition(): Promise<{
   const { status } = await ExpoLocation.requestForegroundPermissionsAsync();
   if (status !== "granted") return null;
   const loc = await ExpoLocation.getCurrentPositionAsync({
-    accuracy: ExpoLocation.Accuracy.Balanced,
+    accuracy: ExpoLocation.Accuracy.High,
   });
   return { latitude: loc.coords.latitude, longitude: loc.coords.longitude };
 }

@@ -112,7 +112,7 @@ export default function DriverBatchScreen() {
       const { status } = await Location.getForegroundPermissionsAsync();
       if (status !== "granted") return {};
       const loc = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.Balanced,
+        accuracy: Location.Accuracy.High,
       });
       return { lat: loc.coords.latitude, lng: loc.coords.longitude };
     } catch {

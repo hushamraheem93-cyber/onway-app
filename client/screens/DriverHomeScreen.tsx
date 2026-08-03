@@ -412,8 +412,10 @@ export default function DriverHomeScreen() {
     try {
       const { status } = await Location.getForegroundPermissionsAsync();
       if (status !== "granted") return null;
+      // High = GPS-grade (~10 m). Balanced (~100 m) used a network fix that put the
+      // driver's marker up to ~100 m off on the live-tracking map.
       const loc = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.Balanced,
+        accuracy: Location.Accuracy.High,
       });
       return { lat: loc.coords.latitude, lng: loc.coords.longitude };
     } catch {
