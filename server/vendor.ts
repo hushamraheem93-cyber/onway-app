@@ -2266,8 +2266,6 @@ router.get("/api/vendor/analytics", requireVendor, async (req, res) => {
     todayStart.setHours(0, 0, 0, 0);
     const weekStart = new Date(todayStart.getTime() - 6 * 24 * 60 * 60 * 1000);
 
-    const { Timestamp } = await import("firebase-admin/firestore");
-
     const snap = await db.collection("orders")
       .where("vendorId", "==", vid)
       .where("status", "==", "delivered")

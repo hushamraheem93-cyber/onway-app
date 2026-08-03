@@ -87,7 +87,7 @@ interface OrderDetail {
 
 export default function DriverOrderDetailScreen() {
   const insets = useSafeAreaInsets();
-  const { theme, isDark } = useTheme();
+  const { theme } = useTheme();
   const navigation = useNavigation();
   const route = useRoute<RouteProp<{ params: { order: OrderDetail } }, "params">>();
   const order = route.params?.order;
