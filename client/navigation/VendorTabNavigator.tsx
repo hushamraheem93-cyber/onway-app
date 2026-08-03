@@ -17,7 +17,7 @@ import VendorProfileScreen     from "@/screens/VendorProfileScreen";
 import { useScreenOptions } from "@/hooks/useScreenOptions";
 import { VendorNotificationsProvider, useVendorNotifications } from "@/context/VendorNotificationsContext";
 import { ThemedText } from "@/components/ThemedText";
-import { AppColors, FontFamily, Shadows } from "@/constants/theme";
+import { AppColors, FontFamily } from "@/constants/theme";
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 

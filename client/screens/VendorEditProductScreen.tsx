@@ -24,7 +24,7 @@ import { getApiUrl } from "@/lib/query-client";
 import { resolveImageUrl } from "@/utils/imageUtils";
 import { CATEGORY_MAP, ALL_CATEGORIES } from "@/constants/businessCategories";
 import DynamicProductFields from "@/components/DynamicProductFields";
-import { AppColors, FontFamily, BorderRadius } from "@/constants/theme";
+import { AppColors, FontFamily } from "@/constants/theme";
 
 const ORANGE = AppColors.primary;
 const MAX_IMAGES = 5;

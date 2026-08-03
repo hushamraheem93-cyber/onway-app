@@ -185,7 +185,7 @@ const SkeletonBox = ({ style }: { style?: any }) => {
 export default function VendorHomeScreen({ navigation }: any) {
   const tabBarHeight = useBottomTabBarHeight();
   const insets = useSafeAreaInsets();
-  const { vendorProfile, vendorToken, logout, refreshVendorProfile } = useAuth();
+  const { vendorProfile, vendorToken, refreshVendorProfile } = useAuth();
   const { setUnreadCount } = useVendorNotifications();
 
   const handleNotificationTap = useCallback(() => {

@@ -13,7 +13,7 @@ import * as Haptics from "expo-haptics";
 
 import { ThemedText } from "@/components/ThemedText";
 import { useTheme } from "@/hooks/useTheme";
-import { Spacing, BorderRadius, Shadows, AppColors, Anim, FontWeight} from "@/constants/theme";
+import { Spacing, AppColors, Anim, FontWeight} from "@/constants/theme";
 import { Product } from "@/constants/categories";
 import { useCart } from "@/context/CartContext";
 import { useFavorites } from "@/context/FavoritesContext";

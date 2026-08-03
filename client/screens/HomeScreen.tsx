@@ -224,9 +224,6 @@ export default function HomeScreen() {
     );
   }, [allVendors]);
 
-  const storeVendors = useMemo(() => {
-    return allVendors.filter((v) => v.categoryType === "store");
-  }, [allVendors]);
 
   const filteredRestaurants = useMemo(() => {
     if (!searchQuery.trim()) return restaurantVendors;

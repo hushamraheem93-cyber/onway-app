@@ -1,5 +1,5 @@
 import React from "react";
-import { View, Pressable, StyleSheet, Platform } from "react-native";
+import { View, Pressable, StyleSheet } from "react-native";
 import { createBottomTabNavigator, BottomTabBarProps } from "@react-navigation/bottom-tabs";
 import { Feather } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -41,7 +41,6 @@ function DriverTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
       ]}
     >
       {state.routes.map((route, index) => {
-        const { options } = descriptors[route.key];
         const isFocused = state.index === index;
         const config = TAB_CONFIG[route.name] || { icon: "circle", label: "" };
         const isHome = route.name === "DriverHomeTab";
