@@ -391,12 +391,6 @@ export default function HomeScreen() {
   const renderCategoryCard = (category: Category) => {
     const gradientColor =
       CATEGORY_COLORS[category.id] || category.color || AppColors.secondary;
-    // Admin/vendor-uploaded photos vary wildly (some full-bleed, some a product on a
-    // white background), which made the grid look untidy. Fill uploaded photos edge to
-    // edge on a white frame so every tile matches; keep the bundled 3D icons "contain"
-    // (they are transparent PNGs meant to be shown whole).
-    const isUploaded =
-      !!category.image && /^(https?:|data:)/.test(category.image);
     return (
       <Pressable
         key={category.id}
@@ -419,7 +413,7 @@ export default function HomeScreen() {
             <Image
               source={{ uri: get3DImage(category.id, category.image) }}
               style={styles.catImage}
-              contentFit={isUploaded ? "cover" : "contain"}
+              contentFit="contain"
               cachePolicy="disk"
               transition={200}
             />
@@ -1958,16 +1952,13 @@ const styles = StyleSheet.create({
   catImageContainer: {
     flex: 1,
     width: "100%",
-    borderRadius: 14,
-    overflow: "hidden",
-    backgroundColor: AppColors.white,
     justifyContent: "center",
     alignItems: "center",
   },
   catImage: {
-    width: "100%",
-    height: "100%",
-    backgroundColor: AppColors.white,
+    width: 70,
+    height: 70,
+    backgroundColor: "transparent",
   },
   catName: {
     fontFamily: "Cairo_700Bold",
