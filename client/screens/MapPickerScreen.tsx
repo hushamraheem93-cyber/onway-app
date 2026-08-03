@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { StyleSheet, View, Pressable, ActivityIndicator, Platform, TextInput } from "react-native";
+import { StyleSheet, View, Pressable, ActivityIndicator, TextInput } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import { Feather } from "@expo/vector-icons";
@@ -7,7 +7,6 @@ import * as Location from "expo-location";
 import { WebView } from "react-native-webview";
 
 import { ThemedText } from "@/components/ThemedText";
-import { useTheme } from "@/hooks/useTheme";
 import { useLocation } from "@/context/LocationContext";
 import { AppColors, FontWeight} from "@/constants/theme";
 import { reverseGeocodeDetailed, DHULUIYAH_CENTER } from "@/lib/geocoding";
@@ -171,7 +170,6 @@ export default function MapPickerScreen() {
   // When opened with a callback (e.g. vendor store location), we return the picked
   // point to the caller instead of writing to the customer's LocationContext.
   const params = route.params as MapPickerParams | undefined;
-  const { theme } = useTheme();
   const { savedLocation, setSavedLocation } = useLocation();
   const webViewRef = useRef<WebView>(null);
 

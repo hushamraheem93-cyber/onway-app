@@ -29,7 +29,7 @@ const PURPLE = AppColors.vendorPurple;
 export default function VendorRegistrationScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
-  const { phoneNumber, completeVendorRegistration, goBackToUserType, setUserType } = useAuth();
+  const { phoneNumber, completeVendorRegistration, goBackToUserType } = useAuth();
 
   const [storeLocation, setStoreLocation] = useState<{ latitude: number; longitude: number; address?: string } | null>(null);
   const [storeName, setStoreName] = useState("");
