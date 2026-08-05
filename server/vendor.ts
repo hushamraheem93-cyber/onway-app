@@ -109,13 +109,21 @@ async function requireVendor(req: Request, res: Response, next: express.NextFunc
     // actually cut them off — only the password-login path looked at status, and
     // the mobile app never uses it.
     const db = getFirestore();
-    if (db) {
+    if (!db) {
+      console.error("[vendor auth] Firestore client is not initialized; rejecting vendor access request");
+      return res.status(503).json({ error: "الخدمة غير متاحة مؤقتاً. يرجى المحاولة لاحقاً" });
+    }
+
+    try {
       const vDoc = await db.collection("vendors").doc(String(decoded.vendorId)).get();
       if (!vDoc.exists) return res.status(403).json({ error: "المتجر غير موجود" });
       const status = String((vDoc.data() as any)?.status || "");
       if (VENDOR_BLOCKED_STATUSES.includes(status) && !isPreApprovalVendorRoute(req)) {
         return res.status(403).json({ error: VENDOR_BLOCKED_MESSAGES[status], vendorStatus: status });
       }
+    } catch (error) {
+      console.error("[vendor auth] Firestore access threw an exception while verifying vendor status", error);
+      return res.status(503).json({ error: "الخدمة غير متاحة مؤقتاً. يرجى المحاولة لاحقاً" });
     }
 
     (req as any).vendorId = decoded.vendorId;
