@@ -819,7 +819,7 @@ function setupErrorHandler(app: express.Application) {
     const message =
       status >= 500 ? "Internal Server Error" : error.message || "Request failed";
 
-    return res.status(status).json({ message });
+    return res.status(status).json({ error: message, message });
   });
 }
 
