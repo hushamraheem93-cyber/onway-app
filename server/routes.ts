@@ -6753,12 +6753,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const weekStart = new Date(now.getTime() - 7 * 86400000).toISOString();
       const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
 
-      const [ordersSnap, usersSnap, driversSnap, vendorsSnap, productsSnap] = await Promise.all([
+      // `users` and `products` are only ever reported as a COUNT here, so they use
+      // the server-side aggregation instead of streaming every document into the
+      // process (C-13). Same numbers, a fraction of the memory and of the billed
+      // document reads. The remaining scans still need their documents.
+      const [ordersSnap, usersCount, driversSnap, vendorsSnap, productsCount] = await Promise.all([
         db.collection("orders").orderBy("createdAt", "desc").get(),
-        db.collection("users").get(),
+        db.collection("users").count().get(),
         db.collection("drivers").get(),
         db.collection("vendors").get(),
-        db.collection("products").get(),
+        db.collection("products").count().get(),
       ]);
 
       const allOrders = ordersSnap.docs.map(d => ({ id: d.id, ...d.data() } as any));
@@ -6797,10 +6801,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({
         orders: { total: allOrders.length, today: todayOrders.length, week: weekOrders.length, month: monthOrders.length, active: active.length, delivered: delivered.length, cancelled: cancelled.length },
         revenue: { total: totalRevenue, today: todayRevenue },
-        users: usersSnap.size,
+        users: usersCount.data().count,
         drivers: { total: driversSnap.size, online: onlineDrivers },
         vendors: { total: vendors.length, restaurants: restaurants.length, stores: stores.length },
-        products: productsSnap.size,
+        products: productsCount.data().count,
         topVendors,
       });
     } catch (err) {
