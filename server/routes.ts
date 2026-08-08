@@ -4147,53 +4147,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Accept order — uses a Firestore transaction to prevent accepting cancelled/delivered orders
-  app.post("/api/driver/accept-order", async (req: Request, res: Response) => {
-    const { phoneNumber, orderId } = req.body;
-    if (!phoneNumber || !orderId) return res.status(400).json({ error: "Missing fields" });
-
-    try {
-      const db = getFirestore();
-      if (db) {
-        // Atomically verify the order is in an acceptable state before marking it preparing.
-        // Prevents a driver from accepting an order that was just cancelled by admin or customer.
-        const orderRef = db.collection("orders").doc(orderId);
-        const accepted = await db.runTransaction(async (tx) => {
-          const snap = await tx.get(orderRef);
-          if (!snap.exists) return false;
-          const currentStatus = (snap.data() as any)?.status;
-          // Only allow transitions from pending or confirmed to preparing
-          if (!["pending", "confirmed"].includes(currentStatus)) return false;
-          tx.update(orderRef, { status: "preparing", updatedAt: new Date() });
-          return true;
-        });
-
-        if (!accepted) {
-          return res.status(409).json({ error: "الطلب لم يعد متاحاً للقبول" });
-        }
-
-        // Emit the status change event so real-time listeners are updated
-        orderEvents.emit("order:status", { orderId, status: "preparing" });
-        notifyCustomerStatus(orderId, "preparing").catch(() => {});
-        driverAssignments.set(orderId, phoneNumber);
-        const qd = driverQueue.find(d => d.phoneNumber === phoneNumber);
-        if (qd && !qd.currentBatchId) qd.currentBatchId = orderId; // legacy single-order support
-
-        const driver = await getDriverByPhone(phoneNumber);
-        const driverName = driver?.fullName || phoneNumber;
-        await updateOrderDriverInfo(orderId, {
-          driverName,
-          driverPhone: phoneNumber,
-        });
-        saveDriverActivity({ phoneNumber, type: "accepted", orderId }).catch(() => {});
-      }
-      res.json({ success: true });
-    } catch (error: any) {
-      console.error("[API]", req.method, req.path, error?.message);
-      res.status(500).json({ error: GENERIC_SERVER_ERROR });
-    }
-  });
-
   // Step 2: driver is now on the way (preparing → delivering)
   app.post("/api/driver/start-delivery", async (req: Request, res: Response) => {
     const { phoneNumber, orderId } = req.body;
@@ -4265,6 +4218,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/driver/reject-order", async (req: Request, res: Response) => {
     const { phoneNumber, orderId, batchId } = req.body;
     if (!phoneNumber) return res.status(400).json({ error: "Missing fields" });
+
+    // Ownership guard: batchId is caller-supplied. Without this check an
+    // authenticated driver could cancel ANOTHER driver's batch by passing its id.
+    if (batchId && !(await batchBelongsToDriver(batchId, phoneNumber))) {
+      return res.status(403).json({ error: "غير مصرح — هذه الدفعة ليست لك" });
+    }
 
     try {
       const qd = driverQueue.find(d => d.phoneNumber === phoneNumber);

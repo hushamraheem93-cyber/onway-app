@@ -82,6 +82,24 @@ function reissueDriverToken(): Promise<string | null> {
 let installed = false;
 
 /**
+ * True only for SAME-ORIGIN /api/driver/* requests (excluding the token issuer).
+ * Scoping by origin prevents the driver Bearer token from being attached to — and
+ * leaked to — any third-party URL that merely contains "/api/driver/" in its path.
+ */
+function isDriverApiUrl(url: string): boolean {
+  try {
+    const base = getApiUrl();
+    const resolved = new URL(url, base);
+    if (resolved.origin !== new URL(base).origin) return false;
+    if (!resolved.pathname.startsWith("/api/driver/")) return false;
+    if (resolved.pathname === MOBILE_AUTH_PATH) return false;
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Monkey-patch global.fetch once so every /api/driver/* request (except the token
  * issuer) carries the stored driver Bearer token. This guarantees identity is sent
  * on all driver calls without threading the token through ~30 call sites. It only
@@ -98,10 +116,7 @@ export function installDriverAuthInterceptor(): void {
     let isDriverCall = false;
     try {
       const url = typeof input === "string" ? input : (input?.url ?? "");
-      isDriverCall =
-        typeof url === "string" &&
-        url.includes("/api/driver/") &&
-        !url.includes(MOBILE_AUTH_PATH);
+      isDriverCall = typeof url === "string" && isDriverApiUrl(url);
       if (isDriverCall) {
         const token = await getToken(DRIVER_TOKEN_KEY);
         if (token) {

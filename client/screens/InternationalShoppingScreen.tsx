@@ -70,7 +70,7 @@ export default function InternationalShoppingScreen() {
   const headerHeight = useHeaderHeight();
   const { theme } = useTheme();
   const navigation = useNavigation<NavigationProp>();
-  const { phoneNumber, userProfile } = useAuth();
+  const { phoneNumber, userProfile, customerToken } = useAuth();
 
   const [selectedSite, setSelectedSite] = useState<string | null>(null);
   const [productLink, setProductLink] = useState("");
@@ -125,7 +125,12 @@ export default function InternationalShoppingScreen() {
         new URL("/api/orders", getApiUrl()).toString(),
         {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            ...(customerToken
+              ? { Authorization: `Bearer ${customerToken}` }
+              : {}),
+          },
           body: JSON.stringify(orderData),
         },
       );

@@ -53,6 +53,24 @@ export async function clearAdminToken(): Promise<void> {
 let installed = false;
 
 /**
+ * True only for SAME-ORIGIN /api/admin/* requests (excluding the login issuer).
+ * Scoping by origin prevents the admin Bearer token from being attached to — and
+ * leaked to — any third-party URL that merely contains "/admin/" in its path.
+ */
+function isAdminApiUrl(url: string): boolean {
+  try {
+    const base = getApiUrl();
+    const resolved = new URL(url, base);
+    if (resolved.origin !== new URL(base).origin) return false;
+    if (!resolved.pathname.startsWith("/api/admin/")) return false;
+    if (resolved.pathname === LOGIN_PATH) return false;
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Monkey-patch global.fetch once so every /api/admin/* request (except the token
  * issuer) carries the stored admin Bearer token. Guarantees admin identity is sent
  * on all admin calls without threading the token through AdminScreen's many call
@@ -68,11 +86,7 @@ export function installAdminAuthInterceptor(): void {
   g.fetch = async (input: any, init: any = {}) => {
     try {
       const url = typeof input === "string" ? input : (input?.url ?? "");
-      if (
-        typeof url === "string" &&
-        (url.includes("/api/admin/") || url.includes("/admin/")) &&
-        !url.includes(LOGIN_PATH)
-      ) {
+      if (typeof url === "string" && isAdminApiUrl(url)) {
         const token = await getToken(ADMIN_TOKEN_KEY);
         if (token) {
           const headers = new Headers(

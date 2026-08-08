@@ -34,7 +34,7 @@ export default function CourierPickupScreen() {
   const headerHeight = useHeaderHeight();
   const { theme } = useTheme();
   const navigation = useNavigation<NavigationProp>();
-  const { phoneNumber } = useAuth();
+  const { phoneNumber, customerToken } = useAuth();
 
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
@@ -84,7 +84,12 @@ export default function CourierPickupScreen() {
         new URL("/api/orders", getApiUrl()).toString(),
         {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            ...(customerToken
+              ? { Authorization: `Bearer ${customerToken}` }
+              : {}),
+          },
           body: JSON.stringify(orderData),
         },
       );

@@ -3268,6 +3268,16 @@ async function seedPromotionalSections() {
 // MAIN
 // ═══════════════════════════════════════════════════════════════════════════════
 async function main() {
+  // Safety guard: this script seeds DEMO data — test vendors and working promo
+  // codes (e.g. SAVE10000). Running it against production would inject live
+  // discount codes and fake stores. Refuse to run in production unless the
+  // operator explicitly opts in with ALLOW_SEED=true.
+  if (process.env.NODE_ENV === "production" && process.env.ALLOW_SEED !== "true") {
+    console.error("⛔ رُفض التشغيل: سكربت بيانات تجريبية ولا يعمل في بيئة الإنتاج.");
+    console.error("   للتشغيل المتعمّد فقط: ALLOW_SEED=true npx tsx server/seed-data.ts");
+    process.exit(1);
+  }
+
   console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
   console.log("🚀 OnWay — بدء إضافة البيانات التجريبية");
   console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
