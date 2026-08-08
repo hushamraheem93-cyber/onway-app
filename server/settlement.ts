@@ -14,6 +14,7 @@
 // vendors with no duplicated code; only the small per-type formula helpers differ.
 
 import admin from "firebase-admin";
+import { createHash } from "node:crypto";
 import { getFirestore } from "./firebase";
 import { recordLedgerEntry, recordAudit } from "./financialLedger";
 
@@ -29,6 +30,7 @@ const SETTLEMENTS = "settlements";
 const LEDGER = "settlementLedger";
 const SETTLEMENT_REQUESTS = "settlementRequests";
 const SETTLEMENT_PAYMENTS = "settlementPayments";
+const SETTLEMENT_ADJUSTMENTS = "settlementAdjustments";
 const APP_SETTINGS = "appSettings";
 const CONFIG_DOC = "settlementConfig";
 
@@ -348,7 +350,7 @@ export async function transitionSettlementRequest(
   if (!db) return { ok: false, reason: "no_db" };
   const reqRef = db.collection(SETTLEMENT_REQUESTS).doc(requestId);
   try {
-    const result = await db.runTransaction(async (tx) => {
+    const result = await db.runTransaction(async (tx: any) => {
       const snap = await tx.get(reqRef);
       if (!snap.exists) return { ok: false, reason: "not_found" as const };
       const r = snap.data() as any;
@@ -537,19 +539,91 @@ export function settlementPaymentId(input: CompleteSettlementInput): string | nu
   return `stl_${String(raw).replace(/[/\s]+/g, "_").slice(0, 200)}`;
 }
 
-export async function completeSettlement(input: CompleteSettlementInput): Promise<CompleteSettlementResult> {
-  const db = getFirestore();
+/**
+ * Window (ms) used to DERIVE an idempotency key for a payment whose caller sent
+ * none. Two byte-identical payment requests inside this window are the same
+ * payment; a genuine second cash handover later in the day falls in a later
+ * window and is still recorded normally.
+ */
+export const AUTO_IDEMPOTENCY_WINDOW_MS = 120_000;
+
+/** Stable fingerprint of "which payment is this", independent of wall-clock time. */
+function paymentFingerprint(input: CompleteSettlementInput): string {
+  const parts = [
+    input.accountType,
+    input.accountId,
+    String(Math.round(input.amount || 0)),
+    input.method || "cash",
+    (input.notes || "").trim(),
+    (input.adminName || "").trim(),
+  ].join("|");
+  return createHash("sha1").update(parts).digest("hex").slice(0, 32);
+}
+
+/**
+ * Server-derived payment ids for a caller that supplied NO key (the legacy
+ * driver-wallet endpoints and manual settlements from the admin card).
+ *
+ * Returns [current window, previous window]. BOTH are checked before writing, so a
+ * double-tap or a retry that lands just after a window boundary still collides
+ * with the original instead of paying twice. Without this the id was random and
+ * the whole idempotency block was skipped — a retried 50,000 IQD hand-over wiped
+ * 100,000 off the driver's debt (C-08).
+ */
+export function autoIdempotencyIds(
+  input: CompleteSettlementInput,
+  nowMs: number = Date.now(),
+): string[] {
+  const fp = paymentFingerprint(input);
+  const bucket = Math.floor(nowMs / AUTO_IDEMPOTENCY_WINDOW_MS);
+  return [`stlauto_${fp}_${bucket}`, `stlauto_${fp}_${bucket - 1}`];
+}
+
+/**
+ * The same [current window, previous window] derivation for manual ledger
+ * adjustments, which move money without producing a payment receipt.
+ */
+export function adjustmentIdempotencyIds(
+  accountType: SettlementAccountType,
+  accountId: string,
+  delta: number,
+  adjustType: "add" | "deduct",
+  notes: string,
+  adminName?: string,
+  nowMs: number = Date.now(),
+): string[] {
+  const fp = createHash("sha1")
+    .update(
+      [accountType, accountId, String(delta), adjustType, (notes || "").trim(), (adminName || "").trim()].join("|"),
+    )
+    .digest("hex")
+    .slice(0, 32);
+  const bucket = Math.floor(nowMs / AUTO_IDEMPOTENCY_WINDOW_MS);
+  return [`adjauto_${fp}_${bucket}`, `adjauto_${fp}_${bucket - 1}`];
+}
+
+export async function completeSettlement(
+  input: CompleteSettlementInput,
+  dbOverride?: any,
+): Promise<CompleteSettlementResult> {
+  const db = dbOverride ?? getFirestore();
   if (!db) return { ok: false, reason: "no_ledger" };
   const key = accountKey(input.accountType, input.accountId);
   const ledgerRef = db.collection(LEDGER).doc(ledgerId(input.accountType, input.accountId));
-  // Deterministic payment id when the caller identified the payment (H15). The same
-  // logical payment then always targets the same document, so a retry or a double
-  // tap collides with itself instead of paying twice. Without a key we keep the
-  // previous random id, so nothing about existing callers changes.
-  const idemId = settlementPaymentId(input);
-  const paymentRef = idemId
-    ? db.collection(SETTLEMENT_PAYMENTS).doc(idemId)
-    : db.collection(SETTLEMENT_PAYMENTS).doc();
+  // Deterministic payment id. When the caller identified the payment (requestId or
+  // idempotencyKey) that identity is used directly. When it did NOT, the id is
+  // derived from the payment's own fields plus a short time window, so the same
+  // logical payment always targets the same document and a retry or double tap
+  // collides with itself instead of paying twice. Idempotency is never optional.
+  const explicitId = settlementPaymentId(input);
+  // Older-window ids that must also be checked before writing (empty when the
+  // caller supplied an explicit key — that key is already time-independent).
+  const fallbackIds = explicitId ? [] : autoIdempotencyIds(input);
+  const idemId = explicitId ?? fallbackIds[0];
+  const paymentRef = db.collection(SETTLEMENT_PAYMENTS).doc(idemId);
+  const priorRefs = fallbackIds
+    .slice(1)
+    .map((id: string) => db.collection(SETTLEMENT_PAYMENTS).doc(id));
   const reqRef = input.requestId ? db.collection(SETTLEMENT_REQUESTS).doc(input.requestId) : null;
 
   // ── Step 0: Repair any payments whose FIFO step was interrupted by a crash ──
@@ -559,14 +633,14 @@ export async function completeSettlement(input: CompleteSettlementInput): Promis
 
   let appliedOut = 0;
   try {
-    const result = await db.runTransaction(async (tx) => {
+    const result = await db.runTransaction(async (tx: any) => {
       // ── reads first ──
       // Idempotency check BEFORE anything else: if this exact payment already
       // landed, replay its recorded outcome and touch nothing. An admin
       // double-tapping "settle" used to clear the balance twice — a driver handing
       // over 50,000 IQD had 100,000 wiped off their debt.
-      if (idemId) {
-        const existing = await tx.get(paymentRef);
+      for (const ref of [paymentRef, ...priorRefs]) {
+        const existing = await tx.get(ref);
         if (existing.exists) {
           const prev = existing.data() as any;
           return {
@@ -576,7 +650,7 @@ export async function completeSettlement(input: CompleteSettlementInput): Promis
             outstandingBefore: prev.outstandingBefore ?? 0,
             outstandingAfter: prev.outstandingAfter ?? 0,
             fullySettled: (prev.outstandingAfter ?? 0) <= 0,
-            paymentId: paymentRef.id,
+            paymentId: ref.id,
             receiptNumber: prev.receiptNumber ?? "",
           };
         }
@@ -661,16 +735,21 @@ export async function completeSettlement(input: CompleteSettlementInput): Promis
     if (result.ok && !(result as any).duplicate) {
       appliedOut = result.applied ?? 0;
       // Derived bookkeeping: mark oldest pending settlement records settled (FIFO).
-      // On success, stamp fifoApplied:true on the payment record so it is never
-      // re-processed by repairPendingFIFO(). On crash before this line, the payment
-      // remains fifoApplied:false and will be repaired at the next call above.
-      await markSettlementRecordsFIFO(input.accountType, input.accountId, appliedOut)
-        .then(() =>
-          db.collection(SETTLEMENT_PAYMENTS).doc(paymentRef.id)
-            .set({ fifoApplied: true }, { merge: true })
-            .catch(() => {}),
-        )
-        .catch((e) => console.error("markSettlementRecordsFIFO error:", e));
+      // The payment is CLAIMED first (atomic compare-and-set) so a concurrent
+      // repairPendingFIFO() from another admin's settlement cannot distribute this
+      // same payment a second time (C-09). Only the claim winner distributes; on
+      // success the payment is stamped fifoApplied:true. A crash between claim and
+      // stamp leaves a stale claim that repairPendingFIFO() retries later.
+      const claimed = await claimFifoApplication(db, paymentRef.id);
+      if (claimed !== null) {
+        await markSettlementRecordsFIFO(input.accountType, input.accountId, appliedOut, db)
+          .then(() =>
+            db.collection(SETTLEMENT_PAYMENTS).doc(paymentRef.id)
+              .set({ fifoApplied: true }, { merge: true })
+              .catch(() => {}),
+          )
+          .catch((e: any) => console.error("markSettlementRecordsFIFO error:", e));
+      }
 
       // ── Financial ledger + audit (append-only) — best-effort, never blocks ──
       // A settlement payment reduces what the account is owed / owes, so it DEBITS
@@ -705,10 +784,51 @@ export async function completeSettlement(input: CompleteSettlementInput): Promis
 }
 
 /**
+ * How long a FIFO claim is honoured before it is considered abandoned (crashed
+ * mid-distribution) and may be retried by repairPendingFIFO().
+ */
+const FIFO_CLAIM_STALE_MS = 120_000;
+
+/**
+ * Atomically take ownership of one payment's FIFO distribution.
+ *
+ * Returns the amount to distribute when THIS caller won the claim, or null when
+ * the payment was already distributed or is being distributed right now by
+ * someone else.
+ *
+ * Why this exists (C-09): markSettlementRecordsFIFO() INCREMENTS `amountSettled`
+ * on pending records — it is not idempotent, despite the old comment saying so.
+ * The `fifoApplied` flag used to be written AFTER distributing, leaving a wide
+ * check-then-act gap: a second admin settling the same account entered
+ * repairPendingFIFO(), saw the first payment still flagged false, and distributed
+ * it a second time. The account's balance stayed right (that part is
+ * transactional) but per-order settlement records were silently marked paid
+ * against money nobody paid. Claiming BEFORE distributing closes that gap.
+ */
+async function claimFifoApplication(db: any, paymentId: string): Promise<number | null> {
+  if (!db || !paymentId) return null;
+  const ref = db.collection(SETTLEMENT_PAYMENTS).doc(paymentId);
+  try {
+    return await db.runTransaction(async (tx: any) => {
+      const snap = await tx.get(ref);
+      if (!snap.exists) return null;
+      const data = snap.data() as any;
+      if (data.fifoApplied === true) return null; // already distributed
+      const claimedAt = data.fifoClaimedAt?.toMillis?.() ?? 0;
+      if (claimedAt && Date.now() - claimedAt < FIFO_CLAIM_STALE_MS) return null; // in flight
+      tx.set(ref, { fifoClaimedAt: admin.firestore.Timestamp.now() }, { merge: true });
+      return Number(data.fifoAmount ?? data.amount ?? 0);
+    });
+  } catch {
+    return null; // never let claim contention block the caller
+  }
+}
+
+/**
  * Self-healing: find any payment records for this account where FIFO bookkeeping
  * was interrupted (fifoApplied: false) and re-apply it. Called automatically at the
  * start of every completeSettlement so the account is always in a consistent state.
- * Safe to call multiple times — markSettlementRecordsFIFO is idempotent.
+ * Each candidate is claimed first, so concurrent callers never double-distribute.
  */
 async function repairPendingFIFO(
   accountType: SettlementAccountType,
@@ -728,8 +848,10 @@ async function repairPendingFIFO(
     if (snap.empty) return;
 
     for (const doc of snap.docs) {
-      const data = doc.data() as any;
-      const amount: number = data.fifoAmount ?? data.amount ?? 0;
+      // Claim first: skips payments another call is distributing right now, and
+      // payments already distributed. Only the winner may increment amountSettled.
+      const amount = await claimFifoApplication(db, doc.id);
+      if (amount === null) continue;
       if (amount <= 0) {
         // Nothing to apply — mark as done to avoid re-processing.
         await doc.ref.set({ fifoApplied: true }, { merge: true }).catch(() => {});
@@ -751,15 +873,16 @@ async function markSettlementRecordsFIFO(
   accountType: SettlementAccountType,
   accountId: string,
   amount: number,
+  dbOverride?: any,
 ): Promise<void> {
-  const db = getFirestore();
+  const db = dbOverride ?? getFirestore();
   if (!db || amount <= 0) return;
   const key = accountKey(accountType, accountId);
   const snap = await db.collection(SETTLEMENTS).where("accountKey", "==", key).limit(1000).get();
   const pending = snap.docs
-    .map((d) => ({ ref: d.ref, ...(d.data() as any) }))
-    .filter((s) => s.status !== "settled")
-    .sort((a, b) => (a.createdAt?.toMillis?.() ?? 0) - (b.createdAt?.toMillis?.() ?? 0));
+    .map((d: any) => ({ ref: d.ref, ...(d.data() as any) }))
+    .filter((s: any) => s.status !== "settled")
+    .sort((a: any, b: any) => (a.createdAt?.toMillis?.() ?? 0) - (b.createdAt?.toMillis?.() ?? 0));
 
   const now = admin.firestore.Timestamp.now();
   let remaining = amount;
@@ -896,17 +1019,44 @@ export async function adminAdjustLedger(
   adjustType: "add" | "deduct",
   notes: string,
   adminName?: string,
-): Promise<{ ok: boolean; outstandingBefore?: number; outstandingAfter?: number; reason?: string }> {
-  const db = getFirestore();
+  dbOverride?: any,
+): Promise<{ ok: boolean; outstandingBefore?: number; outstandingAfter?: number; reason?: string; duplicate?: boolean }> {
+  const db = dbOverride ?? getFirestore();
   if (!db) return { ok: false, reason: "no_ledger" };
   const ledgerRef = db.collection(LEDGER).doc(ledgerId(accountType, accountId));
   const delta = Math.abs(Math.round(amount));
+  // Same window-derived idempotency as completeSettlement: an adjustment moves
+  // money too, and a double-tap used to add/deduct twice. The marker doc is
+  // written INSIDE the transaction, so marker and balance always agree.
+  const markerIds = adjustmentIdempotencyIds(
+    accountType, accountId, delta, adjustType, notes, adminName,
+  );
+  const markerRefs = markerIds.map((id: string) => db.collection(SETTLEMENT_ADJUSTMENTS).doc(id));
   try {
-    const result = await db.runTransaction(async (tx) => {
+    const result = await db.runTransaction(async (tx: any) => {
+      for (const ref of markerRefs) {
+        const seen = await tx.get(ref);
+        if (seen.exists) {
+          const prevAdj = seen.data() as any;
+          return {
+            ok: true,
+            duplicate: true,
+            outstandingBefore: prevAdj.outstandingBefore ?? 0,
+            outstandingAfter: prevAdj.outstandingAfter ?? 0,
+          };
+        }
+      }
       const snap = await tx.get(ledgerRef);
       const now = admin.firestore.Timestamp.now();
       const delta = Math.abs(Math.round(amount));
       if (delta <= 0) return { ok: false, reason: "invalid_amount" };
+
+      const stampMarker = (before: number, after: number) =>
+        tx.set(markerRefs[0], {
+          accountType, accountId, accountKey: accountKey(accountType, accountId),
+          adjustType, amount: delta, notes: notes || "", adminName: adminName || "",
+          outstandingBefore: before, outstandingAfter: after, createdAt: now,
+        });
 
       if (!snap.exists) {
         // Create a ledger entry with zeroed amounts if none exists yet
@@ -920,6 +1070,7 @@ export async function adminAdjustLedger(
           adjustmentNotes: notes, adjustedBy: adminName || "",
           updatedAt: now, createdAt: now,
         });
+        stampMarker(0, delta);
         return { ok: true, outstandingBefore: 0, outstandingAfter: delta };
       }
 
@@ -936,18 +1087,20 @@ export async function adminAdjustLedger(
         updatedAt: now,
       }, { merge: true });
 
+      stampMarker(before, after);
       return { ok: true, outstandingBefore: before, outstandingAfter: after };
     });
 
     // ── Financial ledger + audit (append-only) — best-effort, never blocks ──
     // A manual correction becomes a NEW typed movement (never an in-place edit of
     // history): "add" credits the account (owes/owed more), "deduct" debits it.
-    if (result.ok) {
+    if (result.ok && !(result as any).duplicate) {
       recordLedgerEntry({
         accountType, accountId,
         type: "adjustment",
         ...(adjustType === "add" ? { credit: delta } : { debit: delta }),
         createdBy: adminName || "admin",
+        entryId: `${markerIds[0]}__adjustment`,
         description: notes || "تعديل يدوي",
       }).catch(() => {});
       recordAudit({
