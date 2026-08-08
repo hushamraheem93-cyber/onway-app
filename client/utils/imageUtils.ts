@@ -1,4 +1,4 @@
-import { getApiUrl } from "@/lib/query-client";
+import { getApiUrlSafe } from "@/lib/query-client";
 
 /**
  * Resolves a local server image path or external URL.
@@ -27,7 +27,12 @@ export function resolveImageUrl(image: string, quality = 80): string {
 
   let url = image;
   if (!image.startsWith("http") && !image.startsWith("blob:")) {
-    url = `${getApiUrl()}${image}`;
+    // Runs during render. A build with no API host must degrade to "no image"
+    // rather than throw into the ErrorBoundary and brick every screen (C-21).
+    // Returning "" is deliberate: never point an <Image> at a guessed host.
+    const base = getApiUrlSafe();
+    if (!base) return "";
+    url = `${base}${image}`;
   }
 
   // Unsplash CDN

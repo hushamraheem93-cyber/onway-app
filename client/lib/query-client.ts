@@ -1,5 +1,9 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
 import { Platform } from "react-native";
+import {
+  resolveApiBase,
+  MISSING_API_CONFIG_MESSAGE,
+} from "@/lib/apiBase";
 
 /**
  * Gets the base URL for the Express API server.
@@ -11,41 +15,57 @@ import { Platform } from "react-native";
  * On web, falls back to the current window origin when neither variable is set
  * (useful for development when the app and API are on the same host).
  */
-function normaliseBase(raw: string): string {
-  // Strip an explicit port number — production servers run behind a reverse
-  // proxy (Nginx/Caddy) on 443 and must not receive a bare :5000 URL.
-  const noPort = raw.replace(/:\d+$/, "");
-  // Ensure a protocol prefix is present.
-  const withProto = noPort.startsWith("http") ? noPort : `https://${noPort}`;
-  // Remove trailing slash for consistent URL construction.
-  return withProto.replace(/\/$/, "");
-}
-
-export function getApiUrl(): string {
+function currentResolution() {
   // EXPO_PUBLIC_* vars are baked in at Expo build time (native) or read from
   // the process env at runtime (web/SSR). Both paths use the same priority.
-  const configured =
-    process.env.EXPO_PUBLIC_API_BASE_URL || process.env.EXPO_PUBLIC_DOMAIN;
+  return resolveApiBase({
+    configured:
+      process.env.EXPO_PUBLIC_API_BASE_URL || process.env.EXPO_PUBLIC_DOMAIN,
+    isWeb: Platform.OS === "web" && typeof window !== "undefined",
+    windowOrigin: typeof window !== "undefined" ? window.location.origin : null,
+  });
+}
 
-  // ── Web ──────────────────────────────────────────────────────────────────
-  if (Platform.OS === "web" && typeof window !== "undefined") {
-    if (configured) return normaliseBase(configured);
-    // Dev fallback: Expo dev server (port 8081) → Express backend (port 5000).
-    const origin = window.location.origin;
-    if (origin.includes(":808")) return origin.replace(/:808\d/, ":5000");
-    return origin;
+// Log the misconfiguration once rather than on every resolved image, so the
+// problem is obvious in a device log without drowning it.
+let missingConfigReported = false;
+function reportMissingApiConfig(): void {
+  if (missingConfigReported) return;
+  missingConfigReported = true;
+  console.error(`[config] ${MISSING_API_CONFIG_MESSAGE}`);
+}
+
+/**
+ * The API base URL. THROWS when the build carries no API host.
+ *
+ * Keep using this on network paths: there is no correct URL to fall back to, and
+ * failing loudly beats silently talking to the wrong server. Do NOT call it
+ * during render — see getApiUrlSafe.
+ */
+export function getApiUrl(): string {
+  const resolved = currentResolution();
+  if (!resolved.ok) {
+    reportMissingApiConfig();
+    throw new Error(MISSING_API_CONFIG_MESSAGE);
   }
+  return resolved.url;
+}
 
-  // ── Native (iOS / Android) ───────────────────────────────────────────────
-  if (!configured) {
-    throw new Error(
-      "EXPO_PUBLIC_API_BASE_URL is not set. " +
-        "Set it to your server domain before building " +
-        "(e.g. EXPO_PUBLIC_API_BASE_URL=https://api.yourdomain.com).",
-    );
+/**
+ * Non-throwing variant for code that runs DURING RENDER (image URL resolution
+ * being the one that matters — it runs for every product card, banner and cart
+ * row). Returns null when unconfigured, so the caller can degrade instead of
+ * taking the whole app down through the ErrorBoundary. The misconfiguration is
+ * still reported to the console — it is never swallowed silently, and no guessed
+ * host is ever substituted.
+ */
+export function getApiUrlSafe(): string | null {
+  const resolved = currentResolution();
+  if (!resolved.ok) {
+    reportMissingApiConfig();
+    return null;
   }
-
-  return normaliseBase(configured);
+  return resolved.url;
 }
 
 async function throwIfResNotOk(res: Response) {
