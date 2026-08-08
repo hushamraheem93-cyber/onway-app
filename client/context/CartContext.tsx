@@ -21,10 +21,10 @@ export interface CartItem {
   selectedAddons?: ProductAddon[];
 }
 
-/** Unique key per cart entry — same product with different variants = different entries. */
-export const getCartKey = (
-  item: Pick<CartItem, "product" | "selectedVariant">,
-): string => item.product.id + "__" + (item.selectedVariant?.id || "base");
+// Cart line identity lives in a dependency-free module so it can be unit tested;
+// re-exported here so every existing import site stays unchanged.
+import { getCartKey } from "./cartKey";
+export { getCartKey };
 
 /** Effective price of a single unit (base + variant adjustment + addons). */
 export const getItemUnitPrice = (item: CartItem): number =>
@@ -115,7 +115,9 @@ export function CartProvider({ children }: { children: ReactNode }) {
         );
         return;
       }
-      const key = product.id + "__" + (selectedVariant?.id || "base");
+      // Must go through getCartKey so the add-on fingerprint is part of the identity —
+      // building the string by hand here is what let two different add-on choices merge.
+      const key = getCartKey({ product, selectedVariant, selectedAddons });
       setItems((prev) => {
         const existing = prev.find((item) => getCartKey(item) === key);
         if (existing) {

@@ -12,7 +12,7 @@ import { useNavigation } from "@react-navigation/native";
 import * as Haptics from "expo-haptics";
 
 import { ThemedText } from "@/components/ThemedText";
-import { useCart } from "@/context/CartContext";
+import { useCart, getCartKey } from "@/context/CartContext";
 import { AppColors, BorderRadius, Anim } from "@/constants/theme";
 import { formatPrice } from "@/constants/currency";
 import { resolveImageUrl } from "@/utils/imageUtils";
@@ -94,13 +94,13 @@ function FloatingCartBarComponent({ bottomOffset }: FloatingCartBarProps) {
           bounces={false}
         >
           {items.map((cartItem) => (
-            <View key={cartItem.product.id} style={styles.cartRow}>
+            <View key={getCartKey(cartItem)} style={styles.cartRow}>
               <View style={styles.rowLeft}>
                 <View style={styles.qtyRow}>
                   <Pressable
                     style={styles.qtyBtn}
                     onPress={() =>
-                      increase(cartItem.product.id, cartItem.quantity)
+                      increase(getCartKey(cartItem), cartItem.quantity)
                     }
                     testID={`float-increase-${cartItem.product.id}`}
                   >
@@ -112,7 +112,7 @@ function FloatingCartBarComponent({ bottomOffset }: FloatingCartBarProps) {
                   <Pressable
                     style={[styles.qtyBtn, styles.qtyBtnMinus]}
                     onPress={() =>
-                      decrease(cartItem.product.id, cartItem.quantity)
+                      decrease(getCartKey(cartItem), cartItem.quantity)
                     }
                     testID={`float-decrease-${cartItem.product.id}`}
                   >

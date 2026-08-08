@@ -11,7 +11,7 @@ import * as Haptics from "expo-haptics";
 import { ThemedText } from "@/components/ThemedText";
 import { useTheme } from "@/hooks/useTheme";
 import { AppColors, FontWeight } from "@/constants/theme";
-import { CartItem } from "@/context/CartContext";
+import { CartItem, getCartKey } from "@/context/CartContext";
 import { useCart } from "@/context/CartContext";
 import { formatPrice } from "@/constants/currency";
 import { resolveImageUrl } from "@/utils/imageUtils";
@@ -31,23 +31,28 @@ function CartItemCardComponent({ item }: CartItemCardProps) {
     transform: [{ scale: scale.value }],
   }));
 
+  // Address THIS row by its cart key, not by product id: a bare product id matches
+  // every variant/add-on line of the same product, so editing "pizza - small"
+  // silently changed "pizza - large" too.
+  const cartKey = getCartKey(item);
+
   const handleIncrease = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    updateQuantity(item.product.id, item.quantity + 1);
+    updateQuantity(cartKey, item.quantity + 1);
   };
 
   const handleDecrease = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     if (item.quantity === 1) {
-      removeFromCart(item.product.id);
+      removeFromCart(cartKey);
     } else {
-      updateQuantity(item.product.id, item.quantity - 1);
+      updateQuantity(cartKey, item.quantity - 1);
     }
   };
 
   const handleRemove = () => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-    removeFromCart(item.product.id);
+    removeFromCart(cartKey);
   };
 
   return (

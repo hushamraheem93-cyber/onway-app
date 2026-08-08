@@ -17,7 +17,7 @@ import { useQuery } from "@tanstack/react-query";
 
 import { useTheme } from "@/hooks/useTheme";
 import { Spacing, AppColors, FontWeight } from "@/constants/theme";
-import { useCart, CartItem } from "@/context/CartContext";
+import { useCart, CartItem, getCartKey } from "@/context/CartContext";
 import { useAuth } from "@/context/AuthContext";
 import { formatPrice } from "@/constants/currency";
 import { CartItemCard } from "@/components/CartItemCard";
@@ -112,7 +112,7 @@ export default function CartScreen() {
         scrollIndicatorInsets={{ bottom: insets.bottom }}
         data={items}
         renderItem={renderItem}
-        keyExtractor={(item) => item.product.id}
+        keyExtractor={(item) => getCartKey(item)}
         showsVerticalScrollIndicator={false}
         initialNumToRender={10}
         windowSize={5}

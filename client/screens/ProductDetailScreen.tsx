@@ -94,8 +94,11 @@ export default function ProductDetailScreen() {
   const [selectedAddons, setSelectedAddons] = useState<ProductAddon[]>([]);
 
   const cartProduct = toCartProduct(product);
-  const currentCartKey =
-    cartProduct.id + "__" + (selectedVariant?.id || "base");
+  const currentCartKey = getCartKey({
+    product: cartProduct,
+    selectedVariant,
+    selectedAddons: selectedAddons.length > 0 ? selectedAddons : undefined,
+  });
   const cartItem = items.find((i) => getCartKey(i) === currentCartKey);
   const quantity = cartItem?.quantity ?? 0;
   const isFav = isFavorite(product.id);
