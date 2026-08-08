@@ -1,7 +1,10 @@
 import React from "react";
 import { ActivityIndicator, View } from "react-native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
-import MainTabNavigator from "@/navigation/MainTabNavigator";
+import type { NavigatorScreenParams } from "@react-navigation/native";
+import MainTabNavigator, {
+  MainTabParamList,
+} from "@/navigation/MainTabNavigator";
 import DriverTabNavigator from "@/navigation/DriverTabNavigator";
 import VendorTabNavigator from "@/navigation/VendorTabNavigator";
 import ProductsScreen from "@/screens/ProductsScreen";
@@ -44,10 +47,9 @@ export type RootStackParamList = {
   DriverOrderDetail: { order: any };
   DriverBatch: { batch: CurrentBatch };
   ProfileCompletion: undefined;
-  MainTabs: undefined;
+  MainTabs: NavigatorScreenParams<MainTabParamList> | undefined;
   DriverTabs: undefined;
   VendorTabs: undefined;
-  Main: undefined;
   AllCategories: undefined;
   Products: {
     categoryId?: string;
@@ -308,11 +310,6 @@ export default function RootStackNavigator() {
     <Stack.Navigator screenOptions={screenOptions}>
       <Stack.Screen
         name="MainTabs"
-        component={MainTabNavigator}
-        options={{ headerShown: false }}
-      />
-      <Stack.Screen
-        name="Main"
         component={MainTabNavigator}
         options={{ headerShown: false }}
       />

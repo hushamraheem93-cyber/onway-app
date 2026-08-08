@@ -68,7 +68,7 @@ function FloatingCartBarComponent({ bottomOffset }: FloatingCartBarProps) {
         useNativeDriver: false,
       }),
     ]).start();
-    navigation.navigate("Main", { screen: "CartTab" });
+    navigation.navigate("MainTabs", { screen: "CartTab" });
   };
 
   const increase = (id: string, qty: number) => {

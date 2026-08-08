@@ -26,11 +26,11 @@ export function HeaderTitle() {
   const cartCount = getItemCount();
 
   const handleCartPress = () => {
-    navigation.navigate("Main", { screen: "CartTab" });
+    navigation.navigate("MainTabs", { screen: "CartTab" });
   };
 
   const handleNotificationsPress = () => {
-    navigation.navigate("Main", {
+    navigation.navigate("MainTabs", {
       screen: "ProfileTab",
       params: { screen: "NotificationsList" },
     });
@@ -75,7 +75,7 @@ export function HeaderTitle() {
         <Pressable
           style={styles.menuButton}
           onPress={() =>
-            navigation.navigate("Main", {
+            navigation.navigate("MainTabs", {
               screen: "ProfileTab",
               params: { screen: "Profile" },
             })

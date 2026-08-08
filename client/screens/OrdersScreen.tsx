@@ -186,7 +186,7 @@ export default function OrdersScreen() {
         buttonText="ابدأ التسوق"
         buttonIcon="storefront-outline"
         onButtonPress={() =>
-          navigation.navigate("Main", { screen: "HomeTab" } as any)
+          navigation.navigate("MainTabs", { screen: "HomeTab" })
         }
       />
     );

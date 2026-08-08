@@ -79,7 +79,7 @@ export default function CartScreen() {
   };
 
   const handleStartShopping = () => {
-    navigation.navigate("Main", { screen: "HomeTab" } as any);
+    navigation.navigate("MainTabs", { screen: "HomeTab" });
   };
 
   const renderItem = ({ item }: { item: CartItem }) => (
