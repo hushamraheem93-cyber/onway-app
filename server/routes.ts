@@ -1,5 +1,6 @@
 import express from "express";
 import type { Express, Request, Response } from "express";
+import type { IncomingMessage } from "http";
 import { createServer, type Server } from "node:http";
 import { Server as SocketServer } from "socket.io";
 import jwt from "jsonwebtoken";
@@ -7,7 +8,14 @@ import multer from "multer";
 import sharp from "sharp";
 import { randomUUID, createHash } from "crypto";
 import { orderEvents } from "./orderEvents";
-import { isValidSession } from "./adminAuth";
+import { isValidSession, hasAdminSessionCookie } from "./adminAuth";
+import {
+  buildOriginPolicyFromEnv,
+  isAdminCsrfAllowed,
+  isOriginAllowed,
+  parseOriginList,
+  selfOriginFromHeaders,
+} from "./originGuard";
 import { 
   getFirestore, getUserByPhone, createUser, updateUser,
   getUserAddresses, setUserAddresses, uploadToFirebaseStorage,
@@ -321,6 +329,37 @@ function requireAdminAuth(req: Request, res: Response, next: express.NextFunctio
   next();
 }
 
+/**
+ * CSRF guard for state-changing admin requests authenticated by the SESSION COOKIE.
+ *
+ * The admin session cookie is HttpOnly and is issued with SameSite=None on HTTPS
+ * (so cross-domain panels keep working), which means a browser attaches it to a
+ * request started by ANY site. Until now the CORS allow-list was the only thing
+ * between an attacker's page and all of /api/admin/* — and that allow-list opened
+ * up completely whenever NODE_ENV was not exactly "production" (C-12).
+ *
+ * Requests that authenticate with `Authorization: Bearer` are NOT checked and get
+ * no CSRF token: that header is never attached ambiently, so it cannot be forged
+ * from another origin. See isAdminCsrfAllowed for the full reasoning.
+ */
+function requireAdminCsrf(req: Request, res: Response, next: express.NextFunction) {
+  const ok = isAdminCsrfAllowed({
+    method: req.method,
+    origin: req.header("origin"),
+    referer: req.header("referer"),
+    hasSessionCookie: hasAdminSessionCookie(req),
+    selfOrigin: selfOriginFromHeaders(req.headers.host, req.header("x-forwarded-proto"), req.protocol),
+    allowedOrigins: parseOriginList(process.env.ALLOWED_ORIGINS),
+  });
+  if (!ok) {
+    console.warn(
+      `[CSRF] blocked ${req.method} ${req.path} origin=${req.header("origin") || "-"} referer=${req.header("referer") || "-"}`,
+    );
+    return res.status(403).json({ error: "طلب غير موثوق المصدر" });
+  }
+  next();
+}
+
 // ── Customer JWT middleware ────────────────────────────────────────────────────
 function requireCustomerAuth(req: Request, res: Response, next: express.NextFunction) {
   const authHeader = req.headers.authorization || "";
@@ -500,6 +539,7 @@ async function notifyCustomerStatus(orderId: string, status: string, estimatedMi
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Guard ALL /api/admin/* routes with admin session check
+  app.use("/api/admin", requireAdminCsrf);
   app.use("/api/admin", requireAdminAuth);
 
   // Guard ALL /api/driver/* routes with the signed-driver-token check. The public
@@ -7453,20 +7493,49 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const locationFirestoreThrottle = new Map<string, number>();
   const FIRESTORE_WRITE_INTERVAL = 10_000; // write to Firestore at most every 10s
 
-  // In production, restrict Socket.io to the same allowed origins as the REST
-  // API. Falls back to "*" in development only.
-  const ioAllowedOrigins: string | string[] = (() => {
-    const isProd = process.env.NODE_ENV === "production";
-    const configured = (process.env.ALLOWED_ORIGINS || "")
-      .split(",")
-      .map((s: string) => s.trim())
-      .filter(Boolean);
-    if (isProd && configured.length > 0) return configured;
-    return "*";
-  })();
+  // Socket.io uses the SAME origin policy as the REST API — isOriginAllowed()
+  // and buildOriginPolicyFromEnv(), no second implementation.
+  //
+  // It previously had its own rule: `if (isProd && configured.length) return
+  // configured; return "*"`. That is the very pattern removed from REST CORS in
+  // C-12 — any NODE_ENV other than the exact string "production" (or a missing
+  // ALLOWED_ORIGINS) opened the realtime channel to every website. Wildcard is
+  // gone; nothing here consults NODE_ENV.
+  //
+  // A request with NO Origin header is allowed on purpose: that is a non-browser
+  // client — every one of this app's socket consumers is React Native
+  // (DriverHomeScreen, OrderTrackingScreen, AdminScreen, useSettlement) — and it
+  // mirrors the REST middleware, which only evaluates the policy `if (origin)`.
+  const socketOriginDecision = (origin: string | undefined, req?: IncomingMessage): boolean => {
+    if (!origin) return true; // non-browser client (React Native)
+    const fwd = req?.headers["x-forwarded-proto"];
+    return isOriginAllowed(origin, {
+      ...buildOriginPolicyFromEnv(),
+      // Same-origin (Expo Web served from this server) needs no configuration,
+      // exactly as in the REST layer.
+      selfOrigin: req
+        ? selfOriginFromHeaders(req.headers.host, Array.isArray(fwd) ? fwd[0] : fwd)
+        : null,
+    });
+  };
 
   const ioServer = new SocketServer(httpServer, {
-    cors: { origin: ioAllowedOrigins, methods: ["GET", "POST"] },
+    cors: {
+      // Emits Access-Control-Allow-Origin for allowed cross-origin polling only.
+      // Same-origin requests need no CORS header, so no self-origin is required here.
+      origin: (requestOrigin, callback) =>
+        callback(null, !requestOrigin ? true : socketOriginDecision(requestOrigin) && requestOrigin),
+      methods: ["GET", "POST"],
+    },
+    // The actual gate. Runs on every handshake (polling AND websocket, including
+    // every reconnect) and, unlike the cors option, receives the request — so the
+    // same-origin check has the Host header it needs.
+    allowRequest: (req, done) => {
+      const origin = req.headers.origin;
+      if (socketOriginDecision(origin, req)) return done(null, true);
+      console.warn(`[SOCKET] blocked handshake from origin=${origin}`);
+      return done("origin_not_allowed", false);
+    },
     transports: ["websocket", "polling"],
   });
 

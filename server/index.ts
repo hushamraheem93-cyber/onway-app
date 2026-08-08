@@ -2,6 +2,11 @@ import express from "express";
 import type { Request, Response, NextFunction } from "express";
 import compression from "compression";
 import { registerRoutes } from "./routes";
+import {
+  buildOriginPolicyFromEnv,
+  isOriginAllowed,
+  selfOriginFromHeaders,
+} from "./originGuard";
 import { initializeFirebase, getFirestore } from "./firebase";
 import vendorRouter from "./vendor";
 import { sendVendorOrderReminderNotification } from "./pushNotifications";
@@ -254,35 +259,26 @@ function setupSecurityHeaders(app: express.Application) {
 }
 
 function setupCors(app: express.Application) {
-  const isProd = process.env.NODE_ENV === "production";
-  const allowedDomains = (process.env.ALLOWED_ORIGINS || "")
-    .split(",")
-    .map((s: string) => s.trim())
-    .filter(Boolean);
-
-  // Additional trusted origins from Replit-assigned domains (only present when
-  // running inside Replit; empty on a standalone VPS). On VPS, configure
-  // ALLOWED_ORIGINS with your production domain(s) instead.
-  const replitDomains = [
-    process.env.REPLIT_DEV_DOMAIN,
-    ...(process.env.REPLIT_DOMAINS || "").split(",").map((s: string) => s.trim()),
-  ].filter(Boolean) as string[];
+  // Shared with the Socket.io handshake (see registerRoutes) so the REST and
+  // realtime channels can never disagree about which origins are trusted.
+  const policy = buildOriginPolicyFromEnv();
 
   app.use((req, res, next) => {
     const origin = req.header("origin");
 
     if (origin) {
-      const isReplitOwnDomain = replitDomains.some(
-        (d: string) => origin === `https://${d}` || origin === `http://${d}`,
-      );
+      // NOTE: the decision NEVER consults NODE_ENV, and there is no wildcard
+      // branch — `Access-Control-Allow-Origin: *` is never emitted, so it can
+      // never combine with Allow-Credentials (C-12).
+      const allowed = isOriginAllowed(origin, {
+        ...policy,
+        selfOrigin: selfOriginFromHeaders(req.headers.host, req.header("x-forwarded-proto"), req.protocol),
+      });
 
-      // In production, if ALLOWED_ORIGINS isn't configured, we now fail CLOSED
-      // (block) instead of failing open (allow any origin with credentials).
-      const allowed =
-        !isProd ||
-        isReplitOwnDomain ||
-        (allowedDomains.length > 0 &&
-          allowedDomains.some((d: string) => origin === d || origin.endsWith(`.${d}`)));
+      // The response body varies by Origin, so it must never be cached under a
+      // key that ignores it — otherwise a proxy could serve an allowed origin's
+      // CORS headers to a denied one.
+      res.header("Vary", "Origin");
 
       if (allowed) {
         res.header("Access-Control-Allow-Origin", origin);
