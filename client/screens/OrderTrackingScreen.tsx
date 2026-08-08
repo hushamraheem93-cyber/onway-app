@@ -612,7 +612,7 @@ export default function OrderTrackingScreen() {
                 type="small"
                 style={{ color: theme.textSecondary, marginRight: 4 }}
               >
-                {formatPrice(order.total + order.deliveryFee)}
+                {formatPrice(order.total)}
               </ThemedText>
             </View>
           </View>
@@ -1088,7 +1088,7 @@ export default function OrderTrackingScreen() {
                 : ""}
             </ThemedText>
             <ThemedText type="h3" style={{ color: AppColors.primary }}>
-              {formatPrice(order.total + order.deliveryFee)}
+              {formatPrice(order.total)}
             </ThemedText>
           </View>
         </View>

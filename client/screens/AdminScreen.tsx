@@ -2850,7 +2850,7 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
                   fontWeight: FontWeight.bold,
                 }}
               >
-                {formatPrice(order.total + order.deliveryFee)}
+                {formatPrice(order.total)}
               </ThemedText>
               <View style={styles.statusButtons}>
                 {order.status !== "delivered" &&

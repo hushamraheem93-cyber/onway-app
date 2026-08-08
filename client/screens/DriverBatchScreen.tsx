@@ -482,7 +482,7 @@ export default function DriverBatchScreen() {
               type="body"
               style={{ color: AppColors.primary, fontWeight: FontWeight.bold }}
             >
-              {formatPrice(order.total + (order.deliveryFee || 0))}
+              {formatPrice(order.total)}
             </ThemedText>
             <Feather name="dollar-sign" size={16} color={AppColors.primary} />
           </View>

@@ -282,7 +282,7 @@ export default function OrderConfirmationScreen() {
 
           <View style={[styles.detailRow, styles.totalRow]}>
             <ThemedText type="h3" style={{ color: AppColors.primary }}>
-              {formatPrice(order.total + order.deliveryFee)}
+              {formatPrice(order.total)}
             </ThemedText>
             <ThemedText type="h4">المجموع الكلي</ThemedText>
           </View>

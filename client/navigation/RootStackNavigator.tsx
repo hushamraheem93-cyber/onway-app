@@ -96,6 +96,7 @@ export type RootStackParamList = {
       imageUrl: string;
       imageUrls?: string[];
       storeName?: string;
+      vendorId?: string;
     };
   };
 };

@@ -47,6 +47,7 @@ function toCartProduct(p: {
   description?: string;
   stock: number;
   storeName?: string;
+  vendorId?: string;
 }): Product {
   return {
     id: p.id,
@@ -57,6 +58,10 @@ function toCartProduct(p: {
     description: p.description || "",
     inStock: p.stock > 0,
     restaurant: p.storeName,
+    // Carry the store id so the cart's single-vendor guard, the vendor's order
+    // visibility, and commission attribution all work when a product is added
+    // from the detail screen (previously dropped → orders arrived with no vendor).
+    vendorId: p.vendorId,
   };
 }
 
