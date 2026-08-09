@@ -124,7 +124,21 @@ export function OrderProvider({ children }: { children: ReactNode }) {
   const { phoneNumber, userProfile, customerToken } = useAuth();
   const { addNotification } = useNotifications();
   const previousStatusesRef = useRef<Record<string, string>>({});
+  // Two views of "the stored statuses have finished loading", each for a different job:
+  //
+  // The ref is read from inside checkForStatusChanges, which runs in an async fetch
+  // callback — a ref always gives it the current value with no stale-closure risk, and
+  // keeping it out of that useCallback's deps keeps refreshOrders' identity stable.
+  //
+  // The state exists because a ref cannot restart an effect (H-25). The polling effect
+  // below is gated on this flag, and on a warm start AuthContext can publish the phone
+  // number before this load resolves — both are single AsyncStorage reads racing each
+  // other. When the phone won, the effect ran once with the flag still false and
+  // nothing ever re-ran it: the 10-second fallback poll never started for the whole
+  // session, so on a weak connection a customer saw no order updates at all until they
+  // backgrounded and reopened the app.
   const isInitializedRef = useRef(false);
+  const [isInitialized, setIsInitialized] = useState(false);
 
   useEffect(() => {
     const loadStoredStatuses = async () => {
@@ -134,8 +148,10 @@ export function OrderProvider({ children }: { children: ReactNode }) {
           previousStatusesRef.current = JSON.parse(stored);
         }
         isInitializedRef.current = true;
+        setIsInitialized(true);
       } catch (error) {
         isInitializedRef.current = true;
+        setIsInitialized(true);
       }
     };
     loadStoredStatuses();
@@ -222,13 +238,15 @@ export function OrderProvider({ children }: { children: ReactNode }) {
     return () => sub.remove();
   }, []);
 
+  // H-25: gated on the state flag, not the ref, so that finishing the stored-status
+  // load re-runs this effect. The 10-second interval and the cleanup are unchanged.
   useEffect(() => {
-    if (phoneNumber && isInitializedRef.current && appActive) {
+    if (phoneNumber && isInitialized && appActive) {
       refreshOrders();
       const interval = setInterval(refreshOrders, 10000);
       return () => clearInterval(interval);
     }
-  }, [phoneNumber, refreshOrders, appActive]);
+  }, [phoneNumber, refreshOrders, appActive, isInitialized]);
 
   // Real-time: refetch immediately when the server broadcasts an order change,
   // instead of waiting up to 10s for the next poll. The 10s poll above stays as a

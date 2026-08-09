@@ -89,9 +89,19 @@ function OrderCardComponent({
   const { theme } = useTheme();
   const scale = useSharedValue(1);
   const [submittingRating, setSubmittingRating] = useState(false);
-  const [ratedValue, setRatedValue] = useState<number | null>(
-    order.customerRating ?? null,
-  );
+  // H-27: `ratedValue` used to be `useState(order.customerRating ?? null)` — state
+  // seeded from a prop, so it was read once at mount and never again. The card is
+  // wrapped in React.memo and keyed by order id, so it stays mounted across refreshes:
+  // when the customer rated on another device and the 10-second poll brought
+  // `customerRating` back, this card kept showing the "rate" button and a second
+  // submission was sent, which the server rejects (routes.ts checks the field).
+  //
+  // Derived local-first instead of synced with an effect: an effect that copied the
+  // prop into state could WIPE an optimistic rating whenever a poll response that
+  // predates the write arrived, putting the button back and inviting a double rating.
+  // With this order the optimistic value always wins and can never regress to null.
+  const [localRating, setLocalRating] = useState<number | null>(null);
+  const ratedValue = localRating ?? order.customerRating ?? null;
   const [ratingModal, setRatingModal] = useState(false);
   const [vendorStar, setVendorStar] = useState(5);
   const [driverStar, setDriverStar] = useState(5);
@@ -122,7 +132,7 @@ function OrderCardComponent({
         undefined,
         rateDriver ? driverStar : undefined,
       );
-      setRatedValue(vendorStar);
+      setLocalRating(vendorStar);
       setRatingModal(false);
     } catch {
       // silently ignore — caller shows error toast if needed

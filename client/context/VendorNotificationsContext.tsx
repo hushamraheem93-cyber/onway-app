@@ -135,10 +135,27 @@ export function VendorNotificationsProvider({
     return () => sub.remove();
   }, []);
 
+  // H-26: the "which orders have I already alerted about" memory belongs to the SESSION,
+  // not to the app being in the foreground. It used to be reset inside the poll effect
+  // below, which lists appActive as a dependency — so every single return from the
+  // background wiped it and re-armed isFirstLoad. The first poll after coming back then
+  // took the "first load" branch: it absorbed everything as already-seen and returned
+  // without alerting. A store that glanced at another app for fifteen seconds came back
+  // to no popup, no repeating alarm and no haptic for the orders that had arrived
+  // meanwhile — exactly the orders it most needed to see.
+  //
+  // Keyed on vendorToken alone, so it still fires where it is genuinely wanted: the
+  // first load of a session, and switching to another store's account. Declared BEFORE
+  // the poll effect so that on a token change the reset lands first and the poll's
+  // immediate checkNewOrders() correctly takes the first-load branch.
   useEffect(() => {
-    if (!vendorToken || !appActive) return;
+    if (!vendorToken) return;
     isFirstLoad.current = true;
     lastSeenOrderIds.current = new Set();
+  }, [vendorToken]);
+
+  useEffect(() => {
+    if (!vendorToken || !appActive) return;
     checkNewOrders();
     pollRef.current = setInterval(checkNewOrders, POLL_INTERVAL_MS);
     return () => {
