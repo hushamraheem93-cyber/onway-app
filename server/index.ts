@@ -5,6 +5,7 @@ import { registerRoutes } from "./routes";
 import {
   buildOriginPolicyFromEnv,
   isOriginAllowed,
+  requireAdminCsrf,
   selfOriginFromHeaders,
 } from "./originGuard";
 import { initializeFirebase, getFirestore } from "./firebase";
@@ -1020,6 +1021,14 @@ process.on("exit", (code) => {
   setupBodyParsing(app);
   setupRateLimiter(app);
   setupRequestLogging(app);
+
+  // CSRF guard for /api/admin/*, mounted HERE — before any module registers admin
+  // routes. Express matches in registration order, so mounting it inside
+  // registerRoutes() (as it originally was) left the admin routes declared in
+  // configureExpoAndLanding and vendorRouter reachable without ever running it (H-79).
+  // Safe methods, Bearer-authenticated calls and the login path pass through
+  // untouched; see requireAdminCsrf.
+  app.use("/api/admin", requireAdminCsrf);
 
   configureExpoAndLanding(app);
 

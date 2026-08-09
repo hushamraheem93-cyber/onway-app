@@ -7,7 +7,13 @@ import sharp from "sharp";
 import * as crypto from "crypto";
 import * as path from "path";
 import { getFirestore, getUserPushToken, getAdminPushToken, deleteFromFirebaseStorage, uploadToFirebaseStorage } from "./firebase";
-import { GENERIC_SERVER_ERROR, isUsableCachedImage } from "./orderValidation";
+import {
+  GENERIC_SERVER_ERROR,
+  commissionPercentOf,
+  isUsableCachedImage,
+  normaliseStock,
+  parseProductPrice,
+} from "./orderValidation";
 import { sendVendorStatusNotification, sendVendorProductNotification, sendPushNotification, sendAdminOrderReadyNotification, sendAdminSettlementRequestNotification } from "./pushNotifications";
 import { createSettlementRequest, getAccountSettlementView, getSettlementHistory } from "./settlement";
 import { getAccountStatement } from "./financialLedger";
@@ -667,6 +673,12 @@ router.post(
       if (!name || !price || !category || (uploadedFiles.length === 0 && !libraryImageUrl)) {
         return res.status(400).json({ error: "الاسم، السعر، الفئة، والصورة مطلوبة" });
       }
+      // H-05: the check above is truthiness only — "-50000", "abc" and "1e400" all
+      // pass it. Reject anything that is not a finite, strictly-positive number.
+      const priceNum = parseProductPrice(price);
+      if (priceNum === null) {
+        return res.status(400).json({ error: "السعر غير صالح" });
+      }
 
       if (uploadedFiles.length > 5) {
         return res.status(400).json({ error: "الحد الأقصى للصور هو 5 صور" });
@@ -721,9 +733,9 @@ router.post(
         vendorPhone: vData.phoneNumber,
         name,
         description: description || "",
-        price: parseFloat(price),
+        price: priceNum,
         category,
-        stock: parseInt(stock) || 0,
+        stock: normaliseStock(stock),
         unit: unit || "قطعة",
         imageUrl,
         imageUrls,
@@ -746,7 +758,7 @@ router.post(
       res.status(201).json({
         success: true,
         message: "تم إضافة المنتج بنجاح! سيظهر للعملاء الآن.",
-        product: { id: pid, name, price: parseFloat(price), imageUrl, imageUrls, status: "approved" },
+        product: { id: pid, name, price: priceNum, imageUrl, imageUrls, status: "approved" },
       });
     } catch (err: any) {
       console.error("add product:", err);
@@ -807,9 +819,14 @@ router.put(
 
       if (name) updates.name = name;
       if (description !== undefined) updates.description = description;
-      if (price) updates.price = parseFloat(price);
+      // H-05: `if (price)` let "-50000" / "abc" / "1e400" through into storage.
+      if (price !== undefined && String(price).trim() !== "") {
+        const p = parseProductPrice(price);
+        if (p === null) return res.status(400).json({ error: "السعر غير صالح" });
+        updates.price = p;
+      }
       if (category) updates.category = category;
-      if (stock !== undefined) updates.stock = parseInt(stock);
+      if (stock !== undefined) updates.stock = normaliseStock(stock);
       if (unit) updates.unit = unit;
       if (req.body.extraData) {
         try { updates.extraData = JSON.parse(req.body.extraData); } catch {}
@@ -1650,7 +1667,7 @@ router.post("/api/admin/vendor-products", requireAdmin, async (req, res) => {
       description: description ? String(description) : "",
       price: priceNum,
       category: category ? String(category) : "",
-      stock: parseInt(stock) || 0,
+      stock: normaliseStock(stock),
       unit: unit ? String(unit) : "قطعة",
       imageUrl: img,
       imageUrls: img ? [img] : [],
@@ -1822,6 +1839,11 @@ router.post("/api/admin/vendors/:vendorId/products", requireAdmin, async (req, r
     if (!name || !price || !category) {
       return res.status(400).json({ error: "الاسم والسعر والفئة مطلوبة" });
     }
+    // H-05: same truthiness gap as the vendor paths — validate the number itself.
+    const priceNum = parseProductPrice(price);
+    if (priceNum === null) {
+      return res.status(400).json({ error: "السعر غير صالح" });
+    }
 
     const vendorDoc = await db.collection("vendors").doc(vendorId).get();
     if (!vendorDoc.exists) return res.status(404).json({ error: "التاجر غير موجود" });
@@ -1839,7 +1861,7 @@ router.post("/api/admin/vendors/:vendorId/products", requireAdmin, async (req, r
       vendorPhone: vendor.phoneNumber,
       name: name.trim(),
       description: description?.trim() || "",
-      price: parseFloat(price),
+      price: priceNum,
       category,
       stock: parseInt(stock) || 0,
       unit: unit || "قطعة",
@@ -2036,9 +2058,12 @@ router.get("/api/vendor/wallet", requireVendor, async (req, res) => {
     // the live response never contained. Keep the commission logic HERE, on the
     // route that actually serves traffic.
     const vendorDoc = await db.collection("vendors").doc(vid).get();
-    const commissionRate = vendorDoc.exists
-      ? Number((vendorDoc.data() as any)?.commissionPercent ?? 0) || 0
-      : 0;
+    // H-06: this defaulted to 0 while the settlement engine defaults to 10, so a
+    // store with no rate of its own saw "0% commission" on this screen and was then
+    // billed 10% at settlement. Same resolver, same default, both sides.
+    const commissionRate = commissionPercentOf(
+      vendorDoc.exists ? (vendorDoc.data() as any)?.commissionPercent : undefined,
+    );
 
     const recentSales = vendorOrders.slice(0, 20).map((o) => ({
       ...o,

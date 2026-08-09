@@ -158,3 +158,89 @@ export function sanitizeQuantity(raw: unknown): number {
  * fields being queried.
  */
 export const GENERIC_SERVER_ERROR = "حدث خطأ في الخادم";
+
+// ── Product price / stock validation (H-05) ─────────────────────────────────
+//
+// Three product-write paths guarded the price with a bare truthiness check
+// (`if (!price)` / `if (price)`) and then stored `parseFloat(price)` as-is:
+//   • POST /api/vendor/products              (vendor create)
+//   • PUT  /api/vendor/products/:id          (vendor update)
+//   • POST /api/admin/vendors/:vendorId/products
+//
+// Truthiness rejects 0 and "" but happily passes "-50000", "abc" and "1e400".
+// A stored negative price is then used verbatim when an order is priced
+// (verifiedSubtotal += realPrice * quantity, with no lower bound), so a hidden
+// product priced -500000 dragged a real 400,000 basket down to a total of 0 —
+// free goods, and the books still balanced because no cash was ever recorded.
+//
+// The two admin paths that already validated used `isNaN(p) || p <= 0`. This
+// helper keeps that meaning but uses Number.isFinite, which ALSO rejects
+// Infinity (parseFloat("1e400") === Infinity, and isNaN(Infinity) is false).
+//
+// No maximum is imposed: the project defines no MAX_PRICE and inventing one here
+// could reject legitimately expensive items.
+
+/** A usable product price: finite and strictly positive. Rejects NaN/±Infinity/≤0. */
+export function isValidProductPrice(value: unknown): boolean {
+  const n = typeof value === "number" ? value : parseFloat(String(value ?? ""));
+  return Number.isFinite(n) && n > 0;
+}
+
+/**
+ * Parse a product price for storage, or null when it is not usable.
+ * Callers reject the request on null — never silently substitute a value.
+ */
+export function parseProductPrice(value: unknown): number | null {
+  const n = typeof value === "number" ? value : parseFloat(String(value ?? ""));
+  return Number.isFinite(n) && n > 0 ? n : null;
+}
+
+/**
+ * Normalise a stock count to a non-negative integer.
+ *
+ * Stock is not a money field, so an unusable value is coerced rather than
+ * rejected — this preserves the existing `parseInt(stock) || 0` behaviour of the
+ * create paths and extends it to the update path, where a bare `parseInt(stock)`
+ * could persist NaN. Zero is legitimate (out of stock), unlike a zero price.
+ */
+export function normaliseStock(value: unknown): number {
+  const n = typeof value === "number" ? value : parseInt(String(value ?? ""), 10);
+  return Number.isFinite(n) && n > 0 ? Math.floor(n) : 0;
+}
+
+// ── Vendor commission percentage (H-06) ─────────────────────────────────────
+//
+// The same stored value was read three different ways:
+//   `v.commissionPercent || 10`   → turns a contracted 0% into 10%
+//   `v.commissionPercent ?? 10`   → correct
+//   `v.commissionPercent ?? 0`    → the vendor's own wallet screen, so the store
+//                                    saw 0% while settlement charged 10%
+//
+// A store signed at an introductory 0% had `commissionPercent: 0` written as 10 by
+// POST /api/admin/vendors, and every restaurant order then stamped
+// vendorCommissionAmount at 10% — the figure the settlement engine prefers over
+// recomputing. The store was billed against a rate its own screen never showed.
+//
+// Writes are validated (an admin typo must not silently become 10%); reads fall
+// back to the platform default so a missing field bills the same everywhere.
+
+/** The platform's standard commission when a store has no rate of its own. */
+export const DEFAULT_COMMISSION_PERCENT = 10;
+
+/** A usable commission rate: finite and within [0, 100]. 0 is legitimate — 10 is not implied. */
+export function isValidCommissionPercent(value: unknown): boolean {
+  const n = typeof value === "number" ? value : parseFloat(String(value ?? ""));
+  return Number.isFinite(n) && n >= 0 && n <= 100;
+}
+
+/**
+ * The rate to bill a store at. Reads only — never use this to sanitise a write,
+ * because it cannot distinguish "not set" from "set to something invalid".
+ */
+export function commissionPercentOf(
+  value: unknown,
+  fallback: number = DEFAULT_COMMISSION_PERCENT,
+): number {
+  const n = typeof value === "number" ? value : parseFloat(String(value ?? ""));
+  return Number.isFinite(n) && n >= 0 && n <= 100 ? n : fallback;
+}

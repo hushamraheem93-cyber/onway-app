@@ -250,26 +250,130 @@ describe("C-12 — admin CSRF (cookie-authenticated state changes)", () => {
   });
 });
 
-describe("C-12 — the guard is actually mounted", () => {
-  test("every /api/admin route passes the CSRF guard before the auth guard", () => {
-    const csrfAt = ROUTES.indexOf('app.use("/api/admin", requireAdminCsrf)');
-    const authAt = ROUTES.indexOf('app.use("/api/admin", requireAdminAuth)');
-    assert.ok(csrfAt > -1, "REGRESSION: admin CSRF guard is not mounted");
-    assert.ok(authAt > -1);
-    assert.ok(csrfAt < authAt, "CSRF guard must run first");
+describe("H-79 — the guard is mounted early enough to cover EVERY admin route", () => {
+  // Express matches middleware in registration order. The guard used to be mounted
+  // inside registerRoutes(), which runs AFTER configureExpoAndLanding() and
+  // vendorRouter — leaving nine admin write routes reachable without ever running
+  // it. It now lives in index.ts, ahead of both.
+  const mountAt = INDEX.indexOf('app.use("/api/admin", requireAdminCsrf)');
+  const expoAt = INDEX.indexOf("configureExpoAndLanding(app)");
+  const vendorAt = INDEX.indexOf("app.use(vendorRouter)");
+  const routesAt = INDEX.indexOf("registerRoutes(app)");
+
+  test("the CSRF guard is mounted in index.ts", () => {
+    assert.ok(mountAt > -1, "REGRESSION: admin CSRF guard is not mounted in index.ts");
+  });
+
+  test("it is mounted BEFORE configureExpoAndLanding (covers change-credentials)", () => {
+    assert.ok(expoAt > -1);
+    assert.ok(mountAt < expoAt, "REGRESSION: index.ts admin routes would bypass the guard");
+  });
+
+  test("it is mounted BEFORE vendorRouter (covers the eight vendor admin writes)", () => {
+    assert.ok(vendorAt > -1);
+    assert.ok(mountAt < vendorAt, "REGRESSION: vendor.ts admin routes would bypass the guard");
+  });
+
+  test("it is mounted BEFORE registerRoutes (covers routes.ts admin routes)", () => {
+    assert.ok(routesAt > -1);
+    assert.ok(mountAt < routesAt);
+  });
+
+  test("it is NOT mounted a second time inside registerRoutes", () => {
+    assert.doesNotMatch(
+      ROUTES,
+      /app\.use\("\/api\/admin",\s*requireAdminCsrf\)/,
+      "REGRESSION: duplicate CSRF middleware",
+    );
+  });
+
+  test("the auth guard still runs for /api/admin", () => {
+    assert.match(ROUTES, /app\.use\("\/api\/admin",\s*requireAdminAuth\)/);
   });
 
   test("the guard keys off the SESSION COOKIE, not any credential", () => {
     assert.match(
-      ROUTES,
-      /hasSessionCookie:\s*hasAdminSessionCookie\(req\)/,
+      GUARD,
+      /hasSessionCookie:\s*!!readCookie\(req, ADMIN_SESSION_COOKIE\)/,
       "the check must apply only to the ambient (forgeable) credential",
     );
   });
 
+  test("the cookie name matches adminAuth's ADMIN_COOKIE (no drift)", () => {
+    const admin = read("server/adminAuth.ts");
+    const declared = /export const ADMIN_COOKIE = "([^"]+)"/.exec(admin)?.[1];
+    const mirrored = /export const ADMIN_SESSION_COOKIE = "([^"]+)"/.exec(GUARD)?.[1];
+    assert.ok(declared && mirrored);
+    assert.equal(mirrored, declared, "the duplicated cookie name drifted");
+  });
+
   test("a blocked request is refused with 403 and logged", () => {
-    const fn = ROUTES.slice(ROUTES.indexOf("function requireAdminCsrf"), ROUTES.indexOf("function requireAdminCsrf") + 1200);
-    assert.match(fn, /res\.status\(403\)/);
-    assert.match(fn, /\[CSRF\]/);
+    assert.match(GUARD, /res\.status\(403\)/);
+    assert.match(GUARD, /\[CSRF\]/);
+  });
+
+  test("the login path is exempt so an admin can never be locked out", () => {
+    assert.match(GUARD, /CSRF_EXEMPT_ADMIN_PATHS\s*=\s*\["\/api\/admin\/login"\]/);
+    assert.match(GUARD, /if \(isCsrfExempt\(req\)\) return next\(\)/);
+  });
+
+  test("google-signin is outside /api/admin so the mount cannot reach it", () => {
+    assert.match(INDEX, /app\.post\("\/admin\/google-signin"/);
+    assert.doesNotMatch(INDEX, /app\.post\("\/api\/admin\/google-signin"/);
+  });
+});
+
+describe("H-79 — the nine routes that used to bypass the guard", () => {
+  // Eight in vendor.ts + change-credentials in index.ts. Verified live: before the
+  // fix each returned 401 (reached auth); the guard never ran.
+  const NINE = [
+    ["PUT", "/api/admin/vendor-partners/v1/status"],
+    ["PATCH", "/api/admin/vendor-products/p1/toggle-active"],
+    ["POST", "/api/admin/vendor-products"],
+    ["PUT", "/api/admin/vendor-products/p1"],
+    ["POST", "/api/admin/vendor-products/p1/approve"],
+    ["POST", "/api/admin/vendor-products/p1/reject"],
+    ["POST", "/api/admin/vendors/v1/products"],
+    ["DELETE", "/api/admin/vendor-products/p1/image"],
+    ["POST", "/api/admin/change-credentials"],
+  ];
+  const base = { hasSessionCookie: true, selfOrigin: SELF, allowedOrigins: ["onwayiq.com"] };
+
+  for (const [method, path] of NINE) {
+    test(`${method} ${path} — cookie + attacker Origin is blocked`, () => {
+      assert.equal(isAdminCsrfAllowed({ ...base, method, origin: EVIL }), false);
+    });
+
+    test(`${method} ${path} — cookie + attacker Referer is blocked`, () => {
+      assert.equal(
+        isAdminCsrfAllowed({ ...base, method, referer: `${EVIL}/attack.html` }),
+        false,
+      );
+    });
+
+    test(`${method} ${path} — cookie + same-origin reaches authentication`, () => {
+      assert.equal(isAdminCsrfAllowed({ ...base, method, origin: SELF }), true);
+    });
+
+    test(`${method} ${path} — Bearer / React Native (no Origin) still works`, () => {
+      assert.equal(isAdminCsrfAllowed({ ...base, hasSessionCookie: false, method, origin: EVIL }), true);
+      assert.equal(isAdminCsrfAllowed({ ...base, method }), true);
+    });
+  }
+
+  test("the allow-listed Hostinger panel keeps working on all nine", () => {
+    for (const [method] of NINE) {
+      assert.equal(
+        isAdminCsrfAllowed({ ...base, method, origin: "https://admin.onwayiq.com" }),
+        true,
+        `${method} must pass for an allow-listed origin`,
+      );
+    }
+  });
+
+  test("GET admin routes are untouched even from an attacker origin", () => {
+    for (const p of ["/api/admin/vendor-partners", "/api/admin/vendor-products", "/api/admin/vendor-stats"]) {
+      assert.equal(isAdminCsrfAllowed({ ...base, method: "GET", origin: EVIL }), true, p);
+    }
   });
 });

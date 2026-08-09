@@ -153,6 +153,27 @@ export function getSessionToken(req: Request): string | undefined {
   return undefined;
 }
 
+/**
+ * The signed-in admin's username, taken from the session token — never from the
+ * request body.
+ *
+ * Financial audit records must name who performed the movement (H-07). The admin
+ * panel never sent an `adminName` field at all, so every manual balance adjustment
+ * was attributed to "". Returns "" when there is no valid session; callers behind
+ * requireAdminAuth always have one.
+ */
+export function getSessionUsername(req: Request): string {
+  const token = getSessionToken(req);
+  if (!token) return "";
+  try {
+    const decoded = jwt.verify(token, getJwtSecret()) as any;
+    if (decoded?.type !== "admin") return "";
+    return typeof decoded.username === "string" ? decoded.username : "";
+  } catch {
+    return "";
+  }
+}
+
 export function isValidSession(req: Request): boolean {
   const token = getSessionToken(req);
   if (!token) return false;

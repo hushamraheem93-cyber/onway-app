@@ -1,3 +1,5 @@
+import type { Request, Response, NextFunction } from "express";
+
 // ── Origin allow-listing + CSRF origin validation ────────────────────────────
 //
 // Pure, dependency-free decision logic shared by the CORS middleware (index.ts)
@@ -240,4 +242,86 @@ export function isAdminCsrfAllowed(input: AdminCsrfInput): boolean {
   }
 
   return true;
+}
+
+// ── Express middleware ────────────────────────────────────────────────────────
+
+/**
+ * Name of the admin session cookie. Duplicated from adminAuth.ts ON PURPOSE:
+ * importing that module here would drag jsonwebtoken and the Firestore client into
+ * this file, and the unit tests load originGuard.ts directly. A guardrail test
+ * asserts the two constants stay identical.
+ */
+export const ADMIN_SESSION_COOKIE = "onway_admin_session";
+
+/** Minimal cookie-header parse — avoids depending on cookie middleware here. */
+function readCookie(req: Request, name: string): string | undefined {
+  const preParsed = (req as any).cookies?.[name];
+  if (typeof preParsed === "string" && preParsed) return preParsed;
+  const header = req.headers?.cookie;
+  if (!header) return undefined;
+  for (const part of header.split(";")) {
+    const [k, ...v] = part.trim().split("=");
+    if (k === name) {
+      const value = decodeURIComponent(v.join("=").trim());
+      return value || undefined;
+    }
+  }
+  return undefined;
+}
+
+/**
+ * Paths under /api/admin that must stay reachable WITHOUT a prior session, so the
+ * guard can never lock an admin out of signing in. Compared against the full URL
+ * because the middleware is mounted with a path prefix (req.path is then relative).
+ */
+const CSRF_EXEMPT_ADMIN_PATHS = ["/api/admin/login"];
+
+function isCsrfExempt(req: Request): boolean {
+  const full = (req.originalUrl || req.url || "").split("?")[0];
+  return CSRF_EXEMPT_ADMIN_PATHS.some((p) => full === p || full.endsWith(p));
+}
+
+/**
+ * CSRF guard for state-changing admin requests authenticated by the SESSION COOKIE.
+ *
+ * The admin session cookie is HttpOnly and /api/admin/login issues it with
+ * SameSite=None on HTTPS (so cross-domain panels keep working), which means a
+ * browser attaches it to a request started by ANY site. The CORS allow-list alone
+ * does not stop that: a simple POST is sent without a preflight, so the write
+ * lands even though the attacker cannot read the response.
+ *
+ * MOUNTING (H-79): this must be mounted on /api/admin BEFORE the admin routes in
+ * index.ts and vendor.ts are registered. Express matches in registration order, so
+ * mounting it inside registerRoutes() left nine write routes — eight in vendor.ts
+ * and change-credentials in index.ts — reachable without ever running this check.
+ *
+ * Requests that authenticate with `Authorization: Bearer` are NOT checked and get
+ * no CSRF token: that header is never attached ambiently, so it cannot be forged
+ * from another origin. See isAdminCsrfAllowed for the full reasoning.
+ */
+export function requireAdminCsrf(req: Request, res: Response, next: NextFunction): void {
+  if (isCsrfExempt(req)) return next();
+
+  const ok = isAdminCsrfAllowed({
+    method: req.method,
+    origin: req.header("origin"),
+    referer: req.header("referer"),
+    hasSessionCookie: !!readCookie(req, ADMIN_SESSION_COOKIE),
+    selfOrigin: selfOriginFromHeaders(
+      req.headers.host,
+      req.header("x-forwarded-proto"),
+      (req as any).protocol,
+    ),
+    allowedOrigins: parseOriginList(process.env.ALLOWED_ORIGINS),
+  });
+
+  if (!ok) {
+    console.warn(
+      `[CSRF] blocked ${req.method} ${req.originalUrl || req.path} origin=${req.header("origin") || "-"} referer=${req.header("referer") || "-"}`,
+    );
+    res.status(403).json({ error: "طلب غير موثوق المصدر" });
+    return;
+  }
+  next();
 }

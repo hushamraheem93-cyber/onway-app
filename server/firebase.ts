@@ -1524,6 +1524,62 @@ export async function recordPromoUsage(userId: string, promoCode: string): Promi
   });
 }
 
+// ── Atomic promo consumption (H-03) ─────────────────────────────────────────
+//
+// Order creation used to run "check with a query → create the order → record the
+// usage with .add()". Three separate round trips with no transaction and no
+// uniqueness constraint, so N concurrent requests with the same code all passed
+// the check and all got the discount. The document id was auto-generated, so
+// nothing in Firestore could ever refuse the second write.
+//
+// Keying the document on (code, user) turns the claim itself into the lock:
+// .create() fails with ALREADY_EXISTS if the id is taken, and that check is
+// atomic inside Firestore. No schema change — same collection, same three
+// fields; only the document id becomes deterministic. Legacy auto-id documents
+// stay readable by checkPromoUsage()'s query, so past usage is not forgotten.
+
+/** Deterministic id for one (code, user) pair. `/` is the only character a document id may not contain. */
+export function promoUsageId(userId: string, promoCode: string): string {
+  return `${promoCode}__${userId}`.replace(/\//g, "_");
+}
+
+/**
+ * Claim one use of `promoCode` for `userId`, atomically.
+ * Returns false when this user has already claimed it — never throws for that case.
+ */
+export async function claimPromoUsage(userId: string, promoCode: string): Promise<boolean> {
+  if (!db) throw new Error("Firestore not initialized");
+  try {
+    await db.collection("promoUsageHistory").doc(promoUsageId(userId, promoCode)).create({
+      userId,
+      promoCode,
+      timestamp: admin.firestore.Timestamp.now(),
+    });
+    return true;
+  } catch (error: any) {
+    // gRPC ALREADY_EXISTS is status code 6.
+    if (error?.code === 6 || /ALREADY_EXISTS/i.test(String(error?.message || ""))) return false;
+    throw error;
+  }
+}
+
+/** Give a claim back — used when the order it was claimed for never came into existence. */
+export async function releasePromoUsage(userId: string, promoCode: string): Promise<void> {
+  if (!db) return;
+  try {
+    await db.collection("promoUsageHistory").doc(promoUsageId(userId, promoCode)).delete();
+  } catch (error) {
+    console.error("Error releasing promo usage:", error);
+  }
+}
+
+/** How many times `promoCode` has been consumed in total. */
+export async function countPromoUsage(promoCode: string): Promise<number> {
+  if (!db) return 0;
+  const snap = await db.collection("promoUsageHistory").where("promoCode", "==", promoCode).get();
+  return snap.size;
+}
+
 // Driver Wallet Functions
 export async function getDriverWalletBalance(phoneNumber: string): Promise<number> {
   if (!db) return 0;

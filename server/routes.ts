@@ -8,12 +8,10 @@ import multer from "multer";
 import sharp from "sharp";
 import { randomUUID, createHash } from "crypto";
 import { orderEvents } from "./orderEvents";
-import { isValidSession, hasAdminSessionCookie } from "./adminAuth";
+import { isValidSession, getSessionUsername } from "./adminAuth";
 import {
   buildOriginPolicyFromEnv,
-  isAdminCsrfAllowed,
   isOriginAllowed,
-  parseOriginList,
   selfOriginFromHeaders,
 } from "./originGuard";
 import { 
@@ -38,6 +36,7 @@ import {
   updateOrderDriverInfo,
   getPromoCodes, getPromoCodeByCode, createPromoCode, updatePromoCode, deletePromoCode as deletePromoCodeFn,
   checkPromoUsage, recordPromoUsage,
+  claimPromoUsage, releasePromoUsage, countPromoUsage,
   saveDriverCompletedOrder, getDriverCompletedOrdersFromDB,
   saveDriverActivity, getDriverActivityLog, updateDriverLastLocation,
   getOrdersByDriverPhone,
@@ -92,6 +91,10 @@ import {
   safeImageContentType,
   sniffImageMime,
   GENERIC_SERVER_ERROR,
+  isValidProductPrice,
+  isValidCommissionPercent,
+  commissionPercentOf,
+  DEFAULT_COMMISSION_PERCENT,
 } from "./orderValidation";
 import { sendPushNotification, sendBroadcastNotification, sendDriverBatchNotification, sendAdminNewOrderNotification, sendVendorNewOrderNotification, sendAdminSettlementRequestNotification, sendVendorOrderCancelledNotification, sendDriverOrderCancelledNotification } from "./pushNotifications";
 import { deliverOtp } from "./otpDelivery";
@@ -329,37 +332,6 @@ function requireAdminAuth(req: Request, res: Response, next: express.NextFunctio
   next();
 }
 
-/**
- * CSRF guard for state-changing admin requests authenticated by the SESSION COOKIE.
- *
- * The admin session cookie is HttpOnly and is issued with SameSite=None on HTTPS
- * (so cross-domain panels keep working), which means a browser attaches it to a
- * request started by ANY site. Until now the CORS allow-list was the only thing
- * between an attacker's page and all of /api/admin/* — and that allow-list opened
- * up completely whenever NODE_ENV was not exactly "production" (C-12).
- *
- * Requests that authenticate with `Authorization: Bearer` are NOT checked and get
- * no CSRF token: that header is never attached ambiently, so it cannot be forged
- * from another origin. See isAdminCsrfAllowed for the full reasoning.
- */
-function requireAdminCsrf(req: Request, res: Response, next: express.NextFunction) {
-  const ok = isAdminCsrfAllowed({
-    method: req.method,
-    origin: req.header("origin"),
-    referer: req.header("referer"),
-    hasSessionCookie: hasAdminSessionCookie(req),
-    selfOrigin: selfOriginFromHeaders(req.headers.host, req.header("x-forwarded-proto"), req.protocol),
-    allowedOrigins: parseOriginList(process.env.ALLOWED_ORIGINS),
-  });
-  if (!ok) {
-    console.warn(
-      `[CSRF] blocked ${req.method} ${req.path} origin=${req.header("origin") || "-"} referer=${req.header("referer") || "-"}`,
-    );
-    return res.status(403).json({ error: "طلب غير موثوق المصدر" });
-  }
-  next();
-}
-
 // ── Customer JWT middleware ────────────────────────────────────────────────────
 function requireCustomerAuth(req: Request, res: Response, next: express.NextFunction) {
   const authHeader = req.headers.authorization || "";
@@ -539,7 +511,9 @@ async function notifyCustomerStatus(orderId: string, status: string, estimatedMi
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Guard ALL /api/admin/* routes with admin session check
-  app.use("/api/admin", requireAdminCsrf);
+  // NOTE: the /api/admin CSRF guard is mounted in index.ts BEFORE the admin routes
+  // in configureExpoAndLanding and vendorRouter are registered (H-79). Mounting it
+  // here would run too late for those and duplicate it for these.
   app.use("/api/admin", requireAdminAuth);
 
   // Guard ALL /api/driver/* routes with the signed-driver-token check. The public
@@ -679,7 +653,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         businessType: v.businessType || "",
         address: v.address || "",
         phoneNumber: v.phoneNumber || "",
-        commissionPercent: v.commissionPercent ?? 10,
+        commissionPercent: commissionPercentOf(v.commissionPercent),
         profileImageUrl: v.profileImageUrl || "",
         status: v.status || "",
       };
@@ -1970,7 +1944,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const orderValue = vendorCommissionBase(order as any);
         const platformCommission =
           (order as any).vendorCommissionAmount ??
-          Math.round((orderValue * (v.commissionPercent ?? 10)) / 100);
+          Math.round((orderValue * commissionPercentOf(v.commissionPercent)) / 100);
         settlementInputs.push({
           accountType: "vendor",
           accountId: order.vendorId,
@@ -2208,6 +2182,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/admin/vendors", async (req: Request, res: Response) => {
     const { name, location, whatsappNumber, commissionPercent, image, rating, deliveryTime, isOpen, categoryType, cuisine, hasDelivery, minOrder, deliveryFee, openTime, closeTime, description, latitude, longitude } = req.body;
     if (!name) return res.status(400).json({ error: "اسم المطعم مطلوب" });
+    // H-06: reject an unusable rate instead of quietly billing 10%.
+    if (commissionPercent !== undefined && commissionPercent !== null && commissionPercent !== ""
+        && !isValidCommissionPercent(commissionPercent)) {
+      return res.status(400).json({ error: "نسبة العمولة غير صالحة — يجب أن تكون رقماً بين 0 و100" });
+    }
     const parseCoord = (v: any, min: number, max: number): number | null => {
       const n = Number(v);
       return (v === undefined || v === null || v === "" || !isFinite(n) || n < min || n > max) ? null : n;
@@ -2218,7 +2197,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       name: String(name),
       location: String(location || ""),
       whatsappNumber: String(whatsappNumber || ""),
-      commissionPercent: Number(commissionPercent) || 10,
+      // H-06: `Number(x) || 10` turned a contracted 0% into 10%. An omitted rate
+      // still defaults to the platform rate; a supplied one must be valid (checked above).
+      commissionPercent: commissionPercent === undefined || commissionPercent === null || commissionPercent === ""
+        ? DEFAULT_COMMISSION_PERCENT
+        : Number(commissionPercent),
       image: String(image || "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=400"),
       rating: (rating !== undefined && rating !== "" && rating !== null) ? Number(rating) : null,
       ratingCount: 0,
@@ -2260,7 +2243,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
     if (body.name !== undefined) vendorUpdates.name = String(body.name);
     if (body.location !== undefined) vendorUpdates.location = String(body.location);
     if (body.whatsappNumber !== undefined) vendorUpdates.whatsappNumber = String(body.whatsappNumber);
-    if (body.commissionPercent !== undefined) vendorUpdates.commissionPercent = Number(body.commissionPercent);
+    // H-06: an unvalidated Number() here stored NaN / negatives / >100 straight
+    // into the rate every later settlement is computed from.
+    if (body.commissionPercent !== undefined) {
+      if (!isValidCommissionPercent(body.commissionPercent)) {
+        return res.status(400).json({ error: "نسبة العمولة غير صالحة — يجب أن تكون رقماً بين 0 و100" });
+      }
+      vendorUpdates.commissionPercent = Number(body.commissionPercent);
+    }
     if (body.image !== undefined) vendorUpdates.image = String(body.image);
     if (body.rating !== undefined) vendorUpdates.rating = Number(body.rating);
     if (body.deliveryTime !== undefined) vendorUpdates.deliveryTime = String(body.deliveryTime);
@@ -2342,7 +2332,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Use stored commission amount if available, otherwise calculate from vendor %
       const appCommission = orders.reduce((s, o) => {
         if (o.vendorCommissionAmount != null) return s + o.vendorCommissionAmount;
-        return s + Math.round(orderBase(o) * vendor.commissionPercent / 100);
+        return s + Math.round(orderBase(o) * commissionPercentOf(vendor.commissionPercent) / 100);
       }, 0);
       const vendorNet = totalSales - appCommission;
       const vendorWithImage = { ...vendor, image: limitImageSize((vendor as any).image || (vendor as any).profileImageUrl || (vendor as any).coverImageUrl || "", 80000) };
@@ -2446,18 +2436,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.post("/api/orders", requireCustomerAuth, async (req: Request, res: Response) => {
-    const { userId, phoneNumber, customerName, customerPhone, notes, items, total, deliveryFee, serviceFee, address, region, latitude, longitude, orderType, internationalDetails, courierDetails, promoCode, vendorId: bodyVendorId } = req.body;
+    // H-02: `deliveryFee` is deliberately NOT destructured from the body any more —
+    // the fee is derived entirely server-side below. H-01: `serviceFee` likewise.
+    const { userId, phoneNumber, customerName, customerPhone, notes, items, total, address, region, latitude, longitude, orderType, internationalDetails, courierDetails, promoCode, vendorId: bodyVendorId } = req.body;
     const db = getFirestore();
     
+    // H-03: ONE canonical spelling of the coupon for the whole request.
+    // The pre-check below looked the code up verbatim while the pricing block used
+    // `.toUpperCase()`. Posting "welcome10" therefore made getPromoCodeByCode()
+    // return null here — silently skipping the isActive, expiry AND maxUsage checks
+    // — while the pricing block still found "WELCOME10" and applied the discount.
+    // The per-user check missed for the same reason, because promoUsageHistory rows
+    // were written with whatever casing the client last used. A 100-use launch code
+    // could be spent thousands of times just by varying the letters.
+    const promoCodeCanonical = promoCode ? String(promoCode).trim().toUpperCase() : "";
+    // The identity a coupon is charged against must not be client-supplied.
+    const promoClaimant = ((req as any).customerPhone as string) || "";
+    let promoMaxUsage = 0;
+
     if (db) {
-      if (promoCode) {
-        const alreadyUsed = await checkPromoUsage(userId || phoneNumber, promoCode);
+      if (promoCodeCanonical) {
+        // Both keys are consulted so that usage recorded before this change — keyed
+        // on the client-sent userId (the users/ document id) — is still honoured.
+        // Checking an extra key can only ever add a rejection, never grant one.
+        const legacyKey = userId ? String(userId) : "";
+        const alreadyUsed =
+          (await checkPromoUsage(promoClaimant, promoCodeCanonical)) ||
+          (!!legacyKey && legacyKey !== promoClaimant && (await checkPromoUsage(legacyKey, promoCodeCanonical)));
         if (alreadyUsed) {
           return res.status(400).json({ error: "لقد استخدمت هذا الكود مسبقاً!" });
         }
         // Global usage limit: check promo active, expiry, and maxUsage cap
-        const promoDoc = await getPromoCodeByCode(promoCode);
+        const promoDoc = await getPromoCodeByCode(promoCodeCanonical);
         if (promoDoc) {
+          promoMaxUsage = Number(promoDoc.maxUsage) > 0 ? Number(promoDoc.maxUsage) : 0;
           if (!promoDoc.isActive) {
             return res.status(400).json({ error: "هذا الكوبون غير مفعّل" });
           }
@@ -2469,10 +2481,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
               return res.status(400).json({ error: "انتهت صلاحية هذا الكوبون" });
             }
           }
-          if (promoDoc.maxUsage && (promoDoc.maxUsage as number) > 0) {
-            const usageSnap = await db.collection("promoUsageHistory")
-              .where("promoCode", "==", promoCode).get();
-            if (usageSnap.size >= (promoDoc.maxUsage as number)) {
+          if (promoMaxUsage > 0) {
+            // Cheap early rejection. The authoritative cap check happens after the
+            // claim below, where our own row is already counted.
+            if ((await countPromoUsage(promoCodeCanonical)) >= promoMaxUsage) {
               return res.status(400).json({ error: "لقد وصل هذا الكوبون لحد الاستخدام الأقصى" });
             }
           }
@@ -2519,7 +2531,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         let realPrice: number | undefined;
         let available = true; // only an explicit inStock === false blocks the order
         const legacyProduct = allProductsForPricing.find((p: any) => p.id === it.productId);
-        if (legacyProduct && !Number.isNaN(Number(legacyProduct.price))) {
+        // H-05 (defence in depth): only a FINITE, STRICTLY POSITIVE stored price may
+        // be used. `!Number.isNaN(...)` alone let a negative or Infinity price that
+        // is already in the database flow into verifiedSubtotal, which has no lower
+        // bound — a hidden product priced -500000 dragged a real basket to a total
+        // of 0. An unusable price leaves realPrice undefined, so the item lands in
+        // unknownProductIds and the order is rejected instead of silently discounted.
+        if (legacyProduct && isValidProductPrice(legacyProduct.price)) {
           realPrice = Number(legacyProduct.price);
           if (legacyProduct.inStock === false) available = false;
           if (legacyProduct.categoryId !== "restaurants") allItemsAreRestaurant = false;
@@ -2529,7 +2547,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           if (vpDoc.exists) {
             const vp = vpDoc.data() as any;
             const vpPrice = Number(vp?.price);
-            if (!Number.isNaN(vpPrice)) {
+            if (isValidProductPrice(vpPrice)) {
               realPrice = vpPrice;
               // Add verified variant price adjustment
               if (it.selectedVariantId && Array.isArray(vp.variants)) {
@@ -2584,33 +2602,76 @@ export async function registerRoutes(app: Express): Promise<Server> {
       //   2. otherwise restaurant orders use the flat fee in system_settings
       //      (admin-configurable, default 1000 IQD);
       //   3. otherwise the authoritative deliveryAreas collection fee for the region.
+      //
+      // H-02: this used to SEED the fee with `Number(deliveryFee) || 0` taken from
+      // the request body and only overwrite it when the region matched an active
+      // delivery area. `{"region":"x","deliveryFee":0}` therefore bought permanent
+      // free delivery on every non-restaurant order — and because the driver's share
+      // is computed from `order.deliveryFee` (computeDriverPayout), the driver earned
+      // nothing on that order while the cash they owed the company still grew.
+      // The body value is no longer read at all: the fee now comes only from a store
+      // override, the restaurant flat fee, or a matching active delivery area, and an
+      // order whose region resolves to none of those is refused instead of shipped free.
       const sysSettings = await getSystemSettings();
-      let verifiedDeliveryFee = Number(deliveryFee) || 0;
+      let verifiedDeliveryFee: number | null = null;
       if (vendorDeliveryFeeOverride != null) {
         verifiedDeliveryFee = vendorDeliveryFeeOverride;
       } else if (allItemsAreRestaurant) {
         verifiedDeliveryFee = sysSettings.restaurantDeliveryFee;
-      } else if (region) {
+      } else {
         const areas = await getFirestoreDeliveryAreas(true);
-        const matchedArea = areas.find(a => a.name === region);
-        if (matchedArea) verifiedDeliveryFee = matchedArea.fee;
+        // Trim both sides: the client posts back the very name this collection served
+        // it, so only stray whitespace can ever separate the two.
+        const wanted = String(region ?? "").trim();
+        const matchedArea = wanted
+          ? areas.find(a => String(a.name ?? "").trim() === wanted)
+          : undefined;
+        // A corrupt stored fee must not silently become free delivery either. Same
+        // shape as the vendor override above (`typeof … === "number" && … >= 0`) —
+        // Number(null) is 0, so coercing first would turn a null fee into free.
+        const areaFee = matchedArea?.fee;
+        if (matchedArea && typeof areaFee === "number" && Number.isFinite(areaFee) && areaFee >= 0) {
+          verifiedDeliveryFee = Math.round(areaFee);
+        }
+      }
+      if (verifiedDeliveryFee === null) {
+        return res.status(400).json({ error: "منطقة التوصيل غير مدعومة — يرجى اختيار منطقة من القائمة" });
       }
 
       // Recompute promo discount from the authoritative promoCodes collection
       let verifiedDiscount = 0;
-      if (promoCode) {
-        const promo = await getPromoCodeByCode(String(promoCode).toUpperCase());
+      if (promoCodeCanonical) {
+        const promo = await getPromoCodeByCode(promoCodeCanonical);
         const notExpired = promo ? new Date(promo.expiryDate) >= new Date() : false;
-        if (promo && promo.isActive && notExpired) {
+        // H-04: the stored coupon amount was used without ever being checked as a
+        // number. `value: Number(value)` at creation accepts "abc" (NaN), a negative
+        // and Infinity alike; NaN then flowed through Math.max(0, NaN) === NaN and
+        // was stored as `total: NaN`, while a negative value INCREASED the bill.
+        // isValidProductPrice is reused here rather than duplicating the check — it
+        // is the project's existing "finite and strictly positive amount" predicate,
+        // not something specific to product rows.
+        const promoValue = Number(promo?.value);
+        if (promo && promo.isActive && notExpired && isValidProductPrice(promoValue)) {
           if (promo.type === "percentage") {
-            verifiedDiscount = Math.round(verifiedSubtotal * (promo.value / 100));
+            verifiedDiscount = Math.round(verifiedSubtotal * (promoValue / 100));
             // Apply maximum discount cap if configured (percentage coupons only)
             if (promo.maximumDiscountAmount && promo.maximumDiscountAmount > 0) {
               verifiedDiscount = Math.min(verifiedDiscount, promo.maximumDiscountAmount);
             }
           } else {
-            verifiedDiscount = promo.value;
+            verifiedDiscount = promoValue;
           }
+          // H-04: never let a coupon exceed the goods it is discounting.
+          // The preview route (POST /api/promo-codes/apply) already clamps with
+          // `Math.min(discount, cartTotal)` where cartTotal is the cart SUBTOTAL, so
+          // the client is quoted a total that never drops below delivery + service.
+          // This path did not clamp, so a 10,000 fixed coupon on a 3,000 cart drove
+          // the order to Math.max(0, ...) === 0: the coupon swallowed the goods AND
+          // the delivery fee, the driver collected nothing, and the settlement was
+          // booked at grossAmount 0 while the store was still owed its stock.
+          // Clamping to verifiedSubtotal makes the two paths agree and keeps the
+          // delivery/service fees — which are not part of the promotion — payable.
+          verifiedDiscount = Math.min(verifiedDiscount, verifiedSubtotal);
         } else {
           return res.status(400).json({ error: "كود الخصم غير صالح أو منتهي الصلاحية" });
         }
@@ -2621,7 +2682,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // `{"serviceFee": -50000}` produced a near-zero — or negative — cash order.
       // The client only ever echoes back what GET /api/settings/fees told it, so
       // reading the same document here changes nothing for an honest client.
-      const verifiedServiceFee = serviceFee === undefined ? 0 : await getConfiguredServiceFee();
+      //
+      // H-01: the VALUE was server-authoritative but the FIELD's presence was not —
+      // `serviceFee === undefined ? 0 : ...` meant a patched client that simply omits
+      // the key pays no service fee at all, and `orderData.serviceFee` was then left
+      // off the document entirely, so no reconciliation report could ever spot it.
+      // The fee is now always computed and always stored, whatever the client sent.
+      const verifiedServiceFee = await getConfiguredServiceFee();
 
       // Floor at zero. A promo larger than the cart must never produce a negative
       // total that would flow into the ledger as money OnWay owes the customer.
@@ -2650,7 +2717,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         region,
         status: "pending",
       };
-      if (serviceFee !== undefined) orderData.serviceFee = verifiedServiceFee;
+      // H-01: stored unconditionally — an omitted field must never erase the fee.
+      orderData.serviceFee = verifiedServiceFee;
       if (customerName) orderData.customerName = customerName;
       if (customerPhone) orderData.customerPhone = customerPhone;
       if (notes) orderData.notes = notes;
@@ -2661,7 +2729,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (orderType) orderData.orderType = orderType;
       if (internationalDetails) orderData.internationalDetails = internationalDetails;
       if (courierDetails) orderData.courierDetails = courierDetails;
-      if (promoCode) orderData.promoCode = promoCode;
+      // H-03: store the canonical spelling, so the order and promoUsageHistory agree.
+      if (promoCodeCanonical) orderData.promoCode = promoCodeCanonical;
       if (verifiedDiscount) orderData.promoDiscount = verifiedDiscount;
       // Preserve explicit vendorId from request body (vendor partner orders).
       // restaurantSubtotal is NOT trusted from the client — it's recomputed below from verified prices.
@@ -2711,8 +2780,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
             orderData.vendorName = vendor.name;
             orderData.vendorWhatsapp = vendor.whatsappNumber;
             orderData.restaurantSubtotal = restaurantSubtotal;
-            orderData.vendorCommissionPercent = vendor.commissionPercent || 10;
-            orderData.vendorCommissionAmount = Math.round(restaurantSubtotal * ((vendor.commissionPercent || 10) / 100));
+            // H-06: `|| 10` billed a 0% store at 10%, and vendorCommissionAmount is the
+            // value accrueDeliveredOrderSettlements prefers over recomputing.
+            const vendorRate = commissionPercentOf(vendor.commissionPercent);
+            orderData.vendorCommissionPercent = vendorRate;
+            orderData.vendorCommissionAmount = Math.round(restaurantSubtotal * (vendorRate / 100));
             // Build WhatsApp message with only restaurant items
             const itemsList = restaurantItems.map((it: any) => `• ${it.name} × ${it.quantity}`).join("\n");
             const shortId = Math.random().toString(36).slice(2,8).toUpperCase();
@@ -2753,13 +2825,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
         } catch (e) { console.error("Vendor marketplace detection error:", e); }
       }
 
-      const newOrder = await createOrder(orderData);
-      if (newOrder) {
-        if (promoCode) {
-          await recordPromoUsage(userId || phoneNumber, promoCode).catch(err => 
-            console.error("Failed to record promo usage:", err)
-          );
+      // ── H-03: claim the coupon BEFORE the order exists ────────────────────────
+      // Consumption used to be recorded AFTER createOrder() with .add() and a
+      // swallowed .catch(), so the write could not refuse a duplicate and a failed
+      // write silently granted the code again. The claim is now an atomic .create()
+      // on a deterministic (code, user) document id: the second request loses, and
+      // it loses before any order is written.
+      if (promoCodeCanonical) {
+        let claimed = false;
+        try {
+          claimed = await claimPromoUsage(promoClaimant, promoCodeCanonical);
+        } catch (err) {
+          console.error("Failed to claim promo usage:", err);
+          return res.status(500).json({ error: GENERIC_SERVER_ERROR });
         }
+        if (!claimed) {
+          return res.status(400).json({ error: "لقد استخدمت هذا الكود مسبقاً!" });
+        }
+        // Authoritative global cap: our own row is now part of the count, so the
+        // comparison is `>`. Racing requests that overshoot hand their claim back.
+        if (promoMaxUsage > 0 && (await countPromoUsage(promoCodeCanonical)) > promoMaxUsage) {
+          await releasePromoUsage(promoClaimant, promoCodeCanonical);
+          return res.status(400).json({ error: "لقد وصل هذا الكوبون لحد الاستخدام الأقصى" });
+        }
+      }
+
+      const newOrder = await createOrder(orderData);
+      if (!newOrder && promoCodeCanonical) {
+        // The order never came into existence — do not burn the customer's coupon.
+        await releasePromoUsage(promoClaimant, promoCodeCanonical);
+      }
+      if (newOrder) {
         // Order stays "pending" until admin approves from the admin panel
         // Notify admin about the new order
         getAdminPushToken().then(adminToken => {
@@ -5171,11 +5267,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Adjustment endpoint (add/deduct from outstandingTotal in settlementLedger)
   app.post("/api/admin/driver-wallet/adjustment", async (req: Request, res: Response) => {
-    const { phoneNumber, amount, type, notes, adminName } = req.body;
+    const { phoneNumber, amount, type, notes } = req.body;
     if (!phoneNumber || amount === undefined || !type) return res.status(400).json({ error: "Missing fields" });
     if (type !== "add" && type !== "deduct") return res.status(400).json({ error: "type must be add or deduct" });
+    // H-07: an adjustment moves money, so the audit record must name who moved it.
+    // `adminName` used to come from req.body — and the admin panel never sent it at
+    // all, so every manual adjustment was filed against "". The signed session is
+    // the only trustworthy source; the body value is now ignored entirely.
+    const adminName = getSessionUsername(req) || "admin";
+    // H-07: `Number("abc")` reached Math.abs(Math.round(NaN)) === NaN, and NaN <= 0
+    // is false — so the guard inside adminAdjustLedger let it through and wrote
+    // `outstandingTotal: NaN`, destroying the very balance this audit trail records.
+    const amountNum = Number(amount);
+    if (!Number.isFinite(amountNum) || amountNum <= 0) {
+      return res.status(400).json({ error: "المبلغ غير صالح" });
+    }
     try {
-      const result = await adminAdjustLedger("driver", phoneNumber, Number(amount), type as "add" | "deduct", notes || "", adminName || "");
+      const result = await adminAdjustLedger("driver", phoneNumber, amountNum, type as "add" | "deduct", notes || "", adminName);
       if (!result.ok) return res.status(400).json({ error: result.reason || "فشل التعديل" });
       res.json({ success: true, outstandingBefore: result.outstandingBefore, outstandingAfter: result.outstandingAfter });
     } catch (error: any) {
