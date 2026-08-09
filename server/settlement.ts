@@ -437,9 +437,15 @@ export async function getSettlementHistory(
   const byCreatedDesc = (a: any, b: any) =>
     (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0);
   try {
+    // H-23: both of these had a limit and no ordering, so Firestore answered in
+    // document-id order — random for both collections — and the in-memory sort below
+    // dressed an arbitrary slice up as a tidy newest-first list. An account past `max`
+    // lifetime records showed a frozen random sample of its own history.
     const [sSnap, rSnap] = await Promise.all([
-      db.collection(SETTLEMENTS).where("accountKey", "==", key).limit(max).get(),
-      db.collection(SETTLEMENT_REQUESTS).where("accountKey", "==", key).limit(max).get(),
+      db.collection(SETTLEMENTS).where("accountKey", "==", key)
+        .orderBy("createdAt", "desc").limit(max).get(),
+      db.collection(SETTLEMENT_REQUESTS).where("accountKey", "==", key)
+        .orderBy("createdAt", "desc").limit(max).get(),
     ]);
     return {
       settlements: sSnap.docs.map((d) => ({ id: d.id, ...(d.data() as any) })).sort(byCreatedDesc),
@@ -461,7 +467,11 @@ export async function listSettlementRequests(
   const byCreatedDesc = (a: any, b: any) =>
     (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0);
   try {
-    const snap = await db.collection(SETTLEMENT_REQUESTS).where("status", "==", status).limit(300).get();
+    // H-23: unordered, so past 300 requests in a status the admin inbox showed an
+    // arbitrary 300 — a driver's payout request could sit "under review" forever
+    // because nobody ever saw it.
+    const snap = await db.collection(SETTLEMENT_REQUESTS).where("status", "==", status)
+      .orderBy("createdAt", "desc").limit(300).get();
     let items = snap.docs.map((d) => ({ id: d.id, ...(d.data() as any) }));
     if (accountType) items = items.filter((i) => i.accountType === accountType);
     return items.sort(byCreatedDesc);
@@ -878,9 +888,38 @@ async function markSettlementRecordsFIFO(
   const db = dbOverride ?? getFirestore();
   if (!db || amount <= 0) return;
   const key = accountKey(accountType, accountId);
-  const snap = await db.collection(SETTLEMENTS).where("accountKey", "==", key).limit(1000).get();
+  // ── The window must be the OLDEST UNSETTLED records, not 1000 arbitrary ones (H-24)
+  //
+  // This used to be `.where("accountKey", "==", key).limit(1000)` with the status
+  // filter and the FIFO sort applied afterwards, in memory. Three things went wrong
+  // once an account passed 1000 lifetime records — roughly four months for an active
+  // driver:
+  //   1. No orderBy, so Firestore answered in document-id order. Settlement ids are
+  //      `${orderId}__${accountType}` and order ids come from .add(), so the window
+  //      was 1000 arbitrary records.
+  //   2. The status filter ran AFTER the limit, so a driver with 2,900 settled and 100
+  //      pending records got a window that was ~97% already-settled — sometimes with no
+  //      pending record in it at all, in which case a real cash payment marked nothing.
+  //   3. "FIFO" only ordered within that arbitrary window, so the oldest debt paid was
+  //      merely the oldest one that happened to fall inside it.
+  // The result was a permanent divergence: the ledger totals stayed right (they are
+  // transactional) while the per-order records they are supposed to reconcile to
+  // drifted, and no later run could repair it.
+  //
+  // Filtering and ordering in the query makes the window 1000 genuinely pending
+  // records, oldest first — real FIFO across the account's whole history. Status is
+  // only ever "pending" or "settled" (written at :162, :901 and by the legacy
+  // migration script), so equality is sufficient and no record is excluded.
+  // Needs the composite index settlements(accountKey ASC, status ASC, createdAt ASC).
+  const snap = await db.collection(SETTLEMENTS)
+    .where("accountKey", "==", key)
+    .where("status", "==", "pending")
+    .orderBy("createdAt", "asc")
+    .limit(1000)
+    .get();
   const pending = snap.docs
     .map((d: any) => ({ ref: d.ref, ...(d.data() as any) }))
+    // Redundant now that the query filters, kept as a belt-and-braces guard.
     .filter((s: any) => s.status !== "settled")
     .sort((a: any, b: any) => (a.createdAt?.toMillis?.() ?? 0) - (b.createdAt?.toMillis?.() ?? 0));
 
@@ -997,7 +1036,16 @@ export async function listSettlementAccounts(accountType: SettlementAccountType)
   const db = getFirestore();
   if (!db) return [];
   try {
-    const snap = await db.collection(LEDGER).where("accountType", "==", accountType).limit(500).get();
+    // H-23: this one was worse than random. Ledger ids are `${accountType}:${accountId}`,
+    // so an unordered limit returned the 500 accounts whose phone number sorts lowest —
+    // deterministically. Every account past that point was invisible to the admin panel
+    // on every load, permanently, while its balance stayed owed in the database.
+    // Ordered by updatedAt so the accounts with recent activity are the ones shown;
+    // every ledger writer stamps updatedAt (recordOrderSettlement, completeSettlement,
+    // the request transitions, the H-21 pendingCount update, adjustLedger, and the
+    // legacy migration script), so no account can be dropped by the ordering.
+    const snap = await db.collection(LEDGER).where("accountType", "==", accountType)
+      .orderBy("updatedAt", "desc").limit(500).get();
     return snap.docs
       .map((d) => {
         const l = d.data() as any;
@@ -1146,7 +1194,13 @@ export async function getSettlementPayments(
   if (!db) return [];
   const key = accountKey(accountType, accountId);
   try {
-    const snap = await db.collection(SETTLEMENT_PAYMENTS).where("accountKey", "==", key).limit(max).get();
+    // H-23: the most damaging of the six. In a settlement dispute an admin opens the
+    // driver's payment history to prove what was paid; unordered, an account with 340
+    // payments answered with 100 arbitrary ones and no indication that anything had
+    // been cut — so the record used to settle an argument about money was a silent
+    // random sample of itself.
+    const snap = await db.collection(SETTLEMENT_PAYMENTS).where("accountKey", "==", key)
+      .orderBy("createdAt", "desc").limit(max).get();
     return snap.docs
       .map((d) => ({ id: d.id, ...(d.data() as any) }))
       .sort((a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0));

@@ -1153,8 +1153,13 @@ router.get("/api/vendor/notifications", requireVendor, async (req, res) => {
     if (!db) return res.status(500).json({ error: "قاعدة البيانات غير متاحة" });
 
     const vid = (req as any).vendorId;
+    // H-23: unordered, so past 50 notifications in a store's lifetime this returned an
+    // arbitrary fixed 50 — the same ones on every load. "Your store has been approved"
+    // could simply never appear. createdAt is an ISO-8601 UTC string on every one of the
+    // three writers, so lexical order is chronological order.
     const snap = await db.collection("vendorNotifications")
       .where("vendorId", "==", vid)
+      .orderBy("createdAt", "desc")
       .limit(50)
       .get();
 
@@ -1232,9 +1237,21 @@ router.get("/api/vendor/orders", requireVendor, async (req, res) => {
       productsSnap.docs.map((d) => d.id)
     );
 
-    // 2. Fetch orders by top-level vendorId (restaurant detection flow)
+    // 2. Fetch the most recent orders by top-level vendorId (restaurant detection flow).
+    //
+    // H-22: this had .limit(200) with no .orderBy(), so Firestore returned the first
+    // 200 documents by DOCUMENT ID. Order ids come from .add() and are random, so the
+    // window was neither the oldest nor the newest 200 — it was 200 arbitrary orders,
+    // and the same 200 on every load. Once a store passed 200 orders in its lifetime,
+    // a new order's chance of appearing on its dashboard fell to roughly 200/N, and
+    // the store simply never saw it. The in-memory sort at the end of this handler hid
+    // the defect by making a wrong SET look perfectly ordered.
+    //
+    // The composite index this needs (vendorId ASC, createdAt DESC) was already
+    // deployed in firestore.indexes.json and unused.
     const byVendorIdSnap = await db.collection("orders")
       .where("vendorId", "==", vid)
+      .orderBy("createdAt", "desc")
       .limit(200)
       .get();
 
