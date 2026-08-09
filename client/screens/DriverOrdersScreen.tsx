@@ -1,5 +1,6 @@
 import React, { useState, useCallback } from "react";
 import {
+  Alert,
   StyleSheet,
   View,
   ScrollView,
@@ -33,6 +34,23 @@ import { RootStackParamList } from "@/navigation/RootStackNavigator";
 import { CurrentBatch, BatchOrder } from "@/screens/DriverHomeScreen";
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
+
+/**
+ * The message the server sent with a failed response (H-28).
+ *
+ * Same defect as DriverBatchScreen: pickup and deliver only acted `if (res.ok)`, so a
+ * 409 ("حدّث الصفحة وحاول مجدداً") or a 503 ("حاول مرة أخرى") produced no message and
+ * no resync — the spinner simply stopped. Every driver endpoint returns
+ * `{ error: "<Arabic message>" }` on failure.
+ */
+async function serverError(res: Response): Promise<string> {
+  const data = (await res.json().catch(() => null)) as { error?: unknown } | null;
+  return typeof data?.error === "string" && data.error.trim()
+    ? data.error
+    : "حاول مرة أخرى";
+}
+
+const CONNECTION_ERROR = "تعذّر الاتصال بالخادم، تحقّق من الإنترنت وحاول مجدداً";
 
 // ─── Status chip config ───────────────────────────────────────────────────────
 const STATUS_CFG: Record<
@@ -241,6 +259,9 @@ export default function DriverOrdersScreen() {
 
   const [status, setStatus] = useState<DriverStatus | null>(null);
   const [loading, setLoading] = useState(true);
+  // H-29: "the load failed" and "there is genuinely nothing to do" are different
+  // answers, and the screen used to give the second one for both.
+  const [loadError, setLoadError] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [optimized, setOptimized] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
@@ -271,15 +292,25 @@ export default function DriverOrdersScreen() {
             getApiUrl(),
           ).toString(),
         );
-        if (res.ok) {
-          const data = await res.json();
-          setStatus({
-            currentBatch: data.currentBatch || null,
-            walletBalance: data.walletBalance || 0,
-          });
-          setOptimized(false);
+        // H-29: this used to be `if (res.ok) { ... }` with no else and an empty catch,
+        // while `finally` cleared `loading` regardless. A failed first load therefore
+        // left status null AND loading false, and the render fell through to the
+        // "لا توجد طلبات نشطة" empty state — telling a driver who has a live batch that
+        // they have no work. On a bike in Dhuluiyah a dropped request is routine; a
+        // driver who believes the screen can stop working and go home.
+        if (!res.ok) {
+          setLoadError(true);
+          return;
         }
-      } catch (e) {
+        const data = await res.json();
+        setStatus({
+          currentBatch: data.currentBatch || null,
+          walletBalance: data.walletBalance || 0,
+        });
+        setOptimized(false);
+        setLoadError(false);
+      } catch {
+        setLoadError(true);
       } finally {
         setLoading(false);
         setRefreshing(false);
@@ -337,8 +368,14 @@ export default function DriverOrdersScreen() {
           }),
         },
       );
-      if (res.ok) await fetchStatus();
-    } catch (e) {
+      // H-28: resync on failure too — the server rejects a pickup precisely when this
+      // screen's copy of the batch is stale, so the refresh IS the correction.
+      if (!res.ok) {
+        Alert.alert("تعذّر استلام الطلب", await serverError(res));
+      }
+      await fetchStatus();
+    } catch {
+      Alert.alert("خطأ", CONNECTION_ERROR);
     } finally {
       setActionLoading(false);
       hideConfirm();
@@ -361,8 +398,16 @@ export default function DriverOrdersScreen() {
           }),
         },
       );
-      if (res.ok) await fetchStatus();
-    } catch (e) {
+      // H-28: the money-critical action. A lost delivery report leaves the order at
+      // "picked_up" with no settlement accrual and an open batch, so the driver stays
+      // busy in the dispatch engine. `{ alreadyCompleted: true }` is a 200 and stays
+      // on the success path.
+      if (!res.ok) {
+        Alert.alert("تعذّر تسليم الطلب", await serverError(res));
+      }
+      await fetchStatus();
+    } catch {
+      Alert.alert("خطأ", CONNECTION_ERROR);
     } finally {
       setActionLoading(false);
       hideConfirm();
@@ -427,6 +472,45 @@ export default function DriverOrdersScreen() {
         }}
       >
         ستظهر طلباتك هنا بعد قبول الدفعة من الشاشة الرئيسية
+      </ThemedText>
+    </View>
+  );
+
+  // H-29: shown instead of the empty state when the screen has never managed to load.
+  // Same layout as renderEmptyState, different icon, colour and words, so a driver can
+  // tell "nothing assigned to me" apart from "I could not reach the server".
+  // Pull-to-refresh below is the retry — nothing is re-sent automatically.
+  const renderLoadError = () => (
+    <View style={styles.emptyContainer}>
+      <View
+        style={[
+          styles.emptyIconBox,
+          { backgroundColor: AppColors.error + "15" },
+        ]}
+      >
+        <Feather name="wifi-off" size={48} color={AppColors.error} />
+      </View>
+      <ThemedText
+        type="h3"
+        style={{
+          color: theme.text,
+          fontWeight: FontWeight.bold,
+          marginTop: Spacing.lg,
+          textAlign: "center",
+        }}
+      >
+        تعذّر تحميل طلباتك
+      </ThemedText>
+      <ThemedText
+        type="body"
+        style={{
+          color: theme.textSecondary,
+          marginTop: Spacing.xs,
+          textAlign: "center",
+          lineHeight: 24,
+        }}
+      >
+        تحقّق من الإنترنت واسحب للأسفل للمحاولة مجدداً
       </ThemedText>
     </View>
   );
@@ -927,6 +1011,10 @@ export default function DriverOrdersScreen() {
 
             {orders.map((order) => renderOrderCard(order))}
           </View>
+        ) : loadError && status === null ? (
+          // H-29: only when nothing has ever loaded. Once a real answer has arrived,
+          // a later failed refresh keeps showing it — stale data beats a blank screen.
+          renderLoadError()
         ) : (
           renderEmptyState()
         )}

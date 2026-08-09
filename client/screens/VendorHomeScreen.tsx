@@ -6,6 +6,7 @@ import React, {
   ComponentProps,
 } from "react";
 import {
+  Alert,
   View,
   StyleSheet,
   ScrollView,
@@ -36,6 +37,20 @@ import { AppColors, Shadows, FontFamily } from "@/constants/theme";
 
 const ORANGE = AppColors.primary;
 const POLL_INTERVAL_MS = 30_000;
+
+/**
+ * The message the server sent with a failed response (H-30).
+ * Falls back to a neutral retry hint when the body is not the usual { error }.
+ */
+async function serverError(res: Response): Promise<string> {
+  const data = (await res.json().catch(() => null)) as { error?: unknown } | null;
+  return typeof data?.error === "string" && data.error.trim()
+    ? data.error
+    : "حاول مرة أخرى";
+}
+
+const CONNECTION_ERROR =
+  "تعذّر الاتصال بالخادم، تحقّق من الإنترنت وحاول مجدداً";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -590,18 +605,30 @@ export default function VendorHomeScreen({ navigation }: any) {
             }
           : null,
       };
-      await fetch(new URL("/api/vendor/profile", getApiUrl()).toString(), {
-        method: "PATCH",
-        headers: {
-          Authorization: `Bearer ${vendorToken}`,
-          "Content-Type": "application/json",
+      const res = await fetch(
+        new URL("/api/vendor/profile", getApiUrl()).toString(),
+        {
+          method: "PATCH",
+          headers: {
+            Authorization: `Bearer ${vendorToken}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(body),
         },
-        body: JSON.stringify(body),
-      });
+      );
+      // H-30: the response was never checked. An expired session (401), a
+      // suspended store (403 — PATCH is not a pre-approval route) or a server
+      // error all closed the modal with a success buzz while nothing was saved.
+      // The modal deliberately stays open so the entered values are not lost.
+      if (!res.ok) {
+        Alert.alert("تعذّر حفظ الإعدادات", await serverError(res));
+        return;
+      }
       await refreshVendorProfile();
       setSettingsVisible(false);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch {
+      Alert.alert("خطأ", CONNECTION_ERROR);
     } finally {
       setSavingSettings(false);
     }
@@ -614,7 +641,7 @@ export default function VendorHomeScreen({ navigation }: any) {
       else setOptimisticBusy(value);
       setTogglingAvailability(true);
       try {
-        await fetch(
+        const res = await fetch(
           new URL("/api/vendor/availability", getApiUrl()).toString(),
           {
             method: "PATCH",
@@ -625,9 +652,23 @@ export default function VendorHomeScreen({ navigation }: any) {
             body: JSON.stringify({ [field]: value }),
           },
         );
+        // H-30: a rejected toggle still buzzed "success". Vacation mode is what
+        // POST /api/orders checks, so a silently-failed toggle leaves the store
+        // taking orders it will not fulfil. `finally` already rolls the
+        // optimistic switch back, so only the message is missing here.
+        if (!res.ok) {
+          Alert.alert(
+            field === "isVacation"
+              ? "تعذّر تغيير وضع الإجازة"
+              : "تعذّر تغيير حالة الانشغال",
+            await serverError(res),
+          );
+          return;
+        }
         await refreshVendorProfile();
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       } catch {
+        Alert.alert("خطأ", CONNECTION_ERROR);
         if (field === "isVacation") setOptimisticVacation(null);
         else setOptimisticBusy(null);
       } finally {

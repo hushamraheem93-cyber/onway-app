@@ -1,5 +1,6 @@
 import React, { useState, useCallback } from "react";
 import {
+  Alert,
   StyleSheet,
   View,
   ScrollView,
@@ -34,6 +35,24 @@ import { RootStackParamList } from "@/navigation/RootStackNavigator";
 import { CurrentBatch, BatchOrder } from "@/screens/DriverHomeScreen";
 
 type BatchScreenRoute = RouteProp<RootStackParamList, "DriverBatch">;
+
+/**
+ * The message the server sent with a failed response (H-28).
+ *
+ * Every driver endpoint answers a failure with `{ error: "<Arabic message>" }` — and
+ * several of those messages are written for the driver to act on, e.g. the 409 from
+ * pickup-order says "حدّث الصفحة وحاول مجدداً" and the 503 from complete-order says
+ * "حاول مرة أخرى". Those responses are not exceptions: `res.ok` is simply false, so a
+ * handler that only has a try/catch never sees them and shows nothing at all.
+ */
+async function serverError(res: Response): Promise<string> {
+  const data = (await res.json().catch(() => null)) as { error?: unknown } | null;
+  return typeof data?.error === "string" && data.error.trim()
+    ? data.error
+    : "حاول مرة أخرى";
+}
+
+const CONNECTION_ERROR = "تعذّر الاتصال بالخادم، تحقّق من الإنترنت وحاول مجدداً";
 
 const STATUS_CONFIG: Record<
   string,
@@ -139,8 +158,17 @@ export default function DriverBatchScreen() {
           }),
         },
       );
-      if (res.ok) await refreshBatch();
-    } catch (e) {
+      // H-28: a rejected pickup used to do nothing at all — no message, no resync — so
+      // the driver assumed it worked. Always resync afterwards: the server rejects
+      // precisely when this screen's copy of the batch is out of date.
+      if (!res.ok) {
+        Alert.alert("تعذّر استلام الطلب", await serverError(res));
+        await refreshBatch();
+        return;
+      }
+      await refreshBatch();
+    } catch {
+      Alert.alert("خطأ", CONNECTION_ERROR);
     } finally {
       setLoadingOrderId(null);
     }
@@ -149,9 +177,19 @@ export default function DriverBatchScreen() {
   const handleArrivedAtStore = async (order: BatchOrder) => {
     if (!phoneNumber) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    // Optimistic: the button flips immediately so the driver is not left waiting on a
+    // round trip while standing in the shop. H-28: it is rolled back if the server
+    // refuses, because the previous code claimed arrival even on a 403 and never
+    // checked res.ok at all.
     setArrivedOrders((prev) => new Set(prev).add(order.id));
+    const rollback = () =>
+      setArrivedOrders((prev) => {
+        const next = new Set(prev);
+        next.delete(order.id);
+        return next;
+      });
     try {
-      await fetch(
+      const res = await fetch(
         new URL("/api/driver/batch/arrived-at-store", getApiUrl()).toString(),
         {
           method: "POST",
@@ -163,7 +201,15 @@ export default function DriverBatchScreen() {
           }),
         },
       );
-    } catch (e) {}
+      if (!res.ok) {
+        rollback();
+        Alert.alert("تعذّر تسجيل الوصول", await serverError(res));
+        await refreshBatch();
+      }
+    } catch {
+      rollback();
+      Alert.alert("خطأ", CONNECTION_ERROR);
+    }
   };
 
   const handleDeliver = async (order: BatchOrder) => {
@@ -185,23 +231,33 @@ export default function DriverBatchScreen() {
           }),
         },
       );
-      if (res.ok) {
+      // H-28: this is the money-critical action. The driver has already taken cash;
+      // if the report is lost the order stays "picked_up" forever, no settlement
+      // accrual is recorded, and the batch never closes — so the driver also stays
+      // "busy" in the dispatch engine and receives no further work. A 503 or a 409
+      // used to produce no message and no resync whatsoever.
+      // A `{ alreadyCompleted: true }` reply is a 200 and stays on the success path.
+      if (!res.ok) {
+        Alert.alert("تعذّر تسليم الطلب", await serverError(res));
         await refreshBatch();
-        // If all delivered, go back
-        const freshRes = await fetch(
-          new URL(
-            `/api/driver/status?phoneNumber=${encodeURIComponent(phoneNumber)}`,
-            getApiUrl(),
-          ).toString(),
-        );
-        if (freshRes.ok) {
-          const data = await freshRes.json();
-          if (!data.currentBatch || data.currentBatch.status === "completed") {
-            navigation.goBack();
-          }
+        return;
+      }
+      await refreshBatch();
+      // If all delivered, go back
+      const freshRes = await fetch(
+        new URL(
+          `/api/driver/status?phoneNumber=${encodeURIComponent(phoneNumber)}`,
+          getApiUrl(),
+        ).toString(),
+      );
+      if (freshRes.ok) {
+        const data = await freshRes.json();
+        if (!data.currentBatch || data.currentBatch.status === "completed") {
+          navigation.goBack();
         }
       }
-    } catch (e) {
+    } catch {
+      Alert.alert("خطأ", CONNECTION_ERROR);
     } finally {
       setLoadingOrderId(null);
     }
@@ -245,16 +301,21 @@ export default function DriverBatchScreen() {
           }),
         },
       );
-      if (res.ok) {
-        setIssueSent(true);
-        setTimeout(() => {
-          setIssueModalVisible(false);
-          setIssueSent(false);
-          setIssueOrderId(null);
-          refreshBatch();
-        }, 1800);
+      // H-28: a rejected issue report used to close nothing and say nothing — the
+      // driver was left believing the store had been told about a problem.
+      if (!res.ok) {
+        Alert.alert("تعذّر إرسال البلاغ", await serverError(res));
+        return;
       }
-    } catch (e) {
+      setIssueSent(true);
+      setTimeout(() => {
+        setIssueModalVisible(false);
+        setIssueSent(false);
+        setIssueOrderId(null);
+        refreshBatch();
+      }, 1800);
+    } catch {
+      Alert.alert("خطأ", CONNECTION_ERROR);
     } finally {
       setIssueSending(false);
     }
@@ -265,15 +326,34 @@ export default function DriverBatchScreen() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setIsRejecting(true);
     try {
-      await fetch(new URL("/api/driver/reject-order", getApiUrl()).toString(), {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phoneNumber, batchId: batch.id }),
-      });
-    } catch (e) {
-    } finally {
-      setIsRejecting(false);
+      const res = await fetch(
+        new URL("/api/driver/reject-order", getApiUrl()).toString(),
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ phoneNumber, batchId: batch.id }),
+        },
+      );
+      // H-28: the response used not to be captured at all — no `res`, no status check —
+      // and navigation.goBack() sat in `finally`, so it ran on every path including a
+      // dropped connection. The driver left the screen believing the batch had been
+      // rejected while the server still had it assigned to them: they stop working it,
+      // dispatch still counts them as busy, and the orders sit unassigned until an
+      // admin notices. Leaving the screen is now reachable only from a confirmed 200.
+      if (!res.ok) {
+        Alert.alert("تعذّر رفض الدفعة", await serverError(res));
+        await refreshBatch();
+        return;
+      }
       navigation.goBack();
+    } catch {
+      Alert.alert("خطأ", CONNECTION_ERROR);
+      // Safe and useful: a plain GET that re-reads the batch, so if connectivity is
+      // back by now the screen shows the truth instead of a stale copy.
+      await refreshBatch();
+    } finally {
+      // Loading cleanup only — nothing here may navigate.
+      setIsRejecting(false);
     }
   };
 
