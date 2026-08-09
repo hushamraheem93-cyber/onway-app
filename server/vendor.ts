@@ -13,12 +13,15 @@ import {
   isUsableCachedImage,
   normaliseStock,
   parseProductPrice,
+  JWT_VERIFY_OPTS,
 } from "./orderValidation";
 import { sendVendorStatusNotification, sendVendorProductNotification, sendPushNotification, sendAdminOrderReadyNotification, sendAdminSettlementRequestNotification } from "./pushNotifications";
 import { createSettlementRequest, getAccountSettlementView, getSettlementHistory } from "./settlement";
 import { getAccountStatement } from "./financialLedger";
 import { orderEvents } from "./orderEvents";
 import { isValidSession } from "./adminAuth";
+import { isCustomerTokenRevoked } from "./customerRevocation";
+import { isRequestSecure } from "./originGuard";
 
 const router = express.Router();
 
@@ -45,8 +48,39 @@ const upload = multer({
 });
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
+
+/**
+ * How long a vendor session lasts. ONE constant for both the JWT and the cookie
+ * (H-18): the cookie used to live 30 days while the token expired after 7, so from
+ * day 8 the browser kept sending a cookie the server rejected — the dashboard just
+ * failed, with no automatic re-authentication.
+ */
+const VENDOR_SESSION_TTL_SECS = 7 * 24 * 60 * 60;
+
 function makeVendorToken(vendorId: string): string {
-  return jwt.sign({ vendorId, role: "vendor" }, JWT_SECRET, { expiresIn: "7d" });
+  return jwt.sign({ vendorId, role: "vendor" }, JWT_SECRET, { expiresIn: VENDOR_SESSION_TTL_SECS });
+}
+
+/**
+ * Attributes for the vendor session cookie (H-18).
+ *
+ * It previously carried only httpOnly + sameSite:"lax" — no Secure, no Path — even
+ * though isRequestSecure() already existed and guarded all three admin cookies. A
+ * store owner opening the dashboard over http:// on café Wi-Fi handed their session
+ * to anyone on the network for a week: edit prices, cancel orders, request payouts.
+ *
+ * Secure is conditional on the request actually being HTTPS, exactly like the admin
+ * cookie — a hardcoded `true` would stop the cookie being set at all over plain HTTP
+ * in local development.
+ */
+function vendorCookieOptions(req: Request) {
+  return {
+    httpOnly: true,
+    secure: isRequestSecure(req),
+    sameSite: "strict" as const,
+    path: "/",
+    maxAge: VENDOR_SESSION_TTL_SECS * 1000,
+  };
 }
 
 function parseCookies(req: Request): Record<string, string> {
@@ -64,7 +98,7 @@ function getVendorSession(req: Request): string | null {
   const token = cookies[VENDOR_COOKIE];
   if (!token) return null;
   try {
-    const decoded = jwt.verify(token, JWT_SECRET) as any;
+    const decoded = jwt.verify(token, JWT_SECRET, JWT_VERIFY_OPTS) as any;
     return decoded.role === "vendor" ? decoded.vendorId : null;
   } catch {
     return null;
@@ -107,7 +141,7 @@ async function requireVendor(req: Request, res: Response, next: express.NextFunc
   if (!token) return res.status(401).json({ error: "غير مصرح - سجل دخولك أولاً" });
 
   try {
-    const decoded = jwt.verify(token, JWT_SECRET) as any;
+    const decoded = jwt.verify(token, JWT_SECRET, JWT_VERIFY_OPTS) as any;
     if (decoded.role !== "vendor") return res.status(403).json({ error: "غير مصرح" });
 
     // Re-check the vendor's status on every request. The token is valid for 7 days
@@ -234,8 +268,11 @@ router.post("/api/vendor/mobile-auth", async (req, res) => {
     const bearer = authHeader.startsWith("Bearer ") ? authHeader.slice(7).trim() : "";
     let verifiedPhone: string | null = null;
     try {
-      const decoded = jwt.verify(bearer, JWT_SECRET) as any;
-      if (decoded.role === "customer" && decoded.phoneNumber) verifiedPhone = String(decoded.phoneNumber);
+      const decoded = jwt.verify(bearer, JWT_SECRET, JWT_VERIFY_OPTS) as any;
+      if (decoded.role === "customer" && decoded.phoneNumber
+          && !isCustomerTokenRevoked(String(decoded.phoneNumber), decoded.iat)) {
+        verifiedPhone = String(decoded.phoneNumber);
+      }
     } catch { /* invalid/expired token → verifiedPhone stays null */ }
     if (!verifiedPhone || verifiedPhone !== String(phoneNumber)) {
       return res.status(401).json({ error: "غير مصرح — يرجى التحقق من رقم الهاتف أولاً" });
@@ -389,11 +426,7 @@ router.post("/api/vendor/login", async (req, res) => {
 
     const token = makeVendorToken(vendor.id);
     res
-      .cookie(VENDOR_COOKIE, token, {
-        httpOnly: true,
-        maxAge: 30 * 24 * 60 * 60 * 1000,
-        sameSite: "lax",
-      })
+      .cookie(VENDOR_COOKIE, token, vendorCookieOptions(req))
       .json({
         success: true,
         vendor: {
@@ -410,8 +443,12 @@ router.post("/api/vendor/login", async (req, res) => {
 });
 
 // ── GET /api/vendor/logout ──────────────────────────────────────────────────
-router.get("/api/vendor/logout", (_req, res) => {
-  res.clearCookie(VENDOR_COOKIE).redirect("/vendor/login");
+router.get("/api/vendor/logout", (req, res) => {
+  // H-18: a cookie is only removed when the attributes match the ones it was set
+  // with. clearCookie() defaults to path "/" but not to Secure/SameSite, so the
+  // logout could leave the session cookie in place on some browsers.
+  const { maxAge: _maxAge, ...clearOpts } = vendorCookieOptions(req);
+  res.clearCookie(VENDOR_COOKIE, clearOpts).redirect("/vendor/login");
 });
 
 // ── GET /api/vendor/profile ─────────────────────────────────────────────────
@@ -1417,6 +1454,9 @@ router.patch("/api/vendor/orders/:id/status", requireVendor, async (req, res) =>
     const order = orderDoc.data() as any;
     const current: string = order.status ?? "pending";
 
+    // Cheap pre-check so an illegal transition is rejected before the vendorProducts
+    // lookups below. It is NOT the authority — the transaction further down re-reads
+    // the status and re-applies this same table (H-20).
     if (!(ALLOWED[current] ?? []).includes(status)) {
       return res.status(400).json({ error: `لا يمكن الانتقال من "${current}" إلى "${status}"` });
     }
@@ -1445,12 +1485,42 @@ router.patch("/api/vendor/orders/:id/status", requireVendor, async (req, res) =>
         ? estimatedMinutes
         : undefined;
 
+    // ── Atomic transition (H-20) ────────────────────────────────────────────
+    // The check above ran against a snapshot taken before the ownership lookups, so on
+    // its own it cannot stop two dashboards of the same store from both passing it and
+    // both writing: last write wins, arbitrarily. That produced orders left "cancelled"
+    // after "confirmed" had already dispatched a driver to the store, and orders
+    // "confirmed" back out of a cancellation the customer was already told about.
+    //
+    // Re-read the status and re-apply the SAME table inside one transaction, so exactly
+    // one concurrent writer observes the pre-state. The vendor's ALLOWED table is kept
+    // verbatim on purpose: it is deliberately narrower than the canonical
+    // ORDER_TRANSITIONS in firebase.ts (a store may take preparing → ready, but not
+    // → delivered or → cancelled). Routing this through updateOrderStatus() instead
+    // would hand the store those transitions, and would still need a second,
+    // unserialised write for vendorStatusAt_*/estimatedMinutes.
     const updatedAt = new Date().toISOString();
-    const updateData: Record<string, any> = { status, updatedAt, [`vendorStatusAt_${status}`]: updatedAt };
-    if (validatedEta) {
-      updateData.estimatedMinutes = validatedEta;
+    const outcome = await db.runTransaction(async (tx) => {
+      const snap = await tx.get(orderRef);
+      if (!snap.exists) return { ok: false as const, code: 404 as const, current };
+      const live: string = (snap.data() as any)?.status ?? "pending";
+      if (!(ALLOWED[live] ?? []).includes(status)) {
+        return { ok: false as const, code: 400 as const, current: live };
+      }
+      const updateData: Record<string, any> = { status, updatedAt, [`vendorStatusAt_${status}`]: updatedAt };
+      if (validatedEta) {
+        updateData.estimatedMinutes = validatedEta;
+      }
+      tx.update(orderRef, updateData);
+      return { ok: true as const, code: 200 as const, current: live };
+    });
+
+    // Same responses as before, so nothing downstream changes shape — the loser of a
+    // race now gets the transition error it would have got had it arrived second.
+    if (!outcome.ok) {
+      if (outcome.code === 404) return res.status(404).json({ error: "الطلب غير موجود" });
+      return res.status(400).json({ error: `لا يمكن الانتقال من "${outcome.current}" إلى "${status}"` });
     }
-    await orderRef.update(updateData);
 
     // Real-time: broadcast the status change so customer/driver/admin update instantly
     // (routes.ts forwards to the order room + broadcasts orders:changed). Additive only.

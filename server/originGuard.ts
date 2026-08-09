@@ -325,3 +325,21 @@ export function requireAdminCsrf(req: Request, res: Response, next: NextFunction
   }
   next();
 }
+
+/**
+ * Was the ORIGINAL client connection HTTPS? (H-18)
+ *
+ * Lives here rather than in index.ts because the vendor session cookie needs the
+ * same answer and vendor.ts cannot import index.ts — index.ts imports the vendor
+ * router, so that would be a cycle. index.ts had a private copy used for the three
+ * admin cookies; the vendor cookie was set without any Secure flag at all, which is
+ * exactly the gap this function was written to close.
+ *
+ * req.protocol and NODE_ENV are NOT reliable signals: Replit and most PaaS
+ * platforms terminate TLS at a proxy and forward plain HTTP internally, so the
+ * standard x-forwarded-proto header the proxy sets is the only truthful source.
+ */
+export function isRequestSecure(req: Request): boolean {
+  const proto = req.header("x-forwarded-proto") || (req as any).protocol;
+  return proto === "https";
+}

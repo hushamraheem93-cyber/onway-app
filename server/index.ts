@@ -5,6 +5,7 @@ import { registerRoutes } from "./routes";
 import {
   buildOriginPolicyFromEnv,
   isOriginAllowed,
+  isRequestSecure,
   requireAdminCsrf,
   selfOriginFromHeaders,
 } from "./originGuard";
@@ -414,6 +415,7 @@ import {
   isValidSession,
   loadRevocationState,
 } from "./adminAuth";
+import { loadCustomerRevocationState } from "./customerRevocation";
 
 function parseCookies(req: Request): void {
   const header = req.headers.cookie || "";
@@ -506,14 +508,9 @@ function configureExpoAndLanding(app: express.Application) {
     res.status(200).send(html);
   });
 
-// Detect whether the ORIGINAL client connection was HTTPS. Replit (and most
-// PaaS platforms) terminate TLS at a proxy and forward plain HTTP internally,
-// so req.protocol / NODE_ENV are NOT reliable signals for this — we must read
-// the standard x-forwarded-proto header the proxy sets.
-function isRequestSecure(req: Request): boolean {
-  const proto = req.header("x-forwarded-proto") || req.protocol;
-  return proto === "https";
-}
+// H-18: isRequestSecure moved to ./originGuard so the vendor session cookie can
+// use the very same check — vendor.ts cannot import this file (index imports the
+// vendor router, which would be a cycle).
 
 // POST /admin/login — validate credentials (checks Firestore first, then env vars)
   app.post("/admin/login", express.urlencoded({ extended: false }), async (req: Request, res: Response) => {
@@ -1039,6 +1036,8 @@ process.on("exit", (code) => {
   // restart cannot resurrect a token that was explicitly logged out or invalidated
   // by a password reset.
   await loadRevocationState();
+  // H-10: customer token revocation, same boot-time hydration as admin sessions.
+  await loadCustomerRevocationState();
 
   const server = await registerRoutes(app);
 

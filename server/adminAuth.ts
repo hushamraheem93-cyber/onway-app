@@ -28,6 +28,7 @@ import type { Request } from "express";
 import * as crypto from "crypto";
 import jwt from "jsonwebtoken";
 import { getFirestore } from "./firebase";
+import { JWT_VERIFY_OPTS } from "./orderValidation";
 
 export const ADMIN_COOKIE = "onway_admin_session";
 
@@ -166,7 +167,7 @@ export function getSessionUsername(req: Request): string {
   const token = getSessionToken(req);
   if (!token) return "";
   try {
-    const decoded = jwt.verify(token, getJwtSecret()) as any;
+    const decoded = jwt.verify(token, getJwtSecret(), JWT_VERIFY_OPTS) as any;
     if (decoded?.type !== "admin") return "";
     return typeof decoded.username === "string" ? decoded.username : "";
   } catch {
@@ -178,7 +179,7 @@ export function isValidSession(req: Request): boolean {
   const token = getSessionToken(req);
   if (!token) return false;
   try {
-    const decoded = jwt.verify(token, getJwtSecret()) as any;
+    const decoded = jwt.verify(token, getJwtSecret(), JWT_VERIFY_OPTS) as any;
     if (decoded?.type !== "admin") return false;
     // Check per-token revocation
     if (decoded.jti && revokedJtis.has(decoded.jti)) return false;

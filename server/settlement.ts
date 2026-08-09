@@ -888,7 +888,7 @@ async function markSettlementRecordsFIFO(
   let remaining = amount;
   let batch = db.batch();
   let ops = 0;
-  let stillPending = 0;
+  let newlySettled = 0;
 
   for (const s of pending) {
     const due = (s.outstandingAmount ?? 0) - (s.amountSettled ?? 0);
@@ -904,16 +904,33 @@ async function markSettlementRecordsFIFO(
       });
       ops++;
       remaining -= applied;
-      if (!fully) stillPending++;
-    } else {
-      stillPending++;
+      if (fully) newlySettled++;
     }
     if (ops >= 400) { await batch.commit(); batch = db.batch(); ops = 0; }
   }
   if (ops > 0) await batch.commit();
-  await db.collection(LEDGER).doc(ledgerId(accountType, accountId))
-    .set({ pendingCount: stillPending, updatedAt: now }, { merge: true })
-    .catch(() => {});
+
+  // ── pendingCount: decrement, never overwrite (H-21) ────────────────────────
+  // This used to write an absolute count derived from the snapshot read at the top of
+  // the function — several awaited batch commits earlier. recordAccrual() increments
+  // the same field inside a transaction when a driver completes an order, so an order
+  // finished during that window was counted by the accrual and then erased by this
+  // write: a driver with money genuinely owed saw "0 pending orders", and
+  // createSettlementRequest() stamped that same 0 onto the permanent request record.
+  //
+  // Decrementing by the number of records THIS call actually settled commutes with a
+  // concurrent +1, so neither update is lost. Read-modify-write in a transaction (not a
+  // raw FieldValue.increment) so the value can be clamped at zero: the counter is shown
+  // to drivers and vendors, and a negative would be worse than a stale one.
+  if (newlySettled > 0) {
+    const ledgerRef = db.collection(LEDGER).doc(ledgerId(accountType, accountId));
+    await db.runTransaction(async (tx: any) => {
+      const snap = await tx.get(ledgerRef);
+      if (!snap.exists) return;
+      const prev = (snap.data() as any).pendingCount ?? 0;
+      tx.set(ledgerRef, { pendingCount: Math.max(0, prev - newlySettled), updatedAt: now }, { merge: true });
+    }).catch((e: any) => console.error("[FIFO] pendingCount update failed:", e));
+  }
 }
 
 // ── Threshold configuration (per account type, admin-editable) ─────────────────

@@ -9,6 +9,14 @@ import sharp from "sharp";
 import { randomUUID, createHash } from "crypto";
 import { orderEvents } from "./orderEvents";
 import { isValidSession, getSessionUsername } from "./adminAuth";
+import { isCustomerTokenRevoked, revokeCustomerTokens } from "./customerRevocation";
+import {
+  CMS_IMAGE_FIELDS,
+  CMS_IMAGE_NO_PERSIST,
+  isCmsSection,
+  parseWebsiteContent,
+  type CmsSection,
+} from "./websiteContentSchema";
 import {
   buildOriginPolicyFromEnv,
   isOriginAllowed,
@@ -95,6 +103,9 @@ import {
   isValidCommissionPercent,
   commissionPercentOf,
   DEFAULT_COMMISSION_PERCENT,
+  JWT_VERIFY_OPTS,
+  csvCell,
+  csvNumber,
 } from "./orderValidation";
 import { sendPushNotification, sendBroadcastNotification, sendDriverBatchNotification, sendAdminNewOrderNotification, sendVendorNewOrderNotification, sendAdminSettlementRequestNotification, sendVendorOrderCancelledNotification, sendDriverOrderCancelledNotification } from "./pushNotifications";
 import { deliverOtp } from "./otpDelivery";
@@ -319,7 +330,7 @@ function extractVendorId(req: Request): string | null {
     const authHeader = req.headers.authorization || "";
     const token = authHeader.replace("Bearer ", "").trim();
     if (!token) return null;
-    const decoded = jwt.verify(token, ROUTES_JWT_SECRET) as any;
+    const decoded = jwt.verify(token, ROUTES_JWT_SECRET, JWT_VERIFY_OPTS) as any;
     if (decoded.role !== "vendor") return null;
     return decoded.vendorId as string;
   } catch {
@@ -338,8 +349,12 @@ function requireCustomerAuth(req: Request, res: Response, next: express.NextFunc
   const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7).trim() : "";
   if (!token) return res.status(401).json({ error: "يرجى تسجيل الدخول أولاً" });
   try {
-    const decoded = jwt.verify(token, ROUTES_JWT_SECRET) as any;
+    const decoded = jwt.verify(token, ROUTES_JWT_SECRET, JWT_VERIFY_OPTS) as any;
     if (decoded.role !== "customer" || !decoded.phoneNumber) throw new Error("invalid role");
+    // H-10: customer tokens live 30 days and had no revocation path at all, so a
+    // deleted account — or a stolen phone — kept full access for up to a month.
+    // The check is a synchronous in-memory lookup; see customerRevocation.ts.
+    if (isCustomerTokenRevoked(String(decoded.phoneNumber), decoded.iat)) throw new Error("revoked");
     (req as any).customerPhone = decoded.phoneNumber as string;
     next();
   } catch {
@@ -371,7 +386,7 @@ async function requireDriverAuth(req: Request, res: Response, next: express.Next
   if (!token) return res.status(401).json({ error: "يرجى تسجيل الدخول كسائق أولاً" });
   let driverPhone: string;
   try {
-    const decoded = jwt.verify(token, ROUTES_JWT_SECRET) as any;
+    const decoded = jwt.verify(token, ROUTES_JWT_SECRET, JWT_VERIFY_OPTS) as any;
     if (decoded.role !== "driver" || !decoded.phoneNumber) throw new Error("invalid role");
     driverPhone = String(decoded.phoneNumber);
   } catch {
@@ -3674,6 +3689,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       addressesSnap.docs.forEach(d => batch.delete(d.ref));
       if (!addressesSnap.empty) await batch.commit();
 
+      // H-10: the account is gone but its 30-day token is not. Revoke every token
+      // issued for this phone so the deleted account cannot keep reading orders,
+      // addresses and support chat until the token happens to expire.
+      revokeCustomerTokens(phoneNumber);
+
       return res.json({ success: true });
     } catch (err: any) {
       console.error("[DELETE USER]", err);
@@ -3782,8 +3802,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const bearer = authHeader.startsWith("Bearer ") ? authHeader.slice(7).trim() : "";
       let verifiedPhone: string | null = null;
       try {
-        const decoded = jwt.verify(bearer, ROUTES_JWT_SECRET) as any;
-        if (decoded.role === "customer" && decoded.phoneNumber) verifiedPhone = String(decoded.phoneNumber);
+        const decoded = jwt.verify(bearer, ROUTES_JWT_SECRET, JWT_VERIFY_OPTS) as any;
+        if (decoded.role === "customer" && decoded.phoneNumber
+            && !isCustomerTokenRevoked(String(decoded.phoneNumber), decoded.iat)) {
+          verifiedPhone = String(decoded.phoneNumber);
+        }
       } catch { /* invalid/expired → verifiedPhone stays null */ }
 
       // A valid, phone-matching customer JWT is the ONLY way to obtain a driver
@@ -4152,8 +4175,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const raw = authHeader.startsWith("Bearer ") ? authHeader.slice(7).trim() : "";
       let callerPhone: string | null = null;
       try {
-        const decoded = jwt.verify(raw, ROUTES_JWT_SECRET) as any;
-        if (decoded.role === "customer" && decoded.phoneNumber) callerPhone = String(decoded.phoneNumber);
+        const decoded = jwt.verify(raw, ROUTES_JWT_SECRET, JWT_VERIFY_OPTS) as any;
+        if (decoded.role === "customer" && decoded.phoneNumber
+            && !isCustomerTokenRevoked(String(decoded.phoneNumber), decoded.iat)) {
+          callerPhone = String(decoded.phoneNumber);
+        }
       } catch { /* unauthenticated */ }
       if (!callerPhone) return res.status(401).json({ error: "يرجى تسجيل الدخول أولاً" });
       try {
@@ -5117,7 +5143,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Approve / reject a settlement request (lifecycle: pending → approved → paid → completed / rejected).
   app.post("/api/admin/settlements/approve", async (req: Request, res: Response) => {
-    const { requestId, adminName } = req.body;
+    const { requestId } = req.body;
+    // H-14: the financial audit trail must name the admin from the SIGNED SESSION.
+    // Taking it from the body let anyone with panel access file a large payment
+    // under a colleague's name, with no independent record to contradict it.
+    const adminName = getSessionUsername(req) || "admin";
     if (!requestId) return res.status(400).json({ error: "requestId required" });
     try {
       const result = await transitionSettlementRequest(String(requestId), "approve", adminName);
@@ -5137,7 +5167,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.post("/api/admin/settlements/reject", async (req: Request, res: Response) => {
-    const { requestId, adminName, reason } = req.body;
+    const { requestId, reason } = req.body;
+    // H-14: the financial audit trail must name the admin from the SIGNED SESSION.
+    // Taking it from the body let anyone with panel access file a large payment
+    // under a colleague's name, with no independent record to contradict it.
+    const adminName = getSessionUsername(req) || "admin";
     if (!requestId) return res.status(400).json({ error: "requestId required" });
     try {
       const result = await transitionSettlementRequest(String(requestId), "reject", adminName, reason);
@@ -5158,7 +5192,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Complete a settlement (full or partial; from a request or manual).
   app.post("/api/admin/settlements/complete", async (req: Request, res: Response) => {
-    const { accountType, accountId, amount, adminName, method, notes, requestId, idempotencyKey } = req.body;
+    const { accountType, accountId, amount, method, notes, requestId, idempotencyKey } = req.body;
+    // H-14: the financial audit trail must name the admin from the SIGNED SESSION.
+    // Taking it from the body let anyone with panel access file a large payment
+    // under a colleague's name, with no independent record to contradict it.
+    const adminName = getSessionUsername(req) || "admin";
     if (!accountType || !accountId || amount === undefined) {
       return res.status(400).json({ error: "accountType, accountId, amount required" });
     }
@@ -5218,8 +5256,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const header = "AccountId,Name,Orders,Outstanding,TotalSettled,Status,LastSettlement";
       const rows = accounts.map((a) => {
         const last = a.lastSettlementAt?.toDate?.() ? a.lastSettlementAt.toDate().toISOString().slice(0, 10) : "";
-        const name = String(a.accountName ?? "").replace(/"/g, '""');
-        return `"${a.accountId}","${name}",${a.totalOrders},${a.outstanding},${a.totalSettled},${a.status},${last}`;
+        // H-15: every text cell goes through csvCell — the name was the only one being
+        // escaped, and even that only handled quotes, not formula triggers.
+        return [
+          csvCell(a.accountId),
+          csvCell(a.accountName),
+          csvNumber(a.totalOrders),
+          csvNumber(a.outstanding),
+          csvNumber(a.totalSettled),
+          csvCell(a.status),
+          csvCell(last),
+        ].join(",");
       });
       const csv = "﻿" + [header, ...rows].join("\n"); // BOM for Excel Arabic
       res.setHeader("Content-Type", "text/csv; charset=utf-8");
@@ -5233,12 +5280,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Legacy recharge endpoint kept for backward compat — records as settlement payment
   app.post("/api/admin/driver-wallet/recharge", async (req: Request, res: Response) => {
-    const { phoneNumber, amount, notes, adminName } = req.body;
+    const { phoneNumber, amount, notes } = req.body;
+    // H-14: the financial audit trail must name the admin from the SIGNED SESSION.
+    // Taking it from the body let anyone with panel access file a large payment
+    // under a colleague's name, with no independent record to contradict it.
+    const adminName = getSessionUsername(req) || "admin";
     if (!phoneNumber || amount === undefined) return res.status(400).json({ error: "Missing fields" });
     try {
       const result = await completeSettlement({
         accountType: "driver", accountId: phoneNumber, amount: Number(amount),
-        notes: notes || "دفعة من الإدارة", method: "cash", adminName: adminName || "",
+        notes: notes || "دفعة من الإدارة", method: "cash", adminName,
       });
       if (!result.ok) return res.status(400).json({ error: result.reason || "لا توجد مبالغ مستحقة" });
       res.json({ success: true, outstandingAfter: result.outstandingAfter, paymentId: result.paymentId });
@@ -5250,12 +5301,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Explicit payment endpoint — records a cash collection from driver against outstanding balance
   app.post("/api/admin/driver-wallet/payment", async (req: Request, res: Response) => {
-    const { phoneNumber, amount, notes, paymentMethod, adminName } = req.body;
+    const { phoneNumber, amount, notes, paymentMethod } = req.body;
+    // H-14: the financial audit trail must name the admin from the SIGNED SESSION.
+    // Taking it from the body let anyone with panel access file a large payment
+    // under a colleague's name, with no independent record to contradict it.
+    const adminName = getSessionUsername(req) || "admin";
     if (!phoneNumber || amount === undefined) return res.status(400).json({ error: "Missing fields" });
     try {
       const result = await completeSettlement({
         accountType: "driver", accountId: phoneNumber, amount: Number(amount),
-        notes: notes || "", method: paymentMethod || "cash", adminName: adminName || "",
+        notes: notes || "", method: paymentMethod || "cash", adminName,
       });
       if (!result.ok) return res.status(400).json({ error: result.reason || "لا توجد مبالغ مستحقة" });
       res.json({ success: true, outstandingAfter: result.outstandingAfter, receiptNumber: result.receiptNumber, paymentId: result.paymentId });
@@ -5582,7 +5637,56 @@ export async function registerRoutes(app: Express): Promise<Server> {
   }
   // ─── End Utilities ────────────────────────────────────────────────────────
 
-  async function assignWaitingBatchToDriver(phoneNumber: string) {
+  // ── Dispatch serialisation (H-19) ──────────────────────────────────────────
+  //
+  // Every dispatch run is read → filter → write: it reads the confirmed orders,
+  // filters out the ones already spoken for, and only sets its in-memory guards
+  // (`batchedOrderIds`, `qd.currentBatchId`) on the LAST line, after a Firestore
+  // query, N sequential order updates and the batch creation. That leaves a window
+  // of several hundred milliseconds in which a second run reads the same orders and
+  // sees them as unclaimed.
+  //
+  // Ten entry points can start a run — three fire-and-forget
+  // assignWaitingBatchToDriver() calls, five onOrderConfirmed() calls, the
+  // vendor "confirmed" event and the 30s watchdog — and NONE of them is awaited by
+  // its caller. Two drivers pressing "go online" in the same second was enough to
+  // put one order into two batches, for two different drivers, deterministically.
+  //
+  // The fix is a promise chain rather than a boolean in-flight flag: a flag would
+  // DROP the overlapping attempt, leaving that order unassigned until the next
+  // watchdog tick 30 seconds later. Queuing runs them all, in order, each seeing the
+  // previous one's writes.
+  //
+  // `.then(work, work)` runs the next job whether the previous settled or threw, and
+  // the chain is re-armed with a caught promise, so one failure can never wedge
+  // dispatch permanently. This is sound because the server runs as a single process
+  // (ecosystem.config.js: instances 1, exec_mode "fork") and all dispatch state is
+  // in that process's memory. A second process would need the atomic reservation in
+  // createDeliveryBatch instead — deliberately out of scope here.
+  let dispatchChain: Promise<unknown> = Promise.resolve();
+
+  /** Queue one dispatch run. Never rejects, and never leaves the chain rejected. */
+  function runDispatch<T>(label: string, work: () => Promise<T>): Promise<T | undefined> {
+    const result = dispatchChain.then(
+      () => work(),
+      () => work(),
+    ).catch((err) => {
+      // The bodies below already try/catch; this is the backstop that keeps a future
+      // refactor from wedging the queue or emitting an unhandled rejection.
+      console.error(`[DISPATCH] ${label} failed:`, err);
+      return undefined;
+    });
+    dispatchChain = result;
+    return result;
+  }
+
+  /**
+   * The dispatch bodies, unserialised. Never call these from an entry point — they
+   * assume the caller already holds the dispatch chain. onOrderConfirmed calls them
+   * directly precisely BECAUSE it already holds it; going through runDispatch here
+   * would deadlock (a queued job waiting on a job queued behind itself).
+   */
+  async function assignWaitingBatchToDriverUnsafe(phoneNumber: string) {
     try {
       const db = getFirestore();
       if (!db) return;
@@ -5692,7 +5796,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // with the anchor order when that batch still has room (< maxBatchSize) and the anchor
   // is combinable with what the driver is already carrying. The nearest such driver wins.
   // Returns true if the anchor was added to a batch.
-  async function topUpBusyDriverBatch(anchor: any): Promise<boolean> {
+  async function topUpBusyDriverBatchUnsafe(anchor: any): Promise<boolean> {
     try {
       const db = getFirestore();
       if (!db || !anchor || batchedOrderIds.has(anchor.id)) return false;
@@ -5755,7 +5859,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Assign a new batch to the best available driver when a confirmed order arrives.
   // The oldest still-unbatched confirmed order is the "anchor": drivers are ranked by
   // proximity to ITS delivery area, and it also seeds the merge in assignWaitingBatchToDriver.
-  async function onOrderConfirmed() {
+  async function onOrderConfirmedUnsafe() {
     try {
       const confirmed = await getOrdersByStatus("confirmed");
       const anchor = confirmed
@@ -5778,16 +5882,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const driver = findBestAvailableDriver(anchorPoint);
       console.log(`[ORDER_CONFIRMED] Best driver: ${driver?.phoneNumber ?? "NONE"}`);
       if (driver) {
-        await assignWaitingBatchToDriver(driver.phoneNumber);
+        await assignWaitingBatchToDriverUnsafe(driver.phoneNumber);
       } else if (anchor) {
         // No free driver — hand the waiting order to a busy driver whose current run
         // still has room, so a single active driver keeps taking orders instead of them
         // piling up until the run finishes.
-        await topUpBusyDriverBatch(anchor);
+        await topUpBusyDriverBatchUnsafe(anchor);
       }
     } catch (e) {
       console.error("onOrderConfirmed error:", e);
     }
+  }
+
+  // ── Public dispatch entry points (H-19) ────────────────────────────────────
+  // Same names and signatures as before, so no call site changed; every one of them
+  // now runs through the single dispatch chain.
+
+  function assignWaitingBatchToDriver(phoneNumber: string): Promise<unknown> {
+    return runDispatch(`assignWaitingBatchToDriver(${phoneNumber})`, () =>
+      assignWaitingBatchToDriverUnsafe(phoneNumber),
+    );
+  }
+
+  function onOrderConfirmed(): Promise<unknown> {
+    return runDispatch("onOrderConfirmed", () => onOrderConfirmedUnsafe());
   }
 
   // Vendor-confirmed orders (server/vendor.ts) emit this same event so they get an
@@ -6258,8 +6376,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     if (!rawToken) return res.status(401).json({ error: "يرجى تسجيل الدخول أولاً" });
     let callerPhone: string;
     try {
-      const decoded = jwt.verify(rawToken, ROUTES_JWT_SECRET) as any;
+      const decoded = jwt.verify(rawToken, ROUTES_JWT_SECRET, JWT_VERIFY_OPTS) as any;
       if (decoded.role !== "customer" || !decoded.phoneNumber) throw new Error("invalid");
+      if (isCustomerTokenRevoked(String(decoded.phoneNumber), decoded.iat)) throw new Error("revoked");
       callerPhone = decoded.phoneNumber;
     } catch {
       return res.status(401).json({ error: "انتهت صلاحية الجلسة — يرجى تسجيل الدخول مجدداً" });
@@ -6363,8 +6482,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     if (!rawToken) return res.status(401).json({ error: "يرجى تسجيل الدخول أولاً" });
     let callerPhone: string;
     try {
-      const decoded = jwt.verify(rawToken, ROUTES_JWT_SECRET) as any;
+      const decoded = jwt.verify(rawToken, ROUTES_JWT_SECRET, JWT_VERIFY_OPTS) as any;
       if (decoded.role !== "customer" || !decoded.phoneNumber) throw new Error("invalid");
+      if (isCustomerTokenRevoked(String(decoded.phoneNumber), decoded.iat)) throw new Error("revoked");
       callerPhone = decoded.phoneNumber;
     } catch {
       return res.status(401).json({ error: "انتهت صلاحية الجلسة — يرجى تسجيل الدخول مجدداً" });
@@ -7196,8 +7316,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     if (!rawToken) return res.status(401).json({ error: "يرجى تسجيل الدخول" });
     let callerPhone: string;
     try {
-      const decoded = jwt.verify(rawToken, ROUTES_JWT_SECRET) as any;
+      const decoded = jwt.verify(rawToken, ROUTES_JWT_SECRET, JWT_VERIFY_OPTS) as any;
       if (decoded.role !== "customer" || !decoded.phoneNumber) throw new Error("invalid");
+      if (isCustomerTokenRevoked(String(decoded.phoneNumber), decoded.iat)) throw new Error("revoked");
       callerPhone = decoded.phoneNumber;
     } catch {
       return res.status(401).json({ error: "انتهت صلاحية الجلسة" });
@@ -7670,12 +7791,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       (socket.handshake.headers?.authorization || "").replace(/^Bearer\s+/i, "").trim();
     if (raw) {
       try {
-        const decoded = jwt.verify(String(raw), ROUTES_JWT_SECRET) as any;
+        const decoded = jwt.verify(String(raw), ROUTES_JWT_SECRET, JWT_VERIFY_OPTS) as any;
         (socket.data as any).role = decoded.role;
         if (decoded.role === "driver" && decoded.phoneNumber) {
           (socket.data as any).driverPhone = String(decoded.phoneNumber);
         }
-        if (decoded.role === "customer" && decoded.phoneNumber) {
+        // H-10: the socket handshake is an authentication point too — without this
+        // a revoked customer could still open a live connection and keep receiving
+        // order events for as long as the socket stayed up.
+        if (decoded.role === "customer" && decoded.phoneNumber
+            && !isCustomerTokenRevoked(String(decoded.phoneNumber), decoded.iat)) {
           (socket.data as any).customerPhone = String(decoded.phoneNumber);
         }
       } catch {
@@ -8241,7 +8366,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       const db = getFirestore();
       if (!db) return res.status(500).json({ error: "قاعدة البيانات غير متاحة" });
-      const payload = { ...req.body, updatedAt: new Date().toISOString() };
+      // H-17: this used to be `{ ...req.body, updatedAt }` — an unvalidated admin
+      // payload written straight into a PUBLICLY served document. Only the fields
+      // each section actually has are accepted now, with lengths, array caps and a
+      // markup guard; anything else fails the parse. `parsed.data` is the schema's
+      // own output object, never the caller's.
+      const parsed = parseWebsiteContent(section as CmsSection, req.body);
+      if (!parsed.ok) {
+        return res.status(400).json({ error: "بيانات غير صالحة", fields: parsed.fields });
+      }
+      const payload = { ...parsed.data, updatedAt: new Date().toISOString() };
       await db.collection("websiteContent").doc(section).set(payload, { merge: true });
       cmsPublicCache = null; // invalidate public cache
       return res.json({ success: true });
@@ -8263,7 +8397,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
         if (!req.file) return res.status(400).json({ error: "لم يتم رفع أي صورة" });
 
+        // H-17: `field` came straight from the request body, so any key at all could
+        // be created in the public document — including one that overwrites text
+        // content with an image URL. Only this section's own image fields are
+        // allowed; the UIs' no-persist sentinels are accepted and skip the write.
         const field = typeof req.body?.field === "string" ? req.body.field : "imageUrl";
+        const persistField =
+          (CMS_IMAGE_FIELDS[section as CmsSection] as readonly string[]).includes(field);
+        if (!persistField && !(CMS_IMAGE_NO_PERSIST as readonly string[]).includes(field)) {
+          return res.status(400).json({ error: "حقل الصورة غير مسموح لهذا القسم" });
+        }
         const webpBuffer = await sharp(req.file.buffer).webp({ quality: 85 }).toBuffer();
         const hash = createHash("sha256").update(webpBuffer).digest("hex");
 
@@ -8274,7 +8417,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         // Persist URL to Firestore only for named fields (not screenshots "temp")
         const db = getFirestore();
-        if (db && field !== "temp") {
+        if (db && persistField) {
           await db.collection("websiteContent").doc(section).set(
             { [field]: url, updatedAt: new Date().toISOString() },
             { merge: true }
@@ -8295,11 +8438,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { url, section, field } = req.body as { url?: string; section?: string; field?: string };
       if (!url) return res.status(400).json({ error: "الرابط مطلوب" });
       await deleteFromFirebaseStorage(url);
-      if (section && field && CMS_SECTIONS.includes(section as CmsSection)) {
+      // H-17: same allowlist as the upload route. `field: "__array__"` — which the
+      // admin panel sends when removing a screenshot — used to be written into the
+      // document as a junk key; it is a no-persist sentinel and is now skipped.
+      const allowedField =
+        !!section &&
+        isCmsSection(section) &&
+        !!field &&
+        (CMS_IMAGE_FIELDS[section] as readonly string[]).includes(field);
+      if (allowedField) {
         const db = getFirestore();
         if (db) {
-          await db.collection("websiteContent").doc(section).set(
-            { [field]: "", updatedAt: new Date().toISOString() },
+          await db.collection("websiteContent").doc(section as CmsSection).set(
+            { [field as string]: "", updatedAt: new Date().toISOString() },
             { merge: true }
           );
         }

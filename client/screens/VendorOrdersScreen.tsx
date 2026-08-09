@@ -23,6 +23,7 @@ import { useFocusEffect } from "@react-navigation/native";
 import { MaterialCommunityIcons, Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import * as Print from "expo-print";
+import { escapeHtml as esc } from "@/utils/escapeHtml";
 
 import { ThemedText } from "@/components/ThemedText";
 import { useAuth } from "@/context/AuthContext";
@@ -225,7 +226,16 @@ function getActions(status: string): Action[] {
   }
 }
 
-// ─── Receipt HTML builder (unchanged) ─────────────────────────────────────────
+// ─── Receipt HTML builder ─────────────────────────────────────────────────────
+//
+// H-16: every value below is interpolated into the printed HTML, and almost all of
+// them are attacker-controlled — the customer types their own name, phone, address
+// and notes at checkout, and the order's `items` array is stored exactly as the
+// client sent it, so product names and quantities are too. Nothing was escaped, so
+// a customer could inject markup that changes what the store's printed receipt says
+// (the total, the item list) or that pulls a remote image when it is opened.
+//
+// Every interpolation goes through esc(). The layout is unchanged.
 
 function buildReceiptHTML(order: VendorOrder): string {
   const orderNum = order.id.slice(-8).toUpperCase();
@@ -267,9 +277,9 @@ function buildReceiptHTML(order: VendorOrder): string {
     .map(
       (item) => `
     <tr>
-      <td style="text-align:right;padding:7px 4px;border-bottom:1px dashed #ddd;font-size:13px;">${item.name}</td>
-      <td style="text-align:center;padding:7px 4px;border-bottom:1px dashed #ddd;font-size:13px;color:#555;">${item.quantity}</td>
-      <td style="text-align:left;padding:7px 4px;border-bottom:1px dashed #ddd;font-size:13px;white-space:nowrap;">${((item.price || 0) * (item.quantity || 1)).toLocaleString("ar-IQ")} د.ع</td>
+      <td style="text-align:right;padding:7px 4px;border-bottom:1px dashed #ddd;font-size:13px;">${esc(item.name)}</td>
+      <td style="text-align:center;padding:7px 4px;border-bottom:1px dashed #ddd;font-size:13px;color:#555;">${esc(item.quantity)}</td>
+      <td style="text-align:left;padding:7px 4px;border-bottom:1px dashed #ddd;font-size:13px;white-space:nowrap;">${esc(((item.price || 0) * (item.quantity || 1)).toLocaleString("ar-IQ"))} د.ع</td>
     </tr>`,
     )
     .join("");
@@ -309,16 +319,16 @@ function buildReceiptHTML(order: VendorOrder): string {
   <div class="app-name">OnWay</div>
   <div class="app-sub">خدمة التوصيل السريع</div>
 </div>
-<div class="store-name">${storeName}</div>
+<div class="store-name">${esc(storeName)}</div>
 <hr class="divider-bold">
-<div class="row"><span class="row-label">رقم الطلب</span><span class="row-value">#${orderNum}</span></div>
-<div class="row"><span class="row-label">التاريخ</span><span class="row-value">${createdDate}</span></div>
-<div class="row"><span class="row-label">الوقت</span><span class="row-value">${createdTime}</span></div>
+<div class="row"><span class="row-label">رقم الطلب</span><span class="row-value">#${esc(orderNum)}</span></div>
+<div class="row"><span class="row-label">التاريخ</span><span class="row-value">${esc(createdDate)}</span></div>
+<div class="row"><span class="row-label">الوقت</span><span class="row-value">${esc(createdTime)}</span></div>
 <hr class="divider">
 <div class="section-title">بيانات العميل</div>
-<div class="row"><span class="row-label">الاسم</span><span class="row-value">${customerName}</span></div>
-<div class="row"><span class="row-label">الهاتف</span><span class="row-value">${customerPhone}</span></div>
-<div class="row"><span class="row-label">عنوان التوصيل</span><span class="row-value" style="max-width:60%;text-align:left;">${address}</span></div>
+<div class="row"><span class="row-label">الاسم</span><span class="row-value">${esc(customerName)}</span></div>
+<div class="row"><span class="row-label">الهاتف</span><span class="row-value">${esc(customerPhone)}</span></div>
+<div class="row"><span class="row-label">عنوان التوصيل</span><span class="row-value" style="max-width:60%;text-align:left;">${esc(address)}</span></div>
 <hr class="divider">
 <div class="section-title">تفاصيل الطلب</div>
 <table>
@@ -326,13 +336,13 @@ function buildReceiptHTML(order: VendorOrder): string {
   <tbody>${itemsHTML}</tbody>
 </table>
 <hr class="divider">
-<div class="total-row"><span>إجمالي المتجر</span><span>${vendorTotal.toLocaleString("ar-IQ")} د.ع</span></div>
-${order.deliveryFee !== undefined && order.deliveryFee > 0 ? `<div class="total-row"><span>رسوم التوصيل</span><span>${order.deliveryFee.toLocaleString("ar-IQ")} د.ع</span></div>` : ""}
-${order.serviceFee !== undefined && order.serviceFee > 0 ? `<div class="total-row"><span>رسوم الخدمة</span><span>${order.serviceFee.toLocaleString("ar-IQ")} د.ع</span></div>` : ""}
-<div class="total-row grand-total"><span>الإجمالي النهائي</span><span>${order.total.toLocaleString("ar-IQ")} د.ع</span></div>
+<div class="total-row"><span>إجمالي المتجر</span><span>${esc(vendorTotal.toLocaleString("ar-IQ"))} د.ع</span></div>
+${order.deliveryFee !== undefined && order.deliveryFee > 0 ? `<div class="total-row"><span>رسوم التوصيل</span><span>${esc(order.deliveryFee.toLocaleString("ar-IQ"))} د.ع</span></div>` : ""}
+${order.serviceFee !== undefined && order.serviceFee > 0 ? `<div class="total-row"><span>رسوم الخدمة</span><span>${esc(order.serviceFee.toLocaleString("ar-IQ"))} د.ع</span></div>` : ""}
+<div class="total-row grand-total"><span>الإجمالي النهائي</span><span>${esc(order.total.toLocaleString("ar-IQ"))} د.ع</span></div>
 <hr class="divider">
-<div class="payment-row"><span style="color:#666;">طريقة الدفع</span><span style="font-weight:600;">${paymentLabel}</span></div>
-${order.notes ? `<div class="notes-box"><strong>ملاحظات:</strong> ${order.notes}</div>` : ""}
+<div class="payment-row"><span style="color:#666;">طريقة الدفع</span><span style="font-weight:600;">${esc(paymentLabel)}</span></div>
+${order.notes ? `<div class="notes-box"><strong>ملاحظات:</strong> ${esc(order.notes)}</div>` : ""}
 <div class="footer">
   <div class="footer-main">شكراً لاستخدامكم OnWay</div>
   <div class="footer-sub">نتمنى لكم تجربة توصيل ممتازة</div>

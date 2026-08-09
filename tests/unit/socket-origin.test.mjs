@@ -95,7 +95,12 @@ describe("C-12/socket — the wildcard fallback is gone", () => {
   test("the authentication middleware and transports are untouched", () => {
     // Guards requirements 7/8/10: signature mechanism, event names, reconnect.
     assert.match(ROUTES, /ioServer\.use\(\(socket, next\) => \{/, "handshake auth middleware intact");
-    assert.match(ROUTES, /jwt\.verify\(String\(raw\), ROUTES_JWT_SECRET\)/, "token verification intact");
+    // H-09 added the pinned-algorithm options argument; the mechanism is unchanged.
+    assert.match(
+      ROUTES,
+      /jwt\.verify\(String\(raw\), ROUTES_JWT_SECRET, JWT_VERIFY_OPTS\)/,
+      "token verification intact",
+    );
     assert.match(ROUTES, /transports: \["websocket", "polling"\]/, "both transports still enabled");
   });
 });

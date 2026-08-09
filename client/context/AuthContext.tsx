@@ -16,7 +16,7 @@ import {
   clearDriverToken,
   installDriverAuthInterceptor,
 } from "@/lib/driverAuth";
-import { installAdminAuthInterceptor } from "@/lib/adminAuth";
+import { clearAdminToken, installAdminAuthInterceptor } from "@/lib/adminAuth";
 import { compressAndConvertToBase64 } from "@/lib/imageUtils";
 import * as Notifications from "expo-notifications";
 import * as Device from "expo-device";
@@ -899,6 +899,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       await removeToken(CUSTOMER_TOKEN_KEY);
       await AsyncStorage.removeItem(GUEST_MODE_KEY);
       await clearDriverToken();
+      // H-11: logout cleared the vendor, customer, driver and guest credentials but
+      // NOT the admin one, and clearAdminToken() had no caller anywhere. On a shared
+      // phone the supervisor signed out and handed the device over with a still-valid
+      // admin token in storage, which the fetch interceptor kept attaching.
+      await clearAdminToken();
       setPhoneNumber(null);
       setPendingPhone(null);
       setUserProfile(null);

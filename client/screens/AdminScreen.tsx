@@ -16,6 +16,7 @@ import { WebView } from "react-native-webview";
 import * as Notifications from "expo-notifications";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
+import { useNavigation } from "@react-navigation/native";
 import { Image } from "expo-image";
 import * as ImagePicker from "expo-image-picker";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -36,6 +37,8 @@ import { Banner, Category } from "@/constants/categories";
 import { CATEGORY_MAP } from "@/constants/businessCategories";
 import { apiRequest, getApiUrl } from "@/lib/query-client";
 import { resolveImageUrl } from "@/utils/imageUtils";
+import { getAdminToken } from "@/lib/adminAuth";
+import { escapeHtml as esc } from "@/utils/escapeHtml";
 import { formatPrice } from "@/constants/currency";
 import { formatDateOnly } from "@/lib/dateUtils";
 import { processAndUploadImage } from "@/lib/imageUtils";
@@ -184,6 +187,28 @@ export default function AdminScreen() {
   const headerHeight = useHeaderHeight();
   const { theme } = useTheme();
   const queryClient = useQueryClient();
+  const navigation = useNavigation<any>();
+
+  // H-12: "Admin" is a route on the SAME stack every customer and guest gets, and
+  // this screen used to mount for anyone who reached it — the only protection was
+  // that the network calls would fail. The panel's layout, the operation names and
+  // the shape of every admin route were on display regardless.
+  //
+  // Nothing renders until a stored admin token is confirmed; without one the screen
+  // is replaced by the login screen, so there is no back-stack entry to return to.
+  const [adminAuthState, setAdminAuthState] = useState<"checking" | "ok">("checking");
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const token = await getAdminToken();
+      if (cancelled) return;
+      if (token) setAdminAuthState("ok");
+      else navigation.replace("AdminLogin");
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [navigation]);
 
   // Real-time: refresh the orders list immediately when the server broadcasts an
   // order change, instead of waiting for the 6s refetch interval below. The
@@ -358,15 +383,21 @@ export default function AdminScreen() {
     [refetchSettlementConfig],
   );
 
+  // Same class as H-16: this report is assembled by string interpolation and then
+  // handed to Print.printAsync. `accountName` is the store's or driver's own display
+  // name — the very field H-15 showed can carry a payload — so an unescaped cell lets
+  // a store inject markup into the report the supervisor prints. The status cell is a
+  // ternary over three fixed Arabic literals and the header/date are static, so only
+  // the data cells need escaping; they all get it.
   const printSettlementReport = useCallback(async () => {
     const type = settleView === "vendor" ? "vendor" : "driver";
     const rows = settlementAccounts
       .map(
         (a) => `
       <tr>
-        <td>${a.accountName ?? ""}</td>
-        <td style="text-align:center">${a.totalOrders ?? 0}</td>
-        <td style="text-align:center">${(a.outstanding ?? 0).toLocaleString("ar-IQ")} د.ع</td>
+        <td>${esc(a.accountName ?? "")}</td>
+        <td style="text-align:center">${esc(a.totalOrders ?? 0)}</td>
+        <td style="text-align:center">${esc((a.outstanding ?? 0).toLocaleString("ar-IQ"))} د.ع</td>
         <td style="text-align:center">${a.status === "settled" ? "مسوّى" : a.status === "under_review" ? "قيد المراجعة" : "مستحق"}</td>
       </tr>`,
       )
@@ -2217,7 +2248,7 @@ export default function AdminScreen() {
 @keyframes blink{0%,100%{opacity:1}50%{opacity:0.2}}
 </style></head><body>
 <div id="map"></div>
-<div class="info-pill"><span class="dot"></span> ${driverName || "المندوب"} - موقع مباشر</div>
+<div class="info-pill"><span class="dot"></span> ${esc(driverName || "المندوب")} - موقع مباشر</div>
 <script>
 var map=L.map('map',{zoomControl:true,attributionControl:false}).setView([${driverLat},${driverLng}],15);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19}).addTo(map);
@@ -7880,6 +7911,23 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
     { key: "storage", label: "التخزين", icon: "hard-drive" },
     { key: "websiteCms", label: "الموقع", icon: "globe" },
   ];
+
+  // H-12: hold the whole panel back until the stored admin token is confirmed.
+  // Rendering the tab bar first would already leak the operation structure.
+  if (adminAuthState === "checking") {
+    return (
+      <View
+        style={{
+          flex: 1,
+          backgroundColor: theme.backgroundRoot,
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        <ActivityIndicator size="large" color={theme.primary} />
+      </View>
+    );
+  }
 
   return (
     <View style={{ flex: 1, backgroundColor: theme.backgroundRoot }}>
