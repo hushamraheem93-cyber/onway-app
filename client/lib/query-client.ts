@@ -16,13 +16,24 @@ import {
  * (useful for development when the app and API are on the same host).
  */
 function currentResolution() {
+  // React Native DEFINES a global `window` — it is an alias for the global object
+  // — but gives it no `location`. A bare `typeof window !== "undefined"` check
+  // therefore passed on a phone and the property read threw
+  // "Cannot read property 'origin' of undefined" while this argument object was
+  // still being built, before resolveApiBase ran. Every network call goes through
+  // getApiUrl(), so a standalone build could not reach the server at all — a
+  // correctly configured EXPO_PUBLIC_API_BASE_URL never got a chance to be read.
+  // Expo Go and the Metro dev client polyfill window.location, which is why this
+  // only ever appeared in an EAS build.
+  const hasLocation =
+    typeof window !== "undefined" && typeof window.location !== "undefined";
   // EXPO_PUBLIC_* vars are baked in at Expo build time (native) or read from
   // the process env at runtime (web/SSR). Both paths use the same priority.
   return resolveApiBase({
     configured:
       process.env.EXPO_PUBLIC_API_BASE_URL || process.env.EXPO_PUBLIC_DOMAIN,
-    isWeb: Platform.OS === "web" && typeof window !== "undefined",
-    windowOrigin: typeof window !== "undefined" ? window.location.origin : null,
+    isWeb: Platform.OS === "web" && hasLocation,
+    windowOrigin: hasLocation ? window.location.origin : null,
   });
 }
 
