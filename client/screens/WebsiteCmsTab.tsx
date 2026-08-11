@@ -63,6 +63,32 @@ function uid() {
   return Math.random().toString(36).slice(2, 9);
 }
 
+/**
+ * The reason the server gave for a failed response (H-31).
+ *
+ * Every handler here used to show one generic "فشل في الحفظ", throwing away
+ * messages the admin needs: "غير مصرح" (the session expired), "طلب غير موثوق
+ * المصدر" (CSRF), and — the one that actually blocks progress — the `fields`
+ * list that PUT returns with 400, which names the field the schema rejected.
+ * The body is read defensively: an error page from the reverse proxy is not JSON.
+ */
+async function serverError(res: Response): Promise<string> {
+  const data = (await res.json().catch(() => null)) as
+    | { error?: unknown; fields?: unknown }
+    | null;
+  const reason =
+    typeof data?.error === "string" && data.error.trim()
+      ? data.error
+      : "حاول مرة أخرى";
+  const fields = Array.isArray(data?.fields)
+    ? data.fields.filter((f) => typeof f === "string")
+    : [];
+  return fields.length ? `${reason}: ${fields.join("، ")}` : reason;
+}
+
+const CONNECTION_ERROR =
+  "تعذّر الاتصال بالخادم، تحقّق من الإنترنت وحاول مجدداً";
+
 // ── Sub-components ────────────────────────────────────────────────────────────
 
 /** Labelled text input */
@@ -224,25 +250,43 @@ function HeroForm({ initial, onSaved }: { initial: any; onSaved: () => void }) {
         method: "POST",
         body: form,
       });
+      // H-31: res.json() ran BEFORE res.ok was checked, so an error page that is
+      // not JSON (a 502 from the reverse proxy) threw before any message existed.
+      if (!res.ok) {
+        Alert.alert("خطأ", await serverError(res));
+        return;
+      }
       const json = await res.json();
-      if (res.ok) setData((d) => ({ ...d, heroImageUrl: json.url }));
-      else Alert.alert("خطأ", json.error ?? "فشل في رفع الصورة");
+      setData((d) => ({ ...d, heroImageUrl: json.url }));
+    } catch {
+      Alert.alert("خطأ", CONNECTION_ERROR);
     } finally {
       setUploading(false);
     }
   };
 
   const removeImage = async () => {
-    await adminFetch("/api/admin/website-cms/image", {
-      method: "DELETE",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        url: data.heroImageUrl,
-        section: "hero",
-        field: "heroImageUrl",
-      }),
-    });
-    setData((d) => ({ ...d, heroImageUrl: "" }));
+    // H-31: no try, no res.ok check — the image was cleared from the screen
+    // whatever the server answered, so a refused delete looked like a success
+    // and the picture stayed live on the public site.
+    try {
+      const res = await adminFetch("/api/admin/website-cms/image", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          url: data.heroImageUrl,
+          section: "hero",
+          field: "heroImageUrl",
+        }),
+      });
+      if (!res.ok) {
+        Alert.alert("خطأ", await serverError(res));
+        return;
+      }
+      setData((d) => ({ ...d, heroImageUrl: "" }));
+    } catch {
+      Alert.alert("خطأ", CONNECTION_ERROR);
+    }
   };
 
   const save = async () => {
@@ -256,7 +300,12 @@ function HeroForm({ initial, onSaved }: { initial: any; onSaved: () => void }) {
       if (res.ok) {
         Alert.alert("✓ تم الحفظ");
         onSaved();
-      } else Alert.alert("خطأ", "فشل في الحفظ");
+      } else Alert.alert("خطأ", await serverError(res));
+    } catch {
+      // H-31: there was no catch at all, so a dropped connection rejected a
+      // promise nothing awaits — the spinner stopped and the admin was told
+      // nothing whatsoever.
+      Alert.alert("خطأ", CONNECTION_ERROR);
     } finally {
       setSaving(false);
     }
@@ -347,7 +396,12 @@ function FeaturesForm({
       if (res.ok) {
         Alert.alert("✓ تم الحفظ");
         onSaved();
-      } else Alert.alert("خطأ", "فشل في الحفظ");
+      } else Alert.alert("خطأ", await serverError(res));
+    } catch {
+      // H-31: there was no catch at all, so a dropped connection rejected a
+      // promise nothing awaits — the spinner stopped and the admin was told
+      // nothing whatsoever.
+      Alert.alert("خطأ", CONNECTION_ERROR);
     } finally {
       setSaving(false);
     }
@@ -419,7 +473,12 @@ function StatsForm({
       if (res.ok) {
         Alert.alert("✓ تم الحفظ");
         onSaved();
-      } else Alert.alert("خطأ", "فشل في الحفظ");
+      } else Alert.alert("خطأ", await serverError(res));
+    } catch {
+      // H-31: there was no catch at all, so a dropped connection rejected a
+      // promise nothing awaits — the spinner stopped and the admin was told
+      // nothing whatsoever.
+      Alert.alert("خطأ", CONNECTION_ERROR);
     } finally {
       setSaving(false);
     }
@@ -493,7 +552,12 @@ function FaqForm({ initial, onSaved }: { initial: any; onSaved: () => void }) {
       if (res.ok) {
         Alert.alert("✓ تم الحفظ");
         onSaved();
-      } else Alert.alert("خطأ", "فشل في الحفظ");
+      } else Alert.alert("خطأ", await serverError(res));
+    } catch {
+      // H-31: there was no catch at all, so a dropped connection rejected a
+      // promise nothing awaits — the spinner stopped and the admin was told
+      // nothing whatsoever.
+      Alert.alert("خطأ", CONNECTION_ERROR);
     } finally {
       setSaving(false);
     }
@@ -561,7 +625,12 @@ function DownloadLinksForm({
       if (res.ok) {
         Alert.alert("✓ تم الحفظ");
         onSaved();
-      } else Alert.alert("خطأ", "فشل في الحفظ");
+      } else Alert.alert("خطأ", await serverError(res));
+    } catch {
+      // H-31: there was no catch at all, so a dropped connection rejected a
+      // promise nothing awaits — the spinner stopped and the admin was told
+      // nothing whatsoever.
+      Alert.alert("خطأ", CONNECTION_ERROR);
     } finally {
       setSaving(false);
     }
@@ -638,21 +707,42 @@ function ScreenshotsForm({
           "/api/admin/website-cms/screenshots/image",
           { method: "POST", body: form },
         );
+        // H-31: this had no `else` at all, so every rejected screenshot upload
+        // was completely silent — the picker closed and nothing appeared.
+        if (!res.ok) {
+          Alert.alert("خطأ", await serverError(res));
+          return;
+        }
         const json = await res.json();
-        if (res.ok) setImages((prev) => [...prev, json.url]);
+        setImages((prev) => [...prev, json.url]);
       }
+    } catch {
+      Alert.alert("خطأ", CONNECTION_ERROR);
     } finally {
       setUploading(false);
     }
   };
 
   const removeImage = async (url: string) => {
+    // The optimistic removal stays — the grid should react instantly — but H-31
+    // never rolled it back, so a refused delete removed the screenshot from the
+    // admin's view while it kept serving on the public site.
+    const previous = images;
     setImages((prev) => prev.filter((u) => u !== url));
-    await adminFetch("/api/admin/website-cms/image", {
-      method: "DELETE",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ url }),
-    });
+    try {
+      const res = await adminFetch("/api/admin/website-cms/image", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url }),
+      });
+      if (!res.ok) {
+        setImages(previous);
+        Alert.alert("خطأ", await serverError(res));
+      }
+    } catch {
+      setImages(previous);
+      Alert.alert("خطأ", CONNECTION_ERROR);
+    }
   };
 
   const save = async () => {
@@ -666,7 +756,12 @@ function ScreenshotsForm({
       if (res.ok) {
         Alert.alert("✓ تم الحفظ");
         onSaved();
-      } else Alert.alert("خطأ", "فشل في الحفظ");
+      } else Alert.alert("خطأ", await serverError(res));
+    } catch {
+      // H-31: there was no catch at all, so a dropped connection rejected a
+      // promise nothing awaits — the spinner stopped and the admin was told
+      // nothing whatsoever.
+      Alert.alert("خطأ", CONNECTION_ERROR);
     } finally {
       setSaving(false);
     }
@@ -740,7 +835,12 @@ function ContactForm({
       if (res.ok) {
         Alert.alert("✓ تم الحفظ");
         onSaved();
-      } else Alert.alert("خطأ", "فشل في الحفظ");
+      } else Alert.alert("خطأ", await serverError(res));
+    } catch {
+      // H-31: there was no catch at all, so a dropped connection rejected a
+      // promise nothing awaits — the spinner stopped and the admin was told
+      // nothing whatsoever.
+      Alert.alert("خطأ", CONNECTION_ERROR);
     } finally {
       setSaving(false);
     }
@@ -824,25 +924,38 @@ function SeoForm({ initial, onSaved }: { initial: any; onSaved: () => void }) {
         method: "POST",
         body: form,
       });
+      if (!res.ok) {
+        Alert.alert("خطأ", await serverError(res));
+        return;
+      }
       const json = await res.json();
-      if (res.ok) setData((d) => ({ ...d, ogImageUrl: json.url }));
-      else Alert.alert("خطأ", json.error ?? "فشل في رفع الصورة");
+      setData((d) => ({ ...d, ogImageUrl: json.url }));
+    } catch {
+      Alert.alert("خطأ", CONNECTION_ERROR);
     } finally {
       setUploading(false);
     }
   };
 
   const removeOg = async () => {
-    await adminFetch("/api/admin/website-cms/image", {
-      method: "DELETE",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        url: data.ogImageUrl,
-        section: "seo",
-        field: "ogImageUrl",
-      }),
-    });
-    setData((d) => ({ ...d, ogImageUrl: "" }));
+    try {
+      const res = await adminFetch("/api/admin/website-cms/image", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          url: data.ogImageUrl,
+          section: "seo",
+          field: "ogImageUrl",
+        }),
+      });
+      if (!res.ok) {
+        Alert.alert("خطأ", await serverError(res));
+        return;
+      }
+      setData((d) => ({ ...d, ogImageUrl: "" }));
+    } catch {
+      Alert.alert("خطأ", CONNECTION_ERROR);
+    }
   };
 
   const save = async () => {
@@ -856,7 +969,12 @@ function SeoForm({ initial, onSaved }: { initial: any; onSaved: () => void }) {
       if (res.ok) {
         Alert.alert("✓ تم الحفظ");
         onSaved();
-      } else Alert.alert("خطأ", "فشل في الحفظ");
+      } else Alert.alert("خطأ", await serverError(res));
+    } catch {
+      // H-31: there was no catch at all, so a dropped connection rejected a
+      // promise nothing awaits — the spinner stopped and the admin was told
+      // nothing whatsoever.
+      Alert.alert("خطأ", CONNECTION_ERROR);
     } finally {
       setSaving(false);
     }
@@ -901,15 +1019,36 @@ export function WebsiteCmsTab() {
   const [activeSection, setActiveSection] = useState<SectionKey>("hero");
   const [cmsData, setCmsData] = useState<Record<string, any>>({});
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
+  // H-31: a failed load was silent and left cmsData empty, so every form
+  // rendered blank — every field is `initial?.x ?? ""`. The admin read that as
+  // "nothing is configured yet", pressed Save, and the all-empty payload was
+  // accepted (the schema is .partial() and the write is { merge: true }),
+  // wiping the live site's content. Loading now fails visibly instead, and the
+  // forms are not rendered at all until real content is in hand.
   const fetchAll = useCallback(async () => {
     try {
       const res = await adminFetch("/api/admin/website-cms");
-      if (res.ok) setCmsData(await res.json());
+      if (!res.ok) {
+        setLoadError(await serverError(res));
+        return;
+      }
+      setCmsData(await res.json());
+      setLoadError(null);
+    } catch {
+      setLoadError(CONNECTION_ERROR);
     } finally {
       setLoading(false);
     }
   }, []);
+
+  // Manual retry only — no automatic retry anywhere in this screen.
+  const retryLoad = useCallback(() => {
+    setLoading(true);
+    setLoadError(null);
+    fetchAll();
+  }, [fetchAll]);
 
   useEffect(() => {
     fetchAll();
@@ -918,6 +1057,23 @@ export function WebsiteCmsTab() {
   const onSaved = useCallback(() => {
     fetchAll();
   }, [fetchAll]);
+
+  const renderLoadError = () => (
+    <View style={s.card}>
+      <View style={s.loadErrorTop}>
+        <Feather name="wifi-off" size={20} color={RED} />
+        <ThemedText style={s.cardTitle}>تعذّر تحميل محتوى الموقع</ThemedText>
+      </View>
+      <ThemedText style={s.fieldLabel}>{loadError}</ThemedText>
+      <ThemedText style={s.loadErrorHint}>
+        لم تُعرَض النماذج حتى لا يُحفَظ محتوى فارغ فوق المحتوى الحالي.
+      </ThemedText>
+      <Pressable style={s.saveBtn} onPress={retryLoad}>
+        <Feather name="refresh-cw" size={16} color={WHITE} />
+        <ThemedText style={s.saveBtnText}>إعادة المحاولة</ThemedText>
+      </Pressable>
+    </View>
+  );
 
   const renderSection = () => {
     const d = cmsData[activeSection];
@@ -988,6 +1144,8 @@ export function WebsiteCmsTab() {
             color={RED}
             style={{ marginTop: 60 }}
           />
+        ) : loadError ? (
+          renderLoadError()
         ) : (
           renderSection()
         )}
@@ -1032,6 +1190,21 @@ const s = StyleSheet.create({
     fontFamily: "Cairo_700Bold",
     fontSize: 15,
     color: AppColors.gray800,
+    textAlign: "right",
+    marginBottom: 4,
+  },
+
+  // H-31 load-error state. Reuses the existing card, title and button styles;
+  // only the icon row and the hint line are new.
+  loadErrorTop: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    gap: 8,
+  },
+  loadErrorHint: {
+    fontFamily: "Cairo_400Regular",
+    fontSize: 12,
+    color: GRAY500,
     textAlign: "right",
     marginBottom: 4,
   },

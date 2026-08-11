@@ -51,6 +51,7 @@ import { queryClient } from "@/lib/query-client";
 
 import RootStackNavigator from "@/navigation/RootStackNavigator";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { reportCrash } from "@/lib/crashReporting";
 import { AuthProvider } from "@/context/AuthContext";
 import { SystemSettingsProvider } from "@/context/SystemSettingsContext";
 import { CartProvider } from "@/context/CartContext";
@@ -99,7 +100,7 @@ export default function App() {
   }
 
   return (
-    <ErrorBoundary>
+    <ErrorBoundary onError={reportCrash}>
       <QueryClientProvider client={queryClient}>
         <ThemeProvider>
           <AuthProvider>

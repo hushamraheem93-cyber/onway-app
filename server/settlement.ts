@@ -243,8 +243,11 @@ export async function getSettlementLedger(
     const snap = await db.collection(LEDGER).doc(ledgerId(accountType, accountId)).get();
     return snap.exists ? { id: snap.id, ...(snap.data() as any) } : null;
   } catch (error) {
+    // H-33: returning null made every caller fall back to `?? 0`, so a driver's
+    // wallet showed "nothing owed" during a Firestore outage while they were
+    // carrying the platform's cash. Callers already answer 500 on a throw.
     console.error("getSettlementLedger error:", error);
-    return null;
+    throw error;
   }
 }
 
@@ -476,8 +479,10 @@ export async function listSettlementRequests(
     if (accountType) items = items.filter((i) => i.accountType === accountType);
     return items.sort(byCreatedDesc);
   } catch (error) {
+    // H-33: an empty list reads as "there are no settlement requests", which is
+    // what an admin acts on. A failed read must not look like that.
     console.error("listSettlementRequests error:", error);
-    return [];
+    throw error;
   }
 }
 
@@ -1067,8 +1072,9 @@ export async function listSettlementAccounts(accountType: SettlementAccountType)
       })
       .sort((a, b) => b.outstanding - a.outstanding);
   } catch (error) {
+    // H-33: same — "no accounts owe anything" is a financial claim.
     console.error("listSettlementAccounts error:", error);
-    return [];
+    throw error;
   }
 }
 
@@ -1205,7 +1211,10 @@ export async function getSettlementPayments(
       .map((d) => ({ id: d.id, ...(d.data() as any) }))
       .sort((a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0));
   } catch (error) {
+    // H-33: an empty payment history in a settlement dispute reads as "nothing was
+    // ever paid". Call sites that deliberately tolerate a gap keep their own
+    // .catch(() => []) and are unaffected.
     console.error("getSettlementPayments error:", error);
-    return [];
+    throw error;
   }
 }

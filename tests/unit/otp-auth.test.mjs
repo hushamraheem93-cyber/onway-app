@@ -35,15 +35,17 @@ after(() => {
 describe("OTP — code generation", () => {
   before(() => setEnv({ NODE_ENV: "production" }));
 
-  test("issues a 4-digit numeric code", () => {
+  // C-04: the code was 4 digits (9,000 possibilities) — the finding's "guessable
+  // within hours". It is 6 now (900,000). These assertions pinned the old size.
+  test("issues a 6-digit numeric code", () => {
     const code = generateOtp(phone());
-    assert.match(code, /^\d{4}$/, "code must be exactly 4 digits");
+    assert.match(code, /^\d{6}$/, "code must be exactly 6 digits");
   });
 
-  test("code is within the documented 1000-9999 range", () => {
+  test("code is within the documented 100000-999999 range", () => {
     for (let i = 0; i < 50; i++) {
       const n = Number(generateOtp(phone()));
-      assert.ok(n >= 1000 && n <= 9999, `code ${n} out of range`);
+      assert.ok(n >= 100000 && n <= 999999, `code ${n} out of range`);
     }
   });
 
@@ -80,7 +82,7 @@ describe("OTP — verification", () => {
   test("rejects an incorrect code", () => {
     const p = phone();
     const code = generateOtp(p);
-    const wrong = String((Number(code) % 9000) + 1000).padStart(4, "0");
+    const wrong = String(((Number(code) - 100000 + 1) % 900000) + 100000);
     assert.equal(verifyOtp(p, wrong), false);
   });
 
@@ -93,7 +95,7 @@ describe("OTP — verification", () => {
   });
 
   test("rejects verification for a phone that never requested a code", () => {
-    assert.equal(verifyOtp(phone(), "1234"), false);
+    assert.equal(verifyOtp(phone(), "123456"), false);
   });
 
   test("a code issued for one phone does not verify another phone", () => {
@@ -112,13 +114,13 @@ describe("OTP — brute-force protection", () => {
   test("invalidates the code after 5 wrong attempts", () => {
     const p = phone();
     const code = generateOtp(p);
-    const wrong = String((Number(code) % 9000) + 1000).padStart(4, "0");
+    const wrong = String(((Number(code) - 100000 + 1) % 900000) + 100000);
 
     for (let i = 0; i < 5; i++) {
       assert.equal(verifyOtp(p, wrong), false, `wrong attempt ${i + 1} must fail`);
     }
 
-    // The correct code must now be dead: 4 digits is only 9,000 possibilities,
+    // The correct code must now be dead: even at 6 digits an unlimited-attempt
     // so the attempt cap is what makes the short code safe.
     assert.equal(
       verifyOtp(p, code),
@@ -130,7 +132,7 @@ describe("OTP — brute-force protection", () => {
   test("the correct code still works on the 5th attempt if not yet exhausted", () => {
     const p = phone();
     const code = generateOtp(p);
-    const wrong = String((Number(code) % 9000) + 1000).padStart(4, "0");
+    const wrong = String(((Number(code) - 100000 + 1) % 900000) + 100000);
 
     for (let i = 0; i < 4; i++) verifyOtp(p, wrong);
 
@@ -189,7 +191,7 @@ describe("OTP — development bypass must never work in production", () => {
     setEnv({ NODE_ENV: "development", DEV_MODE: "true" });
     const p = phone();
     const code = generateOtp(p);
-    const wrong = String((Number(code) % 9000) + 1000).padStart(4, "0");
+    const wrong = String(((Number(code) - 100000 + 1) % 900000) + 100000);
 
     assert.equal(verifyOtp(p, wrong), false, "a wrong code must still fail in dev mode");
     assert.equal(verifyOtp(p, code), true, "the real code must still work in dev mode");

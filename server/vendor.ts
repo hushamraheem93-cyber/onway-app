@@ -127,6 +127,42 @@ function isPreApprovalVendorRoute(req: Request): boolean {
   return VENDOR_PREAPPROVAL_ROUTES.some((r) => path.endsWith(r));
 }
 
+/**
+ * C-16: POST /api/vendor/register had NO authentication and took phoneNumber
+ * straight from the body, then returned a vendor session token. Anyone who knew
+ * the API URL could script a store account for every commercial number in the
+ * city; the duplicate check ("رقم الهاتف مسجل مسبقاً") would then lock the real
+ * owners out permanently and flood the admin queue.
+ *
+ * Driver registration already does this correctly — it carries the customer token
+ * issued after OTP verification — so registration now demands the same proof.
+ * Verifying the token is not enough on its own: the number being registered must
+ * be the number that was verified, or an attacker with one real OTP could still
+ * register every other number.
+ */
+const phoneTail = (phone: unknown) => String(phone ?? "").replace(/\D/g, "").slice(-10);
+const samePhone = (a: unknown, b: unknown) => {
+  const ta = phoneTail(a);
+  return ta.length === 10 && ta === phoneTail(b);
+};
+
+function requireVerifiedCustomer(req: Request, res: Response, next: express.NextFunction) {
+  const authHeader = req.headers.authorization || "";
+  const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7).trim() : "";
+  if (!token) {
+    return res.status(401).json({ error: "يجب التحقق من رقم هاتفك أولاً" });
+  }
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET, JWT_VERIFY_OPTS) as any;
+    if (decoded.role !== "customer" || !decoded.phoneNumber) throw new Error("invalid role");
+    if (isCustomerTokenRevoked(String(decoded.phoneNumber), decoded.iat)) throw new Error("revoked");
+    (req as any).verifiedPhone = String(decoded.phoneNumber);
+    next();
+  } catch {
+    return res.status(401).json({ error: "يجب التحقق من رقم هاتفك أولاً" });
+  }
+}
+
 async function requireVendor(req: Request, res: Response, next: express.NextFunction) {
   // 1. Try Authorization: Bearer <jwt> (mobile app)
   const authHeader = req.headers.authorization;
@@ -316,11 +352,17 @@ router.get("/vendor/dashboard", (req, res) => {
 });
 
 // ── POST /api/vendor/register ───────────────────────────────────────────────
-router.post("/api/vendor/register", async (req, res) => {
+router.post("/api/vendor/register", requireVerifiedCustomer, async (req, res) => {
   try {
     const { storeName, businessType, phoneNumber, password, ownerName, address, email, latitude, longitude } = req.body;
     if (!storeName || !businessType || !phoneNumber || !ownerName) {
       return res.status(400).json({ error: "جميع الحقول المطلوبة غير مكتملة" });
+    }
+    // C-16: you may only register the number you verified. Compared on the last ten
+    // digits because production stores Iraqi numbers in several shapes
+    // ("07…", "9647…", "009647…") and a string compare silently fails to match.
+    if (!samePhone(phoneNumber, (req as any).verifiedPhone)) {
+      return res.status(403).json({ error: "لا يمكن التسجيل برقم هاتف غير الذي تم التحقق منه" });
     }
     // Optional store location pinned by the owner on the map (used for dispatch:
     // ranking the nearest driver and shown on the admin panel map).
@@ -1255,9 +1297,21 @@ router.get("/api/vendor/orders", requireVendor, async (req, res) => {
       .limit(200)
       .get();
 
-    // 3. Fetch the 300 most-recent orders (by createdAt desc) to check for item-level ownership.
-    //    This deterministic window covers vendor products not caught by the restaurant detection flow.
+    // 3. Orders that carry this vendor only inside items[].productId — the shape no
+    //    where() on the old schema could reach.
+    //
+    // H-34 (SWITCHED): this used to read the newest 300 orders PLATFORM-WIDE and
+    // filter them in JS. Past 300 platform orders a store's real orders fell out of
+    // the window and its revenue shrank month after month. `vendorIds` is the
+    // denormalised union of the top-level vendorId and every item's owner, so the
+    // same set is now reachable with a scoped query — and the window is 300 of THIS
+    // vendor's orders instead of 300 of everyone's.
+    //
+    // Prerequisites, both satisfied before this switched: the
+    // orders/vendorIds CONTAINS + createdAt DESC index is READY, and
+    // scripts/backfill-order-vendor-ids.mjs reports "would change: 0".
     const recentOrdersSnap = await db.collection("orders")
+      .where("vendorIds", "array-contains", vid)
       .orderBy("createdAt", "desc")
       .limit(300)
       .get();
@@ -1381,9 +1435,16 @@ router.get("/api/vendor/stats", requireVendor, async (req, res) => {
     // degrades and bills badly as the platform grows. Bounded to the most recent
     // ORDER_SCAN_LIMIT orders (newest first): older orders predate the marketplace
     // flow and are already covered by the vendorId query above.
+    // H-34 (SWITCHED): the window is now 2000 of THIS vendor's orders rather than
+    // 2000 of the platform's, so a busy platform can no longer push a store's own
+    // orders out of its stats.
     const ORDER_SCAN_LIMIT = 2000;
     const allOrdersSnap = vendorProductIds.size > 0
-      ? await db.collection("orders").orderBy("createdAt", "desc").limit(ORDER_SCAN_LIMIT).get()
+      ? await db.collection("orders")
+          .where("vendorIds", "array-contains", vid)
+          .orderBy("createdAt", "desc")
+          .limit(ORDER_SCAN_LIMIT)
+          .get()
       : { docs: [] as any[] };
 
     const ordersMap = new Map<string, any>();
@@ -2083,11 +2144,32 @@ router.get("/api/vendor/wallet", requireVendor, async (req, res) => {
       startDate = new Date(now.getFullYear(), now.getMonth(), 1);
     }
 
-    // 3. Fetch recent orders (limit to last 1000)
-    const snap = await db.collection("orders")
-      .orderBy("createdAt", "desc")
-      .limit(1000)
-      .get();
+    // 3. This vendor's recent orders (limit 1000).
+    //
+    // H-34 (SWITCHED): a platform-wide scan of the newest 1000 orders, filtered in
+    // JS. Unlike /api/vendor/orders and /api/vendor/stats, this endpoint had NO
+    // top-level vendorId query beside it — the scan was its only source — so on a
+    // busy platform the store's wallet revenue silently shrank. Now scoped.
+    //
+    // The union with the vendorId query is deliberate belt-and-braces: an order
+    // written by a server build that predates the creation-time vendorIds write
+    // would be missing from the array-contains result, and a MISSING order here
+    // reads as lost revenue. Both queries are indexed and deduplicated below.
+    const [containsSnap, byVendorIdSnap] = await Promise.all([
+      db.collection("orders")
+        .where("vendorIds", "array-contains", vid)
+        .orderBy("createdAt", "desc")
+        .limit(1000)
+        .get(),
+      db.collection("orders")
+        .where("vendorId", "==", vid)
+        .orderBy("createdAt", "desc")
+        .limit(1000)
+        .get(),
+    ]);
+    const snap = { docs: [...new Map(
+      [...containsSnap.docs, ...byVendorIdSnap.docs].map((d) => [d.id, d]),
+    ).values()] };
 
     const completedStatuses = new Set(["delivered", "picked_up", "delivering"]);
 

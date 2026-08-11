@@ -7,6 +7,7 @@ import {
   ActivityIndicator,
   Pressable,
   Platform,
+  AppState,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
@@ -356,12 +357,36 @@ export default function OrderTrackingScreen() {
     } catch {}
   }, [orderId, order?.latitude, order?.longitude, customerToken]);
 
+  // H-42: this screen used to run its own `setInterval(refreshOrders, 10000)`.
+  //
+  // That was a byte-for-byte duplicate of the poll OrderContext already runs — the
+  // same function at the same interval (OrderContext.tsx, "H-25" effect) — so the
+  // order list was fetched twice every ten seconds while this screen was open. The
+  // context's copy is strictly better than the one that used to live here: it is
+  // gated on AppState, so it stops in the background and refreshes immediately on
+  // return, and it is additionally driven by the "orders:changed" socket ping, so a
+  // status change lands well before the next tick either way.
+  //
+  // The duplicate also had no status guard, so it kept polling for a delivered or
+  // cancelled order for as long as the screen stayed mounted — and a stack screen
+  // stays mounted when another screen is pushed on top of it.
+  //
+  // Nothing replaces it: `orders` comes from the context, which is the single
+  // source of truth for order state. Pull-to-refresh (handleRefresh) still calls
+  // refreshOrders directly, so the manual path is unchanged.
+
+  // Battery/server saver, mirroring OrderContext's guard: the driver-location
+  // fallback below must not keep fetching GPS while the map is not on screen. The
+  // effect re-runs on return to foreground, which fetches once immediately.
+  const [appActive, setAppActive] = useState(
+    AppState.currentState !== "background",
+  );
   useEffect(() => {
-    const interval = setInterval(() => {
-      refreshOrders();
-    }, 10000);
-    return () => clearInterval(interval);
-  }, [refreshOrders]);
+    const sub = AppState.addEventListener("change", (s) =>
+      setAppActive(s === "active"),
+    );
+    return () => sub.remove();
+  }, []);
 
   // Socket.io: real-time driver location updates
   useEffect(() => {
@@ -444,7 +469,11 @@ export default function OrderTrackingScreen() {
       order?.status === "in_delivery" ||
       order?.status === "picked_up" ||
       order?.status === "delivering";
-    if (tracking) {
+    // H-42: also gated on AppState now. Backgrounded, the map is not rendered, so
+    // polling the driver's GPS bought nothing; the socket stays connected and
+    // remains the primary channel. Returning to foreground re-runs this effect,
+    // which fetches once immediately and restarts the interval.
+    if (tracking && appActive) {
       fetchDriverLocation(); // always fetch once immediately
       const interval = setInterval(() => {
         if (!socketConnectedRef.current) {
@@ -452,12 +481,12 @@ export default function OrderTrackingScreen() {
         }
       }, 8000);
       return () => clearInterval(interval);
-    } else {
+    } else if (!tracking) {
       setDriverLocation(null);
       setMapHtml(null);
       mapInitializedRef.current = false;
     }
-  }, [order?.status, fetchDriverLocation]);
+  }, [order?.status, fetchDriverLocation, appActive]);
 
   // Disconnect socket on unmount
   useEffect(() => {

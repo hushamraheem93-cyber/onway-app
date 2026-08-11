@@ -241,12 +241,12 @@ function setupRateLimiter(app: express.Application) {
     next();
   });
 
-  setInterval(() => {
+  serverTimers.push(setInterval(() => {
     const now = Date.now();
     for (const [key, entry] of rateLimitStore) {
       if (now > entry.resetAt) rateLimitStore.delete(key);
     }
-  }, 5 * 60 * 1000);
+  }, 5 * 60 * 1000));
 }
 
 // ── Security Headers ──────────────────────────────────────────────────────────
@@ -961,11 +961,15 @@ async function checkStaleOrders(): Promise<void> {
 // pass finished; once a pass ran long, runs stacked and each re-read the same orders
 // before the notified-marker was written, producing duplicate vendor pushes and
 // multiplying Firestore load with every overlap.
+// H-45: index.ts runs its own periodic jobs (rate-limit sweep, stale-order pass).
+// They were untracked setInterval calls, so shutdown could not stop them.
+const serverTimers: ReturnType<typeof setInterval>[] = [];
+
 let staleOrderRunInFlight = false;
 
 function startStaleOrderJob(): void {
   const INTERVAL_MS = 60 * 1000; // run every minute
-  setInterval(() => {
+  serverTimers.push(setInterval(() => {
     if (staleOrderRunInFlight) {
       console.warn("[StaleOrders] Previous pass still running — skipping this tick.");
       return;
@@ -976,12 +980,32 @@ function startStaleOrderJob(): void {
       .finally(() => {
         staleOrderRunInFlight = false;
       });
-  }, INTERVAL_MS);
+  }, INTERVAL_MS));
   console.log("[StaleOrders] Reminder job started (runs every 60s)");
 }
 
-function gracefulShutdown(signal: string) {
+let shutdownStarted = false;
+async function gracefulShutdown(signal: string): Promise<void> {
+  if (shutdownStarted) return;
+  shutdownStarted = true;
   console.error(`[Shutdown] Received ${signal} — closing server gracefully`);
+
+  // H-45: this used to call _httpServer.close() and nothing else. Socket.IO held
+  // every client connection open, so close() could not drain and the 10s force
+  // exit was what actually ended the process — cutting off in-flight requests on
+  // every deploy. The periodic jobs were never stopped either, so they kept
+  // firing against a server that was on its way down.
+  //
+  // Order matters: stop scheduling work, disconnect clients, then drain HTTP.
+  for (const t of serverTimers) clearInterval(t);
+  serverTimers.length = 0;
+
+  const releaseRoutes = (_httpServer as any)?.onwayShutdown;
+  if (typeof releaseRoutes === "function") {
+    try { await releaseRoutes(); }
+    catch (err) { console.error("[Shutdown] route cleanup failed:", err); }
+  }
+
   if (_httpServer) {
     _httpServer.close(() => {
       console.error("[Shutdown] All connections drained. Exiting.");
@@ -996,15 +1020,55 @@ function gracefulShutdown(signal: string) {
   }
 }
 
-process.on("SIGTERM", () => gracefulShutdown("SIGTERM"));
-process.on("SIGINT",  () => gracefulShutdown("SIGINT"));
+process.on("SIGTERM", () => { void gracefulShutdown("SIGTERM"); });
+process.on("SIGINT",  () => { void gracefulShutdown("SIGINT"); });
+
+// H-44: a fault this severe must take the process down, not be logged and ignored.
+//
+// Node's contract for uncaughtException is explicit: once one escapes, the process
+// is in an undefined state — handles can be half-closed and module state half
+// mutated — and resuming normal operation is unsupported. This process assigns
+// deliveries and writes the financial ledger, so continuing to serve from a state
+// nobody can reason about is the worst of the available options. It also loses the
+// crash: PM2 sees a healthy process, and the log line scrolls away.
+//
+// Exiting is safe HERE specifically because every piece of in-memory dispatch state
+// is rebuilt from Firestore on boot — driverQueue, batchedOrderIds and
+// driverAssignments (see the restore blocks in routes.ts). A restart re-reads them,
+// so no order is stranded by the exit itself.
+//
+// unhandledRejection exits too, which is Node's own default since v15. That is only
+// safe because nothing here relies on a stray rejection being tolerated: every
+// promise chain in server/ carries a .catch, so this should never fire in practice.
+//
+// PM2 bounds the blast radius: restart_delay 3s, max_restarts 10, min_uptime 10s,
+// so a persistent fault stops the app loudly instead of quietly corrupting data.
+let fatalExitStarted = false;
+function fatalExit(kind: string): void {
+  // A second fault while we are already exiting must not restart this sequence.
+  if (fatalExitStarted) return;
+  fatalExitStarted = true;
+  console.error(
+    `[FATAL] ${kind} — process state is no longer trustworthy; exiting for a clean restart.`,
+  );
+  try {
+    // Stop accepting new connections. In-flight ones end when the process leaves.
+    _httpServer?.close();
+  } catch {
+    /* closing is best-effort — the exit below is what matters */
+  }
+  // Bounded: let stderr flush and close() settle, then leave regardless.
+  setTimeout(() => process.exit(1), 500);
+}
 
 process.on("uncaughtException", (err) => {
   console.error("Uncaught Exception:", err);
+  fatalExit("uncaughtException");
 });
 
 process.on("unhandledRejection", (reason) => {
   console.error("Unhandled Rejection:", reason);
+  fatalExit("unhandledRejection");
 });
 
 process.on("exit", (code) => {

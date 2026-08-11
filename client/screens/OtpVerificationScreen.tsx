@@ -22,7 +22,8 @@ import { AppColors } from "@/constants/theme";
 import { useAuth } from "@/context/AuthContext";
 
 // Must match the code length the server generates in generateOtp().
-const OTP_LENGTH = 4;
+// C-04: must match generateOtp() on the server (server/firebase.ts).
+const OTP_LENGTH = 6;
 const BRAND_ORANGE = AppColors.primary;
 const BRAND_DARK = AppColors.primaryDark;
 

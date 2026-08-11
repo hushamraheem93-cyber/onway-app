@@ -309,6 +309,12 @@ const products: Product[] = [
 ];
 
 // Fallback when appSettings/fees has no value — matches GET /api/settings/fees.
+/** H-35: upper bound on distinct cart lines in a single order. */
+const MAX_ORDER_ITEM_LINES = 100;
+
+/** H-37: hard bound on the public ratings read (base64 images make it costly). */
+const RATINGS_SCAN_CAP = 1000;
+
 const DEFAULT_SERVICE_FEE = 500;
 
 const ROUTES_JWT_SECRET = (() => {
@@ -873,6 +879,83 @@ export async function registerRoutes(app: Express): Promise<Server> {
   //  never held anything Firestore lacked. It only retained roughly 180k objects a year
   //  at 500 deliveries/day, pushing the process toward max_memory_restart.)
   const driverLocations: Map<string, { lat: number; lng: number; updatedAt: number; fullName?: string }> = new Map();
+
+  // ── GPS heartbeat cost controls (H-39) ─────────────────────────────────────
+  // A heartbeat needs exactly one piece of stored data: the driver's display
+  // name, which rides along on the live-map broadcast. That name was re-read
+  // from Firestore on EVERY heartbeat, and getDriverByPhone() walks each Iraqi
+  // phone-format variant in turn — so a single heartbeat cost up to four
+  // where().limit(1).get() queries. At the active-delivery rate of one heartbeat
+  // every 5s, 50 drivers on shift burned up to 2,400 queries a minute fetching a
+  // name that cannot change mid-shift.
+  //
+  // Nothing is cached negatively: an unknown phone still re-reads every time, so
+  // a deleted driver is rejected on the very next heartbeat rather than lingering
+  // for a TTL. The admin delete path purges this map for the same reason.
+  //
+  // The TTL is a minute rather than a shift, and deliberately: it still collapses
+  // the per-heartbeat read to one read per driver per minute (a 12x cut at the
+  // 5s active rate), while bounding how long a driver removed OUTSIDE the app —
+  // straight in the Firestore console — could keep publishing. Before this cache
+  // that window was one heartbeat; a minute is the price of the fix, and a
+  // shift-long TTL would not have been.
+  const driverNameCache = new Map<string, { fullName: string; at: number }>();
+  const DRIVER_NAME_TTL = 60_000;
+
+  /** The driver's display name, re-read from Firestore at most once per TTL. */
+  const cachedDriverName = async (phoneNumber: string): Promise<string | null> => {
+    const hit = driverNameCache.get(phoneNumber);
+    if (hit && Date.now() - hit.at < DRIVER_NAME_TTL) return hit.fullName;
+    const driver = await getDriverByPhone(phoneNumber).catch(() => null);
+    if (!driver) return null; // never cached — see above
+    const fullName = driver.fullName || "";
+    driverNameCache.set(phoneNumber, { fullName, at: Date.now() });
+    return fullName;
+  };
+
+  // Firestore persistence of the last position, throttled per driver. Shared by
+  // the socket path and the HTTP fallback so a client switching transports
+  // cannot write twice as often as one staying on either.
+  const locationFirestoreThrottle = new Map<string, number>();
+  const FIRESTORE_WRITE_INTERVAL = 10_000; // write to Firestore at most every 10s
+
+  // Nothing bounded how fast a socket could emit "driver:location", so a driver
+  // token looping tightly multiplied the work above without limit — a billing
+  // drain and an event-loop stall, not merely waste. The legitimate client sends
+  // one heartbeat every 5s mid-delivery and every 30s otherwise, so a one-second
+  // floor leaves five times the margin a real driver needs.
+  const locationRateLimit = new Map<string, number>();
+  const LOCATION_MIN_INTERVAL = 1_000;
+
+  /**
+   * Do these two strings name the same Iraqi phone, whatever format each is in?
+   *
+   * Production stores driver numbers in more than one shape — "009647702891104"
+   * alongside "07837527840" — and the in-memory maps are keyed by whichever shape
+   * the writer happened to hold: the token's for anything driven by a driver
+   * request, the Firestore document's for anything driven by the admin panel.
+   * Comparing the strings therefore silently fails to match. Every variant
+   * (0…, 7…, 964…, 00964…) ends in the same ten digits, so that is the comparison.
+   */
+  const phoneTail = (phone: unknown) => String(phone ?? "").replace(/\D/g, "").slice(-10);
+  const samePhone = (a: unknown, b: unknown) => {
+    const ta = phoneTail(a);
+    return ta.length === 10 && ta === phoneTail(b);
+  };
+
+  /**
+   * Forget every heartbeat-scoped entry for a driver, whatever phone format the
+   * entry was keyed under. See samePhone above for why this cannot be an
+   * exact-string delete.
+   */
+  const purgeHeartbeatState = (phone: string) => {
+    if (phoneTail(phone).length !== 10) return;
+    for (const map of [driverNameCache, locationRateLimit, locationFirestoreThrottle] as Map<string, unknown>[]) {
+      for (const key of [...map.keys()]) {
+        if (samePhone(key, phone)) map.delete(key);
+      }
+    }
+  };
 
   // Rejection cooldown: track which orders each driver has recently rejected
   // Prevents immediate re-assignment of the same order to the same driver
@@ -1750,16 +1833,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ─── App Settings (Service Fee, etc.) ───────────────────────────────────────
   // Single source of truth for the service fee, shared by GET /api/settings/fees
   // and order pricing so the two can never disagree.
+  // H-33: "never configured" and "could not be read" are different facts, and only
+  // the first one has a default.
+  //
+  // This value flows straight into verifiedTotal, which becomes the stored order
+  // total and from there into the settlement ledger, the vendor payable and the
+  // commission. Falling back to DEFAULT_SERVICE_FEE on a READ FAILURE meant a
+  // Firestore blip silently priced an order at 500 instead of whatever the admin
+  // had configured — a wrong number that then looks exactly like a right one for
+  // the rest of its life.
+  //
+  // The fallback costs nothing to give up: every other step of order creation
+  // needs Firestore too (the product reads, the order write), so a failure here
+  // was never the difference between an order being placed and not. An absent
+  // document or an unusable value still means "not configured", and still
+  // defaults — that is a real answer, not a masked failure.
   async function getConfiguredServiceFee(): Promise<number> {
-    try {
-      const db = getFirestore();
-      if (!db) return DEFAULT_SERVICE_FEE;
-      const snap = await db.collection("appSettings").doc("fees").get();
-      const value = Number((snap.exists ? snap.data() : {})?.serviceFee);
-      return Number.isFinite(value) && value >= 0 ? Math.round(value) : DEFAULT_SERVICE_FEE;
-    } catch {
-      return DEFAULT_SERVICE_FEE;
-    }
+    const db = getFirestore();
+    if (!db) throw new Error("service fee unavailable: no database");
+    const snap = await db.collection("appSettings").doc("fees").get();
+    const value = Number((snap.exists ? snap.data() : {})?.serviceFee);
+    return Number.isFinite(value) && value >= 0 ? Math.round(value) : DEFAULT_SERVICE_FEE;
   }
 
   app.get("/api/settings/fees", async (req, res) => {
@@ -1924,7 +2018,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const isRestaurantOrder = await checkIsRestaurantOrder(order);
     const { driverEarning, deductionAmount } = await computeDriverPayout(isRestaurantOrder, order.deliveryFee || 0);
     if (driverPhone) {
-      await updateOrderDriverInfo(orderId, { driverEarning, ownerEarning: deductionAmount });
+      // H-33: the result was discarded. The settlement accrual below still ran, so
+      // the ledger recorded the money while the ORDER document kept no earnings —
+      // the two sources of truth silently disagreed and per-order reconciliation
+      // failed. Throwing keeps the accrual and the order record together; both
+      // callers already recover by releasing their claim for a clean retry.
+      const wrote = await updateOrderDriverInfo(orderId, { driverEarning, ownerEarning: deductionAmount });
+      if (!wrote) {
+        throw new Error(`order ${orderId} earnings could not be written to the order`);
+      }
     }
 
     let driverOutstanding = 0;
@@ -2324,7 +2426,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const vendors = await getVendorList();
     const vendor = vendors.find(v => v.id === id);
     if (!vendor) return res.status(404).json({ error: "المطعم غير موجود" });
-    if (!db) return res.json({ vendor, orders: [], totalSales: 0, appCommission: 0, vendorNet: 0 });
+    // H-33: an unavailable database used to answer 200 with zeroed money, which the
+    // admin reads as "this store sold nothing". "No sales" and "the statement could
+    // not be loaded" are different facts and must not share a response.
+    if (!db) {
+      console.error("[statement] vendor statement unavailable: no database");
+      return res.status(503).json({ error: "قاعدة البيانات غير متاحة، تعذّر تحميل كشف الحساب" });
+    }
     try {
       const ordersSnap = await db.collection("orders").where("vendorId", "==", id).get();
       // Financial totals must count ONLY delivered orders — the same rule the
@@ -2352,9 +2460,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const vendorNet = totalSales - appCommission;
       const vendorWithImage = { ...vendor, image: limitImageSize((vendor as any).image || (vendor as any).profileImageUrl || (vendor as any).coverImageUrl || "", 80000) };
       res.json({ vendor: vendorWithImage, orders: orders.length, totalSales, appCommission, vendorNet, commissionPercent: vendor.commissionPercent });
-    } catch {
-      const vendorWithImage = { ...vendor, image: limitImageSize((vendor as any).image || (vendor as any).profileImageUrl || (vendor as any).coverImageUrl || "", 80000) };
-      res.json({ vendor: vendorWithImage, orders: 0, totalSales: 0, appCommission: 0, vendorNet: 0, commissionPercent: vendor.commissionPercent });
+    } catch (err) {
+      // H-33: this swallowed the error and answered 200 with every figure zeroed —
+      // orders, totalSales, appCommission, vendorNet. A Firestore outage or a bad
+      // document was therefore indistinguishable from a store that genuinely sold
+      // nothing, and the admin had no way to tell. The success shape above is
+      // unchanged; only this failure path stops lying.
+      console.error(`[statement] vendor=${id} statement failed:`, err);
+      res.status(500).json({ error: "تعذّر تحميل كشف الحساب، حاول مرة أخرى" });
     }
   });
 
@@ -2364,12 +2477,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const phoneNumber = (req as any).customerPhone as string;
     const db = getFirestore();
     if (db) {
-      const orders = await getOrdersByPhone(phoneNumber);
-      return res.json(orders.map(o => ({
-        ...o,
-        createdAt: o.createdAt?.toDate?.() ? o.createdAt.toDate().toISOString() : o.createdAt,
-        updatedAt: o.updatedAt?.toDate?.() ? o.updatedAt.toDate().toISOString() : o.updatedAt,
-      })));
+      // H-33: a failed read must not reach the customer as an empty order list.
+      try {
+        const orders = await getOrdersByPhone(phoneNumber);
+        return res.json(orders.map(o => ({
+          ...o,
+          createdAt: o.createdAt?.toDate?.() ? o.createdAt.toDate().toISOString() : o.createdAt,
+          updatedAt: o.updatedAt?.toDate?.() ? o.updatedAt.toDate().toISOString() : o.updatedAt,
+        })));
+      } catch (error: any) {
+        console.error("[API]", error?.message);
+        return res.status(500).json({ error: GENERIC_SERVER_ERROR });
+      }
     }
     res.json([]);
   });
@@ -2532,6 +2651,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!Array.isArray(items) || items.length === 0) {
         return res.status(400).json({ error: "الطلب لا يحتوي على أي عناصر" });
       }
+      // H-35: the quantity per line was capped at 99 but the NUMBER OF LINES was
+      // not, and each line costs one sequential Firestore read in the addon pass
+      // above. A 5,000-line cart still fits inside the 10 MB body limit, so one
+      // request could hold the connection open for thousands of round trips —
+      // and the rate limiter allows 600 requests a minute. A real order in
+      // Dhuluiyah is a handful of lines; this bound sits far above any genuine
+      // basket and simply stops the request from being unbounded.
+      if (items.length > MAX_ORDER_ITEM_LINES) {
+        return res.status(400).json({
+          error: `الطلب يحتوي على عدد كبير جداً من العناصر (الحد ${MAX_ORDER_ITEM_LINES})`,
+        });
+      }
 
       const allProductsForPricing = await getCachedProducts();
       const verifiedPriceByProductId = new Map<string, number>();
@@ -2541,6 +2672,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const outOfStockNames: string[] = [];
 
       let allItemsAreRestaurant = items.length > 0;
+
+      // H-35: pre-load every vendorProduct this basket needs in ONE round trip.
+      //
+      // The loop below used to `await db.collection("vendorProducts").doc(id).get()`
+      // per item, sequentially — one network round trip each, for every line that
+      // is not in the legacy product cache. MAX_ORDER_ITEM_LINES bounds how many
+      // that can be, but bounded is not the same as batched: a 100-line basket
+      // still meant 100 serial reads with the request held open for all of them.
+      //
+      // getAll() fetches them together, de-duplicated, since a basket may list one
+      // product twice. Nothing about pricing changes: the same documents, read the
+      // same way — the loop below still prefers the legacy cache and only consults
+      // this map when the legacy price is unusable.
+      //
+      // Every distinct item id is fetched, not just the ones the pricing loop will
+      // need, because two later steps in this same handler read the same documents:
+      //   • the marketplace vendor fallback, which used to walk the basket with one
+      //     sequential doc.get() per line (H-35's own N+1, in a second place);
+      //   • orderData.vendorIds (H-34), which is the union of the order's vendorId
+      //     and the owner of every item — an order created without it would be
+      //     invisible to the vendor query the backfill exists to enable.
+      // One round trip now serves all three, and it is bounded by
+      // MAX_ORDER_ITEM_LINES.
+      const vendorProductById = new Map<string, any>();
+      {
+        const needed = new Set<string>();
+        for (const it of items as any[]) {
+          const pid = it?.productId;
+          if (typeof pid === "string" && pid) needed.add(pid);
+        }
+        if (needed.size > 0) {
+          const refs = [...needed].map((id) => db.collection("vendorProducts").doc(id));
+          const snaps = await db.getAll(...refs);
+          for (const snap of snaps) {
+            if (snap.exists) vendorProductById.set(snap.id, snap.data());
+          }
+        }
+      }
 
       for (const it of items as any[]) {
         let realPrice: number | undefined;
@@ -2557,10 +2726,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           if (legacyProduct.inStock === false) available = false;
           if (legacyProduct.categoryId !== "restaurants") allItemsAreRestaurant = false;
         } else {
-          // Fall back to vendorProducts collection (vendor-added items aren't in the legacy cache)
-          const vpDoc = await db.collection("vendorProducts").doc(it.productId).get();
-          if (vpDoc.exists) {
-            const vp = vpDoc.data() as any;
+          // Fall back to vendorProducts collection (vendor-added items aren't in the
+          // legacy cache). Read from the batch fetched above — same document, no
+          // per-item round trip.
+          const vp = vendorProductById.get(it.productId) as any;
+          if (vp) {
             const vpPrice = Number(vp?.price);
             if (isValidProductPrice(vpPrice)) {
               realPrice = vpPrice;
@@ -2819,25 +2989,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // undefined even though GET /api/vendor/orders can still locate them via
       // item-level productId lookups. Setting it here keeps admin filtering,
       // driver batch pickup-address resolution, and analytics consistent.
+      //
+      // The documents are already in hand from the single getAll() above, so this
+      // reads the basket in order and stops at the first owned product — the same
+      // first-match rule as before, without the per-line round trip.
       if (!orderData.vendorId) {
         try {
-          const db = getFirestore();
-          if (db) {
-            for (const it of (items as any[])) {
-              if (!it?.productId) continue;
-              const pDoc = await db.collection("vendorProducts").doc(it.productId).get();
-              if (pDoc.exists) {
-                const pData = pDoc.data() as any;
-                if (pData?.vendorId) {
-                  orderData.vendorId   = pData.vendorId;
-                  // vendorProducts already stores storeName/vendorName at product-creation time
-                  orderData.vendorName = pData.storeName || pData.vendorName || "";
-                  break;
-                }
-              }
+          for (const it of (items as any[])) {
+            if (!it?.productId) continue;
+            const pData = vendorProductById.get(it.productId);
+            if (pData?.vendorId) {
+              orderData.vendorId   = pData.vendorId;
+              // vendorProducts already stores storeName/vendorName at product-creation time
+              orderData.vendorName = pData.storeName || pData.vendorName || "";
+              break;
             }
           }
         } catch (e) { console.error("Vendor marketplace detection error:", e); }
+      }
+
+      // H-34: every vendor with a stake in this order, denormalised so a vendor can
+      // query `orders where vendorIds array-contains <id>` instead of reading the
+      // newest 300/1000/2000 orders platform-wide and filtering in JavaScript.
+      //
+      // The value is computed by exactly the rule the backfill script uses — the
+      // union of orderData.vendorId and the owner of each item, deduplicated and
+      // sorted — so a backfilled order and a freshly created one are identical.
+      // Without this, the backfill goes stale on the very next order.
+      //
+      // The field is additive: nothing reads it until the vendor queries are
+      // switched over, which needs the orders/vendorIds index deployed first.
+      {
+        const owners = new Set<string>();
+        if (orderData.vendorId) owners.add(String(orderData.vendorId));
+        for (const it of (items as any[])) {
+          const owner = vendorProductById.get(it?.productId)?.vendorId;
+          if (owner) owners.add(String(owner));
+        }
+        orderData.vendorIds = [...owners].sort();
       }
 
       // ── H-03: claim the coupon BEFORE the order exists ────────────────────────
@@ -3391,7 +3580,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
     const db = getFirestore();
     if (db) {
-      await updateUserPushToken(phoneNumber, pushToken);
+      // H-33: the result was discarded and the route answered success either way.
+      // updateUserPushToken returns false when the write fails, so a customer whose
+      // token never landed was told notifications were registered — and then simply
+      // never received one, with nothing to explain it. The app can retry a 500.
+      const saved = await updateUserPushToken(phoneNumber, pushToken);
+      if (!saved) {
+        console.error("[push-token] failed to store push token");
+        return res.status(500).json({ error: GENERIC_SERVER_ERROR });
+      }
       return res.json({ success: true });
     }
     res.status(500).json({ error: "Database not configured" });
@@ -4014,12 +4211,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Data consistency: purge the deleted driver from all in-memory and persisted
       // live state so they can never receive new batches or appear online afterwards.
       if (phoneNumber) {
-        const idx = driverQueue.findIndex(d => d.phoneNumber === phoneNumber);
-        if (idx !== -1) driverQueue.splice(idx, 1);
-        driverLocations.delete(phoneNumber);
-        for (const [oid, drv] of driverAssignments.entries()) {
-          if (drv === phoneNumber) driverAssignments.delete(oid);
+        // Every eviction below matches on the last ten digits, NOT on the string.
+        //
+        // `phoneNumber` here comes from the driver's STORED document, which
+        // production holds as "009647702891104", while the live maps are keyed by
+        // the phone inside the driver's TOKEN, "07837527840". An exact-string
+        // delete therefore missed every one of them: the deleted driver stayed in
+        // driverQueue (so dispatch kept offering them batches), stayed in
+        // driverLocations (so they stayed on the admin's live map), and kept their
+        // driverAssignments entries (so a customer's tracking still resolved to
+        // them). Every Iraqi variant — 0…, 7…, 964…, 00964… — shares the same
+        // trailing ten digits, which is what samePhone compares.
+        for (let i = driverQueue.length - 1; i >= 0; i -= 1) {
+          if (samePhone(driverQueue[i].phoneNumber, phoneNumber)) driverQueue.splice(i, 1);
         }
+        for (const key of [...driverLocations.keys()]) {
+          if (samePhone(key, phoneNumber)) driverLocations.delete(key);
+        }
+        for (const [oid, drv] of driverAssignments.entries()) {
+          if (samePhone(drv, phoneNumber)) driverAssignments.delete(oid);
+        }
+        for (const key of [...driverRejectionCooldowns.keys()]) {
+          if (samePhone(key, phoneNumber)) driverRejectionCooldowns.delete(key);
+        }
+        // The heartbeat-scoped maps (cached name, rate limit, write throttle).
+        purgeHeartbeatState(phoneNumber);
         removeDriverFromActiveQueue(phoneNumber).catch(() => {});
       }
       res.json({ success: true });
@@ -4148,7 +4364,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/driver/location", async (req: Request, res: Response) => {
     const { phoneNumber, lat, lng } = req.body;
     if (!phoneNumber || lat === undefined || lng === undefined) return res.status(400).json({ error: "Missing fields" });
-    const driver = await getDriverByPhone(phoneNumber).catch(() => null);
+    // H-39: requireDriverAuth already loaded this driver to guard the /api/driver
+    // mount, and it overrides body.phoneNumber with the token identity — so the
+    // second getDriverByPhone() here re-ran the same variant-walking lookup on
+    // every fallback heartbeat for a name the request already had.
+    const driver = (req as any).driver as { fullName?: string } | undefined;
     driverLocations.set(phoneNumber, { lat: Number(lat), lng: Number(lng), updatedAt: Date.now(), fullName: driver?.fullName });
     // Mark driver as recently seen (active app) — in-memory AND Firestore
     const qd = driverQueue.find(d => d.phoneNumber === phoneNumber);
@@ -4157,8 +4377,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Sync lastSeenAt to Firestore so ghost-driver cleanup has accurate data
       updateDriverQueueEntry(phoneNumber, { lastSeenAt: Date.now() } as any).catch(() => {});
     }
-    // Persist last location to Firestore driver document
-    updateDriverLastLocation(phoneNumber, Number(lat), Number(lng)).catch(() => {});
+    // Persist last location to Firestore driver document. H-39: the socket path
+    // has always throttled this to once per 10s per driver; this one wrote on
+    // every request. Sharing the same throttle map also stops a client that
+    // alternates transports from writing twice as often as one that does not.
+    const lastWrite = locationFirestoreThrottle.get(phoneNumber) || 0;
+    if (Date.now() - lastWrite >= FIRESTORE_WRITE_INTERVAL) {
+      locationFirestoreThrottle.set(phoneNumber, Date.now());
+      updateDriverLastLocation(phoneNumber, Number(lat), Number(lng)).catch(() => {});
+    }
     res.json({ success: true });
   });
 
@@ -4318,7 +4545,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const db = getFirestore();
       if (db) {
-        await updateOrderStatus(orderId, "in_delivery");
+        // H-33: the result was discarded, so a refused transition or a failed write
+        // still notified the customer "on the way" and answered success — while
+        // Firestore never left the previous status. The customer watched a delivery
+        // that had not started. updateOrderStatus logs the state-machine block
+        // distinctly, so the server log tells the two causes apart.
+        const moved = await updateOrderStatus(orderId, "in_delivery");
+        if (!moved) {
+          console.error(`[start-delivery] order=${orderId} not moved to in_delivery`);
+          return res.status(409).json({ error: "تعذّر بدء التوصيل، حدّث الشاشة وحاول مجدداً" });
+        }
         // Notify the customer their order is on the way (was previously missing here).
         notifyCustomerStatus(orderId, "in_delivery").catch(() => {});
         saveDriverActivity({ phoneNumber, type: "in_delivery", orderId }).catch(() => {});
@@ -4484,12 +4720,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Set all orders in batch to "preparing" and tag with driver info.
       // claimBatchForDriver already validated the batch state atomically,
       // so pass force:true to avoid a redundant per-order transition check.
+      // H-33: every result here was discarded. A failed status write still told the
+      // customer "being prepared", still linked the order to the driver in memory,
+      // and still answered success — while Firestore kept the order unassigned.
+      // Batch composition, order and size are untouched; only failures are handled.
+      const notAccepted: string[] = [];
       for (const orderId of claim.orderIds) {
-        await updateOrderStatus(orderId, "preparing", { force: true });
+        const moved = await updateOrderStatus(orderId, "preparing", { force: true });
+        if (!moved) {
+          notAccepted.push(orderId);
+          continue; // no customer notice, no assignment, no log for an order that did not move
+        }
         notifyCustomerStatus(orderId, "preparing").catch(() => {}); // ← Fix: notify customer
-        await updateOrderDriverInfo(orderId, { driverName, driverPhone: phoneNumber });
+        const linked = await updateOrderDriverInfo(orderId, { driverName, driverPhone: phoneNumber });
+        if (!linked) {
+          console.error(`[accept-batch] order=${orderId} moved but driver link failed`);
+          notAccepted.push(orderId);
+          continue;
+        }
         driverAssignments.set(orderId, phoneNumber);
         addDeliveryLog({ orderId, driverPhone: phoneNumber, action: "accepted" }).catch(() => {});
+      }
+      if (notAccepted.length > 0) {
+        // Every step above is idempotent (force:true + a keyed driver link), so the
+        // driver retrying the same accept replays it safely.
+        console.error(
+          `[accept-batch] batch=${batchId} driver-side accept incomplete for ${notAccepted.length} order(s): ${notAccepted.join(",")}`,
+        );
+        return res.status(500).json({ error: "تعذّر إكمال استلام الدفعة، حاول مجدداً" });
       }
       // Batch was already moved to in_progress (with startTime) inside claimBatchForDriver.
       const qd = driverQueue.find(d => d.phoneNumber === phoneNumber);
@@ -4639,7 +4897,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       try {
       // earningsCredited transaction already guards double-completion; force:true
       // avoids a redundant state-machine read inside the same atomic flow.
-      await updateOrderStatus(orderId, "delivered", { force: true });
+      // H-33: the result was discarded, so a failed status write let the flow carry
+      // on to credit the driver and accrue settlements for an order Firestore still
+      // showed as undelivered. Throwing here lands in the recovery below, which —
+      // because nothing non-idempotent has run yet — releases the claim so a retry
+      // redoes the whole completion cleanly.
+      const markedDelivered = await updateOrderStatus(orderId, "delivered", { force: true });
+      if (!markedDelivered) throw new Error(`order ${orderId} could not be marked delivered`);
       await db.collection("orders").doc(orderId).update({ deliveredAt: now, updatedAt: now });
       addDeliveryLog({ orderId, driverPhone: phoneNumber, action: "delivered", lat, lng }).catch(() => {});
 
@@ -5921,8 +6185,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // replay of an accrual that already succeeded returns "duplicate" and writes
   // nothing. Only the settlement step is retried — never the rest of completion,
   // which stays guarded by the order's earningsCredited flag.
+  // H-45: every background job is registered here so shutdown can stop it. They
+  // used to be fire-and-forget setInterval calls: nothing held a handle, so
+  // nothing could ever clear them, and the process could not exit on its own.
+  const backgroundTimers: ReturnType<typeof setInterval>[] = [];
+  const everyMs = (ms: number, fn: () => void | Promise<void>) => {
+    backgroundTimers.push(setInterval(fn, ms));
+  };
+
   const SETTLEMENT_SWEEP_MS = 2 * 60 * 1000;
-  setInterval(async () => {
+  everyMs(SETTLEMENT_SWEEP_MS, async () => {
     const db = getFirestore();
     if (!db) return;
     try {
@@ -5961,10 +6233,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (err: any) {
       console.error("[SETTLEMENT] recovery sweep error:", err?.message ?? err);
     }
-  }, SETTLEMENT_SWEEP_MS);
+  });
 
   // Watchdog: every 30s, scan for unassigned confirmed orders and assign to free drivers
-  setInterval(async () => {
+  everyMs(30_000, async () => {
     try {
       const freeDrivers = driverQueue.filter(d => !d.currentBatchId);
       if (freeDrivers.length === 0) return;
@@ -5974,12 +6246,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (e) {
       console.error("[WATCHDOG] error:", e);
     }
-  }, 30_000);
+  });
 
   // Ghost-driver cleanup: every 10 minutes, evict drivers whose app crashed/closed
   // without pressing "go offline". Threshold: no GPS ping for 20 minutes.
   const GHOST_TIMEOUT_MS = 20 * 60 * 1000;
-  setInterval(async () => {
+  everyMs(10 * 60 * 1000, async () => {
     try {
       const now = Date.now();
       const ghosts = driverQueue.filter(d => {
@@ -6000,7 +6272,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (e) {
       console.error("[GHOST_CLEANUP] error:", e);
     }
-  }, 10 * 60 * 1000);
+  });
 
   // Offer-timeout sweep: a batch that was OFFERED to a driver but never accepted
   // (e.g. the driver's app closed before the client-side 30s countdown could
@@ -6009,7 +6281,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // driver who will never respond. Every 20s, release any still-pending batch older
   // than the threshold and reassign its orders, mirroring a manual reject-order.
   const OFFER_TIMEOUT_MS = 90 * 1000; // well beyond the 30s client accept countdown
-  setInterval(async () => {
+  everyMs(20 * 1000, async () => {
     try {
       const now = Date.now();
       // Snapshot holders first so we don't mutate driverQueue while iterating it.
@@ -6050,7 +6322,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (e) {
       console.error("[OFFER_TIMEOUT] error:", e);
     }
-  }, 20 * 1000);
+  });
 
   // Get queue info for admin
   app.get("/api/admin/driver-queue", async (_req: Request, res: Response) => {
@@ -6119,21 +6391,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const stats: Record<string, { todayOrders: number; todayEarnings: number; totalOrders: number; totalEarnings: number; amountOwed: number }> = {};
 
-      for (const driver of drivers) {
-        const phone = driver.phoneNumber;
-        const [completed, ledger] = await Promise.all([
-          getCompletedOrders(phone),
-          getSettlementLedger("driver", phone),
-        ]);
-        const todayCompleted = completed.filter(o => new Date(o.completedAt).getTime() >= todayStart);
-
-        stats[phone] = {
-          todayOrders: todayCompleted.length,
-          todayEarnings: todayCompleted.reduce((sum, o) => sum + (o.driverEarning || 0), 0),
-          totalOrders: completed.length,
-          totalEarnings: completed.reduce((sum, o) => sum + (o.driverEarning || 0), 0),
-          amountOwed: ledger?.outstandingTotal ?? 0,
-        };
+      // H-36: the inner Promise.all only paired the two reads for ONE driver — the
+      // loop itself was sequential, so 200 drivers meant 200 round trips one after
+      // another on the single event loop, and every other request on the platform
+      // queued behind them. Drivers are now processed in bounded batches: the same
+      // reads, the same arithmetic, the same output, roughly an order of magnitude
+      // fewer sequential rounds. The bound matters — firing 200 drivers at once
+      // would open 400 simultaneous Firestore reads.
+      const DRIVER_STATS_CONCURRENCY = 10;
+      for (let i = 0; i < drivers.length; i += DRIVER_STATS_CONCURRENCY) {
+        const batch = drivers.slice(i, i + DRIVER_STATS_CONCURRENCY);
+        const rows = await Promise.all(batch.map(async (driver) => {
+          const phone = driver.phoneNumber;
+          const [completed, ledger] = await Promise.all([
+            getCompletedOrders(phone),
+            getSettlementLedger("driver", phone),
+          ]);
+          const todayCompleted = completed.filter(o => new Date(o.completedAt).getTime() >= todayStart);
+          return [phone, {
+            todayOrders: todayCompleted.length,
+            todayEarnings: todayCompleted.reduce((sum, o) => sum + (o.driverEarning || 0), 0),
+            totalOrders: completed.length,
+            totalEarnings: completed.reduce((sum, o) => sum + (o.driverEarning || 0), 0),
+            amountOwed: ledger?.outstandingTotal ?? 0,
+          }] as const;
+        }));
+        for (const [phone, row] of rows) stats[phone] = row;
       }
 
       res.json({ stats });
@@ -6220,7 +6503,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/admin/owner-earnings", async (_req: Request, res: Response) => {
     try {
       const db = getFirestore();
-      if (!db) return res.json({ totalOwnerEarnings: 0, totalDriverEarnings: 0, totalDeliveryFees: 0, ordersWithEarnings: 0 });
+      // H-33: zeroed earnings on an unavailable database read as "the platform
+      // earned nothing". Report the outage instead.
+      if (!db) {
+        console.error("[owner-earnings] unavailable: no database");
+        return res.status(503).json({ error: "قاعدة البيانات غير متاحة" });
+      }
 
       // Aggregate only over delivered orders (targeted status query).
       const deliveredOrders = await getOrdersByStatus("delivered");
@@ -6981,44 +7269,75 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const weekStart = new Date(now.getTime() - 7 * 86400000).toISOString();
       const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
 
-      // `users` and `products` are only ever reported as a COUNT here, so they use
+      // C-13: `users` and `products` are only ever reported as a COUNT, so they use
       // the server-side aggregation instead of streaming every document into the
-      // process (C-13). Same numbers, a fraction of the memory and of the billed
-      // document reads. The remaining scans still need their documents.
-      const [ordersSnap, usersCount, driversSnap, vendorsSnap, productsCount] = await Promise.all([
-        db.collection("orders").orderBy("createdAt", "desc").get(),
+      // process. Same numbers, a fraction of the memory and of the billed reads.
+      //
+      // `orders` was the dangerous one: `.orderBy(createdAt).get()` with no limit
+      // materialised EVERY order ever placed — full documents, items[] arrays and
+      // all — inside a process capped at 512MB, and every number below was derived
+      // by filtering that array seven times. It grows without bound, so the endpoint
+      // was guaranteed to OOM the server eventually.
+      //
+      // The scan is now streamed in pages, and .select() fetches ONLY the four
+      // fields these numbers need — never items[], which is the bulk of an order.
+      // Peak memory is one page, not the whole collection. Every reported figure is
+      // accumulated exactly as the array filters computed it, so the output is
+      // identical; only the memory profile changes.
+      const [usersCount, driversTotal, driversOnline, vendorsSnap, productsCount] = await Promise.all([
         db.collection("users").count().get(),
-        db.collection("drivers").get(),
+        db.collection("drivers").count().get(),
+        db.collection("drivers").where("isOnline", "==", true).count().get(),
         db.collection("vendors").get(),
         db.collection("products").count().get(),
       ]);
 
-      const allOrders = ordersSnap.docs.map(d => ({ id: d.id, ...d.data() } as any));
-      const todayOrders = allOrders.filter((o: any) => (o.createdAt || "") >= todayStart);
-      const weekOrders  = allOrders.filter((o: any) => (o.createdAt || "") >= weekStart);
-      const monthOrders = allOrders.filter((o: any) => (o.createdAt || "") >= monthStart);
+      const ORDER_PAGE_SIZE = 1000;
+      let totalOrders = 0, todayCount = 0, weekCount = 0, monthCount = 0;
+      let deliveredCount = 0, activeCount = 0, cancelledCount = 0;
+      let totalRevenue = 0, todayRevenue = 0;
+      const vendorOrderCount: Record<string, number> = {};
+      {
+        let cursor: FirebaseFirestore.QueryDocumentSnapshot | null = null;
+        for (;;) {
+          let q = db.collection("orders")
+            .orderBy("createdAt", "desc")
+            .select("status", "total", "createdAt", "vendorId")
+            .limit(ORDER_PAGE_SIZE);
+          if (cursor) q = q.startAfter(cursor);
+          const page = await q.get();
+          if (page.empty) break;
 
-      const delivered = allOrders.filter((o: any) => o.status === "delivered");
-      const active = allOrders.filter((o: any) => !["delivered","cancelled"].includes(o.status));
-      const cancelled = allOrders.filter((o: any) => o.status === "cancelled");
+          for (const doc of page.docs) {
+            const o = doc.data() as any;
+            totalOrders += 1;
+            const created = o.createdAt || "";
+            const isDelivered = o.status === "delivered";
+            if (created >= todayStart) {
+              todayCount += 1;
+              if (isDelivered) todayRevenue += o.total || 0;
+            }
+            if (created >= weekStart) weekCount += 1;
+            if (created >= monthStart) monthCount += 1;
+            if (isDelivered) { deliveredCount += 1; totalRevenue += o.total || 0; }
+            else if (o.status === "cancelled") cancelledCount += 1;
+            else activeCount += 1;
+            if (o.vendorId) vendorOrderCount[o.vendorId] = (vendorOrderCount[o.vendorId] || 0) + 1;
+          }
 
-      // o.total is the authoritative order total (subtotal + deliveryFee + serviceFee - discount).
-      // Do NOT add deliveryFee again — it is already included in o.total.
-      const totalRevenue = delivered.reduce((s: number, o: any) => s + (o.total || 0), 0);
-      const todayRevenue = todayOrders.filter((o: any) => o.status === "delivered")
-        .reduce((s: number, o: any) => s + (o.total || 0), 0);
+          if (page.size < ORDER_PAGE_SIZE) break;
+          cursor = page.docs[page.docs.length - 1];
+        }
+      }
 
       const vendors = vendorsSnap.docs.map(d => ({ id: d.id, ...d.data() } as any));
       const restaurants = vendors.filter((v: any) => v.categoryType === "restaurant" || v.businessType === "restaurant");
       const stores = vendors.filter((v: any) => v.categoryType !== "restaurant" && v.businessType !== "restaurant");
 
-      const onlineDrivers = driversSnap.docs.filter(d => (d.data() as any).isOnline).length;
+      // Counted server-side above, so no driver document is streamed for this.
+      const onlineDrivers = driversOnline.data().count;
 
-      // Top 5 vendors by order count
-      const vendorOrderCount: Record<string, number> = {};
-      allOrders.forEach((o: any) => {
-        if (o.vendorId) vendorOrderCount[o.vendorId] = (vendorOrderCount[o.vendorId] || 0) + 1;
-      });
+      // Top 5 vendors by order count — tallied during the paged scan above.
       const topVendors = Object.entries(vendorOrderCount)
         .sort((a, b) => b[1] - a[1]).slice(0, 5)
         .map(([id, count]) => {
@@ -7027,10 +7346,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
 
       res.json({
-        orders: { total: allOrders.length, today: todayOrders.length, week: weekOrders.length, month: monthOrders.length, active: active.length, delivered: delivered.length, cancelled: cancelled.length },
+        orders: { total: totalOrders, today: todayCount, week: weekCount, month: monthCount, active: activeCount, delivered: deliveredCount, cancelled: cancelledCount },
         revenue: { total: totalRevenue, today: todayRevenue },
         users: usersCount.data().count,
-        drivers: { total: driversSnap.size, online: onlineDrivers },
+        drivers: { total: driversTotal.data().count, online: onlineDrivers },
         vendors: { total: vendors.length, restaurants: restaurants.length, stores: stores.length },
         products: productsCount.data().count,
         topVendors,
@@ -7095,7 +7414,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/admin/analytics", async (req: Request, res: Response) => {
     try {
       const db = getFirestore();
-      if (!db) return res.json({ totalOrders: 0, totalRevenue: 0, avgOrderValue: 0, deliveredRate: 0, newUsers: 0, dailyData: [], topCategories: [] });
+      // H-33: a zeroed dashboard is indistinguishable from a quiet day.
+      if (!db) {
+        console.error("[analytics] unavailable: no database");
+        return res.status(503).json({ error: "قاعدة البيانات غير متاحة" });
+      }
       const days = parseInt((req.query.days as string) || "30", 10);
       const since = new Date(Date.now() - days * 86400000).toISOString();
 
@@ -7256,7 +7579,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         query = (query as any).where("image", "!=", "");
       }
 
-      const snap = await query.get();
+      // H-37: this had no .limit() at all. A PUBLIC, unauthenticated route read
+      // EVERY rating for a store — each of which can carry a base64 image of up to
+      // ~400 KB — and only then paginated in memory with .slice(). Anyone could
+      // make the server load an unbounded amount of data, repeatedly, with no
+      // credentials: a memory and Firestore-bill exhaustion vector.
+      //
+      // The read is now bounded. The cap sits far above any real store's rating
+      // count, and the aggregates below (average, total, breakdown) are computed
+      // over the capped set — for a store that ever exceeds it they become
+      // "based on the most recent RATINGS_SCAN_CAP ratings" rather than all-time.
+      // That is a deliberate trade: a slightly narrower statistic beats an
+      // endpoint a stranger can use to exhaust the server.
+      const snap = await query.limit(RATINGS_SCAN_CAP).get();
       let items = snap.docs.map((d) => ({ id: d.id, ...d.data() } as any));
 
       // text search
@@ -7399,7 +7734,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/admin/ratings", async (req: Request, res: Response) => {
     try {
       const db = getFirestore();
-      if (!db) return res.json({ items: [], total: 0 });
+      // H-33: an empty list on an outage reads as "no ratings exist".
+      if (!db) {
+        console.error("[admin-ratings] unavailable: no database");
+        return res.status(503).json({ error: "قاعدة البيانات غير متاحة" });
+      }
 
       const vendorId   = (req.query["vendorId"]  as string) ?? "";
       const starsParam = req.query["stars"]   as string;
@@ -7447,8 +7786,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       res.json({ items: mapped, total, hasMore: offset + limitParam < total });
     } catch (err) {
+      // H-33: this answered 200 with an empty list, so a query failure looked
+      // exactly like "this store has no ratings".
       console.error("GET admin/ratings:", err);
-      res.json({ items: [], total: 0 });
+      res.status(500).json({ error: "تعذّر تحميل التقييمات" });
     }
   });
 
@@ -7723,8 +8064,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const httpServer = createServer(app);
 
   // ── Socket.io real-time driver location ────────────────────────────────────
-  const locationFirestoreThrottle = new Map<string, number>();
-  const FIRESTORE_WRITE_INTERVAL = 10_000; // write to Firestore at most every 10s
+  // The heartbeat cost controls this uses (locationFirestoreThrottle, the name
+  // cache and the rate limiter) live beside driverLocations, since the HTTP
+  // fallback at /api/driver/location shares them.
 
   // Socket.io uses the SAME origin policy as the REST API — isOriginAllowed()
   // and buildOriginPolicyFromEnv(), no second implementation.
@@ -7819,8 +8161,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // their next poll. Polling remains active as a fallback and is not removed.
   orderEvents.on("order:status", (payload: { orderId: string; status: string }) => {
     if (!payload?.orderId) return;
+    // The room is ownership-gated by "order:watch", so the full payload is safe here.
     ioServer.to(`order:${payload.orderId}`).emit("order:status", payload);
-    ioServer.emit("orders:changed", payload);
+    // H-38: this carried { orderId, status } to EVERY socket, and anonymous sockets
+    // are permitted by design (a customer watches an order before signing in). That
+    // let anyone who opened a socket read the platform's order flow live — which
+    // order moved, to which state, at which second. It is a refresh PING: all four
+    // consumers (OrderContext, VendorNotificationsContext, DriverHomeScreen,
+    // AdminScreen) take no argument and simply refetch through their own
+    // authenticated endpoints, so the payload was never read by anyone but an
+    // observer. Same treatment as settlement:request below.
+    //
+    // DO NOT attach fields here. Anything added becomes world-readable.
+    ioServer.emit("orders:changed");
   });
 
   // Real-time settlement events are a REFRESH PING ONLY — never a data channel.
@@ -7874,9 +8227,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const phoneNumber = (socket.data as any).driverPhone as string | undefined;
       if (!phoneNumber || lat === undefined || lng === undefined) return;
 
-      const driver = await getDriverByPhone(phoneNumber).catch(() => null);
-      if (!driver) return;
-      const fullName = driver.fullName || "";
+      // H-39: bound the event BEFORE any database work, or the limit protects
+      // nothing — the read is the expensive part. A real client never reaches
+      // this floor; only a loop does.
+      const lastHeartbeat = locationRateLimit.get(phoneNumber) || 0;
+      if (Date.now() - lastHeartbeat < LOCATION_MIN_INTERVAL) return;
+      locationRateLimit.set(phoneNumber, Date.now());
+
+      const fullName = await cachedDriverName(phoneNumber);
+      if (fullName === null) return; // unknown or deleted driver — same as before
 
       // 1. Update in-memory store (same as HTTP endpoint)
       driverLocations.set(phoneNumber, {
@@ -8129,13 +8488,58 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
 
-  // Archive old completed/cancelled orders (older than 1 month)
-  app.delete("/api/admin/archive-old-orders", async (_req: Request, res: Response) => {
+  // ── C-01: archive / monthly reset ──────────────────────────────────────────
+  //
+  // This route was named "archive old completed/cancelled orders (older than 1
+  // month)" and the comment inside it read `// 1. Delete ALL orders regardless of
+  // status`. There was no date filter, no status filter, no confirmation token, no
+  // dry run and no backup: an unqualified `DELETE` with no body erased every order,
+  // every walletHistory entry, every driverActivityLog and driverCompletedOrders
+  // row, every adminAlert, and reset EVERY driver wallet balance to zero.
+  //
+  // The capability is intended — templates/admin.html has a "تصفير ومسح بيانات
+  // الشهر" button — but the only thing standing between a live platform and total,
+  // irreversible loss was a browser confirm(). Anything reaching the route without
+  // it (a retry, a cached page, a script, a stolen session) wiped everything.
+  //
+  // The route now refuses to destroy anything unless the caller says exactly what
+  // it wants:
+  //   • DRY RUN IS THE DEFAULT. No body, or dryRun !== false → counts only, zero
+  //     writes. This alone removes the accidental-wipe path.
+  //   • scope "archive" (default) deletes ONLY orders that are BOTH older than
+  //     olderThanDays AND in a terminal status. Money-bearing collections
+  //     (walletHistory, driverCompletedOrders, driverWallets) are never touched.
+  //   • scope "all" is the monthly reset and still does what the button promises,
+  //     but demands its own confirmation string, so an "archive" call can never
+  //     escalate into a full wipe.
+  //   • olderThanDays is validated and floored, so today's orders are unreachable.
+  //   • maxDeletes caps one call's blast radius; exceeding it is refused, not
+  //     truncated, so the operator narrows the window deliberately.
+  const ARCHIVE_TERMINAL_STATUSES = ["delivered", "cancelled"];
+  const ARCHIVE_MIN_AGE_DAYS = 30;
+  const ARCHIVE_DEFAULT_MAX_DELETES = 5000;
+  const ARCHIVE_CONFIRM = "ARCHIVE";
+  const RESET_CONFIRM = "DELETE-ALL-DATA";
+
+  app.delete("/api/admin/archive-old-orders", async (req: Request, res: Response) => {
     try {
       const db = getFirestore();
       if (!db) return res.status(500).json({ error: "Firestore not initialized" });
 
-      // Helper: batch-delete all docs in a snapshot
+      const body = (req.body ?? {}) as Record<string, unknown>;
+      const scope = body.scope === "all" ? "all" : "archive";
+      // Destructive by opt-in only: anything other than an explicit `false` is a
+      // dry run, so a malformed or truncated body can never delete.
+      const dryRun = body.dryRun !== false;
+      const confirm = typeof body.confirm === "string" ? body.confirm : "";
+      const adminUser = getSessionUsername(req) || "unknown";
+
+      const maxDeletes = (() => {
+        const n = Number(body.maxDeletes);
+        if (!Number.isFinite(n) || n <= 0) return ARCHIVE_DEFAULT_MAX_DELETES;
+        return Math.min(Math.floor(n), ARCHIVE_DEFAULT_MAX_DELETES);
+      })();
+
       const batchSize = 500;
       const batchDeleteAll = async (docs: FirebaseFirestore.QueryDocumentSnapshot[]) => {
         let count = 0;
@@ -8148,6 +8552,128 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
         return count;
       };
+
+      // ── scope "archive": old AND terminal only ────────────────────────────
+      if (scope === "archive") {
+        const rawDays = body.olderThanDays === undefined ? ARCHIVE_MIN_AGE_DAYS : Number(body.olderThanDays);
+        if (!Number.isFinite(rawDays) || rawDays < ARCHIVE_MIN_AGE_DAYS) {
+          return res.status(400).json({
+            error: `olderThanDays يجب أن يكون رقماً لا يقل عن ${ARCHIVE_MIN_AGE_DAYS} يوماً`,
+          });
+        }
+        const olderThanDays = Math.floor(rawDays);
+        const cutoff = new Date(Date.now() - olderThanDays * 86_400_000);
+
+        // createdAt-only inequality: served by the automatic single-field index, so
+        // this needs no new composite index. Status is filtered in memory, which is
+        // safe because the read is capped at maxDeletes + 1.
+        const candidates = await db.collection("orders")
+          .where("createdAt", "<", cutoff)
+          .orderBy("createdAt", "asc")
+          .limit(maxDeletes + 1)
+          .get();
+
+        const archivable = candidates.docs.filter((d) =>
+          ARCHIVE_TERMINAL_STATUSES.includes(String((d.data() as any)?.status)));
+
+        // Refuse, never truncate. Two ways the selection can be too large:
+        //   • more archivable rows than the cap — unambiguous;
+        //   • the candidate window came back saturated (maxDeletes + 1 rows), in
+        //     which case archivable is only a LOWER BOUND — non-terminal orders
+        //     consumed slots, so more archivable rows may lie beyond the window.
+        // Deleting in that state would silently do part of the job and report a
+        // number the operator would read as "all of it".
+        if (archivable.length > maxDeletes || candidates.size > maxDeletes) {
+          return res.status(409).json({
+            error: `المحدَّد يتجاوز السقف (${maxDeletes}). ضيّق النطاق الزمني أو ارفع maxDeletes.`,
+            wouldDelete: { orders: `${archivable.length}+` },
+            scanned: candidates.size,
+          });
+        }
+
+        const staleAlerts = await db.collection("adminAlerts")
+          .where("createdAt", "<", cutoff)
+          .limit(maxDeletes)
+          .get();
+
+        if (dryRun || confirm !== ARCHIVE_CONFIRM) {
+          if (!dryRun && confirm !== ARCHIVE_CONFIRM) {
+            return res.status(400).json({
+              error: `للتنفيذ الفعلي أرسل confirm: "${ARCHIVE_CONFIRM}"`,
+              dryRun: true,
+              wouldDelete: { orders: archivable.length, adminAlerts: staleAlerts.size },
+            });
+          }
+          return res.json({
+            dryRun: true,
+            scope,
+            olderThanDays,
+            cutoff: cutoff.toISOString(),
+            statuses: ARCHIVE_TERMINAL_STATUSES,
+            wouldDelete: { orders: archivable.length, adminAlerts: staleAlerts.size },
+            preserved: ["walletHistory", "driverCompletedOrders", "driverWallets", "driverActivityLog"],
+            message: `تشغيل تجريبي — لم يُحذف شيء. سيُحذف ${archivable.length} طلب منتهٍ أقدم من ${olderThanDays} يوماً.`,
+          });
+        }
+
+        const deleteDocs = async (docs: FirebaseFirestore.QueryDocumentSnapshot[]) => {
+          let n = 0;
+          for (let i = 0; i < docs.length; i += batchSize) {
+            const batch = db!.batch();
+            for (const d of docs.slice(i, i + batchSize)) batch.delete(d.ref);
+            await batch.commit();
+            n += Math.min(batchSize, docs.length - i);
+          }
+          return n;
+        };
+
+        console.warn(
+          `[ARCHIVE] admin=${adminUser} scope=archive olderThanDays=${olderThanDays} ` +
+          `orders=${archivable.length} adminAlerts=${staleAlerts.size}`,
+        );
+        const deletedOrders = await deleteDocs(archivable);
+        const deletedAlerts = await deleteDocs(staleAlerts.docs as any);
+
+        return res.json({
+          dryRun: false,
+          scope,
+          olderThanDays,
+          cutoff: cutoff.toISOString(),
+          deleted: { orders: deletedOrders, adminAlerts: deletedAlerts },
+          preserved: ["walletHistory", "driverCompletedOrders", "driverWallets", "driverActivityLog"],
+          message: `تمت أرشفة ${deletedOrders} طلب منتهٍ أقدم من ${olderThanDays} يوماً. السجلات المالية لم تُمسّ.`,
+        });
+      }
+
+      // ── scope "all": the monthly reset the admin button performs ──────────
+      // Unchanged in what it does, but it can now only be reached deliberately.
+      if (confirm !== RESET_CONFIRM) {
+        return res.status(400).json({
+          error: `التصفير الشامل يتطلب confirm: "${RESET_CONFIRM}"`,
+        });
+      }
+      if (dryRun) {
+        const [o, wh, al, dc, aa, dw] = await Promise.all([
+          db.collection("orders").get(),
+          db.collection("walletHistory").get(),
+          db.collection("driverActivityLog").get(),
+          db.collection("driverCompletedOrders").get(),
+          db.collection("adminAlerts").get(),
+          db.collection("driverWallets").get(),
+        ]);
+        return res.json({
+          dryRun: true,
+          scope: "all",
+          wouldDelete: {
+            orders: o.size, walletHistory: wh.size, driverActivityLog: al.size,
+            driverCompletedOrders: dc.size, adminAlerts: aa.size,
+          },
+          wouldZero: { driverWallets: dw.size },
+          message: `تشغيل تجريبي — لم يُحذف شيء. التنفيذ سيمسح ${o.size} طلب ويصفّر ${dw.size} محفظة.`,
+        });
+      }
+
+      console.warn(`[ARCHIVE] admin=${adminUser} scope=ALL — full platform reset requested`);
 
       // 1. Delete ALL orders regardless of status
       const allOrders = await getOrders();
@@ -8464,6 +8990,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // ── End Website CMS ──────────────────────────────────────────────────────────
+
+  // H-45: gracefulShutdown closed only the HTTP server. Socket.IO kept every
+  // client connected, so httpServer.close() could never drain and the 10s
+  // force-exit timer was what actually ended the process — killing in-flight
+  // requests. The background jobs were never stopped either. Both are released
+  // here, in order: stop scheduling new work, then disconnect clients, so no job
+  // can fire against a half-closed server.
+  (httpServer as any).onwayShutdown = async (): Promise<void> => {
+    for (const t of backgroundTimers) clearInterval(t);
+    backgroundTimers.length = 0;
+    await new Promise<void>((resolve) => {
+      let settled = false;
+      const done = () => { if (!settled) { settled = true; resolve(); } };
+      // close() disconnects every socket and closes the underlying engine.
+      ioServer.close(done);
+      // Never let a stuck client hold the shutdown open.
+      setTimeout(done, 3_000).unref();
+    });
+  };
 
   return httpServer;
 

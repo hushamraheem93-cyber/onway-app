@@ -1,4 +1,4 @@
-import React, { useRef } from "react";
+import React, { useCallback, useRef } from "react";
 import {
   StyleSheet,
   Pressable,
@@ -21,7 +21,7 @@ import { ThemedText } from "@/components/ThemedText";
 import { useTheme } from "@/hooks/useTheme";
 import { Spacing, AppColors, Anim, FontWeight } from "@/constants/theme";
 import { Product } from "@/constants/categories";
-import { useCart } from "@/context/CartContext";
+import { useCart, getCartKey } from "@/context/CartContext";
 import { useFavorites } from "@/context/FavoritesContext";
 import { useCartAnimation } from "@/context/CartAnimationContext";
 import { formatPrice } from "@/constants/currency";
@@ -40,21 +40,48 @@ interface ProductCardProps {
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
-function ProductCardComponent({ product, onPress, width }: ProductCardProps) {
+/**
+ * Everything the card DRAWS, with none of the context it draws from (H-41).
+ *
+ * This layer owns the Reanimated shared values, the animated styles and the
+ * cardRef that measureInWindow() reads, because all three must survive across
+ * renders and belong with the JSX that uses them. It subscribes to nothing except
+ * the theme, so a cart or favourites change cannot reach it except through props.
+ *
+ * Every prop is either a primitive or a permanently stable identity, which is what
+ * lets React.memo below actually bail out. See the note on ProductCardView's memo.
+ */
+interface ProductCardViewProps {
+  product: Product;
+  onPress?: () => void;
+  width?: number;
+  isInCart: boolean;
+  cartQuantity: number;
+  isFav: boolean;
+  onAdd: () => void;
+  onRemove: () => void;
+  onToggleFavorite: () => void;
+  onFlyToCart: (centerX: number, centerY: number) => void;
+}
+
+function ProductCardViewComponent({
+  product,
+  onPress,
+  width,
+  isInCart,
+  cartQuantity,
+  isFav,
+  onAdd,
+  onRemove,
+  onToggleFavorite,
+  onFlyToCart,
+}: ProductCardViewProps) {
   const { theme } = useTheme();
-  const { addToCart, updateQuantity, items } = useCart();
-  const { isFavorite, toggleFavorite } = useFavorites();
-  const { triggerAnimation } = useCartAnimation();
   const scale = useSharedValue(1);
   const buttonScale = useSharedValue(1);
   const minusButtonScale = useSharedValue(1);
   const favoriteScale = useSharedValue(1);
   const cardRef = useRef<View>(null);
-
-  const isInCart = items.some((item) => item.product.id === product.id);
-  const cartQuantity =
-    items.find((item) => item.product.id === product.id)?.quantity || 0;
-  const isFav = isFavorite(product.id);
 
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }],
@@ -79,20 +106,22 @@ function ProductCardComponent({ product, onPress, width }: ProductCardProps) {
     }, 100);
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 
+    // Unchanged: the fly-to-cart animation is still driven from this ref, still
+    // guarded on the ref being attached, and still uses the same RTL mirroring.
+    // Only the destination of the measurement moved — onFlyToCart is the parent's
+    // triggerAnimation with the product's image already resolved.
     if (cardRef.current) {
       cardRef.current.measureInWindow((x, y, width, height) => {
         const centerX = I18nManager.isRTL
           ? SCREEN_WIDTH - x - width / 2
           : x + width / 2;
-        triggerAnimation(
-          resolveImageUrl(product.image),
-          centerX,
-          y + height / 2,
-        );
+        onFlyToCart(centerX, y + height / 2);
       });
     }
 
-    addToCart(product);
+    // Still called unconditionally and outside the measure callback, exactly as
+    // before: the item is added whether or not the ref was ready to animate.
+    onAdd();
   };
 
   const handleRemoveFromCart = () => {
@@ -101,7 +130,7 @@ function ProductCardComponent({ product, onPress, width }: ProductCardProps) {
       minusButtonScale.value = withSpring(1, { damping: 15, stiffness: 200 });
     }, 100);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    updateQuantity(product.id, cartQuantity - 1);
+    onRemove();
   };
 
   const minusButtonAnimatedStyle = useAnimatedStyle(() => ({
@@ -120,7 +149,7 @@ function ProductCardComponent({ product, onPress, width }: ProductCardProps) {
       withSpring(1, { damping: 8, stiffness: 200 }),
     );
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    toggleFavorite(product);
+    onToggleFavorite();
   };
 
   return (
@@ -352,5 +381,119 @@ const styles = StyleSheet.create({
     fontWeight: FontWeight.bold,
   },
 });
+
+/**
+ * The presentational card. Nothing here reads the cart, so a cart change can only
+ * reach it through the props below — and those are compared by this memo.
+ *
+ * For a grid of N cards, one "+" press changes isInCart/cartQuantity on exactly
+ * ONE of them. The other N-1 receive byte-identical props and bail out here,
+ * skipping the whole subtree: the image, the texts, and the re-registration of
+ * four useAnimatedStyle worklets.
+ */
+const ProductCardView = React.memo(ProductCardViewComponent);
+
+/**
+ * The cart-connected shell (H-41).
+ *
+ * It subscribes to the cart, favourites and cart-animation contexts, so it still
+ * re-renders on every cart change — that is unavoidable, because computing
+ * isInCart/cartQuantity is exactly what it is for, and it is cheap: this function
+ * does one array scan and returns an element.
+ *
+ * The expensive half is behind ProductCardView's memo, which only holds if every
+ * prop keeps its identity. Two of the context callbacks do NOT: CartContext builds
+ * addToCart with useCallback(..., [items]), and FavoritesContext builds
+ * toggleFavorite from isFavorite, which is keyed on [favorites]. Both therefore
+ * change identity on precisely the events we are trying to absorb, and forwarding
+ * them directly would defeat the memo for every card.
+ *
+ * So the handlers below read through a ref that is refreshed on every render. Their
+ * own identities are created once ([] deps) and never change, while the work they
+ * do always uses the newest context functions, the newest product and the newest
+ * quantity. That is deliberately NOT a useCallback dependency list: a list built
+ * from these values would be unstable by construction, and one built from fewer
+ * would go stale. Assigning to the ref during render is safe here because it is
+ * idempotent — a double render under StrictMode writes the same values — and the
+ * handlers can only fire from user interaction, which is after commit.
+ */
+function ProductCardComponent({ product, onPress, width }: ProductCardProps) {
+  const { addToCart, updateQuantity, items } = useCart();
+  const { isFavorite, toggleFavorite } = useFavorites();
+  const { triggerAnimation } = useCartAnimation();
+
+  // H-41: one traversal, not two. `some()` followed by `find()` walked the cart
+  // twice for two answers the same line already carries.
+  //
+  // C-18: the match used to be `item.product.id === product.id`, which binds this
+  // card to the FIRST line of the product whatever variant it carries — and the
+  // "−" handler then passed the bare product id, which CartContext's dual-key
+  // branch applies to EVERY line of that product. Cart holding
+  // "pizza/large × 3" and "pizza/small × 1" showed 3 here, and one press set both
+  // to 2: the customer was billed for a small pizza they never added.
+  //
+  // This card has no variant selector — its "+" calls addToCart(product), which
+  // creates the plain line — so the plain line's key is its identity. Reads and
+  // writes now agree on exactly one line, and variant lines are edited where they
+  // are actually shown (CartItemCard, FloatingCartBar), which already key correctly.
+  const cartKey = getCartKey({ product });
+  const cartLine = items.find((item) => getCartKey(item) === cartKey);
+  const isInCart = cartLine !== undefined;
+  const cartQuantity = cartLine?.quantity || 0;
+  const isFav = isFavorite(product.id);
+
+  const latest = useRef({
+    addToCart,
+    updateQuantity,
+    toggleFavorite,
+    triggerAnimation,
+    product,
+    cartQuantity,
+    cartKey,
+  });
+  latest.current = {
+    addToCart,
+    updateQuantity,
+    toggleFavorite,
+    triggerAnimation,
+    product,
+    cartQuantity,
+    cartKey,
+  };
+
+  const onAdd = useCallback(() => {
+    latest.current.addToCart(latest.current.product);
+  }, []);
+
+  const onRemove = useCallback(() => {
+    const l = latest.current;
+    // C-18: the cart key, not the bare product id — see the cartLine comment above.
+    l.updateQuantity(l.cartKey, l.cartQuantity - 1);
+  }, []);
+
+  const onToggleFavorite = useCallback(() => {
+    latest.current.toggleFavorite(latest.current.product);
+  }, []);
+
+  const onFlyToCart = useCallback((centerX: number, centerY: number) => {
+    const l = latest.current;
+    l.triggerAnimation(resolveImageUrl(l.product.image), centerX, centerY);
+  }, []);
+
+  return (
+    <ProductCardView
+      product={product}
+      onPress={onPress}
+      width={width}
+      isInCart={isInCart}
+      cartQuantity={cartQuantity}
+      isFav={isFav}
+      onAdd={onAdd}
+      onRemove={onRemove}
+      onToggleFavorite={onToggleFavorite}
+      onFlyToCart={onFlyToCart}
+    />
+  );
+}
 
 export const ProductCard = React.memo(ProductCardComponent);

@@ -17,6 +17,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
+import { stripComments as sharedStripComments } from "./_source.mjs";
 
 import {
   isOriginAllowed,
@@ -30,7 +31,7 @@ import {
 const here = dirname(fileURLToPath(import.meta.url));
 const read = (p) => readFileSync(join(here, "../../", p), "utf8");
 /** Drop comments so prose *explaining* the old NODE_ENV bug cannot fail the check. */
-const code = (s) => s.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+const code = sharedStripComments;
 const INDEX = read("server/index.ts");
 const ROUTES = read("server/routes.ts");
 const GUARD = read("server/originGuard.ts");

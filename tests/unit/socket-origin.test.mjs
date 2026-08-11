@@ -21,6 +21,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
+import { stripComments as sharedStripComments } from "./_source.mjs";
 
 import {
   isOriginAllowed,
@@ -30,7 +31,7 @@ import {
 
 const here = dirname(fileURLToPath(import.meta.url));
 const read = (p) => readFileSync(join(here, "../../", p), "utf8");
-const stripComments = (s) => s.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+const stripComments = sharedStripComments;
 const ROUTES = read("server/routes.ts");
 
 /** The Socket.io construction block, comments removed. */

@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # OnWay — Code Update Script
-# Run on the VPS after pushing new code to GitHub:
-#   bash <app-dir>/deployment/update.sh
+# Run on the VPS after pushing new code to GitHub, AS THE SERVICE USER:
+#   sudo -u onway bash <app-dir>/deployment/update.sh
 # (e.g. /var/www/onway-app/deployment/update.sh)
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 set -euo pipefail
@@ -18,6 +18,14 @@ err()     { echo -e "${RED}[ERROR]${NC} $*"; exit 1; }
 # live at /var/www/onway-app. An explicit ONWAY_APP_DIR still overrides when set.
 APP_DIR="${ONWAY_APP_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 [[ ! -d "$APP_DIR" ]] && err "App directory not found: ${APP_DIR}. Run server-setup.sh first."
+
+# H-46: PM2 runs the app as whoever runs this script. Updating as root would start a
+# SECOND, root-owned PM2 daemon alongside the service one — the server would be back
+# to full privileges and the two daemons would fight over port 5000.
+SERVICE_USER="${ONWAY_SERVICE_USER:-onway}"
+if [[ $EUID -eq 0 ]] && id -u "$SERVICE_USER" >/dev/null 2>&1; then
+  err "Do not update as root. Run:  sudo -u ${SERVICE_USER} bash ${BASH_SOURCE[0]}"
+fi
 
 cd "$APP_DIR"
 

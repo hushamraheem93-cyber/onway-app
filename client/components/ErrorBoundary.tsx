@@ -30,8 +30,23 @@ export class ErrorBoundary extends Component<
   }
 
   componentDidCatch(error: Error, info: { componentStack: string }): void {
-    if (typeof this.props.onError === "function") {
-      this.props.onError(error, info.componentStack);
+    // H-32: this called onError and did nothing else, and App.tsx mounts the
+    // boundary without one — so a crash caught here was recorded absolutely
+    // nowhere. The project carries no error-tracking service, which makes the
+    // device log the ONLY record that can exist; without this line a production
+    // crash leaves no trace for anyone to find. Nothing is sent anywhere: this
+    // stays on the device, like the console.error calls already used elsewhere
+    // in the client.
+    console.error("[crash]", error, info?.componentStack ?? "");
+    try {
+      if (typeof this.props.onError === "function") {
+        this.props.onError(error, info?.componentStack);
+      }
+    } catch (handlerError) {
+      // A reporting hook must never be able to break the boundary that is
+      // already handling a crash — that would replace a recoverable screen with
+      // a dead app.
+      console.error("[crash] onError handler failed:", handlerError);
     }
   }
 

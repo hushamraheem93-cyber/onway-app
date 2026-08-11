@@ -16,6 +16,14 @@ err()     { echo -e "${RED}[ERROR]${NC} $*"; exit 1; }
 # ── Root check ────────────────────────────────────────────────────────────────
 [[ $EUID -ne 0 ]] && err "Run as root: sudo bash server-setup.sh"
 
+# ── Service account (H-46) ────────────────────────────────────────────────────
+# A system user with no login shell and no password. It owns the application and
+# is the only identity the running server ever has.
+if ! id -u "$SERVICE_USER" >/dev/null 2>&1; then
+  useradd --system --create-home --home-dir "/home/${SERVICE_USER}" \
+          --shell /usr/sbin/nologin --comment "OnWay application service" "$SERVICE_USER"
+fi
+
 echo ""
 echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 echo -e "${GREEN}  OnWay — Production Server Setup                              ${NC}"
@@ -28,6 +36,13 @@ echo ""
 
 GITHUB_REPO="hushamraheem93-cyber/onway-app"
 APP_DIR="/var/www/onway"
+# H-46: the Node process used to run as root, so any flaw in an upload path or in
+# sharp's native image decoding escalated straight to full control of the box —
+# including .env, which holds a Firebase service account with unrestricted admin
+# rights. It runs as this unprivileged system user now. Root is still needed for
+# the SETUP itself (apt, nginx, ufw, certbot) — that part is unavoidable and ends
+# when the script does.
+SERVICE_USER="onway"
 NODE_VERSION="22"
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -98,13 +113,30 @@ success "Server built → server_dist/index.js"
 mkdir -p "${APP_DIR}/logs"
 mkdir -p "${APP_DIR}/uploads"
 chmod 755 "${APP_DIR}/uploads"
-success "Directory structure ready"
+
+# H-46: everything the service touches belongs to the service user. The build ran
+# as root above, so the tree is re-owned here rather than built twice.
+#
+# What the server actually needs, verified against the code rather than assumed:
+#   • read  APP_DIR (server_dist, static assets, .env)
+#   • write logs/ — PM2 writes these
+#   • NOTHING else: every multer instance uses memoryStorage() and images go to
+#     Firebase Storage, so the process writes no files at all. /uploads is served
+#     read-only for legacy paths. Session revocation state lives in Firestore.
+#   • port 5000 is above 1024, so no capability and no root are required.
+chown -R "${SERVICE_USER}:${SERVICE_USER}" "$APP_DIR"
+chmod 750 "$APP_DIR"
+chmod 700 "${APP_DIR}/logs"
+success "Directory structure ready (owned by ${SERVICE_USER})"
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # 7. .env file (template — user must fill values)
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 if [[ ! -f "${APP_DIR}/.env" ]]; then
   cp "${APP_DIR}/.env.example" "${APP_DIR}/.env"
+  # H-46: 600 alone was not protection while the reader was root. Owned by the
+  # service user and readable by nobody else.
+  chown "${SERVICE_USER}:${SERVICE_USER}" "${APP_DIR}/.env"
   chmod 600 "${APP_DIR}/.env"
 
   # Pre-fill NODE_ENV and PORT
@@ -259,8 +291,10 @@ success "Firewall configured (22, 80, 443 open; 5000 blocked externally)"
 # 10. PM2 startup (survives server reboots)
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 info "Configuring PM2 startup..."
-pm2 startup systemd -u root --hp /root | tail -1 | bash 2>/dev/null || true
-success "PM2 startup configured"
+# H-46: was `-u root --hp /root`, which made the boot-time resurrection run the
+# server as root on every reboot even if it had been started as someone else.
+pm2 startup systemd -u "$SERVICE_USER" --hp "/home/${SERVICE_USER}" | tail -1 | bash 2>/dev/null || true
+success "PM2 startup configured for ${SERVICE_USER}"
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # Done — next steps
@@ -284,18 +318,18 @@ echo ""
 echo -e "  Generate secrets with:"
 echo "  node -e \"console.log(require('crypto').randomBytes(64).toString('hex'))\""
 echo ""
-echo -e "${YELLOW}STEP 2 — Start the server:${NC}"
-echo "  cd ${APP_DIR}"
-echo "  pm2 start ecosystem.config.js"
-echo "  pm2 save"
+echo -e "${YELLOW}STEP 2 — Start the server (as the service user, NOT as root):${NC}"
+echo "  sudo -u ${SERVICE_USER} bash -c 'cd ${APP_DIR} && pm2 start ecosystem.config.js && pm2 save'"
 echo ""
 echo -e "${YELLOW}STEP 3 (optional — if you have a domain) — Install SSL:${NC}"
 echo "  Make sure your domain's A record points to this server's IP first, then:"
 echo "  certbot --nginx -d ${DOMAIN:-your-domain.com}"
 echo ""
 echo -e "${YELLOW}STEP 4 — Verify:${NC}"
-echo "  pm2 status"
+echo "  sudo -u ${SERVICE_USER} pm2 status"
 echo "  curl http://localhost:5000/api/settings/public"
+echo "  # must print ${SERVICE_USER}, never root:"
+echo "  ps -o user= -p \$(sudo -u ${SERVICE_USER} pm2 jlist | node -e \"let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{const a=JSON.parse(s).find(x=>x.name==='onway');console.log(a?a.pid:'')})\")"
 echo ""
 echo -e "${GREEN}Need to update code later? Run: bash ${APP_DIR}/deployment/update.sh${NC}"
 echo ""

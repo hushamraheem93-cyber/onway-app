@@ -9544,7 +9544,15 @@
       lucide.createIcons();
 
       try {
-        const res = await fetch(`${API_BASE}/admin/archive-old-orders`, { method: 'DELETE' });
+        // C-01: the server no longer wipes anything on an unqualified DELETE — a
+        // bare call is a dry run now. The full monthly reset this button performs
+        // must name its scope and carry its own confirmation string, so nothing
+        // else that reaches the route can trigger it by accident.
+        const res = await fetch(`${API_BASE}/admin/archive-old-orders`, {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ scope: 'all', confirm: 'DELETE-ALL-DATA', dryRun: false }),
+        });
         const data = await res.json();
 
         if (res.ok) {

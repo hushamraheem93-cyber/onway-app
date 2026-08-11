@@ -28,6 +28,7 @@ import { readFileSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createRequire } from "node:module";
+import { stripComments as sharedStripComments } from "./_source.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const require = createRequire(import.meta.url);
@@ -182,9 +183,7 @@ describe("web behaviour is unchanged", () => {
 });
 
 describe("the guard itself, read from source", () => {
-  const clean = SRC
-    .replace(/\/\*[\s\S]*?\*\//g, "")
-    .replace(/(^|[^:])\/\/[^\n]*/g, "$1");
+  const clean = sharedStripComments(SRC);
   const fn = body(clean, "function currentResolution()");
 
   test("window.location is never read behind a bare typeof window check", () => {

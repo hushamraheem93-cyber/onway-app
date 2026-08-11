@@ -544,6 +544,13 @@ export interface FirestoreOrder {
   updatedAt: admin.firestore.Timestamp;
   // Vendor / restaurant fields
   vendorId?: string;
+  /**
+   * H-34: every vendor with a stake in this order — the union of `vendorId` and the
+   * owner of each item — so a vendor can query their own orders with
+   * `where("vendorIds", "array-contains", id)` instead of scanning the collection.
+   * Written at creation time and by scripts/backfill-order-vendor-ids.mjs.
+   */
+  vendorIds?: string[];
   vendorName?: string;
   vendorWhatsapp?: string;
   orderType?: string;
@@ -617,8 +624,12 @@ export async function getOrdersByPhone(phoneNumber: string): Promise<(FirestoreO
       return bTime - aTime;
     });
   } catch (error) {
+    // H-33: this used to return []. Its one caller renders the customer's order
+    // list, so a failed read showed "you have no orders" — a database outage
+    // presented to the customer as fact, right after they paid. The caller now
+    // turns this into an error response and the app keeps its last known list.
     console.error("Error getting user orders:", error);
-    return [];
+    throw error;
   }
 }
 
@@ -1399,14 +1410,23 @@ const OTP_TTL_MS = 5 * 60 * 1000;
 const OTP_MAX_ATTEMPTS = 5; // wrong tries before the code is invalidated (brute-force guard)
 const otpStore = new Map<string, { code: string; expiresAt: number; attempts: number }>();
 
+export const OTP_LENGTH = 6;
+
 export function generateOtp(phoneNumber: string): string {
-  // 4-digit code (1000–9999) — length is a deliberate product decision for ease of
-  // entry. Generated with crypto.randomInt rather than Math.random(): Math.random()
-  // is a non-cryptographic PRNG whose output is predictable from observed values,
-  // so codes could be guessed without brute force. Length is unchanged; only the
-  // randomness source is hardened. Brute force is bounded by OTP_MAX_ATTEMPTS (5)
-  // plus the per-IP rate limit on /api/auth/verify-otp.
-  const code = crypto.randomInt(1000, 10000).toString();
+  // C-04: this was a 4-digit code — 9,000 possibilities. That is the root of trust
+  // for EVERY identity in the system (customer, and through the customer token the
+  // driver and vendor registrations too). With OTP_MAX_ATTEMPTS = 5 an attacker
+  // needed only ~1,800 resend cycles to walk the whole space, which the finding
+  // rightly called "guessable within hours".
+  //
+  // Six digits is 900,000 possibilities — a 100× larger space, so the same attack
+  // needs ~180,000 cycles against a send-otp endpoint capped at 5 requests per
+  // minute per IP. Randomness stays crypto.randomInt (never Math.random, whose
+  // output is predictable from observed values).
+  //
+  // randomInt(100000, 1000000) never returns a leading-zero code, so the string is
+  // always exactly OTP_LENGTH characters and the client's fixed-width input matches.
+  const code = crypto.randomInt(100000, 1000000).toString();
   otpStore.set(phoneNumber, {
     code,
     expiresAt: Date.now() + OTP_TTL_MS,
@@ -1585,11 +1605,16 @@ export async function getDriverWalletBalance(phoneNumber: string): Promise<numbe
   if (!db) return 0;
   try {
     const snapshot = await db.collection("driverWallets").where("phoneNumber", "==", phoneNumber).limit(1).get();
-    if (snapshot.empty) return 0;
+    if (snapshot.empty) return 0; // a driver with no wallet row genuinely has 0
     return snapshot.docs[0].data().balance || 0;
   } catch (error) {
+    // H-33: this used to answer 0 on a read failure, which is a claim about money
+    // — "this driver owes nothing" — not an error. Nothing calls this helper today,
+    // so the false zero never reached a screen; it is corrected here so that
+    // whoever wires it up inherits the same contract as the ledger helpers, which
+    // throw and let the route answer 500.
     console.error("Error getting driver wallet:", error);
-    return 0;
+    throw error;
   }
 }
 
@@ -1780,8 +1805,11 @@ export async function getWalletHistory(phoneNumber: string): Promise<any[]> {
     });
     return rows.slice(0, 50);
   } catch (error) {
+    // H-33: same contract as getDriverWalletBalance above — an unreadable history
+    // is not an empty history. Also currently uncalled; corrected so it cannot
+    // become a silent "no movements" the day something wires it up.
     console.error("Error getting wallet history:", error);
-    return [];
+    throw error;
   }
 }
 

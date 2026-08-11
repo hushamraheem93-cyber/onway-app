@@ -758,34 +758,71 @@ export default function AdminScreen() {
     }
   };
 
+  // H-43: the full user list is fetched ONLY by the tab that lists users.
+  //
+  // The dashboard used to pull every user document over the wire — phone numbers,
+  // names, addresses, push tokens — to render one number, `adminUsers.length`.
+  // That number now comes from /api/admin/dashboard-stats below, which reports it
+  // with Firestore's server-side count() aggregation. The endpoint already existed
+  // and already did this (its own comment calls it out); no client had adopted it.
   const {
     data: adminUsers = [],
     isLoading: usersLoading,
     refetch: refetchUsers,
   } = useQuery<AdminUser[]>({
     queryKey: ["/api/admin/users"],
+    enabled: activeTab === "users",
   });
+
+  // Aggregate counters for the dashboard tiles. Small, fixed-size response; the
+  // heavy per-row datasets stay behind their own tabs. Not polled — the dashboard's
+  // live figures come from /api/admin/orders, which is polled for the alert anyway.
+  const { data: dashboardStats } = useQuery<{
+    users: number;
+    products: number;
+  }>({
+    queryKey: ["/api/admin/dashboard-stats"],
+    enabled: activeTab === "dashboard",
+  });
+
+  // H-43: the queries below are fetched only by the tabs that actually read them.
+  //
+  // Every query on this screen used to run on mount regardless of the open tab, so
+  // opening the panel to look at one order downloaded the whole product catalogue,
+  // every vendor's products, every promo code, the banners, the categories and the
+  // delivery areas — none of which the dashboard displays. The consumers were
+  // traced one by one before gating; the ones that stayed ungated did so because
+  // something outside their own tab reads them (a tab-bar badge, or the dashboard).
+  //
+  // `enabled` only defers the fetch; react-query still serves the cached value for
+  // 5 minutes (staleTime), so switching back to a tab does not refetch.
 
   const { data: banners = [], isLoading: bannersLoading } = useQuery<Banner[]>({
     queryKey: ["/api/admin/banners"],
+    enabled: activeTab === "banners",
   });
 
   const { data: categories = [], isLoading: categoriesLoading } = useQuery<
     Category[]
   >({
     queryKey: ["/api/categories"],
+    // The products tab renders the category picker, so it needs these too.
+    enabled: activeTab === "categories" || activeTab === "products",
   });
 
   const { data: products = [], isLoading: productsLoading } = useQuery<
     Product[]
   >({
     queryKey: ["/api/admin/products"],
+    // The vendors tab cross-references platform products against vendor ones.
+    enabled: activeTab === "products" || activeTab === "vendors",
   });
 
   const { data: deliveryAreas = [], isLoading: areasLoading } = useQuery<
     DeliveryArea[]
   >({
     queryKey: ["/api/admin/delivery-areas"],
+    enabled: activeTab === "areas",
   });
 
   const { data: adminOrders = [], isLoading: ordersLoading } = useQuery<
@@ -825,6 +862,7 @@ export default function AdminScreen() {
     PromoCode[]
   >({
     queryKey: ["/api/admin/promo-codes"],
+    enabled: activeTab === "promoCodes",
   });
 
   const { data: ownerEarnings } = useQuery<{
@@ -835,6 +873,7 @@ export default function AdminScreen() {
     totalDeliveredOrders: number;
   }>({
     queryKey: ["/api/admin/owner-earnings"],
+    enabled: activeTab === "dashboard" || activeTab === "orders",
   });
 
   const {
@@ -866,12 +905,14 @@ export default function AdminScreen() {
       if (!res.ok) throw new Error("failed");
       return res.json();
     },
+    enabled: activeTab === "vendors",
   });
 
   const { data: feesSettings, refetch: refetchFees } = useQuery<{
     serviceFee: number;
   }>({
     queryKey: ["/api/settings/fees"],
+    enabled: activeTab === "settings",
   });
 
   const [selectedVendor, setSelectedVendor] = useState<VendorPartner | null>(
@@ -1341,7 +1382,7 @@ export default function AdminScreen() {
         : "/api/admin/delivery-areas";
       const method = editItem ? "PUT" : "POST";
 
-      await fetch(`${getApiUrl()}${url}`, {
+      const response = await fetch(`${getApiUrl()}${url}`, {
         method,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -1350,12 +1391,19 @@ export default function AdminScreen() {
         }),
       });
 
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || "فشل في حفظ منطقة التوصيل");
+      }
+
       queryClient.invalidateQueries({
         queryKey: ["/api/admin/delivery-areas"],
       });
       queryClient.invalidateQueries({ queryKey: ["/api/delivery-areas"] });
       resetForm();
-    } catch (error) {}
+    } catch (error: any) {
+      Alert.alert("خطأ", error?.message || "فشل في حفظ منطقة التوصيل");
+    }
   };
 
   const savePromoCode = async () => {
@@ -1383,7 +1431,9 @@ export default function AdminScreen() {
 
       queryClient.invalidateQueries({ queryKey: ["/api/admin/promo-codes"] });
       resetForm();
-    } catch (error: any) {}
+    } catch (error: any) {
+      Alert.alert("خطأ", error?.message || "فشل في حفظ كود الخصم");
+    }
   };
 
   const resetForm = () => {
@@ -3958,7 +4008,7 @@ window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.
       },
       {
         label: "المستخدمون",
-        value: adminUsers.length,
+        value: dashboardStats?.users ?? 0,
         icon: "users" as const,
         color: AppColors.info,
         bg: AppColors.infoLight,

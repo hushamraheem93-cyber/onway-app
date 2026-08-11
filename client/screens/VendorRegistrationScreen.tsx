@@ -19,6 +19,7 @@ import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { ThemedText } from "@/components/ThemedText";
 import { useAuth } from "@/context/AuthContext";
 import { getApiUrl } from "@/lib/query-client";
+import { getToken } from "@/lib/secureTokenStorage";
 import { BUSINESS_TYPES } from "@/constants/businessCategories";
 import { AppColors } from "@/constants/theme";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
@@ -58,11 +59,18 @@ export default function VendorRegistrationScreen() {
     setError("");
     setLoading(true);
     try {
+      // C-16: registration now requires proof that this phone number was verified
+      // by OTP. The customer token is the same proof the driver registration flow
+      // already sends; without it the server rejects with 401.
+      const customerToken = await getToken("@onway_customer_token");
       const res = await fetch(
         new URL("/api/vendor/register", getApiUrl()).toString(),
         {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            ...(customerToken ? { Authorization: `Bearer ${customerToken}` } : {}),
+          },
           body: JSON.stringify({
             storeName: storeName.trim(),
             ownerName: ownerName.trim(),

@@ -11,6 +11,7 @@ import { Platform, AppState, AppStateStatus } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { getToken, setToken, removeToken } from "@/lib/secureTokenStorage";
 import { getApiUrl } from "@/lib/query-client";
+import { reportCrash } from "@/lib/crashReporting";
 import {
   issueDriverToken,
   clearDriverToken,
@@ -397,6 +398,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       }
     } catch (error) {
+      // H-33: this was completely empty. A corrupt stored record, a SecureStore
+      // failure or an unexpected shape dropped the user to the login screen with
+      // no trace anywhere — the one boot failure nobody could ever diagnose.
+      //
+      // Falling through to logged-out stays the right RECOVERY: the stored state
+      // could not be trusted, and re-authenticating is the only safe path. What
+      // was wrong is that it happened silently. It is now recorded once, locally
+      // and (when configured) remotely through the H-32 reporter.
+      //
+      // Nothing identifying is logged: the message is a fixed string and the error
+      // itself carries a storage/parse failure, never the phone number or token.
+      // The inner catches above are deliberate, documented fallbacks and are left
+      // exactly as they are.
+      console.error("[auth] stored session could not be restored:", error);
+      reportCrash(error instanceof Error ? error : new Error(String(error)));
     } finally {
       setIsLoading(false);
     }
@@ -991,13 +1007,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    // NOTE (perf): deliberately NOT memoized. All 8 other providers memoize
-    // their context value, but this one exposes 16 interdependent async auth
-    // functions; memoizing without useCallback-stabilizing each would be a
-    // no-op, and stabilizing them risks stale-closure bugs in the login flow
-    // (the most fragile path in the app). Auth state changes are rare after
-    // boot, so the win would be negligible anyway. Revisit only with full
-    // end-to-end auth testing available.
+    // NOTE (perf): deliberately NOT memoized — and this has now been measured
+    // rather than argued. See tests/unit/auth-context-memoization.test.mjs.
+    //
+    // A useMemo here would be a strict no-op. AuthProvider is mounted under
+    // ThemeProvider and QueryClientProvider (client/App.tsx), both of which pass
+    // `children` straight through, so React bails out of this subtree when they
+    // re-render. This provider therefore re-renders only when its OWN state
+    // changes — which means a memo keyed on that state would recompute on every
+    // single render it was asked to skip. Driving the real login sequence through
+    // a model of React's batching and bail-out rules gives identical numbers for
+    // the inline literal, for useMemo, and for useMemo plus useCallback.
+    //
+    // What the value's identity DOES cost is one re-render of every mounted
+    // useAuth() consumer per auth state change (39 files call useAuth). That is
+    // inherent to one wide context and memoization does not touch it; only
+    // splitting state from actions would, at the cost of changing the shape every
+    // consumer reads. That is an API change, not a local fix.
+    //
+    // Stabilising the functions individually buys nothing today either: the only
+    // dependency arrays that hold an auth function are the three in
+    // VendorHomeScreen, and they hold refreshVendorProfile, which is already
+    // useCallback-wrapped above for exactly that reason. The one memoised
+    // component that touches an auth function (SettingsRow in VendorProfileScreen)
+    // receives it inside an inline arrow, so its identity is fresh regardless.
     <AuthContext.Provider
       value={{
         isLoggedIn,

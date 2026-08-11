@@ -38,6 +38,7 @@ import { readFileSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createRequire } from "node:module";
+import { stripComments as sharedStripComments } from "./_source.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const require = createRequire(import.meta.url);
@@ -71,8 +72,7 @@ const SAVE_BODY = body(SRC, "const saveStoreSettings = async () =>");
 const TOGGLE_BODY = body(SRC, 'async (field: "isVacation" | "isBusy", value: boolean) =>');
 
 /** Strip comments so assertions never match prose about the code. */
-const stripComments = (s) =>
-  s.replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|[^:])\/\/[^\n]*/g, "$1");
+const stripComments = sharedStripComments;
 const SAVE = stripComments(SAVE_BODY);
 const TOGGLE = stripComments(TOGGLE_BODY);
 

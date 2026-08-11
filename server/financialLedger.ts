@@ -193,15 +193,23 @@ export async function getLedgerBalance(
   accountId: string,
 ): Promise<number> {
   const db = getFirestore();
-  if (!db) return 0;
+  // H-33: an unreachable database used to answer 0, which every caller renders as
+  // "this account is owed nothing". A driver in Dhuluiyah carrying real cash would
+  // see a zero balance and believe it. A missing HEAD document is still a genuine
+  // zero — that is the "no movements yet" case below and is left as it was.
+  if (!db) throw new Error("ledger unavailable: no database");
   try {
     const snap = await db
       .collection(LEDGER_HEADS)
       .doc(ledgerHeadId(accountType, accountId))
       .get();
     return snap.exists ? Number((snap.data() as any).balance) || 0 : 0;
-  } catch {
-    return 0;
+  } catch (err) {
+    console.error(
+      `[LEDGER] balance read failed for ${accountType}:${accountId}:`,
+      err,
+    );
+    throw err;
   }
 }
 
@@ -216,7 +224,12 @@ export async function getAccountStatement(
   max = 200,
 ): Promise<{ balance: number; entries: any[] }> {
   const db = getFirestore();
-  if (!db) return { balance: 0, entries: [] };
+  // H-33: this returned { balance: 0, entries: [] } on any failure, so a Firestore
+  // outage produced a bank statement showing an empty account with nothing owed.
+  // All three callers (driver, vendor and admin statements) already wrap this in a
+  // try/catch that answers 500, so throwing is all that was ever needed for them to
+  // report the truth. A genuinely empty account still returns entries: [].
+  if (!db) throw new Error("ledger unavailable: no database");
   try {
     const snap = await db
       .collection(LEDGER)
@@ -233,7 +246,7 @@ export async function getAccountStatement(
     return { balance, entries };
   } catch (err) {
     console.error("getAccountStatement error:", err);
-    return { balance: 0, entries: [] };
+    throw err;
   }
 }
 
@@ -287,7 +300,10 @@ export async function listAuditLog(
   max = 200,
 ): Promise<any[]> {
   const db = getFirestore();
-  if (!db) return [];
+  // H-33: an empty audit log is the answer an admin gets while investigating a
+  // settlement dispute. "Nothing was recorded" and "the log could not be read" must
+  // not look the same. The caller already answers 500 on a throw.
+  if (!db) throw new Error("audit log unavailable: no database");
   try {
     let q: any = db.collection(AUDIT);
     if (filter.targetType) q = q.where("targetType", "==", filter.targetType);
@@ -301,6 +317,6 @@ export async function listAuditLog(
       );
   } catch (err) {
     console.error("listAuditLog error:", err);
-    return [];
+    throw err;
   }
 }
