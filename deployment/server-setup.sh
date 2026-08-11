@@ -16,14 +16,6 @@ err()     { echo -e "${RED}[ERROR]${NC} $*"; exit 1; }
 # ── Root check ────────────────────────────────────────────────────────────────
 [[ $EUID -ne 0 ]] && err "Run as root: sudo bash server-setup.sh"
 
-# ── Service account (H-46) ────────────────────────────────────────────────────
-# A system user with no login shell and no password. It owns the application and
-# is the only identity the running server ever has.
-if ! id -u "$SERVICE_USER" >/dev/null 2>&1; then
-  useradd --system --create-home --home-dir "/home/${SERVICE_USER}" \
-          --shell /usr/sbin/nologin --comment "OnWay application service" "$SERVICE_USER"
-fi
-
 echo ""
 echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 echo -e "${GREEN}  OnWay — Production Server Setup                              ${NC}"
@@ -44,6 +36,36 @@ APP_DIR="/var/www/onway"
 # when the script does.
 SERVICE_USER="onway"
 NODE_VERSION="22"
+
+# ── Service account (H-46) ────────────────────────────────────────────────────
+# A system user with no login shell and no password. It owns the application and
+# is the only identity the running server ever has.
+#
+# This block MUST come after SERVICE_USER is assigned. It used to sit above the
+# configuration section, where the variable did not exist yet: under
+# `set -euo pipefail` the unset reference aborted the script with
+# "SERVICE_USER: unbound variable" on its very first real step — so on a fresh
+# VPS the service user was never created and the whole H-46 hardening below
+# never ran. Nothing downstream reported it, because the script was already dead.
+if ! id -u "$SERVICE_USER" >/dev/null 2>&1; then
+  useradd --system --create-home --home-dir "/home/${SERVICE_USER}" \
+          --shell /usr/sbin/nologin --comment "OnWay application service" "$SERVICE_USER"
+  success "Service user ${SERVICE_USER} created (no shell, no password)"
+else
+  success "Service user ${SERVICE_USER} already exists"
+fi
+
+# A PM2 daemon left over from a root-era install would keep running the server as
+# root and fight this one for port 5000. Detect it and stop, rather than silently
+# creating a second daemon — killing someone's live production process is the
+# operator's call, not this script's.
+if pgrep -u root -f "PM2.*God Daemon" >/dev/null 2>&1; then
+  err "A root-owned PM2 daemon is running. Migrate it before continuing:
+    pm2 delete onway || true
+    pm2 unstartup systemd || true
+    pm2 kill
+  then re-run this script."
+fi
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # 1. System update

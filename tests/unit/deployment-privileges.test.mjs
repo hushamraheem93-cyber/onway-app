@@ -26,6 +26,7 @@
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync, readdirSync } from "node:fs";
+import { spawnSync } from "node:child_process";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { stripComments as sharedStripComments } from "./_source.mjs";
@@ -83,8 +84,13 @@ describe("H-46 · the service must not run as root", () => {
 
   test("root is still used only for setup-time system work", () => {
     // apt, nginx, ufw and certbot genuinely need it; nothing at RUN time may.
+    // `pgrep -u root` and the error text beside it DETECT a leftover root-owned PM2
+    // daemon and abort — that is the opposite of granting root, so it is excluded
+    // along with the setup-time system tools.
     const runtimeRootRefs = SETUP.split("\n").filter(
-      (l) => /\broot\b/.test(l) && !/EUID|certbot|nginx|apt|ufw|STEP|echo/.test(l),
+      (l) => /\broot\b/.test(l)
+        && !/EUID|certbot|nginx|apt|ufw|STEP|echo/.test(l)
+        && !/pgrep -u root|root-owned PM2|root-era|pm2 unstartup|pm2 kill|pm2 delete/.test(l),
     );
     assert.deepEqual(runtimeRootRefs, [],
       `these lines still put root in the runtime path:\n${runtimeRootRefs.join("\n")}`);
@@ -136,5 +142,72 @@ describe("H-46 · the application must not need privileges back", () => {
       "the credential source changed — a key file would need its own ownership rules");
     assert.doesNotMatch(strip(fb), /readFileSync\([^)]*serviceAccount|require\([^)]*serviceAccount.*\.json/,
       "a Firebase key file is read from disk");
+  });
+});
+
+describe("H-46 · the hardening actually RUNS — not just present in the text", () => {
+  // Every assertion above checks that a line EXISTS. None of them execute the
+  // script, which is how this survived: the service-account block sat above the
+  // configuration section, referencing $SERVICE_USER before it was assigned. Under
+  // `set -euo pipefail` that aborts with "SERVICE_USER: unbound variable" on the
+  // script's first real step, so on a fresh VPS the user was never created and none
+  // of the H-46 hardening below it ever ran — silently.
+  const SETUP_PATH = join(root, "deployment/server-setup.sh");
+
+  /** Run the script from `set -euo pipefail` up to `marker`, with root-only and
+   *  system-mutating commands stubbed. Returns { status, stderr }. */
+  function runPrologue(marker) {
+    const src = readFileSync(SETUP_PATH, "utf8");
+    const from = src.indexOf("set -euo pipefail");
+    const to = src.indexOf(marker);
+    assert.ok(from >= 0 && to > from, `marker not found: ${marker}`);
+    let body = src.slice(from, to);
+    // Stub the things that need a real machine; the control flow is what matters.
+    body = body
+      .replace('[[ $EUID -ne 0 ]] && err "Run as root: sudo bash server-setup.sh"', ": # root check stubbed")
+      .replace(/^read -rp.*$/m, 'DOMAIN=""')
+      // stop at the `;` so `; then` survives — swallowing it broke the if/fi pair
+      .replace(/pgrep [^;\n]*/g, "false");
+    // `useradd` is not regex-stripped: the shell-function stub below shadows it, and
+    // stripping only its first line left the `--shell ...` continuation as a stray
+    // command (exit 127) — which would have masked the very abort this test detects.
+    const stubs = 'id(){ return 1; }\nuseradd(){ return 0; }\n';
+    const r = spawnSync("bash", ["-c", stubs + body], { encoding: "utf8", timeout: 30_000 });
+    return { status: r.status, stderr: r.stderr ?? "" };
+  }
+
+  test("the prologue runs to completion — no unbound variable, no early abort", () => {
+    const r = runPrologue("# 1. System update");
+    assert.doesNotMatch(r.stderr, /unbound variable/,
+      `the script aborts before doing any work:\n${r.stderr}`);
+    assert.equal(r.status, 0, `prologue exited ${r.status}:\n${r.stderr}`);
+  });
+
+  test("SERVICE_USER is assigned before anything uses it", () => {
+    const src = readFileSync(SETUP_PATH, "utf8");
+    const assigned = src.indexOf('SERVICE_USER="onway"');
+    const firstUse = src.search(/\$\{?SERVICE_USER\b/);
+    assert.ok(assigned > 0, "SERVICE_USER is never assigned");
+    assert.ok(firstUse > assigned,
+      "SERVICE_USER is referenced before it is assigned — `set -u` aborts the script there");
+  });
+
+  test("the service user is actually created, and the script says so", () => {
+    const src = readFileSync(SETUP_PATH, "utf8");
+    const at = src.indexOf('if ! id -u "$SERVICE_USER"');
+    const assigned = src.indexOf('SERVICE_USER="onway"');
+    assert.ok(at > assigned, "the useradd block still precedes the assignment");
+    const block = src.slice(at, at + 700);
+    assert.match(block, /--system/);
+    assert.match(block, /--shell \/usr\/sbin\/nologin/);
+    assert.match(block, /success "Service user/, "the operator gets no confirmation it ran");
+  });
+
+  test("a leftover root-owned PM2 daemon stops the setup instead of racing it", () => {
+    const src = readFileSync(SETUP_PATH, "utf8");
+    assert.match(src, /pgrep -u root -f "PM2.*God Daemon"/,
+      "a root-era PM2 daemon would keep running the server as root and fight for port 5000");
+    const at = src.indexOf('pgrep -u root -f "PM2');
+    assert.match(src.slice(at, at + 400), /err "A root-owned PM2 daemon is running/);
   });
 });
