@@ -46,6 +46,18 @@ const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const HORIZONTAL_PADDING = 18;
 const PRODUCT_CARD_WIDTH = 160;
 
+// C-20: how many 160pt cards flexWrap fits per row inside the padded content
+// width, with the 12pt gap between them. Computing it keeps the search grid
+// adaptive exactly as `flexWrap: "wrap"` was, instead of hard-coding columns.
+const SEARCH_GRID_GAP = 12;
+const SEARCH_GRID_COLUMNS = Math.max(
+  2,
+  Math.floor(
+    (SCREEN_WIDTH - 2 * HORIZONTAL_PADDING + SEARCH_GRID_GAP) /
+      (PRODUCT_CARD_WIDTH + SEARCH_GRID_GAP),
+  ),
+);
+
 interface Vendor {
   id: string;
   name: string;
@@ -1067,15 +1079,19 @@ export default function HomeScreen() {
                 منتجات المتجر
               </ThemedText>
             </View>
-            <ScrollView
+            <FlatList
               horizontal
+              data={products}
+              renderItem={({ item: vp }) =>
+                renderVendorProductCard(vp, store.id, store.storeName)
+              }
+              keyExtractor={(vp) => vp.id}
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={vendorSectionStyles.scroll}
-            >
-              {products.map((vp) =>
-                renderVendorProductCard(vp, store.id, store.storeName),
-              )}
-            </ScrollView>
+              initialNumToRender={4}
+              windowSize={5}
+              removeClippedSubviews
+            />
           </View>
         ) : null}
       </View>
@@ -1093,10 +1109,26 @@ export default function HomeScreen() {
         </View>
       );
     }
+    // C-20: this grid mounted EVERY match at once — a one-character query pulls
+    // most of the catalogue, since filteredStoreProducts is uncapped. It is now
+    // windowed. numColumns + a space-between column wrapper reproduces what
+    // `flexDirection: row / flexWrap: wrap / justifyContent: space-between`
+    // produced, including a partial last row, and the column count comes from the
+    // same geometry rather than being fixed.
     return (
-      <View style={styles.searchResultsGrid}>
-        {filteredStoreProducts.map(renderProductCard)}
-      </View>
+      <FlatList
+        data={filteredStoreProducts}
+        renderItem={({ item: p }) => renderProductCard(p)}
+        keyExtractor={(p) => p.id}
+        numColumns={SEARCH_GRID_COLUMNS}
+        columnWrapperStyle={styles.searchResultsRow}
+        contentContainerStyle={styles.searchResultsGridContent}
+        scrollEnabled={false}
+        initialNumToRender={SEARCH_GRID_COLUMNS * 3}
+        maxToRenderPerBatch={SEARCH_GRID_COLUMNS * 2}
+        windowSize={5}
+        removeClippedSubviews
+      />
     );
   };
 
@@ -1117,321 +1149,471 @@ export default function HomeScreen() {
   );
 
   // ── Main content ────────────────────────────────────────────────────────
-  const renderContent = () => (
-    <View>
-      <LocationBar />
+  // ── C-20: real virtualization ────────────────────────────────────────────
+  //
+  // The screen used to render as `<FlatList data={[{ key: "content" }]}
+  // renderItem={renderContent} />` — a ONE-ITEM list whose single item was the
+  // entire page. That is a ScrollView with extra bookkeeping: nothing windows,
+  // and every restaurant card, store section, product card and image mounts at
+  // once and stays mounted.
+  //
+  // The page is now described as a list of sections, and — this is the part that
+  // actually matters — each entry of an UNBOUNDED collection becomes its OWN
+  // list item rather than being .map()ed inside one. So FlatList can window the
+  // things that actually grow: restaurant cards, and the per-store sections.
+  //
+  // Every section below renders the SAME JSX it rendered before, moved but not
+  // rewritten. Order, styles, handlers, RTL and navigation are untouched.
+  type HomeSection =
+    | { type: "location" }
+    | { type: "greeting" }
+    | { type: "banners" }
+    | { type: "tabs" }
+    | { type: "search" }
+    | { type: "restaurantsLoading" }
+    | { type: "restaurantCard"; vendor: Vendor }
+    | { type: "vendorRestaurantsHeader" }
+    | { type: "vendorStoreSection"; store: VendorStore }
+    | { type: "restaurantsEmpty" }
+    | { type: "searchResults" }
+    | { type: "categoriesHeader" }
+    | { type: "categoriesLoading" }
+    | { type: "categoriesRows" }
+    | { type: "storesHeader" }
+    | { type: "bestSellersHeader" }
+    | { type: "bestSellersLoading" }
+    | { type: "bestSellersEmpty" }
+    | { type: "bestSellersRow" }
+    | { type: "featuredHeader" }
+    | { type: "featuredLoading" }
+    | { type: "featuredEmpty" }
+    | { type: "featuredRow" }
+    | { type: "discountsHeader" }
+    | { type: "discountsRow" }
+    | { type: "tabBottomPad" };
 
-      {/* Greeting */}
-      <View style={styles.greetingContainer}>
-        <ThemedText style={styles.greeting}>{welcomeMessage}</ThemedText>
-        <ThemedText style={styles.subGreeting}>
-          طلباتك صارت أسهل ويانا
-        </ThemedText>
-      </View>
+  const buildSections = (): HomeSection[] => {
+    const out: HomeSection[] = [
+      { type: "location" },
+      { type: "greeting" },
+    ];
+    if (sliderBanners.length > 0 || offerBanner) out.push({ type: "banners" });
+    out.push({ type: "tabs" }, { type: "search" });
 
-      {/* Banners */}
-      {sliderBanners.length > 0 || offerBanner ? (
-        <View style={styles.bannersSection}>
-          {offerBanner ? <OfferBanner banner={offerBanner} /> : null}
-          {sliderBanners.length > 0 ? (
-            <BannerSlider banners={sliderBanners} />
+    if (activeTab === "restaurants") {
+      if (vendorsLoading || storesLoading) {
+        out.push({ type: "restaurantsLoading" });
+      } else {
+        // One item per restaurant — this is what FlatList can now window.
+        for (const vendor of filteredRestaurants) out.push({ type: "restaurantCard", vendor });
+        if (vendorRestaurants.length > 0) {
+          if (filteredRestaurants.length > 0) out.push({ type: "vendorRestaurantsHeader" });
+          for (const store of vendorRestaurants) out.push({ type: "vendorStoreSection", store });
+        }
+        if (filteredRestaurants.length === 0 && vendorRestaurants.length === 0) {
+          out.push({ type: "restaurantsEmpty" });
+        }
+      }
+    } else if (searchQuery.trim().length > 0) {
+      out.push({ type: "searchResults" });
+    } else {
+      out.push({ type: "categoriesHeader" });
+      out.push(categoriesLoading ? { type: "categoriesLoading" } : { type: "categoriesRows" });
+      if (vendorOtherStores.length > 0) {
+        out.push({ type: "storesHeader" });
+        for (const store of vendorOtherStores) out.push({ type: "vendorStoreSection", store });
+      }
+      out.push({ type: "bestSellersHeader" });
+      out.push(
+        productsLoading ? { type: "bestSellersLoading" }
+        : bestSellerProducts.length === 0 ? { type: "bestSellersEmpty" }
+        : { type: "bestSellersRow" },
+      );
+      out.push({ type: "featuredHeader" });
+      out.push(
+        productsLoading ? { type: "featuredLoading" }
+        : featuredProducts.length === 0 ? { type: "featuredEmpty" }
+        : { type: "featuredRow" },
+      );
+      if (discountProducts.length > 0) {
+        out.push({ type: "discountsHeader" }, { type: "discountsRow" });
+      }
+    }
+    // styles.tabContent was only `paddingBottom: 8` around the whole tab block;
+    // reproduced here so the gap above the tab bar is unchanged.
+    out.push({ type: "tabBottomPad" });
+    return out;
+  };
+
+  const sectionKey = (item: HomeSection, index: number) =>
+    item.type === "restaurantCard" ? `restaurant:${item.vendor.id}`
+    : item.type === "vendorStoreSection" ? `store:${item.store.id}`
+    : `${item.type}:${index}`;
+
+  const renderSection = ({ item }: { item: HomeSection }) => {
+    switch (item.type) {
+      case "location":
+        return <LocationBar />;
+
+      case "greeting":
+        return (
+          <View>
+{/* Greeting */}
+        <View style={styles.greetingContainer}>
+          <ThemedText style={styles.greeting}>{welcomeMessage}</ThemedText>
+          <ThemedText style={styles.subGreeting}>
+            طلباتك صارت أسهل ويانا
+          </ThemedText>
+        </View>
+          </View>
+        );
+
+      case "banners":
+        return (
+          <View>
+{/* Banners */}
+        {sliderBanners.length > 0 || offerBanner ? (
+          <View style={styles.bannersSection}>
+            {offerBanner ? <OfferBanner banner={offerBanner} /> : null}
+            {sliderBanners.length > 0 ? (
+              <BannerSlider banners={sliderBanners} />
+            ) : null}
+          </View>
+        ) : null}
+          </View>
+        );
+
+      case "tabs":
+        return (
+          <View>
+{/* ── Toggle Tabs ── */}
+        <View style={styles.tabsWrapper}>
+          <View style={styles.tabsBackground}>
+            {/* زر المتاجر — يمين */}
+            <Pressable
+              style={[
+                styles.tabBtn,
+                activeTab === "stores" && styles.tabBtnActive,
+              ]}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                setActiveTab("stores");
+                setSearchQuery("");
+              }}
+              testID="tab-stores"
+              accessibilityRole="tab"
+              accessibilityLabel="متاجر"
+              accessibilityState={{ selected: activeTab === "stores" }}
+            >
+              {activeTab === "stores" ? (
+                <LinearGradient
+                  colors={[AppColors.primary, AppColors.primaryLight]}
+                  style={styles.tabGradient}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                >
+                  <StoreTabIcon size={52} />
+                  <ThemedText style={styles.tabTextActive}>متاجر</ThemedText>
+                </LinearGradient>
+              ) : (
+                <>
+                  <StoreTabIcon size={52} />
+                  <ThemedText style={styles.tabText}>متاجر</ThemedText>
+                </>
+              )}
+            </Pressable>
+
+            {/* زر المطاعم — يسار */}
+            <Pressable
+              style={[
+                styles.tabBtn,
+                activeTab === "restaurants" && styles.tabBtnActive,
+              ]}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                setActiveTab("restaurants");
+                setSearchQuery("");
+              }}
+              testID="tab-restaurants"
+              accessibilityRole="tab"
+              accessibilityLabel="مطاعم"
+              accessibilityState={{ selected: activeTab === "restaurants" }}
+            >
+              {activeTab === "restaurants" ? (
+                <LinearGradient
+                  colors={[AppColors.primary, AppColors.primaryLight]}
+                  style={styles.tabGradient}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                >
+                  <RestaurantTabIcon size={52} />
+                  <ThemedText style={styles.tabTextActive}>
+                    {restaurantVendors.length > 0
+                      ? `${restaurantVendors.length} مطاعم`
+                      : "مطاعم"}
+                  </ThemedText>
+                </LinearGradient>
+              ) : (
+                <>
+                  <RestaurantTabIcon size={52} />
+                  <ThemedText style={styles.tabText}>مطاعم</ThemedText>
+                </>
+              )}
+            </Pressable>
+          </View>
+        </View>
+          </View>
+        );
+
+      case "search":
+        return (
+          <View>
+{/* ── Search Bar ── */}
+        <View
+          style={[
+            styles.searchBox,
+            { backgroundColor: theme.backgroundSecondary },
+          ]}
+        >
+          <Pressable onPress={() => {}}>
+            <Feather name="search" size={20} color={AppColors.gray400} />
+          </Pressable>
+          <TextInput
+            style={[styles.searchInput, { color: theme.text }]}
+            placeholder={
+              activeTab === "restaurants"
+                ? "ابحث عن مطعم أو نوع طعام..."
+                : "ابحث عن منتج..."
+            }
+            placeholderTextColor={AppColors.gray400}
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            testID="input-home-search"
+          />
+          {searchQuery.length > 0 ? (
+            <Pressable
+              onPress={() => setSearchQuery("")}
+              accessibilityRole="button"
+              accessibilityLabel="مسح البحث"
+              hitSlop={8}
+            >
+              <Feather name="x" size={16} color={AppColors.gray400} />
+            </Pressable>
           ) : null}
         </View>
-      ) : null}
+          </View>
+        );
 
-      {/* ── Toggle Tabs ── */}
-      <View style={styles.tabsWrapper}>
-        <View style={styles.tabsBackground}>
-          {/* زر المتاجر — يمين */}
-          <Pressable
-            style={[
-              styles.tabBtn,
-              activeTab === "stores" && styles.tabBtnActive,
-            ]}
-            onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              setActiveTab("stores");
-              setSearchQuery("");
-            }}
-            testID="tab-stores"
-            accessibilityRole="tab"
-            accessibilityLabel="متاجر"
-            accessibilityState={{ selected: activeTab === "stores" }}
-          >
-            {activeTab === "stores" ? (
-              <LinearGradient
-                colors={[AppColors.primary, AppColors.primaryLight]}
-                style={styles.tabGradient}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-              >
-                <StoreTabIcon size={52} />
-                <ThemedText style={styles.tabTextActive}>متاجر</ThemedText>
-              </LinearGradient>
-            ) : (
-              <>
-                <StoreTabIcon size={52} />
-                <ThemedText style={styles.tabText}>متاجر</ThemedText>
-              </>
-            )}
-          </Pressable>
+      case "restaurantsLoading":
+      case "bestSellersLoading":
+      case "featuredLoading":
+        return (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator
+              size={item.type === "restaurantsLoading" ? "large" : "small"}
+              color={AppColors.primary}
+            />
+          </View>
+        );
 
-          {/* زر المطاعم — يسار */}
-          <Pressable
-            style={[
-              styles.tabBtn,
-              activeTab === "restaurants" && styles.tabBtnActive,
-            ]}
-            onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              setActiveTab("restaurants");
-              setSearchQuery("");
-            }}
-            testID="tab-restaurants"
-            accessibilityRole="tab"
-            accessibilityLabel="مطاعم"
-            accessibilityState={{ selected: activeTab === "restaurants" }}
-          >
-            {activeTab === "restaurants" ? (
-              <LinearGradient
-                colors={[AppColors.primary, AppColors.primaryLight]}
-                style={styles.tabGradient}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-              >
-                <RestaurantTabIcon size={52} />
-                <ThemedText style={styles.tabTextActive}>
-                  {restaurantVendors.length > 0
-                    ? `${restaurantVendors.length} مطاعم`
-                    : "مطاعم"}
-                </ThemedText>
-              </LinearGradient>
-            ) : (
-              <>
-                <RestaurantTabIcon size={52} />
-                <ThemedText style={styles.tabText}>مطاعم</ThemedText>
-              </>
-            )}
-          </Pressable>
-        </View>
-      </View>
+      case "restaurantCard":
+        return renderRestaurantCard(item.vendor);
 
-      {/* ── Search Bar ── */}
-      <View
-        style={[
-          styles.searchBox,
-          { backgroundColor: theme.backgroundSecondary },
-        ]}
-      >
-        <Pressable onPress={() => {}}>
-          <Feather name="search" size={20} color={AppColors.gray400} />
-        </Pressable>
-        <TextInput
-          style={[styles.searchInput, { color: theme.text }]}
-          placeholder={
-            activeTab === "restaurants"
-              ? "ابحث عن مطعم أو نوع طعام..."
-              : "ابحث عن منتج..."
-          }
-          placeholderTextColor={AppColors.gray400}
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-          testID="input-home-search"
-        />
-        {searchQuery.length > 0 ? (
-          <Pressable
-            onPress={() => setSearchQuery("")}
-            accessibilityRole="button"
-            accessibilityLabel="مسح البحث"
-            hitSlop={8}
-          >
-            <Feather name="x" size={16} color={AppColors.gray400} />
-          </Pressable>
-        ) : null}
-      </View>
+      case "vendorRestaurantsHeader":
+        return (
+          <View style={styles.sectionHeader}>
+            {renderSectionTitle("مطاعم المتاجر")}
+          </View>
+        );
 
-      {/* ── RESTAURANTS TAB ── */}
-      {activeTab === "restaurants" ? (
-        <View style={styles.tabContent}>
-          {vendorsLoading || storesLoading ? (
-            <View style={styles.loadingContainer}>
-              <ActivityIndicator size="large" color={AppColors.primary} />
-            </View>
-          ) : (
-            <>
-              {filteredRestaurants.length > 0
-                ? filteredRestaurants.map(renderRestaurantCard)
-                : null}
-              {vendorRestaurants.length > 0 ? (
-                <>
-                  {filteredRestaurants.length > 0 ? (
-                    <View style={styles.sectionHeader}>
-                      {renderSectionTitle("مطاعم المتاجر")}
-                    </View>
-                  ) : null}
-                  {vendorRestaurants.map(renderVendorStoreSectionWithProducts)}
-                </>
-              ) : null}
-              {filteredRestaurants.length === 0 &&
-              vendorRestaurants.length === 0 ? (
-                <View style={styles.emptySearch}>
-                  <Feather name="coffee" size={40} color={AppColors.gray300} />
-                  <ThemedText style={styles.emptySearchText}>
-                    {searchQuery.trim().length > 0
-                      ? `لا يوجد مطعم باسم "${searchQuery}"`
-                      : "لا توجد مطاعم متاحة حالياً"}
-                  </ThemedText>
-                </View>
-              ) : null}
-            </>
-          )}
-        </View>
-      ) : (
-        // ── STORES TAB ──
-        <View style={styles.tabContent}>
-          {searchQuery.trim().length > 0 ? (
-            renderSearchResults()
-          ) : (
-            <>
-              {/* Categories */}
-              <View style={styles.sectionHeader}>
-                {renderSectionTitle("الأقسام الرئيسية")}
-                <Pressable
-                  onPress={() => navigation.navigate("AllCategories")}
-                  accessibilityRole="button"
-                  accessibilityLabel="عرض كل الأقسام"
-                >
-                  <ThemedText style={styles.viewAll}>عرض الكل</ThemedText>
-                </Pressable>
-              </View>
-              {categoriesLoading ? (
-                <View style={styles.loadingContainer}>
-                  <ActivityIndicator size="small" color={AppColors.primary} />
-                </View>
-              ) : (
-                <View style={styles.catSliderContainer}>
-                  <ScrollView
-                    horizontal
-                    showsHorizontalScrollIndicator={false}
-                    contentContainerStyle={styles.catSliderContent}
-                    style={styles.catSliderRow}
-                  >
-                    {firstRowCategories.map(renderCategoryCard)}
-                  </ScrollView>
-                  <ScrollView
-                    horizontal
-                    showsHorizontalScrollIndicator={false}
-                    contentContainerStyle={styles.catSliderContent}
-                    style={styles.catSliderRow}
-                  >
-                    {secondRowCategories.map(renderCategoryCard)}
-                  </ScrollView>
-                </View>
-              )}
+      case "vendorStoreSection":
+        return renderVendorStoreSectionWithProducts(item.store);
 
-              {/* Vendor Stores with product preview */}
-              {vendorOtherStores.length > 0 ? (
-                <>
-                  <View style={styles.sectionHeader}>
-                    {renderSectionTitle("المتاجر المتاحة")}
-                  </View>
-                  {vendorOtherStores.map(renderVendorStoreSectionWithProducts)}
-                </>
-              ) : null}
+      case "restaurantsEmpty":
+        return (
+          <View style={styles.emptySearch}>
+            <Feather name="coffee" size={40} color={AppColors.gray300} />
+            <ThemedText style={styles.emptySearchText}>
+              {searchQuery.trim().length > 0
+                ? `لا يوجد مطعم باسم "${searchQuery}"`
+                : "لا توجد مطاعم متاحة حالياً"}
+            </ThemedText>
+          </View>
+        );
 
-              {/* Best Sellers */}
-              <View style={styles.sectionHeader}>
-                {renderSectionTitle("الأكثر مبيعاً")}
-                <Pressable
-                  onPress={() => navigation.navigate("AllCategories")}
-                  accessibilityRole="button"
-                  accessibilityLabel="عرض كل المنتجات الأكثر مبيعاً"
-                >
-                  <ThemedText style={styles.viewAll}>عرض الكل</ThemedText>
-                </Pressable>
-              </View>
-              {productsLoading ? (
-                <View style={styles.loadingContainer}>
-                  <ActivityIndicator size="small" color={AppColors.primary} />
-                </View>
-              ) : bestSellerProducts.length === 0 ? (
-                <View style={styles.emptySection}>
-                  <ThemedText type="small" style={styles.emptySectionText}>
-                    لا توجد منتجات حالياً
-                  </ThemedText>
-                </View>
-              ) : (
-                <ScrollView
-                  horizontal
-                  showsHorizontalScrollIndicator={false}
-                  contentContainerStyle={styles.bestSellersContainer}
-                  style={styles.productsSlider}
-                >
-                  {bestSellerProducts.map(renderProductCard)}
-                </ScrollView>
-              )}
+      case "searchResults":
+        return <View>{renderSearchResults()}</View>;
 
-              {/* Featured */}
-              <View style={styles.sectionHeader}>
-                {renderSectionTitle("المنتجات المميزة")}
-                <Pressable
-                  onPress={() => navigation.navigate("AllCategories")}
-                  accessibilityRole="button"
-                  accessibilityLabel="عرض كل المنتجات المميزة"
-                >
-                  <ThemedText style={styles.viewAll}>عرض الكل</ThemedText>
-                </Pressable>
-              </View>
-              {productsLoading ? (
-                <View style={styles.loadingContainer}>
-                  <ActivityIndicator size="small" color={AppColors.primary} />
-                </View>
-              ) : featuredProducts.length === 0 ? (
-                <View style={styles.emptySection}>
-                  <ThemedText type="small" style={styles.emptySectionText}>
-                    لا توجد منتجات مميزة حالياً
-                  </ThemedText>
-                </View>
-              ) : (
-                <ScrollView
-                  horizontal
-                  showsHorizontalScrollIndicator={false}
-                  contentContainerStyle={styles.bestSellersContainer}
-                  style={styles.productsSlider}
-                >
-                  {featuredProducts.map(renderProductCard)}
-                </ScrollView>
-              )}
+      case "categoriesHeader":
+        return (
+          <View style={styles.sectionHeader}>
+            {renderSectionTitle("الأقسام الرئيسية")}
+            <Pressable
+              onPress={() => navigation.navigate("AllCategories")}
+              accessibilityRole="button"
+              accessibilityLabel="عرض كل الأقسام"
+            >
+              <ThemedText style={styles.viewAll}>عرض الكل</ThemedText>
+            </Pressable>
+          </View>
+        );
 
-              {/* Discounts */}
-              {discountProducts.length > 0 ? (
-                <>
-                  <View style={styles.sectionHeader}>
-                    {renderSectionTitle("التخفيضات المميزة")}
-                    <Pressable
-                      onPress={() => navigation.navigate("AllCategories")}
-                      accessibilityRole="button"
-                      accessibilityLabel="عرض كل التخفيضات"
-                    >
-                      <ThemedText style={styles.viewAll}>عرض الكل</ThemedText>
-                    </Pressable>
-                  </View>
-                  <ScrollView
-                    horizontal
-                    showsHorizontalScrollIndicator={false}
-                    contentContainerStyle={styles.bestSellersContainer}
-                    style={styles.productsSlider}
-                  >
-                    {discountProducts.map(renderProductCard)}
-                  </ScrollView>
-                </>
-              ) : null}
-            </>
-          )}
-        </View>
-      )}
-    </View>
-  );
+      case "categoriesLoading":
+        return (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="small" color={AppColors.primary} />
+          </View>
+        );
+
+      case "categoriesRows":
+        // Deliberately still ScrollView: this is the full category set split over
+        // two rows — thirteen items total, a fixed product decision, not a
+        // collection that grows. Virtualizing it would add windowing overhead to
+        // something that never exceeds a screen or two, which is exactly the
+        // "FlatList everywhere" cargo-culting the brief warns against.
+        return (
+          <View style={styles.catSliderContainer}>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.catSliderContent}
+              style={styles.catSliderRow}
+            >
+              {firstRowCategories.map(renderCategoryCard)}
+            </ScrollView>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.catSliderContent}
+              style={styles.catSliderRow}
+            >
+              {secondRowCategories.map(renderCategoryCard)}
+            </ScrollView>
+          </View>
+        );
+
+      case "storesHeader":
+        return (
+          <View style={styles.sectionHeader}>
+            {renderSectionTitle("المتاجر المتاحة")}
+          </View>
+        );
+
+      case "bestSellersHeader":
+        return (
+          <View style={styles.sectionHeader}>
+            {renderSectionTitle("الأكثر مبيعاً")}
+            <Pressable
+              onPress={() => navigation.navigate("AllCategories")}
+              accessibilityRole="button"
+              accessibilityLabel="عرض كل المنتجات الأكثر مبيعاً"
+            >
+              <ThemedText style={styles.viewAll}>عرض الكل</ThemedText>
+            </Pressable>
+          </View>
+        );
+
+      case "bestSellersEmpty":
+        return (
+          <View style={styles.emptySection}>
+            <ThemedText type="small" style={styles.emptySectionText}>
+              لا توجد منتجات حالياً
+            </ThemedText>
+          </View>
+        );
+
+      case "bestSellersRow":
+        return (
+          <FlatList
+            horizontal
+            data={bestSellerProducts}
+            renderItem={({ item: p }) => renderProductCard(p)}
+            keyExtractor={(p) => p.id}
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.bestSellersContainer}
+            style={styles.productsSlider}
+            initialNumToRender={4}
+            windowSize={5}
+            removeClippedSubviews
+          />
+        );
+
+      case "featuredHeader":
+        return (
+          <View style={styles.sectionHeader}>
+            {renderSectionTitle("المنتجات المميزة")}
+            <Pressable
+              onPress={() => navigation.navigate("AllCategories")}
+              accessibilityRole="button"
+              accessibilityLabel="عرض كل المنتجات المميزة"
+            >
+              <ThemedText style={styles.viewAll}>عرض الكل</ThemedText>
+            </Pressable>
+          </View>
+        );
+
+      case "featuredEmpty":
+        return (
+          <View style={styles.emptySection}>
+            <ThemedText type="small" style={styles.emptySectionText}>
+              لا توجد منتجات مميزة حالياً
+            </ThemedText>
+          </View>
+        );
+
+      case "featuredRow":
+        return (
+          <FlatList
+            horizontal
+            data={featuredProducts}
+            renderItem={({ item: p }) => renderProductCard(p)}
+            keyExtractor={(p) => p.id}
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.bestSellersContainer}
+            style={styles.productsSlider}
+            initialNumToRender={4}
+            windowSize={5}
+            removeClippedSubviews
+          />
+        );
+
+      case "discountsHeader":
+        return (
+          <View style={styles.sectionHeader}>
+            {renderSectionTitle("التخفيضات المميزة")}
+            <Pressable
+              onPress={() => navigation.navigate("AllCategories")}
+              accessibilityRole="button"
+              accessibilityLabel="عرض كل التخفيضات"
+            >
+              <ThemedText style={styles.viewAll}>عرض الكل</ThemedText>
+            </Pressable>
+          </View>
+        );
+
+      case "discountsRow":
+        return (
+          <FlatList
+            horizontal
+            data={discountProducts}
+            renderItem={({ item: p }) => renderProductCard(p)}
+            keyExtractor={(p) => p.id}
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.bestSellersContainer}
+            style={styles.productsSlider}
+            initialNumToRender={4}
+            windowSize={5}
+            removeClippedSubviews
+          />
+        );
+
+      case "tabBottomPad":
+        return <View style={styles.tabContent} />;
+
+      default:
+        return null;
+    }
+  };
 
   // ── Product Modal ────────────────────────────────────────────────────────
   const renderProductModal = () => {
@@ -1597,9 +1779,18 @@ export default function HomeScreen() {
           paddingHorizontal: HORIZONTAL_PADDING,
         }}
         scrollIndicatorInsets={{ bottom: insets.bottom }}
-        data={[{ key: "content" }]}
-        renderItem={renderContent}
+        data={buildSections()}
+        renderItem={renderSection}
+        keyExtractor={sectionKey}
         showsVerticalScrollIndicator={false}
+        // C-20: the windowing that the one-item list made impossible. The header
+        // block (location → search) is five cheap sections, so rendering them up
+        // front keeps the screen looking identical on first paint while the
+        // restaurant cards and store sections below stream in.
+        initialNumToRender={8}
+        maxToRenderPerBatch={6}
+        windowSize={7}
+        removeClippedSubviews
       />
       {/* Fixed top bar rendered in-screen (native-stack header is disabled for Home
           because its Android Toolbar clipped the full-width custom title). */}
@@ -1876,11 +2067,15 @@ const styles = StyleSheet.create({
     color: AppColors.gray400,
     textAlign: "center",
   },
-  searchResultsGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 12,
+  // C-20: the wrapped grid became a windowed FlatList. The row wrapper carries the
+  // horizontal rule the old container had (space-between), and the content
+  // container carries the vertical gap that `gap: 12` used to provide between rows.
+  searchResultsRow: {
     justifyContent: "space-between",
+    gap: SEARCH_GRID_GAP,
+  },
+  searchResultsGridContent: {
+    gap: SEARCH_GRID_GAP,
   },
   // ── Section ──
   sectionHeader: {
