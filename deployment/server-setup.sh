@@ -75,7 +75,7 @@ read -rp "$(echo -e "${YELLOW}Domain name${NC} (e.g. api.example.com — or pres
 echo ""
 
 GITHUB_REPO="hushamraheem93-cyber/onway-app"
-APP_DIR="/var/www/onway"
+APP_DIR="/var/www/onway-app"
 # H-46: the Node process used to run as root, so any flaw in an upload path or in
 # sharp's native image decoding escalated straight to full control of the box —
 # including .env, which holds a Firebase service account with unrestricted admin
