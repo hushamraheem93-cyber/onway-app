@@ -6,6 +6,7 @@ import {
   View,
   TextInput,
   Pressable,
+  Alert,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
@@ -30,6 +31,7 @@ import { ThemedText } from "@/components/ThemedText";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
 import { GradientBackground } from "@/components/GradientBackground";
 import { getApiUrl } from "@/lib/query-client";
+import { planReorder, EXCLUSION_TEXT, type LiveProduct } from "@/lib/reorder";
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
@@ -72,24 +74,85 @@ export default function OrdersScreen() {
     refreshOrders();
   };
 
-  const handleReorder = (order: Order) => {
-    // Reconstruct CartItems from order items
-    const cartItems = order.items.map((item) => ({
-      product: {
-        id: item.productId,
-        name: item.name,
-        price: item.price,
-        image: item.image || "",
-        description: "",
-        inStock: true,
-        categoryId: "vendor-market" as const,
-        vendorId: order.vendorId,
-        restaurant: item.restaurant,
-      },
-      quantity: item.quantity,
-    }));
-    replaceCart(cartItems);
-    navigation.navigate("Cart" as any);
+  /**
+   * H-53: this used to rebuild the cart from the order document alone — the price
+   * paid last time, `inStock: true` asserted rather than checked, and the line's
+   * variant/addons dropped. The server re-prices every line against the live
+   * product and rejects a mismatch, so a reorder of anything whose price had moved
+   * failed in the cart with "أسعار بعض المنتجات تغيّرت" and no way to see which
+   * product or what to do. Now the live products are fetched first, each line is
+   * rebuilt from the current one, and anything that cannot be reordered is named
+   * before the cart is touched.
+   */
+  const [isReordering, setIsReordering] = useState<string | null>(null);
+
+  const fetchCurrentProducts = async (order: Order): Promise<LiveProduct[]> => {
+    // Vendor orders resolve through the store's own catalogue; legacy orders with
+    // no vendor come from the admin catalogue. Both are the same sources normal
+    // browsing uses, so availability and price mean the same thing here as there.
+    const url = order.vendorId
+      ? new URL(`/api/stores/${order.vendorId}/products`, getApiUrl())
+      : new URL("/api/products", getApiUrl());
+    const res = await fetch(url.toString());
+    if (!res.ok) throw new Error("تعذّر تحميل منتجات المتجر");
+    const data = await res.json();
+    return Array.isArray(data) ? data : (data?.products ?? []);
+  };
+
+  const handleReorder = async (order: Order) => {
+    if (isReordering) return;
+    setIsReordering(order.id);
+    let plan;
+    try {
+      plan = planReorder(order, await fetchCurrentProducts(order));
+    } catch {
+      setIsReordering(null);
+      Alert.alert(
+        "تعذّر إعادة الطلب",
+        "تعذّر تحميل المنتجات، تحقّق من الاتصال وحاول مجدداً.",
+      );
+      return;
+    }
+    setIsReordering(null);
+
+    const excludedText = plan.excluded
+      .map((e) => `• ${e.name} — ${EXCLUSION_TEXT[e.reason]}`)
+      .join("\n");
+
+    if (plan.items.length === 0) {
+      // Nothing survived: leave the existing cart exactly as it was.
+      Alert.alert(
+        "تعذّر إعادة الطلب",
+        excludedText
+          ? `لا يمكن إعادة أي منتج من هذا الطلب:\n\n${excludedText}`
+          : "لا توجد منتجات في هذا الطلب.",
+      );
+      return;
+    }
+
+    const priceText = plan.priceChanges
+      .map((c) => `• ${c.name}: ${c.was} ← ${c.now} د.ع`)
+      .join("\n");
+
+    const apply = () => {
+      replaceCart(plan!.items);
+      navigation.navigate("Cart" as any);
+    };
+
+    if (plan.excluded.length === 0 && plan.priceChanges.length === 0) {
+      apply();
+      return;
+    }
+
+    // Something changed — say exactly what, and let the customer decide before the
+    // cart is replaced.
+    const parts: string[] = [];
+    if (excludedText) parts.push(`لم تتم إضافة:\n${excludedText}`);
+    if (priceText) parts.push(`تغيّرت الأسعار:\n${priceText}`);
+    Alert.alert("مراجعة الطلب", parts.join("\n\n"), [
+      { text: "إلغاء", style: "cancel" },
+      { text: "متابعة", onPress: apply },
+    ]);
   };
 
   useEffect(() => {

@@ -24,6 +24,7 @@ import { ThemedText } from "@/components/ThemedText";
 import { useAuth } from "@/context/AuthContext";
 import { useNavigation } from "@react-navigation/native";
 import { AppColors, FontWeight } from "@/constants/theme";
+import { toLocalIraqiPhone, isValidIraqiPhone } from "@/lib/phone";
 
 const BRAND_ORANGE = AppColors.primary;
 const BRAND_DARK = AppColors.primaryDark;
@@ -39,16 +40,13 @@ export default function PhoneLoginScreen() {
   const [modalTitle, setModalTitle] = useState("");
   const [modalMessage, setModalMessage] = useState("");
 
-  const validatePhone = (phone: string) => {
-    const cleanPhone = phone.replace(/\s/g, "");
-    return cleanPhone.length >= 9;
-  };
-
-  const formatPhoneForLogin = (phone: string) => {
-    const cleanPhone = phone.replace(/\s/g, "");
-    return `00964${cleanPhone}`;
-  };
-
+  // H-52: this screen used to build the number as `00964${phone}` — prefixing the
+  // country code without dropping the local leading zero, and without noticing a
+  // country code the user had already typed. Typing 07701234567 produced
+  // 0096407701234567, which the server normalises to 007701234567 and rejects; the
+  // same person reaching the app the "right" way (7701234567) got a valid session.
+  // Normalisation now goes through the single client helper, whose rules are the
+  // server's own, so one human is one identity however they type their number.
   const handleContinue = async () => {
     Keyboard.dismiss();
     setError("");
@@ -56,14 +54,14 @@ export default function PhoneLoginScreen() {
       setError("الرجاء إدخال رقم الهاتف");
       return;
     }
-    if (!validatePhone(phoneNumber)) {
+    if (!isValidIraqiPhone(phoneNumber)) {
       setError("يرجى إدخال رقم هاتف عراقي صحيح");
       return;
     }
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setIsLoading(true);
     try {
-      const fullPhone = formatPhoneForLogin(phoneNumber);
+      const fullPhone = toLocalIraqiPhone(phoneNumber);
       await sendOtp(fullPhone);
     } catch (err: any) {
       setError(err.message || "حدث خطأ أثناء إرسال رمز التحقق");

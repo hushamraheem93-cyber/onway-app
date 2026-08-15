@@ -2302,6 +2302,10 @@ router.get("/api/stores", async (req, res) => {
         minOrder: v.minOrder ?? 0,
         hasDelivery: v.hasDelivery !== false,
         isOpen: v.isOpen ?? true,
+        // H-54: the two flags POST /api/orders rejects on. Without them the cart
+        // and checkout screens had no way to know the store had gone unavailable.
+        isVacation: v.isVacation === true,
+        isBusy: v.isBusy === true,
         isPinned: v.isPinned ?? false,
         isFeatured: v.isFeatured ?? false,
         sortOrder: v.sortOrder ?? 999,
@@ -2412,6 +2416,14 @@ router.get("/api/stores/:id/products", async (req, res) => {
       bio: storeData.bio || "",
       profileImageUrl: storeData.profileImageUrl || "",
       coverImageUrl: storeData.coverImageUrl || "",
+      // H-54: availability was missing here, so StoreProductsScreen's own
+      // closed/vacation/busy banner could never render and its add button stayed
+      // live — the customer only met the closure as a 400 from POST /api/orders.
+      // Additive: `isOpen` defaults to true exactly as GET /api/stores does, so a
+      // vendor doc without the field still reads as open.
+      isOpen: storeData.isOpen ?? true,
+      isVacation: storeData.isVacation === true,
+      isBusy: storeData.isBusy === true,
     };
 
     const products = productsSnap.docs

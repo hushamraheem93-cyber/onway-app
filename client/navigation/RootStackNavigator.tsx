@@ -100,6 +100,9 @@ export type RootStackParamList = {
       storeName?: string;
       vendorId?: string;
     };
+    /** H-54: the store's closure, carried from StoreProductsScreen so the detail
+     *  screen cannot become a way around the closed-store guard. */
+    storeClosed?: boolean;
   };
 };
 

@@ -19,6 +19,12 @@ import { useTheme } from "@/hooks/useTheme";
 import { Spacing, AppColors, FontWeight } from "@/constants/theme";
 import { useCart, CartItem, getCartKey } from "@/context/CartContext";
 import { useAuth } from "@/context/AuthContext";
+import {
+  getStoreClosure,
+  CLOSURE_BANNER,
+  CLOSURE_TITLE,
+  CLOSURE_MESSAGE,
+} from "@/lib/storeStatus";
 import { formatPrice } from "@/constants/currency";
 import { CartItemCard } from "@/components/CartItemCard";
 import { EmptyState } from "@/components/EmptyState";
@@ -51,7 +57,23 @@ export default function CartScreen() {
     : 0;
   const isBelowMinOrder = vendorMinOrder > 0 && subtotal < vendorMinOrder;
 
+  // H-54: the cart may have been filled while the store was open. The cart is NEVER
+  // cleared for it — the customer keeps their selection and can come back — but the
+  // checkout it would fail at is blocked here, with the same reason the server would
+  // give on submit.
+  const cartVendorClosure = getStoreClosure(
+    cartVendorId ? allStores.find((s: any) => s.id === cartVendorId) : null,
+  );
+
   const handleCheckout = () => {
+    if (cartVendorClosure) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+      Alert.alert(
+        CLOSURE_TITLE[cartVendorClosure],
+        `${CLOSURE_MESSAGE[cartVendorClosure]}\n\nسلتك محفوظة — يمكنك إتمام الطلب عندما يعود المتجر.`,
+      );
+      return;
+    }
     if (isGuest) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
       Alert.alert(
@@ -153,6 +175,20 @@ export default function CartScreen() {
             },
           ]}
         >
+          {/* H-54: the store closed after the cart was filled. Say so here rather
+              than letting the customer reach checkout and fail on submit. */}
+          {cartVendorClosure ? (
+            <View style={styles.minOrderBanner}>
+              <Ionicons
+                name="alert-circle-outline"
+                size={16}
+                color={AppColors.error}
+              />
+              <ThemedText style={styles.minOrderText}>
+                {CLOSURE_BANNER[cartVendorClosure]} — سلتك محفوظة
+              </ThemedText>
+            </View>
+          ) : null}
           {/* Min-order warning banner */}
           {isBelowMinOrder ? (
             <View style={styles.minOrderBanner}>

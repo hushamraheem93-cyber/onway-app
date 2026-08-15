@@ -8,6 +8,7 @@ import {
   RefreshControl,
   TextInput,
   ScrollView,
+  Alert,
 } from "react-native";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -35,6 +36,13 @@ import { formatPrice } from "@/constants/currency";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
 import { Product, MAIN_CATEGORIES } from "@/constants/categories";
 import { getApiUrl } from "@/lib/query-client";
+import {
+  getStoreClosure,
+  isStoreClosed,
+  CLOSURE_BANNER,
+  CLOSURE_TITLE,
+  CLOSURE_MESSAGE,
+} from "@/lib/storeStatus";
 
 const COVER_H = 160;
 const AVATAR_SIZE = 72;
@@ -402,7 +410,7 @@ export default function StoreProductsScreen() {
   const { items, addToCart, updateQuantity } = useCart();
 
   const handleProductPress = (product: VendorProduct) => {
-    navigation.navigate("ProductDetail", { product });
+    navigation.navigate("ProductDetail", { product, storeClosed });
   };
 
   const [searchQuery, setSearchQuery] = useState("");
@@ -459,12 +467,27 @@ export default function StoreProductsScreen() {
     return item?.quantity ?? 0;
   };
 
+  // H-54: every path that can GROW the cart is gated on the same predicate, not
+  // just the button's `disabled` prop — a disabled button is a hint, and the
+  // callback stays callable. Decreasing is deliberately left alone: a customer
+  // must always be able to empty a cart from a store that has since closed.
+  const closure = getStoreClosure(store);
+  const storeClosed = closure !== null;
+
+  const rejectBecauseClosed = () => {
+    if (!closure) return;
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+    Alert.alert(CLOSURE_TITLE[closure], CLOSURE_MESSAGE[closure]);
+  };
+
   const handleAdd = (product: VendorProduct) => {
+    if (storeClosed) return rejectBecauseClosed();
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     addToCart(toCartProduct(product));
   };
 
   const handleIncrease = (product: VendorProduct) => {
+    if (storeClosed) return rejectBecauseClosed();
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     const qty = getQuantity(product.id);
     updateQuantity(product.id, qty + 1);
@@ -549,8 +572,7 @@ export default function StoreProductsScreen() {
                 />
               ) : null}
               {/* Closed / Vacation / Busy banner */}
-              {store &&
-              (store.isVacation || store.isBusy || store.isOpen === false) ? (
+              {store && isStoreClosed(store) ? (
                 <View style={storeClosedBannerStyle(store)}>
                   <Feather
                     name={
@@ -571,11 +593,7 @@ export default function StoreProductsScreen() {
                       fontSize: 14,
                     }}
                   >
-                    {store.isVacation
-                      ? "المتجر في وضع الإجازة — يعود قريباً"
-                      : store.isBusy
-                        ? "المتجر مشغول حالياً — وقت التسليم أطول من المعتاد"
-                        : "المتجر مغلق الآن — لا يمكن قبول طلبات"}
+                    {closure ? CLOSURE_BANNER[closure] : ""}
                   </ThemedText>
                 </View>
               ) : null}

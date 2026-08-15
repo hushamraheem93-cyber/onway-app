@@ -1,4 +1,5 @@
-import { createHmac } from "node:crypto";
+import { randomBytes } from "node:crypto";
+import jwt from "jsonwebtoken";
 import { createSigner } from "./jwt.mjs";
 
 export const BASE_URL = "http://localhost:5000";
@@ -11,13 +12,59 @@ export function testPhone() {
   return `${TEST_PHONE_BASE}${String(_testSeq).padStart(3, "0")}`;
 }
 
-export function makeAdminCookie() {
-  const user = process.env.ADMIN_USERNAME;
-  const pass = process.env.ADMIN_PASSWORD;
-  if (!user || !pass) throw new Error("ADMIN_USERNAME / ADMIN_PASSWORD not set");
-  const secret = `${user}:${pass}`;
-  const token = createHmac("sha256", secret).update("onway_admin").digest("hex");
-  return `onway_admin_session=${token}`;
+// ── Admin session (H-51) ─────────────────────────────────────────────────────
+//
+// This helper used to build the cookie as
+//   createHmac("sha256", `${user}:${pass}`).update("onway_admin").digest("hex")
+// which was the session format the server abandoned when admin sessions became
+// self-verifying JWTs (server/adminAuth.ts). A hex digest is not a JWT, so
+// jwt.verify() threw on every request and isValidSession() returned false — every
+// adminApi() call in the suite hit 401. The highest-privilege surface in the
+// system therefore had no working test coverage at all, while the suite still
+// looked like it was exercising it.
+//
+// The values below mirror server/adminAuth.ts exactly:
+//   cookie name  ADMIN_COOKIE          = "onway_admin_session"
+//   payload      { username, type: "admin", jti }
+//   signature    HS256 over JWT_SECRET  (JWT_VERIFY_OPTS pins the algorithm)
+//   lifetime     SESSION_TTL_SECS       = 7 days
+//
+// It is minted here rather than fetched from POST /admin/login so the helper stays
+// synchronous for its callers; tests/unit/h51-admin-session-helper.test.mjs proves
+// the result is accepted by the REAL isValidSession() and is revocable like any
+// session the server issues.
+const ADMIN_COOKIE = "onway_admin_session";
+const ADMIN_SESSION_TTL_SECS = 7 * 24 * 60 * 60;
+
+/**
+ * Mint an admin session token in the format the server actually verifies.
+ * `overrides` is for negative tests (a wrong `type`, an expired token, …); the
+ * default shape is exactly what createSession() produces.
+ */
+export function makeAdminSessionToken(overrides = {}) {
+  const secret = process.env.JWT_SECRET;
+  if (!secret) {
+    // No fallback, for the same reason server/adminAuth.ts has none: a default
+    // here would quietly mint tokens the real server rejects, which is the
+    // failure mode this whole change exists to remove.
+    throw new Error("JWT_SECRET not set — admin sessions are signed with it");
+  }
+  const username = process.env.ADMIN_USERNAME;
+  if (!username) {
+    // Carried in the token because getSessionUsername() attributes financial
+    // audit records to it (H-07).
+    throw new Error("ADMIN_USERNAME not set — it is the session's identity claim");
+  }
+  const { expiresIn = ADMIN_SESSION_TTL_SECS, ...claims } = overrides;
+  return jwt.sign(
+    { username, type: "admin", jti: randomBytes(16).toString("hex"), ...claims },
+    secret,
+    { expiresIn },
+  );
+}
+
+export function makeAdminCookie(overrides) {
+  return `${ADMIN_COOKIE}=${makeAdminSessionToken(overrides)}`;
 }
 
 export function makeVendorToken(vendorId) {

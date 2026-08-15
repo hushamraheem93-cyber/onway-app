@@ -5,6 +5,7 @@ import {
   ScrollView,
   Pressable,
   Dimensions,
+  Alert,
 } from "react-native";
 import { Image } from "expo-image";
 import { useHeaderHeight } from "@react-navigation/elements";
@@ -23,6 +24,7 @@ import { useCart, getCartKey } from "@/context/CartContext";
 import { useFavorites } from "@/context/FavoritesContext";
 import { resolveImageUrl } from "@/utils/imageUtils";
 import { formatPrice } from "@/constants/currency";
+import { CLOSURE_TITLE, CLOSURE_MESSAGE } from "@/lib/storeStatus";
 import {
   AppColors,
   Spacing,
@@ -67,7 +69,7 @@ function toCartProduct(p: {
 
 export default function ProductDetailScreen() {
   const route = useRoute<ProductDetailRouteProp>();
-  const { product } = route.params;
+  const { product, storeClosed } = route.params;
   const headerHeight = useHeaderHeight();
   const insets = useSafeAreaInsets();
   const { theme } = useTheme();
@@ -119,7 +121,16 @@ export default function ProductDetailScreen() {
     );
   };
 
+  // H-54: this screen is reachable only from StoreProductsScreen, which passes the
+  // store's closure along — so it cannot become the way around that screen's guard.
+  // The reason is not carried, only the fact, so the generic "closed" wording is used.
+  const rejectBecauseClosed = () => {
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+    Alert.alert(CLOSURE_TITLE.closed, CLOSURE_MESSAGE.closed);
+  };
+
   const handleAdd = () => {
+    if (storeClosed) return rejectBecauseClosed();
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     addToCart(
       cartProduct,
@@ -129,6 +140,7 @@ export default function ProductDetailScreen() {
   };
 
   const handleIncrease = () => {
+    if (storeClosed) return rejectBecauseClosed();
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     updateQuantity(currentCartKey, quantity + 1);
   };

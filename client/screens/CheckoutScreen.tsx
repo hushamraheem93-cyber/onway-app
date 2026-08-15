@@ -29,6 +29,13 @@ import {
   FontWeight,
 } from "@/constants/theme";
 import { formatPrice } from "@/constants/currency";
+import { getStoreClosure, CLOSURE_MESSAGE } from "@/lib/storeStatus";
+import {
+  canStartCheckout,
+  GUEST_BLOCKED_TITLE,
+  GUEST_CHECKOUT_MESSAGE,
+  GUEST_SUBMIT_MESSAGE,
+} from "@/lib/guestGuard";
 import { useCart } from "@/context/CartContext";
 import { useOrders } from "@/context/OrderContext";
 import { useAuth } from "@/context/AuthContext";
@@ -59,7 +66,8 @@ export default function CheckoutScreen() {
   const navigation = useNavigation<NavigationProp>();
   const { items, getTotal, clearCart, cartVendorId } = useCart();
   const { addOrder } = useOrders();
-  const { phoneNumber, userProfile, customerToken } = useAuth();
+  const { phoneNumber, userProfile, customerToken, isGuest, exitGuestMode } =
+    useAuth();
   const { savedLocation } = useLocation();
   const { settings: systemSettings } = useSystemSettings();
 
@@ -174,6 +182,10 @@ export default function CheckoutScreen() {
     ? allStores.find((s: any) => s.id === cartVendorId)
     : null;
   const vendorMinOrder: number = cartVendorData?.minOrder ?? 0;
+  // H-54: the last client-side stop before a submit the server would refuse. The
+  // cart is left intact either way — the server stays the final authority, and its
+  // rejection is surfaced by submitOrderPayload's catch (which does NOT clearCart).
+  const checkoutClosure = getStoreClosure(cartVendorData ?? null);
   // #9: store-specific flat delivery fee override (null/undefined ⇒ use default).
   const vendorDeliveryFee: number | null =
     typeof cartVendorData?.deliveryFee === "number"
@@ -264,10 +276,21 @@ export default function CheckoutScreen() {
 
   const handleSubmit = async () => {
     lastOrderPayloadRef.current = null;
+    // H-55: the screen below is not rendered for a guest, so this is unreachable
+    // through the UI — it is here so the guard is a property of the submit path
+    // itself and not of what happens to be on screen. POST /api/orders is behind
+    // requireCustomerAuth and would answer 401; the cart is left untouched.
+    if (!canStartCheckout({ isGuest }))
+      return setError({ message: GUEST_SUBMIT_MESSAGE, canRetry: false });
     if (!customerName.trim())
       return setError({ message: "يرجى إدخال الاسم الكامل", canRetry: false });
     if (!phone.trim())
       return setError({ message: "يرجى إدخال رقم الهاتف", canRetry: false });
+    if (checkoutClosure)
+      return setError({
+        message: `${CLOSURE_MESSAGE[checkoutClosure]} سلتك محفوظة.`,
+        canRetry: false,
+      });
     if (isBelowMinOrder)
       return setError({
         message: `الحد الأدنى للطلب هو ${formatPrice(vendorMinOrder)} — أضف المزيد من المنتجات`,
@@ -311,6 +334,55 @@ export default function CheckoutScreen() {
     lastOrderPayloadRef.current = payload;
     await submitOrderPayload(payload);
   };
+
+  // H-55: a guest reaching this screen — from the cart button, a future call site,
+  // or straight through navigation — gets the notice instead of the form. Nothing
+  // is rendered that could collect an address, a phone or a note, so there is no
+  // typed state for the navigator remount that follows signing in to lose. Placed
+  // after every hook so hook order is stable, and it never touches the cart.
+  if (!canStartCheckout({ isGuest })) {
+    return (
+      <View style={{ flex: 1 }}>
+        <GradientBackground />
+        <View
+          style={{
+            flex: 1,
+            alignItems: "center",
+            justifyContent: "center",
+            paddingHorizontal: Spacing.xl,
+            paddingTop: headerHeight,
+            gap: Spacing.lg,
+          }}
+        >
+          <Feather name="user-plus" size={48} color={AppColors.primary} />
+          <ThemedText type="h3" style={{ textAlign: "center" }}>
+            {GUEST_BLOCKED_TITLE}
+          </ThemedText>
+          <ThemedText
+            type="body"
+            style={{ textAlign: "center", color: theme.textSecondary }}
+          >
+            {GUEST_CHECKOUT_MESSAGE}
+          </ThemedText>
+          <Pressable
+            style={{
+              backgroundColor: AppColors.primary,
+              paddingHorizontal: Spacing.xl,
+              paddingVertical: Spacing.md,
+              borderRadius: 14,
+            }}
+            onPress={() => exitGuestMode()}
+            testID="button-guest-create-account"
+            accessibilityRole="button"
+          >
+            <ThemedText style={{ color: AppColors.white }}>
+              إنشاء حساب
+            </ThemedText>
+          </Pressable>
+        </View>
+      </View>
+    );
+  }
 
   return (
     <View style={{ flex: 1 }}>

@@ -28,6 +28,11 @@ import {
   FontWeight,
 } from "@/constants/theme";
 import { getApiUrl } from "@/lib/query-client";
+import {
+  compressAndConvertToBase64,
+  checkDocumentAsset,
+  DOCUMENT_REJECTION_TEXT,
+} from "@/lib/imageUtils";
 
 export default function DriverRegistrationScreen() {
   const insets = useSafeAreaInsets();
@@ -54,6 +59,7 @@ export default function DriverRegistrationScreen() {
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [agreementAccepted, setAgreementAccepted] = useState(false);
+  const [isProcessingImage, setIsProcessingImage] = useState(false);
 
   const isFormValid =
     firstName.trim().length > 0 &&
@@ -78,7 +84,23 @@ export default function DriverRegistrationScreen() {
     }
   };
 
-  const handleImageResult = (
+  /**
+   * H-56: this used to take expo-image-picker's `asset.base64` — the FULL-RESOLUTION
+   * photo, re-encoded but never resized — and put it straight into component state,
+   * from where handleSubmit dropped it into the JSON body. A 12 MP document came out
+   * around 850 KB per file as base64, so the three documents were roughly 2.5 MB of
+   * JSON on a phone connection, with no resume if it dropped.
+   *
+   * It now goes through the project's existing image pipeline first
+   * (compressAndConvertToBase64 → expo-image-manipulator), targeting the SAME
+   * 1400px / WebP the server already applies in storeDriverDocument(). The wire
+   * payload falls by ~86% and the stored document is byte-for-byte the kind of
+   * artifact the server would have produced anyway, so nothing readable is lost.
+   *
+   * The picked file is validated before any of that, so an unsupported type or an
+   * absurd size is refused with a message instead of being uploaded and rejected.
+   */
+  const handleImageResult = async (
     result: ImagePicker.ImagePickerResult,
     imageType: "nationalId" | "residenceCard" | "driverLicense",
   ) => {
@@ -87,13 +109,25 @@ export default function DriverRegistrationScreen() {
     const asset = result.assets[0];
     const setter = getSetterForType(imageType);
 
-    if (asset.base64) {
-      const mimeType = asset.mimeType || "image/jpeg";
-      setter(`data:${mimeType};base64,${asset.base64}`);
+    const rejection = checkDocumentAsset(asset);
+    if (rejection) {
+      setErrorMessage(DOCUMENT_REJECTION_TEXT[rejection]);
+      return;
+    }
+
+    setIsProcessingImage(true);
+    try {
+      // Never logged, never persisted outside component state: this is a
+      // government identity document.
+      const prepared = await compressAndConvertToBase64(asset.uri, "document");
+      setter(prepared);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    } else {
-      setter(asset.uri);
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } catch {
+      // Deliberately no fallback to the raw asset: sending the untouched photo is
+      // the defect this exists to remove.
+      setErrorMessage("تعذّرت معالجة الصورة، حاول مرة أخرى");
+    } finally {
+      setIsProcessingImage(false);
     }
   };
 
@@ -108,14 +142,18 @@ export default function DriverRegistrationScreen() {
           return;
         }
 
+        // H-56: `base64: true` made the picker materialise the whole
+        // full-resolution image as a string that was then thrown away; and
+        // `quality: 0.4` compressed once here and again in the manipulator. One
+        // compression, in the manipulator, keeps the document more readable AND
+        // smaller on the wire.
         const result = await ImagePicker.launchImageLibraryAsync({
           mediaTypes: ["images"],
           allowsEditing: true,
-          quality: 0.4,
-          base64: true,
+          quality: 1,
         });
 
-        handleImageResult(result, imageType);
+        await handleImageResult(result, imageType);
       } catch (error) {
         setErrorMessage("حدث خطأ أثناء اختيار الصورة");
       }
@@ -135,11 +173,10 @@ export default function DriverRegistrationScreen() {
 
         const result = await ImagePicker.launchCameraAsync({
           allowsEditing: true,
-          quality: 0.4,
-          base64: true,
+          quality: 1,
         });
 
-        handleImageResult(result, imageType);
+        await handleImageResult(result, imageType);
       } catch (error) {
         setErrorMessage("حدث خطأ أثناء التقاط الصورة");
       }
@@ -778,7 +815,7 @@ export default function DriverRegistrationScreen() {
             !isFormValid && styles.submitButtonDisabled,
           ]}
           onPress={handleSubmit}
-          disabled={!isFormValid || isLoading}
+          disabled={!isFormValid || isLoading || isProcessingImage}
           testID="button-submit-driver"
         >
           {isLoading ? (

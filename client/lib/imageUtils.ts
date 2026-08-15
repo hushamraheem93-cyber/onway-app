@@ -1,7 +1,12 @@
 import { manipulateAsync, SaveFormat } from "expo-image-manipulator";
 import { getApiUrl } from "@/lib/query-client";
 
-export type ImageSize = "profile" | "product" | "banner" | "category";
+export type ImageSize =
+  | "profile"
+  | "product"
+  | "banner"
+  | "category"
+  | "document";
 
 const SIZE_CONFIG: Record<
   ImageSize,
@@ -11,6 +16,61 @@ const SIZE_CONFIG: Record<
   product: { width: 1200, quality: 0.8 },
   banner: { width: 1200, quality: 0.8 },
   category: { width: 600, quality: 0.8 },
+  // H-56: identity documents. 1400px is the SAME longest edge the server already
+  // applies in storeDriverDocument() (sharp .resize(1400, 1400, { fit: "inside" })
+  // + .webp({ quality: 82 })), so shrinking here costs nothing the server would
+  // have kept — it just stops the full-resolution photo travelling over mobile
+  // data first. A national-ID number photographed at 12 MP is still ~16px tall at
+  // this size, comfortably readable; going smaller is what would make it illegible.
+  document: { width: 1400, quality: 0.82 },
+};
+
+/** MIME types accepted for an identity document. */
+export const DOCUMENT_MIME_TYPES = [
+  "image/jpeg",
+  "image/jpg",
+  "image/png",
+  "image/heic",
+  "image/heif",
+  "image/webp",
+] as const;
+
+/**
+ * Largest ORIGINAL file accepted before processing. A 12 MP phone photo is ~4-6 MB;
+ * anything past 25 MB is a raw/panorama that would stall the manipulator on a low-end
+ * device, and is refused with a message rather than silently attempted.
+ */
+export const MAX_DOCUMENT_INPUT_BYTES = 25 * 1024 * 1024;
+
+export type DocumentRejection = "unsupported-type" | "too-large";
+
+/**
+ * May this picked asset be used as an identity document?
+ *
+ * Pure so the rule can be tested directly. `mimeType`/`fileSize` are what
+ * expo-image-picker reports; either may be missing on some platforms, and a
+ * missing value is NOT treated as a rejection — the manipulator and the server
+ * both re-validate, and refusing on absent metadata would block real users.
+ */
+export function checkDocumentAsset(asset: {
+  mimeType?: string | null;
+  fileSize?: number | null;
+}): DocumentRejection | null {
+  const mime = asset.mimeType?.toLowerCase();
+  if (mime && !DOCUMENT_MIME_TYPES.includes(mime as any))
+    return "unsupported-type";
+  if (
+    typeof asset.fileSize === "number" &&
+    asset.fileSize > MAX_DOCUMENT_INPUT_BYTES
+  ) {
+    return "too-large";
+  }
+  return null;
+}
+
+export const DOCUMENT_REJECTION_TEXT: Record<DocumentRejection, string> = {
+  "unsupported-type": "نوع الملف غير مدعوم — اختر صورة بصيغة JPG أو PNG",
+  "too-large": "حجم الصورة كبير جداً — التقط صورة أوضح بحجم أصغر",
 };
 
 /**

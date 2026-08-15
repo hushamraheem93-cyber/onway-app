@@ -10,6 +10,7 @@ import { randomUUID, createHash } from "crypto";
 import { orderEvents } from "./orderEvents";
 import { isValidSession, getSessionUsername } from "./adminAuth";
 import { isCustomerTokenRevoked, revokeCustomerTokens } from "./customerRevocation";
+import { DEFAULT_NOTIFICATION_PREFS, normalizeNotificationPrefs } from "../shared/notificationPrefs";
 import {
   CMS_IMAGE_FIELDS,
   CMS_IMAGE_NO_PERSIST,
@@ -29,6 +30,7 @@ import {
   updateProduct as updateFirestoreProduct, deleteProduct as deleteFirestoreProduct,
   getOrders, getOrderById, getOrdersByIds, getOrdersByStatus, getOrdersByPhone, createOrder, updateOrderStatus,
   updateUserPushToken, getUserPushToken, getAllUserPushTokens, getAllUsers,
+  getMarketingPushTokens, getUserNotificationPrefs, setUserNotificationPrefs,
   getPromotionalSections, getPromotionalSection, savePromotionalSection,
   getCategories as getFirestoreCategories, createCategory as createFirestoreCategory,
   updateCategory as updateFirestoreCategory, deleteCategory as deleteFirestoreCategory,
@@ -3594,6 +3596,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.status(500).json({ error: "Database not configured" });
   });
 
+  // ── Notification preferences (H-57) ───────────────────────────────────────
+  // NotificationsScreen kept these four switches in AsyncStorage only. Nothing
+  // carried them to the server, so a customer who turned "العروض والخصومات" off
+  // stayed in the broadcast list and kept receiving promotions — while the screen
+  // told them the setting was saved. These two routes give that choice somewhere
+  // to live; getMarketingPushTokens() is what then honours it.
+  //
+  // Identity comes from the JWT only (requireCustomerAuth sets customerPhone), so
+  // there is no phone number in the path or the query string and no way to read or
+  // write somebody else's preferences.
+  app.get("/api/users/notification-preferences", requireCustomerAuth, async (req: Request, res: Response) => {
+    const phoneNumber = (req as any).customerPhone as string;
+    try {
+      const stored = await getUserNotificationPrefs(phoneNumber);
+      // `stored: false` marks a customer who has never chosen, so the app can show
+      // the defaults without claiming the server is holding a decision it isn't.
+      res.json({ preferences: stored ?? DEFAULT_NOTIFICATION_PREFS, stored: stored !== null });
+    } catch (error: any) {
+      console.error("[notification-prefs] read failed:", error?.message);
+      res.status(500).json({ error: GENERIC_SERVER_ERROR });
+    }
+  });
+
+  app.put("/api/users/notification-preferences", requireCustomerAuth, async (req: Request, res: Response) => {
+    const phoneNumber = (req as any).customerPhone as string;
+    const preferences = normalizeNotificationPrefs(req.body?.preferences);
+    try {
+      await setUserNotificationPrefs(phoneNumber, preferences);
+      // Echo what was actually stored so the app renders the server's state rather
+      // than its own optimistic guess.
+      res.json({ success: true, preferences });
+    } catch (error: any) {
+      console.error("[notification-prefs] write failed:", error?.message);
+      res.status(500).json({ error: GENERIC_SERVER_ERROR });
+    }
+  });
+
   // Promotional Sections API
   app.get("/api/promotional-sections", async (_req: Request, res: Response) => {
     const db = getFirestore();
@@ -6624,7 +6663,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "العنوان والمحتوى مطلوبان" });
       }
 
-      const tokens = await getAllUserPushTokens();
+      // H-57: this is the promotional channel behind the customer's "العروض والخصومات"
+      // switch, so it must read the consent-filtered list. getAllUserPushTokens()
+      // returns every registered device and is still what the stats endpoint reports.
+      const tokens = await getMarketingPushTokens();
       if (tokens.length === 0) {
         return res.json({ success: true, sent: 0, failed: 0, message: "لا يوجد مستخدمون مسجلون للإشعارات" });
       }

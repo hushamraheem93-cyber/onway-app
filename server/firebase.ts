@@ -2,6 +2,11 @@ import admin from "firebase-admin";
 import * as crypto from "crypto";
 import { orderEvents } from "./orderEvents";
 import { isDevMode } from "./env";
+import {
+  NotificationPrefs,
+  allowsMarketingPush,
+  normalizeNotificationPrefs,
+} from "../shared/notificationPrefs";
 
 let db: admin.firestore.Firestore | null = null;
 
@@ -292,12 +297,24 @@ export async function setUserAddresses(
   }
 }
 
+/**
+ * Document id for a phone number in the `pushTokens` collection.
+ *
+ * The push token and the notification preferences live on the SAME document, so
+ * both writers have to derive the id identically or a customer's consent would be
+ * stored beside a different device's token. Extracted from updateUserPushToken
+ * unchanged — same expression, one definition.
+ */
+export function pushTokenDocId(phoneNumber: string): string {
+  return phoneNumber.replace(/[^a-zA-Z0-9]/g, "_");
+}
+
 export async function updateUserPushToken(phoneNumber: string, pushToken: string): Promise<boolean> {
   if (!db) return false;
 
   try {
     // Always save to dedicated pushTokens collection (phoneNumber as doc ID)
-    const safeId = phoneNumber.replace(/[^a-zA-Z0-9]/g, "_");
+    const safeId = pushTokenDocId(phoneNumber);
     await db.collection("pushTokens").doc(safeId).set(
       { phoneNumber, pushToken, updatedAt: admin.firestore.Timestamp.now() },
       { merge: true }
@@ -413,6 +430,81 @@ export async function getAllUserPushTokens(): Promise<string[]> {
 
   const tokens = Array.from(tokenSet);
   return tokens;
+}
+
+/**
+ * Read a customer's stored notification preferences (H-57).
+ *
+ * Returns null when the customer has never saved any — the caller decides what an
+ * absent preference means (DEFAULT_NOTIFICATION_PREFS), and needs to be able to
+ * tell "never chose" from "chose the defaults".
+ *
+ * Errors are NOT swallowed here. Returning null on a read failure would render the
+ * screen with defaults — showing "العروض والخصومات" ON to someone who had turned it
+ * off — so a failed read must surface as a failed request instead.
+ */
+export async function getUserNotificationPrefs(phoneNumber: string): Promise<NotificationPrefs | null> {
+  if (!db) throw new Error("Firestore is not configured");
+  const doc = await db.collection("pushTokens").doc(pushTokenDocId(phoneNumber)).get();
+  if (!doc.exists) return null;
+  const raw = (doc.data() as { notificationPrefs?: unknown } | undefined)?.notificationPrefs;
+  return raw == null ? null : normalizeNotificationPrefs(raw);
+}
+
+/**
+ * Persist a customer's notification preferences.
+ *
+ * Merges onto the same `pushTokens` document that holds the device token, creating
+ * it when the customer has not registered a token yet (a doc with preferences but
+ * no pushToken is simply skipped by the token readers). Throws on failure so the
+ * route answers 500 and the app can tell the user the choice was NOT saved.
+ */
+export async function setUserNotificationPrefs(
+  phoneNumber: string,
+  prefs: NotificationPrefs,
+): Promise<void> {
+  if (!db) throw new Error("Firestore is not configured");
+  await db.collection("pushTokens").doc(pushTokenDocId(phoneNumber)).set(
+    { phoneNumber, notificationPrefs: prefs, updatedAt: admin.firestore.Timestamp.now() },
+    { merge: true }
+  );
+}
+
+/**
+ * The push tokens that may receive a MARKETING broadcast (H-57).
+ *
+ * getAllUserPushTokens() stays exactly what it says — every registered device, which
+ * is what the admin's device-count stat means. This adds the consent filter on top,
+ * and filters by token rather than by phone so the legacy `users`-collection fallback
+ * inside getAllUserPushTokens is covered by the same decision.
+ *
+ * A customer with no stored preference is included: everyone receives broadcasts
+ * today, and an absent choice is not an opt-out.
+ *
+ * If the preferences cannot be read at all, this returns NOTHING rather than
+ * everything. Sending marketing to people whose opt-out we merely failed to load is
+ * the one outcome H-57 exists to prevent, so the failure mode is silence.
+ */
+export async function getMarketingPushTokens(): Promise<string[]> {
+  const all = await getAllUserPushTokens();
+  if (all.length === 0) return all;
+  if (!db) return [];
+
+  const optedOut = new Set<string>();
+  try {
+    const snapshot = await db.collection("pushTokens").get();
+    snapshot.forEach((doc) => {
+      const data = doc.data() as { pushToken?: string; notificationPrefs?: unknown };
+      if (data.pushToken && !allowsMarketingPush(data.notificationPrefs)) {
+        optedOut.add(data.pushToken);
+      }
+    });
+  } catch (error) {
+    console.error("Error reading notification preferences — withholding broadcast:", error);
+    return [];
+  }
+
+  return all.filter((token) => !optedOut.has(token));
 }
 
 // Product Functions
